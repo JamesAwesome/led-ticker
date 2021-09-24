@@ -3,6 +3,8 @@ import logging
 import os
 import requests
 import sys
+from datetime import date
+from datetime import timedelta
 
 
 # Set up the logger
@@ -15,7 +17,7 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 
-API_CLASS_MAP = {'coinmarketcap': 'CoinMarketCap', 'coingecko': 'CoinGecko'}
+API_CLASS_MAP = {'coinmarketcap': 'CoinMarketCap', 'coingecko': 'CoinGecko', 'coinbase': 'CoinBase'}
 
 
 def get_api_cls(api_name):
@@ -71,6 +73,77 @@ class PriceAPI:
             )
 
 
+class CoinBase(PriceAPI):
+    API = 'https://api.coinbase.com'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @property
+    def supported_currencies(self):
+        return ['usd', 'eur', 'btc']
+
+    def fetch_today_price(self, symbol):
+        response = requests.get(
+            f'{self.API}/v2/prices/{symbol}-{self.currency.upper()}/spot'
+        )
+
+        todays_price = float(response.json().get('data', {}).get('amount'))
+
+        logger.info(f'Todays price for {symbol} is {todays_price}')
+        return todays_price
+
+    def fetch_price_data(self):
+        """Fetch new price data from the CoinMarketCap API"""
+        logger.info('`fetch_price_data` called.')
+
+        response = requests.get(
+            f'{self.API}/v2/exchange-rates',
+            params={'currency': self.currency},
+        )
+        price_data = []
+        items = []
+
+        try:
+            for symbol in self.get_symbols():
+                price = self.fetch_today_price(symbol.upper())
+                items.append((symbol, price))
+
+        except json.JSONDecodeError:
+            logger.error(f'JSON decode error: {response.text}')
+            return
+
+        for symbol, price in items:
+            try:
+                yesterdays_price = self.fetch_yesterdays_price(symbol)
+                percent_change_24h = ((price - yesterdays_price) / yesterdays_price) * 100
+                change_24h = f'{percent_change_24h:.2f}%'
+            except KeyError:
+                # TODO: Add error logging
+                continue
+
+            item_data = dict(symbol=symbol, price=f'{price:.4f}', change_24h=str(change_24h))
+            logger.info(json.dumps(item_data, indent=4))
+
+            price_data.append(item_data)
+
+        return price_data
+
+    def fetch_yesterdays_price(self, symbol):
+        # Yesterday date
+        yesterday = date.today() - timedelta(days = 1)
+
+        response = requests.get(
+            f'{self.API}/v2/prices/{symbol}-{self.currency.upper()}/spot',
+            params={'date': yesterday}
+        )
+
+        yesterdays_price = float(response.json().get('data', {}).get('amount'))
+
+        logger.info(f'Yesterdays price for {symbol} is {yesterdays_price}')
+        return yesterdays_price
+
+
 class CoinMarketCap(PriceAPI):
     SANDBOX_API = 'https://sandbox-api.coinmarketcap.com'
     PRODUCTION_API = 'https://pro-api.coinmarketcap.com'
@@ -118,7 +191,11 @@ class CoinMarketCap(PriceAPI):
             except KeyError:
                 # TODO: Add error logging
                 continue
-            price_data.append(dict(symbol=symbol, price=price, change_24h=change_24h))
+
+            item_data = dict(symbol=symbol, price=price, change_24h=change_24h)
+            logger.info(json.dumps(item_data, indent=4))
+
+            price_data.append(item_data)
 
         return price_data
 
@@ -177,7 +254,7 @@ class CoinGecko(PriceAPI):
 
         for coin_id, data in response.json().items():
             try:
-                price = f"{cur_symbol}{data[cur]:,.2f}"
+                price = f"{cur_symbol}{data[cur]:,.4f}"
                 change_24h = f"{data[cur_change]:.1f}%"
             except (KeyError, TypeError):
                 logging.warn(f'api data not complete for {0}: {1}', coin_id, data)

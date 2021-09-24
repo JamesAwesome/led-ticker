@@ -90,12 +90,6 @@ class Ticker(Frame):
         font_change = graphics.Font()
         font_change.LoadFont('fonts/6x10.bdf')
 
-        # To right align, we have to calculate the width of the text
-        change_width = sum(
-            [font_change.CharacterWidth(ord(c)) for c in asset['change_24h']]
-        )
-        change_x = 62 - change_width
-
         # Get colors
         main_color = graphics.Color(255, 255, 0)
         change_color = (
@@ -109,13 +103,25 @@ class Ticker(Frame):
             font_price.LoadFont('fonts/5x8.bdf')
 
         # Draw the elements on the canvas
+        symbol_x = 3
         graphics.DrawText(canvas, font_symbol, 3, 12, main_color, asset['symbol'])
-        graphics.DrawText(canvas, font_price, 3, 28, main_color, asset['price'])
+
+        price_x = symbol_x + self._get_change_width(font_symbol, asset['symbol'])
+        graphics.DrawText(canvas, font_price, price_x, 12, main_color, asset['price'])
+
+        change_x = price_x + self._get_change_width(font_price, asset['price'])
         graphics.DrawText(
-            canvas, font_change, change_x, 10, change_color, asset['change_24h']
+            canvas, font_change, change_x, 12, change_color, asset['change_24h']
         )
 
         return canvas
+
+    def _get_change_width(self, font_change, change_word, padding=6):
+        change_width = sum(
+            [font_change.CharacterWidth(ord(c)) for c in change_word]
+        ) + padding
+
+        return change_width
 
     def get_error_canvas(self):
         """Build an error canvas to show on errors"""
@@ -157,4 +163,10 @@ class Ticker(Frame):
 
 
 if __name__ == '__main__':
-    Ticker().process()
+    Ticker(
+        led_rows=16,
+        led_cols=32,
+        led_chain=5,
+        led_slowdown_gpio=2,
+        led_brightness=60,
+    ).process()

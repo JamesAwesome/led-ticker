@@ -124,7 +124,7 @@ class AsyncTicker(object):
             canvas.Clear()
 
             mon_index = 0
-            canvas, cursor_pos = monitors[mon_index].draw(canvas cursor_pos=pos)
+            canvas, cursor_pos = monitors[mon_index].draw(canvas, cursor_pos=pos)
             mon_0_width = cursor_pos
 
             pos -= 1

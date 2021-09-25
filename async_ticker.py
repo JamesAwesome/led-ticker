@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
-import itertools
 import os
+import itertools
 import time
 import logging
 import attr
-from frame import Frame
+
 from rgbmatrix import graphics
 from async_price_apis import AsyncPriceMonitor, logger
 import asyncio
@@ -14,22 +14,6 @@ import itertools
 from random import randint
 
 from rgbmatrix import RGBMatrix, RGBMatrixOptions
-
-FONT_SYMBOL = graphics.Font()
-FONT_SYMBOL.LoadFont('fonts/7x13.bdf')
-
-FONT_PRICE = graphics.Font()
-FONT_PRICE.LoadFont('fonts/6x12.bdf')
-
-FONT_PRICE_SMALL = graphics.Font()
-FONT_PRICE_SMALL.LoadFont('fonts/5x8.bdf')
-
-FONT_CHANGE = graphics.Font()
-FONT_CHANGE.LoadFont('fonts/6x10.bdf')
-
-DEFAULT_COLOR = graphics.Color(255, 255, 0)
-UP_TREND_COLOR = graphics.Color(46, 139, 87)
-DOWN_TREND_COLOR = graphics.Color(194, 24, 7)
 
 @attr.s
 class LedFrame(object):

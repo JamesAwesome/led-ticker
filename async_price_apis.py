@@ -54,8 +54,8 @@ class AsyncPriceMonitor(object):
     price = attr.ib(type=float, init=False)
     yesterdays_price = attr.ib(type=float, init=False)
     change_24h = attr.ib(type=float, init=False)
-    change_str = att.ib(type=str, init=False)
-    price_str = att.ib(type=str, init=False)
+    change_str = attr.ib(type=str, init=False)
+    price_str = attr.ib(type=str, init=False)
 
     def __attrs_post_init__(self):
         self.spot_url = f'{COINBASE_API}/v2/prices/{self.symbol}-{self.currency}/spot'

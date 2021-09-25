@@ -15,6 +15,25 @@ from datetime import date
 from datetime import timedelta
 
 import attr
+from rgbmatrix import RGBMatrix, RGBMatrixOptions, graphics
+
+
+FONT_SYMBOL = graphics.Font()
+FONT_SYMBOL.LoadFont('fonts/7x13.bdf')
+
+FONT_PRICE = graphics.Font()
+FONT_PRICE.LoadFont('fonts/6x12.bdf')
+
+FONT_PRICE_SMALL = graphics.Font()
+FONT_PRICE_SMALL.LoadFont('fonts/5x8.bdf')
+
+FONT_CHANGE = graphics.Font()
+FONT_CHANGE.LoadFont('fonts/6x10.bdf')
+
+DEFAULT_COLOR = graphics.Color(255, 255, 0)
+UP_TREND_COLOR = graphics.Color(46, 139, 87)
+DOWN_TREND_COLOR = graphics.Color(194, 24, 7)
+
 
 COINBASE_API = 'https://api.coinbase.com'
 
@@ -35,6 +54,8 @@ class AsyncPriceMonitor(object):
     price = attr.ib(type=float, init=False)
     yesterdays_price = attr.ib(type=float, init=False)
     change_24h = attr.ib(type=float, init=False)
+    change_str = att.ib(type=str, init=False)
+    price_str = att.ib(type=str, init=False)
 
     def __attrs_post_init__(self):
         self.spot_url = f'{COINBASE_API}/v2/prices/{self.symbol}-{self.currency}/spot'
@@ -53,8 +74,13 @@ class AsyncPriceMonitor(object):
     async def update(self):
         logger.info(f'Updating monitor for {self.symbol}')
         self.price = await self.get_spot_price()
+        self.price_str = f'{self.price:.4f}'
+
         self.yesterdays_price = await self.get_yesterdays_price()
+
         self.change_24h = ((self.price - self.yesterdays_price) / self.yesterdays_price) * 100
+        self.change_str = f'{self.change_24h:.2f}%'
+
         return self
 
     async def get_spot_price(self, spot_date=None):
@@ -74,6 +100,47 @@ class AsyncPriceMonitor(object):
         yesterdays_price = await self.get_spot_price(spot_date=yesterday)
 
         return yesterdays_price
+
+    def _get_change_width(self, font_change, change_word, padding=6):
+        change_width = sum(
+            [font_change.CharacterWidth(ord(c)) for c in change_word]
+        ) + padding
+
+        return change_width
+
+    def _get_change_color(self, change_str):
+        if change_str.startswith('-'):
+            return DOWN_TREND_COLOR
+
+        return UP_TREND_COLOR
+
+    def _get_price_font(self, price_str):
+        if len(price_str) > 10:
+            return FONT_PRICE_SMALL
+
+        return FONT_PRICE
+
+    def draw(self, canvas, cursor_pos=3):
+
+        change_color = self._get_change_color(self.change_str)
+        font_price = self._get_price_font(self.price_str)
+
+        # Draw the elements on the canvas
+        graphics.DrawText(canvas, FONT_SYMBOL, cursor_pos, 12, DEFAULT_COLOR, self.symbol)
+
+        price_x = cursor_pos + self._get_change_width(FONT_SYMBOL, self.symbol)
+
+        graphics.DrawText(canvas, font_price, price_x, 12, DEFAULT_COLOR, price_str)
+
+        change_x = price_x + self._get_change_width(font_price, self.price_str)
+
+        graphics.DrawText(
+            canvas, FONT_CHANGE, change_x, 12, change_color, self.change_str
+        )
+
+        cursor_pos = change_x + self._get_change_width(FONT_CHANGE, self.change_str)
+
+        return canvas, cursor_pos
 
 
 async def print_value(price_monitors):

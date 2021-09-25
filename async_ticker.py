@@ -96,8 +96,10 @@ class AsyncTicker(object):
     async def run_swap(self):
         logger.info('Running Swap...')
         while True:
+            canvas = self.frame.get_clean_canvas()
             for monitor in itertools.cycle(self.monitors):
-                canvas, _  = self.draw(monitor)
+                canvas.Clear()
+                canvas, _  = monitor.draw(canvas)
                 await asyncio.sleep(5)
                 frame.matrix.SwapOnVSync(canvas)
 
@@ -122,9 +124,9 @@ class AsyncTicker(object):
             canvas.Clear()
 
             mon_index = 0
-            canvas, cursor_pos = self.draw(monitors[mon_index], start_pos=pos, canvas=canvas)
-
+            canvas, cursor_pos = monitors[mon_index].draw(canvas cursor_pos=pos)
             mon_0_width = cursor_pos
+
             pos -= 1
 
             while cursor_pos < canvas.width:
@@ -133,7 +135,7 @@ class AsyncTicker(object):
                 if not self._has_index(mon_index, monitors):
                     monitors.append(next(monitor_generator))
 
-                canvas, cursor_pos = self.draw(monitors[mon_index], start_pos=cursor_pos, canvas=canvas)
+                canvas, cursor_pos = monitors[mon_index].draw(canvas, cursor_pos=cursor_pos)
 
             if pos + canvas.width < 0:
                 monitors.pop(0)
@@ -152,7 +154,7 @@ class AsyncTicker(object):
         while True:
             canvas.Clear()
 
-            canvas, final_pos = self.draw(monitor, start_pos=pos, canvas=canvas)
+            canvas, final_pos = monitor.draw(canvas, cursor_pos=pos)
             pos -= 1
 
             if (final_pos + canvas.width) - canvas.width == 0:
@@ -161,83 +163,6 @@ class AsyncTicker(object):
 
             await asyncio.sleep(0.05)
             frame.matrix.SwapOnVSync(canvas)
-
-    async def run_scroll(self):
-        logger.info('Running Scroll...')
-        canvas = self.frame.get_clean_canvas()
-        pos = canvas.width
-
-        while True:
-            canvas.Clear()
-            canvas, final_pos = self.draw_all(canvas, start_pos=pos)
-            pos -= 1
-
-            if (final_pos + canvas.width) - canvas.width == 0:
-                pos = canvas.width
-
-            await asyncio.sleep(0.05)
-            frame.matrix.SwapOnVSync(canvas)
-
-
-    def _get_change_width(self, font_change, change_word, padding=6):
-        change_width = sum(
-            [font_change.CharacterWidth(ord(c)) for c in change_word]
-        ) + padding
-
-        return change_width
-
-    def _get_change_color(self, change_str):
-        if change_str.startswith('-'):
-            return DOWN_TREND_COLOR
-
-        return UP_TREND_COLOR
-
-    def _get_price_font(self, price_str):
-        if len(price_str) > 10:
-            return FONT_PRICE_SMALL
-
-        return FONT_PRICE
-
-    def draw_all(self, canvas, start_pos=3):
-        pos = start_pos
-
-        for monitor in self.monitors:
-            canvas, pos = self.draw(monitor, start_pos=pos, canvas=canvas)
-
-        return canvas, pos
-
-    def draw(self, monitor, start_pos=3, canvas=None):
-        """Build the ticker canvas given an asset
-
-        Returns:
-            A canvas object with the symbol, change, and price drawn.
-        """
-        # Generate a fresh canvas
-        if canvas is None:
-            canvas = self.frame.get_clean_canvas()
-
-        change_str = f'{monitor.change_24h:.2f}%'
-        price_str = f'{monitor.price:.4f}'
-
-        change_color = self._get_change_color(change_str)
-        font_price = self._get_price_font(price_str)
-
-        # Draw the elements on the canvas
-        graphics.DrawText(canvas, FONT_SYMBOL, start_pos, 12, DEFAULT_COLOR, monitor.symbol)
-
-        price_x = start_pos + self._get_change_width(FONT_SYMBOL, monitor.symbol)
-
-        graphics.DrawText(canvas, font_price, price_x, 12, DEFAULT_COLOR, price_str)
-
-        change_x = price_x + self._get_change_width(font_price, price_str)
-
-        graphics.DrawText(
-            canvas, FONT_CHANGE, change_x, 12, change_color, change_str
-        )
-
-        final_pos = change_x + self._get_change_width(FONT_CHANGE, change_str)
-
-        return canvas, final_pos
 
 
 async def main(frame):

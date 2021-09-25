@@ -130,7 +130,7 @@ class AsyncPriceMonitor(object):
 
         price_x = cursor_pos + self._get_change_width(FONT_SYMBOL, self.symbol)
 
-        graphics.DrawText(canvas, font_price, price_x, 12, DEFAULT_COLOR, price_str)
+        graphics.DrawText(canvas, font_price, price_x, 12, DEFAULT_COLOR, self.price_str)
 
         change_x = price_x + self._get_change_width(font_price, self.price_str)
 

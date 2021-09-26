@@ -57,14 +57,13 @@ def _get_change_color(change_str):
 
 
 def _get_gas_price_color(price):
-    if int(price) < 40:
+    if int(price) <= 50:
         return UP_TREND_COLOR
-    if int(price) < 50:
-        return graphics.Color(64, 255, 25)
-    if int(price) < 60:
-        return graphics.Color(255, 255, 77)
-    if int(price) < 70:
-        return DOWN_TREND_COLOR
+
+    if int(price) <= 70:
+        return graphics.Color(255, 255, 100)
+
+    return DOWN_TREND_COLOR
 
 
 def _get_price_font(price_str):
@@ -132,20 +131,20 @@ class AsyncGasMonitor():
 
         for price_type, price in self.price_data.items():
 
-            price_type_msg = f"{price_type}: "
+            price_type_msg = f"{price_type}:"
             graphics.DrawText(
                 canvas, FONT_SYMBOL, cursor_pos, 12, DEFAULT_COLOR, price_type_msg
             )
 
-            cursor_pos += _get_change_width(FONT_SYMBOL, price_type_msg)
+            cursor_pos += _get_change_width(FONT_SYMBOL, price_type_msg, padding=3)
 
             graphics.DrawText(
                 canvas, FONT_PRICE, cursor_pos, 12, _get_gas_price_color(price), price
             )
 
-            cursor_pos += _get_change_width(FONT_PRICE, price)
+            cursor_pos += _get_change_width(FONT_PRICE, price, padding=3)
 
-        return canvas, cursor_pos
+        return canvas, cursor_pos + 3
 
 
 @attr.s

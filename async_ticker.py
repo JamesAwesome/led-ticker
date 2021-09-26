@@ -33,12 +33,12 @@ class AsyncTicker:
             for monitor in itertools.cycle(self.monitors):
                 canvas.Clear()
                 pos = 3
-                canvas, cursor_pos = monitor.draw(canvas)
+                canvas, cursor_pos = monitor.draw(canvas, pos)
 
-                if (cursor_pos + 6) > canvas.width:
+                if (cursor_pos + 3) > canvas.width:
                     await asyncio.sleep(2)
 
-                while (cursor_pos + 6) > canvas.width:
+                while (cursor_pos + 3) > canvas.width:
                     canvas.Clear()
                     canvas, cursor_pos = monitor.draw(canvas, pos)
                     pos -= 1

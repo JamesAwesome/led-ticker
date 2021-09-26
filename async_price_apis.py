@@ -103,10 +103,10 @@ class AsyncGasMonitor():
         return self
 
     @classmethod
-    async def start(cls, session, api_key, update_interval=30, splay=True):
+    async def start(cls, session, api_key, update_interval=300, splay=True):
         """init and run this monitor"""
         if splay:
-            update_interval += randint(0, 30)
+            update_interval += randint(0, 60)
 
         gas_price_monitor = await cls(session, api_key=api_key).update()
         asyncio.create_task(gas_price_monitor.monitor(update_interval))
@@ -144,7 +144,7 @@ class AsyncGasMonitor():
 
             cursor_pos += _get_change_width(FONT_PRICE, price, padding=3)
 
-        cursor_pos += 6
+        cursor_pos += 3
         return canvas, cursor_pos
 
 
@@ -170,7 +170,7 @@ class AsyncPriceMonitor:
     async def start(cls, symbol, currency, session, update_interval=300, splay=True):
         """init and run this monitor"""
         if splay:
-            update_interval += randint(0, 60)
+            update_interval += randint(0, 120)
 
         price_monitor = await cls(symbol, currency, session).update()
         asyncio.create_task(price_monitor.monitor(update_interval))

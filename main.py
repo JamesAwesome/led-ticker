@@ -34,7 +34,6 @@ async def main(tickers):
     )
 
     async with aiohttp.ClientSession() as session:
-
         price_monitors = [
             await AsyncPriceMonitor.start(ticker, "USD", session) for ticker in tickers
         ]
@@ -50,12 +49,12 @@ if __name__ == "__main__":
         main(
             [
                 "ETH",
-                "BTC",
-                "XLM",
-                "SOL",
-                "ADA",
-                "COMP",
-                "SUSHI",
+                # "BTC",
+                # "XLM",
+                # "SOL",
+                # "ADA",
+                # "COMP",
+                # "SUSHI",
             ]
         )
     )

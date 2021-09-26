@@ -41,6 +41,7 @@ async def main():
             AsyncPriceMonitor.start("XLM", "USD", session, 300 + randint(0, 60)),
             AsyncPriceMonitor.start("SOL", "USD", session, 300 + randint(0, 60)),
             AsyncPriceMonitor.start("ADA", "USD", session, 300 + randint(0, 60)),
+            AsyncPriceMonitor.start("COMP", "USD", session, 300 + randint(0, 60)),
             AsyncPriceMonitor.start("SUSHI", "USD", session, 300 + randint(0, 60)),
         )
 

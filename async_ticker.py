@@ -13,15 +13,14 @@ class AsyncTicker(object):
     frame = attr.ib()
 
     async def run_swap(self):
-        logging.info('Running Swap...')
+        logging.info("Running Swap...")
         while True:
             canvas = self.frame.get_clean_canvas()
             for monitor in itertools.cycle(self.monitors):
                 canvas.Clear()
-                canvas, _  = monitor.draw(canvas)
+                canvas, _ = monitor.draw(canvas)
                 await asyncio.sleep(5)
                 self.frame.matrix.SwapOnVSync(canvas)
-
 
     def _has_index(self, index, my_list):
         try:
@@ -32,7 +31,7 @@ class AsyncTicker(object):
         return True
 
     async def run_forever_scroll(self):
-        logging.info('Running Forever Scroll...')
+        logging.info("Running Forever Scroll...")
         canvas = self.frame.get_clean_canvas()
         pos = 0
 
@@ -54,7 +53,9 @@ class AsyncTicker(object):
                 if not self._has_index(mon_index, monitors):
                     monitors.append(next(monitor_generator))
 
-                canvas, cursor_pos = monitors[mon_index].draw(canvas, cursor_pos=cursor_pos)
+                canvas, cursor_pos = monitors[mon_index].draw(
+                    canvas, cursor_pos=cursor_pos
+                )
 
             if pos + canvas.width < 0:
                 monitors.pop(0)
@@ -64,7 +65,7 @@ class AsyncTicker(object):
             self.frame.matrix.SwapOnVSync(canvas)
 
     async def run_infini_scroll(self):
-        logging.info('Running Infini Scroll...')
+        logging.info("Running Infini Scroll...")
         canvas = self.frame.get_clean_canvas()
         pos = canvas.width
         monitor_generator = itertools.cycle(self.monitors)

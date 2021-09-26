@@ -12,17 +12,17 @@ class LedFrame(object):
     led_parallel = attr.ib(default=1)
     led_pwm_bits = attr.ib(default=11)
     led_brightness = attr.ib(default=100)
-    led_gpio_mapping = attr.ib(default='adafruit-hat')
+    led_gpio_mapping = attr.ib(default="adafruit-hat")
     led_scan_mode = attr.ib(default=1)
     led_pwm_lsb_nanoseconds = attr.ib(default=130)
     led_show_refresh = attr.ib(default=False)
     led_slowdown_gpio = attr.ib(default=1)
     led_no_hardware_pulse = attr.ib(default=False)  # double check
-    led_rgb_sequence = attr.ib(default='RGB')
-    led_pixel_mapper = attr.ib(default='')
+    led_rgb_sequence = attr.ib(default="RGB")
+    led_pixel_mapper = attr.ib(default="")
     led_row_addr_type = attr.ib(default=0)
     led_multiplexing = attr.ib(default=0)
-    led_panel_type = attr.ib(default='')
+    led_panel_type = attr.ib(default="")
     matrix = attr.ib(init=False)
 
     def __attrs_post_init__(self):

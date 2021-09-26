@@ -36,6 +36,7 @@ class AsyncTicker:
                 canvas, cursor_pos = monitor.draw(canvas)
 
                 while (cursor_pos + 6) > canvas.width:
+                    await asyncio.sleep(2)
                     canvas.Clear()
                     canvas, cursor_pos = monitor.draw(canvas, pos)
                     pos -= 1

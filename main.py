@@ -49,12 +49,12 @@ if __name__ == "__main__":
         main(
             [
                 "ETH",
-                # "BTC",
-                # "XLM",
-                # "SOL",
-                # "ADA",
-                # "COMP",
-                # "SUSHI",
+                "BTC",
+                "XLM",
+                "SOL",
+                "ADA",
+                "COMP",
+                "SUSHI",
             ]
         )
     )

@@ -140,7 +140,7 @@ class AsyncGasMonitor():
             cursor_pos += _get_change_width(FONT_SYMBOL, price_type_msg)
 
             graphics.DrawText(
-                canvas, FONT_PRICE, cursor_pos, 12, _get_price_font(price), price
+                canvas, FONT_PRICE, cursor_pos, 12, _get_gas_price_color(price), price
             )
 
             cursor_pos += _get_change_width(FONT_PRICE, price)

@@ -32,7 +32,15 @@ class AsyncTicker:
             canvas = self.frame.get_clean_canvas()
             for monitor in itertools.cycle(self.monitors):
                 canvas.Clear()
-                canvas, _ = monitor.draw(canvas)
+                pos = 3
+                canvas, cursor_pos = monitor.draw(canvas)
+
+                while (cursor_pos + 6) > canvas.width:
+                    canvas.Clear()
+                    canvas, cursor_pos = monitor.draw(canvas, pos)
+                    pos -= 1
+                    self.frame.matrix.SwapOnVSync(canvas)
+
                 await asyncio.sleep(5)
                 self.frame.matrix.SwapOnVSync(canvas)
 

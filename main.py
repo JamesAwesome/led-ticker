@@ -1,5 +1,6 @@
 #!/usr/bin/env python3 -u
-
+"""Program entrypoint
+"""
 import sys
 
 from random import randint
@@ -22,7 +23,17 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 
-async def main(frame):
+async def main():
+    """Run the monitors and ticker
+    """
+    led_frame = LedFrame(
+        led_rows=16,
+        led_cols=32,
+        led_chain=5,
+        led_slowdown_gpio=2,
+        led_brightness=60,
+    )
+
     async with aiohttp.ClientSession() as session:
 
         price_monitors = await asyncio.gather(
@@ -34,16 +45,8 @@ async def main(frame):
             AsyncPriceMonitor.start("SUSHI", "USD", session, 300 + randint(0, 60)),
         )
 
-        await AsyncTicker(price_monitors, frame).run_forever_scroll()
+        await AsyncTicker(price_monitors, led_frame).run_forever_scroll()
 
 
 if __name__ == "__main__":
-    frame = LedFrame(
-        led_rows=16,
-        led_cols=32,
-        led_chain=5,
-        led_slowdown_gpio=2,
-        led_brightness=60,
-    )
-
-    asyncio.run(main(frame))
+    asyncio.run(main())

@@ -34,6 +34,7 @@ DEFAULT_COLOR = graphics.Color(255, 255, 0)
 UP_TREND_COLOR = graphics.Color(46, 139, 87)
 DOWN_TREND_COLOR = graphics.Color(194, 24, 7)
 
+OK_GAS_COLOR = graphics.Color(255, 255, 100)
 
 COINBASE_API = "https://api.coinbase.com"
 ETHERSCAN_API = "https://api.etherscan.io/api"
@@ -61,7 +62,7 @@ def _get_gas_price_color(price):
         return UP_TREND_COLOR
 
     if int(price) <= 70:
-        return graphics.Color(255, 255, 100)
+        return OK_GAS_COLOR
 
     return DOWN_TREND_COLOR
 

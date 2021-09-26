@@ -101,6 +101,8 @@ class AsyncGasMonitor():
                 'High': gas_price_data['result']['FastGasPrice'],
             }
 
+        return self
+
     @classmethod
     async def start(cls, session, api_key, update_interval=30, splay=True):
         """init and run this monitor"""

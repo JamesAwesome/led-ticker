@@ -39,7 +39,7 @@ class AsyncTicker:
                     canvas.Clear()
                     canvas, cursor_pos = monitor.draw(canvas, pos)
                     pos -= 1
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.05)
 
                     self.frame.matrix.SwapOnVSync(canvas)
 

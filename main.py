@@ -8,7 +8,7 @@ import logging
 
 import aiohttp
 
-from async_price_apis import AsyncPriceMonitor
+from async_price_apis import AsyncPriceMonitor, AsyncGasMonitor
 from async_ticker import AsyncTicker
 from frame import LedFrame
 
@@ -37,6 +37,9 @@ async def main(tickers):
         price_monitors = [
             await AsyncPriceMonitor.start(ticker, "USD", session) for ticker in tickers
         ]
+
+        gas_price_monitor = await AsyncGasMonitor.start(session, api_key=os.getenv('ETHERSCAN_API_KEY'))
+        price_monitors.append(gas_price_monitor)
 
         await AsyncTicker(price_monitors, led_frame).run_forever_scroll()
 

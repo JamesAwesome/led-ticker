@@ -16,6 +16,8 @@ import attr
 from rgbmatrix import graphics
 
 
+GAS_BANNER = " * Gas Prices * "
+
 FONT_SYMBOL = graphics.Font()
 FONT_SYMBOL.LoadFont("fonts/7x13.bdf")
 
@@ -34,6 +36,7 @@ DOWN_TREND_COLOR = graphics.Color(194, 24, 7)
 
 
 COINBASE_API = "https://api.coinbase.com"
+ETHERSCAN_API = "https://api.etherscan.io/api"
 
 
 def _get_change_width(font_change, change_word, padding=6):
@@ -53,12 +56,94 @@ def _get_change_color(change_str):
     return UP_TREND_COLOR
 
 
+def _get_gas_price_color(price):
+    if int(price) < 40:
+        return UP_TREND_COLOR
+    if int(price) < 50:
+        return graphics.Color(64, 255, 25)
+    if int(price) < 60:
+        return graphics.Color(255, 255, 77)
+    if int(price) < 70:
+        return DOWN_TREND_COLOR
+
+
 def _get_price_font(price_str):
     """choose big or small font for the price"""
     if len(price_str) > 10:
         return FONT_PRICE_SMALL
 
     return FONT_PRICE
+
+
+@attr.s
+class AsyncGasMonitor():
+    """Monit gas prices"""
+    session = attr.ib()
+    api_key = attr.ib()
+    price_data = attr.ib(init=False)
+
+    async def update(self):
+        """update price information"""
+        logging.info("Updating gas prices")
+
+        params = {
+            'module': "gastracker",
+            'action': "gasoracle",
+            "apikey": self.api_key
+        }
+
+        async with self.session.get(ETHERSCAN_API, params=params) as response:
+            gas_price_data = await response.json()
+
+            self.price_data = {
+                'Low': gas_price_data['result']['SafeGasPrice'],
+                'Avg': gas_price_data['result']['ProposeGasPrice'],
+                'High': gas_price_data['result']['FastGasPrice'],
+            }
+
+    @classmethod
+    async def start(cls, session, api_key, update_interval=30, splay=True):
+        """init and run this monitor"""
+        if splay:
+            update_interval += randint(0, 30)
+
+        gas_price_monitor = await cls(session, api_key=api_key).update()
+        asyncio.create_task(gas_price_monitor.monitor(update_interval))
+
+        return gas_price_monitor
+
+    async def monitor(self, update_interval):
+        """update self in a loop"""
+        while True:
+            await asyncio.sleep(update_interval)
+            await self.update()
+
+    def draw(self, canvas, cursor_pos=3):
+        """draw this monitor to a canvas"""
+
+        # Draw the elements on the canvas
+        graphics.DrawText(
+            canvas, FONT_SYMBOL, cursor_pos, 12, DEFAULT_COLOR, GAS_BANNER
+        )
+
+        cursor_pos += _get_change_width(FONT_SYMBOL, GAS_BANNER)
+
+        for price_type, price in self.price_data.items():
+
+            price_type_msg = f"{price_type}: "
+            graphics.DrawText(
+                canvas, FONT_SYMBOL, cursor_pos, 12, DEFAULT_COLOR, price_type_msg
+            )
+
+            cursor_pos += _get_change_width(FONT_SYMBOL, price_type_msg)
+
+            graphics.DrawText(
+                canvas, FONT_PRICE, cursor_pos, 12, _get_price_font(price), price
+            )
+
+            cursor_pos += _get_change_width(FONT_PRICE, price)
+
+        return canvas, cursor_pos
 
 
 @attr.s

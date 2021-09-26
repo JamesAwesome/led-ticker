@@ -127,7 +127,7 @@ class AsyncGasMonitor():
             canvas, FONT_SYMBOL, cursor_pos, 12, DEFAULT_COLOR, GAS_BANNER
         )
 
-        cursor_pos += _get_change_width(FONT_SYMBOL, GAS_BANNER, padding=3)
+        cursor_pos += _get_change_width(FONT_SYMBOL, GAS_BANNER)
 
         for price_type, price in self.price_data.items():
 

@@ -38,7 +38,9 @@ async def main(tickers):
             await AsyncPriceMonitor.start(ticker, "USD", session) for ticker in tickers
         ]
 
-        gas_price_monitor = await AsyncGasMonitor.start(session, api_key=os.getenv('ETHERSCAN_API_KEY'))
+        gas_price_monitor = await AsyncGasMonitor.start(
+            session, api_key=os.getenv("ETHERSCAN_API_KEY")
+        )
         price_monitors.append(gas_price_monitor)
 
         await AsyncTicker(price_monitors, led_frame).run_forever_scroll()

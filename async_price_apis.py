@@ -75,8 +75,9 @@ def _get_price_font(price_str):
 
 
 @attr.s
-class AsyncGasMonitor():
+class AsyncGasMonitor:
     """Monit gas prices"""
+
     session = attr.ib()
     api_key = attr.ib()
     price_data = attr.ib(init=False)
@@ -85,19 +86,15 @@ class AsyncGasMonitor():
         """update price information"""
         logging.info("Updating gas prices")
 
-        params = {
-            'module': "gastracker",
-            'action': "gasoracle",
-            "apikey": self.api_key
-        }
+        params = {"module": "gastracker", "action": "gasoracle", "apikey": self.api_key}
 
         async with self.session.get(ETHERSCAN_API, params=params) as response:
             gas_price_data = await response.json()
 
             self.price_data = {
-                'Low': gas_price_data['result']['SafeGasPrice'],
-                'Avg': gas_price_data['result']['ProposeGasPrice'],
-                'High': gas_price_data['result']['FastGasPrice'],
+                "Low": gas_price_data["result"]["SafeGasPrice"],
+                "Avg": gas_price_data["result"]["ProposeGasPrice"],
+                "High": gas_price_data["result"]["FastGasPrice"],
             }
 
         return self

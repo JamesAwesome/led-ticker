@@ -54,9 +54,6 @@ class AsyncTicker:
 
             pos -= 1
 
-            logging.info(mon_0_width)
-            logging.info(pos)
-
             while cursor_pos < canvas.width:
                 mon_index += 1
 
@@ -67,7 +64,8 @@ class AsyncTicker:
                     canvas, cursor_pos=cursor_pos
                 )
 
-            if pos + (mon_0_width + canvas.width) < 0:
+            if pos + mon_0_width + canvas.width < 0:
+                logging.info(pos)
                 monitors.pop(0)
                 pos = mon_0_width - 1
 

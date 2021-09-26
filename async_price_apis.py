@@ -2,17 +2,10 @@
 
 import sys
 import itertools
-
 import asyncio
 import aiohttp
-
-import os
-import json
-import argparse
 import logging
-
-from datetime import date
-from datetime import timedelta
+from datetime import date, timedelta
 
 import attr
 from rgbmatrix import RGBMatrix, RGBMatrixOptions, graphics
@@ -37,13 +30,6 @@ DOWN_TREND_COLOR = graphics.Color(194, 24, 7)
 
 COINBASE_API = 'https://api.coinbase.com'
 
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
 
 @attr.s
 class AsyncPriceMonitor(object):
@@ -72,7 +58,7 @@ class AsyncPriceMonitor(object):
             await self.update()
 
     async def update(self):
-        logger.info(f'Updating monitor for {self.symbol}')
+        logging.info(f'Updating monitor for {self.symbol}')
         self.price = await self.get_spot_price()
         self.price_str = f'{self.price:.4f}'
 

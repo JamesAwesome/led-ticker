@@ -3,7 +3,6 @@
 """
 import sys
 
-from random import randint
 import asyncio
 import logging
 
@@ -23,7 +22,7 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 
-async def main():
+async def main(tickers):
     """Run the monitors and ticker"""
     led_frame = LedFrame(
         led_rows=16,
@@ -36,17 +35,20 @@ async def main():
     async with aiohttp.ClientSession() as session:
 
         price_monitors = await asyncio.gather(
-            AsyncPriceMonitor.start("ETH", "USD", session, 300 + randint(0, 60)),
-            AsyncPriceMonitor.start("BTC", "USD", session, 300 + randint(0, 60)),
-            AsyncPriceMonitor.start("XLM", "USD", session, 300 + randint(0, 60)),
-            AsyncPriceMonitor.start("SOL", "USD", session, 300 + randint(0, 60)),
-            AsyncPriceMonitor.start("ADA", "USD", session, 300 + randint(0, 60)),
-            AsyncPriceMonitor.start("COMP", "USD", session, 300 + randint(0, 60)),
-            AsyncPriceMonitor.start("SUSHI", "USD", session, 300 + randint(0, 60)),
+            for ticker in tickers:
+                AsyncPriceMonitor.start(ticker, "USD", session)
         )
 
         await AsyncTicker(price_monitors, led_frame).run_forever_scroll()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main([
+        "ETH",
+        "BTC",
+        "XLM",
+        "SOL",
+        "ADA",
+        "COMP",
+        "SUSHI",
+    ]))

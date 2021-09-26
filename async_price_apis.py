@@ -9,6 +9,7 @@ import asyncio
 import logging
 import json
 from datetime import date, timedelta
+from random import randint
 
 import aiohttp
 import attr
@@ -79,8 +80,11 @@ class AsyncPriceMonitor:
         self.spot_url = f"{COINBASE_API}/v2/prices/{self.symbol}-{self.currency}/spot"
 
     @classmethod
-    async def start(cls, symbol, currency, session, update_interval=300):
+    async def start(cls, symbol, currency, session, update_interval=300, splay=True):
         """init and run this monitor"""
+        if splay:
+            update_interval += randint(0, 60)
+
         price_monitor = await cls(symbol, currency, session).update()
         asyncio.create_task(price_monitor.monitor(update_interval))
         return price_monitor

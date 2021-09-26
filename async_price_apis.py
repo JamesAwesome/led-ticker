@@ -144,7 +144,7 @@ class AsyncGasMonitor():
 
             cursor_pos += _get_change_width(FONT_PRICE, price, padding=3)
 
-        cursor_pos += 3
+        cursor_pos += 6
         return canvas, cursor_pos
 
 

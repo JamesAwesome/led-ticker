@@ -65,10 +65,6 @@ class AsyncTicker:
                 )
 
             if mon_0_width + canvas.width < 0:
-                logging.info(pos)
-                logging.info(mon_0_width)
-                logging.info(canvas.width)
-
                 monitors.pop(0)
                 pos = mon_0_width - 1
 

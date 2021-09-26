@@ -6,9 +6,9 @@ from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
 
 @attr.s
-class LedFrame(): # pylint: disable=R0902, R0903
-    """A Frame for an LED rgbmatrix Sign
-    """
+class LedFrame:  # pylint: disable=R0902, R0903
+    """A Frame for an LED rgbmatrix Sign"""
+
     led_rows = attr.ib(default=32)
     led_cols = attr.ib(default=64)
     led_chain = attr.ib(default=1)
@@ -59,8 +59,7 @@ class LedFrame(): # pylint: disable=R0902, R0903
         self.matrix = RGBMatrix(options=options)
 
     def get_clean_canvas(self):
-        """Get a clean canvas object
-        """
+        """Get a clean canvas object"""
         canvas = self.matrix.CreateFrameCanvas()
         canvas.Clear()
         return canvas

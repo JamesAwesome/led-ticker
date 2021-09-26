@@ -24,8 +24,7 @@ logger.addHandler(handler)
 
 
 async def main():
-    """Run the monitors and ticker
-    """
+    """Run the monitors and ticker"""
     led_frame = LedFrame(
         led_rows=16,
         led_cols=32,

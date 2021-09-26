@@ -9,8 +9,7 @@ import attr
 
 
 def _has_index(index, my_list):
-    """check if a list has an index
-    """
+    """check if a list has an index"""
     try:
         my_list[index]
     except IndexError:
@@ -20,15 +19,14 @@ def _has_index(index, my_list):
 
 
 @attr.s
-class AsyncTicker():
-    """Async ticker for an LedFrame
-    """
+class AsyncTicker:
+    """Async ticker for an LedFrame"""
+
     monitors = attr.ib(type=list)
     frame = attr.ib()
 
     async def run_swap(self):
-        """Swap between all running monitors
-        """
+        """Swap between all running monitors"""
         logging.info("Running Swap...")
         while True:
             canvas = self.frame.get_clean_canvas()
@@ -38,11 +36,8 @@ class AsyncTicker():
                 await asyncio.sleep(5)
                 self.frame.matrix.SwapOnVSync(canvas)
 
-
-
     async def run_forever_scroll(self):
-        """Scroll all monitors in order forever
-        """
+        """Scroll all monitors in order forever"""
         logging.info("Running Forever Scroll...")
         canvas = self.frame.get_clean_canvas()
         pos = 0
@@ -77,8 +72,7 @@ class AsyncTicker():
             self.frame.matrix.SwapOnVSync(canvas)
 
     async def run_infini_scroll(self):
-        """Scroll monitors forever one by one
-        """
+        """Scroll monitors forever one by one"""
         logging.info("Running Infini Scroll...")
         canvas = self.frame.get_clean_canvas()
         pos = canvas.width

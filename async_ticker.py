@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-
+"""Async Ticker
+"""
 import asyncio
 import itertools
 import logging
@@ -7,12 +8,27 @@ import logging
 import attr
 
 
+def _has_index(index, my_list):
+    """check if a list has an index
+    """
+    try:
+        my_list[index]
+    except IndexError:
+        return False
+
+    return True
+
+
 @attr.s
-class AsyncTicker(object):
+class AsyncTicker():
+    """Async ticker for an LedFrame
+    """
     monitors = attr.ib(type=list)
     frame = attr.ib()
 
     async def run_swap(self):
+        """Swap between all running monitors
+        """
         logging.info("Running Swap...")
         while True:
             canvas = self.frame.get_clean_canvas()
@@ -22,15 +38,11 @@ class AsyncTicker(object):
                 await asyncio.sleep(5)
                 self.frame.matrix.SwapOnVSync(canvas)
 
-    def _has_index(self, index, my_list):
-        try:
-            my_list[index]
-        except IndexError:
-            return False
 
-        return True
 
     async def run_forever_scroll(self):
+        """Scroll all monitors in order forever
+        """
         logging.info("Running Forever Scroll...")
         canvas = self.frame.get_clean_canvas()
         pos = 0
@@ -50,7 +62,7 @@ class AsyncTicker(object):
             while cursor_pos < canvas.width:
                 mon_index += 1
 
-                if not self._has_index(mon_index, monitors):
+                if not _has_index(mon_index, monitors):
                     monitors.append(next(monitor_generator))
 
                 canvas, cursor_pos = monitors[mon_index].draw(
@@ -65,6 +77,8 @@ class AsyncTicker(object):
             self.frame.matrix.SwapOnVSync(canvas)
 
     async def run_infini_scroll(self):
+        """Scroll monitors forever one by one
+        """
         logging.info("Running Infini Scroll...")
         canvas = self.frame.get_clean_canvas()
         pos = canvas.width

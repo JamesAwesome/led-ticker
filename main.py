@@ -2,6 +2,7 @@
 
 from random import randint
 import asyncio
+import logging
 
 import aiohttp
 

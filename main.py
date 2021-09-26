@@ -36,7 +36,7 @@ async def main(tickers):
 
         price_monitor_tasks = [AsyncPriceMonitor.start(ticker, "USD", session) for ticker in tickers]
         price_monitors = await asyncio.gather(
-            **price_monitors
+            **price_monitor_tasks
         )
 
         await AsyncTicker(price_monitors, led_frame).run_forever_scroll()

@@ -34,18 +34,24 @@ async def main(tickers):
 
     async with aiohttp.ClientSession() as session:
 
-        price_monitors = [await AsyncPriceMonitor.start(ticker, "USD", session) for ticker in tickers]
+        price_monitors = [
+            await AsyncPriceMonitor.start(ticker, "USD", session) for ticker in tickers
+        ]
 
         await AsyncTicker(price_monitors, led_frame).run_forever_scroll()
 
 
 if __name__ == "__main__":
-    asyncio.run(main([
-        "ETH",
-        "BTC",
-        "XLM",
-        "SOL",
-        "ADA",
-        "COMP",
-        "SUSHI",
-    ]))
+    asyncio.run(
+        main(
+            [
+                "ETH",
+                "BTC",
+                "XLM",
+                "SOL",
+                "ADA",
+                "COMP",
+                "SUSHI",
+            ]
+        )
+    )

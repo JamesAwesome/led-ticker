@@ -54,6 +54,9 @@ class AsyncTicker:
 
             pos -= 1
 
+            logger.info(mon_0_width)
+            logger.info(pos)
+
             while cursor_pos < canvas.width:
                 mon_index += 1
 

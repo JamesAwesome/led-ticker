@@ -35,8 +35,7 @@ async def main(tickers):
     async with aiohttp.ClientSession() as session:
 
         price_monitors = await asyncio.gather(
-            for ticker in tickers:
-                AsyncPriceMonitor.start(ticker, "USD", session)
+            [AsyncPriceMonitor.start(ticker, "USD", session) for ticker in tickers]
         )
 
         await AsyncTicker(price_monitors, led_frame).run_forever_scroll()

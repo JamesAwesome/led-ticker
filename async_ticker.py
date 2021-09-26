@@ -67,7 +67,7 @@ class AsyncTicker:
                     canvas, cursor_pos=cursor_pos
                 )
 
-            if pos + mon_0_width < 0:
+            if pos + (mon_0_width + canvas.width) < 0:
                 monitors.pop(0)
                 pos = mon_0_width - 1
 

@@ -61,7 +61,7 @@ class AsyncTicker(object):
                 pos = mon_0_width - 1
 
             await asyncio.sleep(0.05)
-            frame.matrix.SwapOnVSync(canvas)
+            self.frame.matrix.SwapOnVSync(canvas)
 
     async def run_infini_scroll(self):
         logging.info('Running Infini Scroll...')
@@ -81,4 +81,4 @@ class AsyncTicker(object):
                 monitor = next(monitor_generator)
 
             await asyncio.sleep(0.05)
-            frame.matrix.SwapOnVSync(canvas)
+            self.frame.matrix.SwapOnVSync(canvas)

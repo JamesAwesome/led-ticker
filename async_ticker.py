@@ -20,7 +20,7 @@ class AsyncTicker(object):
                 canvas.Clear()
                 canvas, _  = monitor.draw(canvas)
                 await asyncio.sleep(5)
-                frame.matrix.SwapOnVSync(canvas)
+                self.frame.matrix.SwapOnVSync(canvas)
 
 
     def _has_index(self, index, my_list):

@@ -43,7 +43,7 @@ async def main(tickers):
         )
         price_monitors.append(gas_price_monitor)
 
-        await AsyncTicker(price_monitors, led_frame).run_swap()
+        await AsyncTicker(price_monitors, led_frame).run_forever_scroll()
 
 
 if __name__ == "__main__":
@@ -51,12 +51,12 @@ if __name__ == "__main__":
         main(
             [
                 "ETH",
-                #"BTC",
-                #"XLM",
-                #"SOL",
-                #"ADA",
-                #"COMP",
-                #"SUSHI",
+                "BTC",
+                "XLM",
+                "SOL",
+                "ADA",
+                "COMP",
+                "SUSHI",
             ]
         )
     )

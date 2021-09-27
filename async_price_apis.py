@@ -324,7 +324,7 @@ class CoinGeckoPriceMonitor:
                     logging.warn(f'api data not complete for {0}: {1}', coin_id, data)
                     continue
 
-                self.price = {
+                self.price_data = {
                     'price': price, 'change_24h': change_24h
                 }
 

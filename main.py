@@ -9,7 +9,7 @@ import logging
 
 import aiohttp
 
-from async_price_apis import CoinbasePriceMonitor, EtherscanGasMonitor
+from async_price_apis import CoinbasePriceMonitor, EtherscanGasMonitor, start_coingecko_monitors
 from async_ticker import AsyncTicker
 from frame import LedFrame
 
@@ -23,7 +23,7 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 
-async def main(tickers):
+async def main(coinbase_symbols, coingecko_symbols):
     """Run the monitors and ticker"""
     led_frame = LedFrame(
         led_rows=16,
@@ -34,29 +34,28 @@ async def main(tickers):
     )
 
     async with aiohttp.ClientSession() as session:
-        price_monitors = [
-            await CoinbasePriceMonitor.start(ticker, "USD", session) for ticker in tickers
+        monitors = []
+        monitors += [
+            await CoinbasePriceMonitor.start(symbol, "USD", session) for symbol in coinbase_symbols
+        ]
+
+        monitors += [
+            await start_coingecko_monitors(coinbase_symbols, 'USD', session)
         ]
 
         gas_price_monitor = await EtherscanGasMonitor.start(
             session, api_key=os.getenv("ETHERSCAN_API_KEY")
         )
-        price_monitors.append(gas_price_monitor)
 
-        await AsyncTicker(price_monitors, led_frame).run_forever_scroll()
+        monitors.append(gas_price_monitor)
+
+        await AsyncTicker(monitors, led_frame).run_forever_scroll()
 
 
 if __name__ == "__main__":
     asyncio.run(
         main(
-            [
-                "ETH",
-                "BTC",
-                "XLM",
-                "SOL",
-                "ADA",
-                "COMP",
-                "SUSHI",
-            ]
+            ["ETH", "BTC", "XLM", "SOL", "ADA", "COMP", "SUSHI"]
+            ["ORCA"]
         )
     )

@@ -35,12 +35,13 @@ async def main(coinbase_symbols, coingecko_symbols):
 
     async with aiohttp.ClientSession() as session:
         monitors = []
+
         monitors += [
             await CoinbasePriceMonitor.start(symbol, "USD", session) for symbol in coinbase_symbols
         ]
 
         monitors += [
-            await start_coingecko_monitors(coinbase_symbols, 'USD', session)
+            await start_coingecko_monitors(coingecko_symbols, 'USD', session)
         ]
 
         gas_price_monitor = await EtherscanGasMonitor.start(

@@ -54,6 +54,7 @@ if __name__ == "__main__":
                 "BTC",
                 "XLM",
                 "SOL",
+                "ORCA",
                 "ADA",
                 "COMP",
                 "SUSHI",

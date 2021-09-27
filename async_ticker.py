@@ -38,7 +38,6 @@ class AsyncTicker:
 
         for monitor in monitor_generator:
             pos = 3
-            logging.info("symbol %s", monitor.symbol)
             canvas, cursor_pos = monitor.draw(canvas, pos)
 
             if (cursor_pos + 3) > canvas.width:

@@ -56,13 +56,13 @@ class AsyncTicker:
         pos = 0
 
         monitor_generator = itertools.cycle(self.monitors)
-        monitors = [next(monitor_generator)]
+        buffered_monitors = [next(monitor_generator)]
 
         while True:
             canvas.Clear()
 
             mon_index = 0
-            canvas, cursor_pos = monitors[mon_index].draw(canvas, cursor_pos=pos)
+            canvas, cursor_pos = buffered_monitors[mon_index].draw(canvas, cursor_pos=pos)
             mon_0_width = cursor_pos
 
             pos -= 1
@@ -70,15 +70,15 @@ class AsyncTicker:
             while cursor_pos < canvas.width:
                 mon_index += 1
 
-                if not _has_index(mon_index, monitors):
-                    monitors.append(next(monitor_generator))
+                if not _has_index(mon_index, buffered_monitors):
+                    buffered_monitors.append(next(monitor_generator))
 
-                canvas, cursor_pos = monitors[mon_index].draw(
+                canvas, cursor_pos = buffered_monitors[mon_index].draw(
                     canvas, cursor_pos=cursor_pos
                 )
 
             if mon_0_width + canvas.width < 0:
-                monitors.pop(0)
+                buffered_monitors.pop(0)
                 pos = mon_0_width - 1
 
             await asyncio.sleep(0.05)

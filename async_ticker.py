@@ -105,15 +105,18 @@ class AsyncTicker:
                 # We have run out of monitors
                 return True
 
-    async def run_infini_scroll(self):
+    async def run_infini_scroll(self, loop_count=0):
         """Scroll monitors forever one by one"""
-        logging.info("Running Infini Scroll...")
+        logging.info("Running Infini Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
         pos = canvas.width
-        monitor_generator = itertools.cycle(self.monitors)
-        monitor = next(monitor_generator)
 
-        while True:
+        if loop_count:
+            monitor_generator = itertools.chain(self.monitors * loop_count)
+        else:
+            monitor_generator = itertools.cycle(self.monitors)
+
+        for monitor in monitor_generator:
             canvas.Clear()
 
             canvas, final_pos = monitor.draw(canvas, cursor_pos=pos)
@@ -125,3 +128,6 @@ class AsyncTicker:
 
             await asyncio.sleep(0.05)
             self.frame.matrix.SwapOnVSync(canvas)
+
+        canvas.Clear()
+        self.frame.matrix.SwapOnVSync(canvas)

@@ -16,7 +16,7 @@ import attr
 from rgbmatrix import graphics
 
 
-GAS_BANNER = "Gas (gwei) -"
+GAS_BANNER = "Gas (gwei):"
 
 FONT_SYMBOL = graphics.Font()
 FONT_SYMBOL.LoadFont("fonts/7x13.bdf")

@@ -245,7 +245,8 @@ class CoinbasePriceMonitor:
 
 async def _get_coingecko_coin_list(session):
     logging.info('Fetching CoinGecko coin list...')
-    params = {'accept': 'application/json' }
+    params = {'Accept': 'application/json' }
+
     async with session.get(COINGECKO_COIN_LIST, params=params) as response:
         coin_list = await response.json()
         return coin_list

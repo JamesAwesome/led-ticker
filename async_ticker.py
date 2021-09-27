@@ -49,13 +49,17 @@ class AsyncTicker:
                 await asyncio.sleep(5)
                 self.frame.matrix.SwapOnVSync(canvas)
 
-    async def run_forever_scroll(self):
+    async def run_forever_scroll(self, loop_count=0):
         """Scroll all monitors in order forever"""
         logging.info("Running Forever Scroll...")
         canvas = self.frame.get_clean_canvas()
         pos = 0
 
-        monitor_generator = itertools.cycle(self.monitors)
+        if loop_count:
+            monitor_generator = itertools.chain(self.monitors * loop_count)
+        else:
+            monitor_generator = itertools.cycle(self.monitors)
+
         buffered_monitors = [next(monitor_generator)]
 
         while True:
@@ -70,12 +74,16 @@ class AsyncTicker:
             while cursor_pos < canvas.width:
                 mon_index += 1
 
-                if not _has_index(mon_index, buffered_monitors):
-                    buffered_monitors.append(next(monitor_generator))
+                try:
+                    if not _has_index(mon_index, buffered_monitors):
+                        buffered_monitors.append(next(monitor_generator))
 
-                canvas, cursor_pos = buffered_monitors[mon_index].draw(
-                    canvas, cursor_pos=cursor_pos
-                )
+                    canvas, cursor_pos = buffered_monitors[mon_index].draw(
+                        canvas, cursor_pos=cursor_pos
+                    )
+
+                except StopIteration:
+                    pass
 
             if mon_0_width + canvas.width < 0:
                 buffered_monitors.pop(0)
@@ -83,6 +91,10 @@ class AsyncTicker:
 
             await asyncio.sleep(0.05)
             self.frame.matrix.SwapOnVSync(canvas)
+
+            if not len(buffered_monitors):
+                # We have run out of monitors
+                return True
 
     async def run_infini_scroll(self):
         """Scroll monitors forever one by one"""

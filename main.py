@@ -48,7 +48,7 @@ async def main(coinbase_symbols, coingecko_symbols):
 
         monitors.append(gas_price_monitor)
 
-        await AsyncTicker(monitors, led_frame).run_swap(loop_count=2)
+        await AsyncTicker(monitors, led_frame).run_swap()
 
 
 if __name__ == "__main__":

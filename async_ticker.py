@@ -37,7 +37,6 @@ class AsyncTicker:
         canvas = self.frame.get_clean_canvas()
 
         for monitor in monitor_generator:
-            canvas.Clear()
             pos = 3
             canvas, cursor_pos = monitor.draw(canvas, pos)
 
@@ -54,6 +53,7 @@ class AsyncTicker:
 
             self.frame.matrix.SwapOnVSync(canvas)
             await asyncio.sleep(5)
+            canvas.Clear()
 
         canvas.Clear()
         self.frame.matrix.SwapOnVSync(canvas)

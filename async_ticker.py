@@ -83,7 +83,7 @@ class AsyncTicker:
                     )
 
                 except StopIteration:
-                    pass
+                    break
 
             if mon_0_width + canvas.width < 0:
                 buffered_monitors.pop(0)

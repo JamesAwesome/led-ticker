@@ -52,8 +52,8 @@ class AsyncTicker:
 
                 self.frame.matrix.SwapOnVSync(canvas)
 
-            await asyncio.sleep(5)
             self.frame.matrix.SwapOnVSync(canvas)
+            await asyncio.sleep(5)
 
         canvas.Clear()
         self.frame.matrix.SwapOnVSync(canvas)

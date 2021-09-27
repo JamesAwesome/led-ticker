@@ -56,7 +56,6 @@ class AsyncTicker:
             await asyncio.sleep(5)
             canvas.Clear()
 
-        canvas.Clear()
         self.frame.matrix.SwapOnVSync(canvas)
 
     async def run_forever_scroll(self, loop_count=0):

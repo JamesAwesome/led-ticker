@@ -48,13 +48,13 @@ async def main(coinbase_symbols, coingecko_symbols):
 
         monitors.append(gas_price_monitor)
 
-        await AsyncTicker(monitors, led_frame).run_forever_scroll(loop_count=1)
+        await AsyncTicker(monitors, led_frame).run_forever_scroll()
 
 
 if __name__ == "__main__":
     asyncio.run(
         main(
-            ["ETH",], #"BTC", "XLM", "SOL", "ADA", "COMP", "SUSHI"],
-            ["ORCA",] #"SAMO"]
+            ["ETH", "BTC", "XLM", "SOL", "ADA", "COMP", "SUSHI"],
+            ["ORCA", "SAMO"]
         )
     )

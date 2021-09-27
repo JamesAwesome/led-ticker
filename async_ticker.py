@@ -62,7 +62,7 @@ class AsyncTicker:
         """Scroll all monitors in order forever"""
         logging.info("Running Forever Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
-        pos = 0
+        pos = canvas.width
 
         if loop_count:
             monitor_generator = itertools.chain(self.monitors * loop_count)

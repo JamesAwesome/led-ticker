@@ -25,33 +25,42 @@ class AsyncTicker:
     monitors = attr.ib(type=list)
     frame = attr.ib()
 
-    async def run_swap(self):
+    async def run_swap(self, loop_count=0):
         """Swap between all running monitors"""
-        logging.info("Running Swap...")
-        while True:
-            canvas = self.frame.get_clean_canvas()
-            for monitor in itertools.cycle(self.monitors):
+        logging.info("Running Swap with loop count %s...", loop_count)
+
+        if loop_count:
+            monitor_generator = itertools.chain(self.monitors * loop_count)
+        else:
+            monitor_generator = itertools.cycle(self.monitors)
+
+        canvas = self.frame.get_clean_canvas()
+
+        for monitor in monitor_generator:
+            canvas.Clear()
+            pos = 3
+            canvas, cursor_pos = monitor.draw(canvas, pos)
+
+            if (cursor_pos + 3) > canvas.width:
+                await asyncio.sleep(2)
+
+            while (cursor_pos + 3) > canvas.width:
                 canvas.Clear()
-                pos = 3
                 canvas, cursor_pos = monitor.draw(canvas, pos)
+                pos -= 1
+                await asyncio.sleep(0.05)
 
-                if (cursor_pos + 3) > canvas.width:
-                    await asyncio.sleep(2)
-
-                while (cursor_pos + 3) > canvas.width:
-                    canvas.Clear()
-                    canvas, cursor_pos = monitor.draw(canvas, pos)
-                    pos -= 1
-                    await asyncio.sleep(0.05)
-
-                    self.frame.matrix.SwapOnVSync(canvas)
-
-                await asyncio.sleep(5)
                 self.frame.matrix.SwapOnVSync(canvas)
+
+            await asyncio.sleep(5)
+            self.frame.matrix.SwapOnVSync(canvas)
+
+        canvas.Clear()
+        self.frame.matrix.SwapOnVSync(canvas)
 
     async def run_forever_scroll(self, loop_count=0):
         """Scroll all monitors in order forever"""
-        logging.info("Running Forever Scroll...")
+        logging.info("Running Forever Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
         pos = 0
 

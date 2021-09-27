@@ -116,7 +116,8 @@ class AsyncTicker:
         else:
             monitor_generator = itertools.cycle(self.monitors)
 
-        for monitor in monitor_generator:
+        monitor = next(monitor_generator)
+        while True:
             canvas.Clear()
 
             canvas, final_pos = monitor.draw(canvas, cursor_pos=pos)
@@ -124,7 +125,10 @@ class AsyncTicker:
 
             if (final_pos + canvas.width) - canvas.width == 0:
                 pos = canvas.width
-                monitor = next(monitor_generator)
+                try:
+                    monitor = next(monitor_generator)
+                except StopIteration:
+                    break
 
             await asyncio.sleep(0.05)
             self.frame.matrix.SwapOnVSync(canvas)

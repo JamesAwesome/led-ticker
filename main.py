@@ -9,7 +9,7 @@ import logging
 
 import aiohttp
 
-from async_price_apis import AsyncPriceMonitor, AsyncGasMonitor
+from async_price_apis import CoinbasePriceMonitor, EtherscanGasMonitor
 from async_ticker import AsyncTicker
 from frame import LedFrame
 
@@ -35,10 +35,10 @@ async def main(tickers):
 
     async with aiohttp.ClientSession() as session:
         price_monitors = [
-            await AsyncPriceMonitor.start(ticker, "USD", session) for ticker in tickers
+            await CoinbasePriceMonitor.start(ticker, "USD", session) for ticker in tickers
         ]
 
-        gas_price_monitor = await AsyncGasMonitor.start(
+        gas_price_monitor = await EtherscanGasMonitor.start(
             session, api_key=os.getenv("ETHERSCAN_API_KEY")
         )
         price_monitors.append(gas_price_monitor)

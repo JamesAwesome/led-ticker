@@ -76,7 +76,7 @@ def _get_price_font(price_str):
 
 
 @attr.s
-class AsyncGasMonitor:
+class EtherscanGasMonitor:
     """Monit gas prices"""
 
     session = attr.ib()
@@ -147,7 +147,7 @@ class AsyncGasMonitor:
 
 
 @attr.s
-class AsyncPriceMonitor:
+class CoinbasePriceMonitor:
     """An asynchronous crypto monitor widget to be used with AsyncTicker
 
     Uses coinbases API
@@ -262,9 +262,9 @@ async def main():
     async with aiohttp.ClientSession() as session:
 
         price_monitors = await asyncio.gather(
-            AsyncPriceMonitor.start("ETH", "USD", session, 30),
-            AsyncPriceMonitor.start("ADA", "USD", session, 30),
-            AsyncPriceMonitor.start("SUSHI", "USD", session, 30),
+            CoinbasePriceMonitor.start("ETH", "USD", session, 30),
+            CoinbasePriceMonitor.start("ADA", "USD", session, 30),
+            CoinbasePriceMonitor.start("SUSHI", "USD", session, 30),
         )
 
         await asyncio.gather(print_value(price_monitors))

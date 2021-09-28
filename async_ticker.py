@@ -33,7 +33,7 @@ class AsyncTicker:
         canvas = self.frame.get_clean_canvas()
 
         if self.title:
-            await title.run(canvas, hold_time=5)
+            await self.title.run(canvas, hold_time=5)
 
         if loop_count:
             monitor_generator = itertools.chain(self.monitors * loop_count)

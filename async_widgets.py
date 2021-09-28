@@ -1,0 +1,62 @@
+#!/usr/bin/env python3 -u
+"""Async Price APIs
+
+Async price monitor widgets
+"""
+import itertools
+import asyncio
+import logging
+import json
+from datetime import date, timedelta
+from random import randint
+
+import aiohttp
+import attr
+
+from rgbmatrix import graphics
+
+FONT_DEFAULT = graphics.Font()
+FONT_DEFAULT.LoadFont("fonts/6x12.bdf")
+
+FONT_SMALL = graphics.Font()
+FONT_SMALL.LoadFont("fonts/5x8.bdf")
+
+DEFAULT_COLOR = graphics.Color(255, 255, 0)
+UP_TREND_COLOR = graphics.Color(46, 139, 87)
+DOWN_TREND_COLOR = graphics.Color(194, 24, 7)
+
+
+def _get_change_width(font_change, change_word, padding=6):
+    """get the width of font text + padding"""
+    change_width = (
+        sum([font_change.CharacterWidth(ord(c)) for c in change_word]) + padding
+    )
+
+    return change_width
+
+
+@attr.s
+class TickerMessage:
+    """An generic txt message"""
+
+    message = attr.ib(type=str)
+    font = attr.ib(default=FONT_DEFAULT)
+    font_color = attr.ib(default=DEFAULT_COLOR)
+
+    def draw(self, canvas, cursor_pos=3, center=True):
+        """draw this monitor to a canvas"""
+        # Draw the elements on the canvas
+        if center:
+            change_width = _get_change_width(self.font, self.message, padding=0)
+
+            if change_width > canvas.width:
+                cursor_pos = cursor_pos
+
+            else:
+                cursor_pos = (canvas.width / 2) - math.floor(change_width / 2)
+
+        cursor_pos += graphics.DrawText(
+            canvas, font, cursor_pos, 12, color, self.message
+        )
+
+        return canvas, cursor_pos

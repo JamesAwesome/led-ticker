@@ -111,15 +111,18 @@ class TickerTitle:
         await asyncio.sleep(hold_time)
 
         if self.transition == 'scroll_left':
+            # Scroll left
             while cursor_pos >= 0:
                 canvas.Clear()
                 pos -= 1
                 canvas, cursor_pos = self.draw(canvas, pos)
                 await asyncio.sleep(0.05)
                 frame.matrix.SwapOnVSync(canvas)
-            logging.info('scroll complete')
 
-        canvas.Clear()
+        else:
+            # Just clear the canvas
+            canvas.Clear()
+            frame.matrix.SwapOnVSync(canvas)
 
         return canvas, cursor_pos + self.padding
 

@@ -44,7 +44,7 @@ class TickerMessage:
     font = attr.ib(default=FONT_DEFAULT)
     font_color = attr.ib(default=DEFAULT_COLOR)
 
-    def draw(self, canvas, cursor_pos=3, center=True, **kwargs):
+    def draw(self, canvas, cursor_pos=3, center=True):
         """draw this monitor to a canvas"""
         # Draw the elements on the canvas
         if center:

@@ -74,11 +74,11 @@ class AsyncTicker:
         else:
             monitor_generator = itertools.cycle(self.monitors)
 
-        buffered_monitors = [next(monitor_generator)]
-
-        # Run title if we have one
+        buffered_monitors = []
         if self.title:
-            await self.title.run(self.frame, canvas)
+            buffered_monitors.append(title)
+
+        buffered_monitors.append(next(monitor_generator))
 
         while True:
             canvas.Clear()

@@ -30,14 +30,17 @@ class AsyncTicker:
         """Swap between all running monitors"""
         logging.info("Running Swap with loop count %s...", loop_count)
 
-        canvas = self.frame.get_clean_canvas()
-        if self.title:
-            await self.title.run(self.frame, canvas, hold_time=5)
-
         if loop_count:
             monitor_generator = itertools.chain(self.monitors * loop_count)
         else:
             monitor_generator = itertools.cycle(self.monitors)
+
+        canvas = self.frame.get_clean_canvas()
+
+        # Run title if we have one
+        if self.title:
+            await self.title.run(self.frame, canvas)
+            logging.info('Title Complete')
 
         for monitor in monitor_generator:
             pos = 3

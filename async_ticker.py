@@ -42,7 +42,7 @@ class AsyncTicker:
 
         for monitor in monitor_generator:
             pos = 3
-            canvas, cursor_pos = monitor.draw(canvas, pos, ticker_mode='swap')
+            canvas, cursor_pos = monitor.draw(canvas, pos)
 
             # If the image is too big, display at the far left and scroll it
             if (cursor_pos + 6) > canvas.width:
@@ -51,7 +51,7 @@ class AsyncTicker:
 
             while (cursor_pos + 6) > canvas.width:
                 canvas.Clear()
-                canvas, cursor_pos = monitor.draw(canvas, pos, ticker_mode='swap')
+                canvas, cursor_pos = monitor.draw(canvas, pos)
                 pos -= 1
                 await asyncio.sleep(0.05)
 
@@ -84,7 +84,7 @@ class AsyncTicker:
             canvas.Clear()
 
             mon_index = 0
-            canvas, cursor_pos = buffered_monitors[mon_index].draw(canvas, cursor_pos=pos, ticker_mode='scroll')
+            canvas, cursor_pos = buffered_monitors[mon_index].draw(canvas, cursor_pos=pos)
             mon_0_end_pos = cursor_pos
 
             pos -= 1
@@ -97,7 +97,7 @@ class AsyncTicker:
                         buffered_monitors.append(next(monitor_generator))
 
                     canvas, cursor_pos = buffered_monitors[mon_index].draw(
-                        canvas, cursor_pos=cursor_pos, ticker_mode='scroll'
+                        canvas, cursor_pos=cursor_pos
                     )
 
                 except StopIteration:
@@ -135,7 +135,7 @@ class AsyncTicker:
         while True:
             canvas.Clear()
 
-            canvas, final_pos = monitor.draw(canvas, cursor_pos=pos, ticker_mode='scroll')
+            canvas, final_pos = monitor.draw(canvas, cursor_pos=pos)
             pos -= 1
 
             if final_pos < 0:

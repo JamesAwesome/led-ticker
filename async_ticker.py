@@ -24,17 +24,21 @@ class AsyncTicker:
 
     monitors = attr.ib(type=list)
     frame = attr.ib()
+    title = attr.ib(default=None)
 
     async def run_swap(self, loop_count=0):
         """Swap between all running monitors"""
         logging.info("Running Swap with loop count %s...", loop_count)
 
+        canvas = self.frame.get_clean_canvas()
+
+        if self.title:
+            await title.run(canvas, hold_time=5)
+
         if loop_count:
             monitor_generator = itertools.chain(self.monitors * loop_count)
         else:
             monitor_generator = itertools.cycle(self.monitors)
-
-        canvas = self.frame.get_clean_canvas()
 
         for monitor in monitor_generator:
             pos = 3

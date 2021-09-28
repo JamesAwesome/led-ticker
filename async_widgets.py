@@ -69,7 +69,9 @@ class TickerMessage:
         )
 
         # if we're not centered, add padding
-        if not self.center:
+        if self.center:
+            cursor_pos += (whitespace_width * end_padding)
+        else:
             cursor_pos += self.padding
 
         return canvas, cursor_pos

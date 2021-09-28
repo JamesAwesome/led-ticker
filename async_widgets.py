@@ -111,7 +111,7 @@ class TickerTitle:
         await asyncio.sleep(hold_time)
 
         if self.transition == 'scroll_left':
-            while cursor_pos + change_width > 0:
+            while cursor_pos > 0:
                 logging.info('cursor_pos %s', cursor_pos)
                 canvas.Clear()
                 pos -= 1

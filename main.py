@@ -53,7 +53,7 @@ async def main(coinbase_symbols, coingecko_symbols):
             monitors,
             led_frame,
             TickerTitle('Test Title')
-        ).run_swap()
+        ).run_forever_scroll()
 
 
 if __name__ == "__main__":

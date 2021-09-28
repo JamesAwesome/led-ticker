@@ -112,7 +112,6 @@ class TickerTitle:
 
         if self.transition == 'scroll_left':
             while cursor_pos >= 0:
-                logging.info('cursor_pos %s', cursor_pos)
                 canvas.Clear()
                 pos -= 1
                 canvas, cursor_pos = self.draw(canvas, pos)

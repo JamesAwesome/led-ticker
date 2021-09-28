@@ -127,6 +127,11 @@ class AsyncTicker:
             monitor_generator = itertools.cycle(self.monitors)
 
         monitor = next(monitor_generator)
+
+        # Run title if we have one
+        if self.title:
+            await self.title.run(self.frame, canvas)
+
         while True:
             canvas.Clear()
 

@@ -100,10 +100,9 @@ class TickerTitle:
 
         while (cursor_pos + 3) > canvas.width:
             canvas.Clear()
-            canvas, cursor_pos = self.draw(canvas, pos)
             pos -= 1
+            canvas, cursor_pos = self.draw(canvas, pos)
             await asyncio.sleep(0.05)
-
             frame.matrix.SwapOnVSync(canvas)
 
         frame.matrix.SwapOnVSync(canvas)
@@ -114,8 +113,8 @@ class TickerTitle:
                 canvas.Clear()
                 pos -= 1
                 canvas, cursor_pos = self.draw(canvas, pos, center=False)
-                frame.matrix.SwapOnVSync(canvas)
                 await asyncio.sleep(0.05)
+                frame.matrix.SwapOnVSync(canvas)
 
         canvas.Clear()
 

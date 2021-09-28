@@ -56,7 +56,7 @@ async def main(coinbase_symbols, coingecko_symbols):
         await AsyncTicker(
             monitors,
             led_frame,
-            title=TickerMessage('* Crypto Prices *')
+            title=TickerMessage('* Crypto Prices *', center=False)
         ).run_forever_scroll()
 
 

@@ -44,7 +44,7 @@ class AsyncTicker:
             pos = 3
             canvas, cursor_pos = monitor.draw(canvas, pos, ticker_mode='swap')
 
-            if (cursor_pos + 3) > canvas.width:
+            if (cursor_pos + 6) > canvas.width:
                 self.frame.matrix.SwapOnVSync(canvas)
                 await asyncio.sleep(2)
 

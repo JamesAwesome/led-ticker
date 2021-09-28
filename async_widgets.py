@@ -68,7 +68,7 @@ class TickerMessage:
             canvas, self.font, cursor_pos, 12, self.font_color, self.message + (' ' * end_padding)
         )
 
-        return canvas, (cursor_pos + self.padding + end_padding)
+        return canvas, (cursor_pos + self.padding + (end_padding * 6))
 
 @attr.s
 class TickerTitle:

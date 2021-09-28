@@ -76,7 +76,7 @@ class AsyncTicker:
 
         buffered_monitors = []
         if self.title:
-            buffered_monitors.append(title)
+            buffered_monitors.append(self.title)
 
         buffered_monitors.append(next(monitor_generator))
 

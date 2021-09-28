@@ -48,6 +48,7 @@ async def main(coinbase_symbols, coingecko_symbols):
         )
 
         monitors.append(gas_price_monitor)
+        monitors.append(TickerMessage(' * '))
 
         await AsyncTicker(
             monitors,

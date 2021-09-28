@@ -117,6 +117,7 @@ class TickerTitle:
                 canvas, cursor_pos = self.draw(canvas, pos, center=False)
                 await asyncio.sleep(0.05)
                 frame.matrix.SwapOnVSync(canvas)
+            logging.info('scroll complete')
 
         canvas.Clear()
 

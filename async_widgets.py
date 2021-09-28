@@ -68,7 +68,10 @@ class TickerMessage:
             canvas, self.font, cursor_pos, 12, self.font_color, self.message + (' ' * end_padding)
         )
 
-        return canvas, (cursor_pos + self.padding)
+        if not self.center:
+            cursor_pos += self.padding
+
+        return canvas, cursor_pos
 
 @attr.s
 class TickerTitle:

@@ -40,7 +40,6 @@ class AsyncTicker:
         # Run title if we have one
         if self.title:
             await self.title.run(self.frame, canvas)
-            logging.info('Title Complete')
 
         for monitor in monitor_generator:
             pos = 3
@@ -76,6 +75,10 @@ class AsyncTicker:
             monitor_generator = itertools.cycle(self.monitors)
 
         buffered_monitors = [next(monitor_generator)]
+
+        # Run title if we have one
+        if self.title:
+            await self.title.run(self.frame, canvas)
 
         while True:
             canvas.Clear()

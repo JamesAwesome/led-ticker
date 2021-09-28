@@ -31,7 +31,6 @@ class AsyncTicker:
         logging.info("Running Swap with loop count %s...", loop_count)
 
         canvas = self.frame.get_clean_canvas()
-
         if self.title:
             await self.title.run(self.frame, canvas, hold_time=5)
 

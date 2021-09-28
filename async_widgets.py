@@ -98,8 +98,18 @@ class TickerTitle:
         frame.matrix.SwapOnVSync(canvas)
         await asyncio.sleep(hold_time)
 
+        if self.transition == 'scroll_left':
+            while cursor_pos + canvas.width > 0:
+                canvas.Clear()
+                canvas, cursor_pos = self.draw(canvas, pos)
+                pos -= 1
+                await asyncio.sleep(0.05)
+                frame.matrix.SwapOnVSync(canvas)
+
         canvas.Clear()
         frame.matrix.SwapOnVSync(canvas)
+
+        return canvas, cursor_pos
 
     def draw(self, canvas, cursor_pos=3, **kwargs):
         """draw this monitor to a canvas"""

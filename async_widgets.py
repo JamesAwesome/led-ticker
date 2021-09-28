@@ -114,14 +114,14 @@ class TickerTitle:
             while cursor_pos + change_width > 0:
                 canvas.Clear()
                 pos -= 1
-                canvas, cursor_pos = self.draw(canvas, pos, center=False)
+                canvas, cursor_pos = self.draw(canvas, pos)
                 await asyncio.sleep(0.05)
                 frame.matrix.SwapOnVSync(canvas)
             logging.info('scroll complete')
 
         canvas.Clear()
 
-        return canvas, cursor_pos
+        return canvas, cursor_pos + self.padding
 
     def draw(self, canvas, cursor_pos=3, **kwargs):
         """draw this monitor to a canvas"""
@@ -131,4 +131,4 @@ class TickerTitle:
             canvas, self.font, cursor_pos, 12, self.font_color, self.message
         )
 
-        return canvas, (cursor_pos + self.padding)
+        return canvas, cursor_pos

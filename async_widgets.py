@@ -81,7 +81,7 @@ class TickerTitle:
 
         # Default cursor position to left edge of screen
         pos = 3
-        canvas, cursor_pos = self.draw(canvas, pos)
+        canvas, cursor_pos = self.draw(canvas, pos, center=self.center)
 
         if (cursor_pos + 3) > canvas.width:
             frame.matrix.SwapOnVSync(canvas)
@@ -100,9 +100,8 @@ class TickerTitle:
 
         if self.transition == 'scroll_left':
             while cursor_pos + canvas.width > 0:
-                logging.info('farting')
                 canvas.Clear()
-                canvas, cursor_pos = self.draw(canvas, pos)
+                canvas, cursor_pos = self.draw(canvas, pos, center=False)
                 pos -= 1
                 await asyncio.sleep(0.05)
                 frame.matrix.SwapOnVSync(canvas)
@@ -112,10 +111,10 @@ class TickerTitle:
 
         return canvas, cursor_pos
 
-    def draw(self, canvas, cursor_pos=3, **kwargs):
+    def draw(self, canvas, cursor_pos=3, center=True, **kwargs):
         """draw this monitor to a canvas"""
         # Draw the elements on the canvas
-        if self.center:
+        if center:
             change_width = _get_change_width(self.font, self.message, padding=0)
 
             if change_width > canvas.width:

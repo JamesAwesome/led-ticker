@@ -35,11 +35,10 @@ class AsyncTicker:
         else:
             monitor_generator = itertools.cycle(self.monitors)
 
-        canvas = self.frame.get_clean_canvas()
-
-        # Run title if we have one
         if self.title:
-            await self.title.run(self.frame, canvas)
+            monitor_generator = itertools.chain([self.title], monitor_generator)
+
+        canvas = self.frame.get_clean_canvas()
 
         for monitor in monitor_generator:
             pos = 3
@@ -126,11 +125,11 @@ class AsyncTicker:
         else:
             monitor_generator = itertools.cycle(self.monitors)
 
-        monitor = next(monitor_generator)
-
-        # Run title if we have one
         if self.title:
-            await self.title.run(self.frame, canvas)
+            monitor = self.title
+
+        else:
+            monitor = next(monitor_generator)
 
         while True:
             canvas.Clear()

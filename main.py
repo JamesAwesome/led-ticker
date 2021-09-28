@@ -47,8 +47,11 @@ async def main(coinbase_symbols, coingecko_symbols):
             session, api_key=os.getenv("ETHERSCAN_API_KEY")
         )
 
-        monitors.append(gas_price_monitor)
-        monitors.append(TickerMessage(' * '))
+        monitors.extend([
+            TickerMessage(' * '),
+            gas_price_monitor,
+            TickerMessage(' * '),
+        ])
 
         await AsyncTicker(
             monitors,

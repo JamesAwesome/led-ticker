@@ -57,7 +57,7 @@ class TickerMessage:
                 cursor_pos = (canvas.width / 2) - math.floor(change_width / 2)
 
         cursor_pos += graphics.DrawText(
-            canvas, font, cursor_pos, 12, color, self.message
+            canvas, self.font, cursor_pos, 12, self.font_color, self.message
         )
 
         return canvas, cursor_pos

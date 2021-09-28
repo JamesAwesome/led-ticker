@@ -73,6 +73,7 @@ class TickerTitle:
     font_color = attr.ib(default=DEFAULT_COLOR)
     center = attr.ib(default=True)
     transition = attr.ib(default='scroll_left')
+    padding = attr.ib(default=6)
 
     async def run(self, frame, canvas, hold_time=3):
         """Swap between all running monitors"""

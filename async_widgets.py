@@ -84,9 +84,11 @@ class TickerTitle:
         logging.info("Running title with hold time %s...", hold_time)
 
         # Figure out where pos should be
-        if self.center:
-            change_width = _get_change_width(self.font, self.message, padding=0)
+        change_width = _get_change_width(self.font, self.message, padding=0)
 
+        # Default position
+        pos = 3
+        if self.center:
             if change_width > canvas.width:
                 pos = 3
             else:
@@ -109,7 +111,7 @@ class TickerTitle:
         await asyncio.sleep(hold_time)
 
         if self.transition == 'scroll_left':
-            while cursor_pos + canvas.width > 0:
+            while cursor_pos + change_width > 0:
                 canvas.Clear()
                 pos -= 1
                 canvas, cursor_pos = self.draw(canvas, pos, center=False)

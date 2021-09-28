@@ -38,7 +38,7 @@ class AsyncTicker:
 
         for monitor in monitor_generator:
             pos = 3
-            canvas, cursor_pos = monitor.draw(canvas, pos)
+            canvas, cursor_pos = monitor.draw(canvas, pos, ticker_mode='swap')
 
             if (cursor_pos + 3) > canvas.width:
                 self.frame.matrix.SwapOnVSync(canvas)
@@ -46,7 +46,7 @@ class AsyncTicker:
 
             while (cursor_pos + 3) > canvas.width:
                 canvas.Clear()
-                canvas, cursor_pos = monitor.draw(canvas, pos)
+                canvas, cursor_pos = monitor.draw(canvas, pos, ticker_mode='swap')
                 pos -= 1
                 await asyncio.sleep(0.05)
 
@@ -75,7 +75,7 @@ class AsyncTicker:
             canvas.Clear()
 
             mon_index = 0
-            canvas, cursor_pos = buffered_monitors[mon_index].draw(canvas, cursor_pos=pos, center=False)
+            canvas, cursor_pos = buffered_monitors[mon_index].draw(canvas, cursor_pos=pos, ticker_mode='scroll')
             mon_0_width = cursor_pos
 
             pos -= 1
@@ -88,7 +88,7 @@ class AsyncTicker:
                         buffered_monitors.append(next(monitor_generator))
 
                     canvas, cursor_pos = buffered_monitors[mon_index].draw(
-                        canvas, cursor_pos=cursor_pos, center=False
+                        canvas, cursor_pos=cursor_pos, ticker_mode='scroll'
                     )
 
                 except StopIteration:
@@ -121,7 +121,7 @@ class AsyncTicker:
         while True:
             canvas.Clear()
 
-            canvas, final_pos = monitor.draw(canvas, cursor_pos=pos, center=False)
+            canvas, final_pos = monitor.draw(canvas, cursor_pos=pos, ticker_mode='scroll')
             pos -= 1
 
             if (final_pos + canvas.width) - canvas.width == 0:

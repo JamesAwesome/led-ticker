@@ -110,7 +110,6 @@ class TickerTitle:
         await asyncio.sleep(hold_time)
 
         if self.transition == 'scroll_left':
-            pos = cursor_pos
             while cursor_pos + canvas.width > 0:
                 canvas.Clear()
                 canvas, cursor_pos = self.draw(canvas, pos, center=False)

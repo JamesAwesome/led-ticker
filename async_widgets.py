@@ -53,19 +53,19 @@ class TickerMessage:
     def draw(self, canvas, cursor_pos=3, **kwargs):
         """draw this monitor to a canvas"""
         # Draw the elements on the canvas
-        logging.info(_get_change_width(self.font, ' ', padding=0))
         change_width = _get_change_width(self.font, self.message, padding=0)
         end_padding = 0
+
         if self.center:
             if change_width > canvas.width:
                 cursor_pos = cursor_pos
 
             else:
                 cursor_pos = _find_center(canvas, change_width)
-                end_padding = (cursor_pos + change_width) - canvas.width
+                end_padding = math.floor(((cursor_pos + change_width) - change_width) / 6)
 
         cursor_pos += graphics.DrawText(
-            canvas, self.font, cursor_pos, 12, self.font_color, (self.message + ' ' * end_padding)
+            canvas, self.font, cursor_pos, 12, self.font_color, self.message + (' ' * end_padding)
         )
 
         return canvas, (cursor_pos + self.padding)

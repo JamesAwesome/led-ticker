@@ -54,7 +54,6 @@ class TickerMessage:
         # Draw the elements on the canvas
         change_width = _get_change_width(self.font, self.message, padding=0)
         whitespace_width = _get_change_width(self.font, ' ', padding=0)
-        end_padding = 0
 
         if self.center:
             if change_width > canvas.width:
@@ -68,6 +67,7 @@ class TickerMessage:
             canvas, self.font, cursor_pos, 12, self.font_color, self.message + (' ' * end_padding)
         )
 
+        # if we're not centered, add padding
         if not self.center:
             cursor_pos += self.padding
 

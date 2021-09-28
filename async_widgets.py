@@ -100,6 +100,7 @@ class TickerTitle:
 
         if self.transition == 'scroll_left':
             while cursor_pos + canvas.width > 0:
+                logging.info('farting')
                 canvas.Clear()
                 canvas, cursor_pos = self.draw(canvas, pos)
                 pos -= 1

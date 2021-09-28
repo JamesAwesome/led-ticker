@@ -75,7 +75,7 @@ class AsyncTicker:
             canvas.Clear()
 
             mon_index = 0
-            canvas, cursor_pos = buffered_monitors[mon_index].draw(canvas, cursor_pos=pos)
+            canvas, cursor_pos = buffered_monitors[mon_index].draw(canvas, cursor_pos=pos, center=False)
             mon_0_width = cursor_pos
 
             pos -= 1
@@ -88,7 +88,7 @@ class AsyncTicker:
                         buffered_monitors.append(next(monitor_generator))
 
                     canvas, cursor_pos = buffered_monitors[mon_index].draw(
-                        canvas, cursor_pos=cursor_pos
+                        canvas, cursor_pos=cursor_pos, center=False
                     )
 
                 except StopIteration:
@@ -121,7 +121,7 @@ class AsyncTicker:
         while True:
             canvas.Clear()
 
-            canvas, final_pos = monitor.draw(canvas, cursor_pos=pos)
+            canvas, final_pos = monitor.draw(canvas, cursor_pos=pos, center=False)
             pos -= 1
 
             if (final_pos + canvas.width) - canvas.width == 0:

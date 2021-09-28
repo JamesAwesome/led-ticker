@@ -121,7 +121,7 @@ class EtherscanGasMonitor:
             await asyncio.sleep(update_interval)
             await self.update()
 
-    def draw(self, canvas, cursor_pos=3):
+    def draw(self, canvas, cursor_pos=3, **kwargs):
         """draw this monitor to a canvas"""
 
         # Draw the elements on the canvas
@@ -217,7 +217,7 @@ class CoinbasePriceMonitor:
 
         return yesterdays_price
 
-    def draw(self, canvas, cursor_pos=3):
+    def draw(self, canvas, cursor_pos=3, **kwargs):
         """draw this monitor to a canvas"""
         change_str = f"{self.change_24h:.2f}%"
         price_str = f"{self.price:.4f}"
@@ -332,7 +332,7 @@ class CoinGeckoPriceMonitor:
 
         return self
 
-    def draw(self, canvas, cursor_pos=3):
+    def draw(self, canvas, cursor_pos=3, **kwargs):
         """draw this monitor to a canvas"""
         change_str = self.price_data['change_24h']
         price_str = self.price_data['price']

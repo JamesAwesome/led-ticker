@@ -118,7 +118,6 @@ class TickerTitle:
                 await asyncio.sleep(0.05)
 
         canvas.Clear()
-        frame.matrix.SwapOnVSync(canvas)
 
         return canvas, cursor_pos
 

@@ -26,7 +26,6 @@ DEFAULT_COLOR = graphics.Color(255, 255, 0)
 UP_TREND_COLOR = graphics.Color(46, 139, 87)
 DOWN_TREND_COLOR = graphics.Color(194, 24, 7)
 
-
 def _get_change_width(font_change, change_word, padding=6):
     """get the width of font text + padding"""
     change_width = (
@@ -54,6 +53,7 @@ class TickerMessage:
         """draw this monitor to a canvas"""
         # Draw the elements on the canvas
         change_width = _get_change_width(self.font, self.message, padding=0)
+        whitespace_width = _get_change_width(self.font, ' ', padding=0)
         end_padding = 0
 
         if self.center:
@@ -62,13 +62,13 @@ class TickerMessage:
 
             else:
                 cursor_pos += _find_center(canvas, change_width)
-                end_padding = math.floor(((cursor_pos + change_width) - change_width) / 6)
+                end_padding = math.floor(((cursor_pos + change_width) - change_width) / whitespace_width)
 
         cursor_pos += graphics.DrawText(
             canvas, self.font, cursor_pos, 12, self.font_color, self.message + (' ' * end_padding)
         )
 
-        return canvas, (cursor_pos + self.padding + (end_padding * 6))
+        return canvas, (cursor_pos + self.padding + (whitespace_width * end_padding))
 
 @attr.s
 class TickerTitle:

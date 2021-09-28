@@ -103,8 +103,8 @@ class TickerTitle:
                 canvas.Clear()
                 canvas, cursor_pos = self.draw(canvas, pos, center=False)
                 pos -= 1
-                await asyncio.sleep(0.05)
                 frame.matrix.SwapOnVSync(canvas)
+                await asyncio.sleep(0.05)
 
         canvas.Clear()
         frame.matrix.SwapOnVSync(canvas)

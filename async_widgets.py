@@ -61,7 +61,7 @@ class TickerMessage:
                 cursor_pos = cursor_pos
 
             else:
-                cursor_pos = _find_center(canvas, change_width)
+                cursor_pos += _find_center(canvas, change_width)
                 end_padding = math.floor(((cursor_pos + change_width) - change_width) / 6)
 
         cursor_pos += graphics.DrawText(

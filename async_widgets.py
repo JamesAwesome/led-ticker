@@ -36,6 +36,10 @@ def _get_change_width(font_change, change_word, padding=6):
     return change_width
 
 
+def _find_center(canvas, change_width):
+    return (canvas.width / 2) - math.floor(change_width / 2)
+
+
 @attr.s
 class TickerMessage:
     """An generic txt message"""
@@ -79,8 +83,15 @@ class TickerTitle:
         """Swap between all running monitors"""
         logging.info("Running title with hold time %s...", hold_time)
 
-        # Default cursor position to left edge of screen
-        pos = 3
+        # Figure out where pos should be
+        if self.center:
+            change_width = _get_change_width(self.font, self.message, padding=0)
+
+            if change_width > canvas.width:
+                pos = 3
+            else:
+                pos = _find_center(canvas, change_width)
+
         canvas, cursor_pos = self.draw(canvas, pos, center=self.center)
 
         if (cursor_pos + 3) > canvas.width:
@@ -99,6 +110,7 @@ class TickerTitle:
         await asyncio.sleep(hold_time)
 
         if self.transition == 'scroll_left':
+            pos = cursor_pos
             while cursor_pos + canvas.width > 0:
                 canvas.Clear()
                 canvas, cursor_pos = self.draw(canvas, pos, center=False)
@@ -111,17 +123,9 @@ class TickerTitle:
 
         return canvas, cursor_pos
 
-    def draw(self, canvas, cursor_pos=3, center=True, **kwargs):
+    def draw(self, canvas, cursor_pos=3, **kwargs):
         """draw this monitor to a canvas"""
         # Draw the elements on the canvas
-        if center:
-            change_width = _get_change_width(self.font, self.message, padding=0)
-
-            if change_width > canvas.width:
-                cursor_pos = cursor_pos
-
-            else:
-                cursor_pos = (canvas.width / 2) - math.floor(change_width / 2)
 
         cursor_pos += graphics.DrawText(
             canvas, self.font, cursor_pos, 12, self.font_color, self.message

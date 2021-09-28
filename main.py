@@ -35,7 +35,7 @@ async def main(coinbase_symbols, coingecko_symbols):
     )
 
     async with aiohttp.ClientSession() as session:
-        monitors = [TickerMessage('Test')]
+        monitors = []
 
         monitors.extend([
             await CoinbasePriceMonitor.start(symbol, "USD", session) for symbol in coinbase_symbols

@@ -74,18 +74,16 @@ class TickerTitle:
     center = attr.ib(default=True)
     transition = attr.ib(default='scroll_left')
 
-    async def run(self, canvas, hold_time=3):
+    async def run(self, frame, canvas, hold_time=3):
         """Swap between all running monitors"""
         logging.info("Running title with hold time %s...", hold_time)
-
-        canvas = self.frame.get_clean_canvas()
 
         # Default cursor position to left edge of screen
         pos = 3
         canvas, cursor_pos = self.draw(canvas, pos)
 
         if (cursor_pos + 3) > canvas.width:
-            self.frame.matrix.SwapOnVSync(canvas)
+            frame.matrix.SwapOnVSync(canvas)
             await asyncio.sleep(2)
 
         while (cursor_pos + 3) > canvas.width:
@@ -94,13 +92,13 @@ class TickerTitle:
             pos -= 1
             await asyncio.sleep(0.05)
 
-            self.frame.matrix.SwapOnVSync(canvas)
+            frame.matrix.SwapOnVSync(canvas)
 
-        self.frame.matrix.SwapOnVSync(canvas)
+        frame.matrix.SwapOnVSync(canvas)
         await asyncio.sleep(hold_time)
 
         canvas.Clear()
-        self.frame.matrix.SwapOnVSync(canvas)
+        frame.matrix.SwapOnVSync(canvas)
 
     def draw(self, canvas, cursor_pos=3, **kwargs):
         """draw this monitor to a canvas"""

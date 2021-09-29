@@ -259,7 +259,7 @@ class CoinbasePriceMonitor:
 
         cursor_pos += graphics.DrawText(
             canvas, FONT_CHANGE, cursor_pos, 12, change_color, change_str
-        ) + self.padding
+        )
 
         cursor_pos += end_padding
 

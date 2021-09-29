@@ -54,23 +54,20 @@ class TickerMessage:
         # Draw the elements on the canvas
         change_width = _get_change_width(self.font, self.message, padding=0)
         whitespace_width = _get_change_width(self.font, ' ', padding=0)
-        end_padding = 0
+        end_padding = self.padding
 
         if self.center:
             if change_width > canvas.width:
                 cursor_pos = cursor_pos
 
             else:
-                center_pos = _find_center(canvas, change_width)
-                cursor_pos += center_pos
-                end_padding = math.floor(math.floor(canvas.width - (center_pos + change_width)) / whitespace_width)
+                cursor_pos += _find_center(canvas, change_width)
+                end_padding = abs((cursor_pos + change_width) - canvas.width)
 
         cursor_pos += graphics.DrawText(
-            canvas, self.font, cursor_pos, 12, self.font_color, self.message + (' ' * end_padding)
+            canvas, self.font, cursor_pos, 12, self.font_color, self.message
         )
 
-        # if we're not centered, add padding
-        if not self.center:
-            cursor_pos += self.padding
+        cursor_pos += end_padding
 
         return canvas, cursor_pos

@@ -176,7 +176,7 @@ class CoinbasePriceMonitor:
         self.spot_url = f"{COINBASE_API}/v2/prices/{self.symbol}-{self.currency}/spot"
 
     @classmethod
-    async def start(cls, symbol, currency, session, update_interval=300, splay=True): # pylint: disable=R0913
+    async def start(cls, symbol, currency, session, update_interval=300, splay=True, center=True): # pylint: disable=R0913
         """init and run this monitor"""
         if splay:
             update_interval += randint(0, 120)

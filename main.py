@@ -38,7 +38,7 @@ async def main(coinbase_symbols, coingecko_symbols):
         monitors = []
 
         monitors.extend([
-            await CoinbasePriceMonitor.start(symbol, "USD", session, center=False) for symbol in coinbase_symbols
+            await CoinbasePriceMonitor.start(symbol, "USD", session, False) for symbol in coinbase_symbols
         ])
 #
         #monitors.extend(await start_coingecko_monitors(coingecko_symbols, 'USD', session))

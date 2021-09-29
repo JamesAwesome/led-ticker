@@ -45,11 +45,11 @@ class AsyncTicker:
             canvas, cursor_pos = monitor.draw(canvas, pos)
 
             # If the image is too big, display at the far left and scroll it
-            if (cursor_pos + 6) > canvas.width:
+            if cursor_pos > canvas.width:
                 self.frame.matrix.SwapOnVSync(canvas)
                 await asyncio.sleep(2)
 
-            while (cursor_pos + 6) > canvas.width:
+            while cursor_pos > canvas.width:
                 canvas.Clear()
                 canvas, cursor_pos = monitor.draw(canvas, pos)
                 pos -= 1

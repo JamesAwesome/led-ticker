@@ -60,7 +60,7 @@ class TickerMessage:
                 cursor_pos = cursor_pos
 
             else:
-                center_pos += _find_center(canvas, change_width)
+                center_pos = _find_center(canvas, change_width)
                 end_padding = canvas.width - (center_pos + change_width)
                 cursor_pos += center_pos
 

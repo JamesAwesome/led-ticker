@@ -251,18 +251,21 @@ class CoinbasePriceMonitor:
         # Draw the elements on the canvas
         cursor_pos += graphics.DrawText(
             canvas, FONT_SYMBOL, cursor_pos, 12, DEFAULT_COLOR, self.symbol
-        ) + self.padding
+        )
 
+        cursor_pos += self.padding
         cursor_pos += graphics.DrawText(
             canvas, font_price, cursor_pos, 12, DEFAULT_COLOR, price_str
-        ) + self.padding
+        )
 
+        cursor_pos += self.padding
         cursor_pos += graphics.DrawText(
             canvas, FONT_CHANGE, cursor_pos, 12, change_color, change_str
         )
 
         cursor_pos += end_padding
 
+        logging.info(cursor_pos)
         return canvas, cursor_pos
 
 

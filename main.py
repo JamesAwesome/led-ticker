@@ -41,22 +41,22 @@ async def main(coinbase_symbols, coingecko_symbols):
             await CoinbasePriceMonitor.start(symbol, "USD", session) for symbol in coinbase_symbols
         ])
 
-        #monitors.extend(await start_coingecko_monitors(coingecko_symbols, 'USD', session))
-#
-        #gas_price_monitor = await EtherscanGasMonitor.start(
-        #    session, api_key=os.getenv("ETHERSCAN_API_KEY")
-        #)
+        monitors.extend(await start_coingecko_monitors(coingecko_symbols, 'USD', session))
+
+        gas_price_monitor = await EtherscanGasMonitor.start(
+            session, api_key=os.getenv("ETHERSCAN_API_KEY")
+        )
 
         monitors.extend([
-            #TickerMessage(' * ', center=False),
-            #gas_price_monitor,
-            #TickerMessage(' * ', center=False),
+            TickerMessage(' * ', center=False),
+            gas_price_monitor,
+            TickerMessage(' * ', center=False),
         ])
 
         await AsyncTicker(
             monitors,
             led_frame,
-            #title=TickerMessage('* Crypto Prices *')
+            title=TickerMessage('* Crypto Prices *')
         ).run_forever_scroll()
 
 

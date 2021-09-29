@@ -265,8 +265,6 @@ class CoinbasePriceMonitor:
 
         cursor_pos += end_padding
 
-        logging.info(cursor_pos)
-
         return canvas, cursor_pos
 
 

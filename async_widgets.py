@@ -49,7 +49,7 @@ class TickerMessage:
     center = attr.ib(default=True)
     padding = attr.ib(type=int, default=6)
 
-    def draw(self, canvas, cursor_pos=3, **kwargs):
+    def draw(self, canvas, cursor_pos=0, **kwargs):
         """draw this monitor to a canvas"""
         # Draw the elements on the canvas
         change_width = _get_change_width(self.font, self.message, padding=0)

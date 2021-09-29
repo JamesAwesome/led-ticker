@@ -224,7 +224,7 @@ class CoinbasePriceMonitor:
 
         return yesterdays_price
 
-    def draw(self, canvas, cursor_pos=3, **kwargs):
+    def draw(self, canvas, cursor_pos=0, **kwargs):
         """draw this monitor to a canvas"""
         end_padding = self.padding
         change_str = f"{self.change_24h:.2f}%"
@@ -266,6 +266,7 @@ class CoinbasePriceMonitor:
         cursor_pos += end_padding
 
         logging.info(cursor_pos)
+
         return canvas, cursor_pos
 
 

@@ -57,7 +57,7 @@ async def main(coinbase_symbols, coingecko_symbols):
             monitors,
             led_frame,
             #title=TickerMessage('* Crypto Prices *')
-        ).run_forever_scroll()
+        ).run_swap()
 
 
 if __name__ == "__main__":

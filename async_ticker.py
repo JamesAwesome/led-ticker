@@ -41,7 +41,7 @@ class AsyncTicker:
         canvas = self.frame.get_clean_canvas()
 
         for monitor in monitor_generator:
-            pos = 3
+            pos = 0
             canvas, cursor_pos = monitor.draw(canvas, pos)
 
             # If the image is too big, display at the far left and scroll it

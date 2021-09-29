@@ -181,7 +181,7 @@ class CoinbasePriceMonitor:
         if splay:
             update_interval += randint(0, 120)
 
-        price_monitor = await cls(symbol, currency, session).update()
+        price_monitor = await cls(symbol, currency, session, center=center).update()
         asyncio.create_task(price_monitor.monitor(update_interval))
         return price_monitor
 

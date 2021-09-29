@@ -305,6 +305,8 @@ class CoinGeckoPriceMonitor:
     symbol_id = attr.ib(type=str)
     currency = attr.ib(type=str)
     session = attr.ib()
+    center = attr.ib(default=True)
+    padding = attr.ib(default=6)
     price_data = attr.ib(init=False)
 
     def __attrs_post_init__(self):
@@ -359,27 +361,45 @@ class CoinGeckoPriceMonitor:
 
     def draw(self, canvas, cursor_pos=3, **kwargs):
         """draw this monitor to a canvas"""
+        end_padding = self.padding
         change_str = self.price_data['change_24h']
         price_str = self.price_data['price']
 
         change_color = _get_change_color(change_str)
         font_price = _get_price_font(price_str)
 
+        change_width = sum([
+            _get_change_width(FONT_SYMBOL, self.symbol),
+            _get_change_width(font_price, price_str),
+            _get_change_width(FONT_CHANGE, change_str, padding=0),
+        ])
+
+        if self.center:
+            if change_width > canvas.width:
+                cursor_pos = cursor_pos
+
+            else:
+                center_pos = _find_center(canvas, change_width)
+                end_padding = canvas.width - (center_pos + change_width)
+                cursor_pos += center_pos
+
         # Draw the elements on the canvas
-        graphics.DrawText(
+        cursor_pos += graphics.DrawText(
             canvas, FONT_SYMBOL, cursor_pos, 12, DEFAULT_COLOR, self.symbol
         )
 
-        price_x = cursor_pos + _get_change_width(FONT_SYMBOL, self.symbol)
+        cursor_pos += self.padding
+        cursor_pos += graphics.DrawText(
+            canvas, font_price, cursor_pos, 12, DEFAULT_COLOR, price_str
+        )
 
-        graphics.DrawText(canvas, font_price, price_x, 12, DEFAULT_COLOR, price_str)
+        cursor_pos += self.padding
+        cursor_pos += graphics.DrawText(
+            canvas, FONT_CHANGE, cursor_pos, 12, change_color, change_str
+        )
 
-        change_x = price_x + _get_change_width(font_price, price_str)
-
-        graphics.DrawText(canvas, FONT_CHANGE, change_x, 12, change_color, change_str)
-
-        cursor_pos = change_x + _get_change_width(FONT_CHANGE, change_str)
-
+        cursor_pos += end_padding
+        logging.info(cursor_pos)
         return canvas, cursor_pos
 
 

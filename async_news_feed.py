@@ -80,7 +80,7 @@ class RSSFeedMonitor:
             feed_data = await response.text()
             feed = feedparser.parse(feed_data)
             self.feed_title = TickerMessage(feed['channel']['title'])
-            self.feed_stories = itertools.cycle([TickerMessage(item['title']) for item in feed['items']])
+            self.feed_stories = [TickerMessage(item['title']) for item in feed['items']]
 
         return self
 

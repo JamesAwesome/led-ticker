@@ -77,7 +77,7 @@ class RSSFeedMonitor:
         feed_monitor = await cls(session, feed_url=feed_url).update()
         asyncio.create_task(feed_monitor.monitor(update_interval))
 
-        return feed_moitor
+        return feed_monitor
 
     async def monitor(self, update_interval):
         """update self in a loop"""

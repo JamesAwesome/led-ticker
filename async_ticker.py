@@ -212,7 +212,7 @@ class AsyncRSSFeedTicker:
 
         buffered_monitors = []
         if self.display_title:
-            buffered_monitors.extend([self.feed.feed_title, self.buffer])
+            buffered_monitors.extend([self.buffer, self.feed.feed_title, self.buffer])
 
         buffered_monitors.append(next(monitor_generator))
 

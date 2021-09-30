@@ -58,7 +58,7 @@ class RSSFeedMonitor:
     session = attr.ib()
     feed_url = attr.ib()
     padding = attr.ib(default=6)
-    feed_colors = itertools.cycle([DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR])
+    colors = itertools.cycle([DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR])
     feed_title = attr.ib(init=False)
     feed_stories = attr.ib(init=False)
 

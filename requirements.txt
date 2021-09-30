@@ -3,3 +3,4 @@ Pillow
 asyncio
 aiohttp
 attrs
+feedparser

@@ -6,6 +6,7 @@ import asyncio
 import logging
 from random import randint
 
+import feedparser
 import aiohttp
 import attr
 

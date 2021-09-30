@@ -6,8 +6,13 @@ import itertools
 import logging
 
 import attr
+import graphics
 
 from async_widgets import TickerMessage
+
+DEFAULT_COLOR = graphics.Color(255, 255, 0)
+UP_TREND_COLOR = graphics.Color(46, 139, 87)
+DOWN_TREND_COLOR = graphics.Color(194, 24, 7)
 
 def _has_index(index, my_list):
     """check if a list has an index"""

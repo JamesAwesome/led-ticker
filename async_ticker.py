@@ -160,8 +160,9 @@ class AsyncRSSFeedTicker:
 
     feed = attr.ib(type=list)
     frame = attr.ib()
-    buffer = attr.ib(default=TickerMessage(' * ', center=False))
+    buffer_msg = attr.ib(default=TickerMessage(' * ', center=False))
     display_title = attr.ib(default=True)
+    title_delay = attr.ib(default=2)
 
     async def run_swap(self, loop_count=0):
         """Swap between all running monitors"""
@@ -204,7 +205,7 @@ class AsyncRSSFeedTicker:
         """Scroll all monitors in order forever"""
         logging.info("Running Forever Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
-        pos = canvas.width
+        pos = 0
 
         if loop_count:
             monitor_generator = itertools.chain(self.feed.feed_stories * loop_count)
@@ -213,9 +214,14 @@ class AsyncRSSFeedTicker:
 
         buffered_monitors = []
         if self.display_title:
-            buffered_monitors.extend([self.buffer, self.feed.feed_title, self.buffer])
+            buffered_monitors.append(self.feed.feed_title)
 
         buffered_monitors.append(next(monitor_generator))
+
+        if self.display_title and self.title_delay:
+            canvas, cursor_pos = buffered_monitors[mon_index].draw(canvas, cursor_pos=pos)
+            self.frame.matrix.SwapOnVSync(canvas)
+            await asyncio.sleep(self.title_delay)
 
         while True:
             canvas.Clear()
@@ -231,7 +237,7 @@ class AsyncRSSFeedTicker:
 
                 try:
                     if not _has_index(mon_index, buffered_monitors):
-                        buffered_monitors.append(self.buffer)
+                        buffered_monitors.append(self.buffer_msg)
                         buffered_monitors.append(next(monitor_generator))
 
                     canvas, cursor_pos = buffered_monitors[mon_index].draw(

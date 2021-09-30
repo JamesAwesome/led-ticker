@@ -12,6 +12,9 @@ import attr
 
 from rgbmatrix import graphics
 
+from async_widgets import TickerMessage
+
+
 FONT_SYMBOL = graphics.Font()
 FONT_SYMBOL.LoadFont("fonts/7x13.bdf")
 
@@ -55,18 +58,8 @@ class RSSFeedMonitor:
     session = attr.ib()
     feed_url = attr.ib()
     padding = attr.ib(default=6)
+    feed_title = attr.ib(init=False)
     feed_stories = attr.ib(init=False)
-
-    async def update(self):
-        """update price information"""
-        logging.info(f"Updating RSS Feed from: {self.feed_url}")
-
-        async with self.session.get(self.feed_url) as response:
-            feed_data = await response.text()
-            feed = feedparser.parse(feed_data)
-            self.feed_stories = itertools.cycle([item['title'] for item in feed['items']])
-
-        return self
 
     @classmethod
     async def start(cls, session, feed_url, update_interval=1800, splay=True):
@@ -79,19 +72,20 @@ class RSSFeedMonitor:
 
         return feed_monitor
 
+    async def update(self):
+        """update price information"""
+        logging.info(f"Updating RSS Feed from: {self.feed_url}")
+
+        async with self.session.get(self.feed_url) as response:
+            feed_data = await response.text()
+            feed = feedparser.parse(feed_data)
+            self.feed_title = feed['title']
+            self.feed_stories = itertools.cycle([TickerMessage(item['title']) for item in feed['items']])
+
+        return self
+
     async def monitor(self, update_interval):
         """update self in a loop"""
         while True:
             await asyncio.sleep(update_interval)
             await self.update()
-
-    def draw(self, canvas, cursor_pos=3):
-        """draw this monitor to a canvas"""
-
-        story = next(self.feed_stories)
-
-        cursor_pos += graphics.DrawText(
-            canvas, FONT_SYMBOL, cursor_pos, 12, DEFAULT_COLOR, story
-        )
-
-        return canvas, (cursor_pos + self.padding)

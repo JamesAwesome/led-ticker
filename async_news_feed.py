@@ -58,6 +58,7 @@ class RSSFeedMonitor:
     session = attr.ib()
     feed_url = attr.ib()
     padding = attr.ib(default=6)
+    feed_colors = itertools.cycle([DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR])
     feed_title = attr.ib(init=False)
     feed_stories = attr.ib(init=False)
 
@@ -79,8 +80,10 @@ class RSSFeedMonitor:
         async with self.session.get(self.feed_url) as response:
             feed_data = await response.text()
             feed = feedparser.parse(feed_data)
-            self.feed_title = TickerMessage(feed['channel']['title'])
-            self.feed_stories = list([TickerMessage(item['title']) for item in feed['items']])
+            self.feed_title = TickerMessage(feed['channel']['title'], font_color=next(self.colors))
+            self.feed_stories = list([
+                TickerMessage(item['title'], font_color=next(self.colors)) for item in feed['items']
+            ])
 
         return self
 

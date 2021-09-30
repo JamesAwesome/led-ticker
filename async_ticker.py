@@ -6,13 +6,9 @@ import itertools
 import logging
 
 import attr
-from rgbmatrix import graphics
 
 from async_widgets import TickerMessage
 
-DEFAULT_COLOR = graphics.Color(255, 255, 0)
-UP_TREND_COLOR = graphics.Color(46, 139, 87)
-DOWN_TREND_COLOR = graphics.Color(194, 24, 7)
 
 def _has_index(index, my_list):
     """check if a list has an index"""
@@ -165,7 +161,6 @@ class AsyncRSSFeedTicker:
     feed = attr.ib(type=list)
     frame = attr.ib()
     buffer = attr.ib(default=TickerMessage(' * ', center=False))
-    feed_colors = itertools.cycle([DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR])
     display_title = attr.ib(default=True)
 
     async def run_swap(self, loop_count=0):
@@ -183,9 +178,8 @@ class AsyncRSSFeedTicker:
         canvas = self.frame.get_clean_canvas()
 
         for monitor in monitor_generator:
-            color = next(self.feed_colors)
             pos = 0
-            canvas, cursor_pos = monitor.draw(canvas, pos, font_color=color)
+            canvas, cursor_pos = monitor.draw(canvas, pos)
 
             # If the image is too big, display at the far left and scroll it
             if cursor_pos > canvas.width:
@@ -194,7 +188,7 @@ class AsyncRSSFeedTicker:
 
             while cursor_pos > canvas.width:
                 canvas.Clear()
-                canvas, cursor_pos = monitor.draw(canvas, pos, font_color=color)
+                canvas, cursor_pos = monitor.draw(canvas, pos)
                 pos -= 1
                 await asyncio.sleep(0.05)
 
@@ -276,18 +270,16 @@ class AsyncRSSFeedTicker:
         else:
             monitor = next(monitor_generator)
 
-        color = next(self.feed_colors)
         while True:
             canvas.Clear()
 
-            canvas, final_pos = monitor.draw(canvas, cursor_pos=pos, font_color=color)
+            canvas, final_pos = monitor.draw(canvas, cursor_pos=pos)
             pos -= 1
 
             if final_pos < 0:
                 pos = canvas.width
                 try:
                     monitor = next(monitor_generator)
-                    color = next(self.feed_colors)
                 except StopIteration:
                     break
 

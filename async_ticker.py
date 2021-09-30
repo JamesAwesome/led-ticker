@@ -159,7 +159,7 @@ class AsyncRSSFeedTicker:
 
     feed = attr.ib(type=list)
     frame = attr.ib()
-    buffer = attr.ib(default=TickerMessage(' * '))
+    buffer = attr.ib(default=TickerMessage(' * ', center=False))
     display_title = attr.ib(default=True)
 
     async def run_swap(self, loop_count=0):
@@ -273,7 +273,6 @@ class AsyncRSSFeedTicker:
             canvas.Clear()
 
             canvas, final_pos = monitor.draw(canvas, cursor_pos=pos)
-            canvas, final_pos = self.buffer.draw(canvas, cursor_pos=pos)
             pos -= 1
 
             if final_pos < 0:

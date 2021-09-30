@@ -47,7 +47,7 @@ async def main(coinbase_symbols, coingecko_symbols):
         #gas_price_monitor = await EtherscanGasMonitor.start(
         #    session, api_key=os.getenv("ETHERSCAN_API_KEY")
         #)
-        feed_monitor = await RSSFeedMonitor.start('https://cointelegraph.com/editors_pick_rss')
+        feed_monitor = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/editors_pick_rss')
         #monitors.extend([
             #gas_price_monitor,
         monitors.append(feed_monitor)

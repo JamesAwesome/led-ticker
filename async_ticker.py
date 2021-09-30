@@ -162,7 +162,7 @@ class AsyncRSSFeedTicker:
     frame = attr.ib()
     buffer_msg = attr.ib(default=TickerMessage(' * ', center=False))
     display_title = attr.ib(default=True)
-    title_delay = attr.ib(default=2)
+    title_delay = attr.ib(default=3)
 
     async def run_swap(self, loop_count=0):
         """Swap between all running monitors"""

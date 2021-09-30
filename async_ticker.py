@@ -7,6 +7,7 @@ import logging
 
 import attr
 
+from async_widgets import TickerMessage
 
 def _has_index(index, my_list):
     """check if a list has an index"""
@@ -158,6 +159,7 @@ class AsyncRSSFeedTicker:
 
     feed = attr.ib(type=list)
     frame = attr.ib()
+    buffer = attr.ib(default=TickerMessage(' * '))
     display_title = attr.ib(default=True)
 
     async def run_swap(self, loop_count=0):
@@ -228,6 +230,7 @@ class AsyncRSSFeedTicker:
 
                 try:
                     if not _has_index(mon_index, buffered_monitors):
+                        buffered_monitors.append(self.buffer)
                         buffered_monitors.append(next(monitor_generator))
 
                     canvas, cursor_pos = buffered_monitors[mon_index].draw(
@@ -270,6 +273,7 @@ class AsyncRSSFeedTicker:
             canvas.Clear()
 
             canvas, final_pos = monitor.draw(canvas, cursor_pos=pos)
+            canvas, final_pos = self.buffer.draw(canvas, cursor_pos=pos)
             pos -= 1
 
             if final_pos < 0:

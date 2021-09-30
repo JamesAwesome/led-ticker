@@ -38,27 +38,36 @@ async def main(coinbase_symbols, coingecko_symbols):
     async with aiohttp.ClientSession() as session:
         monitors = []
 
-        #monitors.extend([
-        #    await CoinbasePriceMonitor.start(symbol, "USD", session) for symbol in coinbase_symbols
-        #])
-#
-        #monitors.extend(await start_coingecko_monitors(coingecko_symbols, 'USD', session))
-#
-        #gas_price_monitor = await EtherscanGasMonitor.start(
-        #    session, api_key=os.getenv("ETHERSCAN_API_KEY")
-        #)
+        monitors.extend([
+            await CoinbasePriceMonitor.start(symbol, "USD", session) for symbol in coinbase_symbols
+        ])
+
+        monitors.extend(await start_coingecko_monitors(coingecko_symbols, 'USD', session))
+
+        gas_price_monitor = await EtherscanGasMonitor.start(
+            session, api_key=os.getenv("ETHERSCAN_API_KEY")
+        )
+
+        monitors.extend([
+            gas_price_monitor,
+        ])
+
         feed_monitor = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/editors_pick_rss')
-        #monitors.extend([
-            #gas_price_monitor,
-        monitors.append(feed_monitor)
-        #])
 
-        await AsyncRSSFeedTicker(
-            feed_monitor,
-            led_frame,
-            #title=TickerMessage('* Crypto Prices *')
-        ).run_forever_scroll()
+        while True:
 
+            await AsyncRSSFeedTicker(
+                feed_monitor,
+                led_frame,
+                loop_count=1,
+            ).run_infini_scroll()
+
+            await AsyncTicker(
+                monitors,
+                led_frame,
+                title=TickerMessage('* Crypto Prices *'),
+                loop_count=2,
+            ).run_forever_scroll()
 
 if __name__ == "__main__":
     asyncio.run(

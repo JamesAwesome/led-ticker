@@ -6,7 +6,7 @@ import itertools
 import logging
 
 import attr
-import graphics
+from rgbmatrix import graphics
 
 from async_widgets import TickerMessage
 

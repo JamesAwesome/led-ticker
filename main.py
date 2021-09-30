@@ -50,7 +50,7 @@ async def main(coinbase_symbols, coingecko_symbols):
 
         #monitors.extend([
             #gas_price_monitor,
-            monitors.append(await RSSFeedMonitor.start('https://cointelegraph.com/editors_pick_rss')
+        monitors.append(await RSSFeedMonitor.start('https://cointelegraph.com/editors_pick_rss')
         #])
 
         await AsyncTicker(

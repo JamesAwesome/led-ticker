@@ -259,7 +259,7 @@ class AsyncRSSFeedTicker:
         pos = canvas.width
 
         if loop_count:
-            monitor_generator = itertools.chain(self.feed.feed_stories * loop_count)
+            monitor_generator = itertools.chain([self.feed.feed_stories] * loop_count)
         else:
             monitor_generator = itertools.cycle(self.feed.feed_stories)
 

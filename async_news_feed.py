@@ -61,7 +61,7 @@ class RSSFeedMonitor:
         logging.info(f"Updating RSS Feed from: {self.feed_url}")
 
         async with self.session.get(self.feed_url) as response:
-            feed_data = await response.body()
+            feed_data = await response.text()
             feed = feedparser.parse(feed_data)
             self.feed_stories = itertools.cycle([item['title'] for item in feed['items']])
 

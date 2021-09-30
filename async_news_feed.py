@@ -4,6 +4,7 @@
 import itertools
 import asyncio
 import logging
+from random import randint
 
 import aiohttp
 import attr

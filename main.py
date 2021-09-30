@@ -10,6 +10,7 @@ import logging
 import aiohttp
 
 from async_price_apis import CoinbasePriceMonitor, EtherscanGasMonitor, start_coingecko_monitors
+from async_news_feed import RSSFeedMonitor
 from async_ticker import AsyncTicker
 from async_widgets import TickerMessage
 from frame import LedFrame
@@ -37,19 +38,20 @@ async def main(coinbase_symbols, coingecko_symbols):
     async with aiohttp.ClientSession() as session:
         monitors = []
 
-        monitors.extend([
-            await CoinbasePriceMonitor.start(symbol, "USD", session) for symbol in coinbase_symbols
-        ])
+        #monitors.extend([
+        #    await CoinbasePriceMonitor.start(symbol, "USD", session) for symbol in coinbase_symbols
+        #])
+#
+        #monitors.extend(await start_coingecko_monitors(coingecko_symbols, 'USD', session))
+#
+        #gas_price_monitor = await EtherscanGasMonitor.start(
+        #    session, api_key=os.getenv("ETHERSCAN_API_KEY")
+        #)
 
-        monitors.extend(await start_coingecko_monitors(coingecko_symbols, 'USD', session))
-
-        gas_price_monitor = await EtherscanGasMonitor.start(
-            session, api_key=os.getenv("ETHERSCAN_API_KEY")
-        )
-
-        monitors.extend([
-            gas_price_monitor,
-        ])
+        #monitors.extend([
+            #gas_price_monitor,
+            monitors.append(await RSSFeedMonitor.start('https://cointelegraph.com/editors_pick_rss')
+        #])
 
         await AsyncTicker(
             monitors,

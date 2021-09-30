@@ -160,6 +160,7 @@ class AsyncRSSFeedTicker:
     feed = attr.ib(type=list)
     frame = attr.ib()
     buffer = attr.ib(default=TickerMessage(' * ', center=False))
+    feed_colors = itertools.cycle([DOWN_TREND_COLOR, UP_TREND_COLOR, DEFAULT_COLOR])
     display_title = attr.ib(default=True)
 
     async def run_swap(self, loop_count=0):
@@ -177,8 +178,9 @@ class AsyncRSSFeedTicker:
         canvas = self.frame.get_clean_canvas()
 
         for monitor in monitor_generator:
+            color = next(self.feed_colors)
             pos = 0
-            canvas, cursor_pos = monitor.draw(canvas, pos)
+            canvas, cursor_pos = monitor.draw(canvas, pos, font_color=color)
 
             # If the image is too big, display at the far left and scroll it
             if cursor_pos > canvas.width:
@@ -187,7 +189,7 @@ class AsyncRSSFeedTicker:
 
             while cursor_pos > canvas.width:
                 canvas.Clear()
-                canvas, cursor_pos = monitor.draw(canvas, pos)
+                canvas, cursor_pos = monitor.draw(canvas, pos, font_color=color)
                 pos -= 1
                 await asyncio.sleep(0.05)
 
@@ -269,16 +271,18 @@ class AsyncRSSFeedTicker:
         else:
             monitor = next(monitor_generator)
 
+        color = next(self.feed_colors)
         while True:
             canvas.Clear()
 
-            canvas, final_pos = monitor.draw(canvas, cursor_pos=pos)
+            canvas, final_pos = monitor.draw(canvas, cursor_pos=pos, font_color=color)
             pos -= 1
 
             if final_pos < 0:
                 pos = canvas.width
                 try:
                     monitor = next(monitor_generator)
+                    color = next(self.feed_colors)
                 except StopIteration:
                     break
 

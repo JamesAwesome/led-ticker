@@ -172,7 +172,7 @@ class AsyncRSSFeedTicker:
             monitor_generator = itertools.cycle(self.feed.feed_stories)
 
         if self.display_title:
-            monitor_generator = itertools.chain([self.feed.feed_title], monitor_generator)
+            monitor_generator = itertools.chain([self.feed.feed_title, self.buffer], monitor_generator)
 
         canvas = self.frame.get_clean_canvas()
 

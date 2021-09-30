@@ -165,7 +165,7 @@ class AsyncRSSFeedTicker:
     feed = attr.ib(type=list)
     frame = attr.ib()
     buffer = attr.ib(default=TickerMessage(' * ', center=False))
-    feed_colors = itertools.cycle([DOWN_TREND_COLOR, UP_TREND_COLOR, DEFAULT_COLOR])
+    feed_colors = itertools.cycle([DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR])
     display_title = attr.ib(default=True)
 
     async def run_swap(self, loop_count=0):

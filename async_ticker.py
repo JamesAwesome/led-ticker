@@ -219,7 +219,7 @@ class AsyncRSSFeedTicker:
         buffered_monitors.append(next(monitor_generator))
 
         if self.display_title and self.title_delay:
-            canvas, cursor_pos = buffered_monitors[mon_index].draw(canvas, cursor_pos=pos)
+            canvas, cursor_pos = self.feed.feed_title.draw(canvas, cursor_pos=pos)
             self.frame.matrix.SwapOnVSync(canvas)
             await asyncio.sleep(self.title_delay)
 

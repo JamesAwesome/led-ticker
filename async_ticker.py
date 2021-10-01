@@ -36,39 +36,16 @@ class AsyncTicker:
     async def run_swap(self, loop_count=0):
         """Swap between all running monitors"""
         logging.info("Running Swap with loop count %s...", loop_count)
-
-        if loop_count:
-            monitor_generator = itertools.chain(self.monitors * loop_count)
-        else:
-            monitor_generator = itertools.cycle(self.monitors)
-
-        if self.title:
-            monitor_generator = itertools.chain([self.title], monitor_generator)
-
         canvas = self.frame.get_clean_canvas()
+        title = self.title if self.title else None
 
-        for monitor in monitor_generator:
-            pos = 0
-            canvas, cursor_pos = monitor.draw(canvas, pos)
+        ticker_objects = _chain_ticker_objects(
+            self.monitors,
+            title=title,
+            loop_count=loop_count,
+        )
 
-            # If the image is too big, display at the far left and scroll it
-            if cursor_pos > canvas.width:
-                self.frame.matrix.SwapOnVSync(canvas)
-                await asyncio.sleep(2)
-
-            while cursor_pos > canvas.width:
-                canvas.Clear()
-                canvas, cursor_pos = monitor.draw(canvas, pos)
-                pos -= 1
-                await asyncio.sleep(0.05)
-
-                self.frame.matrix.SwapOnVSync(canvas)
-
-            self.frame.matrix.SwapOnVSync(canvas)
-            await asyncio.sleep(5)
-            canvas.Clear()
-
-        self.frame.matrix.SwapOnVSync(canvas)
+        await _run_swap(canvas, self.frame, ticker_objects, delay=self.title_delay)
 
     async def run_forever_scroll(self, loop_count=0, start_pos=None):
         """Scroll all monitors in order forever"""

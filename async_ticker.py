@@ -198,7 +198,7 @@ class AsyncRSSFeedTicker:
             buffer_message=self.buffer_msg,
         )
 
-    async def run_infini_scroll(self, loop_count=0):
+    async def run_infini_scroll(self, loop_count=0, start_pos=None):
         """Scroll monitors forever one by one"""
         logging.info("Running Infini Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
@@ -210,7 +210,12 @@ class AsyncRSSFeedTicker:
             loop_count=loop_count,
         )
 
-        await _sroll_one_by_one(canvas, self.frame, ticker_objects, delay=self.title_delay)
+        cursor_pos = 0 if start_pos is not None else canvas.width
+
+        await _sroll_one_by_one(
+            canvas, self.frame, ticker_objects,
+            cursor_pos=cursor_pos, delay=self.title_delay
+        )
 
 
 def _chain_ticker_objects(ticker_objects, title=None, loop_count=0):

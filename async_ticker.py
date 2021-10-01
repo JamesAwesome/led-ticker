@@ -283,7 +283,7 @@ async def _sroll_one_by_one(canvas, frame, ticker_objects, cursor_pos=0, scroll_
     while True:
         canvas.Clear()
 
-        canvas, final_pos = monitor.draw(canvas, cursor_pos=pos)
+        canvas, final_pos = ticker_object.draw(canvas, cursor_pos=pos)
         pos -= 1
 
         if final_pos < 0:

@@ -36,8 +36,7 @@ class AsyncTicker:
     @classmethod
     def from_rss_feed(cls, feed_monitor, frame, custom_title=None,
         title_delay=4, buffer_msg=DEFAULT_BUFFER_MSG):
-        title = feed_monitor.feed_title if display_title else None
-        title = custom_title if custom_title else title
+        title = custom_title if custom_title else feed_monitor.feed_title
 
         return cls(
              feed_monitor.feed_stories,

@@ -240,6 +240,7 @@ class AsyncRSSFeedTicker:
                     next_monitor = next(monitor_generator)
 
                     if not _has_index(mon_index, buffered_monitors):
+                        logging.info('adding monitor')
                         buffered_monitors.append(self.buffer_msg)
                         buffered_monitors.append(next_monitor)
 

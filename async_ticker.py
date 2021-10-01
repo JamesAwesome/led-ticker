@@ -196,7 +196,7 @@ class AsyncRSSFeedTicker:
             canvas, self.frame, ticker_objects,
             delay=self.title_delay,
             buffer_message=self.buffer_msg,
-            start_pos=cursor_pos,
+            cursor_pos=cursor_pos,
         )
 
     async def run_infini_scroll(self, loop_count=0, start_pos=None):

@@ -52,14 +52,14 @@ async def main(coinbase_symbols, coingecko_symbols):
             gas_price_monitor,
         ])
 
-        feed_monitor = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/editors_pick_rss')
+        feed_monitor = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/editors_pick_rss', update_interval=30)
 
         while True:
 
             await AsyncRSSFeedTicker(
                 feed_monitor,
                 led_frame,
-            ).run_forever_scroll(update_interval=30, loop_count=1)
+            ).run_forever_scroll(loop_count=1)
 
             await AsyncTicker(
                 monitors,

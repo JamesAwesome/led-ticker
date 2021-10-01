@@ -246,6 +246,7 @@ async def _sroll_one_by_one(canvas, frame, ticker_objects, delay=0, cursor_pos=0
             frame.matrix.SwapOnVSync(canvas)
             await asyncio.sleep(scroll_speed)
 
+        logging.info('delay by %s', delay)
         await asyncio.sleep(delay)
 
     while True:

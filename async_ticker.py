@@ -210,7 +210,7 @@ class AsyncRSSFeedTicker:
             loop_count=loop_count,
         )
 
-        await _sroll_one_by_one(canvas, self.frame, ticker_objects)
+        await _sroll_one_by_one(canvas, self.frame, ticker_objects, delay=self.title_delay)
 
 
 def _chain_ticker_objects(ticker_objects, title=None, loop_count=0):

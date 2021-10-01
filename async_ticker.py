@@ -102,7 +102,12 @@ class AsyncTicker:
             loop_count=loop_count,
         )
 
-        await _sroll_one_by_one(canvas, self.frame, ticker_objects)
+        cursor_pos = 0 if start_pos is not None else canvas.width
+
+        await _sroll_one_by_one(
+            canvas, self.frame, ticker_objects,
+            cursor_pos=cursor_pos, delay=self.title_delay
+        )
 
 
 @attr.s

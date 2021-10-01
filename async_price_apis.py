@@ -332,7 +332,7 @@ class CoinGeckoPriceMonitor:
 
     async def update(self):
         """Fetch new price data from the CoinGecko API"""
-        logging.info("Updating monitor for %s via CoinBase", self.symbol)
+        logging.info("Updating monitor for %s via CoinGecko", self.symbol)
 
         params = {
             'ids': [self.symbol_id],

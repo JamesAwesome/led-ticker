@@ -31,6 +31,7 @@ class AsyncTicker:
     frame = attr.ib()
     title = attr.ib(default=None)
     title_delay = attr.ib(default=4)
+    buffer_msg = attr.ib(default=TickerMessage(' * ', center=False, font_color=RGB_WHITE))
 
     async def run_swap(self, loop_count=0):
         """Swap between all running monitors"""
@@ -123,39 +124,17 @@ class AsyncRSSFeedTicker:
     async def run_swap(self, loop_count=0):
         """Swap between all running monitors"""
         logging.info("Running Swap with loop count %s...", loop_count)
-
-        if loop_count:
-            monitor_generator = itertools.chain(self.feed.feed_stories * loop_count)
-        else:
-            monitor_generator = itertools.cycle(self.feed.feed_stories)
-
-        if self.display_title:
-            monitor_generator = itertools.chain([self.feed.feed_title], monitor_generator)
-
         canvas = self.frame.get_clean_canvas()
+        title = self.feed.feed_title if self.display_title else None
+        cursor_pos = 0 if start_pos is not None else canvas.width
 
-        for monitor in monitor_generator:
-            pos = 0
-            canvas, cursor_pos = monitor.draw(canvas, pos)
+        ticker_objects = _chain_ticker_objects(
+            self.feed.feed_stories,
+            title=title,
+            loop_count=loop_count,
+        )
 
-            # If the image is too big, display at the far left and scroll it
-            if cursor_pos > canvas.width:
-                self.frame.matrix.SwapOnVSync(canvas)
-                await asyncio.sleep(2)
-
-            while cursor_pos > canvas.width:
-                canvas.Clear()
-                canvas, cursor_pos = monitor.draw(canvas, pos)
-                pos -= 1
-                await asyncio.sleep(0.05)
-
-                self.frame.matrix.SwapOnVSync(canvas)
-
-            self.frame.matrix.SwapOnVSync(canvas)
-            await asyncio.sleep(5)
-            canvas.Clear()
-
-        self.frame.matrix.SwapOnVSync(canvas)
+        await _run_swap(canvas, frame, ticker_objects, delay=0)
 
     async def run_forever_scroll(self, loop_count=0, start_pos=None):
         """Scroll all monitors in order forever"""
@@ -212,7 +191,6 @@ def _chain_ticker_objects(ticker_objects, title=None, loop_count=0):
 async def _sroll_one_by_one(canvas, frame, ticker_objects, delay=0, cursor_pos=0, scroll_speed=0.05):
     ticker_object = next(ticker_objects)
     pos = cursor_pos
-    logging.info('title delay %s', delay)
 
     if delay:
         canvas.Clear()
@@ -306,3 +284,40 @@ async def _scroll_side_by_side(canvas, frame, ticker_objects, buffer_message=Non
             if not len(buffered_objects):
                 # We have run out of monitors
                 return True
+
+
+async def _run_swap(canvas, frame, ticker_objects, delay=0):
+        """Run Swap"""
+        pos = 0
+
+        if delay:
+            ticker_object = next(ticker_objects)
+            canvas.Clear()
+            canvas, cursor_pos = ticker_object.draw(canvas, cursor_pos=pos)
+            frame.matrix.SwapOnVSync(canvas)
+
+        await asyncio.sleep(delay)
+
+        for monitor in monitor_generator:
+            canvas.Clear()
+            pos = 0
+            canvas, cursor_pos = ticker_object.draw(canvas, pos)
+
+            # If the image is too big, display at the far left and scroll it
+            if cursor_pos > canvas.width:
+                frame.matrix.SwapOnVSync(canvas)
+                await asyncio.sleep(2)
+
+            while cursor_pos > canvas.width:
+                canvas.Clear()
+                canvas, cursor_pos = ticker_object.draw(canvas, pos)
+                pos -= 1
+                await asyncio.sleep(0.05)
+
+                frame.matrix.SwapOnVSync(canvas)
+
+            frame.matrix.SwapOnVSync(canvas)
+            await asyncio.sleep(5)
+
+        canvas.Clear()
+        frame.matrix.SwapOnVSync(canvas)

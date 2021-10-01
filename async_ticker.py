@@ -126,7 +126,6 @@ class AsyncRSSFeedTicker:
         logging.info("Running Swap with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
         title = self.feed.feed_title if self.display_title else None
-        cursor_pos = 0 if start_pos is not None else canvas.width
 
         ticker_objects = _chain_ticker_objects(
             self.feed.feed_stories,

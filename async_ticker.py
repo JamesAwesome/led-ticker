@@ -133,7 +133,7 @@ class AsyncRSSFeedTicker:
             loop_count=loop_count,
         )
 
-        await _run_swap(canvas, frame, ticker_objects, delay=0)
+        await _run_swap(canvas, self.frame, ticker_objects, delay=self.title_delay)
 
     async def run_forever_scroll(self, loop_count=0, start_pos=None):
         """Scroll all monitors in order forever"""

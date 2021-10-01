@@ -225,9 +225,17 @@ def _chain_ticker_objects(ticker_objects, title=None, loop_count=0):
     return ticker_objects
 
 
-async def _sroll_one_by_one(canvas, frame, ticker_objects, cursor_pos=0, scroll_speed=0.05):
+async def _sroll_one_by_one(canvas, frame, ticker_objects, delay=0, cursor_pos=0, scroll_speed=0.05):
     ticker_object = next(ticker_objects)
     pos = cursor_pos
+
+    if delay:
+        while cursor_pos < 0:
+            canvas, cursor_pos = ticker_object.draw(canvas, cursor_pos=pos)
+            pos -= 1
+
+            frame.matrix.SwapOnVSync(canvas)
+            await asyncio.sleep(delay)
 
     while True:
         canvas.Clear()

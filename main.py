@@ -59,7 +59,7 @@ async def main(coinbase_symbols, coingecko_symbols):
             await AsyncRSSFeedTicker(
                 feed_monitor,
                 led_frame,
-            ).run_forever_scroll(loop_count=1)
+            )._sroll_one_by_one(loop_count=1)
 
             await AsyncTicker(
                 monitors,

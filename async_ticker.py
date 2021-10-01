@@ -8,6 +8,7 @@ import logging
 import attr
 
 from async_widgets import TickerMessage
+from rgbmatrix import graphics
 
 RGB_WHITE = graphics.Color(255, 255, 255)
 

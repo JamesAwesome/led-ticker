@@ -57,17 +57,18 @@ async def main(coinbase_symbols, coingecko_symbols):
         while True:
 
             await AsyncTicker(
+                monitors,
+                led_frame,
+                title=TickerMessage('Cryptocurrency/USD'),
+                title_delay=5
+            ).run_forever_scroll(loop_count=3)
+
+            await AsyncTicker(
                 feed_monitor.feed_stories,
                 led_frame,
                 title=feed_monitor.feed_title,
                 title_delay=5,
             ).run_forever_scroll(loop_count=1)
-
-            await AsyncTicker(
-                monitors,
-                led_frame,
-                title=TickerMessage('Cryptocurrency/USD'),
-            ).run_forever_scroll(loop_count=3)
 
 
 if __name__ == "__main__":

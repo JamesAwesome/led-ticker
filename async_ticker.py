@@ -262,34 +262,39 @@ class AsyncRSSFeedTicker:
         """Scroll monitors forever one by one"""
         logging.info("Running Infini Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
-        pos = canvas.width
 
         if loop_count:
-            monitor_generator = itertools.chain(self.feed.feed_stories * loop_count)
+            ticker_objects = itertools.chain(self.feed.feed_stories * loop_count)
         else:
-            monitor_generator = itertools.cycle(self.feed.feed_stories)
+            ticker_objects = itertools.cycle(self.feed.feed_stories)
 
         if self.display_title:
-            monitor = self.feed.feed_title
+            ticker_objects = itertools.chain(self.feed.feed_title, ticker_objects)
 
-        else:
-            monitor = next(monitor_generator)
+        await _sroll_one_by_one(canvas, frame, ticker_objects)
 
-        while True:
-            canvas.Clear()
 
-            canvas, final_pos = monitor.draw(canvas, cursor_pos=pos)
-            pos -= 1
+async def _sroll_one_by_one(canvas, frame, ticker_objects, cursor_pos=0, scroll_speed=0.05):
+    ticker_object = next(ticker_objects)
 
-            if final_pos < 0:
-                pos = canvas.width
-                try:
-                    monitor = next(monitor_generator)
-                except StopIteration:
-                    break
+    if cursor_pos:
+        pos = cursor_pos
 
-            await asyncio.sleep(0.05)
-            self.frame.matrix.SwapOnVSync(canvas)
-
+    while True:
         canvas.Clear()
-        self.frame.matrix.SwapOnVSync(canvas)
+
+        canvas, final_pos = monitor.draw(canvas, cursor_pos=pos)
+        pos -= 1
+
+        if final_pos < 0:
+            pos = canvas.width
+            try:
+                ticker_object = next(ticker_objects)
+            except StopIteration:
+                break
+
+        await asyncio.sleep(scroll_speed)
+        frame.matrix.SwapOnVSync(canvas)
+
+    canvas.Clear()
+    frame.matrix.SwapOnVSync(canvas)

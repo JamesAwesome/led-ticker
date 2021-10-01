@@ -34,7 +34,7 @@ class AsyncTicker:
     buffer_msg = attr.ib(default=DEFAULT_BUFFER_MSG)
 
     @classmethod
-    async def from_rss_feed(cls, feed_monitor, frame, display_title=True, title_delay=4, buffer_msg=DEFAULT_BUFFER_MSG):
+    def from_rss_feed(cls, feed_monitor, frame, display_title=True, title_delay=4, buffer_msg=DEFAULT_BUFFER_MSG):
         title = feed_monitor.feed_title if display_title else None
 
         return cls(

@@ -69,8 +69,7 @@ class AsyncTicker:
 
         self.frame.matrix.SwapOnVSync(canvas)
 
-    async def
-    (self, loop_count=0, start_pos=None):
+    async def run_forever_scroll(self, loop_count=0, start_pos=None):
         """Scroll all monitors in order forever"""
         logging.info("Running Forever Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()

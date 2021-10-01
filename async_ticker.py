@@ -228,6 +228,7 @@ class AsyncRSSFeedTicker:
 
             mon_index = 0
             canvas, cursor_pos = buffered_monitors[mon_index].draw(canvas, cursor_pos=pos)
+            logging.info(buffered_monitors[mon_index].message)
             mon_0_end_pos = cursor_pos
 
             pos -= 1

@@ -3,6 +3,7 @@
 """
 import os
 import sys
+import itertools
 
 import asyncio
 import logging

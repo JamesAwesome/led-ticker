@@ -239,8 +239,7 @@ class AsyncRSSFeedTicker:
                 try:
                     if not _has_index(mon_index, buffered_monitors):
                         logging.info('adding monitor')
-                        buffered_monitors.append(self.buffer_msg)
-                        buffered_monitors.append(next(monitor_generator))
+                        buffered_monitors.extend([self.buffer_msg, next(monitor_generator)])
 
                     canvas, cursor_pos = buffered_monitors[mon_index].draw(
                         canvas, cursor_pos=cursor_pos
@@ -248,6 +247,7 @@ class AsyncRSSFeedTicker:
 
                 except StopIteration:
                     # We have run out of monitors
+                    logging.info('!!! stop iteration !!!')
                     break
 
             if mon_0_end_pos < 0:

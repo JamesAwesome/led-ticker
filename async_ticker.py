@@ -262,6 +262,9 @@ class AsyncRSSFeedTicker:
         """Scroll monitors forever one by one"""
         logging.info("Running Infini Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
+        title = self.feed.feed_title if self.display_title else None
+
+
 
         ticker_objects = _chain_ticker_objects(
             self.feed.feed_stories,
@@ -278,7 +281,7 @@ def _chain_ticker_objects(ticker_objects, title=None, loop_count=0):
     else:
         ticker_objects = itertools.cycle(ticker_objects)
 
-    if self.display_title:
+    if title:
         ticker_objects = itertools.chain([title], ticker_objects)
 
     return ticker_objects

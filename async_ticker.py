@@ -297,7 +297,7 @@ async def _run_swap(canvas, frame, ticker_objects, delay=0):
 
         await asyncio.sleep(delay)
 
-        for monitor in monitor_generator:
+        for ticker_object in ticker_objects:
             canvas.Clear()
             pos = 0
             canvas, cursor_pos = ticker_object.draw(canvas, pos)

@@ -233,12 +233,13 @@ def _chain_ticker_objects(ticker_objects, title=None, loop_count=0):
 async def _sroll_one_by_one(canvas, frame, ticker_objects, delay=0, cursor_pos=0, scroll_speed=0.05):
     ticker_object = next(ticker_objects)
     pos = cursor_pos
+    logging.info('title delay %s', delay)
 
     if delay:
         canvas.Clear()
         canvas, cursor_pos = ticker_object.draw(canvas, cursor_pos=pos)
 
-        while cursor_pos > 0:
+        while pos > 0:
             canvas.Clear()
             canvas, cursor_pos = ticker_object.draw(canvas, cursor_pos=pos)
             pos -= 1

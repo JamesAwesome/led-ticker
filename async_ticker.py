@@ -30,6 +30,7 @@ class AsyncTicker:
     monitors = attr.ib(type=list)
     frame = attr.ib()
     title = attr.ib(default=None)
+    title_delay = attr.ib(default=4)
 
     async def run_swap(self, loop_count=0):
         """Swap between all running monitors"""
@@ -68,7 +69,8 @@ class AsyncTicker:
 
         self.frame.matrix.SwapOnVSync(canvas)
 
-    async def run_forever_scroll(self, loop_count=0, start_pos=None):
+    async def
+    (self, loop_count=0, start_pos=None):
         """Scroll all monitors in order forever"""
         logging.info("Running Forever Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()

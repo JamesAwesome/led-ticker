@@ -264,11 +264,9 @@ class AsyncRSSFeedTicker:
         canvas = self.frame.get_clean_canvas()
         title = self.feed.feed_title if self.display_title else None
 
-
-
         ticker_objects = _chain_ticker_objects(
             self.feed.feed_stories,
-            title=self.feed.feed_title,
+            title=title,
             loop_count=loop_count,
         )
 

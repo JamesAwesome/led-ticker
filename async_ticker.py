@@ -183,58 +183,20 @@ class AsyncRSSFeedTicker:
         """Scroll all monitors in order forever"""
         logging.info("Running Forever Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
+        title = self.feed.feed_title if self.display_title else None
         pos = 0
 
-        if loop_count:
-            monitor_generator = itertools.chain(self.feed.feed_stories * loop_count)
-        else:
-            monitor_generator = itertools.cycle(self.feed.feed_stories)
+        ticker_objects = _chain_ticker_objects(
+            self.feed.feed_stories,
+            title=title,
+            loop_count=loop_count,
+        )
 
-        buffered_monitors = []
-        if self.display_title:
-            buffered_monitors.append(self.feed.feed_title)
-
-        buffered_monitors.append(next(monitor_generator))
-
-        if self.display_title and self.title_delay:
-            canvas, cursor_pos = self.feed.feed_title.draw(canvas, cursor_pos=pos)
-            self.frame.matrix.SwapOnVSync(canvas)
-            await asyncio.sleep(self.title_delay)
-
-        while True:
-            canvas.Clear()
-
-            mon_index = 0
-            canvas, cursor_pos = buffered_monitors[mon_index].draw(canvas, cursor_pos=pos)
-            mon_0_end_pos = cursor_pos
-
-            pos -= 1
-
-            while cursor_pos < canvas.width:
-                mon_index += 1
-
-                try:
-                    if not _has_index(mon_index, buffered_monitors):
-                        buffered_monitors.extend([self.buffer_msg, next(monitor_generator)])
-
-                    canvas, cursor_pos = buffered_monitors[mon_index].draw(
-                        canvas, cursor_pos=cursor_pos
-                    )
-
-                except StopIteration:
-                    # We have run out of monitors
-                    break
-
-            if mon_0_end_pos < 0:
-                buffered_monitors.pop(0)
-                pos = mon_0_end_pos - 1
-
-            await asyncio.sleep(0.05)
-            self.frame.matrix.SwapOnVSync(canvas)
-
-            if not len(buffered_monitors):
-                # We have run out of monitors
-                return True
+        await _scroll_side_by_side(
+            canvas, self.frame, ticker_objects,
+            delay=self.title_delay,
+            buffer_message=self.buffer_msg,
+        )
 
     async def run_infini_scroll(self, loop_count=0):
         """Scroll monitors forever one by one"""
@@ -264,11 +226,8 @@ def _chain_ticker_objects(ticker_objects, title=None, loop_count=0):
 
 
 async def _sroll_one_by_one(canvas, frame, ticker_objects, cursor_pos=0, scroll_speed=0.05):
-    pos = 0
     ticker_object = next(ticker_objects)
-
-    if cursor_pos:
-        pos = cursor_pos
+    pos = cursor_pos
 
     while True:
         canvas.Clear()
@@ -288,3 +247,55 @@ async def _sroll_one_by_one(canvas, frame, ticker_objects, cursor_pos=0, scroll_
 
     canvas.Clear()
     frame.matrix.SwapOnVSync(canvas)
+
+
+async def _scroll_side_by_side(canvas, frame, ticker_objects, buffer_message=None, delay=0, cursor_pos=0, scroll_speed=0.05):
+
+        buffered_objects = []
+        buffered_objects.append(next(ticker_objects))
+        pos = cursor_pos
+
+        if delay:
+            canvas, cursor_pos = buffered_objects[0].draw(canvas, cursor_pos=pos)
+            frame.matrix.SwapOnVSync(canvas)
+            await asyncio.sleep(delay)
+
+        while True:
+            canvas.Clear()
+
+            mon_index = 0
+            canvas, cursor_pos = buffered_monitors[mon_index].draw(canvas, cursor_pos=pos)
+            mon_0_end_pos = cursor_pos
+
+            pos -= 1
+
+            while cursor_pos < canvas.width:
+                mon_index += 1
+
+                try:
+                    if not _has_index(mon_index, buffered_monitors):
+                        next_monitor = next(monitor_generator)
+
+                        if buffer_message:
+                            buffered_monitors.append(buffer_message)
+
+                        buffered_monitors.append(next_monitor)
+
+                    canvas, cursor_pos = buffered_monitors[mon_index].draw(
+                        canvas, cursor_pos=cursor_pos
+                    )
+
+                except StopIteration:
+                    # We have run out of monitors
+                    break
+
+            if mon_0_end_pos < 0:
+                buffered_monitors.pop(0)
+                pos = mon_0_end_pos - 1
+
+            await asyncio.sleep(0.05)
+            frame.matrix.SwapOnVSync(canvas)
+
+            if not len(buffered_monitors):
+                # We have run out of monitors
+                return True

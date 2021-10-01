@@ -179,12 +179,13 @@ class AsyncRSSFeedTicker:
 
         self.frame.matrix.SwapOnVSync(canvas)
 
-    async def run_forever_scroll(self, loop_count=0):
+    async def run_forever_scroll(self, loop_count=0, start_pos=None):
         """Scroll all monitors in order forever"""
         logging.info("Running Forever Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
         title = self.feed.feed_title if self.display_title else None
-        pos = 0
+        cursor_pos = 0 if start_pos is not None else canvas.width
+
 
         ticker_objects = _chain_ticker_objects(
             self.feed.feed_stories,

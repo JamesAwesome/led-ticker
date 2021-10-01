@@ -264,7 +264,7 @@ async def _scroll_side_by_side(canvas, frame, ticker_objects, buffer_message=Non
             canvas.Clear()
 
             mon_index = 0
-            canvas, cursor_pos = buffered_monitors[mon_index].draw(canvas, cursor_pos=pos)
+            canvas, cursor_pos = buffered_objects[mon_index].draw(canvas, cursor_pos=pos)
             mon_0_end_pos = cursor_pos
 
             pos -= 1
@@ -273,15 +273,15 @@ async def _scroll_side_by_side(canvas, frame, ticker_objects, buffer_message=Non
                 mon_index += 1
 
                 try:
-                    if not _has_index(mon_index, buffered_monitors):
+                    if not _has_index(mon_index, buffered_objects):
                         next_monitor = next(monitor_generator)
 
                         if buffer_message:
-                            buffered_monitors.append(buffer_message)
+                            buffered_objects.append(buffer_message)
 
-                        buffered_monitors.append(next_monitor)
+                        buffered_objects.append(next_monitor)
 
-                    canvas, cursor_pos = buffered_monitors[mon_index].draw(
+                    canvas, cursor_pos = buffered_objects[mon_index].draw(
                         canvas, cursor_pos=cursor_pos
                     )
 
@@ -290,12 +290,12 @@ async def _scroll_side_by_side(canvas, frame, ticker_objects, buffer_message=Non
                     break
 
             if mon_0_end_pos < 0:
-                buffered_monitors.pop(0)
+                buffered_objects.pop(0)
                 pos = mon_0_end_pos - 1
 
             await asyncio.sleep(0.05)
             frame.matrix.SwapOnVSync(canvas)
 
-            if not len(buffered_monitors):
+            if not len(buffered_objects):
                 # We have run out of monitors
                 return True

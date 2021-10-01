@@ -263,15 +263,25 @@ class AsyncRSSFeedTicker:
         logging.info("Running Infini Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
 
-        if loop_count:
-            ticker_objects = itertools.chain(self.feed.feed_stories * loop_count)
-        else:
-            ticker_objects = itertools.cycle(self.feed.feed_stories)
-
-        if self.display_title:
-            ticker_objects = itertools.chain([self.feed.feed_title], ticker_objects)
+        ticker_objects = _chain_ticker_objects(
+            self.feed.feed_stories,
+            title=self.feed.feed_title,
+            loop_count=loop_count,
+        )
 
         await _sroll_one_by_one(canvas, self.frame, ticker_objects)
+
+
+def _chain_ticker_objects(ticker_objects, title=None, loop_count=0):
+    if loop_count:
+        ticker_objects = itertools.chain(ticker_objects * loop_count)
+    else:
+        ticker_objects = itertools.cycle(ticker_objects)
+
+    if self.display_title:
+        ticker_objects = itertools.chain([title], ticker_objects)
+
+    return ticker_objects
 
 
 async def _sroll_one_by_one(canvas, frame, ticker_objects, cursor_pos=0, scroll_speed=0.05):

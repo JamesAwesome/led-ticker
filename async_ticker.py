@@ -274,7 +274,7 @@ async def _scroll_side_by_side(canvas, frame, ticker_objects, buffer_message=Non
 
                 try:
                     if not _has_index(mon_index, buffered_objects):
-                        next_monitor = next(monitor_generator)
+                        next_monitor = next(ticker_objects)
 
                         if buffer_message:
                             buffered_objects.append(buffer_message)

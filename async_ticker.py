@@ -231,11 +231,14 @@ async def _sroll_one_by_one(canvas, frame, ticker_objects, delay=0, cursor_pos=0
 
     if delay:
         while cursor_pos < 0:
+            canvas.Clear()
             canvas, cursor_pos = ticker_object.draw(canvas, cursor_pos=pos)
             pos -= 1
 
             frame.matrix.SwapOnVSync(canvas)
-            await asyncio.sleep(delay)
+            await asyncio.sleep(scroll_speed)
+
+        await asyncio.sleep(delay)
 
     while True:
         canvas.Clear()

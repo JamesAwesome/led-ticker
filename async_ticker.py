@@ -269,7 +269,7 @@ class AsyncRSSFeedTicker:
             ticker_objects = itertools.cycle(self.feed.feed_stories)
 
         if self.display_title:
-            ticker_objects = itertools.chain(iter(self.feed.feed_title), ticker_objects)
+            ticker_objects = itertools.chain([self.feed.feed_title], ticker_objects)
 
         await _sroll_one_by_one(canvas, self.frame, ticker_objects)
 

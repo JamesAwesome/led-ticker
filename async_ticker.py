@@ -238,7 +238,6 @@ class AsyncRSSFeedTicker:
 
                 try:
                     if not _has_index(mon_index, buffered_monitors):
-                        buffered_monitors.append(self.buffer_msg)
                         buffered_monitors.append(next(monitor_generator))
 
                     canvas, cursor_pos = buffered_monitors[mon_index].draw(

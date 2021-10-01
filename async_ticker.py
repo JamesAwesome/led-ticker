@@ -121,37 +121,15 @@ class AsyncTicker:
         """Scroll monitors forever one by one"""
         logging.info("Running Infini Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
-        pos = canvas.width
+        title = self.title if self.title else None
 
-        if loop_count:
-            monitor_generator = itertools.chain(self.monitors * loop_count)
-        else:
-            monitor_generator = itertools.cycle(self.monitors)
+        ticker_objects = _chain_ticker_objects(
+            self.monitors,
+            title=title,
+            loop_count=loop_count,
+        )
 
-        if self.title:
-            monitor = self.title
-
-        else:
-            monitor = next(monitor_generator)
-
-        while True:
-            canvas.Clear()
-
-            canvas, final_pos = monitor.draw(canvas, cursor_pos=pos)
-            pos -= 1
-
-            if final_pos < 0:
-                pos = canvas.width
-                try:
-                    monitor = next(monitor_generator)
-                except StopIteration:
-                    break
-
-            await asyncio.sleep(0.05)
-            self.frame.matrix.SwapOnVSync(canvas)
-
-        canvas.Clear()
-        self.frame.matrix.SwapOnVSync(canvas)
+        await _sroll_one_by_one(canvas, self.frame, ticker_objects)
 
 
 @attr.s

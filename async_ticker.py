@@ -39,7 +39,7 @@ class AsyncTicker:
 
         return cls(
              feed_monitor.feed_stories,
-             led_frame,
+             frame,
              title=title,
              title_delay=5,
              buffer_msg=buffer_msg,

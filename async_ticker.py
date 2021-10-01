@@ -140,7 +140,7 @@ class AsyncRSSFeedTicker:
     frame = attr.ib()
     buffer_msg = attr.ib(default=TickerMessage(' * ', center=False))
     display_title = attr.ib(default=True)
-    title_delay = attr.ib(default=3)
+    title_delay = attr.ib(default=5)
 
     async def run_swap(self, loop_count=0):
         """Swap between all running monitors"""
@@ -247,7 +247,6 @@ async def _sroll_one_by_one(canvas, frame, ticker_objects, delay=0, cursor_pos=0
             frame.matrix.SwapOnVSync(canvas)
             await asyncio.sleep(scroll_speed)
 
-        logging.info('delay by %s', delay)
         await asyncio.sleep(delay)
 
     while True:
@@ -277,9 +276,17 @@ async def _scroll_side_by_side(canvas, frame, ticker_objects, buffer_message=Non
         pos = cursor_pos
 
         if delay:
+            canvas.Clear()
             canvas, cursor_pos = buffered_objects[0].draw(canvas, cursor_pos=pos)
-            frame.matrix.SwapOnVSync(canvas)
-            await asyncio.sleep(delay)
+
+            while pos > 0:
+                canvas.Clear()
+                canvas, cursor_pos = buffered_objects[0].draw(canvas, cursor_pos=pos)
+                pos -= 1
+                frame.matrix.SwapOnVSync(canvas)
+                await asyncio.sleep(scroll_speed)
+
+        await asyncio.sleep(delay)
 
         while True:
             canvas.Clear()

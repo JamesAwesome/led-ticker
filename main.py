@@ -56,16 +56,16 @@ async def main(coinbase_symbols, coingecko_symbols):
 
         while True:
 
-            #await AsyncRSSFeedTicker(
-            #    feed_monitor,
-            #    led_frame,
-            #).run_infini_scroll(loop_count=1)
+            await AsyncRSSFeedTicker(
+                feed_monitor,
+                led_frame,
+            ).run_infini_scroll(loop_count=1)
 
             await AsyncTicker(
                 monitors,
                 led_frame,
                 title=TickerMessage('* Crypto Prices *'),
-            ).run_infini_scroll(loop_count=2)
+            ).run_forever_scroll(loop_count=2)
 
 
 if __name__ == "__main__":

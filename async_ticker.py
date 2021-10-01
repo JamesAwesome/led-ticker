@@ -186,7 +186,6 @@ class AsyncRSSFeedTicker:
         title = self.feed.feed_title if self.display_title else None
         cursor_pos = 0 if start_pos is not None else canvas.width
 
-
         ticker_objects = _chain_ticker_objects(
             self.feed.feed_stories,
             title=title,
@@ -197,6 +196,7 @@ class AsyncRSSFeedTicker:
             canvas, self.frame, ticker_objects,
             delay=self.title_delay,
             buffer_message=self.buffer_msg,
+            start_pos=cursor_pos,
         )
 
     async def run_infini_scroll(self, loop_count=0, start_pos=None):

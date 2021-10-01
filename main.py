@@ -63,10 +63,10 @@ async def main(coinbase_symbols, coingecko_symbols):
                 title_delay=5
             ).run_forever_scroll(loop_count=3)
 
-            await AsyncTicker(
-                feed_monitor.feed_stories,
+            await AsyncTicker.from_rss_feed(
+                feed_monitor,
                 led_frame,
-                title=feed_monitor.feed_title,
+                display_title=True,
                 title_delay=5,
             ).run_forever_scroll(loop_count=1)
 

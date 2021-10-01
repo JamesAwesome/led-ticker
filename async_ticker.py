@@ -11,7 +11,7 @@ from async_widgets import TickerMessage
 from rgbmatrix import graphics
 
 RGB_WHITE = graphics.Color(255, 255, 255)
-
+DEFAULT_BUFFER_MSG = TickerMessage(' * ', center=False, font_color=RGB_WHITE)
 
 def _has_index(index, my_list):
     """check if a list has an index"""
@@ -31,7 +31,19 @@ class AsyncTicker:
     frame = attr.ib()
     title = attr.ib(default=None)
     title_delay = attr.ib(default=4)
-    buffer_msg = attr.ib(default=TickerMessage(' * ', center=False, font_color=RGB_WHITE))
+    buffer_msg = attr.ib(default=DEFAULT_BUFFER_MSG)
+
+    @classmethod
+    async def from_rss_feed(cls, feed_monitor, frame, display_title=True, title_delay=4, buffer_msg=DEFAULT_BUFFER_MSG):
+        title = feed_monitor.feed_title if display_title else None
+
+        return cls(
+             feed_monitor.feed_stories,
+             led_frame,
+             title=title,
+             title_delay=5,
+             buffer_msg=buffer_msg,
+        )
 
     async def run_swap(self, loop_count=0):
         """Swap between all running monitors"""

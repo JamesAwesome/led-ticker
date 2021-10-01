@@ -9,6 +9,8 @@ import attr
 
 from async_widgets import TickerMessage
 
+RGB_WHITE = graphics.Color(255, 255, 255)
+
 
 def _has_index(index, my_list):
     """check if a list has an index"""
@@ -138,7 +140,7 @@ class AsyncRSSFeedTicker:
 
     feed = attr.ib(type=list)
     frame = attr.ib()
-    buffer_msg = attr.ib(default=TickerMessage(' * ', center=False))
+    buffer_msg = attr.ib(default=TickerMessage(' * ', center=False, font_color=RGB_WHITE))
     display_title = attr.ib(default=True)
     title_delay = attr.ib(default=5)
 

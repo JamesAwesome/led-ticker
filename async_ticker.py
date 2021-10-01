@@ -208,7 +208,6 @@ class AsyncRSSFeedTicker:
             self.feed.feed_stories,
             title=title,
             loop_count=loop_count,
-            delay=self.title_delay,
         )
 
         await _sroll_one_by_one(canvas, self.frame, ticker_objects, delay=self.title_delay)

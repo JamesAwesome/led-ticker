@@ -275,6 +275,7 @@ class AsyncRSSFeedTicker:
 
 
 async def _sroll_one_by_one(canvas, frame, ticker_objects, cursor_pos=0, scroll_speed=0.05):
+    pos = 0
     ticker_object = next(ticker_objects)
 
     if cursor_pos:

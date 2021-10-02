@@ -84,9 +84,8 @@ class RSSFeedMonitor:
             self.feed_title = TickerMessage(feed['channel']['title'], font_color=next(self.colors))
             self.feed_stories = itertools.islice(
                 [TickerMessage(item['title'], font_color=next(self.colors)) for item in feed['items']],
-                0, self.max_stories,
+                self.max_stories,
             )
-            logging.info('feed story count: %s', len(self.feed_stories))
 
         return self
 

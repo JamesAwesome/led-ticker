@@ -63,7 +63,7 @@ async def main(coinbase_symbols, coingecko_symbols):
             (feed_monitor_news, None),
             (feed_monitor_altcoin, TickerMessage('Cointelegraph.com Altcoins')),
             (feed_monitor_hodl, None),
-            (feed_monitor_coindesk, None)
+            (feed_monitor_coindesk, None),
         ])
 
         while True:
@@ -81,7 +81,7 @@ async def main(coinbase_symbols, coingecko_symbols):
                 led_frame,
                 title=TickerMessage('Cryptocurrency/USD'),
                 title_delay=5
-            ).run_forever_scroll(loop_count=3)
+            ).run_forever_scroll(loop_count=5)
 
 
 

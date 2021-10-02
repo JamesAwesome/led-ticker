@@ -60,9 +60,9 @@ class RSSFeedMonitor:
     feed_url = attr.ib()
     padding = attr.ib(default=6)
     colors = attr.ib(default=itertools.cycle([DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR]))
+    max_stories = attr.ib(default=5)
     feed_title = attr.ib(init=False)
     feed_stories = attr.ib(init=False)
-
     @classmethod
     async def start(cls, session, feed_url, update_interval=1800, splay=True):
         """init and run this monitor"""
@@ -84,7 +84,7 @@ class RSSFeedMonitor:
             self.feed_title = TickerMessage(feed['channel']['title'], font_color=next(self.colors))
             self.feed_stories = list([
                 TickerMessage(item['title'], font_color=next(self.colors)) for item in feed['items']
-            ])
+            ])[:self.max_stories]
             logging.info('feed story count: %s', len(self.feed_stories))
 
         return self

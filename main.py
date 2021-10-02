@@ -56,12 +56,14 @@ async def main(coinbase_symbols, coingecko_symbols):
         feed_monitor_news = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/editors_pick_rss', update_interval=3000)
         feed_monitor_altcoin = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/rss/tag/altcoin', update_interval=3000)
         feed_monitor_hodl = await RSSFeedMonitor.start(session, 'https://dailyhodl.com/feed/', update_interval=3000)
+        feed_monitor_coindesk = await RSSFeedMonitor.start(session, 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml', update_interval=3000)
 
 
         feed_monitors = itertools.cycle([
             (feed_monitor_news, None),
             (feed_monitor_altcoin, TickerMessage('Cointelegraph.com Altcoins')),
             (feed_monitor_hodl, None),
+            (feed_monitor_coindesk, None)
         ])
 
         while True:

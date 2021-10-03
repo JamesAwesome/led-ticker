@@ -73,7 +73,7 @@ async def main(coinbase_symbols, coingecko_symbols):
         ])
 
         notif_queue = asyncio.Queue(maxsize=5)
-        notif_worker = asyncio.create_task(notif_queue)
+        notif_worker = asyncio.create_task(add_test_notif(notif_queue))
 
         while True:
             feed_monitor, feed_title = next(feed_monitors)

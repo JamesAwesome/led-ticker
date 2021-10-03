@@ -54,14 +54,14 @@ class AsyncTicker:
         canvas = self.frame.get_clean_canvas()
         title = self.title if self.title else None
 
-        ticker_objects = _chain_ticker_objects(
+        asyncio.create_task(_enque_ticker_objects(
             self.monitors,
             title=title,
             loop_count=loop_count,
             notif_queue=self.notif_queue,
-        )
+        ))
 
-        await _run_swap(canvas, self.frame, ticker_objects, delay=self.title_delay)
+        await _run_swap(canvas, self.frame, notif_queue, delay=self.title_delay)
 
     async def run_forever_scroll(self, loop_count=0, start_pos=None):
         """Scroll all monitors in order forever"""
@@ -71,15 +71,15 @@ class AsyncTicker:
 
         cursor_pos = 0 if start_pos is not None else canvas.width
 
-        ticker_objects = _chain_ticker_objects(
+        asyncio.create_task(_enque_ticker_objects(
             self.monitors,
             title=title,
             loop_count=loop_count,
             notif_queue=self.notif_queue,
-        )
+        ))
 
         await _scroll_side_by_side(
-            canvas, self.frame, ticker_objects,
+            canvas, self.frame, notif_queue,
             delay=self.title_delay,
             buffer_message=self.buffer_msg,
             cursor_pos=cursor_pos,
@@ -91,22 +91,22 @@ class AsyncTicker:
         canvas = self.frame.get_clean_canvas()
         title = self.title if self.title else None
 
-        ticker_objects = _chain_ticker_objects(
+        asyncio.create_task(_enque_ticker_objects(
             self.monitors,
             title=title,
             loop_count=loop_count,
             notif_queue=self.notif_queue,
-        )
+        ))
 
         cursor_pos = 0 if start_pos is not None else canvas.width
 
         await _sroll_one_by_one(
-            canvas, self.frame, ticker_objects,
+            canvas, self.frame, notif_queue,
             cursor_pos=cursor_pos, delay=self.title_delay
         )
 
 
-def _chain_ticker_objects(ticker_objects, title=None, loop_count=0, notif_queue=None):
+async def _enque_ticker_objects(ticker_objects, title=None, loop_count=0, notif_queue=None):
     if loop_count:
         ticker_objects = itertools.chain(ticker_objects * loop_count)
     else:
@@ -115,11 +115,16 @@ def _chain_ticker_objects(ticker_objects, title=None, loop_count=0, notif_queue=
     if title:
         ticker_objects = itertools.chain([title], ticker_objects)
 
-    return ticker_objects
+    while True:
+        try:
+            await notif_queue.put(next(ticker_objects))
+
+        except StopIteration:
+            break
 
 
-async def _sroll_one_by_one(canvas, frame, ticker_objects, delay=0, cursor_pos=0, scroll_speed=0.05):
-    ticker_object = next(ticker_objects)
+async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, scroll_speed=0.05):
+    ticker_object = await notif_queue.get()
     pos = cursor_pos
 
     if delay:
@@ -145,8 +150,8 @@ async def _sroll_one_by_one(canvas, frame, ticker_objects, delay=0, cursor_pos=0
         if final_pos < 0:
             pos = canvas.width
             try:
-                ticker_object = next(ticker_objects)
-            except StopIteration:
+                ticker_object = notif_queue.get_nowait()
+            except asyncio.QueueEmpty:
                 break
 
         await asyncio.sleep(scroll_speed)
@@ -156,10 +161,10 @@ async def _sroll_one_by_one(canvas, frame, ticker_objects, delay=0, cursor_pos=0
     frame.matrix.SwapOnVSync(canvas)
 
 
-async def _scroll_side_by_side(canvas, frame, ticker_objects, buffer_message=None, delay=0, cursor_pos=0, scroll_speed=0.05):
+async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, delay=0, cursor_pos=0, scroll_speed=0.05):
 
         buffered_objects = []
-        buffered_objects.append(next(ticker_objects))
+        buffered_objects.append(await notif_queue.get())
         pos = cursor_pos
 
         if delay:
@@ -189,7 +194,7 @@ async def _scroll_side_by_side(canvas, frame, ticker_objects, buffer_message=Non
 
                 try:
                     if not _has_index(mon_index, buffered_objects):
-                        next_monitor = next(ticker_objects)
+                        next_monitor = notif_queue.get_nowait()
 
                         if buffer_message:
                             buffered_objects.append(buffer_message)
@@ -200,7 +205,7 @@ async def _scroll_side_by_side(canvas, frame, ticker_objects, buffer_message=Non
                         canvas, cursor_pos=cursor_pos
                     )
 
-                except StopIteration:
+                except asyncio.QueueEmpty:
                     # We have run out of monitors
                     break
 
@@ -216,19 +221,24 @@ async def _scroll_side_by_side(canvas, frame, ticker_objects, buffer_message=Non
                 return True
 
 
-async def _run_swap(canvas, frame, ticker_objects, delay=0):
+async def _run_swap(canvas, frame, notif_queue, delay=0):
         """Run Swap"""
         pos = 0
 
         if delay:
-            ticker_object = next(ticker_objects)
+            ticker_object = await notif_queue.get()
             canvas.Clear()
             canvas, cursor_pos = ticker_object.draw(canvas, cursor_pos=pos)
             frame.matrix.SwapOnVSync(canvas)
 
         await asyncio.sleep(delay)
 
-        for ticker_object in ticker_objects:
+        while True:
+            try:
+                ticker_object = notif_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+
             canvas.Clear()
             pos = 0
             canvas, cursor_pos = ticker_object.draw(canvas, pos)

@@ -32,10 +32,11 @@ class AsyncTicker:
     title = attr.ib(default=None)
     title_delay = attr.ib(default=4)
     buffer_msg = attr.ib(default=DEFAULT_BUFFER_MSG)
+    notif_queue = attr.ib(default=None)
 
     @classmethod
     def from_rss_feed(cls, feed_monitor, frame, custom_title=None,
-        title_delay=4, buffer_msg=DEFAULT_BUFFER_MSG):
+        title_delay=4, buffer_msg=DEFAULT_BUFFER_MSG, notif_queue=notif_queue):
         title = custom_title if custom_title else feed_monitor.feed_title
 
         return cls(
@@ -44,6 +45,7 @@ class AsyncTicker:
              title=title,
              title_delay=5,
              buffer_msg=buffer_msg,
+             notif_queue=notif_queue,
         )
 
     async def run_swap(self, loop_count=0):
@@ -56,6 +58,7 @@ class AsyncTicker:
             self.monitors,
             title=title,
             loop_count=loop_count,
+            notif_queue=self.notif_queue,
         )
 
         await _run_swap(canvas, self.frame, ticker_objects, delay=self.title_delay)
@@ -72,6 +75,7 @@ class AsyncTicker:
             self.monitors,
             title=title,
             loop_count=loop_count,
+            notif_queue=self.notif_queue,
         )
 
         await _scroll_side_by_side(
@@ -91,6 +95,7 @@ class AsyncTicker:
             self.monitors,
             title=title,
             loop_count=loop_count,
+            notif_queue=self.notif_queue,
         )
 
         cursor_pos = 0 if start_pos is not None else canvas.width
@@ -100,7 +105,8 @@ class AsyncTicker:
             cursor_pos=cursor_pos, delay=self.title_delay
         )
 
-def _chain_ticker_objects(ticker_objects, title=None, loop_count=0):
+
+def _chain_ticker_objects(ticker_objects, title=None, loop_count=0, notif_queue=None):
     if loop_count:
         ticker_objects = itertools.chain(ticker_objects * loop_count)
     else:

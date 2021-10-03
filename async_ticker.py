@@ -79,7 +79,7 @@ class AsyncTicker:
         ))
 
         await _scroll_side_by_side(
-            canvas, self.frame, notif_queue,
+            canvas, self.frame, self.notif_queue,
             delay=self.title_delay,
             buffer_message=self.buffer_msg,
             cursor_pos=cursor_pos,
@@ -101,7 +101,7 @@ class AsyncTicker:
         cursor_pos = 0 if start_pos is not None else canvas.width
 
         await _sroll_one_by_one(
-            canvas, self.frame, notif_queue,
+            canvas, self.frame, self.notif_queue,
             cursor_pos=cursor_pos, delay=self.title_delay
         )
 

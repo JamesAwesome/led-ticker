@@ -25,6 +25,12 @@ formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(messag
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
+async def add_test_notif(notif_queue, sleep=30):
+    while True:
+        await asyncio.sleep(sleep)
+        logging.info('Adding notif to queue...')
+        await notif_queue.put(TickerMessage('Test Notif', center=False))
+
 
 async def main(coinbase_symbols, coingecko_symbols):
     """Run the monitors and ticker"""
@@ -66,6 +72,9 @@ async def main(coinbase_symbols, coingecko_symbols):
             (feed_monitor_coindesk, None),
         ])
 
+        notif_queue = asyncio.Queue(maxsize=5)
+        notif_worker = asyncio.create_task(notif_queue)
+
         while True:
             feed_monitor, feed_title = next(feed_monitors)
 
@@ -74,13 +83,15 @@ async def main(coinbase_symbols, coingecko_symbols):
                 led_frame,
                 custom_title=feed_title,
                 title_delay=5,
+                notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=1)
 
             await AsyncTicker(
                 monitors,
                 led_frame,
                 title=TickerMessage('Cryptocurrency/USD'),
-                title_delay=5
+                title_delay=5,
+                notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=5)
 
 

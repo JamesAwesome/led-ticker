@@ -26,6 +26,7 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 async def add_test_notif(notif_queue, sleep=30):
+    logging.info('starting test notif coroutine')
     while True:
         await asyncio.sleep(sleep)
         logging.info('Adding notif to queue...')

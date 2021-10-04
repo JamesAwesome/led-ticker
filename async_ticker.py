@@ -106,7 +106,7 @@ class AsyncTicker:
         )
 
 
-async def _build_ticker_iter(ticker_objects, title=None, loop_count=0):
+def _build_ticker_iter(ticker_objects, title=None, loop_count=0):
     if loop_count:
         ticker_iter = itertools.chain(ticker_objects * loop_count)
     else:
@@ -131,7 +131,7 @@ async def _enque_ticker_objects(ticker_iter, notif_queue):
 
 async def _build_then_enque(ticker_objects, notif_queue, title=None, loop_count=None):
     ticker_iter = _build_ticker_iter(ticker_objects, title=title, loop_count=loop_count)
-    _enque_ticker_objects(ticker_iter, notif_queue)
+    await _enque_ticker_objects(ticker_iter, notif_queue)
 
 
 async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, scroll_speed=0.05):

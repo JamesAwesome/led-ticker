@@ -207,19 +207,15 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
             while cursor_pos < canvas.width:
                 mon_index += 1
 
-                # Skip if we receive queue empty
-                if queue_empty:
-                    logging.debug('Queue empty!')
-                    break
-
                 try:
                     if not _has_index(mon_index, buffered_objects):
-                        next_monitor = notif_queue.get_nowait()
+                        if not queue_empty:
+                            next_monitor = notif_queue.get_nowait()
 
-                        if buffer_message:
-                            buffered_objects.append(buffer_message)
+                            if buffer_message:
+                                buffered_objects.append(buffer_message)
 
-                        buffered_objects.append(next_monitor)
+                            buffered_objects.append(next_monitor)
 
                     canvas, cursor_pos = buffered_objects[mon_index].draw(
                         canvas, cursor_pos=cursor_pos

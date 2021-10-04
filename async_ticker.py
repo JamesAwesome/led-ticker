@@ -115,7 +115,7 @@ async def _enque_ticker_objects(ticker_objects, title=None, loop_count=0, notif_
     if title:
         ticker_objects = itertools.chain([title], ticker_objects)
 
-    await notif_queue.put(0, next(ticker_objects))
+    await notif_queue.put(1, next(ticker_objects))
 
     while True:
         try:

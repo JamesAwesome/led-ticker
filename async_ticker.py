@@ -135,7 +135,7 @@ async def _build_then_enque(ticker_objects, notif_queue, title=None, loop_count=
 
 
 async def _scroll_and_delay(canvas, frame, ticker_obj, delay, cursor_pos=0, scroll_speed=0.5):
-    logging.info('Running _scroll_and_delay')
+    logging.info('Running _scroll_and_delay ...')
     canvas.Clear()
     pos = cursor_pos
 
@@ -184,7 +184,7 @@ async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, s
 
 
 async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, delay=0, cursor_pos=0, scroll_speed=0.05):
-        logging.info('Scroll side by side...')
+        logging.info('Running _scroll_side_by_side ...')
         buffered_objects = []
         next_monitor = await notif_queue.get()
         buffered_objects.append(next_monitor)

@@ -173,7 +173,7 @@ async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, s
 
 
 async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, delay=0, cursor_pos=0, scroll_speed=0.05):
-
+        logging.info('Scroll side by side...')
         buffered_objects = []
         next_monitor = await notif_queue.get()
         buffered_objects.append(next_monitor)

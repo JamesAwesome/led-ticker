@@ -191,7 +191,7 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
 
         if delay:
             canvas, cursor_pos = await _scroll_and_delay(
-                canvas, frame, ticker_object, delay, cursor_pos=pos
+                canvas, frame, next_monitor, delay, cursor_pos=pos
             )
 
         while True:

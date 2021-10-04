@@ -183,6 +183,8 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
 
         await asyncio.sleep(delay)
 
+        queue_empty = False
+
         while True:
             canvas.Clear()
 
@@ -192,8 +194,12 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
 
             pos -= 1
 
+
             while cursor_pos < canvas.width:
                 mon_index += 1
+
+                # Skip if we receive queue empty
+                continue if queue_empty else _
 
                 try:
                     if not _has_index(mon_index, buffered_objects):
@@ -209,6 +215,7 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
                     )
 
                 except asyncio.QueueEmpty:
+                    queue_empty = True
                     # We have run out of monitors
                     break
 

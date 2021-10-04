@@ -264,25 +264,35 @@ async def _run_swap(canvas, frame, notif_queue, delay=0):
             except asyncio.QueueEmpty:
                 break
 
-            canvas.Clear()
             pos = 0
+            canvas.Clear()
             canvas, cursor_pos = ticker_object.draw(canvas, pos)
+            frame.matrix.SwapOnVSync(canvas)
 
             # If the image is too big, display at the far left and scroll it
             if cursor_pos > canvas.width:
-                frame.matrix.SwapOnVSync(canvas)
                 await asyncio.sleep(2)
 
-            while cursor_pos > canvas.width:
-                canvas.Clear()
-                canvas, cursor_pos = ticker_object.draw(canvas, pos)
-                pos -= 1
-                await asyncio.sleep(0.05)
+            canvas, cursor_pos = await _scroll_into_frame(
+                canvas, frame, cursor_pos, ticker_object, scroll_speed
+            )
 
-                frame.matrix.SwapOnVSync(canvas)
-
-            frame.matrix.SwapOnVSync(canvas)
             await asyncio.sleep(5)
 
         canvas.Clear()
         frame.matrix.SwapOnVSync(canvas)
+
+async def _scroll_into_frame(canvas, frame, cursor_pos, ticker_obj, scroll_speed=0.05):
+
+    logging.info('Running _scroll_into_frame ...')
+
+    pos = cursor_pos
+    while cursor_pos > canvas.width:
+        canvas.Clear()
+        canvas, cursor_pos = ticker_obj.draw(canvas, pos)
+        pos -= 1
+
+        await asyncio.sleep(scroll_speed)
+        frame.matrix.SwapOnVSync(canvas)
+
+    return canvas, cursor_pos

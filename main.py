@@ -12,7 +12,7 @@ import aiohttp
 
 from async_price_apis import CoinbasePriceMonitor, EtherscanGasMonitor, start_coingecko_monitors
 from async_news_feed import RSSFeedMonitor
-from async_ticker import AsyncTicker, RGB_WHITE
+from async_ticker import AsyncTicker, RGB_WHITE, _build_then_enque
 from async_widgets import TickerMessage
 from frame import LedFrame
 

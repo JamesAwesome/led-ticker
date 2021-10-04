@@ -273,9 +273,9 @@ async def _run_swap(canvas, frame, notif_queue, delay=0):
             if cursor_pos > canvas.width:
                 await asyncio.sleep(2)
 
-            canvas, cursor_pos = await _scroll_into_frame(
-                canvas, frame, pos, ticker_object
-            )
+                canvas, cursor_pos = await _scroll_into_frame(
+                    canvas, frame, pos, ticker_object
+                )
 
             await asyncio.sleep(5)
 

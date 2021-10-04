@@ -151,7 +151,6 @@ async def _scroll_and_delay(canvas, frame, ticker_obj, delay, cursor_pos=0, scro
 
     await asyncio.sleep(delay)
 
-    logging.info('Completed _scroll_and_delay ...')
     return canvas, cursor_pos
 
 
@@ -163,6 +162,7 @@ async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, s
         canvas, cursor_pos = await _scroll_and_delay(
             canvas, frame, ticker_object, delay, cursor_pos=pos
         )
+        logging.info('Returning to _sroll_one_by_one ...')
 
     while True:
         canvas.Clear()
@@ -196,6 +196,8 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
             canvas, cursor_pos = await _scroll_and_delay(
                 canvas, frame, next_monitor, delay, cursor_pos=pos
             )
+
+            logging.info('Returning to _scroll_side_by_side ...')
 
         while True:
             canvas.Clear()

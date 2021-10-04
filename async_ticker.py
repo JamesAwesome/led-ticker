@@ -203,7 +203,6 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
 
             pos -= 1
 
-
             while cursor_pos < canvas.width:
                 mon_index += 1
 
@@ -230,6 +229,7 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
                                 canvas, cursor_pos = buffered_objects[mon_index].draw(
                                     canvas, cursor_pos=cursor_pos
                                 )
+
                             except asyncio.QueueEmpty:
                                 queue_empty = True
                                 # We have run out of monitors

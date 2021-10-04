@@ -199,7 +199,9 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
                 mon_index += 1
 
                 # Skip if we receive queue empty
-                continue if queue_empty else _
+                if queue_empty:
+                    logging.info('Queue empty!')
+                    break
 
                 try:
                     if not _has_index(mon_index, buffered_objects):

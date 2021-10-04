@@ -54,11 +54,11 @@ class AsyncTicker:
         canvas = self.frame.get_clean_canvas()
         title = self.title if self.title else None
 
-        asyncio.create_task(_enque_ticker_objects(
+        asyncio.create_task(_build_then_enque(
             self.monitors,
+            self.notif_queue
             title=title,
             loop_count=loop_count,
-            notif_queue=self.notif_queue,
         ))
 
         await _run_swap(canvas, self.frame, self.notif_queue, delay=self.title_delay)
@@ -71,11 +71,11 @@ class AsyncTicker:
 
         cursor_pos = 0 if start_pos is not None else canvas.width
 
-        asyncio.create_task(_enque_ticker_objects(
+        asyncio.create_task(_build_then_enque(
             self.monitors,
+            self.notif_queue,
             title=title,
             loop_count=loop_count,
-            notif_queue=self.notif_queue,
         ))
 
         await _scroll_side_by_side(
@@ -91,11 +91,11 @@ class AsyncTicker:
         canvas = self.frame.get_clean_canvas()
         title = self.title if self.title else None
 
-        asyncio.create_task(_enque_ticker_objects(
+        asyncio.create_task(_build_then_enque(
             self.monitors,
+            self.notif_queue,
             title=title,
             loop_count=loop_count,
-            notif_queue=self.notif_queue,
         ))
 
         cursor_pos = 0 if start_pos is not None else canvas.width
@@ -106,23 +106,32 @@ class AsyncTicker:
         )
 
 
-async def _enque_ticker_objects(ticker_objects, title=None, loop_count=0, notif_queue=None):
+async def _build_ticker_iter(ticker_objects, title=None, loop_count=0):
     if loop_count:
-        ticker_objects = itertools.chain(ticker_objects * loop_count)
+        ticker_iter = itertools.chain(ticker_objects * loop_count)
     else:
-        ticker_objects = itertools.cycle(ticker_objects)
+        ticker_iter = itertools.cycle(ticker_objects)
 
     if title:
-        ticker_objects = itertools.chain([title], ticker_objects)
+        ticker_iter = itertools.chain([title], ticker_objects)
 
-    await notif_queue.put(next(ticker_objects))
+    return ticker_iter
+
+
+async def _enque_ticker_objects(ticker_iter, notif_queue):
+    await notif_queue.put(next(ticker_iter))
 
     while True:
         try:
-            await notif_queue.put(next(ticker_objects))
+            await notif_queue.put(next(ticker_iter))
 
         except StopIteration:
             break
+
+
+async def _build_then_enque(ticker_objects, notif_queue, title=None, loop_count=None):
+    ticker_iter = _build_ticker_iter(ticker_objects, title=title, loop_count=loop_count)
+    await _enque_ticker_objects(ticker_iter, notif_queue)
 
 
 async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, scroll_speed=0.05):

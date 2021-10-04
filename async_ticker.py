@@ -291,12 +291,14 @@ async def _scroll_into_frame(canvas, frame, cursor_pos, ticker_obj, scroll_speed
     canvas.Clear()
     canvas, cursor_pos = ticker_obj.draw(canvas, pos)
 
+    frame.matrix.SwapOnVSync(canvas)
+
     while cursor_pos > canvas.width:
-        frame.matrix.SwapOnVSync(canvas)
         await asyncio.sleep(scroll_speed)
 
         canvas.Clear()
         canvas, cursor_pos = ticker_obj.draw(canvas, pos)
+        frame.matrix.SwapOnVSync(canvas)
         pos -= 1
 
     return canvas, cursor_pos

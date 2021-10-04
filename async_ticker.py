@@ -282,17 +282,21 @@ async def _run_swap(canvas, frame, notif_queue, delay=0):
         canvas.Clear()
         frame.matrix.SwapOnVSync(canvas)
 
-async def _scroll_into_frame(canvas, frame, cursor_pos, ticker_obj, scroll_speed=0.05):
+async def _scroll_into_frame(canvas, frame, pos, ticker_obj, scroll_speed=0.05):
 
     logging.info('Running _scroll_into_frame ...')
 
-    pos = cursor_pos
+    canvas.Clear()
+    canvas, cursor_pos = ticker_obj.draw(canvas, pos)
+
     while cursor_pos > canvas.width:
+        frame.matrix.SwapOnVSync(canvas)
+        await asyncio.sleep(scroll_speed)
+
         canvas.Clear()
         canvas, cursor_pos = ticker_obj.draw(canvas, pos)
         pos -= 1
 
-        await asyncio.sleep(scroll_speed)
-        frame.matrix.SwapOnVSync(canvas)
+
 
     return canvas, cursor_pos

@@ -252,11 +252,12 @@ async def _run_swap(canvas, frame, notif_queue, delay=0):
 
         if delay:
             ticker_object = await notif_queue.get()
-            canvas.Clear()
-            canvas, cursor_pos = ticker_object.draw(canvas, cursor_pos=pos)
-            frame.matrix.SwapOnVSync(canvas)
 
-        await asyncio.sleep(delay)
+            await _swap_and_scroll(
+                canvas, frame, ticker_object
+            )
+
+            await asyncio.sleep(delay)
 
         while True:
             try:
@@ -264,18 +265,9 @@ async def _run_swap(canvas, frame, notif_queue, delay=0):
             except asyncio.QueueEmpty:
                 break
 
-            pos = 0
-            canvas.Clear()
-            canvas, cursor_pos = ticker_object.draw(canvas, pos)
-            frame.matrix.SwapOnVSync(canvas)
-
-            # If the image is too big, display at the far left and scroll it
-            if cursor_pos > canvas.width:
-                await asyncio.sleep(2)
-
-                canvas, cursor_pos = await _scroll_into_frame(
-                    canvas, frame, pos, ticker_object
-                )
+            await _swap_and_scroll(
+                canvas, frame, ticker_object
+            )
 
             await asyncio.sleep(5)
 
@@ -283,7 +275,26 @@ async def _run_swap(canvas, frame, notif_queue, delay=0):
         frame.matrix.SwapOnVSync(canvas)
 
 
-async def _scroll_into_frame(canvas, frame, cursor_pos, ticker_obj, scroll_speed=0.05):
+async def _swap_and_scroll(canvas, frame, ticker_obj, scroll_speed=0.05):
+
+    pos = 0
+    canvas.Clear()
+
+    canvas, cursor_pos = ticker_object.draw(canvas, pos)
+    frame.matrix.SwapOnVSync(canvas)
+
+    # If the image is too big, display at the far left and scroll it
+    if cursor_pos > canvas.width:
+        await asyncio.sleep(2)
+
+        canvas, cursor_pos = await _scroll_into_frame(
+            canvas, frame, ticker_object, pos
+        )
+
+    return canvas, cursor_pos
+
+
+async def _scroll_into_frame(canvas, frame, ticker_obj, cursor_pos, scroll_speed=0.05):
 
     logging.info('Running _scroll_into_frame ...')
     pos = cursor_pos

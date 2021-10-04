@@ -137,6 +137,8 @@ async def _build_then_enque(ticker_objects, notif_queue, title=None, loop_count=
 async def _scroll_and_delay(canvas, frame, ticker_obj, delay, cursor_pos=0, scroll_speed=0.5):
     logging.info('Running _scroll_and_delay')
     canvas.Clear()
+    pos = cursor_pos
+
     canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
 
     while pos > 0:

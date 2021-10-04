@@ -78,7 +78,7 @@ async def main(coinbase_symbols, coingecko_symbols):
 
         while True:
             asyncio.create_task(_build_then_enque(
-                feed_monitors,
+                monitors,
                 notif_queue,
                 title=TickerMessage('Cryptocurrency/USD'),
                 loop_count=5,

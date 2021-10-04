@@ -115,18 +115,18 @@ async def _enque_ticker_objects(ticker_objects, title=None, loop_count=0, notif_
     if title:
         ticker_objects = itertools.chain([title], ticker_objects)
 
-    await notif_queue.put((0, next(ticker_objects)))
+    await notif_queue.put(next(ticker_objects))
 
     while True:
         try:
-            await notif_queue.put((5, next(ticker_objects)))
+            await notif_queue.put(next(ticker_objects))
 
         except StopIteration:
             break
 
 
 async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, scroll_speed=0.05):
-    _, ticker_object = await notif_queue.get()
+    ticker_object = await notif_queue.get()
     pos = cursor_pos
 
     if delay:
@@ -152,7 +152,7 @@ async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, s
         if final_pos < 0:
             pos = canvas.width
             try:
-                _, ticker_object = notif_queue.get_nowait()
+                ticker_object = notif_queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
 
@@ -166,7 +166,7 @@ async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, s
 async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, delay=0, cursor_pos=0, scroll_speed=0.05):
 
         buffered_objects = []
-        _, next_monitor = await notif_queue.get()
+        next_monitor = await notif_queue.get()
         buffered_objects.append(next_monitor)
         pos = cursor_pos
 
@@ -197,7 +197,7 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
 
                 try:
                     if not _has_index(mon_index, buffered_objects):
-                        _, next_monitor = notif_queue.get_nowait()
+                        next_monitor = notif_queue.get_nowait()
 
                         if buffer_message:
                             buffered_objects.append(buffer_message)
@@ -229,7 +229,7 @@ async def _run_swap(canvas, frame, notif_queue, delay=0):
         pos = 0
 
         if delay:
-            _, ticker_object = await notif_queue.get()
+            ticker_object = await notif_queue.get()
             canvas.Clear()
             canvas, cursor_pos = ticker_object.draw(canvas, cursor_pos=pos)
             frame.matrix.SwapOnVSync(canvas)
@@ -238,7 +238,7 @@ async def _run_swap(canvas, frame, notif_queue, delay=0):
 
         while True:
             try:
-                _, ticker_object = notif_queue.get_nowait()
+                ticker_object = notif_queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
 

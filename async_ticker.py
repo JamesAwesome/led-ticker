@@ -200,7 +200,7 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
 
                 # Skip if we receive queue empty
                 if queue_empty:
-                    logging.info('Queue empty!')
+                    logging.debug('Queue empty!')
                     break
 
                 try:

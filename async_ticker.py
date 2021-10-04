@@ -134,23 +134,31 @@ async def _build_then_enque(ticker_objects, notif_queue, title=None, loop_count=
     await _enque_ticker_objects(ticker_iter, notif_queue)
 
 
+async def _scroll_and_delay(canvas, frame, ticker_obj, delay, cursor_pos=0, scroll_speed=0.5):
+    logging.info('Running _scroll_and_delay')
+    canvas.Clear()
+    canvas, cursor_pos = ticker_object.draw(canvas, cursor_pos=pos)
+
+    while pos > 0:
+        canvas.Clear()
+        canvas, cursor_pos = ticker_object.draw(canvas, cursor_pos=pos)
+        pos -= 1
+
+        frame.matrix.SwapOnVSync(canvas)
+        await asyncio.sleep(scroll_speed)
+
+    await asyncio.sleep(delay)
+
+    return canvas, cursor_pos
+
 async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, scroll_speed=0.05):
     ticker_object = await notif_queue.get()
     pos = cursor_pos
 
     if delay:
-        canvas.Clear()
-        canvas, cursor_pos = ticker_object.draw(canvas, cursor_pos=pos)
-
-        while pos > 0:
-            canvas.Clear()
-            canvas, cursor_pos = ticker_object.draw(canvas, cursor_pos=pos)
-            pos -= 1
-
-            frame.matrix.SwapOnVSync(canvas)
-            await asyncio.sleep(scroll_speed)
-
-        await asyncio.sleep(delay)
+        canvas, cursor_pos = await _scroll_and_delay(
+            canvas, frame, ticker_object, delay, cursor_pos=pos
+        )
 
     while True:
         canvas.Clear()
@@ -178,21 +186,12 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
         next_monitor = await notif_queue.get()
         buffered_objects.append(next_monitor)
         pos = cursor_pos
+        queue_empty = False
 
         if delay:
-            canvas.Clear()
-            canvas, cursor_pos = buffered_objects[0].draw(canvas, cursor_pos=pos)
-
-            while pos > 0:
-                canvas.Clear()
-                canvas, cursor_pos = buffered_objects[0].draw(canvas, cursor_pos=pos)
-                pos -= 1
-                frame.matrix.SwapOnVSync(canvas)
-                await asyncio.sleep(scroll_speed)
-
-        await asyncio.sleep(delay)
-
-        queue_empty = False
+            canvas, cursor_pos = await _scroll_and_delay(
+                canvas, frame, ticker_object, delay, cursor_pos=pos
+            )
 
         while True:
             canvas.Clear()

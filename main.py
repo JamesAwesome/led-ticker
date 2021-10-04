@@ -29,7 +29,7 @@ async def add_test_notif(notif_queue, sleep=30):
     logging.info('starting test notif coroutine')
     while True:
         await asyncio.sleep(sleep)
-        await notif_queue.put(1, TickerMessage('Test Notif', center=False))
+        await notif_queue.put((1, TickerMessage('Test Notif', center=False)))
         logging.info('Added to notif queue...')
 
 

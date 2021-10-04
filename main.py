@@ -12,7 +12,7 @@ import aiohttp
 
 from async_price_apis import CoinbasePriceMonitor, EtherscanGasMonitor, start_coingecko_monitors
 from async_news_feed import RSSFeedMonitor
-from async_ticker import AsyncTicker, RGB_WHITE, _build_then_enque, _scroll_side_by_side
+from async_ticker import AsyncTicker, RGB_WHITE
 from async_widgets import TickerMessage
 from frame import LedFrame
 
@@ -77,20 +77,6 @@ async def main(coinbase_symbols, coingecko_symbols):
         notif_worker = asyncio.create_task(add_test_notif(notif_queue))
 
         while True:
-            asyncio.create_task(_build_then_enque(
-                monitors,
-                notif_queue,
-                title=TickerMessage('Cryptocurrency/USD'),
-                loop_count=5,
-            ))
-
-            await _scroll_side_by_side(
-                led_frame.get_clean_canvas(),
-                led_frame, notif_queue,
-                buffer_message=TickerMessage(' * ', center=False, font_color=RGB_WHITE),
-                delay=5,
-            )
-
             feed_monitor, feed_title = next(feed_monitors)
 
             await AsyncTicker.from_rss_feed(
@@ -100,6 +86,14 @@ async def main(coinbase_symbols, coingecko_symbols):
                 title_delay=5,
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=1)
+
+            await AsyncTicker(
+                monitors,
+                led_frame,
+                title=TickerMessage('Cryptocurrency/USD'),
+                title_delay=5,
+                notif_queue=notif_queue,
+            ).run_forever_scroll(loop_count=5)
 
 
 if __name__ == "__main__":

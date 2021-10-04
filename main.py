@@ -29,8 +29,8 @@ async def add_test_notif(notif_queue, sleep=30):
     logging.info('starting test notif coroutine')
     while True:
         await asyncio.sleep(sleep)
-        logging.info('Adding notif to queue...')
-        await notif_queue.put(TickerMessage('Test Notif', center=False))
+        await notif_queue.put(1, TickerMessage('Test Notif', center=False))
+        logging.info('Added to notif queue...')
 
 
 async def main(coinbase_symbols, coingecko_symbols):
@@ -73,7 +73,7 @@ async def main(coinbase_symbols, coingecko_symbols):
             (feed_monitor_coindesk, None),
         ])
 
-        notif_queue = asyncio.Queue(maxsize=5)
+        notif_queue = asyncio.PriorityQueue(maxsize=5)
         notif_worker = asyncio.create_task(add_test_notif(notif_queue))
 
         while True:

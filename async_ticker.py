@@ -115,11 +115,13 @@ async def _enque_ticker_objects(ticker_objects, title=None, loop_count=0, notif_
     if title:
         ticker_objects = itertools.chain([title], ticker_objects)
 
-    await notif_queue.put(0, next(ticker_objects))
+    next_monitor = next(ticker_objects)
+    await notif_queue.put(0, next_monitor)
 
     while True:
         try:
-            await notif_queue.put(5, next(ticker_objects))
+            next_monitor = next(ticker_objects)
+            await notif_queue.put(5, next_monitor)
 
         except StopIteration:
             break

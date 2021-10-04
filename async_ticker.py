@@ -134,7 +134,7 @@ async def _build_then_enque(ticker_objects, notif_queue, title=None, loop_count=
     await _enque_ticker_objects(ticker_iter, notif_queue)
 
 
-async def _scroll_and_delay(canvas, frame, ticker_obj, delay, cursor_pos=0, scroll_speed=0.5):
+async def _scroll_and_delay(canvas, frame, ticker_obj, delay, cursor_pos=0, scroll_speed=0.05):
     logging.info('Running _scroll_and_delay ...')
     canvas.Clear()
     pos = cursor_pos
@@ -151,6 +151,7 @@ async def _scroll_and_delay(canvas, frame, ticker_obj, delay, cursor_pos=0, scro
 
     await asyncio.sleep(delay)
 
+    logging.info('Completed _scroll_and_delay ...')
     return canvas, cursor_pos
 
 

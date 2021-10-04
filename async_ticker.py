@@ -126,7 +126,7 @@ async def _enque_ticker_objects(ticker_objects, title=None, loop_count=0, notif_
 
 
 async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, scroll_speed=0.05):
-    ticker_object = await notif_queue.get()
+    _, ticker_object = await notif_queue.get()
     pos = cursor_pos
 
     if delay:

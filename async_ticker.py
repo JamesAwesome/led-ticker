@@ -137,11 +137,11 @@ async def _build_then_enque(ticker_objects, notif_queue, title=None, loop_count=
 async def _scroll_and_delay(canvas, frame, ticker_obj, delay, cursor_pos=0, scroll_speed=0.5):
     logging.info('Running _scroll_and_delay')
     canvas.Clear()
-    canvas, cursor_pos = ticker_object.draw(canvas, cursor_pos=pos)
+    canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
 
     while pos > 0:
         canvas.Clear()
-        canvas, cursor_pos = ticker_object.draw(canvas, cursor_pos=pos)
+        canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
         pos -= 1
 
         frame.matrix.SwapOnVSync(canvas)
@@ -150,6 +150,7 @@ async def _scroll_and_delay(canvas, frame, ticker_obj, delay, cursor_pos=0, scro
     await asyncio.sleep(delay)
 
     return canvas, cursor_pos
+
 
 async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, scroll_speed=0.05):
     ticker_object = await notif_queue.get()

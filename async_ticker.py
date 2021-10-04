@@ -221,8 +221,13 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
                         buffered_objects.append(next_monitor)
 
                     except asyncio.QueueEmpty:
-                        queue_empty = True
                         # We have run out of monitors
+                        queue_empty = True
+                        break
+
+                elif queue_empty:
+                    # the queue is empty
+                    break
 
             if mon_0_end_pos < 0:
                 buffered_objects.pop(0)

@@ -56,7 +56,7 @@ class AsyncTicker:
 
         asyncio.create_task(_build_then_enque(
             self.monitors,
-            self.notif_queue
+            self.notif_queue,
             title=title,
             loop_count=loop_count,
         ))

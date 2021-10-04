@@ -206,33 +206,32 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
             while cursor_pos < canvas.width:
                 mon_index += 1
 
-                try:
-                    if _has_index(mon_index, buffered_objects):
-                        canvas, cursor_pos = buffered_objects[mon_index].draw(
-                            canvas, cursor_pos=cursor_pos
-                        )
+                if _has_index(mon_index, buffered_objects):
+                    canvas, cursor_pos = buffered_objects[mon_index].draw(
+                        canvas, cursor_pos=cursor_pos
+                    )
+
+                else:
+                    # Skip if we receive queue empty
+                    if queue_empty:
+                        logging.debug('Queue empty!')
 
                     else:
-                        # Skip if we receive queue empty
-                        if queue_empty:
-                            logging.debug('Queue empty!')
+                        try:
+                            next_monitor = notif_queue.get_nowait()
 
-                        else:
-                            try:
-                                next_monitor = notif_queue.get_nowait()
+                            if buffer_message:
+                                buffered_objects.append(buffer_message)
 
-                                if buffer_message:
-                                    buffered_objects.append(buffer_message)
+                            buffered_objects.append(next_monitor)
 
-                                buffered_objects.append(next_monitor)
+                            canvas, cursor_pos = buffered_objects[mon_index].draw(
+                                canvas, cursor_pos=cursor_pos
+                            )
 
-                                canvas, cursor_pos = buffered_objects[mon_index].draw(
-                                    canvas, cursor_pos=cursor_pos
-                                )
-
-                            except asyncio.QueueEmpty:
-                                queue_empty = True
-                                # We have run out of monitors
+                        except asyncio.QueueEmpty:
+                            queue_empty = True
+                            # We have run out of monitors
 
             if mon_0_end_pos < 0:
                 buffered_objects.pop(0)

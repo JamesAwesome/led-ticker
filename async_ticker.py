@@ -246,31 +246,34 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
                 return True
 
 
-async def _run_swap(canvas, frame, notif_queue, delay=0):
+async def _run_swap(canvas, frame, notif_queue, ticker_delay=3, title_delay=5):
         """Run Swap"""
-        pos = 0
 
-        if delay:
-            ticker_object = await notif_queue.get()
+        # Get the first object, wait for it to be enqueued if we must
+        ticker_object = await notif_queue.get()
 
-            await _swap_and_scroll(
-                canvas, frame, ticker_object
-            )
+        # Display the title & hold on it
+        await _swap_and_scroll(
+            canvas, frame, ticker_object
+        )
 
-            await asyncio.sleep(delay)
+        await asyncio.sleep(title_delay)
 
+        # Swap objects until we run out
         while True:
             try:
                 ticker_object = notif_queue.get_nowait()
+
+                await _swap_and_scroll(
+                    canvas, frame, ticker_object
+                )
+
+                await asyncio.sleep(title_delay)
+
             except asyncio.QueueEmpty:
                 break
 
-            await _swap_and_scroll(
-                canvas, frame, ticker_object
-            )
-
-            await asyncio.sleep(5)
-
+        # Clear the screen
         canvas.Clear()
         frame.matrix.SwapOnVSync(canvas)
 

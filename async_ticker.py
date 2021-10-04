@@ -131,7 +131,7 @@ async def _enque_ticker_objects(ticker_iter, notif_queue):
 
 async def _build_then_enque(ticker_objects, notif_queue, title=None, loop_count=None):
     ticker_iter = _build_ticker_iter(ticker_objects, title=title, loop_count=loop_count)
-    await _enque_ticker_objects(ticker_iter, notif_queue)
+    _enque_ticker_objects(ticker_iter, notif_queue)
 
 
 async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, scroll_speed=0.05):

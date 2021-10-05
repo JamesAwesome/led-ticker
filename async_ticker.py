@@ -100,7 +100,7 @@ class AsyncTicker:
 
         cursor_pos = 0 if start_pos is not None else canvas.width
 
-        await _sroll_one_by_one(
+        await _scroll_one_by_one(
             canvas, self.frame, self.notif_queue,
             cursor_pos=cursor_pos, delay=self.title_delay
         )
@@ -154,7 +154,7 @@ async def _scroll_and_delay(canvas, frame, ticker_obj, delay, cursor_pos=0, scro
     return canvas, cursor_pos
 
 
-async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, scroll_speed=0.05):
+async def _scroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, scroll_speed=0.05):
     ticker_object = await notif_queue.get()
     pos = cursor_pos
 
@@ -162,7 +162,8 @@ async def _sroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, s
         canvas, cursor_pos = await _scroll_and_delay(
             canvas, frame, ticker_object, delay, cursor_pos=pos
         )
-        logging.info('Returning to _sroll_one_by_one ...')
+        pos = cursor_pos
+        logging.info('Returning to _scroll_one_by_one ...')
 
     while True:
         canvas.Clear()

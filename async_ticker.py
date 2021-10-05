@@ -190,15 +190,17 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
         buffered_objects = []
         next_monitor = await notif_queue.get()
         buffered_objects.append(next_monitor)
-        pos = cursor_pos
+        start_pos = cursor_pos
         queue_empty = False
 
         if delay:
+            pos = start_pos
+
             canvas, cursor_pos = await _scroll_and_delay(
                 canvas, frame, next_monitor, delay, cursor_pos=pos
             )
 
-            pos = cursor_pos
+            pos = start_pos
 
             logging.info('Returning to _scroll_side_by_side ...')
 

@@ -197,6 +197,8 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
                 canvas, frame, next_monitor, delay, cursor_pos=pos
             )
 
+            pos = cursor_pos
+
             logging.info('Returning to _scroll_side_by_side ...')
 
         while True:

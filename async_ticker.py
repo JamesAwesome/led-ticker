@@ -159,15 +159,12 @@ async def _scroll_one_by_one(canvas, frame, notif_queue, delay=0, cursor_pos=0, 
     pos = cursor_pos
 
     if delay:
-        logging.info('pos is : %s', pos)
-
         canvas, cursor_pos = await _scroll_and_delay(
             canvas, frame, ticker_object, delay, cursor_pos=pos
         )
 
-        logging.info('Returning to _scroll_one_by_one ...')
+        logging.info('Returned to _scroll_one_by_one ...')
         pos = 0
-        logging.info('pos is : %s', pos)
 
     while True:
         canvas.Clear()
@@ -198,14 +195,12 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None, 
         queue_empty = False
 
         if delay:
-            logging.info('pos is : %s', pos)
             canvas, cursor_pos = await _scroll_and_delay(
                 canvas, frame, next_monitor, delay, cursor_pos=pos
             )
 
-            logging.info('Returning to _scroll_side_by_side ...')
+            logging.info('Returned to _scroll_side_by_side ...')
             pos = 0
-            logging.info('pos is : %s', pos)
 
         while True:
             canvas.Clear()

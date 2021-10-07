@@ -134,6 +134,13 @@ async def _build_then_enque(ticker_objects, notif_queue, title=None, loop_count=
     await _enque_ticker_objects(ticker_iter, notif_queue)
 
 
+async def _enque_from_rss_feed(feed, notif_queue, custom_title=None, loop_count=None):
+    title = custom_title if custom_title else feed.feed_title
+
+    ticker_iter = _build_ticker_iter(feed.feed_stories, title=title, loop_count=loop_count)
+    await _enque_ticker_objects(ticker_iter, notif_queue)
+
+
 async def _scroll_and_delay(canvas, frame, ticker_obj, delay, cursor_pos=0, scroll_speed=0.05):
     logging.info('Running _scroll_and_delay ...')
     canvas.Clear()

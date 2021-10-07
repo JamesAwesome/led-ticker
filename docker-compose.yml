@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  ticker:
+  ticker: &default
     build:
       context: .
     devices:
@@ -12,3 +12,7 @@ services:
       - ./settings.env
     volumes:
       - .:/code
+
+  pytest:
+    <<: *default
+    command: "./run_tests.sh"

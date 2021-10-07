@@ -23,7 +23,7 @@ async def test__enque_ticker_objects():
     # Make a list to store our results
     res_items = []
 
-    # Leave some time to make sure the next object is on the queue
+    # Block until we get the first item
     res_items.append(await test_queue.get())
 
     # Get items until the queue is empty

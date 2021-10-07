@@ -19,9 +19,9 @@ async def test__enque_ticker_objects():
     )
 
     # Consume the same amount of items from the queue
-    for n in range(0, 5):
+    while not test_queue.empty():
         item = await test_queue.get()
-        assert item == n
+        assert item
 
     # Ensure the queue is now empty
     assert test_queue.empty()

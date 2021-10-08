@@ -15,4 +15,7 @@ services:
 
   pytest:
     <<: *default
+    build:
+      context: .
+      dockerfile: Dockerfile.test
     command: "./run_tests.sh"

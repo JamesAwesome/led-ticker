@@ -4,3 +4,6 @@ asyncio
 aiohttp
 attrs
 feedparser
+pytest
+pytest-asyncio
+pytest-cov

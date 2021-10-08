@@ -1,4 +1,4 @@
-FROM balenalib/raspberry-pi-python:3.8
+FROM balenalib/raspberry-pi-python:3.8 AS rgbmatrix
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -19,9 +19,9 @@ RUN cd /opt && \
 # Next Stage
 FROM rgbmatrix
 
-COPY ./requirements.txt /code/requirements.txt
+COPY ./requirements-dev.txt /code/requirements-dev.txt
 
-RUN pip3 install -r requirements.txt
+RUN pip3 install -r requirements-dev.txt
 
 COPY . /code/
 

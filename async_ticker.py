@@ -113,7 +113,7 @@ def _build_ticker_iter(ticker_objects, title=None, loop_count=0):
         ticker_iter = itertools.cycle(ticker_objects)
 
     if title:
-        ticker_iter = itertools.chain([title], ticker_objects)
+        ticker_iter = itertools.chain([title], ticker_iter)
 
     return ticker_iter
 

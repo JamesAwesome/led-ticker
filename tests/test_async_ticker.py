@@ -4,7 +4,9 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(__file__, '..', '..')))
 
 import asyncio
+import itertools
 import pytest
+
 
 import async_ticker
 
@@ -35,3 +37,59 @@ async def test__enque_ticker_objects():
         await asyncio.sleep(0.05)
 
     assert res_items == test_items
+
+
+@pytest.mark.asyncio
+async def test__build_ticker_iter():
+    test_items = list(range(0, 5))
+    test_title = 'test title'
+
+    # Test with loop count 1
+    test_iter = async_ticker._build_ticker_iter(test_items, loop_count=1)
+    result_items = list(test_iter)
+
+    assert result_items == test_items
+
+    # Test with loop count 2
+    test_iter = async_ticker._build_ticker_iter(test_items, loop_count=2)
+    result_items = list(test_iter)
+
+    assert result_items == (test_items * 2)
+
+    # Test with loop count 1 & title
+    test_iter = async_ticker._build_ticker_iter(test_items, title=test_title, loop_count=1)
+    result_items = list(test_iter)
+
+    assert result_items == [test_title] + test_items
+
+    # Test with loop count 2 & title
+    test_iter = async_ticker._build_ticker_iter(test_items, title=test_title, loop_count=2)
+    result_items = list(test_iter)
+
+    assert result_items == [test_title] + (test_items * 2)
+
+    # Test with loop count 0 taking 5, then 10 -- items should repeat
+    test_iter = async_ticker._build_ticker_iter(test_items, loop_count=0)
+    result_items = list(itertools.islice(test_iter, len(test_items)))
+
+    assert result_items == test_items
+
+    result_items = list(itertools.islice(test_iter, (len(test_items) * 2)))
+
+    assert result_items == (test_items * 2)
+
+    # Test with loop count 0 taking 5, then 10 with title -- items should repeat
+    # however, the title should not
+    test_iter = async_ticker._build_ticker_iter(test_items, title=test_title, loop_count=0)
+
+    # take one extra for the title
+    result_items = list(itertools.islice(test_iter, (len(test_items) + 1)))
+
+    assert result_items == [test_title] + test_items
+
+    test_iter = async_ticker._build_ticker_iter(test_items, title=test_title, loop_count=0)
+
+    # take one extra for the title
+    result_items = list(itertools.islice(test_iter, (len(test_items) * 2) + 1))
+
+    assert result_items == [test_title] + (test_items * 2)

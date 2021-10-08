@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-pytest -s
+pytest -s --cov=.

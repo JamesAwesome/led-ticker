@@ -1,4 +1,4 @@
-FROM balenalib/raspberry-pi-python:3.8 AS rgbmatrix
+FROM balenalib/raspberry-pi-python:3.7.9 AS rgbmatrix
 
 ENV DEBIAN_FRONTEND noninteractive
 

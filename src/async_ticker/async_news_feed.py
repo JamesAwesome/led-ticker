@@ -21,12 +21,12 @@ from async_ticker.fonts import (
     FONT_CHANGE,
 )
 
-DEFAULT_COLOR = graphics.Color(255, 255, 0)
-RGB_WHITE = graphics.Color(255, 255, 255)
-UP_TREND_COLOR = graphics.Color(46, 139, 87)
-DOWN_TREND_COLOR = graphics.Color(194, 24, 7)
-
-OK_GAS_COLOR = graphics.Color(255, 255, 100)
+from async_ticker.colors import (
+    RGB_WHITE,
+    DEFAULT_COLOR,
+    UP_TREND_COLOR,
+    DOWN_TREND_COLOR,
+)
 
 COINBASE_API = "https://api.coinbase.com"
 

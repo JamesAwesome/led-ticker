@@ -12,7 +12,8 @@ import attr
 from async_ticker.async_widgets import TickerMessage
 from rgbmatrix import graphics
 
-RGB_WHITE = graphics.Color(255, 255, 255)
+from async_ticker.colors import RGB_WHITE
+
 DEFAULT_BUFFER_MSG = TickerMessage(' * ', center=False, font_color=RGB_WHITE)
 
 def _has_index(index, my_list):

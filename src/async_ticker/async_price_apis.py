@@ -18,17 +18,12 @@ from rgbmatrix import graphics
 
 GAS_BANNER = "Gas(gwei):"
 
-FONT_SYMBOL = graphics.Font()
-FONT_SYMBOL.LoadFont("fonts/7x13.bdf")
-
-FONT_PRICE = graphics.Font()
-FONT_PRICE.LoadFont("fonts/6x12.bdf")
-
-FONT_PRICE_SMALL = graphics.Font()
-FONT_PRICE_SMALL.LoadFont("fonts/5x8.bdf")
-
-FONT_CHANGE = graphics.Font()
-FONT_CHANGE.LoadFont("fonts/6x10.bdf")
+from async_ticker.fonts import (
+    FONT_SYMBOL,
+    FONT_PRICE,
+    FONT_PRICE_SMALL,
+    FONT_CHANGE,
+)
 
 DEFAULT_COLOR = graphics.Color(255, 255, 0)
 UP_TREND_COLOR = graphics.Color(46, 139, 87)

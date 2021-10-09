@@ -17,13 +17,7 @@ import attr
 
 from rgbmatrix import graphics
 
-
-FONT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'fonts')
-FONT_DEFAULT = graphics.Font()
-FONT_DEFAULT.LoadFont(os.path.join(FONT_DIR, "6x12.bdf"))
-
-FONT_SMALL = graphics.Font()
-FONT_SMALL.LoadFont(os.path.join(FONT_DIR, "5x8.bdf"))
+from async_ticker.fonts import FONT_DEFAULT, FONT_SMALL
 
 DEFAULT_COLOR = graphics.Color(255, 255, 0)
 UP_TREND_COLOR = graphics.Color(46, 139, 87)

@@ -1,0 +1,15 @@
+Metadata-Version: 1.1
+Name: AsyncTicker
+Version: 1.0
+Summary: Asyncio Cryptocurrency Ticker
+Home-page: UNKNOWN
+Author: James Awesome
+Author-email: james@morelli.nyc
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires: Pillow
+Requires: asyncio
+Requires: aiohttp
+Requires: attrs
+Requires: feedparser

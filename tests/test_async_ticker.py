@@ -1,14 +1,12 @@
 import os
 import sys
 
-sys.path.append(os.path.abspath(os.path.join(__file__, '..', '..')))
-
 import asyncio
 import itertools
 import pytest
 
 
-import async_ticker
+from async_ticker import async_ticker
 
 
 @pytest.mark.asyncio

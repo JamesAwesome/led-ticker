@@ -19,10 +19,8 @@ RUN cd /opt && \
 # Next Stage
 FROM rgbmatrix
 
-COPY ./requirements.txt /code/requirements.txt
-
-RUN pip3 install -r requirements.txt
-
 COPY . /code/
+
+RUN pip3 install -e .
 
 CMD python3 main.py

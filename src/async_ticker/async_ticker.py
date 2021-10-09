@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Async Ticker
 """
+import os
+
 import asyncio
 import itertools
 import logging
 
 import attr
 
-from async_widgets import TickerMessage
+from async_ticker.async_widgets import TickerMessage
 from rgbmatrix import graphics
 
 RGB_WHITE = graphics.Color(255, 255, 255)

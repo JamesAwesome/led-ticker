@@ -32,6 +32,9 @@ from async_ticker.colors import (
     DOWN_TREND_COLOR,
 )
 
+from async_ticker.helpers import get_text_width, find_center
+
+
 OK_GAS_COLOR = graphics.Color(255, 255, 100)
 
 COINBASE_API = "https://api.coinbase.com"
@@ -41,19 +44,6 @@ COINGECKO_COIN_LIST = f'{COINGECKO_API}/coins/list'
 COINGECKO_PRICE_API = f'{COINGECKO_API}/simple/price'
 
 ETHERSCAN_API = "https://api.etherscan.io/api"
-
-
-def _get_change_width(font_change, change_word, padding=6):
-    """get the width of font text + padding"""
-    change_width = (
-        sum([font_change.CharacterWidth(ord(c)) for c in change_word]) + padding
-    )
-
-    return change_width
-
-
-def _find_center(canvas, change_width):
-    return (canvas.width / 2) - math.floor(change_width / 2)
 
 
 def _get_change_color(change_str):
@@ -132,7 +122,7 @@ class EtherscanGasMonitor:
             canvas, FONT_SYMBOL, cursor_pos, 12, DEFAULT_COLOR, GAS_BANNER
         )
 
-        cursor_pos += _get_change_width(FONT_SYMBOL, GAS_BANNER)
+        cursor_pos += get_text_width(FONT_SYMBOL, GAS_BANNER)
 
         for price_type, price in self.price_data.items():
 
@@ -141,13 +131,13 @@ class EtherscanGasMonitor:
                 canvas, FONT_SYMBOL, cursor_pos, 12, DEFAULT_COLOR, price_type_msg
             )
 
-            cursor_pos += _get_change_width(FONT_SYMBOL, price_type_msg, padding=3)
+            cursor_pos += get_text_width(FONT_SYMBOL, price_type_msg, padding=3)
 
             graphics.DrawText(
                 canvas, FONT_PRICE, cursor_pos, 12, _get_gas_price_color(price), price
             )
 
-            cursor_pos += _get_change_width(FONT_PRICE, price, padding=3)
+            cursor_pos += get_text_width(FONT_PRICE, price, padding=3)
 
         cursor_pos += 3
         return canvas, cursor_pos
@@ -232,9 +222,9 @@ class CoinbasePriceMonitor:
         font_price = _get_price_font(price_str)
 
         change_width = sum([
-            _get_change_width(FONT_SYMBOL, self.symbol),
-            _get_change_width(font_price, price_str),
-            _get_change_width(FONT_CHANGE, change_str, padding=0),
+            get_text_width(FONT_SYMBOL, self.symbol),
+            get_text_width(font_price, price_str),
+            get_text_width(FONT_CHANGE, change_str, padding=0),
         ])
 
         if self.center:
@@ -242,7 +232,7 @@ class CoinbasePriceMonitor:
                 cursor_pos = cursor_pos
 
             else:
-                center_pos = _find_center(canvas, change_width)
+                center_pos = find_center(canvas, change_width)
                 end_padding = canvas.width - (center_pos + change_width)
                 cursor_pos += center_pos
 
@@ -367,9 +357,9 @@ class CoinGeckoPriceMonitor:
         font_price = _get_price_font(price_str)
 
         change_width = sum([
-            _get_change_width(FONT_SYMBOL, self.symbol),
-            _get_change_width(font_price, price_str),
-            _get_change_width(FONT_CHANGE, change_str, padding=0),
+            get_text_width(FONT_SYMBOL, self.symbol),
+            get_text_width(font_price, price_str),
+            get_text_width(FONT_CHANGE, change_str, padding=0),
         ])
 
         if self.center:
@@ -377,7 +367,7 @@ class CoinGeckoPriceMonitor:
                 cursor_pos = cursor_pos
 
             else:
-                center_pos = _find_center(canvas, change_width)
+                center_pos = find_center(canvas, change_width)
                 end_padding = canvas.width - (center_pos + change_width)
                 cursor_pos += center_pos
 

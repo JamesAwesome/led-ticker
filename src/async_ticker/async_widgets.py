@@ -26,17 +26,7 @@ from async_ticker.colors import (
     DOWN_TREND_COLOR,
 )
 
-def _get_change_width(font_change, change_word, padding=6):
-    """get the width of font text + padding"""
-    change_width = (
-        sum([font_change.CharacterWidth(ord(c)) for c in change_word]) + padding
-    )
-
-    return change_width
-
-
-def _find_center(canvas, change_width):
-    return (canvas.width / 2) - math.floor(change_width / 2)
+from async_ticker.helpers import get_text_width, find_center
 
 
 @attr.s
@@ -58,7 +48,7 @@ class TickerMessage:
         else:
             font_color = self.font_color
 
-        change_width = _get_change_width(self.font, self.message, padding=0)
+        change_width = get_text_width(self.font, self.message, padding=0)
         end_padding = self.padding
 
         if self.center:
@@ -66,7 +56,7 @@ class TickerMessage:
                 cursor_pos = cursor_pos
 
             else:
-                center_pos = _find_center(canvas, change_width)
+                center_pos = find_center(canvas, change_width)
                 end_padding = canvas.width - (center_pos + change_width)
                 cursor_pos += center_pos
 

@@ -28,6 +28,9 @@ from async_ticker.colors import (
     DOWN_TREND_COLOR,
 )
 
+from async_ticker.helpers import get_text_width
+
+
 COINBASE_API = "https://api.coinbase.com"
 
 COINGECKO_API = 'https://api.coingecko.com/api/v3'
@@ -35,15 +38,6 @@ COINGECKO_COIN_LIST = f'{COINGECKO_API}/coins/list'
 COINGECKO_PRICE_API = f'{COINGECKO_API}/simple/price'
 
 ETHERSCAN_API = "https://api.etherscan.io/api"
-
-
-def _get_change_width(font_change, change_word, padding=6):
-    """get the width of font text + padding"""
-    change_width = (
-        sum([font_change.CharacterWidth(ord(c)) for c in change_word]) + padding
-    )
-
-    return change_width
 
 
 @attr.s

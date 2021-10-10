@@ -49,7 +49,7 @@ def test_ticker_message_draw(mocker, mock_canvas):
         mock_canvas, FONT_DEFAULT, 0, 12, RGB_WHITE, msg_text
     )
 
-    # Test too big
+    # Test too big to be centered
     too_big_message = msg_text * 10
     ticker_msg = widgets.TickerMessage(
         too_big_message,

@@ -51,6 +51,7 @@ class RSSFeedMonitor:
     max_stories = attr.ib(default=5)
     feed_title = attr.ib(init=False)
     feed_stories = attr.ib(init=False)
+
     @classmethod
     async def start(cls, session, feed_url, update_interval=1800, splay=True):
         """init and run this monitor"""

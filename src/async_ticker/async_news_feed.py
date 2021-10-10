@@ -12,7 +12,7 @@ import attr
 
 from rgbmatrix import graphics
 
-from async_ticker.async_widgets import TickerMessage
+from async_ticker.widgets import TickerMessage
 
 from async_ticker.fonts import (
     FONT_SYMBOL,

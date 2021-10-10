@@ -9,7 +9,7 @@ import logging
 
 import attr
 
-from async_ticker.async_widgets import TickerMessage
+from async_ticker.widgets import TickerMessage
 from rgbmatrix import graphics
 
 from async_ticker.colors import RGB_WHITE

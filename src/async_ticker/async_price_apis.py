@@ -214,46 +214,19 @@ class CoinbasePriceMonitor:
 
     def draw(self, canvas, cursor_pos=0, **kwargs):
         """draw this monitor to a canvas"""
-        end_padding = self.padding
         change_str = f"{self.change_24h:.2f}%"
         price_str = f"{self.price:.4f}"
 
-        change_color = _get_change_color(change_str)
-        font_price = _get_price_font(price_str)
-
-        change_width = sum([
-            get_text_width(FONT_SYMBOL, self.symbol),
-            get_text_width(font_price, price_str),
-            get_text_width(FONT_CHANGE, change_str, padding=0),
-        ])
-
-        if self.center:
-            if change_width > canvas.width:
-                cursor_pos = cursor_pos
-
-            else:
-                center_pos = find_center(canvas, change_width)
-                end_padding = canvas.width - (center_pos + change_width)
-                cursor_pos += center_pos
-
-        # Draw the elements on the canvas
-        cursor_pos += graphics.DrawText(
-            canvas, FONT_SYMBOL, cursor_pos, 12, DEFAULT_COLOR, self.symbol
+        return _draw_price_ticker(
+            self.symbol,
+            price_str,
+            change_str,
+            cursor_pos=cursor_pos,
+            center=self.center,
+            padding=self.padding,
+            end_padding=self.padding,
         )
 
-        cursor_pos += self.padding
-        cursor_pos += graphics.DrawText(
-            canvas, font_price, cursor_pos, 12, DEFAULT_COLOR, price_str
-        )
-
-        cursor_pos += self.padding
-        cursor_pos += graphics.DrawText(
-            canvas, FONT_CHANGE, cursor_pos, 12, change_color, change_str
-        )
-
-        cursor_pos += end_padding
-
-        return canvas, cursor_pos
 
 
 async def _get_coingecko_coin_list(session):
@@ -349,46 +322,54 @@ class CoinGeckoPriceMonitor:
 
     def draw(self, canvas, cursor_pos=3, **kwargs):
         """draw this monitor to a canvas"""
-        end_padding = self.padding
-        change_str = self.price_data['change_24h']
-        price_str = self.price_data['price']
-
-        change_color = _get_change_color(change_str)
-        font_price = _get_price_font(price_str)
-
-        change_width = sum([
-            get_text_width(FONT_SYMBOL, self.symbol),
-            get_text_width(font_price, price_str),
-            get_text_width(FONT_CHANGE, change_str, padding=0),
-        ])
-
-        if self.center:
-            if change_width > canvas.width:
-                cursor_pos = cursor_pos
-
-            else:
-                center_pos = find_center(canvas, change_width)
-                end_padding = canvas.width - (center_pos + change_width)
-                cursor_pos += center_pos
-
-        # Draw the elements on the canvas
-        cursor_pos += graphics.DrawText(
-            canvas, FONT_SYMBOL, cursor_pos, 12, DEFAULT_COLOR, self.symbol
+        return _draw_price_ticker(
+            self.symbol,
+            self.price_data['price'],
+            self.price_data['change_24h'],
+            cursor_pos=cursor_pos,
+            center=self.center,
+            padding=self.padding,
+            end_padding=self.padding,
         )
 
-        cursor_pos += self.padding
-        cursor_pos += graphics.DrawText(
-            canvas, font_price, cursor_pos, 12, DEFAULT_COLOR, price_str
-        )
 
-        cursor_pos += self.padding
-        cursor_pos += graphics.DrawText(
-            canvas, FONT_CHANGE, cursor_pos, 12, change_color, change_str
-        )
+def _draw_price_ticker(symbol, price_str, change_str, cursor_pos=0, center=True, padding=6, end_padding=6)
+    change_color = _get_change_color(change_str)
+    font_price = _get_price_font(price_str)
 
-        cursor_pos += end_padding
+    change_width = sum([
+        get_text_width(FONT_SYMBOL, symbol),
+        get_text_width(font_price, price_str),
+        get_text_width(FONT_CHANGE, change_str, padding=0),
+    ])
 
-        return canvas, cursor_pos
+    if center:
+        if change_width > canvas.width:
+            cursor_pos = cursor_pos
+
+        else:
+            center_pos = find_center(canvas, change_width)
+            end_padding = canvas.width - (center_pos + change_width)
+            cursor_pos += center_pos
+
+    # Draw the elements on the canvas
+    cursor_pos += graphics.DrawText(
+        canvas, FONT_SYMBOL, cursor_pos, 12, DEFAULT_COLOR, symbol
+    )
+
+    cursor_pos += padding
+    cursor_pos += graphics.DrawText(
+        canvas, font_price, cursor_pos, 12, DEFAULT_COLOR, price_str
+    )
+
+    cursor_pos += padding
+    cursor_pos += graphics.DrawText(
+        canvas, FONT_CHANGE, cursor_pos, 12, change_color, change_str
+    )
+
+    cursor_pos += end_padding
+
+    return canvas, cursor_pos
 
 
 async def print_value(price_monitors):

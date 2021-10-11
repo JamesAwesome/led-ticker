@@ -6,10 +6,10 @@ import pytest
 from async_ticker import widgets
 from async_ticker.colors import RGB_WHITE
 from async_ticker.fonts import FONT_DEFAULT
+from async_ticker.helpers import get_text_width
 
 
-def test_ticker_message_draw(mocker, mock_canvas):
-    mock_draw_text = mocker.patch('rgbmatrix.graphics.DrawText')
+def test_ticker_message_draw(mock_draw_text, mock_canvas):
     msg_text = 'This is a message'
 
     # Test Centered
@@ -18,7 +18,9 @@ def test_ticker_message_draw(mocker, mock_canvas):
         font=FONT_DEFAULT,
         font_color=RGB_WHITE,
     )
-    ticker_msg.draw(mock_canvas)
+    canvas, cursor_pos = ticker_msg.draw(mock_canvas)
+
+    assert cursor_pos == 160
 
     mock_draw_text.assert_called_with(
         mock_canvas, FONT_DEFAULT, 29.0, 12, RGB_WHITE, msg_text
@@ -43,7 +45,9 @@ def test_ticker_message_draw(mocker, mock_canvas):
         font=FONT_DEFAULT,
         font_color=RGB_WHITE,
     )
-    ticker_msg.draw(mock_canvas)
+    canvas, cursor_pos = ticker_msg.draw(mock_canvas)
+
+    assert cursor_pos == 108
 
     mock_draw_text.assert_called_with(
         mock_canvas, FONT_DEFAULT, 0, 12, RGB_WHITE, msg_text
@@ -57,7 +61,9 @@ def test_ticker_message_draw(mocker, mock_canvas):
         font_color=RGB_WHITE,
     )
 
-    ticker_msg.draw(mock_canvas)
+    canvas, cursor_pos = ticker_msg.draw(mock_canvas)
+
+    assert cursor_pos == 1026
 
     mock_draw_text.assert_called_with(
         mock_canvas, FONT_DEFAULT, 0, 12, RGB_WHITE, too_big_message

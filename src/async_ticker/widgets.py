@@ -30,11 +30,7 @@ class TickerMessage:
     def draw(self, canvas, cursor_pos=0, font_color=None, **kwargs):
         """draw this monitor to a canvas"""
         # Draw the elements on the canvas
-
-        if font_color:
-            font_color = font_color
-        else:
-            font_color = self.font_color
+        font_color = font_color if font_color else self.font_color
 
         change_width = get_text_width(self.font, self.message, padding=0)
         end_padding = self.padding

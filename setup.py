@@ -21,4 +21,7 @@ setup(
         'attrs',
         'feedparser',
     ],
+    scripts=[
+        'src/scripts'
+    ]
 )

@@ -1,1 +1,1 @@
-src/async_ticker/fonts/*.bdf
+include src/async_ticker/fonts *.bdf

@@ -12,10 +12,6 @@ setup(
         'async_ticker',
         'async_ticker.fonts'
     ],
-    package_data={
-        'async_ticker.fonts': ['async_ticker/fonts/*.bdf']
-    },
-    include_package_data=True,
     package_dir={
         '': 'src/'
     },

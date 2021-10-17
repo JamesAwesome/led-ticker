@@ -218,7 +218,7 @@ class CoinbasePriceMonitor:
         price_str = f"{self.price:.4f}"
 
         return _draw_price_ticker(
-            self.canvas,
+            canvas,
             self.symbol,
             price_str,
             change_str,
@@ -324,7 +324,7 @@ class CoinGeckoPriceMonitor:
     def draw(self, canvas, cursor_pos=3, **kwargs):
         """draw this monitor to a canvas"""
         return _draw_price_ticker(
-            self.canvas,
+            canvas,
             self.symbol,
             self.price_data['price'],
             self.price_data['change_24h'],

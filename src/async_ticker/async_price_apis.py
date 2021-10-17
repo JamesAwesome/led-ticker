@@ -333,7 +333,7 @@ class CoinGeckoPriceMonitor:
         )
 
 
-def _draw_price_ticker(symbol, price_str, change_str, cursor_pos=0, center=True, padding=6, end_padding=6)
+def _draw_price_ticker(symbol, price_str, change_str, cursor_pos=0, center=True, padding=6, end_padding=6):
     change_color = _get_change_color(change_str)
     font_price = _get_price_font(price_str)
 

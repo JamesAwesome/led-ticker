@@ -8,7 +8,7 @@ build-test:
 
 test:
 	@echo "--- Running pytest ---"
-	@docker-compose run --rm pytest
+	@docker-compose -f docker-compose.ci.yml run --rm pytest
 
 
 shell:

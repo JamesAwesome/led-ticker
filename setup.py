@@ -22,6 +22,6 @@ setup(
         'feedparser',
     ],
     scripts=[
-        'src/async_ticker/scripts/crypto-ticker.py'
+        'src/scripts/crypto-ticker.py'
     ]
 )

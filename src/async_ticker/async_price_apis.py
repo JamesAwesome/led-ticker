@@ -18,6 +18,8 @@ from rgbmatrix import graphics
 
 GAS_BANNER = "Gas(gwei):"
 
+from async_ticker.helpers import get_text_width, find_center
+
 from async_ticker.fonts import (
     FONT_SYMBOL,
     FONT_PRICE,
@@ -31,8 +33,6 @@ from async_ticker.colors import (
     UP_TREND_COLOR,
     DOWN_TREND_COLOR,
 )
-
-from async_ticker.helpers import get_text_width, find_center
 
 
 OK_GAS_COLOR = graphics.Color(255, 255, 100)

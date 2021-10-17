@@ -13,7 +13,7 @@ setup(
         'async_ticker.fonts'
     ],
     package_data={
-        '': ['src/async_ticker/fonts/*.bdf']
+        'async_ticker.fonts': ['async_ticker/fonts/*.bdf']
     },
     include_package_data=True,
     package_dir={

@@ -21,6 +21,6 @@ FROM rgbmatrix
 
 COPY . /code/
 
-RUN pip3 install -e .
+RUN pip3 install .
 
 CMD crypto-ticker.py

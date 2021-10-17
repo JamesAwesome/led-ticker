@@ -14,7 +14,7 @@ setup(
     package_dir={
         '': 'src/'
     },
-    requires=[
+    install_requires=[
         'Pillow',
         'asyncio',
         'aiohttp',

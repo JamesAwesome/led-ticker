@@ -9,7 +9,8 @@ setup(
     author='James Awesome',
     author_email='james@morelli.nyc',
     packages=[
-        'async_ticker'
+        'async_ticker',
+        'async_ticker.fonts'
     ],
     package_dir={
         '': 'src/'

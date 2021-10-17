@@ -18,14 +18,14 @@ from rgbmatrix import graphics
 
 GAS_BANNER = "Gas(gwei):"
 
-from async_ticker.fonts import (
+from .fonts import (
     FONT_SYMBOL,
     FONT_PRICE,
     FONT_PRICE_SMALL,
     FONT_CHANGE,
 )
 
-from async_ticker.colors import (
+from .colors import (
     RGB_WHITE,
     DEFAULT_COLOR,
     UP_TREND_COLOR,

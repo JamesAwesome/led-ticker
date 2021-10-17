@@ -79,14 +79,6 @@ async def main(coinbase_symbols, coingecko_symbols):
         while True:
             feed_monitor, feed_title = next(feed_monitors)
 
-            await AsyncTicker.from_rss_feed(
-                feed_monitor,
-                led_frame,
-                custom_title=feed_title,
-                title_delay=5,
-                notif_queue=notif_queue,
-            ).run_forever_scroll(loop_count=1)
-
             await AsyncTicker(
                 monitors,
                 led_frame,
@@ -94,6 +86,14 @@ async def main(coinbase_symbols, coingecko_symbols):
                 title_delay=5,
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=5)
+
+            await AsyncTicker.from_rss_feed(
+                feed_monitor,
+                led_frame,
+                custom_title=feed_title,
+                title_delay=5,
+                notif_queue=notif_queue,
+            ).run_forever_scroll(loop_count=1)
 
 
 if __name__ == "__main__":

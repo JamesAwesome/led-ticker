@@ -3,7 +3,7 @@
 
 build-test:
 	@echo "--- building test image ---"
-	@docker-compose build pytest
+	@docker-compose -f docker-compose.ci.yml build pytest
 
 
 test:

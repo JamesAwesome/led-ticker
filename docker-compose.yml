@@ -13,10 +13,3 @@ services:
       - ./settings.env
     volumes:
       - .:/code
-
-  pytest:
-    <<: *default
-    build:
-      context: .
-      dockerfile: Dockerfile.test
-    command: "./run_tests.sh"

@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  pytest: &default
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    devices:
+      - "/dev/mem:/dev/mem"
+    privileged: true
+    restart: always
+    env_file:
+      - ./settings.env
+    volumes:
+      - .:/code

@@ -14,7 +14,7 @@ setup(
     ],
     package_data={
         'async_ticker.fonts': ['src/async_ticker/fonts/*.bdf']
-    }
+    },
     package_dir={
         '': 'src/'
     },

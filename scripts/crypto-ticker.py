@@ -15,7 +15,7 @@ from async_ticker.async_news_feed import RSSFeedMonitor
 from async_ticker.async_ticker import AsyncTicker
 from async_ticker.widgets import TickerMessage
 from async_ticker.frame import LedFrame
-from async_ticker.colors import ORANGE
+from async_ticker.colors import ORANGE, UP_TREND_COLOR
 
 
 logger = logging.getLogger()
@@ -83,6 +83,7 @@ async def main(coinbase_symbols, coingecko_symbols):
             await AsyncTicker(
                 [
                     TickerMessage('Hello Chief!'),
+                    TickerMessage('#DevOps', font_color=UP_TREND_COLOR),
                 ],
                 led_frame,
                 notif_queue=notif_queue,

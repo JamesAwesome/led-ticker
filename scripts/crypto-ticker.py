@@ -15,6 +15,7 @@ from async_ticker.async_news_feed import RSSFeedMonitor
 from async_ticker.async_ticker import AsyncTicker
 from async_ticker.widgets import TickerMessage
 from async_ticker.frame import LedFrame
+from async_ticker.colors import ORANGE
 
 
 logger = logging.getLogger()
@@ -80,12 +81,28 @@ async def main(coinbase_symbols, coingecko_symbols):
             feed_monitor, feed_title = next(feed_monitors)
 
             await AsyncTicker(
+                [
+                    TickerMessage('Hello Chief!'),
+                ],
+                led_frame,
+                notif_queue=notif_queue,
+            ).run_forever_scroll(loop_count=1)
+
+            await AsyncTicker(
                 monitors,
                 led_frame,
                 title=TickerMessage('Cryptocurrency/USD'),
                 title_delay=5,
                 notif_queue=notif_queue,
-            ).run_forever_scroll(loop_count=5)
+            ).run_forever_scroll(loop_count=2)
+
+            await AsyncTicker(
+                [
+                    TickerMessage('Happy Halloween!', font_color=ORANGE)
+                ],
+                led_frame,
+                notif_queue=notif_queue,
+            ).run_forever_scroll(loop_count=1)
 
             await AsyncTicker.from_rss_feed(
                 feed_monitor,

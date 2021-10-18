@@ -8,3 +8,5 @@ DEFAULT_COLOR = graphics.Color(255, 255, 0)
 
 UP_TREND_COLOR = graphics.Color(46, 139, 87)
 DOWN_TREND_COLOR = graphics.Color(194, 24, 7)
+
+ORANGE = graphics.Color(255,2 15, 0)

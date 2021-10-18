@@ -82,10 +82,11 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
-                    TickerMessage('Hello Chief!'),
                     TickerMessage('#DevOps', font_color=UP_TREND_COLOR),
                 ],
                 led_frame,
+                title=TickerMessage('Hello Chief!'),
+                title_delay=5,
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=1)
 

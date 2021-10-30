@@ -13,4 +13,4 @@ test:
 
 shell:
 	@echo "--- Running dev shell ---"
-	@docker-compose run --rm pytest /bin/bash -l
+	@docker-compose -f docker-compose.ci.yml run --rm pytest /bin/bash -l

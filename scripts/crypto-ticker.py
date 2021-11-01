@@ -52,7 +52,7 @@ async def main(coinbase_symbols, coingecko_symbols):
             await CoinbasePriceMonitor.start(symbol, "USD", session) for symbol in coinbase_symbols
         ])
 
-        monitors.extend(await CoinGeckoPriceMonitor.start('POOL', 'pooltogether', 'USD', session))
+        monitors.extend(iter([await CoinGeckoPriceMonitor.start('POOL', 'pooltogether', 'USD', session)])
         monitors.extend(await start_coingecko_monitors(coingecko_symbols, 'USD', session))
 
         gas_price_monitor = await EtherscanGasMonitor.start(

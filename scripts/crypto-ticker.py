@@ -122,6 +122,6 @@ if __name__ == "__main__":
     asyncio.run(
         main(
             ["ETH", "BTC", "XLM", "SOL", "ADA", "COMP", "CRV", "GRT", "POOL", "SUSHI"],
-            ["MATIC", "ORCA", "SAMO", "AVAX"]
+            ["POOL", "ORCA", "SAMO", "AVAX"]
         )
     )

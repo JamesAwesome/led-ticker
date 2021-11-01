@@ -82,11 +82,9 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
-                    TickerMessage('#DevOps', font_color=UP_TREND_COLOR),
+                    TickerCountdown('Days Until Thanksgiving', font_color=ORANGE)
                 ],
                 led_frame,
-                title=TickerMessage('Hello Chief!'),
-                title_delay=5,
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=1)
 
@@ -100,9 +98,11 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
-                    TickerCountdown('Days Until Thanksgiving', font_color=ORANGE)
+                    TickerMessage('#DevOps', font_color=UP_TREND_COLOR),
                 ],
                 led_frame,
+                title=TickerMessage('Hello Chief!'),
+                title_delay=5,
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=1)
 

@@ -46,7 +46,7 @@ class AsyncTicker:
              feed_monitor.feed_stories,
              frame,
              title=title,
-             title_delay=5,
+             title_delay=title_delay,
              buffer_msg=buffer_msg,
              notif_queue=notif_queue,
         )

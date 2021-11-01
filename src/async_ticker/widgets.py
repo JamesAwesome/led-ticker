@@ -69,7 +69,7 @@ class TickerCountdown:
         """draw this monitor to a canvas"""
         # Draw the elements on the canvas
         today = date.today()
-        days_until = (today - self.countdown_date).days
+        days_until = (self.countdown_date - today).days
 
         font_color = font_color if font_color else self.font_color
 

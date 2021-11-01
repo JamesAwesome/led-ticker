@@ -87,7 +87,7 @@ async def main(coinbase_symbols, coingecko_symbols):
                 ],
                 led_frame,
                 notif_queue=notif_queue,
-            ).run_forever_scroll(loop_count=1)
+            ).run_forever_scroll(loop_count=2)
 
             await AsyncTicker(
                 monitors,

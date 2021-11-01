@@ -4,6 +4,7 @@
 import os
 import sys
 import itertools
+from datetime import date
 
 import asyncio
 import logging
@@ -82,7 +83,7 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
-                    TickerCountdown('Days Until Thanksgiving', font_color=ORANGE)
+                    TickerCountdown('Days Until Thanksgiving', date(2021, 11, 25), font_color=ORANGE)
                 ],
                 led_frame,
                 notif_queue=notif_queue,

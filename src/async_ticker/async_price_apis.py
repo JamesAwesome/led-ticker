@@ -312,7 +312,7 @@ class CoinGeckoPriceMonitor:
                     price = f"{data[cur]:,.4f}"
                     change_24h = f"{data[cur_change]:.2f}%"
                 except (KeyError, TypeError):
-                    logging.warn(f'api data not complete for %s: %s', coin_id, data)
+                    logging.warn('api data not complete for %s: %s', coin_id, data)
                     continue
 
                 self.price_data = {

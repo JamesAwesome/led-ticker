@@ -82,11 +82,11 @@ async def main(coinbase_symbols, coingecko_symbols):
             feed_monitor, feed_title = next(feed_monitors)
 
             await AsyncTicker(
-                title_delay=0,
                 [
                     TickerCountdown('Days Until Thanksgiving', date(2021, 11, 25), font_color=ORANGE)
                 ],
                 led_frame,
+                title_delay=0,
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=2)
 

@@ -54,6 +54,7 @@ class TickerMessage:
 
         return canvas, cursor_pos
 
+
 @attr.s
 class TickerCountdown:
     """An generic countdown"""

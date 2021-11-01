@@ -16,7 +16,7 @@ from async_ticker.async_news_feed import RSSFeedMonitor
 from async_ticker.async_ticker import AsyncTicker
 from async_ticker.widgets import TickerMessage, TickerCountdown
 from async_ticker.frame import LedFrame
-from async_ticker.colors import ORANGE, UP_TREND_COLOR
+from async_ticker.colors import ORANGE, UP_TREND_COLOR, RGB_WHITE, LIME, BROWN
 
 
 logger = logging.getLogger()
@@ -83,6 +83,7 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
+                    TickerMessage('Happy Turkey!!!', font_color=BROWN),
                     TickerCountdown('Days Until Thanksgiving', date(2021, 11, 25), font_color=ORANGE)
                 ],
                 led_frame,
@@ -103,7 +104,7 @@ async def main(coinbase_symbols, coingecko_symbols):
                     TickerMessage('#DevOps', font_color=UP_TREND_COLOR),
                 ],
                 led_frame,
-                title=TickerMessage('Hello Chief!'),
+                title=TickerMessage('Hello Chief!', font_color=LIME),
                 title_delay=5,
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=1)

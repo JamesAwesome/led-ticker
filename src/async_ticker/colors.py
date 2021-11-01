@@ -9,4 +9,7 @@ DEFAULT_COLOR = graphics.Color(255, 255, 0)
 UP_TREND_COLOR = graphics.Color(46, 139, 87)
 DOWN_TREND_COLOR = graphics.Color(194, 24, 7)
 
+LIME =  graphics.Color(0, 255, 0)
 ORANGE = graphics.Color(255, 215, 0)
+
+BROWN = graphics.Color(139, 69, 19)

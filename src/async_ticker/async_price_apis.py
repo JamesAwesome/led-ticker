@@ -241,7 +241,7 @@ async def _get_coingecko_coin_list(session):
 
 def _find_coingecko_symbol_id(coin_list, symbol):
     for coin_meta in coin_list:
-        if symbol.lower() == coin_meta['symbol']:
+        if symbol.lower() == coin_meta['symbol'].lower():
             return coin_meta['id']
 
 

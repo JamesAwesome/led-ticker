@@ -304,7 +304,7 @@ class CoinGeckoPriceMonitor:
 
         async with self.session.get(COINGECKO_PRICE_API, params=params) as response:
             price_data = await response.json()
-            cur = self.currency.lower()
+            cur = self.symbol_id.lower()
             cur_change = f"{cur}_24h_change"
 
             for coin_id, data in price_data.items():

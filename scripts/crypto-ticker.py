@@ -13,7 +13,7 @@ import aiohttp
 from async_ticker.async_price_apis import CoinbasePriceMonitor, EtherscanGasMonitor, start_coingecko_monitors
 from async_ticker.async_news_feed import RSSFeedMonitor
 from async_ticker.async_ticker import AsyncTicker
-from async_ticker.widgets import TickerMessage
+from async_ticker.widgets import TickerMessage, TickerCountdown
 from async_ticker.frame import LedFrame
 from async_ticker.colors import ORANGE, UP_TREND_COLOR
 
@@ -100,7 +100,7 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
-                    TickerMessage('Happy Halloween!', font_color=ORANGE)
+                    TickerCountdown('Days Until Thanksgiving', font_color=ORANGE)
                 ],
                 led_frame,
                 notif_queue=notif_queue,

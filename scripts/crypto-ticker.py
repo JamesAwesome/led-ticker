@@ -84,9 +84,9 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
-                    TickerCountdown('Days Until Thanksgiving', date(2021, 11, 25), font_color=ORANGE)
-                    TickerCountdown('Days Until Xmas', date(2021, 12, 25), font_color=DOWN_TREND_COLOR)
-                    TickerCountdown('Days Until 2022', date(2022, 1, 1), font_color=LIME)
+                    TickerCountdown('Days Until Thanksgiving', date(2021, 11, 25), font_color=ORANGE),
+                    TickerCountdown('Days Until Xmas', date(2021, 12, 25), font_color=DOWN_TREND_COLOR),
+                    TickerCountdown('Days Until 2022', date(2022, 1, 1), font_color=LIME),
                 ],
                 led_frame,
                 title=TickerMessage('Holiday CountDown', font_color=BROWN),

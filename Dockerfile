@@ -17,12 +17,10 @@ RUN cd /opt && \
     make install-python PYTHON=$(which python3)
 
 # Next Stage
-FROM rgbmatrix as pip_install
-
-RUN pip3 install .
-
-FROM pip_install
+FROM rgbmatrix
 
 COPY . /code/
+
+RUN pip3 install .
 
 CMD crypto-ticker.py

@@ -124,7 +124,7 @@ async def main(coinbase_symbols, coingecko_symbols):
 if __name__ == "__main__":
     asyncio.run(
         main(
-            ["ETH", "BTC", "XLM", "SOL", "ADA", "COMP", "CRV", "GRT", "MATIC", "SUSHI"],
+            ["ETH", "ADA", "SOL", "DOT", "SUSHI", "COMP", "MATIC", "CRV", "GRT", "BTC", "XLM"],
             ["ORCA", "SAMO", "AVAX"]
         )
     )

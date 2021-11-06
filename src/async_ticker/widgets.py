@@ -142,7 +142,7 @@ class WeatherWidget:
             self.unit_symbol = 'c'
 
     @classmethod
-    async def start(cls, *args, *kwargs):
+    async def start(cls, *args, **kwargs):
         """init and run this monitor"""
         update_interval = 1800
         update_interval += randint(0, 600)

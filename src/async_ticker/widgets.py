@@ -3,6 +3,7 @@
 
 Async price monitor widgets
 """
+import os
 
 import asyncio
 

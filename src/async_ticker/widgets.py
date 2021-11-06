@@ -24,6 +24,7 @@ from async_ticker.colors import (
 from async_ticker.fonts import FONT_DEFAULT, FONT_SMALL
 from async_ticker.helpers import get_text_width, find_center
 
+from random import randint
 
 @attr.s
 class TickerMessage:

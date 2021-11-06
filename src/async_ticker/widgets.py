@@ -149,7 +149,7 @@ class WeatherWidget:
         update_interval = 1800
         update_interval += randint(0, 600)
 
-        weather_monitor = await cls(**args, **kwargs).update()
+        weather_monitor = await cls(*args, **kwargs).update()
         asyncio.create_task(weather_monitor.monitor(update_interval))
 
         return weather_monitor

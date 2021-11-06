@@ -131,7 +131,7 @@ class WeatherWidget:
     weather_params = attr.ib(init=False)
     current_temp = attr.ib(init=False)
 
-    def __attrs_post_init__():
+    def __attrs_post_init__(self):
         self.weather_params = DEFAULT_WEATHER_PARAMS.deepcopy()
         self.weather_params['units'] = self.units
         self.weather_params['lat'] = self.location.lat

@@ -14,7 +14,7 @@ import aiohttp
 from async_ticker.async_price_apis import CoinbasePriceMonitor, EtherscanGasMonitor, start_coingecko_monitors, CoinGeckoPriceMonitor
 from async_ticker.async_news_feed import RSSFeedMonitor
 from async_ticker.async_ticker import AsyncTicker
-from async_ticker.widgets import TickerMessage, TickerCountdown
+from async_ticker.widgets import TickerMessage, TickerCountdown, WeatherWidget, LocationData
 from async_ticker.frame import LedFrame
 from async_ticker.colors import ORANGE, UP_TREND_COLOR, RGB_WHITE, LIME, BROWN, DOWN_TREND_COLOR
 
@@ -67,7 +67,7 @@ async def main(coinbase_symbols, coingecko_symbols):
         feed_monitor_altcoin = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/rss/tag/altcoin', update_interval=3000)
         feed_monitor_hodl = await RSSFeedMonitor.start(session, 'https://dailyhodl.com/feed/', update_interval=3000)
         feed_monitor_coindesk = await RSSFeedMonitor.start(session, 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml', update_interval=3000)
-
+        weather_philly = await WeatherWidget.start(session, LocationData(lat='40.0591', lon='-75.102'), 'Philly', units='imperial')
 
         feed_monitors = itertools.cycle([
             (feed_monitor_news, None),
@@ -84,6 +84,17 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
+                    weather_philly,
+                ],
+                led_frame,
+                title=TickerMessage('Clubhouse Weather', font_color=LIME),
+                title_delay=5,
+                notif_queue=notif_queue,
+            ).run_forever_scroll(loop_count=2)
+
+            await AsyncTicker(
+                [
+                    weather_philly,
                     TickerCountdown('Days Until Thanksgiving', date(2021, 11, 25), font_color=ORANGE),
                     TickerCountdown('Days Until Xmas', date(2021, 12, 25), font_color=DOWN_TREND_COLOR),
                     TickerCountdown('Days Until 2022', date(2022, 1, 1), font_color=LIME),

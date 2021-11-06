@@ -99,7 +99,7 @@ class TickerCountdown:
 
         return canvas, cursor_pos
 
-LocationData = namedtuple(str, ['lat', 'lon'])
+LocationData = namedtuple('lat', 'lon')
 
 OPENWEATHERMAP_URL = 'https://api.openweathermap.org/data/2.5/onecall'
 

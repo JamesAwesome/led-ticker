@@ -14,6 +14,7 @@ from datetime import date
 import aiohttp
 import attr
 from rgbmatrix import graphics
+import logging
 
 from async_ticker.colors import (
     RGB_WHITE,

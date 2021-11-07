@@ -16,7 +16,7 @@ LIME =  graphics.Color(0, 255, 0)
 ORANGE = graphics.Color(255, 215, 0)
 
 BROWN = graphics.Color(139, 69, 19)
-PURPLE = graphics.Color(230, 230, 250)
+PURPLE = graphics.Color(221, 160, 221)
 
 RANDOM_COLOR = itertools.cycle([
     PURPLE,

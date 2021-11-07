@@ -201,7 +201,7 @@ class WeatherWidget:
         )
 
         cursor_pos += graphics.DrawText(
-            canvas, self.font, cursor_pos, 12, self.font_color_temp, f'{self.weather} {self.current_temp}{self.unit_symbol}'
+            canvas, self.font, cursor_pos, 12, self.font_color_temp, f'{self.weather} - {self.current_temp}{self.unit_symbol}'
         )
 
         cursor_pos += end_padding

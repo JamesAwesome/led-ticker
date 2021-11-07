@@ -92,7 +92,7 @@ async def main(coinbase_symbols, coingecko_symbols):
                     weather_lax,
                 ],
                 led_frame,
-                title=TickerMessage('Clubhouse Weather', font_color=LIME),
+                title=TickerMessage('Chief Flagship Weather', font_color=LIME),
                 title_delay=5,
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=2)

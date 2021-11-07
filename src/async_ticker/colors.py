@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
+import itertools
+
 from rgbmatrix import graphics
+
 
 RGB_WHITE = graphics.Color(255, 255, 255)
 
@@ -13,3 +16,12 @@ LIME =  graphics.Color(0, 255, 0)
 ORANGE = graphics.Color(255, 215, 0)
 
 BROWN = graphics.Color(139, 69, 19)
+
+RANDOM_COLOR = itertools.cycle([
+    RGB_WHITE,
+    LIME,
+    ORANGE,
+    DEFAULT_COLOR,
+    DOWN_TREND_COLOR,
+    UP_TREND_COLOR,
+])

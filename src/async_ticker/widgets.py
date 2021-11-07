@@ -21,6 +21,7 @@ from async_ticker.colors import (
     DEFAULT_COLOR,
     UP_TREND_COLOR,
     DOWN_TREND_COLOR,
+    RANDOM_COLOR,
 )
 from async_ticker.fonts import FONT_DEFAULT, FONT_SMALL
 from async_ticker.helpers import get_text_width, find_center

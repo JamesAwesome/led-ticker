@@ -67,7 +67,9 @@ async def main(coinbase_symbols, coingecko_symbols):
         feed_monitor_altcoin = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/rss/tag/altcoin', update_interval=3000)
         feed_monitor_hodl = await RSSFeedMonitor.start(session, 'https://dailyhodl.com/feed/', update_interval=3000)
         feed_monitor_coindesk = await RSSFeedMonitor.start(session, 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml', update_interval=3000)
-        weather_philly = await WeatherWidget.start(session, LocationData('40.0591', '-75.102'), 'Philly', units='imperial')
+        weather_philly = await WeatherWidget.start(session, LocationData('40.738480', '-73.989929'), 'NYC', units='imperial')
+        weather_philly = await WeatherWidget.start(session, LocationData('41.878113', '-87.629799'), 'Chicago', units='imperial')
+        weather_philly = await WeatherWidget.start(session, LocationData('34.090679', '-118.371750'), 'LA', units='imperial')
 
         feed_monitors = itertools.cycle([
             (feed_monitor_news, None),

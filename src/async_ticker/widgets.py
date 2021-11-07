@@ -139,10 +139,10 @@ class WeatherWidget:
         self.weather_params['lon'] = self.location.lon
 
         if self.units == 'imperial':
-            self.unit_symbol = 'f'
+            self.unit_symbol = 'F'
 
         if self.units == 'metric':
-            self.unit_symbol = 'c'
+            self.unit_symbol = 'C'
 
     @classmethod
     async def start(cls, *args, **kwargs):
@@ -161,7 +161,7 @@ class WeatherWidget:
 
         async with self.session.get(OPENWEATHERMAP_URL, params=self.weather_params) as response:
             res_json = await response.json()
-            self.current_temp = res_json['current']['temp']
+            self.current_temp = int(res_json['current']['temp'])
 
         return self
 

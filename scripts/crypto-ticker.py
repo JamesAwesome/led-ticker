@@ -67,9 +67,9 @@ async def main(coinbase_symbols, coingecko_symbols):
         feed_monitor_altcoin = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/rss/tag/altcoin', update_interval=3000)
         feed_monitor_hodl = await RSSFeedMonitor.start(session, 'https://dailyhodl.com/feed/', update_interval=3000)
         feed_monitor_coindesk = await RSSFeedMonitor.start(session, 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml', update_interval=3000)
-        weather_philly = await WeatherWidget.start(session, LocationData('40.738480', '-73.989929'), 'NYC', units='imperial')
-        weather_philly = await WeatherWidget.start(session, LocationData('41.878113', '-87.629799'), 'Chicago', units='imperial')
-        weather_philly = await WeatherWidget.start(session, LocationData('34.090679', '-118.371750'), 'LA', units='imperial')
+        weather_nyc = await WeatherWidget.start(session, LocationData('40.738480', '-73.989929'), 'NYC', units='imperial')
+        weather_ord = await WeatherWidget.start(session, LocationData('41.878113', '-87.629799'), 'Chicago', units='imperial')
+        weather_lax = await WeatherWidget.start(session, LocationData('34.090679', '-118.371750'), 'LA', units='imperial')
 
         feed_monitors = itertools.cycle([
             (feed_monitor_news, None),
@@ -86,7 +86,9 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
-                    weather_philly,
+                    weather_nyc,
+                    weather_ord,
+                    weather_lax,
                 ],
                 led_frame,
                 title=TickerMessage('Clubhouse Weather', font_color=LIME),
@@ -96,7 +98,6 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
-                    weather_philly,
                     TickerCountdown('Days Until Thanksgiving', date(2021, 11, 25), font_color=ORANGE),
                     TickerCountdown('Days Until Xmas', date(2021, 12, 25), font_color=DOWN_TREND_COLOR),
                     TickerCountdown('Days Until 2022', date(2022, 1, 1), font_color=LIME),

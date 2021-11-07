@@ -131,7 +131,9 @@ class WeatherWidget:
     padding = attr.ib(type=int, default=6)
     unit_symbol = attr.ib(init=False)
     weather_params = attr.ib(init=False)
+    current = attr.ib(init=False)
     current_temp = attr.ib(init=False)
+    weather = attr.ib(init=False)
 
     def __attrs_post_init__(self):
         self.weather_params = deepcopy(DEFAULT_WEATHER_PARAMS)
@@ -162,7 +164,9 @@ class WeatherWidget:
 
         async with self.session.get(OPENWEATHERMAP_URL, params=self.weather_params) as response:
             res_json = await response.json()
+            self.current = res_json
             self.current_temp = int(res_json['current']['temp'])
+            self.weather = int(res_json['current']['weather'][0]['main'])
 
         return self
 
@@ -178,7 +182,7 @@ class WeatherWidget:
         font_color = font_color if font_color else self.font_color
 
         change_width = get_text_width(
-            self.font, f"{self.message}: {self.current_temp}{self.unit_symbol}", padding=0
+            self.font, f"{self.message}: {self.weather} - {self.current_temp}{self.unit_symbol}", padding=0
         )
 
         end_padding = self.padding
@@ -197,7 +201,7 @@ class WeatherWidget:
         )
 
         cursor_pos += graphics.DrawText(
-            canvas, self.font, cursor_pos, 12, self.font_color_temp, f'{self.current_temp}{self.unit_symbol}'
+            canvas, self.font, cursor_pos, 12, self.font_color_temp, f'{self.weather} {self.current_temp}{self.unit_symbol}'
         )
 
         cursor_pos += end_padding

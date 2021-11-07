@@ -166,7 +166,7 @@ class WeatherWidget:
             res_json = await response.json()
             self.current = res_json
             self.current_temp = int(res_json['current']['temp'])
-            self.weather = int(res_json['current']['weather'][0]['main'])
+            self.weather = res_json['current']['weather'][0]['main']
 
         return self
 

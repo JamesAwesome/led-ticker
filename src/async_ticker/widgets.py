@@ -182,7 +182,7 @@ class WeatherWidget:
         font_color = font_color if font_color else self.font_color
 
         change_width = get_text_width(
-            self.font, f"{self.message}: {self.weather} - {self.current_temp}{self.unit_symbol}", padding=0
+            self.font, f"{self.message}: {self.weather} {self.current_temp}{self.unit_symbol}", padding=0
         )
 
         end_padding = self.padding
@@ -201,7 +201,7 @@ class WeatherWidget:
         )
 
         cursor_pos += graphics.DrawText(
-            canvas, self.font, cursor_pos, 12, self.font_color_temp, f'{self.weather} - {self.current_temp}{self.unit_symbol}'
+            canvas, self.font, cursor_pos, 12, self.font_color_temp, f'{self.weather} {self.current_temp}{self.unit_symbol}'
         )
 
         cursor_pos += end_padding

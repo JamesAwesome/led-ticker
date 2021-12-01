@@ -71,6 +71,7 @@ async def main(coinbase_symbols, coingecko_symbols):
         weather_nyc = await WeatherWidget.start(session, LocationData('40.738480', '-73.989929'), 'New York City', units='imperial', font_color=next(RANDOM_COLOR))
         weather_ord = await WeatherWidget.start(session, LocationData('41.878113', '-87.629799'), 'Chicago', units='imperial', font_color=next(RANDOM_COLOR))
         weather_lax = await WeatherWidget.start(session, LocationData('34.090679', '-118.371750'), 'Los Angeles', units='imperial', font_color=next(RANDOM_COLOR))
+        weather_sfo = await WeatherWidget.start(session, LocationData('37.7749', '-122.4194'), 'San Francisco', units='imperial', font_color=next(RANDOM_COLOR))
 
         feed_monitors = itertools.cycle([
             (feed_monitor_news, None),
@@ -87,9 +88,20 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
+                    TickerMessage('#DevOps Squad is the best Squad', font_color=UP_TREND_COLOR),
+                ],
+                led_frame,
+                title=TickerMessage('Hello Chief!', font_color=LIME),
+                title_delay=5,
+                notif_queue=notif_queue,
+            ).run_forever_scroll(loop_count=1)
+
+            await AsyncTicker(
+                [
                     weather_nyc,
                     weather_ord,
                     weather_lax,
+                    weather_sfo,
                 ],
                 led_frame,
                 title=TickerMessage('Chief Flagship Weather', font_color=LIME),
@@ -99,7 +111,6 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
-                    TickerCountdown('Days Until Thanksgiving', date(2021, 11, 25), font_color=ORANGE),
                     TickerCountdown('Days Until Xmas', date(2021, 12, 25), font_color=DOWN_TREND_COLOR),
                     TickerCountdown('Days Until 2022', date(2022, 1, 1), font_color=LIME),
                 ],
@@ -116,17 +127,7 @@ async def main(coinbase_symbols, coingecko_symbols):
                 title_delay=5,
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=2)
-
-            await AsyncTicker(
-                [
-                    TickerMessage('#DevOps', font_color=UP_TREND_COLOR),
-                ],
-                led_frame,
-                title=TickerMessage('Hello Chief!', font_color=LIME),
-                title_delay=5,
-                notif_queue=notif_queue,
-            ).run_forever_scroll(loop_count=1)
-
+            
             await AsyncTicker.from_rss_feed(
                 feed_monitor,
                 led_frame,

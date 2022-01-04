@@ -150,7 +150,7 @@ class WeatherWidget:
     @classmethod
     async def start(cls, *args, **kwargs):
         """init and run this monitor"""
-        update_interval = 1800
+        update_interval = 10800 # Don't update a lot
         update_interval += randint(0, 600)
 
         weather_monitor = await cls(*args, **kwargs).update()

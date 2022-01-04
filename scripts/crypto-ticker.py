@@ -71,7 +71,6 @@ async def main(coinbase_symbols, coingecko_symbols):
         weather_nyc = await WeatherWidget.start(session, LocationData('40.738480', '-73.989929'), 'New York City', units='imperial', font_color=next(RANDOM_COLOR))
         weather_ord = await WeatherWidget.start(session, LocationData('41.878113', '-87.629799'), 'Chicago', units='imperial', font_color=next(RANDOM_COLOR))
         weather_lax = await WeatherWidget.start(session, LocationData('34.090679', '-118.371750'), 'Los Angeles', units='imperial', font_color=next(RANDOM_COLOR))
-        weather_sfo = await WeatherWidget.start(session, LocationData('37.7749', '-122.4194'), 'San Francisco', units='imperial', font_color=next(RANDOM_COLOR))
 
         feed_monitors = itertools.cycle([
             (feed_monitor_news, None),
@@ -110,24 +109,13 @@ async def main(coinbase_symbols, coingecko_symbols):
             ).run_forever_scroll(loop_count=2)
 
             await AsyncTicker(
-                [
-                    TickerCountdown('Days Until Xmas', date(2021, 12, 25), font_color=DOWN_TREND_COLOR),
-                    TickerCountdown('Days Until 2022', date(2022, 1, 1), font_color=LIME),
-                ],
-                led_frame,
-                title=TickerMessage('Holiday CountDown', font_color=BROWN),
-                title_delay=5,
-                notif_queue=notif_queue,
-            ).run_forever_scroll(loop_count=2)
-
-            await AsyncTicker(
                 monitors,
                 led_frame,
                 title=TickerMessage('Cryptocurrency/USD'),
                 title_delay=5,
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=2)
-            
+
             await AsyncTicker.from_rss_feed(
                 feed_monitor,
                 led_frame,

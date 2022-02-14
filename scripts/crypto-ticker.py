@@ -95,18 +95,18 @@ async def main(coinbase_symbols, coingecko_symbols):
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=1)
 
-            # await AsyncTicker(
-            #     [
-            #         weather_nyc,
-            #         weather_ord,
-            #         weather_lax,
-            #         weather_sfo,
-            #     ],
-            #     led_frame,
-            #     title=TickerMessage('Chief Flagship Weather', font_color=LIME),
-            #     title_delay=5,
-            #     notif_queue=notif_queue,
-            # ).run_forever_scroll(loop_count=2)
+            await AsyncTicker(
+                [
+                    weather_nyc,
+                    weather_ord,
+                    weather_lax,
+                    weather_sfo,
+                ],
+                led_frame,
+                title=TickerMessage('Chief Flagship Weather', font_color=LIME),
+                title_delay=5,
+                notif_queue=notif_queue,
+            ).run_forever_scroll(loop_count=2)
 
             await AsyncTicker(
                 monitors,

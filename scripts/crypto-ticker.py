@@ -68,9 +68,9 @@ async def main(coinbase_symbols, coingecko_symbols):
         feed_monitor_hodl = await RSSFeedMonitor.start(session, 'https://dailyhodl.com/feed/', update_interval=3000)
         feed_monitor_coindesk = await RSSFeedMonitor.start(session, 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml', update_interval=3000)
 
-        # weather_nyc = await WeatherWidget.start(session, LocationData('40.738480', '-73.989929'), 'New York City', units='imperial', font_color=next(RANDOM_COLOR))
-        # weather_ord = await WeatherWidget.start(session, LocationData('41.878113', '-87.629799'), 'Chicago', units='imperial', font_color=next(RANDOM_COLOR))
-        # weather_lax = await WeatherWidget.start(session, LocationData('34.090679', '-118.371750'), 'Los Angeles', units='imperial', font_color=next(RANDOM_COLOR))
+        weather_nyc = await WeatherWidget.start(session, LocationData('40.738480', '-73.989929'), 'New York City', units='imperial', font_color=next(RANDOM_COLOR))
+        weather_ord = await WeatherWidget.start(session, LocationData('41.878113', '-87.629799'), 'Chicago', units='imperial', font_color=next(RANDOM_COLOR))
+        weather_lax = await WeatherWidget.start(session, LocationData('34.090679', '-118.371750'), 'Los Angeles', units='imperial', font_color=next(RANDOM_COLOR))
 
         feed_monitors = itertools.cycle([
             (feed_monitor_news, None),
@@ -87,10 +87,14 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
-                    TickerMessage('#DevOps Squad is the best Squad', font_color=UP_TREND_COLOR),
+                    TickerMessage('Speed up your Pipelines with GitLab Private Runners: https://chief.link/gitlab', font_color=next(RANDOM_COLOR)),
+                    TickerMessage('Learn to make short links at: https://chief.link/shortlinks', font_color=next(RANDOM_COLOR)),
+                    TickerMessage('Connect to our AWS VPC OpenVPN: https://chief.link/openvpn', font_color=next(RANDOM_COLOR)),
+                    TickerMessage('Check out DevOps Tube for how-to videos: https://chief.link/devops-tube', font_color=next(RANDOM_COLOR)),
+                    TickerMessage('Log into AWS at: https://chief.link/aws-console', font_color=next(RANDOM_COLOR)),
                 ],
                 led_frame,
-                title=TickerMessage('Hello Chief!', font_color=LIME),
+                title=TickerMessage('#DevOps News', font_color=next(RANDOM_COLOR)),
                 title_delay=5,
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=1)
@@ -100,7 +104,6 @@ async def main(coinbase_symbols, coingecko_symbols):
                     weather_nyc,
                     weather_ord,
                     weather_lax,
-                    weather_sfo,
                 ],
                 led_frame,
                 title=TickerMessage('Chief Flagship Weather', font_color=LIME),

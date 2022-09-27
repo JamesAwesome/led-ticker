@@ -68,9 +68,11 @@ async def main(coinbase_symbols, coingecko_symbols):
         feed_monitor_hodl = await RSSFeedMonitor.start(session, 'https://dailyhodl.com/feed/', update_interval=3000)
         feed_monitor_coindesk = await RSSFeedMonitor.start(session, 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml', update_interval=3000)
 
+        weather_nyc = await WeatherWidget.start(session, LocationData('51.507200', '-0.127600'), 'London', units='metric', font_color=next(RANDOM_COLOR))
         weather_nyc = await WeatherWidget.start(session, LocationData('40.738480', '-73.989929'), 'New York City', units='imperial', font_color=next(RANDOM_COLOR))
         weather_ord = await WeatherWidget.start(session, LocationData('41.878113', '-87.629799'), 'Chicago', units='imperial', font_color=next(RANDOM_COLOR))
         weather_lax = await WeatherWidget.start(session, LocationData('34.090679', '-118.371750'), 'Los Angeles', units='imperial', font_color=next(RANDOM_COLOR))
+        weather_lax = await WeatherWidget.start(session, LocationData('37.774900', '-122.419400'), 'San Francisco', units='imperial', font_color=next(RANDOM_COLOR))
 
         feed_monitors = itertools.cycle([
             (feed_monitor_news, None),
@@ -92,6 +94,7 @@ async def main(coinbase_symbols, coingecko_symbols):
                     TickerMessage('Connect to our AWS VPC OpenVPN: https://chief.link/openvpn', font_color=next(RANDOM_COLOR)),
                     TickerMessage('Check out DevOps Tube for how-to videos: https://chief.link/devops-tube', font_color=next(RANDOM_COLOR)),
                     TickerMessage('Log into AWS at: https://chief.link/aws-console', font_color=next(RANDOM_COLOR)),
+                    TickerMessage('Terraform the world around you! https://chief.link/terraform-101', font_color=next(RANDOM_COLOR)),
                 ],
                 led_frame,
                 title=TickerMessage('#DevOps News', font_color=next(RANDOM_COLOR)),
@@ -105,7 +108,7 @@ async def main(coinbase_symbols, coingecko_symbols):
                     TickerCountdown('Days Until Halloween', date(2022, 10, 31), font_color=ORANGE),
                 ],
                 led_frame,
-                title=TickerMessage('Count Downs', font_color=RANDOM_COLOR),
+                title=TickerMessage('Count Downs', font_color=next(RANDOM_COLOR)),
                 title_delay=5,
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=2)

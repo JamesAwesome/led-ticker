@@ -95,6 +95,7 @@ async def main(coinbase_symbols, coingecko_symbols):
                     TickerMessage('Check out DevOps Tube for how-to videos: https://chief.link/devops-tube', font_color=next(RANDOM_COLOR)),
                     TickerMessage('Log into AWS at: https://chief.link/aws-console', font_color=next(RANDOM_COLOR)),
                     TickerMessage('Terraform the world around you: https://chief.link/terraform-101', font_color=next(RANDOM_COLOR)),
+                    TickerMessage('Got Tech Questions? https://chief.link/tech-support', font_color=next(RANDOM_COLOR)),
                     TickerMessage('Local Rabbit wins award for time-travel!', font_color=next(RANDOM_COLOR)),
                 ],
                 led_frame,
@@ -106,7 +107,7 @@ async def main(coinbase_symbols, coingecko_symbols):
             await AsyncTicker(
                 [
                     TickerCountdown('Days Until Heroku Contract Expires', date(2023, 3, 27), font_color=DOWN_TREND_COLOR),
-                    TickerCountdown('Days Until Halloween', date(2022, 10, 31), font_color=ORANGE),
+                    TickerCountdown('Days Until Xmas', date(2022, 12, 25), font_color=UP_TREND_COLOR),
                 ],
                 led_frame,
                 title=TickerMessage('Count Downs', font_color=next(RANDOM_COLOR)),

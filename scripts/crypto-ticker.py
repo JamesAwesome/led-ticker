@@ -107,7 +107,6 @@ async def main(coinbase_symbols, coingecko_symbols):
             await AsyncTicker(
                 [
                     TickerCountdown('Days Until Heroku Contract Expires', date(2023, 3, 27), font_color=DOWN_TREND_COLOR),
-                    TickerCountdown('Days Until Xmas', date(2022, 12, 25), font_color=UP_TREND_COLOR),
                 ],
                 led_frame,
                 title=TickerMessage('Count Downs', font_color=next(RANDOM_COLOR)),

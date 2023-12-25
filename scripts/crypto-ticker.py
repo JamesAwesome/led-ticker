@@ -64,7 +64,7 @@ async def main(coinbase_symbols, coingecko_symbols):
 
         feed_monitors = itertools.cycle([
             (feed_monitor_nintendo, TickerMessage('Nintendo Life')),
-            (feed_monitor_apple, TickerMessage('Apple | Top Albums'))
+            (feed_monitor_apple, TickerMessage('Apple | Top Albums')),
             (feed_monitor_hodl, None),
         ])
 

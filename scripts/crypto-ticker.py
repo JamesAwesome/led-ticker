@@ -63,7 +63,7 @@ async def main(coinbase_symbols, coingecko_symbols):
         weather_sfx = await WeatherWidget.start(session, LocationData('37.774900', '-122.419400'), 'San Francisco', units='imperial', font_color=next(RANDOM_COLOR))
 
         feed_monitors = itertools.cycle([
-            (feed_monitor_news, TickerMessage('Nintendo Life')),
+            (feed_monitor_nintendo, TickerMessage('Nintendo Life')),
             (feed_monitor_apple, TickerMessage('Apple | Top Albums'))
             (feed_monitor_hodl, None),
         ])

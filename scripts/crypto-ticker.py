@@ -52,23 +52,19 @@ async def main(coinbase_symbols, coingecko_symbols):
             await CoinbasePriceMonitor.start(symbol, "USD", session) for symbol in coinbase_symbols
         ])
 
-        # monitors.extend(iter([await CoinGeckoPriceMonitor.start('POOL', 'pooltogether', 'USD', session)]))
-        # monitors.extend(await start_coingecko_monitors(coingecko_symbols, 'USD', session))
-
-
-        # feed_monitor_news = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/editors_pick_rss', update_interval=3000)
-        # feed_monitor_altcoin = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/rss/tag/altcoin', update_interval=3000)
+        feed_monitor_apple = await RSSFeedMonitor.start(session, 'https://rss.applemarketingtools.com/api/v2/us/music/most-played/10/albums.rss', update_interval=3000)
+        feed_monitor_nintendo = await RSSFeedMonitor.start(session, 'https://www.nintendolife.com/feeds/news', update_interval=3000)
         feed_monitor_hodl = await RSSFeedMonitor.start(session, 'https://dailyhodl.com/feed/', update_interval=3000)
 
-        # weather_lon = await WeatherWidget.start(session, LocationData('65.507200', '-0.127600'), 'London', units='metric', font_color=next(RANDOM_COLOR))
-        # weather_nyc = await WeatherWidget.start(session, LocationData('40.738480', '-73.989929'), 'New York City', units='imperial', font_color=next(RANDOM_COLOR))
-        # weather_ord = await WeatherWidget.start(session, LocationData('41.878113', '-87.629799'), 'Chicago', units='imperial', font_color=next(RANDOM_COLOR))
-        # weather_lax = await WeatherWidget.start(session, LocationData('34.090679', '-118.371750'), 'Los Angeles', units='imperial', font_color=next(RANDOM_COLOR))
-        # weather_sfx = await WeatherWidget.start(session, LocationData('37.774900', '-122.419400'), 'San Francisco', units='imperial', font_color=next(RANDOM_COLOR))
+        weather_lon = await WeatherWidget.start(session, LocationData('65.507200', '-0.127600'), 'London', units='metric', font_color=next(RANDOM_COLOR))
+        weather_nyc = await WeatherWidget.start(session, LocationData('40.738480', '-73.989929'), 'New York City', units='imperial', font_color=next(RANDOM_COLOR))
+        weather_ord = await WeatherWidget.start(session, LocationData('41.878113', '-87.629799'), 'Chicago', units='imperial', font_color=next(RANDOM_COLOR))
+        weather_lax = await WeatherWidget.start(session, LocationData('34.090679', '-118.371750'), 'Los Angeles', units='imperial', font_color=next(RANDOM_COLOR))
+        weather_sfx = await WeatherWidget.start(session, LocationData('37.774900', '-122.419400'), 'San Francisco', units='imperial', font_color=next(RANDOM_COLOR))
 
         feed_monitors = itertools.cycle([
-            # (feed_monitor_news, None),
-            # (feed_monitor_altcoin, TickerMessage('Cointelegraph.com Altcoins')),
+            (feed_monitor_news, TickerMessage('Nintendo Life')),
+            (feed_monitor_apple, TickerMessage('Apple | Top Albums'))
             (feed_monitor_hodl, None),
         ])
 
@@ -105,19 +101,19 @@ async def main(coinbase_symbols, coingecko_symbols):
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=2)
 
-            # await AsyncTicker(
-            #     [
-            #         weather_lon,
-            #         weather_nyc,
-            #         weather_ord,
-            #         weather_lax,
-            #         weather_sfx,
-            #     ],
-            #     led_frame,
-            #     title=TickerMessage('Chief Flagship Weather', font_color=LIME),
-            #     title_delay=5,
-            #     notif_queue=notif_queue,
-            # ).run_forever_scroll(loop_count=2)
+            await AsyncTicker(
+                [
+                    weather_lon,
+                    weather_nyc,
+                    weather_ord,
+                    weather_lax,
+                    weather_sfx,
+                ],
+                led_frame,
+                title=TickerMessage('Chief Flagship Weather', font_color=LIME),
+                title_delay=5,
+                notif_queue=notif_queue,
+            ).run_forever_scroll(loop_count=2)
 
             await AsyncTicker(
                 monitors,

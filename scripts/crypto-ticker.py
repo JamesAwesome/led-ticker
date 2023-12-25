@@ -52,33 +52,24 @@ async def main(coinbase_symbols, coingecko_symbols):
             await CoinbasePriceMonitor.start(symbol, "USD", session) for symbol in coinbase_symbols
         ])
 
-        monitors.extend(iter([await CoinGeckoPriceMonitor.start('POOL', 'pooltogether', 'USD', session)]))
-        monitors.extend(await start_coingecko_monitors(coingecko_symbols, 'USD', session))
+        # monitors.extend(iter([await CoinGeckoPriceMonitor.start('POOL', 'pooltogether', 'USD', session)]))
+        # monitors.extend(await start_coingecko_monitors(coingecko_symbols, 'USD', session))
 
-        gas_price_monitor = await EtherscanGasMonitor.start(
-            session, api_key=os.getenv("ETHERSCAN_API_KEY")
-        )
 
-        monitors.extend([
-            gas_price_monitor,
-        ])
-
-        feed_monitor_news = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/editors_pick_rss', update_interval=3000)
-        feed_monitor_altcoin = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/rss/tag/altcoin', update_interval=3000)
+        # feed_monitor_news = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/editors_pick_rss', update_interval=3000)
+        # feed_monitor_altcoin = await RSSFeedMonitor.start(session, 'https://cointelegraph.com/rss/tag/altcoin', update_interval=3000)
         feed_monitor_hodl = await RSSFeedMonitor.start(session, 'https://dailyhodl.com/feed/', update_interval=3000)
-        feed_monitor_coindesk = await RSSFeedMonitor.start(session, 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml', update_interval=3000)
 
-        weather_lon = await WeatherWidget.start(session, LocationData('51.507200', '-0.127600'), 'London', units='metric', font_color=next(RANDOM_COLOR))
-        weather_nyc = await WeatherWidget.start(session, LocationData('40.738480', '-73.989929'), 'New York City', units='imperial', font_color=next(RANDOM_COLOR))
-        weather_ord = await WeatherWidget.start(session, LocationData('41.878113', '-87.629799'), 'Chicago', units='imperial', font_color=next(RANDOM_COLOR))
-        weather_lax = await WeatherWidget.start(session, LocationData('34.090679', '-118.371750'), 'Los Angeles', units='imperial', font_color=next(RANDOM_COLOR))
-        weather_sfx = await WeatherWidget.start(session, LocationData('37.774900', '-122.419400'), 'San Francisco', units='imperial', font_color=next(RANDOM_COLOR))
+        # weather_lon = await WeatherWidget.start(session, LocationData('65.507200', '-0.127600'), 'London', units='metric', font_color=next(RANDOM_COLOR))
+        # weather_nyc = await WeatherWidget.start(session, LocationData('40.738480', '-73.989929'), 'New York City', units='imperial', font_color=next(RANDOM_COLOR))
+        # weather_ord = await WeatherWidget.start(session, LocationData('41.878113', '-87.629799'), 'Chicago', units='imperial', font_color=next(RANDOM_COLOR))
+        # weather_lax = await WeatherWidget.start(session, LocationData('34.090679', '-118.371750'), 'Los Angeles', units='imperial', font_color=next(RANDOM_COLOR))
+        # weather_sfx = await WeatherWidget.start(session, LocationData('37.774900', '-122.419400'), 'San Francisco', units='imperial', font_color=next(RANDOM_COLOR))
 
         feed_monitors = itertools.cycle([
-            (feed_monitor_news, None),
-            (feed_monitor_altcoin, TickerMessage('Cointelegraph.com Altcoins')),
+            # (feed_monitor_news, None),
+            # (feed_monitor_altcoin, TickerMessage('Cointelegraph.com Altcoins')),
             (feed_monitor_hodl, None),
-            (feed_monitor_coindesk, None),
         ])
 
         notif_queue = asyncio.PriorityQueue(maxsize=1)
@@ -91,7 +82,7 @@ async def main(coinbase_symbols, coingecko_symbols):
                 [
                     TickerMessage('Speed up your Pipelines with GitLab Private Runners: https://chief.link/gitlab', font_color=next(RANDOM_COLOR)),
                     TickerMessage('Learn to make short links at: https://chief.link/shortlinks', font_color=next(RANDOM_COLOR)),
-                    TickerMessage('Connect to our AWS VPC OpenVPN: https://chief.link/openvpn', font_color=next(RANDOM_COLOR)),
+                    TickerMessage('Connect to our AWS VPC!: https://chief.link/aws-vpn', font_color=next(RANDOM_COLOR)),
                     TickerMessage('Check out DevOps Tube for how-to videos: https://chief.link/devops-tube', font_color=next(RANDOM_COLOR)),
                     TickerMessage('Log into AWS at: https://chief.link/aws-console', font_color=next(RANDOM_COLOR)),
                     TickerMessage('Terraform the world around you: https://chief.link/terraform-101', font_color=next(RANDOM_COLOR)),
@@ -114,19 +105,19 @@ async def main(coinbase_symbols, coingecko_symbols):
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=2)
 
-            await AsyncTicker(
-                [
-                    weather_lon,
-                    weather_nyc,
-                    weather_ord,
-                    weather_lax,
-                    weather_sfx,
-                ],
-                led_frame,
-                title=TickerMessage('Chief Flagship Weather', font_color=LIME),
-                title_delay=5,
-                notif_queue=notif_queue,
-            ).run_forever_scroll(loop_count=2)
+            # await AsyncTicker(
+            #     [
+            #         weather_lon,
+            #         weather_nyc,
+            #         weather_ord,
+            #         weather_lax,
+            #         weather_sfx,
+            #     ],
+            #     led_frame,
+            #     title=TickerMessage('Chief Flagship Weather', font_color=LIME),
+            #     title_delay=5,
+            #     notif_queue=notif_queue,
+            # ).run_forever_scroll(loop_count=2)
 
             await AsyncTicker(
                 monitors,
@@ -148,7 +139,6 @@ async def main(coinbase_symbols, coingecko_symbols):
 if __name__ == "__main__":
     asyncio.run(
         main(
-            ["ETH", "ADA", "SOL", "DOT", "SUSHI", "COMP", "MATIC", "CRV", "GRT", "BTC", "LINK", "XLM"],
-            ["ORCA", "SAMO", "AVAX"]
+            ["ETH", "ADA", "SOL", "DOT", "SUSHI", "COMP", "MATIC", "CRV", "GRT", "BTC", "LINK", "XLM"],[],
         )
     )

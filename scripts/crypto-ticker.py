@@ -52,9 +52,9 @@ async def main(coinbase_symbols, coingecko_symbols):
             await CoinbasePriceMonitor.start(symbol, "USD", session) for symbol in coinbase_symbols
         ])
 
-        feed_monitor_apple = await RSSFeedMonitor.start(session, 'https://rss.applemarketingtools.com/api/v2/us/music/most-played/10/albums.rss', update_interval=3000)
+        feed_monitor_anime = await RSSFeedMonitor.start(session, 'https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us', update_interval=3000)
         feed_monitor_nintendo = await RSSFeedMonitor.start(session, 'https://www.nintendolife.com/feeds/news', update_interval=3000)
-        feed_monitor_hodl = await RSSFeedMonitor.start(session, 'https://dailyhodl.com/feed/', update_interval=3000)
+        feed_monitor_espn = await RSSFeedMonitor.start(session, 'https://www.espn.com/espn/rss/news', update_interval=3000)
 
         weather_lon = await WeatherWidget.start(session, LocationData('65.507200', '-0.127600'), 'London', units='metric', font_color=next(RANDOM_COLOR))
         weather_nyc = await WeatherWidget.start(session, LocationData('40.738480', '-73.989929'), 'New York City', units='imperial', font_color=next(RANDOM_COLOR))
@@ -64,8 +64,8 @@ async def main(coinbase_symbols, coingecko_symbols):
 
         feed_monitors = itertools.cycle([
             (feed_monitor_nintendo, TickerMessage('Nintendo Life')),
-            (feed_monitor_apple, TickerMessage('Apple | Top Albums')),
-            (feed_monitor_hodl, None),
+            (feed_monitor_anime, TickerMessage('Anime News Network')),
+            (feed_monitor_espn, TickerMessage('ESPN Top Stories')),
         ])
 
         notif_queue = asyncio.PriorityQueue(maxsize=1)
@@ -76,14 +76,9 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
-                    TickerMessage('Speed up your Pipelines with GitLab Private Runners: https://chief.link/gitlab', font_color=next(RANDOM_COLOR)),
-                    TickerMessage('Learn to make short links at: https://chief.link/shortlinks', font_color=next(RANDOM_COLOR)),
-                    TickerMessage('Connect to our AWS VPC!: https://chief.link/aws-vpn', font_color=next(RANDOM_COLOR)),
-                    TickerMessage('Check out DevOps Tube for how-to videos: https://chief.link/devops-tube', font_color=next(RANDOM_COLOR)),
-                    TickerMessage('Log into AWS at: https://chief.link/aws-console', font_color=next(RANDOM_COLOR)),
-                    TickerMessage('Terraform the world around you: https://chief.link/terraform-101', font_color=next(RANDOM_COLOR)),
-                    TickerMessage('Got Tech Questions? https://chief.link/tech-support', font_color=next(RANDOM_COLOR)),
+                    TickerMessage('May the Rabbit always be with you!', font_color=next(RANDOM_COLOR)),
                     TickerMessage('Local Rabbit wins award for time-travel!', font_color=next(RANDOM_COLOR)),
+                    TickerMessage('Always be your bunny best!', font_color=next(RANDOM_COLOR)),
                 ],
                 led_frame,
                 title=TickerMessage('#DevOps News', font_color=next(RANDOM_COLOR)),
@@ -93,7 +88,12 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
-                    TickerCountdown('Days Until Heroku Contract Expires', date(2023, 3, 27), font_color=DOWN_TREND_COLOR),
+                    TickerCountdown('Days Until Halloween', date(2024, 10, 31), font_color=RANDOM_COLOR),
+                    TickerCountdown('Days Until ThanksGiving', date(2024, 11, 28), font_color=RANDOM_COLOR),
+                    TickerCountdown('Days Until Xmas', date(2024, 12, 25), font_color=RANDOM_COLOR),
+                    TickerCountdown('Days Until Hanukkah', date(2024, 12, 25), font_color=RANDOM_COLOR),
+                    TickerCountdown('Days Until Kwanzaa', date(2024, 12, 26), font_color=RANDOM_COLOR),
+                    TickerCountdown('Days Until 2025', date(2025, 01, 01), font_color=RANDOM_COLOR),
                 ],
                 led_frame,
                 title=TickerMessage('Count Downs', font_color=next(RANDOM_COLOR)),
@@ -110,7 +110,7 @@ async def main(coinbase_symbols, coingecko_symbols):
                     weather_sfx,
                 ],
                 led_frame,
-                title=TickerMessage('Chief Flagship Weather', font_color=LIME),
+                title=TickerMessage('Weather', font_color=LIME),
                 title_delay=5,
                 notif_queue=notif_queue,
             ).run_forever_scroll(loop_count=2)

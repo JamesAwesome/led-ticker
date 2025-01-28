@@ -77,7 +77,6 @@ async def main(coinbase_symbols, coingecko_symbols):
             await AsyncTicker(
                 [
                     TickerMessage('May the Rabbit always be with you!', font_color=next(RANDOM_COLOR)),
-                    TickerMessage('Local Rabbit wins award for time-travel!', font_color=next(RANDOM_COLOR)),
                     TickerMessage('Always be your bunny best!', font_color=next(RANDOM_COLOR)),
                 ],
                 led_frame,
@@ -88,12 +87,8 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
-                    TickerCountdown('Days Until Halloween', date(2024, 10, 31), font_color=RANDOM_COLOR),
-                    TickerCountdown('Days Until ThanksGiving', date(2024, 11, 28), font_color=RANDOM_COLOR),
-                    TickerCountdown('Days Until Xmas', date(2024, 12, 25), font_color=RANDOM_COLOR),
-                    TickerCountdown('Days Until Hanukkah', date(2024, 12, 25), font_color=RANDOM_COLOR),
-                    TickerCountdown('Days Until Kwanzaa', date(2024, 12, 26), font_color=RANDOM_COLOR),
-                    TickerCountdown('Days Until 2025', date(2025, 01, 01), font_color=RANDOM_COLOR),
+                    TickerCountdown('Days Until Spring', date(2025, 3, 20), font_color=RANDOM_COLOR),
+                    TickerCountdown('Days Until Summer', date(2025, 6, 20), font_color=RANDOM_COLOR),
                 ],
                 led_frame,
                 title=TickerMessage('Count Downs', font_color=next(RANDOM_COLOR)),

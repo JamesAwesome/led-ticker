@@ -48,9 +48,9 @@ async def main(coinbase_symbols, coingecko_symbols):
     async with aiohttp.ClientSession() as session:
         monitors = []
 
-        monitors.extend([
-            await CoinbasePriceMonitor.start(symbol, "USD", session) for symbol in coinbase_symbols
-        ])
+        # monitors.extend([
+        #     await CoinbasePriceMonitor.start(symbol, "USD", session) for symbol in coinbase_symbols
+        # ])
 
         feed_monitor_anime = await RSSFeedMonitor.start(session, 'https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us', update_interval=3000)
         feed_monitor_nintendo = await RSSFeedMonitor.start(session, 'https://www.nintendolife.com/feeds/news', update_interval=3000)
@@ -110,6 +110,6 @@ async def main(coinbase_symbols, coingecko_symbols):
 if __name__ == "__main__":
     asyncio.run(
         main(
-            ["ETH", "ADA", "SOL", "DOT", "SUSHI", "COMP", "MATIC", "CRV", "GRT", "BTC", "LINK", "XLM"],[],
+            [],[]
         )
     )

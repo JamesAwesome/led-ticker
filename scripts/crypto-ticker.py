@@ -81,8 +81,8 @@ async def main(coinbase_symbols, coingecko_symbols):
 
             await AsyncTicker(
                 [
-                    TickerCountdown('Days Until Spring', date(2025, 3, 20), font_color=RANDOM_COLOR),
-                    TickerCountdown('Days Until Summer', date(2025, 6, 20), font_color=RANDOM_COLOR),
+                    TickerCountdown('Days Until Spring', date(2025, 3, 20), font_color=next(RANDOM_COLOR)),
+                    TickerCountdown('Days Until Summer', date(2025, 6, 20), font_color=next(RANDOM_COLOR)),
                 ],
                 led_frame,
                 title=TickerMessage('Count Downs', font_color=next(RANDOM_COLOR)),

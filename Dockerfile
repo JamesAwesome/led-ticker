@@ -6,7 +6,7 @@ RUN mkdir /code
 WORKDIR /code
 
 RUN apt-get update && \
-    apt-get install -y build-essential git make python3-dev python3-pillow cmake && \
+    apt-get install -y build-essential git make python3-dev cmake && \
     rm -rf /var/lib/apt/lists/*
 
 # Use fork with Python 3.9+ support (upstream requires 3.13+)

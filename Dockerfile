@@ -1,4 +1,4 @@
-FROM balenalib/raspberry-pi-python:3.11-bullseye AS rgbmatrix
+FROM balenalib/raspberry-pi-python:3.13-bullseye AS rgbmatrix
 
 ENV DEBIAN_FRONTEND=noninteractive
 

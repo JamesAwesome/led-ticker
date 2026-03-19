@@ -1,4 +1,4 @@
-FROM balenalib/raspberry-pi-python:3.13-bullseye AS rgbmatrix
+FROM python:3.13-bullseye AS rgbmatrix
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -13,11 +13,11 @@ RUN apt-get update && \
 RUN cd /opt && \
     git clone --depth=1 https://github.com/jamesawesome/rpi-rgb-led-matrix.git && \
     cd rpi-rgb-led-matrix && \
-    pip3 install .
+    pip install --break-system-packages .
 
 FROM rgbmatrix
 
 COPY . /code/
-RUN pip3 install .
+RUN pip install --break-system-packages .
 
 CMD ["led-ticker", "--config", "/code/config/config.toml"]

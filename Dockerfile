@@ -15,8 +15,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN cd /opt && \
     git clone --depth=1 https://github.com/hzeller/rpi-rgb-led-matrix.git && \
     cd rpi-rgb-led-matrix && \
-    make build-python PYTHON=/opt/venv/bin/python3 && \
-    make install-python PYTHON=/opt/venv/bin/python3
+    make -C lib && \
+    cd bindings/python && \
+    /opt/venv/bin/pip install .
 
 # Install application
 COPY pyproject.toml /code/pyproject.toml

@@ -24,8 +24,9 @@ if ! python3 -c "import rgbmatrix" 2>/dev/null; then
     rm -rf rpi-rgb-led-matrix
     git clone --depth=1 https://github.com/hzeller/rpi-rgb-led-matrix.git
     cd rpi-rgb-led-matrix
-    make build-python PYTHON="${INSTALL_DIR}/venv/bin/python3"
-    make install-python PYTHON="${INSTALL_DIR}/venv/bin/python3"
+    make -C lib
+    cd bindings/python
+    "${INSTALL_DIR}/venv/bin/pip" install .
     cd /tmp && rm -rf rpi-rgb-led-matrix
 fi
 

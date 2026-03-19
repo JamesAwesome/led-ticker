@@ -6,14 +6,12 @@ RUN mkdir /code
 WORKDIR /code
 
 RUN apt-get update && \
-    apt-get install -y build-essential git make python3-dev python3-pillow && \
+    apt-get install -y build-essential git make python3-dev python3-pillow cython3 cmake && \
     rm -rf /var/lib/apt/lists/*
 
 RUN cd /opt && \
     git clone --depth=1 https://github.com/hzeller/rpi-rgb-led-matrix.git && \
     cd rpi-rgb-led-matrix && \
-    make -C lib && \
-    cd bindings/python && \
     pip3 install .
 
 FROM rgbmatrix

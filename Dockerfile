@@ -1,5 +1,4 @@
-# Stage 1: Build rgbmatrix + install app
-FROM balenalib/raspberry-pi-python:3.11 AS builder
+FROM balenalib/raspberry-pi-python:3.11-bullseye AS rgbmatrix
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -17,8 +16,7 @@ RUN cd /opt && \
     cd bindings/python && \
     pip3 install .
 
-# Stage 2: Install app on top
-FROM builder
+FROM rgbmatrix
 
 COPY . /code/
 RUN pip3 install .

@@ -6,7 +6,7 @@ RUN mkdir /code
 WORKDIR /code
 
 RUN apt-get update && \
-    apt-get install -y build-essential git make python3-dev python3-pillow && \
+    apt-get install -y build-essential git make python3-dev python3-pillow cython3 && \
     rm -rf /var/lib/apt/lists/*
 
 # Pin to last release before Python 3.13 requirement

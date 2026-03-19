@@ -1,26 +1,40 @@
-FROM balenalib/raspberry-pi-python:3.7.9 as rgbmatrix
+# Stage 1: Build rgbmatrix C extension
+FROM balenalib/raspberry-pi-debian:bookworm-build AS builder
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN mkdir /code
+RUN apt-get update && apt-get install -y \
+    python3 python3-dev python3-pip python3-venv \
+    build-essential git make \
+    && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /code
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-RUN apt-get update && \
-    apt-get install -y build-essential git make python3-dev python3-pillow && \
-    rm -rf /var/lib/apt/lists/*
-
+# Build rgbmatrix from source
 RUN cd /opt && \
-    git clone https://github.com/hzeller/rpi-rgb-led-matrix.git && \
+    git clone --depth=1 https://github.com/hzeller/rpi-rgb-led-matrix.git && \
     cd rpi-rgb-led-matrix && \
-    make build-python PYTHON=$(which python3) && \
-    make install-python PYTHON=$(which python3)
+    make build-python PYTHON=/opt/venv/bin/python3 && \
+    make install-python PYTHON=/opt/venv/bin/python3
 
-# Next Stage
-FROM rgbmatrix
+# Install application
+COPY pyproject.toml /code/pyproject.toml
+COPY src/ /code/src/
+WORKDIR /code
+RUN pip install --no-cache-dir .
 
-COPY . /code/
+# Stage 2: Runtime (slim, no build tools)
+FROM balenalib/raspberry-pi-debian:bookworm-run
 
-RUN pip3 install .
+RUN apt-get update && apt-get install -y \
+    python3 libpython3.11 \
+    && rm -rf /var/lib/apt/lists/*
 
-CMD crypto-ticker.py
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app
+COPY config.example.toml /app/config.example.toml
+
+CMD ["led-ticker", "--config", "/app/config/config.toml"]

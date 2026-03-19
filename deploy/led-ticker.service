@@ -1,0 +1,16 @@
+[Unit]
+Description=LED Ticker Display
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/led-ticker
+EnvironmentFile=/opt/led-ticker/.env
+ExecStart=/opt/led-ticker/venv/bin/led-ticker --config /opt/led-ticker/config.toml
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

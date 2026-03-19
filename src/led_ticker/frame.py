@@ -1,32 +1,32 @@
-#!/usr/bin/env python3
-"""Frame objects for the ticker to use
-"""
-import attr
-from rgbmatrix import RGBMatrix, RGBMatrixOptions
+"""LED matrix frame wrapper."""
+
+import attrs
+
+from led_ticker._compat import RGBMatrix, RGBMatrixOptions
 
 
-@attr.s
-class LedFrame:  # pylint: disable=R0902, R0903
-    """A Frame for an LED rgbmatrix Sign"""
+@attrs.define
+class LedFrame:
+    """Hardware abstraction for an LED rgbmatrix panel."""
 
-    led_rows = attr.ib(default=32)
-    led_cols = attr.ib(default=64)
-    led_chain = attr.ib(default=1)
-    led_parallel = attr.ib(default=1)
-    led_pwm_bits = attr.ib(default=11)
-    led_brightness = attr.ib(default=100)
-    led_gpio_mapping = attr.ib(default="adafruit-hat")
-    led_scan_mode = attr.ib(default=1)
-    led_pwm_lsb_nanoseconds = attr.ib(default=130)
-    led_show_refresh = attr.ib(default=False)
-    led_slowdown_gpio = attr.ib(default=1)
-    led_no_hardware_pulse = attr.ib(default=False)  # double check
-    led_rgb_sequence = attr.ib(default="RGB")
-    led_pixel_mapper = attr.ib(default="")
-    led_row_addr_type = attr.ib(default=0)
-    led_multiplexing = attr.ib(default=0)
-    led_panel_type = attr.ib(default="")
-    matrix = attr.ib(init=False)
+    led_rows: int = 32
+    led_cols: int = 64
+    led_chain: int = 1
+    led_parallel: int = 1
+    led_pwm_bits: int = 11
+    led_brightness: int = 100
+    led_gpio_mapping: str = "adafruit-hat"
+    led_scan_mode: int = 1
+    led_pwm_lsb_nanoseconds: int = 130
+    led_show_refresh: bool = False
+    led_slowdown_gpio: int = 1
+    led_no_hardware_pulse: bool = False
+    led_rgb_sequence: str = "RGB"
+    led_pixel_mapper: str = ""
+    led_row_addr_type: int = 0
+    led_multiplexing: int = 0
+    led_panel_type: str = ""
+    matrix: object = attrs.field(init=False, default=None)
 
     def __attrs_post_init__(self):
         options = RGBMatrixOptions()
@@ -59,7 +59,7 @@ class LedFrame:  # pylint: disable=R0902, R0903
         self.matrix = RGBMatrix(options=options)
 
     def get_clean_canvas(self):
-        """Get a clean canvas object"""
+        """Get a clean canvas ready for rendering."""
         canvas = self.matrix.CreateFrameCanvas()
         canvas.Clear()
         return canvas

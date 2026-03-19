@@ -1,0 +1,110 @@
+# led-ticker configuration
+# Copy this to config.toml and customize for your setup.
+
+[display]
+rows = 16
+cols = 32
+chain = 5
+brightness = 60
+slowdown_gpio = 2
+gpio_mapping = "adafruit-hat"
+
+[title]
+delay = 5
+
+# --- Playlist ---
+# Each [[playlist.section]] displays in order, then the whole playlist loops.
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "#DevOps News"
+color = "random"
+
+[[playlist.section.widget]]
+type = "message"
+text = "May the Rabbit always be with you!"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Always be your bunny best!"
+
+# --- Countdowns ---
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = "Count Downs"
+color = "random"
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Days Until Spring"
+countdown_date = 2026-03-20
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Days Until Summer"
+countdown_date = 2026-06-20
+
+# --- RSS Feeds ---
+# Uncomment and add your favorite feeds:
+#
+# [[playlist.section]]
+# mode = "forever_scroll"
+# loop_count = 1
+#
+# [playlist.section.title]
+# type = "message"
+# text = "Nintendo Life"
+# color = "random"
+#
+# [[playlist.section.widget]]
+# type = "rss_feed"
+# feed_url = "https://www.nintendolife.com/feeds/news"
+# update_interval = 3000
+
+# --- Crypto Prices ---
+# Uncomment to show crypto prices:
+#
+# [[playlist.section]]
+# mode = "forever_scroll"
+# loop_count = 2
+#
+# [playlist.section.title]
+# type = "message"
+# text = "Cryptocurrency/USD"
+#
+# [[playlist.section.widget]]
+# type = "coinbase"
+# symbol = "BTC"
+# currency = "USD"
+#
+# [[playlist.section.widget]]
+# type = "coinbase"
+# symbol = "ETH"
+# currency = "USD"
+
+# --- Weather ---
+# Requires OPENWEATHERMAP_API_KEY in .env
+#
+# [[playlist.section]]
+# mode = "swap"
+# loop_count = 1
+#
+# [playlist.section.title]
+# type = "message"
+# text = "Weather"
+# color = "random"
+#
+# [[playlist.section.widget]]
+# type = "weather"
+# message = "NYC"
+# location = { lat = 40.7128, lon = -74.0060 }
+# units = "imperial"

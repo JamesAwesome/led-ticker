@@ -1,15 +1,11 @@
-version: "3.3"
-
 services:
-  ticker: &default
-    build:
-      context: .
-      dockerfile: Dockerfile
+  ticker:
+    build: .
     devices:
       - "/dev/mem:/dev/mem"
     privileged: true
-    restart: always
+    restart: unless-stopped
     env_file:
-      - ./settings.env
+      - .env
     volumes:
-      - .:/code
+      - ./config:/app/config:ro

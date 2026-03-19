@@ -6,13 +6,15 @@ RUN mkdir /code
 WORKDIR /code
 
 RUN apt-get update && \
-    apt-get install -y build-essential git make python3-dev python3-pillow cython3 cmake && \
+    apt-get install -y build-essential git make python3-dev python3-pillow && \
     rm -rf /var/lib/apt/lists/*
 
+# Pin to last release before Python 3.13 requirement
 RUN cd /opt && \
-    git clone --depth=1 https://github.com/hzeller/rpi-rgb-led-matrix.git && \
+    git clone --depth=1 --branch 2024-12-19 https://github.com/hzeller/rpi-rgb-led-matrix.git && \
     cd rpi-rgb-led-matrix && \
-    pip3 install .
+    make build-python PYTHON=$(which python3) && \
+    make install-python PYTHON=$(which python3)
 
 FROM rgbmatrix
 

@@ -10,9 +10,11 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Pin to last release before Python 3.13 requirement
+# Pin to commit before old Python build system was removed
 RUN cd /opt && \
-    git clone --depth=1 --branch 2024-12-19 https://github.com/hzeller/rpi-rgb-led-matrix.git && \
+    git clone https://github.com/hzeller/rpi-rgb-led-matrix.git && \
     cd rpi-rgb-led-matrix && \
+    git checkout 076c54b2207ca04ca42f24fa4ffc696507dbaa3f && \
     make build-python PYTHON=$(which python3) && \
     make install-python PYTHON=$(which python3)
 

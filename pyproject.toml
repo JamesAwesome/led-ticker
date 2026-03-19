@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "led-ticker"
 version = "2.0.0"
 description = "Asyncio LED matrix display for news, weather, crypto, and more"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 authors = [
     { name = "James Awesome", email = "james@morelli.nyc" },
 ]

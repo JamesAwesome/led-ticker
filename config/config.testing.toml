@@ -304,7 +304,7 @@ text = "nyancat_reverse DONE"
 [[playlist.section]]
 mode = "swap"
 transition = "scroll"
-transition_duration = 2.0
+transition_duration = 4.0
 hold_time = 4
 loop_count = 1
 

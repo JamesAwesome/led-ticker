@@ -743,14 +743,24 @@ class TestScroll:
         )
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
-    def test_midpoint_has_gap(self, canvas, make_widget):
-        """At t=0.5 outgoing has exited and incoming hasn't entered."""
+    def test_bullet_exists(self):
+        """Scroll transition should have a bullet separator."""
+        scroll = Scroll()
+        assert scroll._bullet is not None
+        assert scroll._bullet_width > 0
+
+    def test_positions_are_consecutive(self, canvas, make_widget):
+        """At t=0, outgoing at scroll_pos, bullet/incoming off-screen."""
+        scroll = Scroll()
         outgoing = make_widget(40)
         incoming = make_widget(40)
-        scroll = Scroll()
-        scroll.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
-        # Both drawn but at off-screen positions — no crash
-        outgoing.draw.assert_called_once()
+        scroll.frame_at(
+            0.0, canvas, outgoing, incoming, outgoing_scroll_pos=0
+        )
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == 0
+        # Bullet at canvas.width (160), incoming at 160+bullet_width
+        # Both off-screen right, so incoming not drawn
+        incoming.draw.assert_not_called()
 
     def test_returns_canvas(self, canvas, make_widget):
         scroll = Scroll()

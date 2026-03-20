@@ -593,19 +593,28 @@ class NyanCatReverse:
 
 @register_transition("scroll")
 class Scroll:
-    """Continuous scroll — outgoing exits left, gap, incoming enters right.
+    """Seamless continuous scroll with bullet separator.
 
-    Like infini_scroll but within the transition framework. The outgoing
-    text fully exits the left edge before incoming enters from the right.
-    Uses 2x canvas width + gap as total travel (vs push_left's 1x + gap).
+    Outgoing, bullet, and incoming scroll left together as one
+    continuous strip — like forever_scroll between two widgets.
+    The bullet (" * ") separates the two texts visually.
 
-    Recommended: transition_duration = 2.0 for smooth scrolling speed.
+    Recommended: transition_duration = 4.0, easing = "linear".
     """
 
-    GAP = 20  # slightly larger gap for the scroll feel
-
     def __init__(self, **kwargs):
-        pass
+        from led_ticker.colors import RGB_WHITE
+        from led_ticker.drawing import get_text_width
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.widgets.message import TickerMessage
+
+        self._bullet = TickerMessage(
+            " * ", center=False, font_color=RGB_WHITE,
+        )
+        self._bullet_width = (
+            get_text_width(FONT_DEFAULT, " * ", padding=0)
+            + self._bullet.padding
+        )
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
@@ -616,22 +625,32 @@ class Scroll:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
-        total_travel = w * 2 + self.GAP
+        # Total travel: incoming must arrive at pos=0
+        # incoming starts at w + bullet_width, ends at 0
+        total_travel = w + self._bullet_width
         scroll_offset = int(t * total_travel)
 
+        # Continuous strip: outgoing | bullet | incoming
         outgoing_pos = outgoing_scroll_pos - scroll_offset
-        incoming_pos = total_travel - scroll_offset
+        bullet_pos = w - scroll_offset
+        incoming_pos = w + self._bullet_width - scroll_offset
 
-        # Same draw-blackout-draw as PushLeft
+        # 1. Draw outgoing (may bleed right)
         outgoing.draw(canvas, cursor_pos=outgoing_pos)
 
-        clear_start = max(0, incoming_pos)
+        # 2. Black out from bullet_pos onward (clip outgoing bleed)
+        clear_start = max(0, bullet_pos)
         if clear_start < w:
             x_range = range(clear_start, w)
             for y in range(h):
                 for x in x_range:
                     canvas.SetPixel(x, y, 0, 0, 0)
 
+        # 3. Draw bullet separator
+        if bullet_pos < w and bullet_pos + self._bullet_width > 0:
+            self._bullet.draw(canvas, cursor_pos=bullet_pos)
+
+        # 4. Draw incoming (positive cursor_pos = no left bleed)
         if incoming_pos < w:
             incoming.draw(canvas, cursor_pos=incoming_pos)
 

@@ -19,6 +19,10 @@ delay = 5
 #                  dissolve, split, nyancat, nyancat_reverse,
 #                  scroll, push_alternating, wipe_alternating, nyancat_alternating
 # Optional: transition_color = [R, G, B]  (custom color for flash/wipe)
+# For scroll transition, use duration=4.0 and linear easing:
+#   transition = "scroll"
+#   transition_duration = 4.0
+#   easing = "linear"
 # Available easing: linear, ease_out, ease_in_out
 
 [transitions]

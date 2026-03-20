@@ -156,16 +156,16 @@ class PushLeft:
 
 @register_transition("push_right")
 class PushRight:
-    """Rightward push — blackout eats outgoing from left, incoming enters left.
+    """Rightward push — two-phase: outgoing erased from left, then
+    incoming revealed from left.
 
-    Unlike PushLeft, outgoing stays STATIONARY at its hold position.
-    DrawText renders rightward from cursor_pos, so shifting cursor_pos
-    right for long text just reveals earlier characters instead of
-    pushing the visible portion off the right edge.  The growing
-    left-side blackout creates the visual illusion of a rightward push.
+    DrawText always renders rightward, so long incoming text at a
+    negative cursor_pos bleeds past the boundary into the outgoing
+    zone.  Two-phase rendering avoids this by never drawing both
+    widgets on the same frame.  push_left does not need this because
+    incoming enters from the right (positive cursor_pos stays in its
+    own zone).
     """
-
-    GAP = 10
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
@@ -176,29 +176,21 @@ class PushRight:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
-        total_travel = w + self.GAP
-        scroll_offset = int(t * total_travel)
+        # Boundary moves from 0 to w over the full duration
+        boundary = int(t * w)
 
-        # Incoming enters from the left edge
-        incoming_pos = -(w + self.GAP) + scroll_offset
-
-        # Boundary between incoming (left) and outgoing (right) zones
-        boundary = min(w, scroll_offset)
-
-        # 1. Draw outgoing STATIONARY at its hold position
-        #    (shifting cursor_pos right would show different characters
-        #    from the middle of long text — not a push effect)
-        outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
-
-        # 2. Black out left zone (creates rightward push illusion)
-        if boundary > 0:
+        if t < 0.5:
+            # Phase 1: outgoing with growing blackout from left
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             for y in range(h):
                 for x in range(boundary):
                     canvas.SetPixel(x, y, 0, 0, 0)
-
-        # 3. Draw incoming on the cleared left side
-        if incoming_pos + w > 0:
-            incoming.draw(canvas, cursor_pos=incoming_pos)
+        else:
+            # Phase 2: incoming revealed from left
+            incoming.draw(canvas, cursor_pos=0)
+            for y in range(h):
+                for x in range(boundary, w):
+                    canvas.SetPixel(x, y, 0, 0, 0)
 
         return canvas
 

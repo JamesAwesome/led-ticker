@@ -90,7 +90,7 @@ All transitions work on real hardware. They fall into three categories:
 
 **Push-based** (rapid scroll — both contents move together):
 - `push_left` — rapid scroll left: outgoing exits left, incoming enters from right
-- `push_right` — rapid scroll right: outgoing exits right, incoming enters from left
+- `push_right` — two-phase rightward push: outgoing erased from left, then incoming revealed from left (two-phase avoids DrawText rightward-bleed overlap)
 - `push_up` — rapid scroll up: outgoing exits top, incoming enters from bottom
 
 Push transitions use draw-blackout-draw: draw outgoing at its scroll position, SetPixel-blackout the zone where incoming will appear, then draw incoming. This prevents overlap since DrawText cannot be clipped. They receive `outgoing_scroll_pos` from `_swap_and_scroll` via `run_transition` kwargs so they can continue from where the text stopped scrolling.

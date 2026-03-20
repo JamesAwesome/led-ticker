@@ -231,54 +231,69 @@ class TestPushRight:
         incoming.draw.assert_called_once()
         assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
 
-    def test_midpoint_draws_both(self, canvas, make_widget):
+    def test_phase1_shows_outgoing_only(self, canvas, make_widget):
+        """Phase 1 (t<0.5): only outgoing drawn, with left blackout."""
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushRight()
-        push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        push.frame_at(0.25, canvas, outgoing, incoming, outgoing_scroll_pos=0)
         outgoing.draw.assert_called_once()
-        # Outgoing stays stationary at scroll pos
-        assert outgoing.draw.call_args.kwargs["cursor_pos"] == 0
-        incoming.draw.assert_called_once()
-        # Incoming enters from left (negative cursor_pos)
-        assert incoming.draw.call_args.kwargs["cursor_pos"] < 0
-
-    def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
-        outgoing = make_widget(40)
-        incoming = make_widget(40)
-        push = PushRight()
-        push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        incoming.draw.assert_not_called()
         assert canvas.SetPixel.call_count > 0
 
-    def test_outgoing_stays_stationary(self, canvas, make_widget):
-        """Outgoing must stay at its hold position, not shift right."""
+    def test_phase2_shows_incoming_only(self, canvas, make_widget):
+        """Phase 2 (t>=0.5): only incoming drawn, with right blackout."""
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushRight()
+        push.frame_at(0.75, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        incoming.draw.assert_called_once()
+        assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
+        outgoing.draw.assert_not_called()
+        assert canvas.SetPixel.call_count > 0
+
+    def test_outgoing_stationary_in_phase1(self, canvas, make_widget):
+        """Outgoing stays at its hold position in phase 1."""
         outgoing = make_widget(600)
         incoming = make_widget(40)
         push = PushRight()
         push.frame_at(
-            0.5, canvas, outgoing, incoming, outgoing_scroll_pos=-440
+            0.25, canvas, outgoing, incoming, outgoing_scroll_pos=-440
         )
-        # Must stay at -440, NOT -440 + scroll_offset
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
     def test_long_text_no_position_jump(self, canvas, make_widget):
-        """Outgoing cursor_pos must be identical at t=0 and t=0.5."""
+        """Outgoing cursor_pos is identical at t=0 and t=0.25."""
         outgoing_t0 = make_widget(600)
         incoming_t0 = make_widget(40)
-        outgoing_t5 = make_widget(600)
-        incoming_t5 = make_widget(40)
+        outgoing_t25 = make_widget(600)
+        incoming_t25 = make_widget(40)
         push = PushRight()
         push.frame_at(
             0.0, canvas, outgoing_t0, incoming_t0,
             outgoing_scroll_pos=-440,
         )
         push.frame_at(
-            0.5, canvas, outgoing_t5, incoming_t5,
+            0.25, canvas, outgoing_t25, incoming_t25,
             outgoing_scroll_pos=-440,
         )
         pos_t0 = outgoing_t0.draw.call_args.kwargs["cursor_pos"]
-        pos_t5 = outgoing_t5.draw.call_args.kwargs["cursor_pos"]
-        assert pos_t0 == pos_t5 == -440
+        pos_t25 = outgoing_t25.draw.call_args.kwargs["cursor_pos"]
+        assert pos_t0 == pos_t25 == -440
+
+    def test_phase_switch_at_midpoint(self, canvas, make_widget):
+        """At t=0.49 outgoing drawn, at t=0.51 incoming drawn."""
+        out1 = make_widget(40)
+        in1 = make_widget(40)
+        out2 = make_widget(40)
+        in2 = make_widget(40)
+        push = PushRight()
+        push.frame_at(0.49, canvas, out1, in1)
+        out1.draw.assert_called_once()
+        in1.draw.assert_not_called()
+        push.frame_at(0.51, canvas, out2, in2)
+        in2.draw.assert_called_once()
+        out2.draw.assert_not_called()
 
     def test_returns_canvas(self, canvas, make_widget):
         push = PushRight()

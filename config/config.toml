@@ -19,7 +19,7 @@ between_sections = "dissolve"
 
 [[playlist.section]]
 mode = "swap"
-transition = "split"
+transition = "nyancat"
 loop_count = 1
 
 [playlist.section.title]

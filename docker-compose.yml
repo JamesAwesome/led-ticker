@@ -10,4 +10,4 @@ services:
     env_file:
       - .env
     volumes:
-      - ./config:/app/config:ro
+      - ./config:/code/config:ro

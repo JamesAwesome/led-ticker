@@ -19,13 +19,11 @@ source "${INSTALL_DIR}/venv/bin/activate"
 # Build and install rgbmatrix
 if ! python3 -c "import rgbmatrix" 2>/dev/null; then
     echo "==> Building rgbmatrix from source..."
-    apt-get update && apt-get install -y build-essential git python3-dev
+    apt-get update && apt-get install -y build-essential git python3-dev cmake
     cd /tmp
     rm -rf rpi-rgb-led-matrix
-    git clone --depth=1 https://github.com/hzeller/rpi-rgb-led-matrix.git
+    git clone --depth=1 https://github.com/jamesawesome/rpi-rgb-led-matrix.git
     cd rpi-rgb-led-matrix
-    make -C lib
-    cd bindings/python
     "${INSTALL_DIR}/venv/bin/pip" install .
     cd /tmp && rm -rf rpi-rgb-led-matrix
 fi

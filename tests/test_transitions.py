@@ -426,6 +426,14 @@ class TestWipeUp:
         wipe.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
+    def test_sweep_at_bottom_edge_on_first_frame(self, canvas, make_widget):
+        """Sweep line should appear at bottom edge on first frame."""
+        wipe = WipeUp()
+        wipe.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        calls = canvas.SetPixel.call_args_list
+        ys = [c.args[1] for c in calls]
+        assert canvas.height - 1 in ys
+
     def test_returns_canvas(self, canvas, make_widget):
         wipe = WipeUp()
         result = wipe.frame_at(
@@ -516,6 +524,14 @@ class TestWipeLeft:
         wipe.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
+    def test_sweep_at_left_edge_on_first_frame(self, canvas, make_widget):
+        """Sweep line should appear at x=0 on the very first frame."""
+        wipe = WipeLeft()
+        wipe.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        calls = canvas.SetPixel.call_args_list
+        xs = [c.args[0] for c in calls]
+        assert 0 in xs
+
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
@@ -560,6 +576,14 @@ class TestWipeRight:
         wipe = WipeRight()
         wipe.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
+
+    def test_sweep_at_right_edge_on_first_frame(self, canvas, make_widget):
+        """Sweep line should appear at right edge on first frame."""
+        wipe = WipeRight()
+        wipe.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        calls = canvas.SetPixel.call_args_list
+        xs = [c.args[0] for c in calls]
+        assert canvas.width - 1 in xs
 
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)
@@ -705,6 +729,14 @@ class TestWipeDown:
         wipe = WipeDown()
         wipe.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
+
+    def test_sweep_at_top_edge_on_first_frame(self, canvas, make_widget):
+        """Sweep line should appear at top edge on first frame."""
+        wipe = WipeDown()
+        wipe.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        calls = canvas.SetPixel.call_args_list
+        ys = [c.args[1] for c in calls]
+        assert 0 in ys
 
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)

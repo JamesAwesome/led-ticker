@@ -330,18 +330,18 @@ class WipeUp:
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
-        elif sweep_row >= h:
-            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         else:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             # Black out rows below sweep (erased region)
-            for y in range(max(0, sweep_row), h):
+            if sweep_row < h:
+                for y in range(max(0, sweep_row), h):
+                    for x in range(w):
+                        canvas.SetPixel(x, y, 0, 0, 0)
+            # Sweep line (starts at bottom edge on first frame)
+            draw_row = min(sweep_row, h - 1)
+            if draw_row >= 0:
                 for x in range(w):
-                    canvas.SetPixel(x, y, 0, 0, 0)
-            # Sweep line
-            if 0 <= sweep_row < h:
-                for x in range(w):
-                    canvas.SetPixel(x, sweep_row, *self.color)
+                    canvas.SetPixel(x, draw_row, *self.color)
         return canvas
 
 
@@ -378,17 +378,15 @@ class WipeLeft:
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
-        elif boundary <= 0:
-            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         else:
-            # Draw outgoing stationary
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             # Black out left of boundary (erased region)
-            x_range = range(boundary)
-            for y in range(h):
-                for x in x_range:
-                    canvas.SetPixel(x, y, 0, 0, 0)
-            # Draw sweep line at boundary (3px wide for visibility)
+            if boundary > 0:
+                x_range = range(boundary)
+                for y in range(h):
+                    for x in x_range:
+                        canvas.SetPixel(x, y, 0, 0, 0)
+            # Sweep line at boundary (starts at left edge on first frame)
             sweep_w = min(3, w - boundary)
             for y in range(h):
                 for dx in range(sweep_w):
@@ -411,17 +409,16 @@ class WipeRight:
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
-        elif boundary <= 0:
-            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         else:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
-            # Black out right of boundary
-            x_range = range(w - boundary, w)
-            for y in range(h):
-                for x in x_range:
-                    canvas.SetPixel(x, y, 0, 0, 0)
-            # Sweep line (3px wide for visibility)
             line_x = w - boundary
+            # Black out right of sweep line (erased region)
+            if boundary > 0:
+                x_range = range(line_x, w)
+                for y in range(h):
+                    for x in x_range:
+                        canvas.SetPixel(x, y, 0, 0, 0)
+            # Sweep line at line_x (starts at right edge on first frame)
             sweep_w = min(3, line_x)
             for y in range(h):
                 for dx in range(sweep_w):
@@ -528,18 +525,18 @@ class WipeDown:
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
-        elif sweep_row <= 0:
-            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         else:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
-            # Black out rows above sweep
-            for y in range(min(sweep_row, h)):
+            # Black out rows above sweep (erased region)
+            if sweep_row > 0:
+                for y in range(min(sweep_row, h)):
+                    for x in range(w):
+                        canvas.SetPixel(x, y, 0, 0, 0)
+            # Sweep line (starts at top edge on first frame)
+            draw_row = min(sweep_row, h - 1)
+            if draw_row >= 0:
                 for x in range(w):
-                    canvas.SetPixel(x, y, 0, 0, 0)
-            # Sweep line
-            if sweep_row < h:
-                for x in range(w):
-                    canvas.SetPixel(x, sweep_row, *self.color)
+                    canvas.SetPixel(x, draw_row, *self.color)
         return canvas
 
 

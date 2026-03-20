@@ -1,3 +1,6 @@
+# Transition debug config — static messages only
+# Each section tests one transition type
+
 [display]
 rows = 16
 cols = 32
@@ -7,121 +10,144 @@ slowdown_gpio = 2
 gpio_mapping = "adafruit-hat"
 
 [title]
-delay = 5
+delay = 3
 
-# --- Messages ---
-
-[[playlist.section]]
-mode = "infini_scroll"
-loop_count = 1
-
-[playlist.section.title]
-type = "message"
-text = "#DevOps News"
-color = "random"
-
-[[playlist.section.widget]]
-type = "message"
-text = "May the Rabbit always be with you!"
-
-[[playlist.section.widget]]
-type = "message"
-text = "Always be your bunny best!"
-
-# --- Weather ---
+# --- Test 1: push_left ---
 
 [[playlist.section]]
-mode = "infini_scroll"
+mode = "swap"
+transition = "push_left"
+hold_time = 4
 loop_count = 1
 
-[playlist.section.title]
+[[playlist.section.widget]]
 type = "message"
-text = "Weather"
-color = "random"
+text = ">> PUSH LEFT next >>"
 
 [[playlist.section.widget]]
-type = "weather"
-message = "New York"
-location = "New York"
-units = "imperial"
+type = "message"
+text = "push_left DONE"
 
-[[playlist.section.widget]]
-type = "weather"
-message = "Philadelphia"
-location = "Philadelphia"
-units = "imperial"
-
-[[playlist.section.widget]]
-type = "weather"
-message = "Milwaukee"
-location = "Milwaukee"
-units = "imperial"
-
-[[playlist.section.widget]]
-type = "weather"
-message = "Minneapolis"
-location = "Minneapolis"
-units = "imperial"
-
-[[playlist.section.widget]]
-type = "weather"
-message = "Washington DC"
-location = "Washington DC"
-units = "imperial"
-
-# --- Countdowns ---
+# --- Test 2: push_right ---
 
 [[playlist.section]]
-mode = "infini_scroll"
+mode = "swap"
+transition = "push_right"
+hold_time = 4
 loop_count = 1
 
-[playlist.section.title]
+[[playlist.section.widget]]
 type = "message"
-text = "Count Downs"
-color = "random"
+text = "<< PUSH RIGHT next <<"
 
 [[playlist.section.widget]]
-type = "countdown"
-message = "Summer"
-countdown_date = 2026-06-20
+type = "message"
+text = "push_right DONE"
 
-[[playlist.section.widget]]
-type = "countdown"
-message = "4th of July"
-countdown_date = 2026-07-04
-
-[[playlist.section.widget]]
-type = "countdown"
-message = "Halloween"
-countdown_date = 2026-10-31
-
-[[playlist.section.widget]]
-type = "countdown"
-message = "Thanksgiving"
-countdown_date = 2026-11-26
-
-[[playlist.section.widget]]
-type = "countdown"
-message = "Christmas"
-countdown_date = 2026-12-25
-
-[[playlist.section.widget]]
-type = "countdown"
-message = "New Years"
-countdown_date = 2027-01-01
-
-# --- Nintendo ---
+# --- Test 3: push_up ---
 
 [[playlist.section]]
-mode = "infini_scroll"
+mode = "swap"
+transition = "push_up"
+hold_time = 4
 loop_count = 1
 
-[playlist.section.title]
+[[playlist.section.widget]]
 type = "message"
-text = "Nintendo Life"
-color = "random"
+text = "^^ PUSH UP next ^^"
 
 [[playlist.section.widget]]
-type = "rss_feed"
-feed_url = "https://www.nintendolife.com/feeds/news"
-update_interval = 3000
+type = "message"
+text = "push_up DONE"
+
+# --- Test 4: color_flash ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "color_flash"
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "** FLASH next **"
+
+[[playlist.section.widget]]
+type = "message"
+text = "color_flash DONE"
+
+# --- Test 5: cut ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "cut"
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "CUT next (instant)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "cut DONE"
+
+# --- Test 6: nyancat ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "nyancat"
+transition_duration = 2.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "=^.^= NYANCAT next"
+
+[[playlist.section.widget]]
+type = "message"
+text = "nyancat DONE"
+
+# --- Test 7: dissolve ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "dissolve"
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "~~ DISSOLVE next ~~"
+
+[[playlist.section.widget]]
+type = "message"
+text = "dissolve DONE"
+
+# --- Test 8: wipe_left ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_left"
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = ">> WIPE LEFT next >>"
+
+[[playlist.section.widget]]
+type = "message"
+text = "wipe_left DONE"
+
+# --- End: restart indicator ---
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 3
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "--- RESTARTING ---"

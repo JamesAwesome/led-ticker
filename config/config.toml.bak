@@ -1,0 +1,127 @@
+[display]
+rows = 16
+cols = 32
+chain = 5
+brightness = 60
+slowdown_gpio = 2
+gpio_mapping = "adafruit-hat"
+
+[title]
+delay = 5
+
+# --- Messages ---
+
+[[playlist.section]]
+mode = "infini_scroll"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "#DevOps News"
+color = "random"
+
+[[playlist.section.widget]]
+type = "message"
+text = "May the Rabbit always be with you!"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Always be your bunny best!"
+
+# --- Weather ---
+
+[[playlist.section]]
+mode = "infini_scroll"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Weather"
+color = "random"
+
+[[playlist.section.widget]]
+type = "weather"
+message = "New York"
+location = "New York"
+units = "imperial"
+
+[[playlist.section.widget]]
+type = "weather"
+message = "Philadelphia"
+location = "Philadelphia"
+units = "imperial"
+
+[[playlist.section.widget]]
+type = "weather"
+message = "Milwaukee"
+location = "Milwaukee"
+units = "imperial"
+
+[[playlist.section.widget]]
+type = "weather"
+message = "Minneapolis"
+location = "Minneapolis"
+units = "imperial"
+
+[[playlist.section.widget]]
+type = "weather"
+message = "Washington DC"
+location = "Washington DC"
+units = "imperial"
+
+# --- Countdowns ---
+
+[[playlist.section]]
+mode = "infini_scroll"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Count Downs"
+color = "random"
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Summer"
+countdown_date = 2026-06-20
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "4th of July"
+countdown_date = 2026-07-04
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Halloween"
+countdown_date = 2026-10-31
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Thanksgiving"
+countdown_date = 2026-11-26
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Christmas"
+countdown_date = 2026-12-25
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "New Years"
+countdown_date = 2027-01-01
+
+# --- Nintendo ---
+
+[[playlist.section]]
+mode = "infini_scroll"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Nintendo Life"
+color = "random"
+
+[[playlist.section.widget]]
+type = "rss_feed"
+feed_url = "https://www.nintendolife.com/feeds/news"
+update_interval = 3000

@@ -149,8 +149,9 @@ class PushLeft:
         # 2. Black out from incoming_pos to canvas width (clear the right zone)
         clear_start = max(0, incoming_pos)
         if clear_start < w:
+            x_range = range(clear_start, w)
             for y in range(h):
-                for x in range(clear_start, w):
+                for x in x_range:
                     canvas.SetPixel(x, y, 0, 0, 0)
 
         # 3. Draw incoming on the cleared right side
@@ -200,8 +201,9 @@ class PushRight:
         incoming.draw(canvas, cursor_pos=0)
 
         # 2. Black out right zone — clip incoming to left zone only
+        x_range = range(boundary, w)
         for y in range(h):
-            for x in range(boundary, w):
+            for x in x_range:
                 canvas.SetPixel(x, y, 0, 0, 0)
 
         # 3. Draw outgoing starting at boundary (no bleed into left zone
@@ -379,12 +381,14 @@ class WipeLeft:
             # Draw outgoing stationary
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             # Black out left of boundary (erased region)
+            x_range = range(boundary)
             for y in range(h):
-                for x in range(boundary):
+                for x in x_range:
                     canvas.SetPixel(x, y, 0, 0, 0)
             # Draw sweep line at boundary
+            sweep_w = min(2, w - boundary)
             for y in range(h):
-                for dx in range(min(2, w - boundary)):
+                for dx in range(sweep_w):
                     canvas.SetPixel(boundary + dx, y, *self.color)
         return canvas
 
@@ -409,27 +413,42 @@ class WipeRight:
         else:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             # Black out right of boundary
+            x_range = range(w - boundary, w)
             for y in range(h):
-                for x in range(w - boundary, w):
+                for x in x_range:
                     canvas.SetPixel(x, y, 0, 0, 0)
             # Sweep line
             line_x = w - boundary
+            sweep_w = min(2, line_x)
             for y in range(h):
-                for dx in range(min(2, line_x)):
+                for dx in range(sweep_w):
                     canvas.SetPixel(line_x - 1 - dx, y, *self.color)
         return canvas
 
 
 @register_transition("dissolve")
 class Dissolve:
-    """Random pixel scatter dissolve."""
+    """Random pixel scatter dissolve.
+
+    Pre-computes a shuffled pixel sequence at first use, then slices
+    it per frame — avoids per-frame RNG overhead on the Pi.
+    """
 
     def __init__(self, seed: int = 42, **kwargs):
         self.seed = seed
+        self._sequence: list | None = None
+
+    def _get_sequence(self, w, h):
+        if self._sequence is None or len(self._sequence) != w * h:
+            import random
+
+            rng = random.Random(self.seed)
+            coords = [(x, y) for y in range(h) for x in range(w)]
+            rng.shuffle(coords)
+            self._sequence = coords
+        return self._sequence
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
-        import random
-
         w = canvas.width
         h = getattr(canvas, "height", 16)
         outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
@@ -438,24 +457,21 @@ class Dissolve:
             incoming.draw(canvas, cursor_pos=0)
         elif t <= 0.0:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
-        elif t < 0.5:
-            # Outgoing with increasing black scatter
-            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
-            rng = random.Random(self.seed + int(t * 1000))
-            scatter_count = int(t * 2 * w * h)
-            for _ in range(scatter_count):
-                x = rng.randint(0, w - 1)
-                y = rng.randint(0, h - 1)
-                canvas.SetPixel(x, y, 0, 0, 0)
         else:
-            # Incoming with decreasing black scatter
-            incoming.draw(canvas, cursor_pos=0)
-            rng = random.Random(self.seed + int(t * 1000))
-            scatter_count = int((1.0 - t) * 2 * w * h)
-            for _ in range(scatter_count):
-                x = rng.randint(0, w - 1)
-                y = rng.randint(0, h - 1)
-                canvas.SetPixel(x, y, 0, 0, 0)
+            seq = self._get_sequence(w, h)
+            total = len(seq)
+            if t < 0.5:
+                # Outgoing with increasing black scatter
+                outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
+                count = int(t * 2 * total)
+                for x, y in seq[:count]:
+                    canvas.SetPixel(x, y, 0, 0, 0)
+            else:
+                # Incoming with decreasing black scatter
+                incoming.draw(canvas, cursor_pos=0)
+                count = int((1.0 - t) * 2 * total)
+                for x, y in seq[:count]:
+                    canvas.SetPixel(x, y, 0, 0, 0)
         return canvas
 
 

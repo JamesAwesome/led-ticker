@@ -21,13 +21,18 @@ class TickerMessage:
     font_color: object = attrs.Factory(lambda: DEFAULT_COLOR)
     center: bool = True
     padding: int = 6
+    _content_width: int = attrs.field(init=False, default=-1)
 
     def draw(self, canvas, cursor_pos=0, **kwargs):
         graphics = require_graphics()
         font_color = kwargs.get("font_color") or self.font_color
         y_offset = kwargs.get("y_offset", 0)
 
-        content_width = get_text_width(self.font, self.message, padding=0)
+        if self._content_width < 0:
+            self._content_width = get_text_width(
+                self.font, self.message, padding=0
+            )
+        content_width = self._content_width
         cursor_pos, end_padding = compute_cursor(
             canvas.width, content_width, cursor_pos, self.padding, self.center
         )

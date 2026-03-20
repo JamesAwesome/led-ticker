@@ -183,9 +183,10 @@ def draw_nyan_frame(canvas, progress, width=160, height=16):
         for dy in range(RAINBOW_STRIPE_HEIGHT):
             y = y_start + dy
             if 0 <= y < height:
-                for x in range(max(0, trail_start), max(0, trail_end)):
-                    if 0 <= x < width:
-                        canvas.SetPixel(x, y, r, g, b)
+                x_lo = max(0, trail_start)
+                x_hi = min(width, max(0, trail_end))
+                for x in range(x_lo, x_hi):
+                    canvas.SetPixel(x, y, r, g, b)
 
     # Draw the cat sprite (clipped to canvas)
     for dx, dy, r, g, b in NYAN_CAT:

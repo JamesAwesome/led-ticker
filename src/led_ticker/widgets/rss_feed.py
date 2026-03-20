@@ -43,12 +43,7 @@ class RSSFeedMonitor:
             self.feed_title = TickerMessage(
                 feed["channel"]["title"], font_color=next(self.colors)
             )
-            self.feed_stories = list(
-                itertools.islice(
-                    [
-                        TickerMessage(item["title"], font_color=next(self.colors))
-                        for item in feed["items"]
-                    ],
-                    self.max_stories,
-                )
-            )
+            self.feed_stories = [
+                TickerMessage(item["title"], font_color=next(self.colors))
+                for item in itertools.islice(feed["items"], self.max_stories)
+            ]

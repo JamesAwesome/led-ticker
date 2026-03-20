@@ -284,14 +284,13 @@ async def _scroll_side_by_side(
                     cursor_pos=cursor_pos,
                 )
             elif not queue_empty:
-                try:
-                    next_monitor = notif_queue.get_nowait()
-                    if buffer_message:
-                        buffered_objects.append(buffer_message)
-                    buffered_objects.append(next_monitor)
-                except asyncio.QueueEmpty:
+                if notif_queue.empty():
                     queue_empty = True
                     break
+                next_monitor = notif_queue.get_nowait()
+                if buffer_message:
+                    buffered_objects.append(buffer_message)
+                buffered_objects.append(next_monitor)
             else:
                 break
 
@@ -326,39 +325,36 @@ async def _run_swap(
     )
 
     prev_object = ticker_object
-    while True:
-        try:
-            ticker_object = notif_queue.get_nowait()
+    while not notif_queue.empty():
+        ticker_object = notif_queue.get_nowait()
 
-            if transition is not None:
-                canvas = await run_transition(
-                    canvas,
-                    frame,
-                    prev_object,
-                    ticker_object,
-                    transition=transition.transition_obj,
-                    duration=transition.duration,
-                    easing=transition.easing,
-                    outgoing_scroll_pos=prev_scroll_pos,
-                )
-                canvas, _, prev_scroll_pos = await _swap_and_scroll(
-                    canvas,
-                    frame,
-                    ticker_object,
-                    skip_initial_draw=True,
-                    hold_time=hold_time,
-                )
-            else:
-                canvas, _, prev_scroll_pos = await _swap_and_scroll(
-                    canvas,
-                    frame,
-                    ticker_object,
-                    hold_time=hold_time,
-                )
+        if transition is not None:
+            canvas = await run_transition(
+                canvas,
+                frame,
+                prev_object,
+                ticker_object,
+                transition=transition.transition_obj,
+                duration=transition.duration,
+                easing=transition.easing,
+                outgoing_scroll_pos=prev_scroll_pos,
+            )
+            canvas, _, prev_scroll_pos = await _swap_and_scroll(
+                canvas,
+                frame,
+                ticker_object,
+                skip_initial_draw=True,
+                hold_time=hold_time,
+            )
+        else:
+            canvas, _, prev_scroll_pos = await _swap_and_scroll(
+                canvas,
+                frame,
+                ticker_object,
+                hold_time=hold_time,
+            )
 
-            prev_object = ticker_object
-        except asyncio.QueueEmpty:
-            break
+        prev_object = ticker_object
 
 
 async def _swap_and_scroll(

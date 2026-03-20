@@ -9,11 +9,13 @@ from led_ticker.transition import (
     ColorFlash,
     Cut,
     Dissolve,
+    PushAlternating,
     PushDown,
     PushLeft,
     PushRight,
     PushUp,
     SplitHorizontal,
+    WipeAlternating,
     WipeDown,
     WipeLeft,
     WipeRight,
@@ -72,10 +74,12 @@ class TestTransitionRegistry:
             "split",
             "nyancat",
             "nyancat_reverse",
+            "push_alternating",
+            "wipe_alternating",
         ]
         for name in expected:
             assert name in _TRANSITION_REGISTRY
-        assert len(_TRANSITION_REGISTRY) == 14
+        assert len(_TRANSITION_REGISTRY) == 16
 
     def test_get_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown transition"):
@@ -694,6 +698,82 @@ class TestWipeDown:
         incoming = make_widget(40)
         wipe = WipeDown()
         result = wipe.frame_at(0.5, canvas, outgoing, incoming)
+        assert result is canvas
+
+
+# --- PushAlternating ---
+
+
+class TestPushAlternating:
+    def test_first_swap_uses_push_left(self, canvas, make_widget):
+        alt = PushAlternating()
+        alt.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        assert alt._index == 0
+        assert isinstance(alt._transitions[0], PushLeft)
+
+    def test_cycles_through_directions(self, canvas, make_widget):
+        alt = PushAlternating()
+        for i in range(4):
+            alt.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+            alt.frame_at(1.0, canvas, make_widget(40), make_widget(40))
+            assert alt._index == i
+
+    def test_wraps_around(self, canvas, make_widget):
+        alt = PushAlternating()
+        for _i in range(5):
+            alt.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+            alt.frame_at(1.0, canvas, make_widget(40), make_widget(40))
+        assert alt._index == 0
+
+    def test_returns_canvas(self, canvas, make_widget):
+        alt = PushAlternating()
+        result = alt.frame_at(
+            0.5, canvas, make_widget(40), make_widget(40)
+        )
+        assert result is canvas
+
+    def test_forwards_outgoing_scroll_pos(self, canvas, make_widget):
+        alt = PushAlternating()
+        alt.frame_at(
+            0.0, canvas, make_widget(600), make_widget(40),
+            outgoing_scroll_pos=-440,
+        )
+
+
+# --- WipeAlternating ---
+
+
+class TestWipeAlternating:
+    def test_first_swap_uses_wipe_left(self, canvas, make_widget):
+        alt = WipeAlternating()
+        alt.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        assert alt._index == 0
+        assert isinstance(alt._transitions[0], WipeLeft)
+
+    def test_cycles_through_directions(self, canvas, make_widget):
+        alt = WipeAlternating()
+        for i in range(4):
+            alt.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+            alt.frame_at(1.0, canvas, make_widget(40), make_widget(40))
+            assert alt._index == i
+
+    def test_wraps_around(self, canvas, make_widget):
+        alt = WipeAlternating()
+        for _i in range(5):
+            alt.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+            alt.frame_at(1.0, canvas, make_widget(40), make_widget(40))
+        assert alt._index == 0
+
+    def test_color_forwarded_to_sub_transitions(self):
+        alt = WipeAlternating(color=[255, 0, 0])
+        for trans in alt._transitions:
+            assert trans.color == (255, 0, 0)
+
+    def test_returns_canvas(self, canvas, make_widget):
+        alt = WipeAlternating()
+        result = alt.frame_at(
+            0.5, canvas, make_widget(40), make_widget(40)
+        )
         assert result is canvas
 
 

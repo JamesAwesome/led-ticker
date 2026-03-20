@@ -586,3 +586,52 @@ class NyanCatReverse:
             height=getattr(canvas, "height", 16),
         )
         return canvas
+
+
+# --- Meta-transitions (cycle through sub-transitions) ---
+
+
+@register_transition("push_alternating")
+class PushAlternating:
+    """Cycles through push_left → push_right → push_up → push_down."""
+
+    def __init__(self, **kwargs):
+        self._transitions = [
+            PushLeft(**kwargs),
+            PushRight(**kwargs),
+            PushUp(**kwargs),
+            PushDown(**kwargs),
+        ]
+        self._index = -1
+        self._last_t = 1.0
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+        if t < self._last_t:
+            self._index = (self._index + 1) % len(self._transitions)
+        self._last_t = t
+        return self._transitions[self._index].frame_at(
+            t, canvas, outgoing, incoming, **kwargs
+        )
+
+
+@register_transition("wipe_alternating")
+class WipeAlternating:
+    """Cycles through wipe_left → wipe_right → wipe_up → wipe_down."""
+
+    def __init__(self, **kwargs):
+        self._transitions = [
+            WipeLeft(**kwargs),
+            WipeRight(**kwargs),
+            WipeUp(**kwargs),
+            WipeDown(**kwargs),
+        ]
+        self._index = -1
+        self._last_t = 1.0
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+        if t < self._last_t:
+            self._index = (self._index + 1) % len(self._transitions)
+        self._last_t = t
+        return self._transitions[self._index].frame_at(
+            t, canvas, outgoing, incoming, **kwargs
+        )

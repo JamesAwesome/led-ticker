@@ -9,18 +9,11 @@ gpio_mapping = "adafruit-hat"
 [title]
 delay = 5
 
-[transitions]
-default = "push_left"
-duration = 0.5
-easing = "ease_out"
-between_sections = "push_left"
-
 # --- Messages ---
 
 [[playlist.section]]
-mode = "swap"
-transition = "push_left"
-loop_count = 3
+mode = "infini_scroll"
+loop_count = 1
 
 [playlist.section.title]
 type = "message"
@@ -38,10 +31,8 @@ text = "Always be your bunny best!"
 # --- Weather ---
 
 [[playlist.section]]
-mode = "swap"
-transition = "wipe_left"
-hold_time = 6
-loop_count = 3
+mode = "infini_scroll"
+loop_count = 1
 
 [playlist.section.title]
 type = "message"
@@ -81,9 +72,8 @@ units = "imperial"
 # --- Countdowns ---
 
 [[playlist.section]]
-mode = "swap"
-transition = "push_up"
-loop_count = 3
+mode = "infini_scroll"
+loop_count = 1
 
 [playlist.section.title]
 type = "message"
@@ -123,9 +113,8 @@ countdown_date = 2027-01-01
 # --- Nintendo ---
 
 [[playlist.section]]
-mode = "swap"
-transition = "push_up"
-loop_count = 3
+mode = "infini_scroll"
+loop_count = 1
 
 [playlist.section.title]
 type = "message"

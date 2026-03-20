@@ -38,6 +38,7 @@ class Transition(Protocol):
         canvas: Any,
         outgoing: Any,
         incoming: Any,
+        **kwargs: Any,
     ) -> Any:
         """Render one frame at progress t (0.0 to 1.0)."""
         ...
@@ -75,6 +76,7 @@ async def run_transition(
     duration: float = 0.5,
     easing: str = "linear",
     scroll_speed: float = 0.05,
+    outgoing_scroll_pos: int = 0,
 ):
     """Run a transition. Returns the current back-buffer canvas."""
     ease_fn = EASING.get(easing, linear)
@@ -83,7 +85,10 @@ async def run_transition(
     for i in range(frame_count + 1):
         t = ease_fn(i / max(1, frame_count))
         canvas.Clear()
-        transition.frame_at(t, canvas, outgoing, incoming)
+        transition.frame_at(
+            t, canvas, outgoing, incoming,
+            outgoing_scroll_pos=outgoing_scroll_pos,
+        )
         canvas = frame.matrix.SwapOnVSync(canvas)
         await asyncio.sleep(scroll_speed)
 
@@ -97,32 +102,55 @@ async def run_transition(
 class Cut:
     """Instant switch, no animation."""
 
-    def frame_at(self, t, canvas, outgoing, incoming):
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         incoming.draw(canvas, cursor_pos=0)
         return canvas
 
 
 @register_transition("push_left")
 class PushLeft:
-    """Left sweep — outgoing erased left-to-right, then incoming appears."""
+    """Rapid scroll — outgoing slides left, incoming enters from right.
 
-    def frame_at(self, t, canvas, outgoing, incoming):
+    Uses draw-blackout-draw: draw outgoing at its scroll position,
+    black out the right portion where incoming will appear, then
+    draw incoming.  This prevents overlap since DrawText cannot be
+    clipped.
+    """
+
+    GAP = 10  # pixels between outgoing right edge and incoming left edge
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
-        boundary = int(t * w)
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
-        elif boundary <= 0:
-            outgoing.draw(canvas, cursor_pos=0)
-        else:
-            outgoing.draw(canvas, cursor_pos=0)
+            return canvas
+
+        # scroll_offset sweeps from 0 to (canvas.width + gap)
+        total_travel = w + self.GAP
+        scroll_offset = int(t * total_travel)
+
+        # Outgoing continues scrolling left from where _swap_and_scroll stopped
+        outgoing_pos = outgoing_scroll_pos - scroll_offset
+        # Incoming enters from the right edge
+        incoming_pos = w + self.GAP - scroll_offset
+
+        # 1. Draw outgoing (may bleed across entire canvas)
+        outgoing.draw(canvas, cursor_pos=outgoing_pos)
+
+        # 2. Black out from incoming_pos to canvas width (clear the right zone)
+        clear_start = max(0, incoming_pos)
+        if clear_start < w:
             for y in range(h):
-                for x in range(boundary):
+                for x in range(clear_start, w):
                     canvas.SetPixel(x, y, 0, 0, 0)
-            for y in range(h):
-                for dx in range(min(2, w - boundary)):
-                    canvas.SetPixel(boundary + dx, y, 255, 255, 255)
+
+        # 3. Draw incoming on the cleared right side
+        if incoming_pos < w:
+            incoming.draw(canvas, cursor_pos=incoming_pos)
+
         return canvas
 
 
@@ -130,7 +158,7 @@ class PushLeft:
 class PushRight:
     """Right sweep — outgoing erased right-to-left, then incoming appears."""
 
-    def frame_at(self, t, canvas, outgoing, incoming):
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
         boundary = int(t * w)
@@ -155,7 +183,7 @@ class PushRight:
 class PushUp:
     """Top sweep — outgoing erased top-to-bottom, then incoming appears."""
 
-    def frame_at(self, t, canvas, outgoing, incoming):
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
         sweep_row = int(t * h)
@@ -182,7 +210,7 @@ class ColorFlash:
     def __init__(self, flash_color=(255, 255, 255)):
         self.flash_color = flash_color
 
-    def frame_at(self, t, canvas, outgoing, incoming):
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         if t < 0.33:
             outgoing.draw(canvas, cursor_pos=0)
         elif t < 0.66:
@@ -196,7 +224,7 @@ class ColorFlash:
 class WipeLeft:
     """Right-to-left wipe with sweep line."""
 
-    def frame_at(self, t, canvas, outgoing, incoming):
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
         boundary = int(t * w)
@@ -223,7 +251,7 @@ class WipeLeft:
 class WipeRight:
     """Left-to-right wipe with sweep line."""
 
-    def frame_at(self, t, canvas, outgoing, incoming):
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
         boundary = int(t * w)
@@ -253,7 +281,7 @@ class Dissolve:
     def __init__(self, seed: int = 42):
         self.seed = seed
 
-    def frame_at(self, t, canvas, outgoing, incoming):
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         import random
 
         w = canvas.width
@@ -288,7 +316,7 @@ class Dissolve:
 class SplitHorizontal:
     """Center-outward expanding black band with edge lines."""
 
-    def frame_at(self, t, canvas, outgoing, incoming):
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
         half = w // 2
@@ -319,7 +347,7 @@ class SplitHorizontal:
 class Curtain:
     """Top-down curtain drop with sweep line."""
 
-    def frame_at(self, t, canvas, outgoing, incoming):
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
         sweep_row = int(t * h)
@@ -345,7 +373,7 @@ class Curtain:
 class NyanCat:
     """Nyan Cat flies across trailing a rainbow."""
 
-    def frame_at(self, t, canvas, outgoing, incoming):
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         from led_ticker.widgets.nyancat import (
             SPRITE_WIDTH,
             draw_nyan_frame,

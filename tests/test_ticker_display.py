@@ -50,9 +50,12 @@ class TestFromRssFeed:
 class TestSwapAndScroll:
     async def test_fits_in_canvas(self, canvas, mock_frame, make_widget, no_sleep):
         widget = make_widget(content_width=40)
-        result_canvas, pos = await _swap_and_scroll(canvas, mock_frame, widget)
+        result_canvas, pos, scroll_pos = await _swap_and_scroll(
+            canvas, mock_frame, widget
+        )
         assert result_canvas is canvas
         assert pos == 40
+        assert scroll_pos == 0  # no scrolling needed
         widget.draw.assert_called_once()
 
     async def test_oversized_triggers_scroll(
@@ -92,6 +95,52 @@ class TestSwapAndScrollOverflow:
         await _swap_and_scroll(canvas, mock_frame, widget)
         # Only drawn once (no scrolling needed)
         assert widget.draw.call_count == 1
+
+    async def test_scroll_stops_at_last_visible_pixel(
+        self,
+        canvas,
+        mock_frame,
+        make_widget,
+        no_sleep,
+    ):
+        """For 600px text on 160px canvas, scroll stops at pos=-440."""
+        widget = make_widget(content_width=600)
+        _, cursor_pos, scroll_pos = await _swap_and_scroll(
+            canvas, mock_frame, widget
+        )
+        assert cursor_pos == 600
+        # stop_pos = -(600 - 160) = -440
+        assert scroll_pos == -440
+
+    async def test_scroll_pos_zero_for_short_text(
+        self,
+        canvas,
+        mock_frame,
+        make_widget,
+        no_sleep,
+    ):
+        """Short text that fits on screen returns scroll_pos=0."""
+        widget = make_widget(content_width=100)
+        _, _, scroll_pos = await _swap_and_scroll(canvas, mock_frame, widget)
+        assert scroll_pos == 0
+
+    async def test_scroll_stop_position_math(
+        self,
+        canvas,
+        mock_frame,
+        make_widget,
+        no_sleep,
+    ):
+        """Verify stop_pos formula: -(content_width - canvas_width)."""
+        for width in [200, 320, 500, 1000]:
+            widget = make_widget(content_width=width)
+            _, _, scroll_pos = await _swap_and_scroll(
+                canvas, mock_frame, widget
+            )
+            expected = -(width - canvas.width)
+            assert scroll_pos == expected, (
+                f"width={width}: expected {expected}, got {scroll_pos}"
+            )
 
 
 class TestScrollAndDelay:

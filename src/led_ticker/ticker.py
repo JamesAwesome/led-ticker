@@ -318,7 +318,7 @@ async def _run_swap(
     from led_ticker.transition import run_transition
 
     ticker_object = await notif_queue.get()
-    canvas, _ = await _swap_and_scroll(
+    canvas, _, prev_scroll_pos = await _swap_and_scroll(
         canvas,
         frame,
         ticker_object,
@@ -339,8 +339,9 @@ async def _run_swap(
                     transition=transition.transition_obj,
                     duration=transition.duration,
                     easing=transition.easing,
+                    outgoing_scroll_pos=prev_scroll_pos,
                 )
-                canvas, _ = await _swap_and_scroll(
+                canvas, _, prev_scroll_pos = await _swap_and_scroll(
                     canvas,
                     frame,
                     ticker_object,
@@ -348,7 +349,7 @@ async def _run_swap(
                     hold_time=hold_time,
                 )
             else:
-                canvas, _ = await _swap_and_scroll(
+                canvas, _, prev_scroll_pos = await _swap_and_scroll(
                     canvas,
                     frame,
                     ticker_object,
@@ -397,4 +398,4 @@ async def _swap_and_scroll(
     else:
         await asyncio.sleep(hold_time)
 
-    return canvas, cursor_pos
+    return canvas, cursor_pos, pos

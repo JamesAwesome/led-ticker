@@ -93,34 +93,74 @@ class TestCut:
 
 
 class TestPushLeft:
-    def test_at_zero_shows_outgoing(self, canvas, make_widget):
+    def test_at_zero_shows_outgoing_only(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushLeft()
-        push.frame_at(0.0, canvas, outgoing, incoming)
-        outgoing.draw.assert_called_once()
+        push.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        outgoing.draw.assert_called_once_with(canvas, cursor_pos=0)
+        # incoming_pos = 160 + 10 - 0 = 170 > canvas.width, so not drawn
         incoming.draw.assert_not_called()
 
-    def test_at_one_shows_incoming(self, canvas, make_widget):
+    def test_at_one_shows_incoming_at_zero(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushLeft()
-        push.frame_at(1.0, canvas, outgoing, incoming)
+        push.frame_at(1.0, canvas, outgoing, incoming, outgoing_scroll_pos=0)
         incoming.draw.assert_called_once()
         assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
 
-    def test_midpoint_shows_outgoing_with_effect(self, canvas, make_widget):
+    def test_midpoint_draws_both(self, canvas, make_widget):
+        """At midpoint, both outgoing and incoming should be drawn."""
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushLeft()
-        push.frame_at(0.5, canvas, outgoing, incoming)
+        push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        # Outgoing drawn at negative offset (sliding left)
         outgoing.draw.assert_called_once()
-        incoming.draw.assert_not_called()
+        # At t=0.5, incoming_pos = 160 + 10 - 85 = 85, which is < 160
+        incoming.draw.assert_called_once()
+        assert incoming.draw.call_args.kwargs["cursor_pos"] == 85
+
+    def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushLeft()
+        push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        # SetPixel used to black out the right zone before drawing incoming
+        assert canvas.SetPixel.call_count > 0
+
+    def test_outgoing_scroll_pos_used(self, canvas, make_widget):
+        """Outgoing should continue from its final scroll position."""
+        outgoing = make_widget(600)
+        incoming = make_widget(40)
+        push = PushLeft()
+        final_pos = -440  # -(600 - 160) as if scrolled to end
+        push.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=final_pos)
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
     def test_returns_canvas(self, canvas, make_widget):
         push = PushLeft()
         result = push.frame_at(0.5, canvas, make_widget(40), make_widget(40))
         assert result is canvas
+
+    def test_short_text_no_scroll_pos(self, canvas, make_widget):
+        """Short text (pos=0) should slide cleanly off to the left."""
+        outgoing = make_widget(100)
+        incoming = make_widget(100)
+        push = PushLeft()
+        # At t=0, outgoing at 0, incoming off-screen
+        push.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == 0
+        incoming.draw.assert_not_called()
+
+    def test_default_outgoing_scroll_pos_is_zero(self, canvas, make_widget):
+        """If outgoing_scroll_pos not passed, defaults to 0."""
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushLeft()
+        push.frame_at(0.0, canvas, outgoing, incoming)
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == 0
 
 
 # --- PushUp ---

@@ -329,10 +329,6 @@ class WipeUp:
         sweep_row = h - int(t * h)
 
         if t >= 1.0:
-            # Flash sweep at top edge before showing incoming
-            r, g, b = self.color
-            for x in range(w):
-                canvas.SetPixel(x, 0, r, g, b)
             incoming.draw(canvas, cursor_pos=0)
         else:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
@@ -381,11 +377,6 @@ class WipeLeft:
         boundary = int(t * w)
 
         if t >= 1.0:
-            # Flash sweep at right edge before showing incoming
-            r, g, b = self.color
-            for y in range(h):
-                for dx in range(min(3, w)):
-                    canvas.SetPixel(w - 1 - dx, y, r, g, b)
             incoming.draw(canvas, cursor_pos=0)
         else:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
@@ -417,11 +408,6 @@ class WipeRight:
         boundary = int(t * w)
 
         if t >= 1.0:
-            # Flash sweep at left edge before showing incoming
-            r, g, b = self.color
-            for y in range(h):
-                for dx in range(min(3, w)):
-                    canvas.SetPixel(dx, y, r, g, b)
             incoming.draw(canvas, cursor_pos=0)
         else:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
@@ -538,10 +524,6 @@ class WipeDown:
         sweep_row = int(t * h)
 
         if t >= 1.0:
-            # Flash sweep at bottom edge before showing incoming
-            r, g, b = self.color
-            for x in range(w):
-                canvas.SetPixel(x, h - 1, r, g, b)
             incoming.draw(canvas, cursor_pos=0)
         else:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)

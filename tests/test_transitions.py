@@ -434,14 +434,6 @@ class TestWipeUp:
         ys = [c.args[1] for c in calls]
         assert canvas.height - 1 in ys
 
-    def test_sweep_reaches_top_edge_at_completion(self, canvas, make_widget):
-        """Sweep should reach top edge at t=1.0."""
-        wipe = WipeUp()
-        wipe.frame_at(1.0, canvas, make_widget(40), make_widget(40))
-        calls = canvas.SetPixel.call_args_list
-        ys = [c.args[1] for c in calls]
-        assert 0 in ys
-
     def test_returns_canvas(self, canvas, make_widget):
         wipe = WipeUp()
         result = wipe.frame_at(
@@ -540,14 +532,6 @@ class TestWipeLeft:
         xs = [c.args[0] for c in calls]
         assert 0 in xs
 
-    def test_sweep_reaches_right_edge_at_completion(self, canvas, make_widget):
-        """Sweep should reach right edge at t=1.0."""
-        wipe = WipeLeft()
-        wipe.frame_at(1.0, canvas, make_widget(40), make_widget(40))
-        calls = canvas.SetPixel.call_args_list
-        xs = [c.args[0] for c in calls]
-        assert canvas.width - 1 in xs
-
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
@@ -600,14 +584,6 @@ class TestWipeRight:
         calls = canvas.SetPixel.call_args_list
         xs = [c.args[0] for c in calls]
         assert canvas.width - 1 in xs
-
-    def test_sweep_reaches_left_edge_at_completion(self, canvas, make_widget):
-        """Sweep should reach left edge at t=1.0."""
-        wipe = WipeRight()
-        wipe.frame_at(1.0, canvas, make_widget(40), make_widget(40))
-        calls = canvas.SetPixel.call_args_list
-        xs = [c.args[0] for c in calls]
-        assert 0 in xs
 
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)
@@ -761,14 +737,6 @@ class TestWipeDown:
         calls = canvas.SetPixel.call_args_list
         ys = [c.args[1] for c in calls]
         assert 0 in ys
-
-    def test_sweep_reaches_bottom_edge_at_completion(self, canvas, make_widget):
-        """Sweep should reach bottom edge at t=1.0."""
-        wipe = WipeDown()
-        wipe.frame_at(1.0, canvas, make_widget(40), make_widget(40))
-        calls = canvas.SetPixel.call_args_list
-        ys = [c.args[1] for c in calls]
-        assert canvas.height - 1 in ys
 
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)

@@ -3,7 +3,6 @@
 import asyncio
 
 import pytest
-from rgbmatrix import _StubCanvas
 
 from led_ticker.transition import (
     _TRANSITION_REGISTRY,
@@ -15,6 +14,7 @@ from led_ticker.transition import (
     PushRight,
     SplitHorizontal,
     WipeLeft,
+    WipeRight,
     ease_in_out,
     ease_out,
     get_transition_class,
@@ -65,9 +65,11 @@ class TestTransitionRegistry:
             "dissolve",
             "split",
             "curtain",
+            "nyancat",
         ]
         for name in expected:
             assert name in _TRANSITION_REGISTRY
+        assert len(_TRANSITION_REGISTRY) == 11
 
     def test_get_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown transition"):
@@ -161,6 +163,144 @@ class TestColorFlash:
         outgoing.draw.assert_not_called()
 
 
+# --- WipeLeft ---
+
+
+class TestWipeLeft:
+    def test_at_zero_shows_outgoing(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wipe = WipeLeft()
+        wipe.frame_at(0.0, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == 0
+
+    def test_at_one_shows_incoming(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wipe = WipeLeft()
+        wipe.frame_at(1.0, canvas, outgoing, incoming)
+        assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
+
+    def test_returns_canvas(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wipe = WipeLeft()
+        result = wipe.frame_at(0.5, canvas, outgoing, incoming)
+        assert result is canvas
+
+
+# --- WipeRight ---
+
+
+class TestWipeRight:
+    def test_at_zero_shows_outgoing(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wipe = WipeRight()
+        wipe.frame_at(0.0, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == 0
+
+    def test_at_one_shows_incoming(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wipe = WipeRight()
+        wipe.frame_at(1.0, canvas, outgoing, incoming)
+        assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
+
+    def test_returns_canvas(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wipe = WipeRight()
+        result = wipe.frame_at(0.5, canvas, outgoing, incoming)
+        assert result is canvas
+
+
+# --- Dissolve ---
+
+
+class TestDissolve:
+    def test_early_shows_outgoing(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        dissolve = Dissolve()
+        dissolve.frame_at(0.1, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        incoming.draw.assert_not_called()
+
+    def test_late_shows_incoming(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        dissolve = Dissolve()
+        dissolve.frame_at(0.9, canvas, outgoing, incoming)
+        incoming.draw.assert_called_once()
+        outgoing.draw.assert_not_called()
+
+    def test_returns_canvas(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        dissolve = Dissolve()
+        result = dissolve.frame_at(0.5, canvas, outgoing, incoming)
+        assert result is canvas
+
+
+# --- SplitHorizontal ---
+
+
+class TestSplitHorizontal:
+    def test_early_shows_outgoing(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        split = SplitHorizontal()
+        split.frame_at(0.1, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        incoming.draw.assert_not_called()
+
+    def test_late_shows_incoming(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        split = SplitHorizontal()
+        split.frame_at(0.9, canvas, outgoing, incoming)
+        incoming.draw.assert_called_once()
+        outgoing.draw.assert_not_called()
+
+    def test_returns_canvas(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        split = SplitHorizontal()
+        result = split.frame_at(0.5, canvas, outgoing, incoming)
+        assert result is canvas
+
+
+# --- Curtain ---
+
+
+class TestCurtain:
+    def test_early_shows_outgoing(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        curtain = Curtain()
+        curtain.frame_at(0.1, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        incoming.draw.assert_not_called()
+
+    def test_late_shows_incoming(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        curtain = Curtain()
+        curtain.frame_at(0.9, canvas, outgoing, incoming)
+        incoming.draw.assert_called_once()
+        outgoing.draw.assert_not_called()
+
+    def test_returns_canvas(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        curtain = Curtain()
+        result = curtain.frame_at(0.5, canvas, outgoing, incoming)
+        assert result is canvas
+
+
 # --- run_transition ---
 
 
@@ -220,122 +360,23 @@ class TestRunTransition:
         # Last call should be incoming drawn at cursor_pos=0
         incoming.draw.assert_called()
 
+    async def test_returns_canvas(
+        self,
+        canvas,
+        mock_frame,
+        make_widget,
+        no_sleep,
+    ):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        cut = Cut()
 
-# --- Phase 2: Compositing transitions ---
-# These use pixel-level shadow canvases.
-
-
-@pytest.fixture
-def pixel_canvas():
-    """Canvas with pixel storage for compositing tests."""
-    return _StubCanvas(width=20, height=4)
-
-
-@pytest.fixture
-def red_widget():
-    """Widget that fills canvas with red pixels."""
-
-    from led_ticker.colors import RGB_WHITE
-    from led_ticker.fonts import FONT_DEFAULT
-    from led_ticker.widgets.message import TickerMessage
-
-    return TickerMessage(
-        message="OLD",
-        font=FONT_DEFAULT,
-        font_color=RGB_WHITE,
-        center=False,
-    )
-
-
-@pytest.fixture
-def green_widget():
-
-    from led_ticker.colors import UP_TREND_COLOR
-    from led_ticker.fonts import FONT_DEFAULT
-    from led_ticker.widgets.message import TickerMessage
-
-    return TickerMessage(
-        message="NEW",
-        font=FONT_DEFAULT,
-        font_color=UP_TREND_COLOR,
-        center=False,
-    )
-
-
-class TestWipeLeftCompositing:
-    def test_at_zero_shows_old(self, pixel_canvas, red_widget, green_widget):
-        wipe = WipeLeft()
-        wipe.frame_at(0.0, pixel_canvas, red_widget, green_widget)
-        # At t=0, boundary=0: all old pixels
-        # Check that no new-widget pixels appeared at x=0
-        # (old widget draws at the same position)
-
-    def test_at_one_shows_new(self, pixel_canvas, red_widget, green_widget):
-        wipe = WipeLeft()
-        wipe.frame_at(1.0, pixel_canvas, red_widget, green_widget)
-        # At t=1, boundary=width: all new pixels
-
-    def test_returns_canvas(self, pixel_canvas, red_widget, green_widget):
-        wipe = WipeLeft()
-        result = wipe.frame_at(0.5, pixel_canvas, red_widget, green_widget)
-        assert result is pixel_canvas
-
-
-class TestDissolveTransition:
-    def test_at_zero_all_old(self, pixel_canvas, red_widget, green_widget):
-        dissolve = Dissolve(seed=42)
-        dissolve.frame_at(0.0, pixel_canvas, red_widget, green_widget)
-
-    def test_at_one_all_new(self, pixel_canvas, red_widget, green_widget):
-        dissolve = Dissolve(seed=42)
-        dissolve.frame_at(1.0, pixel_canvas, red_widget, green_widget)
-
-    def test_returns_canvas(self, pixel_canvas, red_widget, green_widget):
-        dissolve = Dissolve()
-        result = dissolve.frame_at(
-            0.5,
-            pixel_canvas,
-            red_widget,
-            green_widget,
+        result = await run_transition(
+            canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=cut,
+            duration=0.1,
         )
-        assert result is pixel_canvas
-
-
-class TestSplitTransition:
-    def test_returns_canvas(self, pixel_canvas, red_widget, green_widget):
-        split = SplitHorizontal()
-        result = split.frame_at(
-            0.5,
-            pixel_canvas,
-            red_widget,
-            green_widget,
-        )
-        assert result is pixel_canvas
-
-    def test_at_zero_shows_old(self, pixel_canvas, red_widget, green_widget):
-        split = SplitHorizontal()
-        split.frame_at(0.0, pixel_canvas, red_widget, green_widget)
-
-    def test_at_one_shows_new(self, pixel_canvas, red_widget, green_widget):
-        split = SplitHorizontal()
-        split.frame_at(1.0, pixel_canvas, red_widget, green_widget)
-
-
-class TestCurtainTransition:
-    def test_returns_canvas(self, pixel_canvas, red_widget, green_widget):
-        curtain = Curtain()
-        result = curtain.frame_at(
-            0.5,
-            pixel_canvas,
-            red_widget,
-            green_widget,
-        )
-        assert result is pixel_canvas
-
-    def test_at_zero_shows_old(self, pixel_canvas, red_widget, green_widget):
-        curtain = Curtain()
-        curtain.frame_at(0.0, pixel_canvas, red_widget, green_widget)
-
-    def test_at_one_shows_new(self, pixel_canvas, red_widget, green_widget):
-        curtain = Curtain()
-        curtain.frame_at(1.0, pixel_canvas, red_widget, green_widget)
+        assert result is not None

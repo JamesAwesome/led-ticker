@@ -134,7 +134,7 @@ async def run(config_path: Path):
                     and section_trans is not None
                 ):
                     canvas = led_frame.get_clean_canvas()
-                    await run_transition(
+                    canvas = await run_transition(
                         canvas,
                         led_frame,
                         last_widget,

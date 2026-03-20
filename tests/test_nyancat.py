@@ -91,14 +91,14 @@ class TestNyanCatTransition:
         result = nyan.frame_at(0.5, pixel_canvas, outgoing, incoming)
         assert result is pixel_canvas
 
-    def test_draws_both_widgets(self, make_widget):
+    def test_midpoint_draws_outgoing(self, make_widget):
         pixel_canvas = _StubCanvas(width=40, height=16)
         outgoing = make_widget(40)
         incoming = make_widget(40)
         nyan = NyanCat()
         nyan.frame_at(0.3, pixel_canvas, outgoing, incoming)
+        # Cat is still on-screen, so outgoing is drawn as base
         assert outgoing.draw.called
-        assert incoming.draw.called
 
     def test_complete_shows_incoming_only(self, make_widget):
         """At t=1.0, only incoming should be drawn."""

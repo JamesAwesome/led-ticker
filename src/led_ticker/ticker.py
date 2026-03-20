@@ -191,7 +191,7 @@ async def _scroll_and_delay(
         canvas.Clear()
         canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
         pos -= 1
-        frame.matrix.SwapOnVSync(canvas)
+        canvas = frame.matrix.SwapOnVSync(canvas)
         await asyncio.sleep(scroll_speed)
 
     await asyncio.sleep(delay)
@@ -232,11 +232,11 @@ async def _scroll_one_by_one(
             except asyncio.QueueEmpty:
                 break
 
+        canvas = frame.matrix.SwapOnVSync(canvas)
         await asyncio.sleep(scroll_speed)
-        frame.matrix.SwapOnVSync(canvas)
 
     canvas.Clear()
-    frame.matrix.SwapOnVSync(canvas)
+    canvas = frame.matrix.SwapOnVSync(canvas)
 
 
 async def _scroll_side_by_side(
@@ -299,8 +299,8 @@ async def _scroll_side_by_side(
             buffered_objects.pop(0)
             pos = mon_0_end_pos - 1
 
+        canvas = frame.matrix.SwapOnVSync(canvas)
         await asyncio.sleep(scroll_speed)
-        frame.matrix.SwapOnVSync(canvas)
 
         if not len(buffered_objects):
             return True
@@ -318,7 +318,7 @@ async def _run_swap(
     from led_ticker.transition import run_transition
 
     ticker_object = await notif_queue.get()
-    await _swap_and_scroll(
+    canvas, _ = await _swap_and_scroll(
         canvas,
         frame,
         ticker_object,
@@ -331,7 +331,7 @@ async def _run_swap(
             ticker_object = notif_queue.get_nowait()
 
             if transition is not None:
-                await run_transition(
+                canvas = await run_transition(
                     canvas,
                     frame,
                     prev_object,
@@ -340,7 +340,7 @@ async def _run_swap(
                     duration=transition.duration,
                     easing=transition.easing,
                 )
-                await _swap_and_scroll(
+                canvas, _ = await _swap_and_scroll(
                     canvas,
                     frame,
                     ticker_object,
@@ -348,7 +348,7 @@ async def _run_swap(
                     hold_time=hold_time,
                 )
             else:
-                await _swap_and_scroll(
+                canvas, _ = await _swap_and_scroll(
                     canvas,
                     frame,
                     ticker_object,
@@ -378,7 +378,7 @@ async def _swap_and_scroll(
     canvas, cursor_pos = ticker_obj.draw(canvas, pos)
 
     if not skip_initial_draw:
-        frame.matrix.SwapOnVSync(canvas)
+        canvas = frame.matrix.SwapOnVSync(canvas)
 
     if cursor_pos > canvas.width:
         await asyncio.sleep(hold_time)
@@ -386,7 +386,7 @@ async def _swap_and_scroll(
             pos -= 1
             canvas.Clear()
             canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
-            frame.matrix.SwapOnVSync(canvas)
+            canvas = frame.matrix.SwapOnVSync(canvas)
             await asyncio.sleep(scroll_speed)
     else:
         await asyncio.sleep(hold_time)

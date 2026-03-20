@@ -306,18 +306,27 @@ class TestPushRight:
         assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
 
     def test_midpoint_draws_both_no_overlap(self, canvas, make_widget):
-        """Both widgets drawn: incoming at 0, outgoing at boundary."""
+        """Both drawn: incoming slides from left, outgoing at boundary."""
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushRight()
         push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
-        # Incoming drawn at cursor_pos=0 (left zone)
-        incoming.draw.assert_called_once()
-        assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
-        # Outgoing drawn at cursor_pos=boundary (right zone, no left bleed)
-        outgoing.draw.assert_called_once()
         boundary = int(0.5 * canvas.width)  # 80
+        # Incoming slides in from left: -w + boundary = -80
+        incoming.draw.assert_called_once()
+        assert incoming.draw.call_args.kwargs["cursor_pos"] == -80
+        # Outgoing drawn at cursor_pos=boundary (right zone)
+        outgoing.draw.assert_called_once()
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == boundary
+
+    def test_incoming_slides_from_left(self, canvas, make_widget):
+        """Incoming should enter from off-screen left, not sit at pos=0."""
+        push = PushRight()
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push.frame_at(0.25, canvas, outgoing, incoming)
+        # At t=0.25: boundary=40, incoming_pos = -160 + 40 = -120
+        assert incoming.draw.call_args.kwargs["cursor_pos"] == -120
 
     def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
         outgoing = make_widget(40)
@@ -346,8 +355,8 @@ class TestPushRight:
         boundary = int(0.5 * canvas.width)
         # Outgoing drawn at boundary, not at scroll_pos
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == boundary
-        # Incoming drawn at 0
-        assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
+        # Incoming slides from left: -w + boundary
+        assert incoming.draw.call_args.kwargs["cursor_pos"] == -80
 
     def test_short_text_slides_right(self, canvas, make_widget):
         """Short outgoing text at increasing cursor_pos = sliding right."""

@@ -197,8 +197,11 @@ class PushRight:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             return canvas
 
-        # 1. Draw incoming at cursor_pos=0 (beginning visible from left)
-        incoming.draw(canvas, cursor_pos=0)
+        # Incoming slides in from off-screen left
+        incoming_pos = -w + boundary
+
+        # 1. Draw incoming sliding in from left
+        incoming.draw(canvas, cursor_pos=incoming_pos)
 
         # 2. Black out right zone — clip incoming to left zone only
         x_range = range(boundary, w)

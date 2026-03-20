@@ -54,7 +54,7 @@ src/led_ticker/
 
 **Widget Registry**: `@register("name")` decorator. Config loader uses `get_widget_class(name)`.
 
-**Transition Registry**: `@register_transition("name")` decorator. 12 transitions available.
+**Transition Registry**: `@register_transition("name")` decorator. 13 transitions available.
 
 **Presentation Registry**: `@register_presentation("name")` decorator. 5 text effects available.
 
@@ -92,6 +92,7 @@ All transitions work on real hardware. They fall into three categories:
 - `push_left` — rapid scroll left: outgoing exits left, incoming enters from right
 - `push_right` — rightward push: incoming enters from left at pos=0, outgoing exits right at pos=boundary (avoids DrawText rightward-bleed overlap)
 - `push_up` — rapid scroll up: outgoing exits top, incoming enters from bottom
+- `push_down` — rapid scroll down: outgoing exits bottom, incoming enters from top
 
 Push transitions use draw-blackout-draw: draw outgoing at its scroll position, SetPixel-blackout the zone where incoming will appear, then draw incoming. This prevents overlap since DrawText cannot be clipped. They receive `outgoing_scroll_pos` from `_swap_and_scroll` via `run_transition` kwargs so they can continue from where the text stopped scrolling.
 
@@ -105,7 +106,7 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 - `wipe_up` — stationary outgoing + white sweep line erasing top-to-bottom
 - `dissolve` — random pixel scatter (seeded RNG) creates TV static effect
 - `split` — center-outward expanding black band with magenta edge lines
-- `curtain` — top-down row blackout with green sweep line
+- `wipe_down` — top-down row blackout with sweep line (formerly 'curtain')
 - `nyancat` — Nyan Cat sprite flies across with rainbow trail
 
 **How wipe transitions work**: Draw outgoing widget at pos=0 (stationary text), then use SetPixel to black out regions and draw colored sweep lines on top. At t=1.0, snap to incoming. This avoids the compositing problem entirely — no need to draw both widgets or read pixels back.
@@ -136,7 +137,7 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 
 ### Testing
 
-257+ tests, 92% coverage, runs in <1s with no Docker.
+275+ tests, 92% coverage, runs in ~1s with no Docker.
 
 - `make test` sets `PYTHONPATH=tests/stubs` automatically
 - Test stubs simulate double-buffering (SwapOnVSync returns different canvas)
@@ -148,7 +149,7 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 - App config: `config/config.toml` (mounted in Docker at `/code/config/`)
 - Example: `config.example.toml`
 - API keys: `.env` (see `.env.example`)
-- Per-section: `mode`, `transition`, `transition_duration`, `hold_time`, `loop_count`
+- Per-section: `mode`, `transition`, `transition_duration`, `transition_color`, `hold_time`, `loop_count`
 - Per-widget: `presentation`, `show_icon` (weather)
 - Global: `[transitions] default`, `duration`, `easing`, `between_sections`
 

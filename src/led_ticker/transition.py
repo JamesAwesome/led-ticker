@@ -102,6 +102,9 @@ async def run_transition(
 class Cut:
     """Instant switch, no animation."""
 
+    def __init__(self, **kwargs):
+        pass
+
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         incoming.draw(canvas, cursor_pos=0)
         return canvas
@@ -118,6 +121,9 @@ class PushLeft:
     """
 
     GAP = 10  # pixels between outgoing right edge and incoming left edge
+
+    def __init__(self, **kwargs):
+        pass
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
@@ -171,6 +177,9 @@ class PushRight:
       3. Draw outgoing at cursor_pos=boundary — confined to right zone
     """
 
+    def __init__(self, **kwargs):
+        pass
+
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
@@ -212,6 +221,9 @@ class PushUp:
 
     GAP = 4  # vertical gap in pixels (smaller than horizontal)
 
+    def __init__(self, **kwargs):
+        pass
+
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
@@ -247,9 +259,62 @@ class PushUp:
         return canvas
 
 
+@register_transition("push_down")
+class PushDown:
+    """Rapid scroll — outgoing slides down, incoming enters from top.
+
+    Mirror of PushUp.  Uses y_offset to shift both widgets vertically,
+    with a row-based blackout to prevent overlap.
+    """
+
+    GAP = 4
+
+    def __init__(self, **kwargs):
+        pass
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+        w = canvas.width
+        h = getattr(canvas, "height", 16)
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+            return canvas
+
+        total_travel = h + self.GAP
+        scroll_offset = int(t * total_travel)
+
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+
+        # Outgoing slides down
+        outgoing_y = scroll_offset
+        # Incoming enters from the top
+        incoming_y = -(h + self.GAP) + scroll_offset
+
+        # 1. Draw incoming shifted down from top
+        if incoming_y + h > 0:
+            incoming.draw(canvas, cursor_pos=0, y_offset=incoming_y)
+
+        # 2. Black out rows from boundary downward (outgoing zone)
+        boundary_row = max(0, min(h, incoming_y + h))
+        if boundary_row < h:
+            for y in range(boundary_row, h):
+                for x in range(w):
+                    canvas.SetPixel(x, y, 0, 0, 0)
+
+        # 3. Draw outgoing shifted down on the cleared bottom zone
+        outgoing.draw(
+            canvas, cursor_pos=outgoing_scroll_pos, y_offset=outgoing_y,
+        )
+
+        return canvas
+
+
 @register_transition("wipe_up")
 class WipeUp:
     """Top-down wipe with sweep line."""
+
+    def __init__(self, color=None, **kwargs):
+        self.color = tuple(color) if color else (255, 255, 255)
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
@@ -268,7 +333,7 @@ class WipeUp:
                     canvas.SetPixel(x, y, 0, 0, 0)
             if sweep_row < h:
                 for x in range(w):
-                    canvas.SetPixel(x, sweep_row, 255, 255, 255)
+                    canvas.SetPixel(x, sweep_row, *self.color)
         return canvas
 
 
@@ -276,15 +341,15 @@ class WipeUp:
 class ColorFlash:
     """Brief solid color flash between old and new content."""
 
-    def __init__(self, flash_color=(255, 255, 255)):
-        self.flash_color = flash_color
+    def __init__(self, color=None, **kwargs):
+        self.color = tuple(color) if color else (255, 255, 255)
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
         if t < 0.33:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         elif t < 0.66:
-            canvas.Fill(*self.flash_color)
+            canvas.Fill(*self.color)
         else:
             incoming.draw(canvas, cursor_pos=0)
         return canvas
@@ -293,6 +358,9 @@ class ColorFlash:
 @register_transition("wipe_left")
 class WipeLeft:
     """Right-to-left wipe with sweep line."""
+
+    def __init__(self, color=None, **kwargs):
+        self.color = tuple(color) if color else (0, 255, 255)
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
@@ -311,16 +379,19 @@ class WipeLeft:
             for y in range(h):
                 for x in range(boundary):
                     canvas.SetPixel(x, y, 0, 0, 0)
-            # Draw cyan sweep line at boundary
+            # Draw sweep line at boundary
             for y in range(h):
                 for dx in range(min(2, w - boundary)):
-                    canvas.SetPixel(boundary + dx, y, 0, 255, 255)
+                    canvas.SetPixel(boundary + dx, y, *self.color)
         return canvas
 
 
 @register_transition("wipe_right")
 class WipeRight:
     """Left-to-right wipe with sweep line."""
+
+    def __init__(self, color=None, **kwargs):
+        self.color = tuple(color) if color else (0, 255, 255)
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
@@ -342,7 +413,7 @@ class WipeRight:
             line_x = w - boundary
             for y in range(h):
                 for dx in range(min(2, line_x)):
-                    canvas.SetPixel(line_x - 1 - dx, y, 0, 255, 255)
+                    canvas.SetPixel(line_x - 1 - dx, y, *self.color)
         return canvas
 
 
@@ -350,7 +421,7 @@ class WipeRight:
 class Dissolve:
     """Random pixel scatter dissolve."""
 
-    def __init__(self, seed: int = 42):
+    def __init__(self, seed: int = 42, **kwargs):
         self.seed = seed
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
@@ -389,6 +460,9 @@ class Dissolve:
 class SplitHorizontal:
     """Center-outward expanding black band with edge lines."""
 
+    def __init__(self, **kwargs):
+        pass
+
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
@@ -417,9 +491,12 @@ class SplitHorizontal:
         return canvas
 
 
-@register_transition("curtain")
-class Curtain:
-    """Top-down curtain drop with sweep line."""
+@register_transition("wipe_down")
+class WipeDown:
+    """Top-down wipe with sweep line (formerly 'curtain')."""
+
+    def __init__(self, color=None, **kwargs):
+        self.color = tuple(color) if color else (0, 255, 0)
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
@@ -437,16 +514,19 @@ class Curtain:
             for y in range(min(sweep_row, h)):
                 for x in range(w):
                     canvas.SetPixel(x, y, 0, 0, 0)
-            # Green sweep line
+            # Sweep line
             if sweep_row < h:
                 for x in range(w):
-                    canvas.SetPixel(x, sweep_row, 0, 255, 0)
+                    canvas.SetPixel(x, sweep_row, *self.color)
         return canvas
 
 
 @register_transition("nyancat")
 class NyanCat:
     """Nyan Cat flies across trailing a rainbow."""
+
+    def __init__(self, **kwargs):
+        pass
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         from led_ticker.widgets.nyancat import (

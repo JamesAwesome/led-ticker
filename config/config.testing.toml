@@ -1,4 +1,4 @@
-# Transition testing config — cycles through all 11 transitions
+# Transition testing config — cycles through all 13 transitions
 # Usage: cp config/config.testing.toml config/config.toml
 
 [display]
@@ -69,6 +69,25 @@ text = "Pack my box with five dozen liquor jugs and then ship them all overnight
 type = "message"
 text = "push_up DONE"
 
+# --- push_down ---
+[[playlist.section]]
+mode = "swap"
+transition = "push_down"
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "vv PUSH DOWN start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Brawny gods just flocked up to quiz and vex him while the sphinx watched from its ancient pedestal nearby"
+
+[[playlist.section.widget]]
+type = "message"
+text = "push_down DONE"
+
 # --- color_flash ---
 [[playlist.section]]
 mode = "swap"
@@ -87,6 +106,26 @@ text = "How vexingly quick daft zebras jump across the moonlit savanna while hye
 [[playlist.section.widget]]
 type = "message"
 text = "color_flash DONE"
+
+# --- color_flash (custom red) ---
+[[playlist.section]]
+mode = "swap"
+transition = "color_flash"
+transition_color = [255, 0, 0]
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "** RED FLASH start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "This flash should be RED not white"
+
+[[playlist.section.widget]]
+type = "message"
+text = "red flash DONE"
 
 # --- cut ---
 [[playlist.section]]
@@ -183,16 +222,35 @@ text = "Grumpy wizards make a toxic brew for the jovial queen who demanded exoti
 type = "message"
 text = "split DONE"
 
-# --- curtain ---
+# --- wipe_up ---
 [[playlist.section]]
 mode = "swap"
-transition = "curtain"
+transition = "wipe_up"
 hold_time = 4
 loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = "== CURTAIN start"
+text = "^^ WIPE UP start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Quirky wizards demand hefty jugs of expensive bourbon while foxes jump quickly over lazy sleeping dogs"
+
+[[playlist.section.widget]]
+type = "message"
+text = "wipe_up DONE"
+
+# --- wipe_down ---
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_down"
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "== WIPE DOWN start"
 
 [[playlist.section.widget]]
 type = "message"
@@ -200,7 +258,7 @@ text = "We promptly judged antique ivory buckles for the next prize while the cr
 
 [[playlist.section.widget]]
 type = "message"
-text = "curtain DONE"
+text = "wipe_down DONE"
 
 # --- nyancat ---
 [[playlist.section]]

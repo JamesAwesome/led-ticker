@@ -102,7 +102,10 @@ async def run(config_path: Path):
         section_trans_cls = get_transition_class(
             config.between_sections.type,
         )
-        section_trans = section_trans_cls()
+        trans_kwargs = {}
+        if config.between_sections.color is not None:
+            trans_kwargs["color"] = config.between_sections.color
+        section_trans = section_trans_cls(**trans_kwargs)
 
     async with aiohttp.ClientSession() as session:
         notif_queue = asyncio.Queue()
@@ -148,7 +151,10 @@ async def run(config_path: Path):
                 trans_cfg = section.transition
                 if trans_cfg.type != "cut":
                     trans_cls = get_transition_class(trans_cfg.type)
-                    trans_cfg.transition_obj = trans_cls()
+                    trans_kwargs = {}
+                    if trans_cfg.color is not None:
+                        trans_kwargs["color"] = trans_cfg.color
+                    trans_cfg.transition_obj = trans_cls(**trans_kwargs)
                     transition_config = trans_cfg
                 else:
                     transition_config = None

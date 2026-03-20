@@ -7,13 +7,14 @@ import pytest
 from led_ticker.transition import (
     _TRANSITION_REGISTRY,
     ColorFlash,
-    Curtain,
     Cut,
     Dissolve,
+    PushDown,
     PushLeft,
     PushRight,
     PushUp,
     SplitHorizontal,
+    WipeDown,
     WipeLeft,
     WipeRight,
     WipeUp,
@@ -61,18 +62,19 @@ class TestTransitionRegistry:
             "push_left",
             "push_right",
             "push_up",
+            "push_down",
             "color_flash",
             "wipe_left",
             "wipe_right",
             "wipe_up",
+            "wipe_down",
             "dissolve",
             "split",
-            "curtain",
             "nyancat",
         ]
         for name in expected:
             assert name in _TRANSITION_REGISTRY
-        assert len(_TRANSITION_REGISTRY) == 12
+        assert len(_TRANSITION_REGISTRY) == 13
 
     def test_get_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown transition"):
@@ -218,6 +220,61 @@ class TestPushUp:
     def test_returns_canvas(self, canvas, make_widget):
         push = PushUp()
         result = push.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        assert result is canvas
+
+
+# --- PushDown ---
+
+
+class TestPushDown:
+    def test_at_zero_shows_outgoing_only(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushDown()
+        push.frame_at(0.0, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        incoming.draw.assert_not_called()
+
+    def test_at_one_shows_incoming(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushDown()
+        push.frame_at(1.0, canvas, outgoing, incoming)
+        incoming.draw.assert_called_once()
+
+    def test_midpoint_draws_both_with_y_offset(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushDown()
+        push.frame_at(0.5, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        # Outgoing should have positive y_offset (sliding down)
+        assert outgoing.draw.call_args.kwargs["y_offset"] > 0
+        incoming.draw.assert_called_once()
+        # Incoming should have negative y_offset (entering from top)
+        assert incoming.draw.call_args.kwargs["y_offset"] < 0
+
+    def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushDown()
+        push.frame_at(0.5, canvas, outgoing, incoming)
+        assert canvas.SetPixel.call_count > 0
+
+    def test_outgoing_scroll_pos_used(self, canvas, make_widget):
+        outgoing = make_widget(600)
+        incoming = make_widget(40)
+        push = PushDown()
+        push.frame_at(
+            0.5, canvas, outgoing, incoming, outgoing_scroll_pos=-440
+        )
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
+
+    def test_returns_canvas(self, canvas, make_widget):
+        push = PushDown()
+        result = push.frame_at(
+            0.5, canvas, make_widget(40), make_widget(40)
+        )
         assert result is canvas
 
 
@@ -392,6 +449,16 @@ class TestColorFlash:
         flash = ColorFlash()
         flash.frame_at(0.1, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
+
+    def test_custom_color(self, canvas, make_widget):
+        flash = ColorFlash(color=[255, 0, 0])
+        flash.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        canvas.Fill.assert_called_once_with(255, 0, 0)
+
+    def test_default_color_is_white(self, canvas, make_widget):
+        flash = ColorFlash()
+        flash.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        canvas.Fill.assert_called_once_with(255, 255, 255)
 
 
 # --- WipeLeft ---
@@ -584,23 +651,23 @@ class TestSplitHorizontal:
         assert result is canvas
 
 
-# --- Curtain ---
+# --- WipeDown ---
 
 
-class TestCurtain:
+class TestWipeDown:
     def test_early_shows_outgoing(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
-        curtain = Curtain()
-        curtain.frame_at(0.1, canvas, outgoing, incoming)
+        wipe = WipeDown()
+        wipe.frame_at(0.1, canvas, outgoing, incoming)
         outgoing.draw.assert_called_once()
         incoming.draw.assert_not_called()
 
     def test_late_draws_outgoing_with_setpixel(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
-        curtain = Curtain()
-        curtain.frame_at(0.9, canvas, outgoing, incoming)
+        wipe = WipeDown()
+        wipe.frame_at(0.9, canvas, outgoing, incoming)
         outgoing.draw.assert_called_once()
         incoming.draw.assert_not_called()
         # SetPixel called for row blackout and sweep line
@@ -609,23 +676,23 @@ class TestCurtain:
     def test_at_one_shows_incoming(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
-        curtain = Curtain()
-        curtain.frame_at(1.0, canvas, outgoing, incoming)
+        wipe = WipeDown()
+        wipe.frame_at(1.0, canvas, outgoing, incoming)
         incoming.draw.assert_called_once()
         outgoing.draw.assert_not_called()
 
     def test_outgoing_scroll_pos_used(self, canvas, make_widget):
         outgoing = make_widget(600)
         incoming = make_widget(40)
-        curtain = Curtain()
-        curtain.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
+        wipe = WipeDown()
+        wipe.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
-        curtain = Curtain()
-        result = curtain.frame_at(0.5, canvas, outgoing, incoming)
+        wipe = WipeDown()
+        result = wipe.frame_at(0.5, canvas, outgoing, incoming)
         assert result is canvas
 
 

@@ -14,8 +14,10 @@ delay = 5
 
 # --- Transitions ---
 # Global defaults for transitions between widgets and sections.
-# Available types: cut, push_left, push_right, push_up, color_flash,
-#                  wipe_left, wipe_right, dissolve, split, curtain, nyancat
+# Available types: cut, push_left, push_right, push_up, push_down,
+#                  color_flash, wipe_left, wipe_right, wipe_up, wipe_down,
+#                  dissolve, split, nyancat
+# Optional: transition_color = [R, G, B]  (custom color for flash/wipe)
 # Available easing: linear, ease_out, ease_in_out
 
 [transitions]

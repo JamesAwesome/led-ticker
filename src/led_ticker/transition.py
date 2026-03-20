@@ -107,9 +107,16 @@ class PushLeft:
     """Old content pushes off left, new enters from right."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        offset = int(t * canvas.width)
+        w = canvas.width
+        h = getattr(canvas, "height", 16)
+        offset = int(t * w)
+        boundary = w - offset
         outgoing.draw(canvas, cursor_pos=-offset)
-        incoming.draw(canvas, cursor_pos=canvas.width - offset)
+        if 0 < boundary < w:
+            for y in range(h):
+                for x in range(boundary, w):
+                    canvas.SetPixel(x, y, 0, 0, 0)
+        incoming.draw(canvas, cursor_pos=boundary)
         return canvas
 
 
@@ -118,9 +125,16 @@ class PushRight:
     """Old content pushes off right, new enters from left."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        offset = int(t * canvas.width)
+        w = canvas.width
+        h = getattr(canvas, "height", 16)
+        offset = int(t * w)
+        boundary = offset
+        incoming.draw(canvas, cursor_pos=-w + offset)
+        if 0 < boundary < w:
+            for y in range(h):
+                for x in range(boundary, w):
+                    canvas.SetPixel(x, y, 0, 0, 0)
         outgoing.draw(canvas, cursor_pos=offset)
-        incoming.draw(canvas, cursor_pos=-canvas.width + offset)
         return canvas
 
 
@@ -129,10 +143,16 @@ class PushUp:
     """Old content pushes up, new enters from bottom."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        height = getattr(canvas, "height", 16)
-        offset = int(t * height)
+        w = canvas.width
+        h = getattr(canvas, "height", 16)
+        offset = int(t * h)
+        boundary = h - offset
         outgoing.draw(canvas, cursor_pos=0, y_offset=-offset)
-        incoming.draw(canvas, cursor_pos=0, y_offset=height - offset)
+        if 0 < boundary < h:
+            for y in range(boundary, h):
+                for x in range(w):
+                    canvas.SetPixel(x, y, 0, 0, 0)
+        incoming.draw(canvas, cursor_pos=0, y_offset=h - offset)
         return canvas
 
 

@@ -21,7 +21,12 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = ">> PUSH LEFT next >>"
+text = ">> PUSH LEFT start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "The quick brown fox jumps over the lazy dog and keeps running fast across the entire LED matrix panel display"
+
 [[playlist.section.widget]]
 type = "message"
 text = "push_left DONE"
@@ -35,7 +40,12 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = "<< PUSH RIGHT next <<"
+text = "<< PUSH RIGHT start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "A wizard quickly jinxed the gnomes before they could cast any powerful spells on the sleeping villagers nearby"
+
 [[playlist.section.widget]]
 type = "message"
 text = "push_right DONE"
@@ -49,7 +59,12 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = "^^ PUSH UP next ^^"
+text = "^^ PUSH UP start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Pack my box with five dozen liquor jugs and then ship them all overnight express delivery to the warehouse"
+
 [[playlist.section.widget]]
 type = "message"
 text = "push_up DONE"
@@ -63,7 +78,12 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = "** FLASH next **"
+text = "** FLASH start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "How vexingly quick daft zebras jump across the moonlit savanna while hyenas watch from distant rocky hills"
+
 [[playlist.section.widget]]
 type = "message"
 text = "color_flash DONE"
@@ -77,7 +97,12 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = "CUT next (instant)"
+text = "CUT start (instant)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Crazy Frederick bought many very exquisite opal jewels and stored them safely in the locked vault downstairs"
+
 [[playlist.section.widget]]
 type = "message"
 text = "cut DONE"
@@ -91,7 +116,12 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = ">> WIPE LEFT next >>"
+text = ">> WIPE LEFT start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Sixty zippers were quickly picked from the woven jute bag by the eager merchants waiting at the market square"
+
 [[playlist.section.widget]]
 type = "message"
 text = "wipe_left DONE"
@@ -105,7 +135,12 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = "<< WIPE RIGHT next <<"
+text = "<< WIPE RIGHT start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Jackdaws love my big sphinx of quartz and they perch upon it every single morning while the sun rises slowly"
+
 [[playlist.section.widget]]
 type = "message"
 text = "wipe_right DONE"
@@ -119,7 +154,12 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = "~~ DISSOLVE next ~~"
+text = "~~ DISSOLVE start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "The five boxing wizards jumped quickly over the tall fence and disappeared into the foggy night without trace"
+
 [[playlist.section.widget]]
 type = "message"
 text = "dissolve DONE"
@@ -133,7 +173,12 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = "<> SPLIT next <>"
+text = "<> SPLIT start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Grumpy wizards make a toxic brew for the jovial queen who demanded exotic flavors from every corner of earth"
+
 [[playlist.section.widget]]
 type = "message"
 text = "split DONE"
@@ -147,7 +192,12 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = "== CURTAIN next =="
+text = "== CURTAIN start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "We promptly judged antique ivory buckles for the next prize while the crowd gathered in the grand exhibition"
+
 [[playlist.section.widget]]
 type = "message"
 text = "curtain DONE"
@@ -162,7 +212,12 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = "=^.^= NYANCAT next"
+text = "=^.^= NYANCAT start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Bright vixens jumped quickly over the frozen winter pond and dashed toward the warm glowing cabin in the woods"
+
 [[playlist.section.widget]]
 type = "message"
 text = "nyancat DONE"

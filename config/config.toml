@@ -1,6 +1,3 @@
-# led-ticker configuration
-# Copy this to config.toml and customize for your setup.
-
 [display]
 rows = 16
 cols = 32
@@ -12,11 +9,17 @@ gpio_mapping = "adafruit-hat"
 [title]
 delay = 5
 
-# --- Playlist ---
-# Each [[playlist.section]] displays in order, then the whole playlist loops.
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = "dissolve"
+
+# --- Messages ---
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "swap"
+transition = "split"
 loop_count = 1
 
 [playlist.section.title]
@@ -32,11 +35,54 @@ text = "May the Rabbit always be with you!"
 type = "message"
 text = "Always be your bunny best!"
 
+# --- Weather ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_left"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Weather"
+color = "random"
+
+[[playlist.section.widget]]
+type = "weather"
+message = "NYC"
+location = "New York"
+units = "imperial"
+
+[[playlist.section.widget]]
+type = "weather"
+message = "PHL"
+location = "Philadelphia"
+units = "imperial"
+
+[[playlist.section.widget]]
+type = "weather"
+message = "MKE"
+location = "Milwaukee"
+units = "imperial"
+
+[[playlist.section.widget]]
+type = "weather"
+message = "MSP"
+location = "Minneapolis"
+units = "imperial"
+
+[[playlist.section.widget]]
+type = "weather"
+message = "DC"
+location = "Washington DC"
+units = "imperial"
+
 # --- Countdowns ---
 
 [[playlist.section]]
-mode = "forever_scroll"
-loop_count = 2
+mode = "swap"
+transition = "color_flash"
+loop_count = 1
 
 [playlist.section.title]
 type = "message"
@@ -48,11 +94,11 @@ type = "countdown"
 message = "Days Until Summer"
 countdown_date = 2026-06-20
 
-# --- RSS Feeds ---
-# Uncomment and add your favorite feeds:
-#
+# --- Nintendo ---
+
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "swap"
+transition = "curtain"
 loop_count = 1
 
 [playlist.section.title]
@@ -64,42 +110,3 @@ color = "random"
 type = "rss_feed"
 feed_url = "https://www.nintendolife.com/feeds/news"
 update_interval = 3000
-
-# --- Crypto Prices ---
-# Uncomment to show crypto prices:
-#
-# [[playlist.section]]
-# mode = "forever_scroll"
-# loop_count = 2
-#
-# [playlist.section.title]
-# type = "message"
-# text = "Cryptocurrency/USD"
-#
-# [[playlist.section.widget]]
-# type = "coinbase"
-# symbol = "BTC"
-# currency = "USD"
-#
-# [[playlist.section.widget]]
-# type = "coinbase"
-# symbol = "ETH"
-# currency = "USD"
-
-# --- Weather ---
-# Requires OPENWEATHERMAP_API_KEY in .env
-#
-# [[playlist.section]]
-# mode = "swap"
-# loop_count = 1
-#
-# [playlist.section.title]
-# type = "message"
-# text = "Weather"
-# color = "random"
-#
-# [[playlist.section.widget]]
-# type = "weather"
-# message = "NYC"
-# location = { lat = 40.7128, lon = -74.0060 }
-# units = "imperial"

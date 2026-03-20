@@ -61,14 +61,14 @@ Set transitions per-section or globally in `[transitions]`:
 | `cut` | Instant switch, no animation. The old widget disappears and the new one appears immediately. | Default. Fast data displays. |
 | `push_left` | Old and new content move together like a conveyor belt — old slides off the left edge while new enters from the right. Both are visible simultaneously during the animation. | General purpose. The most natural-feeling transition. |
 | `push_right` | Same as push_left but reversed — old exits right, new enters from left. | Variety. Going "back" in a sequence. |
-| `push_up` | Timed vertical cut (true vertical push requires pixel-level rendering). Old content is replaced by new at the midpoint. | Quick section changes. |
-| `wipe_left` | New content sweeps across from right to left, replacing old content as it goes. Similar to push_left but the content doesn't slide — the boundary moves across stationary content. | Clean, professional look. |
-| `wipe_right` | Same as wipe_left but the boundary moves left to right. | Variety. |
+| `push_up` | Old content slides up off the top of the display while new content enters from the bottom. Real vertical movement using y-offset rendering. | Countdowns. Section changes. |
+| `wipe_left` | A bright cyan sweep line moves left-to-right across stationary content, erasing it to black as it passes. New content appears when the sweep completes. Visually distinct from push — the content stays still while the line moves. | Clean, professional look. |
+| `wipe_right` | Same as wipe_left but the sweep line moves right-to-left. | Variety. |
 | `color_flash` | Three phases: old content is shown, then the entire display flashes bright white, then new content appears. Inspired by sports scoreboard score updates. | Alerts, countdowns, score changes. |
-| `dissolve` | Clean crossfade — old content is shown for the first half, then new content for the second half. | Ambient content. Between sections. |
-| `split` | Old content splits apart from the center — the left half slides left, the right half slides right, revealing new content underneath. Like opening a book. | Dramatic reveals. Titles. |
-| `curtain` | Old content slides off to the left like a theater curtain opening, revealing new content behind it. | Headlines. Theatrical effect. |
-| `nyancat` | A pixel-art Nyan Cat (pop-tart cat) flies across the screen from left to right, trailing a 6-color rainbow. The rainbow wipes away old content and reveals new content in its wake. Best with duration 1.5-2.0s. | Fun. Easter eggs. Showing off your LED sign. |
+| `dissolve` | Random pixel scatter creates a TV static effect. Old content degrades as random black pixels appear, then new content emerges from the static. Uses seeded RNG for deterministic playback. | Between sections. Ambient transitions. |
+| `split` | A black band expands outward from the center of the display with bright magenta edge lines, erasing old content from the middle out. New content appears when the band fills the screen. | Dramatic reveals. Titles. |
+| `curtain` | Rows black out from top to bottom with a bright green sweep line, like a curtain dropping. New content appears when the curtain reaches the bottom. | Headlines. Theatrical effect. |
+| `nyancat` | A pixel-art Nyan Cat (pop-tart cat) flies across the screen from left to right, trailing a 6-color rainbow. The rainbow covers old content as the cat passes. New content appears when the cat exits. Best with duration 1.5-2.0s. | Fun. Easter eggs. Showing off your LED sign. |
 
 ```toml
 [transitions]

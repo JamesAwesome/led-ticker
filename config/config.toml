@@ -1,6 +1,3 @@
-# Transition debug config — static messages only
-# Each section tests one transition type
-
 [display]
 rows = 16
 cols = 32
@@ -10,144 +7,132 @@ slowdown_gpio = 2
 gpio_mapping = "adafruit-hat"
 
 [title]
-delay = 3
+delay = 5
 
-# --- Test 1: push_left ---
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = "dissolve"
+
+# --- Messages ---
 
 [[playlist.section]]
 mode = "swap"
 transition = "push_left"
-hold_time = 4
 loop_count = 1
 
-[[playlist.section.widget]]
+[playlist.section.title]
 type = "message"
-text = ">> PUSH LEFT next >>"
-
-[[playlist.section.widget]]
-type = "message"
-text = "push_left DONE"
-
-# --- Test 2: push_right ---
-
-[[playlist.section]]
-mode = "swap"
-transition = "push_right"
-hold_time = 4
-loop_count = 1
+text = "#DevOps News"
+color = "random"
 
 [[playlist.section.widget]]
 type = "message"
-text = "<< PUSH RIGHT next <<"
+text = "May the Rabbit always be with you!"
 
 [[playlist.section.widget]]
 type = "message"
-text = "push_right DONE"
+text = "Always be your bunny best!"
 
-# --- Test 3: push_up ---
-
-[[playlist.section]]
-mode = "swap"
-transition = "push_up"
-hold_time = 4
-loop_count = 1
-
-[[playlist.section.widget]]
-type = "message"
-text = "^^ PUSH UP next ^^"
-
-[[playlist.section.widget]]
-type = "message"
-text = "push_up DONE"
-
-# --- Test 4: color_flash ---
-
-[[playlist.section]]
-mode = "swap"
-transition = "color_flash"
-hold_time = 4
-loop_count = 1
-
-[[playlist.section.widget]]
-type = "message"
-text = "** FLASH next **"
-
-[[playlist.section.widget]]
-type = "message"
-text = "color_flash DONE"
-
-# --- Test 5: cut ---
-
-[[playlist.section]]
-mode = "swap"
-transition = "cut"
-hold_time = 4
-loop_count = 1
-
-[[playlist.section.widget]]
-type = "message"
-text = "CUT next (instant)"
-
-[[playlist.section.widget]]
-type = "message"
-text = "cut DONE"
-
-# --- Test 6: nyancat ---
-
-[[playlist.section]]
-mode = "swap"
-transition = "nyancat"
-transition_duration = 2.0
-hold_time = 4
-loop_count = 1
-
-[[playlist.section.widget]]
-type = "message"
-text = "=^.^= NYANCAT next"
-
-[[playlist.section.widget]]
-type = "message"
-text = "nyancat DONE"
-
-# --- Test 7: dissolve ---
-
-[[playlist.section]]
-mode = "swap"
-transition = "dissolve"
-hold_time = 4
-loop_count = 1
-
-[[playlist.section.widget]]
-type = "message"
-text = "~~ DISSOLVE next ~~"
-
-[[playlist.section.widget]]
-type = "message"
-text = "dissolve DONE"
-
-# --- Test 8: wipe_left ---
+# --- Weather ---
 
 [[playlist.section]]
 mode = "swap"
 transition = "wipe_left"
-hold_time = 4
+hold_time = 6
 loop_count = 1
 
-[[playlist.section.widget]]
+[playlist.section.title]
 type = "message"
-text = ">> WIPE LEFT next >>"
+text = "Weather"
+color = "random"
 
 [[playlist.section.widget]]
-type = "message"
-text = "wipe_left DONE"
+type = "weather"
+message = "New York"
+location = "New York"
+units = "imperial"
 
-# --- End: restart indicator ---
+[[playlist.section.widget]]
+type = "weather"
+message = "Philadelphia"
+location = "Philadelphia"
+units = "imperial"
+
+[[playlist.section.widget]]
+type = "weather"
+message = "Milwaukee"
+location = "Milwaukee"
+units = "imperial"
+
+[[playlist.section.widget]]
+type = "weather"
+message = "Minneapolis"
+location = "Minneapolis"
+units = "imperial"
+
+[[playlist.section.widget]]
+type = "weather"
+message = "Washington DC"
+location = "Washington DC"
+units = "imperial"
+
+# --- Countdowns ---
 
 [[playlist.section]]
 mode = "swap"
-hold_time = 3
+transition = "push_up"
 loop_count = 1
 
-[[playlist.section.widget]]
+[playlist.section.title]
 type = "message"
-text = "--- RESTARTING ---"
+text = "Count Downs"
+color = "random"
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Summer"
+countdown_date = 2026-06-20
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "4th of July"
+countdown_date = 2026-07-04
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Halloween"
+countdown_date = 2026-10-31
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Thanksgiving"
+countdown_date = 2026-11-26
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Christmas"
+countdown_date = 2026-12-25
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "New Years"
+countdown_date = 2027-01-01
+
+# --- Nintendo ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "push_left"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Nintendo Life"
+color = "random"
+
+[[playlist.section.widget]]
+type = "rss_feed"
+feed_url = "https://www.nintendolife.com/feeds/news"
+update_interval = 3000

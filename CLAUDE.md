@@ -34,13 +34,12 @@ src/led_ticker/
   colors.py            # RGB color constants
   transition.py        # Transition effects + registry + runner
   presentation.py      # Text presentation effects (typewriter, rainbow, etc.)
-  shadow_canvas.py     # Offscreen pixel buffer for compositing
-  fonts/               # BDF bitmap fonts + loader (generic names: FONT_LABEL, FONT_VALUE, etc.)
+  fonts/               # BDF bitmap fonts + loader
   widgets/
     __init__.py         # Registry (@register decorator) + auto-imports
     message.py          # TickerMessage, TickerCountdown
     weather.py          # WeatherWidget (WeatherAPI.com) with 8x8 pixel icons
-    weather_icons.py    # 7 weather condition icons (sun, cloud, rain, snow, thunder, fog, partly cloudy)
+    weather_icons.py    # 7 weather condition icons
     rss_feed.py         # RSSFeedMonitor (no draw() — stories expand into TickerMessages)
     nyancat.py          # Nyan Cat sprite + rainbow trail for transitions
     crypto/
@@ -51,7 +50,7 @@ src/led_ticker/
 
 ### Key Patterns
 
-**Widget Protocol**: All widgets implement `draw(canvas, cursor_pos=0, **kwargs) -> (canvas, int)`. Async widgets also implement `update()` and use `run_monitor_loop()` for background data fetching with exponential backoff on errors (60s min, 1hr max).
+**Widget Protocol**: All widgets implement `draw(canvas, cursor_pos=0, **kwargs) -> (canvas, int)`. All draw() methods support `y_offset` via kwargs (default 0), used for vertical transitions. Async widgets also implement `update()` and use `run_monitor_loop()` with exponential backoff.
 
 **Widget Registry**: `@register("name")` decorator. Config loader uses `get_widget_class(name)`.
 
@@ -59,89 +58,89 @@ src/led_ticker/
 
 **Presentation Registry**: `@register_presentation("name")` decorator. 5 text effects available.
 
-**Hardware Abstraction**: `_compat.py` provides lazy rgbmatrix imports. Tests use stubs in `tests/stubs/rgbmatrix/` with BDF font parsing and pixel storage.
+### CRITICAL: Hardware Rendering Constraints
 
-**CRITICAL: ShadowCanvas vs Real Canvas**: The real rgbmatrix `graphics.DrawText` is a C function that type-checks its canvas argument — it rejects `ShadowCanvas`. Any code that calls `widget.draw()` must pass a real canvas or the test stub canvas. The `_render_to_shadow()` helper in `transition.py` tries ShadowCanvas and catches `TypeError` to fall back gracefully on real hardware. Compositing transitions use pixel-accurate rendering in tests but fall back to simpler rendering on real hardware.
+These constraints were learned through extensive real-hardware testing:
+
+1. **SwapOnVSync return value MUST be captured**: `canvas = frame.matrix.SwapOnVSync(canvas)`. The return value is the previous front buffer which becomes the new back buffer. If discarded, you draw to the actively-displayed buffer, causing tearing and corruption. EVERY call site must capture this.
+
+2. **DrawText rejects non-Canvas objects**: The real rgbmatrix `graphics.DrawText` is a C function that type-checks for `rgbmatrix.core.Canvas`. Python objects like ShadowCanvas will get `TypeError`. Never call `widget.draw()` on anything other than a real canvas or the test stub canvas.
+
+3. **No GetPixel**: Cannot read pixels back from any canvas. The framebuffer stores pre-computed GPIO bitplane data, not RGB values. Reverse mapping is infeasible.
+
+4. **SetPixel works everywhere**: `canvas.SetPixel(x, y, r, g, b)` works on real canvases, test stubs, and any object. All transition visual effects use SetPixel.
+
+5. **Swap-then-sleep ordering**: Always `SwapOnVSync` first, then `asyncio.sleep`. Never sleep before swap — it adds frame latency.
+
+6. **Test stubs simulate double-buffering**: The stub `SwapOnVSync` returns a DIFFERENT canvas object (not the same one) to catch code that discards the return value.
 
 ### Display Flow
 
-1. `app.py` loads TOML config (`config/config.toml`) and builds widgets from the registry
-2. `Ticker` is created with widgets, frame, optional transition config, and hold_time
+1. `app.py` loads TOML config and builds widgets from the registry
+2. `Ticker` is created with widgets, frame, transition config, and hold_time
 3. Ticker runs one of three modes: `run_forever_scroll()`, `run_infini_scroll()`, or `run_swap()`
-4. In swap mode: each widget is held (and scrolled if overflowing), then a transition runs to the next widget
-5. Between playlist sections: a section-to-section transition runs
-6. Canvas is pushed to hardware via `frame.matrix.SwapOnVSync(canvas)`
+4. In swap mode: each widget is held (scrolled if overflowing), then transition runs
+5. `run_transition()` returns the current back-buffer canvas — caller must capture it
+6. Between sections: a section-to-section transition runs
+7. Canvas pushed to hardware via `canvas = frame.matrix.SwapOnVSync(canvas)`
 
 ### Transition System
 
-- **Push-based** (cursor_pos manipulation, works everywhere): push_left, push_right, push_up, color_flash, cut
-- **Compositing** (ShadowCanvas pixel rendering, falls back on real hardware): wipe_left, wipe_right, dissolve, split, curtain, nyancat
-- Transitions are configured globally in `[transitions]` and overridden per-section
-- `run_transition()` runs from t=0.0 to t=1.0 inclusive — no separate "final frame"
-- After a transition, `_swap_and_scroll(skip_initial_draw=True)` avoids redundant re-draw
-- No black flash between sections — last widget stays on screen
+All transitions work on real hardware. They fall into two categories:
+
+**Push-based** (cursor_pos manipulation):
+- `push_left` — both contents slide together, old exits left, new enters right
+- `push_right` — reverse of push_left
+- `push_up` — real vertical push using y_offset (text slides up/down)
+- `cut` — instant switch
+- `color_flash` — white flash between content
+
+**SetPixel-effect** (draw outgoing, then overlay effects with SetPixel):
+- `wipe_left` — stationary outgoing + cyan sweep line erasing left-to-right
+- `wipe_right` — stationary outgoing + cyan sweep line erasing right-to-left
+- `dissolve` — random pixel scatter (seeded RNG) creates TV static effect
+- `split` — center-outward expanding black band with magenta edge lines
+- `curtain` — top-down row blackout with green sweep line
+- `nyancat` — Nyan Cat sprite flies across with rainbow trail
+
+**How SetPixel-effect transitions work**: Draw outgoing widget at pos=0 (stationary text), then use SetPixel to black out regions and draw colored sweep lines on top. At t=1.0, snap to incoming. This avoids the compositing problem entirely — no need to draw both widgets or read pixels back.
 
 ### Text Presentation Effects
 
-`WidgetPresenter` wraps any widget and adds frame-aware rendering:
+`WidgetPresenter` wraps any widget with frame-aware rendering:
 - typewriter, color_cycle, rainbow, pulse, bounce
 - Configured per-widget: `presentation = "typewriter"`
-
-### Weather Widget
-
-- Uses WeatherAPI.com (env var `WEATHERAPI_KEY`)
-- API key read at runtime via `os.getenv` (not import time)
-- `start()` catches initial update failure — app continues, retries in background
-- 8x8 pixel weather icons (show_icon config, default true)
-- Location is a string: city name, zip code, or "lat,lon"
-- Dict locations from TOML auto-converted to "lat,lon" string
-
-### RSSFeedMonitor
-
-- Has NO `draw()` method — does not satisfy Widget protocol directly
-- `app.py` expands `widget.feed_stories` into the widget list (list of TickerMessages)
-- Never pass an RSSFeedMonitor to a Ticker's monitors list directly
-
-### Error Handling
-
-- `run_monitor_loop()` has exponential backoff: 60s → 120s → 240s → ... → 1hr max
-- Resets to normal interval on successful update
-- All async widget `update()` errors are caught — display continues with stale data
-- Weather widget validates API error responses and raises clear `ValueError`
 
 ### Adding a New Widget
 
 1. Create `src/led_ticker/widgets/my_widget.py`
-2. Add `@register("my_widget")` decorator to the class
+2. Add `@register("my_widget")` decorator
 3. Implement `draw(canvas, cursor_pos=0, **kwargs) -> (canvas, int)`
-4. For async data fetching: implement `update()` and use `run_monitor_loop()`
-5. Add the import to `src/led_ticker/widgets/__init__.py`
-6. Add to config.toml: `type = "my_widget"`
+4. Support `y_offset = kwargs.get("y_offset", 0)` — use `12 + y_offset` in DrawText
+5. For async data: implement `update()` and use `run_monitor_loop()`
+6. Add import to `src/led_ticker/widgets/__init__.py`
 
 ### Adding a New Transition
 
 1. Add to `src/led_ticker/transition.py`
-2. Add `@register_transition("my_transition")` decorator
+2. Add `@register_transition("name")` decorator
 3. Implement `frame_at(t, canvas, outgoing, incoming)` where t is 0.0-1.0
 4. At t=0: show only outgoing. At t=1.0: show only incoming.
-5. For pixel compositing: use `_render_to_shadow()` with fallback
+5. Use SetPixel for visual effects (sweep lines, blackout regions) — NOT ShadowCanvas
+6. Never call `widget.draw()` on anything other than the real `canvas` parameter
 
 ### Testing
 
-245+ tests, 90%+ coverage, runs in <1s with no Docker.
+237+ tests, 91% coverage, runs in <1s with no Docker.
 
 - `make test` sets `PYTHONPATH=tests/stubs` automatically
-- Test stubs provide pixel storage (`_StubCanvas.SetPixel/get_pixel`)
-- Stub `DrawText` writes actual pixels for compositing test coverage
-- Widget tests in `tests/test_widgets/`
-- Transition tests in `tests/test_transitions.py` and `tests/test_nyancat.py`
-- Shared fixtures in `tests/conftest.py`: `canvas`, `mock_frame`, `make_widget`
-- Async tests use `monkeypatch` to patch `asyncio.sleep` for instant execution
+- Test stubs simulate double-buffering (SwapOnVSync returns different canvas)
+- Stub `DrawText` writes actual pixels for pixel-level test assertions
 - Weather tests need `monkeypatch.setenv("WEATHERAPI_KEY", "test-key")`
 
 ### Configuration
 
-- App config: `config/config.toml` (mounted in Docker)
+- App config: `config/config.toml` (mounted in Docker at `/code/config/`)
 - Example: `config.example.toml`
 - API keys: `.env` (see `.env.example`)
 - Per-section: `mode`, `transition`, `transition_duration`, `hold_time`, `loop_count`
@@ -150,16 +149,16 @@ src/led_ticker/
 
 ### Docker / Deployment
 
-- Production image: `python:3.13-bullseye` base
-- rgbmatrix built from fork: `github.com/jamesawesome/rpi-rgb-led-matrix` (vendored Pillow struct, Python 3.9+ support)
-- Config mounted read-only via docker-compose: `./config:/code/config:ro`
-- Systemd service: `deploy/led-ticker.service`
-- Bare-metal install: `deploy/install.sh`
+- Production image: `python:3.13-bullseye` base, 3-layer caching (rgbmatrix → deps → source)
+- rgbmatrix from fork: `github.com/jamesawesome/rpi-rgb-led-matrix`
+- Config mounted read-only: `./config:/code/config:ro`
+- Systemd: `deploy/led-ticker.service`
 
 ### Hardware
 
-- Target: Raspberry Pi 4 Model B, 5 chained 32x16 panels = 160x16 pixels
+- Raspberry Pi 4 Model B, 5 chained 32x16 panels = 160x16 pixels
 - `led_gpio_mapping`: "adafruit-hat"
-- `led_slowdown_gpio`: 2 (adjust if flickering)
+- `led_slowdown_gpio`: 2
 - `led_brightness`: 60
-- Display refreshes at ~20fps (0.05s per frame)
+- ~20fps (0.05s per frame)
+- DrawText clips safely at canvas edges (y can be negative or > height)

@@ -325,23 +325,21 @@ class WipeUp:
         w = canvas.width
         h = getattr(canvas, "height", 16)
         outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
-        # Sweep line moves from bottom (h) to top (0)
-        sweep_row = h - int(t * h)
+        # Sweep line moves from bottom (h-1) to top (0)
+        sweep_row = max(0, h - 1 - min(int(t * h), h - 1))
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
         else:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             # Black out rows below sweep (erased region)
-            if sweep_row < h:
-                for y in range(max(0, sweep_row), h):
+            if sweep_row < h - 1:
+                for y in range(sweep_row + 1, h):
                     for x in range(w):
                         canvas.SetPixel(x, y, 0, 0, 0)
-            # Sweep line (starts at bottom edge on first frame)
-            draw_row = min(sweep_row, h - 1)
-            if draw_row >= 0:
-                for x in range(w):
-                    canvas.SetPixel(x, draw_row, *self.color)
+            # Sweep line
+            for x in range(w):
+                canvas.SetPixel(x, sweep_row, *self.color)
         return canvas
 
 
@@ -374,7 +372,7 @@ class WipeLeft:
         w = canvas.width
         h = getattr(canvas, "height", 16)
         outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
-        boundary = int(t * w)
+        boundary = min(int(t * (w + 1)), w)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
@@ -386,11 +384,12 @@ class WipeLeft:
                 for y in range(h):
                     for x in x_range:
                         canvas.SetPixel(x, y, 0, 0, 0)
-            # Sweep line at boundary (starts at left edge on first frame)
+            # Sweep line at boundary
             sweep_w = min(3, w - boundary)
-            for y in range(h):
-                for dx in range(sweep_w):
-                    canvas.SetPixel(boundary + dx, y, *self.color)
+            if sweep_w > 0:
+                for y in range(h):
+                    for dx in range(sweep_w):
+                        canvas.SetPixel(boundary + dx, y, *self.color)
         return canvas
 
 
@@ -405,7 +404,7 @@ class WipeRight:
         w = canvas.width
         h = getattr(canvas, "height", 16)
         outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
-        boundary = int(t * w)
+        boundary = min(int(t * (w + 1)), w)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
@@ -418,11 +417,12 @@ class WipeRight:
                 for y in range(h):
                     for x in x_range:
                         canvas.SetPixel(x, y, 0, 0, 0)
-            # Sweep line at line_x (starts at right edge on first frame)
+            # Sweep line at line_x
             sweep_w = min(3, line_x)
-            for y in range(h):
-                for dx in range(sweep_w):
-                    canvas.SetPixel(line_x - 1 - dx, y, *self.color)
+            if sweep_w > 0:
+                for y in range(h):
+                    for dx in range(sweep_w):
+                        canvas.SetPixel(line_x - 1 - dx, y, *self.color)
         return canvas
 
 
@@ -521,7 +521,7 @@ class WipeDown:
         w = canvas.width
         h = getattr(canvas, "height", 16)
         outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
-        sweep_row = int(t * h)
+        sweep_row = min(int(t * (h + 1)), h)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
@@ -532,11 +532,10 @@ class WipeDown:
                 for y in range(min(sweep_row, h)):
                     for x in range(w):
                         canvas.SetPixel(x, y, 0, 0, 0)
-            # Sweep line (starts at top edge on first frame)
-            draw_row = min(sweep_row, h - 1)
-            if draw_row >= 0:
+            # Sweep line
+            if 0 <= sweep_row < h:
                 for x in range(w):
-                    canvas.SetPixel(x, draw_row, *self.color)
+                    canvas.SetPixel(x, sweep_row, *self.color)
         return canvas
 
 

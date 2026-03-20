@@ -31,6 +31,7 @@ class WeatherWidget:
     font_color_temp: object = attrs.Factory(lambda: RGB_WHITE)
     center: bool = True
     padding: int = 6
+    show_icon: bool = True
     unit_symbol: str = attrs.field(init=False, default="")
     current_temp: int = attrs.field(init=False, default=0)
     weather: str = attrs.field(init=False, default="")
@@ -82,13 +83,27 @@ class WeatherWidget:
     def draw(self, canvas, cursor_pos=0, **kwargs):
         graphics = require_graphics()
 
-        full_text = (
-            f"{self.message}: {self.weather} {self.current_temp}{self.unit_symbol}"
-        )
-        content_width = get_text_width(self.font, full_text, padding=0)
+        temp_text = f"{self.current_temp}{self.unit_symbol}"
+        if self.show_icon:
+            label_text = f"{self.message}: "
+            # Icon replaces the condition text
+            full_width = (
+                get_text_width(self.font, label_text, padding=0)
+                + 10  # icon width (8) + padding (2)
+                + get_text_width(self.font, temp_text, padding=0)
+            )
+        else:
+            label_text = f"{self.message}: "
+            condition_text = f"{self.weather} "
+            full_width = get_text_width(
+                self.font,
+                f"{label_text}{condition_text}{temp_text}",
+                padding=0,
+            )
+
         cursor_pos, end_padding = compute_cursor(
             canvas.width,
-            content_width,
+            full_width,
             cursor_pos,
             self.padding,
             self.center,
@@ -100,15 +115,34 @@ class WeatherWidget:
             cursor_pos,
             12,
             self.font_color,
-            f"{self.message}: ",
+            label_text,
         )
+
+        if self.show_icon:
+            from led_ticker.widgets.weather_icons import (
+                draw_weather_icon,
+            )
+
+            cursor_pos = draw_weather_icon(
+                canvas, self.weather, int(cursor_pos),
+            )
+        else:
+            cursor_pos += graphics.DrawText(
+                canvas,
+                self.font,
+                cursor_pos,
+                12,
+                self.font_color,
+                f"{self.weather} ",
+            )
+
         cursor_pos += graphics.DrawText(
             canvas,
             self.font,
             cursor_pos,
             12,
             self.font_color_temp,
-            f"{self.weather} {self.current_temp}{self.unit_symbol}",
+            temp_text,
         )
         cursor_pos += end_padding
 

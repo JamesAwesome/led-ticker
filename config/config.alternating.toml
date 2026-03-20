@@ -1,0 +1,109 @@
+# Alternating transitions testing config
+# Usage: cp config/config.alternating.toml config/config.toml
+
+[display]
+rows = 16
+cols = 32
+chain = 5
+brightness = 60
+slowdown_gpio = 2
+gpio_mapping = "adafruit-hat"
+
+[title]
+delay = 3
+
+# --- push_alternating ---
+[[playlist.section]]
+mode = "swap"
+transition = "push_alternating"
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "PUSH ALT 1 (push_left)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "PUSH ALT 2 (push_right)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "PUSH ALT 3 (push_up)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "PUSH ALT 4 (push_down)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "PUSH ALT 5 (push_left again)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "push_alternating DONE"
+
+# --- wipe_alternating ---
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_alternating"
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "WIPE ALT 1 (wipe_left)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "WIPE ALT 2 (wipe_right)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "WIPE ALT 3 (wipe_up)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "WIPE ALT 4 (wipe_down)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "WIPE ALT 5 (wipe_left again)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "wipe_alternating DONE"
+
+# --- nyancat_alternating ---
+[[playlist.section]]
+mode = "swap"
+transition = "nyancat_alternating"
+transition_duration = 2.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "NYAN ALT 1 (left-to-right)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "NYAN ALT 2 (right-to-left)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "NYAN ALT 3 (left-to-right)"
+
+[[playlist.section.widget]]
+type = "message"
+text = "nyancat_alternating DONE"
+
+# --- restart ---
+[[playlist.section]]
+mode = "swap"
+hold_time = 3
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "--- RESTARTING ---"

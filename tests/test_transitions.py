@@ -344,6 +344,13 @@ class TestWipeUp:
         incoming.draw.assert_not_called()
         assert canvas.SetPixel.call_count > 0
 
+    def test_outgoing_scroll_pos_used(self, canvas, make_widget):
+        outgoing = make_widget(600)
+        incoming = make_widget(40)
+        wipe = WipeUp()
+        wipe.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
+
     def test_returns_canvas(self, canvas, make_widget):
         wipe = WipeUp()
         result = wipe.frame_at(
@@ -379,6 +386,13 @@ class TestColorFlash:
         incoming.draw.assert_called_once()
         outgoing.draw.assert_not_called()
 
+    def test_outgoing_scroll_pos_used(self, canvas, make_widget):
+        outgoing = make_widget(600)
+        incoming = make_widget(40)
+        flash = ColorFlash()
+        flash.frame_at(0.1, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
+
 
 # --- WipeLeft ---
 
@@ -409,6 +423,13 @@ class TestWipeLeft:
         incoming.draw.assert_not_called()
         # SetPixel called for black-out region and sweep line
         assert canvas.SetPixel.call_count > 0
+
+    def test_outgoing_scroll_pos_used(self, canvas, make_widget):
+        outgoing = make_widget(600)
+        incoming = make_widget(40)
+        wipe = WipeLeft()
+        wipe.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)
@@ -447,6 +468,13 @@ class TestWipeRight:
         incoming.draw.assert_not_called()
         # SetPixel called for black-out region and sweep line
         assert canvas.SetPixel.call_count > 0
+
+    def test_outgoing_scroll_pos_used(self, canvas, make_widget):
+        outgoing = make_widget(600)
+        incoming = make_widget(40)
+        wipe = WipeRight()
+        wipe.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)
@@ -496,6 +524,13 @@ class TestDissolve:
         incoming.draw.assert_called_once()
         outgoing.draw.assert_not_called()
 
+    def test_outgoing_scroll_pos_used(self, canvas, make_widget):
+        outgoing = make_widget(600)
+        incoming = make_widget(40)
+        dissolve = Dissolve()
+        dissolve.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
+
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
@@ -534,6 +569,13 @@ class TestSplitHorizontal:
         incoming.draw.assert_called_once()
         outgoing.draw.assert_not_called()
 
+    def test_outgoing_scroll_pos_used(self, canvas, make_widget):
+        outgoing = make_widget(600)
+        incoming = make_widget(40)
+        split = SplitHorizontal()
+        split.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
+
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
@@ -571,6 +613,13 @@ class TestCurtain:
         curtain.frame_at(1.0, canvas, outgoing, incoming)
         incoming.draw.assert_called_once()
         outgoing.draw.assert_not_called()
+
+    def test_outgoing_scroll_pos_used(self, canvas, make_widget):
+        outgoing = make_widget(600)
+        incoming = make_widget(40)
+        curtain = Curtain()
+        curtain.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)

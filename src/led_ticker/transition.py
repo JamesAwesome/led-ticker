@@ -254,14 +254,15 @@ class WipeUp:
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
         sweep_row = int(t * h)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
         elif sweep_row <= 0:
-            outgoing.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         else:
-            outgoing.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             for y in range(min(sweep_row, h)):
                 for x in range(w):
                     canvas.SetPixel(x, y, 0, 0, 0)
@@ -279,8 +280,9 @@ class ColorFlash:
         self.flash_color = flash_color
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
         if t < 0.33:
-            outgoing.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         elif t < 0.66:
             canvas.Fill(*self.flash_color)
         else:
@@ -295,15 +297,16 @@ class WipeLeft:
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
         boundary = int(t * w)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
         elif boundary <= 0:
-            outgoing.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         else:
             # Draw outgoing stationary
-            outgoing.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             # Black out left of boundary (erased region)
             for y in range(h):
                 for x in range(boundary):
@@ -322,14 +325,15 @@ class WipeRight:
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
         boundary = int(t * w)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
         elif boundary <= 0:
-            outgoing.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         else:
-            outgoing.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             # Black out right of boundary
             for y in range(h):
                 for x in range(w - boundary, w):
@@ -354,14 +358,15 @@ class Dissolve:
 
         w = canvas.width
         h = getattr(canvas, "height", 16)
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
         elif t <= 0.0:
-            outgoing.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         elif t < 0.5:
             # Outgoing with increasing black scatter
-            outgoing.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             rng = random.Random(self.seed + int(t * 1000))
             scatter_count = int(t * 2 * w * h)
             for _ in range(scatter_count):
@@ -387,15 +392,16 @@ class SplitHorizontal:
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
         half = w // 2
         reveal = int(t * half)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
         elif reveal <= 0:
-            outgoing.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         else:
-            outgoing.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             left = half - reveal
             right = half + reveal
             # Black out center band
@@ -418,14 +424,15 @@ class Curtain:
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
         sweep_row = int(t * h)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
         elif sweep_row <= 0:
-            outgoing.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         else:
-            outgoing.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             # Black out rows above sweep
             for y in range(min(sweep_row, h)):
                 for x in range(w):
@@ -447,6 +454,7 @@ class NyanCat:
             draw_nyan_frame,
         )
 
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
         width = canvas.width
         height = getattr(canvas, "height", 16)
         total_travel = width + SPRITE_WIDTH
@@ -457,7 +465,7 @@ class NyanCat:
             incoming.draw(canvas, cursor_pos=0)
         else:
             # Draw outgoing as base, rainbow + cat on top
-            outgoing.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             draw_nyan_frame(canvas, t, width=width, height=height)
 
         return canvas

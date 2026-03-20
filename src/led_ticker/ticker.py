@@ -307,14 +307,12 @@ async def _scroll_side_by_side(
 async def _run_swap(canvas, frame, notif_queue, delay=5, transition=None):
     """Run swap display mode with optional transitions.
 
-    Each widget is displayed (and scrolled if overflowing), then a
-    transition runs to the next widget. The new widget only appears
-    after the transition completes.
+    No trailing black frame — the last widget remains on screen
+    until the next section takes over.
     """
     from led_ticker.transition import run_transition
 
     ticker_object = await notif_queue.get()
-    # Show first widget (scroll if needed)
     await _swap_and_scroll(canvas, frame, ticker_object)
 
     prev_object = ticker_object
@@ -322,7 +320,6 @@ async def _run_swap(canvas, frame, notif_queue, delay=5, transition=None):
         try:
             ticker_object = notif_queue.get_nowait()
 
-            # Run transition from old to new
             if transition is not None:
                 await run_transition(
                     canvas,
@@ -333,33 +330,44 @@ async def _run_swap(canvas, frame, notif_queue, delay=5, transition=None):
                     duration=transition.duration,
                     easing=transition.easing,
                 )
-
-            # Show new widget (scroll if needed)
-            await _swap_and_scroll(canvas, frame, ticker_object)
+                # Transition's last frame (t=1.0) already shows
+                # incoming on screen — skip redundant initial draw
+                await _swap_and_scroll(
+                    canvas,
+                    frame,
+                    ticker_object,
+                    skip_initial_draw=True,
+                )
+            else:
+                await _swap_and_scroll(canvas, frame, ticker_object)
 
             prev_object = ticker_object
         except asyncio.QueueEmpty:
             break
 
-    canvas.Clear()
-    frame.matrix.SwapOnVSync(canvas)
-
 
 async def _swap_and_scroll(
-    canvas, frame, ticker_obj, scroll_speed=0.05, hold_time=3,
+    canvas,
+    frame,
+    ticker_obj,
+    scroll_speed=0.05,
+    hold_time=3,
+    skip_initial_draw=False,
 ):
-    """Display a widget. If it overflows, hold then scroll the full text."""
+    """Display a widget. If it overflows, hold then scroll the full text.
+
+    When *skip_initial_draw* is True, the first SwapOnVSync is skipped
+    because the caller (a transition) already put this widget on screen.
+    """
     pos = 0
     canvas.Clear()
-
     canvas, cursor_pos = ticker_obj.draw(canvas, pos)
-    frame.matrix.SwapOnVSync(canvas)
+
+    if not skip_initial_draw:
+        frame.matrix.SwapOnVSync(canvas)
 
     if cursor_pos > canvas.width:
-        # Content is wider than display — scroll the full text
         await asyncio.sleep(hold_time)
-
-        # Scroll left until the entire content has passed through
         while pos > -(cursor_pos):
             pos -= 1
             canvas.Clear()
@@ -367,7 +375,6 @@ async def _swap_and_scroll(
             frame.matrix.SwapOnVSync(canvas)
             await asyncio.sleep(scroll_speed)
     else:
-        # Fits on screen — just hold it
         await asyncio.sleep(hold_time)
 
     return canvas, cursor_pos

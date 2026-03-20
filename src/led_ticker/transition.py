@@ -76,21 +76,21 @@ async def run_transition(
     easing: str = "linear",
     scroll_speed: float = 0.05,
 ):
-    """Run a transition between two widgets over `duration` seconds."""
+    """Run a transition between two widgets over ``duration`` seconds.
+
+    The loop runs from t=0.0 to t=1.0 inclusive. At t=1.0 every
+    built-in transition draws only the incoming widget at cursor_pos=0,
+    so no separate "final frame" is needed.
+    """
     ease_fn = EASING.get(easing, linear)
     frame_count = max(1, int(duration / scroll_speed))
 
-    for i in range(frame_count):
-        t = ease_fn(i / max(1, frame_count - 1))
+    for i in range(frame_count + 1):
+        t = ease_fn(i / max(1, frame_count))
         canvas.Clear()
         transition.frame_at(t, canvas, outgoing, incoming)
         frame.matrix.SwapOnVSync(canvas)
         await asyncio.sleep(scroll_speed)
-
-    # Final frame: fully incoming
-    canvas.Clear()
-    incoming.draw(canvas, cursor_pos=0)
-    frame.matrix.SwapOnVSync(canvas)
 
 
 # --- Built-in transitions ---
@@ -201,42 +201,38 @@ class Dissolve:
 
 @register_transition("split")
 class SplitHorizontal:
-    """Old content splits apart from center, new content underneath.
-
-    Draws new content first, then old content in two halves that
-    slide outward.
-    """
+    """Old content splits apart from center, new underneath."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
         w = canvas.width
         half = w // 2
         offset = int(t * half)
 
-        # New content as base
-        incoming.draw(canvas, cursor_pos=0)
-        # Left half of old slides left
-        outgoing.draw(canvas, cursor_pos=-offset)
-        # Right half drawn shifted right (approximation — both halves
-        # draw full content but the overlap creates the split effect)
+        if offset == 0:
+            # No split yet — show outgoing only (no bleed-through)
+            outgoing.draw(canvas, cursor_pos=0)
+        elif t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+        else:
+            incoming.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=-offset)
         return canvas
 
 
 @register_transition("curtain")
 class Curtain:
-    """Old content slides apart like curtains opening.
-
-    Uses push mechanics: left portion goes left, then incoming
-    fills from center. Visually similar to split.
-    """
+    """Old content slides left like a curtain opening."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
         w = canvas.width
         offset = int(t * w)
 
-        # Draw incoming centered
-        incoming.draw(canvas, cursor_pos=0)
-        # Draw outgoing shifted left to slide off
-        if t < 1.0:
+        if offset == 0:
+            outgoing.draw(canvas, cursor_pos=0)
+        elif t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+        else:
+            incoming.draw(canvas, cursor_pos=0)
             outgoing.draw(canvas, cursor_pos=-offset)
         return canvas
 
@@ -250,18 +246,31 @@ class NyanCat:
     """
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        from led_ticker.widgets.nyancat import draw_nyan_frame
-
-        # Draw new content as base (will be revealed behind rainbow)
-        incoming.draw(canvas, cursor_pos=0)
-        # Draw old content on top (will be covered by rainbow)
-        if t < 0.85:
-            outgoing.draw(canvas, cursor_pos=0)
-        # Draw rainbow + cat on top of everything
-        draw_nyan_frame(
-            canvas,
-            t,
-            width=canvas.width,
-            height=getattr(canvas, "height", 16),
+        from led_ticker.widgets.nyancat import (
+            SPRITE_WIDTH,
+            draw_nyan_frame,
         )
+
+        width = canvas.width
+        height = getattr(canvas, "height", 16)
+        total_travel = width + SPRITE_WIDTH
+        cat_x = int(-SPRITE_WIDTH + t * total_travel)
+        trail_end = cat_x
+
+        if trail_end >= width:
+            # Rainbow passed entirely — show incoming only
+            incoming.draw(canvas, cursor_pos=0)
+        elif trail_end <= 0:
+            # Rainbow hasn't entered — show outgoing only
+            outgoing.draw(canvas, cursor_pos=0)
+        else:
+            # Rainbow partially across: outgoing as base, clear
+            # the revealed region, draw incoming, then rainbow+cat
+            outgoing.draw(canvas, cursor_pos=0)
+            for y in range(height):
+                for x in range(trail_end):
+                    canvas.SetPixel(x, y, 0, 0, 0)
+            incoming.draw(canvas, cursor_pos=0)
+            draw_nyan_frame(canvas, t, width=width, height=height)
+
         return canvas

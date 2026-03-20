@@ -100,11 +100,12 @@ class TestNyanCatTransition:
         assert outgoing.draw.called
         assert incoming.draw.called
 
-    def test_late_frame_hides_outgoing(self, make_widget):
+    def test_complete_shows_incoming_only(self, make_widget):
+        """At t=1.0, only incoming should be drawn."""
         pixel_canvas = _StubCanvas(width=40, height=16)
         outgoing = make_widget(40)
         incoming = make_widget(40)
         nyan = NyanCat()
-        nyan.frame_at(0.9, pixel_canvas, outgoing, incoming)
+        nyan.frame_at(1.0, pixel_canvas, outgoing, incoming)
         assert not outgoing.draw.called
         assert incoming.draw.called

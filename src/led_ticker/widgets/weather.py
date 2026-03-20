@@ -54,8 +54,7 @@ class WeatherWidget:
             await widget.update()
         except Exception:
             logging.exception(
-                "Weather initial update failed for %s, "
-                "will retry in background",
+                "Weather initial update failed for %s, will retry in background",
                 widget.location,
             )
         asyncio.create_task(run_monitor_loop(widget, update_interval))
@@ -65,9 +64,7 @@ class WeatherWidget:
         logging.info("Updating weather for: %s", self.location)
         api_key = os.getenv("WEATHERAPI_KEY", "")
         if not api_key:
-            raise ValueError(
-                "WEATHERAPI_KEY not set. Add it to your .env file."
-            )
+            raise ValueError("WEATHERAPI_KEY not set. Add it to your .env file.")
         params = {
             "key": api_key,
             "q": self.location,

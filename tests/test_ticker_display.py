@@ -56,7 +56,11 @@ class TestSwapAndScroll:
         widget.draw.assert_called_once()
 
     async def test_oversized_triggers_scroll(
-        self, canvas, mock_frame, make_widget, no_sleep,
+        self,
+        canvas,
+        mock_frame,
+        make_widget,
+        no_sleep,
     ):
         widget = make_widget(content_width=200)
         await _swap_and_scroll(canvas, mock_frame, widget)
@@ -66,7 +70,11 @@ class TestSwapAndScroll:
 
 class TestSwapAndScrollOverflow:
     async def test_oversized_scrolls_full_text(
-        self, canvas, mock_frame, make_widget, no_sleep,
+        self,
+        canvas,
+        mock_frame,
+        make_widget,
+        no_sleep,
     ):
         widget = make_widget(content_width=200)
         await _swap_and_scroll(canvas, mock_frame, widget)
@@ -74,7 +82,11 @@ class TestSwapAndScrollOverflow:
         assert widget.draw.call_count > 10
 
     async def test_fits_on_screen_no_scroll(
-        self, canvas, mock_frame, make_widget, no_sleep,
+        self,
+        canvas,
+        mock_frame,
+        make_widget,
+        no_sleep,
     ):
         widget = make_widget(content_width=100)
         await _swap_and_scroll(canvas, mock_frame, widget)

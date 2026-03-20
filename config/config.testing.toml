@@ -300,6 +300,26 @@ text = "The lazy cat napped on a warm windowsill while birds sang melodies outsi
 type = "message"
 text = "nyancat_reverse DONE"
 
+# --- scroll ---
+[[playlist.section]]
+mode = "swap"
+transition = "scroll"
+transition_duration = 2.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = ">> SCROLL start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "The quick brown fox jumps over the lazy dog and keeps running fast across the entire LED matrix panel display"
+
+[[playlist.section.widget]]
+type = "message"
+text = "scroll DONE"
+
 # --- push_alternating ---
 [[playlist.section]]
 mode = "swap"

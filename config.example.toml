@@ -17,7 +17,7 @@ delay = 5
 # Available types: cut, push_left, push_right, push_up, push_down,
 #                  color_flash, wipe_left, wipe_right, wipe_up, wipe_down,
 #                  dissolve, split, nyancat, nyancat_reverse,
-#                  push_alternating, wipe_alternating, nyancat_alternating
+#                  scroll, push_alternating, wipe_alternating, nyancat_alternating
 # Optional: transition_color = [R, G, B]  (custom color for flash/wipe)
 # Available easing: linear, ease_out, ease_in_out
 

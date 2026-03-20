@@ -591,6 +591,53 @@ class NyanCatReverse:
         return canvas
 
 
+@register_transition("scroll")
+class Scroll:
+    """Continuous scroll — outgoing exits left, gap, incoming enters right.
+
+    Like infini_scroll but within the transition framework. The outgoing
+    text fully exits the left edge before incoming enters from the right.
+    Uses 2x canvas width + gap as total travel (vs push_left's 1x + gap).
+
+    Recommended: transition_duration = 2.0 for smooth scrolling speed.
+    """
+
+    GAP = 20  # slightly larger gap for the scroll feel
+
+    def __init__(self, **kwargs):
+        pass
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+        w = canvas.width
+        h = getattr(canvas, "height", 16)
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+            return canvas
+
+        total_travel = w * 2 + self.GAP
+        scroll_offset = int(t * total_travel)
+
+        outgoing_pos = outgoing_scroll_pos - scroll_offset
+        incoming_pos = total_travel - scroll_offset
+
+        # Same draw-blackout-draw as PushLeft
+        outgoing.draw(canvas, cursor_pos=outgoing_pos)
+
+        clear_start = max(0, incoming_pos)
+        if clear_start < w:
+            x_range = range(clear_start, w)
+            for y in range(h):
+                for x in x_range:
+                    canvas.SetPixel(x, y, 0, 0, 0)
+
+        if incoming_pos < w:
+            incoming.draw(canvas, cursor_pos=incoming_pos)
+
+        return canvas
+
+
 # --- Meta-transitions (cycle through sub-transitions) ---
 
 

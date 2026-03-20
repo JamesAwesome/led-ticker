@@ -54,7 +54,7 @@ src/led_ticker/
 
 **Widget Registry**: `@register("name")` decorator. Config loader uses `get_widget_class(name)`.
 
-**Transition Registry**: `@register_transition("name")` decorator. 17 transitions available.
+**Transition Registry**: `@register_transition("name")` decorator. 18 transitions available.
 
 **Presentation Registry**: `@register_presentation("name")` decorator. 5 text effects available.
 
@@ -108,6 +108,7 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 - `split` — center-outward expanding black band with magenta edge lines
 - `wipe_down` — top-down row blackout with sweep line (formerly 'curtain')
 - `nyancat` — Nyan Cat flies left-to-right, rainbow fills screen before cut
+- `scroll` — continuous scroll: outgoing fully exits left, gap, incoming enters from right (use transition_duration=2.0)
 - `nyancat_reverse` — Nyan Cat flies right-to-left (flipped sprite), rainbow fills screen
 - `push_alternating` — cycles through push_left → push_right → push_up → push_down each swap
 - `nyancat_alternating` — cycles through nyancat → nyancat_reverse each swap

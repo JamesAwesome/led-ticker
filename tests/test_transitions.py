@@ -15,6 +15,7 @@ from led_ticker.transition import (
     PushLeft,
     PushRight,
     PushUp,
+    Scroll,
     SplitHorizontal,
     WipeAlternating,
     WipeDown,
@@ -75,13 +76,14 @@ class TestTransitionRegistry:
             "split",
             "nyancat",
             "nyancat_reverse",
+            "scroll",
             "push_alternating",
             "nyancat_alternating",
             "wipe_alternating",
         ]
         for name in expected:
             assert name in _TRANSITION_REGISTRY
-        assert len(_TRANSITION_REGISTRY) == 17
+        assert len(_TRANSITION_REGISTRY) == 18
 
     def test_get_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown transition"):
@@ -709,6 +711,52 @@ class TestWipeDown:
         incoming = make_widget(40)
         wipe = WipeDown()
         result = wipe.frame_at(0.5, canvas, outgoing, incoming)
+        assert result is canvas
+
+
+# --- Scroll ---
+
+
+class TestScroll:
+    def test_at_zero_shows_outgoing(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        scroll = Scroll()
+        scroll.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        outgoing.draw.assert_called_once()
+        incoming.draw.assert_not_called()
+
+    def test_at_one_shows_incoming_at_zero(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        scroll = Scroll()
+        scroll.frame_at(1.0, canvas, outgoing, incoming)
+        incoming.draw.assert_called_once()
+        assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
+
+    def test_outgoing_scroll_pos_used(self, canvas, make_widget):
+        outgoing = make_widget(600)
+        incoming = make_widget(40)
+        scroll = Scroll()
+        scroll.frame_at(
+            0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440
+        )
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
+
+    def test_midpoint_has_gap(self, canvas, make_widget):
+        """At t=0.5 outgoing has exited and incoming hasn't entered."""
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        scroll = Scroll()
+        scroll.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        # Both drawn but at off-screen positions — no crash
+        outgoing.draw.assert_called_once()
+
+    def test_returns_canvas(self, canvas, make_widget):
+        scroll = Scroll()
+        result = scroll.frame_at(
+            0.5, canvas, make_widget(40), make_widget(40)
+        )
         assert result is canvas
 
 

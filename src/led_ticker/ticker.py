@@ -31,6 +31,7 @@ class Ticker:
     title_delay: int = 4
     buffer_msg: object = attrs.Factory(lambda: DEFAULT_BUFFER_MSG)
     notif_queue: object = None
+    transition_config: object = None
 
     @classmethod
     def from_rss_feed(cls, feed_monitor, frame, custom_title=None,
@@ -58,7 +59,11 @@ class Ticker:
             title=title, loop_count=loop_count,
         ))
 
-        await _run_swap(canvas, self.frame, self.notif_queue, delay=self.title_delay)
+        await _run_swap(
+            canvas, self.frame, self.notif_queue,
+            delay=self.title_delay,
+            transition=self.transition_config,
+        )
 
     async def run_forever_scroll(self, loop_count=0, start_pos=None):
         """Scroll all monitors side-by-side in a continuous stream."""
@@ -243,18 +248,31 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None,
             return True
 
 
-async def _run_swap(canvas, frame, notif_queue, delay=5):
-    """Run swap display mode."""
-    ticker_object = await notif_queue.get()
+async def _run_swap(canvas, frame, notif_queue, delay=5, transition=None):
+    """Run swap display mode with optional transitions."""
+    from led_ticker.transition import run_transition
 
+    ticker_object = await notif_queue.get()
     await _swap_and_scroll(canvas, frame, ticker_object)
     await asyncio.sleep(delay)
 
+    prev_object = ticker_object
     while True:
         try:
             ticker_object = notif_queue.get_nowait()
-            await _swap_and_scroll(canvas, frame, ticker_object)
+
+            if transition is not None:
+                await run_transition(
+                    canvas, frame, prev_object, ticker_object,
+                    transition=transition.transition_obj,
+                    duration=transition.duration,
+                    easing=transition.easing,
+                )
+            else:
+                await _swap_and_scroll(canvas, frame, ticker_object)
+
             await asyncio.sleep(delay)
+            prev_object = ticker_object
         except asyncio.QueueEmpty:
             break
 

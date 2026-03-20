@@ -21,11 +21,21 @@ class DisplayConfig:
 
 
 @dataclass
+class TransitionConfig:
+    type: str = "cut"
+    duration: float = 0.5
+    easing: str = "linear"
+
+
+@dataclass
 class SectionConfig:
     mode: str  # "forever_scroll", "infini_scroll", "swap"
     loop_count: int = 1
     title: dict | None = None
     widgets: list[dict] = field(default_factory=list)
+    transition: TransitionConfig = field(
+        default_factory=TransitionConfig,
+    )
 
 
 @dataclass
@@ -33,6 +43,25 @@ class AppConfig:
     display: DisplayConfig
     sections: list[SectionConfig]
     title_delay: int = 5
+    default_transition: TransitionConfig = field(
+        default_factory=TransitionConfig,
+    )
+
+
+def _parse_transition(
+    raw: dict | str | None, default: TransitionConfig,
+) -> TransitionConfig:
+    if raw is None:
+        return default
+    if isinstance(raw, str):
+        return TransitionConfig(
+            type=raw, duration=default.duration, easing=default.easing,
+        )
+    return TransitionConfig(
+        type=raw.get("type", default.type),
+        duration=raw.get("duration", default.duration),
+        easing=raw.get("easing", default.easing),
+    )
 
 
 def load_config(path: Path) -> AppConfig:
@@ -50,6 +79,13 @@ def load_config(path: Path) -> AppConfig:
         gpio_mapping=display_raw.get("gpio_mapping", "adafruit-hat"),
     )
 
+    transitions_raw = raw.get("transitions", {})
+    default_transition = TransitionConfig(
+        type=transitions_raw.get("default", "cut"),
+        duration=transitions_raw.get("duration", 0.5),
+        easing=transitions_raw.get("easing", "linear"),
+    )
+
     sections = []
     for section_raw in raw.get("playlist", {}).get("section", []):
         section = SectionConfig(
@@ -57,6 +93,10 @@ def load_config(path: Path) -> AppConfig:
             loop_count=section_raw.get("loop_count", 1),
             title=section_raw.get("title"),
             widgets=section_raw.get("widget", []),
+            transition=_parse_transition(
+                section_raw.get("transition"),
+                default_transition,
+            ),
         )
         sections.append(section)
 
@@ -64,4 +104,5 @@ def load_config(path: Path) -> AppConfig:
         display=display,
         sections=sections,
         title_delay=raw.get("title", {}).get("delay", 5),
+        default_transition=default_transition,
     )

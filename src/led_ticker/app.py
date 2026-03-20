@@ -11,7 +11,12 @@ import aiohttp
 from led_ticker.colors import RANDOM_COLOR
 from led_ticker.config import load_config
 from led_ticker.frame import LedFrame
+from led_ticker.presentation import (
+    WidgetPresenter,
+    get_presentation_class,
+)
 from led_ticker.ticker import Ticker
+from led_ticker.transition import get_transition_class
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
 from led_ticker.widgets.rss_feed import RSSFeedMonitor
@@ -41,10 +46,21 @@ async def _build_widget(widget_cfg, session):
         else:
             widget_cfg.pop("text")
 
+    # Extract presentation config before passing to widget
+    presentation_name = widget_cfg.pop("presentation", None)
+    widget_cfg.pop("presentation_speed", None)
+
     if hasattr(cls, "start"):
-        return await cls.start(session=session, **widget_cfg)
+        widget = await cls.start(session=session, **widget_cfg)
     else:
-        return cls(**widget_cfg)
+        widget = cls(**widget_cfg)
+
+    # Wrap with presentation mode if configured
+    if presentation_name:
+        pres_cls = get_presentation_class(presentation_name)
+        widget = WidgetPresenter(widget, pres_cls())
+
+    return widget
 
 
 async def _build_title(title_cfg):
@@ -98,12 +114,22 @@ async def run(config_path: Path):
                 title = await _build_title(section.title)
                 run_method = RUN_MODES.get(section.mode, "run_forever_scroll")
 
+                # Build transition config for swap mode
+                trans_cfg = section.transition
+                if trans_cfg.type != "cut":
+                    trans_cls = get_transition_class(trans_cfg.type)
+                    trans_cfg.transition_obj = trans_cls()
+                    transition_config = trans_cfg
+                else:
+                    transition_config = None
+
                 ticker = Ticker(
                     monitors=widgets,
                     frame=led_frame,
                     title=title,
                     title_delay=config.title_delay,
                     notif_queue=notif_queue,
+                    transition_config=transition_config,
                 )
 
                 await getattr(ticker, run_method)(loop_count=section.loop_count)

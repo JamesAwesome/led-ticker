@@ -32,6 +32,7 @@ class Ticker:
     buffer_msg: object = attrs.Factory(lambda: DEFAULT_BUFFER_MSG)
     notif_queue: object = None
     transition_config: object = None
+    hold_time: float = 3.0
 
     @classmethod
     def from_rss_feed(
@@ -76,6 +77,7 @@ class Ticker:
             self.notif_queue,
             delay=self.title_delay,
             transition=self.transition_config,
+            hold_time=self.hold_time,
         )
 
     async def run_forever_scroll(self, loop_count=0, start_pos=None):
@@ -304,16 +306,16 @@ async def _scroll_side_by_side(
             return True
 
 
-async def _run_swap(canvas, frame, notif_queue, delay=5, transition=None):
-    """Run swap display mode with optional transitions.
-
-    No trailing black frame — the last widget remains on screen
-    until the next section takes over.
-    """
+async def _run_swap(
+    canvas, frame, notif_queue, delay=5, transition=None, hold_time=3.0,
+):
+    """Run swap display mode with optional transitions."""
     from led_ticker.transition import run_transition
 
     ticker_object = await notif_queue.get()
-    await _swap_and_scroll(canvas, frame, ticker_object)
+    await _swap_and_scroll(
+        canvas, frame, ticker_object, hold_time=hold_time,
+    )
 
     prev_object = ticker_object
     while True:
@@ -330,16 +332,17 @@ async def _run_swap(canvas, frame, notif_queue, delay=5, transition=None):
                     duration=transition.duration,
                     easing=transition.easing,
                 )
-                # Transition's last frame (t=1.0) already shows
-                # incoming on screen — skip redundant initial draw
                 await _swap_and_scroll(
                     canvas,
                     frame,
                     ticker_object,
                     skip_initial_draw=True,
+                    hold_time=hold_time,
                 )
             else:
-                await _swap_and_scroll(canvas, frame, ticker_object)
+                await _swap_and_scroll(
+                    canvas, frame, ticker_object, hold_time=hold_time,
+                )
 
             prev_object = ticker_object
         except asyncio.QueueEmpty:

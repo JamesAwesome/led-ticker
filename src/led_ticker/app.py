@@ -160,6 +160,7 @@ async def run(config_path: Path):
                     title_delay=config.title_delay,
                     notif_queue=notif_queue,
                     transition_config=transition_config,
+                    hold_time=section.hold_time,
                 )
 
                 await getattr(ticker, run_method)(

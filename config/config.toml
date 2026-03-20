@@ -13,13 +13,14 @@ delay = 5
 default = "push_left"
 duration = 0.5
 easing = "ease_out"
-between_sections = "nyancat"
+between_sections = {type = "nyancat", duration = 2.0}
 
 # --- Messages ---
 
 [[playlist.section]]
 mode = "swap"
 transition = "nyancat"
+transition_duration = 2.0
 loop_count = 3
 
 [playlist.section.title]
@@ -40,6 +41,7 @@ text = "Always be your bunny best!"
 [[playlist.section]]
 mode = "swap"
 transition = "wipe_left"
+hold_time = 6
 loop_count = 3
 
 [playlist.section.title]

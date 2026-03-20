@@ -36,6 +36,7 @@ class SectionConfig:
     transition: TransitionConfig = field(
         default_factory=TransitionConfig,
     )
+    hold_time: float = 3.0  # seconds to hold each widget in swap mode
 
 
 @dataclass
@@ -94,15 +95,21 @@ def load_config(path: Path) -> AppConfig:
 
     sections = []
     for section_raw in raw.get("playlist", {}).get("section", []):
+        trans = _parse_transition(
+            section_raw.get("transition"),
+            default_transition,
+        )
+        # Per-section transition_duration overrides the transition's duration
+        if "transition_duration" in section_raw:
+            trans.duration = section_raw["transition_duration"]
+
         section = SectionConfig(
             mode=section_raw.get("mode", "forever_scroll"),
             loop_count=section_raw.get("loop_count", 1),
             title=section_raw.get("title"),
             widgets=section_raw.get("widget", []),
-            transition=_parse_transition(
-                section_raw.get("transition"),
-                default_transition,
-            ),
+            transition=trans,
+            hold_time=section_raw.get("hold_time", 3.0),
         )
         sections.append(section)
 

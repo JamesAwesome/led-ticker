@@ -307,14 +307,22 @@ async def _scroll_side_by_side(
 
 
 async def _run_swap(
-    canvas, frame, notif_queue, delay=5, transition=None, hold_time=3.0,
+    canvas,
+    frame,
+    notif_queue,
+    delay=5,
+    transition=None,
+    hold_time=3.0,
 ):
     """Run swap display mode with optional transitions."""
     from led_ticker.transition import run_transition
 
     ticker_object = await notif_queue.get()
     await _swap_and_scroll(
-        canvas, frame, ticker_object, hold_time=hold_time,
+        canvas,
+        frame,
+        ticker_object,
+        hold_time=hold_time,
     )
 
     prev_object = ticker_object
@@ -341,7 +349,10 @@ async def _run_swap(
                 )
             else:
                 await _swap_and_scroll(
-                    canvas, frame, ticker_object, hold_time=hold_time,
+                    canvas,
+                    frame,
+                    ticker_object,
+                    hold_time=hold_time,
                 )
 
             prev_object = ticker_object

@@ -526,29 +526,47 @@ class WipeDown:
 
 @register_transition("nyancat")
 class NyanCat:
-    """Nyan Cat flies across trailing a rainbow."""
+    """Nyan Cat flies left-to-right, rainbow fills screen before cut."""
 
     def __init__(self, **kwargs):
         pass
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
-        from led_ticker.widgets.nyancat import (
-            SPRITE_WIDTH,
-            draw_nyan_frame,
-        )
+        from led_ticker.widgets.nyancat import draw_nyan_frame
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+            return canvas
 
         outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
-        width = canvas.width
-        height = getattr(canvas, "height", 16)
-        total_travel = width + SPRITE_WIDTH
-        cat_x = int(-SPRITE_WIDTH + t * total_travel)
+        outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
+        draw_nyan_frame(
+            canvas, t,
+            width=canvas.width,
+            height=getattr(canvas, "height", 16),
+        )
+        return canvas
 
-        if cat_x >= width:
-            # Cat exited -- show incoming
+
+@register_transition("nyancat_reverse")
+class NyanCatReverse:
+    """Nyan Cat flies right-to-left, rainbow fills screen before cut."""
+
+    def __init__(self, **kwargs):
+        pass
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+        from led_ticker.widgets.nyancat import draw_nyan_frame_rtl
+
+        if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
-        else:
-            # Draw outgoing as base, rainbow + cat on top
-            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
-            draw_nyan_frame(canvas, t, width=width, height=height)
+            return canvas
 
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
+        draw_nyan_frame_rtl(
+            canvas, t,
+            width=canvas.width,
+            height=getattr(canvas, "height", 16),
+        )
         return canvas

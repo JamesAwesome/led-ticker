@@ -158,25 +158,25 @@ SPRITE_Y_OFFSET = 3  # centers 10px sprite in 16px display
 
 
 def draw_nyan_frame(canvas, progress, width=160, height=16):
-    """Draw one frame of the Nyan Cat transition.
+    """Draw one frame of the Nyan Cat transition (left-to-right).
 
-    The cat flies from left to right. Behind it, a rainbow trail.
-    Old content should be drawn first, then this function draws
-    the rainbow and cat on top.
+    The cat flies from left to right. Behind it, a rainbow trail
+    that eventually fills the entire screen before the transition ends.
 
     Args:
         canvas: LED canvas with SetPixel
-        progress: 0.0 (cat off-screen left) to 1.0 (cat off-screen right)
+        progress: 0.0 (cat off-screen left) to 1.0 (rainbow covers screen)
         width: canvas width
         height: canvas height
     """
-    # Cat position: travels from -SPRITE_WIDTH to width
-    total_travel = width + SPRITE_WIDTH
+    # Cat travels far enough that the rainbow (width px behind it)
+    # fills the entire screen: from -SPRITE_WIDTH to width + width
+    total_travel = width * 2 + SPRITE_WIDTH
     cat_x = int(-SPRITE_WIDTH + progress * total_travel)
 
-    # Draw rainbow trail behind the cat
+    # Draw rainbow trail behind the cat (extends left from cat)
     trail_end = cat_x
-    trail_start = max(0, trail_end - width)  # rainbow fills behind cat
+    trail_start = max(0, trail_end - total_travel)
 
     for stripe_idx, (r, g, b) in enumerate(RAINBOW):
         y_start = RAINBOW_TOP_Y + stripe_idx * RAINBOW_STRIPE_HEIGHT
@@ -187,9 +187,44 @@ def draw_nyan_frame(canvas, progress, width=160, height=16):
                     if 0 <= x < width:
                         canvas.SetPixel(x, y, r, g, b)
 
-    # Draw the cat sprite
+    # Draw the cat sprite (clipped to canvas)
     for dx, dy, r, g, b in NYAN_CAT:
         x = cat_x + dx
+        y = SPRITE_Y_OFFSET + dy
+        if 0 <= x < width and 0 <= y < height:
+            canvas.SetPixel(x, y, r, g, b)
+
+
+def draw_nyan_frame_rtl(canvas, progress, width=160, height=16):
+    """Draw one frame of the Nyan Cat transition (right-to-left).
+
+    The cat flies from right to left (sprite flipped horizontally).
+    Rainbow trail extends to the right behind the cat.
+
+    Args:
+        canvas: LED canvas with SetPixel
+        progress: 0.0 (cat off-screen right) to 1.0 (rainbow covers screen)
+        width: canvas width
+        height: canvas height
+    """
+    total_travel = width * 2 + SPRITE_WIDTH
+    # Cat travels from width to -(SPRITE_WIDTH + width)
+    cat_x = int(width - progress * total_travel)
+
+    # Rainbow trail to the RIGHT of the cat
+    trail_start = cat_x + SPRITE_WIDTH
+
+    for stripe_idx, (r, g, b) in enumerate(RAINBOW):
+        y_start = RAINBOW_TOP_Y + stripe_idx * RAINBOW_STRIPE_HEIGHT
+        for dy in range(RAINBOW_STRIPE_HEIGHT):
+            y = y_start + dy
+            if 0 <= y < height:
+                for x in range(max(0, trail_start), width):
+                    canvas.SetPixel(x, y, r, g, b)
+
+    # Draw the cat sprite (horizontally flipped)
+    for dx, dy, r, g, b in NYAN_CAT:
+        x = cat_x + (SPRITE_WIDTH - 1 - dx)
         y = SPRITE_Y_OFFSET + dy
         if 0 <= x < width and 0 <= y < height:
             canvas.SetPixel(x, y, r, g, b)

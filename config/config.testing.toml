@@ -280,6 +280,26 @@ text = "Bright vixens jumped quickly over the frozen winter pond and dashed towa
 type = "message"
 text = "nyancat DONE"
 
+# --- nyancat_reverse ---
+[[playlist.section]]
+mode = "swap"
+transition = "nyancat_reverse"
+transition_duration = 2.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "=^.^= NYANCAT REVERSE start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "The lazy cat napped on a warm windowsill while birds sang melodies outside in the bright afternoon sunshine"
+
+[[playlist.section.widget]]
+type = "message"
+text = "nyancat_reverse DONE"
+
 # --- restart ---
 [[playlist.section]]
 mode = "swap"

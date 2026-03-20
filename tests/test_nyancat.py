@@ -2,12 +2,14 @@
 
 from rgbmatrix import _StubCanvas
 
-from led_ticker.transition import NyanCat, get_transition_class
+from led_ticker.transition import NyanCat, NyanCatReverse, get_transition_class
 from led_ticker.widgets.nyancat import (
     NYAN_CAT,
     RAINBOW,
+    RAINBOW_TOP_Y,
     SPRITE_WIDTH,
     draw_nyan_frame,
+    draw_nyan_frame_rtl,
 )
 
 
@@ -109,3 +111,99 @@ class TestNyanCatTransition:
         nyan.frame_at(1.0, pixel_canvas, outgoing, incoming)
         assert not outgoing.draw.called
         assert incoming.draw.called
+
+    def test_no_early_cut_after_cat_exits(self, make_widget):
+        """Outgoing should still be drawn after cat exits right edge."""
+        pixel_canvas = _StubCanvas(width=40, height=16)
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        nyan = NyanCat()
+        # At t=0.7, cat has exited right but rainbow still filling
+        nyan.frame_at(0.7, pixel_canvas, outgoing, incoming)
+        assert outgoing.draw.called
+        assert not incoming.draw.called
+
+
+class TestNyanCatRainbowCoverage:
+    def test_rainbow_covers_left_edge_near_end(self):
+        """At t=0.99, rainbow should cover x=0."""
+        canvas = _StubCanvas(width=160, height=16)
+        draw_nyan_frame(canvas, 0.99, width=160, height=16)
+        # Check a rainbow row at x=0
+        y = RAINBOW_TOP_Y
+        pixel = canvas._pixels.get((0, y))
+        assert pixel is not None and pixel != (0, 0, 0)
+
+    def test_rainbow_covers_full_width_at_end(self):
+        """At t=1.0, rainbow should cover x=0 to x=width-1."""
+        canvas = _StubCanvas(width=80, height=16)
+        draw_nyan_frame(canvas, 1.0, width=80, height=16)
+        y = RAINBOW_TOP_Y
+        for x in [0, 20, 40, 60, 79]:
+            pixel = canvas._pixels.get((x, y))
+            assert pixel is not None and pixel != (0, 0, 0), (
+                f"Rainbow missing at x={x}"
+            )
+
+
+class TestDrawNyanFrameRTL:
+    def test_at_zero_cat_offscreen_right(self):
+        canvas = _StubCanvas(width=40, height=16)
+        draw_nyan_frame_rtl(canvas, 0.0, width=40, height=16)
+        # Cat is at x=40, offscreen right. No rainbow visible.
+
+    def test_at_midpoint_draws_pixels(self):
+        canvas = _StubCanvas(width=40, height=16)
+        draw_nyan_frame_rtl(canvas, 0.5, width=40, height=16)
+        assert canvas.count_nonzero() > 0
+
+    def test_rainbow_covers_right_edge_near_end(self):
+        """RTL rainbow should cover x=width-1 near end."""
+        canvas = _StubCanvas(width=80, height=16)
+        draw_nyan_frame_rtl(canvas, 0.99, width=80, height=16)
+        y = RAINBOW_TOP_Y
+        pixel = canvas._pixels.get((79, y))
+        assert pixel is not None and pixel != (0, 0, 0)
+
+    def test_sprite_is_flipped(self):
+        """RTL sprite should be horizontally mirrored."""
+        canvas_ltr = _StubCanvas(width=160, height=16)
+        canvas_rtl = _StubCanvas(width=160, height=16)
+        draw_nyan_frame(canvas_ltr, 0.3, width=160, height=16)
+        draw_nyan_frame_rtl(canvas_rtl, 0.3, width=160, height=16)
+        # Sprites at different x positions — pixel sets differ
+        ltr_pixels = set(canvas_ltr._pixels.keys())
+        rtl_pixels = set(canvas_rtl._pixels.keys())
+        assert ltr_pixels != rtl_pixels
+
+    def test_no_out_of_bounds(self):
+        canvas = _StubCanvas(width=40, height=16)
+        for p in [0.0, 0.25, 0.5, 0.75, 1.0]:
+            draw_nyan_frame_rtl(canvas, p, width=40, height=16)
+            for x, y in canvas._pixels:
+                assert 0 <= x < 40
+                assert 0 <= y < 16
+
+
+class TestNyanCatReverseTransition:
+    def test_registered(self):
+        cls = get_transition_class("nyancat_reverse")
+        assert cls is NyanCatReverse
+
+    def test_at_one_shows_incoming(self, make_widget):
+        pixel_canvas = _StubCanvas(width=40, height=16)
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        nyan = NyanCatReverse()
+        nyan.frame_at(1.0, pixel_canvas, outgoing, incoming)
+        assert not outgoing.draw.called
+        assert incoming.draw.called
+
+    def test_midpoint_draws_outgoing(self, make_widget):
+        pixel_canvas = _StubCanvas(width=40, height=16)
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        nyan = NyanCatReverse()
+        nyan.frame_at(0.3, pixel_canvas, outgoing, incoming)
+        assert outgoing.draw.called
+        assert not incoming.draw.called

@@ -50,7 +50,55 @@ feed_url = "https://www.nintendolife.com/feeds/news"
 
 - **`forever_scroll`** — All widgets scroll side-by-side in a continuous stream
 - **`infini_scroll`** — Each widget fully scrolls off before the next appears
-- **`swap`** — Instant switching between widgets (no scrolling)
+- **`swap`** — Switching between widgets with configurable transitions
+
+### Transitions
+
+Set transitions per-section or globally in `[transitions]`:
+
+| Transition | Effect |
+|------------|--------|
+| `cut` | Instant switch (default) |
+| `push_left` | New content pushes old off to the left |
+| `push_right` | New content pushes old off to the right |
+| `wipe_left` | New content sweeps in from right |
+| `wipe_right` | New content sweeps in from left |
+| `color_flash` | Brief white flash between widgets |
+| `dissolve` | Cross-fade at midpoint |
+| `split` | Old content splits apart from center |
+| `curtain` | Old content slides left like a curtain |
+| `nyancat` | Nyan Cat flies across trailing a rainbow |
+
+```toml
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"          # linear, ease_out, ease_in_out
+between_sections = "dissolve"
+
+[[playlist.section]]
+mode = "swap"
+transition = "nyancat"       # override per section
+```
+
+### Text Presentation Effects
+
+Wrap any widget with a presentation effect:
+
+| Effect | Description |
+|--------|-------------|
+| `typewriter` | Characters appear one at a time |
+| `color_cycle` | Text hue rotates through rainbow |
+| `rainbow` | Per-character rainbow sweep |
+| `pulse` | Flash to white then decay |
+| `bounce` | Scroll in, pause, scroll out |
+
+```toml
+[[playlist.section.widget]]
+type = "message"
+text = "Breaking News!"
+presentation = "typewriter"
+```
 
 ### Built-in Widgets
 
@@ -59,7 +107,7 @@ feed_url = "https://www.nintendolife.com/feeds/news"
 | `message` | Static text | — |
 | `countdown` | Days until a date | — |
 | `rss_feed` | Headlines from any RSS feed | — |
-| `weather` | Current weather | `OPENWEATHERMAP_API_KEY` |
+| `weather` | Current weather with icons | `WEATHERAPI_KEY` |
 | `coinbase` | Crypto price (Coinbase) | — |
 | `coingecko` | Crypto price (CoinGecko) | — |
 | `etherscan` | Ethereum gas prices | `ETHERSCAN_API_KEY` |

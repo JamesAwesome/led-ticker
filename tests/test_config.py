@@ -1,7 +1,7 @@
 """Tests for led_ticker.config."""
 
-import tempfile
-from pathlib import Path
+
+import pytest
 
 from led_ticker.config import load_config
 
@@ -44,12 +44,14 @@ text = "Another message"
 """
 
 
-def test_load_config_display():
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-        f.write(SAMPLE_CONFIG)
-        f.flush()
-        config = load_config(Path(f.name))
+@pytest.fixture
+def config(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text(SAMPLE_CONFIG)
+    return load_config(p)
 
+
+def test_load_config_display(config):
     assert config.display.rows == 16
     assert config.display.cols == 32
     assert config.display.chain == 5
@@ -57,12 +59,7 @@ def test_load_config_display():
     assert config.display.slowdown_gpio == 2
 
 
-def test_load_config_sections():
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-        f.write(SAMPLE_CONFIG)
-        f.flush()
-        config = load_config(Path(f.name))
-
+def test_load_config_sections(config):
     assert len(config.sections) == 2
     assert config.sections[0].mode == "forever_scroll"
     assert config.sections[0].loop_count == 1
@@ -70,12 +67,7 @@ def test_load_config_sections():
     assert config.sections[1].loop_count == 2
 
 
-def test_load_config_widgets():
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-        f.write(SAMPLE_CONFIG)
-        f.flush()
-        config = load_config(Path(f.name))
-
+def test_load_config_widgets(config):
     section = config.sections[0]
     assert len(section.widgets) == 2
     assert section.widgets[0]["type"] == "message"
@@ -83,32 +75,24 @@ def test_load_config_widgets():
     assert section.widgets[1]["type"] == "countdown"
 
 
-def test_load_config_title():
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-        f.write(SAMPLE_CONFIG)
-        f.flush()
-        config = load_config(Path(f.name))
-
+def test_load_config_title(config):
     assert config.title_delay == 5
     assert config.sections[0].title["text"] == "Hello"
     assert config.sections[0].title["color"] == "random"
     assert config.sections[1].title is None
 
 
-def test_load_config_defaults():
-    minimal = """\
+def test_load_config_defaults(tmp_path):
+    p = tmp_path / "minimal.toml"
+    p.write_text("""\
 [[playlist.section]]
 mode = "forever_scroll"
 
 [[playlist.section.widget]]
 type = "message"
 text = "hi"
-"""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-        f.write(minimal)
-        f.flush()
-        config = load_config(Path(f.name))
-
+""")
+    config = load_config(p)
     assert config.display.rows == 16
     assert config.display.brightness == 100
     assert config.display.gpio_mapping == "adafruit-hat"

@@ -1,21 +1,11 @@
 """Tests for led_ticker.widgets.message."""
 
-import unittest.mock as mock
 from datetime import date
-
-import pytest
 
 from led_ticker.colors import DEFAULT_COLOR, RGB_WHITE
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import Widget
 from led_ticker.widgets.message import TickerCountdown, TickerMessage
-
-
-@pytest.fixture
-def canvas():
-    c = mock.Mock()
-    c.width = 160
-    return c
 
 
 class TestTickerMessage:

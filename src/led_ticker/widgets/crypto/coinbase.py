@@ -47,7 +47,10 @@ class CoinbasePriceMonitor:
         self.spot_url = f"{COINBASE_API}/v2/prices/{self.symbol}-{self.currency}/spot"
 
     @classmethod
-    async def start(cls, symbol, currency, session, update_interval=300, center=True):
+    async def start(
+        cls, symbol, currency, session,
+        update_interval=300, center=True, **kwargs,
+    ):
         widget = cls(symbol=symbol, currency=currency, session=session, center=center)
         await widget.update()
         asyncio.create_task(run_monitor_loop(widget, update_interval))
@@ -57,9 +60,12 @@ class CoinbasePriceMonitor:
         logging.info("Updating monitor for %s via Coinbase", self.symbol)
         self.price = await self.get_spot_price()
         self.yesterdays_price = await self.get_yesterdays_price()
-        self.change_24h = (
-            (self.price - self.yesterdays_price) / self.yesterdays_price
-        ) * 100
+        if self.yesterdays_price != 0:
+            self.change_24h = (
+                (self.price - self.yesterdays_price) / self.yesterdays_price
+            ) * 100
+        else:
+            self.change_24h = 0.0
 
     async def get_spot_price(self, spot_date=None):
         params = {}
@@ -67,7 +73,10 @@ class CoinbasePriceMonitor:
             params["date"] = str(spot_date)
         async with self.session.get(self.spot_url, params=params) as response:
             price_data = await response.json()
-            return float(price_data.get("data", {}).get("amount"))
+            amount = price_data.get("data", {}).get("amount")
+            if amount is None:
+                raise KeyError("Missing 'amount' in Coinbase API response")
+            return float(amount)
 
     async def get_yesterdays_price(self):
         yesterday = date.today() - timedelta(days=1)

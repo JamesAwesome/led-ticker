@@ -14,6 +14,7 @@ from led_ticker.frame import LedFrame
 from led_ticker.ticker import Ticker
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
+from led_ticker.widgets.rss_feed import RSSFeedMonitor
 
 
 def _setup_logging():
@@ -88,7 +89,11 @@ async def run(config_path: Path):
                 for widget_cfg in section.widgets:
                     cfg = dict(widget_cfg)  # copy to avoid mutating config
                     widget = await _build_widget(cfg, session)
-                    widgets.append(widget)
+                    # RSSFeedMonitor is a container, expand its stories
+                    if isinstance(widget, RSSFeedMonitor):
+                        widgets.extend(widget.feed_stories)
+                    else:
+                        widgets.append(widget)
 
                 title = await _build_title(section.title)
                 run_method = RUN_MODES.get(section.mode, "run_forever_scroll")

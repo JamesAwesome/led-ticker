@@ -44,7 +44,7 @@ class EtherscanGasMonitor:
     price_data: dict = attrs.field(init=False, factory=dict)
 
     @classmethod
-    async def start(cls, session, api_key, update_interval=300):
+    async def start(cls, session, api_key, update_interval=300, **kwargs):
         widget = cls(session=session, api_key=api_key)
         await widget.update()
         asyncio.create_task(run_monitor_loop(widget, update_interval))
@@ -59,10 +59,15 @@ class EtherscanGasMonitor:
         }
         async with self.session.get(ETHERSCAN_API, params=params) as response:
             gas_price_data = await response.json()
+            result = gas_price_data.get("result")
+            if not isinstance(result, dict):
+                raise ValueError(
+                    f"Etherscan API error: {gas_price_data.get('message', result)}"
+                )
             self.price_data = {
-                "Low": gas_price_data["result"]["SafeGasPrice"],
-                "Avg": gas_price_data["result"]["ProposeGasPrice"],
-                "High": gas_price_data["result"]["FastGasPrice"],
+                "Low": result["SafeGasPrice"],
+                "Avg": result["ProposeGasPrice"],
+                "High": result["FastGasPrice"],
             }
 
     def draw(self, canvas, cursor_pos=0, **kwargs):

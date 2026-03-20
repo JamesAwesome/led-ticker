@@ -22,14 +22,6 @@ from led_ticker.widgets.crypto.etherscan import (
     _get_gas_price_color,
 )
 
-
-@pytest.fixture
-def canvas():
-    c = mock.Mock()
-    c.width = 160
-    return c
-
-
 # --- Coinbase ---
 
 class TestCoinbasePriceMonitor:

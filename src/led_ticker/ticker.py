@@ -65,7 +65,7 @@ class Ticker:
         logging.info("Running Forever Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
         title = self.title if self.title else None
-        cursor_pos = 0 if start_pos is not None else canvas.width
+        cursor_pos = start_pos if start_pos is not None else canvas.width
 
         asyncio.create_task(_build_then_enqueue(
             self.monitors, self.notif_queue,
@@ -90,7 +90,7 @@ class Ticker:
             title=title, loop_count=loop_count,
         ))
 
-        cursor_pos = 0 if start_pos is not None else canvas.width
+        cursor_pos = start_pos if start_pos is not None else canvas.width
 
         await _scroll_one_by_one(
             canvas, self.frame, self.notif_queue,
@@ -236,14 +236,14 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None,
             buffered_objects.pop(0)
             pos = mon_0_end_pos - 1
 
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(scroll_speed)
         frame.matrix.SwapOnVSync(canvas)
 
         if not len(buffered_objects):
             return True
 
 
-async def _run_swap(canvas, frame, notif_queue, ticker_delay=3, delay=5):
+async def _run_swap(canvas, frame, notif_queue, delay=5):
     """Run swap display mode."""
     ticker_object = await notif_queue.get()
 

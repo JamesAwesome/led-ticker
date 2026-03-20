@@ -47,6 +47,10 @@ class WeatherWidget:
     weather: str = attrs.field(init=False, default="")
 
     def __attrs_post_init__(self):
+        # TOML parses location as a dict; convert to namedtuple
+        if isinstance(self.location, dict):
+            self.location = LocationData(**self.location)
+
         self.weather_params = deepcopy(DEFAULT_WEATHER_PARAMS)
         self.weather_params["units"] = self.units
         self.weather_params["lat"] = self.location.lat

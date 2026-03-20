@@ -25,10 +25,16 @@ class CoinGeckoPriceMonitor:
     session: object
     center: bool = True
     padding: int = 6
-    price_data: dict = attrs.field(init=False, factory=dict)
+    price_data: dict = attrs.field(
+        init=False,
+        factory=lambda: {"price": "0.0000", "change_24h": "0.00%"},
+    )
 
     @classmethod
-    async def start(cls, symbol, symbol_id, currency, session, update_interval=300):
+    async def start(
+        cls, symbol, symbol_id, currency, session,
+        update_interval=300, **kwargs,
+    ):
         widget = cls(
             symbol=symbol, symbol_id=symbol_id,
             currency=currency, session=session,

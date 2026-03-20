@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from led_ticker.app import _build_widget, _build_title
+from led_ticker.app import _build_title, _build_widget
 from led_ticker.widget import Widget
-from led_ticker.widgets.message import TickerMessage, TickerCountdown
+from led_ticker.widgets.message import TickerCountdown, TickerMessage
 
 
 class TestBuildWidget:

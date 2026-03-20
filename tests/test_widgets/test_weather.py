@@ -9,13 +9,6 @@ from led_ticker.widgets.weather import LocationData, WeatherWidget
 
 
 @pytest.fixture
-def canvas():
-    c = mock.Mock()
-    c.width = 160
-    return c
-
-
-@pytest.fixture
 def weather_widget():
     """A WeatherWidget with pre-set data (no network needed)."""
     w = WeatherWidget(

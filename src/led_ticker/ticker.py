@@ -382,12 +382,18 @@ async def _swap_and_scroll(
 
     if cursor_pos > canvas.width:
         await asyncio.sleep(hold_time)
-        while pos > -(cursor_pos):
+
+        # Scroll until last pixel is visible on the right edge
+        stop_pos = -(cursor_pos - canvas.width)
+        while pos > stop_pos:
             pos -= 1
             canvas.Clear()
             canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
             canvas = frame.matrix.SwapOnVSync(canvas)
             await asyncio.sleep(scroll_speed)
+
+        # Hold with the end of the text visible
+        await asyncio.sleep(hold_time)
     else:
         await asyncio.sleep(hold_time)
 

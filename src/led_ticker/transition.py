@@ -104,46 +104,74 @@ class Cut:
 
 @register_transition("push_left")
 class PushLeft:
-    """Old content slides off left, new enters from right."""
+    """Left sweep — outgoing erased left-to-right, then incoming appears."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
         w = canvas.width
-        if t < 0.5:
-            offset = int(t * 2 * w)
-            outgoing.draw(canvas, cursor_pos=-offset)
+        h = getattr(canvas, "height", 16)
+        boundary = int(t * w)
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+        elif boundary <= 0:
+            outgoing.draw(canvas, cursor_pos=0)
         else:
-            offset = int((1.0 - t) * 2 * w)
-            incoming.draw(canvas, cursor_pos=offset)
+            outgoing.draw(canvas, cursor_pos=0)
+            for y in range(h):
+                for x in range(boundary):
+                    canvas.SetPixel(x, y, 0, 0, 0)
+            for y in range(h):
+                for dx in range(min(2, w - boundary)):
+                    canvas.SetPixel(boundary + dx, y, 255, 255, 255)
         return canvas
 
 
 @register_transition("push_right")
 class PushRight:
-    """Old content slides off right, new enters from left."""
+    """Right sweep — outgoing erased right-to-left, then incoming appears."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
         w = canvas.width
-        if t < 0.5:
-            offset = int(t * 2 * w)
-            outgoing.draw(canvas, cursor_pos=offset)
+        h = getattr(canvas, "height", 16)
+        boundary = int(t * w)
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+        elif boundary <= 0:
+            outgoing.draw(canvas, cursor_pos=0)
         else:
-            offset = int((1.0 - t) * 2 * w)
-            incoming.draw(canvas, cursor_pos=-offset)
+            outgoing.draw(canvas, cursor_pos=0)
+            for y in range(h):
+                for x in range(w - boundary, w):
+                    canvas.SetPixel(x, y, 0, 0, 0)
+            line_x = w - boundary
+            for y in range(h):
+                for dx in range(min(2, line_x)):
+                    canvas.SetPixel(line_x - 1 - dx, y, 255, 255, 255)
         return canvas
 
 
 @register_transition("push_up")
 class PushUp:
-    """Old content slides up, new enters from bottom."""
+    """Top sweep — outgoing erased top-to-bottom, then incoming appears."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
+        w = canvas.width
         h = getattr(canvas, "height", 16)
-        if t < 0.5:
-            offset = int(t * 2 * h)
-            outgoing.draw(canvas, cursor_pos=0, y_offset=-offset)
+        sweep_row = int(t * h)
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+        elif sweep_row <= 0:
+            outgoing.draw(canvas, cursor_pos=0)
         else:
-            offset = int((1.0 - t) * 2 * h)
-            incoming.draw(canvas, cursor_pos=0, y_offset=offset)
+            outgoing.draw(canvas, cursor_pos=0)
+            for y in range(min(sweep_row, h)):
+                for x in range(w):
+                    canvas.SetPixel(x, y, 0, 0, 0)
+            if sweep_row < h:
+                for x in range(w):
+                    canvas.SetPixel(x, sweep_row, 255, 255, 255)
         return canvas
 
 

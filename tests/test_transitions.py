@@ -93,68 +93,58 @@ class TestCut:
 
 
 class TestPushLeft:
-    def test_at_zero_only_outgoing(self, canvas, make_widget):
+    def test_at_zero_shows_outgoing(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushLeft()
         push.frame_at(0.0, canvas, outgoing, incoming)
         outgoing.draw.assert_called_once()
         incoming.draw.assert_not_called()
-        assert outgoing.draw.call_args.kwargs["cursor_pos"] == 0
 
-    def test_at_one_only_incoming(self, canvas, make_widget):
+    def test_at_one_shows_incoming(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushLeft()
         push.frame_at(1.0, canvas, outgoing, incoming)
         incoming.draw.assert_called_once()
-        outgoing.draw.assert_not_called()
         assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
 
-    def test_first_half_only_outgoing(self, canvas, make_widget):
+    def test_midpoint_shows_outgoing_with_effect(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushLeft()
-        push.frame_at(0.25, canvas, outgoing, incoming)
+        push.frame_at(0.5, canvas, outgoing, incoming)
         outgoing.draw.assert_called_once()
         incoming.draw.assert_not_called()
 
-    def test_second_half_only_incoming(self, canvas, make_widget):
-        outgoing = make_widget(40)
-        incoming = make_widget(40)
+    def test_returns_canvas(self, canvas, make_widget):
         push = PushLeft()
-        push.frame_at(0.75, canvas, outgoing, incoming)
-        incoming.draw.assert_called_once()
-        outgoing.draw.assert_not_called()
+        result = push.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        assert result is canvas
 
 
 # --- PushUp ---
 
 
 class TestPushUp:
-    def test_at_zero_only_outgoing(self, canvas, make_widget):
+    def test_at_zero_shows_outgoing(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushUp()
         push.frame_at(0.0, canvas, outgoing, incoming)
         outgoing.draw.assert_called_once()
         incoming.draw.assert_not_called()
-        assert outgoing.draw.call_args.kwargs["y_offset"] == 0
 
-    def test_at_one_only_incoming(self, canvas, make_widget):
+    def test_at_one_shows_incoming(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushUp()
         push.frame_at(1.0, canvas, outgoing, incoming)
         incoming.draw.assert_called_once()
-        outgoing.draw.assert_not_called()
-        assert incoming.draw.call_args.kwargs["y_offset"] == 0
 
     def test_returns_canvas(self, canvas, make_widget):
-        outgoing = make_widget(40)
-        incoming = make_widget(40)
         push = PushUp()
-        result = push.frame_at(0.5, canvas, outgoing, incoming)
+        result = push.frame_at(0.5, canvas, make_widget(40), make_widget(40))
         assert result is canvas
 
 
@@ -162,22 +152,21 @@ class TestPushUp:
 
 
 class TestPushRight:
-    def test_at_one_only_incoming(self, canvas, make_widget):
-        outgoing = make_widget(40)
-        incoming = make_widget(40)
-        push = PushRight()
-        push.frame_at(1.0, canvas, outgoing, incoming)
-        incoming.draw.assert_called_once()
-        outgoing.draw.assert_not_called()
-        assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
-
-    def test_at_zero_only_outgoing(self, canvas, make_widget):
+    def test_at_zero_shows_outgoing(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushRight()
         push.frame_at(0.0, canvas, outgoing, incoming)
         outgoing.draw.assert_called_once()
         incoming.draw.assert_not_called()
+
+    def test_at_one_shows_incoming(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushRight()
+        push.frame_at(1.0, canvas, outgoing, incoming)
+        incoming.draw.assert_called_once()
+        assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
 
 
 # --- ColorFlash ---

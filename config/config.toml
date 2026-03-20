@@ -125,7 +125,8 @@ countdown_date = 2027-01-01
 
 [[playlist.section]]
 mode = "swap"
-transition = "push_left"
+transition = "scroll"
+transition_duration = 2.0
 loop_count = 1
 
 [playlist.section.title]

@@ -156,11 +156,13 @@ class PushLeft:
 
 @register_transition("push_right")
 class PushRight:
-    """Rapid scroll — outgoing slides right, incoming enters from left.
+    """Rightward push — blackout eats outgoing from left, incoming enters left.
 
-    Mirror of PushLeft.  Uses draw-blackout-draw with the boundary
-    moving rightward: outgoing occupies the right zone, incoming the
-    left zone.
+    Unlike PushLeft, outgoing stays STATIONARY at its hold position.
+    DrawText renders rightward from cursor_pos, so shifting cursor_pos
+    right for long text just reveals earlier characters instead of
+    pushing the visible portion off the right edge.  The growing
+    left-side blackout creates the visual illusion of a rightward push.
     """
 
     GAP = 10
@@ -177,18 +179,18 @@ class PushRight:
         total_travel = w + self.GAP
         scroll_offset = int(t * total_travel)
 
-        # Outgoing slides right from its final scroll position
-        outgoing_pos = outgoing_scroll_pos + scroll_offset
         # Incoming enters from the left edge
         incoming_pos = -(w + self.GAP) + scroll_offset
 
         # Boundary between incoming (left) and outgoing (right) zones
         boundary = min(w, scroll_offset)
 
-        # 1. Draw outgoing (may bleed across canvas for long text)
-        outgoing.draw(canvas, cursor_pos=outgoing_pos)
+        # 1. Draw outgoing STATIONARY at its hold position
+        #    (shifting cursor_pos right would show different characters
+        #    from the middle of long text — not a push effect)
+        outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
 
-        # 2. Black out left zone where incoming will appear
+        # 2. Black out left zone (creates rightward push illusion)
         if boundary > 0:
             for y in range(h):
                 for x in range(boundary):

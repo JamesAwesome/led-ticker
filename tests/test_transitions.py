@@ -237,8 +237,8 @@ class TestPushRight:
         push = PushRight()
         push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
         outgoing.draw.assert_called_once()
-        # Outgoing slides right
-        assert outgoing.draw.call_args.kwargs["cursor_pos"] > 0
+        # Outgoing stays stationary at scroll pos
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == 0
         incoming.draw.assert_called_once()
         # Incoming enters from left (negative cursor_pos)
         assert incoming.draw.call_args.kwargs["cursor_pos"] < 0
@@ -250,14 +250,35 @@ class TestPushRight:
         push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
         assert canvas.SetPixel.call_count > 0
 
-    def test_outgoing_scroll_pos_used(self, canvas, make_widget):
+    def test_outgoing_stays_stationary(self, canvas, make_widget):
+        """Outgoing must stay at its hold position, not shift right."""
         outgoing = make_widget(600)
         incoming = make_widget(40)
         push = PushRight()
         push.frame_at(
-            0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440
+            0.5, canvas, outgoing, incoming, outgoing_scroll_pos=-440
         )
+        # Must stay at -440, NOT -440 + scroll_offset
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
+
+    def test_long_text_no_position_jump(self, canvas, make_widget):
+        """Outgoing cursor_pos must be identical at t=0 and t=0.5."""
+        outgoing_t0 = make_widget(600)
+        incoming_t0 = make_widget(40)
+        outgoing_t5 = make_widget(600)
+        incoming_t5 = make_widget(40)
+        push = PushRight()
+        push.frame_at(
+            0.0, canvas, outgoing_t0, incoming_t0,
+            outgoing_scroll_pos=-440,
+        )
+        push.frame_at(
+            0.5, canvas, outgoing_t5, incoming_t5,
+            outgoing_scroll_pos=-440,
+        )
+        pos_t0 = outgoing_t0.draw.call_args.kwargs["cursor_pos"]
+        pos_t5 = outgoing_t5.draw.call_args.kwargs["cursor_pos"]
+        assert pos_t0 == pos_t5 == -440
 
     def test_returns_canvas(self, canvas, make_widget):
         push = PushRight()

@@ -103,7 +103,7 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 **Wipe-based** (stationary outgoing + sweep line erase):
 - `wipe_left` — stationary outgoing + cyan sweep line erasing left-to-right
 - `wipe_right` — stationary outgoing + cyan sweep line erasing right-to-left
-- `wipe_up` — stationary outgoing + white sweep line erasing top-to-bottom
+- `wipe_up` — stationary outgoing + sweep line erasing bottom-to-top
 - `dissolve` — random pixel scatter (seeded RNG) creates TV static effect
 - `split` — center-outward expanding black band with magenta edge lines
 - `wipe_down` — top-down row blackout with sweep line (formerly 'curtain')

@@ -311,7 +311,7 @@ class PushDown:
 
 @register_transition("wipe_up")
 class WipeUp:
-    """Top-down wipe with sweep line."""
+    """Bottom-to-top wipe with sweep line moving upward."""
 
     def __init__(self, color=None, **kwargs):
         self.color = tuple(color) if color else (255, 255, 255)
@@ -320,18 +320,21 @@ class WipeUp:
         w = canvas.width
         h = getattr(canvas, "height", 16)
         outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
-        sweep_row = int(t * h)
+        # Sweep line moves from bottom (h) to top (0)
+        sweep_row = h - int(t * h)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
-        elif sweep_row <= 0:
+        elif sweep_row >= h:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         else:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
-            for y in range(min(sweep_row, h)):
+            # Black out rows below sweep (erased region)
+            for y in range(max(0, sweep_row), h):
                 for x in range(w):
                     canvas.SetPixel(x, y, 0, 0, 0)
-            if sweep_row < h:
+            # Sweep line
+            if 0 <= sweep_row < h:
                 for x in range(w):
                     canvas.SetPixel(x, sweep_row, *self.color)
         return canvas
@@ -493,7 +496,7 @@ class SplitHorizontal:
 
 @register_transition("wipe_down")
 class WipeDown:
-    """Top-down wipe with sweep line (formerly 'curtain')."""
+    """Top-to-bottom wipe with sweep line moving downward (formerly 'curtain')."""
 
     def __init__(self, color=None, **kwargs):
         self.color = tuple(color) if color else (0, 255, 0)

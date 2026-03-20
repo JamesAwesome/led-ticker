@@ -34,8 +34,11 @@ async def _build_widget(widget_cfg, session):
     cls = get_widget_class(widget_type)
 
     # Config uses "text" but TickerMessage/TickerCountdown use "message"
-    if "text" in widget_cfg and "message" not in widget_cfg:
-        widget_cfg["message"] = widget_cfg.pop("text")
+    if "text" in widget_cfg:
+        if "message" not in widget_cfg:
+            widget_cfg["message"] = widget_cfg.pop("text")
+        else:
+            widget_cfg.pop("text")
 
     if hasattr(cls, "start"):
         return await cls.start(session=session, **widget_cfg)

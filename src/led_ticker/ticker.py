@@ -305,6 +305,59 @@ async def _scroll_side_by_side(
             return True
 
 
+async def _scroll_between(
+    canvas,
+    frame,
+    outgoing,
+    incoming,
+    outgoing_scroll_pos=0,
+    scroll_speed=0.05,
+):
+    """Seamlessly scroll from outgoing to incoming at constant 1px/frame."""
+    from led_ticker.colors import RGB_WHITE
+    from led_ticker.drawing import get_text_width
+    from led_ticker.fonts import FONT_DEFAULT
+    from led_ticker.widgets.message import TickerMessage
+
+    w = canvas.width
+    h = getattr(canvas, "height", 16)
+    bullet = TickerMessage(" * ", center=False, font_color=RGB_WHITE)
+    bullet_width = (
+        get_text_width(FONT_DEFAULT, " * ", padding=0) + bullet.padding
+    )
+
+    total_travel = w + bullet_width
+
+    for offset in range(total_travel + 1):
+        canvas.Clear()
+
+        outgoing_pos = outgoing_scroll_pos - offset
+        bullet_pos = w - offset
+        incoming_pos = w + bullet_width - offset
+
+        # 1. Draw outgoing (may bleed right)
+        outgoing.draw(canvas, cursor_pos=outgoing_pos)
+
+        # 2. Blackout from bullet_pos onward + draw bullet + incoming
+        clear_start = max(0, bullet_pos)
+        if clear_start < w:
+            x_range = range(clear_start, w)
+            for y in range(h):
+                for x in x_range:
+                    canvas.SetPixel(x, y, 0, 0, 0)
+
+        if bullet_pos < w and bullet_pos + bullet_width > 0:
+            bullet.draw(canvas, cursor_pos=bullet_pos)
+
+        if incoming_pos < w:
+            incoming.draw(canvas, cursor_pos=incoming_pos)
+
+        canvas = frame.matrix.SwapOnVSync(canvas)
+        await asyncio.sleep(scroll_speed)
+
+    return canvas, 0
+
+
 async def _run_swap(
     canvas,
     frame,
@@ -314,7 +367,12 @@ async def _run_swap(
     hold_time=3.0,
 ):
     """Run swap display mode with optional transitions."""
-    from led_ticker.transition import run_transition
+    from led_ticker.transition import Scroll, run_transition
+
+    is_scroll = (
+        transition is not None
+        and isinstance(transition.transition_obj, Scroll)
+    )
 
     ticker_object = await notif_queue.get()
     canvas, _, prev_scroll_pos = await _swap_and_scroll(
@@ -328,7 +386,24 @@ async def _run_swap(
     while not notif_queue.empty():
         ticker_object = notif_queue.get_nowait()
 
-        if transition is not None:
+        if is_scroll:
+            # Continuous scroll: no holds between widgets
+            canvas, prev_scroll_pos = await _scroll_between(
+                canvas,
+                frame,
+                prev_object,
+                ticker_object,
+                outgoing_scroll_pos=prev_scroll_pos,
+            )
+            # Scroll long text through without holding
+            canvas, _, prev_scroll_pos = await _swap_and_scroll(
+                canvas,
+                frame,
+                ticker_object,
+                skip_initial_draw=True,
+                hold_time=0,
+            )
+        elif transition is not None:
             canvas = await run_transition(
                 canvas,
                 frame,

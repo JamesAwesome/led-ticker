@@ -9,6 +9,7 @@ from led_ticker.ticker import (
     Ticker,
     _run_swap,
     _scroll_and_delay,
+    _scroll_between,
     _swap_and_scroll,
 )
 
@@ -184,6 +185,85 @@ class TestRunSwap:
         await q.put(w)
         await _run_swap(canvas, mock_frame, q)
         assert w.draw.called
+
+
+class TestScrollBetween:
+    async def test_returns_pos_zero(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        _, scroll_pos = await _scroll_between(
+            canvas, mock_frame, outgoing, incoming,
+            outgoing_scroll_pos=0,
+        )
+        assert scroll_pos == 0
+
+    async def test_both_widgets_drawn(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        await _scroll_between(
+            canvas, mock_frame, outgoing, incoming,
+        )
+        assert outgoing.draw.called
+        assert incoming.draw.called
+
+    async def test_outgoing_scroll_pos_used(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        outgoing = make_widget(600)
+        incoming = make_widget(40)
+        await _scroll_between(
+            canvas, mock_frame, outgoing, incoming,
+            outgoing_scroll_pos=-440,
+        )
+        # First draw call should use the scroll pos
+        first_call = outgoing.draw.call_args_list[0]
+        assert first_call.kwargs["cursor_pos"] == -440
+
+
+class TestRunSwapWithScroll:
+    async def test_scroll_processes_all_widgets(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        from led_ticker.transition import Scroll
+
+        q = asyncio.Queue()
+        w1 = make_widget(40)
+        w2 = make_widget(40)
+        w3 = make_widget(40)
+        await q.put(w1)
+        await q.put(w2)
+        await q.put(w3)
+        trans = mock.Mock()
+        trans.transition_obj = Scroll()
+        trans.duration = 4.0
+        trans.easing = "linear"
+        await _run_swap(canvas, mock_frame, q, transition=trans)
+        assert w1.draw.called
+        assert w2.draw.called
+        assert w3.draw.called
+
+    async def test_normal_transition_unaffected(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        """Non-scroll transitions still use run_transition + hold."""
+        from led_ticker.transition import PushLeft
+
+        q = asyncio.Queue()
+        w1 = make_widget(40)
+        w2 = make_widget(40)
+        await q.put(w1)
+        await q.put(w2)
+        trans = mock.Mock()
+        trans.transition_obj = PushLeft()
+        trans.duration = 0.5
+        trans.easing = "linear"
+        await _run_swap(canvas, mock_frame, q, transition=trans)
+        assert w1.draw.called
+        assert w2.draw.called
 
 
 class TestTickerRunSwap:

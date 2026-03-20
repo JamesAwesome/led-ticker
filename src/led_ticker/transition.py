@@ -388,8 +388,8 @@ class WipeLeft:
             for y in range(h):
                 for x in x_range:
                     canvas.SetPixel(x, y, 0, 0, 0)
-            # Draw sweep line at boundary
-            sweep_w = min(2, w - boundary)
+            # Draw sweep line at boundary (3px wide for visibility)
+            sweep_w = min(3, w - boundary)
             for y in range(h):
                 for dx in range(sweep_w):
                     canvas.SetPixel(boundary + dx, y, *self.color)
@@ -420,9 +420,9 @@ class WipeRight:
             for y in range(h):
                 for x in x_range:
                     canvas.SetPixel(x, y, 0, 0, 0)
-            # Sweep line
+            # Sweep line (3px wide for visibility)
             line_x = w - boundary
-            sweep_w = min(2, line_x)
+            sweep_w = min(3, line_x)
             for y in range(h):
                 for dx in range(sweep_w):
                     canvas.SetPixel(line_x - 1 - dx, y, *self.color)

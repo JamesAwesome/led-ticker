@@ -12,6 +12,18 @@ gpio_mapping = "adafruit-hat"
 [title]
 delay = 5
 
+# --- Transitions ---
+# Global defaults for transitions between widgets and sections.
+# Available types: cut, push_left, push_right, push_up, color_flash,
+#                  wipe_left, wipe_right, dissolve, split, curtain
+# Available easing: linear, ease_out, ease_in_out
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = "dissolve"
+
 # --- Playlist ---
 # Each [[playlist.section]] displays in order, then the whole playlist loops.
 

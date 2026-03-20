@@ -46,6 +46,9 @@ class AppConfig:
     default_transition: TransitionConfig = field(
         default_factory=TransitionConfig,
     )
+    between_sections: TransitionConfig = field(
+        default_factory=TransitionConfig,
+    )
 
 
 def _parse_transition(
@@ -103,9 +106,15 @@ def load_config(path: Path) -> AppConfig:
         )
         sections.append(section)
 
+    between_sections = _parse_transition(
+        transitions_raw.get("between_sections"),
+        default_transition,
+    )
+
     return AppConfig(
         display=display,
         sections=sections,
         title_delay=raw.get("title", {}).get("delay", 5),
         default_transition=default_transition,
+        between_sections=between_sections,
     )

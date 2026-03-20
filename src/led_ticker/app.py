@@ -16,7 +16,7 @@ from led_ticker.presentation import (
     get_presentation_class,
 )
 from led_ticker.ticker import Ticker
-from led_ticker.transition import get_transition_class
+from led_ticker.transition import get_transition_class, run_transition
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
 from led_ticker.widgets.rss_feed import RSSFeedMonitor
@@ -96,8 +96,17 @@ async def run(config_path: Path):
         led_gpio_mapping=config.display.gpio_mapping,
     )
 
+    # Build section-to-section transition if configured
+    section_trans = None
+    if config.between_sections.type != "cut":
+        section_trans_cls = get_transition_class(
+            config.between_sections.type,
+        )
+        section_trans = section_trans_cls()
+
     async with aiohttp.ClientSession() as session:
         notif_queue = asyncio.Queue()
+        last_widget = None  # track for section-to-section transitions
 
         while True:
             for section in config.sections:
@@ -112,9 +121,30 @@ async def run(config_path: Path):
                         widgets.append(widget)
 
                 title = await _build_title(section.title)
-                run_method = RUN_MODES.get(section.mode, "run_forever_scroll")
+                run_method = RUN_MODES.get(
+                    section.mode,
+                    "run_forever_scroll",
+                )
 
-                # Build transition config for swap mode
+                # Run section-to-section transition
+                first_widget = title if title else (widgets[0] if widgets else None)
+                if (
+                    last_widget is not None
+                    and first_widget is not None
+                    and section_trans is not None
+                ):
+                    canvas = led_frame.get_clean_canvas()
+                    await run_transition(
+                        canvas,
+                        led_frame,
+                        last_widget,
+                        first_widget,
+                        transition=section_trans,
+                        duration=config.between_sections.duration,
+                        easing=config.between_sections.easing,
+                    )
+
+                # Build within-section transition config
                 trans_cfg = section.transition
                 if trans_cfg.type != "cut":
                     trans_cls = get_transition_class(trans_cfg.type)
@@ -132,7 +162,15 @@ async def run(config_path: Path):
                     transition_config=transition_config,
                 )
 
-                await getattr(ticker, run_method)(loop_count=section.loop_count)
+                await getattr(ticker, run_method)(
+                    loop_count=section.loop_count,
+                )
+
+                # Track the last widget for next section transition
+                if widgets:
+                    last_widget = widgets[-1]
+                elif title:
+                    last_widget = title
 
 
 def main():

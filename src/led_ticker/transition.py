@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any, Protocol, runtime_checkable
+
+logger = logging.getLogger(__name__)
 
 # --- Easing functions ---
 
@@ -93,6 +96,25 @@ async def run_transition(
         await asyncio.sleep(scroll_speed)
 
 
+# --- Compositing helper ---
+
+
+def _render_to_shadow(widget, width, height):
+    """Try to render a widget to a ShadowCanvas.
+
+    Returns the ShadowCanvas on success, or None if the widget's
+    draw() calls real rgbmatrix DrawText (which rejects ShadowCanvas).
+    """
+    from led_ticker.shadow_canvas import ShadowCanvas
+
+    buf = ShadowCanvas(width, height)
+    try:
+        widget.draw(buf, cursor_pos=0)
+        return buf
+    except TypeError:
+        return None
+
+
 # --- Built-in transitions ---
 
 
@@ -158,35 +180,55 @@ class ColorFlash:
         return canvas
 
 
+def _composite_regions(canvas, outgoing, incoming, region_fn, w, h):
+    """Composite two widgets using pixel-level ShadowCanvas rendering.
+
+    ``region_fn(x, y)`` returns True for pixels from incoming, False
+    for pixels from outgoing. Falls back to push-based rendering if
+    ShadowCanvas is rejected by the real rgbmatrix DrawText.
+    """
+    old_buf = _render_to_shadow(outgoing, w, h)
+    new_buf = _render_to_shadow(incoming, w, h)
+
+    if old_buf is None or new_buf is None:
+        # Real hardware — can't use ShadowCanvas with DrawText.
+        # Fall back: draw outgoing, then incoming on top.
+        outgoing.draw(canvas, cursor_pos=0)
+        incoming.draw(canvas, cursor_pos=0)
+        return
+
+    for y in range(h):
+        for x in range(w):
+            if region_fn(x, y):
+                r, g, b = new_buf.get_pixel(x, y)
+            else:
+                r, g, b = old_buf.get_pixel(x, y)
+            if r or g or b:
+                canvas.SetPixel(x, y, r, g, b)
+
+
 @register_transition("wipe_left")
 class WipeLeft:
     """New content revealed left-to-right with a hard edge."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        from led_ticker.shadow_canvas import ShadowCanvas
-
         w = canvas.width
         h = getattr(canvas, "height", 16)
         boundary = int(t * w)
 
-        if boundary == 0:
+        if boundary <= 0:
             outgoing.draw(canvas, cursor_pos=0)
         elif boundary >= w:
             incoming.draw(canvas, cursor_pos=0)
         else:
-            old_buf = ShadowCanvas(w, h)
-            new_buf = ShadowCanvas(w, h)
-            outgoing.draw(old_buf, cursor_pos=0)
-            incoming.draw(new_buf, cursor_pos=0)
-
-            for y in range(h):
-                for x in range(w):
-                    if x < boundary:
-                        r, g, b = new_buf.get_pixel(x, y)
-                    else:
-                        r, g, b = old_buf.get_pixel(x, y)
-                    if r or g or b:
-                        canvas.SetPixel(x, y, r, g, b)
+            _composite_regions(
+                canvas,
+                outgoing,
+                incoming,
+                lambda x, y: x < boundary,
+                w,
+                h,
+            )
         return canvas
 
 
@@ -195,30 +237,23 @@ class WipeRight:
     """New content revealed right-to-left with a hard edge."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        from led_ticker.shadow_canvas import ShadowCanvas
-
         w = canvas.width
         h = getattr(canvas, "height", 16)
         boundary = int(t * w)
 
-        if boundary == 0:
+        if boundary <= 0:
             outgoing.draw(canvas, cursor_pos=0)
         elif boundary >= w:
             incoming.draw(canvas, cursor_pos=0)
         else:
-            old_buf = ShadowCanvas(w, h)
-            new_buf = ShadowCanvas(w, h)
-            outgoing.draw(old_buf, cursor_pos=0)
-            incoming.draw(new_buf, cursor_pos=0)
-
-            for y in range(h):
-                for x in range(w):
-                    if x >= w - boundary:
-                        r, g, b = new_buf.get_pixel(x, y)
-                    else:
-                        r, g, b = old_buf.get_pixel(x, y)
-                    if r or g or b:
-                        canvas.SetPixel(x, y, r, g, b)
+            _composite_regions(
+                canvas,
+                outgoing,
+                incoming,
+                lambda x, y: x >= w - boundary,
+                w,
+                h,
+            )
         return canvas
 
 
@@ -230,14 +265,30 @@ class Dissolve:
         self.seed = seed
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        from led_ticker.shadow_canvas import ShadowCanvas, composite_dissolve
+        old_buf = _render_to_shadow(
+            outgoing,
+            canvas.width,
+            getattr(canvas, "height", 16),
+        )
+        if old_buf is None:
+            # Fallback: timed cut
+            if t < 0.5:
+                outgoing.draw(canvas, cursor_pos=0)
+            else:
+                incoming.draw(canvas, cursor_pos=0)
+            return canvas
 
-        w = canvas.width
-        h = getattr(canvas, "height", 16)
-        old_buf = ShadowCanvas(w, h)
-        new_buf = ShadowCanvas(w, h)
-        outgoing.draw(old_buf, cursor_pos=0)
-        incoming.draw(new_buf, cursor_pos=0)
+        from led_ticker.shadow_canvas import composite_dissolve
+
+        w, h = canvas.width, getattr(canvas, "height", 16)
+        new_buf = _render_to_shadow(incoming, w, h)
+        if new_buf is None:
+            if t < 0.5:
+                outgoing.draw(canvas, cursor_pos=0)
+            else:
+                incoming.draw(canvas, cursor_pos=0)
+            return canvas
+
         composite_dissolve(old_buf, new_buf, t, canvas, self.seed)
         return canvas
 
@@ -247,33 +298,26 @@ class SplitHorizontal:
     """Old content splits apart from center, new underneath."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        from led_ticker.shadow_canvas import ShadowCanvas
-
         w = canvas.width
         h = getattr(canvas, "height", 16)
         half = w // 2
         reveal = int(t * half)
 
-        if reveal == 0:
+        if reveal <= 0:
             outgoing.draw(canvas, cursor_pos=0)
         elif t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
         else:
-            old_buf = ShadowCanvas(w, h)
-            new_buf = ShadowCanvas(w, h)
-            outgoing.draw(old_buf, cursor_pos=0)
-            incoming.draw(new_buf, cursor_pos=0)
-
             left = half - reveal
             right = half + reveal
-            for y in range(h):
-                for x in range(w):
-                    if left <= x < right:
-                        r, g, b = new_buf.get_pixel(x, y)
-                    else:
-                        r, g, b = old_buf.get_pixel(x, y)
-                    if r or g or b:
-                        canvas.SetPixel(x, y, r, g, b)
+            _composite_regions(
+                canvas,
+                outgoing,
+                incoming,
+                lambda x, y: left <= x < right,
+                w,
+                h,
+            )
         return canvas
 
 
@@ -282,44 +326,32 @@ class Curtain:
     """Old content slides apart like curtains opening."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        from led_ticker.shadow_canvas import ShadowCanvas
-
         w = canvas.width
         h = getattr(canvas, "height", 16)
         half = w // 2
         offset = int(t * half)
 
-        if offset == 0:
+        if offset <= 0:
             outgoing.draw(canvas, cursor_pos=0)
         elif t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
         else:
-            old_buf = ShadowCanvas(w, h)
-            new_buf = ShadowCanvas(w, h)
-            outgoing.draw(old_buf, cursor_pos=0)
-            incoming.draw(new_buf, cursor_pos=0)
-
-            # Curtain: old slides apart, center reveals new
             left = half - offset
             right = half + offset
-            for y in range(h):
-                for x in range(w):
-                    if left <= x < right:
-                        r, g, b = new_buf.get_pixel(x, y)
-                    else:
-                        r, g, b = old_buf.get_pixel(x, y)
-                    if r or g or b:
-                        canvas.SetPixel(x, y, r, g, b)
+            _composite_regions(
+                canvas,
+                outgoing,
+                incoming,
+                lambda x, y: left <= x < right,
+                w,
+                h,
+            )
         return canvas
 
 
 @register_transition("nyancat")
 class NyanCat:
-    """Nyan Cat flies across the screen trailing a rainbow.
-
-    The cat sprite enters from the left, trails a rainbow behind it,
-    and the new content is revealed in the rainbow's wake.
-    """
+    """Nyan Cat flies across trailing a rainbow."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
         from led_ticker.widgets.nyancat import (
@@ -338,27 +370,14 @@ class NyanCat:
         elif trail_end <= 0:
             outgoing.draw(canvas, cursor_pos=0)
         else:
-            # Pixel-level compositing:
-            # 1) Capture outgoing pixels
-            from led_ticker.shadow_canvas import ShadowCanvas
-
-            old_buf = ShadowCanvas(width, height)
-            new_buf = ShadowCanvas(width, height)
-            outgoing.draw(old_buf, cursor_pos=0)
-            incoming.draw(new_buf, cursor_pos=0)
-
-            # 2) Composite: left of rainbow = incoming,
-            #    right of rainbow = outgoing
-            for y in range(height):
-                for x in range(width):
-                    if x < trail_end:
-                        r, g, b = new_buf.get_pixel(x, y)
-                    else:
-                        r, g, b = old_buf.get_pixel(x, y)
-                    if r or g or b:
-                        canvas.SetPixel(x, y, r, g, b)
-
-            # 3) Draw rainbow + cat on top
+            _composite_regions(
+                canvas,
+                outgoing,
+                incoming,
+                lambda x, y: x < trail_end,
+                width,
+                height,
+            )
             draw_nyan_frame(canvas, t, width=width, height=height)
 
         return canvas

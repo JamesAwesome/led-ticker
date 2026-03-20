@@ -228,8 +228,10 @@ class PushUp:
         # Incoming enters from the bottom
         incoming_y = h + self.GAP - scroll_offset
 
-        # 1. Draw outgoing shifted up
-        outgoing.draw(canvas, cursor_pos=0, y_offset=outgoing_y)
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+
+        # 1. Draw outgoing shifted up (at its scrolled position)
+        outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos, y_offset=outgoing_y)
 
         # 2. Black out rows from boundary downward (incoming zone)
         boundary_row = max(0, min(h, incoming_y))

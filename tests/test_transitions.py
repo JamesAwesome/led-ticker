@@ -205,6 +205,16 @@ class TestPushUp:
         push.frame_at(0.5, canvas, outgoing, incoming)
         assert canvas.SetPixel.call_count > 0
 
+    def test_outgoing_scroll_pos_used(self, canvas, make_widget):
+        """Outgoing should stay at its scrolled position, not reset to 0."""
+        outgoing = make_widget(600)
+        incoming = make_widget(40)
+        push = PushUp()
+        push.frame_at(
+            0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440
+        )
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
+
     def test_returns_canvas(self, canvas, make_widget):
         push = PushUp()
         result = push.frame_at(0.5, canvas, make_widget(40), make_widget(40))

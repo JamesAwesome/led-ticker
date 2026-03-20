@@ -16,6 +16,7 @@ from led_ticker.transition import (
     SplitHorizontal,
     WipeLeft,
     WipeRight,
+    WipeUp,
     ease_in_out,
     ease_out,
     get_transition_class,
@@ -63,6 +64,7 @@ class TestTransitionRegistry:
             "color_flash",
             "wipe_left",
             "wipe_right",
+            "wipe_up",
             "dissolve",
             "split",
             "curtain",
@@ -70,7 +72,7 @@ class TestTransitionRegistry:
         ]
         for name in expected:
             assert name in _TRANSITION_REGISTRY
-        assert len(_TRANSITION_REGISTRY) == 11
+        assert len(_TRANSITION_REGISTRY) == 12
 
     def test_get_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown transition"):
@@ -167,12 +169,13 @@ class TestPushLeft:
 
 
 class TestPushUp:
-    def test_at_zero_shows_outgoing(self, canvas, make_widget):
+    def test_at_zero_shows_outgoing_only(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushUp()
         push.frame_at(0.0, canvas, outgoing, incoming)
         outgoing.draw.assert_called_once()
+        assert outgoing.draw.call_args.kwargs.get("y_offset", 0) == 0
         incoming.draw.assert_not_called()
 
     def test_at_one_shows_incoming(self, canvas, make_widget):
@@ -181,6 +184,26 @@ class TestPushUp:
         push = PushUp()
         push.frame_at(1.0, canvas, outgoing, incoming)
         incoming.draw.assert_called_once()
+
+    def test_midpoint_draws_both_with_y_offset(self, canvas, make_widget):
+        """Both widgets drawn with y_offset at midpoint."""
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushUp()
+        push.frame_at(0.5, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        # Outgoing should have negative y_offset (sliding up)
+        assert outgoing.draw.call_args.kwargs["y_offset"] < 0
+        incoming.draw.assert_called_once()
+        # Incoming should have positive y_offset (entering from below)
+        assert incoming.draw.call_args.kwargs["y_offset"] > 0
+
+    def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushUp()
+        push.frame_at(0.5, canvas, outgoing, incoming)
+        assert canvas.SetPixel.call_count > 0
 
     def test_returns_canvas(self, canvas, make_widget):
         push = PushUp()
@@ -192,21 +215,99 @@ class TestPushUp:
 
 
 class TestPushRight:
-    def test_at_zero_shows_outgoing(self, canvas, make_widget):
+    def test_at_zero_shows_outgoing_only(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushRight()
+        push.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        outgoing.draw.assert_called_once_with(canvas, cursor_pos=0)
+        incoming.draw.assert_not_called()
+
+    def test_at_one_shows_incoming_at_zero(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushRight()
+        push.frame_at(1.0, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        incoming.draw.assert_called_once()
+        assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
+
+    def test_midpoint_draws_both(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushRight()
+        push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        outgoing.draw.assert_called_once()
+        # Outgoing slides right
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] > 0
+        incoming.draw.assert_called_once()
+        # Incoming enters from left (negative cursor_pos)
+        assert incoming.draw.call_args.kwargs["cursor_pos"] < 0
+
+    def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushRight()
+        push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        assert canvas.SetPixel.call_count > 0
+
+    def test_outgoing_scroll_pos_used(self, canvas, make_widget):
+        outgoing = make_widget(600)
+        incoming = make_widget(40)
+        push = PushRight()
+        push.frame_at(
+            0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440
+        )
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
+
+    def test_returns_canvas(self, canvas, make_widget):
+        push = PushRight()
+        result = push.frame_at(
+            0.5, canvas, make_widget(40), make_widget(40)
+        )
+        assert result is canvas
+
+    def test_default_outgoing_scroll_pos_is_zero(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushRight()
         push.frame_at(0.0, canvas, outgoing, incoming)
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == 0
+
+
+# --- WipeUp ---
+
+
+class TestWipeUp:
+    def test_at_zero_shows_outgoing(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wipe = WipeUp()
+        wipe.frame_at(0.0, canvas, outgoing, incoming)
         outgoing.draw.assert_called_once()
         incoming.draw.assert_not_called()
 
     def test_at_one_shows_incoming(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
-        push = PushRight()
-        push.frame_at(1.0, canvas, outgoing, incoming)
+        wipe = WipeUp()
+        wipe.frame_at(1.0, canvas, outgoing, incoming)
         incoming.draw.assert_called_once()
-        assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
+
+    def test_mid_draws_outgoing_with_setpixel(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wipe = WipeUp()
+        wipe.frame_at(0.5, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        incoming.draw.assert_not_called()
+        assert canvas.SetPixel.call_count > 0
+
+    def test_returns_canvas(self, canvas, make_widget):
+        wipe = WipeUp()
+        result = wipe.frame_at(
+            0.5, canvas, make_widget(40), make_widget(40)
+        )
+        assert result is canvas
 
 
 # --- ColorFlash ---

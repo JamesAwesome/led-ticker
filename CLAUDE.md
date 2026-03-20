@@ -54,7 +54,7 @@ src/led_ticker/
 
 **Widget Registry**: `@register("name")` decorator. Config loader uses `get_widget_class(name)`.
 
-**Transition Registry**: `@register_transition("name")` decorator. 11 transitions available.
+**Transition Registry**: `@register_transition("name")` decorator. 12 transitions available.
 
 **Presentation Registry**: `@register_presentation("name")` decorator. 5 text effects available.
 
@@ -86,24 +86,29 @@ These constraints were learned through extensive real-hardware testing:
 
 ### Transition System
 
-All transitions work on real hardware. They fall into two categories:
+All transitions work on real hardware. They fall into three categories:
 
-**Push-based** (cursor_pos manipulation):
-- `push_left` — both contents slide together, old exits left, new enters right
-- `push_right` — reverse of push_left
-- `push_up` — real vertical push using y_offset (text slides up/down)
+**Push-based** (rapid scroll — both contents move together):
+- `push_left` — rapid scroll left: outgoing exits left, incoming enters from right
+- `push_right` — rapid scroll right: outgoing exits right, incoming enters from left
+- `push_up` — rapid scroll up: outgoing exits top, incoming enters from bottom
+
+Push transitions use draw-blackout-draw: draw outgoing at its scroll position, SetPixel-blackout the zone where incoming will appear, then draw incoming. This prevents overlap since DrawText cannot be clipped. They receive `outgoing_scroll_pos` from `_swap_and_scroll` via `run_transition` kwargs so they can continue from where the text stopped scrolling.
+
+**Instant/flash**:
 - `cut` — instant switch
 - `color_flash` — white flash between content
 
-**SetPixel-effect** (draw outgoing, then overlay effects with SetPixel):
+**Wipe-based** (stationary outgoing + sweep line erase):
 - `wipe_left` — stationary outgoing + cyan sweep line erasing left-to-right
 - `wipe_right` — stationary outgoing + cyan sweep line erasing right-to-left
+- `wipe_up` — stationary outgoing + white sweep line erasing top-to-bottom
 - `dissolve` — random pixel scatter (seeded RNG) creates TV static effect
 - `split` — center-outward expanding black band with magenta edge lines
 - `curtain` — top-down row blackout with green sweep line
 - `nyancat` — Nyan Cat sprite flies across with rainbow trail
 
-**How SetPixel-effect transitions work**: Draw outgoing widget at pos=0 (stationary text), then use SetPixel to black out regions and draw colored sweep lines on top. At t=1.0, snap to incoming. This avoids the compositing problem entirely — no need to draw both widgets or read pixels back.
+**How wipe transitions work**: Draw outgoing widget at pos=0 (stationary text), then use SetPixel to black out regions and draw colored sweep lines on top. At t=1.0, snap to incoming. This avoids the compositing problem entirely — no need to draw both widgets or read pixels back.
 
 ### Text Presentation Effects
 
@@ -131,7 +136,7 @@ All transitions work on real hardware. They fall into two categories:
 
 ### Testing
 
-237+ tests, 91% coverage, runs in <1s with no Docker.
+257+ tests, 92% coverage, runs in <1s with no Docker.
 
 - `make test` sets `PYTHONPATH=tests/stubs` automatically
 - Test stubs simulate double-buffering (SwapOnVSync returns different canvas)

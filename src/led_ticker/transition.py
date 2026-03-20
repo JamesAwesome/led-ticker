@@ -156,32 +156,97 @@ class PushLeft:
 
 @register_transition("push_right")
 class PushRight:
-    """Right sweep — outgoing erased right-to-left, then incoming appears."""
+    """Rapid scroll — outgoing slides right, incoming enters from left.
+
+    Mirror of PushLeft.  Uses draw-blackout-draw with the boundary
+    moving rightward: outgoing occupies the right zone, incoming the
+    left zone.
+    """
+
+    GAP = 10
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
         h = getattr(canvas, "height", 16)
-        boundary = int(t * w)
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
-        elif boundary <= 0:
-            outgoing.draw(canvas, cursor_pos=0)
-        else:
-            outgoing.draw(canvas, cursor_pos=0)
+            return canvas
+
+        total_travel = w + self.GAP
+        scroll_offset = int(t * total_travel)
+
+        # Outgoing slides right from its final scroll position
+        outgoing_pos = outgoing_scroll_pos + scroll_offset
+        # Incoming enters from the left edge
+        incoming_pos = -(w + self.GAP) + scroll_offset
+
+        # Boundary between incoming (left) and outgoing (right) zones
+        boundary = min(w, scroll_offset)
+
+        # 1. Draw outgoing (may bleed across canvas for long text)
+        outgoing.draw(canvas, cursor_pos=outgoing_pos)
+
+        # 2. Black out left zone where incoming will appear
+        if boundary > 0:
             for y in range(h):
-                for x in range(w - boundary, w):
+                for x in range(boundary):
                     canvas.SetPixel(x, y, 0, 0, 0)
-            line_x = w - boundary
-            for y in range(h):
-                for dx in range(min(2, line_x)):
-                    canvas.SetPixel(line_x - 1 - dx, y, 255, 255, 255)
+
+        # 3. Draw incoming on the cleared left side
+        if incoming_pos + w > 0:
+            incoming.draw(canvas, cursor_pos=incoming_pos)
+
         return canvas
 
 
 @register_transition("push_up")
 class PushUp:
-    """Top sweep — outgoing erased top-to-bottom, then incoming appears."""
+    """Rapid scroll — outgoing slides up, incoming enters from bottom.
+
+    Vertical version of PushLeft.  Uses y_offset to shift both widgets
+    vertically, with a row-based blackout to prevent overlap.
+    """
+
+    GAP = 4  # vertical gap in pixels (smaller than horizontal)
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+        w = canvas.width
+        h = getattr(canvas, "height", 16)
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+            return canvas
+
+        total_travel = h + self.GAP
+        scroll_offset = int(t * total_travel)
+
+        # Outgoing slides up
+        outgoing_y = -scroll_offset
+        # Incoming enters from the bottom
+        incoming_y = h + self.GAP - scroll_offset
+
+        # 1. Draw outgoing shifted up
+        outgoing.draw(canvas, cursor_pos=0, y_offset=outgoing_y)
+
+        # 2. Black out rows from boundary downward (incoming zone)
+        boundary_row = max(0, min(h, incoming_y))
+        if boundary_row < h:
+            for y in range(boundary_row, h):
+                for x in range(w):
+                    canvas.SetPixel(x, y, 0, 0, 0)
+
+        # 3. Draw incoming on the cleared bottom zone
+        if incoming_y < h:
+            incoming.draw(canvas, cursor_pos=0, y_offset=incoming_y)
+
+        return canvas
+
+
+@register_transition("wipe_up")
+class WipeUp:
+    """Top-down wipe with sweep line."""
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width

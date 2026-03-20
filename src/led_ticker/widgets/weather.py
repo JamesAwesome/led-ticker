@@ -124,7 +124,9 @@ class WeatherWidget:
             )
 
             cursor_pos = draw_weather_icon(
-                canvas, self.weather, int(cursor_pos),
+                canvas,
+                self.weather,
+                int(cursor_pos),
             )
         else:
             cursor_pos += graphics.DrawText(

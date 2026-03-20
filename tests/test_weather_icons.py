@@ -98,11 +98,14 @@ class TestDrawWeatherIcon:
     def test_all_icons_have_pixels(self):
         """Every icon should draw at least one pixel."""
         for condition in [
-            "Sunny", "Partly cloudy", "Cloudy", "Rain",
-            "Snow", "Thundery outbreaks possible", "Fog",
+            "Sunny",
+            "Partly cloudy",
+            "Cloudy",
+            "Rain",
+            "Snow",
+            "Thundery outbreaks possible",
+            "Fog",
         ]:
             canvas = _StubCanvas(width=20, height=16)
             draw_weather_icon(canvas, condition, x=0)
-            assert canvas.count_nonzero() > 0, (
-                f"Icon for '{condition}' drew no pixels"
-            )
+            assert canvas.count_nonzero() > 0, f"Icon for '{condition}' drew no pixels"

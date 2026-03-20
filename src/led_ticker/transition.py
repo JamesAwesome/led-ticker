@@ -239,3 +239,29 @@ class Curtain:
         if t < 1.0:
             outgoing.draw(canvas, cursor_pos=-offset)
         return canvas
+
+
+@register_transition("nyancat")
+class NyanCat:
+    """Nyan Cat flies across the screen trailing a rainbow.
+
+    The cat sprite enters from the left, trails a rainbow behind it,
+    and the new content is revealed in the rainbow's wake.
+    """
+
+    def frame_at(self, t, canvas, outgoing, incoming):
+        from led_ticker.widgets.nyancat import draw_nyan_frame
+
+        # Draw new content as base (will be revealed behind rainbow)
+        incoming.draw(canvas, cursor_pos=0)
+        # Draw old content on top (will be covered by rainbow)
+        if t < 0.85:
+            outgoing.draw(canvas, cursor_pos=0)
+        # Draw rainbow + cat on top of everything
+        draw_nyan_frame(
+            canvas,
+            t,
+            width=canvas.width,
+            height=getattr(canvas, "height", 16),
+        )
+        return canvas

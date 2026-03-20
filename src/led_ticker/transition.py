@@ -104,55 +104,46 @@ class Cut:
 
 @register_transition("push_left")
 class PushLeft:
-    """Old content pushes off left, new enters from right."""
+    """Old content slides off left, new enters from right."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
         w = canvas.width
-        h = getattr(canvas, "height", 16)
-        offset = int(t * w)
-        boundary = w - offset
-        outgoing.draw(canvas, cursor_pos=-offset)
-        if 0 < boundary < w:
-            for y in range(h):
-                for x in range(boundary, w):
-                    canvas.SetPixel(x, y, 0, 0, 0)
-        incoming.draw(canvas, cursor_pos=boundary)
+        if t < 0.5:
+            offset = int(t * 2 * w)
+            outgoing.draw(canvas, cursor_pos=-offset)
+        else:
+            offset = int((1.0 - t) * 2 * w)
+            incoming.draw(canvas, cursor_pos=offset)
         return canvas
 
 
 @register_transition("push_right")
 class PushRight:
-    """Old content pushes off right, new enters from left."""
+    """Old content slides off right, new enters from left."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
         w = canvas.width
-        h = getattr(canvas, "height", 16)
-        offset = int(t * w)
-        boundary = offset
-        incoming.draw(canvas, cursor_pos=-w + offset)
-        if 0 < boundary < w:
-            for y in range(h):
-                for x in range(boundary, w):
-                    canvas.SetPixel(x, y, 0, 0, 0)
-        outgoing.draw(canvas, cursor_pos=offset)
+        if t < 0.5:
+            offset = int(t * 2 * w)
+            outgoing.draw(canvas, cursor_pos=offset)
+        else:
+            offset = int((1.0 - t) * 2 * w)
+            incoming.draw(canvas, cursor_pos=-offset)
         return canvas
 
 
 @register_transition("push_up")
 class PushUp:
-    """Old content pushes up, new enters from bottom."""
+    """Old content slides up, new enters from bottom."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        w = canvas.width
         h = getattr(canvas, "height", 16)
-        offset = int(t * h)
-        boundary = h - offset
-        outgoing.draw(canvas, cursor_pos=0, y_offset=-offset)
-        if 0 < boundary < h:
-            for y in range(boundary, h):
-                for x in range(w):
-                    canvas.SetPixel(x, y, 0, 0, 0)
-        incoming.draw(canvas, cursor_pos=0, y_offset=h - offset)
+        if t < 0.5:
+            offset = int(t * 2 * h)
+            outgoing.draw(canvas, cursor_pos=0, y_offset=-offset)
+        else:
+            offset = int((1.0 - t) * 2 * h)
+            incoming.draw(canvas, cursor_pos=0, y_offset=offset)
         return canvas
 
 

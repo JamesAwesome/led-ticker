@@ -13,14 +13,14 @@ delay = 5
 default = "push_left"
 duration = 0.5
 easing = "ease_out"
-between_sections = "dissolve"
+between_sections = "nyancat"
 
 # --- Messages ---
 
 [[playlist.section]]
 mode = "swap"
 transition = "nyancat"
-loop_count = 1
+loop_count = 3
 
 [playlist.section.title]
 type = "message"
@@ -40,7 +40,7 @@ text = "Always be your bunny best!"
 [[playlist.section]]
 mode = "swap"
 transition = "wipe_left"
-loop_count = 1
+loop_count = 3
 
 [playlist.section.title]
 type = "message"
@@ -49,31 +49,31 @@ color = "random"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "NYC"
+message = "New York"
 location = "New York"
 units = "imperial"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "PHL"
+message = "Philadelphia"
 location = "Philadelphia"
 units = "imperial"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "MKE"
+message = "Milwaukee"
 location = "Milwaukee"
 units = "imperial"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "MSP"
+message = "Minneapolis"
 location = "Minneapolis"
 units = "imperial"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "DC"
+message = "Washington DC"
 location = "Washington DC"
 units = "imperial"
 
@@ -82,7 +82,7 @@ units = "imperial"
 [[playlist.section]]
 mode = "swap"
 transition = "color_flash"
-loop_count = 1
+loop_count = 3
 
 [playlist.section.title]
 type = "message"
@@ -98,8 +98,8 @@ countdown_date = 2026-06-20
 
 [[playlist.section]]
 mode = "swap"
-transition = "curtain"
-loop_count = 1
+transition = "push_up"
+loop_count = 3
 
 [playlist.section.title]
 type = "message"

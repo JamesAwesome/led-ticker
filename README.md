@@ -56,18 +56,19 @@ feed_url = "https://www.nintendolife.com/feeds/news"
 
 Set transitions per-section or globally in `[transitions]`:
 
-| Transition | Effect |
-|------------|--------|
-| `cut` | Instant switch (default) |
-| `push_left` | New content pushes old off to the left |
-| `push_right` | New content pushes old off to the right |
-| `wipe_left` | New content sweeps in from right |
-| `wipe_right` | New content sweeps in from left |
-| `color_flash` | Brief white flash between widgets |
-| `dissolve` | Cross-fade at midpoint |
-| `split` | Old content splits apart from center |
-| `curtain` | Old content slides left like a curtain |
-| `nyancat` | Nyan Cat flies across trailing a rainbow |
+| Transition | Effect | Best for |
+|------------|--------|----------|
+| `cut` | Instant switch, no animation. The old widget disappears and the new one appears immediately. | Default. Fast data displays. |
+| `push_left` | Old and new content move together like a conveyor belt — old slides off the left edge while new enters from the right. Both are visible simultaneously during the animation. | General purpose. The most natural-feeling transition. |
+| `push_right` | Same as push_left but reversed — old exits right, new enters from left. | Variety. Going "back" in a sequence. |
+| `push_up` | Timed vertical cut (true vertical push requires pixel-level rendering). Old content is replaced by new at the midpoint. | Quick section changes. |
+| `wipe_left` | New content sweeps across from right to left, replacing old content as it goes. Similar to push_left but the content doesn't slide — the boundary moves across stationary content. | Clean, professional look. |
+| `wipe_right` | Same as wipe_left but the boundary moves left to right. | Variety. |
+| `color_flash` | Three phases: old content is shown, then the entire display flashes bright white, then new content appears. Inspired by sports scoreboard score updates. | Alerts, countdowns, score changes. |
+| `dissolve` | Clean crossfade — old content is shown for the first half, then new content for the second half. | Ambient content. Between sections. |
+| `split` | Old content splits apart from the center — the left half slides left, the right half slides right, revealing new content underneath. Like opening a book. | Dramatic reveals. Titles. |
+| `curtain` | Old content slides off to the left like a theater curtain opening, revealing new content behind it. | Headlines. Theatrical effect. |
+| `nyancat` | A pixel-art Nyan Cat (pop-tart cat) flies across the screen from left to right, trailing a 6-color rainbow. The rainbow wipes away old content and reveals new content in its wake. Best with duration 1.5-2.0s. | Fun. Easter eggs. Showing off your LED sign. |
 
 ```toml
 [transitions]

@@ -48,8 +48,13 @@ class CoinbasePriceMonitor:
 
     @classmethod
     async def start(
-        cls, symbol, currency, session,
-        update_interval=300, center=True, **kwargs,
+        cls,
+        symbol,
+        currency,
+        session,
+        update_interval=300,
+        center=True,
+        **kwargs,
     ):
         widget = cls(symbol=symbol, currency=currency, session=session, center=center)
         await widget.update()
@@ -86,23 +91,38 @@ class CoinbasePriceMonitor:
         change_str = f"{self.change_24h:.2f}%"
         price_str = f"{self.price:.4f}"
         return _draw_price_ticker(
-            canvas, self.symbol, price_str, change_str,
-            cursor_pos=cursor_pos, center=self.center,
-            padding=self.padding, end_padding=self.padding,
+            canvas,
+            self.symbol,
+            price_str,
+            change_str,
+            cursor_pos=cursor_pos,
+            center=self.center,
+            padding=self.padding,
+            end_padding=self.padding,
         )
 
 
-def _draw_price_ticker(canvas, symbol, price_str, change_str,
-                       cursor_pos=0, center=True, padding=6, end_padding=6):
+def _draw_price_ticker(
+    canvas,
+    symbol,
+    price_str,
+    change_str,
+    cursor_pos=0,
+    center=True,
+    padding=6,
+    end_padding=6,
+):
     graphics = require_graphics()
     change_color = _get_change_color(change_str)
     font_price = _get_price_font(price_str)
 
-    content_width = sum([
-        get_text_width(FONT_LABEL, symbol),
-        get_text_width(font_price, price_str),
-        get_text_width(FONT_DELTA, change_str, padding=0),
-    ])
+    content_width = sum(
+        [
+            get_text_width(FONT_LABEL, symbol),
+            get_text_width(font_price, price_str),
+            get_text_width(FONT_DELTA, change_str, padding=0),
+        ]
+    )
 
     cursor_pos, end_padding = compute_cursor(
         canvas.width, content_width, cursor_pos, end_padding, center

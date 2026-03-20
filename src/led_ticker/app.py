@@ -141,7 +141,8 @@ def main():
 
     parser = argparse.ArgumentParser(description="LED Ticker Display")
     parser.add_argument(
-        "--config", "-c",
+        "--config",
+        "-c",
         type=Path,
         default=Path("config.toml"),
         help="Path to TOML configuration file (default: config.toml)",

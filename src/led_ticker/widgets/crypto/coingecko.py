@@ -32,12 +32,19 @@ class CoinGeckoPriceMonitor:
 
     @classmethod
     async def start(
-        cls, symbol, symbol_id, currency, session,
-        update_interval=300, **kwargs,
+        cls,
+        symbol,
+        symbol_id,
+        currency,
+        session,
+        update_interval=300,
+        **kwargs,
     ):
         widget = cls(
-            symbol=symbol, symbol_id=symbol_id,
-            currency=currency, session=session,
+            symbol=symbol,
+            symbol_id=symbol_id,
+            currency=currency,
+            session=session,
         )
         await widget.update()
         asyncio.create_task(run_monitor_loop(widget, update_interval))
@@ -60,20 +67,21 @@ class CoinGeckoPriceMonitor:
                     price = f"{data[cur]:,.4f}"
                     change_24h = f"{data[cur_change]:.2f}%"
                 except (KeyError, TypeError):
-                    logging.warning(
-                        "API data not complete for %s: %s", coin_id, data
-                    )
+                    logging.warning("API data not complete for %s: %s", coin_id, data)
                     continue
 
                 self.price_data = {"price": price, "change_24h": change_24h}
 
     def draw(self, canvas, cursor_pos=0, **kwargs):
         return _draw_price_ticker(
-            canvas, self.symbol,
+            canvas,
+            self.symbol,
             self.price_data["price"],
             self.price_data["change_24h"],
-            cursor_pos=cursor_pos, center=self.center,
-            padding=self.padding, end_padding=self.padding,
+            cursor_pos=cursor_pos,
+            center=self.center,
+            padding=self.padding,
+            end_padding=self.padding,
         )
 
 

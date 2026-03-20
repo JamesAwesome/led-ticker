@@ -34,7 +34,9 @@ def mock_session():
 
 class TestRSSFeedMonitor:
     async def test_update_parses_feed(self, mock_session):
-        monitor = RSSFeedMonitor(session=mock_session, feed_url="http://example.com/rss")
+        monitor = RSSFeedMonitor(
+            session=mock_session, feed_url="http://example.com/rss"
+        )
         await monitor.update()
 
         assert isinstance(monitor.feed_title, TickerMessage)
@@ -50,7 +52,9 @@ class TestRSSFeedMonitor:
         assert len(monitor.feed_stories) == 2
 
     async def test_stories_are_ticker_messages(self, mock_session):
-        monitor = RSSFeedMonitor(session=mock_session, feed_url="http://example.com/rss")
+        monitor = RSSFeedMonitor(
+            session=mock_session, feed_url="http://example.com/rss"
+        )
         await monitor.update()
         for story in monitor.feed_stories:
             assert isinstance(story, TickerMessage)

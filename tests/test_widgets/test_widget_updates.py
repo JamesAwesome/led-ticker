@@ -24,26 +24,32 @@ def _make_session(json_response=None, text_response=None):
     session.get.return_value = ctx
     return session
 
+
 # --- Weather ---
+
 
 class TestWeatherUpdate:
     async def test_update_parses_weather(self):
-        session = _make_session(json_response={
-            "current": {"temp": 72, "weather": [{"main": "Clear"}]}
-        })
+        session = _make_session(
+            json_response={"current": {"temp": 72, "weather": [{"main": "Clear"}]}}
+        )
         w = WeatherWidget(
-            session=session, location=LocationData(40.7, -74.0), message="NYC",
+            session=session,
+            location=LocationData(40.7, -74.0),
+            message="NYC",
         )
         await w.update()
         assert w.current_temp == 72
         assert w.weather == "Clear"
 
     async def test_update_truncates_fractional_temp(self):
-        session = _make_session(json_response={
-            "current": {"temp": 72.9, "weather": [{"main": "Rain"}]}
-        })
+        session = _make_session(
+            json_response={"current": {"temp": 72.9, "weather": [{"main": "Rain"}]}}
+        )
         w = WeatherWidget(
-            session=session, location=LocationData(0, 0), message="T",
+            session=session,
+            location=LocationData(0, 0),
+            message="T",
         )
         await w.update()
         assert w.current_temp == 72  # int() truncates
@@ -51,17 +57,21 @@ class TestWeatherUpdate:
     async def test_update_raises_on_missing_current(self):
         session = _make_session(json_response={"hourly": []})
         w = WeatherWidget(
-            session=session, location=LocationData(0, 0), message="T",
+            session=session,
+            location=LocationData(0, 0),
+            message="T",
         )
         with pytest.raises(KeyError):
             await w.update()
 
     async def test_start_returns_initialized_widget(self):
-        session = _make_session(json_response={
-            "current": {"temp": 72, "weather": [{"main": "Clear"}]}
-        })
+        session = _make_session(
+            json_response={"current": {"temp": 72, "weather": [{"main": "Clear"}]}}
+        )
         widget = await WeatherWidget.start(
-            session=session, location=LocationData(40.7, -74.0), message="NYC",
+            session=session,
+            location=LocationData(40.7, -74.0),
+            message="NYC",
         )
         assert isinstance(widget, WeatherWidget)
         assert widget.current_temp == 72
@@ -89,7 +99,8 @@ class TestRSSFeedUpdate:
     async def test_start_returns_widget(self):
         session = _make_session(text_response=SAMPLE_RSS)
         widget = await RSSFeedMonitor.start(
-            session=session, feed_url="http://example.com/rss",
+            session=session,
+            feed_url="http://example.com/rss",
         )
         assert isinstance(widget, RSSFeedMonitor)
         assert widget.feed_title.message == "Test"
@@ -103,6 +114,7 @@ class TestRSSFeedUpdate:
 
 
 # --- Coinbase ---
+
 
 class TestCoinbaseUpdate:
     def _make_session(self, spot="50000.00", yesterday="48000.00"):
@@ -148,7 +160,9 @@ class TestCoinbaseUpdate:
     async def test_start_returns_widget(self):
         session = self._make_session()
         widget = await CoinbasePriceMonitor.start(
-            symbol="BTC", currency="USD", session=session,
+            symbol="BTC",
+            currency="USD",
+            session=session,
         )
         assert isinstance(widget, CoinbasePriceMonitor)
         assert widget.price == 50000.0
@@ -157,20 +171,27 @@ class TestCoinbaseUpdate:
         """start() should not crash on extra config keys."""
         session = self._make_session()
         widget = await CoinbasePriceMonitor.start(
-            symbol="BTC", currency="USD", session=session, padding=3,
+            symbol="BTC",
+            currency="USD",
+            session=session,
+            padding=3,
         )
         assert widget is not None
 
 
 # --- CoinGecko ---
 
+
 class TestCoinGeckoUpdate:
     async def test_update_parses_price(self):
-        session = _make_session(json_response={
-            "bitcoin": {"usd": 50000.0, "usd_24h_change": 2.55}
-        })
+        session = _make_session(
+            json_response={"bitcoin": {"usd": 50000.0, "usd_24h_change": 2.55}}
+        )
         m = CoinGeckoPriceMonitor(
-            symbol="BTC", symbol_id="bitcoin", currency="USD", session=session,
+            symbol="BTC",
+            symbol_id="bitcoin",
+            currency="USD",
+            session=session,
         )
         await m.update()
         assert m.price_data["price"] == "50,000.0000"
@@ -179,7 +200,9 @@ class TestCoinGeckoUpdate:
     async def test_draw_with_default_price_data(self, canvas):
         """Default price_data has safe fallback values."""
         m = CoinGeckoPriceMonitor(
-            symbol="BTC", symbol_id="bitcoin", currency="USD",
+            symbol="BTC",
+            symbol_id="bitcoin",
+            currency="USD",
             session=mock.Mock(),
         )
         # Should not crash with default values
@@ -189,65 +212,86 @@ class TestCoinGeckoUpdate:
     async def test_update_incomplete_data_keeps_defaults(self):
         session = _make_session(json_response={"bitcoin": {}})
         m = CoinGeckoPriceMonitor(
-            symbol="BTC", symbol_id="bitcoin", currency="USD", session=session,
+            symbol="BTC",
+            symbol_id="bitcoin",
+            currency="USD",
+            session=session,
         )
         await m.update()
         # Should still have safe defaults
         assert "price" in m.price_data
 
     async def test_start_returns_widget(self):
-        session = _make_session(json_response={
-            "bitcoin": {"usd": 50000.0, "usd_24h_change": 2.55}
-        })
+        session = _make_session(
+            json_response={"bitcoin": {"usd": 50000.0, "usd_24h_change": 2.55}}
+        )
         widget = await CoinGeckoPriceMonitor.start(
-            symbol="BTC", symbol_id="bitcoin", currency="USD", session=session,
+            symbol="BTC",
+            symbol_id="bitcoin",
+            currency="USD",
+            session=session,
         )
         assert isinstance(widget, CoinGeckoPriceMonitor)
 
 
 # --- Etherscan ---
 
+
 class TestEtherscanUpdate:
     async def test_update_parses_gas_prices(self):
-        session = _make_session(json_response={
-            "result": {
-                "SafeGasPrice": "20", "ProposeGasPrice": "45",
-                "FastGasPrice": "80",
+        session = _make_session(
+            json_response={
+                "result": {
+                    "SafeGasPrice": "20",
+                    "ProposeGasPrice": "45",
+                    "FastGasPrice": "80",
+                }
             }
-        })
+        )
         m = EtherscanGasMonitor(session=session, api_key="key")
         await m.update()
         assert m.price_data == {"Low": "20", "Avg": "45", "High": "80"}
 
     async def test_update_error_response_raises(self):
         """Was TypeError before fix — Etherscan returns string result on error."""
-        session = _make_session(json_response={
-            "status": "0", "message": "NOTOK",
-            "result": "Max rate limit reached",
-        })
+        session = _make_session(
+            json_response={
+                "status": "0",
+                "message": "NOTOK",
+                "result": "Max rate limit reached",
+            }
+        )
         m = EtherscanGasMonitor(session=session, api_key="key")
         with pytest.raises(ValueError, match="Etherscan API error"):
             await m.update()
 
     async def test_start_returns_widget(self):
-        session = _make_session(json_response={
-            "result": {
-                "SafeGasPrice": "20", "ProposeGasPrice": "45",
-                "FastGasPrice": "80",
+        session = _make_session(
+            json_response={
+                "result": {
+                    "SafeGasPrice": "20",
+                    "ProposeGasPrice": "45",
+                    "FastGasPrice": "80",
+                }
             }
-        })
+        )
         widget = await EtherscanGasMonitor.start(session=session, api_key="key")
         assert isinstance(widget, EtherscanGasMonitor)
         assert widget.price_data["Low"] == "20"
 
     async def test_start_accepts_extra_kwargs(self):
-        session = _make_session(json_response={
-            "result": {
-                "SafeGasPrice": "20", "ProposeGasPrice": "45",
-                "FastGasPrice": "80",
+        session = _make_session(
+            json_response={
+                "result": {
+                    "SafeGasPrice": "20",
+                    "ProposeGasPrice": "45",
+                    "FastGasPrice": "80",
+                }
             }
-        })
+        )
         widget = await EtherscanGasMonitor.start(
-            session=session, api_key="key", extra_param="ignored",
+            session=session,
+            api_key="key",
+            extra_param="ignored",
         )
         assert widget is not None

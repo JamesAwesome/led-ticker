@@ -62,9 +62,7 @@ class TestTickerMessage:
 
 class TestTickerCountdown:
     def test_conforms_to_widget_protocol(self):
-        cd = TickerCountdown(
-            message="Test", countdown_date=date(2030, 1, 1)
-        )
+        cd = TickerCountdown(message="Test", countdown_date=date(2030, 1, 1))
         assert isinstance(cd, Widget)
 
     def test_draw_shows_days(self, canvas):

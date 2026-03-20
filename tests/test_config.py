@@ -1,6 +1,5 @@
 """Tests for led_ticker.config."""
 
-
 import pytest
 
 from led_ticker.config import load_config

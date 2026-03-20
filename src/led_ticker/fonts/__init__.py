@@ -17,7 +17,7 @@ def _load_font(filename):
 # Generic font names (replacing crypto-specific FONT_PRICE, FONT_SYMBOL, etc.)
 FONT_DEFAULT = _load_font("6x12.bdf")
 FONT_SMALL = _load_font("5x8.bdf")
-FONT_LABEL = _load_font("7x13.bdf")       # was FONT_SYMBOL
-FONT_VALUE = _load_font("6x12.bdf")       # was FONT_PRICE
+FONT_LABEL = _load_font("7x13.bdf")  # was FONT_SYMBOL
+FONT_VALUE = _load_font("6x12.bdf")  # was FONT_PRICE
 FONT_VALUE_SMALL = _load_font("5x8.bdf")  # was FONT_PRICE_SMALL
-FONT_DELTA = _load_font("6x10.bdf")       # was FONT_CHANGE
+FONT_DELTA = _load_font("6x10.bdf")  # was FONT_CHANGE

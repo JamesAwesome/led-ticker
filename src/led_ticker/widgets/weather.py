@@ -71,7 +71,8 @@ class WeatherWidget:
     async def update(self):
         logging.info("Updating weather for: %s", self.location)
         async with self.session.get(
-            OPENWEATHERMAP_URL, params=self.weather_params,
+            OPENWEATHERMAP_URL,
+            params=self.weather_params,
         ) as response:
             res_json = await response.json()
             self.current = res_json
@@ -82,8 +83,7 @@ class WeatherWidget:
         graphics = require_graphics()
 
         full_text = (
-            f"{self.message}: {self.weather} "
-            f"{self.current_temp}{self.unit_symbol}"
+            f"{self.message}: {self.weather} {self.current_temp}{self.unit_symbol}"
         )
         content_width = get_text_width(self.font, full_text, padding=0)
         cursor_pos, end_padding = compute_cursor(
@@ -94,7 +94,11 @@ class WeatherWidget:
             canvas, self.font, cursor_pos, 12, self.font_color, f"{self.message}: "
         )
         cursor_pos += graphics.DrawText(
-            canvas, self.font, cursor_pos, 12, self.font_color_temp,
+            canvas,
+            self.font,
+            cursor_pos,
+            12,
+            self.font_color_temp,
             f"{self.weather} {self.current_temp}{self.unit_symbol}",
         )
         cursor_pos += end_padding

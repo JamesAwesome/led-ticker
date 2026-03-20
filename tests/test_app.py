@@ -108,9 +108,7 @@ class TestExampleConfigWidgets:
         """Load config.example.toml and build every widget."""
         from led_ticker.config import load_config
 
-        config_path = (
-            Path(__file__).resolve().parent.parent / "config.example.toml"
-        )
+        config_path = Path(__file__).resolve().parent.parent / "config.example.toml"
         if not config_path.exists():
             pytest.skip("config.example.toml not found")
 
@@ -128,8 +126,13 @@ class TestExampleConfigWidgets:
                 widget_type = cfg.get("type")
 
                 # Skip widgets that need network (rss_feed, weather, crypto)
-                if widget_type in ("rss_feed", "weather", "coinbase",
-                                   "coingecko", "etherscan"):
+                if widget_type in (
+                    "rss_feed",
+                    "weather",
+                    "coinbase",
+                    "coingecko",
+                    "etherscan",
+                ):
                     continue
 
                 widget = await _build_widget(cfg, session=mock.Mock())

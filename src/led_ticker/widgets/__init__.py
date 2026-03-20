@@ -7,9 +7,11 @@ _WIDGET_REGISTRY: dict[str, type] = {}
 
 def register(name: str):
     """Decorator to register a widget class by config name."""
+
     def decorator(cls):
         _WIDGET_REGISTRY[name] = cls
         return cls
+
     return decorator
 
 
@@ -17,8 +19,7 @@ def get_widget_class(name: str) -> type:
     """Look up a widget class by its config name."""
     if name not in _WIDGET_REGISTRY:
         raise ValueError(
-            f"Unknown widget type: {name!r}. "
-            f"Available: {list(_WIDGET_REGISTRY.keys())}"
+            f"Unknown widget type: {name!r}. Available: {list(_WIDGET_REGISTRY.keys())}"
         )
     return _WIDGET_REGISTRY[name]
 

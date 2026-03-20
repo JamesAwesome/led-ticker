@@ -24,10 +24,12 @@ ORANGE = _color(255, 215, 0)
 BROWN = _color(139, 69, 19)
 PURPLE = _color(221, 160, 221)
 
-RANDOM_COLOR = itertools.cycle([
-    PURPLE,
-    LIME,
-    ORANGE,
-    UP_TREND_COLOR,
-    DOWN_TREND_COLOR,
-])
+RANDOM_COLOR = itertools.cycle(
+    [
+        PURPLE,
+        LIME,
+        ORANGE,
+        UP_TREND_COLOR,
+        DOWN_TREND_COLOR,
+    ]
+)

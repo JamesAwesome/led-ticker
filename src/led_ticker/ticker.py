@@ -34,8 +34,15 @@ class Ticker:
     transition_config: object = None
 
     @classmethod
-    def from_rss_feed(cls, feed_monitor, frame, custom_title=None,
-                      title_delay=4, buffer_msg=None, notif_queue=None):
+    def from_rss_feed(
+        cls,
+        feed_monitor,
+        frame,
+        custom_title=None,
+        title_delay=4,
+        buffer_msg=None,
+        notif_queue=None,
+    ):
         title = custom_title if custom_title else feed_monitor.feed_title
         if buffer_msg is None:
             buffer_msg = DEFAULT_BUFFER_MSG
@@ -54,13 +61,19 @@ class Ticker:
         canvas = self.frame.get_clean_canvas()
         title = self.title if self.title else None
 
-        asyncio.create_task(_build_then_enqueue(
-            self.monitors, self.notif_queue,
-            title=title, loop_count=loop_count,
-        ))
+        asyncio.create_task(
+            _build_then_enqueue(
+                self.monitors,
+                self.notif_queue,
+                title=title,
+                loop_count=loop_count,
+            )
+        )
 
         await _run_swap(
-            canvas, self.frame, self.notif_queue,
+            canvas,
+            self.frame,
+            self.notif_queue,
             delay=self.title_delay,
             transition=self.transition_config,
         )
@@ -72,13 +85,19 @@ class Ticker:
         title = self.title if self.title else None
         cursor_pos = start_pos if start_pos is not None else canvas.width
 
-        asyncio.create_task(_build_then_enqueue(
-            self.monitors, self.notif_queue,
-            title=title, loop_count=loop_count,
-        ))
+        asyncio.create_task(
+            _build_then_enqueue(
+                self.monitors,
+                self.notif_queue,
+                title=title,
+                loop_count=loop_count,
+            )
+        )
 
         await _scroll_side_by_side(
-            canvas, self.frame, self.notif_queue,
+            canvas,
+            self.frame,
+            self.notif_queue,
             delay=self.title_delay,
             buffer_message=self.buffer_msg,
             cursor_pos=cursor_pos,
@@ -90,20 +109,28 @@ class Ticker:
         canvas = self.frame.get_clean_canvas()
         title = self.title if self.title else None
 
-        asyncio.create_task(_build_then_enqueue(
-            self.monitors, self.notif_queue,
-            title=title, loop_count=loop_count,
-        ))
+        asyncio.create_task(
+            _build_then_enqueue(
+                self.monitors,
+                self.notif_queue,
+                title=title,
+                loop_count=loop_count,
+            )
+        )
 
         cursor_pos = start_pos if start_pos is not None else canvas.width
 
         await _scroll_one_by_one(
-            canvas, self.frame, self.notif_queue,
-            cursor_pos=cursor_pos, delay=self.title_delay,
+            canvas,
+            self.frame,
+            self.notif_queue,
+            cursor_pos=cursor_pos,
+            delay=self.title_delay,
         )
 
 
 # --- Queue builders ---
+
 
 def _build_ticker_iter(ticker_objects, title=None, loop_count=0):
     if loop_count:
@@ -134,15 +161,23 @@ async def _build_then_enqueue(ticker_objects, notif_queue, title=None, loop_coun
 async def _enqueue_from_rss_feed(feed, notif_queue, custom_title=None, loop_count=None):
     title = custom_title if custom_title else feed.feed_title
     ticker_iter = _build_ticker_iter(
-        feed.feed_stories, title=title, loop_count=loop_count,
+        feed.feed_stories,
+        title=title,
+        loop_count=loop_count,
     )
     await _enqueue_ticker_objects(ticker_iter, notif_queue)
 
 
 # --- Display modes ---
 
+
 async def _scroll_and_delay(
-    canvas, frame, ticker_obj, delay, cursor_pos=0, scroll_speed=0.05,
+    canvas,
+    frame,
+    ticker_obj,
+    delay,
+    cursor_pos=0,
+    scroll_speed=0.05,
 ):
     logging.info("Running _scroll_and_delay ...")
     canvas.Clear()
@@ -162,14 +197,23 @@ async def _scroll_and_delay(
 
 
 async def _scroll_one_by_one(
-    canvas, frame, notif_queue, delay=0, cursor_pos=0, scroll_speed=0.05,
+    canvas,
+    frame,
+    notif_queue,
+    delay=0,
+    cursor_pos=0,
+    scroll_speed=0.05,
 ):
     ticker_object = await notif_queue.get()
     pos = cursor_pos
 
     if delay:
         canvas, cursor_pos = await _scroll_and_delay(
-            canvas, frame, ticker_object, delay, cursor_pos=pos,
+            canvas,
+            frame,
+            ticker_object,
+            delay,
+            cursor_pos=pos,
         )
         logging.info("Returned to _scroll_one_by_one ...")
         pos = 0
@@ -193,8 +237,15 @@ async def _scroll_one_by_one(
     frame.matrix.SwapOnVSync(canvas)
 
 
-async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None,
-                               delay=0, cursor_pos=0, scroll_speed=0.05):
+async def _scroll_side_by_side(
+    canvas,
+    frame,
+    notif_queue,
+    buffer_message=None,
+    delay=0,
+    cursor_pos=0,
+    scroll_speed=0.05,
+):
     logging.info("Running _scroll_side_by_side ...")
     buffered_objects = []
     next_monitor = await notif_queue.get()
@@ -204,7 +255,11 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None,
 
     if delay:
         canvas, cursor_pos = await _scroll_and_delay(
-            canvas, frame, next_monitor, delay, cursor_pos=pos,
+            canvas,
+            frame,
+            next_monitor,
+            delay,
+            cursor_pos=pos,
         )
         logging.info("Returned to _scroll_side_by_side ...")
         pos = 0
@@ -223,7 +278,8 @@ async def _scroll_side_by_side(canvas, frame, notif_queue, buffer_message=None,
 
             if _has_index(mon_index, buffered_objects):
                 canvas, cursor_pos = buffered_objects[mon_index].draw(
-                    canvas, cursor_pos=cursor_pos,
+                    canvas,
+                    cursor_pos=cursor_pos,
                 )
             elif not queue_empty:
                 try:
@@ -263,7 +319,10 @@ async def _run_swap(canvas, frame, notif_queue, delay=5, transition=None):
 
             if transition is not None:
                 await run_transition(
-                    canvas, frame, prev_object, ticker_object,
+                    canvas,
+                    frame,
+                    prev_object,
+                    ticker_object,
                     transition=transition.transition_obj,
                     duration=transition.duration,
                     easing=transition.easing,

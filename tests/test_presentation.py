@@ -33,8 +33,7 @@ def msg_widget():
 
 class TestPresentationRegistry:
     def test_all_modes_registered(self):
-        for name in ["typewriter", "color_cycle", "rainbow",
-                      "pulse", "bounce"]:
+        for name in ["typewriter", "color_cycle", "rainbow", "pulse", "bounce"]:
             assert name in _PRESENTATION_REGISTRY
 
     def test_get_unknown_raises(self):

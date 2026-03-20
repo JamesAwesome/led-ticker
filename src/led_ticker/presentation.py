@@ -17,6 +17,7 @@ def register_presentation(name: str):
     def decorator(cls):
         _PRESENTATION_REGISTRY[name] = cls
         return cls
+
     return decorator
 
 
@@ -42,13 +43,18 @@ class WidgetPresenter:
 
     def draw(self, canvas, cursor_pos=0, **kwargs):
         result = self.mode.draw(
-            self.widget, canvas, cursor_pos, self.frame_count, **kwargs,
+            self.widget,
+            canvas,
+            cursor_pos,
+            self.frame_count,
+            **kwargs,
         )
         self.frame_count += 1
         return result
 
 
 # --- Built-in presentation modes ---
+
 
 @register_presentation("typewriter")
 class Typewriter:
@@ -75,12 +81,20 @@ class Typewriter:
 
         content_width = get_text_width(widget.font, full_text, padding=0)
         pos, end_padding = compute_cursor(
-            canvas.width, content_width, cursor_pos,
-            widget.padding, widget.center,
+            canvas.width,
+            content_width,
+            cursor_pos,
+            widget.padding,
+            widget.center,
         )
 
         pos += graphics.DrawText(
-            canvas, widget.font, pos, 12, font_color, visible_text,
+            canvas,
+            widget.font,
+            pos,
+            12,
+            font_color,
+            visible_text,
         )
         pos += end_padding
 
@@ -123,8 +137,11 @@ class Rainbow:
         full_text = widget.message
         content_width = get_text_width(widget.font, full_text, padding=0)
         pos, end_padding = compute_cursor(
-            canvas.width, content_width, cursor_pos,
-            widget.padding, widget.center,
+            canvas.width,
+            content_width,
+            cursor_pos,
+            widget.padding,
+            widget.center,
         )
 
         phase = frame * self.speed
@@ -132,10 +149,17 @@ class Rainbow:
             hue = ((phase + i * self.char_offset) % 360) / 360
             r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
             color = graphics.Color(
-                int(r * 255), int(g * 255), int(b * 255),
+                int(r * 255),
+                int(g * 255),
+                int(b * 255),
             )
             pos += graphics.DrawText(
-                canvas, widget.font, pos, 12, color, char,
+                canvas,
+                widget.font,
+                pos,
+                12,
+                color,
+                char,
             )
 
         pos += end_padding
@@ -184,7 +208,9 @@ class Bounce:
         text_width = 0
         if hasattr(widget, "message") and isinstance(widget.message, str):
             text_width = get_text_width(
-                widget.font, widget.message, padding=0,
+                widget.font,
+                widget.message,
+                padding=0,
             )
         center_x = max(0, (width - text_width) // 2)
         sf = self.scroll_frames

@@ -30,9 +30,8 @@ def test_font_value_matches_default():
 
 def test_font_value_small_matches_small():
     # Both use 5x8.bdf
-    assert (
-        FONT_VALUE_SMALL.CharacterWidth(ord("X"))
-        == FONT_SMALL.CharacterWidth(ord("X"))
+    assert FONT_VALUE_SMALL.CharacterWidth(ord("X")) == FONT_SMALL.CharacterWidth(
+        ord("X")
     )
 
 

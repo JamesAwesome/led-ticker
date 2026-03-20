@@ -42,6 +42,7 @@ async def run_monitor_loop(
     """
     if splay:
         from random import randint
+
         interval += randint(0, 60)
 
     while True:

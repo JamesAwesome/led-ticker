@@ -32,12 +32,15 @@ def mock_frame(canvas):
 @pytest.fixture
 def make_widget():
     """Factory for mock widgets with configurable draw width."""
+
     def _factory(content_width=40):
         widget = mock.Mock()
         widget.draw.side_effect = lambda c, cursor_pos=0, **kw: (
-            c, cursor_pos + content_width
+            c,
+            cursor_pos + content_width,
         )
         return widget
+
     return _factory
 
 

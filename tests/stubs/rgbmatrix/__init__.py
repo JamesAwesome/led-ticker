@@ -52,9 +52,7 @@ class _StubCanvas:
 
     def count_nonzero(self):
         """Count pixels that are not black."""
-        return sum(
-            1 for v in self._pixels.values() if v != (0, 0, 0)
-        )
+        return sum(1 for v in self._pixels.values() if v != (0, 0, 0))
 
 
 class RGBMatrix:

@@ -49,13 +49,16 @@ class AppConfig:
 
 
 def _parse_transition(
-    raw: dict | str | None, default: TransitionConfig,
+    raw: dict | str | None,
+    default: TransitionConfig,
 ) -> TransitionConfig:
     if raw is None:
         return default
     if isinstance(raw, str):
         return TransitionConfig(
-            type=raw, duration=default.duration, easing=default.easing,
+            type=raw,
+            duration=default.duration,
+            easing=default.easing,
         )
     return TransitionConfig(
         type=raw.get("type", default.type),

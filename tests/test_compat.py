@@ -27,6 +27,7 @@ def test_graphics_color():
 
 def test_graphics_font_loads_bdf():
     import os
+
     font = graphics.Font()
     font_dir = os.path.join(
         os.path.dirname(__file__), "..", "src", "led_ticker", "fonts"
@@ -39,6 +40,7 @@ def test_graphics_font_loads_bdf():
 def test_graphics_draw_text():
     font = graphics.Font()
     import os
+
     font_dir = os.path.join(
         os.path.dirname(__file__), "..", "src", "led_ticker", "fonts"
     )

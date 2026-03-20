@@ -21,7 +21,9 @@ class Color:
     def __eq__(self, other):
         if isinstance(other, Color):
             return (self.red, self.green, self.blue) == (
-                other.red, other.green, other.blue,
+                other.red,
+                other.green,
+                other.blue,
             )
         return NotImplemented
 
@@ -69,6 +71,18 @@ class Font:
 
 
 def DrawText(canvas, font, x, y, color, text):
-    """Stub for graphics.DrawText. Returns the pixel width of the drawn text."""
+    """Stub for graphics.DrawText. Returns the pixel width of the drawn text.
+
+    Also writes pixels to the canvas if it supports SetPixel, so that
+    compositing transitions have actual pixel data to work with in tests.
+    Renders a simplified block of pixels (1px tall band at y-1).
+    """
     width = sum(font.CharacterWidth(ord(c)) for c in text)
+
+    if hasattr(canvas, "SetPixel") and hasattr(color, "red"):
+        # Write a horizontal band of pixels to simulate text rendering
+        render_y = max(0, y - 1)
+        for px in range(int(x), int(x) + width):
+            canvas.SetPixel(px, render_y, color.red, color.green, color.blue)
+
     return width

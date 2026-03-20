@@ -24,12 +24,11 @@ from led_ticker.widgets.crypto.etherscan import (
 
 # --- Coinbase ---
 
+
 class TestCoinbasePriceMonitor:
     @pytest.fixture
     def monitor(self):
-        m = CoinbasePriceMonitor(
-            symbol="BTC", currency="USD", session=mock.Mock()
-        )
+        m = CoinbasePriceMonitor(symbol="BTC", currency="USD", session=mock.Mock())
         m.price = 50000.1234
         m.change_24h = 2.55
         return m
@@ -87,12 +86,12 @@ class TestDrawPriceTicker:
 
 # --- CoinGecko ---
 
+
 class TestCoinGeckoPriceMonitor:
     @pytest.fixture
     def monitor(self):
         m = CoinGeckoPriceMonitor(
-            symbol="ETH", symbol_id="ethereum",
-            currency="USD", session=mock.Mock()
+            symbol="ETH", symbol_id="ethereum", currency="USD", session=mock.Mock()
         )
         m.price_data = {"price": "3,000.0000", "change_24h": "1.50%"}
         return m
@@ -114,6 +113,7 @@ class TestCoinGeckoPriceMonitor:
 
 
 # --- Etherscan ---
+
 
 class TestEtherscanGasMonitor:
     @pytest.fixture

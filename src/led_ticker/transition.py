@@ -7,6 +7,7 @@ from typing import Any, Protocol, runtime_checkable
 
 # --- Easing functions ---
 
+
 def linear(p: float) -> float:
     return p
 
@@ -28,10 +29,15 @@ EASING = {
 
 # --- Transition protocol and registry ---
 
+
 @runtime_checkable
 class Transition(Protocol):
     def frame_at(
-        self, t: float, canvas: Any, outgoing: Any, incoming: Any,
+        self,
+        t: float,
+        canvas: Any,
+        outgoing: Any,
+        incoming: Any,
     ) -> Any:
         """Render one frame at progress t (0.0 to 1.0)."""
         ...
@@ -44,6 +50,7 @@ def register_transition(name: str):
     def decorator(cls):
         _TRANSITION_REGISTRY[name] = cls
         return cls
+
     return decorator
 
 
@@ -58,9 +65,15 @@ def get_transition_class(name: str) -> type:
 
 # --- Transition runner ---
 
+
 async def run_transition(
-    canvas, frame, outgoing, incoming, transition: Transition,
-    duration: float = 0.5, easing: str = "linear",
+    canvas,
+    frame,
+    outgoing,
+    incoming,
+    transition: Transition,
+    duration: float = 0.5,
+    easing: str = "linear",
     scroll_speed: float = 0.05,
 ):
     """Run a transition between two widgets over `duration` seconds."""
@@ -81,6 +94,7 @@ async def run_transition(
 
 
 # --- Built-in transitions ---
+
 
 @register_transition("cut")
 class Cut:
@@ -146,46 +160,104 @@ class ColorFlash:
 
 @register_transition("wipe_left")
 class WipeLeft:
-    """New content revealed left-to-right with a hard edge.
-
-    Draws the old content, then overdraws new content pixels
-    in the revealed region using SetPixel with a black mask.
-    Since we can't clip DrawText, we draw both and mask.
-    """
+    """New content revealed left-to-right via pixel compositing."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        boundary = int(t * canvas.width)
+        from led_ticker.shadow_canvas import (
+            ShadowCanvas,
+            composite_wipe,
+        )
 
-        # Draw old content as background
-        outgoing.draw(canvas, cursor_pos=0)
+        w, h = canvas.width, getattr(canvas, "height", 16)
+        old_buf = ShadowCanvas(w, h)
+        new_buf = ShadowCanvas(w, h)
+        outgoing.draw(old_buf, cursor_pos=0)
+        incoming.draw(new_buf, cursor_pos=0)
 
-        # Overdraw the revealed region with new content
-        # by drawing new content then masking the unrevealed region
-        # For simplicity in Phase 1: draw new content shifted
-        # so its left edge aligns with the boundary
-        if boundary > 0:
-            # Draw new on a clean area by first clearing the
-            # revealed portion and drawing new content
-            # This is approximate but looks good for text
-            incoming.draw(canvas, cursor_pos=0)
-            # Restore old content in the unrevealed portion
-            # Since we can't easily do this without pixel readback,
-            # use the push approach instead (visually very similar)
-            # This makes wipe_left behave like push_left
-            offset = int(t * canvas.width)
-            canvas.Clear()
-            outgoing.draw(canvas, cursor_pos=-offset)
-            incoming.draw(canvas, cursor_pos=canvas.width - offset)
+        boundary = int(t * w)
+        composite_wipe(old_buf, new_buf, boundary, canvas, "left")
         return canvas
 
 
 @register_transition("wipe_right")
 class WipeRight:
-    """New content revealed right-to-left."""
+    """New content revealed right-to-left via pixel compositing."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        offset = int(t * canvas.width)
-        canvas.Clear()
-        outgoing.draw(canvas, cursor_pos=offset)
-        incoming.draw(canvas, cursor_pos=-canvas.width + offset)
+        from led_ticker.shadow_canvas import (
+            ShadowCanvas,
+            composite_wipe,
+        )
+
+        w, h = canvas.width, getattr(canvas, "height", 16)
+        old_buf = ShadowCanvas(w, h)
+        new_buf = ShadowCanvas(w, h)
+        outgoing.draw(old_buf, cursor_pos=0)
+        incoming.draw(new_buf, cursor_pos=0)
+
+        boundary = int(t * w)
+        composite_wipe(old_buf, new_buf, boundary, canvas, "right")
+        return canvas
+
+
+@register_transition("dissolve")
+class Dissolve:
+    """Random pixel dissolve from old to new content."""
+
+    def __init__(self, seed: int = 42):
+        self.seed = seed
+
+    def frame_at(self, t, canvas, outgoing, incoming):
+        from led_ticker.shadow_canvas import (
+            ShadowCanvas,
+            composite_dissolve,
+        )
+
+        w, h = canvas.width, getattr(canvas, "height", 16)
+        old_buf = ShadowCanvas(w, h)
+        new_buf = ShadowCanvas(w, h)
+        outgoing.draw(old_buf, cursor_pos=0)
+        incoming.draw(new_buf, cursor_pos=0)
+
+        composite_dissolve(old_buf, new_buf, t, canvas, self.seed)
+        return canvas
+
+
+@register_transition("split")
+class SplitHorizontal:
+    """Content revealed from center outward."""
+
+    def frame_at(self, t, canvas, outgoing, incoming):
+        from led_ticker.shadow_canvas import (
+            ShadowCanvas,
+            composite_split,
+        )
+
+        w, h = canvas.width, getattr(canvas, "height", 16)
+        old_buf = ShadowCanvas(w, h)
+        new_buf = ShadowCanvas(w, h)
+        outgoing.draw(old_buf, cursor_pos=0)
+        incoming.draw(new_buf, cursor_pos=0)
+
+        composite_split(old_buf, new_buf, t, canvas)
+        return canvas
+
+
+@register_transition("curtain")
+class Curtain:
+    """Old content slides apart revealing new content underneath."""
+
+    def frame_at(self, t, canvas, outgoing, incoming):
+        from led_ticker.shadow_canvas import (
+            ShadowCanvas,
+            composite_curtain,
+        )
+
+        w, h = canvas.width, getattr(canvas, "height", 16)
+        old_buf = ShadowCanvas(w, h)
+        new_buf = ShadowCanvas(w, h)
+        outgoing.draw(old_buf, cursor_pos=0)
+        incoming.draw(new_buf, cursor_pos=0)
+
+        composite_curtain(old_buf, new_buf, t, canvas)
         return canvas

@@ -156,15 +156,19 @@ class PushLeft:
 
 @register_transition("push_right")
 class PushRight:
-    """Rightward push — two-phase: outgoing erased from left, then
-    incoming revealed from left.
+    """Rightward push — incoming enters from left, outgoing exits right.
 
-    DrawText always renders rightward, so long incoming text at a
-    negative cursor_pos bleeds past the boundary into the outgoing
-    zone.  Two-phase rendering avoids this by never drawing both
-    widgets on the same frame.  push_left does not need this because
-    incoming enters from the right (positive cursor_pos stays in its
-    own zone).
+    DrawText always renders rightward from cursor_pos, so we cannot
+    draw outgoing at its scroll position (it would bleed into the
+    incoming zone).  Instead we draw outgoing at cursor_pos=boundary
+    which confines it to the right zone.  For short outgoing text
+    this creates a natural sliding-right effect.  For long text the
+    right zone shrinks so rapidly that the content change is masked.
+
+    Rendering order (no overlap possible):
+      1. Draw incoming at cursor_pos=0 (left-aligned)
+      2. Black out right zone (boundary to w) — clips incoming
+      3. Draw outgoing at cursor_pos=boundary — confined to right zone
     """
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
@@ -176,21 +180,24 @@ class PushRight:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
-        # Boundary moves from 0 to w over the full duration
         boundary = int(t * w)
 
-        if t < 0.5:
-            # Phase 1: outgoing with growing blackout from left
+        if boundary <= 0:
+            # First frame: show outgoing at its natural hold position
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
-            for y in range(h):
-                for x in range(boundary):
-                    canvas.SetPixel(x, y, 0, 0, 0)
-        else:
-            # Phase 2: incoming revealed from left
-            incoming.draw(canvas, cursor_pos=0)
-            for y in range(h):
-                for x in range(boundary, w):
-                    canvas.SetPixel(x, y, 0, 0, 0)
+            return canvas
+
+        # 1. Draw incoming at cursor_pos=0 (beginning visible from left)
+        incoming.draw(canvas, cursor_pos=0)
+
+        # 2. Black out right zone — clip incoming to left zone only
+        for y in range(h):
+            for x in range(boundary, w):
+                canvas.SetPixel(x, y, 0, 0, 0)
+
+        # 3. Draw outgoing starting at boundary (no bleed into left zone
+        #    since DrawText only renders rightward from cursor_pos)
+        outgoing.draw(canvas, cursor_pos=boundary)
 
         return canvas
 

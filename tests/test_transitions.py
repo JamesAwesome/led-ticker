@@ -231,69 +231,65 @@ class TestPushRight:
         incoming.draw.assert_called_once()
         assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
 
-    def test_phase1_shows_outgoing_only(self, canvas, make_widget):
-        """Phase 1 (t<0.5): only outgoing drawn, with left blackout."""
+    def test_midpoint_draws_both_no_overlap(self, canvas, make_widget):
+        """Both widgets drawn: incoming at 0, outgoing at boundary."""
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushRight()
-        push.frame_at(0.25, canvas, outgoing, incoming, outgoing_scroll_pos=0)
-        outgoing.draw.assert_called_once()
-        incoming.draw.assert_not_called()
-        assert canvas.SetPixel.call_count > 0
-
-    def test_phase2_shows_incoming_only(self, canvas, make_widget):
-        """Phase 2 (t>=0.5): only incoming drawn, with right blackout."""
-        outgoing = make_widget(40)
-        incoming = make_widget(40)
-        push = PushRight()
-        push.frame_at(0.75, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        # Incoming drawn at cursor_pos=0 (left zone)
         incoming.draw.assert_called_once()
         assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
-        outgoing.draw.assert_not_called()
+        # Outgoing drawn at cursor_pos=boundary (right zone, no left bleed)
+        outgoing.draw.assert_called_once()
+        boundary = int(0.5 * canvas.width)  # 80
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == boundary
+
+    def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushRight()
+        push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        # SetPixel used to black out right zone between incoming and outgoing
         assert canvas.SetPixel.call_count > 0
 
-    def test_outgoing_stationary_in_phase1(self, canvas, make_widget):
-        """Outgoing stays at its hold position in phase 1."""
+    def test_outgoing_at_scroll_pos_for_first_frame(self, canvas, make_widget):
+        """At t=0, outgoing is at its natural hold position."""
         outgoing = make_widget(600)
         incoming = make_widget(40)
         push = PushRight()
         push.frame_at(
-            0.25, canvas, outgoing, incoming, outgoing_scroll_pos=-440
+            0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440
         )
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
-    def test_long_text_no_position_jump(self, canvas, make_widget):
-        """Outgoing cursor_pos is identical at t=0 and t=0.25."""
-        outgoing_t0 = make_widget(600)
-        incoming_t0 = make_widget(40)
-        outgoing_t25 = make_widget(600)
-        incoming_t25 = make_widget(40)
+    def test_outgoing_confined_to_right_zone(self, canvas, make_widget):
+        """Outgoing at cursor_pos=boundary can't bleed left."""
+        outgoing = make_widget(600)
+        incoming = make_widget(600)
         push = PushRight()
-        push.frame_at(
-            0.0, canvas, outgoing_t0, incoming_t0,
-            outgoing_scroll_pos=-440,
-        )
-        push.frame_at(
-            0.25, canvas, outgoing_t25, incoming_t25,
-            outgoing_scroll_pos=-440,
-        )
-        pos_t0 = outgoing_t0.draw.call_args.kwargs["cursor_pos"]
-        pos_t25 = outgoing_t25.draw.call_args.kwargs["cursor_pos"]
-        assert pos_t0 == pos_t25 == -440
+        push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
+        boundary = int(0.5 * canvas.width)
+        # Outgoing drawn at boundary, not at scroll_pos
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == boundary
+        # Incoming drawn at 0
+        assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
 
-    def test_phase_switch_at_midpoint(self, canvas, make_widget):
-        """At t=0.49 outgoing drawn, at t=0.51 incoming drawn."""
-        out1 = make_widget(40)
-        in1 = make_widget(40)
-        out2 = make_widget(40)
-        in2 = make_widget(40)
+    def test_short_text_slides_right(self, canvas, make_widget):
+        """Short outgoing text at increasing cursor_pos = sliding right."""
+        outgoing = make_widget(100)
+        incoming = make_widget(100)
         push = PushRight()
-        push.frame_at(0.49, canvas, out1, in1)
-        out1.draw.assert_called_once()
-        in1.draw.assert_not_called()
-        push.frame_at(0.51, canvas, out2, in2)
-        in2.draw.assert_called_once()
-        out2.draw.assert_not_called()
+        push.frame_at(0.25, canvas, outgoing, incoming, outgoing_scroll_pos=0)
+        boundary_25 = int(0.25 * canvas.width)  # 40
+        assert outgoing.draw.call_args.kwargs["cursor_pos"] == boundary_25
+        outgoing2 = make_widget(100)
+        incoming2 = make_widget(100)
+        push.frame_at(0.75, canvas, outgoing2, incoming2, outgoing_scroll_pos=0)
+        boundary_75 = int(0.75 * canvas.width)  # 120
+        assert outgoing2.draw.call_args.kwargs["cursor_pos"] == boundary_75
+        # Outgoing slides right: 40 → 120
+        assert boundary_75 > boundary_25
 
     def test_returns_canvas(self, canvas, make_widget):
         push = PushRight()

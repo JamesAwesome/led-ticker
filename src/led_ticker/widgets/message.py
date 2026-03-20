@@ -25,6 +25,7 @@ class TickerMessage:
     def draw(self, canvas, cursor_pos=0, **kwargs):
         graphics = require_graphics()
         font_color = kwargs.get("font_color") or self.font_color
+        y_offset = kwargs.get("y_offset", 0)
 
         content_width = get_text_width(self.font, self.message, padding=0)
         cursor_pos, end_padding = compute_cursor(
@@ -32,7 +33,7 @@ class TickerMessage:
         )
 
         cursor_pos += graphics.DrawText(
-            canvas, self.font, cursor_pos, 12, font_color, self.message
+            canvas, self.font, cursor_pos, 12 + y_offset, font_color, self.message
         )
         cursor_pos += end_padding
 
@@ -54,6 +55,7 @@ class TickerCountdown:
     def draw(self, canvas, cursor_pos=0, **kwargs):
         graphics = require_graphics()
         font_color = kwargs.get("font_color") or self.font_color
+        y_offset = kwargs.get("y_offset", 0)
 
         today = date.today()
         days_until = (self.countdown_date - today).days
@@ -65,7 +67,7 @@ class TickerCountdown:
         )
 
         cursor_pos += graphics.DrawText(
-            canvas, self.font, cursor_pos, 12, font_color, text
+            canvas, self.font, cursor_pos, 12 + y_offset, font_color, text
         )
         cursor_pos += end_padding
 

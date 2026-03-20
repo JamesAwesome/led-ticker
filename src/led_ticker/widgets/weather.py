@@ -90,6 +90,7 @@ class WeatherWidget:
 
     def draw(self, canvas, cursor_pos=0, **kwargs):
         graphics = require_graphics()
+        y_offset = kwargs.get("y_offset", 0)
 
         temp_text = f"{self.current_temp}{self.unit_symbol}"
         if self.show_icon:
@@ -121,7 +122,7 @@ class WeatherWidget:
             canvas,
             self.font,
             cursor_pos,
-            12,
+            12 + y_offset,
             self.font_color,
             label_text,
         )
@@ -135,13 +136,14 @@ class WeatherWidget:
                 canvas,
                 self.weather,
                 int(cursor_pos),
+                y_offset=4 + y_offset,
             )
         else:
             cursor_pos += graphics.DrawText(
                 canvas,
                 self.font,
                 cursor_pos,
-                12,
+                12 + y_offset,
                 self.font_color,
                 f"{self.weather} ",
             )
@@ -150,7 +152,7 @@ class WeatherWidget:
             canvas,
             self.font,
             cursor_pos,
-            12,
+            12 + y_offset,
             self.font_color_temp,
             temp_text,
         )

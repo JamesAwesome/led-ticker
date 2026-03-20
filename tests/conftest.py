@@ -14,9 +14,10 @@ if stubs_path not in sys.path:
 
 @pytest.fixture
 def canvas():
-    """Mock LED canvas with standard width."""
+    """Mock LED canvas with standard width and height."""
     c = mock.Mock()
     c.width = 160
+    c.height = 16
     return c
 
 

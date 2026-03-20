@@ -99,6 +99,7 @@ class CoinbasePriceMonitor:
             center=self.center,
             padding=self.padding,
             end_padding=self.padding,
+            y_offset=kwargs.get("y_offset", 0),
         )
 
 
@@ -111,6 +112,7 @@ def _draw_price_ticker(
     center=True,
     padding=6,
     end_padding=6,
+    y_offset=0,
 ):
     graphics = require_graphics()
     change_color = _get_change_color(change_str)
@@ -129,15 +131,15 @@ def _draw_price_ticker(
     )
 
     cursor_pos += graphics.DrawText(
-        canvas, FONT_LABEL, cursor_pos, 12, DEFAULT_COLOR, symbol
+        canvas, FONT_LABEL, cursor_pos, 12 + y_offset, DEFAULT_COLOR, symbol
     )
     cursor_pos += padding
     cursor_pos += graphics.DrawText(
-        canvas, font_price, cursor_pos, 12, DEFAULT_COLOR, price_str
+        canvas, font_price, cursor_pos, 12 + y_offset, DEFAULT_COLOR, price_str
     )
     cursor_pos += padding
     cursor_pos += graphics.DrawText(
-        canvas, FONT_DELTA, cursor_pos, 12, change_color, change_str
+        canvas, FONT_DELTA, cursor_pos, 12 + y_offset, change_color, change_str
     )
     cursor_pos += end_padding
 

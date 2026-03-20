@@ -12,6 +12,7 @@ from led_ticker.transition import (
     Dissolve,
     PushLeft,
     PushRight,
+    PushUp,
     SplitHorizontal,
     WipeLeft,
     WipeRight,
@@ -123,6 +124,35 @@ class TestPushLeft:
         assert incoming.draw.call_args.kwargs["cursor_pos"] == 80
 
 
+# --- PushUp ---
+
+
+class TestPushUp:
+    def test_at_zero_outgoing_at_origin(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushUp()
+        push.frame_at(0.0, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        assert outgoing.draw.call_args.kwargs["y_offset"] == 0
+        assert incoming.draw.call_args.kwargs["y_offset"] == 16
+
+    def test_at_one_incoming_at_origin(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushUp()
+        push.frame_at(1.0, canvas, outgoing, incoming)
+        assert outgoing.draw.call_args.kwargs["y_offset"] == -16
+        assert incoming.draw.call_args.kwargs["y_offset"] == 0
+
+    def test_returns_canvas(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushUp()
+        result = push.frame_at(0.5, canvas, outgoing, incoming)
+        assert result is canvas
+
+
 # --- PushRight ---
 
 
@@ -180,7 +210,18 @@ class TestWipeLeft:
         incoming = make_widget(40)
         wipe = WipeLeft()
         wipe.frame_at(1.0, canvas, outgoing, incoming)
+        incoming.draw.assert_called_once()
         assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
+
+    def test_mid_draws_outgoing_with_setpixel(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wipe = WipeLeft()
+        wipe.frame_at(0.5, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        incoming.draw.assert_not_called()
+        # SetPixel called for black-out region and sweep line
+        assert canvas.SetPixel.call_count > 0
 
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)
@@ -207,7 +248,18 @@ class TestWipeRight:
         incoming = make_widget(40)
         wipe = WipeRight()
         wipe.frame_at(1.0, canvas, outgoing, incoming)
+        incoming.draw.assert_called_once()
         assert incoming.draw.call_args.kwargs["cursor_pos"] == 0
+
+    def test_mid_draws_outgoing_with_setpixel(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wipe = WipeRight()
+        wipe.frame_at(0.5, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        incoming.draw.assert_not_called()
+        # SetPixel called for black-out region and sweep line
+        assert canvas.SetPixel.call_count > 0
 
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)
@@ -228,12 +280,32 @@ class TestDissolve:
         dissolve.frame_at(0.1, canvas, outgoing, incoming)
         outgoing.draw.assert_called_once()
         incoming.draw.assert_not_called()
+        # SetPixel called for scatter
+        assert canvas.SetPixel.call_count > 0
 
     def test_late_shows_incoming(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         dissolve = Dissolve()
         dissolve.frame_at(0.9, canvas, outgoing, incoming)
+        incoming.draw.assert_called_once()
+        outgoing.draw.assert_not_called()
+        # SetPixel called for scatter
+        assert canvas.SetPixel.call_count > 0
+
+    def test_at_zero_shows_outgoing_only(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        dissolve = Dissolve()
+        dissolve.frame_at(0.0, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        incoming.draw.assert_not_called()
+
+    def test_at_one_shows_incoming_only(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        dissolve = Dissolve()
+        dissolve.frame_at(1.0, canvas, outgoing, incoming)
         incoming.draw.assert_called_once()
         outgoing.draw.assert_not_called()
 
@@ -257,11 +329,21 @@ class TestSplitHorizontal:
         outgoing.draw.assert_called_once()
         incoming.draw.assert_not_called()
 
-    def test_late_shows_incoming(self, canvas, make_widget):
+    def test_late_draws_outgoing_with_setpixel(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         split = SplitHorizontal()
         split.frame_at(0.9, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        incoming.draw.assert_not_called()
+        # SetPixel called for black band and magenta edge lines
+        assert canvas.SetPixel.call_count > 0
+
+    def test_at_one_shows_incoming(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        split = SplitHorizontal()
+        split.frame_at(1.0, canvas, outgoing, incoming)
         incoming.draw.assert_called_once()
         outgoing.draw.assert_not_called()
 
@@ -285,11 +367,21 @@ class TestCurtain:
         outgoing.draw.assert_called_once()
         incoming.draw.assert_not_called()
 
-    def test_late_shows_incoming(self, canvas, make_widget):
+    def test_late_draws_outgoing_with_setpixel(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         curtain = Curtain()
         curtain.frame_at(0.9, canvas, outgoing, incoming)
+        outgoing.draw.assert_called_once()
+        incoming.draw.assert_not_called()
+        # SetPixel called for row blackout and sweep line
+        assert canvas.SetPixel.call_count > 0
+
+    def test_at_one_shows_incoming(self, canvas, make_widget):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        curtain = Curtain()
+        curtain.frame_at(1.0, canvas, outgoing, incoming)
         incoming.draw.assert_called_once()
         outgoing.draw.assert_not_called()
 

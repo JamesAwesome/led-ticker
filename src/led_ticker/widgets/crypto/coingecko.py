@@ -82,6 +82,7 @@ class CoinGeckoPriceMonitor:
             center=self.center,
             padding=self.padding,
             end_padding=self.padding,
+            y_offset=kwargs.get("y_offset", 0),
         )
 
 

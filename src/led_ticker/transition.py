@@ -126,13 +126,13 @@ class PushRight:
 
 @register_transition("push_up")
 class PushUp:
-    """Timed cut at midpoint (vertical push not possible with fixed y)."""
+    """Old content pushes up, new enters from bottom."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        if t < 0.5:
-            outgoing.draw(canvas, cursor_pos=0)
-        else:
-            incoming.draw(canvas, cursor_pos=0)
+        height = getattr(canvas, "height", 16)
+        offset = int(t * height)
+        outgoing.draw(canvas, cursor_pos=0, y_offset=-offset)
+        incoming.draw(canvas, cursor_pos=0, y_offset=height - offset)
         return canvas
 
 
@@ -155,62 +155,150 @@ class ColorFlash:
 
 @register_transition("wipe_left")
 class WipeLeft:
-    """Wipe left (push-left approximation for hardware compat)."""
+    """Right-to-left wipe with sweep line."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        offset = int(t * canvas.width)
-        outgoing.draw(canvas, cursor_pos=-offset)
-        incoming.draw(canvas, cursor_pos=canvas.width - offset)
+        w = canvas.width
+        h = getattr(canvas, "height", 16)
+        boundary = int(t * w)
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+        elif boundary <= 0:
+            outgoing.draw(canvas, cursor_pos=0)
+        else:
+            # Draw outgoing stationary
+            outgoing.draw(canvas, cursor_pos=0)
+            # Black out left of boundary (erased region)
+            for y in range(h):
+                for x in range(boundary):
+                    canvas.SetPixel(x, y, 0, 0, 0)
+            # Draw cyan sweep line at boundary
+            for y in range(h):
+                for dx in range(min(2, w - boundary)):
+                    canvas.SetPixel(boundary + dx, y, 0, 255, 255)
         return canvas
 
 
 @register_transition("wipe_right")
 class WipeRight:
-    """Wipe right (push-right approximation for hardware compat)."""
+    """Left-to-right wipe with sweep line."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        offset = int(t * canvas.width)
-        outgoing.draw(canvas, cursor_pos=offset)
-        incoming.draw(canvas, cursor_pos=-canvas.width + offset)
+        w = canvas.width
+        h = getattr(canvas, "height", 16)
+        boundary = int(t * w)
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+        elif boundary <= 0:
+            outgoing.draw(canvas, cursor_pos=0)
+        else:
+            outgoing.draw(canvas, cursor_pos=0)
+            # Black out right of boundary
+            for y in range(h):
+                for x in range(w - boundary, w):
+                    canvas.SetPixel(x, y, 0, 0, 0)
+            # Sweep line
+            line_x = w - boundary
+            for y in range(h):
+                for dx in range(min(2, line_x)):
+                    canvas.SetPixel(line_x - 1 - dx, y, 0, 255, 255)
         return canvas
 
 
 @register_transition("dissolve")
 class Dissolve:
-    """Timed crossfade -- snaps from old to new at midpoint."""
+    """Random pixel scatter dissolve."""
 
     def __init__(self, seed: int = 42):
         self.seed = seed
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        if t < 0.5:
-            outgoing.draw(canvas, cursor_pos=0)
-        else:
+        import random
+
+        w = canvas.width
+        h = getattr(canvas, "height", 16)
+
+        if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
+        elif t <= 0.0:
+            outgoing.draw(canvas, cursor_pos=0)
+        elif t < 0.5:
+            # Outgoing with increasing black scatter
+            outgoing.draw(canvas, cursor_pos=0)
+            rng = random.Random(self.seed + int(t * 1000))
+            scatter_count = int(t * 2 * w * h)
+            for _ in range(scatter_count):
+                x = rng.randint(0, w - 1)
+                y = rng.randint(0, h - 1)
+                canvas.SetPixel(x, y, 0, 0, 0)
+        else:
+            # Incoming with decreasing black scatter
+            incoming.draw(canvas, cursor_pos=0)
+            rng = random.Random(self.seed + int(t * 1000))
+            scatter_count = int((1.0 - t) * 2 * w * h)
+            for _ in range(scatter_count):
+                x = rng.randint(0, w - 1)
+                y = rng.randint(0, h - 1)
+                canvas.SetPixel(x, y, 0, 0, 0)
         return canvas
 
 
 @register_transition("split")
 class SplitHorizontal:
-    """Split -- timed cut approximation."""
+    """Center-outward expanding black band with edge lines."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        if t < 0.5:
+        w = canvas.width
+        h = getattr(canvas, "height", 16)
+        half = w // 2
+        reveal = int(t * half)
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+        elif reveal <= 0:
             outgoing.draw(canvas, cursor_pos=0)
         else:
-            incoming.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=0)
+            left = half - reveal
+            right = half + reveal
+            # Black out center band
+            for y in range(h):
+                for x in range(max(0, left), min(right, w)):
+                    canvas.SetPixel(x, y, 0, 0, 0)
+            # Magenta edge lines
+            for y in range(h):
+                if 0 <= left < w:
+                    canvas.SetPixel(left, y, 255, 0, 255)
+                if 0 <= right - 1 < w:
+                    canvas.SetPixel(right - 1, y, 255, 0, 255)
         return canvas
 
 
 @register_transition("curtain")
 class Curtain:
-    """Curtain -- timed cut approximation."""
+    """Top-down curtain drop with sweep line."""
 
     def frame_at(self, t, canvas, outgoing, incoming):
-        if t < 0.5:
+        w = canvas.width
+        h = getattr(canvas, "height", 16)
+        sweep_row = int(t * h)
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+        elif sweep_row <= 0:
             outgoing.draw(canvas, cursor_pos=0)
         else:
-            incoming.draw(canvas, cursor_pos=0)
+            outgoing.draw(canvas, cursor_pos=0)
+            # Black out rows above sweep
+            for y in range(min(sweep_row, h)):
+                for x in range(w):
+                    canvas.SetPixel(x, y, 0, 0, 0)
+            # Green sweep line
+            if sweep_row < h:
+                for x in range(w):
+                    canvas.SetPixel(x, sweep_row, 0, 255, 0)
         return canvas
 
 

@@ -72,19 +72,32 @@ class EtherscanGasMonitor:
 
     def draw(self, canvas, cursor_pos=0, **kwargs):
         graphics = require_graphics()
+        y_offset = kwargs.get("y_offset", 0)
 
-        graphics.DrawText(canvas, FONT_LABEL, cursor_pos, 12, DEFAULT_COLOR, GAS_BANNER)
+        graphics.DrawText(
+            canvas, FONT_LABEL, cursor_pos, 12 + y_offset, DEFAULT_COLOR, GAS_BANNER
+        )
         cursor_pos += get_text_width(FONT_LABEL, GAS_BANNER)
 
         for price_type, price in self.price_data.items():
             price_type_msg = f"{price_type}:"
             graphics.DrawText(
-                canvas, FONT_LABEL, cursor_pos, 12, DEFAULT_COLOR, price_type_msg
+                canvas,
+                FONT_LABEL,
+                cursor_pos,
+                12 + y_offset,
+                DEFAULT_COLOR,
+                price_type_msg,
             )
             cursor_pos += get_text_width(FONT_LABEL, price_type_msg, padding=3)
 
             graphics.DrawText(
-                canvas, FONT_VALUE, cursor_pos, 12, _get_gas_price_color(price), price
+                canvas,
+                FONT_VALUE,
+                cursor_pos,
+                12 + y_offset,
+                _get_gas_price_color(price),
+                price,
             )
             cursor_pos += get_text_width(FONT_VALUE, price, padding=3)
 

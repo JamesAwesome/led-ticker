@@ -1,0 +1,103 @@
+# Nyan Cat testing config — tests nyancat and nyancat_reverse only
+# Usage: cp config/config.nyancat.toml config/config.toml
+
+[display]
+rows = 16
+cols = 32
+chain = 5
+brightness = 60
+slowdown_gpio = 2
+gpio_mapping = "adafruit-hat"
+
+[title]
+delay = 3
+
+# --- nyancat (left-to-right) ---
+[[playlist.section]]
+mode = "swap"
+transition = "nyancat"
+transition_duration = 2.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "=^.^= NYANCAT start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "A wizard quickly jinxed the gnomes before they could cast any powerful spells on the sleeping villagers nearby"
+
+[[playlist.section.widget]]
+type = "message"
+text = "nyancat DONE"
+
+# --- nyancat (short text) ---
+[[playlist.section]]
+mode = "swap"
+transition = "nyancat"
+transition_duration = 2.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Short text test"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Also short"
+
+[[playlist.section.widget]]
+type = "message"
+text = "nyancat short DONE"
+
+# --- nyancat_reverse (right-to-left) ---
+[[playlist.section]]
+mode = "swap"
+transition = "nyancat_reverse"
+transition_duration = 2.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "=^.^= NYANCAT REVERSE start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "The lazy cat napped on a warm windowsill while birds sang melodies outside in the bright afternoon sunshine"
+
+[[playlist.section.widget]]
+type = "message"
+text = "nyancat_reverse DONE"
+
+# --- nyancat_reverse (short text) ---
+[[playlist.section]]
+mode = "swap"
+transition = "nyancat_reverse"
+transition_duration = 2.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Reverse short"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Also reverse"
+
+[[playlist.section.widget]]
+type = "message"
+text = "reverse short DONE"
+
+# --- restart ---
+[[playlist.section]]
+mode = "swap"
+hold_time = 3
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "--- RESTARTING ---"

@@ -61,9 +61,17 @@ class WeatherWidget:
             "q": self.location,
         }
         async with self.session.get(
-            WEATHERAPI_URL, params=params,
+            WEATHERAPI_URL,
+            params=params,
         ) as response:
             data = await response.json()
+
+            # WeatherAPI returns {"error": {...}} on failure
+            if "error" in data:
+                code = data["error"].get("code", "?")
+                msg = data["error"].get("message", "Unknown error")
+                raise ValueError(f"WeatherAPI error {code}: {msg}")
+
             current = data["current"]
             if self.units == "imperial":
                 self.current_temp = int(current["temp_f"])
@@ -75,21 +83,30 @@ class WeatherWidget:
         graphics = require_graphics()
 
         full_text = (
-            f"{self.message}: {self.weather} "
-            f"{self.current_temp}{self.unit_symbol}"
+            f"{self.message}: {self.weather} {self.current_temp}{self.unit_symbol}"
         )
         content_width = get_text_width(self.font, full_text, padding=0)
         cursor_pos, end_padding = compute_cursor(
-            canvas.width, content_width, cursor_pos,
-            self.padding, self.center,
+            canvas.width,
+            content_width,
+            cursor_pos,
+            self.padding,
+            self.center,
         )
 
         cursor_pos += graphics.DrawText(
-            canvas, self.font, cursor_pos, 12,
-            self.font_color, f"{self.message}: ",
+            canvas,
+            self.font,
+            cursor_pos,
+            12,
+            self.font_color,
+            f"{self.message}: ",
         )
         cursor_pos += graphics.DrawText(
-            canvas, self.font, cursor_pos, 12,
+            canvas,
+            self.font,
+            cursor_pos,
+            12,
             self.font_color_temp,
             f"{self.weather} {self.current_temp}{self.unit_symbol}",
         )

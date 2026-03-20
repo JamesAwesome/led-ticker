@@ -8,12 +8,21 @@ from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
+# Backoff limits for run_monitor_loop
+_MIN_BACKOFF = 60  # 1 minute minimum on error
+_MAX_BACKOFF = 3600  # 1 hour maximum backoff
+
 
 @runtime_checkable
 class Widget(Protocol):
     """Any object that can draw itself to an LED canvas."""
 
-    def draw(self, canvas: Any, cursor_pos: int = 0, **kwargs) -> tuple[Any, int]:
+    def draw(
+        self,
+        canvas: Any,
+        cursor_pos: int = 0,
+        **kwargs,
+    ) -> tuple[Any, int]:
         """Render to canvas starting at cursor_pos.
 
         Returns (canvas, new_cursor_pos).
@@ -35,25 +44,44 @@ async def run_monitor_loop(
     interval: float,
     splay: bool = True,
 ) -> None:
-    """Generic monitor loop with error handling.
+    """Generic monitor loop with exponential backoff on errors.
 
-    Call after the widget's initial update(). Runs forever, calling
-    widget.update() every `interval` seconds.
+    On success, waits `interval` seconds before the next update.
+    On error, backs off exponentially from 60s to 1 hour, then
+    resets to `interval` on the next successful update.
     """
     if splay:
         from random import randint
 
         interval += randint(0, 60)
 
+    consecutive_errors = 0
+
     while True:
-        await asyncio.sleep(interval)
+        if consecutive_errors > 0:
+            backoff = min(
+                _MAX_BACKOFF,
+                _MIN_BACKOFF * (2 ** (consecutive_errors - 1)),
+            )
+            logger.warning(
+                "%s: backing off %ds after %d consecutive errors",
+                type(widget).__name__,
+                backoff,
+                consecutive_errors,
+            )
+            await asyncio.sleep(backoff)
+        else:
+            await asyncio.sleep(interval)
+
         try:
             await widget.update()
+            consecutive_errors = 0
         except asyncio.CancelledError:
             raise
         except Exception:
+            consecutive_errors += 1
             logger.exception(
-                "Error updating %s, will retry in %s seconds",
+                "Error updating %s (attempt %d), will back off",
                 type(widget).__name__,
-                interval,
+                consecutive_errors,
             )

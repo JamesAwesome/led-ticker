@@ -8,6 +8,11 @@ from led_ticker.widget import Widget
 from led_ticker.widgets.weather import WeatherWidget
 
 
+@pytest.fixture(autouse=True)
+def _set_weather_api_key(monkeypatch):
+    monkeypatch.setenv("WEATHERAPI_KEY", "test-key-12345")
+
+
 @pytest.fixture
 def weather_widget():
     """A WeatherWidget with pre-set data (no network needed)."""

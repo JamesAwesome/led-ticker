@@ -28,6 +28,11 @@ def _make_session(json_response=None, text_response=None):
 # --- Weather ---
 
 
+@pytest.fixture(autouse=True)
+def _set_weather_api_key(monkeypatch):
+    monkeypatch.setenv("WEATHERAPI_KEY", "test-key-12345")
+
+
 class TestWeatherUpdate:
     async def test_update_parses_weather(self):
         session = _make_session(

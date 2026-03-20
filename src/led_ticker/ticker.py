@@ -305,18 +305,24 @@ async def _scroll_side_by_side(
 
 
 async def _run_swap(canvas, frame, notif_queue, delay=5, transition=None):
-    """Run swap display mode with optional transitions."""
+    """Run swap display mode with optional transitions.
+
+    Each widget is displayed (and scrolled if overflowing), then a
+    transition runs to the next widget. The new widget only appears
+    after the transition completes.
+    """
     from led_ticker.transition import run_transition
 
     ticker_object = await notif_queue.get()
+    # Show first widget (scroll if needed)
     await _swap_and_scroll(canvas, frame, ticker_object)
-    await asyncio.sleep(delay)
 
     prev_object = ticker_object
     while True:
         try:
             ticker_object = notif_queue.get_nowait()
 
+            # Run transition from old to new
             if transition is not None:
                 await run_transition(
                     canvas,
@@ -327,10 +333,10 @@ async def _run_swap(canvas, frame, notif_queue, delay=5, transition=None):
                     duration=transition.duration,
                     easing=transition.easing,
                 )
-            else:
-                await _swap_and_scroll(canvas, frame, ticker_object)
 
-            await asyncio.sleep(delay)
+            # Show new widget (scroll if needed)
+            await _swap_and_scroll(canvas, frame, ticker_object)
+
             prev_object = ticker_object
         except asyncio.QueueEmpty:
             break
@@ -339,7 +345,10 @@ async def _run_swap(canvas, frame, notif_queue, delay=5, transition=None):
     frame.matrix.SwapOnVSync(canvas)
 
 
-async def _swap_and_scroll(canvas, frame, ticker_obj, scroll_speed=0.05):
+async def _swap_and_scroll(
+    canvas, frame, ticker_obj, scroll_speed=0.05, hold_time=3,
+):
+    """Display a widget. If it overflows, hold then scroll the full text."""
     pos = 0
     canvas.Clear()
 
@@ -347,25 +356,18 @@ async def _swap_and_scroll(canvas, frame, ticker_obj, scroll_speed=0.05):
     frame.matrix.SwapOnVSync(canvas)
 
     if cursor_pos > canvas.width:
-        await asyncio.sleep(2)
-        canvas, cursor_pos = await _scroll_into_frame(canvas, frame, ticker_obj, pos)
+        # Content is wider than display — scroll the full text
+        await asyncio.sleep(hold_time)
 
-    return canvas, cursor_pos
-
-
-async def _scroll_into_frame(canvas, frame, ticker_obj, cursor_pos, scroll_speed=0.05):
-    logging.info("Running _scroll_into_frame ...")
-    pos = cursor_pos
-
-    canvas.Clear()
-    canvas, cursor_pos = ticker_obj.draw(canvas, pos)
-    frame.matrix.SwapOnVSync(canvas)
-
-    while cursor_pos > canvas.width:
-        pos -= 1
-        canvas.Clear()
-        canvas, cursor_pos = ticker_obj.draw(canvas, pos)
-        frame.matrix.SwapOnVSync(canvas)
-        await asyncio.sleep(scroll_speed)
+        # Scroll left until the entire content has passed through
+        while pos > -(cursor_pos):
+            pos -= 1
+            canvas.Clear()
+            canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
+            frame.matrix.SwapOnVSync(canvas)
+            await asyncio.sleep(scroll_speed)
+    else:
+        # Fits on screen — just hold it
+        await asyncio.sleep(hold_time)
 
     return canvas, cursor_pos

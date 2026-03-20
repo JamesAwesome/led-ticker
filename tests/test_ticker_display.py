@@ -9,7 +9,6 @@ from led_ticker.ticker import (
     Ticker,
     _run_swap,
     _scroll_and_delay,
-    _scroll_into_frame,
     _swap_and_scroll,
 )
 
@@ -57,27 +56,30 @@ class TestSwapAndScroll:
         widget.draw.assert_called_once()
 
     async def test_oversized_triggers_scroll(
-        self, canvas, mock_frame, make_widget, no_sleep
+        self, canvas, mock_frame, make_widget, no_sleep,
     ):
         widget = make_widget(content_width=200)
-        _, pos = await _swap_and_scroll(canvas, mock_frame, widget)
-        # Should have scrolled until it fits
-        assert pos <= canvas.width
+        await _swap_and_scroll(canvas, mock_frame, widget)
+        # Should have scrolled the full text (many draw calls)
+        assert widget.draw.call_count > 10
 
 
-class TestScrollIntoFrame:
-    async def test_scrolls_until_fits(self, canvas, mock_frame, make_widget, no_sleep):
+class TestSwapAndScrollOverflow:
+    async def test_oversized_scrolls_full_text(
+        self, canvas, mock_frame, make_widget, no_sleep,
+    ):
         widget = make_widget(content_width=200)
-        _, pos = await _scroll_into_frame(canvas, mock_frame, widget, cursor_pos=0)
-        assert pos <= canvas.width
+        await _swap_and_scroll(canvas, mock_frame, widget)
+        # Should have called draw many times to scroll the full text
+        assert widget.draw.call_count > 10
 
-    async def test_already_fits_no_loop(
-        self, canvas, mock_frame, make_widget, no_sleep
+    async def test_fits_on_screen_no_scroll(
+        self, canvas, mock_frame, make_widget, no_sleep,
     ):
         widget = make_widget(content_width=100)
-        _, pos = await _scroll_into_frame(canvas, mock_frame, widget, cursor_pos=0)
-        assert pos == 100
-        mock_frame.matrix.SwapOnVSync.assert_called_once()
+        await _swap_and_scroll(canvas, mock_frame, widget)
+        # Only drawn once (no scrolling needed)
+        assert widget.draw.call_count == 1
 
 
 class TestScrollAndDelay:

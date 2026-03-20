@@ -14,7 +14,6 @@ from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 
 WEATHERAPI_URL = "https://api.weatherapi.com/v1/current.json"
-WEATHERAPI_KEY = os.getenv("WEATHERAPI_KEY", "")
 
 
 @register("weather")
@@ -51,14 +50,26 @@ class WeatherWidget:
     @classmethod
     async def start(cls, *args, update_interval=10800, **kwargs):
         widget = cls(*args, **kwargs)
-        await widget.update()
+        try:
+            await widget.update()
+        except Exception:
+            logging.exception(
+                "Weather initial update failed for %s, "
+                "will retry in background",
+                widget.location,
+            )
         asyncio.create_task(run_monitor_loop(widget, update_interval))
         return widget
 
     async def update(self):
         logging.info("Updating weather for: %s", self.location)
+        api_key = os.getenv("WEATHERAPI_KEY", "")
+        if not api_key:
+            raise ValueError(
+                "WEATHERAPI_KEY not set. Add it to your .env file."
+            )
         params = {
-            "key": WEATHERAPI_KEY,
+            "key": api_key,
             "q": self.location,
         }
         async with self.session.get(

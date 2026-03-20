@@ -19,7 +19,8 @@ between_sections = "dissolve"
 
 [[playlist.section]]
 mode = "swap"
-transition = "push_left"
+transition = "nyancat_alternating"
+transition_duration = 2.0
 loop_count = 1
 
 [playlist.section.title]
@@ -39,7 +40,7 @@ text = "Always be your bunny best!"
 
 [[playlist.section]]
 mode = "swap"
-transition = "wipe_left"
+transition = "push_alternating"
 hold_time = 6
 loop_count = 1
 
@@ -82,7 +83,7 @@ units = "imperial"
 
 [[playlist.section]]
 mode = "swap"
-transition = "push_up"
+transition = "wipe_alternating"
 loop_count = 1
 
 [playlist.section.title]

@@ -1,10 +1,8 @@
-"""Weather widget using OpenWeatherMap API."""
+"""Weather widget using WeatherAPI.com."""
 
 import asyncio
 import logging
 import os
-from collections import namedtuple
-from copy import deepcopy
 
 import attrs
 
@@ -15,15 +13,8 @@ from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 
-LocationData = namedtuple("LocationData", ("lat", "lon"))
-
-OPENWEATHERMAP_URL = "https://api.openweathermap.org/data/2.5/onecall"
-
-DEFAULT_WEATHER_PARAMS = {
-    "units": "imperial",
-    "exclude": ["minutely", "hourly", "daily", "alerts"],
-    "appid": os.getenv("OPENWEATHERMAP_API_KEY"),
-}
+WEATHERAPI_URL = "https://api.weatherapi.com/v1/current.json"
+WEATHERAPI_KEY = os.getenv("WEATHERAPI_KEY", "")
 
 
 @register("weather")
@@ -32,7 +23,7 @@ class WeatherWidget:
     """Current weather display widget."""
 
     session: object
-    location: LocationData
+    location: str  # query string: "New York", "10001", "40.71,-74.01"
     message: str
     units: str = "imperial"
     font: object = attrs.Factory(lambda: FONT_DEFAULT)
@@ -41,20 +32,15 @@ class WeatherWidget:
     center: bool = True
     padding: int = 6
     unit_symbol: str = attrs.field(init=False, default="")
-    weather_params: dict = attrs.field(init=False, factory=dict)
-    current: dict = attrs.field(init=False, factory=dict)
     current_temp: int = attrs.field(init=False, default=0)
     weather: str = attrs.field(init=False, default="")
 
     def __attrs_post_init__(self):
-        # TOML parses location as a dict; convert to namedtuple
+        # Support dict location from TOML: {lat = 40.71, lon = -74.01}
         if isinstance(self.location, dict):
-            self.location = LocationData(**self.location)
-
-        self.weather_params = deepcopy(DEFAULT_WEATHER_PARAMS)
-        self.weather_params["units"] = self.units
-        self.weather_params["lat"] = self.location.lat
-        self.weather_params["lon"] = self.location.lon
+            lat = self.location.get("lat", 0)
+            lon = self.location.get("lon", 0)
+            self.location = f"{lat},{lon}"
 
         if self.units == "imperial":
             self.unit_symbol = "F"
@@ -70,34 +56,40 @@ class WeatherWidget:
 
     async def update(self):
         logging.info("Updating weather for: %s", self.location)
+        params = {
+            "key": WEATHERAPI_KEY,
+            "q": self.location,
+        }
         async with self.session.get(
-            OPENWEATHERMAP_URL,
-            params=self.weather_params,
+            WEATHERAPI_URL, params=params,
         ) as response:
-            res_json = await response.json()
-            self.current = res_json
-            self.current_temp = int(res_json["current"]["temp"])
-            self.weather = res_json["current"]["weather"][0]["main"]
+            data = await response.json()
+            current = data["current"]
+            if self.units == "imperial":
+                self.current_temp = int(current["temp_f"])
+            else:
+                self.current_temp = int(current["temp_c"])
+            self.weather = current["condition"]["text"]
 
     def draw(self, canvas, cursor_pos=0, **kwargs):
         graphics = require_graphics()
 
         full_text = (
-            f"{self.message}: {self.weather} {self.current_temp}{self.unit_symbol}"
+            f"{self.message}: {self.weather} "
+            f"{self.current_temp}{self.unit_symbol}"
         )
         content_width = get_text_width(self.font, full_text, padding=0)
         cursor_pos, end_padding = compute_cursor(
-            canvas.width, content_width, cursor_pos, self.padding, self.center
+            canvas.width, content_width, cursor_pos,
+            self.padding, self.center,
         )
 
         cursor_pos += graphics.DrawText(
-            canvas, self.font, cursor_pos, 12, self.font_color, f"{self.message}: "
+            canvas, self.font, cursor_pos, 12,
+            self.font_color, f"{self.message}: ",
         )
         cursor_pos += graphics.DrawText(
-            canvas,
-            self.font,
-            cursor_pos,
-            12,
+            canvas, self.font, cursor_pos, 12,
             self.font_color_temp,
             f"{self.weather} {self.current_temp}{self.unit_symbol}",
         )

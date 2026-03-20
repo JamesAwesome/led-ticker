@@ -8,7 +8,7 @@ from led_ticker.widgets.crypto.coinbase import CoinbasePriceMonitor
 from led_ticker.widgets.crypto.coingecko import CoinGeckoPriceMonitor
 from led_ticker.widgets.crypto.etherscan import EtherscanGasMonitor
 from led_ticker.widgets.rss_feed import RSSFeedMonitor
-from led_ticker.widgets.weather import LocationData, WeatherWidget
+from led_ticker.widgets.weather import WeatherWidget
 
 
 def _make_session(json_response=None, text_response=None):
@@ -30,61 +30,65 @@ def _make_session(json_response=None, text_response=None):
 
 class TestWeatherUpdate:
     async def test_update_parses_weather(self):
-        session = _make_session(
-            json_response={"current": {"temp": 72, "weather": [{"main": "Clear"}]}}
-        )
+        session = _make_session(json_response={
+            "current": {
+                "temp_f": 72,
+                "temp_c": 22,
+                "condition": {"text": "Clear"},
+            }
+        })
         w = WeatherWidget(
-            session=session,
-            location=LocationData(40.7, -74.0),
-            message="NYC",
+            session=session, location="40.7,-74.0", message="NYC",
         )
         await w.update()
         assert w.current_temp == 72
         assert w.weather == "Clear"
 
-    async def test_update_truncates_fractional_temp(self):
-        session = _make_session(
-            json_response={"current": {"temp": 72.9, "weather": [{"main": "Rain"}]}}
-        )
+    async def test_update_metric(self):
+        session = _make_session(json_response={
+            "current": {
+                "temp_f": 72,
+                "temp_c": 22,
+                "condition": {"text": "Rain"},
+            }
+        })
         w = WeatherWidget(
-            session=session,
-            location=LocationData(0, 0),
-            message="T",
+            session=session, location="London",
+            message="LDN", units="metric",
         )
         await w.update()
-        assert w.current_temp == 72  # int() truncates
+        assert w.current_temp == 22
 
     async def test_update_raises_on_missing_current(self):
-        session = _make_session(json_response={"hourly": []})
+        session = _make_session(json_response={"error": "bad"})
         w = WeatherWidget(
-            session=session,
-            location=LocationData(0, 0),
-            message="T",
+            session=session, location="nowhere", message="T",
         )
         with pytest.raises(KeyError):
             await w.update()
 
     async def test_start_returns_initialized_widget(self):
-        session = _make_session(
-            json_response={"current": {"temp": 72, "weather": [{"main": "Clear"}]}}
-        )
+        session = _make_session(json_response={
+            "current": {
+                "temp_f": 72,
+                "temp_c": 22,
+                "condition": {"text": "Clear"},
+            }
+        })
         widget = await WeatherWidget.start(
-            session=session,
-            location=LocationData(40.7, -74.0),
-            message="NYC",
+            session=session, location="40.7,-74.0", message="NYC",
         )
         assert isinstance(widget, WeatherWidget)
         assert widget.current_temp == 72
 
     def test_location_dict_auto_converted(self):
-        """TOML gives location as dict; __attrs_post_init__ converts it."""
+        """TOML gives location as dict; converted to lat,lon string."""
         w = WeatherWidget(
             session=mock.Mock(),
             location={"lat": 40.7, "lon": -74.0},
             message="NYC",
         )
-        assert isinstance(w.location, LocationData)
-        assert w.location.lat == 40.7
+        assert w.location == "40.7,-74.0"
 
 
 # --- RSS Feed ---

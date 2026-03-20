@@ -104,7 +104,8 @@ countdown_date = 2026-06-20
 # currency = "USD"
 
 # --- Weather ---
-# Requires OPENWEATHERMAP_API_KEY in .env
+# Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/)
+# Location can be: city name, zip code, or "lat,lon"
 #
 # [[playlist.section]]
 # mode = "swap"
@@ -118,5 +119,5 @@ countdown_date = 2026-06-20
 # [[playlist.section.widget]]
 # type = "weather"
 # message = "NYC"
-# location = { lat = 40.7128, lon = -74.0060 }
+# location = "New York"
 # units = "imperial"

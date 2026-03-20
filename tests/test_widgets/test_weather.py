@@ -5,7 +5,7 @@ import unittest.mock as mock
 import pytest
 
 from led_ticker.widget import Widget
-from led_ticker.widgets.weather import LocationData, WeatherWidget
+from led_ticker.widgets.weather import WeatherWidget
 
 
 @pytest.fixture
@@ -13,10 +13,9 @@ def weather_widget():
     """A WeatherWidget with pre-set data (no network needed)."""
     w = WeatherWidget(
         session=mock.Mock(),
-        location=LocationData(lat=40.7, lon=-74.0),
+        location="40.7,-74.0",
         message="NYC",
     )
-    # Set the data that update() would normally fetch
     w.current_temp = 72
     w.weather = "Clear"
     return w
@@ -29,7 +28,7 @@ class TestWeatherWidget:
     def test_post_init_imperial(self):
         w = WeatherWidget(
             session=mock.Mock(),
-            location=LocationData(lat=0, lon=0),
+            location="New York",
             message="Test",
             units="imperial",
         )
@@ -38,11 +37,28 @@ class TestWeatherWidget:
     def test_post_init_metric(self):
         w = WeatherWidget(
             session=mock.Mock(),
-            location=LocationData(lat=0, lon=0),
+            location="London",
             message="Test",
             units="metric",
         )
         assert w.unit_symbol == "C"
+
+    def test_location_dict_converted_to_string(self):
+        """TOML gives location as dict; __attrs_post_init__ converts it."""
+        w = WeatherWidget(
+            session=mock.Mock(),
+            location={"lat": 40.7, "lon": -74.0},
+            message="NYC",
+        )
+        assert w.location == "40.7,-74.0"
+
+    def test_location_string_passthrough(self):
+        w = WeatherWidget(
+            session=mock.Mock(),
+            location="New York",
+            message="NYC",
+        )
+        assert w.location == "New York"
 
     def test_draw_returns_canvas(self, canvas, weather_widget):
         result_canvas, cursor_pos = weather_widget.draw(canvas)
@@ -51,19 +67,17 @@ class TestWeatherWidget:
 
     def test_draw_centered(self, canvas, weather_widget):
         _, cursor_pos = weather_widget.draw(canvas)
-        # "NYC: Clear 72F" centered on 160px canvas
-        assert cursor_pos == 160  # fills canvas when centered
+        assert cursor_pos == 160
 
     def test_draw_uncentered(self, canvas):
         w = WeatherWidget(
             session=mock.Mock(),
-            location=LocationData(lat=0, lon=0),
+            location="NYC",
             message="NYC",
             center=False,
         )
         w.current_temp = 72
         w.weather = "Clear"
         _, cursor_pos = w.draw(canvas)
-        # Text width + padding, starting from 0
         assert cursor_pos > 0
         assert cursor_pos < 160

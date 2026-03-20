@@ -39,7 +39,7 @@ text = "Always be your bunny best!"
 
 [[playlist.section]]
 mode = "swap"
-transition = "push_left"
+transition = "wipe_left"
 hold_time = 6
 loop_count = 3
 
@@ -82,7 +82,7 @@ units = "imperial"
 
 [[playlist.section]]
 mode = "swap"
-transition = "color_flash"
+transition = "push_up"
 loop_count = 3
 
 [playlist.section.title]

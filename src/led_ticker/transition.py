@@ -614,6 +614,27 @@ class PushAlternating:
         )
 
 
+@register_transition("nyancat_alternating")
+class NyanCatAlternating:
+    """Cycles through nyancat → nyancat_reverse."""
+
+    def __init__(self, **kwargs):
+        self._transitions = [
+            NyanCat(**kwargs),
+            NyanCatReverse(**kwargs),
+        ]
+        self._index = -1
+        self._last_t = 1.0
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+        if t < self._last_t:
+            self._index = (self._index + 1) % len(self._transitions)
+        self._last_t = t
+        return self._transitions[self._index].frame_at(
+            t, canvas, outgoing, incoming, **kwargs
+        )
+
+
 @register_transition("wipe_alternating")
 class WipeAlternating:
     """Cycles through wipe_left → wipe_right → wipe_up → wipe_down."""

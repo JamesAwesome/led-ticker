@@ -9,6 +9,7 @@ from led_ticker.transition import (
     ColorFlash,
     Cut,
     Dissolve,
+    NyanCatAlternating,
     PushAlternating,
     PushDown,
     PushLeft,
@@ -75,11 +76,12 @@ class TestTransitionRegistry:
             "nyancat",
             "nyancat_reverse",
             "push_alternating",
+            "nyancat_alternating",
             "wipe_alternating",
         ]
         for name in expected:
             assert name in _TRANSITION_REGISTRY
-        assert len(_TRANSITION_REGISTRY) == 16
+        assert len(_TRANSITION_REGISTRY) == 17
 
     def test_get_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown transition"):
@@ -738,6 +740,37 @@ class TestPushAlternating:
             0.0, canvas, make_widget(600), make_widget(40),
             outgoing_scroll_pos=-440,
         )
+
+
+# --- NyanCatAlternating ---
+
+
+class TestNyanCatAlternating:
+    def test_first_swap_uses_nyancat(self, canvas, make_widget):
+        alt = NyanCatAlternating()
+        alt.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        assert alt._index == 0
+
+    def test_second_swap_uses_reverse(self, canvas, make_widget):
+        alt = NyanCatAlternating()
+        alt.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        alt.frame_at(1.0, canvas, make_widget(40), make_widget(40))
+        alt.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        assert alt._index == 1
+
+    def test_wraps_around(self, canvas, make_widget):
+        alt = NyanCatAlternating()
+        for _i in range(3):
+            alt.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+            alt.frame_at(1.0, canvas, make_widget(40), make_widget(40))
+        assert alt._index == 0
+
+    def test_returns_canvas(self, canvas, make_widget):
+        alt = NyanCatAlternating()
+        result = alt.frame_at(
+            0.5, canvas, make_widget(40), make_widget(40)
+        )
+        assert result is canvas
 
 
 # --- WipeAlternating ---

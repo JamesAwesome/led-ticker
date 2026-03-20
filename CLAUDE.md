@@ -54,7 +54,7 @@ src/led_ticker/
 
 **Widget Registry**: `@register("name")` decorator. Config loader uses `get_widget_class(name)`.
 
-**Transition Registry**: `@register_transition("name")` decorator. 16 transitions available.
+**Transition Registry**: `@register_transition("name")` decorator. 17 transitions available.
 
 **Presentation Registry**: `@register_presentation("name")` decorator. 5 text effects available.
 
@@ -110,6 +110,7 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 - `nyancat` — Nyan Cat flies left-to-right, rainbow fills screen before cut
 - `nyancat_reverse` — Nyan Cat flies right-to-left (flipped sprite), rainbow fills screen
 - `push_alternating` — cycles through push_left → push_right → push_up → push_down each swap
+- `nyancat_alternating` — cycles through nyancat → nyancat_reverse each swap
 - `wipe_alternating` — cycles through wipe_left → wipe_right → wipe_up → wipe_down each swap
 
 **How wipe transitions work**: Draw outgoing widget at pos=0 (stationary text), then use SetPixel to black out regions and draw colored sweep lines on top. At t=1.0, snap to incoming. This avoids the compositing problem entirely — no need to draw both widgets or read pixels back.

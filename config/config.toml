@@ -91,8 +91,33 @@ color = "random"
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Days Until Summer"
+message = "Summer"
 countdown_date = 2026-06-20
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "4th of July"
+countdown_date = 2026-07-04
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Halloween"
+countdown_date = 2026-10-31
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Thanksgiving"
+countdown_date = 2026-11-26
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Christmas"
+countdown_date = 2026-12-25
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "New Years"
+countdown_date = 2027-01-01
 
 # --- Nintendo ---
 

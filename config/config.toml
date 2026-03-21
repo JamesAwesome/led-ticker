@@ -138,3 +138,39 @@ color = "random"
 type = "rss_feed"
 feed_url = "https://www.nintendolife.com/feeds/news"
 update_interval = 3000
+
+# --- Anime News Network ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "scroll"
+transition_duration = 4.0
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Anime News Network"
+color = "random"
+
+[[playlist.section.widget]]
+type = "rss_feed"
+feed_url = "https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us"
+update_interval = 3000
+
+# --- ESPN ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "scroll"
+transition_duration = 4.0
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "ESPN Top Stories"
+color = "random"
+
+[[playlist.section.widget]]
+type = "rss_feed"
+feed_url = "https://www.espn.com/espn/rss/news"
+update_interval = 3000

@@ -330,7 +330,7 @@ class _BaseWipe:
 class WipeUp(_BaseWipe):
     """Bottom-to-top wipe with sweep line moving upward."""
 
-    DEFAULT_COLOR = (255, 165, 0)
+    DEFAULT_COLOR = (255, 255, 255)
     min_frames = 16
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):

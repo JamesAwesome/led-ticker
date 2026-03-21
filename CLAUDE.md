@@ -110,7 +110,7 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 - `split` — center-outward expanding black band with magenta edge lines
 - `wipe_down` — top-down row blackout with sweep line (formerly 'curtain')
 - `nyancat` — Nyan Cat flies left-to-right, rainbow fills screen before cut
-- `scroll` — seamless continuous scroll with bullet separator: outgoing, " * ", incoming flow as one strip (use transition_duration=4.0, easing=linear)
+- `scroll` — seamless continuous scroll with bullet dot separator (2x2 SetPixel, 6px symmetric gaps). Uses `_scroll_between` at 1px/frame for constant speed. Note: `forever_scroll` mode uses a text `•` character via `DEFAULT_BUFFER_MSG` with cursor-based spacing — visually similar but different rendering approach.
 - `nyancat_reverse` — Nyan Cat flies right-to-left (flipped sprite), rainbow fills screen
 - `push_alternating` — cycles through push_left → push_right → push_up → push_down each swap
 - `nyancat_alternating` — cycles through nyancat → nyancat_reverse each swap

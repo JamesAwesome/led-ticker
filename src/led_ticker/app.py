@@ -112,6 +112,7 @@ async def run(config_path: Path):
     async with aiohttp.ClientSession() as session:
         notif_queue = asyncio.Queue()
         last_widget = None  # track for section-to-section transitions
+        last_scroll_pos = 0  # track scroll pos for between-section transitions
 
         while True:
             for section in config.sections:
@@ -147,6 +148,7 @@ async def run(config_path: Path):
                         transition=section_trans,
                         duration=config.between_sections.duration,
                         easing=config.between_sections.easing,
+                        outgoing_scroll_pos=last_scroll_pos,
                     )
 
                 # Build within-section transition config
@@ -177,7 +179,8 @@ async def run(config_path: Path):
                     loop_count=section.loop_count,
                 )
 
-                # Track the last widget for next section transition
+                # Track the last widget and scroll pos for next section transition
+                last_scroll_pos = ticker.last_scroll_pos
                 if widgets:
                     last_widget = widgets[-1]
                 elif title:

@@ -33,6 +33,7 @@ class Ticker:
     notif_queue: object = None
     transition_config: object = None
     hold_time: float = 3.0
+    last_scroll_pos: int = attrs.field(init=False, default=0)
 
     @classmethod
     def from_rss_feed(
@@ -71,7 +72,7 @@ class Ticker:
             )
         )
 
-        await _run_swap(
+        self.last_scroll_pos = await _run_swap(
             canvas,
             self.frame,
             self.notif_queue,
@@ -430,6 +431,8 @@ async def _run_swap(
             )
 
         prev_object = ticker_object
+
+    return prev_scroll_pos
 
 
 async def _swap_and_scroll(

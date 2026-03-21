@@ -367,41 +367,7 @@ class ColorFlash:
 
 @register_transition("wipe_left")
 class WipeLeft:
-    """Right-to-left wipe with sweep line."""
-
-    min_frames = 40
-
-    def __init__(self, color=None, **kwargs):
-        self.color = tuple(color) if color else (0, 255, 255)
-
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
-        w = canvas.width
-        h = getattr(canvas, "height", 16)
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
-        boundary = min(int(t * (w + 1)), w)
-
-        if t >= 1.0:
-            incoming.draw(canvas, cursor_pos=0)
-        else:
-            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
-            # Black out left of boundary (erased region)
-            if boundary > 0:
-                x_range = range(boundary)
-                for y in range(h):
-                    for x in x_range:
-                        canvas.SetPixel(x, y, 0, 0, 0)
-            # Sweep line at boundary
-            sweep_w = min(3, w - boundary)
-            if sweep_w > 0:
-                for y in range(h):
-                    for dx in range(sweep_w):
-                        canvas.SetPixel(boundary + dx, y, *self.color)
-        return canvas
-
-
-@register_transition("wipe_right")
-class WipeRight:
-    """Left-to-right wipe with sweep line."""
+    """Right-to-left wipe — sweep moves toward the left."""
 
     min_frames = 40
 
@@ -431,6 +397,40 @@ class WipeRight:
                 for y in range(h):
                     for dx in range(sweep_w):
                         canvas.SetPixel(line_x - 1 - dx, y, *self.color)
+        return canvas
+
+
+@register_transition("wipe_right")
+class WipeRight:
+    """Left-to-right wipe — sweep moves toward the right."""
+
+    min_frames = 40
+
+    def __init__(self, color=None, **kwargs):
+        self.color = tuple(color) if color else (0, 255, 255)
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+        w = canvas.width
+        h = getattr(canvas, "height", 16)
+        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        boundary = min(int(t * (w + 1)), w)
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+        else:
+            outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
+            # Black out left of boundary (erased region)
+            if boundary > 0:
+                x_range = range(boundary)
+                for y in range(h):
+                    for x in x_range:
+                        canvas.SetPixel(x, y, 0, 0, 0)
+            # Sweep line at boundary
+            sweep_w = min(3, w - boundary)
+            if sweep_w > 0:
+                for y in range(h):
+                    for dx in range(sweep_w):
+                        canvas.SetPixel(boundary + dx, y, *self.color)
         return canvas
 
 

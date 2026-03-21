@@ -146,7 +146,7 @@ text = "Crazy Frederick bought many very exquisite opal jewels and stored them s
 type = "message"
 text = "cut DONE"
 
-# --- wipe_left ---
+# --- wipe_left (sweep moves toward the left) ---
 [[playlist.section]]
 mode = "swap"
 transition = "wipe_left"
@@ -155,17 +155,17 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = ">> WIPE LEFT start"
+text = "<< WIPE LEFT start"
 
 [[playlist.section.widget]]
 type = "message"
-text = "Sixty zippers were quickly picked from the woven jute bag by the eager merchants waiting at the market square"
+text = "Jackdaws love my big sphinx of quartz and they perch upon it every single morning while the sun rises slowly"
 
 [[playlist.section.widget]]
 type = "message"
 text = "wipe_left DONE"
 
-# --- wipe_right ---
+# --- wipe_right (sweep moves toward the right) ---
 [[playlist.section]]
 mode = "swap"
 transition = "wipe_right"
@@ -174,11 +174,11 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = "<< WIPE RIGHT start"
+text = ">> WIPE RIGHT start"
 
 [[playlist.section.widget]]
 type = "message"
-text = "Jackdaws love my big sphinx of quartz and they perch upon it every single morning while the sun rises slowly"
+text = "Sixty zippers were quickly picked from the woven jute bag by the eager merchants waiting at the market square"
 
 [[playlist.section.widget]]
 type = "message"
@@ -360,7 +360,7 @@ text = "WIPE ALTERNATING 1"
 
 [[playlist.section.widget]]
 type = "message"
-text = "WIPE ALT 2 (should be wipe_right)"
+text = "WIPE ALT 2 (should be wipe_right - sweeps right)"
 
 [[playlist.section.widget]]
 type = "message"

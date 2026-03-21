@@ -1,5 +1,7 @@
 # led-ticker
 
+[![CI](https://github.com/JamesAwesome/led-ticker/actions/workflows/ci.yml/badge.svg)](https://github.com/JamesAwesome/led-ticker/actions/workflows/ci.yml)
+
 An asyncio Python toolkit for displaying scrolling feeds on LED matrix panels.
 
 Display news, weather, countdowns, crypto prices, and custom messages on Adafruit 16x32 LED matrix panels using a Raspberry Pi.

@@ -148,11 +148,21 @@ def _build_ticker_iter(ticker_objects, title=None, loop_count=0):
 
 
 async def _enqueue_ticker_objects(ticker_iter, notif_queue):
-    await notif_queue.put(next(ticker_iter))
+    try:
+        first = next(ticker_iter)
+        logging.info("_enqueue: putting first item: %s", type(first).__name__)
+        await notif_queue.put(first)
+        logging.info("_enqueue: first item put, queue_size=%s", notif_queue.qsize())
+    except Exception:
+        logging.exception("_enqueue: FAILED to put first item")
+        return
     while True:
         try:
             await notif_queue.put(next(ticker_iter))
         except StopIteration:
+            break
+        except Exception:
+            logging.exception("_enqueue: FAILED during enqueue loop")
             break
 
 

@@ -10,10 +10,10 @@ gpio_mapping = "adafruit-hat"
 delay = 5
 
 [transitions]
-default = "nyancat_alternating"
-duration = 2.0
+default = "push_left"
+duration = 0.5
 easing = "ease_out"
-between_sections = "dissolve"
+between_sections = "nyancat"
 
 # --- Messages ---
 

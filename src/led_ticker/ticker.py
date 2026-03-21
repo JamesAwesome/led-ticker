@@ -412,7 +412,7 @@ async def _run_swap(
         ticker_object = notif_queue.get_nowait()
 
         if is_scroll:
-            # Continuous scroll: no holds between widgets
+            # Continuous scroll: seamless transition between widgets
             canvas, prev_scroll_pos = await _scroll_between(
                 canvas,
                 frame,
@@ -420,13 +420,14 @@ async def _run_swap(
                 ticker_object,
                 outgoing_scroll_pos=prev_scroll_pos,
             )
-            # Scroll long text through without holding
+            # If text overflows, scroll through it. Short text
+            # is already visible from _scroll_between's last frame.
             canvas, _, prev_scroll_pos = await _swap_and_scroll(
                 canvas,
                 frame,
                 ticker_object,
                 skip_initial_draw=True,
-                hold_time=0,
+                hold_time=hold_time,
             )
         elif transition is not None:
             canvas = await run_transition(

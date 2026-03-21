@@ -631,25 +631,24 @@ class Scroll:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
-        # Outgoing's end_padding provides left gap before bullet.
-        # Only add right gap (padding) after bullet before incoming.
+        # Explicit equal gaps on both sides: [padding][*][padding]
         padding = getattr(outgoing, "padding", None)
         padding = padding if isinstance(padding, int) else self._default_gap
-        separator_width = self._bullet_text_w + padding
+        separator_width = padding + self._bullet_text_w + padding
 
         total_travel = w + separator_width
         scroll_offset = int(t * total_travel)
 
-        # Continuous strip: outgoing[padding] | * | [padding] incoming
+        # Continuous strip: outgoing | [padding] [*] [padding] | incoming
         outgoing_pos = outgoing_scroll_pos - scroll_offset
-        bullet_pos = w - scroll_offset
+        bullet_pos = w + padding - scroll_offset
         incoming_pos = w + separator_width - scroll_offset
 
         # 1. Draw outgoing (may bleed right)
         outgoing.draw(canvas, cursor_pos=outgoing_pos)
 
-        # 2. Black out from bullet_pos onward
-        clear_start = max(0, bullet_pos)
+        # 2. Black out from separator start
+        clear_start = max(0, w - scroll_offset)
         if clear_start < w:
             x_range = range(clear_start, w)
             for y in range(h):

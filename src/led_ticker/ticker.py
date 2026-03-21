@@ -322,15 +322,15 @@ async def _scroll_between(
     w = canvas.width
     h = getattr(canvas, "height", 16)
 
-    # Outgoing's end_padding provides the left gap before the bullet.
-    # Only add a right gap (padding) after the bullet before incoming.
+    # Explicit equal gaps on both sides of bullet: [padding][*][padding]
+    # Don't rely on outgoing's end_padding — it's just a cursor_pos
+    # number, not visible pixels on screen.
     padding = getattr(outgoing, "padding", None)
     padding = padding if isinstance(padding, int) else 6
 
     bullet = TickerMessage("*", center=False, padding=0)
     bullet_text_w = get_text_width(FONT_DEFAULT, "*", padding=0)
-    # Separator: [*][padding] — outgoing's own padding is the left gap
-    separator_width = bullet_text_w + padding
+    separator_width = padding + bullet_text_w + padding
 
     total_travel = w + separator_width
 
@@ -338,14 +338,14 @@ async def _scroll_between(
         canvas.Clear()
 
         outgoing_pos = outgoing_scroll_pos - offset
-        bullet_pos = w - offset
+        bullet_pos = w + padding - offset
         incoming_pos = w + separator_width - offset
 
         # 1. Draw outgoing (may bleed right)
         outgoing.draw(canvas, cursor_pos=outgoing_pos)
 
-        # 2. Blackout from bullet_pos onward
-        clear_start = max(0, bullet_pos)
+        # 2. Blackout from separator start (outgoing end + gap)
+        clear_start = max(0, w - offset)
         if clear_start < w:
             x_range = range(clear_start, w)
             for y in range(h):

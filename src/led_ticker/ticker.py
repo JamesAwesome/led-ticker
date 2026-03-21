@@ -461,8 +461,9 @@ async def _swap_and_scroll(
         # cursor_pos from draw() includes end_padding (default 6px),
         # which is spacing for forever_scroll side-by-side layout.
         # Don't remove padding from the widget — it's needed there.
-        # Instead, subtract it here so the last visible character
-        # is flush with the right edge (x=159), not 6px short.
+        # Add padding back here to compensate: cursor_pos overshoots
+        # by padding, so adding it to stop_pos scrolls less far left,
+        # putting the last character flush with the right edge (x=159).
         padding = getattr(ticker_obj, "padding", None)
         padding = padding if isinstance(padding, int) else 0
         stop_pos = -(cursor_pos - canvas.width) + padding

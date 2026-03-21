@@ -714,6 +714,8 @@ class NyanCatAlternating:
 class WipeAlternating:
     """Cycles through wipe_left → wipe_right → wipe_up → wipe_down."""
 
+    min_frames = 40  # inherit from wipe sub-transitions
+
     def __init__(self, **kwargs):
         self._transitions = [
             WipeLeft(**kwargs),

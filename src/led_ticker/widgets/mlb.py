@@ -298,7 +298,7 @@ def _build_game_message(game, team_abbr, tz):
             (f" {time_str}", RGB_WHITE),
         ]
 
-    return MLBGameMessage(segments)
+    return MLBGameMessage(segments, center=True)
 
 
 @register("mlb")

@@ -287,8 +287,10 @@ def _build_game_message(game, team_abbr, tz):
         b2 = "\u25c6" if game.on_second else "\u25c7"
         b1 = "\u25c6" if game.on_first else "\u25c7"
 
-        # Compact BSO: "2-1 1O"
-        bso = f" {game.balls}-{game.strikes} {game.outs}O"
+        # BSO in color: B|S|O
+        ball_c = _color(80, 255, 80)     # green
+        strike_c = _color(255, 255, 80)  # yellow
+        out_c = _color(255, 80, 80)      # red
 
         segments = [
             (team_abbr, team_c),
@@ -298,7 +300,11 @@ def _build_game_message(game, team_abbr, tz):
             (f" {opp_score}", RGB_WHITE),
             (inning_str, RGB_WHITE),
             (f" {b3}{b2}{b1}", RGB_WHITE),
-            (bso, RGB_WHITE),
+            (f" {game.balls}", ball_c),
+            ("|", RGB_WHITE),
+            (f"{game.strikes}", strike_c),
+            ("|", RGB_WHITE),
+            (f"{game.outs}", out_c),
         ]
 
     else:  # preview

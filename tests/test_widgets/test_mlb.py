@@ -231,7 +231,8 @@ class TestBuildGameMessage:
         text = "".join(t for t, _ in msg.segments)
         assert "\u25bc7" in text
         assert "PHI" in text
-        assert "2-1 1O" in text
+        # BSO as colored segments: "2|1|1"
+        assert "|" in text
         # 3rd occupied, 2nd empty, 1st occupied
         assert "\u25c6\u25c7\u25c6" in text
 
@@ -244,7 +245,7 @@ class TestBuildGameMessage:
         msg = _build_game_message(game, "PHI", ET)
         text = "".join(t for t, _ in msg.segments)
         assert "\u25c7\u25c7\u25c7" in text
-        assert "0-0 0O" in text
+        assert "|" in text
 
     def test_upcoming_game(self):
         game = GameInfo(

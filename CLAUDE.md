@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-make dev        # Create venv + install with dev deps
+make dev        # uv sync (install all deps)
 make test       # Run pytest with coverage (no Docker needed)
 make lint       # Run ruff linter
 make format     # Auto-format with ruff

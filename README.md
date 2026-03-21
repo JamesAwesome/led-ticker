@@ -7,6 +7,9 @@ Display news, weather, countdowns, crypto prices, and custom messages on Adafrui
 ## Quick Start
 
 ```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
 # Clone and install
 git clone https://github.com/JamesAwesome/led-ticker.git
 cd led-ticker
@@ -172,7 +175,7 @@ For async widgets that fetch data, implement `update()` and use `run_monitor_loo
 ## Development
 
 ```bash
-make dev        # Create venv + install deps
+make dev        # Install deps (requires uv)
 make test       # Run tests (no Docker needed)
 make lint       # Run ruff linter
 make format     # Auto-format code

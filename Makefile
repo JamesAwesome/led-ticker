@@ -1,30 +1,22 @@
-.PHONY: dev test lint format pre-commit clean build-docker
-
-PYTHON ?= python3
-VENV := .venv
-BIN := $(VENV)/bin
+.PHONY: dev test lint format clean build-docker
 
 # --- Developer Setup ---
 
-dev:  ## Create venv and install package with dev dependencies
-	$(PYTHON) -m venv $(VENV)
-	$(BIN)/pip install -e ".[dev]"
+dev:  ## Install package with dev dependencies
+	uv sync --extra dev
 
 # --- Testing ---
 
 test:  ## Run pytest with coverage (no Docker needed)
-	PYTHONPATH=tests/stubs $(BIN)/pytest -s --cov=src/ --cov-report=term-missing
+	PYTHONPATH=tests/stubs uv run pytest -s --cov=src/ --cov-report=term-missing
 
 # --- Quality ---
 
 lint:  ## Run ruff linter
-	$(BIN)/ruff check src/ tests/
+	uv run ruff check src/ tests/
 
 format:  ## Run ruff formatter
-	$(BIN)/ruff format src/ tests/
-
-pre-commit:  ## Run all pre-commit hooks
-	$(BIN)/pre-commit run --all-files
+	uv run ruff format src/ tests/
 
 # --- Docker (production image only) ---
 

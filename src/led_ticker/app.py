@@ -198,6 +198,10 @@ async def run(config_path: Path):
                     loop_count=section.loop_count,
                 )
 
+                # Brief pause before between-sections transition
+                if section.continuous_scroll:
+                    await asyncio.sleep(1.0)
+
                 # Track the last widget and scroll pos for next section transition
                 last_scroll_pos = ticker.last_scroll_pos
                 if widgets:

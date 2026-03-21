@@ -7,43 +7,71 @@ Example: ":baseball: MLB Scores" renders a baseball icon then text.
 Each emoji is a list of (x, y, r, g, b) tuples relative to origin.
 """
 
-EMOJI_WIDTH = 8
-EMOJI_HEIGHT = 8
+EMOJI_DEFAULT_WIDTH = 8
 EMOJI_PADDING = 2  # px after icon before text resumes
 
-# ⚾ Baseball — white ball with red stitching
+
+def _emoji_width(icon):
+    """Compute the width of an icon from its pixel data."""
+    if not icon:
+        return 0
+    return max(px for px, _, _, _, _ in icon) + 1
+
+# ⚾ Baseball — white ball with red stitching along edges
+_W = (240, 240, 240)  # white fill
+_B = (255, 255, 255)  # bright white border
+_R = (255, 30, 30)    # red stitching
 BASEBALL = [
-    # White ball outline
-    (2, 0, 255, 255, 255), (3, 0, 255, 255, 255), (4, 0, 255, 255, 255), (5, 0, 255, 255, 255),
-    (1, 1, 255, 255, 255), (6, 1, 255, 255, 255),
-    (0, 2, 255, 255, 255), (7, 2, 255, 255, 255),
-    (0, 3, 255, 255, 255), (7, 3, 255, 255, 255),
-    (0, 4, 255, 255, 255), (7, 4, 255, 255, 255),
-    (0, 5, 255, 255, 255), (7, 5, 255, 255, 255),
-    (1, 6, 255, 255, 255), (6, 6, 255, 255, 255),
-    (2, 7, 255, 255, 255), (3, 7, 255, 255, 255), (4, 7, 255, 255, 255), (5, 7, 255, 255, 255),
-    # White fill
-    (2, 1, 240, 240, 240), (3, 1, 240, 240, 240), (4, 1, 240, 240, 240), (5, 1, 240, 240, 240),
-    (1, 2, 240, 240, 240), (1, 3, 240, 240, 240),
-    (6, 4, 240, 240, 240), (6, 5, 240, 240, 240),
-    (2, 6, 240, 240, 240), (3, 6, 240, 240, 240), (4, 6, 240, 240, 240), (5, 6, 240, 240, 240),
-    # Red stitching — left curve
-    (2, 2, 255, 30, 30), (3, 3, 255, 30, 30), (3, 4, 255, 30, 30), (2, 5, 255, 30, 30),
-    # Red stitching — right curve
-    (5, 2, 255, 30, 30), (4, 3, 255, 30, 30), (4, 4, 255, 30, 30), (5, 5, 255, 30, 30),
-    # Center fill
-    (3, 2, 240, 240, 240), (4, 2, 240, 240, 240),
-    (2, 3, 240, 240, 240), (5, 3, 240, 240, 240),
-    (2, 4, 240, 240, 240), (5, 4, 240, 240, 240),
-    (3, 5, 240, 240, 240), (4, 5, 240, 240, 240),
-    (6, 2, 240, 240, 240), (6, 3, 240, 240, 240),
-    (1, 4, 240, 240, 240), (1, 5, 240, 240, 240),
+    # Top edge + stitching curves out from top
+    (2, 0, *_B), (3, 0, *_R), (4, 0, *_R), (5, 0, *_B),
+    (1, 1, *_B), (2, 1, *_R), (3, 1, *_W), (4, 1, *_W), (5, 1, *_R), (6, 1, *_B),
+    # Upper middle — stitching curves to sides
+    (0, 2, *_B), (1, 2, *_R), (2, 2, *_W), (3, 2, *_W), (4, 2, *_W), (5, 2, *_W), (6, 2, *_R), (7, 2, *_B),
+    # Center rows — white with stitching at edges
+    (0, 3, *_R), (1, 3, *_W), (2, 3, *_W), (3, 3, *_W), (4, 3, *_W), (5, 3, *_W), (6, 3, *_W), (7, 3, *_R),
+    (0, 4, *_R), (1, 4, *_W), (2, 4, *_W), (3, 4, *_W), (4, 4, *_W), (5, 4, *_W), (6, 4, *_W), (7, 4, *_R),
+    # Lower middle — stitching curves from sides
+    (0, 5, *_B), (1, 5, *_R), (2, 5, *_W), (3, 5, *_W), (4, 5, *_W), (5, 5, *_W), (6, 5, *_R), (7, 5, *_B),
+    (1, 6, *_B), (2, 6, *_R), (3, 6, *_W), (4, 6, *_W), (5, 6, *_R), (6, 6, *_B),
+    # Bottom edge + stitching curves in
+    (2, 7, *_B), (3, 7, *_R), (4, 7, *_R), (5, 7, *_B),
 ]
 
-# Registry: slug → pixel data
-EMOJI_REGISTRY = {
-    "baseball": BASEBALL,
-}
+def _build_emoji_registry():
+    """Build the emoji registry with all available icons."""
+    from led_ticker.widgets.mlb_icons import FLOWER, STAR
+    from led_ticker.widgets.weather_icons import (
+        CLOUD,
+        FOG,
+        RAIN,
+        SNOW,
+        SUN,
+        THUNDER,
+    )
+
+    return {
+        # Sports
+        "baseball": BASEBALL,
+        "flower": FLOWER,
+        "star": STAR,
+        # Weather
+        "sun": SUN,
+        "cloud": CLOUD,
+        "rain": RAIN,
+        "snow": SNOW,
+        "thunder": THUNDER,
+        "fog": FOG,
+    }
+
+
+EMOJI_REGISTRY: dict = {}
+
+
+def _get_registry():
+    global EMOJI_REGISTRY  # noqa: PLW0603
+    if not EMOJI_REGISTRY:
+        EMOJI_REGISTRY.update(_build_emoji_registry())
+    return EMOJI_REGISTRY
 
 
 def _parse_segments(text):
@@ -60,7 +88,7 @@ def _parse_segments(text):
             continue
         if part.startswith(":") and part.endswith(":"):
             slug = part[1:-1]
-            if slug in EMOJI_REGISTRY:
+            if slug in _get_registry():
                 segments.append(("emoji", slug))
             else:
                 segments.append(("text", part))
@@ -77,7 +105,7 @@ def measure_width(font, text):
     width = 0
     for seg_type, value in segments:
         if seg_type == "emoji":
-            width += EMOJI_WIDTH + EMOJI_PADDING
+            width += _emoji_width(_get_registry()[value]) + EMOJI_PADDING
         else:
             width += get_text_width(font, value, padding=0)
     return width
@@ -91,8 +119,9 @@ def draw_with_emoji(canvas, font, cursor_pos, y, color, text, y_offset=0):
 
     for seg_type, value in segments:
         if seg_type == "emoji":
-            icon = EMOJI_REGISTRY[value]
-            # Center 8px icon vertically: y_offset=4 on 16px display
+            icon = _get_registry()[value]
+            iw = _emoji_width(icon)
+            # Center icon vertically on 16px display
             ix = int(cursor_pos + total)
             iy = 4 + y_offset
             w = canvas.width
@@ -102,7 +131,7 @@ def draw_with_emoji(canvas, font, cursor_pos, y, color, text, y_offset=0):
                 dy = iy + py
                 if 0 <= dx < w and 0 <= dy < h:
                     canvas.SetPixel(dx, dy, r, g, b)
-            total += EMOJI_WIDTH + EMOJI_PADDING
+            total += iw + EMOJI_PADDING
         else:
             if graphics_mod is None:
                 from led_ticker._compat import require_graphics

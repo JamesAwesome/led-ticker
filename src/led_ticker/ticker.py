@@ -417,6 +417,11 @@ async def _run_swap(
         is_scroll, hold_time, notif_queue.qsize(),
     )
 
+    # Yield to let background enqueue task run, then get
+    await asyncio.sleep(0.1)
+    logging.info(
+        "_run_swap: after yield, queue_size=%s", notif_queue.qsize(),
+    )
     ticker_object = await notif_queue.get()
     logging.info("_run_swap: first widget=%s", type(ticker_object).__name__)
     canvas, _, prev_scroll_pos = await _swap_and_scroll(

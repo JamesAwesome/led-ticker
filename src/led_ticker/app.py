@@ -103,7 +103,9 @@ async def run(config_path: Path):
             config.between_sections.type,
         )
         trans_kwargs = {}
-        if config.between_sections.color is not None:
+        if config.between_sections.colors is not None:
+            trans_kwargs["colors"] = config.between_sections.colors
+        elif config.between_sections.color is not None:
             trans_kwargs["color"] = config.between_sections.color
         section_trans = section_trans_cls(**trans_kwargs)
 
@@ -152,7 +154,9 @@ async def run(config_path: Path):
                 if trans_cfg.type != "cut":
                     trans_cls = get_transition_class(trans_cfg.type)
                     trans_kwargs = {}
-                    if trans_cfg.color is not None:
+                    if trans_cfg.colors is not None:
+                        trans_kwargs["colors"] = trans_cfg.colors
+                    elif trans_cfg.color is not None:
                         trans_kwargs["color"] = trans_cfg.color
                     trans_cfg.transition_obj = trans_cls(**trans_kwargs)
                     transition_config = trans_cfg

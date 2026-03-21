@@ -896,10 +896,28 @@ class TestWipeAlternating:
             alt.frame_at(1.0, canvas, make_widget(40), make_widget(40))
         assert alt._index == 0
 
-    def test_each_sub_transition_has_unique_color(self):
+    def test_default_colors_from_base_classes(self):
         alt = WipeAlternating()
+        assert alt._transitions[0].color == WipeLeft.DEFAULT_COLOR
+        assert alt._transitions[1].color == WipeRight.DEFAULT_COLOR
+        assert alt._transitions[2].color == WipeUp.DEFAULT_COLOR
+        assert alt._transitions[3].color == WipeDown.DEFAULT_COLOR
+        # All unique
         colors = [t.color for t in alt._transitions]
-        assert len(set(colors)) == 4  # all different
+        assert len(set(colors)) == 4
+
+    def test_single_color_override(self):
+        alt = WipeAlternating(color=[255, 0, 0])
+        for t in alt._transitions:
+            assert t.color == (255, 0, 0)
+
+    def test_per_direction_colors(self):
+        custom = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0]]
+        alt = WipeAlternating(colors=custom)
+        assert alt._transitions[0].color == (255, 0, 0)
+        assert alt._transitions[1].color == (0, 255, 0)
+        assert alt._transitions[2].color == (0, 0, 255)
+        assert alt._transitions[3].color == (255, 255, 0)
 
     def test_returns_canvas(self, canvas, make_widget):
         alt = WipeAlternating()

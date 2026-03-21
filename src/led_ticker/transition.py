@@ -316,14 +316,22 @@ class PushDown:
         return canvas
 
 
-@register_transition("wipe_up")
-class WipeUp:
-    """Bottom-to-top wipe with sweep line moving upward."""
+class _BaseWipe:
+    """Base class for wipe transitions. Not registered as a transition."""
 
-    min_frames = 16
+    DEFAULT_COLOR = (0, 255, 255)
+    min_frames = 40
 
     def __init__(self, color=None, **kwargs):
-        self.color = tuple(color) if color else (255, 255, 255)
+        self.color = tuple(color) if color else self.DEFAULT_COLOR
+
+
+@register_transition("wipe_up")
+class WipeUp(_BaseWipe):
+    """Bottom-to-top wipe with sweep line moving upward."""
+
+    DEFAULT_COLOR = (255, 255, 0)
+    min_frames = 16
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
@@ -369,13 +377,10 @@ class ColorFlash:
 
 
 @register_transition("wipe_left")
-class WipeLeft:
+class WipeLeft(_BaseWipe):
     """Right-to-left wipe — sweep moves toward the left."""
 
-    min_frames = 40
-
-    def __init__(self, color=None, **kwargs):
-        self.color = tuple(color) if color else (0, 255, 255)
+    DEFAULT_COLOR = (0, 255, 255)
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
@@ -404,13 +409,10 @@ class WipeLeft:
 
 
 @register_transition("wipe_right")
-class WipeRight:
+class WipeRight(_BaseWipe):
     """Left-to-right wipe — sweep moves toward the right."""
 
-    min_frames = 40
-
-    def __init__(self, color=None, **kwargs):
-        self.color = tuple(color) if color else (0, 255, 255)
+    DEFAULT_COLOR = (255, 0, 255)
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
@@ -522,13 +524,11 @@ class SplitHorizontal:
 
 
 @register_transition("wipe_down")
-class WipeDown:
+class WipeDown(_BaseWipe):
     """Top-to-bottom wipe with sweep line moving downward (formerly 'curtain')."""
 
+    DEFAULT_COLOR = (0, 255, 0)
     min_frames = 16
-
-    def __init__(self, color=None, **kwargs):
-        self.color = tuple(color) if color else (0, 255, 0)
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         w = canvas.width
@@ -719,22 +719,22 @@ class NyanCatAlternating:
 class WipeAlternating:
     """Cycles through wipe_left → wipe_right → wipe_up → wipe_down."""
 
-    _COLORS = [
-        (0, 255, 255),    # cyan
-        (255, 0, 255),    # magenta
-        (255, 255, 0),    # yellow
-        (0, 255, 0),      # green
-    ]
+    def __init__(self, colors=None, color=None, **kwargs):
+        wipe_classes = [WipeLeft, WipeRight, WipeUp, WipeDown]
 
-    def __init__(self, **kwargs):
-        # Strip user color — we cycle our own
-        kwargs.pop("color", None)
-        self._transitions = [
-            WipeLeft(color=self._COLORS[0]),
-            WipeRight(color=self._COLORS[1]),
-            WipeUp(color=self._COLORS[2]),
-            WipeDown(color=self._COLORS[3]),
-        ]
+        if colors and len(colors) >= len(wipe_classes):
+            self._transitions = [
+                cls(color=c)
+                for cls, c in zip(wipe_classes, colors, strict=False)
+            ]
+        elif color:
+            self._transitions = [
+                cls(color=color) for cls in wipe_classes
+            ]
+        else:
+            # Each uses its own DEFAULT_COLOR
+            self._transitions = [cls() for cls in wipe_classes]
+
         self._index = -1
         self._last_t = 1.0
 

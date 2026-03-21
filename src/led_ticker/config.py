@@ -26,6 +26,7 @@ class TransitionConfig:
     duration: float = 0.5
     easing: str = "linear"
     color: tuple[int, int, int] | None = None
+    colors: list[tuple[int, int, int]] | None = None
 
 
 @dataclass
@@ -68,11 +69,15 @@ def _parse_transition(
     color = raw.get("transition_color")
     if color is not None:
         color = tuple(color)
+    colors = raw.get("transition_colors")
+    if colors is not None:
+        colors = [tuple(c) for c in colors]
     return TransitionConfig(
         type=raw.get("type", default.type),
         duration=raw.get("duration", default.duration),
         easing=raw.get("easing", default.easing),
         color=color,
+        colors=colors,
     )
 
 
@@ -109,6 +114,8 @@ def load_config(path: Path) -> AppConfig:
             trans.duration = section_raw["transition_duration"]
         if "transition_color" in section_raw:
             trans.color = tuple(section_raw["transition_color"])
+        if "transition_colors" in section_raw:
+            trans.colors = [tuple(c) for c in section_raw["transition_colors"]]
 
         section = SectionConfig(
             mode=section_raw.get("mode", "forever_scroll"),

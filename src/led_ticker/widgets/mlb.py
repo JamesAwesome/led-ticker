@@ -291,10 +291,15 @@ class MLBScoreMonitor:
         await widget._resolve_team_id()
         logger.info("MLB team_id for %s: %s", team, widget._team_id)
         await widget.update()
+        for i, s in enumerate(widget.feed_stories):
+            if hasattr(s, "message"):
+                logger.info("MLB %s story[%d]: %s", team, i, s.message)
+            elif hasattr(s, "segments"):
+                text = "".join(t for t, _ in s.segments)
+                logger.info("MLB %s story[%d]: %s", team, i, text)
         logger.info(
-            "MLB %s: title=%s, stories=%d",
+            "MLB %s: stories=%d",
             team,
-            widget.feed_title,
             len(widget.feed_stories),
         )
         asyncio.create_task(run_monitor_loop(widget, update_interval))

@@ -22,9 +22,9 @@ between_sections = {type = "nyancat_alternating", duration = 2.0}
 
 [[playlist.section]]
 mode = "swap"
-transition = "scroll"
-transition_duration = 4.0
-loop_count = 0
+transition = "push_left"
+hold_time = 5
+loop_count = 1
 
 [playlist.section.title]
 type = "message"

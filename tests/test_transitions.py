@@ -779,7 +779,7 @@ class TestScroll:
         """Scroll transition should have a bullet separator."""
         scroll = Scroll()
         assert scroll._bullet is not None
-        assert scroll._bullet_width > 0
+        assert scroll._bullet_text_w > 0
 
     def test_positions_are_consecutive(self, canvas, make_widget):
         """At t=0, outgoing at scroll_pos, bullet/incoming off-screen."""

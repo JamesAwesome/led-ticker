@@ -315,31 +315,36 @@ async def _scroll_between(
     scroll_speed=0.05,
 ):
     """Seamlessly scroll from outgoing to incoming at constant 1px/frame."""
-    from led_ticker.colors import RGB_WHITE
     from led_ticker.drawing import get_text_width
     from led_ticker.fonts import FONT_DEFAULT
     from led_ticker.widgets.message import TickerMessage
 
     w = canvas.width
     h = getattr(canvas, "height", 16)
-    bullet = TickerMessage(" * ", center=False, font_color=RGB_WHITE)
-    bullet_width = (
-        get_text_width(FONT_DEFAULT, " * ", padding=0) + bullet.padding
-    )
 
-    total_travel = w + bullet_width
+    # Outgoing's end_padding provides the left gap before the bullet.
+    # Only add a right gap (padding) after the bullet before incoming.
+    padding = getattr(outgoing, "padding", None)
+    padding = padding if isinstance(padding, int) else 6
+
+    bullet = TickerMessage("*", center=False, padding=0)
+    bullet_text_w = get_text_width(FONT_DEFAULT, "*", padding=0)
+    # Separator: [*][padding] — outgoing's own padding is the left gap
+    separator_width = bullet_text_w + padding
+
+    total_travel = w + separator_width
 
     for offset in range(total_travel + 1):
         canvas.Clear()
 
         outgoing_pos = outgoing_scroll_pos - offset
         bullet_pos = w - offset
-        incoming_pos = w + bullet_width - offset
+        incoming_pos = w + separator_width - offset
 
         # 1. Draw outgoing (may bleed right)
         outgoing.draw(canvas, cursor_pos=outgoing_pos)
 
-        # 2. Blackout from bullet_pos onward + draw bullet + incoming
+        # 2. Blackout from bullet_pos onward
         clear_start = max(0, bullet_pos)
         if clear_start < w:
             x_range = range(clear_start, w)
@@ -347,7 +352,7 @@ async def _scroll_between(
                 for x in x_range:
                     canvas.SetPixel(x, y, 0, 0, 0)
 
-        if bullet_pos < w and bullet_pos + bullet_width > 0:
+        if bullet_pos < w and bullet_pos + bullet_text_w > 0:
             bullet.draw(canvas, cursor_pos=bullet_pos)
 
         if incoming_pos < w:

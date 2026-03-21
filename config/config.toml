@@ -19,7 +19,9 @@ between_sections = {type = "nyancat_alternating", duration = 2.0}
 
 [[playlist.section]]
 mode = "swap"
-transition = "dissolve"
+transition = "scroll"
+transition_duration = 4.0
+continuous_scroll = true
 loop_count = 1
 
 [playlist.section.title]

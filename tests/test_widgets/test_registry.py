@@ -7,6 +7,7 @@ from led_ticker.widgets.crypto.coinbase import CoinbasePriceMonitor
 from led_ticker.widgets.crypto.coingecko import CoinGeckoPriceMonitor
 from led_ticker.widgets.crypto.etherscan import EtherscanGasMonitor
 from led_ticker.widgets.message import TickerCountdown, TickerMessage
+from led_ticker.widgets.mlb import MLBScoreMonitor
 from led_ticker.widgets.rss_feed import RSSFeedMonitor
 from led_ticker.widgets.weather import WeatherWidget
 
@@ -20,6 +21,7 @@ def test_all_widgets_registered():
         "coinbase": CoinbasePriceMonitor,
         "coingecko": CoinGeckoPriceMonitor,
         "etherscan": EtherscanGasMonitor,
+        "mlb": MLBScoreMonitor,
     }
     for name, cls in expected.items():
         assert get_widget_class(name) is cls
@@ -30,5 +32,5 @@ def test_get_unknown_widget_raises():
         get_widget_class("nonexistent_widget")
 
 
-def test_registry_has_seven_widgets():
-    assert len(_WIDGET_REGISTRY) == 7
+def test_registry_has_eight_widgets():
+    assert len(_WIDGET_REGISTRY) == 8

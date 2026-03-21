@@ -112,6 +112,21 @@ countdown_date = 2026-06-20
 # symbol = "ETH"
 # currency = "USD"
 
+# --- MLB Scores ---
+# Free MLB Stats API, no key needed.
+# One widget per team. Shows current series scores, live games, upcoming.
+#
+# [[playlist.section]]
+# mode = "swap"
+# transition = "scroll"
+# transition_duration = 4.0
+# loop_count = 0
+#
+# [[playlist.section.widget]]
+# type = "mlb"
+# team = "PHI"
+# timezone = "America/New_York"
+
 # --- Weather ---
 # Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/)
 # Location can be: city name, zip code, or "lat,lon"

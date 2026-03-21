@@ -19,6 +19,7 @@ from led_ticker.ticker import Ticker
 from led_ticker.transition import get_transition_class, run_transition
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
+from led_ticker.widgets.mlb import MLBScoreMonitor
 from led_ticker.widgets.rss_feed import RSSFeedMonitor
 
 
@@ -120,8 +121,8 @@ async def run(config_path: Path):
                 for widget_cfg in section.widgets:
                     cfg = dict(widget_cfg)  # copy to avoid mutating config
                     widget = await _build_widget(cfg, session)
-                    # RSSFeedMonitor is a container, expand its stories
-                    if isinstance(widget, RSSFeedMonitor):
+                    # Container widgets expand into stories
+                    if isinstance(widget, (RSSFeedMonitor, MLBScoreMonitor)):
                         widgets.extend(widget.feed_stories)
                     else:
                         widgets.append(widget)

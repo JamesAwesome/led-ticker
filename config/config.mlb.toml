@@ -1,0 +1,42 @@
+# MLB scores testing config
+# Usage: cp config/config.mlb.toml config/config.toml
+
+[display]
+rows = 16
+cols = 32
+chain = 5
+brightness = 60
+slowdown_gpio = 2
+gpio_mapping = "adafruit-hat"
+
+[title]
+delay = 5
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = {type = "nyancat_alternating", duration = 2.0}
+
+# --- MLB Scores (swap mode) ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "scroll"
+transition_duration = 4.0
+loop_count = 0
+
+[playlist.section.title]
+type = "message"
+text = "MLB Scores"
+color = "random"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "PHI"
+timezone = "America/New_York"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "NYM"
+timezone = "America/New_York"

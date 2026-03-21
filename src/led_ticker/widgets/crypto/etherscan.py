@@ -41,6 +41,7 @@ class EtherscanGasMonitor:
 
     session: object
     api_key: str
+    padding: int = 0  # no end_padding; uses hardcoded padding in segments
     price_data: dict = attrs.field(init=False, factory=dict)
 
     @classmethod

@@ -6,7 +6,7 @@ top-left corner. Only non-black pixels are stored.
 """
 
 ICON_WIDTH = 5
-ICON_HEIGHT = 7
+ICON_HEIGHT = 8
 ICON_PADDING = 1
 
 # Pink/green flower for Spring Training
@@ -24,6 +24,7 @@ FLOWER = [
     (2, 4, 0, 180, 0),
     (2, 5, 0, 180, 0),
     (2, 6, 0, 150, 0),
+    (2, 7, 0, 120, 0),
     # Leaf
     (3, 5, 0, 200, 0),
     (1, 6, 0, 200, 0),

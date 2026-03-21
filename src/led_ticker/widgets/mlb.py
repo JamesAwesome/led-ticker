@@ -93,6 +93,12 @@ class GameInfo:
     state: str = "preview"  # "final", "live", "preview"
     game_type: str = "R"    # R=regular, S=spring, A=all-star, P+=postseason
     inning: str | None = None
+    balls: int = 0
+    strikes: int = 0
+    outs: int = 0
+    on_first: bool = False
+    on_second: bool = False
+    on_third: bool = False
     start_time: datetime | None = None
     game_pk: int = 0
 
@@ -275,6 +281,17 @@ def _build_game_message(game, team_abbr, tz):
             team_score, opp_score = game.away_score, game.home_score
 
         inning_str = f" ({game.inning})" if game.inning else ""
+
+        # Base diamonds: ◇ = empty, ◆ = occupied (3rd-2nd-1st)
+        b3 = "\u25c6" if game.on_third else "\u25c7"
+        b2 = "\u25c6" if game.on_second else "\u25c7"
+        b1 = "\u25c6" if game.on_first else "\u25c7"
+
+        # BSO colors
+        ball_c = _color(80, 255, 80)    # green
+        strike_c = _color(255, 255, 80)  # yellow
+        out_c = _color(255, 80, 80)      # red
+
         segments = [
             (team_abbr, team_c),
             (f" {team_score}", RGB_WHITE),
@@ -282,6 +299,10 @@ def _build_game_message(game, team_abbr, tz):
             (opp_abbr, opp_c),
             (f" {opp_score}", RGB_WHITE),
             (inning_str, RGB_WHITE),
+            (f" {b3}{b2}{b1}", RGB_WHITE),
+            (f" B:{game.balls}", ball_c),
+            (f" S:{game.strikes}", strike_c),
+            (f" O:{game.outs}", out_c),
         ]
 
     else:  # preview
@@ -465,6 +486,8 @@ class MLBScoreMonitor:
                 away_score = away_team.get("score")
 
                 inning = None
+                balls = strikes = outs = 0
+                on_first = on_second = on_third = False
                 if abstract == "Live":
                     linescore = g.get("linescore", {})
                     inning_num = linescore.get("currentInning", 0)
@@ -473,6 +496,15 @@ class MLBScoreMonitor:
                     ).lower()
                     if inning_num:
                         inning = _format_inning(inning_num, half)
+
+                    # At-bat data
+                    offense = linescore.get("offense", {})
+                    balls = linescore.get("balls", 0) or 0
+                    strikes = linescore.get("strikes", 0) or 0
+                    outs = linescore.get("outs", 0) or 0
+                    on_first = "first" in offense
+                    on_second = "second" in offense
+                    on_third = "third" in offense
 
                 start_time = None
                 game_date = g.get("gameDate")
@@ -500,6 +532,12 @@ class MLBScoreMonitor:
                     start_time=start_time,
                     game_type=g.get("gameType", "R"),
                     game_pk=g.get("gamePk", 0),
+                    balls=balls,
+                    strikes=strikes,
+                    outs=outs,
+                    on_first=on_first,
+                    on_second=on_second,
+                    on_third=on_third,
                 ))
 
         games.sort(key=lambda g: g.start_time or datetime.min.replace(

@@ -224,11 +224,29 @@ class TestBuildGameMessage:
             home_abbr="PHI", away_abbr="NYM",
             home_score=3, away_score=2, state="live",
             inning="Bot 7th",
+            balls=2, strikes=1, outs=1,
+            on_first=True, on_second=False, on_third=True,
         )
         msg = _build_game_message(game, "PHI", ET)
         text = "".join(t for t, _ in msg.segments)
         assert "Bot 7th" in text
         assert "PHI" in text
+        assert "B:2" in text
+        assert "S:1" in text
+        assert "O:1" in text
+        # 3rd occupied, 2nd empty, 1st occupied
+        assert "\u25c6\u25c7\u25c6" in text
+
+    def test_live_game_bases_empty(self):
+        game = GameInfo(
+            home_abbr="PHI", away_abbr="NYM",
+            home_score=0, away_score=0, state="live",
+            inning="Top 1st",
+        )
+        msg = _build_game_message(game, "PHI", ET)
+        text = "".join(t for t, _ in msg.segments)
+        assert "\u25c7\u25c7\u25c7" in text
+        assert "B:0" in text
 
     def test_upcoming_game(self):
         game = GameInfo(

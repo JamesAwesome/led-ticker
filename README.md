@@ -8,8 +8,8 @@ Display news, weather, countdowns, crypto prices, and custom messages on Adafrui
 
 ```bash
 # Clone and install
-git clone https://github.com/jamesawesome/crypto-ticker.git
-cd crypto-ticker
+git clone https://github.com/JamesAwesome/led-ticker.git
+cd led-ticker
 make dev
 
 # Configure

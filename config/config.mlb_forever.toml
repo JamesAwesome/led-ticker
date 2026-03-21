@@ -1,0 +1,34 @@
+# MLB scores forever_scroll config — all games scroll side-by-side
+# Usage: cp config/config.mlb_forever.toml config/config.toml
+
+[display]
+rows = 16
+cols = 32
+chain = 5
+brightness = 60
+slowdown_gpio = 2
+gpio_mapping = "adafruit-hat"
+
+[title]
+delay = 5
+
+# --- MLB Scores (forever_scroll) ---
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 0
+
+[playlist.section.title]
+type = "message"
+text = "MLB Scores"
+color = "random"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "PHI"
+timezone = "America/New_York"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "NYM"
+timezone = "America/New_York"

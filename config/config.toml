@@ -43,7 +43,7 @@ text = "Always be your bunny best!"
 mode = "swap"
 transition = "push_alternating"
 hold_time = 6
-loop_count = 1
+loop_count = 2
 
 [playlist.section.title]
 type = "message"
@@ -141,6 +141,30 @@ type = "rss_feed"
 feed_url = "https://www.nintendolife.com/feeds/news"
 update_interval = 3000
 
+# --- MLB Scores ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "scroll"
+transition_duration = 4.0
+hold_time = 6
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = ":baseball: MLB Scores"
+color = "random"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "PHI"
+timezone = "America/New_York"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "NYM"
+timezone = "America/New_York"
+
 # --- Anime News Network ---
 
 [[playlist.section]]
@@ -160,45 +184,21 @@ type = "rss_feed"
 feed_url = "https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us"
 update_interval = 3000
 
-# --- ESPN ---
-
-[[playlist.section]]
-mode = "swap"
-transition = "scroll"
-transition_duration = 4.0
-continuous_scroll = true
-loop_count = 1
-
-[playlist.section.title]
-type = "message"
-text = "ESPN Top Stories"
-color = "random"
-
-[[playlist.section.widget]]
-type = "rss_feed"
-feed_url = "https://www.espn.com/espn/rss/news"
-update_interval = 3000
-
-# --- MLB Scores ---
-
-[[playlist.section]]
-mode = "swap"
-transition = "scroll"
-transition_duration = 4.0
-hold_time = 6
-loop_count = 1
-
-[playlist.section.title]
-type = "message"
-text = ":baseball: MLB Scores"
-color = "random"
-
-[[playlist.section.widget]]
-type = "mlb"
-team = "PHI"
-timezone = "America/New_York"
-
-[[playlist.section.widget]]
-type = "mlb"
-team = "NYM"
-timezone = "America/New_York"
+# # --- ESPN ---
+#
+# [[playlist.section]]
+# mode = "swap"
+# transition = "scroll"
+# transition_duration = 4.0
+# continuous_scroll = true
+# loop_count = 1
+#
+# [playlist.section.title]
+# type = "message"
+# text = "ESPN Top Stories"
+# color = "random"
+#
+# [[playlist.section.widget]]
+# type = "rss_feed"
+# feed_url = "https://www.espn.com/espn/rss/news"
+# update_interval = 3000

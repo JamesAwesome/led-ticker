@@ -119,9 +119,9 @@ def _ordinal(n):
 
 
 def _format_inning(inning_num, half):
-    """Format inning display: '▲5th', '▼7th'."""
+    """Format inning display: '▲5', '▼7'."""
     arrow = "\u25b2" if half == "top" else "\u25bc"
-    return f"{arrow}{_ordinal(inning_num)}"
+    return f"{arrow}{inning_num}"
 
 
 def _format_game_time(dt, tz):
@@ -287,8 +287,8 @@ def _build_game_message(game, team_abbr, tz):
         b2 = "\u25c6" if game.on_second else "\u25c7"
         b1 = "\u25c6" if game.on_first else "\u25c7"
 
-        # Compact BSO: "2-1 1out"
-        bso = f" {game.balls}-{game.strikes} {game.outs}out"
+        # Compact BSO: "2-1 1O"
+        bso = f" {game.balls}-{game.strikes} {game.outs}O"
 
         segments = [
             (team_abbr, team_c),

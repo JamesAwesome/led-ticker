@@ -12,11 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
-      - run: uv run ruff check src/ tests/
+      - run: uv run --extra dev ruff check src/ tests/
 
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
-      - run: PYTHONPATH=tests/stubs uv run pytest --cov=src/led_ticker --cov-report=term-missing
+      - run: PYTHONPATH=tests/stubs uv run --extra dev pytest --cov=src/led_ticker --cov-report=term-missing

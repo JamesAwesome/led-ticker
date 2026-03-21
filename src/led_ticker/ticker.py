@@ -159,6 +159,11 @@ async def _enqueue_ticker_objects(ticker_iter, notif_queue):
     while True:
         try:
             await notif_queue.put(next(ticker_iter))
+            # Yield to let consumer tasks run. Without this,
+            # itertools.cycle with unbounded Queue starves the
+            # event loop (put() never blocks on unbounded queues).
+            if notif_queue.qsize() > 10:
+                await asyncio.sleep(0)
         except StopIteration:
             break
         except Exception:
@@ -417,11 +422,6 @@ async def _run_swap(
         is_scroll, hold_time, notif_queue.qsize(),
     )
 
-    # Yield to let background enqueue task run, then get
-    await asyncio.sleep(0.1)
-    logging.info(
-        "_run_swap: after yield, queue_size=%s", notif_queue.qsize(),
-    )
     ticker_object = await notif_queue.get()
     logging.info("_run_swap: first widget=%s", type(ticker_object).__name__)
     canvas, _, prev_scroll_pos = await _swap_and_scroll(

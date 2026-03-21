@@ -306,6 +306,30 @@ async def _scroll_side_by_side(
             return True
 
 
+def _draw_scroll_frame(
+    canvas, outgoing, incoming, bullet,
+    outgoing_pos, bullet_pos, incoming_pos, clear_start,
+    bullet_cursor_w,
+):
+    """Draw one frame of scroll transition: outgoing | bullet | incoming."""
+    w = canvas.width
+    h = getattr(canvas, "height", 16)
+
+    outgoing.draw(canvas, cursor_pos=outgoing_pos)
+
+    if 0 <= clear_start < w:
+        x_range = range(clear_start, w)
+        for y in range(h):
+            for x in x_range:
+                canvas.SetPixel(x, y, 0, 0, 0)
+
+    if bullet_pos < w and bullet_pos + bullet_cursor_w > 0:
+        bullet.draw(canvas, cursor_pos=bullet_pos)
+
+    if incoming_pos < w:
+        incoming.draw(canvas, cursor_pos=incoming_pos)
+
+
 async def _scroll_between(
     canvas,
     frame,
@@ -315,48 +339,33 @@ async def _scroll_between(
     scroll_speed=0.05,
 ):
     """Seamlessly scroll from outgoing to incoming at constant 1px/frame."""
+    w = canvas.width
+
     from led_ticker.drawing import get_text_width
     from led_ticker.fonts import FONT_DEFAULT
-    from led_ticker.widgets.message import TickerMessage
 
-    w = canvas.width
-    h = getattr(canvas, "height", 16)
+    # Use same bullet as forever_scroll (DEFAULT_BUFFER_MSG style).
+    bullet = TickerMessage(" * ", center=False, font_color=RGB_WHITE)
+    # Separator width = text width + widget padding (matches draw() cursor_pos)
+    bullet_cursor_w = (
+        get_text_width(FONT_DEFAULT, " * ", padding=0) + bullet.padding
+    )
 
-    # Explicit equal gaps on both sides of bullet: [padding][*][padding]
-    # Don't rely on outgoing's end_padding — it's just a cursor_pos
-    # number, not visible pixels on screen.
-    padding = getattr(outgoing, "padding", None)
-    padding = padding if isinstance(padding, int) else 6
-
-    bullet = TickerMessage("*", center=False, padding=0)
-    bullet_text_w = get_text_width(FONT_DEFAULT, "*", padding=0)
-    separator_width = padding + bullet_text_w + padding
-
-    total_travel = w + separator_width
+    total_travel = w + bullet_cursor_w
 
     for offset in range(total_travel + 1):
         canvas.Clear()
 
         outgoing_pos = outgoing_scroll_pos - offset
-        bullet_pos = w + padding - offset
-        incoming_pos = w + separator_width - offset
-
-        # 1. Draw outgoing (may bleed right)
-        outgoing.draw(canvas, cursor_pos=outgoing_pos)
-
-        # 2. Blackout from separator start (outgoing end + gap)
+        bullet_pos = w - offset
+        incoming_pos = w + bullet_cursor_w - offset
         clear_start = max(0, w - offset)
-        if clear_start < w:
-            x_range = range(clear_start, w)
-            for y in range(h):
-                for x in x_range:
-                    canvas.SetPixel(x, y, 0, 0, 0)
 
-        if bullet_pos < w and bullet_pos + bullet_text_w > 0:
-            bullet.draw(canvas, cursor_pos=bullet_pos)
-
-        if incoming_pos < w:
-            incoming.draw(canvas, cursor_pos=incoming_pos)
+        _draw_scroll_frame(
+            canvas, outgoing, incoming, bullet,
+            outgoing_pos, bullet_pos, incoming_pos, clear_start,
+            bullet_cursor_w,
+        )
 
         canvas = frame.matrix.SwapOnVSync(canvas)
         await asyncio.sleep(scroll_speed)
@@ -469,8 +478,9 @@ async def _swap_and_scroll(
         # Add padding back here to compensate: cursor_pos overshoots
         # by padding, so adding it to stop_pos scrolls less far left,
         # putting the last character flush with the right edge (x=159).
-        padding = getattr(ticker_obj, "padding", None)
-        padding = padding if isinstance(padding, int) else 0
+        from led_ticker.drawing import get_widget_padding
+
+        padding = get_widget_padding(ticker_obj, default=0)
         stop_pos = -(cursor_pos - canvas.width) + padding
         while pos > stop_pos:
             pos -= 1

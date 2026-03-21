@@ -614,54 +614,43 @@ class Scroll:
     """
 
     def __init__(self, **kwargs):
+        from led_ticker.colors import RGB_WHITE
         from led_ticker.drawing import get_text_width
         from led_ticker.fonts import FONT_DEFAULT
         from led_ticker.widgets.message import TickerMessage
 
-        self._bullet = TickerMessage("*", center=False, padding=0)
-        self._bullet_text_w = get_text_width(FONT_DEFAULT, "*", padding=0)
-        self._default_gap = 6
+        # Same bullet as forever_scroll DEFAULT_BUFFER_MSG
+        self._bullet = TickerMessage(
+            " * ", center=False, font_color=RGB_WHITE,
+        )
+        self._bullet_cursor_w = (
+            get_text_width(FONT_DEFAULT, " * ", padding=0)
+            + self._bullet.padding
+        )
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+        from led_ticker.ticker import _draw_scroll_frame
+
         w = canvas.width
-        h = getattr(canvas, "height", 16)
         outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
-        # Explicit equal gaps on both sides: [padding][*][padding]
-        padding = getattr(outgoing, "padding", None)
-        padding = padding if isinstance(padding, int) else self._default_gap
-        separator_width = padding + self._bullet_text_w + padding
-
-        total_travel = w + separator_width
+        total_travel = w + self._bullet_cursor_w
         scroll_offset = int(t * total_travel)
 
-        # Continuous strip: outgoing | [padding] [*] [padding] | incoming
         outgoing_pos = outgoing_scroll_pos - scroll_offset
-        bullet_pos = w + padding - scroll_offset
-        incoming_pos = w + separator_width - scroll_offset
-
-        # 1. Draw outgoing (may bleed right)
-        outgoing.draw(canvas, cursor_pos=outgoing_pos)
-
-        # 2. Black out from separator start
+        bullet_pos = w - scroll_offset
+        incoming_pos = w + self._bullet_cursor_w - scroll_offset
         clear_start = max(0, w - scroll_offset)
-        if clear_start < w:
-            x_range = range(clear_start, w)
-            for y in range(h):
-                for x in x_range:
-                    canvas.SetPixel(x, y, 0, 0, 0)
 
-        # 3. Draw bullet separator
-        if bullet_pos < w and bullet_pos + self._bullet_text_w > 0:
-            self._bullet.draw(canvas, cursor_pos=bullet_pos)
-
-        # 4. Draw incoming (positive cursor_pos = no left bleed)
-        if incoming_pos < w:
-            incoming.draw(canvas, cursor_pos=incoming_pos)
+        _draw_scroll_frame(
+            canvas, outgoing, incoming, self._bullet,
+            outgoing_pos, bullet_pos, incoming_pos, clear_start,
+            self._bullet_cursor_w,
+        )
 
         return canvas
 

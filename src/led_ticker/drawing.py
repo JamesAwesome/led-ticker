@@ -3,6 +3,12 @@
 import math
 
 
+def get_widget_padding(widget, default=6) -> int:
+    """Get a widget's padding attribute, with fallback for mocks."""
+    padding = getattr(widget, "padding", None)
+    return padding if isinstance(padding, int) else default
+
+
 def get_text_width(font, text: str, padding: int = 6) -> int:
     """Get the pixel width of rendered text plus padding."""
     return sum(font.CharacterWidth(ord(c)) for c in text) + padding

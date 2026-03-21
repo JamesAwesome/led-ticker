@@ -63,10 +63,10 @@ Set transitions per-section or globally in `[transitions]`:
 | `push_right` | Same as push_left but reversed — old exits right, new enters from left. | Variety. Going "back" in a sequence. |
 | `push_up` | Old content slides up off the top while new enters from the bottom. | Countdowns. Section changes. |
 | `push_down` | Old content slides down off the bottom while new enters from the top. | Variety. Vertical transitions. |
-| `wipe_left` | A cyan sweep line moves right-to-left across stationary content, erasing it to black. Content stays still while the line moves. | Clean, professional look. |
-| `wipe_right` | Sweep line moves left-to-right. | Variety. |
-| `wipe_up` | Sweep line moves bottom-to-top. | Vertical wipes. |
-| `wipe_down` | Sweep line moves top-to-bottom. | Vertical wipes. |
+| `wipe_left` | Cyan sweep line moves right-to-left across stationary content, erasing it to black. Content stays still while the line moves. | Clean, professional look. |
+| `wipe_right` | Magenta sweep line moves left-to-right. | Variety. |
+| `wipe_up` | White sweep line moves bottom-to-top. | Vertical wipes. |
+| `wipe_down` | Green sweep line moves top-to-bottom. | Vertical wipes. |
 | `color_flash` | Three phases: old content → solid color flash → new content. | Alerts, score changes. |
 | `dissolve` | Random pixel scatter creates a TV static effect. Old degrades, new emerges. | Between sections. Ambient. |
 | `split` | Black band expands from center with magenta edge lines. | Dramatic reveals. Titles. |
@@ -74,7 +74,7 @@ Set transitions per-section or globally in `[transitions]`:
 | `nyancat_reverse` | Same as nyancat but right-to-left with flipped sprite. | Variety. |
 | `scroll` | Seamless continuous scroll with a bullet separator (` * `). Old text scrolls off left, new enters from right at constant speed. Like a news ticker. | RSS feeds. Continuous content. |
 | `push_alternating` | Cycles through push_left → push_right → push_up → push_down each swap. | Dynamic variety. |
-| `wipe_alternating` | Cycles through wipe_left → wipe_right → wipe_up → wipe_down each swap. | Dynamic variety. |
+| `wipe_alternating` | Cycles through wipe_left → wipe_right → wipe_up → wipe_down each swap, each with its own color. Customizable via `transition_colors`. | Dynamic variety. |
 | `nyancat_alternating` | Alternates between nyancat and nyancat_reverse each swap. | Fun. |
 
 ```toml
@@ -89,6 +89,8 @@ mode = "swap"
 transition = "nyancat"       # override per section
 transition_duration = 2.0    # override duration per section
 transition_color = [255, 0, 0]  # custom color for flash/wipe transitions
+# Per-direction colors for wipe_alternating:
+# transition_colors = [[0,255,255], [255,0,255], [255,255,255], [0,255,0]]
 ```
 
 ### Text Presentation Effects

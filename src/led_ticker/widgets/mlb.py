@@ -141,12 +141,12 @@ def _parse_team_abbr(team_data):
 class MLBGameMessage:
     """A single game rendered with team colors and score colors."""
 
-    def __init__(self, segments, padding=6, icon=None):
+    def __init__(self, segments, padding=6, icon=None, center=False):
         """segments: list of (text, color) tuples. icon: pixel art list or None."""
         self.segments = segments
         self.padding = padding
         self.icon = icon
-        self.center = False
+        self.center = center
         self._content_width = -1
 
     def draw(self, canvas, cursor_pos=0, **kwargs):
@@ -194,18 +194,34 @@ class MLBGameMessage:
 
 def _build_series_title(team_abbr, series, tz):
     """Build the title message for a series."""
-    team_name = MLB_TEAM_NAMES.get(team_abbr, team_abbr)
-    opp_name = MLB_TEAM_NAMES.get(series.opponent_abbr, series.opponent_abbr)
     team_c = _team_color(team_abbr)
     opp_c = _team_color(series.opponent_abbr)
 
     segments = [
-        (team_name, team_c),
+        (team_abbr, team_c),
         (" vs ", RGB_WHITE),
-        (opp_name, opp_c),
+        (series.opponent_abbr, opp_c),
     ]
 
-    if series.team_wins > 0 or series.team_losses > 0:
+    # Show (ST) / (ASG) with icon for special game types
+    icon = None
+    is_spring = any(g.game_type == "S" for g in series.games)
+    is_allstar = any(g.game_type == "A" for g in series.games)
+    if is_spring:
+        from led_ticker.widgets.mlb_icons import FLOWER
+
+        segments.append((" (ST)", RGB_WHITE))
+        icon = FLOWER
+    elif is_allstar:
+        from led_ticker.widgets.mlb_icons import STAR
+
+        segments.append((" (ASG)", RGB_WHITE))
+        icon = STAR
+
+    # Only show series record for multi-game series with results
+    total_games = len(series.games)
+    total_decided = series.team_wins + series.team_losses
+    if total_games > 1 and total_decided > 0:
         if series.team_wins > series.team_losses:
             record = (
                 f" {team_abbr} leads"
@@ -221,7 +237,8 @@ def _build_series_title(team_abbr, series, tz):
             record = f" Tied {series.team_wins}-{series.team_losses}"
         segments.append((record, RGB_WHITE))
 
-    return MLBGameMessage(segments)
+    # Center the title if it fits on screen
+    return MLBGameMessage(segments, center=True, icon=icon)
 
 
 def _build_game_message(game, team_abbr, tz):
@@ -265,7 +282,6 @@ def _build_game_message(game, team_abbr, tz):
             (opp_abbr, opp_c),
             (f" {opp_score}", RGB_WHITE),
             (inning_str, RGB_WHITE),
-            (" LIVE", LIVE_COLOR),
         ]
 
     else:  # preview
@@ -282,20 +298,7 @@ def _build_game_message(game, team_abbr, tz):
             (f" {time_str}", RGB_WHITE),
         ]
 
-    # Game type indicators
-    icon = None
-    if game.game_type == "S":
-        from led_ticker.widgets.mlb_icons import FLOWER
-
-        segments.append((" ST", RGB_WHITE))
-        icon = FLOWER
-    elif game.game_type == "A":
-        from led_ticker.widgets.mlb_icons import STAR
-
-        segments.append((" ASG", RGB_WHITE))
-        icon = STAR
-
-    return MLBGameMessage(segments, icon=icon)
+    return MLBGameMessage(segments)
 
 
 @register("mlb")

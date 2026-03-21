@@ -136,29 +136,75 @@ class TestSeriesInfo:
 
 class TestBuildSeriesTitle:
     def test_builds_title_with_record(self):
+        games = [
+            GameInfo(home_abbr="PHI", away_abbr="NYM", state="final",
+                     home_score=5, away_score=3),
+            GameInfo(home_abbr="PHI", away_abbr="NYM", state="final",
+                     home_score=4, away_score=2),
+            GameInfo(home_abbr="PHI", away_abbr="NYM", state="preview"),
+        ]
         series = SeriesInfo(
             opponent_abbr="NYM",
-            games=[],
+            games=games,
             team_wins=2,
             team_losses=1,
         )
         msg = _build_series_title("PHI", series, ET)
         assert isinstance(msg, MLBGameMessage)
         text = "".join(t for t, _ in msg.segments)
-        assert "Phillies" in text
-        assert "Mets" in text
+        assert "PHI" in text
+        assert "NYM" in text
         assert "leads" in text
 
     def test_tied_series(self):
+        games = [
+            GameInfo(home_abbr="PHI", away_abbr="NYM", state="final",
+                     home_score=5, away_score=3),
+            GameInfo(home_abbr="PHI", away_abbr="NYM", state="final",
+                     home_score=2, away_score=4),
+        ]
         series = SeriesInfo(
             opponent_abbr="NYM",
-            games=[],
+            games=games,
             team_wins=1,
             team_losses=1,
         )
         msg = _build_series_title("PHI", series, ET)
         text = "".join(t for t, _ in msg.segments)
         assert "Tied" in text
+
+    def test_spring_training_label(self):
+        games = [
+            GameInfo(home_abbr="PHI", away_abbr="BAL",
+                     state="live", game_type="S"),
+        ]
+        series = SeriesInfo(
+            opponent_abbr="BAL", games=games,
+        )
+        msg = _build_series_title("PHI", series, ET)
+        text = "".join(t for t, _ in msg.segments)
+        assert "(ST)" in text
+        assert msg.icon is not None
+
+    def test_single_game_no_record(self):
+        """Single-game matchups shouldn't show series record."""
+        games = [
+            GameInfo(home_abbr="PHI", away_abbr="BAL",
+                     state="final", home_score=5, away_score=3),
+        ]
+        series = SeriesInfo(
+            opponent_abbr="BAL", games=games,
+            team_wins=1, team_losses=0,
+        )
+        msg = _build_series_title("PHI", series, ET)
+        text = "".join(t for t, _ in msg.segments)
+        assert "leads" not in text
+
+    def test_title_is_centered(self):
+        games = [GameInfo(home_abbr="PHI", away_abbr="NYM", state="preview")]
+        series = SeriesInfo(opponent_abbr="NYM", games=games)
+        msg = _build_series_title("PHI", series, ET)
+        assert msg.center is True
 
 
 class TestBuildGameMessage:
@@ -181,8 +227,8 @@ class TestBuildGameMessage:
         )
         msg = _build_game_message(game, "PHI", ET)
         text = "".join(t for t, _ in msg.segments)
-        assert "LIVE" in text
         assert "Bot 7th" in text
+        assert "PHI" in text
 
     def test_upcoming_game(self):
         game = GameInfo(

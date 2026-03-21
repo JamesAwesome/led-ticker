@@ -455,8 +455,11 @@ async def _swap_and_scroll(
     if cursor_pos > canvas.width:
         await asyncio.sleep(hold_time)
 
-        # Scroll until last character is flush with the right edge.
-        # Subtract widget padding so text (not empty space) is at edge.
+        # cursor_pos from draw() includes end_padding (default 6px),
+        # which is spacing for forever_scroll side-by-side layout.
+        # Don't remove padding from the widget — it's needed there.
+        # Instead, subtract it here so the last visible character
+        # is flush with the right edge (x=159), not 6px short.
         padding = getattr(ticker_obj, "padding", None)
         padding = padding if isinstance(padding, int) else 0
         stop_pos = -(cursor_pos - canvas.width) - padding

@@ -988,3 +988,74 @@ class TestRunTransition:
             duration=0.1,
         )
         assert result is not None
+
+    async def test_wipe_min_frames_respected(
+        self,
+        canvas,
+        mock_frame,
+        make_widget,
+        no_sleep,
+    ):
+        """Wipe transitions should use min_frames even with short duration."""
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wipe = WipeLeft()
+
+        await run_transition(
+            canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=wipe,
+            duration=0.1,  # would be 2 frames normally
+            scroll_speed=0.05,
+        )
+        # min_frames=40, so at least 41 swaps (40 + 1 final)
+        assert mock_frame.matrix.SwapOnVSync.call_count == 41
+
+    async def test_non_wipe_unaffected_by_min_frames(
+        self,
+        canvas,
+        mock_frame,
+        make_widget,
+        no_sleep,
+    ):
+        """Non-wipe transitions should not be affected by min_frames."""
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        push = PushLeft()
+
+        await run_transition(
+            canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=push,
+            duration=0.1,
+            scroll_speed=0.05,
+        )
+        # duration=0.1 / 0.05 = 2 frames + 1 final = 3
+        assert mock_frame.matrix.SwapOnVSync.call_count == 3
+
+    async def test_longer_duration_respected_over_min_frames(
+        self,
+        canvas,
+        mock_frame,
+        make_widget,
+        no_sleep,
+    ):
+        """User's longer duration should win over min_frames."""
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wipe = WipeLeft()
+
+        await run_transition(
+            canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=wipe,
+            duration=5.0,  # 100 frames > min_frames=40
+            scroll_speed=0.05,
+        )
+        assert mock_frame.matrix.SwapOnVSync.call_count == 101

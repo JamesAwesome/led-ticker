@@ -81,6 +81,8 @@ async def run_transition(
     """Run a transition. Returns the current back-buffer canvas."""
     ease_fn = EASING.get(easing, linear)
     frame_count = max(1, int(duration / scroll_speed))
+    if hasattr(transition, "min_frames"):
+        frame_count = max(frame_count, transition.min_frames)
 
     for i in range(frame_count + 1):
         t = ease_fn(i / max(1, frame_count))
@@ -318,6 +320,8 @@ class PushDown:
 class WipeUp:
     """Bottom-to-top wipe with sweep line moving upward."""
 
+    min_frames = 40
+
     def __init__(self, color=None, **kwargs):
         self.color = tuple(color) if color else (255, 255, 255)
 
@@ -365,6 +369,8 @@ class ColorFlash:
 class WipeLeft:
     """Right-to-left wipe with sweep line."""
 
+    min_frames = 40
+
     def __init__(self, color=None, **kwargs):
         self.color = tuple(color) if color else (0, 255, 255)
 
@@ -396,6 +402,8 @@ class WipeLeft:
 @register_transition("wipe_right")
 class WipeRight:
     """Left-to-right wipe with sweep line."""
+
+    min_frames = 40
 
     def __init__(self, color=None, **kwargs):
         self.color = tuple(color) if color else (0, 255, 255)
@@ -513,6 +521,8 @@ class SplitHorizontal:
 @register_transition("wipe_down")
 class WipeDown:
     """Top-to-bottom wipe with sweep line moving downward (formerly 'curtain')."""
+
+    min_frames = 40
 
     def __init__(self, color=None, **kwargs):
         self.color = tuple(color) if color else (0, 255, 0)

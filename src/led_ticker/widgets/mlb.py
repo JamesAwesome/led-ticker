@@ -301,9 +301,9 @@ def _build_game_message(game, team_abbr, tz):
             (inning_str, RGB_WHITE),
             (f" {b3}{b2}{b1}", RGB_WHITE),
             (f" {game.balls}", ball_c),
-            ("|", RGB_WHITE),
+            ("\u00b7", RGB_WHITE),
             (f"{game.strikes}", strike_c),
-            ("|", RGB_WHITE),
+            ("\u00b7", RGB_WHITE),
             (f"{game.outs}", out_c),
         ]
 

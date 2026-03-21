@@ -157,6 +157,10 @@ async def _enqueue_ticker_objects(ticker_iter, notif_queue):
 
 
 async def _build_then_enqueue(ticker_objects, notif_queue, title=None, loop_count=None):
+    logging.info(
+        "_build_then_enqueue: %d objects, loop_count=%s, title=%s",
+        len(ticker_objects), loop_count, type(title).__name__ if title else None,
+    )
     ticker_iter = _build_ticker_iter(ticker_objects, title=title, loop_count=loop_count)
     await _enqueue_ticker_objects(ticker_iter, notif_queue)
 
@@ -398,7 +402,10 @@ async def _run_swap(
         transition is not None
         and isinstance(transition.transition_obj, Scroll)
     )
-    logging.info("_run_swap: is_scroll=%s, hold_time=%s", is_scroll, hold_time)
+    logging.info(
+        "_run_swap: is_scroll=%s, hold_time=%s, queue_size=%s",
+        is_scroll, hold_time, notif_queue.qsize(),
+    )
 
     ticker_object = await notif_queue.get()
     logging.info("_run_swap: first widget=%s", type(ticker_object).__name__)

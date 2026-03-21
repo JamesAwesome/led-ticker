@@ -714,8 +714,6 @@ class NyanCatAlternating:
 class WipeAlternating:
     """Cycles through wipe_left → wipe_right → wipe_up → wipe_down."""
 
-    min_frames = 40  # inherit from wipe sub-transitions
-
     def __init__(self, **kwargs):
         self._transitions = [
             WipeLeft(**kwargs),
@@ -725,6 +723,12 @@ class WipeAlternating:
         ]
         self._index = -1
         self._last_t = 1.0
+
+    @property
+    def min_frames(self):
+        """Return min_frames for the NEXT sub-transition."""
+        next_idx = (self._index + 1) % len(self._transitions)
+        return getattr(self._transitions[next_idx], "min_frames", 10)
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         if t < self._last_t:

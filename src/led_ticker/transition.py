@@ -320,7 +320,7 @@ class PushDown:
 class WipeUp:
     """Bottom-to-top wipe with sweep line moving upward."""
 
-    min_frames = 40
+    min_frames = 16
 
     def __init__(self, color=None, **kwargs):
         self.color = tuple(color) if color else (255, 255, 255)
@@ -522,7 +522,7 @@ class SplitHorizontal:
 class WipeDown:
     """Top-to-bottom wipe with sweep line moving downward (formerly 'curtain')."""
 
-    min_frames = 40
+    min_frames = 16
 
     def __init__(self, color=None, **kwargs):
         self.color = tuple(color) if color else (0, 255, 0)

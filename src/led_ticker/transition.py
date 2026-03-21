@@ -719,12 +719,21 @@ class NyanCatAlternating:
 class WipeAlternating:
     """Cycles through wipe_left → wipe_right → wipe_up → wipe_down."""
 
+    _COLORS = [
+        (0, 255, 255),    # cyan
+        (255, 0, 255),    # magenta
+        (255, 255, 0),    # yellow
+        (0, 255, 0),      # green
+    ]
+
     def __init__(self, **kwargs):
+        # Strip user color — we cycle our own
+        kwargs.pop("color", None)
         self._transitions = [
-            WipeLeft(**kwargs),
-            WipeRight(**kwargs),
-            WipeUp(**kwargs),
-            WipeDown(**kwargs),
+            WipeLeft(color=self._COLORS[0]),
+            WipeRight(color=self._COLORS[1]),
+            WipeUp(color=self._COLORS[2]),
+            WipeDown(color=self._COLORS[3]),
         ]
         self._index = -1
         self._last_t = 1.0

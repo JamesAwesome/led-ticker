@@ -896,10 +896,10 @@ class TestWipeAlternating:
             alt.frame_at(1.0, canvas, make_widget(40), make_widget(40))
         assert alt._index == 0
 
-    def test_color_forwarded_to_sub_transitions(self):
-        alt = WipeAlternating(color=[255, 0, 0])
-        for trans in alt._transitions:
-            assert trans.color == (255, 0, 0)
+    def test_each_sub_transition_has_unique_color(self):
+        alt = WipeAlternating()
+        colors = [t.color for t in alt._transitions]
+        assert len(set(colors)) == 4  # all different
 
     def test_returns_canvas(self, canvas, make_widget):
         alt = WipeAlternating()

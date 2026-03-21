@@ -6,8 +6,12 @@ each 2px tall (fills the 12px behind the cat, plus extends left).
 The full display is 16px tall, so the cat is centered at y=3.
 """
 
+from __future__ import annotations
+
+from led_ticker._types import Canvas, ColorTuple, PixelData
+
 # RGB colors for the rainbow trail (top to bottom, 2px each = 12px)
-RAINBOW = [
+RAINBOW: list[ColorTuple] = [
     (255, 0, 0),  # red
     (255, 154, 0),  # orange
     (255, 255, 0),  # yellow
@@ -16,33 +20,33 @@ RAINBOW = [
     (100, 0, 255),  # purple
 ]
 
-RAINBOW_TOP_Y = 2  # y offset where rainbow starts (centered in 16px)
-RAINBOW_STRIPE_HEIGHT = 2
+RAINBOW_TOP_Y: int = 2  # y offset where rainbow starts (centered in 16px)
+RAINBOW_STRIPE_HEIGHT: int = 2
 
 # Nyan Cat sprite: (dx, dy, r, g, b) relative to sprite origin
 # 12px wide x 10px tall
 # The pop-tart body is pink/tan, cat is dark gray, face details
 
-_G = (100, 100, 100)  # gray (cat body)
-_D = (60, 60, 60)  # dark gray (outlines)
-_P = (255, 153, 204)  # pink (pop-tart frosting)
-_T = (210, 150, 80)  # tan (pop-tart crust)
-_W = (255, 255, 255)  # white (eyes/cheeks)
-_B = (0, 0, 0)  # black (pupils)
-_R = (255, 100, 100)  # rosy cheeks
-_S = (255, 200, 200)  # sprinkles on frosting
+_G: ColorTuple = (100, 100, 100)  # gray (cat body)
+_D: ColorTuple = (60, 60, 60)  # dark gray (outlines)
+_P: ColorTuple = (255, 153, 204)  # pink (pop-tart frosting)
+_T: ColorTuple = (210, 150, 80)  # tan (pop-tart crust)
+_W: ColorTuple = (255, 255, 255)  # white (eyes/cheeks)
+_B: ColorTuple = (0, 0, 0)  # black (pupils)
+_R: ColorTuple = (255, 100, 100)  # rosy cheeks
+_S: ColorTuple = (255, 200, 200)  # sprinkles on frosting
 
-NYAN_CAT = []
+NYAN_CAT: PixelData = []
 
 # Row 0 (ears)
-_row0 = [
+_row0: PixelData = [
     (3, 0, *_D),
     (4, 0, *_G),
     (8, 0, *_G),
     (9, 0, *_D),
 ]
 # Row 1 (ears + top of head)
-_row1 = [
+_row1: PixelData = [
     (3, 1, *_G),
     (4, 1, *_G),
     (5, 1, *_D),
@@ -52,7 +56,7 @@ _row1 = [
     (9, 1, *_G),
 ]
 # Row 2 (pop-tart top + head)
-_row2 = [
+_row2: PixelData = [
     (1, 2, *_T),
     (2, 2, *_T),
     (3, 2, *_T),
@@ -64,7 +68,7 @@ _row2 = [
     (9, 2, *_T),
 ]
 # Row 3 (pop-tart + face)
-_row3 = [
+_row3: PixelData = [
     (0, 3, *_T),
     (1, 3, *_P),
     (2, 3, *_S),
@@ -78,7 +82,7 @@ _row3 = [
     (10, 3, *_T),
 ]
 # Row 4 (pop-tart + face)
-_row4 = [
+_row4: PixelData = [
     (0, 4, *_T),
     (1, 4, *_P),
     (2, 4, *_P),
@@ -92,7 +96,7 @@ _row4 = [
     (10, 4, *_T),
 ]
 # Row 5 (pop-tart + mouth)
-_row5 = [
+_row5: PixelData = [
     (0, 5, *_T),
     (1, 5, *_P),
     (2, 5, *_P),
@@ -106,7 +110,7 @@ _row5 = [
     (10, 5, *_T),
 ]
 # Row 6 (pop-tart bottom)
-_row6 = [
+_row6: PixelData = [
     (0, 6, *_T),
     (1, 6, *_P),
     (2, 6, *_S),
@@ -120,7 +124,7 @@ _row6 = [
     (10, 6, *_T),
 ]
 # Row 7 (crust bottom + tail start)
-_row7 = [
+_row7: PixelData = [
     (1, 7, *_T),
     (2, 7, *_T),
     (3, 7, *_T),
@@ -132,7 +136,7 @@ _row7 = [
     (9, 7, *_T),
 ]
 # Row 8 (legs)
-_row8 = [
+_row8: PixelData = [
     (2, 8, *_G),
     (3, 8, *_G),
     (5, 8, *_G),
@@ -141,7 +145,7 @@ _row8 = [
     (9, 8, *_G),
 ]
 # Row 9 (feet)
-_row9 = [
+_row9: PixelData = [
     (2, 9, *_D),
     (3, 9, *_D),
     (5, 9, *_D),
@@ -152,12 +156,14 @@ _row9 = [
 
 NYAN_CAT = _row0 + _row1 + _row2 + _row3 + _row4 + _row5 + _row6 + _row7 + _row8 + _row9
 
-SPRITE_WIDTH = 12
-SPRITE_HEIGHT = 10
-SPRITE_Y_OFFSET = 3  # centers 10px sprite in 16px display
+SPRITE_WIDTH: int = 12
+SPRITE_HEIGHT: int = 10
+SPRITE_Y_OFFSET: int = 3  # centers 10px sprite in 16px display
 
 
-def draw_nyan_frame(canvas, progress, width=160, height=16):
+def draw_nyan_frame(
+    canvas: Canvas, progress: float, width: int = 160, height: int = 16
+) -> None:
     """Draw one frame of the Nyan Cat transition (left-to-right).
 
     The cat flies from left to right. Behind it, a rainbow trail
@@ -196,7 +202,9 @@ def draw_nyan_frame(canvas, progress, width=160, height=16):
             canvas.SetPixel(x, y, r, g, b)
 
 
-def draw_nyan_frame_rtl(canvas, progress, width=160, height=16):
+def draw_nyan_frame_rtl(
+    canvas: Canvas, progress: float, width: int = 160, height: int = 16
+) -> None:
     """Draw one frame of the Nyan Cat transition (right-to-left).
 
     The cat flies from right to left (sprite flipped horizontally).

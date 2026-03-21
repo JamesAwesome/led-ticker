@@ -7,42 +7,94 @@ Example: ":baseball: MLB Scores" renders a baseball icon then text.
 Each emoji is a list of (x, y, r, g, b) tuples relative to origin.
 """
 
-EMOJI_DEFAULT_WIDTH = 8
-EMOJI_PADDING = 2  # px after icon before text resumes
+from __future__ import annotations
+
+from typing import Any
+
+from led_ticker._types import Canvas, Color, Font, PixelData
+
+EMOJI_DEFAULT_WIDTH: int = 8
+EMOJI_PADDING: int = 2  # px after icon before text resumes
 
 
-def _emoji_width(icon):
+def _emoji_width(icon: PixelData) -> int:
     """Compute the width of an icon from its pixel data."""
     if not icon:
         return 0
     return max(px for px, _, _, _, _ in icon) + 1
+
 
 # ⚾ Baseball — white ball with two vertical red stitch lines
 # Inspired by classic pixel baseball sprites: stitches run vertically
 # through the center, curving outward at top and bottom.
 _W = (240, 240, 240)  # white fill
 _B = (255, 255, 255)  # bright white edge
-_R = (200, 20, 20)    # red stitching
-BASEBALL = [
+_R = (200, 20, 20)  # red stitching
+BASEBALL: PixelData = [
     # Row 0: top of ball
-    (2, 0, *_B), (3, 0, *_B), (4, 0, *_B), (5, 0, *_B),
+    (2, 0, *_B),
+    (3, 0, *_B),
+    (4, 0, *_B),
+    (5, 0, *_B),
     # Row 1: stitches curve outward at top
-    (1, 1, *_B), (2, 1, *_R), (3, 1, *_W), (4, 1, *_W), (5, 1, *_R), (6, 1, *_B),
+    (1, 1, *_B),
+    (2, 1, *_R),
+    (3, 1, *_W),
+    (4, 1, *_W),
+    (5, 1, *_R),
+    (6, 1, *_B),
     # Row 2: stitches widen
-    (0, 2, *_B), (1, 2, *_W), (2, 2, *_R), (3, 2, *_W), (4, 2, *_W), (5, 2, *_R), (6, 2, *_W), (7, 2, *_B),
+    (0, 2, *_B),
+    (1, 2, *_W),
+    (2, 2, *_R),
+    (3, 2, *_W),
+    (4, 2, *_W),
+    (5, 2, *_R),
+    (6, 2, *_W),
+    (7, 2, *_B),
     # Row 3: two vertical stitch lines
-    (0, 3, *_B), (1, 3, *_W), (2, 3, *_R), (3, 3, *_W), (4, 3, *_W), (5, 3, *_R), (6, 3, *_W), (7, 3, *_B),
+    (0, 3, *_B),
+    (1, 3, *_W),
+    (2, 3, *_R),
+    (3, 3, *_W),
+    (4, 3, *_W),
+    (5, 3, *_R),
+    (6, 3, *_W),
+    (7, 3, *_B),
     # Row 4: two vertical stitch lines
-    (0, 4, *_B), (1, 4, *_W), (2, 4, *_R), (3, 4, *_W), (4, 4, *_W), (5, 4, *_R), (6, 4, *_W), (7, 4, *_B),
+    (0, 4, *_B),
+    (1, 4, *_W),
+    (2, 4, *_R),
+    (3, 4, *_W),
+    (4, 4, *_W),
+    (5, 4, *_R),
+    (6, 4, *_W),
+    (7, 4, *_B),
     # Row 5: stitches widen
-    (0, 5, *_B), (1, 5, *_W), (2, 5, *_R), (3, 5, *_W), (4, 5, *_W), (5, 5, *_R), (6, 5, *_W), (7, 5, *_B),
+    (0, 5, *_B),
+    (1, 5, *_W),
+    (2, 5, *_R),
+    (3, 5, *_W),
+    (4, 5, *_W),
+    (5, 5, *_R),
+    (6, 5, *_W),
+    (7, 5, *_B),
     # Row 6: stitches curve outward at bottom
-    (1, 6, *_B), (2, 6, *_R), (3, 6, *_W), (4, 6, *_W), (5, 6, *_R), (6, 6, *_B),
+    (1, 6, *_B),
+    (2, 6, *_R),
+    (3, 6, *_W),
+    (4, 6, *_W),
+    (5, 6, *_R),
+    (6, 6, *_B),
     # Row 7: bottom of ball
-    (2, 7, *_B), (3, 7, *_B), (4, 7, *_B), (5, 7, *_B),
+    (2, 7, *_B),
+    (3, 7, *_B),
+    (4, 7, *_B),
+    (5, 7, *_B),
 ]
 
-def _build_emoji_registry():
+
+def _build_emoji_registry() -> dict[str, PixelData]:
     """Build the emoji registry with all available icons."""
     from led_ticker.widgets.mlb_icons import FLOWER, STAR
     from led_ticker.widgets.weather_icons import (
@@ -69,17 +121,17 @@ def _build_emoji_registry():
     }
 
 
-EMOJI_REGISTRY: dict = {}
+EMOJI_REGISTRY: dict[str, PixelData] = {}
 
 
-def _get_registry():
+def _get_registry() -> dict[str, PixelData]:
     global EMOJI_REGISTRY  # noqa: PLW0603
     if not EMOJI_REGISTRY:
         EMOJI_REGISTRY.update(_build_emoji_registry())
     return EMOJI_REGISTRY
 
 
-def _parse_segments(text):
+def _parse_segments(text: str) -> list[tuple[str, str]]:
     """Split text into segments of (type, value).
 
     Returns list of ("text", "hello ") or ("emoji", "baseball").
@@ -87,7 +139,7 @@ def _parse_segments(text):
     import re
 
     parts = re.split(r"(:[a-z_]+:)", text)
-    segments = []
+    segments: list[tuple[str, str]] = []
     for part in parts:
         if not part:
             continue
@@ -102,7 +154,7 @@ def _parse_segments(text):
     return segments
 
 
-def measure_width(font, text):
+def measure_width(font: Font, text: str) -> int:
     """Measure total width of text with emoji slugs expanded."""
     from led_ticker.drawing import get_text_width
 
@@ -116,11 +168,19 @@ def measure_width(font, text):
     return width
 
 
-def draw_with_emoji(canvas, font, cursor_pos, y, color, text, y_offset=0):
+def draw_with_emoji(
+    canvas: Canvas,
+    font: Font,
+    cursor_pos: int,
+    y: int,
+    color: Color,
+    text: str,
+    y_offset: int = 0,
+) -> int:
     """Draw text with inline emoji. Returns pixels advanced."""
-    graphics_mod = None
+    graphics_mod: Any = None
     segments = _parse_segments(text)
-    total = 0
+    total: int = 0
 
     for seg_type, value in segments:
         if seg_type == "emoji":
@@ -143,8 +203,12 @@ def draw_with_emoji(canvas, font, cursor_pos, y, color, text, y_offset=0):
 
                 graphics_mod = require_graphics()
             total += graphics_mod.DrawText(
-                canvas, font, int(cursor_pos + total),
-                y + y_offset, color, value,
+                canvas,
+                font,
+                int(cursor_pos + total),
+                y + y_offset,
+                color,
+                value,
             )
 
     return total

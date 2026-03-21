@@ -1,10 +1,14 @@
 """Static text widgets: TickerMessage and TickerCountdown."""
 
+from __future__ import annotations
+
 from datetime import date
+from typing import Any
 
 import attrs
 
 from led_ticker._compat import require_graphics
+from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
@@ -17,32 +21,31 @@ class TickerMessage:
     """A static text message for the LED display."""
 
     message: str
-    font: object = attrs.Factory(lambda: FONT_DEFAULT)
-    font_color: object = attrs.Factory(lambda: DEFAULT_COLOR)
+    font: Font = attrs.Factory(lambda: FONT_DEFAULT)
+    font_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
     center: bool = True
     padding: int = 6
     _content_width: int = attrs.field(init=False, default=-1)
 
     @property
-    def _has_emoji(self):
+    def _has_emoji(self) -> bool:
         return "::" != "" and ":" in self.message and self.message.count(":") >= 2
 
-    def draw(self, canvas, cursor_pos=0, **kwargs):
+    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         graphics = require_graphics()
         font_color = kwargs.get("font_color") or self.font_color
-        y_offset = kwargs.get("y_offset", 0)
+        y_offset: int = kwargs.get("y_offset", 0)
 
         if self._content_width < 0:
             if self._has_emoji:
                 from led_ticker.pixel_emoji import measure_width
 
                 self._content_width = measure_width(
-                    self.font, self.message,
+                    self.font,
+                    self.message,
                 )
             else:
-                self._content_width = get_text_width(
-                    self.font, self.message, padding=0
-                )
+                self._content_width = get_text_width(self.font, self.message, padding=0)
         content_width = self._content_width
         cursor_pos, end_padding = compute_cursor(
             canvas.width, content_width, cursor_pos, self.padding, self.center
@@ -52,13 +55,22 @@ class TickerMessage:
             from led_ticker.pixel_emoji import draw_with_emoji
 
             cursor_pos += draw_with_emoji(
-                canvas, self.font, cursor_pos, 12,
-                font_color, self.message, y_offset=y_offset,
+                canvas,
+                self.font,
+                cursor_pos,
+                12,
+                font_color,
+                self.message,
+                y_offset=y_offset,
             )
         else:
             cursor_pos += graphics.DrawText(
-                canvas, self.font, cursor_pos, 12 + y_offset,
-                font_color, self.message,
+                canvas,
+                self.font,
+                cursor_pos,
+                12 + y_offset,
+                font_color,
+                self.message,
             )
         cursor_pos += end_padding
 
@@ -72,15 +84,15 @@ class TickerCountdown:
 
     message: str
     countdown_date: date
-    font: object = attrs.Factory(lambda: FONT_DEFAULT)
-    font_color: object = attrs.Factory(lambda: DEFAULT_COLOR)
+    font: Font = attrs.Factory(lambda: FONT_DEFAULT)
+    font_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
     center: bool = True
     padding: int = 6
 
-    def draw(self, canvas, cursor_pos=0, **kwargs):
+    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         graphics = require_graphics()
         font_color = kwargs.get("font_color") or self.font_color
-        y_offset = kwargs.get("y_offset", 0)
+        y_offset: int = kwargs.get("y_offset", 0)
 
         today = date.today()
         days_until = (self.countdown_date - today).days

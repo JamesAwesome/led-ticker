@@ -1,28 +1,33 @@
 """Coinbase price monitor widget."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from datetime import date, timedelta
+from typing import Any, Self
 
+import aiohttp
 import attrs
 
 from led_ticker._compat import require_graphics
+from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR
 from led_ticker.drawing import compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DELTA, FONT_LABEL, FONT_VALUE, FONT_VALUE_SMALL
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 
-COINBASE_API = "https://api.coinbase.com"
+COINBASE_API: str = "https://api.coinbase.com"
 
 
-def _get_change_color(change_str):
+def _get_change_color(change_str: str) -> Color:
     if change_str.startswith("-"):
         return DOWN_TREND_COLOR
     return UP_TREND_COLOR
 
 
-def _get_price_font(price_str):
+def _get_price_font(price_str: str) -> Font:
     if len(price_str) > 10:
         return FONT_VALUE_SMALL
     return FONT_VALUE
@@ -35,7 +40,7 @@ class CoinbasePriceMonitor:
 
     symbol: str
     currency: str
-    session: object
+    session: aiohttp.ClientSession
     center: bool = True
     padding: int = 6
     price: float = attrs.field(init=False, default=0.0)
@@ -43,25 +48,25 @@ class CoinbasePriceMonitor:
     change_24h: float = attrs.field(init=False, default=0.0)
     spot_url: str = attrs.field(init=False, default="")
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         self.spot_url = f"{COINBASE_API}/v2/prices/{self.symbol}-{self.currency}/spot"
 
     @classmethod
     async def start(
         cls,
-        symbol,
-        currency,
-        session,
-        update_interval=300,
-        center=True,
-        **kwargs,
-    ):
+        symbol: str,
+        currency: str,
+        session: aiohttp.ClientSession,
+        update_interval: int = 300,
+        center: bool = True,
+        **kwargs: Any,
+    ) -> Self:
         widget = cls(symbol=symbol, currency=currency, session=session, center=center)
         await widget.update()
         asyncio.create_task(run_monitor_loop(widget, update_interval))
         return widget
 
-    async def update(self):
+    async def update(self) -> None:
         logging.info("Updating monitor for %s via Coinbase", self.symbol)
         self.price = await self.get_spot_price()
         self.yesterdays_price = await self.get_yesterdays_price()
@@ -72,8 +77,8 @@ class CoinbasePriceMonitor:
         else:
             self.change_24h = 0.0
 
-    async def get_spot_price(self, spot_date=None):
-        params = {}
+    async def get_spot_price(self, spot_date: date | None = None) -> float:
+        params: dict[str, str] = {}
         if spot_date:
             params["date"] = str(spot_date)
         async with self.session.get(self.spot_url, params=params) as response:
@@ -83,11 +88,11 @@ class CoinbasePriceMonitor:
                 raise KeyError("Missing 'amount' in Coinbase API response")
             return float(amount)
 
-    async def get_yesterdays_price(self):
+    async def get_yesterdays_price(self) -> float:
         yesterday = date.today() - timedelta(days=1)
         return await self.get_spot_price(spot_date=yesterday)
 
-    def draw(self, canvas, cursor_pos=0, **kwargs):
+    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         change_str = f"{self.change_24h:.2f}%"
         price_str = f"{self.price:.4f}"
         return _draw_price_ticker(
@@ -104,16 +109,16 @@ class CoinbasePriceMonitor:
 
 
 def _draw_price_ticker(
-    canvas,
-    symbol,
-    price_str,
-    change_str,
-    cursor_pos=0,
-    center=True,
-    padding=6,
-    end_padding=6,
-    y_offset=0,
-):
+    canvas: Canvas,
+    symbol: str,
+    price_str: str,
+    change_str: str,
+    cursor_pos: int = 0,
+    center: bool = True,
+    padding: int = 6,
+    end_padding: int = 6,
+    y_offset: int = 0,
+) -> DrawResult:
     graphics = require_graphics()
     change_color = _get_change_color(change_str)
     font_price = _get_price_font(price_str)

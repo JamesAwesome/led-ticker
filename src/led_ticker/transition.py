@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from typing import Any, Protocol, runtime_checkable
+
+from led_ticker._types import Canvas, ColorTuple
 
 # --- Easing functions ---
 
@@ -20,7 +23,7 @@ def ease_in_out(p: float) -> float:
     return 3 * p * p - 2 * p * p * p
 
 
-EASING = {
+EASING: dict[str, Callable[[float], float]] = {
     "linear": linear,
     "ease_out": ease_out,
     "ease_in_out": ease_in_out,
@@ -35,27 +38,27 @@ class Transition(Protocol):
     def frame_at(
         self,
         t: float,
-        canvas: Any,
+        canvas: Canvas,
         outgoing: Any,
         incoming: Any,
         **kwargs: Any,
-    ) -> Any:
+    ) -> Canvas:
         """Render one frame at progress t (0.0 to 1.0)."""
         ...
 
 
-_TRANSITION_REGISTRY: dict[str, type] = {}
+_TRANSITION_REGISTRY: dict[str, type[Transition]] = {}
 
 
-def register_transition(name: str):
-    def decorator(cls):
+def register_transition(name: str) -> Callable[[type], type]:
+    def decorator(cls: type) -> type:
         _TRANSITION_REGISTRY[name] = cls
         return cls
 
     return decorator
 
 
-def get_transition_class(name: str) -> type:
+def get_transition_class(name: str) -> type[Transition]:
     if name not in _TRANSITION_REGISTRY:
         raise ValueError(
             f"Unknown transition: {name!r}. "
@@ -68,16 +71,16 @@ def get_transition_class(name: str) -> type:
 
 
 async def run_transition(
-    canvas,
-    frame,
-    outgoing,
-    incoming,
+    canvas: Canvas,
+    frame: Any,
+    outgoing: Any,
+    incoming: Any,
     transition: Transition,
     duration: float = 0.5,
     easing: str = "linear",
     scroll_speed: float = 0.05,
     outgoing_scroll_pos: int = 0,
-):
+) -> Canvas:
     """Run a transition. Returns the current back-buffer canvas."""
     ease_fn = EASING.get(easing, linear)
     frame_count = max(1, int(duration / scroll_speed))
@@ -88,7 +91,10 @@ async def run_transition(
         t = ease_fn(i / max(1, frame_count))
         canvas.Clear()
         transition.frame_at(
-            t, canvas, outgoing, incoming,
+            t,
+            canvas,
+            outgoing,
+            incoming,
             outgoing_scroll_pos=outgoing_scroll_pos,
         )
         canvas = frame.matrix.SwapOnVSync(canvas)
@@ -104,10 +110,12 @@ async def run_transition(
 class Cut:
     """Instant switch, no animation."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         pass
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         incoming.draw(canvas, cursor_pos=0)
         return canvas
 
@@ -122,15 +130,17 @@ class PushLeft:
     clipped.
     """
 
-    GAP = 10  # pixels between outgoing right edge and incoming left edge
+    GAP: int = 10  # pixels between outgoing right edge and incoming left edge
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         pass
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         w = canvas.width
         h = getattr(canvas, "height", 16)
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
@@ -180,13 +190,15 @@ class PushRight:
       3. Draw outgoing at cursor_pos=boundary — confined to right zone
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         pass
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         w = canvas.width
         h = getattr(canvas, "height", 16)
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
@@ -226,12 +238,14 @@ class PushUp:
     vertically, with a row-based blackout to prevent overlap.
     """
 
-    GAP = 4  # vertical gap in pixels (smaller than horizontal)
+    GAP: int = 4  # vertical gap in pixels (smaller than horizontal)
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         pass
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         w = canvas.width
         h = getattr(canvas, "height", 16)
 
@@ -247,7 +261,7 @@ class PushUp:
         # Incoming enters from the bottom
         incoming_y = h + self.GAP - scroll_offset
 
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
 
         # 1. Draw outgoing shifted up (at its scrolled position)
         outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos, y_offset=outgoing_y)
@@ -274,12 +288,14 @@ class PushDown:
     with a row-based blackout to prevent overlap.
     """
 
-    GAP = 4
+    GAP: int = 4
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         pass
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         w = canvas.width
         h = getattr(canvas, "height", 16)
 
@@ -290,7 +306,7 @@ class PushDown:
         total_travel = h + self.GAP
         scroll_offset = int(t * total_travel)
 
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
 
         # Outgoing slides down
         outgoing_y = scroll_offset
@@ -310,7 +326,9 @@ class PushDown:
 
         # 3. Draw outgoing shifted down on the cleared bottom zone
         outgoing.draw(
-            canvas, cursor_pos=outgoing_scroll_pos, y_offset=outgoing_y,
+            canvas,
+            cursor_pos=outgoing_scroll_pos,
+            y_offset=outgoing_y,
         )
 
         return canvas
@@ -319,24 +337,26 @@ class PushDown:
 class _BaseWipe:
     """Base class for wipe transitions. Not registered as a transition."""
 
-    DEFAULT_COLOR = (0, 255, 255)
-    min_frames = 40
+    DEFAULT_COLOR: ColorTuple = (0, 255, 255)
+    min_frames: int = 40
 
-    def __init__(self, color=None, **kwargs):
-        self.color = tuple(color) if color else self.DEFAULT_COLOR
+    def __init__(self, color: ColorTuple | None = None, **kwargs: Any) -> None:
+        self.color: ColorTuple = tuple(color) if color else self.DEFAULT_COLOR
 
 
 @register_transition("wipe_up")
 class WipeUp(_BaseWipe):
     """Bottom-to-top wipe with sweep line moving upward."""
 
-    DEFAULT_COLOR = (255, 255, 255)
-    min_frames = 16
+    DEFAULT_COLOR: ColorTuple = (255, 255, 255)
+    min_frames: int = 16
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         w = canvas.width
         h = getattr(canvas, "height", 16)
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         # Sweep line moves from bottom (h-1) to top (0)
         sweep_row = max(0, h - 1 - min(int(t * h), h - 1))
 
@@ -362,11 +382,13 @@ class WipeUp(_BaseWipe):
 class ColorFlash:
     """Brief solid color flash between old and new content."""
 
-    def __init__(self, color=None, **kwargs):
-        self.color = tuple(color) if color else (255, 255, 255)
+    def __init__(self, color: ColorTuple | None = None, **kwargs: Any) -> None:
+        self.color: ColorTuple = tuple(color) if color else (255, 255, 255)
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         if t < 0.33:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         elif t < 0.66:
@@ -380,12 +402,14 @@ class ColorFlash:
 class WipeLeft(_BaseWipe):
     """Right-to-left wipe — sweep moves toward the left."""
 
-    DEFAULT_COLOR = (0, 255, 255)
+    DEFAULT_COLOR: ColorTuple = (0, 255, 255)
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         w = canvas.width
         h = getattr(canvas, "height", 16)
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         boundary = min(int(t * (w + 1)), w)
 
         if t >= 1.0:
@@ -412,12 +436,14 @@ class WipeLeft(_BaseWipe):
 class WipeRight(_BaseWipe):
     """Left-to-right wipe — sweep moves toward the right."""
 
-    DEFAULT_COLOR = (255, 0, 255)
+    DEFAULT_COLOR: ColorTuple = (255, 0, 255)
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         w = canvas.width
         h = getattr(canvas, "height", 16)
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         boundary = min(int(t * (w + 1)), w)
 
         if t >= 1.0:
@@ -447,11 +473,11 @@ class Dissolve:
     it per frame — avoids per-frame RNG overhead on the Pi.
     """
 
-    def __init__(self, seed: int = 42, **kwargs):
-        self.seed = seed
-        self._sequence: list | None = None
+    def __init__(self, seed: int = 42, **kwargs: Any) -> None:
+        self.seed: int = seed
+        self._sequence: list[tuple[int, int]] | None = None
 
-    def _get_sequence(self, w, h):
+    def _get_sequence(self, w: int, h: int) -> list[tuple[int, int]]:
         if self._sequence is None or len(self._sequence) != w * h:
             import random
 
@@ -461,10 +487,12 @@ class Dissolve:
             self._sequence = coords
         return self._sequence
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         w = canvas.width
         h = getattr(canvas, "height", 16)
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
@@ -492,13 +520,15 @@ class Dissolve:
 class SplitHorizontal:
     """Center-outward expanding black band with edge lines."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         pass
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         w = canvas.width
         h = getattr(canvas, "height", 16)
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         half = w // 2
         reveal = int(t * half)
 
@@ -527,13 +557,15 @@ class SplitHorizontal:
 class WipeDown(_BaseWipe):
     """Top-to-bottom wipe with sweep line moving downward (formerly 'curtain')."""
 
-    DEFAULT_COLOR = (0, 255, 0)
-    min_frames = 16
+    DEFAULT_COLOR: ColorTuple = (0, 255, 0)
+    min_frames: int = 16
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         w = canvas.width
         h = getattr(canvas, "height", 16)
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         sweep_row = min(int(t * (h + 1)), h)
 
         if t >= 1.0:
@@ -558,20 +590,23 @@ class WipeDown(_BaseWipe):
 class NyanCat:
     """Nyan Cat flies left-to-right, rainbow fills screen before cut."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         pass
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         from led_ticker.widgets.nyancat import draw_nyan_frame
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         draw_nyan_frame(
-            canvas, t,
+            canvas,
+            t,
             width=canvas.width,
             height=getattr(canvas, "height", 16),
         )
@@ -582,20 +617,23 @@ class NyanCat:
 class NyanCatReverse:
     """Nyan Cat flies right-to-left, rainbow fills screen before cut."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         pass
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         from led_ticker.widgets.nyancat import draw_nyan_frame_rtl
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         draw_nyan_frame_rtl(
-            canvas, t,
+            canvas,
+            t,
             width=canvas.width,
             height=getattr(canvas, "height", 16),
         )
@@ -613,17 +651,19 @@ class Scroll:
     Recommended: transition_duration = 4.0, easing = "linear".
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         from led_ticker.ticker import SCROLL_GAP, scroll_separator_width
 
-        self._sep_w = scroll_separator_width()
-        self._gap = SCROLL_GAP
+        self._sep_w: int = scroll_separator_width()
+        self._gap: int = SCROLL_GAP
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         from led_ticker.ticker import _draw_scroll_frame
 
         w = canvas.width
-        outgoing_scroll_pos = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
@@ -638,8 +678,13 @@ class Scroll:
         incoming_pos = w + self._sep_w - scroll_offset
 
         _draw_scroll_frame(
-            canvas, outgoing, incoming,
-            outgoing_pos, bullet_x, incoming_pos, clear_start,
+            canvas,
+            outgoing,
+            incoming,
+            outgoing_pos,
+            bullet_x,
+            incoming_pos,
+            clear_start,
         )
 
         return canvas
@@ -650,19 +695,21 @@ class Scroll:
 
 @register_transition("push_alternating")
 class PushAlternating:
-    """Cycles through push_left → push_right → push_up → push_down."""
+    """Cycles through push_left -> push_right -> push_up -> push_down."""
 
-    def __init__(self, **kwargs):
-        self._transitions = [
+    def __init__(self, **kwargs: Any) -> None:
+        self._transitions: list[Transition] = [
             PushLeft(**kwargs),
             PushRight(**kwargs),
             PushUp(**kwargs),
             PushDown(**kwargs),
         ]
-        self._index = -1
-        self._last_t = 1.0
+        self._index: int = -1
+        self._last_t: float = 1.0
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         if t < self._last_t:
             self._index = (self._index + 1) % len(self._transitions)
         self._last_t = t
@@ -673,17 +720,19 @@ class PushAlternating:
 
 @register_transition("nyancat_alternating")
 class NyanCatAlternating:
-    """Cycles through nyancat → nyancat_reverse."""
+    """Cycles through nyancat -> nyancat_reverse."""
 
-    def __init__(self, **kwargs):
-        self._transitions = [
+    def __init__(self, **kwargs: Any) -> None:
+        self._transitions: list[Transition] = [
             NyanCat(**kwargs),
             NyanCatReverse(**kwargs),
         ]
-        self._index = -1
-        self._last_t = 1.0
+        self._index: int = -1
+        self._last_t: float = 1.0
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         if t < self._last_t:
             self._index = (self._index + 1) % len(self._transitions)
         self._last_t = t
@@ -694,34 +743,38 @@ class NyanCatAlternating:
 
 @register_transition("wipe_alternating")
 class WipeAlternating:
-    """Cycles through wipe_left → wipe_right → wipe_up → wipe_down."""
+    """Cycles through wipe_left -> wipe_right -> wipe_up -> wipe_down."""
 
-    def __init__(self, colors=None, color=None, **kwargs):
-        wipe_classes = [WipeLeft, WipeRight, WipeUp, WipeDown]
+    def __init__(
+        self,
+        colors: list[ColorTuple] | None = None,
+        color: ColorTuple | None = None,
+        **kwargs: Any,
+    ) -> None:
+        wipe_classes: list[type[_BaseWipe]] = [WipeLeft, WipeRight, WipeUp, WipeDown]
 
         if colors and len(colors) >= len(wipe_classes):
-            self._transitions = [
-                cls(color=c)
-                for cls, c in zip(wipe_classes, colors, strict=False)
+            self._transitions: list[_BaseWipe] = [
+                cls(color=c) for cls, c in zip(wipe_classes, colors, strict=False)
             ]
         elif color:
-            self._transitions = [
-                cls(color=color) for cls in wipe_classes
-            ]
+            self._transitions = [cls(color=color) for cls in wipe_classes]
         else:
             # Each uses its own DEFAULT_COLOR
             self._transitions = [cls() for cls in wipe_classes]
 
-        self._index = -1
-        self._last_t = 1.0
+        self._index: int = -1
+        self._last_t: float = 1.0
 
     @property
-    def min_frames(self):
+    def min_frames(self) -> int:
         """Return min_frames for the NEXT sub-transition."""
         next_idx = (self._index + 1) % len(self._transitions)
         return getattr(self._transitions[next_idx], "min_frames", 10)
 
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         if t < self._last_t:
             self._index = (self._index + 1) % len(self._transitions)
         self._last_t = t

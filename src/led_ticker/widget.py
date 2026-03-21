@@ -6,11 +6,13 @@ import asyncio
 import logging
 from typing import Any, Protocol, runtime_checkable
 
-logger = logging.getLogger(__name__)
+from led_ticker._types import Canvas, DrawResult
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 # Backoff limits for run_monitor_loop
-_MIN_BACKOFF = 60  # 1 minute minimum on error
-_MAX_BACKOFF = 3600  # 1 hour maximum backoff
+_MIN_BACKOFF: int = 60  # 1 minute minimum on error
+_MAX_BACKOFF: int = 3600  # 1 hour maximum backoff
 
 
 @runtime_checkable
@@ -19,10 +21,10 @@ class Widget(Protocol):
 
     def draw(
         self,
-        canvas: Any,
+        canvas: Canvas,
         cursor_pos: int = 0,
-        **kwargs,
-    ) -> tuple[Any, int]:
+        **kwargs: Any,
+    ) -> DrawResult:
         """Render to canvas starting at cursor_pos.
 
         Returns (canvas, new_cursor_pos).
@@ -55,7 +57,7 @@ async def run_monitor_loop(
 
         interval += randint(0, 60)
 
-    consecutive_errors = 0
+    consecutive_errors: int = 0
 
     while True:
         if consecutive_errors > 0:

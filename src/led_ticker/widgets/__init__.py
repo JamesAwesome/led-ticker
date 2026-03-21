@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 _WIDGET_REGISTRY: dict[str, type] = {}
 
 
-def register(name: str):
+def register(name: str) -> Callable[[type], type]:
     """Decorator to register a widget class by config name."""
 
-    def decorator(cls):
+    def decorator(cls: type) -> type:
         _WIDGET_REGISTRY[name] = cls
         return cls
 

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import colorsys
+from collections.abc import Callable
+from typing import Any
 
 from led_ticker._compat import require_graphics
+from led_ticker._types import Canvas, DrawResult
 from led_ticker.drawing import get_text_width
 from led_ticker.transition import ease_out
 
@@ -13,8 +16,8 @@ from led_ticker.transition import ease_out
 _PRESENTATION_REGISTRY: dict[str, type] = {}
 
 
-def register_presentation(name: str):
-    def decorator(cls):
+def register_presentation(name: str) -> Callable[[type], type]:
+    def decorator(cls: type) -> type:
         _PRESENTATION_REGISTRY[name] = cls
         return cls
 
@@ -36,12 +39,12 @@ class WidgetPresenter:
     Satisfies the Widget protocol so the rest of the system is unaware.
     """
 
-    def __init__(self, widget, mode):
-        self.widget = widget
-        self.mode = mode
-        self.frame_count = 0
+    def __init__(self, widget: Any, mode: Any) -> None:
+        self.widget: Any = widget
+        self.mode: Any = mode
+        self.frame_count: int = 0
 
-    def draw(self, canvas, cursor_pos=0, **kwargs):
+    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         result = self.mode.draw(
             self.widget,
             canvas,
@@ -60,10 +63,12 @@ class WidgetPresenter:
 class Typewriter:
     """Characters appear one at a time, left to right."""
 
-    def __init__(self, chars_per_frame=1):
-        self.chars_per_frame = chars_per_frame
+    def __init__(self, chars_per_frame: int = 1) -> None:
+        self.chars_per_frame: int = chars_per_frame
 
-    def draw(self, widget, canvas, cursor_pos, frame, **kwargs):
+    def draw(
+        self, widget: Any, canvas: Canvas, cursor_pos: int, frame: int, **kwargs: Any
+    ) -> DrawResult:
         if not hasattr(widget, "message") or not isinstance(widget.message, str):
             return widget.draw(canvas, cursor_pos, **kwargs)
 
@@ -105,10 +110,12 @@ class Typewriter:
 class ColorCycle:
     """Text color cycles through the rainbow."""
 
-    def __init__(self, speed=5):
-        self.speed = speed  # degrees of hue per frame
+    def __init__(self, speed: int = 5) -> None:
+        self.speed: int = speed  # degrees of hue per frame
 
-    def draw(self, widget, canvas, cursor_pos, frame, **kwargs):
+    def draw(
+        self, widget: Any, canvas: Canvas, cursor_pos: int, frame: int, **kwargs: Any
+    ) -> DrawResult:
         graphics = require_graphics()
 
         hue = (frame * self.speed) % 360
@@ -122,11 +129,13 @@ class ColorCycle:
 class Rainbow:
     """Per-character rainbow sweep across text."""
 
-    def __init__(self, speed=8, char_offset=30):
-        self.speed = speed
-        self.char_offset = char_offset
+    def __init__(self, speed: int = 8, char_offset: int = 30) -> None:
+        self.speed: int = speed
+        self.char_offset: int = char_offset
 
-    def draw(self, widget, canvas, cursor_pos, frame, **kwargs):
+    def draw(
+        self, widget: Any, canvas: Canvas, cursor_pos: int, frame: int, **kwargs: Any
+    ) -> DrawResult:
         if not hasattr(widget, "message") or not isinstance(widget.message, str):
             return widget.draw(canvas, cursor_pos, **kwargs)
 
@@ -170,10 +179,12 @@ class Rainbow:
 class Pulse:
     """Text briefly brightens to white then returns to base color."""
 
-    def __init__(self, duration_frames=6):
-        self.duration_frames = duration_frames
+    def __init__(self, duration_frames: int = 6) -> None:
+        self.duration_frames: int = duration_frames
 
-    def draw(self, widget, canvas, cursor_pos, frame, **kwargs):
+    def draw(
+        self, widget: Any, canvas: Canvas, cursor_pos: int, frame: int, **kwargs: Any
+    ) -> DrawResult:
         if frame >= self.duration_frames:
             return widget.draw(canvas, cursor_pos, **kwargs)
 
@@ -195,15 +206,17 @@ class Pulse:
 class Bounce:
     """Text scrolls in from right, pauses at center, scrolls off left."""
 
-    def __init__(self, hold_frames=40, scroll_frames=20):
-        self.hold_frames = hold_frames
-        self.scroll_frames = scroll_frames
+    def __init__(self, hold_frames: int = 40, scroll_frames: int = 20) -> None:
+        self.hold_frames: int = hold_frames
+        self.scroll_frames: int = scroll_frames
 
     @property
-    def total_frames(self):
+    def total_frames(self) -> int:
         return self.scroll_frames + self.hold_frames + self.scroll_frames
 
-    def draw(self, widget, canvas, cursor_pos, frame, **kwargs):
+    def draw(
+        self, widget: Any, canvas: Canvas, cursor_pos: int, frame: int, **kwargs: Any
+    ) -> DrawResult:
         width = canvas.width
         text_width = 0
         if hasattr(widget, "message") and isinstance(widget.message, str):

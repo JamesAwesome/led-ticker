@@ -5,8 +5,12 @@ Each icon is a list of (x, y, r, g, b) tuples relative to the
 top-left corner of the icon. Only non-black pixels are stored.
 """
 
+from __future__ import annotations
+
+from led_ticker._types import Canvas, PixelData
+
 # Yellow sun: circle with rays
-SUN = [
+SUN: PixelData = [
     (3, 0, 255, 200, 0),
     (4, 0, 255, 200, 0),
     (1, 1, 255, 200, 0),
@@ -46,7 +50,7 @@ SUN = [
 ]
 
 # Gray cloud
-CLOUD = [
+CLOUD: PixelData = [
     (3, 1, 180, 180, 180),
     (4, 1, 180, 180, 180),
     (2, 2, 180, 180, 180),
@@ -84,7 +88,7 @@ CLOUD = [
 ]
 
 # Cloud with sun peeking out (partly cloudy)
-PARTLY_CLOUDY = [
+PARTLY_CLOUDY: PixelData = [
     (5, 0, 255, 200, 0),
     (6, 0, 255, 200, 0),
     (5, 1, 255, 220, 0),
@@ -120,7 +124,7 @@ PARTLY_CLOUDY = [
 ]
 
 # Cloud with blue rain drops
-RAIN = [
+RAIN: PixelData = [
     (2, 0, 150, 150, 150),
     (3, 0, 180, 180, 180),
     (4, 0, 180, 180, 180),
@@ -157,7 +161,7 @@ RAIN = [
 ]
 
 # Cloud with white snow dots
-SNOW = [
+SNOW: PixelData = [
     (2, 0, 150, 150, 150),
     (3, 0, 180, 180, 180),
     (4, 0, 180, 180, 180),
@@ -192,7 +196,7 @@ SNOW = [
 ]
 
 # Yellow bolt on dark cloud
-THUNDER = [
+THUNDER: PixelData = [
     (2, 0, 100, 100, 110),
     (3, 0, 120, 120, 130),
     (4, 0, 120, 120, 130),
@@ -228,7 +232,7 @@ THUNDER = [
 ]
 
 # Fog: horizontal gray lines
-FOG = [
+FOG: PixelData = [
     (1, 1, 150, 150, 150),
     (2, 1, 180, 180, 180),
     (3, 1, 180, 180, 180),
@@ -259,12 +263,12 @@ FOG = [
     (7, 7, 120, 120, 120),
 ]
 
-ICON_WIDTH = 8
-ICON_HEIGHT = 8
-ICON_PADDING = 2  # pixels between icon and text
+ICON_WIDTH: int = 8
+ICON_HEIGHT: int = 8
+ICON_PADDING: int = 2  # pixels between icon and text
 
 
-def _match_condition(condition: str) -> list:
+def _match_condition(condition: str) -> PixelData:
     """Map a WeatherAPI condition string to an icon."""
     c = condition.lower()
     if "thunder" in c:
@@ -283,7 +287,7 @@ def _match_condition(condition: str) -> list:
     return SUN
 
 
-def draw_weather_icon(canvas, condition: str, x: int, y_offset: int = 4):
+def draw_weather_icon(canvas: Canvas, condition: str, x: int, y_offset: int = 4) -> int:
     """Draw an 8x8 weather icon on the canvas.
 
     Args:

@@ -1,19 +1,24 @@
 """Weather widget using WeatherAPI.com."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import os
+from typing import Any, Self
 
+import aiohttp
 import attrs
 
 from led_ticker._compat import require_graphics
+from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR, RGB_WHITE
 from led_ticker.drawing import compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 
-WEATHERAPI_URL = "https://api.weatherapi.com/v1/current.json"
+WEATHERAPI_URL: str = "https://api.weatherapi.com/v1/current.json"
 
 
 @register("weather")
@@ -21,13 +26,13 @@ WEATHERAPI_URL = "https://api.weatherapi.com/v1/current.json"
 class WeatherWidget:
     """Current weather display widget."""
 
-    session: object
+    session: aiohttp.ClientSession
     location: str  # query string: "New York", "10001", "40.71,-74.01"
     message: str
     units: str = "imperial"
-    font: object = attrs.Factory(lambda: FONT_DEFAULT)
-    font_color: object = attrs.Factory(lambda: DEFAULT_COLOR)
-    font_color_temp: object = attrs.Factory(lambda: RGB_WHITE)
+    font: Font = attrs.Factory(lambda: FONT_DEFAULT)
+    font_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
+    font_color_temp: Color = attrs.Factory(lambda: RGB_WHITE)
     center: bool = True
     padding: int = 6
     show_icon: bool = True
@@ -35,7 +40,7 @@ class WeatherWidget:
     current_temp: int = attrs.field(init=False, default=0)
     weather: str = attrs.field(init=False, default="")
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         # Support dict location from TOML: {lat = 40.71, lon = -74.01}
         if isinstance(self.location, dict):
             lat = self.location.get("lat", 0)
@@ -48,7 +53,9 @@ class WeatherWidget:
             self.unit_symbol = "C"
 
     @classmethod
-    async def start(cls, *args, update_interval=10800, **kwargs):
+    async def start(
+        cls, *args: Any, update_interval: int = 10800, **kwargs: Any
+    ) -> Self:
         widget = cls(*args, **kwargs)
         try:
             await widget.update()
@@ -60,7 +67,7 @@ class WeatherWidget:
         asyncio.create_task(run_monitor_loop(widget, update_interval))
         return widget
 
-    async def update(self):
+    async def update(self) -> None:
         logging.info("Updating weather for: %s", self.location)
         api_key = os.getenv("WEATHERAPI_KEY", "")
         if not api_key:
@@ -88,9 +95,9 @@ class WeatherWidget:
                 self.current_temp = int(current["temp_c"])
             self.weather = current["condition"]["text"]
 
-    def draw(self, canvas, cursor_pos=0, **kwargs):
+    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         graphics = require_graphics()
-        y_offset = kwargs.get("y_offset", 0)
+        y_offset: int = kwargs.get("y_offset", 0)
 
         temp_text = f"{self.current_temp}{self.unit_symbol}"
         if self.show_icon:

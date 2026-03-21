@@ -1,10 +1,13 @@
 """CLI entry point for led-ticker."""
 
+from __future__ import annotations
+
 import argparse
 import asyncio
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 import aiohttp
 
@@ -23,7 +26,7 @@ from led_ticker.widgets.mlb import MLBScoreMonitor
 from led_ticker.widgets.rss_feed import RSSFeedMonitor
 
 
-def _setup_logging():
+def _setup_logging() -> None:
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     handler = logging.StreamHandler(sys.stdout)
@@ -35,12 +38,14 @@ def _setup_logging():
     logger.addHandler(handler)
 
 
-def _cache_key(widget_cfg: dict) -> str:
+def _cache_key(widget_cfg: dict[str, Any]) -> str:
     """Generate a stable cache key from widget config."""
     return str(sorted(widget_cfg.items()))
 
 
-async def _build_widget(widget_cfg, session):
+async def _build_widget(
+    widget_cfg: dict[str, Any], session: aiohttp.ClientSession
+) -> Any:
     """Instantiate a widget from its config dict."""
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)
@@ -69,27 +74,27 @@ async def _build_widget(widget_cfg, session):
     return widget
 
 
-async def _build_title(title_cfg):
+async def _build_title(title_cfg: dict[str, Any] | None) -> TickerMessage | None:
     """Build a title TickerMessage from config."""
     if title_cfg is None:
         return None
     text = title_cfg.get("text", "")
     color = title_cfg.get("color")
     font_color = next(RANDOM_COLOR) if color == "random" else None
-    kwargs = {"message": text}
+    kwargs: dict[str, Any] = {"message": text}
     if font_color:
         kwargs["font_color"] = font_color
     return TickerMessage(**kwargs)
 
 
-RUN_MODES = {
+RUN_MODES: dict[str, str] = {
     "forever_scroll": "run_forever_scroll",
     "infini_scroll": "run_infini_scroll",
     "swap": "run_swap",
 }
 
 
-async def run(config_path: Path):
+async def run(config_path: Path) -> None:
     """Main application loop."""
     config = load_config(config_path)
 
@@ -103,12 +108,12 @@ async def run(config_path: Path):
     )
 
     # Build section-to-section transition if configured
-    section_trans = None
+    section_trans: Any = None
     if config.between_sections.type != "cut":
         section_trans_cls = get_transition_class(
             config.between_sections.type,
         )
-        trans_kwargs = {}
+        trans_kwargs: dict[str, Any] = {}
         if config.between_sections.colors is not None:
             trans_kwargs["colors"] = config.between_sections.colors
         elif config.between_sections.color is not None:
@@ -116,14 +121,14 @@ async def run(config_path: Path):
         section_trans = section_trans_cls(**trans_kwargs)
 
     async with aiohttp.ClientSession() as session:
-        notif_queue = asyncio.Queue()
-        last_widget = None  # track for section-to-section transitions
-        last_scroll_pos = 0  # track scroll pos for between-section transitions
-        widget_cache: dict[str, object] = {}
+        notif_queue: asyncio.Queue[Any] = asyncio.Queue()
+        last_widget: Any = None  # track for section-to-section transitions
+        last_scroll_pos: int = 0  # track scroll pos for between-section transitions
+        widget_cache: dict[str, Any] = {}
 
         while True:
             for section in config.sections:
-                widgets = []
+                widgets: list[Any] = []
                 for widget_cfg in section.widgets:
                     # Cache async widgets to avoid leaking background tasks
                     key = _cache_key(widget_cfg)
@@ -210,7 +215,7 @@ async def run(config_path: Path):
                     last_widget = title
 
 
-def main():
+def main() -> None:
     """CLI entry point."""
     _setup_logging()
 

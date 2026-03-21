@@ -1,18 +1,24 @@
 """Display orchestrator for scrolling/swapping widgets on LED panels."""
 
+from __future__ import annotations
+
 import asyncio
 import itertools
 import logging
+from typing import Any
 
 import attrs
 
+from led_ticker._types import Canvas, ColorTuple
 from led_ticker.colors import RGB_WHITE
 from led_ticker.widgets.message import TickerMessage
 
-DEFAULT_BUFFER_MSG = TickerMessage(" \u2022 ", center=False, font_color=RGB_WHITE)
+DEFAULT_BUFFER_MSG: TickerMessage = TickerMessage(
+    " \u2022 ", center=False, font_color=RGB_WHITE
+)
 
 
-def _has_index(index, items):
+def _has_index(index: int, items: list[Any]) -> bool:
     """Check if a list has an index."""
     try:
         items[index]
@@ -25,13 +31,13 @@ def _has_index(index, items):
 class Ticker:
     """Display orchestrator for an LedFrame."""
 
-    monitors: list
-    frame: object
-    title: object = None
+    monitors: list[Any]
+    frame: Any
+    title: Any = None
     title_delay: int = 4
-    buffer_msg: object = attrs.Factory(lambda: DEFAULT_BUFFER_MSG)
-    notif_queue: object = None
-    transition_config: object = None
+    buffer_msg: Any = attrs.Factory(lambda: DEFAULT_BUFFER_MSG)
+    notif_queue: asyncio.Queue[Any] | None = None
+    transition_config: Any = None
     hold_time: float = 3.0
     continuous_scroll: bool = False
     last_scroll_pos: int = attrs.field(init=False, default=0)
@@ -39,13 +45,13 @@ class Ticker:
     @classmethod
     def from_rss_feed(
         cls,
-        feed_monitor,
-        frame,
-        custom_title=None,
-        title_delay=4,
-        buffer_msg=None,
-        notif_queue=None,
-    ):
+        feed_monitor: Any,
+        frame: Any,
+        custom_title: Any = None,
+        title_delay: int = 4,
+        buffer_msg: Any = None,
+        notif_queue: asyncio.Queue[Any] | None = None,
+    ) -> Ticker:
         title = custom_title if custom_title else feed_monitor.feed_title
         if buffer_msg is None:
             buffer_msg = DEFAULT_BUFFER_MSG
@@ -58,7 +64,7 @@ class Ticker:
             notif_queue=notif_queue,
         )
 
-    async def run_swap(self, loop_count=0):
+    async def run_swap(self, loop_count: int = 0) -> None:
         """Swap between all running monitors."""
         logging.info("Running Swap with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
@@ -83,7 +89,9 @@ class Ticker:
             continuous_scroll=self.continuous_scroll,
         )
 
-    async def run_forever_scroll(self, loop_count=0, start_pos=None):
+    async def run_forever_scroll(
+        self, loop_count: int = 0, start_pos: int | None = None
+    ) -> None:
         """Scroll all monitors side-by-side in a continuous stream."""
         logging.info("Running Forever Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
@@ -108,7 +116,9 @@ class Ticker:
             cursor_pos=cursor_pos,
         )
 
-    async def run_infini_scroll(self, loop_count=0, start_pos=None):
+    async def run_infini_scroll(
+        self, loop_count: int = 0, start_pos: int | None = None
+    ) -> None:
         """Scroll monitors one-by-one, each fully scrolling off before the next."""
         logging.info("Running Infini Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
@@ -137,7 +147,11 @@ class Ticker:
 # --- Queue builders ---
 
 
-def _build_ticker_iter(ticker_objects, title=None, loop_count=0):
+def _build_ticker_iter(
+    ticker_objects: list[Any],
+    title: Any = None,
+    loop_count: int = 0,
+) -> Any:
     if loop_count:
         ticker_iter = itertools.chain(ticker_objects * loop_count)
     else:
@@ -149,7 +163,9 @@ def _build_ticker_iter(ticker_objects, title=None, loop_count=0):
     return ticker_iter
 
 
-async def _enqueue_ticker_objects(ticker_iter, notif_queue):
+async def _enqueue_ticker_objects(
+    ticker_iter: Any, notif_queue: asyncio.Queue[Any]
+) -> None:
     await notif_queue.put(next(ticker_iter))
     while True:
         try:
@@ -163,12 +179,22 @@ async def _enqueue_ticker_objects(ticker_iter, notif_queue):
             break
 
 
-async def _build_then_enqueue(ticker_objects, notif_queue, title=None, loop_count=None):
+async def _build_then_enqueue(
+    ticker_objects: list[Any],
+    notif_queue: asyncio.Queue[Any],
+    title: Any = None,
+    loop_count: int | None = None,
+) -> None:
     ticker_iter = _build_ticker_iter(ticker_objects, title=title, loop_count=loop_count)
     await _enqueue_ticker_objects(ticker_iter, notif_queue)
 
 
-async def _enqueue_from_rss_feed(feed, notif_queue, custom_title=None, loop_count=None):
+async def _enqueue_from_rss_feed(
+    feed: Any,
+    notif_queue: asyncio.Queue[Any],
+    custom_title: Any = None,
+    loop_count: int | None = None,
+) -> None:
     title = custom_title if custom_title else feed.feed_title
     ticker_iter = _build_ticker_iter(
         feed.feed_stories,
@@ -182,13 +208,13 @@ async def _enqueue_from_rss_feed(feed, notif_queue, custom_title=None, loop_coun
 
 
 async def _scroll_and_delay(
-    canvas,
-    frame,
-    ticker_obj,
-    delay,
-    cursor_pos=0,
-    scroll_speed=0.05,
-):
+    canvas: Canvas,
+    frame: Any,
+    ticker_obj: Any,
+    delay: float,
+    cursor_pos: int = 0,
+    scroll_speed: float = 0.05,
+) -> tuple[Canvas, int]:
     logging.info("Running _scroll_and_delay ...")
     canvas.Clear()
     pos = cursor_pos
@@ -207,13 +233,13 @@ async def _scroll_and_delay(
 
 
 async def _scroll_one_by_one(
-    canvas,
-    frame,
-    notif_queue,
-    delay=0,
-    cursor_pos=0,
-    scroll_speed=0.05,
-):
+    canvas: Canvas,
+    frame: Any,
+    notif_queue: asyncio.Queue[Any],
+    delay: float = 0,
+    cursor_pos: int = 0,
+    scroll_speed: float = 0.05,
+) -> None:
     ticker_object = await notif_queue.get()
     pos = cursor_pos
 
@@ -248,16 +274,16 @@ async def _scroll_one_by_one(
 
 
 async def _scroll_side_by_side(
-    canvas,
-    frame,
-    notif_queue,
-    buffer_message=None,
-    delay=0,
-    cursor_pos=0,
-    scroll_speed=0.05,
-):
+    canvas: Canvas,
+    frame: Any,
+    notif_queue: asyncio.Queue[Any],
+    buffer_message: Any = None,
+    delay: float = 0,
+    cursor_pos: int = 0,
+    scroll_speed: float = 0.05,
+) -> bool | None:
     logging.info("Running _scroll_side_by_side ...")
-    buffered_objects = []
+    buffered_objects: list[Any] = []
     next_monitor = await notif_queue.get()
     buffered_objects.append(next_monitor)
     pos = cursor_pos
@@ -313,12 +339,12 @@ async def _scroll_side_by_side(
             return True
 
 
-BULLET_WIDTH = 2   # 2px wide dot
-BULLET_COLOR = (255, 255, 255)
-SCROLL_GAP = 6     # px of black on each side of bullet
+BULLET_WIDTH: int = 2  # 2px wide dot
+BULLET_COLOR: ColorTuple = (255, 255, 255)
+SCROLL_GAP: int = 6  # px of black on each side of bullet
 
 
-def _draw_bullet(canvas, x, color=BULLET_COLOR):
+def _draw_bullet(canvas: Canvas, x: int, color: ColorTuple = BULLET_COLOR) -> None:
     """Draw a 2x2 pixel bullet dot centered vertically on the display."""
     h = getattr(canvas, "height", 16)
     y_center = h // 2
@@ -331,9 +357,14 @@ def _draw_bullet(canvas, x, color=BULLET_COLOR):
 
 
 def _draw_scroll_frame(
-    canvas, outgoing, incoming,
-    outgoing_pos, bullet_x, incoming_pos, clear_start,
-):
+    canvas: Canvas,
+    outgoing: Any,
+    incoming: Any,
+    outgoing_pos: int,
+    bullet_x: int,
+    incoming_pos: int,
+    clear_start: int,
+) -> None:
     """Draw one frame of scroll transition: outgoing | gap | bullet | gap | incoming."""
     w = canvas.width
     h = getattr(canvas, "height", 16)
@@ -352,19 +383,19 @@ def _draw_scroll_frame(
         incoming.draw(canvas, cursor_pos=incoming_pos)
 
 
-def scroll_separator_width(gap=SCROLL_GAP):
+def scroll_separator_width(gap: int = SCROLL_GAP) -> int:
     """Total pixel width of the scroll separator: gap + bullet + gap."""
     return gap + BULLET_WIDTH + gap
 
 
 async def _scroll_between(
-    canvas,
-    frame,
-    outgoing,
-    incoming,
-    outgoing_scroll_pos=0,
-    scroll_speed=0.05,
-):
+    canvas: Canvas,
+    frame: Any,
+    outgoing: Any,
+    incoming: Any,
+    outgoing_scroll_pos: int = 0,
+    scroll_speed: float = 0.05,
+) -> tuple[Canvas, int]:
     """Seamlessly scroll from outgoing to incoming at constant 1px/frame."""
     w = canvas.width
     sep_w = scroll_separator_width()
@@ -380,8 +411,13 @@ async def _scroll_between(
         incoming_pos = w + sep_w - offset
 
         _draw_scroll_frame(
-            canvas, outgoing, incoming,
-            outgoing_pos, bullet_x, incoming_pos, clear_start,
+            canvas,
+            outgoing,
+            incoming,
+            outgoing_pos,
+            bullet_x,
+            incoming_pos,
+            clear_start,
         )
 
         canvas = frame.matrix.SwapOnVSync(canvas)
@@ -391,21 +427,18 @@ async def _scroll_between(
 
 
 async def _run_swap(
-    canvas,
-    frame,
-    notif_queue,
-    delay=5,
-    transition=None,
-    hold_time=3.0,
-    continuous_scroll=False,
-):
+    canvas: Canvas,
+    frame: Any,
+    notif_queue: asyncio.Queue[Any],
+    delay: float = 5,
+    transition: Any = None,
+    hold_time: float = 3.0,
+    continuous_scroll: bool = False,
+) -> int:
     """Run swap display mode with optional transitions."""
     from led_ticker.transition import Scroll, run_transition
 
-    is_scroll = (
-        transition is not None
-        and isinstance(transition.transition_obj, Scroll)
-    )
+    is_scroll = transition is not None and isinstance(transition.transition_obj, Scroll)
     ticker_object = await notif_queue.get()
     canvas, _, prev_scroll_pos = await _swap_and_scroll(
         canvas,
@@ -468,14 +501,14 @@ async def _run_swap(
 
 
 async def _swap_and_scroll(
-    canvas,
-    frame,
-    ticker_obj,
-    scroll_speed=0.05,
-    hold_time=3,
-    skip_initial_draw=False,
-    continuous=False,
-):
+    canvas: Canvas,
+    frame: Any,
+    ticker_obj: Any,
+    scroll_speed: float = 0.05,
+    hold_time: float = 3,
+    skip_initial_draw: bool = False,
+    continuous: bool = False,
+) -> tuple[Canvas, int, int]:
     """Display a widget. If it overflows, hold then scroll the full text.
 
     When *skip_initial_draw* is True, the first SwapOnVSync is skipped

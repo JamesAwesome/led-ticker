@@ -1,17 +1,22 @@
 """CoinGecko price monitor widget."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
+from typing import Any, Self
 
+import aiohttp
 import attrs
 
+from led_ticker._types import Canvas, DrawResult
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets.crypto.coinbase import _draw_price_ticker
 
-COINGECKO_API = "https://api.coingecko.com/api/v3"
-COINGECKO_COIN_LIST = f"{COINGECKO_API}/coins/list"
-COINGECKO_PRICE_API = f"{COINGECKO_API}/simple/price"
+COINGECKO_API: str = "https://api.coingecko.com/api/v3"
+COINGECKO_COIN_LIST: str = f"{COINGECKO_API}/coins/list"
+COINGECKO_PRICE_API: str = f"{COINGECKO_API}/simple/price"
 
 
 @register("coingecko")
@@ -22,10 +27,10 @@ class CoinGeckoPriceMonitor:
     symbol: str
     symbol_id: str
     currency: str
-    session: object
+    session: aiohttp.ClientSession
     center: bool = True
     padding: int = 6
-    price_data: dict = attrs.field(
+    price_data: dict[str, str] = attrs.field(
         init=False,
         factory=lambda: {"price": "0.0000", "change_24h": "0.00%"},
     )
@@ -33,13 +38,13 @@ class CoinGeckoPriceMonitor:
     @classmethod
     async def start(
         cls,
-        symbol,
-        symbol_id,
-        currency,
-        session,
-        update_interval=300,
-        **kwargs,
-    ):
+        symbol: str,
+        symbol_id: str,
+        currency: str,
+        session: aiohttp.ClientSession,
+        update_interval: int = 300,
+        **kwargs: Any,
+    ) -> Self:
         widget = cls(
             symbol=symbol,
             symbol_id=symbol_id,
@@ -50,9 +55,9 @@ class CoinGeckoPriceMonitor:
         asyncio.create_task(run_monitor_loop(widget, update_interval))
         return widget
 
-    async def update(self):
+    async def update(self) -> None:
         logging.info("Updating monitor for %s via CoinGecko", self.symbol)
-        params = {
+        params: dict[str, Any] = {
             "ids": [self.symbol_id],
             "vs_currencies": self.currency,
             "include_24hr_change": "true",
@@ -72,7 +77,7 @@ class CoinGeckoPriceMonitor:
 
                 self.price_data = {"price": price, "change_24h": change_24h}
 
-    def draw(self, canvas, cursor_pos=0, **kwargs):
+    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         return _draw_price_ticker(
             canvas,
             self.symbol,
@@ -86,22 +91,32 @@ class CoinGeckoPriceMonitor:
         )
 
 
-async def _get_coingecko_coin_list(session):
+async def _get_coingecko_coin_list(
+    session: aiohttp.ClientSession,
+) -> list[dict[str, Any]]:
     logging.info("Fetching CoinGecko coin list...")
     headers = {"Accept": "application/json"}
     async with session.get(COINGECKO_COIN_LIST, headers=headers) as response:
         return await response.json()
 
 
-def _find_coingecko_symbol_id(coin_list, symbol):
+def _find_coingecko_symbol_id(
+    coin_list: list[dict[str, Any]], symbol: str
+) -> str | None:
     for coin_meta in coin_list:
         if symbol.lower() == coin_meta["symbol"].lower():
             return coin_meta["id"]
+    return None
 
 
-async def start_coingecko_monitors(symbols, currency, session, **kwargs):
+async def start_coingecko_monitors(
+    symbols: list[str],
+    currency: str,
+    session: aiohttp.ClientSession,
+    **kwargs: Any,
+) -> list[CoinGeckoPriceMonitor]:
     coin_list = await _get_coingecko_coin_list(session)
-    symbol_map = {}
+    symbol_map: dict[str, str | None] = {}
     for symbol in symbols:
         symbol_id = _find_coingecko_symbol_id(coin_list, symbol)
         symbol_map[symbol] = symbol_id

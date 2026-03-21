@@ -1,14 +1,19 @@
 """MLB score monitor widget using the free MLB Stats API."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from typing import Any, Self
 from zoneinfo import ZoneInfo
 
+import aiohttp
 import attrs
 
 from led_ticker._compat import require_graphics
+from led_ticker._types import Canvas, Color, ColorTuple, DrawResult, Font, PixelData
 from led_ticker.colors import RGB_WHITE, _color
 from led_ticker.drawing import compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
@@ -16,21 +21,21 @@ from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets.message import TickerMessage
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
-MLB_API = "https://statsapi.mlb.com/api/v1"
+MLB_API: str = "https://statsapi.mlb.com/api/v1"
 
 # Update intervals (seconds)
-_INTERVAL_LIVE = 45       # ~half-inning cadence
-_INTERVAL_IDLE = 300      # 5 minutes
-_INTERVAL_OFFSEASON = 86400  # daily
+_INTERVAL_LIVE: int = 45  # ~half-inning cadence
+_INTERVAL_IDLE: int = 300  # 5 minutes
+_INTERVAL_OFFSEASON: int = 86400  # daily
 
-WIN_COLOR = _color(46, 200, 46)
-LOSS_COLOR = _color(220, 30, 30)
-LIVE_COLOR = _color(255, 40, 40)
+WIN_COLOR: Color = _color(46, 200, 46)
+LOSS_COLOR: Color = _color(220, 30, 30)
+LIVE_COLOR: Color = _color(255, 40, 40)
 
 # All 30 MLB team primary colors
-MLB_TEAM_COLORS = {
+MLB_TEAM_COLORS: dict[str, ColorTuple] = {
     "ARI": (167, 25, 48),
     "ATL": (206, 17, 65),
     "BAL": (223, 70, 1),
@@ -64,21 +69,41 @@ MLB_TEAM_COLORS = {
 }
 
 # Full team names for display
-MLB_TEAM_NAMES = {
-    "ARI": "D-backs", "ATL": "Braves", "BAL": "Orioles",
-    "BOS": "Red Sox", "CHC": "Cubs", "CIN": "Reds",
-    "CLE": "Guardians", "COL": "Rockies", "CWS": "White Sox",
-    "DET": "Tigers", "HOU": "Astros", "KC": "Royals",
-    "LAA": "Angels", "LAD": "Dodgers", "MIA": "Marlins",
-    "MIL": "Brewers", "MIN": "Twins", "NYM": "Mets",
-    "NYY": "Yankees", "OAK": "Athletics", "PHI": "Phillies",
-    "PIT": "Pirates", "SD": "Padres", "SEA": "Mariners",
-    "SF": "Giants", "STL": "Cardinals", "TB": "Rays",
-    "TEX": "Rangers", "TOR": "Blue Jays", "WSH": "Nationals",
+MLB_TEAM_NAMES: dict[str, str] = {
+    "ARI": "D-backs",
+    "ATL": "Braves",
+    "BAL": "Orioles",
+    "BOS": "Red Sox",
+    "CHC": "Cubs",
+    "CIN": "Reds",
+    "CLE": "Guardians",
+    "COL": "Rockies",
+    "CWS": "White Sox",
+    "DET": "Tigers",
+    "HOU": "Astros",
+    "KC": "Royals",
+    "LAA": "Angels",
+    "LAD": "Dodgers",
+    "MIA": "Marlins",
+    "MIL": "Brewers",
+    "MIN": "Twins",
+    "NYM": "Mets",
+    "NYY": "Yankees",
+    "OAK": "Athletics",
+    "PHI": "Phillies",
+    "PIT": "Pirates",
+    "SD": "Padres",
+    "SEA": "Mariners",
+    "SF": "Giants",
+    "STL": "Cardinals",
+    "TB": "Rays",
+    "TEX": "Rangers",
+    "TOR": "Blue Jays",
+    "WSH": "Nationals",
 }
 
 
-def _team_color(abbr):
+def _team_color(abbr: str) -> Color:
     """Get graphics.Color for a team abbreviation."""
     r, g, b = MLB_TEAM_COLORS.get(abbr, (255, 255, 255))
     return _color(r, g, b)
@@ -91,7 +116,7 @@ class GameInfo:
     home_score: int | None = None
     away_score: int | None = None
     state: str = "preview"  # "final", "live", "preview"
-    game_type: str = "R"    # R=regular, S=spring, A=all-star, P+=postseason
+    game_type: str = "R"  # R=regular, S=spring, A=all-star, P+=postseason
     inning: str | None = None
     balls: int = 0
     strikes: int = 0
@@ -111,20 +136,20 @@ class SeriesInfo:
     team_losses: int = 0
 
 
-def _ordinal(n):
+def _ordinal(n: int) -> str:
     """Convert integer to ordinal string: 1st, 2nd, 3rd, etc."""
     if 11 <= (n % 100) <= 13:
         return f"{n}th"
     return f"{n}{['th', 'st', 'nd', 'rd'][min(n % 10, 4)] if n % 10 < 4 else 'th'}"
 
 
-def _format_inning(inning_num, half):
+def _format_inning(inning_num: int, half: str) -> str:
     """Format inning display: '▲5', '▼7'."""
     arrow = "\u25b2" if half == "top" else "\u25bc"
     return f"{arrow}{inning_num}"
 
 
-def _format_game_time(dt, tz):
+def _format_game_time(dt: datetime, tz: ZoneInfo) -> str:
     """Format game time relative to now."""
     now = datetime.now(tz)
     local = dt.astimezone(tz)
@@ -139,7 +164,7 @@ def _format_game_time(dt, tz):
     return local.strftime("%b %-d %-I:%M %p")
 
 
-def _parse_team_abbr(team_data):
+def _parse_team_abbr(team_data: dict[str, Any]) -> str:
     """Extract team abbreviation from MLB API team data."""
     return team_data.get("abbreviation", "???")
 
@@ -147,23 +172,27 @@ def _parse_team_abbr(team_data):
 class MLBGameMessage:
     """A single game rendered with team colors and score colors."""
 
-    def __init__(self, segments, padding=6, icon=None, center=False):
-        """segments: list of (text, color) tuples. icon: pixel art list or None."""
-        self.segments = segments
-        self.padding = padding
-        self.icon = icon
-        self.center = center
-        self._content_width = -1
+    def __init__(
+        self,
+        segments: list[tuple[str, Color]],
+        padding: int = 6,
+        icon: PixelData | None = None,
+        center: bool = False,
+    ) -> None:
+        self.segments: list[tuple[str, Color]] = segments
+        self.padding: int = padding
+        self.icon: PixelData | None = icon
+        self.center: bool = center
+        self._content_width: int = -1
 
-    def draw(self, canvas, cursor_pos=0, **kwargs):
+    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         graphics = require_graphics()
-        y_offset = kwargs.get("y_offset", 0)
+        y_offset: int = kwargs.get("y_offset", 0)
 
         if self._content_width < 0:
-            font = FONT_DEFAULT
+            font: Font = FONT_DEFAULT
             self._content_width = sum(
-                get_text_width(font, text, padding=0)
-                for text, _ in self.segments
+                get_text_width(font, text, padding=0) for text, _ in self.segments
             )
             if self.icon is not None:
                 from led_ticker.widgets.mlb_icons import (
@@ -175,22 +204,31 @@ class MLBGameMessage:
 
         content_width = self._content_width
         cursor_pos, end_padding = compute_cursor(
-            canvas.width, content_width, cursor_pos,
-            self.padding, self.center,
+            canvas.width,
+            content_width,
+            cursor_pos,
+            self.padding,
+            self.center,
         )
 
         font = FONT_DEFAULT
         for text, color in self.segments:
             cursor_pos += graphics.DrawText(
-                canvas, font, cursor_pos, 12 + y_offset,
-                color, text,
+                canvas,
+                font,
+                cursor_pos,
+                12 + y_offset,
+                color,
+                text,
             )
 
         if self.icon is not None:
             from led_ticker.widgets.mlb_icons import draw_mlb_icon
 
             cursor_pos = draw_mlb_icon(
-                canvas, self.icon, int(cursor_pos),
+                canvas,
+                self.icon,
+                int(cursor_pos),
                 y_offset=5 + y_offset,
             )
 
@@ -198,19 +236,21 @@ class MLBGameMessage:
         return canvas, cursor_pos
 
 
-def _build_series_title(team_abbr, series, tz):
+def _build_series_title(
+    team_abbr: str, series: SeriesInfo, tz: ZoneInfo
+) -> MLBGameMessage:
     """Build the title message for a series."""
     team_c = _team_color(team_abbr)
     opp_c = _team_color(series.opponent_abbr)
 
-    segments = [
+    segments: list[tuple[str, Color]] = [
         (team_abbr, team_c),
         (" vs ", RGB_WHITE),
         (series.opponent_abbr, opp_c),
     ]
 
     # Show (ST) / (ASG) with icon for special game types
-    icon = None
+    icon: PixelData | None = None
     is_spring = any(g.game_type == "S" for g in series.games)
     is_allstar = any(g.game_type == "A" for g in series.games)
     if is_spring:
@@ -229,16 +269,10 @@ def _build_series_title(team_abbr, series, tz):
     total_decided = series.team_wins + series.team_losses
     if total_games > 1 and total_decided > 0:
         if series.team_wins > series.team_losses:
-            record = (
-                f" {team_abbr} leads"
-                f" {series.team_wins}-{series.team_losses}"
-            )
+            record = f" {team_abbr} leads {series.team_wins}-{series.team_losses}"
         elif series.team_losses > series.team_wins:
             opp = series.opponent_abbr
-            record = (
-                f" {opp} leads"
-                f" {series.team_losses}-{series.team_wins}"
-            )
+            record = f" {opp} leads {series.team_losses}-{series.team_wins}"
         else:
             record = f" Tied {series.team_wins}-{series.team_losses}"
         segments.append((record, RGB_WHITE))
@@ -247,12 +281,10 @@ def _build_series_title(team_abbr, series, tz):
     return MLBGameMessage(segments, center=True, icon=icon)
 
 
-def _build_game_message(game, team_abbr, tz):
+def _build_game_message(game: GameInfo, team_abbr: str, tz: ZoneInfo) -> MLBGameMessage:
     """Build a message for a single game."""
     team_c = _team_color(team_abbr)
-    opp_abbr = (
-        game.away_abbr if game.home_abbr == team_abbr else game.home_abbr
-    )
+    opp_abbr = game.away_abbr if game.home_abbr == team_abbr else game.home_abbr
     opp_c = _team_color(opp_abbr)
     is_home = game.home_abbr == team_abbr
 
@@ -265,7 +297,7 @@ def _build_game_message(game, team_abbr, tz):
         won = team_score > opp_score
         score_color = WIN_COLOR if won else LOSS_COLOR
 
-        segments = [
+        segments: list[tuple[str, Color]] = [
             (team_abbr, team_c),
             (f" {team_score}", score_color),
             (" ", RGB_WHITE),
@@ -288,9 +320,9 @@ def _build_game_message(game, team_abbr, tz):
         b1 = "\u25c6" if game.on_first else "\u25c7"
 
         # BSO in color: B|S|O
-        ball_c = _color(80, 255, 80)     # green
+        ball_c = _color(80, 255, 80)  # green
         strike_c = _color(255, 255, 80)  # yellow
-        out_c = _color(255, 80, 80)      # red
+        out_c = _color(255, 80, 80)  # red
 
         segments = [
             (team_abbr, team_c),
@@ -309,11 +341,7 @@ def _build_game_message(game, team_abbr, tz):
 
     else:  # preview
         at_or_vs = " @ " if not is_home else " vs "
-        time_str = (
-            _format_game_time(game.start_time, tz)
-            if game.start_time
-            else "TBD"
-        )
+        time_str = _format_game_time(game.start_time, tz) if game.start_time else "TBD"
         segments = [
             (team_abbr, team_c),
             (at_or_vs, RGB_WHITE),
@@ -329,30 +357,42 @@ def _build_game_message(game, team_abbr, tz):
 class MLBScoreMonitor:
     """MLB scores for a single team's current series."""
 
-    session: object
+    session: aiohttp.ClientSession
     team: str
     timezone: str = "America/New_York"
     padding: int = 6
     _team_id: int = attrs.field(init=False, default=0)
-    _tz: object = attrs.field(init=False, default=None)
+    _tz: ZoneInfo | None = attrs.field(init=False, default=None)
     _has_live_game: bool = attrs.field(init=False, default=False)
-    feed_title: object = attrs.field(init=False, default=None)
-    feed_stories: list = attrs.field(init=False, factory=list)
+    feed_title: TickerMessage | MLBGameMessage | None = attrs.field(
+        init=False, default=None
+    )
+    feed_stories: list[TickerMessage | MLBGameMessage] = attrs.field(
+        init=False, factory=list
+    )
 
     @classmethod
-    async def start(cls, session, team, update_interval=300, **kwargs):
+    async def start(
+        cls,
+        session: aiohttp.ClientSession,
+        team: str,
+        update_interval: int = 300,
+        **kwargs: Any,
+    ) -> Self:
         logger.debug("MLBScoreMonitor.start: team=%s", team)
         widget = cls(session=session, team=team.upper(), **kwargs)
         widget._tz = ZoneInfo(widget.timezone)
         await widget._resolve_team_id()
         await widget.update()
         logger.info(
-            "MLB %s: %d stories", team, len(widget.feed_stories),
+            "MLB %s: %d stories",
+            team,
+            len(widget.feed_stories),
         )
         asyncio.create_task(run_monitor_loop(widget, update_interval))
         return widget
 
-    async def _resolve_team_id(self):
+    async def _resolve_team_id(self) -> None:
         """Fetch team ID from MLB API."""
         url = f"{MLB_API}/teams?sportId=1"
         logger.debug("MLB: resolving team ID for %s", self.team)
@@ -368,14 +408,15 @@ class MLBScoreMonitor:
         except Exception:
             logger.exception("Failed to resolve team ID for %s", self.team)
 
-    async def update(self):
+    async def update(self) -> None:
         """Fetch schedule and build display messages."""
         team_name = MLB_TEAM_NAMES.get(self.team, self.team)
         tz = self._tz or ZoneInfo(self.timezone)
 
         if not self._team_id:
             title = TickerMessage(
-                f"{team_name}", font_color=_team_color(self.team),
+                f"{team_name}",
+                font_color=_team_color(self.team),
             )
             self.feed_title = title
             self.feed_stories = [
@@ -400,7 +441,8 @@ class MLBScoreMonitor:
         except Exception:
             logger.exception("MLB API error for %s", self.team)
             title = TickerMessage(
-                f"{team_name}", font_color=_team_color(self.team),
+                f"{team_name}",
+                font_color=_team_color(self.team),
             )
             self.feed_title = title
             self.feed_stories = [
@@ -413,7 +455,8 @@ class MLBScoreMonitor:
 
         if not games:
             title = TickerMessage(
-                f"{team_name}", font_color=_team_color(self.team),
+                f"{team_name}",
+                font_color=_team_color(self.team),
             )
             self.feed_title = title
             self.feed_stories = [
@@ -430,7 +473,8 @@ class MLBScoreMonitor:
             # No current series — find next
             next_game = self._find_next_game(games, now)
             title = TickerMessage(
-                f"{team_name}", font_color=_team_color(self.team),
+                f"{team_name}",
+                font_color=_team_color(self.team),
             )
             self.feed_title = title
             if next_game:
@@ -460,16 +504,15 @@ class MLBScoreMonitor:
         series_title = _build_series_title(self.team, current, tz)
         self.feed_title = series_title
         self.feed_stories = [series_title] + [
-            _build_game_message(g, self.team, tz)
-            for g in current.games
+            _build_game_message(g, self.team, tz) for g in current.games
         ]
-        self._has_live_game = any(
-            g.state == "live" for g in current.games
-        )
+        self._has_live_game = any(g.state == "live" for g in current.games)
 
-    def _parse_games(self, schedule_data, tz):
+    def _parse_games(
+        self, schedule_data: dict[str, Any], tz: ZoneInfo
+    ) -> list[GameInfo]:
         """Parse MLB API schedule response into GameInfo list."""
-        games = []
+        games: list[GameInfo] = []
         for date_entry in schedule_data.get("dates", []):
             for g in date_entry.get("games", []):
                 status = g.get("status", {})
@@ -477,25 +520,19 @@ class MLBScoreMonitor:
 
                 home_team = g.get("teams", {}).get("home", {})
                 away_team = g.get("teams", {}).get("away", {})
-                home_abbr = _parse_team_abbr(
-                    home_team.get("team", {})
-                )
-                away_abbr = _parse_team_abbr(
-                    away_team.get("team", {})
-                )
+                home_abbr = _parse_team_abbr(home_team.get("team", {}))
+                away_abbr = _parse_team_abbr(away_team.get("team", {}))
 
                 home_score = home_team.get("score")
                 away_score = away_team.get("score")
 
-                inning = None
+                inning: str | None = None
                 balls = strikes = outs = 0
                 on_first = on_second = on_third = False
                 if abstract == "Live":
                     linescore = g.get("linescore", {})
                     inning_num = linescore.get("currentInning", 0)
-                    half = linescore.get(
-                        "inningHalf", "top"
-                    ).lower()
+                    half = linescore.get("inningHalf", "top").lower()
                     if inning_num:
                         inning = _format_inning(inning_num, half)
 
@@ -508,7 +545,7 @@ class MLBScoreMonitor:
                     on_second = "second" in offense
                     on_third = "third" in offense
 
-                start_time = None
+                start_time: datetime | None = None
                 game_date = g.get("gameDate")
                 if game_date:
                     import contextlib
@@ -518,68 +555,67 @@ class MLBScoreMonitor:
                             game_date.replace("Z", "+00:00")
                         )
 
-                state_map = {
+                state_map: dict[str, str] = {
                     "Final": "final",
                     "Live": "live",
                     "Preview": "preview",
                 }
 
-                games.append(GameInfo(
-                    home_abbr=home_abbr,
-                    away_abbr=away_abbr,
-                    home_score=home_score,
-                    away_score=away_score,
-                    state=state_map.get(abstract, "preview"),
-                    inning=inning,
-                    start_time=start_time,
-                    game_type=g.get("gameType", "R"),
-                    game_pk=g.get("gamePk", 0),
-                    balls=balls,
-                    strikes=strikes,
-                    outs=outs,
-                    on_first=on_first,
-                    on_second=on_second,
-                    on_third=on_third,
-                ))
+                games.append(
+                    GameInfo(
+                        home_abbr=home_abbr,
+                        away_abbr=away_abbr,
+                        home_score=home_score,
+                        away_score=away_score,
+                        state=state_map.get(abstract, "preview"),
+                        inning=inning,
+                        start_time=start_time,
+                        game_type=g.get("gameType", "R"),
+                        game_pk=g.get("gamePk", 0),
+                        balls=balls,
+                        strikes=strikes,
+                        outs=outs,
+                        on_first=on_first,
+                        on_second=on_second,
+                        on_third=on_third,
+                    )
+                )
 
-        games.sort(key=lambda g: g.start_time or datetime.min.replace(
-            tzinfo=tz,
-        ))
+        games.sort(
+            key=lambda g: (
+                g.start_time
+                or datetime.min.replace(
+                    tzinfo=tz,
+                )
+            )
+        )
         return games
 
-    def _group_into_series(self, games):
+    def _group_into_series(self, games: list[GameInfo]) -> list[SeriesInfo]:
         """Group games into series by consecutive opponent."""
         if not games:
             return []
 
-        series_list = []
-        current_opp = None
-        current_games = []
+        series_list: list[SeriesInfo] = []
+        current_opp: str | None = None
+        current_games: list[GameInfo] = []
 
         for g in games:
-            opp = (
-                g.away_abbr
-                if g.home_abbr == self.team
-                else g.home_abbr
-            )
+            opp = g.away_abbr if g.home_abbr == self.team else g.home_abbr
             if opp != current_opp:
                 if current_games:
-                    series_list.append(
-                        self._make_series(current_opp, current_games)
-                    )
+                    series_list.append(self._make_series(current_opp, current_games))
                 current_opp = opp
                 current_games = [g]
             else:
                 current_games.append(g)
 
         if current_games:
-            series_list.append(
-                self._make_series(current_opp, current_games)
-            )
+            series_list.append(self._make_series(current_opp, current_games))
 
         return series_list
 
-    def _make_series(self, opponent_abbr, games):
+    def _make_series(self, opponent_abbr: str, games: list[GameInfo]) -> SeriesInfo:
         """Create a SeriesInfo with win/loss record."""
         wins = 0
         losses = 0
@@ -601,7 +637,9 @@ class MLBScoreMonitor:
             team_losses=losses,
         )
 
-    def _find_current_series(self, series_list, now):
+    def _find_current_series(
+        self, series_list: list[SeriesInfo], now: datetime
+    ) -> SeriesInfo | None:
         """Find series that is live or most recently played."""
         for s in reversed(series_list):
             has_final = any(g.state == "final" for g in s.games)
@@ -629,7 +667,7 @@ class MLBScoreMonitor:
                 return s
         return None
 
-    def _find_next_game(self, games, now):
+    def _find_next_game(self, games: list[GameInfo], now: datetime) -> GameInfo | None:
         """Find the next upcoming game."""
         for g in games:
             if (

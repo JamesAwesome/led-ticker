@@ -5,6 +5,10 @@ Falls back to a stub that provides the same API surface for development and
 testing on non-Pi machines.
 """
 
+from __future__ import annotations
+
+from typing import Any
+
 try:
     from rgbmatrix import RGBMatrix, RGBMatrixOptions, graphics
 except ImportError:
@@ -13,7 +17,7 @@ except ImportError:
     RGBMatrixOptions = None
 
 
-def require_graphics():
+def require_graphics() -> Any:
     """Raise a clear error if rgbmatrix is not available."""
     if graphics is None:
         raise RuntimeError(

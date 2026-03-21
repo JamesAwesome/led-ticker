@@ -1,15 +1,20 @@
 """Shared drawing helpers for LED canvas rendering."""
 
+from __future__ import annotations
+
 import math
+from typing import Any
+
+from led_ticker._types import Font
 
 
-def get_widget_padding(widget, default=6) -> int:
+def get_widget_padding(widget: Any, default: int = 6) -> int:
     """Get a widget's padding attribute, with fallback for mocks."""
     padding = getattr(widget, "padding", None)
     return padding if isinstance(padding, int) else default
 
 
-def get_text_width(font, text: str, padding: int = 6) -> int:
+def get_text_width(font: Font, text: str, padding: int = 6) -> int:
     """Get the pixel width of rendered text plus padding."""
     return sum(font.CharacterWidth(ord(c)) for c in text) + padding
 

@@ -1,24 +1,29 @@
 """Etherscan gas price monitor widget."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
+from typing import Any, Self
 
+import aiohttp
 import attrs
 
 from led_ticker._compat import require_graphics
+from led_ticker._types import Canvas, Color, DrawResult
 from led_ticker.colors import DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR
 from led_ticker.drawing import get_text_width
 from led_ticker.fonts import FONT_LABEL, FONT_VALUE
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 
-ETHERSCAN_API = "https://api.etherscan.io/api"
-GAS_BANNER = "Gas(gwei):"
+ETHERSCAN_API: str = "https://api.etherscan.io/api"
+GAS_BANNER: str = "Gas(gwei):"
 
-OK_GAS_COLOR = None  # lazy-initialized
+OK_GAS_COLOR: Color | None = None  # lazy-initialized
 
 
-def _get_ok_gas_color():
+def _get_ok_gas_color() -> Color:
     global OK_GAS_COLOR
     if OK_GAS_COLOR is None:
         graphics = require_graphics()
@@ -26,7 +31,7 @@ def _get_ok_gas_color():
     return OK_GAS_COLOR
 
 
-def _get_gas_price_color(price):
+def _get_gas_price_color(price: str) -> Color:
     if int(price) <= 50:
         return UP_TREND_COLOR
     if int(price) <= 70:
@@ -39,21 +44,27 @@ def _get_gas_price_color(price):
 class EtherscanGasMonitor:
     """Ethereum gas price monitor using the Etherscan API."""
 
-    session: object
+    session: aiohttp.ClientSession
     api_key: str
     padding: int = 0  # no end_padding; uses hardcoded padding in segments
-    price_data: dict = attrs.field(init=False, factory=dict)
+    price_data: dict[str, str] = attrs.field(init=False, factory=dict)
 
     @classmethod
-    async def start(cls, session, api_key, update_interval=300, **kwargs):
+    async def start(
+        cls,
+        session: aiohttp.ClientSession,
+        api_key: str,
+        update_interval: int = 300,
+        **kwargs: Any,
+    ) -> Self:
         widget = cls(session=session, api_key=api_key)
         await widget.update()
         asyncio.create_task(run_monitor_loop(widget, update_interval))
         return widget
 
-    async def update(self):
+    async def update(self) -> None:
         logging.info("Updating gas prices")
-        params = {
+        params: dict[str, str] = {
             "module": "gastracker",
             "action": "gasoracle",
             "apikey": self.api_key,
@@ -71,9 +82,9 @@ class EtherscanGasMonitor:
                 "High": result["FastGasPrice"],
             }
 
-    def draw(self, canvas, cursor_pos=0, **kwargs):
+    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         graphics = require_graphics()
-        y_offset = kwargs.get("y_offset", 0)
+        y_offset: int = kwargs.get("y_offset", 0)
 
         graphics.DrawText(
             canvas, FONT_LABEL, cursor_pos, 12 + y_offset, DEFAULT_COLOR, GAS_BANNER

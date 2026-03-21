@@ -1,8 +1,12 @@
 """LED matrix frame wrapper."""
 
+from __future__ import annotations
+
 import attrs
 
 from led_ticker._compat import RGBMatrix, RGBMatrixOptions
+from led_ticker._types import Canvas
+from led_ticker._types import RGBMatrix as RGBMatrixType
 
 
 @attrs.define
@@ -26,9 +30,9 @@ class LedFrame:
     led_row_addr_type: int = 0
     led_multiplexing: int = 0
     led_panel_type: str = ""
-    matrix: object = attrs.field(init=False, default=None)
+    matrix: RGBMatrixType = attrs.field(init=False, default=None)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         options = RGBMatrixOptions()
 
         if self.led_gpio_mapping is not None:
@@ -58,7 +62,7 @@ class LedFrame:
 
         self.matrix = RGBMatrix(options=options)
 
-    def get_clean_canvas(self):
+    def get_clean_canvas(self) -> Canvas:
         """Get a clean canvas ready for rendering."""
         canvas = self.matrix.CreateFrameCanvas()
         canvas.Clear()

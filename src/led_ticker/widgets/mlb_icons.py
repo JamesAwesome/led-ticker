@@ -5,18 +5,22 @@ Each icon is a list of (x, y, r, g, b) tuples relative to the
 top-left corner. Only non-black pixels are stored.
 """
 
-ICON_WIDTH = 5
-ICON_HEIGHT = 8
-ICON_PADDING = 1
+from __future__ import annotations
+
+from led_ticker._types import Canvas, PixelData
+
+ICON_WIDTH: int = 5
+ICON_HEIGHT: int = 8
+ICON_PADDING: int = 1
 
 # Pink/green flower for Spring Training
-FLOWER = [
+FLOWER: PixelData = [
     # Pink petals
     (2, 0, 255, 130, 170),
     (1, 1, 255, 130, 170),
     (3, 1, 255, 130, 170),
     (0, 2, 255, 130, 170),
-    (2, 2, 255, 220, 50),   # yellow center
+    (2, 2, 255, 220, 50),  # yellow center
     (4, 2, 255, 130, 170),
     (1, 3, 255, 130, 170),
     (3, 3, 255, 130, 170),
@@ -31,7 +35,7 @@ FLOWER = [
 ]
 
 # Gold star for All-Star Game
-STAR = [
+STAR: PixelData = [
     (2, 0, 255, 215, 0),
     (1, 1, 255, 215, 0),
     (2, 1, 255, 215, 0),
@@ -48,7 +52,7 @@ STAR = [
 ]
 
 
-def draw_mlb_icon(canvas, icon, x, y_offset=5):
+def draw_mlb_icon(canvas: Canvas, icon: PixelData, x: int, y_offset: int = 5) -> int:
     """Draw a 5x5 MLB icon on the canvas.
 
     Args:

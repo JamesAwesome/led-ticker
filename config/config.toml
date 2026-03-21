@@ -173,3 +173,27 @@ color = "random"
 type = "rss_feed"
 feed_url = "https://www.espn.com/espn/rss/news"
 update_interval = 3000
+
+# --- MLB Scores ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "scroll"
+transition_duration = 4.0
+hold_time = 6
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":baseball: MLB Scores"
+color = "random"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "PHI"
+timezone = "America/New_York"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "NYM"
+timezone = "America/New_York"

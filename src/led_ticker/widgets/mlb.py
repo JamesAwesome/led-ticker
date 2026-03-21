@@ -119,9 +119,9 @@ def _ordinal(n):
 
 
 def _format_inning(inning_num, half):
-    """Format inning display: 'Top 3rd', 'Bot 7th'."""
-    prefix = "Top" if half == "top" else "Bot"
-    return f"{prefix} {_ordinal(inning_num)}"
+    """Format inning display: '▲5th', '▼7th'."""
+    arrow = "\u25b2" if half == "top" else "\u25bc"
+    return f"{arrow}{_ordinal(inning_num)}"
 
 
 def _format_game_time(dt, tz):
@@ -280,29 +280,25 @@ def _build_game_message(game, team_abbr, tz):
         else:
             team_score, opp_score = game.away_score, game.home_score
 
-        inning_str = f" ({game.inning})" if game.inning else ""
+        inning_str = f" {game.inning}" if game.inning else ""
 
         # Base diamonds: ◇ = empty, ◆ = occupied (3rd-2nd-1st)
         b3 = "\u25c6" if game.on_third else "\u25c7"
         b2 = "\u25c6" if game.on_second else "\u25c7"
         b1 = "\u25c6" if game.on_first else "\u25c7"
 
-        # BSO colors
-        ball_c = _color(80, 255, 80)    # green
-        strike_c = _color(255, 255, 80)  # yellow
-        out_c = _color(255, 80, 80)      # red
+        # Compact BSO: "2-1 1out"
+        bso = f" {game.balls}-{game.strikes} {game.outs}out"
 
         segments = [
             (team_abbr, team_c),
             (f" {team_score}", RGB_WHITE),
-            (" - ", RGB_WHITE),
+            ("-", RGB_WHITE),
             (opp_abbr, opp_c),
             (f" {opp_score}", RGB_WHITE),
             (inning_str, RGB_WHITE),
             (f" {b3}{b2}{b1}", RGB_WHITE),
-            (f" B:{game.balls}", ball_c),
-            (f" S:{game.strikes}", strike_c),
-            (f" O:{game.outs}", out_c),
+            (bso, RGB_WHITE),
         ]
 
     else:  # preview

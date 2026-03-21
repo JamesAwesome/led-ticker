@@ -46,16 +46,16 @@ class TestOrdinal:
 
 class TestFormatInning:
     def test_top_first(self):
-        assert _format_inning(1, "top") == "Top 1st"
+        assert _format_inning(1, "top") == "\u25b21st"
 
     def test_bot_seventh(self):
-        assert _format_inning(7, "bottom") == "Bot 7th"
+        assert _format_inning(7, "bottom") == "\u25bc7th"
 
     def test_top_ninth(self):
-        assert _format_inning(9, "top") == "Top 9th"
+        assert _format_inning(9, "top") == "\u25b29th"
 
     def test_extras(self):
-        assert _format_inning(12, "bottom") == "Bot 12th"
+        assert _format_inning(12, "bottom") == "\u25bc12th"
 
 
 class TestFormatGameTime:
@@ -223,17 +223,15 @@ class TestBuildGameMessage:
         game = GameInfo(
             home_abbr="PHI", away_abbr="NYM",
             home_score=3, away_score=2, state="live",
-            inning="Bot 7th",
+            inning="\u25bc7th",
             balls=2, strikes=1, outs=1,
             on_first=True, on_second=False, on_third=True,
         )
         msg = _build_game_message(game, "PHI", ET)
         text = "".join(t for t, _ in msg.segments)
-        assert "Bot 7th" in text
+        assert "\u25bc7th" in text
         assert "PHI" in text
-        assert "B:2" in text
-        assert "S:1" in text
-        assert "O:1" in text
+        assert "2-1 1out" in text
         # 3rd occupied, 2nd empty, 1st occupied
         assert "\u25c6\u25c7\u25c6" in text
 
@@ -241,12 +239,12 @@ class TestBuildGameMessage:
         game = GameInfo(
             home_abbr="PHI", away_abbr="NYM",
             home_score=0, away_score=0, state="live",
-            inning="Top 1st",
+            inning="\u25b21st",
         )
         msg = _build_game_message(game, "PHI", ET)
         text = "".join(t for t, _ in msg.segments)
         assert "\u25c7\u25c7\u25c7" in text
-        assert "B:0" in text
+        assert "0-0 0out" in text
 
     def test_upcoming_game(self):
         game = GameInfo(

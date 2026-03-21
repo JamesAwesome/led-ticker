@@ -17,24 +17,29 @@ def _emoji_width(icon):
         return 0
     return max(px for px, _, _, _, _ in icon) + 1
 
-# ⚾ Baseball — white ball with red stitching along edges
+# ⚾ Baseball — white ball with two vertical red stitch lines
+# Inspired by classic pixel baseball sprites: stitches run vertically
+# through the center, curving outward at top and bottom.
 _W = (240, 240, 240)  # white fill
-_B = (255, 255, 255)  # bright white border
-_R = (255, 30, 30)    # red stitching
+_B = (255, 255, 255)  # bright white edge
+_R = (200, 20, 20)    # red stitching
 BASEBALL = [
-    # Top edge + stitching curves out from top
-    (2, 0, *_B), (3, 0, *_R), (4, 0, *_R), (5, 0, *_B),
+    # Row 0: top of ball
+    (2, 0, *_B), (3, 0, *_B), (4, 0, *_B), (5, 0, *_B),
+    # Row 1: stitches curve outward at top
     (1, 1, *_B), (2, 1, *_R), (3, 1, *_W), (4, 1, *_W), (5, 1, *_R), (6, 1, *_B),
-    # Upper middle — stitching curves to sides
-    (0, 2, *_B), (1, 2, *_R), (2, 2, *_W), (3, 2, *_W), (4, 2, *_W), (5, 2, *_W), (6, 2, *_R), (7, 2, *_B),
-    # Center rows — white with stitching at edges
-    (0, 3, *_R), (1, 3, *_W), (2, 3, *_W), (3, 3, *_W), (4, 3, *_W), (5, 3, *_W), (6, 3, *_W), (7, 3, *_R),
-    (0, 4, *_R), (1, 4, *_W), (2, 4, *_W), (3, 4, *_W), (4, 4, *_W), (5, 4, *_W), (6, 4, *_W), (7, 4, *_R),
-    # Lower middle — stitching curves from sides
-    (0, 5, *_B), (1, 5, *_R), (2, 5, *_W), (3, 5, *_W), (4, 5, *_W), (5, 5, *_W), (6, 5, *_R), (7, 5, *_B),
+    # Row 2: stitches widen
+    (0, 2, *_B), (1, 2, *_W), (2, 2, *_R), (3, 2, *_W), (4, 2, *_W), (5, 2, *_R), (6, 2, *_W), (7, 2, *_B),
+    # Row 3: two vertical stitch lines
+    (0, 3, *_B), (1, 3, *_W), (2, 3, *_R), (3, 3, *_W), (4, 3, *_W), (5, 3, *_R), (6, 3, *_W), (7, 3, *_B),
+    # Row 4: two vertical stitch lines
+    (0, 4, *_B), (1, 4, *_W), (2, 4, *_R), (3, 4, *_W), (4, 4, *_W), (5, 4, *_R), (6, 4, *_W), (7, 4, *_B),
+    # Row 5: stitches widen
+    (0, 5, *_B), (1, 5, *_W), (2, 5, *_R), (3, 5, *_W), (4, 5, *_W), (5, 5, *_R), (6, 5, *_W), (7, 5, *_B),
+    # Row 6: stitches curve outward at bottom
     (1, 6, *_B), (2, 6, *_R), (3, 6, *_W), (4, 6, *_W), (5, 6, *_R), (6, 6, *_B),
-    # Bottom edge + stitching curves in
-    (2, 7, *_B), (3, 7, *_R), (4, 7, *_R), (5, 7, *_B),
+    # Row 7: bottom of ball
+    (2, 7, *_B), (3, 7, *_B), (4, 7, *_B), (5, 7, *_B),
 ]
 
 def _build_emoji_registry():

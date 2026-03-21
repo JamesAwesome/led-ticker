@@ -33,6 +33,7 @@ class Ticker:
     notif_queue: object = None
     transition_config: object = None
     hold_time: float = 3.0
+    continuous_scroll: bool = False
     last_scroll_pos: int = attrs.field(init=False, default=0)
 
     @classmethod
@@ -79,6 +80,7 @@ class Ticker:
             delay=self.title_delay,
             transition=self.transition_config,
             hold_time=self.hold_time,
+            continuous_scroll=self.continuous_scroll,
         )
 
     async def run_forever_scroll(self, loop_count=0, start_pos=None):
@@ -395,6 +397,7 @@ async def _run_swap(
     delay=5,
     transition=None,
     hold_time=3.0,
+    continuous_scroll=False,
 ):
     """Run swap display mode with optional transitions."""
     from led_ticker.transition import Scroll, run_transition
@@ -416,7 +419,8 @@ async def _run_swap(
         ticker_object = notif_queue.get_nowait()
 
         if is_scroll:
-            # Continuous scroll: seamless transition between widgets
+            # Scroll transition: seamless scrolling between widgets.
+            # continuous_scroll=True skips holds for overflow text.
             canvas, prev_scroll_pos = await _scroll_between(
                 canvas,
                 frame,
@@ -424,14 +428,13 @@ async def _run_swap(
                 ticker_object,
                 outgoing_scroll_pos=prev_scroll_pos,
             )
-            # If text overflows, scroll through it. Short text
-            # is already visible from _scroll_between's last frame.
             canvas, _, prev_scroll_pos = await _swap_and_scroll(
                 canvas,
                 frame,
                 ticker_object,
                 skip_initial_draw=True,
                 hold_time=hold_time,
+                continuous=continuous_scroll,
             )
         elif transition is not None:
             canvas = await run_transition(
@@ -471,11 +474,14 @@ async def _swap_and_scroll(
     scroll_speed=0.05,
     hold_time=3,
     skip_initial_draw=False,
+    continuous=False,
 ):
     """Display a widget. If it overflows, hold then scroll the full text.
 
     When *skip_initial_draw* is True, the first SwapOnVSync is skipped
     because the caller (a transition) already put this widget on screen.
+    When *continuous* is True, skip holds for overflow text (used by
+    scroll transition for seamless continuous scrolling).
     """
     pos = 0
     canvas.Clear()
@@ -485,7 +491,8 @@ async def _swap_and_scroll(
         canvas = frame.matrix.SwapOnVSync(canvas)
 
     if cursor_pos > canvas.width:
-        await asyncio.sleep(hold_time)
+        if not continuous:
+            await asyncio.sleep(hold_time)
 
         # cursor_pos from draw() includes end_padding (default 6px),
         # which is spacing for forever_scroll side-by-side layout.
@@ -505,7 +512,8 @@ async def _swap_and_scroll(
             await asyncio.sleep(scroll_speed)
 
         # Hold with the end of the text visible
-        await asyncio.sleep(hold_time)
+        if not continuous:
+            await asyncio.sleep(hold_time)
     else:
         await asyncio.sleep(hold_time)
 

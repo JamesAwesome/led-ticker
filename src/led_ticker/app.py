@@ -191,6 +191,7 @@ async def run(config_path: Path):
                     notif_queue=notif_queue,
                     transition_config=transition_config,
                     hold_time=section.hold_time,
+                    continuous_scroll=section.continuous_scroll,
                 )
 
                 await getattr(ticker, run_method)(

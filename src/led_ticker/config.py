@@ -39,6 +39,7 @@ class SectionConfig:
         default_factory=TransitionConfig,
     )
     hold_time: float = 3.0  # seconds to hold each widget in swap mode
+    continuous_scroll: bool = False  # skip holds for overflow text in scroll mode
 
 
 @dataclass
@@ -124,6 +125,7 @@ def load_config(path: Path) -> AppConfig:
             widgets=section_raw.get("widget", []),
             transition=trans,
             hold_time=section_raw.get("hold_time", 3.0),
+            continuous_scroll=section_raw.get("continuous_scroll", False),
         )
         sections.append(section)
 

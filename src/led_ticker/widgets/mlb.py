@@ -91,6 +91,7 @@ class GameInfo:
     home_score: int | None = None
     away_score: int | None = None
     state: str = "preview"  # "final", "live", "preview"
+    game_type: str = "R"    # R=regular, S=spring, A=all-star, P+=postseason
     inning: str | None = None
     start_time: datetime | None = None
     game_pk: int = 0
@@ -140,10 +141,11 @@ def _parse_team_abbr(team_data):
 class MLBGameMessage:
     """A single game rendered with team colors and score colors."""
 
-    def __init__(self, segments, padding=6):
-        """segments: list of (text, color) tuples."""
+    def __init__(self, segments, padding=6, icon=None):
+        """segments: list of (text, color) tuples. icon: pixel art list or None."""
         self.segments = segments
         self.padding = padding
+        self.icon = icon
         self.center = False
         self._content_width = -1
 
@@ -157,6 +159,13 @@ class MLBGameMessage:
                 get_text_width(font, text, padding=0)
                 for text, _ in self.segments
             )
+            if self.icon is not None:
+                from led_ticker.widgets.mlb_icons import (
+                    ICON_PADDING,
+                    ICON_WIDTH,
+                )
+
+                self._content_width += ICON_WIDTH + ICON_PADDING
 
         content_width = self._content_width
         cursor_pos, end_padding = compute_cursor(
@@ -169,6 +178,14 @@ class MLBGameMessage:
             cursor_pos += graphics.DrawText(
                 canvas, font, cursor_pos, 12 + y_offset,
                 color, text,
+            )
+
+        if self.icon is not None:
+            from led_ticker.widgets.mlb_icons import draw_mlb_icon
+
+            cursor_pos = draw_mlb_icon(
+                canvas, self.icon, int(cursor_pos),
+                y_offset=5 + y_offset,
             )
 
         cursor_pos += end_padding
@@ -265,7 +282,20 @@ def _build_game_message(game, team_abbr, tz):
             (f" {time_str}", RGB_WHITE),
         ]
 
-    return MLBGameMessage(segments)
+    # Game type indicators
+    icon = None
+    if game.game_type == "S":
+        from led_ticker.widgets.mlb_icons import FLOWER
+
+        segments.append((" ST", RGB_WHITE))
+        icon = FLOWER
+    elif game.game_type == "A":
+        from led_ticker.widgets.mlb_icons import STAR
+
+        segments.append((" ASG", RGB_WHITE))
+        icon = STAR
+
+    return MLBGameMessage(segments, icon=icon)
 
 
 @register("mlb")
@@ -285,22 +315,13 @@ class MLBScoreMonitor:
 
     @classmethod
     async def start(cls, session, team, update_interval=300, **kwargs):
-        logger.info("MLBScoreMonitor.start: team=%s kwargs=%s", team, kwargs)
+        logger.debug("MLBScoreMonitor.start: team=%s", team)
         widget = cls(session=session, team=team.upper(), **kwargs)
         widget._tz = ZoneInfo(widget.timezone)
         await widget._resolve_team_id()
-        logger.info("MLB team_id for %s: %s", team, widget._team_id)
         await widget.update()
-        for i, s in enumerate(widget.feed_stories):
-            if hasattr(s, "message"):
-                logger.info("MLB %s story[%d]: %s", team, i, s.message)
-            elif hasattr(s, "segments"):
-                text = "".join(t for t, _ in s.segments)
-                logger.info("MLB %s story[%d]: %s", team, i, text)
         logger.info(
-            "MLB %s: stories=%d",
-            team,
-            len(widget.feed_stories),
+            "MLB %s: %d stories", team, len(widget.feed_stories),
         )
         asyncio.create_task(run_monitor_loop(widget, update_interval))
         return widget
@@ -308,15 +329,14 @@ class MLBScoreMonitor:
     async def _resolve_team_id(self):
         """Fetch team ID from MLB API."""
         url = f"{MLB_API}/teams?sportId=1"
-        logger.info("MLB: resolving team ID for %s from %s", self.team, url)
+        logger.debug("MLB: resolving team ID for %s", self.team)
         try:
             async with self.session.get(url) as resp:
-                logger.info("MLB teams API status: %s", resp.status)
                 data = await resp.json()
                 for t in data.get("teams", []):
                     if t.get("abbreviation") == self.team:
                         self._team_id = t["id"]
-                        logger.info("MLB: %s → id %d", self.team, self._team_id)
+                        logger.debug("MLB: %s → id %d", self.team, self._team_id)
                         return
             logger.warning("Team %s not found in MLB API", self.team)
         except Exception:
@@ -328,10 +348,12 @@ class MLBScoreMonitor:
         tz = self._tz or ZoneInfo(self.timezone)
 
         if not self._team_id:
-            self.feed_title = TickerMessage(
+            title = TickerMessage(
                 f"{team_name}", font_color=_team_color(self.team),
             )
+            self.feed_title = title
             self.feed_stories = [
+                title,
                 TickerMessage("No Data", font_color=RGB_WHITE),
             ]
             return
@@ -351,10 +373,12 @@ class MLBScoreMonitor:
                 data = await resp.json()
         except Exception:
             logger.exception("MLB API error for %s", self.team)
-            self.feed_title = TickerMessage(
+            title = TickerMessage(
                 f"{team_name}", font_color=_team_color(self.team),
             )
+            self.feed_title = title
             self.feed_stories = [
+                title,
                 TickerMessage("No Data", font_color=RGB_WHITE),
             ]
             return
@@ -362,10 +386,12 @@ class MLBScoreMonitor:
         games = self._parse_games(data, tz)
 
         if not games:
-            self.feed_title = TickerMessage(
+            title = TickerMessage(
                 f"{team_name}", font_color=_team_color(self.team),
             )
+            self.feed_title = title
             self.feed_stories = [
+                title,
                 TickerMessage("Season Over", font_color=RGB_WHITE),
             ]
             self._has_live_game = False
@@ -377,9 +403,10 @@ class MLBScoreMonitor:
         if current is None:
             # No current series — find next
             next_game = self._find_next_game(games, now)
-            self.feed_title = TickerMessage(
+            title = TickerMessage(
                 f"{team_name}", font_color=_team_color(self.team),
             )
+            self.feed_title = title
             if next_game:
                 opp = (
                     next_game.away_abbr
@@ -389,6 +416,7 @@ class MLBScoreMonitor:
                 opp_name = MLB_TEAM_NAMES.get(opp, opp)
                 time_str = _format_game_time(next_game.start_time, tz)
                 self.feed_stories = [
+                    title,
                     TickerMessage(
                         f"Next: vs {opp_name}, {time_str}",
                         font_color=RGB_WHITE,
@@ -396,14 +424,16 @@ class MLBScoreMonitor:
                 ]
             else:
                 self.feed_stories = [
+                    title,
                     TickerMessage("Season Over", font_color=RGB_WHITE),
                 ]
             self._has_live_game = False
             return
 
         # Build display from current series
-        self.feed_title = _build_series_title(self.team, current, tz)
-        self.feed_stories = [
+        series_title = _build_series_title(self.team, current, tz)
+        self.feed_title = series_title
+        self.feed_stories = [series_title] + [
             _build_game_message(g, self.team, tz)
             for g in current.games
         ]
@@ -465,6 +495,7 @@ class MLBScoreMonitor:
                     state=state_map.get(abstract, "preview"),
                     inning=inning,
                     start_time=start_time,
+                    game_type=g.get("gameType", "R"),
                     game_pk=g.get("gamePk", 0),
                 ))
 

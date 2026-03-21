@@ -35,6 +35,11 @@ def _setup_logging():
     logger.addHandler(handler)
 
 
+def _cache_key(widget_cfg: dict) -> str:
+    """Generate a stable cache key from widget config."""
+    return str(sorted(widget_cfg.items()))
+
+
 async def _build_widget(widget_cfg, session):
     """Instantiate a widget from its config dict."""
     widget_type = widget_cfg.pop("type")
@@ -114,16 +119,23 @@ async def run(config_path: Path):
         notif_queue = asyncio.Queue()
         last_widget = None  # track for section-to-section transitions
         last_scroll_pos = 0  # track scroll pos for between-section transitions
+        widget_cache: dict[str, object] = {}
 
         while True:
             for section in config.sections:
                 widgets = []
                 for widget_cfg in section.widgets:
-                    cfg = dict(widget_cfg)  # copy to avoid mutating config
-                    widget = await _build_widget(cfg, session)
+                    # Cache async widgets to avoid leaking background tasks
+                    key = _cache_key(widget_cfg)
+                    if key in widget_cache:
+                        widget = widget_cache[key]
+                    else:
+                        cfg = dict(widget_cfg)
+                        widget = await _build_widget(cfg, session)
+                        widget_cache[key] = widget
                     # Container widgets expand into stories
                     if isinstance(widget, (RSSFeedMonitor, MLBScoreMonitor)):
-                        logging.info(
+                        logging.debug(
                             "Expanding %s: %d stories",
                             type(widget).__name__,
                             len(widget.feed_stories),

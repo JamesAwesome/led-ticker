@@ -455,8 +455,11 @@ async def _swap_and_scroll(
     if cursor_pos > canvas.width:
         await asyncio.sleep(hold_time)
 
-        # Scroll until last pixel is visible on the right edge
-        stop_pos = -(cursor_pos - canvas.width)
+        # Scroll until last character is flush with the right edge.
+        # Subtract widget padding so text (not empty space) is at edge.
+        padding = getattr(ticker_obj, "padding", None)
+        padding = padding if isinstance(padding, int) else 0
+        stop_pos = -(cursor_pos - canvas.width) - padding
         while pos > stop_pos:
             pos -= 1
             canvas.Clear()

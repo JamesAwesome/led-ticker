@@ -144,6 +144,38 @@ class TestSwapAndScrollOverflow:
             )
 
 
+    async def test_stop_pos_accounts_for_padding(
+        self,
+        canvas,
+        mock_frame,
+        make_widget,
+        no_sleep,
+    ):
+        """Widget with padding scrolls further left so text is flush."""
+        widget = make_widget(content_width=600)
+        widget.padding = 6  # simulate real widget padding
+        _, _, scroll_pos = await _swap_and_scroll(
+            canvas, mock_frame, widget
+        )
+        # stop_pos = -(600 - 160) - 6 = -446
+        assert scroll_pos == -446
+
+    async def test_stop_pos_no_padding_attribute(
+        self,
+        canvas,
+        mock_frame,
+        make_widget,
+        no_sleep,
+    ):
+        """Widget without padding attribute defaults to 0 adjustment."""
+        widget = make_widget(content_width=600)
+        _, _, scroll_pos = await _swap_and_scroll(
+            canvas, mock_frame, widget
+        )
+        # stop_pos = -(600 - 160) - 0 = -440
+        assert scroll_pos == -440
+
+
 class TestScrollAndDelay:
     async def test_scrolls_from_cursor_to_zero(
         self, canvas, mock_frame, make_widget, no_sleep

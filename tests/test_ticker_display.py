@@ -157,8 +157,8 @@ class TestSwapAndScrollOverflow:
         _, _, scroll_pos = await _swap_and_scroll(
             canvas, mock_frame, widget
         )
-        # stop_pos = -(600 - 160) - 6 = -446
-        assert scroll_pos == -446
+        # stop_pos = -(600 - 160) + 6 = -434
+        assert scroll_pos == -434
 
     async def test_stop_pos_no_padding_attribute(
         self,

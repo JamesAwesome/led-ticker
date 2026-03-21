@@ -465,7 +465,7 @@ async def _swap_and_scroll(
         # is flush with the right edge (x=159), not 6px short.
         padding = getattr(ticker_obj, "padding", None)
         padding = padding if isinstance(padding, int) else 0
-        stop_pos = -(cursor_pos - canvas.width) - padding
+        stop_pos = -(cursor_pos - canvas.width) + padding
         while pos > stop_pos:
             pos -= 1
             canvas.Clear()

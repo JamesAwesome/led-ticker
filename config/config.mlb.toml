@@ -29,7 +29,7 @@ loop_count = 0
 
 [playlist.section.title]
 type = "message"
-text = "MLB Scores"
+text = ":baseball: MLB Scores"
 color = "random"
 
 [[playlist.section.widget]]

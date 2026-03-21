@@ -23,23 +23,43 @@ class TickerMessage:
     padding: int = 6
     _content_width: int = attrs.field(init=False, default=-1)
 
+    @property
+    def _has_emoji(self):
+        return "::" != "" and ":" in self.message and self.message.count(":") >= 2
+
     def draw(self, canvas, cursor_pos=0, **kwargs):
         graphics = require_graphics()
         font_color = kwargs.get("font_color") or self.font_color
         y_offset = kwargs.get("y_offset", 0)
 
         if self._content_width < 0:
-            self._content_width = get_text_width(
-                self.font, self.message, padding=0
-            )
+            if self._has_emoji:
+                from led_ticker.pixel_emoji import measure_width
+
+                self._content_width = measure_width(
+                    self.font, self.message,
+                )
+            else:
+                self._content_width = get_text_width(
+                    self.font, self.message, padding=0
+                )
         content_width = self._content_width
         cursor_pos, end_padding = compute_cursor(
             canvas.width, content_width, cursor_pos, self.padding, self.center
         )
 
-        cursor_pos += graphics.DrawText(
-            canvas, self.font, cursor_pos, 12 + y_offset, font_color, self.message
-        )
+        if self._has_emoji:
+            from led_ticker.pixel_emoji import draw_with_emoji
+
+            cursor_pos += draw_with_emoji(
+                canvas, self.font, cursor_pos, 12,
+                font_color, self.message, y_offset=y_offset,
+            )
+        else:
+            cursor_pos += graphics.DrawText(
+                canvas, self.font, cursor_pos, 12 + y_offset,
+                font_color, self.message,
+            )
         cursor_pos += end_padding
 
         return canvas, cursor_pos

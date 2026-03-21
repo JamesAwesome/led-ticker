@@ -58,17 +58,24 @@ Set transitions per-section or globally in `[transitions]`:
 
 | Transition | Effect | Best for |
 |------------|--------|----------|
-| `cut` | Instant switch, no animation. The old widget disappears and the new one appears immediately. | Default. Fast data displays. |
-| `push_left` | Old and new content move together like a conveyor belt — old slides off the left edge while new enters from the right. Both are visible simultaneously during the animation. | General purpose. The most natural-feeling transition. |
+| `cut` | Instant switch, no animation. | Default. Fast data displays. |
+| `push_left` | Old and new content move together — old slides off the left edge while new enters from the right. Both visible simultaneously. | General purpose. Most natural. |
 | `push_right` | Same as push_left but reversed — old exits right, new enters from left. | Variety. Going "back" in a sequence. |
-| `push_up` | Old content slides up off the top of the display while new content enters from the bottom. Real vertical movement using y-offset rendering. | Countdowns. Section changes. |
-| `wipe_left` | A bright cyan sweep line moves left-to-right across stationary content, erasing it to black as it passes. New content appears when the sweep completes. Visually distinct from push — the content stays still while the line moves. | Clean, professional look. |
-| `wipe_right` | Same as wipe_left but the sweep line moves right-to-left. | Variety. |
-| `color_flash` | Three phases: old content is shown, then the entire display flashes bright white, then new content appears. Inspired by sports scoreboard score updates. | Alerts, countdowns, score changes. |
-| `dissolve` | Random pixel scatter creates a TV static effect. Old content degrades as random black pixels appear, then new content emerges from the static. Uses seeded RNG for deterministic playback. | Between sections. Ambient transitions. |
-| `split` | A black band expands outward from the center of the display with bright magenta edge lines, erasing old content from the middle out. New content appears when the band fills the screen. | Dramatic reveals. Titles. |
-| `curtain` | Rows black out from top to bottom with a bright green sweep line, like a curtain dropping. New content appears when the curtain reaches the bottom. | Headlines. Theatrical effect. |
-| `nyancat` | A pixel-art Nyan Cat (pop-tart cat) flies across the screen from left to right, trailing a 6-color rainbow. The rainbow covers old content as the cat passes. New content appears when the cat exits. Best with duration 1.5-2.0s. | Fun. Easter eggs. Showing off your LED sign. |
+| `push_up` | Old content slides up off the top while new enters from the bottom. | Countdowns. Section changes. |
+| `push_down` | Old content slides down off the bottom while new enters from the top. | Variety. Vertical transitions. |
+| `wipe_left` | A cyan sweep line moves right-to-left across stationary content, erasing it to black. Content stays still while the line moves. | Clean, professional look. |
+| `wipe_right` | Sweep line moves left-to-right. | Variety. |
+| `wipe_up` | Sweep line moves bottom-to-top. | Vertical wipes. |
+| `wipe_down` | Sweep line moves top-to-bottom. | Vertical wipes. |
+| `color_flash` | Three phases: old content → solid color flash → new content. | Alerts, score changes. |
+| `dissolve` | Random pixel scatter creates a TV static effect. Old degrades, new emerges. | Between sections. Ambient. |
+| `split` | Black band expands from center with magenta edge lines. | Dramatic reveals. Titles. |
+| `nyancat` | Pixel-art Nyan Cat flies left-to-right trailing a rainbow. Rainbow fills the screen before new content appears. | Fun. Easter eggs. |
+| `nyancat_reverse` | Same as nyancat but right-to-left with flipped sprite. | Variety. |
+| `scroll` | Seamless continuous scroll with a bullet separator (` * `). Old text scrolls off left, new enters from right at constant speed. Like a news ticker. | RSS feeds. Continuous content. |
+| `push_alternating` | Cycles through push_left → push_right → push_up → push_down each swap. | Dynamic variety. |
+| `wipe_alternating` | Cycles through wipe_left → wipe_right → wipe_up → wipe_down each swap. | Dynamic variety. |
+| `nyancat_alternating` | Alternates between nyancat and nyancat_reverse each swap. | Fun. |
 
 ```toml
 [transitions]
@@ -80,6 +87,8 @@ between_sections = "dissolve"
 [[playlist.section]]
 mode = "swap"
 transition = "nyancat"       # override per section
+transition_duration = 2.0    # override duration per section
+transition_color = [255, 0, 0]  # custom color for flash/wipe transitions
 ```
 
 ### Text Presentation Effects

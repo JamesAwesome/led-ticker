@@ -148,14 +148,7 @@ def _build_ticker_iter(ticker_objects, title=None, loop_count=0):
 
 
 async def _enqueue_ticker_objects(ticker_iter, notif_queue):
-    try:
-        first = next(ticker_iter)
-        logging.info("_enqueue: putting first item: %s", type(first).__name__)
-        await notif_queue.put(first)
-        logging.info("_enqueue: first item put, queue_size=%s", notif_queue.qsize())
-    except Exception:
-        logging.exception("_enqueue: FAILED to put first item")
-        return
+    await notif_queue.put(next(ticker_iter))
     while True:
         try:
             await notif_queue.put(next(ticker_iter))
@@ -166,16 +159,9 @@ async def _enqueue_ticker_objects(ticker_iter, notif_queue):
                 await asyncio.sleep(0)
         except StopIteration:
             break
-        except Exception:
-            logging.exception("_enqueue: FAILED during enqueue loop")
-            break
 
 
 async def _build_then_enqueue(ticker_objects, notif_queue, title=None, loop_count=None):
-    logging.info(
-        "_build_then_enqueue: %d objects, loop_count=%s, title=%s",
-        len(ticker_objects), loop_count, type(title).__name__ if title else None,
-    )
     ticker_iter = _build_ticker_iter(ticker_objects, title=title, loop_count=loop_count)
     await _enqueue_ticker_objects(ticker_iter, notif_queue)
 
@@ -417,29 +403,17 @@ async def _run_swap(
         transition is not None
         and isinstance(transition.transition_obj, Scroll)
     )
-    logging.info(
-        "_run_swap: is_scroll=%s, hold_time=%s, queue_size=%s",
-        is_scroll, hold_time, notif_queue.qsize(),
-    )
-
     ticker_object = await notif_queue.get()
-    logging.info("_run_swap: first widget=%s", type(ticker_object).__name__)
     canvas, _, prev_scroll_pos = await _swap_and_scroll(
         canvas,
         frame,
         ticker_object,
         hold_time=hold_time,
     )
-    logging.info("_run_swap: first widget done, scroll_pos=%s", prev_scroll_pos)
 
     prev_object = ticker_object
     while not notif_queue.empty():
         ticker_object = notif_queue.get_nowait()
-        logging.info(
-            "_run_swap: next widget=%s, queue_empty=%s",
-            type(ticker_object).__name__,
-            notif_queue.empty(),
-        )
 
         if is_scroll:
             # Continuous scroll: seamless transition between widgets

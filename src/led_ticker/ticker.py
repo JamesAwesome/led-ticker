@@ -9,7 +9,7 @@ import attrs
 from led_ticker.colors import RGB_WHITE
 from led_ticker.widgets.message import TickerMessage
 
-DEFAULT_BUFFER_MSG = TickerMessage(" * ", center=False, font_color=RGB_WHITE)
+DEFAULT_BUFFER_MSG = TickerMessage(" \u2022 ", center=False, font_color=RGB_WHITE)
 
 
 def _has_index(index, items):
@@ -306,12 +306,28 @@ async def _scroll_side_by_side(
             return True
 
 
+BULLET_WIDTH = 2   # 2px wide dot
+BULLET_COLOR = (255, 255, 255)
+SCROLL_GAP = 6     # px of black on each side of bullet
+
+
+def _draw_bullet(canvas, x, color=BULLET_COLOR):
+    """Draw a 2x2 pixel bullet dot centered vertically on the display."""
+    h = getattr(canvas, "height", 16)
+    y_center = h // 2
+    for dy in range(-1, 1):
+        for dx in range(BULLET_WIDTH):
+            px = x + dx
+            py = y_center + dy
+            if 0 <= px < canvas.width and 0 <= py < h:
+                canvas.SetPixel(px, py, *color)
+
+
 def _draw_scroll_frame(
-    canvas, outgoing, incoming, bullet,
-    outgoing_pos, bullet_pos, incoming_pos, clear_start,
-    bullet_cursor_w,
+    canvas, outgoing, incoming,
+    outgoing_pos, bullet_x, incoming_pos, clear_start,
 ):
-    """Draw one frame of scroll transition: outgoing | bullet | incoming."""
+    """Draw one frame of scroll transition: outgoing | gap | bullet | gap | incoming."""
     w = canvas.width
     h = getattr(canvas, "height", 16)
 
@@ -323,11 +339,15 @@ def _draw_scroll_frame(
             for x in x_range:
                 canvas.SetPixel(x, y, 0, 0, 0)
 
-    if bullet_pos < w and bullet_pos + bullet_cursor_w > 0:
-        bullet.draw(canvas, cursor_pos=bullet_pos)
+    _draw_bullet(canvas, bullet_x)
 
     if incoming_pos < w:
         incoming.draw(canvas, cursor_pos=incoming_pos)
+
+
+def scroll_separator_width(gap=SCROLL_GAP):
+    """Total pixel width of the scroll separator: gap + bullet + gap."""
+    return gap + BULLET_WIDTH + gap
 
 
 async def _scroll_between(
@@ -340,31 +360,21 @@ async def _scroll_between(
 ):
     """Seamlessly scroll from outgoing to incoming at constant 1px/frame."""
     w = canvas.width
+    sep_w = scroll_separator_width()
 
-    from led_ticker.drawing import get_text_width
-    from led_ticker.fonts import FONT_DEFAULT
-
-    # Use same bullet as forever_scroll (DEFAULT_BUFFER_MSG style).
-    bullet = TickerMessage(" * ", center=False, font_color=RGB_WHITE)
-    # Separator width = text width + widget padding (matches draw() cursor_pos)
-    bullet_cursor_w = (
-        get_text_width(FONT_DEFAULT, " * ", padding=0) + bullet.padding
-    )
-
-    total_travel = w + bullet_cursor_w
+    total_travel = w + sep_w
 
     for offset in range(total_travel + 1):
         canvas.Clear()
 
         outgoing_pos = outgoing_scroll_pos - offset
-        bullet_pos = w - offset
-        incoming_pos = w + bullet_cursor_w - offset
         clear_start = max(0, w - offset)
+        bullet_x = w + SCROLL_GAP - offset
+        incoming_pos = w + sep_w - offset
 
         _draw_scroll_frame(
-            canvas, outgoing, incoming, bullet,
-            outgoing_pos, bullet_pos, incoming_pos, clear_start,
-            bullet_cursor_w,
+            canvas, outgoing, incoming,
+            outgoing_pos, bullet_x, incoming_pos, clear_start,
         )
 
         canvas = frame.matrix.SwapOnVSync(canvas)

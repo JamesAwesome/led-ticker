@@ -614,19 +614,10 @@ class Scroll:
     """
 
     def __init__(self, **kwargs):
-        from led_ticker.colors import RGB_WHITE
-        from led_ticker.drawing import get_text_width
-        from led_ticker.fonts import FONT_DEFAULT
-        from led_ticker.widgets.message import TickerMessage
+        from led_ticker.ticker import SCROLL_GAP, scroll_separator_width
 
-        # Same bullet as forever_scroll DEFAULT_BUFFER_MSG
-        self._bullet = TickerMessage(
-            " * ", center=False, font_color=RGB_WHITE,
-        )
-        self._bullet_cursor_w = (
-            get_text_width(FONT_DEFAULT, " * ", padding=0)
-            + self._bullet.padding
-        )
+        self._sep_w = scroll_separator_width()
+        self._gap = SCROLL_GAP
 
     def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
         from led_ticker.ticker import _draw_scroll_frame
@@ -638,18 +629,17 @@ class Scroll:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
-        total_travel = w + self._bullet_cursor_w
+        total_travel = w + self._sep_w
         scroll_offset = int(t * total_travel)
 
         outgoing_pos = outgoing_scroll_pos - scroll_offset
-        bullet_pos = w - scroll_offset
-        incoming_pos = w + self._bullet_cursor_w - scroll_offset
         clear_start = max(0, w - scroll_offset)
+        bullet_x = w + self._gap - scroll_offset
+        incoming_pos = w + self._sep_w - scroll_offset
 
         _draw_scroll_frame(
-            canvas, outgoing, incoming, self._bullet,
-            outgoing_pos, bullet_pos, incoming_pos, clear_start,
-            self._bullet_cursor_w,
+            canvas, outgoing, incoming,
+            outgoing_pos, bullet_x, incoming_pos, clear_start,
         )
 
         return canvas

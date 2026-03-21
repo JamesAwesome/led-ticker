@@ -775,18 +775,18 @@ class TestScroll:
         )
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
-    def test_bullet_exists(self):
-        """Scroll transition should have a bullet separator."""
-        scroll = Scroll()
-        assert scroll._bullet is not None
-        assert scroll._bullet_cursor_w > 0
-
-    def test_bullet_matches_default_buffer(self):
-        """Scroll bullet should match forever_scroll DEFAULT_BUFFER_MSG."""
-        from led_ticker.ticker import DEFAULT_BUFFER_MSG
+    def test_separator_width(self):
+        """Separator should be gap + bullet + gap."""
+        from led_ticker.ticker import (
+            BULLET_WIDTH,
+            SCROLL_GAP,
+            scroll_separator_width,
+        )
 
         scroll = Scroll()
-        assert scroll._bullet.message == DEFAULT_BUFFER_MSG.message
+        expected = SCROLL_GAP + BULLET_WIDTH + SCROLL_GAP
+        assert scroll._sep_w == expected
+        assert scroll._sep_w == scroll_separator_width()
 
     def test_positions_are_consecutive(self, canvas, make_widget):
         """At t=0, outgoing at scroll_pos, bullet/incoming off-screen."""

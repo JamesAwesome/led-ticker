@@ -398,18 +398,26 @@ async def _run_swap(
         transition is not None
         and isinstance(transition.transition_obj, Scroll)
     )
+    logging.info("_run_swap: is_scroll=%s, hold_time=%s", is_scroll, hold_time)
 
     ticker_object = await notif_queue.get()
+    logging.info("_run_swap: first widget=%s", type(ticker_object).__name__)
     canvas, _, prev_scroll_pos = await _swap_and_scroll(
         canvas,
         frame,
         ticker_object,
         hold_time=hold_time,
     )
+    logging.info("_run_swap: first widget done, scroll_pos=%s", prev_scroll_pos)
 
     prev_object = ticker_object
     while not notif_queue.empty():
         ticker_object = notif_queue.get_nowait()
+        logging.info(
+            "_run_swap: next widget=%s, queue_empty=%s",
+            type(ticker_object).__name__,
+            notif_queue.empty(),
+        )
 
         if is_scroll:
             # Continuous scroll: seamless transition between widgets

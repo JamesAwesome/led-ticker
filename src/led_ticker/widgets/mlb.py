@@ -268,7 +268,7 @@ def _build_game_message(game, team_abbr, tz):
         segments = [
             (team_abbr, team_c),
             (f" {team_score}", score_color),
-            (" - ", RGB_WHITE),
+            (" ", RGB_WHITE),
             (opp_abbr, opp_c),
             (f" {opp_score}", score_color),
             (" (Final)", RGB_WHITE),
@@ -295,7 +295,7 @@ def _build_game_message(game, team_abbr, tz):
         segments = [
             (team_abbr, team_c),
             (f" {team_score}", RGB_WHITE),
-            ("-", RGB_WHITE),
+            (" ", RGB_WHITE),
             (opp_abbr, opp_c),
             (f" {opp_score}", RGB_WHITE),
             (inning_str, RGB_WHITE),

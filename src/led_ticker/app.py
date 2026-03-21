@@ -123,6 +123,11 @@ async def run(config_path: Path):
                     widget = await _build_widget(cfg, session)
                     # Container widgets expand into stories
                     if isinstance(widget, (RSSFeedMonitor, MLBScoreMonitor)):
+                        logging.info(
+                            "Expanding %s: %d stories",
+                            type(widget).__name__,
+                            len(widget.feed_stories),
+                        )
                         widgets.extend(widget.feed_stories)
                     else:
                         widgets.append(widget)

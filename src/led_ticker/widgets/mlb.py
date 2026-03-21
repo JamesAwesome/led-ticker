@@ -285,22 +285,33 @@ class MLBScoreMonitor:
 
     @classmethod
     async def start(cls, session, team, update_interval=300, **kwargs):
+        logger.info("MLBScoreMonitor.start: team=%s kwargs=%s", team, kwargs)
         widget = cls(session=session, team=team.upper(), **kwargs)
         widget._tz = ZoneInfo(widget.timezone)
         await widget._resolve_team_id()
+        logger.info("MLB team_id for %s: %s", team, widget._team_id)
         await widget.update()
+        logger.info(
+            "MLB %s: title=%s, stories=%d",
+            team,
+            widget.feed_title,
+            len(widget.feed_stories),
+        )
         asyncio.create_task(run_monitor_loop(widget, update_interval))
         return widget
 
     async def _resolve_team_id(self):
         """Fetch team ID from MLB API."""
         url = f"{MLB_API}/teams?sportId=1"
+        logger.info("MLB: resolving team ID for %s from %s", self.team, url)
         try:
             async with self.session.get(url) as resp:
+                logger.info("MLB teams API status: %s", resp.status)
                 data = await resp.json()
                 for t in data.get("teams", []):
                     if t.get("abbreviation") == self.team:
                         self._team_id = t["id"]
+                        logger.info("MLB: %s → id %d", self.team, self._team_id)
                         return
             logger.warning("Team %s not found in MLB API", self.team)
         except Exception:

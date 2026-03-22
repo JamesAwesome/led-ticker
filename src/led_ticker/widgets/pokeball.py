@@ -150,9 +150,9 @@ POKEBALL_FRAME_3: PixelData = _build_frame_3()
 
 POKEBALL_FRAMES: list[PixelData] = [
     POKEBALL_FRAME_0,
-    POKEBALL_FRAME_1,
-    POKEBALL_FRAME_2,
     POKEBALL_FRAME_3,
+    POKEBALL_FRAME_2,
+    POKEBALL_FRAME_1,
 ]
 
 

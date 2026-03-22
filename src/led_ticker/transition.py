@@ -344,9 +344,7 @@ class _BaseWipe:
 
     def __init__(self, color: ColorTuple | None = None, **kwargs: Any) -> None:
         c = color
-        self.color: ColorTuple = (
-            (c[0], c[1], c[2]) if c else self.DEFAULT_COLOR
-        )
+        self.color: ColorTuple = (c[0], c[1], c[2]) if c else self.DEFAULT_COLOR
 
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
@@ -394,9 +392,7 @@ class ColorFlash:
 
     def __init__(self, color: ColorTuple | None = None, **kwargs: Any) -> None:
         c = color
-        self.color: ColorTuple = (
-            (c[0], c[1], c[2]) if c else (255, 255, 255)
-        )
+        self.color: ColorTuple = (c[0], c[1], c[2]) if c else (255, 255, 255)
 
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
@@ -645,6 +641,35 @@ class NyanCatReverse:
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         draw_nyan_frame_rtl(
+            canvas,
+            t,
+            width=canvas.width,
+            height=getattr(canvas, "height", 16),
+        )
+        return canvas
+
+
+@register_transition("pokeball")
+class Pokeball:
+    """Pokeball rolls left-to-right, erasing outgoing content."""
+
+    min_frames: int = 40
+
+    def __init__(self, **kwargs: Any) -> None:
+        pass
+
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        from led_ticker.widgets.pokeball import draw_pokeball_frame
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+            return canvas
+
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
+        draw_pokeball_frame(
             canvas,
             t,
             width=canvas.width,

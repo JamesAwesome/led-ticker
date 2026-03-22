@@ -77,6 +77,7 @@ Set transitions per-section or globally in `[transitions]`:
 | `split` | Black band expands from center with magenta edge lines. | Dramatic reveals. Titles. |
 | `nyancat` | Pixel-art Nyan Cat flies left-to-right trailing a rainbow. Rainbow fills the screen before new content appears. | Fun. Easter eggs. |
 | `nyancat_reverse` | Same as nyancat but right-to-left with flipped sprite. | Variety. |
+| `pokeball` | Pixel-art Pokeball rolls left-to-right across the screen, erasing outgoing content behind it. Rotates as it rolls. | Fun. Easter eggs. |
 | `scroll` | Seamless continuous scroll with a bullet separator (` * `). Old text scrolls off left, new enters from right at constant speed. Like a news ticker. | RSS feeds. Continuous content. |
 | `push_alternating` | Cycles through push_left → push_right → push_up → push_down each swap. | Dynamic variety. |
 | `wipe_alternating` | Cycles through wipe_left → wipe_right → wipe_up → wipe_down each swap, each with its own color. Customizable via `transition_colors`. | Dynamic variety. |

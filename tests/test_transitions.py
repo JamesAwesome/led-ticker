@@ -76,6 +76,7 @@ class TestTransitionRegistry:
             "split",
             "nyancat",
             "nyancat_reverse",
+            "pokeball",
             "scroll",
             "push_alternating",
             "nyancat_alternating",
@@ -83,7 +84,7 @@ class TestTransitionRegistry:
         ]
         for name in expected:
             assert name in _TRANSITION_REGISTRY
-        assert len(_TRANSITION_REGISTRY) == 18
+        assert len(_TRANSITION_REGISTRY) == 19
 
     def test_get_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown transition"):
@@ -221,9 +222,7 @@ class TestPushUp:
         outgoing = make_widget(600)
         incoming = make_widget(40)
         push = PushUp()
-        push.frame_at(
-            0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440
-        )
+        push.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
     def test_returns_canvas(self, canvas, make_widget):
@@ -274,16 +273,12 @@ class TestPushDown:
         outgoing = make_widget(600)
         incoming = make_widget(40)
         push = PushDown()
-        push.frame_at(
-            0.5, canvas, outgoing, incoming, outgoing_scroll_pos=-440
-        )
+        push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
     def test_returns_canvas(self, canvas, make_widget):
         push = PushDown()
-        result = push.frame_at(
-            0.5, canvas, make_widget(40), make_widget(40)
-        )
+        result = push.frame_at(0.5, canvas, make_widget(40), make_widget(40))
         assert result is canvas
 
 
@@ -343,9 +338,7 @@ class TestPushRight:
         outgoing = make_widget(600)
         incoming = make_widget(40)
         push = PushRight()
-        push.frame_at(
-            0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440
-        )
+        push.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
     def test_outgoing_confined_to_right_zone(self, canvas, make_widget):
@@ -378,9 +371,7 @@ class TestPushRight:
 
     def test_returns_canvas(self, canvas, make_widget):
         push = PushRight()
-        result = push.frame_at(
-            0.5, canvas, make_widget(40), make_widget(40)
-        )
+        result = push.frame_at(0.5, canvas, make_widget(40), make_widget(40))
         assert result is canvas
 
     def test_default_outgoing_scroll_pos_is_zero(self, canvas, make_widget):
@@ -436,9 +427,7 @@ class TestWipeUp:
 
     def test_returns_canvas(self, canvas, make_widget):
         wipe = WipeUp()
-        result = wipe.frame_at(
-            0.5, canvas, make_widget(40), make_widget(40)
-        )
+        result = wipe.frame_at(0.5, canvas, make_widget(40), make_widget(40))
         assert result is canvas
 
 
@@ -770,9 +759,7 @@ class TestScroll:
         outgoing = make_widget(600)
         incoming = make_widget(40)
         scroll = Scroll()
-        scroll.frame_at(
-            0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440
-        )
+        scroll.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
     def test_separator_width(self):
@@ -793,9 +780,7 @@ class TestScroll:
         scroll = Scroll()
         outgoing = make_widget(40)
         incoming = make_widget(40)
-        scroll.frame_at(
-            0.0, canvas, outgoing, incoming, outgoing_scroll_pos=0
-        )
+        scroll.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=0)
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == 0
         # Bullet at canvas.width (160), incoming at 160+bullet_width
         # Both off-screen right, so incoming not drawn
@@ -803,9 +788,7 @@ class TestScroll:
 
     def test_returns_canvas(self, canvas, make_widget):
         scroll = Scroll()
-        result = scroll.frame_at(
-            0.5, canvas, make_widget(40), make_widget(40)
-        )
+        result = scroll.frame_at(0.5, canvas, make_widget(40), make_widget(40))
         assert result is canvas
 
 
@@ -835,15 +818,16 @@ class TestPushAlternating:
 
     def test_returns_canvas(self, canvas, make_widget):
         alt = PushAlternating()
-        result = alt.frame_at(
-            0.5, canvas, make_widget(40), make_widget(40)
-        )
+        result = alt.frame_at(0.5, canvas, make_widget(40), make_widget(40))
         assert result is canvas
 
     def test_forwards_outgoing_scroll_pos(self, canvas, make_widget):
         alt = PushAlternating()
         alt.frame_at(
-            0.0, canvas, make_widget(600), make_widget(40),
+            0.0,
+            canvas,
+            make_widget(600),
+            make_widget(40),
             outgoing_scroll_pos=-440,
         )
 
@@ -873,9 +857,7 @@ class TestNyanCatAlternating:
 
     def test_returns_canvas(self, canvas, make_widget):
         alt = NyanCatAlternating()
-        result = alt.frame_at(
-            0.5, canvas, make_widget(40), make_widget(40)
-        )
+        result = alt.frame_at(0.5, canvas, make_widget(40), make_widget(40))
         assert result is canvas
 
 
@@ -928,9 +910,7 @@ class TestWipeAlternating:
 
     def test_returns_canvas(self, canvas, make_widget):
         alt = WipeAlternating()
-        result = alt.frame_at(
-            0.5, canvas, make_widget(40), make_widget(40)
-        )
+        result = alt.frame_at(0.5, canvas, make_widget(40), make_widget(40))
         assert result is canvas
 
 

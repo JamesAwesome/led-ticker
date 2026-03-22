@@ -189,12 +189,12 @@ def _build_pikachu_frame_1() -> PixelData:
         (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL), (12, 3, *_YL), (13, 3, *_YL),
         (8, 4, *_YL), (9, 4, *_YL), (10, 4, *_YL), (11, 4, *_YL),
         (12, 4, *_YL), (13, 4, *_YL), (14, 4, *_YL),
-        # Face row (row 5: eye, continuous into back)
+        # Face row (row 5: eye pushed forward, nose extends)
         (7, 5, *_YL), (8, 5, *_YL), (9, 5, *_YL), (10, 5, *_YL),
-        (11, 5, *_YL), (12, 5, *_BK), (13, 5, *_WT), (14, 5, *_YL),
-        # Cheek + widest body row (row 6)
+        (11, 5, *_YL), (12, 5, *_YL), (13, 5, *_BK), (14, 5, *_WT), (15, 5, *_YL),
+        # Cheek + widest body row (row 6: cheek forward, nose tip)
         (7, 6, *_YL), (8, 6, *_YL), (9, 6, *_YL), (10, 6, *_YL),
-        (11, 6, *_YL), (12, 6, *_RC), (13, 6, *_YL), (14, 6, *_YL),
+        (11, 6, *_YL), (12, 6, *_YL), (13, 6, *_RC), (14, 6, *_YL), (15, 6, *_YL),
         # Mid body (row 7: brown stripes on back)
         (7, 7, *_YL), (8, 7, *_BR), (9, 7, *_BR), (10, 7, *_YL),
         (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL), (14, 7, *_YL),
@@ -234,13 +234,13 @@ def _build_pikachu_frame_2() -> PixelData:
         (10, 2, *_YL), (11, 2, *_YL), (12, 2, *_YL),
         (8, 3, *_YL), (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL),
         (12, 3, *_YL), (13, 3, *_YL), (14, 3, *_YL), (15, 3, *_YL),
-        # Face row (row 4: eye)
+        # Face row (row 4: eye pushed forward, nose extends)
         (7, 4, *_YL), (8, 4, *_YL), (9, 4, *_YL), (10, 4, *_YL),
-        (11, 4, *_YL), (12, 4, *_YL), (13, 4, *_BK), (14, 4, *_WT),
-        (15, 4, *_YL), (16, 4, *_YL),
-        # Cheek + wide body (row 5)
+        (11, 4, *_YL), (12, 4, *_YL), (13, 4, *_YL), (14, 4, *_BK),
+        (15, 4, *_WT), (16, 4, *_YL), (17, 4, *_YL),
+        # Cheek + wide body (row 5: cheek forward)
         (6, 5, *_YL), (7, 5, *_YL), (8, 5, *_YL), (9, 5, *_YL), (10, 5, *_YL),
-        (11, 5, *_YL), (12, 5, *_YL), (13, 5, *_RC), (14, 5, *_YL),
+        (11, 5, *_YL), (12, 5, *_YL), (13, 5, *_YL), (14, 5, *_RC),
         (15, 5, *_YL), (16, 5, *_YL),
         # Mid body (row 6: stripes)
         (6, 6, *_YL), (7, 6, *_BR), (8, 6, *_BR), (9, 6, *_YL), (10, 6, *_YL),
@@ -286,14 +286,14 @@ def _build_pikachu_frame_3() -> PixelData:
         (8, 3, *_YL), (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL),
         (12, 3, *_YL), (13, 3, *_YL), (14, 3, *_YL), (15, 3, *_YL),
         (16, 3, *_YL),
-        # Face row (row 4: eye) — continuous flat back
+        # Face row (row 4: eye pushed forward, nose extends)
         (6, 4, *_YL), (7, 4, *_YL), (8, 4, *_YL), (9, 4, *_YL), (10, 4, *_YL),
-        (11, 4, *_YL), (12, 4, *_YL), (13, 4, *_YL), (14, 4, *_BK),
-        (15, 4, *_WT), (16, 4, *_YL), (17, 4, *_YL),
-        # Cheek + widest (row 5)
+        (11, 4, *_YL), (12, 4, *_YL), (13, 4, *_YL), (14, 4, *_YL),
+        (15, 4, *_BK), (16, 4, *_WT), (17, 4, *_YL), (18, 4, *_YL),
+        # Cheek + widest (row 5: cheek forward)
         (5, 5, *_YL), (6, 5, *_YL), (7, 5, *_YL), (8, 5, *_YL), (9, 5, *_YL),
         (10, 5, *_YL), (11, 5, *_YL), (12, 5, *_YL), (13, 5, *_YL),
-        (14, 5, *_RC), (15, 5, *_YL), (16, 5, *_YL), (17, 5, *_YL),
+        (14, 5, *_YL), (15, 5, *_RC), (16, 5, *_YL), (17, 5, *_YL), (18, 5, *_YL),
         # Mid body (row 6: stripes) — long flat
         (5, 6, *_YL), (6, 6, *_BR), (7, 6, *_BR), (8, 6, *_YL), (9, 6, *_YL),
         (10, 6, *_YL), (11, 6, *_YL), (12, 6, *_YL), (13, 6, *_YL),
@@ -340,13 +340,13 @@ def _build_pikachu_frame_4() -> PixelData:
         (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL), (12, 3, *_YL), (13, 3, *_YL),
         (7, 4, *_YL), (8, 4, *_YL), (9, 4, *_YL), (10, 4, *_YL),
         (11, 4, *_YL), (12, 4, *_YL), (13, 4, *_YL), (14, 4, *_YL),
-        # Face row (row 5: eye) — continuous into back
+        # Face row (row 5: eye pushed forward, nose extends)
         (6, 5, *_YL), (7, 5, *_YL), (8, 5, *_YL), (9, 5, *_YL),
-        (10, 5, *_YL), (11, 5, *_YL), (12, 5, *_BK), (13, 5, *_WT),
-        (14, 5, *_YL), (15, 5, *_YL),
-        # Cheek + wide body (row 6)
+        (10, 5, *_YL), (11, 5, *_YL), (12, 5, *_YL), (13, 5, *_BK),
+        (14, 5, *_WT), (15, 5, *_YL), (16, 5, *_YL),
+        # Cheek + wide body (row 6: cheek forward)
         (6, 6, *_YL), (7, 6, *_YL), (8, 6, *_YL), (9, 6, *_YL), (10, 6, *_YL),
-        (11, 6, *_YL), (12, 6, *_RC), (13, 6, *_YL), (14, 6, *_YL), (15, 6, *_YL),
+        (11, 6, *_YL), (12, 6, *_YL), (13, 6, *_RC), (14, 6, *_YL), (15, 6, *_YL),
         # Mid body (row 7: stripes)
         (6, 7, *_YL), (7, 7, *_BR), (8, 7, *_BR), (9, 7, *_YL), (10, 7, *_YL),
         (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL), (14, 7, *_YL), (15, 7, *_YL),

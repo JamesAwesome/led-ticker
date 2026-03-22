@@ -5,9 +5,10 @@ from __future__ import annotations
 try:
     import tomllib
 except ModuleNotFoundError:
-    import tomli as tomllib
+    import tomli as tomllib  # type: ignore[import-not-found]
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -27,6 +28,7 @@ class TransitionConfig:
     easing: str = "linear"
     color: tuple[int, int, int] | None = None
     colors: list[tuple[int, int, int]] | None = None
+    transition_obj: Any = None
 
 
 @dataclass

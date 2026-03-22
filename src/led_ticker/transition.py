@@ -35,6 +35,8 @@ EASING: dict[str, Callable[[float], float]] = {
 
 @runtime_checkable
 class Transition(Protocol):
+    min_frames: int
+
     def frame_at(
         self,
         t: float,
@@ -341,7 +343,15 @@ class _BaseWipe:
     min_frames: int = 40
 
     def __init__(self, color: ColorTuple | None = None, **kwargs: Any) -> None:
-        self.color: ColorTuple = tuple(color) if color else self.DEFAULT_COLOR
+        c = color
+        self.color: ColorTuple = (
+            (c[0], c[1], c[2]) if c else self.DEFAULT_COLOR
+        )
+
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        raise NotImplementedError
 
 
 @register_transition("wipe_up")
@@ -383,7 +393,10 @@ class ColorFlash:
     """Brief solid color flash between old and new content."""
 
     def __init__(self, color: ColorTuple | None = None, **kwargs: Any) -> None:
-        self.color: ColorTuple = tuple(color) if color else (255, 255, 255)
+        c = color
+        self.color: ColorTuple = (
+            (c[0], c[1], c[2]) if c else (255, 255, 255)
+        )
 
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any

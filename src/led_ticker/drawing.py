@@ -38,7 +38,7 @@ def compute_cursor(
     end_padding = padding
 
     if center and content_width <= canvas_width:
-        center_pos = find_center(canvas_width, content_width)
+        center_pos = int(find_center(canvas_width, content_width))
         end_padding = canvas_width - (center_pos + content_width)
         cursor_pos += center_pos
 

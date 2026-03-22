@@ -33,6 +33,15 @@ class Widget(Protocol):
 
 
 @runtime_checkable
+class Updatable(Protocol):
+    """Any object that can update itself asynchronously."""
+
+    async def update(self) -> None:
+        """Fetch fresh data from an external source."""
+        ...
+
+
+@runtime_checkable
 class AsyncWidget(Widget, Protocol):
     """A widget that fetches data asynchronously and updates itself."""
 
@@ -42,7 +51,7 @@ class AsyncWidget(Widget, Protocol):
 
 
 async def run_monitor_loop(
-    widget: AsyncWidget,
+    widget: Updatable,
     interval: float,
     splay: bool = True,
 ) -> None:

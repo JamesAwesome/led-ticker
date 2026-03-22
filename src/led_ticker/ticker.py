@@ -69,6 +69,7 @@ class Ticker:
         logging.info("Running Swap with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
         title = self.title if self.title else None
+        assert self.notif_queue is not None
 
         asyncio.create_task(
             _build_then_enqueue(
@@ -97,6 +98,7 @@ class Ticker:
         canvas = self.frame.get_clean_canvas()
         title = self.title if self.title else None
         cursor_pos = start_pos if start_pos is not None else canvas.width
+        assert self.notif_queue is not None
 
         asyncio.create_task(
             _build_then_enqueue(
@@ -123,6 +125,7 @@ class Ticker:
         logging.info("Running Infini Scroll with loop count %s...", loop_count)
         canvas = self.frame.get_clean_canvas()
         title = self.title if self.title else None
+        assert self.notif_queue is not None
 
         asyncio.create_task(
             _build_then_enqueue(
@@ -185,7 +188,9 @@ async def _build_then_enqueue(
     title: Any = None,
     loop_count: int | None = None,
 ) -> None:
-    ticker_iter = _build_ticker_iter(ticker_objects, title=title, loop_count=loop_count)
+    ticker_iter = _build_ticker_iter(
+        ticker_objects, title=title, loop_count=loop_count or 0
+    )
     await _enqueue_ticker_objects(ticker_iter, notif_queue)
 
 
@@ -199,7 +204,7 @@ async def _enqueue_from_rss_feed(
     ticker_iter = _build_ticker_iter(
         feed.feed_stories,
         title=title,
-        loop_count=loop_count,
+        loop_count=loop_count or 0,
     )
     await _enqueue_ticker_objects(ticker_iter, notif_queue)
 

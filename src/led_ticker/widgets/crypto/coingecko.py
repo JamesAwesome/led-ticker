@@ -123,7 +123,7 @@ async def start_coingecko_monitors(
 
     return [
         await CoinGeckoPriceMonitor.start(
-            symbol, symbol_id, currency, session, **kwargs
+            symbol, symbol_id or symbol, currency, session, **kwargs
         )
         for symbol, symbol_id in symbol_map.items()
     ]

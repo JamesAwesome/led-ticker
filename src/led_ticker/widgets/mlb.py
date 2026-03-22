@@ -294,7 +294,7 @@ def _build_game_message(game: GameInfo, team_abbr: str, tz: ZoneInfo) -> MLBGame
         else:
             team_score, opp_score = game.away_score, game.home_score
 
-        won = team_score > opp_score
+        won = (team_score or 0) > (opp_score or 0)
         score_color = WIN_COLOR if won else LOSS_COLOR
 
         segments: list[tuple[str, Color]] = [
@@ -484,7 +484,12 @@ class MLBScoreMonitor:
                     else next_game.home_abbr
                 )
                 opp_name = MLB_TEAM_NAMES.get(opp, opp)
-                time_str = _format_game_time(next_game.start_time, tz)
+                if next_game.start_time:
+                    time_str = _format_game_time(
+                        next_game.start_time, tz
+                    )
+                else:
+                    time_str = "TBD"
                 self.feed_stories = [
                     title,
                     TickerMessage(
@@ -503,9 +508,9 @@ class MLBScoreMonitor:
         # Build display from current series
         series_title = _build_series_title(self.team, current, tz)
         self.feed_title = series_title
-        self.feed_stories = [series_title] + [
-            _build_game_message(g, self.team, tz) for g in current.games
-        ]
+        stories: list[TickerMessage | MLBGameMessage] = [series_title]
+        stories.extend(_build_game_message(g, self.team, tz) for g in current.games)
+        self.feed_stories = stories
         self._has_live_game = any(g.state == "live" for g in current.games)
 
     def _parse_games(
@@ -604,6 +609,7 @@ class MLBScoreMonitor:
             opp = g.away_abbr if g.home_abbr == self.team else g.home_abbr
             if opp != current_opp:
                 if current_games:
+                    assert current_opp is not None
                     series_list.append(self._make_series(current_opp, current_games))
                 current_opp = opp
                 current_games = [g]
@@ -611,6 +617,7 @@ class MLBScoreMonitor:
                 current_games.append(g)
 
         if current_games:
+            assert current_opp is not None
             series_list.append(self._make_series(current_opp, current_games))
 
         return series_list

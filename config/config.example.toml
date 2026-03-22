@@ -115,6 +115,10 @@ countdown_date = 2026-06-20
 # --- MLB Scores ---
 # Free MLB Stats API, no key needed.
 # One widget per team. Shows current series scores, live games, upcoming.
+# Options:
+#   team             = "PHI"               (required, 3-letter team abbreviation)
+#   timezone         = "America/New_York"  (default)
+#   final_hold_hours = 6                   (hours to show final score before moving on, default: 6)
 #
 # [[playlist.section]]
 # mode = "swap"
@@ -126,6 +130,7 @@ countdown_date = 2026-06-20
 # type = "mlb"
 # team = "PHI"
 # timezone = "America/New_York"
+# final_hold_hours = 6  # hours to show final score before switching to next game (default: 6)
 
 # --- Weather ---
 # Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/)

@@ -259,10 +259,10 @@ def _build_pikachu_frame_2() -> PixelData:
         (13, 9, *_YL), (14, 9, *_YL),
         (13, 10, *_YL), (14, 10, *_YL),
         (13, 11, *_BK), (14, 11, *_BK),  # front foot
-        # Back leg (shifted 1px back)
-        (8, 9, *_YL), (9, 9, *_YL),
-        (8, 10, *_YL), (9, 10, *_YL),
-        (8, 11, *_BK), (9, 11, *_BK),  # back foot
+        # Back leg (under body, not past face)
+        (9, 9, *_YL), (10, 9, *_YL),
+        (9, 10, *_YL), (10, 10, *_YL),
+        (9, 11, *_BK), (10, 11, *_BK),  # back foot
     ]
 
 
@@ -309,15 +309,15 @@ def _build_pikachu_frame_3() -> PixelData:
         (6, 8, *_YL), (7, 8, *_YL), (8, 8, *_YL), (9, 8, *_YL),
         (10, 8, *_YL), (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL),
         (14, 8, *_YL), (15, 8, *_YL), (16, 8, *_YL),
-        # Legs — widest spread, but still stubby (3px apart)
-        # Front leg (shifted 3px ahead of center)
+        # Legs — widest spread, but still stubby
+        # Front leg (shifted ahead)
         (14, 9, *_YL), (15, 9, *_YL),
         (14, 10, *_YL), (15, 10, *_YL),
         (14, 11, *_BK), (15, 11, *_BK),  # front foot
-        # Back leg (shifted 2px back of center)
-        (7, 9, *_YL), (8, 9, *_YL),
-        (7, 10, *_YL), (8, 10, *_YL),
-        (7, 11, *_BK), (8, 11, *_BK),  # back foot
+        # Back leg (under body, not past face)
+        (8, 9, *_YL), (9, 9, *_YL),
+        (8, 10, *_YL), (9, 10, *_YL),
+        (8, 11, *_BK), (9, 11, *_BK),  # back foot
     ]
 
 

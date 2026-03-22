@@ -160,7 +160,7 @@ _BK = (0, 0, 0)  # black (outline/eyes)
 _RC = (220, 50, 50)  # red (cheeks)
 _WT = (255, 255, 255)  # white (eye highlight)
 
-PIKACHU_WIDTH: int = 20
+PIKACHU_WIDTH: int = 21
 PIKACHU_HEIGHT: int = 14
 PIKACHU_Y_OFFSET: int = 1  # centers in 16px display
 PIKACHU_GAP: int = 6  # gap between pokeball and pikachu
@@ -186,9 +186,10 @@ def _build_pikachu_frame_1() -> PixelData:
         (12, 2, *_YL), (13, 2, *_YL),
         # Unified bean body — head flows into rump, no neck gap
         # Top curve (row 3-4: head/back)
-        (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL), (12, 3, *_YL), (13, 3, *_YL),
-        (8, 4, *_YL), (9, 4, *_YL), (10, 4, *_YL), (11, 4, *_YL),
-        (12, 4, *_YL), (13, 4, *_YL), (14, 4, *_YL),
+        (8, 3, *_YL), (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL),
+        (12, 3, *_YL), (13, 3, *_YL), (14, 3, *_YL),
+        (7, 4, *_YL), (8, 4, *_YL), (9, 4, *_YL), (10, 4, *_YL),
+        (11, 4, *_YL), (12, 4, *_YL), (13, 4, *_YL), (14, 4, *_YL), (15, 4, *_YL),
         # Face row (row 5: eye pushed forward, nose extends)
         (7, 5, *_YL), (8, 5, *_YL), (9, 5, *_YL), (10, 5, *_YL),
         (11, 5, *_YL), (12, 5, *_YL), (13, 5, *_BK), (14, 5, *_WT), (15, 5, *_YL),
@@ -197,13 +198,13 @@ def _build_pikachu_frame_1() -> PixelData:
         (11, 6, *_YL), (12, 6, *_YL), (13, 6, *_RC), (14, 6, *_YL), (15, 6, *_YL),
         # Mid body (row 7: brown stripes on back)
         (7, 7, *_YL), (8, 7, *_BR), (9, 7, *_BR), (10, 7, *_YL),
-        (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL), (14, 7, *_YL),
+        (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL), (14, 7, *_YL), (15, 7, *_YL),
         # Lower body / belly (row 8)
         (7, 8, *_YD), (8, 8, *_YL), (9, 8, *_YL), (10, 8, *_YL),
-        (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL), (14, 8, *_YD),
+        (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL), (14, 8, *_YL), (15, 8, *_YD),
         # Bottom curve (row 9)
         (8, 9, *_YL), (9, 9, *_YL), (10, 9, *_YL), (11, 9, *_YL),
-        (12, 9, *_YL), (13, 9, *_YL),
+        (12, 9, *_YL), (13, 9, *_YL), (14, 9, *_YL),
         # Legs — tucked close together under body
         (9, 10, *_YL), (10, 10, *_YL), (11, 10, *_YL), (12, 10, *_YL),
         (9, 11, *_YL), (10, 11, *_YL), (11, 11, *_YL), (12, 11, *_YL),
@@ -231,27 +232,28 @@ def _build_pikachu_frame_2() -> PixelData:
         (13, 2, *_YL), (14, 2, *_YL),
         # Unified bean body — elongating
         # Top curve (row 2-3: head/back start)
-        (10, 2, *_YL), (11, 2, *_YL), (12, 2, *_YL),
-        (8, 3, *_YL), (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL),
-        (12, 3, *_YL), (13, 3, *_YL), (14, 3, *_YL), (15, 3, *_YL),
+        (9, 2, *_YL), (10, 2, *_YL), (11, 2, *_YL), (12, 2, *_YL),
+        (7, 3, *_YL), (8, 3, *_YL), (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL),
+        (12, 3, *_YL), (13, 3, *_YL), (14, 3, *_YL), (15, 3, *_YL), (16, 3, *_YL),
         # Face row (row 4: eye pushed forward, nose extends)
-        (7, 4, *_YL), (8, 4, *_YL), (9, 4, *_YL), (10, 4, *_YL),
+        (6, 4, *_YL), (7, 4, *_YL), (8, 4, *_YL), (9, 4, *_YL), (10, 4, *_YL),
         (11, 4, *_YL), (12, 4, *_YL), (13, 4, *_YL), (14, 4, *_BK),
         (15, 4, *_WT), (16, 4, *_YL), (17, 4, *_YL),
         # Cheek + wide body (row 5: cheek forward)
         (6, 5, *_YL), (7, 5, *_YL), (8, 5, *_YL), (9, 5, *_YL), (10, 5, *_YL),
         (11, 5, *_YL), (12, 5, *_YL), (13, 5, *_YL), (14, 5, *_RC),
-        (15, 5, *_YL), (16, 5, *_YL),
+        (15, 5, *_YL), (16, 5, *_YL), (17, 5, *_YL),
         # Mid body (row 6: stripes)
         (6, 6, *_YL), (7, 6, *_BR), (8, 6, *_BR), (9, 6, *_YL), (10, 6, *_YL),
         (11, 6, *_YL), (12, 6, *_YL), (13, 6, *_YL), (14, 6, *_YL),
-        (15, 6, *_YL), (16, 6, *_YL),
+        (15, 6, *_YL), (16, 6, *_YL), (17, 6, *_YL),
         # Lower body (row 7)
         (6, 7, *_YD), (7, 7, *_YL), (8, 7, *_YL), (9, 7, *_YL), (10, 7, *_YL),
-        (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL), (14, 7, *_YL), (15, 7, *_YD),
+        (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL), (14, 7, *_YL),
+        (15, 7, *_YL), (16, 7, *_YD),
         # Bottom curve (row 8)
         (7, 8, *_YL), (8, 8, *_YL), (9, 8, *_YL), (10, 8, *_YL),
-        (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL), (14, 8, *_YL),
+        (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL), (14, 8, *_YL), (15, 8, *_YL),
         # Legs — back pushing slightly, front reaching slightly
         # Front leg (shifted 2px ahead)
         (13, 9, *_YL), (14, 9, *_YL),
@@ -282,30 +284,33 @@ def _build_pikachu_frame_3() -> PixelData:
         (14, 2, *_YL), (15, 2, *_YL),
         # Unified bean body — longest, level back
         # Top curve (row 2-3)
-        (11, 2, *_YL), (12, 2, *_YL), (13, 2, *_YL),
-        (8, 3, *_YL), (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL),
+        (10, 2, *_YL), (11, 2, *_YL), (12, 2, *_YL), (13, 2, *_YL),
+        (7, 3, *_YL), (8, 3, *_YL), (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL),
         (12, 3, *_YL), (13, 3, *_YL), (14, 3, *_YL), (15, 3, *_YL),
-        (16, 3, *_YL),
+        (16, 3, *_YL), (17, 3, *_YL),
         # Face row (row 4: eye pushed forward, nose extends)
-        (6, 4, *_YL), (7, 4, *_YL), (8, 4, *_YL), (9, 4, *_YL), (10, 4, *_YL),
-        (11, 4, *_YL), (12, 4, *_YL), (13, 4, *_YL), (14, 4, *_YL),
-        (15, 4, *_BK), (16, 4, *_WT), (17, 4, *_YL), (18, 4, *_YL),
+        (5, 4, *_YL), (6, 4, *_YL), (7, 4, *_YL), (8, 4, *_YL), (9, 4, *_YL),
+        (10, 4, *_YL), (11, 4, *_YL), (12, 4, *_YL), (13, 4, *_YL),
+        (14, 4, *_YL), (15, 4, *_BK), (16, 4, *_WT), (17, 4, *_YL),
+        (18, 4, *_YL), (19, 4, *_YL),
         # Cheek + widest (row 5: cheek forward)
         (5, 5, *_YL), (6, 5, *_YL), (7, 5, *_YL), (8, 5, *_YL), (9, 5, *_YL),
         (10, 5, *_YL), (11, 5, *_YL), (12, 5, *_YL), (13, 5, *_YL),
-        (14, 5, *_YL), (15, 5, *_RC), (16, 5, *_YL), (17, 5, *_YL), (18, 5, *_YL),
+        (14, 5, *_YL), (15, 5, *_RC), (16, 5, *_YL), (17, 5, *_YL),
+        (18, 5, *_YL), (19, 5, *_YL),
         # Mid body (row 6: stripes) — long flat
         (5, 6, *_YL), (6, 6, *_BR), (7, 6, *_BR), (8, 6, *_YL), (9, 6, *_YL),
         (10, 6, *_YL), (11, 6, *_YL), (12, 6, *_YL), (13, 6, *_YL),
         (14, 6, *_YL), (15, 6, *_YL), (16, 6, *_YL), (17, 6, *_YL),
+        (18, 6, *_YL),
         # Lower body (row 7)
         (5, 7, *_YD), (6, 7, *_YL), (7, 7, *_YL), (8, 7, *_YL), (9, 7, *_YL),
         (10, 7, *_YL), (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL),
-        (14, 7, *_YL), (15, 7, *_YL), (16, 7, *_YD),
+        (14, 7, *_YL), (15, 7, *_YL), (16, 7, *_YL), (17, 7, *_YD),
         # Bottom curve (row 8)
         (6, 8, *_YL), (7, 8, *_YL), (8, 8, *_YL), (9, 8, *_YL),
         (10, 8, *_YL), (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL),
-        (14, 8, *_YL), (15, 8, *_YL),
+        (14, 8, *_YL), (15, 8, *_YL), (16, 8, *_YL),
         # Legs — widest spread, but still stubby (3px apart)
         # Front leg (shifted 3px ahead of center)
         (14, 9, *_YL), (15, 9, *_YL),
@@ -337,25 +342,28 @@ def _build_pikachu_frame_4() -> PixelData:
         (12, 2, *_YL), (13, 2, *_YL),
         # Unified bean body — compressed, wide
         # Top curve (row 3-4: head/back)
-        (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL), (12, 3, *_YL), (13, 3, *_YL),
+        (8, 3, *_YL), (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL),
+        (12, 3, *_YL), (13, 3, *_YL), (14, 3, *_YL),
         (7, 4, *_YL), (8, 4, *_YL), (9, 4, *_YL), (10, 4, *_YL),
-        (11, 4, *_YL), (12, 4, *_YL), (13, 4, *_YL), (14, 4, *_YL),
+        (11, 4, *_YL), (12, 4, *_YL), (13, 4, *_YL), (14, 4, *_YL), (15, 4, *_YL),
         # Face row (row 5: eye pushed forward, nose extends)
         (6, 5, *_YL), (7, 5, *_YL), (8, 5, *_YL), (9, 5, *_YL),
         (10, 5, *_YL), (11, 5, *_YL), (12, 5, *_YL), (13, 5, *_BK),
         (14, 5, *_WT), (15, 5, *_YL), (16, 5, *_YL),
         # Cheek + wide body (row 6: cheek forward)
         (6, 6, *_YL), (7, 6, *_YL), (8, 6, *_YL), (9, 6, *_YL), (10, 6, *_YL),
-        (11, 6, *_YL), (12, 6, *_YL), (13, 6, *_RC), (14, 6, *_YL), (15, 6, *_YL),
+        (11, 6, *_YL), (12, 6, *_YL), (13, 6, *_RC), (14, 6, *_YL),
+        (15, 6, *_YL), (16, 6, *_YL),
         # Mid body (row 7: stripes)
         (6, 7, *_YL), (7, 7, *_BR), (8, 7, *_BR), (9, 7, *_YL), (10, 7, *_YL),
-        (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL), (14, 7, *_YL), (15, 7, *_YL),
+        (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL), (14, 7, *_YL),
+        (15, 7, *_YL), (16, 7, *_YL),
         # Lower body (row 8)
         (6, 8, *_YD), (7, 8, *_YL), (8, 8, *_YL), (9, 8, *_YL), (10, 8, *_YL),
-        (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL), (14, 8, *_YD),
+        (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL), (14, 8, *_YL), (15, 8, *_YD),
         # Bottom curve (row 9)
         (7, 9, *_YL), (8, 9, *_YL), (9, 9, *_YL), (10, 9, *_YL),
-        (11, 9, *_YL), (12, 9, *_YL), (13, 9, *_YL),
+        (11, 9, *_YL), (12, 9, *_YL), (13, 9, *_YL), (14, 9, *_YL),
         # Legs — gathering back together under body
         (9, 10, *_YL), (10, 10, *_YL), (11, 10, *_YL), (12, 10, *_YL),
         (10, 11, *_YL), (11, 11, *_YL), (12, 11, *_YL), (13, 11, *_YL),

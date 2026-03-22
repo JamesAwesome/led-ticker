@@ -1,0 +1,79 @@
+# Pokeball testing config — tests pokeball transition
+# Usage: cp config/config.pokeball.toml config/config.toml
+
+[display]
+rows = 16
+cols = 32
+chain = 5
+brightness = 60
+slowdown_gpio = 2
+gpio_mapping = "adafruit-hat"
+
+[title]
+delay = 3
+
+# --- pokeball (long text) ---
+[[playlist.section]]
+mode = "swap"
+transition = "pokeball"
+transition_duration = 2.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "POKEBALL start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "A wizard quickly jinxed the gnomes before they could cast any powerful spells on the sleeping villagers nearby"
+
+[[playlist.section.widget]]
+type = "message"
+text = "pokeball DONE"
+
+# --- pokeball (short text) ---
+[[playlist.section]]
+mode = "swap"
+transition = "pokeball"
+transition_duration = 2.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Short text test"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Also short"
+
+[[playlist.section.widget]]
+type = "message"
+text = "pokeball short DONE"
+
+# --- pokeball (slow roll) ---
+[[playlist.section]]
+mode = "swap"
+transition = "pokeball"
+transition_duration = 4.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Slow roll test"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Gotta catch em all"
+
+# --- restart ---
+[[playlist.section]]
+mode = "swap"
+hold_time = 3
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "--- RESTARTING ---"

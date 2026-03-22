@@ -106,6 +106,7 @@ def load_config(path: Path) -> AppConfig:
         type=transitions_raw.get("default", "cut"),
         duration=transitions_raw.get("duration", 0.5),
         easing=transitions_raw.get("easing", "linear"),
+        show_pikachu=transitions_raw.get("show_pikachu", True),
     )
 
     sections = []

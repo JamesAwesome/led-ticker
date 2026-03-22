@@ -118,6 +118,8 @@ async def run(config_path: Path) -> None:
             trans_kwargs["colors"] = config.between_sections.colors
         elif config.between_sections.color is not None:
             trans_kwargs["color"] = config.between_sections.color
+        if not config.between_sections.show_pikachu:
+            trans_kwargs["show_pikachu"] = False
         section_trans = section_trans_cls(**trans_kwargs)
 
     async with aiohttp.ClientSession() as session:

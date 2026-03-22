@@ -12,6 +12,9 @@ gpio_mapping = "adafruit-hat"
 [title]
 delay = 3
 
+[transitions]
+between_sections = {type = "pokeball_alternating", duration = 2.0}
+
 # --- pokeball (long text) ---
 [[playlist.section]]
 mode = "swap"

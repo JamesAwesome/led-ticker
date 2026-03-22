@@ -145,8 +145,11 @@ def _build_frame_3() -> PixelData:
 
 # ---------------------------------------------------------------------------
 # Pikachu running sprite (chases the pokeball)
-# Facing right, forward-leaning run pose. 2 leg frames.
-# Body ~12px wide, tail adds ~6px behind = ~18px total, 14px tall
+# 4-frame run cycle matching the classic pixel-art animation:
+#   Frame 1: Crouched/compact — legs tucked, tail steep up-left
+#   Frame 2: Pushing off — body elongating, tail zigzags right
+#   Frame 3: Full stretch — longest, legs extended, tail back
+#   Frame 4: Landing — body low, legs gathering, tail down
 # ---------------------------------------------------------------------------
 
 # Pikachu palette
@@ -157,184 +160,211 @@ _BK = (0, 0, 0)  # black (outline/eyes)
 _RC = (220, 50, 50)  # red (cheeks)
 _WT = (255, 255, 255)  # white (eye highlight)
 
-PIKACHU_WIDTH: int = 18
+PIKACHU_WIDTH: int = 20
 PIKACHU_HEIGHT: int = 14
-PIKACHU_Y_OFFSET: int = 1  # centers 14px sprite in 16px display
+PIKACHU_Y_OFFSET: int = 1  # centers in 16px display
 PIKACHU_GAP: int = 6  # gap between pokeball and pikachu
-PIKACHU_FRAMES_PER_STEP: int = 6  # pixels of travel per leg swap
+PIKACHU_FRAMES_PER_STEP: int = 4  # pixels per frame swap (16px = full cycle)
 
 
-def _build_pikachu_frame_a() -> PixelData:
-    """Pikachu running frame A — left leg forward, right leg back."""
-    p: PixelData = []
-
-    # Tail (lightning bolt, extends left from body) — cols 0-5
-    # Tail base at y=2-3, zigzags up to y=0
-    for dx, dy, r, g, b in [
-        (0, 0, *_YL), (1, 0, *_YL), (2, 0, *_YL),
-        (2, 1, *_YL), (3, 1, *_YL),
-        (3, 2, *_YL), (4, 2, *_YL),
-        (4, 3, *_YL), (5, 3, *_YL),
+def _build_pikachu_frame_1() -> PixelData:
+    """Frame 1: Crouched — compact body, legs tucked, tail steep up-left."""
+    return [
+        # Tail — steep lightning bolt going up-left from body
+        (0, 0, *_YL), (1, 0, *_YL),
+        (1, 1, *_YL), (2, 1, *_YL),
+        (2, 2, *_YL), (3, 2, *_YL),
+        (3, 3, *_YL), (4, 3, *_YL), (5, 3, *_YL),
         (5, 4, *_YL), (6, 4, *_YL),
-        # Outline
-        (0, 1, *_BK), (1, 1, *_BK), (2, 2, *_BK),
-        (3, 0, *_BK), (3, 3, *_BK), (4, 1, *_BK),
-        (4, 4, *_BK), (5, 2, *_BK), (5, 5, *_BK),
-        (6, 3, *_BK), (6, 5, *_BK),
-    ]:
-        p.append((dx, dy, r, g, b))
+        # Tail outline
+        (0, 1, *_BK), (2, 0, *_BK), (2, 3, *_BK),
+        (3, 1, *_BK), (4, 2, *_BK), (4, 4, *_BK),
+        (5, 5, *_BK), (6, 3, *_BK), (6, 5, *_BK),
+        # Left ear (upright)
+        (8, 0, *_BK), (9, 0, *_BR), (8, 1, *_YL), (9, 1, *_BK),
+        (8, 2, *_YL), (9, 2, *_YL),
+        # Right ear (upright)
+        (13, 0, *_BR), (14, 0, *_BK), (13, 1, *_YL), (14, 1, *_BK),
+        (13, 2, *_YL), (14, 2, *_YL),
+        # Head — round, slightly down
+        (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL), (12, 3, *_YL), (13, 3, *_YL),
+        (8, 4, *_YL), (9, 4, *_YL), (10, 4, *_YL), (11, 4, *_YL),
+        (12, 4, *_YL), (13, 4, *_YL), (14, 4, *_YL),
+        # Eyes
+        (8, 5, *_YL), (9, 5, *_BK), (10, 5, *_WT),
+        (11, 5, *_YL),
+        (12, 5, *_BK), (13, 5, *_WT), (14, 5, *_YL), (15, 5, *_YL),
+        # Cheeks & mouth
+        (8, 6, *_RC), (9, 6, *_YL), (10, 6, *_YL), (11, 6, *_YL),
+        (12, 6, *_YL), (13, 6, *_RC), (14, 6, *_YL), (15, 6, *_YL),
+        # Body — compact/round
+        (7, 7, *_YL), (8, 7, *_YL), (9, 7, *_YL), (10, 7, *_YL),
+        (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL), (14, 7, *_YL), (15, 7, *_YL),
+        (7, 8, *_YD), (8, 8, *_BR), (9, 8, *_BR), (10, 8, *_YL),
+        (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL), (14, 8, *_YL), (15, 8, *_YD),
+        (8, 9, *_YL), (9, 9, *_YD), (10, 9, *_YL), (11, 9, *_YL),
+        (12, 9, *_YL), (13, 9, *_YL), (14, 9, *_YL),
+        # Legs — tucked under body
+        (9, 10, *_YL), (10, 10, *_YL), (13, 10, *_YL), (14, 10, *_YL),
+        (9, 11, *_BK), (14, 11, *_BK),  # feet
+    ]
 
-    # Ears — cols 8-9 (left ear) and 13-14 (right ear)
-    for dx, dy, r, g, b in [
-        # Left ear
-        (8, 0, *_BK), (9, 0, *_BR), (9, 1, *_BK), (8, 1, *_YL),
+
+def _build_pikachu_frame_2() -> PixelData:
+    """Frame 2: Pushing off — body elongating, tail zigzags right, legs extending."""
+    return [
+        # Tail — zigzags to the right/up
+        (0, 2, *_YL), (1, 2, *_YL),
+        (1, 1, *_YL), (2, 1, *_YL),
+        (2, 2, *_YL), (3, 2, *_YL),
+        (3, 1, *_YL), (4, 1, *_YL),
+        (4, 2, *_YL), (5, 2, *_YL), (5, 3, *_YL),
+        # Tail outline
+        (0, 1, *_BK), (0, 3, *_BK), (1, 0, *_BK), (1, 3, *_BK),
+        (2, 0, *_BK), (2, 3, *_BK), (3, 0, *_BK), (3, 3, *_BK),
+        (4, 0, *_BK), (4, 3, *_BK), (5, 1, *_BK), (5, 4, *_BK),
+        (6, 3, *_BK),
+        # Left ear (swept back)
+        (7, 0, *_BK), (8, 0, *_BR), (7, 1, *_YL), (8, 1, *_BK),
+        (7, 2, *_YL), (8, 2, *_YL),
+        # Right ear (forward)
+        (14, 0, *_BR), (15, 0, *_BK), (14, 1, *_YL), (15, 1, *_BK),
+        (14, 2, *_YL), (15, 2, *_YL),
+        # Head
+        (9, 2, *_YL), (10, 2, *_YL), (11, 2, *_YL), (12, 2, *_YL), (13, 2, *_YL),
+        (8, 3, *_YL), (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL),
+        (12, 3, *_YL), (13, 3, *_YL), (14, 3, *_YL), (15, 3, *_YL),
+        # Eyes
+        (8, 4, *_YL), (9, 4, *_YL), (10, 4, *_BK), (11, 4, *_WT),
+        (12, 4, *_YL), (13, 4, *_BK), (14, 4, *_WT), (15, 4, *_YL), (16, 4, *_YL),
+        # Cheeks
+        (8, 5, *_YL), (9, 5, *_RC), (10, 5, *_YL), (11, 5, *_YL),
+        (12, 5, *_YL), (13, 5, *_YL), (14, 5, *_RC), (15, 5, *_YL), (16, 5, *_YL),
+        # Body — elongating
+        (6, 6, *_YL), (7, 6, *_YL), (8, 6, *_YL), (9, 6, *_YL), (10, 6, *_YL),
+        (11, 6, *_YL), (12, 6, *_YL), (13, 6, *_YL), (14, 6, *_YL),
+        (15, 6, *_YL), (16, 6, *_YL),
+        (6, 7, *_YD), (7, 7, *_BR), (8, 7, *_BR), (9, 7, *_YL), (10, 7, *_YL),
+        (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL), (14, 7, *_YL),
+        (15, 7, *_YL), (16, 7, *_YD),
+        (7, 8, *_YL), (8, 8, *_YD), (9, 8, *_YL), (10, 8, *_YL),
+        (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL), (14, 8, *_YL), (15, 8, *_YL),
+        # Legs — back leg pushing, front reaching
+        (14, 9, *_YL), (15, 9, *_YL), (16, 9, *_YL),
+        (16, 10, *_YL), (17, 10, *_YL),
+        (17, 11, *_BK),  # front foot
+        (7, 9, *_YL), (8, 9, *_YL),
+        (6, 10, *_YL), (7, 10, *_YL),
+        (5, 11, *_YL), (6, 11, *_YL),
+        (5, 12, *_BK),  # back foot
+    ]
+
+
+def _build_pikachu_frame_3() -> PixelData:
+    """Frame 3: Full stretch — longest body, legs fully extended, tail straight back."""
+    return [
+        # Tail — straight back, slightly up
+        (0, 2, *_YL), (1, 2, *_YL),
+        (1, 3, *_YL), (2, 3, *_YL),
+        (2, 2, *_YL), (3, 2, *_YL),
+        (3, 3, *_YL), (4, 3, *_YL), (4, 4, *_YL),
+        # Tail outline
+        (0, 1, *_BK), (0, 3, *_BK), (1, 1, *_BK), (1, 4, *_BK),
+        (2, 1, *_BK), (2, 4, *_BK), (3, 1, *_BK), (3, 4, *_BK),
+        (4, 2, *_BK), (4, 5, *_BK), (5, 4, *_BK),
+        # Left ear (swept back flat)
+        (6, 1, *_BK), (7, 1, *_BR), (6, 2, *_YL), (7, 2, *_BK),
+        (7, 3, *_YL),
+        # Right ear
+        (15, 0, *_BR), (16, 0, *_BK), (15, 1, *_YL), (16, 1, *_BK),
+        (15, 2, *_YL), (16, 2, *_YL),
+        # Head — level, forward
+        (10, 2, *_YL), (11, 2, *_YL), (12, 2, *_YL), (13, 2, *_YL), (14, 2, *_YL),
+        (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL), (12, 3, *_YL),
+        (13, 3, *_YL), (14, 3, *_YL), (15, 3, *_YL), (16, 3, *_YL),
+        # Eyes
+        (9, 4, *_YL), (10, 4, *_YL), (11, 4, *_BK), (12, 4, *_WT),
+        (13, 4, *_YL), (14, 4, *_BK), (15, 4, *_WT), (16, 4, *_YL), (17, 4, *_YL),
+        # Cheeks
+        (9, 5, *_YL), (10, 5, *_RC), (11, 5, *_YL), (12, 5, *_YL),
+        (13, 5, *_YL), (14, 5, *_YL), (15, 5, *_RC), (16, 5, *_YL),
+        (17, 5, *_YL), (18, 5, *_YL),
+        # Body — long and stretched
+        (5, 6, *_YL), (6, 6, *_YL), (7, 6, *_YL), (8, 6, *_YL), (9, 6, *_YL),
+        (10, 6, *_YL), (11, 6, *_YL), (12, 6, *_YL), (13, 6, *_YL),
+        (14, 6, *_YL), (15, 6, *_YL), (16, 6, *_YL), (17, 6, *_YL),
+        (5, 7, *_YD), (6, 7, *_BR), (7, 7, *_BR), (8, 7, *_YL), (9, 7, *_YL),
+        (10, 7, *_YL), (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL),
+        (14, 7, *_YL), (15, 7, *_YL), (16, 7, *_YL), (17, 7, *_YD),
+        (6, 8, *_YL), (7, 8, *_YD), (8, 8, *_YL), (9, 8, *_YL),
+        (10, 8, *_YL), (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL),
+        (14, 8, *_YL), (15, 8, *_YL), (16, 8, *_YL),
+        # Legs — fully extended front and back
+        (16, 9, *_YL), (17, 9, *_YL), (18, 9, *_YL),
+        (18, 10, *_YL), (19, 10, *_YL),
+        (19, 11, *_BK),  # front foot
+        (5, 9, *_YL), (6, 9, *_YL),
+        (4, 10, *_YL), (5, 10, *_YL),
+        (3, 11, *_YL), (4, 11, *_YL),
+        (3, 12, *_BK),  # back foot
+    ]
+
+
+def _build_pikachu_frame_4() -> PixelData:
+    """Frame 4: Landing — body low/compressed, legs gathering, tail down."""
+    return [
+        # Tail — angled down-left
+        (0, 5, *_YL), (1, 5, *_YL),
+        (1, 4, *_YL), (2, 4, *_YL),
+        (2, 5, *_YL), (3, 5, *_YL),
+        (3, 4, *_YL), (4, 4, *_YL), (4, 5, *_YL),
+        (5, 5, *_YL),
+        # Tail outline
+        (0, 4, *_BK), (0, 6, *_BK), (1, 3, *_BK), (1, 6, *_BK),
+        (2, 3, *_BK), (2, 6, *_BK), (3, 3, *_BK), (3, 6, *_BK),
+        (4, 3, *_BK), (4, 6, *_BK), (5, 4, *_BK), (5, 6, *_BK),
+        # Left ear (forward-ish)
+        (8, 0, *_BK), (9, 0, *_BR), (8, 1, *_YL), (9, 1, *_BK),
         (8, 2, *_YL), (9, 2, *_YL),
         # Right ear
         (14, 0, *_BR), (15, 0, *_BK), (14, 1, *_YL), (15, 1, *_BK),
         (14, 2, *_YL), (15, 2, *_YL),
-    ]:
-        p.append((dx, dy, r, g, b))
-
-    # Head — rows 3-6, cols 7-16
-    for dx, dy, r, g, b in [
-        # Row 3 (top of head)
-        (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL),
-        (12, 3, *_YL), (13, 3, *_YL), (14, 3, *_YL),
-        # Row 4
+        # Head — slightly lower
+        (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL), (12, 3, *_YL), (13, 3, *_YL),
         (8, 4, *_YL), (9, 4, *_YL), (10, 4, *_YL), (11, 4, *_YL),
         (12, 4, *_YL), (13, 4, *_YL), (14, 4, *_YL), (15, 4, *_YL),
-        # Row 5 (eyes)
-        (8, 5, *_YL), (9, 5, *_YL),
-        (10, 5, *_BK), (11, 5, *_WT),  # left eye
-        (12, 5, *_YL),
-        (13, 5, *_BK), (14, 5, *_WT),  # right eye
-        (15, 5, *_YL), (16, 5, *_YL),
-        # Row 6 (cheeks/mouth)
-        (8, 6, *_YL), (9, 6, *_RC),  # left cheek
-        (10, 6, *_YL), (11, 6, *_YL), (12, 6, *_YL),
-        (13, 6, *_YL), (14, 6, *_RC),  # right cheek
-        (15, 6, *_YL), (16, 6, *_YL),
-        (17, 6, *_YL),  # nose area
-    ]:
-        p.append((dx, dy, r, g, b))
-
-    # Body — rows 7-10, cols 7-17
-    for dx, dy, r, g, b in [
-        # Row 7
-        (7, 7, *_YL), (8, 7, *_YL), (9, 7, *_YL), (10, 7, *_YL),
+        # Eyes
+        (8, 5, *_YL), (9, 5, *_BK), (10, 5, *_WT),
+        (11, 5, *_YL),
+        (12, 5, *_BK), (13, 5, *_WT), (14, 5, *_YL), (15, 5, *_YL),
+        # Cheeks
+        (8, 6, *_RC), (9, 6, *_YL), (10, 6, *_YL), (11, 6, *_YL),
+        (12, 6, *_YL), (13, 6, *_RC), (14, 6, *_YL), (15, 6, *_YL), (16, 6, *_YL),
+        # Body — low and compressed
+        (6, 7, *_YL), (7, 7, *_YL), (8, 7, *_YL), (9, 7, *_YL), (10, 7, *_YL),
         (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL), (14, 7, *_YL),
-        (15, 7, *_YL), (16, 7, *_YL), (17, 7, *_YL),
-        # Row 8 (brown stripe)
-        (7, 8, *_YL), (8, 8, *_YD), (9, 8, *_BR), (10, 8, *_BR),
+        (15, 7, *_YL), (16, 7, *_YL),
+        (6, 8, *_YD), (7, 8, *_BR), (8, 8, *_BR), (9, 8, *_YL), (10, 8, *_YL),
         (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL), (14, 8, *_YL),
-        (15, 8, *_YL), (16, 8, *_YL), (17, 8, *_YD),
-        # Row 9
-        (7, 9, *_YL), (8, 9, *_YL), (9, 9, *_YD), (10, 9, *_YL),
-        (11, 9, *_YL), (12, 9, *_YL), (13, 9, *_YL), (14, 9, *_YL),
-        (15, 9, *_YL), (16, 9, *_YD),
-        # Row 10 (belly)
+        (15, 8, *_YL), (16, 8, *_YD),
+        (7, 9, *_YL), (8, 9, *_YD), (9, 9, *_YL), (10, 9, *_YL),
+        (11, 9, *_YL), (12, 9, *_YL), (13, 9, *_YL), (14, 9, *_YL), (15, 9, *_YL),
         (8, 10, *_YL), (9, 10, *_YL), (10, 10, *_YL), (11, 10, *_YL),
-        (12, 10, *_YL), (13, 10, *_YL), (14, 10, *_YL), (15, 10, *_YL),
-    ]:
-        p.append((dx, dy, r, g, b))
-
-    # Legs frame A — left forward, right back
-    for dx, dy, r, g, b in [
-        # Left leg (forward) — reaching ahead
-        (14, 11, *_YL), (15, 11, *_YL), (16, 11, *_YL),
-        (16, 12, *_YL), (17, 12, *_YL),
-        (17, 13, *_BK),  # foot
-        # Right leg (back) — pushing off behind
-        (8, 11, *_YL), (9, 11, *_YL),
-        (7, 12, *_YL), (8, 12, *_YL),
-        (7, 13, *_BK),  # foot
-    ]:
-        p.append((dx, dy, r, g, b))
-
-    return p
+        (12, 10, *_YL), (13, 10, *_YL), (14, 10, *_YL),
+        # Legs — gathering underneath
+        (10, 11, *_YL), (11, 11, *_YL), (13, 11, *_YL), (14, 11, *_YL),
+        (10, 12, *_YL), (11, 12, *_YL), (14, 12, *_YL), (15, 12, *_YL),
+        (11, 13, *_BK), (15, 13, *_BK),  # feet
+    ]
 
 
-def _build_pikachu_frame_b() -> PixelData:
-    """Pikachu running frame B — right leg forward, left leg back."""
-    p: PixelData = []
-
-    # Tail — same as frame A
-    for dx, dy, r, g, b in [
-        (0, 0, *_YL), (1, 0, *_YL), (2, 0, *_YL),
-        (2, 1, *_YL), (3, 1, *_YL),
-        (3, 2, *_YL), (4, 2, *_YL),
-        (4, 3, *_YL), (5, 3, *_YL),
-        (5, 4, *_YL), (6, 4, *_YL),
-        (0, 1, *_BK), (1, 1, *_BK), (2, 2, *_BK),
-        (3, 0, *_BK), (3, 3, *_BK), (4, 1, *_BK),
-        (4, 4, *_BK), (5, 2, *_BK), (5, 5, *_BK),
-        (6, 3, *_BK), (6, 5, *_BK),
-    ]:
-        p.append((dx, dy, r, g, b))
-
-    # Ears — same as frame A
-    for dx, dy, r, g, b in [
-        (8, 0, *_BK), (9, 0, *_BR), (9, 1, *_BK), (8, 1, *_YL),
-        (8, 2, *_YL), (9, 2, *_YL),
-        (14, 0, *_BR), (15, 0, *_BK), (14, 1, *_YL), (15, 1, *_BK),
-        (14, 2, *_YL), (15, 2, *_YL),
-    ]:
-        p.append((dx, dy, r, g, b))
-
-    # Head — same as frame A
-    for dx, dy, r, g, b in [
-        (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL),
-        (12, 3, *_YL), (13, 3, *_YL), (14, 3, *_YL),
-        (8, 4, *_YL), (9, 4, *_YL), (10, 4, *_YL), (11, 4, *_YL),
-        (12, 4, *_YL), (13, 4, *_YL), (14, 4, *_YL), (15, 4, *_YL),
-        (8, 5, *_YL), (9, 5, *_YL),
-        (10, 5, *_BK), (11, 5, *_WT),
-        (12, 5, *_YL),
-        (13, 5, *_BK), (14, 5, *_WT),
-        (15, 5, *_YL), (16, 5, *_YL),
-        (8, 6, *_YL), (9, 6, *_RC),
-        (10, 6, *_YL), (11, 6, *_YL), (12, 6, *_YL),
-        (13, 6, *_YL), (14, 6, *_RC),
-        (15, 6, *_YL), (16, 6, *_YL),
-        (17, 6, *_YL),
-    ]:
-        p.append((dx, dy, r, g, b))
-
-    # Body — same as frame A
-    for dx, dy, r, g, b in [
-        (7, 7, *_YL), (8, 7, *_YL), (9, 7, *_YL), (10, 7, *_YL),
-        (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL), (14, 7, *_YL),
-        (15, 7, *_YL), (16, 7, *_YL), (17, 7, *_YL),
-        (7, 8, *_YL), (8, 8, *_YD), (9, 8, *_BR), (10, 8, *_BR),
-        (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL), (14, 8, *_YL),
-        (15, 8, *_YL), (16, 8, *_YL), (17, 8, *_YD),
-        (7, 9, *_YL), (8, 9, *_YL), (9, 9, *_YD), (10, 9, *_YL),
-        (11, 9, *_YL), (12, 9, *_YL), (13, 9, *_YL), (14, 9, *_YL),
-        (15, 9, *_YL), (16, 9, *_YD),
-        (8, 10, *_YL), (9, 10, *_YL), (10, 10, *_YL), (11, 10, *_YL),
-        (12, 10, *_YL), (13, 10, *_YL), (14, 10, *_YL), (15, 10, *_YL),
-    ]:
-        p.append((dx, dy, r, g, b))
-
-    # Legs frame B — right forward, left back (swapped from A)
-    for dx, dy, r, g, b in [
-        # Right leg (forward) — reaching ahead
-        (14, 11, *_YL), (15, 11, *_YL), (16, 11, *_YL),
-        (15, 12, *_YL), (16, 12, *_YL),
-        (16, 13, *_BK),  # foot
-        # Left leg (back) — pushing off behind
-        (9, 11, *_YL), (10, 11, *_YL),
-        (8, 12, *_YL), (9, 12, *_YL),
-        (8, 13, *_BK),  # foot
-    ]:
-        p.append((dx, dy, r, g, b))
-
-    return p
-
-
-PIKACHU_FRAME_A: PixelData = _build_pikachu_frame_a()
-PIKACHU_FRAME_B: PixelData = _build_pikachu_frame_b()
-PIKACHU_FRAMES: list[PixelData] = [PIKACHU_FRAME_A, PIKACHU_FRAME_B]
+PIKACHU_FRAME_1: PixelData = _build_pikachu_frame_1()
+PIKACHU_FRAME_2: PixelData = _build_pikachu_frame_2()
+PIKACHU_FRAME_3: PixelData = _build_pikachu_frame_3()
+PIKACHU_FRAME_4: PixelData = _build_pikachu_frame_4()
+PIKACHU_FRAMES: list[PixelData] = [
+    PIKACHU_FRAME_1, PIKACHU_FRAME_2, PIKACHU_FRAME_3, PIKACHU_FRAME_4,
+]
 
 
 POKEBALL_FRAME_0: PixelData = _build_frame_0()

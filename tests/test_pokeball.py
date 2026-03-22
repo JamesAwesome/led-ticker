@@ -37,8 +37,8 @@ class TestPokeballSprite:
 
 
 class TestPikachuSprite:
-    def test_has_two_frames(self):
-        assert len(PIKACHU_FRAMES) == 2
+    def test_has_four_frames(self):
+        assert len(PIKACHU_FRAMES) == 4
 
     def test_each_frame_has_pixels(self):
         for frame in PIKACHU_FRAMES:
@@ -53,9 +53,10 @@ class TestPikachuSprite:
                 assert 0 <= g <= 255
                 assert 0 <= b <= 255
 
-    def test_frames_have_similar_pixel_count(self):
-        counts = [len(f) for f in PIKACHU_FRAMES]
-        assert max(counts) - min(counts) <= 5
+    def test_frames_have_reasonable_pixel_count(self):
+        """Frames have different body sizes but should all be substantial."""
+        for frame in PIKACHU_FRAMES:
+            assert len(frame) > 50
 
 
 class TestDrawPokeballFrame:

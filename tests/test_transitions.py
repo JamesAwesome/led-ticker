@@ -77,6 +77,8 @@ class TestTransitionRegistry:
             "nyancat",
             "nyancat_reverse",
             "pokeball",
+            "pokeball_reverse",
+            "pokeball_alternating",
             "scroll",
             "push_alternating",
             "nyancat_alternating",
@@ -84,7 +86,7 @@ class TestTransitionRegistry:
         ]
         for name in expected:
             assert name in _TRANSITION_REGISTRY
-        assert len(_TRANSITION_REGISTRY) == 19
+        assert len(_TRANSITION_REGISTRY) == 21
 
     def test_get_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown transition"):

@@ -436,3 +436,49 @@ def draw_pokeball_frame(
         y = PIKACHU_Y_OFFSET + dy
         if 0 <= x < width and 0 <= y < height:
             canvas.SetPixel(x, y, r, g, b)
+
+
+def draw_pokeball_frame_rtl(
+    canvas: Canvas,
+    progress: float,
+    width: int = 160,
+    height: int = 16,
+) -> None:
+    """Draw one frame of the pokeball rolling transition (right-to-left).
+
+    Mirror of draw_pokeball_frame: ball rolls from right to left,
+    blackout is on the right, sprites are horizontally flipped.
+    """
+    total_travel = width + SPRITE_SIZE
+    ball_x = int(width - progress * total_travel)
+
+    # Select rotation frame (reverse direction = counter-clockwise)
+    pixels_traveled = int(progress * total_travel)
+    pixels_per_frame = PIXELS_PER_ROTATION // NUM_FRAMES
+    frame_idx = (pixels_traveled // pixels_per_frame) % NUM_FRAMES
+    sprite = POKEBALL_FRAMES[frame_idx]
+
+    # Black out everything to the right of the ball
+    blackout_start = max(0, min(width, ball_x + SPRITE_SIZE))
+    for y in range(height):
+        for x in range(blackout_start, width):
+            canvas.SetPixel(x, y, 0, 0, 0)
+
+    # Draw the pokeball sprite (flipped horizontally)
+    for dx, dy, r, g, b in sprite:
+        x = ball_x + (SPRITE_SIZE - 1 - dx)
+        y = SPRITE_Y_OFFSET + dy
+        if 0 <= x < width and 0 <= y < height:
+            canvas.SetPixel(x, y, r, g, b)
+
+    # Draw Pikachu chasing the pokeball (flipped, trailing to the right)
+    pika_x = ball_x + SPRITE_SIZE + PIKACHU_GAP
+    pika_frame_idx = (pixels_traveled // PIKACHU_FRAMES_PER_STEP) % len(
+        PIKACHU_FRAMES
+    )
+    pika_sprite = PIKACHU_FRAMES[pika_frame_idx]
+    for dx, dy, r, g, b in pika_sprite:
+        x = pika_x + (PIKACHU_WIDTH - 1 - dx)
+        y = PIKACHU_Y_OFFSET + dy
+        if 0 <= x < width and 0 <= y < height:
+            canvas.SetPixel(x, y, r, g, b)

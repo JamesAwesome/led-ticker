@@ -678,6 +678,63 @@ class Pokeball:
         return canvas
 
 
+@register_transition("pokeball_reverse")
+class PokeballReverse:
+    """Pokeball rolls right-to-left, erasing outgoing content."""
+
+    min_frames: int = 40
+
+    def __init__(self, **kwargs: Any) -> None:
+        pass
+
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        from led_ticker.widgets.pokeball import draw_pokeball_frame_rtl
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+            return canvas
+
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
+        draw_pokeball_frame_rtl(
+            canvas,
+            t,
+            width=canvas.width,
+            height=getattr(canvas, "height", 16),
+        )
+        return canvas
+
+
+@register_transition("pokeball_alternating")
+class PokeballAlternating:
+    """Cycles through pokeball -> pokeball_reverse."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        self._transitions: list[Transition] = [
+            Pokeball(**kwargs),
+            PokeballReverse(**kwargs),
+        ]
+        self._index: int = -1
+        self._last_t: float = 1.0
+
+    @property
+    def min_frames(self) -> int:
+        next_idx = (self._index + 1) % len(self._transitions)
+        return getattr(self._transitions[next_idx], "min_frames", 40)
+
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        if t < self._last_t:
+            self._index = (self._index + 1) % len(self._transitions)
+        self._last_t = t
+        return self._transitions[self._index].frame_at(
+            t, canvas, outgoing, incoming, **kwargs
+        )
+
+
 @register_transition("scroll")
 class Scroll:
     """Seamless continuous scroll with bullet separator.

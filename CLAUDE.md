@@ -114,7 +114,9 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 - `nyancat` — Nyan Cat flies left-to-right, rainbow fills screen before cut
 - `scroll` — seamless continuous scroll with bullet dot separator (2x2 SetPixel, 6px symmetric gaps). Uses `_scroll_between` at 1px/frame for constant speed. Note: `forever_scroll` mode uses a text `•` character via `DEFAULT_BUFFER_MSG` with cursor-based spacing — visually similar but different rendering approach.
 - `nyancat_reverse` — Nyan Cat flies right-to-left (flipped sprite), rainbow fills screen
-- `pokeball` — Pokeball rolls left-to-right erasing outgoing content; 4-frame rotation, physically-based roll speed (π×14 ≈ 44px per rotation)
+- `pokeball` — Pokeball rolls left-to-right with Pikachu chasing; 4-frame rotation, 4-frame Pikachu run cycle
+- `pokeball_reverse` — Pokeball + Pikachu right-to-left (flipped sprites)
+- `pokeball_alternating` — cycles through pokeball → pokeball_reverse each swap
 - `push_alternating` — cycles through push_left → push_right → push_up → push_down each swap
 - `nyancat_alternating` — cycles through nyancat → nyancat_reverse each swap
 - `wipe_alternating` — cycles through wipe_left → wipe_right → wipe_up → wipe_down each swap

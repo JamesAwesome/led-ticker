@@ -2,7 +2,12 @@
 
 from rgbmatrix import _StubCanvas
 
-from led_ticker.transition import Pokeball, get_transition_class
+from led_ticker.transition import (
+    Pokeball,
+    PokeballAlternating,
+    PokeballReverse,
+    get_transition_class,
+)
 from led_ticker.widgets.pokeball import (
     PIKACHU_FRAMES,
     PIKACHU_HEIGHT,
@@ -10,6 +15,7 @@ from led_ticker.widgets.pokeball import (
     POKEBALL_FRAMES,
     SPRITE_SIZE,
     draw_pokeball_frame,
+    draw_pokeball_frame_rtl,
 )
 
 
@@ -137,3 +143,83 @@ class TestPokeballTransition:
         poke = Pokeball()
         result = poke.frame_at(0.5, pixel_canvas, make_widget(40), make_widget(40))
         assert result is pixel_canvas
+
+
+class TestDrawPokeballFrameRTL:
+    def test_at_zero_ball_offscreen_right(self):
+        canvas = _StubCanvas(width=40, height=16)
+        draw_pokeball_frame_rtl(canvas, 0.0, width=40, height=16)
+
+    def test_at_midpoint_draws_pixels(self):
+        canvas = _StubCanvas(width=40, height=16)
+        draw_pokeball_frame_rtl(canvas, 0.5, width=40, height=16)
+        assert canvas.count_nonzero() > 0
+
+    def test_blackout_right_of_ball(self):
+        canvas = _StubCanvas(width=160, height=16)
+        for y in range(16):
+            for x in range(160):
+                canvas.SetPixel(x, y, 100, 100, 100)
+        draw_pokeball_frame_rtl(canvas, 0.5, width=160, height=16)
+        assert canvas.get_pixel(159, 8) == (0, 0, 0)
+
+    def test_no_out_of_bounds(self):
+        canvas = _StubCanvas(width=40, height=16)
+        for p in [0.0, 0.25, 0.5, 0.75, 1.0]:
+            draw_pokeball_frame_rtl(canvas, p, width=40, height=16)
+            for x, y in canvas._pixels:
+                assert 0 <= x < 40
+                assert 0 <= y < 16
+
+    def test_sprite_is_flipped(self):
+        canvas_ltr = _StubCanvas(width=160, height=16)
+        canvas_rtl = _StubCanvas(width=160, height=16)
+        draw_pokeball_frame(canvas_ltr, 0.3, width=160, height=16)
+        draw_pokeball_frame_rtl(canvas_rtl, 0.3, width=160, height=16)
+        ltr_pixels = set(canvas_ltr._pixels.keys())
+        rtl_pixels = set(canvas_rtl._pixels.keys())
+        assert ltr_pixels != rtl_pixels
+
+
+class TestPokeballReverseTransition:
+    def test_registered(self):
+        cls = get_transition_class("pokeball_reverse")
+        assert cls is PokeballReverse
+
+    def test_complete_shows_incoming(self, make_widget):
+        pixel_canvas = _StubCanvas(width=40, height=16)
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        poke = PokeballReverse()
+        poke.frame_at(1.0, pixel_canvas, outgoing, incoming)
+        assert not outgoing.draw.called
+        assert incoming.draw.called
+
+    def test_midpoint_draws_outgoing(self, make_widget):
+        pixel_canvas = _StubCanvas(width=40, height=16)
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        poke = PokeballReverse()
+        poke.frame_at(0.3, pixel_canvas, outgoing, incoming)
+        assert outgoing.draw.called
+
+
+class TestPokeballAlternatingTransition:
+    def test_registered(self):
+        cls = get_transition_class("pokeball_alternating")
+        assert cls is PokeballAlternating
+
+    def test_alternates_direction(self, make_widget):
+        poke = PokeballAlternating()
+        canvas = _StubCanvas(width=40, height=16)
+        # First cycle — t drops below last_t (1.0), advances to index 0
+        poke.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        assert poke._index == 0
+        poke.frame_at(1.0, canvas, make_widget(40), make_widget(40))
+        # Second cycle — t drops again, advances to index 1
+        poke.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        assert poke._index == 1
+        poke.frame_at(1.0, canvas, make_widget(40), make_widget(40))
+        # Third cycle — wraps back to 0
+        poke.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        assert poke._index == 0

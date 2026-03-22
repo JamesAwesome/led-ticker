@@ -25,6 +25,7 @@ dev = [
     "pytest-cov>=5.0",
     "pytest-mock>=3.12",
     "ruff>=0.4",
+    "pyright>=1.1",
 ]
 
 [project.scripts]
@@ -36,6 +37,11 @@ packages = ["src/led_ticker"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.pyright]
+pythonPlatform = "All"
+pythonVersion = "3.13"
+extraPaths = ["tests/stubs"]
 
 [tool.ruff]
 target-version = "py311"

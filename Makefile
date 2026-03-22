@@ -1,4 +1,4 @@
-.PHONY: dev test lint format clean build-docker
+.PHONY: dev test lint typecheck format clean build-docker
 
 # --- Developer Setup ---
 
@@ -14,6 +14,9 @@ test:  ## Run pytest with coverage (no Docker needed)
 
 lint:  ## Run ruff linter
 	uv run ruff check src/ tests/
+
+typecheck:  ## Run pyright type checker
+	uv run pyright src/
 
 format:  ## Run ruff formatter
 	uv run ruff format src/ tests/

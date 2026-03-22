@@ -398,6 +398,7 @@ def draw_pokeball_frame(
     progress: float,
     width: int = 160,
     height: int = 16,
+    show_pikachu: bool = True,
 ) -> None:
     """Draw one frame of the pokeball rolling transition (left-to-right).
 
@@ -426,16 +427,17 @@ def draw_pokeball_frame(
             canvas.SetPixel(x, y, r, g, b)
 
     # Draw Pikachu chasing the pokeball
-    pika_x = ball_x - PIKACHU_WIDTH - PIKACHU_GAP
-    pika_frame_idx = (max(0, ball_x) // PIKACHU_FRAMES_PER_STEP) % len(
-        PIKACHU_FRAMES
-    )
-    pika_sprite = PIKACHU_FRAMES[pika_frame_idx]
-    for dx, dy, r, g, b in pika_sprite:
-        x = pika_x + dx
-        y = PIKACHU_Y_OFFSET + dy
-        if 0 <= x < width and 0 <= y < height:
-            canvas.SetPixel(x, y, r, g, b)
+    if show_pikachu:
+        pika_x = ball_x - PIKACHU_WIDTH - PIKACHU_GAP
+        pika_frame_idx = (max(0, ball_x) // PIKACHU_FRAMES_PER_STEP) % len(
+            PIKACHU_FRAMES
+        )
+        pika_sprite = PIKACHU_FRAMES[pika_frame_idx]
+        for dx, dy, r, g, b in pika_sprite:
+            x = pika_x + dx
+            y = PIKACHU_Y_OFFSET + dy
+            if 0 <= x < width and 0 <= y < height:
+                canvas.SetPixel(x, y, r, g, b)
 
 
 def draw_pokeball_frame_rtl(
@@ -443,6 +445,7 @@ def draw_pokeball_frame_rtl(
     progress: float,
     width: int = 160,
     height: int = 16,
+    show_pikachu: bool = True,
 ) -> None:
     """Draw one frame of the pokeball rolling transition (right-to-left).
 
@@ -472,13 +475,14 @@ def draw_pokeball_frame_rtl(
             canvas.SetPixel(x, y, r, g, b)
 
     # Draw Pikachu chasing the pokeball (flipped, trailing to the right)
-    pika_x = ball_x + SPRITE_SIZE + PIKACHU_GAP
-    pika_frame_idx = (pixels_traveled // PIKACHU_FRAMES_PER_STEP) % len(
-        PIKACHU_FRAMES
-    )
-    pika_sprite = PIKACHU_FRAMES[pika_frame_idx]
-    for dx, dy, r, g, b in pika_sprite:
-        x = pika_x + (PIKACHU_WIDTH - 1 - dx)
-        y = PIKACHU_Y_OFFSET + dy
-        if 0 <= x < width and 0 <= y < height:
-            canvas.SetPixel(x, y, r, g, b)
+    if show_pikachu:
+        pika_x = ball_x + SPRITE_SIZE + PIKACHU_GAP
+        pika_frame_idx = (pixels_traveled // PIKACHU_FRAMES_PER_STEP) % len(
+            PIKACHU_FRAMES
+        )
+        pika_sprite = PIKACHU_FRAMES[pika_frame_idx]
+        for dx, dy, r, g, b in pika_sprite:
+            x = pika_x + (PIKACHU_WIDTH - 1 - dx)
+            y = PIKACHU_Y_OFFSET + dy
+            if 0 <= x < width and 0 <= y < height:
+                canvas.SetPixel(x, y, r, g, b)

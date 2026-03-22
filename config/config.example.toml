@@ -26,6 +26,7 @@ delay = 5
 #   transition = "scroll"
 #   transition_duration = 4.0
 #   easing = "linear"
+# Optional: show_pikachu = false  (hide Pikachu from pokeball transitions, default: true)
 # Available easing: linear, ease_out, ease_in_out
 
 [transitions]

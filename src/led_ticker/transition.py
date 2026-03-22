@@ -655,8 +655,8 @@ class Pokeball:
 
     min_frames: int = 40
 
-    def __init__(self, **kwargs: Any) -> None:
-        pass
+    def __init__(self, show_pikachu: bool = True, **kwargs: Any) -> None:
+        self._show_pikachu = show_pikachu
 
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
@@ -674,6 +674,7 @@ class Pokeball:
             t,
             width=canvas.width,
             height=getattr(canvas, "height", 16),
+            show_pikachu=self._show_pikachu,
         )
         return canvas
 
@@ -684,8 +685,8 @@ class PokeballReverse:
 
     min_frames: int = 40
 
-    def __init__(self, **kwargs: Any) -> None:
-        pass
+    def __init__(self, show_pikachu: bool = True, **kwargs: Any) -> None:
+        self._show_pikachu = show_pikachu
 
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
@@ -703,6 +704,7 @@ class PokeballReverse:
             t,
             width=canvas.width,
             height=getattr(canvas, "height", 16),
+            show_pikachu=self._show_pikachu,
         )
         return canvas
 

@@ -178,11 +178,13 @@ async def run(config_path: Path) -> None:
                 trans_cfg = section.transition
                 if trans_cfg.type != "cut":
                     trans_cls = get_transition_class(trans_cfg.type)
-                    trans_kwargs = {}
+                    trans_kwargs: dict[str, Any] = {}
                     if trans_cfg.colors is not None:
                         trans_kwargs["colors"] = trans_cfg.colors
                     elif trans_cfg.color is not None:
                         trans_kwargs["color"] = trans_cfg.color
+                    if not trans_cfg.show_pikachu:
+                        trans_kwargs["show_pikachu"] = False
                     trans_cfg.transition_obj = trans_cls(**trans_kwargs)
                     transition_config = trans_cfg
                 else:

@@ -28,6 +28,7 @@ class TransitionConfig:
     easing: str = "linear"
     color: tuple[int, int, int] | None = None
     colors: list[tuple[int, int, int]] | None = None
+    show_pikachu: bool = True
     transition_obj: Any = None
 
 
@@ -81,6 +82,7 @@ def _parse_transition(
         easing=raw.get("easing", default.easing),
         color=color,
         colors=colors,
+        show_pikachu=raw.get("show_pikachu", default.show_pikachu),
     )
 
 
@@ -119,6 +121,8 @@ def load_config(path: Path) -> AppConfig:
             trans.color = tuple(section_raw["transition_color"])
         if "transition_colors" in section_raw:
             trans.colors = [tuple(c) for c in section_raw["transition_colors"]]
+        if "show_pikachu" in section_raw:
+            trans.show_pikachu = section_raw["show_pikachu"]
 
         section = SectionConfig(
             mode=section_raw.get("mode", "forever_scroll"),

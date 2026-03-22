@@ -4,6 +4,9 @@ from rgbmatrix import _StubCanvas
 
 from led_ticker.transition import Pokeball, get_transition_class
 from led_ticker.widgets.pokeball import (
+    PIKACHU_FRAMES,
+    PIKACHU_HEIGHT,
+    PIKACHU_WIDTH,
     POKEBALL_FRAMES,
     SPRITE_SIZE,
     draw_pokeball_frame,
@@ -33,6 +36,28 @@ class TestPokeballSprite:
         assert max(counts) - min(counts) <= 5
 
 
+class TestPikachuSprite:
+    def test_has_two_frames(self):
+        assert len(PIKACHU_FRAMES) == 2
+
+    def test_each_frame_has_pixels(self):
+        for frame in PIKACHU_FRAMES:
+            assert len(frame) > 0
+
+    def test_sprite_pixels_in_bounds(self):
+        for frame in PIKACHU_FRAMES:
+            for dx, dy, r, g, b in frame:
+                assert 0 <= dx < PIKACHU_WIDTH, f"dx={dx} out of bounds"
+                assert 0 <= dy < PIKACHU_HEIGHT, f"dy={dy} out of bounds"
+                assert 0 <= r <= 255
+                assert 0 <= g <= 255
+                assert 0 <= b <= 255
+
+    def test_frames_have_similar_pixel_count(self):
+        counts = [len(f) for f in PIKACHU_FRAMES]
+        assert max(counts) - min(counts) <= 5
+
+
 class TestDrawPokeballFrame:
     def test_at_zero_ball_offscreen_left(self):
         canvas = _StubCanvas(width=40, height=16)
@@ -44,13 +69,13 @@ class TestDrawPokeballFrame:
         assert canvas.count_nonzero() > 0
 
     def test_blackout_left_of_ball(self):
-        canvas = _StubCanvas(width=40, height=16)
+        canvas = _StubCanvas(width=160, height=16)
         # Pre-fill canvas to simulate outgoing text
         for y in range(16):
-            for x in range(40):
+            for x in range(160):
                 canvas.SetPixel(x, y, 100, 100, 100)
-        draw_pokeball_frame(canvas, 0.5, width=40, height=16)
-        # Pixels well to the left of the ball should be black
+        draw_pokeball_frame(canvas, 0.5, width=160, height=16)
+        # Pixels well to the left of both pokeball and pikachu should be black
         assert canvas.get_pixel(0, 8) == (0, 0, 0)
 
     def test_no_out_of_bounds(self):

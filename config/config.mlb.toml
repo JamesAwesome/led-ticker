@@ -16,14 +16,14 @@ delay = 5
 default = "push_left"
 duration = 0.5
 easing = "ease_out"
-between_sections = {type = "nyancat_alternating", duration = 2.0}
+between_sections = {type = "baseball_alternating", duration = 2.0}
 
 # --- MLB Scores (swap mode) ---
 
 [[playlist.section]]
 mode = "swap"
-transition = "scroll"
-transition_duration = 4.0
+transition = "baseball_alternating"
+transition_duration = 2.0
 hold_time = 6
 loop_count = 0
 

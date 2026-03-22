@@ -126,8 +126,8 @@ countdown_date = 2027-01-01
 
 [[playlist.section]]
 mode = "swap"
-transition = "scroll"
-transition_duration = 4.0
+transition = "pokeball_alternating"
+transition_duration = 2.0
 continuous_scroll = true
 loop_count = 1
 
@@ -145,8 +145,8 @@ update_interval = 3000
 
 [[playlist.section]]
 mode = "swap"
-transition = "scroll"
-transition_duration = 4.0
+transition = "baseball_alternating"
+transition_duration = 2.0
 hold_time = 6
 loop_count = 2
 

@@ -288,16 +288,14 @@ def _build_pikachu_frame_3() -> PixelData:
         (7, 3, *_YL), (8, 3, *_YL), (9, 3, *_YL), (10, 3, *_YL), (11, 3, *_YL),
         (12, 3, *_YL), (13, 3, *_YL), (14, 3, *_YL), (15, 3, *_YL),
         (16, 3, *_YL), (17, 3, *_YL),
-        # Face row (row 4: eye pushed forward, nose extends)
+        # Face row (row 4: eye pushed forward)
         (5, 4, *_YL), (6, 4, *_YL), (7, 4, *_YL), (8, 4, *_YL), (9, 4, *_YL),
         (10, 4, *_YL), (11, 4, *_YL), (12, 4, *_YL), (13, 4, *_YL),
         (14, 4, *_YL), (15, 4, *_BK), (16, 4, *_WT), (17, 4, *_YL),
-        (18, 4, *_YL), (19, 4, *_YL),
         # Cheek + widest (row 5: cheek forward)
         (5, 5, *_YL), (6, 5, *_YL), (7, 5, *_YL), (8, 5, *_YL), (9, 5, *_YL),
         (10, 5, *_YL), (11, 5, *_YL), (12, 5, *_YL), (13, 5, *_YL),
         (14, 5, *_YL), (15, 5, *_RC), (16, 5, *_YL), (17, 5, *_YL),
-        (18, 5, *_YL), (19, 5, *_YL),
         # Mid body (row 6: stripes) — long flat
         (5, 6, *_YL), (6, 6, *_BR), (7, 6, *_BR), (8, 6, *_YL), (9, 6, *_YL),
         (10, 6, *_YL), (11, 6, *_YL), (12, 6, *_YL), (13, 6, *_YL),

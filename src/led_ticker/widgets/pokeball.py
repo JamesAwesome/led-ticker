@@ -247,13 +247,14 @@ def _build_pikachu_frame_2() -> PixelData:
         (6, 6, *_YL), (7, 6, *_BR), (8, 6, *_BR), (9, 6, *_YL), (10, 6, *_YL),
         (11, 6, *_YL), (12, 6, *_YL), (13, 6, *_YL), (14, 6, *_YL),
         (15, 6, *_YL), (16, 6, *_YL), (17, 6, *_YL),
-        # Lower body (row 7)
+        # Lower body (row 7) — extends to match face
         (6, 7, *_YD), (7, 7, *_YL), (8, 7, *_YL), (9, 7, *_YL), (10, 7, *_YL),
         (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL), (14, 7, *_YL),
-        (15, 7, *_YL), (16, 7, *_YD),
-        # Bottom curve (row 8)
+        (15, 7, *_YL), (16, 7, *_YL), (17, 7, *_YD),
+        # Bottom curve (row 8) — extends to match face
         (7, 8, *_YL), (8, 8, *_YL), (9, 8, *_YL), (10, 8, *_YL),
-        (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL), (14, 8, *_YL), (15, 8, *_YL),
+        (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL), (14, 8, *_YL),
+        (15, 8, *_YL), (16, 8, *_YL),
         # Legs — back pushing slightly, front reaching slightly
         # Front leg (shifted 2px ahead)
         (13, 9, *_YL), (14, 9, *_YL),
@@ -305,10 +306,10 @@ def _build_pikachu_frame_3() -> PixelData:
         (5, 7, *_YD), (6, 7, *_YL), (7, 7, *_YL), (8, 7, *_YL), (9, 7, *_YL),
         (10, 7, *_YL), (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL),
         (14, 7, *_YL), (15, 7, *_YL), (16, 7, *_YL), (17, 7, *_YD),
-        # Bottom curve (row 8)
+        # Bottom curve (row 8) — extends to match face
         (6, 8, *_YL), (7, 8, *_YL), (8, 8, *_YL), (9, 8, *_YL),
         (10, 8, *_YL), (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL),
-        (14, 8, *_YL), (15, 8, *_YL), (16, 8, *_YL),
+        (14, 8, *_YL), (15, 8, *_YL), (16, 8, *_YL), (17, 8, *_YL),
         # Legs — widest spread, but still stubby
         # Front leg (shifted ahead)
         (14, 9, *_YL), (15, 9, *_YL),
@@ -356,12 +357,13 @@ def _build_pikachu_frame_4() -> PixelData:
         (6, 7, *_YL), (7, 7, *_BR), (8, 7, *_BR), (9, 7, *_YL), (10, 7, *_YL),
         (11, 7, *_YL), (12, 7, *_YL), (13, 7, *_YL), (14, 7, *_YL),
         (15, 7, *_YL), (16, 7, *_YL),
-        # Lower body (row 8)
+        # Lower body (row 8) — extends to match face
         (6, 8, *_YD), (7, 8, *_YL), (8, 8, *_YL), (9, 8, *_YL), (10, 8, *_YL),
-        (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL), (14, 8, *_YL), (15, 8, *_YD),
+        (11, 8, *_YL), (12, 8, *_YL), (13, 8, *_YL), (14, 8, *_YL),
+        (15, 8, *_YL), (16, 8, *_YD),
         # Bottom curve (row 9)
         (7, 9, *_YL), (8, 9, *_YL), (9, 9, *_YL), (10, 9, *_YL),
-        (11, 9, *_YL), (12, 9, *_YL), (13, 9, *_YL), (14, 9, *_YL),
+        (11, 9, *_YL), (12, 9, *_YL), (13, 9, *_YL), (14, 9, *_YL), (15, 9, *_YL),
         # Legs — gathering back together under body
         (9, 10, *_YL), (10, 10, *_YL), (11, 10, *_YL), (12, 10, *_YL),
         (10, 11, *_YL), (11, 11, *_YL), (12, 11, *_YL), (13, 11, *_YL),

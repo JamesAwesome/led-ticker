@@ -666,7 +666,7 @@ class MLBScoreMonitor:
                     hours_ago = (
                         now - last_game_time.astimezone(self._tz)
                     ).total_seconds() / 3600
-                    if hours_ago < 24:
+                    if hours_ago < 6:
                         return s
         # No current series — check for upcoming
         for s in series_list:

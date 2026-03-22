@@ -117,6 +117,9 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 - `pokeball` — Pokeball rolls left-to-right with Pikachu chasing; 4-frame rotation, 4-frame Pikachu run cycle
 - `pokeball_reverse` — Pokeball + Pikachu right-to-left (flipped sprites)
 - `pokeball_alternating` — cycles through pokeball → pokeball_reverse each swap
+- `baseball` — white baseball with red stitching rolls left-to-right; 4-frame stitch rotation
+- `baseball_reverse` — baseball right-to-left (flipped)
+- `baseball_alternating` — cycles through baseball → baseball_reverse each swap
 - `push_alternating` — cycles through push_left → push_right → push_up → push_down each swap
 - `nyancat_alternating` — cycles through nyancat → nyancat_reverse each swap
 - `wipe_alternating` — cycles through wipe_left → wipe_right → wipe_up → wipe_down each swap

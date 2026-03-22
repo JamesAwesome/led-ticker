@@ -18,6 +18,7 @@ delay = 5
 #                  color_flash, wipe_left, wipe_right, wipe_up, wipe_down,
 #                  dissolve, split, nyancat, nyancat_reverse,
 #                  scroll, pokeball, pokeball_reverse, pokeball_alternating,
+#                  baseball, baseball_reverse, baseball_alternating,
 #                  push_alternating, wipe_alternating, nyancat_alternating
 # Optional: transition_color = [R, G, B]  (custom color for flash/wipe)
 # Optional: transition_colors = [[R,G,B], [R,G,B], [R,G,B], [R,G,B]]

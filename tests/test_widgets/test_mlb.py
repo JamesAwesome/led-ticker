@@ -135,7 +135,8 @@ class TestSeriesInfo:
 
 
 class TestBuildSeriesTitle:
-    def test_builds_title_with_record(self):
+    def test_same_home_uses_at_separator(self):
+        """All games at same venue: AWAY @ HOME."""
         games = [
             GameInfo(home_abbr="PHI", away_abbr="NYM", state="final",
                      home_score=5, away_score=3),
@@ -151,10 +152,31 @@ class TestBuildSeriesTitle:
         )
         msg = _build_series_title("PHI", series, ET)
         assert isinstance(msg, MLBGameMessage)
-        text = "".join(t for t, _ in msg.segments)
-        assert "PHI" in text
-        assert "NYM" in text
+        texts = [t for t, _ in msg.segments]
+        assert texts[0] == "NYM"   # away first
+        assert texts[1] == " @ "
+        assert texts[2] == "PHI"   # home second
+        text = "".join(texts)
         assert "leads" in text
+
+    def test_mixed_home_uses_vs_separator(self):
+        """Mixed venues: neutral 'vs' separator."""
+        games = [
+            GameInfo(home_abbr="PHI", away_abbr="NYM", state="final",
+                     home_score=5, away_score=3),
+            GameInfo(home_abbr="NYM", away_abbr="PHI", state="preview"),
+        ]
+        series = SeriesInfo(
+            opponent_abbr="NYM",
+            games=games,
+            team_wins=1,
+            team_losses=0,
+        )
+        msg = _build_series_title("PHI", series, ET)
+        texts = [t for t, _ in msg.segments]
+        assert texts[0] == "PHI"
+        assert texts[1] == " vs "
+        assert texts[2] == "NYM"
 
     def test_tied_series(self):
         games = [
@@ -185,6 +207,11 @@ class TestBuildSeriesTitle:
         text = "".join(t for t, _ in msg.segments)
         assert "(ST)" in text
         assert msg.icon is not None
+        # Single home team: should use @ separator
+        texts = [t for t, _ in msg.segments]
+        assert texts[0] == "BAL"
+        assert texts[1] == " @ "
+        assert texts[2] == "PHI"
 
     def test_single_game_no_record(self):
         """Single-game matchups shouldn't show series record."""
@@ -208,18 +235,41 @@ class TestBuildSeriesTitle:
 
 
 class TestBuildGameMessage:
-    def test_final_win(self):
+    def test_final_home_win_away_first(self):
+        """Home team wins — away listed first, scores colored independently."""
         game = GameInfo(
             home_abbr="PHI", away_abbr="NYM",
             home_score=5, away_score=3, state="final",
         )
         msg = _build_game_message(game, "PHI", ET)
-        text = "".join(t for t, _ in msg.segments)
-        assert "PHI" in text
-        assert "5" in text
-        assert "Final" in text
+        texts = [t for t, _ in msg.segments]
+        full = "".join(texts)
+        # Away team (NYM) listed first
+        assert texts[0] == "NYM"
+        assert texts[3] == "PHI"
+        assert "Final" in full
+        # Away lost (3 < 5): away score red, home score green
+        from led_ticker.widgets.mlb import LOSS_COLOR, WIN_COLOR
+        colors = [c for _, c in msg.segments]
+        assert colors[1] is LOSS_COLOR  # NYM score (3) = red
+        assert colors[4] is WIN_COLOR   # PHI score (5) = green
 
-    def test_live_game(self):
+    def test_final_away_win(self):
+        """Away team wins — scores colored: away green, home red."""
+        game = GameInfo(
+            home_abbr="PHI", away_abbr="NYM",
+            home_score=2, away_score=4, state="final",
+        )
+        msg = _build_game_message(game, "PHI", ET)
+        from led_ticker.widgets.mlb import LOSS_COLOR, WIN_COLOR
+        texts = [t for t, _ in msg.segments]
+        colors = [c for _, c in msg.segments]
+        assert texts[0] == "NYM"
+        assert colors[1] is WIN_COLOR   # NYM score (4) = green
+        assert colors[4] is LOSS_COLOR  # PHI score (2) = red
+
+    def test_live_game_away_first(self):
+        """Live game: away team listed first, scores in white."""
         game = GameInfo(
             home_abbr="PHI", away_abbr="NYM",
             home_score=3, away_score=2, state="live",
@@ -228,12 +278,13 @@ class TestBuildGameMessage:
             on_first=True, on_second=False, on_third=True,
         )
         msg = _build_game_message(game, "PHI", ET)
-        text = "".join(t for t, _ in msg.segments)
+        texts = [t for t, _ in msg.segments]
+        text = "".join(texts)
+        # Away (NYM) listed first
+        assert texts[0] == "NYM"
+        assert texts[3] == "PHI"
         assert "\u25bc7" in text
-        assert "PHI" in text
-        # BSO as colored segments: "2|1|1"
         assert "\u00b7" in text
-        # 3rd occupied, 2nd empty, 1st occupied
         assert "\u25c6\u25c7\u25c6" in text
 
     def test_live_game_bases_empty(self):
@@ -247,16 +298,31 @@ class TestBuildGameMessage:
         assert "\u25c7\u25c7\u25c7" in text
         assert "\u00b7" in text
 
-    def test_upcoming_game(self):
+    def test_preview_away_at_home(self):
+        """Preview always shows AWAY @ HOME regardless of which team is yours."""
         game = GameInfo(
             home_abbr="NYM", away_abbr="PHI",
             state="preview",
             start_time=datetime.now(ET) + timedelta(hours=3),
         )
         msg = _build_game_message(game, "PHI", ET)
-        text = "".join(t for t, _ in msg.segments)
-        assert "@" in text
-        assert "PM" in text or "AM" in text
+        texts = [t for t, _ in msg.segments]
+        assert texts[0] == "PHI"   # away
+        assert texts[1] == " @ "
+        assert texts[2] == "NYM"   # home
+
+    def test_preview_home_team_also_away_first(self):
+        """When your team is home, away opponent still listed first."""
+        game = GameInfo(
+            home_abbr="PHI", away_abbr="NYM",
+            state="preview",
+            start_time=datetime.now(ET) + timedelta(hours=3),
+        )
+        msg = _build_game_message(game, "PHI", ET)
+        texts = [t for t, _ in msg.segments]
+        assert texts[0] == "NYM"   # away
+        assert texts[1] == " @ "
+        assert texts[2] == "PHI"   # home
 
 
 # --- MLBGameMessage draw ---

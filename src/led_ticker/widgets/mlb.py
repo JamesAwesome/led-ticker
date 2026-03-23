@@ -239,15 +239,34 @@ class MLBGameMessage:
 def _build_series_title(
     team_abbr: str, series: SeriesInfo, tz: ZoneInfo
 ) -> MLBGameMessage:
-    """Build the title message for a series."""
+    """Build the title message for a series.
+
+    Uses AWAY @ HOME when all games share the same home team,
+    otherwise falls back to neutral 'vs' separator.
+    """
     team_c = _team_color(team_abbr)
     opp_c = _team_color(series.opponent_abbr)
 
-    segments: list[tuple[str, Color]] = [
-        (team_abbr, team_c),
-        (" vs ", RGB_WHITE),
-        (series.opponent_abbr, opp_c),
-    ]
+    # Determine if all games share the same home team
+    home_teams = {g.home_abbr for g in series.games}
+    all_same_home = len(home_teams) == 1
+
+    if all_same_home:
+        home = next(iter(home_teams))
+        away = team_abbr if home != team_abbr else series.opponent_abbr
+        away_c = _team_color(away)
+        home_c = _team_color(home)
+        segments: list[tuple[str, Color]] = [
+            (away, away_c),
+            (" @ ", RGB_WHITE),
+            (home, home_c),
+        ]
+    else:
+        segments = [
+            (team_abbr, team_c),
+            (" vs ", RGB_WHITE),
+            (series.opponent_abbr, opp_c),
+        ]
 
     # Show (ST) / (ASG) with icon for special game types
     icon: PixelData | None = None
@@ -282,36 +301,28 @@ def _build_series_title(
 
 
 def _build_game_message(game: GameInfo, team_abbr: str, tz: ZoneInfo) -> MLBGameMessage:
-    """Build a message for a single game."""
-    team_c = _team_color(team_abbr)
-    opp_abbr = game.away_abbr if game.home_abbr == team_abbr else game.home_abbr
-    opp_c = _team_color(opp_abbr)
-    is_home = game.home_abbr == team_abbr
+    """Build a message for a single game.
+
+    Uses standard baseball convention: away team listed first.
+    """
+    away_c = _team_color(game.away_abbr)
+    home_c = _team_color(game.home_abbr)
 
     if game.state == "final":
-        if is_home:
-            team_score, opp_score = game.home_score, game.away_score
-        else:
-            team_score, opp_score = game.away_score, game.home_score
-
-        won = (team_score or 0) > (opp_score or 0)
-        score_color = WIN_COLOR if won else LOSS_COLOR
+        away_won = (game.away_score or 0) > (game.home_score or 0)
+        away_score_color = WIN_COLOR if away_won else LOSS_COLOR
+        home_score_color = LOSS_COLOR if away_won else WIN_COLOR
 
         segments: list[tuple[str, Color]] = [
-            (team_abbr, team_c),
-            (f" {team_score}", score_color),
+            (game.away_abbr, away_c),
+            (f" {game.away_score}", away_score_color),
             (" ", RGB_WHITE),
-            (opp_abbr, opp_c),
-            (f" {opp_score}", score_color),
+            (game.home_abbr, home_c),
+            (f" {game.home_score}", home_score_color),
             (" (Final)", RGB_WHITE),
         ]
 
     elif game.state == "live":
-        if is_home:
-            team_score, opp_score = game.home_score, game.away_score
-        else:
-            team_score, opp_score = game.away_score, game.home_score
-
         inning_str = f" {game.inning}" if game.inning else ""
 
         # Base diamonds: ◇ = empty, ◆ = occupied (3rd-2nd-1st)
@@ -325,11 +336,11 @@ def _build_game_message(game: GameInfo, team_abbr: str, tz: ZoneInfo) -> MLBGame
         out_c = _color(255, 80, 80)  # red
 
         segments = [
-            (team_abbr, team_c),
-            (f" {team_score}", RGB_WHITE),
+            (game.away_abbr, away_c),
+            (f" {game.away_score}", RGB_WHITE),
             (" ", RGB_WHITE),
-            (opp_abbr, opp_c),
-            (f" {opp_score}", RGB_WHITE),
+            (game.home_abbr, home_c),
+            (f" {game.home_score}", RGB_WHITE),
             (inning_str, RGB_WHITE),
             (f" {b3}{b2}{b1}", RGB_WHITE),
             (f" {game.balls}", ball_c),
@@ -340,12 +351,11 @@ def _build_game_message(game: GameInfo, team_abbr: str, tz: ZoneInfo) -> MLBGame
         ]
 
     else:  # preview
-        at_or_vs = " @ " if not is_home else " vs "
         time_str = _format_game_time(game.start_time, tz) if game.start_time else "TBD"
         segments = [
-            (team_abbr, team_c),
-            (at_or_vs, RGB_WHITE),
-            (opp_abbr, opp_c),
+            (game.away_abbr, away_c),
+            (" @ ", RGB_WHITE),
+            (game.home_abbr, home_c),
             (f" {time_str}", RGB_WHITE),
         ]
 

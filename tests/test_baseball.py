@@ -2,13 +2,13 @@
 
 from rgbmatrix import _StubCanvas
 
-from led_ticker.transition import (
+from led_ticker.transitions import (
     Baseball,
     BaseballAlternating,
     BaseballReverse,
     get_transition_class,
 )
-from led_ticker.widgets.baseball import (
+from led_ticker.transitions.baseball import (
     BASEBALL_FRAMES,
     SPRITE_SIZE,
     draw_baseball_frame,

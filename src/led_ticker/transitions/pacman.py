@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from led_ticker._types import Canvas, PixelData
+from led_ticker.transitions import Transition, register_transition
 
 # --- Pac-Man sprite ---
 
@@ -290,3 +293,88 @@ def draw_pacman_frame_rtl(
         y = PACMAN_Y_OFFSET + dy
         if 0 <= x < width and 0 <= y < height:
             canvas.SetPixel(x, y, r, g, b)
+
+
+# --- Transition classes ---
+
+
+@register_transition("pacman")
+class Pacman:
+    """Pac-Man chases scared ghosts left-to-right, erasing outgoing content."""
+
+    min_frames: int = 50
+
+    def __init__(self, **kwargs: Any) -> None:
+        pass
+
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+            return canvas
+
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
+        draw_pacman_frame(
+            canvas,
+            t,
+            width=canvas.width,
+            height=getattr(canvas, "height", 16),
+        )
+        return canvas
+
+
+@register_transition("pacman_reverse")
+class PacmanReverse:
+    """Pac-Man chases scared ghosts right-to-left, erasing outgoing content."""
+
+    min_frames: int = 50
+
+    def __init__(self, **kwargs: Any) -> None:
+        pass
+
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+            return canvas
+
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
+        draw_pacman_frame_rtl(
+            canvas,
+            t,
+            width=canvas.width,
+            height=getattr(canvas, "height", 16),
+        )
+        return canvas
+
+
+@register_transition("pacman_alternating")
+class PacmanAlternating:
+    """Cycles through pacman -> pacman_reverse."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        self._transitions: list[Transition] = [
+            Pacman(**kwargs),
+            PacmanReverse(**kwargs),
+        ]
+        self._index: int = -1
+        self._last_t: float = 1.0
+
+    @property
+    def min_frames(self) -> int:
+        next_idx = (self._index + 1) % len(self._transitions)
+        return getattr(self._transitions[next_idx], "min_frames", 50)
+
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        if t < self._last_t:
+            self._index = (self._index + 1) % len(self._transitions)
+        self._last_t = t
+        return self._transitions[self._index].frame_at(
+            t, canvas, outgoing, incoming, **kwargs
+        )

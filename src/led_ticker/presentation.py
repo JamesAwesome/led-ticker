@@ -9,7 +9,7 @@ from typing import Any
 from led_ticker._compat import require_graphics
 from led_ticker._types import Canvas, DrawResult
 from led_ticker.drawing import get_text_width
-from led_ticker.transition import ease_out
+from led_ticker.transitions import ease_out
 
 # --- Presentation registry ---
 

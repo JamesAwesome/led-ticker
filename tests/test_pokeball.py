@@ -2,13 +2,13 @@
 
 from rgbmatrix import _StubCanvas
 
-from led_ticker.transition import (
+from led_ticker.transitions import (
     Pokeball,
     PokeballAlternating,
     PokeballReverse,
     get_transition_class,
 )
-from led_ticker.widgets.pokeball import (
+from led_ticker.transitions.pokeball import (
     PIKACHU_FRAMES,
     PIKACHU_HEIGHT,
     PIKACHU_WIDTH,

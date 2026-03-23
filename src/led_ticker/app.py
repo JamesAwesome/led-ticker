@@ -19,7 +19,7 @@ from led_ticker.presentation import (
     get_presentation_class,
 )
 from led_ticker.ticker import Ticker
-from led_ticker.transition import get_transition_class, run_transition
+from led_ticker.transitions import get_transition_class, run_transition
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
 from led_ticker.widgets.mlb import MLBScoreMonitor

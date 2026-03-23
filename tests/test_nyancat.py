@@ -2,8 +2,8 @@
 
 from rgbmatrix import _StubCanvas
 
-from led_ticker.transition import NyanCat, NyanCatReverse, get_transition_class
-from led_ticker.widgets.nyancat import (
+from led_ticker.transitions import NyanCat, NyanCatReverse, get_transition_class
+from led_ticker.transitions.nyancat import (
     NYAN_CAT,
     RAINBOW,
     RAINBOW_TOP_Y,

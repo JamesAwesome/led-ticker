@@ -32,16 +32,23 @@ src/led_ticker/
   widget.py            # Widget/AsyncWidget protocols + run_monitor_loop() with backoff
   drawing.py           # Shared drawing helpers (get_text_width, compute_cursor)
   colors.py            # RGB color constants
-  transition.py        # Transition effects + registry + runner
   presentation.py      # Text presentation effects (typewriter, rainbow, etc.)
   fonts/               # BDF bitmap fonts + loader
+  transitions/
+    __init__.py         # Transition protocol, registry, easing, run_transition()
+    push.py             # PushLeft/Right/Up/Down, PushAlternating
+    wipe.py             # _BaseWipe, WipeLeft/Right/Up/Down, WipeAlternating
+    effects.py          # Cut, ColorFlash, Dissolve, SplitHorizontal, Scroll
+    nyancat.py          # NyanCat/Reverse/Alternating + sprite data + draw functions
+    pokeball.py         # Pokeball/Reverse/Alternating + Pikachu sprites + draw functions
+    baseball.py         # Baseball/Reverse/Alternating + sprite data + draw functions
+    pacman.py           # Pacman/Reverse/Alternating + ghost sprites + draw functions
   widgets/
     __init__.py         # Registry (@register decorator) + auto-imports
     message.py          # TickerMessage, TickerCountdown
     weather.py          # WeatherWidget (WeatherAPI.com) with 8x8 pixel icons
     weather_icons.py    # 7 weather condition icons
     rss_feed.py         # RSSFeedMonitor (no draw() — stories expand into TickerMessages)
-    nyancat.py          # Nyan Cat sprite + rainbow trail for transitions
     crypto/
       coinbase.py       # CoinbasePriceMonitor
       coingecko.py      # CoinGeckoPriceMonitor
@@ -56,7 +63,7 @@ src/led_ticker/
 
 **Widget Registry**: `@register("name")` decorator. Config loader uses `get_widget_class(name)`.
 
-**Transition Registry**: `@register_transition("name")` decorator. 18 transitions available.
+**Transition Registry**: `@register_transition("name")` decorator in `transitions/` package. 27 transitions available.
 
 **Presentation Registry**: `@register_presentation("name")` decorator. 5 text effects available.
 
@@ -148,12 +155,13 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 
 ### Adding a New Transition
 
-1. Add to `src/led_ticker/transition.py`
-2. Add `@register_transition("name")` decorator
+1. Create `src/led_ticker/transitions/my_transition.py` (or add to existing file)
+2. Import and use `@register_transition("name")` decorator from `led_ticker.transitions`
 3. Implement `frame_at(t, canvas, outgoing, incoming)` where t is 0.0-1.0
 4. At t=0: show only outgoing. At t=1.0: show only incoming.
 5. Use SetPixel for visual effects (sweep lines, blackout regions) — NOT ShadowCanvas
 6. Never call `widget.draw()` on anything other than the real `canvas` parameter
+7. Add import to `src/led_ticker/transitions/__init__.py` (submodule import + re-export)
 
 ### Testing
 

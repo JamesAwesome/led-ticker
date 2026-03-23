@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from led_ticker.transition import (
+from led_ticker.transitions import (
     _TRANSITION_REGISTRY,
     ColorFlash,
     Cut,
@@ -932,7 +932,7 @@ def no_sleep(monkeypatch):
     async def _fast(seconds):
         await _real_sleep(0)
 
-    monkeypatch.setattr("led_ticker.transition.asyncio.sleep", _fast)
+    monkeypatch.setattr("led_ticker.transitions.asyncio.sleep", _fast)
 
 
 class TestRunTransition:

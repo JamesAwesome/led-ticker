@@ -2,13 +2,13 @@
 
 from rgbmatrix import _StubCanvas
 
-from led_ticker.transition import (
+from led_ticker.transitions import (
     Pacman,
     PacmanAlternating,
     PacmanReverse,
     get_transition_class,
 )
-from led_ticker.widgets.pacman import (
+from led_ticker.transitions.pacman import (
     GHOST_FRAMES,
     GHOST_HEIGHT,
     GHOST_WIDTH,

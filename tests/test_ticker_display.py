@@ -260,7 +260,7 @@ class TestRunSwapWithScroll:
     async def test_scroll_processes_all_widgets(
         self, canvas, mock_frame, make_widget, no_sleep
     ):
-        from led_ticker.transition import Scroll
+        from led_ticker.transitions import Scroll
 
         q = asyncio.Queue()
         w1 = make_widget(40)
@@ -282,7 +282,7 @@ class TestRunSwapWithScroll:
         self, canvas, mock_frame, make_widget, no_sleep
     ):
         """Non-scroll transitions still use run_transition + hold."""
-        from led_ticker.transition import PushLeft
+        from led_ticker.transitions import PushLeft
 
         q = asyncio.Queue()
         w1 = make_widget(40)

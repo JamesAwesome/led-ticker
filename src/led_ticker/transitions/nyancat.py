@@ -8,7 +8,10 @@ The full display is 16px tall, so the cat is centered at y=3.
 
 from __future__ import annotations
 
+from typing import Any
+
 from led_ticker._types import Canvas, ColorTuple, PixelData
+from led_ticker.transitions import Transition, register_transition
 
 # RGB colors for the rainbow trail (top to bottom, 2px each = 12px)
 RAINBOW: list[ColorTuple] = [
@@ -237,3 +240,79 @@ def draw_nyan_frame_rtl(
         y = SPRITE_Y_OFFSET + dy
         if 0 <= x < width and 0 <= y < height:
             canvas.SetPixel(x, y, r, g, b)
+
+
+# --- Transition classes ---
+
+
+@register_transition("nyancat")
+class NyanCat:
+    """Nyan Cat flies left-to-right, rainbow fills screen before cut."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        pass
+
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+            return canvas
+
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
+        draw_nyan_frame(
+            canvas,
+            t,
+            width=canvas.width,
+            height=getattr(canvas, "height", 16),
+        )
+        return canvas
+
+
+@register_transition("nyancat_reverse")
+class NyanCatReverse:
+    """Nyan Cat flies right-to-left, rainbow fills screen before cut."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        pass
+
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+            return canvas
+
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
+        outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
+        draw_nyan_frame_rtl(
+            canvas,
+            t,
+            width=canvas.width,
+            height=getattr(canvas, "height", 16),
+        )
+        return canvas
+
+
+@register_transition("nyancat_alternating")
+class NyanCatAlternating:
+    """Cycles through nyancat -> nyancat_reverse."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        self._transitions: list[Transition] = [
+            NyanCat(**kwargs),
+            NyanCatReverse(**kwargs),
+        ]
+        self._index: int = -1
+        self._last_t: float = 1.0
+
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        if t < self._last_t:
+            self._index = (self._index + 1) % len(self._transitions)
+        self._last_t = t
+        return self._transitions[self._index].frame_at(
+            t, canvas, outgoing, incoming, **kwargs
+        )

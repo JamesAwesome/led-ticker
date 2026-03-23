@@ -441,7 +441,7 @@ async def _run_swap(
     continuous_scroll: bool = False,
 ) -> int:
     """Run swap display mode with optional transitions."""
-    from led_ticker.transition import Scroll, run_transition
+    from led_ticker.transitions import Scroll, run_transition
 
     is_scroll = transition is not None and isinstance(transition.transition_obj, Scroll)
     ticker_object = await notif_queue.get()

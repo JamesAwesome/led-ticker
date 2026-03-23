@@ -14,15 +14,9 @@ PACMAN_FRAMES_PER_STEP: int = 4  # pixels per mouth frame change
 _PY = (255, 255, 0)  # yellow
 _PK = (0, 0, 0)  # black (outline / mouth)
 
-# Dot palette
-_DOT = (255, 255, 0)  # yellow dots
-DOT_SPACING: int = 8  # pixels between dots
-DOT_SIZE: int = 2  # 2x2 pixel dots
-DOT_Y: int = 8  # vertical center for dots (in display coords)
-
 # --- Ghost sprite ---
 
-GHOST_WIDTH: int = 12
+GHOST_WIDTH: int = 14
 GHOST_HEIGHT: int = 14
 GHOST_Y_OFFSET: int = 1
 GHOST_FRAMES_PER_STEP: int = 6
@@ -147,15 +141,15 @@ def _ghost_body(color: tuple[int, int, int]) -> set[tuple[int, int]]:
     """Compute which pixels are inside the ghost shape."""
     # Rounded top (semi-circle), rectangular middle, wavy bottom
     body: set[tuple[int, int]] = set()
-    cx = 5.5
-    r = 5.5
+    cx = 6.5
+    r = 6.5
     for dy in range(GHOST_HEIGHT):
         for dx in range(GHOST_WIDTH):
-            # Top: semi-circle (rows 0-5)
-            if dy <= 5:
+            # Top: semi-circle (rows 0-6)
+            if dy <= 6:
                 if (dx - cx) ** 2 + (dy - cx) ** 2 <= r * r:
                     body.add((dx, dy))
-            # Middle: full rectangle (rows 6-11)
+            # Middle: full rectangle (rows 7-11)
             elif dy <= 11 and 0 <= dx < GHOST_WIDTH:
                 body.add((dx, dy))
     return body
@@ -169,14 +163,14 @@ def _build_ghost_frame(
     pixels: PixelData = []
 
     for dx, dy in sorted(body):
-        # Eyes: white with black pupils at rows 4-5
-        if dy == 4 and dx in (3, 4, 7, 8):
+        # Eyes: white with black pupils at rows 5-6
+        if dy == 5 and dx in (4, 5, 8, 9):
             pixels.append((dx, dy, *_GW))
-        elif dy == 5 and dx in (4, 8):
+        elif dy == 6 and dx in (5, 9):
             pixels.append((dx, dy, *_GK))  # pupils
         elif (
-            (dy == 5 and dx in (3, 7))
-            or (dy == 8 and dx in (2, 3, 4, 5, 6, 7, 8, 9))
+            (dy == 6 and dx in (4, 8))
+            or (dy == 9 and dx in (3, 4, 5, 6, 7, 8, 9, 10))
         ):
             pixels.append((dx, dy, *_GW))
         else:
@@ -230,16 +224,6 @@ def draw_pacman_frame(
         for x in range(blackout_end):
             canvas.SetPixel(x, y, 0, 0, 0)
 
-    # Draw dots ahead of Pac-Man
-    dot_start = max(0, pacman_x + PACMAN_SIZE)
-    for dot_x in range(dot_start, width, DOT_SPACING):
-        for ddx in range(DOT_SIZE):
-            for ddy in range(DOT_SIZE):
-                px = dot_x + ddx
-                py = DOT_Y + ddy
-                if 0 <= px < width and 0 <= py < height:
-                    canvas.SetPixel(px, py, *_DOT)
-
     # Draw ghosts (ahead of Pac-Man)
     pixels_traveled = max(0, int(progress * total_travel))
     ghost_frame_idx = (pixels_traveled // GHOST_FRAMES_PER_STEP) % 2
@@ -283,16 +267,6 @@ def draw_pacman_frame_rtl(
     for y in range(height):
         for x in range(blackout_start, width):
             canvas.SetPixel(x, y, 0, 0, 0)
-
-    # Draw dots ahead of Pac-Man (to the left)
-    dot_end = min(width, pacman_x)
-    for dot_x in range(dot_end - DOT_SPACING, -1, -DOT_SPACING):
-        for ddx in range(DOT_SIZE):
-            for ddy in range(DOT_SIZE):
-                px = dot_x + ddx
-                py = DOT_Y + ddy
-                if 0 <= px < width and 0 <= py < height:
-                    canvas.SetPixel(px, py, *_DOT)
 
     # Draw ghosts (ahead of Pac-Man, to the left)
     pixels_traveled = max(0, int(progress * total_travel))

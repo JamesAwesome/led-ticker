@@ -19,8 +19,8 @@ between_sections = {type = "nyancat_alternating", duration = 4.0}
 
 [[playlist.section]]
 mode = "swap"
-transition = "scroll"
-transition_duration = 4.0
+transition = "pacman_alternating"
+transition_duration = 3.0
 continuous_scroll = true
 loop_count = 1
 
@@ -31,11 +31,15 @@ color = "random"
 
 [[playlist.section.widget]]
 type = "message"
-text = "May the Rabbit always be with you!"
+text = "Check out Datadog MCP!"
 
 [[playlist.section.widget]]
 type = "message"
-text = "Always be your bunny best!"
+text = "Talk to #team-foundations for all your DevOps needs!"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Ask me about eden review apps! :taco:"
 
 # --- Weather ---
 
@@ -91,11 +95,6 @@ loop_count = 1
 type = "message"
 text = "Count Downs"
 color = "random"
-
-[[playlist.section.widget]]
-type = "countdown"
-message = "Summer"
-countdown_date = 2026-06-20
 
 [[playlist.section.widget]]
 type = "countdown"

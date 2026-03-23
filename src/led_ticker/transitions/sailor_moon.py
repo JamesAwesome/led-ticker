@@ -20,6 +20,7 @@ _PINK = (255, 105, 180)
 _MAGENTA = (255, 50, 150)
 _WHITE = (255, 255, 255)
 _LPINK = (255, 182, 213)
+_BLUE = (0, 100, 255)
 
 _SPARKLE_COLORS: list[tuple[int, int, int]] = [_GOLD, _PINK, _WHITE, _MAGENTA]
 
@@ -34,9 +35,10 @@ MOON_STICK: PixelData = [
     # Row 1: crescent upper arc
     (2, 1, *_GOLD),
     (3, 1, *_GOLD),
-    # Row 2: crescent thick left edge
+    # Row 2: crescent thick left edge + blue jewel inside
     (2, 2, *_GOLD),
     (3, 2, *_GOLD),
+    (4, 2, *_BLUE),
     # Row 3: crescent lower arc
     (2, 3, *_GOLD),
     (3, 3, *_GOLD),

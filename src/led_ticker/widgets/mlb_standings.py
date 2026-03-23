@@ -124,13 +124,12 @@ class MLBStandingsMonitor:
             await self._set_offseason_state()
             return
 
-        title_msg = TickerMessage(
+        self.feed_title = TickerMessage(
             self.title,
             font_color=RGB_WHITE,
             center=True,
         )
-        self.feed_title = title_msg
-        stories: list[TickerMessage | MLBGameMessage] = [title_msg]
+        stories: list[TickerMessage | MLBGameMessage] = []
 
         # Top N teams
         top_abbrs: set[str] = set()
@@ -233,26 +232,22 @@ class MLBStandingsMonitor:
         opening_day = await self._fetch_opening_day()
         msg = f"Opens {opening_day}" if opening_day else "Opens soon"
 
-        title_msg = TickerMessage(
+        self.feed_title = TickerMessage(
             self.title,
             font_color=RGB_WHITE,
             center=True,
         )
-        self.feed_title = title_msg
         self.feed_stories = [
-            title_msg,
             TickerMessage(msg, font_color=RGB_WHITE, center=True),
         ]
 
     def _set_error_state(self) -> None:
         """Set display to error state."""
-        title_msg = TickerMessage(
+        self.feed_title = TickerMessage(
             self.title,
             font_color=RGB_WHITE,
             center=True,
         )
-        self.feed_title = title_msg
         self.feed_stories = [
-            title_msg,
             TickerMessage("No Data", font_color=RGB_WHITE),
         ]

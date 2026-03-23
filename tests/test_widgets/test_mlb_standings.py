@@ -189,9 +189,8 @@ class TestStandingsParsing:
         )
         standings = widget._parse_standings(data)
 
-        # Simulate update logic
-        title_msg = TickerMessage("MLB Standings", font_color=RGB_WHITE)
-        stories = [title_msg]
+        # Simulate update logic (title not in stories, only in feed_title)
+        stories: list = []
         top_abbrs = set()
         for s in standings[: widget.top_n]:
             top_abbrs.add(s.abbr)
@@ -203,20 +202,18 @@ class TestStandingsParsing:
                 if s:
                     stories.append(_build_standing_message(s))
 
-        # 1 title + 2 top + 2 tracked = 5
-        assert len(stories) == 5
-        # First story is title
-        assert isinstance(stories[0], TickerMessage)
-        # Stories 1-2 are top 2
+        # 2 top + 2 tracked = 4
+        assert len(stories) == 4
+        # Stories 0-1 are top 2
+        texts_0 = [t for t, _ in stories[0].segments]
+        assert texts_0[0] == "1. "
         texts_1 = [t for t, _ in stories[1].segments]
-        assert texts_1[0] == "1. "
+        assert texts_1[0] == "2. "
+        # Stories 2-3 are tracked teams
         texts_2 = [t for t, _ in stories[2].segments]
-        assert texts_2[0] == "2. "
-        # Stories 3-4 are tracked teams
+        assert texts_2[1] == "Mets"
         texts_3 = [t for t, _ in stories[3].segments]
-        assert texts_3[1] == "Mets"
-        texts_4 = [t for t, _ in stories[4].segments]
-        assert texts_4[1] == "Phillies"
+        assert texts_3[1] == "Phillies"
 
     def test_tracked_team_skipped_if_in_top_n(self):
         widget = MLBStandingsMonitor(
@@ -234,8 +231,7 @@ class TestStandingsParsing:
         )
         standings = widget._parse_standings(data)
 
-        title_msg = TickerMessage("MLB Standings", font_color=RGB_WHITE)
-        stories = [title_msg]
+        stories: list = []
         top_abbrs = set()
         for s in standings[: widget.top_n]:
             top_abbrs.add(s.abbr)
@@ -247,8 +243,8 @@ class TestStandingsParsing:
                 if s:
                     stories.append(_build_standing_message(s))
 
-        # 1 title + 3 top, NYY skipped in tracked section = 4
-        assert len(stories) == 4
+        # 3 top, NYY skipped in tracked section = 3
+        assert len(stories) == 3
 
     def test_empty_response(self):
         widget = MLBStandingsMonitor(
@@ -314,20 +310,17 @@ class TestOffseason:
         )
         widget._tz = __import__("zoneinfo").ZoneInfo("America/New_York")
 
-        opening_msg = "Opens Mar 27"
-        title_msg = TickerMessage(
+        widget.feed_title = TickerMessage(
             widget.title,
             font_color=RGB_WHITE,
             center=True,
         )
-        widget.feed_title = title_msg
         widget.feed_stories = [
-            title_msg,
-            TickerMessage(opening_msg, font_color=RGB_WHITE, center=True),
+            TickerMessage("Opens Mar 27", font_color=RGB_WHITE, center=True),
         ]
 
-        assert len(widget.feed_stories) == 2
-        assert widget.feed_stories[1].message == "Opens Mar 27"
+        assert len(widget.feed_stories) == 1
+        assert widget.feed_stories[0].message == "Opens Mar 27"
 
     @pytest.mark.asyncio
     async def test_offseason_fallback(self):
@@ -338,16 +331,14 @@ class TestOffseason:
         )
         widget._tz = __import__("zoneinfo").ZoneInfo("America/New_York")
 
-        title_msg = TickerMessage(
+        widget.feed_title = TickerMessage(
             widget.title,
             font_color=RGB_WHITE,
             center=True,
         )
-        widget.feed_title = title_msg
         widget.feed_stories = [
-            title_msg,
             TickerMessage("Opens soon", font_color=RGB_WHITE, center=True),
         ]
 
-        assert len(widget.feed_stories) == 2
-        assert widget.feed_stories[1].message == "Opens soon"
+        assert len(widget.feed_stories) == 1
+        assert widget.feed_stories[0].message == "Opens soon"

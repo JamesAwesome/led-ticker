@@ -1,0 +1,78 @@
+# Pac-Man testing config — tests pacman transition
+# Usage: cp config/config.pacman.toml config/config.toml
+
+[display]
+rows = 16
+cols = 32
+chain = 5
+brightness = 60
+slowdown_gpio = 2
+gpio_mapping = "adafruit-hat"
+
+[title]
+delay = 3
+
+[transitions]
+between_sections = {type = "pacman_alternating", duration = 3.0}
+
+# --- pacman (long text) ---
+[[playlist.section]]
+mode = "swap"
+transition = "pacman"
+transition_duration = 3.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "PACMAN start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "A wizard quickly jinxed the gnomes before they could cast any powerful spells on the sleeping villagers nearby"
+
+[[playlist.section.widget]]
+type = "message"
+text = "pacman DONE"
+
+# --- pacman (short text) ---
+[[playlist.section]]
+mode = "swap"
+transition = "pacman"
+transition_duration = 3.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Waka waka waka"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Power pellet!"
+
+# --- pacman_reverse ---
+[[playlist.section]]
+mode = "swap"
+transition = "pacman_reverse"
+transition_duration = 3.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Reverse chase"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Run ghosts run!"
+
+# --- restart ---
+[[playlist.section]]
+mode = "swap"
+hold_time = 3
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "--- RESTARTING ---"

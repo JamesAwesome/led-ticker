@@ -83,6 +83,9 @@ Set transitions per-section or globally in `[transitions]`:
 | `baseball` | White baseball with red stitching rolls left-to-right, erasing outgoing content. | Sports. MLB sections. |
 | `baseball_reverse` | Same as baseball but right-to-left. | Variety. |
 | `baseball_alternating` | Alternates between baseball and baseball_reverse each swap. | Dynamic variety. |
+| `pacman` | Pac-Man chases 3 scared ghosts (Blinky, Pinky, Inky) left-to-right with dots, erasing outgoing content. | Fun. Retro. |
+| `pacman_reverse` | Same as pacman but right-to-left with flipped sprites. | Variety. |
+| `pacman_alternating` | Alternates between pacman and pacman_reverse each swap. | Dynamic variety. |
 | `scroll` | Seamless continuous scroll with a bullet separator (` * `). Old text scrolls off left, new enters from right at constant speed. Like a news ticker. | RSS feeds. Continuous content. |
 | `push_alternating` | Cycles through push_left → push_right → push_up → push_down each swap. | Dynamic variety. |
 | `wipe_alternating` | Cycles through wipe_left → wipe_right → wipe_up → wipe_down each swap, each with its own color. Customizable via `transition_colors`. | Dynamic variety. |

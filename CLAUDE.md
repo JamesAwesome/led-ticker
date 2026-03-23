@@ -120,6 +120,9 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 - `baseball` — white baseball with red stitching rolls left-to-right; 4-frame stitch rotation
 - `baseball_reverse` — baseball right-to-left (flipped)
 - `baseball_alternating` — cycles through baseball → baseball_reverse each swap
+- `pacman` — Pac-Man chases 3 scared ghosts (Blinky/Pinky/Inky) left-to-right with dots; chomping mouth animation + ghost wave animation
+- `pacman_reverse` — Pac-Man + ghosts right-to-left (flipped)
+- `pacman_alternating` — cycles through pacman → pacman_reverse each swap
 - `push_alternating` — cycles through push_left → push_right → push_up → push_down each swap
 - `nyancat_alternating` — cycles through nyancat → nyancat_reverse each swap
 - `wipe_alternating` — cycles through wipe_left → wipe_right → wipe_up → wipe_down each swap

@@ -26,7 +26,7 @@ loop_count = 1
 
 [playlist.section.title]
 type = "message"
-text = "#DevOps News"
+text = ":taco: #DevOps News :taco:"
 color = "random"
 
 [[playlist.section.widget]]
@@ -151,7 +151,7 @@ loop_count = 2
 
 [playlist.section.title]
 type = "message"
-text = ":baseball: MLB Scores"
+text = ":baseball: MLB Scores :baseball:"
 color = "random"
 
 [[playlist.section.widget]]

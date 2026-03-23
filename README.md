@@ -126,6 +126,29 @@ text = "Breaking News!"
 presentation = "typewriter"
 ```
 
+### Inline Emoji
+
+Use `:name:` in any message text to render a pixel art icon inline:
+
+```toml
+[[playlist.section.widget]]
+type = "message"
+text = ":taco: Taco Tuesday!"
+```
+
+| Emoji | Name | Description |
+|-------|------|-------------|
+| `:baseball:` | baseball | White ball with red stitching |
+| `:taco:` | taco | Taco with shell, lettuce, tomato, cheese, meat |
+| `:flower:` | flower | Pink flower (used in MLB spring training) |
+| `:star:` | star | Yellow star (used in MLB all-star) |
+| `:sun:` | sun | Sun icon |
+| `:cloud:` | cloud | Cloud icon |
+| `:rain:` | rain | Rain icon |
+| `:snow:` | snow | Snow icon |
+| `:thunder:` | thunder | Thunder icon |
+| `:fog:` | fog | Fog icon |
+
 ### Built-in Widgets
 
 | Type | Description | Requires |

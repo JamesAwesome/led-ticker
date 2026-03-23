@@ -48,6 +48,8 @@ src/led_ticker/
       etherscan.py      # EtherscanGasMonitor
 ```
 
+**Inline Emoji**: Use `:name:` in TickerMessage text to render pixel art icons inline. Defined in `pixel_emoji.py`. Available: `baseball`, `taco`, `flower`, `star`, `sun`, `cloud`, `rain`, `snow`, `thunder`, `fog`.
+
 ### Key Patterns
 
 **Widget Protocol**: All widgets implement `draw(canvas, cursor_pos=0, **kwargs) -> (canvas, int)`. All draw() methods support `y_offset` via kwargs (default 0), used for vertical transitions. Async widgets also implement `update()` and use `run_monitor_loop()` with exponential backoff.

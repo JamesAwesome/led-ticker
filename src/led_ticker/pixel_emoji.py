@@ -94,6 +94,33 @@ BASEBALL: PixelData = [
 ]
 
 
+# 🌮 Taco — shell with filling
+_TS = (210, 160, 60)  # tan shell
+_TD = (170, 120, 40)  # dark shell edge
+_TG = (60, 180, 60)  # green (lettuce)
+_TR = (220, 50, 30)  # red (tomato)
+_TY = (255, 210, 80)  # yellow (cheese)
+_TM = (140, 70, 30)  # brown (meat)
+TACO: PixelData = [
+    # Row 0: top of lettuce peeking out
+    (3, 0, *_TG), (4, 0, *_TG), (5, 0, *_TG),
+    # Row 1: filling visible above shell
+    (2, 1, *_TG), (3, 1, *_TR), (4, 1, *_TY), (5, 1, *_TG), (6, 1, *_TG),
+    # Row 2: top of shell + filling
+    (1, 2, *_TD), (2, 2, *_TG), (3, 2, *_TM), (4, 2, *_TR), (5, 2, *_TY), (6, 2, *_TG), (7, 2, *_TD),
+    # Row 3: shell wrapping
+    (0, 3, *_TD), (1, 3, *_TS), (2, 3, *_TM), (3, 3, *_TY), (4, 3, *_TM), (5, 3, *_TR), (6, 3, *_TS), (7, 3, *_TD),
+    # Row 4: mid shell
+    (0, 4, *_TS), (1, 4, *_TS), (2, 4, *_TM), (3, 4, *_TM), (4, 4, *_TY), (5, 4, *_TM), (6, 4, *_TS), (7, 4, *_TS),
+    # Row 5: lower shell
+    (0, 5, *_TD), (1, 5, *_TS), (2, 5, *_TS), (3, 5, *_TS), (4, 5, *_TS), (5, 5, *_TS), (6, 5, *_TS), (7, 5, *_TD),
+    # Row 6: shell bottom narrows
+    (1, 6, *_TD), (2, 6, *_TS), (3, 6, *_TS), (4, 6, *_TS), (5, 6, *_TS), (6, 6, *_TD),
+    # Row 7: bottom tip
+    (2, 7, *_TD), (3, 7, *_TD), (4, 7, *_TD), (5, 7, *_TD),
+]
+
+
 def _build_emoji_registry() -> dict[str, PixelData]:
     """Build the emoji registry with all available icons."""
     from led_ticker.widgets.mlb_icons import FLOWER, STAR
@@ -111,6 +138,8 @@ def _build_emoji_registry() -> dict[str, PixelData]:
         "baseball": BASEBALL,
         "flower": FLOWER,
         "star": STAR,
+        # Food
+        "taco": TACO,
         # Weather
         "sun": SUN,
         "cloud": CLOUD,

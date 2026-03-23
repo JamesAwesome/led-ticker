@@ -6,8 +6,8 @@ from led_ticker._types import Canvas, PixelData
 
 # --- Pac-Man sprite ---
 
-PACMAN_SIZE: int = 15
-PACMAN_Y_OFFSET: int = 0  # 15px sprite in 16px display, 1px bottom padding
+PACMAN_SIZE: int = 14
+PACMAN_Y_OFFSET: int = 1  # centers 14px sprite in 16px display
 PACMAN_FRAMES_PER_STEP: int = 4  # pixels per mouth frame change
 
 # Pac-Man palette
@@ -16,9 +16,9 @@ _PK = (0, 0, 0)  # black (outline / mouth)
 
 # --- Ghost sprite ---
 
-GHOST_WIDTH: int = 14
-GHOST_HEIGHT: int = 14
-GHOST_Y_OFFSET: int = 1
+GHOST_WIDTH: int = 10
+GHOST_HEIGHT: int = 12
+GHOST_Y_OFFSET: int = 2  # centers 12px ghost in 16px display
 GHOST_FRAMES_PER_STEP: int = 6
 GHOST_GAP: int = 4  # gap between ghosts
 PACMAN_GHOST_GAP: int = 8  # gap between Pac-Man and first ghost
@@ -43,9 +43,9 @@ GROUP_WIDTH: int = (
 
 
 def _pacman_circle() -> set[tuple[int, int]]:
-    """Circle mask for 15px Pac-Man."""
-    cx, cy = 7.0, 7.0
-    r = 7.0
+    """Circle mask for 14px Pac-Man."""
+    cx, cy = 6.5, 6.5
+    r = 6.5
     mask: set[tuple[int, int]] = set()
     for dy in range(PACMAN_SIZE):
         for dx in range(PACMAN_SIZE):
@@ -82,10 +82,10 @@ def _build_pacman_half() -> PixelData:
     """Pac-Man with mouth half open (small wedge removed on right)."""
     interior = _pacman_circle()
     outline = _pacman_outline(interior)
-    # Remove wedge: rows 6-8 (center), cols 12-14 (right side)
+    # Remove wedge: rows 6-7 (center), cols 11-13 (right side)
     mouth: set[tuple[int, int]] = set()
-    for dy in range(6, 9):
-        for dx in range(12, 15):
+    for dy in range(6, 8):
+        for dx in range(11, 14):
             mouth.add((dx, dy))
     pixels: PixelData = []
     for dx, dy in sorted(interior):
@@ -107,7 +107,7 @@ def _build_pacman_open() -> PixelData:
     outline = _pacman_outline(interior)
     # Remove larger wedge: rows 4-9 tapering to a point at center-right
     mouth: set[tuple[int, int]] = set()
-    cx, cy = 7.0, 7.0
+    cx, cy = 6.5, 6.5
     for dy in range(PACMAN_SIZE):
         for dx in range(PACMAN_SIZE):
             if (dx, dy) not in interior:
@@ -141,16 +141,16 @@ def _ghost_body(color: tuple[int, int, int]) -> set[tuple[int, int]]:
     """Compute which pixels are inside the ghost shape."""
     # Rounded top (semi-circle), rectangular middle, wavy bottom
     body: set[tuple[int, int]] = set()
-    cx = 6.5
-    r = 6.5
+    cx = 4.5
+    r = 4.5
     for dy in range(GHOST_HEIGHT):
         for dx in range(GHOST_WIDTH):
-            # Top: semi-circle (rows 0-6)
-            if dy <= 6:
+            # Top: semi-circle (rows 0-4)
+            if dy <= 4:
                 if (dx - cx) ** 2 + (dy - cx) ** 2 <= r * r:
                     body.add((dx, dy))
-            # Middle: full rectangle (rows 7-11)
-            elif dy <= 11 and 0 <= dx < GHOST_WIDTH:
+            # Middle: full rectangle (rows 5-9)
+            elif dy <= 9 and 0 <= dx < GHOST_WIDTH:
                 body.add((dx, dy))
     return body
 
@@ -163,28 +163,28 @@ def _build_ghost_frame(
     pixels: PixelData = []
 
     for dx, dy in sorted(body):
-        # Eyes: white with black pupils at rows 5-6
-        if dy == 5 and dx in (4, 5, 8, 9):
+        # Eyes: white with black pupils at rows 3-4
+        if dy == 3 and dx in (2, 3, 6, 7):
             pixels.append((dx, dy, *_GW))
-        elif dy == 6 and dx in (5, 9):
+        elif dy == 4 and dx in (3, 7):
             pixels.append((dx, dy, *_GK))  # pupils
         elif (
-            (dy == 6 and dx in (4, 8))
-            or (dy == 9 and dx in (3, 4, 5, 6, 7, 8, 9, 10))
+            (dy == 4 and dx in (2, 6))
+            or (dy == 7 and dx in (2, 3, 4, 5, 6, 7))
         ):
             pixels.append((dx, dy, *_GW))
         else:
             pixels.append((dx, dy, *color))
 
-    # Wavy bottom edge (rows 12-13)
+    # Wavy bottom edge (rows 10-11)
     for dx in range(GHOST_WIDTH):
         # Alternate bumps based on wave_offset
         if (dx + wave_offset) % 4 < 2:
-            pixels.append((dx, 12, *color))
-            pixels.append((dx, 13, *color))
+            pixels.append((dx, 10, *color))
+            pixels.append((dx, 11, *color))
         else:
-            pixels.append((dx, 12, *color))
-            # row 13 left empty (creates wave)
+            pixels.append((dx, 10, *color))
+            # row 11 left empty (creates wave)
 
     return pixels
 

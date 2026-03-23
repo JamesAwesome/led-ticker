@@ -94,30 +94,41 @@ BASEBALL: PixelData = [
 ]
 
 
-# 🌮 Taco — shell with filling
-_TS = (210, 160, 60)  # tan shell
-_TD = (170, 120, 40)  # dark shell edge
-_TG = (60, 180, 60)  # green (lettuce)
-_TR = (220, 50, 30)  # red (tomato)
-_TY = (255, 210, 80)  # yellow (cheese)
+# 🌮 Taco — wide landscape taco with filling peeking out top-left
+_TK = (0, 0, 0)  # black outline
+_TS = (230, 160, 50)  # orange shell
+_TL = (200, 140, 40)  # lighter shell highlight
+_TG = (40, 160, 40)  # green (lettuce)
+_TR = (220, 40, 30)  # red (tomato)
 _TM = (140, 70, 30)  # brown (meat)
 TACO: PixelData = [
-    # Row 0: top of lettuce peeking out
-    (3, 0, *_TG), (4, 0, *_TG), (5, 0, *_TG),
-    # Row 1: filling visible above shell
-    (2, 1, *_TG), (3, 1, *_TR), (4, 1, *_TY), (5, 1, *_TG), (6, 1, *_TG),
-    # Row 2: top of shell + filling
-    (1, 2, *_TD), (2, 2, *_TG), (3, 2, *_TM), (4, 2, *_TR), (5, 2, *_TY), (6, 2, *_TG), (7, 2, *_TD),
-    # Row 3: shell wrapping
-    (0, 3, *_TD), (1, 3, *_TS), (2, 3, *_TM), (3, 3, *_TY), (4, 3, *_TM), (5, 3, *_TR), (6, 3, *_TS), (7, 3, *_TD),
-    # Row 4: mid shell
-    (0, 4, *_TS), (1, 4, *_TS), (2, 4, *_TM), (3, 4, *_TM), (4, 4, *_TY), (5, 4, *_TM), (6, 4, *_TS), (7, 4, *_TS),
-    # Row 5: lower shell
-    (0, 5, *_TD), (1, 5, *_TS), (2, 5, *_TS), (3, 5, *_TS), (4, 5, *_TS), (5, 5, *_TS), (6, 5, *_TS), (7, 5, *_TD),
-    # Row 6: shell bottom narrows
-    (1, 6, *_TD), (2, 6, *_TS), (3, 6, *_TS), (4, 6, *_TS), (5, 6, *_TS), (6, 6, *_TD),
+    # Row 0: filling peeks above shell (left side)
+    (2, 0, *_TK), (3, 0, *_TK), (4, 0, *_TK), (5, 0, *_TK),
+    # Row 1: filling — lettuce, tomato, meat, green
+    (1, 1, *_TK), (2, 1, *_TR), (3, 1, *_TG),
+    (4, 1, *_TM), (5, 1, *_TG), (6, 1, *_TK),
+    # Row 2: shell top + more filling visible
+    (0, 2, *_TK), (1, 2, *_TG), (2, 2, *_TM), (3, 2, *_TR),
+    (4, 2, *_TG), (5, 2, *_TK), (6, 2, *_TK),
+    (7, 2, *_TK), (8, 2, *_TK), (9, 2, *_TK),
+    # Row 3: shell wraps around — wide orange
+    (0, 3, *_TK), (1, 3, *_TS), (2, 3, *_TS), (3, 3, *_TS),
+    (4, 3, *_TS), (5, 3, *_TS), (6, 3, *_TS), (7, 3, *_TS),
+    (8, 3, *_TS), (9, 3, *_TL), (10, 3, *_TK),
+    # Row 4: widest shell
+    (0, 4, *_TK), (1, 4, *_TS), (2, 4, *_TL), (3, 4, *_TS),
+    (4, 4, *_TS), (5, 4, *_TS), (6, 4, *_TL), (7, 4, *_TS),
+    (8, 4, *_TS), (9, 4, *_TS), (10, 4, *_TK),
+    # Row 5: shell narrows
+    (1, 5, *_TK), (2, 5, *_TS), (3, 5, *_TS), (4, 5, *_TS),
+    (5, 5, *_TS), (6, 5, *_TS), (7, 5, *_TS), (8, 5, *_TS),
+    (9, 5, *_TK),
+    # Row 6: shell bottom
+    (2, 6, *_TK), (3, 6, *_TS), (4, 6, *_TS), (5, 6, *_TS),
+    (6, 6, *_TS), (7, 6, *_TS), (8, 6, *_TK),
     # Row 7: bottom tip
-    (2, 7, *_TD), (3, 7, *_TD), (4, 7, *_TD), (5, 7, *_TD),
+    (3, 7, *_TK), (4, 7, *_TK), (5, 7, *_TK),
+    (6, 7, *_TK), (7, 7, *_TK),
 ]
 
 

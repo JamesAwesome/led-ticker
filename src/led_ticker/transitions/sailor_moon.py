@@ -79,7 +79,7 @@ def draw_sailor_moon_frame(
 
     The wand sweeps right, trailing sparkles that erase outgoing content.
     """
-    total_travel = width + WAND_WIDTH + SPARKLE_ZONE
+    total_travel = width + WAND_WIDTH + SPARKLE_ZONE * 2
     wand_x = int(-WAND_WIDTH - SPARKLE_ZONE + progress * total_travel)
     pixels_traveled = int(progress * total_travel)
 
@@ -129,7 +129,7 @@ def draw_sailor_moon_frame_rtl(
 
     Mirror of LTR: wand sweeps left, sparkles trail to the right.
     """
-    total_travel = width + WAND_WIDTH + SPARKLE_ZONE
+    total_travel = width + WAND_WIDTH + SPARKLE_ZONE * 2
     wand_x = int(width + SPARKLE_ZONE - progress * total_travel)
     pixels_traveled = int(progress * total_travel)
 

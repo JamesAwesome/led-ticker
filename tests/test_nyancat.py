@@ -141,9 +141,7 @@ class TestNyanCatRainbowCoverage:
         y = RAINBOW_TOP_Y
         for x in [0, 20, 40, 60, 79]:
             pixel = canvas._pixels.get((x, y))
-            assert pixel is not None and pixel != (0, 0, 0), (
-                f"Rainbow missing at x={x}"
-            )
+            assert pixel is not None and pixel != (0, 0, 0), f"Rainbow missing at x={x}"
 
 
 class TestDrawNyanFrameRTL:

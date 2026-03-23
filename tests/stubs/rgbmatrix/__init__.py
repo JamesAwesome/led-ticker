@@ -74,7 +74,8 @@ class RGBMatrix:
         """Simulate double-buffering: return the previous back buffer."""
         if self._back_buffer is None:
             self._back_buffer = _StubCanvas(
-                width=self._width, height=self._height,
+                width=self._width,
+                height=self._height,
             )
         old_back = self._back_buffer
         self._back_buffer = canvas

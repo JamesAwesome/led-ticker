@@ -158,9 +158,7 @@ def _ghost_body(color: tuple[int, int, int]) -> set[tuple[int, int]]:
     return body
 
 
-def _build_ghost_frame(
-    color: tuple[int, int, int], wave_offset: int
-) -> PixelData:
+def _build_ghost_frame(color: tuple[int, int, int], wave_offset: int) -> PixelData:
     """Build one ghost frame with given body color and wave pattern."""
     body = _ghost_body(color)
     pixels: PixelData = []
@@ -171,10 +169,7 @@ def _build_ghost_frame(
             pixels.append((dx, dy, *_GW))
         elif dy == 4 and dx in (3, 7):
             pixels.append((dx, dy, *_GK))  # pupils
-        elif (
-            (dy == 4 and dx in (2, 6))
-            or (dy == 7 and dx in (2, 3, 4, 5, 6, 7))
-        ):
+        elif (dy == 4 and dx in (2, 6)) or (dy == 7 and dx in (2, 3, 4, 5, 6, 7)):
             pixels.append((dx, dy, *_GW))
         else:
             pixels.append((dx, dy, *color))

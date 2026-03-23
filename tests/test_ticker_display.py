@@ -106,9 +106,7 @@ class TestSwapAndScrollOverflow:
     ):
         """For 600px text on 160px canvas, scroll stops at pos=-440."""
         widget = make_widget(content_width=600)
-        _, cursor_pos, scroll_pos = await _swap_and_scroll(
-            canvas, mock_frame, widget
-        )
+        _, cursor_pos, scroll_pos = await _swap_and_scroll(canvas, mock_frame, widget)
         assert cursor_pos == 600
         # stop_pos = -(600 - 160) = -440
         assert scroll_pos == -440
@@ -135,14 +133,11 @@ class TestSwapAndScrollOverflow:
         """Verify stop_pos formula: -(content_width - canvas_width)."""
         for width in [200, 320, 500, 1000]:
             widget = make_widget(content_width=width)
-            _, _, scroll_pos = await _swap_and_scroll(
-                canvas, mock_frame, widget
-            )
+            _, _, scroll_pos = await _swap_and_scroll(canvas, mock_frame, widget)
             expected = -(width - canvas.width)
             assert scroll_pos == expected, (
                 f"width={width}: expected {expected}, got {scroll_pos}"
             )
-
 
     async def test_stop_pos_accounts_for_padding(
         self,
@@ -154,9 +149,7 @@ class TestSwapAndScrollOverflow:
         """Widget with padding scrolls further left so text is flush."""
         widget = make_widget(content_width=600)
         widget.padding = 6  # simulate real widget padding
-        _, _, scroll_pos = await _swap_and_scroll(
-            canvas, mock_frame, widget
-        )
+        _, _, scroll_pos = await _swap_and_scroll(canvas, mock_frame, widget)
         # stop_pos = -(600 - 160) + 6 = -434
         assert scroll_pos == -434
 
@@ -169,9 +162,7 @@ class TestSwapAndScrollOverflow:
     ):
         """Widget without padding attribute defaults to 0 adjustment."""
         widget = make_widget(content_width=600)
-        _, _, scroll_pos = await _swap_and_scroll(
-            canvas, mock_frame, widget
-        )
+        _, _, scroll_pos = await _swap_and_scroll(canvas, mock_frame, widget)
         # stop_pos = -(600 - 160) - 0 = -440
         assert scroll_pos == -440
 
@@ -220,24 +211,26 @@ class TestRunSwap:
 
 
 class TestScrollBetween:
-    async def test_returns_pos_zero(
-        self, canvas, mock_frame, make_widget, no_sleep
-    ):
+    async def test_returns_pos_zero(self, canvas, mock_frame, make_widget, no_sleep):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         _, scroll_pos = await _scroll_between(
-            canvas, mock_frame, outgoing, incoming,
+            canvas,
+            mock_frame,
+            outgoing,
+            incoming,
             outgoing_scroll_pos=0,
         )
         assert scroll_pos == 0
 
-    async def test_both_widgets_drawn(
-        self, canvas, mock_frame, make_widget, no_sleep
-    ):
+    async def test_both_widgets_drawn(self, canvas, mock_frame, make_widget, no_sleep):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         await _scroll_between(
-            canvas, mock_frame, outgoing, incoming,
+            canvas,
+            mock_frame,
+            outgoing,
+            incoming,
         )
         assert outgoing.draw.called
         assert incoming.draw.called
@@ -248,7 +241,10 @@ class TestScrollBetween:
         outgoing = make_widget(600)
         incoming = make_widget(40)
         await _scroll_between(
-            canvas, mock_frame, outgoing, incoming,
+            canvas,
+            mock_frame,
+            outgoing,
+            incoming,
             outgoing_scroll_pos=-440,
         )
         # First draw call should use the scroll pos

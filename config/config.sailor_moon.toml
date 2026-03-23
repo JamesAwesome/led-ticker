@@ -1,0 +1,49 @@
+# Sailor Moon transition testing config
+# Usage: cp config/config.sailor_moon.toml config/config.toml
+
+[display]
+rows = 16
+cols = 32
+chain = 5
+brightness = 60
+slowdown_gpio = 2
+gpio_mapping = "adafruit-hat"
+
+[title]
+delay = 5
+
+[transitions]
+default = "sailor_moon_alternating"
+duration = 2.0
+easing = "linear"
+between_sections = {type = "sailor_moon_alternating", duration = 2.0}
+
+# --- Messages (sailor_moon transition) ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "sailor_moon_alternating"
+transition_duration = 2.0
+hold_time = 4
+loop_count = 0
+
+[playlist.section.title]
+type = "message"
+text = "Sailor Moon Test"
+color = "random"
+
+[[playlist.section.widget]]
+type = "message"
+text = "In the name of the Moon, I'll punish you!"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Moon Prism Power, Make Up!"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Moon Tiara Action!"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Moon Healing Escalation!"

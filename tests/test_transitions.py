@@ -89,10 +89,13 @@ class TestTransitionRegistry:
             "push_alternating",
             "nyancat_alternating",
             "wipe_alternating",
+            "sailor_moon",
+            "sailor_moon_reverse",
+            "sailor_moon_alternating",
         ]
         for name in expected:
             assert name in _TRANSITION_REGISTRY
-        assert len(_TRANSITION_REGISTRY) == 27
+        assert len(_TRANSITION_REGISTRY) == 30
 
     def test_get_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown transition"):

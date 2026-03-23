@@ -114,6 +114,7 @@ from led_ticker.transitions import (  # noqa: F401
     pacman,
     pokeball,
     push,
+    sailor_moon,
     wipe,
 )
 
@@ -151,6 +152,11 @@ from led_ticker.transitions.push import (  # noqa: F401
     PushLeft,
     PushRight,
     PushUp,
+)
+from led_ticker.transitions.sailor_moon import (  # noqa: F401
+    SailorMoon,
+    SailorMoonAlternating,
+    SailorMoonReverse,
 )
 from led_ticker.transitions.wipe import (  # noqa: F401
     WipeAlternating,

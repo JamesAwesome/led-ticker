@@ -20,6 +20,7 @@ delay = 5
 #                  scroll, pokeball, pokeball_reverse, pokeball_alternating,
 #                  baseball, baseball_reverse, baseball_alternating,
 #                  pacman, pacman_reverse, pacman_alternating,
+#                  sailor_moon, sailor_moon_reverse, sailor_moon_alternating,
 #                  push_alternating, wipe_alternating, nyancat_alternating
 # Optional: transition_color = [R, G, B]  (custom color for flash/wipe)
 # Optional: transition_colors = [[R,G,B], [R,G,B], [R,G,B], [R,G,B]]

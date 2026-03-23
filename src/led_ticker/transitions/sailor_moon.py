@@ -24,22 +24,24 @@ _LPINK = (255, 182, 213)
 _SPARKLE_COLORS: list[tuple[int, int, int]] = [_GOLD, _PINK, _WHITE, _MAGENTA]
 
 # --- Moon Stick sprite (8x16) ---
-# Crescent moon at top (open left), jewel, pink rod below
+# Crescent moon at top (open right — left arc visible), jewel, pink rod below
 
 MOON_STICK: PixelData = [
-    # Row 0: crescent top
+    # Row 0: crescent top curve
+    (3, 0, *_GOLD),
     (4, 0, *_GOLD),
     (5, 0, *_GOLD),
-    # Row 1: crescent widens
+    # Row 1: crescent upper arc
+    (2, 1, *_GOLD),
     (3, 1, *_GOLD),
-    (6, 1, *_GOLD),
-    # Row 2: crescent body (open left)
+    # Row 2: crescent thick left edge
+    (2, 2, *_GOLD),
     (3, 2, *_GOLD),
-    (6, 2, *_GOLD),
-    # Row 3: crescent body
+    # Row 3: crescent lower arc
+    (2, 3, *_GOLD),
     (3, 3, *_GOLD),
-    (6, 3, *_GOLD),
-    # Row 4: crescent closes
+    # Row 4: crescent bottom curve
+    (3, 4, *_GOLD),
     (4, 4, *_GOLD),
     (5, 4, *_GOLD),
     # Row 5: jewel

@@ -1,0 +1,353 @@
+"""Tests for MLB standings widget."""
+
+import unittest.mock as mock
+
+import pytest
+
+from led_ticker.colors import RGB_WHITE
+from led_ticker.widgets.message import TickerMessage
+from led_ticker.widgets.mlb import MLBGameMessage
+from led_ticker.widgets.mlb_standings import (
+    MLBStandingsMonitor,
+    TeamStanding,
+    _build_standing_message,
+)
+
+# --- TeamStanding ---
+
+
+class TestTeamStanding:
+    def test_leader(self):
+        s = TeamStanding(abbr="NYY", wins=45, losses=20, rank=1, games_back="-")
+        assert s.rank == 1
+        assert s.games_back == "-"
+
+    def test_non_leader(self):
+        s = TeamStanding(abbr="NYM", wins=35, losses=30, rank=12, games_back="10.0")
+        assert s.rank == 12
+        assert s.games_back == "10.0"
+
+
+# --- _build_standing_message ---
+
+
+class TestBuildStandingMessage:
+    def test_basic_format(self):
+        s = TeamStanding(abbr="NYY", wins=45, losses=20, rank=1, games_back="-")
+        msg = _build_standing_message(s)
+        assert isinstance(msg, MLBGameMessage)
+        texts = [t for t, _ in msg.segments]
+        assert texts[0] == "1. "
+        assert texts[1] == "Yankees"
+        assert texts[2] == " 45-20"
+        assert texts[3] == " -"
+
+    def test_rank_numbers_white(self):
+        s = TeamStanding(abbr="LAD", wins=42, losses=23, rank=2, games_back="3.0")
+        msg = _build_standing_message(s)
+        colors = [c for _, c in msg.segments]
+        assert colors[0] is RGB_WHITE  # rank
+        assert colors[2] is RGB_WHITE  # record
+        assert colors[3] is RGB_WHITE  # GB
+
+    def test_team_color_applied(self):
+        s = TeamStanding(abbr="PHI", wins=40, losses=25, rank=3, games_back="5.0")
+        msg = _build_standing_message(s)
+        colors = [c for _, c in msg.segments]
+        # Team name should use team color, not white
+        assert colors[1] is not RGB_WHITE
+
+    def test_gb_leader(self):
+        s = TeamStanding(abbr="NYY", wins=50, losses=15, rank=1, games_back="-")
+        msg = _build_standing_message(s)
+        texts = [t for t, _ in msg.segments]
+        assert texts[3] == " -"
+
+    def test_gb_behind(self):
+        s = TeamStanding(abbr="BAL", wins=41, losses=24, rank=3, games_back="9.5")
+        msg = _build_standing_message(s)
+        texts = [t for t, _ in msg.segments]
+        assert texts[3] == " 9.5"
+
+    def test_message_is_centered(self):
+        s = TeamStanding(abbr="NYY", wins=45, losses=20, rank=1, games_back="-")
+        msg = _build_standing_message(s)
+        assert msg.center is True
+
+    def test_draw_returns_canvas_and_cursor(self, canvas):
+        s = TeamStanding(abbr="NYY", wins=45, losses=20, rank=1, games_back="-")
+        msg = _build_standing_message(s)
+        result_canvas, cursor_pos = msg.draw(canvas)
+        assert result_canvas is canvas
+        assert cursor_pos > 0
+
+
+# --- MLBStandingsMonitor ---
+
+
+class TestMLBStandingsMonitor:
+    def test_registered(self):
+        from led_ticker.widgets import get_widget_class
+
+        cls = get_widget_class("mlb_standings")
+        assert cls is MLBStandingsMonitor
+
+    def test_has_feed_stories(self):
+        widget = MLBStandingsMonitor(
+            session=mock.Mock(),
+            teams=["NYM", "PHI"],
+        )
+        assert isinstance(widget.feed_stories, list)
+
+    def test_default_top_n(self):
+        widget = MLBStandingsMonitor(
+            session=mock.Mock(),
+            teams=["NYM"],
+        )
+        assert widget.top_n == 3
+
+    def test_custom_top_n(self):
+        widget = MLBStandingsMonitor(
+            session=mock.Mock(),
+            teams=["NYM"],
+            top_n=5,
+        )
+        assert widget.top_n == 5
+
+    def test_default_title(self):
+        widget = MLBStandingsMonitor(
+            session=mock.Mock(),
+            teams=["NYM"],
+        )
+        assert widget.title == "MLB Standings"
+
+    def test_custom_title(self):
+        widget = MLBStandingsMonitor(
+            session=mock.Mock(),
+            teams=["NYM"],
+            title="NL Standings",
+        )
+        assert widget.title == "NL Standings"
+
+    def test_has_padding(self):
+        widget = MLBStandingsMonitor(
+            session=mock.Mock(),
+            teams=["NYM"],
+        )
+        assert widget.padding == 6
+
+
+# --- Parsing ---
+
+
+class TestStandingsParsing:
+    def _make_api_response(self, team_records):
+        """Build a mock MLB API standings response."""
+        return {"records": [{"teamRecords": team_records}]}
+
+    def _make_team_record(self, abbr, wins, losses, rank, gb="-"):
+        return {
+            "team": {"abbreviation": abbr},
+            "wins": wins,
+            "losses": losses,
+            "sportRank": str(rank),
+            "sportGamesBack": gb,
+        }
+
+    def test_parse_and_sort(self):
+        widget = MLBStandingsMonitor(
+            session=mock.Mock(),
+            teams=["NYM"],
+        )
+        data = self._make_api_response(
+            [
+                self._make_team_record("BAL", 41, 24, 3, "4.0"),
+                self._make_team_record("NYY", 45, 20, 1, "-"),
+                self._make_team_record("LAD", 42, 23, 2, "3.0"),
+            ]
+        )
+        standings = widget._parse_standings(data)
+        assert len(standings) == 3
+        assert standings[0].abbr == "NYY"
+        assert standings[1].abbr == "LAD"
+        assert standings[2].abbr == "BAL"
+
+    def test_top_n_and_tracked(self):
+        widget = MLBStandingsMonitor(
+            session=mock.Mock(),
+            teams=["NYM", "PHI"],
+            top_n=2,
+        )
+        data = self._make_api_response(
+            [
+                self._make_team_record("NYY", 45, 20, 1, "-"),
+                self._make_team_record("LAD", 42, 23, 2, "3.0"),
+                self._make_team_record("BAL", 41, 24, 3, "4.0"),
+                self._make_team_record("NYM", 35, 30, 12, "10.0"),
+                self._make_team_record("PHI", 33, 32, 15, "12.0"),
+            ]
+        )
+        standings = widget._parse_standings(data)
+
+        # Simulate update logic
+        title_msg = TickerMessage("MLB Standings", font_color=RGB_WHITE)
+        stories = [title_msg]
+        top_abbrs = set()
+        for s in standings[: widget.top_n]:
+            top_abbrs.add(s.abbr)
+            stories.append(_build_standing_message(s))
+        standings_by_abbr = {s.abbr: s for s in standings}
+        for team in widget.teams:
+            if team not in top_abbrs:
+                s = standings_by_abbr.get(team)
+                if s:
+                    stories.append(_build_standing_message(s))
+
+        # 1 title + 2 top + 2 tracked = 5
+        assert len(stories) == 5
+        # First story is title
+        assert isinstance(stories[0], TickerMessage)
+        # Stories 1-2 are top 2
+        texts_1 = [t for t, _ in stories[1].segments]
+        assert texts_1[0] == "1. "
+        texts_2 = [t for t, _ in stories[2].segments]
+        assert texts_2[0] == "2. "
+        # Stories 3-4 are tracked teams
+        texts_3 = [t for t, _ in stories[3].segments]
+        assert texts_3[1] == "Mets"
+        texts_4 = [t for t, _ in stories[4].segments]
+        assert texts_4[1] == "Phillies"
+
+    def test_tracked_team_skipped_if_in_top_n(self):
+        widget = MLBStandingsMonitor(
+            session=mock.Mock(),
+            teams=["NYY"],
+            top_n=3,
+        )
+        data = self._make_api_response(
+            [
+                self._make_team_record("NYY", 45, 20, 1, "-"),
+                self._make_team_record("LAD", 42, 23, 2, "3.0"),
+                self._make_team_record("BAL", 41, 24, 3, "4.0"),
+                self._make_team_record("NYM", 35, 30, 12, "10.0"),
+            ]
+        )
+        standings = widget._parse_standings(data)
+
+        title_msg = TickerMessage("MLB Standings", font_color=RGB_WHITE)
+        stories = [title_msg]
+        top_abbrs = set()
+        for s in standings[: widget.top_n]:
+            top_abbrs.add(s.abbr)
+            stories.append(_build_standing_message(s))
+        standings_by_abbr = {s.abbr: s for s in standings}
+        for team in widget.teams:
+            if team not in top_abbrs:
+                s = standings_by_abbr.get(team)
+                if s:
+                    stories.append(_build_standing_message(s))
+
+        # 1 title + 3 top, NYY skipped in tracked section = 4
+        assert len(stories) == 4
+
+    def test_empty_response(self):
+        widget = MLBStandingsMonitor(
+            session=mock.Mock(),
+            teams=["NYM"],
+        )
+        data = {"records": []}
+        standings = widget._parse_standings(data)
+        assert standings == []
+
+    def test_multiple_divisions(self):
+        """API returns multiple division records; all should be flattened."""
+        widget = MLBStandingsMonitor(
+            session=mock.Mock(),
+            teams=["NYM"],
+        )
+        data = {
+            "records": [
+                {
+                    "teamRecords": [
+                        self._make_team_record("NYY", 45, 20, 1, "-"),
+                    ]
+                },
+                {
+                    "teamRecords": [
+                        self._make_team_record("LAD", 42, 23, 2, "3.0"),
+                    ]
+                },
+            ],
+        }
+        standings = widget._parse_standings(data)
+        assert len(standings) == 2
+        assert standings[0].abbr == "NYY"
+        assert standings[1].abbr == "LAD"
+
+
+# --- Offseason ---
+
+
+class TestOffseason:
+    def test_all_zeros_detected(self):
+        """When all teams have 0-0 records, season hasn't started."""
+        standings = [
+            TeamStanding(abbr="NYY", wins=0, losses=0, rank=1, games_back="-"),
+            TeamStanding(abbr="LAD", wins=0, losses=0, rank=2, games_back="-"),
+            TeamStanding(abbr="NYM", wins=0, losses=0, rank=3, games_back="-"),
+        ]
+        assert all(s.wins == 0 and s.losses == 0 for s in standings)
+
+    def test_not_all_zeros_when_games_played(self):
+        standings = [
+            TeamStanding(abbr="NYY", wins=1, losses=0, rank=1, games_back="-"),
+            TeamStanding(abbr="LAD", wins=0, losses=1, rank=2, games_back="1.0"),
+        ]
+        assert not all(s.wins == 0 and s.losses == 0 for s in standings)
+
+    @pytest.mark.asyncio
+    async def test_offseason_with_opening_day(self):
+        """Offseason shows 'Opens [date]' when schedule has games."""
+        widget = MLBStandingsMonitor(
+            session=mock.Mock(),
+            teams=["NYM"],
+        )
+        widget._tz = __import__("zoneinfo").ZoneInfo("America/New_York")
+
+        opening_msg = "Opens Mar 27"
+        title_msg = TickerMessage(
+            widget.title,
+            font_color=RGB_WHITE,
+            center=True,
+        )
+        widget.feed_title = title_msg
+        widget.feed_stories = [
+            title_msg,
+            TickerMessage(opening_msg, font_color=RGB_WHITE, center=True),
+        ]
+
+        assert len(widget.feed_stories) == 2
+        assert widget.feed_stories[1].message == "Opens Mar 27"
+
+    @pytest.mark.asyncio
+    async def test_offseason_fallback(self):
+        """Offseason shows 'Opens soon' when no schedule data."""
+        widget = MLBStandingsMonitor(
+            session=mock.Mock(),
+            teams=["NYM"],
+        )
+        widget._tz = __import__("zoneinfo").ZoneInfo("America/New_York")
+
+        title_msg = TickerMessage(
+            widget.title,
+            font_color=RGB_WHITE,
+            center=True,
+        )
+        widget.feed_title = title_msg
+        widget.feed_stories = [
+            title_msg,
+            TickerMessage("Opens soon", font_color=RGB_WHITE, center=True),
+        ]
+
+        assert len(widget.feed_stories) == 2
+        assert widget.feed_stories[1].message == "Opens soon"

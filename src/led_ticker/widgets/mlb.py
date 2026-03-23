@@ -496,9 +496,7 @@ class MLBScoreMonitor:
                 )
                 opp_name = MLB_TEAM_NAMES.get(opp, opp)
                 if next_game.start_time:
-                    time_str = _format_game_time(
-                        next_game.start_time, tz
-                    )
+                    time_str = _format_game_time(next_game.start_time, tz)
                 else:
                     time_str = "TBD"
                 self.feed_stories = [

@@ -1,0 +1,64 @@
+# MLB standings + scores testing config
+# Usage: cp config/config.mlb_standings.toml config/config.toml
+
+[display]
+rows = 16
+cols = 32
+chain = 5
+brightness = 60
+slowdown_gpio = 2
+gpio_mapping = "adafruit-hat"
+
+[title]
+delay = 5
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = {type = "baseball_alternating", duration = 2.0}
+
+# --- MLB Standings (swap mode) ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "push_left"
+transition_duration = 0.5
+hold_time = 6
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":baseball: MLB Standings"
+color = "random"
+
+[[playlist.section.widget]]
+type = "mlb_standings"
+teams = ["NYM", "PHI"]
+title = "MLB Standings"
+top_n = 3
+timezone = "America/New_York"
+
+# --- MLB Scores (swap mode) ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "baseball_alternating"
+transition_duration = 2.0
+hold_time = 6
+loop_count = 0
+
+[playlist.section.title]
+type = "message"
+text = ":baseball: MLB Scores"
+color = "random"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "PHI"
+timezone = "America/New_York"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "NYM"
+timezone = "America/New_York"

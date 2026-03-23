@@ -23,6 +23,7 @@ from led_ticker.transitions import get_transition_class, run_transition
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
 from led_ticker.widgets.mlb import MLBScoreMonitor
+from led_ticker.widgets.mlb_standings import MLBStandingsMonitor
 from led_ticker.widgets.rss_feed import RSSFeedMonitor
 
 
@@ -141,7 +142,10 @@ async def run(config_path: Path) -> None:
                         widget = await _build_widget(cfg, session)
                         widget_cache[key] = widget
                     # Container widgets expand into stories
-                    if isinstance(widget, (RSSFeedMonitor, MLBScoreMonitor)):
+                    if isinstance(
+                        widget,
+                        (RSSFeedMonitor, MLBScoreMonitor, MLBStandingsMonitor),
+                    ):
                         logging.debug(
                             "Expanding %s: %d stories",
                             type(widget).__name__,

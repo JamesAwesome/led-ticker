@@ -28,5 +28,11 @@ def get_widget_class(name: str) -> type[Any]:
 
 
 # Auto-import all built-in widget modules so they register themselves
-from led_ticker.widgets import message, mlb, rss_feed, weather  # noqa: E402, F401
+from led_ticker.widgets import (  # noqa: E402, F401
+    message,
+    mlb,
+    mlb_standings,
+    rss_feed,
+    weather,
+)
 from led_ticker.widgets.crypto import coinbase, coingecko, etherscan  # noqa: E402, F401

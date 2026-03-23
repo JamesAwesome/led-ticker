@@ -114,8 +114,11 @@ class TestGameInfo:
 
     def test_final_game(self):
         g = GameInfo(
-            home_abbr="PHI", away_abbr="NYM",
-            home_score=5, away_score=3, state="final",
+            home_abbr="PHI",
+            away_abbr="NYM",
+            home_score=5,
+            away_score=3,
+            state="final",
         )
         assert g.state == "final"
         assert g.home_score == 5
@@ -138,10 +141,20 @@ class TestBuildSeriesTitle:
     def test_same_home_uses_at_separator(self):
         """All games at same venue: AWAY @ HOME."""
         games = [
-            GameInfo(home_abbr="PHI", away_abbr="NYM", state="final",
-                     home_score=5, away_score=3),
-            GameInfo(home_abbr="PHI", away_abbr="NYM", state="final",
-                     home_score=4, away_score=2),
+            GameInfo(
+                home_abbr="PHI",
+                away_abbr="NYM",
+                state="final",
+                home_score=5,
+                away_score=3,
+            ),
+            GameInfo(
+                home_abbr="PHI",
+                away_abbr="NYM",
+                state="final",
+                home_score=4,
+                away_score=2,
+            ),
             GameInfo(home_abbr="PHI", away_abbr="NYM", state="preview"),
         ]
         series = SeriesInfo(
@@ -153,17 +166,22 @@ class TestBuildSeriesTitle:
         msg = _build_series_title("PHI", series, ET)
         assert isinstance(msg, MLBGameMessage)
         texts = [t for t, _ in msg.segments]
-        assert texts[0] == "NYM"   # away first
+        assert texts[0] == "NYM"  # away first
         assert texts[1] == " @ "
-        assert texts[2] == "PHI"   # home second
+        assert texts[2] == "PHI"  # home second
         text = "".join(texts)
         assert "leads" in text
 
     def test_mixed_home_uses_vs_separator(self):
         """Mixed venues: neutral 'vs' separator."""
         games = [
-            GameInfo(home_abbr="PHI", away_abbr="NYM", state="final",
-                     home_score=5, away_score=3),
+            GameInfo(
+                home_abbr="PHI",
+                away_abbr="NYM",
+                state="final",
+                home_score=5,
+                away_score=3,
+            ),
             GameInfo(home_abbr="NYM", away_abbr="PHI", state="preview"),
         ]
         series = SeriesInfo(
@@ -180,10 +198,20 @@ class TestBuildSeriesTitle:
 
     def test_tied_series(self):
         games = [
-            GameInfo(home_abbr="PHI", away_abbr="NYM", state="final",
-                     home_score=5, away_score=3),
-            GameInfo(home_abbr="PHI", away_abbr="NYM", state="final",
-                     home_score=2, away_score=4),
+            GameInfo(
+                home_abbr="PHI",
+                away_abbr="NYM",
+                state="final",
+                home_score=5,
+                away_score=3,
+            ),
+            GameInfo(
+                home_abbr="PHI",
+                away_abbr="NYM",
+                state="final",
+                home_score=2,
+                away_score=4,
+            ),
         ]
         series = SeriesInfo(
             opponent_abbr="NYM",
@@ -197,11 +225,11 @@ class TestBuildSeriesTitle:
 
     def test_spring_training_label(self):
         games = [
-            GameInfo(home_abbr="PHI", away_abbr="BAL",
-                     state="live", game_type="S"),
+            GameInfo(home_abbr="PHI", away_abbr="BAL", state="live", game_type="S"),
         ]
         series = SeriesInfo(
-            opponent_abbr="BAL", games=games,
+            opponent_abbr="BAL",
+            games=games,
         )
         msg = _build_series_title("PHI", series, ET)
         text = "".join(t for t, _ in msg.segments)
@@ -216,12 +244,19 @@ class TestBuildSeriesTitle:
     def test_single_game_no_record(self):
         """Single-game matchups shouldn't show series record."""
         games = [
-            GameInfo(home_abbr="PHI", away_abbr="BAL",
-                     state="final", home_score=5, away_score=3),
+            GameInfo(
+                home_abbr="PHI",
+                away_abbr="BAL",
+                state="final",
+                home_score=5,
+                away_score=3,
+            ),
         ]
         series = SeriesInfo(
-            opponent_abbr="BAL", games=games,
-            team_wins=1, team_losses=0,
+            opponent_abbr="BAL",
+            games=games,
+            team_wins=1,
+            team_losses=0,
         )
         msg = _build_series_title("PHI", series, ET)
         text = "".join(t for t, _ in msg.segments)
@@ -238,8 +273,11 @@ class TestBuildGameMessage:
     def test_final_home_win_away_first(self):
         """Home team wins — away listed first, scores colored independently."""
         game = GameInfo(
-            home_abbr="PHI", away_abbr="NYM",
-            home_score=5, away_score=3, state="final",
+            home_abbr="PHI",
+            away_abbr="NYM",
+            home_score=5,
+            away_score=3,
+            state="final",
         )
         msg = _build_game_message(game, "PHI", ET)
         texts = [t for t, _ in msg.segments]
@@ -250,32 +288,44 @@ class TestBuildGameMessage:
         assert "Final" in full
         # Away lost (3 < 5): away score red, home score green
         from led_ticker.widgets.mlb import LOSS_COLOR, WIN_COLOR
+
         colors = [c for _, c in msg.segments]
         assert colors[1] is LOSS_COLOR  # NYM score (3) = red
-        assert colors[4] is WIN_COLOR   # PHI score (5) = green
+        assert colors[4] is WIN_COLOR  # PHI score (5) = green
 
     def test_final_away_win(self):
         """Away team wins — scores colored: away green, home red."""
         game = GameInfo(
-            home_abbr="PHI", away_abbr="NYM",
-            home_score=2, away_score=4, state="final",
+            home_abbr="PHI",
+            away_abbr="NYM",
+            home_score=2,
+            away_score=4,
+            state="final",
         )
         msg = _build_game_message(game, "PHI", ET)
         from led_ticker.widgets.mlb import LOSS_COLOR, WIN_COLOR
+
         texts = [t for t, _ in msg.segments]
         colors = [c for _, c in msg.segments]
         assert texts[0] == "NYM"
-        assert colors[1] is WIN_COLOR   # NYM score (4) = green
+        assert colors[1] is WIN_COLOR  # NYM score (4) = green
         assert colors[4] is LOSS_COLOR  # PHI score (2) = red
 
     def test_live_game_away_first(self):
         """Live game: away team listed first, scores in white."""
         game = GameInfo(
-            home_abbr="PHI", away_abbr="NYM",
-            home_score=3, away_score=2, state="live",
+            home_abbr="PHI",
+            away_abbr="NYM",
+            home_score=3,
+            away_score=2,
+            state="live",
             inning="\u25bc7",
-            balls=2, strikes=1, outs=1,
-            on_first=True, on_second=False, on_third=True,
+            balls=2,
+            strikes=1,
+            outs=1,
+            on_first=True,
+            on_second=False,
+            on_third=True,
         )
         msg = _build_game_message(game, "PHI", ET)
         texts = [t for t, _ in msg.segments]
@@ -289,8 +339,11 @@ class TestBuildGameMessage:
 
     def test_live_game_bases_empty(self):
         game = GameInfo(
-            home_abbr="PHI", away_abbr="NYM",
-            home_score=0, away_score=0, state="live",
+            home_abbr="PHI",
+            away_abbr="NYM",
+            home_score=0,
+            away_score=0,
+            state="live",
             inning="\u25b21",
         )
         msg = _build_game_message(game, "PHI", ET)
@@ -301,28 +354,30 @@ class TestBuildGameMessage:
     def test_preview_away_at_home(self):
         """Preview always shows AWAY @ HOME regardless of which team is yours."""
         game = GameInfo(
-            home_abbr="NYM", away_abbr="PHI",
+            home_abbr="NYM",
+            away_abbr="PHI",
             state="preview",
             start_time=datetime.now(ET) + timedelta(hours=3),
         )
         msg = _build_game_message(game, "PHI", ET)
         texts = [t for t, _ in msg.segments]
-        assert texts[0] == "PHI"   # away
+        assert texts[0] == "PHI"  # away
         assert texts[1] == " @ "
-        assert texts[2] == "NYM"   # home
+        assert texts[2] == "NYM"  # home
 
     def test_preview_home_team_also_away_first(self):
         """When your team is home, away opponent still listed first."""
         game = GameInfo(
-            home_abbr="PHI", away_abbr="NYM",
+            home_abbr="PHI",
+            away_abbr="NYM",
             state="preview",
             start_time=datetime.now(ET) + timedelta(hours=3),
         )
         msg = _build_game_message(game, "PHI", ET)
         texts = [t for t, _ in msg.segments]
-        assert texts[0] == "NYM"   # away
+        assert texts[0] == "NYM"  # away
         assert texts[1] == " @ "
-        assert texts[2] == "PHI"   # home
+        assert texts[2] == "PHI"  # home
 
 
 # --- MLBGameMessage draw ---
@@ -349,13 +404,15 @@ class TestMLBGameMessageDraw:
 class TestMLBScoreMonitor:
     def test_has_padding(self):
         widget = MLBScoreMonitor(
-            session=mock.Mock(), team="PHI",
+            session=mock.Mock(),
+            team="PHI",
         )
         assert widget.padding == 6
 
     def test_has_feed_stories(self):
         widget = MLBScoreMonitor(
-            session=mock.Mock(), team="PHI",
+            session=mock.Mock(),
+            team="PHI",
         )
         assert isinstance(widget.feed_stories, list)
 
@@ -369,25 +426,36 @@ class TestMLBScoreMonitor:
 class TestMLBParsing:
     def test_group_into_series(self):
         widget = MLBScoreMonitor(
-            session=mock.Mock(), team="PHI",
+            session=mock.Mock(),
+            team="PHI",
         )
         games = [
             GameInfo(
-                home_abbr="PHI", away_abbr="NYM", state="final",
-                home_score=5, away_score=3,
+                home_abbr="PHI",
+                away_abbr="NYM",
+                state="final",
+                home_score=5,
+                away_score=3,
                 start_time=datetime(2026, 6, 1, 19, tzinfo=ET),
             ),
             GameInfo(
-                home_abbr="PHI", away_abbr="NYM", state="final",
-                home_score=2, away_score=4,
+                home_abbr="PHI",
+                away_abbr="NYM",
+                state="final",
+                home_score=2,
+                away_score=4,
                 start_time=datetime(2026, 6, 2, 19, tzinfo=ET),
             ),
             GameInfo(
-                home_abbr="PHI", away_abbr="NYM", state="preview",
+                home_abbr="PHI",
+                away_abbr="NYM",
+                state="preview",
                 start_time=datetime(2026, 6, 3, 19, tzinfo=ET),
             ),
             GameInfo(
-                home_abbr="ATL", away_abbr="PHI", state="preview",
+                home_abbr="ATL",
+                away_abbr="PHI",
+                state="preview",
                 start_time=datetime(2026, 6, 5, 19, tzinfo=ET),
             ),
         ]
@@ -401,7 +469,8 @@ class TestMLBParsing:
 
     def test_find_current_series_live(self):
         widget = MLBScoreMonitor(
-            session=mock.Mock(), team="PHI",
+            session=mock.Mock(),
+            team="PHI",
         )
         widget._tz = ET
         now = datetime.now(ET)
@@ -410,8 +479,11 @@ class TestMLBParsing:
                 opponent_abbr="NYM",
                 games=[
                     GameInfo(
-                        home_abbr="PHI", away_abbr="NYM",
-                        state="live", home_score=3, away_score=2,
+                        home_abbr="PHI",
+                        away_abbr="NYM",
+                        state="live",
+                        home_score=3,
+                        away_score=2,
                         start_time=now - timedelta(hours=1),
                     ),
                 ],

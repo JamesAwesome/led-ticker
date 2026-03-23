@@ -6,8 +6,8 @@ from led_ticker._types import Canvas, PixelData
 
 # --- Pac-Man sprite ---
 
-PACMAN_SIZE: int = 14
-PACMAN_Y_OFFSET: int = 1  # centers 14px sprite in 16px display
+PACMAN_SIZE: int = 15
+PACMAN_Y_OFFSET: int = 0  # 15px sprite in 16px display, 1px bottom padding
 PACMAN_FRAMES_PER_STEP: int = 4  # pixels per mouth frame change
 
 # Pac-Man palette
@@ -43,9 +43,9 @@ GROUP_WIDTH: int = (
 
 
 def _pacman_circle() -> set[tuple[int, int]]:
-    """Circle mask for 14px Pac-Man."""
-    cx, cy = 6.5, 6.5
-    r = 6.5
+    """Circle mask for 15px Pac-Man."""
+    cx, cy = 7.0, 7.0
+    r = 7.0
     mask: set[tuple[int, int]] = set()
     for dy in range(PACMAN_SIZE):
         for dx in range(PACMAN_SIZE):
@@ -82,10 +82,10 @@ def _build_pacman_half() -> PixelData:
     """Pac-Man with mouth half open (small wedge removed on right)."""
     interior = _pacman_circle()
     outline = _pacman_outline(interior)
-    # Remove wedge: rows 6-7 (center), cols 11-13 (right side)
+    # Remove wedge: rows 6-8 (center), cols 12-14 (right side)
     mouth: set[tuple[int, int]] = set()
-    for dy in range(6, 8):
-        for dx in range(11, 14):
+    for dy in range(6, 9):
+        for dx in range(12, 15):
             mouth.add((dx, dy))
     pixels: PixelData = []
     for dx, dy in sorted(interior):
@@ -107,7 +107,7 @@ def _build_pacman_open() -> PixelData:
     outline = _pacman_outline(interior)
     # Remove larger wedge: rows 4-9 tapering to a point at center-right
     mouth: set[tuple[int, int]] = set()
-    cx, cy = 6.5, 6.5
+    cx, cy = 7.0, 7.0
     for dy in range(PACMAN_SIZE):
         for dx in range(PACMAN_SIZE):
             if (dx, dy) not in interior:

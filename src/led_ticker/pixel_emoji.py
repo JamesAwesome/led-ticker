@@ -110,16 +110,16 @@ TACO: PixelData = [
     # Row 2: shell curves up from right toward filling
     (3, 2, *_TK), (4, 2, *_TG), (5, 2, *_TM), (6, 2, *_TR),
     (7, 2, *_TG), (8, 2, *_TK), (9, 2, *_TS), (10, 2, *_TS), (11, 2, *_TK),
-    # Row 3: shell wraps around
-    (2, 3, *_TK), (3, 3, *_TS), (4, 3, *_TS), (5, 3, *_TS),
+    # Row 3: shell wraps around, filling spills left
+    (2, 3, *_TK), (3, 3, *_TG), (4, 3, *_TM), (5, 3, *_TS),
     (6, 3, *_TS), (7, 3, *_TS), (8, 3, *_TS), (9, 3, *_TS),
     (10, 3, *_TS), (11, 3, *_TL), (12, 3, *_TK),
-    # Row 4: shell widens symmetrically
-    (1, 4, *_TK), (2, 4, *_TS), (3, 4, *_TL), (4, 4, *_TS),
+    # Row 4: shell widens, filling visible on left
+    (1, 4, *_TK), (2, 4, *_TR), (3, 4, *_TG), (4, 4, *_TS),
     (5, 4, *_TS), (6, 4, *_TS), (7, 4, *_TS), (8, 4, *_TL),
     (9, 4, *_TS), (10, 4, *_TS), (11, 4, *_TS), (12, 4, *_TK),
-    # Row 5: widest shell
-    (0, 5, *_TK), (1, 5, *_TS), (2, 5, *_TS), (3, 5, *_TS),
+    # Row 5: widest shell, filling at left edge
+    (0, 5, *_TK), (1, 5, *_TG), (2, 5, *_TS), (3, 5, *_TS),
     (4, 5, *_TS), (5, 5, *_TS), (6, 5, *_TS), (7, 5, *_TS),
     (8, 5, *_TS), (9, 5, *_TS), (10, 5, *_TS), (11, 5, *_TS),
     (12, 5, *_TS), (13, 5, *_TK),

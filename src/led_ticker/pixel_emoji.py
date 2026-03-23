@@ -107,11 +107,11 @@ TACO: PixelData = [
     # Row 1: filling — lettuce, tomato, meat, green
     (1, 1, *_TK), (2, 1, *_TR), (3, 1, *_TG),
     (4, 1, *_TM), (5, 1, *_TG), (6, 1, *_TK),
-    # Row 2: shell top + more filling visible
+    # Row 2: shell curves up from right toward filling
     (0, 2, *_TK), (1, 2, *_TG), (2, 2, *_TM), (3, 2, *_TR),
-    (4, 2, *_TG), (5, 2, *_TK), (6, 2, *_TK),
-    (7, 2, *_TK), (8, 2, *_TK), (9, 2, *_TK),
-    # Row 3: shell wraps around — wide orange
+    (4, 2, *_TG), (5, 2, *_TK), (6, 2, *_TS),
+    (7, 2, *_TS), (8, 2, *_TK),
+    # Row 3: shell wraps around — wide orange, curves up right side
     (0, 3, *_TK), (1, 3, *_TS), (2, 3, *_TS), (3, 3, *_TS),
     (4, 3, *_TS), (5, 3, *_TS), (6, 3, *_TS), (7, 3, *_TS),
     (8, 3, *_TS), (9, 3, *_TL), (10, 3, *_TK),

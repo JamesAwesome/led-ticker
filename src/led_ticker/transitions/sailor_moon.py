@@ -35,13 +35,13 @@ MOON_STICK: PixelData = [
     # Row 1: crescent upper arc
     (2, 1, *_GOLD),
     (3, 1, *_GOLD),
-    # Row 2: crescent thick left edge + blue jewel inside
+    # Row 2: crescent thick left edge
     (2, 2, *_GOLD),
     (3, 2, *_GOLD),
-    (4, 2, *_BLUE),
-    # Row 3: crescent lower arc
+    # Row 3: crescent lower arc + blue jewel inside
     (2, 3, *_GOLD),
     (3, 3, *_GOLD),
+    (4, 3, *_BLUE),
     # Row 4: crescent bottom curve
     (3, 4, *_GOLD),
     (4, 4, *_GOLD),

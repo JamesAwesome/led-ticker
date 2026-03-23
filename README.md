@@ -161,6 +161,7 @@ text = ":taco: Taco Tuesday!"
 | `coingecko` | Crypto price (CoinGecko) | — |
 | `etherscan` | Ethereum gas prices | `ETHERSCAN_API_KEY` |
 | `mlb` | MLB scores & series info | — (free API) |
+| `mlb_standings` | MLB overall standings (top N + tracked teams) | — (free API) |
 
 ## Adding a New Widget
 

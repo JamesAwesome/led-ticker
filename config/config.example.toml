@@ -136,6 +136,28 @@ countdown_date = 2026-06-20
 # timezone = "America/New_York"
 # final_hold_hours = 6  # hours to show final score before switching to next game (default: 6)
 
+# --- MLB Standings ---
+# Free MLB Stats API, no key needed.
+# Shows top N teams by overall record, then your tracked teams.
+# During offseason/spring training, shows "Opens [date]" instead.
+# Options:
+#   teams    = ["NYM", "PHI"]        (required, list of 3-letter team abbreviations)
+#   title    = "MLB Standings"       (default)
+#   top_n    = 3                     (default, number of top teams to show)
+#   timezone = "America/New_York"    (default)
+#
+# [[playlist.section]]
+# mode = "swap"
+# transition = "baseball_alternating"
+# transition_duration = 2.0
+# hold_time = 6
+# loop_count = 1
+#
+# [[playlist.section.widget]]
+# type = "mlb_standings"
+# teams = ["NYM", "PHI"]
+# top_n = 3
+
 # --- Weather ---
 # Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/)
 # Location can be: city name, zip code, or "lat,lon"

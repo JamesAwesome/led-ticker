@@ -49,6 +49,7 @@ src/led_ticker/
     weather.py          # WeatherWidget (WeatherAPI.com) with 8x8 pixel icons
     weather_icons.py    # 7 weather condition icons
     rss_feed.py         # RSSFeedMonitor (no draw() — stories expand into TickerMessages)
+    mlb_standings.py    # MLBStandingsMonitor (top N + tracked teams, offseason detection)
     crypto/
       coinbase.py       # CoinbasePriceMonitor
       coingecko.py      # CoinGeckoPriceMonitor

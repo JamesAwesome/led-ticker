@@ -22,7 +22,7 @@ _WHITE = (255, 255, 255)
 _LPINK = (255, 182, 213)
 _BLUE = (0, 100, 255)
 
-_SPARKLE_COLORS: list[tuple[int, int, int]] = [_GOLD, _PINK, _WHITE, _MAGENTA]
+_SPARKLE_COLORS: list[tuple[int, int, int]] = [_GOLD, _PINK, _WHITE, _MAGENTA, _BLUE]
 
 # --- Moon Stick sprite (8x16) ---
 # Crescent moon at top (open right — left arc visible), jewel, pink rod below

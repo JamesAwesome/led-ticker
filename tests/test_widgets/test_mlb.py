@@ -70,7 +70,7 @@ class TestFormatGameTime:
         now = datetime.now(ET)
         game_time = (now + timedelta(days=1)).replace(hour=13, minute=10)
         result = _format_game_time(game_time, ET)
-        assert result.startswith("Tmw")
+        assert result.startswith("Tmrw")
 
     def test_this_week(self):
         now = datetime.now(ET)

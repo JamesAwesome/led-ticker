@@ -157,7 +157,7 @@ def _format_game_time(dt: datetime, tz: ZoneInfo) -> str:
     if local.date() == now.date():
         return f"Today {local.strftime('%-I:%M %p')}"
     if local.date() == (now + timedelta(days=1)).date():
-        return f"Tmw {local.strftime('%-I:%M %p')}"
+        return f"Tmrw {local.strftime('%-I:%M %p')}"
     days_out = (local.date() - now.date()).days
     if days_out <= 6:
         return local.strftime("%a %-I:%M %p")

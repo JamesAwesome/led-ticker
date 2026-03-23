@@ -164,6 +164,27 @@ type = "mlb"
 team = "NYM"
 timezone = "America/New_York"
 
+# --- MLB Standings ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "baseball_alternating"
+transition_duration = 2.0
+hold_time = 6
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":baseball: MLB Standings :baseball:"
+color = "random"
+
+[[playlist.section.widget]]
+type = "mlb_standings"
+teams = ["NYM", "PHI"]
+title = "MLB Standings"
+top_n = 3
+timezone = "America/New_York"
+
 # --- Anime News Network ---
 
 [[playlist.section]]

@@ -170,7 +170,10 @@ class TestBuildSeriesTitle:
         assert texts[1] == " @ "
         assert texts[2] == "PHI"  # home second
         text = "".join(texts)
-        assert "leads" in text
+        # Record ordered by position: NYM @ PHI → NYM_wins-PHI_wins
+        # PHI has 2 wins, NYM has 1: "1-2"
+        assert " 1-2" in text
+        assert "leads" not in text
 
     def test_mixed_home_uses_vs_separator(self):
         """Mixed venues: neutral 'vs' separator."""
@@ -195,6 +198,9 @@ class TestBuildSeriesTitle:
         assert texts[0] == "PHI"
         assert texts[1] == " vs "
         assert texts[2] == "NYM"
+        # Record ordered by position: PHI vs NYM → PHI_wins-NYM_wins
+        text = "".join(texts)
+        assert " 1-0" in text
 
     def test_tied_series(self):
         games = [
@@ -221,7 +227,36 @@ class TestBuildSeriesTitle:
         )
         msg = _build_series_title("PHI", series, ET)
         text = "".join(t for t, _ in msg.segments)
-        assert "Tied" in text
+        assert " 1-1" in text
+        assert "Tied" not in text
+
+    def test_opponent_leading_at_format(self):
+        """When opponent leads and is home, record reflects positions."""
+        games = [
+            GameInfo(
+                home_abbr="NYM",
+                away_abbr="PIT",
+                state="final",
+                home_score=5,
+                away_score=3,
+            ),
+            GameInfo(home_abbr="NYM", away_abbr="PIT", state="preview"),
+        ]
+        series = SeriesInfo(
+            opponent_abbr="NYM",
+            games=games,
+            team_wins=0,
+            team_losses=1,
+        )
+        msg = _build_series_title("PIT", series, ET)
+        texts = [t for t, _ in msg.segments]
+        # PIT @ NYM → PIT is away (first), NYM is home (second)
+        assert texts[0] == "PIT"
+        assert texts[1] == " @ "
+        assert texts[2] == "NYM"
+        text = "".join(texts)
+        # PIT has 0 wins (first), NYM has 1 win (second)
+        assert " 0-1" in text
 
     def test_spring_training_label(self):
         games = [

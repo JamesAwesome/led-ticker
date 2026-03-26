@@ -261,12 +261,16 @@ def _build_series_title(
             (" @ ", RGB_WHITE),
             (home, home_c),
         ]
+        # First listed team is away, second is home
+        first_is_team = away == team_abbr
     else:
         segments = [
             (team_abbr, team_c),
             (" vs ", RGB_WHITE),
             (series.opponent_abbr, opp_c),
         ]
+        # First listed team is always team_abbr
+        first_is_team = True
 
     # Show (ST) / (ASG) with icon for special game types
     icon: PixelData | None = None
@@ -283,17 +287,14 @@ def _build_series_title(
         segments.append((" (ASG)", RGB_WHITE))
         icon = STAR
 
-    # Only show series record for multi-game series with results
+    # Show series record ordered to match team name positions
     total_games = len(series.games)
     total_decided = series.team_wins + series.team_losses
     if total_games > 1 and total_decided > 0:
-        if series.team_wins > series.team_losses:
-            record = f" {team_abbr} leads {series.team_wins}-{series.team_losses}"
-        elif series.team_losses > series.team_wins:
-            opp = series.opponent_abbr
-            record = f" {opp} leads {series.team_losses}-{series.team_wins}"
+        if first_is_team:
+            record = f" {series.team_wins}-{series.team_losses}"
         else:
-            record = f" Tied {series.team_wins}-{series.team_losses}"
+            record = f" {series.team_losses}-{series.team_wins}"
         segments.append((record, RGB_WHITE))
 
     # Center the title if it fits on screen

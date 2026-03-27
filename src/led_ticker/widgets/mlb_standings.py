@@ -19,9 +19,8 @@ from led_ticker.widgets import register
 from led_ticker.widgets.message import TickerMessage
 from led_ticker.widgets.mlb import (
     MLB_API,
-    MLB_FULL_NAME_TO_ABBR,
+    MLB_NAME_TO_ABBR,
     MLBGameMessage,
-    _display_name,
     _team_color_by_name,
 )
 
@@ -32,7 +31,7 @@ _INTERVAL_DAILY: int = 86400
 
 @dataclass
 class TeamStanding:
-    name: str  # Full API team name, e.g. "Baltimore Orioles"
+    name: str  # API team name, e.g. "Mets", "Yankees"
     wins: int
     losses: int
     rank: int
@@ -41,14 +40,13 @@ class TeamStanding:
 
 def _build_standing_message(standing: TeamStanding) -> MLBGameMessage:
     """Build a display message for a single team's standing."""
-    full_name = _display_name(standing.name)
     team_c = _team_color_by_name(standing.name)
 
     gb_str = standing.games_back if standing.games_back != "-" else "-"
 
     segments: list[tuple[str, Any]] = [
         (f"{standing.rank}. ", RGB_WHITE),
-        (full_name, team_c),
+        (standing.name, team_c),
         (f" {standing.wins}-{standing.losses}", RGB_WHITE),
         (f" {gb_str}", RGB_WHITE),
     ]
@@ -142,7 +140,7 @@ class MLBStandingsMonitor:
         # Config uses abbreviations, so map API names back to abbrs for lookup
         standings_by_abbr: dict[str, TeamStanding] = {}
         for s in standings:
-            abbr = MLB_FULL_NAME_TO_ABBR.get(s.name, "")
+            abbr = MLB_NAME_TO_ABBR.get(s.name, "")
             if abbr:
                 standings_by_abbr[abbr] = s
         for team in self.teams:

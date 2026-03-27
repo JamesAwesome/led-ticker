@@ -212,11 +212,13 @@ class MLBStandingsMonitor:
                             game_date = g.get("gameDate")
                             if game_date:
                                 with contextlib.suppress(
-                                    ValueError, TypeError,
+                                    ValueError,
+                                    TypeError,
                                 ):
                                     dt = datetime.fromisoformat(
                                         game_date.replace(
-                                            "Z", "+00:00",
+                                            "Z",
+                                            "+00:00",
                                         ),
                                     )
                                     local = dt.astimezone(tz)

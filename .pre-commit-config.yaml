@@ -5,3 +5,20 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: pyright
+        name: pyright
+        entry: uv run pyright src/
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+      - id: pytest
+        name: pytest
+        entry: uv run pytest -x -q
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

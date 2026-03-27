@@ -1,9 +1,15 @@
-.PHONY: dev test lint typecheck format clean build-docker
+.PHONY: dev hooks test lint typecheck format clean build-docker
 
 # --- Developer Setup ---
 
-dev:  ## Install package with dev dependencies
+dev:  ## Install package with dev dependencies and pre-commit hooks
 	uv sync --extra dev
+	uv run pre-commit install
+	uv run pre-commit install --hook-type pre-push
+
+hooks:  ## Install pre-commit hooks
+	uv run pre-commit install
+	uv run pre-commit install --hook-type pre-push
 
 # --- Testing ---
 

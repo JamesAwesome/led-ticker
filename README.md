@@ -15,7 +15,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Clone and install
 git clone https://github.com/JamesAwesome/led-ticker.git
 cd led-ticker
-make dev
+make dev        # installs deps + pre-commit hooks
 
 # Configure
 cp config.example.toml config.toml

@@ -18,12 +18,12 @@ from led_ticker.widgets.mlb_standings import (
 
 class TestTeamStanding:
     def test_leader(self):
-        s = TeamStanding(abbr="NYY", wins=45, losses=20, rank=1, games_back="-")
+        s = TeamStanding(name="New York Yankees", wins=45, losses=20, rank=1, games_back="-")
         assert s.rank == 1
         assert s.games_back == "-"
 
     def test_non_leader(self):
-        s = TeamStanding(abbr="NYM", wins=35, losses=30, rank=12, games_back="10.0")
+        s = TeamStanding(name="New York Mets", wins=35, losses=30, rank=12, games_back="10.0")
         assert s.rank == 12
         assert s.games_back == "10.0"
 
@@ -33,7 +33,7 @@ class TestTeamStanding:
 
 class TestBuildStandingMessage:
     def test_basic_format(self):
-        s = TeamStanding(abbr="NYY", wins=45, losses=20, rank=1, games_back="-")
+        s = TeamStanding(name="New York Yankees", wins=45, losses=20, rank=1, games_back="-")
         msg = _build_standing_message(s)
         assert isinstance(msg, MLBGameMessage)
         texts = [t for t, _ in msg.segments]
@@ -43,7 +43,7 @@ class TestBuildStandingMessage:
         assert texts[3] == " -"
 
     def test_rank_numbers_white(self):
-        s = TeamStanding(abbr="LAD", wins=42, losses=23, rank=2, games_back="3.0")
+        s = TeamStanding(name="Los Angeles Dodgers", wins=42, losses=23, rank=2, games_back="3.0")
         msg = _build_standing_message(s)
         colors = [c for _, c in msg.segments]
         assert colors[0] is RGB_WHITE  # rank
@@ -51,31 +51,31 @@ class TestBuildStandingMessage:
         assert colors[3] is RGB_WHITE  # GB
 
     def test_team_color_applied(self):
-        s = TeamStanding(abbr="PHI", wins=40, losses=25, rank=3, games_back="5.0")
+        s = TeamStanding(name="Philadelphia Phillies", wins=40, losses=25, rank=3, games_back="5.0")
         msg = _build_standing_message(s)
         colors = [c for _, c in msg.segments]
         # Team name should use team color, not white
         assert colors[1] is not RGB_WHITE
 
     def test_gb_leader(self):
-        s = TeamStanding(abbr="NYY", wins=50, losses=15, rank=1, games_back="-")
+        s = TeamStanding(name="New York Yankees", wins=50, losses=15, rank=1, games_back="-")
         msg = _build_standing_message(s)
         texts = [t for t, _ in msg.segments]
         assert texts[3] == " -"
 
     def test_gb_behind(self):
-        s = TeamStanding(abbr="BAL", wins=41, losses=24, rank=3, games_back="9.5")
+        s = TeamStanding(name="Baltimore Orioles", wins=41, losses=24, rank=3, games_back="9.5")
         msg = _build_standing_message(s)
         texts = [t for t, _ in msg.segments]
         assert texts[3] == " 9.5"
 
     def test_message_is_centered(self):
-        s = TeamStanding(abbr="NYY", wins=45, losses=20, rank=1, games_back="-")
+        s = TeamStanding(name="New York Yankees", wins=45, losses=20, rank=1, games_back="-")
         msg = _build_standing_message(s)
         assert msg.center is True
 
     def test_draw_returns_canvas_and_cursor(self, canvas):
-        s = TeamStanding(abbr="NYY", wins=45, losses=20, rank=1, games_back="-")
+        s = TeamStanding(name="New York Yankees", wins=45, losses=20, rank=1, games_back="-")
         msg = _build_standing_message(s)
         result_canvas, cursor_pos = msg.draw(canvas)
         assert result_canvas is canvas
@@ -145,9 +145,9 @@ class TestStandingsParsing:
         """Build a mock MLB API standings response."""
         return {"records": [{"teamRecords": team_records}]}
 
-    def _make_team_record(self, abbr, wins, losses, rank, gb="-"):
+    def _make_team_record(self, full_name, wins, losses, rank, gb="-"):
         return {
-            "team": {"abbreviation": abbr},
+            "team": {"name": full_name},
             "wins": wins,
             "losses": losses,
             "sportRank": str(rank),
@@ -161,16 +161,16 @@ class TestStandingsParsing:
         )
         data = self._make_api_response(
             [
-                self._make_team_record("BAL", 41, 24, 3, "4.0"),
-                self._make_team_record("NYY", 45, 20, 1, "-"),
-                self._make_team_record("LAD", 42, 23, 2, "3.0"),
+                self._make_team_record("Baltimore Orioles", 41, 24, 3, "4.0"),
+                self._make_team_record("New York Yankees", 45, 20, 1, "-"),
+                self._make_team_record("Los Angeles Dodgers", 42, 23, 2, "3.0"),
             ]
         )
         standings = widget._parse_standings(data)
         assert len(standings) == 3
-        assert standings[0].abbr == "NYY"
-        assert standings[1].abbr == "LAD"
-        assert standings[2].abbr == "BAL"
+        assert standings[0].name == "New York Yankees"
+        assert standings[1].name == "Los Angeles Dodgers"
+        assert standings[2].name == "Baltimore Orioles"
 
     def test_top_n_and_tracked(self):
         widget = MLBStandingsMonitor(
@@ -180,27 +180,32 @@ class TestStandingsParsing:
         )
         data = self._make_api_response(
             [
-                self._make_team_record("NYY", 45, 20, 1, "-"),
-                self._make_team_record("LAD", 42, 23, 2, "3.0"),
-                self._make_team_record("BAL", 41, 24, 3, "4.0"),
-                self._make_team_record("NYM", 35, 30, 12, "10.0"),
-                self._make_team_record("PHI", 33, 32, 15, "12.0"),
+                self._make_team_record("New York Yankees", 45, 20, 1, "-"),
+                self._make_team_record("Los Angeles Dodgers", 42, 23, 2, "3.0"),
+                self._make_team_record("Baltimore Orioles", 41, 24, 3, "4.0"),
+                self._make_team_record("New York Mets", 35, 30, 12, "10.0"),
+                self._make_team_record("Philadelphia Phillies", 33, 32, 15, "12.0"),
             ]
         )
         standings = widget._parse_standings(data)
 
+        from led_ticker.widgets.mlb import MLB_FULL_NAME_TO_ABBR
+
         # Simulate update logic (title not in stories, only in feed_title)
         stories: list = []
-        top_abbrs = set()
+        top_names = set()
         for s in standings[: widget.top_n]:
-            top_abbrs.add(s.abbr)
+            top_names.add(s.name)
             stories.append(_build_standing_message(s))
-        standings_by_abbr = {s.abbr: s for s in standings}
+        standings_by_abbr: dict = {}
+        for s in standings:
+            abbr = MLB_FULL_NAME_TO_ABBR.get(s.name, "")
+            if abbr:
+                standings_by_abbr[abbr] = s
         for team in widget.teams:
-            if team not in top_abbrs:
-                s = standings_by_abbr.get(team)
-                if s:
-                    stories.append(_build_standing_message(s))
+            s = standings_by_abbr.get(team)
+            if s and s.name not in top_names:
+                stories.append(_build_standing_message(s))
 
         # 2 top + 2 tracked = 4
         assert len(stories) == 4
@@ -223,25 +228,30 @@ class TestStandingsParsing:
         )
         data = self._make_api_response(
             [
-                self._make_team_record("NYY", 45, 20, 1, "-"),
-                self._make_team_record("LAD", 42, 23, 2, "3.0"),
-                self._make_team_record("BAL", 41, 24, 3, "4.0"),
-                self._make_team_record("NYM", 35, 30, 12, "10.0"),
+                self._make_team_record("New York Yankees", 45, 20, 1, "-"),
+                self._make_team_record("Los Angeles Dodgers", 42, 23, 2, "3.0"),
+                self._make_team_record("Baltimore Orioles", 41, 24, 3, "4.0"),
+                self._make_team_record("New York Mets", 35, 30, 12, "10.0"),
             ]
         )
         standings = widget._parse_standings(data)
 
+        from led_ticker.widgets.mlb import MLB_FULL_NAME_TO_ABBR
+
         stories: list = []
-        top_abbrs = set()
+        top_names = set()
         for s in standings[: widget.top_n]:
-            top_abbrs.add(s.abbr)
+            top_names.add(s.name)
             stories.append(_build_standing_message(s))
-        standings_by_abbr = {s.abbr: s for s in standings}
+        standings_by_abbr: dict = {}
+        for s in standings:
+            abbr = MLB_FULL_NAME_TO_ABBR.get(s.name, "")
+            if abbr:
+                standings_by_abbr[abbr] = s
         for team in widget.teams:
-            if team not in top_abbrs:
-                s = standings_by_abbr.get(team)
-                if s:
-                    stories.append(_build_standing_message(s))
+            s = standings_by_abbr.get(team)
+            if s and s.name not in top_names:
+                stories.append(_build_standing_message(s))
 
         # 3 top, NYY skipped in tracked section = 3
         assert len(stories) == 3
@@ -265,20 +275,20 @@ class TestStandingsParsing:
             "records": [
                 {
                     "teamRecords": [
-                        self._make_team_record("NYY", 45, 20, 1, "-"),
+                        self._make_team_record("New York Yankees", 45, 20, 1, "-"),
                     ]
                 },
                 {
                     "teamRecords": [
-                        self._make_team_record("LAD", 42, 23, 2, "3.0"),
+                        self._make_team_record("Los Angeles Dodgers", 42, 23, 2, "3.0"),
                     ]
                 },
             ],
         }
         standings = widget._parse_standings(data)
         assert len(standings) == 2
-        assert standings[0].abbr == "NYY"
-        assert standings[1].abbr == "LAD"
+        assert standings[0].name == "New York Yankees"
+        assert standings[1].name == "Los Angeles Dodgers"
 
 
 # --- Offseason ---
@@ -288,16 +298,16 @@ class TestOffseason:
     def test_all_zeros_detected(self):
         """When all teams have 0-0 records, season hasn't started."""
         standings = [
-            TeamStanding(abbr="NYY", wins=0, losses=0, rank=1, games_back="-"),
-            TeamStanding(abbr="LAD", wins=0, losses=0, rank=2, games_back="-"),
-            TeamStanding(abbr="NYM", wins=0, losses=0, rank=3, games_back="-"),
+            TeamStanding(name="New York Yankees", wins=0, losses=0, rank=1, games_back="-"),
+            TeamStanding(name="Los Angeles Dodgers", wins=0, losses=0, rank=2, games_back="-"),
+            TeamStanding(name="New York Mets", wins=0, losses=0, rank=3, games_back="-"),
         ]
         assert all(s.wins == 0 and s.losses == 0 for s in standings)
 
     def test_not_all_zeros_when_games_played(self):
         standings = [
-            TeamStanding(abbr="NYY", wins=1, losses=0, rank=1, games_back="-"),
-            TeamStanding(abbr="LAD", wins=0, losses=1, rank=2, games_back="1.0"),
+            TeamStanding(name="New York Yankees", wins=1, losses=0, rank=1, games_back="-"),
+            TeamStanding(name="Los Angeles Dodgers", wins=0, losses=1, rank=2, games_back="1.0"),
         ]
         assert not all(s.wins == 0 and s.losses == 0 for s in standings)
 

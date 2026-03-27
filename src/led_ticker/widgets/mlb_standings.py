@@ -19,9 +19,10 @@ from led_ticker.widgets import register
 from led_ticker.widgets.message import TickerMessage
 from led_ticker.widgets.mlb import (
     MLB_API,
-    MLB_TEAM_NAMES,
+    MLB_FULL_NAME_TO_ABBR,
     MLBGameMessage,
-    _team_color,
+    _display_name,
+    _team_color_by_name,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ _INTERVAL_DAILY: int = 86400
 
 @dataclass
 class TeamStanding:
-    abbr: str
+    name: str  # Full API team name, e.g. "Baltimore Orioles"
     wins: int
     losses: int
     rank: int
@@ -40,8 +41,8 @@ class TeamStanding:
 
 def _build_standing_message(standing: TeamStanding) -> MLBGameMessage:
     """Build a display message for a single team's standing."""
-    full_name = MLB_TEAM_NAMES.get(standing.abbr, standing.abbr)
-    team_c = _team_color(standing.abbr)
+    full_name = _display_name(standing.name)
+    team_c = _team_color_by_name(standing.name)
 
     gb_str = standing.games_back if standing.games_back != "-" else "-"
 
@@ -132,18 +133,21 @@ class MLBStandingsMonitor:
         stories: list[TickerMessage | MLBGameMessage] = []
 
         # Top N teams
-        top_abbrs: set[str] = set()
+        top_names: set[str] = set()
         for standing in standings[: self.top_n]:
-            top_abbrs.add(standing.abbr)
+            top_names.add(standing.name)
             stories.append(_build_standing_message(standing))
 
         # Tracked teams not already in top N
-        standings_by_abbr = {s.abbr: s for s in standings}
+        # Config uses abbreviations, so map API names back to abbrs for lookup
+        standings_by_abbr: dict[str, TeamStanding] = {}
+        for s in standings:
+            abbr = MLB_FULL_NAME_TO_ABBR.get(s.name, "")
+            if abbr:
+                standings_by_abbr[abbr] = s
         for team in self.teams:
-            if team in top_abbrs:
-                continue
             standing = standings_by_abbr.get(team)
-            if standing:
+            if standing and standing.name not in top_names:
                 stories.append(_build_standing_message(standing))
 
         self.feed_stories = stories
@@ -157,14 +161,14 @@ class MLBStandingsMonitor:
         for record in data.get("records", []):
             for tr in record.get("teamRecords", []):
                 team = tr.get("team", {})
-                abbr = team.get("abbreviation", "???")
+                name = team.get("name", "Unknown")
                 wins = tr.get("wins", 0)
                 losses = tr.get("losses", 0)
                 rank = int(tr.get("sportRank", 99))
                 gb = tr.get("sportGamesBack", "-")
                 all_teams.append(
                     TeamStanding(
-                        abbr=abbr,
+                        name=name,
                         wins=wins,
                         losses=losses,
                         rank=rank,

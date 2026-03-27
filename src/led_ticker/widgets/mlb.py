@@ -103,10 +103,58 @@ MLB_TEAM_NAMES: dict[str, str] = {
 }
 
 
+# Full MLB API team name -> abbreviation (for bridging API responses to colors/names)
+MLB_FULL_NAME_TO_ABBR: dict[str, str] = {
+    "Arizona Diamondbacks": "ARI",
+    "Atlanta Braves": "ATL",
+    "Baltimore Orioles": "BAL",
+    "Boston Red Sox": "BOS",
+    "Chicago Cubs": "CHC",
+    "Cincinnati Reds": "CIN",
+    "Cleveland Guardians": "CLE",
+    "Colorado Rockies": "COL",
+    "Chicago White Sox": "CWS",
+    "Detroit Tigers": "DET",
+    "Houston Astros": "HOU",
+    "Kansas City Royals": "KC",
+    "Los Angeles Angels": "LAA",
+    "Los Angeles Dodgers": "LAD",
+    "Miami Marlins": "MIA",
+    "Milwaukee Brewers": "MIL",
+    "Minnesota Twins": "MIN",
+    "New York Mets": "NYM",
+    "New York Yankees": "NYY",
+    "Oakland Athletics": "OAK",
+    "Philadelphia Phillies": "PHI",
+    "Pittsburgh Pirates": "PIT",
+    "San Diego Padres": "SD",
+    "Seattle Mariners": "SEA",
+    "San Francisco Giants": "SF",
+    "St. Louis Cardinals": "STL",
+    "Tampa Bay Rays": "TB",
+    "Texas Rangers": "TEX",
+    "Toronto Blue Jays": "TOR",
+    "Washington Nationals": "WSH",
+}
+
+
 def _team_color(abbr: str) -> Color:
     """Get graphics.Color for a team abbreviation."""
     r, g, b = MLB_TEAM_COLORS.get(abbr, (255, 255, 255))
     return _color(r, g, b)
+
+
+def _team_color_by_name(full_name: str) -> Color:
+    """Get graphics.Color for a full API team name."""
+    abbr = MLB_FULL_NAME_TO_ABBR.get(full_name, "")
+    r, g, b = MLB_TEAM_COLORS.get(abbr, (255, 255, 255))
+    return _color(r, g, b)
+
+
+def _display_name(full_name: str) -> str:
+    """Get short display name from full API team name."""
+    abbr = MLB_FULL_NAME_TO_ABBR.get(full_name, "")
+    return MLB_TEAM_NAMES.get(abbr, full_name)
 
 
 @dataclass

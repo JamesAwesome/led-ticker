@@ -180,7 +180,7 @@ color = "random"
 
 [[playlist.section.widget]]
 type = "mlb_standings"
-teams = ["NYM", "PHI"]
+teams = ["PHI", "NYM"]
 title = "MLB Standings"
 top_n = 3
 timezone = "America/New_York"

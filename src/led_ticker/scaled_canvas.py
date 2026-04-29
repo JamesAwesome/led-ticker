@@ -40,6 +40,14 @@ class ScaledCanvas:
     def Clear(self) -> None:
         self.real.Clear()
 
+    def Fill(self, r: int, g: int, b: int) -> None:
+        """Fill the entire underlying canvas (including any letterbox).
+
+        Used by `color_flash` and other full-canvas transition effects.
+        Letterbox bands are filled too so the whole panel flashes.
+        """
+        self.real.Fill(r, g, b)
+
     def SetPixel(self, x: int, y: int, r: int, g: int, b: int) -> None:
         rx = x * self.scale
         ry = y * self.scale + self._y_offset

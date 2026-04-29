@@ -18,7 +18,7 @@ from led_ticker.presentation import (
     WidgetPresenter,
     get_presentation_class,
 )
-from led_ticker.ticker import Ticker
+from led_ticker.ticker import Ticker, _maybe_wrap
 from led_ticker.transitions import get_transition_class, run_transition
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
@@ -175,7 +175,9 @@ async def run(config_path: Path) -> None:
                     and first_widget is not None
                     and section_trans is not None
                 ):
-                    canvas = led_frame.get_clean_canvas()
+                    # Wrap so the between-section transition runs at the
+                    # incoming section's scale on the bigsign.
+                    canvas = _maybe_wrap(led_frame.get_clean_canvas(), section.scale)
                     canvas = await run_transition(
                         canvas,
                         led_frame,

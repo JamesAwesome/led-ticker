@@ -84,12 +84,21 @@ async def run_transition(
     scroll_speed: float = 0.05,
     outgoing_scroll_pos: int = 0,
     region: Any = None,
+    skip_final_incoming: bool = False,
 ) -> Canvas:
     """Run a transition. Returns the current back-buffer canvas.
 
     The ``region`` parameter is accepted for forward-compatibility with
     zoned layouts but is not currently passed to ``frame_at``; transitions
     operate on the full canvas in this port.
+
+    ``skip_final_incoming=True`` tells the transition to skip drawing the
+    incoming widget at t=1.0. Used for inter-section dissolves where the
+    incoming widget would render at the *outgoing* section's scale (since
+    the canvas was wrapped at last_scale), creating a one-frame wrong-scale
+    flash before the new section's first render at the correct scale.
+    Skipping the t=1.0 draw leaves the canvas mostly black for that one
+    frame, which the new section overwrites immediately.
     """
     del region  # plumbed but unused; future zoned layouts revisit this
     ease_fn = EASING.get(easing, linear)
@@ -106,6 +115,7 @@ async def run_transition(
             outgoing,
             incoming,
             outgoing_scroll_pos=outgoing_scroll_pos,
+            skip_final_incoming=skip_final_incoming,
         )
         canvas = _swap(canvas, frame)
         await asyncio.sleep(scroll_speed)

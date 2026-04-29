@@ -71,9 +71,14 @@ class Dissolve:
         w = canvas.width
         h = getattr(canvas, "height", 16)
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
+        skip_final_incoming: bool = kwargs.get("skip_final_incoming", False)
 
         if t >= 1.0:
-            incoming.draw(canvas, cursor_pos=0)
+            if not skip_final_incoming:
+                incoming.draw(canvas, cursor_pos=0)
+            # else: leave the canvas cleared; the caller's next render
+            # (the new section's first draw at its correct scale) handles
+            # showing the incoming widget without a wrong-scale flash.
         elif t <= 0.0:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         else:
@@ -85,6 +90,10 @@ class Dissolve:
                 count = int(t * 2 * total)
                 for x, y in seq[:count]:
                     canvas.SetPixel(x, y, 0, 0, 0)
+            elif skip_final_incoming:
+                # Don't reveal the incoming widget at the wrong scale; the
+                # canvas is already cleared from run_transition's loop.
+                pass
             else:
                 # Incoming with decreasing black scatter
                 incoming.draw(canvas, cursor_pos=0)

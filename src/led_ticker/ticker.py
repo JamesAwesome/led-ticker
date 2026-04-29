@@ -131,13 +131,14 @@ class Ticker:
             )
         )
 
-        await _scroll_side_by_side(
+        self.last_scroll_pos = await _scroll_side_by_side(
             canvas,
             self.frame,
             self.notif_queue,
             delay=self.title_delay,
             buffer_message=self.buffer_msg,
             cursor_pos=cursor_pos,
+            hold_at_end=self.hold_time,
         )
 
     async def run_infini_scroll(
@@ -314,7 +315,18 @@ async def _scroll_side_by_side(
     delay: float = 0,
     cursor_pos: int = 0,
     scroll_speed: float = 0.05,
-) -> bool | None:
+    hold_at_end: float = 2.0,
+) -> int:
+    """Scroll widgets side-by-side. Returns the final scroll position so the
+    caller can stash it on `Ticker.last_scroll_pos` for inter-section
+    transitions.
+
+    When the queue is exhausted and only the last widget remains, scrolling
+    stops once the widget's content right edge reaches the canvas right edge
+    (last char fully visible). The function holds for `hold_at_end` seconds,
+    then returns. This produces a clean readable end-state that an
+    inter-section dissolve can fade out from.
+    """
     logging.info("Running _scroll_side_by_side ...")
     buffered_objects: list[Any] = []
     next_monitor = await notif_queue.get()
@@ -361,6 +373,16 @@ async def _scroll_side_by_side(
             else:
                 break
 
+        # Hold the last widget at end-of-scroll instead of letting it scroll
+        # fully off the left. mon_0_end_pos is the right edge of the widget's
+        # content (including end_padding); when it's at or within the canvas,
+        # the last character is fully visible.
+        if len(buffered_objects) == 1 and queue_empty and mon_0_end_pos <= canvas.width:
+            held_pos = pos + 1  # input pos used for the just-drawn frame
+            canvas = _swap(canvas, frame)
+            await asyncio.sleep(hold_at_end)
+            return held_pos
+
         if mon_0_end_pos < 0:
             buffered_objects.pop(0)
             pos = mon_0_end_pos - 1
@@ -369,7 +391,7 @@ async def _scroll_side_by_side(
         await asyncio.sleep(scroll_speed)
 
         if not len(buffered_objects):
-            return True
+            return pos
 
 
 BULLET_WIDTH: int = 2  # 2px wide dot

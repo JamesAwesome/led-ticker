@@ -16,6 +16,12 @@ from led_ticker.fonts.bdf_parser import BDFFont, parse_bdf
 _graphics = require_graphics()
 FONT_DIR: str = os.path.dirname(os.path.realpath(__file__))
 
+# Maps `id(c_font)` to its parsed BDFFont. Indexed by id() because the
+# C Font objects from rgbmatrix aren't hashable. This relies on the fonts
+# being stored in module-level globals (FONT_DEFAULT, FONT_SMALL, etc.) so
+# they're never garbage-collected and their id() stays stable. If font
+# construction is ever moved into a function, switch to a different keying
+# strategy (e.g., a wrapper class or path-based dict).
 _BDF_BY_ID: dict[int, BDFFont] = {}
 
 

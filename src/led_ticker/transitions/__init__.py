@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import Any, Protocol, runtime_checkable
 
 from led_ticker._types import Canvas
+from led_ticker.ticker import _swap
 
 # --- Easing functions ---
 
@@ -91,9 +92,6 @@ async def run_transition(
     operate on the full canvas in this port.
     """
     del region  # plumbed but unused; future zoned layouts revisit this
-    # Local import to avoid circular dependency with led_ticker.ticker.
-    from led_ticker.ticker import _swap
-
     ease_fn = EASING.get(easing, linear)
     frame_count = max(1, int(duration / scroll_speed))
     if hasattr(transition, "min_frames"):

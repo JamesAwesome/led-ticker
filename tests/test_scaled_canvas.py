@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
 from led_ticker.scaled_canvas import ScaledCanvas
@@ -72,6 +73,34 @@ def test_clear_clears_underlying_canvas():
     sc.SetPixel(0, 0, 255, 0, 0)
     sc.Clear()
     assert real.get_pixel(0, 0) == (0, 0, 0)
+
+
+def test_scale_is_frozen():
+    """scale should not change after construction (only .real mutates)."""
+    import attrs as _attrs
+
+    real = _make_real_canvas()
+    sc = ScaledCanvas(real, scale=4)
+    with pytest.raises(_attrs.exceptions.FrozenAttributeError):
+        sc.scale = 2
+
+
+def test_content_height_is_frozen():
+    import attrs as _attrs
+
+    real = _make_real_canvas()
+    sc = ScaledCanvas(real, scale=4)
+    with pytest.raises(_attrs.exceptions.FrozenAttributeError):
+        sc.content_height = 32
+
+
+def test_real_is_mutable():
+    """real must remain mutable so _swap can rewire after SwapOnVSync."""
+    real_a = _make_real_canvas()
+    real_b = _make_real_canvas()
+    sc = ScaledCanvas(real_a, scale=4)
+    sc.real = real_b  # Should not raise
+    assert sc.real is real_b
 
 
 def test_draw_bdf_text_advance_for_single_char():

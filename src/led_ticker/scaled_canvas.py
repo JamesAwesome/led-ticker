@@ -19,11 +19,19 @@ CONTENT_HEIGHT = 16
 
 @attrs.define
 class ScaledCanvas:
-    """Wraps a real canvas; exposes a `content_height`-tall logical canvas."""
+    """Wraps a real canvas; exposes a `content_height`-tall logical canvas.
+
+    `real` is mutable so `_swap()` in ticker.py can rewire the wrapper to
+    point at the new back-buffer canvas after each `SwapOnVSync`.
+    `scale` and `content_height` are frozen — they're set at construction
+    and never change for the lifetime of the wrapper.
+    """
 
     real: Any
-    scale: int = 1
-    content_height: int = CONTENT_HEIGHT
+    scale: int = attrs.field(default=1, on_setattr=attrs.setters.frozen)
+    content_height: int = attrs.field(
+        default=CONTENT_HEIGHT, on_setattr=attrs.setters.frozen
+    )
 
     @property
     def width(self) -> int:

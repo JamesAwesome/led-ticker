@@ -7,7 +7,7 @@ from collections.abc import Callable
 from typing import Any, Protocol, runtime_checkable
 
 from led_ticker._types import Canvas
-from led_ticker.ticker import _swap
+from led_ticker.ticker import _maybe_wrap, _swap
 
 # --- Easing functions ---
 
@@ -84,43 +84,63 @@ async def run_transition(
     scroll_speed: float = 0.05,
     outgoing_scroll_pos: int = 0,
     region: Any = None,
-    skip_final_incoming: bool = False,
+    incoming_scale: int | None = None,
 ) -> Canvas:
     """Run a transition. Returns the current back-buffer canvas.
 
-    The ``region`` parameter is accepted for forward-compatibility with
-    zoned layouts but is not currently passed to ``frame_at``; transitions
-    operate on the full canvas in this port.
+    ``region`` is plumbed for forward-compat with zoned layouts; not
+    currently passed to ``frame_at``.
 
-    ``skip_final_incoming=True`` tells the transition to skip drawing the
-    incoming widget at t=1.0. Used for inter-section dissolves where the
-    incoming widget would render at the *outgoing* section's scale (since
-    the canvas was wrapped at last_scale), creating a one-frame wrong-scale
-    flash before the new section's first render at the correct scale.
-    Skipping the t=1.0 draw leaves the canvas mostly black for that one
-    frame, which the new section overwrites immediately.
+    ``incoming_scale`` lets a dissolve cross between scales smoothly. If
+    provided AND different from the wrapper's current scale, the canvas
+    is re-wrapped at ``incoming_scale`` at t >= 0.5 so the incoming widget
+    dissolves in at its native scale rather than briefly flashing at the
+    outgoing scale before the new section's first render snaps to the
+    correct one.
     """
     del region  # plumbed but unused; future zoned layouts revisit this
+
     ease_fn = EASING.get(easing, linear)
     frame_count = max(1, int(duration / scroll_speed))
     if hasattr(transition, "min_frames"):
         frame_count = max(frame_count, transition.min_frames)
 
+    current_scale = getattr(canvas, "scale", 1)
+    needs_switch = incoming_scale is not None and incoming_scale != current_scale
+    incoming_canvas: Canvas | None = None
+
     for i in range(frame_count + 1):
         t = ease_fn(i / max(1, frame_count))
-        canvas.Clear()
+
+        # At t >= 0.5, switch to a wrapper at incoming_scale so the
+        # incoming widget dissolves in at its native size.
+        if (
+            needs_switch
+            and incoming_scale is not None
+            and t >= 0.5
+            and incoming_canvas is None
+        ):
+            incoming_canvas = _maybe_wrap(
+                frame.matrix.CreateFrameCanvas(), incoming_scale
+            )
+
+        active = incoming_canvas if incoming_canvas is not None else canvas
+        active.Clear()
         transition.frame_at(
             t,
-            canvas,
+            active,
             outgoing,
             incoming,
             outgoing_scroll_pos=outgoing_scroll_pos,
-            skip_final_incoming=skip_final_incoming,
         )
-        canvas = _swap(canvas, frame)
+        new_canvas = _swap(active, frame)
+        if incoming_canvas is not None:
+            incoming_canvas = new_canvas
+        else:
+            canvas = new_canvas
         await asyncio.sleep(scroll_speed)
 
-    return canvas
+    return incoming_canvas if incoming_canvas is not None else canvas
 
 
 # --- Auto-import submodules so decorators execute ---

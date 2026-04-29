@@ -215,13 +215,12 @@ async def run(config_path: Path) -> None:
                         duration=config.between_sections.duration,
                         easing=config.between_sections.easing,
                         outgoing_scroll_pos=last_scroll_pos,
-                        # Skip the incoming draw at t=1.0: outgoing's scale
-                        # was wrapped on the canvas (so the outgoing keeps
-                        # its size during the dissolve), but drawing
-                        # incoming at that scale would briefly flash it at
-                        # the wrong size before the new section's first
-                        # render at section.scale takes over.
-                        skip_final_incoming=last_scale != section.scale,
+                        # Smoothly cross between scales: outgoing fades out
+                        # at last_scale; at t >= 0.5 the wrapper switches
+                        # to section.scale so incoming dissolves IN at its
+                        # native size (no wrong-scale flash, no snap-in
+                        # after the dissolve completes).
+                        incoming_scale=section.scale,
                     )
 
                 # Build within-section transition config

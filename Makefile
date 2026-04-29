@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker
+.PHONY: dev hooks test lint typecheck format clean build-docker build-docker-pi5
 
 # --- Developer Setup ---
 
@@ -29,8 +29,17 @@ format:  ## Run ruff formatter
 
 # --- Docker (production image only) ---
 
-build-docker:  ## Build the production Pi Docker image
-	docker build -t led-ticker:latest .
+# RGBMATRIX_REF pins the rpi-rgb-led-matrix fork/branch baked into the image.
+# Default 'main' targets the existing Pi 4 sign; the bigsign target below
+# overrides this with a Pi 5–capable ref (set when fork research lands).
+RGBMATRIX_REF ?= main
+RGBMATRIX_REF_PI5 ?= main
+
+build-docker:  ## Build the production Pi 4 Docker image
+	docker build --build-arg RGBMATRIX_REF=$(RGBMATRIX_REF) -t led-ticker:pi4 .
+
+build-docker-pi5:  ## Build the bigsign Pi 5 Docker image
+	docker build --build-arg RGBMATRIX_REF=$(RGBMATRIX_REF_PI5) -t led-ticker:pi5 .
 
 # --- Cleanup ---
 

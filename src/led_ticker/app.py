@@ -212,6 +212,7 @@ async def run(config_path: Path) -> None:
                     transition_config=transition_config,
                     hold_time=section.hold_time,
                     continuous_scroll=section.continuous_scroll,
+                    scale=section.scale,
                 )
 
                 await getattr(ticker, run_method)(

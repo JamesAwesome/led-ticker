@@ -91,6 +91,9 @@ async def run_transition(
     operate on the full canvas in this port.
     """
     del region  # plumbed but unused; future zoned layouts revisit this
+    # Local import to avoid circular dependency with led_ticker.ticker.
+    from led_ticker.ticker import _swap
+
     ease_fn = EASING.get(easing, linear)
     frame_count = max(1, int(duration / scroll_speed))
     if hasattr(transition, "min_frames"):
@@ -106,7 +109,7 @@ async def run_transition(
             incoming,
             outgoing_scroll_pos=outgoing_scroll_pos,
         )
-        canvas = frame.matrix.SwapOnVSync(canvas)
+        canvas = _swap(canvas, frame)
         await asyncio.sleep(scroll_speed)
 
     return canvas

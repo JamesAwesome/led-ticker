@@ -3,11 +3,51 @@
 import asyncio
 import itertools
 
+from led_ticker.frame import LedFrame
+from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.ticker import (
     _build_ticker_iter,
     _enqueue_ticker_objects,
     _has_index,
+    _maybe_wrap,
+    _swap,
 )
+
+
+def test_maybe_wrap_returns_real_canvas_at_scale_1():
+    frame = LedFrame(led_cols=32, led_chain=5)
+    canvas = frame.get_clean_canvas()
+    result = _maybe_wrap(canvas, scale=1)
+    assert result is canvas
+    assert not isinstance(result, ScaledCanvas)
+
+
+def test_maybe_wrap_returns_scaled_canvas_at_scale_4():
+    frame = LedFrame(led_rows=32, led_cols=64, led_chain=8, led_pixel_mapper="U-mapper")
+    canvas = frame.get_clean_canvas()
+    result = _maybe_wrap(canvas, scale=4)
+    assert isinstance(result, ScaledCanvas)
+    assert result.scale == 4
+    assert result.real is canvas
+
+
+def test_swap_handles_real_canvas():
+    frame = LedFrame(led_cols=32, led_chain=5)
+    canvas = frame.get_clean_canvas()
+    new_canvas = _swap(canvas, frame)
+    # Stub returns a different canvas object on swap
+    assert new_canvas is not None
+
+
+def test_swap_handles_scaled_canvas_in_place():
+    frame = LedFrame(led_rows=32, led_cols=64, led_chain=8, led_pixel_mapper="U-mapper")
+    canvas = frame.get_clean_canvas()
+    wrapper = ScaledCanvas(canvas, scale=4)
+    original_real = wrapper.real
+    result = _swap(wrapper, frame)
+    # Returns the same wrapper object, but its `.real` was swapped
+    assert result is wrapper
+    assert wrapper.real is not original_real
 
 
 def test_has_index_true():

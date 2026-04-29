@@ -31,12 +31,13 @@ format:  ## Run ruff formatter
 
 # RGBMATRIX_REPO/REF pin the rpi-rgb-led-matrix fork+branch baked into the image.
 # Pi 4: jamesawesome/main (existing sign).
-# Pi 5: kingdo9/pi5_support — upstream PR #1886, maintainer-approved, working
-#       reports with the Adafruit Bonnet/HAT. Track upstream merge and switch
-#       back to hzeller/master when it lands.
+# Pi 5: jamesawesome/pi5_support — based on kingdo9's pi5_support (upstream
+#       PR #1886, maintainer-approved) with our build patch (named the unused
+#       PIO param in pio_rp1.c so it builds under bullseye GCC 10).
+#       Once PR #1886 merges, retire this branch and switch to hzeller/master.
 RGBMATRIX_REPO ?= https://github.com/jamesawesome/rpi-rgb-led-matrix.git
 RGBMATRIX_REF ?= main
-RGBMATRIX_REPO_PI5 ?= https://github.com/kingdo9/rpi-rgb-led-matrix_pwm_experiment.git
+RGBMATRIX_REPO_PI5 ?= https://github.com/jamesawesome/rpi-rgb-led-matrix.git
 RGBMATRIX_REF_PI5 ?= pi5_support
 
 build-docker:  ## Build the production Pi 4 Docker image

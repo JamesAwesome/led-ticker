@@ -15,8 +15,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Layer 1: rgbmatrix (only rebuilds if the fork ref changes)
-# Clone into a fixed dir name so the path is stable regardless of repo URL
-# (e.g., kingdo9's fork is named rpi-rgb-led-matrix_pwm_experiment).
+# Clone into a fixed dir name so the path is stable regardless of repo URL.
 RUN cd /opt && \
     git clone --depth=1 --branch ${RGBMATRIX_REF} ${RGBMATRIX_REPO} rgbmatrix-src && \
     cd rgbmatrix-src && \

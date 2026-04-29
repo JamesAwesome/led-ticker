@@ -191,7 +191,7 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 - Production image: `python:3.13-bullseye` base, 3-layer caching (rgbmatrix → deps → source)
 - rgbmatrix fork is selected by Docker build-args `RGBMATRIX_REPO` and `RGBMATRIX_REF`:
   - Pi 4 build (`make build-docker`): `jamesawesome/rpi-rgb-led-matrix` @ `main`
-  - Pi 5 build (`make build-docker-pi5`): `kingdo9/rpi-rgb-led-matrix_pwm_experiment` @ `pi5_support` — upstream PR [hzeller#1886](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886), maintainer-approved, confirmed working with Adafruit Bonnet/HAT. Track that PR and switch back to `hzeller/master` once merged.
+  - Pi 5 build (`make build-docker-pi5`): `jamesawesome/rpi-rgb-led-matrix` @ `pi5_support` — based on kingdo9's pi5_support (upstream PR [hzeller#1886](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886), maintainer-approved) with one patch on top: 42 anonymous `PIO` parameters in `pio_rp1.c` were given a name so the file builds under bullseye GCC 10. Track that PR and retire our branch once it merges into `hzeller/master`.
   - On the Pi 5, the runtime CLI also accepts `--led-rp1-rio=0|1` (PIO vs Registered IO mode). For chain ≥ 2 with flicker, raise `slowdown_gpio` from 2 to 3+.
 - Config mounted read-only: `./config:/code/config:ro`
 - Systemd: `deploy/led-ticker.service`

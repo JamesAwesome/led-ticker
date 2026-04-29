@@ -12,10 +12,10 @@ set -euo pipefail
 INSTALL_DIR="/opt/led-ticker"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Pick the rgbmatrix fork. Pi 5 uses kingdo9's fork (upstream PR #1886);
-# Pi 4 uses jamesawesome's existing fork.
+# Pick the rgbmatrix fork. Both Pi 4 and Pi 5 build off our jamesawesome fork:
+# main = Pi 4 (existing sign), pi5_support = kingdo9 PR #1886 + our build patch.
 if [ "${PI5:-0}" = "1" ]; then
-    : "${RGBMATRIX_REPO:=https://github.com/kingdo9/rpi-rgb-led-matrix_pwm_experiment.git}"
+    : "${RGBMATRIX_REPO:=https://github.com/jamesawesome/rpi-rgb-led-matrix.git}"
     : "${RGBMATRIX_REF:=pi5_support}"
 else
     : "${RGBMATRIX_REPO:=https://github.com/jamesawesome/rpi-rgb-led-matrix.git}"

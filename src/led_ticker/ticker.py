@@ -248,6 +248,12 @@ async def _scroll_and_delay(
 
     canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
 
+    if pos <= 0:
+        # Title is already in its final position — swap once so it's
+        # on-screen immediately (no blank frame between transition end
+        # and the delay).
+        canvas = _swap(canvas, frame)
+
     while pos > 0:
         canvas.Clear()
         canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)

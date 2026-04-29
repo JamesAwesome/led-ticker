@@ -157,6 +157,7 @@ async def run(config_path: Path) -> None:
         notif_queue: asyncio.Queue[Any] = asyncio.Queue()
         last_widget: Any = None  # track for section-to-section transitions
         last_scroll_pos: int = 0  # track scroll pos for between-section transitions
+        last_scale: int = config.display.default_scale  # outgoing section's scale
         widget_cache: dict[str, Any] = {}
 
         while True:
@@ -191,16 +192,20 @@ async def run(config_path: Path) -> None:
                     "run_forever_scroll",
                 )
 
-                # Run section-to-section transition
+                # Run section-to-section transition.
+                # Wrap at the OUTGOING section's scale so the outgoing widget
+                # keeps its on-screen size during the dissolve. Any visual jolt
+                # from the scale change happens at the very end of the
+                # transition (one frame), where the new section's first render
+                # immediately overwrites it.
                 first_widget = title if title else (widgets[0] if widgets else None)
-                if (
+                just_transitioned = (
                     last_widget is not None
                     and first_widget is not None
                     and section_trans is not None
-                ):
-                    # Wrap so the between-section transition runs at the
-                    # incoming section's scale on the bigsign.
-                    canvas = _maybe_wrap(led_frame.get_clean_canvas(), section.scale)
+                )
+                if just_transitioned:
+                    canvas = _maybe_wrap(led_frame.get_clean_canvas(), last_scale)
                     canvas = await run_transition(
                         canvas,
                         led_frame,
@@ -240,9 +245,15 @@ async def run(config_path: Path) -> None:
                     scale=section.scale,
                 )
 
-                await getattr(ticker, run_method)(
-                    loop_count=section.loop_count,
-                )
+                # If a between-section transition just ran, the title is
+                # already on-screen at t=1.0 of the dissolve. Tell the section
+                # to start at pos=0 (no scroll-in) so we don't blank the panel
+                # before redrawing.
+                run_kwargs: dict[str, Any] = {"loop_count": section.loop_count}
+                if just_transitioned and run_method != "run_swap":
+                    run_kwargs["start_pos"] = 0
+
+                await getattr(ticker, run_method)(**run_kwargs)
 
                 # Brief pause before between-sections transition
                 if section.continuous_scroll:
@@ -250,6 +261,7 @@ async def run(config_path: Path) -> None:
 
                 # Track the last widget and scroll pos for next section transition
                 last_scroll_pos = ticker.last_scroll_pos
+                last_scale = section.scale
                 if widgets:
                     last_widget = widgets[-1]
                 elif title:

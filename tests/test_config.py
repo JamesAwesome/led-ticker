@@ -183,6 +183,11 @@ def test_bigsign_example_config_loads(tmp_path):
     assert cfg.display.pixel_mapper.startswith("Remap:")
     assert "256,64" in cfg.display.pixel_mapper  # 256 wide × 64 tall canvas
     assert cfg.display.default_scale == 4
+    # Performance defaults baked into the example
+    assert cfg.display.slowdown_gpio == 3
+    assert cfg.display.pwm_bits == 8
+    assert cfg.display.rp1_rio == 1
+    assert cfg.display.show_refresh is True
     assert len(cfg.sections) >= 1
     # First section inherits default_scale
     assert cfg.sections[0].scale == 4

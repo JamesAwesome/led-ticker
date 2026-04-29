@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import textwrap
+from pathlib import Path
 
 from led_ticker.fonts.bdf_parser import BDFFont, parse_bdf
+
+FONTS_DIR = Path(__file__).resolve().parents[1] / "src" / "led_ticker" / "fonts"
 
 SYNTHETIC_BDF = textwrap.dedent(
     """\
@@ -54,3 +57,42 @@ def test_parse_synthetic_bdf_glyph_bitmap():
 def test_parse_synthetic_bdf_advance_width():
     font = parse_bdf(SYNTHETIC_BDF)
     assert font.glyphs["A"].advance_width == 3
+
+
+def test_parse_bundled_5x8_font():
+    text = (FONTS_DIR / "5x8.bdf").read_text()
+    font = parse_bdf(text)
+    assert "A" in font.glyphs
+    assert "0" in font.glyphs
+    assert " " in font.glyphs
+    assert font.bbx_width == 5
+    assert font.bbx_height == 8
+    assert font.glyphs["A"].advance_width == 5
+
+
+def test_parse_bundled_5x8_glyph_A_bitmap():
+    """Spot-check glyph A bitmap matches the BDF source."""
+    text = (FONTS_DIR / "5x8.bdf").read_text()
+    font = parse_bdf(text)
+    bitmap = font.glyphs["A"].bitmap
+    # 5x8.bdf rows for 'A':
+    # 00 → 0,0,0,0,0
+    # 60 → 0,1,1,0,0
+    # 90 → 1,0,0,1,0
+    # 90 → 1,0,0,1,0
+    # F0 → 1,1,1,1,0
+    # 90 → 1,0,0,1,0
+    # 90 → 1,0,0,1,0
+    # 00 → 0,0,0,0,0
+    assert len(bitmap) == 8
+    assert bitmap[0] == [False] * 5
+    assert bitmap[1] == [False, True, True, False, False]
+    assert bitmap[4] == [True, True, True, True, False]
+
+
+def test_parse_bundled_7x13_font():
+    text = (FONTS_DIR / "7x13.bdf").read_text()
+    font = parse_bdf(text)
+    assert font.bbx_height == 13
+    assert font.bbx_width == 7
+    assert font.glyphs["A"].advance_width == 7

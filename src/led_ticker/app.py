@@ -95,18 +95,25 @@ RUN_MODES: dict[str, str] = {
 }
 
 
+def build_frame_from_config(display) -> LedFrame:
+    """Build an LedFrame from a DisplayConfig."""
+    return LedFrame(
+        led_rows=display.rows,
+        led_cols=display.cols,
+        led_chain=display.chain,
+        led_parallel=display.parallel,
+        led_pixel_mapper=display.pixel_mapper,
+        led_slowdown_gpio=display.slowdown_gpio,
+        led_brightness=display.brightness,
+        led_gpio_mapping=display.gpio_mapping,
+    )
+
+
 async def run(config_path: Path) -> None:
     """Main application loop."""
     config = load_config(config_path)
 
-    led_frame = LedFrame(
-        led_rows=config.display.rows,
-        led_cols=config.display.cols,
-        led_chain=config.display.chain,
-        led_slowdown_gpio=config.display.slowdown_gpio,
-        led_brightness=config.display.brightness,
-        led_gpio_mapping=config.display.gpio_mapping,
-    )
+    led_frame = build_frame_from_config(config.display)
 
     # Build section-to-section transition if configured
     section_trans: Any = None
@@ -144,7 +151,7 @@ async def run(config_path: Path) -> None:
                     # Container widgets expand into stories
                     if isinstance(
                         widget,
-                        (RSSFeedMonitor, MLBScoreMonitor, MLBStandingsMonitor),
+                        RSSFeedMonitor | MLBScoreMonitor | MLBStandingsMonitor,
                     ):
                         logging.debug(
                             "Expanding %s: %d stories",

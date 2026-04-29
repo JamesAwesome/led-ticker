@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import Any, Protocol, runtime_checkable
 
 from led_ticker._types import Canvas
+from led_ticker.ticker import _swap
 
 # --- Easing functions ---
 
@@ -82,8 +83,15 @@ async def run_transition(
     easing: str = "linear",
     scroll_speed: float = 0.05,
     outgoing_scroll_pos: int = 0,
+    region: Any = None,
 ) -> Canvas:
-    """Run a transition. Returns the current back-buffer canvas."""
+    """Run a transition. Returns the current back-buffer canvas.
+
+    The ``region`` parameter is accepted for forward-compatibility with
+    zoned layouts but is not currently passed to ``frame_at``; transitions
+    operate on the full canvas in this port.
+    """
+    del region  # plumbed but unused; future zoned layouts revisit this
     ease_fn = EASING.get(easing, linear)
     frame_count = max(1, int(duration / scroll_speed))
     if hasattr(transition, "min_frames"):
@@ -99,7 +107,7 @@ async def run_transition(
             incoming,
             outgoing_scroll_pos=outgoing_scroll_pos,
         )
-        canvas = frame.matrix.SwapOnVSync(canvas)
+        canvas = _swap(canvas, frame)
         await asyncio.sleep(scroll_speed)
 
     return canvas

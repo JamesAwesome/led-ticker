@@ -63,8 +63,20 @@ class RGBMatrix:
         cols = getattr(options, "cols", 64) if options else 64
         chain = getattr(options, "chain_length", 1) if options else 1
         rows = getattr(options, "rows", 32) if options else 32
-        self._width = cols * chain
-        self._height = rows
+        parallel = getattr(options, "parallel", 1) if options else 1
+        mapper = getattr(options, "pixel_mapper_config", "") if options else ""
+
+        width = cols * chain
+        height = rows * parallel
+
+        if mapper == "U-mapper":
+            # U-mapper folds the chain in half: doubles height, halves width.
+            assert chain % 2 == 0, "U-mapper requires an even chain length"
+            width = (cols * chain) // 2
+            height = rows * 2 * parallel
+
+        self._width = width
+        self._height = height
         self._back_buffer = None
 
     def CreateFrameCanvas(self):

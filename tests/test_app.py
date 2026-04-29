@@ -6,9 +6,42 @@ from pathlib import Path
 
 import pytest
 
-from led_ticker.app import _build_title, _build_widget
+from led_ticker.app import _build_title, _build_widget, build_frame_from_config
+from led_ticker.config import DisplayConfig
 from led_ticker.widget import Widget
 from led_ticker.widgets.message import TickerCountdown, TickerMessage
+
+
+def test_build_frame_passes_pixel_mapper_and_parallel():
+    display = DisplayConfig(
+        rows=32,
+        cols=64,
+        chain=8,
+        parallel=1,
+        pixel_mapper="U-mapper",
+        default_scale=4,
+    )
+    frame = build_frame_from_config(display)
+    assert frame.led_pixel_mapper == "U-mapper"
+    assert frame.led_parallel == 1
+    assert frame.led_chain == 8
+    assert frame.led_rows == 32
+    assert frame.led_cols == 64
+
+
+def test_build_frame_existing_sign_defaults():
+    display = DisplayConfig(
+        rows=16,
+        cols=32,
+        chain=5,
+        brightness=60,
+        slowdown_gpio=2,
+    )
+    frame = build_frame_from_config(display)
+    assert frame.led_pixel_mapper == ""
+    assert frame.led_parallel == 1
+    assert frame.led_brightness == 60
+    assert frame.led_slowdown_gpio == 2
 
 
 class TestBuildWidget:
@@ -136,6 +169,6 @@ class TestExampleConfigWidgets:
                     continue
 
                 widget = await _build_widget(cfg, session=mock.Mock())
-                assert isinstance(widget, Widget), (
-                    f"Widget type={widget_type} did not produce a Widget"
-                )
+                assert isinstance(
+                    widget, Widget
+                ), f"Widget type={widget_type} did not produce a Widget"

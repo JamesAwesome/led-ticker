@@ -1,5 +1,11 @@
 FROM python:3.13-bullseye AS rgbmatrix
 
+# Pin the rpi-rgb-led-matrix fork/branch. Default targets the Pi 4 sign;
+# override with `--build-arg RGBMATRIX_REPO=... --build-arg RGBMATRIX_REF=...`
+# for the Pi 5 image (see Makefile build-docker-pi5).
+ARG RGBMATRIX_REPO=https://github.com/jamesawesome/rpi-rgb-led-matrix.git
+ARG RGBMATRIX_REF=main
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /code
@@ -8,10 +14,11 @@ RUN apt-get update && \
     apt-get install -y build-essential git python3-dev cmake && \
     rm -rf /var/lib/apt/lists/*
 
-# Layer 1: rgbmatrix (only rebuilds if the fork changes)
+# Layer 1: rgbmatrix (only rebuilds if the fork ref changes)
+# Clone into a fixed dir name so the path is stable regardless of repo URL.
 RUN cd /opt && \
-    git clone --depth=1 https://github.com/jamesawesome/rpi-rgb-led-matrix.git && \
-    cd rpi-rgb-led-matrix && \
+    git clone --depth=1 --branch ${RGBMATRIX_REF} ${RGBMATRIX_REPO} rgbmatrix-src && \
+    cd rgbmatrix-src && \
     pip install .
 
 # Layer 2: app dependencies (only rebuilds if pyproject.toml changes)

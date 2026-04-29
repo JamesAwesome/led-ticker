@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import unittest.mock as mock
 
+from led_ticker.drawing import Region
 from led_ticker.widget import (
     _MAX_BACKOFF,
     _MIN_BACKOFF,
@@ -11,6 +12,29 @@ from led_ticker.widget import (
     Widget,
     run_monitor_loop,
 )
+
+
+def test_widget_protocol_accepts_region_kwarg():
+    """Existing widgets must accept (and ignore) a `region` kwarg."""
+    from led_ticker.frame import LedFrame
+    from led_ticker.widgets.message import TickerMessage
+
+    msg = TickerMessage(message="hi")
+    frame = LedFrame(led_cols=32, led_chain=5)
+    canvas = frame.get_clean_canvas()
+    region = Region(0, 0, canvas.width, canvas.height)
+    _, pos = msg.draw(canvas, cursor_pos=0, region=region)
+    assert pos >= 0
+
+
+def test_run_transition_accepts_region_kwarg():
+    """run_transition must accept a Region kwarg (no behavior change)."""
+    import inspect
+
+    from led_ticker.transitions import run_transition
+
+    sig = inspect.signature(run_transition)
+    assert "region" in sig.parameters
 
 
 class SimpleWidget:

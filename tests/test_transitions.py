@@ -1075,3 +1075,111 @@ class TestRunTransition:
             scroll_speed=0.05,
         )
         assert mock_frame.matrix.SwapOnVSync.call_count == 101
+
+
+# --- ScaledCanvas integration ---
+
+
+class TestRunTransitionOnScaledCanvas:
+    """End-to-end transitions against a ScaledCanvas wrapper.
+
+    The wrapper hides scaling from transition code; these tests verify
+    transitions don't blow up when given a wrapper instead of a real canvas.
+    """
+
+    @pytest.fixture
+    def real_bigsign_canvas(self):
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 8
+        opts.parallel = 1
+        opts.pixel_mapper_config = "U-mapper"
+        return RGBMatrix(options=opts).CreateFrameCanvas()
+
+    @pytest.fixture
+    def bigsign_frame(self, real_bigsign_canvas):
+        import unittest.mock as mock
+
+        frame = mock.Mock()
+        frame.get_clean_canvas.return_value = real_bigsign_canvas
+        # Real swap returns a different stub canvas each time; mock that
+        frame.matrix.SwapOnVSync.side_effect = lambda c: type(real_bigsign_canvas)(
+            width=c.width, height=c.height
+        )
+        return frame
+
+    @pytest.fixture
+    def scaled_canvas(self, real_bigsign_canvas):
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        return ScaledCanvas(real_bigsign_canvas, scale=4)
+
+    async def test_cut_runs_against_scaled_canvas(
+        self,
+        scaled_canvas,
+        bigsign_frame,
+        make_widget,
+        no_sleep,
+    ):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        cut = Cut()
+
+        result = await run_transition(
+            scaled_canvas,
+            bigsign_frame,
+            outgoing,
+            incoming,
+            transition=cut,
+            duration=0.1,
+        )
+        # Returns the wrapper, not the underlying real canvas
+        assert result is scaled_canvas
+
+    async def test_color_flash_runs_against_scaled_canvas(
+        self,
+        scaled_canvas,
+        bigsign_frame,
+        make_widget,
+        no_sleep,
+    ):
+        """Regression: ColorFlash.frame_at calls canvas.Fill, which the
+        wrapper must support."""
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        flash = ColorFlash()
+
+        # Should not raise AttributeError on canvas.Fill
+        await run_transition(
+            scaled_canvas,
+            bigsign_frame,
+            outgoing,
+            incoming,
+            transition=flash,
+            duration=0.5,
+            scroll_speed=0.05,
+        )
+
+    async def test_wipe_left_runs_against_scaled_canvas(
+        self,
+        scaled_canvas,
+        bigsign_frame,
+        make_widget,
+        no_sleep,
+    ):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wipe = WipeLeft()
+
+        await run_transition(
+            scaled_canvas,
+            bigsign_frame,
+            outgoing,
+            incoming,
+            transition=wipe,
+            duration=0.5,
+            scroll_speed=0.05,
+        )

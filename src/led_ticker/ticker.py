@@ -11,6 +11,7 @@ import attrs
 
 from led_ticker._types import Canvas, ColorTuple
 from led_ticker.colors import RGB_WHITE
+from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.widgets.message import TickerMessage
 
 DEFAULT_BUFFER_MSG: TickerMessage = TickerMessage(
@@ -27,6 +28,26 @@ def _has_index(index: int, items: list[Any]) -> bool:
     return True
 
 
+def _swap(canvas: Any, frame: Any) -> Any:
+    """SwapOnVSync that handles both real canvases and ScaledCanvas wrappers.
+
+    For real canvases: returns the new back-buffer canvas.
+    For ScaledCanvas: swaps the underlying real canvas in place and returns
+    the same wrapper (now pointing at the new back-buffer).
+    """
+    if isinstance(canvas, ScaledCanvas):
+        canvas.real = frame.matrix.SwapOnVSync(canvas.real)
+        return canvas
+    return frame.matrix.SwapOnVSync(canvas)
+
+
+def _maybe_wrap(canvas: Any, scale: int) -> Any:
+    """Wrap canvas in a ScaledCanvas when scale > 1; otherwise return as-is."""
+    if scale > 1:
+        return ScaledCanvas(canvas, scale=scale)
+    return canvas
+
+
 @attrs.define
 class Ticker:
     """Display orchestrator for an LedFrame."""
@@ -40,6 +61,7 @@ class Ticker:
     transition_config: Any = None
     hold_time: float = 3.0
     continuous_scroll: bool = False
+    scale: int = 1
     last_scroll_pos: int = attrs.field(init=False, default=0)
 
     @classmethod
@@ -67,7 +89,7 @@ class Ticker:
     async def run_swap(self, loop_count: int = 0) -> None:
         """Swap between all running monitors."""
         logging.info("Running Swap with loop count %s...", loop_count)
-        canvas = self.frame.get_clean_canvas()
+        canvas = _maybe_wrap(self.frame.get_clean_canvas(), self.scale)
         title = self.title if self.title else None
         assert self.notif_queue is not None
 
@@ -95,7 +117,7 @@ class Ticker:
     ) -> None:
         """Scroll all monitors side-by-side in a continuous stream."""
         logging.info("Running Forever Scroll with loop count %s...", loop_count)
-        canvas = self.frame.get_clean_canvas()
+        canvas = _maybe_wrap(self.frame.get_clean_canvas(), self.scale)
         title = self.title if self.title else None
         cursor_pos = start_pos if start_pos is not None else canvas.width
         assert self.notif_queue is not None
@@ -123,7 +145,7 @@ class Ticker:
     ) -> None:
         """Scroll monitors one-by-one, each fully scrolling off before the next."""
         logging.info("Running Infini Scroll with loop count %s...", loop_count)
-        canvas = self.frame.get_clean_canvas()
+        canvas = _maybe_wrap(self.frame.get_clean_canvas(), self.scale)
         title = self.title if self.title else None
         assert self.notif_queue is not None
 
@@ -230,7 +252,7 @@ async def _scroll_and_delay(
         canvas.Clear()
         canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
         pos -= 1
-        canvas = frame.matrix.SwapOnVSync(canvas)
+        canvas = _swap(canvas, frame)
         await asyncio.sleep(scroll_speed)
 
     await asyncio.sleep(delay)
@@ -271,11 +293,11 @@ async def _scroll_one_by_one(
             except asyncio.QueueEmpty:
                 break
 
-        canvas = frame.matrix.SwapOnVSync(canvas)
+        canvas = _swap(canvas, frame)
         await asyncio.sleep(scroll_speed)
 
     canvas.Clear()
-    canvas = frame.matrix.SwapOnVSync(canvas)
+    canvas = _swap(canvas, frame)
 
 
 async def _scroll_side_by_side(
@@ -337,7 +359,7 @@ async def _scroll_side_by_side(
             buffered_objects.pop(0)
             pos = mon_0_end_pos - 1
 
-        canvas = frame.matrix.SwapOnVSync(canvas)
+        canvas = _swap(canvas, frame)
         await asyncio.sleep(scroll_speed)
 
         if not len(buffered_objects):
@@ -425,7 +447,7 @@ async def _scroll_between(
             clear_start,
         )
 
-        canvas = frame.matrix.SwapOnVSync(canvas)
+        canvas = _swap(canvas, frame)
         await asyncio.sleep(scroll_speed)
 
     return canvas, 0
@@ -526,7 +548,7 @@ async def _swap_and_scroll(
     canvas, cursor_pos = ticker_obj.draw(canvas, pos)
 
     if not skip_initial_draw:
-        canvas = frame.matrix.SwapOnVSync(canvas)
+        canvas = _swap(canvas, frame)
 
     if cursor_pos > canvas.width:
         if not continuous:
@@ -546,7 +568,7 @@ async def _swap_and_scroll(
             pos -= 1
             canvas.Clear()
             canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
-            canvas = frame.matrix.SwapOnVSync(canvas)
+            canvas = _swap(canvas, frame)
             await asyncio.sleep(scroll_speed)
 
         # Hold with the end of the text visible

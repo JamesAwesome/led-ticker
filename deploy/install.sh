@@ -3,11 +3,28 @@ set -euo pipefail
 
 # Install led-ticker on a Raspberry Pi (bare-metal, no Docker)
 # Run as root: sudo bash deploy/install.sh
+#
+# Override the rgbmatrix fork via env vars (defaults target Pi 4):
+#   PI5=1 sudo bash deploy/install.sh
+#     → kingdo9/rpi-rgb-led-matrix_pwm_experiment @ pi5_support
+#   RGBMATRIX_REPO=... RGBMATRIX_REF=... sudo bash deploy/install.sh
 
 INSTALL_DIR="/opt/led-ticker"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
+# Pick the rgbmatrix fork. Both Pi 4 and Pi 5 build off our jamesawesome fork:
+# main = Pi 4 (existing sign), pi5_support = kingdo9 PR #1886 + our build patch.
+if [ "${PI5:-0}" = "1" ]; then
+    : "${RGBMATRIX_REPO:=https://github.com/jamesawesome/rpi-rgb-led-matrix.git}"
+    : "${RGBMATRIX_REF:=pi5_support}"
+else
+    : "${RGBMATRIX_REPO:=https://github.com/jamesawesome/rpi-rgb-led-matrix.git}"
+    : "${RGBMATRIX_REF:=main}"
+fi
+
 echo "==> Installing led-ticker to ${INSTALL_DIR}"
+echo "    rgbmatrix repo: ${RGBMATRIX_REPO}"
+echo "    rgbmatrix ref:  ${RGBMATRIX_REF}"
 
 # Create install directory
 mkdir -p "${INSTALL_DIR}"
@@ -22,7 +39,7 @@ if ! python3 -c "import rgbmatrix" 2>/dev/null; then
     apt-get update && apt-get install -y build-essential git python3-dev cmake
     cd /tmp
     rm -rf rpi-rgb-led-matrix
-    git clone --depth=1 https://github.com/jamesawesome/rpi-rgb-led-matrix.git
+    git clone --depth=1 --branch "${RGBMATRIX_REF}" "${RGBMATRIX_REPO}" rpi-rgb-led-matrix
     cd rpi-rgb-led-matrix
     "${INSTALL_DIR}/venv/bin/pip" install .
     cd /tmp && rm -rf rpi-rgb-led-matrix
@@ -32,10 +49,15 @@ fi
 echo "==> Installing led-ticker package..."
 pip install "${REPO_DIR}"
 
-# Copy config if not present
+# Copy config if not present (bigsign gets its own example)
 if [ ! -f "${INSTALL_DIR}/config.toml" ]; then
-    cp "${REPO_DIR}/config.example.toml" "${INSTALL_DIR}/config.toml"
-    echo "==> Copied config.example.toml to ${INSTALL_DIR}/config.toml"
+    if [ "${PI5:-0}" = "1" ]; then
+        cp "${REPO_DIR}/config/config.bigsign.example.toml" "${INSTALL_DIR}/config.toml"
+        echo "==> Copied config.bigsign.example.toml to ${INSTALL_DIR}/config.toml"
+    else
+        cp "${REPO_DIR}/config/config.example.toml" "${INSTALL_DIR}/config.toml"
+        echo "==> Copied config.example.toml to ${INSTALL_DIR}/config.toml"
+    fi
     echo "    Edit this file to configure your display."
 fi
 

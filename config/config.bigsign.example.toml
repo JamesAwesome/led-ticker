@@ -1,0 +1,76 @@
+# led-ticker bigsign configuration
+# 8× P3 32×64 panels in a 2×4 vertical-serpentine layout → 64×256 logical canvas.
+# Driven by a Raspberry Pi 5 + Adafruit RGB Matrix HAT.
+#
+# Copy to config.toml on the bigsign Pi and customize.
+
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+
+# Remap each panel to its physical position. Chain enters at the bottom-right
+# panel and snakes vertically (1↑2, then left to 3↓4, etc.); all panels are
+# installed upright (no 180° rotations). Format:
+#   Remap:WIDTH,HEIGHT|x,yORIENT|... (one entry per panel in chain order)
+# Orientations: n=normal, s=180°, e=270°, w=90°, x=discard.
+# If your top-row panels are physically flipped 180°, swap each top-row 'n'
+# below for 's' (e.g. "192,0n" → "192,0s").
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+
+brightness = 60
+slowdown_gpio = 2  # tune per-Pi; Pi 5 may want 3 or higher
+gpio_mapping = "adafruit-hat"
+default_scale = 4  # 4× scaling fills the 64-tall canvas
+
+[title]
+delay = 5
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = "dissolve"
+
+# --- Playlist ---
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+# scale defaults to display.default_scale (4)
+
+[playlist.section.title]
+type = "message"
+text = "#DevOps News"
+color = "random"
+
+[[playlist.section.widget]]
+type = "message"
+text = "May the Rabbit always be with you!"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Always be your bunny best!"
+
+# --- Countdowns at scale=2 (letterboxed for a different look) ---
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 2
+scale = 2  # 2× → 32px tall content centered with 16px black bands
+
+[playlist.section.title]
+type = "message"
+text = "Count Downs"
+color = "random"
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Days Until Summer"
+countdown_date = 2026-06-20
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Days Until Fall"
+countdown_date = 2026-09-22

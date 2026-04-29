@@ -14,6 +14,7 @@ from led_ticker._types import Canvas, Color, DrawResult
 from led_ticker.colors import DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR
 from led_ticker.drawing import get_text_width
 from led_ticker.fonts import FONT_LABEL, FONT_VALUE
+from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 
@@ -83,17 +84,16 @@ class EtherscanGasMonitor:
             }
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
-        graphics = require_graphics()
         y_offset: int = kwargs.get("y_offset", 0)
 
-        graphics.DrawText(
+        draw_text(
             canvas, FONT_LABEL, cursor_pos, 12 + y_offset, DEFAULT_COLOR, GAS_BANNER
         )
         cursor_pos += get_text_width(FONT_LABEL, GAS_BANNER)
 
         for price_type, price in self.price_data.items():
             price_type_msg = f"{price_type}:"
-            graphics.DrawText(
+            draw_text(
                 canvas,
                 FONT_LABEL,
                 cursor_pos,
@@ -103,7 +103,7 @@ class EtherscanGasMonitor:
             )
             cursor_pos += get_text_width(FONT_LABEL, price_type_msg, padding=3)
 
-            graphics.DrawText(
+            draw_text(
                 canvas,
                 FONT_VALUE,
                 cursor_pos,

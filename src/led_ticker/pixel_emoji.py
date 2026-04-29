@@ -9,9 +9,8 @@ Each emoji is a list of (x, y, r, g, b) tuples relative to origin.
 
 from __future__ import annotations
 
-from typing import Any
-
 from led_ticker._types import Canvas, Color, Font, PixelData
+from led_ticker.text_render import draw_text
 
 EMOJI_DEFAULT_WIDTH: int = 8
 EMOJI_PADDING: int = 2  # px after icon before text resumes
@@ -283,7 +282,6 @@ def draw_with_emoji(
     y_offset: int = 0,
 ) -> int:
     """Draw text with inline emoji. Returns pixels advanced."""
-    graphics_mod: Any = None
     segments = _parse_segments(text)
     total: int = 0
 
@@ -303,11 +301,7 @@ def draw_with_emoji(
                     canvas.SetPixel(dx, dy, r, g, b)
             total += iw + EMOJI_PADDING
         else:
-            if graphics_mod is None:
-                from led_ticker._compat import require_graphics
-
-                graphics_mod = require_graphics()
-            total += graphics_mod.DrawText(
+            total += draw_text(
                 canvas,
                 font,
                 int(cursor_pos + total),

@@ -18,7 +18,7 @@ from led_ticker.presentation import (
     WidgetPresenter,
     get_presentation_class,
 )
-from led_ticker.ticker import Ticker
+from led_ticker.ticker import Ticker, _maybe_wrap
 from led_ticker.transitions import get_transition_class, run_transition
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
@@ -95,18 +95,25 @@ RUN_MODES: dict[str, str] = {
 }
 
 
+def build_frame_from_config(display) -> LedFrame:
+    """Build an LedFrame from a DisplayConfig."""
+    return LedFrame(
+        led_rows=display.rows,
+        led_cols=display.cols,
+        led_chain=display.chain,
+        led_parallel=display.parallel,
+        led_pixel_mapper=display.pixel_mapper,
+        led_slowdown_gpio=display.slowdown_gpio,
+        led_brightness=display.brightness,
+        led_gpio_mapping=display.gpio_mapping,
+    )
+
+
 async def run(config_path: Path) -> None:
     """Main application loop."""
     config = load_config(config_path)
 
-    led_frame = LedFrame(
-        led_rows=config.display.rows,
-        led_cols=config.display.cols,
-        led_chain=config.display.chain,
-        led_slowdown_gpio=config.display.slowdown_gpio,
-        led_brightness=config.display.brightness,
-        led_gpio_mapping=config.display.gpio_mapping,
-    )
+    led_frame = build_frame_from_config(config.display)
 
     # Build section-to-section transition if configured
     section_trans: Any = None
@@ -144,7 +151,7 @@ async def run(config_path: Path) -> None:
                     # Container widgets expand into stories
                     if isinstance(
                         widget,
-                        (RSSFeedMonitor, MLBScoreMonitor, MLBStandingsMonitor),
+                        RSSFeedMonitor | MLBScoreMonitor | MLBStandingsMonitor,
                     ):
                         logging.debug(
                             "Expanding %s: %d stories",
@@ -168,7 +175,9 @@ async def run(config_path: Path) -> None:
                     and first_widget is not None
                     and section_trans is not None
                 ):
-                    canvas = led_frame.get_clean_canvas()
+                    # Wrap so the between-section transition runs at the
+                    # incoming section's scale on the bigsign.
+                    canvas = _maybe_wrap(led_frame.get_clean_canvas(), section.scale)
                     canvas = await run_transition(
                         canvas,
                         led_frame,
@@ -205,6 +214,7 @@ async def run(config_path: Path) -> None:
                     transition_config=transition_config,
                     hold_time=section.hold_time,
                     continuous_scroll=section.continuous_scroll,
+                    scale=section.scale,
                 )
 
                 await getattr(ticker, run_method)(

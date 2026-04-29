@@ -96,3 +96,82 @@ text = "hi"
     assert config.display.brightness == 100
     assert config.display.gpio_mapping == "adafruit-hat"
     assert config.title_delay == 5
+
+
+def test_display_config_new_field_defaults_match_existing_sign(tmp_path):
+    """New fields must default to values that don't change existing-sign behavior."""
+    p = tmp_path / "config.toml"
+    p.write_text("""\
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+""")
+    cfg = load_config(p)
+    assert cfg.display.parallel == 1
+    assert cfg.display.pixel_mapper == ""
+    assert cfg.display.default_scale == 1
+    assert cfg.sections[0].scale == 1
+
+
+def test_display_config_bigsign_keys(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text("""\
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+pixel_mapper = "U-mapper"
+default_scale = 4
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+""")
+    cfg = load_config(p)
+    assert cfg.display.parallel == 1
+    assert cfg.display.pixel_mapper == "U-mapper"
+    assert cfg.display.default_scale == 4
+    assert cfg.sections[0].scale == 2
+
+
+def test_bigsign_example_config_loads(tmp_path):
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg = load_config(repo_root / "config" / "config.bigsign.example.toml")
+    assert cfg.display.rows == 32
+    assert cfg.display.cols == 64
+    assert cfg.display.chain == 8
+    assert cfg.display.parallel == 1
+    # Custom Remap: 2×4 vertical-serpentine, all panels upright.
+    # See the config file for the exact panel placement string.
+    assert cfg.display.pixel_mapper.startswith("Remap:")
+    assert "256,64" in cfg.display.pixel_mapper  # 256 wide × 64 tall canvas
+    assert cfg.display.default_scale == 4
+    assert len(cfg.sections) >= 1
+    # First section inherits default_scale
+    assert cfg.sections[0].scale == 4
+    # Second section overrides to scale=2 (letterboxed countdowns)
+    assert cfg.sections[1].scale == 2
+
+
+def test_section_scale_falls_back_to_default(tmp_path):
+    """When a section omits scale, it inherits display.default_scale."""
+    p = tmp_path / "config.toml"
+    p.write_text("""\
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 4
+
+[[playlist.section]]
+mode = "swap"
+""")
+    cfg = load_config(p)
+    assert cfg.sections[0].scale == 4

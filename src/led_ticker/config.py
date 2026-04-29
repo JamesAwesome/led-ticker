@@ -16,6 +16,9 @@ class DisplayConfig:
     rows: int = 16
     cols: int = 32
     chain: int = 1
+    parallel: int = 1
+    pixel_mapper: str = ""
+    default_scale: int = 1
     brightness: int = 100
     slowdown_gpio: int = 1
     gpio_mapping: str = "adafruit-hat"
@@ -43,6 +46,7 @@ class SectionConfig:
     )
     hold_time: float = 3.0  # seconds to hold each widget in swap mode
     continuous_scroll: bool = False  # skip holds for overflow text in scroll mode
+    scale: int = 1  # falls back to display.default_scale in load_config
 
 
 @dataclass
@@ -96,6 +100,9 @@ def load_config(path: Path) -> AppConfig:
         rows=display_raw.get("rows", 16),
         cols=display_raw.get("cols", 32),
         chain=display_raw.get("chain", 1),
+        parallel=display_raw.get("parallel", 1),
+        pixel_mapper=display_raw.get("pixel_mapper", ""),
+        default_scale=display_raw.get("default_scale", 1),
         brightness=display_raw.get("brightness", 100),
         slowdown_gpio=display_raw.get("slowdown_gpio", 1),
         gpio_mapping=display_raw.get("gpio_mapping", "adafruit-hat"),
@@ -133,6 +140,7 @@ def load_config(path: Path) -> AppConfig:
             transition=trans,
             hold_time=section_raw.get("hold_time", 3.0),
             continuous_scroll=section_raw.get("continuous_scroll", False),
+            scale=section_raw.get("scale", display.default_scale),
         )
         sections.append(section)
 

@@ -97,6 +97,24 @@ RUN_MODES: dict[str, str] = {
 
 def build_frame_from_config(display) -> LedFrame:
     """Build an LedFrame from a DisplayConfig."""
+    logging.info(
+        "Display: %dx%d rows × %dx%d cols (chain=%d parallel=%d) "
+        "mapper=%r brightness=%d slowdown_gpio=%d pwm_bits=%d "
+        "pwm_lsb_ns=%d rp1_rio=%d show_refresh=%s",
+        display.rows,
+        display.parallel,
+        display.cols,
+        display.chain,
+        display.chain,
+        display.parallel,
+        display.pixel_mapper or "(none)",
+        display.brightness,
+        display.slowdown_gpio,
+        display.pwm_bits,
+        display.pwm_lsb_nanoseconds,
+        display.rp1_rio,
+        display.show_refresh,
+    )
     return LedFrame(
         led_rows=display.rows,
         led_cols=display.cols,

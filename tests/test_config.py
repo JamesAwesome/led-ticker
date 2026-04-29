@@ -115,6 +115,36 @@ mode = "swap"
     assert cfg.display.pixel_mapper == ""
     assert cfg.display.default_scale == 1
     assert cfg.sections[0].scale == 1
+    # Performance defaults preserve existing-sign behavior
+    assert cfg.display.pwm_bits == 11
+    assert cfg.display.pwm_lsb_nanoseconds == 130
+    assert cfg.display.show_refresh is False
+    assert cfg.display.no_hardware_pulse is False
+    assert cfg.display.rp1_rio == 0
+
+
+def test_display_config_perf_tuning_keys(tmp_path):
+    """Performance tuning keys can be overridden from TOML."""
+    p = tmp_path / "config.toml"
+    p.write_text("""\
+[display]
+rows = 32
+cols = 64
+chain = 8
+pwm_bits = 8
+pwm_lsb_nanoseconds = 200
+show_refresh = true
+no_hardware_pulse = false
+rp1_rio = 1
+
+[[playlist.section]]
+mode = "swap"
+""")
+    cfg = load_config(p)
+    assert cfg.display.pwm_bits == 8
+    assert cfg.display.pwm_lsb_nanoseconds == 200
+    assert cfg.display.show_refresh is True
+    assert cfg.display.rp1_rio == 1
 
 
 def test_display_config_bigsign_keys(tmp_path):

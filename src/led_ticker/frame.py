@@ -30,6 +30,9 @@ class LedFrame:
     led_row_addr_type: int = 0
     led_multiplexing: int = 0
     led_panel_type: str = ""
+    # Pi 5 (kingdo9 fork) only: 0 = PIO mode (low CPU), 1 = RP1 RIO mode
+    # (higher CPU, higher refresh). Ignored on Pi 4 builds.
+    led_rp1_rio: int = 0
     matrix: RGBMatrixType = attrs.field(init=False, default=None)
 
     def __attrs_post_init__(self) -> None:
@@ -59,6 +62,11 @@ class LedFrame:
 
         if self.led_no_hardware_pulse:
             options.disable_hardware_pulsing = True
+
+        # rp1_rio is exposed only by the kingdo9 Pi 5 fork; tolerate older
+        # builds where the Python binding doesn't have it.
+        if self.led_rp1_rio and hasattr(options, "rp1_rio"):
+            options.rp1_rio = self.led_rp1_rio
 
         self.matrix = RGBMatrix(options=options)
 

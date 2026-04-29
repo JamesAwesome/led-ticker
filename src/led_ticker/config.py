@@ -22,6 +22,12 @@ class DisplayConfig:
     brightness: int = 100
     slowdown_gpio: int = 1
     gpio_mapping: str = "adafruit-hat"
+    # Performance / refresh tuning
+    pwm_bits: int = 11  # 8 ≈ 8× faster refresh, slightly worse color depth
+    pwm_lsb_nanoseconds: int = 130  # higher = slower but more stable
+    show_refresh: bool = False  # log measured refresh rate to stderr
+    no_hardware_pulse: bool = False  # disable hw PWM (rare; uses CPU instead)
+    rp1_rio: int = 0  # Pi 5 only: 0 = PIO (low CPU), 1 = RIO (faster, more CPU)
 
 
 @dataclass
@@ -106,6 +112,11 @@ def load_config(path: Path) -> AppConfig:
         brightness=display_raw.get("brightness", 100),
         slowdown_gpio=display_raw.get("slowdown_gpio", 1),
         gpio_mapping=display_raw.get("gpio_mapping", "adafruit-hat"),
+        pwm_bits=display_raw.get("pwm_bits", 11),
+        pwm_lsb_nanoseconds=display_raw.get("pwm_lsb_nanoseconds", 130),
+        show_refresh=display_raw.get("show_refresh", False),
+        no_hardware_pulse=display_raw.get("no_hardware_pulse", False),
+        rp1_rio=display_raw.get("rp1_rio", 0),
     )
 
     transitions_raw = raw.get("transitions", {})

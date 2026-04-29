@@ -106,6 +106,11 @@ def build_frame_from_config(display) -> LedFrame:
         led_slowdown_gpio=display.slowdown_gpio,
         led_brightness=display.brightness,
         led_gpio_mapping=display.gpio_mapping,
+        led_pwm_bits=display.pwm_bits,
+        led_pwm_lsb_nanoseconds=display.pwm_lsb_nanoseconds,
+        led_show_refresh=display.show_refresh,
+        led_no_hardware_pulse=display.no_hardware_pulse,
+        led_rp1_rio=display.rp1_rio,
     )
 
 

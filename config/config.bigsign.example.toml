@@ -24,6 +24,13 @@ slowdown_gpio = 2  # tune per-Pi; Pi 5 may want 3 or higher
 gpio_mapping = "adafruit-hat"
 default_scale = 4  # 4× scaling fills the 64-tall canvas
 
+# --- Performance tuning (uncomment to enable) ---
+# pwm_bits = 8              # 11 (default) → 8 ≈ 8× faster refresh, slightly worse color
+# pwm_lsb_nanoseconds = 130 # raise to 200+ if colors look wrong
+# show_refresh = true       # log measured refresh Hz to stderr
+# rp1_rio = 1               # Pi 5 only: RIO mode (faster, more CPU). Bump slowdown_gpio to 3-4
+# no_hardware_pulse = false # almost always leave false; CPU-fallback is ~5× slower
+
 [title]
 delay = 5
 

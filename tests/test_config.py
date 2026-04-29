@@ -96,3 +96,61 @@ text = "hi"
     assert config.display.brightness == 100
     assert config.display.gpio_mapping == "adafruit-hat"
     assert config.title_delay == 5
+
+
+def test_display_config_new_field_defaults_match_existing_sign(tmp_path):
+    """New fields must default to values that don't change existing-sign behavior."""
+    p = tmp_path / "config.toml"
+    p.write_text("""\
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+""")
+    cfg = load_config(p)
+    assert cfg.display.parallel == 1
+    assert cfg.display.pixel_mapper == ""
+    assert cfg.display.default_scale == 1
+    assert cfg.sections[0].scale == 1
+
+
+def test_display_config_bigsign_keys(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text("""\
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+pixel_mapper = "U-mapper"
+default_scale = 4
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+""")
+    cfg = load_config(p)
+    assert cfg.display.parallel == 1
+    assert cfg.display.pixel_mapper == "U-mapper"
+    assert cfg.display.default_scale == 4
+    assert cfg.sections[0].scale == 2
+
+
+def test_section_scale_falls_back_to_default(tmp_path):
+    """When a section omits scale, it inherits display.default_scale."""
+    p = tmp_path / "config.toml"
+    p.write_text("""\
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 4
+
+[[playlist.section]]
+mode = "swap"
+""")
+    cfg = load_config(p)
+    assert cfg.sections[0].scale == 4

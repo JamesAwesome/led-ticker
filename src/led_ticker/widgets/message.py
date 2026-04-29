@@ -7,11 +7,11 @@ from typing import Any
 
 import attrs
 
-from led_ticker._compat import require_graphics
 from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
+from led_ticker.text_render import draw_text
 from led_ticker.widgets import register
 
 
@@ -32,7 +32,6 @@ class TickerMessage:
         return "::" != "" and ":" in self.message and self.message.count(":") >= 2
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
-        graphics = require_graphics()
         font_color = kwargs.get("font_color") or self.font_color
         y_offset: int = kwargs.get("y_offset", 0)
 
@@ -64,7 +63,7 @@ class TickerMessage:
                 y_offset=y_offset,
             )
         else:
-            cursor_pos += graphics.DrawText(
+            cursor_pos += draw_text(
                 canvas,
                 self.font,
                 cursor_pos,
@@ -90,7 +89,6 @@ class TickerCountdown:
     padding: int = 6
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
-        graphics = require_graphics()
         font_color = kwargs.get("font_color") or self.font_color
         y_offset: int = kwargs.get("y_offset", 0)
 
@@ -103,7 +101,7 @@ class TickerCountdown:
             canvas.width, content_width, cursor_pos, self.padding, self.center
         )
 
-        cursor_pos += graphics.DrawText(
+        cursor_pos += draw_text(
             canvas, self.font, cursor_pos, 12 + y_offset, font_color, text
         )
         cursor_pos += end_padding

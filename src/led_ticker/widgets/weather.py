@@ -10,11 +10,11 @@ from typing import Any, Self
 import aiohttp
 import attrs
 
-from led_ticker._compat import require_graphics
 from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR, RGB_WHITE
 from led_ticker.drawing import compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
+from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 
@@ -96,7 +96,6 @@ class WeatherWidget:
             self.weather = current["condition"]["text"]
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
-        graphics = require_graphics()
         y_offset: int = kwargs.get("y_offset", 0)
 
         temp_text = f"{self.current_temp}{self.unit_symbol}"
@@ -125,7 +124,7 @@ class WeatherWidget:
             self.center,
         )
 
-        cursor_pos += graphics.DrawText(
+        cursor_pos += draw_text(
             canvas,
             self.font,
             cursor_pos,
@@ -146,7 +145,7 @@ class WeatherWidget:
                 y_offset=4 + y_offset,
             )
         else:
-            cursor_pos += graphics.DrawText(
+            cursor_pos += draw_text(
                 canvas,
                 self.font,
                 cursor_pos,
@@ -155,7 +154,7 @@ class WeatherWidget:
                 f"{self.weather} ",
             )
 
-        cursor_pos += graphics.DrawText(
+        cursor_pos += draw_text(
             canvas,
             self.font,
             cursor_pos,

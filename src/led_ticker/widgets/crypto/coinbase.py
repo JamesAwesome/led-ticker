@@ -10,11 +10,11 @@ from typing import Any, Self
 import aiohttp
 import attrs
 
-from led_ticker._compat import require_graphics
 from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR
 from led_ticker.drawing import compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DELTA, FONT_LABEL, FONT_VALUE, FONT_VALUE_SMALL
+from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 
@@ -119,7 +119,6 @@ def _draw_price_ticker(
     end_padding: int = 6,
     y_offset: int = 0,
 ) -> DrawResult:
-    graphics = require_graphics()
     change_color = _get_change_color(change_str)
     font_price = _get_price_font(price_str)
 
@@ -135,15 +134,15 @@ def _draw_price_ticker(
         canvas.width, content_width, cursor_pos, end_padding, center
     )
 
-    cursor_pos += graphics.DrawText(
+    cursor_pos += draw_text(
         canvas, FONT_LABEL, cursor_pos, 12 + y_offset, DEFAULT_COLOR, symbol
     )
     cursor_pos += padding
-    cursor_pos += graphics.DrawText(
+    cursor_pos += draw_text(
         canvas, font_price, cursor_pos, 12 + y_offset, DEFAULT_COLOR, price_str
     )
     cursor_pos += padding
-    cursor_pos += graphics.DrawText(
+    cursor_pos += draw_text(
         canvas, FONT_DELTA, cursor_pos, 12 + y_offset, change_color, change_str
     )
     cursor_pos += end_padding

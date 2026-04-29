@@ -9,6 +9,7 @@ from typing import Any
 from led_ticker._compat import require_graphics
 from led_ticker._types import Canvas, DrawResult
 from led_ticker.drawing import get_text_width
+from led_ticker.text_render import draw_text
 from led_ticker.transitions import ease_out
 
 # --- Presentation registry ---
@@ -72,7 +73,6 @@ class Typewriter:
         if not hasattr(widget, "message") or not isinstance(widget.message, str):
             return widget.draw(canvas, cursor_pos, **kwargs)
 
-        graphics = require_graphics()
         full_text = widget.message
         chars_visible = min(
             len(full_text),
@@ -93,7 +93,7 @@ class Typewriter:
             widget.center,
         )
 
-        pos += graphics.DrawText(
+        pos += draw_text(
             canvas,
             widget.font,
             pos,
@@ -162,7 +162,7 @@ class Rainbow:
                 int(g * 255),
                 int(b * 255),
             )
-            pos += graphics.DrawText(
+            pos += draw_text(
                 canvas,
                 widget.font,
                 pos,

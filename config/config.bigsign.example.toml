@@ -1,5 +1,5 @@
 # led-ticker bigsign configuration
-# 8× P3 32×64 panels in a 2×4 serpentine (U-mapper) → 64×256 logical canvas.
+# 8× P3 32×64 panels in a 2×4 vertical-serpentine layout → 64×256 logical canvas.
 # Driven by a Raspberry Pi 5 + Adafruit RGB Matrix HAT.
 #
 # Copy to config.toml on the bigsign Pi and customize.
@@ -9,7 +9,16 @@ rows = 32
 cols = 64
 chain = 8
 parallel = 1
-pixel_mapper = "U-mapper"
+
+# Remap each panel to its physical position. Chain enters at the bottom-right
+# panel and snakes vertically (1↑2, then left to 3↓4, etc.); all panels are
+# installed upright (no 180° rotations). Format:
+#   Remap:WIDTH,HEIGHT|x,yORIENT|... (one entry per panel in chain order)
+# Orientations: n=normal, s=180°, e=270°, w=90°, x=discard.
+# If your top-row panels are physically flipped 180°, swap each top-row 'n'
+# below for 's' (e.g. "192,0n" → "192,0s").
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+
 brightness = 60
 slowdown_gpio = 2  # tune per-Pi; Pi 5 may want 3 or higher
 gpio_mapping = "adafruit-hat"

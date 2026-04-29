@@ -148,7 +148,10 @@ def test_bigsign_example_config_loads(tmp_path):
     assert cfg.display.cols == 64
     assert cfg.display.chain == 8
     assert cfg.display.parallel == 1
-    assert cfg.display.pixel_mapper == "U-mapper"
+    # Custom Remap: 2×4 vertical-serpentine, all panels upright.
+    # See the config file for the exact panel placement string.
+    assert cfg.display.pixel_mapper.startswith("Remap:")
+    assert "256,64" in cfg.display.pixel_mapper  # 256 wide × 64 tall canvas
     assert cfg.display.default_scale == 4
     assert len(cfg.sections) >= 1
     # First section inherits default_scale

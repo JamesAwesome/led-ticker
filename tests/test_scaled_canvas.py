@@ -72,3 +72,56 @@ def test_clear_clears_underlying_canvas():
     sc.SetPixel(0, 0, 255, 0, 0)
     sc.Clear()
     assert real.get_pixel(0, 0) == (0, 0, 0)
+
+
+def test_draw_bdf_text_advance_for_single_char():
+    from led_ticker.fonts import FONT_SMALL, get_bdf_for
+
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=4)
+    bdf = get_bdf_for(FONT_SMALL)  # 5x8 advance = 5
+    advance = sc.draw_bdf_text(bdf, x=0, y=8, color=(255, 0, 0), text="A")
+    assert advance == 5
+
+
+def test_draw_bdf_text_advance_for_multichar():
+    from led_ticker.fonts import FONT_SMALL, get_bdf_for
+
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=4)
+    bdf = get_bdf_for(FONT_SMALL)
+    advance = sc.draw_bdf_text(bdf, x=0, y=8, color=(0, 255, 0), text="ABC")
+    assert advance == 15  # 3 chars × 5
+
+
+def test_draw_bdf_text_paints_some_glyph_pixels():
+    """Spot check that 'A' actually produces lit pixels in the right region."""
+    from led_ticker.fonts import FONT_SMALL, get_bdf_for
+
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=4)
+    bdf = get_bdf_for(FONT_SMALL)
+    sc.draw_bdf_text(bdf, x=0, y=8, color=(255, 0, 0), text="A")
+    # 5x8 'A' bitmap row index 1 has bits "01100" — column 1 lit at logical y in
+    # the top half. With scale=4, that block lands somewhere in real (4..7, ?..?).
+    found = False
+    for ry in range(64):
+        for rx in range(20):
+            if real.get_pixel(rx, ry) == (255, 0, 0):
+                found = True
+                break
+        if found:
+            break
+    assert found
+
+
+def test_draw_bdf_text_unknown_glyph_advances_default_width():
+    from led_ticker.fonts import FONT_SMALL, get_bdf_for
+
+    real = _make_real_canvas()
+    sc = ScaledCanvas(real, scale=4)
+    bdf = get_bdf_for(FONT_SMALL)
+    # Use a Unicode char unlikely to be in 5x8.bdf
+    advance = sc.draw_bdf_text(bdf, x=0, y=8, color=(0, 0, 255), text="香")
+    # Should still advance by something positive (font default width)
+    assert advance > 0

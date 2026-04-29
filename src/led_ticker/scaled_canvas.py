@@ -46,3 +46,28 @@ class ScaledCanvas:
         for dy in range(self.scale):
             for dx in range(self.scale):
                 self.real.SetPixel(rx + dx, ry + dy, r, g, b)
+
+    def draw_bdf_text(self, bdf, x: int, y: int, color, text: str) -> int:
+        """Draw `text` at logical (x, y) baseline. Returns total advance width.
+
+        Mirrors `graphics.DrawText`: x is the left edge and y is the baseline
+        (BDF glyphs draw above the baseline coordinate).
+        """
+        if isinstance(color, tuple):
+            r, g, b = color
+        else:
+            r, g, b = color.red, color.green, color.blue
+        cx = x
+        for ch in text:
+            glyph = bdf.glyphs.get(ch)
+            if glyph is None:
+                cx += bdf.bbx_width
+                continue
+            top_y = y - glyph.bbx_height - glyph.bbx_yoff
+            for row_idx, row in enumerate(glyph.bitmap):
+                py = top_y + row_idx
+                for col_idx, bit in enumerate(row):
+                    if bit:
+                        self.SetPixel(cx + glyph.bbx_xoff + col_idx, py, r, g, b)
+            cx += glyph.advance_width
+        return cx - x

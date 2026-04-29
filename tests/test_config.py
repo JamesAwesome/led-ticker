@@ -139,6 +139,24 @@ scale = 2
     assert cfg.sections[0].scale == 2
 
 
+def test_bigsign_example_config_loads(tmp_path):
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg = load_config(repo_root / "config" / "config.bigsign.example.toml")
+    assert cfg.display.rows == 32
+    assert cfg.display.cols == 64
+    assert cfg.display.chain == 8
+    assert cfg.display.parallel == 1
+    assert cfg.display.pixel_mapper == "U-mapper"
+    assert cfg.display.default_scale == 4
+    assert len(cfg.sections) >= 1
+    # First section inherits default_scale
+    assert cfg.sections[0].scale == 4
+    # Second section overrides to scale=2 (letterboxed countdowns)
+    assert cfg.sections[1].scale == 2
+
+
 def test_section_scale_falls_back_to_default(tmp_path):
     """When a section omits scale, it inherits display.default_scale."""
     p = tmp_path / "config.toml"

@@ -7,13 +7,13 @@
 #   docker compose restart             # restart after editing config
 #   docker compose down                # stop and remove
 #
-# Data layout (override DATA_DIR if your data is elsewhere):
-#   ${DATA_DIR}/config/config.toml     # display + playlist config
-#   ${DATA_DIR}/.env                   # API keys (WEATHERAPI_KEY etc.)
+# Files (relative to this compose file's directory):
+#   ./config/config.toml     # display + playlist config
+#   ./.env                   # API keys (WEATHERAPI_KEY etc.)
+#                            # — also auto-loaded by compose for var interpolation
 #
 # Pi 4 build:
-#   RGBMATRIX_REF=main RGBMATRIX_REPO=https://github.com/jamesawesome/rpi-rgb-led-matrix.git \
-#     IMAGE_TAG=led-ticker:pi4 docker compose up -d --build
+#   RGBMATRIX_REF=main IMAGE_TAG=led-ticker:pi4 docker compose up -d --build
 
 services:
   led-ticker:
@@ -28,6 +28,7 @@ services:
     privileged: true        # needed for GPIO access on the HAT
     network_mode: host      # outbound API calls (weather, RSS, MLB, etc.)
     volumes:
-      - ${DATA_DIR:-./data}/config:/code/config:ro
+      - ./config:/code/config:ro
     env_file:
-      - ${DATA_DIR:-./data}/.env
+      - path: ./.env
+        required: false     # repo may not have .env if no API keys are needed

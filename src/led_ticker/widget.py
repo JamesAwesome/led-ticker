@@ -27,6 +27,17 @@ class Widget(Protocol):
     ) -> DrawResult:
         """Render to canvas starting at cursor_pos.
 
+        Recognized kwargs:
+        - ``y_offset`` (int): vertical offset from natural baseline
+        - ``region`` (Region | None): sub-area of canvas to draw within
+          (default: full canvas — plumbed for forward-compat with zoned
+          layouts; widgets that don't care should ignore it)
+        - ``font_color`` (Color): override the widget's own font color
+
+        ``scale`` is **not** a kwarg. If ``canvas`` is a ``ScaledCanvas``,
+        scaling is transparent. Widgets that need to read scale can use
+        ``getattr(canvas, "scale", 1)``.
+
         Returns (canvas, new_cursor_pos).
         """
         ...

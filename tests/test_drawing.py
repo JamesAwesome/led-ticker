@@ -1,7 +1,23 @@
 """Tests for led_ticker.drawing helpers."""
 
-from led_ticker.drawing import compute_cursor, find_center, get_text_width
+from led_ticker.drawing import Region, compute_cursor, find_center, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
+
+
+def test_region_full_canvas_defaults():
+    r = Region(0, 0, 160, 16)
+    assert r.x == 0
+    assert r.y == 0
+    assert r.width == 160
+    assert r.height == 16
+
+
+def test_region_subregion():
+    r = Region(10, 4, 80, 8)
+    assert r.x == 10
+    assert r.y == 4
+    assert r.width == 80
+    assert r.height == 8
 
 
 def test_get_text_width_with_padding():

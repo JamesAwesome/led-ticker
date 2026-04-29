@@ -5,7 +5,23 @@ from __future__ import annotations
 import math
 from typing import Any
 
+import attrs
+
 from led_ticker._types import Font
+
+
+@attrs.define(frozen=True, slots=True)
+class Region:
+    """A rectangular sub-area of a canvas.
+
+    Plumbed through draw() and run_transition() for forward compatibility
+    with zoned layouts. Currently always equals the full canvas.
+    """
+
+    x: int
+    y: int
+    width: int
+    height: int
 
 
 def get_widget_padding(widget: Any, default: int = 6) -> int:

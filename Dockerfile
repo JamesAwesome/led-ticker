@@ -1,7 +1,8 @@
 FROM python:3.13-bullseye AS rgbmatrix
 
 # Pin the rpi-rgb-led-matrix fork/branch. Default targets the Pi 4 sign;
-# override with `--build-arg RGBMATRIX_REF=<pi5-branch>` for the Pi 5 image.
+# override with `--build-arg RGBMATRIX_REPO=... --build-arg RGBMATRIX_REF=...`
+# for the Pi 5 image (see Makefile build-docker-pi5).
 ARG RGBMATRIX_REPO=https://github.com/jamesawesome/rpi-rgb-led-matrix.git
 ARG RGBMATRIX_REF=main
 

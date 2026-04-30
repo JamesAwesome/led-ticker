@@ -41,7 +41,9 @@ src/led_ticker/
                        #   because graphics.DrawText cannot scale)
   widget.py            # Widget/AsyncWidget protocols + run_monitor_loop() with backoff
   drawing.py           # Shared drawing helpers (get_text_width, compute_cursor)
-  colors.py            # RGB color constants
+  colors.py            # RGB color constants (DEFAULT_COLOR, RGB_WHITE,
+                       #   UP_TREND_COLOR/DOWN_TREND_COLOR/NEUTRAL_TREND_COLOR
+                       #   for crypto/finance widgets, etc.)
   presentation.py      # Text presentation effects (typewriter, rainbow, etc.)
   pixel_emoji.py       # Inline pixel-art emoji renderer (:name: in messages)
   fonts/               # BDF bitmap fonts + loader
@@ -72,7 +74,9 @@ src/led_ticker/
 
 **Inline Emoji**: Use `:name:` in TickerMessage text to render pixel art icons inline. Defined in `pixel_emoji.py`. Available: `baseball`, `taco`, `flower`, `star`, `sun`, `cloud`, `rain`, `snow`, `thunder`, `fog`.
 
-**ScaledCanvas (bigsign)**: When `default_scale > 1` in config, the canvas returned to widgets is a `ScaledCanvas` wrapper. Widgets keep drawing at logical 16-tall coordinates; the wrapper expands every `SetPixel` to a scale×scale block on the real canvas and centers the content vertically. `DrawText` cannot be scaled, so `text_render.py` provides a pure-Python BDF rasterizer that uses `SetPixel` and therefore inherits the wrapper's scaling. `_swap` knows how to in-place swap the wrapper's `.real` canvas so the wrapper identity is stable across frames.
+**ScaledCanvas (bigsign)**: When `default_scale > 1` in config, the canvas returned to widgets is a `ScaledCanvas` wrapper. Widgets keep drawing at logical 16-tall coordinates; the wrapper expands every `SetPixel` to a scale×scale block on the real canvas and centers the content vertically. `DrawText` cannot be scaled, so `text_render.py` provides a pure-Python BDF rasterizer (`ScaledCanvas.draw_bdf_text`) that uses `SetPixel` and therefore inherits the wrapper's scaling. `_swap` knows how to in-place swap the wrapper's `.real` canvas so the wrapper identity is stable across frames. `_y_offset` is cached at construction since real-canvas height is constant for a wrapper's lifetime.
+
+**BDF glyphs carry pre-computed `lit_pixels`**: `BDFGlyph.lit_pixels` is a flat `list[tuple[int, int]]` of `(col, row)` for set bits, computed at parse time. The bigsign rasterizer iterates this directly instead of branching every cell — most cells are unlit. `bitmap` is preserved as the source of truth; tests in `test_bdf_parser.py` assert the two stay in sync.
 
 ### Key Patterns
 
@@ -158,7 +162,11 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 - `sailor_moon_reverse` — Moon Stick sweeps right-to-left (flipped sprite)
 - `sailor_moon_alternating` — cycles through sailor_moon → sailor_moon_reverse each swap
 
-**How wipe transitions work**: Draw outgoing widget at pos=0 (stationary text), then use SetPixel to black out regions and draw colored sweep lines on top. At t=1.0, snap to incoming. This avoids the compositing problem entirely — no need to draw both widgets or read pixels back.
+**How wipe transitions work**: Draw outgoing widget at pos=0 (stationary text), then use SetPixel to black out regions and draw colored sweep lines on top. At t=1.0, snap to incoming. This avoids the compositing problem entirely — no need to draw both widgets or read pixels back. The blackouts are NOT redundant against `Clear()` — they erase parts of `outgoing.draw()`'s text bleed (DrawText cannot be clipped).
+
+**Presenter freeze during transitions**: `run_transition` calls `pause()` on outgoing/incoming before its loop and `resume()` after (try/finally). `WidgetPresenter` exposes these methods to keep `frame_count` from advancing while the widget is being re-rendered for compositing — otherwise a Bounce/Typewriter/Rainbow-wrapped widget mid-cycles during the dissolve and re-enters the next section at a wrong phase. Plain widgets without `pause()` are skipped via duck-typing.
+
+**Cross-scale dissolves**: `run_transition(..., incoming_scale=N)` re-wraps the canvas at the new scale at t ≥ 0.5 so the incoming widget dissolves IN at its native size instead of flashing the wrong scale. The function returns the new wrapper — callers MUST capture the return value (`canvas = await run_transition(...)`) to follow the new wrapper for subsequent renders.
 
 ### Text Presentation Effects
 
@@ -187,12 +195,23 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 
 ### Testing
 
-275+ tests, 92% coverage, runs in ~1s with no Docker.
+580+ tests, ~95% coverage, runs in ~15s with no Docker.
 
 - `make test` sets `PYTHONPATH=tests/stubs` automatically
-- Test stubs simulate double-buffering (SwapOnVSync returns different canvas)
+- Test stubs simulate double-buffering: the real-stub `RGBMatrix.SwapOnVSync` returns a DIFFERENT canvas object each call so dropped-capture bugs surface
 - Stub `DrawText` writes actual pixels for pixel-level test assertions
 - Weather tests need `monkeypatch.setenv("WEATHERAPI_KEY", "test-key")`
+
+**Tripwire fixtures in `tests/conftest.py`:**
+- `mock_frame` — convenience fixture; `SwapOnVSync.return_value = canvas` (same object). Fine for tests that don't care about capture-correctness
+- `swapping_frame` — rotates between two canvas mocks. Use this in regression tests for CLAUDE.md constraint #1 (capture the swap return). Drop the capture and `widget.draw` will only see one canvas — assert on `len({id(c) for c in draw_args}) >= 2`
+
+**Common failure modes the suite now catches:**
+- SwapOnVSync return dropped → `TestSwapOnVSyncCapture` (test_ticker_display.py)
+- Cross-scale dissolve missing wrapper switch → `TestRunTransitionCrossScale`
+- `_swap_and_scroll(skip_initial_draw=True/continuous=True)` regressions → dedicated tests
+- WidgetPresenter mid-cycling during transitions → `test_pause_freezes_frame_count`
+- MLB widget state-bucket fall-through → branch-specific assertions on `update()`
 
 ### Configuration
 

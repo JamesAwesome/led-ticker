@@ -224,7 +224,7 @@ make lint       # Run ruff linter
 make format     # Auto-format code
 ```
 
-Tests use a stub `rgbmatrix` package so they run on any machine — no Raspberry Pi or Docker required.
+Tests use a stub `rgbmatrix` package so they run on any machine — no Raspberry Pi or Docker required. 580+ tests, ~15s on a laptop.
 
 ## Deployment
 

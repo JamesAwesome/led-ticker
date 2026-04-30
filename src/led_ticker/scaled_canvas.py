@@ -22,9 +22,10 @@ class ScaledCanvas:
     """Wraps a real canvas; exposes a `content_height`-tall logical canvas.
 
     `real` is mutable so `_swap()` in ticker.py can rewire the wrapper to
-    point at the new back-buffer canvas after each `SwapOnVSync`.
-    `scale` and `content_height` are frozen — they're set at construction
-    and never change for the lifetime of the wrapper.
+    point at the new back-buffer canvas after each `SwapOnVSync`. Within
+    a Ticker session every back buffer comes from the same RGBMatrix so
+    its dimensions are constant — we cache `_y_offset` once at
+    construction. `scale` and `content_height` are frozen.
     """
 
     real: Any
@@ -32,6 +33,10 @@ class ScaledCanvas:
     content_height: int = attrs.field(
         default=CONTENT_HEIGHT, on_setattr=attrs.setters.frozen
     )
+    _y_offset: int = attrs.field(init=False, default=0)
+
+    def __attrs_post_init__(self) -> None:
+        self._y_offset = (self.real.height - self.content_height * self.scale) // 2
 
     @property
     def width(self) -> int:
@@ -40,10 +45,6 @@ class ScaledCanvas:
     @property
     def height(self) -> int:
         return self.content_height
-
-    @property
-    def _y_offset(self) -> int:
-        return (self.real.height - self.content_height * self.scale) // 2
 
     def Clear(self) -> None:
         self.real.Clear()
@@ -57,11 +58,19 @@ class ScaledCanvas:
         self.real.Fill(r, g, b)
 
     def SetPixel(self, x: int, y: int, r: int, g: int, b: int) -> None:
-        rx = x * self.scale
-        ry = y * self.scale + self._y_offset
-        for dy in range(self.scale):
-            for dx in range(self.scale):
-                self.real.SetPixel(rx + dx, ry + dy, r, g, b)
+        # Hoist hot-path attribute lookups: every logical pixel maps to
+        # scale² real pixels, so 16× on the bigsign. Avoiding `self.real`
+        # / `self.scale` / property access per inner-loop iteration is
+        # measurable on text-heavy frames.
+        s = self.scale
+        real = self.real
+        set_px = real.SetPixel
+        rx = x * s
+        ry = y * s + self._y_offset
+        for dy in range(s):
+            rry = ry + dy
+            for dx in range(s):
+                set_px(rx + dx, rry, r, g, b)
 
     def draw_bdf_text(self, bdf, x: int, y: int, color, text: str) -> int:
         """Draw `text` at logical (x, y) baseline. Returns total advance width.

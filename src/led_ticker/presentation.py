@@ -80,6 +80,19 @@ class Typewriter:
 
     def __init__(self, chars_per_frame: int = 1) -> None:
         self.chars_per_frame: int = chars_per_frame
+        # Cache full-text width per (font, text) since the text is fixed
+        # for the lifetime of the message. Recomputing get_text_width on
+        # every frame would scan every char and CharacterWidth() into the
+        # font (a C-call on real hardware) — wasteful at 20fps.
+        self._cached_width: dict[tuple[int, str], int] = {}
+
+    def _content_width(self, font: Any, text: str) -> int:
+        key = (id(font), text)
+        w = self._cached_width.get(key)
+        if w is None:
+            w = get_text_width(font, text, padding=0)
+            self._cached_width[key] = w
+        return w
 
     def draw(
         self, widget: Any, canvas: Canvas, cursor_pos: int, frame: int, **kwargs: Any
@@ -95,10 +108,11 @@ class Typewriter:
         visible_text = full_text[:chars_visible]
 
         font_color = kwargs.get("font_color") or widget.font_color
+        y_offset: int = kwargs.get("y_offset", 0)
 
         from led_ticker.drawing import compute_cursor
 
-        content_width = get_text_width(widget.font, full_text, padding=0)
+        content_width = self._content_width(widget.font, full_text)
         pos, end_padding = compute_cursor(
             canvas.width,
             content_width,
@@ -111,7 +125,7 @@ class Typewriter:
             canvas,
             widget.font,
             pos,
-            12,
+            12 + y_offset,
             font_color,
             visible_text,
         )
@@ -146,6 +160,15 @@ class Rainbow:
     def __init__(self, speed: int = 8, char_offset: int = 30) -> None:
         self.speed: int = speed
         self.char_offset: int = char_offset
+        self._cached_width: dict[tuple[int, str], int] = {}
+
+    def _content_width(self, font: Any, text: str) -> int:
+        key = (id(font), text)
+        w = self._cached_width.get(key)
+        if w is None:
+            w = get_text_width(font, text, padding=0)
+            self._cached_width[key] = w
+        return w
 
     def draw(
         self, widget: Any, canvas: Canvas, cursor_pos: int, frame: int, **kwargs: Any
@@ -154,11 +177,12 @@ class Rainbow:
             return widget.draw(canvas, cursor_pos, **kwargs)
 
         graphics = require_graphics()
+        y_offset: int = kwargs.get("y_offset", 0)
 
         from led_ticker.drawing import compute_cursor
 
         full_text = widget.message
-        content_width = get_text_width(widget.font, full_text, padding=0)
+        content_width = self._content_width(widget.font, full_text)
         pos, end_padding = compute_cursor(
             canvas.width,
             content_width,
@@ -168,8 +192,9 @@ class Rainbow:
         )
 
         phase = frame * self.speed
+        char_offset = self.char_offset  # hoist for inner loop
         for i, char in enumerate(full_text):
-            hue = ((phase + i * self.char_offset) % 360) / 360
+            hue = ((phase + i * char_offset) % 360) / 360
             r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
             color = graphics.Color(
                 int(r * 255),
@@ -180,7 +205,7 @@ class Rainbow:
                 canvas,
                 widget.font,
                 pos,
-                12,
+                12 + y_offset,
                 color,
                 char,
             )

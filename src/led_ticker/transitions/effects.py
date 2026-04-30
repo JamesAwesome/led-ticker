@@ -79,18 +79,20 @@ class Dissolve:
         else:
             seq = self._get_sequence(w, h)
             total = len(seq)
+            set_px = canvas.SetPixel  # hoist out of inner loop
             if t < 0.5:
                 # Outgoing with increasing black scatter
                 outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
                 count = int(t * 2 * total)
-                for x, y in seq[:count]:
-                    canvas.SetPixel(x, y, 0, 0, 0)
             else:
                 # Incoming with decreasing black scatter
                 incoming.draw(canvas, cursor_pos=0)
                 count = int((1.0 - t) * 2 * total)
-                for x, y in seq[:count]:
-                    canvas.SetPixel(x, y, 0, 0, 0)
+            # Iterate by index to avoid allocating `seq[:count]` per frame.
+            # On the bigsign at t=0.5 that slice is ~8K tuples × 20fps.
+            for i in range(count):
+                x, y = seq[i]
+                set_px(x, y, 0, 0, 0)
         return canvas
 
 

@@ -11,6 +11,7 @@ import attrs
 
 from led_ticker._types import Canvas, ColorTuple
 from led_ticker.colors import RGB_WHITE
+from led_ticker.drawing import get_widget_padding
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.widgets.message import TickerMessage
 
@@ -615,8 +616,6 @@ async def _swap_and_scroll(
         # Add padding back here to compensate: cursor_pos overshoots
         # by padding, so adding it to stop_pos scrolls less far left,
         # putting the last character flush with the right edge (x=159).
-        from led_ticker.drawing import get_widget_padding
-
         padding = get_widget_padding(ticker_obj, default=0)
         stop_pos = -(cursor_pos - canvas.width) + padding
         while pos > stop_pos:

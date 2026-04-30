@@ -446,3 +446,24 @@ class TestOffseason:
 
         assert len(widget.feed_stories) == 1
         assert widget.feed_stories[0].message == "No Data"
+
+    @pytest.mark.asyncio
+    async def test_offseason_fetches_teams_endpoint_once(self):
+        # Regression: _fetch_opening_day previously refetched /teams once
+        # per tracked team. With 5 tracked teams and ~50KB JSON each, that
+        # was 5 round-trips at startup. Now should be exactly 1.
+        session = self._make_session(
+            all_zero=True,
+            schedule_dates=["2026-03-27T17:00:00Z"],
+        )
+        widget = MLBStandingsMonitor(session=session, teams=["NYM", "NYY"])
+        widget._tz = __import__("zoneinfo").ZoneInfo("America/New_York")
+
+        await widget.update()
+
+        # Count calls to /teams (vs /standings, /schedule)
+        teams_calls = [c for c in session.get.call_args_list if "/teams" in c.args[0]]
+        assert len(teams_calls) == 1, (
+            f"Expected exactly one /teams round-trip; got {len(teams_calls)}. "
+            "Per-team refetch regression."
+        )

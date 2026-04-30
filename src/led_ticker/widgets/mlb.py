@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -628,8 +629,6 @@ class MLBScoreMonitor:
                 start_time: datetime | None = None
                 game_date = g.get("gameDate")
                 if game_date:
-                    import contextlib
-
                     with contextlib.suppress(ValueError, TypeError):
                         start_time = datetime.fromisoformat(
                             game_date.replace("Z", "+00:00")

@@ -183,52 +183,46 @@ class MLBStandingsMonitor:
         start = now.strftime("%Y-%m-%d")
         end = (now + timedelta(days=30)).strftime("%Y-%m-%d")
 
-        for team_abbr in self.teams:
-            # Resolve team ID
-            try:
-                async with self.session.get(
-                    f"{MLB_API}/teams?sportId=1",
-                ) as resp:
-                    teams_data = await resp.json()
-                    team_id = None
-                    for t in teams_data.get("teams", []):
-                        if t.get("abbreviation") == team_abbr:
-                            team_id = t["id"]
-                            break
-                    if not team_id:
-                        continue
+        # Resolve abbreviation -> ID once instead of refetching the whole
+        # /teams endpoint for every tracked team.
+        try:
+            async with self.session.get(f"{MLB_API}/teams?sportId=1") as resp:
+                teams_data = await resp.json()
+        except Exception:
+            logger.debug("Failed to fetch MLB teams roster")
+            return None
 
-                url = (
-                    f"{MLB_API}/schedule?teamId={team_id}"
-                    f"&startDate={start}&endDate={end}"
-                    f"&sportId=1&gameType=R"
-                )
+        abbr_to_id: dict[str, int] = {
+            t["abbreviation"]: t["id"]
+            for t in teams_data.get("teams", [])
+            if t.get("abbreviation") and t.get("id") is not None
+        }
+
+        for team_abbr in self.teams:
+            team_id = abbr_to_id.get(team_abbr)
+            if not team_id:
+                continue
+            url = (
+                f"{MLB_API}/schedule?teamId={team_id}"
+                f"&startDate={start}&endDate={end}"
+                f"&sportId=1&gameType=R"
+            )
+            try:
                 async with self.session.get(url) as resp:
                     data = await resp.json()
-                    for date_entry in data.get("dates", []):
-                        for g in date_entry.get("games", []):
-                            game_date = g.get("gameDate")
-                            if game_date:
-                                with contextlib.suppress(
-                                    ValueError,
-                                    TypeError,
-                                ):
-                                    dt = datetime.fromisoformat(
-                                        game_date.replace(
-                                            "Z",
-                                            "+00:00",
-                                        ),
-                                    )
-                                    local = dt.astimezone(tz)
-                                    return local.strftime(
-                                        "%b %-d",
-                                    )
             except Exception:
-                logger.debug(
-                    "Failed to fetch opening day for %s",
-                    team_abbr,
-                )
+                logger.debug("Failed to fetch schedule for %s", team_abbr)
                 continue
+
+            for date_entry in data.get("dates", []):
+                for g in date_entry.get("games", []):
+                    game_date = g.get("gameDate")
+                    if not game_date:
+                        continue
+                    with contextlib.suppress(ValueError, TypeError):
+                        dt = datetime.fromisoformat(game_date.replace("Z", "+00:00"))
+                        local = dt.astimezone(tz)
+                        return local.strftime("%b %-d")
         return None
 
     async def _set_offseason_state(self) -> None:

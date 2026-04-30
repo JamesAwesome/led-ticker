@@ -92,6 +92,47 @@ class TestTypewriter:
         tw.draw(msg_widget, canvas, 0, 100)
         # Should not raise on any frame
 
+    def test_caches_content_width(self, canvas, msg_widget, monkeypatch):
+        # Regression: get_text_width was called every frame for fixed text.
+        # On the bigsign at 20fps that's ~30 char-widths/frame × 600 frames
+        # for a 30s message — ~18K wasted C-calls. Cache once per (font,text).
+        import led_ticker.presentation as presentation
+
+        call_count = 0
+        real_width = presentation.get_text_width
+
+        def counting_width(font, text, *, padding=0):
+            nonlocal call_count
+            call_count += 1
+            return real_width(font, text, padding=padding)
+
+        monkeypatch.setattr(presentation, "get_text_width", counting_width)
+
+        tw = Typewriter(chars_per_frame=1)
+        for f in range(20):
+            tw.draw(msg_widget, canvas, 0, f)
+        # First call computes; subsequent 19 hit the cache.
+        assert (
+            call_count == 1
+        ), f"get_text_width called {call_count}× for fixed text — caching broken"
+
+    def test_y_offset_threaded_to_draw_text(self, canvas, msg_widget, monkeypatch):
+        # Regression: Typewriter hardcoded y=12, dropping y_offset from
+        # vertical transitions like push_up.
+        import led_ticker.presentation as presentation
+
+        captured: list[int] = []
+
+        def fake_draw(canvas, font, x, y, color, text):
+            captured.append(y)
+            return 10  # advance width
+
+        monkeypatch.setattr(presentation, "draw_text", fake_draw)
+
+        tw = Typewriter()
+        tw.draw(msg_widget, canvas, 0, 0, y_offset=5)
+        assert captured == [12 + 5]
+
     def test_returns_canvas_and_position(self, canvas, msg_widget):
         tw = Typewriter()
         result_canvas, pos = tw.draw(msg_widget, canvas, 0, 10)

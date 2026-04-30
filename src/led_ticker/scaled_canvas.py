@@ -82,17 +82,22 @@ class ScaledCanvas:
             r, g, b = color
         else:
             r, g, b = color.red, color.green, color.blue
+        # Hoist for inner loop: SetPixel is invoked once per lit pixel × scale².
+        set_pixel = self.SetPixel
         cx = x
+        glyphs = bdf.glyphs
+        fallback_width = bdf.bbx_width
         for ch in text:
-            glyph = bdf.glyphs.get(ch)
+            glyph = glyphs.get(ch)
             if glyph is None:
-                cx += bdf.bbx_width
+                cx += fallback_width
                 continue
             top_y = y - glyph.bbx_height - glyph.bbx_yoff
-            for row_idx, row in enumerate(glyph.bitmap):
-                py = top_y + row_idx
-                for col_idx, bit in enumerate(row):
-                    if bit:
-                        self.SetPixel(cx + glyph.bbx_xoff + col_idx, py, r, g, b)
+            base_x = cx + glyph.bbx_xoff
+            # lit_pixels is pre-computed at parse time — iterate ONLY set
+            # bits instead of every cell with a per-cell branch. Combined
+            # with the SetPixel hoist, halves the Python-side overhead.
+            for col, row in glyph.lit_pixels:
+                set_pixel(base_x + col, top_y + row, r, g, b)
             cx += glyph.advance_width
         return cx - x

@@ -22,6 +22,11 @@ class BDFGlyph:
     bbx_height: int
     bbx_xoff: int
     bbx_yoff: int
+    # Pre-computed flat list of (col, row) for set bits in `bitmap`.
+    # The rasterizer iterates this directly instead of branching every
+    # column — most cells in a typical glyph are unlit, so we save the
+    # `if bit:` check and the enumerate() overhead per row × cell.
+    lit_pixels: list[tuple[int, int]] = field(default_factory=list)
 
 
 @dataclass
@@ -93,6 +98,13 @@ def _parse_glyph(lines: Iterator[str]) -> BDFGlyph | None:
     if encoding is None or encoding < 0:
         return None
 
+    lit_pixels: list[tuple[int, int]] = [
+        (col, row)
+        for row, row_bits in enumerate(bitmap_rows)
+        for col, bit in enumerate(row_bits)
+        if bit
+    ]
+
     return BDFGlyph(
         char=chr(encoding),
         bitmap=bitmap_rows,
@@ -101,6 +113,7 @@ def _parse_glyph(lines: Iterator[str]) -> BDFGlyph | None:
         bbx_height=bbx_h,
         bbx_xoff=bbx_xoff,
         bbx_yoff=bbx_yoff,
+        lit_pixels=lit_pixels,
     )
 
 

@@ -96,3 +96,45 @@ def test_parse_bundled_7x13_font():
     assert font.bbx_height == 13
     assert font.bbx_width == 7
     assert font.glyphs["A"].advance_width == 7
+
+
+def test_lit_pixels_matches_bitmap():
+    """`lit_pixels` is the perf-critical pre-computed sparse representation
+    of `bitmap`. They must agree, since the rasterizer uses lit_pixels but
+    the test corpus checks bitmap.
+    """
+    font = parse_bdf(SYNTHETIC_BDF)
+    glyph = font.glyphs["A"]
+    # Bitmap is:
+    # [True,  False, True ]   (1, 0, 1)  row 0
+    # [False, True,  False]   (0, 1, 0)  row 1
+    # [True,  False, True ]   (1, 0, 1)  row 2
+    expected = [(0, 0), (2, 0), (1, 1), (0, 2), (2, 2)]
+    assert glyph.lit_pixels == expected
+
+    # Reverse direction: every (col, row) in lit_pixels must correspond to
+    # a True bit in bitmap.
+    for col, row in glyph.lit_pixels:
+        assert glyph.bitmap[row][col] is True
+
+    # And no True bit is missed: count of lit_pixels == count of True in bitmap.
+    bitmap_count = sum(1 for row in glyph.bitmap for bit in row if bit)
+    assert len(glyph.lit_pixels) == bitmap_count
+
+
+def test_lit_pixels_consistent_for_real_font():
+    """End-to-end: the bundled 5x8 'A' glyph's lit_pixels must agree with
+    its bitmap pixel-for-pixel. Catches a regression where the pre-compute
+    drifts from the source.
+    """
+    text = (FONTS_DIR / "5x8.bdf").read_text()
+    font = parse_bdf(text)
+    glyph = font.glyphs["A"]
+
+    derived = {
+        (col, row)
+        for row, row_bits in enumerate(glyph.bitmap)
+        for col, bit in enumerate(row_bits)
+        if bit
+    }
+    assert set(glyph.lit_pixels) == derived

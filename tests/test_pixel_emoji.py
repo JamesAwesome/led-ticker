@@ -134,3 +134,80 @@ def test_moon_emoji_is_8x8():
     max_y = max(y for _, y, _, _, _ in MOON)
     assert max_x <= 7, f"moon icon too wide: max x={max_x}"
     assert max_y <= 7, f"moon icon too tall: max y={max_y}"
+
+
+# --- Hi-res emoji ---
+
+
+def test_hires_moon_registered():
+    from led_ticker.pixel_emoji import HIRES_REGISTRY, MOON_HIRES
+
+    assert "moon" in HIRES_REGISTRY
+    assert HIRES_REGISTRY["moon"] is MOON_HIRES
+    assert MOON_HIRES.physical_size == 32
+
+
+def test_hires_moon_logical_width_matches_lowres():
+    """At scale=4, a 32×32 hi-res sprite should occupy 8 logical columns —
+    same as the 8×8 low-res version. This keeps text layout stable
+    regardless of which path is used.
+    """
+    from led_ticker.pixel_emoji import MOON_HIRES
+
+    assert MOON_HIRES.logical_width(scale=4) == 8
+    assert MOON_HIRES.logical_width(scale=2) == 16  # half scale = wider footprint
+
+
+def test_hires_moon_paints_real_canvas_at_physical_resolution():
+    """Hi-res emoji writes individual physical pixels — proven by checking
+    that lit pixels appear at columns NOT divisible by `scale`. The
+    low-res path would expand each 8×8 logical pixel into a 4×4 block,
+    so its lit columns are always 0,1,2,3 then 4,5,6,7 etc. — every
+    block-aligned. A lit pixel at col 11 (mod 4 = 3) only happens when
+    the hi-res path is in use.
+    """
+    real = _bigsign_real_canvas()
+    sc = ScaledCanvas(real, scale=4)
+
+    draw_with_emoji(
+        sc, FONT_SMALL, cursor_pos=0, y=8, color=(255, 255, 255), text=":moon:"
+    )
+
+    # The hi-res moon has its leftmost lit pixel at col 11 in row 1
+    # (= real row 17 with emoji_y=4*4=16 offset). If the low-res path
+    # were used, real col 11 in any row would be black (low-res lights
+    # blocks: cols 0-3, 4-7, 8-11... but only where the 8×8 sprite has
+    # lit logical pixels, and MOON's leftmost is logical col 0).
+    assert real.get_pixel(11, 17) != (0, 0, 0), (
+        "real(11, 17) should be lit by the hi-res sprite. If it's black, "
+        "the hi-res path didn't activate and the wrapper expansion took "
+        "over (which can't produce non-block-aligned pixels)."
+    )
+
+
+def test_hires_falls_back_to_lowres_on_real_canvas():
+    """No ScaledCanvas → no hi-res path. The 8×8 :moon: should render
+    on the small sign's plain canvas.
+    """
+    real = _bigsign_real_canvas()  # not wrapped in ScaledCanvas
+    advance = draw_with_emoji(
+        real,
+        FONT_SMALL,
+        cursor_pos=0,
+        y=8,
+        color=(255, 255, 255),
+        text=":moon:",
+    )
+    # 8×8 MOON has lit pixels through col 5 → width 6 → +2 padding = 8.
+    assert advance == 8
+
+
+def test_generate_moon_hires_produces_pixels():
+    from led_ticker.pixel_emoji import _generate_moon_hires
+
+    pixels = _generate_moon_hires(size=32, color=(255, 220, 130), bite_offset=0.30)
+    assert len(pixels) > 200  # crescent shape lit pixel count
+    # Every pixel within the 32×32 bounds
+    for x, y, *_ in pixels:
+        assert 0 <= x < 32
+        assert 0 <= y < 32

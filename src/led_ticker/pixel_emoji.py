@@ -259,39 +259,40 @@ INSTAGRAM: PixelData = [
 # `:moon:` in any message.
 _MN = (255, 220, 130)
 MOON: PixelData = [
-    # Row 0: narrow top tip (cols 2-3) — 2 px wide, NOT a fat block.
+    # Row 0: top arc (5 wide)
     (2, 0, *_MN),
     (3, 0, *_MN),
-    # Row 1: stair-step left (cols 1-2). The diagonal flow of the
-    # crescent body is created by each row offsetting from the last.
+    (4, 0, *_MN),
+    (5, 0, *_MN),
+    # Row 1: outer crescent narrows
     (1, 1, *_MN),
     (2, 1, *_MN),
-    # Row 2: outer edge reaches col 0 — start of the bulge.
+    (3, 1, *_MN),
+    (4, 1, *_MN),
+    # Row 2: left side starts thinning
     (0, 2, *_MN),
     (1, 2, *_MN),
     (2, 2, *_MN),
-    # Row 3: 3-wide body at cols 0-2. This is the widest the moon
-    # gets — a real crescent's body is only ~3 px thick at low
-    # resolution, not a 5-px blob.
+    # Row 3: thinnest part (left edge only)
     (0, 3, *_MN),
     (1, 3, *_MN),
-    (2, 3, *_MN),
-    # Row 4: 3-wide body still at cols 0-2 — the moon's "waist".
+    # Row 4: thinnest part (left edge only)
     (0, 4, *_MN),
     (1, 4, *_MN),
-    (2, 4, *_MN),
-    # Row 5: stair-step right (cols 1-2) — body sweeps back toward
-    # the bottom tip.
+    # Row 5: starts to widen back
+    (0, 5, *_MN),
     (1, 5, *_MN),
     (2, 5, *_MN),
-    # Row 6: stair-step right (cols 2-3).
+    # Row 6: outer crescent widens
+    (1, 6, *_MN),
     (2, 6, *_MN),
     (3, 6, *_MN),
-    # Row 7: narrow bottom tip (cols 3-4) — shifted RIGHT relative to
-    # the top tip (cols 2-3), giving the diagonal tilt without
-    # bulking up the body.
+    (4, 6, *_MN),
+    # Row 7: bottom arc (5 wide)
+    (2, 7, *_MN),
     (3, 7, *_MN),
     (4, 7, *_MN),
+    (5, 7, *_MN),
 ]
 
 

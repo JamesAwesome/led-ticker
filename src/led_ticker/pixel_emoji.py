@@ -843,14 +843,14 @@ def draw_with_emoji(
             # Hi-res only fires if (a) we're on a ScaledCanvas, (b) a hi-res
             # variant exists, and (c) the sprite fits within the caller's
             # max_emoji_height (if specified). Otherwise: low-res fallback.
-            hires_ok = use_hires and value in HIRES_REGISTRY
-            if hires_ok:
-                hires = HIRES_REGISTRY[value]
-                logical_h = hires.physical_size // canvas.scale
-                if max_emoji_height is not None and logical_h > max_emoji_height:
-                    hires_ok = False
+            hires: HiResEmoji | None = None
+            if use_hires and value in HIRES_REGISTRY:
+                candidate = HIRES_REGISTRY[value]
+                logical_h = candidate.physical_size // canvas.scale
+                if max_emoji_height is None or logical_h <= max_emoji_height:
+                    hires = candidate
 
-            if hires_ok:
+            if hires is not None:
                 _draw_hires_emoji(canvas, hires, ix, iy)
                 total += hires.logical_width(canvas.scale) + EMOJI_PADDING
             else:

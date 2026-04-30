@@ -639,19 +639,18 @@ _EMAIL_COLOR = (240, 240, 240)
 
 
 def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int], ...]:
-    """Envelope outline with flap diagonals INSIDE the rectangle.
+    """Envelope outline with a thick V-flap drawn INSIDE the rectangle.
 
-    Previous version drew the V-flap as separate antennas above the
-    rectangle — read as a TV/computer monitor with rabbit ears, not as
-    an envelope. The classic envelope icon has a single rectangle with
-    the flap diagonals running INSIDE it, from the top corners down to
-    a point in the upper third of the rectangle. That's what reads as
-    "closed envelope viewed from the front".
+    Two iterations from the original "V-antennas above box" version:
+    1. Diagonals moved INSIDE the rectangle (commit a)
+    2. Diagonals thickened to 2 px and meeting point moved deeper to
+       ~45% down the body so the flap reads at LED brightness without
+       needing high contrast.
 
     Layout:
       - 1-px outline rectangle inset 2 px from canvas edges
-      - Two flap diagonals inside: (left, top) → (mid, top + h/3) and
-        (right, top) → (mid, top + h/3)
+      - Two 2-px-thick flap diagonals inside the rectangle, from the
+        top-left and top-right corners down to mid-x at ~45% down
     """
     pixels: list[tuple[int, int, int, int, int]] = []
     inset = 2
@@ -660,7 +659,7 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
     top = inset
     bottom = size - 1 - inset
 
-    # 1-px rectangle outline (top, bottom, left, right edges)
+    # 1-px rectangle outline
     for x in range(left, right + 1):
         pixels.append((x, top, *_EMAIL_COLOR))
         pixels.append((x, bottom, *_EMAIL_COLOR))
@@ -668,14 +667,17 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
         pixels.append((left, y, *_EMAIL_COLOR))
         pixels.append((right, y, *_EMAIL_COLOR))
 
-    # Flap diagonals INSIDE the rectangle: from top-left and top-right
-    # corners down to a meeting point at mid-x, ~1/3 down the body.
+    # Flap diagonals: from top corners down to mid-x at ~45% body height.
+    # Deeper than the previous 1/3 so the V is taller and reads more like
+    # an envelope flap, less like a thin chevron.
     mid_x = (left + right) // 2
-    flap_meet_y = top + (bottom - top) // 3
+    flap_meet_y = top + int((bottom - top) * 0.45)
 
-    def _draw_line(x0: int, y0: int, x1: int, y1: int) -> None:
-        # Standard Bresenham, 1-px line (no thickness — the rectangle
-        # gives enough visual weight already).
+    def _draw_thick_line(x0: int, y0: int, x1: int, y1: int) -> None:
+        """2-px-thick Bresenham. Each line pixel paints itself plus the
+        pixel directly below — gives the diagonal real visual weight at
+        LED brightness without making it look chunky.
+        """
         dx = abs(x1 - x0)
         dy = abs(y1 - y0)
         sx = 1 if x0 < x1 else -1
@@ -683,8 +685,10 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
         err = dx - dy
         x, y = x0, y0
         while True:
-            if 0 <= x < size and 0 <= y < size:
-                pixels.append((x, y, *_EMAIL_COLOR))
+            for thick_dy in (0, 1):
+                ty = y + thick_dy
+                if 0 <= x < size and 0 <= ty < size:
+                    pixels.append((x, ty, *_EMAIL_COLOR))
             if x == x1 and y == y1:
                 break
             e2 = 2 * err
@@ -695,8 +699,8 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
                 err += dx
                 y += sy
 
-    _draw_line(left, top, mid_x, flap_meet_y)
-    _draw_line(right, top, mid_x, flap_meet_y)
+    _draw_thick_line(left, top, mid_x, flap_meet_y)
+    _draw_thick_line(right, top, mid_x, flap_meet_y)
 
     return tuple(set(pixels))
 

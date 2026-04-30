@@ -254,6 +254,48 @@ def test_instagram_hires_has_central_lens_hole():
     assert (16, 16) not in lit
 
 
+def test_max_emoji_height_falls_back_to_lowres():
+    """When `max_emoji_height` is below the hi-res sprite's logical
+    height, the renderer must fall back to the 8×8 sprite — otherwise
+    the hi-res icon overflows the row in a two_row layout (the bug
+    seen on the bigsign at scale=2 where 32 physical = 16 logical
+    pixels tall, exceeding the 8-tall row band).
+    """
+    real = _bigsign_real_canvas()
+    sc = ScaledCanvas(real, scale=2)  # 32 physical / 2 = 16 logical tall sprite
+
+    # First, no cap → hi-res used. Real(11, _) should be lit (non-block-aligned).
+    real.Clear()
+    draw_with_emoji(
+        sc, FONT_SMALL, cursor_pos=0, y=8, color=(255, 255, 255), text=":moon:"
+    )
+    # With scale=2 and 16-tall canvas (default), emoji_y=4 → real_y_anchor=8.
+    # Hi-res moon col 11 is lit somewhere in rows 8-39.
+    hires_lit_at_11 = any(
+        real.get_pixel(11, y) != (0, 0, 0) for y in range(real.height)
+    )
+    assert hires_lit_at_11, "hi-res should be active when no cap"
+
+    # Now with a cap of 8 logical (the row band). Hi-res sprite is 16
+    # logical tall at scale=2 → exceeds cap → fall back to low-res.
+    real.Clear()
+    advance = draw_with_emoji(
+        sc,
+        FONT_SMALL,
+        cursor_pos=0,
+        y=8,
+        color=(255, 255, 255),
+        text=":moon:",
+        max_emoji_height=8,
+    )
+    # Low-res advance: 8x8 MOON has lit pixels through col 5 → width 6
+    # → +2 padding = 8.
+    assert advance == 8, (
+        f"With max_emoji_height=8 < hi-res 16, should fall back to low-res "
+        f"(width=8); got advance={advance}"
+    )
+
+
 @pytest.mark.parametrize("slug", ["instagram", "sun", "star", "email"])
 def test_hires_emoji_renders_via_scaled_canvas(slug):
     """Each new hi-res emoji should render through the wrapper-bypass path."""

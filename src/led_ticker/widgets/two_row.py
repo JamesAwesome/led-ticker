@@ -112,6 +112,12 @@ class TwoRowMessage:
         top_text_y, top_emoji_y = _row_y(canvas_height, row_index=0)
         bottom_text_y, bottom_emoji_y = _row_y(canvas_height, row_index=1)
 
+        # Cap each row's emoji height to the row band so a hi-res sprite
+        # doesn't overflow into the other row. _ROW_HEIGHT (8) matches
+        # the 5×8 font glyph cell. Any hi-res sprite logically taller
+        # than this falls back to the 8×8 low-res sprite.
+        row_emoji_cap = _ROW_HEIGHT
+
         # Top row at a fixed x — held while the bottom scrolls.
         top_x = _aligned_x(canvas.width, self._top_width, self.top_align)
 
@@ -123,6 +129,7 @@ class TwoRowMessage:
             self.top_color,
             self.top_text,
             emoji_y=top_emoji_y,
+            max_emoji_height=row_emoji_cap,
         )
 
         # Bottom row: cursor_pos is supplied by the framework. On the
@@ -142,6 +149,7 @@ class TwoRowMessage:
             self.bottom_color,
             self.bottom_text,
             emoji_y=bottom_emoji_y,
+            max_emoji_height=row_emoji_cap,
         )
 
         # Report cursor at the bottom-row's right edge so `_swap_and_scroll`

@@ -534,44 +534,48 @@ _SUN_COLOR = (255, 220, 80)
 
 
 def _generate_sun_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int], ...]:
-    cx = cy = (size - 1) / 2.0
-    disk_r = size / 4.0  # ~8 — solid sun disk
-    ray_inner_r = disk_r + 1.5
-    ray_outer_r = size / 2.0 - 1.0
-    ray_thickness = 1.5  # half-width of each ray
-
-    pixels: list[tuple[int, int, int, int, int]] = []
+    """Solid disk + 8 thin rays. Each ray is a fixed-thickness line in
+    pixel space (perpendicular distance to the ray axis), NOT an angular
+    fan — that's the difference from the previous version which produced
+    extra "fan" pixels at the outer ends of the rays.
+    """
     import math
 
-    ray_angles = [i * math.pi / 4 for i in range(8)]  # 8 rays at 45°
+    cx = cy = (size - 1) / 2.0
+    disk_r = size / 4.5  # ~7.1
+    ray_inner_r = disk_r + 1.0
+    ray_outer_r = size / 2.0 - 0.5
+    ray_thickness = 1.0  # absolute pixel thickness — keeps rays uniformly thin
 
+    # 8 rays at 45° intervals, each as a unit direction vector
+    ray_dirs = [
+        (math.cos(i * math.pi / 4), math.sin(i * math.pi / 4)) for i in range(8)
+    ]
+
+    pixels: list[tuple[int, int, int, int, int]] = []
     for y in range(size):
         for x in range(size):
             dx = x - cx
             dy = y - cy
-            dist = (dx * dx + dy * dy) ** 0.5
+            dist_sq = dx * dx + dy * dy
 
-            # Disk
-            if dist <= disk_r:
+            # Solid disk
+            if dist_sq <= disk_r * disk_r:
                 pixels.append((x, y, *_SUN_COLOR))
                 continue
 
-            # Rays
-            if ray_inner_r <= dist <= ray_outer_r:
-                # Find perpendicular distance to nearest ray axis
-                angle = math.atan2(dy, dx)
-                # Snap to nearest 45° angle
-                nearest = min(
-                    ray_angles,
-                    key=lambda a: abs(
-                        ((angle - a) + math.pi) % (2 * math.pi) - math.pi
-                    ),
-                )
-                # Perp distance = sin(diff) * dist
-                diff = ((angle - nearest) + math.pi) % (2 * math.pi) - math.pi
-                perp = abs(math.sin(diff)) * dist
-                if perp <= ray_thickness:
-                    pixels.append((x, y, *_SUN_COLOR))
+            # Rays — only in the ring between inner and outer radii
+            if ray_inner_r * ray_inner_r <= dist_sq <= ray_outer_r * ray_outer_r:
+                for ux, uy in ray_dirs:
+                    # Project onto ray direction; positive means same side
+                    along = dx * ux + dy * uy
+                    if along <= 0:
+                        continue  # behind the center — wrong half of the axis
+                    # Perpendicular distance from the ray axis line
+                    perp = abs(dx * uy - dy * ux)
+                    if perp <= ray_thickness:
+                        pixels.append((x, y, *_SUN_COLOR))
+                        break
 
     return tuple(pixels)
 
@@ -635,34 +639,43 @@ _EMAIL_COLOR = (240, 240, 240)
 
 
 def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int], ...]:
-    """Envelope outline + flap diagonals.
+    """Envelope outline with flap diagonals INSIDE the rectangle.
 
-    Outer rectangle inset 2 px from the edges; 2-px wall thickness;
-    V-shaped flap drawn from top corners meeting at the top-middle.
+    Previous version drew the V-flap as separate antennas above the
+    rectangle — read as a TV/computer monitor with rabbit ears, not as
+    an envelope. The classic envelope icon has a single rectangle with
+    the flap diagonals running INSIDE it, from the top corners down to
+    a point in the upper third of the rectangle. That's what reads as
+    "closed envelope viewed from the front".
+
+    Layout:
+      - 1-px outline rectangle inset 2 px from canvas edges
+      - Two flap diagonals inside: (left, top) → (mid, top + h/3) and
+        (right, top) → (mid, top + h/3)
     """
     pixels: list[tuple[int, int, int, int, int]] = []
     inset = 2
-    wall = 2
     left = inset
     right = size - 1 - inset
-    top = inset + 4  # envelope body starts below the flap
+    top = inset
     bottom = size - 1 - inset
 
-    # Outer rectangle walls
+    # 1-px rectangle outline (top, bottom, left, right edges)
+    for x in range(left, right + 1):
+        pixels.append((x, top, *_EMAIL_COLOR))
+        pixels.append((x, bottom, *_EMAIL_COLOR))
     for y in range(top, bottom + 1):
-        for x in range(left, right + 1):
-            on_top_or_bot = y < top + wall or y > bottom - wall
-            on_left_or_right = x < left + wall or x > right - wall
-            if on_top_or_bot or on_left_or_right:
-                pixels.append((x, y, *_EMAIL_COLOR))
+        pixels.append((left, y, *_EMAIL_COLOR))
+        pixels.append((right, y, *_EMAIL_COLOR))
 
-    # Flap: diagonals from (left, top-1) and (right, top-1) meeting at
-    # (mid, ~half down the flap area). Draw 2 px thick.
-    flap_height = top - inset
-    mid = (left + right) // 2
+    # Flap diagonals INSIDE the rectangle: from top-left and top-right
+    # corners down to a meeting point at mid-x, ~1/3 down the body.
+    mid_x = (left + right) // 2
+    flap_meet_y = top + (bottom - top) // 3
 
     def _draw_line(x0: int, y0: int, x1: int, y1: int) -> None:
-        # Bresenham, 2 px thick (vertical adjacent)
+        # Standard Bresenham, 1-px line (no thickness — the rectangle
+        # gives enough visual weight already).
         dx = abs(x1 - x0)
         dy = abs(y1 - y0)
         sx = 1 if x0 < x1 else -1
@@ -670,9 +683,8 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
         err = dx - dy
         x, y = x0, y0
         while True:
-            for thick_dy in (0, 1):
-                if 0 <= y + thick_dy < size and 0 <= x < size:
-                    pixels.append((x, y + thick_dy, *_EMAIL_COLOR))
+            if 0 <= x < size and 0 <= y < size:
+                pixels.append((x, y, *_EMAIL_COLOR))
             if x == x1 and y == y1:
                 break
             e2 = 2 * err
@@ -683,10 +695,9 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
                 err += dx
                 y += sy
 
-    _draw_line(left, inset, mid, inset + flap_height)
-    _draw_line(right, inset, mid, inset + flap_height)
+    _draw_line(left, top, mid_x, flap_meet_y)
+    _draw_line(right, top, mid_x, flap_meet_y)
 
-    # Dedupe (Bresenham + thick can double-write)
     return tuple(set(pixels))
 
 
@@ -797,6 +808,7 @@ def draw_with_emoji(
     text: str,
     y_offset: int = 0,
     emoji_y: int | None = None,
+    max_emoji_height: int | None = None,
 ) -> int:
     """Draw text with inline emoji. Returns pixels advanced.
 
@@ -805,6 +817,12 @@ def draw_with_emoji(
     plus any caller-supplied offset. Multi-row widgets (e.g. `two_row`)
     pass an explicit `emoji_y` per row so the icon aligns with the row's
     text baseline instead of the canvas center.
+
+    `max_emoji_height` is the maximum logical height the emoji is
+    allowed to occupy (used by multi-row widgets). When the hi-res
+    sprite's logical height exceeds this, the renderer falls back to
+    the 8×8 low-res sprite — prevents a hi-res icon from overflowing
+    the row's vertical space and overlapping the next row.
     """
     segments = _parse_segments(text)
     total: int = 0
@@ -822,8 +840,17 @@ def draw_with_emoji(
             ix = int(cursor_pos + total)
             iy = iy_default if emoji_y is None else emoji_y
 
-            if use_hires and value in HIRES_REGISTRY:
+            # Hi-res only fires if (a) we're on a ScaledCanvas, (b) a hi-res
+            # variant exists, and (c) the sprite fits within the caller's
+            # max_emoji_height (if specified). Otherwise: low-res fallback.
+            hires_ok = use_hires and value in HIRES_REGISTRY
+            if hires_ok:
                 hires = HIRES_REGISTRY[value]
+                logical_h = hires.physical_size // canvas.scale
+                if max_emoji_height is not None and logical_h > max_emoji_height:
+                    hires_ok = False
+
+            if hires_ok:
                 _draw_hires_emoji(canvas, hires, ix, iy)
                 total += hires.logical_width(canvas.scale) + EMOJI_PADDING
             else:

@@ -189,7 +189,7 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 ### Docker / Deployment
 
 - Production image: `python:3.13-bullseye` base, 3-layer caching (rgbmatrix → deps → source)
-- Single image runs on both the Pi 4 sign and the Pi 5 bigsign. The rgbmatrix library is hardcoded to `jamesawesome/rpi-rgb-led-matrix` @ `pi5_support` — based on kingdo9's pi5_support (upstream PR [hzeller#1886](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886), maintainer-approved) with one patch on top: 42 anonymous `PIO` parameters in `pio_rp1.c` were given a name so the file builds under bullseye GCC 10. The library detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). Track #1886 and retire our branch once it merges into `hzeller/master`.
+- Single image runs on both the Pi 4 sign and the Pi 5 bigsign. The rgbmatrix library is hardcoded to `jamesawesome/rpi-rgb-led-matrix` (default branch `main`) — based on kingdo9's pi5_support (upstream PR [hzeller#1886](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886), maintainer-approved) with one patch on top: 42 anonymous `PIO` parameters in `pio_rp1.c` were given a name so the file builds under bullseye GCC 10. The library detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). The pre-RP1 codebase is preserved on the `pi4_legacy` branch. Track #1886 and retire our branch once it merges into `hzeller/master`.
   - On the Pi 5, the runtime CLI also accepts `--led-rp1-rio=0|1` (PIO vs Registered IO mode). For chain ≥ 2 with flicker, raise `slowdown_gpio` from 2 to 3+.
 - Config mounted read-only: `./config:/code/config:ro`
 - Systemd: `deploy/led-ticker.service`

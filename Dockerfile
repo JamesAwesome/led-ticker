@@ -1,11 +1,11 @@
 FROM python:3.13-bullseye AS rgbmatrix
 
-# rpi-rgb-led-matrix: jamesawesome/pi5_support — based on kingdo9's pi5_support
+# rpi-rgb-led-matrix: jamesawesome/main — based on kingdo9's pi5_support branch
 # (upstream PR hzeller#1886) with our build patch (named the unused PIO param in
 # pio_rp1.c so it builds under bullseye GCC 10). Validated 2026-04-29 to run on
 # both the Pi 4 sign and the Pi 5 bigsign — runtime detects the SoC and selects
-# the BCM2711 GPIO path or the RP1 PIO path. Once #1886 merges, switch to
-# hzeller/master.
+# the BCM2711 GPIO path or the RP1 PIO path. The pre-RP1 codebase is preserved
+# on the `pi4_legacy` branch. Once #1886 merges, switch to hzeller/master.
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -17,7 +17,7 @@ RUN apt-get update && \
 
 # Layer 1: rgbmatrix (only rebuilds if the pinned ref changes)
 RUN cd /opt && \
-    git clone --depth=1 --branch pi5_support \
+    git clone --depth=1 \
         https://github.com/jamesawesome/rpi-rgb-led-matrix.git rgbmatrix-src && \
     cd rgbmatrix-src && \
     pip install .

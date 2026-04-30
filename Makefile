@@ -29,7 +29,7 @@ format:  ## Run ruff formatter
 
 # --- Docker (production image only) ---
 
-# rgbmatrix fork+branch is hardcoded in the Dockerfile (jamesawesome/pi5_support).
+# rgbmatrix fork is hardcoded in the Dockerfile (jamesawesome/main).
 # Validated to run on both the Pi 4 sign and the Pi 5 bigsign.
 build-docker:  ## Build the production Docker image (Pi 4 + Pi 5)
 	docker build -t led-ticker .

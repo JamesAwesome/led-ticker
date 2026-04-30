@@ -259,49 +259,48 @@ INSTAGRAM: PixelData = [
 # `:moon:` in any message.
 _MN = (255, 220, 130)
 MOON: PixelData = [
-    # Row 0: top arc, leans LEFT (cols 1-4 — original was 2-5).
-    (1, 0, *_MN),
+    # Row 0: narrow top tip leaning LEFT (cols 2-3).
     (2, 0, *_MN),
     (3, 0, *_MN),
-    (4, 0, *_MN),
-    # Row 1: arc widens into the body (cols 0-4).
-    (0, 1, *_MN),
+    # Row 1: tip widens into the upper arc (cols 1-4).
     (1, 1, *_MN),
     (2, 1, *_MN),
     (3, 1, *_MN),
     (4, 1, *_MN),
-    # Row 2: full-body bulge (cols 0-3).
+    # Row 2: arc widens into the body (cols 0-4) — first 5-wide row
+    # establishes the crescent's outer bulge on the LEFT.
     (0, 2, *_MN),
     (1, 2, *_MN),
     (2, 2, *_MN),
     (3, 2, *_MN),
-    # Row 3: body narrows (cols 0-2).
+    (4, 2, *_MN),
+    # Row 3: body bulge (cols 0-3) — inner edge cuts in to create the
+    # bite on the RIGHT side.
     (0, 3, *_MN),
     (1, 3, *_MN),
     (2, 3, *_MN),
-    # Row 4: body narrows (cols 0-2). The two 3-wide rows are the
-    # crescent's "waist" — solid, not pinched. Keeps the moon reading
-    # as a body rather than a thin C / chevron.
+    (3, 3, *_MN),
+    # Row 4: body bulge (cols 0-3) — same depth as row 3.
     (0, 4, *_MN),
     (1, 4, *_MN),
     (2, 4, *_MN),
-    # Row 5: widening back (cols 0-3).
+    (3, 4, *_MN),
+    # Row 5: arc widens back (cols 0-4).
     (0, 5, *_MN),
     (1, 5, *_MN),
     (2, 5, *_MN),
     (3, 5, *_MN),
-    # Row 6: lower arc (cols 1-5 — bottom shifts RIGHT relative to the
-    # top, completing the LEFT-leaning tilt).
+    (4, 5, *_MN),
+    # Row 6: arc shifts RIGHT (cols 1-5) — completing the diagonal
+    # tilt as the body sweeps from upper-LEFT to lower-RIGHT.
     (1, 6, *_MN),
     (2, 6, *_MN),
     (3, 6, *_MN),
     (4, 6, *_MN),
     (5, 6, *_MN),
-    # Row 7: bottom arc (cols 2-5).
-    (2, 7, *_MN),
+    # Row 7: narrow bottom tip leaning RIGHT (cols 3-4).
     (3, 7, *_MN),
     (4, 7, *_MN),
-    (5, 7, *_MN),
 ]
 
 

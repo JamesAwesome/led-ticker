@@ -370,6 +370,17 @@ async def _scroll_side_by_side(
                 if buffer_message:
                     buffered_objects.append(buffer_message)
                 buffered_objects.append(next_monitor)
+                # `mon_index += 1` already ran for this iteration but the
+                # index we tried (e.g. 1) didn't exist yet, so we appended
+                # instead. Step mon_index back so the next iteration's
+                # increment lands on the just-appended buffer_message
+                # rather than skipping past it to next_monitor — otherwise
+                # the buffer is skipped for one frame and next_monitor is
+                # drawn at the title's end (no spacing), then re-drawn one
+                # frame later with the buffer pushing it off-screen right.
+                # That produces a one-frame "flash" of the next widget's
+                # leftmost column at the right edge of the panel.
+                mon_index -= 1
             else:
                 break
 

@@ -1,7 +1,11 @@
 """Tests for led_ticker.ticker."""
 
 import asyncio
+import contextlib
 import itertools
+import unittest.mock as mock
+
+import pytest
 
 from led_ticker.frame import LedFrame
 from led_ticker.scaled_canvas import ScaledCanvas
@@ -10,6 +14,7 @@ from led_ticker.ticker import (
     _enqueue_ticker_objects,
     _has_index,
     _maybe_wrap,
+    _scroll_side_by_side,
     _swap,
 )
 
@@ -118,3 +123,80 @@ class TestEnqueueTickerObjects:
             await asyncio.sleep(0.01)
 
         assert results == ["T", 1, 2]
+
+
+@pytest.fixture
+def no_sleep(monkeypatch):
+    _real_sleep = asyncio.sleep
+
+    async def _fast(seconds):
+        await _real_sleep(0)
+
+    monkeypatch.setattr("led_ticker.ticker.asyncio.sleep", _fast)
+
+
+def _make_widget(content_width: int = 40, end_padding: int = 6):
+    """Mock widget that mimics TickerMessage's draw return contract:
+    cursor_pos returned = pos + content_width + end_padding.
+    """
+    w = mock.Mock()
+    w.draw.side_effect = lambda c, cursor_pos=0, **kw: (
+        c,
+        cursor_pos + content_width + end_padding,
+    )
+    return w
+
+
+class TestScrollSideBySideBufferDrawn:
+    """Regression test: when the queue serves a new monitor, the
+    buffer_message must NOT be skipped on the first frame after the pull.
+
+    Previously the inner loop's `mon_index += 1` jumped past the
+    just-appended buffer's index, so the next_monitor was drawn at the
+    title's end (no spacing) for one frame — visible as a single-column
+    yellow bar at the right edge of the panel.
+    """
+
+    async def test_buffer_drawn_on_first_pull_frame(self, no_sleep):
+        # Title that, after one decrement, leaves room for next widget.
+        title = _make_widget(content_width=40)  # returns pos + 46
+        next_monitor = _make_widget(content_width=20)
+        buffer_msg = _make_widget(content_width=10)
+
+        canvas = mock.Mock()
+        canvas.width = 64
+        canvas.Clear = mock.Mock()
+
+        frame = mock.Mock()
+        frame.matrix.SwapOnVSync = mock.Mock(return_value=canvas)
+
+        queue: asyncio.Queue = asyncio.Queue()
+        await queue.put(title)
+        await queue.put(next_monitor)
+
+        # Run a few iterations then cancel
+        async def runner():
+            await _scroll_side_by_side(
+                canvas,
+                frame,
+                queue,
+                buffer_message=buffer_msg,
+                cursor_pos=18,  # title at pos=18, end at 64; next iter end at 63
+                scroll_speed=0,
+                hold_at_end=0,
+            )
+
+        task = asyncio.create_task(runner())
+        # let a few iterations run
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+        # The buffer_message MUST have been drawn at least once.
+        assert buffer_msg.draw.called, (
+            "buffer_message was never drawn — the inner loop is skipping "
+            "the just-appended buffer index, causing the 'yellow flash' bug."
+        )

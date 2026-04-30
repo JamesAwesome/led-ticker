@@ -249,6 +249,51 @@ INSTAGRAM: PixelData = [
 ]
 
 
+# 🌙 Crescent moon — chunky filled C-shape opening right. Designed to pair
+# with the Moon Bunny Aerial brand (soft pinks/lavender/cream); the moon
+# itself ships in warm moonlight-gold which reads as "moon" rather than
+# "sun" against those pastels. Bunny silhouette is intentionally omitted
+# at 8x8 — the resolution can't carry it cleanly. Use `:moon:` in any
+# message.
+_MN = (255, 220, 130)
+MOON: PixelData = [
+    # Row 0: top arc (5 wide)
+    (2, 0, *_MN),
+    (3, 0, *_MN),
+    (4, 0, *_MN),
+    (5, 0, *_MN),
+    # Row 1: outer crescent narrows
+    (1, 1, *_MN),
+    (2, 1, *_MN),
+    (3, 1, *_MN),
+    (4, 1, *_MN),
+    # Row 2: left side starts thinning
+    (0, 2, *_MN),
+    (1, 2, *_MN),
+    (2, 2, *_MN),
+    # Row 3: thinnest part (left edge only)
+    (0, 3, *_MN),
+    (1, 3, *_MN),
+    # Row 4: thinnest part (left edge only)
+    (0, 4, *_MN),
+    (1, 4, *_MN),
+    # Row 5: starts to widen back
+    (0, 5, *_MN),
+    (1, 5, *_MN),
+    (2, 5, *_MN),
+    # Row 6: outer crescent widens
+    (1, 6, *_MN),
+    (2, 6, *_MN),
+    (3, 6, *_MN),
+    (4, 6, *_MN),
+    # Row 7: bottom arc (5 wide)
+    (2, 7, *_MN),
+    (3, 7, *_MN),
+    (4, 7, *_MN),
+    (5, 7, *_MN),
+]
+
+
 # ✉ Email — envelope with V-shaped flap. White so it reads on any
 # background; widgets pass `color` for surrounding text but the icon
 # carries its own color in the pixel data.
@@ -325,6 +370,8 @@ def _build_emoji_registry() -> dict[str, PixelData]:
         "snow": SNOW,
         "thunder": THUNDER,
         "fog": FOG,
+        # Celestial
+        "moon": MOON,
         # Social
         "instagram": INSTAGRAM,
         "email": EMAIL,

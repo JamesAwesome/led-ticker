@@ -62,12 +62,12 @@ loop_count = 2
 
 [playlist.section.title]
 type = "message"
-text = "MOON BUNNY AERIAL"
+text = ":moon: MOON BUNNY AERIAL :moon:"
 color = [255, 150, 190]   # moon_pink
 
 [[playlist.section.widget]]
 type = "message"
-text = "Aerial for Every Body"
+text = ":moon: Aerial for Every Body"
 font_color = [255, 240, 200]   # cream
 
 [[playlist.section.widget]]

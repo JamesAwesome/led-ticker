@@ -104,3 +104,33 @@ def test_email_emoji_renders_through_scaled_canvas():
         text=":email: info@moonbunnyaerial.com",
     )
     assert advance > 0
+
+
+def test_moon_emoji_registered():
+    from led_ticker.pixel_emoji import _get_registry
+
+    registry = _get_registry()
+    assert "moon" in registry
+    assert len(registry["moon"]) > 0
+
+
+def test_moon_emoji_renders_through_scaled_canvas():
+    real = _bigsign_real_canvas()
+    sc = ScaledCanvas(real, scale=4)
+    advance = draw_with_emoji(
+        sc, FONT_SMALL, cursor_pos=0, y=8, color=(255, 255, 255), text=":moon: hi"
+    )
+    assert advance > 0
+
+
+def test_moon_emoji_is_8x8():
+    """All bundled emoji should fit an 8x8 grid for inline use. Catches a
+    regression where someone copies a wider sprite (like TACO at 14x8)
+    into the moon slot.
+    """
+    from led_ticker.pixel_emoji import MOON
+
+    max_x = max(x for x, _, _, _, _ in MOON)
+    max_y = max(y for _, y, _, _, _ in MOON)
+    assert max_x <= 7, f"moon icon too wide: max x={max_x}"
+    assert max_y <= 7, f"moon icon too tall: max y={max_y}"

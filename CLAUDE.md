@@ -73,7 +73,7 @@ src/led_ticker/
       etherscan.py      # EtherscanGasMonitor
 ```
 
-**Inline Emoji**: Use `:name:` in TickerMessage text to render pixel art icons inline. Defined in `pixel_emoji.py`. Available: `baseball`, `taco`, `flower`, `star`, `sun`, `cloud`, `rain`, `snow`, `thunder`, `fog`, `instagram`, `email`. Each icon is an 8×8 sprite stored as `(x, y, r, g, b)` tuples; the icon carries its own colors (text uses the surrounding `font_color`). Add a new emoji by appending pixel data + a registry entry.
+**Inline Emoji**: Use `:name:` in TickerMessage text to render pixel art icons inline. Defined in `pixel_emoji.py`. Available: `baseball`, `taco`, `flower`, `star`, `sun`, `moon`, `cloud`, `rain`, `snow`, `thunder`, `fog`, `instagram`, `email`. Each icon is an 8×8 sprite stored as `(x, y, r, g, b)` tuples; the icon carries its own colors (text uses the surrounding `font_color`). Add a new emoji by appending pixel data + a registry entry.
 
 **Per-widget colors in config**: TOML configs can specify RGB lists like `font_color = [255, 150, 190]`, `color = [225, 48, 108]`, `top_color`, or `bottom_color`. The loader in `app._build_widget`/`_build_title` coerces 3-int lists/tuples in any of these keys to `graphics.Color` automatically. `color = "random"` still works for titles (cycles through `RANDOM_COLOR`).
 

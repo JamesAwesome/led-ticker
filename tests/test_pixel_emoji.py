@@ -6,6 +6,7 @@ SetPixel calls and text draw_text calls both work through the wrapper.
 
 from __future__ import annotations
 
+import pytest
 from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
 from led_ticker.fonts import FONT_SMALL
@@ -211,3 +212,62 @@ def test_generate_moon_hires_produces_pixels():
     for x, y, *_ in pixels:
         assert 0 <= x < 32
         assert 0 <= y < 32
+
+
+@pytest.mark.parametrize("slug", ["moon", "instagram", "sun", "star", "email"])
+def test_hires_emoji_in_registry(slug):
+    """Every slug we promised to upgrade should have a hi-res variant."""
+    from led_ticker.pixel_emoji import HIRES_REGISTRY
+
+    assert slug in HIRES_REGISTRY
+    h = HIRES_REGISTRY[slug]
+    assert h.physical_size == 32
+    # Sanity: hi-res sprites should fill at least 50 pixels (otherwise
+    # something's wrong with the generator)
+    assert len(h.pixels) > 50, f"{slug} has only {len(h.pixels)} lit pixels"
+    # All pixels in bounds
+    for x, y, *_ in h.pixels:
+        assert 0 <= x < 32, f"{slug}: x={x} out of bounds"
+        assert 0 <= y < 32, f"{slug}: y={y} out of bounds"
+
+
+def test_instagram_hires_uses_gradient_colors():
+    """The IG hi-res sprite should have multiple distinct colors (the
+    gradient). 8×8 low-res ships in a single magenta — this proves the
+    hi-res variant actually carries the multi-stop gradient.
+    """
+    from led_ticker.pixel_emoji import INSTAGRAM_HIRES
+
+    distinct_colors = {(r, g, b) for _, _, r, g, b in INSTAGRAM_HIRES.pixels}
+    assert (
+        len(distinct_colors) > 50
+    ), f"IG hi-res should have many gradient colors; got {len(distinct_colors)}"
+
+
+def test_instagram_hires_has_central_lens_hole():
+    """The lens hole at the center should NOT be lit (negative-space eye)."""
+    from led_ticker.pixel_emoji import INSTAGRAM_HIRES
+
+    lit = {(x, y) for x, y, *_ in INSTAGRAM_HIRES.pixels}
+    # Center pixel at (15, 15) or (16, 16) should be empty (lens hole)
+    assert (15, 15) not in lit
+    assert (16, 16) not in lit
+
+
+@pytest.mark.parametrize("slug", ["instagram", "sun", "star", "email"])
+def test_hires_emoji_renders_via_scaled_canvas(slug):
+    """Each new hi-res emoji should render through the wrapper-bypass path."""
+    real = _bigsign_real_canvas()
+    sc = ScaledCanvas(real, scale=4)
+    advance = draw_with_emoji(
+        sc, FONT_SMALL, cursor_pos=0, y=8, color=(255, 255, 255), text=f":{slug}:"
+    )
+    assert advance > 0
+    # Some real-canvas pixels should be lit
+    lit_count = sum(
+        1
+        for x in range(real.width)
+        for y in range(real.height)
+        if real.get_pixel(x, y) != (0, 0, 0)
+    )
+    assert lit_count > 50, f"{slug} hi-res produced only {lit_count} lit pixels"

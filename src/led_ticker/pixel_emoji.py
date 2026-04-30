@@ -431,6 +431,271 @@ MOON_HIRES = HiResEmoji(
 )
 
 
+# 📷 32×32 Instagram — rounded square with the iconic 3-stop gradient
+# (yellow → pink → purple), hollow lens circle in the center, and a
+# small white indicator dot in the upper-right. Far more recognizable
+# than the 8×8 single-color version.
+
+# Brand gradient stops (eyeballed from IG's logo gradient).
+_IG_YELLOW = (254, 218, 119)
+_IG_PINK = (225, 48, 108)
+_IG_PURPLE = (131, 58, 180)
+
+
+def _lerp(
+    c1: tuple[int, int, int], c2: tuple[int, int, int], t: float
+) -> tuple[int, int, int]:
+    return (
+        int(c1[0] + (c2[0] - c1[0]) * t),
+        int(c1[1] + (c2[1] - c1[1]) * t),
+        int(c1[2] + (c2[2] - c1[2]) * t),
+    )
+
+
+def _ig_gradient_color(x: int, y: int, size: int) -> tuple[int, int, int]:
+    """Diagonal IG gradient: yellow at bottom-left → pink at middle → purple at top-right."""
+    pos = (x + (size - 1 - y)) / (2 * (size - 1))
+    pos = max(0.0, min(1.0, pos))
+    if pos < 0.5:
+        return _lerp(_IG_YELLOW, _IG_PINK, pos * 2)
+    return _lerp(_IG_PINK, _IG_PURPLE, (pos - 0.5) * 2)
+
+
+def _generate_instagram_hires(
+    size: int = 32,
+) -> tuple[tuple[int, int, int, int, int], ...]:
+    """Build Instagram's rounded square + lens + indicator dot at PHYSICAL res.
+
+    Layout (for size=32):
+      - Outer rounded square inset 1 px from the canvas edge
+      - Corner radius ~size/5
+      - Hollow lens circle centered (radius ~size/4.5), inner cut out
+      - Indicator dot in the upper-right quadrant
+    """
+    cx = cy = (size - 1) / 2.0
+    half = (size - 1) / 2.0
+    corner_radius = size / 5.0  # ~6.4 for 32
+
+    lens_outer_r = size / 4.5  # ~7.1
+    lens_inner_r = lens_outer_r - 1.5  # ~5.6 — gradient ring around dark eye
+
+    dot_cx = size - size / 5.0
+    dot_cy = size / 5.0
+    dot_r = size / 12.0  # ~2.7
+
+    pixels: list[tuple[int, int, int, int, int]] = []
+    for y in range(size):
+        for x in range(size):
+            # Rounded-rect test: inside the cross OR within corner_radius
+            # of one of the four corner centers.
+            dx = abs(x - cx)
+            dy = abs(y - cy)
+            inner = half - corner_radius
+            if dx <= inner or dy <= inner:
+                in_body = dx <= half and dy <= half
+            else:
+                cdx = dx - inner
+                cdy = dy - inner
+                in_body = (cdx * cdx + cdy * cdy) <= corner_radius * corner_radius
+            if not in_body:
+                continue
+
+            # Indicator dot — solid white, drawn over the gradient
+            ddx = x - dot_cx
+            ddy = y - dot_cy
+            if ddx * ddx + ddy * ddy <= dot_r * dot_r:
+                pixels.append((x, y, 255, 255, 255))
+                continue
+
+            # Lens hole: skip pixels inside lens_inner_r (creates the
+            # dark "eye" in the middle of the camera).
+            ldx = x - cx
+            ldy = y - cy
+            lens_dist_sq = ldx * ldx + ldy * ldy
+            if lens_dist_sq <= lens_inner_r * lens_inner_r:
+                continue
+
+            # Otherwise paint the gradient.
+            r, g, b = _ig_gradient_color(x, y, size)
+            pixels.append((x, y, r, g, b))
+
+    return tuple(pixels)
+
+
+INSTAGRAM_HIRES = HiResEmoji(
+    pixels=_generate_instagram_hires(size=32),
+    physical_size=32,
+)
+
+
+# ☀️ 32×32 Sun — solid disk + 8 radial rays. Smooth circle at hi-res
+# instead of the chunky 8×8 cross-pattern.
+_SUN_COLOR = (255, 220, 80)
+
+
+def _generate_sun_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int], ...]:
+    cx = cy = (size - 1) / 2.0
+    disk_r = size / 4.0  # ~8 — solid sun disk
+    ray_inner_r = disk_r + 1.5
+    ray_outer_r = size / 2.0 - 1.0
+    ray_thickness = 1.5  # half-width of each ray
+
+    pixels: list[tuple[int, int, int, int, int]] = []
+    import math
+
+    ray_angles = [i * math.pi / 4 for i in range(8)]  # 8 rays at 45°
+
+    for y in range(size):
+        for x in range(size):
+            dx = x - cx
+            dy = y - cy
+            dist = (dx * dx + dy * dy) ** 0.5
+
+            # Disk
+            if dist <= disk_r:
+                pixels.append((x, y, *_SUN_COLOR))
+                continue
+
+            # Rays
+            if ray_inner_r <= dist <= ray_outer_r:
+                # Find perpendicular distance to nearest ray axis
+                angle = math.atan2(dy, dx)
+                # Snap to nearest 45° angle
+                nearest = min(
+                    ray_angles,
+                    key=lambda a: abs(
+                        ((angle - a) + math.pi) % (2 * math.pi) - math.pi
+                    ),
+                )
+                # Perp distance = sin(diff) * dist
+                diff = ((angle - nearest) + math.pi) % (2 * math.pi) - math.pi
+                perp = abs(math.sin(diff)) * dist
+                if perp <= ray_thickness:
+                    pixels.append((x, y, *_SUN_COLOR))
+
+    return tuple(pixels)
+
+
+SUN_HIRES = HiResEmoji(
+    pixels=_generate_sun_hires(size=32),
+    physical_size=32,
+)
+
+
+# ⭐ 32×32 Star — clean 5-pointed star using a mathematical generator.
+_STAR_COLOR = (255, 215, 0)
+
+
+def _generate_star_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int], ...]:
+    """5-pointed star using point-in-polygon for a clean filled shape."""
+    import math
+
+    cx = cy = (size - 1) / 2.0
+    outer_r = size / 2.0 - 1.0
+    inner_r = outer_r * 0.4
+
+    # 10 vertices alternating outer/inner, starting at top
+    vertices: list[tuple[float, float]] = []
+    for i in range(10):
+        angle = -math.pi / 2 + i * math.pi / 5  # start at top, step 36°
+        r = outer_r if i % 2 == 0 else inner_r
+        vertices.append((cx + r * math.cos(angle), cy + r * math.sin(angle)))
+
+    def _inside(px: float, py: float) -> bool:
+        # Ray-casting: count crossings of horizontal ray from (px, py)
+        crossings = 0
+        n = len(vertices)
+        for i in range(n):
+            ax, ay = vertices[i]
+            bx, by = vertices[(i + 1) % n]
+            if (ay > py) != (by > py):
+                t = (py - ay) / (by - ay)
+                xc = ax + t * (bx - ax)
+                if px < xc:
+                    crossings += 1
+        return crossings % 2 == 1
+
+    pixels: list[tuple[int, int, int, int, int]] = []
+    for y in range(size):
+        for x in range(size):
+            if _inside(x + 0.5, y + 0.5):
+                pixels.append((x, y, *_STAR_COLOR))
+    return tuple(pixels)
+
+
+STAR_HIRES = HiResEmoji(
+    pixels=_generate_star_hires(size=32),
+    physical_size=32,
+)
+
+
+# ✉️ 32×32 Email — envelope with V-shaped flap. Simple linear-edge geometry
+# (no curves) so a programmatic generator scales cleanly.
+_EMAIL_COLOR = (240, 240, 240)
+
+
+def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int], ...]:
+    """Envelope outline + flap diagonals.
+
+    Outer rectangle inset 2 px from the edges; 2-px wall thickness;
+    V-shaped flap drawn from top corners meeting at the top-middle.
+    """
+    pixels: list[tuple[int, int, int, int, int]] = []
+    inset = 2
+    wall = 2
+    left = inset
+    right = size - 1 - inset
+    top = inset + 4  # envelope body starts below the flap
+    bottom = size - 1 - inset
+
+    # Outer rectangle walls
+    for y in range(top, bottom + 1):
+        for x in range(left, right + 1):
+            on_top_or_bot = y < top + wall or y > bottom - wall
+            on_left_or_right = x < left + wall or x > right - wall
+            if on_top_or_bot or on_left_or_right:
+                pixels.append((x, y, *_EMAIL_COLOR))
+
+    # Flap: diagonals from (left, top-1) and (right, top-1) meeting at
+    # (mid, ~half down the flap area). Draw 2 px thick.
+    flap_height = top - inset
+    mid = (left + right) // 2
+
+    def _draw_line(x0: int, y0: int, x1: int, y1: int) -> None:
+        # Bresenham, 2 px thick (vertical adjacent)
+        dx = abs(x1 - x0)
+        dy = abs(y1 - y0)
+        sx = 1 if x0 < x1 else -1
+        sy = 1 if y0 < y1 else -1
+        err = dx - dy
+        x, y = x0, y0
+        while True:
+            for thick_dy in (0, 1):
+                if 0 <= y + thick_dy < size and 0 <= x < size:
+                    pixels.append((x, y + thick_dy, *_EMAIL_COLOR))
+            if x == x1 and y == y1:
+                break
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy
+                x += sx
+            if e2 < dx:
+                err += dx
+                y += sy
+
+    _draw_line(left, inset, mid, inset + flap_height)
+    _draw_line(right, inset, mid, inset + flap_height)
+
+    # Dedupe (Bresenham + thick can double-write)
+    return tuple(set(pixels))
+
+
+EMAIL_HIRES = HiResEmoji(
+    pixels=_generate_email_hires(size=32),
+    physical_size=32,
+)
+
+
 def _build_emoji_registry() -> dict[str, PixelData]:
     """Build the emoji registry with all available icons."""
     from led_ticker.widgets.mlb_icons import FLOWER, STAR
@@ -472,6 +737,10 @@ EMOJI_REGISTRY: dict[str, PixelData] = {}
 # slug isn't here.
 HIRES_REGISTRY: dict[str, HiResEmoji] = {
     "moon": MOON_HIRES,
+    "instagram": INSTAGRAM_HIRES,
+    "sun": SUN_HIRES,
+    "star": STAR_HIRES,
+    "email": EMAIL_HIRES,
 }
 
 

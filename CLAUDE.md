@@ -4,7 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**led-ticker** is an asyncio Python toolkit for displaying scrolling feeds on LED matrix panels (16x32 Adafruit panels) using a Raspberry Pi. It supports RSS feeds, weather with icons, countdowns, crypto prices, custom messages, animated transitions, and text presentation effects — all via a TOML configuration file.
+**led-ticker** is an asyncio Python toolkit for displaying scrolling feeds on RGB LED matrix panels using a Raspberry Pi. It supports RSS feeds, weather with icons, countdowns, crypto prices, custom messages, animated transitions, and text presentation effects — all via a TOML configuration file.
+
+Two hardware targets share one codebase and one Docker image:
+
+- **Small sign** — Pi 4 + 5× chained 16×32 Adafruit panels = 160×16 logical canvas
+- **Bigsign** — Pi 5 + 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64 logical canvas, rendered via `ScaledCanvas` (drawing logic stays at "1× scale" with 16-tall content; the wrapper scales SetPixel calls to scale×scale blocks and vertically centers the content)
 
 ## Commands
 
@@ -14,7 +19,7 @@ make test       # Run pytest with coverage (no Docker needed)
 make lint       # Run ruff linter
 make format     # Auto-format with ruff
 make clean      # Remove build artifacts
-make build-docker  # Build production Pi Docker image
+make build-docker  # Build production Docker image (single image, both Pis)
 ```
 
 ## Architecture
@@ -25,14 +30,20 @@ make build-docker  # Build production Pi Docker image
 src/led_ticker/
   __init__.py          # Package root
   _compat.py           # Lazy rgbmatrix import shim (real lib or stub)
+  _types.py            # Canvas type alias used across the package
   app.py               # CLI entry point (led-ticker --config config.toml)
   config.py            # TOML config loader (tomllib/tomli)
-  ticker.py            # Display orchestrator (scroll/swap modes)
+  ticker.py            # Display orchestrator (scroll/swap/forever_scroll modes)
   frame.py             # LedFrame hardware wrapper
+  scaled_canvas.py     # ScaledCanvas: wraps a real canvas and scales SetPixel
+                       #   to scale×scale blocks (used by bigsign, scale=4)
+  text_render.py       # Pure-Python BDF rasterizer (needed when scale > 1
+                       #   because graphics.DrawText cannot scale)
   widget.py            # Widget/AsyncWidget protocols + run_monitor_loop() with backoff
   drawing.py           # Shared drawing helpers (get_text_width, compute_cursor)
   colors.py            # RGB color constants
   presentation.py      # Text presentation effects (typewriter, rainbow, etc.)
+  pixel_emoji.py       # Inline pixel-art emoji renderer (:name: in messages)
   fonts/               # BDF bitmap fonts + loader
   transitions/
     __init__.py         # Transition protocol, registry, easing, run_transition()
@@ -50,6 +61,8 @@ src/led_ticker/
     weather.py          # WeatherWidget (WeatherAPI.com) with 8x8 pixel icons
     weather_icons.py    # 7 weather condition icons
     rss_feed.py         # RSSFeedMonitor (no draw() — stories expand into TickerMessages)
+    mlb.py              # MLBMonitor: scores, series, postponements, "Final"
+    mlb_icons.py        # MLB team logos / pixel sprites
     mlb_standings.py    # MLBStandingsMonitor (top N + tracked teams, offseason detection)
     crypto/
       coinbase.py       # CoinbasePriceMonitor
@@ -58,6 +71,8 @@ src/led_ticker/
 ```
 
 **Inline Emoji**: Use `:name:` in TickerMessage text to render pixel art icons inline. Defined in `pixel_emoji.py`. Available: `baseball`, `taco`, `flower`, `star`, `sun`, `cloud`, `rain`, `snow`, `thunder`, `fog`.
+
+**ScaledCanvas (bigsign)**: When `default_scale > 1` in config, the canvas returned to widgets is a `ScaledCanvas` wrapper. Widgets keep drawing at logical 16-tall coordinates; the wrapper expands every `SetPixel` to a scale×scale block on the real canvas and centers the content vertically. `DrawText` cannot be scaled, so `text_render.py` provides a pure-Python BDF rasterizer that uses `SetPixel` and therefore inherits the wrapper's scaling. `_swap` knows how to in-place swap the wrapper's `.real` canvas so the wrapper identity is stable across frames.
 
 ### Key Patterns
 
@@ -85,9 +100,11 @@ These constraints were learned through extensive real-hardware testing:
 
 6. **Font advance width ≠ visible glyph width**: BDF font characters have advance widths that include trailing whitespace within the character cell. When text scrolls to the right edge, the cursor reaches x=159 but the last visible pixel may be 2-3px earlier depending on the character (e.g., "!" is narrow within its cell, "M" fills it). This is standard bitmap font behavior, not a bug.
 
-7. **Widget padding is for layout, not scroll stop**: `draw()` returns `cursor_pos` which includes `end_padding` (default 6px). This padding provides spacing between widgets in `forever_scroll` side-by-side mode — do NOT remove it from the widget. Instead, `_swap_and_scroll` ADDS padding back to stop_pos to compensate: `stop_pos = -(cursor_pos - canvas.width) + padding`. Since cursor_pos overshoots by padding, adding it scrolls less far left, putting the last character flush with x=159.
+7. **Widget padding is for layout, not scroll stop**: `draw()` returns `cursor_pos` which includes `end_padding` (default 6px). This padding provides spacing between widgets in `forever_scroll` side-by-side mode — do NOT remove it from the widget. Instead, `_swap_and_scroll` ADDS padding back to stop_pos to compensate: `stop_pos = -(cursor_pos - canvas.width) + padding`. Since cursor_pos overshoots by padding, adding it scrolls less far left, putting the last character flush with the right edge.
 
-6. **Test stubs simulate double-buffering**: The stub `SwapOnVSync` returns a DIFFERENT canvas object (not the same one) to catch code that discards the return value.
+8. **Test stubs simulate double-buffering**: The stub `SwapOnVSync` returns a DIFFERENT canvas object (not the same one) to catch code that discards the return value.
+
+9. **ScaledCanvas wraps the real canvas**: In bigsign mode (`default_scale > 1`) the canvas widgets receive is a `ScaledCanvas`. `_swap` mutates `.real` in place so wrapper identity is preserved across frames; transitions that re-wrap (`run_transition` at `incoming_scale != current`) must do so explicitly and not rely on the wrapper survival path.
 
 ### Display Flow
 
@@ -179,12 +196,13 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 
 ### Configuration
 
-- App config: `config/config.toml` (mounted in Docker at `/code/config/`)
-- Example: `config.example.toml`
+- App config: `config/config.toml` (mounted in Docker at `/code/config/`, gitignored)
+- Examples: `config/config.example.toml` (small sign), `config/config.bigsign.example.toml` (Pi 5 bigsign with `pixel_mapper`, scaling, RP1 tuning)
 - API keys: `.env` (see `.env.example`)
 - Per-section: `mode`, `transition`, `transition_duration`, `transition_color`, `hold_time`, `loop_count`
-- Per-widget: `presentation`, `show_icon` (weather)
+- Per-widget: `presentation`, `show_icon` (weather), `scale` (override `default_scale` per section, e.g. countdowns at 2× on the bigsign)
 - Global: `[transitions] default`, `duration`, `easing`, `between_sections`
+- Pi 5 only: `rp1_rio` (0=PIO, 1=RIO), `pwm_bits`, `pwm_lsb_nanoseconds`, `show_refresh`
 
 ### Docker / Deployment
 
@@ -196,9 +214,23 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 
 ### Hardware
 
-- Raspberry Pi 4 Model B, 5 chained 32x16 panels = 160x16 pixels
+**Small sign (Pi 4):**
+- Raspberry Pi 4 Model B, 5× chained 32×16 panels = 160×16 pixels
 - `led_gpio_mapping`: "adafruit-hat"
 - `led_slowdown_gpio`: 2
 - `led_brightness`: 60
+- `default_scale`: 1 (no scaling)
 - ~20fps (0.05s per frame)
+
+**Bigsign (Pi 5):**
+- Raspberry Pi 5, 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64 pixels
+- `led_gpio_mapping`: "adafruit-hat"
+- `led_slowdown_gpio`: 3 (paired with `rp1_rio=1`; raise to 4–5 if flicker)
+- `pwm_bits`: 8 (down from default 11 for ~8× faster refresh; minor color hit)
+- `rp1_rio`: 1 (RIO mode — faster, more CPU; `0` = PIO mode, lower CPU)
+- `default_scale`: 4 (drawing logic is 16-tall and `ScaledCanvas` blows it up to 64-tall)
+- Custom `pixel_mapper` Remap string for serpentine panel layout (see `config.bigsign.example.toml`)
+
+**Both:**
 - DrawText clips safely at canvas edges (y can be negative or > height)
+- Same Docker image, same `compose.yaml` — the rgbmatrix library detects the SoC at runtime

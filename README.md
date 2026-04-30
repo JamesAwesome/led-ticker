@@ -4,7 +4,12 @@
 
 An asyncio Python toolkit for displaying scrolling feeds on LED matrix panels.
 
-Display news, weather, countdowns, crypto prices, and custom messages on Adafruit 16x32 LED matrix panels using a Raspberry Pi.
+Display news, weather, countdowns, crypto prices, and custom messages on RGB LED matrix panels using a Raspberry Pi. Tested on two configurations:
+
+- **Small sign** — Raspberry Pi 4, 5× chained 16×32 Adafruit panels (160×16 logical)
+- **Bigsign** — Raspberry Pi 5, 8× P3 32×64 panels in a 2×4 vertical-serpentine layout (256×64 logical)
+
+A single Docker image builds for both — the [`jamesawesome/rpi-rgb-led-matrix`](https://github.com/jamesawesome/rpi-rgb-led-matrix) fork detects the SoC at runtime and picks the right GPIO backend (BCM2711 on Pi 4, RP1 PIO/RIO on Pi 5).
 
 ## Quick Start
 
@@ -29,7 +34,7 @@ led-ticker --config config.toml
 
 ## Configuration
 
-Everything is configured via a TOML file. See `config.example.toml` for a full reference.
+Everything is configured via a TOML file. See [`config/config.example.toml`](config/config.example.toml) for the small-sign reference and [`config/config.bigsign.example.toml`](config/config.bigsign.example.toml) for the Pi 5 bigsign reference (custom pixel mapper, 4× scaling, RP1 tuning knobs).
 
 ```toml
 [display]
@@ -226,10 +231,16 @@ Tests use a stub `rgbmatrix` package so they run on any machine — no Raspberry
 ### Docker (on Raspberry Pi)
 
 ```bash
-cp config.example.toml config/config.toml
+# Pi 4 small sign:
+cp config/config.example.toml config/config.toml
+# Pi 5 bigsign:
+cp config/config.bigsign.example.toml config/config.toml
+
 cp .env.example .env
-docker compose up -d
+docker compose up -d --build
 ```
+
+The same compose file works on either Pi — no build args, no flags. The library detects the SoC at runtime.
 
 ### Bare Metal (on Raspberry Pi)
 
@@ -240,4 +251,4 @@ sudo systemctl start led-ticker
 
 ## Hardware
 
-Requires Adafruit 16x32 LED matrix panels connected to a Raspberry Pi via the [Adafruit RGB Matrix HAT](https://www.adafruit.com/product/2345). Uses the [rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix) library.
+RGB LED matrix panels connected to a Raspberry Pi via the [Adafruit RGB Matrix HAT](https://www.adafruit.com/product/2345). Driven by [`jamesawesome/rpi-rgb-led-matrix`](https://github.com/jamesawesome/rpi-rgb-led-matrix) — a fork of [hzeller/rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix) with Pi 5 / RP1 support layered on (kingdo9's [`pi5_support`](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886) branch + a bullseye GCC 10 build patch). Both Pi 4 and Pi 5 boards are supported by the same image.

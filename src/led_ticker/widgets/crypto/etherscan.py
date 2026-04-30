@@ -33,9 +33,13 @@ def _get_ok_gas_color() -> Color:
 
 
 def _get_gas_price_color(price: str) -> Color:
-    if int(price) <= 50:
+    try:
+        gwei = float(price)
+    except (ValueError, TypeError):
+        return DEFAULT_COLOR
+    if gwei <= 50:
         return UP_TREND_COLOR
-    if int(price) <= 70:
+    if gwei <= 70:
         return _get_ok_gas_color()
     return DOWN_TREND_COLOR
 

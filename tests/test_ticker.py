@@ -14,6 +14,7 @@ from led_ticker.ticker import (
     _enqueue_ticker_objects,
     _has_index,
     _maybe_wrap,
+    _scroll_one_by_one,
     _scroll_side_by_side,
     _swap,
 )
@@ -199,4 +200,41 @@ class TestScrollSideBySideBufferDrawn:
         assert buffer_msg.draw.called, (
             "buffer_message was never drawn — the inner loop is skipping "
             "the just-appended buffer index, causing the 'yellow flash' bug."
+        )
+
+
+class TestScrollOneByOneReturnsLastPos:
+    """Regression: `_scroll_one_by_one` must return the position at which
+    the last widget was drawn, so `Ticker.last_scroll_pos` reflects reality
+    instead of staying at its 0 default. Without this, the inter-section
+    dissolve in app.py renders the outgoing widget at pos=0 (a one-frame
+    flash-back of the widget reappearing center-canvas before the dissolve
+    begins).
+    """
+
+    async def test_returns_negative_pos_after_widget_exits_left(self, no_sleep):
+        widget = _make_widget(content_width=20)
+        canvas = mock.Mock()
+        canvas.width = 64
+        canvas.Clear = mock.Mock()
+        frame = mock.Mock()
+        frame.matrix.SwapOnVSync = mock.Mock(return_value=canvas)
+
+        queue: asyncio.Queue = asyncio.Queue()
+        await queue.put(widget)
+
+        result = await _scroll_one_by_one(
+            canvas,
+            frame,
+            queue,
+            cursor_pos=0,
+            scroll_speed=0,
+        )
+        # Widget exits left -> last_drawn_pos should be heavily negative
+        # (specifically, at most -content_width so the widget is fully
+        # off-canvas left).
+        assert result < 0, (
+            "Expected last_drawn_pos < 0 once the widget scrolls off the "
+            f"left edge; got {result}. The dissolve will draw the outgoing "
+            "widget at pos=0 (flash-back bug) instead of off-screen."
         )

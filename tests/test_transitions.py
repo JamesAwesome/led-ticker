@@ -1,6 +1,7 @@
 """Tests for transition effects."""
 
 import asyncio
+import unittest.mock as mock
 
 import pytest
 
@@ -1004,6 +1005,66 @@ class TestRunTransition:
             duration=0.1,
         )
         assert result is not None
+
+    async def test_pauses_presenters_during_transition(
+        self,
+        canvas,
+        mock_frame,
+        make_widget,
+        no_sleep,
+    ):
+        # Regression: WidgetPresenter on outgoing/incoming should be paused
+        # for the duration so its frame_count doesn't drift while it's
+        # only being re-rendered for compositing.
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        outgoing.pause = mock.Mock()
+        outgoing.resume = mock.Mock()
+        incoming.pause = mock.Mock()
+        incoming.resume = mock.Mock()
+
+        await run_transition(
+            canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=Cut(),
+            duration=0.1,
+        )
+        outgoing.pause.assert_called_once()
+        outgoing.resume.assert_called_once()
+        incoming.pause.assert_called_once()
+        incoming.resume.assert_called_once()
+
+    async def test_resumes_presenters_on_exception(
+        self,
+        canvas,
+        mock_frame,
+        make_widget,
+        no_sleep,
+    ):
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        outgoing.pause = mock.Mock()
+        outgoing.resume = mock.Mock()
+        incoming.pause = mock.Mock()
+        incoming.resume = mock.Mock()
+
+        broken = mock.Mock(spec=["frame_at"])
+        broken.frame_at.side_effect = RuntimeError("boom")
+
+        with pytest.raises(RuntimeError):
+            await run_transition(
+                canvas,
+                mock_frame,
+                outgoing,
+                incoming,
+                transition=broken,
+                duration=0.1,
+            )
+        # The finally block must still resume both presenters.
+        outgoing.resume.assert_called_once()
+        incoming.resume.assert_called_once()
 
     async def test_wipe_min_frames_respected(
         self,

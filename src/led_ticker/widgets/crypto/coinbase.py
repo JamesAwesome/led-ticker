@@ -11,7 +11,12 @@ import aiohttp
 import attrs
 
 from led_ticker._types import Canvas, Color, DrawResult, Font
-from led_ticker.colors import DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR
+from led_ticker.colors import (
+    DEFAULT_COLOR,
+    DOWN_TREND_COLOR,
+    NEUTRAL_TREND_COLOR,
+    UP_TREND_COLOR,
+)
 from led_ticker.drawing import compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DELTA, FONT_LABEL, FONT_VALUE, FONT_VALUE_SMALL
 from led_ticker.text_render import draw_text
@@ -22,9 +27,15 @@ COINBASE_API: str = "https://api.coinbase.com"
 
 
 def _get_change_color(change_str: str) -> Color:
-    if change_str.startswith("-"):
+    try:
+        value = float(change_str.rstrip("%"))
+    except (ValueError, AttributeError):
+        return NEUTRAL_TREND_COLOR
+    if value < 0:
         return DOWN_TREND_COLOR
-    return UP_TREND_COLOR
+    if value > 0:
+        return UP_TREND_COLOR
+    return NEUTRAL_TREND_COLOR
 
 
 def _get_price_font(price_str: str) -> Font:

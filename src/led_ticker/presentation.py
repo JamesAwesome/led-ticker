@@ -44,6 +44,19 @@ class WidgetPresenter:
         self.widget: Any = widget
         self.mode: Any = mode
         self.frame_count: int = 0
+        self._paused: bool = False
+
+    def pause(self) -> None:
+        """Freeze frame_count so transition compositing doesn't advance the
+        presentation. Without this, an outgoing widget mid-typewriter (or
+        Bounce/Rainbow/ColorCycle) keeps ticking while it's only being
+        re-rendered for a dissolve, then re-enters the next section at a
+        wrong phase.
+        """
+        self._paused = True
+
+    def resume(self) -> None:
+        self._paused = False
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         result = self.mode.draw(
@@ -53,7 +66,8 @@ class WidgetPresenter:
             self.frame_count,
             **kwargs,
         )
-        self.frame_count += 1
+        if not self._paused:
+            self.frame_count += 1
         return result
 
 

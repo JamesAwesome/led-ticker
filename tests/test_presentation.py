@@ -55,6 +55,27 @@ class TestWidgetPresenter:
         presenter.draw(canvas)
         assert mode.draw.call_args[0][3] == 1  # frame=1
 
+    def test_pause_freezes_frame_count(self, canvas, msg_widget):
+        # Regression test: a Bounce/Typewriter/Rainbow presenter on the
+        # outgoing widget of a transition would advance frame_count during
+        # the transition's compositing draws, and re-enter the next section
+        # at a wrong phase.
+        mode = mock.Mock()
+        mode.draw.return_value = (canvas, 100)
+        presenter = WidgetPresenter(msg_widget, mode)
+
+        presenter.draw(canvas)  # frame=0 -> count becomes 1
+        presenter.pause()
+        presenter.draw(canvas)  # should still pass frame=1
+        presenter.draw(canvas)  # still frame=1
+        assert mode.draw.call_args[0][3] == 1
+        assert presenter.frame_count == 1
+
+        presenter.resume()
+        presenter.draw(canvas)
+        assert mode.draw.call_args[0][3] == 1  # this draw used frame=1
+        assert presenter.frame_count == 2  # then advanced
+
 
 # --- Typewriter ---
 

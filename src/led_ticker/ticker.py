@@ -161,7 +161,7 @@ class Ticker:
 
         cursor_pos = start_pos if start_pos is not None else canvas.width
 
-        await _scroll_one_by_one(
+        self.last_scroll_pos = await _scroll_one_by_one(
             canvas,
             self.frame,
             self.notif_queue,
@@ -273,9 +273,19 @@ async def _scroll_one_by_one(
     delay: float = 0,
     cursor_pos: int = 0,
     scroll_speed: float = 0.05,
-) -> None:
+) -> int:
+    """Scroll widgets one-by-one, each fully scrolling off before the next.
+
+    Returns the cursor_pos at which the last widget was drawn before exiting.
+    The caller stashes this on `Ticker.last_scroll_pos` so the inter-section
+    dissolve has a consistent starting point — without this, the dissolve
+    would draw the outgoing widget at pos=0 (the field default), causing
+    a one-frame "flash-back" of the last widget reappearing center-canvas
+    before the dissolve begins.
+    """
     ticker_object = await notif_queue.get()
     pos = cursor_pos
+    last_drawn_pos = pos
 
     if delay:
         canvas, cursor_pos = await _scroll_and_delay(
@@ -287,10 +297,12 @@ async def _scroll_one_by_one(
         )
         logging.info("Returned to _scroll_one_by_one ...")
         pos = 0
+        last_drawn_pos = pos
 
     while True:
         canvas.Clear()
         canvas, final_pos = ticker_object.draw(canvas, cursor_pos=pos)
+        last_drawn_pos = pos
         pos -= 1
 
         if final_pos < 0:
@@ -305,6 +317,10 @@ async def _scroll_one_by_one(
 
     canvas.Clear()
     canvas = _swap(canvas, frame)
+    # last_drawn_pos is heavily negative at this point (the widget exited
+    # left), so the inter-section dissolve renders outgoing off-canvas →
+    # visually identical to the cleared state we just swapped.
+    return last_drawn_pos
 
 
 async def _scroll_side_by_side(

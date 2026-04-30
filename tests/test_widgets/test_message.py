@@ -59,6 +59,23 @@ class TestTickerMessage:
         result_canvas, _ = msg.draw(canvas)
         assert result_canvas is canvas
 
+    def test_emoji_detected_only_for_slug_pattern(self):
+        # Real emoji slugs trigger the emoji renderer
+        assert TickerMessage(message=":taco: lunch")._has_emoji is True
+        assert TickerMessage(message="hi :baseball:")._has_emoji is True
+
+    def test_url_does_not_trigger_emoji_path(self):
+        # Two-colon strings that are NOT emoji slugs (URLs, timestamps,
+        # "key: value: more") must not be routed through the emoji renderer.
+        assert TickerMessage(message="https://x.com/path")._has_emoji is False
+        assert TickerMessage(message="Now: 12:30 PM")._has_emoji is False
+        assert TickerMessage(message="A: B: C")._has_emoji is False
+
+    def test_emoji_pattern_rejects_uppercase_and_digits(self):
+        # Pattern is :[a-z_]+: — uppercase or digits in the slug shouldn't match.
+        assert TickerMessage(message=":Taco: lunch")._has_emoji is False
+        assert TickerMessage(message=":taco1: lunch")._has_emoji is False
+
 
 class TestTickerCountdown:
     def test_conforms_to_widget_protocol(self):

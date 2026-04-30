@@ -4,7 +4,12 @@ import unittest.mock as mock
 
 import pytest
 
-from led_ticker.colors import DOWN_TREND_COLOR, UP_TREND_COLOR
+from led_ticker.colors import (
+    DEFAULT_COLOR,
+    DOWN_TREND_COLOR,
+    NEUTRAL_TREND_COLOR,
+    UP_TREND_COLOR,
+)
 from led_ticker.fonts import FONT_VALUE, FONT_VALUE_SMALL
 from led_ticker.widget import Widget
 from led_ticker.widgets.crypto.coinbase import (
@@ -65,6 +70,17 @@ class TestCoinbaseHelpers:
 
     def test_get_change_color_negative(self):
         assert _get_change_color("-1.23%") == DOWN_TREND_COLOR
+
+    def test_get_change_color_zero_is_neutral(self):
+        # Regression: previously "0.00%" matched the "everything not '-'"
+        # branch and rendered as up-trend (green).
+        assert _get_change_color("0.00%") == NEUTRAL_TREND_COLOR
+        assert _get_change_color("0%") == NEUTRAL_TREND_COLOR
+
+    def test_get_change_color_unparseable_is_neutral(self):
+        # Defensive: API returning malformed strings shouldn't crash mid-render.
+        assert _get_change_color("N/A") == NEUTRAL_TREND_COLOR
+        assert _get_change_color("") == NEUTRAL_TREND_COLOR
 
     def test_get_price_font_short(self):
         assert _get_price_font("1234.5678") == FONT_VALUE
@@ -141,3 +157,14 @@ class TestEtherscanGasMonitor:
 
     def test_gas_price_color_high(self):
         assert _get_gas_price_color("100") == DOWN_TREND_COLOR
+
+    def test_gas_price_color_handles_fractional(self):
+        # Regression: int("42.5") raised ValueError and crashed mid-render,
+        # corrupting the in-progress canvas frame.
+        assert _get_gas_price_color("42.5") == UP_TREND_COLOR
+        assert _get_gas_price_color("60.7") is not None  # mid-range, no crash
+
+    def test_gas_price_color_handles_garbage(self):
+        # Etherscan rate-limit responses or schema changes shouldn't crash.
+        assert _get_gas_price_color("N/A") == DEFAULT_COLOR
+        assert _get_gas_price_color("") == DEFAULT_COLOR

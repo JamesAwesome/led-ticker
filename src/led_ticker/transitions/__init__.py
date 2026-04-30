@@ -109,38 +109,60 @@ async def run_transition(
     needs_switch = incoming_scale is not None and incoming_scale != current_scale
     incoming_canvas: Canvas | None = None
 
-    for i in range(frame_count + 1):
-        t = ease_fn(i / max(1, frame_count))
+    # Freeze any WidgetPresenter on outgoing/incoming for the duration of
+    # the transition. Otherwise rendering the widget for compositing
+    # advances its presentation frame counter and either tears its phase
+    # or eats into the next section's animation budget.
+    _pause_presenter(outgoing)
+    _pause_presenter(incoming)
+    try:
+        for i in range(frame_count + 1):
+            t = ease_fn(i / max(1, frame_count))
 
-        # At t >= 0.5, switch to a wrapper at incoming_scale so the
-        # incoming widget dissolves in at its native size.
-        if (
-            needs_switch
-            and incoming_scale is not None
-            and t >= 0.5
-            and incoming_canvas is None
-        ):
-            incoming_canvas = _maybe_wrap(
-                frame.matrix.CreateFrameCanvas(), incoming_scale
+            # At t >= 0.5, switch to a wrapper at incoming_scale so the
+            # incoming widget dissolves in at its native size.
+            if (
+                needs_switch
+                and incoming_scale is not None
+                and t >= 0.5
+                and incoming_canvas is None
+            ):
+                incoming_canvas = _maybe_wrap(
+                    frame.matrix.CreateFrameCanvas(), incoming_scale
+                )
+
+            active = incoming_canvas if incoming_canvas is not None else canvas
+            active.Clear()
+            transition.frame_at(
+                t,
+                active,
+                outgoing,
+                incoming,
+                outgoing_scroll_pos=outgoing_scroll_pos,
             )
-
-        active = incoming_canvas if incoming_canvas is not None else canvas
-        active.Clear()
-        transition.frame_at(
-            t,
-            active,
-            outgoing,
-            incoming,
-            outgoing_scroll_pos=outgoing_scroll_pos,
-        )
-        new_canvas = _swap(active, frame)
-        if incoming_canvas is not None:
-            incoming_canvas = new_canvas
-        else:
-            canvas = new_canvas
-        await asyncio.sleep(scroll_speed)
+            new_canvas = _swap(active, frame)
+            if incoming_canvas is not None:
+                incoming_canvas = new_canvas
+            else:
+                canvas = new_canvas
+            await asyncio.sleep(scroll_speed)
+    finally:
+        _resume_presenter(outgoing)
+        _resume_presenter(incoming)
 
     return incoming_canvas if incoming_canvas is not None else canvas
+
+
+def _pause_presenter(obj: Any) -> None:
+    pause = getattr(obj, "pause", None)
+    if callable(pause):
+        pause()
+
+
+def _resume_presenter(obj: Any) -> None:
+    resume = getattr(obj, "resume", None)
+    if callable(resume):
+        resume()
 
 
 # --- Auto-import submodules so decorators execute ---

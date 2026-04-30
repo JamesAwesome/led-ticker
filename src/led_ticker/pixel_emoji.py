@@ -24,9 +24,13 @@ Two resolutions are supported:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from led_ticker._types import Canvas, Color, Font, PixelData
 from led_ticker.text_render import draw_text
+
+if TYPE_CHECKING:
+    from led_ticker.scaled_canvas import ScaledCanvas
 
 EMOJI_DEFAULT_WIDTH: int = 8
 EMOJI_PADDING: int = 2  # px after icon before text resumes

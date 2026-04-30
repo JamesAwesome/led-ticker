@@ -62,3 +62,45 @@ def test_measure_width_with_emoji():
     """Smoke: measure_width handles mixed emoji + text."""
     width = measure_width(FONT_SMALL, ":baseball: Hi")
     assert width > 0
+
+
+def test_instagram_and_email_emojis_registered():
+    """Regression: the Instagram + email icons are wired into the registry
+    so configs can use `:instagram:` and `:email:` slugs.
+    """
+    from led_ticker.pixel_emoji import _get_registry
+
+    registry = _get_registry()
+    assert "instagram" in registry
+    assert "email" in registry
+    # Both icons render as 8x8 (or close)
+    assert len(registry["instagram"]) > 0
+    assert len(registry["email"]) > 0
+
+
+def test_instagram_emoji_renders_through_scaled_canvas():
+    real = _bigsign_real_canvas()
+    sc = ScaledCanvas(real, scale=4)
+    advance = draw_with_emoji(
+        sc,
+        FONT_SMALL,
+        cursor_pos=0,
+        y=8,
+        color=(255, 255, 255),
+        text=":instagram: @moonbunnyaerial",
+    )
+    assert advance > 0
+
+
+def test_email_emoji_renders_through_scaled_canvas():
+    real = _bigsign_real_canvas()
+    sc = ScaledCanvas(real, scale=4)
+    advance = draw_with_emoji(
+        sc,
+        FONT_SMALL,
+        cursor_pos=0,
+        y=8,
+        color=(255, 255, 255),
+        text=":email: info@moonbunnyaerial.com",
+    )
+    assert advance > 0

@@ -130,6 +130,42 @@ class TestBuildTitle:
         assert isinstance(title, TickerMessage)
         assert title.message == ""
 
+    async def test_build_title_with_rgb_list_color(self):
+        # TOML inline-tables and arrays come through as lists. The loader
+        # should coerce a 3-int list into a graphics.Color.
+        title = await _build_title({"text": "Pink", "color": [255, 150, 190]})
+        assert title is not None
+        assert title.font_color.red == 255
+        assert title.font_color.green == 150
+        assert title.font_color.blue == 190
+
+
+class TestColorCoercion:
+    """Regression: configs can specify per-widget RGB colors as TOML
+    arrays like `font_color = [255, 150, 190]`. Without coercion the
+    widget would receive a Python list and the rasterizer would fail
+    on `.red` attribute access (or `(r, g, b)` unpack at the wrong
+    granularity).
+    """
+
+    async def test_widget_font_color_rgb_list_coerced_to_color(self):
+        cfg = {"type": "message", "text": "Hi", "font_color": [255, 150, 190]}
+        widget = await _build_widget(cfg, session=mock.Mock())
+        assert widget.font_color.red == 255
+        assert widget.font_color.green == 150
+        assert widget.font_color.blue == 190
+
+    async def test_widget_font_color_tuple_coerced(self):
+        cfg = {"type": "message", "text": "Hi", "font_color": (180, 140, 230)}
+        widget = await _build_widget(cfg, session=mock.Mock())
+        assert widget.font_color.red == 180
+
+    async def test_widget_font_color_omitted_uses_default(self):
+        cfg = {"type": "message", "text": "Hi"}
+        widget = await _build_widget(cfg, session=mock.Mock())
+        # Default is DEFAULT_COLOR (yellow); just verify it's a Color object.
+        assert hasattr(widget.font_color, "red")
+
 
 class TestExampleConfigWidgets:
     """Verify every widget in config.example.toml can be instantiated.
@@ -172,3 +208,30 @@ class TestExampleConfigWidgets:
                 assert isinstance(
                     widget, Widget
                 ), f"Widget type={widget_type} did not produce a Widget"
+
+    async def test_moonbunny_bigsign_config_widgets_build(self):
+        """Load config.moonbunny.example.toml and build every widget.
+
+        Exercises: TOML RGB color lists, inline :instagram: and :email:
+        emoji slugs, multi-section forever_scroll layout.
+        """
+        from led_ticker.config import load_config
+
+        config_path = (
+            Path(__file__).resolve().parent.parent
+            / "config"
+            / "config.moonbunny.example.toml"
+        )
+        config = load_config(config_path)
+
+        for section in config.sections:
+            if section.title:
+                title = await _build_title(section.title)
+                assert isinstance(title, TickerMessage)
+
+            for widget_cfg in section.widgets:
+                cfg = dict(widget_cfg)
+                widget = await _build_widget(cfg, session=mock.Mock())
+                assert isinstance(widget, TickerMessage)
+                # Every TickerMessage in this config sets a custom color.
+                assert hasattr(widget.font_color, "red")

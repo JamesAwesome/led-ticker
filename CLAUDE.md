@@ -72,7 +72,9 @@ src/led_ticker/
       etherscan.py      # EtherscanGasMonitor
 ```
 
-**Inline Emoji**: Use `:name:` in TickerMessage text to render pixel art icons inline. Defined in `pixel_emoji.py`. Available: `baseball`, `taco`, `flower`, `star`, `sun`, `cloud`, `rain`, `snow`, `thunder`, `fog`.
+**Inline Emoji**: Use `:name:` in TickerMessage text to render pixel art icons inline. Defined in `pixel_emoji.py`. Available: `baseball`, `taco`, `flower`, `star`, `sun`, `cloud`, `rain`, `snow`, `thunder`, `fog`, `instagram`, `email`. Each icon is an 8×8 sprite stored as `(x, y, r, g, b)` tuples; the icon carries its own colors (text uses the surrounding `font_color`). Add a new emoji by appending pixel data + a registry entry.
+
+**Per-widget colors in config**: TOML configs can specify RGB lists like `font_color = [255, 150, 190]` and `color = [225, 48, 108]`. The loader in `app._build_widget`/`_build_title` coerces 3-int lists/tuples to `graphics.Color` automatically. `color = "random"` still works for titles (cycles through `RANDOM_COLOR`).
 
 **ScaledCanvas (bigsign)**: When `default_scale > 1` in config, the canvas returned to widgets is a `ScaledCanvas` wrapper. Widgets keep drawing at logical 16-tall coordinates; the wrapper expands every `SetPixel` to a scale×scale block on the real canvas and centers the content vertically. `DrawText` cannot be scaled, so `text_render.py` provides a pure-Python BDF rasterizer (`ScaledCanvas.draw_bdf_text`) that uses `SetPixel` and therefore inherits the wrapper's scaling. `_swap` knows how to in-place swap the wrapper's `.real` canvas so the wrapper identity is stable across frames. `_y_offset` is cached at construction since real-canvas height is constant for a wrapper's lifetime.
 
@@ -216,7 +218,7 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 ### Configuration
 
 - App config: `config/config.toml` (mounted in Docker at `/code/config/`, gitignored)
-- Examples: `config/config.example.toml` (small sign), `config/config.bigsign.example.toml` (Pi 5 bigsign with `pixel_mapper`, scaling, RP1 tuning)
+- Examples: `config/config.example.toml` (small sign), `config/config.bigsign.example.toml` (Pi 5 bigsign with `pixel_mapper`, scaling, RP1 tuning), `config/config.moonbunny.example.toml` (real-world bigsign template — store-window display with brand colors and inline `:instagram:`/`:email:` emoji)
 - API keys: `.env` (see `.env.example`)
 - Per-section: `mode`, `transition`, `transition_duration`, `transition_color`, `hold_time`, `loop_count`
 - Per-widget: `presentation`, `show_icon` (weather), `scale` (override `default_scale` per section, e.g. countdowns at 2× on the bigsign)

@@ -44,6 +44,30 @@ def _cache_key(widget_cfg: dict[str, Any]) -> str:
     return str(sorted(widget_cfg.items()))
 
 
+_COLOR_KEYS: set[str] = {"font_color", "color"}
+
+
+def _coerce_color(value: Any) -> Any:
+    """Convert an `[r, g, b]` TOML list to a `graphics.Color` object.
+
+    Lets configs say `font_color = [255, 150, 190]` instead of forcing
+    callers to construct a Color object themselves. Strings ("random")
+    and existing Color objects pass through unchanged.
+    """
+    if isinstance(value, list | tuple) and len(value) == 3:
+        from led_ticker._compat import require_graphics
+
+        return require_graphics().Color(*value)
+    return value
+
+
+def _coerce_widget_colors(cfg: dict[str, Any]) -> None:
+    """In-place convert known color keys from RGB lists to graphics.Color."""
+    for key in _COLOR_KEYS:
+        if key in cfg:
+            cfg[key] = _coerce_color(cfg[key])
+
+
 async def _build_widget(
     widget_cfg: dict[str, Any], session: aiohttp.ClientSession
 ) -> Any:
@@ -57,6 +81,9 @@ async def _build_widget(
             widget_cfg["message"] = widget_cfg.pop("text")
         else:
             widget_cfg.pop("text")
+
+    # Convert any [r, g, b] lists in known color keys to graphics.Color.
+    _coerce_widget_colors(widget_cfg)
 
     # Extract presentation config before passing to widget
     presentation_name = widget_cfg.pop("presentation", None)
@@ -81,9 +108,13 @@ async def _build_title(title_cfg: dict[str, Any] | None) -> TickerMessage | None
         return None
     text = title_cfg.get("text", "")
     color = title_cfg.get("color")
-    font_color = next(RANDOM_COLOR) if color == "random" else None
+    if color == "random":
+        font_color = next(RANDOM_COLOR)
+    else:
+        coerced = _coerce_color(color)
+        font_color = coerced if coerced is not None else None
     kwargs: dict[str, Any] = {"message": text}
-    if font_color:
+    if font_color is not None:
         kwargs["font_color"] = font_color
     return TickerMessage(**kwargs)
 

@@ -196,6 +196,109 @@ TACO: PixelData = [
 ]
 
 
+# 📷 Instagram — rounded square camera body + lens ring + indicator dot.
+# Uses the iconic Instagram magenta (#E1306C). On a dark LED panel the
+# magenta reads more "pink" than on a screen, which suits the brand fine.
+_IG = (225, 48, 108)
+INSTAGRAM: PixelData = [
+    # Row 0: top edge with rounded corners (no pixels at x=0,7)
+    (1, 0, *_IG),
+    (2, 0, *_IG),
+    (3, 0, *_IG),
+    (4, 0, *_IG),
+    (5, 0, *_IG),
+    (6, 0, *_IG),
+    # Row 1: left/right walls + indicator dot at (5,1)
+    (0, 1, *_IG),
+    (5, 1, *_IG),
+    (7, 1, *_IG),
+    # Row 2: walls + lens top
+    (0, 2, *_IG),
+    (2, 2, *_IG),
+    (3, 2, *_IG),
+    (4, 2, *_IG),
+    (5, 2, *_IG),
+    (7, 2, *_IG),
+    # Row 3: walls + lens left/right
+    (0, 3, *_IG),
+    (2, 3, *_IG),
+    (5, 3, *_IG),
+    (7, 3, *_IG),
+    # Row 4: walls + lens left/right
+    (0, 4, *_IG),
+    (2, 4, *_IG),
+    (5, 4, *_IG),
+    (7, 4, *_IG),
+    # Row 5: walls + lens bottom
+    (0, 5, *_IG),
+    (2, 5, *_IG),
+    (3, 5, *_IG),
+    (4, 5, *_IG),
+    (5, 5, *_IG),
+    (7, 5, *_IG),
+    # Row 6: left/right walls
+    (0, 6, *_IG),
+    (7, 6, *_IG),
+    # Row 7: bottom edge with rounded corners
+    (1, 7, *_IG),
+    (2, 7, *_IG),
+    (3, 7, *_IG),
+    (4, 7, *_IG),
+    (5, 7, *_IG),
+    (6, 7, *_IG),
+]
+
+
+# ✉ Email — envelope with V-shaped flap. White so it reads on any
+# background; widgets pass `color` for surrounding text but the icon
+# carries its own color in the pixel data.
+_EM = (240, 240, 240)
+EMAIL: PixelData = [
+    # Row 0: top edge
+    (0, 0, *_EM),
+    (1, 0, *_EM),
+    (2, 0, *_EM),
+    (3, 0, *_EM),
+    (4, 0, *_EM),
+    (5, 0, *_EM),
+    (6, 0, *_EM),
+    (7, 0, *_EM),
+    # Row 1: walls + flap diagonals starting
+    (0, 1, *_EM),
+    (1, 1, *_EM),
+    (6, 1, *_EM),
+    (7, 1, *_EM),
+    # Row 2: walls + flap diagonals
+    (0, 2, *_EM),
+    (2, 2, *_EM),
+    (5, 2, *_EM),
+    (7, 2, *_EM),
+    # Row 3: walls + flap diagonals meet in middle
+    (0, 3, *_EM),
+    (3, 3, *_EM),
+    (4, 3, *_EM),
+    (7, 3, *_EM),
+    # Row 4: walls (interior of envelope)
+    (0, 4, *_EM),
+    (7, 4, *_EM),
+    # Row 5: walls
+    (0, 5, *_EM),
+    (7, 5, *_EM),
+    # Row 6: walls
+    (0, 6, *_EM),
+    (7, 6, *_EM),
+    # Row 7: bottom edge
+    (0, 7, *_EM),
+    (1, 7, *_EM),
+    (2, 7, *_EM),
+    (3, 7, *_EM),
+    (4, 7, *_EM),
+    (5, 7, *_EM),
+    (6, 7, *_EM),
+    (7, 7, *_EM),
+]
+
+
 def _build_emoji_registry() -> dict[str, PixelData]:
     """Build the emoji registry with all available icons."""
     from led_ticker.widgets.mlb_icons import FLOWER, STAR
@@ -222,6 +325,9 @@ def _build_emoji_registry() -> dict[str, PixelData]:
         "snow": SNOW,
         "thunder": THUNDER,
         "fog": FOG,
+        # Social
+        "instagram": INSTAGRAM,
+        "email": EMAIL,
     }
 
 

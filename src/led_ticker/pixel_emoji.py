@@ -386,18 +386,27 @@ def draw_with_emoji(
     color: Color,
     text: str,
     y_offset: int = 0,
+    emoji_y: int | None = None,
 ) -> int:
-    """Draw text with inline emoji. Returns pixels advanced."""
+    """Draw text with inline emoji. Returns pixels advanced.
+
+    `emoji_y` overrides the icon's top-row position. Default is
+    `4 + y_offset` — vertically centered on the 16-tall logical canvas
+    plus any caller-supplied offset. Multi-row widgets (e.g. `two_row`)
+    pass an explicit `emoji_y` per row so the icon aligns with the row's
+    text baseline instead of the canvas center.
+    """
     segments = _parse_segments(text)
     total: int = 0
+
+    iy_default = 4 + y_offset
 
     for seg_type, value in segments:
         if seg_type == "emoji":
             icon = _get_registry()[value]
             iw = _emoji_width(icon)
-            # Center icon vertically on 16px display
             ix = int(cursor_pos + total)
-            iy = 4 + y_offset
+            iy = iy_default if emoji_y is None else emoji_y
             w = canvas.width
             h = getattr(canvas, "height", 16)
             for px, py, r, g, b in icon:

@@ -229,9 +229,15 @@ class TestExampleConfigWidgets:
                 title = await _build_title(section.title)
                 assert isinstance(title, TickerMessage)
 
+            from led_ticker.widgets.two_row import TwoRowMessage
+
             for widget_cfg in section.widgets:
                 cfg = dict(widget_cfg)
                 widget = await _build_widget(cfg, session=mock.Mock())
-                assert isinstance(widget, TickerMessage)
-                # Every TickerMessage in this config sets a custom color.
-                assert hasattr(widget.font_color, "red")
+                assert isinstance(widget, TickerMessage | TwoRowMessage)
+                if isinstance(widget, TickerMessage):
+                    assert hasattr(widget.font_color, "red")
+                else:
+                    # two_row carries top_color + bottom_color separately
+                    assert hasattr(widget.top_color, "red")
+                    assert hasattr(widget.bottom_color, "red")

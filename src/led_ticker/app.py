@@ -44,7 +44,7 @@ def _cache_key(widget_cfg: dict[str, Any]) -> str:
     return str(sorted(widget_cfg.items()))
 
 
-_COLOR_KEYS: set[str] = {"font_color", "color"}
+_COLOR_KEYS: set[str] = {"font_color", "color", "top_color", "bottom_color"}
 
 
 def _coerce_color(value: Any) -> Any:

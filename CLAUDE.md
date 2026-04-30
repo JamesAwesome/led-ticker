@@ -63,6 +63,7 @@ src/led_ticker/
     weather.py          # WeatherWidget (WeatherAPI.com) with 8x8 pixel icons
     weather_icons.py    # 7 weather condition icons
     rss_feed.py         # RSSFeedMonitor (no draw() — stories expand into TickerMessages)
+    two_row.py          # TwoRowMessage: held top + scrolling bottom for tall canvases
     mlb.py              # MLBMonitor: scores, series, postponements, "Final"
     mlb_icons.py        # MLB team logos / pixel sprites
     mlb_standings.py    # MLBStandingsMonitor (top N + tracked teams, offseason detection)
@@ -74,7 +75,9 @@ src/led_ticker/
 
 **Inline Emoji**: Use `:name:` in TickerMessage text to render pixel art icons inline. Defined in `pixel_emoji.py`. Available: `baseball`, `taco`, `flower`, `star`, `sun`, `cloud`, `rain`, `snow`, `thunder`, `fog`, `instagram`, `email`. Each icon is an 8×8 sprite stored as `(x, y, r, g, b)` tuples; the icon carries its own colors (text uses the surrounding `font_color`). Add a new emoji by appending pixel data + a registry entry.
 
-**Per-widget colors in config**: TOML configs can specify RGB lists like `font_color = [255, 150, 190]` and `color = [225, 48, 108]`. The loader in `app._build_widget`/`_build_title` coerces 3-int lists/tuples to `graphics.Color` automatically. `color = "random"` still works for titles (cycles through `RANDOM_COLOR`).
+**Per-widget colors in config**: TOML configs can specify RGB lists like `font_color = [255, 150, 190]`, `color = [225, 48, 108]`, `top_color`, or `bottom_color`. The loader in `app._build_widget`/`_build_title` coerces 3-int lists/tuples in any of these keys to `graphics.Color` automatically. `color = "random"` still works for titles (cycles through `RANDOM_COLOR`).
+
+**Two-row widget (`type = "two_row"`)**: For tall canvases (the bigsign), `TwoRowMessage` renders a held top row + a scrolling bottom row. Top stays at a fixed center position; the bottom scrolls when its content overflows canvas width. Best in `swap` mode at `scale = 2` so 128 logical px is wide enough to hold typical handles. Uses FONT_SMALL (5×8) since two 8-tall rows fit a 16-tall logical canvas exactly. Inline emoji slugs work in both rows — `pixel_emoji.draw_with_emoji` accepts an `emoji_y` override that the widget passes per row (`0` for top, `8` for bottom).
 
 **ScaledCanvas (bigsign)**: When `default_scale > 1` in config, the canvas returned to widgets is a `ScaledCanvas` wrapper. Widgets keep drawing at logical 16-tall coordinates; the wrapper expands every `SetPixel` to a scale×scale block on the real canvas and centers the content vertically. `DrawText` cannot be scaled, so `text_render.py` provides a pure-Python BDF rasterizer (`ScaledCanvas.draw_bdf_text`) that uses `SetPixel` and therefore inherits the wrapper's scaling. `_swap` knows how to in-place swap the wrapper's `.real` canvas so the wrapper identity is stable across frames. `_y_offset` is cached at construction since real-canvas height is constant for a wrapper's lifetime.
 

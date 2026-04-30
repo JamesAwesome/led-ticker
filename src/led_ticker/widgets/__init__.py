@@ -33,6 +33,7 @@ from led_ticker.widgets import (  # noqa: E402, F401
     mlb,
     mlb_standings,
     rss_feed,
+    two_row,
     weather,
 )
 from led_ticker.widgets.crypto import coinbase, coingecko, etherscan  # noqa: E402, F401

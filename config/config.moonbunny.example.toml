@@ -168,14 +168,22 @@ font_color = [180, 140, 230]
 # (letterboxed) so 128 logical px is wide enough to fit "@moonbunnyaerial"
 # on the held top row — at scale=4 (64 logical px) the handle would clip.
 #
-# Each widget here is its own display unit — `swap` mode runs them with
+# `content_height = 20` gives the two_row widget a 20-row logical canvas
+# so each row's 8-tall text band sits centered in a 10-row half — that
+# adds 2 rows of breathing space between the rows so they don't look
+# squished. Increase to 22 or 24 for more air, or drop to 16 for the
+# tightest packing.
+#
+# Each widget is its own display unit — `swap` mode runs them with
 # transitions between, holding for `hold_time` after the bottom row
-# finishes scrolling.
+# finishes scrolling. `top_align` and `bottom_align` accept "left",
+# "center", or "right".
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "swap"
 scale = 2
+content_height = 20
 loop_count = 1
 hold_time = 3.0
 transition = "dissolve"
@@ -185,26 +193,34 @@ transition_duration = 0.8
 type = "two_row"
 top_text = ":instagram: @moonbunnyaerial"
 top_color = [225, 48, 108]
+top_align = "center"
 bottom_text = "Now booking spring classes - all levels welcome!"
 bottom_color = [255, 240, 200]
+bottom_align = "left"
 
 [[playlist.section.widget]]
 type = "two_row"
 top_text = ":instagram: @moonbunnyaerial"
 top_color = [225, 48, 108]
+top_align = "center"
 bottom_text = "Kids Summer Camps now enrolling - sign up today!"
 bottom_color = [255, 150, 190]
+bottom_align = "left"
 
 [[playlist.section.widget]]
 type = "two_row"
 top_text = ":instagram: @moonbunnyaerial"
 top_color = [225, 48, 108]
+top_align = "center"
 bottom_text = "Aerial silks * lyra * trapeze * private coaching"
 bottom_color = [180, 140, 230]
+bottom_align = "left"
 
 [[playlist.section.widget]]
 type = "two_row"
 top_text = ":email: info@moonbunnyaerial.com"
 top_color = [255, 240, 200]
+top_align = "center"
 bottom_text = "Questions? Send us a note - we love hearing from you!"
 bottom_color = [180, 140, 230]
+bottom_align = "left"

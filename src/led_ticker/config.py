@@ -53,6 +53,11 @@ class SectionConfig:
     hold_time: float = 3.0  # seconds to hold each widget in swap mode
     continuous_scroll: bool = False  # skip holds for overflow text in scroll mode
     scale: int = 1  # falls back to display.default_scale in load_config
+    # Logical canvas height in rows. Default 16 fits one row of 5x8 or 6x12
+    # text. Use a larger value (e.g. 20-24) for two_row layouts that need
+    # vertical breathing room between rows. The wrapper still letterboxes
+    # any space not covered (rows × scale < real.height).
+    content_height: int = 16
 
 
 @dataclass
@@ -152,6 +157,7 @@ def load_config(path: Path) -> AppConfig:
             hold_time=section_raw.get("hold_time", 3.0),
             continuous_scroll=section_raw.get("continuous_scroll", False),
             scale=section_raw.get("scale", display.default_scale),
+            content_height=section_raw.get("content_height", 16),
         )
         sections.append(section)
 

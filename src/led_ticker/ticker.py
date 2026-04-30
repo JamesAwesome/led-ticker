@@ -42,10 +42,16 @@ def _swap(canvas: Any, frame: Any) -> Any:
     return frame.matrix.SwapOnVSync(canvas)
 
 
-def _maybe_wrap(canvas: Any, scale: int) -> Any:
-    """Wrap canvas in a ScaledCanvas when scale > 1; otherwise return as-is."""
+def _maybe_wrap(canvas: Any, scale: int, content_height: int = 16) -> Any:
+    """Wrap canvas in a ScaledCanvas when scale > 1; otherwise return as-is.
+
+    `content_height` controls the wrapper's logical height. Default 16 matches
+    a single 5x8 / 6x12 row. Sections that need vertical breathing room (e.g.
+    the two_row layout) can request a taller logical canvas by passing
+    `content_height=20` etc.
+    """
     if scale > 1:
-        return ScaledCanvas(canvas, scale=scale)
+        return ScaledCanvas(canvas, scale=scale, content_height=content_height)
     return canvas
 
 
@@ -63,6 +69,7 @@ class Ticker:
     hold_time: float = 3.0
     continuous_scroll: bool = False
     scale: int = 1
+    content_height: int = 16
     last_scroll_pos: int = attrs.field(init=False, default=0)
 
     @classmethod
@@ -90,7 +97,9 @@ class Ticker:
     async def run_swap(self, loop_count: int = 0) -> None:
         """Swap between all running monitors."""
         logging.info("Running Swap with loop count %s...", loop_count)
-        canvas = _maybe_wrap(self.frame.get_clean_canvas(), self.scale)
+        canvas = _maybe_wrap(
+            self.frame.get_clean_canvas(), self.scale, self.content_height
+        )
         title = self.title if self.title else None
         assert self.notif_queue is not None
 
@@ -118,7 +127,9 @@ class Ticker:
     ) -> None:
         """Scroll all monitors side-by-side in a continuous stream."""
         logging.info("Running Forever Scroll with loop count %s...", loop_count)
-        canvas = _maybe_wrap(self.frame.get_clean_canvas(), self.scale)
+        canvas = _maybe_wrap(
+            self.frame.get_clean_canvas(), self.scale, self.content_height
+        )
         title = self.title if self.title else None
         cursor_pos = start_pos if start_pos is not None else canvas.width
         assert self.notif_queue is not None
@@ -147,7 +158,9 @@ class Ticker:
     ) -> None:
         """Scroll monitors one-by-one, each fully scrolling off before the next."""
         logging.info("Running Infini Scroll with loop count %s...", loop_count)
-        canvas = _maybe_wrap(self.frame.get_clean_canvas(), self.scale)
+        canvas = _maybe_wrap(
+            self.frame.get_clean_canvas(), self.scale, self.content_height
+        )
         title = self.title if self.title else None
         assert self.notif_queue is not None
 

@@ -280,6 +280,7 @@ async def run(config_path: Path) -> None:
                     hold_time=section.hold_time,
                     continuous_scroll=section.continuous_scroll,
                     scale=section.scale,
+                    content_height=section.content_height,
                 )
 
                 # If a between-section transition just ran, the title is

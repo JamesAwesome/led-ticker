@@ -177,6 +177,115 @@ class TestColors:
         assert captured_colors == [top_c, bot_c]
 
 
+class TestAlignment:
+    def test_top_align_left(self, canvas, monkeypatch):
+        from led_ticker.widgets import two_row as tr
+
+        captured_xs: list[int] = []
+
+        def fake(canvas, font, x, y, color, text, emoji_y=None, **kw):
+            captured_xs.append(x)
+            return 50
+
+        monkeypatch.setattr(tr, "draw_with_emoji", fake)
+        w = TwoRowMessage(top_text="hi", bottom_text="x", top_align="left")
+        w.draw(canvas, cursor_pos=0)
+        assert captured_xs[0] == 0  # top row at left edge
+
+    def test_top_align_right(self, canvas, monkeypatch):
+        from led_ticker.widgets import two_row as tr
+
+        captured_xs: list[int] = []
+
+        def fake(canvas, font, x, y, color, text, emoji_y=None, **kw):
+            captured_xs.append(x)
+            return 50
+
+        monkeypatch.setattr(tr, "draw_with_emoji", fake)
+        w = TwoRowMessage(top_text="hi", bottom_text="x", top_align="right")
+        w.draw(canvas, cursor_pos=0)
+        # top_width is real measure_width("hi"), but the test stub canvas
+        # is 160 wide. Right-aligned x should be canvas.width - top_width.
+        assert captured_xs[0] > 100
+
+    def test_top_align_center_explicit(self, canvas, monkeypatch):
+        from led_ticker.widgets import two_row as tr
+
+        captured_xs: list[int] = []
+
+        def fake(canvas, font, x, y, color, text, emoji_y=None, **kw):
+            captured_xs.append(x)
+            return 50
+
+        monkeypatch.setattr(tr, "draw_with_emoji", fake)
+        w = TwoRowMessage(top_text="hi", bottom_text="x", top_align="center")
+        w.draw(canvas, cursor_pos=0)
+        # Centered: x > 0 but < right_edge_x
+        assert 0 < captured_xs[0] < canvas.width
+
+    def test_legacy_top_center_false_maps_to_left(self):
+        # Backwards-compat: top_center=False from old configs still works.
+        w = TwoRowMessage(top_text="x", bottom_text="y", top_center=False)
+        assert w.top_align == "left"
+
+    def test_legacy_top_center_true_maps_to_center(self):
+        w = TwoRowMessage(top_text="x", bottom_text="y", top_center=True)
+        assert w.top_align == "center"
+
+
+class TestRowSpacing:
+    def test_height_16_no_gap_between_rows(self, monkeypatch):
+        # 16-tall canvas: rows are immediately adjacent (legacy behavior).
+        import unittest.mock as m
+
+        canvas = m.Mock()
+        canvas.width = 160
+        canvas.height = 16
+
+        from led_ticker.widgets import two_row as tr
+
+        captured: list[tuple[int, int]] = []
+
+        def fake(canvas, font, x, y, color, text, emoji_y=None, **kw):
+            captured.append((y, emoji_y))
+            return 30
+
+        monkeypatch.setattr(tr, "draw_with_emoji", fake)
+        w = TwoRowMessage(top_text="A", bottom_text="B")
+        w.draw(canvas)
+        (top_baseline, top_emoji), (bot_baseline, bot_emoji) = captured
+        # Top row uses rows 0-7, bottom uses rows 8-15. No gap.
+        assert top_emoji == 0
+        assert bot_emoji == 8
+        assert bot_emoji - (top_emoji + 8) == 0  # rows touch
+
+    def test_height_20_produces_gap(self, monkeypatch):
+        import unittest.mock as m
+
+        canvas = m.Mock()
+        canvas.width = 160
+        canvas.height = 20  # taller logical canvas with breathing room
+
+        from led_ticker.widgets import two_row as tr
+
+        captured: list[tuple[int, int]] = []
+
+        def fake(canvas, font, x, y, color, text, emoji_y=None, **kw):
+            captured.append((y, emoji_y))
+            return 30
+
+        monkeypatch.setattr(tr, "draw_with_emoji", fake)
+        w = TwoRowMessage(top_text="A", bottom_text="B")
+        w.draw(canvas)
+        (_, top_emoji), (_, bot_emoji) = captured
+        # 20-tall canvas: each half is 10 rows. 8-tall glyph centered in
+        # each half gives 1 row above + 1 row below per half. Gap between
+        # rows = (top half bottom margin) + (bottom half top margin) = 2.
+        assert top_emoji == 1  # 1 row of top margin
+        assert bot_emoji == 11  # half (10) + 1 row
+        assert bot_emoji - (top_emoji + 8) == 2  # 2-row gap between glyphs
+
+
 class TestWidthCaching:
     def test_width_computed_once(self, canvas, monkeypatch):
         # measure_width hits the font's CharacterWidth (a C call on real

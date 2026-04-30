@@ -259,46 +259,37 @@ INSTAGRAM: PixelData = [
 # `:moon:` in any message.
 _MN = (255, 220, 130)
 MOON: PixelData = [
-    # Row 0: narrow top tip leaning LEFT (cols 2-3).
+    # Row 0: narrow top tip (cols 2-3) — 2 px wide, NOT a fat block.
     (2, 0, *_MN),
     (3, 0, *_MN),
-    # Row 1: tip widens into the upper arc (cols 1-4).
+    # Row 1: stair-step left (cols 1-2). The diagonal flow of the
+    # crescent body is created by each row offsetting from the last.
     (1, 1, *_MN),
     (2, 1, *_MN),
-    (3, 1, *_MN),
-    (4, 1, *_MN),
-    # Row 2: arc widens into the body (cols 0-4) — first 5-wide row
-    # establishes the crescent's outer bulge on the LEFT.
+    # Row 2: outer edge reaches col 0 — start of the bulge.
     (0, 2, *_MN),
     (1, 2, *_MN),
     (2, 2, *_MN),
-    (3, 2, *_MN),
-    (4, 2, *_MN),
-    # Row 3: body bulge (cols 0-3) — inner edge cuts in to create the
-    # bite on the RIGHT side.
+    # Row 3: 3-wide body at cols 0-2. This is the widest the moon
+    # gets — a real crescent's body is only ~3 px thick at low
+    # resolution, not a 5-px blob.
     (0, 3, *_MN),
     (1, 3, *_MN),
     (2, 3, *_MN),
-    (3, 3, *_MN),
-    # Row 4: body bulge (cols 0-3) — same depth as row 3.
+    # Row 4: 3-wide body still at cols 0-2 — the moon's "waist".
     (0, 4, *_MN),
     (1, 4, *_MN),
     (2, 4, *_MN),
-    (3, 4, *_MN),
-    # Row 5: arc widens back (cols 0-4).
-    (0, 5, *_MN),
+    # Row 5: stair-step right (cols 1-2) — body sweeps back toward
+    # the bottom tip.
     (1, 5, *_MN),
     (2, 5, *_MN),
-    (3, 5, *_MN),
-    (4, 5, *_MN),
-    # Row 6: arc shifts RIGHT (cols 1-5) — completing the diagonal
-    # tilt as the body sweeps from upper-LEFT to lower-RIGHT.
-    (1, 6, *_MN),
+    # Row 6: stair-step right (cols 2-3).
     (2, 6, *_MN),
     (3, 6, *_MN),
-    (4, 6, *_MN),
-    (5, 6, *_MN),
-    # Row 7: narrow bottom tip leaning RIGHT (cols 3-4).
+    # Row 7: narrow bottom tip (cols 3-4) — shifted RIGHT relative to
+    # the top tip (cols 2-3), giving the diagonal tilt without
+    # bulking up the body.
     (3, 7, *_MN),
     (4, 7, *_MN),
 ]

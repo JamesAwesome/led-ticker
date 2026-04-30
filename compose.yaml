@@ -1,5 +1,6 @@
 # Docker Compose for led-ticker.
-# Pi 5 / bigsign defaults. For the Pi 4 sign, override RGBMATRIX_REF to "main".
+# Single image runs on both the Pi 4 sign and the Pi 5 bigsign — the rgbmatrix
+# library detects the SoC at runtime and selects the right GPIO backend.
 #
 # Usage:
 #   docker compose up -d --build       # build (or rebuild) and start detached
@@ -11,18 +12,11 @@
 #   ./config/config.toml     # display + playlist config
 #   ./.env                   # API keys (WEATHERAPI_KEY etc.)
 #                            # — also auto-loaded by compose for var interpolation
-#
-# Pi 4 build:
-#   RGBMATRIX_REF=main IMAGE_TAG=led-ticker:pi4 docker compose up -d --build
 
 services:
   led-ticker:
-    image: ${IMAGE_TAG:-led-ticker:pi5}
-    build:
-      context: .
-      args:
-        RGBMATRIX_REPO: ${RGBMATRIX_REPO:-https://github.com/jamesawesome/rpi-rgb-led-matrix.git}
-        RGBMATRIX_REF: ${RGBMATRIX_REF:-pi5_support}
+    image: led-ticker
+    build: .
     container_name: led-ticker
     restart: unless-stopped
     privileged: true        # needed for GPIO access on the HAT

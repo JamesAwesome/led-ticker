@@ -1,10 +1,11 @@
 FROM python:3.13-bullseye AS rgbmatrix
 
-# Pin the rpi-rgb-led-matrix fork/branch. Default targets the Pi 4 sign;
-# override with `--build-arg RGBMATRIX_REPO=... --build-arg RGBMATRIX_REF=...`
-# for the Pi 5 image (see Makefile build-docker-pi5).
-ARG RGBMATRIX_REPO=https://github.com/jamesawesome/rpi-rgb-led-matrix.git
-ARG RGBMATRIX_REF=main
+# rpi-rgb-led-matrix: jamesawesome/pi5_support — based on kingdo9's pi5_support
+# (upstream PR hzeller#1886) with our build patch (named the unused PIO param in
+# pio_rp1.c so it builds under bullseye GCC 10). Validated 2026-04-29 to run on
+# both the Pi 4 sign and the Pi 5 bigsign — runtime detects the SoC and selects
+# the BCM2711 GPIO path or the RP1 PIO path. Once #1886 merges, switch to
+# hzeller/master.
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -14,10 +15,10 @@ RUN apt-get update && \
     apt-get install -y build-essential git python3-dev cmake && \
     rm -rf /var/lib/apt/lists/*
 
-# Layer 1: rgbmatrix (only rebuilds if the fork ref changes)
-# Clone into a fixed dir name so the path is stable regardless of repo URL.
+# Layer 1: rgbmatrix (only rebuilds if the pinned ref changes)
 RUN cd /opt && \
-    git clone --depth=1 --branch ${RGBMATRIX_REF} ${RGBMATRIX_REPO} rgbmatrix-src && \
+    git clone --depth=1 --branch pi5_support \
+        https://github.com/jamesawesome/rpi-rgb-led-matrix.git rgbmatrix-src && \
     cd rgbmatrix-src && \
     pip install .
 

@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker build-docker-pi5
+.PHONY: dev hooks test lint typecheck format clean build-docker
 
 # --- Developer Setup ---
 
@@ -29,28 +29,10 @@ format:  ## Run ruff formatter
 
 # --- Docker (production image only) ---
 
-# RGBMATRIX_REPO/REF pin the rpi-rgb-led-matrix fork+branch baked into the image.
-# Pi 4: jamesawesome/main (existing sign).
-# Pi 5: jamesawesome/pi5_support — based on kingdo9's pi5_support (upstream
-#       PR #1886, maintainer-approved) with our build patch (named the unused
-#       PIO param in pio_rp1.c so it builds under bullseye GCC 10).
-#       Once PR #1886 merges, retire this branch and switch to hzeller/master.
-RGBMATRIX_REPO ?= https://github.com/jamesawesome/rpi-rgb-led-matrix.git
-RGBMATRIX_REF ?= main
-RGBMATRIX_REPO_PI5 ?= https://github.com/jamesawesome/rpi-rgb-led-matrix.git
-RGBMATRIX_REF_PI5 ?= pi5_support
-
-build-docker:  ## Build the production Pi 4 Docker image
-	docker build \
-		--build-arg RGBMATRIX_REPO=$(RGBMATRIX_REPO) \
-		--build-arg RGBMATRIX_REF=$(RGBMATRIX_REF) \
-		-t led-ticker:pi4 .
-
-build-docker-pi5:  ## Build the bigsign Pi 5 Docker image
-	docker build \
-		--build-arg RGBMATRIX_REPO=$(RGBMATRIX_REPO_PI5) \
-		--build-arg RGBMATRIX_REF=$(RGBMATRIX_REF_PI5) \
-		-t led-ticker:pi5 .
+# rgbmatrix fork+branch is hardcoded in the Dockerfile (jamesawesome/pi5_support).
+# Validated to run on both the Pi 4 sign and the Pi 5 bigsign.
+build-docker:  ## Build the production Docker image (Pi 4 + Pi 5)
+	docker build -t led-ticker .
 
 # --- Cleanup ---
 

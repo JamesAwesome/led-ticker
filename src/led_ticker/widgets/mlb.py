@@ -126,7 +126,7 @@ class GameInfo:
     away_abbr: str
     home_score: int | None = None
     away_score: int | None = None
-    state: str = "preview"  # "final", "live", "preview"
+    state: str = "preview"  # "final", "live", "preview", "postponed"
     game_type: str = "R"  # R=regular, S=spring, A=all-star, P+=postseason
     inning: str | None = None
     balls: int = 0
@@ -137,6 +137,10 @@ class GameInfo:
     on_third: bool = False
     start_time: datetime | None = None
     game_pk: int = 0
+    # For state="postponed": short reason like "Rain" or "" if unknown
+    postpone_reason: str = ""
+    # For state="postponed": short tag like "PPD", "SUSP", "CANC"
+    postpone_tag: str = "PPD"
 
 
 @dataclass
@@ -173,6 +177,32 @@ def _format_game_time(dt: datetime, tz: ZoneInfo) -> str:
     if days_out <= 6:
         return local.strftime("%a %-I:%M %p")
     return local.strftime("%b %-d %-I:%M %p")
+
+
+def _classify_postponement(detailed_state: str) -> tuple[str | None, str]:
+    """Map a `status.detailedState` string to (game_state, short_tag).
+
+    Returns (None, "PPD") for non-postponement states; the caller should
+    fall back to abstractGameState in that case.
+
+    Examples of detailedState values from the MLB API:
+      "Postponed"                  → ("postponed", "PPD")
+      "Cancelled"                  → ("postponed", "CANC")
+      "Suspended"                  → ("postponed", "SUSP")
+      "Suspended: Rain"            → ("postponed", "SUSP")
+      "Completed Early"            → ("postponed", "EARLY")
+      "Completed Early: Rain"      → ("postponed", "EARLY")
+    """
+    s = detailed_state.lower()
+    if "postponed" in s:
+        return "postponed", "PPD"
+    if "cancelled" in s or "canceled" in s:
+        return "postponed", "CANC"
+    if "suspended" in s:
+        return "postponed", "SUSP"
+    if "completed early" in s:
+        return "postponed", "EARLY"
+    return None, "PPD"
 
 
 def _parse_team_abbr(team_data: dict[str, Any]) -> str:
@@ -361,6 +391,22 @@ def _build_game_message(game: GameInfo, team_abbr: str, tz: ZoneInfo) -> MLBGame
             (f"{game.outs}", out_c),
         ]
 
+    elif game.state == "postponed":
+        # Rain delay / cancelled / suspended / completed early. Show team
+        # vs team with a short tag and reason if available, instead of
+        # "(Final)" + None scores.
+        tag_color = _color(255, 200, 60)  # amber — distinct from win/loss/white
+        if game.postpone_reason:
+            tag = f" ({game.postpone_tag}: {game.postpone_reason})"
+        else:
+            tag = f" ({game.postpone_tag})"
+        segments = [
+            (game.away_abbr, away_c),
+            (" @ ", RGB_WHITE),
+            (game.home_abbr, home_c),
+            (tag, tag_color),
+        ]
+
     else:  # preview
         time_str = _format_game_time(game.start_time, tz) if game.start_time else "TBD"
         segments = [
@@ -542,6 +588,15 @@ class MLBScoreMonitor:
             for g in date_entry.get("games", []):
                 status = g.get("status", {})
                 abstract = status.get("abstractGameState", "Preview")
+                detailed = status.get("detailedState", "")
+                reason = status.get("reason", "") or ""
+
+                # Postponed / cancelled / suspended games come through with
+                # abstractGameState="Final" but detailedState like
+                # "Postponed", "Cancelled", "Suspended: Rain", etc. Detect
+                # those before treating the game as completed (which would
+                # render None scores as if the game ended 0-0).
+                postponed_state, postpone_tag = _classify_postponement(detailed)
 
                 home_team = g.get("teams", {}).get("home", {})
                 away_team = g.get("teams", {}).get("away", {})
@@ -554,7 +609,7 @@ class MLBScoreMonitor:
                 inning: str | None = None
                 balls = strikes = outs = 0
                 on_first = on_second = on_third = False
-                if abstract == "Live":
+                if abstract == "Live" and not postponed_state:
                     linescore = g.get("linescore", {})
                     inning_num = linescore.get("currentInning", 0)
                     half = linescore.get("inningHalf", "top").lower()
@@ -586,13 +641,19 @@ class MLBScoreMonitor:
                     "Preview": "preview",
                 }
 
+                resolved_state = (
+                    postponed_state
+                    if postponed_state is not None
+                    else state_map.get(abstract, "preview")
+                )
+
                 games.append(
                     GameInfo(
                         home_abbr=home_abbr,
                         away_abbr=away_abbr,
                         home_score=home_score,
                         away_score=away_score,
-                        state=state_map.get(abstract, "preview"),
+                        state=resolved_state,
                         inning=inning,
                         start_time=start_time,
                         game_type=g.get("gameType", "R"),
@@ -603,6 +664,8 @@ class MLBScoreMonitor:
                         on_first=on_first,
                         on_second=on_second,
                         on_third=on_third,
+                        postpone_reason=reason if postponed_state else "",
+                        postpone_tag=postpone_tag if postponed_state else "PPD",
                     )
                 )
 
@@ -669,7 +732,9 @@ class MLBScoreMonitor:
     ) -> SeriesInfo | None:
         """Find series that is live or most recently played."""
         for s in reversed(series_list):
-            has_final = any(g.state == "final" for g in s.games)
+            # "Final" + "postponed" both count as "this game is done for now"
+            # for the purpose of locating the current series.
+            has_final = any(g.state in ("final", "postponed") for g in s.games)
             has_live = any(g.state == "live" for g in s.games)
             has_upcoming = any(g.state == "preview" for g in s.games)
             if has_live:

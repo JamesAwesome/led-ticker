@@ -13,6 +13,7 @@ from led_ticker.widgets.mlb import (
     SeriesInfo,
     _build_game_message,
     _build_series_title,
+    _classify_postponement,
     _format_game_time,
     _format_inning,
     _ordinal,
@@ -124,6 +125,48 @@ class TestGameInfo:
         assert g.home_score == 5
 
 
+# --- Postponement classification ---
+
+
+class TestClassifyPostponement:
+    def test_postponed(self):
+        assert _classify_postponement("Postponed") == ("postponed", "PPD")
+
+    def test_cancelled(self):
+        assert _classify_postponement("Cancelled") == ("postponed", "CANC")
+
+    def test_canceled_us_spelling(self):
+        assert _classify_postponement("Canceled") == ("postponed", "CANC")
+
+    def test_suspended(self):
+        assert _classify_postponement("Suspended") == ("postponed", "SUSP")
+
+    def test_suspended_with_reason(self):
+        assert _classify_postponement("Suspended: Rain") == ("postponed", "SUSP")
+
+    def test_completed_early(self):
+        assert _classify_postponement("Completed Early") == ("postponed", "EARLY")
+
+    def test_completed_early_with_reason(self):
+        assert _classify_postponement("Completed Early: Rain") == (
+            "postponed",
+            "EARLY",
+        )
+
+    def test_normal_final_returns_none(self):
+        """Non-postponement states return None so caller falls back to abstract."""
+        state, _ = _classify_postponement("Final")
+        assert state is None
+
+    def test_in_progress_returns_none(self):
+        state, _ = _classify_postponement("In Progress")
+        assert state is None
+
+    def test_empty_string_returns_none(self):
+        state, _ = _classify_postponement("")
+        assert state is None
+
+
 # --- SeriesInfo ---
 
 
@@ -132,6 +175,67 @@ class TestSeriesInfo:
         s = SeriesInfo(opponent_abbr="NYM")
         assert s.team_wins == 0
         assert s.team_losses == 0
+
+
+class TestPostponedGameMessage:
+    """Render a postponed game without faking a Final score."""
+
+    def test_renders_without_scores(self):
+        g = GameInfo(
+            home_abbr="PHI",
+            away_abbr="SF",
+            state="postponed",
+            postpone_tag="PPD",
+            postpone_reason="Rain",
+        )
+        msg = _build_game_message(g, "PHI", ET)
+        text = "".join(seg[0] for seg in msg.segments)
+        assert "SF" in text
+        assert "PHI" in text
+        assert "(PPD: Rain)" in text
+        # No "Final" tag, no "None" scores
+        assert "Final" not in text
+        assert "None" not in text
+
+    def test_no_reason_just_tag(self):
+        g = GameInfo(
+            home_abbr="PHI",
+            away_abbr="SF",
+            state="postponed",
+            postpone_tag="PPD",
+        )
+        msg = _build_game_message(g, "PHI", ET)
+        text = "".join(seg[0] for seg in msg.segments)
+        assert "(PPD)" in text
+        assert ":" not in text  # no "PPD: ..." when reason is empty
+
+    def test_cancelled_uses_canc_tag(self):
+        g = GameInfo(
+            home_abbr="PHI",
+            away_abbr="SF",
+            state="postponed",
+            postpone_tag="CANC",
+        )
+        msg = _build_game_message(g, "PHI", ET)
+        text = "".join(seg[0] for seg in msg.segments)
+        assert "(CANC)" in text
+
+    def test_postponed_not_counted_as_win_or_loss(self):
+        """A postponed game must not affect a series record."""
+        session = mock.MagicMock()
+        monitor = MLBScoreMonitor(session=session, team="PHI")
+        games = [
+            GameInfo(
+                home_abbr="PHI",
+                away_abbr="SF",
+                state="postponed",
+                postpone_tag="PPD",
+                postpone_reason="Rain",
+            )
+        ]
+        series = monitor._make_series("SF", games)
+        assert series.team_wins == 0
+        assert series.team_losses == 0
 
 
 # --- Message Building ---

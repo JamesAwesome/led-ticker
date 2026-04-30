@@ -1244,3 +1244,111 @@ class TestRunTransitionOnScaledCanvas:
             duration=0.5,
             scroll_speed=0.05,
         )
+
+
+class TestRunTransitionCrossScale:
+    """Regression: when incoming_scale != current scale, run_transition
+    must allocate a new wrapper at incoming_scale at t >= 0.5 and dissolve
+    the incoming widget in at its native size. Without this, the new
+    section's first render snaps to the correct scale AFTER the dissolve,
+    causing a visible "flash" at scale-change boundaries (commit e539a47).
+
+    Uses real bigsign canvases + ScaledCanvas to exercise the integration
+    end-to-end rather than mocking the wrapper.
+    """
+
+    @pytest.fixture
+    def real_bigsign_canvas(self):
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 8
+        opts.parallel = 1
+        opts.pixel_mapper_config = "U-mapper"
+        return RGBMatrix(options=opts).CreateFrameCanvas()
+
+    @pytest.fixture
+    def bigsign_frame(self, real_bigsign_canvas):
+        frame = mock.Mock()
+        frame.get_clean_canvas.return_value = real_bigsign_canvas
+        frame.matrix.SwapOnVSync.side_effect = lambda c: type(real_bigsign_canvas)(
+            width=c.width, height=c.height
+        )
+        # CreateFrameCanvas must return a fresh real canvas (not a ScaledCanvas)
+        # — run_transition wraps it itself.
+        frame.matrix.CreateFrameCanvas.side_effect = lambda: type(real_bigsign_canvas)(
+            width=real_bigsign_canvas.width, height=real_bigsign_canvas.height
+        )
+        return frame
+
+    async def test_incoming_scale_triggers_wrapper_switch(
+        self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
+    ):
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        outgoing_wrapper = ScaledCanvas(real_bigsign_canvas, scale=2)
+
+        result = await run_transition(
+            outgoing_wrapper,
+            bigsign_frame,
+            outgoing,
+            incoming,
+            transition=Dissolve(),
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=4,
+        )
+        # Once at t=0.5 the wrapper is swapped to scale=4
+        assert isinstance(result, ScaledCanvas)
+        assert result.scale == 4
+        # And exactly one fresh canvas was allocated for the new wrapper
+        assert bigsign_frame.matrix.CreateFrameCanvas.call_count == 1
+
+    async def test_same_scale_skips_wrapper_switch(
+        self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
+    ):
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wrapper = ScaledCanvas(real_bigsign_canvas, scale=4)
+
+        result = await run_transition(
+            wrapper,
+            bigsign_frame,
+            outgoing,
+            incoming,
+            transition=Dissolve(),
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=4,  # same as current
+        )
+        # No re-wrap needed
+        assert bigsign_frame.matrix.CreateFrameCanvas.call_count == 0
+        # Result is the SAME wrapper (real canvas may have been swapped in-place)
+        assert result is wrapper
+
+    async def test_no_incoming_scale_no_switch(
+        self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
+    ):
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        wrapper = ScaledCanvas(real_bigsign_canvas, scale=2)
+
+        await run_transition(
+            wrapper,
+            bigsign_frame,
+            outgoing,
+            incoming,
+            transition=Dissolve(),
+            duration=0.5,
+            scroll_speed=0.05,
+            # incoming_scale=None → no switch
+        )
+        assert bigsign_frame.matrix.CreateFrameCanvas.call_count == 0

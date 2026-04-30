@@ -135,9 +135,9 @@ class TestSwapAndScrollOverflow:
             widget = make_widget(content_width=width)
             _, _, scroll_pos = await _swap_and_scroll(canvas, mock_frame, widget)
             expected = -(width - canvas.width)
-            assert scroll_pos == expected, (
-                f"width={width}: expected {expected}, got {scroll_pos}"
-            )
+            assert (
+                scroll_pos == expected
+            ), f"width={width}: expected {expected}, got {scroll_pos}"
 
     async def test_stop_pos_accounts_for_padding(
         self,
@@ -165,6 +165,136 @@ class TestSwapAndScrollOverflow:
         _, _, scroll_pos = await _swap_and_scroll(canvas, mock_frame, widget)
         # stop_pos = -(600 - 160) - 0 = -440
         assert scroll_pos == -440
+
+
+class TestSwapAndScrollSkipInitialDraw:
+    """Regression: _swap_and_scroll(skip_initial_draw=True) skips the FIRST
+    SwapOnVSync because the caller (a transition or a scroll-between) just
+    put this widget on screen at t=1.0. Without this, the panel goes blank
+    for one frame between transition end and section start.
+    """
+
+    async def test_skip_initial_draw_omits_first_swap(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        widget = make_widget(content_width=40)
+        await _swap_and_scroll(canvas, mock_frame, widget, skip_initial_draw=True)
+        # Widget fits — only the initial swap exists in the normal path.
+        # With skip_initial_draw=True, that swap is suppressed → 0 swaps.
+        assert mock_frame.matrix.SwapOnVSync.call_count == 0, (
+            f"skip_initial_draw=True should suppress the initial swap; "
+            f"got {mock_frame.matrix.SwapOnVSync.call_count} swaps."
+        )
+
+    async def test_default_includes_initial_swap(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        # Sanity: default path DOES swap at the start.
+        widget = make_widget(content_width=40)
+        await _swap_and_scroll(canvas, mock_frame, widget)
+        assert mock_frame.matrix.SwapOnVSync.call_count == 1
+
+
+class TestSwapAndScrollContinuous:
+    """Regression: continuous=True skips the hold_time sleeps for overflow
+    widgets. Used by the scroll transition in _run_swap to keep one
+    seamless 1px/frame stream across widget boundaries.
+    """
+
+    async def test_continuous_skips_holds_for_overflow(
+        self, canvas, mock_frame, make_widget, monkeypatch
+    ):
+        sleep_calls: list[float] = []
+        _real_sleep = asyncio.sleep
+
+        async def _record(seconds):
+            sleep_calls.append(seconds)
+            await _real_sleep(0)
+
+        monkeypatch.setattr("led_ticker.ticker.asyncio.sleep", _record)
+
+        widget = make_widget(content_width=200)  # overflows 160-wide canvas
+        await _swap_and_scroll(
+            canvas, mock_frame, widget, hold_time=3.0, continuous=True
+        )
+        # No 3-second hold_time sleeps should appear when continuous=True.
+        assert (
+            3.0 not in sleep_calls
+        ), f"continuous=True must skip hold_time sleeps; sleep_calls={sleep_calls}"
+
+    async def test_non_continuous_includes_holds(
+        self, canvas, mock_frame, make_widget, monkeypatch
+    ):
+        sleep_calls: list[float] = []
+        _real_sleep = asyncio.sleep
+
+        async def _record(seconds):
+            sleep_calls.append(seconds)
+            await _real_sleep(0)
+
+        monkeypatch.setattr("led_ticker.ticker.asyncio.sleep", _record)
+
+        widget = make_widget(content_width=200)
+        await _swap_and_scroll(
+            canvas, mock_frame, widget, hold_time=3.0, continuous=False
+        )
+        # Two hold_time sleeps for an overflowing widget: pre-scroll, post-scroll.
+        assert sleep_calls.count(3.0) == 2
+
+
+class TestSwapOnVSyncCapture:
+    """Regression: every SwapOnVSync call's return value must be captured
+    (CLAUDE.md constraint #1). On real hardware the return is the previous
+    front buffer (a DIFFERENT object) which becomes the new back buffer.
+    Dropping it draws on the actively-displayed buffer, causing tearing.
+
+    The default mock_frame returns the same canvas, so dropping the
+    capture is invisible. swapping_frame rotates between two distinct
+    canvas objects so the bug is detectable: count distinct canvases
+    seen by widget.draw — if < 2, capture was dropped somewhere.
+    """
+
+    async def test_swap_and_scroll_captures_return(
+        self, swapping_frame, make_widget, no_sleep
+    ):
+        widget = make_widget(content_width=200)  # overflow → multiple frames
+        canvas = swapping_frame.get_clean_canvas()
+        await _swap_and_scroll(canvas, swapping_frame, widget)
+
+        canvas_args = {id(call.args[0]) for call in widget.draw.call_args_list}
+        assert len(canvas_args) >= 2, (
+            "widget.draw was called with only one canvas object — "
+            "production code likely dropped a SwapOnVSync return value."
+        )
+
+    async def test_run_transition_captures_return(
+        self, swapping_frame, make_widget, no_sleep
+    ):
+        from led_ticker.transitions import Cut, run_transition
+
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        canvas = swapping_frame.get_clean_canvas()
+
+        await run_transition(
+            canvas,
+            swapping_frame,
+            outgoing,
+            incoming,
+            transition=Cut(),
+            duration=0.5,
+            scroll_speed=0.05,
+        )
+        # Outgoing/incoming each get drawn at distinct frames.
+        # If capture is dropped, every call sees canvas_a only.
+        all_args = [call.args[0] for call in outgoing.draw.call_args_list] + [
+            call.args[0] for call in incoming.draw.call_args_list
+        ]
+        distinct = {id(c) for c in all_args}
+        assert len(distinct) >= 2, (
+            f"All transition draws happened on one canvas (id count={len(distinct)}) "
+            "— likely a dropped SwapOnVSync return."
+        )
 
 
 class TestScrollAndDelay:

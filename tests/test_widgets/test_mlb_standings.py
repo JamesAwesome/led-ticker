@@ -311,44 +311,138 @@ class TestOffseason:
         ]
         assert not all(s.wins == 0 and s.losses == 0 for s in standings)
 
+    def _make_session(self, *, all_zero: bool = True, schedule_dates=None):
+        """Mock aiohttp session that routes by URL.
+
+        - /standings -> records with all-zero records (offseason) or sample data
+        - /teams -> abbr->id map for tracked teams
+        - /schedule -> game dates (or empty for fallback path)
+        """
+        session = mock.MagicMock()
+
+        def make_ctx(url, *args, **kwargs):
+            resp = mock.AsyncMock()
+            if "/standings" in url:
+                if all_zero:
+                    resp.json.return_value = {
+                        "records": [
+                            {
+                                "teamRecords": [
+                                    {
+                                        "team": {"name": "New York Mets"},
+                                        "wins": 0,
+                                        "losses": 0,
+                                        "sportRank": "1",
+                                        "sportGamesBack": "-",
+                                    },
+                                    {
+                                        "team": {"name": "New York Yankees"},
+                                        "wins": 0,
+                                        "losses": 0,
+                                        "sportRank": "2",
+                                        "sportGamesBack": "-",
+                                    },
+                                ]
+                            }
+                        ]
+                    }
+                else:
+                    resp.json.return_value = {
+                        "records": [
+                            {
+                                "teamRecords": [
+                                    {
+                                        "team": {"name": "New York Mets"},
+                                        "wins": 5,
+                                        "losses": 2,
+                                        "sportRank": "1",
+                                        "sportGamesBack": "-",
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+            elif "/teams" in url:
+                resp.json.return_value = {
+                    "teams": [
+                        {"id": 121, "abbreviation": "NYM"},
+                        {"id": 147, "abbreviation": "NYY"},
+                    ]
+                }
+            elif "/schedule" in url:
+                if schedule_dates:
+                    resp.json.return_value = {
+                        "dates": [{"games": [{"gameDate": d} for d in schedule_dates]}]
+                    }
+                else:
+                    resp.json.return_value = {"dates": []}
+            else:
+                resp.json.return_value = {}
+
+            ctx = mock.AsyncMock()
+            ctx.__aenter__.return_value = resp
+            return ctx
+
+        session.get.side_effect = make_ctx
+        return session
+
     @pytest.mark.asyncio
-    async def test_offseason_with_opening_day(self):
-        """Offseason shows 'Opens [date]' when schedule has games."""
-        widget = MLBStandingsMonitor(
-            session=mock.Mock(),
-            teams=["NYM"],
+    async def test_update_routes_to_offseason_when_all_zero(self):
+        # Drive update() — assert behavior, not pre-set state.
+        session = self._make_session(
+            all_zero=True,
+            schedule_dates=["2026-03-27T17:00:00Z"],
         )
+        widget = MLBStandingsMonitor(session=session, teams=["NYM"])
         widget._tz = __import__("zoneinfo").ZoneInfo("America/New_York")
 
-        widget.feed_title = TickerMessage(
-            widget.title,
-            font_color=RGB_WHITE,
-            center=True,
-        )
-        widget.feed_stories = [
-            TickerMessage("Opens Mar 27", font_color=RGB_WHITE, center=True),
-        ]
+        await widget.update()
 
         assert len(widget.feed_stories) == 1
-        assert widget.feed_stories[0].message == "Opens Mar 27"
+        # Offseason path produced an "Opens <date>" message
+        assert widget.feed_stories[0].message.startswith("Opens ")
+        # Title is set
+        assert widget.feed_title is not None
 
     @pytest.mark.asyncio
-    async def test_offseason_fallback(self):
-        """Offseason shows 'Opens soon' when no schedule data."""
-        widget = MLBStandingsMonitor(
-            session=mock.Mock(),
-            teams=["NYM"],
-        )
+    async def test_update_offseason_fallback_when_no_schedule(self):
+        # All-zero standings + empty schedule → "Opens soon"
+        session = self._make_session(all_zero=True, schedule_dates=None)
+        widget = MLBStandingsMonitor(session=session, teams=["NYM"])
         widget._tz = __import__("zoneinfo").ZoneInfo("America/New_York")
 
-        widget.feed_title = TickerMessage(
-            widget.title,
-            font_color=RGB_WHITE,
-            center=True,
-        )
-        widget.feed_stories = [
-            TickerMessage("Opens soon", font_color=RGB_WHITE, center=True),
-        ]
+        await widget.update()
 
         assert len(widget.feed_stories) == 1
         assert widget.feed_stories[0].message == "Opens soon"
+
+    @pytest.mark.asyncio
+    async def test_update_skips_offseason_when_games_played(self):
+        # Some non-zero records → normal path, NOT offseason.
+        session = self._make_session(all_zero=False)
+        widget = MLBStandingsMonitor(session=session, teams=["NYM"], top_n=1)
+        widget._tz = __import__("zoneinfo").ZoneInfo("America/New_York")
+
+        await widget.update()
+
+        # Should have a real standings story, not "Opens ..."
+        assert len(widget.feed_stories) >= 1
+        first_msg = widget.feed_stories[0]
+        # MLBGameMessage doesn't have a single .message; just verify it's not
+        # the offseason TickerMessage.
+        if isinstance(first_msg, TickerMessage):
+            assert not first_msg.message.startswith("Opens")
+
+    @pytest.mark.asyncio
+    async def test_update_handles_api_error_gracefully(self):
+        # Network failure → _set_error_state() puts a "No Data" story.
+        session = mock.MagicMock()
+        session.get.side_effect = RuntimeError("network down")
+        widget = MLBStandingsMonitor(session=session, teams=["NYM"])
+        widget._tz = __import__("zoneinfo").ZoneInfo("America/New_York")
+
+        # Should not propagate the exception
+        await widget.update()
+
+        assert len(widget.feed_stories) == 1
+        assert widget.feed_stories[0].message == "No Data"

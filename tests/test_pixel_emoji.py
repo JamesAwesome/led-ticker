@@ -199,8 +199,9 @@ def test_hires_falls_back_to_lowres_on_real_canvas():
         color=(255, 255, 255),
         text=":moon:",
     )
-    # 8×8 MOON has lit pixels through col 5 → width 6 → +2 padding = 8.
-    assert advance == 8
+    # 8×8 MOON (uniform 3-wide crescent) has lit pixels through col 4
+    # → width 5 → +2 padding = 7.
+    assert advance == 7
 
 
 def test_generate_moon_hires_produces_pixels():
@@ -288,11 +289,11 @@ def test_max_emoji_height_falls_back_to_lowres():
         text=":moon:",
         max_emoji_height=8,
     )
-    # Low-res advance: 8x8 MOON has lit pixels through col 5 → width 6
-    # → +2 padding = 8.
-    assert advance == 8, (
+    # Low-res advance: 8x8 MOON (uniform 3-wide) has lit pixels through
+    # col 4 → width 5 → +2 padding = 7.
+    assert advance == 7, (
         f"With max_emoji_height=8 < hi-res 16, should fall back to low-res "
-        f"(width=8); got advance={advance}"
+        f"(width=7); got advance={advance}"
     )
 
 

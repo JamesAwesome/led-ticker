@@ -46,3 +46,23 @@ async def test_gif_absolute_path_left_alone(tmp_path):
     widget = await _build(cfg, config_dir=tmp_path / "elsewhere")
 
     assert Path(widget.path) == gif_path.resolve()
+
+
+async def test_gif_text_kwarg_not_renamed_to_message(tmp_path):
+    """Regression: _build_widget renames `text` → `message` for the
+    TickerMessage widget but must skip it for GifPlayer, which accepts
+    `text` natively for its alongside-text feature."""
+    gif_path = tmp_path / "tiny.gif"
+    _write_tiny_gif(gif_path)
+
+    cfg = {
+        "type": "gif",
+        "path": str(gif_path.resolve()),
+        "fit": "pillarbox",
+        "text": "PIKACHU!",
+        "text_align": "right",
+    }
+    widget = await _build(cfg, config_dir=tmp_path)
+
+    assert widget.text == "PIKACHU!"
+    assert widget.text_align == "right"

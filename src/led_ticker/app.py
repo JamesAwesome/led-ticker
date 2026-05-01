@@ -82,8 +82,11 @@ async def _build_widget(
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)
 
-    # Config uses "text" but TickerMessage/TickerCountdown use "message"
-    if "text" in widget_cfg:
+    # Config uses "text" but TickerMessage/TickerCountdown use "message".
+    # Only rename for widgets that don't accept `text` natively (e.g.
+    # GifPlayer takes `text` directly for its alongside-text feature).
+    cls_fields = {a.name for a in getattr(cls, "__attrs_attrs__", ())}
+    if "text" in widget_cfg and "text" not in cls_fields:
         if "message" not in widget_cfg:
             widget_cfg["message"] = widget_cfg.pop("text")
         else:

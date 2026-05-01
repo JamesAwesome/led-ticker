@@ -124,3 +124,55 @@ def test_unknown_fit_raises(tmp_path):
 def test_missing_file_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         decode_gif(tmp_path / "nope.gif", panel_w=256, panel_h=64, fit="stretch")
+
+
+def test_pillarbox_h_align_left_anchors_at_x_zero(tmp_path):
+    """h_align='left' positions a 64×64 pillarboxed frame at x=0..63;
+    the right side (cols 64..255) is the black pillar."""
+    path = tmp_path / "sq.gif"
+    path.write_bytes(_make_gif([(255, 255, 255)], size=(32, 32)).getvalue())
+
+    [(pixels, _)] = decode_gif(
+        path, panel_w=256, panel_h=64, fit="pillarbox", h_align="left"
+    )
+
+    def px(x: int, y: int) -> tuple[int, int, int]:
+        i = (y * 256 + x) * 3
+        return (pixels[i], pixels[i + 1], pixels[i + 2])
+
+    # Left edge has gif content
+    assert px(0, 32) == (255, 255, 255)
+    assert px(63, 32) == (255, 255, 255)
+    # Right side is the black pillar
+    assert px(64, 32) == (0, 0, 0)
+    assert px(255, 32) == (0, 0, 0)
+
+
+def test_pillarbox_h_align_right_anchors_at_panel_edge(tmp_path):
+    """h_align='right' positions the 64×64 frame at cols 192..255 with
+    the black pillar covering cols 0..191."""
+    path = tmp_path / "sq.gif"
+    path.write_bytes(_make_gif([(255, 255, 255)], size=(32, 32)).getvalue())
+
+    [(pixels, _)] = decode_gif(
+        path, panel_w=256, panel_h=64, fit="pillarbox", h_align="right"
+    )
+
+    def px(x: int, y: int) -> tuple[int, int, int]:
+        i = (y * 256 + x) * 3
+        return (pixels[i], pixels[i + 1], pixels[i + 2])
+
+    # Left side is the black pillar
+    assert px(0, 32) == (0, 0, 0)
+    assert px(191, 32) == (0, 0, 0)
+    # Right side has gif content
+    assert px(192, 32) == (255, 255, 255)
+    assert px(255, 32) == (255, 255, 255)
+
+
+def test_unknown_h_align_raises(tmp_path):
+    path = tmp_path / "x.gif"
+    path.write_bytes(_make_gif([(0, 0, 0)]).getvalue())
+
+    with pytest.raises(ValueError, match="h_align"):
+        decode_gif(path, panel_w=256, panel_h=64, fit="pillarbox", h_align="weird")

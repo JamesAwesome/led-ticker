@@ -123,6 +123,7 @@ RUN_MODES: dict[str, str] = {
     "forever_scroll": "run_forever_scroll",
     "infini_scroll": "run_infini_scroll",
     "swap": "run_swap",
+    "gif": "run_gif",
 }
 
 

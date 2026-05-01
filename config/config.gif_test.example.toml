@@ -1,0 +1,181 @@
+# GIF widget test config — Pi 5 bigsign.
+#
+# Cycles through every `fit` mode for the GIF widget so you can eyeball
+# each one on real hardware. Uses `pika_wave.gif` (220×220 square) as
+# the test asset for every section, so the differences are pure fit-
+# mode variation.
+#
+# Sections:
+#   1. pillarbox  — scale by height (64), center horizontally with
+#                   black pillars (most common; preserves aspect)
+#   2. stretch    — fill the whole 256×64 panel, distorting to 4:1
+#   3. letterbox  — scale by width (256), center vertically with
+#                   black bands top + bottom
+#   4. crop       — scale to cover both axes, center-crop the excess
+#                   (no black at all — fills panel by losing some of
+#                   the source vertically)
+#   5. pillarbox + loop_count=4 — proves loop_count works
+#
+# Transitions: dissolve between sections (sandwiches each GIF playback
+# cleanly — entry transition composites against frame 0, exit composites
+# against the last frame).
+#
+# Copy to config.toml on the bigsign Pi:
+#   cp config/config.gif_test.example.toml config/config.toml
+#
+# On the Pi (Docker Compose):
+#   docker compose up -d --build
+#   docker compose logs -f
+
+# ---------------------------------------------------------------------------
+# Display + RP1 performance tuning (matches config.bigsign.example.toml)
+# ---------------------------------------------------------------------------
+
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+
+brightness = 60
+slowdown_gpio = 3
+gpio_mapping = "adafruit-hat"
+default_scale = 4
+
+pwm_bits = 8
+show_refresh = true
+rp1_rio = 1
+
+[title]
+delay = 0
+
+[transitions]
+default = "cut"
+duration = 0.4
+easing = "linear"
+between_sections = "dissolve"
+
+# ---------------------------------------------------------------------------
+# Section 1 — pillarbox (default)
+#
+# Square 220×220 GIF scaled by height to 64. The result is 64×64 centered
+# horizontally on the 256×64 panel, with ~96 cols of black on each side.
+# This is what you want for square / portrait sources on the wide bigsign.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "gif"
+loop_count = 2
+transition = "dissolve"
+transition_duration = 0.6
+
+[playlist.section.title]
+type = "message"
+text = "PILLARBOX"
+color = [120, 200, 240]
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave.gif"
+fit = "pillarbox"
+
+# ---------------------------------------------------------------------------
+# Section 2 — stretch
+#
+# Same source distorted to 256×64. Pikachu becomes very wide and short —
+# useful for visual confirmation that "stretch" actually fills the whole
+# panel (no black bands anywhere) and to see how aggressively the panel's
+# 4:1 aspect distorts a square source.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "gif"
+loop_count = 2
+transition = "dissolve"
+transition_duration = 0.6
+
+[playlist.section.title]
+type = "message"
+text = "STRETCH"
+color = [255, 180, 80]
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave.gif"
+fit = "stretch"
+
+# ---------------------------------------------------------------------------
+# Section 3 — letterbox
+#
+# Square source scaled by WIDTH to 256, then centered vertically. With a
+# 220×220 source, scale-by-width would produce 256×256, but the renderer
+# clamps the height to 64 and falls back to scale-by-height — so this
+# visually matches `pillarbox` for square sources. The interesting case
+# would be a wide (e.g. 16:9) GIF, which would actually letterbox with
+# black bars top/bottom.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "gif"
+loop_count = 2
+transition = "dissolve"
+transition_duration = 0.6
+
+[playlist.section.title]
+type = "message"
+text = "LETTERBOX"
+color = [180, 120, 240]
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave.gif"
+fit = "letterbox"
+
+# ---------------------------------------------------------------------------
+# Section 4 — crop
+#
+# Square 220×220 source scaled to COVER 256×64 (so it scales to 256×256 and
+# crops top + bottom to 64). Pikachu's middle horizontal band fills the
+# panel — no black at all, but the top and bottom of the source are lost.
+# Best for sources where the action is in the middle.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "gif"
+loop_count = 2
+transition = "dissolve"
+transition_duration = 0.6
+
+[playlist.section.title]
+type = "message"
+text = "CROP"
+color = [120, 240, 130]
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave.gif"
+fit = "crop"
+
+# ---------------------------------------------------------------------------
+# Section 5 — loop_count = 4 (pillarbox)
+#
+# Same as Section 1 but plays the GIF 4 complete times before transitioning
+# out. Confirms `loop_count` actually controls repetition.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "gif"
+loop_count = 4
+transition = "dissolve"
+transition_duration = 0.6
+
+[playlist.section.title]
+type = "message"
+text = "x4 LOOPS"
+color = [255, 100, 130]
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave.gif"
+fit = "pillarbox"

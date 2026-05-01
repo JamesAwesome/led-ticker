@@ -281,21 +281,7 @@ bottom_color = [255, 215, 0]
 bottom_align = "center"
 
 # ---------------------------------------------------------------------------
-# Section 8 — GIF playback (Pikachu wave)
-#
-# Plays config/assets/pika_wave.gif twice in pillarbox mode (the source
-# is square; the panel is 4:1, so the GIF appears 64×64 centered with
-# black pillars on either side). The section transition before/after
-# uses the default dissolve, sandwiching the GIF playback cleanly.
+# GIF widget tests live in config/config.gif_test.example.toml — that
+# config exercises every fit mode (pillarbox / stretch / letterbox /
+# crop) plus a loop_count variant.
 # ---------------------------------------------------------------------------
-
-[[playlist.section]]
-mode = "gif"
-loop_count = 2
-transition = "dissolve"
-transition_duration = 0.6
-
-[[playlist.section.widget]]
-type = "gif"
-path = "assets/pika_wave.gif"
-fit = "pillarbox"

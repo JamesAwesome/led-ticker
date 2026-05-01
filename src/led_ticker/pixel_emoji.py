@@ -287,53 +287,59 @@ INSTAGRAM: PixelData = [
 ]
 
 
-# ⭐ 8×8 Star — 5-pointed, derived to look like a downsample of the hi-res
-# 32×32 star. Compared to the previous version (2-px top tip, 3-row
-# rectangular legs) this has a thinner 1-px top tip that gradually
-# widens to the full 8-px horizontal arms at row 3 (~40% down,
-# matching the hi-res proportion), then tapers through the body and
-# splits into legs spreading to the bottom corners.
+# ⭐ 8×8 Star — algorithmically derived from the 32×32 hi-res star.
+# Shape comes from generating a 5-point star polygon at 32×32, then
+# downsampling 4× with a "majority-lit" threshold and mirror enforcement
+# so the result is symmetric. Row 7 corner-leg pixels added manually
+# so the star reaches the bottom of the canvas (the polygon math at
+# 8×8 naturally falls 1 row short of filling the grid; without the
+# corners the star floats with bottom margin).
+#
+# Algorithm (run once, output baked into the list below):
+#   for x, y in STAR_HIRES.pixels: counts[y//4][x//4] += 1
+#   for y, x in 8x8: lit if counts[y][x] >= 4 or counts[y][7-x] >= 4
+#   then add row 7 corner-legs (cols 0,1,6,7).
 _ST = (255, 215, 0)  # gold body
 _SH = (255, 255, 80)  # brighter highlight at the inner cells
 STAR: PixelData = [
-    # Row 0: thin 1-px top tip (col 4)
+    # Row 0: 2-px top tip (cols 3-4)
+    (3, 0, *_ST),
     (4, 0, *_ST),
-    # Row 1: widening (2 wide)
-    (3, 1, *_ST),
-    (4, 1, *_ST),
-    # Row 2: 4 wide (cols 2-5)
-    (2, 2, *_ST),
+    # Row 1: same (top continues thin) — gives the long-spike feel
+    (3, 1, *_SH),
+    (4, 1, *_SH),
+    # Row 2: full-width horizontal arms (8-px)
+    (0, 2, *_ST),
+    (1, 2, *_ST),
+    (2, 2, *_SH),
     (3, 2, *_SH),
     (4, 2, *_SH),
-    (5, 2, *_ST),
-    # Row 3: full-width horizontal arms (8-px) — matches hi-res's
-    # ~40%-down arm position
-    (0, 3, *_ST),
+    (5, 2, *_SH),
+    (6, 2, *_ST),
+    (7, 2, *_ST),
+    # Row 3: taper after arms (6-px, cols 1-6)
     (1, 3, *_ST),
     (2, 3, *_SH),
     (3, 3, *_SH),
     (4, 3, *_SH),
     (5, 3, *_SH),
     (6, 3, *_ST),
-    (7, 3, *_ST),
-    # Row 4: taper after arms (6 wide)
-    (1, 4, *_ST),
-    (2, 4, *_SH),
+    # Row 4: body (4-px, cols 2-5)
+    (2, 4, *_ST),
     (3, 4, *_SH),
     (4, 4, *_SH),
-    (5, 4, *_SH),
-    (6, 4, *_ST),
-    # Row 5: body waist (4 wide)
+    (5, 4, *_ST),
+    # Row 5: body continues (cols 2-5)
     (2, 5, *_ST),
     (3, 5, *_SH),
     (4, 5, *_SH),
     (5, 5, *_ST),
-    # Row 6: legs split (2-px each side, cols 1-2 and 5-6)
+    # Row 6: legs split (cols 1-2 + 5-6)
     (1, 6, *_ST),
     (2, 6, *_ST),
     (5, 6, *_ST),
     (6, 6, *_ST),
-    # Row 7: legs spread to corners (cols 0-1 and 6-7)
+    # Row 7: corner-legs (added so the star reaches the canvas bottom)
     (0, 7, *_ST),
     (1, 7, *_ST),
     (6, 7, *_ST),

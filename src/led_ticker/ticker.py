@@ -131,15 +131,27 @@ class Ticker:
         before the next widget (or section transition) takes over.
         Treats loop_count=0 as 1 (consistent with other run modes).
 
-        Unlike other run modes, GIF mode does not use _build_then_enqueue —
-        widgets are enqueued once and loop_count is passed directly to
-        play() so each GifPlayer handles its own repetition.
+        Each monitor is enqueued exactly once; per-gif repetition
+        happens inside play() via loop_count, NOT by re-queueing.
         """
         logging.info("Running GIF playback with loop count %s...", loop_count)
         canvas = _maybe_wrap(
             self.frame.get_clean_canvas(), self.scale, self.content_height
         )
+        title = self.title if self.title else None
         assert self.notif_queue is not None
+
+        # Enqueue each monitor exactly once. The per-gif loop_count is
+        # passed to play() below — _build_then_enqueue's loop_count is
+        # about queue repetition, which we don't want here.
+        asyncio.create_task(
+            _build_then_enqueue(
+                self.monitors,
+                self.notif_queue,
+                title=title,
+                loop_count=1,
+            )
+        )
 
         await _run_gif(
             canvas,

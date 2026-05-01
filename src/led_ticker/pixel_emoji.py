@@ -1111,10 +1111,12 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
     inner_left = rect_left + 2
     inner_right = rect_right - 2
 
-    # Meeting point sits 3 rows up from the inner bottom — the top flap
-    # fills the upper ~75% of the body, the bottom pinch is a small
-    # triangle in the remaining ~25%.
-    meet_y = inner_bottom - 3
+    # Single meeting point shared by both Vs, sitting ~65% down the
+    # body — gives an asymmetric X where the top V (closed flap) is
+    # large and the bottom V (visible interior pinch) is small. Apex
+    # at exact center reads as a "box with an X"; pushing it down 15%
+    # tilts the silhouette into envelope territory.
+    meet_y = inner_top + (inner_bottom - inner_top) * 65 // 100
 
     def _thick_line(x0: int, y0: int, x1: int, y1: int, thickness: int = 3) -> None:
         """N-px-thick Bresenham — each rasterized cell stamps a thickness×
@@ -1141,10 +1143,10 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
                 err += dx
                 y += sy
 
-    # Big top V: inner-top corners → near-bottom meeting point
+    # Top V flap (large): inner-top corners → meeting point
     _thick_line(inner_left, inner_top, cx, meet_y, thickness=2)
     _thick_line(inner_right, inner_top, cx, meet_y, thickness=2)
-    # Small bottom V: inner-bottom corners → same meeting point
+    # Bottom V (small triangle): inner-bottom corners → same meeting point
     _thick_line(inner_left, inner_bottom, cx, meet_y, thickness=2)
     _thick_line(inner_right, inner_bottom, cx, meet_y, thickness=2)
 

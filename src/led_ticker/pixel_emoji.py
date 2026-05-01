@@ -682,23 +682,52 @@ def _cloud_silhouette_pixels(
     circles: list[tuple[int, int, int]],
     color: tuple[int, int, int],
 ) -> list[tuple[int, int, int, int, int]]:
-    """Build a cloud silhouette as the union of circles, with the
-    bottom-most pixel of each circle trimmed off.
+    """Build a cloud silhouette as the union of circles, with two
+    cleanups applied:
 
-    The naked circle bottoms taper to a single pixel (the dy=r case),
-    producing visible "nubs" below the cloud. Skipping that one row
-    per circle removes the nubs while preserving the natural rounded
-    curves of the cloud body.
+    1. Bottom-row trim: skip each circle's `dy=r` pixel (which would
+       render as a single-pixel nub below the cloud).
+    2. Cardinal-extreme widen: for each circle, the top, left, and
+       right cardinal-extreme pixels are single-pixel protrusions
+       sticking out from the curve. The TOP peak (`dy=-r, dx=0`) is
+       widened horizontally (add the same row at `cx-1` and `cx+1`).
+       The LEFT and RIGHT equator extremes (`dy=0, |dx|=r`) are
+       widened vertically (add the same column at `cy-1` and `cy+1`).
+       Both turn 1-pixel "stuck dot" features into 3-pixel rounded
+       edges that blend into the curve.
+
+    The bottom extreme is trimmed (not widened) because a fat 3-pixel
+    bottom would make the cloud look bottom-heavy.
     """
     pixels: list[tuple[int, int, int, int, int]] = []
     for y in range(size):
         for x in range(size):
             for cx, cy, r in circles:
-                # Inside the circle, but not the very bottom row
-                # (which renders as a 1-px nub).
                 if (x - cx) ** 2 + (y - cy) ** 2 <= r * r and y < cy + r:
                     pixels.append((x, y, *color))
                     break
+
+    # Widen the cardinal-extreme protrusions (top horizontally, left/right
+    # vertically). Only adds pixels that weren't already lit — interior
+    # overlaps from other circles are no-ops.
+    pixel_set = {(p[0], p[1]) for p in pixels}
+
+    def _add(x: int, y: int) -> None:
+        if 0 <= x < size and 0 <= y < size and (x, y) not in pixel_set:
+            pixels.append((x, y, *color))
+            pixel_set.add((x, y))
+
+    for cx, cy, r in circles:
+        # TOP peak — widen horizontally
+        if (cx, cy - r) in pixel_set:
+            _add(cx - 1, cy - r)
+            _add(cx + 1, cy - r)
+        # LEFT and RIGHT equator extremes — widen vertically
+        for ex in (cx - r, cx + r):
+            if (ex, cy) not in pixel_set:
+                continue
+            _add(ex, cy - 1)
+            _add(ex, cy + 1)
     return pixels
 
 

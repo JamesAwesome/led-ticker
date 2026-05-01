@@ -287,53 +287,53 @@ INSTAGRAM: PixelData = [
 ]
 
 
-# ⭐ 8×8 Star — 5-pointed, fills the full 8×8 emoji canvas. Replaces the
-# 5×5 STAR from mlb_icons (which lived in cols 0-4 rows 0-4 and looked
-# scrunched next to other 8×8-filling emojis). The mlb_icons.STAR stays
-# put for MLB-widget use; this one is purely for inline emoji.
+# ⭐ 8×8 Star — 5-pointed, derived to look like a downsample of the hi-res
+# 32×32 star. Compared to the previous version (2-px top tip, 3-row
+# rectangular legs) this has a thinner 1-px top tip that gradually
+# widens to the full 8-px horizontal arms at row 3 (~40% down,
+# matching the hi-res proportion), then tapers through the body and
+# splits into legs spreading to the bottom corners.
 _ST = (255, 215, 0)  # gold body
 _SH = (255, 255, 80)  # brighter highlight at the inner cells
 STAR: PixelData = [
-    # Row 0: 2-px top point
-    (3, 0, *_ST),
+    # Row 0: thin 1-px top tip (col 4)
     (4, 0, *_ST),
-    # Row 1: top widens (4-px)
-    (2, 1, *_ST),
-    (3, 1, *_SH),
-    (4, 1, *_SH),
-    (5, 1, *_ST),
-    # Row 2: horizontal arms full width (8-px)
-    (0, 2, *_ST),
-    (1, 2, *_ST),
-    (2, 2, *_SH),
+    # Row 1: widening (2 wide)
+    (3, 1, *_ST),
+    (4, 1, *_ST),
+    # Row 2: 4 wide (cols 2-5)
+    (2, 2, *_ST),
     (3, 2, *_SH),
     (4, 2, *_SH),
-    (5, 2, *_SH),
-    (6, 2, *_ST),
-    (7, 2, *_ST),
-    # Row 3: taper after arms (6-px)
+    (5, 2, *_ST),
+    # Row 3: full-width horizontal arms (8-px) — matches hi-res's
+    # ~40%-down arm position
+    (0, 3, *_ST),
     (1, 3, *_ST),
     (2, 3, *_SH),
     (3, 3, *_SH),
     (4, 3, *_SH),
     (5, 3, *_SH),
     (6, 3, *_ST),
-    # Row 4: waist (4-px)
-    (2, 4, *_ST),
+    (7, 3, *_ST),
+    # Row 4: taper after arms (6 wide)
+    (1, 4, *_ST),
+    (2, 4, *_SH),
     (3, 4, *_SH),
     (4, 4, *_SH),
-    (5, 4, *_ST),
-    # Row 5: legs split (2-px each side)
-    (1, 5, *_ST),
+    (5, 4, *_SH),
+    (6, 4, *_ST),
+    # Row 5: body waist (4 wide)
     (2, 5, *_ST),
+    (3, 5, *_SH),
+    (4, 5, *_SH),
     (5, 5, *_ST),
-    (6, 5, *_ST),
-    # Row 6: legs spread further out
-    (0, 6, *_ST),
+    # Row 6: legs split (2-px each side, cols 1-2 and 5-6)
     (1, 6, *_ST),
+    (2, 6, *_ST),
+    (5, 6, *_ST),
     (6, 6, *_ST),
-    (7, 6, *_ST),
-    # Row 7: leg ends
+    # Row 7: legs spread to corners (cols 0-1 and 6-7)
     (0, 7, *_ST),
     (1, 7, *_ST),
     (6, 7, *_ST),

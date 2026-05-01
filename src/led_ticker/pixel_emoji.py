@@ -668,28 +668,61 @@ SUN_HIRES = HiResEmoji(
 )
 
 
-# ☁️ 32×32 Cloud — 3-bump silhouette via union of overlapping circles.
-# All three circles share a bottom y=22 to give the cloud a flat base.
+# ☁️ 32×32 Cloud — 3-bump silhouette via union of overlapping circles
+# PLUS a flat horizontal baseline. The naked circle union tapers to
+# single pixels at the bottom of each circle, producing 3 visible
+# "dots" below the cloud. The baseline slab (from the widest row of
+# the side circles down to the common bottom, spanning full horizontal
+# extent) replaces the curved tapers with a clean flat bottom edge.
 _CLOUD_COLOR = (220, 225, 240)
+
+
+def _cloud_silhouette_pixels(
+    size: int,
+    circles: list[tuple[int, int, int]],
+    color: tuple[int, int, int],
+    baseline_top: int | None = None,
+    baseline_bot: int | None = None,
+) -> list[tuple[int, int, int, int, int]]:
+    """Build a cloud silhouette: union of circles + flat baseline slab.
+
+    `circles` is a list of (cx, cy, r). The baseline slab spans the
+    full horizontal extent of the circles' bounding box, from
+    `baseline_top` to `baseline_bot`. Defaults: `baseline_top` =
+    max circle center y, `baseline_bot` = max (cy + r). Together
+    these turn the bumpy circle bottoms into a clean flat edge.
+    """
+    if baseline_top is None:
+        baseline_top = max(cy for _cx, cy, _r in circles)
+    if baseline_bot is None:
+        baseline_bot = max(cy + r for _cx, cy, r in circles)
+    cloud_left = min(cx - r for cx, _cy, r in circles)
+    cloud_right = max(cx + r for cx, _cy, r in circles)
+
+    pixels: list[tuple[int, int, int, int, int]] = []
+    for y in range(size):
+        for x in range(size):
+            in_circle = any(
+                (x - cx) ** 2 + (y - cy) ** 2 <= r * r for cx, cy, r in circles
+            )
+            in_slab = (
+                cloud_left <= x <= cloud_right and baseline_top <= y <= baseline_bot
+            )
+            if in_circle or in_slab:
+                pixels.append((x, y, *color))
+    return pixels
 
 
 def _generate_cloud_hires(
     size: int = 32, color: tuple[int, int, int] = _CLOUD_COLOR
 ) -> tuple[tuple[int, int, int, int, int], ...]:
-    """3-bump cloud silhouette. Circles share bottom y=22 for a flat base."""
+    """3-bump cloud silhouette with smooth flat bottom."""
     circles = [
         (9, 17, 5),  # left bump (small)
         (17, 14, 8),  # middle bump (largest, tallest)
         (25, 17, 5),  # right bump (small)
     ]
-    pixels: list[tuple[int, int, int, int, int]] = []
-    for y in range(size):
-        for x in range(size):
-            for cx, cy, r in circles:
-                if (x - cx) ** 2 + (y - cy) ** 2 <= r * r:
-                    pixels.append((x, y, *color))
-                    break
-    return tuple(set(pixels))
+    return tuple(set(_cloud_silhouette_pixels(size, circles, color)))
 
 
 CLOUD_HIRES = HiResEmoji(
@@ -705,29 +738,26 @@ _RAIN_DROP_COLOR = (90, 160, 230)
 def _generate_rain_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int], ...]:
     pixels: list[tuple[int, int, int, int, int]] = []
 
-    # Cloud (smaller than standalone, sits in upper half)
+    # Cloud (smaller, sits in upper half) — uses the shared silhouette
+    # builder so it gets a smooth flat bottom instead of three tapered
+    # dots.
     cloud_circles = [
         (9, 11, 4),  # left bump
         (16, 8, 6),  # middle bump
         (24, 11, 4),  # right bump
     ]
-    for y in range(size):
-        for x in range(size):
-            for cx, cy, r in cloud_circles:
-                if (x - cx) ** 2 + (y - cy) ** 2 <= r * r:
-                    pixels.append((x, y, *_CLOUD_COLOR))
-                    break
+    pixels.extend(_cloud_silhouette_pixels(size, cloud_circles, _CLOUD_COLOR))
 
-    # 4 rain drops below the cloud, staggered vertically for a sense of motion
+    # 4 rain drops below the cloud, staggered vertically for motion
     drop_specs = [
-        (8, 18, 4),  # col 8, top y=18, length 4
-        (14, 20, 5),  # col 14, longer / lower
+        (8, 18, 4),
+        (14, 20, 5),
         (20, 19, 4),
         (26, 21, 4),
     ]
     for col, top_y, length in drop_specs:
         for y in range(top_y, top_y + length):
-            for dx in (0, 1):  # 2-px wide
+            for dx in (0, 1):
                 pixels.append((col + dx, y, *_RAIN_DROP_COLOR))
 
     return tuple(set(pixels))
@@ -789,18 +819,14 @@ def _generate_thunder_hires(
 ) -> tuple[tuple[int, int, int, int, int], ...]:
     pixels: list[tuple[int, int, int, int, int]] = []
 
-    # Smaller cloud at top, drawn in dark color
+    # Dark cloud at top — uses the shared silhouette builder for a
+    # smooth flat bottom (same fix as the regular :cloud:).
     cloud_circles = [
         (9, 10, 4),
         (16, 7, 6),
         (24, 10, 4),
     ]
-    for y in range(size):
-        for x in range(size):
-            for cx, cy, r in cloud_circles:
-                if (x - cx) ** 2 + (y - cy) ** 2 <= r * r:
-                    pixels.append((x, y, *_THUNDER_CLOUD_COLOR))
-                    break
+    pixels.extend(_cloud_silhouette_pixels(size, cloud_circles, _THUNDER_CLOUD_COLOR))
 
     # Lightning bolt — hand-coded Z-shape, 3-px thick. Cuts down from the
     # cloud center, jogs right, continues down to the bottom.

@@ -1171,13 +1171,11 @@ EMAIL_HIRES = HiResEmoji(
 )
 
 
-# ⚾ Hi-res baseball — round white ball with two curving red seams.
-# Stylized 2D-emoji representation: the seams form a vertical "eye"
-# silhouette in the center of the ball (left arc + right arc meeting at
-# top and bottom poles), which reads as a baseball at this size without
-# explicit cross-stitch hatching. Earlier iterations with hash marks
-# either drowned the curves in red noise or made the ball look like a
-# target ring; the clean two-arc form is the most legible at 32×32.
+# ⚾ Hi-res baseball — white ball with two diagonal seams forming an
+# offset figure-8, plus red hash stitches alongside each seam (matches
+# the standard pixel-art baseball convention). Earlier "closed-eye"
+# version had the seams meeting at top/bottom poles, which read more
+# as a flat football than a 3D ball.
 _BASEBALL_WHITE = (250, 250, 245)
 _BASEBALL_EDGE = (200, 200, 210)
 _BASEBALL_RED = (200, 30, 40)
@@ -1190,24 +1188,6 @@ def _generate_baseball_hires(
 
     cx = cy = (size - 1) / 2.0
     body_r = size / 2 - 0.5  # use full canvas
-
-    # Geometry: each seam is a circular arc whose ORIGIN sits outside
-    # the ball on the OPPOSITE side, so the visible portion inside the
-    # ball is a curve that bulges TOWARD the nearest side. Choose the
-    # arc parameters so the arc passes through (cx, cy ± pole_y) — near
-    # the top/bottom poles — and (cx ∓ equator_x, cy) — the equator
-    # bulge points.
-    pole_y = body_r * 0.78  # how close to top/bottom the arc reaches
-    equator_x = body_r * 0.50  # how far OUT from center the bulge goes
-    # (Real baseball seams sit about a third of the way in from the edge.
-    # Smaller value → "football" silhouette; larger → "ring around the
-    # edge" silhouette. ~0.5 reads as visible curving seams with white
-    # both inside and outside.)
-    # Solving |O - pole|² = |O - equator|² for O = (cx + d, cy):
-    #   d² + pole_y² = (d + equator_x)²
-    #   d = (pole_y² - equator_x²) / (2 * equator_x)
-    arc_d = (pole_y * pole_y - equator_x * equator_x) / (2 * equator_x)
-    arc_r = arc_d + equator_x
 
     pixels: dict[tuple[int, int], tuple[int, int, int]] = {}
 
@@ -1225,21 +1205,76 @@ def _generate_baseball_hires(
             else:
                 pixels[(x, y)] = _BASEBALL_WHITE
 
-    # Step 2: the two seam curves. For each ball pixel, check if it's
-    # within the seam-thickness band of either arc. Restrict each arc
-    # to its own half so the curves don't intersect at the ball center.
-    # Thickness 1.0 → 1-2 px wide depending on rasterization angle, gives
-    # a continuous (non-dotted) seam line.
-    seam_thickness = 1.0
-    for (x, y), _ in list(pixels.items()):
-        # Left seam: arc origin to the right; visible inside the LEFT half
-        d_left = math.sqrt((x - (cx + arc_d)) ** 2 + (y - cy) ** 2)
-        on_left = abs(d_left - arc_r) <= seam_thickness and x <= cx
-        # Right seam: arc origin to the left; visible inside the RIGHT half
-        d_right = math.sqrt((x - (cx - arc_d)) ** 2 + (y - cy) ** 2)
-        on_right = abs(d_right - arc_r) <= seam_thickness and x >= cx
-        if on_left or on_right:
-            pixels[(x, y)] = _BASEBALL_RED
+    # Step 2: two seam curves traced as quadratic Béziers. Together they
+    # form an offset figure-8: the upper seam sweeps from upper-right
+    # down toward mid-left, and the lower seam sweeps from mid-right
+    # down toward lower-left. The control points sit just past center
+    # so each curve has a gentle S-shape rather than a tight arc.
+    def bezier(
+        p0: tuple[float, float],
+        p1: tuple[float, float],
+        p2: tuple[float, float],
+        t: float,
+    ) -> tuple[float, float]:
+        u = 1 - t
+        return (
+            u * u * p0[0] + 2 * u * t * p1[0] + t * t * p2[0],
+            u * u * p0[1] + 2 * u * t * p1[1] + t * t * p2[1],
+        )
+
+    def trace_seam(
+        p0: tuple[float, float],
+        p1: tuple[float, float],
+        p2: tuple[float, float],
+        n: int = 64,
+    ) -> list[tuple[float, float]]:
+        path: list[tuple[float, float]] = []
+        for i in range(n + 1):
+            t = i / n
+            sx, sy = bezier(p0, p1, p2, t)
+            path.append((sx, sy))
+            ix, iy = int(round(sx)), int(round(sy))
+            if (ix, iy) in pixels and pixels[(ix, iy)] != _BASEBALL_EDGE:
+                pixels[(ix, iy)] = _BASEBALL_RED
+        return path
+
+    # Upper seam: top-right area → mid-left
+    seam1 = trace_seam(
+        p0=(cx + 2, cy - body_r * 0.92),  # near top, slightly right of center
+        p1=(cx + 0, cy - body_r * 0.20),  # control: above center
+        p2=(cx - body_r * 0.92, cy + 2),  # mid-left, slightly below center
+    )
+    # Lower seam: mid-right → bottom-left (rotational mirror of upper)
+    seam2 = trace_seam(
+        p0=(cx + body_r * 0.92, cy - 2),  # mid-right, slightly above center
+        p1=(cx - 0, cy + body_r * 0.20),  # control: below center
+        p2=(cx - 2, cy + body_r * 0.92),  # near bottom, slightly left of center
+    )
+
+    # Step 3: hash stitches — small red squares offset perpendicular to
+    # each seam at evenly-spaced points along the curve. Reads as the
+    # cross-stitch threads visible on a real baseball.
+    n_stitches = 9
+    for path in (seam1, seam2):
+        for i in range(n_stitches):
+            t_idx = int((i + 0.5) / n_stitches * (len(path) - 1))
+            if t_idx >= len(path) - 1:
+                continue
+            sx, sy = path[t_idx]
+            sx_next, sy_next = path[t_idx + 1]
+            tx, ty = sx_next - sx, sy_next - sy
+            tlen = math.sqrt(tx * tx + ty * ty)
+            if tlen == 0:
+                continue
+            tx, ty = tx / tlen, ty / tlen
+            # Drop a 1-px stitch on each side of the seam, perpendicular
+            # to the local tangent (rotate tangent by ±90°).
+            for sign in (-1, 1):
+                px = sx + sign * 1.5 * ty
+                py = sy - sign * 1.5 * tx
+                ix, iy = int(round(px)), int(round(py))
+                if (ix, iy) in pixels and pixels[(ix, iy)] != _BASEBALL_EDGE:
+                    pixels[(ix, iy)] = _BASEBALL_RED
 
     return tuple((x, y, *c) for (x, y), c in pixels.items())
 

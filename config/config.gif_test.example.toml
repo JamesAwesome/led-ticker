@@ -262,3 +262,31 @@ transition_duration = 0.6
 type = "gif"
 path = "assets/pride_trans.gif"
 fit = "stretch"
+
+# ---------------------------------------------------------------------------
+# Section 11 — gif inside `mode = "swap"` with an optional title
+#
+# Demonstrates the swap-mode merge: gif widgets work exactly like any
+# other widget in `mode = "swap"`. The title displays first (held +
+# scrolled if it overflows) and then the section's `transition` runs
+# into the gif. Per-visit gif loops are controlled by the widget's own
+# `loops = N` field instead of the section's `loop_count` (which means
+# "cycle the widget list N times" in swap mode).
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1  # show the gif once
+hold_time = 2.0  # title hold before transition
+transition = "dissolve"
+transition_duration = 0.6
+
+[playlist.section.title]
+text = "PRIDE"
+color = [255, 140, 0]
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pride.gif"
+fit = "stretch"
+loops = 5  # ~5s of playback inside the single visit

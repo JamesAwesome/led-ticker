@@ -44,6 +44,7 @@ class GifPlayer:
     font_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
     font: Font = attrs.Factory(lambda: FONT_DEFAULT)
     scroll_speed_ms: int = 50  # tick cadence when text is scrolling
+    loops: int = 1  # gif-internal loops per visit (used by run_swap)
     padding: int = 0  # required by widget protocol; unused here
 
     _frames: list[tuple[bytes, int]] = attrs.field(init=False, factory=list)

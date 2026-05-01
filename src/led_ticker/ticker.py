@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import itertools
 import logging
 from typing import Any
@@ -561,6 +562,64 @@ async def _scroll_between(
     return canvas, 0
 
 
+def _has_play(widget: Any) -> bool:
+    """True iff `widget`'s class declares an async `play` method.
+
+    Looks at the class (not the instance) so Mocks — which auto-create
+    a callable `.play` attribute on access — don't false-positive.
+    """
+    method = getattr(type(widget), "play", None)
+    return inspect.iscoroutinefunction(method)
+
+
+async def _play_widget(canvas: Any, frame: Any, widget: Any) -> Any:
+    """Hand the canvas off to a widget's `play()` method.
+
+    Used by widgets that drive their own animation loop (e.g. GifPlayer).
+    Unwraps any ScaledCanvas wrappers so the widget paints at native
+    physical resolution; the wrapper is re-anchored to the new
+    back-buffer canvas afterward so subsequent draws stay scaled.
+    """
+    loops = getattr(widget, "loops", 1) or 1
+    if isinstance(canvas, ScaledCanvas):
+        innermost = canvas
+        while isinstance(innermost.real, ScaledCanvas):
+            innermost = innermost.real
+        new_real = await widget.play(innermost.real, frame, loop_count=loops)
+        innermost.real = new_real
+        return canvas
+    return await widget.play(canvas, frame, loop_count=loops)
+
+
+async def _show_one(
+    canvas: Canvas,
+    frame: Any,
+    widget: Any,
+    hold_time: float,
+    skip_initial_draw: bool = False,
+    continuous: bool = False,
+) -> tuple[Canvas, int]:
+    """Display one widget for its full visit.
+
+    Dispatches: widgets exposing `play()` run their own animation loop;
+    everything else uses the standard hold-and-scroll path. Returns
+    `(canvas, last_scroll_pos)` — `last_scroll_pos` is 0 for play()
+    widgets since they don't have a scroll position.
+    """
+    if _has_play(widget):
+        canvas = await _play_widget(canvas, frame, widget)
+        return canvas, 0
+    canvas, _, prev_pos = await _swap_and_scroll(
+        canvas,
+        frame,
+        widget,
+        hold_time=hold_time,
+        skip_initial_draw=skip_initial_draw,
+        continuous=continuous,
+    )
+    return canvas, prev_pos
+
+
 async def _run_swap(
     canvas: Canvas,
     frame: Any,
@@ -575,11 +634,8 @@ async def _run_swap(
 
     is_scroll = transition is not None and isinstance(transition.transition_obj, Scroll)
     ticker_object = await notif_queue.get()
-    canvas, _, prev_scroll_pos = await _swap_and_scroll(
-        canvas,
-        frame,
-        ticker_object,
-        hold_time=hold_time,
+    canvas, prev_scroll_pos = await _show_one(
+        canvas, frame, ticker_object, hold_time=hold_time
     )
 
     prev_object = ticker_object
@@ -596,12 +652,12 @@ async def _run_swap(
                 ticker_object,
                 outgoing_scroll_pos=prev_scroll_pos,
             )
-            canvas, _, prev_scroll_pos = await _swap_and_scroll(
+            canvas, prev_scroll_pos = await _show_one(
                 canvas,
                 frame,
                 ticker_object,
-                skip_initial_draw=True,
                 hold_time=hold_time,
+                skip_initial_draw=True,
                 continuous=continuous_scroll,
             )
         elif transition is not None:
@@ -615,19 +671,16 @@ async def _run_swap(
                 easing=transition.easing,
                 outgoing_scroll_pos=prev_scroll_pos,
             )
-            canvas, _, prev_scroll_pos = await _swap_and_scroll(
+            canvas, prev_scroll_pos = await _show_one(
                 canvas,
                 frame,
                 ticker_object,
-                skip_initial_draw=True,
                 hold_time=hold_time,
+                skip_initial_draw=True,
             )
         else:
-            canvas, _, prev_scroll_pos = await _swap_and_scroll(
-                canvas,
-                frame,
-                ticker_object,
-                hold_time=hold_time,
+            canvas, prev_scroll_pos = await _show_one(
+                canvas, frame, ticker_object, hold_time=hold_time
             )
 
         prev_object = ticker_object
@@ -664,7 +717,7 @@ async def _run_gif(
         # Skip non-GIF widgets (e.g. section titles enqueued by
         # _build_then_enqueue). GIF mode takes over the whole panel —
         # titles don't have a sensible place to render here.
-        if not hasattr(widget, "play"):
+        if not _has_play(widget):
             logging.debug("_run_gif skipping non-GIF widget %s", type(widget).__name__)
             continue
         real = await widget.play(real, frame, loop_count=loop_count)

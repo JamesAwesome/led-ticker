@@ -287,6 +287,30 @@ INSTAGRAM: PixelData = [
 ]
 
 
+# 🌸 8×8 Flower — pink petals around a yellow center, with a green stem
+# and one leaf. Used for MLB Spring Training games (originally lived in
+# widgets/mlb_icons.py, moved here as part of the DRY consolidation).
+FLOWER: PixelData = [
+    # Pink petals
+    (2, 0, 255, 130, 170),
+    (1, 1, 255, 130, 170),
+    (3, 1, 255, 130, 170),
+    (0, 2, 255, 130, 170),
+    (2, 2, 255, 220, 50),  # yellow center
+    (4, 2, 255, 130, 170),
+    (1, 3, 255, 130, 170),
+    (3, 3, 255, 130, 170),
+    # Green stem
+    (2, 4, 0, 180, 0),
+    (2, 5, 0, 180, 0),
+    (2, 6, 0, 150, 0),
+    (2, 7, 0, 120, 0),
+    # Leaf
+    (3, 5, 0, 200, 0),
+    (1, 6, 0, 200, 0),
+]
+
+
 # ⭐ 8×8 Star — algorithmically derived from the 32×32 hi-res star.
 # Shape comes from generating a 5-point star polygon at 32×32, then
 # downsampling 4× with a "majority-lit" threshold and mirror enforcement
@@ -1020,7 +1044,6 @@ EMAIL_HIRES = HiResEmoji(
 
 def _build_emoji_registry() -> dict[str, PixelData]:
     """Build the emoji registry with all available icons."""
-    from led_ticker.widgets.mlb_icons import FLOWER
     from led_ticker.widgets.weather_icons import (
         CLOUD,
         FOG,
@@ -1034,7 +1057,7 @@ def _build_emoji_registry() -> dict[str, PixelData]:
         # Sports
         "baseball": BASEBALL,
         "flower": FLOWER,
-        "star": STAR,  # local 8×8 STAR (not the 5×5 mlb_icons.STAR)
+        "star": STAR,
         # Food
         "taco": TACO,
         # Weather

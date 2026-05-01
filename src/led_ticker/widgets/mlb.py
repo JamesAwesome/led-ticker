@@ -13,11 +13,10 @@ from zoneinfo import ZoneInfo
 import aiohttp
 import attrs
 
-from led_ticker._types import Canvas, Color, ColorTuple, DrawResult, Font, PixelData
+from led_ticker._types import Canvas, Color, ColorTuple, DrawResult, Font
 from led_ticker.colors import RGB_WHITE, _color
-from led_ticker.drawing import compute_cursor, get_text_width
+from led_ticker.drawing import compute_cursor
 from led_ticker.fonts import FONT_DEFAULT
-from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets.message import TickerMessage
@@ -212,36 +211,37 @@ def _parse_team_abbr(team_data: dict[str, Any]) -> str:
 
 
 class MLBGameMessage:
-    """A single game rendered with team colors and score colors."""
+    """A single game rendered with team colors and score colors.
+
+    Segments are drawn through `draw_with_emoji` so any segment text
+    can contain `:flower:` / `:star:` / etc. slugs that render as
+    inline pixel-art icons. (Previously the widget had its own
+    `icon: PixelData | None` parameter and rendered via the now-deleted
+    `mlb_icons.draw_mlb_icon` helper — that's been folded into the
+    standard emoji-rendering path.)
+    """
 
     def __init__(
         self,
         segments: list[tuple[str, Color]],
         padding: int = 6,
-        icon: PixelData | None = None,
         center: bool = False,
     ) -> None:
         self.segments: list[tuple[str, Color]] = segments
         self.padding: int = padding
-        self.icon: PixelData | None = icon
         self.center: bool = center
         self._content_width: int = -1
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
+        from led_ticker.pixel_emoji import draw_with_emoji, measure_width
+
         y_offset: int = kwargs.get("y_offset", 0)
 
         if self._content_width < 0:
             font: Font = FONT_DEFAULT
             self._content_width = sum(
-                get_text_width(font, text, padding=0) for text, _ in self.segments
+                measure_width(font, text) for text, _ in self.segments
             )
-            if self.icon is not None:
-                from led_ticker.widgets.mlb_icons import (
-                    ICON_PADDING,
-                    ICON_WIDTH,
-                )
-
-                self._content_width += ICON_WIDTH + ICON_PADDING
 
         content_width = self._content_width
         cursor_pos, end_padding = compute_cursor(
@@ -254,23 +254,14 @@ class MLBGameMessage:
 
         font = FONT_DEFAULT
         for text, color in self.segments:
-            cursor_pos += draw_text(
+            cursor_pos += draw_with_emoji(
                 canvas,
                 font,
-                cursor_pos,
-                12 + y_offset,
-                color,
-                text,
-            )
-
-        if self.icon is not None:
-            from led_ticker.widgets.mlb_icons import draw_mlb_icon
-
-            cursor_pos = draw_mlb_icon(
-                canvas,
-                self.icon,
                 int(cursor_pos),
-                y_offset=5 + y_offset,
+                y=12,
+                color=color,
+                text=text,
+                y_offset=y_offset,
             )
 
         cursor_pos += end_padding
@@ -313,20 +304,16 @@ def _build_series_title(
         # First listed team is always team_abbr
         first_is_team = True
 
-    # Show (ST) / (ASG) with icon for special game types
-    icon: PixelData | None = None
+    # Show (ST) / (ASG) with inline emoji slug for special game types.
+    # The slug renders as an 8×8 pixel-art icon via the standard emoji
+    # path (or 32×32 hi-res on the bigsign — free upgrade vs the
+    # previous 5×5 mlb_icons sprites).
     is_spring = any(g.game_type == "S" for g in series.games)
     is_allstar = any(g.game_type == "A" for g in series.games)
     if is_spring:
-        from led_ticker.widgets.mlb_icons import FLOWER
-
-        segments.append((" (ST)", RGB_WHITE))
-        icon = FLOWER
+        segments.append((" (ST) :flower:", RGB_WHITE))
     elif is_allstar:
-        from led_ticker.widgets.mlb_icons import STAR
-
-        segments.append((" (ASG)", RGB_WHITE))
-        icon = STAR
+        segments.append((" (ASG) :star:", RGB_WHITE))
 
     # Show series record ordered to match team name positions
     total_games = len(series.games)
@@ -339,7 +326,7 @@ def _build_series_title(
         segments.append((record, RGB_WHITE))
 
     # Center the title if it fits on screen
-    return MLBGameMessage(segments, center=True, icon=icon)
+    return MLBGameMessage(segments, center=True)
 
 
 def _build_game_message(game: GameInfo, team_abbr: str, tz: ZoneInfo) -> MLBGameMessage:

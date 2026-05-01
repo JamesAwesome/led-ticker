@@ -373,7 +373,9 @@ class TestBuildSeriesTitle:
         msg = _build_series_title("PHI", series, ET)
         text = "".join(t for t, _ in msg.segments)
         assert "(ST)" in text
-        assert msg.icon is not None
+        # Slug-bearing segment is rendered as an inline pixel-art flower
+        # via draw_with_emoji (replaces the old `msg.icon` parameter).
+        assert ":flower:" in text
         # Single home team: should use @ separator
         texts = [t for t, _ in msg.segments]
         assert texts[0] == "BAL"

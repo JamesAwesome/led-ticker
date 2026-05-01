@@ -326,11 +326,10 @@ FLOWER: PixelData = [
 _ST = (255, 215, 0)  # gold body
 _SH = (255, 255, 80)  # brighter highlight at the inner cells
 STAR: PixelData = [
-    # Row 0: 1-px tip (col 3, slight left-lean since 8-cols has no true
-    # center). Drops the previous 2x2 block at rows 0-1 that read as
-    # "blocky" rather than pointy.
+    # Row 0: 2-px top tip (cols 3-4)
     (3, 0, *_ST),
-    # Row 1: 2-px (cols 3-4) — broadens into the arms
+    (4, 0, *_ST),
+    # Row 1: same (top continues thin) — gives the long-spike feel
     (3, 1, *_SH),
     (4, 1, *_SH),
     # Row 2: full-width horizontal arms (8-px)

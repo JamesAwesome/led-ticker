@@ -14,7 +14,7 @@
 #   4. crop       — scale to cover both axes, center-crop the excess
 #                   (no black at all — fills panel by losing some of
 #                   the source vertically)
-#   5. pillarbox + loop_count=4 — proves loop_count works
+#   5. pillarbox + loop_count=34 — same fit but ~20s playback (proves loop_count works)
 #
 # Transitions: dissolve between sections (sandwiches each GIF playback
 # cleanly — entry transition composites against frame 0, exit composites
@@ -66,7 +66,7 @@ between_sections = "dissolve"
 
 [[playlist.section]]
 mode = "gif"
-loop_count = 2
+loop_count = 17  # ~10s of playback (17 × 600ms per loop)
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -86,7 +86,7 @@ fit = "pillarbox"
 
 [[playlist.section]]
 mode = "gif"
-loop_count = 2
+loop_count = 17  # ~10s of playback (17 × 600ms per loop)
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -108,7 +108,7 @@ fit = "stretch"
 
 [[playlist.section]]
 mode = "gif"
-loop_count = 2
+loop_count = 17  # ~10s of playback (17 × 600ms per loop)
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -128,7 +128,7 @@ fit = "letterbox"
 
 [[playlist.section]]
 mode = "gif"
-loop_count = 2
+loop_count = 17  # ~10s of playback (17 × 600ms per loop)
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -138,15 +138,15 @@ path = "assets/pika_wave.gif"
 fit = "crop"
 
 # ---------------------------------------------------------------------------
-# Section 5 — loop_count = 4 (pillarbox)
+# Section 5 — pillarbox, ~20 seconds (double the earlier ones)
 #
-# Same as Section 1 but plays the GIF 4 complete times before transitioning
-# out. Confirms `loop_count` actually controls repetition.
+# Same fit as Section 1 but loops 34× to play for ~20s. Confirms
+# loop_count actually controls repetition by visibly running longer.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "gif"
-loop_count = 4
+loop_count = 34  # ~20s of playback
 transition = "dissolve"
 transition_duration = 0.6
 

@@ -1436,6 +1436,153 @@ FLOWER_HIRES = HiResEmoji(
 )
 
 
+# 🌮 Hi-res taco — landscape half-moon shell with filling along the top
+# edge and sesame-seed dots on the shell body. Matches the reference
+# pixel-art convention: cheese-yellow shell with a darker rim along
+# the bottom curve, dark-brown outline, and lettuce/tomato/meat
+# chunks bulging out above the shell opening.
+_TACO_SHELL = (245, 195, 80)
+_TACO_SHELL_RIM = (210, 150, 45)
+_TACO_OUTLINE = (90, 55, 20)
+_TACO_LETTUCE = (95, 175, 55)
+_TACO_LETTUCE_DARK = (60, 130, 35)
+_TACO_TOMATO = (220, 60, 50)
+_TACO_MEAT = (135, 75, 40)
+_TACO_SEED = (200, 140, 40)
+
+
+def _generate_taco_hires(
+    size: int = 32,
+) -> tuple[tuple[int, int, int, int, int], ...]:
+    pixels: dict[tuple[int, int], tuple[int, int, int]] = {}
+
+    cx = (size - 1) / 2.0  # 15.5
+
+    # Dome silhouette: FLAT bottom (taco resting on a surface) + curved
+    # top + sides curving inward. Geometrically the UPPER half of an
+    # ellipse anchored at (cx, bottom_y). Slightly oversized vs the
+    # toppings so the upper-left toppings sit on shell color, not
+    # black panel.
+    bottom_y = 27  # flat bottom of shell (3-row margin to canvas edge)
+    shell_a = 15.0  # horizontal semi-axis
+    shell_b = 15.5  # vertical semi-axis (apex of dome at bottom_y - b)
+
+    # Step 1: fill the shell body (upper half of ellipse)
+    for y in range(size):
+        for x in range(size):
+            dx = x - cx
+            dy = bottom_y - y  # positive when above the flat bottom
+            if dy < 0 or dy > shell_b:
+                continue
+            r2 = (dx * dx) / (shell_a * shell_a) + (dy * dy) / (shell_b * shell_b)
+            if r2 > 1.0:
+                continue
+            pixels[(x, y)] = _TACO_SHELL
+
+    # Step 2: 1-px-thick darker rim along the FLAT bottom and a thin
+    # band along the curved top of the shell where it meets the
+    # filling. (The flat bottom rim is the "crust"; the top rim
+    # separates the shell color from the filling cluster.)
+    for x in range(size):
+        if (x, bottom_y) in pixels:
+            pixels[(x, bottom_y)] = _TACO_SHELL_RIM
+            # 1-row outline below the bottom edge
+            if bottom_y + 1 < size:
+                pixels[(x, bottom_y + 1)] = _TACO_OUTLINE
+
+    # Step 3: dark-brown outline along the curved sides of the shell
+    # (left + right + curved top). For each row, find the leftmost and
+    # rightmost shell pixel and place an outline pixel just outside.
+    for y in range(size):
+        shell_xs = [
+            x for x in range(size) if (x, y) in pixels and pixels[(x, y)] == _TACO_SHELL
+        ]
+        if not shell_xs:
+            continue
+        x_min, x_max = min(shell_xs), max(shell_xs)
+        for ox in (x_min - 1, x_max + 1):
+            if 0 <= ox < size and (ox, y) not in pixels:
+                pixels[(ox, y)] = _TACO_OUTLINE
+
+    # Step 4: filling cascade — replicates the low-res taco's pattern.
+    # The low-res has a WIDE cluster across rows 0-2 then narrows
+    # sharply and shifts LEFT for rows 3-5. This scaled-up version
+    # keeps the same structure: wide+stable at the top, then a tail
+    # that cascades down into the dome's lower-left interior.
+    L = _TACO_LETTUCE
+    LD = _TACO_LETTUCE_DARK
+    R = _TACO_TOMATO
+    M = _TACO_MEAT
+    palette = [L, R, M, L, R, L, M, L, R, L, M, R]
+
+    # Each row: (y, col_start, col_end). Mirrors the low-res cascade
+    # but shifted DOWN so the cluster sits INSIDE the shell silhouette
+    # rather than floating above it. The top sits ~2 rows above the
+    # shell apex (slight peek), and the cascade descends through the
+    # shell's upper-left interior, ending in the lower-left.
+    fill_rows: list[tuple[int, int, int]] = [
+        # Tiny lettuce cap peeks just above the shell apex — single
+        # narrow row so the topping mound doesn't break the silhouette.
+        (11, 13, 17),
+        # Main cascade with HOURGLASS-style pinch (v17 dimensions).
+        # The slightly enlarged shell (shell_a=15, shell_b=15.5) now
+        # covers all the topping pixels — no floating over black.
+        (12, 11, 19),
+        (13, 10, 19),
+        (14, 8, 20),
+        (15, 6, 18),
+        (16, 5, 14),  # right edge pinches in
+        (17, 4, 11),  # most pinched — front shell illusion
+        (18, 4, 10),
+        (19, 3, 10),
+        (20, 3, 9),
+        (21, 2, 7),
+        (22, 1, 5),
+        (23, 1, 3),  # reaches lower-left interior of shell
+        (24, 1, 2),
+    ]
+    for y, col_l, col_r in fill_rows:
+        for x in range(col_l, col_r + 1):
+            # Color picker. Top row gets darker green tips for a leafy
+            # cap; rest cycles through the palette by position.
+            if y == fill_rows[0][0]:
+                color = LD if (x - col_l) % 3 == 1 else L
+            else:
+                color = palette[(x * 2 + y * 3) % len(palette)]
+            if 0 <= x < size and 0 <= y < size:
+                pixels[(x, y)] = color
+
+    # Step 5: outline around the filling's outer top
+    filling_keys = [
+        k
+        for k, v in pixels.items()
+        if v
+        in (
+            _TACO_LETTUCE,
+            _TACO_LETTUCE_DARK,
+            _TACO_TOMATO,
+            _TACO_MEAT,
+        )
+    ]
+    for x, y in filling_keys:
+        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1)):
+            if 0 <= nx < size and 0 <= ny < size and (nx, ny) not in pixels:
+                pixels[(nx, ny)] = _TACO_OUTLINE
+
+    # Step 6: sesame-seed dots scattered on the shell body
+    for sx, sy in ((6, 20), (10, 24), (14, 22), (19, 24), (24, 21), (12, 26), (20, 26)):
+        if (sx, sy) in pixels and pixels[(sx, sy)] == _TACO_SHELL:
+            pixels[(sx, sy)] = _TACO_SEED
+
+    return tuple((x, y, *c) for (x, y), c in pixels.items())
+
+
+TACO_HIRES = HiResEmoji(
+    pixels=_generate_taco_hires(size=32),
+    physical_size=32,
+)
+
+
 def _build_emoji_registry() -> dict[str, PixelData]:
     """Build the emoji registry with all available icons."""
     from led_ticker.widgets.weather_icons import (
@@ -1490,6 +1637,8 @@ HIRES_REGISTRY: dict[str, HiResEmoji] = {
     "baseball": BASEBALL_HIRES,
     # Botanical
     "flower": FLOWER_HIRES,
+    # Food
+    "taco": TACO_HIRES,
 }
 
 

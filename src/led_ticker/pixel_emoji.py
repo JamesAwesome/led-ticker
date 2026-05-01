@@ -1087,11 +1087,11 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
     """
     pixels: set[tuple[int, int]] = set()
 
-    rect_w, rect_h = 30, 20
-    rect_left = (size - rect_w) // 2  # 1
-    rect_right = rect_left + rect_w - 1  # 30
-    rect_top = (size - rect_h) // 2  # 6
-    rect_bottom = rect_top + rect_h - 1  # 25
+    rect_w, rect_h = 32, 24
+    rect_left = (size - rect_w) // 2  # 0
+    rect_right = rect_left + rect_w - 1  # 31
+    rect_top = (size - rect_h) // 2  # 4
+    rect_bottom = rect_top + rect_h - 1  # 27
 
     # 2-px-thick rectangle border
     for x in range(rect_left, rect_right + 1):
@@ -1142,11 +1142,11 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
                 y += sy
 
     # Big top V: inner-top corners → near-bottom meeting point
-    _thick_line(inner_left, inner_top, cx, meet_y)
-    _thick_line(inner_right, inner_top, cx, meet_y)
+    _thick_line(inner_left, inner_top, cx, meet_y, thickness=2)
+    _thick_line(inner_right, inner_top, cx, meet_y, thickness=2)
     # Small bottom V: inner-bottom corners → same meeting point
-    _thick_line(inner_left, inner_bottom, cx, meet_y)
-    _thick_line(inner_right, inner_bottom, cx, meet_y)
+    _thick_line(inner_left, inner_bottom, cx, meet_y, thickness=2)
+    _thick_line(inner_right, inner_bottom, cx, meet_y, thickness=2)
 
     return tuple((x, y, *_EMAIL_COLOR) for (x, y) in pixels)
 

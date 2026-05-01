@@ -2144,10 +2144,18 @@ def _generate_cat_hires(
         (cx_int - ear_offset, -1),
         (cx_int + ear_offset, 1),
     ):
-        apex = (ear_cx_int + dir_sign * apex_outward_off, ear_apex_y)
+        # 2-px-wide flat apex (avoids single-pixel point at the top).
+        # Two overlapping triangles whose apexes are at adjacent cols
+        # union into a small trapezoid.
+        outer_apex = (ear_cx_int + dir_sign * apex_outward_off, ear_apex_y)
+        inner_apex = (
+            ear_cx_int + dir_sign * (apex_outward_off - 1),
+            ear_apex_y,
+        )
         outer_base = (ear_cx_int + dir_sign * base_outer_half_w, outer_base_y)
         inner_base = (ear_cx_int - dir_sign * base_inner_half_w, inner_base_y)
-        _fill_triangle(apex, outer_base, inner_base, face)
+        _fill_triangle(outer_apex, outer_base, inner_base, face)
+        _fill_triangle(inner_apex, outer_base, inner_base, face)
 
     # Inner pink — same tilted-triangle shape, inset 1-2 rows/cols
     inner_apex_outward = 3

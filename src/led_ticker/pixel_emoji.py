@@ -1121,7 +1121,7 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
     # flap area) — its diagonals get clipped where they meet the top V,
     # leaving the bottom V's tip hidden behind the closed front flap.
     body_h = inner_bottom - inner_top
-    top_meet_y = inner_top + body_h * 65 // 100
+    top_meet_y = inner_top + body_h * 75 // 100
     bottom_meet_y = inner_bottom - (top_meet_y - inner_top)
 
     def _thick_line(x0: int, y0: int, x1: int, y1: int, thickness: int = 3) -> None:

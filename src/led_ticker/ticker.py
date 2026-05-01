@@ -122,6 +122,32 @@ class Ticker:
             continuous_scroll=self.continuous_scroll,
         )
 
+    async def run_gif(self, loop_count: int = 0) -> None:
+        """GIF playback mode: each widget pulled from the queue is a
+        GifPlayer; play() is called with the underlying real canvas
+        so frames render at native physical resolution.
+
+        loop_count is the number of complete passes through each GIF
+        before the next widget (or section transition) takes over.
+        Treats loop_count=0 as 1 (consistent with other run modes).
+
+        Unlike other run modes, GIF mode does not use _build_then_enqueue —
+        widgets are enqueued once and loop_count is passed directly to
+        play() so each GifPlayer handles its own repetition.
+        """
+        logging.info("Running GIF playback with loop count %s...", loop_count)
+        canvas = _maybe_wrap(
+            self.frame.get_clean_canvas(), self.scale, self.content_height
+        )
+        assert self.notif_queue is not None
+
+        await _run_gif(
+            canvas,
+            self.frame,
+            self.notif_queue,
+            loop_count=loop_count,
+        )
+
     async def run_forever_scroll(
         self, loop_count: int = 0, start_pos: int | None = None
     ) -> None:
@@ -594,6 +620,35 @@ async def _run_swap(
         prev_object = ticker_object
 
     return prev_scroll_pos
+
+
+async def _run_gif(
+    canvas: Canvas,
+    frame: Any,
+    notif_queue: asyncio.Queue[Any],
+    loop_count: int = 0,
+) -> None:
+    """Pull GifPlayer widgets from the queue and play() each in turn.
+
+    The widget's `play()` method paints to the real canvas (unwrapping
+    any ScaledCanvas) and returns the back-buffer canvas after its
+    final swap; we feed that back into the next widget's play() so
+    swap chaining stays correct.
+    """
+    # Unwrap ScaledCanvas fully (handles nested wrappers) so GIF frames
+    # are painted at native physical resolution, bypassing block scaling.
+    real = canvas
+    while isinstance(real, ScaledCanvas):
+        real = real.real
+    while True:
+        try:
+            widget = notif_queue.get_nowait()
+        except asyncio.QueueEmpty:
+            try:
+                widget = await asyncio.wait_for(notif_queue.get(), timeout=0.1)
+            except TimeoutError:
+                return
+        real = await widget.play(real, frame, loop_count=loop_count)
 
 
 async def _swap_and_scroll(

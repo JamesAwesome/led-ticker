@@ -314,7 +314,13 @@ async def run(config_path: Path) -> None:
                 # to start at pos=0 (no scroll-in) so we don't blank the panel
                 # before redrawing.
                 run_kwargs: dict[str, Any] = {"loop_count": section.loop_count}
-                if just_transitioned and run_method != "run_swap":
+                # `start_pos` is only meaningful for scrolling modes —
+                # `run_swap` and `run_gif` don't have a scroll position
+                # to skip past.
+                if just_transitioned and run_method in (
+                    "run_forever_scroll",
+                    "run_infini_scroll",
+                ):
                     run_kwargs["start_pos"] = 0
 
                 await getattr(ticker, run_method)(**run_kwargs)

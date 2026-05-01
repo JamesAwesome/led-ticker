@@ -45,13 +45,26 @@ class HiResEmoji:
     occupies the same horizontal logical-width as a low-res emoji of
     `physical_size // N` (so a 32×32 sprite at scale=4 takes 8 logical
     columns — same as an 8×8 low-res emoji).
+
+    `physical_width` overrides the layout footprint for emojis whose
+    visible content doesn't fill the full physical_size canvas (e.g.
+    the crescent moon, which only spans 19 of 32 cols — without an
+    override the empty cols still consume logical-width and create
+    visible gaps in inline rows). Defaults to physical_size when
+    unset.
     """
 
     pixels: tuple[tuple[int, int, int, int, int], ...]
-    physical_size: int  # e.g. 32 means 32×32
+    physical_size: int  # e.g. 32 means 32×32 canvas
+    physical_width: int | None = None  # override for layout (default = physical_size)
 
     def logical_width(self, scale: int) -> int:
-        return self.physical_size // max(1, scale)
+        w = (
+            self.physical_width
+            if self.physical_width is not None
+            else self.physical_size
+        )
+        return w // max(1, scale)
 
 
 def _emoji_width(icon: PixelData) -> int:
@@ -834,6 +847,10 @@ def _generate_moon_hires(
 MOON_HIRES = HiResEmoji(
     pixels=_generate_moon_hires(size=32, color=_MN, bite_offset=0.30),
     physical_size=32,
+    # Crescent's lit pixels span cols 1-19 (width 19). Use physical_width=20
+    # so the moon takes 5 logical columns at scale=4, matching the low-res
+    # MOON's 5-col footprint and leaving no awkward gap to the next emoji.
+    physical_width=20,
 )
 
 

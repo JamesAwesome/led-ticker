@@ -204,14 +204,17 @@ def test_hires_moon_registered():
 
 
 def test_hires_moon_logical_width_matches_lowres():
-    """At scale=4, a 32×32 hi-res sprite should occupy 8 logical columns —
-    same as the 8×8 low-res version. This keeps text layout stable
-    regardless of which path is used.
+    """The crescent moon's lit pixels only span 19 of 32 cols, so its
+    `physical_width` is set to 20 (matching the low-res's 5-col
+    footprint at scale=4) — otherwise the empty cols 20-31 would
+    consume logical-width and create a visible gap to the next emoji
+    in inline rows.
     """
     from led_ticker.pixel_emoji import MOON_HIRES
 
-    assert MOON_HIRES.logical_width(scale=4) == 8
-    assert MOON_HIRES.logical_width(scale=2) == 16  # half scale = wider footprint
+    assert MOON_HIRES.logical_width(scale=4) == 5
+    assert MOON_HIRES.logical_width(scale=2) == 10
+    assert MOON_HIRES.physical_size == 32  # full canvas height preserved
 
 
 def test_hires_moon_paints_real_canvas_at_physical_resolution():

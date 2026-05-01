@@ -1111,12 +1111,14 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
     inner_left = rect_left + 2
     inner_right = rect_right - 2
 
-    # Single meeting point shared by both Vs, sitting ~65% down the
-    # body — gives an asymmetric X where the top V (closed flap) is
-    # large and the bottom V (visible interior pinch) is small. Apex
-    # at exact center reads as a "box with an X"; pushing it down 15%
-    # tilts the silhouette into envelope territory.
-    meet_y = inner_top + (inner_bottom - inner_top) * 65 // 100
+    # Top V's tip sits ~65% down the body; bottom V's tip mirrors that
+    # height from the bottom edge so both Vs have the SAME ANGLE. The
+    # bottom V's tip is ABOVE the top V's tip (visually inside the top
+    # flap area) — its diagonals get clipped where they meet the top V,
+    # leaving the bottom V's tip hidden behind the closed front flap.
+    body_h = inner_bottom - inner_top
+    top_meet_y = inner_top + body_h * 65 // 100
+    bottom_meet_y = inner_bottom - (top_meet_y - inner_top)
 
     def _thick_line(x0: int, y0: int, x1: int, y1: int, thickness: int = 3) -> None:
         """N-px-thick Bresenham — each rasterized cell stamps a thickness×
@@ -1143,12 +1145,59 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
                 err += dx
                 y += sy
 
-    # Top V flap (large): inner-top corners → meeting point
-    _thick_line(inner_left, inner_top, cx, meet_y, thickness=2)
-    _thick_line(inner_right, inner_top, cx, meet_y, thickness=2)
-    # Bottom V (small triangle): inner-bottom corners → same meeting point
-    _thick_line(inner_left, inner_bottom, cx, meet_y, thickness=2)
-    _thick_line(inner_right, inner_bottom, cx, meet_y, thickness=2)
+    def _line_intersection(
+        p1: tuple[float, float],
+        p2: tuple[float, float],
+        p3: tuple[float, float],
+        p4: tuple[float, float],
+    ) -> tuple[float, float] | None:
+        """Find the intersection of line segments p1-p2 and p3-p4."""
+        x1, y1 = p1
+        x2, y2 = p2
+        x3, y3 = p3
+        x4, y4 = p4
+        denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+        if denom == 0:
+            return None
+        t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+        return (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+
+    # Top V flap (full): inner-top corners → top meeting point
+    _thick_line(inner_left, inner_top, cx, top_meet_y, thickness=2)
+    _thick_line(inner_right, inner_top, cx, top_meet_y, thickness=2)
+
+    # Bottom V — same angle as top V, but the diagonals are CLIPPED at
+    # the point where they cross the top V's diagonals. The "true" tip
+    # at (cx, bottom_meet_y) is hidden behind the front flap; only the
+    # outer corner stubs are visible.
+    left_clip = _line_intersection(
+        (inner_left, inner_top),
+        (cx, top_meet_y),
+        (inner_left, inner_bottom),
+        (cx, bottom_meet_y),
+    )
+    right_clip = _line_intersection(
+        (inner_right, inner_top),
+        (cx, top_meet_y),
+        (inner_right, inner_bottom),
+        (cx, bottom_meet_y),
+    )
+    if left_clip is not None:
+        _thick_line(
+            inner_left,
+            inner_bottom,
+            int(round(left_clip[0])),
+            int(round(left_clip[1])),
+            thickness=2,
+        )
+    if right_clip is not None:
+        _thick_line(
+            inner_right,
+            inner_bottom,
+            int(round(right_clip[0])),
+            int(round(right_clip[1])),
+            thickness=2,
+        )
 
     return tuple((x, y, *_EMAIL_COLOR) for (x, y) in pixels)
 

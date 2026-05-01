@@ -98,15 +98,8 @@ class TwoRowMessage:
         elif self.top_center is True:
             self.top_align = "center"
 
-    def _ensure_widths(self) -> None:
-        if self._top_width < 0:
-            self._top_width = measure_width(self.font, self.top_text)
-        if self._bottom_width < 0:
-            self._bottom_width = measure_width(self.font, self.bottom_text)
-
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         del kwargs  # widget is meant for swap mode; y_offset/transitions ignored
-        self._ensure_widths()
 
         canvas_height = getattr(canvas, "height", 16)
         top_text_y, top_emoji_y = _row_y(canvas_height, row_index=0)
@@ -117,6 +110,17 @@ class TwoRowMessage:
         # the 5×8 font glyph cell. Any hi-res sprite logically taller
         # than this falls back to the 8×8 low-res sprite.
         row_emoji_cap = _ROW_HEIGHT
+
+        # Measure widths now that we have the canvas + row cap (so hi-res
+        # vs. low-res fallback matches what `draw_with_emoji` will do).
+        if self._top_width < 0:
+            self._top_width = measure_width(
+                self.font, self.top_text, canvas, row_emoji_cap
+            )
+        if self._bottom_width < 0:
+            self._bottom_width = measure_width(
+                self.font, self.bottom_text, canvas, row_emoji_cap
+            )
 
         # Top row at a fixed x — held while the bottom scrolls.
         top_x = _aligned_x(canvas.width, self._top_width, self.top_align)

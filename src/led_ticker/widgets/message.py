@@ -47,6 +47,7 @@ class TickerMessage:
                 self._content_width = measure_width(
                     self.font,
                     self.message,
+                    canvas,
                 )
             else:
                 self._content_width = get_text_width(self.font, self.message, padding=0)

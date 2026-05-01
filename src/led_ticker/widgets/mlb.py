@@ -240,7 +240,7 @@ class MLBGameMessage:
         if self._content_width < 0:
             font: Font = FONT_DEFAULT
             self._content_width = sum(
-                measure_width(font, text) for text, _ in self.segments
+                measure_width(font, text, canvas) for text, _ in self.segments
             )
 
         content_width = self._content_width

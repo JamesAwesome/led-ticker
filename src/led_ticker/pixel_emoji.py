@@ -1478,15 +1478,42 @@ def _parse_segments(text: str) -> list[tuple[str, str]]:
     return segments
 
 
-def measure_width(font: Font, text: str) -> int:
-    """Measure total width of text with emoji slugs expanded."""
+def measure_width(
+    font: Font,
+    text: str,
+    canvas: Canvas | None = None,
+    max_emoji_height: int | None = None,
+) -> int:
+    """Measure total width of text with emoji slugs expanded.
+
+    When `canvas` is a `ScaledCanvas` AND the slug has a hi-res variant
+    that fits within `max_emoji_height`, use the hi-res sprite's logical
+    width — otherwise this underestimates the rendered width (low-res
+    FLOWER is 5 wide; hi-res FLOWER at scale=4 is 8 logical wide), and
+    overflow-scroll detection silently fails when the rendered content
+    doesn't fit.
+
+    The `max_emoji_height` mirrors `draw_with_emoji`'s parameter — when
+    a hi-res sprite would exceed the row band (e.g. two_row at scale=2),
+    the renderer falls back to low-res, and so should the measurement.
+    """
     from led_ticker.drawing import get_text_width
+    from led_ticker.scaled_canvas import ScaledCanvas
 
     segments = _parse_segments(text)
     width = 0
+    use_hires = isinstance(canvas, ScaledCanvas)
     for seg_type, value in segments:
         if seg_type == "emoji":
-            width += _emoji_width(_get_registry()[value]) + EMOJI_PADDING
+            measured = None
+            if use_hires and value in HIRES_REGISTRY:
+                hires = HIRES_REGISTRY[value]
+                logical_h = hires.physical_size // canvas.scale
+                if max_emoji_height is None or logical_h <= max_emoji_height:
+                    measured = hires.logical_width(canvas.scale)
+            if measured is None:
+                measured = _emoji_width(_get_registry()[value])
+            width += measured + EMOJI_PADDING
         else:
             width += get_text_width(font, value, padding=0)
     return width

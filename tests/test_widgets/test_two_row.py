@@ -295,10 +295,10 @@ class TestWidthCaching:
         call_count = 0
         real_measure = tr.measure_width
 
-        def counting_measure(font, text):
+        def counting_measure(font, text, *args, **kwargs):
             nonlocal call_count
             call_count += 1
-            return real_measure(font, text)
+            return real_measure(font, text, *args, **kwargs)
 
         monkeypatch.setattr(tr, "measure_width", counting_measure)
 

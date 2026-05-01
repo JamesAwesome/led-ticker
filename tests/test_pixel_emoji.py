@@ -65,6 +65,61 @@ def test_measure_width_with_emoji():
     assert width > 0
 
 
+def test_measure_width_uses_hires_logical_width_on_scaled_canvas():
+    """Regression: when rendered on a ScaledCanvas, measure_width must
+    use the hi-res sprite's logical width — otherwise low-res-shorter
+    emoji like :flower: (5 wide low-res, 8 wide at scale=4 hi-res) cause
+    overflow-scroll detection to silently fail because measured width
+    underestimates rendered width.
+    """
+    real = _bigsign_real_canvas()
+    sc = ScaledCanvas(real, scale=4)
+    # Low-res :flower: is 5 wide; hi-res at scale=4 is 8 logical wide
+    no_canvas = measure_width(FONT_SMALL, ":flower:")
+    with_canvas = measure_width(FONT_SMALL, ":flower:", sc)
+    # Without the canvas, measure_width uses the low-res 5+padding=7
+    # With the canvas, hi-res 8+padding=10
+    assert no_canvas == 7
+    assert with_canvas == 10
+
+
+def test_measure_width_respects_max_emoji_height():
+    """When max_emoji_height forces hi-res→low-res fallback (e.g. two_row
+    at scale=2 caps emoji height at 8 logical), measure_width must mirror
+    that fallback so cached widths match what gets rendered.
+    """
+    real = _bigsign_real_canvas()
+    # At scale=2, hi-res 32px is 16 logical tall — exceeds the 8-row cap
+    sc = ScaledCanvas(real, scale=2)
+    capped = measure_width(FONT_SMALL, ":flower:", sc, max_emoji_height=8)
+    # Falls back to low-res: 5 + padding 2 = 7
+    assert capped == 7
+    # Without cap: hi-res 32/2=16 logical wide + padding = 18
+    uncapped = measure_width(FONT_SMALL, ":flower:", sc)
+    assert uncapped == 18
+
+
+def test_message_widget_overflow_scroll_with_hires_emoji():
+    """Regression for the bigsign bug where 7 hi-res emojis (=70 logical
+    px at scale=4) didn't trigger scroll because measure_width returned
+    64 (low-res widths sum). Verifies TickerMessage now reports a width
+    that exceeds canvas.width when hi-res rendering would overflow.
+    """
+    from led_ticker.widgets.message import TickerMessage
+
+    real = _bigsign_real_canvas()
+    sc = ScaledCanvas(real, scale=4)
+    msg = TickerMessage(message=":moon::sun::star::instagram::email::baseball::flower:")
+    _, cursor_pos = msg.draw(sc, cursor_pos=0)
+    # Canvas is 64 logical wide (256 / 4). 7 hi-res emojis = 7 × (8 + 2) = 70.
+    # cursor_pos returns content_width + padding (default 6) = 76. Caller
+    # uses cursor_pos > canvas.width to decide whether to scroll.
+    assert cursor_pos > sc.width, (
+        f"Expected cursor_pos > {sc.width} to trigger scroll; got {cursor_pos}. "
+        "If this is 64-70 the low-res-width-only bug has regressed."
+    )
+
+
 def test_instagram_and_email_emojis_registered():
     """Regression: the Instagram + email icons are wired into the registry
     so configs can use `:instagram:` and `:email:` slugs.

@@ -15,6 +15,9 @@
 # Pride flag variants:
 #   :pride: (default rainbow) :pride_rainbow: :pride_bi: :pride_trans:
 #   :pride_lesbian: :pride_ace: :pride_nb: :pride_demi:
+# Cat color variants:
+#   :cat: (default gray) :cat_gray: :cat_orange: :cat_white:
+#   :cat_black: :cat_brown: :cat_cream:
 #
 # Mode is `swap` so each test message is its own held display unit.
 #
@@ -49,6 +52,51 @@ default = "cut"
 duration = 0.4
 easing = "linear"
 between_sections = "dissolve"
+
+# ---------------------------------------------------------------------------
+# Section 0 — cat variants (HI-RES + LOW-RES side by side)
+#
+# Hi-res row at the default scale=4 shows the full 32×32 cat sprites.
+# Low-res row uses `scale = 1` so the emoji renderer falls back to the
+# 8×8 sprites (paint each logical pixel as a 4×4 LED block via the
+# default scale; here we render the canvas at 1× and let the panel's
+# own resolution display the 8×8 sprite at native size).
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 5.0
+transition = "dissolve"
+transition_duration = 0.6
+
+[playlist.section.title]
+type = "message"
+text = "CATS HI"
+color = [240, 180, 100]
+
+[[playlist.section.widget]]
+type = "message"
+text = ":cat_gray::cat_orange::cat_white::cat_black::cat_brown::cat_cream:"
+font_color = [255, 240, 200]
+
+[[playlist.section]]
+mode = "swap"
+scale = 1
+loop_count = 1
+hold_time = 5.0
+transition = "dissolve"
+transition_duration = 0.6
+
+[playlist.section.title]
+type = "message"
+text = "CATS LO"
+color = [240, 180, 100]
+
+[[playlist.section.widget]]
+type = "message"
+text = ":cat_gray::cat_orange::cat_white::cat_black::cat_brown::cat_cream:"
+font_color = [255, 240, 200]
 
 # ---------------------------------------------------------------------------
 # Section 1 — all 5 weather hi-res icons in ONE row
@@ -188,7 +236,28 @@ text = ":pride_rainbow::pride_bi::pride_trans::pride_lesbian::pride_ace::pride_n
 font_color = [255, 240, 200]
 
 # ---------------------------------------------------------------------------
-# Section 6 — two-row layout test (hi-res falls back per row cap)
+# Section 6 — cat color variants
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 5.0
+transition = "dissolve"
+transition_duration = 0.6
+
+[playlist.section.title]
+type = "message"
+text = "CATS"
+color = [240, 180, 100]
+
+[[playlist.section.widget]]
+type = "message"
+text = ":cat_gray::cat_orange::cat_white::cat_black::cat_brown::cat_cream:"
+font_color = [255, 240, 200]
+
+# ---------------------------------------------------------------------------
+# Section 7 — two-row layout test (hi-res falls back per row cap)
 #
 # At scale=2 the 32-physical hi-res sprite is 16 logical tall — exceeds
 # the per-row cap (8 logical) — so two_row falls back to the 8×8 low-res

@@ -590,6 +590,61 @@ POKEBALL: PixelData = [
 ]
 
 
+# 🐱 8×8 Cat — pointy triangular ears, round face, two eyes, small
+# nose. Multiple color variants (gray, orange, white, black, etc.)
+# generated from a shared layout helper.
+_CAT_NOSE_PINK = (255, 130, 170)
+
+
+def _cat_lowres(face: tuple[int, int, int], eye: tuple[int, int, int]) -> PixelData:
+    """Build a low-res 8×8 cat face sprite with the given colors."""
+    F = face
+    B = eye
+    N = _CAT_NOSE_PINK
+    cells: list[tuple[int, int, tuple[int, int, int]]] = []
+    # Row 0: ear tops (cols 1-2 and 5-6)
+    for x in (1, 2, 5, 6):
+        cells.append((x, 0, F))
+    # Row 1: ear bottoms widening (cols 0-2 and 5-7)
+    for x in (0, 1, 5, 6, 7):
+        cells.append((x, 1, F))
+    # Row 2: face top (full row)
+    for x in range(8):
+        cells.append((x, 2, F))
+    # Row 3: eyes (cols 2, 5)
+    for x in range(8):
+        cells.append((x, 3, B if x in (2, 5) else F))
+    # Row 4: face
+    for x in range(8):
+        cells.append((x, 4, F))
+    # Row 5: pink nose at center (cols 3-4)
+    for x in range(8):
+        cells.append((x, 5, N if x in (3, 4) else F))
+    # Row 6: face (slight inset)
+    for x in range(1, 7):
+        cells.append((x, 6, F))
+    # Row 7: chin point
+    for x in range(2, 6):
+        cells.append((x, 7, F))
+    return [(x, y, *c) for x, y, c in cells]
+
+
+# Cat color palette: (slug_suffix, face_color, eye_color)
+_CAT_PALETTE: tuple[tuple[str, tuple[int, int, int], tuple[int, int, int]], ...] = (
+    ("gray", (180, 180, 195), (245, 200, 50)),  # default — gray with yellow eyes
+    ("orange", (240, 140, 60), (255, 220, 80)),
+    ("white", (240, 240, 245), (100, 180, 240)),  # blue eyes
+    ("black", (60, 60, 70), (255, 220, 50)),
+    ("brown", (130, 80, 50), (255, 220, 50)),
+    ("cream", (220, 195, 160), (110, 180, 230)),
+)
+
+CAT = _cat_lowres(_CAT_PALETTE[0][1], _CAT_PALETTE[0][2])  # default :cat: → gray
+CAT_LOWRES_VARIANTS: dict[str, PixelData] = {
+    f"cat_{name}": _cat_lowres(face, eye) for name, face, eye in _CAT_PALETTE
+}
+
+
 # 🐰 8×8 Bunny — two long ears with pink inner lining, white face with
 # black eyes and a pink nose. Matches the canonical 🐰 emoji silhouette.
 _BN_W = (245, 245, 245)  # white body / face
@@ -2014,6 +2069,168 @@ BUNNY_HIRES = HiResEmoji(
 )
 
 
+# 🐱 Hi-res cat — round face with triangular pointy ears, two large
+# eyes with pupils, small pink nose, and pink cheek blushes. Color
+# variants share the same geometry; only face/eye colors differ.
+def _generate_cat_hires(
+    face: tuple[int, int, int],
+    eye: tuple[int, int, int],
+    size: int = 32,
+) -> tuple[tuple[int, int, int, int, int], ...]:
+    pixels: dict[tuple[int, int], tuple[int, int, int]] = {}
+
+    cx = (size - 1) / 2.0
+    nose_pink = (255, 140, 175)
+    cheek_pink = (255, 160, 195)
+    inner_ear = (250, 130, 170)
+    pupil = (35, 35, 40)
+
+    # Step 1: triangular ears, FULLY ABOVE the head (no overlap).
+    # Each ear is a small triangle: apex (1 px) at row 5, base (7 px
+    # wide) at row 9 — just above where the head's top arc begins.
+    # NB: ear centers are explicit integers so int rounding doesn't
+    # create gaps in the triangle (cx is .5 → banker's rounding loses
+    # alternate columns).
+    def _fill_triangle(
+        v0: tuple[int, int],
+        v1: tuple[int, int],
+        v2: tuple[int, int],
+        color: tuple[int, int, int],
+        only_existing: bool = False,
+    ) -> None:
+        """Rasterize a triangle defined by 3 vertices into `pixels`.
+        If `only_existing` is True, paint only cells already present
+        (used for the inner-pink layer, which sits inside the outer
+        ear and shouldn't extend beyond it).
+        """
+
+        def edge(p, a, b):
+            return (p[0] - b[0]) * (a[1] - b[1]) - (a[0] - b[0]) * (p[1] - b[1])
+
+        xs = (v0[0], v1[0], v2[0])
+        ys = (v0[1], v1[1], v2[1])
+        for y in range(min(ys), max(ys) + 1):
+            for x in range(min(xs), max(xs) + 1):
+                if not (0 <= x < size and 0 <= y < size):
+                    continue
+                p = (x, y)
+                d1 = edge(p, v0, v1)
+                d2 = edge(p, v1, v2)
+                d3 = edge(p, v2, v0)
+                has_neg = d1 < 0 or d2 < 0 or d3 < 0
+                has_pos = d1 > 0 or d2 > 0 or d3 > 0
+                if has_neg and has_pos:
+                    continue
+                if only_existing and (x, y) not in pixels:
+                    continue
+                pixels[(x, y)] = color
+
+    cx_int = int(round(cx))
+    ear_offset = 7
+    # Each ear is a triangle with 3 explicit vertices:
+    #   - apex: top, slightly OUTWARD of the outer base corner
+    #   - outer_base: bottom-OUTER corner (lower)
+    #   - inner_base: bottom-INNER corner (HIGHER than outer_base)
+    # The base tilts up toward the head's center, mirroring the head's
+    # curve so the ears don't look pasted on flat.
+    apex_outward_off = 4
+    base_outer_half_w = 3
+    base_inner_half_w = 4  # 1 col WIDER on the inner side — thickens the
+    # ear's inner edge so it tapers more gradually toward the head
+    ear_apex_y = 7
+    outer_base_y = 16
+    inner_base_y = 13  # tilt: inner base 3 rows higher than outer
+    for ear_cx_int, dir_sign in (
+        (cx_int - ear_offset, -1),
+        (cx_int + ear_offset, 1),
+    ):
+        apex = (ear_cx_int + dir_sign * apex_outward_off, ear_apex_y)
+        outer_base = (ear_cx_int + dir_sign * base_outer_half_w, outer_base_y)
+        inner_base = (ear_cx_int - dir_sign * base_inner_half_w, inner_base_y)
+        _fill_triangle(apex, outer_base, inner_base, face)
+
+    # Inner pink — same tilted-triangle shape, inset 1-2 rows/cols
+    inner_apex_outward = 3
+    inner_outer_half_w = 2
+    inner_inner_half_w = 3  # 1 wider on inner side (matches outer ear)
+    inner_apex_y = ear_apex_y + 2
+    inner_outer_base_y = outer_base_y - 2
+    inner_inner_base_y = inner_base_y - 1
+    for ear_cx_int, dir_sign in (
+        (cx_int - ear_offset, -1),
+        (cx_int + ear_offset, 1),
+    ):
+        apex = (ear_cx_int + dir_sign * inner_apex_outward, inner_apex_y)
+        outer_base = (ear_cx_int + dir_sign * inner_outer_half_w, inner_outer_base_y)
+        inner_base = (ear_cx_int - dir_sign * inner_inner_half_w, inner_inner_base_y)
+        _fill_triangle(apex, outer_base, inner_base, inner_ear, only_existing=True)
+
+    # Step 2: round head — slightly taller ellipse so it meets the ears
+    head_cx = cx
+    head_cy = 19.5
+    head_a = 11.5
+    head_b = 9.5
+    for y in range(size):
+        for x in range(size):
+            dx = x - head_cx
+            dy = y - head_cy
+            r2 = (dx * dx) / (head_a * head_a) + (dy * dy) / (head_b * head_b)
+            if r2 <= 1.0 and (x, y) not in pixels:
+                pixels[(x, y)] = face
+
+    # Step 3: eyes — two oval shapes with pupil dots
+    eye_y = 19
+    eye_offset = 5
+    eye_w = 2.0
+    eye_h = 2.5
+    for ex in (cx - eye_offset, cx + eye_offset):
+        for y in range(size):
+            for x in range(size):
+                dx = x - ex
+                dy = y - eye_y
+                if (dx * dx) / (eye_w * eye_w) + (dy * dy) / (eye_h * eye_h) <= 1 and (
+                    x,
+                    y,
+                ) in pixels:
+                    pixels[(x, y)] = eye
+        # Pupil — small black dot in the center of each eye
+        ix = int(round(ex))
+        for dy in range(-1, 1):
+            p = (ix, eye_y + dy)
+            if p in pixels:
+                pixels[p] = pupil
+
+    # Step 4: small pink nose — 3-px triangle at face center
+    nose_y = 23
+    pixels[(cx_int - 1, nose_y)] = nose_pink
+    pixels[(cx_int, nose_y)] = nose_pink
+    pixels[(cx_int, nose_y + 1)] = nose_pink
+
+    # Step 5: pink cheek blush — 2×2 dots on each side
+    cheek_y = 24
+    for dx_offset in (-7, 6):
+        for dx in (0, 1):
+            for dy in (0, 1):
+                p = (cx_int + dx_offset + dx, cheek_y + dy)
+                if p in pixels and pixels[p] == face:
+                    pixels[p] = cheek_pink
+
+    return tuple((x, y, *c) for (x, y), c in pixels.items())
+
+
+CAT_HIRES = HiResEmoji(
+    pixels=_generate_cat_hires(_CAT_PALETTE[0][1], _CAT_PALETTE[0][2]),
+    physical_size=32,
+)
+CAT_HIRES_VARIANTS: dict[str, HiResEmoji] = {
+    f"cat_{name}": HiResEmoji(
+        pixels=_generate_cat_hires(face, eye),
+        physical_size=32,
+    )
+    for name, face, eye in _CAT_PALETTE
+}
+
+
 # ❤️ Hi-res heart — uses the classic implicit heart curve to generate
 # a smooth shape: two rounded humps at top, tapering to a point at
 # the bottom. Flat solid color body with a 1-px darker outline.
@@ -2206,6 +2423,7 @@ def _build_emoji_registry() -> dict[str, PixelData]:
         "email": EMAIL,
         # Animals
         "bunny": BUNNY,
+        "cat": CAT,
         # Symbols
         "heart": HEART,
     }
@@ -2216,6 +2434,8 @@ def _build_emoji_registry() -> dict[str, PixelData]:
     registry.update(PRIDE_LOWRES_VARIANTS)
     # Pokeball
     registry["pokeball"] = POKEBALL
+    # Cat color variants
+    registry.update(CAT_LOWRES_VARIANTS)
     return registry
 
 
@@ -2244,6 +2464,8 @@ HIRES_REGISTRY: dict[str, HiResEmoji] = {
     "taco": TACO_HIRES,
     # Animals
     "bunny": BUNNY_HIRES,
+    "cat": CAT_HIRES,
+    **CAT_HIRES_VARIANTS,
     # Symbols
     "heart": HEART_HIRES,
     **HEART_HIRES_VARIANTS,

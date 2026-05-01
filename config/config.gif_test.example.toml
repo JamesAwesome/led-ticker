@@ -237,7 +237,7 @@ scroll_speed_ms = 50
 
 [[playlist.section]]
 mode = "gif"
-loop_count = 10  # ~10s of playback (loop is ~1s)
+loop_count = 5  # ~5s of playback (loop is ~1s)
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -254,7 +254,7 @@ fit = "stretch"
 
 [[playlist.section]]
 mode = "gif"
-loop_count = 7  # ~10s of playback (loop is ~1.45s)
+loop_count = 3  # ~4.4s of playback (loop is ~1.45s)
 transition = "dissolve"
 transition_duration = 0.6
 

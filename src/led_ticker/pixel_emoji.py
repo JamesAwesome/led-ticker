@@ -1087,11 +1087,15 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
     """
     pixels: set[tuple[int, int]] = set()
 
-    rect_w, rect_h = 32, 24
+    # Odd width + odd height so the center column / row are exact
+    # integers — otherwise integer Bresenham gives the left and right
+    # diagonals subtly different slopes (left half spans 15 cols, right
+    # spans 16) and the V looks lopsided.
+    rect_w, rect_h = 31, 23
     rect_left = (size - rect_w) // 2  # 0
-    rect_right = rect_left + rect_w - 1  # 31
+    rect_right = rect_left + rect_w - 1  # 30
     rect_top = (size - rect_h) // 2  # 4
-    rect_bottom = rect_top + rect_h - 1  # 27
+    rect_bottom = rect_top + rect_h - 1  # 26
 
     # 2-px-thick rectangle border
     for x in range(rect_left, rect_right + 1):

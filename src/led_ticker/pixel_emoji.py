@@ -1245,13 +1245,14 @@ def _generate_baseball_hires(
         p1=(cx + 0, cy - body_r * 0.20),  # control: above center
         p2=(cx + body_r * 0.92, cy + 2),  # mid-right, slightly below center
     )
-    # Lower seam: mid-right → bottom-left (leans \). Together with the
-    # upper seam this forms a connected S-curve wrapping the ball, with
-    # the meeting point at mid-right.
+    # Lower seam: mid-left → bottom-right (also leans /). Both seams
+    # lean the same way — two parallel diagonal stripes — matching the
+    # reference baseball where the seams trace a 3D figure-8 that
+    # projects to two parallel arcs on one side of the ball.
     seam2 = trace_seam(
-        p0=(cx + body_r * 0.92, cy - 2),  # mid-right, slightly above center
+        p0=(cx - body_r * 0.92, cy - 2),  # mid-left, slightly above center
         p1=(cx + 0, cy + body_r * 0.20),  # control: below center
-        p2=(cx - 2, cy + body_r * 0.92),  # near bottom, slightly left of center
+        p2=(cx + 2, cy + body_r * 0.92),  # near bottom, slightly right of center
     )
 
     # Step 3: hash stitches — small red squares offset perpendicular to

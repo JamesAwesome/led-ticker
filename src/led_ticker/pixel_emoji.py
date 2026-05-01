@@ -1171,6 +1171,85 @@ EMAIL_HIRES = HiResEmoji(
 )
 
 
+# ⚾ Hi-res baseball — round white ball with two curving red seams.
+# Stylized 2D-emoji representation: the seams form a vertical "eye"
+# silhouette in the center of the ball (left arc + right arc meeting at
+# top and bottom poles), which reads as a baseball at this size without
+# explicit cross-stitch hatching. Earlier iterations with hash marks
+# either drowned the curves in red noise or made the ball look like a
+# target ring; the clean two-arc form is the most legible at 32×32.
+_BASEBALL_WHITE = (250, 250, 245)
+_BASEBALL_EDGE = (200, 200, 210)
+_BASEBALL_RED = (200, 30, 40)
+
+
+def _generate_baseball_hires(
+    size: int = 32,
+) -> tuple[tuple[int, int, int, int, int], ...]:
+    import math
+
+    cx = cy = (size - 1) / 2.0
+    body_r = size / 2 - 0.5  # use full canvas
+
+    # Geometry: each seam is a circular arc whose ORIGIN sits outside
+    # the ball on the OPPOSITE side, so the visible portion inside the
+    # ball is a curve that bulges TOWARD the nearest side. Choose the
+    # arc parameters so the arc passes through (cx, cy ± pole_y) — near
+    # the top/bottom poles — and (cx ∓ equator_x, cy) — the equator
+    # bulge points.
+    pole_y = body_r * 0.78  # how close to top/bottom the arc reaches
+    equator_x = body_r * 0.50  # how far OUT from center the bulge goes
+    # (Real baseball seams sit about a third of the way in from the edge.
+    # Smaller value → "football" silhouette; larger → "ring around the
+    # edge" silhouette. ~0.5 reads as visible curving seams with white
+    # both inside and outside.)
+    # Solving |O - pole|² = |O - equator|² for O = (cx + d, cy):
+    #   d² + pole_y² = (d + equator_x)²
+    #   d = (pole_y² - equator_x²) / (2 * equator_x)
+    arc_d = (pole_y * pole_y - equator_x * equator_x) / (2 * equator_x)
+    arc_r = arc_d + equator_x
+
+    pixels: dict[tuple[int, int], tuple[int, int, int]] = {}
+
+    # Step 1: solid white ball with subtle 1-px gray edge so the round
+    # silhouette reads cleanly against a black panel.
+    for y in range(size):
+        for x in range(size):
+            dx = x - cx
+            dy = y - cy
+            d = math.sqrt(dx * dx + dy * dy)
+            if d > body_r:
+                continue
+            if d > body_r - 1.0:
+                pixels[(x, y)] = _BASEBALL_EDGE
+            else:
+                pixels[(x, y)] = _BASEBALL_WHITE
+
+    # Step 2: the two seam curves. For each ball pixel, check if it's
+    # within the seam-thickness band of either arc. Restrict each arc
+    # to its own half so the curves don't intersect at the ball center.
+    # Thickness 1.0 → 1-2 px wide depending on rasterization angle, gives
+    # a continuous (non-dotted) seam line.
+    seam_thickness = 1.0
+    for (x, y), _ in list(pixels.items()):
+        # Left seam: arc origin to the right; visible inside the LEFT half
+        d_left = math.sqrt((x - (cx + arc_d)) ** 2 + (y - cy) ** 2)
+        on_left = abs(d_left - arc_r) <= seam_thickness and x <= cx
+        # Right seam: arc origin to the left; visible inside the RIGHT half
+        d_right = math.sqrt((x - (cx - arc_d)) ** 2 + (y - cy) ** 2)
+        on_right = abs(d_right - arc_r) <= seam_thickness and x >= cx
+        if on_left or on_right:
+            pixels[(x, y)] = _BASEBALL_RED
+
+    return tuple((x, y, *c) for (x, y), c in pixels.items())
+
+
+BASEBALL_HIRES = HiResEmoji(
+    pixels=_generate_baseball_hires(size=32),
+    physical_size=32,
+)
+
+
 def _build_emoji_registry() -> dict[str, PixelData]:
     """Build the emoji registry with all available icons."""
     from led_ticker.widgets.weather_icons import (
@@ -1221,6 +1300,8 @@ HIRES_REGISTRY: dict[str, HiResEmoji] = {
     "snow": SNOW_HIRES,
     "thunder": THUNDER_HIRES,
     "fog": FOG_HIRES,
+    # Sports
+    "baseball": BASEBALL_HIRES,
 }
 
 

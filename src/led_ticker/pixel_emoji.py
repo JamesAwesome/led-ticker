@@ -1072,14 +1072,18 @@ _EMAIL_COLOR = (255, 255, 255)
 
 
 def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int], ...]:
-    """30×20 landscape envelope outline with thick top + bottom V-flaps.
+    """30×20 landscape envelope outline with the classic kite-flap shape.
 
-    The outline is a 2-px-thick rectangle border. Two 3-px-thick
-    diagonal V-flaps:
-      - top: from upper-left + upper-right corners down to mid-center
-      - bottom: from lower-left + lower-right corners up to mid-center
-    Together they read as the classic envelope X — the front fold and
-    the back-flap edges as visible from the closed envelope.
+    - 2-px-thick rectangle border
+    - LARGE top V: from inner-top corners DOWN to a meeting point near
+      the bottom (~85% down). This is the closed flap covering most of
+      the envelope front.
+    - SMALL bottom V: from inner-bottom corners UP to the SAME meeting
+      point. This is the small triangular pinch at the bottom of the
+      envelope — the front-of-envelope edges visible below the flap.
+
+    Together they read as a closed envelope (front-flap dominates with
+    a small lip at the bottom) rather than a box-with-X.
     """
     pixels: set[tuple[int, int]] = set()
 
@@ -1089,7 +1093,7 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
     rect_top = (size - rect_h) // 2  # 6
     rect_bottom = rect_top + rect_h - 1  # 25
 
-    # 2-px-thick rectangle border — cleanly visible silhouette
+    # 2-px-thick rectangle border
     for x in range(rect_left, rect_right + 1):
         pixels.add((x, rect_top))
         pixels.add((x, rect_top + 1))
@@ -1102,16 +1106,19 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
         pixels.add((rect_right - 1, y))
 
     cx = (rect_left + rect_right) // 2  # 15
-    cy = (rect_top + rect_bottom) // 2  # 15
     inner_top = rect_top + 2
     inner_bottom = rect_bottom - 2
     inner_left = rect_left + 2
     inner_right = rect_right - 2
 
+    # Meeting point sits 3 rows up from the inner bottom — the top flap
+    # fills the upper ~75% of the body, the bottom pinch is a small
+    # triangle in the remaining ~25%.
+    meet_y = inner_bottom - 3
+
     def _thick_line(x0: int, y0: int, x1: int, y1: int, thickness: int = 3) -> None:
-        """3-px-thick Bresenham. Each line cell paints itself plus the
-        cell to the right and below, so the line is visually thick on
-        both axes regardless of slope."""
+        """N-px-thick Bresenham — each rasterized cell stamps a thickness×
+        thickness square so the line reads as bold on the LED panel."""
         dx = abs(x1 - x0)
         dy = abs(y1 - y0)
         sx = 1 if x0 < x1 else -1
@@ -1134,12 +1141,12 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
                 err += dx
                 y += sy
 
-    # Top V-flap: from inner-top corners down to mid-center
-    _thick_line(inner_left, inner_top, cx, cy)
-    _thick_line(inner_right, inner_top, cx, cy)
-    # Bottom V-flap: from inner-bottom corners UP to the same mid-center
-    _thick_line(inner_left, inner_bottom, cx, cy)
-    _thick_line(inner_right, inner_bottom, cx, cy)
+    # Big top V: inner-top corners → near-bottom meeting point
+    _thick_line(inner_left, inner_top, cx, meet_y)
+    _thick_line(inner_right, inner_top, cx, meet_y)
+    # Small bottom V: inner-bottom corners → same meeting point
+    _thick_line(inner_left, inner_bottom, cx, meet_y)
+    _thick_line(inner_right, inner_bottom, cx, meet_y)
 
     return tuple((x, y, *_EMAIL_COLOR) for (x, y) in pixels)
 

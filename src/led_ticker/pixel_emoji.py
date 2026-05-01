@@ -632,16 +632,22 @@ _EMAIL_COLOR = (240, 240, 240)
 
 
 def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int], ...]:
-    """Envelope with thick 2-px borders + 2-px V-flap inside.
+    """Envelope sized to mirror the proportions of the working 8×8 low-res.
 
-    Iterated from the "thin outline" version that read as flimsy on the
-    bigsign. This version:
-      - Reduces the canvas inset (1 px instead of 2) so the rectangle
-        nearly fills the 32×32 sprite — gives more visual weight.
-      - Thickens the rectangle outline to 2 px on every side.
-      - Keeps the 2-px V-flap diagonals, anchored to the INNER corners
-        of the border (so the V tucks under the top edge cleanly).
-      - V-flap meeting point at ~40% down so the body has room.
+    Research notes from the design pass:
+      - The 8×8 version's V-flap diagonals are 1 px wide on an 8-px
+        canvas → 12.5% of width. To match RELATIVE visual weight at
+        32×32, the hi-res diagonals need to be ~3-4 px thick.
+      - The 8×8 V meets at a 2-px flat segment (cols 3-4, row 3), NOT a
+        single point. Translating proportionally: hi-res should meet at
+        a 4-px flat segment (cols 14-17). Drawing the V to a single
+        point produces a sharp tip that reads as a stray dot at LED
+        brightness, fighting the symmetric flap shape.
+
+    This version applies both: 3-px-thick V diagonals meeting at a
+    4-px flat segment. Plus a subtle 2×2 cream-yellow accent at the
+    lower-center as an "anchor" feature — gives the eye something to
+    land on in the otherwise-empty envelope body.
     """
     pixels: list[tuple[int, int, int, int, int]] = []
     inset = 1
@@ -661,18 +667,25 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
             pixels.append((left + dx, y, *_EMAIL_COLOR))
             pixels.append((right - dx, y, *_EMAIL_COLOR))
 
-    # Flap diagonals start at the INNER corners of the top border
-    # (one pixel below the top edge) so they look like the flap is
-    # tucked under the top of the envelope, not dangling off the corner.
     inner_left = left + border
     inner_right = right - border
     inner_top = top + border
     inner_bottom = bottom - border
-    mid_x = (inner_left + inner_right) // 2
-    flap_meet_y = inner_top + int((inner_bottom - inner_top) * 0.40)
 
-    def _draw_thick_line(x0: int, y0: int, x1: int, y1: int) -> None:
-        """2-px-thick Bresenham (paints each line pixel plus the one below)."""
+    # V-flap meeting parameters — flat 4-px segment, not a single point.
+    flap_meet_y = inner_top + int((inner_bottom - inner_top) * 0.40)
+    flat_half = 2  # → 4-px-wide flat at the meeting
+    cx = (inner_left + inner_right) // 2
+    flat_left = cx - flat_half
+    flat_right = cx + flat_half - 1  # inclusive
+
+    def _draw_thick_line(
+        x0: int, y0: int, x1: int, y1: int, thickness: int = 3
+    ) -> None:
+        """N-px-thick Bresenham. Each line pixel paints itself plus
+        `thickness - 1` pixels below — 3-px is the sweet spot for V-flap
+        weight at 32×32 LED resolution.
+        """
         dx = abs(x1 - x0)
         dy = abs(y1 - y0)
         sx = 1 if x0 < x1 else -1
@@ -680,7 +693,7 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
         err = dx - dy
         x, y = x0, y0
         while True:
-            for thick_dy in (0, 1):
+            for thick_dy in range(thickness):
                 ty = y + thick_dy
                 if 0 <= x < size and 0 <= ty < size:
                     pixels.append((x, ty, *_EMAIL_COLOR))
@@ -694,8 +707,22 @@ def _generate_email_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int
                 err += dx
                 y += sy
 
-    _draw_thick_line(inner_left, inner_top, mid_x, flap_meet_y)
-    _draw_thick_line(inner_right, inner_top, mid_x, flap_meet_y)
+    # 3-px V diagonals from the inner top corners to the flat segment ends
+    _draw_thick_line(inner_left, inner_top, flat_left, flap_meet_y)
+    _draw_thick_line(inner_right, inner_top, flat_right, flap_meet_y)
+
+    # 3-px-thick flat segment at the V meeting — connects the diagonals
+    # cleanly so the bottom of the flap is a horizontal seam, not a tip.
+    for x in range(flat_left, flat_right + 1):
+        for dy in range(3):
+            pixels.append((x, flap_meet_y + dy, *_EMAIL_COLOR))
+
+    # Anchor accent: small 3×2 dot in the lower-center of the body.
+    # Same color as the rest — subtle but gives the eye a landing point.
+    accent_cy = inner_bottom - 5
+    for dy in range(2):
+        for dx in range(-1, 2):
+            pixels.append((cx + dx, accent_cy + dy, *_EMAIL_COLOR))
 
     return tuple(set(pixels))
 

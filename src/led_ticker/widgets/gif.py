@@ -9,6 +9,7 @@ an async `play()` method that drives the per-frame playback loop.
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -85,7 +86,41 @@ class GifPlayer:
         frame: Any,
         loop_count: int = 1,
     ) -> Canvas:
-        """Run the playback loop. Implemented in Task 3."""
-        # NOTE: implementation lives in the next task — tests are
-        # additive so this stub never has to pass any tests.
-        raise NotImplementedError
+        """Run the playback loop: paint each frame, swap, sleep,
+        repeat for `loop_count` complete loops.
+
+        Returns the back-buffer canvas left after the final swap so
+        the caller (Ticker) can keep using it. Per CLAUDE.md #1, the
+        SwapOnVSync return value MUST be captured every iteration.
+        """
+        self._load(panel_w=real_canvas.width, panel_h=real_canvas.height)
+        if not self._frames:
+            return real_canvas
+
+        loops = max(1, loop_count)
+        canvas = real_canvas
+        w = canvas.width
+        h = canvas.height
+
+        for _ in range(loops):
+            for pixels, duration_ms in self._frames:
+                canvas.Clear()
+                set_px = canvas.SetPixel
+                for y in range(h):
+                    row = y * w * 3
+                    for x in range(w):
+                        base = row + x * 3
+                        set_px(
+                            x,
+                            y,
+                            pixels[base],
+                            pixels[base + 1],
+                            pixels[base + 2],
+                        )
+                canvas = frame.matrix.SwapOnVSync(canvas)
+                await asyncio.sleep(duration_ms / 1000)
+
+        # Land on the last frame so subsequent draw() calls (for the
+        # exit transition's compositing) paint it.
+        self._current_frame_idx = len(self._frames) - 1
+        return canvas

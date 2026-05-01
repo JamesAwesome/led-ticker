@@ -5,10 +5,13 @@
 # icons of a category in a single row instead of one-per-message.
 #
 # Hi-res emojis are 32×32 physical sprites that paint directly to the
-# bigsign's LEDs (bypassing ScaledCanvas's 4×4 block expansion). All
-# 14 slugs have a hi-res variant:
+# bigsign's LEDs (bypassing ScaledCanvas's 4×4 block expansion). Slugs
+# with a hi-res variant:
 #   :moon: :instagram: :sun: :star: :email: :baseball: :flower: :taco:
-#   :bunny: :cloud: :rain: :snow: :thunder: :fog:
+#   :bunny: :heart: :cloud: :rain: :snow: :thunder: :fog:
+# Heart rainbow variants:
+#   :heart_red: :heart_orange: :heart_yellow: :heart_green:
+#   :heart_blue: :heart_purple: :heart_pink:
 #
 # Mode is `swap` so each test message is its own held display unit.
 #
@@ -133,7 +136,32 @@ text = ":thunder: storm"
 font_color = [255, 220, 50]
 
 # ---------------------------------------------------------------------------
-# Section 4 — two-row layout test (hi-res falls back per row cap)
+# Section 4 — rainbow heart row
+#
+# Every :heart_*: variant lined up so all colors are visible at once.
+# 7 emojis × (8 + 2) = 70 logical px → overflows 64-wide canvas, will
+# scroll left then hold.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 5.0
+transition = "dissolve"
+transition_duration = 0.6
+
+[playlist.section.title]
+type = "message"
+text = "HEARTS"
+color = [255, 100, 130]
+
+[[playlist.section.widget]]
+type = "message"
+text = ":heart_red::heart_orange::heart_yellow::heart_green::heart_blue::heart_purple::heart_pink:"
+font_color = [255, 240, 200]
+
+# ---------------------------------------------------------------------------
+# Section 5 — two-row layout test (hi-res falls back per row cap)
 #
 # At scale=2 the 32-physical hi-res sprite is 16 logical tall — exceeds
 # the per-row cap (8 logical) — so two_row falls back to the 8×8 low-res

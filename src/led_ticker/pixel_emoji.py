@@ -311,6 +311,75 @@ FLOWER: PixelData = [
 ]
 
 
+# ❤️ 8×8 Heart — two humps at top tapering to a point at the bottom.
+# Flat solid color, no highlight. Generated for each rainbow variant
+# below.
+_HEART_LOWRES_CELLS: tuple[tuple[int, int], ...] = (
+    # Row 0: two humps with a 1-px notch in the middle
+    (1, 0),
+    (2, 0),
+    (4, 0),
+    (5, 0),
+    # Rows 1-3: full body
+    (0, 1),
+    (1, 1),
+    (2, 1),
+    (3, 1),
+    (4, 1),
+    (5, 1),
+    (6, 1),
+    (0, 2),
+    (1, 2),
+    (2, 2),
+    (3, 2),
+    (4, 2),
+    (5, 2),
+    (6, 2),
+    (0, 3),
+    (1, 3),
+    (2, 3),
+    (3, 3),
+    (4, 3),
+    (5, 3),
+    (6, 3),
+    # Row 4: tapering
+    (1, 4),
+    (2, 4),
+    (3, 4),
+    (4, 4),
+    (5, 4),
+    # Row 5: narrower
+    (2, 5),
+    (3, 5),
+    (4, 5),
+    # Row 6: tip
+    (3, 6),
+)
+
+
+def _heart_lowres(body: tuple[int, int, int]) -> PixelData:
+    """Build a low-res heart sprite in the given solid color."""
+    return [(x, y, *body) for x, y in _HEART_LOWRES_CELLS]
+
+
+# Rainbow palette: (slug_suffix, body, outline). Outline is a darker
+# shade of the body, used by the hi-res variant for a crisp edge.
+_HEART_PALETTE: tuple[tuple[str, tuple[int, int, int], tuple[int, int, int]], ...] = (
+    ("red", (220, 30, 50), (90, 10, 25)),
+    ("orange", (255, 130, 30), (140, 60, 10)),
+    ("yellow", (255, 210, 50), (150, 120, 20)),
+    ("green", (50, 200, 80), (20, 110, 40)),
+    ("blue", (60, 130, 230), (20, 60, 120)),
+    ("purple", (175, 80, 220), (90, 30, 130)),
+    ("pink", (255, 130, 180), (170, 50, 100)),
+)
+
+HEART = _heart_lowres(_HEART_PALETTE[0][1])  # default :heart: → red
+HEART_LOWRES_VARIANTS: dict[str, PixelData] = {
+    f"heart_{name}": _heart_lowres(body) for name, body, _ in _HEART_PALETTE
+}
+
+
 # 🐰 8×8 Bunny — two long ears with pink inner lining, white face with
 # black eyes and a pink nose. Matches the canonical 🐰 emoji silhouette.
 _BN_W = (245, 245, 245)  # white body / face
@@ -1731,6 +1800,62 @@ BUNNY_HIRES = HiResEmoji(
 )
 
 
+# ❤️ Hi-res heart — uses the classic implicit heart curve to generate
+# a smooth shape: two rounded humps at top, tapering to a point at
+# the bottom. Flat solid color body with a 1-px darker outline.
+def _generate_heart_hires(
+    body: tuple[int, int, int],
+    outline: tuple[int, int, int],
+    size: int = 32,
+) -> tuple[tuple[int, int, int, int, int], ...]:
+    """Heart shape via implicit curve `(x²+y²-1)³ - x²·y³ < 0`.
+
+    Coordinates are normalized to [-1.3, 1.3] so the heart fills most
+    of the canvas with a small margin. y is flipped so the heart's
+    point sits at the bottom of the image. `body` is the solid fill
+    color; `outline` is a 1-px darker rim along the silhouette.
+    """
+    pixels: dict[tuple[int, int], tuple[int, int, int]] = {}
+
+    cx = (size - 1) / 2.0
+    cy = (size - 1) / 2.0
+    scale = size / 2.6
+
+    for y in range(size):
+        for x in range(size):
+            nx = (x - cx) / scale
+            ny = (cy - y) / scale + 0.25  # vertical bias: shift down a bit
+            inside = (nx * nx + ny * ny - 1) ** 3 - nx * nx * ny * ny * ny < 0
+            if inside:
+                pixels[(x, y)] = body
+
+    # 1-px darker rim — crisp edge against the unlit LED panel.
+    body_keys = list(pixels.keys())
+    for x, y in body_keys:
+        for nx_off, ny_off in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            if (
+                0 <= nx_off < size
+                and 0 <= ny_off < size
+                and (nx_off, ny_off) not in pixels
+            ):
+                pixels[(nx_off, ny_off)] = outline
+
+    return tuple((x, y, *c) for (x, y), c in pixels.items())
+
+
+HEART_HIRES = HiResEmoji(
+    pixels=_generate_heart_hires(_HEART_PALETTE[0][1], _HEART_PALETTE[0][2]),
+    physical_size=32,
+)
+HEART_HIRES_VARIANTS: dict[str, HiResEmoji] = {
+    f"heart_{name}": HiResEmoji(
+        pixels=_generate_heart_hires(body, outline),
+        physical_size=32,
+    )
+    for name, body, outline in _HEART_PALETTE
+}
+
+
 def _build_emoji_registry() -> dict[str, PixelData]:
     """Build the emoji registry with all available icons."""
     from led_ticker.widgets.weather_icons import (
@@ -1742,7 +1867,7 @@ def _build_emoji_registry() -> dict[str, PixelData]:
         THUNDER,
     )
 
-    return {
+    registry = {
         # Sports
         "baseball": BASEBALL,
         "flower": FLOWER,
@@ -1763,7 +1888,12 @@ def _build_emoji_registry() -> dict[str, PixelData]:
         "email": EMAIL,
         # Animals
         "bunny": BUNNY,
+        # Symbols
+        "heart": HEART,
     }
+    # Rainbow heart variants — :heart_red:, :heart_blue:, etc.
+    registry.update(HEART_LOWRES_VARIANTS)
+    return registry
 
 
 EMOJI_REGISTRY: dict[str, PixelData] = {}
@@ -1791,6 +1921,9 @@ HIRES_REGISTRY: dict[str, HiResEmoji] = {
     "taco": TACO_HIRES,
     # Animals
     "bunny": BUNNY_HIRES,
+    # Symbols
+    "heart": HEART_HIRES,
+    **HEART_HIRES_VARIANTS,
 }
 
 

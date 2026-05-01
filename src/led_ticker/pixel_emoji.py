@@ -311,6 +311,69 @@ FLOWER: PixelData = [
 ]
 
 
+# 🐰 8×8 Bunny — two long ears with pink inner lining, white face with
+# black eyes and a pink nose. Matches the canonical 🐰 emoji silhouette.
+_BN_W = (245, 245, 245)  # white body / face
+_BN_P = (255, 175, 200)  # pink inner ear / nose
+_BN_B = (40, 40, 40)  # black eyes
+BUNNY: PixelData = [
+    # Row 0: ear tops (2-px wide each, gap of 2 between)
+    (1, 0, *_BN_W),
+    (2, 0, *_BN_W),
+    (5, 0, *_BN_W),
+    (6, 0, *_BN_W),
+    # Row 1: ears with pink inner lining
+    (1, 1, *_BN_W),
+    (2, 1, *_BN_P),
+    (5, 1, *_BN_P),
+    (6, 1, *_BN_W),
+    # Row 2: ears continue with pink
+    (1, 2, *_BN_W),
+    (2, 2, *_BN_P),
+    (5, 2, *_BN_P),
+    (6, 2, *_BN_W),
+    # Row 3: head top (full width)
+    (0, 3, *_BN_W),
+    (1, 3, *_BN_W),
+    (2, 3, *_BN_W),
+    (3, 3, *_BN_W),
+    (4, 3, *_BN_W),
+    (5, 3, *_BN_W),
+    (6, 3, *_BN_W),
+    (7, 3, *_BN_W),
+    # Row 4: eyes (black at cols 2 and 5)
+    (0, 4, *_BN_W),
+    (1, 4, *_BN_W),
+    (2, 4, *_BN_B),
+    (3, 4, *_BN_W),
+    (4, 4, *_BN_W),
+    (5, 4, *_BN_B),
+    (6, 4, *_BN_W),
+    (7, 4, *_BN_W),
+    # Row 5: pink nose at center
+    (0, 5, *_BN_W),
+    (1, 5, *_BN_W),
+    (2, 5, *_BN_W),
+    (3, 5, *_BN_P),
+    (4, 5, *_BN_P),
+    (5, 5, *_BN_W),
+    (6, 5, *_BN_W),
+    (7, 5, *_BN_W),
+    # Row 6: face/cheeks (slightly narrower)
+    (1, 6, *_BN_W),
+    (2, 6, *_BN_W),
+    (3, 6, *_BN_W),
+    (4, 6, *_BN_W),
+    (5, 6, *_BN_W),
+    (6, 6, *_BN_W),
+    # Row 7: chin/feet
+    (2, 7, *_BN_W),
+    (3, 7, *_BN_W),
+    (4, 7, *_BN_W),
+    (5, 7, *_BN_W),
+]
+
+
 # ⭐ 8×8 Star — algorithmically derived from the 32×32 hi-res star.
 # Shape comes from generating a 5-point star polygon at 32×32, then
 # downsampling 4× with a "majority-lit" threshold and mirror enforcement
@@ -1583,6 +1646,91 @@ TACO_HIRES = HiResEmoji(
 )
 
 
+# 🐰 Hi-res bunny — two long pink-lined ears at top, white head with
+# black eyes, pink nose. Matches the canonical 🐰 emoji silhouette.
+_BUNNY_WHITE = (245, 245, 245)
+_BUNNY_PINK = (255, 175, 200)
+_BUNNY_BLACK = (40, 40, 40)
+_BUNNY_OUTLINE = (175, 175, 180)  # subtle gray edge
+
+
+def _generate_bunny_hires(
+    size: int = 32,
+) -> tuple[tuple[int, int, int, int, int], ...]:
+    pixels: dict[tuple[int, int], tuple[int, int, int]] = {}
+
+    cx = (size - 1) / 2.0  # 15.5
+
+    # Ears — two vertical ellipses at the top with white outer + pink
+    # inner lining. Centered ~5 cols to each side of cx.
+    ear_a = 3.0  # horizontal semi-axis
+    ear_b = 9.0  # vertical semi-axis
+    ear_cy = 10.0
+    ear_offset = 5.0  # distance from cx to each ear's center
+    for ear_cx in (cx - ear_offset, cx + ear_offset):
+        for y in range(size):
+            for x in range(size):
+                dx = x - ear_cx
+                dy = y - ear_cy
+                r2 = (dx * dx) / (ear_a * ear_a) + (dy * dy) / (ear_b * ear_b)
+                if r2 <= 1.0:
+                    # Outer ring is white, inner is pink (the inside of the ear)
+                    if r2 > 0.45:
+                        pixels[(x, y)] = _BUNNY_WHITE
+                    else:
+                        pixels[(x, y)] = _BUNNY_PINK
+
+    # Head — horizontal ellipse below the ears.
+    head_cx = cx
+    head_cy = 21.0
+    head_a = 11.0
+    head_b = 7.5
+    for y in range(size):
+        for x in range(size):
+            dx = x - head_cx
+            dy = y - head_cy
+            r2 = (dx * dx) / (head_a * head_a) + (dy * dy) / (head_b * head_b)
+            if r2 <= 1.0:
+                pixels[(x, y)] = _BUNNY_WHITE
+
+    # Eyes — two small black ovals on the head
+    eye_y = 19
+    eye_offset = 4.5
+    for ex in (cx - eye_offset, cx + eye_offset):
+        for dy in range(-1, 2):
+            for dx in range(-1, 2):
+                px = int(round(ex)) + dx
+                py = eye_y + dy
+                if (px, py) in pixels and dx * dx + dy * dy <= 2:
+                    pixels[(px, py)] = _BUNNY_BLACK
+
+    # Pink nose — small triangle/diamond at center
+    nose_cy = 22
+    for dy in (-1, 0):
+        for dx in (-1, 0, 1):
+            if abs(dx) + abs(dy) <= 1:
+                px = int(round(cx)) + dx
+                py = nose_cy + dy
+                if (px, py) in pixels:
+                    pixels[(px, py)] = _BUNNY_PINK
+
+    # Subtle outline — for any white body pixel, if any 4-neighbor is
+    # outside the bunny, paint the neighbor as a soft gray edge.
+    body_keys = [k for k, v in pixels.items() if v == _BUNNY_WHITE]
+    for x, y in body_keys:
+        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            if 0 <= nx < size and 0 <= ny < size and (nx, ny) not in pixels:
+                pixels[(nx, ny)] = _BUNNY_OUTLINE
+
+    return tuple((x, y, *c) for (x, y), c in pixels.items())
+
+
+BUNNY_HIRES = HiResEmoji(
+    pixels=_generate_bunny_hires(size=32),
+    physical_size=32,
+)
+
+
 def _build_emoji_registry() -> dict[str, PixelData]:
     """Build the emoji registry with all available icons."""
     from led_ticker.widgets.weather_icons import (
@@ -1613,6 +1761,8 @@ def _build_emoji_registry() -> dict[str, PixelData]:
         # Social
         "instagram": INSTAGRAM,
         "email": EMAIL,
+        # Animals
+        "bunny": BUNNY,
     }
 
 
@@ -1639,6 +1789,8 @@ HIRES_REGISTRY: dict[str, HiResEmoji] = {
     "flower": FLOWER_HIRES,
     # Food
     "taco": TACO_HIRES,
+    # Animals
+    "bunny": BUNNY_HIRES,
 }
 
 

@@ -6,7 +6,8 @@ import io
 
 import pytest
 from PIL import Image
-from rgbmatrix import RGBMatrix, RGBMatrixOptions
+from rgbmatrix import RGBMatrix, RGBMatrixOptions, _StubCanvas
+from rgbmatrix.graphics import Color
 
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.widgets.gif import GifPlayer
@@ -165,3 +166,250 @@ async def test_play_uses_per_frame_durations(tmp_path, mocker):
     sleeps = [c.args[0] for c in sleep_mock.await_args_list]
     assert all(abs(s - 0.12) < 1e-6 for s in sleeps)
     assert len(sleeps) == 2
+
+
+# ---------------------------------------------------------------------------
+# Text-alongside-GIF tests (options A static + B scrolling)
+# ---------------------------------------------------------------------------
+
+
+def test_invalid_text_align_raises(tmp_path):
+    path = _make_gif_path(tmp_path, [(10, 20, 30)])
+    with pytest.raises(ValueError):
+        GifPlayer(path=str(path), text="hi", text_align="bogus")
+
+
+def test_no_text_skips_align_validation(tmp_path):
+    """text_align is only validated when text is non-empty (default 'right'
+    is fine even if user never sets text)."""
+    path = _make_gif_path(tmp_path, [(10, 20, 30)])
+    GifPlayer(path=str(path))  # no error — default text="" bypasses check
+
+
+def test_paint_skip_black_leaves_zero_pixels_untouched(tmp_path):
+    path = _make_gif_path(tmp_path, [(10, 20, 30)])
+    widget = GifPlayer(path=str(path), fit="stretch")
+    canvas = _StubCanvas(width=4, height=2)
+    # Pre-paint canvas: a yellow line at row 0 to simulate text underneath
+    for x in range(4):
+        canvas.SetPixel(x, 0, 200, 200, 0)
+    # Frame: row 0 has alternating red and black; row 1 is solid green
+    pixels = bytes(
+        [
+            255,
+            0,
+            0,
+            0,
+            0,
+            0,
+            255,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            255,
+            0,
+            0,
+            255,
+            0,
+            0,
+            255,
+            0,
+            0,
+            255,
+            0,
+        ]
+    )
+
+    widget._paint_skip_black(canvas, pixels, 4, 2)
+
+    # Black pixels skipped → underlying yellow shows through
+    assert canvas.get_pixel(0, 0) == (255, 0, 0)
+    assert canvas.get_pixel(1, 0) == (200, 200, 0)
+    assert canvas.get_pixel(2, 0) == (255, 0, 0)
+    assert canvas.get_pixel(3, 0) == (200, 200, 0)
+    # Row 1 fully painted green
+    for x in range(4):
+        assert canvas.get_pixel(x, 1) == (0, 255, 0)
+
+
+async def test_play_with_text_uses_scroll_speed_cadence(tmp_path, mocker):
+    """With text, ticks happen at scroll_speed_ms regardless of frame
+    durations. This is what lets text scroll smoothly over slow GIFs."""
+    path = _make_gif_path(tmp_path, [(10, 20, 30), (40, 50, 60)], duration_ms=120)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="hi",
+        text_align="right",
+        scroll_speed_ms=60,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    await widget.play(real, frame, loop_count=1)
+
+    sleeps = [c.args[0] for c in sleep_mock.await_args_list]
+    # Total = 240ms / 60ms = 4 ticks (vs. 2 swaps on the no-text path)
+    assert len(sleeps) == 4
+    assert all(abs(s - 0.06) < 1e-6 for s in sleeps)
+
+
+async def test_play_static_right_text_overlays_gif(tmp_path, mocker):
+    """Static right-aligned text paints AFTER gif → text pixels override."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)])
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="right",
+        font_color=Color(255, 0, 0),
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    await widget.play(real, frame, loop_count=1)
+
+    # Stub DrawText writes a 1px band at y-1. Text starts at
+    # x = w - text_width - 2; the right-edge pixel of that band is red.
+    text_width = widget.font.CharacterWidth(ord("X"))
+    text_x = real.width - text_width - 2
+    baseline_y = (real.height - 12) // 2 + 10
+    assert real.get_pixel(text_x, baseline_y - 1) == (255, 0, 0)
+
+
+async def test_play_static_left_text_at_x_2(tmp_path, mocker):
+    path = _make_gif_path(tmp_path, [(0, 0, 0)])
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="left",
+        font_color=Color(0, 255, 0),
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    await widget.play(real, frame, loop_count=1)
+
+    baseline_y = (real.height - 12) // 2 + 10
+    assert real.get_pixel(2, baseline_y - 1) == (0, 255, 0)
+
+
+async def test_play_scroll_text_advances_position(tmp_path, mocker):
+    """Scroll mode decrements scroll_pos by 1 per tick. Capture the
+    DrawText x-coordinate each tick to verify monotonic advance."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="hi",
+        text_align="scroll",
+        scroll_speed_ms=50,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_x: list[int] = []
+    real_draw = __import__("led_ticker.widgets.gif", fromlist=["draw_text"]).draw_text
+
+    def spy(canvas, font, x, y, color, text):
+        seen_x.append(x)
+        return real_draw(canvas, font, x, y, color, text)
+
+    mocker.patch("led_ticker.widgets.gif.draw_text", side_effect=spy)
+
+    # 5 loops × 50ms = 250ms / 50ms tick = 5 ticks
+    await widget.play(real, frame, loop_count=5)
+
+    # First tick at scroll_pos = w; subsequent ticks decrement by 1.
+    assert seen_x == [
+        real.width,
+        real.width - 1,
+        real.width - 2,
+        real.width - 3,
+        real.width - 4,
+    ]
+
+
+async def test_play_scroll_text_visible_through_black_pillars(tmp_path, mocker):
+    """The whole point of scroll mode: gif on top, text under, but
+    black gif pixels are skipped so text shines through pillars."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="scroll",
+        font_color=Color(0, 0, 200),
+        scroll_speed_ms=50,
+    )
+    real = _bigsign_real_canvas()
+    w, h = real.width, real.height
+
+    # Synthesize a "pillarbox-like" frame: bright gray in the centre,
+    # black on the outer columns (the pillars).
+    band_y = (h - 12) // 2 + 10 - 1  # row the stub DrawText paints
+    pixels = bytearray(w * h * 3)
+    centre_lo, centre_hi = 100, 160
+    for y in range(h):
+        for x in range(centre_lo, centre_hi):
+            base = (y * w + x) * 3
+            pixels[base] = pixels[base + 1] = pixels[base + 2] = 180
+    widget._panel_w = w
+    widget._panel_h = h
+    widget._frames = [(bytes(pixels), 50)]
+
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    # Use loop_count=1 → 1 tick; on tick 0 scroll_pos=w (text off-canvas).
+    # Force scroll_pos into the LEFT pillar by pre-running enough decrements
+    # via an explicit loop_count that puts the text in the left pillar.
+    # tick 0: scroll_pos = w. We need the text painted at ~x=10.
+    # That means tick (w - 10) → loop_count of (w - 10 + 1) ticks.
+    # 50ms per tick × that many ticks = 50 * (w - 9) ms total.
+    # n_ticks = total_ms // 50 = w - 9. So loop_count = w - 9 with
+    # frame_duration=50 gives loop_ms=50; total_ms = 50 * (w - 9).
+    target_x = 10
+    loops_needed = w - target_x + 1  # extra +1 for the tick at target_x
+    await widget.play(real, frame, loops_needed)
+
+    # Pixel in the LEFT pillar at the band row should retain the text colour
+    # (gif painted black there, was skipped).
+    assert real.get_pixel(target_x, band_y) == (0, 0, 200)
+    # Pixel inside the centre region at the band row should be the gif gray
+    # (gif overwrote the text).
+    assert real.get_pixel(centre_lo + 5, band_y) == (180, 180, 180)
+
+
+def test_draw_does_not_paint_text(tmp_path):
+    """draw() (used for transition compositing) deliberately skips text
+    rendering. Asserts no text-coloured pixels appear after draw()."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)])
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="VISIBLE",
+        text_align="left",
+        font_color=Color(255, 0, 255),
+    )
+    real = _bigsign_real_canvas()
+
+    widget.draw(real, cursor_pos=0)
+
+    # No pixel should be the magenta text colour
+    for y in range(real.height):
+        for x in range(real.width):
+            assert real.get_pixel(x, y) != (255, 0, 255)

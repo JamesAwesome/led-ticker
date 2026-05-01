@@ -69,9 +69,16 @@ def _coerce_widget_colors(cfg: dict[str, Any]) -> None:
 
 
 async def _build_widget(
-    widget_cfg: dict[str, Any], session: aiohttp.ClientSession
+    widget_cfg: dict[str, Any],
+    session: aiohttp.ClientSession,
+    config_dir: Path | None = None,
 ) -> Any:
-    """Instantiate a widget from its config dict."""
+    """Instantiate a widget from its config dict.
+
+    `config_dir` is the directory containing the config.toml; used to
+    resolve relative `path` values for widgets that reference asset
+    files (currently just `type = "gif"`).
+    """
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)
 
@@ -81,6 +88,13 @@ async def _build_widget(
             widget_cfg["message"] = widget_cfg.pop("text")
         else:
             widget_cfg.pop("text")
+
+    # GIF widgets get config-relative paths resolved here so the widget
+    # itself doesn't need to know about config layout.
+    if widget_type == "gif" and "path" in widget_cfg and config_dir is not None:
+        candidate = Path(widget_cfg["path"])
+        if not candidate.is_absolute():
+            widget_cfg["path"] = str((config_dir / candidate).resolve())
 
     # Convert any [r, g, b] lists in known color keys to graphics.Color.
     _coerce_widget_colors(widget_cfg)
@@ -203,7 +217,9 @@ async def run(config_path: Path) -> None:
                         widget = widget_cache[key]
                     else:
                         cfg = dict(widget_cfg)
-                        widget = await _build_widget(cfg, session)
+                        widget = await _build_widget(
+                            cfg, session, config_dir=config_path.parent
+                        )
                         widget_cache[key] = widget
                     # Container widgets expand into stories
                     if isinstance(

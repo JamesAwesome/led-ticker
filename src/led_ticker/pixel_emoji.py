@@ -432,7 +432,9 @@ _PRIDE_FLAGS: tuple[tuple[str, tuple[tuple[tuple[int, int, int], int], ...]], ..
     (
         "ace",
         (
-            ((0, 0, 0), 1),  # black
+            # Use (44, 44, 44) instead of pure black so the stripe is
+            # visible on the LED panel (pure black = unlit pixel).
+            ((44, 44, 44), 1),  # black
             ((164, 164, 164), 1),  # gray
             ((255, 255, 255), 1),  # white
             ((129, 0, 129), 1),  # purple
@@ -456,7 +458,7 @@ _DEMI_STRIPES: tuple[tuple[tuple[int, int, int], int], ...] = (
     ((129, 0, 129), 1),  # purple (middle, 20%)
     ((128, 128, 128), 2),  # gray (bottom, 40%)
 )
-_DEMI_TRIANGLE = (0, 0, 0)
+_DEMI_TRIANGLE = (44, 44, 44)  # visible-black to match :pride_nb: / :pride_ace:
 
 
 def _flag_stripes_pixels(

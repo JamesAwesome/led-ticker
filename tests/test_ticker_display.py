@@ -5,8 +5,10 @@ import unittest.mock as mock
 
 import pytest
 
+from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.ticker import (
     Ticker,
+    _play_widget,
     _run_swap,
     _scroll_and_delay,
     _scroll_between,
@@ -338,6 +340,98 @@ class TestRunSwap:
         await q.put(w)
         await _run_swap(canvas, mock_frame, q)
         assert w.draw.called
+
+
+class TestRunSwapPlayDispatch:
+    """run_swap dispatches to widget.play() when the class declares it."""
+
+    async def test_play_widget_invoked_instead_of_draw(
+        self, canvas, mock_frame, no_sleep
+    ):
+        class _PlayOnly:
+            def __init__(self):
+                self.draw_called = False
+                self.play_calls: list[int] = []
+                self.loops = 3
+
+            def draw(self, canvas, cursor_pos=0, **kwargs):
+                self.draw_called = True
+                return canvas, canvas.width
+
+            async def play(self, real_canvas, frame, loop_count=1):
+                self.play_calls.append(loop_count)
+                return real_canvas
+
+        widget = _PlayOnly()
+        q = asyncio.Queue()
+        await q.put(widget)
+        await _run_swap(canvas, mock_frame, q)
+
+        # play() ran with loops=3; draw() was not invoked
+        assert widget.play_calls == [3]
+        assert not widget.draw_called
+
+    async def test_play_widget_preserves_scaled_wrapper(self, mock_frame):
+        """When the canvas is a ScaledCanvas, _play_widget unwraps for
+        the widget but re-anchors the wrapper to the new back-buffer
+        afterwards so subsequent draws stay scaled."""
+
+        class _Recorder:
+            def __init__(self):
+                self.received_canvas = None
+
+            async def play(self, real_canvas, frame, loop_count=1):
+                self.received_canvas = real_canvas
+                # Pretend SwapOnVSync gave us a fresh back-buffer
+                return frame.matrix.SwapOnVSync(real_canvas)
+
+        real = mock.MagicMock()
+        real.width = 256
+        real.height = 64
+        new_real = mock.MagicMock()
+        new_real.width = 256
+        new_real.height = 64
+        mock_frame.matrix.SwapOnVSync.return_value = new_real
+
+        wrapper = ScaledCanvas(real, scale=4)
+        widget = _Recorder()
+
+        out = await _play_widget(wrapper, mock_frame, widget)
+
+        # Same wrapper returned, now pointing at the new back-buffer
+        assert out is wrapper
+        assert wrapper.real is new_real
+        # Widget got the unwrapped real canvas, not the ScaledCanvas
+        assert widget.received_canvas is real
+
+    async def test_title_then_gif_uses_both_paths(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        """Title (TickerMessage-like) takes the swap-and-scroll path,
+        gif (with play()) takes the play() path. Both run inside the
+        same _run_swap call."""
+
+        class _PlayWidget:
+            def __init__(self):
+                self.played = 0
+                self.loops = 1
+
+            def draw(self, canvas, cursor_pos=0, **kwargs):
+                return canvas, canvas.width
+
+            async def play(self, real_canvas, frame, loop_count=1):
+                self.played += 1
+                return real_canvas
+
+        title = make_widget(40)
+        gif = _PlayWidget()
+        q = asyncio.Queue()
+        await q.put(title)
+        await q.put(gif)
+        await _run_swap(canvas, mock_frame, q)
+
+        assert title.draw.called
+        assert gif.played == 1
 
 
 class TestScrollBetween:

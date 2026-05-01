@@ -189,6 +189,7 @@ async def run(config_path: Path) -> None:
         last_widget: Any = None  # track for section-to-section transitions
         last_scroll_pos: int = 0  # track scroll pos for between-section transitions
         last_scale: int = config.display.default_scale  # outgoing section's scale
+        last_content_height: int = 16  # outgoing section's content_height
         widget_cache: dict[str, Any] = {}
 
         while True:
@@ -236,7 +237,11 @@ async def run(config_path: Path) -> None:
                     and section_trans is not None
                 )
                 if just_transitioned:
-                    canvas = _maybe_wrap(led_frame.get_clean_canvas(), last_scale)
+                    canvas = _maybe_wrap(
+                        led_frame.get_clean_canvas(),
+                        last_scale,
+                        last_content_height,
+                    )
                     canvas = await run_transition(
                         canvas,
                         led_frame,
@@ -250,8 +255,12 @@ async def run(config_path: Path) -> None:
                         # at last_scale; at t >= 0.5 the wrapper switches
                         # to section.scale so incoming dissolves IN at its
                         # native size (no wrong-scale flash, no snap-in
-                        # after the dissolve completes).
+                        # after the dissolve completes). Content height
+                        # must also match the new section so widgets like
+                        # two_row don't shift vertically when the section
+                        # actually starts running.
                         incoming_scale=section.scale,
+                        incoming_content_height=section.content_height,
                     )
 
                 # Build within-section transition config
@@ -300,6 +309,7 @@ async def run(config_path: Path) -> None:
                 # Track the last widget and scroll pos for next section transition
                 last_scroll_pos = ticker.last_scroll_pos
                 last_scale = section.scale
+                last_content_height = section.content_height
                 if widgets:
                     last_widget = widgets[-1]
                 elif title:

@@ -1352,3 +1352,35 @@ class TestRunTransitionCrossScale:
             # incoming_scale=None → no switch
         )
         assert bigsign_frame.matrix.CreateFrameCanvas.call_count == 0
+
+    async def test_incoming_content_height_threaded_into_wrapper(
+        self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
+    ):
+        """Regression: the incoming wrapper must use the new section's
+        `content_height` so widgets like TwoRowMessage compute the same
+        row positions during the dissolve as `run_swap` will after.
+        Without this, a section with `content_height=20` saw its rows
+        rendered at y-positions for `content_height=16` during the
+        dissolve, then jump to the correct positions when the section
+        actually started.
+        """
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        outgoing_wrapper = ScaledCanvas(real_bigsign_canvas, scale=4)
+
+        result = await run_transition(
+            outgoing_wrapper,
+            bigsign_frame,
+            outgoing,
+            incoming,
+            transition=Dissolve(),
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=2,
+            incoming_content_height=20,
+        )
+        assert isinstance(result, ScaledCanvas)
+        assert result.scale == 2
+        assert result.height == 20

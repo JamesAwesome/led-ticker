@@ -85,6 +85,7 @@ async def run_transition(
     outgoing_scroll_pos: int = 0,
     region: Any = None,
     incoming_scale: int | None = None,
+    incoming_content_height: int = 16,
 ) -> Canvas:
     """Run a transition. Returns the current back-buffer canvas.
 
@@ -97,6 +98,13 @@ async def run_transition(
     dissolves in at its native scale rather than briefly flashing at the
     outgoing scale before the new section's first render snaps to the
     correct one.
+
+    ``incoming_content_height`` is the logical canvas height the incoming
+    section uses (TwoRowMessage and similar widgets compute row positions
+    from `canvas.height`). Must match the new section's `content_height`
+    so the incoming widget dissolves IN at the same y-positions that
+    `run_swap` will draw it at after the transition completes; otherwise
+    the rows visibly jump vertically when the section starts.
     """
     del region  # plumbed but unused; future zoned layouts revisit this
 
@@ -128,7 +136,9 @@ async def run_transition(
                 and incoming_canvas is None
             ):
                 incoming_canvas = _maybe_wrap(
-                    frame.matrix.CreateFrameCanvas(), incoming_scale
+                    frame.matrix.CreateFrameCanvas(),
+                    incoming_scale,
+                    incoming_content_height,
                 )
 
             active = incoming_canvas if incoming_canvas is not None else canvas

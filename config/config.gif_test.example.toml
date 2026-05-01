@@ -154,3 +154,73 @@ transition_duration = 0.6
 type = "gif"
 path = "assets/pika_wave.gif"
 fit = "pillarbox"
+
+# ---------------------------------------------------------------------------
+# Section 6 — pillarbox + static text in the RIGHT pillar
+#
+# Pikachu sits center-left in his ~64-wide pillarboxed band; "PIKACHU!"
+# is held statically against the right edge. Text paints AFTER the gif
+# each tick, so even if Pikachu's frame had pixels in that column the
+# text would still win. Tick rate is 50 ms → smooth alongside the
+# gif's 100 ms frames.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "gif"
+loop_count = 17  # ~10s of playback
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave.gif"
+fit = "pillarbox"
+text = "PIKACHU!"
+text_align = "right"
+font_color = [255, 220, 50]
+
+# ---------------------------------------------------------------------------
+# Section 7 — pillarbox + static text in the LEFT pillar
+#
+# Same shape as Section 6 but anchored on the LEFT side of the panel.
+# Useful for branding patterns where the logo lives to the left of an
+# animated mascot.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "gif"
+loop_count = 17  # ~10s of playback
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave.gif"
+fit = "pillarbox"
+text = "@brand"
+text_align = "left"
+font_color = [225, 48, 108]
+
+# ---------------------------------------------------------------------------
+# Section 8 — pillarbox + scrolling marquee text UNDER the gif
+#
+# The marquee scrolls right-to-left at 1 px / 50 ms (≈20 px/sec). Black
+# pixels in the gif (i.e. the pillars) are made transparent each tick,
+# so text only appears where Pikachu isn't — it visually "walks behind"
+# him. Confirms the skip-black compositing path.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "gif"
+loop_count = 34  # ~20s — long enough for marquee to traverse twice
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave.gif"
+fit = "pillarbox"
+text = "WELCOME TO THE STORE — OPEN DAILY 9 TO 9"
+text_align = "scroll"
+font_color = [255, 220, 50]
+scroll_speed_ms = 50

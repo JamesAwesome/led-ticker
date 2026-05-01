@@ -681,35 +681,24 @@ def _cloud_silhouette_pixels(
     size: int,
     circles: list[tuple[int, int, int]],
     color: tuple[int, int, int],
-    baseline_top: int | None = None,
-    baseline_bot: int | None = None,
 ) -> list[tuple[int, int, int, int, int]]:
-    """Build a cloud silhouette: union of circles + flat baseline slab.
+    """Build a cloud silhouette as the union of circles, with the
+    bottom-most pixel of each circle trimmed off.
 
-    `circles` is a list of (cx, cy, r). The baseline slab spans the
-    full horizontal extent of the circles' bounding box, from
-    `baseline_top` to `baseline_bot`. Defaults: `baseline_top` =
-    max circle center y, `baseline_bot` = max (cy + r). Together
-    these turn the bumpy circle bottoms into a clean flat edge.
+    The naked circle bottoms taper to a single pixel (the dy=r case),
+    producing visible "nubs" below the cloud. Skipping that one row
+    per circle removes the nubs while preserving the natural rounded
+    curves of the cloud body.
     """
-    if baseline_top is None:
-        baseline_top = max(cy for _cx, cy, _r in circles)
-    if baseline_bot is None:
-        baseline_bot = max(cy + r for _cx, cy, r in circles)
-    cloud_left = min(cx - r for cx, _cy, r in circles)
-    cloud_right = max(cx + r for cx, _cy, r in circles)
-
     pixels: list[tuple[int, int, int, int, int]] = []
     for y in range(size):
         for x in range(size):
-            in_circle = any(
-                (x - cx) ** 2 + (y - cy) ** 2 <= r * r for cx, cy, r in circles
-            )
-            in_slab = (
-                cloud_left <= x <= cloud_right and baseline_top <= y <= baseline_bot
-            )
-            if in_circle or in_slab:
-                pixels.append((x, y, *color))
+            for cx, cy, r in circles:
+                # Inside the circle, but not the very bottom row
+                # (which renders as a 1-px nub).
+                if (x - cx) ** 2 + (y - cy) ** 2 <= r * r and y < cy + r:
+                    pixels.append((x, y, *color))
+                    break
     return pixels
 
 

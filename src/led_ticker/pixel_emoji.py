@@ -2097,11 +2097,11 @@ def _generate_pokeball_hires(
 
     cx = cy = (size - 1) / 2.0
     body_r = size / 2 - 0.5
-    band_half_h = 2.5  # band thickness above/below center → 5-px band
-    button_r = body_r * 0.22  # button is ~22% of body radius
+    band_half_h = 1.5  # 3-px-thick band — thinner so the button pops out
+    button_outer_r = body_r * 0.30  # outer black ring of the button
+    button_inner_r = button_outer_r - 1.5  # white center
 
-    # Step 1: fill the ball — red above the band's center line, white
-    # below. (The band is painted black on top in step 2, overwriting.)
+    # Step 1: fill the ball — red above the equator, white below.
     for y in range(size):
         for x in range(size):
             dx = x - cx
@@ -2111,7 +2111,7 @@ def _generate_pokeball_hires(
                 continue
             pixels[(x, y)] = _PB_R if dy < 0 else _PB_W
 
-    # Step 2: black band across the middle
+    # Step 2: black band across the middle (3 rows)
     for y in range(size):
         for x in range(size):
             dx = x - cx
@@ -2122,12 +2122,22 @@ def _generate_pokeball_hires(
             if abs(dy) <= band_half_h:
                 pixels[(x, y)] = _PB_K
 
-    # Step 3: white button — circle in the center of the band
+    # Step 3: button — black outer ring + white inner, large enough that
+    # it extends BEYOND the band into both halves (the iconic pokeball
+    # button pops out of the band).
     for y in range(size):
         for x in range(size):
             dx = x - cx
             dy = y - cy
-            if dx * dx + dy * dy <= button_r * button_r:
+            d2 = dx * dx + dy * dy
+            if d2 <= button_outer_r * button_outer_r:
+                pixels[(x, y)] = _PB_K
+    for y in range(size):
+        for x in range(size):
+            dx = x - cx
+            dy = y - cy
+            d2 = dx * dx + dy * dy
+            if d2 <= button_inner_r * button_inner_r:
                 pixels[(x, y)] = _PB_W
 
     # Step 4: 1-px black outline along the silhouette — paint any

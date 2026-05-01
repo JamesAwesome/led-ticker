@@ -527,68 +527,55 @@ _SUN_COLOR = (255, 220, 80)
 
 
 def _generate_sun_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int], ...]:
-    """Solid disk + 4 cardinal + 4 diagonal rays at HARDCODED positions.
+    """Solid disk + 8 thin rays. Each ray is a fixed-thickness line in
+    pixel space (perpendicular distance to the ray axis), NOT an angular
+    fan — that's the difference from the original version which produced
+    extra "fan" pixels at the outer ends of the rays.
 
-    Lessons from the previous trig-based version:
-      - Computing rays via sin/cos and a fan-width comparison produces
-        floating-point asymmetry that reads as "extra pixels" at LED
-        resolution. The same operation can't render perfectly symmetric
-        on a square integer grid.
-      - 4-fold mirror symmetry beats 8-fold rotational symmetry on a
-        pixel grid. Hardcoded mirror-symmetric positions for N/S/E/W
-        and NE/NW/SE/SW rays guarantee no rounding asymmetry.
-      - Cardinals get more visual weight (4-px wide × 6-px long) than
-        diagonals (2-px thick stair-step × 4 steps) — matches the
-        intuitive "primary vs secondary rays" visual hierarchy.
-
-    Hardcoded for size=32. Disk centered at (15.5, 15.5), radius 6.
+    Restored from commit dc78f1e after experimenting with a hardcoded
+    4-cardinal + 4-diagonal version (786657f) that read as too "compass"
+    -ish. The 8-ray uniform style with perpendicular-distance ray
+    detection is the design that landed best on hardware.
     """
-    if size != 32:  # this generator is bespoke for 32×32
-        raise ValueError(f"_generate_sun_hires: only size=32 supported, got {size}")
+    import math
+
+    cx = cy = (size - 1) / 2.0
+    disk_r = size / 4.5  # ~7.1
+    ray_inner_r = disk_r + 1.0
+    ray_outer_r = size / 2.0 - 0.5
+    ray_thickness = 1.0  # absolute pixel thickness — keeps rays uniformly thin
+
+    # 8 rays at 45° intervals, each as a unit direction vector
+    ray_dirs = [
+        (math.cos(i * math.pi / 4), math.sin(i * math.pi / 4)) for i in range(8)
+    ]
 
     pixels: list[tuple[int, int, int, int, int]] = []
-
-    # Filled disk (12-px diameter, centered at 15.5, 15.5)
-    cx = cy = 15.5
     for y in range(size):
         for x in range(size):
-            if (x - cx) ** 2 + (y - cy) ** 2 <= 36:  # radius 6
+            dx = x - cx
+            dy = y - cy
+            dist_sq = dx * dx + dy * dy
+
+            # Solid disk
+            if dist_sq <= disk_r * disk_r:
                 pixels.append((x, y, *_SUN_COLOR))
+                continue
 
-    # Cardinal rays — 4-wide × 6-long, with a 1-row gap from the disk
-    # N: above disk (disk starts row 10, gap at row 9, ray rows 3-8)
-    for y in range(3, 9):
-        for x in range(14, 18):
-            pixels.append((x, y, *_SUN_COLOR))
-    # S: below disk (disk ends row 21, gap at row 22, ray rows 23-28)
-    for y in range(23, 29):
-        for x in range(14, 18):
-            pixels.append((x, y, *_SUN_COLOR))
-    # E: right of disk (disk ends col 21 at the equator, gap at col 22, rays 23-28)
-    for y in range(14, 18):
-        for x in range(23, 29):
-            pixels.append((x, y, *_SUN_COLOR))
-    # W: left of disk
-    for y in range(14, 18):
-        for x in range(3, 9):
-            pixels.append((x, y, *_SUN_COLOR))
+            # Rays — only in the ring between inner and outer radii
+            if ray_inner_r * ray_inner_r <= dist_sq <= ray_outer_r * ray_outer_r:
+                for ux, uy in ray_dirs:
+                    # Project onto ray direction; positive means same side
+                    along = dx * ux + dy * uy
+                    if along <= 0:
+                        continue  # behind the center — wrong half of the axis
+                    # Perpendicular distance from the ray axis line
+                    perp = abs(dx * uy - dy * ux)
+                    if perp <= ray_thickness:
+                        pixels.append((x, y, *_SUN_COLOR))
+                        break
 
-    # Diagonal rays — 2-px-thick stair-step, 4 steps, mirror-symmetric.
-    # NE: starts just above disk top-right, extends up-and-right.
-    ne_steps = [(21, 9), (22, 8), (23, 7), (24, 6)]
-    nw_steps = [(10, 9), (9, 8), (8, 7), (7, 6)]
-    se_steps = [(21, 21), (22, 22), (23, 23), (24, 24)]
-    sw_steps = [(10, 21), (9, 22), (8, 23), (7, 24)]
-    for steps in (ne_steps, nw_steps):
-        for x, y in steps:
-            pixels.append((x, y, *_SUN_COLOR))
-            pixels.append((x, y + 1, *_SUN_COLOR))  # 2-px vertical thickness
-    for steps in (se_steps, sw_steps):
-        for x, y in steps:
-            pixels.append((x, y, *_SUN_COLOR))
-            pixels.append((x, y + 1, *_SUN_COLOR))
-
-    return tuple(set(pixels))
+    return tuple(pixels)
 
 
 SUN_HIRES = HiResEmoji(

@@ -138,17 +138,18 @@ class Ticker:
         canvas = _maybe_wrap(
             self.frame.get_clean_canvas(), self.scale, self.content_height
         )
-        title = self.title if self.title else None
         assert self.notif_queue is not None
 
-        # Enqueue each monitor exactly once. The per-gif loop_count is
-        # passed to play() below — _build_then_enqueue's loop_count is
-        # about queue repetition, which we don't want here.
+        # Enqueue each monitor exactly once. Skip the section title —
+        # GIF playback takes over the whole panel, so a title widget
+        # can't render alongside (and would crash since it has no
+        # play() method). _run_gif also defensively skips non-GIF
+        # widgets in case anything else slips into the queue.
         asyncio.create_task(
             _build_then_enqueue(
                 self.monitors,
                 self.notif_queue,
-                title=title,
+                title=None,
                 loop_count=1,
             )
         )
@@ -660,6 +661,12 @@ async def _run_gif(
                 widget = await asyncio.wait_for(notif_queue.get(), timeout=0.1)
             except TimeoutError:
                 return
+        # Skip non-GIF widgets (e.g. section titles enqueued by
+        # _build_then_enqueue). GIF mode takes over the whole panel —
+        # titles don't have a sensible place to render here.
+        if not hasattr(widget, "play"):
+            logging.debug("_run_gif skipping non-GIF widget %s", type(widget).__name__)
+            continue
         real = await widget.play(real, frame, loop_count=loop_count)
 
 

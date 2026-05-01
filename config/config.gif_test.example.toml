@@ -70,11 +70,6 @@ loop_count = 2
 transition = "dissolve"
 transition_duration = 0.6
 
-[playlist.section.title]
-type = "message"
-text = "PILLARBOX"
-color = [120, 200, 240]
-
 [[playlist.section.widget]]
 type = "gif"
 path = "assets/pika_wave.gif"
@@ -94,11 +89,6 @@ mode = "gif"
 loop_count = 2
 transition = "dissolve"
 transition_duration = 0.6
-
-[playlist.section.title]
-type = "message"
-text = "STRETCH"
-color = [255, 180, 80]
 
 [[playlist.section.widget]]
 type = "gif"
@@ -122,11 +112,6 @@ loop_count = 2
 transition = "dissolve"
 transition_duration = 0.6
 
-[playlist.section.title]
-type = "message"
-text = "LETTERBOX"
-color = [180, 120, 240]
-
 [[playlist.section.widget]]
 type = "gif"
 path = "assets/pika_wave.gif"
@@ -147,11 +132,6 @@ loop_count = 2
 transition = "dissolve"
 transition_duration = 0.6
 
-[playlist.section.title]
-type = "message"
-text = "CROP"
-color = [120, 240, 130]
-
 [[playlist.section.widget]]
 type = "gif"
 path = "assets/pika_wave.gif"
@@ -169,11 +149,6 @@ mode = "gif"
 loop_count = 4
 transition = "dissolve"
 transition_duration = 0.6
-
-[playlist.section.title]
-type = "message"
-text = "x4 LOOPS"
-color = [255, 100, 130]
 
 [[playlist.section.widget]]
 type = "gif"

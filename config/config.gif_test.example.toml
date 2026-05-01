@@ -158,11 +158,12 @@ fit = "pillarbox"
 # ---------------------------------------------------------------------------
 # Section 6 — pillarbox + static text in the RIGHT pillar
 #
-# Pikachu sits center-left in his ~64-wide pillarboxed band; "PIKACHU!"
-# is held statically against the right edge. Text paints AFTER the gif
-# each tick, so even if Pikachu's frame had pixels in that column the
-# text would still win. Tick rate is 50 ms → smooth alongside the
-# gif's 100 ms frames.
+# Pikachu pinned to the LEFT edge (gif_align="left") so the right
+# ~192 cols are an unobstructed black pillar; "PIKACHU!" is held
+# statically against the right edge. Text paints AFTER the gif each
+# tick, so even if Pikachu's frame had pixels in that column the text
+# would still win. Tick rate is 50 ms → smooth alongside the gif's
+# 100 ms frames.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -175,6 +176,7 @@ transition_duration = 0.6
 type = "gif"
 path = "assets/pika_wave.gif"
 fit = "pillarbox"
+gif_align = "left"
 text = "PIKACHU!"
 text_align = "right"
 font_color = [255, 220, 50]
@@ -182,9 +184,9 @@ font_color = [255, 220, 50]
 # ---------------------------------------------------------------------------
 # Section 7 — pillarbox + static text in the LEFT pillar
 #
-# Same shape as Section 6 but anchored on the LEFT side of the panel.
-# Useful for branding patterns where the logo lives to the left of an
-# animated mascot.
+# Mirror of Section 6: Pikachu pinned RIGHT, "@brand" anchored LEFT.
+# Useful for branding patterns where the logo / handle lives next to
+# an animated mascot.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -197,6 +199,7 @@ transition_duration = 0.6
 type = "gif"
 path = "assets/pika_wave.gif"
 fit = "pillarbox"
+gif_align = "right"
 text = "@brand"
 text_align = "left"
 font_color = [225, 48, 108]

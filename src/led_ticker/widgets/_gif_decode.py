@@ -12,6 +12,7 @@ from pathlib import Path
 from PIL import Image
 
 _VALID_FITS: frozenset[str] = frozenset({"pillarbox", "letterbox", "stretch", "crop"})
+_VALID_H_ALIGNS: frozenset[str] = frozenset({"left", "center", "right"})
 _MIN_FRAME_DURATION_MS = 50
 
 
@@ -20,6 +21,7 @@ def decode_gif(
     panel_w: int,
     panel_h: int,
     fit: str,
+    h_align: str = "center",
 ) -> list[tuple[bytes, int]]:
     """Decode an animated GIF and return per-frame RGB bytes + durations.
 
@@ -33,11 +35,20 @@ def decode_gif(
     - ``stretch``: resize directly, distorting aspect ratio.
     - ``crop``: scale to cover both axes, center-crop the excess.
 
+    `h_align` (left | center | right) anchors the scaled image
+    horizontally when there's slack — only meaningful for ``pillarbox``
+    where the scaled width is < panel width. ``stretch`` / ``crop`` /
+    ``letterbox`` all fill the panel width so it has no effect.
+
     Frame durations below 50 ms are clamped to 50 ms (some GIFs encode
     `duration=0` which would otherwise spin the playback loop).
     """
     if fit not in _VALID_FITS:
         raise ValueError(f"unknown fit={fit!r}; expected one of {sorted(_VALID_FITS)}")
+    if h_align not in _VALID_H_ALIGNS:
+        raise ValueError(
+            f"unknown h_align={h_align!r}; expected one of {sorted(_VALID_H_ALIGNS)}"
+        )
 
     path = Path(path)
     if not path.exists():
@@ -49,13 +60,15 @@ def decode_gif(
         for i in range(n):
             img.seek(i)
             rgb = img.convert("RGB")
-            fitted = _apply_fit(rgb, panel_w, panel_h, fit)
+            fitted = _apply_fit(rgb, panel_w, panel_h, fit, h_align)
             duration = max(_MIN_FRAME_DURATION_MS, int(img.info.get("duration", 100)))
             frames.append((fitted.tobytes(), duration))
     return frames
 
 
-def _apply_fit(src: Image.Image, panel_w: int, panel_h: int, fit: str) -> Image.Image:
+def _apply_fit(
+    src: Image.Image, panel_w: int, panel_h: int, fit: str, h_align: str = "center"
+) -> Image.Image:
     """Scale + place `src` onto a `panel_w × panel_h` black canvas."""
     sw, sh = src.size
     if fit == "stretch":
@@ -85,5 +98,11 @@ def _apply_fit(src: Image.Image, panel_w: int, panel_h: int, fit: str) -> Image.
     new_h = max(1, int(round(sh * scale)))
     scaled = src.resize((new_w, new_h), Image.Resampling.LANCZOS)
     canvas = Image.new("RGB", (panel_w, panel_h), color=(0, 0, 0))
-    canvas.paste(scaled, ((panel_w - new_w) // 2, (panel_h - new_h) // 2))
+    if h_align == "left":
+        x_off = 0
+    elif h_align == "right":
+        x_off = max(0, panel_w - new_w)
+    else:  # center
+        x_off = (panel_w - new_w) // 2
+    canvas.paste(scaled, (x_off, (panel_h - new_h) // 2))
     return canvas

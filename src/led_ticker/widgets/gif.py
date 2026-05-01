@@ -30,6 +30,7 @@ from led_ticker.widgets import register
 from led_ticker.widgets._gif_decode import decode_gif
 
 _VALID_TEXT_ALIGNS: frozenset[str] = frozenset({"left", "right", "scroll"})
+_VALID_GIF_ALIGNS: frozenset[str] = frozenset({"left", "center", "right"})
 
 
 @register("gif")
@@ -39,6 +40,8 @@ class GifPlayer:
 
     path: str
     fit: str = "pillarbox"
+    # "left" | "center" | "right" — only meaningful for pillarbox
+    gif_align: str = "center"
     text: str = ""
     text_align: str = "right"  # "left" | "right" | "scroll"
     font_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
@@ -58,6 +61,11 @@ class GifPlayer:
                 f"unknown text_align={self.text_align!r}; "
                 f"expected one of {sorted(_VALID_TEXT_ALIGNS)}"
             )
+        if self.gif_align not in _VALID_GIF_ALIGNS:
+            raise ValueError(
+                f"unknown gif_align={self.gif_align!r}; "
+                f"expected one of {sorted(_VALID_GIF_ALIGNS)}"
+            )
 
     def _real_canvas(self, canvas: Canvas) -> Canvas:
         """Unwrap ScaledCanvas so we paint native physical pixels."""
@@ -74,7 +82,11 @@ class GifPlayer:
         self._panel_w = panel_w
         self._panel_h = panel_h
         self._frames = decode_gif(
-            Path(self.path), panel_w=panel_w, panel_h=panel_h, fit=self.fit
+            Path(self.path),
+            panel_w=panel_w,
+            panel_h=panel_h,
+            fit=self.fit,
+            h_align=self.gif_align,
         )
 
     def _paint_full(self, canvas: Canvas, pixels: bytes, w: int, h: int) -> None:

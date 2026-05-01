@@ -179,6 +179,29 @@ def test_invalid_text_align_raises(tmp_path):
         GifPlayer(path=str(path), text="hi", text_align="bogus")
 
 
+def test_invalid_gif_align_raises(tmp_path):
+    path = _make_gif_path(tmp_path, [(10, 20, 30)])
+    with pytest.raises(ValueError, match="gif_align"):
+        GifPlayer(path=str(path), gif_align="bogus")
+
+
+def test_gif_align_left_anchors_at_x_zero(tmp_path):
+    """GifPlayer threads gif_align through to decode_gif. After load(),
+    a 32×32 pillarboxed source aligned 'left' should leave cols 64+
+    black on the bigsign panel."""
+    path = _make_gif_path(tmp_path, [(255, 255, 255)], size=(32, 32))
+    widget = GifPlayer(path=str(path), fit="pillarbox", gif_align="left")
+    real = _bigsign_real_canvas()
+
+    widget.draw(real, cursor_pos=0)
+
+    # Cols 0..63 white; cols 64..255 black pillar
+    assert real.get_pixel(0, 32) == (255, 255, 255)
+    assert real.get_pixel(63, 32) == (255, 255, 255)
+    assert real.get_pixel(64, 32) == (0, 0, 0)
+    assert real.get_pixel(255, 32) == (0, 0, 0)
+
+
 def test_no_text_skips_align_validation(tmp_path):
     """text_align is only validated when text is non-empty (default 'right'
     is fine even if user never sets text)."""

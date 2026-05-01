@@ -380,6 +380,159 @@ HEART_LOWRES_VARIANTS: dict[str, PixelData] = {
 }
 
 
+# 🏳️‍🌈 Pride flag emojis — horizontal stripes filling the canvas, plus
+# the demisexual flag's left-side black triangle as a special case.
+#
+# Each flag is defined by (slug_suffix, list_of_(color, weight)) tuples.
+# Weights determine relative stripe heights. For most flags the weights
+# are all 1 (equal stripes); the bisexual flag uses 2/1/2 to match the
+# canonical 40/20/40 proportion.
+_PRIDE_FLAGS: tuple[tuple[str, tuple[tuple[tuple[int, int, int], int], ...]], ...] = (
+    (
+        "rainbow",
+        (
+            ((228, 3, 3), 1),  # red
+            ((255, 140, 0), 1),  # orange
+            ((255, 237, 0), 1),  # yellow
+            ((0, 128, 38), 1),  # green
+            ((0, 77, 255), 1),  # blue
+            ((117, 7, 135), 1),  # violet
+        ),
+    ),
+    (
+        "bi",
+        (
+            ((214, 2, 112), 2),  # magenta (40%)
+            ((155, 79, 150), 1),  # purple (20%)
+            ((0, 56, 168), 2),  # blue (40%)
+        ),
+    ),
+    (
+        "trans",
+        (
+            ((91, 206, 250), 1),  # light blue
+            ((245, 169, 184), 1),  # pink
+            ((255, 255, 255), 1),  # white
+            ((245, 169, 184), 1),  # pink
+            ((91, 206, 250), 1),  # light blue
+        ),
+    ),
+    (
+        "lesbian",
+        (
+            ((213, 45, 0), 1),  # dark orange
+            ((239, 118, 39), 1),  # orange
+            ((255, 154, 86), 1),  # light orange
+            ((255, 255, 255), 1),  # white
+            ((209, 98, 164), 1),  # light pink
+            ((181, 86, 144), 1),  # pink
+            ((163, 2, 98), 1),  # dark pink/red
+        ),
+    ),
+    (
+        "ace",
+        (
+            ((0, 0, 0), 1),  # black
+            ((164, 164, 164), 1),  # gray
+            ((255, 255, 255), 1),  # white
+            ((129, 0, 129), 1),  # purple
+        ),
+    ),
+    (
+        "nb",
+        (
+            ((252, 244, 52), 1),  # yellow
+            ((255, 255, 255), 1),  # white
+            ((156, 89, 209), 1),  # purple
+            ((44, 44, 44), 1),  # black
+        ),
+    ),
+)
+
+# Demisexual flag — special case: 3 horizontal stripes (white/purple/gray)
+# with a black triangle protruding from the LEFT edge.
+_DEMI_STRIPES: tuple[tuple[tuple[int, int, int], int], ...] = (
+    ((255, 255, 255), 2),  # white (top, 40%)
+    ((129, 0, 129), 1),  # purple (middle, 20%)
+    ((128, 128, 128), 2),  # gray (bottom, 40%)
+)
+_DEMI_TRIANGLE = (0, 0, 0)
+
+
+def _flag_stripes_pixels(
+    stripes: tuple[tuple[tuple[int, int, int], int], ...],
+    width: int,
+    height: int,
+) -> dict[tuple[int, int], tuple[int, int, int]]:
+    """Distribute stripes across `height` rows, weighted. Returns a
+    pixel dict mapping (x, y) → color for the full width × height area.
+    """
+    total = sum(w for _, w in stripes)
+    boundaries: list[tuple[float, tuple[int, int, int]]] = []
+    cum = 0
+    for color, w in stripes:
+        cum += w
+        boundaries.append((cum / total * height, color))
+    pixels: dict[tuple[int, int], tuple[int, int, int]] = {}
+    for y in range(height):
+        for cutoff, color in boundaries:
+            if y < cutoff:
+                row_color = color
+                break
+        else:
+            row_color = boundaries[-1][1]
+        for x in range(width):
+            pixels[(x, y)] = row_color
+    return pixels
+
+
+def _demi_triangle_pixels(
+    width: int,
+    height: int,
+) -> set[tuple[int, int]]:
+    """Black triangle protruding from the left edge — fills cells where
+    the horizontal distance from the left edge < the vertical distance
+    from the canvas center. Triangle apex points right at the center y.
+    """
+    cells: set[tuple[int, int]] = set()
+    cy = (height - 1) / 2.0
+    # Triangle width = ~40% of canvas
+    tri_w = width * 0.4
+    for y in range(height):
+        # Distance from center y, normalized to [0, 1]
+        dy_norm = abs(y - cy) / cy if cy > 0 else 0
+        # Width of triangle at this row
+        row_w = tri_w * (1 - dy_norm)
+        for x in range(width):
+            if x < row_w:
+                cells.add((x, y))
+    return cells
+
+
+def _flag_lowres(slug: str) -> PixelData:
+    """Generate an 8×8 horizontal-stripe pride flag sprite."""
+    width, height = 8, 8
+    if slug == "demi":
+        base = _flag_stripes_pixels(_DEMI_STRIPES, width, height)
+        for tx, ty in _demi_triangle_pixels(width, height):
+            base[(tx, ty)] = _DEMI_TRIANGLE
+    else:
+        for s, stripes in _PRIDE_FLAGS:
+            if s == slug:
+                base = _flag_stripes_pixels(stripes, width, height)
+                break
+        else:
+            raise KeyError(slug)
+    return [(x, y, *c) for (x, y), c in base.items()]
+
+
+PRIDE = _flag_lowres("rainbow")  # default :pride: → rainbow
+PRIDE_LOWRES_VARIANTS: dict[str, PixelData] = {
+    f"pride_{slug}": _flag_lowres(slug)
+    for slug in tuple(s for s, _ in _PRIDE_FLAGS) + ("demi",)
+}
+
+
 # 🐰 8×8 Bunny — two long ears with pink inner lining, white face with
 # black eyes and a pink nose. Matches the canonical 🐰 emoji silhouette.
 _BN_W = (245, 245, 245)  # white body / face
@@ -1856,6 +2009,38 @@ HEART_HIRES_VARIANTS: dict[str, HiResEmoji] = {
 }
 
 
+# 🏳️‍🌈 Hi-res pride flags — same horizontal-stripe layouts as the
+# 8×8 versions, scaled to 32×32 so each stripe is a clean band.
+def _generate_pride_hires(
+    slug: str, size: int = 32
+) -> tuple[tuple[int, int, int, int, int], ...]:
+    if slug == "demi":
+        base = _flag_stripes_pixels(_DEMI_STRIPES, size, size)
+        for tx, ty in _demi_triangle_pixels(size, size):
+            base[(tx, ty)] = _DEMI_TRIANGLE
+    else:
+        for s, stripes in _PRIDE_FLAGS:
+            if s == slug:
+                base = _flag_stripes_pixels(stripes, size, size)
+                break
+        else:
+            raise KeyError(slug)
+    return tuple((x, y, *c) for (x, y), c in base.items())
+
+
+PRIDE_HIRES = HiResEmoji(
+    pixels=_generate_pride_hires("rainbow"),
+    physical_size=32,
+)
+PRIDE_HIRES_VARIANTS: dict[str, HiResEmoji] = {
+    f"pride_{slug}": HiResEmoji(
+        pixels=_generate_pride_hires(slug),
+        physical_size=32,
+    )
+    for slug in tuple(s for s, _ in _PRIDE_FLAGS) + ("demi",)
+}
+
+
 def _build_emoji_registry() -> dict[str, PixelData]:
     """Build the emoji registry with all available icons."""
     from led_ticker.widgets.weather_icons import (
@@ -1893,6 +2078,9 @@ def _build_emoji_registry() -> dict[str, PixelData]:
     }
     # Rainbow heart variants — :heart_red:, :heart_blue:, etc.
     registry.update(HEART_LOWRES_VARIANTS)
+    # Pride flags — :pride: (rainbow), :pride_bi:, :pride_trans:, etc.
+    registry["pride"] = PRIDE
+    registry.update(PRIDE_LOWRES_VARIANTS)
     return registry
 
 
@@ -1924,6 +2112,9 @@ HIRES_REGISTRY: dict[str, HiResEmoji] = {
     # Symbols
     "heart": HEART_HIRES,
     **HEART_HIRES_VARIANTS,
+    # Pride flags
+    "pride": PRIDE_HIRES,
+    **PRIDE_HIRES_VARIANTS,
 }
 
 

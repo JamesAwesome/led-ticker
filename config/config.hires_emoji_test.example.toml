@@ -12,6 +12,9 @@
 # Heart rainbow variants:
 #   :heart_red: :heart_orange: :heart_yellow: :heart_green:
 #   :heart_blue: :heart_purple: :heart_pink:
+# Pride flag variants:
+#   :pride: (default rainbow) :pride_rainbow: :pride_bi: :pride_trans:
+#   :pride_lesbian: :pride_ace: :pride_nb: :pride_demi:
 #
 # Mode is `swap` so each test message is its own held display unit.
 #
@@ -161,7 +164,31 @@ text = ":heart_red::heart_orange::heart_yellow::heart_green::heart_blue::heart_p
 font_color = [255, 240, 200]
 
 # ---------------------------------------------------------------------------
-# Section 5 — two-row layout test (hi-res falls back per row cap)
+# Section 5 — pride flags row
+#
+# 7 pride flag variants in sequence. Like the HEARTS row, this overflows
+# the canvas and exercises scroll-on-overflow.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 5.0
+transition = "dissolve"
+transition_duration = 0.6
+
+[playlist.section.title]
+type = "message"
+text = "PRIDE"
+color = [255, 140, 0]
+
+[[playlist.section.widget]]
+type = "message"
+text = ":pride_rainbow::pride_bi::pride_trans::pride_lesbian::pride_ace::pride_nb::pride_demi:"
+font_color = [255, 240, 200]
+
+# ---------------------------------------------------------------------------
+# Section 6 — two-row layout test (hi-res falls back per row cap)
 #
 # At scale=2 the 32-physical hi-res sprite is 16 logical tall — exceeds
 # the per-row cap (8 logical) — so two_row falls back to the 8×8 low-res

@@ -2133,7 +2133,10 @@ def _generate_cat_hires(
     #   - inner_base: bottom-INNER corner (HIGHER than outer_base)
     # The base tilts up toward the head's center, mirroring the head's
     # curve so the ears don't look pasted on flat.
-    apex_outward_off = 4
+    # Apex column matches the outer base column (no single-pixel apex
+    # overhang). Visual outward lean comes from the TILTED BASE alone
+    # (inner base higher than outer), not from an outward-shifted apex.
+    apex_outward_off = 3
     base_outer_half_w = 3
     base_inner_half_w = 4  # 1 col WIDER on the inner side — thickens the
     # ear's inner edge so it tapers more gradually toward the head
@@ -2157,8 +2160,11 @@ def _generate_cat_hires(
         _fill_triangle(outer_apex, outer_base, inner_base, face)
         _fill_triangle(inner_apex, outer_base, inner_base, face)
 
-    # Inner pink — same tilted-triangle shape, inset 1-2 rows/cols
-    inner_apex_outward = 3
+    # Inner pink — same tilted-triangle shape, inset 1-2 rows/cols.
+    # `inner_apex_outward` matches `inner_outer_half_w` so the top pink
+    # pixel aligns with the rest of the pink body (no single-pixel
+    # overhang at the inner apex).
+    inner_apex_outward = 2
     inner_outer_half_w = 2
     inner_inner_half_w = 3  # 1 wider on inner side (matches outer ear)
     inner_apex_y = ear_apex_y + 2

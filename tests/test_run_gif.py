@@ -51,7 +51,6 @@ async def test_run_gif_invokes_widget_play(tmp_path, mocker):
 
     queue: asyncio.Queue = asyncio.Queue()
     widget = GifPlayer(path=str(_make_gif(tmp_path)), fit="stretch")
-    queue.put_nowait(widget)
 
     ticker = Ticker(
         monitors=[widget],
@@ -81,7 +80,6 @@ async def test_run_gif_unwraps_scaled_canvas(tmp_path, mocker):
 
     queue: asyncio.Queue = asyncio.Queue()
     widget = GifPlayer(path=str(_make_gif(tmp_path)), fit="stretch")
-    queue.put_nowait(widget)
 
     ticker = Ticker(
         monitors=[widget],
@@ -97,3 +95,30 @@ async def test_run_gif_unwraps_scaled_canvas(tmp_path, mocker):
     real_after = frame.matrix.SwapOnVSync.call_args.args[0]
     # Some non-zero pixel exists at a non-block-aligned col
     assert real_after.get_pixel(1, 1) != (0, 0, 0)
+
+
+async def test_run_gif_enqueues_monitors_when_queue_empty(tmp_path, mocker):
+    """Regression: run_gif must enqueue from self.monitors, not assume
+    the queue is pre-populated. (The previous implementation skipped
+    _build_then_enqueue and would deadlock in production.)"""
+    real = _bigsign_real_canvas()
+    frame = mock.Mock()
+    frame.get_clean_canvas.return_value = real
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+
+    mocker.patch("asyncio.sleep", new=mock.AsyncMock())
+
+    queue: asyncio.Queue = asyncio.Queue()  # NOTE: NOT pre-populated
+    widget = GifPlayer(path=str(_make_gif(tmp_path)), fit="stretch")
+
+    ticker = Ticker(
+        monitors=[widget],
+        frame=frame,
+        notif_queue=queue,
+        scale=1,
+    )
+
+    await ticker.run_gif(loop_count=1)
+
+    # 1 loop × 2 frames = 2 swaps — would be 0 if monitors weren't enqueued
+    assert frame.matrix.SwapOnVSync.call_count == 2

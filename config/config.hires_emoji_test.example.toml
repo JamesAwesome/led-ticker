@@ -54,13 +54,11 @@ easing = "linear"
 between_sections = "dissolve"
 
 # ---------------------------------------------------------------------------
-# Section 0 — cat variants (HI-RES + LOW-RES side by side)
+# Section 0 — cat variants
 #
-# Hi-res row at the default scale=4 shows the full 32×32 cat sprites.
-# Low-res row uses `scale = 1` so the emoji renderer falls back to the
-# 8×8 sprites (paint each logical pixel as a 4×4 LED block via the
-# default scale; here we render the canvas at 1× and let the panel's
-# own resolution display the 8×8 sprite at native size).
+# Hi-res row at the default scale=4. Low-res variants are exercised via
+# the two_row layout below (scale=2 with the per-row 8-logical cap forces
+# the hi-res→low-res fallback for the bottom row's emoji).
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -82,21 +80,21 @@ font_color = [255, 240, 200]
 
 [[playlist.section]]
 mode = "swap"
-scale = 1
+scale = 2
+content_height = 20
 loop_count = 1
 hold_time = 5.0
 transition = "dissolve"
 transition_duration = 0.6
 
-[playlist.section.title]
-type = "message"
-text = "CATS LO"
-color = [240, 180, 100]
-
 [[playlist.section.widget]]
-type = "message"
-text = ":cat_gray::cat_orange::cat_white::cat_black::cat_brown::cat_cream:"
-font_color = [255, 240, 200]
+type = "two_row"
+top_text = ":cat: cats lo-res"
+top_color = [240, 180, 100]
+top_align = "center"
+bottom_text = ":cat_gray::cat_orange::cat_white::cat_black::cat_brown::cat_cream:"
+bottom_color = [255, 240, 200]
+bottom_align = "center"
 
 # ---------------------------------------------------------------------------
 # Section 1 — all 5 weather hi-res icons in ONE row

@@ -102,3 +102,66 @@ def test_missing_file_raises_at_load(tmp_path):
     widget = GifPlayer(path=str(tmp_path / "nope.gif"), fit="stretch")
     with pytest.raises(FileNotFoundError):
         widget._load()
+
+
+async def test_play_loops_through_frames(tmp_path, mocker):
+    path = _make_gif_path(tmp_path, [(255, 0, 0), (0, 255, 0)], duration_ms=10)
+    widget = GifPlayer(path=str(path), fit="stretch")
+    real = _bigsign_real_canvas()
+
+    # Stub frame.matrix.SwapOnVSync to return a fresh canvas each call —
+    # mirrors the real-stub tripwire from CLAUDE.md #1 / conftest.py.
+    frame = mocker.MagicMock()
+    swap_returns = []
+
+    def fake_swap(c):
+        new = type(real)(width=real.width, height=real.height)
+        swap_returns.append(new)
+        return new
+
+    frame.matrix.SwapOnVSync.side_effect = fake_swap
+
+    # Stub asyncio.sleep so the test runs instantly
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    final = await widget.play(real, frame, loop_count=2)
+
+    # 2 loops × 2 frames = 4 swaps
+    assert frame.matrix.SwapOnVSync.call_count == 4
+    # Final canvas is whatever the last swap returned (drop-capture
+    # regression: we MUST capture the swap return value)
+    assert final is swap_returns[-1]
+    # _current_frame_idx left at the last frame
+    assert widget._current_frame_idx == 1
+
+
+async def test_play_clamps_zero_loop_count_to_one(tmp_path, mocker):
+    path = _make_gif_path(tmp_path, [(50, 50, 50)], duration_ms=10)
+    widget = GifPlayer(path=str(path), fit="stretch")
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    await widget.play(real, frame, loop_count=0)
+
+    # Treated as "play once"
+    assert frame.matrix.SwapOnVSync.call_count == 1
+
+
+async def test_play_uses_per_frame_durations(tmp_path, mocker):
+    # Use distinct colors so PIL does not collapse identical frames into one.
+    path = _make_gif_path(tmp_path, [(10, 20, 30), (40, 50, 60)], duration_ms=120)
+    widget = GifPlayer(path=str(path), fit="stretch")
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+
+    sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    await widget.play(real, frame, loop_count=1)
+
+    # Each frame's duration was 120ms → 0.12s passed to asyncio.sleep
+    sleeps = [c.args[0] for c in sleep_mock.await_args_list]
+    assert all(abs(s - 0.12) < 1e-6 for s in sleeps)
+    assert len(sleeps) == 2

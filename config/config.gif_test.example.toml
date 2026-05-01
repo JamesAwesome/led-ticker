@@ -224,3 +224,41 @@ text = "WELCOME TO THE STORE — OPEN DAILY 9 TO 9"
 text_align = "scroll"
 font_color = [255, 220, 50]
 scroll_speed_ms = 50
+
+# ---------------------------------------------------------------------------
+# Section 9 — pride.gif filling the whole panel
+#
+# Source is 1000×700 (~10:7). On a 4:1 panel the only way to use the
+# full screen without losing colors is `stretch` (pillarbox/letterbox
+# would leave bands; crop would chop the top + bottom stripes off).
+# Stripes will look squashed vertically — that's the panel aspect, not
+# a bug.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "gif"
+loop_count = 10  # ~10s of playback (loop is ~1s)
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pride.gif"
+fit = "stretch"
+
+# ---------------------------------------------------------------------------
+# Section 10 — pride_trans.gif filling the whole panel
+#
+# Source is 498×280 (~16:9). Same stretch rationale as section 9.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "gif"
+loop_count = 7  # ~10s of playback (loop is ~1.45s)
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pride_trans.gif"
+fit = "stretch"

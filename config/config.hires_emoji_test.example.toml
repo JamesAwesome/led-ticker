@@ -6,11 +6,11 @@
 #
 # Hi-res emojis are 32×32 physical sprites that paint directly to the
 # bigsign's LEDs (bypassing ScaledCanvas's 4×4 block expansion). Slugs
-# with a hi-res variant (11 total):
-#   :moon: :instagram: :sun: :star: :email: :baseball:
+# with a hi-res variant (12 total):
+#   :moon: :instagram: :sun: :star: :email: :baseball: :flower:
 #   :cloud: :rain: :snow: :thunder: :fog:
 # Slugs WITHOUT a hi-res variant (still 8×8 low-res):
-#   :taco: :flower:
+#   :taco:
 #
 # Mode is `swap` so each test message is its own held display unit.
 #
@@ -92,7 +92,7 @@ color = [255, 240, 200]
 
 [[playlist.section.widget]]
 type = "message"
-text = ":moon::sun::star::instagram::email::baseball:"
+text = ":moon::sun::star::instagram::email::baseball::flower:"
 font_color = [255, 240, 200]
 
 # ---------------------------------------------------------------------------
@@ -155,7 +155,7 @@ color = [180, 180, 200]
 
 [[playlist.section.widget]]
 type = "message"
-text = ":taco::flower:"
+text = ":taco:"
 font_color = [255, 240, 200]
 
 # ---------------------------------------------------------------------------

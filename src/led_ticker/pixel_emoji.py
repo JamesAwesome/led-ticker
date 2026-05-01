@@ -1250,6 +1250,112 @@ BASEBALL_HIRES = HiResEmoji(
 )
 
 
+# 🌸 Hi-res flower — cherry-blossom layout: 5 pink petals at 72° intervals
+# with notched tips, a yellow center, and red stamen dots. No stem (the
+# 8×8 fallback keeps its stem-and-leaf since it has no room for proper
+# petals; this hi-res variant matches the canonical 🌸 silhouette).
+_PETAL_PINK = (255, 175, 205)
+_PETAL_LIGHT = (255, 210, 225)  # tip highlight
+_PETAL_DARK = (230, 125, 165)  # base shadow
+_FLOWER_YELLOW = (255, 220, 80)
+_FLOWER_YELLOW_DARK = (220, 180, 50)
+_FLOWER_RED = (220, 60, 80)
+
+
+def _generate_flower_hires(
+    size: int = 32,
+) -> tuple[tuple[int, int, int, int, int], ...]:
+    import math
+
+    cx = cy = (size - 1) / 2.0
+
+    # Petal placement: ovals oriented along their radial direction.
+    # `petal_dist` = distance from flower center to petal center.
+    # `petal_major`/`petal_minor` = ellipse semi-axes (radial / tangential).
+    petal_dist = size * 0.27
+    petal_major = size * 0.27  # = petal_dist → inner edge sits at flower center
+    petal_minor = size * 0.15  # narrow enough that adjacent petals don't merge
+    # Notch: a small triangular cutout at each petal tip, creating the
+    # cherry-blossom indent. Implemented as a circle subtraction; tuned
+    # so the cut is visible without leaving ear-nub pixels.
+    notch_dist = size * 0.55  # past the tip — only the "near side" carves
+    notch_r = size * 0.06
+
+    center_r = size * 0.18  # large enough to cover petal-base overlap
+    stamen_r_dist = center_r * 0.6  # how far out the stamen dots sit
+
+    pixels: dict[tuple[int, int], tuple[int, int, int]] = {}
+
+    angles = [-math.pi / 2 + i * 2 * math.pi / 5 for i in range(5)]
+
+    # Step 1: paint the 5 petals
+    for angle in angles:
+        # Petal centerpoint
+        pcx = cx + petal_dist * math.cos(angle)
+        pcy = cy + petal_dist * math.sin(angle)
+        # Notch centerpoint (further out along the same radial direction)
+        ncx = cx + notch_dist * math.cos(angle)
+        ncy = cy + notch_dist * math.sin(angle)
+        # Petal local axes
+        rx, ry = math.cos(angle), math.sin(angle)
+        px_, py_ = -math.sin(angle), math.cos(angle)
+
+        for y in range(size):
+            for x in range(size):
+                dx = x - pcx
+                dy = y - pcy
+                u = dx * rx + dy * ry  # along radial (length)
+                v = dx * px_ + dy * py_  # perpendicular (width)
+                if (u / petal_major) ** 2 + (v / petal_minor) ** 2 > 1:
+                    continue
+                # Notch cutout (subtracts a circle past the tip so the
+                # petal apex is concave, not pointed)
+                ndx = x - ncx
+                ndy = y - ncy
+                if ndx * ndx + ndy * ndy <= notch_r * notch_r:
+                    continue
+
+                # Radial-position-based shading: tip lighter, base darker
+                if u > petal_major * 0.45:
+                    color = _PETAL_LIGHT
+                elif u < -petal_major * 0.25:
+                    color = _PETAL_DARK
+                else:
+                    color = _PETAL_PINK
+                pixels[(x, y)] = color
+
+    # Step 2: paint the yellow center on top of petal overlap
+    for y in range(size):
+        for x in range(size):
+            dx = x - cx
+            dy = y - cy
+            d = math.sqrt(dx * dx + dy * dy)
+            if d <= center_r:
+                if d > center_r - 0.9:
+                    pixels[(x, y)] = _FLOWER_YELLOW_DARK
+                else:
+                    pixels[(x, y)] = _FLOWER_YELLOW
+
+    # Step 3: red stamen dots — 5 single-pixel dots inside the yellow
+    # center, aligned WITH the petals so each stamen "points to" its
+    # petal. Single pixels at this density; a plus-pattern reads as
+    # a single blob.
+    for angle in angles:
+        sx = cx + stamen_r_dist * math.cos(angle)
+        sy = cy + stamen_r_dist * math.sin(angle)
+        p = (int(round(sx)), int(round(sy)))
+        if p in pixels:
+            pixels[p] = _FLOWER_RED
+
+    return tuple((x, y, *c) for (x, y), c in pixels.items())
+
+
+FLOWER_HIRES = HiResEmoji(
+    pixels=_generate_flower_hires(size=32),
+    physical_size=32,
+)
+
+
 def _build_emoji_registry() -> dict[str, PixelData]:
     """Build the emoji registry with all available icons."""
     from led_ticker.widgets.weather_icons import (
@@ -1302,6 +1408,8 @@ HIRES_REGISTRY: dict[str, HiResEmoji] = {
     "fog": FOG_HIRES,
     # Sports
     "baseball": BASEBALL_HIRES,
+    # Botanical
+    "flower": FLOWER_HIRES,
 }
 
 

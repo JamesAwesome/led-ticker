@@ -794,29 +794,96 @@ _SNOW_COLOR = (220, 240, 255)
 
 
 def _generate_snow_hires(size: int = 32) -> tuple[tuple[int, int, int, int, int], ...]:
+    """8-armed snowflake — 4 cardinal arms (2-px thick) + 4 diagonal arms
+    (1-px wide, 45°), with T-tips on the cardinals and diagonal V-branches
+    near each cardinal-arm tip.
+
+    Earlier attempts: (a) 4 cardinal + 4 diagonal stair-step (2-px wide)
+    arms converged into a `######` blob at the equator; (b) cardinal-only
+    with perpendicular mid-arm stubs looked like floating pixels. The
+    fix is a 1-px diagonal that originates from the *corner* of the
+    center cross (not the center itself) — it touches each cardinal arm
+    at exactly one cell, then extends cleanly outward at 45°.
+    """
     pixels: list[tuple[int, int, int, int, int]] = []
     cx = cy = 15
-    arm = 11  # arm length (from center)
+    arm = 11
 
-    # Horizontal arm: 2-px tall (rows 15-16), spans cols cx-arm..cx+arm
+    # 4 cardinal arms — 2-px thick
     for x in range(cx - arm, cx + arm + 1):
         pixels.append((x, cy, *_SNOW_COLOR))
         pixels.append((x, cy + 1, *_SNOW_COLOR))
-    # Vertical arm: 2-px wide (cols 15-16)
     for y in range(cy - arm, cy + arm + 1):
         pixels.append((cx, y, *_SNOW_COLOR))
         pixels.append((cx + 1, y, *_SNOW_COLOR))
-    # NE-SW diagonal: 2-px thick stair-step
-    for i in range(-arm, arm + 1):
-        for dx in (0, 1):
-            pixels.append((cx + i + dx, cy - i, *_SNOW_COLOR))
-    # NW-SE diagonal: 2-px thick stair-step
-    for i in range(-arm, arm + 1):
-        for dx in (0, 1):
-            pixels.append((cx + i + dx, cy + i, *_SNOW_COLOR))
 
-    # (Forked tips skipped for now — extra clutter at LED resolution.
-    # Easy to add later if the bare 4-axis snowflake reads as too plain.)
+    # T-tips at cardinal arm ends — perpendicular 4-px-wide bars
+    for x in range(cx - 1, cx + 3):  # cols 14-17
+        pixels.append((x, cy - arm - 1, *_SNOW_COLOR))  # top tip
+        pixels.append((x, cy + arm + 1, *_SNOW_COLOR))  # bottom tip
+    for y in range(cy - 1, cy + 3):  # rows 14-17
+        pixels.append((cx - arm - 1, y, *_SNOW_COLOR))  # left tip
+        pixels.append((cx + arm + 1, y, *_SNOW_COLOR))  # right tip
+
+    # Diagonal V-branches at mid-arm. Each branch is a short stair-step
+    # fanning OUTWARD from the arm: 2 pixels starting flush with the
+    # arm and stepping one cell out + one cell further along the arm.
+    # Visually a small "Y" off each cardinal arm.
+    branch_dist = 6  # cells from center along the arm to start the branch
+
+    # Vertical arms (top + bottom): branches at rows cy ± branch_dist,
+    # stepping OUT along the y-axis (toward the arm tip) and AWAY from
+    # the vertical arm cols (15-16).
+    for sign in (-1, 1):  # -1 = top arm, +1 = bottom arm
+        anchor_y = cy + sign * branch_dist + (1 if sign == 1 else 0)
+        for d in (1, 2):
+            # Left V-leg
+            pixels.append((cx - d, anchor_y + sign * d, *_SNOW_COLOR))
+            # Right V-leg
+            pixels.append((cx + 1 + d, anchor_y + sign * d, *_SNOW_COLOR))
+
+    # Horizontal arms (left + right): branches at cols cx ± branch_dist,
+    # stepping OUT along the x-axis and AWAY from the horizontal arm
+    # rows (15-16).
+    for sign in (-1, 1):
+        anchor_x = cx + sign * branch_dist + (1 if sign == 1 else 0)
+        for d in (1, 2):
+            # Top V-leg
+            pixels.append((anchor_x + sign * d, cy - d, *_SNOW_COLOR))
+            # Bottom V-leg
+            pixels.append((anchor_x + sign * d, cy + 1 + d, *_SNOW_COLOR))
+
+    # 4 diagonal arms — 1-px wide, originating from the corners of the
+    # center cross. Each pixel (cx ± (d+offset), cy ± (d+offset)) sits
+    # exactly one cell off the cardinal arm at d=0 and extends outward
+    # at 45° without colliding with the cross.
+    diag_arm = 9
+    for d in range(1, diag_arm + 1):
+        # NW (top-left)
+        pixels.append((cx - d, cy - d, *_SNOW_COLOR))
+        # NE (top-right) — shift by +1 to land on the right side of the
+        # 2-px-thick cardinal arm
+        pixels.append((cx + 1 + d, cy - d, *_SNOW_COLOR))
+        # SW (bottom-left) — shift by +1 vertically to land below the arm
+        pixels.append((cx - d, cy + 1 + d, *_SNOW_COLOR))
+        # SE (bottom-right)
+        pixels.append((cx + 1 + d, cy + 1 + d, *_SNOW_COLOR))
+
+    # Diagonal arm tips — 2-px stub perpendicular to the diagonal,
+    # making a small "+" at each diagonal tip (mirrors the cardinal
+    # T-tips at a smaller scale).
+    tip_d = diag_arm + 1
+    for sx, sy in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
+        # corner-of-cross offset
+        ox = 0 if sx == -1 else 1
+        oy = 0 if sy == -1 else 1
+        # tip_x = cx + ox + sx*tip_d, tip_y = cy + oy + sy*tip_d
+        tx = cx + ox + sx * tip_d
+        ty = cy + oy + sy * tip_d
+        # 2-px stub running perpendicular: place a single pixel one step
+        # along each axis, forming a small chevron at the tip
+        pixels.append((tx, ty - sy, *_SNOW_COLOR))
+        pixels.append((tx - sx, ty, *_SNOW_COLOR))
 
     return tuple(set(pixels))
 

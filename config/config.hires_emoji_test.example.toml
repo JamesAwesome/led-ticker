@@ -1,18 +1,18 @@
 # Hi-res emoji test config — Pi 5 bigsign.
 #
-# Cycles through every hi-res emoji (and one mixed-emoji message) so
-# you can eyeball each design on real hardware. Use with the moonbunny
-# brand palette but easy to repurpose.
+# Cycles through every hi-res emoji so you can eyeball each design on
+# real hardware. Optimized for fast iteration: most sections show all
+# icons of a category in a single row instead of one-per-message.
 #
 # Hi-res emojis are 32×32 physical sprites that paint directly to the
 # bigsign's LEDs (bypassing ScaledCanvas's 4×4 block expansion). Slugs
-# with a hi-res variant: :moon: :instagram: :sun: :star: :email:
-# Slugs WITHOUT a hi-res variant fall back to the 8×8 low-res sprite:
-# :baseball: :taco: :flower: :cloud: :rain: :snow: :thunder: :fog:
+# with a hi-res variant (10 total):
+#   :moon: :instagram: :sun: :star: :email:
+#   :cloud: :rain: :snow: :thunder: :fog:
+# Slugs WITHOUT a hi-res variant (still 8×8 low-res):
+#   :baseball: :taco: :flower:
 #
 # Mode is `swap` so each test message is its own held display unit.
-# `content_height = 18` adds 2 rows of vertical breathing room — useful
-# for two-row layouts and gives the centered single-row text some air.
 #
 # Copy to config.toml on the bigsign Pi:
 #   cp config/config.hires_emoji_test.example.toml config/config.toml
@@ -47,56 +47,59 @@ easing = "linear"
 between_sections = "dissolve"
 
 # ---------------------------------------------------------------------------
-# Section 1 — single hi-res emojis, one at a time
+# Section 1 — all 5 weather hi-res icons in ONE row
 #
-# Each message centers an 8-char label and the hi-res icon. Held for
-# `hold_time` seconds, then dissolves to the next.
+# Renders :cloud::rain::snow::thunder::fog: side-by-side. Each emoji is
+# 8 logical wide + 2 padding = 10 logical, so 5 icons = 50 logical, fits
+# comfortably on the 64-logical-wide bigsign canvas at scale=4.
+#
+# Hold for 6s so you can scan all five at once instead of waiting through
+# a one-at-a-time cycle.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "swap"
 loop_count = 1
-hold_time = 4.0
+hold_time = 6.0
 transition = "dissolve"
 transition_duration = 0.6
 
 [playlist.section.title]
 type = "message"
-text = "HI-RES EMOJI"
+text = "WEATHER"
+color = [200, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = ":cloud::rain::snow::thunder::fog:"
+font_color = [255, 240, 200]
+
+# ---------------------------------------------------------------------------
+# Section 2 — all 5 non-weather hi-res icons in ONE row
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 6.0
+transition = "dissolve"
+transition_duration = 0.6
+
+[playlist.section.title]
+type = "message"
+text = "MIX"
 color = [255, 240, 200]
 
 [[playlist.section.widget]]
 type = "message"
-text = ":moon: moon"
-font_color = [255, 220, 130]
-
-[[playlist.section.widget]]
-type = "message"
-text = ":sun: sun"
-font_color = [255, 220, 80]
-
-[[playlist.section.widget]]
-type = "message"
-text = ":star: star"
-font_color = [255, 215, 0]
-
-[[playlist.section.widget]]
-type = "message"
-text = ":instagram: insta"
-font_color = [255, 240, 200]
-
-[[playlist.section.widget]]
-type = "message"
-text = ":email: email"
+text = ":moon::sun::star::instagram::email:"
 font_color = [255, 240, 200]
 
 # ---------------------------------------------------------------------------
-# Section 2 — side-by-side comparisons (multiple hi-res icons in one line)
+# Section 3 — emojis WITH trailing text (real usage pattern)
 #
-# Tests that the layout system advances correctly past each hi-res
-# sprite (logical_width=8 per emoji at scale=4). If any sprite renders
-# at the wrong x position or overlaps text, this section makes it
-# obvious.
+# Catches regressions in cursor-advancement / measure_width — text
+# following each emoji should sit with the standard EMOJI_PADDING gap.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -108,114 +111,59 @@ transition_duration = 0.6
 
 [playlist.section.title]
 type = "message"
-text = "ROW TEST"
-color = [180, 140, 230]
-
-[[playlist.section.widget]]
-type = "message"
-text = ":sun: :moon: :star:"
-font_color = [255, 240, 200]
-
-[[playlist.section.widget]]
-type = "message"
-text = ":instagram: :email:"
-font_color = [255, 150, 190]
-
-# ---------------------------------------------------------------------------
-# Section 3 — emojis WITH text (real-world usage pattern)
-#
-# Catches regressions in the cursor-advancement / measure_width path.
-# The text following each emoji should sit cleanly to the right of the
-# sprite with the standard EMOJI_PADDING (2 px) gap.
-# ---------------------------------------------------------------------------
-
-[[playlist.section]]
-mode = "swap"
-loop_count = 1
-hold_time = 4.0
-transition = "dissolve"
-transition_duration = 0.6
-
-[playlist.section.title]
-type = "message"
-text = "EMOJI + TEXT"
+text = "WITH TEXT"
 color = [225, 48, 108]
 
 [[playlist.section.widget]]
 type = "message"
-text = ":moon: Good night!"
-font_color = [255, 240, 200]
-
-[[playlist.section.widget]]
-type = "message"
-text = ":sun: Good morning"
+text = ":sun: sunny"
 font_color = [255, 220, 80]
 
 [[playlist.section.widget]]
 type = "message"
-text = ":star: 5 stars"
-font_color = [255, 215, 0]
+text = ":rain: rainy"
+font_color = [100, 160, 230]
 
 [[playlist.section.widget]]
 type = "message"
-text = ":instagram: follow"
-font_color = [255, 240, 200]
+text = ":snow: snow!"
+font_color = [220, 240, 255]
 
 [[playlist.section.widget]]
 type = "message"
-text = ":email: contact"
-font_color = [255, 240, 200]
+text = ":thunder: storm"
+font_color = [255, 220, 50]
 
 # ---------------------------------------------------------------------------
-# Section 4 — fallback check (low-res sprites that have NO hi-res variant)
+# Section 4 — low-res fallback (slugs with NO hi-res variant yet)
 #
 # These should still render — through the regular 8×8 low-res path —
-# even though they're on the bigsign. Confirms the auto-fallback works.
+# on the bigsign. Confirms the auto-fallback works.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "swap"
 loop_count = 1
-hold_time = 4.0
+hold_time = 5.0
 transition = "dissolve"
 transition_duration = 0.6
 
 [playlist.section.title]
 type = "message"
 text = "LOW-RES FALLBACK"
-color = [255, 240, 200]
+color = [180, 180, 200]
 
 [[playlist.section.widget]]
 type = "message"
-text = ":baseball: baseball"
-font_color = [255, 255, 255]
-
-[[playlist.section.widget]]
-type = "message"
-text = ":taco: taco"
-font_color = [230, 160, 50]
-
-[[playlist.section.widget]]
-type = "message"
-text = ":flower: flower"
-font_color = [255, 150, 190]
-
-[[playlist.section.widget]]
-type = "message"
-text = ":cloud: cloud"
-font_color = [200, 200, 220]
-
-[[playlist.section.widget]]
-type = "message"
-text = ":rain: rain"
-font_color = [120, 180, 255]
+text = ":baseball::taco::flower:"
+font_color = [255, 240, 200]
 
 # ---------------------------------------------------------------------------
-# Section 5 — two-row layout test
+# Section 5 — two-row layout test (hi-res falls back per row cap)
 #
-# The two_row widget calls draw_with_emoji per row with explicit
-# emoji_y values. Validates that hi-res sprites position correctly in
-# both halves of a 20-tall logical canvas at scale=2.
+# At scale=2 the 32-physical hi-res sprite is 16 logical tall — exceeds
+# the per-row cap (8 logical) — so two_row falls back to the 8×8 low-res
+# version. Confirms that fallback path doesn't overflow.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -229,18 +177,9 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = ":moon: moonbunny :moon:"
-top_color = [255, 220, 130]
-top_align = "center"
-bottom_text = "Hi-res emoji on the top row"
-bottom_color = [255, 240, 200]
-bottom_align = "left"
-
-[[playlist.section.widget]]
-type = "two_row"
 top_text = ":instagram: @brand"
 top_color = [225, 48, 108]
 top_align = "center"
-bottom_text = ":star: 5 stars from us :star:"
+bottom_text = ":star: 5 stars :star:"
 bottom_color = [255, 215, 0]
 bottom_align = "center"

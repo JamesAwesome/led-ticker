@@ -81,3 +81,30 @@ countdown_date = 2026-06-20
 type = "countdown"
 message = "Days Until Fall"
 countdown_date = 2026-09-22
+
+# ---------------------------------------------------------------------------
+# GIF playback example
+#
+# `mode = "gif"` plays an animated GIF at the panel's native physical
+# resolution (256×64), bypassing the ScaledCanvas wrapper. Frame timing
+# comes from the GIF's own metadata; `loop_count` controls how many
+# complete passes play before the next section runs.
+#
+# `fit` options (default "pillarbox"):
+#   pillarbox — scale by height, center horizontally with black pillars
+#   letterbox — scale by width, center vertically with black bars
+#   stretch   — fill the whole panel, distorting aspect ratio
+#   crop      — scale to cover both axes, center-crop the excess
+#
+# `path` is resolved relative to this config file's directory. Drop GIFs
+# under `<config_dir>/assets/` and reference by relative path.
+# ---------------------------------------------------------------------------
+
+# [[playlist.section]]
+# mode = "gif"
+# loop_count = 2
+#
+# [[playlist.section.widget]]
+# type = "gif"
+# path = "assets/example.gif"
+# fit = "pillarbox"

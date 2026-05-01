@@ -546,15 +546,19 @@ def _generate_instagram_hires(
     Layout (for size=32):
       - Outer rounded square inset 1 px from the canvas edge
       - Corner radius ~size/5
-      - Hollow lens circle centered (radius ~size/4.5), inner cut out
+      - 1-px white frame just inside the rounded-rect edge (the body
+        outline of the IG glyph)
+      - Hollow lens with a white aperture ring around a dark eye
       - Indicator dot in the upper-right quadrant
     """
     cx = cy = (size - 1) / 2.0
     half = (size - 1) / 2.0
     corner_radius = size / 5.0  # ~6.4 for 32
 
-    lens_outer_r = size / 4.5  # ~7.1
-    lens_inner_r = lens_outer_r - 1.5  # ~5.6 — gradient ring around dark eye
+    body_border = 1.2  # white frame thickness on the inside of the rounded rect
+
+    lens_inner_r = size / 4.5 - 1.5  # ~5.6 — outer edge of dark eye
+    aperture_border = 1.2  # white ring around the dark eye
 
     dot_cx = size - size / 5.0
     dot_cy = size / 5.0
@@ -563,33 +567,47 @@ def _generate_instagram_hires(
     pixels: list[tuple[int, int, int, int, int]] = []
     for y in range(size):
         for x in range(size):
-            # Rounded-rect test: inside the cross OR within corner_radius
-            # of one of the four corner centers.
+            # Rounded-rect test + distance to the body's outer edge.
             dx = abs(x - cx)
             dy = abs(y - cy)
             inner = half - corner_radius
             if dx <= inner or dy <= inner:
                 in_body = dx <= half and dy <= half
+                # In the cross-arms region, distance to edge is the
+                # closer of (half - dx, half - dy)
+                edge_dist = min(half - dx, half - dy)
             else:
                 cdx = dx - inner
                 cdy = dy - inner
-                in_body = (cdx * cdx + cdy * cdy) <= corner_radius * corner_radius
+                corner_dist = (cdx * cdx + cdy * cdy) ** 0.5
+                in_body = corner_dist <= corner_radius
+                edge_dist = corner_radius - corner_dist
             if not in_body:
                 continue
 
-            # Indicator dot — solid white, drawn over the gradient
+            # Indicator dot — solid white, drawn over everything else
             ddx = x - dot_cx
             ddy = y - dot_cy
             if ddx * ddx + ddy * ddy <= dot_r * dot_r:
                 pixels.append((x, y, 255, 255, 255))
                 continue
 
-            # Lens hole: skip pixels inside lens_inner_r (creates the
-            # dark "eye" in the middle of the camera).
+            # Outer white frame — thin ring along the inside of the
+            # rounded-rect edge. Defines the IG body outline.
+            if edge_dist <= body_border:
+                pixels.append((x, y, 255, 255, 255))
+                continue
+
+            # Lens hole — skip pixels inside `lens_inner_r` (dark eye).
             ldx = x - cx
             ldy = y - cy
-            lens_dist_sq = ldx * ldx + ldy * ldy
-            if lens_dist_sq <= lens_inner_r * lens_inner_r:
+            lens_dist = (ldx * ldx + ldy * ldy) ** 0.5
+            if lens_dist <= lens_inner_r:
+                continue
+
+            # White aperture ring around the dark eye.
+            if lens_dist <= lens_inner_r + aperture_border:
+                pixels.append((x, y, 255, 255, 255))
                 continue
 
             # Otherwise paint the gradient.

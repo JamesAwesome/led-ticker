@@ -85,6 +85,7 @@ from led_ticker.widgets._image_fit import (
     VALID_FITS,
     VALID_IMAGE_ALIGNS,
     apply_fit,
+    reset_canvas,
     scan_non_black,
     validate_choice,
 )
@@ -250,8 +251,8 @@ class StillImage(_BaseImageWidget):
 
     async def _play_no_text(self, real_canvas: Canvas, frame: Any) -> Canvas:
         canvas = real_canvas
-        canvas.Clear()
-        self._paint_full(canvas)
+        reset_canvas(canvas, self.bg_color)
+        self._paint_image(canvas)
         canvas = frame.matrix.SwapOnVSync(canvas)
         await asyncio.sleep(self.hold_seconds)
         return canvas

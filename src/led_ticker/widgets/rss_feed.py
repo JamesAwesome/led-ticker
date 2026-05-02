@@ -58,8 +58,8 @@ class RSSFeedMonitor:
                 bg_color=self.bg_color,
             )
             self.feed_stories = [
-                TickerMessage(  # type: ignore[index]
-                    item["title"],
+                TickerMessage(
+                    item["title"],  # type: ignore[index]
                     font_color=next(self.colors),
                     bg_color=self.bg_color,
                 )

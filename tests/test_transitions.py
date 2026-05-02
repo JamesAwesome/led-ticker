@@ -641,6 +641,33 @@ class TestDissolve:
         dissolve.frame_at(0.0, canvas, outgoing, incoming, outgoing_scroll_pos=-440)
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
+    def test_scatter_uses_physical_resolution_through_scaled_canvas(self, make_widget):
+        """Regression: dissolve must scatter at the underlying real
+        canvas's resolution, not the wrapper's logical canvas. Otherwise
+        on the bigsign (scale=4) at t=0.5 the scatter `count` exactly
+        equals `total` (every logical block blacks out) → the dissolve
+        becomes a fade-through-black, and gif content (which paints
+        native pixels) appears to wipe rather than melt."""
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        real = mock.Mock()
+        real.width = 256
+        real.height = 64
+        wrapper = ScaledCanvas(real, scale=4)
+        wrapper.real = real  # ScaledCanvas constructor already wires this
+
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        dissolve = Dissolve()
+        dissolve.frame_at(0.5, wrapper, outgoing, incoming)
+
+        # At t=0.5 with physical-grain scatter, count = 256*64 = 16384
+        # SetPixel calls go to `real`, not the wrapper.
+        assert real.SetPixel.call_count == 256 * 64
+        # Sequence cached at physical dims, not logical (64*16=1024)
+        assert dissolve._sequence is not None
+        assert len(dissolve._sequence) == 256 * 64
+
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)

@@ -522,6 +522,55 @@ async def test_play_text_scale_uses_scaled_canvas(tmp_path, mocker):
     assert all(c.scale == 2 for c in seen_canvases)
 
 
+async def test_play_text_scale_1_text_canvas_follows_back_buffer(tmp_path, mocker):
+    """Regression: with text_scale=1 we have NO ScaledCanvas wrapper to
+    re-anchor — text_canvas is the canvas itself. After SwapOnVSync the
+    `canvas` variable is reassigned to the new back-buffer, but
+    text_canvas would silently keep pointing at the previous (now front)
+    buffer, causing text to be painted onto the displayed buffer every
+    other tick → visible pulsing/flicker.
+
+    Spy on draw_text and assert that each tick's paint target is the
+    same canvas the gif paint targets (= the back-buffer for that tick),
+    not the previous one."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(path=str(path), fit="stretch", text="X", text_align="right")
+    real = _bigsign_real_canvas()
+
+    frame = mocker.MagicMock()
+    swap_returns: list[object] = []
+
+    def fake_swap(c):
+        new = type(real)(width=real.width, height=real.height)
+        swap_returns.append(new)
+        return new
+
+    frame.matrix.SwapOnVSync.side_effect = fake_swap
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen: list[object] = []
+    real_draw = __import__("led_ticker.widgets.gif", fromlist=["draw_text"]).draw_text
+
+    def spy(canvas, font, x, y, color, text):
+        seen.append(canvas)
+        return real_draw(canvas, font, x, y, color, text)
+
+    mocker.patch("led_ticker.widgets.gif.draw_text", side_effect=spy)
+
+    await widget.play(real, frame, loop_count=3)
+
+    # Need at least 3 ticks to trip a binding-staleness bug
+    assert len(seen) >= 3
+    # Tick 0 paints to the original real canvas
+    assert seen[0] is real
+    # Tick 1+ paints to the canvas that came back from the previous swap
+    for i, canvas in enumerate(seen[1:], start=1):
+        assert canvas is swap_returns[i - 1], (
+            f"tick {i} should paint to swap_returns[{i - 1}], "
+            f"not the stale front buffer"
+        )
+
+
 async def test_play_text_scale_1_uses_real_canvas(tmp_path, mocker):
     """text_scale=1 (default) keeps the existing native-resolution path
     — no ScaledCanvas wrapper, draw_text gets the raw real canvas."""

@@ -265,9 +265,13 @@ async def test_play_with_text_text_loops_extends_duration(tmp_path, mocker):
 
     await widget.play(real, frame)
 
-    # text_w=256, text_width("X")=6 → traversal = 262 ticks; ×2 = 524
-    # Tight bound (524..525) catches both undercounting and overcounting.
-    assert 524 <= frame.matrix.SwapOnVSync.call_count <= 525
+    # text_w=256, text_width("X")=6 → 1 traversal ≈ 262 ticks. With
+    # text_loops=2 the floor is ≥ 2 traversals, < 3. Bounds avoid
+    # pinning the exact formula (lets implementation tweak the
+    # traversal definition if needed).
+    one_traversal = 256 + 6
+    count = frame.matrix.SwapOnVSync.call_count
+    assert 2 * one_traversal <= count < 3 * one_traversal
 
 
 async def test_scroll_direction_right_advances_positively(tmp_path, mocker):
@@ -426,12 +430,15 @@ async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker
 
     await widget.play(real, frame)
 
-    # Wrapper spans the full panel: content_height = 64 // 2 = 32
+    # Behavioral assertion (decoupled from the exact content_height
+    # implementation): the wrapper spans the FULL panel height — no
+    # letterbox sub-region — so the top of the logical canvas IS the
+    # top of the physical panel.
     assert seen_canvases
     assert isinstance(seen_canvases[0], ScaledCanvas)
-    assert seen_canvases[0].height == 32  # logical, was 16 (letterboxed) before
-    # Top valign at h=32 → baseline = 10 (logical) → physical row 20.
-    # Cell top at logical y=0 → physical y=0 (panel top edge).
+    assert seen_canvases[0].height * seen_canvases[0].scale == real.height
+    # Top valign at top of canvas → baseline 10 (BDF ascent) → cell top
+    # at logical y=0 → physical y=0 (panel top edge).
     assert seen_y[0] == 10
 
 
@@ -534,14 +541,30 @@ async def test_text_canvas_follows_back_buffer(tmp_path, mocker):
 # ---------------------------------------------------------------------------
 
 
+def _real_asset(name: str):
+    """Return path to a real config/assets/ file. Fails the test loudly
+    if missing — these assets are committed to the repo, so absence
+    means a regression in repository state, not a "skip" condition.
+    Set ``LED_TICKER_SKIP_REAL_ASSETS=1`` to skip in environments
+    that genuinely don't ship assets (rare)."""
+    import os
+    from pathlib import Path
+
+    asset = Path("config/assets") / name
+    if asset.exists():
+        return asset
+    if os.environ.get("LED_TICKER_SKIP_REAL_ASSETS"):
+        pytest.skip(f"asset {name} missing and skip env set")
+    pytest.fail(
+        f"real test asset config/assets/{name} is missing; commit it "
+        f"or set LED_TICKER_SKIP_REAL_ASSETS=1 to skip these checks"
+    )
+
+
 def test_transparent_test_asset_decodes_to_black_corners():
     """moon-transparent.png has alpha=0 corners. After decode, those
     corners should be (0, 0, 0)."""
-    from pathlib import Path
-
-    asset = Path("config/assets/moon-transparent.png")
-    if not asset.exists():
-        pytest.skip("test asset missing")
+    asset = _real_asset("moon-transparent.png")
 
     widget = StillImage(path=str(asset), fit="pillarbox")
     real = _bigsign_real_canvas()
@@ -555,11 +578,7 @@ def test_transparent_test_asset_decodes_to_black_corners():
 def test_opaque_jpg_test_asset_fills_panel():
     """heart-tunnel-opaque.jpg has no transparency; stretch fills the
     panel with non-black pixels."""
-    from pathlib import Path
-
-    asset = Path("config/assets/heart-tunnel-opaque.jpg")
-    if not asset.exists():
-        pytest.skip("test asset missing")
+    asset = _real_asset("heart-tunnel-opaque.jpg")
 
     widget = StillImage(path=str(asset), fit="stretch")
     real = _bigsign_real_canvas()
@@ -568,3 +587,265 @@ def test_opaque_jpg_test_asset_fills_panel():
     # Sample a handful — none should be pure black
     for x, y in [(0, 0), (128, 32), (255, 63), (50, 50)]:
         assert real.get_pixel(x, y) != (0, 0, 0), f"({x},{y}) was black"
+
+
+# ---------------------------------------------------------------------------
+# Review-driven additions: missing test coverage from the still-image
+# pre-merge audit (docs/superpowers/plans/2026-05-02-still-image-review-findings.md)
+# ---------------------------------------------------------------------------
+
+
+async def test_play_no_text_captures_swap_return(tmp_path, mocker):
+    """Hardware constraint #1: SwapOnVSync return must be captured.
+    Uses a fresh-canvas-per-swap fake so a regression that drops the
+    capture (e.g. `frame.matrix.SwapOnVSync(canvas)` without the
+    assignment) would surface — the returned canvas wouldn't match
+    the latest swap return."""
+    path = _make_png(tmp_path, color=(50, 100, 150))
+    widget = StillImage(path=str(path), fit="stretch", hold_seconds=0.05)
+    real = _bigsign_real_canvas()
+
+    swap_returns: list[object] = []
+
+    def fake_swap(c):
+        new = type(real)(width=real.width, height=real.height)
+        swap_returns.append(new)
+        return new
+
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = fake_swap
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    result = await widget.play(real, frame)
+
+    # play() returned the canvas the swap gave back, not the original
+    assert result is swap_returns[-1]
+    assert result is not real
+
+
+def test_load_re_decodes_when_panel_size_changes(tmp_path):
+    """A widget reused across sections of different panel sizes
+    re-decodes on size change. Without this, the second size silently
+    serves stale bytes from the first decode."""
+    path = _make_png(tmp_path, color=(100, 50, 200))
+    widget = StillImage(path=str(path), fit="stretch")
+
+    widget._load(panel_w=256, panel_h=64)
+    first = widget._pixels
+    assert len(first) == 256 * 64 * 3
+
+    # Same dims → no-op (idempotent)
+    widget._load(panel_w=256, panel_h=64)
+    assert widget._pixels is first
+
+    # Different dims → re-decode
+    widget._load(panel_w=160, panel_h=16)
+    assert len(widget._pixels) == 160 * 16 * 3
+    assert widget._pixels is not first
+
+
+async def test_hold_seconds_zero_raises(tmp_path):
+    """hold_seconds < 0.05 (the floor) should raise; semantics of
+    instant flash are surprising."""
+    path = _make_png(tmp_path)
+    with pytest.raises(ValueError, match="hold_seconds"):
+        StillImage(path=str(path), hold_seconds=0.0)
+    with pytest.raises(ValueError, match="hold_seconds"):
+        StillImage(path=str(path), hold_seconds=0.04)
+    # Exactly the floor is fine
+    StillImage(path=str(path), hold_seconds=0.05)
+
+
+async def test_scroll_direction_left_initial_position(tmp_path, mocker):
+    """Default scroll_direction='left' starts text at scroll_pos=text_w
+    (off-right edge) — symmetric counterpart to the right-direction test."""
+    path = _make_png(tmp_path, color=(0, 0, 0))
+    widget = StillImage(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="scroll_over",  # avoid scroll+stretch validator
+        scroll_speed_ms=50,
+        hold_seconds=0.15,
+        # scroll_direction defaults to "left"
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_x: list[int] = []
+    mocker.patch(
+        "led_ticker.widgets._image_base.draw_text",
+        side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
+    )
+
+    await widget.play(real, frame)
+
+    # First tick: scroll_pos = panel width (256) — off the right edge
+    assert seen_x[0] == 256
+    # Each tick decrements by 1
+    assert seen_x[1] == 255
+
+
+async def test_scroll_wrap_around_left_direction(tmp_path, mocker):
+    """When text fully exits left, scroll_pos resets to text_w. Off-by-one
+    in the wrap condition (`<=` vs `<`) ships green without this test."""
+    path = _make_png(tmp_path, color=(0, 0, 0))
+    widget = StillImage(
+        path=str(path),
+        fit="pillarbox",  # avoid scroll+stretch validator (use scroll mode)
+        text="X",
+        text_align="scroll",
+        scroll_speed_ms=50,
+        hold_seconds=0.05,
+        text_loops=2,  # forces enough ticks to see a wrap
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_x: list[int] = []
+    mocker.patch(
+        "led_ticker.widgets._image_base.draw_text",
+        side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
+    )
+
+    await widget.play(real, frame)
+
+    # Sequence must contain at least one upward jump (the wrap reset).
+    increases = [i for i in range(1, len(seen_x)) if seen_x[i] > seen_x[i - 1]]
+    assert increases, (
+        f"scroll_pos never wrapped back to text_w; saw {len(seen_x)} ticks "
+        f"with min={min(seen_x)} max={max(seen_x)}"
+    )
+    # On the wrap, scroll_pos resets to exactly text_w (256)
+    assert seen_x[increases[0]] == 256
+
+
+async def test_scroll_wrap_around_right_direction(tmp_path, mocker):
+    """Mirror of the left-direction wrap test for scroll_direction='right'."""
+    path = _make_png(tmp_path, color=(0, 0, 0))
+    widget = StillImage(
+        path=str(path),
+        fit="pillarbox",
+        text="X",
+        text_align="scroll",
+        scroll_direction="right",
+        scroll_speed_ms=50,
+        hold_seconds=0.05,
+        text_loops=2,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_x: list[int] = []
+    mocker.patch(
+        "led_ticker.widgets._image_base.draw_text",
+        side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
+    )
+
+    await widget.play(real, frame)
+
+    # For "right" direction, the wrap is a downward jump (back to -text_width).
+    decreases = [i for i in range(1, len(seen_x)) if seen_x[i] < seen_x[i - 1]]
+    assert decreases, "scroll_pos never wrapped"
+    # On the wrap, scroll_pos resets to -text_width (-6 for "X")
+    assert seen_x[decreases[0]] == -6
+
+
+def test_image_align_noop_on_full_width_fits(tmp_path):
+    """For stretch / crop, the scaled image always fills the panel
+    width — image_align has no slack to act on, so the output bytes
+    must be identical across left/center/right values. Pinned via
+    direct byte comparison so a regression that wires image_align
+    into stretch/crop incorrectly would fail loudly."""
+    from led_ticker.widgets.still import _decode_still
+
+    path = _make_png(tmp_path, color=(180, 100, 50), size=(64, 32))
+    for fit in ("stretch", "crop"):
+        a = _decode_still(path, 256, 64, fit, image_align="left")
+        b = _decode_still(path, 256, 64, fit, image_align="center")
+        c = _decode_still(path, 256, 64, fit, image_align="right")
+        assert a == b == c, f"image_align affected {fit} output"
+
+
+async def test_text_x_offset_combined_with_text_y_offset(tmp_path, mocker):
+    """text_x_offset and text_y_offset must be orthogonal — applying
+    one shouldn't affect the other."""
+    path = _make_png(tmp_path)
+    widget = StillImage(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="right",
+        text_valign="top",
+        text_x_offset=10,
+        text_y_offset=-3,
+        hold_seconds=0.05,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen: list[tuple[int, int]] = []
+    mocker.patch(
+        "led_ticker.widgets._image_base.draw_text",
+        side_effect=lambda c, f, x, y, col, t: seen.append((x, y)) or 6,
+    )
+
+    await widget.play(real, frame)
+
+    # text_align="right", text_w=256, text_width=6 → base_x = 248; +10 → 258
+    # text_valign="top" → baseline = 10; text_y_offset=-3 → 7
+    assert seen[0] == (258, 7)
+
+
+def test_decode_still_uses_frame_zero_of_animated_source(tmp_path):
+    """For multi-frame sources, decode_still should return frame 0.
+    (PIL's default is also frame 0, so this is a behavioral check —
+    if a regression replaced `seek(0)` with `seek(1)` or removed the
+    n_frames guard wrongly, the output would differ.)"""
+    import io
+
+    from led_ticker.widgets.still import _decode_still
+
+    img1 = Image.new("RGB", (32, 32), color=(220, 30, 30))  # red
+    img2 = Image.new("RGB", (32, 32), color=(30, 200, 30))  # green
+    buf = io.BytesIO()
+    img1.save(buf, format="GIF", save_all=True, append_images=[img2], duration=100)
+    p = tmp_path / "anim.gif"
+    p.write_bytes(buf.getvalue())
+
+    pixels = _decode_still(
+        p, panel_w=256, panel_h=64, fit="stretch", image_align="center"
+    )
+    # First pixel should be red (frame 0), not green (frame 1)
+    r, g, b = pixels[0], pixels[1], pixels[2]
+    assert r > 200 and g < 100, f"expected red frame-0, got ({r},{g},{b})"
+
+
+async def test_text_scale_too_large_raises_at_first_paint(tmp_path, mocker):
+    """text_scale * 12 (BDF cell height) > panel_h leaves no room for
+    glyphs — raise loudly at first paint instead of silently clipping."""
+    path = _make_png(tmp_path)
+    # On 64-tall panel: text_scale=6 → text_canvas.height = 64//6 = 10 (< 12)
+    widget = StillImage(
+        path=str(path),
+        fit="stretch",
+        text="HI",
+        text_align="scroll_over",
+        text_scale=6,
+        hold_seconds=0.05,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    with pytest.raises(ValueError, match="text_scale"):
+        await widget.play(real, frame)

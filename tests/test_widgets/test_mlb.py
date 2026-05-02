@@ -633,3 +633,40 @@ class TestMLBParsing:
         result = widget._find_current_series(series, now)
         assert result is not None
         assert result.opponent_abbr == "NYM"
+
+
+class TestMlbBgColor:
+    def test_field_exists_on_monitor(self):
+        names = {a.name for a in MLBScoreMonitor.__attrs_attrs__}
+        assert "bg_color" in names
+
+    def test_accepts_bg_color(self):
+        from rgbmatrix.graphics import Color
+
+        w = MLBScoreMonitor(session=mock.Mock(), team="NYY", bg_color=Color(70, 80, 90))
+        assert w.bg_color.red == 70
+
+    def test_game_message_has_bg_color_field(self):
+        """MLBGameMessage needs bg_color so the orchestrator can read it."""
+        msg = MLBGameMessage(
+            [
+                (
+                    "NYY 4 BOS 2 (Final)",
+                    __import__("rgbmatrix.graphics", fromlist=["Color"]).Color(
+                        255, 255, 255
+                    ),
+                )
+            ]
+        )
+        assert hasattr(msg, "bg_color")
+        assert msg.bg_color is None  # default
+
+    def test_game_message_accepts_bg_color(self):
+        from rgbmatrix.graphics import Color
+
+        bg = Color(10, 20, 30)
+        msg = MLBGameMessage(
+            [("NYY", Color(255, 255, 255))],
+            bg_color=bg,
+        )
+        assert msg.bg_color is bg

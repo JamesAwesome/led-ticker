@@ -272,3 +272,31 @@ font_color = [255, 255, 255]
 text_scale = 2
 scroll_speed_ms = 50
 text_loops = 1
+
+# ---------------------------------------------------------------------------
+# Section 11 — text_x_offset for per-pixel static-text positioning
+#
+# Demos the horizontal counterpart to text_y_offset: nudges the
+# static-text x position past the default 2-px edge inset.
+# `text_align = "left"` + `text_x_offset = 12` puts the caps at x=14
+# instead of x=2 — useful when the image's left content visually
+# overlaps the default text edge.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/bunny-nontransparent.png"
+fit = "pillarbox"
+image_align = "right"   # bunny pinned to the right pillar
+text = "BIG BUNNY"
+text_align = "left"     # caption in the left pillar
+text_x_offset = 12      # nudge it 12px in from the panel edge for breathing room
+font_color = [255, 220, 50]
+text_scale = 2
+hold_seconds = 5.0

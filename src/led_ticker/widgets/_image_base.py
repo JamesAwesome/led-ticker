@@ -255,6 +255,16 @@ class _BaseImageWidget:
         )
         text_w = text_canvas.width
         text_h = text_canvas.height
+        # text_scale upper bound: BDF cell is 12 rows tall, so the
+        # logical canvas must accommodate it. Raise early instead of
+        # silently clipping glyphs (which surfaces as missing/cut text).
+        if text_h < 12:
+            raise ValueError(
+                f"text_scale={self.text_scale} leaves text_canvas only "
+                f"{text_h} rows on a {canvas.height}-tall panel — need "
+                f"at least 12 rows. Reduce text_scale or use a taller "
+                f"panel."
+            )
         baseline_y = self._baseline_y(text_h)
 
         tick_ms = max(MIN_SCROLL_SPEED_MS, self.scroll_speed_ms)

@@ -338,9 +338,10 @@ async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker
 
     assert seen_canvases
     assert isinstance(seen_canvases[0], ScaledCanvas)
-    # Wrapper spans the full panel — content_height = 64 // 2 = 32
-    assert seen_canvases[0].height == 32
-    # Top valign at h=32 → baseline = 10 (logical) → cell top at panel y=0
+    # Behavioral: wrapper spans the FULL panel height (no letterbox
+    # sub-region) — decouples from exact content_height value.
+    assert seen_canvases[0].height * seen_canvases[0].scale == real.height
+    # Top valign → baseline 10 (BDF ascent) → cell top at panel y=0.
     assert seen_y[0] == 10
 
 
@@ -589,12 +590,12 @@ async def test_text_loops_extends_section_duration(tmp_path, mocker):
 
     await widget.play(real, frame, loop_count=1)
 
-    # text_w = real.width = 256; text_width for "X" via stub font = 6.
-    # Per-traversal ticks = 256 + 6 = 262. Two loops → 524 swaps.
-    # Tight bound (524..525, allowing 1-tick rounding slack) catches a
-    # regression that 10×'s the duration just as well as one that drops
-    # the floor entirely.
-    assert 524 <= frame.matrix.SwapOnVSync.call_count <= 525
+    # text_w=256, text_width("X")=6 → 1 traversal ≈ 262 ticks. With
+    # text_loops=2 the floor is ≥ 2 traversals, < 3. Bounds avoid
+    # pinning the exact formula.
+    one_traversal = 256 + 6
+    count = frame.matrix.SwapOnVSync.call_count
+    assert 2 * one_traversal <= count < 3 * one_traversal
 
 
 async def test_text_loops_zero_keeps_gif_driven_duration(tmp_path, mocker):

@@ -7,7 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 from led_ticker._compat import require_graphics
-from led_ticker._types import Canvas, DrawResult
+from led_ticker._types import Canvas, Color, DrawResult
 from led_ticker.drawing import get_text_width
 from led_ticker.text_render import draw_text
 from led_ticker.transitions import ease_out
@@ -59,7 +59,7 @@ class WidgetPresenter:
         self._paused = False
 
     @property
-    def bg_color(self):
+    def bg_color(self) -> Color | None:
         """Forward bg_color from the wrapped widget so the orchestrator
         sees the correct background regardless of presentation wrapping."""
         return getattr(self.widget, "bg_color", None)

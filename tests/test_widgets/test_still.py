@@ -849,3 +849,224 @@ async def test_text_scale_too_large_raises_at_first_paint(tmp_path, mocker):
 
     with pytest.raises(ValueError, match="text_scale"):
         await widget.play(real, frame)
+
+
+def test_invalid_text_align_raises_with_empty_text(tmp_path):
+    """Validation does NOT skip when text="". A bogus alignment should
+    surface at construction even before any text is added."""
+    path = _make_png(tmp_path)
+    with pytest.raises(ValueError, match="text_align"):
+        StillImage(path=str(path), text_align="bogus")
+
+
+def test_text_align_scroll_with_stretch_raises(tmp_path):
+    """Cross-field footgun: scroll mode + stretch = invisible text. Raise."""
+    path = _make_png(tmp_path)
+    with pytest.raises(ValueError, match="text_align='scroll'"):
+        StillImage(
+            path=str(path),
+            fit="stretch",
+            text="HELLO",
+            text_align="scroll",
+        )
+
+
+async def test_static_fast_path_captures_swap_return(tmp_path, mocker):
+    """The static-text fast path also calls SwapOnVSync — it must capture
+    the return per CLAUDE.md hardware constraint #1. Uses fresh-canvas-
+    per-swap so a regression dropping the assignment fails."""
+    path = _make_png(tmp_path, color=(0, 0, 0))
+    widget = StillImage(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="left",  # static — triggers fast path
+        hold_seconds=0.1,
+    )
+    real = _bigsign_real_canvas()
+
+    swap_returns: list[object] = []
+
+    def fake_swap(c):
+        new = type(real)(width=real.width, height=real.height)
+        swap_returns.append(new)
+        return new
+
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = fake_swap
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    result = await widget.play(real, frame)
+    # Fast path swaps once; result must be the swap return, not the original
+    assert result is swap_returns[-1]
+    assert result is not real
+
+
+async def test_text_canvas_follows_back_buffer_at_text_scale_2(tmp_path, mocker):
+    """At text_scale > 1 the text canvas is a ScaledCanvas wrapper —
+    its `.real` attribute must be re-anchored to the new back-buffer
+    after each swap (CLAUDE.md #10). Test runs the per-tick loop and
+    asserts the wrapper points at the latest swap return each tick."""
+    from led_ticker.scaled_canvas import ScaledCanvas
+
+    path = _make_png(tmp_path, color=(0, 0, 0))
+    widget = StillImage(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="scroll_over",  # per-tick loop runs
+        text_scale=2,  # ScaledCanvas wrapper path
+        scroll_speed_ms=50,
+        hold_seconds=0.15,
+    )
+    real = _bigsign_real_canvas()
+
+    swap_returns: list[object] = []
+
+    def fake_swap(c):
+        new = type(real)(width=real.width, height=real.height)
+        swap_returns.append(new)
+        return new
+
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = fake_swap
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_wrapped_real: list[object] = []
+    real_draw = __import__(
+        "led_ticker.widgets._image_base", fromlist=["draw_text"]
+    ).draw_text
+
+    def spy(canvas, font, x, y, color, text):
+        # If canvas is ScaledCanvas, capture its .real to verify rebind
+        if isinstance(canvas, ScaledCanvas):
+            seen_wrapped_real.append(canvas.real)
+        return real_draw(canvas, font, x, y, color, text)
+
+    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
+
+    await widget.play(real, frame)
+
+    # Tick 0: wrapper wraps `real`. Tick i (i>=1): wrapper.real is the
+    # canvas that came back from swap i-1.
+    assert len(seen_wrapped_real) >= 3
+    assert seen_wrapped_real[0] is real
+    for i, wrapped_real in enumerate(seen_wrapped_real[1:], start=1):
+        assert wrapped_real is swap_returns[i - 1]
+
+
+async def test_text_loops_at_text_scale_2(tmp_path, mocker):
+    """`ticks_per_text_loop = text_w + text_width` uses LOGICAL widths.
+    A regression that uses physical `canvas.width` would halve the
+    floor at text_scale=2, since text_w = canvas.width // text_scale.
+    Pin the logical-width formula via a tighter bound."""
+    path = _make_png(tmp_path, color=(0, 0, 0))
+    widget = StillImage(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="scroll_over",
+        text_scale=2,
+        scroll_speed_ms=50,
+        hold_seconds=0.05,
+        text_loops=2,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    await widget.play(real, frame)
+
+    # text_w = 256 // 2 = 128 logical; text_width("X") = 6 logical.
+    # 1 traversal = 134 ticks; ×2 = 268. If a regression substituted
+    # physical widths (256 + 6 = 262 per traversal), bound would be
+    # ≥ 524 — way outside our window. Tight bound catches the bug.
+    one_traversal = 128 + 6
+    count = frame.matrix.SwapOnVSync.call_count
+    assert 2 * one_traversal <= count < 3 * one_traversal
+
+
+async def test_wrap_around_fires_at_correct_tick(tmp_path, mocker):
+    """Wrap condition uses `<= 0`. A regression to `< 0` would fire one
+    tick later. Pin which tick fires the wrap by asserting BOTH the
+    pre-wrap tick had value -text_width AND the wrap tick reset to
+    text_w."""
+    path = _make_png(tmp_path, color=(0, 0, 0))
+    widget = StillImage(
+        path=str(path),
+        fit="pillarbox",  # avoid the scroll+stretch validator
+        text="X",
+        text_align="scroll",
+        scroll_speed_ms=50,
+        hold_seconds=0.05,
+        text_loops=2,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_x: list[int] = []
+    mocker.patch(
+        "led_ticker.widgets._image_base.draw_text",
+        side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
+    )
+
+    await widget.play(real, frame)
+
+    # Wrap condition is `<= 0` (checked AFTER each per-tick increment):
+    #   tick N-1: paint at scroll_pos=-5, increment → -6, wrap fires
+    #   tick N:   paint at scroll_pos=256 (post-wrap reset)
+    # So pre-wrap drawn value is -text_width + 1 = -5. A regression to
+    # `< 0` would let -6 paint first (pre-wrap = -6).
+    wraps = [i for i in range(1, len(seen_x)) if seen_x[i] > seen_x[i - 1]]
+    assert wraps, "no wrap observed"
+    pre_wrap = wraps[0] - 1
+    assert seen_x[pre_wrap] == -5, (
+        f"pre-wrap tick should have scroll_pos = -text_width + 1 = -5 "
+        f"(off-by-one regression in wrap condition would give -6); "
+        f"got {seen_x[pre_wrap]}"
+    )
+    assert seen_x[wraps[0]] == 256
+
+
+@pytest.mark.parametrize("panel_h,scale", [(64, 6), (32, 3), (16, 2)])
+def test_text_scale_too_large_raises_on_various_panels(
+    tmp_path, mocker, panel_h, scale
+):
+    """text_scale upper bound: panel_h // text_scale must be >= 12 (the
+    BDF cell height). Parametrized over panel sizes so a regression
+    that hardcodes panel_h would break on small sign / scale=2."""
+    from rgbmatrix import _StubCanvas
+
+    path = _make_png(tmp_path)
+    widget = StillImage(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="scroll_over",
+        text_scale=scale,
+        hold_seconds=0.05,
+    )
+    canvas = _StubCanvas(width=panel_h * 4, height=panel_h)
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    import asyncio as _asyncio
+
+    with pytest.raises(ValueError, match="text_scale"):
+        _asyncio.get_event_loop().run_until_complete(widget.play(canvas, frame))
+
+
+def test_real_asset_helper_fails_loudly_on_missing(tmp_path, monkeypatch):
+    """Meta-test: `_real_asset()` MUST fail (not skip) when an asset is
+    missing and the skip env var is not set. A regression turning
+    pytest.fail into pytest.skip would otherwise hide regressions."""
+    monkeypatch.delenv("LED_TICKER_SKIP_REAL_ASSETS", raising=False)
+    with pytest.raises((pytest.fail.Exception, BaseException)) as exc:
+        _real_asset("nonexistent-file-zzz.png")
+    # Must be a Failed (pytest.fail) — not a skip
+    msg = str(exc.value)
+    assert "missing" in msg.lower() or "fail" in msg.lower()

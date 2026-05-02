@@ -398,11 +398,36 @@ def test_image_align_left_anchors_at_x_zero(tmp_path):
     assert real.get_pixel(255, 32) == (0, 0, 0)
 
 
-def test_no_text_skips_align_validation(tmp_path):
-    """text_align is only validated when text is non-empty (default 'right'
-    is fine even if user never sets text)."""
+def test_default_text_align_resolves_with_no_text(tmp_path):
+    """text_align="auto" (default) resolves cleanly even when text="" —
+    no exception, default values survive validation."""
     path = _make_gif_path(tmp_path, [(10, 20, 30)])
-    GifPlayer(path=str(path))  # no error — default text="" bypasses check
+    w = GifPlayer(path=str(path))
+    # auto + image_align=center → scroll_over (resolved + valid)
+    assert w.text_align == "scroll_over"
+
+
+def test_invalid_text_align_raises_with_empty_text(tmp_path):
+    """Validation does NOT skip when text="". A bogus alignment should
+    surface at construction even before any text is added (the previous
+    `if self.text:` guard let bogus values silently pass)."""
+    path = _make_gif_path(tmp_path, [(10, 20, 30)])
+    with pytest.raises(ValueError, match="text_align"):
+        GifPlayer(path=str(path), text_align="bogus")  # text="" by default
+
+
+def test_text_align_scroll_with_stretch_raises(tmp_path):
+    """Cross-field footgun: scroll mode relies on transparent / pillarbox
+    regions for skip-black to expose the marquee. With fit='stretch'
+    the panel is fully opaque — text would be invisible. Raise."""
+    path = _make_gif_path(tmp_path, [(10, 20, 30)])
+    with pytest.raises(ValueError, match="text_align='scroll'"):
+        GifPlayer(
+            path=str(path),
+            fit="stretch",
+            text="HELLO",
+            text_align="scroll",
+        )
 
 
 def test_paint_skip_black_leaves_zero_pixels_untouched(tmp_path):
@@ -1089,3 +1114,42 @@ def test_draw_does_not_paint_text(tmp_path):
     for y in range(real.height):
         for x in range(real.width):
             assert real.get_pixel(x, y) != (255, 0, 255)
+
+
+async def test_gif_static_text_does_not_freeze_animation(tmp_path, mocker):
+    """REGRESSION: static text alongside a multi-frame gif must NOT
+    freeze the gif on frame 0. The static-text fast path applies only
+    when the source itself is static — `_is_static()` returns False
+    on multi-frame gifs, forcing the per-tick loop to run so frames
+    advance via `_pick_frame_for_elapsed`."""
+    # 3-frame gif with distinct colors. Each frame is short (50ms) so
+    # several should advance over a few ticks at scroll_speed_ms=50.
+    path = _make_gif_path(
+        tmp_path,
+        [(220, 30, 30), (30, 220, 30), (30, 30, 220)],
+        duration_ms=50,
+    )
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="right",  # static — would trigger fast-path on a still
+        scroll_speed_ms=50,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    # gif_loops=1 × 3 frames × 50ms = 150ms / 50ms tick = 3 ticks.
+    # Without the fast-path-disable for animated gifs, only 1 swap
+    # would happen (paint frame 0, sleep 0.15s, return) and
+    # `_current_frame_idx` would stay at 0.
+    await widget.play(real, frame, loop_count=1)
+
+    # Per-tick loop ran → frame index advanced past 0
+    assert widget._current_frame_idx > 0, (
+        f"Multi-frame gif froze on frame 0 — fast-path was incorrectly "
+        f"applied to an animated source. Got _current_frame_idx="
+        f"{widget._current_frame_idx}; expected > 0."
+    )

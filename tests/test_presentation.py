@@ -212,3 +212,26 @@ class TestBounce:
         # Frame 7 is in the hold phase (5 scroll + 2 hold)
         result_canvas, pos = b.draw(msg_widget, canvas, 0, 7)
         assert result_canvas is canvas
+
+
+class TestBgColorForwarding:
+    def test_bg_color_returns_wrapped_widget_bg(self):
+        from led_ticker.presentation import Rainbow, WidgetPresenter
+        from led_ticker.widgets.message import TickerMessage
+
+        # Need a stub Color (graphics.Color isn't available in unit tests
+        # without going through the compat shim).
+        class StubColor:
+            red, green, blue = 10, 20, 30
+
+        msg = TickerMessage(message="hi", bg_color=StubColor())
+        wrapped = WidgetPresenter(msg, Rainbow())
+        assert wrapped.bg_color is msg.bg_color
+
+    def test_bg_color_returns_none_when_widget_has_no_bg(self):
+        from led_ticker.presentation import Rainbow, WidgetPresenter
+        from led_ticker.widgets.message import TickerMessage
+
+        msg = TickerMessage(message="hi")  # bg_color defaults to None
+        wrapped = WidgetPresenter(msg, Rainbow())
+        assert wrapped.bg_color is None

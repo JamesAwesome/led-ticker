@@ -32,5 +32,5 @@ def test_get_unknown_widget_raises():
         get_widget_class("nonexistent_widget")
 
 
-def test_registry_has_eleven_widgets():
-    assert len(_WIDGET_REGISTRY) == 11
+def test_registry_has_twelve_widgets():
+    assert len(_WIDGET_REGISTRY) == 12

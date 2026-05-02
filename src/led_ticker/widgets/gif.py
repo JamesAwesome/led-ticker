@@ -81,11 +81,8 @@ from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.scaled_canvas import ScaledCanvas, unwrap_to_real
 from led_ticker.text_render import draw_text
 from led_ticker.widgets import register
-from led_ticker.widgets._gif_decode import (
-    _VALID_GIF_ALIGNS,
-    decode_gif,
-    validate_choice,
-)
+from led_ticker.widgets._gif_decode import decode_gif
+from led_ticker.widgets._image_fit import _VALID_GIF_ALIGNS, validate_choice
 
 _VALID_TEXT_ALIGNS: frozenset[str] = frozenset(
     {"left", "right", "scroll", "scroll_over"}

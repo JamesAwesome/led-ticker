@@ -92,9 +92,13 @@ async def _build_widget(
         else:
             widget_cfg.pop("text")
 
-    # GIF widgets get config-relative paths resolved here so the widget
-    # itself doesn't need to know about config layout.
-    if widget_type == "gif" and "path" in widget_cfg and config_dir is not None:
+    # File-backed widgets get config-relative paths resolved here so
+    # the widgets themselves don't need to know about config layout.
+    if (
+        widget_type in ("gif", "image")
+        and "path" in widget_cfg
+        and config_dir is not None
+    ):
         candidate = Path(widget_cfg["path"])
         if not candidate.is_absolute():
             widget_cfg["path"] = str((config_dir / candidate).resolve())

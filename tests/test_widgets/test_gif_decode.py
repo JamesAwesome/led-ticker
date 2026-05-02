@@ -126,14 +126,14 @@ def test_missing_file_raises(tmp_path):
         decode_gif(tmp_path / "nope.gif", panel_w=256, panel_h=64, fit="stretch")
 
 
-def test_pillarbox_h_align_left_anchors_at_x_zero(tmp_path):
-    """h_align='left' positions a 64×64 pillarboxed frame at x=0..63;
+def test_pillarbox_gif_align_left_anchors_at_x_zero(tmp_path):
+    """gif_align='left' positions a 64×64 pillarboxed frame at x=0..63;
     the right side (cols 64..255) is the black pillar."""
     path = tmp_path / "sq.gif"
     path.write_bytes(_make_gif([(255, 255, 255)], size=(32, 32)).getvalue())
 
     [(pixels, _)] = decode_gif(
-        path, panel_w=256, panel_h=64, fit="pillarbox", h_align="left"
+        path, panel_w=256, panel_h=64, fit="pillarbox", gif_align="left"
     )
 
     def px(x: int, y: int) -> tuple[int, int, int]:
@@ -148,14 +148,14 @@ def test_pillarbox_h_align_left_anchors_at_x_zero(tmp_path):
     assert px(255, 32) == (0, 0, 0)
 
 
-def test_pillarbox_h_align_right_anchors_at_panel_edge(tmp_path):
-    """h_align='right' positions the 64×64 frame at cols 192..255 with
+def test_pillarbox_gif_align_right_anchors_at_panel_edge(tmp_path):
+    """gif_align='right' positions the 64×64 frame at cols 192..255 with
     the black pillar covering cols 0..191."""
     path = tmp_path / "sq.gif"
     path.write_bytes(_make_gif([(255, 255, 255)], size=(32, 32)).getvalue())
 
     [(pixels, _)] = decode_gif(
-        path, panel_w=256, panel_h=64, fit="pillarbox", h_align="right"
+        path, panel_w=256, panel_h=64, fit="pillarbox", gif_align="right"
     )
 
     def px(x: int, y: int) -> tuple[int, int, int]:
@@ -170,12 +170,35 @@ def test_pillarbox_h_align_right_anchors_at_panel_edge(tmp_path):
     assert px(255, 32) == (255, 255, 255)
 
 
-def test_unknown_h_align_raises(tmp_path):
+def test_unknown_gif_align_raises(tmp_path):
     path = tmp_path / "x.gif"
     path.write_bytes(_make_gif([(0, 0, 0)]).getvalue())
 
-    with pytest.raises(ValueError, match="h_align"):
-        decode_gif(path, panel_w=256, panel_h=64, fit="pillarbox", h_align="weird")
+    with pytest.raises(ValueError, match="gif_align"):
+        decode_gif(path, panel_w=256, panel_h=64, fit="pillarbox", gif_align="weird")
+
+
+@pytest.mark.parametrize("fit", ["stretch", "letterbox", "crop"])
+def test_gif_align_is_noop_on_full_width_fits(tmp_path, fit):
+    """`gif_align` only matters for pillarbox where the scaled image is
+    narrower than the panel. The other three fits fill the panel width
+    — gif_align must produce identical output regardless of its value.
+    Pins the no-op behavior so a regression wiring gif_align into
+    letterbox/crop incorrectly fails loudly."""
+    path = tmp_path / "src.gif"
+    # Wide source so letterbox doesn't fall back to height-fit
+    path.write_bytes(_make_gif([(255, 100, 50)], size=(256, 32)).getvalue())
+
+    [(left_pixels, _)] = decode_gif(
+        path, panel_w=256, panel_h=64, fit=fit, gif_align="left"
+    )
+    [(center_pixels, _)] = decode_gif(
+        path, panel_w=256, panel_h=64, fit=fit, gif_align="center"
+    )
+    [(right_pixels, _)] = decode_gif(
+        path, panel_w=256, panel_h=64, fit=fit, gif_align="right"
+    )
+    assert left_pixels == center_pixels == right_pixels
 
 
 def _make_transparent_gif_bytes() -> bytes:

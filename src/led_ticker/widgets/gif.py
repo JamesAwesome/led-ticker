@@ -1,19 +1,62 @@
 """GIF player widget — displays an animated GIF on the LED panel as
 if it were a small monitor.
 
-The widget lazily decodes all frames on first use, paints the current
-frame directly to the underlying real canvas (bypassing ScaledCanvas
-so each pixel is a native LED, not a scale×scale block), and exposes
+The widget lazily decodes all frames on first use, paints frames
+directly to the underlying real canvas (bypassing ScaledCanvas so
+each pixel is a native LED, not a scale×scale block), and exposes
 an async `play()` method that drives the per-frame playback loop.
 
-Optional `text` renders alongside the GIF. With `text_align="left"` or
-`"right"` the text sits statically in the corresponding pillar (gif on
-bottom, text on top). With `text_align="scroll"` the text scrolls
-right-to-left UNDER the gif — black pixels in the gif are skipped so
-the text only shows through pillars / letterbox bands. With
-`text_align="scroll_over"` the text scrolls right-to-left ON TOP of
-the gif — always visible (useful as a marquee over a full-screen
-background gif).
+Two run modes:
+    - ``mode = "gif"``  legacy panel-takeover orchestrator (no titles)
+    - ``mode = "swap"`` unified path; gif rides _show_one's _has_play
+                       dispatch and works alongside an optional title
+
+Schema (TOML config keys for `type = "gif"`):
+
+==================  =================  ==========================================
+Field               Default            Description
+==================  =================  ==========================================
+``path``            (required)         Path to GIF file. Relative paths resolve
+                                       against the config.toml directory.
+``fit``             ``"pillarbox"``    ``pillarbox`` | ``letterbox`` | ``stretch``
+                                       | ``crop``
+``gif_align``       ``"center"``       ``left`` | ``center`` | ``right`` —
+                                       horizontal anchor; only meaningful for
+                                       pillarbox.
+``text``            ``""``             Optional text rendered alongside the gif.
+                                       Supports ``:slug:`` inline emoji.
+``text_align``      ``"auto"``         ``auto`` | ``left`` | ``right`` |
+                                       ``scroll`` | ``scroll_over``. ``auto``
+                                       picks the side opposite ``gif_align`` so
+                                       they don't overlap (center gif →
+                                       scroll_over).
+``font_color``      yellow             RGB list ``[r, g, b]`` or "random".
+``scroll_speed_ms`` ``50``             Tick cadence when text scrolls (≥ 20).
+``text_scale``      ``1``              Block-scale glyphs (1=native; set 2-4 on
+                                       bigsign for readable text).
+``gif_loops``       ``1``              Per-visit gif loop count when dispatched
+                                       via run_swap.
+``text_loops``      ``0``              Floor on marquee traversals before
+                                       section transitions. Only with scrolling
+                                       text; 0 = no floor.
+==================  =================  ==========================================
+
+text_align variants:
+    - ``"left"``       static text in left pillar (gif under, text over)
+    - ``"right"``      static text in right pillar (gif under, text over)
+    - ``"scroll"``     marquee UNDER gif (text shows through transparent /
+                       pillar areas via skip-black compositing)
+    - ``"scroll_over"`` marquee ON TOP of gif (always visible)
+
+Constraints validated at construction:
+    - ``text_scale >= 1``
+    - ``gif_loops >= 1``
+    - ``text_loops >= 0``
+    - ``scroll_speed_ms >= 20``
+    - ``text_loops > 0`` requires ``text_align`` ∈ ``{scroll, scroll_over}``
+
+See CLAUDE.md "GIF widget" for architectural context (native-resolution
+painting, play() dispatch, transparent decode, etc.).
 """
 
 from __future__ import annotations
@@ -32,12 +75,22 @@ from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.scaled_canvas import ScaledCanvas, unwrap_to_real
 from led_ticker.text_render import draw_text
 from led_ticker.widgets import register
-from led_ticker.widgets._gif_decode import decode_gif, validate_choice
+from led_ticker.widgets._gif_decode import (
+    _VALID_GIF_ALIGNS,
+    decode_gif,
+    validate_choice,
+)
 
 _VALID_TEXT_ALIGNS: frozenset[str] = frozenset(
     {"left", "right", "scroll", "scroll_over"}
 )
-_VALID_GIF_ALIGNS: frozenset[str] = frozenset({"left", "center", "right"})
+# `text_align="auto"` resolves to the side opposite the gif so they don't
+# overlap. Center gif → scroll_over (always paints on top, no overlap zone).
+_AUTO_TEXT_ALIGN_FOR_GIF: dict[str, str] = {
+    "left": "right",
+    "right": "left",
+    "center": "scroll_over",
+}
 _EMOJI_PATTERN = re.compile(r":[a-z_]+:")
 
 # Logical-px gap between the panel edge and the start of static-aligned text.
@@ -60,21 +113,33 @@ class GifPlayer:
     # "left" | "center" | "right" — only meaningful for pillarbox
     gif_align: str = "center"
     text: str = ""
-    text_align: str = "right"  # "left" | "right" | "scroll" | "scroll_over"
+    # "auto" | "left" | "right" | "scroll" | "scroll_over". "auto" picks
+    # an alignment based on `gif_align` so the text doesn't overlap the
+    # gif: left gif → right text, right gif → left text, center gif →
+    # scroll_over (which always paints on top, no overlap).
+    text_align: str = "auto"
     font_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
-    font: Font = attrs.Factory(lambda: FONT_DEFAULT)
     scroll_speed_ms: int = 50  # tick cadence when text is scrolling
     # Pixel-art block scale for text painting only (gif still paints at
     # native res). 1 = native BDF, 2 = 2×2 blocks per glyph pixel, etc.
     # Set to 2-4 on the bigsign so text is visible from across the room.
     text_scale: int = 1
-    loops: int = 1  # gif-internal loops per visit (used by run_swap)
+    # Per-visit gif loop count when dispatched via run_swap's _show_one
+    # (mode = "swap"). Distinct from section-level `loop_count` ("cycle
+    # the widget list N times") and `text_loops` (marquee-traversal
+    # floor); naming `gif_loops` keeps all three visibly different.
+    gif_loops: int = 1
     # Minimum number of times scrolling text must traverse the panel
     # before the section is allowed to transition. 0 = no floor (gif
-    # `loops` drives duration). Only meaningful with text_align="scroll"
-    # or "scroll_over"; ignored for static text.
+    # `gif_loops` drives duration). Only meaningful with
+    # text_align="scroll" or "scroll_over"; ignored for static text.
     text_loops: int = 0
-    padding: int = 0  # required by widget protocol; unused here
+    # `font` and `padding` are framework-internal, not user-facing
+    # config. `font` defaults to FONT_DEFAULT (6×12 BDF, same as the
+    # rest of the project); `padding` is required by the widget
+    # protocol but meaningless for full-canvas gif blits.
+    font: Font = attrs.field(init=False, default=FONT_DEFAULT)
+    padding: int = attrs.field(init=False, default=0)
 
     _frames: list[tuple[bytes, int]] = attrs.field(init=False, factory=list)
     _current_frame_idx: int = attrs.field(init=False, default=0)
@@ -90,6 +155,12 @@ class GifPlayer:
 
     def __attrs_post_init__(self) -> None:
         validate_choice("gif_align", self.gif_align, _VALID_GIF_ALIGNS)
+        # Resolve `text_align="auto"` based on gif_align so text doesn't
+        # overlap the gif by default. Authors can still pin a specific
+        # alignment explicitly. "auto" is silently fine when text="" since
+        # nothing renders.
+        if self.text_align == "auto":
+            self.text_align = _AUTO_TEXT_ALIGN_FOR_GIF[self.gif_align]
         if self.text:
             validate_choice("text_align", self.text_align, _VALID_TEXT_ALIGNS)
         # Range checks on numeric fields. Default values (1, 0, 50) all
@@ -97,8 +168,8 @@ class GifPlayer:
         # otherwise crash deep or silently behave unexpectedly.
         if self.text_scale < 1:
             raise ValueError(f"text_scale must be >= 1, got {self.text_scale!r}")
-        if self.loops < 1:
-            raise ValueError(f"loops must be >= 1, got {self.loops!r}")
+        if self.gif_loops < 1:
+            raise ValueError(f"gif_loops must be >= 1, got {self.gif_loops!r}")
         if self.text_loops < 0:
             raise ValueError(f"text_loops must be >= 0, got {self.text_loops!r}")
         if self.scroll_speed_ms < _MIN_SCROLL_SPEED_MS:
@@ -130,7 +201,7 @@ class GifPlayer:
             panel_w=panel_w,
             panel_h=panel_h,
             fit=self.fit,
-            h_align=self.gif_align,
+            gif_align=self.gif_align,
         )
 
     def _ensure_paint_caches(self) -> None:
@@ -303,6 +374,35 @@ class GifPlayer:
         self._current_frame_idx = len(self._frames) - 1
         return canvas
 
+    def _render_tick(
+        self,
+        canvas: Canvas,
+        text_canvas: Canvas,
+        frame_idx: int,
+        scroll_pos: int,
+        baseline_y: int,
+        text_x_left: int,
+        text_x_right: int,
+    ) -> None:
+        """Compose one frame: clear canvas, paint gif + text in the right
+        order for the current `text_align`. Caller advances `scroll_pos`
+        and swaps after this returns."""
+        canvas.Clear()
+
+        if self.text_align == "scroll":
+            # Text under, gif on top with black pillars made transparent
+            self._draw_text(text_canvas, scroll_pos, baseline_y, self.font_color)
+            self._paint_skip_black(canvas, frame_idx)
+        elif self.text_align == "scroll_over":
+            # Gif under, text on top — text always visible as a marquee
+            self._paint_full(canvas, frame_idx)
+            self._draw_text(text_canvas, scroll_pos, baseline_y, self.font_color)
+        else:
+            # Static text: gif under, text on top
+            self._paint_full(canvas, frame_idx)
+            text_x = text_x_left if self.text_align == "left" else text_x_right
+            self._draw_text(text_canvas, text_x, baseline_y, self.font_color)
+
     async def _play_with_text(
         self, real_canvas: Canvas, frame: Any, loop_count: int
     ) -> Canvas:
@@ -351,23 +451,15 @@ class GifPlayer:
         for tick in range(n_ticks):
             elapsed_ms = tick * tick_ms
             frame_idx = self._frame_for_elapsed(elapsed_ms, loop_ms)
-
-            canvas.Clear()
-
-            if self.text_align == "scroll":
-                # Text under, gif on top with black pillars made transparent
-                self._draw_text(text_canvas, scroll_pos, baseline_y, self.font_color)
-                self._paint_skip_black(canvas, frame_idx)
-            elif self.text_align == "scroll_over":
-                # Gif under, text on top — text always visible as a marquee
-                self._paint_full(canvas, frame_idx)
-                self._draw_text(text_canvas, scroll_pos, baseline_y, self.font_color)
-            else:
-                # Static text: gif under, text on top
-                self._paint_full(canvas, frame_idx)
-                text_x = text_x_left if self.text_align == "left" else text_x_right
-                self._draw_text(text_canvas, text_x, baseline_y, self.font_color)
-
+            self._render_tick(
+                canvas,
+                text_canvas,
+                frame_idx,
+                scroll_pos,
+                baseline_y,
+                text_x_left,
+                text_x_right,
+            )
             canvas = frame.matrix.SwapOnVSync(canvas)
             # Follow the new back-buffer for the next tick's text paint.
             # ScaledCanvas wrappers are mutable (rebind .real); for the

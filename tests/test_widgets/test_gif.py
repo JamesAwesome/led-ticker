@@ -179,6 +179,28 @@ def test_invalid_text_align_raises(tmp_path):
         GifPlayer(path=str(path), text="hi", text_align="bogus")
 
 
+def test_text_align_auto_resolves_from_gif_align(tmp_path):
+    """text_align="auto" (default) picks the opposite side of the gif so
+    they never overlap. Center gif → scroll_over (no overlap zone)."""
+    path = _make_gif_path(tmp_path, [(10, 20, 30)])
+
+    # Default gif_align = "center" → scroll_over
+    w = GifPlayer(path=str(path), text="HELLO")
+    assert w.text_align == "scroll_over"
+
+    # gif_align = "left" → right
+    w = GifPlayer(path=str(path), text="HELLO", gif_align="left")
+    assert w.text_align == "right"
+
+    # gif_align = "right" → left
+    w = GifPlayer(path=str(path), text="HELLO", gif_align="right")
+    assert w.text_align == "left"
+
+    # Explicit text_align overrides auto
+    w = GifPlayer(path=str(path), text="HELLO", gif_align="left", text_align="scroll")
+    assert w.text_align == "scroll"
+
+
 def test_invalid_gif_align_raises(tmp_path):
     path = _make_gif_path(tmp_path, [(10, 20, 30)])
     with pytest.raises(ValueError, match="gif_align"):
@@ -444,8 +466,8 @@ def test_negative_numeric_fields_raise(tmp_path):
         GifPlayer(path=str(path), text_scale=0)
     with pytest.raises(ValueError, match="text_scale"):
         GifPlayer(path=str(path), text_scale=-1)
-    with pytest.raises(ValueError, match="loops"):
-        GifPlayer(path=str(path), loops=0)
+    with pytest.raises(ValueError, match="gif_loops"):
+        GifPlayer(path=str(path), gif_loops=0)
     with pytest.raises(ValueError, match="text_loops"):
         GifPlayer(path=str(path), text_loops=-1)
     with pytest.raises(ValueError, match="scroll_speed_ms"):

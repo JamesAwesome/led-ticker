@@ -352,7 +352,7 @@ class TestRunSwapPlayDispatch:
             def __init__(self):
                 self.draw_called = False
                 self.play_calls: list[int] = []
-                self.loops = 3
+                self.gif_loops = 3
 
             def draw(self, canvas, cursor_pos=0, **kwargs):
                 self.draw_called = True
@@ -367,14 +367,19 @@ class TestRunSwapPlayDispatch:
         await q.put(widget)
         await _run_swap(canvas, mock_frame, q)
 
-        # play() ran with loops=3; draw() was not invoked
+        # play() ran with gif_loops=3; draw() was not invoked
         assert widget.play_calls == [3]
         assert not widget.draw_called
 
     async def test_play_widget_preserves_scaled_wrapper(self, mock_frame):
         """When the canvas is a ScaledCanvas, _play_widget unwraps for
         the widget but re-anchors the wrapper to the new back-buffer
-        afterwards so subsequent draws stay scaled."""
+        afterwards so subsequent draws stay scaled.
+
+        Uses _StubCanvas (the real test stub) instead of MagicMock so
+        any attribute access beyond width/height inside _play_widget
+        would surface here rather than silently no-op'ing as a Mock."""
+        from rgbmatrix import _StubCanvas
 
         class _Recorder:
             def __init__(self):
@@ -385,12 +390,8 @@ class TestRunSwapPlayDispatch:
                 # Pretend SwapOnVSync gave us a fresh back-buffer
                 return frame.matrix.SwapOnVSync(real_canvas)
 
-        real = mock.MagicMock()
-        real.width = 256
-        real.height = 64
-        new_real = mock.MagicMock()
-        new_real.width = 256
-        new_real.height = 64
+        real = _StubCanvas(width=256, height=64)
+        new_real = _StubCanvas(width=256, height=64)
         mock_frame.matrix.SwapOnVSync.return_value = new_real
 
         wrapper = ScaledCanvas(real, scale=4)
@@ -414,7 +415,7 @@ class TestRunSwapPlayDispatch:
         class _PlayWidget:
             def __init__(self):
                 self.played = 0
-                self.loops = 1
+                self.gif_loops = 1
 
             def draw(self, canvas, cursor_pos=0, **kwargs):
                 return canvas, canvas.width

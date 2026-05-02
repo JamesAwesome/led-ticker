@@ -1070,3 +1070,46 @@ def test_real_asset_helper_fails_loudly_on_missing(tmp_path, monkeypatch):
     # Must be a Failed (pytest.fail) — not a skip
     msg = str(exc.value)
     assert "missing" in msg.lower() or "fail" in msg.lower()
+
+
+# ---------------------------------------------------------------------------
+# bg_color support in _play_no_text
+# ---------------------------------------------------------------------------
+
+
+class TestStillBgColor:
+    def test_default_bg_is_none(self, tmp_path):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(path)
+        s = StillImage(path=str(path))
+        assert s.bg_color is None
+
+    @pytest.mark.asyncio
+    async def test_bg_color_set_uses_fill_in_play(self, tmp_path, mocker):
+        from PIL import Image
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.widgets.still import StillImage
+
+        path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(path)
+        s = StillImage(path=str(path), bg_color=Color(11, 22, 33))
+
+        canvas = mocker.MagicMock()
+        canvas.width = 4
+        canvas.height = 4
+        # Bypass decode; pre-populate panel dims and pixels.
+        s._pixels = b"\x00" * (4 * 4 * 3)
+        s._panel_w = 4
+        s._panel_h = 4
+
+        frame_obj = mocker.MagicMock()
+        frame_obj.matrix.SwapOnVSync.side_effect = lambda c: c
+        await s._play_no_text(canvas, frame_obj)
+
+        canvas.Clear.assert_not_called()
+        canvas.Fill.assert_called_once_with(11, 22, 33)

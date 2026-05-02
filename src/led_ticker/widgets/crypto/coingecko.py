@@ -9,7 +9,7 @@ from typing import Any, Self
 import aiohttp
 import attrs
 
-from led_ticker._types import Canvas, DrawResult
+from led_ticker._types import Canvas, Color, DrawResult
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets.crypto.coinbase import _draw_price_ticker
@@ -30,6 +30,7 @@ class CoinGeckoPriceMonitor:
     session: aiohttp.ClientSession
     center: bool = True
     padding: int = 6
+    bg_color: Color | None = attrs.field(default=None, kw_only=True)
     price_data: dict[str, str] = attrs.field(
         init=False,
         factory=lambda: {"price": "0.0000", "change_24h": "0.00%"},

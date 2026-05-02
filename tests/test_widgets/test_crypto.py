@@ -168,3 +168,47 @@ class TestEtherscanGasMonitor:
         # Etherscan rate-limit responses or schema changes shouldn't crash.
         assert _get_gas_price_color("N/A") == DEFAULT_COLOR
         assert _get_gas_price_color("") == DEFAULT_COLOR
+
+
+class TestCryptoBgColor:
+    def test_coinbase_bg_color_default_is_none(self):
+        w = CoinbasePriceMonitor(symbol="BTC", currency="USD", session=mock.Mock())
+        assert w.bg_color is None
+
+    def test_coinbase_accepts_bg_color(self):
+        from rgbmatrix.graphics import Color
+
+        w = CoinbasePriceMonitor(
+            symbol="BTC", currency="USD", session=mock.Mock(), bg_color=Color(7, 8, 9)
+        )
+        assert w.bg_color.green == 8
+
+    def test_coingecko_bg_color_default_is_none(self):
+        w = CoinGeckoPriceMonitor(
+            symbol="ETH", symbol_id="ethereum", currency="USD", session=mock.Mock()
+        )
+        assert w.bg_color is None
+
+    def test_coingecko_accepts_bg_color(self):
+        from rgbmatrix.graphics import Color
+
+        w = CoinGeckoPriceMonitor(
+            symbol="ETH",
+            symbol_id="ethereum",
+            currency="USD",
+            session=mock.Mock(),
+            bg_color=Color(11, 12, 13),
+        )
+        assert w.bg_color.blue == 13
+
+    def test_etherscan_bg_color_default_is_none(self):
+        w = EtherscanGasMonitor(session=mock.Mock(), api_key="test-key")
+        assert w.bg_color is None
+
+    def test_etherscan_accepts_bg_color(self):
+        from rgbmatrix.graphics import Color
+
+        w = EtherscanGasMonitor(
+            session=mock.Mock(), api_key="test-key", bg_color=Color(99, 100, 101)
+        )
+        assert w.bg_color.red == 99

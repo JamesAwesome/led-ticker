@@ -457,6 +457,99 @@ async def test_play_scroll_text_visible_through_black_pillars(tmp_path, mocker):
     assert real.get_pixel(centre_lo + 5, band_y) == (180, 180, 180)
 
 
+async def test_play_with_emoji_routes_through_emoji_painter(tmp_path, mocker):
+    """When `text` contains a `:slug:` token, _play_with_text must
+    dispatch to draw_with_emoji (not draw_text) so the icon actually
+    renders. Spy on the dispatcher; assert it gets called."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text=":sun: hot",
+        text_align="right",
+        font_color=Color(255, 220, 50),
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    spy = mocker.patch(
+        "led_ticker.pixel_emoji.draw_with_emoji",
+        side_effect=lambda c, *a, **kw: 16,
+    )
+
+    await widget.play(real, frame, loop_count=1)
+
+    assert spy.called, "draw_with_emoji should be invoked for `:slug:` text"
+
+
+async def test_play_text_scale_uses_scaled_canvas(tmp_path, mocker):
+    """text_scale > 1 wraps the real canvas in a ScaledCanvas just for
+    text painting — block-expands each glyph pixel so text is visible
+    on the bigsign. Confirm by spying on draw_text and inspecting the
+    canvas argument it receives."""
+    from led_ticker.scaled_canvas import ScaledCanvas
+
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="HI",
+        text_align="right",
+        font_color=Color(255, 255, 255),
+        text_scale=2,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_canvases: list[object] = []
+    real_draw = __import__("led_ticker.widgets.gif", fromlist=["draw_text"]).draw_text
+
+    def spy(canvas, font, x, y, color, text):
+        seen_canvases.append(canvas)
+        return real_draw(canvas, font, x, y, color, text)
+
+    mocker.patch("led_ticker.widgets.gif.draw_text", side_effect=spy)
+
+    await widget.play(real, frame, loop_count=1)
+
+    # Every text-paint tick handed draw_text a ScaledCanvas, not the raw real
+    assert seen_canvases, "draw_text should have been invoked at least once"
+    assert all(isinstance(c, ScaledCanvas) for c in seen_canvases)
+    assert all(c.scale == 2 for c in seen_canvases)
+
+
+async def test_play_text_scale_1_uses_real_canvas(tmp_path, mocker):
+    """text_scale=1 (default) keeps the existing native-resolution path
+    — no ScaledCanvas wrapper, draw_text gets the raw real canvas."""
+    from led_ticker.scaled_canvas import ScaledCanvas
+
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="HI",
+        text_align="right",
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen: list[object] = []
+    mocker.patch(
+        "led_ticker.widgets.gif.draw_text",
+        side_effect=lambda c, *a, **kw: seen.append(c) or 6,
+    )
+
+    await widget.play(real, frame, loop_count=1)
+
+    assert seen and not any(isinstance(c, ScaledCanvas) for c in seen)
+
+
 def test_draw_does_not_paint_text(tmp_path):
     """draw() (used for transition compositing) deliberately skips text
     rendering. Asserts no text-coloured pixels appear after draw()."""

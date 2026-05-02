@@ -34,6 +34,9 @@ Field               Default            Description
                                        positive = down. For nudging caps flush
                                        against the panel edge past the BDF
                                        cell's intrinsic top padding.
+``text_x_offset``   ``0``              Logical-pixel shift on static text x.
+                                       Positive = right, negative = left.
+                                       No-op for scrolling text.
 ``scroll_direction`` ``"left"``        Direction marquee TRAVELS.
 ``font_color``      yellow             RGB list ``[r, g, b]`` or "random".
 ``scroll_speed_ms`` ``50``             Tick cadence when text scrolls (≥ 20).
@@ -106,6 +109,11 @@ class StillImage:
     # font's intrinsic cell-padding leaves caps a few rows below the
     # panel edge at `text_valign="top"` and you want them flush.
     text_y_offset: int = 0
+    # Logical-pixel adjustment added to the static-text x position.
+    # For text_align="left", positive shifts text RIGHT (further from
+    # left edge); for "right", positive shifts text RIGHT past the
+    # default right-edge inset. No-op for "scroll" / "scroll_over".
+    text_x_offset: int = 0
     scroll_direction: str = "left"
     font_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
     scroll_speed_ms: int = 50
@@ -347,10 +355,13 @@ class StillImage:
         n_ticks = max(1, int(self.hold_seconds * 1000) // tick_ms)
 
         text_width = self._measure_text(text_canvas)
-        text_x_left = _TEXT_EDGE_PADDING_PX
-        text_x_right = max(
-            _TEXT_EDGE_PADDING_PX,
-            text_w - text_width - _TEXT_EDGE_PADDING_PX,
+        text_x_left = _TEXT_EDGE_PADDING_PX + self.text_x_offset
+        text_x_right = (
+            max(
+                _TEXT_EDGE_PADDING_PX,
+                text_w - text_width - _TEXT_EDGE_PADDING_PX,
+            )
+            + self.text_x_offset
         )
 
         scrolling = self.text_align in ("scroll", "scroll_over")

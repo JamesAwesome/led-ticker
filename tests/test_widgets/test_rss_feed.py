@@ -58,3 +58,42 @@ class TestRSSFeedMonitor:
         await monitor.update()
         for story in monitor.feed_stories:
             assert isinstance(story, TickerMessage)
+
+
+class TestRssBgColor:
+    def test_field_exists(self):
+        names = {a.name for a in RSSFeedMonitor.__attrs_attrs__}
+        assert "bg_color" in names
+
+    def test_bg_color_propagates_to_stories(self, mock_session):
+        """bg_color set on the container propagates to every story
+        TickerMessage in feed_stories."""
+        from rgbmatrix.graphics import Color
+
+        bg = Color(40, 50, 60)
+        feed = RSSFeedMonitor(
+            session=mock_session, feed_url="https://example.com/feed", bg_color=bg
+        )
+        # Manually populate stories the way update() would. Bypass network.
+        feed.feed_title = TickerMessage("Title", bg_color=bg)
+        feed.feed_stories = [
+            TickerMessage(item, bg_color=bg) for item in ("a", "b", "c")
+        ]
+
+        assert feed.bg_color is bg
+        assert feed.feed_title.bg_color is bg
+        assert all(s.bg_color is bg for s in feed.feed_stories)
+
+    async def test_update_threads_bg_color(self, mock_session):
+        """After update(), every story and the title carry bg_color."""
+        from rgbmatrix.graphics import Color
+
+        bg = Color(40, 50, 60)
+        feed = RSSFeedMonitor(
+            session=mock_session, feed_url="https://example.com/feed", bg_color=bg
+        )
+        await feed.update()
+
+        assert feed.feed_title is not None
+        assert feed.feed_title.bg_color is bg
+        assert all(s.bg_color is bg for s in feed.feed_stories)

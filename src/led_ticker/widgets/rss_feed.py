@@ -30,6 +30,7 @@ class RSSFeedMonitor:
         lambda: itertools.cycle([DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR])
     )
     max_stories: int = 5
+    bg_color: Color | None = attrs.field(default=None, kw_only=True)
     feed_title: TickerMessage | None = attrs.field(init=False, default=None)
     feed_stories: list[TickerMessage] = attrs.field(init=False, factory=list)
 
@@ -54,8 +55,13 @@ class RSSFeedMonitor:
             self.feed_title = TickerMessage(
                 feed["channel"]["title"],  # type: ignore[index]
                 font_color=next(self.colors),
+                bg_color=self.bg_color,
             )
             self.feed_stories = [
-                TickerMessage(item["title"], font_color=next(self.colors))  # type: ignore[index]
+                TickerMessage(  # type: ignore[index]
+                    item["title"],
+                    font_color=next(self.colors),
+                    bg_color=self.bg_color,
+                )
                 for item in itertools.islice(feed["items"], self.max_stories)  # type: ignore[index]
             ]

@@ -226,10 +226,12 @@ class MLBGameMessage:
         segments: list[tuple[str, Color]],
         padding: int = 6,
         center: bool = False,
+        bg_color: Color | None = None,
     ) -> None:
         self.segments: list[tuple[str, Color]] = segments
         self.padding: int = padding
         self.center: bool = center
+        self.bg_color: Color | None = bg_color
         self._content_width: int = -1
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
@@ -269,7 +271,10 @@ class MLBGameMessage:
 
 
 def _build_series_title(
-    team_abbr: str, series: SeriesInfo, tz: ZoneInfo
+    team_abbr: str,
+    series: SeriesInfo,
+    tz: ZoneInfo,
+    bg_color: Color | None = None,
 ) -> MLBGameMessage:
     """Build the title message for a series.
 
@@ -326,10 +331,15 @@ def _build_series_title(
         segments.append((record, RGB_WHITE))
 
     # Center the title if it fits on screen
-    return MLBGameMessage(segments, center=True)
+    return MLBGameMessage(segments, center=True, bg_color=bg_color)
 
 
-def _build_game_message(game: GameInfo, team_abbr: str, tz: ZoneInfo) -> MLBGameMessage:
+def _build_game_message(
+    game: GameInfo,
+    team_abbr: str,
+    tz: ZoneInfo,
+    bg_color: Color | None = None,
+) -> MLBGameMessage:
     """Build a message for a single game.
 
     Uses standard baseball convention: away team listed first.
@@ -404,7 +414,7 @@ def _build_game_message(game: GameInfo, team_abbr: str, tz: ZoneInfo) -> MLBGame
             (f" {time_str}", RGB_WHITE),
         ]
 
-    return MLBGameMessage(segments, center=True)
+    return MLBGameMessage(segments, center=True, bg_color=bg_color)
 
 
 @register("mlb")
@@ -417,6 +427,7 @@ class MLBScoreMonitor:
     timezone: str = "America/New_York"
     padding: int = 6
     final_hold_hours: int = 6
+    bg_color: Color | None = attrs.field(default=None, kw_only=True)
     _team_id: int = attrs.field(init=False, default=0)
     _tz: ZoneInfo | None = attrs.field(init=False, default=None)
     _has_live_game: bool = attrs.field(init=False, default=False)
@@ -473,11 +484,12 @@ class MLBScoreMonitor:
             title = TickerMessage(
                 f"{team_name}",
                 font_color=_team_color(self.team),
+                bg_color=self.bg_color,
             )
             self.feed_title = title
             self.feed_stories = [
                 title,
-                TickerMessage("No Data", font_color=RGB_WHITE),
+                TickerMessage("No Data", font_color=RGB_WHITE, bg_color=self.bg_color),
             ]
             return
 
@@ -499,11 +511,12 @@ class MLBScoreMonitor:
             title = TickerMessage(
                 f"{team_name}",
                 font_color=_team_color(self.team),
+                bg_color=self.bg_color,
             )
             self.feed_title = title
             self.feed_stories = [
                 title,
-                TickerMessage("No Data", font_color=RGB_WHITE),
+                TickerMessage("No Data", font_color=RGB_WHITE, bg_color=self.bg_color),
             ]
             return
 
@@ -513,11 +526,14 @@ class MLBScoreMonitor:
             title = TickerMessage(
                 f"{team_name}",
                 font_color=_team_color(self.team),
+                bg_color=self.bg_color,
             )
             self.feed_title = title
             self.feed_stories = [
                 title,
-                TickerMessage("Season Over", font_color=RGB_WHITE),
+                TickerMessage(
+                    "Season Over", font_color=RGB_WHITE, bg_color=self.bg_color
+                ),
             ]
             self._has_live_game = False
             return
@@ -531,6 +547,7 @@ class MLBScoreMonitor:
             title = TickerMessage(
                 f"{team_name}",
                 font_color=_team_color(self.team),
+                bg_color=self.bg_color,
             )
             self.feed_title = title
             if next_game:
@@ -549,21 +566,29 @@ class MLBScoreMonitor:
                     TickerMessage(
                         f"Next: vs {opp_name}, {time_str}",
                         font_color=RGB_WHITE,
+                        bg_color=self.bg_color,
                     ),
                 ]
             else:
                 self.feed_stories = [
                     title,
-                    TickerMessage("Season Over", font_color=RGB_WHITE),
+                    TickerMessage(
+                        "Season Over", font_color=RGB_WHITE, bg_color=self.bg_color
+                    ),
                 ]
             self._has_live_game = False
             return
 
         # Build display from current series
-        series_title = _build_series_title(self.team, current, tz)
+        series_title = _build_series_title(
+            self.team, current, tz, bg_color=self.bg_color
+        )
         self.feed_title = series_title
         stories: list[TickerMessage | MLBGameMessage] = [series_title]
-        stories.extend(_build_game_message(g, self.team, tz) for g in current.games)
+        stories.extend(
+            _build_game_message(g, self.team, tz, bg_color=self.bg_color)
+            for g in current.games
+        )
         self.feed_stories = stories
         self._has_live_game = any(g.state == "live" for g in current.games)
 

@@ -364,14 +364,14 @@ font_color = [225, 48, 108]
 loops = 17  # ~10s of playback
 
 # ---------------------------------------------------------------------------
-# Section 14 — pride_trans.gif as a full-screen BACKGROUND with white
-# scrolling text ON TOP (`text_align = "scroll_over"`).
+# Section 14 — pride_trans.gif as a full-screen BACKGROUND with BLACK
+# (off) scrolling text ON TOP (`text_align = "scroll_over"`).
 #
 # Opposite of section 8's `scroll`: there text scrolls UNDER the gif,
 # only visible through transparent / black areas. Here the gif paints
-# first and the text scrolls over it — always visible, like a stadium
-# marquee on top of a stripe-flag backdrop. White on the bright trans-
-# flag gradient stays readable everywhere.
+# first and the text scrolls over it — but font_color = (0, 0, 0)
+# turns those LEDs OFF, so the letters read as a "knockout" cutout
+# revealing the panel's unlit black through the bright flag colors.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -386,7 +386,8 @@ path = "assets/pride_trans.gif"
 fit = "stretch"
 text = "TRANS RIGHTS ARE HUMAN RIGHTS"
 text_align = "scroll_over"
-font_color = [255, 255, 255]
+font_color = [0, 0, 0]
+text_scale = 2  # bump up so the cutout is actually readable
 scroll_speed_ms = 50
 
 # ---------------------------------------------------------------------------

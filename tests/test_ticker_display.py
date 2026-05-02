@@ -555,3 +555,43 @@ class TestTickerRunInfiniScroll:
         ticker = Ticker(monitors=[w], frame=mock_frame, notif_queue=q)
         await ticker.run_infini_scroll(loop_count=1)
         assert w.draw.called
+
+
+class TestSwapAndScrollUsesResetCanvas:
+    @pytest.mark.asyncio
+    async def test_no_bg_calls_clear(self, mock_frame):
+        import unittest.mock as mock_mod
+
+        from led_ticker.ticker import _swap_and_scroll
+
+        canvas = mock_mod.MagicMock()
+        canvas.width = 160
+        canvas.height = 16
+        widget = mock_mod.MagicMock()
+        widget.bg_color = None
+        widget.draw.return_value = (canvas, 100)
+
+        await _swap_and_scroll(canvas, mock_frame, widget, hold_time=0.0)
+
+        canvas.Clear.assert_called()
+        canvas.Fill.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_bg_color_set_calls_fill(self, mock_frame):
+        import unittest.mock as mock_mod
+
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.ticker import _swap_and_scroll
+
+        canvas = mock_mod.MagicMock()
+        canvas.width = 160
+        canvas.height = 16
+        widget = mock_mod.MagicMock()
+        widget.bg_color = Color(70, 80, 90)
+        widget.draw.return_value = (canvas, 100)
+
+        await _swap_and_scroll(canvas, mock_frame, widget, hold_time=0.0)
+
+        canvas.Clear.assert_not_called()
+        canvas.Fill.assert_called_with(70, 80, 90)

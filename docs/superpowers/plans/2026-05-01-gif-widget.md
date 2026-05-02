@@ -1,5 +1,14 @@
 # GIF Widget Implementation Plan
 
+> **HISTORICAL — SHIPPED.** All 7 tasks in this plan landed cleanly.
+> Subsequent work (text-alongside-gif, transparent decode, run_swap
+> merge, dissolve fix, etc.) extended the widget well beyond this
+> scope and is documented in `CLAUDE.md`. Keep this file for
+> historical context on the original direction; do not use it as a
+> source of truth for current behavior.
+
+---
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a `type = "gif"` widget + `mode = "gif"` section orchestrator that displays animated GIFs at the panel's native physical resolution, looping a configurable number of times then transitioning out.

@@ -124,16 +124,20 @@ class Ticker:
         )
 
     async def run_gif(self, loop_count: int = 0) -> None:
-        """GIF playback mode: each widget pulled from the queue is a
-        GifPlayer; play() is called with the underlying real canvas
-        so frames render at native physical resolution.
+        """Legacy GIF playback mode: panel-takeover, no titles.
 
-        loop_count is the number of complete passes through each GIF
-        before the next widget (or section transition) takes over.
-        Treats loop_count=0 as 1 (consistent with other run modes).
+        Each widget pulled from the queue is a GifPlayer; play() is
+        called with the underlying real canvas so frames render at
+        native physical resolution. `loop_count` is the number of
+        complete passes through each GIF before the next widget (or
+        section transition) takes over. Treats loop_count=0 as 1
+        (consistent with other run modes).
 
         Each monitor is enqueued exactly once; per-gif repetition
         happens inside play() via loop_count, NOT by re-queueing.
+
+        For title + gif behavior, use `mode = "swap"` instead — gif
+        rides _show_one's _has_play dispatch alongside the title.
         """
         logging.info("Running GIF playback with loop count %s...", loop_count)
         canvas = _maybe_wrap(
@@ -141,11 +145,11 @@ class Ticker:
         )
         assert self.notif_queue is not None
 
-        # Enqueue each monitor exactly once. Skip the section title —
-        # GIF playback takes over the whole panel, so a title widget
-        # can't render alongside (and would crash since it has no
-        # play() method). _run_gif also defensively skips non-GIF
-        # widgets in case anything else slips into the queue.
+        # mode="gif" suppresses section titles entirely — they have no
+        # sensible place to render alongside a full-panel GIF takeover.
+        # We pass title=None to _build_then_enqueue rather than relying
+        # on _run_gif's defensive non-play() skip (which is a tripwire,
+        # not the primary suppression mechanism).
         asyncio.create_task(
             _build_then_enqueue(
                 self.monitors,
@@ -580,7 +584,10 @@ async def _play_widget(canvas: Any, frame: Any, widget: Any) -> Any:
     physical resolution; the wrapper is re-anchored to the new
     back-buffer canvas afterward so subsequent draws stay scaled.
     """
-    loops = getattr(widget, "loops", 1) or 1
+    # `gif_loops` is the canonical name on GifPlayer; fall back to `loops`
+    # for any future play()-style widget that doesn't follow the same
+    # naming. Either way 0/None coerces to 1.
+    loops = getattr(widget, "gif_loops", None) or getattr(widget, "loops", 1) or 1
     if isinstance(canvas, ScaledCanvas):
         innermost = canvas
         while isinstance(innermost.real, ScaledCanvas):

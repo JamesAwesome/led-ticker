@@ -158,8 +158,8 @@ scroll_speed_ms = 50
 # Demonstrates the swap-mode merge: gif widgets work exactly like any
 # other widget under `mode = "swap"`. The section title "HELLO!"
 # displays first (held + scrolled if it overflowed), dissolves into
-# the gif. Per-visit gif loops are controlled by the widget's own
-# `loops` field; section.loop_count means "cycle the widget list N
+# the gif. Per-visit `gif_loops` are controlled by the widget's own
+# `gif_loops` field; section.loop_count means "cycle the widget list N
 # times" in swap mode (set to 1 here = single visit).
 # ---------------------------------------------------------------------------
 
@@ -182,4 +182,4 @@ gif_align = "right"
 text = "@brand"
 text_align = "left"
 font_color = [225, 48, 108]
-loops = 17  # ~10s of playback
+gif_loops = 17  # ~10s of playback

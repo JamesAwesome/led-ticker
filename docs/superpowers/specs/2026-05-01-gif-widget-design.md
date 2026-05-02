@@ -1,5 +1,20 @@
 # GIF widget — design
 
+> **HISTORICAL.** This is the original 2026-05-01 design that drove the
+> initial 7-task implementation. The shipped widget grew well beyond
+> this scope: text alongside the gif (`text_align` left/right/scroll/
+> scroll_over), inline `:slug:` emoji, `text_scale` for chunky bigsign
+> glyphs, `text_loops` marquee floor, `gif_align` horizontal anchor,
+> alpha-aware decode for transparent gifs, `mode = "swap"` integration
+> via `_has_play` dispatch in run_swap, and the Dissolve fix to
+> physical-resolution scatter. Notably the "Non-goals" claim that text
+> wouldn't blend with gifs is no longer accurate. Current behavior
+> lives in `CLAUDE.md` (see "GIF widget", "Native-resolution painting
+> via unwrap_to_real", "play()-style widgets in run_swap"); use that
+> doc for reference, this one for context on the original direction.
+
+---
+
 Display animated GIFs on the bigsign LED panel as if it were a small monitor: GIF plays at native physical resolution (256×64), advances frames at the GIF's intrinsic per-frame durations, loops a configurable number of times, then transitions out to the next section.
 
 Test target: `~/Desktop/pika_wave.gif` (a Pikachu wave). Once landed, GIFs live alongside the config under an `assets/` dir.

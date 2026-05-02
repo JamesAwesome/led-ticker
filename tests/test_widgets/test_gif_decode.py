@@ -113,6 +113,36 @@ def test_zero_duration_is_clamped(tmp_path):
     assert frames[0][1] >= 50  # clamped to ≥50 ms
 
 
+def test_clamp_logs_first_occurrence(tmp_path, caplog):
+    """When _MIN_FRAME_DURATION_MS rewrites a frame's authored duration,
+    log it so users notice their GIF's timing was changed."""
+    import logging
+
+    path = tmp_path / "fast.gif"
+    path.write_bytes(_make_gif([(10, 20, 30), (40, 50, 60)], duration_ms=10).getvalue())
+
+    with caplog.at_level(logging.INFO, logger="led_ticker.widgets._gif_decode"):
+        decode_gif(path, panel_w=256, panel_h=64, fit="stretch")
+
+    clamp_records = [r for r in caplog.records if "clamped" in r.message]
+    # Exactly ONE log line — subsequent frames suppressed
+    assert len(clamp_records) == 1
+    assert "10ms" in clamp_records[0].message
+    assert "50ms" in clamp_records[0].message
+
+
+def test_no_clamp_log_when_durations_ok(tmp_path, caplog):
+    import logging
+
+    path = tmp_path / "ok.gif"
+    path.write_bytes(_make_gif([(10, 20, 30)], duration_ms=100).getvalue())
+
+    with caplog.at_level(logging.INFO, logger="led_ticker.widgets._gif_decode"):
+        decode_gif(path, panel_w=256, panel_h=64, fit="stretch")
+
+    assert not [r for r in caplog.records if "clamped" in r.message]
+
+
 def test_unknown_fit_raises(tmp_path):
     path = tmp_path / "x.gif"
     path.write_bytes(_make_gif([(0, 0, 0)]).getvalue())

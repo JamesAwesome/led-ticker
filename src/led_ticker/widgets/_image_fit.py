@@ -122,3 +122,32 @@ def apply_fit(
     else:  # center
         x_off = (panel_w - new_w) // 2
     return flatten_onto_black(scaled, panel_w, panel_h, x_off, (panel_h - new_h) // 2)
+
+
+def reset_canvas(canvas, bg_color) -> None:
+    """Clear canvas, or Fill it with `bg_color` if set.
+
+    `bg_color` is a `graphics.Color` (with `.red`, `.green`, `.blue`
+    attrs) or `None`. `(0, 0, 0)` is treated as "explicit black" — the
+    Fill path runs, painting black across the whole canvas. Visually
+    identical to Clear() but counts as a "set" bg for resolution rules.
+    """
+    if bg_color is None:
+        canvas.Clear()
+    else:
+        canvas.Fill(bg_color.red, bg_color.green, bg_color.blue)
+
+
+def fill_band(canvas, y_start: int, y_end: int, color) -> None:
+    """Fill the half-open horizontal band [y_start, y_end) with `color`.
+
+    Used for per-row backgrounds in `TwoRowMessage`. Goes through
+    SetPixel so a `ScaledCanvas` wrapper expands each logical pixel to
+    a scale×scale block on the real canvas.
+    """
+    set_px = canvas.SetPixel
+    r, g, b = color.red, color.green, color.blue
+    width = canvas.width
+    for y in range(y_start, y_end):
+        for x in range(width):
+            set_px(x, y, r, g, b)

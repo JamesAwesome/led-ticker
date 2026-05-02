@@ -54,6 +54,7 @@ class CoinbasePriceMonitor:
     session: aiohttp.ClientSession
     center: bool = True
     padding: int = 6
+    bg_color: Color | None = attrs.field(default=None, kw_only=True)
     price: float = attrs.field(init=False, default=0.0)
     yesterdays_price: float = attrs.field(init=False, default=0.0)
     change_24h: float = attrs.field(init=False, default=0.0)

@@ -422,6 +422,10 @@ async def _scroll_side_by_side(
         pos = 0
 
     while True:
+        # Side-by-side scroll uses the FIRST buffered widget's bg_color for
+        # the whole canvas. Mixing widgets with different bg_color in this
+        # mode is an accepted footgun (design spec) — the bg flips at the
+        # moment the leftmost widget exits and the next one becomes index 0.
         first_widget = buffered_objects[0] if buffered_objects else None
         bg = getattr(first_widget, "bg_color", None) if first_widget else None
         reset_canvas(canvas, bg)

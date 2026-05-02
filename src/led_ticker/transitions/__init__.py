@@ -142,6 +142,10 @@ async def run_transition(
                 )
 
             active = incoming_canvas if incoming_canvas is not None else canvas
+            # Transition compositing intentionally ignores bg_color — between
+            # two sections with different bgs, the dissolve flashes through
+            # black rather than coupling transition logic to widget state.
+            # Accepted footgun per the bg-color design spec.
             active.Clear()
             transition.frame_at(
                 t,

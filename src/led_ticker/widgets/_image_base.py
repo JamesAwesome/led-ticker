@@ -14,6 +14,14 @@ the per-tick scroll loop. Subclasses provide:
 Subclasses also add their own type-specific fields (`path`, `fit`,
 `image_align`, plus `gif_loops` / `hold_seconds` for per-visit
 duration).
+
+When `bg_color` is set on the widget, `_paint_image()` dispatches to
+`_paint_skip_black` instead of `_paint_full` so pillarbox / letterbox
+bands and alpha-transparent regions reveal the bg color filled by the
+caller's `reset_canvas`. With `bg_color = None`, `_paint_image` uses
+the `_paint_full` fast path (single SetImage call). Subclasses don't
+need to be aware of `bg_color` — they just implement both paint
+methods and the base class picks.
 """
 
 from __future__ import annotations

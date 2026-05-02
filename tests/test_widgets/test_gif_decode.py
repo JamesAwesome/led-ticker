@@ -176,3 +176,51 @@ def test_unknown_h_align_raises(tmp_path):
 
     with pytest.raises(ValueError, match="h_align"):
         decode_gif(path, panel_w=256, panel_h=64, fit="pillarbox", h_align="weird")
+
+
+def _make_transparent_gif_bytes() -> bytes:
+    """Build a P-mode GIF with palette index 0 marked transparent.
+    Top-left quadrant is transparent (idx 0, palette color = green to
+    prove convert("RGB") would NOT give black there); rest are red.
+
+    Uses a 64×16 source so a 4× upscale to 256×64 doesn't blow up
+    Lanczos kernel bleed across the transparent/opaque boundary."""
+    img = Image.new("P", (64, 16))
+    img.putpalette(
+        [
+            0,
+            255,
+            0,  # idx 0: GREEN — transparent, must not appear in output
+            255,
+            0,
+            0,  # idx 1: red
+        ]
+    )
+    for y in range(16):
+        for x in range(64):
+            transparent_zone = x < 32 and y < 8
+            img.putpixel((x, y), 0 if transparent_zone else 1)
+    buf = io.BytesIO()
+    img.save(buf, format="GIF", transparency=0)
+    return buf.getvalue()
+
+
+def test_transparent_pixels_become_black_not_palette_color(tmp_path):
+    """convert('RGB') resolves transparent palette index to its raw color
+    (green here), which would mask scrolling text underneath. The decoder
+    must instead composite via alpha so transparent → (0,0,0)."""
+    path = tmp_path / "t.gif"
+    path.write_bytes(_make_transparent_gif_bytes())
+
+    [(pixels, _)] = decode_gif(path, panel_w=256, panel_h=64, fit="stretch")
+
+    def px(x: int, y: int) -> tuple[int, int, int]:
+        i = (y * 256 + x) * 3
+        return (pixels[i], pixels[i + 1], pixels[i + 2])
+
+    # Source 64×16 → output 256×64 (4× scale). Transparent zone covers
+    # source cols 0..31, rows 0..7 → output cols 0..127, rows 0..31.
+    # Sample deep inside, well clear of the Lanczos-blended boundary.
+    assert px(20, 5) == (0, 0, 0)  # NOT (0, 255, 0) palette green
+    # Opaque red zone covers source cols 32+, rows 0..7 → output cols 128+
+    assert px(200, 5) == (255, 0, 0)

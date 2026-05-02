@@ -60,6 +60,11 @@ class GifPlayer:
     # Set to 2-4 on the bigsign so text is visible from across the room.
     text_scale: int = 1
     loops: int = 1  # gif-internal loops per visit (used by run_swap)
+    # Minimum number of times scrolling text must traverse the panel
+    # before the section is allowed to transition. 0 = no floor (gif
+    # `loops` drives duration). Only meaningful with text_align="scroll"
+    # or "scroll_over"; ignored for static text.
+    text_loops: int = 0
     padding: int = 0  # required by widget protocol; unused here
 
     _frames: list[tuple[bytes, int]] = attrs.field(init=False, factory=list)
@@ -271,6 +276,15 @@ class GifPlayer:
         # Scroll starts off the right edge so text enters from the right.
         scrolling = self.text_align in ("scroll", "scroll_over")
         scroll_pos = text_w if scrolling else 0
+
+        # If the user wants the text to traverse the panel at least N
+        # times before the section transitions, extend the tick budget
+        # accordingly. One traversal = `text_w + text_width` ticks (text
+        # enters from the right edge, fully exits left). Gif keeps
+        # looping in the background to fill the extended duration.
+        if scrolling and self.text_loops > 0:
+            ticks_per_text_loop = text_w + text_width
+            n_ticks = max(n_ticks, self.text_loops * ticks_per_text_loop)
 
         for tick in range(n_ticks):
             elapsed_ms = tick * tick_ms

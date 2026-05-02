@@ -14,6 +14,7 @@ from led_ticker._types import Canvas, ColorTuple
 from led_ticker.colors import RGB_WHITE
 from led_ticker.drawing import get_widget_padding
 from led_ticker.scaled_canvas import ScaledCanvas, unwrap_to_real
+from led_ticker.widgets._image_fit import reset_canvas
 from led_ticker.widgets.message import TickerMessage
 
 DEFAULT_BUFFER_MSG: TickerMessage = TickerMessage(
@@ -302,7 +303,8 @@ async def _scroll_and_delay(
     scroll_speed: float = 0.05,
 ) -> tuple[Canvas, int]:
     logging.info("Running _scroll_and_delay ...")
-    canvas.Clear()
+    bg_color = getattr(ticker_obj, "bg_color", None)
+    reset_canvas(canvas, bg_color)
     pos = cursor_pos
 
     canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
@@ -314,7 +316,7 @@ async def _scroll_and_delay(
         canvas = _swap(canvas, frame)
 
     while pos > 0:
-        canvas.Clear()
+        reset_canvas(canvas, bg_color)
         canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
         pos -= 1
         canvas = _swap(canvas, frame)
@@ -358,7 +360,7 @@ async def _scroll_one_by_one(
         last_drawn_pos = pos
 
     while True:
-        canvas.Clear()
+        reset_canvas(canvas, getattr(ticker_object, "bg_color", None))
         canvas, final_pos = ticker_object.draw(canvas, cursor_pos=pos)
         last_drawn_pos = pos
         pos -= 1
@@ -373,7 +375,7 @@ async def _scroll_one_by_one(
         canvas = _swap(canvas, frame)
         await asyncio.sleep(scroll_speed)
 
-    canvas.Clear()
+    canvas.Clear()  # final blank — keep as Clear (no specific widget bg here)
     canvas = _swap(canvas, frame)
     # last_drawn_pos is heavily negative at this point (the widget exited
     # left), so the inter-section dissolve renders outgoing off-canvas →
@@ -420,7 +422,9 @@ async def _scroll_side_by_side(
         pos = 0
 
     while True:
-        canvas.Clear()
+        first_widget = buffered_objects[0] if buffered_objects else None
+        bg = getattr(first_widget, "bg_color", None) if first_widget else None
+        reset_canvas(canvas, bg)
 
         mon_index = 0
         canvas, cursor_pos = buffered_objects[mon_index].draw(canvas, cursor_pos=pos)
@@ -746,7 +750,8 @@ async def _swap_and_scroll(
     scroll transition for seamless continuous scrolling).
     """
     pos = 0
-    canvas.Clear()
+    bg_color = getattr(ticker_obj, "bg_color", None)
+    reset_canvas(canvas, bg_color)
     canvas, cursor_pos = ticker_obj.draw(canvas, pos)
 
     if not skip_initial_draw:
@@ -766,7 +771,7 @@ async def _swap_and_scroll(
         stop_pos = -(cursor_pos - canvas.width) + padding
         while pos > stop_pos:
             pos -= 1
-            canvas.Clear()
+            reset_canvas(canvas, bg_color)
             canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
             canvas = _swap(canvas, frame)
             await asyncio.sleep(scroll_speed)

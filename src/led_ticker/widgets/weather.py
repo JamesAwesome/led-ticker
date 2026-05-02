@@ -33,6 +33,7 @@ class WeatherWidget:
     font: Font = attrs.Factory(lambda: FONT_DEFAULT)
     font_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
     font_color_temp: Color = attrs.Factory(lambda: RGB_WHITE)
+    bg_color: Color | None = attrs.field(default=None, kw_only=True)
     center: bool = True
     padding: int = 6
     show_icon: bool = True

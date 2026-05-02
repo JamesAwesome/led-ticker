@@ -86,3 +86,26 @@ class TestWeatherWidget:
         _, cursor_pos = w.draw(canvas)
         assert cursor_pos > 0
         assert cursor_pos < 160
+
+
+def test_weather_bg_color_default_is_none(monkeypatch):
+    monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
+    from led_ticker.widgets.weather import WeatherWidget
+
+    w = WeatherWidget(session=mock.Mock(), location="London", message="London")
+    assert w.bg_color is None
+
+
+def test_weather_bg_color_accepts_color(monkeypatch):
+    monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
+    from rgbmatrix.graphics import Color
+
+    from led_ticker.widgets.weather import WeatherWidget
+
+    w = WeatherWidget(
+        session=mock.Mock(),
+        location="London",
+        message="London",
+        bg_color=Color(5, 10, 15),
+    )
+    assert w.bg_color.red == 5

@@ -210,3 +210,24 @@ mode = "swap"
 """)
     cfg = load_config(p)
     assert cfg.sections[0].scale == 4
+
+
+def test_section_bg_color_defaults_to_none(tmp_path):
+    config_file = tmp_path / "c.toml"
+    config_file.write_text(
+        "[display]\nrows=16\ncols=32\nchain=5\n"
+        '[[playlist.section]]\nmode="forever_scroll"\n'
+    )
+    cfg = load_config(config_file)
+    assert cfg.sections[0].bg_color is None
+
+
+def test_section_bg_color_parsed_from_toml(tmp_path):
+    config_file = tmp_path / "c.toml"
+    config_file.write_text(
+        "[display]\nrows=16\ncols=32\nchain=5\n"
+        '[[playlist.section]]\nmode="forever_scroll"\n'
+        "bg_color=[26, 59, 142]\n"
+    )
+    cfg = load_config(config_file)
+    assert cfg.sections[0].bg_color == (26, 59, 142)

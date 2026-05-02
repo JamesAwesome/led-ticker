@@ -49,6 +49,15 @@ class Dissolve:
 
     Pre-computes a shuffled pixel sequence at first use, then slices
     it per frame — avoids per-frame RNG overhead on the Pi.
+
+    The scatter operates on the UNDERLYING real canvas (bypassing any
+    ScaledCanvas wrapper) so the granularity matches native pixels.
+    Without this, the dissolve at scale=4 would only have 64×16=1024
+    logical pixels, each becoming a 4×4 block — at t=0.5 every block
+    blacks out (count == total), turning the "dissolve" into a fade-
+    through-black. On the bigsign the gif widget paints at physical
+    resolution; the dissolve must too, or the gif appears to wipe
+    rather than melt into the next frame.
     """
 
     def __init__(self, seed: int = 42, **kwargs: Any) -> None:
@@ -68,8 +77,15 @@ class Dissolve:
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
     ) -> Canvas:
-        w = canvas.width
-        h = getattr(canvas, "height", 16)
+        # Scatter at physical resolution: unwrap ScaledCanvas to the real
+        # canvas underneath. We check the class explicitly (not duck-typed
+        # via getattr) so Mock canvases — which auto-generate any attribute
+        # on access — don't get treated as wrappers in tests.
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        real = canvas.real if isinstance(canvas, ScaledCanvas) else canvas
+        w = real.width
+        h = real.height
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
 
         if t >= 1.0:
@@ -79,7 +95,12 @@ class Dissolve:
         else:
             seq = self._get_sequence(w, h)
             total = len(seq)
-            set_px = canvas.SetPixel  # hoist out of inner loop
+            # Physical-grain SetPixel: at scale=4 this is 16× more pixels
+            # than the wrapper's logical SetPixel would touch, but at
+            # peak (t=0.5) the wrapper's `count` already equaled `total`
+            # — meaning EVERY logical block was blacked out, i.e. a fade-
+            # through-black. Going physical recovers the actual scatter.
+            set_px = real.SetPixel
             if t < 0.5:
                 # Outgoing with increasing black scatter
                 outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)

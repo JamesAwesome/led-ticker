@@ -30,6 +30,12 @@ Field               Default            Description
                                        picks the side opposite ``gif_align`` so
                                        they don't overlap (center gif →
                                        scroll_over).
+``text_valign``     ``"center"``       ``top`` | ``center`` | ``bottom`` —
+                                       vertical anchor of the text band.
+``scroll_direction`` ``"left"``        ``left`` | ``right``. Direction the
+                                       marquee TRAVELS (left = enters from
+                                       right edge, exits left). Only matters
+                                       for scrolling text.
 ``font_color``      yellow             RGB list ``[r, g, b]`` or "random".
 ``scroll_speed_ms`` ``50``             Tick cadence when text scrolls (≥ 20).
 ``text_scale``      ``1``              Block-scale glyphs (1=native; set 2-4 on
@@ -84,6 +90,8 @@ from led_ticker.widgets._gif_decode import (
 _VALID_TEXT_ALIGNS: frozenset[str] = frozenset(
     {"left", "right", "scroll", "scroll_over"}
 )
+_VALID_TEXT_VALIGNS: frozenset[str] = frozenset({"top", "center", "bottom"})
+_VALID_SCROLL_DIRECTIONS: frozenset[str] = frozenset({"left", "right"})
 # `text_align="auto"` resolves to the side opposite the gif so they don't
 # overlap. Center gif → scroll_over (always paints on top, no overlap zone).
 _AUTO_TEXT_ALIGN_FOR_GIF: dict[str, str] = {
@@ -118,6 +126,16 @@ class GifPlayer:
     # gif: left gif → right text, right gif → left text, center gif →
     # scroll_over (which always paints on top, no overlap).
     text_align: str = "auto"
+    # "top" | "center" | "bottom" — vertical anchor of the text band.
+    # `top` rests text against the panel's top edge; `bottom` against
+    # the bottom edge; `center` (default) vertically centers. Useful
+    # for split layouts where the gif takes one half and text the other.
+    text_valign: str = "center"
+    # "left" | "right" — direction the marquee text TRAVELS across the
+    # panel. "left" (default): enters from right, exits left.
+    # "right": enters from left, exits right. Only meaningful for
+    # text_align="scroll" / "scroll_over".
+    scroll_direction: str = "left"
     font_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
     scroll_speed_ms: int = 50  # tick cadence when text is scrolling
     # Pixel-art block scale for text painting only (gif still paints at
@@ -163,6 +181,10 @@ class GifPlayer:
             self.text_align = _AUTO_TEXT_ALIGN_FOR_GIF[self.gif_align]
         if self.text:
             validate_choice("text_align", self.text_align, _VALID_TEXT_ALIGNS)
+        validate_choice("text_valign", self.text_valign, _VALID_TEXT_VALIGNS)
+        validate_choice(
+            "scroll_direction", self.scroll_direction, _VALID_SCROLL_DIRECTIONS
+        )
         # Range checks on numeric fields. Default values (1, 0, 50) all
         # pass; we only catch user-supplied negatives or zeros that would
         # otherwise crash deep or silently behave unexpectedly.
@@ -266,8 +288,19 @@ class GifPlayer:
             set_px(x, y, r, g, b)
 
     def _baseline_y(self, h: int) -> int:
-        """BDF baseline that vertically centers a 12-tall font in `h`."""
-        # 6x12 font: 12 cell, 10 ascent. Center the cell, baseline = top + 10.
+        """BDF baseline that anchors a 12-tall font in `h` per `text_valign`.
+
+        FONT_DEFAULT bounding box is 6×12 with 10 ascent + 2 descent. The
+        baseline sits on the line between ascender and descender; glyph
+        cells extend 10 above and 2 below.
+        """
+        if self.text_valign == "top":
+            # Glyph top at y=0 → baseline at y=10 (ascent rows above).
+            return 10
+        if self.text_valign == "bottom":
+            # Descender row at y=h-1 → baseline at y=h-2.
+            return h - 2
+        # "center" (default)
         return (h - 12) // 2 + 10
 
     def _has_emoji(self) -> bool:
@@ -287,19 +320,22 @@ class GifPlayer:
         path when the text contains `:slug:` tokens; otherwise falls
         back to the plain BDF rasterizer.
 
-        For inline emoji on a real (non-ScaledCanvas) canvas, the 8×8
-        sprite is anchored so its bottom row sits on the text baseline
-        — matches how text glyphs read against their baseline.
+        Inline emoji are 8 px tall (logical for ScaledCanvas; physical
+        otherwise). Anchor `emoji_y = baseline_y - 8` so the sprite's
+        bottom row sits on the text baseline regardless of valign or
+        canvas type — matches how text glyphs read against their baseline.
         """
         if self._has_emoji():
             from led_ticker.pixel_emoji import draw_with_emoji
 
-            # On a ScaledCanvas the default emoji_y (logical 4) already
-            # aligns with logical text baseline 12; on a real canvas we
-            # shift the 8px sprite up so its bottom row meets the baseline.
-            emoji_y = None if isinstance(canvas, ScaledCanvas) else baseline_y - 8
             return draw_with_emoji(
-                canvas, self.font, x, baseline_y, color, self.text, emoji_y=emoji_y
+                canvas,
+                self.font,
+                x,
+                baseline_y,
+                color,
+                self.text,
+                emoji_y=baseline_y - 8,
             )
         return draw_text(canvas, self.font, x, baseline_y, color, self.text)
 
@@ -435,15 +471,26 @@ class GifPlayer:
             text_w - text_width - _TEXT_EDGE_PADDING_PX,
         )
 
-        # Scroll starts off the right edge so text enters from the right.
+        # Scroll setup. `scroll_direction = "left"` (default) starts text
+        # off the right edge moving leftward → exits left, wraps back to
+        # the right. "right" mirrors: starts off the left, moves right,
+        # wraps back to the left.
         scrolling = self.text_align in ("scroll", "scroll_over")
-        scroll_pos = text_w if scrolling else 0
+        if not scrolling:
+            scroll_pos = 0
+            scroll_step = 0
+        elif self.scroll_direction == "right":
+            scroll_pos = -text_width
+            scroll_step = 1
+        else:  # "left"
+            scroll_pos = text_w
+            scroll_step = -1
 
         # If the user wants the text to traverse the panel at least N
         # times before the section transitions, extend the tick budget
         # accordingly. One traversal = `text_w + text_width` ticks (text
-        # enters from the right edge, fully exits left). Gif keeps
-        # looping in the background to fill the extended duration.
+        # spans from one off-edge to the other). Gif keeps looping in
+        # the background to fill the extended duration.
         if scrolling and self.text_loops > 0:
             ticks_per_text_loop = text_w + text_width
             n_ticks = max(n_ticks, self.text_loops * ticks_per_text_loop)
@@ -474,9 +521,11 @@ class GifPlayer:
             await asyncio.sleep(tick_ms / 1000)
 
             if scrolling:
-                scroll_pos -= 1
-                if scroll_pos + text_width <= 0:
-                    scroll_pos = text_w
+                scroll_pos += scroll_step
+                if scroll_step < 0 and scroll_pos + text_width <= 0:
+                    scroll_pos = text_w  # text exited left → respawn right
+                elif scroll_step > 0 and scroll_pos >= text_w:
+                    scroll_pos = -text_width  # exited right → respawn left
 
         self._current_frame_idx = len(self._frames) - 1
         return canvas

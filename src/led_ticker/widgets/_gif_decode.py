@@ -7,9 +7,12 @@ panel.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from PIL import Image
+
+_log = logging.getLogger(__name__)
 
 _VALID_FITS: frozenset[str] = frozenset({"pillarbox", "letterbox", "stretch", "crop"})
 _VALID_GIF_ALIGNS: frozenset[str] = frozenset({"left", "center", "right"})
@@ -58,6 +61,7 @@ def decode_gif(
         raise FileNotFoundError(f"GIF not found at {path}")
 
     frames: list[tuple[bytes, int]] = []
+    clamped_first_frame: int | None = None  # log the first clamped frame only
     with Image.open(path) as img:
         n = getattr(img, "n_frames", 1)
         for i in range(n):
@@ -67,7 +71,18 @@ def decode_gif(
             # — which the scroll-text path already treats as "skip".
             rgba = img.convert("RGBA")
             fitted = _apply_fit(rgba, panel_w, panel_h, fit, gif_align)
-            duration = max(_MIN_FRAME_DURATION_MS, int(img.info.get("duration", 100)))
+            raw_duration = int(img.info.get("duration", 100))
+            duration = max(_MIN_FRAME_DURATION_MS, raw_duration)
+            if duration != raw_duration and clamped_first_frame is None:
+                clamped_first_frame = i
+                _log.info(
+                    "decode_gif: %s frame %d duration %dms clamped to %dms "
+                    "(further clamps suppressed)",
+                    path,
+                    i,
+                    raw_duration,
+                    _MIN_FRAME_DURATION_MS,
+                )
             frames.append((fitted.tobytes(), duration))
     return frames
 

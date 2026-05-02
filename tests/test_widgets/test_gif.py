@@ -207,6 +207,71 @@ def test_invalid_gif_align_raises(tmp_path):
         GifPlayer(path=str(path), gif_align="bogus")
 
 
+def test_invalid_text_valign_raises(tmp_path):
+    path = _make_gif_path(tmp_path, [(10, 20, 30)])
+    with pytest.raises(ValueError, match="text_valign"):
+        GifPlayer(path=str(path), text_valign="middle")
+
+
+def test_invalid_scroll_direction_raises(tmp_path):
+    path = _make_gif_path(tmp_path, [(10, 20, 30)])
+    with pytest.raises(ValueError, match="scroll_direction"):
+        GifPlayer(path=str(path), scroll_direction="up")
+
+
+@pytest.mark.parametrize(
+    "valign,h,expected_baseline",
+    [
+        ("top", 64, 10),  # baseline = ascent (10) regardless of h
+        ("center", 64, 36),  # (64-12)//2 + 10 = 36
+        ("bottom", 64, 62),  # baseline = h - descent (2)
+        ("center", 16, 12),  # logical canvas (text_scale > 1) → 12
+        ("top", 16, 10),
+        ("bottom", 16, 14),
+    ],
+)
+def test_baseline_y_honors_text_valign(tmp_path, valign, h, expected_baseline):
+    """`_baseline_y` returns the BDF baseline row for each valign mode.
+    Top: baseline = ascent. Center: existing logic. Bottom: h - descent."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)])
+    widget = GifPlayer(path=str(path), text_valign=valign)
+    assert widget._baseline_y(h) == expected_baseline
+
+
+async def test_scroll_direction_right_advances_positively(tmp_path, mocker):
+    """scroll_direction='right' starts text off the LEFT edge and moves
+    it rightward across the panel — opposite of the default."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="scroll",
+        scroll_speed_ms=50,
+        scroll_direction="right",
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_x: list[int] = []
+    real_draw = __import__("led_ticker.widgets.gif", fromlist=["draw_text"]).draw_text
+
+    def spy(canvas, font, x, y, color, text):
+        seen_x.append(x)
+        return real_draw(canvas, font, x, y, color, text)
+
+    mocker.patch("led_ticker.widgets.gif.draw_text", side_effect=spy)
+    await widget.play(real, frame, loop_count=5)
+
+    # First tick: scroll_pos = -text_width (off-left); each subsequent
+    # tick adds 1 (moves right).
+    assert seen_x[0] < 0  # starts off the left edge
+    assert seen_x[1] == seen_x[0] + 1
+    assert seen_x[2] == seen_x[0] + 2
+
+
 def test_gif_align_left_anchors_at_x_zero(tmp_path):
     """GifPlayer threads gif_align through to decode_gif. After load(),
     a 32×32 pillarboxed source aligned 'left' should leave cols 64+

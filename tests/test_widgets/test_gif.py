@@ -1153,3 +1153,65 @@ async def test_gif_static_text_does_not_freeze_animation(tmp_path, mocker):
         f"applied to an animated source. Got _current_frame_idx="
         f"{widget._current_frame_idx}; expected > 0."
     )
+
+
+class TestGifBgColor:
+    @pytest.mark.asyncio
+    async def test_bg_color_default_paints_full(self, tmp_path, mocker):
+        """No bg_color → _play_no_text uses canvas.Clear + _paint_full
+        (existing fast path)."""
+        from PIL import Image
+
+        from led_ticker.widgets.gif import GifPlayer
+
+        path = tmp_path / "tiny.gif"
+        frames = [Image.new("RGB", (2, 2), (255, 0, 0))] * 2
+        frames[0].save(
+            path, save_all=True, append_images=frames[1:], duration=50, loop=0
+        )
+
+        gif = GifPlayer(path=str(path))
+        canvas = mocker.MagicMock()
+        canvas.width = 4
+        canvas.height = 4
+        # Inject decoded frames directly to bypass actual decode in tests.
+        gif._frames = [(b"\x00" * (4 * 4 * 3), 50), (b"\x00" * (4 * 4 * 3), 50)]
+        gif._panel_w = 4
+        gif._panel_h = 4
+
+        frame_obj = mocker.MagicMock()
+        frame_obj.matrix.SwapOnVSync.side_effect = lambda c: c
+        await gif._play_no_text(canvas, frame_obj, loop_count=1)
+
+        # No bg → Clear should have been called per-frame (2 frames × 1 loop = 2).
+        assert canvas.Clear.call_count == 2
+        canvas.Fill.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_bg_color_set_uses_fill(self, tmp_path, mocker):
+        """bg_color set → _play_no_text uses canvas.Fill(bg) per-frame."""
+        from PIL import Image
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.widgets.gif import GifPlayer
+
+        path = tmp_path / "tiny.gif"
+        frames = [Image.new("RGB", (2, 2), (255, 0, 0))] * 2
+        frames[0].save(
+            path, save_all=True, append_images=frames[1:], duration=50, loop=0
+        )
+
+        gif = GifPlayer(path=str(path), bg_color=Color(80, 90, 100))
+        canvas = mocker.MagicMock()
+        canvas.width = 4
+        canvas.height = 4
+        gif._frames = [(b"\x00" * (4 * 4 * 3), 50)]
+        gif._panel_w = 4
+        gif._panel_h = 4
+
+        frame_obj = mocker.MagicMock()
+        frame_obj.matrix.SwapOnVSync.side_effect = lambda c: c
+        await gif._play_no_text(canvas, frame_obj, loop_count=1)
+
+        canvas.Clear.assert_not_called()
+        canvas.Fill.assert_called_with(80, 90, 100)

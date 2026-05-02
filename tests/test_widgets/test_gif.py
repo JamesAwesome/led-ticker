@@ -327,6 +327,46 @@ async def test_play_static_left_text_at_x_2(tmp_path, mocker):
     assert real.get_pixel(2, baseline_y - 1) == (0, 255, 0)
 
 
+async def test_play_scroll_over_text_overlays_gif(tmp_path, mocker):
+    """scroll_over: gif painted first, text on top — so text is always
+    visible (opposite of `scroll`, which puts text under and skips black
+    gif pixels). Pixel at the band row inside the gif region must be the
+    text colour, not the gif colour."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="scroll_over",
+        font_color=Color(255, 255, 255),
+        scroll_speed_ms=50,
+    )
+    real = _bigsign_real_canvas()
+    w, h = real.width, real.height
+
+    # Synthesize a gif frame that's bright gray everywhere (no transparent
+    # areas / pillars). With `scroll`, text would be hidden; with
+    # `scroll_over`, text must override.
+    pixels = bytes([180] * (w * h * 3))
+    widget._panel_w = w
+    widget._panel_h = h
+    widget._frames = [(bytes(pixels), 50)]
+
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    band_y = (h - 12) // 2 + 10 - 1
+    target_x = 10
+    loops_needed = w - target_x + 1
+    await widget.play(real, frame, loops_needed)
+
+    # Text colour wins over the gray gif at the text's position
+    assert real.get_pixel(target_x, band_y) == (255, 255, 255)
+    # Outside the text band the gif still shows
+    assert real.get_pixel(target_x, band_y - 5) == (180, 180, 180)
+
+
 async def test_play_scroll_text_advances_position(tmp_path, mocker):
     """Scroll mode decrements scroll_pos by 1 per tick. Capture the
     DrawText x-coordinate each tick to verify monotonic advance."""

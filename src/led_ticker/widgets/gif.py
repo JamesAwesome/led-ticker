@@ -10,7 +10,10 @@ Optional `text` renders alongside the GIF. With `text_align="left"` or
 `"right"` the text sits statically in the corresponding pillar (gif on
 bottom, text on top). With `text_align="scroll"` the text scrolls
 right-to-left UNDER the gif — black pixels in the gif are skipped so
-the text only shows through pillars / letterbox bands.
+the text only shows through pillars / letterbox bands. With
+`text_align="scroll_over"` the text scrolls right-to-left ON TOP of
+the gif — always visible (useful as a marquee over a full-screen
+background gif).
 """
 
 from __future__ import annotations
@@ -29,7 +32,9 @@ from led_ticker.text_render import draw_text
 from led_ticker.widgets import register
 from led_ticker.widgets._gif_decode import decode_gif
 
-_VALID_TEXT_ALIGNS: frozenset[str] = frozenset({"left", "right", "scroll"})
+_VALID_TEXT_ALIGNS: frozenset[str] = frozenset(
+    {"left", "right", "scroll", "scroll_over"}
+)
 _VALID_GIF_ALIGNS: frozenset[str] = frozenset({"left", "center", "right"})
 
 
@@ -211,7 +216,8 @@ class GifPlayer:
         text_x_right = max(2, w - text_width - 2)
 
         # Scroll starts off the right edge so text enters from the right.
-        scroll_pos = w if self.text_align == "scroll" else 0
+        scrolling = self.text_align in ("scroll", "scroll_over")
+        scroll_pos = w if scrolling else 0
 
         for tick in range(n_ticks):
             elapsed_ms = tick * tick_ms
@@ -231,6 +237,17 @@ class GifPlayer:
                     self.text,
                 )
                 self._paint_skip_black(canvas, pixels, w, h)
+            elif self.text_align == "scroll_over":
+                # Gif under, text on top — text always visible as a marquee
+                self._paint_full(canvas, pixels, w, h)
+                draw_text(
+                    canvas,
+                    self.font,
+                    scroll_pos,
+                    baseline_y,
+                    self.font_color,
+                    self.text,
+                )
             else:
                 # Static text: gif under, text on top
                 self._paint_full(canvas, pixels, w, h)
@@ -247,7 +264,7 @@ class GifPlayer:
             canvas = frame.matrix.SwapOnVSync(canvas)
             await asyncio.sleep(tick_ms / 1000)
 
-            if self.text_align == "scroll":
+            if scrolling:
                 scroll_pos -= 1
                 if scroll_pos + text_width <= 0:
                     scroll_pos = w

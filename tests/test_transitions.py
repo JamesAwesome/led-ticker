@@ -1411,3 +1411,58 @@ class TestRunTransitionCrossScale:
         assert isinstance(result, ScaledCanvas)
         assert result.scale == 2
         assert result.height == 20
+
+    async def test_cross_scale_dissolve_handoff_into_play_widget(
+        self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep, tmp_path
+    ):
+        """End-to-end: dissolve from a normal widget at scale=2 into a
+        gif widget (which has play() and paints at native res), then
+        immediately call play() on the new wrapper. Verifies the
+        run_transition return value can be handed straight to
+        `_play_widget` without losing its real-canvas back-buffer.
+
+        Without this test, a regression that returned the OLD wrapper
+        from run_transition (instead of the new scale=4 one) would
+        slip through — and the gif's first frame would be painted to
+        the wrong canvas."""
+        import io
+
+        from PIL import Image
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.ticker import _play_widget
+        from led_ticker.widgets.gif import GifPlayer
+
+        # Tiny 1-frame gif for the incoming side
+        img = Image.new("RGB", (8, 8), color=(200, 80, 40))
+        buf = io.BytesIO()
+        img.save(buf, format="GIF", save_all=True, append_images=[], duration=50)
+        gif_path = tmp_path / "tiny.gif"
+        gif_path.write_bytes(buf.getvalue())
+
+        outgoing = make_widget(40)  # plain widget at scale=2
+        incoming = GifPlayer(path=str(gif_path), fit="stretch")
+        outgoing_wrapper = ScaledCanvas(real_bigsign_canvas, scale=2)
+
+        # Step 1: cross-scale dissolve
+        new_wrapper = await run_transition(
+            outgoing_wrapper,
+            bigsign_frame,
+            outgoing,
+            incoming,
+            transition=Dissolve(),
+            duration=0.2,
+            scroll_speed=0.05,
+            incoming_scale=4,
+        )
+        assert isinstance(new_wrapper, ScaledCanvas)
+        assert new_wrapper.scale == 4
+
+        # Step 2: hand the new wrapper to _play_widget (the real handoff
+        # path used by _show_one in run_swap).
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            result = await _play_widget(new_wrapper, bigsign_frame, incoming)
+
+        # Result is still the wrapper (rebound to the new back-buffer)
+        assert result is new_wrapper
+        assert isinstance(new_wrapper.real, type(real_bigsign_canvas))

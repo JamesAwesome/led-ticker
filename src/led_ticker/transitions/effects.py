@@ -77,13 +77,12 @@ class Dissolve:
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
     ) -> Canvas:
-        # Scatter at physical resolution: unwrap ScaledCanvas to the real
-        # canvas underneath. We check the class explicitly (not duck-typed
-        # via getattr) so Mock canvases — which auto-generate any attribute
-        # on access — don't get treated as wrappers in tests.
-        from led_ticker.scaled_canvas import ScaledCanvas
+        # Scatter at physical resolution. `unwrap_to_real` checks the type
+        # via isinstance so Mock canvases (which auto-generate attribute
+        # access) don't get treated as wrappers in tests.
+        from led_ticker.scaled_canvas import unwrap_to_real
 
-        real = canvas.real if isinstance(canvas, ScaledCanvas) else canvas
+        real = unwrap_to_real(canvas)
         w = real.width
         h = real.height
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)

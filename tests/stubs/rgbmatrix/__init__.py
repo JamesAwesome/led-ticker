@@ -48,6 +48,27 @@ class _StubCanvas:
         if 0 <= x < self.width and 0 <= y < self.height:
             self._pixels[(x, y)] = (r, g, b)
 
+    def SetImage(self, image, offset_x=0, offset_y=0):
+        """Stub for the real rgbmatrix's `canvas.SetImage(pil_image, x, y)`.
+
+        The real C implementation pushes RGB bytes directly into the
+        framebuffer in one call. Here we walk the PIL image and call
+        SetPixel for each pixel so existing get_pixel-based assertions
+        still see the painted result. Performance doesn't matter in
+        tests; the stub's job is fidelity.
+        """
+        pixels = image.load()
+        w, h = image.size
+        for y in range(h):
+            for x in range(w):
+                px = pixels[x, y]
+                # PIL returns (r,g,b) or (r,g,b,a); flatten alpha onto black
+                if len(px) == 4 and px[3] == 0:
+                    r, g, b = 0, 0, 0
+                else:
+                    r, g, b = px[0], px[1], px[2]
+                self.SetPixel(offset_x + x, offset_y + y, r, g, b)
+
     # Test-only helpers
     def get_pixel(self, x, y):
         """Get pixel color at (x, y). Returns (0, 0, 0) if unset."""

@@ -13,7 +13,7 @@ import attrs
 from led_ticker._types import Canvas, ColorTuple
 from led_ticker.colors import RGB_WHITE
 from led_ticker.drawing import get_widget_padding
-from led_ticker.scaled_canvas import ScaledCanvas
+from led_ticker.scaled_canvas import ScaledCanvas, unwrap_to_real
 from led_ticker.widgets.message import TickerMessage
 
 DEFAULT_BUFFER_MSG: TickerMessage = TickerMessage(
@@ -701,11 +701,10 @@ async def _run_gif(
     final swap; we feed that back into the next widget's play() so
     swap chaining stays correct.
     """
-    # Unwrap ScaledCanvas fully (handles nested wrappers) so GIF frames
-    # are painted at native physical resolution, bypassing block scaling.
-    real = canvas
-    while isinstance(real, ScaledCanvas):
-        real = real.real
+    # Unwrap ScaledCanvas wrappers so GIF frames paint at native physical
+    # resolution. `_play_widget` keeps its own innermost-wrapper pointer
+    # for the post-swap rebind step; this site just wants the raw canvas.
+    real = unwrap_to_real(canvas)
     while True:
         try:
             widget = notif_queue.get_nowait()

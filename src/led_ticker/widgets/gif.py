@@ -19,6 +19,7 @@ background gif).
 from __future__ import annotations
 
 import asyncio
+import re
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,7 @@ from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import get_text_width
 from led_ticker.fonts import FONT_DEFAULT
+from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.text_render import draw_text
 from led_ticker.widgets import register
 from led_ticker.widgets._gif_decode import decode_gif
@@ -36,6 +38,7 @@ _VALID_TEXT_ALIGNS: frozenset[str] = frozenset(
     {"left", "right", "scroll", "scroll_over"}
 )
 _VALID_GIF_ALIGNS: frozenset[str] = frozenset({"left", "center", "right"})
+_EMOJI_PATTERN = re.compile(r":[a-z_]+:")
 
 
 @register("gif")
@@ -52,6 +55,10 @@ class GifPlayer:
     font_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
     font: Font = attrs.Factory(lambda: FONT_DEFAULT)
     scroll_speed_ms: int = 50  # tick cadence when text is scrolling
+    # Pixel-art block scale for text painting only (gif still paints at
+    # native res). 1 = native BDF, 2 = 2×2 blocks per glyph pixel, etc.
+    # Set to 2-4 on the bigsign so text is visible from across the room.
+    text_scale: int = 1
     loops: int = 1  # gif-internal loops per visit (used by run_swap)
     padding: int = 0  # required by widget protocol; unused here
 
@@ -122,6 +129,39 @@ class GifPlayer:
         """BDF baseline that vertically centers a 12-tall font in `h`."""
         # 6x12 font: 12 cell, 10 ascent. Center the cell, baseline = top + 10.
         return (h - 12) // 2 + 10
+
+    def _has_emoji(self) -> bool:
+        return bool(_EMOJI_PATTERN.search(self.text))
+
+    def _measure_text(self, canvas: Canvas) -> int:
+        """Total advance width of `self.text` on `canvas`, accounting for
+        inline emoji slugs (which can be wider than a normal glyph)."""
+        if self._has_emoji():
+            from led_ticker.pixel_emoji import measure_width
+
+            return measure_width(self.font, self.text, canvas=canvas)
+        return get_text_width(self.font, self.text, padding=0)
+
+    def _draw_text(self, canvas: Canvas, x: int, baseline_y: int, color: Color) -> int:
+        """Draw `self.text` on `canvas`. Routes through the emoji-aware
+        path when the text contains `:slug:` tokens; otherwise falls
+        back to the plain BDF rasterizer.
+
+        For inline emoji on a real (non-ScaledCanvas) canvas, the 8×8
+        sprite is anchored so its bottom row sits on the text baseline
+        — matches how text glyphs read against their baseline.
+        """
+        if self._has_emoji():
+            from led_ticker.pixel_emoji import draw_with_emoji
+
+            # On a ScaledCanvas the default emoji_y (logical 4) already
+            # aligns with logical text baseline 12; on a real canvas we
+            # shift the 8px sprite up so its bottom row meets the baseline.
+            emoji_y = None if isinstance(canvas, ScaledCanvas) else baseline_y - 8
+            return draw_with_emoji(
+                canvas, self.font, x, baseline_y, color, self.text, emoji_y=emoji_y
+            )
+        return draw_text(canvas, self.font, x, baseline_y, color, self.text)
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         """Paint the current frame to the real canvas at native res.
@@ -202,22 +242,35 @@ class GifPlayer:
     ) -> Canvas:
         loops = max(1, loop_count)
         canvas = real_canvas
-        w = canvas.width
-        h = canvas.height
+        w_phys = canvas.width
+        h_phys = canvas.height
+
+        # Optional ScaledCanvas wrapper for text painting only — gives
+        # text the same chunky pixel-art look as other bigsign widgets,
+        # while the gif itself keeps painting at native physical res.
+        # `text_canvas` is what we hand to the BDF rasterizer / emoji
+        # painter; `canvas` (= real) stays the target for gif blits.
+        text_canvas: Canvas = (
+            ScaledCanvas(canvas, scale=self.text_scale)
+            if self.text_scale > 1
+            else canvas
+        )
+        text_w = text_canvas.width  # logical when wrapped, physical otherwise
+        text_h = text_canvas.height
+        baseline_y = self._baseline_y(text_h)
 
         loop_ms = sum(d for _, d in self._frames)
         total_ms = loop_ms * loops
         tick_ms = max(20, self.scroll_speed_ms)
         n_ticks = max(1, total_ms // tick_ms)
 
-        text_width = get_text_width(self.font, self.text, padding=0)
-        baseline_y = self._baseline_y(h)
+        text_width = self._measure_text(text_canvas)
         text_x_left = 2
-        text_x_right = max(2, w - text_width - 2)
+        text_x_right = max(2, text_w - text_width - 2)
 
         # Scroll starts off the right edge so text enters from the right.
         scrolling = self.text_align in ("scroll", "scroll_over")
-        scroll_pos = w if scrolling else 0
+        scroll_pos = text_w if scrolling else 0
 
         for tick in range(n_ticks):
             elapsed_ms = tick * tick_ms
@@ -228,46 +281,29 @@ class GifPlayer:
 
             if self.text_align == "scroll":
                 # Text under, gif on top with black pillars made transparent
-                draw_text(
-                    canvas,
-                    self.font,
-                    scroll_pos,
-                    baseline_y,
-                    self.font_color,
-                    self.text,
-                )
-                self._paint_skip_black(canvas, pixels, w, h)
+                self._draw_text(text_canvas, scroll_pos, baseline_y, self.font_color)
+                self._paint_skip_black(canvas, pixels, w_phys, h_phys)
             elif self.text_align == "scroll_over":
                 # Gif under, text on top — text always visible as a marquee
-                self._paint_full(canvas, pixels, w, h)
-                draw_text(
-                    canvas,
-                    self.font,
-                    scroll_pos,
-                    baseline_y,
-                    self.font_color,
-                    self.text,
-                )
+                self._paint_full(canvas, pixels, w_phys, h_phys)
+                self._draw_text(text_canvas, scroll_pos, baseline_y, self.font_color)
             else:
                 # Static text: gif under, text on top
-                self._paint_full(canvas, pixels, w, h)
+                self._paint_full(canvas, pixels, w_phys, h_phys)
                 text_x = text_x_left if self.text_align == "left" else text_x_right
-                draw_text(
-                    canvas,
-                    self.font,
-                    text_x,
-                    baseline_y,
-                    self.font_color,
-                    self.text,
-                )
+                self._draw_text(text_canvas, text_x, baseline_y, self.font_color)
 
             canvas = frame.matrix.SwapOnVSync(canvas)
+            # Re-anchor the text wrapper to the new back-buffer so the
+            # next tick's text painting hits the canvas we just got.
+            if isinstance(text_canvas, ScaledCanvas):
+                text_canvas.real = canvas
             await asyncio.sleep(tick_ms / 1000)
 
             if scrolling:
                 scroll_pos -= 1
                 if scroll_pos + text_width <= 0:
-                    scroll_pos = w
+                    scroll_pos = text_w
 
         self._current_frame_idx = len(self._frames) - 1
         return canvas

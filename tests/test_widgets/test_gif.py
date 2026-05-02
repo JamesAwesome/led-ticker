@@ -367,6 +367,76 @@ async def test_play_scroll_over_text_overlays_gif(tmp_path, mocker):
     assert real.get_pixel(target_x, band_y - 5) == (180, 180, 180)
 
 
+async def test_text_loops_extends_section_duration(tmp_path, mocker):
+    """text_loops puts a floor on tick count: section runs at least
+    N text traversals even if the gif's own loop_count is shorter."""
+    # Gif loops fast (1 frame × 50 ms × 1 loop = 50 ms total, 1 tick).
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="X",  # narrow so the math is easy
+        text_align="scroll",
+        scroll_speed_ms=50,
+        text_loops=2,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    await widget.play(real, frame, loop_count=1)
+
+    # text_w = real.width = 256; text_width for "X" via stub font = 6.
+    # Per-traversal ticks = 256 + 6 = 262. Two loops → ≥ 524 swaps.
+    # Without text_loops the gif's 1-tick budget would only swap once.
+    assert frame.matrix.SwapOnVSync.call_count >= 524
+
+
+async def test_text_loops_zero_keeps_gif_driven_duration(tmp_path, mocker):
+    """text_loops=0 (default) leaves gif duration in charge — no floor."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="scroll",
+        scroll_speed_ms=50,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    await widget.play(real, frame, loop_count=1)
+
+    # 50 ms gif × 1 loop / 50 ms tick = 1 tick → 1 swap
+    assert frame.matrix.SwapOnVSync.call_count == 1
+
+
+async def test_text_loops_ignored_for_static_text(tmp_path, mocker):
+    """text_loops is only meaningful when scrolling — for left/right
+    static alignments it's silently ignored (no extra ticks)."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="right",  # static
+        scroll_speed_ms=50,
+        text_loops=10,  # would balloon ticks if it applied
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    await widget.play(real, frame, loop_count=1)
+
+    # Static text → text_loops doesn't apply; only the gif's 1 tick runs.
+    assert frame.matrix.SwapOnVSync.call_count == 1
+
+
 async def test_play_scroll_text_advances_position(tmp_path, mocker):
     """Scroll mode decrements scroll_pos by 1 per tick. Capture the
     DrawText x-coordinate each tick to verify monotonic advance."""

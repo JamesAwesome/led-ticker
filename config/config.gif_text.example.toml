@@ -79,11 +79,15 @@ font_color = [255, 220, 50]
 # `text_align = "scroll"` the marquee paints first then the gif on top
 # with skip-black — text shows through the pillars AND the area around
 # Pikachu's body, walking behind his actual silhouette.
+#
+# `text_loops = 2` makes the section hold here until the marquee has
+# fully crossed the panel twice, regardless of `loop_count` — the gif
+# keeps looping in the background to fill the time.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "gif"
-loop_count = 34  # ~20s — long enough for the marquee to traverse twice
+loop_count = 1  # gif controls a 1-loop minimum; text_loops sets the real floor
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -95,6 +99,7 @@ text = "WELCOME TO THE STORE — OPEN DAILY 9 TO 9"
 text_align = "scroll"
 font_color = [255, 220, 50]
 scroll_speed_ms = 50
+text_loops = 2  # don't transition until the marquee has crossed twice
 
 # ---------------------------------------------------------------------------
 # Section 3 — Scroll OVER (knockout / cutout text)

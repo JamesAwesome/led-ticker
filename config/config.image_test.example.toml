@@ -1,0 +1,270 @@
+# Still-image widget test config — Pi 5 bigsign.
+#
+# Cycles through every fit mode, transparent/opaque sources, and the
+# text-overlay variants on the StillImage widget. Mirrors what
+# config.gif_test.example.toml does for animated gifs.
+#
+# Test images live in config/assets/:
+#   bunny-nontransparent.png   1094×708 opaque PNG (RGBA but alpha=255)
+#   bunny-transparent.png      1920×1493 PNG with alpha-0 corners
+#   moon-transparent.png       793×800 PNG, mostly transparent (silhouette)
+#   heart-tunnel-opaque.jpg    700×350 RGB JPEG
+#   moonscape-opaque.jpg       830×350 RGB JPEG
+#
+# Sections:
+#   1. pillarbox bunny (default)
+#   2. stretch heart (fills 4:1 panel)
+#   3. letterbox moonscape (wide → fits width, black top/bottom)
+#   4. crop moonscape (covers panel, crops top/bottom)
+#   5. pillarbox bunny + gif_align=left + static text right
+#   6. transparent moon + scroll-under marquee (text walks BEHIND moon)
+#   7. moonscape backdrop + scroll_over marquee (white text on top)
+#   8. stretch heart + scroll_over knockout text (black/LEDs-off cutout)
+#   9. mode=swap with title + bunny image (tests title+image dispatch)
+#  10. text_valign=top + scroll text scrolling left-to-right
+#
+# Copy to config.toml on the bigsign Pi:
+#   cp config/config.image_test.example.toml config/config.toml
+
+# ---------------------------------------------------------------------------
+# Display + RP1 performance tuning (matches config.bigsign.example.toml)
+# ---------------------------------------------------------------------------
+
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+
+brightness = 60
+slowdown_gpio = 3
+gpio_mapping = "adafruit-hat"
+default_scale = 4
+
+pwm_bits = 8
+show_refresh = true
+rp1_rio = 1
+
+[title]
+delay = 0
+
+[transitions]
+default = "cut"
+duration = 0.4
+easing = "linear"
+between_sections = "dissolve"
+
+# ---------------------------------------------------------------------------
+# Section 1 — pillarbox (default fit)
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/bunny-nontransparent.png"
+fit = "pillarbox"
+hold_seconds = 5.0
+
+# ---------------------------------------------------------------------------
+# Section 2 — stretch (fills the whole 4:1 panel)
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/heart-tunnel-opaque.jpg"
+fit = "stretch"
+hold_seconds = 5.0
+
+# ---------------------------------------------------------------------------
+# Section 3 — letterbox (wide source, black top/bottom)
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/moonscape-opaque.jpg"
+fit = "letterbox"
+hold_seconds = 5.0
+
+# ---------------------------------------------------------------------------
+# Section 4 — crop (covers panel, lops off the excess)
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/moonscape-opaque.jpg"
+fit = "crop"
+hold_seconds = 5.0
+
+# ---------------------------------------------------------------------------
+# Section 5 — bunny pinned LEFT + static text in right pillar
+#
+# `gif_align = "left"` puts the pillarboxed bunny against the left
+# edge; `text_align = "auto"` (default) resolves to "right" since the
+# gif is on the left. Same layout pattern as gif Section 6.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/bunny-nontransparent.png"
+fit = "pillarbox"
+gif_align = "left"
+text = "BUNNY!"
+font_color = [255, 220, 50]
+hold_seconds = 5.0
+
+# ---------------------------------------------------------------------------
+# Section 6 — TRANSPARENT moon + scrolling marquee UNDER it
+#
+# moon-transparent.png has alpha=0 outside the moon silhouette →
+# decoder composites onto black → skip-black painting makes the text
+# walk BEHIND the moon shape, not just through pillars.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/moon-transparent.png"
+fit = "pillarbox"
+text = "WELCOME — OPEN UNTIL THE MOON SETS"
+text_align = "scroll"
+font_color = [255, 220, 50]
+scroll_speed_ms = 50
+text_loops = 2  # marquee crosses panel at least twice before transitioning
+
+# ---------------------------------------------------------------------------
+# Section 7 — moonscape backdrop + scrolling marquee ON TOP
+#
+# `text_align = "scroll_over"` puts text on top of a full-screen
+# image. Always-readable marquee against any backdrop.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/moonscape-opaque.jpg"
+fit = "stretch"
+text = ":moon: GOOD NIGHT :moon:"
+text_align = "scroll_over"
+font_color = [255, 255, 255]
+text_scale = 4
+scroll_speed_ms = 50
+text_loops = 1
+
+# ---------------------------------------------------------------------------
+# Section 8 — knockout text on heart backdrop
+#
+# font_color = (0, 0, 0) writes pure black, which on LEDs is just OFF —
+# letters cut a "knockout" through the heart-tunnel image. text_scale=2
+# keeps the cutout fat enough to read at distance.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/heart-tunnel-opaque.jpg"
+fit = "stretch"
+text = "LOVE YOU"
+text_align = "scroll_over"
+font_color = [0, 0, 0]
+text_scale = 2
+scroll_speed_ms = 50
+text_loops = 1
+
+# ---------------------------------------------------------------------------
+# Section 9 — title + image via mode = "swap"
+#
+# Title displays first, dissolves into the bunny. Same dispatch path
+# as gif Section 11 — `_show_one` calls `_play_widget` because
+# StillImage.play exists, and the section title runs through the
+# normal hold-and-scroll path before the transition.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.0  # title hold before dissolving into image
+transition = "dissolve"
+transition_duration = 0.6
+
+[playlist.section.title]
+text = "BUNNY"
+color = [255, 180, 200]
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/bunny-transparent.png"
+fit = "pillarbox"
+hold_seconds = 5.0
+
+# ---------------------------------------------------------------------------
+# Section 10 — text_valign=top + reverse scroll direction
+#
+# Text rests against the top edge of the panel; marquee scrolls
+# left-to-right (enters from left, exits right) over a full-screen
+# image. Demos both the new `text_valign` and `scroll_direction`
+# knobs in one section.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/heart-tunnel-opaque.jpg"
+fit = "stretch"
+text = "TOP MARQUEE — SCROLLING RIGHT"
+text_align = "scroll_over"
+text_valign = "top"
+scroll_direction = "right"
+font_color = [255, 255, 255]
+text_scale = 2
+scroll_speed_ms = 50
+text_loops = 1

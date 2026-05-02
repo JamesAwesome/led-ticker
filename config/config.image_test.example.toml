@@ -263,6 +263,10 @@ fit = "stretch"
 text = "TOP MARQUEE — SCROLLING RIGHT"
 text_align = "scroll_over"
 text_valign = "top"
+# Caps in FONT_DEFAULT start ~2 rows below the cell top — so at
+# text_valign="top" they sit a few pixels off the panel edge.
+# `text_y_offset` nudges the baseline up so caps land flush with row 0.
+text_y_offset = -2
 scroll_direction = "right"
 font_color = [255, 255, 255]
 text_scale = 2

@@ -238,6 +238,61 @@ def test_baseline_y_honors_text_valign(tmp_path, valign, h, expected_baseline):
     assert widget._baseline_y(h) == expected_baseline
 
 
+@pytest.mark.parametrize(
+    "valign,offset,h,expected",
+    [
+        ("top", -3, 64, 7),
+        ("top", 4, 64, 14),
+        ("center", 0, 64, 36),
+        ("bottom", -10, 64, 52),
+    ],
+)
+def test_text_y_offset_shifts_baseline(tmp_path, valign, offset, h, expected):
+    path = _make_gif_path(tmp_path, [(0, 0, 0)])
+    widget = GifPlayer(path=str(path), text_valign=valign, text_y_offset=offset)
+    assert widget._baseline_y(h) == expected
+
+
+async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker):
+    """At text_scale=2 with text_valign='top', the wrapper now spans
+    the FULL panel (content_height = panel_h // scale = 32) — text
+    paints at the panel's TOP edge, not 16 rows down where the old
+    letterboxed sub-region used to start."""
+    from led_ticker.scaled_canvas import ScaledCanvas
+
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="right",
+        text_valign="top",
+        text_scale=2,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_canvases: list[object] = []
+    seen_y: list[int] = []
+    mocker.patch(
+        "led_ticker.widgets.gif.draw_text",
+        side_effect=lambda c, f, x, y, col, t: (
+            seen_canvases.append(c) or seen_y.append(y) or 12
+        ),
+    )
+
+    await widget.play(real, frame, loop_count=1)
+
+    assert seen_canvases
+    assert isinstance(seen_canvases[0], ScaledCanvas)
+    # Wrapper spans the full panel — content_height = 64 // 2 = 32
+    assert seen_canvases[0].height == 32
+    # Top valign at h=32 → baseline = 10 (logical) → cell top at panel y=0
+    assert seen_y[0] == 10
+
+
 async def test_scroll_direction_right_advances_positively(tmp_path, mocker):
     """scroll_direction='right' starts text off the LEFT edge and moves
     it rightward across the panel — opposite of the default."""

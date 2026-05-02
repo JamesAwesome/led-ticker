@@ -316,6 +316,63 @@ def test_baseline_y_honors_text_valign(tmp_path, valign, h, expected_baseline):
     assert widget._baseline_y(h) == expected_baseline
 
 
+@pytest.mark.parametrize(
+    "valign,offset,h,expected",
+    [
+        ("top", -3, 64, 7),  # shift caps up by 3 logical pixels
+        ("top", 4, 64, 14),  # shift down 4
+        ("center", 0, 64, 36),  # no-op
+        ("bottom", -10, 64, 52),  # nudge up from bottom edge
+    ],
+)
+def test_text_y_offset_shifts_baseline(tmp_path, valign, offset, h, expected):
+    path = _make_png(tmp_path)
+    widget = StillImage(path=str(path), text_valign=valign, text_y_offset=offset)
+    assert widget._baseline_y(h) == expected
+
+
+async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker):
+    """At text_scale=2 with text_valign='top', the wrapper now uses
+    content_height = panel_h // scale (so it spans the full panel) —
+    text paints at the panel's TOP edge, not 16 rows down where a
+    letterboxed sub-region used to start."""
+    from led_ticker.scaled_canvas import ScaledCanvas
+
+    path = _make_png(tmp_path, color=(0, 0, 0))
+    widget = StillImage(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="right",
+        text_valign="top",
+        text_scale=2,
+        hold_seconds=0.05,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_canvases: list[object] = []
+    seen_y: list[int] = []
+    mocker.patch(
+        "led_ticker.widgets.still.draw_text",
+        side_effect=lambda c, f, x, y, col, t: (
+            seen_canvases.append(c) or seen_y.append(y) or 12
+        ),
+    )
+
+    await widget.play(real, frame)
+
+    # Wrapper spans the full panel: content_height = 64 // 2 = 32
+    assert seen_canvases
+    assert isinstance(seen_canvases[0], ScaledCanvas)
+    assert seen_canvases[0].height == 32  # logical, was 16 (letterboxed) before
+    # Top valign at h=32 → baseline = 10 (logical) → physical row 20.
+    # Cell top at logical y=0 → physical y=0 (panel top edge).
+    assert seen_y[0] == 10
+
+
 async def test_emoji_routes_through_emoji_painter(tmp_path, mocker):
     path = _make_png(tmp_path, color=(0, 0, 0))
     widget = StillImage(

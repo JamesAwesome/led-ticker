@@ -59,20 +59,45 @@ def decode_gif(
         n = getattr(img, "n_frames", 1)
         for i in range(n):
             img.seek(i)
-            rgb = img.convert("RGB")
-            fitted = _apply_fit(rgb, panel_w, panel_h, fit, h_align)
+            # RGBA preserves the GIF's transparency index; `_apply_fit`
+            # composites onto black so transparent areas become (0,0,0)
+            # — which the scroll-text path already treats as "skip".
+            rgba = img.convert("RGBA")
+            fitted = _apply_fit(rgba, panel_w, panel_h, fit, h_align)
             duration = max(_MIN_FRAME_DURATION_MS, int(img.info.get("duration", 100)))
             frames.append((fitted.tobytes(), duration))
     return frames
 
 
+def _flatten_onto_black(
+    rgba: Image.Image, panel_w: int, panel_h: int, x_off: int, y_off: int
+) -> Image.Image:
+    """Paste an RGBA image onto a black RGB canvas using its alpha as mask.
+
+    Transparent areas (alpha=0) become pure black (0,0,0), which the
+    scroll-text path treats as "skip" — letting underlying text show
+    through. Semi-transparent edges get blended toward black, which on
+    LEDs reads as a soft halo at the gif's silhouette.
+    """
+    out = Image.new("RGB", (panel_w, panel_h), color=(0, 0, 0))
+    if rgba.mode == "RGBA":
+        out.paste(rgba, (x_off, y_off), mask=rgba.split()[3])
+    else:
+        out.paste(rgba, (x_off, y_off))
+    return out
+
+
 def _apply_fit(
     src: Image.Image, panel_w: int, panel_h: int, fit: str, h_align: str = "center"
 ) -> Image.Image:
-    """Scale + place `src` onto a `panel_w × panel_h` black canvas."""
+    """Scale + place `src` onto a `panel_w × panel_h` black canvas.
+
+    `src` is expected in RGBA mode so transparency survives the resize.
+    """
     sw, sh = src.size
     if fit == "stretch":
-        return src.resize((panel_w, panel_h), Image.Resampling.LANCZOS)
+        scaled = src.resize((panel_w, panel_h), Image.Resampling.LANCZOS)
+        return _flatten_onto_black(scaled, panel_w, panel_h, 0, 0)
 
     if fit == "crop":
         scale = max(panel_w / sw, panel_h / sh)
@@ -81,7 +106,8 @@ def _apply_fit(
         scaled = src.resize((new_w, new_h), Image.Resampling.LANCZOS)
         x0 = (new_w - panel_w) // 2
         y0 = (new_h - panel_h) // 2
-        return scaled.crop((x0, y0, x0 + panel_w, y0 + panel_h))
+        cropped = scaled.crop((x0, y0, x0 + panel_w, y0 + panel_h))
+        return _flatten_onto_black(cropped, panel_w, panel_h, 0, 0)
 
     # pillarbox / letterbox both fit-by-axis with black bands.
     # `pillarbox` prefers height; `letterbox` prefers width.
@@ -97,12 +123,10 @@ def _apply_fit(
     new_w = max(1, int(round(sw * scale)))
     new_h = max(1, int(round(sh * scale)))
     scaled = src.resize((new_w, new_h), Image.Resampling.LANCZOS)
-    canvas = Image.new("RGB", (panel_w, panel_h), color=(0, 0, 0))
     if h_align == "left":
         x_off = 0
     elif h_align == "right":
         x_off = max(0, panel_w - new_w)
     else:  # center
         x_off = (panel_w - new_w) // 2
-    canvas.paste(scaled, (x_off, (panel_h - new_h) // 2))
-    return canvas
+    return _flatten_onto_black(scaled, panel_w, panel_h, x_off, (panel_h - new_h) // 2)

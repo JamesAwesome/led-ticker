@@ -205,12 +205,14 @@ text_align = "left"
 font_color = [225, 48, 108]
 
 # ---------------------------------------------------------------------------
-# Section 8 — pillarbox + scrolling marquee text UNDER the gif
+# Section 8 — TRANSPARENT pikachu + scrolling marquee text UNDER the gif
 #
-# The marquee scrolls right-to-left at 1 px / 50 ms (≈20 px/sec). Black
-# pixels in the gif (i.e. the pillars) are made transparent each tick,
-# so text only appears where Pikachu isn't — it visually "walks behind"
-# him. Confirms the skip-black compositing path.
+# The marquee scrolls right-to-left at 1 px / 50 ms (≈20 px/sec).
+# `pika_wave_transparent.gif` has a real alpha channel — its decoder
+# composites onto black so transparent areas (around Pikachu's body)
+# AND the pillars both read as (0,0,0). The skip-black path then makes
+# text show through everywhere except his actual silhouette: the
+# marquee walks BEHIND him, not just behind the pillars.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -221,7 +223,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/pika_wave_transparent.gif"
 fit = "pillarbox"
 text = "WELCOME TO THE STORE — OPEN DAILY 9 TO 9"
 text_align = "scroll"
@@ -293,3 +295,60 @@ type = "gif"
 path = "assets/pride.gif"
 fit = "stretch"
 loops = 5  # ~5s of playback inside the single visit
+
+# ---------------------------------------------------------------------------
+# Section 12 — TRANSPARENT pikachu pinned LEFT + scrolling marquee
+#
+# Same skip-black trick as section 8, but with the gif anchored to the
+# left edge (`gif_align = "left"`). The right ~192 cols are black
+# pillar — text scrolls through that whole region AND through the
+# transparent space around Pikachu on the left. Visually Pikachu sits
+# in a corner while a much-longer marquee passes around him.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "gif"
+loop_count = 34  # ~20s
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+gif_align = "left"
+text = "OPEN LATE TONIGHT — COME SAY HI"
+text_align = "scroll"
+font_color = [120, 200, 255]
+scroll_speed_ms = 50
+
+# ---------------------------------------------------------------------------
+# Section 13 — TRANSPARENT pikachu pinned RIGHT + static title
+#
+# Demonstrates `mode = "swap"` with the transparent gif: section title
+# "HELLO!" displays first, dissolves into Pikachu pinned to the right
+# edge with "@brand" held statically in the left pillar. Confirms the
+# transparent decode path also looks right when text is static (not
+# scrolling) and the gif is offset to one edge.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.0
+transition = "dissolve"
+transition_duration = 0.6
+
+[playlist.section.title]
+text = "HELLO!"
+color = [255, 220, 50]
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+gif_align = "right"
+text = "@brand"
+text_align = "left"
+font_color = [225, 48, 108]
+loops = 17  # ~10s of playback

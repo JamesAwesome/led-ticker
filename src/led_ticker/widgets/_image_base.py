@@ -30,7 +30,11 @@ from led_ticker.drawing import get_text_width
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.text_render import draw_text
-from led_ticker.widgets._image_fit import VALID_IMAGE_ALIGNS, validate_choice
+from led_ticker.widgets._image_fit import (
+    VALID_IMAGE_ALIGNS,
+    reset_canvas,
+    validate_choice,
+)
 
 VALID_TEXT_ALIGNS: frozenset[str] = frozenset(
     {"left", "right", "scroll", "scroll_over"}
@@ -67,6 +71,7 @@ class _BaseImageWidget:
     font_color: Color = attrs.field(
         default=attrs.Factory(lambda: DEFAULT_COLOR), kw_only=True
     )
+    bg_color: Color | None = attrs.field(default=None, kw_only=True)
     scroll_speed_ms: int = attrs.field(default=50, kw_only=True)
     text_scale: int = attrs.field(default=1, kw_only=True)
     text_loops: int = attrs.field(default=0, kw_only=True)
@@ -92,6 +97,19 @@ class _BaseImageWidget:
 
     def _paint_skip_black(self, canvas: Canvas) -> None:
         raise NotImplementedError
+
+    def _paint_image(self, canvas: Canvas) -> None:
+        """Dispatch to the right paint path for the current `bg_color`.
+
+        With no bg, use the subclass `_paint_full` fast path (SetImage in
+        a single C call). With bg set, use `_paint_skip_black` so
+        pillarbox / letterbox / transparent regions reveal the bg
+        instead of being painted black.
+        """
+        if self.bg_color is None:
+            self._paint_full(canvas)
+        else:
+            self._paint_skip_black(canvas)
 
     def _load(self, panel_w: int = 0, panel_h: int = 0) -> None:
         raise NotImplementedError
@@ -225,18 +243,19 @@ class _BaseImageWidget:
         text_x_left: int,
         text_x_right: int,
     ) -> None:
-        """Compose one frame: clear + paint image + paint text in the
-        right order for the current `text_align`."""
-        canvas.Clear()
+        """Compose one frame: reset canvas (Clear or Fill bg) + paint
+        image + paint text in the right order for the current
+        `text_align`."""
+        reset_canvas(canvas, self.bg_color)
 
         if self.text_align == "scroll":
             self._draw_text(text_canvas, scroll_pos, baseline_y, self.font_color)
             self._paint_skip_black(canvas)
         elif self.text_align == "scroll_over":
-            self._paint_full(canvas)
+            self._paint_image(canvas)
             self._draw_text(text_canvas, scroll_pos, baseline_y, self.font_color)
         else:
-            self._paint_full(canvas)
+            self._paint_image(canvas)
             text_x = text_x_left if self.text_align == "left" else text_x_right
             self._draw_text(text_canvas, text_x, baseline_y, self.font_color)
 

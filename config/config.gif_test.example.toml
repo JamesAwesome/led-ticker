@@ -57,23 +57,33 @@ easing = "linear"
 between_sections = "dissolve"
 
 # ---------------------------------------------------------------------------
-# Section 1 — pillarbox (default)
+# Section 1 — pillarbox (default) + section title via mode = "swap"
 #
 # Square 220×220 GIF scaled by height to 64. The result is 64×64 centered
 # horizontally on the 256×64 panel, with ~96 cols of black on each side.
 # This is what you want for square / portrait sources on the wide bigsign.
+#
+# Uses `mode = "swap"` so a section title can run first — title displays
+# (held + scrolled if it overflowed), dissolves into the gif, gif plays
+# `loops = 17` times for ~10s of playback before the next section.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 17  # ~10s of playback (17 × 600ms per loop)
+mode = "swap"
+loop_count = 1  # cycle the widget list once
+hold_time = 2.0  # title hold before dissolve
 transition = "dissolve"
 transition_duration = 0.6
+
+[playlist.section.title]
+text = "PIKACHU"
+color = [255, 220, 50]
 
 [[playlist.section.widget]]
 type = "gif"
 path = "assets/pika_wave.gif"
 fit = "pillarbox"
+loops = 17  # ~10s of playback (17 × 600ms per loop)
 
 # ---------------------------------------------------------------------------
 # Section 2 — stretch

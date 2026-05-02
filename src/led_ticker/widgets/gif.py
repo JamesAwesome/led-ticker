@@ -32,6 +32,9 @@ Field               Default            Description
                                        scroll_over).
 ``text_valign``     ``"center"``       ``top`` | ``center`` | ``bottom`` —
                                        vertical anchor of the text band.
+``text_y_offset``   ``0``              Logical-pixel shift added to the baseline
+                                       picked by `text_valign`. Negative = up,
+                                       positive = down.
 ``scroll_direction`` ``"left"``        ``left`` | ``right``. Direction the
                                        marquee TRAVELS (left = enters from
                                        right edge, exits left). Only matters
@@ -128,6 +131,11 @@ class GifPlayer:
     # the bottom edge; `center` (default) vertically centers. Useful
     # for split layouts where the gif takes one half and text the other.
     text_valign: str = "center"
+    # Logical-pixel adjustment added to the baseline that `text_valign`
+    # picks. Negative shifts text UP, positive DOWN. Useful when the
+    # font's intrinsic cell-padding leaves caps a few rows below the
+    # panel edge at `text_valign="top"` and you want them flush.
+    text_y_offset: int = 0
     # "left" | "right" — direction the marquee text TRAVELS across the
     # panel. "left" (default): enters from right, exits left.
     # "right": enters from left, exits right. Only meaningful for
@@ -285,20 +293,21 @@ class GifPlayer:
             set_px(x, y, r, g, b)
 
     def _baseline_y(self, h: int) -> int:
-        """BDF baseline that anchors a 12-tall font in `h` per `text_valign`.
+        """BDF baseline anchored per `text_valign`, plus `text_y_offset`.
 
-        FONT_DEFAULT bounding box is 6×12 with 10 ascent + 2 descent. The
-        baseline sits on the line between ascender and descender; glyph
-        cells extend 10 above and 2 below.
+        FONT_DEFAULT bounding box is 6×12 with 10 ascent + 2 descent.
+        The valign modes give logical-pixel anchors; `text_y_offset`
+        shifts them further (negative = up, positive = down).
         """
         if self.text_valign == "top":
             # Glyph top at y=0 → baseline at y=10 (ascent rows above).
-            return 10
-        if self.text_valign == "bottom":
+            base = 10
+        elif self.text_valign == "bottom":
             # Descender row at y=h-1 → baseline at y=h-2.
-            return h - 2
-        # "center" (default)
-        return (h - 12) // 2 + 10
+            base = h - 2
+        else:  # "center"
+            base = (h - 12) // 2 + 10
+        return base + self.text_y_offset
 
     def _has_emoji(self) -> bool:
         return bool(_EMOJI_PATTERN.search(self.text))
@@ -447,8 +456,16 @@ class GifPlayer:
         # while the gif itself keeps painting at native physical res.
         # `text_canvas` is what we hand to the BDF rasterizer / emoji
         # painter; `canvas` (= real) stays the target for gif blits.
+        #
+        # `content_height = panel_h // scale` makes the logical canvas
+        # span the FULL panel height (no letterbox sub-region) so
+        # text_valign references the panel edge, not a centered band.
         text_canvas: Canvas = (
-            ScaledCanvas(canvas, scale=self.text_scale)
+            ScaledCanvas(
+                canvas,
+                scale=self.text_scale,
+                content_height=canvas.height // self.text_scale,
+            )
             if self.text_scale > 1
             else canvas
         )

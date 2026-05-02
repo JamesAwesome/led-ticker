@@ -29,6 +29,11 @@ Field               Default            Description
 ``text_align``      ``"auto"``         ``auto`` | ``left`` | ``right`` |
                                        ``scroll`` | ``scroll_over``.
 ``text_valign``     ``"center"``       ``top`` | ``center`` | ``bottom``.
+``text_y_offset``   ``0``              Logical-pixel shift added to the baseline
+                                       picked by `text_valign`. Negative = up,
+                                       positive = down. For nudging caps flush
+                                       against the panel edge past the BDF
+                                       cell's intrinsic top padding.
 ``scroll_direction`` ``"left"``        Direction marquee TRAVELS.
 ``font_color``      yellow             RGB list ``[r, g, b]`` or "random".
 ``scroll_speed_ms`` ``50``             Tick cadence when text scrolls (≥ 20).
@@ -96,6 +101,11 @@ class StillImage:
     text: str = ""
     text_align: str = "auto"
     text_valign: str = "center"
+    # Logical-pixel adjustment added to the baseline that `text_valign`
+    # picks. Negative shifts text UP, positive DOWN. Useful when the
+    # font's intrinsic cell-padding leaves caps a few rows below the
+    # panel edge at `text_valign="top"` and you want them flush.
+    text_y_offset: int = 0
     scroll_direction: str = "left"
     font_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
     scroll_speed_ms: int = 50
@@ -206,13 +216,18 @@ class StillImage:
             set_px(x, y, r, g, b)
 
     def _baseline_y(self, h: int) -> int:
-        """BDF baseline anchored per `text_valign`. FONT_DEFAULT is
-        6×12 with 10 ascent + 2 descent."""
+        """BDF baseline anchored per `text_valign`, plus `text_y_offset`.
+
+        FONT_DEFAULT is 6×12 with 10 ascent + 2 descent. The valign
+        modes give logical-pixel anchors; `text_y_offset` shifts them
+        further (negative = up, positive = down)."""
         if self.text_valign == "top":
-            return 10
-        if self.text_valign == "bottom":
-            return h - 2
-        return (h - 12) // 2 + 10
+            base = 10
+        elif self.text_valign == "bottom":
+            base = h - 2
+        else:
+            base = (h - 12) // 2 + 10
+        return base + self.text_y_offset
 
     def _has_emoji(self) -> bool:
         return bool(_EMOJI_PATTERN.search(self.text))
@@ -309,8 +324,17 @@ class StillImage:
     async def _play_with_text(self, real_canvas: Canvas, frame: Any) -> Canvas:
         canvas = real_canvas
 
+        # When wrapping for text_scale > 1, span the FULL panel height in
+        # logical units (`content_height = panel_h // scale`) rather than
+        # the project default 16. Without this, the wrapper letterboxes
+        # text to a centered band — "top" valign would land in the
+        # middle of the panel, not at the top edge.
         text_canvas: Canvas = (
-            ScaledCanvas(canvas, scale=self.text_scale)
+            ScaledCanvas(
+                canvas,
+                scale=self.text_scale,
+                content_height=canvas.height // self.text_scale,
+            )
             if self.text_scale > 1
             else canvas
         )

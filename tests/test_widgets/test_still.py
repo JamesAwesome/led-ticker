@@ -147,10 +147,10 @@ def test_invalid_text_align_raises(tmp_path):
         StillImage(path=str(path), text="hi", text_align="bogus")
 
 
-def test_invalid_gif_align_raises(tmp_path):
+def test_invalid_image_align_raises(tmp_path):
     path = _make_png(tmp_path)
-    with pytest.raises(ValueError, match="gif_align"):
-        StillImage(path=str(path), gif_align="bogus")
+    with pytest.raises(ValueError, match="image_align"):
+        StillImage(path=str(path), image_align="bogus")
 
 
 def test_invalid_text_valign_raises(tmp_path):
@@ -188,11 +188,15 @@ def test_text_loops_with_static_text_raises(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_text_align_auto_resolves_from_gif_align(tmp_path):
+def test_text_align_auto_resolves_from_image_align(tmp_path):
     path = _make_png(tmp_path)
     assert StillImage(path=str(path), text="HI").text_align == "scroll_over"
-    assert StillImage(path=str(path), text="HI", gif_align="left").text_align == "right"
-    assert StillImage(path=str(path), text="HI", gif_align="right").text_align == "left"
+    assert (
+        StillImage(path=str(path), text="HI", image_align="left").text_align == "right"
+    )
+    assert (
+        StillImage(path=str(path), text="HI", image_align="right").text_align == "left"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -249,7 +253,7 @@ async def test_play_with_text_text_loops_extends_duration(tmp_path, mocker):
         path=str(path),
         fit="stretch",
         text="X",
-        text_align="scroll",
+        text_align="scroll_over",
         scroll_speed_ms=50,
         hold_seconds=0.5,  # 10 ticks; would dominate without text_loops
         text_loops=2,
@@ -274,7 +278,7 @@ async def test_scroll_direction_right_advances_positively(tmp_path, mocker):
         path=str(path),
         fit="stretch",
         text="X",
-        text_align="scroll",
+        text_align="scroll_over",
         scroll_speed_ms=50,
         hold_seconds=0.5,
         scroll_direction="right",
@@ -285,9 +289,11 @@ async def test_scroll_direction_right_advances_positively(tmp_path, mocker):
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen_x: list[int] = []
-    real_draw = __import__("led_ticker.widgets.still", fromlist=["draw_text"]).draw_text
+    real_draw = __import__(
+        "led_ticker.widgets._image_base", fromlist=["draw_text"]
+    ).draw_text
     mocker.patch(
-        "led_ticker.widgets.still.draw_text",
+        "led_ticker.widgets._image_base.draw_text",
         side_effect=lambda c, f, x, y, col, t: (
             seen_x.append(x) or real_draw(c, f, x, y, col, t)
         ),
@@ -364,7 +370,7 @@ async def test_text_x_offset_shifts_static_text(
 
     seen_x: list[int] = []
     mocker.patch(
-        "led_ticker.widgets.still.draw_text",
+        "led_ticker.widgets._image_base.draw_text",
         side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
     )
 
@@ -373,34 +379,18 @@ async def test_text_x_offset_shifts_static_text(
     assert seen_x[0] == expected_x
 
 
-async def test_text_x_offset_is_noop_for_scrolling(tmp_path, mocker):
-    """For scrolling modes, text_x is the dynamic scroll_pos — text_x_offset
-    must NOT shift it (would add a constant skew to the trajectory)."""
-    path = _make_png(tmp_path, color=(0, 0, 0))
-    widget = StillImage(
-        path=str(path),
-        fit="stretch",
-        text="X",
-        text_align="scroll",
-        text_x_offset=99,  # would skew trajectory if applied
-        scroll_speed_ms=50,
-        hold_seconds=0.15,
-    )
-    real = _bigsign_real_canvas()
-    frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
-    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
-
-    seen_x: list[int] = []
-    mocker.patch(
-        "led_ticker.widgets.still.draw_text",
-        side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
-    )
-
-    await widget.play(real, frame)
-
-    # First scroll_pos = text_w (256), NOT 256 + 99
-    assert seen_x[0] == 256
+def test_text_x_offset_with_scroll_raises(tmp_path):
+    """text_x_offset is a static-text knob — using it with scrolling
+    raises so the user notices their offset isn't being honored."""
+    path = _make_png(tmp_path)
+    with pytest.raises(ValueError, match="text_x_offset"):
+        StillImage(
+            path=str(path),
+            fit="stretch",
+            text="X",
+            text_align="scroll_over",
+            text_x_offset=99,
+        )
 
 
 async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker):
@@ -428,7 +418,7 @@ async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker
     seen_canvases: list[object] = []
     seen_y: list[int] = []
     mocker.patch(
-        "led_ticker.widgets.still.draw_text",
+        "led_ticker.widgets._image_base.draw_text",
         side_effect=lambda c, f, x, y, col, t: (
             seen_canvases.append(c) or seen_y.append(y) or 12
         ),
@@ -486,7 +476,7 @@ async def test_text_scale_uses_scaled_canvas(tmp_path, mocker):
 
     seen_canvases: list[object] = []
     mocker.patch(
-        "led_ticker.widgets.still.draw_text",
+        "led_ticker.widgets._image_base.draw_text",
         side_effect=lambda c, *a, **kw: seen_canvases.append(c) or 12,
     )
 
@@ -506,7 +496,9 @@ async def test_text_canvas_follows_back_buffer(tmp_path, mocker):
         path=str(path),
         fit="stretch",
         text="X",
-        text_align="right",
+        # scroll_over keeps the per-tick loop active so the rebind
+        # path is exercised. Static text fast-paths to a single paint.
+        text_align="scroll_over",
         scroll_speed_ms=50,
         hold_seconds=0.15,  # ~3 ticks
     )
@@ -525,7 +517,7 @@ async def test_text_canvas_follows_back_buffer(tmp_path, mocker):
 
     seen: list[object] = []
     mocker.patch(
-        "led_ticker.widgets.still.draw_text",
+        "led_ticker.widgets._image_base.draw_text",
         side_effect=lambda c, *a, **kw: seen.append(c) or 6,
     )
 

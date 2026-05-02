@@ -16,8 +16,8 @@ from pathlib import Path
 from PIL import Image
 
 from led_ticker.widgets._image_fit import (
-    _VALID_FITS,
-    _VALID_GIF_ALIGNS,
+    VALID_FITS,
+    VALID_GIF_ALIGNS,
     validate_choice,
 )
 from led_ticker.widgets._image_fit import (
@@ -34,19 +34,19 @@ def decode_gif(
     panel_w: int,
     panel_h: int,
     fit: str,
-    gif_align: str = "center",
+    image_align: str = "center",
 ) -> list[tuple[bytes, int]]:
     """Decode an animated GIF and return per-frame RGB bytes + durations.
 
-    See `_image_fit.apply_fit` for the `fit` and `gif_align` semantics
+    See `_image_fit.apply_fit` for the `fit` and `image_align` semantics
     — identical here.
 
     Frame durations below 50 ms are clamped to 50 ms (some GIFs encode
     `duration=0` which would otherwise spin the playback loop). Logs
     once per gif on the first clamped frame.
     """
-    validate_choice("fit", fit, _VALID_FITS)
-    validate_choice("gif_align", gif_align, _VALID_GIF_ALIGNS)
+    validate_choice("fit", fit, VALID_FITS)
+    validate_choice("image_align", image_align, VALID_GIF_ALIGNS)
 
     path = Path(path)
     if not path.exists():
@@ -62,7 +62,7 @@ def decode_gif(
             # composites onto black so transparent areas become (0,0,0)
             # — which the scroll-text path already treats as "skip".
             rgba = img.convert("RGBA")
-            fitted = _apply_fit(rgba, panel_w, panel_h, fit, gif_align)
+            fitted = _apply_fit(rgba, panel_w, panel_h, fit, image_align)
             raw_duration = int(img.info.get("duration", 100))
             duration = max(_MIN_FRAME_DURATION_MS, raw_duration)
             if duration != raw_duration and clamped_first_frame is None:

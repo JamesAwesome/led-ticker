@@ -168,7 +168,7 @@ fit = "pillarbox"
 # ---------------------------------------------------------------------------
 # Section 6 — pillarbox + static text in the RIGHT pillar
 #
-# Pikachu pinned to the LEFT edge (gif_align="left") so the right
+# Pikachu pinned to the LEFT edge (image_align="left") so the right
 # ~192 cols are an unobstructed black pillar; "PIKACHU!" is held
 # statically against the right edge. Text paints AFTER the gif each
 # tick, so even if Pikachu's frame had pixels in that column the text
@@ -186,7 +186,7 @@ transition_duration = 0.6
 type = "gif"
 path = "assets/pika_wave.gif"
 fit = "pillarbox"
-gif_align = "left"
+image_align = "left"
 text = "PIKACHU!"
 text_align = "right"
 font_color = [255, 220, 50]
@@ -209,7 +209,7 @@ transition_duration = 0.6
 type = "gif"
 path = "assets/pika_wave.gif"
 fit = "pillarbox"
-gif_align = "right"
+image_align = "right"
 text = "@brand"
 text_align = "left"
 font_color = [225, 48, 108]
@@ -310,7 +310,7 @@ gif_loops = 5  # ~5s of playback inside the single visit
 # Section 12 — TRANSPARENT pikachu pinned LEFT + scrolling marquee
 #
 # Same skip-black trick as section 8, but with the gif anchored to the
-# left edge (`gif_align = "left"`). The right ~192 cols are black
+# left edge (`image_align = "left"`). The right ~192 cols are black
 # pillar — text scrolls through that whole region AND through the
 # transparent space around Pikachu on the left. Visually Pikachu sits
 # in a corner while a much-longer marquee passes around him.
@@ -326,7 +326,7 @@ transition_duration = 0.6
 type = "gif"
 path = "assets/pika_wave_transparent.gif"
 fit = "pillarbox"
-gif_align = "left"
+image_align = "left"
 text = "OPEN LATE TONIGHT — COME SAY HI"
 text_align = "scroll"
 font_color = [120, 200, 255]
@@ -357,7 +357,7 @@ color = [255, 220, 50]
 type = "gif"
 path = "assets/pika_wave_transparent.gif"
 fit = "pillarbox"
-gif_align = "right"
+image_align = "right"
 text = "@brand"
 text_align = "left"
 font_color = [225, 48, 108]

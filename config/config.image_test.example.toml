@@ -16,7 +16,7 @@
 #   2. stretch heart (fills 4:1 panel)
 #   3. letterbox moonscape (wide → fits width, black top/bottom)
 #   4. crop moonscape (covers panel, crops top/bottom)
-#   5. pillarbox bunny + gif_align=left + static text right
+#   5. pillarbox bunny + image_align=left + static text right
 #   6. transparent moon + scroll-under marquee (text walks BEHIND moon)
 #   7. moonscape backdrop + scroll_over marquee (white text on top)
 #   8. stretch heart + scroll_over knockout text (black/LEDs-off cutout)
@@ -122,7 +122,7 @@ hold_seconds = 5.0
 # ---------------------------------------------------------------------------
 # Section 5 — bunny pinned LEFT + static text in right pillar
 #
-# `gif_align = "left"` puts the pillarboxed bunny against the left
+# `image_align = "left"` puts the pillarboxed bunny against the left
 # edge; `text_align = "auto"` (default) resolves to "right" since the
 # gif is on the left. Same layout pattern as gif Section 6.
 # ---------------------------------------------------------------------------
@@ -137,7 +137,7 @@ transition_duration = 0.6
 type = "image"
 path = "assets/bunny-nontransparent.png"
 fit = "pillarbox"
-gif_align = "left"
+image_align = "left"
 text = "BUNNY!"
 font_color = [255, 220, 50]
 hold_seconds = 5.0

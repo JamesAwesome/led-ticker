@@ -50,7 +50,7 @@ between_sections = "dissolve"
 # ---------------------------------------------------------------------------
 # Section 1 — Static text + offset gif
 #
-# Pikachu pinned to the LEFT edge (`gif_align = "left"`); the right
+# Pikachu pinned to the LEFT edge (`image_align = "left"`); the right
 # ~192 cols become an unobstructed black pillar with "PIKACHU!" held
 # statically against the right edge. Text paints AFTER the gif each
 # tick so it always wins on overlap.
@@ -66,7 +66,7 @@ transition_duration = 0.6
 type = "gif"
 path = "assets/pika_wave.gif"
 fit = "pillarbox"
-gif_align = "left"
+image_align = "left"
 text = "PIKACHU!"
 text_align = "right"
 font_color = [255, 220, 50]
@@ -178,7 +178,7 @@ color = [255, 220, 50]
 type = "gif"
 path = "assets/pika_wave_transparent.gif"
 fit = "pillarbox"
-gif_align = "right"
+image_align = "right"
 text = "@brand"
 text_align = "left"
 font_color = [225, 48, 108]

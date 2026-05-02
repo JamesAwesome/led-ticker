@@ -58,6 +58,9 @@ class SectionConfig:
     # vertical breathing room between rows. The wrapper still letterboxes
     # any space not covered (rows × scale < real.height).
     content_height: int = 16
+    # Optional section-level background color. Widgets that omit bg_color
+    # inherit this value via _build_widget's default_bg_color parameter.
+    bg_color: tuple[int, int, int] | None = None
 
 
 @dataclass
@@ -148,6 +151,9 @@ def load_config(path: Path) -> AppConfig:
         if "show_pikachu" in section_raw:
             trans.show_pikachu = section_raw["show_pikachu"]
 
+        bg_color_raw = section_raw.get("bg_color")
+        bg_color = tuple(bg_color_raw) if bg_color_raw is not None else None
+
         section = SectionConfig(
             mode=section_raw.get("mode", "forever_scroll"),
             loop_count=section_raw.get("loop_count", 1),
@@ -158,6 +164,7 @@ def load_config(path: Path) -> AppConfig:
             continuous_scroll=section_raw.get("continuous_scroll", False),
             scale=section_raw.get("scale", display.default_scale),
             content_height=section_raw.get("content_height", 16),
+            bg_color=bg_color,
         )
         sections.append(section)
 

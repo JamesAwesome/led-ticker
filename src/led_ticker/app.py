@@ -44,7 +44,15 @@ def _cache_key(widget_cfg: dict[str, Any]) -> str:
     return str(sorted(widget_cfg.items()))
 
 
-_COLOR_KEYS: set[str] = {"font_color", "color", "top_color", "bottom_color"}
+_COLOR_KEYS: set[str] = {
+    "font_color",
+    "color",
+    "top_color",
+    "bottom_color",
+    "bg_color",
+    "top_bg_color",
+    "bottom_bg_color",
+}
 
 
 def _coerce_color(value: Any) -> Any:
@@ -72,15 +80,26 @@ async def _build_widget(
     widget_cfg: dict[str, Any],
     session: aiohttp.ClientSession,
     config_dir: Path | None = None,
+    default_bg_color: tuple[int, int, int] | None = None,
 ) -> Any:
     """Instantiate a widget from its config dict.
 
     `config_dir` is the directory containing the config.toml; used to
     resolve relative `path` values for widgets that reference asset
     files (currently just `type = "gif"`).
+
+    `default_bg_color` is the section-level bg as an `(r, g, b)` tuple
+    (or None). It's injected into `widget_cfg["bg_color"]` only when
+    the widget config doesn't already specify it — preserving the
+    "widget overrides section" precedence rule.
     """
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)
+
+    # Inject section default before color coercion runs. Skip when the
+    # widget already specified bg_color (widget-level wins).
+    if default_bg_color is not None and "bg_color" not in widget_cfg:
+        widget_cfg["bg_color"] = list(default_bg_color)
 
     # Config uses "text" but TickerMessage/TickerCountdown use "message".
     # Only rename for widgets that don't accept `text` natively (e.g.
@@ -225,7 +244,10 @@ async def run(config_path: Path) -> None:
                     else:
                         cfg = dict(widget_cfg)
                         widget = await _build_widget(
-                            cfg, session, config_dir=config_path.parent
+                            cfg,
+                            session,
+                            config_dir=config_path.parent,
+                            default_bg_color=section.bg_color,
                         )
                         widget_cache[key] = widget
                     # Container widgets expand into stories

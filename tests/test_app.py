@@ -241,3 +241,65 @@ class TestExampleConfigWidgets:
                     # two_row carries top_color + bottom_color separately
                     assert hasattr(widget.top_color, "red")
                     assert hasattr(widget.bottom_color, "red")
+
+
+class TestColorKeysExtended:
+    def test_color_keys_includes_bg_keys(self):
+        from led_ticker.app import _COLOR_KEYS
+
+        assert "bg_color" in _COLOR_KEYS
+        assert "top_bg_color" in _COLOR_KEYS
+        assert "bottom_bg_color" in _COLOR_KEYS
+
+
+class TestBuildWidgetSectionBgPropagation:
+    @pytest.mark.asyncio
+    async def test_section_bg_propagates_when_widget_omits_it(self):
+        """When the section config has bg_color and the widget config
+        doesn't, the widget receives the section bg as a default."""
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {"type": "message", "text": "hi"}
+            widget = await _build_widget(
+                widget_cfg,
+                session,
+                default_bg_color=(10, 20, 30),
+            )
+        assert widget.bg_color is not None
+        assert widget.bg_color.red == 10
+        assert widget.bg_color.green == 20
+        assert widget.bg_color.blue == 30
+
+    @pytest.mark.asyncio
+    async def test_widget_bg_overrides_section_bg(self):
+        """When both section and widget specify bg_color, widget wins."""
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {
+                "type": "message",
+                "text": "hi",
+                "bg_color": [100, 100, 100],
+            }
+            widget = await _build_widget(
+                widget_cfg,
+                session,
+                default_bg_color=(10, 20, 30),
+            )
+        assert widget.bg_color.red == 100  # widget value, not section
+
+    @pytest.mark.asyncio
+    async def test_no_section_bg_no_widget_bg_yields_none(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {"type": "message", "text": "hi"}
+            widget = await _build_widget(widget_cfg, session)
+        assert widget.bg_color is None

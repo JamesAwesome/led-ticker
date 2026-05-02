@@ -84,6 +84,7 @@ from led_ticker.scaled_canvas import unwrap_to_real
 from led_ticker.widgets import register
 from led_ticker.widgets._gif_decode import decode_gif
 from led_ticker.widgets._image_base import MIN_SCROLL_SPEED_MS, _BaseImageWidget
+from led_ticker.widgets._image_fit import reset_canvas
 
 
 @register("gif")
@@ -268,8 +269,8 @@ class GifPlayer(_BaseImageWidget):
         for _ in range(loops):
             for idx, (_pixels, duration_ms) in enumerate(self._frames):
                 self._current_frame_idx = idx
-                canvas.Clear()
-                self._paint_full(canvas)
+                reset_canvas(canvas, self.bg_color)
+                self._paint_image(canvas)
                 canvas = frame.matrix.SwapOnVSync(canvas)
                 await asyncio.sleep(duration_ms / 1000)
 

@@ -294,10 +294,16 @@ class GifPlayer:
                 self._draw_text(text_canvas, text_x, baseline_y, self.font_color)
 
             canvas = frame.matrix.SwapOnVSync(canvas)
-            # Re-anchor the text wrapper to the new back-buffer so the
-            # next tick's text painting hits the canvas we just got.
+            # Follow the new back-buffer for the next tick's text paint.
+            # ScaledCanvas wrappers are mutable (rebind .real); for the
+            # text_scale=1 path text_canvas IS the canvas, so we have to
+            # rebind it directly — otherwise we'd paint text to the FRONT
+            # buffer (now displaying) on every other tick, which reads
+            # as a pulsing flicker on the panel.
             if isinstance(text_canvas, ScaledCanvas):
                 text_canvas.real = canvas
+            else:
+                text_canvas = canvas
             await asyncio.sleep(tick_ms / 1000)
 
             if scrolling:

@@ -16,6 +16,13 @@ _VALID_H_ALIGNS: frozenset[str] = frozenset({"left", "center", "right"})
 _MIN_FRAME_DURATION_MS = 50
 
 
+def validate_choice(name: str, value: str, allowed: frozenset[str]) -> None:
+    """Raise ValueError if `value` is not in `allowed`. Shared by the gif
+    widget and decode helper to keep error messages identical."""
+    if value not in allowed:
+        raise ValueError(f"unknown {name}={value!r}; expected one of {sorted(allowed)}")
+
+
 def decode_gif(
     path: Path,
     panel_w: int,
@@ -43,12 +50,8 @@ def decode_gif(
     Frame durations below 50 ms are clamped to 50 ms (some GIFs encode
     `duration=0` which would otherwise spin the playback loop).
     """
-    if fit not in _VALID_FITS:
-        raise ValueError(f"unknown fit={fit!r}; expected one of {sorted(_VALID_FITS)}")
-    if h_align not in _VALID_H_ALIGNS:
-        raise ValueError(
-            f"unknown h_align={h_align!r}; expected one of {sorted(_VALID_H_ALIGNS)}"
-        )
+    validate_choice("fit", fit, _VALID_FITS)
+    validate_choice("h_align", h_align, _VALID_H_ALIGNS)
 
     path = Path(path)
     if not path.exists():

@@ -101,3 +101,17 @@ class ScaledCanvas:
                 set_pixel(base_x + col, top_y + row, r, g, b)
             cx += glyph.advance_width
         return cx - x
+
+
+def unwrap_to_real(canvas: Any) -> Any:
+    """Return the underlying real canvas, peeling any ScaledCanvas wrappers.
+
+    Use this whenever a widget or transition needs to paint at the panel's
+    native pixel resolution (gif blits, dissolve scatter). Plain real
+    canvases pass through unchanged. Handles nested wrappers — though we
+    don't currently create them, the recursion is cheap and protects
+    against future regressions.
+    """
+    while isinstance(canvas, ScaledCanvas):
+        canvas = canvas.real
+    return canvas

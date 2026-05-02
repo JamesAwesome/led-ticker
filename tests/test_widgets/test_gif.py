@@ -212,6 +212,8 @@ def test_no_text_skips_align_validation(tmp_path):
 def test_paint_skip_black_leaves_zero_pixels_untouched(tmp_path):
     path = _make_gif_path(tmp_path, [(10, 20, 30)])
     widget = GifPlayer(path=str(path), fit="stretch")
+    widget._panel_w = 4
+    widget._panel_h = 2
     canvas = _StubCanvas(width=4, height=2)
     # Pre-paint canvas: a yellow line at row 0 to simulate text underneath
     for x in range(4):
@@ -245,8 +247,11 @@ def test_paint_skip_black_leaves_zero_pixels_untouched(tmp_path):
             0,
         ]
     )
+    widget._frames = [(pixels, 50)]
 
-    widget._paint_skip_black(canvas, pixels, 4, 2)
+    # _paint_skip_black builds caches lazily; iterates the precomputed
+    # non-black list (skipping the alternating black pixels in row 0).
+    widget._paint_skip_black(canvas, frame_idx=0)
 
     # Black pixels skipped → underlying yellow shows through
     assert canvas.get_pixel(0, 0) == (255, 0, 0)
@@ -388,9 +393,11 @@ async def test_text_loops_extends_section_duration(tmp_path, mocker):
     await widget.play(real, frame, loop_count=1)
 
     # text_w = real.width = 256; text_width for "X" via stub font = 6.
-    # Per-traversal ticks = 256 + 6 = 262. Two loops → ≥ 524 swaps.
-    # Without text_loops the gif's 1-tick budget would only swap once.
-    assert frame.matrix.SwapOnVSync.call_count >= 524
+    # Per-traversal ticks = 256 + 6 = 262. Two loops → 524 swaps.
+    # Tight bound (524..525, allowing 1-tick rounding slack) catches a
+    # regression that 10×'s the duration just as well as one that drops
+    # the floor entirely.
+    assert 524 <= frame.matrix.SwapOnVSync.call_count <= 525
 
 
 async def test_text_loops_zero_keeps_gif_driven_duration(tmp_path, mocker):
@@ -414,27 +421,92 @@ async def test_text_loops_zero_keeps_gif_driven_duration(tmp_path, mocker):
     assert frame.matrix.SwapOnVSync.call_count == 1
 
 
-async def test_text_loops_ignored_for_static_text(tmp_path, mocker):
-    """text_loops is only meaningful when scrolling — for left/right
-    static alignments it's silently ignored (no extra ticks)."""
+def test_text_loops_with_static_text_raises(tmp_path):
+    """text_loops > 0 with static text_align (left/right) used to be
+    silently ignored — now raises so the user notices their config
+    floor isn't being honored."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    with pytest.raises(ValueError, match="text_loops"):
+        GifPlayer(
+            path=str(path),
+            fit="stretch",
+            text="X",
+            text_align="right",  # static
+            text_loops=10,
+        )
+
+
+def test_negative_numeric_fields_raise(tmp_path):
+    """Range validation: text_scale < 1, loops < 1, text_loops < 0,
+    scroll_speed_ms < MIN all raise instead of silently mis-behaving."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)])
+    with pytest.raises(ValueError, match="text_scale"):
+        GifPlayer(path=str(path), text_scale=0)
+    with pytest.raises(ValueError, match="text_scale"):
+        GifPlayer(path=str(path), text_scale=-1)
+    with pytest.raises(ValueError, match="loops"):
+        GifPlayer(path=str(path), loops=0)
+    with pytest.raises(ValueError, match="text_loops"):
+        GifPlayer(path=str(path), text_loops=-1)
+    with pytest.raises(ValueError, match="scroll_speed_ms"):
+        GifPlayer(path=str(path), scroll_speed_ms=10)  # below MIN=20
+
+
+async def test_play_scroll_text_wraps_after_full_traversal(tmp_path, mocker):
+    """Scroll wraps `scroll_pos` back to text_w when text fully exits left.
+    Without this test, off-by-one in `<= 0` vs `< 0` wrap condition could
+    ship green: the existing tests only watch monotonically-decreasing
+    positions across 5 ticks, never exercising the reset."""
     path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
     widget = GifPlayer(
         path=str(path),
         fit="stretch",
         text="X",
-        text_align="right",  # static
+        text_align="scroll",
         scroll_speed_ms=50,
-        text_loops=10,  # would balloon ticks if it applied
     )
     real = _bigsign_real_canvas()
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
+    seen_x: list[int] = []
+    real_draw = __import__("led_ticker.widgets.gif", fromlist=["draw_text"]).draw_text
+
+    def spy(canvas, font, x, y, color, text):
+        seen_x.append(x)
+        return real_draw(canvas, font, x, y, color, text)
+
+    mocker.patch("led_ticker.widgets.gif.draw_text", side_effect=spy)
+
+    # Run for enough ticks to fully traverse + see the wrap. text_w=256,
+    # text_width for "X" = 6. One traversal = 256 + 6 = 262 ticks (panel-
+    # right exit to off-left). Use text_loops=2 to force long enough run.
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="scroll",
+        scroll_speed_ms=50,
+        text_loops=2,
+    )
+    seen_x.clear()
+    mocker.patch("led_ticker.widgets.gif.draw_text", side_effect=spy)
     await widget.play(real, frame, loop_count=1)
 
-    # Static text → text_loops doesn't apply; only the gif's 1 tick runs.
-    assert frame.matrix.SwapOnVSync.call_count == 1
+    # Sequence must contain a wrap: somewhere we go from a low (negative)
+    # value back to text_w (256). Find at least one drop where x increases.
+    increases = [i for i in range(1, len(seen_x)) if seen_x[i] > seen_x[i - 1]]
+    assert increases, (
+        f"scroll_pos never wrapped back to text_w; saw {len(seen_x)} ticks "
+        f"with min={min(seen_x)} max={max(seen_x)}"
+    )
+    # On wrap, scroll_pos should reset to exactly text_w (256), not text_w-1
+    # or text_w+1. Pick the first wrap and verify.
+    wrap_idx = increases[0]
+    assert (
+        seen_x[wrap_idx] == real.width
+    ), f"wrap should reset to text_w={real.width}, got {seen_x[wrap_idx]}"
 
 
 async def test_play_scroll_text_advances_position(tmp_path, mocker):
@@ -527,6 +599,53 @@ async def test_play_scroll_text_visible_through_black_pillars(tmp_path, mocker):
     assert real.get_pixel(centre_lo + 5, band_y) == (180, 180, 180)
 
 
+class TestFrameForElapsed:
+    """Direct unit tests for _frame_for_elapsed — its boundary behaviour
+    is otherwise only exercised end-to-end via play(), which masks
+    off-by-one bugs at frame edges."""
+
+    def _widget_with_frames(self, tmp_path, frame_durations):
+        colors = [(c, c, c) for c in range(len(frame_durations))]
+        path = _make_gif_path(tmp_path, colors)
+        widget = GifPlayer(path=str(path), fit="stretch")
+        # Bypass real decoding — synthesize frames with known durations
+        widget._frames = [(b"", d) for d in frame_durations]
+        return widget
+
+    def test_picks_frame_zero_at_start(self, tmp_path):
+        w = self._widget_with_frames(tmp_path, [100, 100, 100])
+        assert w._frame_for_elapsed(0, 300) == 0
+
+    def test_stays_on_frame_zero_just_before_boundary(self, tmp_path):
+        w = self._widget_with_frames(tmp_path, [100, 100, 100])
+        assert w._frame_for_elapsed(99, 300) == 0
+
+    def test_advances_at_boundary(self, tmp_path):
+        """At elapsed = first-frame-duration, we should be on frame 1."""
+        w = self._widget_with_frames(tmp_path, [100, 100, 100])
+        assert w._frame_for_elapsed(100, 300) == 1
+
+    def test_picks_last_frame_just_before_loop_end(self, tmp_path):
+        w = self._widget_with_frames(tmp_path, [100, 100, 100])
+        assert w._frame_for_elapsed(299, 300) == 2
+
+    def test_wraps_at_loop_boundary(self, tmp_path):
+        """elapsed == loop_ms should wrap back to frame 0."""
+        w = self._widget_with_frames(tmp_path, [100, 100, 100])
+        assert w._frame_for_elapsed(300, 300) == 0
+        assert w._frame_for_elapsed(301, 300) == 0
+
+    def test_unequal_frame_durations(self, tmp_path):
+        w = self._widget_with_frames(tmp_path, [50, 200, 100])
+        assert w._frame_for_elapsed(0, 350) == 0
+        assert w._frame_for_elapsed(49, 350) == 0
+        assert w._frame_for_elapsed(50, 350) == 1
+        assert w._frame_for_elapsed(249, 350) == 1
+        assert w._frame_for_elapsed(250, 350) == 2
+        assert w._frame_for_elapsed(349, 350) == 2
+        assert w._frame_for_elapsed(350, 350) == 0  # wrap
+
+
 async def test_play_with_emoji_routes_through_emoji_painter(tmp_path, mocker):
     """When `text` contains a `:slug:` token, _play_with_text must
     dispatch to draw_with_emoji (not draw_text) so the icon actually
@@ -552,6 +671,78 @@ async def test_play_with_emoji_routes_through_emoji_painter(tmp_path, mocker):
     await widget.play(real, frame, loop_count=1)
 
     assert spy.called, "draw_with_emoji should be invoked for `:slug:` text"
+
+
+async def test_static_text_wider_than_canvas_clamps_to_left_edge(tmp_path, mocker):
+    """text_x_right = max(2, text_w - text_width - 2). With text wider
+    than canvas, the unclamped expression goes negative. Drop the max()
+    and DrawText would draw partially off the panel — no test catches it
+    today."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)])
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="A" * 100,  # ~600px at 6×12 BDF — way wider than 256
+        text_align="right",
+        font_color=Color(255, 255, 255),
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_x: list[int] = []
+    mocker.patch(
+        "led_ticker.widgets.gif.draw_text",
+        side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 600,
+    )
+
+    await widget.play(real, frame, loop_count=1)
+
+    assert seen_x, "draw_text should have been called"
+    # Clamped to left edge padding (2), not negative
+    assert seen_x[0] == 2
+
+
+async def test_play_emoji_with_text_scale_and_scroll(tmp_path, mocker):
+    """The actual user combo (Section 15 in config.gif_test): emoji slug
+    + text_scale > 1 + text_align="scroll_over". Each axis is tested
+    individually but never the intersection — where logical/physical
+    unit confusion in `_measure_text` could produce the wrong tick budget."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text=":sun: HOT",
+        text_align="scroll_over",
+        font_color=Color(255, 255, 255),
+        text_scale=2,
+        scroll_speed_ms=50,
+        text_loops=1,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    emoji_calls = mocker.patch(
+        "led_ticker.pixel_emoji.draw_with_emoji",
+        side_effect=lambda c, *a, **kw: 30,
+    )
+
+    await widget.play(real, frame, loop_count=1)
+
+    # Emoji painter ran (not draw_text) because text contains a slug
+    assert emoji_calls.called
+    # Each call got a ScaledCanvas (text_scale=2 wrap), not the raw real canvas
+    from led_ticker.scaled_canvas import ScaledCanvas
+
+    for call in emoji_calls.call_args_list:
+        canvas_arg = call.args[0]
+        assert isinstance(canvas_arg, ScaledCanvas), (
+            f"emoji painter should receive ScaledCanvas at text_scale=2, "
+            f"got {type(canvas_arg).__name__}"
+        )
 
 
 async def test_play_text_scale_uses_scaled_canvas(tmp_path, mocker):

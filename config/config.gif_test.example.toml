@@ -362,3 +362,29 @@ text = "@brand"
 text_align = "left"
 font_color = [225, 48, 108]
 loops = 17  # ~10s of playback
+
+# ---------------------------------------------------------------------------
+# Section 14 — pride_trans.gif as a full-screen BACKGROUND with white
+# scrolling text ON TOP (`text_align = "scroll_over"`).
+#
+# Opposite of section 8's `scroll`: there text scrolls UNDER the gif,
+# only visible through transparent / black areas. Here the gif paints
+# first and the text scrolls over it — always visible, like a stadium
+# marquee on top of a stripe-flag backdrop. White on the bright trans-
+# flag gradient stays readable everywhere.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "gif"
+loop_count = 14  # ~20s — enough for one full marquee pass + change
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pride_trans.gif"
+fit = "stretch"
+text = "TRANS RIGHTS ARE HUMAN RIGHTS"
+text_align = "scroll_over"
+font_color = [255, 255, 255]
+scroll_speed_ms = 50

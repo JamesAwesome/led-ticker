@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import unittest.mock as mock
 
+import pytest
+
 from led_ticker.fonts import FONT_SMALL
 from led_ticker.widget import Widget
 from led_ticker.widgets import get_widget_class
@@ -284,6 +286,125 @@ class TestRowSpacing:
         assert top_emoji == 1  # 1 row of top margin
         assert bot_emoji == 11  # half (10) + 1 row
         assert bot_emoji - (top_emoji + 8) == 2  # 2-row gap between glyphs
+
+
+class TestTwoRowBgColor:
+    @pytest.fixture
+    def bg_canvas(self):
+        """Pixel-tracking stub canvas for bg-band assertions."""
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        opts = RGBMatrixOptions()
+        opts.cols = 160
+        opts.rows = 16
+        opts.chain_length = 1
+        opts.parallel = 1
+        return RGBMatrix(options=opts).CreateFrameCanvas()
+
+    def test_default_bg_fields_are_none(self):
+        w = TwoRowMessage(top_text="A", bottom_text="B")
+        assert w.bg_color is None
+        assert w.top_bg_color is None
+        assert w.bottom_bg_color is None
+
+    def test_top_bg_color_paints_only_top_band(self, bg_canvas):
+        """top_bg_color fills rows 0..(h//2) with the bg color; rows
+        h//2..h are not filled by the band painter (orchestrator may
+        Clear them)."""
+        from rgbmatrix.graphics import Color
+
+        bg = Color(255, 0, 128)
+        w = TwoRowMessage(
+            top_text="",  # empty so we only see the bg paint
+            bottom_text="",
+            top_bg_color=bg,
+        )
+        # canvas fixture is 160x16 (small sign default). Half = 8.
+        bg_canvas.Clear()
+        w.draw(bg_canvas, cursor_pos=0)
+        h = bg_canvas.height
+        mid = h // 2
+        # Top band (rows 0..mid-1) should be magenta.
+        for y in range(0, mid):
+            for x in range(bg_canvas.width):
+                assert bg_canvas.get_pixel(x, y) == (255, 0, 128), (
+                    f"top band: row {y} should be magenta, "
+                    f"got {bg_canvas.get_pixel(x, y)}"
+                )
+        # Bottom band (rows mid..h-1) should be untouched (black).
+        for y in range(mid, h):
+            for x in range(bg_canvas.width):
+                assert bg_canvas.get_pixel(x, y) == (0, 0, 0), (
+                    f"bottom band: row {y} should be unset, "
+                    f"got {bg_canvas.get_pixel(x, y)}"
+                )
+
+    def test_bottom_bg_color_paints_only_bottom_band(self, bg_canvas):
+        from rgbmatrix.graphics import Color
+
+        bg = Color(20, 200, 50)
+        w = TwoRowMessage(top_text="", bottom_text="", bottom_bg_color=bg)
+        bg_canvas.Clear()
+        w.draw(bg_canvas, cursor_pos=0)
+        h = bg_canvas.height
+        mid = h // 2
+        for y in range(0, mid):
+            for x in range(bg_canvas.width):
+                assert bg_canvas.get_pixel(x, y) == (0, 0, 0)
+        for y in range(mid, h):
+            for x in range(bg_canvas.width):
+                assert bg_canvas.get_pixel(x, y) == (20, 200, 50)
+
+    def test_both_bands_paint_independently(self, bg_canvas):
+        from rgbmatrix.graphics import Color
+
+        top_bg = Color(255, 0, 0)
+        bottom_bg = Color(0, 0, 255)
+        w = TwoRowMessage(
+            top_text="",
+            bottom_text="",
+            top_bg_color=top_bg,
+            bottom_bg_color=bottom_bg,
+        )
+        bg_canvas.Clear()
+        w.draw(bg_canvas, cursor_pos=0)
+        h = bg_canvas.height
+        mid = h // 2
+        # spot-check center of each band
+        assert bg_canvas.get_pixel(bg_canvas.width // 2, mid // 2) == (255, 0, 0)
+        assert bg_canvas.get_pixel(bg_canvas.width // 2, mid + (h - mid) // 2) == (
+            0,
+            0,
+            255,
+        )
+
+    def test_per_row_bg_overrides_widget_bg_visually(self, bg_canvas):
+        """The widget's own `bg_color` is applied by the orchestrator
+        (canvas already filled when draw() runs). Per-row bands paint
+        on top — verify they win on their respective half."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.widgets._image_fit import reset_canvas
+
+        widget_bg = Color(50, 50, 50)
+        top_bg = Color(255, 0, 0)
+        w = TwoRowMessage(
+            top_text="",
+            bottom_text="",
+            bg_color=widget_bg,
+            top_bg_color=top_bg,
+        )
+
+        # Simulate orchestrator: reset_canvas with widget.bg_color, then draw.
+        reset_canvas(bg_canvas, w.bg_color)
+        w.draw(bg_canvas, cursor_pos=0)
+
+        h = bg_canvas.height
+        mid = h // 2
+        # Top band: top_bg wins.
+        assert bg_canvas.get_pixel(0, 0) == (255, 0, 0)
+        # Bottom band: widget_bg shows through (no bottom_bg_color).
+        assert bg_canvas.get_pixel(0, mid) == (50, 50, 50)
 
 
 class TestWidthCaching:

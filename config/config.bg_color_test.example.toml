@@ -1,0 +1,162 @@
+# led-ticker bg_color smoke test config
+#
+# Exercises every code path that consumes bg_color:
+#   1. Section-level bg + widgets that inherit it
+#   2. Widget-level bg overriding section bg
+#   3. Per-row bands on TwoRowMessage (top_bg_color + bottom_bg_color)
+#   4. Image widget (StillImage) with bg_color showing through pillarbox
+#   5. Image widget with transparent PNG showing bg through alpha
+#   6. GIF widget (animated) with bg through pillarbox + transparent regions
+#   7. Explicit black widget bg overriding a non-black section bg
+#   8. Section with NO bg_color (control — should still render normally)
+#
+# Run on the bigsign with: led-ticker --config config/config.bg_color_test.example.toml
+# Each section holds for ~6s in swap mode so the bg is easy to eyeball.
+
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+brightness = 60
+slowdown_gpio = 3
+gpio_mapping = "adafruit-hat"
+default_scale = 4
+pwm_bits = 8
+rp1_rio = 1
+
+[title]
+delay = 3
+
+[transitions]
+default = "cut"          # transitions ignore bg by design — use cut to keep test clean
+duration = 0.4
+between_sections = "cut"
+
+# ---------------------------------------------------------------------------
+# 1. Section bg propagates to widgets that omit it
+#    → Whole panel is navy. Yellow text sits on the navy field.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 6.0
+bg_color = [26, 59, 142]    # navy
+
+[[playlist.section.widget]]
+type = "message"
+text = "navy bg from section"
+font_color = [255, 220, 70] # yellow
+
+# ---------------------------------------------------------------------------
+# 2. Widget bg overrides section bg (precedence check)
+#    → Section says navy, widget says deep purple. Panel should be PURPLE.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 6.0
+bg_color = [26, 59, 142]    # navy (would apply if widget didn't override)
+
+[[playlist.section.widget]]
+type = "message"
+text = "widget bg wins"
+font_color = [255, 220, 70]
+bg_color = [85, 26, 139]    # deep purple — overrides section navy
+
+# ---------------------------------------------------------------------------
+# 3. TwoRowMessage with per-row bands
+#    → Top half magenta, bottom half teal, with text in each band.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 6.0
+content_height = 20         # 4 rows of breathing room between rows
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "@brand"
+bottom_text = "live now"
+top_color = [255, 255, 255]
+bottom_color = [255, 255, 0]
+top_bg_color = [200, 30, 130]   # magenta
+bottom_bg_color = [0, 120, 130] # teal
+
+# ---------------------------------------------------------------------------
+# 4. StillImage with bg_color via pillarbox
+#    → Bunny image centered, bg color shows in left + right pillarbox bands.
+#    → Choose an opaque image so this only tests pillarbox-band reveal
+#      (not alpha-transparency).
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 6.0
+bg_color = [180, 60, 0]     # burnt orange
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/bunny-nontransparent.png"
+fit = "pillarbox"
+hold_seconds = 6.0
+
+# ---------------------------------------------------------------------------
+# 5. StillImage with transparent PNG + bg
+#    → Bunny silhouette over the bg color via alpha-transparent regions.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 6.0
+bg_color = [10, 130, 80]    # forest green
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/bunny-transparent.png"
+fit = "pillarbox"
+hold_seconds = 6.0
+
+# ---------------------------------------------------------------------------
+# 6. GIF (animated) with bg through pillarbox + transparency
+#    → Animated frames preserved; pillarbox bands and transparent regions
+#      show bg color.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+bg_color = [255, 230, 0]    # bright yellow
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+gif_loops = 3
+
+# ---------------------------------------------------------------------------
+# 7. Explicit black bg overrides a colored section default
+#    → Section sets red bg; widget says [0,0,0] which counts as "set" and
+#      paints black instead of inheriting red. Panel should be BLACK
+#      (visually identical to no-bg, but the Fill path runs).
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 6.0
+bg_color = [200, 0, 0]      # red — but widget overrides
+
+[[playlist.section.widget]]
+type = "message"
+text = "explicit black wins"
+font_color = [255, 255, 255]
+bg_color = [0, 0, 0]        # explicit black overrides red
+
+# ---------------------------------------------------------------------------
+# 8. Control: no bg anywhere
+#    → Default behavior (LEDs off behind text). If this section looks
+#      different from before this feature landed, something regressed.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 6.0
+# no bg_color at section or widget level
+
+[[playlist.section.widget]]
+type = "message"
+text = "no bg (control)"
+font_color = [100, 220, 255]

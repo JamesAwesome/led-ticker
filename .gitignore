@@ -147,3 +147,4 @@ settings.env
 # Use config.example.toml or config.bigsign.example.toml as a starting point.
 config/config.toml
 .vscode/
+.superpowers/

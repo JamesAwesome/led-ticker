@@ -1,17 +1,22 @@
-"""Shared image-decoding primitives — used by both `_gif_decode` (animated)
-and `_still_decode` (single-image). All functions are pure (no side
-effects on the input image).
+"""Shared image-decoding primitives — the CANONICAL home for fit, alpha,
+and validation logic used by every image-source widget (gif, still, and
+any future video / sprite-sheet variants). All functions are pure (no
+side effects on the input image).
 
-The fit modes and `gif_align` semantics match the gif widget exactly so
-both widget types feel identical from a TOML config perspective.
+The fit modes and `image_align` semantics are identical for all
+consumers so the TOML config schema is consistent across image widgets.
+
+To extend with a new image source: import `apply_fit`, `flatten_onto_black`,
+`validate_choice`, `VALID_FITS`, `VALID_GIF_ALIGNS` from here. Do NOT
+duplicate these helpers in a new module.
 """
 
 from __future__ import annotations
 
 from PIL import Image
 
-_VALID_FITS: frozenset[str] = frozenset({"pillarbox", "letterbox", "stretch", "crop"})
-_VALID_GIF_ALIGNS: frozenset[str] = frozenset({"left", "center", "right"})
+VALID_FITS: frozenset[str] = frozenset({"pillarbox", "letterbox", "stretch", "crop"})
+VALID_GIF_ALIGNS: frozenset[str] = frozenset({"left", "center", "right"})
 
 
 def validate_choice(name: str, value: str, allowed: frozenset[str]) -> None:
@@ -44,7 +49,7 @@ def apply_fit(
     panel_w: int,
     panel_h: int,
     fit: str,
-    gif_align: str = "center",
+    image_align: str = "center",
 ) -> Image.Image:
     """Scale + place `src` onto a `panel_w × panel_h` black canvas.
 
@@ -59,7 +64,7 @@ def apply_fit(
       - ``letterbox``: scale by width (or height if height-fit
         overflows), center vertically with black top/bottom bands.
 
-    `gif_align` (left | center | right) anchors the scaled image
+    `image_align` (left | center | right) anchors the scaled image
     horizontally for `pillarbox`. The other three fits fill the panel
     width so it has no effect.
     """
@@ -91,9 +96,9 @@ def apply_fit(
     new_w = max(1, int(round(sw * scale)))
     new_h = max(1, int(round(sh * scale)))
     scaled = src.resize((new_w, new_h), Image.Resampling.LANCZOS)
-    if gif_align == "left":
+    if image_align == "left":
         x_off = 0
-    elif gif_align == "right":
+    elif image_align == "right":
         x_off = max(0, panel_w - new_w)
     else:  # center
         x_off = (panel_w - new_w) // 2

@@ -179,32 +179,32 @@ def test_invalid_text_align_raises(tmp_path):
         GifPlayer(path=str(path), text="hi", text_align="bogus")
 
 
-def test_text_align_auto_resolves_from_gif_align(tmp_path):
+def test_text_align_auto_resolves_from_image_align(tmp_path):
     """text_align="auto" (default) picks the opposite side of the gif so
     they never overlap. Center gif → scroll_over (no overlap zone)."""
     path = _make_gif_path(tmp_path, [(10, 20, 30)])
 
-    # Default gif_align = "center" → scroll_over
+    # Default image_align = "center" → scroll_over
     w = GifPlayer(path=str(path), text="HELLO")
     assert w.text_align == "scroll_over"
 
-    # gif_align = "left" → right
-    w = GifPlayer(path=str(path), text="HELLO", gif_align="left")
+    # image_align = "left" → right
+    w = GifPlayer(path=str(path), text="HELLO", image_align="left")
     assert w.text_align == "right"
 
-    # gif_align = "right" → left
-    w = GifPlayer(path=str(path), text="HELLO", gif_align="right")
+    # image_align = "right" → left
+    w = GifPlayer(path=str(path), text="HELLO", image_align="right")
     assert w.text_align == "left"
 
     # Explicit text_align overrides auto
-    w = GifPlayer(path=str(path), text="HELLO", gif_align="left", text_align="scroll")
+    w = GifPlayer(path=str(path), text="HELLO", image_align="left", text_align="scroll")
     assert w.text_align == "scroll"
 
 
-def test_invalid_gif_align_raises(tmp_path):
+def test_invalid_image_align_raises(tmp_path):
     path = _make_gif_path(tmp_path, [(10, 20, 30)])
-    with pytest.raises(ValueError, match="gif_align"):
-        GifPlayer(path=str(path), gif_align="bogus")
+    with pytest.raises(ValueError, match="image_align"):
+        GifPlayer(path=str(path), image_align="bogus")
 
 
 def test_invalid_text_valign_raises(tmp_path):
@@ -280,7 +280,7 @@ async def test_text_x_offset_shifts_static_text(
 
     seen_x: list[int] = []
     mocker.patch(
-        "led_ticker.widgets.gif.draw_text",
+        "led_ticker.widgets._image_base.draw_text",
         side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
     )
 
@@ -289,31 +289,19 @@ async def test_text_x_offset_shifts_static_text(
     assert seen_x[0] == expected_x
 
 
-async def test_text_x_offset_is_noop_for_scrolling(tmp_path, mocker):
-    """text_x_offset must not skew scroll trajectory."""
-    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
-    widget = GifPlayer(
-        path=str(path),
-        fit="stretch",
-        text="X",
-        text_align="scroll",
-        text_x_offset=99,
-        scroll_speed_ms=50,
-    )
-    real = _bigsign_real_canvas()
-    frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
-    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
-
-    seen_x: list[int] = []
-    mocker.patch(
-        "led_ticker.widgets.gif.draw_text",
-        side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
-    )
-
-    await widget.play(real, frame, loop_count=2)
-
-    assert seen_x[0] == 256  # text_w, NOT 256 + 99
+def test_text_x_offset_with_scroll_raises(tmp_path):
+    """text_x_offset is a static-text knob — for scrolling text it would
+    just skew the trajectory by a constant. We raise loudly rather than
+    silently no-op."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)])
+    with pytest.raises(ValueError, match="text_x_offset"):
+        GifPlayer(
+            path=str(path),
+            fit="stretch",
+            text="X",
+            text_align="scroll_over",
+            text_x_offset=99,
+        )
 
 
 async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker):
@@ -340,7 +328,7 @@ async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker
     seen_canvases: list[object] = []
     seen_y: list[int] = []
     mocker.patch(
-        "led_ticker.widgets.gif.draw_text",
+        "led_ticker.widgets._image_base.draw_text",
         side_effect=lambda c, f, x, y, col, t: (
             seen_canvases.append(c) or seen_y.append(y) or 12
         ),
@@ -364,7 +352,7 @@ async def test_scroll_direction_right_advances_positively(tmp_path, mocker):
         path=str(path),
         fit="stretch",
         text="X",
-        text_align="scroll",
+        text_align="scroll_over",
         scroll_speed_ms=50,
         scroll_direction="right",
     )
@@ -374,13 +362,15 @@ async def test_scroll_direction_right_advances_positively(tmp_path, mocker):
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen_x: list[int] = []
-    real_draw = __import__("led_ticker.widgets.gif", fromlist=["draw_text"]).draw_text
+    real_draw = __import__(
+        "led_ticker.widgets._image_base", fromlist=["draw_text"]
+    ).draw_text
 
     def spy(canvas, font, x, y, color, text):
         seen_x.append(x)
         return real_draw(canvas, font, x, y, color, text)
 
-    mocker.patch("led_ticker.widgets.gif.draw_text", side_effect=spy)
+    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
     await widget.play(real, frame, loop_count=5)
 
     # First tick: scroll_pos = -text_width (off-left); each subsequent
@@ -390,12 +380,12 @@ async def test_scroll_direction_right_advances_positively(tmp_path, mocker):
     assert seen_x[2] == seen_x[0] + 2
 
 
-def test_gif_align_left_anchors_at_x_zero(tmp_path):
-    """GifPlayer threads gif_align through to decode_gif. After load(),
+def test_image_align_left_anchors_at_x_zero(tmp_path):
+    """GifPlayer threads image_align through to decode_gif. After load(),
     a 32×32 pillarboxed source aligned 'left' should leave cols 64+
     black on the bigsign panel."""
     path = _make_gif_path(tmp_path, [(255, 255, 255)], size=(32, 32))
-    widget = GifPlayer(path=str(path), fit="pillarbox", gif_align="left")
+    widget = GifPlayer(path=str(path), fit="pillarbox", image_align="left")
     real = _bigsign_real_canvas()
 
     widget.draw(real, cursor_pos=0)
@@ -456,7 +446,7 @@ def test_paint_skip_black_leaves_zero_pixels_untouched(tmp_path):
 
     # _paint_skip_black builds caches lazily; iterates the precomputed
     # non-black list (skipping the alternating black pixels in row 0).
-    widget._paint_skip_black(canvas, frame_idx=0)
+    widget._paint_skip_black(canvas)
 
     # Black pixels skipped → underlying yellow shows through
     assert canvas.get_pixel(0, 0) == (255, 0, 0)
@@ -469,14 +459,16 @@ def test_paint_skip_black_leaves_zero_pixels_untouched(tmp_path):
 
 
 async def test_play_with_text_uses_scroll_speed_cadence(tmp_path, mocker):
-    """With text, ticks happen at scroll_speed_ms regardless of frame
-    durations. This is what lets text scroll smoothly over slow GIFs."""
+    """With SCROLLING text, ticks happen at scroll_speed_ms regardless
+    of frame durations — that's what lets text scroll smoothly over
+    slow GIFs. (Static text uses a fast path: paint once, sleep
+    cumulative duration.)"""
     path = _make_gif_path(tmp_path, [(10, 20, 30), (40, 50, 60)], duration_ms=120)
     widget = GifPlayer(
         path=str(path),
         fit="stretch",
         text="hi",
-        text_align="right",
+        text_align="scroll_over",  # scrolling, ticks per scroll_speed_ms
         scroll_speed_ms=60,
     )
     real = _bigsign_real_canvas()
@@ -487,7 +479,7 @@ async def test_play_with_text_uses_scroll_speed_cadence(tmp_path, mocker):
     await widget.play(real, frame, loop_count=1)
 
     sleeps = [c.args[0] for c in sleep_mock.await_args_list]
-    # Total = 240ms / 60ms = 4 ticks (vs. 2 swaps on the no-text path)
+    # Total = 240ms / 60ms = 4 ticks (per-tick scroll path)
     assert len(sleeps) == 4
     assert all(abs(s - 0.06) < 1e-6 for s in sleeps)
 
@@ -586,7 +578,7 @@ async def test_text_loops_extends_section_duration(tmp_path, mocker):
         path=str(path),
         fit="stretch",
         text="X",  # narrow so the math is easy
-        text_align="scroll",
+        text_align="scroll_over",
         scroll_speed_ms=50,
         text_loops=2,
     )
@@ -612,7 +604,7 @@ async def test_text_loops_zero_keeps_gif_driven_duration(tmp_path, mocker):
         path=str(path),
         fit="stretch",
         text="X",
-        text_align="scroll",
+        text_align="scroll_over",
         scroll_speed_ms=50,
     )
     real = _bigsign_real_canvas()
@@ -667,7 +659,7 @@ async def test_play_scroll_text_wraps_after_full_traversal(tmp_path, mocker):
         path=str(path),
         fit="stretch",
         text="X",
-        text_align="scroll",
+        text_align="scroll_over",
         scroll_speed_ms=50,
     )
     real = _bigsign_real_canvas()
@@ -676,13 +668,15 @@ async def test_play_scroll_text_wraps_after_full_traversal(tmp_path, mocker):
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen_x: list[int] = []
-    real_draw = __import__("led_ticker.widgets.gif", fromlist=["draw_text"]).draw_text
+    real_draw = __import__(
+        "led_ticker.widgets._image_base", fromlist=["draw_text"]
+    ).draw_text
 
     def spy(canvas, font, x, y, color, text):
         seen_x.append(x)
         return real_draw(canvas, font, x, y, color, text)
 
-    mocker.patch("led_ticker.widgets.gif.draw_text", side_effect=spy)
+    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
 
     # Run for enough ticks to fully traverse + see the wrap. text_w=256,
     # text_width for "X" = 6. One traversal = 256 + 6 = 262 ticks (panel-
@@ -691,12 +685,12 @@ async def test_play_scroll_text_wraps_after_full_traversal(tmp_path, mocker):
         path=str(path),
         fit="stretch",
         text="X",
-        text_align="scroll",
+        text_align="scroll_over",
         scroll_speed_ms=50,
         text_loops=2,
     )
     seen_x.clear()
-    mocker.patch("led_ticker.widgets.gif.draw_text", side_effect=spy)
+    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
     await widget.play(real, frame, loop_count=1)
 
     # Sequence must contain a wrap: somewhere we go from a low (negative)
@@ -722,7 +716,7 @@ async def test_play_scroll_text_advances_position(tmp_path, mocker):
         path=str(path),
         fit="stretch",
         text="hi",
-        text_align="scroll",
+        text_align="scroll_over",
         scroll_speed_ms=50,
     )
     real = _bigsign_real_canvas()
@@ -731,13 +725,15 @@ async def test_play_scroll_text_advances_position(tmp_path, mocker):
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen_x: list[int] = []
-    real_draw = __import__("led_ticker.widgets.gif", fromlist=["draw_text"]).draw_text
+    real_draw = __import__(
+        "led_ticker.widgets._image_base", fromlist=["draw_text"]
+    ).draw_text
 
     def spy(canvas, font, x, y, color, text):
         seen_x.append(x)
         return real_draw(canvas, font, x, y, color, text)
 
-    mocker.patch("led_ticker.widgets.gif.draw_text", side_effect=spy)
+    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
 
     # 5 loops × 50ms = 250ms / 50ms tick = 5 ticks
     await widget.play(real, frame, loop_count=5)
@@ -760,7 +756,7 @@ async def test_play_scroll_text_visible_through_black_pillars(tmp_path, mocker):
         path=str(path),
         fit="stretch",
         text="X",
-        text_align="scroll",
+        text_align="scroll_over",
         font_color=Color(0, 0, 200),
         scroll_speed_ms=50,
     )
@@ -898,7 +894,7 @@ async def test_static_text_wider_than_canvas_clamps_to_left_edge(tmp_path, mocke
 
     seen_x: list[int] = []
     mocker.patch(
-        "led_ticker.widgets.gif.draw_text",
+        "led_ticker.widgets._image_base.draw_text",
         side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 600,
     )
 
@@ -972,13 +968,15 @@ async def test_play_text_scale_uses_scaled_canvas(tmp_path, mocker):
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen_canvases: list[object] = []
-    real_draw = __import__("led_ticker.widgets.gif", fromlist=["draw_text"]).draw_text
+    real_draw = __import__(
+        "led_ticker.widgets._image_base", fromlist=["draw_text"]
+    ).draw_text
 
     def spy(canvas, font, x, y, color, text):
         seen_canvases.append(canvas)
         return real_draw(canvas, font, x, y, color, text)
 
-    mocker.patch("led_ticker.widgets.gif.draw_text", side_effect=spy)
+    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
 
     await widget.play(real, frame, loop_count=1)
 
@@ -1000,7 +998,11 @@ async def test_play_text_scale_1_text_canvas_follows_back_buffer(tmp_path, mocke
     same canvas the gif paint targets (= the back-buffer for that tick),
     not the previous one."""
     path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
-    widget = GifPlayer(path=str(path), fit="stretch", text="X", text_align="right")
+    # scroll_over keeps the per-tick loop active (static text fast-paths
+    # to a single paint, which would mask the back-buffer-follow bug).
+    widget = GifPlayer(
+        path=str(path), fit="stretch", text="X", text_align="scroll_over"
+    )
     real = _bigsign_real_canvas()
 
     frame = mocker.MagicMock()
@@ -1015,13 +1017,15 @@ async def test_play_text_scale_1_text_canvas_follows_back_buffer(tmp_path, mocke
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen: list[object] = []
-    real_draw = __import__("led_ticker.widgets.gif", fromlist=["draw_text"]).draw_text
+    real_draw = __import__(
+        "led_ticker.widgets._image_base", fromlist=["draw_text"]
+    ).draw_text
 
     def spy(canvas, font, x, y, color, text):
         seen.append(canvas)
         return real_draw(canvas, font, x, y, color, text)
 
-    mocker.patch("led_ticker.widgets.gif.draw_text", side_effect=spy)
+    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
 
     await widget.play(real, frame, loop_count=3)
 
@@ -1056,7 +1060,7 @@ async def test_play_text_scale_1_uses_real_canvas(tmp_path, mocker):
 
     seen: list[object] = []
     mocker.patch(
-        "led_ticker.widgets.gif.draw_text",
+        "led_ticker.widgets._image_base.draw_text",
         side_effect=lambda c, *a, **kw: seen.append(c) or 6,
     )
 

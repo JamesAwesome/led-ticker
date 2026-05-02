@@ -58,6 +58,12 @@ class WidgetPresenter:
     def resume(self) -> None:
         self._paused = False
 
+    @property
+    def bg_color(self):
+        """Forward bg_color from the wrapped widget so the orchestrator
+        sees the correct background regardless of presentation wrapping."""
+        return getattr(self.widget, "bg_color", None)
+
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         result = self.mode.draw(
             self.widget,

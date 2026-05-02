@@ -96,3 +96,40 @@ class TestFillBand:
                 for x in range(canvas.width)
             )
         )
+
+    def test_fill_band_through_scaled_canvas_paints_blocks(self):
+        """fill_band on a ScaledCanvas(scale=2) wrapper paints 2×2 blocks
+        on the real canvas. This is the architectural property the helper
+        relies on — TwoRowMessage row bands at scale=4 on the bigsign work
+        only because SetPixel goes through the wrapper's block expansion."""
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        opts = RGBMatrixOptions()
+        opts.cols = 16
+        opts.rows = 8
+        opts.chain_length = 1
+        opts.parallel = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        # scale=2, content_height=4: _y_offset = (8 - 4*2) // 2 = 0 (no letterbox)
+        wrapper = ScaledCanvas(real, scale=2, content_height=4)
+
+        color = _StubColor(255, 0, 128)
+        fill_band(wrapper, 0, 2, color)  # logical rows 0-1 → real rows 0-3 (2x2 blocks)
+
+        # Logical row 0 fills real rows 0-1 across all 16 real cols.
+        # Logical row 1 fills real rows 2-3 across all 16 real cols.
+        for ry in range(0, 4):
+            for rx in range(real.width):
+                assert real.get_pixel(rx, ry) == (
+                    255,
+                    0,
+                    128,
+                ), f"real ({rx},{ry}) should be magenta"
+        # Real rows 4-7 must be untouched (not covered by logical rows 0-1).
+        for ry in range(4, real.height):
+            for rx in range(real.width):
+                assert real.get_pixel(rx, ry) == (
+                    0,
+                    0,
+                    0,
+                ), f"real ({rx},{ry}) should be unset"

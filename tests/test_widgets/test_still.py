@@ -331,6 +331,78 @@ def test_text_y_offset_shifts_baseline(tmp_path, valign, offset, h, expected):
     assert widget._baseline_y(h) == expected
 
 
+@pytest.mark.parametrize(
+    "align,offset,expected_x",
+    [
+        ("left", 0, 2),  # default: 2-px gap from left edge
+        ("left", 10, 12),  # shifted right by 10
+        ("left", -2, 0),  # shifted hard against left edge
+        ("right", 0, 256 - 6 - 2),  # 256 - text_width(6) - 2
+        ("right", -10, 256 - 6 - 2 - 10),  # shifted left from right edge
+        ("right", 5, 256 - 6 - 2 + 5),  # shifted past default into edge
+    ],
+)
+async def test_text_x_offset_shifts_static_text(
+    tmp_path, mocker, align, offset, expected_x
+):
+    """text_x_offset adds to whatever text_align computes — extends the
+    valign-style adjustment to the horizontal axis. No-op for scrolling
+    text (covered separately)."""
+    path = _make_png(tmp_path, color=(0, 0, 0))
+    widget = StillImage(
+        path=str(path),
+        fit="stretch",
+        text="X",  # 6-px wide in stub font
+        text_align=align,
+        text_x_offset=offset,
+        hold_seconds=0.05,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_x: list[int] = []
+    mocker.patch(
+        "led_ticker.widgets.still.draw_text",
+        side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
+    )
+
+    await widget.play(real, frame)
+
+    assert seen_x[0] == expected_x
+
+
+async def test_text_x_offset_is_noop_for_scrolling(tmp_path, mocker):
+    """For scrolling modes, text_x is the dynamic scroll_pos — text_x_offset
+    must NOT shift it (would add a constant skew to the trajectory)."""
+    path = _make_png(tmp_path, color=(0, 0, 0))
+    widget = StillImage(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="scroll",
+        text_x_offset=99,  # would skew trajectory if applied
+        scroll_speed_ms=50,
+        hold_seconds=0.15,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_x: list[int] = []
+    mocker.patch(
+        "led_ticker.widgets.still.draw_text",
+        side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
+    )
+
+    await widget.play(real, frame)
+
+    # First scroll_pos = text_w (256), NOT 256 + 99
+    assert seen_x[0] == 256
+
+
 async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker):
     """At text_scale=2 with text_valign='top', the wrapper now uses
     content_height = panel_h // scale (so it spans the full panel) —

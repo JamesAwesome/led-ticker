@@ -35,6 +35,9 @@ Field               Default            Description
 ``text_y_offset``   ``0``              Logical-pixel shift added to the baseline
                                        picked by `text_valign`. Negative = up,
                                        positive = down.
+``text_x_offset``   ``0``              Logical-pixel shift on static text x.
+                                       Positive = right, negative = left.
+                                       No-op for scrolling text.
 ``scroll_direction`` ``"left"``        ``left`` | ``right``. Direction the
                                        marquee TRAVELS (left = enters from
                                        right edge, exits left). Only matters
@@ -136,6 +139,11 @@ class GifPlayer:
     # font's intrinsic cell-padding leaves caps a few rows below the
     # panel edge at `text_valign="top"` and you want them flush.
     text_y_offset: int = 0
+    # Logical-pixel adjustment added to the static-text x position.
+    # For text_align="left", positive shifts text RIGHT (further from
+    # left edge); for "right", positive shifts text RIGHT past the
+    # default right-edge inset. No-op for "scroll" / "scroll_over".
+    text_x_offset: int = 0
     # "left" | "right" — direction the marquee text TRAVELS across the
     # panel. "left" (default): enters from right, exits left.
     # "right": enters from left, exits right. Only meaningful for
@@ -479,10 +487,13 @@ class GifPlayer:
         n_ticks = max(1, total_ms // tick_ms)
 
         text_width = self._measure_text(text_canvas)
-        text_x_left = _TEXT_EDGE_PADDING_PX
-        text_x_right = max(
-            _TEXT_EDGE_PADDING_PX,
-            text_w - text_width - _TEXT_EDGE_PADDING_PX,
+        text_x_left = _TEXT_EDGE_PADDING_PX + self.text_x_offset
+        text_x_right = (
+            max(
+                _TEXT_EDGE_PADDING_PX,
+                text_w - text_width - _TEXT_EDGE_PADDING_PX,
+            )
+            + self.text_x_offset
         )
 
         # Scroll setup. `scroll_direction = "left"` (default) starts text

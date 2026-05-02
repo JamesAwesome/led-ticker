@@ -253,6 +253,69 @@ def test_text_y_offset_shifts_baseline(tmp_path, valign, offset, h, expected):
     assert widget._baseline_y(h) == expected
 
 
+@pytest.mark.parametrize(
+    "align,offset,expected_x",
+    [
+        ("left", 0, 2),
+        ("left", 10, 12),
+        ("right", 0, 256 - 6 - 2),
+        ("right", -10, 256 - 6 - 2 - 10),
+    ],
+)
+async def test_text_x_offset_shifts_static_text(
+    tmp_path, mocker, align, offset, expected_x
+):
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align=align,
+        text_x_offset=offset,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_x: list[int] = []
+    mocker.patch(
+        "led_ticker.widgets.gif.draw_text",
+        side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
+    )
+
+    await widget.play(real, frame, loop_count=1)
+
+    assert seen_x[0] == expected_x
+
+
+async def test_text_x_offset_is_noop_for_scrolling(tmp_path, mocker):
+    """text_x_offset must not skew scroll trajectory."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
+    widget = GifPlayer(
+        path=str(path),
+        fit="stretch",
+        text="X",
+        text_align="scroll",
+        text_x_offset=99,
+        scroll_speed_ms=50,
+    )
+    real = _bigsign_real_canvas()
+    frame = mocker.MagicMock()
+    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen_x: list[int] = []
+    mocker.patch(
+        "led_ticker.widgets.gif.draw_text",
+        side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
+    )
+
+    await widget.play(real, frame, loop_count=2)
+
+    assert seen_x[0] == 256  # text_w, NOT 256 + 99
+
+
 async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker):
     """At text_scale=2 with text_valign='top', the wrapper now spans
     the FULL panel (content_height = panel_h // scale = 32) — text

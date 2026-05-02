@@ -38,6 +38,7 @@ from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.fonts import FONT_SMALL
 from led_ticker.pixel_emoji import draw_with_emoji, measure_width
 from led_ticker.widgets import register
+from led_ticker.widgets._image_fit import fill_band
 
 # Glyph height used to size rows. FONT_SMALL is 5x8 — 8-tall cells.
 _ROW_HEIGHT = 8
@@ -79,6 +80,9 @@ class TwoRowMessage:
     font: Font = attrs.Factory(lambda: FONT_SMALL)
     top_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
     bottom_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
+    bg_color: Color | None = attrs.field(default=None, kw_only=True)
+    top_bg_color: Color | None = attrs.field(default=None, kw_only=True)
+    bottom_bg_color: Color | None = attrs.field(default=None, kw_only=True)
     # Horizontal alignment per row: "left", "center", or "right". The
     # bottom row's alignment only matters when its text fits — when it
     # overflows, the framework scrolls it from cursor_pos regardless.
@@ -102,6 +106,12 @@ class TwoRowMessage:
         del kwargs  # widget is meant for swap mode; y_offset/transitions ignored
 
         canvas_height = getattr(canvas, "height", 16)
+        mid = canvas_height // 2
+        if self.top_bg_color is not None:
+            fill_band(canvas, 0, mid, self.top_bg_color)
+        if self.bottom_bg_color is not None:
+            fill_band(canvas, mid, canvas_height, self.bottom_bg_color)
+
         top_text_y, top_emoji_y = _row_y(canvas_height, row_index=0)
         bottom_text_y, bottom_emoji_y = _row_y(canvas_height, row_index=1)
 

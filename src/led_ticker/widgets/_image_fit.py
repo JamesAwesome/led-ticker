@@ -7,7 +7,7 @@ The fit modes and `image_align` semantics are identical for all
 consumers so the TOML config schema is consistent across image widgets.
 
 To extend with a new image source: import `apply_fit`, `flatten_onto_black`,
-`validate_choice`, `VALID_FITS`, `VALID_GIF_ALIGNS` from here. Do NOT
+`validate_choice`, `VALID_FITS`, `VALID_IMAGE_ALIGNS` from here. Do NOT
 duplicate these helpers in a new module.
 """
 
@@ -16,7 +16,7 @@ from __future__ import annotations
 from PIL import Image
 
 VALID_FITS: frozenset[str] = frozenset({"pillarbox", "letterbox", "stretch", "crop"})
-VALID_GIF_ALIGNS: frozenset[str] = frozenset({"left", "center", "right"})
+VALID_IMAGE_ALIGNS: frozenset[str] = frozenset({"left", "center", "right"})
 
 
 def validate_choice(name: str, value: str, allowed: frozenset[str]) -> None:
@@ -24,6 +24,25 @@ def validate_choice(name: str, value: str, allowed: frozenset[str]) -> None:
     error messages match across the widget + decode helpers."""
     if value not in allowed:
         raise ValueError(f"unknown {name}={value!r}; expected one of {sorted(allowed)}")
+
+
+def scan_non_black(
+    pixels: bytes, w: int, h: int
+) -> list[tuple[int, int, int, int, int]]:
+    """Walk panel-sized RGB bytes and return `(x, y, r, g, b)` for every
+    non-zero pixel. Used by both `GifPlayer` and `StillImage` to build
+    the skip-black scroll-text cache once per decode."""
+    nb: list[tuple[int, int, int, int, int]] = []
+    for y in range(h):
+        row = y * w * 3
+        for x in range(w):
+            base = row + x * 3
+            r = pixels[base]
+            g = pixels[base + 1]
+            b = pixels[base + 2]
+            if r or g or b:
+                nb.append((x, y, r, g, b))
+    return nb
 
 
 def flatten_onto_black(

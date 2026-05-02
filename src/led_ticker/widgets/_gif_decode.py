@@ -17,7 +17,7 @@ from PIL import Image
 
 from led_ticker.widgets._image_fit import (
     VALID_FITS,
-    VALID_GIF_ALIGNS,
+    VALID_IMAGE_ALIGNS,
     validate_choice,
 )
 from led_ticker.widgets._image_fit import (
@@ -46,7 +46,7 @@ def decode_gif(
     once per gif on the first clamped frame.
     """
     validate_choice("fit", fit, VALID_FITS)
-    validate_choice("image_align", image_align, VALID_GIF_ALIGNS)
+    validate_choice("image_align", image_align, VALID_IMAGE_ALIGNS)
 
     path = Path(path)
     if not path.exists():

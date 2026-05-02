@@ -48,6 +48,10 @@ Field               Default            Description
                                        scrolling text.
 ==================  =================  ==========================================
 
+``text_align="auto"`` resolution: ``image_align="left" → text_align="right"``,
+``image_align="right" → "left"``, ``image_align="center" → "scroll_over"``
+(centered image has no opposite pillar, so we put text over the gif).
+
 Constraints validated at construction:
     - ``text_scale >= 1``
     - ``hold_seconds >= 0.05``
@@ -59,6 +63,9 @@ Constraints validated at construction:
       no-ops to the user)
     - ``text_align="scroll"`` requires ``fit != "stretch"`` (scroll relies
       on transparent / pillarbox regions for skip-black to expose text)
+
+Validated at first paint (panel dims unknown until then):
+    - ``panel_h // text_scale >= 12`` (BDF cell needs 12 logical rows)
 """
 
 from __future__ import annotations
@@ -76,8 +83,9 @@ from led_ticker.widgets import register
 from led_ticker.widgets._image_base import HOLD_SECONDS_FLOOR, _BaseImageWidget
 from led_ticker.widgets._image_fit import (
     VALID_FITS,
-    VALID_GIF_ALIGNS,
+    VALID_IMAGE_ALIGNS,
     apply_fit,
+    scan_non_black,
     validate_choice,
 )
 
@@ -97,7 +105,7 @@ def _decode_still(
     the existing skip-black scroll path exposes them.
     """
     validate_choice("fit", fit, VALID_FITS)
-    validate_choice("image_align", image_align, VALID_GIF_ALIGNS)
+    validate_choice("image_align", image_align, VALID_IMAGE_ALIGNS)
 
     path = Path(path)
     if not path.exists():
@@ -172,19 +180,7 @@ class StillImage(_BaseImageWidget):
         self._pil_image = Image.frombytes(
             "RGB", (self._panel_w, self._panel_h), self._pixels
         )
-        nb: list[tuple[int, int, int, int, int]] = []
-        w, h = self._panel_w, self._panel_h
-        pixels = self._pixels
-        for y in range(h):
-            row = y * w * 3
-            for x in range(w):
-                base = row + x * 3
-                r = pixels[base]
-                g = pixels[base + 1]
-                b = pixels[base + 2]
-                if r or g or b:
-                    nb.append((x, y, r, g, b))
-        self._non_black = nb
+        self._non_black = scan_non_black(self._pixels, self._panel_w, self._panel_h)
 
     # ------------------------------------------------------------------
     # _BaseImageWidget hook implementations

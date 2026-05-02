@@ -63,8 +63,12 @@ Constraints validated at construction:
     - ``text_x_offset != 0`` requires ``text_align`` ∈ ``{left, right}``
     - ``text_align="scroll"`` requires ``fit != "stretch"``
 
-See CLAUDE.md "GIF widget" for architectural context (native-resolution
-painting, play() dispatch, transparent decode, etc.).
+Validated at first paint (panel dims unknown until then):
+    - ``panel_h // text_scale >= 12`` (BDF cell needs 12 logical rows)
+
+See CLAUDE.md "GIF widget and Still-image widget" for architectural
+context (shared base class, native-resolution painting, play()
+dispatch, transparent decode).
 """
 
 from __future__ import annotations
@@ -94,6 +98,9 @@ class GifPlayer(_BaseImageWidget):
 
     _frames: list[tuple[bytes, int]] = attrs.field(init=False, factory=list)
     _current_frame_idx: int = attrs.field(init=False, default=0)
+    # Sum of frame durations — cached at decode so `_pick_frame_for_elapsed`
+    # doesn't re-sum on every tick.
+    _loop_ms: int = attrs.field(init=False, default=0)
     # Derived per-frame caches built lazily by `_ensure_paint_caches`.
     # `_pil_images[i]` is for `canvas.SetImage`; `_non_black[i]` is the
     # skip-black scroll path.
@@ -124,6 +131,7 @@ class GifPlayer(_BaseImageWidget):
             fit=self.fit,
             image_align=self.image_align,
         )
+        self._loop_ms = sum(d for _, d in self._frames)
 
     def _ensure_paint_caches(self) -> None:
         """Build per-frame PIL images + non-black pixel lists from the
@@ -140,21 +148,13 @@ class GifPlayer(_BaseImageWidget):
             return
         from PIL import Image
 
+        from led_ticker.widgets._image_fit import scan_non_black
+
         pil_images: list[Any] = []
         non_black: list[list[tuple[int, int, int, int, int]]] = []
         for pixels, _ in self._frames:
             pil_images.append(Image.frombytes("RGB", (panel_w, panel_h), pixels))
-            nb: list[tuple[int, int, int, int, int]] = []
-            for y in range(panel_h):
-                row = y * panel_w * 3
-                for x in range(panel_w):
-                    base = row + x * 3
-                    r = pixels[base]
-                    g = pixels[base + 1]
-                    b = pixels[base + 2]
-                    if r or g or b:
-                        nb.append((x, y, r, g, b))
-            non_black.append(nb)
+            non_black.append(scan_non_black(pixels, panel_w, panel_h))
         self._pil_images = pil_images
         self._non_black = non_black
 
@@ -193,9 +193,15 @@ class GifPlayer(_BaseImageWidget):
     def _pick_frame_for_elapsed(self, elapsed_ms: int) -> None:
         """Advance `_current_frame_idx` based on elapsed playback time
         (per-tick hook from the base text-scroll loop)."""
-        if self._frames:
-            loop_ms = sum(d for _, d in self._frames)
-            self._current_frame_idx = self._frame_for_elapsed(elapsed_ms, loop_ms)
+        if self._loop_ms > 0:
+            self._current_frame_idx = self._frame_for_elapsed(elapsed_ms, self._loop_ms)
+
+    def _is_static(self) -> bool:
+        """A 0- or 1-frame gif is effectively a still image — the
+        static-text fast path can apply. Multi-frame gifs must NOT
+        fast-path or they freeze on frame 0 with no per-tick frame
+        advance. (Tripwire: `test_gif_static_text_does_not_freeze_animation`.)"""
+        return len(self._frames) <= 1
 
     # ------------------------------------------------------------------
     # Widget protocol + per-section orchestration
@@ -244,8 +250,11 @@ class GifPlayer(_BaseImageWidget):
             return await self._play_no_text(real_canvas, frame, loop_count)
 
         loops = max(1, loop_count)
-        loop_ms = sum(d for _, d in self._frames)
-        total_ms = loop_ms * loops
+        # Cache `_loop_ms` defensively in case `_frames` was injected
+        # without going through `_load` (e.g. tests that bypass decode).
+        if self._loop_ms == 0:
+            self._loop_ms = sum(d for _, d in self._frames)
+        total_ms = self._loop_ms * loops
         tick_ms = max(MIN_SCROLL_SPEED_MS, self.scroll_speed_ms)
         n_ticks = max(1, total_ms // tick_ms)
         return await self._play_with_text(real_canvas, frame, n_ticks)

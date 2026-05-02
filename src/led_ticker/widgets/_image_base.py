@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import asyncio
 import re
-import warnings
 from typing import Any
 
 import attrs
@@ -31,7 +30,7 @@ from led_ticker.drawing import get_text_width
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.text_render import draw_text
-from led_ticker.widgets._image_fit import VALID_GIF_ALIGNS, validate_choice
+from led_ticker.widgets._image_fit import VALID_IMAGE_ALIGNS, validate_choice
 
 VALID_TEXT_ALIGNS: frozenset[str] = frozenset(
     {"left", "right", "scroll", "scroll_over"}
@@ -80,6 +79,10 @@ class _BaseImageWidget:
     _panel_w: int = attrs.field(init=False, default=0)
     _panel_h: int = attrs.field(init=False, default=0)
 
+    # Cached at validation time (text is invariant for the widget's
+    # lifetime); avoids re-running EMOJI_PATTERN.search per tick.
+    _has_emoji_cached: bool = attrs.field(init=False, default=False)
+
     # ------------------------------------------------------------------
     # Subclass hooks — must be implemented by subclasses
     # ------------------------------------------------------------------
@@ -97,6 +100,16 @@ class _BaseImageWidget:
         """Advance per-frame state. No-op for single-frame stills;
         gif overrides to update `_current_frame_idx`."""
 
+    def _is_static(self) -> bool:
+        """Whether the source has only one renderable frame. Drives the
+        static-text fast path: when True AND text is non-scrolling AND
+        text_loops==0, the rendered output is identical every tick so
+        we paint once + sleep cumulative duration. False (default)
+        forces the per-tick loop to run so animated sources keep
+        advancing frames even alongside static text. GifPlayer
+        overrides to `len(self._frames) <= 1`."""
+        return True
+
     # ------------------------------------------------------------------
     # Shared validation — call from subclass __attrs_post_init__
     # ------------------------------------------------------------------
@@ -108,7 +121,7 @@ class _BaseImageWidget:
         combinations like `text_align="scroll"` + `fit="stretch"` that
         produce silent no-text rendering.
         """
-        validate_choice("image_align", image_align, VALID_GIF_ALIGNS)
+        validate_choice("image_align", image_align, VALID_IMAGE_ALIGNS)
         # Resolve text_align="auto" based on image_align so text doesn't
         # overlap the image by default. Authors can pin any value.
         if self.text_align == "auto":
@@ -152,6 +165,9 @@ class _BaseImageWidget:
                 "to show through; got fit='stretch' (whole panel is opaque). "
                 "Use text_align='scroll_over' for marquee on a fullscreen image."
             )
+        # Cache emoji-presence so the per-tick paint loop doesn't re-run
+        # the regex against an invariant string.
+        self._has_emoji_cached = bool(EMOJI_PATTERN.search(self.text))
 
     # ------------------------------------------------------------------
     # Shared text-rendering helpers
@@ -173,7 +189,7 @@ class _BaseImageWidget:
         return base + self.text_y_offset
 
     def _has_emoji(self) -> bool:
-        return bool(EMOJI_PATTERN.search(self.text))
+        return self._has_emoji_cached
 
     def _measure_text(self, canvas: Canvas) -> int:
         if self._has_emoji():
@@ -297,8 +313,11 @@ class _BaseImageWidget:
             n_ticks = max(n_ticks, self.text_loops * ticks_per_text_loop)
 
         # Static-text fast path: image + text are constant across ticks,
-        # so paint once and hold instead of redrawing N times.
-        if not scrolling and self.text_loops == 0:
+        # so paint once and hold instead of redrawing N times. Only
+        # safe when the source itself is static (`_is_static()`) — for
+        # animated sources (multi-frame gifs) we'd freeze the gif on
+        # frame 0 by skipping the per-tick `_pick_frame_for_elapsed`.
+        if not scrolling and self.text_loops == 0 and self._is_static():
             self._render_tick(
                 canvas,
                 text_canvas,
@@ -340,13 +359,3 @@ class _BaseImageWidget:
                     scroll_pos = -text_width
 
         return canvas
-
-
-def warn_deprecated_gif_align() -> None:
-    """One-shot warning that the `gif_align` config field is deprecated."""
-    warnings.warn(
-        "`gif_align` is deprecated; use `image_align` instead. "
-        "`gif_align` will be removed in a future release.",
-        DeprecationWarning,
-        stacklevel=3,
-    )

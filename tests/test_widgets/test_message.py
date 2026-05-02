@@ -105,3 +105,28 @@ class TestTickerCountdown:
         # Should not raise, just show negative days
         _, cursor_pos = cd.draw(canvas)
         assert cursor_pos > 0
+
+
+class TestBgColor:
+    def test_bg_color_default_is_none(self):
+        msg = TickerMessage(message="hi")
+        assert msg.bg_color is None
+
+    def test_bg_color_accepts_color(self):
+        from rgbmatrix.graphics import Color
+
+        bg = Color(20, 40, 60)
+        msg = TickerMessage(message="hi", bg_color=bg)
+        assert msg.bg_color is bg
+
+    def test_countdown_bg_color_default_is_none(self):
+        cd = TickerCountdown(message="X", countdown_date=date(2099, 1, 1))
+        assert cd.bg_color is None
+
+    def test_countdown_accepts_bg_color(self):
+        from rgbmatrix.graphics import Color
+
+        cd = TickerCountdown(
+            message="X", countdown_date=date(2099, 1, 1), bg_color=Color(1, 2, 3)
+        )
+        assert cd.bg_color.red == 1

@@ -28,6 +28,7 @@ class TickerMessage:
     message: str
     font: Font = attrs.Factory(lambda: FONT_DEFAULT)
     font_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
+    bg_color: Color | None = attrs.field(default=None, kw_only=True)
     center: bool = True
     padding: int = 6
     _content_width: int = attrs.field(init=False, default=-1)
@@ -91,6 +92,7 @@ class TickerCountdown:
     countdown_date: date
     font: Font = attrs.Factory(lambda: FONT_DEFAULT)
     font_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
+    bg_color: Color | None = attrs.field(default=None, kw_only=True)
     center: bool = True
     padding: int = 6
 

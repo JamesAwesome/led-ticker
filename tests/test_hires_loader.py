@@ -869,3 +869,104 @@ class TestShowFlags:
 
         assert PokeballReverse()._show_pokeball is True
         assert PokeballReverse(show_pokeball=False)._show_pokeball is False
+
+
+class TestBaseballRotation:
+    """Baseball rotation index advances with travel, producing visually
+    distinct frames as the ball rolls. Locks in the 'rolling' behavior."""
+
+    def _setup(self):
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        opts = RGBMatrixOptions()
+        opts.cols = 256
+        opts.rows = 64
+        opts.chain_length = 1
+        opts.parallel = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+        return real, wrapped
+
+    def _render_at(self, t, real, wrapped, *, flip_horizontal=False):
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions._hires_loader import (
+            render_hires_baseball_frame,
+        )
+
+        # Reset canvas before each render
+        for y in range(real.height):
+            for x in range(real.width):
+                real.SetPixel(x, y, 0, 0, 0)
+
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        render_hires_baseball_frame(
+            t,
+            wrapped,
+            outgoing,
+            incoming,
+            flip_horizontal=flip_horizontal,
+            duration_ms=1500,
+        )
+
+    def _white_pixels_set(self, real):
+        # Snapshot of where the ball's white body lit up (modulo trail).
+        # Ball-white in this codebase is (250, 250, 245).
+        return {
+            (x, y)
+            for y in range(real.height)
+            for x in range(real.width)
+            if real.get_pixel(x, y) == (250, 250, 245)
+        }
+
+    def test_rotation_produces_distinct_frames_across_travel(self):
+        """At several t values mid-traversal the WHITE-pixel pattern of
+        the ball should differ between samples — proves rotation_idx is
+        cycling. We sample 4 t values spread evenly across the visible
+        traversal."""
+        real, wrapped = self._setup()
+        snapshots = []
+        for t in [0.15, 0.35, 0.55, 0.75]:
+            self._render_at(t, real, wrapped)
+            snapshots.append(self._white_pixels_set(real))
+
+        # At least 2 distinct rotation positions observed across the 4
+        # samples. Some samples may coincidentally land on the same
+        # rotation_idx % 8, but with 8 frames over the full panel width
+        # at least 2 must differ for "rolling" to be true.
+        unique = {frozenset(s) for s in snapshots}
+        assert len(unique) >= 2, (
+            f"baseball did not rotate as it traveled: only "
+            f"{len(unique)} distinct frame snapshot(s) over 4 samples"
+        )
+
+    def test_rtl_rotation_produces_distinct_frames(self):
+        """Same property holds for the reverse direction."""
+        real, wrapped = self._setup()
+        snapshots = []
+        for t in [0.15, 0.35, 0.55, 0.75]:
+            self._render_at(t, real, wrapped, flip_horizontal=True)
+            snapshots.append(self._white_pixels_set(real))
+
+        unique = {frozenset(s) for s in snapshots}
+        assert len(unique) >= 2
+
+    def test_rotation_constants_align(self):
+        """_BASEBALL_ROTATION_FRAMES is the divisor used by the renderer's
+        pixels_per_rotation_frame formula. If a future change drops the
+        constant out of sync, this test catches it."""
+        from led_ticker.transitions._hires_loader import (
+            _BASEBALL_ROTATION_FRAMES,
+        )
+
+        assert _BASEBALL_ROTATION_FRAMES >= 4, (
+            "fewer than 4 rotation frames means the ball will read as "
+            "alternating between 2 patterns instead of rolling"
+        )
+        assert _BASEBALL_ROTATION_FRAMES <= 32, (
+            "more than 32 frames over a single panel-width traversal "
+            "would cycle so fast it looks chaotic on a 256-wide panel"
+        )

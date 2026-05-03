@@ -205,3 +205,86 @@ class TestNyanCatReverseTransition:
         nyan.frame_at(0.3, pixel_canvas, outgoing, incoming)
         assert outgoing.draw.called
         assert not incoming.draw.called
+
+
+class TestNyanCatDispatch:
+    def test_mock_canvas_takes_lowres_path(self):
+        """Mock isn't a ScaledCanvas → lowres path. Existing behavior preserved."""
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions.nyancat import NyanCat
+
+        canvas = mock_mod.MagicMock()
+        canvas.width = 160
+        canvas.height = 16
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+
+        nc = NyanCat()
+        # Spy on both branches.
+        with (
+            mock_mod.patch.object(
+                nc, "_frame_at_lowres", wraps=nc._frame_at_lowres
+            ) as lowres,
+            mock_mod.patch.object(
+                nc, "_frame_at_hires", wraps=nc._frame_at_hires
+            ) as hires,
+        ):
+            nc.frame_at(0.5, canvas, outgoing, incoming)
+            lowres.assert_called_once()
+            hires.assert_not_called()
+
+    def test_scaled_canvas_with_registered_name_takes_hires_path(self):
+        import unittest.mock as mock_mod
+
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions.nyancat import NyanCat
+
+        opts = RGBMatrixOptions()
+        opts.cols = 256
+        opts.rows = 64
+        opts.chain_length = 1
+        opts.parallel = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        nc = NyanCat()
+
+        with (
+            mock_mod.patch.object(
+                nc, "_frame_at_lowres", wraps=nc._frame_at_lowres
+            ) as lowres,
+            mock_mod.patch.object(
+                nc, "_frame_at_hires", wraps=nc._frame_at_hires
+            ) as hires,
+        ):
+            nc.frame_at(0.5, wrapped, outgoing, incoming, duration_ms=500)
+            hires.assert_called_once()
+            lowres.assert_not_called()
+
+    def test_nyancat_registry_name(self):
+        from led_ticker.transitions.nyancat import NyanCat
+
+        assert NyanCat._registry_name == "nyancat"
+
+    def test_nyancat_reverse_registry_name(self):
+        from led_ticker.transitions.nyancat import NyanCatReverse
+
+        assert NyanCatReverse._registry_name == "nyancat_reverse"
+
+    def test_t_above_one_snaps_to_incoming_in_either_path(self):
+        """The early-return at t>=1.0 runs before dispatch, so both paths
+        end on incoming.draw at t=1.0."""
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions.nyancat import NyanCat
+
+        canvas = mock_mod.MagicMock()
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        NyanCat().frame_at(1.0, canvas, outgoing, incoming)
+        incoming.draw.assert_called_once()

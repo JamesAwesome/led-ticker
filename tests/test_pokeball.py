@@ -223,3 +223,82 @@ class TestPokeballAlternatingTransition:
         # Third cycle — wraps back to 0
         poke.frame_at(0.0, canvas, make_widget(40), make_widget(40))
         assert poke._index == 0
+
+
+class TestPokeballDispatch:
+    def test_mock_canvas_takes_lowres_path(self):
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions.pokeball import Pokeball
+
+        canvas = mock_mod.MagicMock()
+        canvas.width = 160
+        canvas.height = 16
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        pb = Pokeball()
+        with (
+            mock_mod.patch.object(
+                pb, "_frame_at_lowres", wraps=pb._frame_at_lowres
+            ) as lowres,
+            mock_mod.patch.object(
+                pb, "_frame_at_hires", wraps=pb._frame_at_hires
+            ) as hires,
+        ):
+            pb.frame_at(0.5, canvas, outgoing, incoming)
+            lowres.assert_called_once()
+            hires.assert_not_called()
+
+    def test_scaled_canvas_takes_hires_path(self):
+        import unittest.mock as mock_mod
+
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions.pokeball import Pokeball
+
+        opts = RGBMatrixOptions()
+        opts.cols = 256
+        opts.rows = 64
+        opts.chain_length = 1
+        opts.parallel = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        pb = Pokeball()
+        with (
+            mock_mod.patch.object(
+                pb, "_frame_at_lowres", wraps=pb._frame_at_lowres
+            ) as lowres,
+            mock_mod.patch.object(
+                pb, "_frame_at_hires", wraps=pb._frame_at_hires
+            ) as hires,
+        ):
+            pb.frame_at(0.5, wrapped, outgoing, incoming, duration_ms=500)
+            hires.assert_called_once()
+            lowres.assert_not_called()
+
+    def test_pokeball_registry_name(self):
+        from led_ticker.transitions.pokeball import Pokeball
+
+        assert Pokeball._registry_name == "pokeball"
+
+    def test_pokeball_reverse_registry_name(self):
+        from led_ticker.transitions.pokeball import PokeballReverse
+
+        assert PokeballReverse._registry_name == "pokeball_reverse"
+
+    def test_show_pikachu_kwarg_preserved(self):
+        """The existing show_pikachu constructor kwarg still works."""
+        from led_ticker.transitions.pokeball import Pokeball
+
+        p1 = Pokeball(show_pikachu=False)
+        assert p1._show_pikachu is False
+        p2 = Pokeball(show_pikachu=True)
+        assert p2._show_pikachu is True
+
+    def test_min_frames_preserved(self):
+        from led_ticker.transitions.pokeball import Pokeball
+
+        assert Pokeball.min_frames == 40

@@ -89,11 +89,6 @@ def _make_tiny_sprite(tmp_path, *, n_frames=2, size=(8, 8), durations=(50, 100))
     return path
 
 
-@pytest.fixture
-def tiny_sprite(tmp_path):
-    return _make_tiny_sprite(tmp_path)
-
-
 @pytest.fixture(autouse=True)
 def _clear_loader_cache():
     """Ensure load_hires's @functools.cache is cleared between tests so
@@ -267,14 +262,10 @@ class TestRenderHiresFrame:
         outgoing = _mock_mod.MagicMock()
         incoming = _mock_mod.MagicMock()
         # At t=0, sprite_x = -sprite.width -- sprite is fully off-left.
-        # Only the rightmost pixels (close to sprite_x + sprite.width) are
-        # in [0, panel_w). After painting, no real pixel is lit at x=panel_w-1
-        # with the sprite's color (sprite hasn't reached the right edge yet).
+        # All sprite pixels have rx < 0, so the clip guard discards them all.
+        # The real canvas should have zero lit pixels (outgoing mock draws nothing).
         render_hires_frame(0.0, wrapped, outgoing, incoming, name, duration_ms=500)
-        # We don't assert exact lit-pixel counts here (depends on sprite
-        # geometry); we only assert no crash and SetPixel never received
-        # an out-of-bounds x. _StubCanvas.SetPixel itself bounds-checks
-        # so a smoke run is enough.
+        assert real.count_nonzero() == 0
 
     def test_unknown_registry_name_returns_canvas_unchanged(
         self, tmp_path, monkeypatch

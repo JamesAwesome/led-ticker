@@ -29,7 +29,7 @@ from led_ticker.widgets._image_fit import scan_non_black
 SNAP_THRESHOLD: float = 0.95
 
 
-@dataclass
+@dataclass(frozen=True)
 class HiresFrames:
     """Decoded sprite, ready to paint at native resolution."""
 
@@ -37,10 +37,14 @@ class HiresFrames:
     height: int
     durations_ms: list[int]
     non_black: list[list[tuple[int, int, int, int, int]]]
+    flip_horizontal: bool
     total_loop_ms: int = field(init=False)
 
     def __post_init__(self) -> None:
-        self.total_loop_ms = sum(self.durations_ms)
+        # frozen=True blocks normal attr assignment; use object.__setattr__
+        # to set the auto-computed field. Standard pattern for frozen
+        # dataclasses with init=False derived fields.
+        object.__setattr__(self, "total_loop_ms", sum(self.durations_ms))
 
 
 def _frame_for_elapsed(elapsed_ms: int, durations: list[int]) -> int:
@@ -88,6 +92,8 @@ def _decode(spec: HiresSpec, panel_h: int = 64) -> HiresFrames:
             black.paste(scaled, (0, 0), mask=scaled.split()[3])
             pixels = black.tobytes()
 
+            # For animated WebP, Pillow populates img.info["duration"] only after
+            # convert() forces frame decode. Read after convert, not before.
             durations.append(int(src.info.get("duration", 50)))
             non_black.append(scan_non_black(pixels, new_w, new_h))
             out_width = new_w
@@ -98,6 +104,7 @@ def _decode(spec: HiresSpec, panel_h: int = 64) -> HiresFrames:
         height=out_height,
         durations_ms=durations,
         non_black=non_black,
+        flip_horizontal=spec.flip_horizontal,
     )
 
 
@@ -141,8 +148,7 @@ def render_hires_frame(
     # 3. x-position. flip_horizontal drives both art mirroring AND
     #    traversal direction -- sprite faces its travel direction.
     travel = panel_w + sprite.width
-    spec = HIRES_REGISTRY[registry_name]
-    if spec.flip_horizontal:
+    if sprite.flip_horizontal:
         sprite_x = panel_w - int(t * travel)
     else:
         sprite_x = -sprite.width + int(t * travel)

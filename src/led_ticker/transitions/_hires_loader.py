@@ -78,7 +78,7 @@ def _decode(spec: HiresSpec, panel_h: int = 64) -> HiresFrames:
             src.seek(i)
             rgba = src.convert("RGBA")
             if spec.flip_horizontal:
-                rgba = rgba.transpose(Image.FLIP_LEFT_RIGHT)
+                rgba = rgba.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
 
             scale = panel_h / rgba.height
             new_w = max(1, round(rgba.width * scale))

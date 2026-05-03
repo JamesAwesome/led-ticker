@@ -201,9 +201,12 @@ def load_hires(transition_name: str) -> HiresFrames | None:
     return _decode(spec)
 
 
-# Number of rotation frames cycled through as the baseball rolls. 4 frames
-# at 90° increments matches the lowres baseball's animation cadence.
-_BASEBALL_ROTATION_FRAMES: int = 4
+# Number of rotation frames cycled through as the baseball rolls. The
+# baseball's seam pattern has 180° rotational symmetry, so 4 frames at
+# 90° steps yield only 2 unique appearances — the eye reads that as
+# the ball alternating between two patterns instead of rolling. 16
+# frames at 22.5° increments give smooth rolling motion.
+_BASEBALL_ROTATION_FRAMES: int = 16
 
 
 @functools.cache
@@ -313,7 +316,11 @@ def render_hires_baseball_frame(
                 set_px(x, y, 0, 0, 0)
 
     # Rotation: ball rolls clockwise for LTR, counterclockwise for RTL.
-    pixels_per_rotation_frame = max(1, ball_radius // 2)
+    # `pixels_per_rotation_frame` controls how often the rotation index
+    # advances. With 16 rotation frames, advancing every ball_radius//8
+    # pixels means a full rotation takes ~2 × ball_radius pixels of
+    # travel — close to a real ball's circumference (π × diameter).
+    pixels_per_rotation_frame = max(1, ball_radius // 8)
     if flip_horizontal:
         travel_done = max(0, panel_w - ball_cx)
         # negate idx so RTL cycles 0 → 3 → 2 → 1 (counterclockwise)

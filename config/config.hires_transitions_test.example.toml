@@ -79,7 +79,7 @@ loop_count = 2
 [[playlist.section]]
 mode = "swap"
 hold_time = 2.0
-loop_count = 1
+loop_count = 2
 
   [playlist.section.transition]
   type = "pokeball"
@@ -95,7 +95,7 @@ loop_count = 1
 [[playlist.section]]
 mode = "swap"
 hold_time = 2.0
-loop_count = 1
+loop_count = 2
 
   [playlist.section.transition]
   type = "pokeball"
@@ -177,7 +177,7 @@ loop_count = 2
 [[playlist.section]]
 mode = "swap"
 hold_time = 2.0
-loop_count = 1
+loop_count = 2
 
   [playlist.section.transition]
   type = "cut"

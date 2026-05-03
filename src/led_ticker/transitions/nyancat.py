@@ -247,7 +247,14 @@ def draw_nyan_frame_rtl(
 
 @register_transition("nyancat")
 class NyanCat:
-    """Nyan Cat flies left-to-right, rainbow fills screen before cut."""
+    """Nyan Cat flies left-to-right, rainbow fills screen before cut.
+
+    On a `ScaledCanvas` (bigsign), dispatches to the hi-res path which
+    paints a real animated sprite at native physical resolution. Lowres
+    path (small sign / tests) is preserved unchanged.
+    """
+
+    _registry_name: str = "nyancat"
 
     def __init__(self, **kwargs: Any) -> None:
         pass
@@ -259,6 +266,16 @@ class NyanCat:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions._hires_registry import HIRES_REGISTRY
+
+        if isinstance(canvas, ScaledCanvas) and self._registry_name in HIRES_REGISTRY:
+            return self._frame_at_hires(t, canvas, outgoing, incoming, **kwargs)
+        return self._frame_at_lowres(t, canvas, outgoing, incoming, **kwargs)
+
+    def _frame_at_lowres(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         draw_nyan_frame(
@@ -269,10 +286,21 @@ class NyanCat:
         )
         return canvas
 
+    def _frame_at_hires(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        return render_hires_frame(
+            t, canvas, outgoing, incoming, self._registry_name, **kwargs
+        )
+
 
 @register_transition("nyancat_reverse")
 class NyanCatReverse:
     """Nyan Cat flies right-to-left, rainbow fills screen before cut."""
+
+    _registry_name: str = "nyancat_reverse"
 
     def __init__(self, **kwargs: Any) -> None:
         pass
@@ -284,6 +312,16 @@ class NyanCatReverse:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions._hires_registry import HIRES_REGISTRY
+
+        if isinstance(canvas, ScaledCanvas) and self._registry_name in HIRES_REGISTRY:
+            return self._frame_at_hires(t, canvas, outgoing, incoming, **kwargs)
+        return self._frame_at_lowres(t, canvas, outgoing, incoming, **kwargs)
+
+    def _frame_at_lowres(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         draw_nyan_frame_rtl(
@@ -293,6 +331,15 @@ class NyanCatReverse:
             height=getattr(canvas, "height", 16),
         )
         return canvas
+
+    def _frame_at_hires(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        return render_hires_frame(
+            t, canvas, outgoing, incoming, self._registry_name, **kwargs
+        )
 
 
 @register_transition("nyancat_alternating")

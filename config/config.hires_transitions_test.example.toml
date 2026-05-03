@@ -26,6 +26,55 @@ default = "cut"
 duration = 0.6
 between_sections = "cut"
 
+# --- Pacman family (currently lowres-only — preview before deciding on hires) ---
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 2.0
+loop_count = 2
+
+  [playlist.section.transition]
+  type = "pacman"
+  duration = 1.5
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "pacman LTR"
+  font_color = [255, 220, 0]
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 2.0
+loop_count = 2
+
+  [playlist.section.transition]
+  type = "pacman_reverse"
+  duration = 1.5
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "pacman RTL"
+  font_color = [255, 100, 100]
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 2.0
+loop_count = 2
+
+  [playlist.section.transition]
+  type = "pacman_alternating"
+  duration = 1.5
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "pacman alternating"
+  font_color = [180, 255, 180]
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "pacman alternating"
+  font_color = [180, 180, 255]
+
 # --- Baseball family --------------------------------------------------------
 
 [[playlist.section]]

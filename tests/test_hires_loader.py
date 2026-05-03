@@ -37,7 +37,7 @@ class TestHiresRegistry:
         from led_ticker.transitions._hires_registry import HIRES_REGISTRY
 
         spec = HIRES_REGISTRY["pokeball"]
-        assert spec.sprite_path.name == "pokeball.gif"
+        assert spec.sprite_path.name == "pikachu-run-transparent.gif"
         assert spec.flip_horizontal is False
 
     def test_pokeball_reverse_uses_same_file_with_flip(self):

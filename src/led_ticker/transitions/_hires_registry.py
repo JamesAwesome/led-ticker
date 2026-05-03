@@ -45,12 +45,12 @@ HIRES_REGISTRY: dict[str, HiresSpec] = {
         trail="rainbow",
     ),
     "pokeball": HiresSpec(
-        sprite_path=SPRITES_DIR / "pokeball.gif",
+        sprite_path=SPRITES_DIR / "pikachu-run-transparent.gif",
         flip_horizontal=False,
         trail="black",
     ),
     "pokeball_reverse": HiresSpec(
-        sprite_path=SPRITES_DIR / "pokeball.gif",
+        sprite_path=SPRITES_DIR / "pikachu-run-transparent.gif",
         flip_horizontal=True,
         trail="black",
     ),

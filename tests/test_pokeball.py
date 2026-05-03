@@ -331,3 +331,103 @@ class TestPokeballAlternatingDelegatesToHires:
         ) as fwd_hires:
             alt.frame_at(0.5, wrapped, outgoing, incoming, duration_ms=500)
             fwd_hires.assert_called_once()
+
+
+class TestLowresShowPokeballToggle:
+    """Lowres draw_pokeball_frame[_rtl] honor show_pokeball=False."""
+
+    def test_lowres_ltr_show_pokeball_false_omits_ball(self):
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.transitions.pokeball import (
+            POKEBALL_FRAMES,
+            draw_pokeball_frame,
+        )
+
+        # Sample any ball-only pixel color from the sprite to detect the ball.
+        # POKEBALL_FRAMES is a list of pixel-data lists (4 rotation frames).
+        # Find a pixel color that's pokeball-distinctive.
+        ball_colors: set[tuple[int, int, int]] = set()
+        for frame in POKEBALL_FRAMES:
+            for _dx, _dy, r, g, b in frame:
+                ball_colors.add((r, g, b))
+        # Filter out black (background / Pikachu shares some neutrals).
+        ball_colors.discard((0, 0, 0))
+
+        canvas = _StubCanvas(width=160, height=16)
+        draw_pokeball_frame(
+            canvas,
+            0.5,
+            width=160,
+            height=16,
+            show_pikachu=False,
+            show_pokeball=False,
+        )
+        for y in range(16):
+            for x in range(160):
+                p = canvas.get_pixel(x, y)
+                assert p not in ball_colors, (
+                    f"ball-color pixel {p} at ({x}, {y}) " f"with show_pokeball=False"
+                )
+
+    def test_lowres_rtl_show_pokeball_false_omits_ball(self):
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.transitions.pokeball import (
+            POKEBALL_FRAMES,
+            draw_pokeball_frame_rtl,
+        )
+
+        ball_colors: set[tuple[int, int, int]] = set()
+        for frame in POKEBALL_FRAMES:
+            for _dx, _dy, r, g, b in frame:
+                ball_colors.add((r, g, b))
+        ball_colors.discard((0, 0, 0))
+
+        canvas = _StubCanvas(width=160, height=16)
+        draw_pokeball_frame_rtl(
+            canvas,
+            0.5,
+            width=160,
+            height=16,
+            show_pikachu=False,
+            show_pokeball=False,
+        )
+        for y in range(16):
+            for x in range(160):
+                p = canvas.get_pixel(x, y)
+                assert p not in ball_colors, (
+                    f"ball-color pixel {p} at ({x}, {y}) " f"with show_pokeball=False"
+                )
+
+    def test_lowres_show_pokeball_true_paints_ball(self):
+        """Sanity baseline: with show_pokeball=True (default), ball IS painted."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.transitions.pokeball import (
+            POKEBALL_FRAMES,
+            draw_pokeball_frame,
+        )
+
+        ball_colors: set[tuple[int, int, int]] = set()
+        for frame in POKEBALL_FRAMES:
+            for _dx, _dy, r, g, b in frame:
+                ball_colors.add((r, g, b))
+        ball_colors.discard((0, 0, 0))
+
+        canvas = _StubCanvas(width=160, height=16)
+        draw_pokeball_frame(
+            canvas,
+            0.5,
+            width=160,
+            height=16,
+            show_pikachu=False,
+            show_pokeball=True,
+        )
+        ball_pixels = sum(
+            1
+            for y in range(16)
+            for x in range(160)
+            if canvas.get_pixel(x, y) in ball_colors
+        )
+        assert ball_pixels > 0, "expected ball pixels with show_pokeball=True"

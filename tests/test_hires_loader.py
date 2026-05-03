@@ -510,6 +510,110 @@ class TestRenderHiresTrail:
         # And incoming wasn't called yet (still pre-snap).
         incoming.draw.assert_not_called()
 
+    def test_rtl_rainbow_trail_holds_after_saturation_until_snap(
+        self, tmp_path, monkeypatch
+    ):
+        """Mirror of test_trail_holds_after_saturation_until_snap, RTL."""
+        from led_ticker.transitions._hires_loader import (
+            _RAINBOW_TRAIL_COLORS,
+            SNAP_THRESHOLD,
+            TRAIL_SATURATION_T,
+            render_hires_frame,
+        )
+
+        real, wrapped, name = self._setup_with_trail(
+            tmp_path,
+            monkeypatch,
+            trail="rainbow",
+            flip_horizontal=True,
+        )
+        outgoing = _mock_mod.MagicMock()
+        incoming = _mock_mod.MagicMock()
+        mid_hold_t = (TRAIL_SATURATION_T + SNAP_THRESHOLD) / 2
+        render_hires_frame(
+            mid_hold_t,
+            wrapped,
+            outgoing,
+            incoming,
+            name,
+            duration_ms=500,
+        )
+        # Left edge is still covered (RTL trail goes from sprite to right edge,
+        # but during hold both ends are covered).
+        assert real.get_pixel(0, 0) == _RAINBOW_TRAIL_COLORS[0]
+        incoming.draw.assert_not_called()
+
+    def test_ltr_black_trail_fills_full_panel_by_saturation_t(
+        self, tmp_path, monkeypatch
+    ):
+        """Black trail equivalent of the rainbow saturation test."""
+        from led_ticker.transitions._hires_loader import (
+            TRAIL_SATURATION_T,
+            render_hires_frame,
+        )
+
+        real, wrapped, name = self._setup_with_trail(
+            tmp_path,
+            monkeypatch,
+            trail="black",
+            flip_horizontal=False,
+        )
+        # Pre-paint canvas red so we can detect the trail.
+        for y in range(real.height):
+            for x in range(real.width):
+                real.SetPixel(x, y, 255, 0, 0)
+
+        outgoing = _mock_mod.MagicMock()
+        incoming = _mock_mod.MagicMock()
+        render_hires_frame(
+            TRAIL_SATURATION_T,
+            wrapped,
+            outgoing,
+            incoming,
+            name,
+            duration_ms=500,
+        )
+        # Right edge column should now be black (trail) — original red gone.
+        # Sample at row 0 to avoid the procedural pokeball if it's painted.
+        assert real.get_pixel(real.width - 1, 0) == (0, 0, 0)
+
+    def test_rtl_black_trail_holds_after_saturation_until_snap(
+        self, tmp_path, monkeypatch
+    ):
+        """RTL black trail mirror."""
+        from led_ticker.transitions._hires_loader import (
+            SNAP_THRESHOLD,
+            TRAIL_SATURATION_T,
+            render_hires_frame,
+        )
+
+        real, wrapped, name = self._setup_with_trail(
+            tmp_path,
+            monkeypatch,
+            trail="black",
+            flip_horizontal=True,
+        )
+        for y in range(real.height):
+            for x in range(real.width):
+                real.SetPixel(x, y, 255, 0, 0)
+
+        outgoing = _mock_mod.MagicMock()
+        incoming = _mock_mod.MagicMock()
+        mid_hold_t = (TRAIL_SATURATION_T + SNAP_THRESHOLD) / 2
+        render_hires_frame(
+            mid_hold_t,
+            wrapped,
+            outgoing,
+            incoming,
+            name,
+            duration_ms=500,
+        )
+        # During RTL hold, the left edge is covered (trail extends from
+        # sprite — now off-left — to panel right edge, but at full
+        # saturation both ends are covered).
+        assert real.get_pixel(0, 0) == (0, 0, 0)
+        incoming.draw.assert_not_called()
+
 
 @pytest.mark.parametrize(
     "name", ["nyancat", "nyancat_reverse", "pokeball", "pokeball_reverse"]

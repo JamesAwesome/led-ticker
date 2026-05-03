@@ -28,6 +28,18 @@ from led_ticker.widgets._image_fit import scan_non_black
 # a frame of "outgoing only" right before t=1.0.
 SNAP_THRESHOLD: float = 0.95
 
+# Local copy of the lowres nyancat rainbow palette so this loader stays
+# self-contained -- crossing-importing from `nyancat.py` would create a
+# back-edge from the shared loader to a specific transition.
+_RAINBOW_TRAIL_COLORS: list[tuple[int, int, int]] = [
+    (255, 0, 0),  # red
+    (255, 153, 0),  # orange
+    (255, 255, 0),  # yellow
+    (51, 255, 0),  # green
+    (0, 153, 255),  # blue
+    (102, 51, 255),  # purple
+]
+
 
 @dataclass(frozen=True)
 class HiresFrames:
@@ -38,6 +50,7 @@ class HiresFrames:
     durations_ms: list[int]
     non_black: list[list[tuple[int, int, int, int, int]]]
     flip_horizontal: bool
+    trail: str = "none"
     total_loop_ms: int = field(init=False)
 
     def __post_init__(self) -> None:
@@ -105,6 +118,7 @@ def _decode(spec: HiresSpec, panel_h: int = 64) -> HiresFrames:
         durations_ms=durations,
         non_black=non_black,
         flip_horizontal=spec.flip_horizontal,
+        trail=spec.trail,
     )
 
 
@@ -154,14 +168,45 @@ def render_hires_frame(
         sprite_x = -sprite.width + int(t * travel)
     sprite_y = (panel_h - sprite.height) // 2
 
-    # 4. Paint sprite pixels to native physical canvas (skip-black).
     set_px = real.SetPixel
+
+    # 4. Paint trail BEHIND the sprite (erases outgoing text). LTR sprites
+    #    leave a trail from the left edge to the sprite's left edge; RTL
+    #    sprites leave a trail from the sprite's right edge to the right
+    #    edge of the panel.
+    if sprite.trail != "none":
+        if sprite.flip_horizontal:
+            trail_x_start = min(panel_w, max(0, sprite_x + sprite.width))
+            trail_x_end = panel_w
+        else:
+            trail_x_start = 0
+            trail_x_end = min(panel_w, max(0, sprite_x))
+
+        if trail_x_end > trail_x_start:
+            if sprite.trail == "black":
+                for y in range(panel_h):
+                    for x in range(trail_x_start, trail_x_end):
+                        set_px(x, y, 0, 0, 0)
+            elif sprite.trail == "rainbow":
+                n_stripes = len(_RAINBOW_TRAIL_COLORS)
+                for stripe_idx, (r, g, b) in enumerate(_RAINBOW_TRAIL_COLORS):
+                    y_start = stripe_idx * panel_h // n_stripes
+                    y_end = (
+                        (stripe_idx + 1) * panel_h // n_stripes
+                        if stripe_idx < n_stripes - 1
+                        else panel_h
+                    )
+                    for y in range(y_start, y_end):
+                        for x in range(trail_x_start, trail_x_end):
+                            set_px(x, y, r, g, b)
+
+    # 5. Paint sprite pixels to native physical canvas (skip-black).
     for x, y, r, g, b in sprite.non_black[frame_idx]:
         rx = sprite_x + x
         if 0 <= rx < panel_w:
             set_px(rx, sprite_y + y, r, g, b)
 
-    # 5. At t>=0.95, snap to incoming so the panel doesn't end on
+    # 6. At t>=0.95, snap to incoming so the panel doesn't end on
     #    "outgoing-with-sprite-just-exited".
     if t >= SNAP_THRESHOLD:
         canvas.Clear()

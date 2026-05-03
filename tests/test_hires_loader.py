@@ -282,6 +282,145 @@ class TestRenderHiresFrame:
         outgoing.draw.assert_not_called()
 
 
+class TestRenderHiresTrail:
+    def _setup_with_trail(self, tmp_path, monkeypatch, *, trail, flip_horizontal=False):
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions import _hires_registry
+        from led_ticker.transitions._hires_registry import HiresSpec
+
+        path = _make_tiny_sprite(tmp_path)
+        monkeypatch.setitem(
+            _hires_registry.HIRES_REGISTRY,
+            "test_sprite",
+            HiresSpec(
+                sprite_path=path,
+                flip_horizontal=flip_horizontal,
+                trail=trail,
+            ),
+        )
+        opts = RGBMatrixOptions()
+        opts.cols = 256
+        opts.rows = 64
+        opts.chain_length = 1
+        opts.parallel = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+        return real, wrapped, "test_sprite"
+
+    def test_no_trail_does_not_paint_behind_sprite(self, tmp_path, monkeypatch):
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        real, wrapped, name = self._setup_with_trail(
+            tmp_path, monkeypatch, trail="none"
+        )
+        outgoing = _mock_mod.MagicMock()
+        incoming = _mock_mod.MagicMock()
+        # At t=0.5, sprite is roughly mid-screen.
+        render_hires_frame(0.5, wrapped, outgoing, incoming, name, duration_ms=500)
+        # No trail painted: pixels in the trail region (x=0..sprite_x) should
+        # be untouched (still black from the canvas's initial state since
+        # outgoing is a Mock that doesn't paint).
+        # We can't precisely assert "untouched" without geometry; we assert
+        # that NO non-black pixel exists at x=0 (left edge), which is the
+        # leftmost trail pixel.
+        for y in range(real.height):
+            assert real.get_pixel(0, y) == (0, 0, 0)
+
+    def test_black_trail_erases_outgoing_in_trail_region(self, tmp_path, monkeypatch):
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        real, wrapped, name = self._setup_with_trail(
+            tmp_path, monkeypatch, trail="black"
+        )
+        # Pre-paint outgoing as a fully-lit canvas (red everywhere) so we can
+        # verify the trail erases.
+        for y in range(real.height):
+            for x in range(real.width):
+                real.SetPixel(x, y, 255, 0, 0)
+
+        outgoing = _mock_mod.MagicMock()
+        incoming = _mock_mod.MagicMock()
+        render_hires_frame(0.5, wrapped, outgoing, incoming, name, duration_ms=500)
+
+        # At t=0.5: sprite_x is roughly in the middle. Pixels at x=0 (far
+        # left, well within the trail region) should now be black.
+        assert real.get_pixel(0, 0) == (0, 0, 0)
+        assert real.get_pixel(0, real.height // 2) == (0, 0, 0)
+        # Pixels at x=panel_w-1 (far right, beyond the sprite) should still
+        # be the original red -- trail doesn't extend right of the sprite.
+        assert real.get_pixel(real.width - 1, 0) == (255, 0, 0)
+
+    def test_rainbow_trail_paints_six_horizontal_stripes(self, tmp_path, monkeypatch):
+        from led_ticker.transitions._hires_loader import (
+            _RAINBOW_TRAIL_COLORS,
+            render_hires_frame,
+        )
+
+        real, wrapped, name = self._setup_with_trail(
+            tmp_path, monkeypatch, trail="rainbow"
+        )
+        outgoing = _mock_mod.MagicMock()
+        incoming = _mock_mod.MagicMock()
+        render_hires_frame(0.5, wrapped, outgoing, incoming, name, duration_ms=500)
+
+        panel_h = real.height
+        n_stripes = len(_RAINBOW_TRAIL_COLORS)
+        # Sample the center of each stripe at x=0 (far left, within the
+        # trail) and verify color matches the registered RAINBOW.
+        for stripe_idx, expected_color in enumerate(_RAINBOW_TRAIL_COLORS):
+            y_start = stripe_idx * panel_h // n_stripes
+            y_end = (
+                (stripe_idx + 1) * panel_h // n_stripes
+                if stripe_idx < n_stripes - 1
+                else panel_h
+            )
+            sample_y = (y_start + y_end) // 2
+            assert real.get_pixel(0, sample_y) == expected_color, (
+                f"stripe {stripe_idx} at y={sample_y}: "
+                f"expected {expected_color}, got {real.get_pixel(0, sample_y)}"
+            )
+
+    def test_reverse_trail_extends_from_sprite_to_right_edge(
+        self, tmp_path, monkeypatch
+    ):
+        """For flip_horizontal=True, the trail goes from the sprite's right
+        edge to the panel's right edge (not from the left edge)."""
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        real, wrapped, name = self._setup_with_trail(
+            tmp_path,
+            monkeypatch,
+            trail="black",
+            flip_horizontal=True,
+        )
+        # Pre-paint canvas red.
+        for y in range(real.height):
+            for x in range(real.width):
+                real.SetPixel(x, y, 255, 0, 0)
+
+        outgoing = _mock_mod.MagicMock()
+        incoming = _mock_mod.MagicMock()
+        render_hires_frame(0.5, wrapped, outgoing, incoming, name, duration_ms=500)
+
+        # Reverse direction: at t=0.5, sprite is mid-screen moving left.
+        # Pixels at x=panel_w-1 (rightmost) should be black (trail).
+        # Pixels at x=0 (leftmost) should still be red (no trail painted there).
+        assert real.get_pixel(real.width - 1, 0) == (0, 0, 0)
+        assert real.get_pixel(0, 0) == (255, 0, 0)
+
+    def test_production_nyancat_has_rainbow_trail(self):
+        """Sanity check that the production registry entries have the
+        right trail kinds wired up."""
+        from led_ticker.transitions._hires_registry import HIRES_REGISTRY
+
+        assert HIRES_REGISTRY["nyancat"].trail == "rainbow"
+        assert HIRES_REGISTRY["nyancat_reverse"].trail == "rainbow"
+        assert HIRES_REGISTRY["pokeball"].trail == "black"
+        assert HIRES_REGISTRY["pokeball_reverse"].trail == "black"
+
+
 @pytest.mark.parametrize(
     "name", ["nyancat", "nyancat_reverse", "pokeball", "pokeball_reverse"]
 )

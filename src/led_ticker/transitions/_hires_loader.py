@@ -500,6 +500,12 @@ def render_hires_frame(
             for y in range(bbox_y_start, bbox_y_end):
                 for x in range(bbox_x_start, bbox_x_end):
                     set_px(x, y, 0, 0, 0)
+        # Sprite paint. We only x-clip — y is invariantly in-bounds
+        # because `_decode` forces `new_h = panel_h` and
+        # `sprite_y = (panel_h - sprite.height) // 2 = 0`, so
+        # `sprite_y + y ∈ [0, panel_h)`. If a future change decouples
+        # sprite.height from panel_h (e.g. a `fit="letterbox"` mode),
+        # add a `0 <= ry < panel_h` guard.
         for x, y, r, g, b in sprite.non_black[frame_idx]:
             rx = sprite_x + x
             if 0 <= rx < panel_w:

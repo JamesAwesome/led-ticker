@@ -300,7 +300,9 @@ def render_hires_frame(
 
     # 5. Paint procedural pokeball BEFORE Pikachu so that if they overlap
     #    (defensive — they shouldn't since gap > 0) Pikachu paints on top.
-    #    Rotation is keyed on travel distance to simulate rolling.
+    #    Rotation is keyed on travel distance to simulate rolling. RTL
+    #    rotates counterclockwise (negate the angle) since a ball rolling
+    #    right-to-left rotates opposite a ball rolling left-to-right.
     if has_ball:
         pixels_per_rotation_frame = max(1, ball_radius // 2)
         if sprite.flip_horizontal:
@@ -308,7 +310,11 @@ def render_hires_frame(
         else:
             travel_done = max(0, ball_cx)
         ball_rotation_idx = (travel_done // pixels_per_rotation_frame) % 4
-        band_angle = ball_rotation_idx * (math.pi / 4)
+        rotation_step = math.pi / 4
+        if sprite.flip_horizontal:
+            band_angle = -ball_rotation_idx * rotation_step
+        else:
+            band_angle = ball_rotation_idx * rotation_step
         _paint_procedural_pokeball(
             real, ball_cx, ball_cy, ball_radius, band_angle, panel_w, panel_h
         )

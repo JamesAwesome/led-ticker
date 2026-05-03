@@ -5,7 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from led_ticker._types import Canvas, PixelData
+from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.transitions import Transition, register_transition
+from led_ticker.transitions._hires_registry import HIRES_REGISTRY
 
 SPRITE_SIZE: int = 14
 SPRITE_Y_OFFSET: int = 1  # centers 14px sprite in 16px display
@@ -838,8 +840,9 @@ class Pokeball:
         show_pokeball: bool = True,
         **kwargs: Any,
     ) -> None:
-        self._show_pikachu = show_pikachu
-        self._show_pokeball = show_pokeball
+        # Coerce in case TOML user passes a string ("false" is truthy in Python).
+        self._show_pikachu = bool(show_pikachu)
+        self._show_pokeball = bool(show_pokeball)
 
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
@@ -847,9 +850,6 @@ class Pokeball:
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
-
-        from led_ticker.scaled_canvas import ScaledCanvas
-        from led_ticker.transitions._hires_registry import HIRES_REGISTRY
 
         if isinstance(canvas, ScaledCanvas) and self._registry_name in HIRES_REGISTRY:
             return self._frame_at_hires(t, canvas, outgoing, incoming, **kwargs)
@@ -900,8 +900,9 @@ class PokeballReverse:
         show_pokeball: bool = True,
         **kwargs: Any,
     ) -> None:
-        self._show_pikachu = show_pikachu
-        self._show_pokeball = show_pokeball
+        # Coerce in case TOML user passes a string ("false" is truthy in Python).
+        self._show_pikachu = bool(show_pikachu)
+        self._show_pokeball = bool(show_pokeball)
 
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
@@ -909,9 +910,6 @@ class PokeballReverse:
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
-
-        from led_ticker.scaled_canvas import ScaledCanvas
-        from led_ticker.transitions._hires_registry import HIRES_REGISTRY
 
         if isinstance(canvas, ScaledCanvas) and self._registry_name in HIRES_REGISTRY:
             return self._frame_at_hires(t, canvas, outgoing, incoming, **kwargs)

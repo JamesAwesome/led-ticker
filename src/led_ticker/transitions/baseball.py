@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from led_ticker._types import Canvas, PixelData
+from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.transitions import Transition, register_transition
 
 SPRITE_SIZE: int = 14
@@ -335,8 +336,6 @@ class Baseball:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
-        from led_ticker.scaled_canvas import ScaledCanvas
-
         if isinstance(canvas, ScaledCanvas):
             return self._frame_at_hires(t, canvas, outgoing, incoming, **kwargs)
         return self._frame_at_lowres(t, canvas, outgoing, incoming, **kwargs)
@@ -379,8 +378,6 @@ class BaseballReverse:
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
-
-        from led_ticker.scaled_canvas import ScaledCanvas
 
         if isinstance(canvas, ScaledCanvas):
             return self._frame_at_hires(t, canvas, outgoing, incoming, **kwargs)

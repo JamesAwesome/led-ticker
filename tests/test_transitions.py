@@ -1466,3 +1466,59 @@ class TestRunTransitionCrossScale:
         # Result is still the wrapper (rebound to the new back-buffer)
         assert result is new_wrapper
         assert isinstance(new_wrapper.real, type(real_bigsign_canvas))
+
+
+class TestRunTransitionDurationMs:
+    @pytest.mark.asyncio
+    async def test_duration_ms_kwarg_passed_to_frame_at(self, mock_frame):
+        """run_transition passes duration*1000 as duration_ms kwarg."""
+        from led_ticker.transitions import run_transition
+
+        captured: list[dict] = []
+
+        class _CaptureTransition:
+            min_frames = 1
+
+            def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+                captured.append(dict(kwargs))
+                return canvas
+
+        canvas = mock_frame.get_clean_canvas.return_value
+        outgoing = mock.Mock()
+        incoming = mock.Mock()
+        await run_transition(
+            canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=_CaptureTransition(),
+            duration=0.5,
+        )
+        assert captured  # at least one frame ran
+        assert all(c.get("duration_ms") == 500 for c in captured)
+
+    @pytest.mark.asyncio
+    async def test_duration_ms_reflects_actual_duration(self, mock_frame):
+        from led_ticker.transitions import run_transition
+
+        captured: list[int] = []
+
+        class _CaptureTransition:
+            min_frames = 1
+
+            def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+                captured.append(kwargs.get("duration_ms"))
+                return canvas
+
+        canvas = mock_frame.get_clean_canvas.return_value
+        outgoing = mock.Mock()
+        incoming = mock.Mock()
+        await run_transition(
+            canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=_CaptureTransition(),
+            duration=1.25,
+        )
+        assert all(d == 1250 for d in captured)

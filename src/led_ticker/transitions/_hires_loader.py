@@ -201,6 +201,142 @@ def load_hires(transition_name: str) -> HiresFrames | None:
     return _decode(spec)
 
 
+# Number of rotation frames cycled through as the baseball rolls. 4 frames
+# at 90° increments matches the lowres baseball's animation cadence.
+_BASEBALL_ROTATION_FRAMES: int = 4
+
+
+@functools.cache
+def _baseball_rotation_frames(
+    diameter: int,
+) -> tuple[tuple[tuple[int, int, int, int, int], ...], ...]:
+    """Generate `_BASEBALL_ROTATION_FRAMES` rotated baseball sprites at the
+    given diameter. Cached forever — geometry is deterministic.
+
+    Reuses the hi-res emoji baseball generator (`_generate_baseball_hires`)
+    and rotates each frame via PIL. Frame 0 is the canonical orientation;
+    each subsequent frame is +90° clockwise (negative angle in PIL's CCW
+    convention). LTR rolling iterates 0 → 1 → 2 → 3; RTL iterates in reverse.
+    """
+    from led_ticker.pixel_emoji import _generate_baseball_hires
+
+    base_pixels = _generate_baseball_hires(size=diameter)
+    base = Image.new("RGBA", (diameter, diameter), (0, 0, 0, 0))
+    for x, y, r, g, b in base_pixels:
+        base.putpixel((x, y), (r, g, b, 255))
+
+    out: list[tuple[tuple[int, int, int, int, int], ...]] = []
+    for i in range(_BASEBALL_ROTATION_FRAMES):
+        angle = -i * 360 / _BASEBALL_ROTATION_FRAMES  # negative = clockwise
+        rotated = base.rotate(
+            angle, resample=Image.Resampling.NEAREST, fillcolor=(0, 0, 0, 0)
+        )
+        frame: list[tuple[int, int, int, int, int]] = []
+        for y in range(diameter):
+            for x in range(diameter):
+                px = rotated.getpixel((x, y))
+                if isinstance(px, tuple) and len(px) == 4 and px[3] > 0:
+                    frame.append((x, y, px[0], px[1], px[2]))
+        out.append(tuple(frame))
+    return tuple(out)
+
+
+def _paint_procedural_baseball(
+    canvas: Any,
+    cx: int,
+    cy: int,
+    radius: int,
+    rotation_idx: int,
+    panel_w: int,
+    panel_h: int,
+) -> None:
+    """Paint a procedural hi-res baseball at (cx, cy) with the given rotation
+    frame index (0..3). Reuses cached rotated frames generated from the
+    hi-res emoji baseball."""
+    diameter = radius * 2
+    frames = _baseball_rotation_frames(diameter)
+    pixels = frames[rotation_idx % len(frames)]
+    set_px = canvas.SetPixel
+    origin_x = cx - radius
+    origin_y = cy - radius
+    for x, y, r, g, b in pixels:
+        rx = origin_x + x
+        ry = origin_y + y
+        if 0 <= rx < panel_w and 0 <= ry < panel_h:
+            set_px(rx, ry, r, g, b)
+
+
+def render_hires_baseball_frame(
+    t: float,
+    canvas: Any,
+    outgoing: Any,
+    incoming: Any,
+    *,
+    flip_horizontal: bool,
+    **kwargs: Any,
+) -> Any:
+    """Paint one frame of the hi-res baseball transition.
+
+    Mirrors pokeball's structure but uses a procedural baseball (not a
+    Pillow-decoded sprite). The ball traverses with a black trail behind
+    it, rotating as it rolls. Snaps to incoming at SNAP_THRESHOLD.
+    """
+    real = unwrap_to_real(canvas)
+    panel_w = real.width
+    panel_h = real.height
+
+    outgoing.draw(canvas, cursor_pos=kwargs.get("outgoing_scroll_pos", 0))
+
+    effective_t = min(1.0, t / TRAIL_SATURATION_T)
+    ball_radius = panel_h // 3
+    ball_cy = panel_h // 2
+    ball_travel = panel_w + 2 * ball_radius
+    if flip_horizontal:
+        ball_cx = panel_w + ball_radius - int(effective_t * ball_travel)
+        leading_x = ball_cx - ball_radius
+    else:
+        ball_cx = -ball_radius + int(effective_t * ball_travel)
+        leading_x = ball_cx + ball_radius
+
+    set_px = real.SetPixel
+
+    # Black trail extending to ball's leading edge.
+    if flip_horizontal:
+        trail_x_start = min(panel_w, max(0, leading_x))
+        trail_x_end = panel_w
+    else:
+        trail_x_start = 0
+        trail_x_end = min(panel_w, max(0, leading_x))
+    if trail_x_end > trail_x_start:
+        for y in range(panel_h):
+            for x in range(trail_x_start, trail_x_end):
+                set_px(x, y, 0, 0, 0)
+
+    # Rotation: ball rolls clockwise for LTR, counterclockwise for RTL.
+    pixels_per_rotation_frame = max(1, ball_radius // 2)
+    if flip_horizontal:
+        travel_done = max(0, panel_w - ball_cx)
+        # negate idx so RTL cycles 0 → 3 → 2 → 1 (counterclockwise)
+        rotation_idx = (-(travel_done // pixels_per_rotation_frame)) % (
+            _BASEBALL_ROTATION_FRAMES
+        )
+    else:
+        travel_done = max(0, ball_cx)
+        rotation_idx = (travel_done // pixels_per_rotation_frame) % (
+            _BASEBALL_ROTATION_FRAMES
+        )
+
+    _paint_procedural_baseball(
+        real, ball_cx, ball_cy, ball_radius, rotation_idx, panel_w, panel_h
+    )
+
+    if t >= SNAP_THRESHOLD:
+        canvas.Clear()
+        incoming.draw(canvas)
+
+    return canvas
+
+
 def render_hires_frame(
     t: float,
     canvas: Any,

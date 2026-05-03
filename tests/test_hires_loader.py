@@ -420,6 +420,96 @@ class TestRenderHiresTrail:
         assert HIRES_REGISTRY["pokeball"].trail == "black"
         assert HIRES_REGISTRY["pokeball_reverse"].trail == "black"
 
+    def test_ltr_trail_fills_full_panel_by_saturation_t(self, tmp_path, monkeypatch):
+        """At t=TRAIL_SATURATION_T, the LTR trail must reach the rightmost
+        column. Guards the 'cut happens before rainbow hits the far edge'
+        regression — trail must saturate before snap so the cut happens
+        on a fully-covered panel."""
+        from led_ticker.transitions._hires_loader import (
+            _RAINBOW_TRAIL_COLORS,
+            TRAIL_SATURATION_T,
+            render_hires_frame,
+        )
+
+        real, wrapped, name = self._setup_with_trail(
+            tmp_path,
+            monkeypatch,
+            trail="rainbow",
+            flip_horizontal=False,
+        )
+        outgoing = _mock_mod.MagicMock()
+        incoming = _mock_mod.MagicMock()
+        render_hires_frame(
+            TRAIL_SATURATION_T,
+            wrapped,
+            outgoing,
+            incoming,
+            name,
+            duration_ms=500,
+        )
+        # Rightmost column at row 0 should be the first rainbow stripe color.
+        assert real.get_pixel(real.width - 1, 0) == _RAINBOW_TRAIL_COLORS[0]
+
+    def test_rtl_trail_fills_full_panel_by_saturation_t(self, tmp_path, monkeypatch):
+        """Mirror check for RTL."""
+        from led_ticker.transitions._hires_loader import (
+            _RAINBOW_TRAIL_COLORS,
+            TRAIL_SATURATION_T,
+            render_hires_frame,
+        )
+
+        real, wrapped, name = self._setup_with_trail(
+            tmp_path,
+            monkeypatch,
+            trail="rainbow",
+            flip_horizontal=True,
+        )
+        outgoing = _mock_mod.MagicMock()
+        incoming = _mock_mod.MagicMock()
+        render_hires_frame(
+            TRAIL_SATURATION_T,
+            wrapped,
+            outgoing,
+            incoming,
+            name,
+            duration_ms=500,
+        )
+        # Leftmost column at row 0 should be the first rainbow stripe color.
+        assert real.get_pixel(0, 0) == _RAINBOW_TRAIL_COLORS[0]
+
+    def test_trail_holds_after_saturation_until_snap(self, tmp_path, monkeypatch):
+        """Between TRAIL_SATURATION_T and SNAP_THRESHOLD, the trail stays
+        fully covering — the 'hold' phase before the cut."""
+        from led_ticker.transitions._hires_loader import (
+            _RAINBOW_TRAIL_COLORS,
+            SNAP_THRESHOLD,
+            TRAIL_SATURATION_T,
+            render_hires_frame,
+        )
+
+        real, wrapped, name = self._setup_with_trail(
+            tmp_path,
+            monkeypatch,
+            trail="rainbow",
+            flip_horizontal=False,
+        )
+        outgoing = _mock_mod.MagicMock()
+        incoming = _mock_mod.MagicMock()
+        # Mid-hold phase
+        mid_hold_t = (TRAIL_SATURATION_T + SNAP_THRESHOLD) / 2
+        render_hires_frame(
+            mid_hold_t,
+            wrapped,
+            outgoing,
+            incoming,
+            name,
+            duration_ms=500,
+        )
+        # Right edge is still covered.
+        assert real.get_pixel(real.width - 1, 0) == _RAINBOW_TRAIL_COLORS[0]
+        # And incoming wasn't called yet (still pre-snap).
+        incoming.draw.assert_not_called()
+
 
 @pytest.mark.parametrize(
     "name", ["nyancat", "nyancat_reverse", "pokeball", "pokeball_reverse"]

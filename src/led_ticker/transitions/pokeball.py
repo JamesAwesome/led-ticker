@@ -815,9 +815,14 @@ def draw_pokeball_frame_rtl(
 
 @register_transition("pokeball")
 class Pokeball:
-    """Pokeball rolls left-to-right, erasing outgoing content."""
+    """Pokeball rolls left-to-right, erasing outgoing content.
+
+    On a `ScaledCanvas` (bigsign), dispatches to the hi-res path which
+    paints a real animated Pikachu sprite at native physical resolution.
+    """
 
     min_frames: int = 40
+    _registry_name: str = "pokeball"
 
     def __init__(self, show_pikachu: bool = True, **kwargs: Any) -> None:
         self._show_pikachu = show_pikachu
@@ -829,6 +834,16 @@ class Pokeball:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions._hires_registry import HIRES_REGISTRY
+
+        if isinstance(canvas, ScaledCanvas) and self._registry_name in HIRES_REGISTRY:
+            return self._frame_at_hires(t, canvas, outgoing, incoming, **kwargs)
+        return self._frame_at_lowres(t, canvas, outgoing, incoming, **kwargs)
+
+    def _frame_at_lowres(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         draw_pokeball_frame(
@@ -840,12 +855,22 @@ class Pokeball:
         )
         return canvas
 
+    def _frame_at_hires(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        return render_hires_frame(
+            t, canvas, outgoing, incoming, self._registry_name, **kwargs
+        )
+
 
 @register_transition("pokeball_reverse")
 class PokeballReverse:
     """Pokeball rolls right-to-left, erasing outgoing content."""
 
     min_frames: int = 40
+    _registry_name: str = "pokeball_reverse"
 
     def __init__(self, show_pikachu: bool = True, **kwargs: Any) -> None:
         self._show_pikachu = show_pikachu
@@ -857,6 +882,16 @@ class PokeballReverse:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions._hires_registry import HIRES_REGISTRY
+
+        if isinstance(canvas, ScaledCanvas) and self._registry_name in HIRES_REGISTRY:
+            return self._frame_at_hires(t, canvas, outgoing, incoming, **kwargs)
+        return self._frame_at_lowres(t, canvas, outgoing, incoming, **kwargs)
+
+    def _frame_at_lowres(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         draw_pokeball_frame_rtl(
@@ -867,6 +902,15 @@ class PokeballReverse:
             show_pikachu=self._show_pikachu,
         )
         return canvas
+
+    def _frame_at_hires(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        return render_hires_frame(
+            t, canvas, outgoing, incoming, self._registry_name, **kwargs
+        )
 
 
 @register_transition("pokeball_alternating")

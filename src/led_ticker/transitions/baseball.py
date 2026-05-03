@@ -316,7 +316,12 @@ def draw_baseball_frame_rtl(
 
 @register_transition("baseball")
 class Baseball:
-    """Baseball rolls left-to-right, erasing outgoing content."""
+    """Baseball rolls left-to-right, erasing outgoing content.
+
+    On a `ScaledCanvas` (bigsign), dispatches to the hi-res path which
+    paints a procedural baseball at native physical resolution using
+    the same geometry as the hi-res `:baseball:` emoji.
+    """
 
     min_frames: int = 40
 
@@ -330,6 +335,15 @@ class Baseball:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        if isinstance(canvas, ScaledCanvas):
+            return self._frame_at_hires(t, canvas, outgoing, incoming, **kwargs)
+        return self._frame_at_lowres(t, canvas, outgoing, incoming, **kwargs)
+
+    def _frame_at_lowres(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         draw_baseball_frame(
@@ -339,6 +353,15 @@ class Baseball:
             height=getattr(canvas, "height", 16),
         )
         return canvas
+
+    def _frame_at_hires(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        from led_ticker.transitions._hires_loader import render_hires_baseball_frame
+
+        return render_hires_baseball_frame(
+            t, canvas, outgoing, incoming, flip_horizontal=False, **kwargs
+        )
 
 
 @register_transition("baseball_reverse")
@@ -357,6 +380,15 @@ class BaseballReverse:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        if isinstance(canvas, ScaledCanvas):
+            return self._frame_at_hires(t, canvas, outgoing, incoming, **kwargs)
+        return self._frame_at_lowres(t, canvas, outgoing, incoming, **kwargs)
+
+    def _frame_at_lowres(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
         outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
         draw_baseball_frame_rtl(
@@ -366,6 +398,15 @@ class BaseballReverse:
             height=getattr(canvas, "height", 16),
         )
         return canvas
+
+    def _frame_at_hires(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        from led_ticker.transitions._hires_loader import render_hires_baseball_frame
+
+        return render_hires_baseball_frame(
+            t, canvas, outgoing, incoming, flip_horizontal=True, **kwargs
+        )
 
 
 @register_transition("baseball_alternating")

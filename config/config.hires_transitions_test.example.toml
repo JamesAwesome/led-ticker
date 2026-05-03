@@ -26,6 +26,55 @@ default = "cut"
 duration = 0.6
 between_sections = "cut"
 
+# --- Baseball family --------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 2.0
+loop_count = 2
+
+  [playlist.section.transition]
+  type = "baseball"
+  duration = 1.5
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "baseball LTR"
+  font_color = [255, 255, 255]
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 2.0
+loop_count = 2
+
+  [playlist.section.transition]
+  type = "baseball_reverse"
+  duration = 1.5
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "baseball RTL"
+  font_color = [200, 220, 255]
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 2.0
+loop_count = 2
+
+  [playlist.section.transition]
+  type = "baseball_alternating"
+  duration = 1.5
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "baseball alternating"
+  font_color = [180, 200, 255]
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "baseball alternating"
+  font_color = [255, 180, 200]
+
 # --- Pokeball family --------------------------------------------------------
 
 [[playlist.section]]

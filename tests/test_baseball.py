@@ -192,3 +192,91 @@ class TestBaseballAlternatingTransition:
         bb.frame_at(1.0, canvas, make_widget(40), make_widget(40))
         bb.frame_at(0.0, canvas, make_widget(40), make_widget(40))
         assert bb._index == 0
+
+
+class TestBaseballHiresDispatch:
+    def test_lowres_path_for_mock_canvas(self):
+        """Mock isn't a ScaledCanvas → lowres path. Existing behavior preserved."""
+        import unittest.mock as mock_mod
+
+        canvas = mock_mod.MagicMock()
+        canvas.width = 160
+        canvas.height = 16
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+
+        bb = Baseball()
+        with (
+            mock_mod.patch.object(
+                bb, "_frame_at_lowres", wraps=bb._frame_at_lowres
+            ) as lowres,
+            mock_mod.patch.object(
+                bb, "_frame_at_hires", wraps=bb._frame_at_hires
+            ) as hires,
+        ):
+            bb.frame_at(0.5, canvas, outgoing, incoming)
+            lowres.assert_called_once()
+            hires.assert_not_called()
+
+    def test_hires_paints_visible_baseball_pixels(self):
+        """ScaledCanvas → hires path produces white + red stitch pixels."""
+        import unittest.mock as mock_mod
+
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        opts = RGBMatrixOptions()
+        opts.cols = 256
+        opts.rows = 64
+        opts.chain_length = 1
+        opts.parallel = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        Baseball().frame_at(0.4, wrapped, outgoing, incoming, duration_ms=1500)
+
+        white_pixels = sum(
+            1
+            for y in range(real.height)
+            for x in range(real.width)
+            if real.get_pixel(x, y) == (250, 250, 245)
+        )
+        red_stitches = sum(
+            1
+            for y in range(real.height)
+            for x in range(real.width)
+            if real.get_pixel(x, y) == (200, 30, 40)
+        )
+        assert white_pixels > 100, "expected hi-res baseball white body pixels"
+        assert red_stitches > 0, "expected hi-res baseball red stitch pixels"
+
+    def test_baseball_reverse_hires(self):
+        """BaseballReverse on ScaledCanvas paints visible baseball."""
+        import unittest.mock as mock_mod
+
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        opts = RGBMatrixOptions()
+        opts.cols = 256
+        opts.rows = 64
+        opts.chain_length = 1
+        opts.parallel = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        BaseballReverse().frame_at(0.4, wrapped, outgoing, incoming, duration_ms=1500)
+
+        white_pixels = sum(
+            1
+            for y in range(real.height)
+            for x in range(real.width)
+            if real.get_pixel(x, y) == (250, 250, 245)
+        )
+        assert white_pixels > 100

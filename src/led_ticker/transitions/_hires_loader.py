@@ -49,7 +49,15 @@ _RAINBOW_TRAIL_COLORS: list[tuple[int, int, int]] = [
 
 @dataclass(frozen=True)
 class HiresFrames:
-    """Decoded sprite, ready to paint at native resolution."""
+    """Decoded sprite, ready to paint at native resolution.
+
+    `flip_horizontal` and `trail` are denormalized from the originating
+    `HiresSpec` so callers (`render_hires_frame`) can read them off the
+    cached frames without doing a second `HIRES_REGISTRY` lookup.
+    Intentional duplication; if these fields ever drift between
+    HiresSpec and HiresFrames, the renderer's behavior will diverge
+    silently from the registry config.
+    """
 
     width: int
     height: int

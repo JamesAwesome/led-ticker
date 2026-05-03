@@ -153,6 +153,7 @@ async def run_transition(
                 outgoing,
                 incoming,
                 outgoing_scroll_pos=outgoing_scroll_pos,
+                duration_ms=int(duration * 1000),
             )
             new_canvas = _swap(active, frame)
             if incoming_canvas is not None:

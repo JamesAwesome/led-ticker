@@ -209,15 +209,18 @@ def draw_pacman_frame(
 ) -> None:
     """Draw one frame of the Pac-Man wipe transition (left-to-right).
 
-    Ghosts flee ahead, Pac-Man chases behind. Everything behind
-    Pac-Man is blacked out.
+    Ghosts flee ahead, Pac-Man chases behind. Everything up to and
+    including Pac-Man's front edge is blacked out — letters vanish
+    as Pac-Man chews through them, while ghosts (further right) pass
+    over still-visible letters until Pac-Man reaches that column.
     """
     total_travel = width + GROUP_WIDTH
     # Pac-Man position (leftmost sprite in the group)
     pacman_x = int(-GROUP_WIDTH + progress * total_travel)
 
-    # Black out everything behind Pac-Man
-    blackout_end = min(width, max(0, pacman_x))
+    # Black out from the left edge up through Pac-Man's right (front)
+    # edge. Pac-Man is then drawn ON TOP of this blackout band.
+    blackout_end = min(width, max(0, pacman_x + PACMAN_SIZE))
     for y in range(height):
         for x in range(blackout_end):
             canvas.SetPixel(x, y, 0, 0, 0)
@@ -254,14 +257,17 @@ def draw_pacman_frame_rtl(
     """Draw one frame of the Pac-Man wipe transition (right-to-left).
 
     Mirror of draw_pacman_frame: Pac-Man on the right side,
-    ghosts flee to the left. Blackout on the right.
+    ghosts flee to the left. Blackout extends from Pac-Man's left
+    (front) edge to the right edge of the panel — letters vanish as
+    Pac-Man reaches them; ghosts pass over still-visible letters.
     """
     total_travel = width + GROUP_WIDTH
     # Pac-Man position (rightmost sprite, moving left)
     pacman_x = int(width - PACMAN_SIZE + GROUP_WIDTH - progress * total_travel)
 
-    # Black out everything to the right of Pac-Man + width
-    blackout_start = max(0, min(width, pacman_x + PACMAN_SIZE))
+    # Black out from Pac-Man's left (front) edge to the right edge.
+    # Pac-Man is then drawn ON TOP of this blackout band.
+    blackout_start = max(0, min(width, pacman_x))
     for y in range(height):
         for x in range(blackout_start, width):
             canvas.SetPixel(x, y, 0, 0, 0)

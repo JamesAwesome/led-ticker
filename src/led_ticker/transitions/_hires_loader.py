@@ -231,30 +231,41 @@ def render_hires_frame(
 
     # 3. x-position. flip_horizontal drives both art mirroring AND
     #    traversal direction -- sprite faces its travel direction.
-    #    effective_t scales position so the sprite reaches the far edge
-    #    by TRAIL_SATURATION_T (well before SNAP_THRESHOLD), giving the
-    #    trail time to fully fill the panel and hold before the cut.
+    #    effective_t scales position so the leading entity reaches the
+    #    far edge by TRAIL_SATURATION_T (well before SNAP_THRESHOLD),
+    #    giving the trail time to fully fill the panel and hold before
+    #    the cut.
     #
-    #    For pokeball: a procedural ball LEADS Pikachu by `gap` pixels.
-    #    Both ball and sprite must fully exit by effective_t=1.0, so
-    #    ball_travel includes the ball's diameter, the gap, and the
-    #    sprite's width.
-    has_ball = registry_name in ("pokeball", "pokeball_reverse")
+    #    Pokeball layout: a procedural ball LEADS Pikachu by `gap` pixels
+    #    when both are visible. show_pokeball / show_pikachu kwargs (only
+    #    honored for the pokeball family) toggle each entity:
+    #      - both visible: ball leads, Pikachu chases (default)
+    #      - ball only: ball alone, Pikachu math skipped
+    #      - Pikachu only: sprite-only mode, like nyancat
+    #      - neither: nothing painted
+    has_ball_class = registry_name in ("pokeball", "pokeball_reverse")
+    show_pokeball = kwargs.get("show_pokeball", True) if has_ball_class else False
+    show_pikachu = kwargs.get("show_pikachu", True)
     effective_t = min(1.0, t / TRAIL_SATURATION_T)
-    if has_ball:
+    if show_pokeball:
+        # Ball is the leading entity (Pikachu may also be present).
         ball_radius = panel_h // 3
         gap = 8
         ball_cy = panel_h // 2
-        ball_travel = panel_w + 2 * ball_radius + sprite.width + gap
+        if show_pikachu:
+            ball_travel = panel_w + 2 * ball_radius + sprite.width + gap
+        else:
+            ball_travel = panel_w + 2 * ball_radius
         if sprite.flip_horizontal:
             ball_cx = panel_w + ball_radius - int(effective_t * ball_travel)
-            sprite_x = ball_cx + ball_radius + gap
+            sprite_x = ball_cx + ball_radius + gap if show_pikachu else 0
             leading_x = ball_cx - ball_radius
         else:
             ball_cx = -ball_radius + int(effective_t * ball_travel)
-            sprite_x = ball_cx - ball_radius - gap - sprite.width
+            sprite_x = ball_cx - ball_radius - gap - sprite.width if show_pikachu else 0
             leading_x = ball_cx + ball_radius
     else:
+        # Sprite-only mode: nyancat OR pokeball with show_pokeball=False.
         travel = panel_w + sprite.width
         if sprite.flip_horizontal:
             sprite_x = panel_w - int(effective_t * travel)
@@ -271,8 +282,9 @@ def render_hires_frame(
 
     # 4. Paint trail BEHIND the leading edge (erases outgoing text). For
     #    pokeball the leading edge is the ball's far side; for nyancat
-    #    it's the sprite's far side.
-    if sprite.trail != "none":
+    #    it's the sprite's far side. Skip the trail entirely when nothing
+    #    is visible (both flags off) so we don't paint a phantom trail.
+    if (show_pokeball or show_pikachu) and sprite.trail != "none":
         if sprite.flip_horizontal:
             trail_x_start = min(panel_w, max(0, leading_x))
             trail_x_end = panel_w
@@ -303,7 +315,7 @@ def render_hires_frame(
     #    Rotation is keyed on travel distance to simulate rolling. RTL
     #    rotates counterclockwise (negate the angle) since a ball rolling
     #    right-to-left rotates opposite a ball rolling left-to-right.
-    if has_ball:
+    if show_pokeball:
         pixels_per_rotation_frame = max(1, ball_radius // 2)
         if sprite.flip_horizontal:
             travel_done = max(0, panel_w - ball_cx)
@@ -319,11 +331,13 @@ def render_hires_frame(
             real, ball_cx, ball_cy, ball_radius, band_angle, panel_w, panel_h
         )
 
-    # 6. Paint sprite pixels to native physical canvas (skip-black).
-    for x, y, r, g, b in sprite.non_black[frame_idx]:
-        rx = sprite_x + x
-        if 0 <= rx < panel_w:
-            set_px(rx, sprite_y + y, r, g, b)
+    # 6. Paint sprite pixels to native physical canvas (skip-black). For
+    #    the pokeball family, `show_pikachu=False` skips the Pikachu sprite.
+    if show_pikachu:
+        for x, y, r, g, b in sprite.non_black[frame_idx]:
+            rx = sprite_x + x
+            if 0 <= rx < panel_w:
+                set_px(rx, sprite_y + y, r, g, b)
 
     # 7. At t>=0.95, snap to incoming so the panel doesn't end on
     #    "outgoing-with-sprite-just-exited".

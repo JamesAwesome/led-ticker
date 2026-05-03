@@ -684,3 +684,139 @@ class TestProceduralPokeball:
                     30,
                     30,
                 ), f"ball still visible at ({x}, {y}) at TRAIL_SATURATION_T"
+
+
+class TestShowFlags:
+    def _setup_pokeball(self, *, flip_horizontal=False):
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        opts = RGBMatrixOptions()
+        opts.cols = 256
+        opts.rows = 64
+        opts.chain_length = 1
+        opts.parallel = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+        name = "pokeball_reverse" if flip_horizontal else "pokeball"
+        return real, wrapped, name
+
+    def test_show_pokeball_false_omits_ball(self):
+        """show_pokeball=False produces no procedural-pokeball red pixels."""
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        real, wrapped, name = self._setup_pokeball()
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        render_hires_frame(
+            0.4,
+            wrapped,
+            outgoing,
+            incoming,
+            name,
+            duration_ms=500,
+            show_pokeball=False,
+        )
+        for y in range(real.height):
+            for x in range(real.width):
+                assert real.get_pixel(x, y) != (
+                    255,
+                    30,
+                    30,
+                ), f"unexpected pokeball red at ({x}, {y}) when show_pokeball=False"
+
+    def test_show_pikachu_false_omits_pikachu(self):
+        """show_pikachu=False skips the Pikachu sprite paint in hires.
+
+        Pikachu's iconic yellow `(248, 196, 24)` shouldn't appear anywhere.
+        We sample the production sprite to find its dominant non-black
+        color, then assert no pixel has it after rendering with the flag off.
+        """
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions._hires_loader import (
+            load_hires,
+            render_hires_frame,
+        )
+
+        # Pull a representative non-black pixel from the loaded sprite to
+        # use as the "Pikachu" color signature. Filter out the procedural
+        # pokeball palette so we don't accidentally pick a coincidence.
+        pokeball_palette = {(255, 30, 30), (255, 255, 255), (0, 0, 0)}
+        sprite = load_hires("pokeball")
+        assert sprite is not None
+        pikachu_color = None
+        for _x, _y, r, g, b in sprite.non_black[0]:
+            if (r, g, b) not in pokeball_palette:
+                pikachu_color = (r, g, b)
+                break
+        assert pikachu_color is not None, "couldn't sample a Pikachu color"
+
+        real, wrapped, name = self._setup_pokeball()
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        render_hires_frame(
+            0.4,
+            wrapped,
+            outgoing,
+            incoming,
+            name,
+            duration_ms=500,
+            show_pikachu=False,
+        )
+        for y in range(real.height):
+            for x in range(real.width):
+                assert (
+                    real.get_pixel(x, y) != pikachu_color
+                ), f"unexpected Pikachu pixel at ({x}, {y}) when show_pikachu=False"
+
+    def test_both_flags_off_paints_no_entities(self):
+        """show_pokeball=False AND show_pikachu=False: trail and both
+        entities skipped — canvas matches whatever outgoing left."""
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        real, wrapped, name = self._setup_pokeball()
+        # Pre-paint canvas magenta — should remain because nothing is drawn.
+        for y in range(real.height):
+            for x in range(real.width):
+                real.SetPixel(x, y, 255, 0, 255)
+
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        render_hires_frame(
+            0.4,
+            wrapped,
+            outgoing,
+            incoming,
+            name,
+            duration_ms=500,
+            show_pokeball=False,
+            show_pikachu=False,
+        )
+        # No trail painted (no leading entity), no ball, no Pikachu.
+        # Magenta should still be there.
+        for y in range(real.height):
+            for x in range(real.width):
+                assert real.get_pixel(x, y) == (
+                    255,
+                    0,
+                    255,
+                ), f"unexpected paint at ({x}, {y}) with both flags off"
+
+    def test_pokeball_class_stores_show_pokeball(self):
+        from led_ticker.transitions.pokeball import Pokeball
+
+        assert Pokeball()._show_pokeball is True  # default
+        assert Pokeball(show_pokeball=False)._show_pokeball is False
+        assert Pokeball(show_pokeball=True)._show_pokeball is True
+
+    def test_pokeball_reverse_class_stores_show_pokeball(self):
+        from led_ticker.transitions.pokeball import PokeballReverse
+
+        assert PokeballReverse()._show_pokeball is True
+        assert PokeballReverse(show_pokeball=False)._show_pokeball is False

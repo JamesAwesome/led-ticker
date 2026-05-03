@@ -715,6 +715,7 @@ def draw_pokeball_frame(
     width: int = 160,
     height: int = 16,
     show_pikachu: bool = True,
+    show_pokeball: bool = True,
 ) -> None:
     """Draw one frame of the pokeball rolling transition (left-to-right).
 
@@ -722,6 +723,8 @@ def draw_pokeball_frame(
     Everything to its left is blacked out (erased).
     When pikachu is enabled, total travel extends so pikachu fully
     exits the screen before the cut.
+    `show_pokeball=False` hides the ball sprite while keeping the
+    blackout/Pikachu motion intact (Pikachu chases an invisible ball).
     """
     pikachu_trail = (PIKACHU_GAP + PIKACHU_WIDTH) if show_pikachu else 0
     total_travel = width + SPRITE_SIZE + pikachu_trail
@@ -739,11 +742,12 @@ def draw_pokeball_frame(
             canvas.SetPixel(x, y, 0, 0, 0)
 
     # Draw the pokeball sprite (clipped to canvas bounds)
-    for dx, dy, r, g, b in sprite:
-        x = ball_x + dx
-        y = SPRITE_Y_OFFSET + dy
-        if 0 <= x < width and 0 <= y < height:
-            canvas.SetPixel(x, y, r, g, b)
+    if show_pokeball:
+        for dx, dy, r, g, b in sprite:
+            x = ball_x + dx
+            y = SPRITE_Y_OFFSET + dy
+            if 0 <= x < width and 0 <= y < height:
+                canvas.SetPixel(x, y, r, g, b)
 
     # Draw Pikachu chasing the pokeball
     if show_pikachu:
@@ -765,6 +769,7 @@ def draw_pokeball_frame_rtl(
     width: int = 160,
     height: int = 16,
     show_pikachu: bool = True,
+    show_pokeball: bool = True,
 ) -> None:
     """Draw one frame of the pokeball rolling transition (right-to-left).
 
@@ -772,6 +777,8 @@ def draw_pokeball_frame_rtl(
     blackout is on the right, sprites are horizontally flipped.
     When pikachu is enabled, total travel extends so pikachu fully
     exits the screen before the cut.
+    `show_pokeball=False` hides the ball sprite while keeping the
+    blackout/Pikachu motion intact.
     """
     pikachu_trail = (PIKACHU_GAP + PIKACHU_WIDTH) if show_pikachu else 0
     total_travel = width + SPRITE_SIZE + pikachu_trail
@@ -790,11 +797,12 @@ def draw_pokeball_frame_rtl(
             canvas.SetPixel(x, y, 0, 0, 0)
 
     # Draw the pokeball sprite (flipped horizontally)
-    for dx, dy, r, g, b in sprite:
-        x = ball_x + (SPRITE_SIZE - 1 - dx)
-        y = SPRITE_Y_OFFSET + dy
-        if 0 <= x < width and 0 <= y < height:
-            canvas.SetPixel(x, y, r, g, b)
+    if show_pokeball:
+        for dx, dy, r, g, b in sprite:
+            x = ball_x + (SPRITE_SIZE - 1 - dx)
+            y = SPRITE_Y_OFFSET + dy
+            if 0 <= x < width and 0 <= y < height:
+                canvas.SetPixel(x, y, r, g, b)
 
     # Draw Pikachu chasing the pokeball (flipped, trailing to the right)
     if show_pikachu:
@@ -824,8 +832,14 @@ class Pokeball:
     min_frames: int = 40
     _registry_name: str = "pokeball"
 
-    def __init__(self, show_pikachu: bool = True, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        show_pikachu: bool = True,
+        show_pokeball: bool = True,
+        **kwargs: Any,
+    ) -> None:
         self._show_pikachu = show_pikachu
+        self._show_pokeball = show_pokeball
 
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
@@ -852,6 +866,7 @@ class Pokeball:
             width=canvas.width,
             height=getattr(canvas, "height", 16),
             show_pikachu=self._show_pikachu,
+            show_pokeball=self._show_pokeball,
         )
         return canvas
 
@@ -861,7 +876,14 @@ class Pokeball:
         from led_ticker.transitions._hires_loader import render_hires_frame
 
         return render_hires_frame(
-            t, canvas, outgoing, incoming, self._registry_name, **kwargs
+            t,
+            canvas,
+            outgoing,
+            incoming,
+            self._registry_name,
+            show_pikachu=self._show_pikachu,
+            show_pokeball=self._show_pokeball,
+            **kwargs,
         )
 
 
@@ -872,8 +894,14 @@ class PokeballReverse:
     min_frames: int = 40
     _registry_name: str = "pokeball_reverse"
 
-    def __init__(self, show_pikachu: bool = True, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        show_pikachu: bool = True,
+        show_pokeball: bool = True,
+        **kwargs: Any,
+    ) -> None:
         self._show_pikachu = show_pikachu
+        self._show_pokeball = show_pokeball
 
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
@@ -900,6 +928,7 @@ class PokeballReverse:
             width=canvas.width,
             height=getattr(canvas, "height", 16),
             show_pikachu=self._show_pikachu,
+            show_pokeball=self._show_pokeball,
         )
         return canvas
 
@@ -909,7 +938,14 @@ class PokeballReverse:
         from led_ticker.transitions._hires_loader import render_hires_frame
 
         return render_hires_frame(
-            t, canvas, outgoing, incoming, self._registry_name, **kwargs
+            t,
+            canvas,
+            outgoing,
+            incoming,
+            self._registry_name,
+            show_pikachu=self._show_pikachu,
+            show_pokeball=self._show_pokeball,
+            **kwargs,
         )
 
 

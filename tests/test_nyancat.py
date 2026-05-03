@@ -288,3 +288,35 @@ class TestNyanCatDispatch:
         incoming = mock_mod.MagicMock()
         NyanCat().frame_at(1.0, canvas, outgoing, incoming)
         incoming.draw.assert_called_once()
+
+
+class TestNyanCatAlternatingDelegatesToHires:
+    def test_alternating_picks_hires_when_scaled_canvas(self):
+        """nyancat_alternating dispatches each call to base/reverse,
+        which then independently pick hires on a ScaledCanvas."""
+        import unittest.mock as mock_mod
+
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions.nyancat import NyanCatAlternating
+
+        opts = RGBMatrixOptions()
+        opts.cols = 256
+        opts.rows = 64
+        opts.chain_length = 1
+        opts.parallel = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+
+        alt = NyanCatAlternating()
+        # First swap: forward variant.
+        with mock_mod.patch.object(
+            alt._transitions[0],
+            "_frame_at_hires",
+            wraps=alt._transitions[0]._frame_at_hires,
+        ) as fwd_hires:
+            alt.frame_at(0.5, wrapped, outgoing, incoming, duration_ms=500)
+            fwd_hires.assert_called_once()

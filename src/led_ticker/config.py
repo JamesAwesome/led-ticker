@@ -38,6 +38,7 @@ class TransitionConfig:
     color: tuple[int, int, int] | None = None
     colors: list[tuple[int, int, int]] | None = None
     show_pikachu: bool = True
+    show_pokeball: bool = True
     transition_obj: Any = None
 
 
@@ -101,6 +102,7 @@ def _parse_transition(
         color=color,
         colors=colors,
         show_pikachu=raw.get("show_pikachu", default.show_pikachu),
+        show_pokeball=raw.get("show_pokeball", default.show_pokeball),
     )
 
 
@@ -133,6 +135,7 @@ def load_config(path: Path) -> AppConfig:
         duration=transitions_raw.get("duration", 0.5),
         easing=transitions_raw.get("easing", "linear"),
         show_pikachu=transitions_raw.get("show_pikachu", True),
+        show_pokeball=transitions_raw.get("show_pokeball", True),
     )
 
     sections = []
@@ -150,6 +153,8 @@ def load_config(path: Path) -> AppConfig:
             trans.colors = [tuple(c) for c in section_raw["transition_colors"]]
         if "show_pikachu" in section_raw:
             trans.show_pikachu = section_raw["show_pikachu"]
+        if "show_pokeball" in section_raw:
+            trans.show_pokeball = section_raw["show_pokeball"]
 
         bg_color_raw = section_raw.get("bg_color")
         bg_color = tuple(bg_color_raw) if bg_color_raw is not None else None

@@ -242,3 +242,18 @@ The hires path's bottom-level paint primitive is `unwrap_to_real(canvas).SetPixe
 - Tests: `tests/test_hires_loader.py` (new), extensions to `tests/test_nyancat.py`, `tests/test_pokeball.py`, `tests/test_transitions.py`.
 
 Estimated 8-12 small commits + tests.
+
+---
+
+## Implementation deltas (post-ship, 2026-05-03)
+
+The design above shipped, plus these scope expansions added during hardware iteration:
+
+- **Baseball family** added (`baseball`, `baseball_reverse`, `baseball_alternating`). Procedural — no sprite asset; reuses the `:baseball:` hi-res emoji geometry rotated through `_BASEBALL_ROTATION_FRAMES=8` frames at 45° each (cached via `@functools.cache`). Render path is `render_hires_baseball_frame`, parallel to `render_hires_frame` but separate because it uses procedural rotation, not Pillow frame seek.
+- **Trail field on `HiresSpec`** (`"none"` / `"black"` / `"rainbow"`) — original spec had no trail concept. Without a trail, sprite traversal leaves outgoing text visible in regions the sprite has passed. Trail saturates at `TRAIL_SATURATION_T=0.85` (panel fully covered), holds, then snaps to incoming at `SNAP_THRESHOLD=0.95`.
+- **`show_pokeball` toggle** (parallel to existing `show_pikachu`) — TOML can hide either entity. Threaded through `TransitionConfig` and `app._build_widget`. Sprite-only mode (`show_pokeball=False`) extends the trail through the sprite's own front edge so transparent regions read as trail color, not outgoing text bleed-through.
+- **Procedural pokeball rotation** — original spec described a single Pillow-decoded sprite. Hi-res Pokeball is now procedural (`_paint_procedural_pokeball`) at radius=panel_h//3, with rotation keyed on travel distance, paired with the Pillow-decoded Pikachu chase sprite. RTL rotates counter-clockwise.
+- **Sprite bbox black-fill before sprite paint** — added so transparent (alpha=0) regions of the sprite read as black, matching the lowres look. Originally the trail color leaked through. Skipped when `trail == "black"` (already covered by trail) for ~5600 SetPixel calls saved per frame.
+- **Resampling: NEAREST, not LANCZOS** (spec called for LANCZOS). NEAREST preserves crisp pixel-art edges; LANCZOS rings on hard color transitions and softens the silhouette.
+- **Pacman lowres tweak** — blackout extended through Pac-Man's *front* edge (was: trailing edge). Letters now vanish at his mouth instead of after he passes. `pacman` was deferred from the hi-res scope (8-bit aesthetic IS the design).
+- **Sprite renamed**: spec called for `pokeball.gif`; shipped as `pikachu-run-transparent.gif` (more descriptive — the asset is the running Pikachu, the procedural ball is separate).

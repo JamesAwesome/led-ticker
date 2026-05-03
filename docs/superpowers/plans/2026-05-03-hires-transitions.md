@@ -8,6 +8,8 @@
 
 **Tech Stack:** Python 3.13, Pillow (already a dep for the GIF widget), pytest, attrs, hatchling (build backend).
 
+**Post-ship (2026-05-03):** Tasks 1-7 shipped, plus 13 unplanned commits adding the baseball family, show_pokeball toggle, trail rendering, procedural pokeball, sprite bbox black-fill, and a pacman lowres tweak. See spec addendum "Implementation deltas" for details.
+
 ---
 
 ## File Structure

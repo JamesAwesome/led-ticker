@@ -82,6 +82,8 @@ src/led_ticker/
 
 **Hi-res emoji on the bigsign**: Some slugs additionally have a high-resolution variant in `HIRES_REGISTRY` (currently `:moon:` is 32×32). When rendered on a `ScaledCanvas` the hi-res sprite is painted DIRECTLY to the underlying real canvas via `_draw_hires_emoji`, bypassing the wrapper's `scale × scale` block expansion. A 32×32 sprite at scale=4 occupies the same horizontal footprint as the equivalent 8×8 low-res emoji (8 logical columns) but with 16× more detail per cell. On non-`ScaledCanvas` paths (small sign, scale=1) the renderer falls back to the 8×8 low-res sprite automatically. Hi-res sprites can be generated programmatically (see `_generate_moon_hires` for the circle-subtraction approach).
 
+**Hi-res transitions on the bigsign**: The `nyancat`, `pokeball`, and `baseball` transition families have hi-res variants that auto-activate when `frame_at` receives a `ScaledCanvas` (i.e. the bigsign at scale=4). Dispatch lives in each transition's `frame_at` (`isinstance(canvas, ScaledCanvas)` + `_registry_name in HIRES_REGISTRY`) and routes to `_frame_at_hires` or `_frame_at_lowres`. Sprites are bundled at `src/led_ticker/transitions/sprites/` (`nyancat.webp`, `pikachu-run-transparent.gif`); baseball renders procedurally from the existing `:baseball:` hi-res emoji geometry, rotated through 8 frames at 45° via PIL. The shared loader (`_hires_loader.py`) decodes via Pillow once, caches via `@functools.cache load_hires`, and paints to `unwrap_to_real(canvas)` so each pixel is a real LED, not a 4×4 logical block. The `HiresSpec.trail` field selects what fills behind the leading entity to erase outgoing text: `"none"`, `"black"` (pokeball), or `"rainbow"` (nyancat). Trail saturates at `TRAIL_SATURATION_T=0.85` (full panel covered), holds, then snaps to incoming at `SNAP_THRESHOLD=0.95` — matches the lowres "fill, hold, cut" feel. `sailor_moon` and `pacman` intentionally have no hi-res variant (8-bit aesthetic IS the design / no asset staged). `run_transition` passes `duration_ms` to `frame_at` so the hi-res path can pick a sprite frame from wall-clock elapsed time. Dispatch boilerplate is intentionally duplicated across `nyancat.py`/`pokeball.py`/`baseball.py`; if you find yourself adding a 4th family, refactor to a mixin first.
+
 **Per-widget colors in config**: TOML configs can specify RGB lists like `font_color = [255, 150, 190]`, `color = [225, 48, 108]`, `top_color`, or `bottom_color`. The loader in `app._build_widget`/`_build_title` coerces 3-int lists/tuples in any of these keys to `graphics.Color` automatically. `color = "random"` still works for titles (cycles through `RANDOM_COLOR`).
 
 **Two-row widget (`type = "two_row"`)**: For tall canvases (the bigsign), `TwoRowMessage` renders a held top row + a scrolling bottom row. Top stays at a fixed position (alignable left/center/right via `top_align`); the bottom scrolls when its content overflows canvas width (`bottom_align` only takes effect when it fits). Best in `swap` mode at `scale = 2` so 128 logical px is wide enough to hold typical handles. Uses FONT_SMALL (5×8). Inline emoji slugs work in both rows — `pixel_emoji.draw_with_emoji` accepts an `emoji_y` override that the widget computes per row from the canvas height.
@@ -172,14 +174,14 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 - `dissolve` — random pixel scatter (seeded RNG) creates TV static effect
 - `split` — center-outward expanding black band with magenta edge lines
 - `wipe_down` — top-down row blackout with sweep line (formerly 'curtain')
-- `nyancat` — Nyan Cat flies left-to-right, rainbow fills screen before cut
+- `nyancat` — Nyan Cat flies left-to-right, rainbow fills screen before cut (hi-res variant on bigsign — animated webp Nyan Cat)
 - `scroll` — seamless continuous scroll with bullet dot separator (2x2 SetPixel, 6px symmetric gaps). Uses `_scroll_between` at 1px/frame for constant speed. Note: `forever_scroll` mode uses a text `•` character via `DEFAULT_BUFFER_MSG` with cursor-based spacing — visually similar but different rendering approach.
-- `nyancat_reverse` — Nyan Cat flies right-to-left (flipped sprite), rainbow fills screen
-- `pokeball` — Pokeball rolls left-to-right with Pikachu chasing; 4-frame rotation, 4-frame Pikachu run cycle
-- `pokeball_reverse` — Pokeball + Pikachu right-to-left (flipped sprites)
+- `nyancat_reverse` — Nyan Cat flies right-to-left (flipped sprite), rainbow fills screen (hi-res variant on bigsign — animated webp Nyan Cat)
+- `pokeball` — Pokeball rolls left-to-right with Pikachu chasing; 4-frame rotation, 4-frame Pikachu run cycle (hi-res variant — procedural ball + animated Pikachu sprite; show_pikachu / show_pokeball toggles)
+- `pokeball_reverse` — Pokeball + Pikachu right-to-left (flipped sprites) (hi-res variant — procedural ball + animated Pikachu sprite; show_pikachu / show_pokeball toggles)
 - `pokeball_alternating` — cycles through pokeball → pokeball_reverse each swap
-- `baseball` — white baseball with red stitching rolls left-to-right; 4-frame stitch rotation
-- `baseball_reverse` — baseball right-to-left (flipped)
+- `baseball` — white baseball with red stitching rolls left-to-right; 4-frame stitch rotation (hi-res variant — procedural ball reusing :baseball: emoji geometry, 8 rotation frames)
+- `baseball_reverse` — baseball right-to-left (flipped) (hi-res variant — procedural ball reusing :baseball: emoji geometry, 8 rotation frames)
 - `baseball_alternating` — cycles through baseball → baseball_reverse each swap
 - `pacman` — Pac-Man chases 3 scared ghosts (Blinky/Pinky/Inky) left-to-right with dots; chomping mouth animation + ghost wave animation
 - `pacman_reverse` — Pac-Man + ghosts right-to-left (flipped)

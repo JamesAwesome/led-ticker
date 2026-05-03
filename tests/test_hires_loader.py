@@ -191,6 +191,57 @@ class TestLoadHires:
         assert max(base_xs) < base.width // 2
         assert min(flipped_xs) >= flipped.width // 2
 
+    def test_decodes_animated_webp_durations(self, tmp_path, monkeypatch):
+        """Regression: animated WebP populates `info["duration"]` only after
+        `convert("RGBA")` forces frame decode. Locks in that ordering — a
+        future refactor that reads `info` before `convert` would default
+        every frame to 50ms here."""
+        from PIL import Image
+
+        from led_ticker.transitions import _hires_registry
+        from led_ticker.transitions._hires_loader import load_hires
+        from led_ticker.transitions._hires_registry import HiresSpec
+
+        # Build a 2-frame animated WebP with non-default durations (100ms, 250ms).
+        frames = []
+        for i in range(2):
+            img = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+            for y in range(4):
+                for x in range(4):
+                    img.putpixel(
+                        (x, y),
+                        (255, 0, 128, 255) if i == 0 else (0, 255, 200, 255),
+                    )
+            frames.append(img)
+        path = tmp_path / "animated.webp"
+        frames[0].save(
+            path,
+            format="WebP",
+            save_all=True,
+            append_images=frames[1:],
+            duration=[100, 250],
+            lossless=True,
+        )
+
+        monkeypatch.setitem(
+            _hires_registry.HIRES_REGISTRY,
+            "test_webp",
+            HiresSpec(sprite_path=path, flip_horizontal=False),
+        )
+        decoded = load_hires("test_webp")
+        assert decoded is not None
+        assert len(decoded.durations_ms) == 2
+        # Both should be the meaningful values we set, NOT the 50ms fallback.
+        # (Pillow may round so check non-default rather than exact equality.)
+        assert decoded.durations_ms[0] != 50, (
+            "first frame got the 50ms fallback duration — convert() must "
+            "happen before info.get('duration')"
+        )
+        assert decoded.durations_ms[1] != 50
+        # And they should reflect the configured non-equal pair (a Pillow
+        # quirk that wrote both as identical would still be a regression).
+        assert decoded.durations_ms[0] != decoded.durations_ms[1]
+
 
 class TestRenderHiresFrame:
     def _setup(self, tmp_path, monkeypatch):

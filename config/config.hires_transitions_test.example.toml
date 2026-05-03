@@ -1,18 +1,7 @@
 # led-ticker hi-res transitions smoke test config
 #
-# Exercises every transition that has a hi-res variant (and a few that
-# don't, as control). Each section is a short TickerMessage so the
-# *transition* is what you're watching, not the content.
-#
-# Expected behavior on the bigsign (scale=4, ScaledCanvas wrapper):
-#   - nyancat / nyancat_reverse / nyancat_alternating → animated webp Nyan Cat
-#   - pokeball / pokeball_reverse / pokeball_alternating → running Pikachu gif
-#   - sailor_moon → lowres (no hi-res asset registered, control)
-#   - cut → instant snap (no sprite, baseline control)
-#
-# On the small sign (scale=1, no wrapper) the same config runs all
-# transitions in lowres — there's no hires sprite painting, but the
-# config still loads and runs.
+# Pokeball sections are first so you see them right away. Each section
+# is a short TickerMessage so the *transition* is what you're watching.
 #
 # Run: led-ticker --config config/config.hires_transitions_test.example.toml
 
@@ -32,92 +21,13 @@ rp1_rio = 1
 [title]
 delay = 2
 
-# Section transitions short so we cycle through quickly.
 [transitions]
 default = "cut"
 duration = 0.6
 between_sections = "cut"
 
-# ---------------------------------------------------------------------------
-# 1. nyancat — forward (LTR). Cat enters from left, traverses right.
-# ---------------------------------------------------------------------------
-[[playlist.section]]
-mode = "swap"
-hold_time = 2.0
-loop_count = 2
+# --- Pokeball family --------------------------------------------------------
 
-  [playlist.section.transition]
-  type = "nyancat"
-  duration = 1.2
-
-  [[playlist.section.widget]]
-  type = "message"
-  text = "1: nyancat (LTR)"
-  font_color = [255, 220, 70]
-
-  [[playlist.section.widget]]
-  type = "message"
-  text = "next: nyancat_reverse"
-  font_color = [70, 200, 255]
-
-# ---------------------------------------------------------------------------
-# 2. nyancat_reverse — RTL. Cat enters from right, traverses left.
-# ---------------------------------------------------------------------------
-[[playlist.section]]
-mode = "swap"
-hold_time = 2.0
-loop_count = 2
-
-  [playlist.section.transition]
-  type = "nyancat_reverse"
-  duration = 1.2
-
-  [[playlist.section.widget]]
-  type = "message"
-  text = "2: nyancat (RTL)"
-  font_color = [70, 200, 255]
-
-  [[playlist.section.widget]]
-  type = "message"
-  text = "next: nyancat_alternating"
-  font_color = [255, 100, 200]
-
-# ---------------------------------------------------------------------------
-# 3. nyancat_alternating — verifies delegation: each swap toggles LTR/RTL,
-#    each delegated call independently picks hi-res.
-# ---------------------------------------------------------------------------
-[[playlist.section]]
-mode = "swap"
-hold_time = 2.0
-loop_count = 4
-
-  [playlist.section.transition]
-  type = "nyancat_alternating"
-  duration = 1.2
-
-  [[playlist.section.widget]]
-  type = "message"
-  text = "3: alt swap A"
-  font_color = [255, 100, 200]
-
-  [[playlist.section.widget]]
-  type = "message"
-  text = "3: alt swap B"
-  font_color = [200, 255, 100]
-
-  [[playlist.section.widget]]
-  type = "message"
-  text = "3: alt swap C"
-  font_color = [100, 255, 200]
-
-  [[playlist.section.widget]]
-  type = "message"
-  text = "3: alt swap D"
-  font_color = [200, 100, 255]
-
-# ---------------------------------------------------------------------------
-# 4. pokeball — Pikachu running LTR.
-# ---------------------------------------------------------------------------
 [[playlist.section]]
 mode = "swap"
 hold_time = 2.0
@@ -129,17 +39,9 @@ loop_count = 2
 
   [[playlist.section.widget]]
   type = "message"
-  text = "4: pokeball (LTR)"
+  text = "pokeball LTR"
   font_color = [255, 200, 50]
 
-  [[playlist.section.widget]]
-  type = "message"
-  text = "next: pokeball_reverse"
-  font_color = [255, 100, 50]
-
-# ---------------------------------------------------------------------------
-# 5. pokeball_reverse — Pikachu running RTL (sprite flipped + reversed travel).
-# ---------------------------------------------------------------------------
 [[playlist.section]]
 mode = "swap"
 hold_time = 2.0
@@ -151,21 +53,13 @@ loop_count = 2
 
   [[playlist.section.widget]]
   type = "message"
-  text = "5: pokeball (RTL)"
+  text = "pokeball RTL"
   font_color = [255, 100, 50]
 
-  [[playlist.section.widget]]
-  type = "message"
-  text = "next: pokeball_alternating"
-  font_color = [50, 200, 255]
-
-# ---------------------------------------------------------------------------
-# 6. pokeball_alternating — toggles LTR/RTL each swap.
-# ---------------------------------------------------------------------------
 [[playlist.section]]
 mode = "swap"
 hold_time = 2.0
-loop_count = 4
+loop_count = 2
 
   [playlist.section.transition]
   type = "pokeball_alternating"
@@ -173,30 +67,98 @@ loop_count = 4
 
   [[playlist.section.widget]]
   type = "message"
-  text = "6: alt run A"
+  text = "pokeball alternating"
   font_color = [50, 200, 255]
 
   [[playlist.section.widget]]
   type = "message"
-  text = "6: alt run B"
-  font_color = [255, 200, 50]
+  text = "pokeball alternating"
+  font_color = [255, 100, 200]
+
+# show_pokeball=False — Pikachu running with a black trail, no ball.
+[[playlist.section]]
+mode = "swap"
+hold_time = 2.0
+loop_count = 1
+
+  [playlist.section.transition]
+  type = "pokeball"
+  duration = 1.5
+  show_pokeball = false
 
   [[playlist.section.widget]]
   type = "message"
-  text = "6: alt run C"
-  font_color = [200, 255, 50]
+  text = "pikachu only"
+  font_color = [255, 220, 70]
+
+# show_pikachu=False — ball alone, no Pikachu.
+[[playlist.section]]
+mode = "swap"
+hold_time = 2.0
+loop_count = 1
+
+  [playlist.section.transition]
+  type = "pokeball"
+  duration = 1.5
+  show_pikachu = false
 
   [[playlist.section.widget]]
   type = "message"
-  text = "6: alt run D"
-  font_color = [255, 50, 200]
+  text = "pokeball only"
+  font_color = [255, 50, 100]
 
-# ---------------------------------------------------------------------------
-# 7. sailor_moon — control. No hi-res asset registered, so this should
-#    render as the existing lowres Moon Stick wand even on the bigsign.
-#    If you see hi-res rendering here, dispatch is broken (it should
-#    fall through to lowres for un-registered names).
-# ---------------------------------------------------------------------------
+# --- Nyancat family ---------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 2.0
+loop_count = 2
+
+  [playlist.section.transition]
+  type = "nyancat"
+  duration = 1.2
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "nyancat LTR"
+  font_color = [255, 220, 70]
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 2.0
+loop_count = 2
+
+  [playlist.section.transition]
+  type = "nyancat_reverse"
+  duration = 1.2
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "nyancat RTL"
+  font_color = [70, 200, 255]
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 2.0
+loop_count = 2
+
+  [playlist.section.transition]
+  type = "nyancat_alternating"
+  duration = 1.2
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "nyancat alternating"
+  font_color = [255, 100, 200]
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "nyancat alternating"
+  font_color = [200, 255, 100]
+
+# --- Lowres controls --------------------------------------------------------
+
+# sailor_moon: no hi-res asset registered → renders as lowres Moon Stick wand.
 [[playlist.section]]
 mode = "swap"
 hold_time = 2.0
@@ -208,32 +170,19 @@ loop_count = 2
 
   [[playlist.section.widget]]
   type = "message"
-  text = "7: sailor_moon (lowres)"
+  text = "sailor_moon (lowres)"
   font_color = [255, 150, 220]
 
-  [[playlist.section.widget]]
-  type = "message"
-  text = "control — should be lowres"
-  font_color = [200, 200, 200]
-
-# ---------------------------------------------------------------------------
-# 8. cut — baseline control. Instant snap, no sprite. Confirms the
-#    rest of the pipeline still works after all the dispatch changes.
-# ---------------------------------------------------------------------------
+# cut: baseline. Instant snap, no sprite.
 [[playlist.section]]
 mode = "swap"
 hold_time = 2.0
-loop_count = 2
+loop_count = 1
 
   [playlist.section.transition]
   type = "cut"
 
   [[playlist.section.widget]]
   type = "message"
-  text = "8: cut (baseline)"
-  font_color = [255, 255, 255]
-
-  [[playlist.section.widget]]
-  type = "message"
-  text = "loop returns to nyancat"
+  text = "cut (baseline)"
   font_color = [255, 255, 255]

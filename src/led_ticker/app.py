@@ -223,6 +223,8 @@ async def run(config_path: Path) -> None:
             trans_kwargs["color"] = config.between_sections.color
         if not config.between_sections.show_pikachu:
             trans_kwargs["show_pikachu"] = False
+        if not config.between_sections.show_pokeball:
+            trans_kwargs["show_pokeball"] = False
         section_trans = section_trans_cls(**trans_kwargs)
 
     async with aiohttp.ClientSession() as session:
@@ -320,6 +322,8 @@ async def run(config_path: Path) -> None:
                         trans_kwargs["color"] = trans_cfg.color
                     if not trans_cfg.show_pikachu:
                         trans_kwargs["show_pikachu"] = False
+                    if not trans_cfg.show_pokeball:
+                        trans_kwargs["show_pokeball"] = False
                     trans_cfg.transition_obj = trans_cls(**trans_kwargs)
                     transition_config = trans_cfg
                 else:

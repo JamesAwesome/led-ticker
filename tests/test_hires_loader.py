@@ -815,6 +815,55 @@ class TestShowFlags:
         assert Pokeball(show_pokeball=False)._show_pokeball is False
         assert Pokeball(show_pokeball=True)._show_pokeball is True
 
+    def test_sprite_only_trail_covers_through_sprite_region(self):
+        """In sprite-only mode (show_pokeball=False), the trail extends
+        to the FRONT of the sprite (right edge for LTR). Outgoing text
+        underneath the sprite's alpha-transparent regions should be
+        replaced by the trail, not bleed through."""
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions._hires_loader import (
+            load_hires,
+            render_hires_frame,
+        )
+
+        sprite = load_hires("pokeball")
+        assert sprite is not None
+        real, wrapped, name = self._setup_pokeball()
+        # Pre-paint canvas red — simulates outgoing text bleed-through risk.
+        for y in range(real.height):
+            for x in range(real.width):
+                real.SetPixel(x, y, 255, 0, 0)
+
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        render_hires_frame(
+            0.5,
+            wrapped,
+            outgoing,
+            incoming,
+            name,
+            duration_ms=500,
+            show_pokeball=False,
+            show_pikachu=True,
+        )
+
+        # Compute sprite_x at this t to know the sprite's right edge.
+        from led_ticker.transitions._hires_loader import TRAIL_SATURATION_T
+
+        effective_t = min(1.0, 0.5 / TRAIL_SATURATION_T)
+        travel = real.width + sprite.width
+        sprite_x = -sprite.width + int(effective_t * travel)
+        sprite_right = sprite_x + sprite.width - 1
+
+        # The column just inside the sprite's right edge must be either
+        # trail (black) or sprite color — never the original outgoing red.
+        for y in range(real.height):
+            assert real.get_pixel(sprite_right, y) != (255, 0, 0), (
+                f"outgoing red bled through at ({sprite_right}, {y}) — "
+                f"trail should extend to sprite's right edge"
+            )
+
     def test_pokeball_reverse_class_stores_show_pokeball(self):
         from led_ticker.transitions.pokeball import PokeballReverse
 

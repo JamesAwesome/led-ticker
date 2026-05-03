@@ -266,13 +266,18 @@ def render_hires_frame(
             leading_x = ball_cx + ball_radius
     else:
         # Sprite-only mode: nyancat OR pokeball with show_pokeball=False.
+        # leading_x is the FRONT edge of the sprite (where it's moving to),
+        # so the trail extends THROUGH the sprite's region. The sprite then
+        # paints on top of the trail; transparent / alpha-zero regions of
+        # the sprite reveal trail color rather than outgoing text. Matches
+        # the pokeball convention.
         travel = panel_w + sprite.width
         if sprite.flip_horizontal:
             sprite_x = panel_w - int(effective_t * travel)
-            leading_x = sprite_x + sprite.width
+            leading_x = sprite_x  # left edge — front of RTL traversal
         else:
             sprite_x = -sprite.width + int(effective_t * travel)
-            leading_x = sprite_x
+            leading_x = sprite_x + sprite.width  # right edge — front of LTR
         ball_radius = 0  # unused, silences type checkers
         ball_cx = 0
         ball_cy = 0

@@ -338,7 +338,19 @@ def render_hires_frame(
 
     # 6. Paint sprite pixels to native physical canvas (skip-black). For
     #    the pokeball family, `show_pikachu=False` skips the Pikachu sprite.
+    #    Before painting, blacken the sprite's bounding box so that
+    #    transparent (alpha=0) regions of the sprite read as black
+    #    instead of revealing the trail color underneath. This matches
+    #    the lowres look where the sprite sits on a black silhouette and
+    #    only the trail-behind-the-sprite is colored.
     if show_pikachu:
+        bbox_x_start = max(0, sprite_x)
+        bbox_x_end = min(panel_w, sprite_x + sprite.width)
+        bbox_y_start = max(0, sprite_y)
+        bbox_y_end = min(panel_h, sprite_y + sprite.height)
+        for y in range(bbox_y_start, bbox_y_end):
+            for x in range(bbox_x_start, bbox_x_end):
+                set_px(x, y, 0, 0, 0)
         for x, y, r, g, b in sprite.non_black[frame_idx]:
             rx = sprite_x + x
             if 0 <= rx < panel_w:

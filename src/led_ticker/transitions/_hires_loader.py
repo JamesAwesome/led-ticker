@@ -284,6 +284,13 @@ def render_hires_baseball_frame(
     Pillow-decoded sprite). The ball traverses with a black trail behind
     it, rotating as it rolls. Snaps to incoming at SNAP_THRESHOLD.
     """
+    # CAUTION: this function trusts that `canvas` is a `ScaledCanvas` (the
+    # dispatch in nyancat.py / pokeball.py / baseball.py guarantees this).
+    # `unwrap_to_real(canvas)` walks any number of nested ScaledCanvas
+    # wrappers. If a future caller wraps a ScaledCanvas in some OTHER kind
+    # of wrapper, dispatch would still pick lowres but this code would
+    # paint to the wrong canvas. Not a concern today; flag here for future
+    # reference.
     real = unwrap_to_real(canvas)
     panel_w = real.width
     panel_h = real.height
@@ -358,6 +365,13 @@ def render_hires_frame(
     Used by `NyanCat`/`NyanCatReverse`/`Pokeball`/`PokeballReverse` when
     the canvas is a `ScaledCanvas` and the registry has an entry.
     """
+    # CAUTION: this function trusts that `canvas` is a `ScaledCanvas` (the
+    # dispatch in nyancat.py / pokeball.py / baseball.py guarantees this).
+    # `unwrap_to_real(canvas)` walks any number of nested ScaledCanvas
+    # wrappers. If a future caller wraps a ScaledCanvas in some OTHER kind
+    # of wrapper, dispatch would still pick lowres but this code would
+    # paint to the wrong canvas. Not a concern today; flag here for future
+    # reference.
     sprite = load_hires(registry_name)
     if sprite is None:
         return canvas

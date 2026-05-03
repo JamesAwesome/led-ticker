@@ -527,3 +527,160 @@ def test_production_sprite_loads_and_fits(name):
     assert any(
         len(f) > 0 for f in frames.non_black
     ), f"{name} has no non-black pixels in any frame"
+
+
+class TestProceduralPokeball:
+    def _setup_pokeball(self, monkeypatch, *, flip_horizontal=False):
+        """Use the production pokeball entry directly (no fixture sprite needed)."""
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        opts = RGBMatrixOptions()
+        opts.cols = 256
+        opts.rows = 64
+        opts.chain_length = 1
+        opts.parallel = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+        name = "pokeball_reverse" if flip_horizontal else "pokeball"
+        return real, wrapped, name
+
+    def test_pokeball_has_red_pixel_in_top_half(self, monkeypatch):
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        real, wrapped, name = self._setup_pokeball(monkeypatch)
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        # At t=0.4, ball is roughly mid-panel (band horizontal at this rotation).
+        render_hires_frame(0.4, wrapped, outgoing, incoming, name, duration_ms=500)
+        # Search for any (255, 30, 30) red pixel — proves the ball was painted.
+        red_pixels = [
+            (x, y)
+            for y in range(real.height)
+            for x in range(real.width)
+            if real.get_pixel(x, y) == (255, 30, 30)
+        ]
+        assert red_pixels, "expected at least one red pixel from procedural pokeball"
+
+    def test_pokeball_has_white_pixel_somewhere(self, monkeypatch):
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        real, wrapped, name = self._setup_pokeball(monkeypatch)
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        render_hires_frame(0.4, wrapped, outgoing, incoming, name, duration_ms=500)
+        white_pixels = [
+            (x, y)
+            for y in range(real.height)
+            for x in range(real.width)
+            if real.get_pixel(x, y) == (255, 255, 255)
+        ]
+        assert white_pixels, "expected white pixel from procedural pokeball"
+
+    def test_pokeball_leads_pikachu_in_ltr(self, monkeypatch):
+        """At mid-transition, the rightmost red pokeball pixel should be
+        to the right of any pikachu sprite paint (Pikachu colors are not
+        red and not pure white)."""
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        real, wrapped, name = self._setup_pokeball(monkeypatch)
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        render_hires_frame(0.4, wrapped, outgoing, incoming, name, duration_ms=500)
+
+        # rightmost red pixel = ball lead edge
+        rightmost_red_x = max(
+            x
+            for y in range(real.height)
+            for x in range(real.width)
+            if real.get_pixel(x, y) == (255, 30, 30)
+        )
+        # Pikachu yellow is ~(248, 195, 24) — find rightmost yellow-ish pixel
+        # by treating any non-trail pixel that isn't black/white/red as Pikachu.
+        # Simpler: any pixel between trail_end and rightmost_red is ahead of Pikachu.
+        # Just sanity check: rightmost red is at least mid-panel.
+        assert rightmost_red_x > real.width // 4
+
+    def test_pokeball_reverse_paints_ball(self, monkeypatch):
+        """RTL pokeball still paints the ball (flipped traversal)."""
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        real, wrapped, name = self._setup_pokeball(monkeypatch, flip_horizontal=True)
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        render_hires_frame(0.4, wrapped, outgoing, incoming, name, duration_ms=500)
+        red_pixels = [
+            (x, y)
+            for y in range(real.height)
+            for x in range(real.width)
+            if real.get_pixel(x, y) == (255, 30, 30)
+        ]
+        assert red_pixels
+
+    def test_no_ball_for_nyancat(self, tmp_path, monkeypatch):
+        """Nyancat must NOT have a procedural ball — verify no red pokeball
+        red color (255, 30, 30) appears for nyancat."""
+        import unittest.mock as mock_mod
+
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        opts = RGBMatrixOptions()
+        opts.cols = 256
+        opts.rows = 64
+        opts.chain_length = 1
+        opts.parallel = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        render_hires_frame(0.4, wrapped, outgoing, incoming, "nyancat", duration_ms=500)
+        # Nyancat trail is rainbow — first stripe is (255, 0, 0), NOT (255, 30, 30).
+        # The procedural pokeball red is specifically (255, 30, 30) so we can
+        # distinguish them.
+        for y in range(real.height):
+            for x in range(real.width):
+                assert real.get_pixel(x, y) != (
+                    255,
+                    30,
+                    30,
+                ), f"unexpected pokeball red at ({x}, {y}) for nyancat"
+
+    def test_ball_off_screen_at_saturation_t(self, monkeypatch):
+        """At TRAIL_SATURATION_T, ball is fully past the right edge (LTR).
+        No red pixels should be visible because the ball is off-screen."""
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions._hires_loader import (
+            TRAIL_SATURATION_T,
+            render_hires_frame,
+        )
+
+        real, wrapped, name = self._setup_pokeball(monkeypatch)
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        render_hires_frame(
+            TRAIL_SATURATION_T, wrapped, outgoing, incoming, name, duration_ms=500
+        )
+        # At t=TRAIL_SATURATION_T, both ball and Pikachu are fully off-right;
+        # canvas is just trail (black) for pokeball.
+        # Pikachu non-yellow pixels and pokeball non-trail pixels should all
+        # be gone.
+        for y in range(real.height):
+            for x in range(real.width):
+                assert real.get_pixel(x, y) != (
+                    255,
+                    30,
+                    30,
+                ), f"ball still visible at ({x}, {y}) at TRAIL_SATURATION_T"

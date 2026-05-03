@@ -14,6 +14,7 @@ horizontally and snap to incoming near t=1.0.
 from __future__ import annotations
 
 import functools
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -127,6 +128,70 @@ def _decode(spec: HiresSpec, panel_h: int = 64) -> HiresFrames:
     )
 
 
+def _paint_procedural_pokeball(
+    canvas: Any,
+    cx: int,
+    cy: int,
+    radius: int,
+    band_angle_rad: float,
+    panel_w: int,
+    panel_h: int,
+) -> None:
+    """Paint a procedural pokeball via SetPixel.
+
+    Top half red, bottom half white, divided by a black band rotated by
+    `band_angle_rad`, with a small white center button outlined in black,
+    and an outer 2px black outline. Uses dist² (no sqrt) in the hot loop
+    and clips at panel bounds.
+    """
+    set_px = canvas.SetPixel
+    outline_thickness = max(2, radius // 12)
+    band_half = max(2, radius // 10)
+    button_radius = max(3, radius // 4)
+    button_outline = 1
+
+    cos_t = math.cos(band_angle_rad)
+    sin_t = math.sin(band_angle_rad)
+
+    radius_sq = radius * radius
+    inner_radius_sq = (radius - outline_thickness) ** 2
+    button_radius_sq = button_radius * button_radius
+    button_inner_sq = (button_radius - button_outline) ** 2
+
+    for dy in range(-radius, radius + 1):
+        ry = cy + dy
+        if ry < 0 or ry >= panel_h:
+            continue
+        for dx in range(-radius, radius + 1):
+            rx = cx + dx
+            if rx < 0 or rx >= panel_w:
+                continue
+            dist_sq = dx * dx + dy * dy
+            if dist_sq > radius_sq:
+                continue
+            # Outer outline (precedence 1)
+            if dist_sq >= inner_radius_sq:
+                set_px(rx, ry, 0, 0, 0)
+                continue
+            # Center button (precedence 2)
+            if dist_sq <= button_radius_sq:
+                if dist_sq >= button_inner_sq:
+                    set_px(rx, ry, 0, 0, 0)
+                else:
+                    set_px(rx, ry, 255, 255, 255)
+                continue
+            # Band through center (precedence 3)
+            signed = dy * cos_t - dx * sin_t
+            if abs(signed) < band_half:
+                set_px(rx, ry, 0, 0, 0)
+                continue
+            # Halves (precedence 4)
+            if signed < 0:
+                set_px(rx, ry, 255, 30, 30)
+            else:
+                set_px(rx, ry, 255, 255, 255)
+
+
 @functools.cache
 def load_hires(transition_name: str) -> HiresFrames | None:
     """Decode + cache a registered sprite. Returns None for unregistered names."""
@@ -169,27 +234,51 @@ def render_hires_frame(
     #    effective_t scales position so the sprite reaches the far edge
     #    by TRAIL_SATURATION_T (well before SNAP_THRESHOLD), giving the
     #    trail time to fully fill the panel and hold before the cut.
+    #
+    #    For pokeball: a procedural ball LEADS Pikachu by `gap` pixels.
+    #    Both ball and sprite must fully exit by effective_t=1.0, so
+    #    ball_travel includes the ball's diameter, the gap, and the
+    #    sprite's width.
+    has_ball = registry_name in ("pokeball", "pokeball_reverse")
     effective_t = min(1.0, t / TRAIL_SATURATION_T)
-    travel = panel_w + sprite.width
-    if sprite.flip_horizontal:
-        sprite_x = panel_w - int(effective_t * travel)
+    if has_ball:
+        ball_radius = panel_h // 3
+        gap = 8
+        ball_cy = panel_h // 2
+        ball_travel = panel_w + 2 * ball_radius + sprite.width + gap
+        if sprite.flip_horizontal:
+            ball_cx = panel_w + ball_radius - int(effective_t * ball_travel)
+            sprite_x = ball_cx + ball_radius + gap
+            leading_x = ball_cx - ball_radius
+        else:
+            ball_cx = -ball_radius + int(effective_t * ball_travel)
+            sprite_x = ball_cx - ball_radius - gap - sprite.width
+            leading_x = ball_cx + ball_radius
     else:
-        sprite_x = -sprite.width + int(effective_t * travel)
+        travel = panel_w + sprite.width
+        if sprite.flip_horizontal:
+            sprite_x = panel_w - int(effective_t * travel)
+            leading_x = sprite_x + sprite.width
+        else:
+            sprite_x = -sprite.width + int(effective_t * travel)
+            leading_x = sprite_x
+        ball_radius = 0  # unused, silences type checkers
+        ball_cx = 0
+        ball_cy = 0
     sprite_y = (panel_h - sprite.height) // 2
 
     set_px = real.SetPixel
 
-    # 4. Paint trail BEHIND the sprite (erases outgoing text). LTR sprites
-    #    leave a trail from the left edge to the sprite's left edge; RTL
-    #    sprites leave a trail from the sprite's right edge to the right
-    #    edge of the panel.
+    # 4. Paint trail BEHIND the leading edge (erases outgoing text). For
+    #    pokeball the leading edge is the ball's far side; for nyancat
+    #    it's the sprite's far side.
     if sprite.trail != "none":
         if sprite.flip_horizontal:
-            trail_x_start = min(panel_w, max(0, sprite_x + sprite.width))
+            trail_x_start = min(panel_w, max(0, leading_x))
             trail_x_end = panel_w
         else:
             trail_x_start = 0
-            trail_x_end = min(panel_w, max(0, sprite_x))
+            trail_x_end = min(panel_w, max(0, leading_x))
 
         if trail_x_end > trail_x_start:
             if sprite.trail == "black":
@@ -209,13 +298,28 @@ def render_hires_frame(
                         for x in range(trail_x_start, trail_x_end):
                             set_px(x, y, r, g, b)
 
-    # 5. Paint sprite pixels to native physical canvas (skip-black).
+    # 5. Paint procedural pokeball BEFORE Pikachu so that if they overlap
+    #    (defensive — they shouldn't since gap > 0) Pikachu paints on top.
+    #    Rotation is keyed on travel distance to simulate rolling.
+    if has_ball:
+        pixels_per_rotation_frame = max(1, ball_radius // 2)
+        if sprite.flip_horizontal:
+            travel_done = max(0, panel_w - ball_cx)
+        else:
+            travel_done = max(0, ball_cx)
+        ball_rotation_idx = (travel_done // pixels_per_rotation_frame) % 4
+        band_angle = ball_rotation_idx * (math.pi / 4)
+        _paint_procedural_pokeball(
+            real, ball_cx, ball_cy, ball_radius, band_angle, panel_w, panel_h
+        )
+
+    # 6. Paint sprite pixels to native physical canvas (skip-black).
     for x, y, r, g, b in sprite.non_black[frame_idx]:
         rx = sprite_x + x
         if 0 <= rx < panel_w:
             set_px(rx, sprite_y + y, r, g, b)
 
-    # 6. At t>=0.95, snap to incoming so the panel doesn't end on
+    # 7. At t>=0.95, snap to incoming so the panel doesn't end on
     #    "outgoing-with-sprite-just-exited".
     if t >= SNAP_THRESHOLD:
         canvas.Clear()

@@ -103,6 +103,95 @@ class TestDrawPacmanFrame:
             prev_black = black
 
 
+class TestPacmanBlackoutFrontEdge:
+    """Regression: blackout should extend through Pac-Man's front edge,
+    so letters vanish at his mouth (LTR) / left edge (RTL), not after
+    he passes. Ghosts (further ahead) pass over still-visible letters."""
+
+    def test_ltr_blackout_includes_pacman_right_edge(self):
+        from led_ticker.transitions.pacman import (
+            GROUP_WIDTH,
+            PACMAN_SIZE,
+            draw_pacman_frame,
+        )
+
+        canvas = _StubCanvas(width=160, height=16)
+        # Pre-paint the panel red so we can detect what got blacked out.
+        for y in range(16):
+            for x in range(160):
+                canvas.SetPixel(x, y, 255, 0, 0)
+
+        progress = 0.4
+        draw_pacman_frame(canvas, progress, width=160, height=16)
+
+        # Compute Pac-Man's position at this progress (matches the function's math).
+        total_travel = 160 + GROUP_WIDTH
+        pacman_x = int(-GROUP_WIDTH + progress * total_travel)
+        pacman_right = pacman_x + PACMAN_SIZE - 1
+
+        # The pixel just inside Pac-Man's right edge must NOT still be red —
+        # either Pac-Man's yellow paints there, or it's blackened. Either
+        # way the blackout has reached the front edge (no red bleed past).
+        for y in range(16):
+            assert canvas.get_pixel(pacman_right, y) != (255, 0, 0), (
+                f"red pixel at ({pacman_right}, {y}) — blackout did not "
+                f"extend to Pac-Man's front edge"
+            )
+
+        # And just past Pac-Man's right edge (where ghosts are), original
+        # red SHOULD still be visible (ghosts paint over it but in their
+        # transparent regions the red shows). Sample at +5 cells past
+        # Pac-Man's right edge but BEFORE the first ghost (which starts at
+        # pacman_x + PACMAN_SIZE + PACMAN_GHOST_GAP).
+        from led_ticker.transitions.pacman import PACMAN_GHOST_GAP
+
+        ahead_x = pacman_x + PACMAN_SIZE + (PACMAN_GHOST_GAP // 2)
+        if 0 <= ahead_x < 160:
+            for y in range(16):
+                assert canvas.get_pixel(ahead_x, y) == (255, 0, 0), (
+                    f"red pixel at ({ahead_x}, {y}) was blacked out — "
+                    f"blackout overshot past Pac-Man's front edge"
+                )
+
+    def test_rtl_blackout_includes_pacman_left_edge(self):
+        from led_ticker.transitions.pacman import (
+            GROUP_WIDTH,
+            PACMAN_SIZE,
+            draw_pacman_frame_rtl,
+        )
+
+        canvas = _StubCanvas(width=160, height=16)
+        for y in range(16):
+            for x in range(160):
+                canvas.SetPixel(x, y, 255, 0, 0)
+
+        progress = 0.4
+        draw_pacman_frame_rtl(canvas, progress, width=160, height=16)
+
+        total_travel = 160 + GROUP_WIDTH
+        pacman_x = int(160 - PACMAN_SIZE + GROUP_WIDTH - progress * total_travel)
+        pacman_left = pacman_x
+
+        # RTL: pixel at Pac-Man's left edge must NOT still be red.
+        for y in range(16):
+            assert canvas.get_pixel(pacman_left, y) != (255, 0, 0), (
+                f"red pixel at ({pacman_left}, {y}) — blackout did not "
+                f"extend to Pac-Man's front (left) edge"
+            )
+
+        # And before Pac-Man's left edge (where ghosts are, to the left in RTL),
+        # original red SHOULD still be visible.
+        from led_ticker.transitions.pacman import PACMAN_GHOST_GAP
+
+        ahead_x = pacman_x - (PACMAN_GHOST_GAP // 2)
+        if 0 <= ahead_x < 160:
+            for y in range(16):
+                assert canvas.get_pixel(ahead_x, y) == (255, 0, 0), (
+                    f"red pixel at ({ahead_x}, {y}) was blacked out — "
+                    f"RTL blackout overshot past Pac-Man's front (left) edge"
+                )
+
+
 class TestDrawPacmanFrameRTL:
     def test_at_zero_group_offscreen_right(self):
         canvas = _StubCanvas(width=40, height=16)

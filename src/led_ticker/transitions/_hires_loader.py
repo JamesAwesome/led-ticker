@@ -201,12 +201,12 @@ def load_hires(transition_name: str) -> HiresFrames | None:
     return _decode(spec)
 
 
-# Number of rotation frames cycled through as the baseball rolls. The
-# baseball's seam pattern has 180° rotational symmetry, so 4 frames at
-# 90° steps yield only 2 unique appearances — the eye reads that as
-# the ball alternating between two patterns instead of rolling. 16
-# frames at 22.5° increments give smooth rolling motion.
-_BASEBALL_ROTATION_FRAMES: int = 16
+# Rotation frames cycled through as the baseball rolls. 8 frames at
+# 45° increments — fast 90° steps read as alternating patterns; very
+# fast 22.5° steps look chaotic on a small panel. 8 frames combined
+# with one full revolution per panel-width of travel gives a slow,
+# legible roll closer to the static :baseball: emoji aesthetic.
+_BASEBALL_ROTATION_FRAMES: int = 8
 
 
 @functools.cache
@@ -317,10 +317,11 @@ def render_hires_baseball_frame(
 
     # Rotation: ball rolls clockwise for LTR, counterclockwise for RTL.
     # `pixels_per_rotation_frame` controls how often the rotation index
-    # advances. With 16 rotation frames, advancing every ball_radius//8
-    # pixels means a full rotation takes ~2 × ball_radius pixels of
-    # travel — close to a real ball's circumference (π × diameter).
-    pixels_per_rotation_frame = max(1, ball_radius // 8)
+    # advances. One full revolution per panel-width of travel — the
+    # ball does ~1 rotation crossing the panel. Physically slower than
+    # a real ball (which would do ~5-7 rotations) but the small panel
+    # and abstract sprite read better with subtle motion.
+    pixels_per_rotation_frame = max(1, panel_w // _BASEBALL_ROTATION_FRAMES)
     if flip_horizontal:
         travel_done = max(0, panel_w - ball_cx)
         # negate idx so RTL cycles 0 → 3 → 2 → 1 (counterclockwise)

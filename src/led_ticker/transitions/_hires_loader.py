@@ -23,9 +23,14 @@ from led_ticker.scaled_canvas import unwrap_to_real
 from led_ticker.transitions._hires_registry import HIRES_REGISTRY, HiresSpec
 from led_ticker.widgets._image_fit import scan_non_black
 
-# Snap to incoming this fraction of the way through; the sprite has
-# traveled most of the way across by then. Keeps the panel from showing
-# a frame of "outgoing only" right before t=1.0.
+# Trail saturates (sprite reaches far edge, trail fills the entire panel)
+# at this t. Below SNAP_THRESHOLD so the panel holds a fully-covered
+# rainbow / black field for a beat before the cut to incoming — matches
+# the lowres nyancat / pokeball "fill, hold, cut" feel.
+TRAIL_SATURATION_T: float = 0.85
+
+# Snap to incoming this fraction of the way through. By this t the trail
+# has fully filled the panel (TRAIL_SATURATION_T < SNAP_THRESHOLD).
 SNAP_THRESHOLD: float = 0.95
 
 # Local copy of the lowres nyancat rainbow palette so this loader stays
@@ -161,11 +166,15 @@ def render_hires_frame(
 
     # 3. x-position. flip_horizontal drives both art mirroring AND
     #    traversal direction -- sprite faces its travel direction.
+    #    effective_t scales position so the sprite reaches the far edge
+    #    by TRAIL_SATURATION_T (well before SNAP_THRESHOLD), giving the
+    #    trail time to fully fill the panel and hold before the cut.
+    effective_t = min(1.0, t / TRAIL_SATURATION_T)
     travel = panel_w + sprite.width
     if sprite.flip_horizontal:
-        sprite_x = panel_w - int(t * travel)
+        sprite_x = panel_w - int(effective_t * travel)
     else:
-        sprite_x = -sprite.width + int(t * travel)
+        sprite_x = -sprite.width + int(effective_t * travel)
     sprite_y = (panel_h - sprite.height) // 2
 
     set_px = real.SetPixel

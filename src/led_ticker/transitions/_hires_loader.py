@@ -488,13 +488,18 @@ def render_hires_frame(
     #    the lowres look where the sprite sits on a black silhouette and
     #    only the trail-behind-the-sprite is colored.
     if show_pikachu:
-        bbox_x_start = max(0, sprite_x)
-        bbox_x_end = min(panel_w, sprite_x + sprite.width)
-        bbox_y_start = max(0, sprite_y)
-        bbox_y_end = min(panel_h, sprite_y + sprite.height)
-        for y in range(bbox_y_start, bbox_y_end):
-            for x in range(bbox_x_start, bbox_x_end):
-                set_px(x, y, 0, 0, 0)
+        # Skip the bbox black-fill when the trail is already black across the
+        # sprite's bbox — pokeball case. Saves ~5600 SetPixel calls per frame
+        # on the bigsign. Still needed for rainbow trail (must convert to
+        # black under the sprite) and trail="none" (prevents text bleed).
+        if sprite.trail != "black":
+            bbox_x_start = max(0, sprite_x)
+            bbox_x_end = min(panel_w, sprite_x + sprite.width)
+            bbox_y_start = max(0, sprite_y)
+            bbox_y_end = min(panel_h, sprite_y + sprite.height)
+            for y in range(bbox_y_start, bbox_y_end):
+                for x in range(bbox_x_start, bbox_x_end):
+                    set_px(x, y, 0, 0, 0)
         for x, y, r, g, b in sprite.non_black[frame_idx]:
             rx = sprite_x + x
             if 0 <= rx < panel_w:

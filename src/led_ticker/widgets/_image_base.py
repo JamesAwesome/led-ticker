@@ -530,16 +530,29 @@ class _BaseImageWidget:
             return await self._play_with_two_row_text(real_canvas, frame, n_ticks)
         canvas = real_canvas
 
+        # Wrap-scale resolution: if the user set `text_scale > 1` (BDF
+        # block-expansion knob), honor that. Otherwise on bigsign
+        # (`_logical_scale > 1`) wrap at the section's logical scale so
+        # (a) hires emoji's `isinstance(canvas, ScaledCanvas)` gate
+        # fires, and (b) BDF text block-expands to fill the panel
+        # rather than rendering at native 12 px (tiny). HiresFont
+        # rendering paints to the unwrapped real canvas internally
+        # (see `_draw_hires_text`), so the wrapper is only a hint to
+        # the emoji code in that case — no glyph-size impact.
+        # Small sign (`_logical_scale == 1`): no wrap — real == logical.
+        effective_scale = (
+            self.text_scale if self.text_scale > 1 else self._logical_scale
+        )
         # text_canvas content_height spans the full panel (`panel_h //
         # scale`) so text_valign references the panel edge, not a
         # letterboxed sub-region.
         text_canvas: Canvas = (
             ScaledCanvas(
                 canvas,
-                scale=self.text_scale,
-                content_height=canvas.height // self.text_scale,
+                scale=effective_scale,
+                content_height=canvas.height // effective_scale,
             )
-            if self.text_scale > 1
+            if effective_scale > 1
             else canvas
         )
         text_w = text_canvas.width
@@ -551,11 +564,12 @@ class _BaseImageWidget:
         font_lh_logical = font_line_height_logical(self.font, font_scale)
         if text_h < font_lh_logical:
             raise ValueError(
-                f"text_scale={self.text_scale} leaves text_canvas only "
-                f"{text_h} rows on a {canvas.height}-tall panel — font "
-                f"requires {font_lh_logical} logical rows. Reduce "
-                f"text_scale, pick a smaller font_size, or use a taller "
-                f"panel."
+                f"effective_scale={font_scale} (text_scale={self.text_scale}, "
+                f"section logical scale={self._logical_scale}) leaves "
+                f"text_canvas only {text_h} rows on a {canvas.height}-tall "
+                f"panel — font requires {font_lh_logical} logical rows. "
+                f"Reduce text_scale, pick a smaller font_size, or use a "
+                f"taller panel."
             )
         baseline_y = self._baseline_y(text_canvas)
 

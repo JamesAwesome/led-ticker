@@ -98,6 +98,7 @@ class TestFieldSurface:
         "text_scale",
         "text_loops",
         "font",
+        "font_size",
     }
 
     def test_all_documented_user_fields_are_init_eligible(self):
@@ -131,6 +132,7 @@ class TestFieldSurface:
             text_scale=1,
             text_loops=0,
             font=FONT_DEFAULT,
+            font_size=24,
         )
 
 
@@ -717,3 +719,76 @@ class TestFieldSurfaceMatchesTwoRow:
                 f"`_BaseImageWidget.{name}` default = {actual!r}, "
                 f"expected {expected_default!r} (matching TwoRowMessage)"
             )
+
+
+class TestResolvedFontSize:
+    """`_resolved_font_size()` is the smart-default hook. If
+    `self.font_size` is set, it returns as-is. If None, BDF returns
+    `cell_h × _logical_scale`; HiresFont returns its already-baked
+    natural size (font.size attribute on HiresFont, or
+    line_height for BDF as a back-stop)."""
+
+    def test_explicit_font_size_returned_as_is(self):
+        from led_ticker.fonts import FONT_DEFAULT
+
+        w = _DummyImage(font=FONT_DEFAULT, font_size=24)
+        assert w._resolved_font_size() == 24
+
+    def test_bdf_smart_default_uses_cell_times_logical_scale(self):
+        """BDF + `font_size=None` + bigsign (_logical_scale=4) →
+        12 × 4 = 48 real px. Preserves bd61140 panel-scale behavior
+        in the new vocabulary."""
+        from led_ticker.fonts import FONT_DEFAULT
+
+        w = _DummyImage(font=FONT_DEFAULT, font_size=None)
+        w._logical_scale = 4
+        assert w._resolved_font_size() == 48
+
+    def test_bdf_smart_default_on_small_sign(self):
+        """BDF + `font_size=None` + small sign (_logical_scale=1) →
+        12 × 1 = 12 real px. Native BDF, no block-expansion."""
+        from led_ticker.fonts import FONT_DEFAULT
+
+        w = _DummyImage(font=FONT_DEFAULT, font_size=None)
+        w._logical_scale = 1
+        assert w._resolved_font_size() == 12
+
+    def test_hires_uses_font_internal_size(self):
+        """HiresFont's `size` is set at construction (from
+        rasterizer target). When the widget's `self.font_size` is
+        None, fall back to the HiresFont's own `size` attr."""
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        w = _DummyImage(font=font, font_size=None)
+        w._logical_scale = 4
+        # HiresFont remembers its rasterized size; that's the natural
+        # default if the widget didn't get an explicit override.
+        assert w._resolved_font_size() == 24
+
+    def test_explicit_font_size_overrides_hires_natural_size(self):
+        """Even with HiresFont, an explicit `font_size` on the widget
+        takes precedence (rare — usually equal — but allowed)."""
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        w = _DummyImage(font=font, font_size=32)
+        assert w._resolved_font_size() == 32
+
+    def test_construction_rejects_zero_font_size(self):
+        """`font_size = 0` is rejected at construction (validation
+        layer, separate from the helper's same check)."""
+        import pytest
+
+        from led_ticker.fonts import FONT_DEFAULT
+
+        with pytest.raises(ValueError, match="font_size must be > 0"):
+            _DummyImage(font=FONT_DEFAULT, font_size=0)
+
+    def test_construction_rejects_negative_font_size(self):
+        import pytest
+
+        from led_ticker.fonts import FONT_DEFAULT
+
+        with pytest.raises(ValueError, match="font_size must be > 0"):
+            _DummyImage(font=FONT_DEFAULT, font_size=-5)

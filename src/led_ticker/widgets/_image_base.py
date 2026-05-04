@@ -34,7 +34,7 @@ import attrs
 from led_ticker._types import Canvas, Color, Font
 from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import compute_baseline, get_text_width, safe_scale
-from led_ticker.fonts import FONT_DEFAULT, font_line_height_logical
+from led_ticker.fonts import FONT_DEFAULT, font_line_height, font_line_height_logical
 from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.pixel_emoji import EMOJI_PATTERN
 from led_ticker.scaled_canvas import ScaledCanvas
@@ -96,6 +96,12 @@ class _BaseImageWidget:
     # FONT_DEFAULT (BDF 6x12) so existing configs that don't mention
     # font keep their look.
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+
+    # Real-pixel size knob — unifies BDF (block-scales via the wrapper)
+    # and HiresFont (rasterizer target). None = smart default at first
+    # paint (BDF: cell_h × _logical_scale). HiresFont with None falls
+    # back to the font's natural size baked in at construction.
+    font_size: int | None = attrs.field(default=None, kw_only=True)
 
     # ------------------------------------------------------------------
     # Two-row text overlay (optional; mirrors `TwoRowMessage` semantics).
@@ -213,6 +219,8 @@ class _BaseImageWidget:
         )
         if self.text_scale < 1:
             raise ValueError(f"text_scale must be >= 1, got {self.text_scale!r}")
+        if self.font_size is not None and self.font_size <= 0:
+            raise ValueError(f"font_size must be > 0; got {self.font_size!r}.")
         if self.text_loops < 0:
             raise ValueError(f"text_loops must be >= 0, got {self.text_loops!r}")
         if self.scroll_speed_ms < MIN_SCROLL_SPEED_MS:
@@ -351,6 +359,24 @@ class _BaseImageWidget:
         mode) and left `text` empty.
         """
         return bool(self.text or self.top_text or self.bottom_text)
+
+    def _resolved_font_size(self) -> int:
+        """Return the effective font_size in real pixels. Hot-path
+        method (called once per visit, cached in a local).
+
+        If `self.font_size` is set, returned as-is. Otherwise:
+        - BDF: `cell_h × _logical_scale` (smart default that preserves
+          bd61140 panel-scale behavior).
+        - HiresFont: the font's own `size` attribute (set by the
+          loader at construction time).
+        """
+        if self.font_size is not None:
+            return self.font_size
+        if isinstance(self.font, _HiresFont):
+            return self.font.size
+        # BDF: smart default = cell_h × _logical_scale.
+        cell_h = font_line_height(self.font)
+        return cell_h * self._logical_scale
 
     def _row_text(self, row: int) -> str:
         """Resolve per-row text content. Top row falls back to `text`

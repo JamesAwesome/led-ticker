@@ -187,6 +187,28 @@ class TestLoadHiresFont:
         second = load_hires_font("Inter-Regular", 24)
         assert first is second  # @functools.cache returns same object
 
+    def test_cache_is_bounded_at_maxsize(self):
+        """`load_hires_font` is `@lru_cache(maxsize=16)` to bound memory
+        if a misconfigured TOML spams font/size combos. Verify the cap
+        actually evicts beyond maxsize.
+        """
+        from led_ticker.fonts.hires_loader import (
+            _FONT_CACHE_MAXSIZE,
+            load_hires_font,
+        )
+
+        load_hires_font.cache_clear()
+        # Spawn maxsize + 4 distinct entries by varying size. Inter-Regular
+        # at sizes 8..maxsize+12 → all distinct cache keys.
+        sizes = list(range(8, 8 + _FONT_CACHE_MAXSIZE + 4))
+        for s in sizes:
+            load_hires_font("Inter-Regular", s)
+        info = load_hires_font.cache_info()
+        # The LRU cap should hold steady at maxsize regardless of how
+        # many distinct keys we pushed through.
+        assert info.currsize == _FONT_CACHE_MAXSIZE
+        assert info.maxsize == _FONT_CACHE_MAXSIZE
+
     def test_different_sizes_are_different_objects(self):
         from led_ticker.fonts.hires_loader import load_hires_font
 

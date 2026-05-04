@@ -84,8 +84,14 @@ class _BaseImageWidget:
     text_scale: int = attrs.field(default=1, kw_only=True)
     text_loops: int = attrs.field(default=0, kw_only=True)
 
+    # User-facing via TOML `font = "..."` / `font_size = N`. The CLI's
+    # `_build_widget` resolves the name into a font object before
+    # construction (BDF or HiresFont) and passes it here. Defaults to
+    # FONT_DEFAULT (BDF 6x12) so existing configs that don't mention
+    # font keep their look.
+    font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+
     # Framework-internal — not user-facing TOML.
-    font: Font = attrs.field(init=False, default=FONT_DEFAULT)
     padding: int = attrs.field(init=False, default=0)
 
     # Panel dims; set by subclass `_load()`.

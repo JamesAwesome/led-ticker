@@ -387,3 +387,65 @@ class TestBuildWidgetFontResolution:
             widget = await _build_widget(widget_cfg, session)
         assert isinstance(widget.font, HiresFont)
         assert widget.font.size == DEFAULT_HIRES_SIZE
+
+
+class TestConfigureUserFontDir:
+    """Regression: under `pip install` / Docker the package lives in
+    site-packages, so the import-time default `USER_FONT_DIR` points at
+    `<site-packages>/../../config/fonts` — wrong dir. `run()` re-anchors
+    it based on the user's config.toml location.
+    """
+
+    def test_anchors_user_font_dir_to_config_parent_fonts(self, tmp_path):
+        from led_ticker.app import _configure_user_font_dir
+        from led_ticker.fonts import hires_loader
+
+        config_path = tmp_path / "config.toml"
+        config_path.write_text("# minimal\n")
+
+        _configure_user_font_dir(config_path)
+
+        assert (tmp_path / "fonts").resolve() == hires_loader.USER_FONT_DIR
+
+    def test_finds_user_font_after_reanchor(self, tmp_path, monkeypatch):
+        """End-to-end: drop a fake font next to a config and verify
+        `_find_font_path` picks it up after the runtime override."""
+        import led_ticker.fonts.hires_loader as hl
+        from led_ticker.app import _configure_user_font_dir
+
+        # Start with USER_FONT_DIR pointing somewhere wrong (simulating
+        # Docker install where the default is bogus).
+        monkeypatch.setattr(hl, "USER_FONT_DIR", tmp_path / "wrong-place")
+
+        config_dir = tmp_path / "user-deploy"
+        config_dir.mkdir()
+        config_path = config_dir / "config.toml"
+        config_path.write_text("# minimal\n")
+
+        fonts_dir = config_dir / "fonts"
+        fonts_dir.mkdir()
+        fake_font = fonts_dir / "beloved-sans.otf"
+        fake_font.write_bytes(b"not really a font, but lookup is path-only")
+
+        # Sanity: lookup fails before the override.
+        assert hl._find_font_path("beloved-sans") is None
+
+        _configure_user_font_dir(config_path)
+
+        found = hl._find_font_path("beloved-sans")
+        assert found == fake_font.resolve()
+
+    def test_clears_load_cache(self, tmp_path):
+        """If a stale (None) lookup got cached before the override, the
+        new directory wouldn't be consulted. Confirm cache_clear ran."""
+        from led_ticker.app import _configure_user_font_dir
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        # Poison the cache with a None for a name we'll later make findable.
+        assert load_hires_font("beloved-sans-cache-test", 24) is None
+        # Re-anchoring should clear the cache so a subsequent lookup
+        # re-hits _find_font_path rather than returning the cached None.
+        config_path = tmp_path / "config.toml"
+        config_path.write_text("# minimal\n")
+        _configure_user_font_dir(config_path)
+        assert load_hires_font.cache_info().currsize == 0

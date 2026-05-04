@@ -414,13 +414,63 @@ class TestTwoRowLogicalUnits:
             # we only care that ValueError didn't fire from the band check.
             pass
 
-    async def test_oversized_logical_top_row_still_rejects_with_real_units(
-        self, swapping_frame
-    ):
+    async def test_hires_emoji_fires_on_text_canvas_wrapper(self, swapping_frame):
+        """Regression: the two-row image path must wrap the real canvas
+        in a ScaledCanvas before drawing text/emoji, so hires emoji
+        (e.g. `:instagram:`) fires the `isinstance(c, ScaledCanvas)`
+        gate in `pixel_emoji.draw_with_emoji`. Without the wrap, the
+        emoji silently falls back to the 8×8 lores sprite — which is
+        what the user observed on hardware before this fix."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.fonts import resolve_font
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        font = resolve_font("Inter-Regular", size=14)
+        w = _DummyImage(
+            top_text="@brand",
+            bottom_text="follow :instagram:",
+            top_font=font,
+            bottom_font=font,
+        )
+        w._logical_scale = 4
+
+        # Capture the text_canvas passed to _render_two_row_tick so we
+        # can assert it's a ScaledCanvas wrapper (where emoji's gate
+        # fires), not the raw real canvas.
+        captured: list = []
+        orig = _BaseImageWidget._render_two_row_tick
+
+        def spy(self, real_c, text_c, *args):
+            captured.append((type(text_c).__name__, isinstance(text_c, ScaledCanvas)))
+            return orig(self, real_c, text_c, *args)
+
+        # attrs locks instance attrs but the class itself is patchable
+        _BaseImageWidget._render_two_row_tick = spy  # type: ignore[method-assign]
+
+        real = _StubCanvas(width=256, height=64)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=256, height=64
+        )
+
+        try:
+            await w._play_with_two_row_text(real, swapping_frame, n_ticks=1)
+        except Exception:
+            pass  # Don't care about render-side mocks; only the dispatch
+        finally:
+            _BaseImageWidget._render_two_row_tick = orig  # type: ignore[method-assign]
+
+        assert captured, "_render_two_row_tick was never called"
+        assert all(is_wrapped for _name, is_wrapped in captured), (
+            f"Expected text_canvas to be a ScaledCanvas wrapper so "
+            f"hires emoji fires; got: {captured!r}"
+        )
+
+    async def test_oversized_logical_top_row_still_rejects(self, swapping_frame):
         """Even with logical-units conversion, a band that's too small
-        for the font must raise. `top_row_height = 1` (logical) → 4
-        real px → too small for any text font → raise. The error
-        message must reference real px so users can reason about it."""
+        for the font must raise. `top_row_height = 1` (logical) →
+        4 real px → too small for a 14-px hires font → raise. Error
+        message names logical rows (matches TwoRowMessage's wording)."""
         import pytest
 
         from led_ticker.fonts import resolve_font
@@ -439,7 +489,7 @@ class TestTwoRowLogicalUnits:
         canvas.width = 256
         canvas.height = 64
 
-        with pytest.raises(ValueError, match="real px"):
+        with pytest.raises(ValueError, match="logical rows"):
             await w._play_with_two_row_text(canvas, swapping_frame, n_ticks=0)
 
 

@@ -203,7 +203,16 @@ def _rasterize(
     )
 
 
-@functools.cache
+# Cache cap. A real config would have at most a handful of distinct
+# (name, size, threshold) combos — bigsign deployments typically use
+# 2-4 fonts. 16 leaves comfortable headroom while bounding memory if
+# someone misconfigures (e.g. animated `font_size` pulses) or a test
+# suite spawns many one-off entries. Each entry is ~100-300 KB
+# (rasterized glyph dict).
+_FONT_CACHE_MAXSIZE: int = 16
+
+
+@functools.lru_cache(maxsize=_FONT_CACHE_MAXSIZE)
 def load_hires_font(
     name: str, size: int, threshold: int = THRESHOLD
 ) -> HiresFont | None:
@@ -212,6 +221,10 @@ def load_hires_font(
     `threshold` is part of the cache key so a widget that overrides the
     default still gets a freshly-rasterized font without polluting other
     widgets that use the same name+size at the standard threshold.
+
+    Bounded at ``_FONT_CACHE_MAXSIZE`` entries; LRU eviction beyond
+    that. A real config touches 2-4 fonts; 16 is comfortably above
+    typical use.
     """
     path = _find_font_path(name)
     if path is None:

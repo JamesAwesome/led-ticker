@@ -149,13 +149,15 @@ class TwoRowMessage:
     # Beloved Sans Bold @ ~22 (line_height ~10 logical) on the bottom
     # row while the top stays compact for a 5×8 BDF tag.
     top_row_height: int | None = attrs.field(default=None, kw_only=True)
-    # Per-row emoji nudge in logical rows. Default 0 keeps the emoji
-    # at its computed position (clamped to band_offset for small
-    # bands). Negative shifts the emoji up (toward text-center
-    # alignment when the emoji sprite is taller than the band — the
-    # top of the emoji may clip the panel edge in exchange for a
-    # more visually balanced text+emoji layout). Positive pushes
-    # the emoji down. Independent of the text baseline.
+    # Per-row text and emoji nudges in logical rows. Default 0 keeps
+    # them at their computed positions. Negative shifts up (text
+    # ascender may clip the panel edge), positive shifts down
+    # (descender may bleed into the next band's space). Set
+    # text + emoji to the same value to shift the entire row
+    # together, or use them independently to tune emoji-text vertical
+    # alignment when the emoji sprite is taller than the band.
+    top_text_y_offset: int = attrs.field(default=0, kw_only=True)
+    bottom_text_y_offset: int = attrs.field(default=0, kw_only=True)
     top_emoji_y_offset: int = attrs.field(default=0, kw_only=True)
     bottom_emoji_y_offset: int = attrs.field(default=0, kw_only=True)
 
@@ -239,10 +241,14 @@ class TwoRowMessage:
         bottom_text_y, bottom_emoji_y = _row_layout(
             canvas, bottom_font, band_height=bottom_h, band_offset=top_h
         )
-        # Apply per-row emoji nudges. Negative pushes the emoji up
-        # (may clip the panel edge for small bands), positive pushes
-        # it down. Lets users tune emoji-text vertical alignment when
-        # the emoji sprite is taller than its row band.
+        # Apply per-row text + emoji nudges. Negative shifts up
+        # (may clip the panel edge), positive shifts down. Setting
+        # text + emoji offsets to the same value moves the whole row
+        # together; using them independently tunes emoji-text
+        # vertical alignment when the emoji sprite is taller than
+        # the band.
+        top_text_y += self.top_text_y_offset
+        bottom_text_y += self.bottom_text_y_offset
         top_emoji_y += self.top_emoji_y_offset
         bottom_emoji_y += self.bottom_emoji_y_offset
 

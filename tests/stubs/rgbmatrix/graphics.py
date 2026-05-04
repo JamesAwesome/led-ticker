@@ -37,9 +37,10 @@ class Font:
     def __init__(self):
         self._char_widths = {}
         self._default_width = 6
+        self._bbx_height = 12  # FONTBOUNDINGBOX height from the BDF file
 
     def LoadFont(self, path):
-        """Parse a BDF font file to extract character widths."""
+        """Parse a BDF font file to extract character widths and height."""
         if not os.path.exists(path):
             return
 
@@ -49,7 +50,11 @@ class Font:
         with open(path) as f:
             for line in f:
                 line = line.strip()
-                if line.startswith("ENCODING "):
+                if line.startswith("FONTBOUNDINGBOX "):
+                    parts = line.split()
+                    # FONTBOUNDINGBOX <width> <height> <xoff> <yoff>
+                    self._bbx_height = int(parts[2])
+                elif line.startswith("ENCODING "):
                     current_encoding = int(line.split()[1])
                 elif line.startswith("DWIDTH "):
                     width = int(line.split()[1])
@@ -68,6 +73,13 @@ class Font:
     def CharacterWidth(self, char_code):
         """Return the width of a character by its code point."""
         return self._char_widths.get(char_code, self._default_width)
+
+    def height(self) -> int:
+        """Return the font's bounding box height (FONTBOUNDINGBOX height field).
+
+        Mirrors the real rgbmatrix C extension's `Font.height()` method.
+        """
+        return self._bbx_height
 
 
 def DrawText(canvas, font, x, y, color, text):

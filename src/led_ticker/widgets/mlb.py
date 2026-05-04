@@ -15,7 +15,7 @@ import attrs
 
 from led_ticker._types import Canvas, Color, ColorTuple, DrawResult, Font
 from led_ticker.colors import RGB_WHITE, _color
-from led_ticker.drawing import compute_cursor
+from led_ticker.drawing import compute_baseline, compute_cursor
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
@@ -227,11 +227,13 @@ class MLBGameMessage:
         padding: int = 6,
         center: bool = False,
         bg_color: Color | None = None,
+        font: Font | None = None,
     ) -> None:
         self.segments: list[tuple[str, Color]] = segments
         self.padding: int = padding
         self.center: bool = center
         self.bg_color: Color | None = bg_color
+        self.font: Font = font if font is not None else FONT_DEFAULT
         self._content_width: int = -1
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
@@ -240,9 +242,8 @@ class MLBGameMessage:
         y_offset: int = kwargs.get("y_offset", 0)
 
         if self._content_width < 0:
-            font: Font = FONT_DEFAULT
             self._content_width = sum(
-                measure_width(font, text, canvas) for text, _ in self.segments
+                measure_width(self.font, text, canvas) for text, _ in self.segments
             )
 
         content_width = self._content_width
@@ -254,13 +255,13 @@ class MLBGameMessage:
             self.center,
         )
 
-        font = FONT_DEFAULT
+        baseline_y = compute_baseline(self.font, canvas, valign="center")
         for text, color in self.segments:
             cursor_pos += draw_with_emoji(
                 canvas,
-                font,
+                self.font,
                 int(cursor_pos),
-                y=12,
+                y=baseline_y,
                 color=color,
                 text=text,
                 y_offset=y_offset,
@@ -275,6 +276,7 @@ def _build_series_title(
     series: SeriesInfo,
     tz: ZoneInfo,
     bg_color: Color | None = None,
+    font: Font | None = None,
 ) -> MLBGameMessage:
     """Build the title message for a series.
 
@@ -331,7 +333,7 @@ def _build_series_title(
         segments.append((record, RGB_WHITE))
 
     # Center the title if it fits on screen
-    return MLBGameMessage(segments, center=True, bg_color=bg_color)
+    return MLBGameMessage(segments, center=True, bg_color=bg_color, font=font)
 
 
 def _build_game_message(
@@ -339,6 +341,7 @@ def _build_game_message(
     team_abbr: str,
     tz: ZoneInfo,
     bg_color: Color | None = None,
+    font: Font | None = None,
 ) -> MLBGameMessage:
     """Build a message for a single game.
 
@@ -414,7 +417,7 @@ def _build_game_message(
             (f" {time_str}", RGB_WHITE),
         ]
 
-    return MLBGameMessage(segments, center=True, bg_color=bg_color)
+    return MLBGameMessage(segments, center=True, bg_color=bg_color, font=font)
 
 
 @register("mlb")
@@ -428,6 +431,7 @@ class MLBScoreMonitor:
     padding: int = 6
     final_hold_hours: int = 6
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
+    font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
     _team_id: int = attrs.field(init=False, default=0)
     _tz: ZoneInfo | None = attrs.field(init=False, default=None)
     _has_live_game: bool = attrs.field(init=False, default=False)
@@ -581,12 +585,14 @@ class MLBScoreMonitor:
 
         # Build display from current series
         series_title = _build_series_title(
-            self.team, current, tz, bg_color=self.bg_color
+            self.team, current, tz, bg_color=self.bg_color, font=self.font
         )
         self.feed_title = series_title
         stories: list[TickerMessage | MLBGameMessage] = [series_title]
         stories.extend(
-            _build_game_message(g, self.team, tz, bg_color=self.bg_color)
+            _build_game_message(
+                g, self.team, tz, bg_color=self.bg_color, font=self.font
+            )
             for g in current.games
         )
         self.feed_stories = stories

@@ -12,7 +12,7 @@ import attrs
 from led_ticker._compat import require_graphics
 from led_ticker._types import Canvas, Color, DrawResult
 from led_ticker.colors import DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR
-from led_ticker.drawing import get_text_width
+from led_ticker.drawing import compute_baseline, get_text_width
 from led_ticker.fonts import FONT_LABEL, FONT_VALUE
 from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop
@@ -90,10 +90,11 @@ class EtherscanGasMonitor:
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         y_offset: int = kwargs.get("y_offset", 0)
+        # FONT_LABEL and FONT_VALUE share the same canonical BDF baseline
+        # (both 12-tall cells); compute once at canvas resolution.
+        baseline_y = compute_baseline(FONT_LABEL, canvas, valign="center") + y_offset
 
-        draw_text(
-            canvas, FONT_LABEL, cursor_pos, 12 + y_offset, DEFAULT_COLOR, GAS_BANNER
-        )
+        draw_text(canvas, FONT_LABEL, cursor_pos, baseline_y, DEFAULT_COLOR, GAS_BANNER)
         cursor_pos += get_text_width(FONT_LABEL, GAS_BANNER)
 
         for price_type, price in self.price_data.items():
@@ -102,7 +103,7 @@ class EtherscanGasMonitor:
                 canvas,
                 FONT_LABEL,
                 cursor_pos,
-                12 + y_offset,
+                baseline_y,
                 DEFAULT_COLOR,
                 price_type_msg,
             )
@@ -112,7 +113,7 @@ class EtherscanGasMonitor:
                 canvas,
                 FONT_VALUE,
                 cursor_pos,
-                12 + y_offset,
+                baseline_y,
                 _get_gas_price_color(price),
                 price,
             )

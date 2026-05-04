@@ -13,8 +13,9 @@ from zoneinfo import ZoneInfo
 import aiohttp
 import attrs
 
-from led_ticker._types import Color
+from led_ticker._types import Color, Font
 from led_ticker.colors import RGB_WHITE
+from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets.message import TickerMessage
@@ -40,7 +41,9 @@ class TeamStanding:
 
 
 def _build_standing_message(
-    standing: TeamStanding, bg_color: Color | None = None
+    standing: TeamStanding,
+    bg_color: Color | None = None,
+    font: Font | None = None,
 ) -> MLBGameMessage:
     """Build a display message for a single team's standing."""
     team_c = _team_color_by_name(standing.name)
@@ -53,7 +56,7 @@ def _build_standing_message(
         (f" {standing.wins}-{standing.losses}", RGB_WHITE),
         (f" {gb_str}", RGB_WHITE),
     ]
-    return MLBGameMessage(segments, center=True, bg_color=bg_color)
+    return MLBGameMessage(segments, center=True, bg_color=bg_color, font=font)
 
 
 @register("mlb_standings")
@@ -68,6 +71,7 @@ class MLBStandingsMonitor:
     timezone: str = "America/New_York"
     padding: int = 6
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
+    font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
     _tz: ZoneInfo | None = attrs.field(init=False, default=None)
     feed_title: TickerMessage | None = attrs.field(init=False, default=None)
     feed_stories: list[TickerMessage | MLBGameMessage] = attrs.field(
@@ -139,7 +143,11 @@ class MLBStandingsMonitor:
         top_names: set[str] = set()
         for standing in standings[: self.top_n]:
             top_names.add(standing.name)
-            stories.append(_build_standing_message(standing, bg_color=self.bg_color))
+            stories.append(
+                _build_standing_message(
+                    standing, bg_color=self.bg_color, font=self.font
+                )
+            )
 
         # Tracked teams not already in top N
         # Config uses abbreviations, so map API names back to abbrs for lookup
@@ -152,7 +160,9 @@ class MLBStandingsMonitor:
             standing = standings_by_abbr.get(team)
             if standing and standing.name not in top_names:
                 stories.append(
-                    _build_standing_message(standing, bg_color=self.bg_color)
+                    _build_standing_message(
+                        standing, bg_color=self.bg_color, font=self.font
+                    )
                 )
 
         self.feed_stories = stories

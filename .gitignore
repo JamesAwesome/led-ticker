@@ -146,5 +146,6 @@ settings.env
 # Per-host runtime config (each Pi maintains its own config.toml).
 # Use config.example.toml or config.bigsign.example.toml as a starting point.
 config/config.toml
+config/fonts/
 .vscode/
 .superpowers/

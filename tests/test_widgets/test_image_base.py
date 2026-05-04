@@ -375,12 +375,15 @@ class TestTwoRowLogicalUnits:
         """Set `_logical_scale = 4` (bigsign), `top_row_height = 5`
         (logical) → effective top band should be 20 real px, leaving
         44 real px for the bottom on a 64-row canvas. Hires Inter @
-        14 px line-height fits in a 20-px band, so no exception."""
-        # Build a HiresFont small enough to fit 20 real px (line-height
-        # ~14-17 for Inter @ 14px). Use the loader so it matches what
-        # `_build_widget` produces.
+        14 px line-height fits in a 20-px band, so no exception. Uses
+        a real `_StubCanvas` (not a Mock) so a method-rename inside
+        `_play_with_two_row_text` would surface as an actual error
+        instead of being swallowed by a broad `except`."""
+        from rgbmatrix import _StubCanvas
+
         from led_ticker.fonts import resolve_font
         from led_ticker.fonts.hires_loader import HiresFont
+        from led_ticker.scaled_canvas import ScaledCanvas
 
         font = resolve_font("Inter-Regular", size=14)
         assert isinstance(font, HiresFont)
@@ -394,25 +397,35 @@ class TestTwoRowLogicalUnits:
         )
         w._logical_scale = 4
 
-        # Build a 64-real-px canvas (matches bigsign).
-        canvas = mock.MagicMock()
-        canvas.width = 256
-        canvas.height = 64
+        real = _StubCanvas(width=256, height=64)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=256, height=64
+        )
 
-        # Run far enough to exercise the validation block (it raises
-        # before any swap happens), but stop short by setting n_ticks=0
-        # which won't enter the loop. The validation runs unconditionally
-        # at the top of the method.
+        # Spy: the static fast-path renders one tick. Capture that
+        # `_render_two_row_tick` actually got called — proves we passed
+        # the validation block AND reached the render path. If the
+        # method were renamed, this spy never installs and the assert
+        # fails loudly instead of being absorbed by a generic except.
+        captured: list = []
+        orig = _BaseImageWidget._render_two_row_tick
+
+        def spy(self, real_c, text_c, *args):
+            captured.append(isinstance(text_c, ScaledCanvas))
+            return orig(self, real_c, text_c, *args)
+
+        _BaseImageWidget._render_two_row_tick = spy  # type: ignore[method-assign]
         try:
-            await w._play_with_two_row_text(canvas, swapping_frame, n_ticks=0)
-        except ValueError as e:
-            raise AssertionError(
-                f"Validation incorrectly rejected logical-rows config: {e}"
-            ) from e
-        except Exception:
-            # Other failures (e.g. paint mocks not wired) are acceptable;
-            # we only care that ValueError didn't fire from the band check.
-            pass
+            await w._play_with_two_row_text(real, swapping_frame, n_ticks=1)
+        finally:
+            _BaseImageWidget._render_two_row_tick = orig  # type: ignore[method-assign]
+
+        assert captured, (
+            "_render_two_row_tick was never reached — validation may "
+            "have rejected the logical-rows config or the method was "
+            "renamed."
+        )
+        assert all(captured), "Expected text_canvas to be wrapped"
 
     async def test_hires_emoji_fires_on_text_canvas_wrapper(self, swapping_frame):
         """Regression: the two-row image path must wrap the real canvas
@@ -455,8 +468,6 @@ class TestTwoRowLogicalUnits:
 
         try:
             await w._play_with_two_row_text(real, swapping_frame, n_ticks=1)
-        except Exception:
-            pass  # Don't care about render-side mocks; only the dispatch
         finally:
             _BaseImageWidget._render_two_row_tick = orig  # type: ignore[method-assign]
 
@@ -536,8 +547,6 @@ class TestSingleRowLogicalScaleWrap:
 
         try:
             await w._play_with_text(real, swapping_frame, n_ticks=1)
-        except Exception:
-            pass
         finally:
             _BaseImageWidget._render_tick = orig  # type: ignore[method-assign]
 
@@ -550,7 +559,10 @@ class TestSingleRowLogicalScaleWrap:
     async def test_text_canvas_not_wrapped_on_small_sign(self, swapping_frame):
         """Small sign (`_logical_scale = 1`): no wrap (real == logical),
         avoid an identity ScaledCanvas. Lores emoji is the right
-        choice on a 16-tall canvas anyway."""
+        choice on a 16-tall canvas anyway. Asserts the text_canvas is
+        identity-equal to the real canvas — guards against vacuous
+        pass if `_render_tick` were renamed (then `captured` would be
+        empty and `not any([])` is trivially True)."""
         from rgbmatrix import _StubCanvas
 
         from led_ticker.fonts import FONT_DEFAULT
@@ -563,7 +575,12 @@ class TestSingleRowLogicalScaleWrap:
         orig = _BaseImageWidget._render_tick
 
         def spy(self, canvas, text_canvas, *args):
-            captured.append(isinstance(text_canvas, ScaledCanvas))
+            captured.append(
+                {
+                    "is_wrapped": isinstance(text_canvas, ScaledCanvas),
+                    "text_is_real": text_canvas is canvas,
+                }
+            )
             return orig(self, canvas, text_canvas, *args)
 
         _BaseImageWidget._render_tick = spy  # type: ignore[method-assign]
@@ -574,15 +591,21 @@ class TestSingleRowLogicalScaleWrap:
 
         try:
             await w._play_with_text(real, swapping_frame, n_ticks=1)
-        except Exception:
-            pass
         finally:
             _BaseImageWidget._render_tick = orig  # type: ignore[method-assign]
 
-        assert captured, "_render_tick was never called"
+        assert len(captured) >= 1, (
+            "_render_tick was never reached — likely a rename or new "
+            "early return. Without this guard the next assertion "
+            "(`not any([])`) would pass vacuously."
+        )
         assert not any(
-            captured
+            c["is_wrapped"] for c in captured
         ), f"Expected NO wrap on small sign (scale=1); got: {captured!r}"
+        assert all(c["text_is_real"] for c in captured), (
+            f"Expected text_canvas to be identity-equal to the real canvas "
+            f"when not wrapping; got: {captured!r}"
+        )
 
     async def test_user_text_scale_still_honored(self, swapping_frame):
         """If the user explicitly sets text_scale > 1 (BDF block-
@@ -612,8 +635,6 @@ class TestSingleRowLogicalScaleWrap:
 
         try:
             await w._play_with_text(real, swapping_frame, n_ticks=1)
-        except Exception:
-            pass
         finally:
             _BaseImageWidget._render_tick = orig  # type: ignore[method-assign]
 

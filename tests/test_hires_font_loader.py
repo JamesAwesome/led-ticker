@@ -269,6 +269,52 @@ class TestResolveFont:
             return
         raise AssertionError("expected ValueError for size < 8")
 
+    def test_threshold_param_changes_lit_pixel_count(self):
+        """A lower threshold lets more antialiased pixels survive — used to
+        keep thin-stroked fonts (Beloved Sans Regular) from losing strokes."""
+        from led_ticker.fonts import resolve_font
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        default_font = resolve_font("Inter-Regular", 24)
+        low_thr_font = resolve_font("Inter-Regular", 24, threshold=64)
+        assert isinstance(default_font, HiresFont)
+        assert isinstance(low_thr_font, HiresFont)
+        # Same font/size at lower threshold = same or more lit pixels per glyph.
+        # Pick a glyph with lots of antialiased edges so the difference is real.
+        default_lit = len(default_font.glyphs["a"].lit)
+        low_thr_lit = len(low_thr_font.glyphs["a"].lit)
+        assert low_thr_lit > default_lit, (
+            f"lowered threshold should add lit pixels: "
+            f"default={default_lit} thr=64={low_thr_lit}"
+        )
+
+    def test_threshold_omitted_uses_default(self):
+        """Default behaviour preserved: no threshold = identical to threshold=128."""
+        from led_ticker.fonts import resolve_font
+
+        no_thr = resolve_font("Inter-Regular", 24)
+        explicit = resolve_font("Inter-Regular", 24, threshold=128)
+        assert no_thr is explicit  # same cache entry
+
+    def test_threshold_out_of_range_raises(self):
+        from led_ticker.fonts import resolve_font
+
+        for bad in (-1, 256, 999):
+            try:
+                resolve_font("Inter-Regular", 24, threshold=bad)
+            except ValueError as e:
+                assert "font_threshold" in str(e)
+                continue
+            raise AssertionError(f"expected ValueError for threshold={bad}")
+
+    def test_threshold_ignored_for_bdf_aliases(self):
+        """BDF fonts are pre-rasterized bitmaps; threshold has no meaning."""
+        from led_ticker.fonts import FONT_DEFAULT, resolve_font
+
+        # Resolve with a non-default threshold; BDF should still come back.
+        font = resolve_font("6x12", threshold=80)
+        assert font is FONT_DEFAULT
+
 
 class TestListAvailableFonts:
     def test_includes_hires_and_bdf(self):

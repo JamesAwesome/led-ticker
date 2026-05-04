@@ -72,6 +72,11 @@ loop_count = 1
 #    `beloved-sans.otf` into `config/fonts/`. Otherwise this raises
 #    UnknownFontError at config load (the `font` resolver lists all
 #    available names in the error so you can verify the file is found).
+#
+#    Beloved Sans Regular has very thin antialiased strokes; the
+#    default `font_threshold = 128` (50% intensity) clips the left
+#    stroke of `n`/`u`/etc. Use `font_threshold = 80` for the regular
+#    weight. The Bold weight has fat strokes and survives the default.
 # [[playlist.section]]
 # mode = "swap"
 # hold_time = 3.0
@@ -82,6 +87,7 @@ loop_count = 1
 #   text = "@MoonBunny"
 #   font = "beloved-sans"
 #   font_size = 32
+#   font_threshold = 80
 #   font_color = [255, 220, 70]
 
 # 5. BDF baseline (current 6x12 path) for visual comparison

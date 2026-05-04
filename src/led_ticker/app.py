@@ -101,17 +101,20 @@ async def _build_widget(
     if default_bg_color is not None and "bg_color" not in widget_cfg:
         widget_cfg["bg_color"] = list(default_bg_color)
 
-    # Resolve `font` + `font_size` into a font object before passing to
-    # the widget. Hi-res fonts come from config/fonts/ or the bundled
-    # hires/ dir; BDF aliases (6x12, 5x8, etc.) fall back to the C
-    # bitmap fonts. Raises UnknownFontError on bogus names.
+    # Resolve `font` + `font_size` (+ optional `font_threshold`) into a
+    # font object before passing to the widget. Hi-res fonts come from
+    # config/fonts/ or the bundled hires/ dir; BDF aliases (6x12, 5x8,
+    # etc.) fall back to the C bitmap fonts. Raises UnknownFontError on
+    # bogus names. `font_threshold` (0-255, default 128) is only
+    # meaningful for hi-res; lower it (~80) for thin-stroked fonts.
     font_name = widget_cfg.pop("font", None)
     font_size = widget_cfg.pop("font_size", None)
+    font_threshold = widget_cfg.pop("font_threshold", None)
     if font_name is not None:
         from led_ticker.fonts import DEFAULT_HIRES_SIZE, resolve_font
 
         size = font_size if font_size is not None else DEFAULT_HIRES_SIZE
-        widget_cfg["font"] = resolve_font(font_name, size)
+        widget_cfg["font"] = resolve_font(font_name, size, threshold=font_threshold)
 
     # Config uses "text" but TickerMessage/TickerCountdown use "message".
     # Only rename for widgets that don't accept `text` natively (e.g.

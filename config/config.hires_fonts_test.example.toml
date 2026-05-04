@@ -68,8 +68,10 @@ loop_count = 1
   font_size = 40
   font_color = [255, 100, 200]
 
-# 4. Beloved Sans at 32px (only renders if user dropped the .otf)
-# Comment out this section if you haven't downloaded Beloved Sans.
+# 4. Beloved Sans at 32px — uncomment ONLY after dropping
+#    `beloved-sans.otf` into `config/fonts/`. Otherwise this raises
+#    UnknownFontError at config load (the `font` resolver lists all
+#    available names in the error so you can verify the file is found).
 # [[playlist.section]]
 # mode = "swap"
 # hold_time = 3.0

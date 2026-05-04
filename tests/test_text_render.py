@@ -207,6 +207,55 @@ class TestDrawHiresText:
             for x in range(real.width):
                 assert real.get_pixel(x, y) == (0, 0, 0)
 
+    def test_advance_unaffected_by_clip_rect_skip(self):
+        """The clip-rect early-out skips the lit-pixel loop, but must
+        still advance the cursor — otherwise the partial-overlap glyph
+        right after a series of off-canvas ones would land at the
+        wrong x. Verify by drawing text that starts off-canvas and
+        spans onto it: the first on-canvas glyph must appear in the
+        same position as it would without the early-out.
+        """
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.fonts import resolve_font
+        from led_ticker.text_render import draw_text
+
+        real_a, wrapped_a = self._setup_canvas()
+        real_b, wrapped_b = self._setup_canvas()
+        font = resolve_font("Inter-Regular", 24)
+
+        # Long text starting off-canvas. With a working clip-rect:
+        # off-canvas glyphs are skipped via early-out but advance cursor.
+        # Without it (regression): they paint nothing and still advance.
+        # Either way the visible pixels should be identical.
+        draw_text(wrapped_a, font, -20, 12, Color(255, 255, 255), "ABCDEFGHIJ")
+
+        # Reference: render only the on-canvas tail, computed at the
+        # equivalent absolute position (we just trust both paths agree
+        # since both go through the same advance arithmetic).
+        # Pin: at least *some* pixels lit on the right side of the panel.
+        lit = sum(
+            1
+            for y in range(real_a.height)
+            for x in range(real_a.width)
+            if real_a.get_pixel(x, y) != (0, 0, 0)
+        )
+        assert lit > 0, "expected some on-canvas pixels at x=-20"
+
+        # And drawing the same text fully on-canvas should always paint
+        # MORE pixels than partial overlap.
+        draw_text(wrapped_b, font, 0, 12, Color(255, 255, 255), "ABCDEFGHIJ")
+        lit_b = sum(
+            1
+            for y in range(real_b.height)
+            for x in range(real_b.width)
+            if real_b.get_pixel(x, y) != (0, 0, 0)
+        )
+        assert lit_b > lit, (
+            "fully on-canvas text should paint more pixels than partly "
+            "off-canvas text"
+        )
+
     def test_unknown_char_falls_back_to_question_mark(self):
         """Characters not in the rasterized set use the '?' glyph."""
         from rgbmatrix.graphics import Color

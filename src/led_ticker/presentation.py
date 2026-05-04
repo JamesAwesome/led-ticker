@@ -92,11 +92,11 @@ class Typewriter:
         # font (a C-call on real hardware) — wasteful at 20fps.
         self._cached_width: dict[tuple[int, str], int] = {}
 
-    def _content_width(self, font: Any, text: str) -> int:
+    def _content_width(self, font: Any, text: str, canvas: Any = None) -> int:
         key = (id(font), text)
         w = self._cached_width.get(key)
         if w is None:
-            w = get_text_width(font, text, padding=0)
+            w = get_text_width(font, text, padding=0, canvas=canvas)
             self._cached_width[key] = w
         return w
 
@@ -118,7 +118,7 @@ class Typewriter:
 
         from led_ticker.drawing import compute_cursor
 
-        content_width = self._content_width(widget.font, full_text)
+        content_width = self._content_width(widget.font, full_text, canvas=canvas)
         pos, end_padding = compute_cursor(
             canvas.width,
             content_width,
@@ -168,11 +168,11 @@ class Rainbow:
         self.char_offset: int = char_offset
         self._cached_width: dict[tuple[int, str], int] = {}
 
-    def _content_width(self, font: Any, text: str) -> int:
+    def _content_width(self, font: Any, text: str, canvas: Any = None) -> int:
         key = (id(font), text)
         w = self._cached_width.get(key)
         if w is None:
-            w = get_text_width(font, text, padding=0)
+            w = get_text_width(font, text, padding=0, canvas=canvas)
             self._cached_width[key] = w
         return w
 
@@ -188,7 +188,7 @@ class Rainbow:
         from led_ticker.drawing import compute_cursor
 
         full_text = widget.message
-        content_width = self._content_width(widget.font, full_text)
+        content_width = self._content_width(widget.font, full_text, canvas=canvas)
         pos, end_padding = compute_cursor(
             canvas.width,
             content_width,
@@ -269,6 +269,7 @@ class Bounce:
                 widget.font,
                 widget.message,
                 padding=0,
+                canvas=canvas,
             )
         center_x = max(0, (width - text_width) // 2)
         sf = self.scroll_frames

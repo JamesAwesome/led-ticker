@@ -2556,7 +2556,7 @@ def measure_width(
                 measured = _emoji_width(_get_registry()[value])
             width += measured + EMOJI_PADDING
         else:
-            width += get_text_width(font, value, padding=0)
+            width += get_text_width(font, value, padding=0, canvas=canvas)
     return width
 
 

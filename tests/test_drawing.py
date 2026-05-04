@@ -115,7 +115,7 @@ class TestGetTextWidthHiresFont:
 
     def test_returns_logical_pixel_advance_not_real(self):
         """Hotfix ec30a97: get_text_width must return LOGICAL pixels for
-        HiresFont (ceil-div by SCALE_ASSUMPTION=4). Otherwise widget layout
+        HiresFont (ceil-div by SCALE_FALLBACK=4). Otherwise widget layout
         math against canvas.width (logical) breaks."""
         from led_ticker.drawing import get_text_width
         from led_ticker.fonts import resolve_font
@@ -127,3 +127,52 @@ class TestGetTextWidthHiresFont:
         assert width == expected_logical
         # Pre-hotfix would have returned real_total (4x larger).
         assert width < real_total
+
+    def test_canvas_arg_supplies_scale(self):
+        """When `canvas` is provided, get_text_width reads scale from it
+        instead of falling back to SCALE_FALLBACK=4. A scale=1 canvas
+        (small sign) should produce REAL-pixel widths since real == logical
+        at scale 1; a scale=4 canvas should match the no-canvas (fallback)
+        behavior; a scale=2 canvas should land between them.
+        """
+        from types import SimpleNamespace
+
+        from led_ticker.drawing import get_text_width
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        real_total = sum(font.glyphs[c].advance for c in "ABC")
+
+        # scale=1 (small sign): logical == real, no division.
+        scale1_canvas = SimpleNamespace(scale=1)
+        assert get_text_width(font, "ABC", padding=0, canvas=scale1_canvas) == (
+            real_total
+        )
+
+        # scale=4 (bigsign): matches the SCALE_FALLBACK no-canvas path.
+        scale4_canvas = SimpleNamespace(scale=4)
+        no_canvas = get_text_width(font, "ABC", padding=0)
+        with_canvas = get_text_width(font, "ABC", padding=0, canvas=scale4_canvas)
+        assert no_canvas == with_canvas
+
+        # scale=2 (hypothetical): half the real, between scale=1 and scale=4.
+        scale2_canvas = SimpleNamespace(scale=2)
+        scale2_w = get_text_width(font, "ABC", padding=0, canvas=scale2_canvas)
+        assert scale2_w == -(-real_total // 2)
+        assert scale2_w < real_total
+        assert scale2_w > with_canvas
+
+    def test_canvas_without_scale_attr_falls_back(self):
+        """A real RGBMatrix canvas has no `scale` attribute. The function
+        must fall back to SCALE_FALLBACK rather than crashing — preserves
+        the pre-canvas-aware semantics for plain real canvases."""
+        from types import SimpleNamespace
+
+        from led_ticker.drawing import get_text_width
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        bare_canvas = SimpleNamespace()  # no `scale` attr
+        no_canvas = get_text_width(font, "ABC", padding=0)
+        with_bare = get_text_width(font, "ABC", padding=0, canvas=bare_canvas)
+        assert no_canvas == with_bare

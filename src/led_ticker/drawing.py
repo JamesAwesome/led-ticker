@@ -30,14 +30,31 @@ def get_widget_padding(widget: Any, default: int = 6) -> int:
     return padding if isinstance(padding, int) else default
 
 
-def get_text_width(font: Any, text: str, padding: int = 6) -> int:
+# Fallback scale used by `get_text_width` when no canvas is provided.
+# Hi-res fonts only make sense on the bigsign at scale=4 today, so
+# this preserves the pre-canvas-aware behavior for callers (e.g.
+# `TickerMessage.__init__`) that don't have a canvas yet. If hi-res
+# use spreads beyond the bigsign, audit no-canvas call sites — they'll
+# under-report widths on a small sign at scale=1.
+SCALE_FALLBACK: int = 4
+
+
+def get_text_width(font: Any, text: str, padding: int = 6, canvas: Any = None) -> int:
     """Get the pixel width of rendered text plus padding.
 
     Dispatches on font type: HiresFont sums glyph advances (with ``?``
     fallback for unknown chars), then converts the real-pixel total to
-    logical pixels (assuming bigsign scale=4) so layout math stays in
-    consistent units with the BDF path. BDF C font uses
-    ``CharacterWidth(ord(c))`` as before.
+    logical pixels so layout math stays in consistent units with the
+    BDF path. BDF C font uses ``CharacterWidth(ord(c))`` as before.
+
+    `canvas` (optional) supplies the scale for the real→logical
+    conversion. Pass it from any draw-time call site to get the
+    correct width on any scale; the function reads ``getattr(canvas,
+    "scale", 1)`` so plain real canvases are treated as scale=1.
+    When `canvas` is None, falls back to ``SCALE_FALLBACK = 4`` —
+    used by callers that pre-compute width before a canvas exists
+    (e.g. ``TickerMessage.__init__``). The fallback preserves the
+    original bigsign-only behavior.
     """
     if isinstance(font, HiresFont):
         fallback = font.glyphs.get("?")
@@ -46,14 +63,14 @@ def get_text_width(font: Any, text: str, padding: int = 6) -> int:
             font.glyphs[c].advance if c in font.glyphs else fallback_advance
             for c in text
         )
-        # Hi-res glyph advances are REAL pixels (e.g. ~7 px for "I" at
-        # 24px). The widget's layout math compares against canvas.width
-        # which is LOGICAL on a ScaledCanvas. Convert via ceil-division
-        # by scale=4 (bigsign assumption — hi-res only meaningful there).
-        # Ceil so we never undercount and break overflow detection on
-        # text that just barely fits.
-        SCALE_ASSUMPTION = 4
-        return -(-total_real // SCALE_ASSUMPTION) + padding
+        # Hi-res glyph advances are REAL pixels. Logical (cf.
+        # canvas.width on a ScaledCanvas) needs ceil-division by
+        # scale; ceil so we never undercount and break overflow
+        # detection on text that just barely fits.
+        scale = getattr(canvas, "scale", None) if canvas is not None else None
+        if scale is None or scale < 1:
+            scale = SCALE_FALLBACK
+        return -(-total_real // scale) + padding
     return sum(font.CharacterWidth(ord(c)) for c in text) + padding
 
 

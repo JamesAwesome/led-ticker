@@ -199,3 +199,216 @@ class TestHiresFontTextScaleRejection:
 
         w = _DummyImage(font=FONT_DEFAULT, text_scale=2)
         assert w.text_scale == 2
+
+
+class TestTwoRowMode:
+    """`bottom_text != ""` switches `_BaseImageWidget` to held-top +
+    scroll-on-overflow-bottom semantics over an image background.
+    Mirrors `TwoRowMessage`'s contract; the per-row knobs (`top_text`,
+    `bottom_color`, `top_align`, `top_font`, `top_text_y_offset`,
+    etc.) parallel TwoRow's. Single-row mode (default) is unchanged.
+    """
+
+    def test_default_is_single_row_mode(self):
+        """Without bottom_text, widget is in single-row mode."""
+        w = _DummyImage(text="hello")
+        assert not w._is_two_row()
+
+    def test_bottom_text_enables_two_row_mode(self):
+        w = _DummyImage(top_text="@brand", bottom_text="follow us")
+        assert w._is_two_row()
+
+    def test_text_alias_works_for_top_in_two_row_mode(self):
+        """`text="..."` is a back-compat alias for `top_text` when
+        bottom_text is also set — configs that just add bottom_text
+        keep working without renaming `text` to `top_text`."""
+        w = _DummyImage(text="@brand", bottom_text="follow us")
+        assert w._row_text(0) == "@brand"
+        assert w._row_text(1) == "follow us"
+
+    def test_explicit_top_text_overrides_text_alias(self):
+        """If top_text is set, it wins over `text`."""
+        w = _DummyImage(top_text="EXPLICIT", bottom_text="bottom")
+        assert w._row_text(0) == "EXPLICIT"
+
+    def test_setting_both_text_and_top_text_raises(self):
+        """In two-row mode, setting both `text` AND `top_text`
+        is ambiguous — refuse at construction."""
+        import pytest
+
+        with pytest.raises(ValueError, match="text.*top_text"):
+            _DummyImage(text="A", top_text="B", bottom_text="C")
+
+    def test_two_row_with_text_align_scroll_raises(self):
+        """text_align scroll modes conflict with two-row's auto-scroll
+        contract — refuse at construction."""
+        import pytest
+
+        with pytest.raises(ValueError, match="text_align"):
+            _DummyImage(
+                top_text="A",
+                bottom_text="B",
+                text_align="scroll",
+            )
+
+    def test_two_row_with_text_valign_top_raises(self):
+        """text_valign is meaningless in two-row mode (rows positioned
+        by the split, not the global valign)."""
+        import pytest
+
+        with pytest.raises(ValueError, match="text_valign"):
+            _DummyImage(
+                top_text="A",
+                bottom_text="B",
+                text_valign="top",
+            )
+
+    def test_two_row_with_text_x_offset_raises(self):
+        """text_x_offset is replaced by per-row align in two-row mode."""
+        import pytest
+
+        with pytest.raises(ValueError, match="text_x_offset"):
+            _DummyImage(
+                top_text="A",
+                bottom_text="B",
+                text_x_offset=5,
+            )
+
+    def test_two_row_with_text_scale_2_raises(self):
+        """text_scale > 1 conflicts with per-row band sizing."""
+        import pytest
+
+        with pytest.raises(ValueError, match="text_scale"):
+            _DummyImage(
+                top_text="A",
+                bottom_text="B",
+                text_scale=2,
+            )
+
+    def test_per_row_font_falls_back_to_font(self):
+        """`top_font` / `bottom_font` default to None and fall back to
+        `font`. Configs only need to set per-row fonts when they
+        actually differ."""
+        from led_ticker.fonts import FONT_DEFAULT
+
+        w = _DummyImage(
+            top_text="A",
+            bottom_text="B",
+            font=FONT_DEFAULT,
+        )
+        assert w._row_font(0) is FONT_DEFAULT
+        assert w._row_font(1) is FONT_DEFAULT
+
+    def test_per_row_font_overrides_font(self):
+        from led_ticker.fonts import FONT_DEFAULT, FONT_LABEL
+
+        w = _DummyImage(
+            top_text="A",
+            bottom_text="B",
+            font=FONT_DEFAULT,
+            top_font=FONT_LABEL,
+        )
+        assert w._row_font(0) is FONT_LABEL
+        assert w._row_font(1) is FONT_DEFAULT  # falls back to font
+
+    def test_per_row_color_falls_back_to_font_color(self):
+        from rgbmatrix.graphics import Color
+
+        red = Color(255, 0, 0)
+        w = _DummyImage(top_text="A", bottom_text="B", font_color=red)
+        assert w._row_color(0) is red
+        assert w._row_color(1) is red
+
+    def test_per_row_color_overrides_font_color(self):
+        from rgbmatrix.graphics import Color
+
+        red = Color(255, 0, 0)
+        blue = Color(0, 0, 255)
+        w = _DummyImage(
+            top_text="A",
+            bottom_text="B",
+            font_color=red,
+            bottom_color=blue,
+        )
+        assert w._row_color(0) is red
+        assert w._row_color(1) is blue
+
+    def test_per_row_align_defaults_to_center(self):
+        """Both rows default to center alignment, matching TwoRow."""
+        w = _DummyImage(top_text="A", bottom_text="B")
+        assert w._row_align(0) == "center"
+        assert w._row_align(1) == "center"
+
+
+class TestFieldSurfaceMatchesTwoRow:
+    """Field-surface tripwire (Guardrail #3 from the architectural
+    review): the per-row knobs on `_BaseImageWidget`'s two-row mode
+    must match `TwoRowMessage`'s — same names, same defaults, same
+    types. If anyone adds a knob to one and forgets the other, this
+    test catches the drift at the test layer rather than letting it
+    ship as a "works on TwoRow but not on gif" surprise.
+    """
+
+    PER_ROW_FIELDS = {
+        # name → expected default
+        "top_text": "",
+        "bottom_text": "",
+        "top_color": None,
+        "bottom_color": None,
+        "top_align": "center",
+        "bottom_align": "center",
+        "top_font": None,
+        "bottom_font": None,
+        "top_text_y_offset": 0,
+        "bottom_text_y_offset": 0,
+        "top_emoji_y_offset": 0,
+        "bottom_emoji_y_offset": 0,
+        "top_row_height": None,
+    }
+
+    def test_two_row_message_has_all_per_row_fields(self):
+        """Sanity check that TwoRowMessage exposes the same per-row
+        field set we expect on _BaseImageWidget. Tests the source
+        of truth: if these drift, the consistency check below fails
+        too."""
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        tw_field_names = {a.name for a in attrs.fields(TwoRowMessage) if a.init}
+        # `top_text`/`bottom_text`/`top_color`/`bottom_color` are
+        # required in TwoRow; the rest are optional knobs. Just
+        # verify the names exist.
+        for name in self.PER_ROW_FIELDS:
+            assert name in tw_field_names, (
+                f"TwoRowMessage lost field {name!r} — drift between "
+                f"the source-of-truth widget and the field-surface "
+                f"tripwire"
+            )
+
+    def test_image_base_has_all_per_row_fields(self):
+        """The actual tripwire: every per-row field on TwoRow must
+        be init-eligible on `_BaseImageWidget` too, so configs setting
+        them via `_build_widget` work uniformly."""
+        ib_field_names = {a.name for a in attrs.fields(_BaseImageWidget) if a.init}
+        missing = set(self.PER_ROW_FIELDS) - ib_field_names
+        assert not missing, (
+            f"`_BaseImageWidget` is missing per-row fields {missing!r} "
+            f"that exist on TwoRowMessage. Add the fields with matching "
+            f"defaults so two-row mode behaves identically across both "
+            f"widgets."
+        )
+
+    def test_image_base_per_row_field_defaults_match(self):
+        """Defaults must agree — a widget that defaults `top_align`
+        to 'left' on TwoRow but 'center' on image widgets is a
+        cross-widget surprise."""
+        ib_fields = {a.name: a for a in attrs.fields(_BaseImageWidget)}
+        for name, expected_default in self.PER_ROW_FIELDS.items():
+            field = ib_fields[name]
+            actual = field.default
+            # `attrs.NOTHING` sentinel for required fields — we don't
+            # expect any of these to be required, so the default
+            # should match.
+            assert actual == expected_default, (
+                f"`_BaseImageWidget.{name}` default = {actual!r}, "
+                f"expected {expected_default!r} (matching TwoRowMessage)"
+            )

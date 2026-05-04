@@ -7,8 +7,6 @@ from typing import Any
 
 import attrs
 
-from led_ticker._types import Font
-
 
 @attrs.define(frozen=True, slots=True)
 class Region:
@@ -30,8 +28,23 @@ def get_widget_padding(widget: Any, default: int = 6) -> int:
     return padding if isinstance(padding, int) else default
 
 
-def get_text_width(font: Font, text: str, padding: int = 6) -> int:
-    """Get the pixel width of rendered text plus padding."""
+def get_text_width(font: Any, text: str, padding: int = 6) -> int:
+    """Get the pixel width of rendered text plus padding.
+
+    Dispatches on font type: HiresFont sums glyph advances (with ``?``
+    fallback for unknown chars); BDF C font uses ``CharacterWidth(ord(c))``
+    as before.
+    """
+    from led_ticker.fonts.hires_loader import HiresFont
+
+    if isinstance(font, HiresFont):
+        fallback = font.glyphs.get("?")
+        fallback_advance = fallback.advance if fallback else 0
+        total = sum(
+            font.glyphs[c].advance if c in font.glyphs else fallback_advance
+            for c in text
+        )
+        return total + padding
     return sum(font.CharacterWidth(ord(c)) for c in text) + padding
 
 

@@ -126,18 +126,70 @@ class TestDrawHiresText:
             non_block_aligned > 0
         ), "looks block-expanded — hires path didn't bypass wrapper"
 
-    def test_returns_advance_width(self):
+    def test_returns_logical_pixel_advance_not_real(self):
+        """Hotfix ec30a97: advance must be reported in LOGICAL units (matches
+        BDF semantics) so layout/scroll-stop math doesn't 4× overshoot on the
+        bigsign. Asserting LOGICAL value, not just '> 0'."""
         from rgbmatrix.graphics import Color
 
         from led_ticker.fonts import resolve_font
         from led_ticker.text_render import draw_text
 
-        _, wrapped = self._setup_canvas()
+        real, wrapped = self._setup_canvas()
         font = resolve_font("Inter-Regular", 24)
+        real_total = sum(font.glyphs[c].advance for c in "ABC")
+        expected_logical = -(-real_total // 4)  # ceil-div by scale
         advance = draw_text(wrapped, font, 0, 12, Color(0, 255, 0), "ABC")
-        # Three glyphs at 24px should advance ~30-50 real pixels total.
-        assert advance > 0
-        assert advance < 200  # not absurdly wide
+        assert advance == expected_logical
+        # Sanity: the advance must NOT equal the raw real-pixel total
+        # (that would be the pre-hotfix bug).
+        assert advance < real_total
+
+    def test_glyph_renders_above_baseline_not_clipped_to_panel_bottom(self):
+        """Hotfix 00145b7 regression: with the buggy anchor handling, glyphs
+        rendered at logical y=12 on a scale=4 panel landed at real_y >= 48
+        (only the bottom strip visible). Correct rendering puts cap-height
+        pixels at real_y ~24-30 (well above panel midline)."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.fonts import resolve_font
+        from led_ticker.text_render import draw_text
+
+        real, wrapped = self._setup_canvas()
+        font = resolve_font("Inter-Regular", 24)
+        draw_text(wrapped, font, 0, 12, Color(255, 0, 0), "M")
+
+        lit_ys = [
+            y
+            for y in range(real.height)
+            for x in range(real.width)
+            if real.get_pixel(x, y) == (255, 0, 0)
+        ]
+        assert lit_ys, "M should render SOMETHING"
+        # Cap of 'M' (24px Inter, baseline at real_y=48, ascent=24) lands
+        # at real_y ~24. Tolerate 22..32 for font-version drift.
+        assert (
+            min(lit_ys) < 32
+        ), f"top of 'M' at y={min(lit_ys)} — looks anchor-bug clipped"
+        # Bottom of 'M' should land near the baseline at real_y=48.
+        # Tolerate 44..50.
+        assert max(lit_ys) <= 50
+
+    def test_get_text_width_matches_draw_text_advance(self):
+        """get_text_width and the actual draw_text advance must report the
+        same value — otherwise overflow-scroll detection mis-fires."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.drawing import get_text_width
+        from led_ticker.fonts import resolve_font
+        from led_ticker.text_render import draw_text
+
+        real, wrapped = self._setup_canvas()
+        font = resolve_font("Inter-Regular", 24)
+        text = "Hello world"
+        measured = get_text_width(font, text, padding=0)
+        actual = draw_text(wrapped, font, 0, 12, Color(255, 255, 255), text)
+        assert measured == actual
 
     def test_clips_x_out_of_panel(self):
         """Glyph painted off the right edge clips silently (no crash)."""

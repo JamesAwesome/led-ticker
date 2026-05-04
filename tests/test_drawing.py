@@ -112,3 +112,18 @@ class TestGetTextWidthHiresFont:
         # FONT_DEFAULT is 6×12 — 'A' is 6 wide.
         width = get_text_width(FONT_DEFAULT, "A", padding=0)
         assert width == 6
+
+    def test_returns_logical_pixel_advance_not_real(self):
+        """Hotfix ec30a97: get_text_width must return LOGICAL pixels for
+        HiresFont (ceil-div by SCALE_ASSUMPTION=4). Otherwise widget layout
+        math against canvas.width (logical) breaks."""
+        from led_ticker.drawing import get_text_width
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        real_total = sum(font.glyphs[c].advance for c in "ABC")
+        expected_logical = -(-real_total // 4)
+        width = get_text_width(font, "ABC", padding=0)
+        assert width == expected_logical
+        # Pre-hotfix would have returned real_total (4x larger).
+        assert width < real_total

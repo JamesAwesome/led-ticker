@@ -225,7 +225,10 @@ async def test_play_no_text_holds_for_hold_seconds(tmp_path, mocker):
 
 
 async def test_play_with_text_runs_scroll_loop(tmp_path, mocker):
-    """With text scrolling: per-tick loop for hold_seconds duration."""
+    """With text scrolling: per-tick loop for at least one full marquee
+    traversal. hold_seconds sets a minimum, but the auto-floor (for
+    text_loops=0) ensures the marquee doesn't get truncated mid-pass.
+    """
     path = _make_png(tmp_path, color=(0, 0, 0))
     widget = StillImage(
         path=str(path),
@@ -242,8 +245,12 @@ async def test_play_with_text_runs_scroll_loop(tmp_path, mocker):
 
     await widget.play(real, frame)
 
-    # 1.0s / 50ms tick = 20 ticks → 20 swaps
-    assert frame.matrix.SwapOnVSync.call_count == 20
+    # 1.0s / 50ms tick = 20 ticks natural — but the auto-floor extends
+    # to at least one full marquee pass: text_w (256) + text_width
+    # (~6 for "X") = 262 ticks.
+    one_traversal = 256 + 6
+    count = frame.matrix.SwapOnVSync.call_count
+    assert one_traversal <= count < 2 * one_traversal
 
 
 async def test_play_with_text_text_loops_extends_duration(tmp_path, mocker):
@@ -321,9 +328,12 @@ async def test_scroll_direction_right_advances_positively(tmp_path, mocker):
     ],
 )
 def test_baseline_y_honors_text_valign(tmp_path, valign, h, expected_baseline):
+    from types import SimpleNamespace
+
     path = _make_png(tmp_path)
     widget = StillImage(path=str(path), text_valign=valign)
-    assert widget._baseline_y(h) == expected_baseline
+    canvas = SimpleNamespace(height=h, scale=1)
+    assert widget._baseline_y(canvas) == expected_baseline
 
 
 @pytest.mark.parametrize(
@@ -336,9 +346,12 @@ def test_baseline_y_honors_text_valign(tmp_path, valign, h, expected_baseline):
     ],
 )
 def test_text_y_offset_shifts_baseline(tmp_path, valign, offset, h, expected):
+    from types import SimpleNamespace
+
     path = _make_png(tmp_path)
     widget = StillImage(path=str(path), text_valign=valign, text_y_offset=offset)
-    assert widget._baseline_y(h) == expected
+    canvas = SimpleNamespace(height=h, scale=1)
+    assert widget._baseline_y(canvas) == expected
 
 
 @pytest.mark.parametrize(

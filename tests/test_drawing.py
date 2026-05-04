@@ -1,7 +1,15 @@
 """Tests for led_ticker.drawing helpers."""
 
-from led_ticker.drawing import Region, compute_cursor, find_center, get_text_width
-from led_ticker.fonts import FONT_DEFAULT
+from types import SimpleNamespace
+
+from led_ticker.drawing import (
+    Region,
+    compute_baseline,
+    compute_cursor,
+    find_center,
+    get_text_width,
+)
+from led_ticker.fonts import FONT_DEFAULT, FONT_SMALL
 
 
 def test_region_full_canvas_defaults():
@@ -162,17 +170,188 @@ class TestGetTextWidthHiresFont:
         assert scale2_w < real_total
         assert scale2_w > with_canvas
 
-    def test_canvas_without_scale_attr_falls_back(self):
-        """A real RGBMatrix canvas has no `scale` attribute. The function
-        must fall back to SCALE_FALLBACK rather than crashing — preserves
-        the pre-canvas-aware semantics for plain real canvases."""
+    def test_canvas_without_scale_attr_treated_as_scale_1(self):
+        """A real RGBMatrix canvas has no `scale` attribute — treat as
+        scale=1 (it IS the physical panel). This is the small-sign or
+        unwrapped-bigsign-real case. Distinct from `canvas=None`, which
+        falls back to SCALE_FALLBACK for back-compat with the lone
+        TickerMessage.__init__ pre-draw caller.
+        """
         from types import SimpleNamespace
 
         from led_ticker.drawing import get_text_width
         from led_ticker.fonts import resolve_font
 
         font = resolve_font("Inter-Regular", 24)
-        bare_canvas = SimpleNamespace()  # no `scale` attr
-        no_canvas = get_text_width(font, "ABC", padding=0)
+        bare_canvas = SimpleNamespace()  # no `scale` attr → scale=1
+        scale1_canvas = SimpleNamespace(scale=1)
         with_bare = get_text_width(font, "ABC", padding=0, canvas=bare_canvas)
-        assert no_canvas == with_bare
+        with_scale1 = get_text_width(font, "ABC", padding=0, canvas=scale1_canvas)
+        assert with_bare == with_scale1
+        # Both should differ from the canvas=None fallback (which uses
+        # SCALE_FALLBACK=4) since real-pixel advance / 4 < real-pixel /1.
+        no_canvas = get_text_width(font, "ABC", padding=0)
+        assert with_bare > no_canvas
+
+
+class TestComputeBaseline:
+    """`compute_baseline` replaces the BDF-hardcoded `y = 12` baseline.
+    Returns the logical-pixel y to pass to draw_text — works for both
+    BDF and HiresFont, on plain real canvases and ScaledCanvas wrappers.
+    """
+
+    def test_bdf_default_on_small_sign_matches_legacy_baseline(self):
+        """BDF 6×12 on a 16-row canvas (small sign or scale=1) returns
+        y=12 for "center" — same as the old hardcoded value, so existing
+        configs render unchanged."""
+        canvas = SimpleNamespace(height=16, scale=1)
+        assert compute_baseline(FONT_DEFAULT, canvas, valign="center") == 12
+
+    def test_bdf_default_on_bigsign_scaled_canvas(self):
+        """BDF 6×12 on a 16-row LOGICAL ScaledCanvas with scale=4 (real
+        height 64) still returns y=12. The function multiplies BDF
+        metrics by scale internally so the answer matches the small-sign
+        case — that's what keeps current bigsign BDF text where it was."""
+        canvas = SimpleNamespace(height=16, scale=4)
+        assert compute_baseline(FONT_DEFAULT, canvas, valign="center") == 12
+
+    def test_bdf_top_valign(self):
+        canvas = SimpleNamespace(height=16, scale=1)
+        # BDF 6×12 ascent = 10. Top alignment puts baseline at ascent.
+        assert compute_baseline(FONT_DEFAULT, canvas, valign="top") == 10
+
+    def test_bdf_bottom_valign(self):
+        canvas = SimpleNamespace(height=16, scale=1)
+        # BDF 6×12 descent = 12-10 = 2. Bottom alignment: baseline = h - descent.
+        assert compute_baseline(FONT_DEFAULT, canvas, valign="bottom") == 14
+
+    def test_bdf_5x8_metrics(self):
+        """5×8 has FONT_ASCENT=7 + descent=1; verify the helper picks
+        up the parsed BDF ascent (not a hardcoded 10) by switching font."""
+        canvas = SimpleNamespace(height=8, scale=1)
+        assert compute_baseline(FONT_SMALL, canvas, valign="top") == 7
+        assert compute_baseline(FONT_SMALL, canvas, valign="bottom") == 7
+
+    def test_hires_center_on_bigsign_real_canvas(self):
+        """Inter-Regular @ 24px on a 64-row real canvas (the actual
+        bigsign-with-text-canvas-scale-1 case): centered baseline puts
+        the glyph in the visual middle. With Inter @ 24px (line_h ~28,
+        ascent ~22), centered top is at row (64-28)/2 = 18, baseline at
+        18+22 = 40. Pin to ±2 of 40 since the FT metrics vary slightly.
+        """
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        canvas = SimpleNamespace(height=64, scale=1)
+        baseline = compute_baseline(font, canvas, valign="center")
+        assert 38 <= baseline <= 42, baseline
+
+    def test_hires_top_doesnt_clip_ascender(self):
+        """Top valign for a hires font must position baseline = ascent
+        so the tallest cap-height glyph just reaches y=0 (not above)."""
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        canvas = SimpleNamespace(height=64, scale=1)
+        baseline = compute_baseline(font, canvas, valign="top")
+        # Baseline should equal ascent (rounded up so we don't clip).
+        assert baseline >= font.ascent
+        # And not absurdly large (would push glyph below visible top).
+        assert baseline <= font.ascent + 1
+
+    def test_hires_bottom_doesnt_clip_descender(self):
+        """Bottom valign must keep descenders inside the panel."""
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        h = 64
+        canvas = SimpleNamespace(height=h, scale=1)
+        baseline = compute_baseline(font, canvas, valign="bottom")
+        # Glyph bottom = baseline + descent must be ≤ h.
+        glyph_bottom = baseline + font.descent
+        assert glyph_bottom <= h
+
+    def test_hires_on_scaled_canvas_returns_logical(self):
+        """On a ScaledCanvas wrapper at scale=4, compute_baseline must
+        return a LOGICAL y so draw_text's `real_y = y * scale` lands at
+        the right physical pixel. Scale-1 and scale-4 should produce
+        equivalent visual baselines (different logical units, same
+        real position).
+        """
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        # Scale=1 logical canvas = 64 rows. Scale=4 logical canvas = 16
+        # rows wrapping a 64 real-row panel.
+        c1 = SimpleNamespace(height=64, scale=1)
+        c4 = SimpleNamespace(height=16, scale=4)
+        b1 = compute_baseline(font, c1, valign="center")
+        b4 = compute_baseline(font, c4, valign="center")
+        # Real positions: b1 * 1 vs b4 * 4. Should be within scale-1
+        # of each other (rounding loss).
+        assert abs(b1 - b4 * 4) <= 4
+
+    def test_mock_canvas_scale_attr_treated_as_scale_1(self):
+        """A Mock canvas auto-generates `.scale` (not an int). The
+        helper must treat that as scale=1 instead of crashing —
+        otherwise widget tests using the standard Mock fixture would
+        all fail when they call draw()."""
+        import unittest.mock as _mock
+
+        canvas = _mock.Mock()
+        canvas.height = 16  # set explicitly so .height is an int
+        # canvas.scale is auto-Mock
+        baseline = compute_baseline(FONT_DEFAULT, canvas, valign="center")
+        assert baseline == 12  # falls back to scale=1 like a small sign
+
+
+class TestHiresMessageBaselineCentersOnBigsign:
+    """End-to-end: TickerMessage with a hires font on a bigsign canvas
+    paints the glyph at the centered position, not the BDF-shifted-down
+    position the old hardcoded `y=12` formula produced.
+    """
+
+    def test_hires_text_visually_centered(self):
+        """Confirm pixels land within the centered band, not 4-8 px below."""
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.fonts import resolve_font
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.widgets.message import TickerMessage
+
+        opts = RGBMatrixOptions()
+        opts.cols = 256
+        opts.rows = 64
+        opts.chain_length = 1
+        opts.parallel = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+
+        font = resolve_font("Inter-Regular", 24)
+        widget = TickerMessage(
+            message="MM",  # dense glyphs, ensures lit pixels in the band
+            font=font,
+            font_color=Color(255, 255, 255),
+            center=False,
+        )
+        widget.draw(wrapped, cursor_pos=10)
+
+        # Find rows that have any lit pixels.
+        lit_rows = sorted(
+            {
+                y
+                for y in range(real.height)
+                for x in range(real.width)
+                if real.get_pixel(x, y) != (0, 0, 0)
+            }
+        )
+        assert lit_rows, "expected lit pixels somewhere"
+        # Pre-fix: glyph top was at row ~26, bottom ~54 (shifted down).
+        # Post-fix: glyph top ~18, bottom ~46 (centered ±2 px). The
+        # band's center should be near the panel center (32).
+        band_center = (lit_rows[0] + lit_rows[-1]) / 2
+        assert abs(band_center - 32) <= 4, (
+            f"glyph band centered at {band_center} on a 64-row panel — "
+            f"expected within 4 px of 32"
+        )

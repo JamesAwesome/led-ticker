@@ -49,12 +49,15 @@ def get_text_width(font: Any, text: str, padding: int = 6, canvas: Any = None) -
 
     `canvas` (optional) supplies the scale for the real→logical
     conversion. Pass it from any draw-time call site to get the
-    correct width on any scale; the function reads ``getattr(canvas,
-    "scale", 1)`` so plain real canvases are treated as scale=1.
-    When `canvas` is None, falls back to ``SCALE_FALLBACK = 4`` —
-    used by callers that pre-compute width before a canvas exists
-    (e.g. ``TickerMessage.__init__``). The fallback preserves the
-    original bigsign-only behavior.
+    correct width on any scale. The function reads ``canvas.scale``
+    when it's an int ≥ 1 (a `ScaledCanvas` wrapper), otherwise:
+      - canvas IS provided but has no usable `scale` → treat as
+        scale=1 (a plain real canvas, e.g. small sign or unwrapped
+        bigsign real canvas).
+      - canvas is None → fall back to ``SCALE_FALLBACK = 4`` for
+        callers that pre-compute width before any canvas exists
+        (e.g. ``TickerMessage.__init__``). Preserves the original
+        bigsign-only behavior in that lone case.
     """
     if isinstance(font, HiresFont):
         fallback = font.glyphs.get("?")
@@ -67,11 +70,65 @@ def get_text_width(font: Any, text: str, padding: int = 6, canvas: Any = None) -
         # canvas.width on a ScaledCanvas) needs ceil-division by
         # scale; ceil so we never undercount and break overflow
         # detection on text that just barely fits.
-        scale = getattr(canvas, "scale", None) if canvas is not None else None
-        if scale is None or scale < 1:
+        if canvas is None:
             scale = SCALE_FALLBACK
+        else:
+            scale_attr = getattr(canvas, "scale", 1)
+            scale = scale_attr if isinstance(scale_attr, int) and scale_attr >= 1 else 1
         return -(-total_real // scale) + padding
     return sum(font.CharacterWidth(ord(c)) for c in text) + padding
+
+
+def compute_baseline(font: Any, canvas: Any, valign: str = "center") -> int:
+    """Return the logical-pixel baseline y for the requested valign.
+
+    Replaces the hardcoded ``y = 12`` (BDF 6×12) baseline that was
+    embedded throughout TickerMessage / image widgets. Works for both
+    BDF and HiresFont — the helper figures out scale from the canvas
+    (``getattr(canvas, "scale", 1)``), derives real-pixel font metrics
+    via ``font_line_height`` / ``font_ascent``, and converts back to
+    logical for the renderer.
+
+    Rounding rules differ by valign because integer division loses
+    sub-scale-pixel precision: top rounds up (avoid clipping the
+    ascender above the panel), bottom rounds down (avoid clipping the
+    descender below it), center rounds to nearest.
+
+    For BDF on a non-scaled canvas this collapses to the original
+    formula and returns y=12 for "center" on a 6×12 cell in a 16-row
+    canvas — back-compat preserved.
+    """
+    from led_ticker.fonts import font_ascent, font_line_height
+
+    is_hires = isinstance(font, HiresFont)
+    # Tolerate non-int `scale` attributes (Mock canvases in tests, real
+    # RGBMatrix canvases without `scale`) — fall back to scale=1.
+    scale_attr = getattr(canvas, "scale", 1)
+    scale = scale_attr if isinstance(scale_attr, int) and scale_attr >= 1 else 1
+
+    line_h_real = font_line_height(font)
+    asc_real = font_ascent(font)
+    if not is_hires:
+        # BDF metrics are logical; multiply up so we can compose with
+        # canvas_h_real consistently.
+        line_h_real *= scale
+        asc_real *= scale
+
+    canvas_h_real = canvas.height * scale
+
+    if valign == "top":
+        baseline_real = asc_real
+        # Round UP so the ascender doesn't clip above the panel.
+        return -(-baseline_real // scale)
+    if valign == "bottom":
+        descent_real = line_h_real - asc_real
+        baseline_real = canvas_h_real - descent_real
+        # Round DOWN so the descender doesn't clip below the panel.
+        return baseline_real // scale
+    # center
+    top_real = (canvas_h_real - line_h_real) // 2
+    baseline_real = top_real + asc_real
+    return (baseline_real + scale // 2) // scale  # round to nearest
 
 
 def find_center(canvas_width: int, content_width: int) -> float:

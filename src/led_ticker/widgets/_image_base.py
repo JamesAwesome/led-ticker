@@ -34,8 +34,9 @@ import attrs
 
 from led_ticker._types import Canvas, Color, Font
 from led_ticker.colors import DEFAULT_COLOR
-from led_ticker.drawing import get_text_width
-from led_ticker.fonts import FONT_DEFAULT
+from led_ticker.drawing import compute_baseline, get_text_width
+from led_ticker.fonts import FONT_DEFAULT, font_line_height
+from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.text_render import draw_text
 from led_ticker.widgets._image_fit import (
@@ -205,20 +206,20 @@ class _BaseImageWidget:
     # Shared text-rendering helpers
     # ------------------------------------------------------------------
 
-    def _baseline_y(self, h: int) -> int:
-        """BDF baseline anchored per `text_valign`, plus `text_y_offset`.
+    def _baseline_y(self, canvas: Canvas) -> int:
+        """Font-aware baseline anchored per `text_valign`, plus `text_y_offset`.
 
-        FONT_DEFAULT is 6×12 with 10 ascent + 2 descent. The valign
-        modes give logical-pixel anchors; `text_y_offset` shifts further
-        (negative=up, positive=down).
+        Delegates to `drawing.compute_baseline`, which handles BDF and
+        HiresFont uniformly: figures out the canvas scale, derives the
+        ascent / line_height in real pixels, and returns the logical-y
+        baseline value to pass to `draw_text`. `text_y_offset` shifts
+        further (negative=up, positive=down) on top of the computed
+        baseline.
         """
-        if self.text_valign == "top":
-            base = 10
-        elif self.text_valign == "bottom":
-            base = h - 2
-        else:  # "center"
-            base = (h - 12) // 2 + 10
-        return base + self.text_y_offset
+        return (
+            compute_baseline(self.font, canvas, valign=self.text_valign)
+            + self.text_y_offset
+        )
 
     def _has_emoji(self) -> bool:
         return self._has_emoji_cached
@@ -304,17 +305,25 @@ class _BaseImageWidget:
         )
         text_w = text_canvas.width
         text_h = text_canvas.height
-        # text_scale upper bound: BDF cell is 12 rows tall, so the
-        # logical canvas must accommodate it. Raise early instead of
-        # silently clipping glyphs (which surfaces as missing/cut text).
-        if text_h < 12:
+        # The logical text_canvas must accommodate the font's line
+        # height. For BDF the metric is logical px; for HiresFont it's
+        # real px and we ceil-div by the canvas scale to compare in
+        # logical units. Raise early instead of silently clipping
+        # glyphs (which surfaces as missing/cut text).
+        font_lh = font_line_height(self.font)
+        font_scale = getattr(text_canvas, "scale", 1) or 1
+        font_lh_logical = (
+            -(-font_lh // font_scale) if isinstance(self.font, _HiresFont) else font_lh
+        )
+        if text_h < font_lh_logical:
             raise ValueError(
                 f"text_scale={self.text_scale} leaves text_canvas only "
-                f"{text_h} rows on a {canvas.height}-tall panel — need "
-                f"at least 12 rows. Reduce text_scale or use a taller "
+                f"{text_h} rows on a {canvas.height}-tall panel — font "
+                f"requires {font_lh_logical} logical rows. Reduce "
+                f"text_scale, pick a smaller font_size, or use a taller "
                 f"panel."
             )
-        baseline_y = self._baseline_y(text_h)
+        baseline_y = self._baseline_y(text_canvas)
 
         tick_ms = max(MIN_SCROLL_SPEED_MS, self.scroll_speed_ms)
         tick_seconds = tick_ms / 1000
@@ -340,10 +349,23 @@ class _BaseImageWidget:
             scroll_pos = text_w
             scroll_step = -1
 
-        # Marquee-traversal floor extends n_ticks if needed.
-        if scrolling and self.text_loops > 0:
+        # Marquee-traversal floor: extend n_ticks so the marquee
+        # always completes at least one full pass (off-right → off-
+        # left or vice-versa). Without this, the source's natural
+        # duration (gif_loops × loop_ms, or hold_seconds for stills)
+        # could end mid-marquee — which got worse when hi-res fonts
+        # arrived because the same string is 2-3× wider per char than
+        # BDF, so a duration that fit the BDF marquee no longer fits
+        # the hi-res one. `text_loops` raises the floor further (e.g.
+        # text_loops=2 → at least two traversals); the implicit
+        # minimum is now 1 instead of 0. Set scroll_speed_ms to
+        # control marquee pace; the underlying duration extends to
+        # match. To opt out (rare), reduce font_size so the text
+        # naturally fits.
+        if scrolling:
             ticks_per_text_loop = text_w + text_width
-            n_ticks = max(n_ticks, self.text_loops * ticks_per_text_loop)
+            min_loops = max(1, self.text_loops)
+            n_ticks = max(n_ticks, min_loops * ticks_per_text_loop)
 
         # Static-text fast path: image + text are constant across ticks,
         # so paint once and hold instead of redrawing N times. Only

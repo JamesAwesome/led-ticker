@@ -1424,29 +1424,18 @@ Replace the block above with:
             widget_cfg["font_size"] = font_size
 ```
 
-Add the `_is_hires_font_name` helper near the top of `app.py` (or use an existing helper if one exists). Find an existing import of `list_available_hires_fonts` or similar; if absent, add this helper near the top of `_build_widget`:
+Add the `_is_hires_font_name` helper near the top of `app.py` (above `_build_widget`):
 
 ```python
 def _is_hires_font_name(name: str) -> bool:
     """True if `name` resolves to a HiresFont (TTF/OTF), False if BDF
-    alias. Used to enforce that HiresFont requires explicit `font_size`
-    in TOML."""
+    alias. Verified `list_available_hires_fonts` exists in
+    `fonts/__init__.py` and is the canonical way to enumerate hires
+    font names."""
     from led_ticker.fonts import list_available_hires_fonts
 
     return name in list_available_hires_fonts()
 ```
-
-If `list_available_hires_fonts` doesn't exist, add a simpler check:
-
-```python
-def _is_hires_font_name(name: str) -> bool:
-    """True if `name` is a HiresFont (TTF/OTF), False if BDF alias."""
-    from led_ticker.fonts import _BDF_ALIASES
-
-    return name not in _BDF_ALIASES
-```
-
-(Verify which helper exists by running `grep -n "_BDF_ALIASES\|list_available_hires_fonts" src/led_ticker/fonts/__init__.py`.)
 
 The error message must mention "HiresFont" and "requires font_size" verbatim — the test uses a regex match on those words.
 
@@ -1487,69 +1476,197 @@ Replace with:
             )
 ```
 
-- [ ] **Step 4: Update `resolve_font` if it doesn't already accept None for BDF**
+- [ ] **Step 4: Update `resolve_font` to accept `size=None` for BDF**
 
-Verify that `resolve_font(name, None)` works for BDF aliases:
-
-```bash
-PYTHONPATH=tests/stubs uv run python -c "from led_ticker.fonts import resolve_font; print(resolve_font('6x12', None))"
-```
-
-If this errors, fix `resolve_font` to accept `size=None` for BDF (where size is irrelevant).
-
-Find `resolve_font` in `src/led_ticker/fonts/__init__.py`. The current signature likely is:
+Edit `src/led_ticker/fonts/__init__.py`. The current signature (verified at line 78) is:
 
 ```python
-def resolve_font(name: str, size: int, threshold: int | None = None) -> Font | HiresFont:
+def resolve_font(
+    name: str, size: int = DEFAULT_HIRES_SIZE, threshold: int | None = None
+) -> Font | HiresFont:
 ```
 
-Update to:
+Update the signature to make `size` Optional with no default:
 
 ```python
-def resolve_font(name: str, size: int | None, threshold: int | None = None) -> Font | HiresFont:
+def resolve_font(
+    name: str, size: int | None = None, threshold: int | None = None
+) -> Font | HiresFont:
 ```
 
-In the function body, find the BDF branch and confirm it doesn't dereference `size`. If it does, accept None:
+The current function body (lines 97-121) has:
 
 ```python
+    if size < 8:
+        raise ValueError(f"font_size must be >= 8 for legible rendering; got {size}")
+    if threshold is not None:
+        # ... (threshold validation, unchanged)
+    from led_ticker.fonts.hires_loader import THRESHOLD
+
+    effective = THRESHOLD if threshold is None else threshold
+    hires = load_hires_font(name, size, effective)
+    if hires is not None:
+        return hires
     if name in _BDF_ALIASES:
-        # Size is ignored for BDF — cells are fixed by the .bdf file.
         return _BDF_ALIASES[name]
+    available = list_available_fonts()
+    raise UnknownFontError(f"unknown font {name!r}; available: {available}")
 ```
 
-In the HiresFont branch, raise if size is None:
+The `size < 8` check fires before the BDF branch, which means with `size=None` it would raise `TypeError: '<' not supported`. Restructure to check BDF FIRST so size is irrelevant for that path:
 
 ```python
-    # HiresFont — must have an explicit size.
+    # BDF first — cells are fixed by the .bdf file, size is irrelevant
+    # there. This also lets the caller pass `size=None` for BDF without
+    # tripping the `size < 8` legibility check.
+    if name in _BDF_ALIASES:
+        return _BDF_ALIASES[name]
+
+    # HiresFont path — size is required (rasterizer needs a real-px
+    # target).
     if size is None:
         raise ValueError(
             f"HiresFont {name!r} requires a size (real pixels)."
         )
-    return load_hires_font(name, size, threshold=threshold)
+    if size < 8:
+        raise ValueError(f"font_size must be >= 8 for legible rendering; got {size}")
+    if threshold is not None:
+        if not isinstance(threshold, int) or isinstance(threshold, bool):
+            raise ValueError(
+                f"font_threshold must be an int 0-255; got {type(threshold).__name__} "
+                f"({threshold!r})"
+            )
+        if not (0 <= threshold <= 255):
+            raise ValueError(f"font_threshold must be 0-255; got {threshold}")
+    from led_ticker.fonts.hires_loader import THRESHOLD
+
+    effective = THRESHOLD if threshold is None else threshold
+    hires = load_hires_font(name, size, effective)
+    if hires is not None:
+        return hires
+    available = list_available_fonts()
+    raise UnknownFontError(f"unknown font {name!r}; available: {available}")
 ```
 
-(The duplicate check between `_build_widget` and `resolve_font` is intentional: caller-side check gives a TOML-friendly error message; library-side check is a defensive fallback.)
+Note: `_BDF_ALIASES` is defined at line 63 and `list_available_fonts` at line 124 — both already in scope. No new imports needed.
 
-- [ ] **Step 5: Run tests to verify they pass**
+The duplicate check between `_build_widget` (caller-side, TOML-friendly message) and `resolve_font` (library-side, defensive fallback) is intentional.
+
+Verify the restructure works for both paths:
 
 ```bash
-uv run pytest tests/test_app.py::TestFontSizeMigration -v
+PYTHONPATH=tests/stubs uv run python -c "
+from led_ticker.fonts import resolve_font
+print('BDF None:', resolve_font('6x12', None))
+print('BDF int:', resolve_font('6x12', 12))
+try:
+    resolve_font('Inter-Regular', None)
+except ValueError as e:
+    print('Hires None:', repr(str(e)))
+print('Hires int:', resolve_font('Inter-Regular', 24))
+"
 ```
 
-Expected: 4 PASS (the 2 new tests + the 2 from Task 4).
+Expected: BDF cases return Font objects; "Hires None" prints a ValueError mentioning "requires a size"; "Hires int" returns a HiresFont.
 
-- [ ] **Step 6: Run the full suite**
+- [ ] **Step 5: Flip the two obsolete tests that asserted DEFAULT_HIRES_SIZE fallback**
+
+The codebase has two tests that asserted "HiresFont without size → falls back to DEFAULT_HIRES_SIZE." Now that we require explicit size, both must flip to assert the raise.
+
+In `tests/test_hires_font_loader.py` (around line 293), find:
+
+```python
+    def test_default_size_used_when_size_omitted(self):
+        from led_ticker.fonts import DEFAULT_HIRES_SIZE, resolve_font
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        font = resolve_font("Inter-Regular")
+        assert isinstance(font, HiresFont)
+        assert font.size == DEFAULT_HIRES_SIZE
+```
+
+Replace with:
+
+```python
+    def test_resolve_font_hires_without_size_raises(self):
+        """HiresFont requires explicit size at resolve time — the
+        rasterizer needs a real-px target and silent fallback to
+        DEFAULT_HIRES_SIZE could mismatch the panel."""
+        import pytest
+
+        from led_ticker.fonts import resolve_font
+
+        with pytest.raises(ValueError, match="requires a size"):
+            resolve_font("Inter-Regular")
+```
+
+In `tests/test_app.py` (around line 401), find:
+
+```python
+    @pytest.mark.asyncio
+    async def test_default_size_when_font_size_omitted(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.fonts import DEFAULT_HIRES_SIZE
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {
+                "type": "message",
+                "text": "hi",
+                "font": "Inter-Regular",
+                # no font_size
+            }
+            widget = await _build_widget(widget_cfg, session)
+        assert isinstance(widget.font, HiresFont)
+        assert widget.font.size == DEFAULT_HIRES_SIZE
+```
+
+Replace with:
+
+```python
+    @pytest.mark.asyncio
+    async def test_hires_without_font_size_raises(self):
+        """HiresFont in a TOML widget config without explicit
+        font_size raises with the size-hint error message — caught at
+        config-load via `_is_hires_font_name`."""
+        import aiohttp
+        import pytest
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {
+                "type": "message",
+                "text": "hi",
+                "font": "Inter-Regular",
+                # no font_size
+            }
+            with pytest.raises(ValueError, match="HiresFont.*requires font_size"):
+                await _build_widget(widget_cfg, session)
+```
+
+- [ ] **Step 6: Run tests to verify they pass**
+
+```bash
+uv run pytest tests/test_app.py::TestFontSizeMigration tests/test_app.py::test_hires_without_font_size_raises tests/test_hires_font_loader.py::test_resolve_font_hires_without_size_raises -v
+```
+
+Expected: all PASS.
+
+- [ ] **Step 7: Run the full suite**
 
 ```bash
 uv run pytest -q
 ```
 
-Expected: 1073+ passing.
+Expected: 1073+ passing. (Same count as before; we replaced 2 obsolete tests with 2 new ones plus added 2 in Task 4 + 2 in this task's earlier step.)
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/led_ticker/app.py src/led_ticker/fonts/__init__.py tests/test_app.py
+git add src/led_ticker/app.py src/led_ticker/fonts/__init__.py tests/test_app.py tests/test_hires_font_loader.py
 git commit -m "$(cat <<'EOF'
 _build_widget: HiresFont requires explicit font_size
 
@@ -1566,7 +1683,8 @@ _resolved_font_size). resolve_font accepts size=None for BDF (cells
 are fixed), raises for HiresFont (rasterizer needs a target).
 
 Same enforcement applied to per-row top_font / bottom_font in TwoRow
-mode.
+mode. Two obsolete tests (test_default_size_used_when_size_omitted,
+test_default_size_when_font_size_omitted) flipped to assert the raise.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF

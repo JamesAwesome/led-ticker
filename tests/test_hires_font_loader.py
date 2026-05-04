@@ -454,3 +454,37 @@ class TestFontLineHeight:
         # FONT_SMALL is 5x8 — height is 8.
         h = font_line_height(FONT_SMALL)
         assert h == 8
+
+    def test_line_height_tolerates_method_shaped_height(self):
+        """Back-compat shim: `font.height` was a CALLABLE in older
+        stub generations and could be again if the rgbmatrix C
+        extension's API evolves. `font_line_height` reads `font.height`
+        and calls it if callable, else uses the value directly. The
+        production stub and real C extension both expose `height` as
+        an int attribute (via @property), so the callable path is
+        only exercised by this test — proving the back-compat branch
+        actually works rather than just being trusted.
+        """
+        from led_ticker.fonts import font_line_height
+
+        class _MethodShapedFont:
+            """Mock font whose `height` is a method, not an attribute."""
+
+            def height(self) -> int:  # type: ignore[override]
+                return 9
+
+        result = font_line_height(_MethodShapedFont())
+        assert result == 9, (
+            f"font_line_height failed to call `height()` on a method-shaped "
+            f"font: got {result!r} (expected 9)"
+        )
+
+    def test_line_height_tolerates_attribute_shaped_height(self):
+        """Mirror of the above: real C extension exposes `height` as
+        an int attribute. Pin this path explicitly too."""
+        from led_ticker.fonts import font_line_height
+
+        class _AttrShapedFont:
+            height: int = 7
+
+        assert font_line_height(_AttrShapedFont()) == 7

@@ -42,14 +42,13 @@ Inline emoji slugs (`:instagram:`, `:email:`, etc.) work in both rows.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any
 
 import attrs
 
 from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR
-from led_ticker.drawing import compute_baseline, safe_scale
+from led_ticker.drawing import compute_baseline_for_band, safe_scale
 from led_ticker.fonts import FONT_SMALL, font_line_height_logical
 from led_ticker.pixel_emoji import draw_with_emoji, measure_width
 from led_ticker.widgets import register
@@ -94,8 +93,9 @@ def _row_layout(
     before the bottom row's text baseline).
     """
     emoji_y = max(band_offset, (band_height - _EMOJI_ROW_CAP) // 2 + band_offset)
-    band_canvas = SimpleNamespace(height=band_height, scale=getattr(canvas, "scale", 1))
-    baseline = compute_baseline(font, band_canvas, valign="center")
+    baseline = compute_baseline_for_band(
+        font, band_height, safe_scale(canvas), valign="center"
+    )
     text_baseline = baseline + band_offset
     return text_baseline, emoji_y
 

@@ -672,9 +672,13 @@ class TestAsymmetricRowSplit:
         assert captured_y[0] == ref_top_y + 2
         assert captured_y[1] == ref_bot_y  # bottom unchanged
 
-    def test_text_y_offset_independent_of_emoji_offset(self, canvas, monkeypatch):
-        """Setting both `top_text_y_offset` AND `top_emoji_y_offset`
-        shifts the whole row together. They compose cleanly."""
+    def test_text_and_emoji_offsets_compose_to_shift_whole_row(
+        self, canvas, monkeypatch
+    ):
+        """Setting both `top_text_y_offset` AND `top_emoji_y_offset` to
+        the same value shifts the whole row together — text and emoji
+        move in lockstep. (This is the documented "shift whole row"
+        recipe in the docstring.)"""
         from led_ticker.widgets import two_row as tr
 
         captured: list[tuple[int, int | None]] = []
@@ -685,12 +689,10 @@ class TestAsymmetricRowSplit:
 
         monkeypatch.setattr(tr, "draw_with_emoji", fake)
 
-        # Reference: no offsets.
         w0 = TwoRowMessage(top_text=":star: hi", bottom_text="b", font=FONT_SMALL)
         w0.draw(canvas)
         ref_text_y, ref_emoji_y = captured[0]
 
-        # Both offsets = +1: text + emoji both shift down 1.
         captured.clear()
         w1 = TwoRowMessage(
             top_text=":star: hi",
@@ -703,6 +705,107 @@ class TestAsymmetricRowSplit:
         new_text_y, new_emoji_y = captured[0]
         assert new_text_y == ref_text_y + 1
         assert new_emoji_y == ref_emoji_y + 1
+
+    def test_text_offset_alone_doesnt_move_emoji(self, canvas, monkeypatch):
+        """True independence: setting `top_text_y_offset` ONLY moves
+        the text — the emoji stays at its computed position. (The
+        review caught the prior test was misnamed; it asserted
+        composition, not independence.)"""
+        from led_ticker.widgets import two_row as tr
+
+        captured: list[tuple[int, int | None]] = []
+
+        def fake(canvas, font, x, y, color, text, emoji_y=None, **kw):
+            captured.append((y, emoji_y))
+            return 30
+
+        monkeypatch.setattr(tr, "draw_with_emoji", fake)
+
+        # Reference baseline.
+        w0 = TwoRowMessage(top_text=":star: hi", bottom_text="b", font=FONT_SMALL)
+        w0.draw(canvas)
+        ref_text_y, ref_emoji_y = captured[0]
+
+        # Set ONLY text offset; emoji_y must NOT change.
+        captured.clear()
+        w1 = TwoRowMessage(
+            top_text=":star: hi",
+            bottom_text="b",
+            font=FONT_SMALL,
+            top_text_y_offset=2,
+        )
+        w1.draw(canvas)
+        new_text_y, new_emoji_y = captured[0]
+        assert new_text_y == ref_text_y + 2
+        assert new_emoji_y == ref_emoji_y, (
+            f"emoji_y moved when only text_y_offset was set: "
+            f"ref={ref_emoji_y} now={new_emoji_y}"
+        )
+
+    def test_extreme_negative_text_y_offset_does_not_crash(self, canvas, monkeypatch):
+        """A user can set `top_text_y_offset = -50` (way past the
+        panel top) — the visible portion still renders, it doesn't
+        crash. The panel renderer hard-clips negative coords; the
+        widget just hands draw_with_emoji a negative y and lets the
+        underlying renderer / panel boundary handle the clip.
+
+        This is the documented contract ("negative shifts up; text
+        ascender may clip the panel edge") — pin it.
+        """
+        from led_ticker.widgets import two_row as tr
+
+        captured_y: list[int] = []
+
+        def fake(canvas, font, x, y, color, text, emoji_y=None, **kw):
+            captured_y.append(y)
+            return 30
+
+        monkeypatch.setattr(tr, "draw_with_emoji", fake)
+
+        w = TwoRowMessage(
+            top_text="A",
+            bottom_text="B",
+            font=FONT_SMALL,
+            top_text_y_offset=-50,  # extreme negative
+        )
+        w.draw(canvas)  # must not raise
+        # Top y must be the offset baseline, even when far negative.
+        assert (
+            captured_y[0] < 0
+        ), f"expected top_text_y to be negative, got {captured_y[0]}"
+
+    def test_emoji_offset_alone_doesnt_move_text(self, canvas, monkeypatch):
+        """Mirror of `test_text_offset_alone_doesnt_move_emoji`: setting
+        ONLY `top_emoji_y_offset` shifts the emoji without touching
+        the text baseline."""
+        from led_ticker.widgets import two_row as tr
+
+        captured: list[tuple[int, int | None]] = []
+
+        def fake(canvas, font, x, y, color, text, emoji_y=None, **kw):
+            captured.append((y, emoji_y))
+            return 30
+
+        monkeypatch.setattr(tr, "draw_with_emoji", fake)
+
+        w0 = TwoRowMessage(top_text=":star: hi", bottom_text="b", font=FONT_SMALL)
+        w0.draw(canvas)
+        ref_text_y, ref_emoji_y = captured[0]
+
+        captured.clear()
+        w1 = TwoRowMessage(
+            top_text=":star: hi",
+            bottom_text="b",
+            font=FONT_SMALL,
+            top_emoji_y_offset=2,
+        )
+        w1.draw(canvas)
+        new_text_y, new_emoji_y = captured[0]
+        assert new_emoji_y == ref_emoji_y + 2
+        assert new_text_y == ref_text_y, (
+            f"text_y moved when only emoji_y_offset was set: "
+            f"ref={ref_text_y} now={new_text_y}"
+        )
 
     def test_emoji_y_offset_shifts_top_emoji(self, canvas, monkeypatch):
         """`top_emoji_y_offset` nudges the top emoji vertically. Negative

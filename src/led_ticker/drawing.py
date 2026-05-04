@@ -125,53 +125,68 @@ def get_text_width(font: Any, text: str, padding: int = 6, canvas: Any = None) -
     return width
 
 
-def compute_baseline(font: Any, canvas: Any, valign: str = "center") -> int:
-    """Return the logical-pixel baseline y for the requested valign.
+def compute_baseline_for_band(
+    font: Any, band_height_logical: int, scale: int, valign: str = "center"
+) -> int:
+    """Compute the logical-pixel baseline y for a single band.
 
-    Replaces the hardcoded ``y = 12`` (BDF 6×12) baseline that was
-    embedded throughout TickerMessage / image widgets. Works for both
-    BDF and HiresFont — the helper figures out scale from the canvas
-    (``getattr(canvas, "scale", 1)``), derives real-pixel font metrics
-    via ``font_line_height`` / ``font_ascent``, and converts back to
-    logical for the renderer.
+    Lower-level primitive used by `compute_baseline` (operates on a
+    canvas) and `widgets/two_row._row_layout` (operates on a sub-band
+    inside a canvas). Takes explicit `band_height_logical` + `scale`
+    args so callers don't have to fabricate canvas-shaped objects via
+    SimpleNamespace just to ask "where would the glyph center inside
+    these N logical rows?".
 
     Rounding rules differ by valign because integer division loses
     sub-scale-pixel precision: top rounds up (avoid clipping the
-    ascender above the panel), bottom rounds down (avoid clipping the
-    descender below it), center rounds to nearest.
+    ascender above the band edge), bottom rounds down (avoid clipping
+    the descender below it), center rounds to nearest.
 
-    For BDF on a non-scaled canvas this collapses to the original
-    formula and returns y=12 for "center" on a 6×12 cell in a 16-row
-    canvas — back-compat preserved.
+    Result is relative to the band's top edge — callers add the
+    band's offset on the canvas to land on the right absolute y.
     """
     from led_ticker.fonts import font_ascent, font_line_height
 
     is_hires = isinstance(font, HiresFont)
-    scale = safe_scale(canvas)
-
     line_h_real = font_line_height(font)
     asc_real = font_ascent(font)
     if not is_hires:
         # BDF metrics are logical; multiply up so we can compose with
-        # canvas_h_real consistently.
+        # the band's real-pixel extent consistently.
         line_h_real *= scale
         asc_real *= scale
 
-    canvas_h_real = canvas.height * scale
+    band_h_real = band_height_logical * scale
 
     if valign == "top":
         baseline_real = asc_real
-        # Round UP so the ascender doesn't clip above the panel.
+        # Round UP so the ascender doesn't clip above the band edge.
         return -(-baseline_real // scale)
     if valign == "bottom":
         descent_real = line_h_real - asc_real
-        baseline_real = canvas_h_real - descent_real
-        # Round DOWN so the descender doesn't clip below the panel.
+        baseline_real = band_h_real - descent_real
+        # Round DOWN so the descender doesn't clip below the band.
         return baseline_real // scale
     # center
-    top_real = (canvas_h_real - line_h_real) // 2
+    top_real = (band_h_real - line_h_real) // 2
     baseline_real = top_real + asc_real
     return (baseline_real + scale // 2) // scale  # round to nearest
+
+
+def compute_baseline(font: Any, canvas: Any, valign: str = "center") -> int:
+    """Return the logical-pixel baseline y for the requested valign.
+
+    Canvas-shaped wrapper over `compute_baseline_for_band` — extracts
+    the canvas's logical height + scale and delegates. Replaces the
+    hardcoded ``y = 12`` (BDF 6×12) baseline that was embedded
+    throughout TickerMessage / image widgets. Works for both BDF and
+    HiresFont — `compute_baseline_for_band` handles the metric
+    differences internally.
+
+    For BDF on a non-scaled canvas this returns y=12 for "center" on a
+    6×12 cell in a 16-row canvas — back-compat preserved.
+    """
+    return compute_baseline_for_band(font, canvas.height, safe_scale(canvas), valign)
 
 
 def find_center(canvas_width: int, content_width: int) -> float:

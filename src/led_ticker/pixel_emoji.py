@@ -2575,11 +2575,13 @@ def draw_with_emoji(
 ) -> int:
     """Draw text with inline emoji. Returns pixels advanced.
 
-    `emoji_y` overrides the icon's top-row position. Default is
-    `4 + y_offset` — vertically centered on the 16-tall logical canvas
-    plus any caller-supplied offset. Multi-row widgets (e.g. `two_row`)
-    pass an explicit `emoji_y` per row so the icon aligns with the row's
-    text baseline instead of the canvas center.
+    `emoji_y` overrides the icon's top-row position. Default is derived
+    from the font: for BDF fonts it remains `4 + y_offset` (preserving
+    visuals validated on real hardware); for HiresFont it is
+    `(line_height - 8) // 2 + y_offset` to center the 8×8 sprite in the
+    taller glyph cell. Multi-row widgets (e.g. `two_row`) pass an
+    explicit `emoji_y` per row so the icon aligns with the row's text
+    baseline instead of the canvas center.
 
     `max_emoji_height` is the maximum logical height the emoji is
     allowed to occupy (used by multi-row widgets). When the hi-res
@@ -2590,7 +2592,22 @@ def draw_with_emoji(
     segments = _parse_segments(text)
     total: int = 0
 
-    iy_default = 4 + y_offset
+    # Default emoji_y centers the 8×8 sprite on the font's glyph cell.
+    # For BDF fonts (line_height=12), `(12 - 8) // 2 = 2` which would
+    # shift emoji two rows upward vs. the original hardcoded 4, breaking
+    # visuals that have been validated on real hardware. So we keep the
+    # original BDF value (4) and only derive from font_line_height for
+    # HiresFont, where the cell is 32-40px tall and row-4 would float
+    # the icon far above the text baseline.
+    # Callers (e.g. two_row) can always override via explicit emoji_y.
+    from led_ticker.fonts import font_line_height
+    from led_ticker.fonts.hires_loader import HiresFont
+
+    if isinstance(font, HiresFont):
+        line_h = font_line_height(font)
+        iy_default = max(0, (line_h - 8) // 2) + y_offset
+    else:
+        iy_default = 4 + y_offset  # preserved BDF default (visually validated)
 
     # Hi-res path is only available on a ScaledCanvas — anywhere else we
     # fall back to the regular 8×8 sprite.

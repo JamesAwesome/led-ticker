@@ -372,3 +372,45 @@ def test_hires_emoji_renders_via_scaled_canvas(slug):
         if real.get_pixel(x, y) != (0, 0, 0)
     )
     assert lit_count > 50, f"{slug} hi-res produced only {lit_count} lit pixels"
+
+
+class TestDrawWithEmojiHiresFont:
+    def test_default_emoji_y_uses_font_line_height(self):
+        """When emoji_y is not specified, the default position should be
+        derived from the font's line_height (centering the 8x8 sprite
+        on the glyph cell), not hardcoded for BDF."""
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.fonts import resolve_font
+        from led_ticker.pixel_emoji import draw_with_emoji
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        opts = RGBMatrixOptions()
+        opts.cols = 256
+        opts.rows = 64
+        opts.chain_length = 1
+        opts.parallel = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+
+        font = resolve_font("Inter-Regular", 24)
+        # Should not crash; should return positive total.
+        total = draw_with_emoji(
+            wrapped,
+            font,
+            cursor_pos=10,
+            y=12,
+            color=Color(255, 255, 255),
+            text=":taco: hi",
+        )
+        assert total > 0
+
+    def test_measure_width_with_hires_font(self):
+        """measure_width should handle hi-res fonts for non-emoji text."""
+        from led_ticker.fonts import resolve_font
+        from led_ticker.pixel_emoji import measure_width
+
+        font = resolve_font("Inter-Regular", 24)
+        width = measure_width(font, "hi")
+        assert width > 0

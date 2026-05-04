@@ -75,7 +75,9 @@ class UnknownFontError(ValueError):
     """
 
 
-def resolve_font(name: str, size: int = DEFAULT_HIRES_SIZE) -> Font | HiresFont:
+def resolve_font(
+    name: str, size: int = DEFAULT_HIRES_SIZE, threshold: int | None = None
+) -> Font | HiresFont:
     """Resolve a TOML font name to a loaded font object.
 
     Resolution order:
@@ -84,11 +86,22 @@ def resolve_font(name: str, size: int = DEFAULT_HIRES_SIZE) -> Font | HiresFont:
       3. Raise `UnknownFontError`.
 
     `size` is only meaningful for hi-res fonts; BDF aliases ignore it.
-    Raises `ValueError` if `size < 8` (glyphs unreadable below that).
+    `threshold` (0-255) is the rasterization cutoff for hi-res fonts;
+    `None` uses the loader default (128 = 50%). Lower it (~80) for
+    thin-stroked fonts whose antialiased edges otherwise get clipped.
+    Ignored for BDF.
+
+    Raises `ValueError` if `size < 8` (glyphs unreadable below that)
+    or if `threshold` is outside 0-255.
     """
     if size < 8:
         raise ValueError(f"font_size must be >= 8 for legible rendering; got {size}")
-    hires = load_hires_font(name, size)
+    if threshold is not None and not (0 <= threshold <= 255):
+        raise ValueError(f"font_threshold must be 0-255; got {threshold}")
+    from led_ticker.fonts.hires_loader import THRESHOLD
+
+    effective = THRESHOLD if threshold is None else threshold
+    hires = load_hires_font(name, size, effective)
     if hires is not None:
         return hires
     if name in _BDF_ALIASES:

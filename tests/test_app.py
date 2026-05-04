@@ -388,6 +388,59 @@ class TestBuildWidgetFontResolution:
         assert isinstance(widget.font, HiresFont)
         assert widget.font.size == DEFAULT_HIRES_SIZE
 
+    @pytest.mark.asyncio
+    async def test_font_threshold_plumbed_through_to_rasterizer(self):
+        """`font_threshold` in TOML must reach the loader so thin-stroked
+        fonts (Beloved Sans Regular) can override the 50% cutoff."""
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        async with aiohttp.ClientSession() as session:
+            cfg_default = {
+                "type": "message",
+                "text": "hi",
+                "font": "Inter-Regular",
+                "font_size": 24,
+            }
+            cfg_low_thr = {
+                "type": "message",
+                "text": "hi",
+                "font": "Inter-Regular",
+                "font_size": 24,
+                "font_threshold": 64,
+            }
+            w_default = await _build_widget(cfg_default, session)
+            w_low_thr = await _build_widget(cfg_low_thr, session)
+
+        assert isinstance(w_default.font, HiresFont)
+        assert isinstance(w_low_thr.font, HiresFont)
+        # Distinct cache entries — lower threshold gives more lit pixels.
+        assert w_default.font is not w_low_thr.font
+        assert len(w_low_thr.font.glyphs["a"].lit) > len(w_default.font.glyphs["a"].lit)
+
+    @pytest.mark.asyncio
+    async def test_font_threshold_not_passed_as_widget_kwarg(self):
+        """`font_threshold` is consumed by the resolver — must not leak
+        through to the widget constructor (would fail with unexpected kwarg)."""
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {
+                "type": "message",
+                "text": "hi",
+                "font": "Inter-Regular",
+                "font_size": 24,
+                "font_threshold": 80,
+            }
+            # Would raise TypeError if font_threshold leaked into TickerMessage.
+            widget = await _build_widget(widget_cfg, session)
+        assert widget.message == "hi"
+        assert not hasattr(widget, "font_threshold")
+
 
 class TestConfigureUserFontDir:
     """Regression: under `pip install` / Docker the package lives in

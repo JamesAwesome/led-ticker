@@ -100,7 +100,9 @@ def list_available_hires_fonts() -> list[str]:
     return sorted(names)
 
 
-def _rasterize_glyph(pil_font: Any, ch: str, ascent: int, descent: int) -> HiresGlyph:
+def _rasterize_glyph(
+    pil_font: Any, ch: str, ascent: int, descent: int, threshold: int = THRESHOLD
+) -> HiresGlyph:
     """Render a single character to a binarized HiresGlyph.
 
     Pillow's default `draw.text` anchor is "la" (left-ascender) —
@@ -157,7 +159,7 @@ def _rasterize_glyph(pil_font: Any, ch: str, ascent: int, descent: int) -> Hires
             img_x = img_left + dx
             if img_x < 0 or img_x >= canvas_w:
                 continue
-            if pixels[row_offset + img_x] >= THRESHOLD:
+            if pixels[row_offset + img_x] >= threshold:
                 lit.append((dx, dy))
 
     return HiresGlyph(
@@ -174,14 +176,23 @@ def _rasterize_glyph(pil_font: Any, ch: str, ascent: int, descent: int) -> Hires
     )
 
 
-def _rasterize(path: Path, size: int, name: str) -> HiresFont:
-    """Load .otf/.ttf via Pillow at `size` and rasterize all glyphs."""
+def _rasterize(
+    path: Path, size: int, name: str, threshold: int = THRESHOLD
+) -> HiresFont:
+    """Load .otf/.ttf via Pillow at `size` and rasterize all glyphs.
+
+    `threshold` is the 0-255 cutoff applied to each anti-aliased pixel.
+    Default 128 (50% intensity) gives clean LED output for medium-stroke
+    fonts like Inter. Thin-stroked fonts (e.g. Beloved Sans Regular at
+    24px) need a lower threshold (~80) so the antialiased edges of thin
+    strokes survive instead of getting quantized to zero.
+    """
     pil_font = ImageFont.truetype(str(path), size)
     ascent, descent = pil_font.getmetrics()
     chars = string.printable + EXTENDED_LATIN
     glyphs: dict[str, HiresGlyph] = {}
     for ch in chars:
-        glyphs[ch] = _rasterize_glyph(pil_font, ch, ascent, descent)
+        glyphs[ch] = _rasterize_glyph(pil_font, ch, ascent, descent, threshold)
     return HiresFont(
         name=name,
         size=size,
@@ -193,9 +204,16 @@ def _rasterize(path: Path, size: int, name: str) -> HiresFont:
 
 
 @functools.cache
-def load_hires_font(name: str, size: int) -> HiresFont | None:
-    """Load (or fetch from cache) a hi-res font by name and pixel size."""
+def load_hires_font(
+    name: str, size: int, threshold: int = THRESHOLD
+) -> HiresFont | None:
+    """Load (or fetch from cache) a hi-res font by name, pixel size, and threshold.
+
+    `threshold` is part of the cache key so a widget that overrides the
+    default still gets a freshly-rasterized font without polluting other
+    widgets that use the same name+size at the standard threshold.
+    """
     path = _find_font_path(name)
     if path is None:
         return None
-    return _rasterize(path, size, name)
+    return _rasterize(path, size, name, threshold)

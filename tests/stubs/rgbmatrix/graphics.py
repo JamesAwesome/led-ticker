@@ -74,10 +74,15 @@ class Font:
         """Return the width of a character by its code point."""
         return self._char_widths.get(char_code, self._default_width)
 
+    @property
     def height(self) -> int:
         """Return the font's bounding box height (FONTBOUNDINGBOX height field).
 
-        Mirrors the real rgbmatrix C extension's `Font.height()` method.
+        On real hardware (rgbmatrix C extension) `Font.height` is an
+        INT attribute, not a method. Mirroring that here as a property
+        — callers must read `font.height` (no parentheses).
+        `font_line_height` tolerates either form for back-compat with
+        any older code that still calls it as a method.
         """
         return self._bbx_height
 

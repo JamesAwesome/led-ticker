@@ -139,9 +139,15 @@ def font_line_height(font: Font | HiresFont) -> int:
     """
     if isinstance(font, HiresFont):
         return font.line_height
-    # BDF path: font.height() is the C bitmap height attribute.
-    # The stub mirrors this via the FONTBOUNDINGBOX height field.
-    return font.height()
+    # BDF C font: `height` is an INT ATTRIBUTE on real hardware (the
+    # rgbmatrix C extension), but the test stub historically exposed
+    # it as a callable. Tolerate both — call if callable, else read.
+    from typing import Any as _Any
+    from typing import cast as _cast
+
+    h: _Any = font.height
+    raw = h() if callable(h) else h
+    return _cast(int, raw)
 
 
 def font_ascent(font: Font | HiresFont) -> int:

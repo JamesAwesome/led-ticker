@@ -643,6 +643,31 @@ class TestAsymmetricRowSplit:
         with pytest.raises(ValueError, match="leaves no room"):
             w.draw(canvas)
 
+    def test_emoji_y_clamped_to_band_top_for_small_bands(self):
+        """Regression: with `band_height < _EMOJI_ROW_CAP = 8`, the
+        centered formula produced negative `emoji_y` relative to the
+        canvas, clipping the top of the sprite. Clamp to band_offset
+        so the emoji top is at least the band's top edge.
+
+        User-reported case: top_row_height=5 with `:instagram:` in
+        top_text → emoji_y was -2, clipping ~8 real px at scale=4.
+        """
+        from types import SimpleNamespace
+
+        from led_ticker.widgets.two_row import _row_layout
+
+        c = SimpleNamespace(height=16, scale=4, width=64)
+        # Top band 5 logical rows < 8 emoji cap.
+        _, top_emoji_y = _row_layout(c, FONT_SMALL, band_height=5, band_offset=0)
+        assert top_emoji_y >= 0, (
+            f"emoji_y={top_emoji_y} clips above the canvas top — "
+            "should be clamped to >= band_offset (0)"
+        )
+        # Bottom band 11 rows >= 8 cap → centered, no clamp needed.
+        _, bot_emoji_y = _row_layout(c, FONT_SMALL, band_height=11, band_offset=5)
+        # Bottom should be in band 5..15 (centered: 5 + (11-8)//2 = 6).
+        assert 5 <= bot_emoji_y < 16
+
     def test_asymmetric_split_baselines_in_correct_bands(self):
         """top_row_height=4 on a 16-row canvas → top in rows 0..3,
         bottom in rows 4..15. Row baselines must land in their bands.

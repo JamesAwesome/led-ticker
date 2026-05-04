@@ -84,8 +84,17 @@ def _row_layout(
     logical via scale) lands in the right units. The emoji top is
     centered on an `_EMOJI_ROW_CAP`-tall sub-band so 8-px emoji
     coexist with any text size; the cap independent of band height.
+
+    For small bands (`band_height < _EMOJI_ROW_CAP = 8`), the centered
+    formula would produce a negative `emoji_y` relative to the band —
+    clipping the top of the sprite above the band edge. We clamp to
+    `band_offset` so the emoji top is at least the band's top edge
+    (the bottom may then bleed into the next band's space, which is
+    benign as long as that space isn't occupied — typical asymmetric
+    layouts have a small top tag where this bleed lands harmlessly
+    before the bottom row's text baseline).
     """
-    emoji_y = (band_height - _EMOJI_ROW_CAP) // 2 + band_offset
+    emoji_y = max(band_offset, (band_height - _EMOJI_ROW_CAP) // 2 + band_offset)
     band_canvas = SimpleNamespace(height=band_height, scale=getattr(canvas, "scale", 1))
     baseline = compute_baseline(font, band_canvas, valign="center")
     text_baseline = baseline + band_offset

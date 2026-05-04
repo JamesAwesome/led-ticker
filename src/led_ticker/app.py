@@ -81,6 +81,7 @@ async def _build_widget(
     session: aiohttp.ClientSession,
     config_dir: Path | None = None,
     default_bg_color: tuple[int, int, int] | None = None,
+    panel_h_for_warning: int | None = None,
 ) -> Any:
     """Instantiate a widget from its config dict.
 
@@ -92,6 +93,12 @@ async def _build_widget(
     (or None). It's injected into `widget_cfg["bg_color"]` only when
     the widget config doesn't already specify it — preserving the
     "widget overrides section" precedence rule.
+
+    `panel_h_for_warning` is the real panel height in pixels (or None
+    to skip the check). When set and a hi-res `font_size` exceeds
+    `panel_h_for_warning - 2`, log a warning — this catches small-sign
+    users who set a font size that won't fit vertically. Bigsign hi-res
+    is the supported use case, so callers pass None for it.
     """
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)
@@ -112,9 +119,32 @@ async def _build_widget(
     font_threshold = widget_cfg.pop("font_threshold", None)
     if font_name is not None:
         from led_ticker.fonts import DEFAULT_HIRES_SIZE, resolve_font
+        from led_ticker.fonts.hires_loader import HiresFont
 
         size = font_size if font_size is not None else DEFAULT_HIRES_SIZE
-        widget_cfg["font"] = resolve_font(font_name, size, threshold=font_threshold)
+        font = resolve_font(font_name, size, threshold=font_threshold)
+        widget_cfg["font"] = font
+
+        # Warn on small-sign vertical overflow. Hi-res renders at native
+        # physical pixels, so font_size is compared directly to panel
+        # height. -2 leaves a 1px margin top + bottom (descenders, etc).
+        # BDF fonts are sized by their FONTBOUNDINGBOX (e.g. 6x12 = 12)
+        # and pre-validated to fit, so only warn for HiresFont here.
+        if (
+            isinstance(font, HiresFont)
+            and panel_h_for_warning is not None
+            and size > panel_h_for_warning - 2
+        ):
+            logging.warning(
+                "font_size=%d exceeds panel height %dpx (-2 margin) for "
+                "font %r — text will clip vertically. Hi-res fonts are "
+                "intended for the bigsign (64px); on the small sign, "
+                "stick to BDF aliases (5x8, 6x12) or font_size <= %d.",
+                size,
+                panel_h_for_warning,
+                font_name,
+                panel_h_for_warning - 2,
+            )
 
     # Config uses "text" but TickerMessage/TickerCountdown use "message".
     # Only rename for widgets that don't accept `text` natively (e.g.
@@ -228,6 +258,13 @@ def _configure_user_font_dir(config_path: Path) -> None:
     lives in site-packages, not next to the user's config). Override
     here at startup based on where ``config.toml`` actually lives, and
     invalidate the load cache so any earlier lookups don't stick.
+
+    SCOPE: Only effective for callers that go through ``app.run()``.
+    Custom entry points or test harnesses that build widgets directly
+    (without running the app loop) need to call this manually before
+    invoking ``_build_widget`` with a ``font`` keyword, otherwise the
+    package-relative default applies and user-supplied fonts in a
+    Docker install won't be found.
     """
     from led_ticker.fonts import hires_loader
 
@@ -259,6 +296,13 @@ async def run(config_path: Path) -> None:
             trans_kwargs["show_pokeball"] = False
         section_trans = section_trans_cls(**trans_kwargs)
 
+    # Compute the panel height to use for hi-res font_size warnings.
+    # Only meaningful on the small sign (default_scale == 1) — bigsign
+    # users intentionally pick large sizes, no warning needed there.
+    panel_h_for_warning: int | None = (
+        config.display.rows if config.display.default_scale == 1 else None
+    )
+
     async with aiohttp.ClientSession() as session:
         notif_queue: asyncio.Queue[Any] = asyncio.Queue()
         last_widget: Any = None  # track for section-to-section transitions
@@ -282,6 +326,7 @@ async def run(config_path: Path) -> None:
                             session,
                             config_dir=config_path.parent,
                             default_bg_color=section.bg_color,
+                            panel_h_for_warning=panel_h_for_warning,
                         )
                         widget_cache[key] = widget
                     # Container widgets expand into stories

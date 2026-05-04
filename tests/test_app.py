@@ -442,6 +442,96 @@ class TestBuildWidgetFontResolution:
         assert not hasattr(widget, "font_threshold")
 
 
+class TestSmallSignFontSizeGuard:
+    """Hi-res renders at native physical pixels. On the small sign
+    (default_scale=1, panel_h=16), a font_size > 14 will overflow
+    vertically. Warn the user instead of silently clipping.
+    """
+
+    @pytest.mark.asyncio
+    async def test_warns_when_font_size_overflows_small_sign(self, caplog):
+        import logging
+
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            with caplog.at_level(logging.WARNING):
+                widget_cfg = {
+                    "type": "message",
+                    "text": "hi",
+                    "font": "Inter-Regular",
+                    "font_size": 24,  # bigger than 16-2=14
+                }
+                await _build_widget(widget_cfg, session, panel_h_for_warning=16)
+        assert any(
+            "exceeds panel height" in r.message for r in caplog.records
+        ), f"expected overflow warning, got: {[r.message for r in caplog.records]}"
+
+    @pytest.mark.asyncio
+    async def test_no_warning_when_font_fits(self, caplog):
+        import logging
+
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            with caplog.at_level(logging.WARNING):
+                widget_cfg = {
+                    "type": "message",
+                    "text": "hi",
+                    "font": "Inter-Regular",
+                    "font_size": 12,  # fits in 16-2=14
+                }
+                await _build_widget(widget_cfg, session, panel_h_for_warning=16)
+        assert not any("exceeds panel height" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_no_warning_when_panel_h_is_none(self, caplog):
+        """Bigsign (default_scale > 1) passes panel_h_for_warning=None
+        to skip the check — large hi-res font_sizes are intentional."""
+        import logging
+
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            with caplog.at_level(logging.WARNING):
+                widget_cfg = {
+                    "type": "message",
+                    "text": "hi",
+                    "font": "Inter-Regular",
+                    "font_size": 40,  # huge but bigsign-appropriate
+                }
+                await _build_widget(widget_cfg, session, panel_h_for_warning=None)
+        assert not any("exceeds panel height" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_no_warning_for_bdf_alias_at_any_size(self, caplog):
+        """BDF fonts ignore font_size (sized by FONTBOUNDINGBOX). The
+        warning is hi-res-only — pre-validated BDF fonts shouldn't
+        trip it even with a `font_size` in the config."""
+        import logging
+
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            with caplog.at_level(logging.WARNING):
+                widget_cfg = {
+                    "type": "message",
+                    "text": "hi",
+                    "font": "6x12",
+                    "font_size": 40,  # ignored — BDF is 12px regardless
+                }
+                await _build_widget(widget_cfg, session, panel_h_for_warning=16)
+        assert not any("exceeds panel height" in r.message for r in caplog.records)
+
+
 class TestConfigureUserFontDir:
     """Regression: under `pip install` / Docker the package lives in
     site-packages, so the import-time default `USER_FONT_DIR` points at

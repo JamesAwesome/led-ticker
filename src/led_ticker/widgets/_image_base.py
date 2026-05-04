@@ -334,6 +334,16 @@ class _BaseImageWidget:
         to held-top + scrolling-bottom layout."""
         return bool(self.bottom_text)
 
+    def _has_text_content(self) -> bool:
+        """True when ANY text field is set — `text`, `top_text`, or
+        `bottom_text`. Used by subclass `play()` methods to decide
+        whether to take the text-overlay code path. Without this,
+        `play()` checking only `self.text` would silently skip the
+        overlay when the user set `top_text` + `bottom_text` (two-row
+        mode) and left `text` empty.
+        """
+        return bool(self.text or self.top_text or self.bottom_text)
+
     def _row_text(self, row: int) -> str:
         """Resolve per-row text content. Top row falls back to `text`
         (the single-row alias) when `top_text` isn't explicitly set,

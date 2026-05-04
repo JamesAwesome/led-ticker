@@ -239,7 +239,7 @@ class StillImage(_BaseImageWidget):
         if not self._pixels:
             return real_canvas
 
-        if not self.text:
+        if not self._has_text_content():
             return await self._play_no_text(real_canvas, frame)
         # Compute n_ticks from hold_seconds; the base class loop applies
         # the text_loops floor and the static-text fast path internally.

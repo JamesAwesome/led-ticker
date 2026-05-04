@@ -10,19 +10,25 @@ tag) and the bottom row for promotional copy that can be longer than
 the canvas width.
 
 Layout: the widget computes baselines from `canvas.height` so that
-each row is centered in its half. Each row uses 8 logical rows (the
-height of FONT_SMALL); any extra height becomes a gap between the rows.
+each row is centered in its half. With BDF FONT_SMALL (5×8), each row
+uses 8 logical rows; any extra height becomes a gap between the rows.
 
   canvas.height = 16  →  no gap, rows immediately adjacent
   canvas.height = 18  →  1-row gap (cleanest for 8-tall fonts)
-  canvas.height = 20  →  2-row gap (recommended for breathing room)
-  canvas.height = 24  →  4-row gap (very airy)
 
-Set the section's `content_height` to a value larger than 16 to enable
-the gap. Caller controls per-row horizontal alignment via `top_align`
-and `bottom_align` (`"left"`, `"center"`, `"right"`). The bottom row's
-alignment only takes effect when the text fits without scrolling — if it
-overflows, the framework scrolls it left regardless.
+**Hard ceiling**: `canvas.height * scale ≤ panel_h_real`. On bigsign
+(scale=4, panel=64 real rows) the cap is `content_height = 16`.
+Higher values overflow the wrapper into negative `_y_offset`
+territory; rows near the top/bottom logical edges clip silently.
+This is most visible with hi-res `:instagram:` etc. emoji where 4-8
+real px of the sprite get cut off at the panel edge. For per-row
+breathing room, prefer `text_y_offset` on TickerMessage or a smaller
+`font_size` instead of over-spec'ing `content_height`.
+
+Caller controls per-row horizontal alignment via `top_align` and
+`bottom_align` (`"left"`, `"center"`, `"right"`). The bottom row's
+alignment only takes effect when the text fits without scrolling — if
+it overflows, the framework scrolls it left regardless.
 
 Inline emoji slugs (`:instagram:`, `:email:`, etc.) work in both rows.
 """

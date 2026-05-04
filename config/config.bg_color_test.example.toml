@@ -70,7 +70,10 @@ bg_color = [85, 26, 139]    # deep purple — overrides section navy
 [[playlist.section]]
 mode = "swap"
 hold_time = 6.0
-content_height = 20         # 4 rows of breathing room between rows
+# content_height ceiling on bigsign at scale=4 is 16 (16×4=64 = panel real
+# height). Using 20 here would push the wrapper into negative _y_offset
+# territory, clipping ~4 px off each row's outer edge. Stay at 16 (default)
+# or drop to scale=2 if you need extra logical rows for breathing room.
 
 [[playlist.section.widget]]
 type = "two_row"

@@ -26,9 +26,10 @@ breathing room, prefer `text_y_offset` on TickerMessage or a smaller
 `font_size` instead of over-spec'ing `content_height`.
 
 Caller controls per-row horizontal alignment via `top_align` and
-`bottom_align` (`"left"`, `"center"`, `"right"`). The bottom row's
-alignment only takes effect when the text fits without scrolling — if
-it overflows, the framework scrolls it left regardless.
+`bottom_align` (`"left"`, `"center"`, `"right"`). Both default to
+`"center"` for visual symmetry. The bottom row's alignment only takes
+effect when the text fits without scrolling — if it overflows, the
+framework scrolls it left regardless.
 
 Inline emoji slugs (`:instagram:`, `:email:`, etc.) work in both rows.
 """
@@ -108,7 +109,7 @@ class TwoRowMessage:
     # bottom row's alignment only matters when its text fits — when it
     # overflows, the framework scrolls it from cursor_pos regardless.
     top_align: str = "center"
-    bottom_align: str = "left"
+    bottom_align: str = "center"
     padding: int = 6
     # Backwards-compat: top_center=True is the same as top_align="center".
     # If you set top_center=False, top_align="left" is used (legacy default).

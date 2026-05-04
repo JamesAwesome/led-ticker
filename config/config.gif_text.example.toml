@@ -9,7 +9,8 @@
 #   2. Scroll UNDER (transparent)  — marquee walks behind transparent Pikachu
 #   3. Scroll OVER (knockout)      — black (LED-off) marquee cuts out of pride flag
 #   4. Emoji + chunky text         — :heart: HAPPY PRIDE :heart: at text_scale=4
-#   5. Title + gif (mode = "swap") — "HELLO!" title → static text + transparent gif
+#   5. Animated WebP + scroll-over — kpop-dance.webp + class signup pitch
+#   6. Title + gif (mode = "swap") — "HELLO!" title → static text + transparent gif
 #
 # Copy to config.toml on the bigsign Pi:
 #   cp config/config.gif_text.example.toml config/config.toml
@@ -153,7 +154,37 @@ text_scale = 4
 scroll_speed_ms = 50
 
 # ---------------------------------------------------------------------------
-# Section 5 — Title + gif via mode = "swap"
+# Section 5 — Animated WebP + scroll-over marquee
+#
+# `kpop-dance.webp` is a 540×400, 31-frame animated WebP. The decoder
+# is format-agnostic (gif, webp, apng, multi-frame tiff) — it just
+# calls Pillow's `Image.open` + `seek()`. Pillarbox preserves the
+# dance's aspect ratio (~86 wide × 64 tall, ~85px black pillars on
+# either side); `scroll_over` walks the marquee across the full
+# panel width on top of the video. `text_loops = 1` holds the section
+# until the announcement has crossed once regardless of how many
+# times the dance loops underneath.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "gif"
+loop_count = 1  # text_loops sets the real floor; webp keeps looping under it
+transition = "dissolve"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/kpop-dance.webp"
+fit = "pillarbox"
+text = "Sign up for our new K-Pop Dance Class!"
+text_align = "scroll_over"
+font_color = [255, 100, 200]  # hot pink — K-pop palette
+text_scale = 2
+scroll_speed_ms = 50
+text_loops = 1
+
+# ---------------------------------------------------------------------------
+# Section 6 — Title + gif via mode = "swap"
 #
 # Demonstrates the swap-mode merge: gif widgets work exactly like any
 # other widget under `mode = "swap"`. The section title "HELLO!"

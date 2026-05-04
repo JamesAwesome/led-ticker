@@ -178,6 +178,26 @@ class TestLoadHiresFont:
         assert a.size == 24
         assert b.size == 32
 
+    def test_bearing_y_is_baseline_relative_not_image_relative(self):
+        """Hotfix 00145b7: bearing_y is the distance from baseline UP to
+        glyph top. Pillow's getbbox returns coords in anchor='la' space
+        (left-ascender), NOT baseline. Wrong anchor handling caused glyphs
+        to render only their bottom strip on hardware. Pin bearing_y values
+        so a future getbbox-coord refactor can't silently re-introduce the
+        bug."""
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        font = load_hires_font("Inter-Regular", 24)
+        assert font is not None
+        # 'M' has cap-height ascender; bearing_y should be ~18 (most of
+        # glyph rises above baseline). NOT a small negative number (would
+        # mean we used baseline-relative bbox math).
+        assert 14 < font.glyphs["M"].bearing_y < 22
+        # 'g' has a descender; its body sits lower. Should be ~13.
+        assert 10 < font.glyphs["g"].bearing_y < 16
+        # Sanity: 'M' rises higher above baseline than 'g'.
+        assert font.glyphs["M"].bearing_y > font.glyphs["g"].bearing_y
+
 
 class TestListAvailableHiresFonts:
     def test_lists_bundled_fonts(self):

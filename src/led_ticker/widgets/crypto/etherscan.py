@@ -12,7 +12,7 @@ import attrs
 from led_ticker._compat import require_graphics
 from led_ticker._types import Canvas, Color, DrawResult
 from led_ticker.colors import DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR
-from led_ticker.drawing import cached_text_width, compute_baseline
+from led_ticker.drawing import compute_baseline, get_text_width
 from led_ticker.fonts import FONT_LABEL, FONT_VALUE
 from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop
@@ -95,9 +95,7 @@ class EtherscanGasMonitor:
         baseline_y = compute_baseline(FONT_LABEL, canvas, valign="center") + y_offset
 
         draw_text(canvas, FONT_LABEL, cursor_pos, baseline_y, DEFAULT_COLOR, GAS_BANNER)
-        cursor_pos += cached_text_width(
-            FONT_LABEL, GAS_BANNER, padding=6, canvas=canvas
-        )
+        cursor_pos += get_text_width(FONT_LABEL, GAS_BANNER, padding=6, canvas=canvas)
 
         for price_type, price in self.price_data.items():
             price_type_msg = f"{price_type}:"
@@ -109,7 +107,7 @@ class EtherscanGasMonitor:
                 DEFAULT_COLOR,
                 price_type_msg,
             )
-            cursor_pos += cached_text_width(
+            cursor_pos += get_text_width(
                 FONT_LABEL, price_type_msg, padding=3, canvas=canvas
             )
 
@@ -121,7 +119,7 @@ class EtherscanGasMonitor:
                 _get_gas_price_color(price),
                 price,
             )
-            cursor_pos += cached_text_width(FONT_VALUE, price, padding=3, canvas=canvas)
+            cursor_pos += get_text_width(FONT_VALUE, price, padding=3, canvas=canvas)
 
         cursor_pos += 3
         return canvas, cursor_pos

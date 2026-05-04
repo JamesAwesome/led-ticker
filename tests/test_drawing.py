@@ -4,7 +4,6 @@ from types import SimpleNamespace
 
 from led_ticker.drawing import (
     Region,
-    cached_text_width,
     compute_baseline,
     compute_cursor,
     find_center,
@@ -358,27 +357,24 @@ class TestHiresMessageBaselineCentersOnBigsign:
         )
 
 
-class TestCachedTextWidth:
-    """`cached_text_width` is a memoized layer over `get_text_width` for
-    per-frame callers (weather, etherscan, coinbase) that recompute the
-    same widths every draw."""
-
-    def test_returns_same_value_as_get_text_width(self):
-        canvas = SimpleNamespace(scale=1, width=160)
-        for text in ("hello", "X", "abc 123"):
-            assert cached_text_width(FONT_DEFAULT, text, padding=0, canvas=canvas) == (
-                get_text_width(FONT_DEFAULT, text, padding=0, canvas=canvas)
-            )
+class TestGetTextWidthMemoization:
+    """`get_text_width` memoizes results in a module-level cache so
+    per-frame callers (weather, etherscan, coinbase) hit a dict get
+    instead of re-summing glyph advances every draw. Cache key
+    includes `(id(font), text, padding, scale)` so different scales
+    produce distinct entries — a width measured at scale=1 doesn't
+    pollute a scale=4 measurement.
+    """
 
     def test_repeated_call_hits_cache(self):
         from led_ticker.drawing import _TEXT_WIDTH_CACHE
 
         _TEXT_WIDTH_CACHE.clear()
         canvas = SimpleNamespace(scale=1, width=160)
-        cached_text_width(FONT_DEFAULT, "abc", padding=0, canvas=canvas)
+        get_text_width(FONT_DEFAULT, "abc", padding=0, canvas=canvas)
         size_after_first = len(_TEXT_WIDTH_CACHE)
-        cached_text_width(FONT_DEFAULT, "abc", padding=0, canvas=canvas)
-        cached_text_width(FONT_DEFAULT, "abc", padding=0, canvas=canvas)
+        get_text_width(FONT_DEFAULT, "abc", padding=0, canvas=canvas)
+        get_text_width(FONT_DEFAULT, "abc", padding=0, canvas=canvas)
         # No new entries added on subsequent calls — cache hit each time.
         assert len(_TEXT_WIDTH_CACHE) == size_after_first
 
@@ -394,8 +390,8 @@ class TestCachedTextWidth:
         font = resolve_font("Inter-Regular", 24)
         c1 = SimpleNamespace(scale=1)
         c4 = SimpleNamespace(scale=4)
-        w1 = cached_text_width(font, "ABC", padding=0, canvas=c1)
-        w4 = cached_text_width(font, "ABC", padding=0, canvas=c4)
+        w1 = get_text_width(font, "ABC", padding=0, canvas=c1)
+        w4 = get_text_width(font, "ABC", padding=0, canvas=c4)
         assert w1 != w4  # different scales → different widths
         assert len(_TEXT_WIDTH_CACHE) == 2  # two entries cached
 
@@ -411,6 +407,6 @@ class TestCachedTextWidth:
         canvas = SimpleNamespace(scale=1, width=160)
         # Spawn maxsize + 5 distinct text values.
         for i in range(_TEXT_WIDTH_CACHE_MAXSIZE + 5):
-            cached_text_width(FONT_DEFAULT, f"text_{i}", padding=0, canvas=canvas)
+            get_text_width(FONT_DEFAULT, f"text_{i}", padding=0, canvas=canvas)
         # After eviction-then-fill, cache size should be ≤ maxsize.
         assert len(_TEXT_WIDTH_CACHE) <= _TEXT_WIDTH_CACHE_MAXSIZE

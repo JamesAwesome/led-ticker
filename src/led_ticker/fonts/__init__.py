@@ -163,3 +163,22 @@ def font_ascent(font: Font | HiresFont) -> int:
     # BDF C font isn't directly inspectable for ascent — pull from the
     # parsed BDF kept alongside it during _load_font.
     return get_bdf_for(font).ascent
+
+
+def font_line_height_logical(font: Font | HiresFont, scale: int) -> int:
+    """Return font line-height in LOGICAL pixels for a canvas at `scale`.
+
+    BDF metrics are already logical (a 6×12 cell is 12 logical px on
+    any canvas). HiresFont metrics are REAL pixels and need ceil-
+    division by canvas scale to express as logical rows. This helper
+    consolidates that branch — three sites (`drawing.get_text_width`,
+    `widgets/_image_base._play_with_text`, `widgets/two_row.draw`)
+    were duplicating the same `-(-x // scale) if isinstance(...)`
+    pattern.
+    """
+    line_h = font_line_height(font)
+    if isinstance(font, HiresFont):
+        # Ceil-division so we never under-report the height (which
+        # would let a font claim to fit a band it actually overflows).
+        return -(-line_h // max(1, scale))
+    return line_h

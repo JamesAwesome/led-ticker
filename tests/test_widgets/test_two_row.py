@@ -503,3 +503,103 @@ class TestHiresFontSupport:
         assert 10 <= bottom_baseline < 20, bottom_baseline
         # And the bottom baseline = top + half (consistent split).
         assert bottom_baseline - top_baseline == 10
+
+
+class TestPerRowFonts:
+    """`top_font` / `bottom_font` allow per-row font overrides; both
+    default to None and fall back to `font`. Setting just one allows
+    e.g. a bold handle on top + a thinner promo line below."""
+
+    def test_top_font_falls_back_to_font_when_unset(self):
+        from led_ticker.fonts import FONT_DEFAULT
+
+        w = TwoRowMessage(top_text="hi", bottom_text="bye", font=FONT_DEFAULT)
+        assert w._font_for_row(0) is FONT_DEFAULT
+        assert w._font_for_row(1) is FONT_DEFAULT
+
+    def test_top_font_overrides_font(self):
+        from led_ticker.fonts import FONT_DEFAULT, FONT_LABEL
+
+        w = TwoRowMessage(
+            top_text="hi",
+            bottom_text="bye",
+            font=FONT_DEFAULT,
+            top_font=FONT_LABEL,
+        )
+        assert w._font_for_row(0) is FONT_LABEL
+        assert w._font_for_row(1) is FONT_DEFAULT
+
+    def test_both_per_row_fonts_set(self):
+        from led_ticker.fonts import FONT_LABEL, FONT_SMALL
+
+        w = TwoRowMessage(
+            top_text="hi",
+            bottom_text="bye",
+            top_font=FONT_LABEL,
+            bottom_font=FONT_SMALL,
+        )
+        assert w._font_for_row(0) is FONT_LABEL
+        assert w._font_for_row(1) is FONT_SMALL
+
+    def test_per_row_hires_fonts(self):
+        """Common case: bold hires on top, regular hires below — same
+        family, different weight per row."""
+        from led_ticker.fonts import resolve_font
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        bold = resolve_font("Inter-Bold", 12)
+        regular = resolve_font("Inter-Regular", 12)
+        w = TwoRowMessage(
+            top_text="HEADLINE",
+            bottom_text="subtitle",
+            top_font=bold,
+            bottom_font=regular,
+        )
+        assert isinstance(w._font_for_row(0), HiresFont)
+        assert w._font_for_row(0).name == "Inter-Bold"
+        assert w._font_for_row(1).name == "Inter-Regular"
+
+    def test_oversized_per_row_font_raises_at_draw(self, canvas):
+        """Per-row fit guard runs against each row's font, not just
+        `self.font`. If only the bottom_font is too tall, draw() raises
+        and the message identifies which row."""
+        import pytest
+
+        from led_ticker.fonts import FONT_SMALL, resolve_font
+
+        too_big = resolve_font("Inter-Regular", 40)  # ~46 logical line height
+        w = TwoRowMessage(
+            top_text="ok",
+            bottom_text="too big",
+            font=FONT_SMALL,
+            bottom_font=too_big,
+        )
+        with pytest.raises(ValueError, match="bottom font"):
+            w.draw(canvas)
+
+    @pytest.mark.asyncio
+    async def test_build_widget_resolves_per_row_font_kwargs(self):
+        """End-to-end: TOML can name `top_font` / `bottom_font` (with
+        their own _size and _threshold) and `_build_widget` resolves
+        each into a font object before constructing the widget."""
+        import unittest.mock as _mock
+
+        from led_ticker.app import _build_widget
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        cfg = {
+            "type": "two_row",
+            "top_text": "@MoonBunny",
+            "bottom_text": "follow us",
+            "top_font": "Inter-Bold",
+            "top_font_size": 16,
+            "bottom_font": "Inter-Regular",
+            "bottom_font_size": 12,
+        }
+        widget = await _build_widget(cfg, session=_mock.Mock())
+        assert isinstance(widget.top_font, HiresFont)
+        assert widget.top_font.name == "Inter-Bold"
+        assert widget.top_font.size == 16
+        assert isinstance(widget.bottom_font, HiresFont)
+        assert widget.bottom_font.name == "Inter-Regular"
+        assert widget.bottom_font.size == 12

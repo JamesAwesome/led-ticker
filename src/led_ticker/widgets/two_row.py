@@ -100,6 +100,12 @@ class TwoRowMessage:
     top_text: str
     bottom_text: str
     font: Font = attrs.Factory(lambda: FONT_SMALL)
+    # Per-row font overrides. Default `None` falls back to `font`, so
+    # legacy configs that set only `font` keep working unchanged. Set
+    # `top_font` and/or `bottom_font` in TOML for split fonts (e.g.
+    # bold handle on top + lighter promo line below).
+    top_font: Font | None = attrs.field(default=None, kw_only=True)
+    bottom_font: Font | None = attrs.field(default=None, kw_only=True)
     top_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
     bottom_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
@@ -124,30 +130,41 @@ class TwoRowMessage:
         elif self.top_center is True:
             self.top_align = "center"
 
+    def _font_for_row(self, row_index: int) -> Font:
+        """Resolve the font for a row, falling back to `self.font`."""
+        if row_index == 0:
+            return self.top_font if self.top_font is not None else self.font
+        return self.bottom_font if self.bottom_font is not None else self.font
+
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         del kwargs  # widget is meant for swap mode; y_offset/transitions ignored
 
         canvas_height = getattr(canvas, "height", 16)
         half = canvas_height // 2
 
-        # Validate the font fits within a single row band (logical units).
+        top_font = self._font_for_row(0)
+        bottom_font = self._font_for_row(1)
+
+        # Validate each row's font fits within its band (logical units).
         # For BDF the metric is logical px; for HiresFont it's real px and
         # we ceil-divide by canvas.scale to compare in logical units.
         # Tolerate non-int `scale` (Mock canvases in tests, real
         # RGBMatrix canvases without scale) as scale=1.
         scale_attr = getattr(canvas, "scale", 1)
         scale = scale_attr if isinstance(scale_attr, int) and scale_attr >= 1 else 1
-        font_lh = font_line_height(self.font)
-        font_lh_logical = (
-            -(-font_lh // scale) if isinstance(self.font, _HiresFont) else font_lh
-        )
-        if font_lh_logical > half:
-            raise ValueError(
-                f"font line-height ({font_lh_logical} logical rows) exceeds "
-                f"the per-row band ({half} rows on a {canvas_height}-tall "
-                f"canvas). Pick a smaller font_size, increase the section's "
-                f"content_height, or use a BDF alias (5x8, 6x12)."
+        for row_label, row_font in (("top", top_font), ("bottom", bottom_font)):
+            font_lh = font_line_height(row_font)
+            font_lh_logical = (
+                -(-font_lh // scale) if isinstance(row_font, _HiresFont) else font_lh
             )
+            if font_lh_logical > half:
+                raise ValueError(
+                    f"{row_label} font line-height ({font_lh_logical} logical "
+                    f"rows) exceeds the per-row band ({half} rows on a "
+                    f"{canvas_height}-tall canvas). Pick a smaller font_size, "
+                    f"increase the section's content_height, or use a BDF "
+                    f"alias (5x8, 6x12)."
+                )
 
         mid = canvas_height // 2
         if self.top_bg_color is not None:
@@ -155,8 +172,8 @@ class TwoRowMessage:
         if self.bottom_bg_color is not None:
             fill_band(canvas, mid, canvas_height, self.bottom_bg_color)
 
-        top_text_y, top_emoji_y = _row_layout(canvas, self.font, row_index=0)
-        bottom_text_y, bottom_emoji_y = _row_layout(canvas, self.font, row_index=1)
+        top_text_y, top_emoji_y = _row_layout(canvas, top_font, row_index=0)
+        bottom_text_y, bottom_emoji_y = _row_layout(canvas, bottom_font, row_index=1)
 
         # Cap each row's emoji height so a hi-res sprite doesn't overflow
         # into the other row. Independent of the text font's line height.
@@ -166,11 +183,11 @@ class TwoRowMessage:
         # vs. low-res fallback matches what `draw_with_emoji` will do).
         if self._top_width < 0:
             self._top_width = measure_width(
-                self.font, self.top_text, canvas, row_emoji_cap
+                top_font, self.top_text, canvas, row_emoji_cap
             )
         if self._bottom_width < 0:
             self._bottom_width = measure_width(
-                self.font, self.bottom_text, canvas, row_emoji_cap
+                bottom_font, self.bottom_text, canvas, row_emoji_cap
             )
 
         # Top row at a fixed x — held while the bottom scrolls.
@@ -178,7 +195,7 @@ class TwoRowMessage:
 
         draw_with_emoji(
             canvas,
-            self.font,
+            top_font,
             top_x,
             top_text_y,
             self.top_color,
@@ -198,7 +215,7 @@ class TwoRowMessage:
 
         draw_with_emoji(
             canvas,
-            self.font,
+            bottom_font,
             bottom_x,
             bottom_text_y,
             self.bottom_color,

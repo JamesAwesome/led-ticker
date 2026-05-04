@@ -24,13 +24,12 @@ Two resolutions are supported:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from led_ticker._types import Canvas, Color, Font, PixelData
+from led_ticker.fonts import font_line_height
+from led_ticker.fonts.hires_loader import HiresFont
+from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.text_render import draw_text
-
-if TYPE_CHECKING:
-    from led_ticker.scaled_canvas import ScaledCanvas
 
 EMOJI_DEFAULT_WIDTH: int = 8
 EMOJI_PADDING: int = 2  # px after icon before text resumes
@@ -2541,7 +2540,6 @@ def measure_width(
     the renderer falls back to low-res, and so should the measurement.
     """
     from led_ticker.drawing import get_text_width
-    from led_ticker.scaled_canvas import ScaledCanvas
 
     segments = _parse_segments(text)
     width = 0
@@ -2600,9 +2598,6 @@ def draw_with_emoji(
     # HiresFont, where the cell is 32-40px tall and row-4 would float
     # the icon far above the text baseline.
     # Callers (e.g. two_row) can always override via explicit emoji_y.
-    from led_ticker.fonts import font_line_height
-    from led_ticker.fonts.hires_loader import HiresFont
-
     if isinstance(font, HiresFont):
         line_h = font_line_height(font)
         iy_default = max(0, (line_h - 8) // 2) + y_offset
@@ -2611,8 +2606,6 @@ def draw_with_emoji(
 
     # Hi-res path is only available on a ScaledCanvas — anywhere else we
     # fall back to the regular 8×8 sprite.
-    from led_ticker.scaled_canvas import ScaledCanvas
-
     use_hires = isinstance(canvas, ScaledCanvas)
 
     for seg_type, value in segments:
@@ -2658,7 +2651,7 @@ def draw_with_emoji(
 
 
 def _draw_hires_emoji(
-    canvas: ScaledCanvas,  # noqa: F821
+    canvas: ScaledCanvas,
     hires: HiResEmoji,
     ix_logical: int,
     iy_logical: int,

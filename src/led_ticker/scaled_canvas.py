@@ -36,6 +36,31 @@ class ScaledCanvas:
     _y_offset: int = attrs.field(init=False, default=0)
 
     def __attrs_post_init__(self) -> None:
+        # `content_height * scale` must fit inside the actual panel
+        # height — otherwise `_y_offset` goes negative and content near
+        # the top/bottom logical edges silently clips against the panel
+        # boundaries. The user-facing footgun: a TwoRowMessage with
+        # `:instagram:` hi-res emoji losing 4-8 real px at the panel
+        # bottom (hardware-discovered). Hard-fail here so any future
+        # config that misallocates breathing room surfaces immediately
+        # instead of producing a half-broken display. We peel through
+        # nested wrappers (cross-scale dissolves wrap a wrapper at
+        # transition time) so the check sees the genuine panel height,
+        # not another wrapper's logical content_height.
+        innermost = self.real
+        while isinstance(innermost, ScaledCanvas):
+            innermost = innermost.real
+        panel_h_real = innermost.height
+        if self.content_height * self.scale > panel_h_real:
+            max_content_height = panel_h_real // self.scale
+            raise ValueError(
+                f"content_height={self.content_height} × scale={self.scale} "
+                f"= {self.content_height * self.scale} exceeds the real "
+                f"panel height ({panel_h_real}). The wrapper would "
+                f"go into negative y_offset territory and silently clip "
+                f"content near the logical canvas edges. Pick "
+                f"content_height ≤ {max_content_height}."
+            )
         self._y_offset = (self.real.height - self.content_height * self.scale) // 2
 
     @property

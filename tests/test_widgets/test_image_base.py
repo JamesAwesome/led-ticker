@@ -75,6 +75,65 @@ class TestRenderTickResetsCanvas:
         canvas.Fill.assert_called_once_with(40, 50, 60)
 
 
+class TestFieldSurface:
+    """Field-surface tripwire — catches the specific class of bug that
+    bit us with `_BaseImageWidget.font` originally declared `init=False`
+    (caused `TypeError: GifPlayer.__init__() got an unexpected keyword
+    argument 'font'` on hardware). If anyone accidentally flips a
+    user-facing field to `init=False`, or the `init`-eligibility of a
+    documented kwarg drifts, this test catches it before it surfaces
+    as a runtime error in production.
+    """
+
+    USER_FACING_FIELDS = {
+        "text",
+        "text_align",
+        "text_valign",
+        "text_y_offset",
+        "text_x_offset",
+        "scroll_direction",
+        "font_color",
+        "bg_color",
+        "scroll_speed_ms",
+        "text_scale",
+        "text_loops",
+        "font",
+    }
+
+    def test_all_documented_user_fields_are_init_eligible(self):
+        """Every TOML-settable kwarg on `_BaseImageWidget` must be
+        `init=True` so `_build_widget` can pass it through."""
+        init_fields = {a.name for a in attrs.fields(_BaseImageWidget) if a.init}
+        missing = self.USER_FACING_FIELDS - init_fields
+        assert not missing, (
+            f"User-facing fields {missing!r} are not init-eligible; "
+            f"configs setting them via _build_widget will TypeError "
+            f"at construction. Compare current init=True/False values "
+            f"in widgets/_image_base.py with this test's USER_FACING_FIELDS."
+        )
+
+    def test_dummy_image_constructs_with_every_user_kwarg(self):
+        """Sanity: the base class accepts every documented kwarg in
+        a single construction. Catches type-shape regressions (e.g.
+        changing `text: str` to `text: int`)."""
+        from led_ticker.fonts import FONT_DEFAULT
+
+        # No assertion needed beyond construction success.
+        _DummyImage(
+            text="hi",
+            text_align="left",
+            text_valign="top",
+            text_y_offset=2,
+            text_x_offset=3,
+            scroll_direction="left",
+            bg_color=None,
+            scroll_speed_ms=50,
+            text_scale=1,
+            text_loops=0,
+            font=FONT_DEFAULT,
+        )
+
+
 class TestFontKwarg:
     """Regression: image widgets (gif, image) accept `font` (and the
     resolved HiresFont it points to) as a constructor kwarg. Before the

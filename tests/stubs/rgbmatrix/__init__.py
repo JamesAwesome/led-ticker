@@ -1,4 +1,33 @@
-"""Stub rgbmatrix package for testing without hardware."""
+"""Stub rgbmatrix package for testing without hardware.
+
+Mirrors the kingdo9 Pi 5 fork's Python bindings closely enough to run
+the test suite without a panel. Where the stub diverges from the real
+C extension, those gaps are CALLED OUT here so future hardware-only
+bugs can be triaged faster:
+
+KNOWN STUB-vs-REAL DIVERGENCES (with rationale):
+  - `graphics.Font.height` is exposed as a `@property` here matching
+    the real C extension's int attribute. Older versions of this stub
+    had it as a method (`font.height()`); production code now reads
+    via `font_line_height(font)` which tolerates either shape, but
+    new code should treat `Font.height` as an int attribute.
+  - `Font.descent` is NOT exposed by the real C extension. Code reading
+    descent must go through `get_bdf_for(font).descent` (parsed from
+    the BDF file at load time and cached alongside the C font).
+  - The stub `RGBMatrix` only honors `pixel_mapper_config="U-mapper"`
+    (folds chain in half: doubles height, halves width) — it doesn't
+    parse arbitrary `Remap:...` strings the way the real lib does.
+    Tests that need the bigsign's vertical-serpentine 2×4 layout pass
+    `pixel_mapper_config="U-mapper"` to get a 256×64 canvas.
+  - `RGBMatrix.show_refresh_rate` is a config-only flag here; the real
+    lib's stderr Hz output is not simulated. The startup explainer log
+    (`app.build_frame_from_config` when `show_refresh=true`) makes the
+    behaviour visible to users either way.
+  - `RGBMatrix.SwapOnVSync` returns the SAME canvas object in this
+    stub by default. Test fixtures that need to verify capture-the-
+    return semantics use `swapping_frame` (`tests/conftest.py`) which
+    rotates between two canvas objects so dropped-capture bugs surface.
+"""
 
 from rgbmatrix import graphics  # noqa: F401
 

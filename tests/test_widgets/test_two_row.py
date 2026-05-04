@@ -53,7 +53,7 @@ class TestDraw:
             top_text="HELD",
             bottom_text="this scrolls",
             font=FONT_SMALL,
-            top_center=True,
+            top_align="center",
             bottom_align="left",  # pin so the cursor-tracks-pos test isn't
             # confounded by centering when the text happens to fit.
         )
@@ -227,14 +227,39 @@ class TestAlignment:
         # Centered: x > 0 but < right_edge_x
         assert 0 < captured_xs[0] < canvas.width
 
-    def test_legacy_top_center_false_maps_to_left(self):
-        # Backwards-compat: top_center=False from old configs still works.
-        w = TwoRowMessage(top_text="x", bottom_text="y", top_center=False)
+    def test_legacy_top_center_false_maps_to_left_with_warning(self):
+        """Backwards-compat: top_center=False still maps to top_align='left',
+        but emits a DeprecationWarning so the canonical knob surfaces."""
+        with pytest.warns(DeprecationWarning, match="top_center"):
+            w = TwoRowMessage(top_text="x", bottom_text="y", top_center=False)
         assert w.top_align == "left"
 
-    def test_legacy_top_center_true_maps_to_center(self):
-        w = TwoRowMessage(top_text="x", bottom_text="y", top_center=True)
+    def test_legacy_top_center_true_maps_to_center_with_warning(self):
+        with pytest.warns(DeprecationWarning, match="top_center"):
+            w = TwoRowMessage(top_text="x", bottom_text="y", top_center=True)
         assert w.top_align == "center"
+
+    def test_top_center_overrides_top_align_with_warning(self):
+        """`top_center` STILL silently wins over `top_align` if both are
+        set (preserving prior behavior), but the deprecation warning
+        makes the override visible. Catches the silent-override footgun
+        the post-merge review flagged."""
+        with pytest.warns(DeprecationWarning, match="top_center"):
+            w = TwoRowMessage(
+                top_text="x",
+                bottom_text="y",
+                top_align="right",  # would be overridden
+                top_center=True,
+            )
+        assert w.top_align == "center", "top_center=True still overrides"
+
+    def test_top_center_none_emits_no_warning(self):
+        """Default (no top_center) — no deprecation warning fires."""
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # any warning → error
+            TwoRowMessage(top_text="x", bottom_text="y")  # should not raise
 
 
 class TestRowSpacing:
@@ -864,12 +889,23 @@ class TestAsymmetricRowSplit:
         with pytest.raises(ValueError, match="top font line-height.*4 rows"):
             w.draw(canvas)
 
-    def test_asymmetric_bottom_band_takes_remainder(self, canvas, monkeypatch):
-        """A 4-row top band leaves 12 rows for the bottom — verify the
-        bottom font is checked against 12 (not the original 8)."""
+    def test_asymmetric_bottom_band_takes_remainder(self, monkeypatch):
+        """The bottom band's height is `canvas.height - top_row_height`
+        — verify by configuring a bottom font that fits in 12 rows but
+        NOT in 6, then run the same widget twice with different
+        top_row_height values:
+
+          top_row_height=4  → bottom_h=12 → bottom font fits → succeeds
+          top_row_height=10 → bottom_h=6  → bottom font too tall → raises
+
+        Pre-fix the test only exercised the top check; the bottom-band
+        remainder math went untested.
+        """
         import pytest
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
         from led_ticker.fonts import resolve_font
+        from led_ticker.scaled_canvas import ScaledCanvas
         from led_ticker.widgets import two_row as tr
 
         monkeypatch.setattr(
@@ -877,41 +913,49 @@ class TestAsymmetricRowSplit:
             "draw_with_emoji",
             lambda canvas, font, x, y, color, text, **kw: 30,
         )
-        # Inter-Regular @ 36 has line_height ~ 42 real → at scale=1
-        # (the canvas fixture's effective scale) that's 42 logical,
-        # way too big for a 12-row band. Confirms the bottom check
-        # actually runs against bottom_h=12, not top_h=4.
-        too_big_for_bottom = resolve_font("Inter-Regular", 36)
-        w = TwoRowMessage(
+
+        # Bigsign-shape canvas: 256×64 real, wrapped at scale=4 with
+        # content_height=16 → 16 logical rows, scale-aware fit-check.
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 8
+        opts.parallel = 1
+        opts.pixel_mapper_config = "U-mapper"
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        canvas = ScaledCanvas(real, scale=4, content_height=16)
+
+        # Inter @ 8: line_height ~10 real / scale=4 = 3 logical → fits
+        # ANY band size we try here. Use as top font so the top check
+        # never fails.
+        top_font = resolve_font("Inter-Regular", 8)
+        # Inter @ 28: line_height ~34 real / 4 = 9 logical → fits a
+        # 12-row bottom band (top_row_height=4) but NOT a 6-row one
+        # (top_row_height=10). Pivots on the bottom_h math.
+        bottom_font = resolve_font("Inter-Regular", 28)
+
+        # Case A: top_row_height=4 → bottom_h=12. Both rows fit → succeeds.
+        w_pass = TwoRowMessage(
             top_text="A",
             bottom_text="B",
-            font=FONT_SMALL,  # top fits 4-row band (5×8 line_height=8 → still too big)
-            bottom_font=too_big_for_bottom,
+            top_font=top_font,
+            bottom_font=bottom_font,
             top_row_height=4,
         )
-        # Top check fails first (FONT_SMALL too big for 4 rows). Skip
-        # to the bottom-only case below for the bottom-band check.
-        with pytest.raises(ValueError, match="top font line-height"):
-            w.draw(canvas)
+        w_pass.draw(canvas)  # must not raise
 
-        # Now use a font that fits the 4-row top so the bottom check
-        # is the one that fires. There's no BDF font with line_height
-        # ≤ 4 in the repo — but we can use a tiny hires font.
-        from led_ticker.fonts import resolve_font as rf
-
-        small_hires = rf("Inter-Regular", 8)  # line_height ~10 real → still fails 4
-        w = TwoRowMessage(
+        # Case B: top_row_height=10 → bottom_h=6. Bottom font too tall
+        # (9 logical > 6 logical band). The error must name the bottom
+        # row AND the actual band size (6), not the top row.
+        w_fail = TwoRowMessage(
             top_text="A",
             bottom_text="B",
-            top_font=small_hires,
-            bottom_font=too_big_for_bottom,
-            top_row_height=10,  # generous top so we can isolate the bottom check
+            top_font=top_font,
+            bottom_font=bottom_font,
+            top_row_height=10,
         )
-        # canvas.height=16, top_row_height=10 → bottom_h=6. Inter@36
-        # line_height ~42 logical (no canvas.scale on Mock canvas)
-        # → fails the bottom check.
         with pytest.raises(ValueError, match=r"bottom font line-height.*6 rows"):
-            w.draw(canvas)
+            w_fail.draw(canvas)
 
     def test_asymmetric_bg_bands_use_split_divider(self, monkeypatch):
         """top_bg_color paints rows 0..top_row_height; bottom_bg_color

@@ -33,7 +33,7 @@ import attrs
 
 from led_ticker._types import Canvas, Color, Font
 from led_ticker.colors import DEFAULT_COLOR
-from led_ticker.drawing import compute_baseline, get_text_width
+from led_ticker.drawing import compute_baseline, get_text_width, safe_scale
 from led_ticker.fonts import FONT_DEFAULT, font_line_height_logical
 from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.pixel_emoji import EMOJI_PATTERN
@@ -422,17 +422,18 @@ class _BaseImageWidget:
     def _draw_row_text(
         self,
         canvas: Canvas,
-        row: int,
+        font: Any,
+        text: str,
+        color: Color,
         x: int,
         baseline_y: int,
         emoji_y: int,
     ) -> None:
-        """Draw one row's text. Mirrors `_draw_text` but reads the
-        per-row font / color and respects the per-row emoji_y so the
+        """Draw one row's text given pre-resolved font / text / color.
+        Caller (`_render_two_row_tick`) resolves these once outside the
+        tick loop so per-row attribute lookups don't run every frame.
+        Mirrors `_draw_text` but accepts an explicit `emoji_y` so the
         emoji can be nudged independently of the text baseline."""
-        font = self._row_font(row)
-        text = self._row_text(row)
-        color = self._row_color(row)
         if self._has_emoji() and EMOJI_PATTERN.search(text):
             from led_ticker.pixel_emoji import draw_with_emoji
 
@@ -448,6 +449,31 @@ class _BaseImageWidget:
             )
         else:
             draw_text(canvas, font, x, baseline_y, color, text)
+
+    def _wrap_for_text(self, canvas: Canvas, scale: int) -> Canvas:
+        """Return `canvas` wrapped in a ScaledCanvas at the given scale,
+        or `canvas` itself when `scale <= 1`. Single point of truth for
+        the wrap rule used by both `_play_with_text` (single-row) and
+        `_play_with_two_row_text`. The wrapper exists for two reasons,
+        which apply differently per font type:
+
+          - HiresFont path: the renderer paints to the unwrapped real
+            canvas via `_draw_hires_text`, so the wrapper has no glyph-
+            size impact. Its only role is to flip
+            `pixel_emoji.draw_with_emoji`'s `isinstance(c, ScaledCanvas)`
+            gate so hires emoji (e.g. `:instagram:` 32×32) fires.
+
+          - BDF path: the wrapper's `scale × scale` block-expansion
+            renders cells at panel-readable size on bigsign instead of
+            native 12 px. Hires emoji gating applies here too as a
+            side benefit.
+
+        `content_height = canvas.height // scale` so `text_valign`
+        references the panel edge, not a letterboxed sub-region.
+        """
+        if scale <= 1:
+            return canvas
+        return ScaledCanvas(canvas, scale=scale, content_height=canvas.height // scale)
 
     def _render_tick(
         self,
@@ -478,17 +504,19 @@ class _BaseImageWidget:
         self,
         real_canvas: Canvas,
         text_canvas: Canvas,
-        top_x: int,
-        top_baseline: int,
-        top_emoji_y: int,
-        bottom_x: int,
-        bottom_baseline: int,
-        bottom_emoji_y: int,
+        top: tuple[Any, str, Color, int, int, int],
+        bottom: tuple[Any, str, Color, int, int, int],
     ) -> None:
         """Compose one two-row frame: reset canvas → paint image to the
         real canvas (native pixels) → paint each row to the text canvas
         (a ScaledCanvas wrapper when `_logical_scale > 1`, else the
         same real canvas).
+
+        `top` / `bottom` are pre-resolved tuples of
+        ``(font, text, color, x, baseline_y, emoji_y)`` — caller
+        resolves these once outside the tick loop so per-row attribute
+        lookups (`_row_font` / `_row_text` / `_row_color`) don't run
+        every frame.
 
         Text/emoji draw via the wrapper so:
           - hires emoji (`isinstance(canvas, ScaledCanvas)` gate in
@@ -502,8 +530,8 @@ class _BaseImageWidget:
         """
         reset_canvas(real_canvas, self.bg_color)
         self._paint_image(real_canvas)
-        self._draw_row_text(text_canvas, 0, top_x, top_baseline, top_emoji_y)
-        self._draw_row_text(text_canvas, 1, bottom_x, bottom_baseline, bottom_emoji_y)
+        self._draw_row_text(text_canvas, *top)
+        self._draw_row_text(text_canvas, *bottom)
 
     # ------------------------------------------------------------------
     # Shared text playback loop
@@ -530,46 +558,34 @@ class _BaseImageWidget:
             return await self._play_with_two_row_text(real_canvas, frame, n_ticks)
         canvas = real_canvas
 
-        # Wrap-scale resolution: if the user set `text_scale > 1` (BDF
-        # block-expansion knob), honor that. Otherwise on bigsign
-        # (`_logical_scale > 1`) wrap at the section's logical scale so
-        # (a) hires emoji's `isinstance(canvas, ScaledCanvas)` gate
-        # fires, and (b) BDF text block-expands to fill the panel
-        # rather than rendering at native 12 px (tiny). HiresFont
-        # rendering paints to the unwrapped real canvas internally
-        # (see `_draw_hires_text`), so the wrapper is only a hint to
-        # the emoji code in that case — no glyph-size impact.
+        # Wrap-scale resolution: user's `text_scale > 1` (BDF block-
+        # expansion knob) takes precedence. Otherwise on bigsign
+        # (`_logical_scale > 1`) wrap at the section's scale so the
+        # text path gets the wrapper. See `_wrap_for_text` for why we
+        # wrap at all (hires emoji gate + BDF block-expansion).
         # Small sign (`_logical_scale == 1`): no wrap — real == logical.
         effective_scale = (
             self.text_scale if self.text_scale > 1 else self._logical_scale
         )
-        # text_canvas content_height spans the full panel (`panel_h //
-        # scale`) so text_valign references the panel edge, not a
-        # letterboxed sub-region.
-        text_canvas: Canvas = (
-            ScaledCanvas(
-                canvas,
-                scale=effective_scale,
-                content_height=canvas.height // effective_scale,
-            )
-            if effective_scale > 1
-            else canvas
-        )
+        text_canvas: Canvas = self._wrap_for_text(canvas, effective_scale)
         text_w = text_canvas.width
         text_h = text_canvas.height
         # The logical text_canvas must accommodate the font's line
         # height. Raise early instead of silently clipping glyphs
-        # (which surfaces as missing/cut text).
-        font_scale = getattr(text_canvas, "scale", 1) or 1
+        # (which surfaces as missing/cut text). Use `safe_scale` so the
+        # primitive matches `TwoRowMessage` and friends — the value
+        # equals `effective_scale` when wrapped, 1 otherwise.
+        font_scale = safe_scale(text_canvas)
         font_lh_logical = font_line_height_logical(self.font, font_scale)
         if text_h < font_lh_logical:
             raise ValueError(
-                f"effective_scale={font_scale} (text_scale={self.text_scale}, "
-                f"section logical scale={self._logical_scale}) leaves "
-                f"text_canvas only {text_h} rows on a {canvas.height}-tall "
-                f"panel — font requires {font_lh_logical} logical rows. "
-                f"Reduce text_scale, pick a smaller font_size, or use a "
-                f"taller panel."
+                f"effective_scale={effective_scale} (text_scale="
+                f"{self.text_scale}, section logical scale="
+                f"{self._logical_scale}) leaves text_canvas only "
+                f"{text_h} rows on a {canvas.height}-tall panel — font "
+                f"requires {font_lh_logical} logical rows. Reduce "
+                f"text_scale, pick a smaller font_size, or use a taller "
+                f"panel."
             )
         baseline_y = self._baseline_y(text_canvas)
 
@@ -620,6 +636,8 @@ class _BaseImageWidget:
         # safe when the source itself is static (`_is_static()`) — for
         # animated sources (multi-frame gifs) we'd freeze the gif on
         # frame 0 by skipping the per-tick `_pick_frame_for_elapsed`.
+        text_is_wrapped = isinstance(text_canvas, ScaledCanvas)
+
         if not scrolling and self.text_loops == 0 and self._is_static():
             self._render_tick(
                 canvas,
@@ -630,10 +648,14 @@ class _BaseImageWidget:
                 text_x_right,
             )
             canvas = frame.matrix.SwapOnVSync(canvas)
+            # Even though we return immediately, follow the new back-
+            # buffer so the wrapper identity stays in sync — guards
+            # against a future change adding work after the swap and
+            # silently regressing CLAUDE.md constraint #10.
+            if text_is_wrapped:
+                text_canvas.real = canvas
             await asyncio.sleep(n_ticks * tick_seconds)
             return canvas
-
-        text_is_wrapped = isinstance(text_canvas, ScaledCanvas)
 
         for tick in range(n_ticks):
             self._pick_frame_for_elapsed(tick * tick_ms)
@@ -682,27 +704,18 @@ class _BaseImageWidget:
         single-row `text_align="scroll"` mode's job).
         """
         canvas = real_canvas
-        scale = self._logical_scale
 
-        # Wrap the real canvas for the text/emoji draw path so:
-        #   - hires emoji's `isinstance(c, ScaledCanvas)` gate fires
-        #     (gives :instagram: 32×32 instead of the 8×8 fallback),
-        #   - BDF text gets the wrapper's `scale × scale` block
-        #     expansion instead of rendering at native 12 px on bigsign.
-        # All band-height / baseline / aligned_x math operates in
-        # LOGICAL units against `text_canvas` — same coordinate system
-        # as `TwoRowMessage`, so `top_row_height` reads identically on
-        # both widgets.
-        # Image painting still goes to `real_canvas` (unwrapped) via
-        # `_paint_image`, preserving native-pixel image fidelity.
-        # Small sign (scale=1) skips the wrap to avoid an identity-only
-        # ScaledCanvas; emoji size cap rejects hires sprites there
-        # anyway since 32 logical px > 8 cap on a 16-tall canvas.
-        text_canvas: Canvas = (
-            ScaledCanvas(canvas, scale=scale, content_height=canvas.height // scale)
-            if scale > 1
-            else canvas
-        )
+        # Wrap once via `_wrap_for_text` (shared with single-row path)
+        # so band-height / baseline / aligned_x math operates in LOGICAL
+        # units against `text_canvas` — same coordinate system as
+        # `TwoRowMessage`. Image painting still goes to `real_canvas`
+        # (unwrapped) via `_paint_image`. See `_wrap_for_text` for why
+        # the wrap exists per font type. Read scale from the wrapper
+        # afterwards via `safe_scale` so we use the same primitive as
+        # `TwoRowMessage` (instead of the `_logical_scale` stash, which
+        # is kept narrowly as the wrap-construction signal).
+        text_canvas: Canvas = self._wrap_for_text(canvas, self._logical_scale)
+        scale = safe_scale(text_canvas)
         canvas_w = text_canvas.width
         canvas_h = text_canvas.height
 
@@ -724,9 +737,17 @@ class _BaseImageWidget:
                     f"or use a BDF alias (5x8, 6x12)."
                 )
 
-        # Per-row baselines + emoji_y, plus per-row offsets (all logical).
+        # Resolve all per-row attributes ONCE (font / text / color /
+        # alignment / offsets) — these are invariant for the widget's
+        # lifetime, so the per-tick loop reads from local tuples
+        # instead of calling `_row_*` methods every frame.
         top_font = self._row_font(0)
         bottom_font = self._row_font(1)
+        top_text = self._row_text(0)
+        bottom_text = self._row_text(1)
+        top_color = self._row_color(0)
+        bottom_color = self._row_color(1)
+
         top_baseline, top_emoji_y = row_layout(
             text_canvas, top_font, band_height=top_h, band_offset=0
         )
@@ -757,22 +778,27 @@ class _BaseImageWidget:
         tick_ms = max(MIN_SCROLL_SPEED_MS, self.scroll_speed_ms)
         tick_seconds = tick_ms / 1000
 
+        # Top tuple is fully invariant — bottom changes per tick when
+        # scrolling, so we rebuild it inside the loop with the current
+        # `scroll_pos`. Tuple shape:
+        # (font, text, color, x, baseline_y, emoji_y).
+        top_tuple = (top_font, top_text, top_color, top_x, top_baseline, top_emoji_y)
+
         # Track the innermost wrapper's `.real` so we can re-anchor it
         # after each SwapOnVSync (constraint #10 in CLAUDE.md). Without
         # this, the 2nd tick paints to the displayed front buffer.
         text_is_wrapped = isinstance(text_canvas, ScaledCanvas)
 
         if not bottom_scrolls and self._is_static() and self.text_loops == 0:
-            self._render_two_row_tick(
-                canvas,
-                text_canvas,
-                top_x,
-                top_baseline,
-                top_emoji_y,
+            bottom_tuple = (
+                bottom_font,
+                bottom_text,
+                bottom_color,
                 scroll_pos,
                 bottom_baseline,
                 bottom_emoji_y,
             )
+            self._render_two_row_tick(canvas, text_canvas, top_tuple, bottom_tuple)
             canvas = frame.matrix.SwapOnVSync(canvas)
             if text_is_wrapped:
                 text_canvas.real = canvas
@@ -781,16 +807,15 @@ class _BaseImageWidget:
 
         for tick in range(n_ticks):
             self._pick_frame_for_elapsed(tick * tick_ms)
-            self._render_two_row_tick(
-                canvas,
-                text_canvas,
-                top_x,
-                top_baseline,
-                top_emoji_y,
+            bottom_tuple = (
+                bottom_font,
+                bottom_text,
+                bottom_color,
                 scroll_pos,
                 bottom_baseline,
                 bottom_emoji_y,
             )
+            self._render_two_row_tick(canvas, text_canvas, top_tuple, bottom_tuple)
             canvas = frame.matrix.SwapOnVSync(canvas)
             if text_is_wrapped:
                 text_canvas.real = canvas

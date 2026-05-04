@@ -189,6 +189,8 @@ fit = "pillarbox"
 image_align = "left"
 text = "PIKACHU!"
 text_align = "right"
+font = "Inter-Bold"
+font_size = 24
 font_color = [255, 220, 50]
 
 # ---------------------------------------------------------------------------
@@ -212,6 +214,8 @@ fit = "pillarbox"
 image_align = "right"
 text = "@brand"
 text_align = "left"
+font = "Inter-Regular"
+font_size = 24
 font_color = [225, 48, 108]
 
 # ---------------------------------------------------------------------------
@@ -329,6 +333,8 @@ fit = "pillarbox"
 image_align = "left"
 text = "OPEN LATE TONIGHT — COME SAY HI"
 text_align = "scroll"
+font = "Inter-Bold"
+font_size = 32
 font_color = [120, 200, 255]
 scroll_speed_ms = 50
 
@@ -415,3 +421,59 @@ text_align = "scroll_over"
 font_color = [255, 255, 255]
 text_scale = 4
 scroll_speed_ms = 50
+
+# ---------------------------------------------------------------------------
+# Sections 16 + 17 — MoonBunny brand: Beloved Sans Regular vs Bold
+# (commented out; uncomment ONLY after dropping `beloved-sans.otf` and
+# `beloved-sans-bold.otf` into `config/fonts/`)
+#
+# Transparent Pikachu pinned LEFT; "Follow us! @moonbunnyaerial"
+# scrolls in the brand font through the right ~192px panel area and
+# behind Pikachu's transparent halo. Identical text + layout in both
+# sections so the only variable is the weight — eyeball the panel and
+# decide which one ships.
+#
+# Threshold note: both weights use `font_threshold = 80`. Beloved Sans
+# Regular's strokes are too thin to survive the default 128 (the left
+# vertical of `n`/`u` clips out). Bold strokes survive 128 fine on
+# their own, but mixing thresholds inside one family inverts the
+# weight relationship — so for direct A/B comparison both go to 80.
+# ---------------------------------------------------------------------------
+
+# [[playlist.section]]
+# mode = "gif"
+# loop_count = 34  # ~20s — long enough for the marquee to traverse twice
+# transition = "dissolve"
+# transition_duration = 0.6
+#
+# [[playlist.section.widget]]
+# type = "gif"
+# path = "assets/pika_wave_transparent.gif"
+# fit = "pillarbox"
+# image_align = "left"
+# text = "Follow us! @moonbunnyaerial"
+# text_align = "scroll"
+# font = "beloved-sans"
+# font_size = 32
+# font_threshold = 80
+# font_color = [255, 220, 70]
+# scroll_speed_ms = 50
+
+# [[playlist.section]]
+# mode = "gif"
+# loop_count = 34  # ~20s — long enough for the marquee to traverse twice
+# transition = "dissolve"
+# transition_duration = 0.6
+#
+# [[playlist.section.widget]]
+# type = "gif"
+# path = "assets/pika_wave_transparent.gif"
+# fit = "pillarbox"
+# image_align = "left"
+# text = "Follow us! @moonbunnyaerial"
+# text_align = "scroll"
+# font = "beloved-sans-bold"
+# font_size = 32
+# font_threshold = 80
+# font_color = [255, 220, 70]
+# scroll_speed_ms = 50

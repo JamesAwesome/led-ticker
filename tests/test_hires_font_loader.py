@@ -192,3 +192,94 @@ class TestListAvailableHiresFonts:
 
         names = list_available_hires_fonts()
         assert names == sorted(names)
+
+
+class TestResolveFont:
+    def test_returns_hires_for_bundled_name(self):
+        from led_ticker.fonts import resolve_font
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        font = resolve_font("Inter-Regular", 32)
+        assert isinstance(font, HiresFont)
+        assert font.size == 32
+
+    def test_returns_bdf_for_alias_6x12(self):
+        from led_ticker.fonts import FONT_DEFAULT, resolve_font
+
+        font = resolve_font("6x12")
+        # Identity check: same C font object as FONT_DEFAULT.
+        assert font is FONT_DEFAULT
+
+    def test_returns_bdf_for_alias_5x8(self):
+        from led_ticker.fonts import FONT_SMALL, resolve_font
+
+        font = resolve_font("5x8")
+        assert font is FONT_SMALL
+
+    def test_raises_for_unknown_name(self):
+        from led_ticker.fonts import UnknownFontError, resolve_font
+
+        try:
+            resolve_font("totally-not-a-real-font")
+        except UnknownFontError as e:
+            assert "totally-not-a-real-font" in str(e)
+            # Error message should list available names.
+            assert "Inter-Regular" in str(e)
+            assert "6x12" in str(e)
+            return
+        raise AssertionError("expected UnknownFontError")
+
+    def test_default_size_used_when_size_omitted(self):
+        from led_ticker.fonts import DEFAULT_HIRES_SIZE, resolve_font
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        font = resolve_font("Inter-Regular")
+        assert isinstance(font, HiresFont)
+        assert font.size == DEFAULT_HIRES_SIZE
+
+    def test_raises_for_size_below_8(self):
+        """font_size < 8 produces unreadable glyphs — reject at resolve time."""
+        from led_ticker.fonts import resolve_font
+
+        try:
+            resolve_font("Inter-Regular", 4)
+        except ValueError as e:
+            assert "font_size" in str(e)
+            assert ">=" in str(e) or "8" in str(e)
+            return
+        raise AssertionError("expected ValueError for size < 8")
+
+
+class TestListAvailableFonts:
+    def test_includes_hires_and_bdf(self):
+        from led_ticker.fonts import list_available_fonts
+
+        names = list_available_fonts()
+        assert "Inter-Regular" in names
+        assert "Inter-Bold" in names
+        assert "6x12" in names
+        assert "5x8" in names
+
+
+class TestFontLineHeight:
+    def test_line_height_for_hires_font(self):
+        from led_ticker.fonts import font_line_height, resolve_font
+
+        font = resolve_font("Inter-Regular", 32)
+        h = font_line_height(font)
+        # Inter at 32px should have line_height around 38-40.
+        assert 30 < h < 50
+
+    def test_line_height_for_bdf_font(self):
+        from led_ticker.fonts import FONT_DEFAULT, font_line_height
+
+        # FONT_DEFAULT is 6x12 — height is 12.
+        h = font_line_height(FONT_DEFAULT)
+        assert h == 12
+
+    def test_line_height_for_bdf_small_font(self):
+        from led_ticker.fonts import FONT_SMALL, font_line_height
+
+        # FONT_SMALL is 5x8 — height is 8.
+        h = font_line_height(FONT_SMALL)
+        assert h == 8

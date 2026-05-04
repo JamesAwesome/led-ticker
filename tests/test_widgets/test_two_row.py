@@ -643,6 +643,66 @@ class TestAsymmetricRowSplit:
         with pytest.raises(ValueError, match="leaves no room"):
             w.draw(canvas)
 
+    def test_text_y_offset_shifts_top_text(self, canvas, monkeypatch):
+        """`top_text_y_offset` nudges the top text baseline. Independent
+        of `top_emoji_y_offset` — set both to shift the whole row, or
+        one for emoji-text vertical alignment tuning."""
+        from led_ticker.widgets import two_row as tr
+
+        captured_y: list[int] = []
+
+        def fake(canvas, font, x, y, color, text, emoji_y=None, **kw):
+            captured_y.append(y)
+            return 30
+
+        monkeypatch.setattr(tr, "draw_with_emoji", fake)
+
+        # Reference: no offsets.
+        w0 = TwoRowMessage(top_text="A", bottom_text="B", font=FONT_SMALL)
+        w0.draw(canvas)
+        ref_top_y, ref_bot_y = captured_y[:2]
+
+        # Top text only down 2.
+        captured_y.clear()
+        w1 = TwoRowMessage(
+            top_text="A", bottom_text="B", font=FONT_SMALL, top_text_y_offset=2
+        )
+        w1.draw(canvas)
+        assert captured_y[0] == ref_top_y + 2
+        assert captured_y[1] == ref_bot_y  # bottom unchanged
+
+    def test_text_y_offset_independent_of_emoji_offset(self, canvas, monkeypatch):
+        """Setting both `top_text_y_offset` AND `top_emoji_y_offset`
+        shifts the whole row together. They compose cleanly."""
+        from led_ticker.widgets import two_row as tr
+
+        captured: list[tuple[int, int | None]] = []
+
+        def fake(canvas, font, x, y, color, text, emoji_y=None, **kw):
+            captured.append((y, emoji_y))
+            return 30
+
+        monkeypatch.setattr(tr, "draw_with_emoji", fake)
+
+        # Reference: no offsets.
+        w0 = TwoRowMessage(top_text=":star: hi", bottom_text="b", font=FONT_SMALL)
+        w0.draw(canvas)
+        ref_text_y, ref_emoji_y = captured[0]
+
+        # Both offsets = +1: text + emoji both shift down 1.
+        captured.clear()
+        w1 = TwoRowMessage(
+            top_text=":star: hi",
+            bottom_text="b",
+            font=FONT_SMALL,
+            top_text_y_offset=1,
+            top_emoji_y_offset=1,
+        )
+        w1.draw(canvas)
+        new_text_y, new_emoji_y = captured[0]
+        assert new_text_y == ref_text_y + 1
+        assert new_emoji_y == ref_emoji_y + 1
+
     def test_emoji_y_offset_shifts_top_emoji(self, canvas, monkeypatch):
         """`top_emoji_y_offset` nudges the top emoji vertically. Negative
         moves it up (toward text-center alignment when emoji is taller

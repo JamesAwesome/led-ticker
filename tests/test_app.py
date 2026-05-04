@@ -303,3 +303,87 @@ class TestBuildWidgetSectionBgPropagation:
             widget_cfg = {"type": "message", "text": "hi"}
             widget = await _build_widget(widget_cfg, session)
         assert widget.bg_color is None
+
+
+class TestBuildWidgetFontResolution:
+    @pytest.mark.asyncio
+    async def test_hires_font_name_resolves_to_HiresFont(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {
+                "type": "message",
+                "text": "hi",
+                "font": "Inter-Regular",
+                "font_size": 28,
+            }
+            widget = await _build_widget(widget_cfg, session)
+        assert isinstance(widget.font, HiresFont)
+        assert widget.font.size == 28
+
+    @pytest.mark.asyncio
+    async def test_bdf_alias_resolves_to_C_font(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.fonts import FONT_DEFAULT
+
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {"type": "message", "text": "hi", "font": "6x12"}
+            widget = await _build_widget(widget_cfg, session)
+        assert widget.font is FONT_DEFAULT
+
+    @pytest.mark.asyncio
+    async def test_no_font_field_keeps_class_default(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.fonts import FONT_DEFAULT
+
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {"type": "message", "text": "hi"}
+            widget = await _build_widget(widget_cfg, session)
+        # TickerMessage's class default is FONT_DEFAULT.
+        assert widget.font is FONT_DEFAULT
+
+    @pytest.mark.asyncio
+    async def test_unknown_font_name_raises(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.fonts import UnknownFontError
+
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {
+                "type": "message",
+                "text": "hi",
+                "font": "totally-not-a-font",
+            }
+            try:
+                await _build_widget(widget_cfg, session)
+            except UnknownFontError as e:
+                assert "totally-not-a-font" in str(e)
+                return
+            raise AssertionError("expected UnknownFontError")
+
+    @pytest.mark.asyncio
+    async def test_default_size_when_font_size_omitted(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.fonts import DEFAULT_HIRES_SIZE
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {
+                "type": "message",
+                "text": "hi",
+                "font": "Inter-Regular",
+                # no font_size
+            }
+            widget = await _build_widget(widget_cfg, session)
+        assert isinstance(widget.font, HiresFont)
+        assert widget.font.size == DEFAULT_HIRES_SIZE

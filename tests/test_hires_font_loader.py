@@ -156,6 +156,25 @@ class TestLoadHiresFont:
         assert font is not None
         assert font.glyphs["A"].advance > 0
 
+    def test_space_glyph_has_zero_lit_pixels_and_positive_advance(self):
+        """The rasterizer's whitespace branch (`bbox is None or zero-area`)
+        emits an empty `HiresGlyph` with advance preserved. If a future
+        change drops the advance, words separate visually break ("hello
+        world" → "helloworld"); if the lit-pixels guard breaks, render
+        cost spikes from rasterizing empty glyph rectangles. Pin both."""
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        font = load_hires_font("Inter-Regular", 32)
+        assert font is not None
+        space = font.glyphs[" "]
+        assert space.lit == (), "space must have no lit pixels"
+        assert space.width == 0
+        assert space.height == 0
+        assert space.advance > 0, (
+            "space must advance the cursor — a zero-advance space "
+            "would collapse word breaks"
+        )
+
     def test_returns_none_for_unknown_name(self):
         from led_ticker.fonts.hires_loader import load_hires_font
 

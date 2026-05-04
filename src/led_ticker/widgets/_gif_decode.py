@@ -1,8 +1,11 @@
-"""GIF decoding helper — pure function, no side effects.
+"""Animated-image decoding helper — pure function, no side effects.
 
-Reads an animated GIF, applies a fit mode, and returns a list of
-(rgb_bytes, duration_ms) tuples ready to be SetImage-blitted to the
-panel.
+Reads an animated source via Pillow, applies a fit mode, and returns
+a list of (rgb_bytes, duration_ms) tuples ready to be SetImage-blitted
+to the panel. Despite the module name, any Pillow-supported animated
+format works: gif, webp, apng, multi-frame tiff. Per-frame durations
+come from `img.info["duration"]` which Pillow populates from each
+format's native chunk metadata.
 
 Fit/alpha primitives live in `_image_fit.py` and are shared with the
 still-image decoder.
@@ -36,21 +39,23 @@ def decode_gif(
     fit: str,
     image_align: str = "center",
 ) -> list[tuple[bytes, int]]:
-    """Decode an animated GIF and return per-frame RGB bytes + durations.
+    """Decode an animated source and return per-frame RGB bytes +
+    durations. Format-agnostic — anything Pillow opens with
+    `n_frames` and `seek()` (gif, webp, apng, multi-frame tiff).
 
     See `_image_fit.apply_fit` for the `fit` and `image_align` semantics
     — identical here.
 
-    Frame durations below 50 ms are clamped to 50 ms (some GIFs encode
-    `duration=0` which would otherwise spin the playback loop). Logs
-    once per gif on the first clamped frame.
+    Frame durations below 50 ms are clamped to 50 ms (some sources
+    encode `duration=0` which would otherwise spin the playback
+    loop). Logs once per source on the first clamped frame.
     """
     validate_choice("fit", fit, VALID_FITS)
     validate_choice("image_align", image_align, VALID_IMAGE_ALIGNS)
 
     path = Path(path)
     if not path.exists():
-        raise FileNotFoundError(f"GIF not found at {path}")
+        raise FileNotFoundError(f"image not found at {path}")
 
     frames: list[tuple[bytes, int]] = []
     clamped_first_frame: int | None = None

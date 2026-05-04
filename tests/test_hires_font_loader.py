@@ -315,6 +315,54 @@ class TestResolveFont:
         font = resolve_font("6x12", threshold=80)
         assert font is FONT_DEFAULT
 
+    def test_bold_renders_stroke_complete_at_default_threshold(self):
+        """Bold weights have fat enough strokes to survive THRESHOLD=128
+        unchanged — they don't need a `font_threshold` override.
+
+        Beloved Sans Regular at 24px loses the left vertical of `n` at
+        thr=128 (antialiased pixels come out ~60-100 grey, below cutoff).
+        Bold weights don't suffer this because their strokes are thicker
+        and saturate above the cutoff.
+
+        Pin Inter-Bold at 24px @ thr=128 as the in-tree proxy for the
+        property: every glyph column in the first/last few should have
+        lit pixels (no missing strokes), and Bold should render denser
+        than Regular at the same threshold.
+        """
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        bold = load_hires_font("Inter-Bold", 24)
+        regular = load_hires_font("Inter-Regular", 24)
+        assert bold is not None
+        assert regular is not None
+
+        # The 'n' glyph is the canonical bug-witness from the hardware
+        # photo. At thr=128 its left vertical must survive — i.e. the
+        # leftmost column of the bbox must have lit pixels.
+        bold_n = bold.glyphs["n"]
+        bold_cols = sorted({dx for dx, _dy in bold_n.lit})
+        assert bold_cols, "bold 'n' must have lit pixels at default threshold"
+        # Leftmost lit column should be flush with bbox start (allow 0-2
+        # px slack for any side-bearing whitespace inside the bbox).
+        assert (
+            bold_cols[0] <= 2
+        ), f"bold 'n' left stroke missing at thr=128: leftmost_col={bold_cols[0]}"
+        # Right stroke must also reach the bbox edge.
+        assert bold_cols[-1] >= bold_n.width - 3, (
+            f"bold 'n' right stroke incomplete: rightmost_col={bold_cols[-1]} "
+            f"vs width={bold_n.width}"
+        )
+
+        # Bold should be denser than Regular at the same threshold —
+        # if this ever inverts, the rasterizer is rendering the wrong
+        # weight or something is bypassing the threshold.
+        bold_lit = len(bold_n.lit)
+        reg_lit = len(regular.glyphs["n"].lit)
+        assert bold_lit > reg_lit, (
+            f"bold 'n' should have more lit pixels than regular at thr=128: "
+            f"bold={bold_lit} regular={reg_lit}"
+        )
+
 
 class TestListAvailableFonts:
     def test_includes_hires_and_bdf(self):

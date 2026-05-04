@@ -90,6 +90,20 @@ loop_count = 1
 #   font_threshold = 80
 #   font_color = [255, 220, 70]
 
+# 4b. Beloved Sans Bold — uses the default threshold (no override
+#     needed). Bold strokes are fat enough to clear the 128 cutoff.
+# [[playlist.section]]
+# mode = "swap"
+# hold_time = 3.0
+# loop_count = 1
+#
+#   [[playlist.section.widget]]
+#   type = "message"
+#   text = "@MoonBunny BOLD"
+#   font = "beloved-sans-bold"
+#   font_size = 32
+#   font_color = [255, 220, 70]
+
 # 5. BDF baseline (current 6x12 path) for visual comparison
 [[playlist.section]]
 mode = "swap"

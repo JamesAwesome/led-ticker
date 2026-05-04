@@ -7,6 +7,8 @@ from typing import Any
 
 import attrs
 
+from led_ticker.fonts.hires_loader import HiresFont
+
 
 @attrs.define(frozen=True, slots=True)
 class Region:
@@ -37,8 +39,6 @@ def get_text_width(font: Any, text: str, padding: int = 6) -> int:
     consistent units with the BDF path. BDF C font uses
     ``CharacterWidth(ord(c))`` as before.
     """
-    from led_ticker.fonts.hires_loader import HiresFont
-
     if isinstance(font, HiresFont):
         fallback = font.glyphs.get("?")
         fallback_advance = fallback.advance if fallback else 0

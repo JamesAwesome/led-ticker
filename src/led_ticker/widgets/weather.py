@@ -12,7 +12,7 @@ import attrs
 
 from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR, RGB_WHITE
-from led_ticker.drawing import compute_cursor, get_text_width
+from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop
@@ -126,11 +126,13 @@ class WeatherWidget:
             self.center,
         )
 
+        baseline_y = compute_baseline(self.font, canvas, valign="center") + y_offset
+
         cursor_pos += draw_text(
             canvas,
             self.font,
             cursor_pos,
-            12 + y_offset,
+            baseline_y,
             self.font_color,
             label_text,
         )
@@ -151,7 +153,7 @@ class WeatherWidget:
                 canvas,
                 self.font,
                 cursor_pos,
-                12 + y_offset,
+                baseline_y,
                 self.font_color,
                 f"{self.weather} ",
             )
@@ -160,7 +162,7 @@ class WeatherWidget:
             canvas,
             self.font,
             cursor_pos,
-            12 + y_offset,
+            baseline_y,
             self.font_color_temp,
             temp_text,
         )

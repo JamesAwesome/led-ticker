@@ -538,6 +538,24 @@ class TestMLBGameMessageDraw:
         assert hasattr(msg, "padding")
         assert msg.padding == 6
 
+    def test_default_font_is_FONT_DEFAULT(self):
+        from led_ticker.fonts import FONT_DEFAULT
+
+        msg = MLBGameMessage([("test", mock.Mock())])
+        assert msg.font is FONT_DEFAULT
+
+    def test_accepts_hires_font_kwarg(self):
+        """Regression: MLBGameMessage now accepts a `font` so the user
+        can set `font="Inter-Bold"` on `mlb` / `mlb_standings` widgets
+        and have it propagate into the colored segments."""
+        from led_ticker.fonts import resolve_font
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        font = resolve_font("Inter-Regular", 24)
+        msg = MLBGameMessage([("test", mock.Mock())], font=font)
+        assert isinstance(msg.font, HiresFont)
+        assert msg.font is font
+
 
 # --- MLBScoreMonitor ---
 

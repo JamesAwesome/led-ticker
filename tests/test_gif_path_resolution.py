@@ -121,3 +121,41 @@ async def test_image_accepts_font_kwarg(tmp_path):
 
     assert isinstance(widget.font, HiresFont)
     assert widget.font.size == 28
+
+
+async def test_gif_two_row_text_overlay_via_build_widget(tmp_path):
+    """End-to-end: TOML config sets `bottom_text` on a gif → _build_widget
+    constructs in two-row mode without raising. Pin per-row fields land
+    on the widget. (Smoke test for the full path: TOML → resolve_font
+    → widget construction → two-row mode.)
+    """
+    from led_ticker.fonts.hires_loader import HiresFont
+
+    gif_path = tmp_path / "tiny.gif"
+    _write_tiny_gif(gif_path)
+
+    cfg = {
+        "type": "gif",
+        "path": str(gif_path.resolve()),
+        "fit": "pillarbox",
+        "top_text": "@MoonBunny",
+        "bottom_text": "Follow us! :instagram:",
+        "top_font": "Inter-Bold",
+        "top_font_size": 14,
+        "bottom_font": "Inter-Regular",
+        "bottom_font_size": 12,
+        "top_color": [255, 220, 70],
+        "bottom_color": [255, 150, 190],
+        "top_row_height": 5,
+    }
+    widget = await _build(cfg, config_dir=tmp_path)
+
+    assert widget._is_two_row()
+    assert widget.top_text == "@MoonBunny"
+    assert widget.bottom_text == "Follow us! :instagram:"
+    assert isinstance(widget.top_font, HiresFont)
+    assert widget.top_font.name == "Inter-Bold"
+    assert widget.top_font.size == 14
+    assert isinstance(widget.bottom_font, HiresFont)
+    assert widget.bottom_font.name == "Inter-Regular"
+    assert widget.top_row_height == 5

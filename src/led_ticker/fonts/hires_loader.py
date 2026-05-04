@@ -100,17 +100,27 @@ def list_available_hires_fonts() -> list[str]:
     return sorted(names)
 
 
-def _rasterize_glyph(pil_font: Any, ch: str) -> HiresGlyph:
+def _rasterize_glyph(pil_font: Any, ch: str, ascent: int, descent: int) -> HiresGlyph:
     """Render a single character to a binarized HiresGlyph.
 
-    Uses Pillow's `ImageFont.getbbox` to size the glyph, draws into
-    a grayscale image, then thresholds to 1-bit. Lit pixel coords
-    are bbox-relative (0,0 is glyph top-left).
+    Pillow's default `draw.text` anchor is "la" (left-ascender) —
+    drawing at (0, 0) puts the ascender line at y=0 and the baseline
+    at y=ascent. `pil_font.getbbox(ch)` returns coords IN THE SAME
+    SPACE as that draw — so for capital "M" with cap height H, bbox
+    might be (0, ascent-H, M_width, ascent), telling us the glyph
+    occupies rows ascent-H..ascent in the rendered image.
+
+    We render into an image tall enough for any glyph (ascent +
+    descent rows), then crop the bbox region. `bearing_y` converts
+    bbox[1] from image coords back to baseline-relative (positive
+    distance above baseline) so `_draw_hires_text` can position
+    glyphs against a baseline_y. Lit pixel coords are bbox-relative
+    (0, 0 = glyph top-left within its own bbox).
     """
-    bbox = pil_font.getbbox(ch)  # (x0, y0, x1, y1) in pixel space
-    if bbox is None:
+    advance = int(pil_font.getlength(ch))
+    bbox = pil_font.getbbox(ch)
+    if bbox is None or bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
         # Whitespace or zero-width char — emit empty glyph with advance.
-        advance = int(pil_font.getlength(ch))
         return HiresGlyph(
             width=0,
             height=0,
@@ -120,32 +130,46 @@ def _rasterize_glyph(pil_font: Any, ch: str) -> HiresGlyph:
             lit=(),
         )
 
-    width = max(1, bbox[2] - bbox[0])
-    height = max(1, bbox[3] - bbox[1])
-    img = Image.new("L", (width, height), 0)
-    draw = ImageDraw.Draw(img)
-    # Offset by -bbox[0], -bbox[1] so the glyph fills the image at (0,0).
-    draw.text((-bbox[0], -bbox[1]), ch, font=pil_font, fill=255)
+    width = bbox[2] - bbox[0]
+    height = bbox[3] - bbox[1]
 
-    # Use tobytes() instead of img.load(): for mode "L" each byte is the
-    # grayscale value, indexable as a flat array. Avoids pyright's union
-    # over PixelAccess.__getitem__ return types AND is slightly faster
-    # (no per-pixel function call overhead in the inner loop).
+    # Image canvas large enough to hold ANY glyph in this font.
+    # canvas_w covers from x=0 (where draw.text origin sits) past the
+    # right edge of the rendered glyph and any natural advance. canvas_h
+    # = ascent + descent so any glyph fits vertically.
+    canvas_w = max(advance, bbox[2]) + 4  # extra slack on the right
+    canvas_h = ascent + descent
+    img = Image.new("L", (canvas_w, canvas_h), 0)
+    draw = ImageDraw.Draw(img)
+    draw.text((0, 0), ch, font=pil_font, fill=255)
+
     pixels = img.tobytes()
     lit: list[tuple[int, int]] = []
+    # bbox is in image coords directly (anchor="la", drawn at y=0).
+    img_top = bbox[1]
+    img_left = bbox[0]
     for dy in range(height):
-        row_offset = dy * width
+        img_y = img_top + dy
+        if img_y < 0 or img_y >= canvas_h:
+            continue
+        row_offset = img_y * canvas_w
         for dx in range(width):
-            if pixels[row_offset + dx] >= THRESHOLD:
+            img_x = img_left + dx
+            if img_x < 0 or img_x >= canvas_w:
+                continue
+            if pixels[row_offset + img_x] >= THRESHOLD:
                 lit.append((dx, dy))
 
-    advance = int(pil_font.getlength(ch))
     return HiresGlyph(
         width=width,
         height=height,
         advance=advance,
         bearing_x=bbox[0],
-        bearing_y=-bbox[1],  # bbox[1] is negative (above baseline) in PIL
+        # bearing_y = distance from baseline UP to glyph top. Image
+        # baseline is at row `ascent`; glyph top is at row bbox[1].
+        # Positive bearing_y means glyph top is ABOVE baseline (most
+        # glyphs); negative means below (rare — e.g. underscore).
+        bearing_y=ascent - bbox[1],
         lit=tuple(lit),
     )
 
@@ -157,7 +181,7 @@ def _rasterize(path: Path, size: int, name: str) -> HiresFont:
     chars = string.printable + EXTENDED_LATIN
     glyphs: dict[str, HiresGlyph] = {}
     for ch in chars:
-        glyphs[ch] = _rasterize_glyph(pil_font, ch)
+        glyphs[ch] = _rasterize_glyph(pil_font, ch, ascent, descent)
     return HiresFont(
         name=name,
         size=size,

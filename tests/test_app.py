@@ -44,6 +44,35 @@ def test_build_frame_existing_sign_defaults():
     assert frame.led_slowdown_gpio == 2
 
 
+def test_build_frame_logs_show_refresh_explanation_when_enabled(caplog):
+    """show_refresh=true makes the C library print Hz to stderr with
+    backspaces — looks like log corruption to first-time readers. We
+    log a one-time note pointing at where to look so it's not mistaken
+    for a glitch."""
+    import logging
+
+    display = DisplayConfig(rows=32, cols=64, chain=8, show_refresh=True)
+    with caplog.at_level(logging.INFO):
+        build_frame_from_config(display)
+    msgs = [r.message for r in caplog.records]
+    assert any(
+        "show_refresh=true" in m and "stderr" in m for m in msgs
+    ), f"expected show_refresh explanation; got: {msgs}"
+
+
+def test_build_frame_no_show_refresh_log_when_disabled(caplog):
+    """No spurious explainer log when the user didn't ask for it."""
+    import logging
+
+    display = DisplayConfig(rows=16, cols=32, chain=5, show_refresh=False)
+    with caplog.at_level(logging.INFO):
+        build_frame_from_config(display)
+    msgs = [r.message for r in caplog.records]
+    assert not any(
+        "live Hz updates" in m for m in msgs
+    ), f"didn't expect show_refresh explainer; got: {msgs}"
+
+
 class TestBuildWidget:
     """Test that _build_widget correctly maps config dicts to widget instances."""
 

@@ -182,3 +182,35 @@ def font_line_height_logical(font: Font | HiresFont, scale: int) -> int:
         # would let a font claim to fit a band it actually overflows).
         return -(-line_h // max(1, scale))
     return line_h
+
+
+def block_scale_for_font_size(font: Font | HiresFont, font_size: int) -> int:
+    """Return the integer block scale to wrap the canvas at, given a
+    target `font_size` in real pixels.
+
+    For BDF: cells are bitmaps; the wrapper block-expands them by the
+    returned scale. We round down `font_size` to the nearest integer
+    multiple of the font's cell height. Floor: the BDF cell can't
+    render below its natural height, so `font_size < cell_h` raises
+    with a hint pointing at smaller bundled BDFs.
+
+    For HiresFont: always returns 1. HiresFont rasterizes at the real
+    `font_size` at construction time and paints to the unwrapped real
+    canvas, so the wrapper has no glyph-size impact.
+
+    Raises ValueError on `font_size <= 0` or BDF `font_size < cell_h`.
+    """
+    if font_size <= 0:
+        raise ValueError(f"font_size must be > 0; got {font_size!r}.")
+
+    if isinstance(font, HiresFont):
+        return 1
+
+    cell_h = font_line_height(font)
+    if font_size < cell_h:
+        raise ValueError(
+            f"font_size={font_size} below cell height {cell_h} for BDF "
+            f"font. For smaller text use BDF '5x8' (cell_h=8) or a "
+            f"HiresFont."
+        )
+    return font_size // cell_h

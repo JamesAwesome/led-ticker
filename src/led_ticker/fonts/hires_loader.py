@@ -14,14 +14,24 @@ directly to the unwrapped real canvas at native physical resolution.
 
 from __future__ import annotations
 
+import functools
+import string
 from dataclasses import dataclass, field
-from pathlib import Path  # noqa: F401  (used in Task 3 path discovery)
-from typing import Any  # noqa: F401  (used in Task 3 rasterization)
+from pathlib import Path
+from typing import Any
+
+from PIL import Image, ImageDraw, ImageFont
 
 # 50% of 0-255 — pixels at or above this are "on" after rasterization.
 # Higher = thicker strokes; lower = thinner. 128 matches the natural
 # midpoint and produces clean glyphs at 24-32px on a 64-row LED panel.
 THRESHOLD: int = 128
+
+BUNDLED_HIRES_DIR: Path = Path(__file__).parent / "hires"
+USER_FONT_DIR: Path = Path(__file__).parent.parent.parent.parent / "config" / "fonts"
+# USER_FONT_DIR resolves to <repo_root>/config/fonts in dev. In a wheel
+# install, the user's working dir matters — Path("config/fonts").resolve()
+# would be relative to invocation. We re-resolve at lookup time below.
 
 # Most common Latin-1 accented characters. Pre-rasterized along with
 # string.printable so widgets handling European-language feeds (Spanish,
@@ -62,3 +72,101 @@ class HiresFont:
     descent: int
     line_height: int
     glyphs: dict[str, HiresGlyph] = field(default_factory=dict)
+
+
+def _find_font_path(name: str) -> Path | None:
+    """Look up a font by name across user + bundled dirs.
+
+    User dir wins on collisions so users can override bundled fonts.
+    Tries `.otf` first, then `.ttf`. Returns None if not found.
+    """
+    for ext in (".otf", ".ttf"):
+        for base in (USER_FONT_DIR, BUNDLED_HIRES_DIR):
+            candidate = base / f"{name}{ext}"
+            if candidate.exists():
+                return candidate.resolve()
+    return None
+
+
+def list_available_hires_fonts() -> list[str]:
+    """Return sorted list of all hi-res font names across both dirs."""
+    names: set[str] = set()
+    for base in (USER_FONT_DIR, BUNDLED_HIRES_DIR):
+        if not base.exists():
+            continue
+        for path in base.iterdir():
+            if path.suffix.lower() in (".otf", ".ttf"):
+                names.add(path.stem)
+    return sorted(names)
+
+
+def _rasterize_glyph(pil_font: Any, ch: str) -> HiresGlyph:
+    """Render a single character to a binarized HiresGlyph.
+
+    Uses Pillow's `ImageFont.getbbox` to size the glyph, draws into
+    a grayscale image, then thresholds to 1-bit. Lit pixel coords
+    are bbox-relative (0,0 is glyph top-left).
+    """
+    bbox = pil_font.getbbox(ch)  # (x0, y0, x1, y1) in pixel space
+    if bbox is None:
+        # Whitespace or zero-width char — emit empty glyph with advance.
+        advance = int(pil_font.getlength(ch))
+        return HiresGlyph(
+            width=0,
+            height=0,
+            advance=advance,
+            bearing_x=0,
+            bearing_y=0,
+            lit=(),
+        )
+
+    width = max(1, bbox[2] - bbox[0])
+    height = max(1, bbox[3] - bbox[1])
+    img = Image.new("L", (width, height), 0)
+    draw = ImageDraw.Draw(img)
+    # Offset by -bbox[0], -bbox[1] so the glyph fills the image at (0,0).
+    draw.text((-bbox[0], -bbox[1]), ch, font=pil_font, fill=255)
+
+    pixels = img.load()
+    lit: list[tuple[int, int]] = []
+    for dy in range(height):
+        for dx in range(width):
+            if pixels[dx, dy] >= THRESHOLD:
+                lit.append((dx, dy))
+
+    advance = int(pil_font.getlength(ch))
+    return HiresGlyph(
+        width=width,
+        height=height,
+        advance=advance,
+        bearing_x=bbox[0],
+        bearing_y=-bbox[1],  # bbox[1] is negative (above baseline) in PIL
+        lit=tuple(lit),
+    )
+
+
+def _rasterize(path: Path, size: int, name: str) -> HiresFont:
+    """Load .otf/.ttf via Pillow at `size` and rasterize all glyphs."""
+    pil_font = ImageFont.truetype(str(path), size)
+    ascent, descent = pil_font.getmetrics()
+    chars = string.printable + EXTENDED_LATIN
+    glyphs: dict[str, HiresGlyph] = {}
+    for ch in chars:
+        glyphs[ch] = _rasterize_glyph(pil_font, ch)
+    return HiresFont(
+        name=name,
+        size=size,
+        ascent=ascent,
+        descent=descent,
+        line_height=ascent + descent,
+        glyphs=glyphs,
+    )
+
+
+@functools.cache
+def load_hires_font(name: str, size: int) -> HiresFont | None:
+    """Load (or fetch from cache) a hi-res font by name and pixel size."""
+    path = _find_font_path(name)
+    if path is None:
+        return None
+    return _rasterize(path, size, name)

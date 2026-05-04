@@ -36,6 +36,7 @@ import attrs
 from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.fonts import FONT_SMALL
+from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.pixel_emoji import draw_with_emoji, measure_width
 from led_ticker.widgets import register
 from led_ticker.widgets._image_fit import fill_band
@@ -101,6 +102,19 @@ class TwoRowMessage:
             self.top_align = "left"
         elif self.top_center is True:
             self.top_align = "center"
+        # `_row_y` and the emoji-cap (`_ROW_HEIGHT = 8`) are sized to
+        # the BDF FONT_SMALL cell. Hi-res fonts have different metrics
+        # and would either overflow into the other row's band or
+        # render miscentered. Refuse them at config-load time rather
+        # than silently misrender. Lift this check when row sizing is
+        # made font-aware.
+        if isinstance(self.font, _HiresFont):
+            raise ValueError(
+                f"TwoRowMessage uses fixed 8-row band sizing matched to BDF "
+                f"FONT_SMALL; hires fonts (got {self.font.name!r}) would "
+                f"overflow rows or miscenter. Use a BDF font alias (5x8, "
+                f"6x12) for now, or split into two TickerMessage widgets."
+            )
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         del kwargs  # widget is meant for swap mode; y_offset/transitions ignored

@@ -48,68 +48,25 @@ import attrs
 
 from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR
-from led_ticker.drawing import compute_baseline_for_band, safe_scale
+from led_ticker.drawing import safe_scale
 from led_ticker.fonts import FONT_SMALL, font_line_height_logical
 from led_ticker.pixel_emoji import draw_with_emoji, measure_width
 from led_ticker.widgets import register
 from led_ticker.widgets._image_fit import fill_band
+from led_ticker.widgets._row_layout import (
+    EMOJI_ROW_CAP,
+    aligned_x,
+    resolve_band_heights,
+    row_layout,
+)
 
-# Cap on emoji vertical size per row. Inline emoji sprites are 8×8
-# logical (low-res) or up to 32×32 real (hi-res). We cap at 8 logical
-# rows so a hi-res sprite that would overflow the row band falls back
-# to the 8×8 low-res sprite (`pixel_emoji.draw_with_emoji` honors
-# `max_emoji_height`). Independent of the text font's line height.
-_EMOJI_ROW_CAP = 8
-
-
-def _row_layout(
-    canvas: Canvas,
-    font: Font,
-    band_height: int,
-    band_offset: int,
-) -> tuple[int, int]:
-    """Return (text_baseline_y, emoji_top_y) for one row's band.
-
-    `band_height` is the number of logical rows allocated to this row;
-    `band_offset` is the logical y of the band's top edge. With a
-    50/50 split on a 16-row canvas these are (8, 0) for top and
-    (8, 8) for bottom. With an asymmetric `top_row_height = 4`, top
-    is (4, 0) and bottom is (12, 4).
-
-    Builds a virtual canvas the size of the band so `compute_baseline`
-    centers the glyph correctly within it, then offsets by
-    `band_offset`. Inherits `canvas.scale` so hi-res math (real →
-    logical via scale) lands in the right units. The emoji top is
-    centered on an `_EMOJI_ROW_CAP`-tall sub-band so 8-px emoji
-    coexist with any text size; the cap independent of band height.
-
-    For small bands (`band_height < _EMOJI_ROW_CAP = 8`), the centered
-    formula would produce a negative `emoji_y` relative to the band —
-    clipping the top of the sprite above the band edge. We clamp to
-    `band_offset` so the emoji top is at least the band's top edge
-    (the bottom may then bleed into the next band's space, which is
-    benign as long as that space isn't occupied — typical asymmetric
-    layouts have a small top tag where this bleed lands harmlessly
-    before the bottom row's text baseline).
-    """
-    emoji_y = max(band_offset, (band_height - _EMOJI_ROW_CAP) // 2 + band_offset)
-    baseline = compute_baseline_for_band(
-        font, band_height, safe_scale(canvas), valign="center"
-    )
-    text_baseline = baseline + band_offset
-    return text_baseline, emoji_y
-
-
-def _aligned_x(canvas_width: int, content_width: int, align: str) -> int:
-    """Compute the x position for a row given its alignment."""
-    if align == "left":
-        return 0
-    if align == "right":
-        return max(0, canvas_width - content_width)
-    # center (default) — falls through for unknown values too
-    if content_width >= canvas_width:
-        return 0  # too wide; left-align so we at least see the start
-    return (canvas_width - content_width) // 2
+# Layout primitives moved to `widgets/_row_layout.py` so the same
+# helpers serve both this widget and the two-row text-overlay path
+# on `_BaseImageWidget`. Re-bind aliases for back-compat with any
+# tests that import the underscore names from this module.
+_EMOJI_ROW_CAP = EMOJI_ROW_CAP
+_row_layout = row_layout
+_aligned_x = aligned_x
 
 
 @register("two_row")
@@ -201,21 +158,7 @@ class TwoRowMessage:
 
         canvas_height = getattr(canvas, "height", 16)
 
-        # Compute the per-row band heights. Default 50/50; user can
-        # override `top_row_height` for an asymmetric split (e.g. small
-        # tag on top + larger marquee below). Validate the override
-        # leaves at least one row for the bottom.
-        if self.top_row_height is None:
-            top_h = canvas_height // 2
-        else:
-            if self.top_row_height >= canvas_height:
-                raise ValueError(
-                    f"top_row_height={self.top_row_height} leaves no room "
-                    f"for the bottom row on a {canvas_height}-tall canvas. "
-                    f"Must be < canvas.height (current = {canvas_height})."
-                )
-            top_h = self.top_row_height
-        bottom_h = canvas_height - top_h
+        top_h, bottom_h = resolve_band_heights(canvas_height, self.top_row_height)
 
         top_font = self._font_for_row(0)
         bottom_font = self._font_for_row(1)

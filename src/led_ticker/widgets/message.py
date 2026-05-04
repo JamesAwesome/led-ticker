@@ -10,7 +10,7 @@ import attrs
 
 from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR
-from led_ticker.drawing import compute_cursor, get_text_width
+from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.text_render import draw_text
 from led_ticker.widgets import register
@@ -59,6 +59,8 @@ class TickerMessage:
             canvas.width, content_width, cursor_pos, self.padding, self.center
         )
 
+        baseline_y = compute_baseline(self.font, canvas, valign="center")
+
         if self._has_emoji:
             from led_ticker.pixel_emoji import draw_with_emoji
 
@@ -66,7 +68,7 @@ class TickerMessage:
                 canvas,
                 self.font,
                 cursor_pos,
-                12,
+                baseline_y,
                 font_color,
                 self.message,
                 y_offset=y_offset,
@@ -76,7 +78,7 @@ class TickerMessage:
                 canvas,
                 self.font,
                 cursor_pos,
-                12 + y_offset,
+                baseline_y + y_offset,
                 font_color,
                 self.message,
             )
@@ -111,8 +113,9 @@ class TickerCountdown:
             canvas.width, content_width, cursor_pos, self.padding, self.center
         )
 
+        baseline_y = compute_baseline(self.font, canvas, valign="center")
         cursor_pos += draw_text(
-            canvas, self.font, cursor_pos, 12 + y_offset, font_color, text
+            canvas, self.font, cursor_pos, baseline_y + y_offset, font_color, text
         )
         cursor_pos += end_padding
 

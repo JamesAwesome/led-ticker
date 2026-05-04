@@ -142,3 +142,18 @@ def font_line_height(font: Font | HiresFont) -> int:
     # BDF path: font.height() is the C bitmap height attribute.
     # The stub mirrors this via the FONTBOUNDINGBOX height field.
     return font.height()
+
+
+def font_ascent(font: Font | HiresFont) -> int:
+    """Return the font's ascent (baseline-to-top distance) in pixels.
+
+    For BDF fonts: the parsed FONT_ASCENT field from the .bdf file
+    (logical pixels). For HiresFont: the FreeType-reported ascent
+    (real pixels). Used by `drawing.compute_baseline` to position
+    text vertically without hardcoded BDF cell assumptions.
+    """
+    if isinstance(font, HiresFont):
+        return font.ascent
+    # BDF C font isn't directly inspectable for ascent — pull from the
+    # parsed BDF kept alongside it during _load_font.
+    return get_bdf_for(font).ascent

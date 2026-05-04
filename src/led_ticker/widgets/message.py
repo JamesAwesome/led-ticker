@@ -51,7 +51,9 @@ class TickerMessage:
                     canvas,
                 )
             else:
-                self._content_width = get_text_width(self.font, self.message, padding=0)
+                self._content_width = get_text_width(
+                    self.font, self.message, padding=0, canvas=canvas
+                )
         content_width = self._content_width
         cursor_pos, end_padding = compute_cursor(
             canvas.width, content_width, cursor_pos, self.padding, self.center
@@ -104,7 +106,7 @@ class TickerCountdown:
         days_until = (self.countdown_date - today).days
         text = f"{self.message}: {days_until}"
 
-        content_width = get_text_width(self.font, text, padding=0)
+        content_width = get_text_width(self.font, text, padding=0, canvas=canvas)
         cursor_pos, end_padding = compute_cursor(
             canvas.width, content_width, cursor_pos, self.padding, self.center
         )

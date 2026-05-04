@@ -101,10 +101,10 @@ class TestTypewriter:
         call_count = 0
         real_width = presentation.get_text_width
 
-        def counting_width(font, text, *, padding=0):
+        def counting_width(font, text, *, padding=0, canvas=None):
             nonlocal call_count
             call_count += 1
-            return real_width(font, text, padding=padding)
+            return real_width(font, text, padding=padding, canvas=canvas)
 
         monkeypatch.setattr(presentation, "get_text_width", counting_width)
 

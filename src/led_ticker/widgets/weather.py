@@ -104,9 +104,9 @@ class WeatherWidget:
             label_text = f"{self.message}: "
             # Icon replaces the condition text
             full_width = (
-                get_text_width(self.font, label_text, padding=0)
+                get_text_width(self.font, label_text, padding=0, canvas=canvas)
                 + 10  # icon width (8) + padding (2)
-                + get_text_width(self.font, temp_text, padding=0)
+                + get_text_width(self.font, temp_text, padding=0, canvas=canvas)
             )
         else:
             label_text = f"{self.message}: "
@@ -115,6 +115,7 @@ class WeatherWidget:
                 self.font,
                 f"{label_text}{condition_text}{temp_text}",
                 padding=0,
+                canvas=canvas,
             )
 
         cursor_pos, end_padding = compute_cursor(

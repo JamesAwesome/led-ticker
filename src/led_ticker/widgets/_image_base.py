@@ -222,7 +222,7 @@ class _BaseImageWidget:
             from led_ticker.pixel_emoji import measure_width
 
             return measure_width(self.font, self.text, canvas=canvas)
-        return get_text_width(self.font, self.text, padding=0)
+        return get_text_width(self.font, self.text, padding=0, canvas=canvas)
 
     def _draw_text(self, canvas: Canvas, x: int, baseline_y: int, color: Color) -> int:
         """Route to draw_with_emoji when text contains slugs; otherwise

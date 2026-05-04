@@ -64,3 +64,51 @@ def test_compute_cursor_overflow_stays_at_cursor():
     )
     assert cursor == 5
     assert end_pad == 6
+
+
+class TestGetTextWidthHiresFont:
+    def test_hires_font_sums_advances(self):
+        from led_ticker.drawing import get_text_width
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        width = get_text_width(font, "ABC", padding=0)
+        # Sum of glyph advances for A, B, C — should be positive.
+        assert width > 0
+        # And consistent: same call returns same result.
+        assert get_text_width(font, "ABC", padding=0) == width
+
+    def test_hires_font_padding_added(self):
+        from led_ticker.drawing import get_text_width
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        no_pad = get_text_width(font, "X", padding=0)
+        with_pad = get_text_width(font, "X", padding=6)
+        assert with_pad == no_pad + 6
+
+    def test_hires_font_empty_string(self):
+        from led_ticker.drawing import get_text_width
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        assert get_text_width(font, "", padding=0) == 0
+
+    def test_hires_font_unknown_char_uses_fallback(self):
+        from led_ticker.drawing import get_text_width
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        # 'Ω' not in rasterized set — uses '?' advance.
+        omega_width = get_text_width(font, "Ω", padding=0)
+        question_width = get_text_width(font, "?", padding=0)
+        assert omega_width == question_width
+
+    def test_bdf_font_path_unchanged(self):
+        """Existing BDF behavior preserved."""
+        from led_ticker.drawing import get_text_width
+        from led_ticker.fonts import FONT_DEFAULT
+
+        # FONT_DEFAULT is 6×12 — 'A' is 6 wide.
+        width = get_text_width(FONT_DEFAULT, "A", padding=0)
+        assert width == 6

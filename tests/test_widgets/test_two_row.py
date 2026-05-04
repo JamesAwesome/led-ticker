@@ -54,6 +54,8 @@ class TestDraw:
             bottom_text="this scrolls",
             font=FONT_SMALL,
             top_center=True,
+            bottom_align="left",  # pin so the cursor-tracks-pos test isn't
+            # confounded by centering when the text happens to fit.
         )
 
         # Frame 1: bottom at pos=0

@@ -154,3 +154,50 @@ def test_draw_bdf_text_unknown_glyph_advances_default_width():
     advance = sc.draw_bdf_text(bdf, x=0, y=8, color=(0, 0, 255), text="香")
     # Should still advance by something positive (font default width)
     assert advance > 0
+
+
+class TestContentHeightCeiling:
+    """Regression: `content_height * scale > panel_h_real` causes a
+    negative `_y_offset`, silently clipping content near the logical
+    canvas edges. Hardware-discovered (`:instagram:` emoji clipping
+    4-8 real px on bigsign with content_height=20 + scale=4 on a
+    64-real-row panel). The wrapper now hard-fails at construction
+    so misconfigured sections surface immediately.
+    """
+
+    def test_overflowing_content_height_raises(self):
+        # Bigsign-shape: 256×64 real panel.
+        real = _make_real_canvas(real_w=256, real_h=64)
+        # 20 × 4 = 80 > 64 → would overflow.
+        with pytest.raises(ValueError, match="exceeds the real panel height"):
+            ScaledCanvas(real, scale=4, content_height=20)
+
+    def test_exact_fit_passes(self):
+        """16 × 4 = 64 exactly matches the panel — must construct OK."""
+        real = _make_real_canvas(real_w=256, real_h=64)
+        sc = ScaledCanvas(real, scale=4, content_height=16)
+        assert sc._y_offset == 0
+
+    def test_under_fit_passes_with_letterbox(self):
+        """8 × 4 = 32 < 64 — letterboxes (16 real rows top + bottom)."""
+        real = _make_real_canvas(real_w=256, real_h=64)
+        sc = ScaledCanvas(real, scale=4, content_height=8)
+        assert sc._y_offset == 16
+
+    def test_nested_wrapper_uses_innermost_real_height(self):
+        """Cross-scale dissolves wrap a wrapper. The validation must
+        peel through to the genuine panel height, not the inner
+        wrapper's logical content_height (which would be ambiguous)."""
+        real = _make_real_canvas(real_w=256, real_h=64)
+        inner = ScaledCanvas(real, scale=2, content_height=32)
+        # Wrapping with scale=4 + content_height=16: 16×4=64, fits the
+        # 64-row panel even though `inner.height` is 32 (logical).
+        outer = ScaledCanvas(inner, scale=4, content_height=16)
+        assert outer.scale == 4
+
+    def test_error_message_suggests_max_content_height(self):
+        real = _make_real_canvas(real_w=256, real_h=64)
+        with pytest.raises(ValueError) as exc_info:
+            ScaledCanvas(real, scale=4, content_height=24)
+        # 64 // 4 = 16
+        assert "content_height ≤ 16" in str(exc_info.value)

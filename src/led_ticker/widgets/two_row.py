@@ -165,10 +165,26 @@ class TwoRowMessage:
     _bottom_width: int = attrs.field(init=False, default=-1)
 
     def __attrs_post_init__(self) -> None:
-        if self.top_center is False:
-            self.top_align = "left"
-        elif self.top_center is True:
-            self.top_align = "center"
+        if self.top_center is not None:
+            # `top_center` is a backwards-compat alias for `top_align`. Old
+            # configs used `top_center=True/False` before `top_align` existed.
+            # Warn so existing setups still work but the canonical knob
+            # surfaces. When both are set, `top_center` silently overrides
+            # `top_align` — preserving prior behavior, but the warning
+            # makes the override visible.
+            import warnings
+
+            warnings.warn(
+                "TwoRowMessage `top_center` is deprecated; use "
+                "`top_align='center'` (or 'left'). For now `top_center` "
+                "still overrides `top_align` if both are set.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if self.top_center is False:
+                self.top_align = "left"
+            elif self.top_center is True:
+                self.top_align = "center"
         if self.top_row_height is not None and self.top_row_height <= 0:
             raise ValueError(
                 f"top_row_height must be > 0; got {self.top_row_height!r}. "

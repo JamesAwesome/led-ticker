@@ -232,6 +232,19 @@ def build_frame_from_config(display) -> LedFrame:
         display.rp1_rio,
         display.show_refresh,
     )
+    if display.show_refresh:
+        # The rgbmatrix C library prints the live refresh rate to
+        # stderr using `\b` backspaces so it overwrites in place.
+        # That's by design (a status line, not a log line) but it
+        # interleaves with our log output and looks like a glitch.
+        # No Python API exposes the value, so we can't fold it into
+        # the log stream cleanly. Note where to look so users don't
+        # think it's broken.
+        logging.info(
+            "show_refresh=true: live Hz updates print to stderr in place "
+            "(separate from this log stream — that's the C library, "
+            "not a glitch). Disable in config to silence."
+        )
     return LedFrame(
         led_rows=display.rows,
         led_cols=display.cols,

@@ -91,13 +91,24 @@ def resolve_font(
     thin-stroked fonts whose antialiased edges otherwise get clipped.
     Ignored for BDF.
 
-    Raises `ValueError` if `size < 8` (glyphs unreadable below that)
-    or if `threshold` is outside 0-255.
+    Raises `ValueError` if `size < 8` (glyphs unreadable below that),
+    if `threshold` isn't an int, or if it's outside 0-255.
     """
     if size < 8:
         raise ValueError(f"font_size must be >= 8 for legible rendering; got {size}")
-    if threshold is not None and not (0 <= threshold <= 255):
-        raise ValueError(f"font_threshold must be 0-255; got {threshold}")
+    if threshold is not None:
+        # Reject str / float / bool early so they can't pollute the
+        # `@functools.cache` key in `load_hires_font`. Floats hash
+        # distinctly from int-equal values, double-rasterizing the
+        # same glyphs; strings give a confusing TypeError later.
+        # bool is a subclass of int — exclude explicitly.
+        if not isinstance(threshold, int) or isinstance(threshold, bool):
+            raise ValueError(
+                f"font_threshold must be an int 0-255; got {type(threshold).__name__} "
+                f"({threshold!r})"
+            )
+        if not (0 <= threshold <= 255):
+            raise ValueError(f"font_threshold must be 0-255; got {threshold}")
     from led_ticker.fonts.hires_loader import THRESHOLD
 
     effective = THRESHOLD if threshold is None else threshold

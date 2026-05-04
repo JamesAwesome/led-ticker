@@ -449,9 +449,13 @@ class TestConfigureUserFontDir:
     it based on the user's config.toml location.
     """
 
-    def test_anchors_user_font_dir_to_config_parent_fonts(self, tmp_path):
-        from led_ticker.app import _configure_user_font_dir
+    def test_anchors_user_font_dir_to_config_parent_fonts(self, tmp_path, monkeypatch):
+        # Snapshot the original via monkeypatch so our reassignment
+        # below doesn't leak a tmp_path reference past test teardown.
         from led_ticker.fonts import hires_loader
+
+        monkeypatch.setattr(hires_loader, "USER_FONT_DIR", hires_loader.USER_FONT_DIR)
+        from led_ticker.app import _configure_user_font_dir
 
         config_path = tmp_path / "config.toml"
         config_path.write_text("# minimal\n")
@@ -488,9 +492,14 @@ class TestConfigureUserFontDir:
         found = hl._find_font_path("beloved-sans")
         assert found == fake_font.resolve()
 
-    def test_clears_load_cache(self, tmp_path):
+    def test_clears_load_cache(self, tmp_path, monkeypatch):
         """If a stale (None) lookup got cached before the override, the
         new directory wouldn't be consulted. Confirm cache_clear ran."""
+        from led_ticker.fonts import hires_loader
+
+        # Snapshot to ensure tmp_path doesn't outlive the test in the
+        # module global.
+        monkeypatch.setattr(hires_loader, "USER_FONT_DIR", hires_loader.USER_FONT_DIR)
         from led_ticker.app import _configure_user_font_dir
         from led_ticker.fonts.hires_loader import load_hires_font
 

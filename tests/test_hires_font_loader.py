@@ -307,6 +307,22 @@ class TestResolveFont:
                 continue
             raise AssertionError(f"expected ValueError for threshold={bad}")
 
+    def test_threshold_non_int_raises(self):
+        """Reject str / float / bool early so they can't pollute the
+        load_hires_font @functools.cache key. Floats hash distinctly
+        from int-equal values (e.g. `80` and `80.0` would double-rasterize
+        the same glyphs); strings would TypeError deep inside the loader.
+        """
+        from led_ticker.fonts import resolve_font
+
+        for bad in ("80", 80.5, 80.0, True, False):
+            try:
+                resolve_font("Inter-Regular", 24, threshold=bad)  # type: ignore[arg-type]
+            except ValueError as e:
+                assert "font_threshold" in str(e)
+                continue
+            raise AssertionError(f"expected ValueError for non-int threshold={bad!r}")
+
     def test_threshold_ignored_for_bdf_aliases(self):
         """BDF fonts are pre-rasterized bitmaps; threshold has no meaning."""
         from led_ticker.fonts import FONT_DEFAULT, resolve_font

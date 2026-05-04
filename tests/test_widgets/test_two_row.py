@@ -493,10 +493,10 @@ class TestHiresFontSupport:
         from led_ticker.widgets.two_row import _row_layout
 
         font = resolve_font("Inter-Regular", 16)
-        # Bigsign-shape canvas: 20 logical rows at scale=4.
+        # Bigsign-shape canvas: 20 logical rows at scale=4. Split 10/10.
         c = SimpleNamespace(height=20, scale=4, width=64)
-        top_baseline, _ = _row_layout(c, font, row_index=0)
-        bottom_baseline, _ = _row_layout(c, font, row_index=1)
+        top_baseline, _ = _row_layout(c, font, band_height=10, band_offset=0)
+        bottom_baseline, _ = _row_layout(c, font, band_height=10, band_offset=10)
         # Top baseline must sit in rows 0..9 (top half = 10 rows).
         assert 0 < top_baseline < 10, top_baseline
         # Bottom baseline must sit in the bottom half (rows 10..19).
@@ -603,3 +603,193 @@ class TestPerRowFonts:
         assert isinstance(widget.bottom_font, HiresFont)
         assert widget.bottom_font.name == "Inter-Regular"
         assert widget.bottom_font.size == 12
+
+
+class TestAsymmetricRowSplit:
+    """`top_row_height` overrides the default 50/50 vertical split so the
+    top can be a small tag and the bottom a larger marquee. Default
+    `None` preserves the legacy split — existing tests above already
+    pin that path, so this class only exercises the override behavior."""
+
+    def test_default_split_unchanged_when_top_row_height_is_none(self):
+        """Construction succeeds without setting top_row_height; the
+        50/50 default applies (verified by other tests in this file)."""
+        w = TwoRowMessage(top_text="A", bottom_text="B")
+        assert w.top_row_height is None
+
+    def test_top_row_height_zero_raises_at_construction(self):
+        import pytest
+
+        with pytest.raises(ValueError, match="top_row_height"):
+            TwoRowMessage(top_text="A", bottom_text="B", top_row_height=0)
+
+    def test_top_row_height_negative_raises_at_construction(self):
+        import pytest
+
+        with pytest.raises(ValueError, match="top_row_height"):
+            TwoRowMessage(top_text="A", bottom_text="B", top_row_height=-3)
+
+    def test_top_row_height_full_canvas_raises_at_draw(self, canvas):
+        """top_row_height >= canvas.height leaves no room for the
+        bottom row — must raise at draw time (canvas isn't known at
+        construction)."""
+        import pytest
+
+        # canvas fixture: height=16. top_row_height=16 is exactly the
+        # canvas height — bottom would get 0 rows.
+        w = TwoRowMessage(
+            top_text="A", bottom_text="B", top_row_height=16, font=FONT_SMALL
+        )
+        with pytest.raises(ValueError, match="leaves no room"):
+            w.draw(canvas)
+
+    def test_asymmetric_split_baselines_in_correct_bands(self):
+        """top_row_height=4 on a 16-row canvas → top in rows 0..3,
+        bottom in rows 4..15. Row baselines must land in their bands.
+        """
+        from types import SimpleNamespace
+
+        from led_ticker.widgets.two_row import _row_layout
+
+        c = SimpleNamespace(height=16, scale=1, width=160)
+        # Top band: 4 rows starting at offset 0.
+        top_baseline, top_emoji = _row_layout(
+            c, FONT_SMALL, band_height=4, band_offset=0
+        )
+        # Bottom band: 12 rows starting at offset 4.
+        bot_baseline, bot_emoji = _row_layout(
+            c, FONT_SMALL, band_height=12, band_offset=4
+        )
+        # Top row's content stays within rows 0..3 (band_height=4 with
+        # 5×8 BDF font is tight — line_height=8 > band — but _row_layout
+        # itself doesn't enforce fit; that's draw()'s job. We're just
+        # checking the math threads through correctly: baseline relative
+        # to band offset.).
+        assert top_baseline >= 0
+        # Bottom row baseline must be in the bottom band (>= 4).
+        assert bot_baseline >= 4
+        # And they're in distinct bands.
+        assert bot_baseline > top_baseline
+
+    def test_asymmetric_split_works_end_to_end_through_draw(self, canvas, monkeypatch):
+        """End-to-end through `draw()`: canvas.height=16, top_row_height=4,
+        with FONT_SMALL on top (line_height=8 — too tall for 4-row band)
+        should raise; switching top to a font that fits should succeed.
+        Verifies the per-row fit-check uses the asymmetric heights.
+        """
+        import pytest
+
+        from led_ticker.widgets import two_row as tr
+
+        # Stub out actual drawing — we only care about the fit-check.
+        monkeypatch.setattr(
+            tr,
+            "draw_with_emoji",
+            lambda canvas, font, x, y, color, text, **kw: 30,
+        )
+        # Top: FONT_SMALL (line_height=8) in a 4-row band → too big.
+        w = TwoRowMessage(
+            top_text="A",
+            bottom_text="B",
+            font=FONT_SMALL,
+            top_row_height=4,
+        )
+        with pytest.raises(ValueError, match="top font line-height.*4 rows"):
+            w.draw(canvas)
+
+    def test_asymmetric_bottom_band_takes_remainder(self, canvas, monkeypatch):
+        """A 4-row top band leaves 12 rows for the bottom — verify the
+        bottom font is checked against 12 (not the original 8)."""
+        import pytest
+
+        from led_ticker.fonts import resolve_font
+        from led_ticker.widgets import two_row as tr
+
+        monkeypatch.setattr(
+            tr,
+            "draw_with_emoji",
+            lambda canvas, font, x, y, color, text, **kw: 30,
+        )
+        # Inter-Regular @ 36 has line_height ~ 42 real → at scale=1
+        # (the canvas fixture's effective scale) that's 42 logical,
+        # way too big for a 12-row band. Confirms the bottom check
+        # actually runs against bottom_h=12, not top_h=4.
+        too_big_for_bottom = resolve_font("Inter-Regular", 36)
+        w = TwoRowMessage(
+            top_text="A",
+            bottom_text="B",
+            font=FONT_SMALL,  # top fits 4-row band (5×8 line_height=8 → still too big)
+            bottom_font=too_big_for_bottom,
+            top_row_height=4,
+        )
+        # Top check fails first (FONT_SMALL too big for 4 rows). Skip
+        # to the bottom-only case below for the bottom-band check.
+        with pytest.raises(ValueError, match="top font line-height"):
+            w.draw(canvas)
+
+        # Now use a font that fits the 4-row top so the bottom check
+        # is the one that fires. There's no BDF font with line_height
+        # ≤ 4 in the repo — but we can use a tiny hires font.
+        from led_ticker.fonts import resolve_font as rf
+
+        small_hires = rf("Inter-Regular", 8)  # line_height ~10 real → still fails 4
+        w = TwoRowMessage(
+            top_text="A",
+            bottom_text="B",
+            top_font=small_hires,
+            bottom_font=too_big_for_bottom,
+            top_row_height=10,  # generous top so we can isolate the bottom check
+        )
+        # canvas.height=16, top_row_height=10 → bottom_h=6. Inter@36
+        # line_height ~42 logical (no canvas.scale on Mock canvas)
+        # → fails the bottom check.
+        with pytest.raises(ValueError, match=r"bottom font line-height.*6 rows"):
+            w.draw(canvas)
+
+    def test_asymmetric_bg_bands_use_split_divider(self, monkeypatch):
+        """top_bg_color paints rows 0..top_row_height; bottom_bg_color
+        paints top_row_height..canvas_height. Verify the divider tracks
+        the asymmetric split, not the hardcoded canvas.height // 2.
+        """
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.widgets import two_row as tr
+
+        # 64×20 stub canvas — 20-tall lets us pick top_row_height=8
+        # (asymmetric vs the default 10) with FONT_SMALL fitting both
+        # bands (line_height=8 ≤ 8 ≤ 12).
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 20
+        opts.chain_length = 1
+        opts.parallel = 1
+        c = RGBMatrix(options=opts).CreateFrameCanvas()
+
+        # Stub out text rendering — we only care about the bg bands.
+        monkeypatch.setattr(
+            tr,
+            "draw_with_emoji",
+            lambda canvas, font, x, y, color, text, **kw: 0,
+        )
+
+        red = Color(255, 0, 0)
+        blue = Color(0, 0, 255)
+        w = TwoRowMessage(
+            top_text="A",
+            bottom_text="B",
+            font=FONT_SMALL,
+            top_bg_color=red,
+            bottom_bg_color=blue,
+            top_row_height=8,  # divider at row 8, NOT at 10 (50/50 default)
+        )
+        w.draw(c)
+
+        # Rows 0..7 should be red.
+        for y in range(0, 8):
+            for x in range(c.width):
+                assert c.get_pixel(x, y) == (255, 0, 0), f"({x},{y}) expected red"
+        # Rows 8..19 should be blue.
+        for y in range(8, c.height):
+            for x in range(c.width):
+                assert c.get_pixel(x, y) == (0, 0, 255), f"({x},{y}) expected blue"

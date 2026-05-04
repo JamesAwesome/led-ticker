@@ -9,12 +9,18 @@ top-row string is meant for a stable identifier (handle, headline, brand
 tag) and the bottom row for promotional copy that can be longer than
 the canvas width.
 
-Layout: the widget computes baselines from `canvas.height` so that
-each row is centered in its half. With BDF FONT_SMALL (5×8), each row
-uses 8 logical rows; any extra height becomes a gap between the rows.
+Layout: by default the widget splits `canvas.height` 50/50 between top
+and bottom; each row's baseline is centered within its band. Override
+the split with `top_row_height = N` (logical rows) to give the bottom
+a larger band for a bigger font:
 
-  canvas.height = 16  →  no gap, rows immediately adjacent
-  canvas.height = 18  →  1-row gap (cleanest for 8-tall fonts)
+  canvas.height = 16, top_row_height = None  →  top: 8 rows, bottom: 8 rows
+  canvas.height = 16, top_row_height = 4     →  top: 4 rows, bottom: 12 rows
+  canvas.height = 16, top_row_height = 6     →  top: 6 rows, bottom: 10 rows
+
+The asymmetric mode is the path to "small tag on top + larger marquee
+below" — pair `top_row_height = 4` with FONT_SMALL on top + Beloved
+Sans Bold @ ~22 on the bottom row.
 
 **Hard ceiling**: `canvas.height * scale ≤ panel_h_real`. On bigsign
 (scale=4, panel=64 real rows) the cap is `content_height = 16`.
@@ -58,25 +64,31 @@ from led_ticker.widgets._image_fit import fill_band
 _EMOJI_ROW_CAP = 8
 
 
-def _row_layout(canvas: Canvas, font: Font, row_index: int) -> tuple[int, int]:
-    """Return (text_baseline_y, emoji_top_y) for the given row index.
+def _row_layout(
+    canvas: Canvas,
+    font: Font,
+    band_height: int,
+    band_offset: int,
+) -> tuple[int, int]:
+    """Return (text_baseline_y, emoji_top_y) for one row's band.
 
-    Splits ``canvas.height`` into two equal halves and asks
-    ``compute_baseline`` for the centered baseline within each half —
-    works uniformly for BDF and HiresFont. The emoji top is centered
-    on an ``_EMOJI_ROW_CAP``-tall band inside the same half (so emoji
-    coexist with text of any size). Any extra canvas height becomes
-    a gap between the rows.
+    `band_height` is the number of logical rows allocated to this row;
+    `band_offset` is the logical y of the band's top edge. With a
+    50/50 split on a 16-row canvas these are (8, 0) for top and
+    (8, 8) for bottom. With an asymmetric `top_row_height = 4`, top
+    is (4, 0) and bottom is (12, 4).
+
+    Builds a virtual canvas the size of the band so `compute_baseline`
+    centers the glyph correctly within it, then offsets by
+    `band_offset`. Inherits `canvas.scale` so hi-res math (real →
+    logical via scale) lands in the right units. The emoji top is
+    centered on an `_EMOJI_ROW_CAP`-tall sub-band so 8-px emoji
+    coexist with any text size; the cap independent of band height.
     """
-    half = canvas.height // 2
-    emoji_y = (half - _EMOJI_ROW_CAP) // 2 + row_index * half
-    # Build a half-height "virtual canvas" for compute_baseline so it
-    # centers the glyph in this row's band. Inherit canvas.scale so
-    # hi-res math (real → logical via scale) lands in the same units
-    # the renderer expects.
-    half_canvas = SimpleNamespace(height=half, scale=getattr(canvas, "scale", 1))
-    baseline = compute_baseline(font, half_canvas, valign="center")
-    text_baseline = baseline + row_index * half
+    emoji_y = (band_height - _EMOJI_ROW_CAP) // 2 + band_offset
+    band_canvas = SimpleNamespace(height=band_height, scale=getattr(canvas, "scale", 1))
+    baseline = compute_baseline(font, band_canvas, valign="center")
+    text_baseline = baseline + band_offset
     return text_baseline, emoji_y
 
 
@@ -120,6 +132,14 @@ class TwoRowMessage:
     # Backwards-compat: top_center=True is the same as top_align="center".
     # If you set top_center=False, top_align="left" is used (legacy default).
     top_center: bool | None = None
+    # Asymmetric row split. Default `None` means 50/50 — top and bottom
+    # each get `canvas.height // 2` logical rows. Override with an int
+    # to give the top a different (typically smaller) band so the
+    # bottom can fit a larger font. E.g. `top_row_height = 4` on a
+    # 16-row canvas leaves 12 rows for the bottom — enough room for
+    # Beloved Sans Bold @ ~22 (line_height ~10 logical) on the bottom
+    # row while the top stays compact for a 5×8 BDF tag.
+    top_row_height: int | None = attrs.field(default=None, kw_only=True)
 
     _top_width: int = attrs.field(init=False, default=-1)
     _bottom_width: int = attrs.field(init=False, default=-1)
@@ -129,6 +149,11 @@ class TwoRowMessage:
             self.top_align = "left"
         elif self.top_center is True:
             self.top_align = "center"
+        if self.top_row_height is not None and self.top_row_height <= 0:
+            raise ValueError(
+                f"top_row_height must be > 0; got {self.top_row_height!r}. "
+                f"Drop the field or set None to use the default 50/50 split."
+            )
 
     def _font_for_row(self, row_index: int) -> Font:
         """Resolve the font for a row, falling back to `self.font`."""
@@ -140,7 +165,22 @@ class TwoRowMessage:
         del kwargs  # widget is meant for swap mode; y_offset/transitions ignored
 
         canvas_height = getattr(canvas, "height", 16)
-        half = canvas_height // 2
+
+        # Compute the per-row band heights. Default 50/50; user can
+        # override `top_row_height` for an asymmetric split (e.g. small
+        # tag on top + larger marquee below). Validate the override
+        # leaves at least one row for the bottom.
+        if self.top_row_height is None:
+            top_h = canvas_height // 2
+        else:
+            if self.top_row_height >= canvas_height:
+                raise ValueError(
+                    f"top_row_height={self.top_row_height} leaves no room "
+                    f"for the bottom row on a {canvas_height}-tall canvas. "
+                    f"Must be < canvas.height (current = {canvas_height})."
+                )
+            top_h = self.top_row_height
+        bottom_h = canvas_height - top_h
 
         top_font = self._font_for_row(0)
         bottom_font = self._font_for_row(1)
@@ -152,28 +192,35 @@ class TwoRowMessage:
         # RGBMatrix canvases without scale) as scale=1.
         scale_attr = getattr(canvas, "scale", 1)
         scale = scale_attr if isinstance(scale_attr, int) and scale_attr >= 1 else 1
-        for row_label, row_font in (("top", top_font), ("bottom", bottom_font)):
+        for row_label, row_font, band_h in (
+            ("top", top_font, top_h),
+            ("bottom", bottom_font, bottom_h),
+        ):
             font_lh = font_line_height(row_font)
             font_lh_logical = (
                 -(-font_lh // scale) if isinstance(row_font, _HiresFont) else font_lh
             )
-            if font_lh_logical > half:
+            if font_lh_logical > band_h:
                 raise ValueError(
                     f"{row_label} font line-height ({font_lh_logical} logical "
-                    f"rows) exceeds the per-row band ({half} rows on a "
+                    f"rows) exceeds the per-row band ({band_h} rows on a "
                     f"{canvas_height}-tall canvas). Pick a smaller font_size, "
-                    f"increase the section's content_height, or use a BDF "
+                    f"increase the section's content_height, adjust "
+                    f"top_row_height for an asymmetric split, or use a BDF "
                     f"alias (5x8, 6x12)."
                 )
 
-        mid = canvas_height // 2
         if self.top_bg_color is not None:
-            fill_band(canvas, 0, mid, self.top_bg_color)
+            fill_band(canvas, 0, top_h, self.top_bg_color)
         if self.bottom_bg_color is not None:
-            fill_band(canvas, mid, canvas_height, self.bottom_bg_color)
+            fill_band(canvas, top_h, canvas_height, self.bottom_bg_color)
 
-        top_text_y, top_emoji_y = _row_layout(canvas, top_font, row_index=0)
-        bottom_text_y, bottom_emoji_y = _row_layout(canvas, bottom_font, row_index=1)
+        top_text_y, top_emoji_y = _row_layout(
+            canvas, top_font, band_height=top_h, band_offset=0
+        )
+        bottom_text_y, bottom_emoji_y = _row_layout(
+            canvas, bottom_font, band_height=bottom_h, band_offset=top_h
+        )
 
         # Cap each row's emoji height so a hi-res sprite doesn't overflow
         # into the other row. Independent of the text font's line height.

@@ -45,19 +45,46 @@ def scan_non_black(
     return nb
 
 
+# Alpha threshold for `flatten_onto_black` binarization. Pixels with
+# `alpha >= ALPHA_BINARIZE_THRESHOLD` paste at full opacity; anything
+# below becomes fully transparent (RGB → 0,0,0 against the black
+# canvas). 128 = the natural midpoint and matches our font rasterizer's
+# default. The binarization eliminates the "soft halo" that anti-
+# aliased alpha edges otherwise produce — at decode time those edge
+# pixels would blend toward near-black RGB (e.g. (12, 8, 0) for a
+# yellow edge at alpha=20), and `scan_non_black` would treat them as
+# lit, painting a dim ring around the silhouette over any scrolling
+# text. With the threshold, edges are crisp and the silhouette is
+# truly transparent. The work is one Pillow .point() pass per gif
+# frame at LOAD time — no per-tick render impact.
+ALPHA_BINARIZE_THRESHOLD: int = 128
+
+
 def flatten_onto_black(
     rgba: Image.Image, panel_w: int, panel_h: int, x_off: int, y_off: int
 ) -> Image.Image:
     """Paste an RGBA image onto a black RGB canvas using its alpha as mask.
 
-    Transparent areas (alpha=0) become pure black (0,0,0), which the
-    scroll-text path treats as "skip" — letting underlying text show
-    through. Semi-transparent edges blend toward black, which on LEDs
-    reads as a soft halo at the image's silhouette.
+    The alpha channel is binarized at ``ALPHA_BINARIZE_THRESHOLD`` first
+    so anti-aliased edges are crisp instead of bleeding into near-black
+    RGB. Transparent areas (alpha=0) become pure black (0,0,0), which
+    the scroll-text path treats as "skip" — letting underlying text
+    show through. Pre-fix, semi-transparent edges blended toward black
+    and read as a soft halo at the image's silhouette during
+    skip-black compositing.
     """
     out = Image.new("RGB", (panel_w, panel_h), color=(0, 0, 0))
     if rgba.mode == "RGBA":
-        out.paste(rgba, (x_off, y_off), mask=rgba.split()[3])
+        alpha = rgba.split()[3]
+        # Binarize: any alpha at or above ALPHA_BINARIZE_THRESHOLD → fully
+        # opaque, anything below → fully transparent. Build a 256-entry
+        # lookup table once and pass it to .point() — Pillow recognizes
+        # the table form and skips the per-pixel callable overhead. This
+        # also keeps pyright happy (the callable form's stub typing is
+        # awkward with module-level default args).
+        lut = [255 if a >= ALPHA_BINARIZE_THRESHOLD else 0 for a in range(256)]
+        binary_mask = alpha.point(lut)
+        out.paste(rgba, (x_off, y_off), mask=binary_mask)
     else:
         out.paste(rgba, (x_off, y_off))
     return out

@@ -432,3 +432,26 @@ class TestWidthCaching:
         assert (
             call_count == 2
         ), f"measure_width called {call_count}× over 20 frames — caching broken"
+
+
+class TestHiresFontRejection:
+    """`_row_y` and the 8-row emoji cap are sized to BDF FONT_SMALL.
+    Hires fonts would overflow rows or miscenter. The widget refuses
+    them at construction time rather than silently misrendering."""
+
+    def test_hires_font_raises(self):
+        import pytest
+
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        with pytest.raises(ValueError, match="TwoRowMessage"):
+            TwoRowMessage(top_text="hi", bottom_text="bye", font=font)
+
+    def test_bdf_font_still_accepted(self):
+        from led_ticker.fonts import FONT_DEFAULT
+
+        # 6×12 is BDF; widget accepts it (rows might clip the cell but
+        # that's user-visible — they can pick FONT_SMALL or content_height).
+        w = TwoRowMessage(top_text="hi", bottom_text="bye", font=FONT_DEFAULT)
+        assert w.font is FONT_DEFAULT

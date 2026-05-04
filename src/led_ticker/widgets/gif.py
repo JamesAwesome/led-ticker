@@ -1,6 +1,16 @@
 """GIF player widget — displays an animated GIF on the LED panel as
 if it were a small monitor.
 
+Despite the name, the decoder (:mod:`_gif_decode`) just calls
+``PIL.Image.open()`` and iterates frames via ``n_frames`` /
+``seek()``, so any Pillow-supported animated format works:
+``.gif``, animated ``.webp``, ``.apng``, multi-frame ``.tiff``.
+Per-frame durations come from ``img.info["duration"]`` which Pillow
+populates from the format's native chunk metadata. For static
+(single-frame) sources prefer :class:`StillImage` (``type = "image"``)
+which has a ``hold_seconds`` knob — a 1-frame "gif" works but isn't
+the natural fit.
+
 Counterpart to :class:`led_ticker.widgets.still.StillImage` — both
 inherit from :class:`led_ticker.widgets._image_base._BaseImageWidget`
 so the text-overlay surface is identical. The only widget-specific
@@ -22,8 +32,10 @@ Schema (TOML config keys for ``type = "gif"``):
 ==================  =================  ==========================================
 Field               Default            Description
 ==================  =================  ==========================================
-``path``            (required)         Path to GIF file. Relative paths resolve
-                                       against the config.toml directory.
+``path``            (required)         Path to source file. Relative paths
+                                       resolve against the config.toml dir.
+                                       Any Pillow-supported animated format
+                                       (gif, webp, apng, multi-frame tiff).
 ``fit``             ``"pillarbox"``    ``pillarbox`` | ``letterbox`` | ``stretch``
                                        | ``crop``
 ``image_align``     ``"center"``       ``left`` | ``center`` | ``right`` —

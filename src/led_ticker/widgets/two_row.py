@@ -29,33 +29,47 @@ Inline emoji slugs (`:instagram:`, `:email:`, etc.) work in both rows.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 import attrs
 
 from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR
-from led_ticker.fonts import FONT_SMALL
+from led_ticker.drawing import compute_baseline
+from led_ticker.fonts import FONT_SMALL, font_line_height
 from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.pixel_emoji import draw_with_emoji, measure_width
 from led_ticker.widgets import register
 from led_ticker.widgets._image_fit import fill_band
 
-# Glyph height used to size rows. FONT_SMALL is 5x8 — 8-tall cells.
-_ROW_HEIGHT = 8
+# Cap on emoji vertical size per row. Inline emoji sprites are 8×8
+# logical (low-res) or up to 32×32 real (hi-res). We cap at 8 logical
+# rows so a hi-res sprite that would overflow the row band falls back
+# to the 8×8 low-res sprite (`pixel_emoji.draw_with_emoji` honors
+# `max_emoji_height`). Independent of the text font's line height.
+_EMOJI_ROW_CAP = 8
 
 
-def _row_y(canvas_height: int, row_index: int) -> tuple[int, int]:
+def _row_layout(canvas: Canvas, font: Font, row_index: int) -> tuple[int, int]:
     """Return (text_baseline_y, emoji_top_y) for the given row index.
 
-    Splits canvas_height into two equal halves; centers the 8-row glyph
-    band vertically inside each half. Any extra height becomes a gap
-    between the rows.
+    Splits ``canvas.height`` into two equal halves and asks
+    ``compute_baseline`` for the centered baseline within each half —
+    works uniformly for BDF and HiresFont. The emoji top is centered
+    on an ``_EMOJI_ROW_CAP``-tall band inside the same half (so emoji
+    coexist with text of any size). Any extra canvas height becomes
+    a gap between the rows.
     """
-    half = canvas_height // 2
-    # Center an 8-tall glyph band in `half` rows
-    emoji_y = (half - _ROW_HEIGHT) // 2 + row_index * half
-    text_baseline = emoji_y + _ROW_HEIGHT - 1  # baseline at bottom of glyph cell
+    half = canvas.height // 2
+    emoji_y = (half - _EMOJI_ROW_CAP) // 2 + row_index * half
+    # Build a half-height "virtual canvas" for compute_baseline so it
+    # centers the glyph in this row's band. Inherit canvas.scale so
+    # hi-res math (real → logical via scale) lands in the same units
+    # the renderer expects.
+    half_canvas = SimpleNamespace(height=half, scale=getattr(canvas, "scale", 1))
+    baseline = compute_baseline(font, half_canvas, valign="center")
+    text_baseline = baseline + row_index * half
     return text_baseline, emoji_y
 
 
@@ -102,38 +116,44 @@ class TwoRowMessage:
             self.top_align = "left"
         elif self.top_center is True:
             self.top_align = "center"
-        # `_row_y` and the emoji-cap (`_ROW_HEIGHT = 8`) are sized to
-        # the BDF FONT_SMALL cell. Hi-res fonts have different metrics
-        # and would either overflow into the other row's band or
-        # render miscentered. Refuse them at config-load time rather
-        # than silently misrender. Lift this check when row sizing is
-        # made font-aware.
-        if isinstance(self.font, _HiresFont):
-            raise ValueError(
-                f"TwoRowMessage uses fixed 8-row band sizing matched to BDF "
-                f"FONT_SMALL; hires fonts (got {self.font.name!r}) would "
-                f"overflow rows or miscenter. Use a BDF font alias (5x8, "
-                f"6x12) for now, or split into two TickerMessage widgets."
-            )
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         del kwargs  # widget is meant for swap mode; y_offset/transitions ignored
 
         canvas_height = getattr(canvas, "height", 16)
+        half = canvas_height // 2
+
+        # Validate the font fits within a single row band (logical units).
+        # For BDF the metric is logical px; for HiresFont it's real px and
+        # we ceil-divide by canvas.scale to compare in logical units.
+        # Tolerate non-int `scale` (Mock canvases in tests, real
+        # RGBMatrix canvases without scale) as scale=1.
+        scale_attr = getattr(canvas, "scale", 1)
+        scale = scale_attr if isinstance(scale_attr, int) and scale_attr >= 1 else 1
+        font_lh = font_line_height(self.font)
+        font_lh_logical = (
+            -(-font_lh // scale) if isinstance(self.font, _HiresFont) else font_lh
+        )
+        if font_lh_logical > half:
+            raise ValueError(
+                f"font line-height ({font_lh_logical} logical rows) exceeds "
+                f"the per-row band ({half} rows on a {canvas_height}-tall "
+                f"canvas). Pick a smaller font_size, increase the section's "
+                f"content_height, or use a BDF alias (5x8, 6x12)."
+            )
+
         mid = canvas_height // 2
         if self.top_bg_color is not None:
             fill_band(canvas, 0, mid, self.top_bg_color)
         if self.bottom_bg_color is not None:
             fill_band(canvas, mid, canvas_height, self.bottom_bg_color)
 
-        top_text_y, top_emoji_y = _row_y(canvas_height, row_index=0)
-        bottom_text_y, bottom_emoji_y = _row_y(canvas_height, row_index=1)
+        top_text_y, top_emoji_y = _row_layout(canvas, self.font, row_index=0)
+        bottom_text_y, bottom_emoji_y = _row_layout(canvas, self.font, row_index=1)
 
-        # Cap each row's emoji height to the row band so a hi-res sprite
-        # doesn't overflow into the other row. _ROW_HEIGHT (8) matches
-        # the 5×8 font glyph cell. Any hi-res sprite logically taller
-        # than this falls back to the 8×8 low-res sprite.
-        row_emoji_cap = _ROW_HEIGHT
+        # Cap each row's emoji height so a hi-res sprite doesn't overflow
+        # into the other row. Independent of the text font's line height.
+        row_emoji_cap = _EMOJI_ROW_CAP
 
         # Measure widths now that we have the canvas + row cap (so hi-res
         # vs. low-res fallback matches what `draw_with_emoji` will do).

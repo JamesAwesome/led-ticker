@@ -434,24 +434,70 @@ class TestWidthCaching:
         ), f"measure_width called {call_count}× over 20 frames — caching broken"
 
 
-class TestHiresFontRejection:
-    """`_row_y` and the 8-row emoji cap are sized to BDF FONT_SMALL.
-    Hires fonts would overflow rows or miscenter. The widget refuses
-    them at construction time rather than silently misrendering."""
+class TestHiresFontSupport:
+    """TwoRowMessage now supports hi-res fonts via `compute_baseline` on
+    a half-canvas. Both rows derive their baseline + emoji_y from the
+    font's metrics so any (font, font_size) combo that fits within a
+    half-canvas works.
+    """
 
-    def test_hires_font_raises(self):
+    def test_hires_font_accepted_at_construction(self):
+        """Constructor no longer rejects hi-res fonts — the row layout
+        is font-aware now."""
+        from led_ticker.fonts import resolve_font
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        font = resolve_font("Inter-Regular", 24)
+        assert isinstance(font, HiresFont)
+        w = TwoRowMessage(top_text="@MoonBunny", bottom_text="hi", font=font)
+        assert w.font is font
+
+    def test_hires_font_too_large_raises_at_draw(self, canvas):
+        """When the font's logical line-height exceeds half the canvas,
+        draw() raises with a clear message pointing at the fix.
+        Inter@40 line_height ~46 real → 12 logical at scale=4. Half of
+        a 16-row canvas is 8 logical rows — doesn't fit.
+        """
         import pytest
 
         from led_ticker.fonts import resolve_font
 
-        font = resolve_font("Inter-Regular", 24)
-        with pytest.raises(ValueError, match="TwoRowMessage"):
-            TwoRowMessage(top_text="hi", bottom_text="bye", font=font)
+        font = resolve_font("Inter-Regular", 40)
+        w = TwoRowMessage(top_text="hi", bottom_text="bye", font=font)
+        # canvas fixture: width=160, height=16, .scale=Mock()
+        # compute_baseline tolerates non-int scale (treats as 1), so
+        # font_lh_logical for Inter@40 is the full ~46 logical px on
+        # this canvas. Half=8, doesn't fit.
+        with pytest.raises(ValueError, match="line-height"):
+            w.draw(canvas)
 
     def test_bdf_font_still_accepted(self):
         from led_ticker.fonts import FONT_DEFAULT
 
-        # 6×12 is BDF; widget accepts it (rows might clip the cell but
-        # that's user-visible — they can pick FONT_SMALL or content_height).
+        # 6×12 is BDF; widget accepts it. On the standard 16-row canvas
+        # half=8, font_lh=12 — would raise at draw() because 12 > 8.
+        # FONT_SMALL (5×8) is the canonical pairing.
         w = TwoRowMessage(top_text="hi", bottom_text="bye", font=FONT_DEFAULT)
         assert w.font is FONT_DEFAULT
+
+    def test_hires_baseline_centers_within_top_half(self):
+        """The hires top-row baseline lands inside the top half of the
+        canvas (so the glyph doesn't cross the row divider). Pin the
+        bound rather than the exact value to tolerate metric variance.
+        """
+        from types import SimpleNamespace
+
+        from led_ticker.fonts import resolve_font
+        from led_ticker.widgets.two_row import _row_layout
+
+        font = resolve_font("Inter-Regular", 16)
+        # Bigsign-shape canvas: 20 logical rows at scale=4.
+        c = SimpleNamespace(height=20, scale=4, width=64)
+        top_baseline, _ = _row_layout(c, font, row_index=0)
+        bottom_baseline, _ = _row_layout(c, font, row_index=1)
+        # Top baseline must sit in rows 0..9 (top half = 10 rows).
+        assert 0 < top_baseline < 10, top_baseline
+        # Bottom baseline must sit in the bottom half (rows 10..19).
+        assert 10 <= bottom_baseline < 20, bottom_baseline
+        # And the bottom baseline = top + half (consistent split).
+        assert bottom_baseline - top_baseline == 10

@@ -146,6 +146,21 @@ async def _build_widget(
                 panel_h_for_warning - 2,
             )
 
+    # Per-row font overrides for TwoRowMessage. Same resolution as the
+    # main `font` knob but keyed `top_font` / `bottom_font`. Each
+    # accepts its own _size and _threshold. Resolved object replaces
+    # the string name in widget_cfg so the widget constructor sees a
+    # Font / HiresFont, not a string.
+    for prefix in ("top_font", "bottom_font"):
+        row_name = widget_cfg.pop(prefix, None)
+        row_size = widget_cfg.pop(f"{prefix}_size", None)
+        row_threshold = widget_cfg.pop(f"{prefix}_threshold", None)
+        if row_name is not None:
+            from led_ticker.fonts import DEFAULT_HIRES_SIZE, resolve_font
+
+            size = row_size if row_size is not None else DEFAULT_HIRES_SIZE
+            widget_cfg[prefix] = resolve_font(row_name, size, threshold=row_threshold)
+
     # Config uses "text" but TickerMessage/TickerCountdown use "message".
     # Only rename for widgets that don't accept `text` natively (e.g.
     # GifPlayer takes `text` directly for its alongside-text feature).

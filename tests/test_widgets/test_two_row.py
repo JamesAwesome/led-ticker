@@ -643,6 +643,88 @@ class TestAsymmetricRowSplit:
         with pytest.raises(ValueError, match="leaves no room"):
             w.draw(canvas)
 
+    def test_emoji_y_offset_shifts_top_emoji(self, canvas, monkeypatch):
+        """`top_emoji_y_offset` nudges the top emoji vertically. Negative
+        moves it up (toward text-center alignment when emoji is taller
+        than band; may clip panel edge). Positive moves it down."""
+        from led_ticker.widgets import two_row as tr
+
+        captured: list[int | None] = []
+
+        def fake(canvas, font, x, y, color, text, emoji_y=None, **kw):
+            captured.append(emoji_y)
+            return 30
+
+        monkeypatch.setattr(tr, "draw_with_emoji", fake)
+
+        # Baseline: emoji_y for top row with no offset.
+        w0 = TwoRowMessage(
+            top_text=":instagram: tag",
+            bottom_text="b",
+            font=FONT_SMALL,
+        )
+        w0.draw(canvas)
+        baseline_top_emoji = captured[0]
+
+        # With offset = -2, top emoji should be 2 logical rows higher.
+        captured.clear()
+        w1 = TwoRowMessage(
+            top_text=":instagram: tag",
+            bottom_text="b",
+            font=FONT_SMALL,
+            top_emoji_y_offset=-2,
+        )
+        w1.draw(canvas)
+        assert captured[0] == baseline_top_emoji - 2
+
+        # With offset = +3, 3 logical rows lower.
+        captured.clear()
+        w2 = TwoRowMessage(
+            top_text=":instagram: tag",
+            bottom_text="b",
+            font=FONT_SMALL,
+            top_emoji_y_offset=3,
+        )
+        w2.draw(canvas)
+        assert captured[0] == baseline_top_emoji + 3
+
+    def test_emoji_y_offset_shifts_bottom_emoji_independently(
+        self, canvas, monkeypatch
+    ):
+        """`bottom_emoji_y_offset` doesn't affect the top row, and
+        vice versa."""
+        from led_ticker.widgets import two_row as tr
+
+        captured: list[int | None] = []
+
+        def fake(canvas, font, x, y, color, text, emoji_y=None, **kw):
+            captured.append(emoji_y)
+            return 30
+
+        monkeypatch.setattr(tr, "draw_with_emoji", fake)
+
+        # Reference: no offsets.
+        w0 = TwoRowMessage(
+            top_text=":star:",
+            bottom_text=":heart:",
+            font=FONT_SMALL,
+        )
+        w0.draw(canvas)
+        ref_top, ref_bot = captured[:2]
+
+        # Only bottom offset; top must stay put.
+        captured.clear()
+        w1 = TwoRowMessage(
+            top_text=":star:",
+            bottom_text=":heart:",
+            font=FONT_SMALL,
+            bottom_emoji_y_offset=-1,
+        )
+        w1.draw(canvas)
+        top1, bot1 = captured[:2]
+        assert top1 == ref_top
+        assert bot1 == ref_bot - 1
+
     def test_emoji_y_clamped_to_band_top_for_small_bands(self):
         """Regression: with `band_height < _EMOJI_ROW_CAP = 8`, the
         centered formula produced negative `emoji_y` relative to the

@@ -33,8 +33,8 @@ import attrs
 
 from led_ticker._types import Canvas, Color, Font
 from led_ticker.colors import DEFAULT_COLOR
-from led_ticker.drawing import compute_baseline, get_text_width, safe_scale
-from led_ticker.fonts import FONT_DEFAULT, font_line_height_logical
+from led_ticker.drawing import compute_baseline, get_text_width
+from led_ticker.fonts import FONT_DEFAULT, font_line_height, font_line_height_logical
 from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.pixel_emoji import EMOJI_PATTERN
 from led_ticker.scaled_canvas import ScaledCanvas
@@ -131,6 +131,14 @@ class _BaseImageWidget:
     # Panel dims; set by subclass `_load()`.
     _panel_w: int = attrs.field(init=False, default=0)
     _panel_h: int = attrs.field(init=False, default=0)
+
+    # Logical-canvas scale of the section we were dispatched into. Set
+    # by `ticker._play_widget` from the wrapper's `.scale` BEFORE the
+    # ScaledCanvas is unwrapped (since `play()` receives the raw real
+    # canvas). Used to interpret `top_row_height` in logical units —
+    # matches `TwoRowMessage`'s convention so a config that uses
+    # `top_row_height = 5` reads the same on both widgets.
+    _logical_scale: int = attrs.field(init=False, default=1)
 
     # Cached at validation time (text is invariant for the widget's
     # lifetime); avoids re-running EMOJI_PATTERN.search per tick.
@@ -653,23 +661,34 @@ class _BaseImageWidget:
         canvas_w = canvas.width
         canvas_h = canvas.height
 
-        top_h, bottom_h = resolve_band_heights(canvas_h, self.top_row_height)
+        # `top_row_height` is in LOGICAL rows (matches TwoRowMessage's
+        # convention, where the canvas is logical 16-tall on bigsign).
+        # Here we paint to the real canvas (64-tall on bigsign at scale=4),
+        # so multiply by `_logical_scale` to land at real-pixel coords.
+        # `resolve_band_heights` then runs in real units.
+        top_row_real = (
+            self.top_row_height * self._logical_scale
+            if self.top_row_height is not None
+            else None
+        )
+        top_h, bottom_h = resolve_band_heights(canvas_h, top_row_real)
 
-        # Validate each row's font fits its band (logical units). Same
-        # check as `TwoRowMessage.draw` — naming the row in the error
-        # so users know which one to shrink.
-        scale = safe_scale(canvas)
+        # Validate each row's font fits its band, all in real pixels.
+        # HiresFont metrics are real px; BDF cells render natively at
+        # their declared cell size on a non-wrapped canvas (so their
+        # real-px height equals the declared logical height — no
+        # block-expansion happens here, we're on the unwrapped canvas).
         for row, label, band_h in ((0, "top", top_h), (1, "bottom", bottom_h)):
             font = self._row_font(row)
-            font_lh_logical = font_line_height_logical(font, scale)
-            if font_lh_logical > band_h:
+            font_lh_real = font_line_height(font)
+            if font_lh_real > band_h:
                 raise ValueError(
-                    f"{label} font line-height ({font_lh_logical} logical "
-                    f"rows) exceeds the per-row band ({band_h} rows on a "
+                    f"{label} font line-height ({font_lh_real} real px) "
+                    f"exceeds the per-row band ({band_h} real px on a "
                     f"{canvas_h}-tall canvas). Pick a smaller font_size, "
-                    f"increase the section's content_height, adjust "
-                    f"top_row_height for an asymmetric split, or use a BDF "
-                    f"alias (5x8, 6x12)."
+                    f"raise top_row_height (logical rows; current "
+                    f"{self.top_row_height!r}), or use a BDF alias "
+                    f"(5x8, 6x12)."
                 )
 
         # Per-row baselines + emoji_y, plus per-row offsets.

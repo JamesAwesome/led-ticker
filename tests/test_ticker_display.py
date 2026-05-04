@@ -371,6 +371,33 @@ class TestRunSwapPlayDispatch:
         assert widget.play_calls == [3]
         assert not widget.draw_called
 
+    async def test_play_widget_stashes_logical_scale_on_widget(self, mock_frame):
+        """`_play_widget` peels the ScaledCanvas before handing the raw
+        canvas to widget.play(), but image widgets need the wrapper's
+        scale to interpret logical-unit knobs (`top_row_height`). The
+        ticker stashes `wrapper.scale` on `widget._logical_scale`
+        before unwrapping; widgets that don't declare the field are
+        left alone."""
+        from rgbmatrix import _StubCanvas
+
+        class _Recorder:
+            _logical_scale = 1  # declares the field — should be set
+
+            async def play(self, real_canvas, frame, loop_count=1):
+                return frame.matrix.SwapOnVSync(real_canvas)
+
+        real = _StubCanvas(width=256, height=64)
+        mock_frame.matrix.SwapOnVSync.return_value = _StubCanvas(width=256, height=64)
+        widget = _Recorder()
+
+        # Wrapped (bigsign): scale should propagate
+        await _play_widget(ScaledCanvas(real, scale=4), mock_frame, widget)
+        assert widget._logical_scale == 4
+
+        # Unwrapped (small sign): scale should reset to 1
+        await _play_widget(_StubCanvas(width=160, height=16), mock_frame, widget)
+        assert widget._logical_scale == 1
+
     async def test_play_widget_preserves_scaled_wrapper(self, mock_frame):
         """When the canvas is a ScaledCanvas, _play_widget unwraps for
         the widget but re-anchors the wrapper to the new back-buffer

@@ -17,7 +17,7 @@ from led_ticker.colors import (
     NEUTRAL_TREND_COLOR,
     UP_TREND_COLOR,
 )
-from led_ticker.drawing import compute_cursor, get_text_width
+from led_ticker.drawing import cached_text_width, compute_baseline, compute_cursor
 from led_ticker.fonts import FONT_DELTA, FONT_LABEL, FONT_VALUE, FONT_VALUE_SMALL
 from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop
@@ -134,28 +134,27 @@ def _draw_price_ticker(
     change_color = _get_change_color(change_str)
     font_price = _get_price_font(price_str)
 
-    content_width = sum(
-        [
-            get_text_width(FONT_LABEL, symbol),
-            get_text_width(font_price, price_str),
-            get_text_width(FONT_DELTA, change_str, padding=0),
-        ]
+    content_width = (
+        cached_text_width(FONT_LABEL, symbol, padding=6, canvas=canvas)
+        + cached_text_width(font_price, price_str, padding=6, canvas=canvas)
+        + cached_text_width(FONT_DELTA, change_str, padding=0, canvas=canvas)
     )
 
     cursor_pos, end_padding = compute_cursor(
         canvas.width, content_width, cursor_pos, end_padding, center
     )
 
+    baseline_y = compute_baseline(FONT_LABEL, canvas, valign="center") + y_offset
     cursor_pos += draw_text(
-        canvas, FONT_LABEL, cursor_pos, 12 + y_offset, DEFAULT_COLOR, symbol
+        canvas, FONT_LABEL, cursor_pos, baseline_y, DEFAULT_COLOR, symbol
     )
     cursor_pos += padding
     cursor_pos += draw_text(
-        canvas, font_price, cursor_pos, 12 + y_offset, DEFAULT_COLOR, price_str
+        canvas, font_price, cursor_pos, baseline_y, DEFAULT_COLOR, price_str
     )
     cursor_pos += padding
     cursor_pos += draw_text(
-        canvas, FONT_DELTA, cursor_pos, 12 + y_offset, change_color, change_str
+        canvas, FONT_DELTA, cursor_pos, baseline_y, change_color, change_str
     )
     cursor_pos += end_padding
 

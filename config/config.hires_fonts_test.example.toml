@@ -90,8 +90,11 @@ loop_count = 1
 #   font_threshold = 80
 #   font_color = [255, 220, 70]
 
-# 4b. Beloved Sans Bold — uses the default threshold (no override
-#     needed). Bold strokes are fat enough to clear the 128 cutoff.
+# 4b. Beloved Sans Bold — match Regular's threshold (80) so the weight
+#     contrast survives. Bold renders fine at the default 128 too, but
+#     mixing thresholds inside one family flips the relationship: at
+#     Reg thr=80 + Bold thr=128, Regular gets fatter than Bold (the
+#     lower threshold's antialiased pixels add weight). Keep them paired.
 # [[playlist.section]]
 # mode = "swap"
 # hold_time = 3.0
@@ -102,6 +105,7 @@ loop_count = 1
 #   text = "@MoonBunny BOLD"
 #   font = "beloved-sans-bold"
 #   font_size = 32
+#   font_threshold = 80
 #   font_color = [255, 220, 70]
 
 # 5. BDF baseline (current 6x12 path) for visual comparison

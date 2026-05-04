@@ -149,3 +149,8 @@ config/config.toml
 config/fonts/
 .vscode/
 .superpowers/
+
+# Editor / tooling backups
+*.tmp
+*.bak
+*~

@@ -127,11 +127,16 @@ def _rasterize_glyph(pil_font: Any, ch: str) -> HiresGlyph:
     # Offset by -bbox[0], -bbox[1] so the glyph fills the image at (0,0).
     draw.text((-bbox[0], -bbox[1]), ch, font=pil_font, fill=255)
 
-    pixels = img.load()
+    # Use tobytes() instead of img.load(): for mode "L" each byte is the
+    # grayscale value, indexable as a flat array. Avoids pyright's union
+    # over PixelAccess.__getitem__ return types AND is slightly faster
+    # (no per-pixel function call overhead in the inner loop).
+    pixels = img.tobytes()
     lit: list[tuple[int, int]] = []
     for dy in range(height):
+        row_offset = dy * width
         for dx in range(width):
-            if pixels[dx, dy] >= THRESHOLD:
+            if pixels[row_offset + dx] >= THRESHOLD:
                 lit.append((dx, dy))
 
     advance = int(pil_font.getlength(ch))

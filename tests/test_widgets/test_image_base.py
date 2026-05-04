@@ -104,3 +104,39 @@ class TestFontKwarg:
         assert isinstance(font, HiresFont)
         w = _DummyImage(font=font)
         assert w.font is font
+
+
+class TestHiresFontTextScaleRejection:
+    """`text_scale > 1` is BDF block-expansion semantics. With a hires
+    font, the renderer paints to the unwrapped real canvas at native
+    pixels — text_scale becomes a silent no-op for the glyph size
+    while still affecting measurement (`get_text_width` ceil-divides
+    by canvas.scale). Refuse the combo at validation time so users
+    don't get measurement-vs-render disagreement on the panel.
+    """
+
+    def test_hires_font_with_text_scale_2_raises(self):
+        import pytest
+
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        with pytest.raises(ValueError, match="text_scale"):
+            _DummyImage(font=font, text_scale=2)
+
+    def test_hires_font_with_text_scale_1_ok(self):
+        """text_scale=1 (default) is fine — no wrapper, no conflict."""
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        w = _DummyImage(font=font, text_scale=1)
+        assert w.font is font
+        assert w.text_scale == 1
+
+    def test_bdf_font_with_text_scale_2_still_ok(self):
+        """BDF fonts go through the ScaledCanvas wrapper — text_scale
+        is the supported way to block-expand them."""
+        from led_ticker.fonts import FONT_DEFAULT
+
+        w = _DummyImage(font=FONT_DEFAULT, text_scale=2)
+        assert w.text_scale == 2

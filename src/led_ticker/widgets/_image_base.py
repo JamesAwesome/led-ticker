@@ -198,6 +198,22 @@ class _BaseImageWidget:
                 "to show through; got fit='stretch' (whole panel is opaque). "
                 "Use text_align='scroll_over' for marquee on a fullscreen image."
             )
+        # Footgun: text_scale is BDF block-expansion (a temp ScaledCanvas
+        # blowing each glyph up to scale×scale blocks). Hires fonts paint
+        # to the unwrapped real canvas at native physical pixels, so the
+        # wrapper's expansion is bypassed — text_scale just shifts the
+        # cursor's start position without growing the glyphs. The
+        # measurement / render disagree (`get_text_width` ceil-divides
+        # by canvas.scale, but the renderer ignores it). Hires fonts
+        # already span any size via `font_size`; combining the two is
+        # confused. Refuse the combo at validation time.
+        if isinstance(self.font, _HiresFont) and self.text_scale > 1:
+            raise ValueError(
+                f"text_scale={self.text_scale} is BDF block-expansion only — "
+                f"hires fonts (`font={self.font.name!r}`) paint at native "
+                f"physical pixels and ignore the wrapper. Set text_scale=1 "
+                f"and pick a larger font_size instead."
+            )
         # Cache emoji-presence so the per-tick paint loop doesn't re-run
         # the regex against an invariant string.
         self._has_emoji_cached = bool(EMOJI_PATTERN.search(self.text))

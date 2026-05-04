@@ -600,9 +600,17 @@ async def _play_widget(canvas: Any, frame: Any, widget: Any) -> Any:
         innermost = canvas
         while isinstance(innermost.real, ScaledCanvas):
             innermost = innermost.real
+        # Stash the wrapper's scale so the widget can interpret logical-
+        # unit knobs (e.g. `top_row_height`) before we hand it the raw
+        # real canvas. Best-effort — silently no-ops on widgets that
+        # don't declare the field (only `_BaseImageWidget` uses it).
+        if hasattr(widget, "_logical_scale"):
+            widget._logical_scale = canvas.scale
         new_real = await widget.play(innermost.real, frame, loop_count=loops)
         innermost.real = new_real
         return canvas
+    if hasattr(widget, "_logical_scale"):
+        widget._logical_scale = 1
     return await widget.play(canvas, frame, loop_count=loops)
 
 
@@ -719,6 +727,9 @@ async def _run_gif(
     # Unwrap ScaledCanvas wrappers so GIF frames paint at native physical
     # resolution. `_play_widget` keeps its own innermost-wrapper pointer
     # for the post-swap rebind step; this site just wants the raw canvas.
+    # Capture the wrapper scale before unwrapping so play()-style widgets
+    # can interpret logical-unit knobs (e.g. `top_row_height`).
+    wrapper_scale = canvas.scale if isinstance(canvas, ScaledCanvas) else 1
     real = unwrap_to_real(canvas)
     while True:
         try:
@@ -734,6 +745,8 @@ async def _run_gif(
         if not _has_play(widget):
             logging.debug("_run_gif skipping non-GIF widget %s", type(widget).__name__)
             continue
+        if hasattr(widget, "_logical_scale"):
+            widget._logical_scale = wrapper_scale
         real = await widget.play(real, frame, loop_count=loop_count)
 
 

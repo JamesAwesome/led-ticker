@@ -359,6 +359,90 @@ class TestTwoRowMode:
         assert w._row_align(1) == "center"
 
 
+class TestTwoRowLogicalUnits:
+    """`top_row_height` is in LOGICAL rows (matches TwoRowMessage's
+    convention). The image-widget two-row path paints to the unwrapped
+    real canvas, so the value must be multiplied by the section's
+    logical scale before being passed to `resolve_band_heights`. The
+    ticker stashes the wrapper scale on `widget._logical_scale` before
+    handing off the real canvas; without that, `top_row_height = 5`
+    on bigsign was being read as 5 REAL pixels (way too small for any
+    hi-res font), surfacing as a confusing "font line-height exceeds
+    band" exception on hardware.
+    """
+
+    async def test_top_row_height_interpreted_as_logical(self, swapping_frame):
+        """Set `_logical_scale = 4` (bigsign), `top_row_height = 5`
+        (logical) → effective top band should be 20 real px, leaving
+        44 real px for the bottom on a 64-row canvas. Hires Inter @
+        14 px line-height fits in a 20-px band, so no exception."""
+        # Build a HiresFont small enough to fit 20 real px (line-height
+        # ~14-17 for Inter @ 14px). Use the loader so it matches what
+        # `_build_widget` produces.
+        from led_ticker.fonts import resolve_font
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        font = resolve_font("Inter-Regular", size=14)
+        assert isinstance(font, HiresFont)
+
+        w = _DummyImage(
+            top_text="A",
+            bottom_text="B",
+            top_font=font,
+            bottom_font=font,
+            top_row_height=5,
+        )
+        w._logical_scale = 4
+
+        # Build a 64-real-px canvas (matches bigsign).
+        canvas = mock.MagicMock()
+        canvas.width = 256
+        canvas.height = 64
+
+        # Run far enough to exercise the validation block (it raises
+        # before any swap happens), but stop short by setting n_ticks=0
+        # which won't enter the loop. The validation runs unconditionally
+        # at the top of the method.
+        try:
+            await w._play_with_two_row_text(canvas, swapping_frame, n_ticks=0)
+        except ValueError as e:
+            raise AssertionError(
+                f"Validation incorrectly rejected logical-rows config: {e}"
+            ) from e
+        except Exception:
+            # Other failures (e.g. paint mocks not wired) are acceptable;
+            # we only care that ValueError didn't fire from the band check.
+            pass
+
+    async def test_oversized_logical_top_row_still_rejects_with_real_units(
+        self, swapping_frame
+    ):
+        """Even with logical-units conversion, a band that's too small
+        for the font must raise. `top_row_height = 1` (logical) → 4
+        real px → too small for any text font → raise. The error
+        message must reference real px so users can reason about it."""
+        import pytest
+
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", size=14)
+        w = _DummyImage(
+            top_text="A",
+            bottom_text="B",
+            top_font=font,
+            bottom_font=font,
+            top_row_height=1,
+        )
+        w._logical_scale = 4
+
+        canvas = mock.MagicMock()
+        canvas.width = 256
+        canvas.height = 64
+
+        with pytest.raises(ValueError, match="real px"):
+            await w._play_with_two_row_text(canvas, swapping_frame, n_ticks=0)
+
+
 class TestFieldSurfaceMatchesTwoRow:
     """Field-surface tripwire (Guardrail #3 from the architectural
     review): the per-row knobs on `_BaseImageWidget`'s two-row mode

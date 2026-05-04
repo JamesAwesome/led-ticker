@@ -79,6 +79,54 @@ def get_text_width(font: Any, text: str, padding: int = 6, canvas: Any = None) -
     return sum(font.CharacterWidth(ord(c)) for c in text) + padding
 
 
+# Module-level cache for `cached_text_width`. Keyed by
+# `(id(font), text, padding, scale)` — `id(font)` is stable for the
+# lifetime of the module-level BDF/HiresFont objects, `padding` is
+# usually 0/3/6, and `scale` reflects the canvas the width was measured
+# against (so a width measured on the bigsign at scale=4 doesn't
+# pollute a small-sign measurement at scale=1).
+#
+# Bounded to keep memory predictable even if widget configs spawn many
+# unique strings (e.g. countdown messages). Unbounded `dict` would grow
+# forever as new strings appear.
+_TEXT_WIDTH_CACHE: dict[tuple[int, str, int, int], int] = {}
+_TEXT_WIDTH_CACHE_MAXSIZE: int = 256
+
+
+def cached_text_width(
+    font: Any, text: str, padding: int = 0, canvas: Any = None
+) -> int:
+    """Memoized version of `get_text_width` for per-frame callers.
+
+    Same semantics, but caches the result keyed on (font, text, padding,
+    canvas.scale). For widgets that recompute the same widths every
+    frame (weather, etherscan, the marquee callers), this turns a
+    ~O(len(text)) dict-of-glyph lookups into a single dict get.
+
+    Per-widget local caches (e.g. `TickerMessage._content_width`) are
+    fine where they exist; this helper is for widgets that have several
+    distinct (font, text) pairs per draw and don't already cache.
+
+    Cache eviction: when the cache hits ``_TEXT_WIDTH_CACHE_MAXSIZE``
+    entries, it's cleared wholesale (simpler than LRU bookkeeping for
+    a non-hot-path miss). Realistic configs sit well under the cap.
+    """
+    scale_attr = 1
+    if canvas is not None:
+        attr = getattr(canvas, "scale", 1)
+        if isinstance(attr, int) and attr >= 1:
+            scale_attr = attr
+    key = (id(font), text, padding, scale_attr)
+    cached = _TEXT_WIDTH_CACHE.get(key)
+    if cached is not None:
+        return cached
+    if len(_TEXT_WIDTH_CACHE) >= _TEXT_WIDTH_CACHE_MAXSIZE:
+        _TEXT_WIDTH_CACHE.clear()
+    width = get_text_width(font, text, padding=padding, canvas=canvas)
+    _TEXT_WIDTH_CACHE[key] = width
+    return width
+
+
 def compute_baseline(font: Any, canvas: Any, valign: str = "center") -> int:
     """Return the logical-pixel baseline y for the requested valign.
 

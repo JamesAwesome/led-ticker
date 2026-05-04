@@ -12,7 +12,7 @@ import attrs
 
 from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR, RGB_WHITE
-from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
+from led_ticker.drawing import cached_text_width, compute_baseline, compute_cursor
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop
@@ -104,14 +104,14 @@ class WeatherWidget:
             label_text = f"{self.message}: "
             # Icon replaces the condition text
             full_width = (
-                get_text_width(self.font, label_text, padding=0, canvas=canvas)
+                cached_text_width(self.font, label_text, padding=0, canvas=canvas)
                 + 10  # icon width (8) + padding (2)
-                + get_text_width(self.font, temp_text, padding=0, canvas=canvas)
+                + cached_text_width(self.font, temp_text, padding=0, canvas=canvas)
             )
         else:
             label_text = f"{self.message}: "
             condition_text = f"{self.weather} "
-            full_width = get_text_width(
+            full_width = cached_text_width(
                 self.font,
                 f"{label_text}{condition_text}{temp_text}",
                 padding=0,

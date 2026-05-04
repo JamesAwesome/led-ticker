@@ -55,6 +55,14 @@ between_sections = "dissolve"
 # ~192 cols become an unobstructed black pillar with "PIKACHU!" held
 # statically against the right edge. Text paints AFTER the gif each
 # tick so it always wins on overlap.
+#
+# Text size: explicit `font = "Inter-Bold"` + `font_size = 24` keeps
+# "PIKACHU!" sharp at ~24 real px tall × ~110 wide — sits cleanly in
+# the right pillar. With default BDF on bigsign, `text_scale = 1`
+# now means panel-scale (= the section's logical scale = 4), which
+# would render "PIKACHU!" at ~192 wide and bleed into Pikachu's body.
+# To get tiny native-12-px text on bigsign, opt in via HiresFont with
+# `font_size = 12`.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -70,6 +78,8 @@ fit = "pillarbox"
 image_align = "left"
 text = "PIKACHU!"
 text_align = "right"
+font = "Inter-Bold"
+font_size = 24
 font_color = [255, 220, 50]
 
 # ---------------------------------------------------------------------------
@@ -212,5 +222,7 @@ fit = "pillarbox"
 image_align = "right"
 text = "@brand"
 text_align = "left"
+font = "Inter-Regular"
+font_size = 24
 font_color = [225, 48, 108]
 gif_loops = 17  # ~10s of playback

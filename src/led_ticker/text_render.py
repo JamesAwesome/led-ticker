@@ -38,6 +38,12 @@ def _draw_hires_text(
     y-offset) to get real pixel coords, then paints glyph pixels
     directly to the unwrapped real canvas — bypasses the wrapper's
     4×4 block expansion. Out-of-bounds pixels clip silently.
+
+    Returns the advance width in LOGICAL pixels (matching BDF semantics
+    so callers like TickerMessage can do `cursor_pos += advance` in
+    consistent units). Internally tracks real-pixel cursor position
+    for sub-logical-pixel glyph placement; converts to logical at
+    return via ceil-division.
     """
     real = unwrap_to_real(canvas)
     scale = getattr(canvas, "scale", 1)
@@ -64,4 +70,10 @@ def _draw_hires_text(
             if 0 <= px < panel_w and 0 <= py < panel_h:
                 set_px(px, py, r, g, b)
         cursor_x += glyph.advance
-    return cursor_x - real_x
+
+    # Return logical-pixel advance so callers' `cursor_pos += advance`
+    # stays in consistent units. Ceil-division so the reported width
+    # is never less than the text actually occupies (under-reporting
+    # would break overflow detection for text that just barely fits).
+    real_advance = cursor_x - real_x
+    return -(-real_advance // scale)  # ceil division

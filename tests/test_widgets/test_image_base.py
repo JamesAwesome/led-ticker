@@ -73,3 +73,34 @@ class TestRenderTickResetsCanvas:
         w._render_tick(canvas, text_canvas, 0, 10, 0, 100)
         canvas.Clear.assert_not_called()
         canvas.Fill.assert_called_once_with(40, 50, 60)
+
+
+class TestFontKwarg:
+    """Regression: image widgets (gif, image) accept `font` (and the
+    resolved HiresFont it points to) as a constructor kwarg. Before the
+    fix, _BaseImageWidget declared `font` with `init=False`, so configs
+    setting `font = "Inter-Regular"` raised
+    `TypeError: __init__() got an unexpected keyword argument 'font'`
+    when _build_widget passed the resolved object through.
+    """
+
+    def test_font_kwarg_accepted(self):
+        from led_ticker.fonts import FONT_SMALL
+
+        w = _DummyImage(font=FONT_SMALL)
+        assert w.font is FONT_SMALL
+
+    def test_default_font_when_not_specified(self):
+        from led_ticker.fonts import FONT_DEFAULT
+
+        w = _DummyImage()
+        assert w.font is FONT_DEFAULT
+
+    def test_hires_font_kwarg_accepted(self):
+        from led_ticker.fonts import resolve_font
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        font = resolve_font("Inter-Regular", 24)
+        assert isinstance(font, HiresFont)
+        w = _DummyImage(font=font)
+        assert w.font is font

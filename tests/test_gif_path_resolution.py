@@ -66,3 +66,58 @@ async def test_gif_text_kwarg_not_renamed_to_message(tmp_path):
 
     assert widget.text == "PIKACHU!"
     assert widget.text_align == "right"
+
+
+async def test_gif_accepts_font_kwarg(tmp_path):
+    """Regression: _BaseImageWidget originally declared `font` with
+    `init=False`, so a config like `font = "Inter-Regular"` raised
+    `TypeError: __init__() got an unexpected keyword argument 'font'`
+    inside _build_widget when the resolved font object was passed
+    through. Drives the full _build_widget path that broke on hardware.
+    """
+    from led_ticker.fonts.hires_loader import HiresFont
+
+    gif_path = tmp_path / "tiny.gif"
+    _write_tiny_gif(gif_path)
+
+    cfg = {
+        "type": "gif",
+        "path": str(gif_path.resolve()),
+        "fit": "pillarbox",
+        "text": "@MoonBunny",
+        "font": "Inter-Regular",
+        "font_size": 24,
+    }
+    widget = await _build(cfg, config_dir=tmp_path)
+
+    assert isinstance(widget.font, HiresFont)
+    assert widget.font.size == 24
+
+
+async def test_image_accepts_font_kwarg(tmp_path):
+    """Same regression applies to the StillImage widget (`type = "image"`)
+    — both share `_BaseImageWidget`."""
+    import io as _io
+
+    from PIL import Image as _Image
+
+    from led_ticker.fonts.hires_loader import HiresFont
+
+    img_path = tmp_path / "tiny.png"
+    img = _Image.new("RGB", (4, 4), color=(255, 255, 255))
+    buf = _io.BytesIO()
+    img.save(buf, format="PNG")
+    img_path.write_bytes(buf.getvalue())
+
+    cfg = {
+        "type": "image",
+        "path": str(img_path.resolve()),
+        "fit": "pillarbox",
+        "text": "hi",
+        "font": "Inter-Bold",
+        "font_size": 28,
+    }
+    widget = await _build(cfg, config_dir=tmp_path)
+
+    assert isinstance(widget.font, HiresFont)
+    assert widget.font.size == 28

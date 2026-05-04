@@ -17,7 +17,7 @@ from led_ticker.colors import (
     NEUTRAL_TREND_COLOR,
     UP_TREND_COLOR,
 )
-from led_ticker.drawing import cached_text_width, compute_baseline, compute_cursor
+from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DELTA, FONT_LABEL, FONT_VALUE, FONT_VALUE_SMALL
 from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop
@@ -135,9 +135,9 @@ def _draw_price_ticker(
     font_price = _get_price_font(price_str)
 
     content_width = (
-        cached_text_width(FONT_LABEL, symbol, padding=6, canvas=canvas)
-        + cached_text_width(font_price, price_str, padding=6, canvas=canvas)
-        + cached_text_width(FONT_DELTA, change_str, padding=0, canvas=canvas)
+        get_text_width(FONT_LABEL, symbol, padding=6, canvas=canvas)
+        + get_text_width(font_price, price_str, padding=6, canvas=canvas)
+        + get_text_width(FONT_DELTA, change_str, padding=0, canvas=canvas)
     )
 
     cursor_pos, end_padding = compute_cursor(

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from datetime import date
 from typing import Any
 
@@ -12,12 +11,9 @@ from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
+from led_ticker.pixel_emoji import EMOJI_PATTERN
 from led_ticker.text_render import draw_text
 from led_ticker.widgets import register
-
-# Matches `:slug:` emoji tokens (lowercase letters + underscores between
-# colons). Plain colons in URLs / timestamps / "key: value" don't match.
-_EMOJI_PATTERN = re.compile(r":[a-z_]+:")
 
 
 @register("message")
@@ -35,7 +31,7 @@ class TickerMessage:
     _has_emoji: bool = attrs.field(init=False, default=False)
 
     def __attrs_post_init__(self) -> None:
-        self._has_emoji = bool(_EMOJI_PATTERN.search(self.message))
+        self._has_emoji = bool(EMOJI_PATTERN.search(self.message))
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         font_color = kwargs.get("font_color") or self.font_color

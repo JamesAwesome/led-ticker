@@ -23,6 +23,7 @@ Two resolutions are supported:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from led_ticker._types import Canvas, Color, Font, PixelData
@@ -30,6 +31,13 @@ from led_ticker.fonts import font_line_height
 from led_ticker.fonts.hires_loader import HiresFont
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.text_render import draw_text
+
+# Canonical emoji slug pattern shared by `_parse_segments` and any
+# widget that needs to detect emoji presence in text. Match a `:slug:`
+# token where slug is lowercase letters and underscores. Widgets use
+# `EMOJI_PATTERN.search(text)` to cache `has_emoji` at construction
+# time so per-tick draws don't re-run the regex.
+EMOJI_PATTERN: re.Pattern[str] = re.compile(r":[a-z_]+:")
 
 EMOJI_DEFAULT_WIDTH: int = 8
 EMOJI_PADDING: int = 2  # px after icon before text resumes
@@ -2502,8 +2510,6 @@ def _parse_segments(text: str) -> list[tuple[str, str]]:
 
     Returns list of ("text", "hello ") or ("emoji", "baseball").
     """
-    import re
-
     parts = re.split(r"(:[a-z_]+:)", text)
     segments: list[tuple[str, str]] = []
     for part in parts:

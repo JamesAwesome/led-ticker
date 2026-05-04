@@ -49,9 +49,8 @@ import attrs
 
 from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.colors import DEFAULT_COLOR
-from led_ticker.drawing import compute_baseline
-from led_ticker.fonts import FONT_SMALL, font_line_height
-from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
+from led_ticker.drawing import compute_baseline, safe_scale
+from led_ticker.fonts import FONT_SMALL, font_line_height_logical
 from led_ticker.pixel_emoji import draw_with_emoji, measure_width
 from led_ticker.widgets import register
 from led_ticker.widgets._image_fit import fill_band
@@ -222,20 +221,14 @@ class TwoRowMessage:
         bottom_font = self._font_for_row(1)
 
         # Validate each row's font fits within its band (logical units).
-        # For BDF the metric is logical px; for HiresFont it's real px and
-        # we ceil-divide by canvas.scale to compare in logical units.
-        # Tolerate non-int `scale` (Mock canvases in tests, real
-        # RGBMatrix canvases without scale) as scale=1.
-        scale_attr = getattr(canvas, "scale", 1)
-        scale = scale_attr if isinstance(scale_attr, int) and scale_attr >= 1 else 1
+        # `font_line_height_logical` handles the BDF-vs-HiresFont
+        # branch (BDF returns logical px, HiresFont ceil-divs by scale).
+        scale = safe_scale(canvas)
         for row_label, row_font, band_h in (
             ("top", top_font, top_h),
             ("bottom", bottom_font, bottom_h),
         ):
-            font_lh = font_line_height(row_font)
-            font_lh_logical = (
-                -(-font_lh // scale) if isinstance(row_font, _HiresFont) else font_lh
-            )
+            font_lh_logical = font_line_height_logical(row_font, scale)
             if font_lh_logical > band_h:
                 raise ValueError(
                     f"{row_label} font line-height ({font_lh_logical} logical "

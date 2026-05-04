@@ -498,36 +498,12 @@ class TestHiresFontSupport:
         with pytest.raises(ValueError, match="line-height"):
             w.draw(canvas)
 
-    def test_bdf_font_still_accepted(self):
-        from led_ticker.fonts import FONT_DEFAULT
-
-        # 6×12 is BDF; widget accepts it. On the standard 16-row canvas
-        # half=8, font_lh=12 — would raise at draw() because 12 > 8.
-        # FONT_SMALL (5×8) is the canonical pairing.
-        w = TwoRowMessage(top_text="hi", bottom_text="bye", font=FONT_DEFAULT)
-        assert w.font is FONT_DEFAULT
-
-    def test_hires_baseline_centers_within_top_half(self):
-        """The hires top-row baseline lands inside the top half of the
-        canvas (so the glyph doesn't cross the row divider). Pin the
-        bound rather than the exact value to tolerate metric variance.
-        """
-        from types import SimpleNamespace
-
-        from led_ticker.fonts import resolve_font
-        from led_ticker.widgets.two_row import _row_layout
-
-        font = resolve_font("Inter-Regular", 16)
-        # Bigsign-shape canvas: 20 logical rows at scale=4. Split 10/10.
-        c = SimpleNamespace(height=20, scale=4, width=64)
-        top_baseline, _ = _row_layout(c, font, band_height=10, band_offset=0)
-        bottom_baseline, _ = _row_layout(c, font, band_height=10, band_offset=10)
-        # Top baseline must sit in rows 0..9 (top half = 10 rows).
-        assert 0 < top_baseline < 10, top_baseline
-        # Bottom baseline must sit in the bottom half (rows 10..19).
-        assert 10 <= bottom_baseline < 20, bottom_baseline
-        # And the bottom baseline = top + half (consistent split).
-        assert bottom_baseline - top_baseline == 10
+    # `test_bdf_font_still_accepted` and
+    # `test_hires_baseline_centers_within_top_half` removed in the
+    # consolidation pass: the first only checked construction
+    # succeeds (covered by every other TwoRowMessage test that uses
+    # BDF FONT_SMALL); the second overlapped with
+    # `test_asymmetric_split_baselines_in_correct_bands` below.
 
 
 class TestPerRowFonts:
@@ -636,11 +612,11 @@ class TestAsymmetricRowSplit:
     `None` preserves the legacy split — existing tests above already
     pin that path, so this class only exercises the override behavior."""
 
-    def test_default_split_unchanged_when_top_row_height_is_none(self):
-        """Construction succeeds without setting top_row_height; the
-        50/50 default applies (verified by other tests in this file)."""
-        w = TwoRowMessage(top_text="A", bottom_text="B")
-        assert w.top_row_height is None
+    # `test_default_split_unchanged_when_top_row_height_is_none` removed
+    # in the consolidation pass — it only checked attrs default
+    # propagation, which is covered by the asymmetric tests below
+    # (each uses `top_row_height=N` explicitly so the default path is
+    # implicitly exercised by every legacy test elsewhere).
 
     def test_top_row_height_zero_raises_at_construction(self):
         import pytest

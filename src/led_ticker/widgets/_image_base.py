@@ -27,7 +27,6 @@ methods and the base class picks.
 from __future__ import annotations
 
 import asyncio
-import re
 from typing import Any
 
 import attrs
@@ -35,8 +34,9 @@ import attrs
 from led_ticker._types import Canvas, Color, Font
 from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import compute_baseline, get_text_width
-from led_ticker.fonts import FONT_DEFAULT, font_line_height
+from led_ticker.fonts import FONT_DEFAULT, font_line_height_logical
 from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
+from led_ticker.pixel_emoji import EMOJI_PATTERN
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.text_render import draw_text
 from led_ticker.widgets._image_fit import (
@@ -58,7 +58,6 @@ AUTO_TEXT_ALIGN_FOR_IMAGE: dict[str, str] = {
     "right": "left",
     "center": "scroll_over",
 }
-EMOJI_PATTERN = re.compile(r":[a-z_]+:")
 
 TEXT_EDGE_PADDING_PX: int = 2
 MIN_SCROLL_SPEED_MS: int = 20
@@ -322,15 +321,10 @@ class _BaseImageWidget:
         text_w = text_canvas.width
         text_h = text_canvas.height
         # The logical text_canvas must accommodate the font's line
-        # height. For BDF the metric is logical px; for HiresFont it's
-        # real px and we ceil-div by the canvas scale to compare in
-        # logical units. Raise early instead of silently clipping
-        # glyphs (which surfaces as missing/cut text).
-        font_lh = font_line_height(self.font)
+        # height. Raise early instead of silently clipping glyphs
+        # (which surfaces as missing/cut text).
         font_scale = getattr(text_canvas, "scale", 1) or 1
-        font_lh_logical = (
-            -(-font_lh // font_scale) if isinstance(self.font, _HiresFont) else font_lh
-        )
+        font_lh_logical = font_line_height_logical(self.font, font_scale)
         if text_h < font_lh_logical:
             raise ValueError(
                 f"text_scale={self.text_scale} leaves text_canvas only "

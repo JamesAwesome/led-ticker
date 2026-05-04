@@ -92,29 +92,30 @@ class TestTypewriter:
         tw.draw(msg_widget, canvas, 0, 100)
         # Should not raise on any frame
 
-    def test_caches_content_width(self, canvas, msg_widget, monkeypatch):
+    def test_caches_content_width(self, canvas, msg_widget):
         # Regression: get_text_width was called every frame for fixed text.
         # On the bigsign at 20fps that's ~30 char-widths/frame × 600 frames
-        # for a 30s message — ~18K wasted C-calls. Cache once per (font,text).
-        import led_ticker.presentation as presentation
+        # for a 30s message — ~18K wasted C-calls. The module-level
+        # `_TEXT_WIDTH_CACHE` in `drawing.py` keys on
+        # `(id(font), text, padding, scale)`, so repeated draws with
+        # the same font + message hit the cache from the second call
+        # onward. Pin that the cache doesn't grow per frame.
+        from led_ticker.drawing import _TEXT_WIDTH_CACHE
 
-        call_count = 0
-        real_width = presentation.get_text_width
-
-        def counting_width(font, text, *, padding=0, canvas=None):
-            nonlocal call_count
-            call_count += 1
-            return real_width(font, text, padding=padding, canvas=canvas)
-
-        monkeypatch.setattr(presentation, "get_text_width", counting_width)
+        _TEXT_WIDTH_CACHE.clear()
 
         tw = Typewriter(chars_per_frame=1)
-        for f in range(20):
+        tw.draw(msg_widget, canvas, 0, 0)
+        size_after_first = len(_TEXT_WIDTH_CACHE)
+        for f in range(1, 20):
             tw.draw(msg_widget, canvas, 0, f)
-        # First call computes; subsequent 19 hit the cache.
-        assert (
-            call_count == 1
-        ), f"get_text_width called {call_count}× for fixed text — caching broken"
+        # Cache should be unchanged across 19 subsequent draws — same
+        # (font, message, padding, scale) key hits the cache each time.
+        assert len(_TEXT_WIDTH_CACHE) == size_after_first, (
+            f"cache grew from {size_after_first} to "
+            f"{len(_TEXT_WIDTH_CACHE)} entries across 19 draws — caching "
+            f"broken"
+        )
 
     def test_y_offset_threaded_to_draw_text(self, canvas, msg_widget, monkeypatch):
         # Regression: Typewriter hardcoded y=12, dropping y_offset from

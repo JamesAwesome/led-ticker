@@ -247,7 +247,7 @@ class GifPlayer(_BaseImageWidget):
         if not self._frames:
             return real_canvas
 
-        if not self.text:
+        if not self._has_text_content():
             return await self._play_no_text(real_canvas, frame, loop_count)
 
         loops = max(1, loop_count)

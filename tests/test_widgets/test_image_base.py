@@ -218,6 +218,25 @@ class TestTwoRowMode:
         w = _DummyImage(top_text="@brand", bottom_text="follow us")
         assert w._is_two_row()
 
+    def test_has_text_content_true_when_only_two_row_fields_set(self):
+        """Regression: gif/still `play()` dispatches on
+        `_has_text_content()` to pick the text-overlay vs no-text code
+        path. In two-row mode users typically leave `text=""` and set
+        `top_text` + `bottom_text` only — the dispatch must still see
+        text content, otherwise the overlay path is skipped silently
+        and nothing renders."""
+        w_top = _DummyImage(top_text="@brand")
+        assert w_top._has_text_content()
+
+        w_bottom = _DummyImage(bottom_text="follow us")
+        assert w_bottom._has_text_content()
+
+        w_both = _DummyImage(top_text="@brand", bottom_text="follow us")
+        assert w_both._has_text_content()
+
+        w_none = _DummyImage()
+        assert not w_none._has_text_content()
+
     def test_text_alias_works_for_top_in_two_row_mode(self):
         """`text="..."` is a back-compat alias for `top_text` when
         bottom_text is also set — configs that just add bottom_text

@@ -1,0 +1,95 @@
+# led-ticker hi-res fonts smoke test config
+#
+# Exercises the hi-res font path:
+#   - Bundled Inter Regular + Bold at multiple sizes
+#   - User-supplied Beloved Sans (drops gracefully if not present)
+#   - BDF alias on the same widget surface for back-compat sanity
+#
+# Bigsign-only — text size assumes 64-row panel.
+# Run: led-ticker --config config/config.hires_fonts_test.example.toml
+
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+brightness = 60
+slowdown_gpio = 3
+gpio_mapping = "adafruit-hat"
+default_scale = 4
+pwm_bits = 8
+rp1_rio = 1
+
+[title]
+delay = 2
+
+[transitions]
+default = "cut"
+duration = 0.6
+between_sections = "cut"
+
+# 1. Inter Regular at 24px (default size)
+[[playlist.section]]
+mode = "swap"
+hold_time = 3.0
+loop_count = 1
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "Inter 24px"
+  font = "Inter-Regular"
+  font_size = 24
+  font_color = [255, 220, 70]
+
+# 2. Inter Bold at 36px
+[[playlist.section]]
+mode = "swap"
+hold_time = 3.0
+loop_count = 1
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "Inter Bold 36"
+  font = "Inter-Bold"
+  font_size = 36
+  font_color = [70, 200, 255]
+
+# 3. Inter Regular at 40px (large display)
+[[playlist.section]]
+mode = "swap"
+hold_time = 3.0
+loop_count = 1
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "Inter 40px BIG"
+  font = "Inter-Regular"
+  font_size = 40
+  font_color = [255, 100, 200]
+
+# 4. Beloved Sans at 32px (only renders if user dropped the .otf)
+# Comment out this section if you haven't downloaded Beloved Sans.
+# [[playlist.section]]
+# mode = "swap"
+# hold_time = 3.0
+# loop_count = 1
+#
+#   [[playlist.section.widget]]
+#   type = "message"
+#   text = "@MoonBunny"
+#   font = "beloved-sans"
+#   font_size = 32
+#   font_color = [255, 220, 70]
+
+# 5. BDF baseline (current 6x12 path) for visual comparison
+[[playlist.section]]
+mode = "swap"
+hold_time = 3.0
+loop_count = 1
+
+  [[playlist.section.widget]]
+  type = "message"
+  text = "BDF 6x12 (4x scaled)"
+  font = "6x12"
+  font_color = [200, 200, 200]

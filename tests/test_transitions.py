@@ -1040,15 +1040,15 @@ class TestRunTransition:
         make_widget,
         no_sleep,
     ):
-        # Regression: WidgetPresenter on outgoing/incoming should be paused
-        # for the duration so its frame_count doesn't drift while it's
+        # Regression: _FrameAware widgets on outgoing/incoming should be paused
+        # for the duration so their frame_count doesn't drift while they're
         # only being re-rendered for compositing.
         outgoing = make_widget(40)
         incoming = make_widget(40)
-        outgoing.pause = mock.Mock()
-        outgoing.resume = mock.Mock()
-        incoming.pause = mock.Mock()
-        incoming.resume = mock.Mock()
+        outgoing.pause_frame = mock.Mock()
+        outgoing.resume_frame = mock.Mock()
+        incoming.pause_frame = mock.Mock()
+        incoming.resume_frame = mock.Mock()
 
         await run_transition(
             canvas,
@@ -1058,10 +1058,10 @@ class TestRunTransition:
             transition=Cut(),
             duration=0.1,
         )
-        outgoing.pause.assert_called_once()
-        outgoing.resume.assert_called_once()
-        incoming.pause.assert_called_once()
-        incoming.resume.assert_called_once()
+        outgoing.pause_frame.assert_called_once()
+        outgoing.resume_frame.assert_called_once()
+        incoming.pause_frame.assert_called_once()
+        incoming.resume_frame.assert_called_once()
 
     async def test_resumes_presenters_on_exception(
         self,
@@ -1072,10 +1072,10 @@ class TestRunTransition:
     ):
         outgoing = make_widget(40)
         incoming = make_widget(40)
-        outgoing.pause = mock.Mock()
-        outgoing.resume = mock.Mock()
-        incoming.pause = mock.Mock()
-        incoming.resume = mock.Mock()
+        outgoing.pause_frame = mock.Mock()
+        outgoing.resume_frame = mock.Mock()
+        incoming.pause_frame = mock.Mock()
+        incoming.resume_frame = mock.Mock()
 
         broken = mock.Mock(spec=["frame_at"])
         broken.frame_at.side_effect = RuntimeError("boom")
@@ -1090,8 +1090,8 @@ class TestRunTransition:
                 duration=0.1,
             )
         # The finally block must still resume both presenters.
-        outgoing.resume.assert_called_once()
-        incoming.resume.assert_called_once()
+        outgoing.resume_frame.assert_called_once()
+        incoming.resume_frame.assert_called_once()
 
     async def test_wipe_min_frames_respected(
         self,

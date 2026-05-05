@@ -117,9 +117,9 @@ async def run_transition(
     needs_switch = incoming_scale is not None and incoming_scale != current_scale
     incoming_canvas: Canvas | None = None
 
-    # Freeze any WidgetPresenter on outgoing/incoming for the duration of
+    # Freeze any _FrameAware widget on outgoing/incoming for the duration of
     # the transition. Otherwise rendering the widget for compositing
-    # advances its presentation frame counter and either tears its phase
+    # advances its frame counter and either tears its phase
     # or eats into the next section's animation budget.
     _pause_presenter(outgoing)
     _pause_presenter(incoming)
@@ -169,13 +169,13 @@ async def run_transition(
 
 
 def _pause_presenter(obj: Any) -> None:
-    pause = getattr(obj, "pause", None)
+    pause = getattr(obj, "pause_frame", None)
     if callable(pause):
         pause()
 
 
 def _resume_presenter(obj: Any) -> None:
-    resume = getattr(obj, "resume", None)
+    resume = getattr(obj, "resume_frame", None)
     if callable(resume):
         resume()
 

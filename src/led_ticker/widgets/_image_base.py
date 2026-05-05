@@ -34,7 +34,12 @@ import attrs
 from led_ticker._types import Canvas, Color, Font
 from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import compute_baseline, get_text_width, safe_scale
-from led_ticker.fonts import FONT_DEFAULT, font_line_height, font_line_height_logical
+from led_ticker.fonts import (
+    FONT_DEFAULT,
+    block_scale_for_font_size,
+    font_line_height,
+    font_line_height_logical,
+)
 from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.pixel_emoji import EMOJI_PATTERN
 from led_ticker.scaled_canvas import ScaledCanvas
@@ -584,16 +589,24 @@ class _BaseImageWidget:
             return await self._play_with_two_row_text(real_canvas, frame, n_ticks)
         canvas = real_canvas
 
-        # Wrap-scale resolution: user's `text_scale > 1` (BDF block-
-        # expansion knob) takes precedence. Otherwise on bigsign
-        # (`_logical_scale > 1`) wrap at the section's scale so the
-        # text path gets the wrapper. See `_wrap_for_text` for why we
-        # wrap at all (hires emoji gate + BDF block-expansion).
-        # Small sign (`_logical_scale == 1`): no wrap — real == logical.
-        effective_scale = (
-            self.text_scale if self.text_scale > 1 else self._logical_scale
+        # Resolve the wrap scale. Two concerns share this knob:
+        #   - BDF glyph size: the wrapper block-expands BDF cells by
+        #     `wrap_scale`, so it must equal `block_scale_for_font_size`.
+        #   - Hi-res emoji gate: `pixel_emoji.draw_with_emoji` checks
+        #     `isinstance(canvas, ScaledCanvas)` to decide whether to
+        #     paint hires sprites. Any wrap > 1 satisfies it.
+        # For BDF: `block_scale` handles both (wraps the cell to match
+        # font_size; emoji gate fires if scale > 1).
+        # For HiresFont: glyphs paint to the unwrapped real canvas via
+        # `_draw_hires_text` regardless of wrap; `block_scale` is always
+        # 1 (no glyph effect). Wrap at `_logical_scale` so the emoji
+        # gate fires on bigsign — that's the whole point of this path.
+        font_size = self._resolved_font_size()
+        block_scale = block_scale_for_font_size(self.font, font_size)
+        wrap_scale = (
+            self._logical_scale if isinstance(self.font, _HiresFont) else block_scale
         )
-        text_canvas: Canvas = self._wrap_for_text(canvas, effective_scale)
+        text_canvas: Canvas = self._wrap_for_text(canvas, wrap_scale)
         text_w = text_canvas.width
         text_h = text_canvas.height
         # The logical text_canvas must accommodate the font's line
@@ -605,13 +618,11 @@ class _BaseImageWidget:
         font_lh_logical = font_line_height_logical(self.font, font_scale)
         if text_h < font_lh_logical:
             raise ValueError(
-                f"effective_scale={effective_scale} (text_scale="
-                f"{self.text_scale}, section logical scale="
-                f"{self._logical_scale}) leaves text_canvas only "
-                f"{text_h} rows on a {canvas.height}-tall panel — font "
-                f"requires {font_lh_logical} logical rows. Reduce "
-                f"text_scale, pick a smaller font_size, or use a taller "
-                f"panel."
+                f"font_size={font_size} (block_scale={block_scale}, "
+                f"section logical scale={self._logical_scale}) leaves "
+                f"text_canvas only {text_h} rows on a {canvas.height}-tall "
+                f"panel — font requires {font_lh_logical} logical rows. "
+                f"Reduce font_size or use a taller panel."
             )
         baseline_y = self._baseline_y(text_canvas)
 

@@ -610,15 +610,16 @@ class TestSingleRowLogicalScaleWrap:
         )
 
     async def test_user_text_scale_still_honored(self, swapping_frame):
-        """If the user explicitly sets text_scale > 1 (BDF block-
-        expansion), that takes precedence over `_logical_scale`. Don't
-        suddenly bump them up to 4× when they asked for 2×."""
+        """If the user explicitly sets font_size (BDF block-expansion),
+        that takes precedence over _logical_scale. Without explicit
+        font_size, smart default uses _logical_scale."""
         from rgbmatrix import _StubCanvas
 
         from led_ticker.fonts import FONT_DEFAULT
         from led_ticker.scaled_canvas import ScaledCanvas
 
-        w = _DummyImage(text="hi", font=FONT_DEFAULT, text_scale=2)
+        # With explicit font_size=24: wrap at 24//12=2, ignoring _logical_scale=4
+        w = _DummyImage(text="hi", font=FONT_DEFAULT, font_size=24)
         w._logical_scale = 4  # bigsign
 
         captured_scales: list = []
@@ -642,8 +643,8 @@ class TestSingleRowLogicalScaleWrap:
 
         assert captured_scales, "Expected wrapper to be used"
         assert all(s == 2 for s in captured_scales), (
-            f"Expected wrapper scale=2 (user's text_scale), got {captured_scales!r}. "
-            f"User's intent must not be overridden by _logical_scale."
+            f"Expected scale=2 (explicit font_size=24), got {captured_scales!r}. "
+            f"font_size intent must not be overridden by _logical_scale."
         )
 
 
@@ -792,3 +793,118 @@ class TestResolvedFontSize:
 
         with pytest.raises(ValueError, match="font_size must be > 0"):
             _DummyImage(font=FONT_DEFAULT, font_size=-5)
+
+
+class TestSingleRowFontSize:
+    """`_play_with_text` derives the wrap scale from `font_size` via
+    `block_scale_for_font_size`. Smart default: BDF + `font_size=None`
+    on bigsign wraps at scale=`_logical_scale`; small sign no wrap;
+    explicit `font_size` honored exactly."""
+
+    async def test_bdf_default_wraps_at_logical_scale_on_bigsign(self, swapping_frame):
+        """BDF + `font_size=None` (smart default) + bigsign → wraps at
+        scale=4. Same observable behavior as the old `text_scale=1`
+        path post-bd61140."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        w = _DummyImage(text="hi", font=FONT_DEFAULT, font_size=None)
+        w._logical_scale = 4
+
+        captured: list = []
+        orig = _BaseImageWidget._render_tick
+
+        def spy(self, canvas, text_canvas, *args):
+            captured.append(
+                {
+                    "is_wrapped": isinstance(text_canvas, ScaledCanvas),
+                    "scale": getattr(text_canvas, "scale", None),
+                }
+            )
+            return orig(self, canvas, text_canvas, *args)
+
+        _BaseImageWidget._render_tick = spy  # type: ignore[method-assign]
+        real = _StubCanvas(width=256, height=64)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=256, height=64
+        )
+
+        try:
+            await w._play_with_text(real, swapping_frame, n_ticks=1)
+        finally:
+            _BaseImageWidget._render_tick = orig  # type: ignore[method-assign]
+
+        assert len(captured) >= 1
+        assert all(c["is_wrapped"] for c in captured)
+        assert all(
+            c["scale"] == 4 for c in captured
+        ), f"Expected wrapper at logical-scale (4); got {captured!r}"
+
+    async def test_explicit_font_size_24_wraps_at_2(self, swapping_frame):
+        """Explicit `font_size=24` with BDF 6×12 on bigsign → block
+        scale = 24 // 12 = 2. User intent honored over `_logical_scale`."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        w = _DummyImage(text="hi", font=FONT_DEFAULT, font_size=24)
+        w._logical_scale = 4
+
+        captured: list = []
+        orig = _BaseImageWidget._render_tick
+
+        def spy(self, canvas, text_canvas, *args):
+            if isinstance(text_canvas, ScaledCanvas):
+                captured.append(text_canvas.scale)
+            return orig(self, canvas, text_canvas, *args)
+
+        _BaseImageWidget._render_tick = spy  # type: ignore[method-assign]
+        real = _StubCanvas(width=256, height=64)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=256, height=64
+        )
+
+        try:
+            await w._play_with_text(real, swapping_frame, n_ticks=1)
+        finally:
+            _BaseImageWidget._render_tick = orig  # type: ignore[method-assign]
+
+        assert captured, "Wrapper not used"
+        assert all(
+            s == 2 for s in captured
+        ), f"Expected wrapper.scale=2 (24px / 12px cell); got {captured!r}"
+
+    async def test_no_wrap_on_small_sign_with_default(self, swapping_frame):
+        """Small sign (`_logical_scale=1`) + BDF + `font_size=None` →
+        block scale = 12 // 12 = 1 → no wrap."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        w = _DummyImage(text="hi", font=FONT_DEFAULT, font_size=None)
+        w._logical_scale = 1
+
+        captured: list = []
+        orig = _BaseImageWidget._render_tick
+
+        def spy(self, canvas, text_canvas, *args):
+            captured.append(isinstance(text_canvas, ScaledCanvas))
+            return orig(self, canvas, text_canvas, *args)
+
+        _BaseImageWidget._render_tick = spy  # type: ignore[method-assign]
+        real = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        try:
+            await w._play_with_text(real, swapping_frame, n_ticks=1)
+        finally:
+            _BaseImageWidget._render_tick = orig  # type: ignore[method-assign]
+
+        assert len(captured) >= 1, "_render_tick was never called"
+        assert not any(captured), f"Expected NO wrap at scale=1; got {captured!r}"

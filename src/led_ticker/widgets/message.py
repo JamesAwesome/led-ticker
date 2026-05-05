@@ -53,7 +53,9 @@ class TickerMessage(_FrameAware):
 
         y_offset: int = kwargs.get("y_offset", 0)
 
-        # If animation is set, ask it for the slice + cursor override.
+        # If animation is set, ask it for the slice. Animations don't
+        # currently override cursor position (Bounce was removed); if a
+        # future animation needs that, re-add the override branch.
         full_text = self.message
         if self.animation is not None:
             if self._content_width < 0:
@@ -70,33 +72,6 @@ class TickerMessage(_FrameAware):
                 self._frame_count, full_text, canvas.width, self._content_width
             )
             visible_text = anim_frame.visible_text
-            if anim_frame.cursor_override is not None:
-                cursor_pos = anim_frame.cursor_override
-                # Skip compute_cursor — animation owns the position.
-                baseline_y = compute_baseline(self.font, canvas, valign="center")
-                color = provider.color_for(self._frame_count, 0, len(visible_text))
-                if self._has_emoji:
-                    from led_ticker.pixel_emoji import draw_with_emoji
-
-                    cursor_pos += draw_with_emoji(
-                        canvas,
-                        self.font,
-                        cursor_pos,
-                        baseline_y,
-                        color,
-                        visible_text,
-                        y_offset=y_offset,
-                    )
-                else:
-                    cursor_pos += draw_text(
-                        canvas,
-                        self.font,
-                        cursor_pos,
-                        baseline_y + y_offset,
-                        color,
-                        visible_text,
-                    )
-                return canvas, cursor_pos + self.padding
         else:
             visible_text = full_text
 
@@ -138,12 +113,63 @@ class TickerMessage(_FrameAware):
         elif provider.per_char:
             # Per-char rendering: iterate visible_text, draw each char
             # with its own color (rainbow / gradient).
-            x = cursor_pos
+            #
+            # HiresFont gotcha: `_draw_hires_text` returns advance in
+            # logical px (ceil-divided by scale per char). Accumulating
+            # those rounds up at every char and drifts past the
+            # holistic `get_text_width` measurement (which ceil-divides
+            # ONCE on the real-px total). The drift breaks scroll
+            # detection: the widget reports cursor_pos = sum-of-ceils
+            # which can be > canvas.width even though the text actually
+            # fits in real px (or vice versa). Track the cursor in real
+            # px for HiresFont and ceil once at the end so the returned
+            # cursor_pos matches the holistic measurement.
+            #
+            # Gradient + Typewriter interaction: `total = len(visible_text)`
+            # uses the slice length, so a Gradient compresses on the
+            # first frame and stretches as Typewriter reveals more chars.
+            # Final state matches the full-text gradient.
+            from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
+
             total = len(visible_text)
-            for i, char in enumerate(visible_text):
-                color = provider.color_for(self._frame_count, i, total)
-                x += draw_text(canvas, self.font, x, baseline_y + y_offset, color, char)
-            cursor_pos = x
+            scale = getattr(canvas, "scale", 1) or 1
+            if isinstance(self.font, _HiresFont):
+                # Track real-px cursor; convert to logical for draw_text
+                # at each char. Single ceil-divide for the final return
+                # value matches `get_text_width`'s rounding.
+                fallback = self.font.glyphs.get("?")
+                fallback_advance = fallback.advance if fallback else 0
+                x_real = cursor_pos * scale
+                for i, char in enumerate(visible_text):
+                    color = provider.color_for(self._frame_count, i, total)
+                    glyph = self.font.glyphs.get(char)
+                    real_advance = glyph.advance if glyph else fallback_advance
+                    x_logical = x_real // scale
+                    draw_text(
+                        canvas,
+                        self.font,
+                        x_logical,
+                        baseline_y + y_offset,
+                        color,
+                        char,
+                    )
+                    x_real += real_advance
+                cursor_pos = -(-x_real // scale)  # ceil-divide once
+            else:
+                # BDF: per-char advance is already logical (no scale-
+                # dependent rounding), so the simple sum is correct.
+                x = cursor_pos
+                for i, char in enumerate(visible_text):
+                    color = provider.color_for(self._frame_count, i, total)
+                    x += draw_text(
+                        canvas,
+                        self.font,
+                        x,
+                        baseline_y + y_offset,
+                        color,
+                        char,
+                    )
+                cursor_pos = x
         else:
             color = provider.color_for(self._frame_count, 0, len(visible_text))
             cursor_pos += draw_text(

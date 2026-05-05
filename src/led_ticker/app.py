@@ -53,7 +53,12 @@ _COLOR_KEYS: set[str] = {
 # Keys that are text/foreground colors and should be coerced to
 # ColorProvider instances. Background color keys remain raw
 # graphics.Color (they drive SetPixel fills, not per-frame text draws).
-_PROVIDER_COLOR_KEYS: set[str] = {"font_color", "top_color", "bottom_color"}
+_PROVIDER_COLOR_KEYS: set[str] = {
+    "font_color",
+    "top_color",
+    "bottom_color",
+    "font_color_temp",
+}
 
 # Keys that remain raw graphics.Color objects (background fills, title
 # color, segment color for MLB/weather). Kept as Color so widget code
@@ -229,9 +234,10 @@ def _coerce_animation(value: Any) -> Any:
 def _coerce_widget_colors(cfg: dict[str, Any]) -> None:
     """In-place convert color keys to ColorProvider instances or raw Colors.
 
-    - `_PROVIDER_COLOR_KEYS` (font_color, top_color, bottom_color): coerced
-      to ColorProvider instances. Constant [r,g,b] lists get wrapped in
-      _ConstantColor so all downstream widget code is uniform — widgets
+    - `_PROVIDER_COLOR_KEYS` (font_color, top_color, bottom_color,
+      font_color_temp): coerced to ColorProvider instances. Constant
+      [r,g,b] lists get wrapped in _ConstantColor so all downstream
+      widget code is uniform — widgets
       call `provider.color_for(...)` regardless of source shape.
     - `_RAW_COLOR_KEYS` (bg_color, color, …): coerced to raw graphics.Color.
       These are used for SetPixel fills / background rectangles, not

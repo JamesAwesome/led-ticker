@@ -8,7 +8,7 @@
 #   1. Static text + offset gif    — Pikachu pinned LEFT, "PIKACHU!" on the right
 #   2. Scroll UNDER (transparent)  — marquee walks behind transparent Pikachu
 #   3. Scroll OVER (knockout)      — black (LED-off) marquee cuts out of pride flag
-#   4. Emoji + chunky text         — :heart: HAPPY PRIDE :heart: at text_scale=4
+#   4. Emoji + chunky text         — :heart: HAPPY PRIDE :heart: at font_size=48
 #   5. Animated WebP + scroll-over — kpop-dance.webp + class signup pitch
 #   6. Title + gif (mode = "swap") — "HELLO!" title → static text + transparent gif
 #
@@ -58,10 +58,10 @@ between_sections = "dissolve"
 #
 # Text size: explicit `font = "Inter-Bold"` + `font_size = 24` keeps
 # "PIKACHU!" sharp at ~24 real px tall × ~110 wide — sits cleanly in
-# the right pillar. With default BDF on bigsign, `text_scale = 1`
-# now means panel-scale (= the section's logical scale = 4), which
-# would render "PIKACHU!" at ~192 wide and bleed into Pikachu's body.
-# To get tiny native-12-px text on bigsign, opt in via HiresFont with
+# the right pillar. With default BDF on bigsign, omitting `font_size`
+# defaults to panel-scale (cell_h × _logical_scale = 48), which would
+# render "PIKACHU!" at ~192 wide and bleed into Pikachu's body. To get
+# tiny native-12-px text on bigsign, opt in via HiresFont with
 # `font_size = 12`.
 # ---------------------------------------------------------------------------
 
@@ -118,8 +118,8 @@ text_loops = 2  # don't transition until the marquee has crossed twice
 # `pride_trans.gif` filling the panel + `text_align = "scroll_over"`
 # (gif first, text on top). font_color = (0, 0, 0) writes pure black,
 # which on LEDs is just OFF — so the marquee letters read as a
-# knockout cutout through the bright flag stripes. text_scale = 2
-# makes the cutout fat enough to read at distance.
+# knockout cutout through the bright flag stripes. font_size = 24
+# (BDF 6×12 cell × 2) makes the cutout fat enough to read at distance.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -135,7 +135,7 @@ fit = "stretch"
 text = "TRANS RIGHTS ARE HUMAN RIGHTS"
 text_align = "scroll_over"
 font_color = [0, 0, 0]
-text_scale = 2
+font_size = 24
 scroll_speed_ms = 50
 
 # ---------------------------------------------------------------------------
@@ -143,8 +143,9 @@ scroll_speed_ms = 50
 #
 # pride.gif backdrop with white ":heart: HAPPY PRIDE :heart:" scrolling
 # over it. `:slug:` tokens render as inline pixel-art sprites (not as
-# literal text); `text_scale = 4` block-expands each glyph pixel so
-# text fills ~75% of panel height — readable from across a room.
+# literal text); `font_size = 48` block-expands each glyph pixel (BDF
+# 6×12 cell × 4) so text fills ~75% of panel height — readable from
+# across a room.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -160,7 +161,7 @@ fit = "stretch"
 text = ":heart: HAPPY PRIDE :heart:"
 text_align = "scroll_over"
 font_color = [255, 255, 255]
-text_scale = 4
+font_size = 48
 scroll_speed_ms = 50
 
 # ---------------------------------------------------------------------------
@@ -189,7 +190,7 @@ fit = "pillarbox"
 text = "Sign up for our new K-Pop Dance Class!"
 text_align = "scroll_over"
 font_color = [255, 100, 200]  # hot pink — K-pop palette
-text_scale = 2
+font_size = 24
 scroll_speed_ms = 50
 text_loops = 1
 

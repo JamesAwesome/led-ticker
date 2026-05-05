@@ -186,7 +186,7 @@ fit = "stretch"
 text = ":moon: GOOD NIGHT :moon:"
 text_align = "scroll_over"
 font_color = [255, 255, 255]
-text_scale = 4
+font_size = 48
 scroll_speed_ms = 50
 text_loops = 1
 
@@ -194,7 +194,7 @@ text_loops = 1
 # Section 8 — knockout text on heart backdrop
 #
 # font_color = (0, 0, 0) writes pure black, which on LEDs is just OFF —
-# letters cut a "knockout" through the heart-tunnel image. text_scale=2
+# letters cut a "knockout" through the heart-tunnel image. font_size=24
 # keeps the cutout fat enough to read at distance.
 # ---------------------------------------------------------------------------
 
@@ -211,7 +211,7 @@ fit = "stretch"
 text = "LOVE YOU"
 text_align = "scroll_over"
 font_color = [0, 0, 0]
-text_scale = 2
+font_size = 24
 scroll_speed_ms = 50
 text_loops = 1
 
@@ -269,7 +269,7 @@ text_valign = "top"
 text_y_offset = -2
 scroll_direction = "right"
 font_color = [255, 255, 255]
-text_scale = 2
+font_size = 24
 scroll_speed_ms = 50
 text_loops = 1
 
@@ -298,5 +298,5 @@ text = "BIG BUNNY"
 text_align = "left"     # caption in the left pillar
 text_x_offset = 12      # nudge it 12px in from the panel edge for breathing room
 font_color = [255, 220, 50]
-text_scale = 2
+font_size = 24
 hold_seconds = 5.0

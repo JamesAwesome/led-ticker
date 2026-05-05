@@ -535,14 +535,26 @@ Edit `src/led_ticker/widgets/_image_base.py`. Find the section in `_play_with_te
 Replace with:
 
 ```python
-        # Resolve the user-facing font_size (smart default for BDF on
-        # bigsign; HiresFont's natural size otherwise). Convert to an
-        # integer block scale for the ScaledCanvas wrap. For HiresFont
-        # this is always 1 (rasterizer handled size at construction);
-        # for BDF it's font_size // cell_h, rounded down.
+        # Resolve the wrap scale. Two concerns share this knob:
+        #   - BDF glyph size: the wrapper block-expands BDF cells by
+        #     `wrap_scale`, so it must equal `block_scale_for_font_size`.
+        #   - Hi-res emoji gate: `pixel_emoji.draw_with_emoji` checks
+        #     `isinstance(canvas, ScaledCanvas)` to decide whether to
+        #     paint hires sprites. Any wrap > 1 satisfies it.
+        # For BDF: `block_scale` handles both (wraps the cell to match
+        # font_size; emoji gate fires if scale > 1).
+        # For HiresFont: glyphs paint to the unwrapped real canvas via
+        # `_draw_hires_text` regardless of wrap; `block_scale` is always
+        # 1 (no glyph effect). Wrap at `_logical_scale` so the emoji
+        # gate fires on bigsign — that's the whole point of this path.
         font_size = self._resolved_font_size()
         block_scale = block_scale_for_font_size(self.font, font_size)
-        text_canvas: Canvas = self._wrap_for_text(canvas, block_scale)
+        wrap_scale = (
+            self._logical_scale
+            if isinstance(self.font, _HiresFont)
+            else block_scale
+        )
+        text_canvas: Canvas = self._wrap_for_text(canvas, wrap_scale)
 ```
 
 Add `block_scale_for_font_size` to the imports near the top of the file. Find:
@@ -589,6 +601,8 @@ Update to use the new vocabulary:
                 f"Reduce font_size or use a taller panel."
             )
 ```
+
+**NOTE for the implementer:** existing tests in `tests/test_widgets/test_gif.py` and `tests/test_widgets/test_still.py` that pass `text_scale=2` to widgets and assert wrap-scale behavior become invalid in this task — `_play_with_text` no longer reads `text_scale`. Update those tests to either: (a) drop `text_scale=2` and explicitly set `widget._logical_scale = 4` to simulate bigsign, OR (b) leave them with `text_scale=2` and update the assertion to expect the smart-default path (block_scale derived from `_resolved_font_size`). The expedient choice is (a). The corollary test updates are part of T3.
 
 - [ ] **Step 4: Run new tests to verify they pass**
 

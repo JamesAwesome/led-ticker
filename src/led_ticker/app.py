@@ -14,10 +14,6 @@ import aiohttp
 from led_ticker.colors import RANDOM_COLOR
 from led_ticker.config import load_config
 from led_ticker.frame import LedFrame
-from led_ticker.presentation import (
-    WidgetPresenter,
-    get_presentation_class,
-)
 from led_ticker.ticker import Ticker, _maybe_wrap
 from led_ticker.transitions import get_transition_class, run_transition
 from led_ticker.widgets import get_widget_class
@@ -54,26 +50,222 @@ _COLOR_KEYS: set[str] = {
     "bottom_bg_color",
 }
 
+# Keys that are text/foreground colors and should be coerced to
+# ColorProvider instances. Background color keys remain raw
+# graphics.Color (they drive SetPixel fills, not per-frame text draws).
+_PROVIDER_COLOR_KEYS: set[str] = {"font_color", "top_color", "bottom_color"}
+
+# Keys that remain raw graphics.Color objects (background fills, title
+# color, segment color for MLB/weather). Kept as Color so widget code
+# that does `.red` / `SetPixel(x, y, c.red, c.green, c.blue)` keeps
+# working unchanged while provider integration rolls out.
+_RAW_COLOR_KEYS: set[str] = _COLOR_KEYS - _PROVIDER_COLOR_KEYS
+
+
+def _coerce_color_provider(value: Any) -> Any:
+    """Convert a TOML color spec to a ColorProvider instance.
+
+    Accepts:
+    - `[r, g, b]` / `(r, g, b)` → `_ConstantColor(graphics.Color(...))`
+    - `"random"` → `Random()`
+    - `"rainbow"` / `"color_cycle"` → corresponding provider with defaults
+    - `{style = "...", ...kwargs}` → named provider with kwargs
+    - already a Color (graphics.Color) → wrap in `_ConstantColor`
+    - already a ColorProvider → returned as-is
+    - None → None (caller decides default)
+
+    Raises ValueError on unknown strings, unknown styles, missing
+    required kwargs, or unknown kwargs.
+    """
+    from led_ticker.color_providers import _ConstantColor
+
+    if value is None:
+        return None
+
+    # Already a provider — pass through
+    if hasattr(value, "color_for") and hasattr(value, "per_char"):
+        return value
+
+    # Already a graphics.Color — wrap
+    from led_ticker._compat import require_graphics
+
+    graphics = require_graphics()
+    if isinstance(value, graphics.Color):
+        return _ConstantColor(value)
+
+    # `[r, g, b]` list/tuple → wrap as constant
+    if isinstance(value, list | tuple) and len(value) == 3:
+        return _ConstantColor(graphics.Color(*value))
+
+    # String shorthand
+    if isinstance(value, str):
+        return _provider_from_style(value, {})
+
+    # Inline table
+    if isinstance(value, dict):
+        if "style" not in value:
+            raise ValueError(
+                f"font_color table requires 'style' key; got {list(value.keys())!r}"
+            )
+        style = value["style"]
+        kwargs = {k: v for k, v in value.items() if k != "style"}
+        return _provider_from_style(style, kwargs)
+
+    raise ValueError(
+        f"font_color must be [r,g,b], 'random'/'rainbow'/'color_cycle', "
+        f"or {{style='...'}}; got {value!r}"
+    )
+
+
+def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
+    """Instantiate a provider by name with kwargs. Validates kwargs
+    against each provider's __init__ signature; raises with a helpful
+    message on unknown styles or missing/unknown kwargs."""
+    from led_ticker.color_providers import (
+        ColorCycle,
+        Gradient,
+        Pulse,
+        Rainbow,
+        Random,
+    )
+
+    registry = {
+        "random": (Random, set()),
+        "rainbow": (Rainbow, {"speed", "char_offset"}),
+        "color_cycle": (ColorCycle, {"speed"}),
+        "pulse": (Pulse, {"base", "duration_frames"}),
+        "gradient": (Gradient, {"from_color", "to_color"}),
+    }
+
+    if style not in registry:
+        raise ValueError(
+            f"unknown font_color style {style!r}; available: "
+            f"{sorted(registry.keys())}"
+        )
+
+    cls, allowed_kwargs = registry[style]
+
+    # Special-case translation: TOML uses `from` / `to` (Pythonic
+    # reserved words avoided), but provider takes from_color/to_color.
+    # Coerce values to graphics.Color while we're at it.
+    from led_ticker._compat import require_graphics
+
+    graphics = require_graphics()
+    if style == "gradient":
+        from_val = kwargs.pop("from", None) or kwargs.pop("from_color", None)
+        to_val = kwargs.pop("to", None) or kwargs.pop("to_color", None)
+        if from_val is None or to_val is None:
+            raise ValueError(
+                "font_color style 'gradient' requires 'from' and 'to': "
+                "font_color = {style='gradient', from=[r,g,b], to=[r,g,b]}"
+            )
+        kwargs["from_color"] = graphics.Color(*from_val)
+        kwargs["to_color"] = graphics.Color(*to_val)
+
+    # Pulse: convert base list to graphics.Color
+    if style == "pulse":
+        base_val = kwargs.get("base")
+        if base_val is None:
+            raise ValueError(
+                "font_color style 'pulse' requires 'base': "
+                "font_color = {style='pulse', base=[r,g,b]}"
+            )
+        if isinstance(base_val, list | tuple):
+            kwargs["base"] = graphics.Color(*base_val)
+
+    unknown = set(kwargs.keys()) - allowed_kwargs
+    if unknown:
+        raise ValueError(
+            f"font_color style {style!r} got unknown keys {sorted(unknown)!r}; "
+            f"allowed: {sorted(allowed_kwargs)}"
+        )
+    return cls(**kwargs)
+
 
 def _coerce_color(value: Any) -> Any:
-    """Convert an `[r, g, b]` TOML list to a `graphics.Color` object.
-
-    Lets configs say `font_color = [255, 150, 190]` instead of forcing
-    callers to construct a Color object themselves. Strings ("random")
-    and existing Color objects pass through unchanged.
+    """Backwards-compat shim: defers to _coerce_color_provider for
+    new uses. Kept so any out-of-tree caller doesn't immediately break.
     """
-    if isinstance(value, list | tuple) and len(value) == 3:
-        from led_ticker._compat import require_graphics
+    return _coerce_color_provider(value)
 
-        return require_graphics().Color(*value)
-    return value
+
+def _coerce_animation(value: Any) -> Any:
+    """Convert a TOML animation spec to an Animation instance.
+
+    Accepts:
+    - `"typewriter"` / `"bounce"` (string) → instance with defaults
+    - `{style = "...", ...}` (dict) → instance with kwargs
+    - already an Animation → returned as-is
+
+    Raises ValueError on unknown names or unknown kwargs.
+    """
+    from led_ticker.animations import Bounce, Typewriter
+
+    if hasattr(value, "frame_for"):
+        return value
+
+    registry = {
+        "typewriter": (Typewriter, {"chars_per_frame"}),
+        "bounce": (Bounce, {"hold_frames", "scroll_frames"}),
+    }
+
+    if isinstance(value, str):
+        if value not in registry:
+            raise ValueError(
+                f"unknown animation {value!r}; available: "
+                f"{sorted(registry.keys())}"
+            )
+        cls, _allowed = registry[value]
+        return cls()
+
+    if isinstance(value, dict):
+        if "style" not in value:
+            raise ValueError(
+                f"animation table requires 'style' key; got {list(value.keys())!r}"
+            )
+        style = value["style"]
+        if style not in registry:
+            raise ValueError(
+                f"unknown animation {style!r}; available: "
+                f"{sorted(registry.keys())}"
+            )
+        cls, allowed = registry[style]
+        kwargs = {k: v for k, v in value.items() if k != "style"}
+        unknown = set(kwargs.keys()) - allowed
+        if unknown:
+            raise ValueError(
+                f"animation {style!r} got unknown keys {sorted(unknown)!r}; "
+                f"allowed: {sorted(allowed)}"
+            )
+        return cls(**kwargs)
+
+    raise ValueError(
+        f"animation must be a string or table; got {type(value).__name__}"
+    )
 
 
 def _coerce_widget_colors(cfg: dict[str, Any]) -> None:
-    """In-place convert known color keys from RGB lists to graphics.Color."""
-    for key in _COLOR_KEYS:
+    """In-place convert color keys to ColorProvider instances or raw Colors.
+
+    - `_PROVIDER_COLOR_KEYS` (font_color, top_color, bottom_color): coerced
+      to ColorProvider instances. Constant [r,g,b] lists get wrapped in
+      _ConstantColor so all downstream widget code is uniform — widgets
+      call `provider.color_for(...)` regardless of source shape.
+    - `_RAW_COLOR_KEYS` (bg_color, color, …): coerced to raw graphics.Color.
+      These are used for SetPixel fills / background rectangles, not
+      per-frame text draws.
+    """
+    from led_ticker._compat import require_graphics
+
+    graphics = require_graphics()
+
+    for key in _PROVIDER_COLOR_KEYS:
         if key in cfg:
-            cfg[key] = _coerce_color(cfg[key])
+            cfg[key] = _coerce_color_provider(cfg[key])
+
+    for key in _RAW_COLOR_KEYS:
+        if key in cfg and isinstance(cfg[key], list | tuple) and len(cfg[key]) == 3:
+            cfg[key] = graphics.Color(*cfg[key])
 
 
 def _is_hires_font_name(name: str) -> bool:
@@ -123,8 +315,38 @@ async def _build_widget(
             "For BDF 5×8: font_size = N × 8."
         )
 
+    # Migration check: presentation = "..." was the wrapper-based effect
+    # knob. Replaced by font_color (color effects) + animation
+    # (typewriter/bounce on TickerMessage). Loud failure here catches
+    # stale TOMLs at load time.
+    if "presentation" in widget_cfg:
+        raise ValueError(
+            "presentation removed in favor of font_color (color effects) + "
+            "animation (typewriter/bounce on TickerMessage). Migration:\n"
+            "  presentation = 'typewriter'  → animation = 'typewriter' "
+            "(type='message' only)\n"
+            "  presentation = 'bounce'      → animation = 'bounce' "
+            "(type='message' only)\n"
+            "  presentation = 'rainbow'     → font_color = 'rainbow'\n"
+            "  presentation = 'color_cycle' → font_color = 'color_cycle'\n"
+            "  presentation = 'pulse'       → "
+            "font_color = {style='pulse', base=[your existing font_color]}"
+        )
+
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)
+
+    # Animation field (TickerMessage-only). Pop before construction so
+    # it doesn't reach the widget constructor as an unknown kwarg.
+    animation_value = widget_cfg.pop("animation", None)
+    if animation_value is not None and widget_type != "message":
+        raise ValueError(
+            f"animation is only valid on type=\"message\"; got "
+            f"type={widget_type!r}. For color effects on other widgets, "
+            f"use font_color = 'rainbow' (or similar)."
+        )
+    if animation_value is not None:
+        widget_cfg["animation"] = _coerce_animation(animation_value)
 
     # Inject section default before color coercion runs. Skip when the
     # widget already specified bg_color (widget-level wins).
@@ -229,22 +451,15 @@ async def _build_widget(
         if not candidate.is_absolute():
             widget_cfg["path"] = str((config_dir / candidate).resolve())
 
-    # Convert any [r, g, b] lists in known color keys to graphics.Color.
+    # Convert color keys (font_color, top_color, bottom_color) to
+    # ColorProvider instances. Constant [r,g,b] lists get wrapped in
+    # _ConstantColor so all downstream widget code is uniform.
     _coerce_widget_colors(widget_cfg)
-
-    # Extract presentation config before passing to widget
-    presentation_name = widget_cfg.pop("presentation", None)
-    widget_cfg.pop("presentation_speed", None)
 
     if hasattr(cls, "start"):
         widget = await cls.start(session=session, **widget_cfg)
     else:
         widget = cls(**widget_cfg)
-
-    # Wrap with presentation mode if configured
-    if presentation_name:
-        pres_cls = get_presentation_class(presentation_name)
-        widget = WidgetPresenter(widget, pres_cls())
 
     return widget
 
@@ -257,9 +472,14 @@ async def _build_title(title_cfg: dict[str, Any] | None) -> TickerMessage | None
     color = title_cfg.get("color")
     if color == "random":
         font_color = next(RANDOM_COLOR)
+    elif isinstance(color, list | tuple) and len(color) == 3:
+        from led_ticker._compat import require_graphics
+
+        font_color = require_graphics().Color(*color)
+    elif color is not None:
+        font_color = color
     else:
-        coerced = _coerce_color(color)
-        font_color = coerced if coerced is not None else None
+        font_color = None
     kwargs: dict[str, Any] = {"message": text}
     if font_color is not None:
         kwargs["font_color"] = font_color

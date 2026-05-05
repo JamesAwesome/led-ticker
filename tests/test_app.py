@@ -172,27 +172,37 @@ class TestBuildTitle:
 class TestColorCoercion:
     """Regression: configs can specify per-widget RGB colors as TOML
     arrays like `font_color = [255, 150, 190]`. Without coercion the
-    widget would receive a Python list and the rasterizer would fail
-    on `.red` attribute access (or `(r, g, b)` unpack at the wrong
-    granularity).
+    widget would receive a Python list and the rasterizer would fail.
+
+    font_color is now coerced to a ColorProvider (_ConstantColor wrapping
+    a graphics.Color). Background colors (bg_color etc.) remain raw
+    graphics.Color objects since they drive SetPixel fills.
     """
 
-    async def test_widget_font_color_rgb_list_coerced_to_color(self):
+    async def test_widget_font_color_rgb_list_coerced_to_provider(self):
+        from led_ticker.color_providers import _ConstantColor
+
         cfg = {"type": "message", "text": "Hi", "font_color": [255, 150, 190]}
         widget = await _build_widget(cfg, session=mock.Mock())
-        assert widget.font_color.red == 255
-        assert widget.font_color.green == 150
-        assert widget.font_color.blue == 190
+        assert isinstance(widget.font_color, _ConstantColor)
+        # Verify the wrapped color has the expected values.
+        color = widget.font_color.color_for(0, 0, 1)
+        assert color.red == 255
+        assert color.green == 150
+        assert color.blue == 190
 
     async def test_widget_font_color_tuple_coerced(self):
+        from led_ticker.color_providers import _ConstantColor
+
         cfg = {"type": "message", "text": "Hi", "font_color": (180, 140, 230)}
         widget = await _build_widget(cfg, session=mock.Mock())
-        assert widget.font_color.red == 180
+        assert isinstance(widget.font_color, _ConstantColor)
+        assert widget.font_color.color_for(0, 0, 1).red == 180
 
     async def test_widget_font_color_omitted_uses_default(self):
         cfg = {"type": "message", "text": "Hi"}
         widget = await _build_widget(cfg, session=mock.Mock())
-        # Default is DEFAULT_COLOR (yellow); just verify it's a Color object.
+        # Default is DEFAULT_COLOR (yellow); verify it's a Color-like object.
         assert hasattr(widget.font_color, "red")
 
 
@@ -265,11 +275,12 @@ class TestExampleConfigWidgets:
                 widget = await _build_widget(cfg, session=mock.Mock())
                 assert isinstance(widget, TickerMessage | TwoRowMessage)
                 if isinstance(widget, TickerMessage):
-                    assert hasattr(widget.font_color, "red")
+                    # font_color is now a ColorProvider (has color_for)
+                    assert hasattr(widget.font_color, "color_for")
                 else:
-                    # two_row carries top_color + bottom_color separately
-                    assert hasattr(widget.top_color, "red")
-                    assert hasattr(widget.bottom_color, "red")
+                    # two_row carries top_color + bottom_color as providers
+                    assert hasattr(widget.top_color, "color_for")
+                    assert hasattr(widget.bottom_color, "color_for")
 
 
 class TestColorKeysExtended:
@@ -779,3 +790,164 @@ class TestFontSizeMigration:
         async with aiohttp.ClientSession() as s:
             with pytest.raises(ValueError, match="HiresFont.*requires top_font_size"):
                 await _build_widget(cfg, s, config_dir=tmp_path)
+
+
+class TestPresentationMigration:
+    """`_build_widget` rejects stale `presentation = "..."` configs
+    with a clear migration mapping. animation field on non-message
+    widgets is also rejected."""
+
+    async def test_presentation_in_config_raises_migration_error(self):
+        import aiohttp
+        import pytest
+
+        from led_ticker.app import _build_widget
+
+        cfg = {
+            "type": "message",
+            "text": "hi",
+            "presentation": "rainbow",
+        }
+        async with aiohttp.ClientSession() as s:
+            with pytest.raises(ValueError, match="presentation removed"):
+                await _build_widget(cfg, session=s)
+
+    async def test_migration_message_includes_mapping_table(self):
+        import aiohttp
+        import pytest
+
+        from led_ticker.app import _build_widget
+
+        cfg = {"type": "message", "text": "hi", "presentation": "typewriter"}
+        async with aiohttp.ClientSession() as s:
+            with pytest.raises(ValueError) as exc:
+                await _build_widget(cfg, session=s)
+
+        msg = str(exc.value)
+        assert "animation" in msg
+        assert "font_color" in msg
+        assert "rainbow" in msg
+        assert "typewriter" in msg
+
+    async def test_animation_on_weather_raises(self, tmp_path):
+        import aiohttp
+        import pytest
+
+        from led_ticker.app import _build_widget
+
+        cfg = {
+            "type": "weather",
+            "message": "NYC",
+            "location": "NYC",
+            "animation": "typewriter",
+        }
+        async with aiohttp.ClientSession() as s:
+            with pytest.raises(ValueError, match='only valid on type="message"'):
+                await _build_widget(cfg, session=s)
+
+    async def test_animation_on_message_succeeds(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.animations import Typewriter
+
+        cfg = {"type": "message", "text": "hi", "animation": "typewriter"}
+        async with aiohttp.ClientSession() as s:
+            widget = await _build_widget(cfg, session=s)
+        assert isinstance(widget.animation, Typewriter)
+
+
+class TestColorProviderCoercion:
+    """`font_color` accepts list (constant), 'random', 'rainbow' /
+    'color_cycle' (provider strings), or {style = "...", ...} tables."""
+
+    async def test_list_becomes_constant_color(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.color_providers import _ConstantColor
+
+        cfg = {"type": "message", "text": "hi", "font_color": [255, 0, 0]}
+        async with aiohttp.ClientSession() as s:
+            widget = await _build_widget(cfg, session=s)
+        assert isinstance(widget.font_color, _ConstantColor)
+
+    async def test_string_rainbow_becomes_rainbow_provider(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.color_providers import Rainbow
+
+        cfg = {"type": "message", "text": "hi", "font_color": "rainbow"}
+        async with aiohttp.ClientSession() as s:
+            widget = await _build_widget(cfg, session=s)
+        assert isinstance(widget.font_color, Rainbow)
+
+    async def test_table_with_style_and_kwargs(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.color_providers import Rainbow
+
+        cfg = {
+            "type": "message",
+            "text": "hi",
+            "font_color": {"style": "rainbow", "speed": 16},
+        }
+        async with aiohttp.ClientSession() as s:
+            widget = await _build_widget(cfg, session=s)
+        assert isinstance(widget.font_color, Rainbow)
+        assert widget.font_color.speed == 16
+
+    async def test_pulse_table_with_base(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.color_providers import Pulse
+
+        cfg = {
+            "type": "message",
+            "text": "hi",
+            "font_color": {"style": "pulse", "base": [50, 100, 150]},
+        }
+        async with aiohttp.ClientSession() as s:
+            widget = await _build_widget(cfg, session=s)
+        assert isinstance(widget.font_color, Pulse)
+        assert widget.font_color._base.red == 50
+
+    async def test_pulse_without_base_raises(self):
+        import aiohttp
+        import pytest
+
+        from led_ticker.app import _build_widget
+
+        cfg = {
+            "type": "message",
+            "text": "hi",
+            "font_color": {"style": "pulse"},
+        }
+        async with aiohttp.ClientSession() as s:
+            with pytest.raises(ValueError, match="pulse.*base"):
+                await _build_widget(cfg, session=s)
+
+    async def test_unknown_style_string_raises(self):
+        import aiohttp
+        import pytest
+
+        from led_ticker.app import _build_widget
+
+        cfg = {"type": "message", "text": "hi", "font_color": "unknownstyle"}
+        async with aiohttp.ClientSession() as s:
+            with pytest.raises(ValueError, match="unknown.*style"):
+                await _build_widget(cfg, session=s)
+
+    async def test_random_string_becomes_random_provider(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.color_providers import Random
+
+        cfg = {"type": "message", "text": "hi", "font_color": "random"}
+        async with aiohttp.ClientSession() as s:
+            widget = await _build_widget(cfg, session=s)
+        assert isinstance(widget.font_color, Random)

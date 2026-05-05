@@ -76,24 +76,38 @@ class UnknownFontError(ValueError):
 
 
 def resolve_font(
-    name: str, size: int = DEFAULT_HIRES_SIZE, threshold: int | None = None
+    name: str, size: int | None = None, threshold: int | None = None
 ) -> Font | HiresFont:
     """Resolve a TOML font name to a loaded font object.
 
     Resolution order:
-      1. Hi-res fonts (config/fonts/ overrides bundled fonts/hires/).
-      2. BDF aliases (`6x12`, `5x8`, etc.).
+      1. BDF aliases (`6x12`, `5x8`, etc.) — size is irrelevant for BDF.
+      2. Hi-res fonts (config/fonts/ overrides bundled fonts/hires/).
       3. Raise `UnknownFontError`.
 
     `size` is only meaningful for hi-res fonts; BDF aliases ignore it.
+    Pass `size=None` for BDF configs (smart default kicks in at paint).
+    For HiresFont, `size` is required — the rasterizer needs a real-px
+    target and there is no sensible default.
     `threshold` (0-255) is the rasterization cutoff for hi-res fonts;
     `None` uses the loader default (128 = 50%). Lower it (~80) for
     thin-stroked fonts whose antialiased edges otherwise get clipped.
     Ignored for BDF.
 
     Raises `ValueError` if `size < 8` (glyphs unreadable below that),
-    if `threshold` isn't an int, or if it's outside 0-255.
+    if `size` is None for a HiresFont name, if `threshold` isn't an
+    int, or if it's outside 0-255.
     """
+    # BDF first — cells are fixed by the .bdf file, size is irrelevant
+    # there. This also lets the caller pass `size=None` for BDF without
+    # tripping the `size < 8` legibility check.
+    if name in _BDF_ALIASES:
+        return _BDF_ALIASES[name]
+
+    # HiresFont path — size is required (rasterizer needs a real-px
+    # target).
+    if size is None:
+        raise ValueError(f"HiresFont {name!r} requires a size (real pixels).")
     if size < 8:
         raise ValueError(f"font_size must be >= 8 for legible rendering; got {size}")
     if threshold is not None:
@@ -115,8 +129,6 @@ def resolve_font(
     hires = load_hires_font(name, size, effective)
     if hires is not None:
         return hires
-    if name in _BDF_ALIASES:
-        return _BDF_ALIASES[name]
     available = list_available_fonts()
     raise UnknownFontError(f"unknown font {name!r}; available: {available}")
 

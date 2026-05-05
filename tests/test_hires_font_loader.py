@@ -281,7 +281,7 @@ class TestResolveFont:
         from led_ticker.fonts import UnknownFontError, resolve_font
 
         try:
-            resolve_font("totally-not-a-real-font")
+            resolve_font("totally-not-a-real-font", size=24)
         except UnknownFontError as e:
             assert "totally-not-a-real-font" in str(e)
             # Error message should list available names.
@@ -290,13 +290,16 @@ class TestResolveFont:
             return
         raise AssertionError("expected UnknownFontError")
 
-    def test_default_size_used_when_size_omitted(self):
-        from led_ticker.fonts import DEFAULT_HIRES_SIZE, resolve_font
-        from led_ticker.fonts.hires_loader import HiresFont
+    def test_resolve_font_hires_without_size_raises(self):
+        """HiresFont requires explicit size at resolve time — the
+        rasterizer needs a real-px target and silent fallback to
+        DEFAULT_HIRES_SIZE could mismatch the panel."""
+        import pytest
 
-        font = resolve_font("Inter-Regular")
-        assert isinstance(font, HiresFont)
-        assert font.size == DEFAULT_HIRES_SIZE
+        from led_ticker.fonts import resolve_font
+
+        with pytest.raises(ValueError, match="requires a size"):
+            resolve_font("Inter-Regular")
 
     def test_raises_for_size_below_8(self):
         """font_size < 8 produces unreadable glyphs — reject at resolve time."""

@@ -390,6 +390,7 @@ class TestBuildWidgetFontResolution:
                 "type": "message",
                 "text": "hi",
                 "font": "totally-not-a-font",
+                "font_size": 24,
             }
             try:
                 await _build_widget(widget_cfg, session)
@@ -399,12 +400,14 @@ class TestBuildWidgetFontResolution:
             raise AssertionError("expected UnknownFontError")
 
     @pytest.mark.asyncio
-    async def test_default_size_when_font_size_omitted(self):
+    async def test_hires_without_font_size_raises(self):
+        """HiresFont in a TOML widget config without explicit
+        font_size raises with the size-hint error message — caught at
+        config-load via `_is_hires_font_name`."""
         import aiohttp
+        import pytest
 
         from led_ticker.app import _build_widget
-        from led_ticker.fonts import DEFAULT_HIRES_SIZE
-        from led_ticker.fonts.hires_loader import HiresFont
 
         async with aiohttp.ClientSession() as session:
             widget_cfg = {
@@ -413,9 +416,8 @@ class TestBuildWidgetFontResolution:
                 "font": "Inter-Regular",
                 # no font_size
             }
-            widget = await _build_widget(widget_cfg, session)
-        assert isinstance(widget.font, HiresFont)
-        assert widget.font.size == DEFAULT_HIRES_SIZE
+            with pytest.raises(ValueError, match="HiresFont.*requires font_size"):
+                await _build_widget(widget_cfg, session)
 
     @pytest.mark.asyncio
     async def test_font_threshold_plumbed_through_to_rasterizer(self):
@@ -691,3 +693,57 @@ class TestFontSizeMigration:
         assert "font_size" in msg
         assert "cell_h" in msg or "cell height" in msg
         assert "× 12" in msg or "* 12" in msg or "12" in msg
+
+    @pytest.mark.asyncio
+    async def test_hires_font_without_font_size_raises(self, tmp_path):
+        """HiresFont (any TTF/OTF name resolved to a HiresFont) requires
+        explicit `font_size` — the rasterizer needs a real-px target.
+        BDF fonts get the smart default, but HiresFont cannot."""
+        import aiohttp
+        import pytest
+        from PIL import Image
+
+        from led_ticker.app import _build_widget
+
+        gif_path = tmp_path / "tiny.gif"
+        Image.new("RGB", (4, 4)).save(gif_path, format="GIF")
+
+        cfg = {
+            "type": "gif",
+            "path": str(gif_path),
+            "fit": "stretch",
+            "text": "hi",
+            "font": "Inter-Bold",
+            # No font_size!
+        }
+
+        async with aiohttp.ClientSession() as s:
+            with pytest.raises(ValueError, match="HiresFont.*requires font_size"):
+                await _build_widget(cfg, s, config_dir=tmp_path)
+
+    @pytest.mark.asyncio
+    async def test_bdf_without_font_size_succeeds(self, tmp_path):
+        """BDF font without font_size is the natural case — smart
+        default kicks in at first paint. _build_widget shouldn't
+        complain."""
+        import aiohttp
+        from PIL import Image
+
+        from led_ticker.app import _build_widget
+
+        gif_path = tmp_path / "tiny.gif"
+        Image.new("RGB", (4, 4)).save(gif_path, format="GIF")
+
+        cfg = {
+            "type": "gif",
+            "path": str(gif_path),
+            "fit": "stretch",
+            "text": "hi",
+            "font": "6x12",
+            # No font_size — should resolve to default BDF, no error.
+        }
+
+        async with aiohttp.ClientSession() as s:
+            widget = await _build_widget(cfg, s, config_dir=tmp_path)
+
+        assert widget.font_size is None  # smart default, not yet resolved

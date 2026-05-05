@@ -189,8 +189,9 @@ path = "assets/kpop-dance.webp"
 fit = "pillarbox"
 text = "Sign up for our new K-Pop Dance Class!"
 text_align = "scroll_over"
-font_color = [255, 100, 200]  # hot pink — K-pop palette
+font = "Inter-Bold"
 font_size = 24
+font_color = [140, 20, 100]  # deep magenta — K-pop palette, dark for contrast
 scroll_speed_ms = 50
 text_loops = 1
 

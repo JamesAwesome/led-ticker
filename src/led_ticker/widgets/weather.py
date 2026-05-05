@@ -34,6 +34,14 @@ class WeatherWidget(_FrameAware):
     units: str = "imperial"
     font: Font = attrs.Factory(lambda: FONT_DEFAULT)
     font_color: Color | ColorProvider = attrs.Factory(lambda: DEFAULT_COLOR)
+    # WeatherWidget keeps two color knobs: `font_color` for the label
+    # (e.g. "Brooklyn:") and `font_color_temp` for the temperature
+    # value (e.g. "64°F"). They're separate so a config can color the
+    # label with an effect (`font_color = "rainbow"`) while keeping
+    # the temp value in a steady high-contrast color (default white).
+    # If you want the temp to also use the effect, set them both:
+    #   font_color = "rainbow"
+    #   font_color_temp = "rainbow"
     font_color_temp: Color | ColorProvider = attrs.Factory(lambda: RGB_WHITE)
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     center: bool = True

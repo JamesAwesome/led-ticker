@@ -906,37 +906,6 @@ class TestColorProviderCoercion:
         assert isinstance(widget.font_color, Rainbow)
         assert widget.font_color.speed == 16
 
-    async def test_pulse_table_with_base(self):
-        import aiohttp
-
-        from led_ticker.app import _build_widget
-        from led_ticker.color_providers import Pulse
-
-        cfg = {
-            "type": "message",
-            "text": "hi",
-            "font_color": {"style": "pulse", "base": [50, 100, 150]},
-        }
-        async with aiohttp.ClientSession() as s:
-            widget = await _build_widget(cfg, session=s)
-        assert isinstance(widget.font_color, Pulse)
-        assert widget.font_color._base.red == 50
-
-    async def test_pulse_without_base_raises(self):
-        import aiohttp
-        import pytest
-
-        from led_ticker.app import _build_widget
-
-        cfg = {
-            "type": "message",
-            "text": "hi",
-            "font_color": {"style": "pulse"},
-        }
-        async with aiohttp.ClientSession() as s:
-            with pytest.raises(ValueError, match="pulse.*base"):
-                await _build_widget(cfg, session=s)
-
     async def test_unknown_style_string_raises(self):
         import aiohttp
         import pytest

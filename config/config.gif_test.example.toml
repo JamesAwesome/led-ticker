@@ -393,17 +393,17 @@ fit = "stretch"
 text = "TRANS RIGHTS ARE HUMAN RIGHTS"
 text_align = "scroll_over"
 font_color = [0, 0, 0]
-text_scale = 2  # bump up so the cutout is actually readable
+font_size = 24  # bump up so the cutout is actually readable
 scroll_speed_ms = 50
 
 # ---------------------------------------------------------------------------
 # Section 15 — chunky text + inline emoji over pride.gif
 #
-# Demonstrates `text_scale = 4` (text painted via a ScaledCanvas wrapper
+# Demonstrates `font_size = 48` (text painted via a ScaledCanvas wrapper
 # at 4× block size, matching the rest of the bigsign's content) PLUS
-# inline `:slug:` emoji rendering. Without text_scale the BDF glyphs
+# inline `:slug:` emoji rendering. Without font_size the BDF glyphs
 # come out at native ~12px tall — barely visible from across a room.
-# With text_scale=4 the same font fills 75% of the panel height.
+# With font_size=48 the same font fills 75% of the panel height.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -419,7 +419,7 @@ fit = "stretch"
 text = ":heart: HAPPY PRIDE :heart:"
 text_align = "scroll_over"
 font_color = [255, 255, 255]
-text_scale = 4
+font_size = 48
 scroll_speed_ms = 50
 
 # ---------------------------------------------------------------------------

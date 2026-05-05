@@ -59,7 +59,8 @@ class TestSwapAndScroll:
         assert result_canvas is canvas
         assert pos == 40
         assert scroll_pos == 0  # no scrolling needed
-        widget.draw.assert_called_once()
+        # Tick loop calls draw multiple times during hold (once per ENGINE_TICK_MS).
+        assert widget.draw.call_count >= 1
 
     async def test_oversized_triggers_scroll(
         self,
@@ -96,8 +97,9 @@ class TestSwapAndScrollOverflow:
     ):
         widget = make_widget(content_width=100)
         await _swap_and_scroll(canvas, mock_frame, widget)
-        # Only drawn once (no scrolling needed)
-        assert widget.draw.call_count == 1
+        # Tick loop calls draw multiple times during the held-text hold;
+        # no scroll draw calls occur since the text fits.
+        assert widget.draw.call_count >= 1
 
     async def test_scroll_stops_at_last_visible_pixel(
         self,
@@ -180,21 +182,25 @@ class TestSwapAndScrollSkipInitialDraw:
         self, canvas, mock_frame, make_widget, no_sleep
     ):
         widget = make_widget(content_width=40)
-        await _swap_and_scroll(canvas, mock_frame, widget, skip_initial_draw=True)
-        # Widget fits — only the initial swap exists in the normal path.
-        # With skip_initial_draw=True, that swap is suppressed → 0 swaps.
-        assert mock_frame.matrix.SwapOnVSync.call_count == 0, (
-            f"skip_initial_draw=True should suppress the initial swap; "
+        await _swap_and_scroll(
+            canvas, mock_frame, widget, skip_initial_draw=True, hold_time=0.05
+        )
+        # skip_initial_draw=True suppresses the initial swap; the tick loop
+        # still runs for the hold. Verify that fewer swaps occurred vs the
+        # default path.  Concrete: hold_time=0.05 → 1 tick → 1 swap (no initial).
+        assert mock_frame.matrix.SwapOnVSync.call_count == 1, (
+            f"skip_initial_draw=True should suppress only the initial swap; "
             f"got {mock_frame.matrix.SwapOnVSync.call_count} swaps."
         )
 
     async def test_default_includes_initial_swap(
         self, canvas, mock_frame, make_widget, no_sleep
     ):
-        # Sanity: default path DOES swap at the start.
+        # Default path includes the initial swap + tick loop swaps.
+        # With hold_time=0.05 → 1 tick → total 2 swaps (initial + 1 tick).
         widget = make_widget(content_width=40)
-        await _swap_and_scroll(canvas, mock_frame, widget)
-        assert mock_frame.matrix.SwapOnVSync.call_count == 1
+        await _swap_and_scroll(canvas, mock_frame, widget, hold_time=0.05)
+        assert mock_frame.matrix.SwapOnVSync.call_count == 2
 
 
 class TestSwapAndScrollContinuous:
@@ -227,6 +233,8 @@ class TestSwapAndScrollContinuous:
     async def test_non_continuous_includes_holds(
         self, canvas, mock_frame, make_widget, monkeypatch
     ):
+        from led_ticker.ticker import ENGINE_TICK_MS
+
         sleep_calls: list[float] = []
         _real_sleep = asyncio.sleep
 
@@ -238,10 +246,22 @@ class TestSwapAndScrollContinuous:
 
         widget = make_widget(content_width=200)
         await _swap_and_scroll(
-            canvas, mock_frame, widget, hold_time=3.0, continuous=False
+            canvas, mock_frame, widget, hold_time=0.1, continuous=False
         )
-        # Two hold_time sleeps for an overflowing widget: pre-scroll, post-scroll.
-        assert sleep_calls.count(3.0) == 2
+        # With the tick loop, hold_time=0.1s produces 2 ticks (max(1, 100//50))
+        # per hold phase, each sleeping ENGINE_TICK_MS/1000 = 0.05s.
+        # For an overflow widget: pre-scroll hold + post-scroll hold → 4 tick sleeps
+        # plus per-pixel scroll sleeps. Verify tick-sized sleeps appear (not the
+        # old bare hold_time sleep).
+        tick_s = ENGINE_TICK_MS / 1000
+        assert tick_s in sleep_calls, (
+            f"Expected tick-sized sleeps ({tick_s}s) in sleep_calls; "
+            f"got {sleep_calls}"
+        )
+        # No single sleep should equal the full hold_time (old bare sleep gone).
+        assert (
+            0.1 not in sleep_calls
+        ), f"hold_time bare sleep must not appear; sleep_calls={sleep_calls}"
 
 
 class TestSwapOnVSyncCapture:
@@ -622,3 +642,137 @@ class TestSwapAndScrollUsesResetCanvas:
 
         canvas.Clear.assert_not_called()
         canvas.Fill.assert_called_with(70, 80, 90)
+
+
+class TestSwapAndScrollEngineTick:
+    """`_swap_and_scroll`'s held-text branch must call `draw +
+    advance_frame` repeatedly during `hold_time` so frame-aware
+    widgets actually animate. The scroll branch must also call
+    advance_frame per tick."""
+
+    @pytest.mark.asyncio
+    async def test_held_text_calls_draw_multiple_times_during_hold(
+        self, swapping_frame
+    ):
+        """Held text → engine ticks at 50ms; draw fires ~hold_time/0.05
+        times. Spy on widget.draw to assert it does."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.ticker import _swap_and_scroll
+
+        class _SpyWidget:
+            def __init__(self):
+                self.draw_calls = 0
+                self.advance_calls = 0
+                self._frame_count = 0
+                self._frame_paused = False
+
+            def draw(self, canvas, cursor_pos=0, **kwargs):
+                self.draw_calls += 1
+                # Return cursor_pos < canvas.width so it stays in held branch
+                return canvas, 5
+
+            def advance_frame(self):
+                self.advance_calls += 1
+                self._frame_count += 1
+
+            def reset_frame(self):
+                self._frame_count = 0
+
+            @property
+            def bg_color(self):
+                return None
+
+        widget = _SpyWidget()
+        canvas = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        # hold_time = 0.5s with tick_ms = 50 → ~10 ticks
+        await _swap_and_scroll(canvas, swapping_frame, widget, hold_time=0.5)
+
+        # Allow some slop; expect roughly 10 draws / advances
+        assert widget.draw_calls >= 8
+        assert widget.advance_calls >= 8
+        assert widget._frame_count >= 8
+
+    @pytest.mark.asyncio
+    async def test_scrolling_text_advances_frame_per_tick(self, swapping_frame):
+        """Scroll branch also calls advance_frame per tick so providers
+        animate during scroll-to-end."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.ticker import _swap_and_scroll
+
+        class _SpyWidget:
+            def __init__(self):
+                self.draw_calls = 0
+                self.advance_calls = 0
+                self._frame_count = 0
+                self._frame_paused = False
+
+            def draw(self, canvas, cursor_pos=0, **kwargs):
+                self.draw_calls += 1
+                # Return cursor_pos > canvas.width to trigger scroll
+                return canvas, 200
+
+            def advance_frame(self):
+                self.advance_calls += 1
+                self._frame_count += 1
+
+            def reset_frame(self):
+                self._frame_count = 0
+
+            @property
+            def bg_color(self):
+                return None
+
+            @property
+            def padding(self):
+                return 0
+
+        widget = _SpyWidget()
+        canvas = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        await _swap_and_scroll(
+            canvas, swapping_frame, widget, hold_time=0.05, scroll_speed=0.001
+        )
+
+        # Should have many draws (one per scroll px) AND advance_frame per tick
+        assert widget.advance_calls > 0
+        assert (
+            widget.advance_calls == widget.draw_calls
+            or widget.advance_calls >= widget.draw_calls - 2
+        )
+
+    @pytest.mark.asyncio
+    async def test_widget_without_advance_frame_method_does_not_crash(
+        self, swapping_frame
+    ):
+        """Older widgets that don't yet have the _FrameAware mixin must
+        not crash _swap_and_scroll. The orchestrator uses hasattr or
+        a duck-type check."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.ticker import _swap_and_scroll
+
+        class _NoAdvance:
+            def draw(self, canvas, cursor_pos=0, **kwargs):
+                return canvas, 5
+
+            @property
+            def bg_color(self):
+                return None
+
+        widget = _NoAdvance()
+        canvas = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        # Should complete without AttributeError
+        await _swap_and_scroll(canvas, swapping_frame, widget, hold_time=0.1)

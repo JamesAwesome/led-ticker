@@ -44,7 +44,8 @@ src/led_ticker/
   colors.py            # RGB color constants (DEFAULT_COLOR, RGB_WHITE,
                        #   UP_TREND_COLOR/DOWN_TREND_COLOR/NEUTRAL_TREND_COLOR
                        #   for crypto/finance widgets, etc.)
-  presentation.py      # Text presentation effects (typewriter, rainbow, etc.)
+  color_providers.py   # ColorProvider base + Rainbow, ColorCycle, Pulse, Gradient, _ConstantColor
+  animations.py        # Animation protocol + Typewriter, Bounce (TickerMessage-only)
   pixel_emoji.py       # Inline pixel-art emoji renderer (:name: in messages)
   fonts/               # BDF bitmap fonts + loader
   transitions/
@@ -69,6 +70,8 @@ src/led_ticker/
     mlb_standings.py    # MLBStandingsMonitor (top N + tracked teams, offseason detection)
     gif.py              # GifPlayer: animated GIFs at native physical resolution
     still.py            # StillImage: single PNG/JPG (mirrors GifPlayer feature surface)
+    _frame_aware.py     # _FrameAwareMixin: frame_count + pause_frame/resume_frame protocol
+    _row_layout.py      # row_layout, aligned_x, resolve_band_heights (shared by TwoRow + image)
     _image_base.py      # _BaseImageWidget: shared text-overlay surface + _play_with_text
     _gif_decode.py      # Pillow-based GIF decoder (animated, with frame-duration logging)
     _image_fit.py       # Canonical fit/alpha/validation primitives (pillarbox/letterbox/stretch/crop)
@@ -209,15 +212,46 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 
 **How wipe transitions work**: Draw outgoing widget at pos=0 (stationary text), then use SetPixel to black out regions and draw colored sweep lines on top. At t=1.0, snap to incoming. This avoids the compositing problem entirely — no need to draw both widgets or read pixels back. The blackouts are NOT redundant against `Clear()` — they erase parts of `outgoing.draw()`'s text bleed (DrawText cannot be clipped).
 
-**Presenter freeze during transitions**: `run_transition` calls `pause()` on outgoing/incoming before its loop and `resume()` after (try/finally). `WidgetPresenter` exposes these methods to keep `frame_count` from advancing while the widget is being re-rendered for compositing — otherwise a Bounce/Typewriter/Rainbow-wrapped widget mid-cycles during the dissolve and re-enters the next section at a wrong phase. Plain widgets without `pause()` are skipped via duck-typing.
+**Frame freeze during transitions**: `run_transition` calls `pause_frame()` on outgoing/incoming before its loop and `resume_frame()` after (try/finally). Widgets with frame-aware effects (TickerMessage with `animation` or per-char `font_color`) expose these methods via `_FrameAwareMixin` to keep `frame_count` from advancing while the widget is being re-rendered for compositing — otherwise a Bounce/Typewriter/Rainbow widget mid-cycles during the dissolve and re-enters the next section at a wrong phase. Plain widgets without `pause_frame()` are skipped via duck-typing.
 
 **Cross-scale dissolves**: `run_transition(..., incoming_scale=N)` re-wraps the canvas at the new scale at t ≥ 0.5 so the incoming widget dissolves IN at its native size instead of flashing the wrong scale. The function returns the new wrapper — callers MUST capture the return value (`canvas = await run_transition(...)`) to follow the new wrapper for subsequent renders.
 
-### Text Presentation Effects
+### Color providers and animations
 
-`WidgetPresenter` wraps any widget with frame-aware rendering:
-- typewriter, color_cycle, rainbow, pulse, bounce
-- Configured per-widget: `presentation = "typewriter"`
+**Color providers and animations**: `font_color` (and `top_color` /
+`bottom_color` on TwoRow / image widgets) accepts either a constant
+`[r, g, b]` list, the legacy `"random"` sentinel, a string shorthand
+(`"rainbow"` / `"color_cycle"`), or an inline table
+(`{style = "pulse", base = [r, g, b]}` / `{style = "gradient", from = [...], to = [...]}`).
+At config-load all of those normalize to a `ColorProvider` with
+`color_for(frame, char_index, total_chars) -> Color`. Constants wrap
+in `_ConstantColor` so the widget-side dispatch is uniform.
+
+Per-char providers (`rainbow`, `gradient`) cause widgets that opt in
+(currently TickerMessage) to iterate characters and render each with
+its own color. Whole-string providers (`color_cycle`, `pulse`,
+`random`, constant) get a single `color_for` call per draw and one
+`draw_text` call.
+
+`animation = "typewriter"` and `animation = "bounce"` are fields on
+`TickerMessage` only. `_build_widget` raises if `animation` appears
+on any other widget type. Color and animation compose: a
+TickerMessage can have both `font_color = "rainbow"` and
+`animation = "typewriter"` and the chars type out in rainbow.
+
+The previous `WidgetPresenter` wrapper + `presentation = "..."` knob
+was removed. Migration error in `_build_widget` maps each old
+`presentation` value to its new shape verbatim.
+
+**Engine tick** (`_swap_and_scroll`): held-text branches now run a
+tick loop calling `advance_frame + draw + swap` at 50ms cadence
+(`ENGINE_TICK_MS`) so frame-aware effects animate during holds. The
+scroll branch also calls `advance_frame` per tick.
+
+**v1 limitation**: per-char providers don't penetrate `:slug:` emoji
+— a TickerMessage with `font_color = "rainbow"` + `:taco: HOT :taco:`
+renders the slugs as colored ASCII letters instead of taco sprites.
+Tripwire in `config.presentation_test.example.toml` §8.
 
 ### Adding a New Widget
 
@@ -255,7 +289,7 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 - SwapOnVSync return dropped → `TestSwapOnVSyncCapture` (test_ticker_display.py)
 - Cross-scale dissolve missing wrapper switch → `TestRunTransitionCrossScale`
 - `_swap_and_scroll(skip_initial_draw=True/continuous=True)` regressions → dedicated tests
-- WidgetPresenter mid-cycling during transitions → `test_pause_freezes_frame_count`
+- Frame-aware widget mid-cycling during transitions → `test_pause_freezes_frame_count`
 - MLB widget state-bucket fall-through → branch-specific assertions on `update()`
 
 ### Configuration

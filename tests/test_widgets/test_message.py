@@ -130,3 +130,76 @@ class TestBgColor:
             message="X", countdown_date=date(2099, 1, 1), bg_color=Color(1, 2, 3)
         )
         assert cd.bg_color.red == 1
+
+
+class TestTickerMessageColorProvider:
+    """TickerMessage materializes a Color from font_color (a
+    ColorProvider) per draw call. Per-char providers iterate chars."""
+
+    def test_constructor_wraps_raw_color_in_constant_provider(self):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+        from led_ticker.widgets.message import TickerMessage
+
+        widget = TickerMessage("HELLO", font_color=Color(255, 0, 0))
+        assert isinstance(widget.font_color, _ConstantColor)
+
+    def test_constructor_passes_through_existing_provider(self):
+        from led_ticker.color_providers import Rainbow
+        from led_ticker.widgets.message import TickerMessage
+
+        rainbow = Rainbow()
+        widget = TickerMessage("HELLO", font_color=rainbow)
+        assert widget.font_color is rainbow
+
+    def test_advance_frame_increments_count(self):
+        from led_ticker.widgets.message import TickerMessage
+
+        widget = TickerMessage("HI")
+        assert widget._frame_count == 0
+        widget.advance_frame()
+        assert widget._frame_count == 1
+
+
+class TestTickerMessageAnimation:
+    """`animation` field consumed by TickerMessage's draw — typewriter
+    slices, bounce repositions."""
+
+    def test_typewriter_set_via_constructor(self):
+        from led_ticker.animations import Typewriter
+        from led_ticker.widgets.message import TickerMessage
+
+        widget = TickerMessage("HELLO", animation=Typewriter())
+        assert isinstance(widget.animation, Typewriter)
+
+    def test_no_animation_by_default(self):
+        from led_ticker.widgets.message import TickerMessage
+
+        widget = TickerMessage("HELLO")
+        assert widget.animation is None
+
+
+class TestTickerCountdownColorProvider:
+    def test_constructor_wraps_raw_color_in_constant_provider(self):
+        from datetime import date
+
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+        from led_ticker.widgets.message import TickerCountdown
+
+        widget = TickerCountdown(
+            "Days", countdown_date=date(2027, 1, 1), font_color=Color(255, 0, 0)
+        )
+        assert isinstance(widget.font_color, _ConstantColor)
+
+    def test_advance_frame_increments_count(self):
+        from datetime import date
+
+        from led_ticker.widgets.message import TickerCountdown
+
+        widget = TickerCountdown("Days", countdown_date=date(2027, 1, 1))
+        assert widget._frame_count == 0
+        widget.advance_frame()
+        assert widget._frame_count == 1

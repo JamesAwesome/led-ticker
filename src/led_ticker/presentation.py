@@ -222,7 +222,13 @@ class Pulse:
         p = frame / max(1, self.duration_frames - 1)
         intensity = p / 0.2 if p < 0.2 else 1 - (p - 0.2) / 0.8
 
-        base = widget.font_color
+        font_color = widget.font_color
+        # font_color may be a ColorProvider (_ConstantColor, Rainbow, etc.)
+        # or a raw Color. Materialize to a concrete Color before blending.
+        if hasattr(font_color, "color_for"):
+            base = font_color.color_for(frame, 0, 1)
+        else:
+            base = font_color
         r = int(base.red + (255 - base.red) * intensity)
         g = int(base.green + (255 - base.green) * intensity)
         b = int(base.blue + (255 - base.blue) * intensity)

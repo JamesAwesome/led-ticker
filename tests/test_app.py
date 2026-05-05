@@ -161,12 +161,14 @@ class TestBuildTitle:
 
     async def test_build_title_with_rgb_list_color(self):
         # TOML inline-tables and arrays come through as lists. The loader
-        # should coerce a 3-int list into a graphics.Color.
+        # should coerce a 3-int list into a graphics.Color (wrapped in
+        # _ConstantColor after post_init). Access via color_for().
         title = await _build_title({"text": "Pink", "color": [255, 150, 190]})
         assert title is not None
-        assert title.font_color.red == 255
-        assert title.font_color.green == 150
-        assert title.font_color.blue == 190
+        color = title.font_color.color_for(0, 0, 1)
+        assert color.red == 255
+        assert color.green == 150
+        assert color.blue == 190
 
 
 class TestColorCoercion:
@@ -200,10 +202,15 @@ class TestColorCoercion:
         assert widget.font_color.color_for(0, 0, 1).red == 180
 
     async def test_widget_font_color_omitted_uses_default(self):
+        from led_ticker.color_providers import _ConstantColor
+
         cfg = {"type": "message", "text": "Hi"}
         widget = await _build_widget(cfg, session=mock.Mock())
-        # Default is DEFAULT_COLOR (yellow); verify it's a Color-like object.
-        assert hasattr(widget.font_color, "red")
+        # Default is DEFAULT_COLOR (yellow); font_color is now a
+        # _ConstantColor provider wrapping the raw Color.
+        assert isinstance(widget.font_color, _ConstantColor)
+        # Verify the wrapped color is accessible via the provider interface.
+        assert hasattr(widget.font_color.color_for(0, 0, 1), "red")
 
 
 class TestExampleConfigWidgets:
@@ -848,8 +855,8 @@ class TestPresentationMigration:
     async def test_animation_on_message_succeeds(self):
         import aiohttp
 
-        from led_ticker.app import _build_widget
         from led_ticker.animations import Typewriter
+        from led_ticker.app import _build_widget
 
         cfg = {"type": "message", "text": "hi", "animation": "typewriter"}
         async with aiohttp.ClientSession() as s:

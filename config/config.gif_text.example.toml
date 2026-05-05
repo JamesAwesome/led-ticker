@@ -5,12 +5,19 @@
 # look + feel without sitting through every fit-mode permutation.
 #
 # Sections:
-#   1. Static text + offset gif    — Pikachu pinned LEFT, "PIKACHU!" on the right
-#   2. Scroll UNDER (transparent)  — marquee walks behind transparent Pikachu
-#   3. Scroll OVER (knockout)      — black (LED-off) marquee cuts out of pride flag
-#   4. Emoji + chunky text         — :heart: HAPPY PRIDE :heart: at font_size=48
-#   5. Animated WebP + scroll-over — kpop-dance.webp + class signup pitch
-#   6. Title + gif (mode = "swap") — "HELLO!" title → static text + transparent gif
+#   1. Static text + offset gif    — Pikachu LEFT, Inter-Bold "PIKACHU!" on the right
+#   2. Scroll UNDER (transparent)  — BDF marquee, smart-default font_size (lores smoke)
+#   3. Scroll OVER (knockout)      — Inter-Bold black-LED cutout through pride flag
+#   4. Emoji + chunky text         — BDF :heart: HAPPY PRIDE :heart: @48 (lores+emoji smoke)
+#   5. Animated WebP + scroll-over — kpop-dance.webp + Inter-Bold class signup pitch
+#   6. Title + gif (mode = "swap") — "HELLO!" title → Inter-Regular @brand + Pikachu
+#
+# BDF smoke tests retained intentionally in §2 + §4:
+#   §2 covers the `font_size = None` smart-default path (BDF resolves
+#       to cell_h × _logical_scale = 48 at first paint, wraps at scale 4).
+#   §4 covers the explicit-`font_size` BDF path (block_scale = 48 // 12 = 4)
+#       plus inline emoji rendering through the wrapper.
+# All other sections use HiresFont (Inter) — direct real-pixel rendering.
 #
 # Copy to config.toml on the bigsign Pi:
 #   cp config/config.gif_text.example.toml config/config.toml
@@ -83,13 +90,21 @@ font_size = 24
 font_color = [255, 220, 50]
 
 # ---------------------------------------------------------------------------
-# Section 2 — Scroll UNDER (transparent gif)
+# Section 2 — Scroll UNDER (transparent gif) — BDF smart-default smoke
 #
 # `pika_wave_transparent.gif` decodes its alpha channel onto black, so
 # everywhere outside Pikachu's silhouette reads as (0,0,0). With
 # `text_align = "scroll"` the marquee paints first then the gif on top
 # with skip-black — text shows through the pillars AND the area around
 # Pikachu's body, walking behind his actual silhouette.
+#
+# Font: BDF default (FONT_DEFAULT 6×12), no explicit `font_size`. This
+# exercises the smart-default path — at first paint the widget resolves
+# `font_size = cell_h × _logical_scale = 12 × 4 = 48`, block_scale = 4,
+# wraps the canvas at scale 4 so glyphs block-expand to fill ~75% of
+# the panel height. If you ever delete this section, replace it with
+# another BDF + no-font_size combo so the smart-default path keeps a
+# smoke test.
 #
 # `text_loops = 2` makes the section hold here until the marquee has
 # fully crossed the panel twice, regardless of `loop_count` — the gif
@@ -113,13 +128,15 @@ scroll_speed_ms = 50
 text_loops = 2  # don't transition until the marquee has crossed twice
 
 # ---------------------------------------------------------------------------
-# Section 3 — Scroll OVER (knockout / cutout text)
+# Section 3 — Scroll OVER (knockout / cutout text) — HiresFont
 #
 # `pride_trans.gif` filling the panel + `text_align = "scroll_over"`
 # (gif first, text on top). font_color = (0, 0, 0) writes pure black,
 # which on LEDs is just OFF — so the marquee letters read as a
-# knockout cutout through the bright flag stripes. font_size = 24
-# (BDF 6×12 cell × 2) makes the cutout fat enough to read at distance.
+# knockout cutout through the bright flag stripes. The cutout works
+# the same with hires fonts (the renderer paints lit pixels via
+# SetPixel; black pixels stay off → off LEDs → cutout).
+# Inter-Bold @ 28 gives a heavy stroke that reads cleanly at distance.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -134,18 +151,23 @@ path = "assets/pride_trans.gif"
 fit = "stretch"
 text = "TRANS RIGHTS ARE HUMAN RIGHTS"
 text_align = "scroll_over"
+font = "Inter-Bold"
+font_size = 28
 font_color = [0, 0, 0]
-font_size = 24
 scroll_speed_ms = 50
 
 # ---------------------------------------------------------------------------
-# Section 4 — Emoji + chunky text
+# Section 4 — Emoji + chunky text — BDF explicit-font_size smoke
 #
 # pride.gif backdrop with white ":heart: HAPPY PRIDE :heart:" scrolling
 # over it. `:slug:` tokens render as inline pixel-art sprites (not as
-# literal text); `font_size = 48` block-expands each glyph pixel (BDF
-# 6×12 cell × 4) so text fills ~75% of panel height — readable from
-# across a room.
+# literal text). Explicit `font_size = 48` exercises the BDF block-
+# expansion path: block_scale = 48 // 12 = 4, wrapper at scale 4 →
+# glyphs fill ~75% of panel height. Inline emoji rides through the
+# wrapper too — hires `:heart:` (32×32) fires the
+# `isinstance(canvas, ScaledCanvas)` gate. If you ever delete this
+# section, replace it with another BDF + explicit `font_size` + emoji
+# combo so this path keeps a smoke test.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]

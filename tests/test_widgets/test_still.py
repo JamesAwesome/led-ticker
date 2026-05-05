@@ -408,7 +408,7 @@ def test_text_x_offset_with_scroll_raises(tmp_path):
         )
 
 
-async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker):
+async def test_top_valign_paints_at_panel_top_when_wrapped(tmp_path, mocker):
     """With text_valign='top' (and smart-default wrap scale on bigsign),
     the wrapper uses content_height = panel_h // scale so it spans the
     full panel — text paints at the panel's TOP edge, not letterboxed."""
@@ -476,9 +476,9 @@ async def test_emoji_routes_through_emoji_painter(tmp_path, mocker):
     assert spy.called
 
 
-async def test_text_scale_uses_scaled_canvas(tmp_path, mocker):
-    """Text wraps at smart default _logical_scale on bigsign (no explicit
-    font_size or text_scale). Ensures emoji gate fires for hires sprites."""
+async def test_wrap_uses_scaled_canvas(tmp_path, mocker):
+    """Text wraps at smart default _logical_scale on bigsign (no
+    explicit font_size). Ensures emoji gate fires for hires sprites."""
     path = _make_png(tmp_path, color=(0, 0, 0))
     widget = StillImage(
         path=str(path),
@@ -841,15 +841,15 @@ def test_decode_still_uses_frame_zero_of_animated_source(tmp_path):
     assert r > 200 and g < 100, f"expected red frame-0, got ({r},{g},{b})"
 
 
-async def test_text_scale_too_large_raises_at_first_paint(tmp_path, mocker):
-    """text_scale * 12 (BDF cell height) > panel_h leaves no room for
-    glyphs — raise loudly at first paint instead of silently clipping."""
+async def test_font_too_large_raises_at_first_paint(tmp_path, mocker):
+    """font_size that resolves to a wrap scale leaving the text_canvas
+    too short for the BDF cell height — raise loudly at first paint
+    instead of silently clipping."""
     path = _make_png(tmp_path)
     # On 64-tall panel with bigsign scale=4: smart default wraps at 4,
     # giving text_canvas.height = 64//4 = 16 (adequate). To trigger the
     # error, use explicit font_size that wraps higher (e.g., 72px BDF →
-    # 72//12=6 → canvas=64//6=10 < 12). The error message will mention
-    # font_size, not text_scale.
+    # 72//12=6 → canvas=64//6=10 < 12).
     widget = StillImage(
         path=str(path),
         fit="stretch",
@@ -918,7 +918,7 @@ async def test_static_fast_path_captures_swap_return(tmp_path, mocker):
     assert result is not real
 
 
-async def test_text_canvas_follows_back_buffer_at_text_scale_2(tmp_path, mocker):
+async def test_text_canvas_follows_back_buffer_when_wrapped(tmp_path, mocker):
     """On bigsign (smart-default wrap at _logical_scale) the text canvas
     is a ScaledCanvas wrapper — its `.real` attribute must be re-anchored
     to the new back-buffer after each swap (CLAUDE.md #10). Test runs the
@@ -972,7 +972,7 @@ async def test_text_canvas_follows_back_buffer_at_text_scale_2(tmp_path, mocker)
         assert wrapped_real is swap_returns[i - 1]
 
 
-async def test_text_loops_at_text_scale_2(tmp_path, mocker):
+async def test_text_loops_when_wrapped(tmp_path, mocker):
     """`ticks_per_text_loop = text_w + text_width` uses LOGICAL widths.
     On bigsign (smart-default wrap at scale=4), test that text_loops=2
     runs exactly 2 full traversals without regression to physical widths."""
@@ -1048,9 +1048,7 @@ async def test_wrap_around_fires_at_correct_tick(tmp_path, mocker):
 
 
 @pytest.mark.parametrize("panel_h,scale", [(64, 6), (32, 3), (16, 2)])
-def test_text_scale_too_large_raises_on_various_panels(
-    tmp_path, mocker, panel_h, scale
-):
+def test_font_too_large_raises_on_various_panels(tmp_path, mocker, panel_h, scale):
     """font_size upper bound: panel_h // wrap_scale must be >= 12 (the
     BDF cell height). Parametrized over panel sizes so a regression
     that hardcodes panel_h would break on small sign / scale=2.

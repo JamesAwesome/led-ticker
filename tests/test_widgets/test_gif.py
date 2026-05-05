@@ -310,7 +310,7 @@ def test_text_x_offset_with_scroll_raises(tmp_path):
         )
 
 
-async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker):
+async def test_top_valign_paints_at_panel_top_when_wrapped(tmp_path, mocker):
     """With text_valign='top' (and smart-default wrap scale on bigsign),
     the wrapper spans the FULL panel (content_height = panel_h // scale)
     — text paints at the panel's TOP edge, not letterboxed."""
@@ -1001,7 +1001,7 @@ async def test_static_text_wider_than_canvas_clamps_to_left_edge(tmp_path, mocke
     assert seen_x[0] == 2
 
 
-async def test_play_emoji_with_text_scale_and_scroll(tmp_path, mocker):
+async def test_play_emoji_with_wrap_and_scroll(tmp_path, mocker):
     """The actual user combo (Section 15 in config.gif_test): emoji slug
     + wrap at smart-default scale + text_align="scroll_over". Test that
     logical/physical unit handling in `_measure_text` is correct."""
@@ -1041,7 +1041,7 @@ async def test_play_emoji_with_text_scale_and_scroll(tmp_path, mocker):
         )
 
 
-async def test_play_text_scale_uses_scaled_canvas(tmp_path, mocker):
+async def test_play_with_wrap_uses_scaled_canvas(tmp_path, mocker):
     """Smart-default wrap at _logical_scale wraps the real canvas in a
     ScaledCanvas just for text painting — block-expands each glyph pixel
     so text is visible on bigsign. Confirm by spying on draw_text."""
@@ -1136,9 +1136,9 @@ async def test_play_no_wrap_text_canvas_follows_back_buffer(tmp_path, mocker):
         )
 
 
-async def test_play_text_scale_1_uses_real_canvas(tmp_path, mocker):
-    """text_scale=1 (default) keeps the existing native-resolution path
-    — no ScaledCanvas wrapper, draw_text gets the raw real canvas."""
+async def test_play_native_uses_real_canvas(tmp_path, mocker):
+    """Default font_size + _logical_scale=1 (no wrap path) — draw_text
+    gets the raw real canvas, no ScaledCanvas wrapper."""
     from led_ticker.scaled_canvas import ScaledCanvas
 
     path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)

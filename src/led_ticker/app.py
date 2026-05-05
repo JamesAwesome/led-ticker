@@ -212,8 +212,7 @@ def _coerce_animation(value: Any) -> Any:
     if isinstance(value, str):
         if value not in registry:
             raise ValueError(
-                f"unknown animation {value!r}; available: "
-                f"{sorted(registry.keys())}"
+                f"unknown animation {value!r}; available: " f"{sorted(registry.keys())}"
             )
         cls, _allowed = registry[value]
         return cls()
@@ -226,8 +225,7 @@ def _coerce_animation(value: Any) -> Any:
         style = value["style"]
         if style not in registry:
             raise ValueError(
-                f"unknown animation {style!r}; available: "
-                f"{sorted(registry.keys())}"
+                f"unknown animation {style!r}; available: " f"{sorted(registry.keys())}"
             )
         cls, allowed = registry[style]
         kwargs = {k: v for k, v in value.items() if k != "style"}
@@ -239,9 +237,7 @@ def _coerce_animation(value: Any) -> Any:
             )
         return cls(**kwargs)
 
-    raise ValueError(
-        f"animation must be a string or table; got {type(value).__name__}"
-    )
+    raise ValueError(f"animation must be a string or table; got {type(value).__name__}")
 
 
 def _coerce_widget_colors(cfg: dict[str, Any]) -> None:
@@ -341,7 +337,7 @@ async def _build_widget(
     animation_value = widget_cfg.pop("animation", None)
     if animation_value is not None and widget_type != "message":
         raise ValueError(
-            f"animation is only valid on type=\"message\"; got "
+            f'animation is only valid on type="message"; got '
             f"type={widget_type!r}. For color effects on other widgets, "
             f"use font_color = 'rainbow' (or similar)."
         )

@@ -27,6 +27,7 @@ class TickerMessage:
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     center: bool = True
     padding: int = 6
+    animation: Any | None = attrs.field(default=None, kw_only=True)
     _content_width: int = attrs.field(init=False, default=-1)
     _has_emoji: bool = attrs.field(init=False, default=False)
 

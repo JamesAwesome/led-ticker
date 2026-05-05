@@ -296,15 +296,23 @@ class TestTwoRowMode:
         assert w._row_font(1) is FONT_DEFAULT  # falls back to font
 
     def test_per_row_color_falls_back_to_font_color(self):
+        """_row_color falls back to font_color. After coercion both are
+        providers; verify they materialize the same Color value."""
         from rgbmatrix.graphics import Color
 
         red = Color(255, 0, 0)
         w = _DummyImage(top_text="A", bottom_text="B", font_color=red)
-        assert w._row_color(0) is red
-        assert w._row_color(1) is red
+        # Both rows resolve to the font_color provider (same object).
+        assert w._row_color(0) is w.font_color
+        assert w._row_color(1) is w.font_color
+        # Provider materializes the correct color.
+        assert w._row_color(0).color_for(0, 0, 1).red == 255
 
     def test_per_row_color_overrides_font_color(self):
+        """Per-row color providers override font_color for that row."""
         from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
 
         red = Color(255, 0, 0)
         blue = Color(0, 0, 255)
@@ -314,8 +322,12 @@ class TestTwoRowMode:
             font_color=red,
             bottom_color=blue,
         )
-        assert w._row_color(0) is red
-        assert w._row_color(1) is blue
+        # After coercion, each is a _ConstantColor provider.
+        assert isinstance(w._row_color(0), _ConstantColor)
+        assert isinstance(w._row_color(1), _ConstantColor)
+        # Top falls back to font_color (wrapped red); bottom is wrapped blue.
+        assert w._row_color(0).color_for(0, 0, 1).red == 255
+        assert w._row_color(1).color_for(0, 0, 1).blue == 255
 
     def test_per_row_align_defaults_to_center(self):
         """Both rows default to center alignment, matching TwoRow."""
@@ -729,3 +741,42 @@ class TestSingleRowFontSize:
 
         assert len(captured) >= 1, "_render_tick was never called"
         assert not any(captured), f"Expected NO wrap at scale=1; got {captured!r}"
+
+
+class TestImageBaseColorProvider:
+    def test_font_color_wrapped(self):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+
+        w = _DummyImage(font_color=Color(255, 100, 50))
+        assert isinstance(w.font_color, _ConstantColor)
+
+    def test_top_color_wrapped(self):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+
+        w = _DummyImage(top_text="A", bottom_text="B", top_color=Color(255, 100, 50))
+        assert isinstance(w.top_color, _ConstantColor)
+
+    def test_bottom_color_wrapped(self):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+
+        w = _DummyImage(top_text="A", bottom_text="B", bottom_color=Color(0, 200, 100))
+        assert isinstance(w.bottom_color, _ConstantColor)
+
+    def test_provider_passed_through(self):
+        from led_ticker.color_providers import Rainbow
+
+        rainbow = Rainbow()
+        w = _DummyImage(font_color=rainbow)
+        assert w.font_color is rainbow
+
+    def test_frame_aware_mixin(self):
+        w = _DummyImage()
+        assert w._frame_count == 0
+        w.advance_frame()
+        assert w._frame_count == 1

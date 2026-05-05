@@ -32,6 +32,7 @@ from typing import Any
 import attrs
 
 from led_ticker._types import Canvas, Color, Font
+from led_ticker.color_providers import _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import compute_baseline, get_text_width, safe_scale
 from led_ticker.fonts import (
@@ -44,6 +45,7 @@ from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.pixel_emoji import EMOJI_PATTERN
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.text_render import draw_text
+from led_ticker.widgets._frame_aware import _FrameAware
 from led_ticker.widgets._image_fit import (
     VALID_IMAGE_ALIGNS,
     reset_canvas,
@@ -76,7 +78,7 @@ HOLD_SECONDS_FLOOR: float = 0.05
 
 
 @attrs.define
-class _BaseImageWidget:
+class _BaseImageWidget(_FrameAware):
     """Shared text-overlay state + render helpers for image widgets."""
 
     # All fields kw_only so subclasses can declare their own required
@@ -205,6 +207,16 @@ class _BaseImageWidget:
         combinations like `text_align="scroll"` + `fit="stretch"` that
         produce silent no-text rendering.
         """
+        # Wrap raw Color → _ConstantColor for uniform provider dispatch.
+        if self.font_color is not None and not hasattr(self.font_color, "color_for"):
+            self.font_color = _ConstantColor(self.font_color)
+        if self.top_color is not None and not hasattr(self.top_color, "color_for"):
+            self.top_color = _ConstantColor(self.top_color)
+        if self.bottom_color is not None and not hasattr(
+            self.bottom_color, "color_for"
+        ):
+            self.bottom_color = _ConstantColor(self.bottom_color)
+
         validate_choice("image_align", image_align, VALID_IMAGE_ALIGNS)
         # Resolve text_align="auto" based on image_align so text doesn't
         # overlap the image by default. Authors can pin any value. In
@@ -494,16 +506,23 @@ class _BaseImageWidget:
         `text_align`."""
         reset_canvas(canvas, self.bg_color)
 
+        # Materialize whole-string color from provider. Image widgets'
+        # text overlay uses single-Color rendering (no per-char iteration
+        # for v1 — per_char providers degrade to single-color).
+        font_color = self.font_color.color_for(
+            self._frame_count, 0, len(self.text) if self.text else 1
+        )
+
         if self.text_align == "scroll":
-            self._draw_text(text_canvas, scroll_pos, baseline_y, self.font_color)
+            self._draw_text(text_canvas, scroll_pos, baseline_y, font_color)
             self._paint_skip_black(canvas)
         elif self.text_align == "scroll_over":
             self._paint_image(canvas)
-            self._draw_text(text_canvas, scroll_pos, baseline_y, self.font_color)
+            self._draw_text(text_canvas, scroll_pos, baseline_y, font_color)
         else:
             self._paint_image(canvas)
             text_x = text_x_left if self.text_align == "left" else text_x_right
-            self._draw_text(text_canvas, text_x, baseline_y, self.font_color)
+            self._draw_text(text_canvas, text_x, baseline_y, font_color)
 
     def _render_two_row_tick(
         self,
@@ -756,8 +775,22 @@ class _BaseImageWidget:
         bottom_font = self._row_font(1)
         top_text = self._row_text(0)
         bottom_text = self._row_text(1)
-        top_color = self._row_color(0)
-        bottom_color = self._row_color(1)
+        # Resolve providers for both rows. _row_color() returns a provider
+        # (already coerced in _validate_common); materialize to Color here
+        # so the tuple slots remain plain Color as _draw_row_text expects.
+        top_provider = self._row_color(0)
+        if not hasattr(top_provider, "color_for"):
+            top_provider = _ConstantColor(top_provider)
+        top_color = top_provider.color_for(
+            self._frame_count, 0, len(top_text) if top_text else 1
+        )
+
+        bottom_provider = self._row_color(1)
+        if not hasattr(bottom_provider, "color_for"):
+            bottom_provider = _ConstantColor(bottom_provider)
+        bottom_color = bottom_provider.color_for(
+            self._frame_count, 0, len(bottom_text) if bottom_text else 1
+        )
 
         top_baseline, top_emoji_y = row_layout(
             text_canvas, top_font, band_height=top_h, band_offset=0

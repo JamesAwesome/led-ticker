@@ -1080,13 +1080,14 @@ async def test_play_text_scale_uses_scaled_canvas(tmp_path, mocker):
     assert all(c.scale == 4 for c in seen_canvases)
 
 
-async def test_play_text_scale_1_text_canvas_follows_back_buffer(tmp_path, mocker):
-    """Regression: with text_scale=1 we have NO ScaledCanvas wrapper to
-    re-anchor — text_canvas is the canvas itself. After SwapOnVSync the
-    `canvas` variable is reassigned to the new back-buffer, but
-    text_canvas would silently keep pointing at the previous (now front)
-    buffer, causing text to be painted onto the displayed buffer every
-    other tick → visible pulsing/flicker.
+async def test_play_no_wrap_text_canvas_follows_back_buffer(tmp_path, mocker):
+    """Regression: when no ScaledCanvas wrapper is created (small sign,
+    or BDF + font_size matching native cell_h on bigsign with scale=1),
+    text_canvas IS the real canvas. After SwapOnVSync the `canvas`
+    variable is reassigned to the new back-buffer, but text_canvas
+    would silently keep pointing at the previous (now front) buffer,
+    causing text to be painted onto the displayed buffer every other
+    tick → visible pulsing/flicker.
 
     Spy on draw_text and assert that each tick's paint target is the
     same canvas the gif paint targets (= the back-buffer for that tick),

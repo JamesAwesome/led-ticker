@@ -747,3 +747,35 @@ class TestFontSizeMigration:
             widget = await _build_widget(cfg, s, config_dir=tmp_path)
 
         assert widget.font_size is None  # smart default, not yet resolved
+
+    async def test_per_row_hires_font_without_size_raises(self, tmp_path):
+        """The HiresFont required-explicit guard applies to per-row
+        fonts too: `top_font = "Inter-Bold"` without `top_font_size`
+        raises with the prefix-aware error message. Mirrors the
+        single-font path; the per-row branch is symmetric and a
+        future refactor could silently drop the guard if no test
+        covers it."""
+        import aiohttp
+        import pytest
+        from PIL import Image
+
+        from led_ticker.app import _build_widget
+
+        gif_path = tmp_path / "tiny.gif"
+        Image.new("RGB", (4, 4)).save(gif_path, format="GIF")
+
+        cfg = {
+            "type": "gif",
+            "path": str(gif_path),
+            "fit": "stretch",
+            "top_text": "@brand",
+            "bottom_text": "follow us",
+            "top_font": "Inter-Bold",
+            # No top_font_size!
+            "bottom_font": "Inter-Regular",
+            "bottom_font_size": 14,
+        }
+
+        async with aiohttp.ClientSession() as s:
+            with pytest.raises(ValueError, match="HiresFont.*requires top_font_size"):
+                await _build_widget(cfg, s, config_dir=tmp_path)

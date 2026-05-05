@@ -54,10 +54,6 @@ from led_ticker.fonts.hires_loader import (  # noqa: E402
     load_hires_font,
 )
 
-# Default size when TOML specifies `font = "..."` without `font_size`.
-# 24 pixels is a reasonable "body text" size on a 64-row bigsign panel.
-DEFAULT_HIRES_SIZE: int = 24
-
 # Map from BDF "alias name" (used in TOML) to the loaded C font object.
 # These names match the .bdf filename stems for consistency.
 _BDF_ALIASES: dict[str, Font] = {

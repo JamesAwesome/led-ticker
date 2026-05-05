@@ -292,8 +292,8 @@ class TestResolveFont:
 
     def test_resolve_font_hires_without_size_raises(self):
         """HiresFont requires explicit size at resolve time — the
-        rasterizer needs a real-px target and silent fallback to
-        DEFAULT_HIRES_SIZE could mismatch the panel."""
+        rasterizer needs a real-px target and silent size fallback
+        could mismatch the panel."""
         import pytest
 
         from led_ticker.fonts import resolve_font

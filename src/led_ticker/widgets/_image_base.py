@@ -585,9 +585,9 @@ class _BaseImageWidget:
         text_h = text_canvas.height
         # The logical text_canvas must accommodate the font's line
         # height. Raise early instead of silently clipping glyphs
-        # (which surfaces as missing/cut text). Use `safe_scale` so the
-        # primitive matches `TwoRowMessage` and friends — the value
-        # equals `effective_scale` when wrapped, 1 otherwise.
+        # (which surfaces as missing/cut text). `safe_scale` returns
+        # the wrapper scale when wrapped, 1 otherwise — same primitive
+        # used by `TwoRowMessage` and friends.
         font_scale = safe_scale(text_canvas)
         font_lh_logical = font_line_height_logical(self.font, font_scale)
         if text_h < font_lh_logical:

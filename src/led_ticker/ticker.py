@@ -490,6 +490,7 @@ async def _scroll_side_by_side(
 BULLET_WIDTH: int = 2  # 2px wide dot
 BULLET_COLOR: ColorTuple = (255, 255, 255)
 SCROLL_GAP: int = 6  # px of black on each side of bullet
+ENGINE_TICK_MS: int = 50  # 20 fps for held-text frame animation
 
 
 def _draw_bullet(canvas: Canvas, x: int, color: ColorTuple = BULLET_COLOR) -> None:
@@ -755,6 +756,16 @@ async def _run_gif(
         real = await widget.play(real, frame, loop_count=loop_count)
 
 
+def _advance_frame_if_supported(widget: Any) -> None:
+    """Call `widget.advance_frame()` if the widget exposes it.
+
+    Quietly no-ops on widgets without the _FrameAware mixin so the
+    orchestrator works for both old (transitional) and new widgets.
+    """
+    if hasattr(widget, "advance_frame"):
+        widget.advance_frame()
+
+
 async def _swap_and_scroll(
     canvas: Canvas,
     frame: Any,
@@ -779,9 +790,18 @@ async def _swap_and_scroll(
     if not skip_initial_draw:
         canvas = _swap(canvas, frame)
 
+    tick_seconds = ENGINE_TICK_MS / 1000
+
     if cursor_pos > canvas.width:
         if not continuous:
-            await asyncio.sleep(hold_time)
+            # Pre-scroll hold: tick loop so frame-aware widgets animate.
+            n_ticks = max(1, int(hold_time * 1000) // ENGINE_TICK_MS)
+            for _ in range(n_ticks):
+                _advance_frame_if_supported(ticker_obj)
+                reset_canvas(canvas, bg_color)
+                canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
+                canvas = _swap(canvas, frame)
+                await asyncio.sleep(tick_seconds)
 
         # cursor_pos from draw() includes end_padding (default 6px),
         # which is spacing for forever_scroll side-by-side layout.
@@ -793,15 +813,29 @@ async def _swap_and_scroll(
         stop_pos = -(cursor_pos - canvas.width) + padding
         while pos > stop_pos:
             pos -= 1
+            _advance_frame_if_supported(ticker_obj)
             reset_canvas(canvas, bg_color)
             canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
             canvas = _swap(canvas, frame)
             await asyncio.sleep(scroll_speed)
 
-        # Hold with the end of the text visible
+        # Post-scroll hold: tick loop so frame-aware widgets animate.
         if not continuous:
-            await asyncio.sleep(hold_time)
+            n_ticks = max(1, int(hold_time * 1000) // ENGINE_TICK_MS)
+            for _ in range(n_ticks):
+                _advance_frame_if_supported(ticker_obj)
+                reset_canvas(canvas, bg_color)
+                canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
+                canvas = _swap(canvas, frame)
+                await asyncio.sleep(tick_seconds)
     else:
-        await asyncio.sleep(hold_time)
+        # Held text: tick loop so frame-aware widgets animate during hold.
+        n_ticks = max(1, int(hold_time * 1000) // ENGINE_TICK_MS)
+        for _ in range(n_ticks):
+            _advance_frame_if_supported(ticker_obj)
+            reset_canvas(canvas, bg_color)
+            canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
+            canvas = _swap(canvas, frame)
+            await asyncio.sleep(tick_seconds)
 
     return canvas, cursor_pos, pos

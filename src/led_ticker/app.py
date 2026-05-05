@@ -100,6 +100,19 @@ async def _build_widget(
     users who set a font size that won't fit vertically. Bigsign hi-res
     is the supported use case, so callers pass None for it.
     """
+    # Migration check: text_scale was the BDF block-expansion knob.
+    # Replaced by font_size (real pixels) which works uniformly for
+    # BDF and HiresFont. Loud failure here catches stale TOMLs at
+    # load time rather than letting them silently render wrong.
+    if "text_scale" in widget_cfg:
+        raise ValueError(
+            "text_scale removed in favor of font_size (real pixels). "
+            "Migrate: font_size = N × cell_h_of_your_font. "
+            "For BDF 6×12: font_size = N × 12 (e.g. text_scale=2 → "
+            "font_size=24, text_scale=4 → font_size=48). "
+            "For BDF 5×8: font_size = N × 8."
+        )
+
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)
 

@@ -115,43 +115,6 @@ class TestColorCycle:
         assert (c0.red, c0.green, c0.blue) != (c10.red, c10.green, c10.blue)
 
 
-class TestPulse:
-    """Entry flash to white; settles to base after `duration_frames`."""
-
-    def test_per_char_is_false(self):
-        from rgbmatrix.graphics import Color
-
-        from led_ticker.color_providers import Pulse
-
-        assert Pulse(base=Color(50, 100, 150)).per_char is False
-
-    def test_at_duration_frames_returns_base(self):
-        """Past the pulse duration, color settles to base."""
-        from rgbmatrix.graphics import Color
-
-        from led_ticker.color_providers import Pulse
-
-        base = Color(50, 100, 150)
-        provider = Pulse(base=base, duration_frames=6)
-        c = provider.color_for(6, 0, 1)
-        assert (c.red, c.green, c.blue) == (50, 100, 150)
-        c2 = provider.color_for(100, 0, 1)
-        assert (c2.red, c2.green, c2.blue) == (50, 100, 150)
-
-    def test_early_frames_brighter_than_base(self):
-        from rgbmatrix.graphics import Color
-
-        from led_ticker.color_providers import Pulse
-
-        base = Color(50, 100, 150)
-        provider = Pulse(base=base, duration_frames=6)
-        # Frame 1 should be on the way up (closer to white)
-        c = provider.color_for(1, 0, 1)
-        assert c.red >= base.red
-        assert c.green >= base.green
-        assert c.blue >= base.blue
-
-
 class TestGradient:
     """Linear left-to-right; char_index spaces hues; frame ignored."""
 

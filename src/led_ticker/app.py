@@ -124,7 +124,6 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
     from led_ticker.color_providers import (
         ColorCycle,
         Gradient,
-        Pulse,
         Rainbow,
         Random,
     )
@@ -133,7 +132,6 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
         "random": (Random, set()),
         "rainbow": (Rainbow, {"speed", "char_offset"}),
         "color_cycle": (ColorCycle, {"speed"}),
-        "pulse": (Pulse, {"base", "duration_frames"}),
         "gradient": (Gradient, {"from_color", "to_color"}),
     }
 
@@ -162,17 +160,6 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
         kwargs["from_color"] = graphics.Color(*from_val)
         kwargs["to_color"] = graphics.Color(*to_val)
 
-    # Pulse: convert base list to graphics.Color
-    if style == "pulse":
-        base_val = kwargs.get("base")
-        if base_val is None:
-            raise ValueError(
-                "font_color style 'pulse' requires 'base': "
-                "font_color = {style='pulse', base=[r,g,b]}"
-            )
-        if isinstance(base_val, list | tuple):
-            kwargs["base"] = graphics.Color(*base_val)
-
     unknown = set(kwargs.keys()) - allowed_kwargs
     if unknown:
         raise ValueError(
@@ -193,20 +180,19 @@ def _coerce_animation(value: Any) -> Any:
     """Convert a TOML animation spec to an Animation instance.
 
     Accepts:
-    - `"typewriter"` / `"bounce"` (string) → instance with defaults
+    - `"typewriter"` (string) → instance with defaults
     - `{style = "...", ...}` (dict) → instance with kwargs
     - already an Animation → returned as-is
 
     Raises ValueError on unknown names or unknown kwargs.
     """
-    from led_ticker.animations import Bounce, Typewriter
+    from led_ticker.animations import Typewriter
 
     if hasattr(value, "frame_for"):
         return value
 
     registry = {
-        "typewriter": (Typewriter, {"chars_per_frame"}),
-        "bounce": (Bounce, {"hold_frames", "scroll_frames"}),
+        "typewriter": (Typewriter, {"chars_per_frame", "frames_per_char"}),
     }
 
     if isinstance(value, str):
@@ -318,15 +304,15 @@ async def _build_widget(
     if "presentation" in widget_cfg:
         raise ValueError(
             "presentation removed in favor of font_color (color effects) + "
-            "animation (typewriter/bounce on TickerMessage). Migration:\n"
+            "animation (typewriter on TickerMessage). Migration:\n"
             "  presentation = 'typewriter'  → animation = 'typewriter' "
-            "(type='message' only)\n"
-            "  presentation = 'bounce'      → animation = 'bounce' "
             "(type='message' only)\n"
             "  presentation = 'rainbow'     → font_color = 'rainbow'\n"
             "  presentation = 'color_cycle' → font_color = 'color_cycle'\n"
-            "  presentation = 'pulse'       → "
-            "font_color = {style='pulse', base=[your existing font_color]}"
+            "  presentation = 'pulse' / 'bounce' — these effects were "
+            "removed in the rework. Use font_color = [r,g,b] / 'rainbow' / "
+            "'color_cycle' / 'gradient' and/or animation = 'typewriter' "
+            "instead."
         )
 
     widget_type = widget_cfg.pop("type")

@@ -44,7 +44,7 @@ src/led_ticker/
   colors.py            # RGB color constants (DEFAULT_COLOR, RGB_WHITE,
                        #   UP_TREND_COLOR/DOWN_TREND_COLOR/NEUTRAL_TREND_COLOR
                        #   for crypto/finance widgets, etc.)
-  color_providers.py   # ColorProvider base + Rainbow, ColorCycle, Pulse, Gradient, _ConstantColor
+  color_providers.py   # ColorProvider base + Rainbow, ColorCycle, Gradient, _ConstantColor
   animations.py        # Animation protocol + Typewriter, Bounce (TickerMessage-only)
   pixel_emoji.py       # Inline pixel-art emoji renderer (:name: in messages)
   fonts/               # BDF bitmap fonts + loader
@@ -222,26 +222,28 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 `bottom_color` on TwoRow / image widgets) accepts either a constant
 `[r, g, b]` list, the legacy `"random"` sentinel, a string shorthand
 (`"rainbow"` / `"color_cycle"`), or an inline table
-(`{style = "pulse", base = [r, g, b]}` / `{style = "gradient", from = [...], to = [...]}`).
+(`{style = "gradient", from = [...], to = [...]}`).
 At config-load all of those normalize to a `ColorProvider` with
 `color_for(frame, char_index, total_chars) -> Color`. Constants wrap
 in `_ConstantColor` so the widget-side dispatch is uniform.
 
 Per-char providers (`rainbow`, `gradient`) cause widgets that opt in
 (currently TickerMessage) to iterate characters and render each with
-its own color. Whole-string providers (`color_cycle`, `pulse`,
-`random`, constant) get a single `color_for` call per draw and one
+its own color. Whole-string providers (`color_cycle`, `random`,
+constant) get a single `color_for` call per draw and one
 `draw_text` call.
 
-`animation = "typewriter"` and `animation = "bounce"` are fields on
-`TickerMessage` only. `_build_widget` raises if `animation` appears
-on any other widget type. Color and animation compose: a
-TickerMessage can have both `font_color = "rainbow"` and
-`animation = "typewriter"` and the chars type out in rainbow.
+`animation = "typewriter"` is a field on `TickerMessage` only.
+`_build_widget` raises if `animation` appears on any other widget
+type. Color and animation compose: a TickerMessage can have both
+`font_color = "rainbow"` and `animation = "typewriter"` and the
+chars type out in rainbow. `frames_per_char` (default 3) controls
+typing speed — at 50ms tick × 3 frames ≈ 150ms/char (~7 chars/sec).
 
 The previous `WidgetPresenter` wrapper + `presentation = "..."` knob
-was removed. Migration error in `_build_widget` maps each old
-`presentation` value to its new shape verbatim.
+was removed. `Bounce` (animation) and `Pulse` (color provider) were
+also removed in the rework. Migration error in `_build_widget` points
+users at the remaining knobs.
 
 **Engine tick** (`_swap_and_scroll`): held-text branches now run a
 tick loop calling `advance_frame + draw + swap` at 50ms cadence
@@ -251,7 +253,13 @@ scroll branch also calls `advance_frame` per tick.
 **v1 limitation**: per-char providers don't penetrate `:slug:` emoji
 — a TickerMessage with `font_color = "rainbow"` + `:taco: HOT :taco:`
 renders the slugs as colored ASCII letters instead of taco sprites.
-Tripwire in `config.presentation_test.example.toml` §8.
+Tripwire in `config.presentation_test.example.toml` §7.
+
+**Weather two-color design**: WeatherWidget has both `font_color`
+(label) and `font_color_temp` (temperature value) as separate
+ColorProvider fields. Default `font_color_temp = RGB_WHITE` keeps
+the value steady-bright while the label can use a color effect.
+Set both to the same provider if you want them to match.
 
 ### Adding a New Widget
 

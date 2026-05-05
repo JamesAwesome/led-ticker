@@ -8,7 +8,7 @@ ask the provider for a Color via `color_for(frame, char_index, total)`
 each tick.
 
 Two flavors:
-- `per_char = False` providers (constant, color_cycle, pulse, random)
+- `per_char = False` providers (constant, color_cycle, random)
   return one Color per call — widgets do a single `draw_text` for the
   whole string.
 - `per_char = True` providers (rainbow, gradient) return a different
@@ -107,31 +107,6 @@ class ColorCycle:
         hue = ((frame * self.speed) % 360) / 360
         r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
         return graphics.Color(int(r * 255), int(g * 255), int(b * 255))
-
-
-class Pulse:
-    """Entry flash to white; settles to base after `duration_frames`.
-
-    Frames 0 .. 0.2*duration ramp from base to white; 0.2*duration ..
-    duration ramp back to base; past duration the base is returned
-    unchanged. Matches the legacy Pulse presentation."""
-
-    per_char: bool = False
-
-    def __init__(self, base: Color, duration_frames: int = 6) -> None:
-        self._base = base
-        self.duration_frames = duration_frames
-
-    def color_for(self, frame: int, char_index: int, total_chars: int) -> Color:
-        graphics = require_graphics()
-        if frame >= self.duration_frames:
-            return self._base
-        p = frame / max(1, self.duration_frames - 1)
-        intensity = p / 0.2 if p < 0.2 else 1 - (p - 0.2) / 0.8
-        r = int(self._base.red + (255 - self._base.red) * intensity)
-        g = int(self._base.green + (255 - self._base.green) * intensity)
-        b = int(self._base.blue + (255 - self._base.blue) * intensity)
-        return graphics.Color(r, g, b)
 
 
 class Gradient:

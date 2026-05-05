@@ -7,11 +7,10 @@
 #   1. animation = "typewriter"           — chars type out left-to-right
 #   2. font_color = "color_cycle"         — whole-string hue rotation
 #   3. font_color = "rainbow"             — per-char rainbow showcase
-#   4. font_color = {style="pulse",...}   — entry flash to white, then base
-#   5. animation = "bounce"               — slide in, hold, slide out
-#   6. font_color = "rainbow" + Countdown — different widget type
-#   7. font_color = "color_cycle" + Weather — live-data text recoloring
-#   8. font_color = "rainbow" + emoji     — tripwire (slug renders as letters)
+#   4. font_color = {style="gradient",..} — left-to-right red→blue gradient
+#   5. font_color = "rainbow" + Countdown — different widget type
+#   6. font_color = "color_cycle" + Weather — live-data text recoloring
+#   7. font_color = "rainbow" + emoji     — tripwire (slug renders as letters)
 #
 # v1 limit: per_char providers (rainbow, gradient) don't penetrate
 # `:slug:` emoji segments — slugs render as colored letters. Filed,
@@ -55,7 +54,7 @@ color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
-text = "WATCH ME GET TYPED OUT"
+text = "TYPING NOW"
 font_color = [255, 220, 50]
 animation = "typewriter"
 
@@ -93,7 +92,7 @@ type = "message"
 text = "RAINBOW PER-CHARACTER"
 font_color = "rainbow"
 
-# 4. pulse — flash then settle
+# 4. gradient — left-to-right color interpolation
 [[playlist.section]]
 mode = "swap"
 hold_time = 8.0
@@ -102,15 +101,15 @@ transition = "cut"
 
 [playlist.section.title]
 type = "message"
-text = "4: pulse"
+text = "4: gradient"
 color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
-text = "PULSE THEN STAY STEADY"
-font_color = {style = "pulse", base = [50, 200, 100]}
+text = "RED TO BLUE GRADIENT"
+font_color = {style = "gradient", from = [255, 0, 0], to = [0, 100, 255]}
 
-# 5. bounce
+# 5. rainbow + countdown
 [[playlist.section]]
 mode = "swap"
 hold_time = 8.0
@@ -119,25 +118,7 @@ transition = "cut"
 
 [playlist.section.title]
 type = "message"
-text = "5: bounce"
-color = [200, 220, 255]
-
-[[playlist.section.widget]]
-type = "message"
-text = "BOUNCE IN HOLD OUT"
-font_color = [255, 150, 200]
-animation = "bounce"
-
-# 6. rainbow + countdown
-[[playlist.section]]
-mode = "swap"
-hold_time = 8.0
-loop_count = 1
-transition = "cut"
-
-[playlist.section.title]
-type = "message"
-text = "6: rainbow + countdown"
+text = "5: rainbow + countdown"
 color = [200, 220, 255]
 
 [[playlist.section.widget]]
@@ -146,7 +127,7 @@ message = "Days to NYE"
 countdown_date = 2027-01-01
 font_color = "rainbow"
 
-# 7. color_cycle + weather
+# 6. color_cycle + weather
 [[playlist.section]]
 mode = "swap"
 hold_time = 8.0
@@ -155,7 +136,7 @@ transition = "cut"
 
 [playlist.section.title]
 type = "message"
-text = "7: color_cycle + weather"
+text = "6: color_cycle + weather"
 color = [200, 220, 255]
 
 [[playlist.section.widget]]
@@ -165,7 +146,7 @@ location = "Brooklyn"
 units = "imperial"
 font_color = "color_cycle"
 
-# 8. rainbow + emoji (tripwire — slugs render as letters)
+# 7. rainbow + emoji (tripwire — slugs render as letters)
 [[playlist.section]]
 mode = "swap"
 hold_time = 8.0
@@ -174,7 +155,7 @@ transition = "cut"
 
 [playlist.section.title]
 type = "message"
-text = "8: rainbow + emoji"
+text = "7: rainbow + emoji"
 color = [200, 220, 255]
 
 [[playlist.section.widget]]

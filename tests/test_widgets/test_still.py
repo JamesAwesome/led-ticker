@@ -411,10 +411,9 @@ def test_text_x_offset_with_scroll_raises(tmp_path):
 
 
 async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker):
-    """At text_scale=2 with text_valign='top', the wrapper now uses
-    content_height = panel_h // scale (so it spans the full panel) —
-    text paints at the panel's TOP edge, not 16 rows down where a
-    letterboxed sub-region used to start."""
+    """With text_valign='top' (and smart-default wrap scale on bigsign),
+    the wrapper uses content_height = panel_h // scale so it spans the
+    full panel — text paints at the panel's TOP edge, not letterboxed."""
     from led_ticker.scaled_canvas import ScaledCanvas
 
     path = _make_png(tmp_path, color=(0, 0, 0))
@@ -424,9 +423,9 @@ async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker
         text="X",
         text_align="right",
         text_valign="top",
-        text_scale=2,
         hold_seconds=0.05,
     )
+    widget._logical_scale = 4  # Simulate bigsign
     real = _bigsign_real_canvas()
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
@@ -480,15 +479,17 @@ async def test_emoji_routes_through_emoji_painter(tmp_path, mocker):
 
 
 async def test_text_scale_uses_scaled_canvas(tmp_path, mocker):
+    """Text wraps at smart default _logical_scale on bigsign (no explicit
+    font_size or text_scale). Ensures emoji gate fires for hires sprites."""
     path = _make_png(tmp_path, color=(0, 0, 0))
     widget = StillImage(
         path=str(path),
         fit="stretch",
         text="HI",
         text_align="right",
-        text_scale=2,
         hold_seconds=0.1,
     )
+    widget._logical_scale = 4  # Simulate bigsign
     real = _bigsign_real_canvas()
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
@@ -503,7 +504,7 @@ async def test_text_scale_uses_scaled_canvas(tmp_path, mocker):
     await widget.play(real, frame)
 
     assert seen_canvases
-    assert all(isinstance(c, ScaledCanvas) and c.scale == 2 for c in seen_canvases)
+    assert all(isinstance(c, ScaledCanvas) and c.scale == 4 for c in seen_canvases)
 
 
 async def test_text_canvas_follows_back_buffer(tmp_path, mocker):
@@ -846,13 +847,17 @@ async def test_text_scale_too_large_raises_at_first_paint(tmp_path, mocker):
     """text_scale * 12 (BDF cell height) > panel_h leaves no room for
     glyphs — raise loudly at first paint instead of silently clipping."""
     path = _make_png(tmp_path)
-    # On 64-tall panel: text_scale=6 → text_canvas.height = 64//6 = 10 (< 12)
+    # On 64-tall panel with bigsign scale=4: smart default wraps at 4,
+    # giving text_canvas.height = 64//4 = 16 (adequate). To trigger the
+    # error, use explicit font_size that wraps higher (e.g., 72px BDF →
+    # 72//12=6 → canvas=64//6=10 < 12). The error message will mention
+    # font_size, not text_scale.
     widget = StillImage(
         path=str(path),
         fit="stretch",
         text="HI",
         text_align="scroll_over",
-        text_scale=6,
+        font_size=72,  # BDF: 72//12=6 scale → 64//6=10 rows < 12
         hold_seconds=0.05,
     )
     real = _bigsign_real_canvas()
@@ -860,7 +865,7 @@ async def test_text_scale_too_large_raises_at_first_paint(tmp_path, mocker):
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
-    with pytest.raises(ValueError, match="text_scale"):
+    with pytest.raises(ValueError, match="font_size"):
         await widget.play(real, frame)
 
 
@@ -916,10 +921,11 @@ async def test_static_fast_path_captures_swap_return(tmp_path, mocker):
 
 
 async def test_text_canvas_follows_back_buffer_at_text_scale_2(tmp_path, mocker):
-    """At text_scale > 1 the text canvas is a ScaledCanvas wrapper —
-    its `.real` attribute must be re-anchored to the new back-buffer
-    after each swap (CLAUDE.md #10). Test runs the per-tick loop and
-    asserts the wrapper points at the latest swap return each tick."""
+    """On bigsign (smart-default wrap at _logical_scale) the text canvas
+    is a ScaledCanvas wrapper — its `.real` attribute must be re-anchored
+    to the new back-buffer after each swap (CLAUDE.md #10). Test runs the
+    per-tick loop and asserts the wrapper points at the latest swap return
+    each tick."""
     from led_ticker.scaled_canvas import ScaledCanvas
 
     path = _make_png(tmp_path, color=(0, 0, 0))
@@ -928,10 +934,10 @@ async def test_text_canvas_follows_back_buffer_at_text_scale_2(tmp_path, mocker)
         fit="stretch",
         text="X",
         text_align="scroll_over",  # per-tick loop runs
-        text_scale=2,  # ScaledCanvas wrapper path
         scroll_speed_ms=50,
         hold_seconds=0.15,
     )
+    widget._logical_scale = 4  # Simulate bigsign
     real = _bigsign_real_canvas()
 
     swap_returns: list[object] = []
@@ -970,20 +976,19 @@ async def test_text_canvas_follows_back_buffer_at_text_scale_2(tmp_path, mocker)
 
 async def test_text_loops_at_text_scale_2(tmp_path, mocker):
     """`ticks_per_text_loop = text_w + text_width` uses LOGICAL widths.
-    A regression that uses physical `canvas.width` would halve the
-    floor at text_scale=2, since text_w = canvas.width // text_scale.
-    Pin the logical-width formula via a tighter bound."""
+    On bigsign (smart-default wrap at scale=4), test that text_loops=2
+    runs exactly 2 full traversals without regression to physical widths."""
     path = _make_png(tmp_path, color=(0, 0, 0))
     widget = StillImage(
         path=str(path),
         fit="stretch",
         text="X",
         text_align="scroll_over",
-        text_scale=2,
         scroll_speed_ms=50,
         hold_seconds=0.05,
         text_loops=2,
     )
+    widget._logical_scale = 4  # Simulate bigsign
     real = _bigsign_real_canvas()
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
@@ -991,11 +996,11 @@ async def test_text_loops_at_text_scale_2(tmp_path, mocker):
 
     await widget.play(real, frame)
 
-    # text_w = 256 // 2 = 128 logical; text_width("X") = 6 logical.
-    # 1 traversal = 134 ticks; ×2 = 268. If a regression substituted
-    # physical widths (256 + 6 = 262 per traversal), bound would be
-    # ≥ 524 — way outside our window. Tight bound catches the bug.
-    one_traversal = 128 + 6
+    # At wrap_scale=4: text_w = 256 // 4 = 64 logical;
+    # text_width("X") ≈ 6 logical. 1 traversal ≈ 70 ticks; ×2 ≈ 140.
+    # If regression used physical widths (256 + 6 = 262 per traversal),
+    # the count would be ≥ 524 — way outside our window.
+    one_traversal = 64 + 6
     count = frame.matrix.SwapOnVSync.call_count
     assert 2 * one_traversal <= count < 3 * one_traversal
 
@@ -1048,18 +1053,22 @@ async def test_wrap_around_fires_at_correct_tick(tmp_path, mocker):
 def test_text_scale_too_large_raises_on_various_panels(
     tmp_path, mocker, panel_h, scale
 ):
-    """text_scale upper bound: panel_h // text_scale must be >= 12 (the
+    """font_size upper bound: panel_h // wrap_scale must be >= 12 (the
     BDF cell height). Parametrized over panel sizes so a regression
-    that hardcodes panel_h would break on small sign / scale=2."""
+    that hardcodes panel_h would break on small sign / scale=2.
+    Trigger error with font_size that results in wrap_scale too large."""
     from rgbmatrix import _StubCanvas
 
     path = _make_png(tmp_path)
+    # Use font_size = 12 * scale so block_scale = scale,
+    # and with _logical_scale=1 (small panels), wrap_scale=max(scale,1)=scale.
+    # If scale*12 > panel_h, we get panel_h//scale < 12 → error.
     widget = StillImage(
         path=str(path),
         fit="stretch",
         text="X",
         text_align="scroll_over",
-        text_scale=scale,
+        font_size=12 * scale,
         hold_seconds=0.05,
     )
     canvas = _StubCanvas(width=panel_h * 4, height=panel_h)
@@ -1069,7 +1078,7 @@ def test_text_scale_too_large_raises_on_various_panels(
 
     import asyncio as _asyncio
 
-    with pytest.raises(ValueError, match="text_scale"):
+    with pytest.raises(ValueError, match="font_size"):
         _asyncio.get_event_loop().run_until_complete(widget.play(canvas, frame))
 
 

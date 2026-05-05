@@ -311,10 +311,9 @@ def test_text_x_offset_with_scroll_raises(tmp_path):
 
 
 async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker):
-    """At text_scale=2 with text_valign='top', the wrapper now spans
-    the FULL panel (content_height = panel_h // scale = 32) — text
-    paints at the panel's TOP edge, not 16 rows down where the old
-    letterboxed sub-region used to start."""
+    """With text_valign='top' (and smart-default wrap scale on bigsign),
+    the wrapper spans the FULL panel (content_height = panel_h // scale)
+    — text paints at the panel's TOP edge, not letterboxed."""
     from led_ticker.scaled_canvas import ScaledCanvas
 
     path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
@@ -324,8 +323,8 @@ async def test_top_valign_paints_at_panel_top_with_text_scale_2(tmp_path, mocker
         text="X",
         text_align="right",
         text_valign="top",
-        text_scale=2,
     )
+    widget._logical_scale = 4  # Simulate bigsign
     real = _bigsign_real_canvas()
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
@@ -1008,9 +1007,8 @@ async def test_static_text_wider_than_canvas_clamps_to_left_edge(tmp_path, mocke
 
 async def test_play_emoji_with_text_scale_and_scroll(tmp_path, mocker):
     """The actual user combo (Section 15 in config.gif_test): emoji slug
-    + text_scale > 1 + text_align="scroll_over". Each axis is tested
-    individually but never the intersection — where logical/physical
-    unit confusion in `_measure_text` could produce the wrong tick budget."""
+    + wrap at smart-default scale + text_align="scroll_over". Test that
+    logical/physical unit handling in `_measure_text` is correct."""
     path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
     widget = GifPlayer(
         path=str(path),
@@ -1018,10 +1016,10 @@ async def test_play_emoji_with_text_scale_and_scroll(tmp_path, mocker):
         text=":sun: HOT",
         text_align="scroll_over",
         font_color=Color(255, 255, 255),
-        text_scale=2,
         scroll_speed_ms=50,
         text_loops=1,
     )
+    widget._logical_scale = 4  # Simulate bigsign
     real = _bigsign_real_canvas()
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
@@ -1036,22 +1034,21 @@ async def test_play_emoji_with_text_scale_and_scroll(tmp_path, mocker):
 
     # Emoji painter ran (not draw_text) because text contains a slug
     assert emoji_calls.called
-    # Each call got a ScaledCanvas (text_scale=2 wrap), not the raw real canvas
+    # Each call got a ScaledCanvas (smart-default wrap at scale=4)
     from led_ticker.scaled_canvas import ScaledCanvas
 
     for call in emoji_calls.call_args_list:
         canvas_arg = call.args[0]
         assert isinstance(canvas_arg, ScaledCanvas), (
-            f"emoji painter should receive ScaledCanvas at text_scale=2, "
+            f"emoji painter should receive ScaledCanvas at wrap_scale=4, "
             f"got {type(canvas_arg).__name__}"
         )
 
 
 async def test_play_text_scale_uses_scaled_canvas(tmp_path, mocker):
-    """text_scale > 1 wraps the real canvas in a ScaledCanvas just for
-    text painting — block-expands each glyph pixel so text is visible
-    on the bigsign. Confirm by spying on draw_text and inspecting the
-    canvas argument it receives."""
+    """Smart-default wrap at _logical_scale wraps the real canvas in a
+    ScaledCanvas just for text painting — block-expands each glyph pixel
+    so text is visible on bigsign. Confirm by spying on draw_text."""
     from led_ticker.scaled_canvas import ScaledCanvas
 
     path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
@@ -1061,8 +1058,8 @@ async def test_play_text_scale_uses_scaled_canvas(tmp_path, mocker):
         text="HI",
         text_align="right",
         font_color=Color(255, 255, 255),
-        text_scale=2,
     )
+    widget._logical_scale = 4  # Simulate bigsign
     real = _bigsign_real_canvas()
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
@@ -1081,10 +1078,10 @@ async def test_play_text_scale_uses_scaled_canvas(tmp_path, mocker):
 
     await widget.play(real, frame, loop_count=1)
 
-    # Every text-paint tick handed draw_text a ScaledCanvas, not the raw real
+    # Every text-paint tick handed draw_text a ScaledCanvas at wrap_scale=4
     assert seen_canvases, "draw_text should have been invoked at least once"
     assert all(isinstance(c, ScaledCanvas) for c in seen_canvases)
-    assert all(c.scale == 2 for c in seen_canvases)
+    assert all(c.scale == 4 for c in seen_canvases)
 
 
 async def test_play_text_scale_1_text_canvas_follows_back_buffer(tmp_path, mocker):

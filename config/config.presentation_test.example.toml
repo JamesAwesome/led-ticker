@@ -1,0 +1,294 @@
+# Presentation effects smoke test — Pi 5 bigsign.
+#
+# Validates the 5 registered presentation effects (typewriter,
+# color_cycle, rainbow, pulse, bounce) against widget types that bear
+# a `message` attribute. The effects in `presentation.py` short-circuit
+# to plain `widget.draw()` when `widget.message` isn't a string, so
+# this config focuses on widgets where the effect actually fires:
+# TickerMessage, TickerCountdown, WeatherWidget.
+#
+# Sections (in iteration order):
+#   1. typewriter + TickerMessage     — chars type out left-to-right
+#   2. color_cycle + TickerMessage    — whole-string hue rotation
+#   3. rainbow + TickerMessage        — per-character hue offset (showcase)
+#   4. pulse + TickerMessage          — entry flash to white, then steady
+#   5. bounce + TickerMessage         — slide in from right, hold, slide out left
+#   6. rainbow + TickerCountdown      — per-char rainbow over "{label}: {N}"
+#   7. color_cycle + WeatherWidget    — verifies effect over live-data formatted text
+#   8. rainbow + emoji message        — :taco: HOT TACOS :taco: + per-char hue
+#
+# What to look for on hardware:
+#   §1  Cursor walks left-to-right; hold ~8s shows full message at end.
+#   §2  Whole text shifts color smoothly; never breaks into per-char.
+#   §3  Each character lit at a different hue; sweep travels along text.
+#   §4  Bright flash on entry (~0.3s), then settles to the configured color.
+#   §5  Text enters from off-right, holds at center, exits off-left.
+#   §6  Days-until number recolors per-char along with the label.
+#   §7  Whole "Brooklyn: 64°F" string shifts hue together.
+#   §8  Letters rainbow; emojis keep their own pixel-art colors.
+#
+# Known limitations to verify:
+#   - typewriter and rainbow draw text at hardcoded baseline `y = 12`
+#     in `presentation.py` (relative to logical canvas). Works for BDF
+#     on the bigsign logical-16 canvas (the wrapper block-expands
+#     `y = 12` correctly). HiresFont configs would render at the wrong
+#     baseline because hires paints to real px directly. This config
+#     uses BDF default everywhere — DO NOT add HiresFont configs here
+#     until that hardcode is replaced with `compute_baseline`.
+#
+# Copy to config.toml on the bigsign Pi:
+#   cp config/config.presentation_test.example.toml config/config.toml
+#
+# Requires: WEATHERAPI_KEY in .env for §7 (set via `.env.example`).
+
+# ---------------------------------------------------------------------------
+# Display + RP1 performance tuning (matches config.bigsign.example.toml)
+# ---------------------------------------------------------------------------
+
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+
+brightness = 60
+slowdown_gpio = 3
+gpio_mapping = "adafruit-hat"
+default_scale = 4
+
+pwm_bits = 8
+show_refresh = true
+rp1_rio = 1
+
+[title]
+delay = 0.5  # short title hold so effect time dominates
+
+[transitions]
+default = "cut"
+duration = 0.2
+easing = "linear"
+between_sections = "cut"
+
+# ---------------------------------------------------------------------------
+# Section 1 — typewriter + TickerMessage
+#
+# `Typewriter` reads `widget.message` directly and renders a slice
+# growing one character per frame. At ~20 fps the slice grows by 1
+# char per ~50ms — a 22-char message types out in ~1.1s, then holds.
+# `hold_time = 8` gives ~7s of "fully typed" view at the end.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[playlist.section.title]
+type = "message"
+text = "1: typewriter"
+color = [200, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "WATCH ME GET TYPED OUT"
+font_color = [255, 220, 50]
+presentation = "typewriter"
+
+# ---------------------------------------------------------------------------
+# Section 2 — color_cycle + TickerMessage
+#
+# `ColorCycle` advances hue by `speed` degrees per frame and passes
+# the result to `widget.draw(font_color=...)`. The whole text shifts
+# color in unison; no per-character variation.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[playlist.section.title]
+type = "message"
+text = "2: color_cycle"
+color = [200, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "WHOLE TEXT CYCLES HUE"
+font_color = [255, 100, 100]  # base color overridden every frame
+presentation = "color_cycle"
+
+# ---------------------------------------------------------------------------
+# Section 3 — rainbow + TickerMessage  (the showcase)
+#
+# `Rainbow` draws each character with its own hue, separated by
+# `char_offset = 30°` of hue, advancing `speed = 8°` per frame. With
+# 24 chars the hue spans 720° (two full sweeps), so you see two
+# bands of color at any moment, sliding along the string.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[playlist.section.title]
+type = "message"
+text = "3: rainbow"
+color = [200, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RAINBOW PER-CHARACTER"
+font_color = [255, 255, 255]  # ignored — rainbow overrides per char
+presentation = "rainbow"
+
+# ---------------------------------------------------------------------------
+# Section 4 — pulse + TickerMessage
+#
+# `Pulse` ramps to white over the first 20% of `duration_frames` (= 6
+# frames default), then back to base over the next 80%. After
+# `duration_frames` it falls through to `widget.draw(font_color=base)`
+# — i.e. steady at base color for the rest of `hold_time`.
+#
+# At 20 fps the pulse lasts ~0.3s. Watch for the entry flash, then
+# steady "STAY STEADY..." for the remainder.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[playlist.section.title]
+type = "message"
+text = "4: pulse"
+color = [200, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "PULSE THEN STAY STEADY"
+font_color = [50, 200, 100]  # green base; pulse flashes through white
+presentation = "pulse"
+
+# ---------------------------------------------------------------------------
+# Section 5 — bounce + TickerMessage
+#
+# `Bounce` repositions the widget's cursor each frame:
+#   - frames 0..19: scroll in from right (ease_out)
+#   - frames 20..59: hold at center (40 frames hold)
+#   - frames 60..79: scroll out to left (ease_in)
+#   - frames 80+: held off-screen at center_x
+# Total cycle: 80 frames ≈ 4s. `hold_time = 8` lets you see the bounce
+# complete and then sit at the post-cycle "hold off-screen" position
+# (text not visible) for the remainder. Feel free to drop hold_time
+# to 4 to immediately swap.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[playlist.section.title]
+type = "message"
+text = "5: bounce"
+color = [200, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "BOUNCE IN HOLD OUT"
+font_color = [255, 150, 200]
+presentation = "bounce"
+
+# ---------------------------------------------------------------------------
+# Section 6 — rainbow + TickerCountdown
+#
+# Verifies the rainbow effect against a different widget type whose
+# `message` is a formatted f-string (`{label}: {days}`). The text
+# is dynamic per-section but stable per-frame, so the rainbow sweep
+# colors the days number along with the label.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[playlist.section.title]
+type = "message"
+text = "6: rainbow + countdown"
+color = [200, 220, 255]
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Days to NYE"
+countdown_date = 2027-01-01
+font_color = [255, 255, 255]
+presentation = "rainbow"
+
+# ---------------------------------------------------------------------------
+# Section 7 — color_cycle + WeatherWidget
+#
+# Weather formats `{message}: {temp}°{unit} {condition}`. color_cycle
+# colors the whole formatted string. Confirms presentation effects
+# survive the live-data fetch path. Requires WEATHERAPI_KEY env var.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[playlist.section.title]
+type = "message"
+text = "7: color_cycle + weather"
+color = [200, 220, 255]
+
+[[playlist.section.widget]]
+type = "weather"
+message = "Brooklyn"
+location = "Brooklyn"
+units = "imperial"
+font_color = [255, 200, 100]
+presentation = "color_cycle"
+
+# ---------------------------------------------------------------------------
+# Section 8 — rainbow + emoji
+#
+# Verifies the rainbow effect handles inline `:slug:` emoji
+# correctly. The `Rainbow` class iterates `widget.message` character
+# by character and calls `draw_text` for each — but `:taco:` is a
+# 6-char SLUG, not a single emoji glyph. So this section also serves
+# as a tripwire: if you see rainbow-colored ": t a c o :" letters
+# instead of the taco sprite, the rainbow effect doesn't route through
+# the emoji renderer and that's a bug worth filing. (As of this
+# writing, that's the actual behavior — emoji slugs render as colored
+# letters under rainbow. Smoke this on hardware to confirm + decide
+# whether to fix or document.)
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[playlist.section.title]
+type = "message"
+text = "8: rainbow + emoji"
+color = [200, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = ":taco: HOT TACOS :taco:"
+font_color = [255, 255, 255]
+presentation = "rainbow"

@@ -56,8 +56,15 @@ Field               Default            Description
 ``scroll_direction`` ``"left"``        Direction marquee TRAVELS.
 ``font_color``      yellow             RGB list ``[r, g, b]`` or "random".
 ``scroll_speed_ms`` ``50``             Tick cadence when text scrolls (≥ 20).
-``text_scale``      ``1``              Block-scale glyphs (1=native; set 2-4 on
-                                       bigsign for readable text).
+``font``            ``FONT_DEFAULT``   BDF or HiresFont by name (e.g.
+                                       ``"Inter-Regular"``). Defaults to 6×12.
+``font_size``       ``None``           Real-pixel size. None = smart default
+                                       (BDF only): cell_h × _logical_scale, so
+                                       12 on small sign, 48 on bigsign for
+                                       FONT_DEFAULT (6×12). HiresFont configs
+                                       must specify explicitly. For BDF, snaps
+                                       down to the nearest integer multiple of
+                                       cell height.
 ``gif_loops``       ``1``              Per-visit gif loop count when dispatched
                                        via run_swap. (Still widget uses
                                        ``hold_seconds`` instead.)
@@ -67,7 +74,6 @@ Field               Default            Description
 ==================  =================  ==========================================
 
 Constraints validated at construction:
-    - ``text_scale >= 1``
     - ``gif_loops >= 1``
     - ``text_loops >= 0``
     - ``scroll_speed_ms >= 20``
@@ -76,7 +82,8 @@ Constraints validated at construction:
     - ``text_align="scroll"`` requires ``fit != "stretch"``
 
 Validated at first paint (panel dims unknown until then):
-    - ``panel_h // text_scale >= 12`` (BDF cell needs 12 logical rows)
+    - BDF: ``font_size >= cell_h`` (raises with hint if smaller)
+    - Resolved ``font_size``'s logical line-height fits the panel
 
 See CLAUDE.md "GIF widget and Still-image widget" for architectural
 context (shared base class, native-resolution painting, play()

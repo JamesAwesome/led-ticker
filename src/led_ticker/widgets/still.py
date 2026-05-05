@@ -36,8 +36,15 @@ Field               Default            Description
                                        from right edge, exits left).
 ``font_color``      yellow             RGB list ``[r, g, b]`` or ``"random"``.
 ``scroll_speed_ms`` ``50``             Tick cadence when text scrolls (≥ 20).
-``text_scale``      ``1``              Block-scale text glyphs (1=native; 2-4
-                                       on bigsign for distance readability).
+``font``            ``FONT_DEFAULT``   BDF or HiresFont by name (e.g.
+                                       ``"Inter-Regular"``). Defaults to 6×12.
+``font_size``       ``None``           Real-pixel size. None = smart default
+                                       (BDF only): cell_h × _logical_scale, so
+                                       12 on small sign, 48 on bigsign for
+                                       FONT_DEFAULT (6×12). HiresFont configs
+                                       must specify explicitly. For BDF, snaps
+                                       down to the nearest integer multiple of
+                                       cell height.
 ``hold_seconds``    ``5.0``            Per-visit display duration. With
                                        ``text_loops > 0`` becomes a duration
                                        FLOOR: section runs for
@@ -53,7 +60,6 @@ Field               Default            Description
 (centered image has no opposite pillar, so we put text over the gif).
 
 Constraints validated at construction:
-    - ``text_scale >= 1``
     - ``hold_seconds >= 0.05``
     - ``text_loops >= 0``
     - ``scroll_speed_ms >= 20``
@@ -65,7 +71,8 @@ Constraints validated at construction:
       on transparent / pillarbox regions for skip-black to expose text)
 
 Validated at first paint (panel dims unknown until then):
-    - ``panel_h // text_scale >= 12`` (BDF cell needs 12 logical rows)
+    - BDF: ``font_size >= cell_h`` (raises with hint if smaller)
+    - Resolved ``font_size``'s logical line-height fits the panel
 """
 
 from __future__ import annotations

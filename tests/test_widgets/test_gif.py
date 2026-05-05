@@ -724,13 +724,9 @@ def test_text_loops_with_static_text_raises(tmp_path):
 
 
 def test_negative_numeric_fields_raise(tmp_path):
-    """Range validation: text_scale < 1, loops < 1, text_loops < 0,
+    """Range validation: loops < 1, text_loops < 0,
     scroll_speed_ms < MIN all raise instead of silently mis-behaving."""
     path = _make_gif_path(tmp_path, [(0, 0, 0)])
-    with pytest.raises(ValueError, match="text_scale"):
-        GifPlayer(path=str(path), text_scale=0)
-    with pytest.raises(ValueError, match="text_scale"):
-        GifPlayer(path=str(path), text_scale=-1)
     with pytest.raises(ValueError, match="gif_loops"):
         GifPlayer(path=str(path), gif_loops=0)
     with pytest.raises(ValueError, match="text_loops"):

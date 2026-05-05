@@ -12,6 +12,7 @@ from led_ticker.ticker import (
     _run_swap,
     _scroll_and_delay,
     _scroll_between,
+    _show_one,
     _swap_and_scroll,
 )
 
@@ -776,3 +777,67 @@ class TestSwapAndScrollEngineTick:
 
         # Should complete without AttributeError
         await _swap_and_scroll(canvas, swapping_frame, widget, hold_time=0.1)
+
+
+class TestShowOneResetsFrame:
+    """`_show_one` must call `widget.reset_frame()` at the start of each
+    visit so frame-aware effects (typewriter, color providers) restart
+    on every visit instead of carrying state across loop iterations."""
+
+    async def test_reset_frame_called_on_widget_with_mixin(
+        self, swapping_frame, no_sleep
+    ):
+        from rgbmatrix import _StubCanvas
+
+        class _SpyWidget:
+            def __init__(self):
+                self._frame_count = 99  # pretend a previous visit happened
+                self._frame_paused = False
+                self.reset_called = False
+
+            def draw(self, canvas, cursor_pos=0, **kwargs):
+                return canvas, 5
+
+            def reset_frame(self):
+                self._frame_count = 0
+                self.reset_called = True
+
+            def advance_frame(self):
+                self._frame_count += 1
+
+            @property
+            def bg_color(self):
+                return None
+
+        widget = _SpyWidget()
+        canvas = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+
+        assert widget.reset_called
+
+    async def test_widget_without_reset_frame_does_not_crash(
+        self, swapping_frame, no_sleep
+    ):
+        """Defensive: widgets without _FrameAware mixin must not crash."""
+        from rgbmatrix import _StubCanvas
+
+        class _NoMixin:
+            def draw(self, canvas, cursor_pos=0, **kwargs):
+                return canvas, 5
+
+            @property
+            def bg_color(self):
+                return None
+
+        widget = _NoMixin()
+        canvas = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        # Should complete without AttributeError
+        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)

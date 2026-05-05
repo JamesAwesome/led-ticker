@@ -927,3 +927,44 @@ class TestColorProviderCoercion:
         async with aiohttp.ClientSession() as s:
             widget = await _build_widget(cfg, session=s)
         assert isinstance(widget.font_color, Random)
+
+    async def test_weather_font_color_temp_string_becomes_provider(self, monkeypatch):
+        """font_color_temp accepts the same provider shorthand as
+        font_color. Without `font_color_temp` in _PROVIDER_COLOR_KEYS,
+        the string passes through and crashes at draw time."""
+        monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.color_providers import Rainbow
+
+        cfg = {
+            "type": "weather",
+            "message": "NYC",
+            "location": "NYC",
+            "font_color_temp": "rainbow",
+        }
+        async with aiohttp.ClientSession() as s:
+            widget = await _build_widget(cfg, session=s)
+        assert isinstance(widget.font_color_temp, Rainbow)
+
+    async def test_weather_font_color_temp_table_becomes_provider(self, monkeypatch):
+        monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+        from led_ticker.color_providers import Gradient
+
+        cfg = {
+            "type": "weather",
+            "message": "NYC",
+            "location": "NYC",
+            "font_color_temp": {
+                "style": "gradient",
+                "from": [255, 0, 0],
+                "to": [0, 0, 255],
+            },
+        }
+        async with aiohttp.ClientSession() as s:
+            widget = await _build_widget(cfg, session=s)
+        assert isinstance(widget.font_color_temp, Gradient)

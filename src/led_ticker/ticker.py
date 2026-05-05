@@ -635,7 +635,14 @@ async def _show_one(
     everything else uses the standard hold-and-scroll path. Returns
     `(canvas, last_scroll_pos)` — `last_scroll_pos` is 0 for play()
     widgets since they don't have a scroll position.
+
+    Resets the widget's frame counter at the start of each visit (via
+    `reset_frame()` if the widget exposes it) so frame-aware effects
+    like typewriter restart cleanly on every visit, including
+    `loop_count > 1` and repeated sections.
     """
+    if hasattr(widget, "reset_frame"):
+        widget.reset_frame()
     if _has_play(widget):
         canvas = await _play_widget(canvas, frame, widget)
         return canvas, 0

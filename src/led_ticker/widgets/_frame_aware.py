@@ -5,8 +5,8 @@ tracks its own `_frame_count`; the orchestrator calls `advance_frame()`
 per draw tick. Transitions call `pause_frame()` / `resume_frame()`
 around their compositing loop so the count doesn't drift while the
 widget is being re-rendered for a dissolve. `reset_frame()` is called
-at the start of each visit so the count doesn't carry over between
-widgets.
+by `ticker._show_one` at the start of each visit so the count
+doesn't carry over between widgets / loop iterations.
 
 Use as a mixin alongside `@attrs.define` on each widget class. The
 `init=False` fields don't show up in TOML; they're internal state.

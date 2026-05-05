@@ -45,7 +45,7 @@ src/led_ticker/
                        #   UP_TREND_COLOR/DOWN_TREND_COLOR/NEUTRAL_TREND_COLOR
                        #   for crypto/finance widgets, etc.)
   color_providers.py   # ColorProvider base + Rainbow, ColorCycle, Gradient, _ConstantColor
-  animations.py        # Animation protocol + Typewriter, Bounce (TickerMessage-only)
+  animations.py        # Animation protocol + Typewriter (TickerMessage-only)
   pixel_emoji.py       # Inline pixel-art emoji renderer (:name: in messages)
   fonts/               # BDF bitmap fonts + loader
   transitions/
@@ -70,7 +70,7 @@ src/led_ticker/
     mlb_standings.py    # MLBStandingsMonitor (top N + tracked teams, offseason detection)
     gif.py              # GifPlayer: animated GIFs at native physical resolution
     still.py            # StillImage: single PNG/JPG (mirrors GifPlayer feature surface)
-    _frame_aware.py     # _FrameAwareMixin: frame_count + pause_frame/resume_frame protocol
+    _frame_aware.py     # _FrameAware mixin: frame_count + pause_frame/resume_frame protocol
     _row_layout.py      # row_layout, aligned_x, resolve_band_heights (shared by TwoRow + image)
     _image_base.py      # _BaseImageWidget: shared text-overlay surface + _play_with_text
     _gif_decode.py      # Pillow-based GIF decoder (animated, with frame-duration logging)
@@ -130,7 +130,7 @@ src/led_ticker/
 
 **Transition Registry**: `@register_transition("name")` decorator in `transitions/` package. 30 transitions available.
 
-**Presentation Registry**: `@register_presentation("name")` decorator. 5 text effects available.
+**Color providers + animations**: see "Color providers and animations" section below for the full vocabulary. Replaces the legacy `@register_presentation` registry.
 
 ### CRITICAL: Hardware Rendering Constraints
 
@@ -212,7 +212,7 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 
 **How wipe transitions work**: Draw outgoing widget at pos=0 (stationary text), then use SetPixel to black out regions and draw colored sweep lines on top. At t=1.0, snap to incoming. This avoids the compositing problem entirely — no need to draw both widgets or read pixels back. The blackouts are NOT redundant against `Clear()` — they erase parts of `outgoing.draw()`'s text bleed (DrawText cannot be clipped).
 
-**Frame freeze during transitions**: `run_transition` calls `pause_frame()` on outgoing/incoming before its loop and `resume_frame()` after (try/finally). Widgets with frame-aware effects (TickerMessage with `animation` or per-char `font_color`) expose these methods via `_FrameAwareMixin` to keep `frame_count` from advancing while the widget is being re-rendered for compositing — otherwise a Bounce/Typewriter/Rainbow widget mid-cycles during the dissolve and re-enters the next section at a wrong phase. Plain widgets without `pause_frame()` are skipped via duck-typing.
+**Frame freeze during transitions**: `run_transition` calls `pause_frame()` on outgoing/incoming before its loop and `resume_frame()` after (try/finally). Widgets with frame-aware effects (TickerMessage with `animation` or per-char `font_color`) expose these methods via `_FrameAware` to keep `frame_count` from advancing while the widget is being re-rendered for compositing — otherwise a Typewriter/Rainbow widget mid-cycles during the dissolve and re-enters the next section at a wrong phase. Plain widgets without `pause_frame()` are skipped via duck-typing.
 
 **Cross-scale dissolves**: `run_transition(..., incoming_scale=N)` re-wraps the canvas at the new scale at t ≥ 0.5 so the incoming widget dissolves IN at its native size instead of flashing the wrong scale. The function returns the new wrapper — callers MUST capture the return value (`canvas = await run_transition(...)`) to follow the new wrapper for subsequent renders.
 
@@ -306,7 +306,7 @@ Set both to the same provider if you want them to match.
 - Examples: `config/config.example.toml` (small sign), `config/config.bigsign.example.toml` (Pi 5 bigsign with `pixel_mapper`, scaling, RP1 tuning), `config/config.moonbunny.example.toml` (real-world bigsign template — store-window display with brand colors and inline `:instagram:`/`:email:` emoji)
 - API keys: `.env` (see `.env.example`)
 - Per-section: `mode`, `transition`, `transition_duration`, `transition_color`, `hold_time`, `loop_count`
-- Per-widget: `presentation`, `show_icon` (weather), `scale` (override `default_scale` per section, e.g. countdowns at 2× on the bigsign)
+- Per-widget: `font_color` (provider — string / table), `animation` (TickerMessage only), `show_icon` (weather), `scale` (override `default_scale` per section, e.g. countdowns at 2× on the bigsign)
 - Global: `[transitions] default`, `duration`, `easing`, `between_sections`
 - Pi 5 only: `rp1_rio` (0=PIO, 1=RIO), `pwm_bits`, `pwm_lsb_nanoseconds`, `show_refresh`
 

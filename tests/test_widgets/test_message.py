@@ -203,3 +203,48 @@ class TestTickerCountdownColorProvider:
         assert widget._frame_count == 0
         widget.advance_frame()
         assert widget._frame_count == 1
+
+
+class TestHiresPerCharCursorMatchesHolistic:
+    """Regression: HiresFont per-char rendering must return the same
+    `cursor_pos` as `get_text_width(font, message, canvas)` on the
+    SAME canvas, otherwise scroll detection in `_swap_and_scroll`
+    disagrees with the visible per-char render and text gets drawn
+    off-canvas without triggering scroll.
+
+    Tripwire for the on-hardware bug where "INTER BOLD RAINBOW" with
+    Inter-Bold @ 24 measured at 64 logical (canvas.width) but the
+    per-char loop accumulated 72 logical worth of ceil-rounded
+    advances — last char "W" rendered at logical x=68 → real x=272,
+    off-screen, no scroll triggered."""
+
+    def test_per_char_cursor_pos_matches_holistic_measure(self):
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.color_providers import Rainbow
+        from led_ticker.drawing import get_text_width
+        from led_ticker.fonts import resolve_font
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.widgets.message import TickerMessage
+
+        font = resolve_font("Inter-Bold", 24)
+        widget = TickerMessage(
+            "INTER BOLD RAINBOW",
+            font=font,
+            font_color=Rainbow(),
+            padding=0,  # remove end-padding to compare cursor_pos directly
+        )
+        real = _StubCanvas(width=256, height=64)
+        canvas = ScaledCanvas(real, scale=4)
+
+        # Holistic measure (one ceil-div on real-px total)
+        holistic = get_text_width(font, "INTER BOLD RAINBOW", padding=0, canvas=canvas)
+
+        # Per-char render path: ask the widget to draw and return cursor_pos.
+        _, cursor_pos = widget.draw(canvas, cursor_pos=0)
+
+        assert cursor_pos == holistic, (
+            f"Per-char cursor drift: holistic={holistic}, returned={cursor_pos}. "
+            f"Sum-of-ceils accumulation can overshoot ceil-of-sum and break "
+            f"scroll detection."
+        )

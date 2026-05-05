@@ -167,8 +167,6 @@ def test_invalid_scroll_direction_raises(tmp_path):
 
 def test_negative_numerics_raise(tmp_path):
     path = _make_png(tmp_path)
-    with pytest.raises(ValueError, match="text_scale"):
-        StillImage(path=str(path), text_scale=0)
     with pytest.raises(ValueError, match="text_loops"):
         StillImage(path=str(path), text_loops=-1)
     with pytest.raises(ValueError, match="scroll_speed_ms"):

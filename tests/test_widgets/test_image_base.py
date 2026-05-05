@@ -95,7 +95,6 @@ class TestFieldSurface:
         "font_color",
         "bg_color",
         "scroll_speed_ms",
-        "text_scale",
         "text_loops",
         "font",
         "font_size",
@@ -129,7 +128,6 @@ class TestFieldSurface:
             scroll_direction="left",
             bg_color=None,
             scroll_speed_ms=50,
-            text_scale=1,
             text_loops=0,
             font=FONT_DEFAULT,
             font_size=24,
@@ -165,42 +163,6 @@ class TestFontKwarg:
         assert isinstance(font, HiresFont)
         w = _DummyImage(font=font)
         assert w.font is font
-
-
-class TestHiresFontTextScaleRejection:
-    """`text_scale > 1` is BDF block-expansion semantics. With a hires
-    font, the renderer paints to the unwrapped real canvas at native
-    pixels — text_scale becomes a silent no-op for the glyph size
-    while still affecting measurement (`get_text_width` ceil-divides
-    by canvas.scale). Refuse the combo at validation time so users
-    don't get measurement-vs-render disagreement on the panel.
-    """
-
-    def test_hires_font_with_text_scale_2_raises(self):
-        import pytest
-
-        from led_ticker.fonts import resolve_font
-
-        font = resolve_font("Inter-Regular", 24)
-        with pytest.raises(ValueError, match="text_scale"):
-            _DummyImage(font=font, text_scale=2)
-
-    def test_hires_font_with_text_scale_1_ok(self):
-        """text_scale=1 (default) is fine — no wrapper, no conflict."""
-        from led_ticker.fonts import resolve_font
-
-        font = resolve_font("Inter-Regular", 24)
-        w = _DummyImage(font=font, text_scale=1)
-        assert w.font is font
-        assert w.text_scale == 1
-
-    def test_bdf_font_with_text_scale_2_still_ok(self):
-        """BDF fonts go through the ScaledCanvas wrapper — text_scale
-        is the supported way to block-expand them."""
-        from led_ticker.fonts import FONT_DEFAULT
-
-        w = _DummyImage(font=FONT_DEFAULT, text_scale=2)
-        assert w.text_scale == 2
 
 
 class TestTwoRowMode:
@@ -295,15 +257,16 @@ class TestTwoRowMode:
                 text_x_offset=5,
             )
 
-    def test_two_row_with_text_scale_2_raises(self):
-        """text_scale > 1 conflicts with per-row band sizing."""
+    def test_with_font_size_raises(self):
+        """font_size is the single-row knob; two-row mode uses
+        top_font_size / bottom_font_size for per-row sizing."""
         import pytest
 
-        with pytest.raises(ValueError, match="text_scale"):
+        with pytest.raises(ValueError, match="font_size"):
             _DummyImage(
                 top_text="A",
                 bottom_text="B",
-                text_scale=2,
+                font_size=24,
             )
 
     def test_per_row_font_falls_back_to_font(self):
@@ -504,148 +467,6 @@ class TestTwoRowLogicalUnits:
 
         with pytest.raises(ValueError, match="logical rows"):
             await w._play_with_two_row_text(canvas, swapping_frame, n_ticks=0)
-
-
-class TestSingleRowLogicalScaleWrap:
-    """Single-row image widgets paint to the unwrapped real canvas
-    when `text_scale = 1` (the default). On bigsign that means hires
-    emoji's `isinstance(canvas, ScaledCanvas)` gate never fires — the
-    8×8 lores sprite is always used, even though a 32×32 hires variant
-    exists. Fix: when `_logical_scale > 1`, wrap at `_logical_scale`
-    so the gate fires (and BDF text incidentally block-expands to
-    fill the panel instead of rendering at native 12 px).
-
-    Side benefit: `text_y_offset` is documented as logical pixels but
-    operated on real pixels when `text_scale = 1` — after the fix,
-    it's logical everywhere.
-    """
-
-    async def test_text_canvas_is_wrapped_on_bigsign_with_text_scale_1(
-        self, swapping_frame
-    ):
-        """HiresFont + text_scale=1 + bigsign: text_canvas must be a
-        ScaledCanvas wrapper so emoji gate fires."""
-        from rgbmatrix import _StubCanvas
-
-        from led_ticker.fonts import resolve_font
-        from led_ticker.scaled_canvas import ScaledCanvas
-
-        font = resolve_font("Inter-Regular", size=14)
-        w = _DummyImage(text="hello :instagram:", font=font, text_scale=1)
-        w._logical_scale = 4
-
-        captured: list = []
-        orig = _BaseImageWidget._render_tick
-
-        def spy(self, canvas, text_canvas, *args):
-            captured.append(isinstance(text_canvas, ScaledCanvas))
-            return orig(self, canvas, text_canvas, *args)
-
-        _BaseImageWidget._render_tick = spy  # type: ignore[method-assign]
-        real = _StubCanvas(width=256, height=64)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=256, height=64
-        )
-
-        try:
-            await w._play_with_text(real, swapping_frame, n_ticks=1)
-        finally:
-            _BaseImageWidget._render_tick = orig  # type: ignore[method-assign]
-
-        assert captured, "_render_tick was never called"
-        assert all(captured), (
-            f"Expected text_canvas to be a ScaledCanvas wrapper on "
-            f"bigsign so hires emoji fires; got: {captured!r}"
-        )
-
-    async def test_text_canvas_not_wrapped_on_small_sign(self, swapping_frame):
-        """Small sign (`_logical_scale = 1`): no wrap (real == logical),
-        avoid an identity ScaledCanvas. Lores emoji is the right
-        choice on a 16-tall canvas anyway. Asserts the text_canvas is
-        identity-equal to the real canvas — guards against vacuous
-        pass if `_render_tick` were renamed (then `captured` would be
-        empty and `not any([])` is trivially True)."""
-        from rgbmatrix import _StubCanvas
-
-        from led_ticker.fonts import FONT_DEFAULT
-        from led_ticker.scaled_canvas import ScaledCanvas
-
-        w = _DummyImage(text="hi", font=FONT_DEFAULT, text_scale=1)
-        w._logical_scale = 1
-
-        captured: list = []
-        orig = _BaseImageWidget._render_tick
-
-        def spy(self, canvas, text_canvas, *args):
-            captured.append(
-                {
-                    "is_wrapped": isinstance(text_canvas, ScaledCanvas),
-                    "text_is_real": text_canvas is canvas,
-                }
-            )
-            return orig(self, canvas, text_canvas, *args)
-
-        _BaseImageWidget._render_tick = spy  # type: ignore[method-assign]
-        real = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
-
-        try:
-            await w._play_with_text(real, swapping_frame, n_ticks=1)
-        finally:
-            _BaseImageWidget._render_tick = orig  # type: ignore[method-assign]
-
-        assert len(captured) >= 1, (
-            "_render_tick was never reached — likely a rename or new "
-            "early return. Without this guard the next assertion "
-            "(`not any([])`) would pass vacuously."
-        )
-        assert not any(
-            c["is_wrapped"] for c in captured
-        ), f"Expected NO wrap on small sign (scale=1); got: {captured!r}"
-        assert all(c["text_is_real"] for c in captured), (
-            f"Expected text_canvas to be identity-equal to the real canvas "
-            f"when not wrapping; got: {captured!r}"
-        )
-
-    async def test_user_text_scale_still_honored(self, swapping_frame):
-        """If the user explicitly sets font_size (BDF block-expansion),
-        that takes precedence over _logical_scale. Without explicit
-        font_size, smart default uses _logical_scale."""
-        from rgbmatrix import _StubCanvas
-
-        from led_ticker.fonts import FONT_DEFAULT
-        from led_ticker.scaled_canvas import ScaledCanvas
-
-        # With explicit font_size=24: wrap at 24//12=2, ignoring _logical_scale=4
-        w = _DummyImage(text="hi", font=FONT_DEFAULT, font_size=24)
-        w._logical_scale = 4  # bigsign
-
-        captured_scales: list = []
-        orig = _BaseImageWidget._render_tick
-
-        def spy(self, canvas, text_canvas, *args):
-            if isinstance(text_canvas, ScaledCanvas):
-                captured_scales.append(text_canvas.scale)
-            return orig(self, canvas, text_canvas, *args)
-
-        _BaseImageWidget._render_tick = spy  # type: ignore[method-assign]
-        real = _StubCanvas(width=256, height=64)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=256, height=64
-        )
-
-        try:
-            await w._play_with_text(real, swapping_frame, n_ticks=1)
-        finally:
-            _BaseImageWidget._render_tick = orig  # type: ignore[method-assign]
-
-        assert captured_scales, "Expected wrapper to be used"
-        assert all(s == 2 for s in captured_scales), (
-            f"Expected scale=2 (explicit font_size=24), got {captured_scales!r}. "
-            f"font_size intent must not be overridden by _logical_scale."
-        )
 
 
 class TestFieldSurfaceMatchesTwoRow:

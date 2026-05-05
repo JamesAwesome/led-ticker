@@ -92,7 +92,6 @@ class _BaseImageWidget:
     )
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     scroll_speed_ms: int = attrs.field(default=50, kw_only=True)
-    text_scale: int = attrs.field(default=1, kw_only=True)
     text_loops: int = attrs.field(default=0, kw_only=True)
 
     # User-facing via TOML `font = "..."` / `font_size = N`. The CLI's
@@ -222,8 +221,6 @@ class _BaseImageWidget:
         validate_choice(
             "scroll_direction", self.scroll_direction, VALID_SCROLL_DIRECTIONS
         )
-        if self.text_scale < 1:
-            raise ValueError(f"text_scale must be >= 1, got {self.text_scale!r}")
         if self.font_size is not None and self.font_size <= 0:
             raise ValueError(f"font_size must be > 0; got {self.font_size!r}.")
         if self.text_loops < 0:
@@ -254,34 +251,6 @@ class _BaseImageWidget:
                 "text_align='scroll' needs transparent / pillarbox regions "
                 "to show through; got fit='stretch' (whole panel is opaque). "
                 "Use text_align='scroll_over' for marquee on a fullscreen image."
-            )
-        # Footgun: text_scale is BDF block-expansion (a temp ScaledCanvas
-        # blowing each glyph up to scale×scale blocks). Hires fonts paint
-        # to the unwrapped real canvas at native physical pixels, so the
-        # wrapper's expansion is bypassed — text_scale just shifts the
-        # cursor's start position without growing the glyphs. The
-        # measurement / render disagree (`get_text_width` ceil-divides
-        # by canvas.scale, but the renderer ignores it). Hires fonts
-        # already span any size via `font_size`; combining the two is
-        # confused. Refuse the combo at validation time.
-        if isinstance(self.font, _HiresFont) and self.text_scale > 1:
-            raise ValueError(
-                f"text_scale={self.text_scale} is BDF block-expansion only — "
-                f"hires fonts (`font={self.font.name!r}`) paint at native "
-                f"physical pixels and ignore the wrapper. Set text_scale=1 "
-                f"and pick a larger font_size instead."
-            )
-
-        # Refuse text_scale > 1 in two-row mode — the per-row band
-        # math operates on the canvas's logical height, and a
-        # ScaledCanvas wrapper would shrink each row's effective
-        # logical height in a way that conflicts with `top_row_height`
-        # semantics. Drop text_scale or single-row mode.
-        if self.bottom_text and self.text_scale > 1:
-            raise ValueError(
-                f"text_scale={self.text_scale} is incompatible with "
-                f"two-row mode (bottom_text non-empty). Drop text_scale "
-                f"and use top_row_height for asymmetric band sizing."
             )
 
         # Two-row mode validation. `bottom_text != ""` switches the
@@ -316,6 +285,11 @@ class _BaseImageWidget:
                     f"text_x_offset={self.text_x_offset!r} is meaningless "
                     f"in two-row mode — use top_align / bottom_align for "
                     f"horizontal positioning."
+                )
+            if self.font_size is not None:
+                raise ValueError(
+                    f"font_size={self.font_size!r} is the single-row knob; "
+                    f"in two-row mode use top_font_size and bottom_font_size."
                 )
             if self.top_row_height is not None and self.top_row_height <= 0:
                 raise ValueError(

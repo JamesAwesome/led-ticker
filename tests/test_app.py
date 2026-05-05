@@ -630,3 +630,64 @@ class TestConfigureUserFontDir:
         config_path.write_text("# minimal\n")
         _configure_user_font_dir(config_path)
         assert load_hires_font.cache_info().currsize == 0
+
+
+class TestFontSizeMigration:
+    """`_build_widget` rejects stale `text_scale` configs with a clear
+    migration message. Loud failure at config-load (vs. silent ignore
+    or TypeError at construction)."""
+
+    @pytest.mark.asyncio
+    async def test_text_scale_in_config_raises_migration_error(self, tmp_path):
+        """Any `text_scale` key in a widget config dict triggers the
+        migration error. Message includes the conversion formula."""
+        import aiohttp
+        from PIL import Image
+
+        from led_ticker.app import _build_widget
+
+        # Real on-disk gif so path resolution doesn't error first.
+        gif_path = tmp_path / "tiny.gif"
+        Image.new("RGB", (4, 4)).save(gif_path, format="GIF")
+
+        cfg = {
+            "type": "gif",
+            "path": str(gif_path),
+            "fit": "stretch",
+            "text": "hi",
+            "text_scale": 4,
+        }
+
+        async with aiohttp.ClientSession() as s:
+            with pytest.raises(ValueError, match="text_scale removed"):
+                await _build_widget(cfg, s, config_dir=tmp_path)
+
+    @pytest.mark.asyncio
+    async def test_migration_message_includes_conversion_formula(self, tmp_path):
+        """The error message must tell the user *how* to migrate, not
+        just that they need to. Formula: font_size = N × cell_h."""
+        import aiohttp
+        from PIL import Image
+
+        from led_ticker.app import _build_widget
+
+        gif_path = tmp_path / "tiny.gif"
+        Image.new("RGB", (4, 4)).save(gif_path, format="GIF")
+
+        cfg = {
+            "type": "gif",
+            "path": str(gif_path),
+            "fit": "stretch",
+            "text": "hi",
+            "text_scale": 2,
+        }
+
+        async with aiohttp.ClientSession() as s:
+            with pytest.raises(ValueError) as exc_info:
+                await _build_widget(cfg, s, config_dir=tmp_path)
+
+        msg = str(exc_info.value)
+        # Must include the formula and concrete examples.
+        assert "font_size" in msg
+        assert "cell_h" in msg or "cell height" in msg
+        assert "× 12" in msg or "* 12" in msg or "12" in msg

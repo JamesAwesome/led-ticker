@@ -109,3 +109,55 @@ def test_weather_bg_color_accepts_color(monkeypatch):
         bg_color=Color(5, 10, 15),
     )
     assert w.bg_color.red == 5
+
+
+class TestWeatherColorProvider:
+    """WeatherWidget materializes Color from font_color (provider) and
+    font_color_temp (provider). Both wrap Color into _ConstantColor in
+    post_init so draw is uniform."""
+
+    def test_font_color_wrapped_to_constant_provider_in_post_init(self):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+        from led_ticker.widgets.weather import WeatherWidget
+
+        w = WeatherWidget(
+            session=mock.Mock(),
+            message="NYC",
+            location="NYC",
+            font_color=Color(255, 0, 0),
+        )
+        assert isinstance(w.font_color, _ConstantColor)
+
+    def test_font_color_temp_wrapped_to_constant_provider(self):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+        from led_ticker.widgets.weather import WeatherWidget
+
+        w = WeatherWidget(
+            session=mock.Mock(),
+            message="NYC",
+            location="NYC",
+            font_color_temp=Color(0, 255, 0),
+        )
+        assert isinstance(w.font_color_temp, _ConstantColor)
+
+    def test_provider_passed_through_unchanged(self):
+        from led_ticker.color_providers import Rainbow
+        from led_ticker.widgets.weather import WeatherWidget
+
+        provider = Rainbow()
+        w = WeatherWidget(
+            session=mock.Mock(), message="NYC", location="NYC", font_color=provider
+        )
+        assert w.font_color is provider
+
+    def test_advance_frame_increments_count(self):
+        from led_ticker.widgets.weather import WeatherWidget
+
+        w = WeatherWidget(session=mock.Mock(), message="NYC", location="NYC")
+        assert w._frame_count == 0
+        w.advance_frame()
+        assert w._frame_count == 1

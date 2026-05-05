@@ -11,19 +11,21 @@ import aiohttp
 import attrs
 
 from led_ticker._types import Canvas, Color, DrawResult, Font
+from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR, RGB_WHITE
 from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
+from led_ticker.widgets._frame_aware import _FrameAware
 
 WEATHERAPI_URL: str = "https://api.weatherapi.com/v1/current.json"
 
 
 @register("weather")
 @attrs.define
-class WeatherWidget:
+class WeatherWidget(_FrameAware):
     """Current weather display widget."""
 
     session: aiohttp.ClientSession
@@ -31,8 +33,8 @@ class WeatherWidget:
     message: str
     units: str = "imperial"
     font: Font = attrs.Factory(lambda: FONT_DEFAULT)
-    font_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
-    font_color_temp: Color = attrs.Factory(lambda: RGB_WHITE)
+    font_color: Color | ColorProvider = attrs.Factory(lambda: DEFAULT_COLOR)
+    font_color_temp: Color | ColorProvider = attrs.Factory(lambda: RGB_WHITE)
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     center: bool = True
     padding: int = 6
@@ -42,6 +44,15 @@ class WeatherWidget:
     weather: str = attrs.field(init=False, default="")
 
     def __attrs_post_init__(self) -> None:
+        # Coerce raw graphics.Color into _ConstantColor for uniform
+        # provider dispatch in draw(). _build_widget already does this
+        # for TOML configs; this handles direct construction (test
+        # paths, programmatic instantiation).
+        if not hasattr(self.font_color, "color_for"):
+            self.font_color = _ConstantColor(self.font_color)
+        if not hasattr(self.font_color_temp, "color_for"):
+            self.font_color_temp = _ConstantColor(self.font_color_temp)
+
         # Support dict location from TOML: {lat = 40.71, lon = -74.01}
         if isinstance(self.location, dict):
             lat = self.location.get("lat", 0)
@@ -128,12 +139,22 @@ class WeatherWidget:
 
         baseline_y = compute_baseline(self.font, canvas, valign="center") + y_offset
 
+        # Materialize whole-string colors from providers. Weather uses
+        # single-Color rendering for both label and temp; per-char
+        # providers degrade to single-color (color_for(frame, 0, total)
+        # returns the first character's color, which is fine for
+        # whole-string display).
+        label_color = self.font_color.color_for(
+            self._frame_count, 0, len(label_text) if label_text else 1
+        )
+        temp_color = self.font_color_temp.color_for(self._frame_count, 0, 1)
+
         cursor_pos += draw_text(
             canvas,
             self.font,
             cursor_pos,
             baseline_y,
-            self.font_color,
+            label_color,
             label_text,
         )
 
@@ -154,7 +175,7 @@ class WeatherWidget:
                 self.font,
                 cursor_pos,
                 baseline_y,
-                self.font_color,
+                label_color,
                 f"{self.weather} ",
             )
 
@@ -163,7 +184,7 @@ class WeatherWidget:
             self.font,
             cursor_pos,
             baseline_y,
-            self.font_color_temp,
+            temp_color,
             temp_text,
         )
         cursor_pos += end_padding

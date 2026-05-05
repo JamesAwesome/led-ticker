@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import unittest.mock as mock
-
 import pytest
 
 from led_ticker.fonts import FONT_SMALL
@@ -158,6 +156,8 @@ class TestDraw:
 
 class TestColors:
     def test_top_and_bottom_colors_independent(self, canvas, monkeypatch):
+        from rgbmatrix.graphics import Color
+
         from led_ticker.widgets import two_row as tr
 
         captured_colors: list = []
@@ -168,8 +168,8 @@ class TestColors:
 
         monkeypatch.setattr(tr, "draw_with_emoji", fake_draw_with_emoji)
 
-        top_c = mock.Mock(name="top_color")
-        bot_c = mock.Mock(name="bot_color")
+        top_c = Color(255, 0, 0)
+        bot_c = Color(0, 0, 255)
         w = TwoRowMessage(
             top_text="A",
             bottom_text="B",
@@ -178,7 +178,11 @@ class TestColors:
         )
         w.draw(canvas)
 
-        assert captured_colors == [top_c, bot_c]
+        # Colors are materialized from _ConstantColor providers; the values
+        # are equal to the original Color objects passed in.
+        assert len(captured_colors) == 2
+        assert captured_colors[0].red == 255 and captured_colors[0].green == 0
+        assert captured_colors[1].red == 0 and captured_colors[1].blue == 255
 
 
 class TestAlignment:
@@ -1083,3 +1087,36 @@ class TestAsymmetricRowSplit:
         for y in range(8, c.height):
             for x in range(c.width):
                 assert c.get_pixel(x, y) == (0, 0, 255), f"({x},{y}) expected blue"
+
+
+class TestTwoRowColorProvider:
+    def test_top_color_constant_wrapped_in_post_init(self):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        w = TwoRowMessage(
+            top_text="A",
+            bottom_text="B",
+            top_color=Color(255, 0, 0),
+            bottom_color=Color(0, 255, 0),
+        )
+        assert isinstance(w.top_color, _ConstantColor)
+        assert isinstance(w.bottom_color, _ConstantColor)
+
+    def test_provider_passed_through(self):
+        from led_ticker.color_providers import Rainbow
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        rainbow = Rainbow()
+        w = TwoRowMessage(top_text="A", bottom_text="B", top_color=rainbow)
+        assert w.top_color is rainbow
+
+    def test_frame_aware_mixin(self):
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        w = TwoRowMessage(top_text="A", bottom_text="B")
+        assert w._frame_count == 0
+        w.advance_frame()
+        assert w._frame_count == 1

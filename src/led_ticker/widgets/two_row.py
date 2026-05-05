@@ -47,11 +47,13 @@ from typing import Any
 import attrs
 
 from led_ticker._types import Canvas, Color, DrawResult, Font
+from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import safe_scale
 from led_ticker.fonts import FONT_SMALL, font_line_height_logical
 from led_ticker.pixel_emoji import draw_with_emoji, measure_width
 from led_ticker.widgets import register
+from led_ticker.widgets._frame_aware import _FrameAware
 from led_ticker.widgets._image_fit import fill_band
 from led_ticker.widgets._row_layout import (
     EMOJI_ROW_CAP,
@@ -71,7 +73,7 @@ _aligned_x = aligned_x
 
 @register("two_row")
 @attrs.define
-class TwoRowMessage:
+class TwoRowMessage(_FrameAware):
     """Two-row display: held top, scrolling bottom."""
 
     top_text: str
@@ -83,8 +85,8 @@ class TwoRowMessage:
     # bold handle on top + lighter promo line below).
     top_font: Font | None = attrs.field(default=None, kw_only=True)
     bottom_font: Font | None = attrs.field(default=None, kw_only=True)
-    top_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
-    bottom_color: Color = attrs.Factory(lambda: DEFAULT_COLOR)
+    top_color: Color | ColorProvider = attrs.Factory(lambda: DEFAULT_COLOR)
+    bottom_color: Color | ColorProvider = attrs.Factory(lambda: DEFAULT_COLOR)
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     top_bg_color: Color | None = attrs.field(default=None, kw_only=True)
     bottom_bg_color: Color | None = attrs.field(default=None, kw_only=True)
@@ -121,6 +123,11 @@ class TwoRowMessage:
     _bottom_width: int = attrs.field(init=False, default=-1)
 
     def __attrs_post_init__(self) -> None:
+        # Wrap raw Color → _ConstantColor for uniform provider dispatch in draw().
+        if not hasattr(self.top_color, "color_for"):
+            self.top_color = _ConstantColor(self.top_color)
+        if not hasattr(self.bottom_color, "color_for"):
+            self.bottom_color = _ConstantColor(self.bottom_color)
         if self.top_center is not None:
             # `top_center` is a backwards-compat alias for `top_align`. Old
             # configs used `top_center=True/False` before `top_align` existed.
@@ -219,6 +226,14 @@ class TwoRowMessage:
                 bottom_font, self.bottom_text, canvas, row_emoji_cap
             )
 
+        # Materialize colors from providers for this frame.
+        top_color = self.top_color.color_for(
+            self._frame_count, 0, len(self.top_text) if self.top_text else 1
+        )
+        bottom_color = self.bottom_color.color_for(
+            self._frame_count, 0, len(self.bottom_text) if self.bottom_text else 1
+        )
+
         # Top row at a fixed x — held while the bottom scrolls.
         top_x = _aligned_x(canvas.width, self._top_width, self.top_align)
 
@@ -227,7 +242,7 @@ class TwoRowMessage:
             top_font,
             top_x,
             top_text_y,
-            self.top_color,
+            top_color,
             self.top_text,
             emoji_y=top_emoji_y,
             max_emoji_height=row_emoji_cap,
@@ -247,7 +262,7 @@ class TwoRowMessage:
             bottom_font,
             bottom_x,
             bottom_text_y,
-            self.bottom_color,
+            bottom_color,
             self.bottom_text,
             emoji_y=bottom_emoji_y,
             max_emoji_height=row_emoji_cap,

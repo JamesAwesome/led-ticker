@@ -472,10 +472,14 @@ async def _build_widget(
     # catches misplaced `border = ...` in TOML before it surfaces as
     # a confusing "unknown kwarg" downstream.
     border_value = widget_cfg.pop("border", None)
-    if border_value is not None and widget_type not in ("message", "countdown"):
+    if border_value is not None and widget_type not in (
+        "message",
+        "countdown",
+        "two_row",
+    ):
         raise ValueError(
-            f'border is only valid on type="message" or "countdown"; got '
-            f"type={widget_type!r}."
+            f'border is only valid on type="message", "countdown", or '
+            f'"two_row"; got type={widget_type!r}.'
         )
     if border_value is not None:
         widget_cfg["border"] = _coerce_border(border_value)

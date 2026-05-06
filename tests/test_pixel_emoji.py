@@ -524,3 +524,60 @@ class TestDrawWithEmojiColorProvider:
             text=":taco: HI",
         )
         assert advance > 0
+
+    def test_hires_font_per_char_provider_with_emoji(self):
+        """Tripwire: HiresFont + per-char provider + emoji slugs
+        must route through draw_with_emoji's per-char branch and use
+        the shared `draw_text_per_char` helper, which tracks the
+        cursor in real pixels for HiresFont (avoids per-char
+        ceil-divide drift inside text segments separated by sprites).
+
+        Verifies the provider is called once per text character,
+        sprites still render, and char_index advances continuously
+        across emoji boundaries — same contract as the BDF path but
+        on the HiresFont render code-path."""
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.fonts import resolve_font
+        from led_ticker.pixel_emoji import draw_with_emoji
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        font = resolve_font("Inter-Regular", 24)
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 8
+        opts.parallel = 1
+        opts.pixel_mapper_config = "U-mapper"
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        canvas = ScaledCanvas(real, scale=4)
+
+        calls: list[tuple[int, int, int]] = []
+
+        class _SpyProvider:
+            per_char = True
+
+            def color_for(self, frame, char_index, total_chars):
+                calls.append((frame, char_index, total_chars))
+                return Color(255, 255, 255)
+
+        advance = draw_with_emoji(
+            canvas,
+            font,
+            cursor_pos=0,
+            y=10,
+            color=_SpyProvider(),
+            text=":taco: HI :taco:",
+            frame=3,
+        )
+
+        # 4 text chars (" HI ") get individual color_for calls; sprites don't.
+        assert len(calls) == 4
+        assert all(f == 3 for f, _, _ in calls)
+        # char_index advances continuously across the second emoji.
+        assert [idx for _, idx, _ in calls] == [0, 1, 2, 3]
+        # total_chars equals the count of text chars (no emoji slugs counted).
+        assert all(t == 4 for _, _, t in calls)
+        # The full draw produces non-zero advance (emoji + text rendered).
+        assert advance > 0

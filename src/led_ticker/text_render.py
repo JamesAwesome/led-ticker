@@ -8,6 +8,7 @@ that paints to the unwrapped real canvas at native physical resolution.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from led_ticker._compat import require_graphics
@@ -90,3 +91,87 @@ def _draw_hires_text(
     # would break overflow detection for text that just barely fits).
     real_advance = cursor_x - real_x
     return -(-real_advance // scale)  # ceil division
+
+
+def draw_text_per_char(
+    canvas: Any,
+    font: Any,
+    x_logical: int,
+    y: int,
+    text: str,
+    color_fn: Callable[[int, int], Any],
+    char_offset: int = 0,
+    total_chars: int | None = None,
+) -> int:
+    """Draw `text` with a per-character color from `color_fn(idx, total)`.
+
+    Used by per-char ColorProviders (rainbow, gradient) so each char
+    in the rendered text gets its own color while the cursor advances
+    cleanly without rounding drift.
+
+    `color_fn(idx, total)` receives the global character index (offset
+    by `char_offset`) and the total span the provider is sweeping
+    across. `char_offset` lets a caller resume an in-flight sweep —
+    used by `draw_with_emoji` to keep the rainbow continuous across
+    text segments interrupted by emoji sprites. `total_chars` defaults
+    to `len(text)` (a self-contained sweep).
+
+    Returns logical advance in pixels.
+
+    HiresFont gotcha: a naive `for ch in text: x += draw_text(...)`
+    loop accumulates per-char ceil-divisions and overshoots the
+    holistic `get_text_width` measurement. This helper tracks the
+    cursor in real pixels for HiresFont and ceil-divides ONCE at the
+    end, so the returned advance matches the holistic measurement and
+    scroll-detection works correctly.
+    """
+    total = total_chars if total_chars is not None else len(text)
+
+    if isinstance(font, HiresFont):
+        # Real-px cursor inside the loop avoids per-char ceil drift.
+        # Mirrors the structure of `_draw_hires_text` but materializes
+        # a different Color per glyph from `color_fn`.
+        real = unwrap_to_real(canvas)
+        scale = getattr(canvas, "scale", 1)
+        y_offset = getattr(canvas, "_y_offset", 0)
+        real_baseline_y = y * scale + y_offset
+        real_x = x_logical * scale
+
+        set_px = real.SetPixel
+        panel_w = real.width
+        panel_h = real.height
+        fallback = font.glyphs.get("?")
+
+        cursor_x = real_x
+        for i, ch in enumerate(text):
+            color = color_fn(char_offset + i, total)
+            r, g, b = color.red, color.green, color.blue
+            glyph = font.glyphs.get(ch, fallback)
+            if glyph is None:
+                continue
+            gx0 = cursor_x + glyph.bearing_x
+            gy0 = real_baseline_y - glyph.bearing_y
+            if (
+                gx0 + glyph.width <= 0
+                or gx0 >= panel_w
+                or gy0 + glyph.height <= 0
+                or gy0 >= panel_h
+            ):
+                cursor_x += glyph.advance
+                continue
+            for dx, dy in glyph.lit:
+                px = gx0 + dx
+                py = gy0 + dy
+                if 0 <= px < panel_w and 0 <= py < panel_h:
+                    set_px(px, py, r, g, b)
+            cursor_x += glyph.advance
+
+        real_advance = cursor_x - real_x
+        return -(-real_advance // scale)
+
+    # BDF: per-char draw_text returns logical advance directly; no drift.
+    x = x_logical
+    for i, ch in enumerate(text):
+        color = color_fn(char_offset + i, total)
+        x += draw_text(canvas, font, x, y, color, ch)
+    return x - x_logical

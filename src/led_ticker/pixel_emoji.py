@@ -25,8 +25,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Any
 
-from led_ticker._types import Canvas, Color, Font, PixelData
+from led_ticker._types import Canvas, Font, PixelData
 from led_ticker.fonts import font_line_height
 from led_ticker.fonts.hires_loader import HiresFont
 from led_ticker.scaled_canvas import ScaledCanvas
@@ -2571,13 +2572,23 @@ def draw_with_emoji(
     font: Font,
     cursor_pos: int,
     y: int,
-    color: Color,
+    color: Any,
     text: str,
     y_offset: int = 0,
     emoji_y: int | None = None,
     max_emoji_height: int | None = None,
+    frame: int = 0,
 ) -> int:
     """Draw text with inline emoji. Returns pixels advanced.
+
+    `color` accepts either a `graphics.Color` (legacy path; whole-string
+    color) or a `ColorProvider` (rainbow / gradient / color_cycle / etc).
+    When a per-char provider is passed, text segments render
+    character-by-character with `provider.color_for(frame, char_index,
+    total_text_chars)`. The character index is GLOBAL across segments,
+    so a rainbow sweep continues seamlessly across emoji slugs without
+    resetting at each `:slug:`. `total_text_chars` excludes emoji slugs
+    (sprites get their own colors and don't participate in the sweep).
 
     `emoji_y` overrides the icon's top-row position. Default is derived
     from the font: for BDF fonts it remains `4 + y_offset` (preserving
@@ -2592,9 +2603,27 @@ def draw_with_emoji(
     sprite's logical height exceeds this, the renderer falls back to
     the 8×8 low-res sprite — prevents a hi-res icon from overflowing
     the row's vertical space and overlapping the next row.
+
+    `frame` is forwarded to `provider.color_for(...)` for frame-aware
+    effects. Defaults to 0 for legacy callers passing a raw `Color`.
     """
     segments = _parse_segments(text)
     total: int = 0
+
+    # Detect a ColorProvider — duck-typed so we don't import the
+    # protocol class here just to isinstance against it.
+    is_provider = hasattr(color, "color_for")
+    per_char = is_provider and getattr(color, "per_char", False)
+
+    # Pre-compute the total count of TEXT characters across all
+    # segments. Emoji slugs don't participate in the per-char color
+    # sweep — their sprites carry their own pixel colors. Using this
+    # total means the rainbow distributes evenly across the visible
+    # letters rather than e.g. compressing because the slug expanded
+    # the segment count.
+    total_text_chars = sum(
+        len(value) for seg_type, value in segments if seg_type == "text"
+    )
 
     # Default emoji_y centers the 8×8 sprite on the font's glyph cell.
     # For BDF fonts (line_height=12), `(12 - 8) // 2 = 2` which would
@@ -2613,6 +2642,10 @@ def draw_with_emoji(
     # Hi-res path is only available on a ScaledCanvas — anywhere else we
     # fall back to the regular 8×8 sprite.
     use_hires = isinstance(canvas, ScaledCanvas)
+
+    # Running global text-char index for per-char providers — incremented
+    # only by text segments, not emoji.
+    char_index = 0
 
     for seg_type, value in segments:
         if seg_type == "emoji":
@@ -2644,14 +2677,43 @@ def draw_with_emoji(
                         canvas.SetPixel(dx, dy, r, g, b)
                 total += iw + EMOJI_PADDING
         else:
-            total += draw_text(
-                canvas,
-                font,
-                int(cursor_pos + total),
-                y + y_offset,
-                color,
-                value,
-            )
+            seg_x = int(cursor_pos + total)
+            if per_char:
+                # Per-char rendering with the global char index so the
+                # rainbow / gradient sweeps continuously across emoji
+                # boundaries. The shared helper handles the HiresFont
+                # real-pixel cursor tracking that avoids per-char
+                # ceil-divide drift.
+                from led_ticker.text_render import draw_text_per_char
+
+                total += draw_text_per_char(
+                    canvas,
+                    font,
+                    seg_x,
+                    y + y_offset,
+                    value,
+                    lambda idx, tot: color.color_for(frame, idx, tot),
+                    char_offset=char_index,
+                    total_chars=total_text_chars,
+                )
+                char_index += len(value)
+            else:
+                # Whole-string provider OR raw Color: materialize once
+                # per segment, single draw_text call.
+                materialized = (
+                    color.color_for(frame, char_index, total_text_chars)
+                    if is_provider
+                    else color
+                )
+                total += draw_text(
+                    canvas,
+                    font,
+                    seg_x,
+                    y + y_offset,
+                    materialized,
+                    value,
+                )
+                char_index += len(value)
 
     return total
 

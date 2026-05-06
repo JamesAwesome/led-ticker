@@ -14,6 +14,7 @@
 #   5. constant color border         — non-animated red ring (sanity check)
 #   6. inline table form             — full kwargs in one place for reference
 #   7. two-row + rainbow border       — handle + tagline + frame at scale=2
+#   8. scrolling text + border         — overflow scroll keeps border animating
 #
 # Tunables to compare on hardware:
 #   - speed         — degrees of hue per frame. Higher = faster chase.
@@ -202,4 +203,31 @@ bottom_color = [255, 240, 200]
 bottom_align = "center"
 bottom_font = "Inter-Regular"
 bottom_font_size = 14
+border = "rainbow"
+
+# ---------------------------------------------------------------------------
+# 8. Scrolling text + border — overflow behavior.
+#    Text is intentionally too long for the canvas so the engine
+#    enters the scroll path. Border must:
+#      - keep animating during the scroll loop (advance_frame fires
+#        per tick on the scroll engine path),
+#      - re-paint cleanly every tick so the scroll redraw doesn't
+#        leave torn-edge artifacts where the border was last frame,
+#      - hold its chase phase across the pre-scroll hold → scroll
+#        → post-scroll hold transitions within the section.
+#    If you see the border freeze, tear, or skip phases during this
+#    section, something in the engine's redraw contract regressed.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 3.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "A LONG SCROLLING MESSAGE TO TEST THE BORDER"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
 border = "rainbow"

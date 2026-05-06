@@ -445,6 +445,52 @@ class TestScrollSideBySide:
     and not multiple times per tick (over-advance from duplicates).
     """
 
+    async def test_end_of_scroll_hold_redraws_at_same_position(
+        self, canvas, mock_frame, no_sleep
+    ):
+        """Tripwire: the hold loop must redraw at the SAME cursor_pos
+        as the just-drawn final scroll frame — not one pixel left.
+        Off-by-one surfaces as a 1px visual snap when scrolling stops
+        at the held end-position. Hardware-observed bug: §17 RSS feed
+        snapped left when text came to rest.
+
+        Test setup: widget_width=30, canvas.width=160 (mock_frame's
+        default canvas) — mon_0_end_pos=30 ≤ 160 on the FIRST outer
+        iter, so the hold condition fires immediately with no
+        scroll-in. Every draw afterward is part of the hold and must
+        be at the SAME cursor_pos as the initial held-position draw.
+        """
+        from led_ticker.ticker import _scroll_side_by_side
+
+        draw_positions: list[int] = []
+        widget = mock.Mock()
+
+        def _draw(c, cursor_pos=0):
+            draw_positions.append(cursor_pos)
+            return (c, cursor_pos + 30)
+
+        widget.draw.side_effect = _draw
+        widget.bg_color = None
+
+        queue = asyncio.Queue()
+        await queue.put(widget)
+
+        await _scroll_side_by_side(
+            canvas, mock_frame, queue, scroll_speed=0, hold_at_end=0.2
+        )
+
+        # First draw establishes the held end-position; every hold
+        # tick must redraw at that same pos. Variation = visual snap.
+        assert (
+            len(draw_positions) >= 2
+        ), f"Hold loop didn't run; only got {draw_positions} draws."
+        assert all(p == draw_positions[0] for p in draw_positions), (
+            f"Visual snap detected — draws are not all at the held "
+            f"position. First (held) draw at cursor_pos={draw_positions[0]}, "
+            f"subsequent draws at {draw_positions[1:5]}... The hold "
+            f"loop should redraw at `held_pos`, not `held_pos - 1`."
+        )
+
     async def test_end_of_scroll_hold_advances_frame_per_tick(
         self, canvas, mock_frame, no_sleep
     ):

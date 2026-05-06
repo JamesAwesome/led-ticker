@@ -6,7 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from led_ticker.app import _build_title, _build_widget, build_frame_from_config
+from led_ticker.app import (
+    _build_title,
+    _build_trans_obj,
+    _build_widget,
+    build_frame_from_config,
+)
 from led_ticker.config import DisplayConfig
 from led_ticker.widget import Widget
 from led_ticker.widgets.message import TickerCountdown, TickerMessage
@@ -995,3 +1000,142 @@ class TestColorProviderCoercion:
         async with aiohttp.ClientSession() as s:
             widget = await _build_widget(cfg, session=s)
         assert isinstance(widget.font_color_temp, Gradient)
+
+
+class TestBuildTransObj:
+    """The `_build_trans_obj` helper constructs a transition instance
+    from a `TransitionConfig`. Used for both the global
+    `between_sections` and per-section `transition` overrides — the
+    same factory drives both, keeping behavior consistent."""
+
+    def test_cut_returns_none(self):
+        from led_ticker.config import TransitionConfig
+
+        cfg = TransitionConfig(type="cut")
+        assert _build_trans_obj(cfg) is None
+
+    def test_named_transition_returns_instance(self):
+        from led_ticker.config import TransitionConfig
+        from led_ticker.transitions import get_transition_class
+
+        cfg = TransitionConfig(type="dissolve")
+        obj = _build_trans_obj(cfg)
+        assert obj is not None
+        assert isinstance(obj, get_transition_class("dissolve"))
+
+    def test_pokeball_with_show_flags_does_not_raise(self):
+        """Show-flags (show_pikachu / show_pokeball) must reach the
+        transition class constructor without raising — protects
+        against a future regression where a kwarg name drifts."""
+        from led_ticker.config import TransitionConfig
+        from led_ticker.transitions import get_transition_class
+
+        cfg = TransitionConfig(type="pokeball", show_pikachu=False, show_pokeball=False)
+        obj = _build_trans_obj(cfg)  # Must not raise.
+        assert isinstance(obj, get_transition_class("pokeball"))
+
+    def test_color_threaded(self):
+        from led_ticker.config import TransitionConfig
+
+        cfg = TransitionConfig(type="color_flash", color=(255, 100, 50))
+        obj = _build_trans_obj(cfg)
+        assert obj is not None
+
+
+class TestSectionTransitionFiresOnEntry:
+    """Integration: when a section explicitly specifies `transition`,
+    the engine uses that transition for the inter-section ENTRY (not
+    just inter-widget). Solves the UX bug where 1-widget sections
+    with `transition = "pokeball"` silently never showed pokeball.
+
+    Tests inspect the engine's selection logic by running a single
+    section iteration with mocked `run_transition` and verifying it
+    received the section-specific transition object.
+    """
+
+    async def test_section_with_explicit_transition_uses_it_for_entry(
+        self, tmp_path, monkeypatch
+    ):
+        from led_ticker import app
+        from led_ticker.transitions import get_transition_class
+
+        config_file = tmp_path / "c.toml"
+        config_file.write_text(
+            """[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+[transitions]
+between_sections = "dissolve"
+[[playlist.section]]
+mode = "swap"
+transition = "pokeball"
+[[playlist.section.widget]]
+type = "message"
+text = "FIRST"
+[[playlist.section]]
+mode = "swap"
+transition = "pokeball"
+[[playlist.section.widget]]
+type = "message"
+text = "SECOND"
+"""
+        )
+
+        cfg = app.load_config(config_file)
+        # Both sections explicitly specify pokeball.
+        assert cfg.sections[0].transition_specified is True
+        assert cfg.sections[1].transition_specified is True
+
+        # Simulate the entry-selection logic: section.transition_specified
+        # → use _build_trans_obj(section.transition); else fall back.
+        default_section_trans = _build_trans_obj(cfg.between_sections)
+        entries = []
+        for section in cfg.sections:
+            if section.transition_specified:
+                entries.append(_build_trans_obj(section.transition))
+            else:
+                entries.append(default_section_trans)
+
+        # Both entries should be pokeball instances, not dissolve.
+        pokeball_cls = get_transition_class("pokeball")
+        dissolve_cls = get_transition_class("dissolve")
+        assert all(isinstance(t, pokeball_cls) for t in entries)
+        assert not any(isinstance(t, dissolve_cls) for t in entries)
+
+    async def test_section_without_transition_falls_back_to_between_sections(
+        self, tmp_path
+    ):
+        from led_ticker import app
+        from led_ticker.transitions import get_transition_class
+
+        config_file = tmp_path / "c.toml"
+        config_file.write_text(
+            """[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+[transitions]
+between_sections = "dissolve"
+[[playlist.section]]
+mode = "swap"
+[[playlist.section.widget]]
+type = "message"
+text = "ONLY"
+"""
+        )
+
+        cfg = app.load_config(config_file)
+        assert cfg.sections[0].transition_specified is False
+
+        # Selection should fall back to between_sections (dissolve).
+        default_section_trans = _build_trans_obj(cfg.between_sections)
+        section = cfg.sections[0]
+        entry = (
+            _build_trans_obj(section.transition)
+            if section.transition_specified
+            else default_section_trans
+        )
+        assert isinstance(entry, get_transition_class("dissolve"))

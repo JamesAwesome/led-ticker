@@ -51,6 +51,18 @@ class SectionConfig:
     transition: TransitionConfig = field(
         default_factory=TransitionConfig,
     )
+    # Whether the user explicitly specified `transition` in this
+    # section's TOML. When True, `transition` is also used as the
+    # inter-section ENTRY transition (overriding the global
+    # `between_sections` for this section's appearance). When False,
+    # `transition` falls back to the global `default_transition` for
+    # inter-widget purposes only — `between_sections` controls entry.
+    # Without this flag, the parser cannot distinguish "user wrote
+    # `transition = X`" from "section inherited X from default" — but
+    # that distinction is exactly what determines whether the user
+    # wanted X to fire on section entry (see app.py inter-section
+    # transition selection).
+    transition_specified: bool = False
     hold_time: float = 3.0  # seconds to hold each widget in swap mode
     continuous_scroll: bool = False  # skip holds for overflow text in scroll mode
     scale: int = 1  # falls back to display.default_scale in load_config
@@ -144,6 +156,13 @@ def load_config(path: Path) -> AppConfig:
             section_raw.get("transition"),
             default_transition,
         )
+        # Track whether the user explicitly wrote `transition = ...` in
+        # this section's TOML. The parser's `_parse_transition` swallows
+        # that signal (returns the default when raw is None), so we
+        # inspect the raw dict directly. Used by app.py to decide
+        # whether the section should override `between_sections` for
+        # its inter-section ENTRY transition.
+        transition_specified = "transition" in section_raw
         # Per-section overrides
         if "transition_duration" in section_raw:
             trans.duration = section_raw["transition_duration"]
@@ -165,6 +184,7 @@ def load_config(path: Path) -> AppConfig:
             title=section_raw.get("title"),
             widgets=section_raw.get("widget", []),
             transition=trans,
+            transition_specified=transition_specified,
             hold_time=section_raw.get("hold_time", 3.0),
             continuous_scroll=section_raw.get("continuous_scroll", False),
             scale=section_raw.get("scale", display.default_scale),

@@ -304,11 +304,13 @@ class TestWeatherWidgetHiresOnScaledCanvas:
             "lowres-blit path."
         )
 
-    def test_draw_uses_lowres_for_partly_cloudy_on_scaled_canvas(self, monkeypatch):
-        """partly_cloudy has no hires variant — ensure the widget takes
-        the lowres path (no _draw_hires_emoji call) and doesn't crash.
-        Tripwire: if a hires variant is added in a future commit, this
-        fires noisily so the addition is acknowledged in the same PR."""
+    def test_draw_uses_hires_for_partly_cloudy_on_scaled_canvas(self, monkeypatch):
+        """partly_cloudy now has a hires variant (composed sun + cloud).
+        On bigsign (ScaledCanvas) the widget MUST take the hires path
+        — `_draw_hires_emoji` fires once. Was the inverse (lowres
+        fallback) before the partly_cloudy hires sprite was added; the
+        previous author left this test as a tripwire to force
+        acknowledgement when a variant lands. Acknowledging now."""
         monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
         from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
@@ -339,10 +341,11 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         w.weather = "Partly cloudy"
         result_canvas, cursor_pos = w.draw(sc)
         assert cursor_pos > 0
-        assert not calls, (
-            "Expected the lowres path. partly_cloudy has no HIRES_REGISTRY "
-            "entry, so _draw_hires_emoji should not have fired. If a hires "
-            "variant was added, update this test to expect calls."
+        assert calls == ["hires"], (
+            "Expected exactly one hires draw for partly_cloudy on bigsign. "
+            f"Got {calls!r}. If hires fell back to lowres, the slug is "
+            f"missing from HIRES_REGISTRY (or `draw_emoji_at`'s gate "
+            f"changed)."
         )
 
     def test_icon_y_anchors_to_text_baseline_with_hires_font(self, monkeypatch):
@@ -484,4 +487,61 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         assert captured_y == [4], (
             f"BDF default expected to invoke draw_emoji_at with y=4 "
             f"(baseline_y=12 - 8). Got {captured_y}."
+        )
+
+
+class TestWeatherSlugCoverage:
+    """Tripwire: every slug `_match_condition` can return must have
+    BOTH a lowres entry (so the small sign / non-ScaledCanvas path
+    works) AND a hires entry (so bigsign renders crisply). A new
+    slug added to either registry without the other slips through —
+    weather conditions branch silently between crisp and blocky on
+    different hardware. This caught `partly_cloudy` missing from
+    `HIRES_REGISTRY` after the recent weather-hires PR (ee54a44)
+    added it to lowres only.
+    """
+
+    def test_every_match_condition_slug_in_both_registries(self):
+        from led_ticker.pixel_emoji import HIRES_REGISTRY, _get_registry
+        from led_ticker.widgets.weather_icons import _match_condition
+
+        # Probe every branch in `_match_condition` plus the default
+        # fallthrough. WeatherAPI returns these or similar strings.
+        probes = [
+            "Thunderstorm",
+            "Snow",
+            "Blizzard",
+            "Sleet",
+            "Ice pellets",
+            "Rain",
+            "Drizzle",
+            "Showers",
+            "Fog",
+            "Mist",
+            "Partly cloudy",
+            "Cloudy",
+            "Overcast",
+            "Sunny",
+            "Clear",
+            "Banana",  # default branch ("sun")
+        ]
+        slugs = sorted({_match_condition(c) for c in probes})
+
+        lowres = _get_registry()
+        missing_lowres = [s for s in slugs if s not in lowres]
+        missing_hires = [s for s in slugs if s not in HIRES_REGISTRY]
+
+        assert not missing_lowres, (
+            f"Slugs from `_match_condition` missing from lowres "
+            f"`_get_registry()`: {missing_lowres}. The widget would "
+            f"raise KeyError on these conditions."
+        )
+        assert not missing_hires, (
+            f"Slugs from `_match_condition` missing from "
+            f"`HIRES_REGISTRY`: {missing_hires}. The widget would "
+            f"render the lowres 8x8 sprite on bigsign for these "
+            f"conditions — blocky and inconsistent with neighboring "
+            f"hires elements. Add a hires variant + register, or "
+            f"adjust `_match_condition` to map the input to a slug "
+            f"that already has hires."
         )

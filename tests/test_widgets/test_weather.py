@@ -249,3 +249,82 @@ class TestWeatherPerCharProviderDispatch:
             f"per-char."
         )
         assert [c[1] for c in temp_provider.calls] == [0, 1, 2]
+
+
+class TestWeatherWidgetHiresOnScaledCanvas:
+    """Tripwire for the weather widget's hires-on-bigsign path.
+
+    Regression: pre-fix, draw_weather_icon called canvas.SetPixel on
+    the lowres 8x8 sprite. On a ScaledCanvas at scale=4 the wrapper
+    block-expanded each pixel into a 4x4 square — chunky 32x32 output
+    instead of using the available 32x32 hires sprite. The fix routes
+    icon draw through pixel_emoji.draw_emoji_at so HIRES_REGISTRY
+    sprites paint at native resolution to the underlying real canvas.
+    """
+
+    def test_draw_uses_hires_sprite_on_scaled_canvas(self, monkeypatch):
+        """On a ScaledCanvas (bigsign), the weather widget paints the
+        hires sun sprite directly to the real canvas via _draw_hires_emoji
+        — bypassing the wrapper's 4x4 block expansion. We assert by
+        hooking _draw_hires_emoji and confirming it was called for the
+        weather icon."""
+        monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker import pixel_emoji
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.widgets.weather import WeatherWidget
+
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 8
+        opts.parallel = 1
+        opts.pixel_mapper_config = "U-mapper"
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        sc = ScaledCanvas(real, scale=4)
+
+        calls: list[str] = []
+        original = pixel_emoji._draw_hires_emoji
+
+        def spy(canvas, hires, ix, iy):
+            calls.append("hires")
+            return original(canvas, hires, ix, iy)
+
+        monkeypatch.setattr(pixel_emoji, "_draw_hires_emoji", spy)
+
+        w = WeatherWidget(session=mock.Mock(), location="NYC", message="NYC")
+        w.current_temp = 72
+        w.weather = "Clear"  # -> "sun" -> SUN_HIRES exists
+        w.draw(sc)
+
+        assert calls, (
+            "Expected pixel_emoji._draw_hires_emoji to fire for the weather "
+            "icon on a ScaledCanvas. The widget is still using the old "
+            "lowres-blit path."
+        )
+
+    def test_draw_uses_lowres_for_partly_cloudy_on_scaled_canvas(self, monkeypatch):
+        """partly_cloudy has no hires variant — ensure the widget
+        gracefully falls back to lowres without crashing."""
+        monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.widgets.weather import WeatherWidget
+
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 8
+        opts.parallel = 1
+        opts.pixel_mapper_config = "U-mapper"
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        sc = ScaledCanvas(real, scale=4)
+
+        w = WeatherWidget(session=mock.Mock(), location="NYC", message="NYC")
+        w.current_temp = 72
+        w.weather = "Partly cloudy"
+        # Should not raise.
+        result_canvas, cursor_pos = w.draw(sc)
+        assert cursor_pos > 0

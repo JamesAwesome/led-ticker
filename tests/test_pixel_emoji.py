@@ -785,3 +785,115 @@ class TestDrawEmojiAt:
         advance = draw_emoji_at(sc, "partly_cloudy", x=0, y=0)
         # PARTLY_CLOUDY low-res is 8 wide
         assert advance == 8 + EMOJI_PADDING
+
+
+_WEATHER_SLUGS = ["sun", "cloud", "rain", "snow", "thunder", "fog", "partly_cloudy"]
+
+
+class TestMeasureEmojiAtMatchesDrawEmojiAt:
+    """`measure_emoji_at` must return the same advance `draw_emoji_at`
+    returns — they share the hires/lowres gate, and a layout/draw
+    mismatch produces overlap or gap. Exhaustively check across every
+    weather slug × every relevant canvas type (plain canvas, scale=2,
+    scale=4) so a future gate divergence is caught at any scale.
+    """
+
+    @pytest.mark.parametrize("slug", _WEATHER_SLUGS)
+    def test_agrees_on_plain_canvas(self, slug):
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.pixel_emoji import draw_emoji_at, measure_emoji_at
+
+        canvas = _StubCanvas(width=160, height=16)
+        measured = measure_emoji_at(canvas, slug)
+        # Use a fresh canvas for the draw so the measure isn't perturbed.
+        drawn_advance = draw_emoji_at(_StubCanvas(width=160, height=16), slug, 0, 4)
+        assert measured == drawn_advance, (
+            f"measure_emoji_at({slug}) returned {measured} but "
+            f"draw_emoji_at returned {drawn_advance} — gate divergence "
+            f"on plain canvas would mean weather's layout math drifts "
+            f"from where the icon actually lands."
+        )
+
+    @pytest.mark.parametrize("slug", _WEATHER_SLUGS)
+    @pytest.mark.parametrize("scale", [2, 4])
+    def test_agrees_on_scaled_canvas(self, slug, scale):
+        from led_ticker.pixel_emoji import draw_emoji_at, measure_emoji_at
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        real = _bigsign_real_canvas()
+        sc = ScaledCanvas(real, scale=scale)
+        measured = measure_emoji_at(sc, slug)
+        # Fresh wrapper so the draw doesn't see the previous frame.
+        drawn_advance = draw_emoji_at(
+            ScaledCanvas(_bigsign_real_canvas(), scale=scale), slug, 0, 4
+        )
+        assert measured == drawn_advance, (
+            f"measure_emoji_at({slug!r}, scale={scale}) returned "
+            f"{measured} but draw_emoji_at returned {drawn_advance} — "
+            f"gate divergence on bigsign would put the temperature "
+            f"text on top of the icon (scale=2) or with a visible gap."
+        )
+
+    def test_max_emoji_height_fallback_agrees(self):
+        """When max_emoji_height forces hires→lowres fallback, both
+        helpers must agree on the lowres advance."""
+        from led_ticker.pixel_emoji import draw_emoji_at, measure_emoji_at
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        real = _bigsign_real_canvas()
+        sc = ScaledCanvas(real, scale=2)
+        # Hires sun at scale=2 is 16 logical tall — max=4 forces lowres.
+        measured = measure_emoji_at(sc, "sun", max_emoji_height=4)
+        drawn_advance = draw_emoji_at(
+            ScaledCanvas(_bigsign_real_canvas(), scale=2),
+            "sun",
+            0,
+            4,
+            max_emoji_height=4,
+        )
+        assert measured == drawn_advance
+
+
+class TestMeasureEmojiAt:
+    """Direct contract tests for measure_emoji_at — the spec is that
+    returned width equals sprite_width + EMOJI_PADDING, with the
+    sprite chosen by the same gate as draw_emoji_at."""
+
+    def test_lowres_on_plain_canvas(self):
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.pixel_emoji import EMOJI_PADDING, measure_emoji_at
+
+        # SUN lowres is 8 wide.
+        assert (
+            measure_emoji_at(_StubCanvas(width=160, height=16), "sun")
+            == 8 + EMOJI_PADDING
+        )
+
+    def test_hires_on_bigsign_scale_4(self):
+        from led_ticker.pixel_emoji import EMOJI_PADDING, measure_emoji_at
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        # SUN_HIRES is physical_size=32; at scale=4 logical_width=8.
+        sc = ScaledCanvas(_bigsign_real_canvas(), scale=4)
+        assert measure_emoji_at(sc, "sun") == 8 + EMOJI_PADDING
+
+    def test_hires_on_bigsign_scale_2(self):
+        """Regression: at scale=2 the hires sun is 16 logical wide,
+        not 8. The weather widget's old hardcoded `+ 8 + EMOJI_PADDING`
+        would have undercounted by 8 logical pixels at this scale,
+        causing the temperature text to overlap the icon."""
+        from led_ticker.pixel_emoji import EMOJI_PADDING, measure_emoji_at
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        sc = ScaledCanvas(_bigsign_real_canvas(), scale=2)
+        assert measure_emoji_at(sc, "sun") == 16 + EMOJI_PADDING
+
+    def test_unknown_slug_raises(self):
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.pixel_emoji import measure_emoji_at
+
+        with pytest.raises(KeyError):
+            measure_emoji_at(_StubCanvas(width=160, height=16), "no_such_slug")

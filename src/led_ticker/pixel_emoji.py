@@ -2764,6 +2764,37 @@ def draw_emoji_at(
     return iw + EMOJI_PADDING
 
 
+def measure_emoji_at(
+    canvas: Canvas,
+    slug: str,
+    *,
+    max_emoji_height: int | None = None,
+) -> int:
+    """Return the advance `draw_emoji_at` would return without drawing.
+
+    Mirrors `draw_emoji_at`'s gate ((a) ScaledCanvas, (b) slug in
+    `HIRES_REGISTRY`, (c) fits `max_emoji_height` if specified) and
+    returns `sprite_width + EMOJI_PADDING`. Use when a widget needs the
+    icon's footprint for layout math BEFORE the actual draw — e.g.
+    `WeatherWidget` computing its centered `full_width`.
+
+    The two helpers MUST stay in sync — a layout/draw mismatch produces
+    overlap (text drawn over icon) or gap (icon ends short of where the
+    cursor expects). Tripwire test
+    `TestMeasureEmojiAtMatchesDrawEmojiAt` enforces this across plain
+    canvas, scale=2, and scale=4.
+
+    Raises `KeyError` if `slug` isn't in the low-res `EMOJI_REGISTRY`.
+    """
+    use_hires = isinstance(canvas, ScaledCanvas)
+    if use_hires and slug in HIRES_REGISTRY:
+        candidate = HIRES_REGISTRY[slug]
+        logical_h = candidate.physical_size // canvas.scale
+        if max_emoji_height is None or logical_h <= max_emoji_height:
+            return candidate.logical_width(canvas.scale) + EMOJI_PADDING
+    return _emoji_width(_get_registry()[slug]) + EMOJI_PADDING
+
+
 def _draw_hires_emoji(
     canvas: ScaledCanvas,
     hires: HiResEmoji,

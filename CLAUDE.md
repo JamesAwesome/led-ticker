@@ -46,6 +46,7 @@ src/led_ticker/
                        #   for crypto/finance widgets, etc.)
   color_providers.py   # ColorProvider base + Rainbow, ColorCycle, Gradient, _ConstantColor
   animations.py        # Animation protocol + Typewriter (TickerMessage-only)
+  borders.py           # BorderEffect protocol + RainbowChaseBorder, ConstantBorder (TickerMessage-only)
   pixel_emoji.py       # Inline pixel-art emoji renderer (:name: in messages)
   fonts/               # BDF bitmap fonts + loader
   transitions/
@@ -265,6 +266,30 @@ Implemented via `draw_with_emoji(color: Color | ColorProvider, frame=N)`
 ColorProvider fields. Default `font_color_temp = RGB_WHITE` keeps
 the value steady-bright while the label can use a color effect.
 Set both to the same provider if you want them to match.
+
+**Rainbow border (TickerMessage-only)**: TickerMessage accepts a
+`border` field that paints an animated 1- or 2-pixel ring around
+the panel perimeter at PHYSICAL resolution (bypasses ScaledCanvas
+block expansion via `unwrap_to_real`). TOML accepts `border =
+"rainbow"` (string shorthand → `RainbowChaseBorder` defaults),
+`border = {style="rainbow", speed=N, char_offset=N, thickness=N}`
+(inline table), `border = {style="constant", color=[r,g,b],
+thickness=N}`, or `border = [r,g,b]` (constant shorthand).
+`RainbowChaseBorder` uses the same `((idx * char_offset) + frame *
+speed) % 360` hue formula as `Rainbow.color_for` for letters, just
+indexed by perimeter position (clockwise from top-left, hop count
+0..N-1) instead of character index. Reads `_frame_count` from
+`_FrameAware`, so transitions freeze the chase via `pause_frame`
+and visit-resets restart it cleanly. Border paints BEFORE the text
+in `TickerMessage.draw` (text overlaps border on collision —
+border frames the panel, text floats inside). `frame_invariant`
+flag on each effect drives any future fast-path gates the same way
+ColorProvider's flag does. Bigsign-tuned defaults: speed=4 (~12s
+per revolution at 50ms ticks), char_offset=6 (~60 distinct hue
+cycles around the 640-pixel perimeter). Border is restricted to
+TickerMessage at config-load (loud failure on other widget types)
+because data widgets have their own draw paths and a perimeter
+border isn't a meaningful concept there.
 
 ### Adding a New Widget
 

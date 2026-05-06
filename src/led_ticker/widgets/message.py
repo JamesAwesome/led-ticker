@@ -30,6 +30,14 @@ class TickerMessage(_FrameAware):
     center: bool = True
     padding: int = 6
     animation: Any | None = attrs.field(default=None, kw_only=True)
+    # Optional perimeter border effect (rainbow chase, constant color,
+    # etc.). When set, paints a 1-px ring around the panel perimeter
+    # at PHYSICAL resolution (bypasses ScaledCanvas block expansion)
+    # before the text is drawn. None = no border (default behavior).
+    # Effects read this widget's `_frame_count` so transitions freeze
+    # the chase and visit-resets restart it cleanly. See `borders.py`
+    # for available effects.
+    border: Any | None = attrs.field(default=None, kw_only=True)
     _content_width: int = attrs.field(init=False, default=-1)
     _has_emoji: bool = attrs.field(init=False, default=False)
 
@@ -99,6 +107,15 @@ class TickerMessage(_FrameAware):
         start_pos = cursor_pos
 
         baseline_y = compute_baseline(self.font, canvas, valign="center")
+
+        # Paint border BEFORE text so text overlaps the border on
+        # collision (border frames the panel; text floats inside).
+        # Reads `_frame_count` from `_FrameAware` for animation —
+        # transitions freeze it (no chase phase drift) and visit
+        # resets restart it. Painted at physical resolution so a
+        # 1-px border on bigsign is 1 LED, not a 4×4 block.
+        if self.border is not None:
+            self.border.paint(canvas, self._frame_count)
 
         if self._has_emoji:
             from led_ticker.pixel_emoji import draw_with_emoji

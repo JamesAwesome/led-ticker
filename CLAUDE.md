@@ -313,6 +313,8 @@ Set both to the same provider if you want them to match.
 - Per-section: `mode`, `transition`, `transition_duration`, `transition_color`, `hold_time`, `loop_count`
 - Per-widget: `font_color` (provider — string / table), `animation` (TickerMessage only), `show_icon` (weather), `scale` (override `default_scale` per section, e.g. countdowns at 2× on the bigsign)
 - Global: `[transitions] default`, `duration`, `easing`, `between_sections`
+
+**Section transition precedence**: when a section explicitly writes `transition = "..."` in its TOML, that transition is used for BOTH the inter-section ENTRY (when this section appears) AND inter-widget transitions (between widgets within the section, if it has multiple). This solves the natural "I set `transition = pokeball` on a single-widget section, expected to see pokeball when it appears" UX expectation. Sections that omit `transition` fall back to `[transitions] between_sections` for entry. The `transition_specified: bool` flag on `SectionConfig` records whether the user wrote the field — without it, the parser cannot distinguish "user wrote `transition = X`" from "section inherited X from `[transitions] default`", and the engine couldn't know which transition to fire on entry. `_build_trans_obj` is the shared factory used for both entry and inter-widget transitions.
 - Pi 5 only: `rp1_rio` (0=PIO, 1=RIO), `pwm_bits`, `pwm_lsb_nanoseconds`, `show_refresh`
 
 ### Docker / Deployment

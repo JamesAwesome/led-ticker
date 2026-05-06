@@ -193,6 +193,10 @@ class TickerCountdown(_FrameAware):
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     center: bool = True
     padding: int = 6
+    # Optional perimeter border effect — same contract as
+    # `TickerMessage.border` (see borders.py). Paints before text at
+    # physical resolution; reads `_frame_count` for animation.
+    border: Any | None = attrs.field(default=None, kw_only=True)
 
     def __attrs_post_init__(self) -> None:
         # Coerce raw graphics.Color into _ConstantColor so draw() can
@@ -220,6 +224,13 @@ class TickerCountdown(_FrameAware):
         )
 
         baseline_y = compute_baseline(self.font, canvas, valign="center")
+
+        # Paint border BEFORE text — same contract as `TickerMessage`.
+        # Border frames the panel; text floats inside. Border reads
+        # `_frame_count` so transitions freeze and visit-resets restart.
+        if self.border is not None:
+            self.border.paint(canvas, self._frame_count)
+
         if provider.per_char:
             # Per-char provider on plain text: iterate chars so rainbow
             # / gradient render with per-character hue offsets. Mirrors

@@ -116,6 +116,11 @@ def draw_text_per_char(
     text segments interrupted by emoji sprites. `total_chars` defaults
     to `len(text)` (a self-contained sweep).
 
+    The callback is `(idx, total) -> Color`; callers pre-bind the
+    `frame` parameter via closure so this helper stays frame-agnostic.
+    The widget call sites all do the same:
+    `lambda idx, total: provider.color_for(self._frame_count, idx, total)`.
+
     Returns logical advance in pixels.
 
     HiresFont gotcha: a naive `for ch in text: x += draw_text(...)`

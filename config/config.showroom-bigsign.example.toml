@@ -194,6 +194,8 @@ top_font_size = 14
 bottom_text = "Custom playlists, live data feeds, and brand-matched motion graphics"
 bottom_color = [180, 140, 230]
 bottom_align = "center"
+bottom_font = "Inter-Regular"
+bottom_font_size = 14
 
 [[playlist.section.widget]]
 type = "two_row"
@@ -205,6 +207,8 @@ top_font_size = 14
 bottom_text = "Programmable RGB displays that earn a second look from the sidewalk"
 bottom_color = [225, 200, 255]
 bottom_align = "center"
+bottom_font = "Inter-Regular"
+bottom_font_size = 14
 
 # ---------------------------------------------------------------------------
 # 7. Live data — weather widget with hi-res 32x32 icon, city, and temp.
@@ -227,31 +231,35 @@ message = "Brooklyn"
 location = "Brooklyn"
 units = "imperial"
 show_icon = true
+font = "Inter-Regular"
+font_size = 14
 font_color = "color_cycle"
 font_color_temp = [255, 255, 255]
 
 # ---------------------------------------------------------------------------
-# 8. Slogan — color_cycle on a single brand-feeling line, on a deep
-#    midnight `bg_color` for high contrast. Two-color showcase: the
-#    dark navy fills every non-text pixel (no black-by-default), the
-#    cycle hue oscillates against it. Reads as deliberate animation,
-#    not noise.
+# 8. Slogan — bright yellow `bg_color` + BLACK text "negative" treatment.
+#    Inverts the showroom's mostly-dark-bg rhythm with a high-luminance
+#    flash. Black-on-yellow is the textbook maximum-contrast pairing —
+#    legible from across the room. Whole-canvas yellow fills every
+#    non-text pixel, the slogan reads as a printed label cut from the
+#    background. Hi-res Pokeball transition (Pikachu chases the ball
+#    on a black field) sets up the bright reveal.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "swap"
 hold_time = 5.0
 loop_count = 1
-transition = "baseball_alternating"
-transition_duration = 1.2
-bg_color = [10, 10, 40]
+transition = "pokeball"
+transition_duration = 1.5
+bg_color = [255, 230, 80]
 
 [[playlist.section.widget]]
 type = "message"
 text = "BUILT TO BE SEEN"
 font = "Inter-Bold"
 font_size = 24
-font_color = "color_cycle"
+font_color = [0, 0, 0]
 
 # ---------------------------------------------------------------------------
 # 9. Image + text overlay — text scrolls BEHIND a transparent Pikachu.

@@ -240,6 +240,55 @@ class TestTypewriterPlusPerCharProvider:
         # message — confirms typewriter's slice is what got rendered.
         assert all(c[2] == 2 for c in provider.calls)
 
+    def test_typewriter_overflow_returns_full_content_width(self):
+        """Bug-fix tripwire: when typewriter is set on a message that
+        overflows the canvas, draw() must return cursor_pos based on
+        FULL content width — not the visible slice — so the engine's
+        scroll detection (`cursor_pos > canvas.width` in
+        `_swap_and_scroll`) fires correctly. Without this, frame=0
+        (slice="R") reports a tiny cursor_pos, engine picks held-text,
+        typewriter reveals chars past the right edge, and the message
+        never scrolls. Hardware-observed bug on smoke §4."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.animations import Typewriter
+        from led_ticker.widgets.message import TickerMessage
+
+        long_text = "RAINBOW TYPES OUT"  # 17 chars × 6 logical ≈ 102 px
+        widget = TickerMessage(long_text, animation=Typewriter(frames_per_char=3))
+        widget._frame_count = 0  # only "R" visible
+        canvas = _StubCanvas(width=64, height=16)
+
+        _, cursor_pos = widget.draw(canvas)
+
+        assert cursor_pos > canvas.width, (
+            f"Expected cursor_pos > canvas.width ({canvas.width}) so "
+            f"engine detects overflow; got {cursor_pos}. Without this, "
+            f"typewriter at frame=0 reports a tiny cursor_pos and the "
+            f"engine picks the held-text path — message overflows the "
+            f"canvas with no scroll to recover."
+        )
+
+    def test_typewriter_no_overflow_does_not_falsely_trigger_scroll(self):
+        """Counter-test: short text + typewriter must NOT report
+        overflow. The fix should reflect FULL content width, not
+        canvas.width — and a 5-char message at 6 logical px each
+        (~30 px) on a 64-wide canvas fits comfortably."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.animations import Typewriter
+        from led_ticker.widgets.message import TickerMessage
+
+        widget = TickerMessage("HI", animation=Typewriter())
+        widget._frame_count = 6
+        canvas = _StubCanvas(width=64, height=16)
+
+        _, cursor_pos = widget.draw(canvas)
+
+        # "HI" fits — cursor_pos should NOT exceed canvas.width;
+        # engine should pick the held-text path.
+        assert cursor_pos <= canvas.width
+
     def test_typewriter_complete_renders_full_text_per_char(self):
         """After enough frames for typewriter to reveal everything,
         the full message is rendered per-char."""

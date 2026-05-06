@@ -92,6 +92,11 @@ class TickerMessage(_FrameAware):
         cursor_pos, end_padding = compute_cursor(
             canvas.width, content_width, cursor_pos, self.padding, self.center
         )
+        # Capture the start position BEFORE the draw_* branches mutate
+        # cursor_pos. Used below to recompute the returned cursor_pos
+        # against full content_width when an animation is sliced
+        # `visible_text` shorter than the full message.
+        start_pos = cursor_pos
 
         baseline_y = compute_baseline(self.font, canvas, valign="center")
 
@@ -143,6 +148,18 @@ class TickerMessage(_FrameAware):
                 visible_text,
             )
         cursor_pos += end_padding
+
+        # When an animation is sliced (typewriter at frame=0 shows just
+        # "R"), the engine in `_swap_and_scroll` checks
+        # `cursor_pos > canvas.width` ONCE to decide hold vs scroll.
+        # If cursor_pos reflects only the slice, the engine picks the
+        # held-text path and the message overflows the right edge
+        # without ever scrolling. Override cursor_pos to reflect FULL
+        # content width so the engine sees the eventual overflow and
+        # picks the scroll path; typewriter then completes during the
+        # pre-scroll hold and the scroll runs afterwards.
+        if self.animation is not None:
+            cursor_pos = start_pos + content_width + end_padding
 
         return canvas, cursor_pos
 

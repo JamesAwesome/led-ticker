@@ -231,3 +231,39 @@ def test_section_bg_color_parsed_from_toml(tmp_path):
     )
     cfg = load_config(config_file)
     assert cfg.sections[0].bg_color == (26, 59, 142)
+
+
+def test_transition_specified_true_when_section_has_transition_key(tmp_path):
+    """`transition_specified` must be True when the section's TOML
+    explicitly sets `transition` — used by the engine to decide
+    whether to override `between_sections` for inter-section entry."""
+    config_file = tmp_path / "c.toml"
+    config_file.write_text(
+        "[display]\nrows=16\ncols=32\nchain=5\n"
+        '[[playlist.section]]\nmode="swap"\n'
+        'transition = "pokeball"\n'
+    )
+    cfg = load_config(config_file)
+    assert cfg.sections[0].transition_specified is True
+    assert cfg.sections[0].transition.type == "pokeball"
+
+
+def test_transition_specified_false_when_section_omits_transition(tmp_path):
+    """When the section doesn't write `transition = ...`, the flag
+    is False even though `section.transition` inherits the global
+    default. Without this, the engine couldn't tell "user explicitly
+    wanted X" from "X was the global default I never overrode"."""
+    config_file = tmp_path / "c.toml"
+    config_file.write_text(
+        "[display]\nrows=16\ncols=32\nchain=5\n"
+        "[transitions]\n"
+        'default = "pokeball"\n'  # global default; section inherits
+        '[[playlist.section]]\nmode="swap"\n'
+    )
+    cfg = load_config(config_file)
+    assert cfg.sections[0].transition_specified is False
+    # The transition itself still inherits the global default — but
+    # without `transition_specified`, the engine treats this section
+    # as "use between_sections for entry" rather than "use pokeball
+    # for entry".
+    assert cfg.sections[0].transition.type == "pokeball"

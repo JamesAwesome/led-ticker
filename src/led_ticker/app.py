@@ -12,7 +12,7 @@ from typing import Any
 import aiohttp
 
 from led_ticker.colors import RANDOM_COLOR
-from led_ticker.config import load_config
+from led_ticker.config import TransitionConfig, load_config
 from led_ticker.frame import LedFrame
 from led_ticker.ticker import Ticker, _maybe_wrap
 from led_ticker.transitions import get_transition_class, run_transition
@@ -264,6 +264,31 @@ def _is_hires_font_name(name: str) -> bool:
     from led_ticker.fonts import list_available_hires_fonts
 
     return name in list_available_hires_fonts()
+
+
+def _build_trans_obj(trans_cfg: TransitionConfig) -> Any:
+    """Construct a transition instance from a `TransitionConfig`.
+
+    Returns None when `trans_cfg.type == "cut"` (treated as
+    "no transition"). Used for both the global `between_sections`
+    fallback AND per-section overrides — when a section explicitly
+    specifies its own `transition`, the engine builds an instance
+    here and uses it for both inter-section ENTRY and inter-widget
+    transitions.
+    """
+    if trans_cfg.type == "cut":
+        return None
+    cls = get_transition_class(trans_cfg.type)
+    kwargs: dict[str, Any] = {}
+    if trans_cfg.colors is not None:
+        kwargs["colors"] = trans_cfg.colors
+    elif trans_cfg.color is not None:
+        kwargs["color"] = trans_cfg.color
+    if not trans_cfg.show_pikachu:
+        kwargs["show_pikachu"] = False
+    if not trans_cfg.show_pokeball:
+        kwargs["show_pokeball"] = False
+    return cls(**kwargs)
 
 
 async def _build_widget(
@@ -575,22 +600,10 @@ async def run(config_path: Path) -> None:
 
     led_frame = build_frame_from_config(config.display)
 
-    # Build section-to-section transition if configured
-    section_trans: Any = None
-    if config.between_sections.type != "cut":
-        section_trans_cls = get_transition_class(
-            config.between_sections.type,
-        )
-        trans_kwargs: dict[str, Any] = {}
-        if config.between_sections.colors is not None:
-            trans_kwargs["colors"] = config.between_sections.colors
-        elif config.between_sections.color is not None:
-            trans_kwargs["color"] = config.between_sections.color
-        if not config.between_sections.show_pikachu:
-            trans_kwargs["show_pikachu"] = False
-        if not config.between_sections.show_pokeball:
-            trans_kwargs["show_pokeball"] = False
-        section_trans = section_trans_cls(**trans_kwargs)
+    # Default inter-section transition built once at startup. Used for
+    # sections that don't specify their own `transition` field — see
+    # the per-section override logic below.
+    default_section_trans: Any = _build_trans_obj(config.between_sections)
 
     # Compute the panel height to use for hi-res font_size warnings.
     # Only meaningful on the small sign (default_scale == 1) — bigsign
@@ -645,6 +658,24 @@ async def run(config_path: Path) -> None:
                     "run_forever_scroll",
                 )
 
+                # Pick the inter-section ENTRY transition. Precedence:
+                #   1. If the section explicitly set `transition`,
+                #      use that — same object as the inter-widget
+                #      transition. Solves the "single-widget section
+                #      with `transition = pokeball` never fires" UX
+                #      bug: the configured value now controls how the
+                #      section APPEARS (not just inter-widget moves).
+                #   2. Else fall back to `between_sections` (the
+                #      global default for sections that don't override).
+                if section.transition_specified:
+                    entry_trans = _build_trans_obj(section.transition)
+                    entry_duration = section.transition.duration
+                    entry_easing = section.transition.easing
+                else:
+                    entry_trans = default_section_trans
+                    entry_duration = config.between_sections.duration
+                    entry_easing = config.between_sections.easing
+
                 # Run section-to-section transition.
                 # Wrap at the OUTGOING section's scale so the outgoing widget
                 # keeps its on-screen size during the dissolve. Any visual jolt
@@ -655,7 +686,7 @@ async def run(config_path: Path) -> None:
                 just_transitioned = (
                     last_widget is not None
                     and first_widget is not None
-                    and section_trans is not None
+                    and entry_trans is not None
                 )
                 if just_transitioned:
                     canvas = _maybe_wrap(
@@ -668,9 +699,9 @@ async def run(config_path: Path) -> None:
                         led_frame,
                         last_widget,
                         first_widget,
-                        transition=section_trans,
-                        duration=config.between_sections.duration,
-                        easing=config.between_sections.easing,
+                        transition=entry_trans,
+                        duration=entry_duration,
+                        easing=entry_easing,
                         outgoing_scroll_pos=last_scroll_pos,
                         # Smoothly cross between scales: outgoing fades out
                         # at last_scale; at t >= 0.5 the wrapper switches
@@ -684,20 +715,13 @@ async def run(config_path: Path) -> None:
                         incoming_content_height=section.content_height,
                     )
 
-                # Build within-section transition config
+                # Build within-section transition config (used between
+                # widgets within a multi-widget section). Mirrors the
+                # entry transition selection above when the section
+                # specifies one — same `_build_trans_obj` factory.
                 trans_cfg = section.transition
                 if trans_cfg.type != "cut":
-                    trans_cls = get_transition_class(trans_cfg.type)
-                    trans_kwargs: dict[str, Any] = {}
-                    if trans_cfg.colors is not None:
-                        trans_kwargs["colors"] = trans_cfg.colors
-                    elif trans_cfg.color is not None:
-                        trans_kwargs["color"] = trans_cfg.color
-                    if not trans_cfg.show_pikachu:
-                        trans_kwargs["show_pikachu"] = False
-                    if not trans_cfg.show_pokeball:
-                        trans_kwargs["show_pokeball"] = False
-                    trans_cfg.transition_obj = trans_cls(**trans_kwargs)
+                    trans_cfg.transition_obj = _build_trans_obj(trans_cfg)
                     transition_config = trans_cfg
                 else:
                     transition_config = None

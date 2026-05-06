@@ -180,6 +180,100 @@ class TestTickerMessageAnimation:
         assert widget.animation is None
 
 
+class TestTypewriterPlusPerCharProvider:
+    """Tripwire: animation + per-char ColorProvider compose. Typewriter
+    slices `visible_text`; per-char rainbow renders each visible char
+    in its own hue. Smoke config §13 demos this; this test pins the
+    composition at the unit level so a future refactor can't silently
+    break either half (e.g. running the provider against `full_text`
+    instead of `visible_text`, or skipping the per-char branch when
+    animation is set)."""
+
+    def test_typewriter_slices_text_and_per_char_rainbow_runs(self):
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.animations import Typewriter
+        from led_ticker.widgets.message import TickerMessage
+
+        # Tracking provider: per_char=True (mirrors Rainbow), records
+        # every (frame, char_index, total_chars) it's asked for.
+        class _TrackingProvider:
+            per_char = True
+
+            def __init__(self) -> None:
+                self.calls: list[tuple[int, int, int]] = []
+
+            def color_for(self, frame, char_index, total_chars):
+                from rgbmatrix.graphics import Color
+
+                self.calls.append((frame, char_index, total_chars))
+                # Different color per char — value doesn't matter for
+                # the assertion, just needs to be a Color.
+                return Color((char_index * 60) % 256, 100, 200)
+
+        provider = _TrackingProvider()
+        widget = TickerMessage(
+            "ABCDE", font_color=provider, animation=Typewriter(frames_per_char=3)
+        )
+        # frame=3 with frames_per_char=3 → typewriter reveals 2 chars
+        # (progress = (3//3)+1 = 2). The +1 in the formula means frame=0
+        # already shows 1 char.
+        widget._frame_count = 3
+        canvas = _StubCanvas(width=160, height=16)
+
+        widget.draw(canvas)
+
+        # Per-char branch ran (provider got called per character).
+        assert len(provider.calls) == 2, (
+            f"Expected 2 per-char color_for calls (typewriter sliced "
+            f"'ABCDE' to 2 chars at frame=3); got {len(provider.calls)}: "
+            f"{provider.calls!r}"
+        )
+        # Char indices are 0..1 — proves typewriter sliced visible_text
+        # rather than running over the full string.
+        char_indices = [c[1] for c in provider.calls]
+        assert char_indices == [0, 1], char_indices
+        # Frame value passed through from _frame_count (drives rainbow
+        # sweep over time).
+        assert all(c[0] == 3 for c in provider.calls)
+        # total_chars matches the visible slice length, not the full
+        # message — confirms typewriter's slice is what got rendered.
+        assert all(c[2] == 2 for c in provider.calls)
+
+    def test_typewriter_complete_renders_full_text_per_char(self):
+        """After enough frames for typewriter to reveal everything,
+        the full message is rendered per-char."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.animations import Typewriter
+        from led_ticker.widgets.message import TickerMessage
+
+        class _TrackingProvider:
+            per_char = True
+
+            def __init__(self) -> None:
+                self.calls: list[tuple[int, int, int]] = []
+
+            def color_for(self, frame, char_index, total_chars):
+                from rgbmatrix.graphics import Color
+
+                self.calls.append((frame, char_index, total_chars))
+                return Color(255, 255, 255)
+
+        provider = _TrackingProvider()
+        widget = TickerMessage(
+            "ABCDE", font_color=provider, animation=Typewriter(frames_per_char=3)
+        )
+        # frame=15 → 15 // 3 = 5 chars revealed (full string).
+        widget._frame_count = 15
+        canvas = _StubCanvas(width=160, height=16)
+
+        widget.draw(canvas)
+
+        assert len(provider.calls) == 5
+        assert [c[1] for c in provider.calls] == [0, 1, 2, 3, 4]
+
+
 class TestTickerCountdownColorProvider:
     def test_constructor_wraps_raw_color_in_constant_provider(self):
         from datetime import date

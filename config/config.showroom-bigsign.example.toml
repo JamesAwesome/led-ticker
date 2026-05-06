@@ -1,0 +1,312 @@
+# led-ticker showroom playlist — Pi 5 bigsign tech demo.
+#
+# A polished, ~2-3 minute loop that doubles as a sales floor demo. Every
+# section is calibrated to land within a passerby's attention window
+# (5-10 seconds typical) and to put a different capability on stage:
+#
+#   - True hi-res TTF rendering (Inter-Bold / Inter-Regular at 24-32px)
+#   - Per-character color effects (rainbow that sweeps continuously
+#     across :emoji: boundaries — sprites and letters share one hue field)
+#   - Animation + color composition (typewriter typing in rainbow)
+#   - Hi-res inline emoji (32x32 sprites at native physical resolution)
+#   - Animated transitions with character (Sailor Moon's wand, Pikachu
+#     chasing a Pokeball, a Nyan Cat fly-by, Pac-Man and the ghosts)
+#   - Two-row layouts (held top + scrolling bottom)
+#   - Image + text overlay (text walking over a transparent gif)
+#   - Live data widget (weather with hi-res icon + city + temp)
+#   - Countdown to a real future date
+#
+# Copy to config.toml on the bigsign Pi and customize copy/dates as needed.
+#
+# ---------------------------------------------------------------------------
+# Hardware: 8x P3 32x64 panels in 2x4 vertical-serpentine layout
+#           (256x64 real / 64x16 logical at scale=4).
+# ---------------------------------------------------------------------------
+
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+
+brightness = 60
+slowdown_gpio = 3
+gpio_mapping = "adafruit-hat"
+default_scale = 4
+
+# Performance — RP1 RIO mode with 8-bit PWM for fast refresh.
+pwm_bits = 8
+rp1_rio = 1
+show_refresh = true
+
+[title]
+delay = 3
+
+# Global transition fallback. Most sections override per-section to put
+# a different signature transition on display.
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_in_out"
+between_sections = "dissolve"
+
+# ---------------------------------------------------------------------------
+# 1. Hero opener — hi-res Inter-Bold in rainbow.
+#    First impression. Big, bright, instantly readable from across a room.
+#    Pure typography flex — no images, no widgets, just letterforms a
+#    competitor's BDF-only ticker physically cannot produce.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 6.0
+loop_count = 1
+transition = "sailor_moon"
+transition_duration = 1.2
+
+[[playlist.section.widget]]
+type = "message"
+text = "WELCOME"
+font = "Inter-Bold"
+font_size = 32
+font_color = "rainbow"
+
+# ---------------------------------------------------------------------------
+# 2. Tagline — hi-res Inter-Regular gradient.
+#    Calmer follow-up. Left-to-right warm gradient (rose -> gold) shows
+#    off the gradient color provider; lighter weight contrasts with the
+#    bold opener. Dissolve in feels like settling.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 6.0
+loop_count = 1
+transition = "dissolve"
+transition_duration = 0.8
+
+[[playlist.section.widget]]
+type = "message"
+text = "PIXELS WITH PERSONALITY"
+font = "Inter-Regular"
+font_size = 24
+font_color = {style = "gradient", from = [255, 90, 140], to = [255, 200, 80]}
+
+# ---------------------------------------------------------------------------
+# 3. Hi-res emoji + per-char rainbow.
+#    Bunnies and hearts in 32x32 hi-res, with letters between them
+#    rainbow-sweeping continuously across the sprite boundaries. Most
+#    LED tickers render emoji (if at all) as low-res 8x8 blocks; this
+#    lands on the panel at 4x the detail and the rainbow does NOT reset
+#    at the sprite edges.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 6.0
+loop_count = 1
+transition = "pokeball_alternating"
+transition_duration = 1.2
+
+[[playlist.section.widget]]
+type = "message"
+text = ":bunny: HI :heart_pink:"
+font = "Inter-Bold"
+font_size = 28
+font_color = "rainbow"
+
+# ---------------------------------------------------------------------------
+# 4. Typewriter + rainbow on hi-res Inter-Bold.
+#    Animation and color composition: each character types out
+#    left-to-right and the rainbow sweeps over the visible slice in
+#    real time. Two distinct effect surfaces stacked on the same draw.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 1
+transition = "wipe_alternating"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "message"
+text = "READY. SET. GLOW."
+font = "Inter-Bold"
+font_size = 24
+font_color = "rainbow"
+animation = {style = "typewriter", frames_per_char = 4}
+
+# ---------------------------------------------------------------------------
+# 5. Two-row layout — held handle on top, scrolling tagline on bottom.
+#    Mirrors a storefront window display use case: persistent brand
+#    identity (handle in IG magenta with hi-res :instagram: sprite) plus
+#    rotating marketing copy underneath. scale=2 doubles logical width
+#    to 128 so handles fit comfortably on the held row.
+#    `content_height = 32` (= 64 real px) fills the panel — at the
+#    default 16 logical the wrapper would leave 16-real-px black
+#    bands above and below, dead space the showroom can't afford.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 32
+loop_count = 1
+hold_time = 3.0
+transition = "dissolve"
+transition_duration = 0.8
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @ledticker"
+top_color = [225, 48, 108]
+top_align = "center"
+top_font = "Inter-Bold"
+top_font_size = 14
+bottom_text = "Programmable RGB displays for storefronts, lobbies, and stages"
+bottom_color = [255, 240, 200]
+bottom_align = "left"
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":email: hello@ledticker.dev"
+top_color = [255, 240, 200]
+top_align = "center"
+top_font = "Inter-Bold"
+top_font_size = 14
+bottom_text = "Custom playlists, live data feeds, and brand-matched motion graphics"
+bottom_color = [180, 140, 230]
+bottom_align = "left"
+
+# ---------------------------------------------------------------------------
+# 6. Live data — weather widget with hi-res 32x32 icon, city, and temp.
+#    Real API call, real numbers. The two-color design (label cycles
+#    hue, temp stays steady-bright) is a small but signature detail.
+#    Set WEATHERAPI_KEY in .env. Change `location` for the demo room's
+#    actual city.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 1
+transition = "nyancat"
+transition_duration = 1.5
+
+[[playlist.section.widget]]
+type = "weather"
+message = "Brooklyn"
+location = "Brooklyn"
+units = "imperial"
+show_icon = true
+font_color = "color_cycle"
+font_color_temp = [255, 255, 255]
+
+# ---------------------------------------------------------------------------
+# 7. Slogan — color_cycle on a single brand-feeling line.
+#    Quieter beat after the weather. Whole-string hue rotation reads as
+#    deliberate animation, not noise.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 5.0
+loop_count = 1
+transition = "baseball_alternating"
+transition_duration = 1.2
+
+[[playlist.section.widget]]
+type = "message"
+text = "BUILT TO BE SEEN"
+font = "Inter-Bold"
+font_size = 24
+font_color = "color_cycle"
+
+# ---------------------------------------------------------------------------
+# 8. Image + text overlay — text scrolls "behind" a transparent Pikachu.
+#    The transparent regions of the gif become the marquee channel; text
+#    walks across the panel and disappears under the silhouette. This
+#    is a fit + alpha + scroll integration most products won't even
+#    attempt. scroll_over is used so the text can travel across the
+#    full width.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 1.0
+transition = "pacman_alternating"
+transition_duration = 1.5
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+image_align = "left"
+text = "ANIMATION + TYPOGRAPHY, COMPOSED"
+text_align = "scroll_over"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 220, 80]
+scroll_speed_ms = 40
+text_loops = 1
+
+# ---------------------------------------------------------------------------
+# 9. Inline emoji showcase — pride, taco, star, moon at hi-res.
+#    Quick, food-and-symbol forward, friendly. Demonstrates that the
+#    emoji set goes beyond emoticons into actual brand-usable iconography.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 6.0
+loop_count = 1
+transition = "sailor_moon_reverse"
+transition_duration = 1.2
+
+[[playlist.section.widget]]
+type = "message"
+text = ":pride: LOVE :pride:"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 240, 220]
+
+[[playlist.section.widget]]
+type = "message"
+text = ":taco: TUESDAYS"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 200, 80]
+
+[[playlist.section.widget]]
+type = "message"
+text = ":moon: GOOD NIGHT :star:"
+font = "Inter-Bold"
+font_size = 24
+font_color = [180, 200, 255]
+
+# ---------------------------------------------------------------------------
+# 10. Countdown finale — real date, hi-res Inter-Bold, rainbow.
+#     Rolls into the New Year. Demonstrates that the same color provider
+#     vocabulary applies to data widgets, not just static messages, and
+#     pairs the most attention-grabbing transition (nyancat_alternating)
+#     with the most attention-grabbing color treatment as the loop's
+#     payoff before it cycles back to WELCOME.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 1
+transition = "nyancat_alternating"
+transition_duration = 1.5
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Days to NYE"
+countdown_date = 2027-01-01
+font = "Inter-Bold"
+font_size = 24
+font_color = "rainbow"

@@ -29,6 +29,16 @@ The `BorderEffect` Protocol exposes:
 Currently consumed only by `TickerMessage` (per the v1 scope), but
 the API is generic — adding to `TickerCountdown` or a future widget
 is just wiring the field + dispatch, no protocol changes.
+
+**Static-text fast-path note**: `_BaseImageWidget._play_with_text`
+gates its paint-once-and-sleep fast path on `font_color.frame_invariant`
+only. Image widgets don't accept `border` today, so this is fine.
+But: if a future widget BOTH owns its own render loop AND accepts
+`border`, that fast-path predicate must additionally check
+`border.frame_invariant` — otherwise a `RainbowChaseBorder` would
+silently freeze on the held-text fast path. Ditto for any future
+effect class that drives per-frame output on TickerMessage's render
+surface.
 """
 
 from __future__ import annotations
@@ -76,8 +86,18 @@ def _perimeter_pixels(
         y0 = ring
         x1 = width - 1 - ring
         y1 = height - 1 - ring
-        if x1 < x0 or y1 < y0:
-            break  # ring collapsed to nothing (panel too small for thickness)
+        # Bail when the ring would degenerate to a single column or
+        # row (`x1 == x0` or `y1 == y0`): the right-edge and left-edge
+        # walks would traverse the same column twice (and similarly
+        # for top/bottom on a 1-row ring), producing duplicate pixels
+        # in the output. Painting a duplicated pixel twice with two
+        # different hues from the chase formula produces last-write-
+        # wins-and-misaligns-the-pattern artifacts. Skipping is the
+        # right call — a 1-px-wide ring isn't visually meaningful as
+        # a border anyway. Latent on healthy aspect ratios; surfaces
+        # on degenerate cases like `_perimeter_pixels(3, 10, 2)`.
+        if x1 <= x0 or y1 <= y0:
+            break  # ring collapsed (panel too small for thickness)
         # Top edge: (x0..x1-1, y0)
         for x in range(x0, x1):
             pixels.append((x, y0))

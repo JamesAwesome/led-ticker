@@ -204,11 +204,16 @@ def _coerce_border(value: Any) -> Any:
     # Already a BorderEffect — duck-typed via the `paint` method
     if hasattr(value, "paint") and hasattr(value, "frame_invariant"):
         return value
-    # Constant-color shorthand: [r, g, b]
+    # Constant-color shorthand: [r, g, b]. Reject bools explicitly
+    # (bool is an int subclass in Python, so `isinstance(True, int)`
+    # is True without this guard) — `border = [True, False, True]`
+    # would silently coerce to (1, 0, 1) and paint a barely-visible
+    # ring. Same hardening pattern documented for `font_threshold`
+    # in CLAUDE.md.
     if (
         isinstance(value, list | tuple)
         and len(value) == 3
-        and all(isinstance(c, int) for c in value)
+        and all(isinstance(c, int) and not isinstance(c, bool) for c in value)
     ):
         return ConstantBorder(color=tuple(value))
     # String shorthand

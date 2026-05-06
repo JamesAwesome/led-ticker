@@ -512,9 +512,12 @@ async def _scroll_side_by_side(
         # (rainbow, color_cycle) keep sweeping while the text is at
         # rest — without the tick loop, the rainbow freezes the moment
         # the text stops moving (visible as static gradient on §17).
-        # `held_pos = pos + 1` is the input cursor_pos that produced
-        # the just-drawn frame; we redraw at the same position by
-        # passing `held_pos - 1` (= the original pos).
+        # `held_pos = pos + 1` recovers the input cursor_pos that
+        # produced the just-drawn frame (the outer loop did `pos -= 1`
+        # AFTER the draw). The hold loop redraws at exactly `held_pos`
+        # so the visual position matches the just-drawn frame — using
+        # `held_pos - 1` would snap the text 1px left between the
+        # final scroll frame and the first hold tick.
         if len(buffered_objects) == 1 and queue_empty and mon_0_end_pos <= canvas.width:
             held_pos = pos + 1
             canvas = _swap(canvas, frame)
@@ -524,7 +527,7 @@ async def _scroll_side_by_side(
                 _advance_frame_if_supported(buffered_objects[0])
                 bg_hold = getattr(buffered_objects[0], "bg_color", None)
                 reset_canvas(canvas, bg_hold)
-                canvas, _ = buffered_objects[0].draw(canvas, cursor_pos=held_pos - 1)
+                canvas, _ = buffered_objects[0].draw(canvas, cursor_pos=held_pos)
                 canvas = _swap(canvas, frame)
                 await asyncio.sleep(tick_seconds)
             return held_pos

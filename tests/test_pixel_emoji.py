@@ -717,32 +717,36 @@ class TestDrawEmojiAt:
         assert advance == 8 + EMOJI_PADDING
         assert canvas.count_nonzero() > 0
 
-    def test_hires_on_scaled_canvas_paints_to_real(self):
-        """On a ScaledCanvas, hires path is used. The real canvas should
-        receive 32x32-density sprite pixels — far more than scale^2 *
-        lowres_count."""
+    def test_hires_on_scaled_canvas_routes_through_hires_path(self, monkeypatch):
+        """On a ScaledCanvas, draw_emoji_at routes through _draw_hires_emoji.
+        Asserted by hooking the private helper — proves the hires gate
+        actually fires rather than counting pixels (the lowres-via-wrapper
+        path also produces a non-empty real canvas, so a pixel-count
+        comparison can't reliably prove the hires path was taken).
+        """
+        from led_ticker import pixel_emoji
         from led_ticker.pixel_emoji import draw_emoji_at
         from led_ticker.scaled_canvas import ScaledCanvas
 
         real = _bigsign_real_canvas()
         sc = ScaledCanvas(real, scale=4)
 
-        # Establish lowres pixel count on a plain canvas so we can compare.
-        from rgbmatrix import _StubCanvas
+        calls: list[str] = []
+        original = pixel_emoji._draw_hires_emoji
 
-        plain = _StubCanvas(width=64, height=64)
-        draw_emoji_at(plain, "sun", x=0, y=0)
-        lowres_count = plain.count_nonzero()
-        # If hires fired, the real canvas should have noticeably more
-        # painted pixels than scale^2 * lowres_count would imply
-        # (lowres pixels are dense colored squares; hires has finer
-        # detail). We just need a count strictly greater than
-        # lowres_count to prove the SetPixel calls hit `real` directly,
-        # not via the wrapper.
+        def spy(canvas, hires, ix, iy):
+            calls.append("hires")
+            return original(canvas, hires, ix, iy)
+
+        monkeypatch.setattr(pixel_emoji, "_draw_hires_emoji", spy)
+
         draw_emoji_at(sc, "sun", x=0, y=0)
-        # On the real bigsign canvas, hires sun paints individual LEDs
-        # at native resolution.
-        assert getattr(real, "count_nonzero", lambda: 0)() > lowres_count
+
+        assert calls == ["hires"], (
+            "Expected _draw_hires_emoji to fire exactly once on a "
+            "ScaledCanvas for a slug with a HIRES_REGISTRY entry. The "
+            "hires gate isn't firing."
+        )
 
     def test_hires_falls_back_when_max_height_too_small(self):
         """A two-row caller passes max_emoji_height=4 (canvas.height // 2

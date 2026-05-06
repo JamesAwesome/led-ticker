@@ -1,0 +1,171 @@
+# Rainbow border smoke test — Pi 5 bigsign.
+#
+# Validates the new TickerMessage `border` field (introduced on the
+# feat/rainbow-border branch). Six short sections in a ~25-30s loop
+# with cut transitions so iteration on the bigsign is fast: edit
+# config, restart container, observe in seconds instead of waiting
+# through the full showroom playlist for §8 to come around.
+#
+# Sections:
+#   1. defaults                      — rainbow chase, default tunables
+#   2. rainbow border + rainbow text — chase against per-char rainbow letters
+#   3. border + bg_color             — yellow bg, black text, rainbow frame
+#   4. tuned: faster + thicker       — speed=8, char_offset=12, thickness=2
+#   5. constant color border         — non-animated red ring (sanity check)
+#   6. inline table form             — full kwargs in one place for reference
+#
+# Tunables to compare on hardware:
+#   - speed         — degrees of hue per frame. Higher = faster chase.
+#                     Default 4 ≈ 12s revolution at 50ms ticks.
+#   - char_offset   — degrees of hue per perimeter-pixel. Higher = more
+#                     compact rainbow, more cycles around the panel.
+#                     Default 6 ≈ 60 cycles around 640-pixel bigsign.
+#   - thickness     — 1 (default) or 2 pixel ring.
+
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+
+brightness = 60
+slowdown_gpio = 3
+gpio_mapping = "adafruit-hat"
+default_scale = 4
+
+pwm_bits = 8
+rp1_rio = 1
+
+[title]
+delay = 0.5
+
+[transitions]
+default = "cut"
+duration = 0.2
+easing = "linear"
+between_sections = "cut"
+
+# ---------------------------------------------------------------------------
+# 1. Defaults — `border = "rainbow"` shorthand, plain white text inside.
+#    Establishes the baseline look. Watch the chase speed and density;
+#    this is what tunables in later sections diverge from.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 5.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "DEFAULTS"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = "rainbow"
+
+# ---------------------------------------------------------------------------
+# 2. Border + rainbow text — chase plays against per-char rainbow letters.
+#    Two independent rainbow systems on one panel: the perimeter chase
+#    (frame-driven, indexed by perimeter pixel) and the per-character
+#    rainbow letters (frame-driven, indexed by char_index). They have
+#    independent params; expect the chase to feel slower than the text
+#    sweep at default speeds.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 5.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "DOUBLE RAINBOW"
+font = "Inter-Bold"
+font_size = 24
+font_color = "rainbow"
+border = "rainbow"
+
+# ---------------------------------------------------------------------------
+# 3. Border + bg_color — bright yellow fill, BLACK text, rainbow frame.
+#    The §8 showroom configuration in a focused beat. Three independent
+#    color systems: bg fills every non-text pixel (yellow), text reads
+#    as cut-out negative (black), border chases rainbow around the edge.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 5.0
+loop_count = 1
+transition = "cut"
+bg_color = [255, 230, 80]
+
+[[playlist.section.widget]]
+type = "message"
+text = "BUILT TO BE SEEN"
+font = "Inter-Bold"
+font_size = 24
+font_color = [0, 0, 0]
+border = "rainbow"
+
+# ---------------------------------------------------------------------------
+# 4. Tuned variant — speed=8, char_offset=12, thickness=2.
+#    Faster chase, denser rainbow, thicker ring. Compare visually
+#    against §1's defaults to feel the parameter space. If you want
+#    the showroom to use this tune instead of the defaults, copy the
+#    inline table into showroom §8.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 5.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "TUNED"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = {style = "rainbow", speed = 8, char_offset = 12, thickness = 2}
+
+# ---------------------------------------------------------------------------
+# 5. Constant-color border — solid red ring, no animation.
+#    Sanity check on the non-rainbow path. `frame_invariant=True`
+#    means this border never animates — the perimeter holds steady
+#    red while the text inside can do whatever (color_cycle here for
+#    contrast against the static frame).
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 5.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "CONSTANT"
+font = "Inter-Bold"
+font_size = 24
+font_color = "color_cycle"
+border = [220, 50, 50]
+
+# ---------------------------------------------------------------------------
+# 6. Inline-table form — explicit kwargs for copy-paste reference.
+#    Equivalent to `border = "rainbow"` but spells out every default.
+#    Useful as a starting template if you want to fork off and tune
+#    per-section without remembering the exact knob names.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 5.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "INLINE TABLE"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = {style = "rainbow", speed = 4, char_offset = 6, thickness = 1}

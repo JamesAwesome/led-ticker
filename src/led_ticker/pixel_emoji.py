@@ -2416,6 +2416,7 @@ def _build_emoji_registry() -> dict[str, PixelData]:
     from led_ticker.widgets.weather_icons import (
         CLOUD,
         FOG,
+        PARTLY_CLOUDY,
         RAIN,
         SNOW,
         SUN,
@@ -2432,6 +2433,7 @@ def _build_emoji_registry() -> dict[str, PixelData]:
         # Weather
         "sun": SUN,
         "cloud": CLOUD,
+        "partly_cloudy": PARTLY_CLOUDY,
         "rain": RAIN,
         "snow": SNOW,
         "thunder": THUNDER,

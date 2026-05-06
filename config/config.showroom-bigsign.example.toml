@@ -237,13 +237,13 @@ font_color = "color_cycle"
 font_color_temp = [255, 255, 255]
 
 # ---------------------------------------------------------------------------
-# 8. Slogan — bright yellow `bg_color` + BLACK text "negative" treatment.
-#    Inverts the showroom's mostly-dark-bg rhythm with a high-luminance
-#    flash. Black-on-yellow is the textbook maximum-contrast pairing —
-#    legible from across the room. Whole-canvas yellow fills every
-#    non-text pixel, the slogan reads as a printed label cut from the
-#    background. Hi-res Pokeball transition (Pikachu chases the ball
-#    on a black field) sets up the bright reveal.
+# 8. Slogan — bright yellow `bg_color` + BLACK text "negative" treatment
+#    + rainbow chase border around the perimeter. Black on yellow is
+#    the textbook maximum-contrast text pairing; the rainbow frame
+#    chases around the panel edge for movement. Three independent
+#    color systems on one frame: bg fill, text, and animated border.
+#    Hi-res Pokeball transition (Pikachu chases the ball on a black
+#    field) sets up the bright reveal.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -260,6 +260,7 @@ text = "BUILT TO BE SEEN"
 font = "Inter-Bold"
 font_size = 24
 font_color = [0, 0, 0]
+border = "rainbow"
 
 # ---------------------------------------------------------------------------
 # 9. Image + text overlay — text scrolls BEHIND a transparent Pikachu.

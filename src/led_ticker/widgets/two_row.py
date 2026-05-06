@@ -119,6 +119,16 @@ class TwoRowMessage(_FrameAware):
     top_emoji_y_offset: int = attrs.field(default=0, kw_only=True)
     bottom_emoji_y_offset: int = attrs.field(default=0, kw_only=True)
 
+    # Optional perimeter border effect — same contract as
+    # `TickerMessage.border` (see borders.py). Paints before either
+    # row's text at PHYSICAL panel resolution (bypasses ScaledCanvas
+    # block expansion via `unwrap_to_real`), so a 1-px border on
+    # bigsign at scale=2 traces the actual 256x64 panel edge — not
+    # the 128x32 logical canvas edge. Border frames the SIGN, text
+    # floats inside. Reads `_frame_count` for animation; transitions
+    # freeze the chase via `pause_frame`.
+    border: Any | None = attrs.field(default=None, kw_only=True)
+
     _top_width: int = attrs.field(init=False, default=-1)
     _bottom_width: int = attrs.field(init=False, default=-1)
 
@@ -232,6 +242,16 @@ class TwoRowMessage(_FrameAware):
         # detects ColorProvider via duck-typing on `color_for` and
         # iterates per-char text segments when `provider.per_char` is
         # True; otherwise it materializes a single Color per segment.
+
+        # Paint border BEFORE either row's text so text overlaps the
+        # border on collision (border frames the panel; text floats
+        # inside). Same contract as `TickerMessage.border`. Border
+        # paints at PHYSICAL panel resolution via `unwrap_to_real`,
+        # so at scale=2 (logical canvas 128x32) the border traces
+        # the real 256x64 panel edge — frames the SIGN, not the
+        # logical canvas.
+        if self.border is not None:
+            self.border.paint(canvas, self._frame_count)
 
         # Top row at a fixed x — held while the bottom scrolls.
         top_x = _aligned_x(canvas.width, self._top_width, self.top_align)

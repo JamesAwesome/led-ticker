@@ -344,3 +344,80 @@ class TestCountdownBorder:
         widget = TickerCountdown("Days", countdown_date=date(2027, 1, 1))
         canvas = RealStub(width=64, height=16)
         widget.draw(canvas)  # Should run without error.
+
+
+class TestTwoRowBorder:
+    """TwoRowMessage supports `border` with the same contract as
+    TickerMessage / TickerCountdown: paint before text at physical
+    resolution, reads `_frame_count` for animation, frame-aware
+    effects compose with transition pause/resume.
+
+    Particular to two-row: at scale=2 (typical for handle layouts)
+    the border paints to the unwrapped real canvas — traces the
+    actual panel edge, not the logical canvas edge."""
+
+    def test_border_paint_called_with_widget_frame_count(self):
+        from rgbmatrix import _StubCanvas as RealStub
+
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        border = mock.Mock()
+        border.frame_invariant = False
+
+        widget = TwoRowMessage(
+            top_text="@brand",
+            bottom_text="tagline",
+            border=border,
+        )
+        widget._frame_count = 42
+        canvas = RealStub(width=128, height=16)
+        widget.draw(canvas)
+
+        border.paint.assert_called_once_with(canvas, 42)
+
+    def test_border_paints_before_text_on_tworow(self):
+        """Same paint-order contract as TickerMessage — border first
+        so text overlaps on collision. Verified by intercepting
+        `draw_with_emoji` (the path TwoRowMessage uses for both
+        rows) and asserting border fires before either row's draw."""
+        from rgbmatrix import _StubCanvas as RealStub
+
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        order: list[str] = []
+        border = mock.Mock()
+        border.frame_invariant = False
+        border.paint.side_effect = lambda *a, **kw: order.append("border")
+
+        widget = TwoRowMessage(
+            top_text="@brand",
+            bottom_text="tagline",
+            border=border,
+        )
+        canvas = RealStub(width=128, height=16)
+
+        with mock.patch(
+            "led_ticker.widgets.two_row.draw_with_emoji",
+            side_effect=lambda *a, **kw: order.append("draw_with_emoji") or 30,
+        ):
+            widget.draw(canvas)
+
+        assert order, "neither border nor draw_with_emoji was called"
+        assert order[0] == "border", (
+            f"Expected border first; got order={order}. Border must paint "
+            f"before either row's text so text overlaps the border on "
+            f"collision (border frames the panel, text floats inside)."
+        )
+        # And both rows still drew
+        assert order.count("draw_with_emoji") == 2
+
+    def test_no_border_no_paint(self):
+        """TwoRowMessage without `border` defaults to None and
+        runs cleanly — no border-related calls."""
+        from rgbmatrix import _StubCanvas as RealStub
+
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        widget = TwoRowMessage(top_text="A", bottom_text="B")
+        canvas = RealStub(width=128, height=16)
+        widget.draw(canvas)  # Should run without error.

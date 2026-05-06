@@ -31,9 +31,16 @@ from led_ticker._types import Color
 
 class ColorProvider(Protocol):
     """Returns a Color given a frame counter and (for per-char
-    providers) a character index within the string being drawn."""
+    providers) a character index within the string being drawn.
+
+    `frame_invariant` declares whether `color_for`'s output depends on
+    the `frame` argument. True providers (constant, gradient, random)
+    let the engine take a paint-once-and-sleep fast path on otherwise-
+    static content; False providers (rainbow, color_cycle) force the
+    per-tick render loop so animation actually animates."""
 
     per_char: bool
+    frame_invariant: bool
 
     def color_for(self, frame: int, char_index: int, total_chars: int) -> Color: ...
 
@@ -43,6 +50,7 @@ class _ConstantColor:
     route through the same `color_for` interface as effects."""
 
     per_char: bool = False
+    frame_invariant: bool = True
 
     def __init__(self, color: Color) -> None:
         self._color = color
@@ -58,6 +66,7 @@ class Random:
     flicker."""
 
     per_char: bool = False
+    frame_invariant: bool = True
 
     def __init__(self) -> None:
         graphics = require_graphics()
@@ -79,6 +88,7 @@ class Rainbow:
     Rainbow presentation (speed=8, char_offset=30)."""
 
     per_char: bool = True
+    frame_invariant: bool = False
 
     def __init__(self, speed: int = 8, char_offset: int = 30) -> None:
         self.speed = speed
@@ -98,6 +108,7 @@ class ColorCycle:
     legacy ColorCycle (speed=5)."""
 
     per_char: bool = False
+    frame_invariant: bool = False
 
     def __init__(self, speed: int = 5) -> None:
         self.speed = speed
@@ -114,6 +125,7 @@ class Gradient:
     `to_color`. char_index drives interpolation; frame is ignored."""
 
     per_char: bool = True
+    frame_invariant: bool = True
 
     def __init__(self, from_color: Color, to_color: Color) -> None:
         self._from = from_color

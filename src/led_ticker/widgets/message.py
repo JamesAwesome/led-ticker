@@ -186,10 +186,23 @@ class TickerCountdown(_FrameAware):
         )
 
         baseline_y = compute_baseline(self.font, canvas, valign="center")
-        color = provider.color_for(self._frame_count, 0, len(text))
-        cursor_pos += draw_text(
-            canvas, self.font, cursor_pos, baseline_y + y_offset, color, text
-        )
+        if provider.per_char:
+            # Per-char provider on plain text: iterate chars so rainbow
+            # / gradient render with per-character hue offsets. Mirrors
+            # `TickerMessage.draw`'s per-char branch.
+            cursor_pos += draw_text_per_char(
+                canvas,
+                self.font,
+                cursor_pos,
+                baseline_y + y_offset,
+                text,
+                lambda idx, total: provider.color_for(self._frame_count, idx, total),
+            )
+        else:
+            color = provider.color_for(self._frame_count, 0, len(text))
+            cursor_pos += draw_text(
+                canvas, self.font, cursor_pos, baseline_y + y_offset, color, text
+            )
         cursor_pos += end_padding
 
         return canvas, cursor_pos

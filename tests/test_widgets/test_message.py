@@ -298,6 +298,50 @@ class TestTickerCountdownColorProvider:
         widget.advance_frame()
         assert widget._frame_count == 1
 
+    def test_per_char_provider_iterates_chars(self):
+        """Tripwire: TickerCountdown with a per-char provider must
+        iterate chars (rainbow / gradient render with per-character
+        hue offsets), not materialize once at idx=0."""
+        from datetime import date
+
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.widgets.message import TickerCountdown
+
+        class _TrackingProvider:
+            per_char = True
+
+            def __init__(self) -> None:
+                self.calls: list[tuple[int, int, int]] = []
+
+            def color_for(self, frame, char_index, total_chars):
+                from rgbmatrix.graphics import Color
+
+                self.calls.append((frame, char_index, total_chars))
+                return Color(255, 255, 255)
+
+        provider = _TrackingProvider()
+        widget = TickerCountdown(
+            "Days", countdown_date=date(2027, 1, 1), font_color=provider
+        )
+        canvas = _StubCanvas(width=160, height=16)
+
+        widget.draw(canvas)
+
+        # "Days: <N>" → at least 7 chars: D,a,y,s,:,space,digit(s).
+        assert len(provider.calls) >= 7, (
+            f"Expected per-char iteration; got {len(provider.calls)} "
+            f"call(s). TickerCountdown is materializing the provider "
+            f"once at char_index=0 instead of dispatching to "
+            f"draw_text_per_char."
+        )
+        char_indices = [c[1] for c in provider.calls]
+        # Indices are 0..N-1 contiguous.
+        assert char_indices == list(range(len(provider.calls))), char_indices
+        # total_chars matches the rendered length on every call.
+        total = len(provider.calls)
+        assert all(c[2] == total for c in provider.calls)
+
 
 class TestHiresPerCharCursorMatchesHolistic:
     """Regression: HiresFont per-char rendering must return the same

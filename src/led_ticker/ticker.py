@@ -447,6 +447,19 @@ async def _scroll_side_by_side(
         pos = 0
 
     while True:
+        # Advance the per-tick frame on every UNIQUE widget being
+        # drawn this tick so animated providers (rainbow, color_cycle)
+        # animate during side-by-side scroll. Dedup by id() because
+        # buffered_objects can contain the same widget instance
+        # multiple times (e.g. with a buffer_message widget repeated
+        # between stories) — calling advance_frame multiple times per
+        # tick would over-advance and skew the animation phase.
+        seen: set[int] = set()
+        for buf_w in buffered_objects:
+            if id(buf_w) not in seen:
+                _advance_frame_if_supported(buf_w)
+                seen.add(id(buf_w))
+
         # Side-by-side scroll uses the FIRST buffered widget's bg_color for
         # the whole canvas. Mixing widgets with different bg_color in this
         # mode is an accepted footgun (design spec) — the bg flips at the

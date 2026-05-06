@@ -438,6 +438,57 @@ class TestScrollOneByOne:
         assert widget._advance_frame_count == widget.draw.call_count
 
 
+class TestScrollSideBySide:
+    """forever_scroll mode with queue length > 1 routes through
+    _scroll_side_by_side. The outer redraw loop must advance frame
+    on every UNIQUE buffered widget per tick — not zero (frozen)
+    and not multiple times per tick (over-advance from duplicates).
+    """
+
+    async def test_advances_each_widget_once_per_tick(
+        self, canvas, mock_frame, no_sleep
+    ):
+        """Tripwire: _scroll_side_by_side redraws every buffered
+        widget per tick. Animated providers (rainbow, color_cycle)
+        on any of them must animate. Without per-tick advance, all
+        scrolling stories freeze on their visit-initial hue."""
+        from led_ticker.ticker import _scroll_side_by_side
+
+        def _make_widget(width: int):
+            w = mock.Mock()
+            w.draw.side_effect = lambda c, cursor_pos=0: (c, cursor_pos + width)
+            w._advance_frame_count = 0
+            w.bg_color = None
+
+            def _advance():
+                w._advance_frame_count += 1
+
+            w.advance_frame.side_effect = _advance
+            return w
+
+        w1 = _make_widget(40)
+        w2 = _make_widget(40)
+        queue = asyncio.Queue()
+        await queue.put(w1)
+        await queue.put(w2)
+
+        await _scroll_side_by_side(
+            canvas, mock_frame, queue, scroll_speed=0, hold_at_end=0
+        )
+
+        # Both widgets should have been advanced. Not asserting an
+        # exact count — the loop runs many ticks scrolling everything
+        # off-canvas — but each unique widget must see at least 1
+        # advance per tick it was buffered.
+        assert w1._advance_frame_count >= 1, (
+            "w1 never advanced. Side-by-side scroll isn't ticking the "
+            "frame counter — animated providers freeze."
+        )
+        assert (
+            w2._advance_frame_count >= 1
+        ), f"w2 never advanced (got {w2._advance_frame_count} calls)."
+
+
 class TestRunSwap:
     async def test_processes_all_widgets(
         self, canvas, mock_frame, make_widget, no_sleep

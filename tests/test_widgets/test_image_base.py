@@ -780,3 +780,120 @@ class TestImageBaseColorProvider:
         assert w._frame_count == 0
         w.advance_frame()
         assert w._frame_count == 1
+
+
+class TestPlayLoopAdvancesFrame:
+    """Tripwire: `_play_with_text` and `_play_with_two_row_text` must
+    call `advance_frame()` per tick so ColorProviders (Rainbow,
+    ColorCycle) animate during gif/still playback. Without this, a
+    rainbow `font_color` renders as a frozen gradient on hardware —
+    the per-char hue offset is visible but doesn't sweep over time.
+    """
+
+    async def test_single_row_advances_frame_per_tick(self, swapping_frame):
+        """Per-tick loop with scrolling text must increment _frame_count
+        once per tick. The marquee auto-floor may extend the actual
+        loop count past `n_ticks`, so assert `_frame_count` matches
+        the painted-frame count rather than `n_ticks` directly."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.fonts import FONT_DEFAULT
+
+        w = _DummyImage(
+            text="hi", text_align="scroll_over", font=FONT_DEFAULT, font_size=None
+        )
+        w._logical_scale = 1
+        real = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        await w._play_with_text(real, swapping_frame, n_ticks=5)
+
+        # Each tick paints the image once; frame_count advances once
+        # per tick. Both must have run at least n_ticks (5) but may
+        # run more due to the marquee auto-floor.
+        assert w._frame_count >= 5
+        assert w._frame_count == len(w.paint_full_calls)
+
+    async def test_two_row_advances_frame_per_tick(self, swapping_frame):
+        """Two-row per-tick loop must also advance _frame_count.
+        FONT_SMALL (5×8) fits a 16-row canvas split 8/8."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.fonts import FONT_SMALL
+
+        w = _DummyImage(
+            top_text="A", bottom_text="B" * 80, font=FONT_SMALL, font_size=None
+        )
+        w._logical_scale = 1
+        real = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        await w._play_with_two_row_text(real, swapping_frame, n_ticks=4)
+
+        assert w._frame_count >= 4
+        assert w._frame_count == len(w.paint_full_calls)
+
+    async def test_static_fast_path_bypassed_for_animated_provider(
+        self, swapping_frame
+    ):
+        """Static image + static text + Rainbow font_color must NOT
+        take the fast path — the rainbow needs the per-tick loop to
+        advance its frame counter. Tripwires that future fast-path
+        conditions don't accidentally swallow non-constant providers.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.color_providers import Rainbow
+        from led_ticker.fonts import FONT_DEFAULT
+
+        w = _DummyImage(
+            text="hi",
+            text_align="left",
+            font=FONT_DEFAULT,
+            font_size=None,
+            font_color=Rainbow(),
+        )
+        w._logical_scale = 1
+        real = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        await w._play_with_text(real, swapping_frame, n_ticks=3)
+
+        # If the fast path were taken, _frame_count would be 0 (one
+        # paint, no tick loop). Per-tick loop ran → frame advanced.
+        assert w._frame_count == 3
+
+    async def test_static_fast_path_kept_for_constant_color(self, swapping_frame):
+        """Static image + static text + constant Color → fast path
+        still applies (paint once + sleep). _frame_count stays at 0.
+        Asserts the fix didn't regress the fast-path optimization for
+        the common case.
+        """
+        from rgbmatrix import _StubCanvas
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.fonts import FONT_DEFAULT
+
+        w = _DummyImage(
+            text="hi",
+            text_align="left",
+            font=FONT_DEFAULT,
+            font_size=None,
+            font_color=Color(255, 100, 50),
+        )
+        w._logical_scale = 1
+        real = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        await w._play_with_text(real, swapping_frame, n_ticks=10)
+
+        # Fast path: one paint, no per-tick increment.
+        assert w._frame_count == 0

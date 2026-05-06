@@ -344,3 +344,57 @@ class TestWeatherWidgetHiresOnScaledCanvas:
             "entry, so _draw_hires_emoji should not have fired. If a hires "
             "variant was added, update this test to expect calls."
         )
+
+    def test_icon_y_anchors_to_text_baseline_with_hires_font(self, monkeypatch):
+        """Tripwire: when WeatherWidget is configured with a HiresFont,
+        the icon's logical top-row must equal `baseline_y - 8` so it
+        sits on the same line as the text. Mirrors `draw_with_emoji`'s
+        unified `iy = y - 8` formula. Without this fix the icon stayed
+        locked at the legacy hardcoded y=4, leaving it floating above
+        the text baseline (e.g. Inter-Bold @ 24 on bigsign has
+        baseline=10 logical → expected iy=2, broken iy=4).
+        """
+        monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker import pixel_emoji
+        from led_ticker.drawing import compute_baseline
+        from led_ticker.fonts import resolve_font
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.widgets.weather import WeatherWidget
+
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 8
+        opts.parallel = 1
+        opts.pixel_mapper_config = "U-mapper"
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        sc = ScaledCanvas(real, scale=4)
+
+        captured_iy: list[int] = []
+        original = pixel_emoji._draw_hires_emoji
+
+        def spy(canvas, hires, ix, iy):
+            captured_iy.append(iy)
+            return original(canvas, hires, ix, iy)
+
+        monkeypatch.setattr(pixel_emoji, "_draw_hires_emoji", spy)
+
+        font = resolve_font("Inter-Bold", 24)
+        w = WeatherWidget(session=mock.Mock(), location="NYC", message="NYC", font=font)
+        w.current_temp = 72
+        w.weather = "Clear"  # -> "sun" -> SUN_HIRES exists
+        w.draw(sc)
+
+        assert captured_iy, "hires path didn't fire"
+        # Assert the relationship, not a literal — survives Inter
+        # metric tweaks. baseline includes valign="center" math; the
+        # icon's top-row should be exactly 8 above it.
+        expected_iy = compute_baseline(font, sc, "center") - 8
+        assert captured_iy[0] == expected_iy, (
+            f"Icon y should be baseline_y - 8 = {expected_iy}; got "
+            f"{captured_iy[0]}. Likely regression of the legacy "
+            f"hardcoded `4 + y_offset` that didn't track the font's "
+            f"shifted baseline."
+        )

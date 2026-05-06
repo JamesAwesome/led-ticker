@@ -15,7 +15,7 @@ from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR, RGB_WHITE
 from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
-from led_ticker.text_render import draw_text
+from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import _FrameAware
@@ -147,23 +147,8 @@ class WeatherWidget(_FrameAware):
 
         baseline_y = compute_baseline(self.font, canvas, valign="center") + y_offset
 
-        # Materialize whole-string colors from providers. Weather uses
-        # single-Color rendering for both label and temp; per-char
-        # providers degrade to single-color (color_for(frame, 0, total)
-        # returns the first character's color, which is fine for
-        # whole-string display).
-        label_color = self.font_color.color_for(
-            self._frame_count, 0, len(label_text) if label_text else 1
-        )
-        temp_color = self.font_color_temp.color_for(self._frame_count, 0, 1)
-
-        cursor_pos += draw_text(
-            canvas,
-            self.font,
-            cursor_pos,
-            baseline_y,
-            label_color,
-            label_text,
+        cursor_pos += self._draw_segment(
+            canvas, cursor_pos, baseline_y, self.font_color, label_text
         )
 
         if self.show_icon:
@@ -178,23 +163,44 @@ class WeatherWidget(_FrameAware):
                 y_offset=4 + y_offset,
             )
         else:
-            cursor_pos += draw_text(
-                canvas,
-                self.font,
-                cursor_pos,
-                baseline_y,
-                label_color,
-                f"{self.weather} ",
+            cursor_pos += self._draw_segment(
+                canvas, cursor_pos, baseline_y, self.font_color, f"{self.weather} "
             )
 
-        cursor_pos += draw_text(
-            canvas,
-            self.font,
-            cursor_pos,
-            baseline_y,
-            temp_color,
-            temp_text,
+        cursor_pos += self._draw_segment(
+            canvas, cursor_pos, baseline_y, self.font_color_temp, temp_text
         )
         cursor_pos += end_padding
 
         return canvas, cursor_pos
+
+    def _draw_segment(
+        self,
+        canvas: Canvas,
+        x: int,
+        baseline_y: int,
+        provider: ColorProvider,
+        text: str,
+    ) -> int:
+        """Render one weather text segment (label / condition / temp).
+
+        Per-char providers (rainbow / gradient) iterate chars via
+        `draw_text_per_char` so each char renders with its own hue.
+        Whole-string providers (constant / color_cycle / random)
+        materialize once and use `draw_text`. Mirrors the per-char
+        dispatch in `TickerCountdown.draw` and image widgets'
+        `_draw_text` — without it, `font_color = "rainbow"` on
+        weather collapsed the label / condition / temp to a single
+        sweeping hue.
+        """
+        if provider.per_char:
+            return draw_text_per_char(
+                canvas,
+                self.font,
+                x,
+                baseline_y,
+                text,
+                lambda idx, total: provider.color_for(self._frame_count, idx, total),
+            )
+        color = provider.color_for(self._frame_count, 0, len(text) if text else 1)
+        return draw_text(canvas, self.font, x, baseline_y, color, text)

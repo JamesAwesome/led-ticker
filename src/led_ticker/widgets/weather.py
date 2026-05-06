@@ -15,7 +15,6 @@ from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR, RGB_WHITE
 from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
-from led_ticker.pixel_emoji import EMOJI_PADDING
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
@@ -120,19 +119,29 @@ class WeatherWidget(_FrameAware):
         y_offset: int = kwargs.get("y_offset", 0)
 
         temp_text = f"{self.current_temp}{self.unit_symbol}"
+        label_text = f"{self.message}: "
+
+        # Resolve the icon slug once and read its actual rendered footprint
+        # via `measure_emoji_at` — keeps layout in sync with whichever
+        # variant `draw_emoji_at` will pick (lowres on plain canvas,
+        # hires-when-available on a ScaledCanvas, falling back to lowres
+        # for slugs without a HIRES_REGISTRY entry like `partly_cloudy`).
+        # Reading the footprint dynamically scales correctly across
+        # per-section `scale` overrides — at scale=2 a hires sprite is 16
+        # logical wide, and a hardcoded `8` here would let the temperature
+        # text overlap the icon.
         if self.show_icon:
-            label_text = f"{self.message}: "
-            # Icon replaces the condition text
-            full_width = (
+            from led_ticker.pixel_emoji import measure_emoji_at
+            from led_ticker.widgets.weather_icons import _match_condition
+
+            content_width = (
                 get_text_width(self.font, label_text, padding=0, canvas=canvas)
-                + 8
-                + EMOJI_PADDING  # 8x8 emoji + padding
+                + measure_emoji_at(canvas, _match_condition(self.weather))
                 + get_text_width(self.font, temp_text, padding=0, canvas=canvas)
             )
         else:
-            label_text = f"{self.message}: "
             condition_text = f"{self.weather} "
-            full_width = get_text_width(
+            content_width = get_text_width(
                 self.font,
                 f"{label_text}{condition_text}{temp_text}",
                 padding=0,
@@ -141,7 +150,7 @@ class WeatherWidget(_FrameAware):
 
         cursor_pos, end_padding = compute_cursor(
             canvas.width,
-            full_width,
+            content_width,
             cursor_pos,
             self.padding,
             self.center,
@@ -162,10 +171,9 @@ class WeatherWidget(_FrameAware):
             # For BDF this evaluates to 4 (matching the legacy hardcoded
             # value); for HiresFont it tracks the shifted baseline so
             # the icon stays on the same line as the text.
-            slug = _match_condition(self.weather)
             cursor_pos += draw_emoji_at(
                 canvas,
-                slug,
+                _match_condition(self.weather),
                 int(cursor_pos),
                 baseline_y - 8,
             )

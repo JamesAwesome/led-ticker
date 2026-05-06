@@ -398,3 +398,90 @@ class TestWeatherWidgetHiresOnScaledCanvas:
             f"hardcoded `4 + y_offset` that didn't track the font's "
             f"shifted baseline."
         )
+
+    def test_full_width_budgets_actual_hires_advance_at_scale_2(self, monkeypatch):
+        """Tripwire for the scale=2 layout footgun. At per-section
+        scale=2 the hires sun sprite is 16 logical wide (32 // 2), not
+        8. The pre-fix hardcoded `+ 8 + EMOJI_PADDING` undercounted by
+        8 logical pixels, mis-budgeting `content_width` to
+        `compute_cursor` and breaking center=True alignment.
+
+        How this test detects the bug: with center=True, the sum of
+        `cursor_pos + end_padding` over the draw should equal exactly
+        `canvas.width`. If `content_width` is undercount by N, the
+        final cursor_pos overshoots by N. Asserting `cursor_pos ==
+        canvas.width` after a centered draw fires when the layout-side
+        width is wrong.
+        """
+        monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.widgets.weather import WeatherWidget
+
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 8
+        opts.parallel = 1
+        opts.pixel_mapper_config = "U-mapper"
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        sc = ScaledCanvas(real, scale=2, content_height=16)
+        # 256 real wide / scale=2 = 128 logical wide.
+        assert sc.width == 128
+
+        w = WeatherWidget(
+            session=mock.Mock(),
+            location="NYC",
+            message="NYC",
+            center=True,
+        )
+        w.current_temp = 72
+        w.weather = "Clear"  # -> sun (HIRES_REGISTRY hit at scale=2 → 16 wide)
+        _, cursor_pos = w.draw(sc)
+
+        assert cursor_pos == sc.width, (
+            f"Expected cursor_pos == canvas.width ({sc.width}) when "
+            f"centered. Got {cursor_pos}; the difference "
+            f"({cursor_pos - sc.width}) reveals the layout-side width "
+            f"undercounted the actual icon advance — likely a "
+            f"regression to a hardcoded literal that doesn't track "
+            f"hires sprite widths at non-default scales."
+        )
+
+    def test_icon_y_for_bdf_default_is_4(self, monkeypatch):
+        """Back-compat literal-value tripwire. With FONT_DEFAULT (BDF
+        6×12, baseline=12) the formula `baseline_y - 8` evaluates to
+        4 — identical to the previous hardcoded value. Pinning the
+        literal here is a complement to the formula tripwire above:
+        a refactor that produces a structurally-equivalent but
+        differently-named expression (e.g. `compute_baseline_for_band(
+        ..., n)`) which happens to ALSO equal 4 for FONT_DEFAULT
+        wouldn't be wrong here, but a refactor that drifts to a
+        different value would fail this even if its formula-spelled
+        equivalent passed the formula tripwire.
+        """
+        monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker import pixel_emoji
+        from led_ticker.widgets.weather import WeatherWidget
+
+        captured_y: list[int] = []
+
+        def spy(canvas, slug, x, y, *, max_emoji_height=None):
+            captured_y.append(y)
+            return 10  # SUN lowres advance: 8 + EMOJI_PADDING
+
+        monkeypatch.setattr(pixel_emoji, "draw_emoji_at", spy)
+
+        canvas = _StubCanvas(width=160, height=16)
+        w = WeatherWidget(session=mock.Mock(), location="NYC", message="NYC")
+        w.current_temp = 72
+        w.weather = "Clear"
+        w.draw(canvas)
+
+        assert captured_y == [4], (
+            f"BDF default expected to invoke draw_emoji_at with y=4 "
+            f"(baseline_y=12 - 8). Got {captured_y}."
+        )

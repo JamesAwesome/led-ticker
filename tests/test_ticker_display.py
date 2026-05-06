@@ -776,6 +776,47 @@ class TestScrollBetween:
         incoming.pause_frame.assert_called_once()
         incoming.resume_frame.assert_called_once()
 
+    async def test_resets_incoming_frame_counter_during_scroll_in(
+        self, canvas, mock_frame, no_sleep
+    ):
+        """Tripwire: incoming widget's _frame_count must be reset to 0
+        before the bullet-scroll transition's first compositor frame
+        fires. Without this, on loop iteration 2+ the widget's
+        previous-visit-end state (typewriter complete, color_cycle
+        mid-rotation, rainbow mid-sweep) renders during the scroll-in
+        and snaps when the section begins. Mirrors run_transition's
+        same-shape fix.
+        """
+        incoming = mock.Mock()
+        incoming._frame_count = 99  # simulate previous-visit-end state
+        seen_frame_counts: list[int] = []
+
+        def _draw(c, cursor_pos=0, **kw):
+            seen_frame_counts.append(incoming._frame_count)
+            return (c, cursor_pos + 40)
+
+        incoming.draw.side_effect = _draw
+
+        def _reset():
+            incoming._frame_count = 0
+
+        incoming.reset_frame.side_effect = _reset
+
+        outgoing = mock.Mock()
+        outgoing.draw.side_effect = lambda c, cursor_pos=0: (c, cursor_pos + 40)
+
+        await _scroll_between(canvas, mock_frame, outgoing, incoming)
+
+        assert seen_frame_counts, "incoming.draw never called"
+        assert all(f == 0 for f in seen_frame_counts), (
+            f"Expected _frame_count == 0 throughout _scroll_between; "
+            f"got {seen_frame_counts}. Reset must fire before the "
+            f"compositor's first draw of incoming, otherwise "
+            f"frame-aware widgets render their previous-visit-end "
+            f"state during the bullet-scroll."
+        )
+        incoming.reset_frame.assert_called_once()
+
     async def test_resume_frame_called_even_on_exception(
         self, canvas, mock_frame, no_sleep
     ):

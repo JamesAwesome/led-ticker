@@ -338,8 +338,37 @@ class TestScrollAndDelay:
         _, pos = await _scroll_and_delay(
             canvas, mock_frame, widget, delay=0, cursor_pos=0
         )
-        # Only the initial draw, no scroll loop
-        widget.draw.assert_called_once()
+        # Initial draw + the post-scroll hold tick loop's draw
+        # (n_ticks=max(1, 0//50)=1) — 2 calls total. Without the tick
+        # loop this would be 1.
+        assert widget.draw.call_count == 2
+
+    async def test_post_scroll_hold_advances_frame_per_tick(
+        self, canvas, mock_frame, no_sleep
+    ):
+        """Tripwire (I3): the post-scroll hold must run a tick loop
+        calling `advance_frame` per tick, so animated title providers
+        (color_cycle, rainbow) actually animate during the delay.
+
+        Without this, an animated title held at pos=0 freezes on the
+        visit-initial frame for the full delay — affects
+        forever_scroll / infini_scroll modes that go through
+        `_scroll_and_delay` rather than `_swap_and_scroll`.
+        """
+        # Build a widget that exposes advance_frame and counts calls.
+        widget = mock.Mock()
+        widget.draw.side_effect = lambda c, cursor_pos=0, **kw: (c, cursor_pos + 40)
+        widget._advance_frame_count = 0
+
+        def _advance():
+            widget._advance_frame_count += 1
+
+        widget.advance_frame.side_effect = _advance
+
+        # delay=0.5s @ ENGINE_TICK_MS=50ms → 10 ticks expected.
+        await _scroll_and_delay(canvas, mock_frame, widget, delay=0.5, cursor_pos=0)
+
+        assert widget._advance_frame_count == 10
 
 
 class TestRunSwap:

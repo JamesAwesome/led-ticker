@@ -322,7 +322,19 @@ async def _scroll_and_delay(
         canvas = _swap(canvas, frame)
         await asyncio.sleep(scroll_speed)
 
-    await asyncio.sleep(delay)
+    # Post-scroll hold: tick loop so animated title providers
+    # (color_cycle, rainbow) actually animate during the delay.
+    # Mirrors the pattern in `_swap_and_scroll`. Without this, an
+    # animated title held at pos=0 would freeze on the visit-initial
+    # frame for the full delay.
+    n_ticks = max(1, int(delay * 1000) // ENGINE_TICK_MS)
+    tick_seconds = ENGINE_TICK_MS / 1000
+    for _ in range(n_ticks):
+        _advance_frame_if_supported(ticker_obj)
+        reset_canvas(canvas, bg_color)
+        canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
+        canvas = _swap(canvas, frame)
+        await asyncio.sleep(tick_seconds)
     return canvas, cursor_pos
 
 

@@ -157,12 +157,17 @@ class WeatherWidget(_FrameAware):
             from led_ticker.pixel_emoji import draw_emoji_at
             from led_ticker.widgets.weather_icons import _match_condition
 
+            # Anchor the 8-row-tall emoji's bottom to the text baseline,
+            # matching `draw_with_emoji`'s unified formula (`iy = y - 8`).
+            # For BDF this evaluates to 4 (matching the legacy hardcoded
+            # value); for HiresFont it tracks the shifted baseline so
+            # the icon stays on the same line as the text.
             slug = _match_condition(self.weather)
             cursor_pos += draw_emoji_at(
                 canvas,
                 slug,
                 int(cursor_pos),
-                4 + y_offset,
+                baseline_y - 8,
             )
         else:
             cursor_pos += self._draw_segment(

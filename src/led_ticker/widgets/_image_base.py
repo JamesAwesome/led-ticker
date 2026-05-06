@@ -685,9 +685,20 @@ class _BaseImageWidget(_FrameAware):
         # safe when the source itself is static (`_is_static()`) — for
         # animated sources (multi-frame gifs) we'd freeze the gif on
         # frame 0 by skipping the per-tick `_pick_frame_for_elapsed`.
+        # Also bypass when `font_color` is a non-constant ColorProvider
+        # (Rainbow / ColorCycle): the rendered output changes per
+        # frame even though image + text geometry are static, so the
+        # per-tick loop must run to advance the provider's frame
+        # counter — otherwise the rainbow looks like a frozen gradient.
         text_is_wrapped = isinstance(text_canvas, ScaledCanvas)
+        color_is_static = isinstance(self.font_color, _ConstantColor)
 
-        if not scrolling and self.text_loops == 0 and self._is_static():
+        if (
+            not scrolling
+            and self.text_loops == 0
+            and self._is_static()
+            and color_is_static
+        ):
             self._render_tick(
                 canvas,
                 text_canvas,
@@ -708,6 +719,13 @@ class _BaseImageWidget(_FrameAware):
 
         for tick in range(n_ticks):
             self._pick_frame_for_elapsed(tick * tick_ms)
+            # Advance the widget's own frame counter so ColorProviders
+            # (rainbow, color_cycle) animate over time. Without this,
+            # the provider sees `_frame_count` stuck at its visit
+            # initial value and the rainbow renders as a static
+            # gradient. Mirrors `ticker._advance_frame_if_supported`'s
+            # placement in `_swap_and_scroll` (advance BEFORE draw).
+            self.advance_frame()
             self._render_tick(
                 canvas,
                 text_canvas,
@@ -848,8 +866,19 @@ class _BaseImageWidget(_FrameAware):
         # after each SwapOnVSync (constraint #10 in CLAUDE.md). Without
         # this, the 2nd tick paints to the displayed front buffer.
         text_is_wrapped = isinstance(text_canvas, ScaledCanvas)
+        # Same fast-path gate as the single-row path: bypass when EITHER
+        # row uses a non-constant provider so animated colors (rainbow /
+        # color_cycle) keep ticking.
+        colors_are_static = isinstance(top_color, _ConstantColor) and isinstance(
+            bottom_color, _ConstantColor
+        )
 
-        if not bottom_scrolls and self._is_static() and self.text_loops == 0:
+        if (
+            not bottom_scrolls
+            and self._is_static()
+            and self.text_loops == 0
+            and colors_are_static
+        ):
             bottom_tuple = (
                 bottom_font,
                 bottom_text,
@@ -867,6 +896,9 @@ class _BaseImageWidget(_FrameAware):
 
         for tick in range(n_ticks):
             self._pick_frame_for_elapsed(tick * tick_ms)
+            # Advance the per-widget frame counter so ColorProviders
+            # animate. See single-row path for rationale.
+            self.advance_frame()
             bottom_tuple = (
                 bottom_font,
                 bottom_text,

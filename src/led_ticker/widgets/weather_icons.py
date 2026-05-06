@@ -7,7 +7,7 @@ top-left corner of the icon. Only non-black pixels are stored.
 
 from __future__ import annotations
 
-from led_ticker._types import Canvas, PixelData
+from led_ticker._types import PixelData
 
 # Yellow sun: circle with rays
 SUN: PixelData = [
@@ -267,16 +267,6 @@ ICON_WIDTH: int = 8
 ICON_HEIGHT: int = 8
 ICON_PADDING: int = 2  # pixels between icon and text
 
-_SPRITES_BY_SLUG: dict[str, PixelData] = {
-    "sun": SUN,
-    "cloud": CLOUD,
-    "partly_cloudy": PARTLY_CLOUDY,
-    "rain": RAIN,
-    "snow": SNOW,
-    "thunder": THUNDER,
-    "fog": FOG,
-}
-
 
 def _match_condition(condition: str) -> str:
     """Map a WeatherAPI condition string to an emoji slug."""
@@ -295,22 +285,3 @@ def _match_condition(condition: str) -> str:
         return "cloud"
     # Sunny, Clear, or anything else
     return "sun"
-
-
-def draw_weather_icon(canvas: Canvas, condition: str, x: int, y_offset: int = 4) -> int:
-    """Draw an 8x8 weather icon on the canvas.
-
-    Args:
-        canvas: LED canvas with SetPixel(x, y, r, g, b)
-        condition: WeatherAPI condition text (e.g., "Clear", "Light rain")
-        x: left edge x position
-        y_offset: top edge y position (default 4 centers 8px icon in 16px height)
-
-    Returns:
-        The x position after the icon (x + ICON_WIDTH + ICON_PADDING).
-    """
-    slug = _match_condition(condition)
-    icon = _SPRITES_BY_SLUG[slug]
-    for px, py, r, g, b in icon:
-        canvas.SetPixel(x + px, y_offset + py, r, g, b)
-    return x + ICON_WIDTH + ICON_PADDING

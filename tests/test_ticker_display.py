@@ -397,6 +397,47 @@ class TestScrollAndDelay:
         assert widget._advance_frame_count == 10
 
 
+class TestScrollOneByOne:
+    """forever_scroll mode with queue length 1 routes through
+    _scroll_one_by_one. The redraw loop must advance frame per tick
+    or animated providers (rainbow, color_cycle) freeze."""
+
+    async def test_advances_frame_per_tick(self, canvas, mock_frame, no_sleep):
+        """Hardware bug: smoke §17 (RSS feed + rainbow) rendered as
+        a static gradient because _scroll_one_by_one's while loop
+        never advanced the widget's frame counter."""
+        from led_ticker.ticker import _scroll_one_by_one
+
+        widget = mock.Mock()
+        # Widget is 5 wide; scrolls until final_pos < 0. Starting at
+        # cursor_pos=0, final_pos = 5 first tick, then cursor_pos
+        # decrements toward -∞. Loop breaks when widget.draw returns
+        # final_pos < 0 AND queue is empty.
+        widget.draw.side_effect = lambda c, cursor_pos=0: (c, cursor_pos + 5)
+        widget._advance_frame_count = 0
+
+        def _advance():
+            widget._advance_frame_count += 1
+
+        widget.advance_frame.side_effect = _advance
+
+        queue = asyncio.Queue()
+        await queue.put(widget)
+
+        await _scroll_one_by_one(canvas, mock_frame, queue, scroll_speed=0)
+
+        # Loop ran for ~6 ticks before final_pos < 0 broke it (cursor=0,-1,-2,...).
+        # advance_frame must have been called once per tick — at minimum 1.
+        assert widget._advance_frame_count >= 1, (
+            f"Expected ≥1 advance_frame calls; got "
+            f"{widget._advance_frame_count}. _scroll_one_by_one redraws "
+            f"the widget per tick but isn't calling "
+            f"_advance_frame_if_supported — animated providers freeze."
+        )
+        # Sanity: should match the draw call count (one advance per draw).
+        assert widget._advance_frame_count == widget.draw.call_count
+
+
 class TestRunSwap:
     async def test_processes_all_widgets(
         self, canvas, mock_frame, make_widget, no_sleep

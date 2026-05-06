@@ -379,6 +379,12 @@ async def _scroll_one_by_one(
         last_drawn_pos = pos
 
     while True:
+        # Advance the per-tick frame on the widget currently on-screen
+        # so animated providers (rainbow, color_cycle) animate during
+        # the scroll. Without this, RSS stories with `font_color =
+        # "rainbow"` render as a static gradient that scrolls but
+        # doesn't sweep over time.
+        _advance_frame_if_supported(ticker_object)
         reset_canvas(canvas, getattr(ticker_object, "bg_color", None))
         canvas, final_pos = ticker_object.draw(canvas, cursor_pos=pos)
         last_drawn_pos = pos

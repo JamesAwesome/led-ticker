@@ -504,14 +504,29 @@ async def _scroll_side_by_side(
             else:
                 break
 
-        # Hold the last widget at end-of-scroll instead of letting it scroll
-        # fully off the left. mon_0_end_pos is the right edge of the widget's
-        # content (including end_padding); when it's at or within the canvas,
-        # the last character is fully visible.
+        # Hold the last widget at end-of-scroll instead of letting it
+        # scroll fully off the left. mon_0_end_pos is the right edge of
+        # the widget's content (including end_padding); when it's at or
+        # within the canvas, the last character is fully visible.
+        # Tick the frame counter during the hold so animated providers
+        # (rainbow, color_cycle) keep sweeping while the text is at
+        # rest — without the tick loop, the rainbow freezes the moment
+        # the text stops moving (visible as static gradient on §17).
+        # `held_pos = pos + 1` is the input cursor_pos that produced
+        # the just-drawn frame; we redraw at the same position by
+        # passing `held_pos - 1` (= the original pos).
         if len(buffered_objects) == 1 and queue_empty and mon_0_end_pos <= canvas.width:
-            held_pos = pos + 1  # input pos used for the just-drawn frame
+            held_pos = pos + 1
             canvas = _swap(canvas, frame)
-            await asyncio.sleep(hold_at_end)
+            n_hold_ticks = max(1, int(hold_at_end * 1000) // ENGINE_TICK_MS)
+            tick_seconds = ENGINE_TICK_MS / 1000
+            for _ in range(n_hold_ticks):
+                _advance_frame_if_supported(buffered_objects[0])
+                bg_hold = getattr(buffered_objects[0], "bg_color", None)
+                reset_canvas(canvas, bg_hold)
+                canvas, _ = buffered_objects[0].draw(canvas, cursor_pos=held_pos - 1)
+                canvas = _swap(canvas, frame)
+                await asyncio.sleep(tick_seconds)
             return held_pos
 
         if mon_0_end_pos < 0:

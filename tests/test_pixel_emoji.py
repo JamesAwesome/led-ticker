@@ -690,15 +690,22 @@ class TestDrawWithEmojiColorProvider:
         assert advance > 0
 
 
-def test_partly_cloudy_in_lowres_registry():
-    """partly_cloudy is a weather slug; the helper resolves it via the
-    lowres registry. No hires variant exists yet — that's intentional
-    follow-up scope."""
+def test_partly_cloudy_in_both_registries():
+    """partly_cloudy is a weather slug; it must be in both lowres and
+    hires registries so the icon renders crisply on bigsign and falls
+    back to a working sprite on the small sign. The hires variant
+    composes a half-size sun in the top-right with the full cloud
+    silhouette anchored bottom (cloud overrides sun on overlap)."""
     from led_ticker.pixel_emoji import HIRES_REGISTRY, _get_registry
 
     registry = _get_registry()
     assert "partly_cloudy" in registry
-    assert "partly_cloudy" not in HIRES_REGISTRY
+    assert "partly_cloudy" in HIRES_REGISTRY
+    # Hires variant matches the convention of the other weather hires
+    # sprites: 32x32 with width = size (no horizontal trim).
+    h = HIRES_REGISTRY["partly_cloudy"]
+    assert h.physical_size == 32
+    assert h.physical_width is None  # = full 32 logical at scale=1, 8 at scale=4
 
 
 class TestDrawEmojiAt:

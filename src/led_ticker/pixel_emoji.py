@@ -1174,6 +1174,51 @@ CLOUD_HIRES = HiResEmoji(
 )
 
 
+# ⛅ 32×32 Partly Cloudy — sun in the top-right corner with the cloud
+# layered over the bottom-left, matching the lowres PARTLY_CLOUDY
+# composition. Sun is generated at half size and anchored to the
+# top-right (cols 18-31, rows 0-13); cloud is generated full-size and
+# shifted DOWN 4 rows so it sits in rows ~10-26 with its 3 bumps
+# clear of the sun. Cloud pixels overwrite sun pixels on overlap so
+# the cloud reads as in front. Both reuse the existing sun + cloud
+# generators — no new geometry, just composition.
+
+
+def _generate_partly_cloudy_hires(
+    size: int = 32,
+) -> tuple[tuple[int, int, int, int, int], ...]:
+    """Compose hires partly_cloudy from a small sun in the top-right
+    plus the full cloud silhouette anchored bottom.
+
+    Cloud overrides sun on overlap (cloud is "in front of" sun).
+    """
+    pixels: dict[tuple[int, int], tuple[int, int, int]] = {}
+
+    # Sun: half-size (16x16) anchored to the top-right (cols 16-31,
+    # rows 0-15). Generate at size=16 then offset by +16 in x.
+    sun_size = 16
+    sun_x_offset = size - sun_size  # 16 — sun's left edge at col 16
+    for x, y, r, g, b in _generate_sun_hires(size=sun_size):
+        pixels[(x + sun_x_offset, y)] = (r, g, b)
+
+    # Cloud: full-size, shifted DOWN by 4 rows so its 3 bumps sit in
+    # rows ~10-22 (instead of ~6-18). Pixels at rows that would fall
+    # off the bottom (y >= size) are skipped — clean truncation.
+    cloud_y_offset = 4
+    for x, y, r, g, b in _generate_cloud_hires(size=size):
+        new_y = y + cloud_y_offset
+        if 0 <= new_y < size:
+            pixels[(x, new_y)] = (r, g, b)  # cloud wins on overlap
+
+    return tuple((x, y, r, g, b) for (x, y), (r, g, b) in pixels.items())
+
+
+PARTLY_CLOUDY_HIRES = HiResEmoji(
+    pixels=_generate_partly_cloudy_hires(size=32),
+    physical_size=32,
+)
+
+
 # 🌧️ 32×32 Rain — smaller cloud at top + 4 vertical drops below
 _RAIN_DROP_COLOR = (90, 160, 230)
 
@@ -2474,6 +2519,7 @@ HIRES_REGISTRY: dict[str, HiResEmoji] = {
     "email": EMAIL_HIRES,
     # Weather
     "cloud": CLOUD_HIRES,
+    "partly_cloudy": PARTLY_CLOUDY_HIRES,
     "rain": RAIN_HIRES,
     "snow": SNOW_HIRES,
     "thunder": THUNDER_HIRES,

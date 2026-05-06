@@ -178,3 +178,46 @@ class TestGradient:
         provider = Gradient(from_color=Color(255, 0, 0), to_color=Color(0, 0, 255))
         c = provider.color_for(0, 0, 1)
         assert (c.red, c.green, c.blue) == (255, 0, 0)
+
+
+class TestFrameInvariantFlag:
+    """Pin the `frame_invariant` class attribute on every provider.
+
+    The flag drives the static-text fast path in
+    `_BaseImageWidget._play_with_text`: True providers paint once and
+    sleep; False providers force the per-tick render loop. Wrong
+    values silently regress hardware behavior — frame_invariant=True
+    on Rainbow would freeze the rainbow on a static image; False on
+    Gradient would burn CPU re-rendering the same gradient every
+    50ms tick.
+    """
+
+    def test_constant_color_is_frame_invariant(self):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+
+        assert _ConstantColor(Color(0, 0, 0)).frame_invariant is True
+
+    def test_random_is_frame_invariant(self):
+        from led_ticker.color_providers import Random
+
+        assert Random().frame_invariant is True
+
+    def test_gradient_is_frame_invariant(self):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import Gradient
+
+        provider = Gradient(from_color=Color(255, 0, 0), to_color=Color(0, 0, 255))
+        assert provider.frame_invariant is True
+
+    def test_rainbow_is_not_frame_invariant(self):
+        from led_ticker.color_providers import Rainbow
+
+        assert Rainbow().frame_invariant is False
+
+    def test_color_cycle_is_not_frame_invariant(self):
+        from led_ticker.color_providers import ColorCycle
+
+        assert ColorCycle().frame_invariant is False

@@ -898,6 +898,36 @@ class TestPlayLoopAdvancesFrame:
         # Fast path: one paint, no per-tick increment.
         assert w._frame_count == 0
 
+    async def test_static_fast_path_kept_for_gradient_provider(self, swapping_frame):
+        """Gradient is `frame_invariant=True` (output depends on
+        char_index/total only — not frame). Static image + static text
+        + Gradient → fast path applies. Tripwires that the fast-path
+        gate uses the `frame_invariant` flag, not a strict
+        isinstance(_ConstantColor) check that would penalize Gradient
+        with an unnecessary per-tick loop."""
+        from rgbmatrix import _StubCanvas
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import Gradient
+        from led_ticker.fonts import FONT_DEFAULT
+
+        w = _DummyImage(
+            text="hi",
+            text_align="left",
+            font=FONT_DEFAULT,
+            font_size=None,
+            font_color=Gradient(Color(255, 0, 0), Color(0, 0, 255)),
+        )
+        w._logical_scale = 1
+        real = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        await w._play_with_text(real, swapping_frame, n_ticks=10)
+
+        assert w._frame_count == 0
+
 
 class _TrackingProvider:
     """Test provider: per_char=True, records every (frame, idx, total)."""

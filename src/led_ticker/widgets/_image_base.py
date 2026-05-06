@@ -710,13 +710,17 @@ class _BaseImageWidget(_FrameAware):
         # safe when the source itself is static (`_is_static()`) — for
         # animated sources (multi-frame gifs) we'd freeze the gif on
         # frame 0 by skipping the per-tick `_pick_frame_for_elapsed`.
-        # Also bypass when `font_color` is a non-constant ColorProvider
+        # Also bypass when `font_color` is not frame_invariant
         # (Rainbow / ColorCycle): the rendered output changes per
         # frame even though image + text geometry are static, so the
         # per-tick loop must run to advance the provider's frame
         # counter — otherwise the rainbow looks like a frozen gradient.
+        # `frame_invariant` is set on each ColorProvider class:
+        # _ConstantColor, Random, Gradient = True; Rainbow, ColorCycle
+        # = False. New providers default to False (conservative — opt
+        # in via the class attribute) for safety.
         text_is_wrapped = isinstance(text_canvas, ScaledCanvas)
-        color_is_static = isinstance(self.font_color, _ConstantColor)
+        color_is_static = getattr(self.font_color, "frame_invariant", False)
 
         if (
             not scrolling
@@ -892,10 +896,10 @@ class _BaseImageWidget(_FrameAware):
         # this, the 2nd tick paints to the displayed front buffer.
         text_is_wrapped = isinstance(text_canvas, ScaledCanvas)
         # Same fast-path gate as the single-row path: bypass when EITHER
-        # row uses a non-constant provider so animated colors (rainbow /
-        # color_cycle) keep ticking.
-        colors_are_static = isinstance(top_color, _ConstantColor) and isinstance(
-            bottom_color, _ConstantColor
+        # row uses a non-frame-invariant provider so animated colors
+        # (rainbow / color_cycle) keep ticking.
+        colors_are_static = getattr(top_color, "frame_invariant", False) and getattr(
+            bottom_color, "frame_invariant", False
         )
 
         if (

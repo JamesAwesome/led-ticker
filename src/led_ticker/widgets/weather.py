@@ -152,15 +152,15 @@ class WeatherWidget(_FrameAware):
         )
 
         if self.show_icon:
-            from led_ticker.widgets.weather_icons import (
-                draw_weather_icon,
-            )
+            from led_ticker.pixel_emoji import draw_emoji_at
+            from led_ticker.widgets.weather_icons import _match_condition
 
-            cursor_pos = draw_weather_icon(
+            slug = _match_condition(self.weather)
+            cursor_pos += draw_emoji_at(
                 canvas,
-                self.weather,
+                slug,
                 int(cursor_pos),
-                y_offset=4 + y_offset,
+                4 + y_offset,
             )
         else:
             cursor_pos += self._draw_segment(

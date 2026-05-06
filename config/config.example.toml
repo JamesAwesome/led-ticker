@@ -33,7 +33,7 @@ delay = 5
 # Available easing: linear, ease_out, ease_in_out
 
 [transitions]
-default = "push_left"
+default = "wipe_alternating"
 duration = 0.5
 easing = "ease_out"
 between_sections = "dissolve"

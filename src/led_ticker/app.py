@@ -181,6 +181,90 @@ def _coerce_color(value: Any) -> Any:
     return _coerce_color_provider(value)
 
 
+def _coerce_border(value: Any) -> Any:
+    """Convert a TOML border spec to a `BorderEffect` instance.
+
+    Accepts:
+    - `"rainbow"` (string shorthand) → `RainbowChaseBorder()` with defaults
+    - `{style = "rainbow", speed = N, char_offset = N, thickness = N}`
+      → `RainbowChaseBorder` with kwargs.
+    - `{style = "constant", color = [r, g, b], thickness = N}`
+      → `ConstantBorder` with the color + thickness.
+    - `[r, g, b]` (list/tuple) → `ConstantBorder` shorthand.
+    - already a BorderEffect (has `paint`) → passes through.
+    - None → None (no border).
+
+    Raises ValueError on unknown styles, missing required kwargs, or
+    unknown kwargs.
+    """
+    from led_ticker.borders import ConstantBorder, RainbowChaseBorder
+
+    if value is None:
+        return None
+    # Already a BorderEffect — duck-typed via the `paint` method
+    if hasattr(value, "paint") and hasattr(value, "frame_invariant"):
+        return value
+    # Constant-color shorthand: [r, g, b]
+    if (
+        isinstance(value, list | tuple)
+        and len(value) == 3
+        and all(isinstance(c, int) for c in value)
+    ):
+        return ConstantBorder(color=tuple(value))
+    # String shorthand
+    if isinstance(value, str):
+        if value == "rainbow":
+            return RainbowChaseBorder()
+        raise ValueError(
+            f"unknown border style {value!r}; "
+            "available: 'rainbow', or use an inline table"
+        )
+    # Inline table
+    if isinstance(value, dict):
+        if "style" not in value:
+            raise ValueError(
+                f"border table requires 'style' key; got {list(value.keys())!r}"
+            )
+        style = value["style"]
+        kwargs = {k: v for k, v in value.items() if k != "style"}
+        if style == "rainbow":
+            allowed = {"speed", "char_offset", "thickness"}
+            unknown = set(kwargs.keys()) - allowed
+            if unknown:
+                raise ValueError(
+                    f"border style 'rainbow' got unknown keys "
+                    f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
+                )
+            return RainbowChaseBorder(**kwargs)
+        if style == "constant":
+            allowed = {"color", "thickness"}
+            unknown = set(kwargs.keys()) - allowed
+            if unknown:
+                raise ValueError(
+                    f"border style 'constant' got unknown keys "
+                    f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
+                )
+            if "color" not in kwargs:
+                raise ValueError(
+                    "border style 'constant' requires 'color' kwarg: "
+                    "border = {style='constant', color=[r,g,b]}"
+                )
+            color = kwargs.pop("color")
+            if not (isinstance(color, list | tuple) and len(color) == 3):
+                raise ValueError(
+                    f"border 'constant' color must be [r,g,b]; got {color!r}"
+                )
+            return ConstantBorder(color=tuple(color), **kwargs)
+        raise ValueError(
+            f"unknown border style {style!r}; available: 'rainbow', 'constant'"
+        )
+    # Reject anything else loudly
+    raise ValueError(
+        f"border must be a string, table, or [r,g,b] list; "
+        f"got {type(value).__name__}"
+    )
+
+
 def _coerce_animation(value: Any) -> Any:
     """Convert a TOML animation spec to an Animation instance.
 
@@ -360,6 +444,20 @@ async def _build_widget(
         )
     if animation_value is not None:
         widget_cfg["animation"] = _coerce_animation(animation_value)
+
+    # Coerce `border` (TickerMessage-only) to a BorderEffect instance
+    # at config-load. Same TickerMessage-only rule as `animation` —
+    # the field doesn't make sense on data widgets that have their
+    # own draw paths and don't paint a perimeter. Loud failure here
+    # catches misplaced `border = ...` in TOML before it surfaces as
+    # a confusing "unknown kwarg" downstream.
+    border_value = widget_cfg.pop("border", None)
+    if border_value is not None and widget_type != "message":
+        raise ValueError(
+            f'border is only valid on type="message"; got ' f"type={widget_type!r}."
+        )
+    if border_value is not None:
+        widget_cfg["border"] = _coerce_border(border_value)
 
     # Inject section default before color coercion runs. Skip when the
     # widget already specified bg_color (widget-level wins).

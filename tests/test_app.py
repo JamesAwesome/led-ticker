@@ -1139,3 +1139,128 @@ text = "ONLY"
             else default_section_trans
         )
         assert isinstance(entry, get_transition_class("dissolve"))
+
+
+class TestCoerceBorder:
+    """`_coerce_border` maps TOML shapes to BorderEffect instances.
+    Mirrors the `_coerce_color_provider` / `_coerce_animation`
+    surface."""
+
+    def test_none_passes_through(self):
+        from led_ticker.app import _coerce_border
+
+        assert _coerce_border(None) is None
+
+    def test_string_rainbow_returns_default_chase(self):
+        from led_ticker.app import _coerce_border
+        from led_ticker.borders import RainbowChaseBorder
+
+        b = _coerce_border("rainbow")
+        assert isinstance(b, RainbowChaseBorder)
+        assert b.thickness == 1
+
+    def test_inline_table_rainbow_with_kwargs(self):
+        from led_ticker.app import _coerce_border
+        from led_ticker.borders import RainbowChaseBorder
+
+        b = _coerce_border(
+            {"style": "rainbow", "speed": 12, "char_offset": 9, "thickness": 2}
+        )
+        assert isinstance(b, RainbowChaseBorder)
+        assert b.speed == 12
+        assert b.char_offset == 9
+        assert b.thickness == 2
+
+    def test_constant_inline_table(self):
+        from led_ticker.app import _coerce_border
+        from led_ticker.borders import ConstantBorder
+
+        b = _coerce_border({"style": "constant", "color": [255, 0, 0]})
+        assert isinstance(b, ConstantBorder)
+        assert b._rgb == (255, 0, 0)
+
+    def test_rgb_list_shorthand_returns_constant(self):
+        from led_ticker.app import _coerce_border
+        from led_ticker.borders import ConstantBorder
+
+        b = _coerce_border([0, 200, 100])
+        assert isinstance(b, ConstantBorder)
+        assert b._rgb == (0, 200, 100)
+
+    def test_already_a_border_passes_through(self):
+        from led_ticker.app import _coerce_border
+        from led_ticker.borders import RainbowChaseBorder
+
+        existing = RainbowChaseBorder(speed=99)
+        assert _coerce_border(existing) is existing
+
+    def test_unknown_string_raises(self):
+        from led_ticker.app import _coerce_border
+
+        with pytest.raises(ValueError, match="unknown border style"):
+            _coerce_border("explode")
+
+    def test_inline_table_unknown_style_raises(self):
+        from led_ticker.app import _coerce_border
+
+        with pytest.raises(ValueError, match="unknown border style"):
+            _coerce_border({"style": "neon"})
+
+    def test_inline_table_missing_style_raises(self):
+        from led_ticker.app import _coerce_border
+
+        with pytest.raises(ValueError, match="border table requires 'style'"):
+            _coerce_border({"speed": 8})
+
+    def test_constant_missing_color_raises(self):
+        from led_ticker.app import _coerce_border
+
+        with pytest.raises(ValueError, match="requires 'color'"):
+            _coerce_border({"style": "constant"})
+
+    def test_unknown_kwarg_raises(self):
+        from led_ticker.app import _coerce_border
+
+        with pytest.raises(ValueError, match="unknown keys"):
+            _coerce_border({"style": "rainbow", "wobble": 5})
+
+
+class TestBuildWidgetWithBorder:
+    """Integration: TickerMessage with `border = "rainbow"` builds
+    cleanly. Border on non-message widget types is rejected loudly
+    at config-load (mirrors the `animation` TickerMessage-only
+    rule)."""
+
+    async def test_message_with_border_rainbow_string(self):
+        from led_ticker.borders import RainbowChaseBorder
+
+        cfg = {"type": "message", "text": "HI", "border": "rainbow"}
+        widget = await _build_widget(cfg, session=mock.Mock())
+        assert isinstance(widget.border, RainbowChaseBorder)
+
+    async def test_message_with_border_constant_table(self):
+        from led_ticker.borders import ConstantBorder
+
+        cfg = {
+            "type": "message",
+            "text": "HI",
+            "border": {"style": "constant", "color": [255, 100, 50]},
+        }
+        widget = await _build_widget(cfg, session=mock.Mock())
+        assert isinstance(widget.border, ConstantBorder)
+        assert widget.border._rgb == (255, 100, 50)
+
+    async def test_border_on_countdown_raises(self):
+        cfg = {
+            "type": "countdown",
+            "text": "Days",
+            "countdown_date": date(2027, 1, 1),
+            "border": "rainbow",
+        }
+        with pytest.raises(ValueError, match='border is only valid on type="message"'):
+            await _build_widget(cfg, session=mock.Mock())
+
+    async def test_message_without_border_has_none(self):
+        cfg = {"type": "message", "text": "HI"}
+        widget = await _build_widget(cfg, session=mock.Mock())
+        assert widget.border is None

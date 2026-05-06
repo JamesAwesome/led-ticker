@@ -305,11 +305,14 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         )
 
     def test_draw_uses_lowres_for_partly_cloudy_on_scaled_canvas(self, monkeypatch):
-        """partly_cloudy has no hires variant — ensure the widget
-        gracefully falls back to lowres without crashing."""
+        """partly_cloudy has no hires variant — ensure the widget takes
+        the lowres path (no _draw_hires_emoji call) and doesn't crash.
+        Tripwire: if a hires variant is added in a future commit, this
+        fires noisily so the addition is acknowledged in the same PR."""
         monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
         from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
+        from led_ticker import pixel_emoji
         from led_ticker.scaled_canvas import ScaledCanvas
         from led_ticker.widgets.weather import WeatherWidget
 
@@ -322,9 +325,22 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         real = RGBMatrix(options=opts).CreateFrameCanvas()
         sc = ScaledCanvas(real, scale=4)
 
+        calls: list[str] = []
+        original = pixel_emoji._draw_hires_emoji
+
+        def spy(canvas, hires, ix, iy):
+            calls.append("hires")
+            return original(canvas, hires, ix, iy)
+
+        monkeypatch.setattr(pixel_emoji, "_draw_hires_emoji", spy)
+
         w = WeatherWidget(session=mock.Mock(), location="NYC", message="NYC")
         w.current_temp = 72
         w.weather = "Partly cloudy"
-        # Should not raise.
         result_canvas, cursor_pos = w.draw(sc)
         assert cursor_pos > 0
+        assert not calls, (
+            "Expected the lowres path. partly_cloudy has no HIRES_REGISTRY "
+            "entry, so _draw_hires_emoji should not have fired. If a hires "
+            "variant was added, update this test to expect calls."
+        )

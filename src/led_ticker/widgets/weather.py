@@ -15,6 +15,7 @@ from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR, RGB_WHITE
 from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
+from led_ticker.pixel_emoji import EMOJI_PADDING
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
@@ -124,7 +125,8 @@ class WeatherWidget(_FrameAware):
             # Icon replaces the condition text
             full_width = (
                 get_text_width(self.font, label_text, padding=0, canvas=canvas)
-                + 10  # icon width (8) + padding (2)
+                + 8
+                + EMOJI_PADDING  # 8x8 emoji + padding
                 + get_text_width(self.font, temp_text, padding=0, canvas=canvas)
             )
         else:

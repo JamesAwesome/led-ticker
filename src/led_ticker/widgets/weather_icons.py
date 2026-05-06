@@ -263,10 +263,6 @@ FOG: PixelData = [
     (7, 7, 120, 120, 120),
 ]
 
-ICON_WIDTH: int = 8
-ICON_HEIGHT: int = 8
-ICON_PADDING: int = 2  # pixels between icon and text
-
 
 def _match_condition(condition: str) -> str:
     """Map a WeatherAPI condition string to an emoji slug."""

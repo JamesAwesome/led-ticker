@@ -1063,6 +1063,77 @@ class TestRunTransition:
         incoming.pause_frame.assert_called_once()
         incoming.resume_frame.assert_called_once()
 
+    async def test_resets_incoming_frame_counter_before_compositor_draws(
+        self,
+        canvas,
+        mock_frame,
+        no_sleep,
+    ):
+        """Tripwire: incoming widget's _frame_count must be reset to 0
+        before the transition's first compositor frame fires. Without
+        this, a frame-aware widget (typewriter, color_cycle, rainbow)
+        renders its previous-visit-end state during the transition,
+        then snaps to its visit-initial state when the section begins.
+
+        Hardware-observed bug: §4 of the showroom config (typewriter +
+        rainbow) showed the FULL text "READY. SET. GLOW." during the
+        wipe-in on loop iteration 2+, then cut to empty and typed out.
+        Root cause: run_transition paused incoming frame_count but
+        didn't reset it, so the compositor rendered the
+        previous-visit-end state."""
+
+        # Custom transition that always calls incoming.draw so we can
+        # verify _frame_count seen at draw time. Avoids dependency on
+        # any specific built-in transition's frame_at semantics.
+        class _AlwaysDrawIncoming:
+            def frame_at(self, t, canvas, outgoing, incoming, **kw):
+                incoming.draw(canvas, cursor_pos=0)
+
+        incoming = mock.Mock()
+        incoming._frame_count = 99  # simulate previous-visit-end state
+        seen_frame_counts: list[int] = []
+
+        def _draw(c, cursor_pos=0, **kw):
+            seen_frame_counts.append(incoming._frame_count)
+            return (c, cursor_pos + 30)
+
+        incoming.draw.side_effect = _draw
+
+        def _reset():
+            incoming._frame_count = 0
+
+        incoming.reset_frame.side_effect = _reset
+
+        outgoing = mock.Mock()
+        outgoing.draw.side_effect = lambda c, cursor_pos=0, **kw: (
+            c,
+            cursor_pos + 30,
+        )
+
+        await run_transition(
+            canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=_AlwaysDrawIncoming(),
+            duration=0.1,
+        )
+
+        assert seen_frame_counts, "incoming.draw was never called"
+        assert all(f == 0 for f in seen_frame_counts), (
+            f"Expected _frame_count == 0 throughout the transition; "
+            f"got {seen_frame_counts}. Without reset, the compositor "
+            f"renders the widget's previous-visit-end state — visible "
+            f"as full typewriter text flashing during a wipe-in, then "
+            f"snapping back to frame=0 when the section starts."
+        )
+        # And reset_frame should fire BEFORE pause_frame… actually
+        # order doesn't matter (reset doesn't touch the pause flag),
+        # but pause must still happen exactly once.
+        incoming.pause_frame.assert_called_once()
+        incoming.resume_frame.assert_called_once()
+        incoming.reset_frame.assert_called_once()
+
     async def test_resumes_presenters_on_exception(
         self,
         canvas,

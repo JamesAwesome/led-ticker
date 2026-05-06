@@ -1231,8 +1231,30 @@ class TestCoerceBorder:
         documented in CLAUDE.md."""
         from led_ticker.app import _coerce_border
 
-        with pytest.raises(ValueError, match="must be a string, table"):
+        with pytest.raises(ValueError, match="components must be ints"):
             _coerce_border([True, False, True])
+
+    def test_out_of_range_rgb_rejected(self):
+        """RGB byte values must be 0..255. SetPixel takes bytes;
+        passing 300 or -50 is undefined behavior. Reject loudly at
+        config-load instead."""
+        from led_ticker.app import _coerce_border
+
+        with pytest.raises(ValueError, match="0-255"):
+            _coerce_border([300, 50, 100])
+        with pytest.raises(ValueError, match="0-255"):
+            _coerce_border([0, -1, 100])
+        with pytest.raises(ValueError, match="0-255"):
+            _coerce_border([255, 256, 0])
+
+    def test_inline_constant_table_validates_color_range(self):
+        """Range check applies to the inline-table `constant` form too."""
+        from led_ticker.app import _coerce_border
+
+        with pytest.raises(ValueError, match="0-255"):
+            _coerce_border({"style": "constant", "color": [256, 0, 0]})
+        with pytest.raises(ValueError, match="components must be ints"):
+            _coerce_border({"style": "constant", "color": [True, False, True]})
 
     def test_inline_rainbow_with_no_kwargs_uses_defaults(self):
         """`{style="rainbow"}` with no other keys must construct
@@ -1274,17 +1296,48 @@ class TestBuildWidgetWithBorder:
         assert isinstance(widget.border, ConstantBorder)
         assert widget.border._rgb == (255, 100, 50)
 
-    async def test_border_on_countdown_raises(self):
+    async def test_countdown_with_border_string(self):
+        """TickerCountdown also accepts `border` (extended in the
+        followup PR). Field name + paint contract identical to
+        TickerMessage."""
+        from led_ticker.borders import RainbowChaseBorder
+
         cfg = {
             "type": "countdown",
-            "text": "Days",
+            "text": "Days to NYE",
             "countdown_date": date(2027, 1, 1),
             "border": "rainbow",
         }
-        with pytest.raises(ValueError, match='border is only valid on type="message"'):
+        widget = await _build_widget(cfg, session=mock.Mock())
+        assert isinstance(widget.border, RainbowChaseBorder)
+
+    async def test_border_on_unsupported_widget_type_raises(self):
+        """Other widget types (weather, mlb, gif, two_row, ...) still
+        reject `border` loudly at config-load — they have their own
+        draw paths and a perimeter border isn't a meaningful concept
+        for data widgets."""
+        cfg = {
+            "type": "weather",
+            "message": "NYC",
+            "location": "NYC",
+            "border": "rainbow",
+        }
+        with pytest.raises(
+            ValueError,
+            match='border is only valid on type="message" or "countdown"',
+        ):
             await _build_widget(cfg, session=mock.Mock())
 
     async def test_message_without_border_has_none(self):
         cfg = {"type": "message", "text": "HI"}
+        widget = await _build_widget(cfg, session=mock.Mock())
+        assert widget.border is None
+
+    async def test_countdown_without_border_has_none(self):
+        cfg = {
+            "type": "countdown",
+            "text": "Days",
+            "countdown_date": date(2027, 1, 1),
+        }
         widget = await _build_widget(cfg, session=mock.Mock())
         assert widget.border is None

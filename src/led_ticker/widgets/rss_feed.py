@@ -30,9 +30,21 @@ class RSSFeedMonitor:
         lambda: itertools.cycle([DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR])
     )
     max_stories: int = 5
+    # When set, every story TickerMessage gets this color/provider
+    # (e.g. `font_color = "rainbow"` paints all stories rainbow).
+    # When unset (None), fall back to the legacy 3-color rotation
+    # (DEFAULT_COLOR / DOWN / UP) so existing configs keep working.
+    font_color: Any = attrs.field(default=None, kw_only=True)
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     feed_title: TickerMessage | None = attrs.field(init=False, default=None)
     feed_stories: list[TickerMessage] = attrs.field(init=False, factory=list)
+
+    def _story_color(self) -> Any:
+        """Per-story color: `font_color` if set, else next from the
+        legacy cycle. Called once per story in `update()`."""
+        if self.font_color is not None:
+            return self.font_color
+        return next(self.colors)
 
     @classmethod
     async def start(
@@ -54,13 +66,13 @@ class RSSFeedMonitor:
             feed = feedparser.parse(feed_data)
             self.feed_title = TickerMessage(
                 feed["channel"]["title"],  # type: ignore[index]
-                font_color=next(self.colors),
+                font_color=self._story_color(),
                 bg_color=self.bg_color,
             )
             self.feed_stories = [
                 TickerMessage(
                     item["title"],  # type: ignore[index]
-                    font_color=next(self.colors),
+                    font_color=self._story_color(),
                     bg_color=self.bg_color,
                 )
                 for item in itertools.islice(feed["items"], self.max_stories)  # type: ignore[index]

@@ -97,3 +97,37 @@ class TestRssBgColor:
         assert feed.feed_title is not None
         assert feed.feed_title.bg_color is bg
         assert all(s.bg_color is bg for s in feed.feed_stories)
+
+
+class TestRssFontColor:
+    """`font_color` overrides the legacy 3-color cycle. When set, every
+    story TickerMessage gets the same color/provider; when unset
+    (None), fall back to the legacy rotation."""
+
+    async def test_font_color_unset_uses_legacy_cycle(self, mock_session):
+        """Default behavior: stories cycle through the 3 legacy colors."""
+        feed = RSSFeedMonitor(session=mock_session, feed_url="https://example.com/feed")
+        await feed.update()
+
+        # Three distinct stories → three distinct cycle colors. The
+        # exact values come from DEFAULT_COLOR / DOWN / UP cycling.
+        colors = [s.font_color for s in feed.feed_stories]
+        # All three should be distinct (cycle has 3 entries, 3 stories).
+        assert len({(c._color.red, c._color.green, c._color.blue) for c in colors}) == 3
+
+    async def test_font_color_set_applies_to_all_stories(self, mock_session):
+        """`font_color = Rainbow()` → every story gets the same provider."""
+        from led_ticker.color_providers import Rainbow
+
+        rainbow = Rainbow()
+        feed = RSSFeedMonitor(
+            session=mock_session,
+            feed_url="https://example.com/feed",
+            font_color=rainbow,
+        )
+        await feed.update()
+
+        assert feed.feed_title is not None
+        # Title + every story shares the same provider instance.
+        assert feed.feed_title.font_color is rainbow
+        assert all(s.font_color is rainbow for s in feed.feed_stories)

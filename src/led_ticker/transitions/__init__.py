@@ -123,6 +123,19 @@ async def run_transition(
     # or eats into the next section's animation budget.
     _pause_presenter(outgoing)
     _pause_presenter(incoming)
+    # Reset the incoming widget's frame counter so frame-aware effects
+    # (typewriter, color_cycle, rainbow) render their visit-initial
+    # state during the transition. Without this, on loop iteration 2+
+    # the incoming widget's _frame_count holds the value from the END
+    # of its previous visit — typewriter shows the full text during
+    # the wipe-in, then snaps to "R" when the section begins; rainbow
+    # shows mid-rotation hues during the wipe, then snaps to hue 0.
+    # `_show_one` also resets after the transition (covering paths
+    # that bypass run_transition), so the post-transition reset is
+    # idempotent — calling it twice is harmless.
+    # Outgoing is intentionally NOT reset: its previous-end state is
+    # the visual continuity story for the wipe-out.
+    _reset_presenter(incoming)
     try:
         for i in range(frame_count + 1):
             t = ease_fn(i / max(1, frame_count))
@@ -178,6 +191,12 @@ def _resume_presenter(obj: Any) -> None:
     resume = getattr(obj, "resume_frame", None)
     if callable(resume):
         resume()
+
+
+def _reset_presenter(obj: Any) -> None:
+    reset = getattr(obj, "reset_frame", None)
+    if callable(reset):
+        reset()
 
 
 # --- Auto-import submodules so decorators execute ---

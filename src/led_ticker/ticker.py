@@ -617,6 +617,14 @@ async def _scroll_between(
         outgoing.pause_frame()
     if hasattr(incoming, "pause_frame"):
         incoming.pause_frame()
+    # Reset the incoming widget's frame counter so frame-aware effects
+    # render their visit-initial state during the scroll-in. Mirrors
+    # `run_transition`'s same-shape fix; without it, on loop iteration
+    # 2+ the incoming widget's _frame_count holds the previous-visit-
+    # end value — typewriter shows full text during the bullet scroll,
+    # then snaps to frame=0 when the section begins.
+    if hasattr(incoming, "reset_frame"):
+        incoming.reset_frame()
     try:
         w = canvas.width
         sep_w = scroll_separator_width()

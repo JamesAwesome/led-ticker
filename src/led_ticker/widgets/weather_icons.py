@@ -268,23 +268,23 @@ ICON_HEIGHT: int = 8
 ICON_PADDING: int = 2  # pixels between icon and text
 
 
-def _match_condition(condition: str) -> PixelData:
-    """Map a WeatherAPI condition string to an icon."""
+def _match_condition(condition: str) -> str:
+    """Map a WeatherAPI condition string to an emoji slug."""
     c = condition.lower()
     if "thunder" in c:
-        return THUNDER
+        return "thunder"
     if "snow" in c or "blizzard" in c or "ice" in c or "sleet" in c:
-        return SNOW
+        return "snow"
     if "rain" in c or "drizzle" in c or "shower" in c:
-        return RAIN
+        return "rain"
     if "fog" in c or "mist" in c:
-        return FOG
+        return "fog"
     if "partly" in c:
-        return PARTLY_CLOUDY
+        return "partly_cloudy"
     if "cloud" in c or "overcast" in c:
-        return CLOUD
+        return "cloud"
     # Sunny, Clear, or anything else
-    return SUN
+    return "sun"
 
 
 def draw_weather_icon(canvas: Canvas, condition: str, x: int, y_offset: int = 4) -> int:
@@ -299,7 +299,17 @@ def draw_weather_icon(canvas: Canvas, condition: str, x: int, y_offset: int = 4)
     Returns:
         The x position after the icon (x + ICON_WIDTH + ICON_PADDING).
     """
-    icon = _match_condition(condition)
+    slug = _match_condition(condition)
+    sprites: dict[str, PixelData] = {
+        "sun": SUN,
+        "cloud": CLOUD,
+        "partly_cloudy": PARTLY_CLOUDY,
+        "rain": RAIN,
+        "snow": SNOW,
+        "thunder": THUNDER,
+        "fog": FOG,
+    }
+    icon = sprites[slug]
     for px, py, r, g, b in icon:
         canvas.SetPixel(x + px, y_offset + py, r, g, b)
     return x + ICON_WIDTH + ICON_PADDING

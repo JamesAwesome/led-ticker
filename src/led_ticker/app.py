@@ -453,19 +453,32 @@ async def _build_widget(
 
 
 async def _build_title(title_cfg: dict[str, Any] | None) -> TickerMessage | None:
-    """Build a title TickerMessage from config."""
+    """Build a title TickerMessage from config.
+
+    `color` accepts the same shapes as widget `font_color`: a constant
+    `[r, g, b]`, the `"random"` sentinel (which also accepts a stable
+    per-section choice via the legacy `RANDOM_COLOR` cycle), a string
+    shorthand (`"rainbow"` / `"color_cycle"`), or an inline table
+    (`{style = "rainbow", speed = 8}`). All shapes coerce to a
+    ColorProvider so titles can use the same animated effects as their
+    body widgets.
+    """
     if title_cfg is None:
         return None
     text = title_cfg.get("text", "")
     color = title_cfg.get("color")
     if color == "random":
+        # Preserve the legacy "random" semantic — picks from
+        # RANDOM_COLOR cycle (one stable color per section). The
+        # color_providers.Random class would also work here but uses a
+        # different RNG; cycle keeps the established palette.
         font_color = next(RANDOM_COLOR)
-    elif isinstance(color, list | tuple) and len(color) == 3:
-        from led_ticker._compat import require_graphics
-
-        font_color = require_graphics().Color(*color)
     elif color is not None:
-        font_color = color
+        # Any other shape (list, string shorthand, inline table) goes
+        # through the unified provider coercion. _coerce_color_provider
+        # already handles `[r,g,b]` → _ConstantColor, `"rainbow"` →
+        # Rainbow(), table → keyword'd provider, etc.
+        font_color = _coerce_color_provider(color)
     else:
         font_color = None
     kwargs: dict[str, Any] = {"message": text}

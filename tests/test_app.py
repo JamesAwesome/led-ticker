@@ -170,6 +170,33 @@ class TestBuildTitle:
         assert color.green == 150
         assert color.blue == 190
 
+    async def test_build_title_with_provider_string(self):
+        """Title `color = "rainbow"` should produce a Rainbow provider
+        — same vocabulary as widget `font_color`."""
+        from led_ticker.color_providers import Rainbow
+
+        title = await _build_title({"text": "Hi", "color": "rainbow"})
+        assert title is not None
+        assert isinstance(title.font_color, Rainbow)
+
+    async def test_build_title_with_provider_table(self):
+        """Title `color = {style = "gradient", from = [...], to = [...]}`
+        should produce a Gradient provider."""
+        from led_ticker.color_providers import Gradient
+
+        title = await _build_title(
+            {
+                "text": "Hi",
+                "color": {
+                    "style": "gradient",
+                    "from": [255, 0, 0],
+                    "to": [0, 0, 255],
+                },
+            }
+        )
+        assert title is not None
+        assert isinstance(title.font_color, Gradient)
+
 
 class TestColorCoercion:
     """Regression: configs can specify per-widget RGB colors as TOML

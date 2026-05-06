@@ -688,3 +688,14 @@ class TestDrawWithEmojiColorProvider:
         assert all(t == 4 for _, _, t in calls)
         # The full draw produces non-zero advance (emoji + text rendered).
         assert advance > 0
+
+
+def test_partly_cloudy_in_lowres_registry():
+    """partly_cloudy is a weather slug; the helper resolves it via the
+    lowres registry. No hires variant exists yet — that's intentional
+    follow-up scope."""
+    from led_ticker.pixel_emoji import HIRES_REGISTRY, _get_registry
+
+    registry = _get_registry()
+    assert "partly_cloudy" in registry
+    assert "partly_cloudy" not in HIRES_REGISTRY

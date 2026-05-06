@@ -13,6 +13,7 @@
 #   4. tuned: faster + thicker       — speed=8, char_offset=12, thickness=2
 #   5. constant color border         — non-animated red ring (sanity check)
 #   6. inline table form             — full kwargs in one place for reference
+#   7. two-row + rainbow border       — handle + tagline + frame at scale=2
 #
 # Tunables to compare on hardware:
 #   - speed         — degrees of hue per frame. Higher = faster chase.
@@ -169,3 +170,36 @@ font = "Inter-Bold"
 font_size = 24
 font_color = [255, 255, 255]
 border = {style = "rainbow", speed = 4, char_offset = 6, thickness = 1}
+
+# ---------------------------------------------------------------------------
+# 7. Two-row brand layout + rainbow border.
+#    Mirrors a storefront window: handle on top, scrolling tagline on
+#    bottom, rainbow chase framing the whole panel. The border paints
+#    at REAL panel resolution (256x64 on bigsign) regardless of the
+#    section's scale=2 wrapper — it frames the SIGN edge, not the
+#    logical 128x32 canvas. `:instagram:` falls back to lowres in the
+#    top row because TwoRow caps inline emoji at 8 logical rows
+#    (existing `EMOJI_ROW_CAP` constraint, not a border issue) — the
+#    showcase here is the border + two-row composition.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 32
+hold_time = 5.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @ledticker"
+top_color = [225, 48, 108]
+top_align = "center"
+top_font = "Inter-Bold"
+top_font_size = 14
+bottom_text = "Storefronts, lobbies, stages"
+bottom_color = [255, 240, 200]
+bottom_align = "center"
+bottom_font = "Inter-Regular"
+bottom_font_size = 14
+border = "rainbow"

@@ -1312,7 +1312,7 @@ class TestBuildWidgetWithBorder:
         assert isinstance(widget.border, RainbowChaseBorder)
 
     async def test_border_on_unsupported_widget_type_raises(self):
-        """Other widget types (weather, mlb, gif, two_row, ...) still
+        """Other widget types (weather, mlb, gif, ...) still
         reject `border` loudly at config-load — they have their own
         draw paths and a perimeter border isn't a meaningful concept
         for data widgets."""
@@ -1324,7 +1324,7 @@ class TestBuildWidgetWithBorder:
         }
         with pytest.raises(
             ValueError,
-            match='border is only valid on type="message" or "countdown"',
+            match='border is only valid on type="message", "countdown", or "two_row"',
         ):
             await _build_widget(cfg, session=mock.Mock())
 
@@ -1338,6 +1338,30 @@ class TestBuildWidgetWithBorder:
             "type": "countdown",
             "text": "Days",
             "countdown_date": date(2027, 1, 1),
+        }
+        widget = await _build_widget(cfg, session=mock.Mock())
+        assert widget.border is None
+
+    async def test_two_row_with_border_string(self):
+        """TwoRowMessage accepts `border` with the same TOML
+        vocabulary. Storefront-style brand layouts (held handle on
+        top, scrolling tagline on bottom) wear a rainbow chase frame."""
+        from led_ticker.borders import RainbowChaseBorder
+
+        cfg = {
+            "type": "two_row",
+            "top_text": "@brand",
+            "bottom_text": "tagline",
+            "border": "rainbow",
+        }
+        widget = await _build_widget(cfg, session=mock.Mock())
+        assert isinstance(widget.border, RainbowChaseBorder)
+
+    async def test_two_row_without_border_has_none(self):
+        cfg = {
+            "type": "two_row",
+            "top_text": "@brand",
+            "bottom_text": "tagline",
         }
         widget = await _build_widget(cfg, session=mock.Mock())
         assert widget.border is None

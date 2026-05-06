@@ -267,7 +267,7 @@ ColorProvider fields. Default `font_color_temp = RGB_WHITE` keeps
 the value steady-bright while the label can use a color effect.
 Set both to the same provider if you want them to match.
 
-**Rainbow border (TickerMessage-only)**: TickerMessage accepts a
+**Rainbow border (TickerMessage / TickerCountdown / TwoRowMessage)**: TickerMessage accepts a
 `border` field that paints an animated 1- or 2-pixel ring around
 the panel perimeter at PHYSICAL resolution (bypasses ScaledCanvas
 block expansion via `unwrap_to_real`). TOML accepts `border =
@@ -287,9 +287,13 @@ flag on each effect drives any future fast-path gates the same way
 ColorProvider's flag does. Bigsign-tuned defaults: speed=4 (~12s
 per revolution at 50ms ticks), char_offset=6 (~60 distinct hue
 cycles around the 640-pixel perimeter). Border is restricted to
-TickerMessage at config-load (loud failure on other widget types)
-because data widgets have their own draw paths and a perimeter
-border isn't a meaningful concept there.
+`message`, `countdown`, and `two_row` widget types at config-load
+(loud failure on other widget types) because data widgets have
+their own draw paths and a perimeter border isn't a meaningful
+concept there. On TwoRowMessage at scale=2 (typical for handle
+layouts) the border paints to the unwrapped real canvas — traces
+the actual 256x64 panel edge, not the 128x32 logical canvas — so
+the rainbow frames the SIGN, not the wrapper.
 
 ### Adding a New Widget
 

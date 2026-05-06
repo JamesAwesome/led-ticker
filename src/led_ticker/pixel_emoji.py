@@ -31,7 +31,7 @@ from led_ticker._types import Canvas, Font, PixelData
 from led_ticker.fonts import font_line_height
 from led_ticker.fonts.hires_loader import HiresFont
 from led_ticker.scaled_canvas import ScaledCanvas
-from led_ticker.text_render import draw_text
+from led_ticker.text_render import draw_text, draw_text_per_char
 
 # Canonical emoji slug pattern shared by `_parse_segments` and any
 # widget that needs to detect emoji presence in text. Match a `:slug:`
@@ -2684,8 +2684,6 @@ def draw_with_emoji(
                 # boundaries. The shared helper handles the HiresFont
                 # real-pixel cursor tracking that avoids per-char
                 # ceil-divide drift.
-                from led_ticker.text_render import draw_text_per_char
-
                 total += draw_text_per_char(
                     canvas,
                     font,

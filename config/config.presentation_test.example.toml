@@ -18,6 +18,9 @@
 #  11. HiresFont + rainbow                — Inter-Bold per-char rainbow
 #  12. HiresFont + gradient               — Inter-Regular left-to-right gradient
 #  13. HiresFont + typewriter             — Inter-Bold types out one char at a time
+#  14. image widget + rainbow (no emoji)  — non-emoji per-char path on gif overlay
+#  15. two-row image widget + rainbow     — per-row per-char path on gif overlay
+#  16. HiresFont + emoji + rainbow        — full hires + per-char + sprite combo
 #
 # §1 (rainbow + emoji): the rainbow sweeps continuously across
 # emoji boundaries — each `:taco:` renders as the taco sprite, the
@@ -298,3 +301,64 @@ font = "Inter-Bold"
 font_size = 24
 font_color = [80, 200, 255]
 animation = "typewriter"
+
+# 14. plain-text image widget + rainbow — exercises the non-emoji
+# per-char path on _BaseImageWidget._draw_text. Tripwires the C1 fix:
+# without it, a gif overlay with rainbow + no `:slug:` rendered as a
+# single sweeping hue. Should show per-character rainbow letters
+# moving over Pikachu, just like §3 but without the taco sprites.
+[[playlist.section]]
+mode = "gif"
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+text = "PLAIN TEXT RAINBOW"
+text_align = "scroll_over"
+font_color = "rainbow"
+scroll_speed_ms = 50
+text_loops = 1
+
+# 15. two-row image widget + rainbow — exercises _draw_row_text
+# per-char path. Both rows get a rainbow that survives even with
+# distinct text per row. Pikachu underneath; held top, scrolling
+# bottom on overflow.
+[[playlist.section]]
+mode = "gif"
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+top_text = "TOP RAINBOW"
+bottom_text = "BOTTOM RAINBOW SCROLLS"
+font = "5x8"
+font_color = "rainbow"
+scroll_speed_ms = 50
+
+# 16. HiresFont + emoji + per-char rainbow — the only matrix combo
+# §1–§13 don't cover. Inter-Bold @ 24 with `:taco:` slugs and rainbow
+# sweeping continuously across emoji boundaries (per-char index
+# advances across slugs, sprites paint at hires bigsign size).
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[playlist.section.title]
+type = "message"
+text = "16: hires + emoji + rainbow"
+color = [200, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = ":taco: HIRES :taco:"
+font = "Inter-Bold"
+font_size = 24
+font_color = "rainbow"

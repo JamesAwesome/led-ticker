@@ -228,8 +228,10 @@ def test_hires_moon_paints_real_canvas_at_physical_resolution():
     real = _bigsign_real_canvas()
     sc = ScaledCanvas(real, scale=4)
 
+    # y=12 is the standard BDF baseline; iy_default = y - 8 = 4
+    # (anchors emoji bottom to baseline). emoji_y_anchor = 4*4 = 16.
     draw_with_emoji(
-        sc, FONT_SMALL, cursor_pos=0, y=8, color=(255, 255, 255), text=":moon:"
+        sc, FONT_SMALL, cursor_pos=0, y=12, color=(255, 255, 255), text=":moon:"
     )
 
     # The hi-res moon has its leftmost lit pixel at col 11 in row 1
@@ -414,6 +416,111 @@ class TestDrawWithEmojiHiresFont:
         font = resolve_font("Inter-Regular", 24)
         width = measure_width(font, "hi")
         assert width > 0
+
+    def test_emoji_y_default_anchors_to_baseline_for_hires(self):
+        """Tripwire: with HiresFont, the default emoji_y must anchor
+        the 8-logical-px-tall sprite to the text baseline (`iy = y -
+        8`), NOT use the broken `(line_h - 8) // 2` formula that
+        mixed real-px line_h with logical iy.
+
+        Hardware bug: §16 (HiresFont + emoji + rainbow) had
+        Inter-Bold @ 24 with baseline_y=10 logical. The buggy formula
+        produced `iy = (28 - 8) // 2 = 10`, so the 32×32 hires taco
+        painted at real y=40..72 — bottom 8 px clipped, and the
+        rainbow text at y=12..48 sat above the visible taco tops with
+        an empty band between them.
+        """
+        import unittest.mock as mock
+
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.fonts import resolve_font
+        from led_ticker.pixel_emoji import draw_with_emoji
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        opts = RGBMatrixOptions()
+        opts.cols = 256
+        opts.rows = 64
+        opts.chain_length = 1
+        opts.parallel = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+
+        font = resolve_font("Inter-Bold", 24)
+
+        captured_iy: list[int] = []
+
+        def _spy(canvas, hires, ix, iy):
+            captured_iy.append(iy)
+
+        with mock.patch("led_ticker.pixel_emoji._draw_hires_emoji", _spy):
+            draw_with_emoji(
+                wrapped,
+                font,
+                cursor_pos=0,
+                y=10,  # baseline for Inter-Bold @ 24 on 64-tall panel
+                color=Color(255, 255, 255),
+                text=":taco: hi",
+            )
+
+        assert captured_iy, "hires path didn't fire"
+        # iy = y - 8 = 2 (logical). Anchors emoji bottom to baseline:
+        # real y_anchor = 2*4 = 8, sprite extends to real y=40 = baseline.
+        assert captured_iy[0] == 2, (
+            f"Expected iy=2 (baseline-anchored: y=10 - emoji_h=8); "
+            f"got {captured_iy[0]}. Likely regression of the unit-"
+            f"mismatched (line_h - 8) // 2 formula that produced 10 "
+            f"and clipped the emoji off the bottom of the panel."
+        )
+
+    def test_emoji_y_default_unchanged_for_bdf(self):
+        """Counter-test: BDF default must still equal 4 (the hardcoded
+        visually-validated value). Confirms the unified `y - 8`
+        formula doesn't break BDF — for BDF baseline_y=12, y - 8 = 4
+        which matches the previous hardcoded constant."""
+        import unittest.mock as mock
+
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.pixel_emoji import draw_with_emoji
+
+        # Use a small canvas without ScaledCanvas — lowres path fires.
+        # We intercept the lowres SetPixel to read the iy used.
+        canvas = mock.MagicMock()
+        canvas.width = 64
+        canvas.height = 16
+
+        # Capture every SetPixel call and look at the y value used for
+        # emoji pixels. The first emoji is `:taco:` whose sprite has
+        # a known relative-y range — the absolute y for the first
+        # pixel painted gives us the iy default.
+        from led_ticker.pixel_emoji import _get_registry
+
+        taco = _get_registry()["taco"]
+        # Find the minimum y in the sprite — that pixel is at iy + min_y.
+        min_relative_y = min(py for _, py, *_ in taco)
+
+        captured_y: list[int] = []
+        canvas.SetPixel.side_effect = lambda x, y, r, g, b: captured_y.append(y)
+
+        draw_with_emoji(
+            canvas,
+            FONT_DEFAULT,
+            cursor_pos=0,
+            y=12,  # BDF baseline
+            color=Color(255, 255, 255),
+            text=":taco:",
+        )
+
+        # iy_default = 12 - 8 = 4 → first emoji pixel y = iy + min_relative_y.
+        assert captured_y, "lowres path didn't paint any pixels"
+        assert min(captured_y) == 4 + min_relative_y, (
+            f"Expected min y = 4 + {min_relative_y} = {4 + min_relative_y} "
+            f"(BDF baseline=12, emoji top=baseline-8=4); "
+            f"got min y = {min(captured_y)}"
+        )
 
 
 class TestDrawWithEmojiColorProvider:

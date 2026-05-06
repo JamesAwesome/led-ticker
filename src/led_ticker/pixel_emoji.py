@@ -28,8 +28,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from led_ticker._types import Canvas, Font, PixelData
-from led_ticker.fonts import font_line_height
-from led_ticker.fonts.hires_loader import HiresFont
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.text_render import draw_text, draw_text_per_char
 
@@ -2625,19 +2623,18 @@ def draw_with_emoji(
         len(value) for seg_type, value in segments if seg_type == "text"
     )
 
-    # Default emoji_y centers the 8×8 sprite on the font's glyph cell.
-    # For BDF fonts (line_height=12), `(12 - 8) // 2 = 2` which would
-    # shift emoji two rows upward vs. the original hardcoded 4, breaking
-    # visuals that have been validated on real hardware. So we keep the
-    # original BDF value (4) and only derive from font_line_height for
-    # HiresFont, where the cell is 32-40px tall and row-4 would float
-    # the icon far above the text baseline.
+    # Default emoji_y anchors the 8-logical-px-tall sprite to the text
+    # baseline (`iy = y - 8`). The lowres 8×8 sprite and the hires
+    # 32×32-at-scale=4 sprite both occupy 8 logical rows, so a single
+    # baseline-anchored formula works for both. For BDF (baseline=12)
+    # this evaluates to iy=4, matching the previously-hardcoded
+    # visually-validated value. For HiresFont (baseline depends on
+    # font + canvas) it computes the correct anchor — the previous
+    # `(line_h - 8) // 2` formula mixed real-px line_h with logical
+    # iy, producing iy=10 for Inter-Bold @ 24 and clipping the emoji
+    # off the bottom of the panel.
     # Callers (e.g. two_row) can always override via explicit emoji_y.
-    if isinstance(font, HiresFont):
-        line_h = font_line_height(font)
-        iy_default = max(0, (line_h - 8) // 2) + y_offset
-    else:
-        iy_default = 4 + y_offset  # preserved BDF default (visually validated)
+    iy_default = (y + y_offset) - 8
 
     # Hi-res path is only available on a ScaledCanvas — anywhere else we
     # fall back to the regular 8×8 sprite.

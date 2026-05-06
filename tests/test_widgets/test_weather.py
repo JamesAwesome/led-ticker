@@ -161,3 +161,91 @@ class TestWeatherColorProvider:
         assert w._frame_count == 0
         w.advance_frame()
         assert w._frame_count == 1
+
+
+class _TrackingProvider:
+    per_char = True
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[int, int, int]] = []
+
+    def color_for(self, frame, char_index, total_chars):
+        from rgbmatrix.graphics import Color
+
+        self.calls.append((frame, char_index, total_chars))
+        return Color(255, 255, 255)
+
+
+class TestWeatherPerCharProviderDispatch:
+    """Tripwire: WeatherWidget renders three text segments (label,
+    condition, temp). Per-char providers (Rainbow, Gradient) must
+    iterate chars on each segment — not materialize once at idx=0
+    which collapses the whole label/temp to a single sweeping hue.
+
+    Mirrors C1/C2 fixes for image widgets and TickerCountdown.
+    """
+
+    def test_label_per_char_provider_iterates_chars(self):
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.widgets.weather import WeatherWidget
+
+        provider = _TrackingProvider()
+        w = WeatherWidget(
+            session=mock.Mock(),
+            message="Brooklyn",
+            location="Brooklyn",
+            font_color=provider,
+            show_icon=False,  # also exercises the condition draw branch
+        )
+        w.current_temp = 64
+        w.unit_symbol = "F"
+        w.weather = "Sunny"
+        canvas = _StubCanvas(width=160, height=16)
+
+        w.draw(canvas)
+
+        # label_text = "Brooklyn: " (10 chars). Without the fix, len = 1
+        # call. With the fix, label takes the per-char path → 10 calls
+        # for label + N for the condition text "Sunny ". Combined call
+        # count must exceed 10.
+        assert len(provider.calls) >= 10, (
+            f"Expected per-char iteration across label + condition; "
+            f"got {len(provider.calls)} call(s). Weather is "
+            f"materializing the provider once at char_index=0 instead "
+            f"of dispatching to draw_text_per_char."
+        )
+        char_indices = [c[1] for c in provider.calls]
+        assert 0 in char_indices and 1 in char_indices and 2 in char_indices, (
+            f"Expected indices to include 0,1,2 for per-char render; "
+            f"got {sorted(set(char_indices))[:5]}"
+        )
+
+    def test_temp_per_char_provider_iterates_chars(self):
+        """font_color_temp is a separate provider for the temperature
+        value. Should also dispatch per-char."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.widgets.weather import WeatherWidget
+
+        temp_provider = _TrackingProvider()
+        w = WeatherWidget(
+            session=mock.Mock(),
+            message="NYC",
+            location="NYC",
+            font_color_temp=temp_provider,
+        )
+        w.current_temp = 64
+        w.unit_symbol = "F"
+        w.weather = "Sunny"
+        canvas = _StubCanvas(width=160, height=16)
+
+        w.draw(canvas)
+
+        # temp_text = "64F" → 3 chars expected. Without fix: 1 call.
+        assert len(temp_provider.calls) == 3, (
+            f"Expected 3 per-char calls for temp '64F'; got "
+            f"{len(temp_provider.calls)}. Temp provider not dispatched "
+            f"per-char."
+        )
+        assert [c[1] for c in temp_provider.calls] == [0, 1, 2]

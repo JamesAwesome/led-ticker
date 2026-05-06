@@ -59,6 +59,32 @@ class TestPerimeterGeometry:
     def test_thickness_zero_returns_empty(self):
         assert _perimeter_pixels(10, 4, thickness=0) == []
 
+    def test_collapsed_ring_does_not_duplicate_on_narrow_panel(self):
+        """Tripwire: when an inner ring collapses to a single column
+        (`x1 == x0`) or single row (`y1 == y0`), the function must
+        skip that ring instead of walking the same column/row twice.
+        Without the bail, the right-edge AND left-edge walks would
+        each emit the same column, producing duplicate pixels and
+        misaligning the chase pattern's perimeter index.
+
+        `_perimeter_pixels(3, 10, 2)` exercises the failure case:
+        outer ring is healthy (3-wide, 10-tall), inner ring at
+        `ring=1` has `x0=1, x1=1` (degenerate single column). Pre-
+        fix output had 36 pixels with only 30 unique."""
+        for w, h, t in [(3, 10, 2), (10, 3, 2), (1, 10, 1), (10, 1, 1)]:
+            px = _perimeter_pixels(w, h, thickness=t)
+            assert len(set(px)) == len(px), (
+                f"{w}×{h} t={t}: expected no duplicates, got "
+                f"{len(px) - len(set(px))} duplicates"
+            )
+
+    def test_collapsed_inner_ring_skipped_outer_kept(self):
+        """On 3×10 thickness=2: outer ring should still be the
+        healthy 2*(3+10)-4 = 22-pixel outline; inner ring should
+        contribute nothing (skipped via the bail)."""
+        px = _perimeter_pixels(3, 10, thickness=2)
+        assert len(px) == 2 * (3 + 10) - 4 == 22
+
 
 class _StubCanvas:
     """Minimal canvas double for paint tests — captures SetPixel calls."""

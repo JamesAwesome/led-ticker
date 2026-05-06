@@ -1224,6 +1224,30 @@ class TestCoerceBorder:
         with pytest.raises(ValueError, match="unknown keys"):
             _coerce_border({"style": "rainbow", "wobble": 5})
 
+    def test_bool_list_rejected_not_treated_as_rgb(self):
+        """[True, False, True] would silently coerce to (1, 0, 1)
+        without the explicit bool rejection (bool is an int
+        subclass). Hardening matches the `font_threshold` pattern
+        documented in CLAUDE.md."""
+        from led_ticker.app import _coerce_border
+
+        with pytest.raises(ValueError, match="must be a string, table"):
+            _coerce_border([True, False, True])
+
+    def test_inline_rainbow_with_no_kwargs_uses_defaults(self):
+        """`{style="rainbow"}` with no other keys must construct
+        a default RainbowChaseBorder (no error, no missing-kwarg
+        complaints — all kwargs have defaults)."""
+        from led_ticker.app import _coerce_border
+        from led_ticker.borders import RainbowChaseBorder
+
+        b = _coerce_border({"style": "rainbow"})
+        assert isinstance(b, RainbowChaseBorder)
+        # Defaults preserved
+        assert b.speed == 4
+        assert b.char_offset == 6
+        assert b.thickness == 1
+
 
 class TestBuildWidgetWithBorder:
     """Integration: TickerMessage with `border = "rainbow"` builds

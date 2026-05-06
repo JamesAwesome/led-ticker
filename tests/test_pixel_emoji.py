@@ -699,3 +699,85 @@ def test_partly_cloudy_in_lowres_registry():
     registry = _get_registry()
     assert "partly_cloudy" in registry
     assert "partly_cloudy" not in HIRES_REGISTRY
+
+
+class TestDrawEmojiAt:
+    """Single-slug helper that picks hires on ScaledCanvas, lowres elsewhere."""
+
+    def test_lowres_on_plain_canvas_returns_advance(self):
+        """On a non-ScaledCanvas, lowres path is used. Returns
+        sprite_width + EMOJI_PADDING."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.pixel_emoji import EMOJI_PADDING, draw_emoji_at
+
+        canvas = _StubCanvas(width=160, height=16)
+        advance = draw_emoji_at(canvas, "sun", x=0, y=4)
+        # SUN is 8 wide
+        assert advance == 8 + EMOJI_PADDING
+        assert canvas.count_nonzero() > 0
+
+    def test_hires_on_scaled_canvas_paints_to_real(self):
+        """On a ScaledCanvas, hires path is used. The real canvas should
+        receive 32x32-density sprite pixels — far more than scale^2 *
+        lowres_count."""
+        from led_ticker.pixel_emoji import draw_emoji_at
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        real = _bigsign_real_canvas()
+        sc = ScaledCanvas(real, scale=4)
+
+        # Establish lowres pixel count on a plain canvas so we can compare.
+        from rgbmatrix import _StubCanvas
+
+        plain = _StubCanvas(width=64, height=64)
+        draw_emoji_at(plain, "sun", x=0, y=0)
+        lowres_count = plain.count_nonzero()
+        # If hires fired, the real canvas should have noticeably more
+        # painted pixels than scale^2 * lowres_count would imply
+        # (lowres pixels are dense colored squares; hires has finer
+        # detail). We just need a count strictly greater than
+        # lowres_count to prove the SetPixel calls hit `real` directly,
+        # not via the wrapper.
+        draw_emoji_at(sc, "sun", x=0, y=0)
+        # On the real bigsign canvas, hires sun paints individual LEDs
+        # at native resolution.
+        assert getattr(real, "count_nonzero", lambda: 0)() > lowres_count
+
+    def test_hires_falls_back_when_max_height_too_small(self):
+        """A two-row caller passes max_emoji_height=4 (canvas.height // 2
+        on a 16-tall logical canvas wrapped at scale=2). Hires sprite is
+        32 // 2 = 16 logical tall, which exceeds 4 — must fall back to
+        lowres so it doesn't overflow the row band."""
+        from led_ticker.pixel_emoji import EMOJI_PADDING, draw_emoji_at
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        real = _bigsign_real_canvas()
+        sc = ScaledCanvas(real, scale=2)
+        advance = draw_emoji_at(sc, "sun", x=0, y=0, max_emoji_height=4)
+        # Lowres advance is 8 + EMOJI_PADDING; hires would be different
+        # (16 logical at scale=2 etc.). We just assert the lowres value.
+        assert advance == 8 + EMOJI_PADDING
+
+    def test_unknown_slug_raises(self):
+        """Drop-it-loud behavior: a typo'd slug raises KeyError instead
+        of silently drawing nothing."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.pixel_emoji import draw_emoji_at
+
+        canvas = _StubCanvas(width=160, height=16)
+        with pytest.raises(KeyError):
+            draw_emoji_at(canvas, "definitely_not_a_slug", x=0, y=0)
+
+    def test_partly_cloudy_resolves_via_lowres(self):
+        """partly_cloudy has no hires variant; even on a ScaledCanvas
+        the helper should pick the lowres sprite without raising."""
+        from led_ticker.pixel_emoji import EMOJI_PADDING, draw_emoji_at
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        real = _bigsign_real_canvas()
+        sc = ScaledCanvas(real, scale=4)
+        advance = draw_emoji_at(sc, "partly_cloudy", x=0, y=0)
+        # PARTLY_CLOUDY low-res is 8 wide
+        assert advance == 8 + EMOJI_PADDING

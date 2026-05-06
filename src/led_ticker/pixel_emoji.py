@@ -2715,6 +2715,55 @@ def draw_with_emoji(
     return total
 
 
+def draw_emoji_at(
+    canvas: Canvas,
+    slug: str,
+    x: int,
+    y: int,
+    *,
+    max_emoji_height: int | None = None,
+) -> int:
+    """Draw a single emoji slug at logical (x, y). Returns the advance.
+
+    Mirrors `draw_with_emoji`'s per-emoji dispatch but for a single icon
+    with no surrounding text — convenient for widgets that draw exactly
+    one icon at a known position (weather, future MLB rework, etc.).
+
+    The advance is `sprite_width + EMOJI_PADDING`, matching
+    `draw_with_emoji`'s convention so callers can `cursor_pos += advance`.
+
+    Hires fires only when (a) `canvas` is a `ScaledCanvas`, (b) a hires
+    variant exists in `HIRES_REGISTRY`, and (c) the sprite fits within
+    `max_emoji_height` (if specified). Otherwise falls back to the 8x8
+    low-res sprite painted via `canvas.SetPixel`.
+
+    Raises `KeyError` if `slug` isn't in the low-res `EMOJI_REGISTRY`.
+    """
+    use_hires = isinstance(canvas, ScaledCanvas)
+
+    hires: HiResEmoji | None = None
+    if use_hires and slug in HIRES_REGISTRY:
+        candidate = HIRES_REGISTRY[slug]
+        logical_h = candidate.physical_size // canvas.scale
+        if max_emoji_height is None or logical_h <= max_emoji_height:
+            hires = candidate
+
+    if hires is not None:
+        _draw_hires_emoji(canvas, hires, x, y)
+        return hires.logical_width(canvas.scale) + EMOJI_PADDING
+
+    icon = _get_registry()[slug]  # KeyError on unknown slug — intentional
+    iw = _emoji_width(icon)
+    w = canvas.width
+    h = getattr(canvas, "height", 16)
+    for px, py, r, g, b in icon:
+        dx = x + px
+        dy = y + py
+        if 0 <= dx < w and 0 <= dy < h:
+            canvas.SetPixel(dx, dy, r, g, b)
+    return iw + EMOJI_PADDING
+
+
 def _draw_hires_emoji(
     canvas: ScaledCanvas,
     hires: HiResEmoji,

@@ -254,12 +254,14 @@ font_size = 24
 font_color = "color_cycle"
 
 # ---------------------------------------------------------------------------
-# 9. Image + text overlay — text scrolls "behind" a transparent Pikachu.
-#    The transparent regions of the gif become the marquee channel; text
-#    walks across the panel and disappears under the silhouette. This
-#    is a fit + alpha + scroll integration most products won't even
-#    attempt. scroll_over is used so the text can travel across the
-#    full width.
+# 9. Image + text overlay — text scrolls BEHIND a transparent Pikachu.
+#    `text_align = "scroll"` paints text first, then the gif's opaque
+#    pixels (Pikachu's body) overwrite the text where they overlap.
+#    Result: text emerges from the right edge, scrolls across the open
+#    pillarbox area, then disappears under Pikachu's silhouette before
+#    exiting the left. This is a fit + alpha + scroll integration most
+#    products won't even attempt — only works because the gif's
+#    transparent regions are alpha-composited onto black during decode.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -275,7 +277,7 @@ path = "assets/pika_wave_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "ANIMATION + TYPOGRAPHY, COMPOSED"
-text_align = "scroll_over"
+text_align = "scroll"
 font = "Inter-Bold"
 font_size = 24
 font_color = [255, 220, 80]

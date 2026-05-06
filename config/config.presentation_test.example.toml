@@ -3,19 +3,20 @@
 # Validates the new font_color (color provider) + animation knobs
 # on bigsign. Replaces the legacy presentation = "..." wrapper.
 #
-# Sections (the first two are what's NEW on this branch):
+# Sections (the first three are what's NEW on this branch):
 #   1. rainbow + emoji body              — per-char rainbow sweeps across :slug: boundaries
 #   2. rainbow title + body              — title color = "rainbow" (provider on title)
+#   3. image widget + rainbow + emoji    — gif overlay text with per-char + sprite emoji
 #
-#   3. animation = "typewriter"          — chars type out left-to-right (BDF)
-#   4. font_color = "color_cycle"        — whole-string hue rotation (BDF)
-#   5. font_color = "rainbow"            — per-char rainbow showcase (BDF)
-#   6. font_color = {style="gradient",..} — left-to-right red→blue gradient (BDF)
-#   7. font_color = "rainbow" + Countdown — different widget type (BDF)
-#   8. font_color = "color_cycle" + Weather — live-data text recoloring (BDF)
-#   9. HiresFont + rainbow                — Inter-Bold per-char rainbow
-#  10. HiresFont + gradient               — Inter-Regular left-to-right gradient
-#  11. HiresFont + typewriter             — Inter-Bold types out one char at a time
+#   4. animation = "typewriter"          — chars type out left-to-right (BDF)
+#   5. font_color = "color_cycle"        — whole-string hue rotation (BDF)
+#   6. font_color = "rainbow"            — per-char rainbow showcase (BDF)
+#   7. font_color = {style="gradient",..} — left-to-right red→blue gradient (BDF)
+#   8. font_color = "rainbow" + Countdown — different widget type (BDF)
+#   9. font_color = "color_cycle" + Weather — live-data text recoloring (BDF)
+#  10. HiresFont + rainbow                — Inter-Bold per-char rainbow
+#  11. HiresFont + gradient               — Inter-Regular left-to-right gradient
+#  12. HiresFont + typewriter             — Inter-Bold types out one char at a time
 #
 # §1 (rainbow + emoji): the rainbow sweeps continuously across
 # emoji boundaries — each `:taco:` renders as the taco sprite, the
@@ -26,6 +27,12 @@
 # `font_color` — string shorthand (`"rainbow"`, `"color_cycle"`),
 # inline tables (`{style="gradient", from=[...], to=[...]}`), or the
 # legacy `[r, g, b]` constant.
+#
+# §3 (image widget + rainbow + emoji): gif/image widgets' text overlay
+# now also sweeps per-char across slugs — same fix as §1 but applied
+# to `_BaseImageWidget._draw_text`. Pikachu sprite underneath, taco
+# slugs render correctly as sprites, the letters between get their
+# own rainbow hues.
 
 [display]
 rows = 32
@@ -85,7 +92,23 @@ type = "message"
 text = "title above is animated"
 font_color = [255, 220, 50]
 
-# 3. typewriter
+# 3. image widget + rainbow + emoji — gif overlay text uses provider through draw_with_emoji
+[[playlist.section]]
+mode = "gif"
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+text = ":taco: PIKA :taco:"
+text_align = "scroll_over"
+font_color = "rainbow"
+scroll_speed_ms = 50
+text_loops = 1
+
+# 4. typewriter
 [[playlist.section]]
 mode = "swap"
 hold_time = 8.0
@@ -94,7 +117,7 @@ transition = "cut"
 
 [playlist.section.title]
 type = "message"
-text = "3: typewriter"
+text = "4: typewriter"
 color = [200, 220, 255]
 
 [[playlist.section.widget]]
@@ -103,7 +126,7 @@ text = "TYPING NOW"
 font_color = [255, 220, 50]
 animation = "typewriter"
 
-# 4. color_cycle
+# 5. color_cycle
 [[playlist.section]]
 mode = "swap"
 hold_time = 8.0
@@ -112,7 +135,7 @@ transition = "cut"
 
 [playlist.section.title]
 type = "message"
-text = "4: color_cycle"
+text = "5: color_cycle"
 color = [200, 220, 255]
 
 [[playlist.section.widget]]
@@ -120,7 +143,7 @@ type = "message"
 text = "WHOLE TEXT CYCLES HUE"
 font_color = "color_cycle"
 
-# 5. rainbow
+# 6. rainbow
 [[playlist.section]]
 mode = "swap"
 hold_time = 8.0
@@ -129,7 +152,7 @@ transition = "cut"
 
 [playlist.section.title]
 type = "message"
-text = "5: rainbow"
+text = "6: rainbow"
 color = [200, 220, 255]
 
 [[playlist.section.widget]]
@@ -137,7 +160,7 @@ type = "message"
 text = "RAINBOW PER-CHARACTER"
 font_color = "rainbow"
 
-# 6. gradient — left-to-right color interpolation
+# 7. gradient — left-to-right color interpolation
 [[playlist.section]]
 mode = "swap"
 hold_time = 8.0
@@ -146,7 +169,7 @@ transition = "cut"
 
 [playlist.section.title]
 type = "message"
-text = "6: gradient"
+text = "7: gradient"
 color = [200, 220, 255]
 
 [[playlist.section.widget]]
@@ -154,7 +177,7 @@ type = "message"
 text = "RED TO BLUE GRADIENT"
 font_color = {style = "gradient", from = [255, 0, 0], to = [0, 100, 255]}
 
-# 7. rainbow + countdown
+# 8. rainbow + countdown
 [[playlist.section]]
 mode = "swap"
 hold_time = 8.0
@@ -163,7 +186,7 @@ transition = "cut"
 
 [playlist.section.title]
 type = "message"
-text = "7: rainbow + countdown"
+text = "8: rainbow + countdown"
 color = [200, 220, 255]
 
 [[playlist.section.widget]]
@@ -172,7 +195,7 @@ message = "Days to NYE"
 countdown_date = 2027-01-01
 font_color = "rainbow"
 
-# 8. color_cycle + weather
+# 9. color_cycle + weather
 [[playlist.section]]
 mode = "swap"
 hold_time = 8.0
@@ -181,7 +204,7 @@ transition = "cut"
 
 [playlist.section.title]
 type = "message"
-text = "8: color_cycle + weather"
+text = "9: color_cycle + weather"
 color = [200, 220, 255]
 
 [[playlist.section.widget]]
@@ -191,7 +214,7 @@ location = "Brooklyn"
 units = "imperial"
 font_color = "color_cycle"
 
-# 9. HiresFont + rainbow — per-char hires rendering
+# 10. HiresFont + rainbow — per-char hires rendering
 [[playlist.section]]
 mode = "swap"
 hold_time = 8.0
@@ -200,7 +223,7 @@ transition = "cut"
 
 [playlist.section.title]
 type = "message"
-text = "9: hires + rainbow"
+text = "10: hires + rainbow"
 color = [200, 220, 255]
 
 [[playlist.section.widget]]
@@ -210,7 +233,7 @@ font = "Inter-Bold"
 font_size = 24
 font_color = "rainbow"
 
-# 10. HiresFont + gradient — per-char hires rendering
+# 11. HiresFont + gradient — per-char hires rendering
 [[playlist.section]]
 mode = "swap"
 hold_time = 8.0
@@ -219,7 +242,7 @@ transition = "cut"
 
 [playlist.section.title]
 type = "message"
-text = "10: hires + gradient"
+text = "11: hires + gradient"
 color = [200, 220, 255]
 
 [[playlist.section.widget]]
@@ -229,7 +252,7 @@ font = "Inter-Regular"
 font_size = 24
 font_color = {style = "gradient", from = [50, 220, 100], to = [255, 50, 200]}
 
-# 11. HiresFont + typewriter — animation + hires render path
+# 12. HiresFont + typewriter — animation + hires render path
 [[playlist.section]]
 mode = "swap"
 hold_time = 8.0
@@ -238,7 +261,7 @@ transition = "cut"
 
 [playlist.section.title]
 type = "message"
-text = "11: hires + typewriter"
+text = "12: hires + typewriter"
 color = [200, 220, 255]
 
 [[playlist.section.widget]]

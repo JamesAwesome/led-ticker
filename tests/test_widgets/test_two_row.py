@@ -160,10 +160,10 @@ class TestColors:
 
         from led_ticker.widgets import two_row as tr
 
-        captured_colors: list = []
+        captured_providers: list = []
 
         def fake_draw_with_emoji(canvas, font, x, y, color, text, emoji_y=None, **kw):
-            captured_colors.append(color)
+            captured_providers.append(color)
             return 30
 
         monkeypatch.setattr(tr, "draw_with_emoji", fake_draw_with_emoji)
@@ -178,11 +178,15 @@ class TestColors:
         )
         w.draw(canvas)
 
-        # Colors are materialized from _ConstantColor providers; the values
-        # are equal to the original Color objects passed in.
-        assert len(captured_colors) == 2
-        assert captured_colors[0].red == 255 and captured_colors[0].green == 0
-        assert captured_colors[1].red == 0 and captured_colors[1].blue == 255
+        # TwoRowMessage now passes the provider directly to
+        # draw_with_emoji (so per-char effects survive emoji boundaries).
+        # The captured values are _ConstantColor wrappers; materialize
+        # via color_for to recover the underlying Color.
+        assert len(captured_providers) == 2
+        top_color = captured_providers[0].color_for(0, 0, 1)
+        bot_color = captured_providers[1].color_for(0, 0, 1)
+        assert top_color.red == 255 and top_color.green == 0
+        assert bot_color.red == 0 and bot_color.blue == 255
 
 
 class TestAlignment:

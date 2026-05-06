@@ -10,14 +10,15 @@
 #   4. font_color = {style="gradient",..} — left-to-right red→blue gradient (BDF)
 #   5. font_color = "rainbow" + Countdown — different widget type (BDF)
 #   6. font_color = "color_cycle" + Weather — live-data text recoloring (BDF)
-#   7. font_color = "rainbow" + emoji     — tripwire (slug renders as letters)
+#   7. font_color = "rainbow" + emoji     — rainbow over text + sprite emoji
 #   8. HiresFont + rainbow                — Inter-Bold per-char rainbow
 #   9. HiresFont + gradient               — Inter-Regular left-to-right gradient
 #  10. HiresFont + typewriter             — Inter-Bold types out one char at a time
 #
-# v1 limit: per_char providers (rainbow, gradient) don't penetrate
-# `:slug:` emoji segments — slugs render as colored letters. Filed,
-# not yet fixed.
+# §7 sweeps the rainbow continuously across emoji boundaries — each
+# `:taco:` renders as the taco sprite, the letters between/around it
+# get their own rainbow hues with char_index advancing across emoji
+# segments without resetting.
 #
 # Hires sections (8-10) validate that ColorProvider materialization
 # works on the HiresFont render path. HiresFont's draw_text reads

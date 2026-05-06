@@ -226,13 +226,12 @@ class TwoRowMessage(_FrameAware):
                 bottom_font, self.bottom_text, canvas, row_emoji_cap
             )
 
-        # Materialize colors from providers for this frame.
-        top_color = self.top_color.color_for(
-            self._frame_count, 0, len(self.top_text) if self.top_text else 1
-        )
-        bottom_color = self.bottom_color.color_for(
-            self._frame_count, 0, len(self.bottom_text) if self.bottom_text else 1
-        )
+        # Pass providers (not materialized colors) to draw_with_emoji
+        # so per-char effects (rainbow / gradient) sweep continuously
+        # across emoji boundaries within each row. draw_with_emoji
+        # detects ColorProvider via duck-typing on `color_for` and
+        # iterates per-char text segments when `provider.per_char` is
+        # True; otherwise it materializes a single Color per segment.
 
         # Top row at a fixed x — held while the bottom scrolls.
         top_x = _aligned_x(canvas.width, self._top_width, self.top_align)
@@ -242,10 +241,11 @@ class TwoRowMessage(_FrameAware):
             top_font,
             top_x,
             top_text_y,
-            top_color,
+            self.top_color,
             self.top_text,
             emoji_y=top_emoji_y,
             max_emoji_height=row_emoji_cap,
+            frame=self._frame_count,
         )
 
         # Bottom row: cursor_pos is supplied by the framework. On the
@@ -262,10 +262,11 @@ class TwoRowMessage(_FrameAware):
             bottom_font,
             bottom_x,
             bottom_text_y,
-            bottom_color,
+            self.bottom_color,
             self.bottom_text,
             emoji_y=bottom_emoji_y,
             max_emoji_height=row_emoji_cap,
+            frame=self._frame_count,
         )
 
         # Report cursor at the bottom-row's right edge so `_swap_and_scroll`

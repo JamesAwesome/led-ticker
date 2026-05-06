@@ -414,3 +414,113 @@ class TestDrawWithEmojiHiresFont:
         font = resolve_font("Inter-Regular", 24)
         width = measure_width(font, "hi")
         assert width > 0
+
+
+class TestDrawWithEmojiColorProvider:
+    """`draw_with_emoji` accepts a ColorProvider in addition to a raw
+    Color. Per-char providers (rainbow, gradient) sweep continuously
+    across emoji boundaries — char_index advances only on text
+    characters, so the rainbow doesn't reset at each `:slug:`.
+
+    Tripwire for the bug where `:taco: HOT TACOS :taco:` + rainbow used
+    to call `provider.color_for(frame, 0, total)` once for the whole
+    string (whole-string degradation), losing the per-char effect on
+    the letters between sprites."""
+
+    def test_per_char_provider_iterates_text_chars(self):
+        """When a per-char provider is passed, draw_with_emoji should
+        materialize a different color for each text character. Spy on
+        the provider's color_for to count calls."""
+        from rgbmatrix import _StubCanvas
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.pixel_emoji import draw_with_emoji
+
+        calls: list[tuple[int, int, int]] = []
+
+        class _SpyProvider:
+            per_char = True
+
+            def color_for(self, frame, char_index, total_chars):
+                calls.append((frame, char_index, total_chars))
+                return Color(255, 255, 255)
+
+        canvas = _StubCanvas(width=160, height=16)
+        draw_with_emoji(
+            canvas,
+            FONT_DEFAULT,
+            cursor_pos=0,
+            y=10,
+            color=_SpyProvider(),
+            text=":taco: HI :taco:",
+            frame=5,
+        )
+
+        # Text segments: " HI " (4 chars total — including spaces).
+        # Emoji slugs don't trigger color_for. So we expect 4 calls.
+        assert len(calls) == 4
+        # All calls share the same frame and total_chars.
+        assert all(f == 5 for f, _, _ in calls)
+        assert all(t == 4 for _, _, t in calls)
+        # char_index advances continuously across the emoji boundary
+        # (the second emoji doesn't reset the index).
+        assert [idx for _, idx, _ in calls] == [0, 1, 2, 3]
+
+    def test_whole_string_provider_materializes_once_per_segment(self):
+        """A whole-string provider (per_char = False) materializes one
+        color per text segment — emoji breaks restart at the running
+        char_index but each call still gets the same color since the
+        provider ignores char_index."""
+        from rgbmatrix import _StubCanvas
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.pixel_emoji import draw_with_emoji
+
+        calls: list[tuple[int, int, int]] = []
+
+        class _WholeProvider:
+            per_char = False
+
+            def color_for(self, frame, char_index, total_chars):
+                calls.append((frame, char_index, total_chars))
+                return Color(0, 200, 100)
+
+        canvas = _StubCanvas(width=160, height=16)
+        # Two text segments separated by an emoji: " HI " and " BYE".
+        draw_with_emoji(
+            canvas,
+            FONT_DEFAULT,
+            cursor_pos=0,
+            y=10,
+            color=_WholeProvider(),
+            text=" HI :taco: BYE",
+            frame=7,
+        )
+
+        # 2 calls — one per text segment (whole-string materialization).
+        assert len(calls) == 2
+        assert all(f == 7 for f, _, _ in calls)
+
+    def test_raw_color_legacy_path_still_works(self):
+        """Existing callers that pass a raw graphics.Color must
+        continue to work — the function should detect the absence of
+        `color_for` and fall through to the single draw_text path."""
+        from rgbmatrix import _StubCanvas
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.pixel_emoji import draw_with_emoji
+
+        canvas = _StubCanvas(width=160, height=16)
+        # Should not raise.
+        advance = draw_with_emoji(
+            canvas,
+            FONT_DEFAULT,
+            cursor_pos=0,
+            y=10,
+            color=Color(255, 100, 50),
+            text=":taco: HI",
+        )
+        assert advance > 0

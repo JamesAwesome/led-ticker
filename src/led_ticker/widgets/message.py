@@ -13,7 +13,7 @@ from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.pixel_emoji import EMOJI_PATTERN
-from led_ticker.text_render import draw_text
+from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import _FrameAware
 
@@ -98,78 +98,40 @@ class TickerMessage(_FrameAware):
         if self._has_emoji:
             from led_ticker.pixel_emoji import draw_with_emoji
 
-            # v1 limit: per-char providers + emoji slugs use whole-string
-            # color semantics (slugs render as units, not per-char).
-            color = provider.color_for(self._frame_count, 0, len(visible_text))
+            # Per-char providers (rainbow/gradient) survive emoji
+            # segments: draw_with_emoji takes the provider directly,
+            # renders sprites for emoji slugs, and runs the per-char
+            # path on text segments — char_index advances continuously
+            # across segments so the rainbow sweep doesn't reset at
+            # each :slug:.
             cursor_pos += draw_with_emoji(
                 canvas,
                 self.font,
                 cursor_pos,
                 baseline_y,
-                color,
+                provider,
                 visible_text,
                 y_offset=y_offset,
+                frame=self._frame_count,
             )
         elif provider.per_char:
             # Per-char rendering: iterate visible_text, draw each char
-            # with its own color (rainbow / gradient).
-            #
-            # HiresFont gotcha: `_draw_hires_text` returns advance in
-            # logical px (ceil-divided by scale per char). Accumulating
-            # those rounds up at every char and drifts past the
-            # holistic `get_text_width` measurement (which ceil-divides
-            # ONCE on the real-px total). The drift breaks scroll
-            # detection: the widget reports cursor_pos = sum-of-ceils
-            # which can be > canvas.width even though the text actually
-            # fits in real px (or vice versa). Track the cursor in real
-            # px for HiresFont and ceil once at the end so the returned
-            # cursor_pos matches the holistic measurement.
-            #
-            # Gradient + Typewriter interaction: `total = len(visible_text)`
-            # uses the slice length, so a Gradient compresses on the
-            # first frame and stretches as Typewriter reveals more chars.
-            # Final state matches the full-text gradient.
-            from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
-
-            total = len(visible_text)
-            scale = getattr(canvas, "scale", 1) or 1
-            if isinstance(self.font, _HiresFont):
-                # Track real-px cursor; convert to logical for draw_text
-                # at each char. Single ceil-divide for the final return
-                # value matches `get_text_width`'s rounding.
-                fallback = self.font.glyphs.get("?")
-                fallback_advance = fallback.advance if fallback else 0
-                x_real = cursor_pos * scale
-                for i, char in enumerate(visible_text):
-                    color = provider.color_for(self._frame_count, i, total)
-                    glyph = self.font.glyphs.get(char)
-                    real_advance = glyph.advance if glyph else fallback_advance
-                    x_logical = x_real // scale
-                    draw_text(
-                        canvas,
-                        self.font,
-                        x_logical,
-                        baseline_y + y_offset,
-                        color,
-                        char,
-                    )
-                    x_real += real_advance
-                cursor_pos = -(-x_real // scale)  # ceil-divide once
-            else:
-                # BDF: per-char advance is already logical (no scale-
-                # dependent rounding), so the simple sum is correct.
-                x = cursor_pos
-                for i, char in enumerate(visible_text):
-                    color = provider.color_for(self._frame_count, i, total)
-                    x += draw_text(
-                        canvas,
-                        self.font,
-                        x,
-                        baseline_y + y_offset,
-                        color,
-                        char,
-                    )
-                cursor_pos = x
+            # with its own color (rainbow / gradient). The shared
+            # `draw_text_per_char` helper handles the HiresFont
+            # real-pixel cursor tracking that avoids the per-char
+            # ceil-divide drift. Gradient + Typewriter interaction:
+            # `total_chars` defaults to `len(visible_text)` so a
+            # gradient compresses on first frame and stretches as
+            # Typewriter reveals more chars. Final state matches the
+            # full-text gradient.
+            cursor_pos += draw_text_per_char(
+                canvas,
+                self.font,
+                cursor_pos,
+                baseline_y + y_offset,
+                visible_text,
+                lambda idx, total: provider.color_for(self._frame_count, idx, total),
+            )
         else:
             color = provider.color_for(self._frame_count, 0, len(visible_text))
             cursor_pos += draw_text(

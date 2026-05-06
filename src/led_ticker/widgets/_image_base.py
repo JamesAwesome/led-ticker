@@ -44,7 +44,7 @@ from led_ticker.fonts import (
 from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.pixel_emoji import EMOJI_PATTERN
 from led_ticker.scaled_canvas import ScaledCanvas
-from led_ticker.text_render import draw_text
+from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets._frame_aware import _FrameAware
 from led_ticker.widgets._image_fit import (
     VALID_IMAGE_ALIGNS,
@@ -405,14 +405,17 @@ class _BaseImageWidget(_FrameAware):
 
     def _draw_text(self, canvas: Canvas, x: int, baseline_y: int, color: Any) -> int:
         """Route to draw_with_emoji when text contains slugs; otherwise
-        plain BDF rasterizer. Emoji's 8-px sprite is anchored so its
-        bottom row sits on the text baseline (works for any valign/scale).
+        plain BDF/HiresFont rasterizer. Emoji's 8-px sprite is anchored
+        so its bottom row sits on the text baseline (works for any
+        valign/scale).
 
         `color` accepts a Color or a ColorProvider. For text with emoji,
         the provider passes through to `draw_with_emoji` which dispatches
         on `provider.per_char` — per-char providers iterate text segments
         with continuous char_index across emoji boundaries. Plain text
-        materializes once and uses `draw_text`."""
+        with a per-char provider iterates via `draw_text_per_char` so
+        rainbow/gradient render with per-character hue offsets; whole-
+        string providers materialize once and use `draw_text`."""
         if self._has_emoji():
             from led_ticker.pixel_emoji import draw_with_emoji
 
@@ -426,7 +429,19 @@ class _BaseImageWidget(_FrameAware):
                 emoji_y=baseline_y - 8,
                 frame=self._frame_count,
             )
-        # Non-emoji path: materialize once if a provider, else use Color.
+        # Plain-text per-char path: rainbow / gradient iterate chars so
+        # each character renders with its own hue. Mirrors
+        # `TickerMessage.draw`'s per-char branch.
+        if hasattr(color, "color_for") and color.per_char:
+            return draw_text_per_char(
+                canvas,
+                self.font,
+                x,
+                baseline_y,
+                self.text,
+                lambda idx, total: color.color_for(self._frame_count, idx, total),
+            )
+        # Whole-string provider or constant Color.
         if hasattr(color, "color_for"):
             color = color.color_for(
                 self._frame_count, 0, len(self.text) if self.text else 1
@@ -481,8 +496,18 @@ class _BaseImageWidget(_FrameAware):
                 max_emoji_height=EMOJI_ROW_CAP,
                 frame=self._frame_count,
             )
+        elif hasattr(color, "color_for") and color.per_char:
+            # Plain-text per-char path: rainbow / gradient iterate chars.
+            draw_text_per_char(
+                canvas,
+                font,
+                x,
+                baseline_y,
+                text,
+                lambda idx, total: color.color_for(self._frame_count, idx, total),
+            )
         else:
-            # Non-emoji path: materialize once if a provider.
+            # Whole-string provider or constant Color.
             if hasattr(color, "color_for"):
                 color = color.color_for(self._frame_count, 0, len(text) if text else 1)
             draw_text(canvas, font, x, baseline_y, color, text)

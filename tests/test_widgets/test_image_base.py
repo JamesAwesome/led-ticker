@@ -897,3 +897,73 @@ class TestPlayLoopAdvancesFrame:
 
         # Fast path: one paint, no per-tick increment.
         assert w._frame_count == 0
+
+
+class _TrackingProvider:
+    """Test provider: per_char=True, records every (frame, idx, total)."""
+
+    per_char = True
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[int, int, int]] = []
+
+    def color_for(self, frame, char_index, total_chars):
+        from rgbmatrix.graphics import Color
+
+        self.calls.append((frame, char_index, total_chars))
+        return Color(255, 255, 255)
+
+
+class TestPerCharProviderNonEmojiPath:
+    """Tripwire: per-char providers (Rainbow, Gradient) must iterate
+    chars on the plain-text path too — not just the emoji path. The
+    smoke config §3 happens to use `:taco:` slugs so the bug hid
+    behind the emoji path; this test pins the non-emoji path
+    explicitly."""
+
+    def test_single_row_per_char_provider_iterates_chars(self):
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.fonts import FONT_DEFAULT
+
+        provider = _TrackingProvider()
+        w = _DummyImage(text="ABC", font=FONT_DEFAULT, font_color=provider)
+        canvas = _StubCanvas(width=64, height=16)
+
+        w._draw_text(canvas, 0, 12, w.font_color)
+
+        assert [c[1] for c in provider.calls] == [0, 1, 2], (
+            f"Expected per-char iteration with indices [0,1,2]; got "
+            f"{[c[1] for c in provider.calls]!r}. Plain-text path is "
+            f"materializing the provider once at char_index=0 instead "
+            f"of dispatching to draw_text_per_char."
+        )
+        assert all(c[2] == 3 for c in provider.calls)
+
+    def test_two_row_per_char_provider_iterates_chars(self):
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.fonts import FONT_DEFAULT
+
+        provider = _TrackingProvider()
+        w = _DummyImage(
+            top_text="A",
+            bottom_text="DEF",
+            font=FONT_DEFAULT,
+            font_color=provider,
+        )
+        canvas = _StubCanvas(width=64, height=16)
+
+        # Bottom row (the longer one) — should iterate 3 chars.
+        w._draw_row_text(
+            canvas,
+            font=FONT_DEFAULT,
+            text="DEF",
+            color=provider,
+            x=0,
+            baseline_y=12,
+            emoji_y=4,
+        )
+
+        assert [c[1] for c in provider.calls] == [0, 1, 2]
+        assert all(c[2] == 3 for c in provider.calls)

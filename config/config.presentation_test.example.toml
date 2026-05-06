@@ -21,6 +21,7 @@
 #  14. image widget + rainbow (no emoji)  — non-emoji per-char path on gif overlay
 #  15. two-row image widget + rainbow     — per-row per-char path on gif overlay
 #  16. HiresFont + emoji + rainbow        — full hires + per-char + sprite combo
+#  17. RSS feed (1 story)                  — forever_scroll mode + RSSFeedMonitor
 #
 # §1 (rainbow + emoji): the rainbow sweeps continuously across
 # emoji boundaries — each `:taco:` renders as the taco sprite, the
@@ -362,3 +363,24 @@ text = ":taco: HIRES :taco:"
 font = "Inter-Bold"
 font_size = 24
 font_color = "rainbow"
+
+# 17. RSS feed (1 story, rainbow) — exercises forever_scroll mode +
+# the RSSFeedMonitor widget. Pulled from the smallsign config example.
+# `max_stories = 1` limits the section to a single headline. The new
+# `font_color = "rainbow"` knob (replaces the legacy 3-color cycle
+# when set) paints every story per-character rainbow.
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Nintendo Life"
+color = "random"
+
+[[playlist.section.widget]]
+type = "rss_feed"
+feed_url = "https://www.nintendolife.com/feeds/news"
+max_stories = 1
+font_color = "rainbow"
+update_interval = 3000

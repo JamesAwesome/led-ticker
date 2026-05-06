@@ -445,6 +445,44 @@ class TestScrollSideBySide:
     and not multiple times per tick (over-advance from duplicates).
     """
 
+    async def test_end_of_scroll_hold_advances_frame_per_tick(
+        self, canvas, mock_frame, no_sleep
+    ):
+        """Tripwire: when _scroll_side_by_side reaches its end-of-scroll
+        hold (queue exhausted, single widget visible), the widget's
+        frame counter must continue ticking during the hold so animated
+        providers (rainbow, color_cycle) keep sweeping. Without this,
+        the rainbow freezes the moment the text stops moving — visible
+        on hardware as smoke §17 RSS feed."""
+        from led_ticker.ticker import _scroll_side_by_side
+
+        widget = mock.Mock()
+        widget.draw.side_effect = lambda c, cursor_pos=0: (c, cursor_pos + 30)
+        widget._advance_frame_count = 0
+        widget.bg_color = None
+
+        def _advance():
+            widget._advance_frame_count += 1
+
+        widget.advance_frame.side_effect = _advance
+
+        queue = asyncio.Queue()
+        await queue.put(widget)
+
+        # hold_at_end=0.5s @ ENGINE_TICK_MS=50ms → ≥10 hold ticks
+        # expected, plus a small number of scroll-in ticks before
+        # the hold begins.
+        await _scroll_side_by_side(
+            canvas, mock_frame, queue, scroll_speed=0, hold_at_end=0.5
+        )
+
+        assert widget._advance_frame_count >= 10, (
+            f"Expected ≥10 advance_frame calls covering the 0.5s "
+            f"end-of-scroll hold; got {widget._advance_frame_count}. "
+            f"The hold is a single sleep — animated providers freeze "
+            f"during the held end-state."
+        )
+
     async def test_advances_each_widget_once_per_tick(
         self, canvas, mock_frame, no_sleep
     ):

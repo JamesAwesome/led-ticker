@@ -343,6 +343,32 @@ class TestScrollAndDelay:
         # loop this would be 1.
         assert widget.draw.call_count == 2
 
+    async def test_scroll_in_loop_advances_frame_per_tick(
+        self, canvas, mock_frame, no_sleep
+    ):
+        """Tripwire: the scroll-in loop (`while pos > 0`) must advance
+        the frame counter per tick so animated title providers
+        animate during scroll-in, matching the post-scroll hold and
+        `_swap_and_scroll`'s scroll branch. Without this, a rainbow
+        title freezes during scroll-in then animates after landing.
+        """
+        widget = mock.Mock()
+        widget.draw.side_effect = lambda c, cursor_pos=0, **kw: (c, cursor_pos + 40)
+        widget._advance_frame_count = 0
+
+        def _advance():
+            widget._advance_frame_count += 1
+
+        widget.advance_frame.side_effect = _advance
+
+        # cursor_pos=5 → 5 scroll-in iterations + 1 post-scroll tick (delay=0).
+        await _scroll_and_delay(canvas, mock_frame, widget, delay=0, cursor_pos=5)
+
+        assert widget._advance_frame_count == 6, (
+            f"Expected 6 advance_frame calls (5 scroll-in + 1 post-scroll); "
+            f"got {widget._advance_frame_count}"
+        )
+
     async def test_post_scroll_hold_advances_frame_per_tick(
         self, canvas, mock_frame, no_sleep
     ):

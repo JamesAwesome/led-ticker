@@ -316,6 +316,13 @@ async def _scroll_and_delay(
         canvas = _swap(canvas, frame)
 
     while pos > 0:
+        # Advance the per-tick frame so animated title providers
+        # (rainbow, color_cycle) animate during scroll-in. Without
+        # this, the title freezes on its visit-initial hue while it
+        # scrolls in from off-canvas, then suddenly animates after
+        # landing — visually inconsistent with the post-scroll hold
+        # below and with `_swap_and_scroll`'s scroll branch.
+        _advance_frame_if_supported(ticker_obj)
         reset_canvas(canvas, bg_color)
         canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
         pos -= 1

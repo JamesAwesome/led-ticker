@@ -583,34 +583,55 @@ async def _scroll_between(
     outgoing_scroll_pos: int = 0,
     scroll_speed: float = 0.05,
 ) -> tuple[Canvas, int]:
-    """Seamlessly scroll from outgoing to incoming at constant 1px/frame."""
-    w = canvas.width
-    sep_w = scroll_separator_width()
+    """Seamlessly scroll from outgoing to incoming at constant 1px/frame.
 
-    total_travel = w + sep_w
+    This is a transition compositor — it redraws both widgets per
+    tick for compositing, but their frame counters MUST stay frozen
+    during the transition (matches `run_transition`'s pause/resume
+    contract). Otherwise rainbow / color_cycle widgets drift their
+    animation phase by however many compositor ticks ran (~166 on
+    the small sign), surfacing as a visible phase jump when the
+    transition ends and the held-text loop resumes ticking. We
+    pause/resume here explicitly because `_run_swap` dispatches us
+    directly, bypassing `run_transition`.
+    """
+    if hasattr(outgoing, "pause_frame"):
+        outgoing.pause_frame()
+    if hasattr(incoming, "pause_frame"):
+        incoming.pause_frame()
+    try:
+        w = canvas.width
+        sep_w = scroll_separator_width()
 
-    for offset in range(total_travel + 1):
-        canvas.Clear()
+        total_travel = w + sep_w
 
-        outgoing_pos = outgoing_scroll_pos - offset
-        clear_start = max(0, w - offset)
-        bullet_x = w + SCROLL_GAP - offset
-        incoming_pos = w + sep_w - offset
+        for offset in range(total_travel + 1):
+            canvas.Clear()
 
-        _draw_scroll_frame(
-            canvas,
-            outgoing,
-            incoming,
-            outgoing_pos,
-            bullet_x,
-            incoming_pos,
-            clear_start,
-        )
+            outgoing_pos = outgoing_scroll_pos - offset
+            clear_start = max(0, w - offset)
+            bullet_x = w + SCROLL_GAP - offset
+            incoming_pos = w + sep_w - offset
 
-        canvas = _swap(canvas, frame)
-        await asyncio.sleep(scroll_speed)
+            _draw_scroll_frame(
+                canvas,
+                outgoing,
+                incoming,
+                outgoing_pos,
+                bullet_x,
+                incoming_pos,
+                clear_start,
+            )
 
-    return canvas, 0
+            canvas = _swap(canvas, frame)
+            await asyncio.sleep(scroll_speed)
+
+        return canvas, 0
+    finally:
+        if hasattr(outgoing, "resume_frame"):
+            outgoing.resume_frame()
+        if hasattr(incoming, "resume_frame"):
+            incoming.resume_frame()
 
 
 def _has_play(widget: Any) -> bool:

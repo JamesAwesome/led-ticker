@@ -671,6 +671,44 @@ class TestScrollBetween:
         first_call = outgoing.draw.call_args_list[0]
         assert first_call.kwargs["cursor_pos"] == -440
 
+    async def test_pauses_and_resumes_frame_on_both_widgets(
+        self, canvas, mock_frame, no_sleep
+    ):
+        """Tripwire: _scroll_between is a transition compositor.
+        Frame must be paused on both widgets during the transition
+        (matches run_transition's contract) so animated providers
+        don't drift their phase by ~166 compositor ticks. After the
+        transition ends, frame must be resumed so the held-text loop
+        can tick normally."""
+        outgoing = mock.Mock()
+        outgoing.draw.side_effect = lambda c, cursor_pos=0: (c, cursor_pos + 40)
+        incoming = mock.Mock()
+        incoming.draw.side_effect = lambda c, cursor_pos=0: (c, cursor_pos + 40)
+
+        await _scroll_between(canvas, mock_frame, outgoing, incoming)
+
+        outgoing.pause_frame.assert_called_once()
+        outgoing.resume_frame.assert_called_once()
+        incoming.pause_frame.assert_called_once()
+        incoming.resume_frame.assert_called_once()
+
+    async def test_resume_frame_called_even_on_exception(
+        self, canvas, mock_frame, no_sleep
+    ):
+        """Resume must be called via try/finally so a swap exception
+        mid-transition can't leave widgets stuck in pause."""
+        outgoing = mock.Mock()
+        outgoing.draw.side_effect = lambda c, cursor_pos=0: (c, cursor_pos + 40)
+        incoming = mock.Mock()
+        # Force an exception during the loop.
+        mock_frame.matrix.SwapOnVSync.side_effect = RuntimeError("simulated")
+
+        with pytest.raises(RuntimeError):
+            await _scroll_between(canvas, mock_frame, outgoing, incoming)
+
+        outgoing.resume_frame.assert_called_once()
+        incoming.resume_frame.assert_called_once()
+
 
 class TestRunSwapWithScroll:
     async def test_scroll_processes_all_widgets(

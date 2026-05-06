@@ -9,10 +9,16 @@ six sites incrementally (`_swap_and_scroll`, `_scroll_and_delay` ×2,
 
 This test prevents the next regression by AST-scanning `ticker.py`
 itself: for every async function in the engine, find every loop body
-containing a `widget.draw(...)` call. Assert the same loop body also
-contains an `_advance_frame_if_supported(...)` call. Functions in
-`ALLOW_LIST` are exempt with documented justification (only transition
-compositors that explicitly pause frame instead).
+containing a `_swap(...)` or `*.SwapOnVSync(...)` call. Assert the
+same loop body also contains an `_advance_frame_if_supported(...)`
+call. We use the swap call as the signal (rather than `widget.draw`)
+because it's the canonical tick boundary — refactors that extract
+draw+swap into a helper still surface the swap, while a `widget.draw`
+scan would silently pass loops where the draw is hidden behind a
+helper call.
+
+Functions in `ALLOW_LIST` are exempt with documented justification
+(only transition compositors that explicitly pause frame instead).
 
 If this test fails, EITHER:
   - Add `_advance_frame_if_supported(widget)` per tick in the loop, OR
@@ -61,15 +67,28 @@ def _has_advance_call(node: ast.AST) -> bool:
     )
 
 
-def _has_draw_call_direct(node: ast.AST) -> bool:
-    """Whether `node`'s subtree calls `*.draw(...)` (an attribute call,
-    not a function call). Used to identify redraw loops."""
-    return any(
-        isinstance(n, ast.Call)
-        and isinstance(n.func, ast.Attribute)
-        and n.func.attr == "draw"
-        for n in ast.walk(node)
-    )
+def _has_swap_call(node: ast.AST) -> bool:
+    """Whether `node`'s subtree calls `_swap(...)` or `*.SwapOnVSync(...)`.
+
+    Every per-tick redraw loop in the engine ends with a swap to push
+    the back-buffer to the panel — that's the signal we use to
+    identify "this is a redraw loop." Using `widget.draw(...)` as the
+    signal is fragile: a refactor that extracts draw + swap into a
+    helper (e.g. `_draw_scroll_frame`) hides the draw from the AST
+    scanner. The swap call is harder to hide because it's the
+    boundary between back-buffer and front-buffer — every tick has
+    exactly one.
+    """
+    for n in ast.walk(node):
+        if not isinstance(n, ast.Call):
+            continue
+        # `_swap(canvas, frame)` — Name call.
+        if isinstance(n.func, ast.Name) and n.func.id == "_swap":
+            return True
+        # `frame.matrix.SwapOnVSync(canvas)` etc. — Attribute call.
+        if isinstance(n.func, ast.Attribute) and n.func.attr == "SwapOnVSync":
+            return True
+    return False
 
 
 def _enclosing_loops(
@@ -110,7 +129,7 @@ def _function_has_advance_in_loops(
     for node in ast.walk(func_node):
         if not _is_loop(node):
             continue
-        if not _has_draw_call_direct(node):
+        if not _has_swap_call(node):
             continue
         # Compliant if this loop advances OR any enclosing loop does.
         if _has_advance_call(node):
@@ -118,7 +137,7 @@ def _function_has_advance_in_loops(
         if any(_has_advance_call(loop) for loop in _enclosing_loops(func_node, node)):
             continue
         issues.append(
-            f"loop at line {node.lineno} draws but does not call "
+            f"loop at line {node.lineno} swaps but does not call "
             f"_advance_frame_if_supported (and no enclosing loop does)"
         )
     return issues
@@ -151,10 +170,25 @@ def test_every_redraw_loop_advances_frame():
     )
 
 
-def test_allow_list_entries_actually_pause_frame():
-    """Allow-listed functions must call pause_frame on the widgets
-    they redraw. Without this, the allow-list would be a foot-gun —
-    naming a function "exempt" without it actually freezing frame.
+def _count_method_calls(node: ast.AST, method_name: str) -> int:
+    """Count `*.{method_name}(...)` attribute calls inside `node`."""
+    return sum(
+        1
+        for n in ast.walk(node)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and n.func.attr == method_name
+    )
+
+
+def test_allow_list_entries_actually_pause_and_resume_frame():
+    """Allow-listed functions must call pause_frame AND resume_frame
+    on the widgets they redraw. Pause without resume is a foot-gun —
+    a function that pauses but never resumes leaves widget frame
+    counters paused after the transition exits, surfacing as
+    "rainbow froze after the first transition." Each pause must have
+    a matching resume; for every widget paused N times, expect N
+    resume calls.
     """
     tree = ast.parse(ENGINE_PATH.read_text())
     failures: list[str] = []
@@ -164,20 +198,27 @@ def test_allow_list_entries_actually_pause_frame():
             continue
         if node.name not in ALLOW_LIST:
             continue
-        # Look for pause_frame() calls anywhere in the function body.
-        pause_calls = [
-            n
-            for n in ast.walk(node)
-            if isinstance(n, ast.Call)
-            and isinstance(n.func, ast.Attribute)
-            and n.func.attr == "pause_frame"
-        ]
-        if not pause_calls:
+
+        n_pause = _count_method_calls(node, "pause_frame")
+        n_resume = _count_method_calls(node, "resume_frame")
+
+        if n_pause == 0:
             failures.append(
                 f"{node.name} is allow-listed but does not call "
-                f"`pause_frame()`. Allow-list reason: {ALLOW_LIST[node.name]!r}. "
-                f"Either add pause_frame at entry + resume_frame in finally, "
-                f"or remove from ALLOW_LIST."
+                f"`pause_frame()`. Allow-list reason: "
+                f"{ALLOW_LIST[node.name]!r}. Either add pause_frame at "
+                f"entry + resume_frame in finally, or remove from "
+                f"ALLOW_LIST."
+            )
+            continue
+        if n_resume != n_pause:
+            failures.append(
+                f"{node.name} calls `pause_frame()` {n_pause} time(s) "
+                f"but `resume_frame()` {n_resume} time(s). Each pause "
+                f"must have a matching resume — otherwise the widget's "
+                f"frame counter stays paused after the transition exits, "
+                f"freezing animated providers from then on. Wrap the "
+                f"loop body in try/finally with resume_frame in finally."
             )
 
     assert not failures, "\n  - ".join(["Allow-list violations:"] + failures)

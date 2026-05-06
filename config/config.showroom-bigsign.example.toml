@@ -139,14 +139,40 @@ font_color = "rainbow"
 animation = {style = "typewriter", frames_per_char = 4}
 
 # ---------------------------------------------------------------------------
-# 5. Two-row layout — held handle on top, scrolling tagline on bottom.
+# 5. Brand handle — hi-res :instagram: 32x32 sprite + bg_color showcase.
+#    Single-row at scale=4 so the hi-res emoji fires (the two-row widget
+#    caps inline emoji at 8 logical rows to prevent bleed into the other
+#    band, which forces lowres fallback even when the band would fit a
+#    hi-res sprite — the right trade-off for two_row, but means hi-res
+#    emoji belong in single-row sections). Dark-wine `bg_color` pulls
+#    the IG magenta forward without competing.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 5.0
+loop_count = 1
+transition = "dissolve"
+transition_duration = 0.8
+bg_color = [42, 0, 16]
+
+[[playlist.section.widget]]
+type = "message"
+text = ":instagram: @ledticker"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 100, 160]
+
+# ---------------------------------------------------------------------------
+# 6. Two-row layout — held tag on top, scrolling tagline on bottom.
 #    Mirrors a storefront window display use case: persistent brand
-#    identity (handle in IG magenta with hi-res :instagram: sprite) plus
-#    rotating marketing copy underneath. scale=2 doubles logical width
-#    to 128 so handles fit comfortably on the held row.
+#    identity plus rotating marketing copy underneath. scale=2 doubles
+#    logical width to 128 so handles fit comfortably on the held row.
 #    `content_height = 32` (= 64 real px) fills the panel — at the
 #    default 16 logical the wrapper would leave 16-real-px black
 #    bands above and below, dead space the showroom can't afford.
+#    `bottom_align = "center"` so the tagline centers when it fits and
+#    otherwise auto-scrolls (alignment is ignored mid-scroll).
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -160,17 +186,6 @@ transition_duration = 0.8
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = ":instagram: @ledticker"
-top_color = [225, 48, 108]
-top_align = "center"
-top_font = "Inter-Bold"
-top_font_size = 14
-bottom_text = "Programmable RGB displays for storefronts, lobbies, and stages"
-bottom_color = [255, 240, 200]
-bottom_align = "left"
-
-[[playlist.section.widget]]
-type = "two_row"
 top_text = ":email: hello@ledticker.dev"
 top_color = [255, 240, 200]
 top_align = "center"
@@ -178,10 +193,21 @@ top_font = "Inter-Bold"
 top_font_size = 14
 bottom_text = "Custom playlists, live data feeds, and brand-matched motion graphics"
 bottom_color = [180, 140, 230]
-bottom_align = "left"
+bottom_align = "center"
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "STOREFRONTS, LOBBIES, STAGES"
+top_color = [255, 240, 200]
+top_align = "center"
+top_font = "Inter-Bold"
+top_font_size = 14
+bottom_text = "Programmable RGB displays that earn a second look from the sidewalk"
+bottom_color = [225, 200, 255]
+bottom_align = "center"
 
 # ---------------------------------------------------------------------------
-# 6. Live data — weather widget with hi-res 32x32 icon, city, and temp.
+# 7. Live data — weather widget with hi-res 32x32 icon, city, and temp.
 #    Real API call, real numbers. The two-color design (label cycles
 #    hue, temp stays steady-bright) is a small but signature detail.
 #    Set WEATHERAPI_KEY in .env. Change `location` for the demo room's
@@ -205,9 +231,11 @@ font_color = "color_cycle"
 font_color_temp = [255, 255, 255]
 
 # ---------------------------------------------------------------------------
-# 7. Slogan — color_cycle on a single brand-feeling line.
-#    Quieter beat after the weather. Whole-string hue rotation reads as
-#    deliberate animation, not noise.
+# 8. Slogan — color_cycle on a single brand-feeling line, on a deep
+#    midnight `bg_color` for high contrast. Two-color showcase: the
+#    dark navy fills every non-text pixel (no black-by-default), the
+#    cycle hue oscillates against it. Reads as deliberate animation,
+#    not noise.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -216,6 +244,7 @@ hold_time = 5.0
 loop_count = 1
 transition = "baseball_alternating"
 transition_duration = 1.2
+bg_color = [10, 10, 40]
 
 [[playlist.section.widget]]
 type = "message"
@@ -225,7 +254,7 @@ font_size = 24
 font_color = "color_cycle"
 
 # ---------------------------------------------------------------------------
-# 8. Image + text overlay — text scrolls "behind" a transparent Pikachu.
+# 9. Image + text overlay — text scrolls "behind" a transparent Pikachu.
 #    The transparent regions of the gif become the marquee channel; text
 #    walks across the panel and disappears under the silhouette. This
 #    is a fit + alpha + scroll integration most products won't even
@@ -254,7 +283,7 @@ scroll_speed_ms = 40
 text_loops = 1
 
 # ---------------------------------------------------------------------------
-# 9. Inline emoji showcase — pride, taco, star, moon at hi-res.
+# 10. Inline emoji showcase — pride, taco, moon at hi-res.
 #    Quick, food-and-symbol forward, friendly. Demonstrates that the
 #    emoji set goes beyond emoticons into actual brand-usable iconography.
 # ---------------------------------------------------------------------------
@@ -282,13 +311,13 @@ font_color = [255, 200, 80]
 
 [[playlist.section.widget]]
 type = "message"
-text = ":moon: GOOD NIGHT :star:"
+text = ":moon: GOOD NIGHT :moon:"
 font = "Inter-Bold"
 font_size = 24
 font_color = [180, 200, 255]
 
 # ---------------------------------------------------------------------------
-# 10. Countdown finale — real date, hi-res Inter-Bold, rainbow.
+# 11. Countdown finale — real date, hi-res Inter-Bold, rainbow.
 #     Rolls into the New Year. Demonstrates that the same color provider
 #     vocabulary applies to data widgets, not just static messages, and
 #     pairs the most attention-grabbing transition (nyancat_alternating)

@@ -250,10 +250,13 @@ tick loop calling `advance_frame + draw + swap` at 50ms cadence
 (`ENGINE_TICK_MS`) so frame-aware effects animate during holds. The
 scroll branch also calls `advance_frame` per tick.
 
-**v1 limitation**: per-char providers don't penetrate `:slug:` emoji
-— a TickerMessage with `font_color = "rainbow"` + `:taco: HOT :taco:`
-renders the slugs as colored ASCII letters instead of taco sprites.
-Tripwire in `config.presentation_test.example.toml` §7.
+**Per-char providers + emoji**: rainbow / gradient sweep continuously
+across `:slug:` emoji boundaries — sprites render as sprites, the
+letters between/around them get their own per-char colors with
+`char_index` advancing across the emoji segments without resetting.
+Implemented via `draw_with_emoji(color: Color | ColorProvider, frame=N)`
++ the shared `text_render.draw_text_per_char` helper. Smoke demo in
+`config.presentation_test.example.toml` §1.
 
 **Weather two-color design**: WeatherWidget has both `font_color`
 (label) and `font_color_temp` (temperature value) as separate

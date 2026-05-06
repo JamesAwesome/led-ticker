@@ -403,10 +403,16 @@ class _BaseImageWidget(_FrameAware):
             return measure_width(self.font, self.text, canvas=canvas)
         return get_text_width(self.font, self.text, padding=0, canvas=canvas)
 
-    def _draw_text(self, canvas: Canvas, x: int, baseline_y: int, color: Color) -> int:
+    def _draw_text(self, canvas: Canvas, x: int, baseline_y: int, color: Any) -> int:
         """Route to draw_with_emoji when text contains slugs; otherwise
         plain BDF rasterizer. Emoji's 8-px sprite is anchored so its
-        bottom row sits on the text baseline (works for any valign/scale)."""
+        bottom row sits on the text baseline (works for any valign/scale).
+
+        `color` accepts a Color or a ColorProvider. For text with emoji,
+        the provider passes through to `draw_with_emoji` which dispatches
+        on `provider.per_char` — per-char providers iterate text segments
+        with continuous char_index across emoji boundaries. Plain text
+        materializes once and uses `draw_text`."""
         if self._has_emoji():
             from led_ticker.pixel_emoji import draw_with_emoji
 
@@ -418,6 +424,12 @@ class _BaseImageWidget(_FrameAware):
                 color,
                 self.text,
                 emoji_y=baseline_y - 8,
+                frame=self._frame_count,
+            )
+        # Non-emoji path: materialize once if a provider, else use Color.
+        if hasattr(color, "color_for"):
+            color = color.color_for(
+                self._frame_count, 0, len(self.text) if self.text else 1
             )
         return draw_text(canvas, self.font, x, baseline_y, color, self.text)
 
@@ -441,7 +453,7 @@ class _BaseImageWidget(_FrameAware):
         canvas: Canvas,
         font: Any,
         text: str,
-        color: Color,
+        color: Any,
         x: int,
         baseline_y: int,
         emoji_y: int,
@@ -450,7 +462,11 @@ class _BaseImageWidget(_FrameAware):
         Caller (`_render_two_row_tick`) resolves these once outside the
         tick loop so per-row attribute lookups don't run every frame.
         Mirrors `_draw_text` but accepts an explicit `emoji_y` so the
-        emoji can be nudged independently of the text baseline."""
+        emoji can be nudged independently of the text baseline.
+
+        `color` accepts a Color or a ColorProvider. Provider + emoji
+        flows through `draw_with_emoji` for per-char rainbow support.
+        """
         if self._has_emoji() and EMOJI_PATTERN.search(text):
             from led_ticker.pixel_emoji import draw_with_emoji
 
@@ -463,8 +479,12 @@ class _BaseImageWidget(_FrameAware):
                 text,
                 emoji_y=emoji_y,
                 max_emoji_height=EMOJI_ROW_CAP,
+                frame=self._frame_count,
             )
         else:
+            # Non-emoji path: materialize once if a provider.
+            if hasattr(color, "color_for"):
+                color = color.color_for(self._frame_count, 0, len(text) if text else 1)
             draw_text(canvas, font, x, baseline_y, color, text)
 
     def _wrap_for_text(self, canvas: Canvas, scale: int) -> Canvas:
@@ -506,23 +526,22 @@ class _BaseImageWidget(_FrameAware):
         `text_align`."""
         reset_canvas(canvas, self.bg_color)
 
-        # Materialize whole-string color from provider. Image widgets'
-        # text overlay uses single-Color rendering (no per-char iteration
-        # for v1 — per_char providers degrade to single-color).
-        font_color = self.font_color.color_for(
-            self._frame_count, 0, len(self.text) if self.text else 1
-        )
+        # Pass the provider (not a materialized Color) so per-char
+        # effects survive emoji boundaries. _draw_text materializes
+        # internally for the non-emoji path; the emoji path forwards
+        # the provider to draw_with_emoji.
+        provider = self.font_color
 
         if self.text_align == "scroll":
-            self._draw_text(text_canvas, scroll_pos, baseline_y, font_color)
+            self._draw_text(text_canvas, scroll_pos, baseline_y, provider)
             self._paint_skip_black(canvas)
         elif self.text_align == "scroll_over":
             self._paint_image(canvas)
-            self._draw_text(text_canvas, scroll_pos, baseline_y, font_color)
+            self._draw_text(text_canvas, scroll_pos, baseline_y, provider)
         else:
             self._paint_image(canvas)
             text_x = text_x_left if self.text_align == "left" else text_x_right
-            self._draw_text(text_canvas, text_x, baseline_y, font_color)
+            self._draw_text(text_canvas, text_x, baseline_y, provider)
 
     def _render_two_row_tick(
         self,
@@ -775,22 +794,19 @@ class _BaseImageWidget(_FrameAware):
         bottom_font = self._row_font(1)
         top_text = self._row_text(0)
         bottom_text = self._row_text(1)
-        # Resolve providers for both rows. _row_color() returns a provider
-        # (already coerced in _validate_common); materialize to Color here
-        # so the tuple slots remain plain Color as _draw_row_text expects.
-        top_provider = self._row_color(0)
-        if not hasattr(top_provider, "color_for"):
-            top_provider = _ConstantColor(top_provider)
-        top_color = top_provider.color_for(
-            self._frame_count, 0, len(top_text) if top_text else 1
-        )
+        # Resolve providers for both rows. _row_color() returns a
+        # provider (already coerced in _validate_common); pass it
+        # through to _draw_row_text without materializing so per-char
+        # effects survive emoji boundaries within each row. The
+        # defensive _ConstantColor wrap covers any path that bypasses
+        # _validate_common.
+        top_color = self._row_color(0)
+        if not hasattr(top_color, "color_for"):
+            top_color = _ConstantColor(top_color)
 
-        bottom_provider = self._row_color(1)
-        if not hasattr(bottom_provider, "color_for"):
-            bottom_provider = _ConstantColor(bottom_provider)
-        bottom_color = bottom_provider.color_for(
-            self._frame_count, 0, len(bottom_text) if bottom_text else 1
-        )
+        bottom_color = self._row_color(1)
+        if not hasattr(bottom_color, "color_for"):
+            bottom_color = _ConstantColor(bottom_color)
 
         top_baseline, top_emoji_y = row_layout(
             text_canvas, top_font, band_height=top_h, band_offset=0

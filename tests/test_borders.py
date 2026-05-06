@@ -102,8 +102,26 @@ class TestRainbowChaseBorder:
     """Per-pixel rainbow chase. Hue at perimeter index `idx` and frame
     `f`: ((idx * char_offset) + f * speed) % 360."""
 
-    def test_frame_invariant_is_false(self):
+    def test_frame_invariant_false_for_default_speed(self):
+        """Default speed=4 means the chase advances per frame —
+        output is frame-variant."""
         assert RainbowChaseBorder().frame_invariant is False
+
+    def test_frame_invariant_true_for_speed_zero(self):
+        """speed=0 makes the chase stationary — output is identical
+        every frame, so the effect is genuinely frame-invariant.
+        Dynamic property lets a future fast-path gate correctly
+        skip per-tick redraws on a pinned-but-rainbow border."""
+        assert RainbowChaseBorder(speed=0).frame_invariant is True
+        # char_offset doesn't affect frame-invariance — only speed.
+        assert RainbowChaseBorder(speed=0, char_offset=12).frame_invariant is True
+        assert RainbowChaseBorder(speed=0, char_offset=0).frame_invariant is True
+
+    def test_frame_invariant_false_for_speed_zero_with_nonzero_default(self):
+        """Sanity: any nonzero speed → frame-variant regardless of
+        char_offset value."""
+        assert RainbowChaseBorder(speed=1, char_offset=0).frame_invariant is False
+        assert RainbowChaseBorder(speed=99).frame_invariant is False
 
     def test_paints_every_perimeter_pixel(self):
         c = _StubCanvas(20, 8)
@@ -151,6 +169,23 @@ class TestRainbowChaseBorder:
         # All pixels should be the same color at frame=0 with char_offset=0.
         colors = set(c.pixels.values())
         assert len(colors) == 1, f"expected uniform color, got {colors}"
+
+    def test_char_offset_zero_cycles_across_frames(self):
+        """Pairs with `test_char_offset_zero_uniform_per_frame`. With
+        char_offset=0 AND speed>0, each frame produces a uniform
+        color, but that color cycles between frames. Without this,
+        the synchronized whole-border cycle would be stuck on a
+        single hue."""
+        c0 = _StubCanvas(20, 8)
+        c1 = _StubCanvas(20, 8)
+        RainbowChaseBorder(char_offset=0, speed=4).paint(c0, frame_count=0)
+        RainbowChaseBorder(char_offset=0, speed=4).paint(c1, frame_count=10)
+        color0 = next(iter(set(c0.pixels.values())))
+        color1 = next(iter(set(c1.pixels.values())))
+        assert color0 != color1, (
+            f"Expected the synchronized cycle to advance with frame_count; "
+            f"got identical hue {color0} at frame=0 and frame=10."
+        )
 
 
 class TestConstantBorder:
@@ -245,3 +280,67 @@ class TestBorderPaintsBeforeText:
         canvas = RealStub(width=64, height=16)
         # Should run without error and produce no border-related calls.
         widget.draw(canvas)
+
+
+class TestCountdownBorder:
+    """TickerCountdown supports `border` with the same contract as
+    TickerMessage — paint before text, reads `_frame_count` for
+    animation, frame-aware effects compose with transition pause/
+    resume."""
+
+    def test_border_paint_called_with_widget_frame_count(self):
+        from datetime import date
+
+        from rgbmatrix import _StubCanvas as RealStub
+
+        from led_ticker.widgets.message import TickerCountdown
+
+        border = mock.Mock()
+        border.frame_invariant = False
+
+        widget = TickerCountdown("Days", countdown_date=date(2027, 1, 1), border=border)
+        widget._frame_count = 17
+        canvas = RealStub(width=64, height=16)
+        widget.draw(canvas)
+
+        border.paint.assert_called_once_with(canvas, 17)
+
+    def test_border_paints_before_text_on_countdown(self):
+        """Same paint-order contract as TickerMessage — border first
+        so text overlaps on collision."""
+        from datetime import date
+
+        from rgbmatrix import _StubCanvas as RealStub
+
+        from led_ticker.widgets.message import TickerCountdown
+
+        order: list[str] = []
+        border = mock.Mock()
+        border.frame_invariant = False
+        border.paint.side_effect = lambda *a, **kw: order.append("border")
+
+        widget = TickerCountdown("Days", countdown_date=date(2027, 1, 1), border=border)
+        canvas = RealStub(width=64, height=16)
+
+        with mock.patch(
+            "led_ticker.widgets.message.draw_text",
+            side_effect=lambda *a, **kw: order.append("draw_text") or 30,
+        ):
+            widget.draw(canvas)
+
+        assert order, "neither border nor draw_text was called"
+        assert order[0] == "border", (
+            f"Expected border first; got order={order}. Same contract as "
+            f"TickerMessage — border frames the panel, text floats inside."
+        )
+
+    def test_no_border_no_paint(self):
+        from datetime import date
+
+        from rgbmatrix import _StubCanvas as RealStub
+
+        from led_ticker.widgets.message import TickerCountdown
+
+        widget = TickerCountdown("Days", countdown_date=date(2027, 1, 1))
+        canvas = RealStub(width=64, height=16)
+        widget.draw(canvas)  # Should run without error.

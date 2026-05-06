@@ -199,23 +199,40 @@ def _coerce_border(value: Any) -> Any:
     """
     from led_ticker.borders import ConstantBorder, RainbowChaseBorder
 
+    def _validate_rgb(rgb: Any, context: str) -> tuple[int, int, int]:
+        """Validate an RGB triple for a border `constant` color.
+
+        - Reject bool components (bool is an int subclass; without
+          this guard `[True, False, True]` would silently coerce to
+          (1, 0, 1)). Same hardening pattern documented for
+          `font_threshold` in CLAUDE.md.
+        - Reject out-of-range values; SetPixel takes 0..255 bytes.
+          Letting `[300, -50, 999]` through produces undefined
+          rgbmatrix behavior and silently broken renders.
+        """
+        if not (isinstance(rgb, list | tuple) and len(rgb) == 3):
+            raise ValueError(f"border {context} must be [r,g,b]; got {rgb!r}")
+        if not all(isinstance(c, int) and not isinstance(c, bool) for c in rgb):
+            raise ValueError(
+                f"border {context} components must be ints; got {list(rgb)!r}"
+            )
+        if not all(0 <= c <= 255 for c in rgb):
+            raise ValueError(
+                f"border {context} RGB values must be 0-255; got {list(rgb)!r}"
+            )
+        return tuple(rgb)
+
     if value is None:
         return None
     # Already a BorderEffect — duck-typed via the `paint` method
     if hasattr(value, "paint") and hasattr(value, "frame_invariant"):
         return value
-    # Constant-color shorthand: [r, g, b]. Reject bools explicitly
-    # (bool is an int subclass in Python, so `isinstance(True, int)`
-    # is True without this guard) — `border = [True, False, True]`
-    # would silently coerce to (1, 0, 1) and paint a barely-visible
-    # ring. Same hardening pattern documented for `font_threshold`
-    # in CLAUDE.md.
-    if (
-        isinstance(value, list | tuple)
-        and len(value) == 3
-        and all(isinstance(c, int) and not isinstance(c, bool) for c in value)
-    ):
-        return ConstantBorder(color=tuple(value))
+    # Constant-color shorthand: [r, g, b]. Validate via _validate_rgb
+    # so the same shape works whether passed as a top-level list or
+    # via the inline-table form below. Bool is rejected (subclass of
+    # int) and out-of-range values are rejected (SetPixel needs 0-255).
+    if isinstance(value, list | tuple) and len(value) == 3:
+        return ConstantBorder(color=_validate_rgb(value, "shorthand color"))
     # String shorthand
     if isinstance(value, str):
         if value == "rainbow":
@@ -255,11 +272,9 @@ def _coerce_border(value: Any) -> Any:
                     "border = {style='constant', color=[r,g,b]}"
                 )
             color = kwargs.pop("color")
-            if not (isinstance(color, list | tuple) and len(color) == 3):
-                raise ValueError(
-                    f"border 'constant' color must be [r,g,b]; got {color!r}"
-                )
-            return ConstantBorder(color=tuple(color), **kwargs)
+            return ConstantBorder(
+                color=_validate_rgb(color, "'constant' color"), **kwargs
+            )
         raise ValueError(
             f"unknown border style {style!r}; available: 'rainbow', 'constant'"
         )
@@ -457,9 +472,10 @@ async def _build_widget(
     # catches misplaced `border = ...` in TOML before it surfaces as
     # a confusing "unknown kwarg" downstream.
     border_value = widget_cfg.pop("border", None)
-    if border_value is not None and widget_type != "message":
+    if border_value is not None and widget_type not in ("message", "countdown"):
         raise ValueError(
-            f'border is only valid on type="message"; got ' f"type={widget_type!r}."
+            f'border is only valid on type="message" or "countdown"; got '
+            f"type={widget_type!r}."
         )
     if border_value is not None:
         widget_cfg["border"] = _coerce_border(border_value)

@@ -130,12 +130,14 @@ class RainbowChaseBorder:
     enough to read as "rainbow" rather than "two-color gradient".
     `thickness = 1` is a 1-pixel border; `2` is a 2-pixel ring.
 
-    Frame-variant — `paint` output depends on `frame_count`. Hosts
-    that gate static-text fast paths on `frame_invariant` will
-    correctly force a per-tick redraw when this border is active.
+    `frame_invariant` is dynamic: True only when `speed == 0` (the
+    chase doesn't advance per frame, so paint output is identical
+    every tick). Lets a future fast-path gate skip per-tick redraws
+    on a pinned rainbow without animation. `char_offset` doesn't
+    affect frame-invariance — it indexes by perimeter position, not
+    by frame, so the per-pixel pattern still varies even with
+    `char_offset = 0` if `speed > 0`.
     """
-
-    frame_invariant: bool = False
 
     def __init__(
         self,
@@ -146,6 +148,10 @@ class RainbowChaseBorder:
         self.speed = speed
         self.char_offset = char_offset
         self.thickness = thickness
+
+    @property
+    def frame_invariant(self) -> bool:
+        return self.speed == 0
 
     def paint(self, canvas: Canvas, frame_count: int) -> None:
         real = unwrap_to_real(canvas)

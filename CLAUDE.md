@@ -219,6 +219,8 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 
 **Cross-scale dissolves**: `run_transition(..., incoming_scale=N)` re-wraps the canvas at the new scale at t ≥ 0.5 so the incoming widget dissolves IN at its native size instead of flashing the wrong scale. The function returns the new wrapper — callers MUST capture the return value (`canvas = await run_transition(...)`) to follow the new wrapper for subsequent renders.
 
+**Inter-section bg_color ramp**: `run_transition(..., incoming_bg_color=(r,g,b))` makes the per-frame reset paint `Fill(r,g,b)` for the second half of the transition (t ≥ 0.5, same threshold as `incoming_scale`). When None (default), the per-frame reset stays at `Clear()` (legacy behavior — every transition flashes through black). Set on bright-bg sections to eliminate the single-tick brightness step from black-during-transition to bg-color-on-first-paint that read as a "stutter" pre-fix. Both call sites pass it: `app.py` propagates `section.bg_color`, `ticker.py:_run_swap` propagates `widget.bg_color` for inter-widget transitions within a section. `run_transition` normalizes — accepts a tuple or a `graphics.Color` object so both call sites land in the same code path. Tripwire: `TestRunTransitionIncomingBgColor` in `tests/test_transitions.py` (4 tests covering None default, the t<0.5 vs t>=0.5 split, exact (r,g,b) threading, and graphics.Color normalization).
+
 ### Color providers and animations
 
 **Color providers and animations**: `font_color` (and `top_color` /

@@ -86,6 +86,7 @@ async def run_transition(
     region: Any = None,
     incoming_scale: int | None = None,
     incoming_content_height: int = 16,
+    incoming_bg_color: Any = None,
 ) -> Canvas:
     """Run a transition. Returns the current back-buffer canvas.
 
@@ -105,8 +106,30 @@ async def run_transition(
     so the incoming widget dissolves IN at the same y-positions that
     `run_swap` will draw it at after the transition completes; otherwise
     the rows visibly jump vertically when the section starts.
+
+    ``incoming_bg_color`` lets the panel ramp to the incoming section's
+    bg over the second half of the transition (`t >= 0.5`, same threshold
+    as ``incoming_scale``). When None, the per-frame reset stays at
+    `Clear()` (legacy black-flash behavior). When set, the second half
+    paints `Fill(*incoming_bg_color)` so by the time the section
+    actually starts (and `_swap_and_scroll`'s `reset_canvas` fills the
+    bg for the first time) the panel is already on that color — no
+    single-tick brightness step. Particularly noticeable on bright bg
+    sections: §8 of the showroom going from black-during-transition
+    to bright-yellow-on-first-paint reads as a hard flash without this.
     """
     del region  # plumbed but unused; future zoned layouts revisit this
+
+    # Normalize incoming_bg_color: accept tuple/list/None or a
+    # graphics.Color instance (widgets store bg_color as Color after
+    # `_build_widget` coercion; SectionConfig stores it as tuple).
+    # Both call sites land in the same code path below.
+    if incoming_bg_color is not None and hasattr(incoming_bg_color, "red"):
+        incoming_bg_color = (
+            incoming_bg_color.red,
+            incoming_bg_color.green,
+            incoming_bg_color.blue,
+        )
 
     ease_fn = EASING.get(easing, linear)
     frame_count = max(1, int(duration / scroll_speed))
@@ -155,11 +178,21 @@ async def run_transition(
                 )
 
             active = incoming_canvas if incoming_canvas is not None else canvas
-            # Transition compositing intentionally ignores bg_color — between
-            # two sections with different bgs, the dissolve flashes through
-            # black rather than coupling transition logic to widget state.
-            # Accepted footgun per the bg-color design spec.
-            active.Clear()
+            # Per-frame reset. Before t=0.5 the outgoing section is
+            # dominant — Clear (black) keeps legacy behavior so
+            # transitions between two no-bg sections look unchanged.
+            # At t >= 0.5 the incoming section's bg fades in: when
+            # `incoming_bg_color` is set, paint Fill(*incoming_bg)
+            # instead of Clear. By the time the section actually
+            # starts (and `_swap_and_scroll`'s reset_canvas fills the
+            # bg for the first time) the panel is already on that
+            # color — eliminates the single-tick brightness step
+            # that read as a "stutter" on bright-bg sections like
+            # showroom §8.
+            if t >= 0.5 and incoming_bg_color is not None:
+                active.Fill(*incoming_bg_color)
+            else:
+                active.Clear()
             transition.frame_at(
                 t,
                 active,

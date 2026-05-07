@@ -836,6 +836,12 @@ async def run(config_path: Path) -> None:
                         # actually starts running.
                         incoming_scale=section.scale,
                         incoming_content_height=section.content_height,
+                        # Ramp to the incoming section's bg over the
+                        # second half of the transition so the panel
+                        # is already on the new bg when the section
+                        # starts — no single-tick brightness step.
+                        # No-op when section.bg_color is None.
+                        incoming_bg_color=section.bg_color,
                     )
 
                 # Build within-section transition config (used between

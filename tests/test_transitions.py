@@ -1593,3 +1593,149 @@ class TestRunTransitionDurationMs:
             duration=1.25,
         )
         assert all(d == 1250 for d in captured)
+
+
+class TestRunTransitionIncomingBgColor:
+    """`incoming_bg_color` lets the panel ramp to the incoming
+    section's bg over the second half of the transition (t >= 0.5,
+    same threshold as `incoming_scale`). Without this parameter, the
+    per-frame reset is `Clear()` (black), and the panel snaps from
+    black to the section's bg at t=1.0 — visible as a hard flash on
+    bright-bg sections (showroom §8 black→yellow being the worst
+    case). Tests pin both the t<0.5 and t>=0.5 behavior plus the
+    interaction with `incoming_scale`.
+    """
+
+    @pytest.fixture
+    def capturing_canvas(self):
+        """Stub canvas that records every Clear() and Fill() call.
+
+        Lets the test assert which reset path fired per frame
+        without depending on actual pixel state."""
+        canvas = mock.MagicMock()
+        canvas.width = 64
+        canvas.height = 32
+        canvas.scale = 1
+        # Track the call order so tests can correlate with frame
+        # indices via the transition's frame_at side-effect.
+        canvas.reset_calls: list[tuple[str, tuple]] = []  # type: ignore[attr-defined]
+        canvas.Clear.side_effect = lambda: canvas.reset_calls.append(("Clear", ()))
+        canvas.Fill.side_effect = lambda r, g, b: canvas.reset_calls.append(
+            ("Fill", (r, g, b))
+        )
+        return canvas
+
+    async def test_clear_used_when_incoming_bg_color_is_none(
+        self, capturing_canvas, mock_frame, no_sleep
+    ):
+        """Default (None) → every frame uses Clear, matching legacy
+        behavior. No regression for sections without bg_color."""
+        outgoing = mock.Mock()
+        incoming = mock.Mock()
+        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+
+        await run_transition(
+            capturing_canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=Cut(),
+            duration=0.5,
+        )
+
+        kinds = [k for k, _ in capturing_canvas.reset_calls]
+        assert kinds, "no resets fired — transition didn't loop"
+        assert all(k == "Clear" for k in kinds), (
+            f"Expected every reset to be Clear when incoming_bg_color=None; "
+            f"got {capturing_canvas.reset_calls}"
+        )
+
+    async def test_fill_used_after_midpoint_when_incoming_bg_color_set(
+        self, capturing_canvas, mock_frame, no_sleep
+    ):
+        """`incoming_bg_color = (255, 230, 80)` → t<0.5 uses Clear,
+        t>=0.5 uses Fill(255, 230, 80). The boundary frame is exactly
+        when the section's bg becomes visible — by t=1.0 the panel
+        is already on the new bg, eliminating the post-transition
+        flash."""
+        outgoing = mock.Mock()
+        incoming = mock.Mock()
+        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+
+        await run_transition(
+            capturing_canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=Cut(),
+            duration=0.5,
+            incoming_bg_color=(255, 230, 80),
+        )
+
+        # First frame must be Clear (t=0).
+        assert capturing_canvas.reset_calls[0] == ("Clear", ())
+        # Last frame must be Fill (t=1.0).
+        assert capturing_canvas.reset_calls[-1] == ("Fill", (255, 230, 80)), (
+            f"Expected last reset to Fill the incoming bg; got "
+            f"{capturing_canvas.reset_calls[-1]}"
+        )
+        # Some Clear calls AND some Fill calls — the midpoint switch
+        # is where the transition crosses t=0.5.
+        kinds = [k for k, _ in capturing_canvas.reset_calls]
+        assert "Clear" in kinds, "no Clear at all — t<0.5 frames missing"
+        assert "Fill" in kinds, "no Fill at all — t>=0.5 frames missing"
+
+    async def test_fill_value_matches_incoming_bg_color(
+        self, capturing_canvas, mock_frame, no_sleep
+    ):
+        """Fill() is called with the exact (r, g, b) from
+        `incoming_bg_color` — no normalization or clamping."""
+        outgoing = mock.Mock()
+        incoming = mock.Mock()
+        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+
+        await run_transition(
+            capturing_canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=Cut(),
+            duration=0.5,
+            incoming_bg_color=(42, 0, 16),
+        )
+
+        fill_args = [
+            args for kind, args in capturing_canvas.reset_calls if kind == "Fill"
+        ]
+        assert fill_args, "no Fill calls"
+        assert all(a == (42, 0, 16) for a in fill_args)
+
+    async def test_accepts_graphics_color_object(
+        self, capturing_canvas, mock_frame, no_sleep
+    ):
+        """Widgets store `bg_color` as `graphics.Color` (after
+        `_build_widget`'s coercion). `run_transition` normalizes it
+        to a tuple at entry so the inter-widget call site in
+        `_run_swap` (which passes `widget.bg_color`) works the same
+        as the inter-section call site (which passes a tuple)."""
+        from rgbmatrix.graphics import Color
+
+        outgoing = mock.Mock()
+        incoming = mock.Mock()
+        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+
+        await run_transition(
+            capturing_canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=Cut(),
+            duration=0.5,
+            incoming_bg_color=Color(100, 50, 200),
+        )
+
+        fill_args = [
+            args for kind, args in capturing_canvas.reset_calls if kind == "Fill"
+        ]
+        assert fill_args, "graphics.Color not normalized — Fill never fired"
+        assert all(a == (100, 50, 200) for a in fill_args)

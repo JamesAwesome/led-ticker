@@ -421,3 +421,18 @@ class TestTwoRowBorder:
         widget = TwoRowMessage(top_text="A", bottom_text="B")
         canvas = RealStub(width=128, height=16)
         widget.draw(canvas)  # Should run without error.
+
+
+class TestRainbowChaseBorderRestartOnVisit:
+    """Pin `RainbowChaseBorder.restart_on_visit = False`. Read by
+    `_should_reset_frame` in ticker.py. Catches a future change
+    that flips the default."""
+
+    def test_rainbow_chase_border_restart_on_visit_is_false(self):
+        from led_ticker.borders import RainbowChaseBorder
+
+        assert RainbowChaseBorder.restart_on_visit is False, (
+            "RainbowChaseBorder.restart_on_visit must be False — "
+            "the perimeter chase should advance continuously across "
+            "loop_count boundaries within a section"
+        )

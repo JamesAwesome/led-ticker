@@ -1365,3 +1365,124 @@ class TestBuildWidgetWithBorder:
         }
         widget = await _build_widget(cfg, session=mock.Mock())
         assert widget.border is None
+
+
+class _StopApp(Exception):
+    """Sentinel raised from a patched dependency to break out of
+    `app.run`'s `while True` loop in tests."""
+
+
+class TestAppRunBgColorHandoff:
+    """End-to-end threading test for `last_bg_color` → next section's
+    `outgoing_bg_color` in `app.run`. The unit-level run_transition
+    tests pin the function's behavior; this one pins the call site
+    in `app.py` actually wires `last_bg_color` into the right
+    parameter when the for-loop crosses a section boundary.
+
+    Drives `app.run` with mocked LED hardware + a patched
+    `run_transition` that captures kwargs and raises `_StopApp` so
+    the otherwise-infinite loop exits.
+    """
+
+    async def test_section_to_section_transition_passes_previous_bg_as_outgoing(
+        self,
+    ):
+        """After section 1 (bg=red) runs, entering section 2 (bg=green)
+        must call `run_transition(outgoing_bg_color=red,
+        incoming_bg_color=green)`. Catches a regression where
+        `last_bg_color = section.bg_color` is dropped or moved
+        before the `run_transition` call site uses it."""
+        from led_ticker import app as app_module
+        from led_ticker.app import run as app_run
+        from led_ticker.config import (
+            AppConfig,
+            DisplayConfig,
+            SectionConfig,
+            TransitionConfig,
+        )
+
+        section_one_bg = (255, 0, 0)
+        section_two_bg = (0, 255, 0)
+
+        cfg = AppConfig(
+            display=DisplayConfig(rows=16, cols=32, chain=5),
+            sections=[
+                SectionConfig(
+                    mode="swap",
+                    widgets=[{"type": "message", "text": "A"}],
+                    bg_color=section_one_bg,
+                ),
+                SectionConfig(
+                    mode="swap",
+                    widgets=[{"type": "message", "text": "B"}],
+                    bg_color=section_two_bg,
+                ),
+            ],
+            # Non-cut between_sections so `_build_trans_obj` returns
+            # a real Transition instance (cut returns None and skips
+            # the run_transition call entirely).
+            between_sections=TransitionConfig(type="dissolve"),
+        )
+
+        captured_calls: list[dict] = []
+
+        async def fake_run_transition(*args, **kwargs):
+            captured_calls.append(kwargs)
+            # Raise on the first run_transition (it's the inter-section
+            # entry on section 2 — section 1 skips because last_widget
+            # is None on the first iteration). Breaks out of the
+            # `while True` loop in `app.run`.
+            raise _StopApp("captured the inter-section transition")
+
+        class _FakeTicker:
+            """Stand-in for `Ticker` that just records construction
+            and is a no-op on run_swap. Section 1 runs through
+            successfully; section 2's entry transition fires our
+            `fake_run_transition` BEFORE Ticker is constructed, so
+            this is only exercised by section 1."""
+
+            instances: list = []
+
+            def __init__(self, *args, **kwargs):
+                type(self).instances.append(self)
+                self.last_scroll_pos = 0
+
+            async def run_swap(self, **kw):
+                pass
+
+            async def run_forever_scroll(self, **kw):
+                pass
+
+            async def run_infini_scroll(self, **kw):
+                pass
+
+        with (
+            mock.patch.object(app_module, "load_config", return_value=cfg),
+            mock.patch.object(
+                app_module, "build_frame_from_config", return_value=mock.Mock()
+            ),
+            mock.patch.object(app_module, "_configure_user_font_dir"),
+            mock.patch.object(app_module, "Ticker", _FakeTicker),
+            mock.patch.object(
+                app_module, "run_transition", side_effect=fake_run_transition
+            ),
+            pytest.raises(_StopApp),
+        ):
+            await app_run(Path("ignored.toml"))
+
+        assert len(captured_calls) == 1, (
+            f"expected exactly one inter-section run_transition call "
+            f"(section 2's entry); got {len(captured_calls)}"
+        )
+        kw = captured_calls[0]
+        assert kw.get("outgoing_bg_color") == section_one_bg, (
+            f"section 2's entry transition should receive section 1's "
+            f"bg as outgoing_bg_color={section_one_bg!r}; "
+            f"got {kw.get('outgoing_bg_color')!r}. last_bg_color "
+            f"plumbing in app.py likely regressed."
+        )
+        assert kw.get("incoming_bg_color") == section_two_bg, (
+            f"section 2's entry transition should receive its own bg "
+            f"as incoming_bg_color={section_two_bg!r}; "
+            f"got {kw.get('incoming_bg_color')!r}."
+        )

@@ -53,6 +53,22 @@ class Transition(Protocol):
 _TRANSITION_REGISTRY: dict[str, type[Transition]] = {}
 
 
+def _normalize_bg(c: Any) -> tuple[int, int, int] | None:
+    """Coerce an `(r, g, b)` tuple, a `graphics.Color`, or `None` to
+    a tuple/None pair.
+
+    Module-level so `_hires_loader._snap_reset` can call it without
+    duplicating the logic — both call sites must accept the same
+    inputs (widgets store `bg_color` as `graphics.Color` after
+    `_build_widget` coercion; `SectionConfig.bg_color` is a tuple).
+    """
+    if c is None:
+        return None
+    if hasattr(c, "red"):
+        return (c.red, c.green, c.blue)
+    return c
+
+
 def register_transition(name: str) -> Callable[[type], type]:
     def decorator(cls: type) -> type:
         _TRANSITION_REGISTRY[name] = cls
@@ -134,17 +150,6 @@ async def run_transition(
     a single-tick "border on black" flash on bordered widgets.
     """
     del region  # plumbed but unused; future zoned layouts revisit this
-
-    # Normalize bg_color params: accept tuple/list/None or a
-    # graphics.Color instance (widgets store bg_color as Color after
-    # `_build_widget` coercion; SectionConfig stores it as tuple).
-    # Both call sites land in the same code path below.
-    def _normalize_bg(c: Any) -> tuple[int, int, int] | None:
-        if c is None:
-            return None
-        if hasattr(c, "red"):
-            return (c.red, c.green, c.blue)
-        return c
 
     outgoing_bg_color = _normalize_bg(outgoing_bg_color)
     incoming_bg_color = _normalize_bg(incoming_bg_color)

@@ -1884,12 +1884,58 @@ class TestRunTransitionOutgoingBgColor:
         )
 
         assert captured_kwargs, "frame_at never called"
+        # Exact-set assertion: a refactor that drops `incoming_bg_color`
+        # from the forwarding kwargs would slip past a contains-check
+        # but break the hires snap (its bg-respect reads kwargs).
+        # Likewise, an accidental KEY ADDITION (e.g. typo'd duplicate)
+        # surfaces here. Update this set when you legitimately add a
+        # kwarg to `run_transition`'s frame_at call.
+        expected_keys = {"outgoing_scroll_pos", "duration_ms", "incoming_bg_color"}
         for kw in captured_kwargs:
-            assert "incoming_bg_color" in kw, (
-                "incoming_bg_color must be forwarded to frame_at so the "
-                f"hires snap can use it; got kwargs {sorted(kw.keys())}"
+            assert set(kw.keys()) == expected_keys, (
+                f"frame_at kwargs drifted: got {sorted(kw.keys())}, "
+                f"expected {sorted(expected_keys)}"
             )
             assert kw["incoming_bg_color"] == (255, 230, 80)
+
+    async def test_boundary_frame_at_t_exactly_half_uses_incoming_bg(
+        self, capturing_canvas, mock_frame, no_sleep
+    ):
+        """At t=0.5 exactly, the reset must use incoming_bg_color
+        (the cut-over is `<` vs `>=`). Frame budget is chosen so one
+        iteration lands exactly at t=0.5 — Cut.min_frames=1 is
+        bypassed by `frame_count = max(min_frames, duration/scroll_speed)`,
+        so duration=0.5 + scroll_speed=0.05 yields frame_count=10 and
+        i=5 → t=0.5 (linear easing). Pins the inversion of `<` to
+        `<=` (or `<` to `>` etc.) at this exact frame."""
+        outgoing = mock.Mock()
+        incoming = mock.Mock()
+        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+
+        await run_transition(
+            capturing_canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=Cut(),
+            duration=0.5,
+            scroll_speed=0.05,
+            easing="linear",
+            outgoing_bg_color=(42, 0, 16),
+            incoming_bg_color=(255, 230, 80),
+        )
+
+        # Frames 0..10 → t = 0.0, 0.1, ..., 1.0. Frame index 5 is t=0.5.
+        # That frame's reset MUST be Fill(incoming) — the cut-over.
+        assert capturing_canvas.reset_calls[5] == ("Fill", (255, 230, 80)), (
+            f"frame at t=0.5 should be Fill(incoming); got "
+            f"{capturing_canvas.reset_calls[5]}"
+        )
+        # And frame 4 (t=0.4) must still be the outgoing color.
+        assert capturing_canvas.reset_calls[4] == ("Fill", (42, 0, 16)), (
+            f"frame at t=0.4 should still be Fill(outgoing); got "
+            f"{capturing_canvas.reset_calls[4]}"
+        )
 
 
 class TestHiresSnapRespectsIncomingBg:
@@ -1922,3 +1968,69 @@ class TestHiresSnapRespectsIncomingBg:
         _snap_reset(canvas, (255, 230, 80))
         canvas.Fill.assert_called_once_with(255, 230, 80)
         canvas.Clear.assert_not_called()
+
+    def test_snap_normalizes_graphics_color(self):
+        """`_snap_reset` accepts an un-normalized `graphics.Color` —
+        future direct callers (outside `run_transition`) that pass a
+        widget's `bg_color` (which is a Color post-coercion) work
+        without re-normalizing at every site."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.transitions._hires_loader import _snap_reset
+
+        canvas = mock.MagicMock()
+        _snap_reset(canvas, Color(42, 0, 16))
+        canvas.Fill.assert_called_once_with(42, 0, 16)
+        canvas.Clear.assert_not_called()
+
+    def test_baseball_hires_snap_uses_fill_when_incoming_bg_set(self):
+        """End-to-end integration tripwire on the snap path. Drives
+        `Baseball.frame_at(t=0.95)` through the hires dispatch (real
+        ScaledCanvas → real `render_hires_baseball_frame` →
+        `_snap_reset`) with `incoming_bg_color` set, asserts the
+        underlying real canvas saw `Fill(...)` and NOT `Clear()`.
+
+        Catches a refactor that drops `kwargs.get('incoming_bg_color')`
+        in `_hires_loader.render_hires_baseball_frame` (or
+        `render_hires_frame`) and reverts the snap to `canvas.Clear()`
+        — that change passes the unit test on `_snap_reset` alone.
+
+        Baseball is fully procedural (no Pillow decode), so this test
+        runs without mocking `load_hires` or pre-warming any cache.
+        """
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions.baseball import Baseball
+
+        # Mock real canvas. ScaledCanvas.Fill / .Clear delegate to
+        # `self.real.Fill` / `self.real.Clear`, so spying on the mock
+        # captures both wrapper-level and direct calls.
+        real = mock.MagicMock()
+        real.width = 256
+        real.height = 64
+        wrapper = ScaledCanvas(real, scale=4)
+
+        outgoing = mock.Mock()
+        incoming = mock.Mock()
+        bb = Baseball()
+
+        # t=0.95 is the SNAP_THRESHOLD; t=1.0 short-circuits to the
+        # `t >= 1.0` early return BEFORE the hires dispatch, which
+        # is a different (also correct) path. 0.95 forces the snap
+        # branch inside render_hires_baseball_frame.
+        bb.frame_at(
+            0.95,
+            wrapper,
+            outgoing,
+            incoming,
+            incoming_bg_color=(255, 230, 80),
+        )
+
+        # The snap must Fill, not Clear. Outgoing.draw and the trail
+        # paint via SetPixel — those don't touch Fill/Clear. So any
+        # Fill call here came from _snap_reset.
+        assert real.Fill.called, (
+            "Baseball hires snap did not call Fill — "
+            "`_snap_reset` regressed to `canvas.Clear()`"
+        )
+        real.Fill.assert_any_call(255, 230, 80)
+        real.Clear.assert_not_called()

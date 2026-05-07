@@ -96,6 +96,14 @@ class _BaseImageWidget(_FrameAware):
     scroll_speed_ms: int = attrs.field(default=50, kw_only=True)
     text_loops: int = attrs.field(default=0, kw_only=True)
 
+    # Animation effect (currently Typewriter only). When set, text
+    # types out one character per `frames_per_char` ticks. Single-row
+    # only — `_validate_common` raises if `bottom_text` is set or
+    # `text_align ∈ ("scroll", "scroll_over")`. Composes with
+    # `font_color` (rainbow / gradient) and `border` (rainbow /
+    # constant) on independent per-effect counters from PR #12.
+    animation: Any | None = attrs.field(default=None, kw_only=True)
+
     # User-facing via TOML `font = "..."` / `font_size = N`. The CLI's
     # `_build_widget` resolves the name into a font object before
     # construction (BDF or HiresFont) and passes it here. Defaults to
@@ -272,6 +280,30 @@ class _BaseImageWidget(_FrameAware):
                 "to show through; got fit='stretch' (whole panel is opaque). "
                 "Use text_align='scroll_over' for marquee on a fullscreen image."
             )
+
+        # Animation field validation (single-row typewriter only).
+        # All three checks raise at config-load so the user sees the
+        # conflict immediately instead of getting a silent surprise
+        # on the panel. Bottom_text check fires first because two-row
+        # mode is the most likely accidental conflict.
+        if self.animation is not None:
+            if self.bottom_text:
+                raise ValueError(
+                    "animation is not supported in two-row mode "
+                    "(set on a single-row image widget; remove bottom_text)"
+                )
+            if self.text_align in ("scroll", "scroll_over"):
+                raise ValueError(
+                    f"animation is not compatible with "
+                    f"text_align={self.text_align!r} "
+                    "(typewriter on a moving marquee is incoherent; "
+                    "use text_align=auto/left/right)"
+                )
+            if not self.text:
+                raise ValueError(
+                    "animation requires non-empty text "
+                    "(typewriter has nothing to type out)"
+                )
 
         # Two-row mode validation. `bottom_text != ""` switches the
         # widget to held-top + scrolling-bottom semantics (mirrors

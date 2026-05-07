@@ -1612,3 +1612,76 @@ class TestImageBorderPhysicalResolution:
                 f"4×4 block resolution instead of 1 LED. Likely "
                 f"missing `unwrap_to_real` in the border path."
             )
+
+
+class TestImageTypewriter:
+    """Single-row typewriter on image widgets. Validation + render
+    + fast-path bypass + per-effect counter wiring."""
+
+    def _make_still(self, tmp_path, **kwargs):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(path=img_path, **kwargs)
+
+    def test_animation_with_bottom_text_raises(self, tmp_path):
+        from led_ticker.animations import Typewriter
+
+        with pytest.raises(ValueError, match="two-row mode"):
+            self._make_still(
+                tmp_path,
+                top_text="hi",
+                bottom_text="there",
+                animation=Typewriter(),
+            )
+
+    def test_animation_with_scroll_align_raises(self, tmp_path):
+        from led_ticker.animations import Typewriter
+
+        with pytest.raises(ValueError, match="text_align"):
+            self._make_still(
+                tmp_path,
+                text="Hello",
+                text_align="scroll",
+                fit="pillarbox",
+                animation=Typewriter(),
+            )
+
+    def test_animation_with_scroll_over_align_raises(self, tmp_path):
+        from led_ticker.animations import Typewriter
+
+        with pytest.raises(ValueError, match="text_align"):
+            self._make_still(
+                tmp_path,
+                text="Hello",
+                text_align="scroll_over",
+                animation=Typewriter(),
+            )
+
+    def test_animation_with_empty_text_raises(self, tmp_path):
+        from led_ticker.animations import Typewriter
+
+        with pytest.raises(ValueError, match="non-empty text"):
+            self._make_still(
+                tmp_path,
+                text="",
+                text_align="left",
+                animation=Typewriter(),
+            )
+
+    def test_animation_field_accepts_typewriter(self, tmp_path):
+        """No validation conflict: text_align=left, single-row, non-empty
+        text → construction succeeds."""
+        from led_ticker.animations import Typewriter
+
+        widget = self._make_still(
+            tmp_path,
+            text="Hello",
+            text_align="left",
+            animation=Typewriter(),
+        )
+        assert widget.animation is not None
+        assert isinstance(widget.animation, Typewriter)

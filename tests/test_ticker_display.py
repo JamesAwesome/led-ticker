@@ -1152,6 +1152,101 @@ class TestShowOneResetsFrame:
         # Should complete without AttributeError
         await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
 
+    async def test_show_one_skips_reset_when_border_is_continuous(
+        self, swapping_frame, no_sleep
+    ):
+        """Widget with a RainbowChaseBorder (restart_on_visit=False)
+        should NOT have its frame counter reset on entry to
+        `_show_one`. Simulates a `loop_count > 1` iteration where
+        the chase phase must keep advancing across the boundary."""
+        from rgbmatrix import _StubCanvas
+
+        class _ContinuousBorder:
+            restart_on_visit = False
+
+        class _SpyWidget:
+            def __init__(self):
+                self._frame_count = 42  # mid-chase value
+                self._frame_paused = False
+                self.reset_called = False
+                self.border = _ContinuousBorder()
+
+            def draw(self, canvas, cursor_pos=0, **kwargs):
+                return canvas, 5
+
+            def reset_frame(self):
+                self._frame_count = 0
+                self.reset_called = True
+
+            def advance_frame(self):
+                self._frame_count += 1
+
+            @property
+            def bg_color(self):
+                return None
+
+        widget = _SpyWidget()
+        canvas = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+
+        assert not widget.reset_called, (
+            "RainbowChaseBorder (restart_on_visit=False) should "
+            "block the reset — chase phase must advance across "
+            "loop_count boundaries"
+        )
+        # Frame counter advanced (from advance_frame calls during the
+        # hold loop), didn't snap back to 0
+        assert widget._frame_count > 42
+
+    async def test_show_one_resets_for_typewriter_widget(
+        self, swapping_frame, no_sleep
+    ):
+        """Widget with only Typewriter (default restart_on_visit=True
+        behavior) should still get reset on entry — preserves
+        today's retype-each-loop semantics."""
+        from rgbmatrix import _StubCanvas
+
+        class _TypewriterAnim:
+            restart_on_visit = True  # explicit default
+
+        class _SpyWidget:
+            def __init__(self):
+                self._frame_count = 99
+                self._frame_paused = False
+                self.reset_called = False
+                self.animation = _TypewriterAnim()
+
+            def draw(self, canvas, cursor_pos=0, **kwargs):
+                return canvas, 5
+
+            def reset_frame(self):
+                self._frame_count = 0
+                self.reset_called = True
+
+            def advance_frame(self):
+                self._frame_count += 1
+
+            @property
+            def bg_color(self):
+                return None
+
+        widget = _SpyWidget()
+        canvas = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+
+        assert widget.reset_called, (
+            "Typewriter (restart_on_visit=True) must still trigger "
+            "the reset — preserves retype-each-loop semantics"
+        )
+
 
 class TestShouldResetFrame:
     """`_should_reset_frame()` returns True iff every effect on the
@@ -1221,3 +1316,26 @@ class TestShouldResetFrame:
             font_color = _CustomEffect()
 
         assert _should_reset_frame(_Widget()) is True
+
+
+class TestShouldResetFrameComposition:
+    """Composition rule: a widget with both Typewriter (wants
+    restart) and RainbowChaseBorder (wants continuous) gets the
+    continuous semantics. ANY opt-out wins over restart. Niche
+    combo; tradeoff documented in CLAUDE.md."""
+
+    def test_typewriter_plus_continuous_border_skips_reset(self):
+        from led_ticker.ticker import _should_reset_frame
+
+        class _Typewriter:
+            restart_on_visit = True
+
+        class _ContinuousBorder:
+            restart_on_visit = False
+
+        class _Widget:
+            animation = _Typewriter()
+            border = _ContinuousBorder()
+
+        # Border's opt-out wins; reset is blocked.
+        assert _should_reset_frame(_Widget()) is False

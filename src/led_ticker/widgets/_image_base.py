@@ -742,12 +742,16 @@ class _BaseImageWidget(_FrameAware):
         # in via the class attribute) for safety.
         text_is_wrapped = isinstance(text_canvas, ScaledCanvas)
         color_is_static = getattr(self.font_color, "frame_invariant", False)
+        border_is_static = (
+            getattr(self.border, "frame_invariant", True) if self.border else True
+        )
 
         if (
             not scrolling
             and self.text_loops == 0
             and self._is_static()
             and color_is_static
+            and border_is_static
         ):
             self._render_tick(
                 canvas,

@@ -143,6 +143,10 @@ class RainbowChaseBorder:
     `char_offset = 0` if `speed > 0`.
     """
 
+    # Continuous chase: phase advances across loop_count boundaries
+    # within a section. See `_should_reset_frame` in ticker.py.
+    restart_on_visit: bool = False
+
     def __init__(
         self,
         speed: int = 4,

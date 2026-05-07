@@ -89,6 +89,7 @@ class Rainbow:
 
     per_char: bool = True
     frame_invariant: bool = False
+    restart_on_visit: bool = False  # continuous hue sweep across loop_count boundaries
 
     def __init__(self, speed: int = 8, char_offset: int = 30) -> None:
         self.speed = speed
@@ -109,6 +110,7 @@ class ColorCycle:
 
     per_char: bool = False
     frame_invariant: bool = False
+    restart_on_visit: bool = False  # continuous cycle across loop_count boundaries
 
     def __init__(self, speed: int = 5) -> None:
         self.speed = speed

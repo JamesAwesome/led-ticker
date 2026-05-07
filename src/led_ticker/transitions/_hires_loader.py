@@ -47,6 +47,23 @@ _RAINBOW_TRAIL_COLORS: list[tuple[int, int, int]] = [
 ]
 
 
+def _snap_reset(canvas: Any, incoming_bg_color: Any) -> None:
+    """Reset before drawing incoming at t>=SNAP_THRESHOLD.
+
+    `Clear()` (legacy) wipes any bg fill the run_transition outer
+    loop just painted, so the last frame ends up "incoming on black"
+    even when the section has a bg color — visible as a one-tick
+    flash on bordered widgets. When the run_transition caller
+    forwards `incoming_bg_color` here (tuple `(r, g, b)`), Fill it
+    instead so the snap matches the section's first reset_canvas.
+    """
+    if incoming_bg_color is not None:
+        r, g, b = incoming_bg_color
+        canvas.Fill(r, g, b)
+    else:
+        canvas.Clear()
+
+
 @dataclass(frozen=True)
 class HiresFrames:
     """Decoded sprite, ready to paint at native resolution.
@@ -354,7 +371,7 @@ def render_hires_baseball_frame(
     )
 
     if t >= SNAP_THRESHOLD:
-        canvas.Clear()
+        _snap_reset(canvas, kwargs.get("incoming_bg_color"))
         incoming.draw(canvas)
 
     return canvas
@@ -534,9 +551,11 @@ def render_hires_frame(
                 set_px(rx, sprite_y + y, r, g, b)
 
     # 7. At t>=0.95, snap to incoming so the panel doesn't end on
-    #    "outgoing-with-sprite-just-exited".
+    #    "outgoing-with-sprite-just-exited". Use bg-aware reset so
+    #    the last transition frame matches the new section's bg
+    #    instead of flashing black for one tick.
     if t >= SNAP_THRESHOLD:
-        canvas.Clear()
+        _snap_reset(canvas, kwargs.get("incoming_bg_color"))
         incoming.draw(canvas)
 
     return canvas

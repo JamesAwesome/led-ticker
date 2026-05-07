@@ -741,6 +741,9 @@ async def run(config_path: Path) -> None:
         last_scroll_pos: int = 0  # track scroll pos for between-section transitions
         last_scale: int = config.display.default_scale  # outgoing section's scale
         last_content_height: int = 16  # outgoing section's content_height
+        last_bg_color: tuple[int, int, int] | None = (
+            None  # outgoing section's bg_color (for run_transition's t<0.5 reset)
+        )
         widget_cache: dict[str, Any] = {}
 
         while True:
@@ -836,11 +839,17 @@ async def run(config_path: Path) -> None:
                         # actually starts running.
                         incoming_scale=section.scale,
                         incoming_content_height=section.content_height,
-                        # Ramp to the incoming section's bg over the
-                        # second half of the transition so the panel
-                        # is already on the new bg when the section
-                        # starts — no single-tick brightness step.
-                        # No-op when section.bg_color is None.
+                        # Preserve bg color through the transition.
+                        # `outgoing_bg_color` keeps the previous
+                        # section's bg painted at t<0.5 so it doesn't
+                        # vanish to black the instant the transition
+                        # starts; `incoming_bg_color` ramps in the
+                        # new bg at t>=0.5 (and the hires snap respects
+                        # it too) so the last transition frame matches
+                        # the section's first reset_canvas. Both
+                        # default to None — the legacy behavior was
+                        # `Clear()` for the entire transition.
+                        outgoing_bg_color=last_bg_color,
                         incoming_bg_color=section.bg_color,
                     )
 
@@ -892,6 +901,7 @@ async def run(config_path: Path) -> None:
                 last_scroll_pos = ticker.last_scroll_pos
                 last_scale = section.scale
                 last_content_height = section.content_height
+                last_bg_color = section.bg_color
                 if widgets:
                     last_widget = widgets[-1]
                 elif title:

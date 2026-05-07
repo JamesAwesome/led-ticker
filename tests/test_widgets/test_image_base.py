@@ -1727,3 +1727,42 @@ class TestImageTypewriter:
         assert widget.animation is None
         assert widget._visible_text(0, canvas) == "Hello"
         assert widget._visible_text(99, canvas) == "Hello"
+
+    async def test_fast_path_bypassed_with_animation(self, tmp_path, mocker):
+        """Static still + text_align=left + animation=Typewriter must
+        bypass the paint-once-and-sleep fast path so the typewriter's
+        per-tick reveal actually runs. Mirrors the existing
+        TestPlayWithTextBorderFastPath bypass for animated borders.
+
+        Fast path: `SwapOnVSync.call_count == 1`. Slow path:
+        `SwapOnVSync.call_count > 1`. We assert > 1.
+        """
+        from led_ticker.animations import Typewriter
+
+        widget = self._make_still(
+            tmp_path,
+            text="Hello",
+            text_align="left",
+            hold_seconds=0.5,
+            animation=Typewriter(),
+        )
+
+        frame = mocker.MagicMock()
+        # Each swap returns a fresh canvas (mirrors swapping_frame fixture
+        # — see CLAUDE.md tripwire #1).
+        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        # Auto-MagicMock canvas needs concrete width/height for _load's
+        # panel-dim arithmetic and for downstream layout math.
+        frame.matrix.SwapOnVSync.return_value.width = 64
+        frame.matrix.SwapOnVSync.return_value.height = 16
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        await widget.play(frame.matrix.SwapOnVSync.return_value, frame, loop_count=1)
+
+        # Slow path runs N ticks; we just need > 1 to prove fast path
+        # was bypassed. Default `hold_seconds=0.5` → ~10 ticks at 50ms.
+        assert frame.matrix.SwapOnVSync.call_count > 1, (
+            f"animation=Typewriter must force per-tick loop; "
+            f"got SwapOnVSync.call_count={frame.matrix.SwapOnVSync.call_count} "
+            f"(==1 means fast path ran, freezing typewriter at frame=0)"
+        )

@@ -872,6 +872,7 @@ class _BaseImageWidget(_FrameAware):
             and self._is_static()
             and color_is_static
             and border_is_static
+            and self.animation is None
         ):
             self._render_tick(
                 canvas,

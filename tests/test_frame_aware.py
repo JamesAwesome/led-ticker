@@ -164,3 +164,105 @@ class TestEffectFrames:
         widget.reset_frame()
         # No restart_on_visit attribute → defaults to True → zeroes
         assert widget._effect_frames["font_color"] == 0
+
+
+class TestEffectAttrsCompleteness:
+    """Tripwire: every `_FrameAware` subclass field whose annotation
+    references a known effect protocol (`ColorProvider`, `BorderEffect`,
+    `Animation`) — or whose name is one of the conventional `Any | None`
+    effect slots (`border`, `animation`) — must be registered in
+    `_FrameAware._EFFECT_ATTRS`. Catches a future widget that adds a
+    new effect-typed field but forgets the registration: without this
+    test the omission is silent, the per-effect counter is never
+    advanced, `frame_for(name)` falls through to `_frame_count`, and
+    a continuous-phase effect on the new field reverts to reset-per-
+    visit behavior.
+    """
+
+    # Names of effect protocols we recognize in field type annotations.
+    EFFECT_PROTOCOL_NAMES: frozenset[str] = frozenset(
+        {"ColorProvider", "BorderEffect", "Animation"}
+    )
+    # Conventional `Any | None` slot names — these are recognized by
+    # field name because the runtime types are intentionally `Any` to
+    # avoid widget code importing the Protocol at module-load time.
+    CONVENTIONAL_EFFECT_NAMES: frozenset[str] = frozenset({"border", "animation"})
+
+    def _all_frame_aware_subclasses(self) -> set[type]:
+        """Recursive walk of `_FrameAware.__subclasses__()`. Forces
+        widget-module imports first so subclasses get registered."""
+        # Ensure every widget module is imported so `__subclasses__`
+        # sees every concrete subclass.
+        import led_ticker.widgets  # noqa: F401
+
+        seen: set[type] = set()
+        stack = list(_FrameAware.__subclasses__())
+        while stack:
+            cls = stack.pop()
+            if cls in seen:
+                continue
+            seen.add(cls)
+            stack.extend(cls.__subclasses__())
+        return seen
+
+    def _annotation_mentions_effect(self, annotation: object) -> bool:
+        """True when the annotation string mentions a known effect
+        protocol. `attrs.fields()` exposes annotations as strings under
+        `from __future__ import annotations`, so a substring match is
+        sufficient and avoids resolving forward references."""
+        text = str(annotation) if annotation is not None else ""
+        return any(name in text for name in self.EFFECT_PROTOCOL_NAMES)
+
+    def test_every_effect_typed_field_is_registered(self):
+        """The actual tripwire."""
+        registered = _FrameAware._EFFECT_ATTRS
+        failures: list[str] = []
+
+        for cls in self._all_frame_aware_subclasses():
+            if not attrs.has(cls):
+                continue
+            for field in attrs.fields(cls):
+                if field.name.startswith("_"):
+                    continue
+                annotation_match = self._annotation_mentions_effect(field.type)
+                conventional_match = field.name in self.CONVENTIONAL_EFFECT_NAMES
+                if not (annotation_match or conventional_match):
+                    continue
+                if field.name in registered:
+                    continue
+                reason = (
+                    "annotation mentions effect protocol"
+                    if annotation_match
+                    else "conventional effect-slot name"
+                )
+                failures.append(
+                    f"{cls.__module__}.{cls.__name__}.{field.name} "
+                    f"(type={field.type!r}, {reason}) is not in "
+                    f"_FrameAware._EFFECT_ATTRS"
+                )
+
+        assert not failures, (
+            "Effect-typed fields must be registered in "
+            "`_FrameAware._EFFECT_ATTRS` so their per-effect counter "
+            "is advanced. Missing registrations:\n  " + "\n  ".join(failures)
+        )
+
+    def test_predicate_recognizes_color_provider_annotation(self):
+        """Self-test for `_annotation_mentions_effect`: positive
+        match on the canonical idiom `Color | ColorProvider`."""
+        assert self._annotation_mentions_effect("Color | ColorProvider")
+        assert self._annotation_mentions_effect("ColorProvider | None")
+        assert self._annotation_mentions_effect("BorderEffect | None")
+        assert self._annotation_mentions_effect("Animation")
+
+    def test_predicate_skips_non_effect_annotations(self):
+        """Self-test: bare `Color`, `Font`, `int` — the field types
+        used for non-effect knobs — must NOT match. Without this,
+        a regression in the predicate could pass the tripwire by
+        matching too much (or too little)."""
+        assert not self._annotation_mentions_effect("Color")
+        assert not self._annotation_mentions_effect("Color | None")
+        assert not self._annotation_mentions_effect("Font")
+        assert not self._annotation_mentions_effect("int")
+        assert not self._annotation_mentions_effect("Any | None")
+        assert not self._annotation_mentions_effect(None)

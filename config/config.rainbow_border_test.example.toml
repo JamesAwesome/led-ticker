@@ -568,3 +568,32 @@ font_size = 24
 font_color = "rainbow"
 animation = "typewriter"
 border = "rainbow"
+
+# ---------------------------------------------------------------------------
+# 19. Typewriter on image: caption types in over a held still.
+#     Three-effect composition: typewriter (restart_on_visit=True) +
+#     rainbow font color + rainbow border (both restart_on_visit=False)
+#     on the SAME image widget. Border keeps its chase phase across
+#     loop_count > 1; font rainbow sweeps continuously; caption retypes
+#     each loop. The architectural payoff of PR #12 extended to image
+#     widgets.
+#
+#     NOTE: §19 is commented out because `config/test.png` is not
+#     present in this repo. To enable locally, supply an image at
+#     `config/test.png` (any small PNG works) and uncomment the lines
+#     below.
+# ---------------------------------------------------------------------------
+# [[playlist.section]]
+# mode = "swap"
+# hold_time = 6
+# loop_count = 3
+# transition = "cut"
+#
+# [[playlist.section.widget]]
+# type = "image"
+# path = "config/test.png"
+# text = "Hello!"
+# text_align = "left"
+# animation = "typewriter"
+# font_color = "rainbow"
+# border = "rainbow"

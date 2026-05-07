@@ -288,7 +288,10 @@ class StillImage(_BaseImageWidget):
             await asyncio.sleep(self.hold_seconds)
             return canvas
 
-        # Slow path: per-tick loop for animated border.
+        # Slow path: per-tick loop for animated border. `border_is_static`
+        # being False guarantees `self.border` is non-None (per the
+        # predicate above) — assert to narrow the type for pyright.
+        assert self.border is not None
         n_ticks = max(1, int(self.hold_seconds * 1000) // ENGINE_TICK_MS)
         tick_seconds = ENGINE_TICK_MS / 1000
         for _ in range(n_ticks):

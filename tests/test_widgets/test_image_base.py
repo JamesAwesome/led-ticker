@@ -1278,6 +1278,8 @@ class TestRenderTwoRowTickBorder:
 
         widget._render_two_row_tick(real_canvas, real_canvas, top, bottom)
 
+        border.paint.assert_called_once_with(real_canvas, 99)
+
 
 class TestPlayWithTextBorderFastPath:
     """Fast-path gate in `_play_with_text` must consider

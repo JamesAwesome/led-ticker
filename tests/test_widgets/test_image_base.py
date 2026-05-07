@@ -1685,3 +1685,53 @@ class TestImageTypewriter:
         )
         assert widget.animation is not None
         assert isinstance(widget.animation, Typewriter)
+
+    def test_visible_text_slices_per_frame(self, tmp_path):
+        """Pre-populate the animation per-effect counter to specific
+        values; assert `_visible_text` returns the typed-so-far slice
+        at each frame. At default frames_per_char=3 with chars_per_frame=1:
+          frame=0 → 1 char (Typewriter's `progress = (0 // 3) + 1 = 1`)
+          frame=2 → 1 char (still in the first frames_per_char window)
+          frame=3 → 2 chars
+          frame=6 → 3 chars
+          frame=999 → all 5 chars (clamped to len(text)).
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.animations import Typewriter
+
+        widget = self._make_still(
+            tmp_path,
+            text="Hello",
+            text_align="left",
+            animation=Typewriter(),
+        )
+        canvas = _StubCanvas(width=64, height=16)
+
+        # frame=0: 1 char visible
+        widget._effect_frames["animation"] = 0
+        assert widget._visible_text(0, canvas) == "H"
+
+        # frame=3: 2 chars
+        widget._effect_frames["animation"] = 3
+        assert widget._visible_text(3, canvas) == "He"
+
+        # frame=6: 3 chars
+        widget._effect_frames["animation"] = 6
+        assert widget._visible_text(6, canvas) == "Hel"
+
+        # Way past completion: clamps to full text
+        widget._effect_frames["animation"] = 999
+        assert widget._visible_text(999, canvas) == "Hello"
+
+    def test_visible_text_returns_full_text_when_no_animation(self, tmp_path):
+        """`animation = None` (default): helper returns `self.text`
+        unchanged so layout / draw code that always calls the helper
+        is correct for the no-animation case too."""
+        from rgbmatrix import _StubCanvas
+
+        widget = self._make_still(tmp_path, text="Hello", text_align="left")
+        canvas = _StubCanvas(width=64, height=16)
+        assert widget.animation is None
+        assert widget._visible_text(0, canvas) == "Hello"
+        assert widget._visible_text(99, canvas) == "Hello"

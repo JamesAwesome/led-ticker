@@ -456,6 +456,30 @@ class _BaseImageWidget(_FrameAware):
     def _row_emoji_y_offset(self, row: int) -> int:
         return self.top_emoji_y_offset if row == 0 else self.bottom_emoji_y_offset
 
+    def _visible_text(self, frame_count: int, canvas: Canvas) -> str:
+        """Apply animation to text. Returns full text when no animation
+        is configured. Layout (cursor position, alignment math) operates
+        against `self.text` regardless — the anchored layout uses the
+        eventual full-text width while only the visible slice gets
+        drawn. This is what makes typewriter feel 'anchored' under
+        right-align: the partial text appears in the position the
+        final text will occupy.
+
+        Mirrors `TickerMessage.draw`'s animation branch: calls
+        `Typewriter.frame_for(frame, full_text, canvas_width, text_width)`
+        and reads `.visible_text` from the returned `AnimationFrame`.
+        `cursor_override` is intentionally ignored — image widgets fix
+        cursor via `text_align`, not animation overrides (Bounce was
+        removed in the PR #11 rework).
+        """
+        if self.animation is None:
+            return self.text
+        text_width = self._measure_text(canvas)
+        anim_frame = self.animation.frame_for(
+            frame_count, self.text, canvas.width, text_width
+        )
+        return anim_frame.visible_text
+
     def _measure_text(self, canvas: Canvas) -> int:
         if self._has_emoji():
             from led_ticker.pixel_emoji import measure_width
@@ -463,7 +487,14 @@ class _BaseImageWidget(_FrameAware):
             return measure_width(self.font, self.text, canvas=canvas)
         return get_text_width(self.font, self.text, padding=0, canvas=canvas)
 
-    def _draw_text(self, canvas: Canvas, x: int, baseline_y: int, color: Any) -> int:
+    def _draw_text(
+        self,
+        canvas: Canvas,
+        x: int,
+        baseline_y: int,
+        color: Any,
+        text_override: str | None = None,
+    ) -> int:
         """Route to draw_with_emoji when text contains slugs; otherwise
         plain BDF/HiresFont rasterizer. Emoji's 8-px sprite is anchored
         so its bottom row sits on the text baseline (works for any
@@ -475,7 +506,19 @@ class _BaseImageWidget(_FrameAware):
         with continuous char_index across emoji boundaries. Plain text
         with a per-char provider iterates via `draw_text_per_char` so
         rainbow/gradient render with per-character hue offsets; whole-
-        string providers materialize once and use `draw_text`."""
+        string providers materialize once and use `draw_text`.
+
+        `text_override`: when set (typewriter mid-cycle), draws this
+        string instead of `self.text`. Per-char providers receive
+        `total_chars=len(self.text)` (the eventual full length) so a
+        char that types in at position N gets the same hue mid-type
+        as it will at completion — anchors hue to char identity, not
+        to current visible position.
+        """
+        text = text_override if text_override is not None else self.text
+        # Per-char total: the eventual full-text length, so hue stays
+        # anchored to char identity across typewriter's reveal.
+        per_char_total = len(self.text) if self.text else 1
         if self._has_emoji():
             from led_ticker.pixel_emoji import draw_with_emoji
 
@@ -485,7 +528,7 @@ class _BaseImageWidget(_FrameAware):
                 x,
                 baseline_y,
                 color,
-                self.text,
+                text,
                 emoji_y=baseline_y - 8,
                 frame=self.frame_for("font_color"),
             )
@@ -498,17 +541,15 @@ class _BaseImageWidget(_FrameAware):
                 self.font,
                 x,
                 baseline_y,
-                self.text,
+                text,
                 lambda idx, total: color.color_for(
-                    self.frame_for("font_color"), idx, total
+                    self.frame_for("font_color"), idx, per_char_total
                 ),
             )
         # Whole-string provider or constant Color.
         if hasattr(color, "color_for"):
-            color = color.color_for(
-                self.frame_for("font_color"), 0, len(self.text) if self.text else 1
-            )
-        return draw_text(canvas, self.font, x, baseline_y, color, self.text)
+            color = color.color_for(self.frame_for("font_color"), 0, per_char_total)
+        return draw_text(canvas, self.font, x, baseline_y, color, text)
 
     def _measure_row_text(self, canvas: Canvas, row: int) -> int:
         """Width of one row's text in two-row mode. Uses per-row font
@@ -647,7 +688,20 @@ class _BaseImageWidget(_FrameAware):
             if self.border is not None:
                 self.border.paint(canvas, self.frame_for("border"))
             text_x = text_x_left if self.text_align == "left" else text_x_right
-            self._draw_text(text_canvas, text_x, baseline_y, provider)
+            # Apply animation to the visible text. `_visible_text`
+            # returns `self.text` when animation is None (no extra
+            # work for non-animated widgets) and the typewriter
+            # slice when set. Layout (text_x, baseline_y) is already
+            # computed against the FULL text width by the caller —
+            # we only override the rendered string here.
+            text_override = self._visible_text(self.frame_for("animation"), text_canvas)
+            self._draw_text(
+                text_canvas,
+                text_x,
+                baseline_y,
+                provider,
+                text_override=text_override,
+            )
 
     def _render_two_row_tick(
         self,

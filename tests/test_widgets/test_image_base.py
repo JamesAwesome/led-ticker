@@ -997,3 +997,32 @@ class TestPerCharProviderNonEmojiPath:
 
         assert [c[1] for c in provider.calls] == [0, 1, 2]
         assert all(c[2] == 3 for c in provider.calls)
+
+
+class TestImageBorderField:
+    """`_BaseImageWidget` exposes a `border: BorderEffect | None`
+    field that subclasses (StillImage, GifPlayer) inherit. Default
+    is None — no border, no animation overhead."""
+
+    def test_border_field_default(self):
+        from led_ticker.widgets.still import StillImage
+
+        # Use a tiny test PNG already shipped with the repo if any;
+        # otherwise the field default is observable on the class
+        # without instantiation.
+        assert StillImage.__attrs_attrs__  # sanity: attrs class
+        names = [a.name for a in StillImage.__attrs_attrs__]
+        assert "border" in names, (
+            f"StillImage missing inherited `border` field; " f"fields: {names}"
+        )
+
+    def test_border_default_is_none(self, tmp_path):
+        """Default value is None — confirmed via construction."""
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "tiny.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        widget = StillImage(path=img_path)
+        assert widget.border is None

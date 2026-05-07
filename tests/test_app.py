@@ -1324,7 +1324,10 @@ class TestBuildWidgetWithBorder:
         }
         with pytest.raises(
             ValueError,
-            match='border is only valid on type="message", "countdown", or "two_row"',
+            match=(
+                r'border is only valid on type="message", "countdown", '
+                r'"two_row", "gif", or "image"'
+            ),
         ):
             await _build_widget(cfg, session=mock.Mock())
 
@@ -1363,6 +1366,55 @@ class TestBuildWidgetWithBorder:
             "top_text": "@brand",
             "bottom_text": "tagline",
         }
+        widget = await _build_widget(cfg, session=mock.Mock())
+        assert widget.border is None
+
+    async def test_gif_with_border_string(self, tmp_path):
+        """GifPlayer accepts `border` with the same TOML vocabulary."""
+        from PIL import Image
+
+        from led_ticker.borders import RainbowChaseBorder
+
+        gif_path = tmp_path / "tiny.gif"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(
+            gif_path,
+            save_all=True,
+            append_images=[
+                Image.new("RGB", (4, 4), (0, 255, 0)),
+            ],
+            duration=100,
+            loop=0,
+        )
+        cfg = {
+            "type": "gif",
+            "path": str(gif_path),
+            "border": "rainbow",
+        }
+        widget = await _build_widget(cfg, session=mock.Mock())
+        assert isinstance(widget.border, RainbowChaseBorder)
+
+    async def test_image_with_border_table(self, tmp_path):
+        """StillImage accepts `border` as an inline table."""
+        from PIL import Image
+
+        from led_ticker.borders import ConstantBorder
+
+        img_path = tmp_path / "tiny.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        cfg = {
+            "type": "image",
+            "path": str(img_path),
+            "border": {"style": "constant", "color": [0, 255, 0]},
+        }
+        widget = await _build_widget(cfg, session=mock.Mock())
+        assert isinstance(widget.border, ConstantBorder)
+
+    async def test_image_without_border_has_none(self, tmp_path):
+        from PIL import Image
+
+        img_path = tmp_path / "tiny.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        cfg = {"type": "image", "path": str(img_path)}
         widget = await _build_widget(cfg, session=mock.Mock())
         assert widget.border is None
 

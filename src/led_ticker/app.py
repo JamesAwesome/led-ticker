@@ -476,10 +476,12 @@ async def _build_widget(
         "message",
         "countdown",
         "two_row",
+        "gif",
+        "image",
     ):
         raise ValueError(
-            f'border is only valid on type="message", "countdown", or '
-            f'"two_row"; got type={widget_type!r}.'
+            f'border is only valid on type="message", "countdown", '
+            f'"two_row", "gif", or "image"; got type={widget_type!r}.'
         )
     if border_value is not None:
         widget_cfg["border"] = _coerce_border(border_value)

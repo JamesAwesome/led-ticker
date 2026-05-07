@@ -617,6 +617,8 @@ class _BaseImageWidget(_FrameAware):
         """
         reset_canvas(real_canvas, self.bg_color)
         self._paint_image(real_canvas)
+        if self.border is not None:
+            self.border.paint(real_canvas, self._frame_count)
         self._draw_row_text(text_canvas, *top)
         self._draw_row_text(text_canvas, *bottom)
 

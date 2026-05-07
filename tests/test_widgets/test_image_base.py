@@ -1167,3 +1167,115 @@ class TestRenderTickBorder:
         widget._render_tick(canvas, canvas, 0, 12, 2, 60)
 
         border.paint.assert_called_once_with(canvas, 17)
+
+
+class TestRenderTwoRowTickBorder:
+    """Border in two-row mode: paint AFTER image, BEFORE either
+    row's text. Border target is the unwrapped real canvas (where
+    the image was painted) — same convention as TwoRowMessage."""
+
+    @pytest.fixture
+    def order_recorder(self, monkeypatch):
+        order: list[str] = []
+
+        def _record(name):
+            def _fn(self, *a, **kw):
+                order.append(name)
+
+            return _fn
+
+        from led_ticker.widgets import _image_base
+
+        monkeypatch.setattr(
+            _image_base._BaseImageWidget,
+            "_paint_image",
+            _record("paint_image"),
+            raising=False,
+        )
+        monkeypatch.setattr(
+            _image_base._BaseImageWidget,
+            "_draw_row_text",
+            _record("draw_row_text"),
+            raising=False,
+        )
+        return order
+
+    def _make_widget(self, tmp_path, border):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(
+            path=img_path,
+            top_text="@brand",
+            bottom_text="tagline",
+            border=border,
+        )
+
+    def test_two_row_paints_image_then_border_then_rows(self, tmp_path, order_recorder):
+        from rgbmatrix import _StubCanvas as RealStub
+
+        border = mock.Mock()
+        border.frame_invariant = False
+        border.paint.side_effect = lambda *a, **kw: order_recorder.append("border")
+
+        widget = self._make_widget(tmp_path, border)
+        real_canvas = RealStub(width=128, height=32)
+        # Pre-resolved row tuples are what the loop passes; values
+        # here are placeholders (color/x/baseline don't matter
+        # because _draw_row_text is patched to a recorder).
+        top = (None, "@brand", None, 0, 6, 0)
+        bottom = (None, "tagline", None, 0, 22, 0)
+
+        widget._render_two_row_tick(real_canvas, real_canvas, top, bottom)
+
+        assert order_recorder == [
+            "paint_image",
+            "border",
+            "draw_row_text",
+            "draw_row_text",
+        ], f"expected image→border→top→bottom; got {order_recorder}"
+
+    def test_two_row_no_border_runs_clean(self, tmp_path, order_recorder):
+        """Border=None: image + 2 row draws, no border calls."""
+        from rgbmatrix import _StubCanvas as RealStub
+
+        widget = self._make_widget(tmp_path, None)
+        real_canvas = RealStub(width=128, height=32)
+        top = (None, "@brand", None, 0, 6, 0)
+        bottom = (None, "tagline", None, 0, 22, 0)
+
+        widget._render_two_row_tick(real_canvas, real_canvas, top, bottom)
+
+        assert order_recorder == [
+            "paint_image",
+            "draw_row_text",
+            "draw_row_text",
+        ]
+
+    def test_two_row_border_receives_widget_frame_count(self, tmp_path, monkeypatch):
+        from rgbmatrix import _StubCanvas as RealStub
+
+        from led_ticker.widgets import _image_base
+
+        border = mock.Mock()
+        border.frame_invariant = False
+
+        monkeypatch.setattr(
+            _image_base._BaseImageWidget,
+            "_draw_row_text",
+            lambda self, *a, **kw: None,
+            raising=False,
+        )
+
+        widget = self._make_widget(tmp_path, border)
+        widget._frame_count = 99
+        real_canvas = RealStub(width=128, height=32)
+        top = (None, "@brand", None, 0, 6, 0)
+        bottom = (None, "tagline", None, 0, 22, 0)
+
+        widget._render_two_row_tick(real_canvas, real_canvas, top, bottom)
+
+        border.paint.assert_called_once_with(real_canvas, 99)

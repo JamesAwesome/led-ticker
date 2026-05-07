@@ -26,19 +26,23 @@ The `BorderEffect` Protocol exposes:
 - `frame_invariant: bool` — whether `paint` produces the same output
   every frame. Constant=True; rainbow chase=False.
 
-Currently consumed only by `TickerMessage` (per the v1 scope), but
-the API is generic — adding to `TickerCountdown` or a future widget
-is just wiring the field + dispatch, no protocol changes.
+Consumed by `TickerMessage`, `TickerCountdown`, `TwoRowMessage`,
+`GifPlayer`, and `StillImage`. The API is generic — adding to a
+future widget is just wiring the field + dispatch, no protocol
+changes.
 
-**Static-text fast-path note**: `_BaseImageWidget._play_with_text`
-gates its paint-once-and-sleep fast path on `font_color.frame_invariant`
-only. Image widgets don't accept `border` today, so this is fine.
-But: if a future widget BOTH owns its own render loop AND accepts
-`border`, that fast-path predicate must additionally check
-`border.frame_invariant` — otherwise a `RainbowChaseBorder` would
-silently freeze on the held-text fast path. Ditto for any future
-effect class that drives per-frame output on TickerMessage's render
-surface.
+**Static-text fast-path contract**: any widget that BOTH owns its
+own render loop AND accepts `border` must include
+`border.frame_invariant` in its fast-path predicate (same shape as
+the existing `font_color.frame_invariant` check) — otherwise a
+`RainbowChaseBorder` would silently freeze on the paint-once-and-
+sleep path. Current consumers of this contract:
+`_BaseImageWidget._play_with_text`, `_play_with_two_row_text`, and
+`StillImage._play_no_text`. The shared predicate is
+`getattr(self.border, "frame_invariant", True) if self.border else True`
+— `True` (= "is static, allow fast path") when border is None or
+explicitly frame-invariant. Same contract applies to any future
+effect class that drives per-frame output on a render surface.
 """
 
 from __future__ import annotations

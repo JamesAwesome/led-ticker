@@ -80,17 +80,28 @@ hold_seconds < 0.05, text_x_offset + scroll, etc.).
 A small helper on `_BaseImageWidget`:
 
 ```python
-def _visible_text(self, frame_count: int) -> str:
+def _visible_text(self, frame_count: int, canvas: Canvas) -> str:
     """Apply animation to text. Returns full text when no animation
     is configured. Layout (cursor position, alignment math) operates
     against `self.text` regardless — the anchored layout uses the
     eventual full-text width while only the visible slice gets
     drawn. This is what makes typewriter feel 'anchored' under
     right-align: the partial text appears in the position the
-    final text will occupy."""
+    final text will occupy.
+
+    Mirrors `TickerMessage.draw`'s animation branch: calls
+    `Typewriter.frame_for(frame, full_text, canvas_width, text_width)`
+    and reads `.visible_text` from the returned `AnimationFrame`.
+    `cursor_override` is intentionally ignored — image widgets fix
+    cursor via `text_align`, not animation overrides (Bounce was
+    removed in the PR #11 rework)."""
     if self.animation is None:
         return self.text
-    return self.animation.visible_chars(frame_count, self.text)
+    text_width = self._measure_text(canvas)
+    anim_frame = self.animation.frame_for(
+        frame_count, self.text, canvas.width, text_width
+    )
+    return anim_frame.visible_text
 ```
 
 `_render_tick` changes one line in the `left`/`right`/`auto` branch:
@@ -102,7 +113,7 @@ self._draw_text(text_canvas, text_x, baseline_y, provider)
 # after:
 self._draw_text(
     text_canvas, text_x, baseline_y, provider,
-    text_override=self._visible_text(self.frame_for("animation")),
+    text_override=self._visible_text(self.frame_for("animation"), text_canvas),
 )
 ```
 

@@ -298,6 +298,9 @@ class GifPlayer(_BaseImageWidget):
 
         loops = max(1, loop_count)
         canvas = real_canvas
+        # Cache `_loop_ms` defensively in case `_frames` was injected
+        # without going through `_load` (e.g. tests that bypass decode).
+        # Mirrors the same guard in `play()`'s with-text branch.
         if self._loop_ms == 0:
             self._loop_ms = sum(d for _, d in self._frames)
         total_ms = self._loop_ms * loops

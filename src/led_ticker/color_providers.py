@@ -17,6 +17,15 @@ Two flavors:
 The `_ConstantColor` provider exists so that plain `font_color = [r,g,b]`
 configs route through the same interface as effects-based configs.
 The widget-side code is uniform: `provider.color_for(...)`.
+
+**`restart_on_visit` convention**: providers that want continuous
+phase across `loop_count > 1` iterations of a section set
+`restart_on_visit: bool = False` as a class attribute. Read by
+`_should_reset_frame` in `ticker.py`. Default `True` (via
+`getattr` fallback) keeps today's "every visit = fresh start"
+behavior for unknown provider classes. `Rainbow` and `ColorCycle`
+opt out (continuous sweep / cycle); the others keep the default
+(frame-invariant or visit-driven re-roll).
 """
 
 from __future__ import annotations

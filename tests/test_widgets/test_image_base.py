@@ -994,6 +994,7 @@ class TestPerCharProviderNonEmojiPath:
             x=0,
             baseline_y=12,
             emoji_y=4,
+            frame_count=0,
         )
 
         assert [c[1] for c in provider.calls] == [0, 1, 2]

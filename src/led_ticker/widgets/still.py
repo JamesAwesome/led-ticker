@@ -257,9 +257,35 @@ class StillImage(_BaseImageWidget):
         return await self._play_with_text(real_canvas, frame, n_ticks)
 
     async def _play_no_text(self, real_canvas: Canvas, frame: Any) -> Canvas:
+        """Two-mode: fast path (paint once + sleep) when border is
+        None or frame-invariant; per-tick loop at engine 50ms
+        cadence when border is animated. Mirrors `_play_with_text`'s
+        fast-path gate exactly."""
+        from led_ticker.ticker import ENGINE_TICK_MS
+
         canvas = real_canvas
-        reset_canvas(canvas, self.bg_color)
-        self._paint_image(canvas)
-        canvas = frame.matrix.SwapOnVSync(canvas)
-        await asyncio.sleep(self.hold_seconds)
+        border_is_static = (
+            getattr(self.border, "frame_invariant", True) if self.border else True
+        )
+
+        if border_is_static:
+            # Fast path: paint once, sleep, return.
+            reset_canvas(canvas, self.bg_color)
+            self._paint_image(canvas)
+            if self.border is not None:
+                self.border.paint(canvas, self._frame_count)
+            canvas = frame.matrix.SwapOnVSync(canvas)
+            await asyncio.sleep(self.hold_seconds)
+            return canvas
+
+        # Slow path: per-tick loop for animated border.
+        n_ticks = max(1, int(self.hold_seconds * 1000) // ENGINE_TICK_MS)
+        tick_seconds = ENGINE_TICK_MS / 1000
+        for _ in range(n_ticks):
+            self.advance_frame()
+            reset_canvas(canvas, self.bg_color)
+            self._paint_image(canvas)
+            self.border.paint(canvas, self._frame_count)
+            canvas = frame.matrix.SwapOnVSync(canvas)
+            await asyncio.sleep(tick_seconds)
         return canvas

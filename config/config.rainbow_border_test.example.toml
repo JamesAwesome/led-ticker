@@ -30,6 +30,7 @@
 #  14. two-row + rainbow border      — handle + tagline + frame at scale=2
 #  15. scrolling text + border       — overflow scroll keeps border animating
 #  16. typewriter + loop_count=3     — visit-reset positive test (negation of §4-§7)
+#  17. typewriter + rainbow border   — composition tradeoff (chase wins, no retype)
 #
 # Tunables to compare on hardware:
 #   - speed         — degrees of hue per frame. Higher = faster chase.
@@ -502,3 +503,42 @@ animation = "typewriter"
 # getattr fallback), so it does NOT block the typewriter reset.
 # Visible frame around the panel without altering the test purpose.
 border = [80, 200, 255]
+
+# ---------------------------------------------------------------------------
+# 17. Typewriter + RainbowChaseBorder — composition tradeoff DEMO.
+#     §16 proves typewriter alone retypes on each loop. §1-§7 prove
+#     continuous-phase effects keep their phase. This section shows
+#     what happens when both are on the same widget: the composition
+#     rule (ANY opt-out wins) means the rainbow border blocks the
+#     typewriter reset, so the message types out ONCE on iteration
+#     1 and then HOLDS for the remaining 2 iterations while the
+#     border keeps chasing continuously.
+#
+#     This is the documented tradeoff (CLAUDE.md "Composition rule").
+#     The single shared `_frame_count` per widget can't simultaneously
+#     reset for typewriter AND not-reset for the chase. Picking one
+#     direction is the design call; we picked continuous (chase wins)
+#     because the chase artifact was the visible-on-hardware bug.
+#
+#     Watch for: typing happens ONCE (first ~2s), then "TYPING WITH
+#     RAINBOW" holds for 7s while the rainbow chase advances around
+#     the perimeter. NO re-typing on inner loops.
+#
+#     If you ever want both to work simultaneously, the fix is per-
+#     effect `_frame_count` counters — see PR #11 description for the
+#     ~half-day-of-work estimate.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 3.0
+loop_count = 3
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "TYPING WITH RAINBOW"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+animation = "typewriter"
+border = "rainbow"

@@ -196,25 +196,32 @@ def test_moon_emoji_is_8x8():
 
 
 def test_hires_moon_registered():
+    """The registry holds the AUTO-TRIMMED moon (pixels shifted to
+    left edge, physical_width = lit bbox), not the raw `MOON_HIRES`
+    constant. `_auto_trim_hires` recomputes physical_width from lit
+    pixels, so the registry entry differs from the source constant.
+    """
     from led_ticker.pixel_emoji import HIRES_REGISTRY, MOON_HIRES
 
     assert "moon" in HIRES_REGISTRY
-    assert HIRES_REGISTRY["moon"] is MOON_HIRES
+    assert HIRES_REGISTRY["moon"].physical_size == 32
+    # Source constant unchanged; registry entry is the trimmed version.
     assert MOON_HIRES.physical_size == 32
 
 
 def test_hires_moon_logical_width_matches_lowres():
-    """The crescent moon's lit pixels only span 19 of 32 cols, so its
-    `physical_width` is set to 20 (matching the low-res's 5-col
-    footprint at scale=4) — otherwise the empty cols 20-31 would
-    consume logical-width and create a visible gap to the next emoji
-    in inline rows.
+    """After auto-trim the crescent's lit pixels span 19 cols
+    (cols 0..18 post-shift). `logical_width` ceil-divides:
+    ceil(19/4) = 5 logical cols at scale=4 — matches the low-res
+    MOON's 5-col footprint and matches the previously hand-tuned
+    `physical_width=20` value. At scale=2: ceil(19/2) = 10.
     """
-    from led_ticker.pixel_emoji import MOON_HIRES
+    from led_ticker.pixel_emoji import HIRES_REGISTRY
 
-    assert MOON_HIRES.logical_width(scale=4) == 5
-    assert MOON_HIRES.logical_width(scale=2) == 10
-    assert MOON_HIRES.physical_size == 32  # full canvas height preserved
+    moon = HIRES_REGISTRY["moon"]
+    assert moon.logical_width(scale=4) == 5
+    assert moon.logical_width(scale=2) == 10
+    assert moon.physical_size == 32  # full canvas height preserved
 
 
 def test_hires_moon_paints_real_canvas_at_physical_resolution():
@@ -695,17 +702,22 @@ def test_partly_cloudy_in_both_registries():
     hires registries so the icon renders crisply on bigsign and falls
     back to a working sprite on the small sign. The hires variant
     composes a half-size sun in the top-right with the full cloud
-    silhouette anchored bottom (cloud overrides sun on overlap)."""
+    silhouette anchored bottom (cloud overrides sun on overlap).
+
+    After `_auto_trim_hires`, `physical_width` reflects the lit-pixel
+    bbox (27 cols) — not None — so the layout footprint matches the
+    sprite's actual visible content rather than the full 32×32 canvas.
+    """
     from led_ticker.pixel_emoji import HIRES_REGISTRY, _get_registry
 
     registry = _get_registry()
     assert "partly_cloudy" in registry
     assert "partly_cloudy" in HIRES_REGISTRY
-    # Hires variant matches the convention of the other weather hires
-    # sprites: 32x32 with width = size (no horizontal trim).
     h = HIRES_REGISTRY["partly_cloudy"]
     assert h.physical_size == 32
-    assert h.physical_width is None  # = full 32 logical at scale=1, 8 at scale=4
+    # Auto-trim: lit pixels span 27 cols → logical_width(4) = ceil(27/4) = 7.
+    assert h.physical_width == 27
+    assert h.logical_width(scale=4) == 7
 
 
 class TestDrawEmojiAt:
@@ -781,17 +793,18 @@ class TestDrawEmojiAt:
         with pytest.raises(KeyError):
             draw_emoji_at(canvas, "definitely_not_a_slug", x=0, y=0)
 
-    def test_partly_cloudy_resolves_via_lowres(self):
-        """partly_cloudy has no hires variant; even on a ScaledCanvas
-        the helper should pick the lowres sprite without raising."""
+    def test_partly_cloudy_resolves_via_hires_on_scaled_canvas(self):
+        """partly_cloudy has a hires variant — `draw_emoji_at` picks it
+        on a ScaledCanvas. After auto-trim, lit_w=27 → logical_width(4)
+        = ceil(27/4) = 7, so advance = 7 + EMOJI_PADDING.
+        """
         from led_ticker.pixel_emoji import EMOJI_PADDING, draw_emoji_at
         from led_ticker.scaled_canvas import ScaledCanvas
 
         real = _bigsign_real_canvas()
         sc = ScaledCanvas(real, scale=4)
         advance = draw_emoji_at(sc, "partly_cloudy", x=0, y=0)
-        # PARTLY_CLOUDY low-res is 8 wide
-        assert advance == 8 + EMOJI_PADDING
+        assert advance == 7 + EMOJI_PADDING
 
 
 _WEATHER_SLUGS = ["sun", "cloud", "rain", "snow", "thunder", "fog", "partly_cloudy"]
@@ -887,15 +900,17 @@ class TestMeasureEmojiAt:
         assert measure_emoji_at(sc, "sun") == 8 + EMOJI_PADDING
 
     def test_hires_on_bigsign_scale_2(self):
-        """Regression: at scale=2 the hires sun is 16 logical wide,
-        not 8. The weather widget's old hardcoded `+ 8 + EMOJI_PADDING`
-        would have undercounted by 8 logical pixels at this scale,
-        causing the temperature text to overlap the icon."""
+        """At scale=2 the hires sun fills more logical cols than at
+        scale=4 — ensures the weather widget's layout math reads
+        the canvas-scale-aware footprint rather than a hardcoded
+        constant. After auto-trim sun has lit_w=30 → logical_width(2)
+        = ceil(30/2) = 15.
+        """
         from led_ticker.pixel_emoji import EMOJI_PADDING, measure_emoji_at
         from led_ticker.scaled_canvas import ScaledCanvas
 
         sc = ScaledCanvas(_bigsign_real_canvas(), scale=2)
-        assert measure_emoji_at(sc, "sun") == 16 + EMOJI_PADDING
+        assert measure_emoji_at(sc, "sun") == 15 + EMOJI_PADDING
 
     def test_unknown_slug_raises(self):
         from rgbmatrix import _StubCanvas
@@ -904,3 +919,328 @@ class TestMeasureEmojiAt:
 
         with pytest.raises(KeyError):
             measure_emoji_at(_StubCanvas(width=160, height=16), "no_such_slug")
+
+
+class TestHiresAutoTrim:
+    """Hi-res sprites in `HIRES_REGISTRY` are auto-trimmed at assembly:
+    pixels are shifted left so `min_x == 0`, and `physical_width` is
+    set to `max_x - min_x + 1`. Generalizes the manual moon override
+    so internal sprite whitespace doesn't create asymmetric gaps when
+    an emoji is bordered by text (`:bunny: HI :heart_pink:`).
+
+    `logical_width()` uses ceiling division so unaligned widths (e.g.
+    cat's lit_w=22 at scale=4) don't truncate and overdraw the next
+    element's first column.
+    """
+
+    def test_bunny_pixels_shifted_to_left_edge(self):
+        """Bunny's lit pixels originally span cols 4-27 inside the 32-wide
+        sprite. After trim the leftmost lit pixel is at col 0."""
+        from led_ticker.pixel_emoji import HIRES_REGISTRY
+
+        bunny = HIRES_REGISTRY["bunny"]
+        xs = [px for px, _, _, _, _ in bunny.pixels]
+        assert min(xs) == 0, (
+            f"bunny min_x={min(xs)} — expected 0 after auto-trim. "
+            "Internal-left whitespace is still in the sprite, which "
+            "creates an asymmetric gap to the previous text segment."
+        )
+
+    def test_bunny_physical_width_matches_lit_extent(self):
+        """Bunny lit pixels span 24 cols after shift → physical_width=24."""
+        from led_ticker.pixel_emoji import HIRES_REGISTRY
+
+        bunny = HIRES_REGISTRY["bunny"]
+        xs = [px for px, _, _, _, _ in bunny.pixels]
+        lit_w = max(xs) - min(xs) + 1
+        assert bunny.physical_width == lit_w
+        assert bunny.physical_width == 24
+
+    def test_pride_unchanged_already_edge_to_edge(self):
+        """Pride fills cols 0..31 — already edge-to-edge, no trim needed.
+        physical_width stays 32 (or None) so logical footprint is
+        unchanged."""
+        from led_ticker.pixel_emoji import HIRES_REGISTRY
+
+        pride = HIRES_REGISTRY["pride"]
+        xs = [px for px, _, _, _, _ in pride.pixels]
+        assert min(xs) == 0
+        assert max(xs) == 31
+        # Width covers the full 32 either way (None or 32 are equivalent).
+        effective_w = (
+            pride.physical_width
+            if pride.physical_width is not None
+            else pride.physical_size
+        )
+        assert effective_w == 32
+
+    def test_trim_preserves_pixel_colors_and_y(self):
+        """Trim shifts x by min_x but must preserve y and color tuples
+        for every pixel — otherwise the sprite's silhouette breaks.
+        Compare directly against the source `BUNNY_HIRES` constant:
+        the registered sprite must equal each source pixel shifted
+        left by 4 (bunny's pre-trim min_x).
+        """
+        from led_ticker.pixel_emoji import BUNNY_HIRES, HIRES_REGISTRY
+
+        bunny_trimmed = HIRES_REGISTRY["bunny"]
+        # Pre-trim bunny pixels start at x=4 (the empty-left margin).
+        source_min_x = min(px for px, _, _, _, _ in BUNNY_HIRES.pixels)
+        assert source_min_x == 4
+        # Every trimmed pixel must equal `(source_x - 4, source_y, r, g, b)`.
+        expected = tuple(
+            (px - source_min_x, py, r, g, b) for (px, py, r, g, b) in BUNNY_HIRES.pixels
+        )
+        assert bunny_trimmed.pixels == expected, (
+            "Trim mutated y or color values, or shifted x by the wrong "
+            "amount. The registered sprite no longer matches the source "
+            "constant shifted by min_x."
+        )
+
+    def test_logical_width_uses_ceiling_division(self):
+        """Auto-trim can produce unaligned physical_widths (e.g. cat's
+        lit_w=22 at scale=4 → 22/4 = 5.5). Floor division would return
+        5 logical cols, but the sprite's lit content extends 22 real px
+        — the next element drawn at logical 5 would overdraw the
+        sprite's last 2 lit pixels. Ceiling rounds UP to 6 logical cols,
+        leaving the sprite intact.
+        """
+        from led_ticker.pixel_emoji import HiResEmoji
+
+        # Synthetic sprite with lit_w=22 (matching cat after trim).
+        sprite = HiResEmoji(
+            pixels=tuple((x, 0, 255, 255, 255) for x in range(22)),
+            physical_size=32,
+            physical_width=22,
+        )
+        assert sprite.logical_width(scale=4) == 6  # ceil(22/4) = 6
+        assert sprite.logical_width(scale=2) == 11  # ceil(22/2) = 11
+        assert sprite.logical_width(scale=1) == 22
+
+    def test_cat_logical_footprint_shrinks_after_trim(self):
+        """Concrete: cat lit_w=22 → at scale=4, footprint is 6 logical
+        cols (not 8). Two-col reduction in inline-text width.
+        """
+        from led_ticker.pixel_emoji import HIRES_REGISTRY
+
+        cat = HIRES_REGISTRY["cat"]
+        assert cat.logical_width(scale=4) == 6
+
+    def test_heart_logical_width_unchanged_at_scale_4(self):
+        """heart lit_w=30 → ceil(30/4) = 8, same as the un-trimmed
+        physical_size=32 footprint. Auto-trim shifts the sprite but
+        doesn't shrink its footprint at scale=4."""
+        from led_ticker.pixel_emoji import HIRES_REGISTRY
+
+        heart = HIRES_REGISTRY["heart"]
+        assert heart.logical_width(scale=4) == 8
+
+    def test_all_hires_sprites_start_at_left_edge(self):
+        """Every entry in HIRES_REGISTRY has min_x == 0 after auto-trim.
+        A sprite with internal-left whitespace creates an asymmetric
+        gap to the preceding text segment in `:emoji: word :emoji:`
+        rows."""
+        from led_ticker.pixel_emoji import HIRES_REGISTRY
+
+        for slug, hires in HIRES_REGISTRY.items():
+            xs = [px for px, _, _, _, _ in hires.pixels]
+            assert min(xs) == 0, (
+                f"{slug} has internal-left whitespace (min_x={min(xs)}). "
+                "Auto-trim should have shifted it to the left edge."
+            )
+
+
+class TestEmojiPaddingSymmetric:
+    """`EMOJI_PADDING` is applied on BOTH sides of an emoji adjacent to
+    text. Previously it was only applied AFTER an emoji, which created
+    a permanent asymmetric gap around emojis bordered by text on both
+    sides (e.g. `:pride: LOVE :pride:` showed a wider gap on the right
+    of the first emoji than on the left of the second).
+
+    Rules:
+      - Pad BEFORE an emoji whose previous segment was text.
+      - Pad AFTER every emoji (existing behavior, unchanged).
+      - No leading pad if emoji is first segment (or after another emoji).
+
+    `draw_emoji_at` and `measure_emoji_at` are single-icon helpers
+    used by widgets that explicitly position one icon — they don't
+    parse `:slug:` sequences and keep their `sprite_w + EMOJI_PADDING`
+    contract unchanged.
+    """
+
+    def test_leading_emoji_no_pre_pad(self):
+        """`:taco:hello` — taco is the FIRST segment, no leading pad.
+        Width = taco_w + EMOJI_PADDING + text_w(hello, padding=0).
+        """
+        from led_ticker.drawing import get_text_width
+        from led_ticker.pixel_emoji import (
+            EMOJI_PADDING,
+            _emoji_width,
+            _get_registry,
+            measure_width,
+        )
+
+        taco_w = _emoji_width(_get_registry()["taco"])
+        hello_w = get_text_width(FONT_SMALL, "hello", padding=0)
+        # No canvas → low-res; just text + low-res taco.
+        assert measure_width(FONT_SMALL, ":taco:hello") == (
+            taco_w + EMOJI_PADDING + hello_w
+        )
+
+    def test_text_then_emoji_gets_pre_pad(self):
+        """`hi:taco:` — taco is preceded by text, so pre-pad fires.
+        Width = text_w(hi) + EMOJI_PADDING + taco_w + EMOJI_PADDING.
+        Without the pre-pad fix, width would be:
+            text_w(hi) + taco_w + EMOJI_PADDING.
+        """
+        from led_ticker.drawing import get_text_width
+        from led_ticker.pixel_emoji import (
+            EMOJI_PADDING,
+            _emoji_width,
+            _get_registry,
+            measure_width,
+        )
+
+        taco_w = _emoji_width(_get_registry()["taco"])
+        hi_w = get_text_width(FONT_SMALL, "hi", padding=0)
+        assert measure_width(FONT_SMALL, "hi:taco:") == (
+            hi_w + EMOJI_PADDING + taco_w + EMOJI_PADDING
+        )
+
+    def test_back_to_back_emojis_no_double_pad(self):
+        """`:taco::taco:` — two adjacent emojis, no text between. The
+        second taco's previous segment is an emoji (not text) → no
+        leading pad. Each emoji contributes only its trailing pad.
+        Width = 2 * (taco_w + EMOJI_PADDING).
+        """
+        from led_ticker.pixel_emoji import (
+            EMOJI_PADDING,
+            _emoji_width,
+            _get_registry,
+            measure_width,
+        )
+
+        taco_w = _emoji_width(_get_registry()["taco"])
+        assert measure_width(FONT_SMALL, ":taco::taco:") == (
+            2 * (taco_w + EMOJI_PADDING)
+        )
+
+    def test_emoji_text_emoji_balanced(self):
+        """`:taco: hi :taco:` — second taco gets pre-pad because the
+        " hi " text segment is its previous segment. The visible gaps
+        around "hi" are now symmetric:
+            after first taco: EMOJI_PADDING + space char
+            before second taco: space char + EMOJI_PADDING
+        Width = taco_w + PAD + text_w(' hi ') + PAD + taco_w + PAD.
+        """
+        from led_ticker.drawing import get_text_width
+        from led_ticker.pixel_emoji import (
+            EMOJI_PADDING,
+            _emoji_width,
+            _get_registry,
+            measure_width,
+        )
+
+        taco_w = _emoji_width(_get_registry()["taco"])
+        text_w = get_text_width(FONT_SMALL, " hi ", padding=0)
+        assert measure_width(FONT_SMALL, ":taco: hi :taco:") == (
+            taco_w + EMOJI_PADDING + text_w + EMOJI_PADDING + taco_w + EMOJI_PADDING
+        )
+
+    def test_draw_advance_matches_measured_width(self):
+        """`draw_with_emoji` returns the same advance `measure_width`
+        predicts. Drift between the two would put text at a different x
+        than the layout math expects.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.pixel_emoji import draw_with_emoji, measure_width
+
+        canvas = _StubCanvas(width=160, height=16)
+        text = "hi:taco: there:taco:"
+        measured = measure_width(FONT_SMALL, text)
+        advance = draw_with_emoji(
+            canvas, FONT_SMALL, cursor_pos=0, y=8, color=(255, 255, 255), text=text
+        )
+        assert advance == measured
+
+    def test_draw_emoji_at_unchanged_single_icon(self):
+        """`draw_emoji_at` is the single-icon helper for widgets that
+        position one icon at a known (x, y). It does NOT parse text
+        and keeps the simple `sprite_w + EMOJI_PADDING` contract — no
+        leading pad applies.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.pixel_emoji import EMOJI_PADDING, draw_emoji_at
+
+        canvas = _StubCanvas(width=160, height=16)
+        advance = draw_emoji_at(canvas, "taco", x=0, y=4)
+        # Low-res taco is 14 wide.
+        assert advance == 14 + EMOJI_PADDING
+
+    def test_measure_emoji_at_unchanged_single_icon(self):
+        """Mirror: `measure_emoji_at` keeps its single-icon contract."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.pixel_emoji import EMOJI_PADDING, measure_emoji_at
+
+        canvas = _StubCanvas(width=160, height=16)
+        assert measure_emoji_at(canvas, "taco") == 14 + EMOJI_PADDING
+
+    def test_per_char_provider_advance_matches_measure(self):
+        """The pre-pad must apply on the per-char ColorProvider path
+        too. If a refactor moved the pre-pad inside `if not per_char:`,
+        a per-char rainbow rendering of `:taco: HI :taco:` would
+        return the wrong advance and `measure_width` would predict
+        a different layout than `draw_with_emoji` paints. Tripwire
+        for that drift.
+        """
+        from rgbmatrix import _StubCanvas
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.pixel_emoji import draw_with_emoji, measure_width
+
+        class _PerCharProvider:
+            per_char = True
+
+            def color_for(self, frame, char_index, total_chars):
+                return Color(255, 255, 255)
+
+        canvas = _StubCanvas(width=160, height=16)
+        text = ":taco: HI :taco:"
+        measured = measure_width(FONT_SMALL, text)
+        advance = draw_with_emoji(
+            canvas,
+            FONT_SMALL,
+            cursor_pos=0,
+            y=8,
+            color=_PerCharProvider(),
+            text=text,
+        )
+        assert advance == measured
+
+    def test_pride_love_pride_total_width_matches_symmetric_formula(self):
+        """`:pride: LOVE :pride:` on a bigsign-equivalent ScaledCanvas:
+        `measure_width` must return the symmetric-padded total
+        `pride_w + PAD + text_w(' LOVE ') + PAD + pride_w + PAD`.
+
+        Without the symmetric-pad fix, this would return
+        `pride_w + PAD + text_w + pride_w + PAD` (one PAD short on
+        the second emoji's left side) and the rendered LOVE would sit
+        2 logical px closer to the trailing pride than to the leading
+        pride.
+        """
+        from led_ticker.drawing import get_text_width
+        from led_ticker.pixel_emoji import EMOJI_PADDING, HIRES_REGISTRY, measure_width
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        real = _bigsign_real_canvas()
+        sc = ScaledCanvas(real, scale=4)
+        text = ":pride: LOVE :pride:"
+        pride_w = HIRES_REGISTRY["pride"].logical_width(scale=sc.scale)
+        text_w = get_text_width(FONT_SMALL, " LOVE ", padding=0, canvas=sc)
+        expected = (
+            pride_w + EMOJI_PADDING + text_w + EMOJI_PADDING + pride_w + EMOJI_PADDING
+        )
+        assert measure_width(FONT_SMALL, text, canvas=sc) == expected

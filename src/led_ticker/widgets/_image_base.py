@@ -395,6 +395,19 @@ class _BaseImageWidget(_FrameAware):
         per_row = self.top_color if row == 0 else self.bottom_color
         return per_row if per_row is not None else self.font_color
 
+    def _row_color_attr(self, row: int) -> str:
+        """Which `_EFFECT_ATTRS` key to look up `frame_for` against,
+        matching `_row_color`'s fallback. Per-row knob takes precedence;
+        fall back to `font_color` so a continuous-phase rainbow set via
+        `font_color` (with no per-row override) reads its own per-effect
+        counter — not the primary `_frame_count` (which resets per visit
+        and would silently restart the chase).
+        """
+        per_row = self.top_color if row == 0 else self.bottom_color
+        if per_row is not None:
+            return "top_color" if row == 0 else "bottom_color"
+        return "font_color"
+
     def _row_align(self, row: int) -> str:
         return self.top_align if row == 0 else self.bottom_align
 
@@ -493,9 +506,12 @@ class _BaseImageWidget(_FrameAware):
         `color` accepts a Color or a ColorProvider. Provider + emoji
         flows through `draw_with_emoji` for per-char rainbow support.
         `frame_count` is the per-effect counter the caller looked up
-        via `self.frame_for("top_color")` or `self.frame_for("bottom_color")`
-        — passed explicitly because this helper doesn't know which
-        row it's drawing for.
+        via `self.frame_for(self._row_color_attr(row))` — falls back
+        to `font_color`'s key when the per-row knob is unset, so a
+        continuous-phase rainbow set on `font_color` keeps its phase
+        across visits instead of reading the primary engine tick
+        counter. Passed explicitly because this helper doesn't know
+        which row it's drawing for.
         """
         if self._has_emoji() and EMOJI_PATTERN.search(text):
             from led_ticker.pixel_emoji import draw_with_emoji
@@ -626,9 +642,11 @@ class _BaseImageWidget(_FrameAware):
         self._paint_image(real_canvas)
         if self.border is not None:
             self.border.paint(real_canvas, self.frame_for("border"))
-        self._draw_row_text(text_canvas, *top, frame_count=self.frame_for("top_color"))
         self._draw_row_text(
-            text_canvas, *bottom, frame_count=self.frame_for("bottom_color")
+            text_canvas, *top, frame_count=self.frame_for(self._row_color_attr(0))
+        )
+        self._draw_row_text(
+            text_canvas, *bottom, frame_count=self.frame_for(self._row_color_attr(1))
         )
 
     # ------------------------------------------------------------------

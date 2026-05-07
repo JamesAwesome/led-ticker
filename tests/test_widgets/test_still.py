@@ -8,6 +8,8 @@ hold_seconds duration path.
 
 from __future__ import annotations
 
+import unittest.mock as mock
+
 import pytest
 from PIL import Image
 from rgbmatrix import RGBMatrix, RGBMatrixOptions
@@ -1131,3 +1133,65 @@ class TestStillBgColor:
 
         canvas.Clear.assert_not_called()
         canvas.Fill.assert_called_once_with(11, 22, 33)
+
+
+# ---------------------------------------------------------------------------
+# Two-mode _play_no_text: fast path vs per-tick loop based on border type
+# ---------------------------------------------------------------------------
+
+
+class TestStillPlayNoTextBorder:
+    """`StillImage._play_no_text` two-mode pattern: fast path
+    (paint once + sleep) when border is None or frame-invariant;
+    per-tick loop when border is animated."""
+
+    @pytest.fixture
+    def still(self, tmp_path):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(path=img_path, hold_seconds=0.5)
+
+    async def test_no_border_takes_fast_path(self, still, mock_frame):
+        """Single SwapOnVSync, single sleep covering the full hold."""
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()) as sleep_mock:
+            await still._play_no_text(
+                mock_frame.matrix.SwapOnVSync.return_value, mock_frame
+            )
+        # Fast path: ONE swap, ONE sleep.
+        assert mock_frame.matrix.SwapOnVSync.call_count == 1
+        assert sleep_mock.call_count == 1
+
+    async def test_constant_border_takes_fast_path(self, still, mock_frame):
+        from led_ticker.borders import ConstantBorder
+
+        still.border = ConstantBorder([0, 255, 0])
+
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()) as sleep_mock:
+            await still._play_no_text(
+                mock_frame.matrix.SwapOnVSync.return_value, mock_frame
+            )
+        assert mock_frame.matrix.SwapOnVSync.call_count == 1
+        assert sleep_mock.call_count == 1
+
+    async def test_animated_border_runs_per_tick_loop(self, still, mock_frame):
+        """RainbowChaseBorder(speed=4) → 10 ticks (500ms / 50ms),
+        10 swaps, 10 sleeps. Border.paint fires per tick with
+        increasing frame_count."""
+        from led_ticker.borders import RainbowChaseBorder
+
+        still.border = RainbowChaseBorder(speed=4)
+
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()) as sleep_mock:
+            await still._play_no_text(
+                mock_frame.matrix.SwapOnVSync.return_value, mock_frame
+            )
+        assert mock_frame.matrix.SwapOnVSync.call_count == 10
+        assert sleep_mock.call_count == 10
+        # Frame counter advanced ~10×
+        assert (
+            still._frame_count >= 9
+        ), f"_frame_count should advance per tick; got {still._frame_count}"

@@ -225,8 +225,9 @@ class TestFrameInvariantFlag:
 
 class TestContinuousProviderRestartOnVisit:
     """Pin the `restart_on_visit = False` class attribute on
-    continuous-phase color providers. Read by `_should_reset_frame`
-    in ticker.py. Catches a future change that flips the default."""
+    continuous-phase color providers. Read by `_FrameAware.reset_frame`
+    in widgets/_frame_aware.py. Catches a future change that flips
+    the default."""
 
     def test_rainbow_restart_on_visit_is_false(self):
         from led_ticker.color_providers import Rainbow

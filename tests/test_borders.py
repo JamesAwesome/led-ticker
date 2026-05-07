@@ -425,8 +425,8 @@ class TestTwoRowBorder:
 
 class TestRainbowChaseBorderRestartOnVisit:
     """Pin `RainbowChaseBorder.restart_on_visit = False`. Read by
-    `_should_reset_frame` in ticker.py. Catches a future change
-    that flips the default."""
+    `_FrameAware.reset_frame` in widgets/_frame_aware.py. Catches a
+    future change that flips the default."""
 
     def test_rainbow_chase_border_restart_on_visit_is_false(self):
         from led_ticker.borders import RainbowChaseBorder

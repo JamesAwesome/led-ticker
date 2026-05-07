@@ -282,19 +282,27 @@ speed) % 360` hue formula as `Rainbow.color_for` for letters, just
 indexed by perimeter position (clockwise from top-left, hop count
 0..N-1) instead of character index. Reads `_frame_count` from
 `_FrameAware`, so transitions freeze the chase via `pause_frame`
-and visit-resets restart it cleanly when needed. Continuous-phase
-effects (`Rainbow`, `ColorCycle`, `RainbowChaseBorder`) opt out of
-visit-reset by setting `restart_on_visit = False` as a class
-attribute — `_show_one._should_reset_frame` checks the widget's
-effects and skips the reset if any is opted out. Their phase
-advances continuously across `loop_count > 1` iterations within a
-section. Section transitions still reset (via `run_transition`'s
-`_reset_presenter`), so entry-to-section is always fresh state.
-Composition rule: a widget with both a continuous effect and a
-restart-on-visit effect (e.g. typewriter + rainbow border) gets
-the continuous semantics — typewriter won't retype on inner loop
-iterations. Niche combo; if you need typewriter to retype on a
-bordered widget, drop the border or use a different framing. Border paints BEFORE the text
+and visit-resets restart it cleanly when needed. Per-effect
+counters: each effect on a widget tracks its own visit-reset state
+via `_FrameAware._effect_frames`. Continuous-phase effects
+(`Rainbow`, `ColorCycle`, `RainbowChaseBorder`) set
+`restart_on_visit = False` as a class attribute — their counter
+doesn't reset on `_show_one`'s visit-entry call, so the chase /
+sweep phase advances continuously across `loop_count > 1`
+iterations. Restart-on-visit effects (`Typewriter`, default for
+unknown classes) reset normally and behave as fresh on each
+visit. Section transitions still reset via `run_transition`'s
+`_reset_presenter` — entry-to-section is always fresh state. Both
+behaviors compose simultaneously: a `TickerMessage` with both
+`Typewriter` and `RainbowChaseBorder` retypes on each loop AND
+the border chase keeps its phase. No tradeoff. Widget code reads
+`self.frame_for(attr_name)` instead of `self._frame_count` when
+calling effect APIs — the helper returns the per-effect counter
+that follows the effect's `restart_on_visit` policy. The widget's
+`_frame_count` is preserved as the engine tick counter (resets
+per visit) for back-compat with any direct readers (tests, etc.).
+Smoke §17 of the rainbow border test demonstrates both behaviors
+on hardware. Border paints BEFORE the text
 in `TickerMessage.draw` (text overlaps border on collision —
 border frames the panel, text floats inside). `frame_invariant`
 flag on each effect drives any future fast-path gates the same way

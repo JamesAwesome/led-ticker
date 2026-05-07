@@ -505,28 +505,19 @@ animation = "typewriter"
 border = [80, 200, 255]
 
 # ---------------------------------------------------------------------------
-# 17. Typewriter + RainbowChaseBorder — composition tradeoff DEMO.
-#     §16 proves typewriter alone retypes on each loop. §1-§7 prove
-#     continuous-phase effects keep their phase. This section shows
-#     what happens when both are on the same widget: the composition
-#     rule (ANY opt-out wins) means the rainbow border blocks the
-#     typewriter reset, so the message types out ONCE on iteration
-#     1 and then HOLDS for the remaining 2 iterations while the
-#     border keeps chasing continuously.
+# 17. Typewriter + RainbowChaseBorder — both effects compose
+#     simultaneously after the per-effect counter refactor.
+#     Watch for: 3 distinct typing animations (typewriter retypes
+#     each loop) AND a continuously-advancing rainbow chase around
+#     the perimeter (no phase snap-back).
 #
-#     This is the documented tradeoff (CLAUDE.md "Composition rule").
-#     The single shared `_frame_count` per widget can't simultaneously
-#     reset for typewriter AND not-reset for the chase. Picking one
-#     direction is the design call; we picked continuous (chase wins)
-#     because the chase artifact was the visible-on-hardware bug.
-#
-#     Watch for: typing happens ONCE (first ~2s), then "TYPING WITH
-#     RAINBOW" holds for 7s while the rainbow chase advances around
-#     the perimeter. NO re-typing on inner loops.
-#
-#     If you ever want both to work simultaneously, the fix is per-
-#     effect `_frame_count` counters — see PR #11 description for the
-#     ~half-day-of-work estimate.
+#     This was a documented tradeoff in PR #11 ("composition rule:
+#     ANY opt-out wins") that became a positive test after the per-
+#     effect counter refactor landed. The widget's primary
+#     `_frame_count` resets per visit (typewriter restarts), while
+#     `_effect_frames["border"]` keeps climbing (chase phase
+#     preserved). Both work as designed because each effect has
+#     its own counter following its own restart_on_visit policy.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
 mode = "swap"

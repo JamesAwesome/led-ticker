@@ -29,6 +29,7 @@
 #  13. inline table form             — full kwargs in one place for reference
 #  14. two-row + rainbow border      — handle + tagline + frame at scale=2
 #  15. scrolling text + border       — overflow scroll keeps border animating
+#  16. typewriter + loop_count=3     — visit-reset positive test (negation of §4-§7)
 #
 # Tunables to compare on hardware:
 #   - speed         — degrees of hue per frame. Higher = faster chase.
@@ -467,3 +468,33 @@ font = "Inter-Bold"
 font_size = 24
 font_color = [255, 255, 255]
 border = "rainbow"
+
+# ---------------------------------------------------------------------------
+# 16. Typewriter + loop_count = 3 — visit-reset POSITIVE test.
+#     Negation of §4/§5/§7: those sections verified that continuous-
+#     phase effects (rainbow / color_cycle / RainbowChaseBorder) opt
+#     OUT of visit-reset and keep their phase across loop_count
+#     boundaries. This section tests the opposite: Typewriter has
+#     `restart_on_visit = True` (the default), so it MUST retype on
+#     each of 3 inner loops. If the message types out only once and
+#     then holds for the remaining 2 loops, the visit-reset fix
+#     accidentally opted typewriter out — regression on the user-
+#     facing Q1 answer ("re-type each loop").
+#
+#     Watch for: 3 distinct typing animations, each starting from an
+#     empty panel and finishing with the full message. Total runtime
+#     ≈ 9s (3s × 3 loops).
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 3.0
+loop_count = 3
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "TYPING ON LOOP"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 220, 80]
+animation = "typewriter"

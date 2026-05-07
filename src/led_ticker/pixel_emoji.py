@@ -70,7 +70,13 @@ class HiResEmoji:
             if self.physical_width is not None
             else self.physical_size
         )
-        return w // max(1, scale)
+        s = max(1, scale)
+        # Ceiling division: when auto-trim produces a `physical_width`
+        # that isn't an integer multiple of `scale` (e.g. cat's lit_w=22
+        # at scale=4), floor division would round DOWN and the next
+        # element drawn at the returned advance overdraws the sprite's
+        # last lit pixels. Round up so the sprite stays intact.
+        return (w + s - 1) // s
 
 
 def _emoji_width(icon: PixelData) -> int:
@@ -908,10 +914,11 @@ def _generate_moon_hires(
 MOON_HIRES = HiResEmoji(
     pixels=_generate_moon_hires(size=32, color=_MN, bite_offset=0.30),
     physical_size=32,
-    # Crescent's lit pixels span cols 1-19 (width 19). Use physical_width=20
-    # so the moon takes 5 logical columns at scale=4, matching the low-res
-    # MOON's 5-col footprint and leaving no awkward gap to the next emoji.
-    physical_width=20,
+    # `_auto_trim_hires` (applied at HIRES_REGISTRY assembly) shifts
+    # the crescent's pixels to the left edge and sets physical_width
+    # to the lit bbox width (19). At scale=4 ceil(19/4)=5 logical
+    # cols — same footprint as the lowres MOON and the previously
+    # hand-tuned `physical_width=20`.
 )
 
 
@@ -2508,41 +2515,92 @@ def _build_emoji_registry() -> dict[str, PixelData]:
 
 EMOJI_REGISTRY: dict[str, PixelData] = {}
 
+
+def _auto_trim_hires(hires: HiResEmoji) -> HiResEmoji:
+    """Shift sprite pixels so the leftmost lit column is at x=0 and
+    set `physical_width` to the lit-pixel bbox width.
+
+    Generalizes the manual `MOON_HIRES.physical_width=20` override:
+    most hi-res sprites carry several columns of empty space around
+    their lit content (bunny: 4 each side, cat: 5 each side, heart:
+    1 each side). When such a sprite renders next to text in a
+    `:emoji: word :emoji:` row, the internal whitespace creates an
+    asymmetric visible gap to the surrounding text — a 4-px built-in
+    margin on bunny's right + a 1-px margin on heart's left looks
+    obviously off.
+
+    Trim eliminates the asymmetry by:
+      1. Computing min_x and max_x of the sprite's lit pixels.
+      2. Shifting every pixel left by min_x.
+      3. Setting `physical_width = max_x - min_x + 1`.
+
+    No-op for sprites already at the edge (pride, taco, instagram,
+    flower, pokeball — all 0..31). For sprites with an explicit
+    `physical_width` already set (none in current registry, but
+    future-proof), the trim recomputes from lit pixels and overrides
+    — the lit-pixel bbox is the source of truth.
+    """
+    xs = [px for px, _, _, _, _ in hires.pixels]
+    if not xs:
+        return hires
+    min_x, max_x = min(xs), max(xs)
+    lit_w = max_x - min_x + 1
+    # Already at left edge AND fills the full canvas → nothing to do.
+    if min_x == 0 and lit_w == hires.physical_size:
+        return hires
+    shifted = tuple((px - min_x, py, r, g, b) for (px, py, r, g, b) in hires.pixels)
+    return HiResEmoji(
+        pixels=shifted,
+        physical_size=hires.physical_size,
+        physical_width=lit_w,
+    )
+
+
+def _build_hires_registry(
+    raw: dict[str, HiResEmoji],
+) -> dict[str, HiResEmoji]:
+    """Apply `_auto_trim_hires` to every entry."""
+    return {slug: _auto_trim_hires(hires) for slug, hires in raw.items()}
+
+
 # Hi-res variants of the same slugs — used preferentially when the
 # canvas is a `ScaledCanvas`. Falls back to `EMOJI_REGISTRY` if the
-# slug isn't here.
-HIRES_REGISTRY: dict[str, HiResEmoji] = {
-    "moon": MOON_HIRES,
-    "instagram": INSTAGRAM_HIRES,
-    "sun": SUN_HIRES,
-    "star": STAR_HIRES,
-    "email": EMAIL_HIRES,
-    # Weather
-    "cloud": CLOUD_HIRES,
-    "partly_cloudy": PARTLY_CLOUDY_HIRES,
-    "rain": RAIN_HIRES,
-    "snow": SNOW_HIRES,
-    "thunder": THUNDER_HIRES,
-    "fog": FOG_HIRES,
-    # Sports
-    "baseball": BASEBALL_HIRES,
-    # Botanical
-    "flower": FLOWER_HIRES,
-    # Food
-    "taco": TACO_HIRES,
-    # Animals
-    "bunny": BUNNY_HIRES,
-    "cat": CAT_HIRES,
-    **CAT_HIRES_VARIANTS,
-    # Symbols
-    "heart": HEART_HIRES,
-    **HEART_HIRES_VARIANTS,
-    # Pride flags
-    "pride": PRIDE_HIRES,
-    **PRIDE_HIRES_VARIANTS,
-    # Games
-    "pokeball": POKEBALL_HIRES,
-}
+# slug isn't here. Each entry is auto-trimmed at registry assembly so
+# inline-text rows have symmetric gaps around emoji sprites.
+HIRES_REGISTRY: dict[str, HiResEmoji] = _build_hires_registry(
+    {
+        "moon": MOON_HIRES,
+        "instagram": INSTAGRAM_HIRES,
+        "sun": SUN_HIRES,
+        "star": STAR_HIRES,
+        "email": EMAIL_HIRES,
+        # Weather
+        "cloud": CLOUD_HIRES,
+        "partly_cloudy": PARTLY_CLOUDY_HIRES,
+        "rain": RAIN_HIRES,
+        "snow": SNOW_HIRES,
+        "thunder": THUNDER_HIRES,
+        "fog": FOG_HIRES,
+        # Sports
+        "baseball": BASEBALL_HIRES,
+        # Botanical
+        "flower": FLOWER_HIRES,
+        # Food
+        "taco": TACO_HIRES,
+        # Animals
+        "bunny": BUNNY_HIRES,
+        "cat": CAT_HIRES,
+        **CAT_HIRES_VARIANTS,
+        # Symbols
+        "heart": HEART_HIRES,
+        **HEART_HIRES_VARIANTS,
+        # Pride flags
+        "pride": PRIDE_HIRES,
+        **PRIDE_HIRES_VARIANTS,
+        # Games
+        "pokeball": POKEBALL_HIRES,
+    }
+)
 
 
 def _get_registry() -> dict[str, PixelData]:
@@ -2597,8 +2655,14 @@ def measure_width(
     segments = _parse_segments(text)
     width = 0
     use_hires = isinstance(canvas, ScaledCanvas)
+    prev_was_text = False  # leading emoji has no pre-pad
     for seg_type, value in segments:
         if seg_type == "emoji":
+            # Symmetric padding: pad BEFORE an emoji that follows text.
+            # Back-to-back emojis don't double-pad — only the trailing
+            # pad of the first emoji separates them.
+            if prev_was_text:
+                width += EMOJI_PADDING
             measured = None
             if use_hires and value in HIRES_REGISTRY:
                 hires = HIRES_REGISTRY[value]
@@ -2608,8 +2672,10 @@ def measure_width(
             if measured is None:
                 measured = _emoji_width(_get_registry()[value])
             width += measured + EMOJI_PADDING
+            prev_was_text = False
         else:
             width += get_text_width(font, value, padding=0, canvas=canvas)
+            prev_was_text = True
     return width
 
 
@@ -2692,8 +2758,17 @@ def draw_with_emoji(
     # only by text segments, not emoji.
     char_index = 0
 
+    # Symmetric padding: track whether the previous segment was text so
+    # we can apply EMOJI_PADDING BEFORE an emoji that follows text. This
+    # mirrors the existing post-emoji pad and balances the visible gap
+    # in `:emoji: word :emoji:` layouts. `measure_width` applies the
+    # same rule so layout math stays in sync.
+    prev_was_text = False
+
     for seg_type, value in segments:
         if seg_type == "emoji":
+            if prev_was_text:
+                total += EMOJI_PADDING
             ix = int(cursor_pos + total)
             iy = iy_default if emoji_y is None else emoji_y
 
@@ -2721,6 +2796,7 @@ def draw_with_emoji(
                     if 0 <= dx < w and 0 <= dy < h:
                         canvas.SetPixel(dx, dy, r, g, b)
                 total += iw + EMOJI_PADDING
+            prev_was_text = False
         else:
             seg_x = int(cursor_pos + total)
             if per_char:
@@ -2757,6 +2833,7 @@ def draw_with_emoji(
                     value,
                 )
                 char_index += len(value)
+            prev_was_text = True
 
     return total
 

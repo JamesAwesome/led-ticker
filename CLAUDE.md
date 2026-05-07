@@ -282,7 +282,14 @@ speed) % 360` hue formula as `Rainbow.color_for` for letters, just
 indexed by perimeter position (clockwise from top-left, hop count
 0..N-1) instead of character index. Reads `_frame_count` from
 `_FrameAware`, so transitions freeze the chase via `pause_frame`
-and visit-resets restart it cleanly. Border paints BEFORE the text
+and visit-resets restart it cleanly. Visit-reset gotcha: `_show_one`
+also calls `reset_frame()` at every `loop_count > 1` iteration of a
+single-widget section (correct for typewriter restart semantics, but
+visibly snaps the chase phase back to 0 mid-section). Workaround
+when configuring an animated border: set `loop_count = 1` and
+multiply the inner loop count instead (e.g. `gif_loops = 9` instead
+of `loop_count = 3` × `gif_loops = 3`). Smoke config §5 documents
+this in-tree. Border paints BEFORE the text
 in `TickerMessage.draw` (text overlaps border on collision —
 border frames the panel, text floats inside). `frame_invariant`
 flag on each effect drives any future fast-path gates the same way

@@ -1708,20 +1708,12 @@ class TestImageTypewriter:
         )
         canvas = _StubCanvas(width=64, height=16)
 
-        # frame=0: 1 char visible
-        widget._effect_frames["animation"] = 0
+        # frame_count is passed directly; the helper does not read
+        # `_effect_frames` (the caller resolves the counter via
+        # `self.frame_for("animation")` and passes the result here).
         assert widget._visible_text(0, canvas) == "H"
-
-        # frame=3: 2 chars
-        widget._effect_frames["animation"] = 3
         assert widget._visible_text(3, canvas) == "He"
-
-        # frame=6: 3 chars
-        widget._effect_frames["animation"] = 6
         assert widget._visible_text(6, canvas) == "Hel"
-
-        # Way past completion: clamps to full text
-        widget._effect_frames["animation"] = 999
         assert widget._visible_text(999, canvas) == "Hello"
 
     def test_visible_text_returns_full_text_when_no_animation(self, tmp_path):

@@ -251,6 +251,92 @@ class TestWeatherPerCharProviderDispatch:
         assert [c[1] for c in temp_provider.calls] == [0, 1, 2]
 
 
+class TestWeatherPerEffectCounter:
+    """Regression for the §4 fix in commit 6ccda4d: WeatherWidget's
+    `_draw_segment` must read the per-effect counter via
+    `frame_for("font_color")` (label / condition) and
+    `frame_for("font_color_temp")` (temperature value) — not
+    `_frame_count` directly. Two separate per-effect counters is
+    why `font_color_temp` is in `_EFFECT_ATTRS`: a config that
+    sets `font_color = "rainbow"` on the label only would otherwise
+    sweep the temp's color too if both shared one counter (or
+    miss the carry-over if both fell back to `_frame_count`).
+    """
+
+    def test_label_reads_font_color_counter(self):
+        """`font_color` provider receives `frame_for("font_color")` —
+        which is the per-effect counter, not the engine
+        `_frame_count`. Pre-populate the counter and verify it
+        flows through.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.widgets.weather import WeatherWidget
+
+        provider = _TrackingProvider()
+        w = WeatherWidget(
+            session=mock.Mock(),
+            message="NYC",
+            location="NYC",
+            font_color=provider,
+        )
+        w.current_temp = 64
+        w.unit_symbol = "F"
+        w.weather = "Sunny"
+        # Continuous-phase rainbow ran 77 ticks across prior visits;
+        # engine _frame_count just got reset.
+        w._effect_frames["font_color"] = 77
+        w._frame_count = 0
+
+        canvas = _StubCanvas(width=160, height=16)
+        w.draw(canvas)
+
+        # Every call to the label provider must see frame=77 — the
+        # per-effect counter — not 0 from `_frame_count`.
+        assert provider.calls, "label provider should have been called"
+        frames_observed = {c[0] for c in provider.calls}
+        assert frames_observed == {77}, (
+            f"label provider should see only frame=77 (per-effect counter); "
+            f"got {sorted(frames_observed)} — _frame_count was being read"
+        )
+
+    def test_temp_reads_font_color_temp_counter(self):
+        """`font_color_temp` provider receives the
+        `font_color_temp` per-effect counter — independent of
+        `font_color`'s counter. This is why the two are separate
+        registrations in `_EFFECT_ATTRS`.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.widgets.weather import WeatherWidget
+
+        temp_provider = _TrackingProvider()
+        w = WeatherWidget(
+            session=mock.Mock(),
+            message="NYC",
+            location="NYC",
+            font_color_temp=temp_provider,
+        )
+        w.current_temp = 64
+        w.unit_symbol = "F"
+        w.weather = "Sunny"
+        # Distinct values for the two counters: makes sure `_draw_segment`
+        # routes the temp lookup through the right key.
+        w._effect_frames["font_color"] = 11
+        w._effect_frames["font_color_temp"] = 99
+        w._frame_count = 0
+
+        canvas = _StubCanvas(width=160, height=16)
+        w.draw(canvas)
+
+        assert temp_provider.calls, "temp provider should have been called"
+        frames_observed = {c[0] for c in temp_provider.calls}
+        assert frames_observed == {99}, (
+            f"temp provider should see only frame=99 (font_color_temp counter); "
+            f"got {sorted(frames_observed)} — wrong key or _frame_count read"
+        )
+
+
 class TestWeatherWidgetHiresOnScaledCanvas:
     """Tripwire for the weather widget's hires-on-bigsign path.
 

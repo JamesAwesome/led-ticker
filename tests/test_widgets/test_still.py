@@ -1194,3 +1194,111 @@ class TestStillPlayNoTextBorder:
         assert (
             still._frame_count >= expected_ticks - 1
         ), f"_frame_count should advance per tick; got {still._frame_count}"
+
+
+class TestStillPlayNoTextBorderPerEffectCounter:
+    """Regression for the §4 fix in commit 6ccda4d: both
+    `_play_no_text` branches (fast-path constant border + slow-path
+    animated border) must read the per-effect counter via
+    `frame_for("border")`. A continuous-phase border that opted out
+    of visit-reset (`restart_on_visit = False`) would silently
+    restart its chase across visits if the call site read
+    `_frame_count` directly, since `_frame_count` always resets
+    per visit. This was the hardware-observed bug in §4 of the
+    rainbow-border smoke config before the fix.
+    """
+
+    @pytest.fixture
+    def still(self, tmp_path):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(path=img_path, hold_seconds=0.1)
+
+    async def test_animated_border_reads_per_effect_counter(
+        self, still, mock_frame, mocker
+    ):
+        """Slow path (animated border): pre-populate the per-effect
+        counter to simulate carry-over from prior visits, set
+        `_frame_count = 0` to simulate a fresh engine reset, then
+        verify `border.paint` receives values that ramp up from
+        the carried counter — not from the freshly-zeroed
+        `_frame_count`.
+        """
+        from led_ticker.borders import RainbowChaseBorder
+
+        # `RainbowChaseBorder.restart_on_visit = False` (continuous phase).
+        # Spy on paint to capture per-call frame_count.
+        border = RainbowChaseBorder(speed=4)
+        captured: list[int] = []
+        original_paint = border.paint
+
+        def _spy(canvas, frame_count):
+            captured.append(frame_count)
+            return original_paint(canvas, frame_count)
+
+        border.paint = _spy  # type: ignore[method-assign]
+        still.border = border
+
+        # Simulate: rainbow border ran for 100 ticks across prior visits.
+        # Engine just reset _frame_count for the new visit but the
+        # per-effect counter persisted (restart_on_visit = False).
+        still._effect_frames["border"] = 100
+        still._frame_count = 0
+
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+        await still._play_no_text(
+            mock_frame.matrix.SwapOnVSync.return_value, mock_frame
+        )
+
+        # First paint: advance_frame ran first (both counters +1),
+        # so border counter is 101 at the first paint call. Bug-state
+        # would have given 1 (reading _frame_count after advance).
+        assert captured, "border.paint should have fired at least once"
+        assert captured[0] == 101, (
+            f"first border.paint should see persisted counter (101); "
+            f"got {captured[0]} — _frame_count was being read directly"
+        )
+
+    async def test_constant_border_fast_path_reads_per_effect_counter(
+        self, still, mock_frame, mocker
+    ):
+        """Fast path (constant border): the single paint call still
+        reads `frame_for("border")`, not `_frame_count`. Constant
+        border has `restart_on_visit = True` (default) so the
+        per-effect counter is never seeded high in practice — but
+        the SOURCE of the value must still be the per-effect entry
+        so future continuous-phase + frame_invariant subclasses
+        (hypothetical) get the right reading.
+        """
+        from led_ticker.borders import ConstantBorder
+
+        border = ConstantBorder([0, 255, 0])
+        captured: list[int] = []
+        original_paint = border.paint
+
+        def _spy(canvas, frame_count):
+            captured.append(frame_count)
+            return original_paint(canvas, frame_count)
+
+        border.paint = _spy  # type: ignore[method-assign]
+        still.border = border
+
+        # Pre-populate per-effect counter to a distinguishable value;
+        # _frame_count stays at 0 (the fast path does NOT advance).
+        still._effect_frames["border"] = 42
+        still._frame_count = 0
+
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+        await still._play_no_text(
+            mock_frame.matrix.SwapOnVSync.return_value, mock_frame
+        )
+
+        # Single paint, value comes from the per-effect counter.
+        assert captured == [42], (
+            f"fast-path paint should read per-effect counter (42); "
+            f"got {captured} — bug-state would yield [0]"
+        )

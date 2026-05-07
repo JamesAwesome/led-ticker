@@ -706,39 +706,6 @@ async def _play_widget(canvas: Any, frame: Any, widget: Any) -> Any:
     return await widget.play(canvas, frame, loop_count=loops)
 
 
-def _should_reset_frame(widget: Any) -> bool:
-    """Decide whether `_show_one` should call `reset_frame()` on
-    visit entry.
-
-    ANY effect on the widget that opts out of `restart_on_visit`
-    blocks the reset. Favors continuity over restart — the safer
-    default for animated chases (RainbowChaseBorder, Rainbow,
-    ColorCycle) that should advance smoothly across loop_count
-    boundaries within a section.
-
-    Default `True` via `getattr` fallback keeps today's behavior
-    for unknown effect classes — only effects that explicitly set
-    `restart_on_visit = False` opt out.
-
-    Composition tradeoff: a widget with both `Typewriter` (wants
-    restart) and `RainbowChaseBorder` (wants continuous) gets the
-    continuous semantics — typewriter doesn't retype on inner
-    loop iterations. Niche combo; documented in CLAUDE.md.
-
-    Section-entry resets are unaffected — `run_transition` calls
-    `_reset_presenter(incoming)` at every transition boundary, so
-    the new section's first `_show_one` call sees `_frame_count`
-    already reset to 0 regardless of this gate's verdict.
-    """
-    for attr in ("font_color", "top_color", "bottom_color", "border", "animation"):
-        effect = getattr(widget, attr, None)
-        if effect is None:
-            continue
-        if not getattr(effect, "restart_on_visit", True):
-            return False
-    return True
-
-
 async def _show_one(
     canvas: Canvas,
     frame: Any,
@@ -754,16 +721,17 @@ async def _show_one(
     `(canvas, last_scroll_pos)` — `last_scroll_pos` is 0 for play()
     widgets since they don't have a scroll position.
 
-    Conditionally resets the widget's frame counter at the start of
-    each visit (via `reset_frame()` if the widget exposes it).  The
-    reset is gated by `_should_reset_frame()`: effects that set
-    `restart_on_visit = False` (e.g. `RainbowChaseBorder`) suppress
-    it so their animation phase advances smoothly across `loop_count`
-    boundaries.  Effects that omit the flag or set it to `True`
-    (e.g. `Typewriter`) still trigger the reset.  ANY opt-out on the
-    widget wins — see `_should_reset_frame` for the composition rule.
+    Resets the widget's frame counters at the start of each visit
+    (via `reset_frame()` if the widget exposes it). The reset is
+    selective per-effect: continuous-phase effects (those with
+    `restart_on_visit = False` like `RainbowChaseBorder`) keep their
+    counter so the chase phase advances smoothly across `loop_count`
+    boundaries; restart-on-visit effects (`Typewriter`, default
+    behavior) zero theirs so they restart cleanly. The widget's
+    `_frame_count` (engine tick counter) always resets — see
+    `_FrameAware.reset_frame` for details.
     """
-    if hasattr(widget, "reset_frame") and _should_reset_frame(widget):
+    if hasattr(widget, "reset_frame"):
         widget.reset_frame()
     if _has_play(widget):
         canvas = await _play_widget(canvas, frame, widget)

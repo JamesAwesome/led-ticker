@@ -54,12 +54,19 @@ def _snap_reset(canvas: Any, incoming_bg_color: Any) -> None:
     loop just painted, so the last frame ends up "incoming on black"
     even when the section has a bg color — visible as a one-tick
     flash on bordered widgets. When the run_transition caller
-    forwards `incoming_bg_color` here (tuple `(r, g, b)`), Fill it
-    instead so the snap matches the section's first reset_canvas.
+    forwards `incoming_bg_color` here, Fill it instead so the snap
+    matches the section's first reset_canvas.
+
+    Accepts None, an `(r, g, b)` tuple, or a `graphics.Color` —
+    same shape `run_transition` accepts. Lazy import of `_normalize_bg`
+    avoids a circular at module load (this file is imported by
+    transitions during their dispatch path).
     """
-    if incoming_bg_color is not None:
-        r, g, b = incoming_bg_color
-        canvas.Fill(r, g, b)
+    from led_ticker.transitions import _normalize_bg
+
+    bg = _normalize_bg(incoming_bg_color)
+    if bg is not None:
+        canvas.Fill(*bg)
     else:
         canvas.Clear()
 

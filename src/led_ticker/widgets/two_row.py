@@ -125,8 +125,9 @@ class TwoRowMessage(_FrameAware):
     # block expansion via `unwrap_to_real`), so a 1-px border on
     # bigsign at scale=2 traces the actual 256x64 panel edge — not
     # the 128x32 logical canvas edge. Border frames the SIGN, text
-    # floats inside. Reads `_frame_count` for animation; transitions
-    # freeze the chase via `pause_frame`.
+    # floats inside. Reads its per-effect counter via
+    # `frame_for("border")` for animation; transitions freeze the
+    # chase via `pause_frame`.
     border: Any | None = attrs.field(default=None, kw_only=True)
 
     _top_width: int = attrs.field(init=False, default=-1)

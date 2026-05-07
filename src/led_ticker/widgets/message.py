@@ -34,9 +34,10 @@ class TickerMessage(_FrameAware):
     # etc.). When set, paints a 1-px ring around the panel perimeter
     # at PHYSICAL resolution (bypasses ScaledCanvas block expansion)
     # before the text is drawn. None = no border (default behavior).
-    # Effects read this widget's `_frame_count` so transitions freeze
-    # the chase and visit-resets restart it cleanly. See `borders.py`
-    # for available effects.
+    # The widget passes `self.frame_for("border")` so the effect's
+    # per-effect counter advances independently — transitions freeze
+    # the chase and visit-resets honor `restart_on_visit`. See
+    # `borders.py` for available effects.
     border: Any | None = attrs.field(default=None, kw_only=True)
     _content_width: int = attrs.field(init=False, default=-1)
     _has_emoji: bool = attrs.field(init=False, default=False)
@@ -113,10 +114,11 @@ class TickerMessage(_FrameAware):
 
         # Paint border BEFORE text so text overlaps the border on
         # collision (border frames the panel; text floats inside).
-        # Reads `_frame_count` from `_FrameAware` for animation —
-        # transitions freeze it (no chase phase drift) and visit
-        # resets restart it. Painted at physical resolution so a
-        # 1-px border on bigsign is 1 LED, not a 4×4 block.
+        # Reads its per-effect counter via `frame_for("border")` for
+        # animation — transitions freeze it (no chase phase drift)
+        # and visit resets honor `restart_on_visit`. Painted at
+        # physical resolution so a 1-px border on bigsign is 1 LED,
+        # not a 4×4 block.
         if self.border is not None:
             self.border.paint(canvas, self.frame_for("border"))
 
@@ -202,7 +204,8 @@ class TickerCountdown(_FrameAware):
     padding: int = 6
     # Optional perimeter border effect — same contract as
     # `TickerMessage.border` (see borders.py). Paints before text at
-    # physical resolution; reads `_frame_count` for animation.
+    # physical resolution; advances on its per-effect counter
+    # (read via `frame_for("border")`).
     border: Any | None = attrs.field(default=None, kw_only=True)
 
     def __attrs_post_init__(self) -> None:
@@ -234,7 +237,8 @@ class TickerCountdown(_FrameAware):
 
         # Paint border BEFORE text — same contract as `TickerMessage`.
         # Border frames the panel; text floats inside. Border reads
-        # `_frame_count` so transitions freeze and visit-resets restart.
+        # its per-effect counter via `frame_for("border")` so
+        # transitions freeze and visit-resets honor `restart_on_visit`.
         if self.border is not None:
             self.border.paint(canvas, self.frame_for("border"))
 

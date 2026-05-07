@@ -20,9 +20,9 @@ Two flavors today:
 
 The `BorderEffect` Protocol exposes:
 - `paint(canvas, frame_count)` — paints the perimeter on `canvas`.
-  Reads from `_FrameAware._frame_count` so the effect ticks with
-  the host widget's animation state (visit-resets, transition
-  pauses).
+  The host widget passes `self.frame_for("border")` so the effect
+  ticks with its own per-effect counter (visit-resets honor
+  `restart_on_visit`, transition pauses freeze the count).
 - `frame_invariant: bool` — whether `paint` produces the same output
   every frame. Constant=True; rainbow chase=False.
 

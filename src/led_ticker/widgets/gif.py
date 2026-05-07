@@ -282,16 +282,33 @@ class GifPlayer(_BaseImageWidget):
     async def _play_no_text(
         self, real_canvas: Canvas, frame: Any, loop_count: int
     ) -> Canvas:
+        """Run the gif at engine 50ms cadence — `_pick_frame_for_elapsed`
+        picks the right gif frame from accumulated wall-clock time so
+        animated borders (and any future frame-aware overlays) tick
+        uniformly regardless of gif frame durations.
+
+        Side effect: gifs with native frame durations < 50ms cap at
+        20 Hz on this path — same cap `_play_with_text` already
+        imposes. Gifs with frame durations >= 50ms (the common case)
+        render identically to before.
+        """
+        from led_ticker.ticker import ENGINE_TICK_MS
+
         loops = max(1, loop_count)
         canvas = real_canvas
+        total_ms = sum(d for _, d in self._frames) * loops
+        n_ticks = max(1, total_ms // ENGINE_TICK_MS)
+        tick_seconds = ENGINE_TICK_MS / 1000
 
-        for _ in range(loops):
-            for idx, (_pixels, duration_ms) in enumerate(self._frames):
-                self._current_frame_idx = idx
-                reset_canvas(canvas, self.bg_color)
-                self._paint_image(canvas)
-                canvas = frame.matrix.SwapOnVSync(canvas)
-                await asyncio.sleep(duration_ms / 1000)
+        for tick in range(n_ticks):
+            self._pick_frame_for_elapsed(tick * ENGINE_TICK_MS)
+            self.advance_frame()
+            reset_canvas(canvas, self.bg_color)
+            self._paint_image(canvas)
+            if self.border is not None:
+                self.border.paint(canvas, self._frame_count)
+            canvas = frame.matrix.SwapOnVSync(canvas)
+            await asyncio.sleep(tick_seconds)
 
         self._current_frame_idx = len(self._frames) - 1
         return canvas

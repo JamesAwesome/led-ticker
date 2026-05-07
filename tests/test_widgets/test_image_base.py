@@ -1349,3 +1349,69 @@ class TestPlayWithTextBorderFastPath:
             f"Animated border must force per-tick loop; got "
             f"{render_mock.call_count} renders, expected 10"
         )
+
+
+class TestPlayWithTwoRowBorderFastPath:
+    """Same fast-path gate logic on the two-row playback path."""
+
+    @pytest.fixture
+    def static_widget(self, tmp_path):
+        from PIL import Image
+
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        # Two-row mode: bottom_text non-empty + bottom fits (no scroll).
+        # FONT_SMALL (5×8) has line-height=8 which fits the 8-row band
+        # of a 50/50 split on a 16-tall mock canvas.
+        return StillImage(
+            path=img_path,
+            top_text="@",
+            bottom_text="x",
+            top_align="center",
+            bottom_align="center",
+            hold_seconds=0.5,
+            font=FONT_SMALL,
+        )
+
+    async def test_two_row_fast_path_with_constant_border(
+        self, static_widget, mock_frame
+    ):
+        from led_ticker.borders import ConstantBorder
+
+        static_widget.border = ConstantBorder([0, 255, 0])
+
+        with (
+            mock.patch.object(
+                type(static_widget), "_render_two_row_tick"
+            ) as render_mock,
+            mock.patch("asyncio.sleep", new=mock.AsyncMock()),
+        ):
+            await static_widget._play_with_two_row_text(
+                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame,
+                n_ticks=10,
+            )
+        assert render_mock.call_count == 1
+
+    async def test_two_row_fast_path_bypassed_with_animated_border(
+        self, static_widget, mock_frame
+    ):
+        from led_ticker.borders import RainbowChaseBorder
+
+        static_widget.border = RainbowChaseBorder(speed=4)
+
+        with (
+            mock.patch.object(
+                type(static_widget), "_render_two_row_tick"
+            ) as render_mock,
+            mock.patch("asyncio.sleep", new=mock.AsyncMock()),
+        ):
+            await static_widget._play_with_two_row_text(
+                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame,
+                n_ticks=10,
+            )
+        assert render_mock.call_count == 10

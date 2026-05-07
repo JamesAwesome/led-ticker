@@ -178,7 +178,7 @@ border = "rainbow"
 [[playlist.section]]
 mode = "swap"
 hold_time = 7.0
-loop_count = 3
+loop_count = 1
 transition = "cut"
 
 [[playlist.section.widget]]
@@ -186,7 +186,7 @@ type = "gif"
 path = "assets/pika_wave_transparent.gif"
 fit = "pillarbox"
 image_align = "center"
-gif_loops = 3
+gif_loops = 9
 border = "rainbow"
 
 # ---------------------------------------------------------------------------
@@ -194,11 +194,16 @@ border = "rainbow"
 #    on a multi-frame source. Tests the per-tick loop (gif frames
 #    advance, border chases, text holds at left). Border paints
 #    AFTER image AND BEFORE text — text overlaps border on collision.
+#    NB: section uses `loop_count = 1` and `gif_loops = 9` (instead of
+#    `loop_count = 3` × `gif_loops = 3`) to avoid `_show_one`'s
+#    visit-entry `reset_frame()` mid-section — that reset is correct
+#    for typewriter / new-section semantics but visibly snaps the
+#    rainbow chase back to phase 0 at every loop_count boundary.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
 mode = "swap"
 hold_time = 7.0
-loop_count = 3
+loop_count = 1
 transition = "cut"
 
 [[playlist.section.widget]]
@@ -211,7 +216,7 @@ text_align = "right"
 font = "Inter-Bold"
 font_size = 16
 font_color = [255, 220, 80]
-gif_loops = 3
+gif_loops = 9
 border = "rainbow"
 
 # ---------------------------------------------------------------------------
@@ -258,7 +263,7 @@ border = "rainbow"
 [[playlist.section]]
 mode = "swap"
 hold_time = 7.0
-loop_count = 3
+loop_count = 1
 transition = "cut"
 
 [[playlist.section.widget]]
@@ -271,7 +276,7 @@ text_align = "right"
 font = "Inter-Bold"
 font_size = 16
 font_color = "color_cycle"
-gif_loops = 3
+gif_loops = 9
 border = "rainbow"
 
 # ===========================================================================

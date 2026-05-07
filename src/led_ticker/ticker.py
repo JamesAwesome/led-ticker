@@ -785,12 +785,15 @@ async def _run_swap(
         elif transition is not None:
             # Within a section, both prev and incoming widgets share
             # the section's bg_color (set via `default_bg_color` in
-            # `_build_widget`). Pass it so the transition's second
-            # half re-establishes the bg before the held-text loop's
-            # first reset_canvas — same anti-flash behavior as the
-            # inter-section call site in app.py. `run_transition`
-            # accepts either a tuple or a graphics.Color (widgets
-            # store the latter post-coercion).
+            # `_build_widget`). Pass it on both sides so:
+            #  - t<0.5 keeps prev_object's bg painted (otherwise the
+            #    bg disappears the instant the inter-widget transition
+            #    starts, identical to the inter-section symptom).
+            #  - t>=0.5 re-establishes incoming's bg before the
+            #    held-text loop's first reset_canvas, eliminating
+            #    the post-transition flash.
+            # `run_transition` accepts either a tuple or a
+            # graphics.Color (widgets store the latter post-coercion).
             canvas = await run_transition(
                 canvas,
                 frame,
@@ -800,6 +803,7 @@ async def _run_swap(
                 duration=transition.duration,
                 easing=transition.easing,
                 outgoing_scroll_pos=prev_scroll_pos,
+                outgoing_bg_color=getattr(prev_object, "bg_color", None),
                 incoming_bg_color=getattr(ticker_object, "bg_color", None),
             )
             canvas, prev_scroll_pos = await _show_one(

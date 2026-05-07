@@ -498,3 +498,7 @@ font = "Inter-Bold"
 font_size = 24
 font_color = [255, 220, 80]
 animation = "typewriter"
+# Constant border: doesn't set restart_on_visit (default True via
+# getattr fallback), so it does NOT block the typewriter reset.
+# Visible frame around the panel without altering the test purpose.
+border = [80, 200, 255]

@@ -86,6 +86,7 @@ async def run_transition(
     region: Any = None,
     incoming_scale: int | None = None,
     incoming_content_height: int = 16,
+    outgoing_bg_color: Any = None,
     incoming_bg_color: Any = None,
 ) -> Canvas:
     """Run a transition. Returns the current back-buffer canvas.
@@ -107,29 +108,46 @@ async def run_transition(
     `run_swap` will draw it at after the transition completes; otherwise
     the rows visibly jump vertically when the section starts.
 
-    ``incoming_bg_color`` lets the panel ramp to the incoming section's
-    bg over the second half of the transition (`t >= 0.5`, same threshold
-    as ``incoming_scale``). When None, the per-frame reset stays at
-    `Clear()` (legacy black-flash behavior). When set, the second half
-    paints `Fill(*incoming_bg_color)` so by the time the section
-    actually starts (and `_swap_and_scroll`'s `reset_canvas` fills the
-    bg for the first time) the panel is already on that color — no
-    single-tick brightness step. Particularly noticeable on bright bg
-    sections: §8 of the showroom going from black-during-transition
-    to bright-yellow-on-first-paint reads as a hard flash without this.
+    ``outgoing_bg_color`` and ``incoming_bg_color`` make the per-frame
+    reset preserve bg color through the transition. Without them, the
+    per-frame reset is unconditional ``Clear()`` — both bgs disappear
+    for the entire transition, then the new section's first
+    ``reset_canvas`` snaps to the new bg in one tick (the "stutter"
+    that PR #8's predecessor fix was chasing).
+
+    With both set, the per-frame reset uses ``outgoing_bg_color`` at
+    t<0.5 and ``incoming_bg_color`` at t>=0.5. The cut-over at 0.5
+    matches ``incoming_scale``'s switch point so a section transition
+    that crosses both scale and bg flips them together. Either side
+    can be ``None`` independently — leaving outgoing as None means
+    the outgoing's bg vanishes immediately when the transition starts
+    (legacy behavior); leaving incoming as None means the panel
+    flashes black at the cut-over.
+
+    The hires snap inside ``render_hires_frame`` (pokeball/nyancat/
+    baseball at t>=0.95) does its own ``Clear()`` before drawing
+    incoming. This function passes ``incoming_bg_color`` to ``frame_at``
+    via kwargs so the snap can paint ``Fill(incoming_bg)`` instead —
+    otherwise the last frame of a hires transition shows incoming
+    text on black, then the next tick (when the new section's
+    ``reset_canvas`` runs) finally fills the panel with bg, producing
+    a single-tick "border on black" flash on bordered widgets.
     """
     del region  # plumbed but unused; future zoned layouts revisit this
 
-    # Normalize incoming_bg_color: accept tuple/list/None or a
+    # Normalize bg_color params: accept tuple/list/None or a
     # graphics.Color instance (widgets store bg_color as Color after
     # `_build_widget` coercion; SectionConfig stores it as tuple).
     # Both call sites land in the same code path below.
-    if incoming_bg_color is not None and hasattr(incoming_bg_color, "red"):
-        incoming_bg_color = (
-            incoming_bg_color.red,
-            incoming_bg_color.green,
-            incoming_bg_color.blue,
-        )
+    def _normalize_bg(c: Any) -> tuple[int, int, int] | None:
+        if c is None:
+            return None
+        if hasattr(c, "red"):
+            return (c.red, c.green, c.blue)
+        return c
+
+    outgoing_bg_color = _normalize_bg(outgoing_bg_color)
+    incoming_bg_color = _normalize_bg(incoming_bg_color)
 
     ease_fn = EASING.get(easing, linear)
     frame_count = max(1, int(duration / scroll_speed))
@@ -178,19 +196,17 @@ async def run_transition(
                 )
 
             active = incoming_canvas if incoming_canvas is not None else canvas
-            # Per-frame reset. Before t=0.5 the outgoing section is
-            # dominant — Clear (black) keeps legacy behavior so
-            # transitions between two no-bg sections look unchanged.
-            # At t >= 0.5 the incoming section's bg fades in: when
-            # `incoming_bg_color` is set, paint Fill(*incoming_bg)
-            # instead of Clear. By the time the section actually
-            # starts (and `_swap_and_scroll`'s reset_canvas fills the
-            # bg for the first time) the panel is already on that
-            # color — eliminates the single-tick brightness step
-            # that read as a "stutter" on bright-bg sections like
-            # showroom §8.
-            if t >= 0.5 and incoming_bg_color is not None:
-                active.Fill(*incoming_bg_color)
+            # Per-frame reset. The outgoing section is dominant before
+            # t=0.5 — paint its bg so the wine/yellow/whatever stays
+            # visible behind the outgoing widget for the first half.
+            # At t>=0.5 the incoming section's bg takes over, matching
+            # `incoming_scale`'s switch point. None on either side
+            # falls back to Clear() — that's the legacy black-flash
+            # behavior, fine for transitions between two no-bg
+            # sections but a visible stutter when either side has bg.
+            reset_bg = outgoing_bg_color if t < 0.5 else incoming_bg_color
+            if reset_bg is not None:
+                active.Fill(*reset_bg)
             else:
                 active.Clear()
             transition.frame_at(
@@ -200,6 +216,13 @@ async def run_transition(
                 incoming,
                 outgoing_scroll_pos=outgoing_scroll_pos,
                 duration_ms=int(duration * 1000),
+                # Hires transitions (pokeball/nyancat/baseball) do
+                # their own Clear+draw snap at t>=0.95. Pass
+                # incoming_bg_color so the snap can Fill() instead
+                # — otherwise the last transition frame is "incoming
+                # text on black", visible as a single-tick flash on
+                # bg-colored sections.
+                incoming_bg_color=incoming_bg_color,
             )
             new_canvas = _swap(active, frame)
             if incoming_canvas is not None:

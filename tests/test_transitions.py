@@ -1739,3 +1739,186 @@ class TestRunTransitionIncomingBgColor:
         ]
         assert fill_args, "graphics.Color not normalized — Fill never fired"
         assert all(a == (100, 50, 200) for a in fill_args)
+
+
+class TestRunTransitionOutgoingBgColor:
+    """`outgoing_bg_color` keeps the OUTGOING section's bg painted at
+    t<0.5 of the transition. Without this parameter, the per-frame
+    reset is `Clear()` (black) for the entire first half — visible as
+    the outgoing's bg disappearing the instant the transition starts
+    (e.g. on §5 of the showroom, the dark wine bg vanished before the
+    pokeball appeared). With it set, t<0.5 paints `Fill(outgoing_bg)`,
+    t>=0.5 honors `incoming_bg_color` (or falls back to Clear if not
+    set) — symmetric with the incoming side.
+    """
+
+    @pytest.fixture
+    def capturing_canvas(self):
+        canvas = mock.MagicMock()
+        canvas.width = 64
+        canvas.height = 32
+        canvas.scale = 1
+        canvas.reset_calls: list[tuple[str, tuple]] = []  # type: ignore[attr-defined]
+        canvas.Clear.side_effect = lambda: canvas.reset_calls.append(("Clear", ()))
+        canvas.Fill.side_effect = lambda r, g, b: canvas.reset_calls.append(
+            ("Fill", (r, g, b))
+        )
+        return canvas
+
+    async def test_fill_used_before_midpoint_when_outgoing_bg_color_set(
+        self, capturing_canvas, mock_frame, no_sleep
+    ):
+        """outgoing only → t<0.5 paints Fill(outgoing), t>=0.5 falls
+        back to Clear since incoming is None."""
+        outgoing = mock.Mock()
+        incoming = mock.Mock()
+        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+
+        await run_transition(
+            capturing_canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=Cut(),
+            duration=0.5,
+            outgoing_bg_color=(42, 0, 16),
+        )
+
+        # First frame (t=0) must be Fill(outgoing).
+        assert capturing_canvas.reset_calls[0] == ("Fill", (42, 0, 16))
+        # Last frame (t=1.0) must be Clear since incoming is None.
+        assert capturing_canvas.reset_calls[-1] == ("Clear", ())
+        kinds = [k for k, _ in capturing_canvas.reset_calls]
+        assert "Fill" in kinds, "no Fill — t<0.5 frames missing"
+        assert "Clear" in kinds, "no Clear — t>=0.5 fallback missing"
+
+    async def test_both_set_paints_outgoing_then_incoming(
+        self, capturing_canvas, mock_frame, no_sleep
+    ):
+        """Both → t<0.5 Fill(outgoing), t>=0.5 Fill(incoming). The
+        boundary at t=0.5 is the same point `incoming_scale` switches
+        — bg color and scale flip together."""
+        outgoing = mock.Mock()
+        incoming = mock.Mock()
+        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+
+        await run_transition(
+            capturing_canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=Cut(),
+            duration=0.5,
+            outgoing_bg_color=(42, 0, 16),  # wine
+            incoming_bg_color=(255, 230, 80),  # yellow
+        )
+
+        # First frame is wine, last frame is yellow. No Clear at all.
+        assert capturing_canvas.reset_calls[0] == ("Fill", (42, 0, 16))
+        assert capturing_canvas.reset_calls[-1] == ("Fill", (255, 230, 80))
+        kinds = [k for k, _ in capturing_canvas.reset_calls]
+        assert "Clear" not in kinds, (
+            "Clear fired even though both bgs are set — "
+            "transition flashed black mid-transition"
+        )
+
+    async def test_outgoing_accepts_graphics_color_object(
+        self, capturing_canvas, mock_frame, no_sleep
+    ):
+        """Inter-widget call site in `_run_swap` passes
+        `prev_object.bg_color` which is a `graphics.Color` after
+        `_build_widget` coercion — must normalize the same way as
+        `incoming_bg_color`."""
+        from rgbmatrix.graphics import Color
+
+        outgoing = mock.Mock()
+        incoming = mock.Mock()
+        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+
+        await run_transition(
+            capturing_canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=Cut(),
+            duration=0.5,
+            outgoing_bg_color=Color(42, 0, 16),
+        )
+
+        fill_args = [
+            args for kind, args in capturing_canvas.reset_calls if kind == "Fill"
+        ]
+        assert fill_args, "graphics.Color not normalized for outgoing"
+        assert all(a == (42, 0, 16) for a in fill_args)
+
+    async def test_incoming_bg_color_threaded_to_frame_at(
+        self, capturing_canvas, mock_frame, no_sleep
+    ):
+        """`run_transition` must forward `incoming_bg_color` to
+        `frame_at` via kwargs so the hires snap (in `_hires_loader.
+        render_hires_frame`) can paint Fill(incoming_bg) instead of
+        Clear() at t>=0.95. Without this kwarg the snap clobbers the
+        outer Fill — visible as a one-tick "border on black" flash on
+        bordered widgets."""
+        outgoing = mock.Mock()
+        incoming = mock.Mock()
+        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+
+        captured_kwargs: list[dict] = []
+
+        class _CaptureTransition:
+            min_frames = 1
+
+            def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+                captured_kwargs.append(kwargs)
+                return canvas
+
+        await run_transition(
+            capturing_canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=_CaptureTransition(),
+            duration=0.5,
+            incoming_bg_color=(255, 230, 80),
+        )
+
+        assert captured_kwargs, "frame_at never called"
+        for kw in captured_kwargs:
+            assert "incoming_bg_color" in kw, (
+                "incoming_bg_color must be forwarded to frame_at so the "
+                f"hires snap can use it; got kwargs {sorted(kw.keys())}"
+            )
+            assert kw["incoming_bg_color"] == (255, 230, 80)
+
+
+class TestHiresSnapRespectsIncomingBg:
+    """The hires snap inside `render_hires_frame` and
+    `render_hires_baseball_frame` (`_hires_loader.py:_snap_reset`) does
+    its own bg-aware reset before drawing incoming at t>=SNAP_THRESHOLD.
+    Without it, the snap calls `canvas.Clear()` and the last transition
+    frame paints incoming on black — clobbering the Fill(incoming_bg)
+    that `run_transition` did one line earlier. The visible artifact
+    is a one-tick "incoming text on black" flash before the new
+    section's `reset_canvas` finally fills the panel.
+    """
+
+    def test_snap_clear_when_incoming_bg_is_none(self):
+        """Default → snap calls Clear(). Legacy behavior preserved
+        for transitions between two no-bg sections."""
+        from led_ticker.transitions._hires_loader import _snap_reset
+
+        canvas = mock.MagicMock()
+        _snap_reset(canvas, None)
+        canvas.Clear.assert_called_once_with()
+        canvas.Fill.assert_not_called()
+
+    def test_snap_fill_when_incoming_bg_set(self):
+        """Tuple `(r, g, b)` → snap calls Fill(r, g, b) instead of
+        Clear, so the snap-drawn incoming sits on the right bg."""
+        from led_ticker.transitions._hires_loader import _snap_reset
+
+        canvas = mock.MagicMock()
+        _snap_reset(canvas, (255, 230, 80))
+        canvas.Fill.assert_called_once_with(255, 230, 80)
+        canvas.Clear.assert_not_called()

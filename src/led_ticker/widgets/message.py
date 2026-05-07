@@ -77,7 +77,10 @@ class TickerMessage(_FrameAware):
                         self.font, full_text, padding=0, canvas=canvas
                     )
             anim_frame = self.animation.frame_for(
-                self._frame_count, full_text, canvas.width, self._content_width
+                self.frame_for("animation"),
+                full_text,
+                canvas.width,
+                self._content_width,
             )
             visible_text = anim_frame.visible_text
         else:
@@ -115,7 +118,7 @@ class TickerMessage(_FrameAware):
         # resets restart it. Painted at physical resolution so a
         # 1-px border on bigsign is 1 LED, not a 4×4 block.
         if self.border is not None:
-            self.border.paint(canvas, self._frame_count)
+            self.border.paint(canvas, self.frame_for("border"))
 
         if self._has_emoji:
             from led_ticker.pixel_emoji import draw_with_emoji
@@ -134,7 +137,7 @@ class TickerMessage(_FrameAware):
                 provider,
                 visible_text,
                 y_offset=y_offset,
-                frame=self._frame_count,
+                frame=self.frame_for("font_color"),
             )
         elif provider.per_char:
             # Per-char rendering: iterate visible_text, draw each char
@@ -152,10 +155,14 @@ class TickerMessage(_FrameAware):
                 cursor_pos,
                 baseline_y + y_offset,
                 visible_text,
-                lambda idx, total: provider.color_for(self._frame_count, idx, total),
+                lambda idx, total: provider.color_for(
+                    self.frame_for("font_color"), idx, total
+                ),
             )
         else:
-            color = provider.color_for(self._frame_count, 0, len(visible_text))
+            color = provider.color_for(
+                self.frame_for("font_color"), 0, len(visible_text)
+            )
             cursor_pos += draw_text(
                 canvas,
                 self.font,
@@ -229,7 +236,7 @@ class TickerCountdown(_FrameAware):
         # Border frames the panel; text floats inside. Border reads
         # `_frame_count` so transitions freeze and visit-resets restart.
         if self.border is not None:
-            self.border.paint(canvas, self._frame_count)
+            self.border.paint(canvas, self.frame_for("border"))
 
         if provider.per_char:
             # Per-char provider on plain text: iterate chars so rainbow
@@ -241,10 +248,12 @@ class TickerCountdown(_FrameAware):
                 cursor_pos,
                 baseline_y + y_offset,
                 text,
-                lambda idx, total: provider.color_for(self._frame_count, idx, total),
+                lambda idx, total: provider.color_for(
+                    self.frame_for("font_color"), idx, total
+                ),
             )
         else:
-            color = provider.color_for(self._frame_count, 0, len(text))
+            color = provider.color_for(self.frame_for("font_color"), 0, len(text))
             cursor_pos += draw_text(
                 canvas, self.font, cursor_pos, baseline_y + y_offset, color, text
             )

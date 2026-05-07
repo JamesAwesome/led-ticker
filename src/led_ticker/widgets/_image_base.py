@@ -137,6 +137,14 @@ class _BaseImageWidget(_FrameAware):
     bottom_emoji_y_offset: int = attrs.field(default=0, kw_only=True)
     top_row_height: int | None = attrs.field(default=None, kw_only=True)
 
+    # Optional perimeter border effect — same contract as
+    # `TickerMessage.border` and `TwoRowMessage.border` (see
+    # borders.py). Paints AFTER the image and BEFORE any text overlay
+    # so the border frames the panel and text overlaps it on
+    # collision. None = no border (no perf cost). Coerced from
+    # TOML at config-load via `_coerce_border` in app.py.
+    border: Any | None = attrs.field(default=None, kw_only=True)
+
     # Framework-internal — not user-facing TOML.
     padding: int = attrs.field(init=False, default=0)
 

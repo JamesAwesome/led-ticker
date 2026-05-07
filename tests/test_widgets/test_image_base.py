@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest.mock as mock
 
 import attrs
+import pytest
 
 from led_ticker._types import Canvas
 from led_ticker.widgets._image_base import _BaseImageWidget
@@ -1026,3 +1027,143 @@ class TestImageBorderField:
         Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
         widget = StillImage(path=img_path)
         assert widget.border is None
+
+
+class TestRenderTickBorder:
+    """Border integration in `_render_tick` — paints AFTER image
+    paint and BEFORE text paint (non-scroll / scroll_over) or after
+    everything (skip-black scroll). The 'border frames the panel'
+    convention: text overlaps border on collision in modes where
+    text paints on top of image; border overlaps text + image
+    silhouette in skip-black mode."""
+
+    @pytest.fixture
+    def order_recorder(self, monkeypatch):
+        """Patch `_paint_image`, `_paint_skip_black`, `_draw_text`,
+        and a mock `border.paint` to record call order."""
+        order: list[str] = []
+
+        def _record(name):
+            def _fn(self, *a, **kw):
+                order.append(name)
+                return 0  # _draw_text returns int (cursor advance)
+
+            return _fn
+
+        # Patch on `StillImage` (the subclass) — `_paint_skip_black`
+        # is overridden there, so a base-class patch wouldn't
+        # intercept the call. `raising=False` because `_paint_image`
+        # / `_draw_text` are base-only and may not exist on the
+        # subclass yet (monkeypatch adds them, which shadows the
+        # base method via Python's attribute lookup order).
+        from led_ticker.widgets.still import StillImage
+
+        monkeypatch.setattr(
+            StillImage, "_paint_image", _record("paint_image"), raising=False
+        )
+        monkeypatch.setattr(
+            StillImage,
+            "_paint_skip_black",
+            _record("paint_skip_black"),
+            raising=False,
+        )
+        monkeypatch.setattr(
+            StillImage, "_draw_text", _record("draw_text"), raising=False
+        )
+        return order
+
+    def _make_widget(self, tmp_path, text_align: str, border):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(
+            path=img_path,
+            text="hi",
+            text_align=text_align,
+            border=border,
+        )
+
+    def test_render_tick_left_paints_image_then_border_then_text(
+        self, tmp_path, order_recorder
+    ):
+        from rgbmatrix import _StubCanvas as RealStub
+
+        border = mock.Mock()
+        border.frame_invariant = False
+        border.paint.side_effect = lambda *a, **kw: order_recorder.append("border")
+
+        widget = self._make_widget(tmp_path, "left", border)
+        canvas = RealStub(width=64, height=32)
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+
+        assert order_recorder == [
+            "paint_image",
+            "border",
+            "draw_text",
+        ], f"left: expected image→border→text; got {order_recorder}"
+
+    def test_render_tick_scroll_over_paints_image_then_border_then_text(
+        self, tmp_path, order_recorder
+    ):
+        from rgbmatrix import _StubCanvas as RealStub
+
+        border = mock.Mock()
+        border.frame_invariant = False
+        border.paint.side_effect = lambda *a, **kw: order_recorder.append("border")
+
+        widget = self._make_widget(tmp_path, "scroll_over", border)
+        canvas = RealStub(width=64, height=32)
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+
+        assert order_recorder == [
+            "paint_image",
+            "border",
+            "draw_text",
+        ], f"scroll_over: expected image→border→text; got {order_recorder}"
+
+    def test_render_tick_scroll_paints_text_then_image_then_border(
+        self, tmp_path, order_recorder
+    ):
+        """Skip-black scroll: text walks behind silhouette (existing
+        semantics) — border lands LAST so it remains visible over
+        both image and any text at panel edges."""
+        from rgbmatrix import _StubCanvas as RealStub
+
+        border = mock.Mock()
+        border.frame_invariant = False
+        border.paint.side_effect = lambda *a, **kw: order_recorder.append("border")
+
+        widget = self._make_widget(tmp_path, "scroll", border)
+        canvas = RealStub(width=64, height=32)
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+
+        assert order_recorder == ["draw_text", "paint_skip_black", "border"], (
+            f"scroll: expected text→image-skip-black→border; " f"got {order_recorder}"
+        )
+
+    def test_render_tick_no_border_omits_paint(self, tmp_path, order_recorder):
+        """Border=None: no border calls, image+text path unchanged."""
+        from rgbmatrix import _StubCanvas as RealStub
+
+        widget = self._make_widget(tmp_path, "left", None)
+        canvas = RealStub(width=64, height=32)
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+
+        assert order_recorder == ["paint_image", "draw_text"]
+
+    def test_render_tick_passes_frame_count_to_border(self, tmp_path):
+        """border.paint receives the widget's current `_frame_count`."""
+        from rgbmatrix import _StubCanvas as RealStub
+
+        border = mock.Mock()
+        border.frame_invariant = False
+
+        widget = self._make_widget(tmp_path, "left", border)
+        widget._frame_count = 17
+        canvas = RealStub(width=64, height=32)
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+
+        border.paint.assert_called_once_with(canvas, 17)

@@ -555,8 +555,13 @@ class _BaseImageWidget(_FrameAware):
         text_x_right: int,
     ) -> None:
         """Compose one frame: reset canvas (Clear or Fill bg) + paint
-        image + paint text in the right order for the current
-        `text_align`."""
+        image + paint border + paint text in the right order for the
+        current `text_align`. Border lands AFTER image (to overlay
+        image edges — frames the panel) and BEFORE text in the modes
+        where text paints on top of image. In skip-black scroll mode
+        text walks BEHIND the image silhouette (existing semantics);
+        border lands LAST in that path so it stays visible over both
+        image silhouette and any scrolled text at the panel edges."""
         reset_canvas(canvas, self.bg_color)
 
         # Pass the provider (not a materialized Color) so per-char
@@ -568,11 +573,17 @@ class _BaseImageWidget(_FrameAware):
         if self.text_align == "scroll":
             self._draw_text(text_canvas, scroll_pos, baseline_y, provider)
             self._paint_skip_black(canvas)
+            if self.border is not None:
+                self.border.paint(canvas, self._frame_count)
         elif self.text_align == "scroll_over":
             self._paint_image(canvas)
+            if self.border is not None:
+                self.border.paint(canvas, self._frame_count)
             self._draw_text(text_canvas, scroll_pos, baseline_y, provider)
         else:
             self._paint_image(canvas)
+            if self.border is not None:
+                self.border.paint(canvas, self._frame_count)
             text_x = text_x_left if self.text_align == "left" else text_x_right
             self._draw_text(text_canvas, text_x, baseline_y, provider)
 

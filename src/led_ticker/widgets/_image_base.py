@@ -482,7 +482,7 @@ class _BaseImageWidget(_FrameAware):
         x: int,
         baseline_y: int,
         emoji_y: int,
-        frame_count: int = 0,
+        frame_count: int,
     ) -> None:
         """Draw one row's text given pre-resolved font / text / color.
         Caller (`_render_two_row_tick`) resolves these once outside the

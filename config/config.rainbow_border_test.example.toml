@@ -1,20 +1,32 @@
 # Rainbow border smoke test — Pi 5 bigsign.
 #
-# Validates the new TickerMessage `border` field (introduced on the
-# feat/rainbow-border branch). Six short sections in a ~25-30s loop
-# with cut transitions so iteration on the bigsign is fast: edit
-# config, restart container, observe in seconds instead of waiting
-# through the full showroom playlist for §8 to come around.
+# Validates the `border` field across every widget type that supports
+# it. Top half (§1–§5) covers image widgets — the new feature on
+# feat/image-borders, which extends border support to GifPlayer and
+# StillImage across all 4 render paths. Bottom half (§6–§13) covers
+# the original TickerMessage / TickerCountdown / TwoRowMessage paths
+# (introduced on feat/rainbow-border).
 #
-# Sections:
-#   1. defaults                      — rainbow chase, default tunables
-#   2. rainbow border + rainbow text — chase against per-char rainbow letters
-#   3. border + bg_color             — yellow bg, black text, rainbow frame
-#   4. tuned: faster + thicker       — speed=8, char_offset=12, thickness=2
-#   5. constant color border         — non-animated red ring (sanity check)
-#   6. inline table form             — full kwargs in one place for reference
-#   7. two-row + rainbow border       — handle + tagline + frame at scale=2
-#   8. scrolling text + border         — overflow scroll keeps border animating
+# All sections use cut transitions and short hold_times so iteration
+# on the bigsign is fast: edit config, restart container, observe in
+# seconds instead of waiting through the full showroom playlist.
+#
+# Sections (image widgets — feat/image-borders):
+#   1. still + rainbow border, no text   — `_play_no_text` slow path
+#   2. still + constant border, no text  — `_play_no_text` fast path
+#   3. still + border + scrolling text   — `_render_tick` skip-black scroll
+#   4. gif + rainbow border, no text     — `_play_no_text` 50ms cadence
+#   5. gif + border + held text          — `_render_tick` non-scroll path
+#
+# Sections (text widgets — pre-existing):
+#   6. defaults                      — rainbow chase, default tunables
+#   7. rainbow border + rainbow text — chase against per-char rainbow letters
+#   8. border + bg_color             — yellow bg, black text, rainbow frame
+#   9. tuned: faster + thicker       — speed=8, char_offset=12, thickness=2
+#  10. constant color border         — non-animated red ring (sanity check)
+#  11. inline table form             — full kwargs in one place for reference
+#  12. two-row + rainbow border      — handle + tagline + frame at scale=2
+#  13. scrolling text + border       — overflow scroll keeps border animating
 #
 # Tunables to compare on hardware:
 #   - speed         — degrees of hue per frame. Higher = faster chase.
@@ -23,6 +35,20 @@
 #                     compact rainbow, more cycles around the panel.
 #                     Default 6 ≈ 60 cycles around 640-pixel bigsign.
 #   - thickness     — 1 (default) or 2 pixel ring.
+#
+# What to watch for on §1–§5 (image-border-specific):
+#   - Chase MUST stay uniform across §4 and §5 regardless of the
+#     gif's native frame durations — the GifPlayer 50ms refactor
+#     ensures the rainbow ticks at engine cadence, not gif-frame
+#     cadence. If §4's chase looks slower/jerkier than §1's, the
+#     refactor regressed.
+#   - §2 should NOT enter a per-tick redraw loop — it's the fast
+#     path (constant border, frame-invariant). If you see redraw
+#     cost there, the fast-path gate regressed.
+#   - §3's border must remain visible at the panel edges even where
+#     the image silhouette covers the rest of the panel — border
+#     paints LAST in skip-black scroll mode (image → text behind →
+#     border on top).
 
 [display]
 rows = 32
@@ -48,8 +74,140 @@ duration = 0.2
 easing = "linear"
 between_sections = "cut"
 
+# ===========================================================================
+# IMAGE WIDGET BORDERS — feat/image-borders
+# ===========================================================================
+# §1–§5 exercise the 4 paint sites added by the image-borders feature:
+#   - StillImage._play_no_text (§1, §2)
+#   - _render_tick scroll/skip-black (§3)
+#   - GifPlayer._play_no_text (§4)
+#   - _render_tick non-scroll (§5)
+# ===========================================================================
+
 # ---------------------------------------------------------------------------
-# 1. Defaults — `border = "rainbow"` shorthand, plain white text inside.
+# 1. Still + rainbow border, no text — `StillImage._play_no_text` slow path.
+#    A bordered logo with no text overlay forces the new per-tick loop
+#    (the fast path bypasses when border is non-frame-invariant). Watch
+#    the chase advance smoothly at engine 50ms cadence over the hold.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 5.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/bunny-transparent.png"
+fit = "pillarbox"
+image_align = "center"
+hold_seconds = 5.0
+border = "rainbow"
+
+# ---------------------------------------------------------------------------
+# 2. Still + constant border, no text — `_play_no_text` fast path preserved.
+#    Constant border is `frame_invariant=True` so the fast path stays
+#    valid: paint once, sleep, return. No per-tick loop overhead. The
+#    border holds steady red while the still hangs for 4s.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 4.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/bunny-transparent.png"
+fit = "pillarbox"
+image_align = "center"
+hold_seconds = 4.0
+border = [220, 50, 50]
+
+# ---------------------------------------------------------------------------
+# 3. Still + rainbow border + scrolling text — `_render_tick` skip-black
+#    scroll mode. Order: text drawn → image's non-black pixels overlay
+#    (text walks BEHIND silhouette) → border on top. Border MUST stay
+#    visible at panel edges even where the image is opaque — if the
+#    border vanishes behind the image's bounding box, the paint order
+#    regressed.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 6.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/bunny-transparent.png"
+fit = "pillarbox"
+image_align = "center"
+text = "TEXT WALKS BEHIND THE BUNNY"
+text_align = "scroll"
+font = "Inter-Bold"
+font_size = 16
+font_color = [255, 255, 255]
+scroll_speed_ms = 40
+hold_seconds = 6.0
+border = "rainbow"
+
+# ---------------------------------------------------------------------------
+# 4. GIF + rainbow border, no text — `GifPlayer._play_no_text` 50ms
+#    refactor. The gif's native frame durations are typically 100ms;
+#    the refactor ticks at engine 50ms regardless, picking the right
+#    gif frame from elapsed wall-clock via `_pick_frame_for_elapsed`.
+#    The chase here MUST advance at the same cadence as §1 (also 50ms)
+#    — if it looks slower or jerkier, the cadence refactor regressed.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 5.0
+loop_count = 2
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+image_align = "center"
+gif_loops = 2
+border = "rainbow"
+
+# ---------------------------------------------------------------------------
+# 5. GIF + rainbow border + held text — `_render_tick` non-scroll path
+#    on a multi-frame source. Tests the per-tick loop (gif frames
+#    advance, border chases, text holds at left). Border paints
+#    AFTER image AND BEFORE text — text overlaps border on collision.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 5.0
+loop_count = 2
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+image_align = "left"
+text = "PIKA"
+text_align = "right"
+font = "Inter-Bold"
+font_size = 16
+font_color = [255, 220, 80]
+gif_loops = 2
+border = "rainbow"
+
+# ===========================================================================
+# TEXT WIDGET BORDERS — feat/rainbow-border (pre-existing)
+# ===========================================================================
+# §6–§13 are the original border smoke tests that shipped on
+# feat/rainbow-border. Kept in place for regression coverage.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# 6. Defaults — `border = "rainbow"` shorthand, plain white text inside.
 #    Establishes the baseline look. Watch the chase speed and density;
 #    this is what tunables in later sections diverge from.
 # ---------------------------------------------------------------------------
@@ -68,7 +226,7 @@ font_color = [255, 255, 255]
 border = "rainbow"
 
 # ---------------------------------------------------------------------------
-# 2. Border + rainbow text — chase plays against per-char rainbow letters.
+# 7. Border + rainbow text — chase plays against per-char rainbow letters.
 #    Two independent rainbow systems on one panel: the perimeter chase
 #    (frame-driven, indexed by perimeter pixel) and the per-character
 #    rainbow letters (frame-driven, indexed by char_index). They have
@@ -90,7 +248,7 @@ font_color = "rainbow"
 border = "rainbow"
 
 # ---------------------------------------------------------------------------
-# 3. Border + bg_color — bright yellow fill, BLACK text, rainbow frame.
+# 8. Border + bg_color — bright yellow fill, BLACK text, rainbow frame.
 #    The §8 showroom configuration in a focused beat. Three independent
 #    color systems: bg fills every non-text pixel (yellow), text reads
 #    as cut-out negative (black), border chases rainbow around the edge.
@@ -111,7 +269,7 @@ font_color = [0, 0, 0]
 border = "rainbow"
 
 # ---------------------------------------------------------------------------
-# 4. Tuned variant — speed=8, char_offset=12, thickness=2.
+# 9. Tuned variant — speed=8, char_offset=12, thickness=2.
 #    Faster chase, denser rainbow, thicker ring. Compare visually
 #    against §1's defaults to feel the parameter space. If you want
 #    the showroom to use this tune instead of the defaults, copy the
@@ -132,7 +290,7 @@ font_color = [255, 255, 255]
 border = {style = "rainbow", speed = 8, char_offset = 12, thickness = 2}
 
 # ---------------------------------------------------------------------------
-# 5. Constant-color border — solid red ring, no animation.
+# 10. Constant-color border — solid red ring, no animation.
 #    Sanity check on the non-rainbow path. `frame_invariant=True`
 #    means this border never animates — the perimeter holds steady
 #    red while the text inside can do whatever (color_cycle here for
@@ -153,7 +311,7 @@ font_color = "color_cycle"
 border = [220, 50, 50]
 
 # ---------------------------------------------------------------------------
-# 6. Inline-table form — explicit kwargs for copy-paste reference.
+# 11. Inline-table form — explicit kwargs for copy-paste reference.
 #    Equivalent to `border = "rainbow"` but spells out every default.
 #    Useful as a starting template if you want to fork off and tune
 #    per-section without remembering the exact knob names.
@@ -173,7 +331,7 @@ font_color = [255, 255, 255]
 border = {style = "rainbow", speed = 4, char_offset = 6, thickness = 1}
 
 # ---------------------------------------------------------------------------
-# 7. Two-row brand layout + rainbow border.
+# 12. Two-row brand layout + rainbow border.
 #    Mirrors a storefront window: handle on top, scrolling tagline on
 #    bottom, rainbow chase framing the whole panel. The border paints
 #    at REAL panel resolution (256x64 on bigsign) regardless of the
@@ -206,7 +364,7 @@ bottom_font_size = 14
 border = "rainbow"
 
 # ---------------------------------------------------------------------------
-# 8. Scrolling text + border — overflow behavior.
+# 13. Scrolling text + border — overflow behavior.
 #    Text is intentionally too long for the canvas so the engine
 #    enters the scroll path. Border must:
 #      - keep animating during the scroll loop (advance_frame fires

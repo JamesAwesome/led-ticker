@@ -754,12 +754,16 @@ async def _show_one(
     `(canvas, last_scroll_pos)` — `last_scroll_pos` is 0 for play()
     widgets since they don't have a scroll position.
 
-    Resets the widget's frame counter at the start of each visit (via
-    `reset_frame()` if the widget exposes it) so frame-aware effects
-    like typewriter restart cleanly on every visit, including
-    `loop_count > 1` and repeated sections.
+    Conditionally resets the widget's frame counter at the start of
+    each visit (via `reset_frame()` if the widget exposes it).  The
+    reset is gated by `_should_reset_frame()`: effects that set
+    `restart_on_visit = False` (e.g. `RainbowChaseBorder`) suppress
+    it so their animation phase advances smoothly across `loop_count`
+    boundaries.  Effects that omit the flag or set it to `True`
+    (e.g. `Typewriter`) still trigger the reset.  ANY opt-out on the
+    widget wins — see `_should_reset_frame` for the composition rule.
     """
-    if hasattr(widget, "reset_frame"):
+    if hasattr(widget, "reset_frame") and _should_reset_frame(widget):
         widget.reset_frame()
     if _has_play(widget):
         canvas = await _play_widget(canvas, frame, widget)

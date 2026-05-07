@@ -706,6 +706,39 @@ async def _play_widget(canvas: Any, frame: Any, widget: Any) -> Any:
     return await widget.play(canvas, frame, loop_count=loops)
 
 
+def _should_reset_frame(widget: Any) -> bool:
+    """Decide whether `_show_one` should call `reset_frame()` on
+    visit entry.
+
+    ANY effect on the widget that opts out of `restart_on_visit`
+    blocks the reset. Favors continuity over restart — the safer
+    default for animated chases (RainbowChaseBorder, Rainbow,
+    ColorCycle) that should advance smoothly across loop_count
+    boundaries within a section.
+
+    Default `True` via `getattr` fallback keeps today's behavior
+    for unknown effect classes — only effects that explicitly set
+    `restart_on_visit = False` opt out.
+
+    Composition tradeoff: a widget with both `Typewriter` (wants
+    restart) and `RainbowChaseBorder` (wants continuous) gets the
+    continuous semantics — typewriter doesn't retype on inner
+    loop iterations. Niche combo; documented in CLAUDE.md.
+
+    Section-entry resets are unaffected — `run_transition` calls
+    `_reset_presenter(incoming)` at every transition boundary, so
+    the new section's first `_show_one` call sees `_frame_count`
+    already reset to 0 regardless of this gate's verdict.
+    """
+    for attr in ("font_color", "top_color", "bottom_color", "border", "animation"):
+        effect = getattr(widget, attr, None)
+        if effect is None:
+            continue
+        if not getattr(effect, "restart_on_visit", True):
+            return False
+    return True
+
+
 async def _show_one(
     canvas: Canvas,
     frame: Any,

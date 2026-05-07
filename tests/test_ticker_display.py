@@ -1151,3 +1151,73 @@ class TestShowOneResetsFrame:
 
         # Should complete without AttributeError
         await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+
+
+class TestShouldResetFrame:
+    """`_should_reset_frame()` returns True iff every effect on the
+    widget either has `restart_on_visit = True` (the default) or
+    omits the attribute entirely. ANY effect with explicit
+    `restart_on_visit = False` blocks the reset — favors continuity
+    for animated chases that should advance smoothly across
+    loop_count boundaries."""
+
+    def test_no_effects_resets(self):
+        """Widget with no effect attributes — falls through every
+        check, returns True."""
+        from led_ticker.ticker import _should_reset_frame
+
+        class _Widget:
+            pass
+
+        assert _should_reset_frame(_Widget()) is True
+
+    def test_continuous_color_provider_blocks_reset(self):
+        """font_color with `restart_on_visit = False` → False."""
+        from led_ticker.ticker import _should_reset_frame
+
+        class _Provider:
+            restart_on_visit = False
+
+        class _Widget:
+            font_color = _Provider()
+
+        assert _should_reset_frame(_Widget()) is False
+
+    def test_continuous_border_blocks_reset(self):
+        """border with `restart_on_visit = False` → False."""
+        from led_ticker.ticker import _should_reset_frame
+
+        class _Border:
+            restart_on_visit = False
+
+        class _Widget:
+            border = _Border()
+
+        assert _should_reset_frame(_Widget()) is False
+
+    def test_typewriter_alone_resets(self):
+        """animation with `restart_on_visit = True` (default
+        behavior for Typewriter) and no other effects → True."""
+        from led_ticker.ticker import _should_reset_frame
+
+        class _Animation:
+            restart_on_visit = True
+
+        class _Widget:
+            animation = _Animation()
+
+        assert _should_reset_frame(_Widget()) is True
+
+    def test_unknown_effect_class_keeps_default_true(self):
+        """Effect that simply doesn't set restart_on_visit → uses
+        getattr default of True. Back-compat path for any third-
+        party / unknown effect class."""
+        from led_ticker.ticker import _should_reset_frame
+
+        class _CustomEffect:
+            pass  # no restart_on_visit attribute
+
+        class _Widget:
+            font_color = _CustomEffect()
+
+        assert _should_reset_frame(_Widget()) is True

@@ -43,6 +43,15 @@ sleep path. Current consumers of this contract:
 — `True` (= "is static, allow fast path") when border is None or
 explicitly frame-invariant. Same contract applies to any future
 effect class that drives per-frame output on a render surface.
+
+**`restart_on_visit` convention**: effect classes that want
+continuous phase across `loop_count > 1` iterations of a section
+set `restart_on_visit: bool = False` as a class attribute. Read
+by `_should_reset_frame` in `ticker.py`. Default `True` (via
+`getattr` fallback) keeps today's "every visit = fresh start"
+behavior for unknown effect classes. `RainbowChaseBorder` opts
+out (continuous chase); `ConstantBorder` keeps the default
+(frame-invariant, so the value is a no-op).
 """
 
 from __future__ import annotations

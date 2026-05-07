@@ -37,13 +37,15 @@ import attrs
 class _FrameAware:
     """Mixin providing per-widget + per-effect frame counters."""
 
-    _EFFECT_ATTRS: ClassVar[tuple[str, ...]] = (
-        "font_color",
-        "font_color_temp",
-        "top_color",
-        "bottom_color",
-        "border",
-        "animation",
+    _EFFECT_ATTRS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "font_color",
+            "font_color_temp",
+            "top_color",
+            "bottom_color",
+            "border",
+            "animation",
+        }
     )
 
     _frame_count: int = attrs.field(init=False, default=0)

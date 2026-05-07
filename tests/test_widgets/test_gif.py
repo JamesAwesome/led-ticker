@@ -167,10 +167,13 @@ async def test_play_uses_engine_cadence_without_text(tmp_path, mocker):
 
     await widget.play(real, frame, loop_count=1)
 
-    # All sleeps are ENGINE_TICK_MS / 1000 = 0.05s regardless of frame duration.
+    from led_ticker.ticker import ENGINE_TICK_MS
+
+    # All sleeps are ENGINE_TICK_MS / 1000 regardless of frame duration.
     sleeps = [c.args[0] for c in sleep_mock.await_args_list]
+    expected_sleep = ENGINE_TICK_MS / 1000
     assert all(
-        abs(s - 0.05) < 1e-6 for s in sleeps
+        abs(s - expected_sleep) < 1e-6 for s in sleeps
     ), f"expected all sleeps at 50ms cadence; got {sleeps}"
     # 240ms / 50ms = 4 ticks
     assert (
@@ -1380,7 +1383,17 @@ class TestGifPlayNoTextRefactor:
             duration=500,
             loop=0,
         )
-        widget = GifPlayer(path=gif_path, border=RainbowChaseBorder(speed=4))
+
+        real_border = RainbowChaseBorder(speed=4)
+        border_paint_calls = []
+        original_paint = real_border.paint
+
+        def _spy_paint(canvas, frame_count):
+            border_paint_calls.append(frame_count)
+            return original_paint(canvas, frame_count)
+
+        real_border.paint = _spy_paint  # type: ignore[method-assign]
+        widget = GifPlayer(path=gif_path, border=real_border)
         widget._load(panel_w=4, panel_h=4)
 
         with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
@@ -1390,11 +1403,12 @@ class TestGifPlayNoTextRefactor:
                 loop_count=1,
             )
 
-        # 10 ticks → 10 border.paint calls. (border is the actual
-        # RainbowChaseBorder, not a mock — assert via spying on its
-        # paint method.)
-        # We can replace the border with a spying wrapper instead:
-        # but the simpler check is on _frame_count progression.
+        # 10 ticks → 10 border.paint calls (direct assertion, not a proxy).
+        assert len(border_paint_calls) >= 9, (
+            f"border.paint should be called ~10× over 500ms; "
+            f"got {len(border_paint_calls)} calls: {border_paint_calls}"
+        )
+        # Redundant tripwire: _frame_count must also have advanced.
         assert widget._frame_count >= 9, (
             f"_frame_count should advance ~10× over 500ms; "
             f"got {widget._frame_count}"

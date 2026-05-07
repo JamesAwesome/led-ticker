@@ -221,3 +221,26 @@ class TestFrameInvariantFlag:
         from led_ticker.color_providers import ColorCycle
 
         assert ColorCycle().frame_invariant is False
+
+
+class TestContinuousProviderRestartOnVisit:
+    """Pin the `restart_on_visit = False` class attribute on
+    continuous-phase color providers. Read by `_should_reset_frame`
+    in ticker.py. Catches a future change that flips the default."""
+
+    def test_rainbow_restart_on_visit_is_false(self):
+        from led_ticker.color_providers import Rainbow
+
+        assert Rainbow.restart_on_visit is False, (
+            "Rainbow.restart_on_visit must be False — the chase "
+            "phase should advance continuously across loop_count "
+            "boundaries within a section"
+        )
+
+    def test_color_cycle_restart_on_visit_is_false(self):
+        from led_ticker.color_providers import ColorCycle
+
+        assert ColorCycle.restart_on_visit is False, (
+            "ColorCycle.restart_on_visit must be False — the cycle "
+            "should advance continuously across loop_count boundaries"
+        )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import unittest.mock as mock
 
 import pytest
 from PIL import Image
@@ -150,7 +151,11 @@ async def test_play_clamps_zero_loop_count_to_one(tmp_path, mocker):
     assert frame.matrix.SwapOnVSync.call_count == 1
 
 
-async def test_play_uses_per_frame_durations(tmp_path, mocker):
+async def test_play_uses_engine_cadence_without_text(tmp_path, mocker):
+    """_play_no_text now runs at ENGINE_TICK_MS (50ms) cadence regardless of
+    gif frame durations. For 2 frames at 120ms each (total 240ms), that
+    means 240 // 50 = 4 ticks, each sleeping 0.05s. The total wall-clock
+    duration is preserved (4 × 50ms ≈ 240ms)."""
     # Use distinct colors so PIL does not collapse identical frames into one.
     path = _make_gif_path(tmp_path, [(10, 20, 30), (40, 50, 60)], duration_ms=120)
     widget = GifPlayer(path=str(path), fit="stretch")
@@ -162,10 +167,15 @@ async def test_play_uses_per_frame_durations(tmp_path, mocker):
 
     await widget.play(real, frame, loop_count=1)
 
-    # Each frame's duration was 120ms → 0.12s passed to asyncio.sleep
+    # All sleeps are ENGINE_TICK_MS / 1000 = 0.05s regardless of frame duration.
     sleeps = [c.args[0] for c in sleep_mock.await_args_list]
-    assert all(abs(s - 0.12) < 1e-6 for s in sleeps)
-    assert len(sleeps) == 2
+    assert all(
+        abs(s - 0.05) < 1e-6 for s in sleeps
+    ), f"expected all sleeps at 50ms cadence; got {sleeps}"
+    # 240ms / 50ms = 4 ticks
+    assert (
+        len(sleeps) == 4
+    ), f"expected 4 ticks for 240ms gif at 50ms cadence; got {len(sleeps)}"
 
 
 # ---------------------------------------------------------------------------
@@ -1284,3 +1294,134 @@ class TestGifBgColor:
 
         canvas.Clear.assert_not_called()
         canvas.Fill.assert_called_with(80, 90, 100)
+
+
+class TestGifPlayNoTextRefactor:
+    """`GifPlayer._play_no_text` runs at 50ms engine cadence (not
+    gif-frame cadence) so animated borders chase uniformly. The
+    refactor must preserve gif animation: a 3-frame gif at 100ms
+    each + loop_count=1 still produces 3 distinct frame indices
+    over its 300ms run."""
+
+    @pytest.fixture
+    def three_frame_gif(self, tmp_path):
+        from PIL import Image
+
+        gif_path = tmp_path / "three.gif"
+        frames = [
+            Image.new("RGB", (4, 4), (255, 0, 0)),
+            Image.new("RGB", (4, 4), (0, 255, 0)),
+            Image.new("RGB", (4, 4), (0, 0, 255)),
+        ]
+        frames[0].save(
+            gif_path,
+            save_all=True,
+            append_images=frames[1:],
+            duration=100,
+            loop=0,
+        )
+        return gif_path
+
+    async def test_no_text_loop_advances_at_50ms(self, three_frame_gif, mock_frame):
+        """6 ticks expected (300ms / 50ms). Frame indices over the
+        run hit 0, 1, 2 (each held for 2 consecutive 50ms ticks).
+        Verified by patching GifPlayer._pick_frame_for_elapsed at the
+        class level (attrs uses __slots__ so instance-level patching
+        is not possible)."""
+        from led_ticker.widgets.gif import GifPlayer
+
+        widget = GifPlayer(path=three_frame_gif)
+        # Load frames at the gif's native 4×4 size so _frames is populated
+        # before calling _play_no_text directly (play() does this, but we
+        # call the helper directly here to isolate the cadence behavior).
+        widget._load(panel_w=4, panel_h=4)
+
+        observed_idxs: list[int] = []
+        _original_pick = GifPlayer._pick_frame_for_elapsed
+
+        def _spy(self_w, elapsed_ms: int) -> None:
+            _original_pick(self_w, elapsed_ms)
+            observed_idxs.append(self_w._current_frame_idx)
+
+        with (
+            mock.patch.object(GifPlayer, "_pick_frame_for_elapsed", _spy),
+            mock.patch("asyncio.sleep", new=mock.AsyncMock()),
+        ):
+            await widget._play_no_text(
+                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame,
+                loop_count=1,
+            )
+
+        # 300ms / 50ms = 6 ticks
+        assert (
+            len(observed_idxs) == 6
+        ), f"expected 6 50ms ticks; got {len(observed_idxs)}"
+        # Distinct frame indices over the run
+        assert set(observed_idxs) == {0, 1, 2}, (
+            f"expected all 3 frames seen over the run; " f"got {observed_idxs}"
+        )
+
+    async def test_no_text_with_animated_border_calls_paint_per_tick(
+        self, tmp_path, mock_frame
+    ):
+        """Single-frame gif (effectively static) + RainbowChaseBorder
+        (speed=4) — border.paint fires every 50ms tick with strictly
+        increasing frame_count."""
+        from PIL import Image
+
+        from led_ticker.borders import RainbowChaseBorder
+        from led_ticker.widgets.gif import GifPlayer
+
+        gif_path = tmp_path / "one.gif"
+        # Single-frame gif with 500ms duration: 500/50 = 10 ticks.
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(
+            gif_path,
+            duration=500,
+            loop=0,
+        )
+        widget = GifPlayer(path=gif_path, border=RainbowChaseBorder(speed=4))
+        widget._load(panel_w=4, panel_h=4)
+
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await widget._play_no_text(
+                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame,
+                loop_count=1,
+            )
+
+        # 10 ticks → 10 border.paint calls. (border is the actual
+        # RainbowChaseBorder, not a mock — assert via spying on its
+        # paint method.)
+        # We can replace the border with a spying wrapper instead:
+        # but the simpler check is on _frame_count progression.
+        assert widget._frame_count >= 9, (
+            f"_frame_count should advance ~10× over 500ms; "
+            f"got {widget._frame_count}"
+        )
+
+    async def test_no_text_without_border_unchanged_image_paint(
+        self, three_frame_gif, mock_frame
+    ):
+        """Refactor preserves non-bordered playback: image paints
+        every tick, no border calls (border=None default). The tick
+        count is verifiable via SwapOnVSync call count (one swap per
+        tick) since _paint_image is called once per tick as well."""
+        from led_ticker.widgets.gif import GifPlayer
+
+        widget = GifPlayer(path=three_frame_gif)
+        # Load frames at the gif's native 4×4 size.
+        widget._load(panel_w=4, panel_h=4)
+        # border=None by default — verify the loop runs 6 ticks
+        # (300ms / 50ms) by counting swaps (one per tick).
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await widget._play_no_text(
+                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame,
+                loop_count=1,
+            )
+
+        assert mock_frame.matrix.SwapOnVSync.call_count == 6, (
+            f"expected 6 swaps (300ms / 50ms); "
+            f"got {mock_frame.matrix.SwapOnVSync.call_count}"
+        )

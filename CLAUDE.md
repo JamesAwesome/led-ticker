@@ -46,7 +46,7 @@ src/led_ticker/
                        #   for crypto/finance widgets, etc.)
   color_providers.py   # ColorProvider base + Rainbow, ColorCycle, Gradient, _ConstantColor
   animations.py        # Animation protocol + Typewriter (TickerMessage-only)
-  borders.py           # BorderEffect protocol + RainbowChaseBorder, ConstantBorder (TickerMessage-only)
+  borders.py           # BorderEffect protocol + RainbowChaseBorder, ConstantBorder
   pixel_emoji.py       # Inline pixel-art emoji renderer (:name: in messages)
   fonts/               # BDF bitmap fonts + loader
   transitions/

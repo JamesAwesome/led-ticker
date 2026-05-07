@@ -159,7 +159,12 @@ class WeatherWidget(_FrameAware):
         baseline_y = compute_baseline(self.font, canvas, valign="center") + y_offset
 
         cursor_pos += self._draw_segment(
-            canvas, cursor_pos, baseline_y, self.font_color, label_text
+            canvas,
+            cursor_pos,
+            baseline_y,
+            self.font_color,
+            label_text,
+            frame_count=self.frame_for("font_color"),
         )
 
         if self.show_icon:
@@ -179,11 +184,21 @@ class WeatherWidget(_FrameAware):
             )
         else:
             cursor_pos += self._draw_segment(
-                canvas, cursor_pos, baseline_y, self.font_color, f"{self.weather} "
+                canvas,
+                cursor_pos,
+                baseline_y,
+                self.font_color,
+                f"{self.weather} ",
+                frame_count=self.frame_for("font_color"),
             )
 
         cursor_pos += self._draw_segment(
-            canvas, cursor_pos, baseline_y, self.font_color_temp, temp_text
+            canvas,
+            cursor_pos,
+            baseline_y,
+            self.font_color_temp,
+            temp_text,
+            frame_count=self.frame_for("font_color_temp"),
         )
         cursor_pos += end_padding
 
@@ -196,6 +211,7 @@ class WeatherWidget(_FrameAware):
         baseline_y: int,
         provider: ColorProvider,
         text: str,
+        frame_count: int,
     ) -> int:
         """Render one weather text segment (label / condition / temp).
 
@@ -215,7 +231,7 @@ class WeatherWidget(_FrameAware):
                 x,
                 baseline_y,
                 text,
-                lambda idx, total: provider.color_for(self._frame_count, idx, total),
+                lambda idx, total: provider.color_for(frame_count, idx, total),
             )
-        color = provider.color_for(self._frame_count, 0, len(text) if text else 1)
+        color = provider.color_for(frame_count, 0, len(text) if text else 1)
         return draw_text(canvas, self.font, x, baseline_y, color, text)

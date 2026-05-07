@@ -39,6 +39,7 @@ class _FrameAware:
 
     _EFFECT_ATTRS: ClassVar[tuple[str, ...]] = (
         "font_color",
+        "font_color_temp",
         "top_color",
         "bottom_color",
         "border",

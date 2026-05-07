@@ -99,9 +99,10 @@ bottom_align = "center"
 # ---------------------------------------------------------------------------
 # Section 1 — all 5 weather hi-res icons in ONE row
 #
-# Renders :cloud::rain::snow::thunder::fog: side-by-side. Each emoji is
-# 8 logical wide + 2 padding = 10 logical, so 5 icons = 50 logical, fits
-# comfortably on the 64-logical-wide bigsign canvas at scale=4.
+# Renders :cloud::rain::snow::thunder::fog: side-by-side. Post auto-trim
+# each weather sprite is 6-7 logical wide + 2 padding ≈ 8-9 logical;
+# back-to-back emojis don't double-pad, so 5 icons sum to ~43 logical
+# and fit comfortably on the 64-logical-wide bigsign canvas at scale=4.
 #
 # Hold for 6s so you can scan all five at once instead of waiting through
 # a one-at-a-time cycle.

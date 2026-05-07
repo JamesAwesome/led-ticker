@@ -975,20 +975,27 @@ class TestHiresAutoTrim:
         assert effective_w == 32
 
     def test_trim_preserves_pixel_colors_and_y(self):
-        """Trim shifts x but must preserve y and color tuples for every
-        pixel — otherwise the sprite's silhouette/colors break."""
-        from led_ticker.pixel_emoji import HIRES_REGISTRY
+        """Trim shifts x by min_x but must preserve y and color tuples
+        for every pixel — otherwise the sprite's silhouette breaks.
+        Compare directly against the source `BUNNY_HIRES` constant:
+        the registered sprite must equal each source pixel shifted
+        left by 4 (bunny's pre-trim min_x).
+        """
+        from led_ticker.pixel_emoji import BUNNY_HIRES, HIRES_REGISTRY
 
-        # Compare a known-color pixel before/after via re-derivation:
-        # we can't re-trim a sprite that's already been trimmed, so
-        # just sanity-check that all bunny pixels have valid color
-        # values and y stays in [0, 32).
-        bunny = HIRES_REGISTRY["bunny"]
-        for _px, py, r, g, b in bunny.pixels:
-            assert 0 <= py < bunny.physical_size
-            assert 0 <= r <= 255
-            assert 0 <= g <= 255
-            assert 0 <= b <= 255
+        bunny_trimmed = HIRES_REGISTRY["bunny"]
+        # Pre-trim bunny pixels start at x=4 (the empty-left margin).
+        source_min_x = min(px for px, _, _, _, _ in BUNNY_HIRES.pixels)
+        assert source_min_x == 4
+        # Every trimmed pixel must equal `(source_x - 4, source_y, r, g, b)`.
+        expected = tuple(
+            (px - source_min_x, py, r, g, b) for (px, py, r, g, b) in BUNNY_HIRES.pixels
+        )
+        assert bunny_trimmed.pixels == expected, (
+            "Trim mutated y or color values, or shifted x by the wrong "
+            "amount. The registered sprite no longer matches the source "
+            "constant shifted by min_x."
+        )
 
     def test_logical_width_uses_ceiling_division(self):
         """Auto-trim can produce unaligned physical_widths (e.g. cat's
@@ -1181,68 +1188,59 @@ class TestEmojiPaddingSymmetric:
         canvas = _StubCanvas(width=160, height=16)
         assert measure_emoji_at(canvas, "taco") == 14 + EMOJI_PADDING
 
-    def test_pride_love_pride_balanced_visible_gaps(self):
-        """End-to-end visual tripwire: `:pride: LOVE :pride:` rendered
-        through draw_with_emoji has roughly symmetric visible gap
-        widths around 'LOVE'. Measures the count of black-pixel cols
-        between the first sprite's right edge and 'L', vs between 'E'
-        and the second sprite's left edge.
+    def test_per_char_provider_advance_matches_measure(self):
+        """The pre-pad must apply on the per-char ColorProvider path
+        too. If a refactor moved the pre-pad inside `if not per_char:`,
+        a per-char rainbow rendering of `:taco: HI :taco:` would
+        return the wrong advance and `measure_width` would predict
+        a different layout than `draw_with_emoji` paints. Tripwire
+        for that drift.
         """
-        from rgbmatrix import graphics
+        from rgbmatrix import _StubCanvas
+        from rgbmatrix.graphics import Color
 
         from led_ticker.pixel_emoji import draw_with_emoji, measure_width
+
+        class _PerCharProvider:
+            per_char = True
+
+            def color_for(self, frame, char_index, total_chars):
+                return Color(255, 255, 255)
+
+        canvas = _StubCanvas(width=160, height=16)
+        text = ":taco: HI :taco:"
+        measured = measure_width(FONT_SMALL, text)
+        advance = draw_with_emoji(
+            canvas,
+            FONT_SMALL,
+            cursor_pos=0,
+            y=8,
+            color=_PerCharProvider(),
+            text=text,
+        )
+        assert advance == measured
+
+    def test_pride_love_pride_total_width_matches_symmetric_formula(self):
+        """`:pride: LOVE :pride:` on a bigsign-equivalent ScaledCanvas:
+        `measure_width` must return the symmetric-padded total
+        `pride_w + PAD + text_w(' LOVE ') + PAD + pride_w + PAD`.
+
+        Without the symmetric-pad fix, this would return
+        `pride_w + PAD + text_w + pride_w + PAD` (one PAD short on
+        the second emoji's left side) and the rendered LOVE would sit
+        2 logical px closer to the trailing pride than to the leading
+        pride.
+        """
+        from led_ticker.drawing import get_text_width
+        from led_ticker.pixel_emoji import EMOJI_PADDING, HIRES_REGISTRY, measure_width
         from led_ticker.scaled_canvas import ScaledCanvas
 
         real = _bigsign_real_canvas()
         sc = ScaledCanvas(real, scale=4)
         text = ":pride: LOVE :pride:"
-        total_w = measure_width(FONT_SMALL, text, canvas=sc)
-        # Center on the 64-logical-wide canvas.
-        start_x = max(0, (sc.width - total_w) // 2)
-        draw_with_emoji(
-            sc,
-            FONT_SMALL,
-            cursor_pos=start_x,
-            y=12,
-            color=graphics.Color(255, 255, 255),
-            text=text,
-        )
-
-        # Find lit columns on row 17 (mid-glyph row for FONT_SMALL at
-        # baseline=12, scale=4 → real row 17 is somewhere inside the
-        # text glyphs and the pride flags).
-        # We use the real underlying canvas via the wrapper.
-        # Instead: measure the gap by looking at which logical cols
-        # have any lit pixel between the two pride sprites.
-        # Simpler & more robust: call the layout math directly.
-        # Parse and check that the first emoji's right edge plus a
-        # post-pad of EMOJI_PADDING and the second emoji's left edge
-        # minus a pre-pad of EMOJI_PADDING are equidistant from the
-        # text's centerline. We assert via measure: the cursor at
-        # which 'L' starts and the cursor at which the second pride
-        # starts are symmetric around the text segment center.
-        from led_ticker.drawing import get_text_width
-        from led_ticker.pixel_emoji import EMOJI_PADDING, HIRES_REGISTRY
-
         pride_w = HIRES_REGISTRY["pride"].logical_width(scale=sc.scale)
-        # Layout (with fix): pride[0..pw] then PAD + text + PAD then pride.
-        # Without fix: pride[0..pw] then PAD + text then pride.
-        # We assert the WITH-fix layout: gap between first sprite's
-        # right edge and the start of "LOVE" equals the gap between
-        # the end of "LOVE" and the second sprite's left edge.
-        text_inner = " LOVE "
-        text_w = get_text_width(FONT_SMALL, text_inner, padding=0, canvas=sc)
-        # First emoji ends at: start_x + pride_w
-        # Then EMOJI_PADDING → text starts at: start_x + pride_w + PAD
-        # Text ends at: start_x + pride_w + PAD + text_w
-        # Then EMOJI_PADDING → second emoji starts at:
-        #   start_x + pride_w + PAD + text_w + PAD
-        # Total advance = ... + pride_w + PAD = total_w
-        expected_total = (
+        text_w = get_text_width(FONT_SMALL, " LOVE ", padding=0, canvas=sc)
+        expected = (
             pride_w + EMOJI_PADDING + text_w + EMOJI_PADDING + pride_w + EMOJI_PADDING
         )
-        assert total_w == expected_total, (
-            f"measure_width returned {total_w}, expected {expected_total} "
-            "with symmetric pre+post EMOJI_PADDING around the middle "
-            "emoji and around the trailing emoji."
-        )
+        assert measure_width(FONT_SMALL, text, canvas=sc) == expected

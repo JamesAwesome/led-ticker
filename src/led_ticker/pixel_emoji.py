@@ -52,12 +52,18 @@ class HiResEmoji:
     `physical_size // N` (so a 32×32 sprite at scale=4 takes 8 logical
     columns — same as an 8×8 low-res emoji).
 
-    `physical_width` overrides the layout footprint for emojis whose
-    visible content doesn't fill the full physical_size canvas (e.g.
-    the crescent moon, which only spans 19 of 32 cols — without an
-    override the empty cols still consume logical-width and create
-    visible gaps in inline rows). Defaults to physical_size when
-    unset.
+    `physical_width` is the layout footprint: the column count
+    `logical_width(scale)` ceil-divides for inline-row placement.
+    `_auto_trim_hires` (applied at `HIRES_REGISTRY` assembly) computes
+    this from each sprite's lit-pixel bounding box, so most sprites
+    have `physical_width < physical_size` after trim — empty columns
+    around the visible content don't consume layout space and don't
+    create asymmetric gaps when bordered by text. Defaults to
+    `physical_size` when unset (sprites that fill the canvas
+    edge-to-edge, e.g. pride/taco/instagram, leave it as `None`).
+    Manual overrides on the source `*_HIRES` constants are no longer
+    needed — the auto-trim recomputes from the lit bbox at registry
+    assembly.
     """
 
     pixels: tuple[tuple[int, int, int, int, int], ...]
@@ -2535,10 +2541,11 @@ def _auto_trim_hires(hires: HiResEmoji) -> HiResEmoji:
       3. Setting `physical_width = max_x - min_x + 1`.
 
     No-op for sprites already at the edge (pride, taco, instagram,
-    flower, pokeball — all 0..31). For sprites with an explicit
-    `physical_width` already set (none in current registry, but
-    future-proof), the trim recomputes from lit pixels and overrides
-    — the lit-pixel bbox is the source of truth.
+    flower, pokeball — all 0..31). The trim recomputes `physical_width`
+    from the lit bbox and overrides any value the source constant set
+    (`MOON_HIRES` previously hand-tuned to 20; now redundant — the
+    trim produces 19, which gives the same logical footprint via the
+    ceiling-divide in `logical_width`).
     """
     xs = [px for px, _, _, _, _ in hires.pixels]
     if not xs:

@@ -402,6 +402,13 @@ class _BaseImageWidget(_FrameAware):
         `font_color` (with no per-row override) reads its own per-effect
         counter — not the primary `_frame_count` (which resets per visit
         and would silently restart the chase).
+
+        TwoRowMessage doesn't need this helper because its
+        `top_color` / `bottom_color` are required `Color | ColorProvider`
+        fields (default `DEFAULT_COLOR`), never `None` — the per-effect
+        keys are always registered. If TwoRowMessage ever gains
+        `Color | None` defaults, this helper's pattern needs to be
+        replicated there or the same silent-restart bug returns.
         """
         per_row = self.top_color if row == 0 else self.bottom_color
         if per_row is not None:

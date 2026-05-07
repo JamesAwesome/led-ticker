@@ -180,12 +180,23 @@ class TestEffectAttrsCompleteness:
     """
 
     # Names of effect protocols we recognize in field type annotations.
+    # Adding a new effect Protocol type (e.g. `BackgroundEffect`)
+    # requires updating BOTH this set AND `_FrameAware._EFFECT_ATTRS`
+    # for the new field — neither half catches an omission of the
+    # other. Without the protocol-name update here, the test still
+    # passes on a real registration miss (the field's annotation
+    # mentions a Protocol the test doesn't know about, so the
+    # `annotation_match` predicate returns False and the field is
+    # skipped). Slow-leak failure mode by design — keep the two
+    # in lockstep.
     EFFECT_PROTOCOL_NAMES: frozenset[str] = frozenset(
         {"ColorProvider", "BorderEffect", "Animation"}
     )
     # Conventional `Any | None` slot names — these are recognized by
     # field name because the runtime types are intentionally `Any` to
     # avoid widget code importing the Protocol at module-load time.
+    # Same lockstep rule applies: a new conventional slot name needs
+    # to be added here AND in `_FrameAware._EFFECT_ATTRS`.
     CONVENTIONAL_EFFECT_NAMES: frozenset[str] = frozenset({"border", "animation"})
 
     def _all_frame_aware_subclasses(self) -> set[type]:

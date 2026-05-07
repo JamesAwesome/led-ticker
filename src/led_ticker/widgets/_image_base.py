@@ -926,12 +926,16 @@ class _BaseImageWidget(_FrameAware):
         colors_are_static = getattr(top_color, "frame_invariant", False) and getattr(
             bottom_color, "frame_invariant", False
         )
+        border_is_static = (
+            getattr(self.border, "frame_invariant", True) if self.border else True
+        )
 
         if (
             not bottom_scrolls
             and self._is_static()
             and self.text_loops == 0
             and colors_are_static
+            and border_is_static
         ):
             bottom_tuple = (
                 bottom_font,

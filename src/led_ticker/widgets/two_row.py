@@ -251,7 +251,7 @@ class TwoRowMessage(_FrameAware):
         # the real 256x64 panel edge — frames the SIGN, not the
         # logical canvas.
         if self.border is not None:
-            self.border.paint(canvas, self._frame_count)
+            self.border.paint(canvas, self.frame_for("border"))
 
         # Top row at a fixed x — held while the bottom scrolls.
         top_x = _aligned_x(canvas.width, self._top_width, self.top_align)
@@ -265,7 +265,7 @@ class TwoRowMessage(_FrameAware):
             self.top_text,
             emoji_y=top_emoji_y,
             max_emoji_height=row_emoji_cap,
-            frame=self._frame_count,
+            frame=self.frame_for("top_color"),
         )
 
         # Bottom row: cursor_pos is supplied by the framework. On the
@@ -286,7 +286,7 @@ class TwoRowMessage(_FrameAware):
             self.bottom_text,
             emoji_y=bottom_emoji_y,
             max_emoji_height=row_emoji_cap,
-            frame=self._frame_count,
+            frame=self.frame_for("bottom_color"),
         )
 
         # Report cursor at the bottom-row's right edge so `_swap_and_scroll`

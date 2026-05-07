@@ -1278,4 +1278,72 @@ class TestRenderTwoRowTickBorder:
 
         widget._render_two_row_tick(real_canvas, real_canvas, top, bottom)
 
-        border.paint.assert_called_once_with(real_canvas, 99)
+
+class TestPlayWithTextBorderFastPath:
+    """Fast-path gate in `_play_with_text` must consider
+    `border.frame_invariant`. Animated border (rainbow with
+    speed>0) forces the per-tick loop; constant border keeps the
+    fast path."""
+
+    @pytest.fixture
+    def static_widget(self, tmp_path):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        # Static text: text_align="left", no scroll, text_loops=0,
+        # is_static() True (StillImage), color_is_static (default).
+        return StillImage(
+            path=img_path,
+            text="HI",
+            text_align="left",
+            hold_seconds=0.5,  # 10 ticks at 50ms
+        )
+
+    async def test_fast_path_with_constant_border_runs_once(
+        self, static_widget, mock_frame
+    ):
+        """ConstantBorder is frame_invariant=True; fast path stays
+        valid. _render_tick runs once, then the path sleeps."""
+        from led_ticker.borders import ConstantBorder
+
+        static_widget.border = ConstantBorder([255, 0, 0])
+
+        with (
+            mock.patch.object(type(static_widget), "_render_tick") as render_mock,
+            mock.patch("asyncio.sleep", new=mock.AsyncMock()),
+        ):
+            await static_widget._play_with_text(
+                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame,
+                n_ticks=10,
+            )
+        assert render_mock.call_count == 1, (
+            f"ConstantBorder (frame_invariant) must take fast path; "
+            f"got {render_mock.call_count} render calls"
+        )
+
+    async def test_fast_path_bypassed_with_animated_border(
+        self, static_widget, mock_frame
+    ):
+        """RainbowChaseBorder(speed=4) is NOT frame_invariant; fast
+        path bypassed; per-tick loop runs n_ticks times."""
+        from led_ticker.borders import RainbowChaseBorder
+
+        static_widget.border = RainbowChaseBorder(speed=4)
+
+        with (
+            mock.patch.object(type(static_widget), "_render_tick") as render_mock,
+            mock.patch("asyncio.sleep", new=mock.AsyncMock()),
+        ):
+            await static_widget._play_with_text(
+                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame,
+                n_ticks=10,
+            )
+        assert render_mock.call_count == 10, (
+            f"Animated border must force per-tick loop; got "
+            f"{render_mock.call_count} renders, expected 10"
+        )

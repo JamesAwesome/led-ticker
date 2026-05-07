@@ -125,8 +125,9 @@ class TwoRowMessage(_FrameAware):
     # block expansion via `unwrap_to_real`), so a 1-px border on
     # bigsign at scale=2 traces the actual 256x64 panel edge — not
     # the 128x32 logical canvas edge. Border frames the SIGN, text
-    # floats inside. Reads `_frame_count` for animation; transitions
-    # freeze the chase via `pause_frame`.
+    # floats inside. Reads its per-effect counter via
+    # `frame_for("border")` for animation; transitions freeze the
+    # chase via `pause_frame`.
     border: Any | None = attrs.field(default=None, kw_only=True)
 
     _top_width: int = attrs.field(init=False, default=-1)
@@ -251,7 +252,7 @@ class TwoRowMessage(_FrameAware):
         # the real 256x64 panel edge — frames the SIGN, not the
         # logical canvas.
         if self.border is not None:
-            self.border.paint(canvas, self._frame_count)
+            self.border.paint(canvas, self.frame_for("border"))
 
         # Top row at a fixed x — held while the bottom scrolls.
         top_x = _aligned_x(canvas.width, self._top_width, self.top_align)
@@ -265,7 +266,7 @@ class TwoRowMessage(_FrameAware):
             self.top_text,
             emoji_y=top_emoji_y,
             max_emoji_height=row_emoji_cap,
-            frame=self._frame_count,
+            frame=self.frame_for("top_color"),
         )
 
         # Bottom row: cursor_pos is supplied by the framework. On the
@@ -286,7 +287,7 @@ class TwoRowMessage(_FrameAware):
             self.bottom_text,
             emoji_y=bottom_emoji_y,
             max_emoji_height=row_emoji_cap,
-            frame=self._frame_count,
+            frame=self.frame_for("bottom_color"),
         )
 
         # Report cursor at the bottom-row's right edge so `_swap_and_scroll`

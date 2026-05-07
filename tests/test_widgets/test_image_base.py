@@ -994,6 +994,7 @@ class TestPerCharProviderNonEmojiPath:
             x=0,
             baseline_y=12,
             emoji_y=4,
+            frame_count=0,
         )
 
         assert [c[1] for c in provider.calls] == [0, 1, 2]
@@ -1279,6 +1280,145 @@ class TestRenderTwoRowTickBorder:
         widget._render_two_row_tick(real_canvas, real_canvas, top, bottom)
 
         border.paint.assert_called_once_with(real_canvas, 99)
+
+
+class TestRowColorFrameFallback:
+    """When `top_color` / `bottom_color` are None, `_row_color()` falls
+    back to `self.font_color`. The per-effect frame lookup must follow
+    the same fallback — otherwise a continuous-phase rainbow set via
+    `font_color` (with `restart_on_visit = False`) would silently restart
+    its chase on each visit, because the `top_color`/`bottom_color`
+    keys aren't registered in `_effect_frames` (no effect there to
+    register) and `frame_for()` would fall through to the primary
+    `_frame_count` (which always resets per visit).
+    """
+
+    def _make_widget(self, tmp_path, *, top_color=None, bottom_color=None):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(
+            path=img_path,
+            top_text="@brand",
+            bottom_text="tagline",
+            top_color=top_color,
+            bottom_color=bottom_color,
+        )
+
+    def test_row_color_attr_falls_back_to_font_color_when_per_row_none(self, tmp_path):
+        widget = self._make_widget(tmp_path, top_color=None, bottom_color=None)
+        assert widget._row_color_attr(0) == "font_color"
+        assert widget._row_color_attr(1) == "font_color"
+
+    def test_row_color_attr_uses_per_row_key_when_set(self, tmp_path):
+        from rgbmatrix import graphics
+
+        widget = self._make_widget(
+            tmp_path,
+            top_color=graphics.Color(255, 0, 0),
+            bottom_color=graphics.Color(0, 255, 0),
+        )
+        assert widget._row_color_attr(0) == "top_color"
+        assert widget._row_color_attr(1) == "bottom_color"
+
+    def test_row_color_attr_mixed_per_row_and_fallback(self, tmp_path):
+        from rgbmatrix import graphics
+
+        widget = self._make_widget(
+            tmp_path, top_color=graphics.Color(255, 0, 0), bottom_color=None
+        )
+        assert widget._row_color_attr(0) == "top_color"
+        assert widget._row_color_attr(1) == "font_color"
+
+    def test_two_row_render_reads_font_color_counter_when_no_per_row(
+        self, tmp_path, monkeypatch
+    ):
+        """Regression: when both per-row colors are None and the
+        widget's `font_color` is the actual provider, the row's
+        `_draw_row_text` call must receive `frame_for("font_color")`
+        — NOT `frame_for("top_color")` (which falls back to
+        `_frame_count` since no effect is registered there).
+        """
+        from rgbmatrix import _StubCanvas as RealStub
+
+        from led_ticker.widgets import _image_base
+
+        captured: list[int] = []
+
+        def _capture(self, *args, **kwargs):
+            captured.append(kwargs["frame_count"])
+
+        monkeypatch.setattr(
+            _image_base._BaseImageWidget,
+            "_draw_row_text",
+            _capture,
+            raising=False,
+        )
+
+        widget = self._make_widget(tmp_path, top_color=None, bottom_color=None)
+        # Simulate: rainbow on font_color advanced 7 ticks across visits
+        # (continuous-phase, would NOT reset on visit-entry); engine tick
+        # counter just got reset for the new visit.
+        widget._effect_frames["font_color"] = 7
+        widget._frame_count = 0
+
+        real_canvas = RealStub(width=128, height=32)
+        top = (None, "@brand", None, 0, 6, 0)
+        bottom = (None, "tagline", None, 0, 22, 0)
+
+        widget._render_two_row_tick(real_canvas, real_canvas, top, bottom)
+
+        assert captured == [
+            7,
+            7,
+        ], f"both rows should read font_color's counter (7); got {captured}"
+
+    def test_two_row_render_reads_per_row_counter_when_set(self, tmp_path, monkeypatch):
+        """Per-row knob set: the row reads its own counter,
+        independent of `font_color`. This is the path TwoRowMessage
+        already exercised; the test is here so the two paths can't
+        drift — image two-row honors the per-row key when present.
+        """
+        from rgbmatrix import _StubCanvas as RealStub
+        from rgbmatrix import graphics
+
+        from led_ticker.widgets import _image_base
+
+        captured: list[int] = []
+
+        def _capture(self, *args, **kwargs):
+            captured.append(kwargs["frame_count"])
+
+        monkeypatch.setattr(
+            _image_base._BaseImageWidget,
+            "_draw_row_text",
+            _capture,
+            raising=False,
+        )
+
+        widget = self._make_widget(
+            tmp_path,
+            top_color=graphics.Color(255, 0, 0),
+            bottom_color=graphics.Color(0, 255, 0),
+        )
+        widget._effect_frames["top_color"] = 11
+        widget._effect_frames["bottom_color"] = 22
+        widget._effect_frames["font_color"] = 99  # should NOT be read
+        widget._frame_count = 0
+
+        real_canvas = RealStub(width=128, height=32)
+        top = (None, "@brand", None, 0, 6, 0)
+        bottom = (None, "tagline", None, 0, 22, 0)
+
+        widget._render_two_row_tick(real_canvas, real_canvas, top, bottom)
+
+        assert captured == [
+            11,
+            22,
+        ], f"rows should read their own per-row counters; got {captured}"
 
 
 class TestPlayWithTextBorderFastPath:

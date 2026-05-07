@@ -34,9 +34,10 @@ class TickerMessage(_FrameAware):
     # etc.). When set, paints a 1-px ring around the panel perimeter
     # at PHYSICAL resolution (bypasses ScaledCanvas block expansion)
     # before the text is drawn. None = no border (default behavior).
-    # Effects read this widget's `_frame_count` so transitions freeze
-    # the chase and visit-resets restart it cleanly. See `borders.py`
-    # for available effects.
+    # The widget passes `self.frame_for("border")` so the effect's
+    # per-effect counter advances independently — transitions freeze
+    # the chase and visit-resets honor `restart_on_visit`. See
+    # `borders.py` for available effects.
     border: Any | None = attrs.field(default=None, kw_only=True)
     _content_width: int = attrs.field(init=False, default=-1)
     _has_emoji: bool = attrs.field(init=False, default=False)
@@ -77,7 +78,10 @@ class TickerMessage(_FrameAware):
                         self.font, full_text, padding=0, canvas=canvas
                     )
             anim_frame = self.animation.frame_for(
-                self._frame_count, full_text, canvas.width, self._content_width
+                self.frame_for("animation"),
+                full_text,
+                canvas.width,
+                self._content_width,
             )
             visible_text = anim_frame.visible_text
         else:
@@ -110,12 +114,13 @@ class TickerMessage(_FrameAware):
 
         # Paint border BEFORE text so text overlaps the border on
         # collision (border frames the panel; text floats inside).
-        # Reads `_frame_count` from `_FrameAware` for animation —
-        # transitions freeze it (no chase phase drift) and visit
-        # resets restart it. Painted at physical resolution so a
-        # 1-px border on bigsign is 1 LED, not a 4×4 block.
+        # Reads its per-effect counter via `frame_for("border")` for
+        # animation — transitions freeze it (no chase phase drift)
+        # and visit resets honor `restart_on_visit`. Painted at
+        # physical resolution so a 1-px border on bigsign is 1 LED,
+        # not a 4×4 block.
         if self.border is not None:
-            self.border.paint(canvas, self._frame_count)
+            self.border.paint(canvas, self.frame_for("border"))
 
         if self._has_emoji:
             from led_ticker.pixel_emoji import draw_with_emoji
@@ -134,7 +139,7 @@ class TickerMessage(_FrameAware):
                 provider,
                 visible_text,
                 y_offset=y_offset,
-                frame=self._frame_count,
+                frame=self.frame_for("font_color"),
             )
         elif provider.per_char:
             # Per-char rendering: iterate visible_text, draw each char
@@ -152,10 +157,14 @@ class TickerMessage(_FrameAware):
                 cursor_pos,
                 baseline_y + y_offset,
                 visible_text,
-                lambda idx, total: provider.color_for(self._frame_count, idx, total),
+                lambda idx, total: provider.color_for(
+                    self.frame_for("font_color"), idx, total
+                ),
             )
         else:
-            color = provider.color_for(self._frame_count, 0, len(visible_text))
+            color = provider.color_for(
+                self.frame_for("font_color"), 0, len(visible_text)
+            )
             cursor_pos += draw_text(
                 canvas,
                 self.font,
@@ -195,7 +204,8 @@ class TickerCountdown(_FrameAware):
     padding: int = 6
     # Optional perimeter border effect — same contract as
     # `TickerMessage.border` (see borders.py). Paints before text at
-    # physical resolution; reads `_frame_count` for animation.
+    # physical resolution; advances on its per-effect counter
+    # (read via `frame_for("border")`).
     border: Any | None = attrs.field(default=None, kw_only=True)
 
     def __attrs_post_init__(self) -> None:
@@ -227,9 +237,10 @@ class TickerCountdown(_FrameAware):
 
         # Paint border BEFORE text — same contract as `TickerMessage`.
         # Border frames the panel; text floats inside. Border reads
-        # `_frame_count` so transitions freeze and visit-resets restart.
+        # its per-effect counter via `frame_for("border")` so
+        # transitions freeze and visit-resets honor `restart_on_visit`.
         if self.border is not None:
-            self.border.paint(canvas, self._frame_count)
+            self.border.paint(canvas, self.frame_for("border"))
 
         if provider.per_char:
             # Per-char provider on plain text: iterate chars so rainbow
@@ -241,10 +252,12 @@ class TickerCountdown(_FrameAware):
                 cursor_pos,
                 baseline_y + y_offset,
                 text,
-                lambda idx, total: provider.color_for(self._frame_count, idx, total),
+                lambda idx, total: provider.color_for(
+                    self.frame_for("font_color"), idx, total
+                ),
             )
         else:
-            color = provider.color_for(self._frame_count, 0, len(text))
+            color = provider.color_for(self.frame_for("font_color"), 0, len(text))
             cursor_pos += draw_text(
                 canvas, self.font, cursor_pos, baseline_y + y_offset, color, text
             )

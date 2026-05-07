@@ -20,9 +20,9 @@ Two flavors today:
 
 The `BorderEffect` Protocol exposes:
 - `paint(canvas, frame_count)` — paints the perimeter on `canvas`.
-  Reads from `_FrameAware._frame_count` so the effect ticks with
-  the host widget's animation state (visit-resets, transition
-  pauses).
+  The host widget passes `self.frame_for("border")` so the effect
+  ticks with its own per-effect counter (visit-resets honor
+  `restart_on_visit`, transition pauses freeze the count).
 - `frame_invariant: bool` — whether `paint` produces the same output
   every frame. Constant=True; rainbow chase=False.
 
@@ -47,7 +47,7 @@ effect class that drives per-frame output on a render surface.
 **`restart_on_visit` convention**: effect classes that want
 continuous phase across `loop_count > 1` iterations of a section
 set `restart_on_visit: bool = False` as a class attribute. Read
-by `_should_reset_frame` in `ticker.py`. Default `True` (via
+by `_FrameAware.reset_frame` in `widgets/_frame_aware.py`. Default `True` (via
 `getattr` fallback) keeps today's "every visit = fresh start"
 behavior for unknown effect classes. `RainbowChaseBorder` opts
 out (continuous chase); `ConstantBorder` keeps the default
@@ -153,7 +153,7 @@ class RainbowChaseBorder:
     """
 
     # Continuous chase: phase advances across loop_count boundaries
-    # within a section. See `_should_reset_frame` in ticker.py.
+    # within a section. See `_FrameAware.reset_frame` in widgets/_frame_aware.py.
     restart_on_visit: bool = False
 
     def __init__(

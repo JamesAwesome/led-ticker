@@ -1439,3 +1439,62 @@ class TestGifPlayNoTextRefactor:
             f"expected 6 swaps (300ms / 50ms); "
             f"got {mock_frame.matrix.SwapOnVSync.call_count}"
         )
+
+
+class TestGifPlayNoTextBorderPerEffectCounter:
+    """Regression for the §4 fix in commit 6ccda4d: `_play_no_text`'s
+    border paint call must read the per-effect counter via
+    `frame_for("border")`. A continuous-phase border
+    (`restart_on_visit = False`) would silently restart its chase
+    across visits if the call site read `_frame_count` directly,
+    since `_frame_count` always resets per visit. This was the
+    hardware-observed bug in §4 of the rainbow-border smoke config
+    before the fix.
+    """
+
+    async def test_animated_border_reads_per_effect_counter(self, tmp_path, mock_frame):
+        """Pre-populate `_effect_frames["border"]` to simulate
+        carry-over from prior visits. The first border.paint call
+        should see the carried value + 1 (after `advance_frame()`),
+        not `_frame_count` after advance from zero.
+        """
+        from PIL import Image
+
+        from led_ticker.borders import RainbowChaseBorder
+        from led_ticker.widgets.gif import GifPlayer
+
+        # 200ms total duration → 4 ticks at 50ms cadence
+        gif_path = tmp_path / "one.gif"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(gif_path, duration=200, loop=0)
+
+        border = RainbowChaseBorder(speed=4)
+        captured: list[int] = []
+        original_paint = border.paint
+
+        def _spy(canvas, frame_count):
+            captured.append(frame_count)
+            return original_paint(canvas, frame_count)
+
+        border.paint = _spy  # type: ignore[method-assign]
+        widget = GifPlayer(path=gif_path, border=border)
+        widget._load(panel_w=4, panel_h=4)
+
+        # Simulate: rainbow border ran 50 ticks across prior visits;
+        # engine just reset `_frame_count` for this visit.
+        widget._effect_frames["border"] = 50
+        widget._frame_count = 0
+
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await widget._play_no_text(
+                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame,
+                loop_count=1,
+            )
+
+        # First paint: counters at 51 (50 carried + 1 from advance).
+        # Bug-state would yield 1 (reading _frame_count after advance).
+        assert captured, "border.paint should fire at least once"
+        assert captured[0] == 51, (
+            f"first paint should see persisted counter (51); "
+            f"got {captured[0]} — _frame_count was being read directly"
+        )

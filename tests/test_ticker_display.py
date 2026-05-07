@@ -1152,13 +1152,14 @@ class TestShowOneResetsFrame:
         # Should complete without AttributeError
         await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
 
-    async def test_show_one_skips_reset_when_border_is_continuous(
+    async def test_show_one_calls_reset_frame_unconditionally(
         self, swapping_frame, no_sleep
     ):
-        """Widget with a RainbowChaseBorder (restart_on_visit=False)
-        should NOT have its frame counter reset on entry to
-        `_show_one`. Simulates a `loop_count > 1` iteration where
-        the chase phase must keep advancing across the boundary."""
+        """`_show_one` always calls `reset_frame()` — the per-effect
+        semantics (continuous vs restart) live inside
+        `_FrameAware.reset_frame`, not in the engine gate.
+        Replacing the old `test_show_one_skips_reset_when_border_is_continuous`
+        which tested the removed `_should_reset_frame` gate."""
         from rgbmatrix import _StubCanvas
 
         class _ContinuousBorder:
@@ -1166,7 +1167,7 @@ class TestShowOneResetsFrame:
 
         class _SpyWidget:
             def __init__(self):
-                self._frame_count = 42  # mid-chase value
+                self._frame_count = 42
                 self._frame_paused = False
                 self.reset_called = False
                 self.border = _ContinuousBorder()
@@ -1193,14 +1194,12 @@ class TestShowOneResetsFrame:
 
         await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
 
-        assert not widget.reset_called, (
-            "RainbowChaseBorder (restart_on_visit=False) should "
-            "block the reset — chase phase must advance across "
-            "loop_count boundaries"
+        # reset_frame() is always called — per-effect semantics live
+        # inside _FrameAware.reset_frame, not in _show_one
+        assert widget.reset_called, (
+            "_show_one must call reset_frame() unconditionally; "
+            "per-effect continuity is handled by reset_frame() itself"
         )
-        # Frame counter advanced (from advance_frame calls during the
-        # hold loop), didn't snap back to 0
-        assert widget._frame_count > 42
 
     async def test_show_one_resets_for_typewriter_widget(
         self, swapping_frame, no_sleep
@@ -1248,94 +1247,171 @@ class TestShowOneResetsFrame:
         )
 
 
-class TestShouldResetFrame:
-    """`_should_reset_frame()` returns True iff every effect on the
-    widget either has `restart_on_visit = True` (the default) or
-    omits the attribute entirely. ANY effect with explicit
-    `restart_on_visit = False` blocks the reset — favors continuity
-    for animated chases that should advance smoothly across
-    loop_count boundaries."""
+class TestTypewriterPlusRainbowBorderComposition:
+    """Per-effect counters let a widget with both Typewriter
+    (restart=True) and RainbowChaseBorder (restart=False) get the
+    correct behavior on `loop_count > 1`: typewriter retypes each
+    loop AND the border chase phase advances continuously.
 
-    def test_no_effects_resets(self):
-        """Widget with no effect attributes — falls through every
-        check, returns True."""
-        from led_ticker.ticker import _should_reset_frame
+    This is the win the per-effect counter refactor was designed
+    to deliver. Replaces `TestShouldResetFrameComposition` from
+    PR #11, which asserted the OPPOSITE (continuous wins, typewriter
+    doesn't retype) — that was the documented tradeoff under the
+    old shared-counter model."""
 
-        class _Widget:
-            pass
-
-        assert _should_reset_frame(_Widget()) is True
-
-    def test_continuous_color_provider_blocks_reset(self):
-        """font_color with `restart_on_visit = False` → False."""
-        from led_ticker.ticker import _should_reset_frame
-
-        class _Provider:
-            restart_on_visit = False
-
-        class _Widget:
-            font_color = _Provider()
-
-        assert _should_reset_frame(_Widget()) is False
-
-    def test_continuous_border_blocks_reset(self):
-        """border with `restart_on_visit = False` → False."""
-        from led_ticker.ticker import _should_reset_frame
-
-        class _Border:
-            restart_on_visit = False
-
-        class _Widget:
-            border = _Border()
-
-        assert _should_reset_frame(_Widget()) is False
-
-    def test_typewriter_alone_resets(self):
-        """animation with `restart_on_visit = True` (default
-        behavior for Typewriter) and no other effects → True."""
-        from led_ticker.ticker import _should_reset_frame
-
-        class _Animation:
-            restart_on_visit = True
-
-        class _Widget:
-            animation = _Animation()
-
-        assert _should_reset_frame(_Widget()) is True
-
-    def test_unknown_effect_class_keeps_default_true(self):
-        """Effect that simply doesn't set restart_on_visit → uses
-        getattr default of True. Back-compat path for any third-
-        party / unknown effect class."""
-        from led_ticker.ticker import _should_reset_frame
-
-        class _CustomEffect:
-            pass  # no restart_on_visit attribute
-
-        class _Widget:
-            font_color = _CustomEffect()
-
-        assert _should_reset_frame(_Widget()) is True
-
-
-class TestShouldResetFrameComposition:
-    """Composition rule: a widget with both Typewriter (wants
-    restart) and RainbowChaseBorder (wants continuous) gets the
-    continuous semantics. ANY opt-out wins over restart. Niche
-    combo; tradeoff documented in CLAUDE.md."""
-
-    def test_typewriter_plus_continuous_border_skips_reset(self):
-        from led_ticker.ticker import _should_reset_frame
+    async def test_typewriter_counter_resets_per_loop(self, swapping_frame, no_sleep):
+        """The animation's per-effect counter zeros on every visit
+        regardless of what other effects are present."""
+        from rgbmatrix import _StubCanvas
 
         class _Typewriter:
             restart_on_visit = True
 
-        class _ContinuousBorder:
+        class _RainbowBorder:
             restart_on_visit = False
 
-        class _Widget:
-            animation = _Typewriter()
-            border = _ContinuousBorder()
+        class _SpyWidget:
+            def __init__(self):
+                self._frame_count = 0
+                self._frame_paused = False
+                self._effect_frames = {}
+                self.animation = _Typewriter()
+                self.border = _RainbowBorder()
 
-        # Border's opt-out wins; reset is blocked.
-        assert _should_reset_frame(_Widget()) is False
+            def draw(self, canvas, cursor_pos=0, **kwargs):
+                return canvas, 5
+
+            def advance_frame(self):
+                if self._frame_paused:
+                    return
+                self._frame_count += 1
+                self._effect_frames["animation"] = (
+                    self._effect_frames.get("animation", 0) + 1
+                )
+                self._effect_frames["border"] = self._effect_frames.get("border", 0) + 1
+
+            def reset_frame(self):
+                self._frame_count = 0
+                # Typewriter: restart_on_visit=True → zero
+                self._effect_frames["animation"] = 0
+                # Rainbow border: restart_on_visit=False → unchanged
+                # (intentionally not in this dispatch)
+
+            @property
+            def bg_color(self):
+                return None
+
+        widget = _SpyWidget()
+        canvas = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        # Run two visits in a row (simulates loop_count > 1)
+        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+        animation_frame_after_iter1 = widget._effect_frames["animation"]
+        border_frame_after_iter1 = widget._effect_frames["border"]
+        assert animation_frame_after_iter1 > 0
+        assert border_frame_after_iter1 > 0
+
+        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+        # Typewriter counter zeroed at the start of iter 2, then
+        # advanced through iter 2 — should be smaller than the
+        # accumulated value from iter 1
+        assert widget._effect_frames["animation"] < (
+            animation_frame_after_iter1 + border_frame_after_iter1
+        )
+        # Border counter kept climbing — should be GREATER than iter 1's value
+        assert widget._effect_frames["border"] > border_frame_after_iter1
+
+    async def test_widget_frame_count_still_resets(self, swapping_frame, no_sleep):
+        """Back-compat: `widget._frame_count` retains today's
+        per-visit reset semantic regardless of effect composition.
+        Tests that read `_frame_count` directly keep working."""
+        from rgbmatrix import _StubCanvas
+
+        class _RainbowBorder:
+            restart_on_visit = False
+
+        class _SpyWidget:
+            def __init__(self):
+                self._frame_count = 99  # mid-something
+                self._frame_paused = False
+                self._effect_frames = {}
+                self.border = _RainbowBorder()
+
+            def draw(self, canvas, cursor_pos=0, **kwargs):
+                return canvas, 5
+
+            def advance_frame(self):
+                if self._frame_paused:
+                    return
+                self._frame_count += 1
+                self._effect_frames["border"] = self._effect_frames.get("border", 0) + 1
+
+            def reset_frame(self):
+                self._frame_count = 0  # primary always resets
+
+            @property
+            def bg_color(self):
+                return None
+
+        widget = _SpyWidget()
+        canvas = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+        # Iter 2 should see _frame_count reset to 0 at entry, then
+        # climbing through the iter — small value, NOT 99 + N
+        assert widget._frame_count < 99
+
+    async def test_continuous_border_phase_uninterrupted(
+        self, swapping_frame, no_sleep
+    ):
+        """Rainbow border's per-effect counter is monotonically
+        increasing across visits. The chase phase never snaps back."""
+        from rgbmatrix import _StubCanvas
+
+        class _RainbowBorder:
+            restart_on_visit = False
+
+        class _SpyWidget:
+            def __init__(self):
+                self._frame_count = 0
+                self._frame_paused = False
+                self._effect_frames = {}
+                self.border = _RainbowBorder()
+
+            def draw(self, canvas, cursor_pos=0, **kwargs):
+                return canvas, 5
+
+            def advance_frame(self):
+                if self._frame_paused:
+                    return
+                self._frame_count += 1
+                self._effect_frames["border"] = self._effect_frames.get("border", 0) + 1
+
+            def reset_frame(self):
+                self._frame_count = 0
+                # Border opted out → don't touch its counter
+
+            @property
+            def bg_color(self):
+                return None
+
+        widget = _SpyWidget()
+        canvas = _StubCanvas(width=160, height=16)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=160, height=16
+        )
+
+        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+        border_after_iter1 = widget._effect_frames["border"]
+
+        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+        border_after_iter2 = widget._effect_frames["border"]
+
+        # Strictly increasing: iter 2 added more ticks on top of iter 1
+        assert border_after_iter2 > border_after_iter1

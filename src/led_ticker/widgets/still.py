@@ -263,13 +263,14 @@ class StillImage(_BaseImageWidget):
         fast-path gate exactly.
 
         The fast path intentionally does NOT call `advance_frame()`:
-        a frame-invariant border doesn't read `_frame_count`, and
-        there's no text/font_color to consult either (gated by
-        `_play_no_text`'s caller). Side effect: `_frame_count` is
-        lower after a fast-path run than it would be after the
-        slow path for the same duration. Harmless today since
-        transitions call `pause_frame()` and any subsequent text-
-        overlay path resets the counter on visit entry.
+        a frame-invariant border's `paint()` is phase-independent,
+        and there's no text/font_color to consult either (gated by
+        `_play_no_text`'s caller). Side effect: the per-effect
+        counters end up lower after a fast-path run than they would
+        after the slow path for the same duration. Harmless today
+        since transitions call `pause_frame()` and any subsequent
+        text-overlay path resets restart-on-visit counters on visit
+        entry.
         """
         from led_ticker.ticker import ENGINE_TICK_MS
 
@@ -283,7 +284,7 @@ class StillImage(_BaseImageWidget):
             reset_canvas(canvas, self.bg_color)
             self._paint_image(canvas)
             if self.border is not None:
-                self.border.paint(canvas, self._frame_count)
+                self.border.paint(canvas, self.frame_for("border"))
             canvas = frame.matrix.SwapOnVSync(canvas)
             await asyncio.sleep(self.hold_seconds)
             return canvas
@@ -298,7 +299,7 @@ class StillImage(_BaseImageWidget):
             self.advance_frame()
             reset_canvas(canvas, self.bg_color)
             self._paint_image(canvas)
-            self.border.paint(canvas, self._frame_count)
+            self.border.paint(canvas, self.frame_for("border"))
             canvas = frame.matrix.SwapOnVSync(canvas)
             await asyncio.sleep(tick_seconds)
         return canvas

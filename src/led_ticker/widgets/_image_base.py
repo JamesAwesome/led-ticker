@@ -395,6 +395,19 @@ class _BaseImageWidget(_FrameAware):
         per_row = self.top_color if row == 0 else self.bottom_color
         return per_row if per_row is not None else self.font_color
 
+    def _row_color_attr(self, row: int) -> str:
+        """Which `_EFFECT_ATTRS` key to look up `frame_for` against,
+        matching `_row_color`'s fallback. Per-row knob takes precedence;
+        fall back to `font_color` so a continuous-phase rainbow set via
+        `font_color` (with no per-row override) reads its own per-effect
+        counter — not the primary `_frame_count` (which resets per visit
+        and would silently restart the chase).
+        """
+        per_row = self.top_color if row == 0 else self.bottom_color
+        if per_row is not None:
+            return "top_color" if row == 0 else "bottom_color"
+        return "font_color"
+
     def _row_align(self, row: int) -> str:
         return self.top_align if row == 0 else self.bottom_align
 
@@ -435,7 +448,7 @@ class _BaseImageWidget(_FrameAware):
                 color,
                 self.text,
                 emoji_y=baseline_y - 8,
-                frame=self._frame_count,
+                frame=self.frame_for("font_color"),
             )
         # Plain-text per-char path: rainbow / gradient iterate chars so
         # each character renders with its own hue. Mirrors
@@ -447,12 +460,14 @@ class _BaseImageWidget(_FrameAware):
                 x,
                 baseline_y,
                 self.text,
-                lambda idx, total: color.color_for(self._frame_count, idx, total),
+                lambda idx, total: color.color_for(
+                    self.frame_for("font_color"), idx, total
+                ),
             )
         # Whole-string provider or constant Color.
         if hasattr(color, "color_for"):
             color = color.color_for(
-                self._frame_count, 0, len(self.text) if self.text else 1
+                self.frame_for("font_color"), 0, len(self.text) if self.text else 1
             )
         return draw_text(canvas, self.font, x, baseline_y, color, self.text)
 
@@ -480,6 +495,7 @@ class _BaseImageWidget(_FrameAware):
         x: int,
         baseline_y: int,
         emoji_y: int,
+        frame_count: int,
     ) -> None:
         """Draw one row's text given pre-resolved font / text / color.
         Caller (`_render_two_row_tick`) resolves these once outside the
@@ -489,6 +505,13 @@ class _BaseImageWidget(_FrameAware):
 
         `color` accepts a Color or a ColorProvider. Provider + emoji
         flows through `draw_with_emoji` for per-char rainbow support.
+        `frame_count` is the per-effect counter the caller looked up
+        via `self.frame_for(self._row_color_attr(row))` — falls back
+        to `font_color`'s key when the per-row knob is unset, so a
+        continuous-phase rainbow set on `font_color` keeps its phase
+        across visits instead of reading the primary engine tick
+        counter. Passed explicitly because this helper doesn't know
+        which row it's drawing for.
         """
         if self._has_emoji() and EMOJI_PATTERN.search(text):
             from led_ticker.pixel_emoji import draw_with_emoji
@@ -502,7 +525,7 @@ class _BaseImageWidget(_FrameAware):
                 text,
                 emoji_y=emoji_y,
                 max_emoji_height=EMOJI_ROW_CAP,
-                frame=self._frame_count,
+                frame=frame_count,
             )
         elif hasattr(color, "color_for") and color.per_char:
             # Plain-text per-char path: rainbow / gradient iterate chars.
@@ -512,12 +535,12 @@ class _BaseImageWidget(_FrameAware):
                 x,
                 baseline_y,
                 text,
-                lambda idx, total: color.color_for(self._frame_count, idx, total),
+                lambda idx, total: color.color_for(frame_count, idx, total),
             )
         else:
             # Whole-string provider or constant Color.
             if hasattr(color, "color_for"):
-                color = color.color_for(self._frame_count, 0, len(text) if text else 1)
+                color = color.color_for(frame_count, 0, len(text) if text else 1)
             draw_text(canvas, font, x, baseline_y, color, text)
 
     def _wrap_for_text(self, canvas: Canvas, scale: int) -> Canvas:
@@ -574,16 +597,16 @@ class _BaseImageWidget(_FrameAware):
             self._draw_text(text_canvas, scroll_pos, baseline_y, provider)
             self._paint_skip_black(canvas)
             if self.border is not None:
-                self.border.paint(canvas, self._frame_count)
+                self.border.paint(canvas, self.frame_for("border"))
         elif self.text_align == "scroll_over":
             self._paint_image(canvas)
             if self.border is not None:
-                self.border.paint(canvas, self._frame_count)
+                self.border.paint(canvas, self.frame_for("border"))
             self._draw_text(text_canvas, scroll_pos, baseline_y, provider)
         else:
             self._paint_image(canvas)
             if self.border is not None:
-                self.border.paint(canvas, self._frame_count)
+                self.border.paint(canvas, self.frame_for("border"))
             text_x = text_x_left if self.text_align == "left" else text_x_right
             self._draw_text(text_canvas, text_x, baseline_y, provider)
 
@@ -618,9 +641,13 @@ class _BaseImageWidget(_FrameAware):
         reset_canvas(real_canvas, self.bg_color)
         self._paint_image(real_canvas)
         if self.border is not None:
-            self.border.paint(real_canvas, self._frame_count)
-        self._draw_row_text(text_canvas, *top)
-        self._draw_row_text(text_canvas, *bottom)
+            self.border.paint(real_canvas, self.frame_for("border"))
+        self._draw_row_text(
+            text_canvas, *top, frame_count=self.frame_for(self._row_color_attr(0))
+        )
+        self._draw_row_text(
+            text_canvas, *bottom, frame_count=self.frame_for(self._row_color_attr(1))
+        )
 
     # ------------------------------------------------------------------
     # Shared text playback loop

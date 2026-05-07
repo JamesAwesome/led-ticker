@@ -1415,3 +1415,60 @@ class TestPlayWithTwoRowBorderFastPath:
                 n_ticks=10,
             )
         assert render_mock.call_count == 10
+
+
+class TestImageBorderPhysicalResolution:
+    """End-to-end tripwire: rendering an image widget with a border
+    on a bigsign-style ScaledCanvas (scale=4) MUST paint border
+    pixels on the real 256×64 panel perimeter, NOT on the wrapper's
+    logical 64×16 perimeter. Mirrors the TwoRowMessage tripwire."""
+
+    def test_border_paints_to_real_perimeter_through_scaled_canvas(self, tmp_path):
+        from PIL import Image
+        from rgbmatrix import _StubCanvas as RealStub
+
+        from led_ticker.borders import ConstantBorder
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.widgets.still import StillImage
+
+        # Build a still + ConstantBorder([255, 255, 255]).
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        widget = StillImage(
+            path=img_path,
+            text="HI",
+            text_align="left",
+            border=ConstantBorder([255, 255, 255], thickness=1),
+        )
+
+        # Real bigsign-style canvas (256x64) wrapped at scale=4 →
+        # logical 64x16.
+        real = RealStub(width=256, height=64)
+        wrapper = ScaledCanvas(real, scale=4, content_height=16)
+
+        widget._render_tick(wrapper, wrapper, 0, 12, 2, 60)
+
+        # The border is white (255,255,255) — assert that the corner
+        # pixels of the REAL 256x64 canvas are lit.
+        # Top-left corner: real (0, 0) should be white.
+        # Top-right corner: real (255, 0) should be white.
+        # Bottom-left: real (0, 63). Bottom-right: real (255, 63).
+        for x, y in [(0, 0), (255, 0), (0, 63), (255, 63)]:
+            r, g, b = real.get_pixel(x, y)
+            assert (r, g, b) == (255, 255, 255), (
+                f"real corner ({x}, {y}) expected white border; "
+                f"got ({r}, {g}, {b}). Border did not paint at "
+                f"physical resolution — `unwrap_to_real` may have "
+                f"been dropped."
+            )
+
+        # And: the next-inner ring of REAL pixels (1, 1), (254, 1)
+        # etc. must NOT be white (they're either image or black) —
+        # otherwise the border is leaking inward (4×4 block painting).
+        for x, y in [(1, 1), (254, 1), (1, 62), (254, 62)]:
+            r, g, b = real.get_pixel(x, y)
+            assert (r, g, b) != (255, 255, 255), (
+                f"real ({x}, {y}) is white — border painting at "
+                f"4×4 block resolution instead of 1 LED. Likely "
+                f"missing `unwrap_to_real` in the border path."
+            )

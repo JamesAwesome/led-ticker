@@ -251,8 +251,10 @@ class GifPlayer(_BaseImageWidget):
     ) -> Canvas:
         """Run the playback loop.
 
-        Without text: tick at each gif frame's native duration (existing
-        behaviour, fastest path).
+        Without text: tick at engine 50ms cadence (``ENGINE_TICK_MS``);
+        ``_pick_frame_for_elapsed`` picks the gif frame from accumulated
+        wall-clock time so animated borders chase uniformly regardless of
+        gif frame durations.
 
         With text: tick at ``scroll_speed_ms``, picking the gif frame
         from elapsed time so playback duration still matches
@@ -296,7 +298,9 @@ class GifPlayer(_BaseImageWidget):
 
         loops = max(1, loop_count)
         canvas = real_canvas
-        total_ms = sum(d for _, d in self._frames) * loops
+        if self._loop_ms == 0:
+            self._loop_ms = sum(d for _, d in self._frames)
+        total_ms = self._loop_ms * loops
         n_ticks = max(1, total_ms // ENGINE_TICK_MS)
         tick_seconds = ENGINE_TICK_MS / 1000
 

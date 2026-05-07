@@ -1312,10 +1312,10 @@ class TestBuildWidgetWithBorder:
         assert isinstance(widget.border, RainbowChaseBorder)
 
     async def test_border_on_unsupported_widget_type_raises(self):
-        """Other widget types (weather, mlb, gif, ...) still
-        reject `border` loudly at config-load — they have their own
-        draw paths and a perimeter border isn't a meaningful concept
-        for data widgets."""
+        """Data widget types (weather, mlb, rss, ...) still reject
+        `border` loudly at config-load — they have their own draw
+        paths and a perimeter border isn't a meaningful concept for
+        data widgets."""
         cfg = {
             "type": "weather",
             "message": "NYC",

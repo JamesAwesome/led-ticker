@@ -465,12 +465,13 @@ async def _build_widget(
     if animation_value is not None:
         widget_cfg["animation"] = _coerce_animation(animation_value)
 
-    # Coerce `border` (TickerMessage-only) to a BorderEffect instance
-    # at config-load. Same TickerMessage-only rule as `animation` —
-    # the field doesn't make sense on data widgets that have their
-    # own draw paths and don't paint a perimeter. Loud failure here
-    # catches misplaced `border = ...` in TOML before it surfaces as
-    # a confusing "unknown kwarg" downstream.
+    # Coerce `border` to a `BorderEffect` instance at config-load.
+    # Restricted to widget types whose draw paths can host a perimeter
+    # (message, countdown, two_row, gif, image) — data widgets like
+    # weather/mlb have their own paint logic and a perimeter border
+    # isn't a meaningful concept there. Loud failure here catches
+    # misplaced `border = ...` in TOML before it surfaces as a
+    # confusing "unknown kwarg" downstream.
     border_value = widget_cfg.pop("border", None)
     if border_value is not None and widget_type not in (
         "message",

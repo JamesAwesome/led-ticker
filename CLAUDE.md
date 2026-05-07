@@ -269,7 +269,7 @@ ColorProvider fields. Default `font_color_temp = RGB_WHITE` keeps
 the value steady-bright while the label can use a color effect.
 Set both to the same provider if you want them to match.
 
-**Rainbow border (TickerMessage / TickerCountdown / TwoRowMessage)**: TickerMessage accepts a
+**Rainbow border (TickerMessage / TickerCountdown / TwoRowMessage / GifPlayer / StillImage)**: TickerMessage accepts a
 `border` field that paints an animated 1- or 2-pixel ring around
 the panel perimeter at PHYSICAL resolution (bypasses ScaledCanvas
 block expansion via `unwrap_to_real`). TOML accepts `border =
@@ -289,13 +289,31 @@ flag on each effect drives any future fast-path gates the same way
 ColorProvider's flag does. Bigsign-tuned defaults: speed=4 (~12s
 per revolution at 50ms ticks), char_offset=6 (~60 distinct hue
 cycles around the 640-pixel perimeter). Border is restricted to
-`message`, `countdown`, and `two_row` widget types at config-load
-(loud failure on other widget types) because data widgets have
-their own draw paths and a perimeter border isn't a meaningful
-concept there. On TwoRowMessage at scale=2 (typical for handle
+`message`, `countdown`, `two_row`, `gif`, and `image` widget types
+at config-load (loud failure on other widget types) because data
+widgets have their own draw paths and a perimeter border isn't a
+meaningful concept there. On TwoRowMessage at scale=2 (typical for handle
 layouts) the border paints to the unwrapped real canvas — traces
 the actual 256x64 panel edge, not the 128x32 logical canvas — so
-the rainbow frames the SIGN, not the wrapper.
+the rainbow frames the SIGN, not the wrapper. On image widgets,
+border integration adds 4 paint sites (`_render_tick` × 3 sub-paths,
+`_render_two_row_tick`, `StillImage._play_no_text`,
+`GifPlayer._play_no_text`) and 3 fast-path gate updates that include
+`border.frame_invariant` in the predicate (same shape as
+`font_color.frame_invariant`). `GifPlayer._play_no_text` was
+refactored from gif-frame cadence to engine 50ms cadence (using
+`_pick_frame_for_elapsed` — the same pattern `_play_with_text` uses)
+so animated borders chase uniformly regardless of gif frame durations.
+Side effect: gifs with native frame durations < 50ms cap at 20 Hz on
+this path — matches the cap `_play_with_text` already imposes.
+`StillImage._play_no_text` uses a two-mode pattern: paint-once-and-
+sleep fast path when border is None or frame-invariant; per-tick loop
+when border is animated. Tripwires: `TestRenderTickBorder`,
+`TestRenderTwoRowTickBorder`, `TestPlayWithTextBorderFastPath`,
+`TestPlayWithTwoRowBorderFastPath`, `TestImageBorderPhysicalResolution`
+in `tests/test_widgets/test_image_base.py`;
+`TestGifPlayNoTextRefactor` in `tests/test_widgets/test_gif.py`;
+`TestStillPlayNoTextBorder` in `tests/test_widgets/test_still.py`.
 
 ### Adding a New Widget
 

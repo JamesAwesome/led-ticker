@@ -39,7 +39,7 @@
 
 **Key TOML params:**
 - `message`: template string with `{count}` placeholder for the number (e.g., `"Days until launch: {count}"`).
-- `date`: target date in `YYYY-MM-DD` format (e.g., `"2026-12-25"`).
+- `countdown_date`: target date in `YYYY-MM-DD` format (e.g., `2026-12-25`). TOML date literal — not a string.
 - `font_color`: same as `message` — constant, `"rainbow"`, `"color_cycle"`, or gradient table.
 - `font` / `font_size` / `font_threshold`: optional; same rules as `message`.
 - `border`: rainbow or constant; same as `message`.

@@ -67,7 +67,8 @@
 - `bottom_text`: scrolling text when it overflows (e.g., promotional copy).
 - `top_color` / `bottom_color`: per-row color providers (constant, "rainbow", "color_cycle", or gradient table).
 - `font` / `top_font` / `bottom_font`: shared or per-row fonts.
-- `font_size` / `top_size` / `bottom_size`: per-row sizes.
+- `font_size` / `top_font_size` / `bottom_font_size`: per-row sizes (real pixels for hires).
+- `font_threshold` / `top_font_threshold` / `bottom_font_threshold`: per-row rasterization cutoff (0-255, default 128). Match Bold to Regular's value within a family.
 - `top_align` / `bottom_align`: `"left"`, `"center"`, `"right"` (bottom alignment only applies when text fits).
 - `top_row_height`: logical rows for the top band (default `None` = 50/50 split).
 - `top_text_y_offset` / `bottom_text_y_offset`, `top_emoji_y_offset` / `bottom_emoji_y_offset`: per-row pixel nudges.

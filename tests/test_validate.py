@@ -1,3 +1,5 @@
+import json
+import subprocess
 import textwrap
 from pathlib import Path
 
@@ -359,3 +361,87 @@ async def test_rule21_normal_duration_no_warning(conf):
         """
     result = await validate_config(conf(cfg))
     assert all(w.rule != 21 for w in result.warnings)
+
+
+def test_json_output_valid_config(conf):
+    path = conf(GOOD_CONFIG)
+
+    async def _run():
+        from led_ticker.validate import _format_json
+
+        result = await validate_config(path)
+        return _format_json(result)
+
+    import asyncio
+
+    loop = asyncio.new_event_loop()
+    try:
+        raw = loop.run_until_complete(_run())
+    finally:
+        loop.close()
+    data = json.loads(raw)
+    assert data["valid"] is True
+    assert data["errors"] == []
+    assert data["warnings"] == []
+    assert data["path"] == str(path)
+
+
+def test_json_output_with_error():
+    from led_ticker.validate import _format_json
+
+    issue = ValidationIssue(
+        rule=5,
+        location="section[0].widget[0]",
+        message="bad",
+        fix="fix",
+        severity="error",
+    )
+    result = ValidationResult(path=Path("x.toml"), errors=[issue], warnings=[])
+    data = json.loads(_format_json(result))
+    assert data["valid"] is False
+    assert len(data["errors"]) == 1
+    assert data["errors"][0]["rule"] == 5
+    assert data["errors"][0]["location"] == "section[0].widget[0]"
+    assert data["errors"][0]["message"] == "bad"
+    assert data["errors"][0]["fix"] == "fix"
+
+
+def test_cli_exit_code_0_on_valid(conf):
+    path = conf(GOOD_CONFIG)
+    proc = subprocess.run(
+        ["uv", "run", "led-ticker", "validate", str(path)],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0
+
+
+def test_cli_exit_code_1_on_error(conf):
+    path = conf(GOOD_CONFIG + '\n[[playlist.section.widget]]\ntype = "banana"\n')
+    proc = subprocess.run(
+        ["uv", "run", "led-ticker", "validate", str(path)],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 1
+
+
+def test_cli_exit_code_2_on_missing_file(tmp_path):
+    proc = subprocess.run(
+        ["uv", "run", "led-ticker", "validate", str(tmp_path / "missing.toml")],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 2
+
+
+def test_cli_json_flag_produces_parseable_output(conf):
+    path = conf(GOOD_CONFIG)
+    proc = subprocess.run(
+        ["uv", "run", "led-ticker", "validate", str(path), "--json"],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0
+    data = json.loads(proc.stdout)
+    assert data["valid"] is True

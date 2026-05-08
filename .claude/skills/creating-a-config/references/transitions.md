@@ -148,26 +148,41 @@ Choose durations to match the transition's visual pace:
 
 ### Sweep line color customization (wipe transitions)
 
-Wipe transitions accept `transition_color` or `transition_colors` to customize the sweep-line color:
+Wipe transitions accept `transition_color` or `transition_colors` to customize the sweep-line color. **Both keys are valid at two levels:**
+
+1. **Global** (`[transitions]` block) — applies to every section that uses a wipe.
+2. **Per-section** (`[[playlist.section]]` block) — overrides the global value for that section only.
+
+Per-section override:
 
 ```toml
-[[sections]]
-name = "my_section"
+[[playlist.section]]
+mode = "swap"
 transition = "wipe_left"
-transition_color = [255, 100, 150]  # Pink sweep line
+transition_color = [255, 100, 150]   # pink sweep line for this section only
 transition_duration = 800
 ```
 
-For `wipe_random` with a custom color pool:
+Global default (every wipe in the config uses this unless overridden):
 
 ```toml
-[[sections]]
-name = "random_wipes"
+[transitions]
+default = "wipe_left"
+between_sections = "dissolve"
+duration = 0.6
+transition_color = [255, 200, 130]   # cream — applies to all wipes globally
+```
+
+For `wipe_random` with a custom color pool (per-section):
+
+```toml
+[[playlist.section]]
+mode = "swap"
 transition = "wipe_random"
 transition_colors = [
-    [255, 0, 0],      # Red
-    [0, 255, 0],      # Green
-    [0, 0, 255],      # Blue
+    [255, 0, 0],      # red
+    [0, 255, 0],      # green
+    [0, 0, 255],      # blue
 ]
 transition_duration = 800
 ```

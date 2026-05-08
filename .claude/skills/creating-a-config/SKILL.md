@@ -100,13 +100,20 @@ User confirms or edits the list (add / remove / reorder).
 
 Load `references/snippets.md`, `references/widgets.md`, `references/asset-handling.md`, `references/decision-rules.md`.
 
-For each confirmed section in the outline:
+**Brand font defaults (carried across all sections):**
+
+If Phase 1 brand presence was `colors+fonts` or `colors+fonts+logo`, the user has already named one or more font files (collected per `references/asset-handling.md`). Pick a per-tier default font_size from the asset-handling viewing-distance table BEFORE entering the per-section loop, e.g. medium-distance bigsign + Inter-Bold → 22. Use this as the default for every text-bearing widget (message, countdown, two_row, weather, image/gif overlay text, plus `[playlist.section.title]` blocks). Don't re-ask per section.
+
+Sections-pass loop — for each confirmed section in the outline:
 
 1. Look up the snippet matching (use_case × widget × sign_target) in `references/snippets.md`.
-2. Ask only the widget-specific questions the snippet's "must customize" list requires. Use AskUserQuestion.
+2. Ask only the widget-specific questions the snippet's "must customize" list requires. Use AskUserQuestion. **If the user picked a custom brand font in Phase 1, also append `font` / `font_size` / `font_threshold` to every text-bearing widget in this section even if the snippet's must-customize list omits them** — the snippets are pre-fonts and need the brand applied.
 3. For asset-bearing sections (gif, image, custom font): collect assets per `references/asset-handling.md`. Place fonts in `config/fonts/<file>` and images in `config/assets/<file>`. Verify the path exists before referencing it in TOML. Never fetch URLs silently.
-4. Write the section's TOML to the in-progress config buffer using the `[[playlist.section]]` / `[[playlist.section.widget]]` structure.
+4. Write the section's TOML to the in-progress config buffer using the `[[playlist.section]]` / `[[playlist.section.widget]]` structure. If the section has a `[playlist.section.title]` and brand fonts are in play, apply the brand font to the title too.
 5. Run per-section lint: for each rule in `references/decision-rules.md` whose DETECT clause matches this section, surface as flag-and-ask (see "Validation: flag-and-ask philosophy" below).
+
+   **Additionally** check font-size vs viewing distance: if Phase 1 distance was `medium` and the user picked a `font_size ≥ 24`, OR distance was `far` and `font_size < 22`, flag with: "Phase 1 distance was <X>; recommended `font_size` is <range>; you picked <N>. Want me to align with the recommendation?" Cite `references/asset-handling.md` viewing-distance table.
+
 6. Brief "looks good?" before moving to the next section.
 
 ### Phase 3: Polish

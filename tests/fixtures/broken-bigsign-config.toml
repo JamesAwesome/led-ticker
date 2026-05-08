@@ -1,0 +1,167 @@
+# broken-bigsign-config.toml
+#
+# INTENTIONALLY BROKEN — for walkthrough C (refine-mode) test fixture.
+# Do NOT copy to production. Three planted violations:
+#
+#   VIOLATION A — Rule 1 (content_height ceiling)
+#     Section "handle" (lines ~60-85): content_height = 20 with no per-section
+#     scale override. At bigsign default_scale=4: 20×4 = 80 > 64 (panel height).
+#     Top and bottom rows of the logical canvas overflow the physical panel.
+#
+#   VIOLATION B — Rule 3 (scroll + stretch invalid)
+#     Section "promo_gif" (lines ~88-105): gif widget with text_align = "scroll"
+#     AND fit = "stretch". Stretch fills the entire canvas with no transparent
+#     regions, so scroll text has nowhere to walk behind.
+#
+#   VIOLATION C — Rule 2 (within-family font_threshold mismatch)
+#     Section "brand_message" (lines ~108-130): two message widgets using
+#     Inter-Regular (font_threshold = 80) and Inter-Bold (font_threshold = 128).
+#     At thr=80, Regular has more lit pixels than Bold at thr=128 — weight
+#     contrast inverts on the physical panel.
+#
+# All widget text uses the BDF default font (no `font` field set), so the
+# "fonts look too small from across the room" complaint on a bigsign maps
+# cleanly to the Rule-1 row in the refine-mode symptom table:
+#   Too small at far + bigsign + currently BDF → propose hires Inter at 24-32.
+#
+# (The brand_message section plants the font_threshold mismatch with explicit
+#  hires font fields; that section is a deliberate exception to the "all BDF"
+#  framing above — it demonstrates Rule 2 which is hires-specific.)
+
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+brightness = 60
+slowdown_gpio = 3
+gpio_mapping = "adafruit-hat"
+default_scale = 4
+pwm_bits = 8
+rp1_rio = 1
+
+[title]
+delay = 5
+
+[transitions]
+default = "push_left"
+duration = 500
+easing = "ease_in_out"
+between_sections = "dissolve"
+
+# ---------------------------------------------------------------------------
+# Section 1: Welcome banner (mode=forever_scroll, no content_height override)
+# No planted violations — provides a clean baseline.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Welcome"
+color = [255, 200, 100]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open daily 10am–8pm :star:"
+font_color = [255, 200, 100]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Find us on :instagram: @theawesomeshop"
+font_color = [200, 100, 255]
+
+# ---------------------------------------------------------------------------
+# Section 2: Weather (mode=swap)
+# No planted violations.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 8
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Weather"
+color = [100, 200, 255]
+
+[[playlist.section.widget]]
+type = "weather"
+location = "Brooklyn, NY"
+units = "imperial"
+font_color = [255, 255, 255]
+
+# ---------------------------------------------------------------------------
+# Section 3: Handle display (mode=swap)
+# VIOLATION A — Rule 1: content_height=20 with default_scale=4 → 20×4=80 > 64
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 6
+loop_count = 2
+content_height = 20                     # <-- VIOLATION A: exceeds 64/4=16 ceiling
+
+[playlist.section.title]
+type = "message"
+text = "Follow Us"
+color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "@theawesomeshop"
+bottom_text = "New arrivals every Friday — check the link in bio!"
+top_color = [225, 48, 108]
+bottom_color = [255, 200, 100]
+top_align = "center"
+bottom_align = "center"
+
+# ---------------------------------------------------------------------------
+# Section 4: Promo GIF (mode=swap)
+# VIOLATION B — Rule 3: text_align="scroll" + fit="stretch" is invalid
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 10
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/promo-loop.gif"
+fit = "stretch"                         # <-- VIOLATION B (part 1)
+text = "New arrivals every Friday!"
+text_align = "scroll"                   # <-- VIOLATION B (part 2): scroll + stretch
+font_color = [255, 255, 255]
+gif_loops = 2
+
+# ---------------------------------------------------------------------------
+# Section 5: Brand message (mode=swap)
+# VIOLATION C — Rule 2: Inter-Regular at font_threshold=80 but Inter-Bold
+# at font_threshold=128 (default). Weight contrast inverts on the panel.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 7
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "New Collection"
+color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Discover the spring line"
+font = "Inter-Regular"
+font_size = 22
+font_threshold = 80                     # <-- VIOLATION C (part 1)
+font_color = [255, 255, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Shop now — link in bio!"
+font = "Inter-Bold"
+font_size = 22
+font_threshold = 128                    # <-- VIOLATION C (part 2): should be 80
+font_color = [225, 48, 108]

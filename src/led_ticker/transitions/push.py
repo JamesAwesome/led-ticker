@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from typing import Any
 
 from led_ticker._types import Canvas
@@ -220,6 +221,42 @@ class PushDown:
         )
 
         return canvas
+
+
+@register_transition("push_random")
+class PushRandom:
+    """Picks a random push direction on each swap.
+
+    Never repeats the same direction back-to-back.
+    """
+
+    _PUSH_CLASSES: list[type[Transition]] = [PushLeft, PushRight, PushUp, PushDown]
+
+    def __init__(self, **kwargs: Any) -> None:
+        self._rng = random.Random()
+        self._last_cls: type[Transition] | None = None
+        self._last_t: float = 1.0
+        self._current: Transition | None = None
+
+    @property
+    def min_frames(self) -> int:
+        if self._current is not None:
+            return getattr(self._current, "min_frames", 10)
+        return 10
+
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        if t < self._last_t:
+            candidates = [
+                cls for cls in self._PUSH_CLASSES if cls is not self._last_cls
+            ]
+            chosen_cls = self._rng.choice(candidates)
+            self._current = chosen_cls()
+            self._last_cls = chosen_cls
+        self._last_t = t
+        assert self._current is not None
+        return self._current.frame_at(t, canvas, outgoing, incoming, **kwargs)
 
 
 @register_transition("push_alternating")

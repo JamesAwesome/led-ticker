@@ -925,6 +925,7 @@ def main() -> None:
     _setup_logging()
 
     parser = argparse.ArgumentParser(description="LED Ticker Display")
+    # Top-level --config kept for back-compat: `led-ticker --config foo.toml`
     parser.add_argument(
         "--config",
         "-c",
@@ -932,8 +933,45 @@ def main() -> None:
         default=Path("config.toml"),
         help="Path to TOML configuration file (default: config.toml)",
     )
+
+    subparsers = parser.add_subparsers(dest="command")
+
+    # `validate` subcommand
+    val_parser = subparsers.add_parser(
+        "validate",
+        help="Validate a config file without running the display",
+    )
+    val_parser.add_argument("path", type=Path, help="Path to TOML config file")
+    val_parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Emit JSON output",
+    )
+
     args = parser.parse_args()
 
+    if args.command == "validate":
+        from led_ticker.validate import (  # noqa: PLC0415
+            _format_human,
+            _format_json,
+            validate_config,
+        )
+
+        try:
+            result = asyncio.run(validate_config(args.path))
+        except FileNotFoundError as e:
+            print(str(e), file=sys.stderr)
+            sys.exit(2)
+
+        if args.json_output:
+            print(_format_json(result))
+        else:
+            print(_format_human(result))
+
+        sys.exit(0 if result.valid else 1)
+
+    # Default: run the display (back-compat path)
     if not args.config.exists():
         print(f"Config file not found: {args.config}", file=sys.stderr)
         print(

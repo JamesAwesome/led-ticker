@@ -10,7 +10,7 @@ These rules are the validation checklist. The skill consults this file at every 
 
 **SOURCE:** CLAUDE.md — "Per-section `content_height`" section (lines 105-106).
 
-**DETECT:** `section.content_height * default_scale > panel_height`. For bigsign (default_scale=4, panel_height=64) this means `content_height > 16`.
+**DETECT:** `section.content_height * effective_scale > panel_height`, where `effective_scale = section.scale if section.scale is set else default_scale`. For bigsign at default_scale=4 with no per-section override, `panel_height=64` means `content_height > 16` triggers the rule. If a section overrides with `scale = 2`, then `content_height > 32` is the actual threshold for that section. Don't flag a section's `content_height` against the global `default_scale` if it has its own `scale`.
 
 **SYMPTOM:** Top + bottom rows of logical canvas overflow visible area; content placed near edges silently clips. BDF text may look fine; hi-res emoji and large hi-res fonts surface the clip immediately (e.g., TwoRow's hi-res `:instagram:` cuts off ~4 real px at the bottom).
 

@@ -49,6 +49,7 @@
 
 **Gotchas:**
 - Target date is fixed at config load — updates happen per-visit, not per-tick.
+- **Day-resolution only.** `countdown_date` is a `date` (not `datetime`); the widget computes `(target - today).days`. There's no hours/minutes countdown. For "open until 6pm tonight" use cases, frame as "Closing today" or use `message` widget with formatted text instead.
 - When the countdown reaches zero (count ≤ 0), the message still displays with the count.
 
 ---

@@ -243,3 +243,21 @@ These rules are the validation checklist. The skill consults this file at every 
 **SYMPTOM:** Config load raises with a migration error pointing to the new `font_size` formula: `font_size = N × cell_h_of_your_font`. For BDF 6×12: text_scale=2 → font_size=24, text_scale=4 → font_size=48.
 
 **FIX:** Replace `text_scale = <N>` with `font_size = <N> × <cell_h>`. For example, if your BDF is 6×12 and you had `text_scale = 2`, use `font_size = 24`. For `text_scale = 4` with 6×12, use `font_size = 48`.
+
+---
+
+## Rule 21: transition_duration plausibility
+
+**SOURCE:** Inferred from example configs (`config.moonbunny.example.toml`, `config.bigsign.example.toml`, `config.example.toml`) which use `duration` values in the 0.5–4.0 range. `duration` is in **seconds** (float).
+
+**DETECT:** Any `duration` or `transition_duration` value > 5 (seconds) — almost certainly a milliseconds-vs-seconds unit error from a user accustomed to ms-based animation libraries. Also flag values < 0.05 as too short to be meaningful.
+
+**SYMPTOM:** A `duration = 500` parses as 500 seconds (~8 minutes per transition); the sign appears frozen mid-transition forever. No load-time error.
+
+**FIX:** Convert by dividing by 1000 if the user typed an ms value. Typical ranges per `transitions.md`: push 0.4-0.8s, wipe 0.6-1.2s, sprite 1.5-2.5s.
+
+---
+
+## Rule 2 caveat — font family naming assumption
+
+Rule 2's "same font family" detection relies on standard naming where the family stem is shared and weight is a suffix (e.g., `Inter-Regular` / `Inter-Bold`, `BelovedSans-Regular` / `BelovedSans-Bold`). Unconventional naming (e.g., `BelSans-R` / `BelSans-B`, or two unrelated-looking files in the same family) may evade detection. If using a non-standard naming convention, the skill cannot mechanically pair Bold to Regular — apply the threshold rule manually.

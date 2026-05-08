@@ -154,3 +154,5 @@ config/fonts/
 *.tmp
 *.bak
 *~
+.claude/worktrees/**/*
+**/.DS_Store

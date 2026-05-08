@@ -124,17 +124,19 @@ Unique or multi-purpose transitions.
 
 ## Recommended `transition_duration` ranges
 
+`duration` and `transition_duration` are in **seconds** (float). The example configs use 0.5–4.0. Values above ~5s are likely a milliseconds-vs-seconds unit error.
+
 Choose durations to match the transition's visual pace:
 
-| Family | Range (ms) | Notes |
-|--------|-----------|-------|
-| Push | 400–800 | Faster feels snappier; 400ms for tight pacing, 800ms for dramatic effect |
-| Wipe | 600–1200 | Sweep line wants enough time to traverse; faster = more energetic, slower = more elegant |
-| Instant | (n/a) | `cut` is 0ms; `color_flash` is 200–300ms |
-| Sprite (Nyan Cat, Pokeball, Baseball) | 1500–2500 | Sprite needs time to traverse screen; 1500ms = fast, 2500ms = leisurely |
-| Pac-Man | 1500–2500 | Same as other sprite families |
-| Sailor Moon | 1500–2500 | Same as other sprite families |
-| Scroll | 800–1500 | Depends on how "alive" you want the separator to feel |
+| Family | Range (seconds) | Notes |
+|--------|-----------------|-------|
+| Push | 0.4–0.8 | Faster feels snappier; 0.4s for tight pacing, 0.8s for dramatic effect |
+| Wipe | 0.6–1.2 | Sweep line wants enough time to traverse; faster = more energetic, slower = more elegant |
+| Instant | (n/a) | `cut` is 0; `color_flash` is 0.2–0.3 |
+| Sprite (Nyan Cat, Pokeball, Baseball) | 1.5–2.5 | Sprite needs time to traverse screen; 1.5s = fast, 2.5s = leisurely |
+| Pac-Man | 1.5–2.5 | Same as other sprite families |
+| Sailor Moon | 1.5–2.5 | Same as other sprite families |
+| Scroll | 0.8–4.0 | The longer the duration, the more relaxed the bullet separator feels. The example configs cite `4.0` for `scroll` |
 
 ## Configuring transitions
 

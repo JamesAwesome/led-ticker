@@ -1,9 +1,10 @@
+import textwrap
 from pathlib import Path
 
 import pytest
 
 from led_ticker.app import _build_widget
-from led_ticker.validate import ValidationIssue, ValidationResult
+from led_ticker.validate import ValidationIssue, ValidationResult, validate_config
 
 
 def test_valid_when_no_errors():
@@ -47,3 +48,162 @@ async def test_build_widget_validate_only_raises_on_animation_wrong_type():
     cfg = {"type": "weather", "location": "NYC", "animation": "typewriter"}
     with pytest.raises(ValueError, match="animation is only valid"):
         await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+
+
+@pytest.fixture
+def conf(tmp_path):
+    """Write a TOML string to a temp file and return its Path."""
+
+    def _write(toml_str: str) -> Path:
+        p = tmp_path / "config.toml"
+        p.write_text(textwrap.dedent(toml_str))
+        return p
+
+    return _write
+
+
+GOOD_CONFIG = """\
+    [display]
+    rows = 32
+    cols = 64
+    chain = 8
+    default_scale = 4
+
+    [[playlist.section]]
+    mode = "swap"
+    hold_time = 3
+
+    [[playlist.section.widget]]
+    type = "message"
+    text = "hello"
+    """
+
+
+async def test_happy_path_returns_valid(conf):
+    result = await validate_config(conf(GOOD_CONFIG))
+    assert result.valid is True
+    assert result.errors == []
+    assert result.warnings == []
+
+
+async def test_toml_syntax_error_returns_error(conf):
+    result = await validate_config(conf("[display\n"))
+    assert not result.valid
+    assert len(result.errors) == 1
+    assert result.errors[0].location == "config"
+
+
+async def test_unknown_widget_type_returns_error(conf):
+    result = await validate_config(
+        conf(GOOD_CONFIG + '\n[[playlist.section.widget]]\ntype = "banana"\n')
+    )
+    assert not result.valid
+    assert any("section[0].widget[1]" in e.location for e in result.errors)
+
+
+async def test_text_scale_migration_error(conf):
+    cfg = GOOD_CONFIG.replace('text = "hello"', 'text = "hello"\ntext_scale = 2')
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 20 for e in result.errors)
+
+
+async def test_animation_on_wrong_widget_type(conf):
+    extra = textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "weather"
+        location = "NYC"
+        animation = "typewriter"
+        """)
+    result = await validate_config(conf(GOOD_CONFIG + extra))
+    assert not result.valid
+    assert any(e.rule == 12 for e in result.errors)
+
+
+async def test_border_on_wrong_widget_type(conf):
+    extra = textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "weather"
+        location = "NYC"
+        border = "rainbow"
+        """)
+    result = await validate_config(conf(GOOD_CONFIG + extra))
+    assert not result.valid
+    assert any(e.rule == 15 for e in result.errors)
+
+
+async def test_rule3_scroll_plus_stretch(conf):
+    extra = textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "image"
+        path = "x.png"
+        text_align = "scroll"
+        fit = "stretch"
+        """)
+    result = await validate_config(conf(GOOD_CONFIG + extra))
+    assert not result.valid
+    assert any(e.rule == 3 for e in result.errors)
+
+
+async def test_rule7_text_x_offset_with_scroll(conf):
+    extra = textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "image"
+        path = "x.png"
+        text_align = "scroll"
+        text_x_offset = 5
+        """)
+    result = await validate_config(conf(GOOD_CONFIG + extra))
+    assert not result.valid
+    assert any(e.rule == 7 for e in result.errors)
+
+
+async def test_rule8_hold_seconds_too_short(conf):
+    extra = textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "image"
+        path = "x.png"
+        hold_seconds = 0.001
+        """)
+    result = await validate_config(conf(GOOD_CONFIG + extra))
+    assert not result.valid
+    assert any(e.rule == 8 for e in result.errors)
+
+
+async def test_rule14_typewriter_on_gif_two_row(conf):
+    extra = textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        animation = "typewriter"
+        bottom_text = "hello"
+        text = "world"
+        """)
+    result = await validate_config(conf(GOOD_CONFIG + extra))
+    assert not result.valid
+    assert any(e.rule == 14 for e in result.errors)
+
+
+async def test_rule14_typewriter_on_gif_single_row_ok(conf):
+    extra = textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        animation = "typewriter"
+        text = "world"
+        """)
+    result = await validate_config(conf(GOOD_CONFIG + extra))
+    # single-row with non-empty text — typewriter is allowed on gif
+    assert all(e.rule != 14 for e in result.errors)
+
+
+async def test_missing_config_file_raises():
+    with pytest.raises(FileNotFoundError):
+        await validate_config(Path("/tmp/does_not_exist_xyz.toml"))

@@ -2686,6 +2686,21 @@ def measure_width(
     return width
 
 
+def count_text_chars(text: str) -> int:
+    """Count text characters (excluding emoji slugs) in a string.
+
+    Returns the same value `draw_with_emoji` computes internally as
+    `total_text_chars`. Exposed for callers that need to pass an
+    explicit `total_chars` to `draw_with_emoji` — e.g. an image
+    widget with typewriter mid-cycle wants the per-char hue total to
+    reference the EVENTUAL full text, not the visible slice currently
+    being drawn. Otherwise the hue per char drifts as more chars
+    type in.
+    """
+    segments = _parse_segments(text)
+    return sum(len(value) for seg_type, value in segments if seg_type == "text")
+
+
 def draw_with_emoji(
     canvas: Canvas,
     font: Font,
@@ -2697,6 +2712,7 @@ def draw_with_emoji(
     emoji_y: int | None = None,
     max_emoji_height: int | None = None,
     frame: int = 0,
+    total_chars: int | None = None,
 ) -> int:
     """Draw text with inline emoji. Returns pixels advanced.
 
@@ -2725,6 +2741,14 @@ def draw_with_emoji(
 
     `frame` is forwarded to `provider.color_for(...)` for frame-aware
     effects. Defaults to 0 for legacy callers passing a raw `Color`.
+
+    `total_chars` overrides the internal `total_text_chars` computation
+    for per-char providers. Default None: compute from `text`'s segments
+    (back-compat for existing callers). Set to `count_text_chars(full_text)`
+    when `text` is a partial slice (e.g. typewriter mid-cycle on an image
+    widget) so a char's hue is anchored to its position in the FULL text,
+    not the visible slice. Without this override, hues drift as the
+    reveal grows.
     """
     segments = _parse_segments(text)
     total: int = 0
@@ -2740,9 +2764,12 @@ def draw_with_emoji(
     # total means the rainbow distributes evenly across the visible
     # letters rather than e.g. compressing because the slug expanded
     # the segment count.
-    total_text_chars = sum(
-        len(value) for seg_type, value in segments if seg_type == "text"
-    )
+    if total_chars is not None:
+        total_text_chars = total_chars
+    else:
+        total_text_chars = sum(
+            len(value) for seg_type, value in segments if seg_type == "text"
+        )
 
     # Default emoji_y anchors the 8-logical-px-tall sprite to the text
     # baseline (`iy = y - 8`). The lowres 8×8 sprite and the hires

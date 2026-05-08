@@ -568,3 +568,42 @@ font_size = 24
 font_color = "rainbow"
 animation = "typewriter"
 border = "rainbow"
+
+# ---------------------------------------------------------------------------
+# 19. Typewriter on image: caption types in over a held still.
+#     Three-effect composition: typewriter (restart_on_visit=True) +
+#     rainbow font color + rainbow border (both restart_on_visit=False)
+#     on the SAME image widget. Border keeps its chase phase across
+#     loop_count > 1; font rainbow sweeps continuously; caption retypes
+#     each loop. The architectural payoff of PR #12 extended to image
+#     widgets.
+#
+#     Watch for:
+#       - "HELLO!" types out one char at a time, restarting each loop
+#       - each char renders in continuously-sweeping rainbow (color
+#         sweep advances ACROSS loops — chars don't reset to the same
+#         hue on each retype)
+#       - perimeter chase advances continuously (no phase snap-back
+#         when typewriter restarts)
+#
+#     image_align = "right" pillarboxes the bunny on the right side so
+#     the caption has clear panel space on the left to type into.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 6
+loop_count = 3
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/bunny-transparent.png"
+fit = "pillarbox"
+image_align = "right"
+text = "HELLO!"
+text_align = "left"
+font = "Inter-Bold"
+font_size = 24
+animation = "typewriter"
+font_color = "rainbow"
+border = "rainbow"

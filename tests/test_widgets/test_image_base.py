@@ -1612,3 +1612,398 @@ class TestImageBorderPhysicalResolution:
                 f"4×4 block resolution instead of 1 LED. Likely "
                 f"missing `unwrap_to_real` in the border path."
             )
+
+
+class TestImageTypewriter:
+    """Single-row typewriter on image widgets. Validation + render
+    + fast-path bypass + per-effect counter wiring."""
+
+    def _make_still(self, tmp_path, **kwargs):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(path=img_path, **kwargs)
+
+    def test_animation_with_bottom_text_raises(self, tmp_path):
+        from led_ticker.animations import Typewriter
+
+        with pytest.raises(ValueError, match="two-row mode"):
+            self._make_still(
+                tmp_path,
+                top_text="hi",
+                bottom_text="there",
+                animation=Typewriter(),
+            )
+
+    def test_animation_with_scroll_align_raises(self, tmp_path):
+        from led_ticker.animations import Typewriter
+
+        with pytest.raises(ValueError, match="text_align"):
+            self._make_still(
+                tmp_path,
+                text="Hello",
+                text_align="scroll",
+                fit="pillarbox",
+                animation=Typewriter(),
+            )
+
+    def test_animation_with_scroll_over_align_raises(self, tmp_path):
+        from led_ticker.animations import Typewriter
+
+        with pytest.raises(ValueError, match="text_align"):
+            self._make_still(
+                tmp_path,
+                text="Hello",
+                text_align="scroll_over",
+                animation=Typewriter(),
+            )
+
+    def test_animation_with_empty_text_raises(self, tmp_path):
+        from led_ticker.animations import Typewriter
+
+        with pytest.raises(ValueError, match="non-empty text"):
+            self._make_still(
+                tmp_path,
+                text="",
+                text_align="left",
+                animation=Typewriter(),
+            )
+
+    def test_animation_field_accepts_typewriter(self, tmp_path):
+        """No validation conflict: text_align=left, single-row, non-empty
+        text → construction succeeds."""
+        from led_ticker.animations import Typewriter
+
+        widget = self._make_still(
+            tmp_path,
+            text="Hello",
+            text_align="left",
+            animation=Typewriter(),
+        )
+        assert widget.animation is not None
+        assert isinstance(widget.animation, Typewriter)
+
+    def test_visible_text_slices_per_frame(self, tmp_path):
+        """Pre-populate the animation per-effect counter to specific
+        values; assert `_visible_text` returns the typed-so-far slice
+        at each frame. At default frames_per_char=3 with chars_per_frame=1:
+          frame=0 → 1 char (Typewriter's `progress = (0 // 3) + 1 = 1`)
+          frame=2 → 1 char (still in the first frames_per_char window)
+          frame=3 → 2 chars
+          frame=6 → 3 chars
+          frame=999 → all 5 chars (clamped to len(text)).
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.animations import Typewriter
+
+        widget = self._make_still(
+            tmp_path,
+            text="Hello",
+            text_align="left",
+            animation=Typewriter(),
+        )
+        canvas = _StubCanvas(width=64, height=16)
+
+        # frame_count is passed directly; the helper does not read
+        # `_effect_frames` (the caller resolves the counter via
+        # `self.frame_for("animation")` and passes the result here).
+        assert widget._visible_text(0, canvas) == "H"
+        assert widget._visible_text(3, canvas) == "He"
+        assert widget._visible_text(6, canvas) == "Hel"
+        assert widget._visible_text(999, canvas) == "Hello"
+
+    def test_visible_text_returns_full_text_when_no_animation(self, tmp_path):
+        """`animation = None` (default): helper returns `self.text`
+        unchanged so layout / draw code that always calls the helper
+        is correct for the no-animation case too."""
+        from rgbmatrix import _StubCanvas
+
+        widget = self._make_still(tmp_path, text="Hello", text_align="left")
+        canvas = _StubCanvas(width=64, height=16)
+        assert widget.animation is None
+        assert widget._visible_text(0, canvas) == "Hello"
+        assert widget._visible_text(99, canvas) == "Hello"
+
+    async def test_fast_path_bypassed_with_animation(self, tmp_path, mocker):
+        """Static still + text_align=left + animation=Typewriter must
+        bypass the paint-once-and-sleep fast path so the typewriter's
+        per-tick reveal actually runs. Mirrors the existing
+        TestPlayWithTextBorderFastPath bypass for animated borders.
+
+        Fast path: `SwapOnVSync.call_count == 1`. Slow path:
+        `SwapOnVSync.call_count > 1`. We assert > 1.
+        """
+        from led_ticker.animations import Typewriter
+
+        widget = self._make_still(
+            tmp_path,
+            text="Hello",
+            text_align="left",
+            hold_seconds=0.5,
+            animation=Typewriter(),
+        )
+
+        frame = mocker.MagicMock()
+        # Each swap returns a fresh canvas (mirrors swapping_frame fixture
+        # — see CLAUDE.md tripwire #1).
+        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        # Auto-MagicMock canvas needs concrete width/height for _load's
+        # panel-dim arithmetic and for downstream layout math.
+        frame.matrix.SwapOnVSync.return_value.width = 64
+        frame.matrix.SwapOnVSync.return_value.height = 16
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        await widget.play(frame.matrix.SwapOnVSync.return_value, frame, loop_count=1)
+
+        # Slow path runs N ticks; we just need > 1 to prove fast path
+        # was bypassed. Default `hold_seconds=0.5` → ~10 ticks at 50ms.
+        assert frame.matrix.SwapOnVSync.call_count > 1, (
+            f"animation=Typewriter must force per-tick loop; "
+            f"got SwapOnVSync.call_count={frame.matrix.SwapOnVSync.call_count} "
+            f"(==1 means fast path ran, freezing typewriter at frame=0)"
+        )
+
+    def test_right_align_typewriter_anchors_to_full_text_position(self, tmp_path):
+        """Layout invariant: under right-align, each typed-in char
+        appears at its FINAL panel position — the partial text occupies
+        the same span the full text will eventually occupy. Concretely:
+        text_x_right is computed once from the FULL text width, and the
+        leading char "H" appears at that x at frame=0 and stays there
+        as "He", "Hel", ... grow to the right.
+
+        If the implementation regressed to recomputing text_x_right
+        against the visible slice, "H" alone would be drawn flush-right
+        (x ~ canvas.width-EDGE_PAD-1char) and would visibly slide LEFT
+        as more chars are typed in. This tripwire pins the leftmost
+        lit pixel as the layout anchor.
+
+        Spec: docs/superpowers/specs/2026-05-07-image-typewriter-design.md
+        — "Layout (text_x, baseline_y) is already computed against the
+        FULL text width by the caller — we only override the rendered
+        string here. This is what makes typewriter feel 'anchored' under
+        right-align."
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.animations import Typewriter
+
+        widget = self._make_still(
+            tmp_path,
+            text="Hello",
+            text_align="right",
+            animation=Typewriter(),
+        )
+        # Mirror the text_x_right math from `_play_with_text`:
+        # max(EDGE_PAD, text_w - full_text_width - EDGE_PAD) + offset.
+        # We compute against the full-text width (not visible slice).
+        sizing_canvas = _StubCanvas(width=64, height=16)
+        full_text_w = widget._measure_text(sizing_canvas)
+        text_w = 64
+        TEXT_EDGE_PADDING_PX = 2
+        text_x_right = max(
+            TEXT_EDGE_PADDING_PX,
+            text_w - full_text_w - TEXT_EDGE_PADDING_PX,
+        )
+        text_x_left = TEXT_EDGE_PADDING_PX
+
+        leftmost_x_per_frame: list[int] = []
+        for frame_count in (0, 3, 6):
+            widget._effect_frames["animation"] = frame_count
+            canvas = _StubCanvas(width=64, height=16)
+            widget._render_tick(canvas, canvas, 0, 12, text_x_left, text_x_right)
+            lit_xs = [
+                x
+                for y in range(16)
+                for x in range(64)
+                if canvas.get_pixel(x, y) != (0, 0, 0)
+            ]
+            leftmost_x_per_frame.append(min(lit_xs) if lit_xs else -1)
+
+        # All three should report the same leftmost x — "H" sits where
+        # "H" of the full "Hello" will sit. If text_x recomputed off
+        # the visible slice, "H" alone would land far right (flush
+        # against the panel edge) and slide left at frame 3 / 6.
+        spread = max(leftmost_x_per_frame) - min(leftmost_x_per_frame)
+        assert spread <= 2, (
+            f"right-align typewriter should anchor leftmost char to "
+            f"full-text position; got leftmost-x per frame: "
+            f"{leftmost_x_per_frame} (spread={spread}). A spread > 2 "
+            f"means text shifted as visible_text grew — text_x_right "
+            f"was recomputed against the visible slice instead of the "
+            f"full text width."
+        )
+
+    def test_per_char_hue_anchors_to_full_text_length(self, tmp_path):
+        """When typewriter mid-cycles a per-char rainbow, total_chars
+        must be `len(self.text)` (full eventual length) — not the
+        visible slice length. Otherwise hue per char drifts as reveal
+        grows. Spec: docs/superpowers/specs/2026-05-07-image-typewriter-design.md
+        "Per-char providers ... pass total_chars=len(self.text)".
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.animations import Typewriter
+
+        class _LocalTrackingProvider:
+            per_char = True
+            frame_invariant = False
+
+            def __init__(self):
+                self.calls: list[tuple[int, int, int]] = []
+
+            def color_for(self, frame, char_index, total_chars):
+                from rgbmatrix.graphics import Color
+
+                self.calls.append((frame, char_index, total_chars))
+                return Color(255, 255, 255)
+
+        provider = _LocalTrackingProvider()
+        widget = self._make_still(
+            tmp_path,
+            text="Hello",
+            text_align="left",
+            font_color=provider,
+            animation=Typewriter(),
+        )
+
+        # Drive two frames with different visible-slice lengths.
+        # frame=3 → "He" visible (2 chars), frame=6 → "Hel" (3 chars).
+        widget._effect_frames["animation"] = 3
+        canvas = _StubCanvas(width=64, height=16)
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+        totals_at_frame_3 = {c[2] for c in provider.calls}
+        provider.calls.clear()
+
+        widget._effect_frames["animation"] = 6
+        canvas = _StubCanvas(width=64, height=16)
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+        totals_at_frame_6 = {c[2] for c in provider.calls}
+
+        # Both runs should report total=5 (length of "Hello"). If the
+        # implementation regresses to total=visible-len, frame=3 would
+        # see total=2 and frame=6 would see total=3.
+        assert totals_at_frame_3 == {5}, (
+            f"At frame=3 (visible='He'), provider should see total=5 "
+            f"(len of full text 'Hello'); got {totals_at_frame_3}"
+        )
+        assert totals_at_frame_6 == {5}, (
+            f"At frame=6 (visible='Hel'), provider should see total=5; "
+            f"got {totals_at_frame_6}"
+        )
+
+    def test_per_char_hue_anchors_across_emoji_boundaries(self, tmp_path):
+        """Tripwire for the emoji-branch hue-anchoring fix:
+        typewriter + emoji + per-char rainbow must keep a char's
+        hue stable across the reveal, not drift as more chars type
+        in. Specifically: the (frame, char_index, total_chars) tuple
+        for char index 0 at a mid-type frame should have the same
+        `total_chars` as at completion. Without the `total_chars`
+        override into `draw_with_emoji`, the slice-length total
+        would drift.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.animations import Typewriter
+
+        class _TrackingProvider:
+            per_char = True
+            frame_invariant = False
+
+            def __init__(self):
+                self.calls = []
+
+            def color_for(self, frame, char_index, total_chars):
+                from rgbmatrix.graphics import Color
+
+                self.calls.append((frame, char_index, total_chars))
+                return Color(255, 255, 255)
+
+        provider = _TrackingProvider()
+        widget = self._make_still(
+            tmp_path,
+            text="Hi :star:",  # 3 text chars ("H", "i", " ") + emoji
+            text_align="left",
+            font_color=provider,
+            animation=Typewriter(),
+        )
+        canvas = _StubCanvas(width=64, height=16)
+
+        # Mid-type: visible slice is "H" (frame=0, 1 char visible).
+        widget._effect_frames["animation"] = 0
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+        mid_type_totals = {c[2] for c in provider.calls}
+        provider.calls.clear()
+
+        # Completion: full text typed and rendered.
+        widget._effect_frames["animation"] = 999
+        canvas = _StubCanvas(width=64, height=16)
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+        completion_totals = {c[2] for c in provider.calls}
+
+        # Both runs should report total=3 (text chars in "Hi :star:":
+        # "H", "i", " " — emoji excluded). If the implementation regressed
+        # to slice-length total, mid-type would see total=1 (just "H").
+        assert mid_type_totals == {3}, (
+            f"At frame=0 (visible='H'), provider should see total=3 "
+            f"(text-char count of full 'Hi :star:'); got {mid_type_totals}"
+        )
+        assert completion_totals == {3}, (
+            f"At completion, provider should see total=3; " f"got {completion_totals}"
+        )
+
+    def test_three_effect_composition_independent_counters(self, tmp_path):
+        """Architectural promise from PR #12: typewriter + rainbow font +
+        rainbow border on the same widget tick on independent per-effect
+        counters. This test verifies all three counters flow through to
+        their respective effects without cross-contamination.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.animations import Typewriter
+        from led_ticker.borders import RainbowChaseBorder
+        from led_ticker.color_providers import Rainbow
+
+        border = RainbowChaseBorder(speed=4)
+        border_frames_seen: list[int] = []
+        original_paint = border.paint
+
+        def _spy(canvas, frame_count):
+            border_frames_seen.append(frame_count)
+            return original_paint(canvas, frame_count)
+
+        border.paint = _spy  # type: ignore[method-assign]
+
+        widget = self._make_still(
+            tmp_path,
+            text="Hello",
+            text_align="left",
+            font_color=Rainbow(),
+            animation=Typewriter(),
+            border=border,
+        )
+
+        # Pre-populate distinct per-effect counters; reset _frame_count
+        # to confirm effects do NOT read it directly.
+        widget._effect_frames["animation"] = 2
+        widget._effect_frames["font_color"] = 50
+        widget._effect_frames["border"] = 100
+        widget._frame_count = 0
+
+        canvas = _StubCanvas(width=64, height=16)
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+
+        # Border read its own counter (100), not _frame_count (0).
+        assert border_frames_seen == [100], (
+            f"border.paint should see border counter (100); got "
+            f"{border_frames_seen} — likely _frame_count was read"
+        )
+        # Typewriter slice from animation counter (2) — at default
+        # frames_per_char=3, frame=2 is still in the first window so
+        # only 1 char visible.
+        assert (
+            widget._visible_text(2, canvas) == "H"
+        ), "animation counter should drive _visible_text; got wrong slice"

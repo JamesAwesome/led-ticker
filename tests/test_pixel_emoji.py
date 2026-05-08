@@ -24,6 +24,40 @@ def _bigsign_real_canvas():
     return RGBMatrix(options=opts).CreateFrameCanvas()
 
 
+class TestCountTextChars:
+    """Counts text chars excluding emoji slugs — used by callers
+    that need to pass an explicit `total_chars` to `draw_with_emoji`
+    (e.g. image widgets with typewriter mid-cycle)."""
+
+    def test_pure_text(self):
+        from led_ticker.pixel_emoji import count_text_chars
+
+        assert count_text_chars("Hello") == 5
+
+    def test_empty(self):
+        from led_ticker.pixel_emoji import count_text_chars
+
+        assert count_text_chars("") == 0
+
+    def test_pure_emoji(self):
+        from led_ticker.pixel_emoji import count_text_chars
+
+        assert count_text_chars(":star:") == 0
+
+    def test_text_with_emoji(self):
+        """Emoji slug excluded from count; surrounding text counted."""
+        from led_ticker.pixel_emoji import count_text_chars
+
+        # "Hi " (3) + ":star:" (0) + " there" (6) = 9
+        assert count_text_chars("Hi :star: there") == 9
+
+    def test_multiple_emojis(self):
+        from led_ticker.pixel_emoji import count_text_chars
+
+        # "x" (1) + ":star:" (0) + "y" (1) + ":sun:" (0) + "z" (1) = 3
+        assert count_text_chars("x:star:y:sun:z") == 3
+
+
 def test_draw_with_emoji_runs_on_scaled_canvas_text_only():
     real = _bigsign_real_canvas()
     sc = ScaledCanvas(real, scale=4)

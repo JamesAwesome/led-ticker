@@ -149,14 +149,14 @@ Print:
 
 Load `references/widgets.md`, `references/snippets.md`, `references/asset-handling.md`, `references/decision-rules.md`.
 
-1. Read `config/config.toml`. Extract: sign target (from `default_scale` + display dims), brand colors (from `bg_color` / common `font_color` values), default transition / hold / easing, existing sections list.
+1. Read `config/config.toml`. Extract: sign target (from `default_scale` + display dims), brand colors (from `bg_color` / common `font_color` values), default transition / hold / easing, existing sections list. Also **infer use_case** from existing widgets — e.g., presence of `mlb` / `mlb_standings` → `sports`; multiple `rss_feed` + `weather` + `coinbase` → `personal_feed`; a single `gif`/`image` filling the panel → `art`; mixed content with brand colors + handle → `store_window`. The inferred use_case drives snippet lookup in step 3. If you're not confident, ask the user: "I'm reading this as a <X> config — does that match?"
 2. Ask: "What kind of section do you want to add?" — multi-select from `references/widgets.md`.
-3. For each chosen widget: same flow as `new` Phase 2 (snippet lookup → widget-specific Qs → asset collection → write section TOML → per-section lint).
+3. For each chosen widget: same flow as `new` Phase 2 — look up the snippet by (inferred-use_case × widget × sign) in `references/snippets.md`, ask the snippet's "must customize" questions, collect any assets, write the section TOML, run per-section lint.
 4. Ask: "Where to insert?" — end / before \<section N\> / after \<section N\>.
 5. Show full diff. First in-place edit per session creates `config/config.toml.bak` (overwrites any prior `.bak` without prompting).
 6. Apply edit only on user approval.
 
-No Phase 3 — the new section inherits global transitions and hold settings from the existing config.
+No Phase 3 — global `[transitions]` and `hold_time` are not re-asked. The new section gets its own `transition` / `transition_color` from the chosen snippet (snippets often pin a per-section transition); for everything not set on the new section, the existing global `[transitions]` config applies.
 
 ---
 

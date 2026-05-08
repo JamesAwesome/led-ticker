@@ -1,8 +1,8 @@
+<!-- Derived from CLAUDE.md sections: "CRITICAL: Hardware Rendering Constraints", "Per-section `content_height`", "Per-widget `font_threshold`", "Match thresholds within a font family", "Footgun validation", "Two-row widget", "Single-row image text", "Frame freeze during transitions", "Section transition precedence". Last synced: 2026-05-07. -->
+
 # Decision Rules
 
 These rules are the validation checklist. The skill consults this file at every validation checkpoint (per-section lint, Phase 3 final, refine-mode flag-and-ask).
-
-Last synced: 2026-05-07
 
 ---
 

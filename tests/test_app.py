@@ -895,6 +895,51 @@ class TestPresentationMigration:
             widget = await _build_widget(cfg, session=s)
         assert isinstance(widget.animation, Typewriter)
 
+    async def test_animation_field_accepted_on_image_widget(self, tmp_path):
+        """`type = "image"` with `animation = "typewriter"` builds without
+        error. Mirrors the existing TickerMessage animation acceptance.
+        Uses a real PNG so _load() doesn't trip."""
+        import aiohttp
+        from PIL import Image
+
+        from led_ticker.app import _build_widget
+
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+
+        cfg = {
+            "type": "image",
+            "path": str(img_path),
+            "text": "Hello",
+            "text_align": "left",
+            "animation": "typewriter",
+        }
+        async with aiohttp.ClientSession() as s:
+            widget = await _build_widget(cfg, session=s)
+        assert widget.animation is not None
+
+    async def test_animation_field_accepted_on_gif_widget(self, tmp_path):
+        """`type = "gif"` with `animation = "typewriter"` builds. Same
+        contract as image — the field lives on `_BaseImageWidget`."""
+        import aiohttp
+        from PIL import Image
+
+        from led_ticker.app import _build_widget
+
+        gif_path = tmp_path / "x.gif"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(gif_path)
+
+        cfg = {
+            "type": "gif",
+            "path": str(gif_path),
+            "text": "Hello",
+            "text_align": "left",
+            "animation": "typewriter",
+        }
+        async with aiohttp.ClientSession() as s:
+            widget = await _build_widget(cfg, session=s)
+        assert widget.animation is not None
+
 
 class TestColorProviderCoercion:
     """`font_color` accepts list (constant), 'random', 'rainbow' /

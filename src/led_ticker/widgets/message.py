@@ -151,6 +151,19 @@ class TickerMessage(_FrameAware):
             # gradient compresses on first frame and stretches as
             # Typewriter reveals more chars. Final state matches the
             # full-text gradient.
+            #
+            # TODO(divergence): image widgets (`_BaseImageWidget._draw_text`,
+            # PR #13) ship the OPPOSITE semantic — they pass
+            # `total_chars=len(self.text)` so a char's hue is anchored to
+            # its position in the eventual full text, not the visible
+            # slice. Both behaviors are defensible (compress-stretch
+            # shows the full palette during reveal; anchored gives
+            # stable per-char hues), but the codebase shouldn't have
+            # both forever. If unifying, anchored is probably the
+            # better default. Changing this here is a behavior change
+            # for any user config running typewriter + rainbow/gradient
+            # on a TickerMessage — worth a deliberate decision rather
+            # than rolling into an unrelated PR.
             cursor_pos += draw_text_per_char(
                 canvas,
                 self.font,

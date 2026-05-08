@@ -453,14 +453,21 @@ async def _build_widget(
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)
 
-    # Animation field (TickerMessage-only). Pop before construction so
-    # it doesn't reach the widget constructor as an unknown kwarg.
+    # Animation field. Currently allowed on `message`, `gif`, and
+    # `image` — image widgets restrict to single-row mode (validated
+    # in `_BaseImageWidget._validate_common`). Pop before construction
+    # so it doesn't reach the widget constructor as an unknown kwarg
+    # for widget types that don't accept it.
     animation_value = widget_cfg.pop("animation", None)
-    if animation_value is not None and widget_type != "message":
+    if animation_value is not None and widget_type not in (
+        "message",
+        "gif",
+        "image",
+    ):
         raise ValueError(
-            f'animation is only valid on type="message"; got '
-            f"type={widget_type!r}. For color effects on other widgets, "
-            f"use font_color = 'rainbow' (or similar)."
+            f'animation is only valid on type="message", "gif", or '
+            f'"image"; got type={widget_type!r}. For color effects on '
+            f"other widgets, use font_color = 'rainbow' (or similar)."
         )
     if animation_value is not None:
         widget_cfg["animation"] = _coerce_animation(animation_value)

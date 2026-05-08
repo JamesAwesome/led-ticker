@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import copy
+import json
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from led_ticker.config import AppConfig, DisplayConfig, SectionConfig
@@ -411,5 +414,70 @@ async def validate_config(path: Path) -> ValidationResult:
     return ValidationResult(path=path, errors=errors, warnings=warnings)
 
 
+def _issue_to_dict(issue: ValidationIssue) -> dict[str, Any]:
+    return {
+        "rule": issue.rule,
+        "location": issue.location,
+        "message": issue.message,
+        "fix": issue.fix,
+    }
+
+
+def _format_json(result: ValidationResult) -> str:
+    return json.dumps(
+        {
+            "valid": result.valid,
+            "path": str(result.path),
+            "errors": [_issue_to_dict(e) for e in result.errors],
+            "warnings": [_issue_to_dict(w) for w in result.warnings],
+        },
+        indent=2,
+    )
+
+
+def _format_human(result: ValidationResult) -> str:
+    lines = [f"Validating {result.path}...", ""]
+    for issue in result.errors:
+        rule_tag = f" [rule {issue.rule}]" if issue.rule is not None else ""
+        lines.append(f"✗ ERROR   {issue.location}: {issue.message}{rule_tag}")
+        lines.append(f"          Fix: {issue.fix}")
+        lines.append("")
+    for issue in result.warnings:
+        rule_tag = f" [rule {issue.rule}]" if issue.rule is not None else ""
+        lines.append(f"⚠ WARNING {issue.location}: {issue.message}{rule_tag}")
+        lines.append(f"          Fix: {issue.fix}")
+        lines.append("")
+    n = len(result.errors) + len(result.warnings)
+    if n == 0:
+        lines.append("No issues found.")
+    else:
+        lines.append(
+            f"{n} issue(s):"
+            f" {len(result.errors)} error(s),"
+            f" {len(result.warnings)} warning(s)"
+        )
+    return "\n".join(lines)
+
+
 def main() -> None:
-    raise NotImplementedError
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Validate a led-ticker config file")
+    parser.add_argument("path", type=Path, help="Path to TOML config file")
+    parser.add_argument(
+        "--json", action="store_true", dest="json_output", help="Emit JSON"
+    )
+    args = parser.parse_args()
+
+    try:
+        result = asyncio.run(validate_config(args.path))
+    except FileNotFoundError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(2)
+
+    if args.json_output:
+        print(_format_json(result))
+    else:
+        print(_format_human(result))
+
+    sys.exit(0 if result.valid else 1)

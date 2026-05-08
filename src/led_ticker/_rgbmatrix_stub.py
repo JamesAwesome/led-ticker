@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import re
+from typing import Any
 
 
 class Color:
@@ -76,7 +77,7 @@ class Font:
 
 
 def DrawText(
-    canvas: object,
+    canvas: Any,
     font: Font,
     x: int,
     y: int,

@@ -1,11 +1,11 @@
-# Moon Bunny Aerial — store-window display config for the Pi 5 bigsign.
+# Moon Bunny Aerial — store-window display config (Pi 5 bigsign).
 #
-# 8× P3 32×64 panels in a 2×4 vertical-serpentine layout → 64×256 logical canvas.
-# Brand colors pulled from moonbunnyaerial.com (soft pink, lavender, cream).
-# Site: https://www.moonbunnyaerial.com  •  IG: @moonbunnyaerial  •
-# info@moonbunnyaerial.com
+# Hung in a building window at street level, viewable from across the street.
+# 8× P3 32×64 panels in 2×4 vertical-serpentine = 256×64 logical.
+# Brand: Beloved Sans + Inter, lavender / pink / sky / cream palette.
+# Site: https://www.moonbunnyaerial.com  •  IG: @moonbunnyaerial
 #
-# Copy to config.toml on the bigsign Pi: `cp config/config.moonbunny.example.toml config/config.toml`
+# Far-viewing distance ⇒ all text uses hires fonts at 24-32px (no BDF).
 
 # ---------------------------------------------------------------------------
 # Display + RP1 performance tuning (matches config.bigsign.example.toml)
@@ -30,197 +30,357 @@ rp1_rio = 1
 [title]
 delay = 5
 
-# Soft dissolves between sections suit the brand's gentle aesthetic better
-# than push transitions. Keep within-section transitions snappy.
+# Playful, animated transitions matching the warm/empowering brand voice.
+# `wipe_alternating` cycles through directions using brand-colored sweep
+# lines; `pokeball_alternating` is the section divider — a fun cue that
+# something new is starting.
 [transitions]
-default = "push_left"
-duration = 0.5
+default = "wipe_alternating"
+duration = 0.8
 easing = "ease_in_out"
-between_sections = "dissolve"
+between_sections = "pokeball_alternating"
+# Brand-tinted wipe color pool: lavender, pink, sky, cream
+transition_colors = [[189, 169, 234], [255, 176, 240], [124, 173, 232], [254, 255, 204]]
 
 # ---------------------------------------------------------------------------
-# Brand color palette (RGB, eyeballed for LED display warmth)
-# Reference these in widget `font_color = [...]` lines below.
+# Brand color palette (from brand_guide.png)
 #
-#   moon_pink     = [255, 150, 190]    soft brand pink — primary
-#   lavender      = [180, 140, 230]    moonlight purple — secondary
-#   cream         = [255, 240, 200]    warm white — backgrounds / titles
-#   magenta       = [225,  48, 108]    Instagram brand pink — for IG copy
-#   sky           = [120, 180, 255]    cool accent — for variety
-#
-# Tip: at brightness=60, very dark colors disappear — keep RGB > 100 for
-# readable text.
+#   lavender_primary = [189, 169, 234]   BDA9EA — the brand's signature lavender
+#   pink             = [255, 176, 240]   FFB0F0 — soft pink accent
+#   sky              = [124, 173, 232]   7CADE8 — cool blue accent
+#   navy             = [10,  74, 137]    0A4A89 — deep blue (high contrast)
+#   teal             = [11, 126, 135]    0B7E87 — secondary depth
+#   cream            = [254, 255, 204]   FEFFCC — warm white, body text
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# Section 1 — Hero / brand
+# Section 1 — Logo hero (full-panel banner with rainbow border)
+#
+# Uses logo_banner_color.png — already laid out as horizontal lockup:
+# moon icon + "MOON BUNNY AERIAL" + "AERIAL FOR EVERYBODY" tagline.
+# letterbox fit means tiny black bars top/bottom; rainbow border frames it.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "swap"
+loop_count = 1
+hold_time = 6.0
+transition = "dissolve"
+transition_duration = 1.0
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/logo_banner_color.png"
+fit = "letterbox"
+hold_seconds = 6.0
+border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
+
+# ---------------------------------------------------------------------------
+# Section 2 — Brand voice
+#
+# Beloved Sans Bold @ 28px reads from across the street. Lavender + pink
+# alternate as the headline color. Each line gets its own widget so the
+# transition fires between them.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
 loop_count = 2
-
-[playlist.section.title]
-type = "message"
-text = ":moon: MOON BUNNY AERIAL :moon:"
-color = [255, 150, 190]   # moon_pink
+hold_time = 3.5
 
 [[playlist.section.widget]]
 type = "message"
-text = ":moon: Aerial for Every Body"
-font_color = [255, 240, 200]   # cream
+text = "Find Your Strength"
+font = "beloved-sans-bold"
+font_size = 28
+font_threshold = 80
+font_color = [189, 169, 234]   # lavender_primary
 
 [[playlist.section.widget]]
 type = "message"
-text = "Find Your Strength * Find Your Community"
-font_color = [180, 140, 230]   # lavender
+text = "Find Your Community"
+font = "beloved-sans-bold"
+font_size = 28
+font_threshold = 80
+font_color = [255, 176, 240]   # pink
+
+[[playlist.section.widget]]
+type = "message"
+text = "Aerial for Everybody"
+font = "beloved-sans-bold"
+font_size = 28
+font_threshold = 80
+font_color = [124, 173, 232]   # sky
 
 # ---------------------------------------------------------------------------
-# Section 2 — What we offer
+# Section 3 — Kids Summer Camps  (with Pikachu wave + rainbow border)
+#
+# pika_wave_transparent.gif (220×220) pillarboxed on the left at scale=4
+# native res; scrolling text "KIDS SUMMER CAMPS — NOW ENROLLING" walks
+# across the panel with the rainbow border chasing around the perimeter.
+# Transition pinned to pokeball_alternating per the user's request.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "forever_scroll"
-loop_count = 2
-
-[playlist.section.title]
-type = "message"
-text = "Classes for All"
-color = [180, 140, 230]   # lavender
+mode = "swap"
+loop_count = 1
+hold_time = 8.0
+transition = "pokeball_alternating"
+transition_duration = 1.5
 
 [[playlist.section.widget]]
-type = "message"
-text = "Kids and Adult Classes - All Levels!"
-font_color = [255, 240, 200]
-
-[[playlist.section.widget]]
-type = "message"
-text = "Try Something New * Get Stronger * Build Choreo"
-font_color = [255, 150, 190]
-
-[[playlist.section.widget]]
-type = "message"
-text = "Beginner Friendly :flower: Family Friendly :star: Every Body Friendly"
-font_color = [255, 240, 200]
+type = "gif"
+path = "assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+image_align = "left"
+text = "KIDS SUMMER CAMPS  *  NOW ENROLLING  *  ALL AGES WELCOME"
+text_align = "scroll"
+scroll_speed_ms = 30
+gif_loops = 999
+font = "beloved-sans-bold"
+font_size = 28
+font_threshold = 80
+font_color = [255, 176, 240]   # pink — pops against pikachu yellow
+border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 
 # ---------------------------------------------------------------------------
-# Section 3 — Current promotion
+# Section 4 — K-pop dance class (NEW promo)
 #
-# Update the headline as registrations open / events change. The `loop_count`
-# is bumped to 3 so this rotates more often than the steady-state sections.
+# kpop-dance.webp (540×400 ≈ 1.35:1) pillarboxed on the left.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "forever_scroll"
-loop_count = 3
-
-[playlist.section.title]
-type = "message"
-text = "Now Enrolling"
-color = [255, 150, 190]
+mode = "swap"
+loop_count = 1
+hold_time = 6.0
+transition = "nyancat_alternating"
+transition_duration = 2.0
 
 [[playlist.section.widget]]
-type = "message"
-text = "Kids Summer Camps - Now Enrolling!"
-font_color = [255, 240, 200]
-
-[[playlist.section.widget]]
-type = "message"
-text = "All Levels * All Ages * All Bodies Welcome"
-font_color = [180, 140, 230]
+type = "gif"
+path = "assets/kpop-dance.webp"
+fit = "pillarbox"
+image_align = "left"
+text = "K-POP DANCE CLASS  *  NOW OPEN  *  ALL LEVELS"
+text_align = "scroll"
+scroll_speed_ms = 30
+gif_loops = 999
+font = "beloved-sans-bold"
+font_size = 28
+font_threshold = 80
+font_color = [254, 255, 204]   # cream — high contrast on the dance video
 
 # ---------------------------------------------------------------------------
-# Section 4 — Follow us (single-row, simple list)
+# Section 5 — Classes we offer
 #
-# Inline emoji slugs render pixel art icons (8x8) inline with text. The
-# Instagram icon ships in its iconic magenta; the envelope ships in white.
+# One discipline per beat. Cycles through: Aerial Silks, Lyra, Flow Props,
+# Ballet, Dance, All Levels — using brand color rotation.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "forever_scroll"
-loop_count = 2
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
 
 [playlist.section.title]
 type = "message"
-text = "Connect with Us"
-color = [255, 240, 200]
+text = "Classes"
+font = "beloved-sans-bold"
+font_size = 24
+font_threshold = 80
+color = [189, 169, 234]
 
 [[playlist.section.widget]]
 type = "message"
-text = ":instagram: Follow us @moonbunnyaerial"
-font_color = [225, 48, 108]   # IG magenta
+text = "Aerial Silks"
+font = "beloved-sans-bold"
+font_size = 30
+font_threshold = 80
+font_color = [189, 169, 234]   # lavender
 
 [[playlist.section.widget]]
 type = "message"
-text = ":email: info@moonbunnyaerial.com"
-font_color = [255, 240, 200]
+text = "Lyra"
+font = "beloved-sans-bold"
+font_size = 30
+font_threshold = 80
+font_color = [255, 176, 240]   # pink
 
 [[playlist.section.widget]]
 type = "message"
-text = "moonbunnyaerial.com"
-font_color = [180, 140, 230]
+text = "Flow Props"
+font = "beloved-sans-bold"
+font_size = 30
+font_threshold = 80
+font_color = [124, 173, 232]   # sky
+
+[[playlist.section.widget]]
+type = "message"
+text = "Ballet"
+font = "beloved-sans-bold"
+font_size = 30
+font_threshold = 80
+font_color = [254, 255, 204]   # cream
+
+[[playlist.section.widget]]
+type = "message"
+text = "Dance"
+font = "beloved-sans-bold"
+font_size = 30
+font_threshold = 80
+font_color = [11, 126, 135]    # teal
+
+[[playlist.section.widget]]
+type = "message"
+text = "All Levels Welcome"
+font = "beloved-sans-bold"
+font_size = 28
+font_threshold = 80
+font_color = [189, 169, 234]   # lavender
 
 # ---------------------------------------------------------------------------
-# Section 5 — "Storefront window" two-row layout
+# Section 6 — Welcoming / inclusion (the brand's emotional core)
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+transition = "sailor_moon_alternating"
+transition_duration = 2.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "Every Body Friendly"
+font = "beloved-sans-bold"
+font_size = 28
+font_threshold = 80
+font_color = [255, 176, 240]   # pink
+
+[[playlist.section.widget]]
+type = "message"
+text = "Beginner Friendly"
+font = "beloved-sans-bold"
+font_size = 28
+font_threshold = 80
+font_color = [254, 255, 204]   # cream
+
+[[playlist.section.widget]]
+type = "message"
+text = "Meet You Where You Are"
+font = "beloved-sans-bold"
+font_size = 28
+font_threshold = 80
+font_color = [189, 169, 234]   # lavender
+
+# ---------------------------------------------------------------------------
+# Section 7 — IG handle two-row (storefront-window layout)
 #
-# Top row holds @moonbunnyaerial in magenta with the Instagram icon while
-# the bottom row scrolls promotional copy in cream/lavender. Uses scale=2
-# (letterboxed) so 128 logical px is wide enough to fit "@moonbunnyaerial"
-# on the held top row — at scale=4 (64 logical px) the handle would clip.
-#
-# `content_height = 20` gives the two_row widget a 20-row logical canvas
-# so each row's 8-tall text band sits centered in a 10-row half — that
-# adds 2 rows of breathing space between the rows so they don't look
-# squished. Increase to 22 or 24 for more air, or drop to 16 for the
-# tightest packing.
-#
-# Each widget is its own display unit — `swap` mode runs them with
-# transitions between, holding for `hold_time` after the bottom row
-# finishes scrolling. `top_align` and `bottom_align` accept "left",
-# "center", or "right".
+# scale=2 ⇒ 128 logical px wide so "@moonbunnyaerial" fits on the held
+# top row. content_height=20 gives 2 rows of breathing space between
+# the two text bands. Inter-Bold for the handle (matches the IG look),
+# Inter-Regular for the bottom promo line (lighter weight reads as
+# secondary copy from across the street).
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "swap"
 scale = 2
-content_height = 20
+content_height = 24
 loop_count = 1
-hold_time = 3.0
+hold_time = 4.0
 transition = "dissolve"
-transition_duration = 0.8
+transition_duration = 1.0
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunnyaerial"
+top_color = [225, 48, 108]   # IG brand magenta
+top_align = "center"
+top_font = "Inter-Bold"
+top_font_size = 18
+top_font_threshold = 128
+bottom_text = "Now booking spring classes — all levels welcome!"
+bottom_color = [254, 255, 204]
+bottom_align = "left"
+bottom_font = "Inter-Regular"
+bottom_font_size = 16
+bottom_font_threshold = 128
 
 [[playlist.section.widget]]
 type = "two_row"
 top_text = ":instagram: @moonbunnyaerial"
 top_color = [225, 48, 108]
 top_align = "center"
-bottom_text = "Now booking spring classes - all levels welcome!"
-bottom_color = [255, 240, 200]
+top_font = "Inter-Bold"
+top_font_size = 18
+top_font_threshold = 128
+bottom_text = "Kids Summer Camps now enrolling — sign up today!"
+bottom_color = [255, 176, 240]
 bottom_align = "left"
+bottom_font = "Inter-Regular"
+bottom_font_size = 16
+bottom_font_threshold = 128
 
 [[playlist.section.widget]]
 type = "two_row"
 top_text = ":instagram: @moonbunnyaerial"
 top_color = [225, 48, 108]
 top_align = "center"
-bottom_text = "Kids Summer Camps now enrolling - sign up today!"
-bottom_color = [255, 150, 190]
+top_font = "Inter-Bold"
+top_font_size = 18
+top_font_threshold = 128
+bottom_text = "Aerial silks * lyra * flow props * ballet * dance"
+bottom_color = [189, 169, 234]
 bottom_align = "left"
-
-[[playlist.section.widget]]
-type = "two_row"
-top_text = ":instagram: @moonbunnyaerial"
-top_color = [225, 48, 108]
-top_align = "center"
-bottom_text = "Aerial silks * lyra * trapeze * private coaching"
-bottom_color = [180, 140, 230]
-bottom_align = "left"
+bottom_font = "Inter-Regular"
+bottom_font_size = 16
+bottom_font_threshold = 128
 
 [[playlist.section.widget]]
 type = "two_row"
 top_text = ":email: info@moonbunnyaerial.com"
-top_color = [255, 240, 200]
+top_color = [254, 255, 204]
 top_align = "center"
-bottom_text = "Questions? Send us a note - we love hearing from you!"
-bottom_color = [180, 140, 230]
+top_font = "Inter-Bold"
+top_font_size = 18
+top_font_threshold = 128
+bottom_text = "Questions? Send us a note — we love hearing from you!"
+bottom_color = [124, 173, 232]
 bottom_align = "left"
+bottom_font = "Inter-Regular"
+bottom_font_size = 16
+bottom_font_threshold = 128
+
+# ---------------------------------------------------------------------------
+# Section 8 — Connect (closes the loop with the website + email)
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 3.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "moonbunnyaerial.com"
+font = "beloved-sans-bold"
+font_size = 26
+font_threshold = 80
+font_color = [254, 255, 204]   # cream
+
+[[playlist.section.widget]]
+type = "message"
+text = ":email: info@moonbunnyaerial.com"
+font = "beloved-sans-bold"
+font_size = 24
+font_threshold = 80
+font_color = [189, 169, 234]   # lavender
+
+[[playlist.section.widget]]
+type = "message"
+text = ":instagram: @moonbunnyaerial"
+font = "beloved-sans-bold"
+font_size = 26
+font_threshold = 80
+font_color = [225, 48, 108]   # IG magenta

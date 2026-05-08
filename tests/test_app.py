@@ -291,9 +291,13 @@ class TestExampleConfigWidgets:
         """Load config.moonbunny.example.toml and build every widget.
 
         Exercises: TOML RGB color lists, inline :instagram: and :email:
-        emoji slugs, multi-section forever_scroll layout.
+        emoji slugs, multi-section layout, hires fonts, image/gif widgets
+        with rainbow border, brand color palette.
         """
         from led_ticker.config import load_config
+        from led_ticker.widgets.gif import GifPlayer
+        from led_ticker.widgets.still import StillImage
+        from led_ticker.widgets.two_row import TwoRowMessage
 
         config_path = (
             Path(__file__).resolve().parent.parent
@@ -307,16 +311,16 @@ class TestExampleConfigWidgets:
                 title = await _build_title(section.title)
                 assert isinstance(title, TickerMessage)
 
-            from led_ticker.widgets.two_row import TwoRowMessage
-
             for widget_cfg in section.widgets:
                 cfg = dict(widget_cfg)
                 widget = await _build_widget(cfg, session=mock.Mock())
-                assert isinstance(widget, TickerMessage | TwoRowMessage)
+                assert isinstance(
+                    widget, TickerMessage | TwoRowMessage | StillImage | GifPlayer
+                )
                 if isinstance(widget, TickerMessage):
-                    # font_color is now a ColorProvider (has color_for)
+                    # font_color is a ColorProvider (has color_for)
                     assert hasattr(widget.font_color, "color_for")
-                else:
+                elif isinstance(widget, TwoRowMessage):
                     # two_row carries top_color + bottom_color as providers
                     assert hasattr(widget.top_color, "color_for")
                     assert hasattr(widget.bottom_color, "color_for")

@@ -114,7 +114,14 @@ transition_duration = 1.2
 
 [[playlist.section.widget]]
 type = "message"
-text = ":bunny: HI :heart_pink:"
+text = ":bunny: HELLO :heart_pink:"
+font = "Inter-Bold"
+font_size = 28
+font_color = "rainbow"
+
+[[playlist.section.widget]]
+type = "message"
+text = ":bunny: GOODBYE :heart_pink:"
 font = "Inter-Bold"
 font_size = 28
 font_color = "rainbow"
@@ -247,15 +254,14 @@ font_color_temp = [255, 255, 255]
 #    on yellow is the textbook maximum-contrast text pairing; the
 #    bolder rainbow frame chases the panel edge for movement. Three
 #    independent color systems on one frame: bg fill, text, and
-#    animated border. Hi-res Pokeball transition (Pikachu chases the
-#    ball on a black field) sets up the bright reveal.
+#    animated border.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "swap"
 hold_time = 5.0
 loop_count = 1
-transition = "pokeball"
+transition = "dissolve"
 transition_duration = 1.5
 bg_color = [255, 230, 80]
 

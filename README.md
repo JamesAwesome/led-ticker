@@ -93,10 +93,12 @@ Set transitions per-section or globally in `[transitions]`:
 | `pacman_alternating` | Alternates between pacman and pacman_reverse each swap. | Dynamic variety. |
 | `scroll` | Seamless continuous scroll with a bullet separator (` * `). Old text scrolls off left, new enters from right at constant speed. Like a news ticker. | RSS feeds. Continuous content. |
 | `push_alternating` | Cycles through push_left → push_right → push_up → push_down each swap. | Dynamic variety. |
+| `push_random` | Random push direction each swap, never repeating the same direction back-to-back. | Unpredictable variety. |
 | `sailor_moon` | Sailor Moon's Moon Stick wand sweeps left-to-right trailing sparkles that erase outgoing content. | Fun. Magical. |
 | `sailor_moon_reverse` | Same as sailor_moon but right-to-left with flipped sprite. | Variety. |
 | `sailor_moon_alternating` | Alternates between sailor_moon and sailor_moon_reverse each swap. | Dynamic variety. |
 | `wipe_alternating` | Cycles through wipe_left → wipe_right → wipe_up → wipe_down each swap, each with its own color. Customizable via `transition_colors`. | Dynamic variety. |
+| `wipe_random` | Random wipe direction and sweep color each swap, never repeating the same direction back-to-back. Default color pool: cyan, magenta, white, green. Override with `transition_colors`. | Unpredictable variety. |
 | `nyancat_alternating` | Alternates between nyancat and nyancat_reverse each swap. | Fun. |
 
 ```toml
@@ -111,7 +113,7 @@ mode = "swap"
 transition = "nyancat"       # override per section
 transition_duration = 2.0    # override duration per section
 transition_color = [255, 0, 0]  # custom color for flash/wipe transitions
-# Per-direction colors for wipe_alternating:
+# Custom color pool for wipe_alternating / wipe_random:
 # transition_colors = [[0,255,255], [255,0,255], [255,255,255], [0,255,0]]
 ```
 

@@ -315,7 +315,7 @@ text_loops = 1
 mode = "swap"
 loop_count = 3
 hold_time = 2.0
-transition = "dissolve"
+transition = "cut"
 transition_duration = 0.8
 
 [[playlist.section.widget]]

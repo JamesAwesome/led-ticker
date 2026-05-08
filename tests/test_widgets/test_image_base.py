@@ -1895,6 +1895,66 @@ class TestImageTypewriter:
             f"got {totals_at_frame_6}"
         )
 
+    def test_per_char_hue_anchors_across_emoji_boundaries(self, tmp_path):
+        """Tripwire for the emoji-branch hue-anchoring fix:
+        typewriter + emoji + per-char rainbow must keep a char's
+        hue stable across the reveal, not drift as more chars type
+        in. Specifically: the (frame, char_index, total_chars) tuple
+        for char index 0 at a mid-type frame should have the same
+        `total_chars` as at completion. Without the `total_chars`
+        override into `draw_with_emoji`, the slice-length total
+        would drift.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.animations import Typewriter
+
+        class _TrackingProvider:
+            per_char = True
+            frame_invariant = False
+
+            def __init__(self):
+                self.calls = []
+
+            def color_for(self, frame, char_index, total_chars):
+                from rgbmatrix.graphics import Color
+
+                self.calls.append((frame, char_index, total_chars))
+                return Color(255, 255, 255)
+
+        provider = _TrackingProvider()
+        widget = self._make_still(
+            tmp_path,
+            text="Hi :star:",  # 3 text chars ("H", "i", " ") + emoji
+            text_align="left",
+            font_color=provider,
+            animation=Typewriter(),
+        )
+        canvas = _StubCanvas(width=64, height=16)
+
+        # Mid-type: visible slice is "H" (frame=0, 1 char visible).
+        widget._effect_frames["animation"] = 0
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+        mid_type_totals = {c[2] for c in provider.calls}
+        provider.calls.clear()
+
+        # Completion: full text typed and rendered.
+        widget._effect_frames["animation"] = 999
+        canvas = _StubCanvas(width=64, height=16)
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+        completion_totals = {c[2] for c in provider.calls}
+
+        # Both runs should report total=3 (text chars in "Hi :star:":
+        # "H", "i", " " — emoji excluded). If the implementation regressed
+        # to slice-length total, mid-type would see total=1 (just "H").
+        assert mid_type_totals == {3}, (
+            f"At frame=0 (visible='H'), provider should see total=3 "
+            f"(text-char count of full 'Hi :star:'); got {mid_type_totals}"
+        )
+        assert completion_totals == {3}, (
+            f"At completion, provider should see total=3; " f"got {completion_totals}"
+        )
+
     def test_three_effect_composition_independent_counters(self, tmp_path):
         """Architectural promise from PR #12: typewriter + rainbow font +
         rainbow border on the same widget tick on independent per-effect

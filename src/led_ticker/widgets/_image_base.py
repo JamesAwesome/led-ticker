@@ -520,8 +520,15 @@ class _BaseImageWidget(_FrameAware):
         # anchored to char identity across typewriter's reveal.
         per_char_total = len(self.text) if self.text else 1
         if self._has_emoji():
-            from led_ticker.pixel_emoji import draw_with_emoji
+            from led_ticker.pixel_emoji import count_text_chars, draw_with_emoji
 
+            # Anchor per-char hue to the FULL text's char count so a
+            # char's hue is stable as typewriter reveals more chars.
+            # Without this, a rainbow on `text="Hi :star:"` mid-type
+            # would re-distribute hues across the visible slice
+            # ("Hi", "Hi ", "Hi :", ...) instead of the eventual 3
+            # text chars — char 0's hue would drift as the reveal grows.
+            full_total_chars = count_text_chars(self.text)
             return draw_with_emoji(
                 canvas,
                 self.font,
@@ -531,6 +538,7 @@ class _BaseImageWidget(_FrameAware):
                 text,
                 emoji_y=baseline_y - 8,
                 frame=self.frame_for("font_color"),
+                total_chars=full_total_chars,
             )
         # Plain-text per-char path: rainbow / gradient iterate chars so
         # each character renders with its own hue. Mirrors

@@ -142,8 +142,7 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
 
     if style not in registry:
         raise ValueError(
-            f"unknown font_color style {style!r}; available: "
-            f"{sorted(registry.keys())}"
+            f"unknown font_color style {style!r}; available: {sorted(registry.keys())}"
         )
 
     cls, allowed_kwargs = registry[style]
@@ -280,8 +279,7 @@ def _coerce_border(value: Any) -> Any:
         )
     # Reject anything else loudly
     raise ValueError(
-        f"border must be a string, table, or [r,g,b] list; "
-        f"got {type(value).__name__}"
+        f"border must be a string, table, or [r,g,b] list; got {type(value).__name__}"
     )
 
 
@@ -307,7 +305,7 @@ def _coerce_animation(value: Any) -> Any:
     if isinstance(value, str):
         if value not in registry:
             raise ValueError(
-                f"unknown animation {value!r}; available: " f"{sorted(registry.keys())}"
+                f"unknown animation {value!r}; available: {sorted(registry.keys())}"
             )
         cls, _allowed = registry[value]
         return cls()
@@ -320,7 +318,7 @@ def _coerce_animation(value: Any) -> Any:
         style = value["style"]
         if style not in registry:
             raise ValueError(
-                f"unknown animation {style!r}; available: " f"{sorted(registry.keys())}"
+                f"unknown animation {style!r}; available: {sorted(registry.keys())}"
             )
         cls, allowed = registry[style]
         kwargs = {k: v for k, v in value.items() if k != "style"}
@@ -401,6 +399,7 @@ async def _build_widget(
     config_dir: Path | None = None,
     default_bg_color: tuple[int, int, int] | None = None,
     panel_h_for_warning: int | None = None,
+    validate_only: bool = False,
 ) -> Any:
     """Instantiate a widget from its config dict.
 
@@ -601,6 +600,9 @@ async def _build_widget(
     # ColorProvider instances. Constant [r,g,b] lists get wrapped in
     # _ConstantColor so all downstream widget code is uniform.
     _coerce_widget_colors(widget_cfg)
+
+    if validate_only:
+        return None
 
     if hasattr(cls, "start"):
         widget = await cls.start(session=session, **widget_cfg)
@@ -923,6 +925,7 @@ def main() -> None:
     _setup_logging()
 
     parser = argparse.ArgumentParser(description="LED Ticker Display")
+    # Top-level --config kept for back-compat: `led-ticker --config foo.toml`
     parser.add_argument(
         "--config",
         "-c",
@@ -930,8 +933,45 @@ def main() -> None:
         default=Path("config.toml"),
         help="Path to TOML configuration file (default: config.toml)",
     )
+
+    subparsers = parser.add_subparsers(dest="command")
+
+    # `validate` subcommand
+    val_parser = subparsers.add_parser(
+        "validate",
+        help="Validate a config file without running the display",
+    )
+    val_parser.add_argument("path", type=Path, help="Path to TOML config file")
+    val_parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Emit JSON output",
+    )
+
     args = parser.parse_args()
 
+    if args.command == "validate":
+        from led_ticker.validate import (  # noqa: PLC0415
+            _format_human,
+            _format_json,
+            validate_config,
+        )
+
+        try:
+            result = asyncio.run(validate_config(args.path))
+        except FileNotFoundError as e:
+            print(str(e), file=sys.stderr)
+            sys.exit(2)
+
+        if args.json_output:
+            print(_format_json(result))
+        else:
+            print(_format_human(result))
+
+        sys.exit(0 if result.valid else 1)
+
+    # Default: run the display (back-compat path)
     if not args.config.exists():
         print(f"Config file not found: {args.config}", file=sys.stderr)
         print(

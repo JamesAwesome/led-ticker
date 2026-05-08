@@ -217,6 +217,34 @@ message = "Hello World"
 
 For async widgets that fetch data, implement `update()` and use `run_monitor_loop()` — see `widgets/weather.py` for an example.
 
+## Validating a Config
+
+Check a config file for errors and warnings without running the display:
+
+```bash
+led-ticker validate config/config.toml
+```
+
+```
+Validating config/config.toml...
+
+✗ ERROR   section[1].widget[0]: HiresFont 'Inter-Regular' requires font_size [rule 5]
+          Fix: add font_size = 24 next to font
+
+⚠ WARNING section[0]: transition_duration 500.0 looks like milliseconds [rule 21]
+          Fix: divide by 1000 → 0.5
+
+2 issue(s): 1 error(s), 1 warning(s)
+```
+
+Exit codes: `0` = valid, `1` = errors found, `2` = file not found.
+
+Add `--json` for machine-readable output:
+
+```bash
+led-ticker validate config/config.toml --json
+```
+
 ## Development
 
 ```bash
@@ -226,7 +254,7 @@ make lint       # Run ruff linter
 make format     # Auto-format code
 ```
 
-Tests use a stub `rgbmatrix` package so they run on any machine — no Raspberry Pi or Docker required. 580+ tests, ~15s on a laptop.
+Tests use a stub `rgbmatrix` package so they run on any machine — no Raspberry Pi or Docker required. 1421 tests, ~100s on a laptop.
 
 ## Deployment
 

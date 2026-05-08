@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from led_ticker.config import AppConfig, SectionConfig
+    from led_ticker.config import AppConfig, DisplayConfig, SectionConfig
 
 
 @dataclass
@@ -217,8 +217,147 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+_WEIGHT_SUFFIXES = frozenset(
+    [
+        "Regular",
+        "Bold",
+        "Light",
+        "Medium",
+        "Thin",
+        "Black",
+        "Heavy",
+        "ExtraBold",
+        "SemiBold",
+        "Italic",
+        "BoldItalic",
+    ]
+)
+
+
+def _font_family(name: str) -> str:
+    """Return the family stem by stripping a trailing weight suffix."""
+    parts = name.rsplit("-", 1)
+    if len(parts) == 2 and parts[1] in _WEIGHT_SUFFIXES:
+        return parts[0]
+    return name
+
+
+def _panel_h_real(display: DisplayConfig) -> int:
+    """Best-effort panel height in real pixels."""
+    if display.pixel_mapper.startswith("Remap:"):
+        # "Remap:256,64|..." — second number is total canvas height
+        remap = display.pixel_mapper[6:]
+        dims = remap.split("|")[0]
+        return int(dims.split(",")[1])
+    return display.rows * display.parallel
+
+
 def _check_soft(config: AppConfig) -> list[ValidationIssue]:
-    return []
+    warnings: list[ValidationIssue] = []
+    ph = _panel_h_real(config.display)
+
+    for i, section in enumerate(config.sections):
+        # Rule 1: content_height overflow
+        product = section.content_height * section.scale
+        if product > ph:
+            warnings.append(
+                ValidationIssue(
+                    rule=1,
+                    location=f"section[{i}]",
+                    severity="warning",
+                    message=(
+                        f"content_height {section.content_height}"
+                        f" × scale {section.scale}"
+                        f" = {product} exceeds panel height {ph}px"
+                        " — edges will clip"
+                    ),
+                    fix=(
+                        f"Lower content_height to {ph // section.scale}"
+                        " (= panel_h ÷ scale)"
+                    ),
+                )
+            )
+
+        # Rule 6: two_row at scale=4
+        for j, widget_cfg in enumerate(section.widgets):
+            if widget_cfg.get("type") == "two_row" and section.scale == 4:
+                warnings.append(
+                    ValidationIssue(
+                        rule=6,
+                        location=f"section[{i}].widget[{j}]",
+                        severity="warning",
+                        message=(
+                            "two_row at scale=4: logical canvas is only 64px wide"
+                            " — handles may scroll instead of fitting"
+                        ),
+                        fix="Add scale = 2 to this section for a 128px logical canvas",
+                    )
+                )
+
+        # Rule 2: font_threshold mismatch within font family
+        family_thresholds: dict[str, list[int]] = {}
+        for widget_cfg in section.widgets:
+            fname = widget_cfg.get("font")
+            if fname is None:
+                continue
+            thr = int(widget_cfg.get("font_threshold", 128))
+            family = _font_family(str(fname))
+            family_thresholds.setdefault(family, []).append(thr)
+
+        for family, thresholds in family_thresholds.items():
+            unique = set(thresholds)
+            if len(unique) > 1:
+                warnings.append(
+                    ValidationIssue(
+                        rule=2,
+                        location=f"section[{i}]",
+                        severity="warning",
+                        message=(
+                            f"Font family '{family}' used with mismatched"
+                            f" font_threshold values: {sorted(unique)}"
+                            " — weight contrast may invert on panel"
+                        ),
+                        fix=(
+                            "Set the same font_threshold on all widgets in the same"
+                            " font family (e.g. both at 80)"
+                        ),
+                    )
+                )
+
+    # Rule 21: transition_duration plausibility
+    trans_checks: list[tuple[str, float]] = [
+        ("transitions.default", config.default_transition.duration),
+        ("transitions.between_sections", config.between_sections.duration),
+    ]
+    for i, section in enumerate(config.sections):
+        trans_checks.append((f"section[{i}]", section.transition.duration))
+
+    for loc, d in trans_checks:
+        if d > 5.0:
+            warnings.append(
+                ValidationIssue(
+                    rule=21,
+                    location=loc,
+                    severity="warning",
+                    message=(
+                        f"transition_duration {d} looks like milliseconds"
+                        " (> 5 s is unusual)"
+                    ),
+                    fix=f"Divide by 1000 → {d / 1000:.3f} s",
+                )
+            )
+        elif d < 0.05:
+            warnings.append(
+                ValidationIssue(
+                    rule=21,
+                    location=loc,
+                    severity="warning",
+                    message=f"transition_duration {d} is extremely short (< 50 ms)",
+                    fix="Raise to at least 0.05 s",
+                )
+            )
+
+    return warnings
 
 
 async def validate_config(path: Path) -> ValidationResult:

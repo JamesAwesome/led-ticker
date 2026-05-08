@@ -67,7 +67,7 @@ GOOD_CONFIG = """\
     rows = 32
     cols = 64
     chain = 8
-    default_scale = 4
+    default_scale = 1
 
     [[playlist.section]]
     mode = "swap"
@@ -207,3 +207,155 @@ async def test_rule14_typewriter_on_gif_single_row_ok(conf):
 async def test_missing_config_file_raises():
     with pytest.raises(FileNotFoundError):
         await validate_config(Path("/tmp/does_not_exist_xyz.toml"))
+
+
+async def test_rule1_content_height_overflow(conf):
+    # panel_h=32*1=32; content_height=20 × scale=1=20 ≤ 32 — no overflow at scale=1
+    # Use scale=4 explicitly: 20 * 4 = 80 > 32 → triggers rule 1
+    cfg = """\
+        [display]
+        rows = 32
+        cols = 64
+        chain = 8
+        default_scale = 4
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        content_height = 20
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    assert result.valid is True  # soft warning, not error
+    assert any(w.rule == 1 for w in result.warnings)
+
+
+async def test_rule1_no_warning_when_within_limits(conf):
+    # scale=1, content_height=16: 16 * 1 = 16 ≤ 32 — no overflow
+    cfg = """\
+        [display]
+        rows = 32
+        cols = 64
+        chain = 8
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 1 for w in result.warnings)
+
+
+async def test_rule2_font_threshold_mismatch(conf):
+    cfg = GOOD_CONFIG + textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "bold"
+        font = "Inter-Bold"
+        font_size = 24
+        font_threshold = 128
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "regular"
+        font = "Inter-Regular"
+        font_size = 24
+        font_threshold = 80
+        """)
+    result = await validate_config(conf(cfg))
+    assert any(w.rule == 2 for w in result.warnings)
+
+
+async def test_rule2_no_warning_when_thresholds_match(conf):
+    cfg = GOOD_CONFIG + textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "bold"
+        font = "Inter-Bold"
+        font_size = 24
+        font_threshold = 80
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "regular"
+        font = "Inter-Regular"
+        font_size = 24
+        font_threshold = 80
+        """)
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 2 for w in result.warnings)
+
+
+async def test_rule6_two_row_at_scale4(conf):
+    cfg = """\
+        [display]
+        rows = 32
+        cols = 64
+        chain = 8
+        default_scale = 4
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        scale = 4
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "@handle"
+        bottom_text = "promo"
+        """
+    result = await validate_config(conf(cfg))
+    assert any(w.rule == 6 for w in result.warnings)
+
+
+async def test_rule21_duration_too_large(conf):
+    cfg = GOOD_CONFIG.replace(
+        "[[playlist.section]]",
+        "[[playlist.section]]\ntransition_duration = 500.0\n",
+    )
+    result = await validate_config(conf(cfg))
+    assert any(w.rule == 21 for w in result.warnings)
+
+
+async def test_rule21_duration_too_small(conf):
+    cfg = GOOD_CONFIG.replace(
+        "[[playlist.section]]",
+        "[[playlist.section]]\ntransition_duration = 0.001\n",
+    )
+    result = await validate_config(conf(cfg))
+    assert any(w.rule == 21 for w in result.warnings)
+
+
+async def test_rule21_normal_duration_no_warning(conf):
+    # default transition.duration is 0.5 — no warning
+    cfg = """\
+        [display]
+        rows = 32
+        cols = 64
+        chain = 8
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 21 for w in result.warnings)

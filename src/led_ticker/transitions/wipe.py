@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from typing import Any
 
 from led_ticker._types import Canvas, ColorTuple
@@ -156,6 +157,57 @@ class WipeDown(_BaseWipe):
                     for x in range(w):
                         canvas.SetPixel(x, row, *self.color)
         return canvas
+
+
+@register_transition("wipe_random")
+class WipeRandom:
+    """Picks a random wipe direction and sweep color on each swap.
+
+    Never repeats the same direction back-to-back. Color is drawn
+    independently from the color pool, so direction and color can
+    vary freely.
+    """
+
+    _WIPE_CLASSES: list[type[_BaseWipe]] = [WipeLeft, WipeRight, WipeUp, WipeDown]
+
+    def __init__(
+        self,
+        colors: list[ColorTuple] | None = None,
+        color: ColorTuple | None = None,
+        **kwargs: Any,
+    ) -> None:
+        if colors is not None:
+            self._color_pool: list[ColorTuple] = list(colors)
+        elif color is not None:
+            self._color_pool = [color]
+        else:
+            self._color_pool = [cls.DEFAULT_COLOR for cls in self._WIPE_CLASSES]
+
+        self._rng = random.Random()
+        self._last_cls: type[_BaseWipe] | None = None
+        self._last_t: float = 1.0
+        self._current: _BaseWipe | None = None
+
+    @property
+    def min_frames(self) -> int:
+        if self._current is not None:
+            return self._current.min_frames
+        return 40  # _BaseWipe default; highest among all wipe directions
+
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        if t < self._last_t:
+            candidates = [
+                cls for cls in self._WIPE_CLASSES if cls is not self._last_cls
+            ]
+            chosen_cls = self._rng.choice(candidates)
+            chosen_color = self._rng.choice(self._color_pool)
+            self._current = chosen_cls(color=chosen_color)
+            self._last_cls = chosen_cls
+        self._last_t = t
+        assert self._current is not None
+        return self._current.frame_at(t, canvas, outgoing, incoming, **kwargs)
 
 
 @register_transition("wipe_alternating")

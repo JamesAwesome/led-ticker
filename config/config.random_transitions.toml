@@ -1,0 +1,90 @@
+# Smoke test for wipe_random and push_random on the bigsign.
+# Usage: cp config/config.random_transitions.toml config/config.toml
+
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+brightness = 60
+slowdown_gpio = 3
+gpio_mapping = "adafruit-hat"
+default_scale = 4
+rp1_rio = 1
+
+[transitions]
+default = "cut"
+duration = 0.6
+between_sections = "cut"
+
+# --- wipe_random (default color pool) ---
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_random"
+transition_duration = 0.8
+hold_time = 3
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "wipe_random default pool"
+
+[[playlist.section.widget]]
+type = "message"
+text = "random direction + color each swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "should never repeat direction"
+
+# --- wipe_random (custom color pool) ---
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_random"
+transition_colors = [[255, 80, 0], [180, 0, 255], [0, 200, 255]]
+transition_duration = 0.8
+hold_time = 3
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "wipe_random custom colors"
+
+[[playlist.section.widget]]
+text = "orange / purple / cyan pool"
+type = "message"
+
+[[playlist.section.widget]]
+type = "message"
+text = "custom pool done"
+
+# --- push_random ---
+[[playlist.section]]
+mode = "swap"
+transition = "push_random"
+transition_duration = 0.6
+hold_time = 3
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "push_random start"
+
+[[playlist.section.widget]]
+type = "message"
+text = "random direction no repeats"
+
+[[playlist.section.widget]]
+type = "message"
+text = "push_random done"
+
+# --- restart marker ---
+[[playlist.section]]
+mode = "swap"
+hold_time = 2
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "--- loop ---"

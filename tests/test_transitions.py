@@ -14,6 +14,7 @@ from led_ticker.transitions import (
     PushAlternating,
     PushDown,
     PushLeft,
+    PushRandom,
     PushRight,
     PushUp,
     Scroll,
@@ -21,6 +22,7 @@ from led_ticker.transitions import (
     WipeAlternating,
     WipeDown,
     WipeLeft,
+    WipeRandom,
     WipeRight,
     WipeUp,
     ease_in_out,
@@ -29,6 +31,7 @@ from led_ticker.transitions import (
     linear,
     run_transition,
 )
+from led_ticker.transitions.wipe import _BaseWipe
 
 # --- Easing ---
 
@@ -88,15 +91,17 @@ class TestTransitionRegistry:
             "pacman_alternating",
             "scroll",
             "push_alternating",
+            "push_random",
             "nyancat_alternating",
             "wipe_alternating",
+            "wipe_random",
             "sailor_moon",
             "sailor_moon_reverse",
             "sailor_moon_alternating",
         ]
         for name in expected:
             assert name in _TRANSITION_REGISTRY
-        assert len(_TRANSITION_REGISTRY) == 30
+        assert len(_TRANSITION_REGISTRY) == 32
 
     def test_get_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown transition"):
@@ -951,6 +956,150 @@ class TestWipeAlternating:
         alt = WipeAlternating()
         result = alt.frame_at(0.5, canvas, make_widget(40), make_widget(40))
         assert result is canvas
+
+
+# --- WipeRandom ---
+
+
+class TestWipeRandomNeverRepeatsDirection:
+    def _do_swaps(self, rnd, canvas, make_widget, n=20):
+        classes = []
+        for _ in range(n):
+            rnd.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+            classes.append(type(rnd._current))
+            rnd.frame_at(1.0, canvas, make_widget(40), make_widget(40))
+        return classes
+
+    def test_no_consecutive_repeats(self, canvas, make_widget):
+        rnd = WipeRandom()
+        classes = self._do_swaps(rnd, canvas, make_widget)
+        for a, b in zip(classes, classes[1:], strict=False):
+            assert a is not b, f"Consecutive repeat: {a.__name__}"
+
+    def test_all_four_directions_used_over_many_swaps(self, canvas, make_widget):
+        rnd = WipeRandom()
+        classes = self._do_swaps(rnd, canvas, make_widget, n=40)
+        assert set(classes) == {WipeLeft, WipeRight, WipeUp, WipeDown}
+
+    def test_first_swap_all_directions_are_candidates(self, canvas, make_widget):
+        seen = set()
+        for _ in range(60):
+            rnd = WipeRandom()
+            rnd.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+            seen.add(type(rnd._current))
+        assert seen == {WipeLeft, WipeRight, WipeUp, WipeDown}
+
+
+class TestWipeRandomColorPool:
+    def test_default_pool_is_four_direction_colors(self):
+        rnd = WipeRandom()
+        expected = [cls.DEFAULT_COLOR for cls in WipeRandom._WIPE_CLASSES]
+        assert rnd._color_pool == expected
+
+    def test_single_color_becomes_one_element_pool(self):
+        rnd = WipeRandom(color=(255, 0, 0))
+        assert rnd._color_pool == [(255, 0, 0)]
+
+    def test_colors_list_used_verbatim(self):
+        pool = [(1, 2, 3), (4, 5, 6)]
+        rnd = WipeRandom(colors=pool)
+        assert rnd._color_pool == pool
+
+    def test_colors_kwarg_takes_priority_over_color(self):
+        rnd = WipeRandom(colors=[(10, 20, 30)], color=(255, 0, 0))
+        assert rnd._color_pool == [(10, 20, 30)]
+
+    def test_current_color_comes_from_pool(self, canvas, make_widget):
+        pool = [(111, 222, 33), (44, 55, 66)]
+        rnd = WipeRandom(colors=pool)
+        rnd.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        assert rnd._current is not None
+        assert isinstance(rnd._current, _BaseWipe)
+        assert rnd._current.color in pool
+
+
+class TestWipeRandomMiscellaneous:
+    def test_returns_canvas(self, canvas, make_widget):
+        rnd = WipeRandom()
+        result = rnd.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        assert result is canvas
+
+    def test_min_frames_before_first_swap_is_40(self):
+        rnd = WipeRandom()
+        assert rnd.min_frames == 40
+
+    def test_min_frames_delegates_to_current_after_first_swap(
+        self, canvas, make_widget
+    ):
+        rnd = WipeRandom()
+        rnd.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        assert rnd.min_frames == rnd._current.min_frames
+
+    def test_registered_as_wipe_random(self):
+        assert get_transition_class("wipe_random") is WipeRandom
+
+
+# --- PushRandom ---
+
+
+class TestPushRandomNeverRepeatsDirection:
+    def _do_swaps(self, rnd, canvas, make_widget, n=20):
+        classes = []
+        for _ in range(n):
+            rnd.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+            classes.append(type(rnd._current))
+            rnd.frame_at(1.0, canvas, make_widget(40), make_widget(40))
+        return classes
+
+    def test_no_consecutive_repeats(self, canvas, make_widget):
+        rnd = PushRandom()
+        classes = self._do_swaps(rnd, canvas, make_widget)
+        for a, b in zip(classes, classes[1:], strict=False):
+            assert a is not b, f"Consecutive repeat: {a.__name__}"
+
+    def test_all_four_directions_used_over_many_swaps(self, canvas, make_widget):
+        rnd = PushRandom()
+        classes = self._do_swaps(rnd, canvas, make_widget, n=40)
+        assert set(classes) == {PushLeft, PushRight, PushUp, PushDown}
+
+    def test_first_swap_all_directions_are_candidates(self, canvas, make_widget):
+        seen = set()
+        for _ in range(60):
+            rnd = PushRandom()
+            rnd.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+            seen.add(type(rnd._current))
+        assert seen == {PushLeft, PushRight, PushUp, PushDown}
+
+
+class TestPushRandomDelegatesFrameAt:
+    def test_returns_canvas(self, canvas, make_widget):
+        rnd = PushRandom()
+        result = rnd.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        assert result is canvas
+
+    def test_forwards_outgoing_scroll_pos(self, canvas, make_widget):
+        rnd = PushRandom()
+        rnd.frame_at(
+            0.0,
+            canvas,
+            make_widget(600),
+            make_widget(40),
+            outgoing_scroll_pos=-440,
+        )
+
+    def test_min_frames_before_first_swap_is_10(self):
+        rnd = PushRandom()
+        assert rnd.min_frames == 10
+
+    def test_min_frames_delegates_to_current_after_first_swap(
+        self, canvas, make_widget
+    ):
+        rnd = PushRandom()
+        rnd.frame_at(0.0, canvas, make_widget(40), make_widget(40))
+        assert rnd.min_frames == getattr(rnd._current, "min_frames", 10)
+
+    def test_registered_as_push_random(self):
+        assert get_transition_class("push_random") is PushRandom
 
 
 # --- run_transition ---

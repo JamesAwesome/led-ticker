@@ -289,6 +289,7 @@ type = "weather"
 message = "New York"
 location = "New York"
 units = "imperial"
+show_icon = true
 ```
 
 ---

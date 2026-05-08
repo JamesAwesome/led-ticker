@@ -110,7 +110,7 @@ Sections-pass loop — for each confirmed section in the outline:
 2. Ask only the widget-specific questions the snippet's "must customize" list requires. Use AskUserQuestion. **If the user picked a custom brand font in Phase 1, also append `font` / `font_size` / `font_threshold` to every text-bearing widget in this section even if the snippet's must-customize list omits them** — the snippets are pre-fonts and need the brand applied.
 3. For asset-bearing sections (gif, image, custom font): collect assets per `references/asset-handling.md`. Place fonts in `config/fonts/<file>` and images in `config/assets/<file>`. Verify the path exists before referencing it in TOML. Never fetch URLs silently.
 4. Write the section's TOML to the in-progress config buffer using the `[[playlist.section]]` / `[[playlist.section.widget]]` structure. If the section has a `[playlist.section.title]` and brand fonts are in play, apply the brand font to the title too.
-5. Run per-section lint: for each rule in `references/decision-rules.md` whose DETECT clause matches this section, surface as flag-and-ask (see "Validation: flag-and-ask philosophy" below).
+5. Run per-section lint: run `led-ticker validate config/config.toml --json` and surface any `errors` or `warnings` from the output as flag-and-ask items, citing each `rule` and `fix` field. Then check font-size vs viewing distance (see step 5a below) and any remaining issues from `references/decision-rules.md` not caught by the validator.
 
    **Additionally** check font-size vs viewing distance: if Phase 1 distance was `medium` and the user picked a `font_size ≥ 24`, OR distance was `far` and `font_size < 22`, flag with: "Phase 1 distance was <X>; recommended `font_size` is <range>; you picked <N>. Want me to align with the recommendation?" Cite `references/asset-handling.md` viewing-distance table.
 
@@ -133,7 +133,7 @@ Ask these questions (5–7 total, condensed where possible):
 5. **Bigsign refresh tuning** — only ask if sign=bigsign AND tone=info-dense. Suggest `pwm_bits = 8`, `rp1_rio = 1` (consult `references/hardware-guide.md` refresh tuning notes).
 6. **Save destination** — propose `config/config.<descriptive-slug>.toml` based on Phase 1 answers (e.g. `moonbunny-bigsign`, `office-rss-small`); ask if user wants to override. After write, ask: "Activate this as the live config? (copies to `config/config.toml`, backs up any existing to `config/config.toml.bak`)"
 
-Run final validation: full pass over `references/decision-rules.md` against the fully assembled config. Surface any violations as flag-and-ask before writing.
+Run final validation: run `led-ticker validate config/config.toml --json`. Surface all `errors` as mandatory fixes and `warnings` as flag-and-ask before writing. Also do a full pass over `references/decision-rules.md` for any issues not caught by the validator.
 
 Write the file with all three top-level blocks (`[display]`, `[title]`, `[transitions]`) plus all the `[[playlist.section]]` entries.
 
@@ -164,7 +164,7 @@ No Phase 3 — global `[transitions]` and `hold_time` are not re-asked. The new 
 
 Load `references/decision-rules.md`, `references/widgets.md`, `references/transitions.md`.
 
-1. Read `config/config.toml`. Run a full validation pass against `references/decision-rules.md`. Cache the violation list.
+1. Read `config/config.toml`. Run `led-ticker validate config/config.toml --json` and cache the output as the base violation list (`errors` and `warnings` from the JSON). Also run a full pass over `references/decision-rules.md` for any issues not yet caught by the validator.
 2. Ask one symptom-style multi-select question:
    - "Too small to read at viewing distance"
    - "Too aggressive / busy"

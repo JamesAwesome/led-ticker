@@ -578,22 +578,32 @@ border = "rainbow"
 #     each loop. The architectural payoff of PR #12 extended to image
 #     widgets.
 #
-#     NOTE: §19 is commented out because `config/test.png` is not
-#     present in this repo. To enable locally, supply an image at
-#     `config/test.png` (any small PNG works) and uncomment the lines
-#     below.
-# ---------------------------------------------------------------------------
-# [[playlist.section]]
-# mode = "swap"
-# hold_time = 6
-# loop_count = 3
-# transition = "cut"
+#     Watch for:
+#       - "HELLO!" types out one char at a time, restarting each loop
+#       - each char renders in continuously-sweeping rainbow (color
+#         sweep advances ACROSS loops — chars don't reset to the same
+#         hue on each retype)
+#       - perimeter chase advances continuously (no phase snap-back
+#         when typewriter restarts)
 #
-# [[playlist.section.widget]]
-# type = "image"
-# path = "config/test.png"
-# text = "Hello!"
-# text_align = "left"
-# animation = "typewriter"
-# font_color = "rainbow"
-# border = "rainbow"
+#     image_align = "right" pillarboxes the bunny on the right side so
+#     the caption has clear panel space on the left to type into.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 6
+loop_count = 3
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/bunny-transparent.png"
+fit = "pillarbox"
+image_align = "right"
+text = "HELLO!"
+text_align = "left"
+font = "Inter-Bold"
+font_size = 24
+animation = "typewriter"
+font_color = "rainbow"
+border = "rainbow"

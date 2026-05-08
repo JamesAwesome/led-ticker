@@ -305,6 +305,7 @@ from led_ticker.transitions.push import (  # noqa: F401
     PushAlternating,
     PushDown,
     PushLeft,
+    PushRandom,
     PushRight,
     PushUp,
 )
@@ -317,6 +318,7 @@ from led_ticker.transitions.wipe import (  # noqa: F401
     WipeAlternating,
     WipeDown,
     WipeLeft,
+    WipeRandom,
     WipeRight,
     WipeUp,
 )

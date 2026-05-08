@@ -13,6 +13,9 @@
 #     chasing a Pokeball, a Nyan Cat fly-by, Pac-Man and the ghosts)
 #   - Two-row layouts (held top + scrolling bottom)
 #   - Image + text overlay (text walking over a transparent gif)
+#   - Three-effect composition on a single image widget (typewriter
+#     retypes per loop while rainbow text + rainbow border keep
+#     continuous phase — per-effect counters; previously a tradeoff)
 #   - Live data widget (weather with hi-res icon + city + temp)
 #   - Countdown to a real future date
 #
@@ -296,7 +299,40 @@ scroll_speed_ms = 40
 text_loops = 1
 
 # ---------------------------------------------------------------------------
-# 10. Inline emoji showcase — pride, taco, moon at hi-res.
+# 10. Three-effect composition on an image widget — typewriter caption
+#     types in over a held still while rainbow font sweeps and rainbow
+#     border chases the perimeter. Three INDEPENDENT effect counters on
+#     the SAME widget: typewriter retypes each `loop_count` iteration
+#     while font + border counters keep continuous phase across loops.
+#     Per-effect counters are what make this possible — a single shared
+#     counter would force a tradeoff between "retype on each loop" and
+#     "preserve chase phase." Here all three behaviors run at once.
+#     `image_align = "right"` parks the moon on the right so the caption
+#     types into clear space on the left without overlap.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 3
+hold_time = 2.0
+transition = "dissolve"
+transition_duration = 0.8
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "right"
+text = "AFTER DARK"
+text_align = "left"
+font = "Inter-Bold"
+font_size = 24
+animation = {style = "typewriter", frames_per_char = 3}
+font_color = "rainbow"
+border = "rainbow"
+
+# ---------------------------------------------------------------------------
+# 11. Inline emoji showcase — pride, taco, moon at hi-res.
 #    Quick, food-and-symbol forward, friendly. Demonstrates that the
 #    emoji set goes beyond emoticons into actual brand-usable iconography.
 # ---------------------------------------------------------------------------
@@ -330,7 +366,7 @@ font_size = 24
 font_color = [180, 200, 255]
 
 # ---------------------------------------------------------------------------
-# 11. Countdown finale — real date, hi-res Inter-Bold, rainbow.
+# 12. Countdown finale — real date, hi-res Inter-Bold, rainbow.
 #     Rolls into the New Year. Demonstrates that the same color provider
 #     vocabulary applies to data widgets, not just static messages, and
 #     pairs the most attention-grabbing transition (nyancat_alternating)

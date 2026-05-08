@@ -138,15 +138,19 @@ These rules are the validation checklist. The skill consults this file at every 
 
 ---
 
-## Rule 12: animation = "typewriter" only on message widget
+## Rule 12: animation = "typewriter" only on message, countdown, gif, image
 
-**SOURCE:** CLAUDE.md — "Color providers and animations" section (line 243-244).
+**SOURCE:** CLAUDE.md — "Color providers and animations" and "Typewriter on image widgets" sections.
 
-**DETECT:** A widget of type other than `"message"` (or `"countdown"` which extends `message`) specifies `animation = "typewriter"`.
+**DETECT:** A widget of type other than `"message"`, `"countdown"`, `"gif"`, or `"image"` specifies `animation = "typewriter"`.
 
-**SYMPTOM:** Config load raises with an error message: "_build_widget raises if `animation` appears on any other widget type."
+**SYMPTOM:** Config load raises: "animation is only valid on type='message', 'gif', or 'image'."
 
-**FIX:** Remove `animation = "typewriter"` from non-message widgets. Typewriter effect is only supported on TickerMessage and TickerCountdown. For other widgets (gif, image, two_row, etc.), use `font_color = "rainbow"` or other color effects instead.
+**FIX:** Remove `animation = "typewriter"` from data widgets (weather, rss_feed, mlb, crypto, etc.). Typewriter is supported on:
+- `message` / `countdown` — full support
+- `gif` / `image` — single-row only (see rule 14 for constraints)
+
+For other widgets, use `font_color = "rainbow"` or other color effects instead.
 
 ---
 

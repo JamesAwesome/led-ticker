@@ -142,8 +142,7 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
 
     if style not in registry:
         raise ValueError(
-            f"unknown font_color style {style!r}; available: "
-            f"{sorted(registry.keys())}"
+            f"unknown font_color style {style!r}; available: {sorted(registry.keys())}"
         )
 
     cls, allowed_kwargs = registry[style]
@@ -280,8 +279,7 @@ def _coerce_border(value: Any) -> Any:
         )
     # Reject anything else loudly
     raise ValueError(
-        f"border must be a string, table, or [r,g,b] list; "
-        f"got {type(value).__name__}"
+        f"border must be a string, table, or [r,g,b] list; got {type(value).__name__}"
     )
 
 
@@ -307,7 +305,7 @@ def _coerce_animation(value: Any) -> Any:
     if isinstance(value, str):
         if value not in registry:
             raise ValueError(
-                f"unknown animation {value!r}; available: " f"{sorted(registry.keys())}"
+                f"unknown animation {value!r}; available: {sorted(registry.keys())}"
             )
         cls, _allowed = registry[value]
         return cls()
@@ -320,7 +318,7 @@ def _coerce_animation(value: Any) -> Any:
         style = value["style"]
         if style not in registry:
             raise ValueError(
-                f"unknown animation {style!r}; available: " f"{sorted(registry.keys())}"
+                f"unknown animation {style!r}; available: {sorted(registry.keys())}"
             )
         cls, allowed = registry[style]
         kwargs = {k: v for k, v in value.items() if k != "style"}
@@ -401,6 +399,7 @@ async def _build_widget(
     config_dir: Path | None = None,
     default_bg_color: tuple[int, int, int] | None = None,
     panel_h_for_warning: int | None = None,
+    validate_only: bool = False,
 ) -> Any:
     """Instantiate a widget from its config dict.
 
@@ -601,6 +600,9 @@ async def _build_widget(
     # ColorProvider instances. Constant [r,g,b] lists get wrapped in
     # _ConstantColor so all downstream widget code is uniform.
     _coerce_widget_colors(widget_cfg)
+
+    if validate_only:
+        return None
 
     if hasattr(cls, "start"):
         widget = await cls.start(session=session, **widget_cfg)

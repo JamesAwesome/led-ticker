@@ -363,23 +363,12 @@ async def test_rule21_normal_duration_no_warning(conf):
     assert all(w.rule != 21 for w in result.warnings)
 
 
-def test_json_output_valid_config(conf):
+async def test_json_output_valid_config(conf):
+    from led_ticker.validate import _format_json
+
     path = conf(GOOD_CONFIG)
-
-    async def _run():
-        from led_ticker.validate import _format_json
-
-        result = await validate_config(path)
-        return _format_json(result)
-
-    import asyncio
-
-    loop = asyncio.new_event_loop()
-    try:
-        raw = loop.run_until_complete(_run())
-    finally:
-        loop.close()
-    data = json.loads(raw)
+    result = await validate_config(path)
+    data = json.loads(_format_json(result))
     assert data["valid"] is True
     assert data["errors"] == []
     assert data["warnings"] == []
@@ -445,3 +434,60 @@ def test_cli_json_flag_produces_parseable_output(conf):
     assert proc.returncode == 0
     data = json.loads(proc.stdout)
     assert data["valid"] is True
+
+
+def test_format_human_output():
+    from led_ticker.validate import _format_human
+
+    err = ValidationIssue(
+        rule=5,
+        location="section[0].widget[0]",
+        message="bad font",
+        fix="add font_size",
+        severity="error",
+    )
+    warn = ValidationIssue(
+        rule=21,
+        location="section[0]",
+        message="500s duration",
+        fix="divide by 1000",
+        severity="warning",
+    )
+    result = ValidationResult(path=Path("x.toml"), errors=[err], warnings=[warn])
+    output = _format_human(result)
+    assert "✗ ERROR" in output
+    assert "⚠ WARNING" in output
+    assert "[rule 5]" in output
+    assert "[rule 21]" in output
+    assert "bad font" in output
+    assert "divide by 1000" in output
+    assert "2 issue(s)" in output
+
+
+async def test_rule14_typewriter_on_gif_scroll_align(conf):
+    extra = textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        animation = "typewriter"
+        text = "world"
+        text_align = "scroll"
+        """)
+    result = await validate_config(conf(GOOD_CONFIG + extra))
+    assert not result.valid
+    assert any(e.rule == 14 for e in result.errors)
+
+
+async def test_rule14_typewriter_on_gif_empty_text(conf):
+    extra = textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        animation = "typewriter"
+        text = ""
+        """)
+    result = await validate_config(conf(GOOD_CONFIG + extra))
+    assert not result.valid
+    assert any(e.rule == 14 for e in result.errors)

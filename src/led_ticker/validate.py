@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import copy
 import json
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -457,27 +455,3 @@ def _format_human(result: ValidationResult) -> str:
             f" {len(result.warnings)} warning(s)"
         )
     return "\n".join(lines)
-
-
-def main() -> None:
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Validate a led-ticker config file")
-    parser.add_argument("path", type=Path, help="Path to TOML config file")
-    parser.add_argument(
-        "--json", action="store_true", dest="json_output", help="Emit JSON"
-    )
-    args = parser.parse_args()
-
-    try:
-        result = asyncio.run(validate_config(args.path))
-    except FileNotFoundError as e:
-        print(str(e), file=sys.stderr)
-        sys.exit(2)
-
-    if args.json_output:
-        print(_format_json(result))
-    else:
-        print(_format_human(result))
-
-    sys.exit(0 if result.valid else 1)

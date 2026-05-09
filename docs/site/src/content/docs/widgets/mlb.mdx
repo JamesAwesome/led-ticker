@@ -3,15 +3,17 @@ title: mlb widget
 description: Live MLB game scores with team logos and series state. Free API, no key.
 ---
 
+import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `mlb` widget fetches live game state from MLB's free StatsAPI and renders the tracked team's current series — with distinct display modes for pre-game (opponent and start time), in-game (score, inning, base runners, and balls-strikes-outs in color), post-game ("Final" with win/loss coloring), and postponements. No API key is required.
 
-:::note[No demo gif]
-The mlb widget makes live HTTP calls to MLB's StatsAPI, which doesn't render usefully in CI's 5-second capture window. Run an `mlb` widget locally to see it animate.
-:::
+<DemoGif
+  src="/demos-long/widget-mlb.gif"
+  caption="Yankees series state via MLB StatsAPI (rendered locally — live API call doesn't run in CI)"
+/>
 
 <TomlExample
   title="Minimal example"

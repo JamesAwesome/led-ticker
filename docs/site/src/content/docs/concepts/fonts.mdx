@@ -3,9 +3,9 @@ title: Fonts
 description: BDF bitmap fonts vs hi-res TTF/OTF — what to pick and why.
 ---
 
-import DemoGif from '../../../components/DemoGif.astro';
-import TomlExample from '../../../components/TomlExample.astro';
-import RelatedPages from '../../../components/RelatedPages.astro';
+import DemoGif from "../../../components/DemoGif.astro";
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
 
 Every text-bearing widget — `message`, `countdown`, `two_row`, `weather`, and the text overlay on `gif`/`image` — picks a font. led-ticker ships two flavors: pre-rasterized BDF bitmap fonts and scalable hi-res TTF/OTF fonts. The right choice depends on your panel scale and viewing distance.
 
@@ -15,17 +15,19 @@ Every text-bearing widget — `message`, `countdown`, `two_row`, `weather`, and 
 
 BDF fonts are pre-rasterized pixel-by-pixel at a fixed cell size — there is no antialiasing, no threshold tuning, and no runtime rendering overhead. They load instantly and look crisp at the sizes they were designed for. Four aliases ship with led-ticker; the numbers are pixel cell width × height:
 
-| Alias | Cell size | Python constant | Notes |
-|-------|-----------|-----------------|-------|
-| `5x8` | 5×8 px | `FONT_SMALL` | Smallest readable size; fits two rows on a 16-tall canvas |
-| `6x10` | 6×10 px | `FONT_DELTA` | Compact alternative to the default |
-| `6x12` | 6×12 px | `FONT_DEFAULT` | **Default font** — omit `font` to get this |
-| `7x13` | 7×13 px | `FONT_LABEL` | Slightly wider strokes; good for short labels |
+| Alias  | Cell size | Python constant | Notes                                                     |
+| ------ | --------- | --------------- | --------------------------------------------------------- |
+| `5x8`  | 5×8 px    | `FONT_SMALL`    | Smallest readable size; fits two rows on a 16-tall canvas |
+| `6x10` | 6×10 px   | `FONT_DELTA`    | Compact alternative to the default                        |
+| `6x12` | 6×12 px   | `FONT_DEFAULT`  | **Default font** — omit `font` to get this                |
+| `7x13` | 7×13 px   | `FONT_LABEL`    | Slightly wider strokes; good for short labels             |
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "message"
 text = "Hello"
-font = "6x12"   # default — can omit`} />
+font = "6x12"   # default — can omit`}
+/>
 
 ## Hi-res (TTF / OTF) for the bigsign
 
@@ -35,11 +37,13 @@ Two fonts ship bundled: `Inter-Regular` and `Inter-Bold`. For a brand font (for 
 
 `font_size` is required for all hi-res fonts — the rasterizer needs an explicit real-pixel target and there is no sensible default to fall back on.
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "message"
 text = "Hello"
 font = "Inter-Bold"
-font_size = 28`} />
+font_size = 28`}
+/>
 
 ## font_threshold
 
@@ -61,17 +65,17 @@ type = "message"
 text = "Open 7 days"
 font = "Beloved-Sans-Regular"
 font_size = 24
-font_threshold = 80   # match Bold above to preserve weight contrast`} />
+font_threshold = 80 # match Bold above to preserve weight contrast`} />
 
 BDF fonts ignore `font_threshold` entirely — their bitmaps are already 1-bit.
 
 ## Decision tree
 
-| Panel | Viewing distance | Recommended |
-|-------|-----------------|-------------|
-| Small sign (160×16, scale=1) | Any | BDF `6x12` (default) — pixel-perfect at 1× |
-| Bigsign (256×64, scale=4), close | ≤ 6 ft | BDF or `Inter-Bold` @ 16–22 px |
-| Bigsign, medium | 6–20 ft | `Inter-Bold` @ 22–28 px |
-| Bigsign, far (across the street) | > 20 ft | `Inter-Bold` @ 28–32 px |
+| Panel                            | Viewing distance | Recommended                                |
+| -------------------------------- | ---------------- | ------------------------------------------ |
+| Small sign (160×16, scale=1)     | Any              | BDF `6x12` (default) — pixel-perfect at 1× |
+| Bigsign (256×64, scale=4), close | ≤ 6 ft           | BDF or `Inter-Bold` @ 16–22 px             |
+| Bigsign, medium                  | 6–20 ft          | `Inter-Bold` @ 22–28 px                    |
+| Bigsign, far (across the street) | > 20 ft          | `Inter-Bold` @ 28–32 px                    |
 
 <RelatedPages slugs={["concepts/display", "concepts/color-providers", "widgets/message"]} />

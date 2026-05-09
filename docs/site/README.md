@@ -32,17 +32,31 @@ and calls the Python renderer for any missing or stale gifs in `public/demos/`.
 The renderer requires `uv` and the Python deps installed at the repo root
 (`uv sync` from the repo root).
 
+## Lint and format
+
+```bash
+pnpm run lint     # prettier --check . && astro check
+pnpm run format   # prettier --write .
+```
+
+Or from the repo root: `make docs-lint` / `make docs-format`.
+
+A pre-commit hook runs the same `lint` script automatically when you
+commit a change inside `docs/site/` or `docs/content-source/` — fast
+enough to catch formatting drift without slowing unrelated commits.
+CI runs it too via the `docs-lint` job in `.github/workflows/ci.yml`.
+
 ## Deploy
 
 A single GitHub Actions workflow handles all deploys to Cloudflare Pages.
 Cloudflare's automatic Git-triggered builds are disabled — only this
 workflow ever pushes to Cloudflare.
 
-| Trigger | Result |
-|---------|--------|
-| Push to `main` (touching `docs/`, `tools/render_demo/`, or the workflow itself) | Production deploy |
-| Open / update a PR (same path filter) | Preview deploy at `<branch>.led-ticker.pages.dev` |
-| Push to a feature branch with no PR | Nothing — no build, no deploy |
+| Trigger                                                                         | Result                                            |
+| ------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Push to `main` (touching `docs/`, `tools/render_demo/`, or the workflow itself) | Production deploy                                 |
+| Open / update a PR (same path filter)                                           | Preview deploy at `<branch>.led-ticker.pages.dev` |
+| Push to a feature branch with no PR                                             | Nothing — no build, no deploy                     |
 
 The workflow lives at [`.github/workflows/docs-deploy.yml`](../../.github/workflows/docs-deploy.yml).
 
@@ -61,6 +75,7 @@ The workflow lives at [`.github/workflows/docs-deploy.yml`](../../.github/workfl
 
    This stops Cloudflare from running its own build on every push and
    leaves the GitHub Actions workflow as the only deploy path.
+
 7. (Optional) Add a custom domain under Pages → Custom domains.
 
 ### One-time GitHub Actions secrets

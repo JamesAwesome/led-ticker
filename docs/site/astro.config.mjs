@@ -20,7 +20,8 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "led-ticker",
-      description: "An asyncio Python toolkit for displaying scrolling feeds on RGB LED matrix panels.",
+      description:
+        "An asyncio Python toolkit for displaying scrolling feeds on RGB LED matrix panels.",
       social: [
         { icon: "github", label: "GitHub", href: "https://github.com/JamesAwesome/led-ticker" },
       ],

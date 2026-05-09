@@ -18,3 +18,17 @@ repos:
       # pytest pre-push hook removed — CI runs the full suite on
       # every PR (.github/workflows/ci.yml). Local devs can still run
       # it manually with `make test` while iterating.
+
+      - id: docs-lint
+        name: docs-lint (prettier + astro check)
+        # corepack enable is best-effort — required on CI runners (where
+        # pnpm comes via setup-node + corepack), no-op when pnpm is
+        # already on PATH (typical local dev install via npm i -g pnpm).
+        entry: bash -c '(corepack enable 2>/dev/null || true) && cd docs/site && pnpm exec prettier --check . && pnpm exec astro check'
+        language: system
+        pass_filenames: false
+        # Only fires when something inside docs/site/ or
+        # docs/content-source/ changes — irrelevant commits don't
+        # pay the ~10 sec cost. Astro check needs the full tree, not
+        # a stdin file list, so we don't pass filenames.
+        files: ^docs/(site|content-source)/.*\.(astro|mdx|md|json|yml|yaml|mjs|ts)$

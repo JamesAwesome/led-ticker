@@ -15,10 +15,6 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
-      - id: pytest
-        name: pytest
-        entry: uv run pytest -x -q
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-push]
+      # pytest pre-push hook removed — CI runs the full suite on
+      # every PR (.github/workflows/ci.yml). Local devs can still run
+      # it manually with `make test` while iterating.

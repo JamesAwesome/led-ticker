@@ -1,0 +1,127 @@
+---
+title: "Reference: Config options"
+description: A cross-cutting reference of every TOML knob in led-ticker, organized by config section.
+---
+
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+This page is the cross-cutting reference for every TOML knob in
+led-ticker, grouped by config section. Per-widget options live on each
+widget's page — this page covers the top-level blocks that wrap them:
+`[display]`, `[title]`, `[transitions]`, and `[[playlist.section]]`.
+Field names and defaults match the dataclasses in
+`src/led_ticker/config.py`. For per-widget knobs see [Widgets](/widgets/).
+
+## `[display]`
+
+Hardware and panel-layout settings. Most of these map straight onto
+`rgbmatrix` library options.
+
+| Field                 | Type   | Default          | Notes                                                                                                                           |
+| --------------------- | ------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `rows`                | int    | `16`             | Panel row count (per panel, not chain total). 16 for 16x32 panels; 32 for P3 32x64 panels.                                      |
+| `cols`                | int    | `32`             | Panel column count (per panel). 32 for 16x32; 64 for P3 32x64.                                                                  |
+| `chain`               | int    | `1`              | Number of panels chained together. Small sign uses 5; bigsign uses 8.                                                           |
+| `parallel`            | int    | `1`              | Number of parallel panel chains. Both reference targets use 1.                                                                  |
+| `pixel_mapper`        | string | `""`             | `rgbmatrix` Remap string for non-trivial layouts (e.g. the bigsign's 2x4 vertical-serpentine mapping). Empty string = no remap. |
+| `default_scale`       | int    | `1`              | Logical-to-physical scaling. `1` = small sign (no scaling). `4` = bigsign (`ScaledCanvas` blows 16-tall content up to 64).      |
+| `brightness`          | int    | `100`            | Panel brightness, 0-100. Both reference configs use `60`.                                                                       |
+| `slowdown_gpio`       | int    | `1`              | GPIO timing slowdown. Small sign uses `2`; bigsign uses `3` (paired with `rp1_rio = 1`). Raise on flicker.                      |
+| `gpio_mapping`        | string | `"adafruit-hat"` | rgbmatrix GPIO pinout. `"adafruit-hat"` covers the Adafruit HAT and bonnet.                                                     |
+| `pwm_bits`            | int    | `11`             | PWM bit depth. Drop to `8` on the bigsign for ~8x faster refresh at a small color cost.                                         |
+| `pwm_lsb_nanoseconds` | int    | `130`            | PWM LSB timing; raise toward `200+` if colors look wrong.                                                                       |
+| `show_refresh`        | bool   | `false`          | Log measured refresh Hz to stderr — useful when tuning the bigsign.                                                             |
+| `no_hardware_pulse`   | bool   | `false`          | Disable hardware PWM and use a CPU fallback. Roughly 5x slower; almost always leave at `false`.                                 |
+| `rp1_rio`             | int    | `0`              | Pi 5 only. `0` = PIO mode (lower CPU). `1` = RIO mode (faster refresh, more CPU). Bigsign uses `1`. Ignored on Pi 4.            |
+
+These are the common knobs. The full set of `rgbmatrix` library
+options is broader — see `CLAUDE.md` for the additional Pi-5 tuning
+notes and what each setting interacts with.
+
+## `[title]`
+
+Title-card timing.
+
+| Field   | Type | Default | Notes                                                                                         |
+| ------- | ---- | ------- | --------------------------------------------------------------------------------------------- |
+| `delay` | int  | `5`     | Seconds the section title (e.g. "#DevOps News") holds before the section's first widget runs. |
+
+## `[transitions]`
+
+Global defaults for inter-widget and inter-section transitions.
+
+| Field              | Type           | Default    | Notes                                                                                                                       |
+| ------------------ | -------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `default`          | string         | `"cut"`    | Default inter-widget transition. Used by any section that omits its own `transition`.                                       |
+| `duration`         | float          | `0.5`      | Default transition duration in seconds. Sprite-trail transitions (pokeball, nyancat, scroll) typically want a longer value. |
+| `easing`           | string         | `"linear"` | Default easing curve. Accepted values: `linear`, `ease_out`, `ease_in_out`.                                                 |
+| `between_sections` | string / table | `"cut"`    | Transition fired at section boundaries when the incoming section did not explicitly set `transition` (see Pitfalls below).  |
+
+Both `default` and `between_sections` accept either a bare string
+(transition name) or an inline table — e.g. `between_sections = { type = "wipe_left", duration = 0.8, easing = "ease_out" }`.
+
+## `[[playlist.section]]`
+
+Each `[[playlist.section]]` is one item in the playlist. Sections run
+in order, then the playlist loops.
+
+| Field                  | Type           | Default                   | Notes                                                                                                                                                         |
+| ---------------------- | -------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`                 | string         | `"forever_scroll"`        | One of `forever_scroll`, `infini_scroll`, `swap`, `gif`. See [Sections and modes](/concepts/sections-and-modes/).                                             |
+| `loop_count`           | int            | `1`                       | How many times to play this section's widgets before moving on. `0` repeats forever within the section.                                                       |
+| `hold_time`            | float          | `3.0`                     | Seconds to hold each widget in `swap` mode. Ignored by `forever_scroll` / `infini_scroll`.                                                                    |
+| `continuous_scroll`    | bool           | `false`                   | Skip the held pause for overflowing text in scroll modes.                                                                                                     |
+| `transition`           | string / table | inherits global `default` | Inter-widget transition for `swap` mode. ALSO becomes the entry transition for this section when explicitly set (see Pitfalls).                               |
+| `transition_duration`  | float          | inherits global           | Per-section override for the transition's `duration`.                                                                                                         |
+| `transition_color`     | `[r, g, b]`    | `null`                    | Custom color for color-aware transitions (e.g. `color_flash`, `wipe_*`).                                                                                      |
+| `scale`                | int            | `display.default_scale`   | Per-section logical-to-physical scaling override. Useful for letterboxed countdowns at `scale = 2` on the bigsign.                                            |
+| `content_height`       | int            | `16`                      | Logical canvas height in rows. Hard ceiling: `content_height × scale ≤ panel_h_real` (see Pitfalls).                                                          |
+| `bg_color`             | `[r, g, b]`    | `null`                    | Section-level background color. Widgets inherit this when they don't set their own `bg_color`.                                                                |
+| `transition_specified` | bool           | `false`                   | Internal flag set by the loader when the user wrote `transition = ...` in this section's TOML. You don't write this — it's in the dataclass for completeness. |
+
+`transition_specified` is what lets the engine distinguish "user wrote
+`transition = X` here" from "this section inherited X from
+`[transitions] default`" — important for entry-transition selection
+(see Pitfalls below).
+
+## `[playlist.section.title]`
+
+A section title is a regular `message` widget with all its knobs
+available — `text`, `color`, `font_color`, `animation`, `border`, etc.
+The only difference from a regular widget is that it's held for
+`[title] delay` seconds before the section's first widget runs.
+
+See [the message widget page](/widgets/message/) for the full field
+list.
+
+## `[[playlist.section.widget]]`
+
+Per-widget options live on each widget's page. See [Widgets](/widgets/).
+
+## Pitfalls
+
+**A section's `transition` is BOTH the entry transition AND the
+inter-widget transition.** When a section explicitly writes
+`transition = "..."` in its TOML, that transition is used both for the
+inter-section ENTRY (when this section first appears) AND for
+inter-widget swaps within the section. Sections that omit `transition`
+fall back to `[transitions] between_sections` for entry. This solves
+the natural UX expectation — set `transition = "pokeball"` on a
+single-widget section and you'll see pokeball when the section appears
+— but it surprises people who expected `transition` to apply only
+within the section. If you want the global `between_sections` to fire
+on entry, leave `transition` unset on the section.
+
+**`content_height × scale ≤ panel_h_real`.** The wrapper centers a
+logical canvas of height `content_height × scale` on the real panel.
+On the bigsign at `scale = 4` and a 64-tall panel, that means
+`content_height ≤ 16`. Push above and the wrapper's vertical offset
+goes negative — the logical canvas is taller than the panel — and the
+top + bottom rows of your content silently clip. BDF text is forgiving
+because cells sit near the vertical center, but hi-res emoji and
+large hi-res fonts surface the clip immediately. For per-row
+breathing room use `text_y_offset` on the widget rather than over-
+sizing `content_height`. See [Hardware: Bigsign](/hardware/bigsign/)
+for the full discussion.
+
+<RelatedPages slugs={["reference/cli", "concepts/sections-and-modes", "widgets"]} />

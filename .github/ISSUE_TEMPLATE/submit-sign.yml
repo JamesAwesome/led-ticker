@@ -1,0 +1,62 @@
+name: Submit your sign
+description: Share a photo or clip of your led-ticker sign for the showcase gallery.
+title: "[Showcase] "
+labels: ["showcase", "submission"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing! Drag your photos / short clips into the description field below.
+        Image sizes up to ~10 MB are fine; for longer videos consider a YouTube/Vimeo link.
+
+  - type: textarea
+    id: media
+    attributes:
+      label: Photos / clips
+      description: Drag and drop images/short videos here. At least one is required.
+      placeholder: (paste or drag-drop here)
+    validations:
+      required: true
+
+  - type: input
+    id: where
+    attributes:
+      label: Where does it run?
+      description: Storefront, home, office, art install, etc.
+      placeholder: e.g. "moonbunny aerial storefront, NYC"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: Hardware
+      options:
+        - Pi 4 + small sign (5×32×16)
+        - Pi 5 + bigsign (8× P3 32×64 vertical serpentine)
+        - Custom (describe in the description)
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Config (optional)
+      description: Paste your config.toml if you'd like it featured in a community-configs gallery.
+      render: toml
+
+  - type: input
+    id: credit
+    attributes:
+      label: Credit (optional)
+      description: How would you like to be credited? Name, handle, link, or "anonymous".
+      placeholder: e.g. "@example on Instagram"
+
+  - type: checkboxes
+    id: permission
+    attributes:
+      label: Permission
+      description: Required to feature your submission in the docs.
+      options:
+        - label: I have permission to share these assets and grant the led-ticker maintainers permission to use them in the docs site.
+          required: true

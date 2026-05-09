@@ -1,0 +1,25 @@
+# Demo: still image widget with scrolling text overlay.
+# Uses a bundled asset from config/assets/. Path is relative to this
+# TOML file's location (docs/site/demos/) — three levels up to repo
+# root, then config/assets/.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "image"
+path = "../../../config/assets/bunny-transparent.png"
+fit = "pillarbox"
+image_align = "left"
+text = "Bunny says hi"
+text_align = "scroll_over"
+hold_seconds = 4.0
+font_color = [200, 100, 255]

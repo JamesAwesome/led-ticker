@@ -21,5 +21,10 @@ fit = "pillarbox"
 image_align = "left"
 text = "Hello!"
 text_align = "scroll_over"
+# Default scroll_speed_ms (50) means ~20 px/sec — too slow to finish the
+# traversal in the renderer's 5-sec capture window. 25 lets the full
+# scroll fit (and renders as a mild slow-motion gif which actually
+# helps readers see the effect).
+scroll_speed_ms = 25
 gif_loops = 999
 font_color = [255, 200, 100]

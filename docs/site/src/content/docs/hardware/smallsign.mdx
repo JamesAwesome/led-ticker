@@ -1,16 +1,20 @@
 ---
-title: "Hardware: Small sign"
-description: A Pi 4 driving five chained 32x16 panels for a 160x16 ticker — bill of materials, wiring, and the minimal config.
+title: "Hardware: Smallsign reference build"
+description: led-ticker's reference build for short single-line displays — Pi 4 + five chained 32x16 panels for a 160x16 ticker.
 ---
 
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-The small sign is the original led-ticker target: a Raspberry Pi 4
-driving five chained 32x16 RGB matrix panels through Adafruit's RGB
-matrix bonnet. Total canvas is 160x16 pixels — wide enough for a
-scrolling marquee, short enough that everything draws at native
-resolution with no scaling wrapper.
+The **smallsign** is led-ticker's reference build for short single-line
+displays: a Raspberry Pi 4 driving five chained 32x16 RGB matrix panels
+through Adafruit's RGB matrix bonnet for a 160x16 canvas. It's the
+target the project was originally written against, and the dimensions
+the smallsign-flavored examples in `config/` assume. You don't have to
+match it exactly — any HUB75 panel chain that fits a similar shape
+(Pi 4 with the adafruit-hat mapping, 16-tall canvas) will run the same
+configs — but the parts list and tuning notes below are what we built
+and tested against.
 
 ## At a glance
 
@@ -18,7 +22,7 @@ resolution with no scaling wrapper.
 - 5x chained 32x16 RGB matrix panels = 160x16 logical canvas
 - ~20 fps (50ms per frame)
 - `default_scale = 1` — drawing logic and panel pixels are 1:1
-- Same Docker image as the bigsign; the rgbmatrix library detects the SoC at runtime
+- Same Docker image as the bigsign reference build; the rgbmatrix library detects the SoC at runtime
 
 ## Bill of materials
 
@@ -57,7 +61,7 @@ many panels are linked.
 
 ## Config snippet
 
-The minimal `[display]` block for the small sign — straight from
+The minimal `[display]` block for the smallsign — straight from
 `config/config.example.toml`:
 
 <TomlExample
@@ -71,7 +75,7 @@ gpio_mapping = "adafruit-hat"  # Adafruit bonnet or HAT`}
 />
 
 The 160x16 logical canvas is `cols * chain` wide by `rows` tall. Every
-widget on the small sign draws to that canvas at native pixel
+widget on the smallsign draws to that canvas at native pixel
 resolution — no `ScaledCanvas` wrapper, no logical-to-physical block
 expansion.
 
@@ -85,10 +89,10 @@ or higher if you still see flicker. Higher values trade refresh rate
 for stability.
 
 **Do not set `default_scale` to anything other than 1 here.** The
-small sign is 16 logical rows tall and 16 physical rows tall — there
+smallsign is 16 logical rows tall and 16 physical rows tall — there
 is no logical-to-physical wrapping to do. The `ScaledCanvas` wrapper
 only kicks in when `default_scale > 1` and assumes the panel is
-taller than 16 logical rows, so cranking it on the small sign just
+taller than 16 logical rows, so cranking it on the smallsign just
 clips your content.
 
 **Brightness is 0-100, not 0-255.** Setting `brightness = 255` doesn't

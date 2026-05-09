@@ -1,17 +1,21 @@
 ---
-title: "Hardware: Bigsign"
-description: A Pi 5 driving eight P3 32x64 panels in a 2x4 vertical-serpentine layout for a 256x64 ticker — bill of materials, panel chain, and the Pi-5 tuning knobs.
+title: "Hardware: Bigsign reference build"
+description: led-ticker's reference build for tall multi-row displays — Pi 5 + eight P3 32x64 panels in a 2x4 vertical-serpentine layout for a 256x64 ticker.
 ---
 
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-The bigsign is the larger reference target: a Raspberry Pi 5 driving
-eight P3 32x64 RGB matrix panels arranged in a 2x4 vertical-serpentine
-layout. Total canvas is 256x64 pixels — wide and tall enough for hi-res
-emoji, two-row handles, and animated GIFs. Drawing logic stays at the
-small-sign-native 16-tall logical canvas; `ScaledCanvas` blows it up by
-a factor of four to fill the panel.
+The **bigsign** is led-ticker's reference build for tall multi-row
+displays: a Raspberry Pi 5 driving eight P3 32x64 RGB matrix panels
+arranged in a 2x4 vertical-serpentine layout for a 256x64 canvas. It's
+the platform the hi-res font, hi-res emoji, and `ScaledCanvas` work was
+designed against, and the dimensions the bigsign-flavored examples in
+`config/` assume. Different panel counts or layouts will work — the
+canvas math comes from `pixel_mapper`, not from a hardcoded shape — but
+the BOM, wiring diagram, and Pi-5 tuning knobs below are what we built
+and tested against. Drawing logic stays at a 16-tall logical canvas;
+`ScaledCanvas` blows it up by a factor of four to fill the panel.
 
 ## At a glance
 
@@ -19,7 +23,7 @@ a factor of four to fill the panel.
 - 8x P3 32x64 RGB matrix panels in a 2x4 vertical-serpentine layout = 256x64 logical canvas
 - `default_scale = 4` — every logical pixel becomes a 4x4 block on the real panel, content vertically centered
 - Drawing logic stays at "1x scale" with 16-tall content; the wrapper handles the expansion
-- Same Docker image as the small sign; the rgbmatrix library detects the SoC at runtime
+- Same Docker image as the smallsign; the rgbmatrix library detects the SoC at runtime
 
 ## Bill of materials
 
@@ -34,7 +38,7 @@ a factor of four to fill the panel.
 | Shroud / frame            | 1        | A 2x4 grid of P3 panels is heavy and benefits from a rigid frame. Acrylic diffuser optional.                                              |
 
 The rgbmatrix library detects the SoC at runtime, so the same Docker
-image runs on both the small sign (Pi 4 / BCM2711) and the bigsign
+image runs on both the smallsign (Pi 4 / BCM2711) and the bigsign
 (Pi 5 / RP1). No separate build, no per-Pi flag — the Pi-5-specific
 knobs in the next section are simply ignored on a Pi 4 and vice versa.
 
@@ -121,7 +125,7 @@ wants every Hz it can get. Note that RIO mode requires bumping
 GPIO timing slowdown, must pair with `rp1_rio = 1`. The Pi 4 default of
 `2` is too aggressive when paired with RIO mode — start at `3`, and
 raise to `4` or `5` if you still see flicker. Higher values trade
-refresh rate for stability, same tradeoff as on the small sign just at
+refresh rate for stability, same tradeoff as on the smallsign just at
 a higher floor.
 
 ## Pitfalls
@@ -149,9 +153,9 @@ each entry's orientation flag (`n`, `s`, `e`, `w`).
 **Hi-res emoji only render at scale ≥ 2.** Slugs like `:moon:` and
 `:instagram:` have a 32x32 hi-res sprite in `HIRES_REGISTRY` that
 paints directly to the unwrapped real canvas, bypassing the wrapper's
-4x4 block expansion for sharper detail. On a small sign at
+4x4 block expansion for sharper detail. On a smallsign at
 `default_scale = 1` the renderer falls back to the 8x8 lo-res sprite
 automatically — same icon footprint, less detail. Don't expect hi-res
-emoji output on the small sign.
+emoji output on the smallsign.
 
-<RelatedPages slugs={["hardware/small-sign", "concepts/display", "concepts/fonts"]} />
+<RelatedPages slugs={["hardware/smallsign", "concepts/display", "concepts/fonts"]} />

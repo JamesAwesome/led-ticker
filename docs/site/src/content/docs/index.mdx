@@ -1,0 +1,31 @@
+---
+title: led-ticker
+description: An asyncio Python toolkit for displaying scrolling feeds on RGB LED matrix panels.
+template: splash
+hero:
+  tagline: Scrolling feeds on RGB LED matrix panels.
+  actions:
+    - text: Get started
+      link: /led-ticker/getting-started/
+      icon: right-arrow
+    - text: GitHub
+      link: https://github.com/JamesAwesome/led-ticker
+      icon: external
+      variant: minimal
+---
+
+import DemoGif from '../../components/DemoGif.astro';
+
+## Hello world
+
+<DemoGif src="/led-ticker/demos/message-rainbow.gif" caption="A simple `message` widget with rainbow per-character coloring." />
+
+## What you can do
+
+led-ticker drives an RGB LED matrix sign from a TOML config. Display
+RSS feeds, weather, countdowns, crypto prices, MLB scores, custom messages,
+animated gifs, and still images. Mix transitions, color animations, and
+typewriter effects.
+
+[Browse widgets →](/led-ticker/widgets/message/)
+[Browse transitions →](/led-ticker/transitions/push/)

@@ -13,7 +13,7 @@ interface Props {
 const { id } = Astro.props;
 const idStr = String(id).padStart(2, "0");
 
-const files = import.meta.glob("/../../content-source/rules/*.md", {
+const files = import.meta.glob("../../../content-source/rules/*.md", {
   eager: true,
   query: "?raw",
   import: "default",

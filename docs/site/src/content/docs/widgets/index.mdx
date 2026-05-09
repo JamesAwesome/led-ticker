@@ -1,0 +1,47 @@
+---
+title: Widgets
+description: The 12 built-in widgets — what each one does and how to pick.
+---
+
+import RelatedPages from '../../../components/RelatedPages.astro';
+
+led-ticker ships **12 built-in widget types**. Each is configured by a
+`[[playlist.section.widget]]` block in your TOML. This page is the menu — pick the
+one that fits your data, then read its page for the full options list.
+
+## By data source
+
+| Widget | Source | Use when |
+|--------|--------|----------|
+| [`message`](/widgets/message/) | static text | most lines on most signs |
+| [`countdown`](/widgets/countdown/) | local clock + a target date | "X days until …" |
+| [`two_row`](/widgets/two_row/) | two static lines | held-handle + scrolling promo (storefront) |
+| [`weather`](/widgets/weather/) | WeatherAPI.com | forecast / current conditions |
+| [`rss_feed`](/widgets/rss_feed/) | any RSS URL | news / blog headlines |
+| [`mlb`](/widgets/mlb/) | MLB free API | game scores / series state |
+| [`mlb_standings`](/widgets/mlb_standings/) | MLB free API | standings (top N + tracked teams) |
+| [`coinbase`](/widgets/coinbase/) | Coinbase | crypto price |
+| [`coingecko`](/widgets/coingecko/) | CoinGecko | crypto price (alternative source) |
+| [`etherscan`](/widgets/etherscan/) | Etherscan | Ethereum gas |
+| [`gif`](/widgets/gif/) | local file | animated gifs / webp / multi-frame images |
+| [`image`](/widgets/image/) | static PNG / JPG |
+
+## By complexity
+
+- **Just text:** `message`, `countdown`. No external dependencies.
+- **Two text rows (storefront layout):** `two_row` at section `scale=2`.
+- **Live data (background fetch):** `weather`, `rss_feed`, `mlb`, `mlb_standings`, the three crypto widgets. Each has retry + exponential backoff.
+- **Visual:** `gif`, `image`. Both support text overlay, fit modes (pillarbox / letterbox / stretch / crop), and per-row two-row layouts.
+
+## Common knobs
+
+Most widgets share these — see the [message widget](/widgets/message/) for the
+canonical surface:
+
+- `font`, `font_size`, `font_threshold` — see [Fonts](/concepts/fonts/)
+- `font_color` — see [Color providers](/concepts/color-providers/)
+- `bg_color` — RGB list, painted across the panel before content
+- `border` — animated rainbow chase or constant ring
+- `animation` — typewriter (where supported)
+
+<RelatedPages slugs={["widgets/message", "widgets/gif", "transitions/index"]} />

@@ -71,7 +71,11 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           packageManager: pnpm
+          # workingDirectory points at the package where wrangler is
+          # installed via pnpm — without this the action runs at repo
+          # root where there's no package.json and pnpm errors out.
+          workingDirectory: docs/site
           # On push-to-main this deploys as production; on a PR it
           # deploys as a preview tagged with the PR's branch name.
-          command: pages deploy docs/site/dist --project-name=led-ticker --branch=${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
+          command: pages deploy dist --project-name=led-ticker --branch=${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}

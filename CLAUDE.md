@@ -66,8 +66,9 @@ src/led_ticker/
     weather_icons.py    # 7 weather condition icons
     rss_feed.py         # RSSFeedMonitor (no draw() — stories expand into TickerMessages)
     two_row.py          # TwoRowMessage: held top + scrolling bottom for tall canvases
-    mlb.py              # MLBMonitor: scores, series, postponements, "Final"
-    mlb_icons.py        # MLB team logos / pixel sprites
+    mlb.py              # MLBMonitor: scores, series, postponements, "Final".
+                        #   Team logos render through pixel_emoji's standard 8x8 path
+                        #   (the previous mlb_icons.py was folded in and deleted).
     mlb_standings.py    # MLBStandingsMonitor (top N + tracked teams, offseason detection)
     gif.py              # GifPlayer: animated GIFs at native physical resolution
     still.py            # StillImage: single PNG/JPG (mirrors GifPlayer feature surface)
@@ -82,7 +83,7 @@ src/led_ticker/
       etherscan.py      # EtherscanGasMonitor
 ```
 
-**Inline Emoji**: Use `:name:` in TickerMessage text to render pixel art icons inline. Defined in `pixel_emoji.py`. Each icon is an 8×8 sprite stored as `(x, y, r, g, b)` tuples; the icon carries its own colors (text uses the surrounding `font_color`). The slug list rots fast as new emoji are added — `pixel_emoji.py`'s `EMOJI_REGISTRY` and `HIRES_REGISTRY` are the source of truth, runnable as `grep -E '^\s+"[a-z_]+":' src/led_ticker/pixel_emoji.py`. As of 2026-05-08: low-res slugs are `baseball`, `bunny`, `cat`, `cloud`, `email`, `flower`, `fog`, `heart`, `instagram`, `moon`, `partly_cloudy`, `rain`, `snow`, `star`, `sun`, `taco`, `thunder`; `pokeball` and `pride` are hires-only and render only when `scale > 1`. Add a new emoji by appending pixel data + a registry entry.
+**Inline Emoji**: Use `:name:` in TickerMessage text to render pixel art icons inline. Defined in `pixel_emoji.py`. Each icon is an 8×8 sprite stored as `(x, y, r, g, b)` tuples; the icon carries its own colors (text uses the surrounding `font_color`). The slug list rots fast as new emoji are added, so don't enumerate it here — `pixel_emoji.py`'s `EMOJI_REGISTRY` and `HIRES_REGISTRY` are the source of truth, listable any time as `grep -E '^\s+"[a-z_]+":' src/led_ticker/pixel_emoji.py`. Hires-only slugs are the ones in `HIRES_REGISTRY` but missing from `EMOJI_REGISTRY` — they render at full sprite resolution only when `scale > 1` and have no low-res fallback. Add a new emoji by appending pixel data + a registry entry.
 
 **Hi-res emoji on the bigsign**: Some slugs additionally have a high-resolution variant in `HIRES_REGISTRY` (currently `:moon:` is 32×32). When rendered on a `ScaledCanvas` the hi-res sprite is painted DIRECTLY to the underlying real canvas via `_draw_hires_emoji`, bypassing the wrapper's `scale × scale` block expansion. A 32×32 sprite at scale=4 occupies the same horizontal footprint as the equivalent 8×8 low-res emoji (8 logical columns) but with 16× more detail per cell. On non-`ScaledCanvas` paths (smallsign, scale=1) the renderer falls back to the 8×8 low-res sprite automatically. Hi-res sprites can be generated programmatically (see `_generate_moon_hires` for the circle-subtraction approach). Widgets that draw a single icon at a known (x, y) — e.g. the weather widget's condition icon — should call `pixel_emoji.draw_emoji_at(canvas, slug, x, y)` rather than blitting their own pixel data; the helper handles the hires/lowres pick automatically. When the widget needs the icon's footprint for layout math BEFORE the draw (e.g. centering content on the canvas), call `pixel_emoji.measure_emoji_at(canvas, slug)` — it shares `draw_emoji_at`'s gate exactly, so layout and paint can't drift across scales. The `_match_condition` helper in `weather_icons.py` returns slug strings (`"sun"`, `"cloud"`, ...) that feed straight into both helpers.
 
@@ -214,8 +215,10 @@ Push transitions use draw-blackout-draw: draw outgoing at its scroll position, S
 - `pacman_reverse` — Pac-Man + ghosts right-to-left (flipped)
 - `pacman_alternating` — cycles through pacman → pacman_reverse each swap
 - `push_alternating` — cycles through push_left → push_right → push_up → push_down each swap
+- `push_random` — random push direction each swap, never the same direction back-to-back
 - `nyancat_alternating` — cycles through nyancat → nyancat_reverse each swap
 - `wipe_alternating` — cycles through wipe_left → wipe_right → wipe_up → wipe_down each swap
+- `wipe_random` — random wipe direction (no immediate repeats) + random sweep color from `transition_colors` pool (defaults: cyan / magenta / white / green)
 - `sailor_moon` — Moon Stick wand sweeps left-to-right with sparkle trail erasing outgoing content
 - `sailor_moon_reverse` — Moon Stick sweeps right-to-left (flipped sprite)
 - `sailor_moon_alternating` — cycles through sailor_moon → sailor_moon_reverse each swap

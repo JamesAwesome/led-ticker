@@ -1,0 +1,93 @@
+---
+title: Sections and modes
+description: Sections group widgets, modes pick the run style — forever_scroll, infini_scroll, or swap.
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+The `[[playlist.section]]` block is the fundamental unit of a led-ticker program. Each section groups one or more widgets and tells the engine how to run them — whether to scroll them side-by-side, one after another, or hold each in place with transitions between. Three modes are supported: `forever_scroll`, `infini_scroll`, and `swap`.
+
+A playlist is just an ordered list of sections. The engine runs them in sequence, firing a section-to-section transition at each boundary, and loops back to the start when the last section finishes.
+
+## `forever_scroll` — side-by-side ticker
+
+All widgets in the section scroll left as a continuous stream, separated by `•` bullet characters. The panel never clears between widgets; each one follows immediately after the last with just the bullet for spacing. This reads like a classic news ticker — rapid, dense, and meant to be absorbed at a glance.
+
+`forever_scroll` is the best fit for short-text widgets where the reader does not need to dwell: a weather condition, a price, a short announcement. Mix several short widgets together and the combined stream stays lively. Note that transitions are not used between widgets in this mode — the bullet-dot separator is the only visual break.
+
+<TomlExample
+  code={`[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 2
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open 9–5"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Free coffee Friday"
+
+[[playlist.section.widget]]
+type = "weather"
+location = "Brooklyn, NY"`}
+/>
+
+## `infini_scroll` — one-at-a-time scroll
+
+Each widget scrolls fully off the left edge of the panel before the next widget starts scrolling in from the right. Widgets never appear on screen at the same time. This gives each message a clean, independent moment compared to `forever_scroll`, without requiring the reader to catch it during a held window.
+
+`infini_scroll` suits medium-length messages that should read as distinct items — enrollment announcements, sale callouts, or any set of messages where you want each one to complete before the next begins. Like `forever_scroll`, no transitions are used between widgets in this mode.
+
+<TomlExample
+  code={`[[playlist.section]]
+mode = "infini_scroll"
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Now Enrolling — Kids Summer Camps"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Spring Classes Open Today"`}
+/>
+
+## `swap` — held with transitions
+
+Each widget is displayed for `hold_time` seconds (default `3.0`). If the widget's text overflows the panel width, it scrolls once before stopping; otherwise it holds stationary. When the hold expires a transition animation runs, and the next widget appears. `swap` is the default mode for storefront-window displays where each item needs to be readable on its own.
+
+The transition used between widgets in the section is configured via the `transition` field. If you omit `transition`, the global `[transitions] default` applies. When a section explicitly sets `transition = "..."`, that transition is also used when the section appears — overriding the global `between_sections` setting for that section's entry.
+
+<TomlExample
+  code={`[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+transition = "wipe_left"
+
+[[playlist.section.widget]]
+type = "message"
+text = "First"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Second"`}
+/>
+
+## `loop_count` and section progression
+
+`loop_count` controls how many times the engine runs through all of the section's widgets before moving on to the next section. A `loop_count` of `1` (the default) means the engine plays each widget once and then moves on. A value of `2` plays the whole set twice, and so on. Section-to-section transitions fire once when the engine leaves the section — they are not repeated on each loop.
+
+The global `[transitions] between_sections` setting controls what transition plays at section boundaries. A section can override this by setting `transition` explicitly — when it does, that transition is used both for inter-widget swaps within the section AND for the entry transition when the section first appears.
+
+## Picking a mode
+
+| Mode             | When to use                                                                                        |
+| ---------------- | -------------------------------------------------------------------------------------------------- |
+| `forever_scroll` | Continuous ticker feel; many short widgets that do not need standalone attention                   |
+| `infini_scroll`  | Medium-length messages that should read independently; clean visual separation without held pauses |
+| `swap`           | Storefront or display-board feel; each widget gets a held, readable beat with a transition between |
+
+<RelatedPages slugs={["concepts/display", "transitions/index", "widgets/index"]} />

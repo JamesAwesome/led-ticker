@@ -1,0 +1,61 @@
+---
+title: "Tool: creating-a-config skill"
+description: An interactive 3-mode wizard that builds, extends, or refines a led-ticker config.toml without you needing to memorize the widget catalog or the gotcha list.
+---
+
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+`creating-a-config` is a Claude skill that walks you through building or modifying a led-ticker `config/config.toml`. It's not a CLI; it's an instruction set Claude follows when you ask it to "build me a config" or "add weather to my sign" or "fix the colors". The skill definition lives at [`.claude/skills/creating-a-config/SKILL.md`](https://github.com/jamesawesome/led-ticker/blob/main/.claude/skills/creating-a-config/SKILL.md), with reference material in [`.claude/skills/creating-a-config/references/`](https://github.com/jamesawesome/led-ticker/tree/main/.claude/skills/creating-a-config/references) (snippets, hardware guide, decision rules, asset handling, transitions, widgets).
+
+In Claude Code it surfaces as the `/creating-a-config` slash command. The skill's frontmatter also lists Claude.ai and the Anthropic API as supported platforms — anywhere a Claude agent can read the SKILL.md, the same flow applies.
+
+It exists because configs have a long tail of pitfalls — `content_height` ceilings, `text_align="scroll"` + `fit="stretch"` collisions, font-size vs viewing-distance mismatches, brand-font defaults that need to land on every text widget — and the skill threads all of them through a structured Q&A so you don't have to remember them. The output of every run is verified against [`led-ticker validate`](/tools/validate) before anything is written.
+
+## Modes
+
+The skill detects which mode to run based on the user's intent and the presence of an existing `config/config.toml`. If the intent is ambiguous, it asks.
+
+### `new`
+
+For starting a config from scratch. Runs as a 3-phase wizard:
+
+**Phase 1 — Outline.** The skill asks 7 questions covering: sign target (small vs bigsign), use-case category, viewing distance, content sources (multi-select), brand presence, tone, and cadence. The answers drive section selection and brand-font defaults for the rest of the run. After all 7 answers it proposes a section list — one section per content source — and lets you confirm, add, remove, or reorder.
+
+**Phase 2 — Per-section pass.** For each confirmed section, the skill looks up a snippet keyed by `(use_case × widget × sign_target)` in `references/snippets.md`, asks only the widget-specific questions that snippet's "must customize" list calls for, collects any required assets (fonts, images), writes the section TOML, and runs `led-ticker validate config/config.toml --json` against the in-progress config. Any errors or warnings are surfaced as flag-and-ask items, citing the rule and fix from the validator output. Then a quick "looks good?" before moving on.
+
+**Phase 3 — Polish.** Five-to-seven questions on the global knobs: default transition + duration + easing, `between_sections` transition, default `hold_time`, brightness, bigsign refresh tuning (only asked when sign=bigsign and tone=info-dense), and save destination. Final validation runs against the assembled config. The file is then written, and you're prompted to optionally activate it as the live `config/config.toml` (with a `.bak` backup of any existing file).
+
+### `add`
+
+For appending a section to an existing config. The skill reads `config/config.toml` and infers the sign target, brand colors, default transition, and use case from the existing widgets — e.g. `mlb` widgets imply a sports config, multiple `rss_feed` + `weather` + `coinbase` implies a personal feed, a single panel-filling `gif` implies an art piece. If the inference is uncertain, it asks. The inferred use case then drives the same snippet lookup as `new` Phase 2. After writing the new section, the skill asks where to insert (end / before section N / after section N), shows a unified diff, and applies the edit only on approval. The first in-place edit per session writes a `config/config.toml.bak`.
+
+### `refine`
+
+For symptom-driven tuning of a config that's already running. The skill reads `config/config.toml`, runs the validator to cache a base violation list, and then asks a single multi-select question with these stock symptoms:
+
+- "Too small to read at viewing distance"
+- "Too aggressive / busy"
+- "Too slow / too much dead time"
+- "Too fast / can't read it"
+- "Wrong colors / bad contrast"
+- "Image fit looks bad"
+- "Border / animation feels off"
+- "Other (free text)"
+
+Each selected symptom maps to a specific delta — e.g. "too small at far distance + bigsign + currently BDF" → migrate to hires Inter at `font_size = 24–32`; "too aggressive / busy" → swap per-char rainbow for color_cycle, drop animated borders, lengthen `hold_time` by 50%. After the symptom-driven edits, the cached validator violations are surfaced as flag-and-ask items so you can clean them up in the same pass. Each delta is shown as a unified diff, applied only on per-delta approval.
+
+## Validation philosophy
+
+The skill **never silently auto-fixes a violation.** Every problem the validator surfaces — and every pitfall the skill catches on its own pass through `references/decision-rules.md` — is presented to you with the rule cited and a one-line fix proposed. You decide whether to apply it. The same flag-and-ask discipline applies at all three checkpoints: per-section lint in `new` Phase 2 (and `add`), the assembled-config check in `new` Phase 3, and the symptom + catch-all pass in `refine`. The checkpoint-level mechanics — the `errors` / `warnings` / `rule` / `fix` JSON shape the skill consumes — are documented on the [validate page](/tools/validate).
+
+## Asset handling
+
+When a section needs assets, the skill places fonts at `config/fonts/<file>` and images at `config/assets/<file>`, verifies the path exists before referencing it in TOML, and never fetches URLs silently. The full decision tree for fit modes, alpha handling, and viewing-distance font-size tiers lives in [`asset-handling.md`](https://github.com/jamesawesome/led-ticker/blob/main/.claude/skills/creating-a-config/references/asset-handling.md) — the skill loads it on demand in Phase 2 and `add` mode.
+
+## Pitfalls
+
+**The bundled snippet library predates hi-res fonts.** Most `references/snippets.md` snippets don't set `font` / `font_size` / `font_threshold` on every text-bearing widget, because the snippets were authored when BDF was the only option. The skill compensates by carrying the brand-font defaults from Phase 1 across every section in Phase 2 — message, countdown, two_row, weather, image/gif text overlays, and any `[playlist.section.title]` blocks — so you don't have to remember to set `font` on each widget yourself. If you bypass the skill and copy a snippet directly, you'll need to add the font fields by hand.
+
+**Running the skill outside Claude Code requires manually following the SKILL.md flow.** The `/creating-a-config` slash command is a Claude Code convenience; on other platforms (Claude.ai, the API) the skill is still available as instructions, but you trigger it by asking the agent to "use the creating-a-config skill" rather than via a slash command. The same Q&A wizard runs either way — the skill is platform-agnostic, only the entry point differs.
+
+<RelatedPages slugs={["tools/validate", "concepts/sections-and-modes", "getting-started"]} />

@@ -21,19 +21,19 @@ export default defineConfig({
     starlight({
       title: "led-ticker",
       description: "An asyncio Python toolkit for displaying scrolling feeds on RGB LED matrix panels.",
-      social: {
-        github: "https://github.com/JamesAwesome/led-ticker",
-      },
+      social: [
+        { icon: "github", label: "GitHub", href: "https://github.com/JamesAwesome/led-ticker" },
+      ],
       sidebar: [
         { label: "Home", link: "/" },
         { label: "Getting started", link: "/getting-started/" },
         {
           label: "Widgets",
-          autogenerate: { directory: "widgets" },
+          items: [{ autogenerate: { directory: "widgets" } }],
         },
         {
           label: "Transitions",
-          autogenerate: { directory: "transitions" },
+          items: [{ autogenerate: { directory: "transitions" } }],
         },
         {
           label: "Footguns",

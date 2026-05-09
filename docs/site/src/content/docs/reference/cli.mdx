@@ -1,0 +1,109 @@
+---
+title: "Reference: CLI"
+description: Command-line entry points and Make targets for running, validating, and developing led-ticker.
+---
+
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+led-ticker exposes one console script (`led-ticker`) with a default
+"run the display" mode and a `validate` subcommand. Day-to-day
+development is wrapped in `make` targets that drive `uv`, `pytest`,
+`ruff`, and the docs site. This page covers all of them. The console
+script is registered in `pyproject.toml` as
+`led-ticker = "led_ticker.app:main"`.
+
+## `led-ticker` (default)
+
+Runs the display loop against a TOML config. With no subcommand, the
+CLI loads the config, builds the playlist, opens the panel, and starts
+rendering until interrupted.
+
+| Flag              | Default       | Notes                                                                      |
+| ----------------- | ------------- | -------------------------------------------------------------------------- |
+| `--config` / `-c` | `config.toml` | Path to the TOML configuration file. Resolved relative to the working dir. |
+
+If the config path doesn't exist, the CLI prints a hint pointing at
+`config.example.toml` and exits with status `1`.
+
+```bash
+led-ticker --config config/config.toml
+```
+
+## `led-ticker validate`
+
+Validates a TOML config without opening the panel — checks every
+widget builds, every transition resolves, and every reference
+(font names, image paths, color shapes) is well-formed. Useful in CI
+and as a pre-flight check before deploying a config to a Pi.
+
+```bash
+led-ticker validate config/config.toml
+led-ticker validate config/config.toml --json
+```
+
+Exits `0` on a clean config, `1` on validation errors, `2` if the
+config file isn't found. See [Tools: validate](/tools/validate/) for
+the full output format (human + JSON), exit codes, and CI examples.
+
+## Make targets
+
+The repo's `Makefile` wraps the common dev commands so you don't have
+to remember the underlying `uv` / `pnpm` / `docker` invocations.
+
+| Target                   | What it does                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------- |
+| `make dev`               | `uv sync --extra dev` plus install pre-commit and pre-push hooks.                                 |
+| `make test`              | Run pytest with coverage; sets `PYTHONPATH=tests/stubs` so no real `rgbmatrix` install is needed. |
+| `make lint`              | Run `ruff check` over `src/` and `tests/`.                                                        |
+| `make typecheck`         | Run `pyright` over `src/`.                                                                        |
+| `make format`            | Run `ruff format` over `src/` and `tests/`.                                                       |
+| `make build-docker`      | Build the production Docker image (single image runs on both Pi 4 and Pi 5).                      |
+| `make docs-dev`          | Start the Astro Starlight dev server at `http://localhost:4321/` (also rebuilds demo gifs).       |
+| `make docs-build`        | Build the docs site to `docs/site/dist/`.                                                         |
+| `make docs-lint`         | Lint the docs site (`prettier --check` plus `astro check`).                                       |
+| `make docs-format`       | Auto-format the docs site with `prettier`.                                                        |
+| `make render-demo`       | Render a single demo gif. Usage: `make render-demo CONFIG=path/to.toml OUT=out.gif`.              |
+| `make render-long-demos` | Render every long-running widget demo (data-fetch widgets) into `docs/site/public/demos-long/`.   |
+| `make render-long-demo`  | Render one long-running demo by name. Usage: `make render-long-demo NAME=widget-coinbase`.        |
+
+The `render-long-demos` target only runs locally — the demos make
+live HTTP calls and some need API keys that aren't available in CI.
+Source TOMLs live in `docs/site/demos-long/`; rendered output is
+committed to `docs/site/public/demos-long/`.
+
+## Docker
+
+The production deployment uses `docker compose`. With the repo cloned
+on a Pi and a `config/config.toml` in place, the standard invocation is:
+
+```bash
+docker compose up -d
+```
+
+The compose file mounts `./config` read-only into the container so
+you edit the TOML on the host and the container picks it up on
+restart. For systemd-managed deployments (auto-start on boot,
+auto-restart on crash), see `deploy/led-ticker.service` and the
+companion `deploy/install.sh` in the repo.
+
+## Pitfalls
+
+**`--led-*` flags belong to the `rgbmatrix` library, not `led-ticker`.**
+The `led-ticker` CLI itself only accepts `--config` / `-c` (and the
+`validate` subcommand's `path` and `--json`). Hardware tuning — panel
+geometry, GPIO mapping, brightness, RP1 mode — is configured through
+the `[display]` block in your TOML, not via command-line flags. The
+`rgbmatrix` library's own `--led-*` CLI flags exist (and `[display]`
+maps onto them internally) but you don't pass them to `led-ticker`.
+See [Reference: Config options](/reference/config-options/) for the
+`[display]` field list.
+
+**`make test` automatically sets `PYTHONPATH=tests/stubs`.** The repo
+ships test stubs for the C-only `rgbmatrix` module so the entire
+suite runs on macOS / CI without a real Pi. If you invoke `pytest`
+directly (e.g. from your editor's test runner), set the same env var
+yourself or the imports in `src/led_ticker/_compat.py` will fail to
+find the stub `rgbmatrix` and skip / error every test that touches a
+canvas.
+
+<RelatedPages slugs={["reference/config-options", "tools/validate", "tools/render-demo"]} />

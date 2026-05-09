@@ -1,0 +1,103 @@
+---
+title: "Hardware: Smallsign reference build"
+description: led-ticker's reference build for short single-line displays — Pi 4 + five chained 32x16 panels for a 160x16 ticker.
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+The **smallsign** is led-ticker's reference build for short single-line
+displays: a Raspberry Pi 4 driving five chained 32x16 RGB matrix panels
+through Adafruit's RGB matrix bonnet for a 160x16 canvas. It's the
+target the project was originally written against, and the dimensions
+the smallsign-flavored examples in `config/` assume. You don't have to
+match it exactly — any HUB75 panel chain that fits a similar shape
+(Pi 4 with the adafruit-hat mapping, 16-tall canvas) will run the same
+configs — but the parts list and tuning notes below are what we built
+and tested against.
+
+## At a glance
+
+- Raspberry Pi 4 Model B
+- 5x chained 32x16 RGB matrix panels = 160x16 logical canvas
+- ~20 fps (50ms per frame)
+- `default_scale = 1` — drawing logic and panel pixels are 1:1
+- Same Docker image as the bigsign reference build; the rgbmatrix library detects the SoC at runtime
+
+## Bill of materials
+
+| Component                    | Quantity | Notes                                                                                                                                                                   |
+| ---------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Raspberry Pi 4 Model B       | 1        | 2 GB is plenty. A microSD card and a USB-C power supply for the Pi itself.                                                                                              |
+| 32x16 RGB matrix panel       | 5        | HUB75 panels with the standard 16-pin IDC connector. Matched panels render most consistently.                                                                           |
+| Adafruit RGB matrix bonnet   | 1        | Sets `gpio_mapping = "adafruit-hat"` in the config. The HAT works equivalently.                                                                                         |
+| 5V power supply              | 1        | Size for the chain — five 32x16 panels at full white draw several amps. A 5V / 10A brick is a comfortable headroom pick. Do NOT power the panels off the Pi's USB rail. |
+| 16-pin IDC ribbon cables     | 4        | One between each pair of panels. Most panels ship with one short cable; you may need extras to reach all four gaps.                                                     |
+| Power pigtails / barrel jack | 1+       | Whatever your panels expect. Each panel has its own 2-pin power input.                                                                                                  |
+| Shroud / case (optional)     | 1        | Acrylic diffuser + a 3D-printed frame is the typical finish. Not required to run.                                                                                       |
+
+The config tells the rgbmatrix library you're using the bonnet/HAT via
+`gpio_mapping = "adafruit-hat"`. If you swap to a bare wiring harness,
+that flag changes too — see the [hzeller/rpi-rgb-led-matrix
+README](https://github.com/hzeller/rpi-rgb-led-matrix) for alternatives.
+
+## Wiring
+
+Chain the five panels left-to-right with the IDC ribbon cables. **Chain
+order matters**: the first panel in the chain (where the bonnet's data
+output plugs in) is the LEFTMOST panel on screen, and the last panel in
+the chain is the RIGHTMOST. If your text shows up mirrored or split
+across the wrong panels, you've got the chain reversed.
+
+Each panel also needs its own 5V power lead — the data ribbon does not
+carry panel power. Run a short pigtail from each panel's 2-pin power
+input back to the same 5V supply (most chains share a common busbar or
+splitter on the back).
+
+The Pi's bonnet plugs onto the GPIO header in the standard orientation
+and the bonnet's HUB75 output plugs into the first panel's data input.
+The `chain` field in the config (next section) tells led-ticker how
+many panels are linked.
+
+## Config snippet
+
+The minimal `[display]` block for the smallsign — straight from
+`config/config.example.toml`:
+
+<TomlExample
+  code={`[display]
+rows = 16              # panel height
+cols = 32              # panel width
+chain = 5              # number of panels chained left-to-right
+brightness = 60        # 0-100, not 0-255
+slowdown_gpio = 2      # mandatory on Pi 4 — bump to 3+ if flicker
+gpio_mapping = "adafruit-hat"  # Adafruit bonnet or HAT`}
+/>
+
+The 160x16 logical canvas is `cols * chain` wide by `rows` tall. Every
+widget on the smallsign draws to that canvas at native pixel
+resolution — no `ScaledCanvas` wrapper, no logical-to-physical block
+expansion.
+
+## Pitfalls
+
+**`slowdown_gpio` is mandatory on the Pi 4.** Without it (or with it
+set to 0) the rgbmatrix library updates the GPIO faster than the Pi 4
+can keep up, and you'll see panels glitch, flicker, or display garbage.
+Start at `2` — that's the example config's default — and bump it to 3
+or higher if you still see flicker. Higher values trade refresh rate
+for stability.
+
+**Do not set `default_scale` to anything other than 1 here.** The
+smallsign is 16 logical rows tall and 16 physical rows tall — there
+is no logical-to-physical wrapping to do. The `ScaledCanvas` wrapper
+only kicks in when `default_scale > 1` and assumes the panel is
+taller than 16 logical rows, so cranking it on the smallsign just
+clips your content.
+
+**Brightness is 0-100, not 0-255.** Setting `brightness = 255` doesn't
+make the panels brighter — the rgbmatrix library reads it as "the
+maximum, plus a lot more" and behavior is undefined. Stay in 0-100;
+60 is a typical indoor value.
+
+<RelatedPages slugs={["hardware/bigsign", "hardware/building-your-own", "getting-started"]} />

@@ -1,0 +1,161 @@
+---
+title: "Hardware: Bigsign reference build"
+description: led-ticker's reference build for tall multi-row displays — Pi 5 + eight P3 32x64 panels in a 2x4 vertical-serpentine layout for a 256x64 ticker.
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+The **bigsign** is led-ticker's reference build for tall multi-row
+displays: a Raspberry Pi 5 driving eight P3 32x64 RGB matrix panels
+arranged in a 2x4 vertical-serpentine layout for a 256x64 canvas. It's
+the platform the hi-res font, hi-res emoji, and `ScaledCanvas` work was
+designed against, and the dimensions the bigsign-flavored examples in
+`config/` assume. Different panel counts or layouts will work — the
+canvas math comes from `pixel_mapper`, not from a hardcoded shape — but
+the BOM, wiring diagram, and Pi-5 tuning knobs below are what we built
+and tested against. Drawing logic stays at a 16-tall logical canvas;
+`ScaledCanvas` blows it up by a factor of four to fill the panel.
+
+## At a glance
+
+- Raspberry Pi 5
+- 8x P3 32x64 RGB matrix panels in a 2x4 vertical-serpentine layout = 256x64 logical canvas
+- `default_scale = 4` — every logical pixel becomes a 4x4 block on the real panel, content vertically centered
+- Drawing logic stays at "1x scale" with 16-tall content; the wrapper handles the expansion
+- Same Docker image as the smallsign; the rgbmatrix library detects the SoC at runtime
+
+## Bill of materials
+
+| Component                 | Quantity | Notes                                                                                                                                     |
+| ------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Raspberry Pi 5            | 1        | 4 GB is plenty. A microSD card and a USB-C power supply for the Pi itself.                                                                |
+| P3 32x64 RGB matrix panel | 8        | HUB75 panels with the standard 16-pin IDC connector. Matched panels render most consistently across the 2x4 grid.                         |
+| Adafruit RGB matrix HAT   | 1        | Sets `gpio_mapping = "adafruit-hat"` in the config. The bonnet works equivalently.                                                        |
+| 5V power supply           | 1        | Sized for eight P3 panels at full white — that's serious current. A 5V / 30A+ supply with thick busbars is the comfortable headroom pick. |
+| 16-pin IDC ribbon cables  | 7+       | One between each pair of panels in chain order. The serpentine route bends across rows so cables need to reach across the layout.         |
+| Power pigtails / busbar   | 1+       | Whatever your panels expect. Each panel has its own 2-pin power input — a busbar across the back of the frame keeps the wiring tidy.      |
+| Shroud / frame            | 1        | A 2x4 grid of P3 panels is heavy and benefits from a rigid frame. Acrylic diffuser optional.                                              |
+
+The rgbmatrix library detects the SoC at runtime, so the same Docker
+image runs on both the smallsign (Pi 4 / BCM2711) and the bigsign
+(Pi 5 / RP1). No separate build, no per-Pi flag — the Pi-5-specific
+knobs in the next section are simply ignored on a Pi 4 and vice versa.
+
+## The 2x4 serpentine layout
+
+Eight panels are tiled into a 2x4 grid (two rows of four). The data
+chain enters at the **bottom-right** panel and runs vertically: each
+column is wired bottom-to-top, with a diagonal jumper from the top of
+each column to the bottom of the next column to its left. There is no
+horizontal hop along the bottom row — the chain always climbs a column,
+then crosses diagonally to the bottom of the next one. All panels are
+installed upright (no 180° rotations). The `pixel_mapper` Remap string
+in the config tells the rgbmatrix library how each panel's chain index
+maps to its physical (x, y) on the finished canvas.
+
+```text
+        col 1     col 2     col 3     col 4
+
+top    [8]       [6]       [4]       [2]
+        ↑    ↘    ↑    ↘    ↑    ↘    ↑
+bot    [7]       [5]       [3]       [1]  ← data chain enters here
+```
+
+Each `[N]` is the panel's position in the chain (1 = first, 8 = last).
+The `↑` arrows show each column climbing bottom-to-top; the `↘` arrows
+show the diagonal jumper from the top of one column to the bottom of
+the next column to its left. If your top-row panels are physically
+mounted upside down (some manufacturers ship them that way), swap each
+top-row `n` for `s` in the Remap string — see the comment in the
+config snippet below.
+
+## Config snippet
+
+The minimal `[display]` block for the bigsign — straight from
+`config/config.bigsign.example.toml`:
+
+<TomlExample
+  code={`[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+# Remap each panel to its physical position. Serpentine chain order, all panels upright.
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+brightness = 60
+slowdown_gpio = 3      # bumped from 2 to pair with rp1_rio=1; raise to 4-5 if flicker
+gpio_mapping = "adafruit-hat"
+default_scale = 4      # 4× scaling fills the 64-tall canvas
+# --- Pi 5 performance tuning ---
+pwm_bits = 8           # 11 (default) → 8 ≈ 8× faster refresh, slightly worse color
+rp1_rio = 1            # RIO mode (faster, more CPU). 0 = PIO mode (lower CPU)
+show_refresh = true    # log measured refresh Hz to stderr`}
+/>
+
+The 256x64 logical canvas comes from the `pixel_mapper` Remap header
+(`256,64`), not from `cols * chain` directly — `chain = 8` is just the
+panel count for the rgbmatrix library; the mapper rearranges those
+panels into the 2x4 grid.
+
+## Pi-5 tuning
+
+### `pwm_bits = 8`
+
+PWM bit depth, default 11. Cutting to 8 buys roughly **8× faster
+refresh** at the cost of a small drop in color depth. On a panel this
+big the refresh boost is the difference between visible scan-line
+flicker and a clean image, and the color hit is barely noticeable for
+text and pixel art. Leave it at 8 unless you're displaying photos and
+care about smooth gradients.
+
+### `rp1_rio = 1`
+
+Pi-5 only. The RP1 SoC offers two GPIO drive modes:
+
+- **PIO mode (`rp1_rio = 0`)** — lower CPU, slower refresh.
+- **RIO mode (`rp1_rio = 1`)** — faster refresh, higher CPU.
+
+The bigsign uses RIO. The Pi 5 has cores to spare and the bigger panel
+wants every Hz it can get. Note that RIO mode requires bumping
+`slowdown_gpio` (next section).
+
+### `slowdown_gpio = 3`
+
+GPIO timing slowdown, must pair with `rp1_rio = 1`. The Pi 4 default of
+`2` is too aggressive when paired with RIO mode — start at `3`, and
+raise to `4` or `5` if you still see flicker. Higher values trade
+refresh rate for stability, same tradeoff as on the smallsign just at
+a higher floor.
+
+## Pitfalls
+
+**`content_height` cannot exceed 16 at scale = 4.** The hard ceiling is
+`content_height × scale ≤ panel_h_real`. For the bigsign at
+`scale = 4` and a 64-tall panel that's `content_height ≤ 16`. Pushing
+above the ceiling makes the wrapper's `_y_offset` go negative — the
+logical canvas is taller than the real panel — and the top + bottom
+rows of your content silently clip. BDF text is forgiving because cells
+sit near the vertical center, but hi-res emoji and large hi-res fonts
+surface the clip immediately (e.g. a hi-res `:instagram:` icon loses
+about 4 real px off the bottom). For per-row breathing room use
+`text_y_offset` on the widget, not a higher `content_height`.
+
+**The `pixel_mapper` Remap string is sensitive to chain order.** Every
+entry in the string must correspond to a specific panel position in
+your data chain — get the order wrong (or rotate one panel 180° to
+match the rest of the row) and you'll see content split across panels
+or rendered upside down. The string in `config/config.bigsign.example.toml`
+matches a 2x4 serpentine starting at the bottom-right with all panels
+upright; if your panels are mounted differently, you'll need to edit
+each entry's orientation flag (`n`, `s`, `e`, `w`).
+
+**Hi-res emoji only render at scale ≥ 2.** Slugs like `:moon:` and
+`:instagram:` have a 32x32 hi-res sprite in `HIRES_REGISTRY` that
+paints directly to the unwrapped real canvas, bypassing the wrapper's
+4x4 block expansion for sharper detail. On a smallsign at
+`default_scale = 1` the renderer falls back to the 8x8 lo-res sprite
+automatically — same icon footprint, less detail. Don't expect hi-res
+emoji output on the smallsign.
+
+<RelatedPages slugs={["hardware/smallsign", "concepts/display", "concepts/fonts"]} />

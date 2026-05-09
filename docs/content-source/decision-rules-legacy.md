@@ -1,4 +1,4 @@
-<!-- Derived from CLAUDE.md sections: "CRITICAL: Hardware Rendering Constraints", "Per-section `content_height`", "Per-widget `font_threshold`", "Match thresholds within a font family", "Footgun validation", "Two-row widget", "Single-row image text", "Frame freeze during transitions", "Section transition precedence". Last synced: 2026-05-07. -->
+<!-- Derived from CLAUDE.md sections: "CRITICAL: Hardware Rendering Constraints", "Per-section `content_height`", "Per-widget `font_threshold`", "Match thresholds within a font family", "Pitfall validation", "Two-row widget", "Single-row image text", "Frame freeze during transitions", "Section transition precedence". Last synced: 2026-05-07. -->
 
 # Decision Rules
 
@@ -32,7 +32,7 @@ These rules are the validation checklist. The skill consults this file at every 
 
 ## Rule 3: text_align="scroll" + fit="stretch" is invalid
 
-**SOURCE:** CLAUDE.md — "Footgun validation" subsection (line 120).
+**SOURCE:** CLAUDE.md — "Pitfall validation" subsection (line 120).
 
 **DETECT:** Gif or image widget with both `text_align = "scroll"` or `text_align = "scroll_over"` AND `fit = "stretch"`.
 
@@ -80,7 +80,7 @@ These rules are the validation checklist. The skill consults this file at every 
 
 ## Rule 7: text_x_offset != 0 invalid with scroll modes
 
-**SOURCE:** CLAUDE.md — "Footgun validation" subsection (line 120).
+**SOURCE:** CLAUDE.md — "Pitfall validation" subsection (line 120).
 
 **DETECT:** Gif or image widget with `text_x_offset != 0` AND `text_align ∈ ("scroll", "scroll_over")`.
 
@@ -92,7 +92,7 @@ These rules are the validation checklist. The skill consults this file at every 
 
 ## Rule 8: hold_seconds < 0.05 invalid on image widgets
 
-**SOURCE:** CLAUDE.md — "Footgun validation" subsection (line 120).
+**SOURCE:** CLAUDE.md — "Pitfall validation" subsection (line 120).
 
 **DETECT:** Image or gif widget with `hold_seconds < 0.05` (less than 50 milliseconds).
 
@@ -104,7 +104,7 @@ These rules are the validation checklist. The skill consults this file at every 
 
 ## Rule 9: BDF font_size < cell_h invalid on image widgets
 
-**SOURCE:** CLAUDE.md — "Single-row image text" section (line 115) and "Footgun validation" subsection (line 120).
+**SOURCE:** CLAUDE.md — "Single-row image text" section (line 115) and "Pitfall validation" subsection (line 120).
 
 **DETECT:** Gif or image widget with a BDF font (e.g., `font = "6x12"`) and `font_size < cell_h` where `cell_h` is the BDF cell height (12 for 6×12, 8 for 5×8, etc.).
 

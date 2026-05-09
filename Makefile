@@ -63,13 +63,14 @@ render-demo:  ## Render a single demo gif. Usage: make render-demo CONFIG=path/t
 # these — they make live HTTP calls and some need API keys not in CI.
 
 render-long-demos:  ## Render every long-running widget demo (~30 sec each); local only
-	@for toml in docs/site/demos-long/*.toml; do \
+	@if [ -f .env ]; then set -a; . ./.env; set +a; fi; \
+	for toml in docs/site/demos-long/*.toml; do \
 		[ -f "$$toml" ] || continue; \
 		name=$$(basename "$$toml" .toml); \
 		out="docs/site/public/demos-long/$$name.gif"; \
 		req=$$(grep -E '^# requires-env:' "$$toml" | head -1 | awk '{print $$3}'); \
 		if [ -n "$$req" ] && [ -z "$$(printenv $$req)" ]; then \
-			echo "[render-long-demos] SKIP $$name (needs $$req — set it in your shell or .env to render)"; \
+			echo "[render-long-demos] SKIP $$name (needs $$req — add it to .env or export it to render)"; \
 			continue; \
 		fi; \
 		echo "[render-long-demos] $$toml -> $$out"; \
@@ -77,5 +78,6 @@ render-long-demos:  ## Render every long-running widget demo (~30 sec each); loc
 	done
 
 render-long-demo:  ## Render one long-running demo. Usage: make render-long-demo NAME=widget-coinbase
+	@if [ -f .env ]; then set -a; . ./.env; set +a; fi; \
 	uv run python tools/render_demo/render.py docs/site/demos-long/$(NAME).toml \
 		-o docs/site/public/demos-long/$(NAME).gif --duration 30

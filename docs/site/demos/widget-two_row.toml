@@ -21,6 +21,6 @@ type = "two_row"
 top_text = "@example"
 top_color = [225, 48, 108]
 top_align = "center"
-bottom_text = "Now booking — all levels welcome!"
+bottom_text = "Now booking — all levels welcome! Drop in this Saturday for a free intro class at 11am."
 bottom_color = [255, 240, 200]
 bottom_align = "left"

@@ -1,0 +1,26 @@
+---
+title: Wipe transitions
+description: Stationary outgoing + a colored sweep line that erases the panel.
+---
+
+import DemoGif from '../../../components/DemoGif.astro';
+import OptionsTable from '../../../components/OptionsTable.astro';
+import RelatedPages from '../../../components/RelatedPages.astro';
+
+The wipe family runs a colored sweep line across the panel that erases the outgoing widget direction-by-direction, then reveals the incoming widget. Snappier than push — only one widget moves — and the colored sweep line gives it a slightly more dramatic feel.
+
+<DemoGif src="/demos/transitions-wipe.gif" caption="wipe_alternating between two messages" />
+
+## Variants
+
+<OptionsTable source="transitions/wipe" />
+
+## Tuning
+
+- `transition_duration` (seconds): 0.4–0.8 feels right. Below 0.3 the sweep becomes a flash; above 1.0 it drags.
+- `transition_color` ([r, g, b]): override the sweep color on any single-direction variant (`wipe_left`, `wipe_right`, `wipe_up`, `wipe_down`).
+- `transition_colors` (list of [r, g, b]): custom color pool for `wipe_alternating` and `wipe_random`. Supply four colors to pair one with each direction.
+
+`wipe_alternating` ignores `transition_color` (the singular form) — it cycles through a palette tied to each direction. Use `transition_colors` to set the pool.
+
+<RelatedPages slugs={["transitions/push", "transitions/sprite"]} />

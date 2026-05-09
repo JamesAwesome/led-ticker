@@ -1,0 +1,54 @@
+---
+/**
+ * Imports a fact-pack markdown file from `docs/content-source/` and
+ * renders its body inline. The file is expected to contain a
+ * markdown table; Astro renders it as HTML.
+ *
+ * Usage: <OptionsTable source="widgets/message" />
+ *   imports `docs/content-source/widgets/message.md`.
+ */
+
+import { marked } from "marked";
+
+interface Props {
+  source: string;
+}
+const { source } = Astro.props;
+
+// Vite glob: include all .md under content-source. Eager so the
+// build resolves them statically.
+const files = import.meta.glob("/../../content-source/**/*.md", {
+  eager: true,
+  query: "?raw",
+  import: "default",
+});
+
+const lookupKey = `/../../content-source/${source}.md`;
+const raw = files[lookupKey];
+if (!raw) {
+  throw new Error(
+    `OptionsTable: source "${source}" not found at ${lookupKey}. ` +
+      `Available: ${Object.keys(files).join(", ")}`,
+  );
+}
+const html = marked.parse(raw as string);
+---
+
+<div class="options-table" set:html={html} />
+
+<style>
+  .options-table table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+  .options-table th, .options-table td {
+    border: 1px solid var(--sl-color-gray-5);
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+    font-size: 0.95rem;
+  }
+  .options-table th {
+    background: var(--sl-color-gray-6);
+  }
+</style>

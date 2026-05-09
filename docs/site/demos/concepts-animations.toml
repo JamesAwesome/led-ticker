@@ -1,0 +1,21 @@
+# Demo: typewriter on a message with rainbow per-char color.
+# frames_per_char = 6 → ~300ms per char, slow enough to see clearly
+# in the renderer's 5-sec capture window. Default 3 (~150ms) finishes
+# before the demo gets going.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 5.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "Hello!"
+animation = {style = "typewriter", frames_per_char = 6}
+font_color = "rainbow"

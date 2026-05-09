@@ -75,7 +75,12 @@ def test_rewrite_config_substitutes_missing_image(tmp_path):
     assert (tmp_path / new_path).exists() or Path(new_path).exists()
 
 
-def test_rewrite_config_leaves_existing_assets_alone(tmp_path):
+def test_rewrite_config_resolves_existing_relative_paths_to_absolute(tmp_path):
+    """The renderer writes the rewritten config to a temp dir before
+    invoking the engine. Relative paths that resolved fine against the
+    ORIGINAL config_dir would break against the temp dir, so we resolve
+    them to absolute on the way through. (Bug fix from PR adding gif
+    demo support.)"""
     real_png = tmp_path / "real.png"
     Image.new("RGB", (8, 8), (255, 0, 0)).save(real_png)
 
@@ -87,7 +92,10 @@ def test_rewrite_config_leaves_existing_assets_alone(tmp_path):
         config_dir=tmp_path,
         placeholder_dir=tmp_path / "ph",
     )
-    assert rewritten["playlist"]["section"][0]["widget"][0]["path"] == "real.png"
+    new_path = rewritten["playlist"]["section"][0]["widget"][0]["path"]
+    # Path is now absolute and points at the original file (NOT a placeholder).
+    assert Path(new_path).is_absolute()
+    assert Path(new_path).resolve() == real_png.resolve()
 
 
 def test_rewrite_config_substitutes_missing_gif(tmp_path):

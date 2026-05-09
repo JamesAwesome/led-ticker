@@ -1,0 +1,175 @@
+---
+title: "Hardware: Building your own"
+description: Cross-cutting decisions for picking a sign size, budgeting power, developing without hardware, and deploying to a Pi.
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+If you're starting from scratch and want to build a led-ticker rig of
+your own, this page covers the cross-cutting decisions: pick a size,
+budget the power, develop the config locally without buying anything,
+then deploy. led-ticker ships with two **reference builds** that the
+maintainer runs day-to-day and that the documentation, demos, and
+example configs are written against — the
+[smallsign](/hardware/smallsign/) (Pi 4 + 5x 32x16 panels) and the
+[bigsign](/hardware/bigsign/) (Pi 5 + 8x P3 32x64 panels). They're
+bookends, not requirements: anything in between is a viable build, and
+the engine is the same.
+
+## Choosing a sign size
+
+The two reference builds sit at very different points on the
+cost / complexity / use-case curve. Use them as starting points and
+adjust panel count, panel pitch, or layout to fit your space.
+
+| Reference build                   | Cost & complexity                                                                                                  | Use case                                                                                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Smallsign** — 5x 32x16, 160x16  | Lowest. One Pi 4, five panels, a bonnet, a 10A 5V supply. One evening of soldering and a weekend of config work.   | A scrolling marquee for a desk, a shop window, or a single-line live feed (RSS, weather, countdowns). 16 rows is one BDF text line tall.  |
+| **Bigsign** — 8x P3 32x64, 256x64 | High. Pi 5, eight P3 panels, a HAT, a 30A+ supply, a rigid frame, a 2x4 serpentine wiring run, hi-res font tuning. | Storefront-scale display. Fits hi-res emoji, two-row handles + promos, animated GIFs, and Inter / Beloved Sans rendered at native pixels. |
+
+Anything between those two — three panels in a row, six panels in a
+2x3 grid, a custom non-rectangular layout — is fine; the rgbmatrix
+library and the led-ticker engine don't assume the reference shapes.
+You'll edit the `[display]` block (`rows`, `cols`, `chain`,
+`pixel_mapper`) to match your wiring.
+
+You don't need any of this hardware to start. The
+[`render-demo`](/tools/render-demo/) tool runs the real ticker engine
+against a test stub canvas and writes the output to a gif, so you can
+develop your config end-to-end with nothing but a laptop.
+
+## Power budgets
+
+RGB matrix panels draw current proportional to the number of LEDs lit
+at any moment. The rule-of-thumb upper bound is:
+
+```text
+amps_max = rows × cols × number_of_panels × 0.06A   (per LED, full white)
+```
+
+That's the **theoretical maximum** at 5V with every pixel cranked to
+white at the same instant. In practice that never happens — text,
+emoji, and animations only light a fraction of the panel — so the
+practical draw is roughly 30-40% of the theoretical max.
+
+| Reference build | Theoretical max | Practical pick |
+| --------------- | --------------- | -------------- |
+| Smallsign       | 5V × ~150A      | 5V × **10A**   |
+| Bigsign         | 5V × ~980A      | 5V × **60A**   |
+
+A 5V / 10A brick covers the smallsign with comfortable headroom; the
+bigsign wants a 5V / 30-60A supply with thick busbars (split across
+multiple injection points if your panels have multiple power inputs).
+Adafruit's product pages publish per-panel current draw curves —
+cross-reference those for whichever panels you actually buy, since
+brightness, panel revision, and pixel pitch all shift the number.
+
+The Pi itself runs off its own USB-C supply; do **not** try to power
+panels off the Pi's 5V rail. The math doesn't work for one panel
+either, let alone five or eight.
+
+## Software-first development
+
+You can develop a complete led-ticker config without owning a single
+panel. The repo ships a Python test stub that simulates the rgbmatrix
+library, plus a renderer that turns any config into a gif at panel
+resolution.
+
+Install dev deps once:
+
+```bash
+git clone https://github.com/JamesAwesome/led-ticker.git
+cd led-ticker
+make dev
+```
+
+Run the test suite — no hardware, no Docker:
+
+```bash
+make test
+```
+
+`make test` automatically sets `PYTHONPATH=tests/stubs` so the stub
+canvas stands in for the real one. The full suite is ~580 tests and
+finishes in ~15 seconds.
+
+Render any config to a gif at panel resolution:
+
+```bash
+make render-demo CONFIG=mysign.toml OUT=mysign.gif
+```
+
+A minimal config you can render right now:
+
+<TomlExample
+  code={`[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "Hello, panel"
+font_color = "rainbow"`}
+/>
+
+The output gif is upscaled 4x by default so individual LED pixels read
+clearly. See [`render-demo`](/tools/render-demo/) for the full set of
+flags and the long-running pipeline used for data-fetch widgets.
+
+## Deploying to the Pi
+
+Once your config renders the way you want, push it to a Pi:
+
+- **Build the production image** with `make build-docker`. The same
+  Dockerfile builds for both Pi 4 and Pi 5 — the rgbmatrix library
+  detects the SoC at runtime.
+- **Run via systemd**, using the unit file at
+  [`deploy/led-ticker.service`](https://github.com/JamesAwesome/led-ticker/blob/main/deploy/led-ticker.service).
+  It runs `led-ticker --config /opt/led-ticker/config.toml` with
+  `Restart=always`, so the ticker comes back up on power loss.
+- **Mount the config read-only**, so a typo in a hot-edit can't crash
+  the ticker into a half-applied state. Compose example:
+  `./config:/code/config:ro`.
+
+The `deploy/` directory in the repo also has an `install.sh` script
+that wires up the systemd unit on a fresh Pi.
+
+## Pitfalls
+
+**The rgbmatrix library is hardcoded to a fork in the Dockerfile.**
+The Dockerfile pins
+[`jamesawesome/rpi-rgb-led-matrix`](https://github.com/jamesawesome/rpi-rgb-led-matrix)
+(based on [hzeller#1886](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886)
+plus one bullseye-GCC-10 patch). If you `apt install` or `pip install`
+a different rgbmatrix on the Pi outside the Docker image — or check
+out upstream `hzeller/master` and `make install` it — your Pi will
+diverge from what the engine was tested against, and you'll spend an
+afternoon chasing flicker that isn't a config bug. Run via the Docker
+image, or rebuild from source against the pinned fork.
+
+**USB-C "5V 3A" power supplies aren't dedicated panel supplies.** A
+phone charger or a generic USB-C brick marketed as 5V 3A does not
+sustain rated current under inductive matrix load — the voltage sags,
+panels glitch, and you blame the config. Use a dedicated 5V supply
+sized per the power-budget table above (10A for the smallsign, 30-60A
+for the bigsign), with thick power leads to each panel's 2-pin input.
+
+**Panels run hot at full brightness.** P3 panels at brightness 60+ get
+warm to the touch within minutes; the smallsign is more forgiving but
+still climbs over time. For sustained or always-on installs add a fan
+behind the panels, or design a shroud with airflow gaps. Heat shortens
+LED lifespan and can warp panel substrates if it accumulates with no
+ventilation.
+
+<RelatedPages
+  slugs={["hardware/smallsign", "hardware/bigsign", "tools/render-demo", "getting-started"]}
+/>

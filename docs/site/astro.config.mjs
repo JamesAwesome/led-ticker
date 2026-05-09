@@ -41,8 +41,24 @@ export default defineConfig({
           items: [{ autogenerate: { directory: "transitions" } }],
         },
         {
+          label: "Tools",
+          items: [{ autogenerate: { directory: "tools" } }],
+        },
+        {
+          label: "Hardware",
+          items: [{ autogenerate: { directory: "hardware" } }],
+        },
+        {
+          label: "Reference",
+          items: [{ autogenerate: { directory: "reference" } }],
+        },
+        {
           label: "Assets",
           items: [{ autogenerate: { directory: "assets" } }],
+        },
+        {
+          label: "Showcase",
+          link: "/showcase/",
         },
         {
           label: "Pitfalls",

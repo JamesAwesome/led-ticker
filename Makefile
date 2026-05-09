@@ -73,11 +73,17 @@ render-long-demos:  ## Render every long-running widget demo (~30 sec each); loc
 			echo "[render-long-demos] SKIP $$name (needs $$req — add it to .env or export it to render)"; \
 			continue; \
 		fi; \
-		echo "[render-long-demos] $$toml -> $$out"; \
-		uv run python tools/render_demo/render.py "$$toml" -o "$$out" --duration 30 || exit 1; \
+		dur=$$(grep -E '^# render-duration:' "$$toml" | head -1 | awk '{print $$3}'); \
+		dur=$${dur:-30}; \
+		echo "[render-long-demos] $$toml -> $$out ($${dur}s)"; \
+		uv run python tools/render_demo/render.py "$$toml" -o "$$out" --duration $$dur || exit 1; \
 	done
 
 render-long-demo:  ## Render one long-running demo. Usage: make render-long-demo NAME=widget-coinbase
 	@if [ -f .env ]; then set -a; . ./.env; set +a; fi; \
-	uv run python tools/render_demo/render.py docs/site/demos-long/$(NAME).toml \
-		-o docs/site/public/demos-long/$(NAME).gif --duration 30
+	toml="docs/site/demos-long/$(NAME).toml"; \
+	dur=$$(grep -E '^# render-duration:' "$$toml" | head -1 | awk '{print $$3}'); \
+	dur=$${dur:-30}; \
+	echo "[render-long-demo] $$toml ($${dur}s)"; \
+	uv run python tools/render_demo/render.py "$$toml" \
+		-o docs/site/public/demos-long/$(NAME).gif --duration $$dur

@@ -25,6 +25,27 @@ pnpm install
 pnpm run dev
 ```
 
+### pnpm only — no npm or yarn
+
+This project blocks `npm install` and `yarn install` to keep the
+lockfile and node_modules layout consistent across machines. Three
+layers enforce it:
+
+1. **`preinstall` script** in `package.json` runs `npx only-allow pnpm`,
+   which detects the running package manager via
+   `$npm_config_user_agent` and exits non-zero on anything but pnpm.
+   This is the primary block — when you see
+   `Use "pnpm install" for installation in this project` from
+   `only-allow`, that's this layer firing.
+2. **`engines.pnpm: ">=11"`** in `package.json` plus
+   **`engine-strict=true`** in `.npmrc` — together pnpm refuses to
+   install if you're on an old pnpm version. Catches the case where a
+   contributor has a stale pnpm.
+3. **A pre-commit hook** (`no-non-pnpm-lockfiles`) fails the commit if
+   `package-lock.json` or `yarn.lock` end up tracked. Belt-and-suspenders
+   for the case where someone bypasses the preinstall script (e.g. by
+   running `npm install --ignore-scripts`).
+
 ## Building demo gifs
 
 There are TWO demo pipelines:

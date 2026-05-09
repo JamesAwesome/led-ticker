@@ -4,7 +4,11 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@11.0.9",
+  "engines": {
+    "pnpm": ">=11"
+  },
   "scripts": {
+    "preinstall": "npx -y only-allow pnpm",
     "dev": "astro dev",
     "build": "node scripts/build-demos.mjs && astro build",
     "preview": "astro preview",

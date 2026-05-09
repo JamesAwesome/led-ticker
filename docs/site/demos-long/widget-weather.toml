@@ -18,6 +18,7 @@ hold_time = 30.0
 
 [[playlist.section.widget]]
 type = "weather"
+message = "Brooklyn"
 location = "Brooklyn, NY"
 units = "imperial"
 update_interval = 5

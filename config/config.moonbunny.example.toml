@@ -76,41 +76,58 @@ hold_seconds = 6.0
 border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 
 # ---------------------------------------------------------------------------
-# Section 2 — Brand voice
+# Section 2 — "MOONBUNNY" double rainbow hold
 #
-# Beloved Sans Bold @ 28px reads from across the street. Lavender + pink
-# alternate as the headline color. Each line gets its own widget so the
-# transition fires between them.
+# Static hold at large size with rainbow per-char text AND rainbow border
+# chasing around the perimeter — two rainbows. The :moon: + :bunny:
+# emoji slugs render the hires moon and bunny sprites at native scale.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "swap"
-loop_count = 2
-hold_time = 3.5
+loop_count = 1
+hold_time = 5.0
+transition = "dissolve"
+transition_duration = 0.8
 
 [[playlist.section.widget]]
 type = "message"
-text = "Find Your Strength"
+text = ":moon: MOONBUNNY :bunny:"
 font = "beloved-sans-bold"
-font_size = 28
+font_size = 26
 font_threshold = 80
-font_color = [189, 169, 234]   # lavender_primary
+font_color = "rainbow"
+border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+
+# ---------------------------------------------------------------------------
+# Section 3 — "Find Your" combined scroll
+#
+# logo_moon_only.png pillarboxed on the left; the three brand phrases
+# walk BEHIND the moon (text_align="scroll" — image painted on top with
+# skip-black, so text shows through the transparent regions of the
+# moon's halo and disappears behind the moon body itself). Per-char
+# lavender → pink gradient gives the ombre look.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 0.5
 
 [[playlist.section.widget]]
-type = "message"
-text = "Find Your Community"
+type = "image"
+path = "assets/logo_moon_only.png"
+fit = "pillarbox"
+image_align = "left"
+text = "Find Your Strength  *  Find Your Community  *  Aerial for Everybody"
+text_align = "scroll"
+scroll_speed_ms = 50
+hold_seconds = 0.05   # min: text_loops drives the real duration
+text_loops = 1
 font = "beloved-sans-bold"
 font_size = 28
 font_threshold = 80
-font_color = [255, 176, 240]   # pink
-
-[[playlist.section.widget]]
-type = "message"
-text = "Aerial for Everybody"
-font = "beloved-sans-bold"
-font_size = 28
-font_threshold = 80
-font_color = [124, 173, 232]   # sky
+font_color = {style = "gradient", from = [189, 169, 234], to = [255, 176, 240]}
 
 # ---------------------------------------------------------------------------
 # Section 3 — Kids Summer Camps  (with Pikachu wave + rainbow border)
@@ -144,9 +161,14 @@ font_color = [255, 176, 240]   # pink — pops against pikachu yellow
 border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 
 # ---------------------------------------------------------------------------
-# Section 4 — K-pop dance class (NEW promo)
+# Section 4 — K-pop dance class (promo)
 #
-# kpop-dance.webp (540×400 ≈ 1.35:1) pillarboxed on the left.
+# kpop-dance.webp (540×400 ≈ 1.35:1) pillarboxed on the left. Inter-Bold
+# at 26 reads cleanly across the street (more open shapes than Beloved
+# Sans at this size). text_align="scroll_over" paints the video first
+# then the text — so the marquee walks IN FRONT of the dance footage,
+# guaranteed visible regardless of frame brightness (kpop-dance.webp
+# has no transparent regions).
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -162,12 +184,12 @@ path = "assets/kpop-dance.webp"
 fit = "pillarbox"
 image_align = "left"
 text = "K-POP DANCE CLASS  *  NOW OPEN  *  ALL LEVELS"
-text_align = "scroll"
-scroll_speed_ms = 30
+text_align = "scroll_over"
+scroll_speed_ms = 50
 gif_loops = 999
-font = "beloved-sans-bold"
-font_size = 28
-font_threshold = 80
+font = "Inter-Bold"
+font_size = 26
+font_threshold = 128
 font_color = [254, 255, 204]   # cream — high contrast on the dance video
 
 # ---------------------------------------------------------------------------
@@ -239,39 +261,27 @@ font_threshold = 80
 font_color = [189, 169, 234]   # lavender
 
 # ---------------------------------------------------------------------------
-# Section 6 — Welcoming / inclusion (the brand's emotional core)
+# Section 6 — Welcoming / inclusion (combined scroll)
+#
+# All three phrases on one continuous marquee with a per-char
+# pink → cream → lavender ColorCycle so the whole line cycles
+# through the brand palette as it scrolls.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "swap"
 loop_count = 1
-hold_time = 4.0
+hold_time = 0.5
 transition = "sailor_moon_alternating"
 transition_duration = 2.0
 
 [[playlist.section.widget]]
 type = "message"
-text = "Every Body Friendly"
+text = "Every Body Friendly  *  Beginner Friendly  *  Meet You Where You Are"
 font = "beloved-sans-bold"
 font_size = 28
 font_threshold = 80
-font_color = [255, 176, 240]   # pink
-
-[[playlist.section.widget]]
-type = "message"
-text = "Beginner Friendly"
-font = "beloved-sans-bold"
-font_size = 28
-font_threshold = 80
-font_color = [254, 255, 204]   # cream
-
-[[playlist.section.widget]]
-type = "message"
-text = "Meet You Where You Are"
-font = "beloved-sans-bold"
-font_size = 28
-font_threshold = 80
-font_color = [189, 169, 234]   # lavender
+font_color = "color_cycle"
 
 # ---------------------------------------------------------------------------
 # Section 7 — IG handle two-row (storefront-window layout)
@@ -353,34 +363,18 @@ bottom_font_size = 16
 bottom_font_threshold = 128
 
 # ---------------------------------------------------------------------------
-# Section 8 — Connect (closes the loop with the website + email)
+# Section 8 — Connect (combined scroll: site + email + IG handle)
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "swap"
 loop_count = 1
-hold_time = 3.5
+hold_time = 0.5
 
 [[playlist.section.widget]]
 type = "message"
-text = "moonbunnyaerial.com"
+text = ":instagram: @moonbunnyaerial  *  :email: info@moonbunnyaerial.com  *  moonbunnyaerial.com"
 font = "beloved-sans-bold"
 font_size = 26
 font_threshold = 80
-font_color = [254, 255, 204]   # cream
-
-[[playlist.section.widget]]
-type = "message"
-text = ":email: info@moonbunnyaerial.com"
-font = "beloved-sans-bold"
-font_size = 24
-font_threshold = 80
-font_color = [189, 169, 234]   # lavender
-
-[[playlist.section.widget]]
-type = "message"
-text = ":instagram: @moonbunnyaerial"
-font = "beloved-sans-bold"
-font_size = 26
-font_threshold = 80
-font_color = [225, 48, 108]   # IG magenta
+font_color = "color_cycle"

@@ -3,19 +3,22 @@ title: message widget
 description: Static text with optional border, inline emoji, and color/animation effects.
 ---
 
-import DemoGif from '../../../components/DemoGif.astro';
-import TomlExample from '../../../components/TomlExample.astro';
-import OptionsTable from '../../../components/OptionsTable.astro';
-import DecisionRule from '../../../components/DecisionRule.astro';
-import RelatedPages from '../../../components/RelatedPages.astro';
+import DemoGif from "../../../components/DemoGif.astro";
+import TomlExample from "../../../components/TomlExample.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import DecisionRule from "../../../components/DecisionRule.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `message` widget displays static text. It's the most-used widget — most LED signs are 80% messages with a sprinkling of data widgets.
 
 <DemoGif src="/demos/message-rainbow.gif" caption="message with font_color = 'rainbow'" />
 
-<TomlExample title="Minimal example" code={`[[playlist.section.widget]]
+<TomlExample
+  title="Minimal example"
+  code={`[[playlist.section.widget]]
 type = "message"
-text = "Hello, world!"`} />
+text = "Hello, world!"`}
+/>
 
 ## Options
 
@@ -25,24 +28,30 @@ text = "Hello, world!"`} />
 
 Static text with brand color:
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "message"
 text = "Aerial for Everybody"
-font_color = [189, 169, 234]   # brand lavender`} />
+font_color = [189, 169, 234]   # brand lavender`}
+/>
 
 Inline emoji:
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "message"
-text = ":taco: Taco Tuesday!"`} />
+text = ":taco: Taco Tuesday!"`}
+/>
 
 Typewriter effect with rainbow text:
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "message"
 text = "Now Enrolling"
 font_color = "rainbow"
-animation = "typewriter"`} />
+animation = "typewriter"`}
+/>
 
 ## Pitfalls
 

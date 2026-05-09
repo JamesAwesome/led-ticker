@@ -3,8 +3,8 @@ title: Display
 description: How rows, cols, chain, parallel, scale, and pixel_mapper combine into a logical canvas.
 ---
 
-import TomlExample from '../../../components/TomlExample.astro';
-import RelatedPages from '../../../components/RelatedPages.astro';
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
 
 led-ticker drives a panel of LEDs. The `[display]` block in your TOML tells the engine the panel's physical geometry — how many pixels wide and tall each panel is, how many chain together, and what scaling to apply. Get this right and everything else "just works"; get it wrong and content prints to a three-pixel slice or runs off the edge entirely.
 
@@ -12,15 +12,20 @@ led-ticker drives a panel of LEDs. The `[display]` block in your TOML tells the 
 
 Two hardware configurations ship as ready-to-use examples. The **small sign** uses a Raspberry Pi 4 with five 32×16 panels chained horizontally for a 160×16 canvas. The **bigsign** uses a Raspberry Pi 5 with eight P3 32×64 panels arranged in a 2×4 vertical-serpentine layout for a 256×64 canvas.
 
-<TomlExample title="Small sign — Pi 4 + 5× 32×16 panels = 160×16 logical" code={`[display]
+<TomlExample
+  title="Small sign — Pi 4 + 5× 32×16 panels = 160×16 logical"
+  code={`[display]
 rows = 16
 cols = 32
 chain = 5
 default_scale = 1
 brightness = 60
-slowdown_gpio = 2`} />
+slowdown_gpio = 2`}
+/>
 
-<TomlExample title="Bigsign — Pi 5 + 8× P3 32×64 vertical-serpentine 2×4 = 256×64 logical" code={`[display]
+<TomlExample
+  title="Bigsign — Pi 5 + 8× P3 32×64 vertical-serpentine 2×4 = 256×64 logical"
+  code={`[display]
 rows = 32
 cols = 64
 chain = 8
@@ -30,7 +35,8 @@ default_scale = 4
 brightness = 60
 slowdown_gpio = 3
 pwm_bits = 8
-rp1_rio = 1`} />
+rp1_rio = 1`}
+/>
 
 ## Logical canvas vs real panel
 
@@ -42,29 +48,31 @@ There is one hard ceiling you must respect: **`content_height × scale ≤ panel
 
 `scale` and `content_height` can also be set per section, overriding the display-level defaults. The classic case is a `two_row` widget: its two text rows need more horizontal room to fit handles like `@MoonBunny`, so it typically runs at `scale = 2`, giving 128 logical pixels of width instead of the default 64.
 
-<TomlExample code={`[[playlist.section]]
+<TomlExample
+  code={`[[playlist.section]]
 mode = "swap"
 scale = 2
 content_height = 24
-hold_time = 4.0`} />
+hold_time = 4.0`}
+/>
 
 ## All `[display]` options
 
-| Option | Type | Default | Notes |
-|--------|------|---------|-------|
-| `rows` | int | `16` | Pixel rows per panel. 16 for the small sign, 32 for the bigsign. |
-| `cols` | int | `32` | Pixel columns per panel. 32 for the small sign, 64 for the bigsign. |
-| `chain` | int | `1` | Number of panels chained together. 5 (small sign) or 8 (bigsign). |
-| `parallel` | int | `1` | Parallel panel chains. Pi 4 only — bigsign uses `pixel_mapper` instead. |
-| `pixel_mapper` | string | `""` | Custom panel-arrangement string for non-linear layouts (e.g. the bigsign's serpentine `"Remap:256,64\|..."` string). |
-| `default_scale` | int | `1` | Logical-to-real pixel multiplier. 1 for the small sign, 4 for the bigsign. Override per section with `scale = N`. |
-| `brightness` | int 1–100 | `100` | Panel brightness percent. Both reference signs use 60. |
-| `slowdown_gpio` | int | `1` | GPIO timing slowdown. 2 on Pi 4 (small sign) or 3 on Pi 5 (bigsign). Raise to 4–5 if you see flicker. |
-| `gpio_mapping` | string | `"adafruit-hat"` | Wiring mapping. Both reference signs use the Adafruit HAT. |
-| `pwm_bits` | int | `11` | PWM bit depth. Bigsign uses 8 for roughly 8× faster refresh at a small cost to color depth. |
-| `pwm_lsb_nanoseconds` | int | `130` | PWM lower-bit timing. Higher values are slower but more stable. |
-| `show_refresh` | bool | `false` | Print the measured refresh rate to stderr — useful when tuning bigsign timing. |
-| `no_hardware_pulse` | bool | `false` | Disable hardware PWM and use CPU instead. Rarely needed. |
-| `rp1_rio` | int | `0` | Pi 5 only: `0` = PIO mode (lower CPU), `1` = RIO mode (faster refresh, more CPU). |
+| Option                | Type      | Default          | Notes                                                                                                                |
+| --------------------- | --------- | ---------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `rows`                | int       | `16`             | Pixel rows per panel. 16 for the small sign, 32 for the bigsign.                                                     |
+| `cols`                | int       | `32`             | Pixel columns per panel. 32 for the small sign, 64 for the bigsign.                                                  |
+| `chain`               | int       | `1`              | Number of panels chained together. 5 (small sign) or 8 (bigsign).                                                    |
+| `parallel`            | int       | `1`              | Parallel panel chains. Pi 4 only — bigsign uses `pixel_mapper` instead.                                              |
+| `pixel_mapper`        | string    | `""`             | Custom panel-arrangement string for non-linear layouts (e.g. the bigsign's serpentine `"Remap:256,64\|..."` string). |
+| `default_scale`       | int       | `1`              | Logical-to-real pixel multiplier. 1 for the small sign, 4 for the bigsign. Override per section with `scale = N`.    |
+| `brightness`          | int 1–100 | `100`            | Panel brightness percent. Both reference signs use 60.                                                               |
+| `slowdown_gpio`       | int       | `1`              | GPIO timing slowdown. 2 on Pi 4 (small sign) or 3 on Pi 5 (bigsign). Raise to 4–5 if you see flicker.                |
+| `gpio_mapping`        | string    | `"adafruit-hat"` | Wiring mapping. Both reference signs use the Adafruit HAT.                                                           |
+| `pwm_bits`            | int       | `11`             | PWM bit depth. Bigsign uses 8 for roughly 8× faster refresh at a small cost to color depth.                          |
+| `pwm_lsb_nanoseconds` | int       | `130`            | PWM lower-bit timing. Higher values are slower but more stable.                                                      |
+| `show_refresh`        | bool      | `false`          | Print the measured refresh rate to stderr — useful when tuning bigsign timing.                                       |
+| `no_hardware_pulse`   | bool      | `false`          | Disable hardware PWM and use CPU instead. Rarely needed.                                                             |
+| `rp1_rio`             | int       | `0`              | Pi 5 only: `0` = PIO mode (lower CPU), `1` = RIO mode (faster refresh, more CPU).                                    |
 
 <RelatedPages slugs={["concepts/fonts", "widgets/two_row", "getting-started"]} />

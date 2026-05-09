@@ -19,11 +19,11 @@ const files = import.meta.glob("../../../content-source/rules/*.md", {
   import: "default",
 });
 
-const matchKey = Object.keys(files).find((k) =>
-  k.includes(`/${idStr}-`),
-);
+const matchKey = Object.keys(files).find((k) => k.includes(`/${idStr}-`));
 if (!matchKey) {
-  throw new Error(`DecisionRule: rule id "${id}" not found. Looked for files matching /${idStr}-*.md`);
+  throw new Error(
+    `DecisionRule: rule id "${id}" not found. Looked for files matching /${idStr}-*.md`,
+  );
 }
 const raw = files[matchKey];
 const html = marked.parse(raw as string);

@@ -8,7 +8,13 @@ const { slugs } = Astro.props;
 <aside class="related">
   <p class="related-title">See also</p>
   <ul>
-    {slugs.map((s) => <li><a href={`/${s}/`}>{s}</a></li>)}
+    {
+      slugs.map((s) => (
+        <li>
+          <a href={`/${s}/`}>{s}</a>
+        </li>
+      ))
+    }
   </ul>
 </aside>
 
@@ -22,6 +28,12 @@ const { slugs } = Astro.props;
     font-weight: 600;
     margin-bottom: 0.5rem;
   }
-  .related ul { list-style: none; padding: 0; margin: 0; }
-  .related li { margin: 0.25rem 0; }
+  .related ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .related li {
+    margin: 0.25rem 0;
+  }
 </style>

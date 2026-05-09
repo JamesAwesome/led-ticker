@@ -70,7 +70,7 @@ The skill produces configs in THIS structure. Never use top-level `[section_name
 
 ### Phase 1: Outline
 
-Load `references/hardware-guide.md`.
+Load `docs/content-source/hardware-guide-legacy.md`.
 
 Ask these 7 questions, one at a time. Use multi-choice format where listed.
 
@@ -78,7 +78,7 @@ Ask these 7 questions, one at a time. Use multi-choice format where listed.
    *(Note: "both" is reserved for future parallel-config support; if the user picks both, explain that's not yet supported and ask them to pick one.)*
 2. **Use case category:** store window / personal feed / event countdown / sports scoreboard / art piece / mixed
 3. **Viewing distance:** close (≤6ft) / medium (6–20ft) / far (20ft+)
-   *(Drives default font sizes — consult `references/hardware-guide.md` distance table.)*
+   *(Drives default font sizes — consult `docs/content-source/hardware-guide-legacy.md` distance table.)*
 4. **Content sources** (multi-select): rss / weather / custom messages / gifs+images / sports / crypto / countdown
 5. **Brand presence:** none / colors only / colors+fonts / colors+fonts+logo
 6. **Tone:** minimal / playful / info-dense / branded-pro
@@ -98,31 +98,31 @@ User confirms or edits the list (add / remove / reorder).
 
 ### Phase 2: Per-section pass
 
-Load `references/snippets.md`, `references/widgets.md`, `references/asset-handling.md`, `references/decision-rules.md`.
+Load `references/snippets.md`, `docs/content-source/widgets-legacy.md`, `docs/content-source/asset-handling-legacy.md`, `docs/content-source/decision-rules-legacy.md`.
 
 **Brand font defaults (carried across all sections):**
 
-If Phase 1 brand presence was `colors+fonts` or `colors+fonts+logo`, the user has already named one or more font files (collected per `references/asset-handling.md`). Pick a per-tier default font_size from the asset-handling viewing-distance table BEFORE entering the per-section loop, e.g. medium-distance bigsign + Inter-Bold → 22. Use this as the default for every text-bearing widget (message, countdown, two_row, weather, image/gif overlay text, plus `[playlist.section.title]` blocks). Don't re-ask per section.
+If Phase 1 brand presence was `colors+fonts` or `colors+fonts+logo`, the user has already named one or more font files (collected per `docs/content-source/asset-handling-legacy.md`). Pick a per-tier default font_size from the asset-handling viewing-distance table BEFORE entering the per-section loop, e.g. medium-distance bigsign + Inter-Bold → 22. Use this as the default for every text-bearing widget (message, countdown, two_row, weather, image/gif overlay text, plus `[playlist.section.title]` blocks). Don't re-ask per section.
 
 Sections-pass loop — for each confirmed section in the outline:
 
 1. Look up the snippet matching (use_case × widget × sign_target) in `references/snippets.md`.
 2. Ask only the widget-specific questions the snippet's "must customize" list requires. Use AskUserQuestion. **If the user picked a custom brand font in Phase 1, also append `font` / `font_size` / `font_threshold` to every text-bearing widget in this section even if the snippet's must-customize list omits them** — the snippets are pre-fonts and need the brand applied.
-3. For asset-bearing sections (gif, image, custom font): collect assets per `references/asset-handling.md`. Place fonts in `config/fonts/<file>` and images in `config/assets/<file>`. Verify the path exists before referencing it in TOML. Never fetch URLs silently.
+3. For asset-bearing sections (gif, image, custom font): collect assets per `docs/content-source/asset-handling-legacy.md`. Place fonts in `config/fonts/<file>` and images in `config/assets/<file>`. Verify the path exists before referencing it in TOML. Never fetch URLs silently.
 4. Write the section's TOML to the in-progress config buffer using the `[[playlist.section]]` / `[[playlist.section.widget]]` structure. If the section has a `[playlist.section.title]` and brand fonts are in play, apply the brand font to the title too.
-5. Run per-section lint: run `led-ticker validate config/config.toml --json` and surface any `errors` or `warnings` from the output as flag-and-ask items, citing each `rule` and `fix` field. Then check font-size vs viewing distance (see step 5a below) and any remaining issues from `references/decision-rules.md` not caught by the validator.
+5. Run per-section lint: run `led-ticker validate config/config.toml --json` and surface any `errors` or `warnings` from the output as flag-and-ask items, citing each `rule` and `fix` field. Then check font-size vs viewing distance (see step 5a below) and any remaining issues from `docs/content-source/decision-rules-legacy.md` not caught by the validator.
 
-   **Additionally** check font-size vs viewing distance: if Phase 1 distance was `medium` and the user picked a `font_size ≥ 24`, OR distance was `far` and `font_size < 22`, flag with: "Phase 1 distance was <X>; recommended `font_size` is <range>; you picked <N>. Want me to align with the recommendation?" Cite `references/asset-handling.md` viewing-distance table.
+   **Additionally** check font-size vs viewing distance: if Phase 1 distance was `medium` and the user picked a `font_size ≥ 24`, OR distance was `far` and `font_size < 22`, flag with: "Phase 1 distance was <X>; recommended `font_size` is <range>; you picked <N>. Want me to align with the recommendation?" Cite `docs/content-source/asset-handling-legacy.md` viewing-distance table.
 
 6. Brief "looks good?" before moving to the next section.
 
 ### Phase 3: Polish
 
-Load `references/transitions.md`, `references/decision-rules.md`.
+Load `docs/content-source/transitions-legacy.md`, `docs/content-source/decision-rules-legacy.md`.
 
 Ask these questions (5–7 total, condensed where possible):
 
-1. **Default transition + duration + easing** — offer 3 picks based on Phase 1 tone. Consult the "Selecting a transition" table in `references/transitions.md`:
+1. **Default transition + duration + easing** — offer 3 picks based on Phase 1 tone. Consult the "Selecting a transition" table in `docs/content-source/transitions-legacy.md`:
    - Minimal → `cut` or `wipe_left`
    - Playful → `nyancat_alternating` or `pokeball_alternating`
    - Info-dense → `push_up` or `wipe_up`
@@ -130,10 +130,10 @@ Ask these questions (5–7 total, condensed where possible):
 2. **`between_sections` transition** — usually different from the default; suggest `dissolve` for branded-pro, `cut` for minimal.
 3. **Default `hold_time`** — defaults: continuous loop → 5s, scheduled windows → 10s.
 4. **Brightness** — defaults: small=60, bigsign=60; ask if user wants different.
-5. **Bigsign refresh tuning** — only ask if sign=bigsign AND tone=info-dense. Suggest `pwm_bits = 8`, `rp1_rio = 1` (consult `references/hardware-guide.md` refresh tuning notes).
+5. **Bigsign refresh tuning** — only ask if sign=bigsign AND tone=info-dense. Suggest `pwm_bits = 8`, `rp1_rio = 1` (consult `docs/content-source/hardware-guide-legacy.md` refresh tuning notes).
 6. **Save destination** — propose `config/config.<descriptive-slug>.toml` based on Phase 1 answers (e.g. `moonbunny-bigsign`, `office-rss-small`); ask if user wants to override. After write, ask: "Activate this as the live config? (copies to `config/config.toml`, backs up any existing to `config/config.toml.bak`)"
 
-Run final validation: run `led-ticker validate config/config.toml --json`. Surface all `errors` as mandatory fixes and `warnings` as flag-and-ask before writing. Also do a full pass over `references/decision-rules.md` for any issues not caught by the validator.
+Run final validation: run `led-ticker validate config/config.toml --json`. Surface all `errors` as mandatory fixes and `warnings` as flag-and-ask before writing. Also do a full pass over `docs/content-source/decision-rules-legacy.md` for any issues not caught by the validator.
 
 Write the file with all three top-level blocks (`[display]`, `[title]`, `[transitions]`) plus all the `[[playlist.section]]` entries.
 
@@ -147,10 +147,10 @@ Print:
 
 ## `add` mode
 
-Load `references/widgets.md`, `references/snippets.md`, `references/asset-handling.md`, `references/decision-rules.md`.
+Load `docs/content-source/widgets-legacy.md`, `references/snippets.md`, `docs/content-source/asset-handling-legacy.md`, `docs/content-source/decision-rules-legacy.md`.
 
 1. Read `config/config.toml`. Extract: sign target (from `default_scale` + display dims), brand colors (from `bg_color` / common `font_color` values), default transition / hold / easing, existing sections list. Also **infer use_case** from existing widgets — e.g., presence of `mlb` / `mlb_standings` → `sports`; multiple `rss_feed` + `weather` + `coinbase` → `personal_feed`; a single `gif`/`image` filling the panel → `art`; mixed content with brand colors + handle → `store_window`. The inferred use_case drives snippet lookup in step 3. If you're not confident, ask the user: "I'm reading this as a <X> config — does that match?"
-2. Ask: "What kind of section do you want to add?" — multi-select from `references/widgets.md`.
+2. Ask: "What kind of section do you want to add?" — multi-select from `docs/content-source/widgets-legacy.md`.
 3. For each chosen widget: same flow as `new` Phase 2 — look up the snippet by (inferred-use_case × widget × sign) in `references/snippets.md`, ask the snippet's "must customize" questions, collect any assets, write the section TOML, run per-section lint.
 4. Ask: "Where to insert?" — end / before \<section N\> / after \<section N\>.
 5. Show full diff. First in-place edit per session creates `config/config.toml.bak` (overwrites any prior `.bak` without prompting).
@@ -162,9 +162,9 @@ No Phase 3 — global `[transitions]` and `hold_time` are not re-asked. The new 
 
 ## `refine` mode
 
-Load `references/decision-rules.md`, `references/widgets.md`, `references/transitions.md`.
+Load `docs/content-source/decision-rules-legacy.md`, `docs/content-source/widgets-legacy.md`, `docs/content-source/transitions-legacy.md`.
 
-1. Read `config/config.toml`. Run `led-ticker validate config/config.toml --json` and cache the output as the base violation list (`errors` and `warnings` from the JSON). Also run a full pass over `references/decision-rules.md` for any issues not yet caught by the validator.
+1. Read `config/config.toml`. Run `led-ticker validate config/config.toml --json` and cache the output as the base violation list (`errors` and `warnings` from the JSON). Also run a full pass over `docs/content-source/decision-rules-legacy.md` for any issues not yet caught by the validator.
 2. Ask one symptom-style multi-select question:
    - "Too small to read at viewing distance"
    - "Too aggressive / busy"
@@ -178,16 +178,16 @@ Load `references/decision-rules.md`, `references/widgets.md`, `references/transi
 
    | Symptom | Inspect | Propose |
    |---------|---------|---------|
-   | Too small at far + bigsign + currently BDF | `font` field on text widgets | Hires Inter at `font_size = 24–32` (consult `references/asset-handling.md` distance table). Migrate from BDF default. |
+   | Too small at far + bigsign + currently BDF | `font` field on text widgets | Hires Inter at `font_size = 24–32` (consult `docs/content-source/asset-handling-legacy.md` distance table). Migrate from BDF default. |
    | Too small + already hires | `font_size` value | Bump `font_size` up one tier (16→22, 22→28, 28→32). |
    | Too aggressive / busy | `font_color`, `border`, transitions | Swap per-char `rainbow` → `color_cycle`. Replace `wipe_alternating` / `nyancat_alternating` → `cut` or `wipe_left`. Lengthen `hold_time` by 50%. Drop animated `border` to constant or remove. |
    | Too slow / too much dead time | `hold_time`, `transition_duration` | Reduce `hold_time` by 30–50%. If `transition_duration > 1000`, drop to 600. Consider `cut` for inter-widget transitions. |
    | Too fast / can't read it | `hold_time`, `transition_duration` | Raise `hold_time` by 50%. If using fast transitions (`cut`, `push_left` at 400ms), bump duration to 800ms or swap to a wipe. |
    | Wrong colors / bad contrast | `bg_color` vs `font_color` luminance | If both colors are light or both are dark, adjust one for contrast (rough luminance heuristic: sum of RGB channels; push them apart). For brand-locked colors, propose adding a `border` for separation. |
-   | Image fit looks bad + `fit="stretch"` + non-matching aspect | `fit`, image dimensions | Propose `fit="pillarbox"` (image wider than panel) or `fit="letterbox"` (image taller than panel) per `references/asset-handling.md` decision tree. Add `image_align` if pillarboxing. |
+   | Image fit looks bad + `fit="stretch"` + non-matching aspect | `fit`, image dimensions | Propose `fit="pillarbox"` (image wider than panel) or `fit="letterbox"` (image taller than panel) per `docs/content-source/asset-handling-legacy.md` decision tree. Add `image_align` if pillarboxing. |
    | Border / animation feels off | `border.speed`, `border.char_offset`, `border.thickness`, `animation` | If border feels too fast: lower `speed` (default 4 on bigsign; try 2). Too uniform: raise `char_offset`. Too thin from far: increase `thickness` from 1 to 2. Typewriter feels off-pace: tune `frames_per_char` (default 3; raise for slower reveal). |
 
-4. After addressing stated symptoms, surface the step-1 violation list as flag-and-ask. Each item: "I also noticed: \<rule violation\> (severity) — want me to fix? Per `references/decision-rules.md` rule N."
+4. After addressing stated symptoms, surface the step-1 violation list as flag-and-ask. Each item: "I also noticed: \<rule violation\> (severity) — want me to fix? Per `docs/content-source/decision-rules-legacy.md` rule N."
 5. Show each proposed delta as a unified diff. User approves per delta.
 6. Apply approved edits. First in-place edit per session backs up to `config/config.toml.bak` (overwrites any prior `.bak` without prompting).
 
@@ -195,7 +195,7 @@ Load `references/decision-rules.md`, `references/widgets.md`, `references/transi
 
 ## Validation: flag-and-ask philosophy
 
-The skill **never silently auto-fixes a violation.** Every flag is presented to the user with the rule cited (`per references/decision-rules.md rule N`). The user decides whether to apply the fix. This applies in all three modes at all three checkpoints:
+The skill **never silently auto-fixes a violation.** Every flag is presented to the user with the rule cited (`per docs/content-source/decision-rules-legacy.md rule N`). The user decides whether to apply the fix. This applies in all three modes at all three checkpoints:
 
 1. Per-section lint (Phase 2 of `new`, or per-section in `add`)
 2. Phase 3 final validation (assembled config, `new` mode only)

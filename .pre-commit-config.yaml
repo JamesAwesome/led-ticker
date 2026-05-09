@@ -19,6 +19,18 @@ repos:
       # every PR (.github/workflows/ci.yml). Local devs can still run
       # it manually with `make test` while iterating.
 
+      - id: no-non-pnpm-lockfiles
+        name: no-non-pnpm-lockfiles
+        # Fail loudly if package-lock.json or yarn.lock end up tracked
+        # under docs/site/. The preinstall script in package.json
+        # blocks npm/yarn from generating these in the first place;
+        # this hook is the belt-and-suspenders catch for the case
+        # someone bypasses lifecycle hooks. Two `test -f` checks.
+        entry: scripts/check-no-foreign-lockfiles.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: docs-lint
         name: docs-lint (prettier + astro check)
         # corepack enable is best-effort — required on CI runners (where

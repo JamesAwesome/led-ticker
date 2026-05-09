@@ -17,13 +17,13 @@ const { source } = Astro.props;
 
 // Vite glob: include all .md under content-source. Eager so the
 // build resolves them statically.
-const files = import.meta.glob("/../../content-source/**/*.md", {
+const files = import.meta.glob("../../../content-source/**/*.md", {
   eager: true,
   query: "?raw",
   import: "default",
 });
 
-const lookupKey = `/../../content-source/${source}.md`;
+const lookupKey = `../../../content-source/${source}.md`;
 const raw = files[lookupKey];
 if (!raw) {
   throw new Error(

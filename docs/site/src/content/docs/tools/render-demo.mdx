@@ -8,7 +8,7 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 
 `render-demo` is the tool that builds every gif on this docs site. It takes a led-ticker `config.toml`, runs the real ticker engine against the test stub canvas, captures every `SwapOnVSync` frame, and encodes the result to a gif at panel resolution. The script lives at [`tools/render_demo/render.py`](https://github.com/jamesawesome/led-ticker/blob/main/tools/render_demo/render.py).
 
-It exists so the docs can show what a config actually looks like on a panel without anyone needing real hardware on hand. The same engine that drives the LEDs drives the renderer, so the output matches what you'd see on the sign frame-for-frame — minus the physical retina effect of staring at real LEDs.
+It exists so the docs can show what a config actually looks like on a panel without anyone needing real hardware on hand. The same engine that drives the LEDs drives the renderer, so the output matches what you'd see on the sign frame-for-frame — minus the physical brightness and viewing-angle differences of real LEDs.
 
 ## Two pipelines
 
@@ -30,17 +30,17 @@ make render-demo CONFIG=path/to/config.toml OUT=out.gif
 For a minimal demo TOML — the same shape the auto-rendered pipeline expects:
 
 <TomlExample
-  code={`[matrix]
-chain_length = 5
-parallel = 1
+  code={`[display]
 rows = 16
 cols = 32
-
-[playlist]
-mode = "swap"
-hold_time = 3.0
+chain = 5
+default_scale = 1
+brightness = 60
 
 [[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
 
 [[playlist.section.widget]]
 type = "message"
@@ -56,12 +56,15 @@ The output gif is upscaled 4× by default so individual LED pixels read clearly 
 
 ## CLI flags
 
-The Makefile target wraps `uv run python tools/render_demo/render.py`. The two flags worth knowing:
+The Makefile target wraps `uv run python tools/render_demo/render.py`. The user-facing flags:
 
-| Flag           | Default    | Purpose                                               |
-| -------------- | ---------- | ----------------------------------------------------- |
-| `--out` / `-o` | (required) | Path to write the gif.                                |
-| `--duration N` | `5`        | Capture window in seconds. Longer means a bigger gif. |
+| Flag                | Default    | Purpose                                                                      |
+| ------------------- | ---------- | ---------------------------------------------------------------------------- |
+| `--output` / `-o`   | (required) | Output gif path.                                                             |
+| `--duration N`      | `5`        | Capture duration in seconds. Longer means a bigger gif.                      |
+| `--upscale N`       | `4`        | Pixel upscale factor. The gif is `N×` panel resolution per side.             |
+| `--fps N`           | `20`       | Output gif fps. Matches the engine's 50ms tick cadence.                      |
+| `--start-section N` | `0`        | Start at this section index. Useful for jumping past intros on long configs. |
 
 For per-demo overrides without touching the build script, the auto-render pipeline parses an optional `# render-duration: N` comment from the top of each TOML. A wide marquee that needs more than five seconds to complete one full traversal can declare it inline:
 
@@ -93,6 +96,6 @@ When `make render-long-demos` walks `docs/site/demos-long/*.toml`, any TOML whos
 
 **The test stub canvas does not paint hi-res TTF fonts identically to real hardware.** The threshold-based rasterization path runs the same way, but subtle pixel-level differences can show up at small font sizes or with thin-stroked typefaces. If a demo gif looks slightly off relative to the real panel, the panel is the source of truth — tune `font_threshold` against hardware, not the gif.
 
-**Pillar-boxing on retina displays is expected.** Gifs are rendered at panel resolution and upscaled 4× nearest-neighbor; the docs site CSS may pillar-box them inside their containers depending on viewport width. That's a display artifact, not a render bug.
+**Output gif files are larger than panel resolution would suggest.** The renderer upscales gifs `--upscale` × before encoding (default 4), so a 256×64 bigsign panel becomes a 1024×256 gif on disk. That's deliberate — the upscaling makes individual LED pixels read clearly on retina displays — but it does mean file sizes grow with the square of the upscale factor. Drop `--upscale 2` if you need a smaller artifact.
 
 <RelatedPages slugs={["tools/validate", "tools/creating-a-config", "concepts/display"]} />

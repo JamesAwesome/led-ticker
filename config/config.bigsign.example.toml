@@ -11,8 +11,11 @@ chain = 8
 parallel = 1
 
 # Remap each panel to its physical position. Chain enters at the bottom-right
-# panel and snakes vertically (1↑2, then left to 3↓4, etc.); all panels are
-# installed upright (no 180° rotations). Format:
+# panel and climbs each column bottom-to-top (1↑2 in column 4), then jumps
+# diagonally to the bottom of the next column to its left and climbs again
+# (3↑4 in column 3, 5↑6 in column 2, 7↑8 in column 1). All panels installed
+# upright (no 180° rotations). See /hardware/bigsign/ for the full diagram.
+# Format:
 #   Remap:WIDTH,HEIGHT|x,yORIENT|... (one entry per panel in chain order)
 # Orientations: n=normal, s=180°, e=270°, w=90°, x=discard.
 # If your top-row panels are physically flipped 180°, swap each top-row 'n'

@@ -1,0 +1,25 @@
+# Demo: gif widget with pikachu wave + scrolling text overlay.
+# Uses a bundled asset from config/assets/. Path is relative to this
+# TOML file's location (docs/site/demos/) — three levels up to repo
+# root, then config/assets/.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "gif"
+path = "../../../config/assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+image_align = "left"
+text = "Hello!"
+text_align = "scroll_over"
+gif_loops = 999
+font_color = [255, 200, 100]

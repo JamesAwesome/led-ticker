@@ -1,0 +1,83 @@
+---
+title: two_row widget
+description: Held top row + scrolling bottom row, ideal for storefront layouts.
+---
+
+import DemoGif from '../../../components/DemoGif.astro';
+import TomlExample from '../../../components/TomlExample.astro';
+import OptionsTable from '../../../components/OptionsTable.astro';
+import RelatedPages from '../../../components/RelatedPages.astro';
+
+The `two_row` widget renders two independent text strings on the same canvas: a **held top row** for a stable identifier (handle, headline, brand tag) and a **scrolling bottom row** for promotional copy that can be longer than the canvas width. When the bottom row fits, it stays fixed using `bottom_align`; when it overflows, it scrolls left automatically.
+
+It is designed for the bigsign in `swap` mode with `scale = 2` per section, which doubles the logical canvas width to 128 logical pixels — wide enough to hold most social handles on the top row without scrolling.
+
+<DemoGif src="/demos/widget-two_row.gif" caption="two_row at scale=1 — top: @example (IG magenta), bottom: scrolling promo (cream)" />
+
+<TomlExample title="Minimal example" code={`[[playlist.section.widget]]
+type = "two_row"
+top_text = "@yourhandle"
+bottom_text = "Open daily 10–6 · all levels welcome"`} />
+
+## Options
+
+<OptionsTable source="widgets/two_row" />
+
+## Common patterns
+
+Brand-handle layout with inline emoji:
+
+<TomlExample code={`[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 16
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "@moonbunny :instagram: :email: hello@example.com"
+top_color = [225, 48, 108]
+top_align = "center"
+bottom_text = "Aerial & pole · all levels · now booking"
+bottom_color = [255, 240, 200]
+bottom_align = "left"`} />
+
+Asymmetric row split — small tag on top, large marquee below:
+
+<TomlExample code={`[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 16
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "@moonbunny"
+top_row_height = 4
+top_color = [225, 48, 108]
+bottom_text = "Aerial · Pole · Hoop · Silk · All Levels"
+bottom_color = [255, 240, 200]`} />
+
+Per-row font hierarchy (Inter-Bold handle + Inter-Regular promo):
+
+<TomlExample code={`[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 16
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "@moonbunny"
+top_font = "Inter-Bold"
+top_font_size = 10
+top_color = [225, 48, 108]
+bottom_text = "Aerial circus school · open enrollment"
+bottom_font = "Inter-Regular"
+bottom_font_size = 8
+bottom_color = [255, 240, 200]`} />
+
+## Pitfalls
+
+**Scale=4 is too narrow for handles.** At section `scale = 4` the logical canvas is only 64 pixels wide (256 real px ÷ 4 = 64 logical px), which clips most @handles mid-word. The two_row widget is designed for `scale = 2` (128 logical px) on the bigsign. Override the section's scale with `scale = 2` — you can mix scales across sections in the same config.
+
+**`content_height` hard ceiling.** On the bigsign at scale=4 the maximum `content_height` is 16 (`16 × 4 = 64 real rows`). For `scale = 2` the ceiling is 32. Values above the ceiling push the logical canvas taller than the real panel; rows near the edges clip silently. For per-row breathing room use `top_text_y_offset` / `bottom_text_y_offset` rather than over-specifying `content_height`.
+
+<RelatedPages slugs={["widgets/message", "widgets/gif", "concepts/display"]} />

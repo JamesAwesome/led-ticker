@@ -1,0 +1,49 @@
+# Dependabot configuration — automated dep update PRs across the
+# three ecosystems we use. Grouped to keep PR noise low; potentially-
+# breaking deps stay ungrouped so they're reviewed individually.
+#
+# Updates run weekly. Tweak `interval` to `daily` if it ever feels
+# stale. PRs are auto-rebased; we just review and merge.
+
+version: 2
+
+updates:
+  # GitHub Actions — keeps action versions current as Node EOLs etc.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Python deps via uv — note the `pip` ecosystem name (Dependabot
+  # handles uv-managed pyproject.toml under the pip umbrella).
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # Group dev/test tooling into one PR. Production deps land
+      # individually so a Pillow / aiohttp bump gets its own review.
+      dev-tools:
+        patterns:
+          - "ruff"
+          - "pyright"
+          - "pytest*"
+          - "pre-commit"
+
+  # Docs site deps via pnpm in docs/site/. Wrangler is excluded from
+  # the group so its (occasionally breaking) major bumps stay in their
+  # own PR for a focused review.
+  - package-ecosystem: npm
+    directory: /docs/site
+    schedule:
+      interval: weekly
+    groups:
+      docs-deps:
+        patterns: ["*"]
+        exclude-patterns:
+          - "wrangler"
+          - "astro"
+          - "@astrojs/*"

@@ -1,29 +1,96 @@
 name: CI
 
+# Runs on every PR and every push to main, BUT individual jobs short-
+# circuit unless their relevant paths changed (see the `changes` job).
+# A `ci-passed` rollup job is the single check to require in branch
+# protection — it's green if all relevant jobs passed OR were skipped
+# (irrelevant), and red if anything actually failed.
+
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.f.outputs.python }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: f
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            python:
+              - 'src/**'
+              - 'tests/**'
+              - 'tools/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.github/workflows/ci.yml'
+
   lint:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: true
       - run: uv run --extra dev ruff check src/ tests/
 
   typecheck:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: true
       - run: uv run --extra dev pyright src/
 
   test:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: true
       - run: PYTHONPATH=tests/stubs uv run --extra dev pytest --cov=src/led_ticker --cov-report=term-missing
+
+  # Single rollup that branch protection can require. Passes iff every
+  # upstream job is success or skipped; fails if any upstream failed
+  # or was cancelled.
+  ci-passed:
+    needs: [lint, typecheck, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all required jobs passed (or skipped)
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          TYPECHECK_RESULT: ${{ needs.typecheck.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+        run: |
+          for job in lint:"$LINT_RESULT" typecheck:"$TYPECHECK_RESULT" test:"$TEST_RESULT"; do
+            name="${job%%:*}"
+            result="${job#*:}"
+            case "$result" in
+              success|skipped) ;;
+              *) echo "Job '$name' result: $result"; exit 1 ;;
+            esac
+          done
+          echo "All required jobs passed or were skipped — CI green."

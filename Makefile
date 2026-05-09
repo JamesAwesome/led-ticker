@@ -41,11 +41,11 @@ clean:  ## Remove build artifacts and caches
 
 # --- Docs site ---
 
-docs-dev:  ## Run the Astro Starlight dev server (http://localhost:4321/led-ticker/)
-	cd docs/site && npm install && node scripts/build-demos.mjs && npm run dev
+docs-dev:  ## Run the Astro Starlight dev server (http://localhost:4321/)
+	cd docs/site && corepack enable && pnpm install && node scripts/build-demos.mjs && pnpm run dev
 
 docs-build:  ## Build the docs site to docs/site/dist/
-	cd docs/site && npm install && npm run build
+	cd docs/site && corepack enable && pnpm install --frozen-lockfile && pnpm run build
 
 render-demo:  ## Render a single demo gif. Usage: make render-demo CONFIG=path/to.toml OUT=out.gif
 	uv run python tools/render_demo/render.py $(CONFIG) -o $(OUT)

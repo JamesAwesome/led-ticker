@@ -1,0 +1,24 @@
+# Demo: BDF vs hires-Inter side-by-side via swap transition.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BDF 6x12"
+font = "6x12"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Inter-Bold"
+font = "Inter-Bold"
+font_size = 14
+font_threshold = 128

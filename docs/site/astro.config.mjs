@@ -6,8 +6,10 @@ import path from "node:path";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  site: "https://jamesawesome.github.io",
-  base: "/led-ticker",
+  // Update `site` to a custom domain after Cloudflare Pages setup.
+  // Default `*.pages.dev` URL works without `site` set, but sitemap
+  // will use relative URLs until this is filled in.
+  site: "https://led-ticker.pages.dev",
   vite: {
     server: {
       fs: {

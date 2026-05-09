@@ -8,7 +8,7 @@ const { slugs } = Astro.props;
 <aside class="related">
   <p class="related-title">See also</p>
   <ul>
-    {slugs.map((s) => <li><a href={`/led-ticker/${s}/`}>{s}</a></li>)}
+    {slugs.map((s) => <li><a href={`/${s}/`}>{s}</a></li>)}
   </ul>
 </aside>
 

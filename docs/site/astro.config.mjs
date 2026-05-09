@@ -28,12 +28,20 @@ export default defineConfig({
         { label: "Home", link: "/" },
         { label: "Getting started", link: "/getting-started/" },
         {
+          label: "Concepts",
+          items: [{ autogenerate: { directory: "concepts" } }],
+        },
+        {
           label: "Widgets",
           items: [{ autogenerate: { directory: "widgets" } }],
         },
         {
           label: "Transitions",
           items: [{ autogenerate: { directory: "transitions" } }],
+        },
+        {
+          label: "Assets",
+          items: [{ autogenerate: { directory: "assets" } }],
         },
         {
           label: "Pitfalls",

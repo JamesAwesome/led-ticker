@@ -1,0 +1,25 @@
+# Demo: wipe_alternating between two messages.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "wipe_alternating"
+duration = 0.6
+transition_colors = [[0,255,255], [255,0,255], [255,255,255], [0,255,0]]
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 2
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "First"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Second"

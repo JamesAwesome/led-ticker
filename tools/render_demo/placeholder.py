@@ -106,6 +106,11 @@ def rewrite_config_for_missing_assets(
             if not path or wtype not in ("image", "gif"):
                 continue
             if _asset_resolves(path, config_dir):
+                # Rewrite relative paths to absolute so they still resolve
+                # when the engine loads the config from a temp directory.
+                p = Path(path)
+                if not p.is_absolute():
+                    widget["path"] = str((config_dir / p).resolve())
                 continue
             slug = path.replace("/", "_").replace("\\", "_")
             if wtype == "image":

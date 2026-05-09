@@ -8,12 +8,12 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 
 led-ticker drives a panel of LEDs. The `[display]` block in your TOML tells the engine the panel's physical geometry — how many pixels wide and tall each panel is, how many chain together, and what scaling to apply. Get this right and everything else "just works"; get it wrong and content prints to a three-pixel slice or runs off the edge entirely.
 
-## The two reference signs
+## The two reference builds
 
-Two hardware configurations ship as ready-to-use examples. The **small sign** uses a Raspberry Pi 4 with five 32×16 panels chained horizontally for a 160×16 canvas. The **bigsign** uses a Raspberry Pi 5 with eight P3 32×64 panels arranged in a 2×4 vertical-serpentine layout for a 256×64 canvas.
+Two hardware configurations ship as ready-to-use examples — the maintainer's day-to-day rigs that the demos and example configs are written against. You can match them, scale them, or build something different; the engine only cares about what `[display]` declares. The **smallsign** is a Raspberry Pi 4 with five 32×16 panels chained horizontally for a 160×16 canvas. The **bigsign** is a Raspberry Pi 5 with eight P3 32×64 panels arranged in a 2×4 vertical-serpentine layout for a 256×64 canvas.
 
 <TomlExample
-  title="Small sign — Pi 4 + 5× 32×16 panels = 160×16 logical"
+  title="Smallsign — Pi 4 + 5× 32×16 panels = 160×16 logical"
   code={`[display]
 rows = 16
 cols = 32
@@ -60,15 +60,15 @@ hold_time = 4.0`}
 
 | Option                | Type      | Default          | Notes                                                                                                                |
 | --------------------- | --------- | ---------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `rows`                | int       | `16`             | Pixel rows per panel. 16 for the small sign, 32 for the bigsign.                                                     |
-| `cols`                | int       | `32`             | Pixel columns per panel. 32 for the small sign, 64 for the bigsign.                                                  |
-| `chain`               | int       | `1`              | Number of panels chained together. 5 (small sign) or 8 (bigsign).                                                    |
-| `parallel`            | int       | `1`              | Parallel panel chains. Pi 4 only — bigsign uses `pixel_mapper` instead.                                              |
+| `rows`                | int       | `16`             | Pixel rows per panel. The smallsign reference uses 16; the bigsign uses 32.                                          |
+| `cols`                | int       | `32`             | Pixel columns per panel. The smallsign reference uses 32; the bigsign uses 64.                                       |
+| `chain`               | int       | `1`              | Number of panels chained together. The smallsign reference uses 5; the bigsign uses 8.                               |
+| `parallel`            | int       | `1`              | Parallel panel chains. Pi 4 only — the bigsign reference uses `pixel_mapper` instead.                                |
 | `pixel_mapper`        | string    | `""`             | Custom panel-arrangement string for non-linear layouts (e.g. the bigsign's serpentine `"Remap:256,64\|..."` string). |
-| `default_scale`       | int       | `1`              | Logical-to-real pixel multiplier. 1 for the small sign, 4 for the bigsign. Override per section with `scale = N`.    |
-| `brightness`          | int 1–100 | `100`            | Panel brightness percent. Both reference signs use 60.                                                               |
-| `slowdown_gpio`       | int       | `1`              | GPIO timing slowdown. 2 on Pi 4 (small sign) or 3 on Pi 5 (bigsign). Raise to 4–5 if you see flicker.                |
-| `gpio_mapping`        | string    | `"adafruit-hat"` | Wiring mapping. Both reference signs use the Adafruit HAT.                                                           |
+| `default_scale`       | int       | `1`              | Logical-to-real pixel multiplier. `1` on the smallsign reference, `4` on the bigsign. Override per section.          |
+| `brightness`          | int 1–100 | `100`            | Panel brightness percent. Both reference builds use 60.                                                              |
+| `slowdown_gpio`       | int       | `1`              | GPIO timing slowdown. `2` on Pi 4 (smallsign) or `3` on Pi 5 (bigsign). Raise to 4–5 if you see flicker.             |
+| `gpio_mapping`        | string    | `"adafruit-hat"` | Wiring mapping. Both reference builds use the Adafruit HAT.                                                          |
 | `pwm_bits`            | int       | `11`             | PWM bit depth. Bigsign uses 8 for roughly 8× faster refresh at a small cost to color depth.                          |
 | `pwm_lsb_nanoseconds` | int       | `130`            | PWM lower-bit timing. Higher values are slower but more stable.                                                      |
 | `show_refresh`        | bool      | `false`          | Print the measured refresh rate to stderr — useful when tuning bigsign timing.                                       |

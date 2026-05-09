@@ -9,20 +9,23 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 If you're starting from scratch and want to build a led-ticker rig of
 your own, this page covers the cross-cutting decisions: pick a size,
 budget the power, develop the config locally without buying anything,
-then deploy. The two reference designs documented in detail are the
-[small sign](/hardware/small-sign/) (Pi 4 + 5x 32x16 panels) and the
-[bigsign](/hardware/bigsign/) (Pi 5 + 8x P3 32x64 panels). Treat them
-as bookends — anything in between is a viable build, the engine is
-the same.
+then deploy. led-ticker ships with two **reference builds** that the
+maintainer runs day-to-day and that the documentation, demos, and
+example configs are written against — the
+[smallsign](/hardware/smallsign/) (Pi 4 + 5x 32x16 panels) and the
+[bigsign](/hardware/bigsign/) (Pi 5 + 8x P3 32x64 panels). They're
+bookends, not requirements: anything in between is a viable build, and
+the engine is the same.
 
 ## Choosing a sign size
 
-The two reference designs sit at very different points on the
-cost / complexity / use-case curve.
+The two reference builds sit at very different points on the
+cost / complexity / use-case curve. Use them as starting points and
+adjust panel count, panel pitch, or layout to fit your space.
 
-| Sign size                         | Cost & complexity                                                                                                  | Use case                                                                                                                                  |
+| Reference build                   | Cost & complexity                                                                                                  | Use case                                                                                                                                  |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **Small sign** — 5x 32x16, 160x16 | Lowest. One Pi 4, five panels, a bonnet, a 10A 5V supply. One evening of soldering and a weekend of config work.   | A scrolling marquee for a desk, a shop window, or a single-line live feed (RSS, weather, countdowns). 16 rows is one BDF text line tall.  |
+| **Smallsign** — 5x 32x16, 160x16  | Lowest. One Pi 4, five panels, a bonnet, a 10A 5V supply. One evening of soldering and a weekend of config work.   | A scrolling marquee for a desk, a shop window, or a single-line live feed (RSS, weather, countdowns). 16 rows is one BDF text line tall.  |
 | **Bigsign** — 8x P3 32x64, 256x64 | High. Pi 5, eight P3 panels, a HAT, a 30A+ supply, a rigid frame, a 2x4 serpentine wiring run, hi-res font tuning. | Storefront-scale display. Fits hi-res emoji, two-row handles + promos, animated GIFs, and Inter / Beloved Sans rendered at native pixels. |
 
 Anything between those two — three panels in a row, six panels in a
@@ -50,12 +53,12 @@ white at the same instant. In practice that never happens — text,
 emoji, and animations only light a fraction of the panel — so the
 practical draw is roughly 30-40% of the theoretical max.
 
-| Sign    | Theoretical max | Practical pick |
-| ------- | --------------- | -------------- |
-| Small   | 5V × ~150A      | 5V × **10A**   |
-| Bigsign | 5V × ~980A      | 5V × **60A**   |
+| Reference build | Theoretical max | Practical pick |
+| --------------- | --------------- | -------------- |
+| Smallsign       | 5V × ~150A      | 5V × **10A**   |
+| Bigsign         | 5V × ~980A      | 5V × **60A**   |
 
-A 5V / 10A brick covers the small sign with comfortable headroom; the
+A 5V / 10A brick covers the smallsign with comfortable headroom; the
 bigsign wants a 5V / 30-60A supply with thick busbars (split across
 multiple injection points if your panels have multiple power inputs).
 Adafruit's product pages publish per-panel current draw curves —
@@ -157,16 +160,16 @@ image, or rebuild from source against the pinned fork.
 phone charger or a generic USB-C brick marketed as 5V 3A does not
 sustain rated current under inductive matrix load — the voltage sags,
 panels glitch, and you blame the config. Use a dedicated 5V supply
-sized per the power-budget table above (10A for the small sign, 30-60A
+sized per the power-budget table above (10A for the smallsign, 30-60A
 for the bigsign), with thick power leads to each panel's 2-pin input.
 
 **Panels run hot at full brightness.** P3 panels at brightness 60+ get
-warm to the touch within minutes; the small sign is more forgiving but
+warm to the touch within minutes; the smallsign is more forgiving but
 still climbs over time. For sustained or always-on installs add a fan
 behind the panels, or design a shroud with airflow gaps. Heat shortens
 LED lifespan and can warp panel substrates if it accumulates with no
 ventilation.
 
 <RelatedPages
-  slugs={["hardware/small-sign", "hardware/bigsign", "tools/render-demo", "getting-started"]}
+  slugs={["hardware/smallsign", "hardware/bigsign", "tools/render-demo", "getting-started"]}
 />

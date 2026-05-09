@@ -27,4 +27,4 @@ text_align = "scroll_over"
 # helps readers see the effect).
 scroll_speed_ms = 25
 gif_loops = 999
-font_color = [255, 200, 100]
+font_color = [255, 80, 200]   # magenta — reads cleanly over yellow pikachu

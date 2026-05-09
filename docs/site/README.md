@@ -48,7 +48,10 @@ make render-long-demo NAME=widget-coinbase          # render just one
 Output lands in `docs/site/public/demos-long/` and IS committed to git. Each
 TOML may declare `# requires-env: VAR` in a comment — if that env var isn't set,
 the demo is skipped (so contributors without API keys for `etherscan` /
-`weather` can still run the script without errors).
+`weather` can still run the script without errors). A TOML may also declare
+`# render-duration: N` to override the make target's 30-second default —
+useful for widgets like `two_row` whose held-content cadence captures more
+slowly than wallclock (the auto-render pipeline supports the same comment).
 
 ## Lint and format
 

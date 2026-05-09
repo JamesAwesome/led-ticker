@@ -1,0 +1,41 @@
+# Long demo: two_row widget at scale=1 (smallsign-flavored).
+#
+# TwoRowMessage's bottom row scrolls at the engine 50ms tick cadence,
+# so a typical "Now booking…" promo line needs ~30 seconds of content
+# to make one full traversal. That's longer than the auto-render
+# pipeline's per-build budget — it lives here under demos-long/ so we
+# render once locally (`make render-long-demo NAME=widget-two_row`)
+# and commit the gif. Cloudflare doesn't re-render this on every push.
+#
+# render-duration: 270
+# ↑ The renderer's wallclock-to-content ratio for held two_row content
+#   is roughly 9x — capturing 30 seconds of marquee playback takes
+#   ~270 seconds of wall time. Both make targets (`render-long-demos`
+#   and `render-long-demo NAME=…`) honor this comment.
+#
+# Real bigsign deployments use scale=2 + content_height=16 for the
+# extra logical width to hold @handles. The demo is smallsign-flavored
+# (160x16) so the captured frame is small enough to embed cleanly.
+
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[[playlist.section]]
+mode = "swap"
+scale = 1
+content_height = 16
+loop_count = 1
+hold_time = 30.0
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "@example"
+top_color = [225, 48, 108]
+top_align = "center"
+bottom_text = "Now booking — drop in Saturday for a free intro class at 11am!"
+bottom_color = [255, 240, 200]
+bottom_align = "left"

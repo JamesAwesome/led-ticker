@@ -31,12 +31,15 @@ This project blocks `npm install` and `yarn install` to keep the
 lockfile and node_modules layout consistent across machines. Three
 layers enforce it:
 
-1. **`preinstall` script** in `package.json` runs `npx only-allow pnpm`,
-   which detects the running package manager via
-   `$npm_config_user_agent` and exits non-zero on anything but pnpm.
-   This is the primary block — when you see
-   `Use "pnpm install" for installation in this project` from
-   `only-allow`, that's this layer firing.
+1. **`preinstall` script** in `package.json` runs
+   `node scripts/check-pnpm.mjs`, which inspects
+   `$npm_config_user_agent` (set by every modern package manager when
+   running lifecycle scripts) and exits 1 if it doesn't start with
+   `pnpm/`. Direct Node check rather than the canonical
+   `npx only-allow pnpm` because `npx` ships with npm, and on
+   Corepack-managed CI runners the npx process resets the user-agent
+   to `npm/…` before only-allow inspects it — which made only-allow
+   refuse pnpm itself.
 2. **`engines.pnpm: ">=11"`** in `package.json` plus
    **`engine-strict=true`** in `.npmrc` — together pnpm refuses to
    install if you're on an old pnpm version. Catches the case where a

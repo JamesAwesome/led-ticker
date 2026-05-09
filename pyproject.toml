@@ -15,6 +15,8 @@ dependencies = [
     "aiohttp>=3.9",
     "attrs>=23.0",
     "feedparser>=6.0",
+    "imageio>=2.31",
+    "tomli-w>=1.0",
     "tomli>=2.0; python_version<'3.11'",
 ]
 

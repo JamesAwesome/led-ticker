@@ -3,6 +3,7 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@11.0.9",
   "scripts": {
     "dev": "astro dev",
     "build": "node scripts/build-demos.mjs && astro build",
@@ -14,8 +15,5 @@
     "astro": "^5.0.0",
     "marked": "^14.0.0",
     "sharp": "^0.33.0"
-  },
-  "devDependencies": {
-    "wrangler": "^3.80.0"
   }
 }

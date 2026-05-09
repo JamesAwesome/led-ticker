@@ -1,0 +1,24 @@
+# Demo: pokeball_alternating between two messages.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "pokeball_alternating"
+duration = 1.8
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 2
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "First"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Second"

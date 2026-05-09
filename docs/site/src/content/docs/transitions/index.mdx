@@ -1,0 +1,38 @@
+---
+title: Transitions
+description: How content swaps between widgets — push, wipe, sprite, and special effects.
+---
+
+import RelatedPages from '../../../components/RelatedPages.astro';
+
+A transition runs between widgets in `swap` mode (and between sections regardless
+of mode). The pick is set in your `[transitions]` block — `default` applies
+between widgets, `between_sections` applies at section boundaries. Each section
+can override with `transition = "..."`.
+
+## The four families
+
+| Family | What it looks like | Best for |
+|--------|---------|----------|
+| [Push](/transitions/push/) | Old slides off, new slides in from the opposite side | General purpose, news-ticker feel |
+| [Wipe](/transitions/wipe/) | Sweep line erases content, leaves new in its wake | Clean / professional |
+| [Sprite](/transitions/sprite/) | Pixel-art character (Pikachu, Pac-Man, baseball, …) crosses the panel | Fun / themed |
+| Special (B3) | Cut, dissolve, color flash, split, scroll | Variety, ambient |
+
+## Picking a transition
+
+| Tone | Default (between widgets) | Between sections |
+|------|---------------------------|------------------|
+| Minimal | `cut` or `wipe_left` | `cut` |
+| Playful | `pokeball_alternating` or `nyancat_alternating` | `pokeball_alternating` |
+| Info-dense | `push_up` | `dissolve` |
+| Branded-pro | `wipe_alternating` (with `transition_color` from the brand palette) | `dissolve` |
+
+## Tuning
+
+- `transition_duration` (seconds): default 0.5; range 0.3–1.5 is typical
+- `easing`: `linear` (sharp) / `ease_out` / `ease_in_out` (default for pushes)
+- `transition_color`: RGB list — used by wipe sweep lines and color_flash
+- `transition_colors`: list of RGB lists — used by `wipe_alternating` / `wipe_random` for a custom color pool
+
+<RelatedPages slugs={["transitions/push", "transitions/wipe", "transitions/sprite"]} />

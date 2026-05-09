@@ -3,20 +3,23 @@ title: image widget
 description: Single PNG/JPG (or single-frame gif) at native panel resolution, with optional text overlay.
 ---
 
-import DemoGif from '../../../components/DemoGif.astro';
-import TomlExample from '../../../components/TomlExample.astro';
-import OptionsTable from '../../../components/OptionsTable.astro';
-import DecisionRule from '../../../components/DecisionRule.astro';
-import RelatedPages from '../../../components/RelatedPages.astro';
+import DemoGif from "../../../components/DemoGif.astro";
+import TomlExample from "../../../components/TomlExample.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import DecisionRule from "../../../components/DecisionRule.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `image` widget displays a single still image at native physical resolution — each LED maps to one pixel in the source. Use it for logos, product photos, brand artwork, or any single-frame graphic. This widget is essentially `gif` with a single frame: it shares the `gif` widget's full feature surface (fit modes, text overlay, two-row, animation, border) minus the per-frame mechanics — the only widget-specific knob is `hold_seconds` instead of `gif_loops`.
 
 <DemoGif src="/demos/widget-image.gif" caption="Bunny png with scroll_over text overlay" />
 
-<TomlExample title="Minimal example" code={`[[playlist.section.widget]]
+<TomlExample
+  title="Minimal example"
+  code={`[[playlist.section.widget]]
 type = "image"
 path = "config/assets/my_logo.png"
-hold_seconds = 4.0`} />
+hold_seconds = 4.0`}
+/>
 
 ## Options
 
@@ -26,16 +29,19 @@ hold_seconds = 4.0`} />
 
 Static logo (no text):
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "image"
 path = "config/assets/my_logo.png"
 fit = "pillarbox"
 image_align = "center"
-hold_seconds = 6.0`} />
+hold_seconds = 6.0`}
+/>
 
 Image with scrolling text overlay (`scroll_over` — text in front of the image):
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "image"
 path = "config/assets/bunny-transparent.png"
 fit = "pillarbox"
@@ -43,22 +49,26 @@ image_align = "left"
 text = "Follow us on Instagram!"
 text_align = "scroll_over"
 hold_seconds = 5.0
-font_color = [200, 100, 255]`} />
+font_color = [200, 100, 255]`}
+/>
 
 Scrolling text behind a transparent silhouette (`scroll` — text walks under the image; requires a PNG with transparency):
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "image"
 path = "config/assets/bunny-transparent.png"
 fit = "pillarbox"
 image_align = "left"
 text = "Scrolling behind the bunny!"
 text_align = "scroll"
-font_color = [200, 200, 255]`} />
+font_color = [200, 200, 255]`}
+/>
 
 Two-row text overlay (set `bottom_text` to switch modes — image sits underneath):
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "image"
 path = "config/assets/my_logo.png"
 fit = "pillarbox"
@@ -67,7 +77,8 @@ top_text = "@myhandle"
 top_color = [225, 48, 108]
 bottom_text = "Open daily 10am–8pm"
 bottom_color = [255, 240, 200]
-hold_seconds = 6.0`} />
+hold_seconds = 6.0`}
+/>
 
 ## Pitfalls
 

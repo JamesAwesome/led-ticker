@@ -3,18 +3,21 @@ title: Inline emoji
 description: 19 pixel-art glyphs you can drop into any message text via `:slug:`.
 ---
 
-import DemoGif from '../../../components/DemoGif.astro';
-import TomlExample from '../../../components/TomlExample.astro';
-import OptionsTable from '../../../components/OptionsTable.astro';
-import RelatedPages from '../../../components/RelatedPages.astro';
+import DemoGif from "../../../components/DemoGif.astro";
+import TomlExample from "../../../components/TomlExample.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
 
 Drop `:slug:` into any message text to render a pixel-art icon inline:
 
 <DemoGif src="/demos/assets-emoji.gif" caption=":taco: :star: :flower: :sun:" />
 
-<TomlExample title="Example" code={`[[playlist.section.widget]]
+<TomlExample
+  title="Example"
+  code={`[[playlist.section.widget]]
 type = "message"
-text = ":taco: Taco Tuesday!"`} />
+text = ":taco: Taco Tuesday!"`}
+/>
 
 ## Available slugs
 

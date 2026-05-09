@@ -3,10 +3,10 @@ title: countdown widget
 description: Days until a target date — message with date arithmetic baked in.
 ---
 
-import DemoGif from '../../../components/DemoGif.astro';
-import TomlExample from '../../../components/TomlExample.astro';
-import OptionsTable from '../../../components/OptionsTable.astro';
-import RelatedPages from '../../../components/RelatedPages.astro';
+import DemoGif from "../../../components/DemoGif.astro";
+import TomlExample from "../../../components/TomlExample.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `countdown` widget is a `message` with date arithmetic baked in. Every draw it
 renders `<text>: <N>` where N is the number of days from today to `countdown_date`.
@@ -15,10 +15,13 @@ without restarting the process.
 
 <DemoGif src="/demos/widget-countdown.gif" caption="countdown to 2026-06-21 with rainbow font" />
 
-<TomlExample title="Minimal example" code={`[[playlist.section.widget]]
+<TomlExample
+  title="Minimal example"
+  code={`[[playlist.section.widget]]
 type = "countdown"
 text = "Until Summer"
-countdown_date = 2026-06-21`} />
+countdown_date = 2026-06-21`}
+/>
 
 ## Options
 
@@ -28,28 +31,34 @@ countdown_date = 2026-06-21`} />
 
 Branded color:
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "countdown"
 text = "Until the Show"
 countdown_date = 2026-09-01
-font_color = [255, 140, 0]`} />
+font_color = [255, 140, 0]`}
+/>
 
 Rainbow sweep:
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "countdown"
 text = "Days Left"
 countdown_date = 2026-12-31
-font_color = "rainbow"`} />
+font_color = "rainbow"`}
+/>
 
 Rainbow border with solid text:
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "countdown"
 text = "Until Launch"
 countdown_date = 2026-11-15
 font_color = [255, 255, 255]
-border = "rainbow"`} />
+border = "rainbow"`}
+/>
 
 ## Pitfalls
 

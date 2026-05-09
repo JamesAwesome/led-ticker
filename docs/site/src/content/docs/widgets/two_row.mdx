@@ -3,21 +3,27 @@ title: two_row widget
 description: Held top row + scrolling bottom row, ideal for storefront layouts.
 ---
 
-import DemoGif from '../../../components/DemoGif.astro';
-import TomlExample from '../../../components/TomlExample.astro';
-import OptionsTable from '../../../components/OptionsTable.astro';
-import RelatedPages from '../../../components/RelatedPages.astro';
+import DemoGif from "../../../components/DemoGif.astro";
+import TomlExample from "../../../components/TomlExample.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `two_row` widget renders two independent text strings on the same canvas: a **held top row** for a stable identifier (handle, headline, brand tag) and a **scrolling bottom row** for promotional copy that can be longer than the canvas width. When the bottom row fits, it stays fixed using `bottom_align`; when it overflows, it scrolls left automatically.
 
 It is designed for the bigsign in `swap` mode with `scale = 2` per section, which doubles the logical canvas width to 128 logical pixels — wide enough to hold most social handles on the top row without scrolling.
 
-<DemoGif src="/demos/widget-two_row.gif" caption="two_row at scale=1 — top: @example (IG magenta), bottom: scrolling promo (cream)" />
+<DemoGif
+  src="/demos/widget-two_row.gif"
+  caption="two_row at scale=1 — top: @example (IG magenta), bottom: scrolling promo (cream)"
+/>
 
-<TomlExample title="Minimal example" code={`[[playlist.section.widget]]
+<TomlExample
+  title="Minimal example"
+  code={`[[playlist.section.widget]]
 type = "two_row"
 top_text = "@yourhandle"
-bottom_text = "Open daily 10–6 · all levels welcome"`} />
+bottom_text = "Open daily 10–6 · all levels welcome"`}
+/>
 
 ## Options
 

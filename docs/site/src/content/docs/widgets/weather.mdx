@@ -3,9 +3,9 @@ title: weather widget
 description: Current conditions + temperature with pixel-art weather icons. Pulls from WeatherAPI.com.
 ---
 
-import TomlExample from '../../../components/TomlExample.astro';
-import OptionsTable from '../../../components/OptionsTable.astro';
-import RelatedPages from '../../../components/RelatedPages.astro';
+import TomlExample from "../../../components/TomlExample.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `weather` widget fetches current conditions and temperature from [WeatherAPI.com](https://www.weatherapi.com/) and displays them with a pixel-art icon for the condition — sun, cloud, rain, snow, thunder, fog, or partly cloudy. It polls in the background via async retry so the display keeps running even if the API is temporarily unreachable.
 
@@ -13,11 +13,14 @@ The `weather` widget fetches current conditions and temperature from [WeatherAPI
 The weather widget makes a live HTTP call to WeatherAPI.com on every visit, which requires a `WEATHERAPI_KEY` not available in CI. Run a `weather` widget locally against your own API key to see it animate.
 :::
 
-<TomlExample title="Minimal example" code={`[[playlist.section.widget]]
+<TomlExample
+  title="Minimal example"
+  code={`[[playlist.section.widget]]
 type = "weather"
 message = "Brooklyn"
 location = "Brooklyn, NY"
-units = "imperial"`} />
+units = "imperial"`}
+/>
 
 You'll need a free API key from [WeatherAPI.com](https://www.weatherapi.com/) — set `WEATHERAPI_KEY` in your `.env` file.
 
@@ -29,31 +32,37 @@ You'll need a free API key from [WeatherAPI.com](https://www.weatherapi.com/) �
 
 Two-color layout — gray label, bright temperature:
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "weather"
 message = "NYC"
 location = "New York"
 units = "imperial"
 font_color = [150, 150, 150]
-font_color_temp = [255, 255, 255]`} />
+font_color_temp = [255, 255, 255]`}
+/>
 
 Text-only display — no pixel icon, shows the condition string instead:
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "weather"
 message = "Weather"
 location = "10001"
 units = "imperial"
-show_icon = false`} />
+show_icon = false`}
+/>
 
 Slower poll for stable outdoor forecasts — fetch every 30 minutes:
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "weather"
 message = "Outside"
 location = {lat = 40.71, lon = -74.01}
 units = "metric"
-update_interval = 1800`} />
+update_interval = 1800`}
+/>
 
 ## Pitfalls
 

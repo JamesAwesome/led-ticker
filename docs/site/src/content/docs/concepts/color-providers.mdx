@@ -3,23 +3,26 @@ title: Color providers
 description: Constant, rainbow, gradient, color_cycle, and random — how font_color accepts more than just an RGB list.
 ---
 
-import DemoGif from '../../../components/DemoGif.astro';
-import TomlExample from '../../../components/TomlExample.astro';
-import RelatedPages from '../../../components/RelatedPages.astro';
+import DemoGif from "../../../components/DemoGif.astro";
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
 
 Every text-bearing widget's `font_color` field — and `top_color` / `bottom_color` on `two_row` and image widgets — accepts five distinct flavors. A plain RGB list gives you a constant color. Three named string sentinels (`"rainbow"`, `"color_cycle"`, `"random"`) activate built-in effects. An inline TOML table unlocks a gradient. Some of these animate over time; others pick once per visit and stay fixed. The widget-side code is uniform regardless of which flavor you choose — all five resolve to the same `color_for(frame, char_index, total_chars)` interface internally.
 
-<DemoGif src="/demos/concepts-color-providers.gif" caption="rainbow → color_cycle → gradient → constant → random" />
+<DemoGif
+  src="/demos/concepts-color-providers.gif"
+  caption="rainbow → color_cycle → gradient → constant → random"
+/>
 
 ## The five providers
 
-| Provider | Syntax | Per-char? | Animates? |
-|----------|--------|-----------|-----------|
-| Constant | `[r, g, b]` | no | no |
-| Rainbow | `"rainbow"` | **yes** | yes — hue sweeps per frame |
-| ColorCycle | `"color_cycle"` | no | yes — whole-string hue rotation |
-| Gradient | `{style = "gradient", from = [...], to = [...]}` | **yes** | no — frozen interpolation |
-| Random | `"random"` | no | no — picks once on visit |
+| Provider   | Syntax                                           | Per-char? | Animates?                       |
+| ---------- | ------------------------------------------------ | --------- | ------------------------------- |
+| Constant   | `[r, g, b]`                                      | no        | no                              |
+| Rainbow    | `"rainbow"`                                      | **yes**   | yes — hue sweeps per frame      |
+| ColorCycle | `"color_cycle"`                                  | no        | yes — whole-string hue rotation |
+| Gradient   | `{style = "gradient", from = [...], to = [...]}` | **yes**   | no — frozen interpolation       |
+| Random     | `"random"`                                       | no        | no — picks once on visit        |
 
 **Per-char** providers (rainbow, gradient) assign a unique color to each character position and call `color_for` once per character per draw. **Whole-string** providers (constant, color_cycle, random) compute one color per draw and apply it to the entire message.
 
@@ -27,26 +30,32 @@ Every text-bearing widget's `font_color` field — and `top_color` / `bottom_col
 
 The simplest case — a fixed `[r, g, b]` triplet. Nothing animates; the color is stable across every frame and every loop.
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "message"
 text = "Now Open"
-font_color = [255, 200, 0]`} />
+font_color = [255, 200, 0]`}
+/>
 
 ## Rainbow
 
 Per-character hue offset that advances each frame. The first character starts at a different hue than the second, and every character's hue sweeps forward 8° per tick (default). The overall effect is a scrolling rainbow stripe across the text. `rainbow` is a continuous-phase provider — the sweep does not reset between `loop_count` repetitions, so the color keeps flowing rather than snapping back to the start on each pass.
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "message"
 text = "Grand Opening"
-font_color = "rainbow"`} />
+font_color = "rainbow"`}
+/>
 
 Fine-tune with an inline table if the defaults are too fast or too spread:
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "message"
 text = "Grand Opening"
-font_color = {style = "rainbow", speed = 4, char_offset = 20}`} />
+font_color = {style = "rainbow", speed = 4, char_offset = 20}`}
+/>
 
 `speed` is hue degrees advanced per 50 ms tick (default 8). `char_offset` is the hue gap between consecutive characters (default 30).
 
@@ -54,10 +63,12 @@ font_color = {style = "rainbow", speed = 4, char_offset = 20}`} />
 
 Whole-string hue rotation — every character shares one color, and that color cycles through the spectrum over time. Subtler than rainbow; useful when you want motion without the striped look. Also continuous-phase — the cycle does not reset between loops.
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "message"
 text = "Now Playing"
-font_color = "color_cycle"`} />
+font_color = "color_cycle"`}
+/>
 
 Speed is configurable via `{style = "color_cycle", speed = N}` (degrees per tick, default 5).
 
@@ -65,10 +76,12 @@ Speed is configurable via `{style = "color_cycle", speed = N}` (degrees per tick
 
 A frozen left-to-right interpolation between two colors. `char_index` drives the interpolation; the frame counter is ignored — so the colors never shift, but each character gets its own tint. Unlike rainbow and color_cycle, gradient does not require the per-tick render loop; the engine can take a paint-once-and-sleep fast path for otherwise-static content.
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "message"
 text = "Fade Effect"
-font_color = {style = "gradient", from = [255, 80, 80], to = [80, 80, 255]}`} />
+font_color = {style = "gradient", from = [255, 80, 80], to = [80, 80, 255]}`}
+/>
 
 `from` and `to` are `[r, g, b]` triplets. The first character gets `from`, the last gets `to`, and all others interpolate linearly between them.
 
@@ -76,10 +89,12 @@ font_color = {style = "gradient", from = [255, 80, 80], to = [80, 80, 255]}`} />
 
 Picks a single random color at widget construction and holds it for the duration of the visit. The color does not change frame-to-frame or character-to-character; it just picks something different each time the section plays. Useful for adding variety to long-running displays without any visible animation.
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "message"
 text = "Daily Special"
-font_color = "random"`} />
+font_color = "random"`}
+/>
 
 ## Picking the right provider
 
@@ -89,10 +104,12 @@ Use a **constant** when you are matching brand colors or want a predictable, dis
 
 Rainbow and gradient sweep continuously across `:slug:` emoji boundaries. The sprite still renders in its own native colors, and the surrounding text gets per-character colors with the index advancing across the emoji segments without resetting. This means the hue does not jump or restart when it crosses an emoji — the stripe flows through the whole message as if the emoji were transparent to the color math.
 
-<TomlExample code={`[[playlist.section.widget]]
+<TomlExample
+  code={`[[playlist.section.widget]]
 type = "message"
 text = ":star: Now Enrolling :star:"
-font_color = "rainbow"`} />
+font_color = "rainbow"`}
+/>
 
 ## Colors and animations are independent
 

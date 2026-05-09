@@ -1,0 +1,90 @@
+---
+title: Borders
+description: An animated rainbow chase or constant-color ring around the panel perimeter.
+---
+
+import DemoGif from "../../../components/DemoGif.astro";
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+A border paints a 1- or 2-pixel-thick ring around the entire panel perimeter. Two styles are available: an animated **rainbow chase** that sweeps a continuous hue gradient clockwise around the edge, and a **constant color** that frames the content in a steady solid color. Both paint at physical panel resolution — they bypass the `ScaledCanvas` block-expansion path and call `SetPixel` on the real underlying canvas, so a 1-pixel border is always exactly one LED wide regardless of scale.
+
+<DemoGif
+  src="/demos/concepts-borders.gif"
+  caption="Rainbow chase border at default speed and thickness"
+/>
+
+## Border styles
+
+### Rainbow chase
+
+The rainbow chase indexes each perimeter pixel by its clockwise position around the edge, then advances the entire pattern by `speed` degrees per engine tick (50 ms). The result is a smooth hue gradient that rotates continuously. `char_offset` controls how tightly the hue cycles around the perimeter: a higher value tiles more full rainbows along the edge.
+
+The simplest way to enable it is the string shorthand:
+
+<TomlExample
+  title="String shorthand"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+border = "rainbow"`}
+/>
+
+To tune the three knobs, switch to an inline table:
+
+<TomlExample
+  title="With tuning"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}`}
+/>
+
+**`speed`** (default `4`): degrees of hue rotation per engine tick. At 50 ms per tick, the default produces about one full revolution every 12 seconds on the bigsign's 640-pixel perimeter. Double it to `8` for a noticeably faster sweep.
+
+**`char_offset`** (default `6`): hue spacing between adjacent perimeter pixels. At `6` and 640 pixels, roughly 10 full rainbows tile around the bigsign edge. Reduce it toward `1` for a slow gradient wash; raise it above `10` for a tighter, flickery pattern.
+
+**`thickness`** (default `1`): `1` is a single-pixel ring; `2` is two concentric rings. Thickness 2 reads better at viewing distance. The two rings share the same hue index sequence, so the inner ring continues where the outer ring ends rather than repeating.
+
+### Constant
+
+A constant border is a solid-color ring with no animation. It is `frame_invariant`, so the engine's static-text fast path applies: the border is painted once and the widget sleeps for the hold duration rather than redrawing every tick.
+
+Use an RGB list as a shorthand:
+
+<TomlExample
+  title="RGB shorthand"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+border = [255, 100, 200]   # constant magenta`}
+/>
+
+To add thickness, switch to an inline table:
+
+<TomlExample
+  title="With thickness"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+border = {style = "constant", color = [255, 100, 200], thickness = 2}`}
+/>
+
+## Where it works
+
+| Widget type                                                                         | `border`?                  |
+| ----------------------------------------------------------------------------------- | -------------------------- |
+| `message`                                                                           | yes                        |
+| `countdown`                                                                         | yes                        |
+| `two_row`                                                                           | yes                        |
+| `gif`                                                                               | yes                        |
+| `image`                                                                             | yes                        |
+| `weather`, `rss_feed`, `mlb`, `mlb_standings`, `coinbase`, `coingecko`, `etherscan` | no — raises at config load |
+
+Data widgets render custom layouts and a perimeter border is not a meaningful concept for them. The config validator catches any misplaced `border =` on these types at startup so the error surfaces immediately rather than silently doing nothing.
+
+## Continuous-phase behavior
+
+The rainbow chase has `restart_on_visit = false` — its phase counter advances continuously and never resets between `loop_count` repetitions. If a section repeats with `loop_count = 2`, the chase picks up exactly where it left off at the end of the first loop rather than restarting from the beginning. The border also composes cleanly with other effects: a `TickerMessage` can carry `animation = "typewriter"` and `border = "rainbow"` simultaneously, and each effect tracks its own independent counter. See [frame counters](/concepts/frame-counters/) for the full model of restart-on-visit versus continuous-phase behavior.
+
+<RelatedPages slugs={["concepts/color-providers", "concepts/frame-counters", "widgets/message"]} />

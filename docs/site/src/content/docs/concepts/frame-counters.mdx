@@ -1,0 +1,56 @@
+---
+title: Frame counters
+description: Per-effect counters, restart-on-visit vs continuous phase, and how transitions pause them.
+---
+
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+Every animated effect in led-ticker — rainbow text, color cycle, typewriter, rainbow chase border — advances based on a frame counter that ticks once per engine iteration. The engine runs at a fixed 50 ms cadence, so one frame is 50 ms. More precisely, **each effect on a widget gets its own independent counter**. A `message` widget with `font_color = "rainbow"`, `border = "rainbow"`, and `animation = "typewriter"` carries three separate counters simultaneously: one for the color sweep, one for the border chase, and one for the typewriter reveal. None of them advance together, and none of them interfere.
+
+Most users never need to think about this model directly. The defaults produce the right visual behavior. This page is for two narrower audiences: users debugging unexpected restart behavior, and developers implementing a new effect class.
+
+## Why per-effect counters
+
+If all effects on a widget shared one counter, a typewriter restart at each loop boundary would also reset the rainbow hue phase mid-cycle — producing a visible color jump at the exact moment the typewriter retypes. Separate counters mean each effect controls its own restart policy without any coupling. The `frame_for("border")` call the border effect receives is completely independent of the `frame_for("animation")` call the typewriter effect receives, even though both sit on the same widget object.
+
+## Restart-on-visit vs continuous
+
+Each effect class declares a `restart_on_visit` class attribute. The engine's `reset_frame()` call (which happens at visit entry — i.e., every time the widget begins a new display pass) resets only the counters for effects that opted into restart.
+
+| Effect                        | `restart_on_visit`                                 |
+| ----------------------------- | -------------------------------------------------- |
+| `Typewriter` (animation)      | `True` — retypes from scratch on every visit       |
+| `Rainbow` (font_color)        | `False` — hue sweep advances continuously          |
+| `ColorCycle` (font_color)     | `False` — whole-string cycle advances continuously |
+| `Gradient` (font_color)       | n/a — frame-invariant, no counter                  |
+| `Constant` (font_color)       | n/a — frame-invariant, no counter                  |
+| `RainbowChaseBorder` (border) | `False` — chase phase advances continuously        |
+| `ConstantBorder` (border)     | n/a — frame-invariant, no counter                  |
+
+**Restart on visit (`True`)** means the effect counter goes to zero whenever the section's run loop begins showing this widget — including each iteration of `loop_count > 1`. Typewriter opts into this because it is a reveal: it should retype from scratch each time it appears, not resume mid-word.
+
+**Continuous phase (`False`)** means the counter is preserved across visit boundaries and `loop_count` iterations. Rainbow, ColorCycle, and RainbowChaseBorder opt into this so their visual flow has no discontinuity when the widget appears again. If the hue is at 180° when the first loop ends, it starts from 180° on the second loop — the animation reads as uninterrupted.
+
+A widget can carry both restart and continuous effects simultaneously. A `message` with `animation = "typewriter"` and `font_color = "rainbow"` and `loop_count = 2` will retype from scratch on the second loop (typewriter resets) while the rainbow hue picks up exactly where it left off (rainbow does not reset).
+
+## Section transitions always reset
+
+`restart_on_visit` governs what happens between iterations of the **same widget** within a section. Section-level transitions are different: when the engine moves between sections, all effect state is reset to a fresh starting point, even for continuous-phase effects. A rainbow border that has been chasing for 20 seconds starts its chase over from position 0 when the section appears again after other sections have played.
+
+The practical consequence is that continuous-phase effects behave continuously **within a section's lifetime** (across `loop_count` repetitions) but **not** across the full playlist cycle. That boundary is by design — sections are self-contained units, and users expect them to look the same each time they appear.
+
+## Frame pause during transitions
+
+When a transition is compositing the outgoing and incoming widgets (dissolve, wipe, push, etc.), the frame counter for each affected widget is paused. `pause_frame()` is called before the transition loop begins; `resume_frame()` is called in the `finally` block when it ends. This prevents the widget's animation from advancing during the N frames that the compositing loop runs — otherwise a typewriter widget that was at character 5 of 12 when the transition started might be at character 8 by the time it finishes, causing the text to jump forward the instant the transition resolves.
+
+The pause is automatic and applies to every frame-aware widget. Nothing in TOML or widget code needs to opt into it.
+
+## Implementing a new effect class
+
+If you are adding a new `ColorProvider` or animation effect:
+
+1. Set `restart_on_visit: ClassVar[bool]` on the class. Default to `True` (conservative) unless the effect is explicitly designed to carry phase across visits.
+2. Set `frame_invariant: ClassVar[bool] = True` if the effect produces the same output regardless of `frame` (e.g. a static gradient or constant color). Frame-invariant effects skip the per-tick redraw loop and allow the static-text fast path.
+3. Do not read `widget._frame_count` directly. Read `widget.frame_for("your_attr")` — the per-effect counter that follows the correct restart policy for your class.
+
+<RelatedPages slugs={["concepts/animations", "concepts/borders", "concepts/color-providers"]} />

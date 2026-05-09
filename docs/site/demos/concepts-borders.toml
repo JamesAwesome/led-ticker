@@ -1,0 +1,21 @@
+# Demo: rainbow chase border on a message.
+# RainbowChaseBorder defaults: speed=4, char_offset=6, thickness=1.
+# At 50ms/tick the chase advances 4°/frame → ~12s per full revolution
+# around the panel perimeter.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 5.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+border = {style = "rainbow", thickness = 1, speed = 4, char_offset = 6}
+font_color = [255, 240, 200]

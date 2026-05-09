@@ -1,0 +1,18 @@
+# Long demo: RSS feed pulling from Nintendo Life (a known-stable feed).
+
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[[playlist.section]]
+mode = "infini_scroll"
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "rss_feed"
+feed_url = "https://www.nintendolife.com/feeds/news"
+max_stories = 3
+update_interval = 1800

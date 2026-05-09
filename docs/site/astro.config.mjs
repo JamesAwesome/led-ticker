@@ -36,8 +36,8 @@ export default defineConfig({
           items: [{ autogenerate: { directory: "transitions" } }],
         },
         {
-          label: "Footguns",
-          link: "/footguns/",
+          label: "Pitfalls",
+          link: "/pitfalls/",
         },
       ],
     }),

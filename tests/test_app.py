@@ -304,6 +304,12 @@ class TestExampleConfigWidgets:
             / "config"
             / "config.moonbunny.example.toml"
         )
+        # The moonbunny config references the licensed Beloved Sans font, which
+        # lives in the gitignored config/fonts/ directory and is not available
+        # in CI. Skip when the font file is missing rather than fail the build.
+        beloved_font = config_path.parent / "fonts" / "beloved-sans-bold.otf"
+        if not beloved_font.exists():
+            pytest.skip(f"licensed font not available: {beloved_font}")
         config = load_config(config_path)
 
         for section in config.sections:

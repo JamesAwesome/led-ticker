@@ -2,6 +2,10 @@
 # Uses a bundled asset from config/assets/. Path is relative to this
 # TOML file's location (docs/site/demos/) — three levels up to repo
 # root, then config/assets/.
+# render-duration: 7
+# ↑ "Bunny says hi" is wider than "Hello!" — one full marquee pass at
+#   scroll_speed_ms=25 takes ~6s. Capture 7s so the loop boundary sits
+#   in clean dead space, not mid-traversal.
 [display]
 rows = 16
 cols = 32
@@ -12,7 +16,7 @@ brightness = 60
 [[playlist.section]]
 mode = "swap"
 loop_count = 1
-hold_time = 4.0
+hold_time = 7.0
 
 [[playlist.section.widget]]
 type = "image"
@@ -23,5 +27,5 @@ text = "Bunny says hi"
 text_align = "scroll_over"
 # See widget-gif.toml for the rationale on scroll_speed_ms = 25.
 scroll_speed_ms = 25
-hold_seconds = 4.0
+hold_seconds = 7.0
 font_color = [200, 100, 255]

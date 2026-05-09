@@ -8,7 +8,7 @@
  * with broken demo gifs.
  */
 
-import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,16 +20,31 @@ const DEMOS_DIR = join(SITE_ROOT, "demos");
 const OUT_DIR = join(SITE_ROOT, "public", "demos");
 const RENDERER = join(REPO_ROOT, "tools", "render_demo", "render.py");
 
+const DEFAULT_DURATION_S = 5;
+
 function isStale(gifPath, tomlPath) {
   if (!existsSync(gifPath)) return true;
   return statSync(tomlPath).mtimeMs > statSync(gifPath).mtimeMs;
 }
 
+// Read an optional `# render-duration: N` comment from the TOML so demos
+// that need a longer capture (e.g. a wide marquee that has to complete one
+// full traversal before the gif loops back) can declare it inline. Falls
+// back to DEFAULT_DURATION_S if absent or malformed.
+function readRenderDuration(tomlPath) {
+  const text = readFileSync(tomlPath, "utf8");
+  const match = text.match(/^#\s*render-duration:\s*([\d.]+)/m);
+  if (!match) return DEFAULT_DURATION_S;
+  const value = Number(match[1]);
+  return Number.isFinite(value) && value > 0 ? value : DEFAULT_DURATION_S;
+}
+
 function renderDemo(tomlPath, gifPath) {
-  console.log(`[build-demos] rendering ${tomlPath} -> ${gifPath}`);
+  const duration = readRenderDuration(tomlPath);
+  console.log(`[build-demos] rendering ${tomlPath} -> ${gifPath} (${duration}s)`);
   const result = spawnSync(
     "uv",
-    ["run", "python", RENDERER, tomlPath, "-o", gifPath, "--duration", "5"],
+    ["run", "python", RENDERER, tomlPath, "-o", gifPath, "--duration", String(duration)],
     { cwd: REPO_ROOT, stdio: "inherit" },
   );
   if (result.status !== 0) {

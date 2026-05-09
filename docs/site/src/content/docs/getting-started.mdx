@@ -1,0 +1,49 @@
+---
+title: Getting started
+description: Install led-ticker, point it at a config, watch a sign light up.
+---
+
+led-ticker runs on a Raspberry Pi connected to RGB LED matrix panels.
+It reads a TOML config file, drives the panels, and updates content
+from various sources (RSS, weather, etc.).
+
+## Install
+
+```bash
+git clone https://github.com/JamesAwesome/led-ticker.git
+cd led-ticker
+make dev
+```
+
+## Configure
+
+Copy an example config matching your hardware:
+
+```bash
+# Pi 4 + 5x32x16 panels
+cp config/config.example.toml config/config.toml
+
+# Pi 5 + 8x P3 32x64 panels in vertical-serpentine layout
+cp config/config.bigsign.example.toml config/config.toml
+```
+
+Edit `config/config.toml` to set up sections, widgets, and transitions.
+
+## Validate
+
+```bash
+led-ticker validate config/config.toml
+```
+
+A clean config prints `No issues found.` and exits 0. Errors and warnings
+print with their fix suggestions; see [`led-ticker validate`](/tools/validate/).
+
+## Run
+
+```bash
+# On the Pi:
+led-ticker --config config/config.toml
+
+# Or via Docker:
+docker compose up -d --build
+```

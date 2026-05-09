@@ -1,0 +1,27 @@
+---
+interface Props {
+  slugs: string[];
+}
+const { slugs } = Astro.props;
+---
+
+<aside class="related">
+  <p class="related-title">See also</p>
+  <ul>
+    {slugs.map((s) => <li><a href={`/led-ticker/${s}/`}>{s}</a></li>)}
+  </ul>
+</aside>
+
+<style>
+  .related {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--sl-color-gray-5);
+  }
+  .related-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+  .related ul { list-style: none; padding: 0; margin: 0; }
+  .related li { margin: 0.25rem 0; }
+</style>

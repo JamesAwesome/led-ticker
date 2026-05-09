@@ -250,7 +250,7 @@ class TestAlignment:
     def test_top_center_overrides_top_align_with_warning(self):
         """`top_center` STILL silently wins over `top_align` if both are
         set (preserving prior behavior), but the deprecation warning
-        makes the override visible. Catches the silent-override footgun
+        makes the override visible. Catches the silent-override pitfall
         the post-merge review flagged."""
         with pytest.warns(DeprecationWarning, match="top_center"):
             w = TwoRowMessage(

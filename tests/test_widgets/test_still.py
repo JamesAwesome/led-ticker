@@ -876,7 +876,7 @@ def test_invalid_text_align_raises_with_empty_text(tmp_path):
 
 
 def test_text_align_scroll_with_stretch_raises(tmp_path):
-    """Cross-field footgun: scroll mode + stretch = invisible text. Raise."""
+    """Cross-field pitfall: scroll mode + stretch = invisible text. Raise."""
     path = _make_png(tmp_path)
     with pytest.raises(ValueError, match="text_align='scroll'"):
         StillImage(

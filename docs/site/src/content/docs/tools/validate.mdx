@@ -3,7 +3,6 @@ title: "Tool: validate"
 description: Statically inspect a led-ticker config TOML against the decision-rule registry to surface errors and warnings before they bite on the Pi.
 ---
 
-import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 `led-ticker validate` reads a `config.toml` and runs it through the decision-rule registry without ever opening a panel. It catches TOML parse errors, structural problems, widget-construction failures (via `_build_widget(validate_only=True)`), and a set of soft warnings about layout pitfalls that the engine would otherwise hit at runtime. The implementation lives at [`src/led_ticker/validate.py`](https://github.com/jamesawesome/led-ticker/blob/main/src/led_ticker/validate.py).
@@ -12,7 +11,11 @@ It exists so that the most common config mistakes — a `text_align = "scroll"` 
 
 ## Quick start
 
-Human-readable output (the default):
+Warnings are gated behind a Phase-2 check — they only surface when no errors are present, so you'll never see both classes in the same run. The two examples below show the human-readable output for an errors-only run and a warnings-only run; the [`--json`](#machine-readable-json) section mirrors the same split.
+
+### Errors-only run
+
+A config that violates Rule 3 (`text_align = "scroll"` paired with `fit = "stretch"` on a gif/image widget):
 
 ```bash
 led-ticker validate config/config.toml
@@ -24,17 +27,35 @@ Validating config/config.toml...
 ✗ ERROR   section[0].widget[1]: text_align='scroll' with fit='stretch': no transparent regions for text to walk behind [rule 3]
           Fix: Change fit to 'pillarbox', 'letterbox', or 'crop'; or change text_align to 'left'/'right'
 
-⚠ WARNING section[2]: content_height 20 × scale 4 = 80 exceeds panel height 64px — edges will clip [rule 1]
-          Fix: Lower content_height to 16 (= panel_h ÷ scale)
-
-2 issue(s): 1 error(s), 1 warning(s)
+1 issue(s): 1 error(s), 0 warning(s)
 ```
 
-Machine-readable JSON (used by the [`creating-a-config`](/tools/creating-a-config) skill):
+### Warnings-only run
+
+A config with no hard errors but a `transition_duration` that looks like milliseconds (Rule 21 — soft):
+
+```bash
+led-ticker validate config/config.toml
+```
+
+```text
+Validating config/config.toml...
+
+⚠ WARNING transitions.between_sections: transition_duration 800.0 looks like milliseconds (> 5 s is unusual) [rule 21]
+          Fix: Divide by 1000 → 0.800 s
+
+1 issue(s): 0 error(s), 1 warning(s)
+```
+
+### Machine-readable JSON
+
+The same split applies to `--json` output (used by the [`creating-a-config`](/tools/creating-a-config) skill):
 
 ```bash
 led-ticker validate config/config.toml --json
 ```
+
+Errors-only run:
 
 ```json
 {
@@ -48,12 +69,23 @@ led-ticker validate config/config.toml --json
       "fix": "Change fit to 'pillarbox', 'letterbox', or 'crop'; or change text_align to 'left'/'right'"
     }
   ],
+  "warnings": []
+}
+```
+
+Warnings-only run:
+
+```json
+{
+  "valid": true,
+  "path": "config/config.toml",
+  "errors": [],
   "warnings": [
     {
-      "rule": 1,
-      "location": "section[2]",
-      "message": "content_height 20 × scale 4 = 80 exceeds panel height 64px — edges will clip",
-      "fix": "Lower content_height to 16 (= panel_h ÷ scale)"
+      "rule": 21,
+      "location": "transitions.between_sections",
+      "message": "transition_duration 800.0 looks like milliseconds (> 5 s is unusual)",
+      "fix": "Divide by 1000 → 0.800 s"
     }
   ]
 }

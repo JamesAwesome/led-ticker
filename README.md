@@ -146,18 +146,29 @@ type = "message"
 text = ":taco: Taco Tuesday!"
 ```
 
-| Emoji | Name | Description |
-|-------|------|-------------|
-| `:baseball:` | baseball | White ball with red stitching |
-| `:taco:` | taco | Taco with shell, lettuce, tomato, cheese, meat |
-| `:flower:` | flower | Pink flower (used in MLB spring training) |
-| `:star:` | star | Yellow star (used in MLB all-star) |
-| `:sun:` | sun | Sun icon |
-| `:cloud:` | cloud | Cloud icon |
-| `:rain:` | rain | Rain icon |
-| `:snow:` | snow | Snow icon |
-| `:thunder:` | thunder | Thunder icon |
-| `:fog:` | fog | Fog icon |
+Some sprites have a hi-res variant that auto-activates on bigsign (scale > 1) — same logical footprint, more detail per cell. Marked **hires** below.
+
+| Emoji | Description | Hires |
+|-------|-------------|-------|
+| `:baseball:` | White ball with red stitching | ✓ |
+| `:bunny:` | Bunny silhouette | ✓ |
+| `:cat:` | Cat | ✓ |
+| `:cloud:` | Cloud icon | ✓ |
+| `:email:` | Envelope (white) | ✓ |
+| `:flower:` | Pink flower | ✓ |
+| `:fog:` | Fog icon | ✓ |
+| `:heart:` | Heart | ✓ |
+| `:instagram:` | Instagram glyph (magenta) | ✓ |
+| `:moon:` | Crescent moon | ✓ |
+| `:partly_cloudy:` | Sun + cloud | ✓ |
+| `:pokeball:` | Pokeball | hires only |
+| `:pride:` | Pride flag stripes | hires only |
+| `:rain:` | Rain icon | ✓ |
+| `:snow:` | Snow icon | ✓ |
+| `:star:` | Yellow star | ✓ |
+| `:sun:` | Sun icon | ✓ |
+| `:taco:` | Taco | ✓ |
+| `:thunder:` | Thunder icon | ✓ |
 
 ### Built-in Widgets
 

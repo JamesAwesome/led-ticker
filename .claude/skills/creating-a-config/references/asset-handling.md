@@ -61,7 +61,13 @@ font_threshold = 128  # default — inverts weight contrast
 
 ## Images / GIFs
 
-**Placement:** `config/assets/<file>`. Files are gitignored.
+**Placement:** `config/assets/<file>`. The directory itself is NOT
+gitignored — generic / thematic assets (e.g., `bunny-transparent.png`,
+`kpop-dance.webp`) ship with the public repo. For customer-IP brand
+assets (logos belonging to a specific business) the convention is to
+NOT commit them and instead ship them via a tar.gz bundle alongside
+the example config: extract on the Pi, override the live config.
+See the moonbunny example for the pattern.
 
 **Fit-mode decision tree:**
 
@@ -70,6 +76,12 @@ font_threshold = 128  # default — inverts weight contrast
 3. Image is wider than panel aspect → `fit = "pillarbox"` (black bars left/right). Use `image_align = "left" | "center" | "right"` to anchor.
 4. Image needs to fill the panel and aspect doesn't matter → `fit = "crop"`.
 5. Image has transparent regions and you want text to walk "behind" the silhouette → any fit EXCEPT stretch (stretch leaves no transparent regions).
+
+**Scroll layering** (`text_align` for marquees over images):
+
+- `text_align = "scroll"` — text drawn first, image painted on top with skip-black. Text walks BEHIND the image silhouette and is exposed only through transparent / black regions. Use with RGBA images that have meaningful alpha (logos, sprites). Don't use with opaque RGB photos — text will be hidden.
+- `text_align = "scroll_over"` — image painted first, text drawn on top. Text walks IN FRONT, always visible regardless of image content. Use with opaque images (dance video, photos) where there's nothing transparent to peek through, OR when you want guaranteed legibility.
+- `text_align = "auto"` — resolves based on `image_align`: `left` → text starts on right, `right` → starts on left, `center` → `scroll_over`. Good when you don't want to think about it.
 
 **Two-row text overlay decision:**
 - One line of text → use single-row knobs (`text`, `text_align`, `text_valign`, `font_size`).

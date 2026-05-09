@@ -3,6 +3,7 @@ title: coingecko widget
 description: Live crypto price from CoinGecko, an alternative to coinbase with broader coin coverage.
 ---
 
+import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
@@ -11,9 +12,10 @@ The `coingecko` widget is essentially `coinbase` pointed at the [CoinGecko API](
 
 The key difference from `coinbase`: CoinGecko identifies coins by a slug ID (`"bitcoin"`) rather than a trading pair (`"BTC-USD"`), so the config requires both a display `symbol` and a lookup `symbol_id`.
 
-:::note[No demo gif]
-The coingecko widget makes live HTTP calls to CoinGecko, which doesn't render usefully in CI's 5-second capture window. Run a `coingecko` widget locally to see the price update and trend coloring.
-:::
+<DemoGif
+  src="/demos-long/widget-coingecko.gif"
+  caption="BTC via CoinGecko (rendered locally — live API call doesn't run in CI)"
+/>
 
 <TomlExample
   title="Minimal example"

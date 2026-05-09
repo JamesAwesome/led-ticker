@@ -3,15 +3,17 @@ title: rss_feed widget
 description: Pulls headlines from any RSS feed, expanding them into in-section TickerMessages.
 ---
 
+import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `rss_feed` widget fetches a remote RSS feed and turns each headline into its own `TickerMessage` that scrolls in the section. The feed title appears first, followed by up to `max_stories` stories, each with its own color. Updates happen in the background via async polling with exponential backoff — the display keeps running even if the feed is temporarily unreachable.
 
-:::note[No demo gif]
-The rss_feed widget makes live HTTP calls to fetch the feed, which doesn't render usefully in CI's 5-second capture window. Run an `rss_feed` widget locally against your favorite feed URL to see it animate.
-:::
+<DemoGif
+  src="/demos-long/widget-rss_feed.gif"
+  caption="Nintendo Life RSS feed (rendered locally — live HTTP fetch doesn't run in CI)"
+/>
 
 <TomlExample
   title="Minimal example"

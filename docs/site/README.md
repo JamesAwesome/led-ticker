@@ -27,10 +27,28 @@ pnpm run dev
 
 ## Building demo gifs
 
+There are TWO demo pipelines:
+
+**Auto-rendered** (`demos/` → `public/demos/`, gitignored):
 `pnpm run build` runs `scripts/build-demos.mjs` first, which iterates `demos/*.toml`
 and calls the Python renderer for any missing or stale gifs in `public/demos/`.
 The renderer requires `uv` and the Python deps installed at the repo root
-(`uv sync` from the repo root).
+(`uv sync` from the repo root). These run on every Cloudflare deploy.
+
+**Long-running** (`demos-long/` → `public/demos-long/`, committed):
+For data-fetch widgets (rss_feed, mlb, coinbase, etc.) where 5 seconds isn't
+enough, and Cloudflare can't run them anyway since the renderer makes live
+HTTP calls. Run from the repo root:
+
+```bash
+make render-long-demos                              # render every long demo
+make render-long-demo NAME=widget-coinbase          # render just one
+```
+
+Output lands in `docs/site/public/demos-long/` and IS committed to git. Each
+TOML may declare `# requires-env: VAR` in a comment — if that env var isn't set,
+the demo is skipped (so contributors without API keys for `etherscan` /
+`weather` can still run the script without errors).
 
 ## Lint and format
 

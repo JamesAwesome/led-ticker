@@ -3,15 +3,17 @@ title: coinbase widget
 description: Live crypto price from Coinbase, with up/down/neutral trend coloring.
 ---
 
+import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `coinbase` widget fetches the current spot price for a cryptocurrency pair from [Coinbase's public API](https://api.coinbase.com) and displays the price alongside the 24-hour change percentage. No API key is required. The change field is automatically colored green when the price is up vs the previous fetch, red when down, and gray when unchanged.
 
-:::note[No demo gif]
-The coinbase widget makes live HTTP calls to Coinbase, which doesn't render usefully in CI's 5-second capture window. Run a `coinbase` widget locally to see the price update and trend coloring.
-:::
+<DemoGif
+  src="/demos-long/widget-coinbase.gif"
+  caption="BTC-USD via Coinbase (rendered locally — live API call doesn't run in CI)"
+/>
 
 <TomlExample
   title="Minimal example"

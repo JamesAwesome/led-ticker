@@ -1,0 +1,25 @@
+# Long demo: Coinbase BTC-USD price.
+#
+# Rendered locally via `make render-long-demos`. Output is committed
+# to git at docs/site/public/demos-long/widget-coinbase.gif so the
+# docs site picks it up — Cloudflare's auto-build can't run this
+# (live HTTP fetch + the renderer's stub canvas; deterministic
+# repeatability isn't a goal here).
+
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 30.0   # hold the rendered price on-screen so frames are stable
+
+[[playlist.section.widget]]
+type = "coinbase"
+symbol = "BTC"
+currency = "USD"
+update_interval = 5

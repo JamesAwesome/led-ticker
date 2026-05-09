@@ -3,15 +3,17 @@ title: mlb_standings widget
 description: League standings — top-N teams plus your tracked teams. Offseason-aware. Free API, no key.
 ---
 
+import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `mlb_standings` widget fetches overall MLB league standings from the free StatsAPI and displays them as a scrolling list. It shows the top-N teams by overall rank and always includes a configurable set of tracked teams — so your team stays visible even when they're buried in the middle of the pack. During the offseason (before any games have been played), the widget automatically switches to a pre-season message with the opening-day date, then resumes showing standings once the season begins. No API key is required.
 
-:::note[No demo gif]
-The mlb_standings widget makes live HTTP calls to MLB's StatsAPI, which doesn't render usefully in CI's 5-second capture window. Run an `mlb_standings` widget locally to see it animate.
-:::
+<DemoGif
+  src="/demos-long/widget-mlb_standings.gif"
+  caption="Top 5 + Yankees via MLB StatsAPI (rendered locally — live API call doesn't run in CI)"
+/>
 
 <TomlExample
   title="Minimal example"

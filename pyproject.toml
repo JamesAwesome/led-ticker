@@ -38,7 +38,7 @@ led-ticker = "led_ticker.app:main"
 packages = ["src/led_ticker"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "tools/render_demo"]
 asyncio_mode = "auto"
 
 [tool.pyright]

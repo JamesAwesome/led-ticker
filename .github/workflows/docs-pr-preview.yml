@@ -1,0 +1,58 @@
+name: docs-pr-preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "docs/**"
+      - "tools/render_demo/**"
+      - ".github/workflows/docs-pr-preview.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+  deployments: write
+
+concurrency:
+  group: docs-pr-preview-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Python deps
+        run: uv sync
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install Node deps
+        working-directory: docs/site
+        run: pnpm install --frozen-lockfile
+
+      - name: Build site (renders demo gifs first)
+        working-directory: docs/site
+        run: pnpm run build
+
+      - name: Deploy preview to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy docs/site/dist --project-name=led-ticker --branch=${{ github.head_ref }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}

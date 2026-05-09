@@ -489,7 +489,7 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         )
 
     def test_full_width_budgets_actual_hires_advance_at_scale_2(self, monkeypatch):
-        """Tripwire for the scale=2 layout footgun. At per-section
+        """Tripwire for the scale=2 layout pitfall. At per-section
         scale=2 the hires sun sprite is 16 logical wide (32 // 2), not
         8. The pre-fix hardcoded `+ 8 + EMOJI_PADDING` undercounted by
         8 logical pixels, mis-budgeting `content_width` to

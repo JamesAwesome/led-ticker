@@ -435,7 +435,7 @@ def test_invalid_text_align_raises_with_empty_text(tmp_path):
 
 
 def test_text_align_scroll_with_stretch_raises(tmp_path):
-    """Cross-field footgun: scroll mode relies on transparent / pillarbox
+    """Cross-field pitfall: scroll mode relies on transparent / pillarbox
     regions for skip-black to expose the marquee. With fit='stretch'
     the panel is fully opaque — text would be invisible. Raise."""
     path = _make_gif_path(tmp_path, [(10, 20, 30)])

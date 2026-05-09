@@ -217,7 +217,7 @@ class _BaseImageWidget(_FrameAware):
     # ------------------------------------------------------------------
 
     def _validate_common(self, image_align: str, fit: str) -> None:
-        """Validate the text-overlay fields + cross-field footguns.
+        """Validate the text-overlay fields + cross-field pitfalls.
 
         Subclasses pass their `image_align` and `fit` so we can catch
         combinations like `text_align="scroll"` + `fit="stretch"` that
@@ -258,21 +258,21 @@ class _BaseImageWidget(_FrameAware):
                 f"scroll_speed_ms must be >= {MIN_SCROLL_SPEED_MS}, "
                 f"got {self.scroll_speed_ms!r}"
             )
-        # Footgun: text_loops > 0 with static alignment is a silent no-op
+        # Pitfall: text_loops > 0 with static alignment is a silent no-op
         # in the per-tick loop (the floor formula gates on `scrolling`).
         if self.text_loops > 0 and self.text_align in ("left", "right"):
             raise ValueError(
                 f"text_loops > 0 only applies when text_align is 'scroll' "
                 f"or 'scroll_over'; got text_align={self.text_align!r}"
             )
-        # Footgun: text_x_offset is a static-text knob; for scrolling it
+        # Pitfall: text_x_offset is a static-text knob; for scrolling it
         # would just skew the trajectory by a constant — confusing.
         if self.text_x_offset != 0 and self.text_align in ("scroll", "scroll_over"):
             raise ValueError(
                 f"text_x_offset is only meaningful for static text_align "
                 f"(left/right); got text_align={self.text_align!r}"
             )
-        # Footgun: text_align="scroll" + fit="stretch" → no transparent
+        # Pitfall: text_align="scroll" + fit="stretch" → no transparent
         # regions for skip-black to expose, so text is invisible.
         if self.text and self.text_align == "scroll" and fit == "stretch":
             raise ValueError(

@@ -39,7 +39,7 @@ class ScaledCanvas:
         # `content_height * scale` must fit inside the actual panel
         # height — otherwise `_y_offset` goes negative and content near
         # the top/bottom logical edges silently clips against the panel
-        # boundaries. The user-facing footgun: a TwoRowMessage with
+        # boundaries. The user-facing pitfall: a TwoRowMessage with
         # `:instagram:` hi-res emoji losing 4-8 real px at the panel
         # bottom (hardware-discovered). Hard-fail here so any future
         # config that misallocates breathing room surfaces immediately

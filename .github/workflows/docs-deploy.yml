@@ -66,6 +66,7 @@ jobs:
         run: pnpm run build
 
       - name: Deploy to Cloudflare Pages
+        id: deploy
         # Dependabot PRs (and PRs from forks) don't get repo secrets,
         # so wrangler can't auth. Skip the deploy step on those — the
         # build above still validated the change. To enable previews
@@ -86,3 +87,50 @@ jobs:
           # deploys as a preview tagged with the PR's branch name.
           command: pages deploy dist --project-name=led-ticker --branch=${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post or update preview-URL comment on PR
+        # Only on PR runs where the deploy actually happened (skipped
+        # on Dependabot, push-to-main, etc.). The script finds an
+        # existing comment by hidden marker and edits it in place if
+        # found, so each new commit on a PR updates the same comment
+        # rather than spamming new ones.
+        if: github.event_name == 'pull_request' && steps.deploy.outcome == 'success'
+        uses: actions/github-script@v8
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.deployment-url }}
+          ALIAS_URL: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
+        with:
+          script: |
+            const marker = '<!-- docs-preview-comment -->';
+            const body = [
+              marker,
+              '📚 **Docs preview deployed**',
+              '',
+              `- Branch alias (sticky to this PR): ${process.env.ALIAS_URL}`,
+              `- This commit: ${process.env.DEPLOY_URL}`,
+              '',
+              '_Updated automatically as new commits land._',
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

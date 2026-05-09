@@ -70,6 +70,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          packageManager: pnpm
           # On push-to-main this deploys as production; on a PR it
           # deploys as a preview tagged with the PR's branch name.
           command: pages deploy docs/site/dist --project-name=led-ticker --branch=${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}

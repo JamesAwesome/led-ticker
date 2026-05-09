@@ -1,0 +1,74 @@
+---
+title: Animations
+description: typewriter — character-by-character reveal, composes with any font_color.
+---
+
+import DemoGif from "../../../components/DemoGif.astro";
+import TomlExample from "../../../components/TomlExample.astro";
+import DecisionRule from "../../../components/DecisionRule.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+led-ticker has one animation right now: **typewriter** — a character-by-character reveal. Set `animation = "typewriter"` on a supported widget and the text types out one character at a time the moment the widget appears. The characters land in their final positions (no shifting), so the message assembles itself in place rather than scrolling in.
+
+Animations are a separate axis from color providers. A widget can carry both simultaneously — for example `animation = "typewriter"` and `font_color = "rainbow"` — and each effect tracks its own frame counter. The characters type out in rainbow with no interference between the two systems.
+
+<DemoGif
+  src="/demos/concepts-animations.gif"
+  caption="`message` with animation = typewriter and font_color = rainbow"
+/>
+
+<TomlExample
+  title="Minimal"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "Hello, world!"
+animation = "typewriter"`}
+/>
+
+## Tuning `frames_per_char`
+
+The cadence is `frames_per_char × 50 ms` per character — the engine ticks at 50 ms and advances the typewriter counter once per tick. The default of `3` gives about 150 ms per character, which feels snappy but still readable at roughly 7 characters per second. A value of `5` or `6` reads as deliberate and is a good choice when you want the audience to register each character dropping in. Values above `10` start to feel comically slow. There is no separate animation clock — everything runs on the same 50 ms engine tick.
+
+To override `frames_per_char`, switch from the string shorthand to an inline TOML table with a `style` key:
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "Slow type"
+animation = {style = "typewriter", frames_per_char = 6}   # ~300ms per char`}
+/>
+
+## Composing with font_color
+
+`animation` and `font_color` are independent axes on the same widget. Both can be set at the same time, and each effect tracks its own counter. The result is that characters type out AND each character's color comes from the provider — a rainbow sweeps across the text as it appears, rather than the whole message flashing in at once.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "Now Enrolling"
+animation = "typewriter"
+font_color = "rainbow"`}
+/>
+
+Because rainbow is a continuous-phase provider (its counter does not reset between `loop_count` repetitions), the color sweep keeps flowing even as the typewriter retypes from scratch on each loop. The two effects compose cleanly without any special configuration.
+
+## Restart-on-visit behavior
+
+Typewriter has `restart_on_visit = true` — the reveal counter resets every time the section shows the widget. With `loop_count = 2`, the widget retypes from scratch on each loop rather than resuming mid-word. With `loop_count = 1` and a multi-widget section in `swap` mode, the widget retypes fresh each time it appears in the rotation. This is the intentional, expected behavior — typewriter is designed to be a reveal, not a persistent animation state. See [frame counters](/concepts/frame-counters/) for the full model of restart-on-visit versus continuous-phase behavior.
+
+## Where it works
+
+| Widget type                                                                         | `animation = "typewriter"`?            |
+| ----------------------------------------------------------------------------------- | -------------------------------------- |
+| `message`                                                                           | yes                                    |
+| `countdown`                                                                         | yes                                    |
+| `gif`                                                                               | yes — single-row only (see note below) |
+| `image`                                                                             | yes — single-row only (see note below) |
+| `two_row`                                                                           | no                                     |
+| `weather`, `rss_feed`, `mlb`, `mlb_standings`, `coinbase`, `coingecko`, `etherscan` | no                                     |
+
+On `gif` and `image` widgets, typewriter is restricted to single-row text overlays. It will raise a configuration error if `bottom_text` is also set (which activates two-row mode), if `text_align` is `"scroll"` or `"scroll_over"` (incompatible with a fixed-position reveal), or if `text` is empty.
+
+<DecisionRule id="12" />
+
+<RelatedPages slugs={["concepts/color-providers", "concepts/frame-counters", "widgets/message"]} />

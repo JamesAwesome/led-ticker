@@ -66,6 +66,13 @@ jobs:
         run: pnpm run build
 
       - name: Deploy to Cloudflare Pages
+        # Dependabot PRs (and PRs from forks) don't get repo secrets,
+        # so wrangler can't auth. Skip the deploy step on those — the
+        # build above still validated the change. To enable previews
+        # on Dependabot PRs, also add CLOUDFLARE_API_TOKEN +
+        # CLOUDFLARE_ACCOUNT_ID under repo Settings → Secrets and
+        # variables → Dependabot (separate from the Actions tab).
+        if: github.actor != 'dependabot[bot]'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

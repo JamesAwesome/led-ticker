@@ -1,0 +1,108 @@
+---
+title: "Tool: validate"
+description: Statically inspect a led-ticker config TOML against the decision-rule registry to surface errors and warnings before they bite on the Pi.
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+`led-ticker validate` reads a `config.toml` and runs it through the decision-rule registry without ever opening a panel. It catches TOML parse errors, structural problems, widget-construction failures (via `_build_widget(validate_only=True)`), and a set of soft warnings about layout pitfalls that the engine would otherwise hit at runtime. The implementation lives at [`src/led_ticker/validate.py`](https://github.com/jamesawesome/led-ticker/blob/main/src/led_ticker/validate.py).
+
+It exists so that the most common config mistakes — a `text_align = "scroll"` paired with a `fit = "stretch"`, a hi-res font without `font_size`, a `content_height` that overflows the panel — surface on your laptop in milliseconds, instead of on the Pi after a deploy. It's also the contract the [`creating-a-config`](/tools/creating-a-config) skill uses to verify generated configs: the skill calls `validate --json` and refuses to ship anything that fails.
+
+## Quick start
+
+Human-readable output (the default):
+
+```bash
+led-ticker validate config/config.toml
+```
+
+```text
+Validating config/config.toml...
+
+✗ ERROR   section[0].widget[1]: text_align='scroll' with fit='stretch': no transparent regions for text to walk behind [rule 3]
+          Fix: Change fit to 'pillarbox', 'letterbox', or 'crop'; or change text_align to 'left'/'right'
+
+⚠ WARNING section[2]: content_height 20 × scale 4 = 80 exceeds panel height 64px — edges will clip [rule 1]
+          Fix: Lower content_height to 16 (= panel_h ÷ scale)
+
+2 issue(s): 1 error(s), 1 warning(s)
+```
+
+Machine-readable JSON (used by the [`creating-a-config`](/tools/creating-a-config) skill):
+
+```bash
+led-ticker validate config/config.toml --json
+```
+
+```json
+{
+  "valid": false,
+  "path": "config/config.toml",
+  "errors": [
+    {
+      "rule": 3,
+      "location": "section[0].widget[1]",
+      "message": "text_align='scroll' with fit='stretch': no transparent regions for text to walk behind",
+      "fix": "Change fit to 'pillarbox', 'letterbox', or 'crop'; or change text_align to 'left'/'right'"
+    }
+  ],
+  "warnings": [
+    {
+      "rule": 1,
+      "location": "section[2]",
+      "message": "content_height 20 × scale 4 = 80 exceeds panel height 64px — edges will clip",
+      "fix": "Lower content_height to 16 (= panel_h ÷ scale)"
+    }
+  ]
+}
+```
+
+The CLI exits `0` when the config is valid (no errors; warnings allowed), `1` when there are errors, and `2` when the file does not exist.
+
+## Output format
+
+The JSON shape is stable and meant to be parsed:
+
+```json
+{
+  "valid": true,
+  "path": "config/config.toml",
+  "errors": [],
+  "warnings": []
+}
+```
+
+Each entry in `errors` and `warnings` follows the `ValidationIssue` dataclass defined in [`src/led_ticker/validate.py`](https://github.com/jamesawesome/led-ticker/blob/main/src/led_ticker/validate.py):
+
+| Field      | Type                     | Meaning                                                                                         |
+| ---------- | ------------------------ | ----------------------------------------------------------------------------------------------- |
+| `rule`     | `int \| null`            | The numeric rule id from the registry, or `null` for unclassified errors (e.g. raw TOML parse). |
+| `location` | `string`                 | Path into the config, e.g. `section[0].widget[1]` or `transitions.between_sections`.            |
+| `message`  | `string`                 | What the validator found.                                                                       |
+| `fix`      | `string`                 | A one-line suggestion that maps the problem to a concrete config change.                        |
+| `severity` | `"error"` or `"warning"` | Errors block the ticker at runtime; warnings are advisory and the ticker will still start.      |
+
+The `valid` field is true exactly when `errors` is empty — warnings do not flip it.
+
+## Rule index
+
+These are the rules that have a fact-pack file in [`docs/content-source/rules/`](https://github.com/jamesawesome/led-ticker/tree/main/docs/content-source/rules) and are wired into the validator. The numeric id matches the `rule` field in the JSON output; the validator may surface additional unclassified errors with `rule: null` (e.g. raw TOML syntax errors).
+
+| Rule # | Subject                                                              | Severity |
+| ------ | -------------------------------------------------------------------- | -------- |
+| 3      | `text_align = "scroll"` combined with `fit = "stretch"` on gif/image | Error    |
+| 6      | `two_row` widget at `scale = 4` (logical canvas only 64px wide)      | Warning  |
+| 7      | `text_x_offset` is invalid with a scrolling `text_align`             | Error    |
+| 8      | `hold_seconds < 0.05` (under 50 ms — almost certainly a typo)        | Error    |
+| 12     | `animation` set on a widget type that doesn't support it             | Error    |
+| 14     | `animation = "typewriter"` on gif/image is single-row only           | Error    |
+
+## Pitfalls
+
+**The validator only catches static, config-time problems.** Anything that depends on runtime state — a stale `WEATHERAPI_KEY`, an unreachable RSS feed, an `image_path` that exists in your repo but not in the Docker bind mount, a network split-brain that makes Coinbase fetches time out — is out of scope. A green `validate` is necessary but not sufficient; the only way to fully verify a config is to run it against the panel (or the [`render-demo`](/tools/render-demo) gif pipeline).
+
+**Warnings are advisory, not blocking.** The ticker will start, scroll, and swap when only warnings are present, but the warning usually points at a rendering quirk you don't actually want — content_height overflow that silently clips the top and bottom rows on a bigsign, a `two_row` widget cramped into a 64px logical canvas, a `transition_duration` that looks like milliseconds when the engine wants seconds. Treat them as a checklist before you call a config done.
+
+<RelatedPages slugs={["tools/creating-a-config", "pitfalls", "tools/render-demo"]} />

@@ -1,0 +1,37 @@
+# Demo: rotates through five color providers on the same text.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 3.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "rainbow"
+font_color = "rainbow"
+
+[[playlist.section.widget]]
+type = "message"
+text = "color_cycle"
+font_color = "color_cycle"
+
+[[playlist.section.widget]]
+type = "message"
+text = "gradient"
+font_color = {style = "gradient", from = [255, 100, 100], to = [100, 100, 255]}
+
+[[playlist.section.widget]]
+type = "message"
+text = "constant"
+font_color = [255, 200, 0]
+
+[[playlist.section.widget]]
+type = "message"
+text = "random"
+font_color = "random"

@@ -2,3 +2,10 @@ node_modules/
 dist/
 .astro/
 public/demos/
+
+# Lockfiles for non-pnpm package managers. The preinstall hook in
+# package.json should already block npm/yarn from running, but ignore
+# these too so they never sneak into git status. The
+# `no-non-pnpm-lockfiles` pre-commit hook is the final line of defense.
+package-lock.json
+yarn.lock

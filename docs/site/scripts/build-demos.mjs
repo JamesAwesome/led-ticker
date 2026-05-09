@@ -29,16 +29,7 @@ function renderDemo(tomlPath, gifPath) {
   console.log(`[build-demos] rendering ${tomlPath} -> ${gifPath}`);
   const result = spawnSync(
     "uv",
-    [
-      "run",
-      "python",
-      RENDERER,
-      tomlPath,
-      "-o",
-      gifPath,
-      "--duration",
-      "5",
-    ],
+    ["run", "python", RENDERER, tomlPath, "-o", gifPath, "--duration", "5"],
     { cwd: REPO_ROOT, stdio: "inherit" },
   );
   if (result.status !== 0) {

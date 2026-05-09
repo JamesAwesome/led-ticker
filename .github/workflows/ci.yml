@@ -25,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       python: ${{ steps.f.outputs.python }}
+      docs: ${{ steps.f.outputs.docs }}
     steps:
       - uses: actions/checkout@v6
       - id: f
@@ -37,6 +38,10 @@ jobs:
               - 'tools/**'
               - 'pyproject.toml'
               - 'uv.lock'
+              - '.github/workflows/ci.yml'
+            docs:
+              - 'docs/site/**'
+              - 'docs/content-source/**'
               - '.github/workflows/ci.yml'
 
   lint:
@@ -72,11 +77,29 @@ jobs:
           enable-cache: true
       - run: PYTHONPATH=tests/stubs uv run --extra dev pytest --cov=src/led_ticker --cov-report=term-missing
 
+  docs-lint:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: "24"
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install Node deps
+        working-directory: docs/site
+        run: pnpm install --frozen-lockfile
+      - name: Lint (prettier --check + astro check)
+        working-directory: docs/site
+        run: pnpm run lint
+
   # Single rollup that branch protection can require. Passes iff every
   # upstream job is success or skipped; fails if any upstream failed
   # or was cancelled.
   ci-passed:
-    needs: [changes, lint, typecheck, test]
+    needs: [changes, lint, typecheck, test, docs-lint]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -89,12 +112,13 @@ jobs:
           LINT_RESULT: ${{ needs.lint.result }}
           TYPECHECK_RESULT: ${{ needs.typecheck.result }}
           TEST_RESULT: ${{ needs.test.result }}
+          DOCS_LINT_RESULT: ${{ needs.docs-lint.result }}
         run: |
           if [[ "$CHANGES_RESULT" != "success" ]]; then
             echo "Job 'changes' result: $CHANGES_RESULT — refusing to declare CI green."
             exit 1
           fi
-          for job in lint:"$LINT_RESULT" typecheck:"$TYPECHECK_RESULT" test:"$TEST_RESULT"; do
+          for job in lint:"$LINT_RESULT" typecheck:"$TYPECHECK_RESULT" test:"$TEST_RESULT" docs-lint:"$DOCS_LINT_RESULT"; do
             name="${job%%:*}"
             result="${job#*:}"
             case "$result" in

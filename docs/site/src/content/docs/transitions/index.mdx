@@ -3,7 +3,7 @@ title: Transitions
 description: How content swaps between widgets — push, wipe, sprite, and special effects.
 ---
 
-import RelatedPages from '../../../components/RelatedPages.astro';
+import RelatedPages from "../../../components/RelatedPages.astro";
 
 A transition runs between widgets in `swap` mode (and between sections regardless
 of mode). The pick is set in your `[transitions]` block — `default` applies
@@ -12,21 +12,21 @@ can override with `transition = "..."`.
 
 ## The four families
 
-| Family | What it looks like | Best for |
-|--------|---------|----------|
-| [Push](/transitions/push/) | Old slides off, new slides in from the opposite side | General purpose, news-ticker feel |
-| [Wipe](/transitions/wipe/) | Sweep line erases content, leaves new in its wake | Clean / professional |
-| [Sprite](/transitions/sprite/) | Pixel-art character (Pikachu, Pac-Man, baseball, …) crosses the panel | Fun / themed |
-| Special (B3) | Cut, dissolve, color flash, split, scroll | Variety, ambient |
+| Family                         | What it looks like                                                    | Best for                          |
+| ------------------------------ | --------------------------------------------------------------------- | --------------------------------- |
+| [Push](/transitions/push/)     | Old slides off, new slides in from the opposite side                  | General purpose, news-ticker feel |
+| [Wipe](/transitions/wipe/)     | Sweep line erases content, leaves new in its wake                     | Clean / professional              |
+| [Sprite](/transitions/sprite/) | Pixel-art character (Pikachu, Pac-Man, baseball, …) crosses the panel | Fun / themed                      |
+| Special (B3)                   | Cut, dissolve, color flash, split, scroll                             | Variety, ambient                  |
 
 ## Picking a transition
 
-| Tone | Default (between widgets) | Between sections |
-|------|---------------------------|------------------|
-| Minimal | `cut` or `wipe_left` | `cut` |
-| Playful | `pokeball_alternating` or `nyancat_alternating` | `pokeball_alternating` |
-| Info-dense | `push_up` | `dissolve` |
-| Branded-pro | `wipe_alternating` (with `transition_color` from the brand palette) | `dissolve` |
+| Tone        | Default (between widgets)                                           | Between sections       |
+| ----------- | ------------------------------------------------------------------- | ---------------------- |
+| Minimal     | `cut` or `wipe_left`                                                | `cut`                  |
+| Playful     | `pokeball_alternating` or `nyancat_alternating`                     | `pokeball_alternating` |
+| Info-dense  | `push_up`                                                           | `dissolve`             |
+| Branded-pro | `wipe_alternating` (with `transition_color` from the brand palette) | `dissolve`             |
 
 ## Tuning
 

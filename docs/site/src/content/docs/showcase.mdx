@@ -1,0 +1,51 @@
+---
+title: "Showcase"
+description: Real led-ticker signs running out in the world.
+---
+
+import RelatedPages from "../../components/RelatedPages.astro";
+
+Real signs running led-ticker out in the world. Submit your own via the
+link at the bottom of this page.
+
+## moonbunny
+
+<img src="/showcase/moonbunny/placeholder.svg" alt="moonbunny placeholder" />
+
+:::note
+Placeholder image — real photos coming soon. The case study text below is accurate.
+:::
+
+|                     |                                               |
+| ------------------- | --------------------------------------------- |
+| **Sign type**       | bigsign                                       |
+| **Location**        | storefront window                             |
+| **Hardware**        | Pi 5 + 8× P3 32×64                            |
+| **Notable widgets** | `rss_feed`, `two_row`, custom messages, `gif` |
+
+moonbunny is an aerial-arts studio whose street-facing window runs
+led-ticker as a 256×64 storefront display. The sign cycles brand info,
+the studio's social handle on a held top row + scrolling promo on the
+bottom (`two_row`), upcoming class blurbs as plain `message` widgets,
+and short looping `gif` clips between sections.
+
+The palette leans on the brand pink (`[225, 48, 108]`) for the social
+handle and most headline text, with `font_color = "rainbow"` reserved
+for occasional countdown widgets so a class going live still grabs
+attention against the steadier brand-colored content. The bigsign
+runs at `default_scale = 4` with a custom `pixel_mapper` for the
+2×4 vertical-serpentine panel layout.
+
+The display runs daily during business hours on a Raspberry Pi 5
+behind the storefront, configured from a single `config.toml` and
+restarted by systemd if the process exits. The same image runs in
+dev on a Pi 4 + small sign for layout iteration before promoting
+changes to the storefront.
+
+## Submit your sign
+
+Got a sign running led-ticker? Submit a photo + short description
+via the [issue template](https://github.com/JamesAwesome/led-ticker/issues/new?template=submit-sign.yml)
+and we'll add it to the showcase.
+
+<RelatedPages slugs={["getting-started", "hardware/small-sign", "hardware/bigsign"]} />

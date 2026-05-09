@@ -2,22 +2,40 @@
 /**
  * preinstall guard: refuse to install with anything other than pnpm.
  *
- * Reads $npm_config_user_agent — every modern package manager (npm,
- * pnpm, yarn) sets this when it runs lifecycle scripts, prefixed with
- * its own name. pnpm sets "pnpm/<version> ...", npm sets "npm/...",
- * yarn sets "yarn/...". If the prefix isn't "pnpm/", we print a clear
- * message and exit 1.
+ * Detection. Two env vars are inspected because no single one is
+ * reliable across pnpm versions and Corepack-managed CI runners:
+ *
+ *   npm_config_user_agent   "pnpm/<version> ..." when pnpm is the
+ *                           runner, "npm/..." for npm, "yarn/..." for
+ *                           yarn. Sometimes empty or "npm/…" even
+ *                           under pnpm in Corepack-managed CI envs.
+ *   npm_execpath            Path to the package-manager binary that
+ *                           kicked off the lifecycle script. For
+ *                           pnpm this contains the substring "pnpm";
+ *                           for npm it contains "npm-cli.js"; for
+ *                           yarn, "yarn.js".
+ *
+ * If EITHER signal positively identifies pnpm we accept; otherwise
+ * we print the boxed error and exit 1.
  *
  * Why this lives as a Node script instead of `npx only-allow pnpm`:
- * `npx` is bundled with npm, and on CI runners (Corepack-managed
- * pnpm + npm-bundled npx on PATH) the npx process resets
- * npm_config_user_agent to "npm/..." before only-allow runs, which
- * makes only-allow refuse pnpm itself. A direct Node check has no
- * external dependency and reads the env var unmodified.
+ * `npx` is bundled with npm, and on Corepack CI the npx process can
+ * reset npm_config_user_agent to "npm/..." before only-allow inspects
+ * it, which made only-allow refuse pnpm itself.
  */
 const ua = process.env.npm_config_user_agent ?? "";
+const execpath = process.env.npm_execpath ?? "";
 
-if (!ua.startsWith("pnpm/")) {
+const uaSaysPnpm = ua.startsWith("pnpm/");
+const execSaysPnpm = /\bpnpm\b/.test(execpath);
+
+if (!uaSaysPnpm && !execSaysPnpm) {
+  // Print the env we saw alongside the error so a future debugger
+  // doesn't have to guess what the runner actually set.
+  console.error(
+    `\nDETECTED npm_config_user_agent=${JSON.stringify(ua)}` +
+      `\nDETECTED npm_execpath=${JSON.stringify(execpath)}`,
+  );
   const msg = `
 ╔═════════════════════════════════════════════════════════════╗
 ║                                                             ║

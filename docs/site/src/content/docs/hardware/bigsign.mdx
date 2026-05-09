@@ -41,27 +41,27 @@ knobs in the next section are simply ignored on a Pi 4 and vice versa.
 ## The 2x4 serpentine layout
 
 Eight panels are tiled into a 2x4 grid (two rows of four). The data
-chain enters at the **bottom-right** panel and snakes vertically — up
-column 4, left to column 3 and down, up column 2, left to column 1
-and down. All panels are installed upright (no 180° rotations). The
-`pixel_mapper` Remap string in the config tells the rgbmatrix library
-how each panel's chain index maps to its physical (x, y) on the
-finished canvas.
+chain enters at the **bottom-right** panel and runs vertically: each
+column is wired bottom-to-top, with a diagonal jumper from the top of
+each column to the bottom of the next column to its left. There is no
+horizontal hop along the bottom row — the chain always climbs a column,
+then crosses diagonally to the bottom of the next one. All panels are
+installed upright (no 180° rotations). The `pixel_mapper` Remap string
+in the config tells the rgbmatrix library how each panel's chain index
+maps to its physical (x, y) on the finished canvas.
 
-```
-       col 1     col 2     col 3     col 4
-     +---------+---------+---------+---------+
-top  |   [4]   |   [6]   |   [2]   |   [8]   |  row 0..31
-     |    ↑    |    ↓    |    ↑    |    ↓    |
-     +----↑----+----↓----+----↑----+----↓----+
-bot  |   [3]   ←   [5]   ←   [1]   ←   [7]   |  row 32..63
-     +---------+---------+---------+---------+
-                                       ↑
-                              data chain enters here
+```text
+        col 1     col 2     col 3     col 4
+
+top    [8]       [6]       [4]       [2]
+        ↑    ↘    ↑    ↘    ↑    ↘    ↑
+bot    [7]       [5]       [3]       [1]  ← data chain enters here
 ```
 
-Each `[N]` is the panel's position in the chain (1 = first, 8 = last);
-arrows show the chain's path. If your top-row panels are physically
+Each `[N]` is the panel's position in the chain (1 = first, 8 = last).
+The `↑` arrows show each column climbing bottom-to-top; the `↘` arrows
+show the diagonal jumper from the top of one column to the bottom of
+the next column to its left. If your top-row panels are physically
 mounted upside down (some manufacturers ship them that way), swap each
 top-row `n` for `s` in the Remap string — see the comment in the
 config snippet below.

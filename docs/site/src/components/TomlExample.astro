@@ -1,0 +1,26 @@
+---
+import { Code } from "@astrojs/starlight/components";
+
+interface Props {
+  title?: string;
+  code: string;
+}
+const { title, code } = Astro.props;
+---
+
+<div class="toml-example">
+  {title && <p class="toml-title">{title}</p>}
+  <Code code={code} lang="toml" />
+</div>
+
+<style>
+  .toml-example {
+    margin: 1rem 0;
+  }
+  .toml-title {
+    margin: 0 0 0.25rem 0;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-2);
+  }
+</style>

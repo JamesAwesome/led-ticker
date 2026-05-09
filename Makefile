@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker
+.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build render-demo
 
 # --- Developer Setup ---
 
@@ -38,3 +38,14 @@ build-docker:  ## Build the production Docker image (Pi 4 + Pi 5)
 
 clean:  ## Remove build artifacts and caches
 	rm -rf .venv/ .pytest_cache/ .mypy_cache/ .ruff_cache/ .coverage htmlcov/ dist/ *.egg-info src/*.egg-info
+
+# --- Docs site ---
+
+docs-dev:  ## Run the Astro Starlight dev server (http://localhost:4321/)
+	cd docs/site && corepack enable && pnpm install && node scripts/build-demos.mjs && pnpm run dev
+
+docs-build:  ## Build the docs site to docs/site/dist/
+	cd docs/site && corepack enable && pnpm install --frozen-lockfile && pnpm run build
+
+render-demo:  ## Render a single demo gif. Usage: make render-demo CONFIG=path/to.toml OUT=out.gif
+	uv run python tools/render_demo/render.py $(CONFIG) -o $(OUT)

@@ -1,0 +1,81 @@
+name: docs-deploy
+
+# Single pipeline for both production and preview deploys to Cloudflare Pages.
+#
+#   push to main → production deploy (branch=main)
+#   pull_request → preview deploy (branch=<pr-head>)
+#
+# Cloudflare's automatic Git-triggered builds are turned OFF in the
+# Pages project's Build → Branch control settings, so this workflow is
+# the only way deploys reach Cloudflare. One pipeline = one place to
+# debug, one set of env / pnpm / uv versions to keep aligned.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "tools/render_demo/**"
+      - ".github/workflows/docs-deploy.yml"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "docs/**"
+      - "tools/render_demo/**"
+      - ".github/workflows/docs-deploy.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+  deployments: write
+
+concurrency:
+  group: docs-deploy-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install Python deps
+        run: uv sync
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: "lts/*"
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install Node deps
+        working-directory: docs/site
+        run: pnpm install --frozen-lockfile
+
+      - name: Build site (renders demo gifs first)
+        working-directory: docs/site
+        run: pnpm run build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          packageManager: pnpm
+          # workingDirectory points at the package where wrangler is
+          # installed via pnpm — without this the action runs at repo
+          # root where there's no package.json and pnpm errors out.
+          workingDirectory: docs/site
+          # On push-to-main this deploys as production; on a PR it
+          # deploys as a preview tagged with the PR's branch name.
+          command: pages deploy dist --project-name=led-ticker --branch=${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}

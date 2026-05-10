@@ -22,3 +22,4 @@ message = "Brooklyn"
 location = "Brooklyn, NY"
 units = "imperial"
 update_interval = 5
+font_color = "color_cycle"

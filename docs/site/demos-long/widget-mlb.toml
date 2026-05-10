@@ -16,3 +16,4 @@ hold_time = 30.0
 type = "mlb"
 team = "NYY"
 update_interval = 5
+font_color = "color_cycle"

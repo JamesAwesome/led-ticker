@@ -17,3 +17,4 @@ type = "mlb_standings"
 teams = ["NYY"]
 top_n = 5
 update_interval = 5
+font_color = "color_cycle"

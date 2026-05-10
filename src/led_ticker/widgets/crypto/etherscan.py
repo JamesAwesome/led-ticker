@@ -11,12 +11,14 @@ import attrs
 
 from led_ticker._compat import require_graphics
 from led_ticker._types import Canvas, Color, DrawResult
+from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR
 from led_ticker.drawing import compute_baseline, get_text_width
 from led_ticker.fonts import FONT_LABEL, FONT_VALUE
 from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
+from led_ticker.widgets._frame_aware import _FrameAware
 
 ETHERSCAN_API: str = "https://api.etherscan.io/api"
 GAS_BANNER: str = "Gas(gwei):"
@@ -46,14 +48,21 @@ def _get_gas_price_color(price: str) -> Color:
 
 @register("etherscan")
 @attrs.define
-class EtherscanGasMonitor:
+class EtherscanGasMonitor(_FrameAware):
     """Ethereum gas price monitor using the Etherscan API."""
 
     session: aiohttp.ClientSession
     api_key: str
     padding: int = 0  # no end_padding; uses hardcoded padding in segments
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
+    font_color: Color | ColorProvider = attrs.field(default=None, kw_only=True)
     price_data: dict[str, str] = attrs.field(init=False, factory=dict)
+
+    def __attrs_post_init__(self) -> None:
+        if self.font_color is None:
+            self.font_color = _ConstantColor(DEFAULT_COLOR)
+        elif not hasattr(self.font_color, "color_for"):
+            self.font_color = _ConstantColor(self.font_color)
 
     @classmethod
     async def start(
@@ -93,8 +102,9 @@ class EtherscanGasMonitor:
         # FONT_LABEL and FONT_VALUE share the same canonical BDF baseline
         # (both 12-tall cells); compute once at canvas resolution.
         baseline_y = compute_baseline(FONT_LABEL, canvas, valign="center") + y_offset
+        label_color = self.font_color.color_for(self.frame_for("font_color"), 0, 1)
 
-        draw_text(canvas, FONT_LABEL, cursor_pos, baseline_y, DEFAULT_COLOR, GAS_BANNER)
+        draw_text(canvas, FONT_LABEL, cursor_pos, baseline_y, label_color, GAS_BANNER)
         cursor_pos += get_text_width(FONT_LABEL, GAS_BANNER, padding=6, canvas=canvas)
 
         for price_type, price in self.price_data.items():
@@ -104,7 +114,7 @@ class EtherscanGasMonitor:
                 FONT_LABEL,
                 cursor_pos,
                 baseline_y,
-                DEFAULT_COLOR,
+                label_color,
                 price_type_msg,
             )
             cursor_pos += get_text_width(

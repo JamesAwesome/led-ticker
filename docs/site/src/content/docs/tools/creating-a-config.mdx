@@ -44,9 +44,9 @@ For symptom-driven tuning of a config that's already running. The skill reads `c
 
 Each selected symptom maps to a specific delta — e.g. "too small at far distance + bigsign + currently BDF" → migrate to hires Inter at `font_size = 24–32`; "too aggressive / busy" → swap per-char rainbow for color_cycle, drop animated borders, lengthen `hold_time` by 50%. After the symptom-driven edits, the cached validator violations are surfaced as flag-and-ask items so you can clean them up in the same pass. Each delta is shown as a unified diff, applied only on per-delta approval.
 
-## Validation philosophy
+## How violations are surfaced
 
-The skill **never silently auto-fixes a violation.** Every problem the validator surfaces — and every pitfall the skill catches on its own pass through `references/decision-rules.md` — is presented to you with the rule cited and a one-line fix proposed. You decide whether to apply it. The same flag-and-ask discipline applies at all three checkpoints: per-section lint in `new` Phase 2 (and `add`), the assembled-config check in `new` Phase 3, and the symptom + catch-all pass in `refine`. The checkpoint-level mechanics — the `errors` / `warnings` / `rule` / `fix` JSON shape the skill consumes — are documented on the [validate page](/tools/validate).
+The skill never silently auto-fixes a violation. Every problem the validator surfaces — and every pitfall the skill's own pass through `references/decision-rules.md` catches — is shown to you with the rule id and a one-line fix. You approve or skip each one. This applies at every checkpoint: per-section in `new` Phase 2 / `add`, the full-config run in `new` Phase 3, and the symptom + catch-all pass in `refine`. The checkpoint-level mechanics — the `errors` / `warnings` / `rule` / `fix` JSON shape the skill consumes — are documented on the [validate page](/tools/validate).
 
 ## Asset handling
 

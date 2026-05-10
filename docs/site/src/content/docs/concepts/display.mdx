@@ -6,7 +6,7 @@ description: How rows, cols, chain, parallel, scale, and pixel_mapper combine in
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-led-ticker drives a panel of LEDs. The `[display]` block in your TOML tells the engine the panel's physical geometry — how many pixels wide and tall each panel is, how many chain together, and what scaling to apply. Get this right and everything else "just works"; get it wrong and content prints to a three-pixel slice or runs off the edge entirely.
+The `[display]` block describes your panel's physical geometry: pixel dimensions per panel, chain length, and scaling. These values flow into every layout calculation, so a mismatch between config and hardware clips content or centers it on the wrong axis.
 
 ## The two reference builds
 

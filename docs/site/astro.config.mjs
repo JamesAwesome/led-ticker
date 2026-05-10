@@ -31,11 +31,13 @@ export default defineConfig({
         {
           label: "Widgets",
           items: [
-            // Pinned: message is the most-used widget; surface it first
-            // rather than letting the autogenerate sort bury it
-            // alphabetically at position 7.
-            { label: "message", link: "/widgets/message/" },
+            // Overview index first (matches the sibling Transitions
+            // group, where /transitions/ is the natural top entry),
+            // then `message` pinned ahead of the rest since it's
+            // the most-used widget — letting the autogenerate sort
+            // would bury it alphabetically at position 7.
             { label: "All widgets (overview)", link: "/widgets/" },
+            { label: "message", link: "/widgets/message/" },
             { label: "countdown", link: "/widgets/countdown/" },
             { label: "two_row", link: "/widgets/two_row/" },
             { label: "weather", link: "/widgets/weather/" },

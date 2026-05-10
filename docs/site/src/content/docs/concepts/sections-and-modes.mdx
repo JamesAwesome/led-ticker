@@ -82,6 +82,29 @@ text = "Second"`}
 
 The global `[transitions] between_sections` setting controls what transition plays at section boundaries. A section can override this by setting `transition` explicitly — when it does, that transition is used both for inter-widget swaps within the section AND for the entry transition when the section first appears.
 
+## Section backgrounds with `bg_color`
+
+Setting `bg_color` on a section paints a solid RGB color across the panel before any widget draws. Widgets in the section inherit that background unless they set their own `bg_color`, so a single `bg_color` at the section level brands every widget inside it without per-widget repetition. This is the cleanest way to give a section a brand color, a sport-team color, or a "nighttime" tint while keeping each widget's TOML focused on its own content.
+
+<TomlExample
+  code={`[[playlist.section]]
+mode = "swap"
+hold_time = 4.0
+bg_color = [189, 169, 234]   # brand lavender for every widget in this section
+
+[[playlist.section.widget]]
+type = "message"
+text = "Now Enrolling"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Spring Classes"`}
+/>
+
+When a section has a `bg_color` and the next section has a different one, transitions paint the right color throughout — the engine forwards `outgoing_bg_color` and `incoming_bg_color` to the active transition so the panel never flashes through black at the cut-over. Widget-level `bg_color` works the same way for inter-widget transitions within a section. You don't need to do anything special; the engine wires this up automatically.
+
+A widget setting its own `bg_color` overrides the section default for that widget only. Use a section-level color as the base and only set widget-level `bg_color` when one widget needs a different tint.
+
 ## Which mode to use
 
 | Mode             | When to use                                                                                        |

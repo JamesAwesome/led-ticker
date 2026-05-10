@@ -1,0 +1,23 @@
+# Demo: inline emoji in a message via `:slug:` syntax. Embedded in
+# the Common patterns section on widgets/message so a reader sees
+# what an inline emoji looks like next to the TOML example.
+#
+# render-duration: 6
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = ":taco: Taco Tuesday!"

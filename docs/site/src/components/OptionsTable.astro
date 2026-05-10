@@ -31,7 +31,15 @@ if (!raw) {
       `Available: ${Object.keys(files).join(", ")}`,
   );
 }
-const html = marked.parse(raw as string);
+// Strip a leading `# Heading` from the fact-pack markdown — the
+// surrounding MDX page already has an <h1> from frontmatter.title,
+// and emitting a second h1 from the fact-pack breaks document
+// structure for screen readers and SEO. The fact-pack heading was
+// vestigial from when the .md files were viewed in isolation; the
+// `## Options` heading on the MDX page above the <OptionsTable />
+// already provides scannable context.
+const stripped = (raw as string).replace(/^#\s+[^\n]*\n+/, "");
+const html = marked.parse(stripped);
 ---
 
 <div class="options-table" set:html={html} />

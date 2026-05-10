@@ -5,7 +5,16 @@ description: An interactive 3-mode wizard that builds, extends, or refines a led
 
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-`creating-a-config` is a Claude skill that walks you through building or modifying a led-ticker `config/config.toml`. It's not a CLI; it's an instruction set Claude follows when you ask it to "build me a config" or "add weather to my sign" or "fix the colors". The skill definition lives at [`.claude/skills/creating-a-config/SKILL.md`](https://github.com/jamesawesome/led-ticker/blob/main/.claude/skills/creating-a-config/SKILL.md), with reference material in [`.claude/skills/creating-a-config/references/`](https://github.com/jamesawesome/led-ticker/tree/main/.claude/skills/creating-a-config/references) (snippets, hardware guide, decision rules, asset handling, transitions, widgets).
+Unlike the other entries in this section (`render-demo` and
+`validate` are both CLI tools you run from a terminal),
+`creating-a-config` is a **Claude Code skill** — an instruction set
+the AI follows when you ask it to build or refine a `config.toml`.
+Triggered by natural-language requests like "build me a config",
+"add weather to my sign", or "fix the colors", it runs a structured
+Q&A to assemble or revise the TOML, then validates the result
+before writing.
+
+The skill definition lives at [`.claude/skills/creating-a-config/SKILL.md`](https://github.com/jamesawesome/led-ticker/blob/main/.claude/skills/creating-a-config/SKILL.md), with reference material in [`.claude/skills/creating-a-config/references/`](https://github.com/jamesawesome/led-ticker/tree/main/.claude/skills/creating-a-config/references) (snippets, hardware guide, decision rules, asset handling, transitions, widgets).
 
 In Claude Code it surfaces as the `/creating-a-config` slash command. The skill is platform-agnostic — anywhere a Claude agent can read the SKILL.md (Claude Code, Claude.ai, the Anthropic API), the same flow applies.
 

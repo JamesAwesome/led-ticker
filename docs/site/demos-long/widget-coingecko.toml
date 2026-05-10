@@ -18,4 +18,4 @@ symbol = "BTC"
 symbol_id = "bitcoin"
 currency = "usd"
 update_interval = 5
-font_color = "color_cycle"
+

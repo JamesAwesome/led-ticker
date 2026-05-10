@@ -19,4 +19,4 @@ hold_time = 30.0
 [[playlist.section.widget]]
 type = "etherscan"
 update_interval = 10
-font_color = "color_cycle"
+

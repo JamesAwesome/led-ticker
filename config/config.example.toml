@@ -1,36 +1,28 @@
-# led-ticker configuration
-# Copy this to config.toml and customize for your setup.
+# led-ticker configuration — smallsign starter (160×16 canvas)
+#
+# 5× chained 32×16 panels = 160×16 logical canvas. Driven by a Raspberry Pi 4
+# through an Adafruit RGB Matrix bonnet. No pixel_mapper needed — panels are a
+# single horizontal chain, left-to-right.
+#
+# Copy this to config.toml and adjust the playlist sections for your content.
+# Full config-options reference: https://led-ticker.pages.dev/reference/config-options/
 
 [display]
 rows = 16
 cols = 32
 chain = 5
 brightness = 60
-slowdown_gpio = 2
+slowdown_gpio = 2      # mandatory on Pi 4 — bump to 3+ if you see flicker
 gpio_mapping = "adafruit-hat"
 
 [title]
 delay = 5
 
 # --- Transitions ---
-# Global defaults for transitions between widgets and sections.
-# Available types: cut, push_left, push_right, push_up, push_down,
-#                  color_flash, wipe_left, wipe_right, wipe_up, wipe_down,
-#                  dissolve, split, nyancat, nyancat_reverse,
-#                  scroll, pokeball, pokeball_reverse, pokeball_alternating,
-#                  baseball, baseball_reverse, baseball_alternating,
-#                  pacman, pacman_reverse, pacman_alternating,
-#                  sailor_moon, sailor_moon_reverse, sailor_moon_alternating,
-#                  push_alternating, wipe_alternating, nyancat_alternating
-# Optional: transition_color = [R, G, B]  (custom color for flash/wipe)
-# Optional: transition_colors = [[R,G,B], [R,G,B], [R,G,B], [R,G,B]]
-#           (per-direction colors for wipe_alternating: left, right, up, down)
-# For scroll transition, use duration=4.0 and linear easing:
-#   transition = "scroll"
-#   transition_duration = 4.0
-#   easing = "linear"
-# Optional: show_pikachu = false  (hide Pikachu from pokeball transitions, default: true)
-# Available easing: linear, ease_out, ease_in_out
+# Global transition defaults. Full transition catalogue and per-family tuning
+# lives at https://led-ticker.pages.dev/transitions/. The values below give a
+# 0.5-sec wipe between widgets within a section and a dissolve between sections
+# — readable on a 160×16 smallsign without being distracting.
 
 [transitions]
 default = "wipe_alternating"
@@ -40,6 +32,7 @@ between_sections = "dissolve"
 
 # --- Playlist ---
 # Each [[playlist.section]] displays in order, then the whole playlist loops.
+# Sections, modes, and timing knobs: https://led-ticker.pages.dev/concepts/sections-and-modes/
 
 [[playlist.section]]
 mode = "forever_scroll"
@@ -59,6 +52,7 @@ type = "message"
 text = "Always be your bunny best!"
 
 # --- Countdowns ---
+# Counts down to any date. Message + remaining days scroll across the panel.
 
 [[playlist.section]]
 mode = "forever_scroll"
@@ -80,7 +74,8 @@ message = "Days Until Summer"
 countdown_date = 2026-06-20
 
 # --- RSS Feeds ---
-# Uncomment and add your favorite feeds:
+# Pulls headlines from any RSS/Atom feed. update_interval is how often (in
+# seconds) the feed is re-fetched. Uncomment and point at your favorite feed.
 #
 # [[playlist.section]]
 # mode = "forever_scroll"
@@ -97,7 +92,7 @@ countdown_date = 2026-06-20
 # update_interval = 3000
 
 # --- Crypto Prices ---
-# Uncomment to show crypto prices:
+# Live prices via Coinbase. No API key required.
 #
 # [[playlist.section]]
 # mode = "forever_scroll"
@@ -118,12 +113,8 @@ countdown_date = 2026-06-20
 # currency = "USD"
 
 # --- MLB Scores ---
-# Free MLB Stats API, no key needed.
-# One widget per team. Shows current series scores, live games, upcoming.
-# Options:
-#   team             = "PHI"               (required, 3-letter team abbreviation)
-#   timezone         = "America/New_York"  (default)
-#   final_hold_hours = 6                   (hours to show final score before moving on, default: 6)
+# Free MLB Stats API — no key needed. Shows current series scores, live game
+# updates, and upcoming matchups for the teams you pick.
 #
 # [[playlist.section]]
 # mode = "swap"
@@ -135,17 +126,11 @@ countdown_date = 2026-06-20
 # type = "mlb"
 # team = "PHI"
 # timezone = "America/New_York"
-# final_hold_hours = 6  # hours to show final score before switching to next game (default: 6)
+# final_hold_hours = 6   # hours to show final score before moving on (default: 6)
 
 # --- MLB Standings ---
-# Free MLB Stats API, no key needed.
-# Shows top N teams by overall record, then your tracked teams.
-# During offseason/spring training, shows "Opens [date]" instead.
-# Options:
-#   teams    = ["NYM", "PHI"]        (required, list of 3-letter team abbreviations)
-#   title    = "MLB Standings"       (default)
-#   top_n    = 3                     (default, number of top teams to show)
-#   timezone = "America/New_York"    (default)
+# Top-N teams by record plus any teams you're tracking. Shows "Opens [date]"
+# during offseason / spring training.
 #
 # [[playlist.section]]
 # mode = "swap"
@@ -160,8 +145,8 @@ countdown_date = 2026-06-20
 # top_n = 3
 
 # --- Weather ---
-# Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/)
-# Location can be: city name, zip code, or "lat,lon"
+# Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/).
+# location can be a city name, zip code, or "lat,lon".
 #
 # [[playlist.section]]
 # mode = "swap"

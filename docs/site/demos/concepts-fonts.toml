@@ -1,4 +1,12 @@
-# Demo: BDF vs hires-Inter side-by-side via swap transition.
+# Demo: BDF 6x12 vs Inter-Bold @ 14 on smallsign canvas (160x16).
+# Two sections so the wipe between them is between_sections (clean
+# section-boundary transition); each widget gets its own dedicated
+# hold_time so the post-wipe Inter-Bold has 4s to register vs 2.5s
+# on the BDF baseline.
+#
+# render-duration: 8
+# ↑ 2.5s BDF + 0.8s wipe + 4.0s Inter-Bold = 7.3s of content; 0.7s
+#   tail buffer before gif loops.
 [display]
 rows = 16
 cols = 32
@@ -6,17 +14,24 @@ chain = 5
 default_scale = 1
 brightness = 60
 
+[transitions]
+between_sections = "wipe_left"
+duration = 0.8
+
 [[playlist.section]]
 mode = "swap"
 loop_count = 1
-hold_time = 4.0
-transition = "wipe_left"
-transition_duration = 0.8
+hold_time = 2.5
 
 [[playlist.section.widget]]
 type = "message"
 text = "BDF 6x12"
 font = "6x12"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
 
 [[playlist.section.widget]]
 type = "message"

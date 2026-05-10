@@ -3,6 +3,7 @@ title: Sections and modes
 description: Sections group widgets, modes pick the run style — forever_scroll, infini_scroll, or swap.
 ---
 
+import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
@@ -15,6 +16,11 @@ A playlist is just an ordered list of sections. The engine runs them in sequence
 All widgets in the section scroll left as a continuous stream, separated by `•` bullet characters. The panel never clears between widgets; each one follows immediately after the last with just the bullet for spacing. This reads like a classic news ticker — rapid, dense, and meant to be absorbed at a glance.
 
 `forever_scroll` is the best fit for short-text widgets where the reader does not need to dwell: a weather condition, a price, a short announcement. Mix several short widgets together and the combined stream stays lively. Note that transitions are not used between widgets in this mode — the bullet-dot separator is the only visual break.
+
+<DemoGif
+  src="/demos-pinned/sections-forever_scroll.gif"
+  caption="`forever_scroll` — three short messages flow together separated by a bullet; the panel never clears"
+/>
 
 <TomlExample
   code={`[[playlist.section]]
@@ -40,6 +46,11 @@ Each widget scrolls fully off the left edge of the panel before the next widget 
 
 `infini_scroll` suits medium-length messages that should read as distinct items — enrollment announcements, sale callouts, or any set of messages where you want each one to complete before the next begins. Like `forever_scroll`, no transitions are used between widgets in this mode.
 
+<DemoGif
+  src="/demos-pinned/sections-infini_scroll.gif"
+  caption="`infini_scroll` — each widget scrolls fully off before the next enters; a clean gap between messages"
+/>
+
 <TomlExample
   code={`[[playlist.section]]
 mode = "infini_scroll"
@@ -59,6 +70,11 @@ text = "Spring Classes Open Today"`}
 Each widget is displayed for `hold_time` seconds (default `3.0`). If the widget's text overflows the panel width, it scrolls once before stopping; otherwise it holds stationary. When the hold expires a transition animation runs, and the next widget appears. `swap` is the default mode for storefront-window displays where each item needs to be readable on its own.
 
 The transition used between widgets in the section is configured via the `transition` field. If you omit `transition`, the global `[transitions] default` applies. When a section explicitly sets `transition = "..."`, that transition is also used when the section appears — overriding the global `between_sections` setting for that section's entry.
+
+<DemoGif
+  src="/demos-pinned/sections-swap.gif"
+  caption="`swap` — each widget holds for `hold_time`, then a transition (`push_left` here) reveals the next"
+/>
 
 <TomlExample
   code={`[[playlist.section]]

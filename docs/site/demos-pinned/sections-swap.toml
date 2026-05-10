@@ -1,0 +1,26 @@
+# render-duration: 10
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "push_left"
+duration = 0.5
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "World"
+font_color = [225, 48, 108]

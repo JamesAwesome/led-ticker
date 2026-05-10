@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format render-demo render-long-demos render-long-demo
+.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format validate render-demo render-long-demos render-long-demo
 
 # --- Developer Setup ---
 
@@ -26,6 +26,14 @@ typecheck:  ## Run pyright type checker
 
 format:  ## Run ruff formatter
 	uv run ruff format src/ tests/
+
+# --- Config validation ---
+
+# Validate a config TOML against the loader (no hardware, no display).
+# CONFIG defaults to config/config.toml; override for example/test configs.
+CONFIG ?= config/config.toml
+validate:  ## Validate a config TOML. Usage: make validate [CONFIG=path/to.toml]
+	uv run led-ticker validate $(CONFIG)
 
 # --- Docker (production image only) ---
 

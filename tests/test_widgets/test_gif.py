@@ -1149,6 +1149,83 @@ async def test_play_no_wrap_text_canvas_follows_back_buffer(tmp_path, mocker):
         )
 
 
+async def test_play_two_row_no_wrap_text_canvas_follows_back_buffer(tmp_path, mocker):
+    """Regression: same back-buffer-follow bug as the single-row
+    `test_play_no_wrap_text_canvas_follows_back_buffer`, but for the
+    two-row path (`_play_with_two_row_text`). Smallsign canvas
+    (`scale=1`) + BDF font means `_wrap_for_text` returns the canvas
+    unwrapped — `text_canvas IS canvas`. Without the post-swap
+    `else: text_canvas = canvas` rebind, ticks 1+ paint text to the
+    stale (now-displayed) front buffer while the image goes to the
+    new back buffer → text flashes on alternating frames.
+
+    Visible in `docs/site/public/demos-pinned/gif-two_row.gif` before
+    the fix.
+    """
+    # 2-frame gif so `_is_static()` returns False — keeps the per-tick
+    # loop running (the static fast-path swaps once and sleeps, which
+    # wouldn't trip a staleness bug that needs ≥2 swaps to surface).
+    path = _make_gif_path(tmp_path, [(0, 0, 0), (50, 50, 50)], duration_ms=50)
+    from led_ticker.fonts import FONT_SMALL
+
+    widget = GifPlayer(
+        path=str(path),
+        fit="pillarbox",
+        image_align="right",
+        top_text="@m",
+        top_font=FONT_SMALL,
+        bottom_text="hi",
+        bottom_font=FONT_SMALL,
+        gif_loops=3,
+    )
+    # Smallsign-shaped real canvas: 160x16 like the demo TOML.
+    opts = RGBMatrixOptions()
+    opts.cols = 32
+    opts.rows = 16
+    opts.chain_length = 5
+    opts.parallel = 1
+    real = RGBMatrix(options=opts).CreateFrameCanvas()
+
+    frame = mocker.MagicMock()
+    swap_returns: list[object] = []
+
+    def fake_swap(c):
+        new = type(real)(width=real.width, height=real.height)
+        swap_returns.append(new)
+        return new
+
+    frame.matrix.SwapOnVSync.side_effect = fake_swap
+    mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+    seen: list[object] = []
+    real_draw = __import__(
+        "led_ticker.widgets._image_base", fromlist=["draw_text"]
+    ).draw_text
+
+    def spy(canvas, font, x, y, color, text):
+        seen.append(canvas)
+        return real_draw(canvas, font, x, y, color, text)
+
+    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
+
+    await widget.play(real, frame, loop_count=1)
+
+    # 3+ paints minimum (2 rows × 2+ ticks). Need 3 ticks of canvas
+    # progression to trip the staleness bug.
+    assert len(seen) >= 4, f"expected ≥4 draw_text calls, got {len(seen)}"
+    # First tick paints to the original real canvas.
+    assert seen[0] is real, "tick 0 row 0 should paint to the original canvas"
+    assert seen[1] is real, "tick 0 row 1 should paint to the original canvas"
+    # Subsequent ticks paint to whatever the last SwapOnVSync returned —
+    # NOT the stale prior canvas. Two paints per tick (one per row).
+    for i, canvas in enumerate(seen[2:], start=2):
+        expected_swap_idx = (i // 2) - 1
+        assert canvas is swap_returns[expected_swap_idx], (
+            f"draw_text call {i} should paint to "
+            f"swap_returns[{expected_swap_idx}], not the stale front buffer"
+        )
+
+
 async def test_play_native_uses_real_canvas(tmp_path, mocker):
     """Default font_size + _logical_scale=1 (no wrap path) — draw_text
     gets the raw real canvas, no ScaledCanvas wrapper."""

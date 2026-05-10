@@ -1078,6 +1078,8 @@ class _BaseImageWidget(_FrameAware):
             canvas = frame.matrix.SwapOnVSync(canvas)
             if text_is_wrapped:
                 text_canvas.real = canvas
+            else:
+                text_canvas = canvas
             await asyncio.sleep(n_ticks * tick_seconds)
             return canvas
 
@@ -1098,6 +1100,8 @@ class _BaseImageWidget(_FrameAware):
             canvas = frame.matrix.SwapOnVSync(canvas)
             if text_is_wrapped:
                 text_canvas.real = canvas
+            else:
+                text_canvas = canvas
             await asyncio.sleep(tick_seconds)
             if bottom_scrolls:
                 scroll_pos -= 1

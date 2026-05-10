@@ -1,13 +1,34 @@
 ---
 title: Pitfalls
-description: Common configuration mistakes and their fixes.
+description: The validator's decision rules — what fires when, what you'll see, how to fix it.
 ---
 
 import DecisionRule from "../../components/DecisionRule.astro";
 
-This page lists each decision rule the validator checks. Every rule has a
-`DETECT` (when it fires), a `SYMPTOM` (what you see), and a `FIX`. Run
-[`led-ticker validate`](/tools/validate/) to check your config
-against all of these automatically.
+This page lists every decision rule the validator checks. Each rule
+has a **DETECT** clause (when it fires), a **SYMPTOM** clause (what
+you see on the panel), and a **FIX** clause. Run
+[`led-ticker validate`](/tools/validate/) on your `config.toml` to
+check it against all of them automatically.
+
+## Hard rules (errors)
+
+Errors block the ticker from starting. Fix all of these before
+deploying.
+
+<DecisionRule id="3" />
+
+<DecisionRule id="7" />
+
+<DecisionRule id="8" />
+
+<DecisionRule id="12" />
 
 <DecisionRule id="14" />
+
+## Soft rules (warnings)
+
+Warnings don't block the ticker but flag a likely rendering quirk.
+Worth resolving before you deploy.
+
+<DecisionRule id="6" />

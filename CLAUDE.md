@@ -1,26 +1,30 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in this repository.
+
+User-facing prose for every feature mentioned in this file lives on the docs site at <https://led-ticker.pages.dev>. This file keeps only the **load-bearing invariants** the assistant must respect when generating or modifying code, plus navigation aids (commands, file map, contributor flows). When this file links to a docs page, the link is the source of truth for "how the feature works"; the surrounding paragraph here is the source of truth for "how to keep it working."
 
 ## Project Overview
 
-**led-ticker** is an asyncio Python toolkit for displaying scrolling feeds on RGB LED matrix panels using a Raspberry Pi. It supports RSS feeds, weather with icons, countdowns, crypto prices, custom messages, animated transitions, and text presentation effects — all via a TOML configuration file.
+**led-ticker** is an asyncio Python toolkit that drives RGB LED matrix panels from a Raspberry Pi via a TOML config. Two reference builds share one codebase and one Docker image (the rgbmatrix library detects the SoC at runtime):
 
-Two hardware targets share one codebase and one Docker image:
+- **Smallsign** — Pi 4 + 5× chained 16×32 panels = 160×16 logical canvas, `default_scale = 1`
+- **Bigsign** — Pi 5 + 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64, `default_scale = 4`. Drawing logic stays at 16-tall logical content; `ScaledCanvas` expands every `SetPixel` to a `scale × scale` block on the real canvas and centers vertically.
 
-- **Smallsign** — Pi 4 + 5× chained 16×32 Adafruit panels = 160×16 logical canvas
-- **Bigsign** — Pi 5 + 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64 logical canvas, rendered via `ScaledCanvas` (drawing logic stays at "1× scale" with 16-tall content; the wrapper scales SetPixel calls to scale×scale blocks and vertically centers the content)
+Hardware reference details: <https://led-ticker.pages.dev/hardware/smallsign/> · <https://led-ticker.pages.dev/hardware/bigsign/> · <https://led-ticker.pages.dev/hardware/building-your-own/>
 
 ## Commands
 
 ```bash
-make dev        # uv sync (install all deps)
-make test       # Run pytest with coverage (no Docker needed)
-make lint       # Run ruff linter
-make format     # Auto-format with ruff
-make clean      # Remove build artifacts
-make build-docker  # Build production Docker image (single image, both Pis)
+make dev           # uv sync (install all deps)
+make test          # pytest with coverage (no Docker, no hardware)
+make lint          # ruff
+make format        # ruff format
+make clean         # remove build artifacts
+make build-docker  # production image (single image, both Pis)
 ```
+
+Full CLI + Make-target reference: <https://led-ticker.pages.dev/reference/cli/>
 
 ## Architecture
 
@@ -35,115 +39,96 @@ src/led_ticker/
   config.py            # TOML config loader (tomllib/tomli)
   ticker.py            # Display orchestrator (scroll/swap/forever_scroll modes)
   frame.py             # LedFrame hardware wrapper
-  scaled_canvas.py     # ScaledCanvas: wraps a real canvas and scales SetPixel
-                       #   to scale×scale blocks (used by bigsign, scale=4)
+  scaled_canvas.py     # ScaledCanvas wrapper + unwrap_to_real
   text_render.py       # Pure-Python BDF rasterizer (needed when scale > 1
                        #   because graphics.DrawText cannot scale)
-  widget.py            # Widget/AsyncWidget protocols + run_monitor_loop() with backoff
-  drawing.py           # Shared drawing helpers (get_text_width, compute_cursor)
-  colors.py            # RGB color constants (DEFAULT_COLOR, RGB_WHITE,
-                       #   UP_TREND_COLOR/DOWN_TREND_COLOR/NEUTRAL_TREND_COLOR
-                       #   for crypto/finance widgets, etc.)
+  validate.py          # Static config validator (`led-ticker validate`)
+  widget.py            # Widget/AsyncWidget protocols + run_monitor_loop()
+  drawing.py           # Shared drawing helpers (get_text_width, compute_baseline)
+  colors.py            # RGB color constants
   color_providers.py   # ColorProvider base + Rainbow, ColorCycle, Gradient, _ConstantColor
-  animations.py        # Animation protocol + Typewriter (TickerMessage-only)
+  animations.py        # Animation protocol + Typewriter
   borders.py           # BorderEffect protocol + RainbowChaseBorder, ConstantBorder
-  pixel_emoji.py       # Inline pixel-art emoji renderer (:name: in messages)
-  fonts/               # BDF bitmap fonts + loader
+  pixel_emoji.py       # Inline pixel-art emoji renderer + EMOJI_REGISTRY / HIRES_REGISTRY
+  fonts/               # BDF + hires TTF loader
   transitions/
-    __init__.py         # Transition protocol, registry, easing, run_transition()
-    push.py             # PushLeft/Right/Up/Down, PushAlternating
-    wipe.py             # _BaseWipe, WipeLeft/Right/Up/Down, WipeAlternating
+    __init__.py         # Registry, easing, run_transition()
+    push.py             # PushLeft/Right/Up/Down, PushAlternating, PushRandom
+    wipe.py             # WipeLeft/Right/Up/Down, WipeAlternating, WipeRandom
     effects.py          # Cut, ColorFlash, Dissolve, SplitHorizontal, Scroll
-    nyancat.py          # NyanCat/Reverse/Alternating + sprite data + draw functions
-    pokeball.py         # Pokeball/Reverse/Alternating + Pikachu sprites + draw functions
-    baseball.py         # Baseball/Reverse/Alternating + sprite data + draw functions
-    pacman.py           # Pacman/Reverse/Alternating + ghost sprites + draw functions
-    sailor_moon.py      # SailorMoon/Reverse/Alternating + Moon Stick sprite + sparkle trail
+    nyancat.py / pokeball.py / baseball.py / pacman.py / sailor_moon.py
+    _hires_loader.py    # Hires sprite cache + render_hires_frame
   widgets/
     __init__.py         # Registry (@register decorator) + auto-imports
     message.py          # TickerMessage, TickerCountdown
-    weather.py          # WeatherWidget (WeatherAPI.com) with 8x8 pixel icons
-    weather_icons.py    # 7 weather condition icons
+    weather.py / weather_icons.py
     rss_feed.py         # RSSFeedMonitor (no draw() — stories expand into TickerMessages)
-    two_row.py          # TwoRowMessage: held top + scrolling bottom for tall canvases
-    mlb.py              # MLBMonitor: scores, series, postponements, "Final".
-                        #   Team logos render through pixel_emoji's standard 8x8 path
+    two_row.py          # TwoRowMessage: held top + scrolling bottom
+    mlb.py              # Team logos render through pixel_emoji's standard 8x8 path
                         #   (the previous mlb_icons.py was folded in and deleted).
-    mlb_standings.py    # MLBStandingsMonitor (top N + tracked teams, offseason detection)
-    gif.py              # GifPlayer: animated GIFs at native physical resolution
-    still.py            # StillImage: single PNG/JPG (mirrors GifPlayer feature surface)
-    _frame_aware.py     # _FrameAware mixin: frame_count + pause_frame/resume_frame protocol
-    _row_layout.py      # row_layout, aligned_x, resolve_band_heights (shared by TwoRow + image)
-    _image_base.py      # _BaseImageWidget: shared text-overlay surface + _play_with_text
-    _gif_decode.py      # Pillow-based GIF decoder (animated, with frame-duration logging)
-    _image_fit.py       # Canonical fit/alpha/validation primitives (pillarbox/letterbox/stretch/crop)
-    crypto/
-      coinbase.py       # CoinbasePriceMonitor
-      coingecko.py      # CoinGeckoPriceMonitor
-      etherscan.py      # EtherscanGasMonitor
+    mlb_standings.py
+    gif.py / still.py   # GifPlayer / StillImage; share _BaseImageWidget
+    _frame_aware.py     # _FrameAware mixin: frame_count + pause_frame/resume_frame
+    _row_layout.py      # row_layout, aligned_x, resolve_band_heights
+    _image_base.py      # _BaseImageWidget: text-overlay surface + _play_with_text
+    _gif_decode.py      # Pillow-based GIF decoder
+    _image_fit.py       # Canonical fit/alpha/validation primitives
+    crypto/             # coinbase, coingecko, etherscan
 ```
 
-**Inline Emoji**: Use `:name:` in TickerMessage text to render pixel art icons inline. Defined in `pixel_emoji.py`. Each icon is an 8×8 sprite stored as `(x, y, r, g, b)` tuples; the icon carries its own colors (text uses the surrounding `font_color`). The slug list rots fast as new emoji are added, so don't enumerate it here — `pixel_emoji.py`'s `EMOJI_REGISTRY` and `HIRES_REGISTRY` are the source of truth, listable any time as `grep -E '^\s+"[a-z_]+":' src/led_ticker/pixel_emoji.py`. Hires-only slugs are the ones in `HIRES_REGISTRY` but missing from `EMOJI_REGISTRY` — they render at full sprite resolution only when `scale > 1` and have no low-res fallback. Add a new emoji by appending pixel data + a registry entry.
+### Load-bearing invariants by subsystem
 
-**Hi-res emoji on the bigsign**: Some slugs additionally have a high-resolution variant in `HIRES_REGISTRY` (currently `:moon:` is 32×32). When rendered on a `ScaledCanvas` the hi-res sprite is painted DIRECTLY to the underlying real canvas via `_draw_hires_emoji`, bypassing the wrapper's `scale × scale` block expansion. A 32×32 sprite at scale=4 occupies the same horizontal footprint as the equivalent 8×8 low-res emoji (8 logical columns) but with 16× more detail per cell. On non-`ScaledCanvas` paths (smallsign, scale=1) the renderer falls back to the 8×8 low-res sprite automatically. Hi-res sprites can be generated programmatically (see `_generate_moon_hires` for the circle-subtraction approach). Widgets that draw a single icon at a known (x, y) — e.g. the weather widget's condition icon — should call `pixel_emoji.draw_emoji_at(canvas, slug, x, y)` rather than blitting their own pixel data; the helper handles the hires/lowres pick automatically. When the widget needs the icon's footprint for layout math BEFORE the draw (e.g. centering content on the canvas), call `pixel_emoji.measure_emoji_at(canvas, slug)` — it shares `draw_emoji_at`'s gate exactly, so layout and paint can't drift across scales. The `_match_condition` helper in `weather_icons.py` returns slug strings (`"sun"`, `"cloud"`, ...) that feed straight into both helpers.
+Each bullet is a rule that must hold when modifying the named area. Full prose for the user-facing knobs lives on the linked docs page.
 
-**Hi-res transitions on the bigsign**: The `nyancat`, `pokeball`, and `baseball` transition families have hi-res variants that auto-activate when `frame_at` receives a `ScaledCanvas` (i.e. the bigsign at scale=4). Dispatch lives in each transition's `frame_at` (`isinstance(canvas, ScaledCanvas)` + `_registry_name in HIRES_REGISTRY`) and routes to `_frame_at_hires` or `_frame_at_lowres`. Sprites are bundled at `src/led_ticker/transitions/sprites/` (`nyancat.webp`, `pikachu-run-transparent.gif`); baseball renders procedurally from the existing `:baseball:` hi-res emoji geometry, rotated through 8 frames at 45° via PIL. The shared loader (`_hires_loader.py`) decodes via Pillow once, caches via `@functools.cache load_hires`, and paints to `unwrap_to_real(canvas)` so each pixel is a real LED, not a 4×4 logical block. The `HiresSpec.trail` field selects what fills behind the leading entity to erase outgoing text: `"none"`, `"black"` (pokeball), or `"rainbow"` (nyancat). Trail saturates at `TRAIL_SATURATION_T=0.85` (full panel covered), holds, then snaps to incoming at `SNAP_THRESHOLD=0.95` — matches the lowres "fill, hold, cut" feel. `sailor_moon` and `pacman` intentionally have no hi-res variant (8-bit aesthetic IS the design / no asset staged). `run_transition` passes `duration_ms` to `frame_at` so the hi-res path can pick a sprite frame from wall-clock elapsed time. Dispatch boilerplate is intentionally duplicated across `nyancat.py`/`pokeball.py`/`baseball.py`; if you find yourself adding a 4th family, refactor to a mixin first.
+**Inline emoji** (`pixel_emoji.py`) — `EMOJI_REGISTRY` is the source of truth; never inline a static slug list (it rots). Widgets that draw a single icon at a known (x, y) call `pixel_emoji.draw_emoji_at(canvas, slug, x, y)` rather than blitting; for layout math BEFORE the draw call `pixel_emoji.measure_emoji_at(canvas, slug)` so the gate matches `draw_emoji_at` exactly. Hires-only slugs (in `HIRES_REGISTRY` but not `EMOJI_REGISTRY`) have no low-res fallback — confirm `scale > 1` before using. Docs: <https://led-ticker.pages.dev/assets/emoji/>.
 
-**Hi-res fonts on the bigsign**: Widgets can opt into TTF/OTF rendering at native physical resolution by setting `font = "<name>"` and `font_size = <pixels>` in their TOML config. The loader (`fonts/hires_loader.py`) scans `config/fonts/` first (user-supplied, gitignored — for licensed fonts like Adobe's Beloved Sans), then `src/led_ticker/fonts/hires/` (bundled — currently `Inter-Regular`, `Inter-Bold`), then falls back to BDF aliases (`6x12`, `5x8`, etc.). The user-supplied dir is re-anchored at startup to `<config.toml dir>/fonts/` (via `app._configure_user_font_dir`) so the same install works in dev and Docker. Glyphs are rasterized via Pillow once per (font, size, threshold) tuple, thresholded at 50% intensity by default for a clean pixel-art look (no anti-aliasing fuzz on the LED panel), and cached via `@functools.cache load_hires_font`. The render path (`text_render._draw_hires_text`) paints lit pixels directly to `unwrap_to_real(canvas).SetPixel`, bypassing the wrapper's 4×4 block expansion. `(x, y)` widget coords are still LOGICAL — the renderer multiplies by `canvas.scale` internally. Existing `get_text_width` and `pixel_emoji.draw_with_emoji` are polymorphic on font type via `isinstance(font, HiresFont)`. `font_line_height(font)` is the shared helper for vertical alignment math (replaces the hardcoded BDF cell height of 12). Widgets without `font`/`font_size` in TOML keep their class default (BDF). Hi-res rendering on the smallsign is allowed but text overflows vertically — user's responsibility to pick `font_size` ≤ panel height.
+**Hi-res emoji on the bigsign** — Hires sprites paint DIRECTLY to the underlying real canvas (bypass the wrapper's block expansion). Routing happens via `isinstance(canvas, ScaledCanvas)` inside the helpers above; on smallsign / scale=1, the renderer falls back to the 8×8 sprite automatically. Hires sprites can be generated programmatically (`_generate_moon_hires` is the circle-subtraction template).
 
-**Per-widget `font_threshold`**: TOML can include `font_threshold = <0..255>` next to `font` / `font_size` to override the rasterization cutoff for that widget only. Default 128 (50% intensity) gives clean output for medium-stroke fonts like Inter. Thin-stroked fonts (Beloved Sans Regular at 24-32px) need ~80 — at the 128 default the antialiased pixels of thin strokes (left vertical of `n`/`u`) come out around 60-100 grey and get quantized to zero, leaving glyphs visibly broken. The threshold is part of the loader's cache key so different widgets at the same name+size but different thresholds don't collide. BDF aliases ignore threshold (pre-rasterized bitmaps). Type-validated: only `int` 0-255 accepted (rejects str, float, bool — bool is excluded explicitly since it's an int subclass).
+**Hi-res transitions** — `nyancat`, `pokeball`, `baseball` families have hires variants that auto-activate when `frame_at` receives a `ScaledCanvas`. Sprites bundled at `src/led_ticker/transitions/sprites/`. Shared loader is `_hires_loader.py` (`@functools.cache`'d, paints to `unwrap_to_real(canvas)`). `HiresSpec.trail` selects what fills behind the leading entity (`"none"` / `"black"` / `"rainbow"`); trail saturates at `TRAIL_SATURATION_T=0.85`, snaps to incoming at `SNAP_THRESHOLD=0.95`. `sailor_moon` and `pacman` intentionally have no hires variant. Dispatch boilerplate is duplicated across the three hires families on purpose — refactor to a mixin only if a 4th family appears.
 
-**Match thresholds within a font family**: Bold weights render fine at the default 128 in isolation, but mixing thresholds inside one family inverts the weight relationship. Concretely: Beloved Sans Regular at thr=80 has 61 lit pixels per `n`; Bold at thr=128 has 54. Lowering the threshold on Regular fattens it past Bold's natural weight, so on the panel Bold no longer looks bolder. Pair Bold to the same `font_threshold` as Regular (e.g. both at 80) so the weight contrast survives. This is a hardware-validated finding from on-Pi testing — the in-tree `test_bold_renders_stroke_complete_at_default_threshold` only proves Bold is stroke-complete at 128, NOT that mixing thresholds preserves weight ordering.
+**Hi-res fonts** — Loader scan order: `config/fonts/` (user-supplied; gitignored, re-anchored at startup to `<config.toml dir>/fonts/` via `app._configure_user_font_dir`), then `src/led_ticker/fonts/hires/` (bundled), then BDF aliases. Glyphs cached via `@functools.cache load_hires_font` keyed on `(name, size, threshold)` — `resolve_font` validates threshold type explicitly so `80.0` (float) and `80` (int) cache distinctly. Render path (`text_render._draw_hires_text`) paints to `unwrap_to_real(canvas).SetPixel` and multiplies logical coords by `canvas.scale` internally. `font_line_height(font)` and `compute_baseline(font, ...)` (in `drawing.py`) are font-aware — never hardcode a baseline or cell height. Docs: <https://led-ticker.pages.dev/concepts/fonts/>.
 
-**Marquee auto-floor on image/gif widgets** (`_image_base._play_with_text`): when `text_align ∈ ("scroll", "scroll_over")`, the per-tick loop runs at LEAST one full traversal (`text_w + text_width` ticks at `scroll_speed_ms` cadence) regardless of the source's natural duration (`gif_loops × loop_ms` for gifs, `hold_seconds` for stills). Without this, hires-wide marquees got cut off mid-pass on the panel — a hardware-observed bug since hires fonts are 2-3× wider per char than BDF. `text_loops > 0` raises the floor further; the implicit minimum is now 1 (was: 0, no floor). The source duration extends transparently to match — your gif keeps looping until the marquee finishes its pass.
+**Pillow anchor gotcha** (`hires_loader._rasterize_glyph`) — `pil_font.getbbox(ch)` returns coords in anchor `"la"` (left-ascender) space, NOT baseline-relative. Rasterizer renders at `(0, 0)` and computes `bearing_y = ascent - bbox[1]` to convert. If Pillow ever changes its default anchor, revisit this formula. **Width tracking** (`drawing.get_text_width`): hires advances are real pixels; for layout against logical widths the function ceil-divides by `getattr(canvas, "scale", 1)`. Pre-canvas call sites get `SCALE_FALLBACK = 4` (a bigsign-only assumption preserved for back-compat) — audit those if hires usage spreads beyond bigsign.
 
-**Pillow anchor gotcha** (`hires_loader._rasterize_glyph`): `pil_font.getbbox(ch)` returns coords in anchor `"la"` (left-ascender) space, NOT baseline-relative. Rasterizer renders at `(0, 0)` (which puts the ascender line at y=0 and baseline at y=ascent), then computes `bearing_y = ascent - bbox[1]` to convert to baseline-relative for the renderer. If Pillow ever changes its default anchor, this formula needs revisiting. **Width tracking** (`drawing.get_text_width`): hi-res glyph advances are real pixels; for layout against logical canvas widths the function ceil-divides by the canvas scale. Pass `canvas=` to any draw-time call site to read scale from the canvas (`getattr(canvas, "scale", 1)`); call sites that compute widths before any canvas exists (e.g. `TickerMessage.__init__`) get `SCALE_FALLBACK = 4` — a bigsign-only assumption preserved for back-compat. Audit no-canvas call sites if hi-res use spreads beyond the bigsign at scale=4, since they'll under-report widths on a smallsign. **Cache-key gotcha** (`hires_loader.load_hires_font`): `@functools.cache`'d on `(name, size, threshold)`; lookups with `threshold=80.0` (float) hash distinctly from `threshold=80` (int) and would double-rasterize the same glyphs. `resolve_font` validates type explicitly to prevent this — any new caller adding parameters must do the same. **Baseline math is font-aware** (`drawing.compute_baseline`): the centered baseline is computed from `font_line_height(font)` and `font_ascent(font)` — NOT a hardcoded `y=12`. For BDF on a 16-row logical canvas it returns 12 (back-compat), for hires Inter @ 24px on a 64-row real panel it returns 10 (the difference centers the larger font on the taller panel). All draw-time callers (`TickerMessage.draw`, `_BaseImageWidget._baseline_y`) go through this; never hardcode a baseline.
+**`font_threshold`** — Per-widget int 0-255, default 128 (50% intensity). Thin-stroked fonts need ~80; bool excluded explicitly (it's an int subclass). Mixing thresholds within a family inverts weight ordering — pair Bold to the same threshold as Regular.
 
-**Per-widget colors in config**: TOML configs can specify RGB lists like `font_color = [255, 150, 190]`, `color = [225, 48, 108]`, `top_color`, or `bottom_color`. The loader in `app._build_widget`/`_build_title` coerces 3-int lists/tuples in any of these keys to `graphics.Color` automatically. `color = "random"` still works for titles (cycles through `RANDOM_COLOR`).
+**Marquee auto-floor on image/gif widgets** (`_image_base._play_with_text`) — when `text_align ∈ ("scroll", "scroll_over")`, the per-tick loop runs at LEAST one full traversal regardless of the source's natural duration. `text_loops > 0` raises the floor further; the implicit minimum is 1 (was 0). Source duration extends transparently to match.
 
-**Two-row widget (`type = "two_row"`)**: For tall canvases (the bigsign), `TwoRowMessage` renders a held top row + a scrolling bottom row. Top stays at a fixed position (alignable left/center/right via `top_align`); the bottom scrolls when its content overflows canvas width (`bottom_align` only takes effect when it fits). Both alignments default to `"center"`. Best in `swap` mode at `scale = 2` so 128 logical px is wide enough to hold typical handles. Default font is FONT_SMALL (5×8); supports any font (BDF or HiresFont) via the `font` kwarg — row baselines are computed by `_row_layout` calling `compute_baseline` against a half-canvas, so the same code path works for both. **Per-row font overrides**: `top_font` / `bottom_font` (with their own `_size` and `_threshold` knobs) override `font` for that row only — useful for "@MoonBunny" in Inter-Bold on top + a thinner Inter-Regular promo line below. **Asymmetric row split**: `top_row_height = N` (logical rows) gives the top band exactly N rows and the bottom `canvas.height - N` rows; default `None` is the legacy 50/50. Use it to fit a larger font in the bottom row when both rows can't share size — e.g. `top_row_height = 4` with FONT_SMALL on top + Beloved Sans Bold @ 22 on the bottom. **Per-row text/emoji nudges**: `top_text_y_offset` / `bottom_text_y_offset` and `top_emoji_y_offset` / `bottom_emoji_y_offset` (logical rows; default 0). Negative shifts up, positive down. Set text + emoji to the same value to shift the entire row together; set them differently to tune emoji-text vertical alignment when the emoji sprite is taller than its row band (e.g. `top_emoji_y_offset = 1` to nudge an 8-tall emoji down 4 real px in a small top band so it visually centers with the text). **Naming convention**: single-region widgets (gif/image's text overlay, TickerMessage) use unprefixed names like `text_y_offset`; multi-region widgets (TwoRowMessage's two bands) prefix with `top_` / `bottom_`. Don't add `top_` to a single-region widget — the prefix lies about what's there. Don't drop the prefix on a multi-region widget — there's no way to address a specific region without it. Defaults to `None`, falls back to `font`. Inline emoji slugs work in both rows — `pixel_emoji.draw_with_emoji` accepts an `emoji_y` override that the widget computes per row from the canvas height; emoji size capped at `_EMOJI_ROW_CAP = 8` so a hi-res sprite that would overflow the row falls back to low-res. Hi-res text fonts that don't fit the per-row band (font line-height > canvas.height // 2) raise at draw time with a clear message identifying which row.
+**Per-widget colors in TOML** — The loader auto-coerces 3-int lists in `font_color`, `color`, `top_color`, `bottom_color` to `graphics.Color`. `color = "random"` works for titles (cycles through `RANDOM_COLOR`).
 
-**Per-section `content_height`**: `SectionConfig.content_height` (default 16) controls the wrapper's logical canvas height. **Hard ceiling: `content_height * scale ≤ panel_h_real`** — for bigsign at scale=4, that's `content_height ≤ 16`. Above the ceiling the wrapper's `_y_offset` goes negative (the logical canvas is taller than the panel), top + bottom rows of the logical canvas overflow the visible area, and content placed near those edges silently clips. The "breathing room" framing in older configs (`content_height = 20`) is a pitfall on bigsign — BDF text was tolerant because cells stayed near the vertical center, but hi-res emoji and large hi-res fonts surface the clip immediately (e.g. TwoRow's hi-res `:instagram:` cuts off ~4 real px at the bottom). Only applies when `scale > 1` (i.e., when the wrapper is created). For per-row breathing room, use `text_y_offset` on TickerMessage or pick a smaller `font_size` rather than over-spec'ing `content_height`.
+**Two-row widget** — `TwoRowMessage` renders held top + scrolling-on-overflow bottom. Bottom only scrolls when content exceeds canvas width. Per-row knobs use the `top_` / `bottom_` prefix convention; single-region widgets (TickerMessage, image text overlay) use unprefixed names. Don't mix conventions: the prefix on a single-region widget lies; dropping the prefix on a multi-region widget is unaddressable. Hires text fonts that don't fit a per-row band (font line-height > canvas.height // 2) raise at draw time identifying the row. Layout helpers in `widgets/_row_layout.py` are shared with image widgets — both must keep using them so row positioning can't drift. Docs: <https://led-ticker.pages.dev/widgets/two_row/>.
 
-**ScaledCanvas (bigsign)**: When `default_scale > 1` in config, the canvas returned to widgets is a `ScaledCanvas` wrapper. Widgets keep drawing at logical 16-tall coordinates; the wrapper expands every `SetPixel` to a scale×scale block on the real canvas and centers the content vertically. `DrawText` cannot be scaled, so `text_render.py` provides a pure-Python BDF rasterizer (`ScaledCanvas.draw_bdf_text`) that uses `SetPixel` and therefore inherits the wrapper's scaling. `_swap` knows how to in-place swap the wrapper's `.real` canvas so the wrapper identity is stable across frames. `_y_offset` is cached at construction since real-canvas height is constant for a wrapper's lifetime.
+**Per-section `content_height`** — Hard ceiling: `content_height × scale ≤ panel_h_real`. For bigsign at scale=4, that's `content_height ≤ 16`. Above the ceiling the wrapper's `_y_offset` goes negative and content silently clips. BDF text is forgiving (cells sit near the vertical center) but hires emoji and large hires fonts surface the clip immediately. For per-row breathing room, use `text_y_offset` on the widget — not a higher `content_height`.
 
-**Native-resolution painting via `unwrap_to_real`**: Some widgets and transitions need physical pixel granularity, not the wrapper's logical-pixel-then-block-expand path — e.g. the GIF widget (each LED is a real pixel, not a 4×4 block) and the Dissolve transition (logical-grain scatter at scale=4 turns out to be a fade-through-black at t=0.5). `scaled_canvas.unwrap_to_real(canvas)` peels any ScaledCanvas wrappers and returns the underlying real canvas, leaving non-wrapped canvases untouched. Use this whenever you need physical pixels. For widgets that own their own swap loop (like GifPlayer.play()), keep an `innermost` pointer to the deepest wrapper so you can rebind `.real` to the new back-buffer after each `SwapOnVSync`.
+**ScaledCanvas / unwrap_to_real** — When `default_scale > 1` widgets receive a `ScaledCanvas` wrapper. `_swap` mutates `.real` in place so wrapper identity is stable across frames. `_y_offset` is cached at construction. `DrawText` cannot be scaled, so use `ScaledCanvas.draw_bdf_text` (uses `SetPixel`, inherits scaling). Use `scaled_canvas.unwrap_to_real(canvas)` whenever you need physical-pixel granularity (GIF widget, Dissolve transition) — without this, a SetPixel-based scatter at scale=4 only has 1024 grain points and dissolves render as fade-through-black at t=0.5.
 
-**GIF widget (`type = "gif"`) and Still-image widget (`type = "image"`)** share a base class `_BaseImageWidget` (in `widgets/_image_base.py`) that provides the entire text-overlay surface: `text_align` (`auto` | `left` | `right` | `scroll` | `scroll_over`) + `text_valign` (`top` | `center` | `bottom`) + `text_y_offset` / `text_x_offset` for pixel nudging + `scroll_direction` + `scroll_speed_ms` + `font_size` (real-pixel size; the wrapper's content_height tracks it so `text_valign="top"` lands at the panel edge, not a centered band) + `text_loops` floor + inline `:slug:` emoji. Subclasses provide `_paint_full(canvas)`, `_paint_skip_black(canvas)`, `_load`, plus optional hooks `_pick_frame_for_elapsed(elapsed_ms)` (advance per-frame state — default no-op for stills, gif overrides) and `_is_static() -> bool` (drives the static-text fast path — defaults `True` for stills, gif returns `len(self._frames) <= 1`).
+**GIF / Still image widgets** — Both extend `_BaseImageWidget` (`widgets/_image_base.py`) which provides the entire text-overlay surface: `text_align`, `text_valign`, `text_y_offset`, `text_x_offset`, `scroll_direction`, `scroll_speed_ms`, `font_size`, `text_loops`, inline `:slug:` emoji. Subclasses provide `_paint_full(canvas)`, `_paint_skip_black(canvas)`, `_load`, plus optional hooks `_pick_frame_for_elapsed(elapsed_ms)` and `_is_static() -> bool`. `_is_static()` drives the static-text fast path — multi-frame gifs MUST NOT fast-path (frames freeze on idx 0; tripwire `test_gif_static_text_does_not_freeze_animation`). Fit / alpha primitives live in `widgets/_image_fit.py` — canonical, do not duplicate. Validation rejects `text_align="scroll"` + `fit="stretch"`, `text_x_offset != 0` + scroll modes, `hold_seconds < 0.05`, BDF `font_size < cell_h`. Docs: <https://led-ticker.pages.dev/widgets/gif/> · <https://led-ticker.pages.dev/widgets/image/>.
 
-**`text_align="scroll"` vs `"scroll_over"` paint order** (single-row image text): both are scrolling marquees but the layering differs.
-- `"scroll"`: text drawn FIRST, then `_paint_skip_black` paints non-black image pixels on top. The text is visible only where the image is black or transparent — i.e. text walks BEHIND the image silhouette. Use when the image is RGBA with transparent regions you want the text to peek through (logos, sprites with alpha).
-- `"scroll_over"`: image painted FIRST, then text drawn on top. Text is always visible regardless of image content. Use when the image is opaque RGB with no transparent regions to expose (photos, dance footage, anything where you can't rely on alpha).
-- `"auto"` resolves based on `image_align`: `left` → `right`, `right` → `left`, `center` → `scroll_over`. Validation rejects `text_align="scroll"` + `fit="stretch"` (rule 3) since stretch fills the panel with no transparent regions for text to expose.
+**`text_align="scroll"` vs `"scroll_over"` paint order** — `"scroll"`: text first, then `_paint_skip_black` paints non-black image pixels on top → text walks BEHIND the image silhouette (use with RGBA + transparent regions). `"scroll_over"`: image first, text on top → always visible (use with opaque RGB). `"auto"` resolves based on `image_align`: `left`→`right`, `right`→`left`, `center`→`scroll_over`.
 
-**Two-row text overlay on image widgets**: Setting `bottom_text != ""` on a gif/image widget switches it to held-top + scroll-on-overflow-bottom semantics — the image painted underneath, two text rows over it. Mirrors `TwoRowMessage`'s contract; per-row knobs parallel TwoRow's: `top_text` (back-compat alias: `text` works as top text when only `bottom_text` is added), `top_color` / `bottom_color` (default to `font_color`), `top_align` / `bottom_align` (default `"center"`), `top_font` / `bottom_font` (with `_size` and `_threshold`; default to `font`), `top_text_y_offset` / `bottom_text_y_offset`, `top_emoji_y_offset` / `bottom_emoji_y_offset`, `top_row_height` (asymmetric split). Layout helpers in `widgets/_row_layout.py` (`row_layout`, `aligned_x`, `resolve_band_heights`) are shared with `TwoRowMessage` so the two widgets can't drift in row positioning. Single-row `text_align` / `text_valign` / `text_x_offset` / `font_size` are refused in two-row mode (use the per-row knobs); `bg_color` keeps its whole-canvas / letterbox-fill semantics — no per-row band-bg knobs (image painted underneath replaces that role). **Architecture**: `_play_with_two_row_text` paints the image to the unwrapped real canvas (native pixels) but wraps the same canvas in a `ScaledCanvas` for text+emoji draw. All band-height / baseline / aligned_x math operates in LOGICAL units against the wrapper — same coordinate system as TwoRowMessage, so `top_row_height = 5` reads identically on both widgets. The wrap is also why hires emoji (`:instagram:` 32×32) fires correctly: `pixel_emoji.draw_with_emoji`'s `isinstance(canvas, ScaledCanvas)` gate sees the wrapper. BDF text on bigsign also gets the wrapper's `scale × scale` block-expansion automatically. The wrapper's `.real` is rebound after each `SwapOnVSync` (CLAUDE.md constraint #10) so successive ticks paint to the correct back-buffer. Scale propagation: `ticker._play_widget` stashes `wrapper.scale` on `widget._logical_scale` BEFORE unwrapping (since `play()` receives the raw real canvas) — that's how the widget knows what scale to use for the wrap. Tripwires: `test_play_widget_stashes_logical_scale_on_widget` (ticker side), `TestTwoRowLogicalUnits` (widget side, three tests covering logical-rows interpretation, band-fit rejection, and that the text canvas is a ScaledCanvas wrapper so hires emoji fires). Field-surface tripwire (`tests/test_widgets/test_image_base.py:TestFieldSurfaceMatchesTwoRow`) catches drift between the two widgets' per-row field sets at the test layer.
+**Two-row text overlay on image widgets** — Setting `bottom_text != ""` on a gif/image widget switches it to held-top + scroll-on-overflow-bottom. `_play_with_two_row_text` paints the image to the unwrapped real canvas (native pixels) but wraps the same canvas in a `ScaledCanvas` for text+emoji draw. All band-height / baseline math operates in LOGICAL units against the wrapper — same coordinate system as TwoRowMessage. The wrap is also why hires emoji fires correctly (`isinstance(canvas, ScaledCanvas)` gate sees the wrapper). Wrapper `.real` is rebound after each `SwapOnVSync` (constraint #10). Single-row knobs (`text_align`, `text_valign`, `text_x_offset`, `font_size`) are refused in two-row mode. Tripwires: `TestTwoRowLogicalUnits`, `TestFieldSurfaceMatchesTwoRow`.
 
-**Single-row image text — `font_size` is the unified knob**: `_play_with_text` resolves the user-facing `font_size` (real pixels) at first paint via `_resolved_font_size`, then converts to an integer block scale via `block_scale_for_font_size(font, font_size)`. For BDF: rounds down to the nearest integer multiple of cell height (raises if `font_size < cell_h`). For HiresFont: always 1 (the rasterizer handled size at construction; glyphs paint to the unwrapped real canvas regardless). The wrap scale used at the call site is `block_scale` for BDF (drives the cell expansion) and `_logical_scale` for HiresFont (so the hires emoji `isinstance(c, ScaledCanvas)` gate still fires on bigsign — block_scale=1 wouldn't). Smart default for BDF when `font_size` is unset: `cell_h × _logical_scale` (= 12 on smallsign, 48 on bigsign for FONT_DEFAULT). HiresFont configs MUST specify `font_size` explicitly; `_build_widget` raises with the e.g.-24-on-bigsign hint. **Migration from text_scale**: `font_size = N × cell_h_of_your_font`. For BDF 6×12: text_scale=2 → font_size=24, text_scale=4 → font_size=48. The migration error in `_build_widget` catches stale TOMLs at config-load with the formula in the message. Tripwires: `TestSingleRowFontSize` (3 tests in `test_image_base.py`), `TestResolvedFontSize` (7 tests), `TestBlockScaleForFontSize` (6 tests in `test_fonts.py`), `TestFontSizeMigration` (4 tests in `test_app.py`). **Mental model**: image widgets follow the same rule as every other widget on the bigsign — content draws at logical scale and the wrapper expands to panel scale.
+**Single-row image text — `font_size` is the unified knob** — `_resolved_font_size` resolves user-facing `font_size` (real pixels), then `block_scale_for_font_size(font, font_size)` converts to integer block scale. BDF: rounds down to nearest integer multiple of cell height (raises if `font_size < cell_h`). HiresFont: always 1. Wrap scale at the call site is `block_scale` for BDF and `_logical_scale` for HiresFont (so the hires-emoji ScaledCanvas gate still fires). HiresFont configs MUST specify `font_size` explicitly; `_build_widget` raises with a hint. Migration error catches stale `text_scale =` TOMLs at config-load with the formula. Tripwires: `TestSingleRowFontSize`, `TestResolvedFontSize`, `TestBlockScaleForFontSize`, `TestFontSizeMigration`.
 
-  - `GifPlayer` decodes animated sources via Pillow and paints frames at native physical res (bypassing ScaledCanvas — see "Native-resolution painting" above). Format-agnostic despite the name: anything Pillow opens with `n_frames` and `seek()` works (gif, animated webp, apng, multi-frame tiff). Per-frame durations come from `img.info["duration"]`. Per-visit duration is `gif_loops × sum(durations)`. Two run modes: legacy `mode = "gif"` (panel takeover, no titles) and `mode = "swap"` (unified path via `_has_play` dispatch; titles + transitions Just Work).
-  - `StillImage` decodes a single PNG / JPG / single-frame GIF. Per-visit duration is `hold_seconds`. With `text_loops > 0` `hold_seconds` becomes a duration FLOOR (`max(hold_seconds, text_loops × traversal)`).
+**Typewriter on image widgets** (`animation = "typewriter"` on `gif` / `image`) — Single-row only. Raises if `bottom_text != ""`, `text_align ∈ ("scroll", "scroll_over")`, or `text == ""`. Reads its per-effect counter via `frame_for("animation")` so it composes cleanly with continuous-phase `font_color` / `border`. Forces the slow path (`_play_with_text` gate predicate adds `AND animation is None`). Tripwires: `TestImageTypewriter` (5 tests).
 
-  Four shared `fit` modes (`pillarbox`, `letterbox`, `stretch`, `crop`); `image_align = "left" | "center" | "right"` anchors pillarboxed images horizontally. Transparent PNGs and palette-transparency GIFs both alpha-composite onto black during decode so skip-black scroll-text exposes the transparent regions (text walks "behind" the silhouette). Fit + alpha primitives (`apply_fit`, `flatten_onto_black`, `validate_choice`, `VALID_FITS`, `VALID_IMAGE_ALIGNS`) live in `widgets/_image_fit.py` — the canonical home; do not duplicate. **Static-text fast path:** when `_is_static()` AND `text_align ∈ (left, right)` AND `text_loops == 0`, `_play_with_text` paints once and sleeps cumulative duration instead of redrawing identical frames every tick. The `_is_static()` gate is critical: a multi-frame gif must NOT fast-path (frames would freeze on idx 0 — tripwire `test_gif_static_text_does_not_freeze_animation`). **Pitfall validation** raises on `text_align="scroll"` + `fit="stretch"` (no transparent regions to expose text), `text_x_offset != 0` + scroll modes, `hold_seconds < 0.05`, and (at first paint) BDF `font_size < cell_h` with a hint pointing to a smaller bundled BDF (5×8) or a HiresFont.
+**`play()`-style widgets in `run_swap`** — A widget can opt out of the standard hold-and-scroll path by exposing an async `play(real_canvas, frame, loop_count) -> Canvas` method. `_run_swap`'s `_show_one` helper dispatches to `_play_widget` (which unwraps the ScaledCanvas, calls `play()`, then re-anchors `.real` to the new back-buffer) when `_has_play(widget)` returns true. `_has_play` checks `inspect.iscoroutinefunction(type(widget).play)` — looking at the CLASS, not the instance — so Mock objects don't false-positive. Currently used by `GifPlayer` and `StillImage`.
 
-**Typewriter on image widgets** (`animation = "typewriter"` on `gif` / `image`): single-row only — raises if `bottom_text != ""`, `text_align ∈ ("scroll", "scroll_over")`, or `text == ""`. Reads its per-effect counter via `frame_for("animation")` so it composes cleanly with continuous-phase `font_color` and `border` (rainbow text + rainbow border + typewriter all tick on independent counters). Forces the slow path in `_play_with_text` (gate predicate adds `AND animation is None`). Layout uses full-text width; only the visible slice is drawn — characters appear in their final positions, never shifting. Per-char providers receive `total_chars = len(self.text)` so hue is anchored to char identity across the reveal. Tripwires: `tests/test_widgets/test_image_base.py::TestImageTypewriter` (5 tests).
-
-**`play()`-style widgets in run_swap**: A widget can opt out of the standard hold-and-scroll path by exposing an async `play(real_canvas, frame, loop_count) -> Canvas` method. `_run_swap`'s `_show_one` helper dispatches to `_play_widget` (which unwraps the ScaledCanvas, calls `play()`, then re-anchors `.real` to the new back-buffer) when `_has_play(widget)` returns true. `_has_play` checks `inspect.iscoroutinefunction(type(widget).play)` — looking at the CLASS, not the instance — so Mock objects (which auto-generate any attribute on access) don't false-positive in tests. Currently only `GifPlayer` uses this; any future video / animation widget can follow the same pattern.
-
-**BDF glyphs carry pre-computed `lit_pixels`**: `BDFGlyph.lit_pixels` is a flat `list[tuple[int, int]]` of `(col, row)` for set bits, computed at parse time. The bigsign rasterizer iterates this directly instead of branching every cell — most cells are unlit. `bitmap` is preserved as the source of truth; tests in `test_bdf_parser.py` assert the two stay in sync.
+**BDF glyphs carry pre-computed `lit_pixels`** — `BDFGlyph.lit_pixels` is a flat `list[tuple[int, int]]` of `(col, row)` for set bits, computed at parse time. Bigsign rasterizer iterates this directly (most cells are unlit). `bitmap` is preserved as the source of truth; `test_bdf_parser.py` asserts the two stay in sync.
 
 ### Key Patterns
 
-**Widget Protocol**: All widgets implement `draw(canvas, cursor_pos=0, **kwargs) -> (canvas, int)`. All draw() methods support `y_offset` via kwargs (default 0), used for vertical transitions. Async widgets also implement `update()` and use `run_monitor_loop()` with exponential backoff.
+**Widget Protocol** — All widgets implement `draw(canvas, cursor_pos=0, **kwargs) -> (canvas, int)`. Support `y_offset = kwargs.get("y_offset", 0)` for vertical transitions. Async data widgets implement `update()` and use `run_monitor_loop()` with exponential backoff.
 
-**Widget Registry**: `@register("name")` decorator. Config loader uses `get_widget_class(name)`.
+**Widget Registry** — `@register("name")` decorator. Config loader uses `get_widget_class(name)`.
 
-**Transition Registry**: `@register_transition("name")` decorator in `transitions/` package. 30 transitions available.
+**Transition Registry** — `@register_transition("name")` decorator in the `transitions/` package.
 
-**Color providers + animations**: see "Color providers and animations" section below for the full vocabulary. Replaces the legacy `@register_presentation` registry.
+**Color providers + animations** — see "Color providers and animations" below. Replaces the legacy `@register_presentation` registry.
 
 ### CRITICAL: Hardware Rendering Constraints
 
-These constraints were learned through extensive real-hardware testing:
+These constraints were learned through extensive real-hardware testing. They are the contract for any code that touches the render path. Do not relax them.
 
 1. **SwapOnVSync return value MUST be captured**: `canvas = frame.matrix.SwapOnVSync(canvas)`. The return value is the previous front buffer which becomes the new back buffer. If discarded, you draw to the actively-displayed buffer, causing tearing and corruption. EVERY call site must capture this.
 
@@ -163,11 +148,11 @@ These constraints were learned through extensive real-hardware testing:
 
 9. **ScaledCanvas wraps the real canvas**: In bigsign mode (`default_scale > 1`) the canvas widgets receive is a `ScaledCanvas`. `_swap` mutates `.real` in place so wrapper identity is preserved across frames; transitions that re-wrap (`run_transition` at `incoming_scale != current`) must do so explicitly and not rely on the wrapper survival path.
 
-10. **`play()`-style widgets must rebind their text/secondary canvases after every swap**: A widget that owns its swap loop (e.g. `GifPlayer.play()`, `StillImage.play()`) typically holds two canvas references: one for the image (real canvas, native pixels) and one for text (a temporary ScaledCanvas wrapper or the same real canvas at scale=1). After `canvas = frame.matrix.SwapOnVSync(canvas)`, the secondary reference is now stale — pointing at the old front buffer that's currently displaying. ScaledCanvas wrappers re-anchor via `wrapper.real = canvas`; raw-canvas references must be reassigned (`text_canvas = canvas`). Skip this rebind and you paint to the displayed buffer every other tick — visible as a "pulsing" flicker on the panel. Both widgets now share `_BaseImageWidget._play_with_text` so the rebind lives in one place. Tripwires: `test_play_no_wrap_text_canvas_follows_back_buffer` (gif) and `test_text_canvas_follows_back_buffer` (still).
+10. **`play()`-style widgets must rebind their text/secondary canvases after every swap**: A widget that owns its swap loop (e.g. `GifPlayer.play()`, `StillImage.play()`) typically holds two canvas references: one for the image (real canvas, native pixels) and one for text (a temporary ScaledCanvas wrapper or the same real canvas at scale=1). After `canvas = frame.matrix.SwapOnVSync(canvas)`, the secondary reference is now stale — pointing at the old front buffer that's currently displaying. ScaledCanvas wrappers re-anchor via `wrapper.real = canvas`; raw-canvas references must be reassigned (`text_canvas = canvas`). Skip this rebind and you paint to the displayed buffer every other tick — visible as a "pulsing" flicker on the panel. Both widgets share `_BaseImageWidget._play_with_text` so the rebind lives in one place. Tripwires: `test_play_no_wrap_text_canvas_follows_back_buffer` (gif) and `test_text_canvas_follows_back_buffer` (still).
 
 11. **Per-pixel scatter (Dissolve) must run at physical resolution on ScaledCanvas**: A SetPixel-based scatter operating on the wrapper's logical canvas at scale=4 has only 1024 logical pixels — at peak (`t=0.5`, `count=total`) every logical pixel blacks out, every 4×4 block on the real canvas blacks out, and the panel goes 100% black for one frame. That's a fade-through-black, not a dissolve. Unwrap via `unwrap_to_real(canvas)` and call `real.SetPixel` so the scatter has 16× more grain (16,384 pixels on the bigsign). Tripwire: `test_scatter_uses_physical_resolution_through_scaled_canvas` in `tests/test_transitions.py`.
 
-12. **Every per-tick redraw loop must call `advance_frame()` per tick**: Frame-aware widgets (the `_FrameAware` mixin) track `_frame_count`, which `ColorProvider.color_for(frame, ...)` reads to animate Rainbow / ColorCycle. Any loop that calls `widget.draw(...)` at frame cadence must call `_advance_frame_if_supported(widget)` before the draw — otherwise the provider sees a stuck `_frame_count` and Rainbow renders as a static gradient that scrolls but doesn't sweep. The convention applies to: (a) the shared engine in `ticker.py` — `_swap_and_scroll` (held + scroll branches), `_scroll_and_delay` (scroll-in + post-scroll hold), `_scroll_one_by_one`, `_scroll_side_by_side` (advances every UNIQUE buffered widget per outer tick — dedup by `id()`); (b) `play()`-style widgets that own their render loop — `GifPlayer.play()` / `StillImage.play()` via `_BaseImageWidget._play_with_text` / `_play_with_two_row_text`. Static-text fast paths bypass via the provider's `frame_invariant` flag — `_ConstantColor`, `Random`, and `Gradient` are `frame_invariant=True` and skip the per-tick loop; Rainbow / ColorCycle are `False` (forced through the loop). New providers default to `False` (conservative). **Transition compositors are exempt** — `run_transition` calls `pause_frame()` so the widget's counter doesn't drift while being re-rendered for compositing. `_scroll_between` is dispatched directly (not through `run_transition`) and explicitly calls `outgoing.pause_frame()` / `incoming.pause_frame()` at entry, `resume_frame()` in `finally`. Enforcement: `tests/test_engine_redraw_contract.py` AST-scans `ticker.py` and asserts every loop body containing `widget.draw(...)` also calls `_advance_frame_if_supported(...)`, with a documented `ALLOW_LIST` for transition compositors that pause instead. The meta-tripwire only catches loop-shaped redraws — single-sleep holds (`await asyncio.sleep(hold_time)` after a final draw) are NOT caught by AST; each such site needs its own per-function tripwire that asserts `advance_frame` is called per `ENGINE_TICK_MS` during the hold. Tripwires for the engine paths: `TestScrollOneByOne` / `TestScrollSideBySide` / `TestScrollAndDelay` / `TestSwapAndScrollEngineTick` in `tests/test_ticker_display.py`. Tripwires for the play loops: `TestPlayLoopAdvancesFrame` in `tests/test_widgets/test_image_base.py`.
+12. **Every per-tick redraw loop must call `advance_frame()` per tick**: Frame-aware widgets (the `_FrameAware` mixin) track `_frame_count`, which `ColorProvider.color_for(frame, ...)` reads to animate Rainbow / ColorCycle. Any loop that calls `widget.draw(...)` at frame cadence must call `_advance_frame_if_supported(widget)` before the draw — otherwise the provider sees a stuck `_frame_count` and Rainbow renders as a static gradient that scrolls but doesn't sweep. Applies to: (a) the shared engine in `ticker.py` — `_swap_and_scroll` (held + scroll branches), `_scroll_and_delay` (scroll-in + post-scroll hold), `_scroll_one_by_one`, `_scroll_side_by_side` (advance every UNIQUE buffered widget per outer tick — dedup by `id()`); (b) `play()`-style widgets that own their render loop — `GifPlayer.play()` / `StillImage.play()` via `_BaseImageWidget._play_with_text` / `_play_with_two_row_text`. Static-text fast paths bypass via the provider's `frame_invariant` flag — `_ConstantColor`, `Random`, and `Gradient` are `frame_invariant=True` and skip the per-tick loop; Rainbow / ColorCycle are `False` (forced through the loop). New providers default to `False` (conservative). **Transition compositors are exempt** — `run_transition` calls `pause_frame()` so the widget's counter doesn't drift while being re-rendered for compositing. `_scroll_between` is dispatched directly (not through `run_transition`) and explicitly calls `outgoing.pause_frame()` / `incoming.pause_frame()` at entry, `resume_frame()` in `finally`. Enforcement: `tests/test_engine_redraw_contract.py` AST-scans `ticker.py` and asserts every loop body containing `widget.draw(...)` also calls `_advance_frame_if_supported(...)`, with an `ALLOW_LIST` for transition compositors that pause instead. Single-sleep holds (`await asyncio.sleep(hold_time)` after a final draw) are NOT caught by AST; each such site needs its own per-function tripwire. Tripwires: `TestScrollOneByOne` / `TestScrollSideBySide` / `TestScrollAndDelay` / `TestSwapAndScrollEngineTick` (`tests/test_ticker_display.py`); `TestPlayLoopAdvancesFrame` (`tests/test_widgets/test_image_base.py`).
 
 ### Display Flow
 
@@ -175,178 +160,42 @@ These constraints were learned through extensive real-hardware testing:
 2. `Ticker` is created with widgets, frame, transition config, and hold_time
 3. Ticker runs one of three modes: `run_forever_scroll()`, `run_infini_scroll()`, or `run_swap()`
 4. In swap mode: each widget is held (scrolled if overflowing), then transition runs
-5. `run_transition()` returns the current back-buffer canvas — caller must capture it
+5. `run_transition()` returns the current back-buffer canvas — caller MUST capture it
 6. Between sections: a section-to-section transition runs
 7. Canvas pushed to hardware via `canvas = frame.matrix.SwapOnVSync(canvas)`
 
 ### Transition System
 
-All transitions work on real hardware. They fall into three categories:
+30+ transitions registered. Full catalogue + per-family knobs: <https://led-ticker.pages.dev/transitions/>. Categories:
 
-**Push-based** (rapid scroll — both contents move together):
-- `push_left` — rapid scroll left: outgoing exits left, incoming enters from right
-- `push_right` — rightward push: incoming enters from left at pos=0, outgoing exits right at pos=boundary (avoids DrawText rightward-bleed overlap)
-- `push_up` — rapid scroll up: outgoing exits top, incoming enters from bottom
-- `push_down` — rapid scroll down: outgoing exits bottom, incoming enters from top
+- **Push** — outgoing + incoming move together (`push_left/right/up/down`, `push_alternating`, `push_random`). Use draw-blackout-draw to avoid DrawText overlap; receive `outgoing_scroll_pos` from `_swap_and_scroll` so they continue from where text stopped scrolling.
+- **Wipe** — stationary outgoing + colored sweep line erases (`wipe_left/right/up/down`, `wipe_alternating`, `wipe_random`). Draw outgoing at pos=0, SetPixel-blackout regions, draw sweep on top, snap to incoming at t=1.0. Blackouts erase `outgoing.draw()`'s text bleed (DrawText cannot be clipped) — they are NOT redundant against `Clear()`.
+- **Sprite-trail** — `nyancat`, `pokeball`, `baseball`, `pacman`, `sailor_moon` (each has `_reverse` and `_alternating`; first three have hires variants). See "Hi-res transitions" above.
+- **Special** — `cut` (instant), `color_flash` (white flash), `dissolve` (seeded RNG scatter), `split` (center-outward black band), `scroll` (seamless continuous scroll with bullet separator).
 
-Push transitions use draw-blackout-draw: draw outgoing at its scroll position, SetPixel-blackout the zone where incoming will appear, then draw incoming. This prevents overlap since DrawText cannot be clipped. They receive `outgoing_scroll_pos` from `_swap_and_scroll` via `run_transition` kwargs so they can continue from where the text stopped scrolling.
+**Frame freeze during transitions** — `run_transition` calls `pause_frame()` on outgoing/incoming before its loop and `resume_frame()` after (try/finally). Frame-aware widgets (`_FrameAware`-derived) use this to keep `frame_count` from advancing while being re-rendered for compositing — otherwise a Typewriter / Rainbow widget mid-cycles during the dissolve and re-enters the next section at a wrong phase. Plain widgets are skipped via duck-typing.
 
-**Instant/flash**:
-- `cut` — instant switch
-- `color_flash` — white flash between content
+**Cross-scale dissolves** — `run_transition(..., incoming_scale=N)` re-wraps the canvas at the new scale at t ≥ 0.5 so the incoming widget dissolves IN at its native size. The function returns the new wrapper — callers MUST capture the return value (`canvas = await run_transition(...)`).
 
-**Wipe-based** (stationary outgoing + sweep line erase):
-- `wipe_left` — stationary outgoing + sweep line moving right-to-left
-- `wipe_right` — stationary outgoing + sweep line moving left-to-right
-- `wipe_up` — stationary outgoing + sweep line erasing bottom-to-top
-- `dissolve` — random pixel scatter (seeded RNG) creates TV static effect
-- `split` — center-outward expanding black band with magenta edge lines
-- `wipe_down` — top-down row blackout with sweep line (formerly 'curtain')
-- `nyancat` — Nyan Cat flies left-to-right, rainbow fills screen before cut (hi-res variant on bigsign — animated webp Nyan Cat)
-- `scroll` — seamless continuous scroll with bullet dot separator (2x2 SetPixel, 6px symmetric gaps). Uses `_scroll_between` at 1px/frame for constant speed. Note: `forever_scroll` mode uses a text `•` character via `DEFAULT_BUFFER_MSG` with cursor-based spacing — visually similar but different rendering approach.
-- `nyancat_reverse` — Nyan Cat flies right-to-left (flipped sprite), rainbow fills screen (hi-res variant on bigsign — animated webp Nyan Cat)
-- `pokeball` — Pokeball rolls left-to-right with Pikachu chasing; 4-frame rotation, 4-frame Pikachu run cycle (hi-res variant — procedural ball + animated Pikachu sprite; show_pikachu / show_pokeball toggles)
-- `pokeball_reverse` — Pokeball + Pikachu right-to-left (flipped sprites) (hi-res variant — procedural ball + animated Pikachu sprite; show_pikachu / show_pokeball toggles)
-- `pokeball_alternating` — cycles through pokeball → pokeball_reverse each swap
-- `baseball` — white baseball with red stitching rolls left-to-right; 4-frame stitch rotation (hi-res variant — procedural ball reusing :baseball: emoji geometry, 8 rotation frames)
-- `baseball_reverse` — baseball right-to-left (flipped) (hi-res variant — procedural ball reusing :baseball: emoji geometry, 8 rotation frames)
-- `baseball_alternating` — cycles through baseball → baseball_reverse each swap
-- `pacman` — Pac-Man chases 3 scared ghosts (Blinky/Pinky/Inky) left-to-right with dots; chomping mouth animation + ghost wave animation
-- `pacman_reverse` — Pac-Man + ghosts right-to-left (flipped)
-- `pacman_alternating` — cycles through pacman → pacman_reverse each swap
-- `push_alternating` — cycles through push_left → push_right → push_up → push_down each swap
-- `push_random` — random push direction each swap, never the same direction back-to-back
-- `nyancat_alternating` — cycles through nyancat → nyancat_reverse each swap
-- `wipe_alternating` — cycles through wipe_left → wipe_right → wipe_up → wipe_down each swap
-- `wipe_random` — random wipe direction (no immediate repeats) + random sweep color from `transition_colors` pool (defaults: cyan / magenta / white / green)
-- `sailor_moon` — Moon Stick wand sweeps left-to-right with sparkle trail erasing outgoing content
-- `sailor_moon_reverse` — Moon Stick sweeps right-to-left (flipped sprite)
-- `sailor_moon_alternating` — cycles through sailor_moon → sailor_moon_reverse each swap
-
-**How wipe transitions work**: Draw outgoing widget at pos=0 (stationary text), then use SetPixel to black out regions and draw colored sweep lines on top. At t=1.0, snap to incoming. This avoids the compositing problem entirely — no need to draw both widgets or read pixels back. The blackouts are NOT redundant against `Clear()` — they erase parts of `outgoing.draw()`'s text bleed (DrawText cannot be clipped).
-
-**Frame freeze during transitions**: `run_transition` calls `pause_frame()` on outgoing/incoming before its loop and `resume_frame()` after (try/finally). Widgets with frame-aware effects (TickerMessage with `animation` or per-char `font_color`) expose these methods via `_FrameAware` to keep `frame_count` from advancing while the widget is being re-rendered for compositing — otherwise a Typewriter/Rainbow widget mid-cycles during the dissolve and re-enters the next section at a wrong phase. Plain widgets without `pause_frame()` are skipped via duck-typing.
-
-**Cross-scale dissolves**: `run_transition(..., incoming_scale=N)` re-wraps the canvas at the new scale at t ≥ 0.5 so the incoming widget dissolves IN at its native size instead of flashing the wrong scale. The function returns the new wrapper — callers MUST capture the return value (`canvas = await run_transition(...)`) to follow the new wrapper for subsequent renders.
-
-**Symmetric bg_color through transitions**: `run_transition(..., outgoing_bg_color=(r,g,b), incoming_bg_color=(r,g,b))` keeps bg color painted throughout the transition. Without these params, the per-frame reset is `Clear()` for every frame — the outgoing's bg vanishes the instant the transition starts, and the incoming's bg only appears after the section's first `reset_canvas` runs (one tick AFTER the transition ends). Visible as twin flashes on bg-colored sections: bg disappears at transition start, then a "border on black" one-tick flash at transition end before bg reappears. With both set, t<0.5 paints `Fill(outgoing_bg)` and t>=0.5 paints `Fill(incoming_bg)` — the cut-over at 0.5 matches `incoming_scale`'s switch point so a transition that crosses both flips them together. Either side can be `None` independently (e.g. transitioning into a no-bg section: incoming=None falls back to Clear at t>=0.5). The boundary is a hard cut, not a fade; for sprite-trail transitions (pokeball, nyancat) the trail covers the bg flip. **Hires snap inside `_hires_loader`**: `render_hires_frame` and `render_hires_baseball_frame` do their own Clear+draw at t>=SNAP_THRESHOLD (0.95) before drawing incoming — that snap would clobber the outer Fill, so `run_transition` forwards `incoming_bg_color` via `frame_at` kwargs and the snap calls `_snap_reset(canvas, incoming_bg_color)` (Fill if set, else Clear). Without that thread, bordered widgets show a one-tick "border on black" flash at transition end. Call sites: `app.py` passes `last_bg_color` (previous section's bg) → outgoing, `section.bg_color` → incoming; `ticker.py:_run_swap` passes `prev_object.bg_color` → outgoing, `ticker_object.bg_color` → incoming. `run_transition` normalizes both — accepts tuple or `graphics.Color` so both call sites land in the same code path. Tripwires in `tests/test_transitions.py`: `TestRunTransitionIncomingBgColor` (4 tests, incoming side), `TestRunTransitionOutgoingBgColor` (4 tests, outgoing side + kwargs forwarding), `TestHiresSnapRespectsIncomingBg` (2 tests, snap helper).
+**Symmetric `bg_color` through transitions** — `run_transition(..., outgoing_bg_color=(r,g,b), incoming_bg_color=(r,g,b))` keeps bg color painted throughout. Without these, the per-frame reset is `Clear()` and bg-colored sections show twin flashes (bg disappears at start, "border on black" one-tick flash at end). With both set, t<0.5 paints `Fill(outgoing_bg)` and t>=0.5 paints `Fill(incoming_bg)` — cut-over at 0.5 matches `incoming_scale`'s switch point. Either side can be `None` independently. **Hires snap inside `_hires_loader`** — `render_hires_frame` and `render_hires_baseball_frame` do their own Clear+draw at t≥SNAP_THRESHOLD (0.95) before drawing incoming; `run_transition` forwards `incoming_bg_color` via `frame_at` kwargs and the snap calls `_snap_reset(canvas, incoming_bg_color)` so bordered widgets don't show the one-tick "border on black" flash. Call sites: `app.py` passes `last_bg_color` → outgoing, `section.bg_color` → incoming; `ticker.py:_run_swap` passes `prev_object.bg_color` → outgoing, `ticker_object.bg_color` → incoming. Tripwires: `TestRunTransitionIncomingBgColor`, `TestRunTransitionOutgoingBgColor`, `TestHiresSnapRespectsIncomingBg`.
 
 ### Color providers and animations
 
-**Color providers and animations**: `font_color` (and `top_color` /
-`bottom_color` on TwoRow / image widgets) accepts either a constant
-`[r, g, b]` list, the legacy `"random"` sentinel, a string shorthand
-(`"rainbow"` / `"color_cycle"`), or an inline table
-(`{style = "gradient", from = [...], to = [...]}`).
-At config-load all of those normalize to a `ColorProvider` with
-`color_for(frame, char_index, total_chars) -> Color`. Constants wrap
-in `_ConstantColor` so the widget-side dispatch is uniform.
+User-facing surface: <https://led-ticker.pages.dev/concepts/color-providers/> · <https://led-ticker.pages.dev/concepts/animations/> · <https://led-ticker.pages.dev/concepts/borders/> · <https://led-ticker.pages.dev/concepts/frame-counters/>.
 
-Per-char providers (`rainbow`, `gradient`) cause widgets that opt in
-to iterate characters and render each with its own color. Currently:
-`TickerMessage`, `TwoRowMessage` (per-row), and `_BaseImageWidget`
-text-overlay surface (so gif/image text overlays support gradient and
-rainbow per-char too — the dispatch is in `_BaseImageWidget._draw_text`
-via `provider.per_char`). Whole-string providers (`color_cycle`,
-`random`, constant) get a single `color_for` call per draw and one
-`draw_text` call.
+**Color provider contract** — `font_color` (and `top_color` / `bottom_color` on TwoRow / image widgets) accepts: constant `[r, g, b]`, legacy `"random"` sentinel, string shorthand (`"rainbow"` / `"color_cycle"`), or inline table (`{style = "gradient", from = [...], to = [...]}`). At config-load all normalize to a `ColorProvider` with `color_for(frame, char_index, total_chars) -> Color`. Constants wrap in `_ConstantColor` so widget-side dispatch is uniform. Per-char providers (`rainbow`, `gradient`) cause widgets that opt in to iterate characters and render each with its own color: currently `TickerMessage`, `TwoRowMessage` (per-row), and `_BaseImageWidget` text-overlay surface. Whole-string providers (`color_cycle`, `random`, constant) get a single `color_for` call per draw. New providers default `frame_invariant = False` (conservative).
 
-`animation = "typewriter"` is a field on `TickerMessage` only.
-`_build_widget` raises if `animation` appears on any other widget
-type. Color and animation compose: a TickerMessage can have both
-`font_color = "rainbow"` and `animation = "typewriter"` and the
-chars type out in rainbow. `frames_per_char` (default 3) controls
-typing speed — at 50ms tick × 3 frames ≈ 150ms/char (~7 chars/sec).
+**Per-char providers + emoji** — Rainbow / gradient sweep continuously across `:slug:` emoji boundaries: sprites render as sprites, the letters between/around them get per-char colors with `char_index` advancing across the emoji segments without resetting. Implemented via `pixel_emoji.draw_with_emoji(color: Color | ColorProvider, frame=N)` + `text_render.draw_text_per_char`.
 
-The previous `WidgetPresenter` wrapper + `presentation = "..."` knob
-was removed. `Bounce` (animation) and `Pulse` (color provider) were
-also removed in the rework. Migration error in `_build_widget` points
-users at the remaining knobs.
+**`animation = "typewriter"`** — Field on `TickerMessage`, `gif`, `image` (single-row only on the image side). `_build_widget` raises if `animation` appears on other widget types. Color and animation compose. `frames_per_char` (default 3) controls speed via the inline-table form: `animation = {style = "typewriter", frames_per_char = 6}`. The previous `WidgetPresenter` wrapper + `presentation = "..."` knob was removed; `Bounce` (animation) and `Pulse` (color provider) were removed in the rework. Migration error in `_build_widget` points users at the remaining knobs.
 
-**Engine tick** (`_swap_and_scroll`): held-text branches now run a
-tick loop calling `advance_frame + draw + swap` at 50ms cadence
-(`ENGINE_TICK_MS`) so frame-aware effects animate during holds. The
-scroll branch also calls `advance_frame` per tick.
+**Engine tick** (`_swap_and_scroll`) — Held-text branches run a tick loop calling `advance_frame + draw + swap` at `ENGINE_TICK_MS = 50ms` cadence so frame-aware effects animate during holds. Scroll branch also calls `advance_frame` per tick.
 
-**Per-char providers + emoji**: rainbow / gradient sweep continuously
-across `:slug:` emoji boundaries — sprites render as sprites, the
-letters between/around them get their own per-char colors with
-`char_index` advancing across the emoji segments without resetting.
-Implemented via `draw_with_emoji(color: Color | ColorProvider, frame=N)`
-+ the shared `text_render.draw_text_per_char` helper. Smoke demo in
-`config.presentation_test.example.toml` §1.
+**Per-effect frame counters** — `_FrameAware._effect_frames` stores one counter per effect on a widget. Continuous-phase effects (`Rainbow`, `ColorCycle`, `RainbowChaseBorder`) set `restart_on_visit = False` as a class attribute — counter doesn't reset on `_show_one`'s visit-entry call, so phase advances continuously across `loop_count > 1`. Restart-on-visit effects (`Typewriter`, default for unknown classes) reset per visit. Section transitions still reset via `run_transition`'s `_reset_presenter` — entry-to-section is always fresh state. Widget code reads `self.frame_for(attr_name)` instead of `self._frame_count` when calling effect APIs. Widget's `_frame_count` is preserved as the engine tick counter (resets per visit) for back-compat with direct readers.
 
-**Weather two-color design**: WeatherWidget has both `font_color`
-(label) and `font_color_temp` (temperature value) as separate
-ColorProvider fields. Default `font_color_temp = RGB_WHITE` keeps
-the value steady-bright while the label can use a color effect.
-Set both to the same provider if you want them to match.
+**Rainbow border** — `border` field accepted on `message`, `countdown`, `two_row`, `gif`, `image` (other types raise at config-load). Paints an animated 1- or 2-pixel ring around the panel perimeter at PHYSICAL resolution (bypasses ScaledCanvas via `unwrap_to_real`). Border paints BEFORE text in `TickerMessage.draw` (text overlaps border on collision). `RainbowChaseBorder` uses the same `((idx * char_offset) + frame * speed) % 360` hue formula as `Rainbow.color_for` for letters, indexed by perimeter position (clockwise from top-left). On TwoRowMessage at scale=2 the border traces the actual real-panel edge, not the wrapper. On image widgets, `border.frame_invariant` flag is part of the fast-path gate predicate (same shape as `font_color.frame_invariant`). `GifPlayer._play_no_text` runs at engine 50ms cadence (via `_pick_frame_for_elapsed`) so animated borders chase uniformly regardless of gif frame durations — side effect: gifs with native frame durations < 50ms cap at 20 Hz on this path. Bigsign-tuned defaults: `speed=4` (~12s per revolution), `char_offset=6` (~60 distinct hue cycles around a 640-px perimeter). Tripwires: `TestRenderTickBorder`, `TestRenderTwoRowTickBorder`, `TestPlayWithTextBorderFastPath`, `TestPlayWithTwoRowBorderFastPath`, `TestImageBorderPhysicalResolution`, `TestGifPlayNoTextRefactor`, `TestStillPlayNoTextBorder`.
 
-**Rainbow border (TickerMessage / TickerCountdown / TwoRowMessage / GifPlayer / StillImage)**: TickerMessage accepts a
-`border` field that paints an animated 1- or 2-pixel ring around
-the panel perimeter at PHYSICAL resolution (bypasses ScaledCanvas
-block expansion via `unwrap_to_real`). TOML accepts `border =
-"rainbow"` (string shorthand → `RainbowChaseBorder` defaults),
-`border = {style="rainbow", speed=N, char_offset=N, thickness=N}`
-(inline table), `border = {style="constant", color=[r,g,b],
-thickness=N}`, or `border = [r,g,b]` (constant shorthand).
-`RainbowChaseBorder` uses the same `((idx * char_offset) + frame *
-speed) % 360` hue formula as `Rainbow.color_for` for letters, just
-indexed by perimeter position (clockwise from top-left, hop count
-0..N-1) instead of character index. Reads `_frame_count` from
-`_FrameAware`, so transitions freeze the chase via `pause_frame`
-and visit-resets restart it cleanly when needed. Per-effect
-counters: each effect on a widget tracks its own visit-reset state
-via `_FrameAware._effect_frames`. Continuous-phase effects
-(`Rainbow`, `ColorCycle`, `RainbowChaseBorder`) set
-`restart_on_visit = False` as a class attribute — their counter
-doesn't reset on `_show_one`'s visit-entry call, so the chase /
-sweep phase advances continuously across `loop_count > 1`
-iterations. Restart-on-visit effects (`Typewriter`, default for
-unknown classes) reset normally and behave as fresh on each
-visit. Section transitions still reset via `run_transition`'s
-`_reset_presenter` — entry-to-section is always fresh state. Both
-behaviors compose simultaneously: a `TickerMessage` with both
-`Typewriter` and `RainbowChaseBorder` retypes on each loop AND
-the border chase keeps its phase. No tradeoff. Widget code reads
-`self.frame_for(attr_name)` instead of `self._frame_count` when
-calling effect APIs — the helper returns the per-effect counter
-that follows the effect's `restart_on_visit` policy. The widget's
-`_frame_count` is preserved as the engine tick counter (resets
-per visit) for back-compat with any direct readers (tests, etc.).
-Smoke §17 of the rainbow border test demonstrates both behaviors
-on hardware. Border paints BEFORE the text
-in `TickerMessage.draw` (text overlaps border on collision —
-border frames the panel, text floats inside). `frame_invariant`
-flag on each effect drives any future fast-path gates the same way
-ColorProvider's flag does. Bigsign-tuned defaults: speed=4 (~12s
-per revolution at 50ms ticks), char_offset=6 (~60 distinct hue
-cycles around the 640-pixel perimeter). Border is restricted to
-`message`, `countdown`, `two_row`, `gif`, and `image` widget types
-at config-load (loud failure on other widget types) because data
-widgets have their own draw paths and a perimeter border isn't a
-meaningful concept there. On TwoRowMessage at scale=2 (typical for handle
-layouts) the border paints to the unwrapped real canvas — traces
-the actual 256x64 panel edge, not the 128x32 logical canvas — so
-the rainbow frames the SIGN, not the wrapper. On image widgets,
-border integration adds 4 paint sites (`_render_tick` × 3 sub-paths,
-`_render_two_row_tick`, `StillImage._play_no_text`,
-`GifPlayer._play_no_text`) and 3 fast-path gate updates that include
-`border.frame_invariant` in the predicate (same shape as
-`font_color.frame_invariant`). `GifPlayer._play_no_text` was
-refactored from gif-frame cadence to engine 50ms cadence (using
-`_pick_frame_for_elapsed` — the same pattern `_play_with_text` uses)
-so animated borders chase uniformly regardless of gif frame durations.
-Side effect: gifs with native frame durations < 50ms cap at 20 Hz on
-this path — matches the cap `_play_with_text` already imposes.
-`StillImage._play_no_text` uses a two-mode pattern: paint-once-and-
-sleep fast path when border is None or frame-invariant; per-tick loop
-when border is animated. Tripwires: `TestRenderTickBorder`,
-`TestRenderTwoRowTickBorder`, `TestPlayWithTextBorderFastPath`,
-`TestPlayWithTwoRowBorderFastPath`, `TestImageBorderPhysicalResolution`
-in `tests/test_widgets/test_image_base.py`;
-`TestGifPlayNoTextRefactor` in `tests/test_widgets/test_gif.py`;
-`TestStillPlayNoTextBorder` in `tests/test_widgets/test_still.py`.
+**Weather two-color design** — `WeatherWidget` has both `font_color` (label) and `font_color_temp` (temperature value) as separate `ColorProvider` fields. Default `font_color_temp = RGB_WHITE` keeps the value steady-bright while the label can use an effect. Set both to the same provider if you want them to match.
 
 ### Adding a New Widget
 
@@ -369,7 +218,7 @@ in `tests/test_widgets/test_image_base.py`;
 
 ### Testing
 
-580+ tests, ~95% coverage, runs in ~15s with no Docker.
+1438+ tests, ~95% coverage, runs in ~2 minutes with no Docker.
 
 - `make test` sets `PYTHONPATH=tests/stubs` automatically
 - Test stubs simulate double-buffering: the real-stub `RGBMatrix.SwapOnVSync` returns a DIFFERENT canvas object each call so dropped-capture bugs surface
@@ -377,55 +226,33 @@ in `tests/test_widgets/test_image_base.py`;
 - Weather tests need `monkeypatch.setenv("WEATHERAPI_KEY", "test-key")`
 
 **Tripwire fixtures in `tests/conftest.py`:**
-- `mock_frame` — convenience fixture; `SwapOnVSync.return_value = canvas` (same object). Fine for tests that don't care about capture-correctness
-- `swapping_frame` — rotates between two canvas mocks. Use this in regression tests for CLAUDE.md constraint #1 (capture the swap return). Drop the capture and `widget.draw` will only see one canvas — assert on `len({id(c) for c in draw_args}) >= 2`
+- `mock_frame` — convenience; `SwapOnVSync.return_value = canvas` (same object). Fine for tests that don't care about capture-correctness.
+- `swapping_frame` — rotates between two canvas mocks. Use this in regression tests for constraint #1 (capture the swap return). Drop the capture and `widget.draw` will only see one canvas — assert on `len({id(c) for c in draw_args}) >= 2`.
 
-**Common failure modes the suite now catches:**
-- SwapOnVSync return dropped → `TestSwapOnVSyncCapture` (test_ticker_display.py)
-- Cross-scale dissolve missing wrapper switch → `TestRunTransitionCrossScale`
-- `_swap_and_scroll(skip_initial_draw=True/continuous=True)` regressions → dedicated tests
-- Frame-aware widget mid-cycling during transitions → `test_pause_freezes_frame_count`
-- MLB widget state-bucket fall-through → branch-specific assertions on `update()`
+**Meta-tripwires worth knowing about:**
+- `tests/test_engine_redraw_contract.py` — AST-scans `ticker.py` for constraint #12 (advance_frame in every per-tick loop)
+- `tests/test_docs_config_options_drift.py` — audits `docs/site/.../reference/config-options.mdx` against `config.py` dataclasses (per-section field set + `[display]` defaults)
+- `widgets/_image_base.py:TestFieldSurfaceMatchesTwoRow` — catches drift between two_row + image two-row text overlay field sets
 
 ### Configuration
 
-- App config: `config/config.toml` (mounted in Docker at `/code/config/`, gitignored)
-- Examples: `config/config.example.toml` (smallsign), `config/config.bigsign.example.toml` (Pi 5 bigsign with `pixel_mapper`, scaling, RP1 tuning), `config/config.moonbunny.example.toml` (real-world bigsign template — store-window display with brand colors and inline `:instagram:`/`:email:` emoji)
-- API keys: `.env` (see `.env.example`)
-- Per-section: `mode`, `transition`, `transition_duration`, `transition_color`, `hold_time`, `loop_count`
-- Per-widget: `font_color` (provider — string / table), `animation` (TickerMessage only), `show_icon` (weather), `scale` (override `default_scale` per section, e.g. countdowns at 2× on the bigsign)
-- Global: `[transitions] default`, `duration`, `easing`, `between_sections`
+User-facing reference: <https://led-ticker.pages.dev/reference/config-options/>.
 
-**Section transition precedence**: when a section explicitly writes `transition = "..."` in its TOML, that transition is used for BOTH the inter-section ENTRY (when this section appears) AND inter-widget transitions (between widgets within the section, if it has multiple). This solves the natural "I set `transition = pokeball` on a single-widget section, expected to see pokeball when it appears" UX expectation. Sections that omit `transition` fall back to `[transitions] between_sections` for entry. The `transition_specified: bool` flag on `SectionConfig` records whether the user wrote the field — without it, the parser cannot distinguish "user wrote `transition = X`" from "section inherited X from `[transitions] default`", and the engine couldn't know which transition to fire on entry. `_build_trans_obj` is the shared factory used for both entry and inter-widget transitions.
-- Pi 5 only: `rp1_rio` (0=PIO, 1=RIO), `pwm_bits`, `pwm_lsb_nanoseconds`, `show_refresh`
+- App config: `config/config.toml` (mounted in Docker at `/code/config/`, gitignored)
+- Examples: `config/config.example.toml` (smallsign), `config/config.bigsign.example.toml` (bigsign with `pixel_mapper`, scaling, RP1 tuning), `config/config.moonbunny.example.toml` (real-world bigsign template)
+- API keys: `.env` (see `.env.example`)
+
+**Section transition precedence** — When a section explicitly writes `transition = "..."` in its TOML, that transition is used for BOTH the inter-section ENTRY (when this section appears) AND inter-widget transitions (between widgets within the section). Sections that omit `transition` fall back to `[transitions] between_sections` for entry. The `transition_specified: bool` flag on `SectionConfig` records whether the user wrote the field — without it the parser cannot distinguish "user wrote `transition = X`" from "section inherited X from default". `_build_trans_obj` is the shared factory used for both entry and inter-widget transitions.
 
 ### Docker / Deployment
 
-- Production image: `python:3.13-bullseye` base, 3-layer caching (rgbmatrix → deps → source)
-- Single image runs on both the Pi 4 sign and the Pi 5 bigsign. The rgbmatrix library is hardcoded to `jamesawesome/rpi-rgb-led-matrix` (default branch `main`) — based on kingdo9's pi5_support (upstream PR [hzeller#1886](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886), maintainer-approved) with one patch on top: 42 anonymous `PIO` parameters in `pio_rp1.c` were given a name so the file builds under bullseye GCC 10. The library detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). The pre-RP1 codebase is preserved on the `pi4_legacy` branch. Track #1886 and retire our branch once it merges into `hzeller/master`.
-  - On the Pi 5, the runtime CLI also accepts `--led-rp1-rio=0|1` (PIO vs Registered IO mode). For chain ≥ 2 with flicker, raise `slowdown_gpio` from 2 to 3+.
-- Config mounted read-only: `./config:/code/config:ro`
-- Systemd: `deploy/led-ticker.service`
+- Production image: `python:3.13-bullseye` base, 3-layer caching (rgbmatrix → deps → source).
+- Single image runs on both Pi 4 and Pi 5. The rgbmatrix library is hardcoded to `jamesawesome/rpi-rgb-led-matrix` (default branch `main`) — based on kingdo9's pi5_support (upstream PR [hzeller#1886](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886), maintainer-approved) with one patch on top: 42 anonymous `PIO` parameters in `pio_rp1.c` were given a name so the file builds under bullseye GCC 10. The library detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). The pre-RP1 codebase is preserved on the `pi4_legacy` branch. Track #1886 and retire our branch once it merges into `hzeller/master`.
+- On the Pi 5, the runtime CLI also accepts `--led-rp1-rio=0|1` (PIO vs Registered IO mode). For chain ≥ 2 with flicker, raise `slowdown_gpio` from 2 to 3+.
+- Config mounted read-only: `./config:/code/config:ro`.
+- Systemd: `deploy/led-ticker.service`. Full deploy walkthrough: <https://led-ticker.pages.dev/hardware/building-your-own/>.
 
-### Hardware
+### Hardware quick reference
 
-**Smallsign (Pi 4):**
-- Raspberry Pi 4 Model B, 5× chained 32×16 panels = 160×16 pixels
-- `led_gpio_mapping`: "adafruit-hat"
-- `led_slowdown_gpio`: 2
-- `led_brightness`: 60
-- `default_scale`: 1 (no scaling)
-- ~20fps (0.05s per frame)
-
-**Bigsign (Pi 5):**
-- Raspberry Pi 5, 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64 pixels
-- `led_gpio_mapping`: "adafruit-hat"
-- `led_slowdown_gpio`: 3 (paired with `rp1_rio=1`; raise to 4–5 if flicker)
-- `pwm_bits`: 8 (down from default 11 for ~8× faster refresh; minor color hit)
-- `rp1_rio`: 1 (RIO mode — faster, more CPU; `0` = PIO mode, lower CPU)
-- `default_scale`: 4 (drawing logic is 16-tall and `ScaledCanvas` blows it up to 64-tall)
-- Custom `pixel_mapper` Remap string for serpentine panel layout (see `config.bigsign.example.toml`)
-
-**Both:**
-- DrawText clips safely at canvas edges (y can be negative or > height)
-- Same Docker image, same `compose.yaml` — the rgbmatrix library detects the SoC at runtime
+- **Smallsign (Pi 4)** — 5× 32×16 = 160×16 px. `default_scale = 1`, `slowdown_gpio = 2`, `gpio_mapping = "adafruit-hat"`, ~20 fps. Full BOM + wiring: <https://led-ticker.pages.dev/hardware/smallsign/>.
+- **Bigsign (Pi 5)** — 8× P3 32×64 in a 2×4 vertical-serpentine = 256×64 px. `default_scale = 4`, `slowdown_gpio = 3` paired with `rp1_rio = 1`, `pwm_bits = 8`, custom `pixel_mapper` Remap string. DrawText clips safely at canvas edges (y can be negative or > height). Full BOM + chain diagram + Pi-5 tuning: <https://led-ticker.pages.dev/hardware/bigsign/>.

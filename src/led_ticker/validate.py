@@ -361,6 +361,96 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
     return warnings
 
 
+def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
+    """Catch fonts that don't fit a multi-row widget's per-row band.
+
+    Without this, the same check fires only when the widget first
+    draws — a config that would crash on first paint passes
+    `led-ticker validate` clean. Lifts the same `font_line_height_logical
+    > band_h` check from `TwoRowMessage.draw` and
+    `_BaseImageWidget._play_with_two_row_text` to the config-load
+    surface.
+
+    Applies to:
+      - `type = "two_row"` (TwoRowMessage)
+      - `type = "gif"` / `type = "image"` with `bottom_text != ""`
+        (image/gif two-row text overlay mode)
+    """
+    from led_ticker.fonts import (
+        FONT_DEFAULT,
+        FONT_SMALL,
+        font_line_height_logical,
+        resolve_font,
+    )
+    from led_ticker.widgets._row_layout import resolve_band_heights
+
+    issues: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        scale = section.scale
+        content_h = section.content_height
+        for j, widget_cfg in enumerate(section.widgets):
+            wtype = widget_cfg.get("type", "")
+
+            # Default-font choice mirrors the widget classes:
+            # TwoRowMessage's `font` defaults to FONT_SMALL (5x8);
+            # _BaseImageWidget's `font` defaults to FONT_DEFAULT (6x12).
+            if wtype == "two_row":
+                default_font = FONT_SMALL
+            elif wtype in ("gif", "image"):
+                if widget_cfg.get("bottom_text", "") == "":
+                    continue  # single-row mode: no per-band check needed
+                default_font = FONT_DEFAULT
+            else:
+                continue
+
+            top_row_height = widget_cfg.get("top_row_height")
+            try:
+                top_h, bottom_h = resolve_band_heights(content_h, top_row_height)
+            except ValueError:
+                # Caught separately by _run_build_checks; don't double-report.
+                continue
+
+            shared_font_name = widget_cfg.get("font")
+            shared_size = widget_cfg.get("font_size")
+            for label, band_h, name_key, size_key in (
+                ("top", top_h, "top_font", "top_font_size"),
+                ("bottom", bottom_h, "bottom_font", "bottom_font_size"),
+            ):
+                font_name = widget_cfg.get(name_key) or shared_font_name
+                font_size = widget_cfg.get(size_key) or shared_size
+                try:
+                    if font_name is None:
+                        font = default_font
+                    else:
+                        font = resolve_font(font_name, size=font_size)
+                except ValueError:
+                    # _run_build_checks will surface the resolve_font failure.
+                    continue
+
+                lh = font_line_height_logical(font, scale)
+                if lh > band_h:
+                    issues.append(
+                        ValidationIssue(
+                            rule=22,
+                            location=f"section[{i}].widget[{j}]",
+                            severity="error",
+                            message=(
+                                f"{label} font line-height ({lh} logical rows) "
+                                f"exceeds the per-row band ({band_h} rows on a "
+                                f"{content_h}-tall canvas)."
+                            ),
+                            fix=(
+                                "Pick a smaller font_size, raise the section's "
+                                "content_height, or adjust top_row_height for "
+                                "an asymmetric split. BDF aliases (5x8, 6x12) "
+                                "have fixed cell heights — use them when you "
+                                "need the smallest reliably-fitting text."
+                            ),
+                        )
+                    )
+    return issues
+
+
 async def validate_config(path: Path) -> ValidationResult:
     """Validate a TOML config file. Raises FileNotFoundError if path does not exist."""
     if not path.exists():
@@ -404,6 +494,12 @@ async def validate_config(path: Path) -> ValidationResult:
                 fix=fix,
             )
         )
+
+    # Phase 1d: Per-row band-layout checks for two_row / image-two_row.
+    # Only meaningful when build succeeded — otherwise the widget might
+    # not even have valid fonts to measure.
+    if not errors:
+        errors.extend(_check_band_layout(config))
 
     # Phase 2: Soft rule warnings (only run when no hard errors)
     if not errors:

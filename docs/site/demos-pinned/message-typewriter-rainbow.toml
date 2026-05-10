@@ -1,0 +1,26 @@
+# Pinned demo: typewriter animation composed with rainbow font_color.
+# Embedded inline with the Typewriter Common pattern on the message
+# widget page. Same shape as the concepts-animations demo but pinned
+# so the message page's gif is independent of the concept page's.
+#
+# render-duration: 5
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "Now Enrolling"
+font_color = "rainbow"
+animation = "typewriter"

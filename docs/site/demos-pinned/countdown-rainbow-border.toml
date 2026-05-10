@@ -1,0 +1,22 @@
+# render-duration: 5
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "Until Launch"
+countdown_date = 2026-11-15
+font_color = [255, 255, 255]
+border = "rainbow"

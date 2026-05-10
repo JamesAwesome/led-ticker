@@ -1,0 +1,62 @@
+# Demo: color_flash transition between two messages, three colors.
+# Three sections each pin their own `transition_color` so the gif
+# walks the reader through white / cyan / magenta flashes — useful
+# both as a `transition_color` example and as a reminder that
+# `color_flash` is a parametric transition, not a fixed-white one.
+#
+# render-duration: 14
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "color_flash"
+duration = 0.6
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 1.5
+transition = "color_flash"
+transition_color = [255, 255, 255]   # white pop (default)
+
+[[playlist.section.widget]]
+type = "message"
+text = "white"
+
+[[playlist.section.widget]]
+type = "message"
+text = "pop"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 1.5
+transition = "color_flash"
+transition_color = [80, 220, 255]    # cyan flash
+
+[[playlist.section.widget]]
+type = "message"
+text = "cyan"
+
+[[playlist.section.widget]]
+type = "message"
+text = "flash"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 1.5
+transition = "color_flash"
+transition_color = [255, 80, 200]    # magenta flash
+
+[[playlist.section.widget]]
+type = "message"
+text = "magenta"
+
+[[playlist.section.widget]]
+type = "message"
+text = "flash"

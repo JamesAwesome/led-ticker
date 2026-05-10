@@ -263,6 +263,7 @@ make dev        # Install deps (requires uv)
 make test       # Run tests (no Docker needed)
 make lint       # Run ruff linter
 make format     # Auto-format code
+make validate CONFIG=config/config.toml  # Pre-flight a config TOML
 ```
 
 Tests use a stub `rgbmatrix` package so they run on any machine — no Raspberry Pi or Docker required. 1421 tests, ~100s on a laptop.

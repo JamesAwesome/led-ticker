@@ -1,0 +1,26 @@
+# render-duration: 8
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 7.0
+
+[[playlist.section.widget]]
+type = "image"
+path = "../../../config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "left"
+text = "Scrolling behind the moon!"
+text_align = "scroll"
+hold_seconds = 7.0
+font_color = [200, 200, 255]
+scroll_speed_ms = 25

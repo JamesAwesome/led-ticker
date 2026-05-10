@@ -127,7 +127,36 @@ def render(
             )
 
         upscaled = [_upscale(f, upscale) for f in rec.frames]
-        imageio.mimsave(out_path, upscaled, format="GIF", duration=1.0 / fps, loop=0)
+        # Collapse runs of identical frames before encoding. Without
+        # this, imageio.mimsave dedupes identical frames silently and
+        # discards their cumulative display time — a 3-sec held widget
+        # captured as 60 identical frames becomes a single 50 ms frame
+        # in the output gif, so the played gif is dramatically shorter
+        # than the engine's wall-clock timing. By collapsing here and
+        # passing a per-frame `duration` list, each kept frame holds
+        # for the engine-tick duration of its run, so the played gif
+        # plays back at the same wall-clock pace as the live engine.
+        #
+        # imageio quirk: scalar `duration` is interpreted as seconds;
+        # list `duration` is interpreted as milliseconds. We pass ms
+        # in both shapes for consistency.
+        tick_ms = 1000.0 / fps
+        kept: list[Image.Image] = []
+        durations: list[float] = []
+        prev_bytes: bytes | None = None
+        for f in upscaled:
+            cur_bytes = f.tobytes()
+            if cur_bytes == prev_bytes:
+                durations[-1] += tick_ms
+            else:
+                kept.append(f)
+                durations.append(tick_ms)
+                prev_bytes = cur_bytes
+        # PIL's single-frame gif writer rejects list `duration` (expects
+        # a scalar); pass the sum as a scalar in that case so a fully-
+        # static render still encodes the engine's wall-clock hold.
+        encode_duration = durations[0] if len(kept) == 1 else durations
+        imageio.mimsave(out_path, kept, format="GIF", duration=encode_duration, loop=0)
 
 
 def main() -> None:

@@ -28,6 +28,11 @@ text = "Hello, world!"`}
 
 Static text with brand color:
 
+<DemoGif
+  src="/demos-pinned/message-brand-color.gif"
+  caption="constant `font_color` paints every character at the same RGB"
+/>
+
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "message"
@@ -37,13 +42,39 @@ font_color = [189, 169, 234]   # brand lavender`}
 
 Inline emoji:
 
+<DemoGif
+  src="/demos-pinned/message-inline-emoji.gif"
+  caption="`:taco:` resolves to the inline pixel-art sprite, with the message text following it"
+/>
+
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "message"
 text = ":taco: Taco Tuesday!"`}
 />
 
+Hi-res font on the bigsign — Inter-Bold at 28px reads well at medium viewing distance:
+
+<DemoGif
+  src="/demos-pinned/message-hires-grand-opening.gif"
+  caption="Inter-Bold at 28 px on the 256×64 bigsign canvas"
+/>
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "GRAND OPENING"
+font = "Inter-Bold"
+font_size = 28
+font_color = [225, 48, 108]`}
+/>
+
 Typewriter effect with rainbow text:
+
+<DemoGif
+  src="/demos-pinned/message-typewriter-rainbow.gif"
+  caption="typewriter reveal composed with rainbow `font_color` — each character types in at its own rainbow hue"
+/>
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -51,6 +82,35 @@ type = "message"
 text = "Now Enrolling"
 font_color = "rainbow"
 animation = "typewriter"`}
+/>
+
+Gradient between two brand colors — each character lands at its own interpolated hue:
+
+<DemoGif
+  src="/demos-pinned/message-gradient.gif"
+  caption="gradient `font_color` from magenta to violet across the characters"
+/>
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "moonbunny"
+font_color = {style = "gradient", from = [225, 48, 108], to = [120, 90, 220]}`}
+/>
+
+High-contrast caution color — black text on a yellow background:
+
+<DemoGif
+  src="/demos-pinned/message-yellow-bg.gif"
+  caption="black `font_color` over a yellow `bg_color` — readable from across the room"
+/>
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "CAUTION"
+font_color = [0, 0, 0]
+bg_color = [255, 220, 0]`}
 />
 
 ## Pitfalls

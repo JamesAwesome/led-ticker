@@ -33,6 +33,11 @@ bottom_text = "Open daily 10–6 · all levels welcome"`}
 
 Brand-handle layout with inline emoji:
 
+<DemoGif
+  src="/demos-pinned/two_row-brand-handle.gif"
+  caption="centered handle + inline emoji on top, left-aligned promo on the bottom (bigsign canvas, scale=2)"
+/>
+
 <TomlExample code={`[[playlist.section]]
 mode = "swap"
 scale = 2
@@ -40,44 +45,62 @@ content_height = 16
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = "@moonbunny :instagram: :email: hello@example.com"
+top_text = "@moonbunny :instagram:"
 top_color = [225, 48, 108]
 top_align = "center"
-bottom_text = "Aerial & pole · all levels · now booking"
+bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
 bottom_color = [255, 240, 200]
 bottom_align = "left"`} />
 
 Asymmetric row split — small tag on top, large marquee below:
 
+<DemoGif
+  src="/demos-pinned/two_row-asymmetric.gif"
+  caption="thin Inter-Regular @ 8 handle on a 6-row top band, chunky Inter-Bold @ 22 marquee on the 18-row bottom band"
+/>
+
+`top_row_height = 6` gives the top band 6 logical rows; the bottom gets the remainder (18). The top font's line-height has to fit the band — Inter-Regular @ 8 is 5 logical rows at scale=2, which fits. A 5×8 BDF (8 logical rows) would not fit a 6-row band; either bump `top_row_height` or use a smaller hi-res font when going asymmetric.
+
 <TomlExample code={`[[playlist.section]]
 mode = "swap"
 scale = 2
-content_height = 16
+content_height = 24
 
 [[playlist.section.widget]]
 type = "two_row"
 top_text = "@moonbunny"
-top_row_height = 4
+top_row_height = 6
+top_font = "Inter-Regular"
+top_font_size = 8
 top_color = [225, 48, 108]
 bottom_text = "Aerial · Pole · Hoop · Silk · All Levels"
+bottom_font = "Inter-Bold"
+bottom_font_size = 22
 bottom_color = [255, 240, 200]`} />
 
 Per-row font hierarchy (Inter-Bold handle + Inter-Regular promo):
 
+<DemoGif
+  src="/demos-pinned/two_row-font-hierarchy.gif"
+  caption="Inter-Bold @ 18 on top, Inter-Regular @ 14 on the scrolling row — establishes a clear visual hierarchy"
+/>
+
+Hi-res fonts at these sizes need taller bands than the default 8 logical rows. Bump `content_height` from 16 to 24 so each row gets 12 logical rows — Inter-Bold @ 18 measures 12 logical at scale=2 and only fits if the band is at least that tall.
+
 <TomlExample code={`[[playlist.section]]
 mode = "swap"
 scale = 2
-content_height = 16
+content_height = 24
 
 [[playlist.section.widget]]
 type = "two_row"
 top_text = "@moonbunny"
 top_font = "Inter-Bold"
-top_font_size = 10
+top_font_size = 18
 top_color = [225, 48, 108]
-bottom_text = "Aerial circus school · open enrollment"
+bottom_text = "Aerial circus school - open enrollment"
 bottom_font = "Inter-Regular"
-bottom_font_size = 8
+bottom_font_size = 14
 bottom_color = [255, 240, 200]`} />
 
 ## Pitfalls

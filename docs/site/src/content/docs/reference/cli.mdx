@@ -50,26 +50,35 @@ the full output format (human + JSON), exit codes, and CI examples.
 The repo's `Makefile` wraps the common dev commands so you don't have
 to remember the underlying `uv` / `pnpm` / `docker` invocations.
 
-| Target                   | What it does                                                                                      |
-| ------------------------ | ------------------------------------------------------------------------------------------------- |
-| `make dev`               | `uv sync --extra dev` plus install pre-commit and pre-push hooks.                                 |
-| `make test`              | Run pytest with coverage; sets `PYTHONPATH=tests/stubs` so no real `rgbmatrix` install is needed. |
-| `make lint`              | Run `ruff check` over `src/` and `tests/`.                                                        |
-| `make typecheck`         | Run `pyright` over `src/`.                                                                        |
-| `make format`            | Run `ruff format` over `src/` and `tests/`.                                                       |
-| `make build-docker`      | Build the production Docker image (single image runs on both Pi 4 and Pi 5).                      |
-| `make docs-dev`          | Start the Astro Starlight dev server at `http://localhost:4321/` (also rebuilds demo gifs).       |
-| `make docs-build`        | Build the docs site to `docs/site/dist/`.                                                         |
-| `make docs-lint`         | Lint the docs site (`prettier --check` plus `astro check`).                                       |
-| `make docs-format`       | Auto-format the docs site with `prettier`.                                                        |
-| `make render-demo`       | Render a single demo gif. Usage: `make render-demo CONFIG=path/to.toml OUT=out.gif`.              |
-| `make render-long-demos` | Render every long-running widget demo (data-fetch widgets) into `docs/site/public/demos-long/`.   |
-| `make render-long-demo`  | Render one long-running demo by name. Usage: `make render-long-demo NAME=widget-coinbase`.        |
+| Target                     | What it does                                                                                       |
+| -------------------------- | -------------------------------------------------------------------------------------------------- |
+| `make dev`                 | `uv sync --extra dev` plus install pre-commit and pre-push hooks.                                  |
+| `make test`                | Run pytest with coverage; sets `PYTHONPATH=tests/stubs` so no real `rgbmatrix` install is needed.  |
+| `make lint`                | Run `ruff check` over `src/` and `tests/`.                                                         |
+| `make typecheck`           | Run `pyright` over `src/`.                                                                         |
+| `make format`              | Run `ruff format` over `src/` and `tests/`.                                                        |
+| `make build-docker`        | Build the production Docker image (single image runs on both Pi 4 and Pi 5).                       |
+| `make docs-dev`            | Start the Astro Starlight dev server at `http://localhost:4321/` (also rebuilds demo gifs).        |
+| `make docs-build`          | Build the docs site to `docs/site/dist/`.                                                          |
+| `make docs-lint`           | Lint the docs site (`prettier --check` plus `astro check`).                                        |
+| `make docs-format`         | Auto-format the docs site with `prettier`.                                                         |
+| `make validate`            | Run `led-ticker validate` against a config TOML. Usage: `make validate CONFIG=config/config.toml`. |
+| `make render-demo`         | Render a single demo gif. Usage: `make render-demo CONFIG=path/to.toml OUT=out.gif`.               |
+| `make render-long-demos`   | Render every long-running widget demo (data-fetch widgets) into `docs/site/public/demos-long/`.    |
+| `make render-long-demo`    | Render one long-running demo by name. Usage: `make render-long-demo NAME=widget-coinbase`.         |
+| `make render-pinned-demos` | Render every pinned short-render demo into `docs/site/public/demos-pinned/`.                       |
 
 The `render-long-demos` target only runs locally — the demos make
 live HTTP calls and some need API keys that aren't available in CI.
 Source TOMLs live in `docs/site/demos-long/`; rendered output is
-committed to `docs/site/public/demos-long/`.
+committed to `docs/site/public/demos-long/`. The `render-pinned-demos`
+target also runs locally for the same reason — pinned gifs are stable
+showcases on widget pages, intentionally not regenerated on every
+deploy. Source TOMLs live in `docs/site/demos-pinned/`; rendered
+output is committed to `docs/site/public/demos-pinned/`. Both targets
+are fail-soft: a single broken TOML doesn't block the rest from
+rendering — failures get listed at the end and the target exits non-
+zero.
 
 ## Docker
 

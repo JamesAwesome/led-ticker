@@ -1,0 +1,29 @@
+# Demo: scroll transition between two messages.
+# Single-transition demo so the reader sees just this effect — the
+# transitions/special page lays out 4 such demos as a gallery so each
+# special variant gets its own focused frame.
+#
+# render-duration: 8
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "scroll"
+duration = 1.0
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 3.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "scroll"
+
+[[playlist.section.widget]]
+type = "message"
+text = "• continuous"

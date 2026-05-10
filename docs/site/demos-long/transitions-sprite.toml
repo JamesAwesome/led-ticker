@@ -1,0 +1,101 @@
+# Long demo: sprite transition showcase — pokeball, baseball,
+# nyancat, pacman, sailor_moon in sequence. Moved from auto-render
+# to long-running because sprite-trail transitions take 1.5-3 s
+# each and stacking 5 families pushes wallclock render time past
+# what's reasonable to redo on every Cloudflare build.
+#
+# The smallsign-flavored canvas (160x16) means low-res sprite
+# variants render — not the bigsign hi-res Nyan Cat / animated
+# Pikachu. That's intentional: this gif is the at-a-glance
+# reference, not a hardware showcase. Hi-res variants are described
+# in transitions/sprite.mdx Pitfalls.
+#
+# render-duration: 60
+# ↑ 5 sections × (~6 s avg per section, including the slower
+#   sprite-trail transitions) ≈ 25-30 s content; capture 60 s
+#   wallclock allows for the renderer's realistic capture rate
+#   on sprite content.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+between_sections = "cut"
+
+[[playlist.section]]
+mode = "swap"
+transition = "pokeball"
+transition_duration = 2.0
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "pokeball"
+
+[[playlist.section.widget]]
+type = "message"
+text = "+ pikachu"
+
+[[playlist.section]]
+mode = "swap"
+transition = "baseball"
+transition_duration = 1.8
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "baseball"
+
+[[playlist.section.widget]]
+type = "message"
+text = "stitched roll"
+
+[[playlist.section]]
+mode = "swap"
+transition = "nyancat"
+transition_duration = 2.0
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "nyancat"
+
+[[playlist.section.widget]]
+type = "message"
+text = "rainbow trail"
+
+[[playlist.section]]
+mode = "swap"
+transition = "pacman"
+transition_duration = 2.0
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "pacman"
+
+[[playlist.section.widget]]
+type = "message"
+text = "+ ghosts"
+
+[[playlist.section]]
+mode = "swap"
+transition = "sailor_moon"
+transition_duration = 2.0
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "sailor_moon"
+
+[[playlist.section.widget]]
+type = "message"
+text = "wand sweep"

@@ -12,7 +12,7 @@ default = "cut"
 [[playlist.section]]
 mode = "swap"
 scale = 2
-content_height = 16
+content_height = 24
 loop_count = 1
 hold_time = 7.0
 
@@ -26,4 +26,3 @@ bottom_text = "Aerial circus school · open enrollment"
 bottom_font = "Inter-Regular"
 bottom_font_size = 14
 bottom_color = [255, 240, 200]
-scroll_speed_ms = 30

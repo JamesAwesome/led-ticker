@@ -457,11 +457,15 @@ def test_format_human_output():
     output = _format_human(result)
     assert "✗ ERROR" in output
     assert "⚠ WARNING" in output
-    assert "[rule 5]" in output
-    assert "[rule 21]" in output
     assert "bad font" in output
     assert "divide by 1000" in output
     assert "2 issue(s)" in output
+    # Rule numbers are internal — they stay on the JSON output (programmatic
+    # consumers like the creating-a-config skill use them) but don't surface
+    # in the human-readable text output. Make sure we don't regress to
+    # printing them.
+    assert "[rule" not in output
+    assert "rule 5" not in output
 
 
 async def test_rule14_typewriter_on_gif_scroll_align(conf):

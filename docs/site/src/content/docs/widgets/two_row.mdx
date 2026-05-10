@@ -6,7 +6,6 @@ description: Held top row + scrolling bottom row, ideal for storefront layouts.
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
-import DecisionRule from "../../../components/DecisionRule.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `two_row` widget renders two independent text strings on the same canvas: a **held top row** for a stable identifier (handle, headline, brand tag) and a **scrolling bottom row** for promotional copy that can be longer than the canvas width. When the bottom row fits, it stays fixed using `bottom_align`; when it overflows, it scrolls left automatically.
@@ -106,11 +105,9 @@ bottom_color = [255, 240, 200]`} />
 
 ## Pitfalls
 
-Numbered rules below are validator rules — `led-ticker validate` checks them automatically. See [Pitfalls (all rules)](/pitfalls/) for the full list.
+### Font line-height must fit the per-row band
 
-### Per-row font line-height must fit the row band
-
-<DecisionRule id="22" />
+Each row gets a slice of `content_height` — 50/50 by default, or per `top_row_height` when set. If a row's font has a logical line-height taller than its band, glyphs would clip into the other row's space, so the validator rejects it at config-load. The fixes: pick a smaller `font_size`, raise `content_height` so each band is taller, adjust `top_row_height` to give the offending row more space, or fall back to a BDF alias (`5x8`, `6x12`) whose fixed cell heights tend to fit small bands more reliably than hi-res fonts sized for visual weight. For `two_row` at `scale = 2`, the canonical pairing is BDF `5x8` on `content_height = 16`; Inter at sizes 14+ usually needs `content_height = 24` or larger.
 
 ### `scale=4` is too narrow for handles
 

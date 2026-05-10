@@ -6,7 +6,6 @@ description: Single PNG/JPG (or single-frame gif) at native panel resolution, wi
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
-import DecisionRule from "../../../components/DecisionRule.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `image` widget displays a single still image at native physical resolution — each LED maps to one pixel in the source. Use it for logos, product photos, brand artwork, or any single-frame graphic. This widget is essentially `gif` with a single frame: it shares the `gif` widget's full feature surface (fit modes, text overlay, two-row, animation, border) minus the per-frame mechanics — the only widget-specific knob is `hold_seconds` instead of `gif_loops`.
@@ -145,11 +144,9 @@ hold_seconds = 5.0`}
 
 ## Pitfalls
 
-Numbered rules below are validator rules — `led-ticker validate` checks them automatically. See [Pitfalls (all rules)](/pitfalls/) for the full list.
-
 ### Typewriter is single-row only
 
-<DecisionRule id="14" />
+`animation = "typewriter"` needs fixed-position glyphs, so it can't combine with `bottom_text` (two-row layout has no fixed positions), with `text_align = "scroll"` / `"scroll_over"` (the cursor moves each tick), or with an empty `text` field. Drop the conflicting setting and the typewriter still composes cleanly with `font_color = "rainbow"` and `border = "rainbow"` — independent counters, all animate together.
 
 ### `text_align="scroll"` requires a non-opaque image
 

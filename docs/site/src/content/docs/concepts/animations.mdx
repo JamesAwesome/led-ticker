@@ -5,7 +5,6 @@ description: typewriter — character-by-character reveal, composes with any fon
 
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
-import DecisionRule from "../../../components/DecisionRule.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 led-ticker has one animation right now: **typewriter** — a character-by-character reveal. Set `animation = "typewriter"` on a supported widget and the text types out one character at a time the moment the widget appears. The characters land in their final positions (no shifting), so the message assembles itself in place rather than scrolling in.
@@ -71,10 +70,12 @@ On `gif` and `image` widgets, typewriter is restricted to single-row text overla
 
 ## Pitfalls
 
-Numbered rules below are validator rules — `led-ticker validate` checks them automatically. See [Pitfalls (all rules)](/pitfalls/) for the full list.
+### `animation` is only valid on `message`, `gif`, and `image`
 
-### Typewriter is single-row only on image and gif widgets
+The `animation` field drives effects like `typewriter` that need a controlled per-character draw loop. Data widgets (`weather`, `mlb`, `rss_feed`, the crypto widgets) and `two_row` have their own draw paths and don't participate in the animation loop, so the validator rejects `animation` on them at config-load. For dynamic color on those widgets, use `font_color = "rainbow"` or a gradient instead.
 
-<DecisionRule id="12" />
+### Typewriter is single-row only on `gif` and `image`
+
+Beyond the widget-type check above, typewriter on `gif` / `image` adds three more constraints: it can't combine with `bottom_text` (two-row mode has no fixed positions for the cursor), with `text_align = "scroll"` / `"scroll_over"` (the cursor moves each tick), or with an empty `text`. Drop the conflicting setting and typewriter still composes cleanly with `font_color = "rainbow"` and `border = "rainbow"`.
 
 <RelatedPages slugs={["concepts/color-providers", "reference/frame-counters", "widgets/message"]} />

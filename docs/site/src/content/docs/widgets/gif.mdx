@@ -6,7 +6,6 @@ description: Plays animated gifs/webp at native panel resolution, with optional 
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
-import DecisionRule from "../../../components/DecisionRule.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `gif` widget plays animated images at native panel resolution — each LED maps to one pixel in the source, not a scaled block. Format-agnostic: anything Pillow opens with `n_frames` and `seek()` works (`.gif`, animated `.webp`, `.apng`, multi-frame `.tiff`). Per-frame durations come from the file's own metadata.
@@ -147,11 +146,9 @@ gif_loops = 999`}
 
 ## Pitfalls
 
-Numbered rules below are validator rules — `led-ticker validate` checks them automatically. See [Pitfalls (all rules)](/pitfalls/) for the full list.
-
 ### Typewriter is single-row only
 
-<DecisionRule id="14" />
+`animation = "typewriter"` needs fixed-position glyphs, so it can't combine with `bottom_text` (two-row layout has no fixed positions), with `text_align = "scroll"` / `"scroll_over"` (the cursor moves each tick), or with an empty `text` field. Drop the conflicting setting and the typewriter still composes cleanly with `font_color = "rainbow"` and `border = "rainbow"` — independent counters, all animate together.
 
 ### `text_align="scroll"` requires a non-opaque image
 

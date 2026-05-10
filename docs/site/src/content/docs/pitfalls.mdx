@@ -1,36 +1,48 @@
 ---
 title: Pitfalls
-description: The validator's decision rules — what fires when, what you'll see, how to fix it.
+description: Configuration mistakes the validator catches before they bite on the panel.
 ---
 
-import DecisionRule from "../../components/DecisionRule.astro";
+`led-ticker validate` reads your `config.toml` and reports the issues below. Run it before you deploy:
 
-This page lists every decision rule the validator checks. Each rule
-has a **DETECT** clause (when it fires), a **SYMPTOM** clause (what
-you see on the panel), and a **FIX** clause. Run
-[`led-ticker validate`](/tools/validate/) on your `config.toml` to
-check it against all of them automatically.
+```bash
+make validate CONFIG=config/config.toml
+```
 
-## Hard rules (errors)
+It exits non-zero on errors so you can wire it into CI.
 
-Errors block the ticker from starting. Fix all of these before
-deploying.
+## Errors
 
-<DecisionRule id="3" />
+Errors block the engine from starting. Fix all of these before deploying.
 
-<DecisionRule id="7" />
+### `text_align = "scroll"` with `fit = "stretch"` hides the text
 
-<DecisionRule id="8" />
+The `scroll` and `scroll_over` modes paint text first, then composite the image on top with skip-black — the image's transparent regions are what let the text show through. `fit = "stretch"` fills every panel pixel with image data, so there are no transparent regions left and the text is completely hidden. Switch `fit` to `"pillarbox"`, `"letterbox"`, or `"crop"`, or change `text_align` to `"left"`, `"right"`, or `"auto"`.
 
-<DecisionRule id="12" />
+### `text_x_offset` is rejected in scroll modes
 
-<DecisionRule id="14" />
+`text_x_offset` only applies to static text placement (`text_align = "left"` or `"right"`). In `scroll` or `scroll_over`, the text cursor is computed per tick — a static offset would shift the start point but not follow the scroll, producing undefined behavior. Either remove `text_x_offset` (set it to `0`) or switch to a static `text_align`.
 
-<DecisionRule id="22" />
+### `hold_seconds` below 0.05 is almost certainly a unit error
 
-## Soft rules (warnings)
+`hold_seconds` is in **seconds**, not milliseconds. Anything below 0.05 (50 ms) is rejected because nothing shorter than one engine tick can actually display. If you wrote `hold_seconds = 3000` thinking ms, you want `hold_seconds = 3.0`.
 
-Warnings don't block the ticker but flag a likely rendering quirk.
-Worth resolving before you deploy.
+### `animation` is only valid on `message`, `gif`, and `image`
 
-<DecisionRule id="6" />
+The `animation` field drives effects like `typewriter` that need a controlled per-character draw loop. Data widgets (`weather`, `mlb`, `rss_feed`, the crypto widgets) and `two_row` have their own draw paths and don't participate in the animation loop — setting `animation` on them is silently ignored at best, so the validator rejects it explicitly. For dynamic color on those widgets, use `font_color = "rainbow"` or a gradient instead.
+
+### `animation = "typewriter"` on `gif` / `image` is single-row only
+
+Typewriter draws fixed-position glyphs and composes only with single-row text overlays. It can't combine with `bottom_text` (two-row mode has no fixed positions to anchor characters to), can't combine with `text_align = "scroll"` / `"scroll_over"` (the cursor moves each tick), and requires a non-empty `text`. Typewriter still composes cleanly with `font_color = "rainbow"` and `border = "rainbow"` — independent counters, all animate together. To use typewriter, drop the conflicting setting.
+
+### Font line-height exceeds the per-row band
+
+On `two_row` widgets, or on `gif` / `image` widgets in two-row mode (`bottom_text` set), each row gets a slice of `content_height`. If a row's font has a logical line-height taller than its band, glyphs would clip into the other row's space — so the validator rejects it. To fix: pick a smaller `font_size` for the offending row, raise the section's `content_height` so each band is taller (50/50 split = `content_height / 2`), set `top_row_height` to give the offending row more rows, or use a BDF alias (`5x8`, `6x12`) which has a fixed cell height that often fits small bands more reliably than a hi-res font.
+
+## Warnings
+
+Warnings don't block the engine but flag a likely rendering quirk worth resolving.
+
+### `two_row` at `scale = 4` collapses the canvas to 64 logical pixels wide
+
+A typical handle in the default BDF font is ~50 logical pixels, so most fit at 64 — but any longer label or larger font overflows and the bottom row starts scrolling unintentionally. The recommended pairing is `scale = 2` (128 logical px wide), with `content_height ≤ 16` to keep within the panel's vertical bounds.

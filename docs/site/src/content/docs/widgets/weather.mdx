@@ -3,15 +3,17 @@ title: weather widget
 description: Current conditions + temperature with pixel-art weather icons. Pulls from WeatherAPI.com.
 ---
 
+import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `weather` widget fetches current conditions and temperature from [WeatherAPI.com](https://www.weatherapi.com/) and displays them with a pixel-art icon for the condition — sun, cloud, rain, snow, thunder, fog, or partly cloudy. It polls in the background via async retry so the display keeps running even if the API is temporarily unreachable.
 
-:::note[No demo gif]
-The weather widget makes a live HTTP call to WeatherAPI.com on every visit, which requires a `WEATHERAPI_KEY` not available in CI. Run a `weather` widget locally against your own API key to see it animate.
-:::
+<DemoGif
+  src="/demos-long/widget-weather.gif"
+  caption="Weather showing condition icon, label, and temperature in their real deployed colors."
+/>
 
 <TomlExample
   title="Minimal example"

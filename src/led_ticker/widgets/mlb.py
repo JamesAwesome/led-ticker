@@ -14,6 +14,7 @@ import aiohttp
 import attrs
 
 from led_ticker._types import Canvas, Color, ColorTuple, DrawResult, Font
+from led_ticker.color_providers import ColorProvider
 from led_ticker.colors import RGB_WHITE, _color
 from led_ticker.drawing import compute_baseline, compute_cursor
 from led_ticker.fonts import FONT_DEFAULT
@@ -219,6 +220,11 @@ class MLBGameMessage:
     `icon: PixelData | None` parameter and rendered via the now-deleted
     `mlb_icons.draw_mlb_icon` helper — that's been folded into the
     standard emoji-rendering path.)
+
+    `font_color` is an optional `ColorProvider` override. When set it
+    replaces the per-segment colors, allowing a `color_cycle` effect to
+    animate the whole message. `advance_frame()` increments the frame
+    counter so `_advance_frame_if_supported` in the engine picks it up.
     """
 
     def __init__(
@@ -228,13 +234,28 @@ class MLBGameMessage:
         center: bool = False,
         bg_color: Color | None = None,
         font: Font | None = None,
+        font_color: Color | ColorProvider | None = None,
     ) -> None:
         self.segments: list[tuple[str, Color]] = segments
         self.padding: int = padding
         self.center: bool = center
         self.bg_color: Color | None = bg_color
         self.font: Font = font if font is not None else FONT_DEFAULT
+        self.font_color: Color | ColorProvider | None = font_color
         self._content_width: int = -1
+        self._frame_count: int = 0
+
+    def advance_frame(self) -> None:
+        self._frame_count += 1
+
+    def pause_frame(self) -> None:
+        pass
+
+    def resume_frame(self) -> None:
+        pass
+
+    def reset_frame(self) -> None:
+        self._frame_count = 0
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         from led_ticker.pixel_emoji import draw_with_emoji, measure_width
@@ -255,8 +276,15 @@ class MLBGameMessage:
             self.center,
         )
 
+        # If a color provider override is set, use it for all segments.
+        # This enables color_cycle / rainbow effects on game messages.
+        override_color: Color | None = None
+        if self.font_color is not None and hasattr(self.font_color, "color_for"):
+            override_color = self.font_color.color_for(self._frame_count, 0, 1)
+
         baseline_y = compute_baseline(self.font, canvas, valign="center")
-        for text, color in self.segments:
+        for text, seg_color in self.segments:
+            color = override_color if override_color is not None else seg_color
             cursor_pos += draw_with_emoji(
                 canvas,
                 self.font,
@@ -277,6 +305,7 @@ def _build_series_title(
     tz: ZoneInfo,
     bg_color: Color | None = None,
     font: Font | None = None,
+    font_color: Color | ColorProvider | None = None,
 ) -> MLBGameMessage:
     """Build the title message for a series.
 
@@ -333,7 +362,9 @@ def _build_series_title(
         segments.append((record, RGB_WHITE))
 
     # Center the title if it fits on screen
-    return MLBGameMessage(segments, center=True, bg_color=bg_color, font=font)
+    return MLBGameMessage(
+        segments, center=True, bg_color=bg_color, font=font, font_color=font_color
+    )
 
 
 def _build_game_message(
@@ -342,6 +373,7 @@ def _build_game_message(
     tz: ZoneInfo,
     bg_color: Color | None = None,
     font: Font | None = None,
+    font_color: Color | ColorProvider | None = None,
 ) -> MLBGameMessage:
     """Build a message for a single game.
 
@@ -417,7 +449,9 @@ def _build_game_message(
             (f" {time_str}", RGB_WHITE),
         ]
 
-    return MLBGameMessage(segments, center=True, bg_color=bg_color, font=font)
+    return MLBGameMessage(
+        segments, center=True, bg_color=bg_color, font=font, font_color=font_color
+    )
 
 
 @register("mlb")
@@ -431,6 +465,7 @@ class MLBScoreMonitor:
     padding: int = 6
     final_hold_hours: int = 6
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
+    font_color: Color | ColorProvider | None = attrs.field(default=None, kw_only=True)
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
     _team_id: int = attrs.field(init=False, default=0)
     _tz: ZoneInfo | None = attrs.field(init=False, default=None)
@@ -484,16 +519,23 @@ class MLBScoreMonitor:
         team_name = MLB_TEAM_NAMES.get(self.team, self.team)
         tz = self._tz or ZoneInfo(self.timezone)
 
+        # Resolve effective colors: honour explicit font_color override,
+        # else fall back to the per-widget defaults.
+        title_color = (
+            self.font_color if self.font_color is not None else _team_color(self.team)
+        )
+        body_color = self.font_color if self.font_color is not None else RGB_WHITE
+
         if not self._team_id:
             title = TickerMessage(
                 f"{team_name}",
-                font_color=_team_color(self.team),
+                font_color=title_color,
                 bg_color=self.bg_color,
             )
             self.feed_title = title
             self.feed_stories = [
                 title,
-                TickerMessage("No Data", font_color=RGB_WHITE, bg_color=self.bg_color),
+                TickerMessage("No Data", font_color=body_color, bg_color=self.bg_color),
             ]
             return
 
@@ -514,13 +556,13 @@ class MLBScoreMonitor:
             logger.exception("MLB API error for %s", self.team)
             title = TickerMessage(
                 f"{team_name}",
-                font_color=_team_color(self.team),
+                font_color=title_color,
                 bg_color=self.bg_color,
             )
             self.feed_title = title
             self.feed_stories = [
                 title,
-                TickerMessage("No Data", font_color=RGB_WHITE, bg_color=self.bg_color),
+                TickerMessage("No Data", font_color=body_color, bg_color=self.bg_color),
             ]
             return
 
@@ -529,14 +571,14 @@ class MLBScoreMonitor:
         if not games:
             title = TickerMessage(
                 f"{team_name}",
-                font_color=_team_color(self.team),
+                font_color=title_color,
                 bg_color=self.bg_color,
             )
             self.feed_title = title
             self.feed_stories = [
                 title,
                 TickerMessage(
-                    "Season Over", font_color=RGB_WHITE, bg_color=self.bg_color
+                    "Season Over", font_color=body_color, bg_color=self.bg_color
                 ),
             ]
             self._has_live_game = False
@@ -550,7 +592,7 @@ class MLBScoreMonitor:
             next_game = self._find_next_game(games, now)
             title = TickerMessage(
                 f"{team_name}",
-                font_color=_team_color(self.team),
+                font_color=title_color,
                 bg_color=self.bg_color,
             )
             self.feed_title = title
@@ -569,7 +611,7 @@ class MLBScoreMonitor:
                     title,
                     TickerMessage(
                         f"Next: vs {opp_name}, {time_str}",
-                        font_color=RGB_WHITE,
+                        font_color=body_color,
                         bg_color=self.bg_color,
                     ),
                 ]
@@ -577,7 +619,7 @@ class MLBScoreMonitor:
                 self.feed_stories = [
                     title,
                     TickerMessage(
-                        "Season Over", font_color=RGB_WHITE, bg_color=self.bg_color
+                        "Season Over", font_color=body_color, bg_color=self.bg_color
                     ),
                 ]
             self._has_live_game = False
@@ -585,13 +627,23 @@ class MLBScoreMonitor:
 
         # Build display from current series
         series_title = _build_series_title(
-            self.team, current, tz, bg_color=self.bg_color, font=self.font
+            self.team,
+            current,
+            tz,
+            bg_color=self.bg_color,
+            font=self.font,
+            font_color=self.font_color,
         )
         self.feed_title = series_title
         stories: list[TickerMessage | MLBGameMessage] = [series_title]
         stories.extend(
             _build_game_message(
-                g, self.team, tz, bg_color=self.bg_color, font=self.font
+                g,
+                self.team,
+                tz,
+                bg_color=self.bg_color,
+                font=self.font,
+                font_color=self.font_color,
             )
             for g in current.games
         )

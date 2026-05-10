@@ -16,6 +16,7 @@ A series title is shown before the per-game messages, e.g. `NYY @ BOS 1-0` (incl
 | `padding` | int | `6` | Horizontal padding (logical pixels) added after each message when scrolling. |
 | `final_hold_hours` | int | `6` | How many hours after a game ends to keep showing its final score before moving on to the next series. Default is 6 hours (covers west-coast game end times for east-coast displays). |
 | `bg_color` | RGB list | none | Background fill color painted behind all game messages. |
+| `font_color` | RGB list / string / table | unset | Override color for ALL message segments (team abbrevs, scores, inning, bases, BSO). Default unset — leaves the widget's per-segment coloring intact: each team abbrev in its `MLB_TEAM_COLORS` brand color, score colored by win/loss state, base/strike/out indicators in their state colors. Set this only if you want a single uniform color for the whole game line; setting it erases the team brand coloring and game-state semantics. |
 | `font` | string / Font | `"6x12"` (FONT_DEFAULT) | BDF font name or hires font for all game message text. |
 | `update_interval` | int | `300` | Seconds between StatsAPI fetches (passed to `start()`). Default is 5 minutes. The widget automatically shortens its internal poll to ~45 s during a live game and extends to 5 minutes during idle / offseason. |
 

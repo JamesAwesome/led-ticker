@@ -14,6 +14,7 @@ When the season hasn't started yet (all wins and losses are 0), the widget switc
 | `timezone` | string | `"America/New_York"` | IANA timezone used for offseason detection and opening-day date formatting. |
 | `padding` | int | `6` | Horizontal padding (logical pixels) added after each message when scrolling. |
 | `bg_color` | RGB list | none | Background fill color painted behind all standings messages. |
+| `font_color` | RGB list / string / table | unset | Override color for ALL standings text. Default unset — leaves rank in white, team name in the team's `MLB_TEAM_COLORS` brand color, and W-L record in white. Set this only if you want a single uniform color across all standings rows; setting it erases the per-team brand coloring. |
 | `font` | string / Font | `"6x12"` (FONT_DEFAULT) | BDF font name or hires font for standings text. |
 | `update_interval` | int | `86400` | Seconds between StatsAPI fetches. Default is 24 hours — standings don't change minute-to-minute. Lower to `3600` during a tight pennant race if you want hourly refreshes. |
 

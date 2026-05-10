@@ -11,6 +11,7 @@ import aiohttp
 import attrs
 
 from led_ticker._types import Canvas, Color, DrawResult, Font
+from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import (
     DEFAULT_COLOR,
     DOWN_TREND_COLOR,
@@ -22,6 +23,7 @@ from led_ticker.fonts import FONT_DELTA, FONT_LABEL, FONT_VALUE, FONT_VALUE_SMAL
 from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
+from led_ticker.widgets._frame_aware import _FrameAware
 
 COINBASE_API: str = "https://api.coinbase.com"
 
@@ -46,7 +48,7 @@ def _get_price_font(price_str: str) -> Font:
 
 @register("coinbase")
 @attrs.define
-class CoinbasePriceMonitor:
+class CoinbasePriceMonitor(_FrameAware):
     """Crypto price monitor using the Coinbase API."""
 
     symbol: str
@@ -55,6 +57,7 @@ class CoinbasePriceMonitor:
     center: bool = True
     padding: int = 6
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
+    font_color: Color | ColorProvider = attrs.field(default=None, kw_only=True)
     price: float = attrs.field(init=False, default=0.0)
     yesterdays_price: float = attrs.field(init=False, default=0.0)
     change_24h: float = attrs.field(init=False, default=0.0)
@@ -62,6 +65,10 @@ class CoinbasePriceMonitor:
 
     def __attrs_post_init__(self) -> None:
         self.spot_url = f"{COINBASE_API}/v2/prices/{self.symbol}-{self.currency}/spot"
+        if self.font_color is None:
+            self.font_color = _ConstantColor(DEFAULT_COLOR)
+        elif not hasattr(self.font_color, "color_for"):
+            self.font_color = _ConstantColor(self.font_color)
 
     @classmethod
     async def start(
@@ -73,7 +80,18 @@ class CoinbasePriceMonitor:
         center: bool = True,
         **kwargs: Any,
     ) -> Self:
-        widget = cls(symbol=symbol, currency=currency, session=session, center=center)
+        # Filter kwargs to only attrs-declared fields so unknown keys
+        # (historically allowed in config and silently dropped by
+        # `start()`) don't reach `cls.__init__()` where attrs would
+        # raise on them.
+        valid = {f.name for f in attrs.fields(cls)}
+        widget = cls(
+            symbol=symbol,
+            currency=currency,
+            session=session,
+            center=center,
+            **{k: v for k, v in kwargs.items() if k in valid},
+        )
         await widget.update()
         asyncio.create_task(run_monitor_loop(widget, update_interval))
         return widget
@@ -117,6 +135,8 @@ class CoinbasePriceMonitor:
             padding=self.padding,
             end_padding=self.padding,
             y_offset=kwargs.get("y_offset", 0),
+            font_color=self.font_color,
+            frame_count=self.frame_for("font_color"),
         )
 
 
@@ -130,9 +150,16 @@ def _draw_price_ticker(
     padding: int = 6,
     end_padding: int = 6,
     y_offset: int = 0,
+    font_color: ColorProvider | None = None,
+    frame_count: int = 0,
 ) -> DrawResult:
     change_color = _get_change_color(change_str)
     font_price = _get_price_font(price_str)
+    label_color = (
+        font_color.color_for(frame_count, 0, 1)
+        if font_color is not None
+        else DEFAULT_COLOR
+    )
 
     content_width = (
         get_text_width(FONT_LABEL, symbol, padding=6, canvas=canvas)
@@ -146,11 +173,11 @@ def _draw_price_ticker(
 
     baseline_y = compute_baseline(FONT_LABEL, canvas, valign="center") + y_offset
     cursor_pos += draw_text(
-        canvas, FONT_LABEL, cursor_pos, baseline_y, DEFAULT_COLOR, symbol
+        canvas, FONT_LABEL, cursor_pos, baseline_y, label_color, symbol
     )
     cursor_pos += padding
     cursor_pos += draw_text(
-        canvas, font_price, cursor_pos, baseline_y, DEFAULT_COLOR, price_str
+        canvas, font_price, cursor_pos, baseline_y, label_color, price_str
     )
     cursor_pos += padding
     cursor_pos += draw_text(

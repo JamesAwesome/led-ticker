@@ -10,8 +10,11 @@ import aiohttp
 import attrs
 
 from led_ticker._types import Canvas, Color, DrawResult
+from led_ticker.color_providers import ColorProvider, _ConstantColor
+from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
+from led_ticker.widgets._frame_aware import _FrameAware
 from led_ticker.widgets.crypto.coinbase import _draw_price_ticker
 
 COINGECKO_API: str = "https://api.coingecko.com/api/v3"
@@ -21,7 +24,7 @@ COINGECKO_PRICE_API: str = f"{COINGECKO_API}/simple/price"
 
 @register("coingecko")
 @attrs.define
-class CoinGeckoPriceMonitor:
+class CoinGeckoPriceMonitor(_FrameAware):
     """Crypto price monitor using the CoinGecko API."""
 
     symbol: str
@@ -31,10 +34,17 @@ class CoinGeckoPriceMonitor:
     center: bool = True
     padding: int = 6
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
+    font_color: Color | ColorProvider = attrs.field(default=None, kw_only=True)
     price_data: dict[str, str] = attrs.field(
         init=False,
         factory=lambda: {"price": "0.0000", "change_24h": "0.00%"},
     )
+
+    def __attrs_post_init__(self) -> None:
+        if self.font_color is None:
+            self.font_color = _ConstantColor(DEFAULT_COLOR)
+        elif not hasattr(self.font_color, "color_for"):
+            self.font_color = _ConstantColor(self.font_color)
 
     @classmethod
     async def start(
@@ -46,11 +56,17 @@ class CoinGeckoPriceMonitor:
         update_interval: int = 300,
         **kwargs: Any,
     ) -> Self:
+        # Filter kwargs to only attrs-declared fields so unknown keys
+        # (historically allowed in config and silently dropped by
+        # `start()`) don't reach `cls.__init__()` where attrs would
+        # raise on them.
+        valid = {f.name for f in attrs.fields(cls)}
         widget = cls(
             symbol=symbol,
             symbol_id=symbol_id,
             currency=currency,
             session=session,
+            **{k: v for k, v in kwargs.items() if k in valid},
         )
         await widget.update()
         asyncio.create_task(run_monitor_loop(widget, update_interval))
@@ -89,6 +105,8 @@ class CoinGeckoPriceMonitor:
             padding=self.padding,
             end_padding=self.padding,
             y_offset=kwargs.get("y_offset", 0),
+            font_color=self.font_color,
+            frame_count=self.frame_for("font_color"),
         )
 
 

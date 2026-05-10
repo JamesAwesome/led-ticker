@@ -14,4 +14,5 @@ CoinGecko uses a **coin ID** (`symbol_id`) rather than a trading pair symbol —
 | `center` | bool | `true` | Center the content on the canvas. Set `false` to left-align. |
 | `padding` | int | `6` | Horizontal padding (logical pixels) added between segments and at the end when scrolling. |
 | `bg_color` | RGB list | none | Background fill color painted behind all content. |
+| `font_color` | RGB list / string / table | yellow | Color of the symbol label and price text. Accepts a constant `[r,g,b]`, the string shorthands `"rainbow"` / `"color_cycle"` / `"random"`, or an inline table for a gradient. The trend coloring on the change percent (`UP_TREND_COLOR` / `DOWN_TREND_COLOR` / `NEUTRAL_TREND_COLOR`) is independent and always applies. |
 | `update_interval` | int | `300` | Seconds between CoinGecko API fetches (passed to `start()`). Default is 5 minutes. The CoinGecko free tier allows ~10–30 calls per minute — keep this at 60 seconds or above to stay safe. |

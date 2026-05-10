@@ -876,18 +876,21 @@ async def run(config_path: Path) -> None:
                 else:
                     transition_config = None
 
-                ticker = Ticker(
-                    monitors=widgets,
-                    frame=led_frame,
-                    title=title,
-                    title_delay=config.title_delay,
-                    notif_queue=notif_queue,
-                    transition_config=transition_config,
-                    hold_time=section.hold_time,
-                    continuous_scroll=section.continuous_scroll,
-                    scale=section.scale,
-                    content_height=section.content_height,
-                )
+                ticker_kwargs: dict[str, Any] = {
+                    "monitors": widgets,
+                    "frame": led_frame,
+                    "title": title,
+                    "title_delay": config.title_delay,
+                    "notif_queue": notif_queue,
+                    "transition_config": transition_config,
+                    "hold_time": section.hold_time,
+                    "continuous_scroll": section.continuous_scroll,
+                    "scale": section.scale,
+                    "content_height": section.content_height,
+                }
+                if section.scroll_speed_ms is not None:
+                    ticker_kwargs["scroll_speed"] = section.scroll_speed_ms / 1000
+                ticker = Ticker(**ticker_kwargs)
 
                 # If a between-section transition just ran, the title is
                 # already on-screen at t=1.0 of the dissolve. Tell the section

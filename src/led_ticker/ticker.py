@@ -72,6 +72,11 @@ class Ticker:
     continuous_scroll: bool = False
     scale: int = 1
     content_height: int = 16
+    # Per-pixel scroll cadence in seconds. Default 0.05 (= 1 logical
+    # pixel per engine tick) matches ENGINE_TICK_MS. Sourced from
+    # `section.scroll_speed_ms / 1000` in app.py — None falls back
+    # to this default.
+    scroll_speed: float = 0.05
     last_scroll_pos: int = attrs.field(init=False, default=0)
 
     @classmethod
@@ -122,6 +127,7 @@ class Ticker:
             transition=self.transition_config,
             hold_time=self.hold_time,
             continuous_scroll=self.continuous_scroll,
+            scroll_speed=self.scroll_speed,
         )
 
     async def run_gif(self, loop_count: int = 0) -> None:
@@ -196,6 +202,7 @@ class Ticker:
             buffer_message=self.buffer_msg,
             cursor_pos=cursor_pos,
             hold_at_end=self.hold_time,
+            scroll_speed=self.scroll_speed,
         )
 
     async def run_infini_scroll(
@@ -226,6 +233,7 @@ class Ticker:
             self.notif_queue,
             cursor_pos=cursor_pos,
             delay=self.title_delay,
+            scroll_speed=self.scroll_speed,
         )
 
 
@@ -373,6 +381,7 @@ async def _scroll_one_by_one(
             ticker_object,
             delay,
             cursor_pos=pos,
+            scroll_speed=scroll_speed,
         )
         logging.info("Returned to _scroll_one_by_one ...")
         pos = 0
@@ -442,6 +451,7 @@ async def _scroll_side_by_side(
             next_monitor,
             delay,
             cursor_pos=pos,
+            scroll_speed=scroll_speed,
         )
         logging.info("Returned to _scroll_side_by_side ...")
         pos = 0
@@ -713,6 +723,7 @@ async def _show_one(
     hold_time: float,
     skip_initial_draw: bool = False,
     continuous: bool = False,
+    scroll_speed: float = 0.05,
 ) -> tuple[Canvas, int]:
     """Display one widget for its full visit.
 
@@ -743,6 +754,7 @@ async def _show_one(
         hold_time=hold_time,
         skip_initial_draw=skip_initial_draw,
         continuous=continuous,
+        scroll_speed=scroll_speed,
     )
     return canvas, prev_pos
 
@@ -755,6 +767,7 @@ async def _run_swap(
     transition: Any = None,
     hold_time: float = 3.0,
     continuous_scroll: bool = False,
+    scroll_speed: float = 0.05,
 ) -> int:
     """Run swap display mode with optional transitions."""
     from led_ticker.transitions import Scroll, run_transition
@@ -762,7 +775,7 @@ async def _run_swap(
     is_scroll = transition is not None and isinstance(transition.transition_obj, Scroll)
     ticker_object = await notif_queue.get()
     canvas, prev_scroll_pos = await _show_one(
-        canvas, frame, ticker_object, hold_time=hold_time
+        canvas, frame, ticker_object, hold_time=hold_time, scroll_speed=scroll_speed
     )
 
     prev_object = ticker_object
@@ -786,6 +799,7 @@ async def _run_swap(
                 hold_time=hold_time,
                 skip_initial_draw=True,
                 continuous=continuous_scroll,
+                scroll_speed=scroll_speed,
             )
         elif transition is not None:
             # Within a section, both prev and incoming widgets share
@@ -817,6 +831,7 @@ async def _run_swap(
                 ticker_object,
                 hold_time=hold_time,
                 skip_initial_draw=True,
+                scroll_speed=scroll_speed,
             )
         else:
             canvas, prev_scroll_pos = await _show_one(

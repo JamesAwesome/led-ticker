@@ -1,11 +1,21 @@
 ---
 title: Getting started
-description: Install led-ticker, point it at a config, watch a sign light up.
+description: Install led-ticker, point it at a config, watch a sign light up — with or without hardware on hand.
 ---
 
-led-ticker runs on a Raspberry Pi connected to RGB LED matrix panels.
-It reads a TOML config file, drives the panels, and updates content
-from various sources (RSS, weather, etc.).
+import RelatedPages from "../../components/RelatedPages.astro";
+
+led-ticker drives RGB LED matrix panels from a Raspberry Pi via a TOML
+config — RSS, weather, custom messages, animated transitions, and more.
+You don't need any hardware to start: the same engine runs against a
+test stub and renders configs to GIFs you can preview on a laptop.
+
+:::tip[Don't have hardware yet?]
+Skip the Pi for now. After `make dev`, run `make render-demo CONFIG=config/config.example.toml OUT=preview.gif`
+to render any config to a GIF at native panel resolution.
+See [Building your own](/hardware/building-your-own/) for the full
+software-first workflow.
+:::
 
 ## Install
 
@@ -15,19 +25,33 @@ cd led-ticker
 make dev
 ```
 
+`make dev` installs the Python dependencies via `uv` and sets up the
+test stub for laptop development. No `rgbmatrix` C library required at
+this stage — it's only needed on the actual Pi.
+
 ## Configure
 
-Copy an example config matching your hardware:
+Pick the example config matching what you have (or want to build):
 
 ```bash
-# Pi 4 + 5x32x16 panels
+# Smallsign reference: Pi 4 + 5x32x16 panels = 160x16 logical canvas
 cp config/config.example.toml config/config.toml
 
-# Pi 5 + 8x P3 32x64 panels in vertical-serpentine layout
+# Bigsign reference: Pi 5 + 8x P3 32x64 panels = 256x64 logical canvas
 cp config/config.bigsign.example.toml config/config.toml
 ```
 
-Edit `config/config.toml` to set up sections, widgets, and transitions.
+Not sure which fits your setup? See
+[Choosing a sign size](/hardware/building-your-own/#choosing-a-sign-size)
+— anything between the two reference builds works; you'll edit the
+`[display]` block to match your panels.
+
+A config is a list of **sections**, each containing **widgets** and a
+**mode** (`forever_scroll`, `swap`, or `infini_scroll`). To understand
+what to put in `config.toml` before editing, skim
+[Sections and modes](/concepts/sections-and-modes/) and the
+[message widget](/widgets/message/) page — the two most-used building
+blocks.
 
 ## Validate
 
@@ -35,15 +59,37 @@ Edit `config/config.toml` to set up sections, widgets, and transitions.
 led-ticker validate config/config.toml
 ```
 
-A clean config prints `No issues found.` and exits 0. Errors and warnings
-print with their fix suggestions; see [`led-ticker validate`](/tools/validate/).
+A clean config prints `No issues found.` and exits 0. Errors and
+warnings print with their fix suggestions — see
+[`led-ticker validate`](/tools/validate/) for details and the
+[Pitfalls](/pitfalls/) page for the full rule list.
 
 ## Run
 
+Pick the path that matches where you are:
+
 ```bash
-# On the Pi:
+# Local laptop preview (no hardware needed):
+make render-demo CONFIG=config/config.toml OUT=preview.gif
+open preview.gif   # macOS; xdg-open on Linux
+
+# On the Pi (real panels):
 led-ticker --config config/config.toml
 
-# Or via Docker:
+# On the Pi via Docker (production deploy):
 docker compose up -d --build
 ```
+
+The `led-ticker` binary requires the `rgbmatrix` C library and real
+hardware — running it on macOS or a non-Pi Linux machine will fail at
+import. Use `make render-demo` for everything pre-deployment.
+
+## Next steps
+
+- **Build a config from scratch:** [Sections and modes](/concepts/sections-and-modes/) → [Widgets](/widgets/) → [Transitions](/transitions/)
+- **Buy / build the hardware:** [Building your own](/hardware/building-your-own/) → [Smallsign](/hardware/smallsign/) or [Bigsign](/hardware/bigsign/)
+- **Reference:** [`[display]` and section knobs](/reference/config-options/) · [CLI](/reference/cli/)
+
+<RelatedPages
+  slugs={["concepts/sections-and-modes", "widgets/message", "hardware/building-your-own"]}
+/>

@@ -20,6 +20,7 @@ make dev           # uv sync (install all deps)
 make test          # pytest with coverage (no Docker, no hardware)
 make lint          # ruff
 make format        # ruff format
+make validate      # led-ticker validate CONFIG=path.toml (config preflight)
 make clean         # remove build artifacts
 make build-docker  # production image (single image, both Pis)
 ```

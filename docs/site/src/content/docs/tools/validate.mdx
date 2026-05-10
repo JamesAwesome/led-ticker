@@ -11,6 +11,16 @@ It exists so that the most common config mistakes — a `text_align = "scroll"` 
 
 ## Quick start
 
+Run the validator directly with the console script or wrap it through the Makefile shortcut:
+
+```bash
+led-ticker validate config/config.toml
+# or
+make validate CONFIG=config/config.toml
+```
+
+The make target is just a convenience that runs `uv run led-ticker validate` — useful when you don't want to remember the `uv run` prefix.
+
 Warnings are gated behind a Phase-2 check — they only surface when no errors are present, so you'll never see both classes in the same run. The two examples below show the human-readable output for an errors-only run and a warnings-only run; the [`--json`](#machine-readable-json) section mirrors the same split.
 
 ### Errors-only run

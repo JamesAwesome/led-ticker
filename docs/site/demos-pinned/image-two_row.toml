@@ -1,0 +1,28 @@
+# render-duration: 8
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 7.0
+
+[[playlist.section.widget]]
+type = "image"
+path = "../../../config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "right"
+top_text = "@moonbunny"
+top_font = "5x8"
+top_color = [225, 48, 108]
+bottom_text = "Open daily 10am – 8pm"
+bottom_font = "5x8"
+bottom_color = [255, 240, 200]
+hold_seconds = 7.0

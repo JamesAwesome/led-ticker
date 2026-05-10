@@ -30,16 +30,26 @@ path = "config/assets/my_animation.gif"`}
 
 Silent gif (no text):
 
+<DemoGif
+  src="/demos-pinned/gif-silent.gif"
+  caption="pikachu wave centered with `pillarbox` fit, three loops"
+/>
+
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "gif"
-path = "config/assets/my_animation.gif"
+path = "config/assets/pika_wave_transparent.gif"
 fit = "pillarbox"
 image_align = "center"
 gif_loops = 3`}
 />
 
 Scrolling marquee over the image (`scroll_over` — text in front):
+
+<DemoGif
+  src="/demos-pinned/gif-scroll_over.gif"
+  caption="pikachu pinned to the left, text marquees over the right side"
+/>
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -55,6 +65,11 @@ gif_loops = 999`}
 
 Scrolling text behind a transparent silhouette (`scroll` — text walks under the image):
 
+<DemoGif
+  src="/demos-pinned/gif-scroll_behind.gif"
+  caption="text scrolls under pikachu — visible only through the transparent pillarbox area"
+/>
+
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "gif"
@@ -69,6 +84,11 @@ gif_loops = 5`}
 
 Two-row text overlay (set `bottom_text` to switch modes — image plays underneath):
 
+<DemoGif
+  src="/demos-pinned/gif-two_row.gif"
+  caption="pikachu on the right, `@moonbunny` on top, scrolling promo on the bottom"
+/>
+
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "gif"
@@ -76,10 +96,53 @@ path = "config/assets/pika_wave_transparent.gif"
 fit = "pillarbox"
 image_align = "right"
 top_text = "@moonbunny"
+top_font = "5x8"
 top_color = [225, 48, 108]
 bottom_text = "Aerial circus · all levels welcome"
+bottom_font = "5x8"
 bottom_color = [255, 240, 200]
 gif_loops = 3`}
+/>
+
+Typewriter overlay (single-row only — letters type in next to the animation):
+
+<DemoGif
+  src="/demos-pinned/gif-typewriter.gif"
+  caption="pikachu waves on the left while `hi friend` types in on the right with rainbow font_color"
+/>
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "gif"
+path = "config/assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+image_align = "left"
+text = "hi friend"
+text_align = "right"
+font_color = "rainbow"
+animation = "typewriter"
+gif_loops = 999`}
+/>
+
+Typewriter + rainbow border (frame the panel as the text appears):
+
+<DemoGif
+  src="/demos-pinned/gif-typewriter-border.gif"
+  caption="rainbow chase border around the perimeter, white text typing in beside the waving pikachu"
+/>
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "gif"
+path = "config/assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+image_align = "left"
+text = "hi friend"
+text_align = "right"
+font_color = [255, 255, 255]
+animation = "typewriter"
+border = "rainbow"
+gif_loops = 999`}
 />
 
 ## Pitfalls

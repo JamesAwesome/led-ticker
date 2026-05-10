@@ -26,6 +26,13 @@ and tested against.
 
 ## Bill of materials
 
+:::note[What is HUB75?]
+HUB75 is the standard data-cable interface for RGB LED matrix
+panels — a 16-pin IDC connector carrying RGB + clock + addressing
+signals. Any panel advertised as "HUB75-compatible" works with the
+Adafruit bonnet / HAT and the rgbmatrix library this project uses.
+:::
+
 | Component                    | Quantity | Notes                                                                                                                                                                   |
 | ---------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Raspberry Pi 4 Model B       | 1        | 2 GB is plenty. A microSD card and a USB-C power supply for the Pi itself.                                                                                              |
@@ -35,6 +42,13 @@ and tested against.
 | 16-pin IDC ribbon cables     | 4        | One between each pair of panels. Most panels ship with one short cable; you may need extras to reach all four gaps.                                                     |
 | Power pigtails / barrel jack | 1+       | Whatever your panels expect. Each panel has its own 2-pin power input.                                                                                                  |
 | Shroud / case (optional)     | 1        | Acrylic diffuser + a 3D-printed frame is the typical finish. Not required to run.                                                                                       |
+
+**Total cost (rough):** ~$150–200 USD depending on panel sourcing
+and shipping. The Pi 4 is the largest single line item; the
+Adafruit bonnet or HAT runs $20–25; matched 32×16 panels run
+$15–25 each at retail (cheaper in lots from AliExpress).
+Cross-check current pricing before ordering — these numbers were
+verified in early 2026 and panel prices fluctuate.
 
 The config tells the rgbmatrix library you're using the bonnet/HAT via
 `gpio_mapping = "adafruit-hat"`. If you swap to a bare wiring harness,

@@ -37,6 +37,13 @@ and tested against. Drawing logic stays at a 16-tall logical canvas;
 | Power pigtails / busbar   | 1+       | Whatever your panels expect. Each panel has its own 2-pin power input — a busbar across the back of the frame keeps the wiring tidy.      |
 | Shroud / frame            | 1        | A 2x4 grid of P3 panels is heavy and benefits from a rigid frame. Acrylic diffuser optional.                                              |
 
+**Total cost (rough):** ~$400–600 USD. The 8 P3 panels at $40–60
+each are the dominant line item; the Pi 5 + HAT + a 30–60 A 5 V
+supply with thick busbars round out the build. Frame and shroud
+costs vary widely depending on whether you fabricate or buy.
+Cross-check current pricing before ordering — these numbers were
+verified in early 2026.
+
 The rgbmatrix library detects the SoC at runtime, so the same Docker
 image runs on both the smallsign (Pi 4 / BCM2711) and the bigsign
 (Pi 5 / RP1). No separate build, no per-Pi flag — the Pi-5-specific
@@ -157,5 +164,24 @@ paints directly to the unwrapped real canvas, bypassing the wrapper's
 `default_scale = 1` the renderer falls back to the 8x8 lo-res sprite
 automatically — same icon footprint, less detail. Don't expect hi-res
 emoji output on the smallsign.
+
+**`pixel_mapper` for non-bigsign layouts.** The Remap string
+follows the format `Remap:WIDTH,HEIGHT|x,yORIENT|...` with one
+entry per panel in chain order. Orientations: `n` = normal,
+`s` = 180°, `e` = 270°, `w` = 90°, `x` = discard. The bigsign's
+2×4 vertical-serpentine chain is documented above. For simpler
+layouts:
+
+- **2×2 grid (chain runs along the bottom row first, then top
+  row right-to-left)**, all panels upright:
+  `Remap:128,64|0,32n|64,32n|64,0n|0,0n`
+- **Single row of 4 panels**, all upright, chain enters left:
+  `Remap:256,32|0,0n|64,0n|128,0n|192,0n`
+
+If your physical layout doesn't match the chain order from the
+data cable, every panel in the wrong position needs an entry in
+the Remap string. See the upstream
+[hzeller/rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix)
+README for the full Remap reference.
 
 <RelatedPages slugs={["hardware/smallsign", "concepts/display", "concepts/fonts"]} />

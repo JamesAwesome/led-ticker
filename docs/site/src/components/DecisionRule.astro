@@ -26,7 +26,14 @@ if (!matchKey) {
   );
 }
 const raw = files[matchKey];
-const html = marked.parse(raw as string);
+
+// Strip the fact-pack's leading `# Rule N: ...` heading — the
+// component's own .rule-badge div above this content already shows
+// the rule number, and the surrounding page's <h2> already frames
+// the section. The markdown h1 was a third hierarchy level that
+// broke screen-reader document structure.
+const stripped = (raw as string).replace(/^#\s+[^\n]*\n+/, "");
+const html = marked.parse(stripped);
 ---
 
 <aside class="decision-rule" data-rule-id={id}>

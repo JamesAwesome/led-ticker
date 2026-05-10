@@ -236,9 +236,18 @@ class TestTypewriterPlusPerCharProvider:
         # Frame value passed through from _frame_count (drives rainbow
         # sweep over time).
         assert all(c[0] == 3 for c in provider.calls)
-        # total_chars matches the visible slice length, not the full
-        # message — confirms typewriter's slice is what got rendered.
-        assert all(c[2] == 2 for c in provider.calls)
+        # `total_chars` is anchored to FULL message length (5), not
+        # the visible slice (2). This makes a per-char provider's hue
+        # stable as typewriter reveals more chars — char 0's hue at
+        # frame=3 is the same hue char 0 will have at frame=15 when
+        # the full word is shown. Mirrors the image-widget contract.
+        assert all(c[2] == 5 for c in provider.calls), (
+            f"Expected total_chars=5 (full 'ABCDE' length, anchored); "
+            f"got {[c[2] for c in provider.calls]!r}. If this fails "
+            f"because TickerMessage reverted to passing the visible "
+            f"slice length, see the comment in TickerMessage.draw "
+            f"about hue anchoring."
+        )
 
     def test_typewriter_overflow_returns_full_content_width(self):
         """Bug-fix tripwire: when typewriter is set on a message that
@@ -321,6 +330,64 @@ class TestTypewriterPlusPerCharProvider:
 
         assert len(provider.calls) == 5
         assert [c[1] for c in provider.calls] == [0, 1, 2, 3, 4]
+
+    def test_typewriter_anchors_total_chars_to_full_message_with_emoji(self):
+        """Tripwire for the emoji branch: when message contains emoji
+        slugs and typewriter is mid-cycle, `total_chars` passed to the
+        per-char provider must be the FULL message's text-char count
+        (excluding emoji slugs), not the visible slice's text-char
+        count. Otherwise per-char hues drift as more chars reveal.
+        Mirrors `TestImageTypewriter` in test_image_base.py — both
+        widgets must use the same anchoring contract."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.animations import Typewriter
+        from led_ticker.widgets.message import TickerMessage
+
+        class _TrackingProvider:
+            per_char = True
+
+            def __init__(self) -> None:
+                self.calls: list[tuple[int, int, int]] = []
+
+            def color_for(self, frame, char_index, total_chars):
+                from rgbmatrix.graphics import Color
+
+                self.calls.append((frame, char_index, total_chars))
+                return Color(255, 255, 255)
+
+        provider = _TrackingProvider()
+        # Full message: "AB:star:CD" → 4 text chars + 1 emoji.
+        # `count_text_chars` returns 4 (excludes emoji).
+        widget = TickerMessage(
+            "AB:star:CD",
+            font_color=provider,
+            animation=Typewriter(frames_per_char=3),
+        )
+        # frame=3 → typewriter shows ~2 visible chars ("AB"). The
+        # emoji slug counts as one render unit too, but the per-char
+        # provider is invoked for TEXT chars only (sprites get sprite
+        # colors).
+        widget._frame_count = 3
+        canvas = _StubCanvas(width=160, height=16)
+
+        widget.draw(canvas)
+
+        assert provider.calls, (
+            "Per-char provider was never called — emoji branch may have "
+            "skipped the per-char path or rendered nothing."
+        )
+        # Each call's `total_chars` is the FULL message's text-char
+        # count (4: A, B, C, D — emoji excluded), NOT the visible slice's.
+        assert all(c[2] == 4 for c in provider.calls), (
+            f"Expected total_chars=4 (full text-char count of "
+            f"'AB:star:CD' excluding emoji); got "
+            f"{[c[2] for c in provider.calls]!r}. If this fails, "
+            f"TickerMessage's emoji branch likely stopped passing "
+            f"`total_chars=count_text_chars(self.message)` to "
+            f"draw_with_emoji and the hue-anchoring contract has "
+            f"diverged from the image-widget side."
+        )
 
 
 class TestTickerCountdownColorProvider:

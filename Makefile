@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format validate render-demo render-long-demos render-long-demo
+.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos
 
 # --- Developer Setup ---
 
@@ -95,3 +95,19 @@ render-long-demo:  ## Render one long-running demo. Usage: make render-long-demo
 	echo "[render-long-demo] $$toml ($${dur}s)"; \
 	uv run python tools/render_demo/render.py "$$toml" \
 		-o docs/site/public/demos-long/$(NAME).gif --duration $$dur
+
+# Pinned short-render demos. Source TOMLs in docs/site/demos-pinned/, output
+# to docs/site/public/demos-pinned/ which IS committed. Same not-in-CI
+# semantics as demos-long/ but for fast renders we want to control by hand
+# (e.g. Common-pattern showcases on widget pages — we want a stable look,
+# not a CI re-render every deploy).
+render-pinned-demos:  ## Render every pinned short-render demo; local only, output committed
+	@for toml in docs/site/demos-pinned/*.toml; do \
+		[ -f "$$toml" ] || continue; \
+		name=$$(basename "$$toml" .toml); \
+		out="docs/site/public/demos-pinned/$$name.gif"; \
+		dur=$$(grep -E '^# render-duration:' "$$toml" | head -1 | awk '{print $$3}'); \
+		dur=$${dur:-5}; \
+		echo "[render-pinned-demos] $$toml -> $$out ($${dur}s)"; \
+		uv run python tools/render_demo/render.py "$$toml" -o "$$out" --duration $$dur || exit 1; \
+	done

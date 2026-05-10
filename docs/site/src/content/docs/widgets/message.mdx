@@ -28,6 +28,11 @@ text = "Hello, world!"`}
 
 Static text with brand color:
 
+<DemoGif
+  src="/demos-pinned/message-brand-color.gif"
+  caption="constant `font_color` paints every character at the same RGB"
+/>
+
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "message"
@@ -38,7 +43,7 @@ font_color = [189, 169, 234]   # brand lavender`}
 Inline emoji:
 
 <DemoGif
-  src="/demos/message-inline-emoji.gif"
+  src="/demos-pinned/message-inline-emoji.gif"
   caption="`:taco:` resolves to the inline pixel-art sprite, with the message text following it"
 />
 
@@ -49,6 +54,11 @@ text = ":taco: Taco Tuesday!"`}
 />
 
 Hi-res font on the bigsign — Inter-Bold at 28px reads well at medium viewing distance:
+
+<DemoGif
+  src="/demos-pinned/message-hires-grand-opening.gif"
+  caption="Inter-Bold at 28 px on the 256×64 bigsign canvas"
+/>
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -62,8 +72,8 @@ font_color = [225, 48, 108]`}
 Typewriter effect with rainbow text:
 
 <DemoGif
-  src="/demos/concepts-animations.gif"
-  caption="typewriter reveal composed with rainbow font_color — each character types in at its own rainbow hue"
+  src="/demos-pinned/message-typewriter-rainbow.gif"
+  caption="typewriter reveal composed with rainbow `font_color` — each character types in at its own rainbow hue"
 />
 
 <TomlExample

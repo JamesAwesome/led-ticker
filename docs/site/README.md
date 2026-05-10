@@ -51,7 +51,7 @@ layers enforce it:
 
 ## Building demo gifs
 
-There are TWO demo pipelines:
+There are THREE demo pipelines:
 
 **Auto-rendered** (`demos/` → `public/demos/`, gitignored):
 `pnpm run build` runs `scripts/build-demos.mjs` first, which iterates `demos/*.toml`
@@ -76,6 +76,18 @@ the demo is skipped (so contributors without API keys for `etherscan` /
 `# render-duration: N` to override the make target's 30-second default —
 useful for widgets like `two_row` whose held-content cadence captures more
 slowly than wallclock (the auto-render pipeline supports the same comment).
+
+**Pinned short-render** (`demos-pinned/` → `public/demos-pinned/`, committed):
+Same not-in-CI semantics as `demos-long/` but for fast renders we want to
+control by hand. Common-pattern showcases on widget pages live here — we
+want a stable look for those gifs, not a CI re-render every deploy. Run:
+
+```bash
+make render-pinned-demos
+```
+
+Output lands in `docs/site/public/demos-pinned/` and IS committed to git.
+The make target defaults to 5-second renders; override with `# render-duration: N`.
 
 ## Lint and format
 

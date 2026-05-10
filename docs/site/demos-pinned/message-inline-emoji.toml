@@ -1,8 +1,8 @@
-# Demo: inline emoji in a message via `:slug:` syntax. Embedded in
-# the Common patterns section on widgets/message so a reader sees
-# what an inline emoji looks like next to the TOML example.
+# Pinned demo: inline emoji in a message via `:slug:` syntax.
+# Embedded inline with the inline-emoji Common pattern on the
+# message widget page.
 #
-# render-duration: 6
+# render-duration: 5
 [display]
 rows = 16
 cols = 32

@@ -1,8 +1,16 @@
-# Demo: dissolve between two messages.
-# Picked dissolve from the special family since its TV-static effect is
-# the most visually distinct in a 5-second auto-render window. Cut is
-# instant (nothing to show), split / color_flash / scroll are easier to
-# read on hardware than in a captured gif.
+# Demo: special family showcase — dissolve, split, color_flash,
+# scroll, and cut in sequence. The previous demo only showed
+# dissolve at duration 0.6 which felt rushed; dissolve gets 1.4 s
+# here so the TV-static effect can play out.
+#
+# `scroll` is the seamless continuous-scroll variant with a bullet
+# separator (different rhythm from the others — no pause, no flash).
+# `cut` is included last as the no-transition baseline.
+#
+# render-duration: 22
+# ↑ 5 sections × (~3 s avg per section, including scroll's longer
+#   traversal + dissolve's 1.4 s) ≈ 18-20 s content; capture 22 s
+#   for clean tail.
 [display]
 rows = 16
 cols = 32
@@ -11,18 +19,77 @@ default_scale = 1
 brightness = 60
 
 [transitions]
-default = "dissolve"
-duration = 0.6
+between_sections = "cut"
 
 [[playlist.section]]
 mode = "swap"
-loop_count = 2
+transition = "dissolve"
+transition_duration = 1.4
+loop_count = 1
 hold_time = 1.5
 
 [[playlist.section.widget]]
 type = "message"
-text = "First"
+text = "dissolve"
 
 [[playlist.section.widget]]
 type = "message"
-text = "Second"
+text = "TV static"
+
+[[playlist.section]]
+mode = "swap"
+transition = "split"
+transition_duration = 0.9
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "split"
+
+[[playlist.section.widget]]
+type = "message"
+text = "↔ open"
+
+[[playlist.section]]
+mode = "swap"
+transition = "color_flash"
+transition_duration = 0.6
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "color_flash"
+
+[[playlist.section.widget]]
+type = "message"
+text = "white pop"
+
+[[playlist.section]]
+mode = "swap"
+transition = "scroll"
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "scroll"
+
+[[playlist.section.widget]]
+type = "message"
+text = "• continuous"
+
+[[playlist.section]]
+mode = "swap"
+transition = "cut"
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "instant"

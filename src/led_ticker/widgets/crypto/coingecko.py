@@ -56,12 +56,17 @@ class CoinGeckoPriceMonitor(_FrameAware):
         update_interval: int = 300,
         **kwargs: Any,
     ) -> Self:
+        # Filter kwargs to only attrs-declared fields so unknown keys
+        # (historically allowed in config and silently dropped by
+        # `start()`) don't reach `cls.__init__()` where attrs would
+        # raise on them.
+        valid = {f.name for f in attrs.fields(cls)}
         widget = cls(
             symbol=symbol,
             symbol_id=symbol_id,
             currency=currency,
             session=session,
-            **kwargs,
+            **{k: v for k, v in kwargs.items() if k in valid},
         )
         await widget.update()
         asyncio.create_task(run_monitor_loop(widget, update_interval))

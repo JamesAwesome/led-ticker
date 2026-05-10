@@ -68,8 +68,12 @@ update_interval = 600`}
 
 ## Pitfalls
 
-**Trend color compares against the previous fetch, not the day's open.** The green/red coloring is driven by the difference between the most recent price and the price from the fetch before it. Two back-to-back fetches during a calm market can flip green/red on tiny sub-cent drift. This is expected behavior, not a bug.
+### Trend color compares against the previous fetch, not the day's open
 
-**Coinbase's public API can throttle aggressive polling.** The default `update_interval` of `300` seconds (5 minutes) is intentionally conservative. Lowering it substantially on a high-traffic display is not recommended and may cause the widget to return stale data silently.
+The green/red coloring is driven by the difference between the most recent price and the price from the fetch before it. Two back-to-back fetches during a calm market can flip green/red on tiny sub-cent drift. This is expected behavior, not a bug.
+
+### Coinbase's public API can throttle aggressive polling
+
+The default `update_interval` of `300` seconds (5 minutes) is intentionally conservative. Lowering it substantially on a high-traffic display is not recommended and may cause the widget to return stale data silently.
 
 <RelatedPages slugs={["widgets/coingecko", "widgets/etherscan", "widgets/mlb"]} />

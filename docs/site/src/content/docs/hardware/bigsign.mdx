@@ -137,51 +137,25 @@ a higher floor.
 
 ## Pitfalls
 
-**`content_height` cannot exceed 16 at scale = 4.** The hard ceiling is
-`content_height × scale ≤ panel_h_real`. For the bigsign at
-`scale = 4` and a 64-tall panel that's `content_height ≤ 16`. Pushing
-above the ceiling makes the wrapper's `_y_offset` go negative — the
-logical canvas is taller than the real panel — and the top + bottom
-rows of your content silently clip. BDF text is forgiving because cells
-sit near the vertical center, but hi-res emoji and large hi-res fonts
-surface the clip immediately (e.g. a hi-res `:instagram:` icon loses
-about 4 real px off the bottom). For per-row breathing room use
-`text_y_offset` on the widget, not a higher `content_height`.
+### `content_height` cannot exceed 16 at scale = 4
 
-**The `pixel_mapper` Remap string is sensitive to chain order.** Every
-entry in the string must correspond to a specific panel position in
-your data chain — get the order wrong (or rotate one panel 180° to
-match the rest of the row) and you'll see content split across panels
-or rendered upside down. The string in `config/config.bigsign.example.toml`
-matches a 2x4 serpentine starting at the bottom-right with all panels
-upright; if your panels are mounted differently, you'll need to edit
-each entry's orientation flag (`n`, `s`, `e`, `w`).
+The hard ceiling is `content_height × scale ≤ panel_h_real`. For the bigsign at `scale = 4` and a 64-tall panel that's `content_height ≤ 16`. Pushing above the ceiling makes the wrapper's `_y_offset` go negative — the logical canvas is taller than the real panel — and the top + bottom rows of your content silently clip. BDF text is forgiving because cells sit near the vertical center, but hi-res emoji and large hi-res fonts surface the clip immediately (e.g. a hi-res `:instagram:` icon loses about 4 real px off the bottom). For per-row breathing room use `text_y_offset` on the widget, not a higher `content_height`.
 
-**Hi-res emoji only render at scale ≥ 2.** Slugs like `:moon:` and
-`:instagram:` have a 32x32 hi-res sprite in `HIRES_REGISTRY` that
-paints directly to the unwrapped real canvas, bypassing the wrapper's
-4x4 block expansion for sharper detail. On a smallsign at
-`default_scale = 1` the renderer falls back to the 8x8 lo-res sprite
-automatically — same icon footprint, less detail. Don't expect hi-res
-emoji output on the smallsign.
+### The `pixel_mapper` Remap string is sensitive to chain order
 
-**`pixel_mapper` for non-bigsign layouts.** The Remap string
-follows the format `Remap:WIDTH,HEIGHT|x,yORIENT|...` with one
-entry per panel in chain order. Orientations: `n` = normal,
-`s` = 180°, `e` = 270°, `w` = 90°, `x` = discard. The bigsign's
-2×4 vertical-serpentine chain is documented above. For simpler
-layouts:
+Every entry in the string must correspond to a specific panel position in your data chain — get the order wrong (or rotate one panel 180° to match the rest of the row) and you'll see content split across panels or rendered upside down. The string in `config/config.bigsign.example.toml` matches a 2x4 serpentine starting at the bottom-right with all panels upright; if your panels are mounted differently, you'll need to edit each entry's orientation flag (`n`, `s`, `e`, `w`).
 
-- **2×2 grid (chain runs along the bottom row first, then top
-  row right-to-left)**, all panels upright:
-  `Remap:128,64|0,32n|64,32n|64,0n|0,0n`
-- **Single row of 4 panels**, all upright, chain enters left:
-  `Remap:256,32|0,0n|64,0n|128,0n|192,0n`
+### Hi-res emoji only render at scale ≥ 2
 
-If your physical layout doesn't match the chain order from the
-data cable, every panel in the wrong position needs an entry in
-the Remap string. See the upstream
-[hzeller/rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix)
-README for the full Remap reference.
+Slugs like `:moon:` and `:instagram:` have a 32x32 hi-res sprite in `HIRES_REGISTRY` that paints directly to the unwrapped real canvas, bypassing the wrapper's 4x4 block expansion for sharper detail. On a smallsign at `default_scale = 1` the renderer falls back to the 8x8 lo-res sprite automatically — same icon footprint, less detail. Don't expect hi-res emoji output on the smallsign.
+
+### `pixel_mapper` for non-bigsign layouts
+
+The Remap string follows the format `Remap:WIDTH,HEIGHT|x,yORIENT|...` with one entry per panel in chain order. Orientations: `n` = normal, `s` = 180°, `e` = 270°, `w` = 90°, `x` = discard. The bigsign's 2×4 vertical-serpentine chain is documented above. For simpler layouts:
+
+- **2×2 grid (chain runs along the bottom row first, then top row right-to-left)**, all panels upright: `Remap:128,64|0,32n|64,32n|64,0n|0,0n`
+- **Single row of 4 panels**, all upright, chain enters left: `Remap:256,32|0,0n|64,0n|128,0n|192,0n`
+
+If your physical layout doesn't match the chain order from the data cable, every panel in the wrong position needs an entry in the Remap string. See the upstream [hzeller/rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix) README for the full Remap reference.
 
 <RelatedPages slugs={["hardware/smallsign", "concepts/display", "concepts/fonts"]} />

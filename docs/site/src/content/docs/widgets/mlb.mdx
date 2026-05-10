@@ -63,11 +63,17 @@ timezone = "America/Los_Angeles"`}
 
 ## Pitfalls
 
-**Poll interval vs. live-game cadence.** The `update_interval` you set in TOML controls the background task's outer loop. Internally, the widget already throttles to ~45 s during a live game and ~5 minutes at idle — but only within each outer-loop cycle. Setting `update_interval = 300` (the default) is appropriate for most setups; lowering it to 60 s tightens the cadence without being rude to the public API.
+### Poll interval vs. live-game cadence
 
-**Offseason behavior.** After the World Series ends and before Spring Training begins, no games are scheduled in the ±7-day window the widget queries. The display shows "Season Over" until the schedule populates. For standings and offseason context, pair with the [`mlb_standings`](/widgets/mlb_standings/) widget.
+The `update_interval` you set in TOML controls the background task's outer loop. Internally, the widget already throttles to ~45 s during a live game and ~5 minutes at idle — but only within each outer-loop cycle. Setting `update_interval = 300` (the default) is appropriate for most setups; lowering it to 60 s tightens the cadence without being rude to the public API.
 
-**`final_hold_hours` and late games.** The widget shows a completed game's final score for `final_hold_hours` (default 6) after the game's start time. West-coast games that start at 10 PM ET finish around 1–2 AM ET, so the default 6-hour window keeps the score visible through the morning. Raise this if your display runs overnight and you want the score to persist into the next day.
+### Offseason behavior
+
+After the World Series ends and before Spring Training begins, no games are scheduled in the ±7-day window the widget queries. The display shows "Season Over" until the schedule populates. For standings and offseason context, pair with the [`mlb_standings`](/widgets/mlb_standings/) widget.
+
+### `final_hold_hours` and late games
+
+The widget shows a completed game's final score for `final_hold_hours` (default 6) after the game's start time. West-coast games that start at 10 PM ET finish around 1–2 AM ET, so the default 6-hour window keeps the score visible through the morning. Raise this if your display runs overnight and you want the score to persist into the next day.
 
 <RelatedPages
   slugs={["widgets/mlb_standings", "widgets/rss_feed", "concepts/sections-and-modes"]}

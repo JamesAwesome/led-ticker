@@ -140,11 +140,16 @@ These are the rules that have a fact-pack file in [`docs/content-source/rules/`]
 | 8      | `hold_seconds < 0.05` (under 50 ms — almost certainly a typo)        | Error    |
 | 12     | `animation` set on a widget type that doesn't support it             | Error    |
 | 14     | `animation = "typewriter"` on gif/image is single-row only           | Error    |
+| 22     | `two_row` font line-height exceeds the per-row band height           | Error    |
 
 ## Pitfalls
 
-**The validator only catches static, config-time problems.** Anything that depends on runtime state — a stale `WEATHERAPI_KEY`, an unreachable RSS feed, an `image_path` that exists in your repo but not in the Docker bind mount, a network split-brain that makes Coinbase fetches time out — is out of scope. A green `validate` is necessary but not sufficient; the only way to fully verify a config is to run it against the panel (or the [`render-demo`](/tools/render-demo) gif pipeline).
+### The validator only catches static, config-time problems
 
-**Warnings are advisory, not blocking.** The ticker will start, scroll, and swap when only warnings are present, but the warning usually points at a rendering quirk you don't actually want — content_height overflow that silently clips the top and bottom rows on a bigsign, a `two_row` widget cramped into a 64px logical canvas, a `transition_duration` that looks like milliseconds when the engine wants seconds. Treat them as a checklist before you call a config done.
+Anything that depends on runtime state — a stale `WEATHERAPI_KEY`, an unreachable RSS feed, an `image_path` that exists in your repo but not in the Docker bind mount, a network split-brain that makes Coinbase fetches time out — is out of scope. A green `validate` is necessary but not sufficient; the only way to fully verify a config is to run it against the panel (or the [`render-demo`](/tools/render-demo) gif pipeline).
+
+### Warnings are advisory, not blocking
+
+The ticker will start, scroll, and swap when only warnings are present, but the warning usually points at a rendering quirk you don't actually want — content_height overflow that silently clips the top and bottom rows on a bigsign, a `two_row` widget cramped into a 64px logical canvas, a `transition_duration` that looks like milliseconds when the engine wants seconds. Treat them as a checklist before you call a config done.
 
 <RelatedPages slugs={["tools/creating-a-config", "pitfalls", "tools/render-demo"]} />

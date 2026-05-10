@@ -145,14 +145,26 @@ hold_seconds = 5.0`}
 
 ## Pitfalls
 
+Numbered rules below are validator rules — `led-ticker validate` checks them automatically. See [Pitfalls (all rules)](/pitfalls/) for the full list.
+
+### Typewriter is single-row only
+
 <DecisionRule id="14" />
 
-**`text_align="scroll"` + `fit="stretch"` is rejected at config-load.** The `scroll` mode exposes scrolling text through the transparent / pillarbox regions of the image. When `fit="stretch"`, the image fills the entire panel with no transparent or black regions — there is nothing for the text to show through. Use `text_align="scroll_over"` for a marquee over a fullscreen image, or use a PNG with transparency and `fit="pillarbox"`.
+### `text_align="scroll"` requires a non-opaque image
 
-**`text_x_offset` is rejected with scroll modes.** The offset only applies to static text placement (`text_align = "left"` or `"right"`). With `scroll` or `scroll_over`, the marquee position is driven by the scroll logic; a constant x offset would skew the entry point in a confusing way.
+The `scroll` mode displays scrolling text through transparent / pillarbox regions of the image. With `fit="stretch"` the image fills every pixel and there are no transparent regions for the text to walk behind. Use `text_align="scroll_over"` for a marquee over a fullscreen image, or use a PNG with transparency and `fit="pillarbox"`.
 
-**`hold_seconds` must be at least `0.05`.** Values below this minimum are rejected at config-load.
+### `text_x_offset` is rejected with scroll modes
 
-**Animated source files only show frame 0.** If you pass an animated `.gif` or `.webp` to the `image` widget, only the first frame is decoded and displayed. Use the `gif` widget for animation.
+`text_x_offset` only applies to static text placement (`text_align = "left"` or `"right"`). With `scroll` or `scroll_over`, the marquee's x position is driven by the scroll logic; adding a constant offset would skew the entry point in a confusing way. Remove the offset, or switch to a static `text_align`.
+
+### `hold_seconds` must be at least 0.05
+
+Values below 0.05 (50 ms) are rejected at config-load. The minimum exists because anything shorter than one engine tick would skip rendering entirely.
+
+### Animated source files only show frame 0
+
+If you pass an animated `.gif` or `.webp` to the `image` widget, only the first frame is decoded and displayed. Use the [`gif`](/widgets/gif/) widget for animation — it shares the entire `image` text-overlay surface plus per-frame mechanics.
 
 <RelatedPages slugs={["widgets/gif", "widgets/two_row", "assets/emoji"]} />

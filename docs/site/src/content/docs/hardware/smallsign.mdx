@@ -95,23 +95,16 @@ expansion.
 
 ## Pitfalls
 
-**`slowdown_gpio` is mandatory on the Pi 4.** Without it (or with it
-set to 0) the rgbmatrix library updates the GPIO faster than the Pi 4
-can keep up, and you'll see panels glitch, flicker, or display garbage.
-Start at `2` — that's the example config's default — and bump it to 3
-or higher if you still see flicker. Higher values trade refresh rate
-for stability.
+### `slowdown_gpio` is mandatory on the Pi 4
 
-**Do not set `default_scale` to anything other than 1 here.** The
-smallsign is 16 logical rows tall and 16 physical rows tall — there
-is no logical-to-physical wrapping to do. The `ScaledCanvas` wrapper
-only kicks in when `default_scale > 1` and assumes the panel is
-taller than 16 logical rows, so cranking it on the smallsign just
-clips your content.
+Without it (or with it set to 0) the rgbmatrix library updates the GPIO faster than the Pi 4 can keep up, and you'll see panels glitch, flicker, or display garbage. Start at `2` — that's the example config's default — and bump it to 3 or higher if you still see flicker. Higher values trade refresh rate for stability.
 
-**Brightness is 0-100, not 0-255.** Setting `brightness = 255` doesn't
-make the panels brighter — the rgbmatrix library reads it as "the
-maximum, plus a lot more" and behavior is undefined. Stay in 0-100;
-60 is a typical indoor value.
+### Do not set `default_scale` to anything other than 1 here
+
+The smallsign is 16 logical rows tall and 16 physical rows tall — there is no logical-to-physical wrapping to do. The `ScaledCanvas` wrapper only kicks in when `default_scale > 1` and assumes the panel is taller than 16 logical rows, so cranking it on the smallsign just clips your content.
+
+### Brightness is 0-100, not 0-255
+
+Setting `brightness = 255` doesn't make the panels brighter — the rgbmatrix library reads it as "the maximum, plus a lot more" and behavior is undefined. Stay in 0-100; 60 is a typical indoor value.
 
 <RelatedPages slugs={["hardware/bigsign", "hardware/building-your-own", "getting-started"]} />

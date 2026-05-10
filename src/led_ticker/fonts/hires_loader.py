@@ -39,6 +39,13 @@ USER_FONT_DIR: Path = Path(__file__).parent.parent.parent.parent / "config" / "f
 # the '?' glyph at render time.
 EXTENDED_LATIN: str = "àáâãäåæçèéêëìíîïñòóôõöøùúûüýÿ" "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÑÒÓÔÕÖØÙÚÛÜÝŸ"
 
+# Common Unicode punctuation typesetters reach for in headlines and
+# storefront copy. Pre-rasterized so they actually render instead of
+# falling back to '?'. Bullet (•) is the canonical list separator on
+# the bigsign two_row pattern; em-dash and curly quotes are standard
+# in promotional copy from RSS feeds and brand sources.
+EXTENDED_PUNCTUATION: str = "•·…—–’‘“”«»"
+
 
 @dataclass(frozen=True)
 class HiresGlyph:
@@ -189,7 +196,7 @@ def _rasterize(
     """
     pil_font = ImageFont.truetype(str(path), size)
     ascent, descent = pil_font.getmetrics()
-    chars = string.printable + EXTENDED_LATIN
+    chars = string.printable + EXTENDED_LATIN + EXTENDED_PUNCTUATION
     glyphs: dict[str, HiresGlyph] = {}
     for ch in chars:
         glyphs[ch] = _rasterize_glyph(pil_font, ch, ascent, descent, threshold)

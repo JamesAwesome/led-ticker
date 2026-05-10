@@ -17,6 +17,7 @@ import asyncio
 import contextlib
 import sys
 import tempfile
+import time
 import tomllib
 from pathlib import Path
 
@@ -57,14 +58,16 @@ def _upscale(img: Image.Image, factor: int) -> Image.Image:
 
 async def _drive_engine(
     rewritten_cfg_path: Path, duration_s: float, recorder_holder: list
-) -> None:
+) -> float:
     """Start the led-ticker app on the rewritten config; substitute a
     RecordingMatrix for the real RGBMatrix; cancel after `duration_s`.
 
     Patches `led_ticker.frame.RGBMatrix` so when LedFrame instantiates the
     matrix, it gets a `RecordingMatrix` wrapping the stub. The recorder
     is appended to `recorder_holder` so the caller can read frames after
-    the run ends.
+    the run ends. Returns the engine's stop-time (`time.monotonic()`)
+    so the encoder can credit the LAST captured frame with the time
+    that elapsed between its swap and the engine cancellation.
     """
     from led_ticker import frame as frame_mod
     from led_ticker.app import run as app_run
@@ -87,6 +90,7 @@ async def _drive_engine(
             await task
     finally:
         frame_mod.RGBMatrix = original_rgbmatrix
+    return time.monotonic()
 
 
 def render(
@@ -114,7 +118,7 @@ def render(
         rewritten_path.write_bytes(tomli_w.dumps(rewritten).encode("utf-8"))
 
         recorder_holder: list = []
-        asyncio.run(_drive_engine(rewritten_path, duration, recorder_holder))
+        end_time = asyncio.run(_drive_engine(rewritten_path, duration, recorder_holder))
 
         if not recorder_holder:
             raise RuntimeError(
@@ -127,36 +131,53 @@ def render(
             )
 
         upscaled = [_upscale(f, upscale) for f in rec.frames]
-        # Collapse runs of identical frames before encoding. Without
-        # this, imageio.mimsave dedupes identical frames silently and
-        # discards their cumulative display time — a 3-sec held widget
-        # captured as 60 identical frames becomes a single 50 ms frame
-        # in the output gif, so the played gif is dramatically shorter
-        # than the engine's wall-clock timing. By collapsing here and
-        # passing a per-frame `duration` list, each kept frame holds
-        # for the engine-tick duration of its run, so the played gif
-        # plays back at the same wall-clock pace as the live engine.
+        # Per-frame durations come from the wall-clock interval between
+        # consecutive swaps (last frame: between its swap and engine
+        # cancellation). Without measured intervals, a static-fast-path
+        # widget — one swap then `await asyncio.sleep(hold)` — gets
+        # encoded as a single 50 ms frame even when the engine intended
+        # a 4 sec hold. With them, the encoder credits the lone frame
+        # with the actual hold time. Multi-frame renders also benefit:
+        # any tick that took longer than 50 ms (capture overhead, GC
+        # pause) gets its real duration rather than a flat tick_ms.
         #
-        # imageio quirk: scalar `duration` is interpreted as seconds;
-        # list `duration` is interpreted as milliseconds. We pass ms
-        # in both shapes for consistency.
-        tick_ms = 1000.0 / fps
+        # Collapse runs of identical consecutive frames into a single
+        # kept frame whose duration sums the interval of each. Without
+        # this, imageio.mimsave's silent identical-frame dedupe would
+        # discard the cumulative display time anyway.
+        #
+        # imageio quirk: scalar `duration` is seconds; list `duration`
+        # is milliseconds. We use ms in both shapes for consistency.
+        intervals_ms = _intervals_ms(rec.timestamps, end_time)
         kept: list[Image.Image] = []
         durations: list[float] = []
         prev_bytes: bytes | None = None
-        for f in upscaled:
+        for f, interval in zip(upscaled, intervals_ms, strict=True):
             cur_bytes = f.tobytes()
             if cur_bytes == prev_bytes:
-                durations[-1] += tick_ms
+                durations[-1] += interval
             else:
                 kept.append(f)
-                durations.append(tick_ms)
+                durations.append(interval)
                 prev_bytes = cur_bytes
         # PIL's single-frame gif writer rejects list `duration` (expects
         # a scalar); pass the sum as a scalar in that case so a fully-
         # static render still encodes the engine's wall-clock hold.
         encode_duration = durations[0] if len(kept) == 1 else durations
         imageio.mimsave(out_path, kept, format="GIF", duration=encode_duration, loop=0)
+
+
+def _intervals_ms(timestamps: list[float], end_time: float) -> list[float]:
+    """Compute the wall-clock duration each captured frame should hold.
+
+    Frame `i`'s duration is the time between its swap and the next
+    swap (or `end_time` for the last frame). Returns milliseconds.
+    """
+    intervals: list[float] = []
+    for i, t in enumerate(timestamps):
+        next_t = timestamps[i + 1] if i + 1 < len(timestamps) else end_time
+        intervals.append(max(0.0, (next_t - t) * 1000.0))
+    return intervals
 
 
 def main() -> None:

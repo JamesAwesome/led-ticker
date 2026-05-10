@@ -888,8 +888,8 @@ async def run(config_path: Path) -> None:
                     "scale": section.scale,
                     "content_height": section.content_height,
                 }
-                if section.scroll_speed_ms is not None:
-                    ticker_kwargs["scroll_speed"] = section.scroll_speed_ms / 1000
+                if section.scroll_step_ms is not None:
+                    ticker_kwargs["scroll_speed"] = section.scroll_step_ms / 1000
                 ticker = Ticker(**ticker_kwargs)
 
                 # If a between-section transition just ran, the title is

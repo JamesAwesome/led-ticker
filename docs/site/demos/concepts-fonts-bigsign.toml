@@ -1,0 +1,39 @@
+# Demo: BDF 6x12 vs Inter-Bold @ 28 on a bigsign-shaped canvas.
+# The smaller smallsign demo (concepts-fonts.toml) shows that the two
+# fonts coexist at small sizes, but hi-res fonts shine on the bigsign
+# where the panel is tall enough for 22-32 px text. Two sections so the
+# wipe transition between them frames the comparison.
+#
+# bigsign canvas: rows=64 cols=256 chain=1 → 256x64 physical, with
+# default_scale=4 the logical canvas is 64x16. BDF text draws at 12
+# logical px which the wrapper blows up to 48 real px (chunky); the
+# hi-res font paints to the unwrapped real canvas at 28 real px (smooth,
+# half the panel height). At typical viewing distances Inter-Bold @ 28
+# reads cleaner despite being shorter than blown-up BDF.
+#
+# render-duration: 10
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+transition = "wipe_left"
+transition_duration = 0.8
+
+[[playlist.section.widget]]
+type = "message"
+text = "BDF 6x12"
+font = "6x12"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Inter-Bold 28"
+font = "Inter-Bold"
+font_size = 28
+font_threshold = 128

@@ -1,4 +1,16 @@
-# Demo: wipe_alternating between two messages.
+# Demo: wipe family showcase — one section per direction so a single
+# captured gif shows left, right, up, down, and random with full
+# color rotation. The previous wipe_alternating demo cut too quick
+# after the first loop; this one gives each direction its own
+# section so the reader sees each variant clearly before the next.
+#
+# Each direction inherits its default sweep color (see
+# transitions/wipe fact-pack); wipe_random pulls from
+# transition_colors.
+#
+# render-duration: 22
+# ↑ 5 sections × (1.5 s hold + 0.9 s transition + 1.5 s hold) ≈
+#   19 s content; capture 22 s for clean tail.
 [display]
 rows = 16
 cols = 32
@@ -7,19 +19,80 @@ default_scale = 1
 brightness = 60
 
 [transitions]
-default = "wipe_alternating"
-duration = 0.6
-transition_colors = [[0,255,255], [255,0,255], [255,255,255], [0,255,0]]
+between_sections = "cut"
 
 [[playlist.section]]
 mode = "swap"
-loop_count = 2
+transition = "wipe_left"
+transition_duration = 0.9
+loop_count = 1
 hold_time = 1.5
 
 [[playlist.section.widget]]
 type = "message"
-text = "First"
+text = "wipe_left"
 
 [[playlist.section.widget]]
 type = "message"
-text = "Second"
+text = "← cyan"
+
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_right"
+transition_duration = 0.9
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "wipe_right"
+
+[[playlist.section.widget]]
+type = "message"
+text = "magenta →"
+
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_up"
+transition_duration = 0.9
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "wipe_up"
+
+[[playlist.section.widget]]
+type = "message"
+text = "↑ white"
+
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_down"
+transition_duration = 0.9
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "wipe_down"
+
+[[playlist.section.widget]]
+type = "message"
+text = "↓ green"
+
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_random"
+transition_duration = 0.9
+transition_colors = [[0,255,255], [255,0,255], [255,255,255], [0,255,0]]
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "wipe_random"
+
+[[playlist.section.widget]]
+type = "message"
+text = "?"

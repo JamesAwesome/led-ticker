@@ -29,16 +29,33 @@ export default defineConfig({
         { label: "Home", link: "/" },
         { label: "Getting started", link: "/getting-started/" },
         {
-          label: "Concepts",
-          items: [{ autogenerate: { directory: "concepts" } }],
-        },
-        {
           label: "Widgets",
-          items: [{ autogenerate: { directory: "widgets" } }],
+          items: [
+            // Pinned: message is the most-used widget; surface it first
+            // rather than letting the autogenerate sort bury it
+            // alphabetically at position 7.
+            { label: "message", link: "/widgets/message/" },
+            { label: "All widgets (overview)", link: "/widgets/" },
+            { label: "countdown", link: "/widgets/countdown/" },
+            { label: "two_row", link: "/widgets/two_row/" },
+            { label: "weather", link: "/widgets/weather/" },
+            { label: "rss_feed", link: "/widgets/rss_feed/" },
+            { label: "gif", link: "/widgets/gif/" },
+            { label: "image", link: "/widgets/image/" },
+            { label: "mlb", link: "/widgets/mlb/" },
+            { label: "mlb_standings", link: "/widgets/mlb_standings/" },
+            { label: "coinbase", link: "/widgets/coinbase/" },
+            { label: "coingecko", link: "/widgets/coingecko/" },
+            { label: "etherscan", link: "/widgets/etherscan/" },
+          ],
         },
         {
           label: "Transitions",
           items: [{ autogenerate: { directory: "transitions" } }],
+        },
+        {
+          label: "Concepts",
+          items: [{ autogenerate: { directory: "concepts" } }],
         },
         {
           label: "Tools",
@@ -56,14 +73,8 @@ export default defineConfig({
           label: "Assets",
           items: [{ autogenerate: { directory: "assets" } }],
         },
-        {
-          label: "Showcase",
-          link: "/showcase/",
-        },
-        {
-          label: "Pitfalls",
-          link: "/pitfalls/",
-        },
+        { label: "Showcase", link: "/showcase/" },
+        { label: "Pitfalls", link: "/pitfalls/" },
       ],
     }),
   ],

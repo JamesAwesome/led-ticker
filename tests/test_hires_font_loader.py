@@ -137,6 +137,27 @@ class TestLoadHiresFont:
         for ch in "ABCabc0123!?":
             assert ch in font.glyphs, f"missing glyph for {ch!r}"
 
+    def test_glyphs_for_extended_punctuation(self):
+        """Bullet, em-dash, ellipsis, curly quotes — used in headlines
+        and storefront copy. Without them in the pre-rasterized set the
+        rasterizer falls back to '?' for these codepoints at render
+        time (two_row demo with `•` separators rendered as `?` before
+        EXTENDED_PUNCTUATION was added)."""
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        font = load_hires_font("Inter-Regular", 22)
+        assert font is not None
+        for ch in "•·…—–’‘“”":
+            assert ch in font.glyphs, f"missing glyph for {ch!r} (U+{ord(ch):04X})"
+            # Glyph must have at least one lit pixel — an empty glyph
+            # for a printable codepoint signals threshold clipping, not
+            # rasterization. The '?' fallback happens via dict lookup
+            # in the renderer, so a present-but-empty glyph would
+            # silently render as a blank space at the wrong width.
+            assert (
+                len(font.glyphs[ch].lit) > 0
+            ), f"{ch!r} rasterized to zero lit pixels (threshold clip?)"
+
     def test_glyph_has_lit_pixels(self):
         from led_ticker.fonts.hires_loader import load_hires_font
 

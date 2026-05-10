@@ -74,7 +74,7 @@ class Ticker:
     content_height: int = 16
     # Per-pixel scroll cadence in seconds. Default 0.05 (= 1 logical
     # pixel per engine tick) matches ENGINE_TICK_MS. Sourced from
-    # `section.scroll_speed_ms / 1000` in app.py — None falls back
+    # `section.scroll_step_ms / 1000` in app.py — None falls back
     # to this default.
     scroll_speed: float = 0.05
     last_scroll_pos: int = attrs.field(init=False, default=0)

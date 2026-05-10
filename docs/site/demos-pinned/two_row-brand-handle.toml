@@ -15,7 +15,7 @@ scale = 2
 content_height = 16
 loop_count = 1
 hold_time = 1.5
-scroll_speed_ms = 35
+scroll_step_ms = 35
 
 [[playlist.section.widget]]
 type = "two_row"

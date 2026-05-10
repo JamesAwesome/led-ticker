@@ -7,6 +7,7 @@ wrapping the matrix object the engine talks to.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from PIL import Image
@@ -34,14 +35,23 @@ class RecordingMatrix:
 
     Forwards every other attribute access to the wrapped matrix so the
     engine sees a transparent stand-in.
+
+    Tracks a wall-clock `time.monotonic()` reading for every captured
+    swap so the encoder can derive per-frame durations from the
+    intervals between swaps. Without this, a static-fast-path widget
+    (one swap then `await asyncio.sleep(hold)`) gets credited with a
+    single 50 ms tick — the gif's metadata says 50 ms even when the
+    engine intended a 4 sec hold.
     """
 
     def __init__(self, matrix: Any) -> None:
         self._matrix = matrix
         self.frames: list[Image.Image] = []
+        self.timestamps: list[float] = []
 
     def SwapOnVSync(self, canvas: Any) -> Any:
         self.frames.append(snapshot_to_image(canvas))
+        self.timestamps.append(time.monotonic())
         return self._matrix.SwapOnVSync(canvas)
 
     def __getattr__(self, name: str) -> Any:

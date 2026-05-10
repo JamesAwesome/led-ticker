@@ -145,30 +145,17 @@ that wires up the systemd unit on a fresh Pi.
 
 ## Pitfalls
 
-**The rgbmatrix library is hardcoded to a fork in the Dockerfile.**
-The Dockerfile pins
-[`jamesawesome/rpi-rgb-led-matrix`](https://github.com/jamesawesome/rpi-rgb-led-matrix)
-(based on [hzeller#1886](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886)
-plus one bullseye-GCC-10 patch). If you `apt install` or `pip install`
-a different rgbmatrix on the Pi outside the Docker image — or check
-out upstream `hzeller/master` and `make install` it — your Pi will
-diverge from what the engine was tested against, and you'll spend an
-afternoon chasing flicker that isn't a config bug. Run via the Docker
-image, or rebuild from source against the pinned fork.
+### The rgbmatrix library is hardcoded to a fork in the Dockerfile
 
-**USB-C "5V 3A" power supplies aren't dedicated panel supplies.** A
-phone charger or a generic USB-C brick marketed as 5V 3A does not
-sustain rated current under inductive matrix load — the voltage sags,
-panels glitch, and you blame the config. Use a dedicated 5V supply
-sized per the power-budget table above (10A for the smallsign, 30-60A
-for the bigsign), with thick power leads to each panel's 2-pin input.
+The Dockerfile pins [`jamesawesome/rpi-rgb-led-matrix`](https://github.com/jamesawesome/rpi-rgb-led-matrix) (based on [hzeller#1886](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886) plus one bullseye-GCC-10 patch). If you `apt install` or `pip install` a different rgbmatrix on the Pi outside the Docker image — or check out upstream `hzeller/master` and `make install` it — your Pi will diverge from what the engine was tested against, and you'll spend an afternoon chasing flicker that isn't a config bug. Run via the Docker image, or rebuild from source against the pinned fork.
 
-**Panels run hot at full brightness.** P3 panels at brightness 60+ get
-warm to the touch within minutes; the smallsign is more forgiving but
-still climbs over time. For sustained or always-on installs add a fan
-behind the panels, or design a shroud with airflow gaps. Heat shortens
-LED lifespan and can warp panel substrates if it accumulates with no
-ventilation.
+### USB-C "5V 3A" power supplies aren't dedicated panel supplies
+
+A phone charger or a generic USB-C brick marketed as 5V 3A does not sustain rated current under inductive matrix load — the voltage sags, panels glitch, and you blame the config. Use a dedicated 5V supply sized per the power-budget table above (10A for the smallsign, 30-60A for the bigsign), with thick power leads to each panel's 2-pin input.
+
+### Panels run hot at full brightness
+
+P3 panels at brightness 60+ get warm to the touch within minutes; the smallsign is more forgiving but still climbs over time. For sustained or always-on installs add a fan behind the panels, or design a shroud with airflow gaps. Heat shortens LED lifespan and can warp panel substrates if it accumulates with no ventilation.
 
 <RelatedPages
   slugs={["hardware/smallsign", "hardware/bigsign", "tools/render-demo", "getting-started"]}

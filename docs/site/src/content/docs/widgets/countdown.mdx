@@ -77,7 +77,10 @@ border = "rainbow"`}
 
 ## Pitfalls
 
-`animation = "typewriter"` is **not** available on `countdown`. Typewriter is only
-supported on `message`, `gif`, and `image` widgets. Adding it raises at config load.
+Numbered rules below are validator rules — `led-ticker validate` checks them automatically.
+
+### Typewriter is not available on `countdown`
+
+`animation = "typewriter"` is only supported on `message`, `gif`, and `image` widgets. Adding it to a `countdown` widget raises at config load. For dynamic color on a countdown use [`font_color = "rainbow"`](/concepts/color-providers/) or a gradient instead.
 
 <RelatedPages slugs={["widgets/message", "widgets/two_row", "concepts/color-providers"]} />

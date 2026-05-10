@@ -101,28 +101,12 @@ Per-widget options live on each widget's page. See [Widgets](/widgets/).
 
 ## Pitfalls
 
-**A section's `transition` is BOTH the entry transition AND the
-inter-widget transition.** When a section explicitly writes
-`transition = "..."` in its TOML, that transition is used both for the
-inter-section ENTRY (when this section first appears) AND for
-inter-widget swaps within the section. Sections that omit `transition`
-fall back to `[transitions] between_sections` for entry. This solves
-the natural UX expectation — set `transition = "pokeball"` on a
-single-widget section and you'll see pokeball when the section appears
-— but it surprises people who expected `transition` to apply only
-within the section. If you want the global `between_sections` to fire
-on entry, leave `transition` unset on the section.
+### A section's `transition` is BOTH the entry transition AND the inter-widget transition
 
-**`content_height × scale ≤ panel_h_real`.** The wrapper centers a
-logical canvas of height `content_height × scale` on the real panel.
-On the bigsign at `scale = 4` and a 64-tall panel, that means
-`content_height ≤ 16`. Push above and the wrapper's vertical offset
-goes negative — the logical canvas is taller than the panel — and the
-top + bottom rows of your content silently clip. BDF text is forgiving
-because cells sit near the vertical center, but hi-res emoji and
-large hi-res fonts surface the clip immediately. For per-row
-breathing room use `text_y_offset` on the widget rather than over-
-sizing `content_height`. See [Hardware: Bigsign](/hardware/bigsign/)
-for the full discussion.
+When a section explicitly writes `transition = "..."` in its TOML, that transition is used both for the inter-section ENTRY (when this section first appears) AND for inter-widget swaps within the section. Sections that omit `transition` fall back to `[transitions] between_sections` for entry. This solves the natural UX expectation — set `transition = "pokeball"` on a single-widget section and you'll see pokeball when the section appears — but it surprises people who expected `transition` to apply only within the section. If you want the global `between_sections` to fire on entry, leave `transition` unset on the section.
+
+### `content_height × scale ≤ panel_h_real`
+
+The wrapper centers a logical canvas of height `content_height × scale` on the real panel. On the bigsign at `scale = 4` and a 64-tall panel, that means `content_height ≤ 16`. Push above and the wrapper's vertical offset goes negative — the logical canvas is taller than the panel — and the top + bottom rows of your content silently clip. BDF text is forgiving because cells sit near the vertical center, but hi-res emoji and large hi-res fonts surface the clip immediately. For per-row breathing room use `text_y_offset` on the widget rather than over-sizing `content_height`. See [Hardware: Bigsign](/hardware/bigsign/) for the full discussion.
 
 <RelatedPages slugs={["reference/cli", "concepts/sections-and-modes", "widgets"]} />

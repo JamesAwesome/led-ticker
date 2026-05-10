@@ -63,8 +63,12 @@ max_stories = 3`}
 
 ## Pitfalls
 
-**Network latency on first appearance.** The widget performs an initial fetch at startup before entering the section. Feeds with poor uptime or slow servers can stall the first appearance until the fetch completes or the retry backoff exhausts. Choose reliable feed URLs; the widget will display nothing until the first successful fetch returns.
+### Network latency on first appearance
 
-**Be polite with poll intervals.** The default `update_interval` of 1800 seconds (30 minutes) is a reasonable balance between freshness and server load. Dropping below 60 seconds on a public feed is considered abusive and may get your IP rate-limited or blocked. Raise the interval for high-traffic or third-party feeds.
+The widget performs an initial fetch at startup before entering the section. Feeds with poor uptime or slow servers can stall the first appearance until the fetch completes or the retry backoff exhausts. Choose reliable feed URLs; the widget will display nothing until the first successful fetch returns.
+
+### Be polite with poll intervals
+
+The default `update_interval` of 1800 seconds (30 minutes) is a reasonable balance between freshness and server load. Dropping below 60 seconds on a public feed is considered abusive and may get your IP rate-limited or blocked. Raise the interval for high-traffic or third-party feeds.
 
 <RelatedPages slugs={["widgets/message", "widgets/mlb", "concepts/sections-and-modes"]} />

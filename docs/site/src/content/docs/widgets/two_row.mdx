@@ -6,6 +6,7 @@ description: Held top row + scrolling bottom row, ideal for storefront layouts.
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
+import DecisionRule from "../../../components/DecisionRule.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `two_row` widget renders two independent text strings on the same canvas: a **held top row** for a stable identifier (handle, headline, brand tag) and a **scrolling bottom row** for promotional copy that can be longer than the canvas width. When the bottom row fits, it stays fixed using `bottom_align`; when it overflows, it scrolls left automatically.
@@ -105,8 +106,18 @@ bottom_color = [255, 240, 200]`} />
 
 ## Pitfalls
 
-**Scale=4 is too narrow for handles.** At section `scale = 4` the logical canvas is only 64 pixels wide (256 real px ÷ 4 = 64 logical px), which clips most @handles mid-word. The two_row widget is designed for `scale = 2` (128 logical px) on the bigsign. Override the section's scale with `scale = 2` — you can mix scales across sections in the same config.
+Numbered rules below are validator rules — `led-ticker validate` checks them automatically. See [Pitfalls (all rules)](/pitfalls/) for the full list.
 
-**`content_height` hard ceiling.** On the bigsign at scale=4 the maximum `content_height` is 16 (`16 × 4 = 64 real rows`). For `scale = 2` the ceiling is 32. Values above the ceiling push the logical canvas taller than the real panel; rows near the edges clip silently. For per-row breathing room use `top_text_y_offset` / `bottom_text_y_offset` rather than over-specifying `content_height`.
+### Per-row font line-height must fit the row band
+
+<DecisionRule id="22" />
+
+### `scale=4` is too narrow for handles
+
+At section `scale = 4` the bigsign's logical canvas is only 64 pixels wide (256 real px ÷ 4 = 64 logical px), which clips most @handles mid-word. The `two_row` widget is designed for `scale = 2` (128 logical px) on the bigsign. Override the section's scale with `scale = 2` — you can mix scales across sections in the same config.
+
+### `content_height` hard ceiling
+
+On the bigsign at `scale = 4` the maximum `content_height` is 16 (`16 × 4 = 64` real rows). For `scale = 2` the ceiling is 32. Values above the ceiling push the logical canvas taller than the real panel; rows near the edges clip silently. For per-row breathing room use `top_text_y_offset` / `bottom_text_y_offset` rather than over-specifying `content_height`.
 
 <RelatedPages slugs={["widgets/message", "widgets/gif", "concepts/display"]} />

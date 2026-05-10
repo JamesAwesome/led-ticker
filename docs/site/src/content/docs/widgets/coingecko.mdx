@@ -82,10 +82,16 @@ currency = "usd"`}
 
 ## Pitfalls
 
-**`symbol_id` must be the CoinGecko coin ID, not the ticker.** Searching for `"btc"` will fail — the correct ID is `"bitcoin"`. Check the full list at [coingecko.com/en/coins/list](https://www.coingecko.com/en/coins/list). Common IDs: `bitcoin`, `ethereum`, `solana`, `dogecoin`, `pepe`, `dogwifcoin`.
+### `symbol_id` must be the CoinGecko coin ID, not the ticker
 
-**CoinGecko's free tier rate-limits at ~10–30 calls per minute.** If you run many `coingecko` widgets with a low `update_interval`, you may hit the limit and receive error responses. The default 5-minute interval is safe for up to ~6 simultaneous widgets; for more, raise `update_interval` proportionally.
+Searching for `"btc"` will fail — the correct ID is `"bitcoin"`. Check the full list at [coingecko.com/en/coins/list](https://www.coingecko.com/en/coins/list). Common IDs: `bitcoin`, `ethereum`, `solana`, `dogecoin`, `pepe`, `dogwifcoin`.
 
-**Trend color compares against the previous fetch, not the day's open.** The green/red coloring reflects the price difference between the two most recent polls. Near-identical prices between fetches can flip color on tiny drift. This is expected behavior.
+### CoinGecko's free tier rate-limits at ~10–30 calls per minute
+
+If you run many `coingecko` widgets with a low `update_interval`, you may hit the limit and receive error responses. The default 5-minute interval is safe for up to ~6 simultaneous widgets; for more, raise `update_interval` proportionally.
+
+### Trend color compares against the previous fetch, not the day's open
+
+The green/red coloring reflects the price difference between the two most recent polls. Near-identical prices between fetches can flip color on tiny drift. This is expected behavior.
 
 <RelatedPages slugs={["widgets/coinbase", "widgets/etherscan", "widgets/mlb"]} />

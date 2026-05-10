@@ -97,22 +97,12 @@ companion `deploy/install.sh` in the repo.
 
 ## Pitfalls
 
-**`--led-*` flags belong to the `rgbmatrix` library, not `led-ticker`.**
-The `led-ticker` CLI itself only accepts `--config` / `-c` (and the
-`validate` subcommand's `path` and `--json`). Hardware tuning — panel
-geometry, GPIO mapping, brightness, RP1 mode — is configured through
-the `[display]` block in your TOML, not via command-line flags. The
-`rgbmatrix` library's own `--led-*` CLI flags exist (and `[display]`
-maps onto them internally) but you don't pass them to `led-ticker`.
-See [Reference: Config options](/reference/config-options/) for the
-`[display]` field list.
+### `--led-*` flags belong to the `rgbmatrix` library, not `led-ticker`
 
-**`make test` automatically sets `PYTHONPATH=tests/stubs`.** The repo
-ships test stubs for the C-only `rgbmatrix` module so the entire
-suite runs on macOS / CI without a real Pi. If you invoke `pytest`
-directly (e.g. from your editor's test runner), set the same env var
-yourself or the imports in `src/led_ticker/_compat.py` will fail to
-find the stub `rgbmatrix` and skip / error every test that touches a
-canvas.
+The `led-ticker` CLI itself only accepts `--config` / `-c` (and the `validate` subcommand's `path` and `--json`). Hardware tuning — panel geometry, GPIO mapping, brightness, RP1 mode — is configured through the `[display]` block in your TOML, not via command-line flags. The `rgbmatrix` library's own `--led-*` CLI flags exist (and `[display]` maps onto them internally) but you don't pass them to `led-ticker`. See [Reference: Config options](/reference/config-options/) for the `[display]` field list.
+
+### `make test` automatically sets `PYTHONPATH=tests/stubs`
+
+The repo ships test stubs for the C-only `rgbmatrix` module so the entire suite runs on macOS / CI without a real Pi. If you invoke `pytest` directly (e.g. from your editor's test runner), set the same env var yourself or the imports in `src/led_ticker/_compat.py` will fail to find the stub `rgbmatrix` and skip / error every test that touches a canvas.
 
 <RelatedPages slugs={["reference/config-options", "tools/validate", "tools/render-demo"]} />

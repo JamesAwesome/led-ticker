@@ -92,10 +92,16 @@ When `make render-long-demos` walks `docs/site/demos-long/*.toml`, any TOML whos
 
 ## Pitfalls
 
-**Live-API widgets in a five-second window often show cached or placeholder data.** The renderer captures every `SwapOnVSync` so durations match wall-clock playback exactly, but five seconds usually isn't enough for a `weather` or `coinbase` widget to complete a network fetch. Use the long-running pipeline (`# render-duration: 30`) for those, not the auto-rendered one.
+### Live-API widgets in a five-second window often show cached or placeholder data
 
-**The test stub canvas does not paint hi-res TTF fonts identically to real hardware.** The threshold-based rasterization path runs the same way, but subtle pixel-level differences can show up at small font sizes or with thin-stroked typefaces. If a demo gif looks slightly off relative to the real panel, the panel is the source of truth — tune `font_threshold` against hardware, not the gif.
+The renderer captures every `SwapOnVSync` so durations match wall-clock playback exactly, but five seconds usually isn't enough for a `weather` or `coinbase` widget to complete a network fetch. Use the long-running pipeline (`# render-duration: 30`) for those, not the auto-rendered one.
 
-**Output gif files are larger than panel resolution would suggest.** The renderer upscales gifs `--upscale` × before encoding (default 4), so a 256×64 bigsign panel becomes a 1024×256 gif on disk. That's deliberate — the upscaling makes individual LED pixels read clearly on retina displays — but it does mean file sizes grow with the square of the upscale factor. Drop `--upscale 2` if you need a smaller artifact.
+### The test stub canvas does not paint hi-res TTF fonts identically to real hardware
+
+The threshold-based rasterization path runs the same way, but subtle pixel-level differences can show up at small font sizes or with thin-stroked typefaces. If a demo gif looks slightly off relative to the real panel, the panel is the source of truth — tune `font_threshold` against hardware, not the gif.
+
+### Output gif files are larger than panel resolution would suggest
+
+The renderer upscales gifs `--upscale` × before encoding (default 4), so a 256×64 bigsign panel becomes a 1024×256 gif on disk. That's deliberate — the upscaling makes individual LED pixels read clearly on retina displays — but it does mean file sizes grow with the square of the upscale factor. Drop `--upscale 2` if you need a smaller artifact.
 
 <RelatedPages slugs={["tools/validate", "tools/creating-a-config", "concepts/display"]} />

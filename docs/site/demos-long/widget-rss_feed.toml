@@ -16,3 +16,4 @@ type = "rss_feed"
 feed_url = "https://www.nintendolife.com/feeds/news"
 max_stories = 3
 update_interval = 1800
+

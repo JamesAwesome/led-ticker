@@ -14,6 +14,7 @@ import aiohttp
 import attrs
 
 from led_ticker._types import Color, Font
+from led_ticker.color_providers import ColorProvider
 from led_ticker.colors import RGB_WHITE
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
@@ -44,6 +45,7 @@ def _build_standing_message(
     standing: TeamStanding,
     bg_color: Color | None = None,
     font: Font | None = None,
+    font_color: Color | ColorProvider | None = None,
 ) -> MLBGameMessage:
     """Build a display message for a single team's standing."""
     team_c = _team_color_by_name(standing.name)
@@ -56,7 +58,9 @@ def _build_standing_message(
         (f" {standing.wins}-{standing.losses}", RGB_WHITE),
         (f" {gb_str}", RGB_WHITE),
     ]
-    return MLBGameMessage(segments, center=True, bg_color=bg_color, font=font)
+    return MLBGameMessage(
+        segments, center=True, bg_color=bg_color, font=font, font_color=font_color
+    )
 
 
 @register("mlb_standings")
@@ -71,6 +75,7 @@ class MLBStandingsMonitor:
     timezone: str = "America/New_York"
     padding: int = 6
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
+    font_color: Color | ColorProvider | None = attrs.field(default=None, kw_only=True)
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
     _tz: ZoneInfo | None = attrs.field(init=False, default=None)
     feed_title: TickerMessage | None = attrs.field(init=False, default=None)
@@ -131,9 +136,10 @@ class MLBStandingsMonitor:
             await self._set_offseason_state()
             return
 
+        title_color = self.font_color if self.font_color is not None else RGB_WHITE
         self.feed_title = TickerMessage(
             self.title,
-            font_color=RGB_WHITE,
+            font_color=title_color,
             center=True,
             bg_color=self.bg_color,
         )
@@ -145,7 +151,10 @@ class MLBStandingsMonitor:
             top_names.add(standing.name)
             stories.append(
                 _build_standing_message(
-                    standing, bg_color=self.bg_color, font=self.font
+                    standing,
+                    bg_color=self.bg_color,
+                    font=self.font,
+                    font_color=self.font_color,
                 )
             )
 
@@ -161,7 +170,10 @@ class MLBStandingsMonitor:
             if standing and standing.name not in top_names:
                 stories.append(
                     _build_standing_message(
-                        standing, bg_color=self.bg_color, font=self.font
+                        standing,
+                        bg_color=self.bg_color,
+                        font=self.font,
+                        font_color=self.font_color,
                     )
                 )
 
@@ -247,26 +259,28 @@ class MLBStandingsMonitor:
         opening_day = await self._fetch_opening_day()
         msg = f"Opens {opening_day}" if opening_day else "Opens soon"
 
+        body_color = self.font_color if self.font_color is not None else RGB_WHITE
         self.feed_title = TickerMessage(
             self.title,
-            font_color=RGB_WHITE,
+            font_color=body_color,
             center=True,
             bg_color=self.bg_color,
         )
         self.feed_stories = [
             TickerMessage(
-                msg, font_color=RGB_WHITE, center=True, bg_color=self.bg_color
+                msg, font_color=body_color, center=True, bg_color=self.bg_color
             ),
         ]
 
     def _set_error_state(self) -> None:
         """Set display to error state."""
+        body_color = self.font_color if self.font_color is not None else RGB_WHITE
         self.feed_title = TickerMessage(
             self.title,
-            font_color=RGB_WHITE,
+            font_color=body_color,
             center=True,
             bg_color=self.bg_color,
         )
         self.feed_stories = [
-            TickerMessage("No Data", font_color=RGB_WHITE, bg_color=self.bg_color),
+            TickerMessage("No Data", font_color=body_color, bg_color=self.bg_color),
         ]

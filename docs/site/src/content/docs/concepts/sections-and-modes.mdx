@@ -82,22 +82,22 @@ text = "Second"`}
 
 The global `[transitions] between_sections` setting controls what transition plays at section boundaries. A section can override this by setting `transition` explicitly — when it does, that transition is used both for inter-widget swaps within the section AND for the entry transition when the section first appears.
 
-## Tuning scroll cadence with `scroll_speed_ms`
+## Tuning scroll cadence with `scroll_step_ms`
 
-Both `forever_scroll` and `infini_scroll` advance one logical pixel per engine tick by default — 50 ms per pixel, or about 20 logical pixels per second. Set `scroll_speed_ms` on a section to override that cadence. Lower values (30-40 ms) speed the marquee up for dense content like RSS headlines or rapid stock tickers; higher values (70-100 ms) slow it down for messages that need a deliberate read. The same value also drives the post-hold scroll on `swap` mode for widgets whose content overflows the panel width.
+Both `forever_scroll` and `infini_scroll` advance one logical pixel per engine tick by default — 50 ms per pixel, or about 20 logical pixels per second. Set `scroll_step_ms` on a section to override that cadence. Lower values (30-40 ms) speed the marquee up for dense content like RSS headlines or rapid stock tickers; higher values (70-100 ms) slow it down for messages that need a deliberate read. The same value also drives the post-hold scroll on `swap` mode for widgets whose content overflows the panel width.
 
 <TomlExample
   code={`[[playlist.section]]
 mode = "infini_scroll"
 loop_count = 1
-scroll_speed_ms = 30   # snappier than the 50 ms default
+scroll_step_ms = 30   # snappier than the 50 ms default
 
 [[playlist.section.widget]]
 type = "rss_feed"
 feed_url = "https://example.com/feed"`}
 />
 
-This is distinct from the per-widget `scroll_speed_ms` on `gif` and `image` widgets, which controls the cadence of a text marquee painted over an image — that's a widget-level knob in a different code path.
+The section-level `scroll_step_ms` is distinct from the per-widget `scroll_speed_ms` on `gif` and `image` widgets — the section knob controls how fast the engine's cursor advances across widgets in scroll modes; the widget knob controls how fast text scrolls inside a single widget's text overlay. Different layers, different code paths; both can be set in the same config.
 
 ## Section backgrounds with `bg_color`
 

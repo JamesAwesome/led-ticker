@@ -84,6 +84,35 @@ font_color = "rainbow"
 animation = "typewriter"`}
 />
 
+Gradient between two brand colors — each character lands at its own interpolated hue:
+
+<DemoGif
+  src="/demos-pinned/message-gradient.gif"
+  caption="gradient `font_color` from magenta to violet across the characters"
+/>
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "moonbunny"
+font_color = {style = "gradient", from = [225, 48, 108], to = [120, 90, 220]}`}
+/>
+
+High-contrast caution color — black text on a yellow background:
+
+<DemoGif
+  src="/demos-pinned/message-yellow-bg.gif"
+  caption="black `font_color` over a yellow `bg_color` — readable from across the room"
+/>
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "CAUTION"
+font_color = [0, 0, 0]
+bg_color = [255, 220, 0]`}
+/>
+
 ## Pitfalls
 
 ### Typewriter is single-row only

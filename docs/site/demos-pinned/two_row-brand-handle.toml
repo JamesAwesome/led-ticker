@@ -18,9 +18,10 @@ hold_time = 7.0
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = "@moonbunny :instagram: :email: hello@example.com"
+top_text = "@moonbunny :instagram:"
 top_color = [225, 48, 108]
 top_align = "center"
 bottom_text = "Aerial & pole · all levels · now booking"
 bottom_color = [255, 240, 200]
 bottom_align = "left"
+scroll_speed_ms = 30

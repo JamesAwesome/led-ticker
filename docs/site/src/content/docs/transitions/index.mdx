@@ -12,12 +12,12 @@ can override with `transition = "..."`.
 
 ## The four families
 
-| Family                         | What it looks like                                                    | Best for                          |
-| ------------------------------ | --------------------------------------------------------------------- | --------------------------------- |
-| [Push](/transitions/push/)     | Old slides off, new slides in from the opposite side                  | General purpose, news-ticker feel |
-| [Wipe](/transitions/wipe/)     | Sweep line erases content, leaves new in its wake                     | Clean / professional              |
-| [Sprite](/transitions/sprite/) | Pixel-art character (Pikachu, Pac-Man, baseball, …) crosses the panel | Fun / themed                      |
-| Special (B3)                   | Cut, dissolve, color flash, split, scroll                             | Variety, ambient                  |
+| Family                           | What it looks like                                                    | Best for                          |
+| -------------------------------- | --------------------------------------------------------------------- | --------------------------------- |
+| [Push](/transitions/push/)       | Old slides off, new slides in from the opposite side                  | General purpose, news-ticker feel |
+| [Wipe](/transitions/wipe/)       | Sweep line erases content, leaves new in its wake                     | Clean / professional              |
+| [Sprite](/transitions/sprite/)   | Pixel-art character (Pikachu, Pac-Man, baseball, …) crosses the panel | Fun / themed                      |
+| [Special](/transitions/special/) | Cut, dissolve, color flash, split, scroll                             | Variety, ambient                  |
 
 ## Picking a transition
 
@@ -35,4 +35,6 @@ can override with `transition = "..."`.
 - `transition_color`: RGB list — used by wipe sweep lines and color_flash
 - `transition_colors`: list of RGB lists — used by `wipe_alternating` / `wipe_random` for a custom color pool
 
-<RelatedPages slugs={["transitions/push", "transitions/wipe", "transitions/sprite"]} />
+<RelatedPages
+  slugs={["transitions/push", "transitions/wipe", "transitions/sprite", "transitions/special"]}
+/>

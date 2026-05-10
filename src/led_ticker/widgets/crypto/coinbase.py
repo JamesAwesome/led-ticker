@@ -80,7 +80,9 @@ class CoinbasePriceMonitor(_FrameAware):
         center: bool = True,
         **kwargs: Any,
     ) -> Self:
-        widget = cls(symbol=symbol, currency=currency, session=session, center=center)
+        widget = cls(
+            symbol=symbol, currency=currency, session=session, center=center, **kwargs
+        )
         await widget.update()
         asyncio.create_task(run_monitor_loop(widget, update_interval))
         return widget

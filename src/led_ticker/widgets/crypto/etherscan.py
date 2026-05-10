@@ -72,7 +72,7 @@ class EtherscanGasMonitor(_FrameAware):
         update_interval: int = 300,
         **kwargs: Any,
     ) -> Self:
-        widget = cls(session=session, api_key=api_key)
+        widget = cls(session=session, api_key=api_key, **kwargs)
         await widget.update()
         asyncio.create_task(run_monitor_loop(widget, update_interval))
         return widget

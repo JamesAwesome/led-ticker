@@ -61,6 +61,7 @@ class CoinGeckoPriceMonitor(_FrameAware):
             symbol_id=symbol_id,
             currency=currency,
             session=session,
+            **kwargs,
         )
         await widget.update()
         asyncio.create_task(run_monitor_loop(widget, update_interval))

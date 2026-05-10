@@ -82,6 +82,23 @@ text = "Second"`}
 
 The global `[transitions] between_sections` setting controls what transition plays at section boundaries. A section can override this by setting `transition` explicitly — when it does, that transition is used both for inter-widget swaps within the section AND for the entry transition when the section first appears.
 
+## Tuning scroll cadence with `scroll_speed_ms`
+
+Both `forever_scroll` and `infini_scroll` advance one logical pixel per engine tick by default — 50 ms per pixel, or about 20 logical pixels per second. Set `scroll_speed_ms` on a section to override that cadence. Lower values (30-40 ms) speed the marquee up for dense content like RSS headlines or rapid stock tickers; higher values (70-100 ms) slow it down for messages that need a deliberate read. The same value also drives the post-hold scroll on `swap` mode for widgets whose content overflows the panel width.
+
+<TomlExample
+  code={`[[playlist.section]]
+mode = "infini_scroll"
+loop_count = 1
+scroll_speed_ms = 30   # snappier than the 50 ms default
+
+[[playlist.section.widget]]
+type = "rss_feed"
+feed_url = "https://example.com/feed"`}
+/>
+
+This is distinct from the per-widget `scroll_speed_ms` on `gif` and `image` widgets, which controls the cadence of a text marquee painted over an image — that's a widget-level knob in a different code path.
+
 ## Section backgrounds with `bg_color`
 
 Setting `bg_color` on a section paints a solid RGB color across the panel before any widget draws. Widgets in the section inherit that background unless they set their own `bg_color`, so a single `bg_color` at the section level brands every widget inside it without per-widget repetition. This is the cleanest way to give a section a brand color, a sport-team color, or a "nighttime" tint while keeping each widget's TOML focused on its own content.

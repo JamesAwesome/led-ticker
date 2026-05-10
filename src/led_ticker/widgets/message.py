@@ -123,14 +123,19 @@ class TickerMessage(_FrameAware):
             self.border.paint(canvas, self.frame_for("border"))
 
         if self._has_emoji:
-            from led_ticker.pixel_emoji import draw_with_emoji
+            from led_ticker.pixel_emoji import count_text_chars, draw_with_emoji
 
             # Per-char providers (rainbow/gradient) survive emoji
             # segments: draw_with_emoji takes the provider directly,
             # renders sprites for emoji slugs, and runs the per-char
             # path on text segments — char_index advances continuously
             # across segments so the rainbow sweep doesn't reset at
-            # each :slug:.
+            # each :slug:. `total_chars` is anchored to the FULL
+            # message's text-char count (excluding emoji slugs) so
+            # typewriter mid-cycle doesn't shift each char's hue as
+            # more chars reveal — char N's hue at frame=t is the same
+            # hue char N will have when typewriter completes. Mirrors
+            # the image-widget contract in `_BaseImageWidget._draw_text`.
             cursor_pos += draw_with_emoji(
                 canvas,
                 self.font,
@@ -140,30 +145,19 @@ class TickerMessage(_FrameAware):
                 visible_text,
                 y_offset=y_offset,
                 frame=self.frame_for("font_color"),
+                total_chars=count_text_chars(self.message),
             )
         elif provider.per_char:
             # Per-char rendering: iterate visible_text, draw each char
             # with its own color (rainbow / gradient). The shared
             # `draw_text_per_char` helper handles the HiresFont
             # real-pixel cursor tracking that avoids the per-char
-            # ceil-divide drift. Gradient + Typewriter interaction:
-            # `total_chars` defaults to `len(visible_text)` so a
-            # gradient compresses on first frame and stretches as
-            # Typewriter reveals more chars. Final state matches the
-            # full-text gradient.
-            #
-            # TODO(divergence): image widgets (`_BaseImageWidget._draw_text`,
-            # PR #13) ship the OPPOSITE semantic — they pass
-            # `total_chars=len(self.text)` so a char's hue is anchored to
-            # its position in the eventual full text, not the visible
-            # slice. Both behaviors are defensible (compress-stretch
-            # shows the full palette during reveal; anchored gives
-            # stable per-char hues), but the codebase shouldn't have
-            # both forever. If unifying, anchored is probably the
-            # better default. Changing this here is a behavior change
-            # for any user config running typewriter + rainbow/gradient
-            # on a TickerMessage — worth a deliberate decision rather
-            # than rolling into an unrelated PR.
+            # ceil-divide drift. `total_chars=len(self.message)`
+            # anchors each char's hue to its position in the FULL
+            # message — typewriter mid-cycle reveals char N at the
+            # hue char N will have at completion, not a hue
+            # compressed to the visible slice. Mirrors the image-
+            # widget contract in `_BaseImageWidget._draw_text`.
             cursor_pos += draw_text_per_char(
                 canvas,
                 self.font,
@@ -173,6 +167,7 @@ class TickerMessage(_FrameAware):
                 lambda idx, total: provider.color_for(
                     self.frame_for("font_color"), idx, total
                 ),
+                total_chars=len(self.message),
             )
         else:
             color = provider.color_for(

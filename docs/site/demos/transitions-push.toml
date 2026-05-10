@@ -1,0 +1,97 @@
+# Demo: push family showcase — one section per direction so a single
+# captured gif shows left, right, up, down, and random in sequence.
+# Section-to-section transitions are `cut` so the inter-direction
+# boundaries stay invisible; only the named push transition fires
+# between the two messages within each section.
+#
+# transition_duration = 0.9 (was 0.6 on the old single-direction
+# demo). Review feedback flagged the prior speed as rapid; 0.9 is
+# the slow end of the docs site's recommended 0.4–0.9 range.
+#
+# render-duration: 22
+# ↑ 5 sections × (1.5 s hold + 0.9 s transition + 1.5 s hold) ≈
+#   19 s content; capture 22 s for clean tail.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+between_sections = "cut"
+
+[[playlist.section]]
+mode = "swap"
+transition = "push_left"
+transition_duration = 0.9
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "push_left"
+
+[[playlist.section.widget]]
+type = "message"
+text = "←"
+
+[[playlist.section]]
+mode = "swap"
+transition = "push_right"
+transition_duration = 0.9
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "push_right"
+
+[[playlist.section.widget]]
+type = "message"
+text = "→"
+
+[[playlist.section]]
+mode = "swap"
+transition = "push_up"
+transition_duration = 0.9
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "push_up"
+
+[[playlist.section.widget]]
+type = "message"
+text = "↑"
+
+[[playlist.section]]
+mode = "swap"
+transition = "push_down"
+transition_duration = 0.9
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "push_down"
+
+[[playlist.section.widget]]
+type = "message"
+text = "↓"
+
+[[playlist.section]]
+mode = "swap"
+transition = "push_random"
+transition_duration = 0.9
+loop_count = 1
+hold_time = 1.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "push_random"
+
+[[playlist.section.widget]]
+type = "message"
+text = "?"

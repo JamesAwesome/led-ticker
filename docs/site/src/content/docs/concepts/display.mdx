@@ -6,7 +6,7 @@ description: How rows, cols, chain, parallel, scale, and pixel_mapper combine in
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-led-ticker drives a panel of LEDs. The `[display]` block in your TOML tells the engine the panel's physical geometry — how many pixels wide and tall each panel is, how many chain together, and what scaling to apply. Get this right and everything else "just works"; get it wrong and content prints to a three-pixel slice or runs off the edge entirely.
+The `[display]` block describes your panel's physical geometry: pixel dimensions per panel, chain length, and scaling. These values flow into every layout calculation, so a mismatch between config and hardware clips content or centers it on the wrong axis.
 
 ## The two reference builds
 
@@ -56,23 +56,14 @@ content_height = 24
 hold_time = 4.0`}
 />
 
-## All `[display]` options
+## `[display]` reference
 
-| Option                | Type      | Default          | Notes                                                                                                                |
-| --------------------- | --------- | ---------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `rows`                | int       | `16`             | Pixel rows per panel. The smallsign reference uses 16; the bigsign uses 32.                                          |
-| `cols`                | int       | `32`             | Pixel columns per panel. The smallsign reference uses 32; the bigsign uses 64.                                       |
-| `chain`               | int       | `1`              | Number of panels chained together. The smallsign reference uses 5; the bigsign uses 8.                               |
-| `parallel`            | int       | `1`              | Parallel panel chains. Pi 4 only — the bigsign reference uses `pixel_mapper` instead.                                |
-| `pixel_mapper`        | string    | `""`             | Custom panel-arrangement string for non-linear layouts (e.g. the bigsign's serpentine `"Remap:256,64\|..."` string). |
-| `default_scale`       | int       | `1`              | Logical-to-real pixel multiplier. `1` on the smallsign reference, `4` on the bigsign. Override per section.          |
-| `brightness`          | int 1–100 | `100`            | Panel brightness percent. Both reference builds use 60.                                                              |
-| `slowdown_gpio`       | int       | `1`              | GPIO timing slowdown. `2` on Pi 4 (smallsign) or `3` on Pi 5 (bigsign). Raise to 4–5 if you see flicker.             |
-| `gpio_mapping`        | string    | `"adafruit-hat"` | Wiring mapping. Both reference builds use the Adafruit HAT.                                                          |
-| `pwm_bits`            | int       | `11`             | PWM bit depth. Bigsign uses 8 for roughly 8× faster refresh at a small cost to color depth.                          |
-| `pwm_lsb_nanoseconds` | int       | `130`            | PWM lower-bit timing. Higher values are slower but more stable.                                                      |
-| `show_refresh`        | bool      | `false`          | Print the measured refresh rate to stderr — useful when tuning bigsign timing.                                       |
-| `no_hardware_pulse`   | bool      | `false`          | Disable hardware PWM and use CPU instead. Rarely needed.                                                             |
-| `rp1_rio`             | int       | `0`              | Pi 5 only: `0` = PIO mode (lower CPU), `1` = RIO mode (faster refresh, more CPU).                                    |
+The full field reference — every knob, default value, and
+Pi-version note — lives at
+[Reference: Config options](/reference/config-options/#display).
+The most-touched fields are above (`rows`, `cols`, `chain`,
+`default_scale`, `pixel_mapper`, `slowdown_gpio`); see the
+reference page when you need `pwm_bits`, `pwm_lsb_nanoseconds`,
+`rp1_rio`, or the other Pi-tuning options.
 
 <RelatedPages slugs={["concepts/fonts", "widgets/two_row", "getting-started"]} />

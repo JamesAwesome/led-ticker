@@ -7,7 +7,7 @@ import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-Every text-bearing widget's `font_color` field — and `top_color` / `bottom_color` on `two_row` and image widgets — accepts five distinct flavors. A plain RGB list gives you a constant color. Three named string sentinels (`"rainbow"`, `"color_cycle"`, `"random"`) activate built-in effects. An inline TOML table unlocks a gradient. Some of these animate over time; others pick once per visit and stay fixed. The widget-side code is uniform regardless of which flavor you choose — all five resolve to the same `color_for(frame, char_index, total_chars)` interface internally.
+`font_color` accepts five forms: a `[r, g, b]` list (constant), the string shorthands `"rainbow"`, `"color_cycle"`, and `"random"`, or an inline table for a gradient. The first three cover most signs. The same field on `top_color` / `bottom_color` for `two_row` and image widgets behaves identically — pick once per widget, swap providers without changing anything else.
 
 <DemoGif
   src="/demos/concepts-color-providers.gif"
@@ -96,9 +96,13 @@ text = "Daily Special"
 font_color = "random"`}
 />
 
-## Picking the right provider
+## Which to use
 
-Use a **constant** when you are matching brand colors or want a predictable, distraction-free look. Use **color_cycle** when you want motion that stays tasteful — the whole message shifts as one, which reads as a subtle effect rather than a visual shout. Use **rainbow** when you want maximum visual impact: kid-friendly sections, attention-grabbing announcements, or any context where flair is the point. Use **gradient** when you want the feel of a color transition without the animation — useful when your brand palette has two distinct anchor colors and you want to bridge them politely. Use **random** when you have a long-running display and want each rotation to feel slightly different without any engineering effort.
+- **Constant** — brand colors, anything that shouldn't animate.
+- **Color_cycle** — the whole message shifts hue together; subtler than rainbow.
+- **Rainbow** — per-character hue sweep; use it when flair is the point (kids' sections, grand openings, announcements).
+- **Gradient** — frozen left-to-right interpolation; good when your brand has two anchor colors you want to bridge.
+- **Random** — picks a different color each time the section plays; no animation.
 
 ## Inline emoji and per-char providers
 

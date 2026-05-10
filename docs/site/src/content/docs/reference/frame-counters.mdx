@@ -5,7 +5,7 @@ description: Per-effect counters, restart-on-visit vs continuous phase, and how 
 
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-Every animated effect in led-ticker — rainbow text, color cycle, typewriter, rainbow chase border — advances based on a frame counter that ticks once per engine iteration. The engine runs at a fixed 50 ms cadence, so one frame is 50 ms. More precisely, **each effect on a widget gets its own independent counter**. A `message` widget with `font_color = "rainbow"`, `border = "rainbow"`, and `animation = "typewriter"` carries three separate counters simultaneously: one for the color sweep, one for the border chase, and one for the typewriter reveal. None of them advance together, and none of them interfere.
+Every animated effect — rainbow text, color cycle, typewriter, rainbow chase border — advances a frame counter that ticks once per 50 ms engine iteration. Each effect on a widget gets its own independent counter: a `message` with `font_color = "rainbow"`, `border = "rainbow"`, and `animation = "typewriter"` carries three counters, one per effect, that advance separately and never interfere.
 
 Most users never need to think about this model directly. The defaults produce the right visual behavior. This page is for two narrower audiences: users debugging unexpected restart behavior, and developers implementing a new effect class.
 

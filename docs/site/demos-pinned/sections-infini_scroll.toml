@@ -1,0 +1,25 @@
+# render-duration: 10
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "infini_scroll"
+loop_count = 1
+scroll_step_ms = 35
+
+[[playlist.section.widget]]
+type = "message"
+text = "Now Enrolling"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Spring Classes Open"
+font_color = [255, 220, 0]

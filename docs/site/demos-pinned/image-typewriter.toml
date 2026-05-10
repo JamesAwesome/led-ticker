@@ -1,0 +1,26 @@
+# render-duration: 6
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 5.0
+
+[[playlist.section.widget]]
+type = "image"
+path = "../../../config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "left"
+text = "moonbunny"
+text_align = "right"
+font_color = "rainbow"
+animation = "typewriter"
+hold_seconds = 5.0

@@ -1,0 +1,21 @@
+# render-duration: 5
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "Until the Show"
+countdown_date = 2026-09-01
+font_color = [255, 140, 0]

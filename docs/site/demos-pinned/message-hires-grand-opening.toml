@@ -1,0 +1,27 @@
+# Pinned demo: hi-res Inter-Bold @ 28 px on the bigsign canvas.
+# Mirrors the GRAND OPENING Common pattern on the message widget
+# page — Inter-Bold reads cleanly at medium viewing distance and
+# is the canonical example for the bigsign hi-res font story.
+#
+# render-duration: 5
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "GRAND OPENING"
+font = "Inter-Bold"
+font_size = 28
+font_color = [225, 48, 108]

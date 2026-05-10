@@ -77,6 +77,7 @@ in order, then the playlist loops.
 | `scale`                | int            | `display.default_scale`   | Per-section logical-to-physical scaling override. Useful for letterboxed countdowns at `scale = 2` on the bigsign.                                            |
 | `content_height`       | int            | `16`                      | Logical canvas height in rows. Hard ceiling: `content_height × scale ≤ panel_h_real` (see Pitfalls).                                                          |
 | `bg_color`             | `[r, g, b]`    | `null`                    | Section-level background color. Widgets inherit this when they don't set their own `bg_color`.                                                                |
+| `scroll_speed_ms`      | int            | `null` (= 50 ms)          | Milliseconds per logical pixel of scroll. Lower = faster marquee. Applies to `forever_scroll`, `infini_scroll`, and the post-hold scroll on `swap` mode.      |
 | `transition_specified` | bool           | `false`                   | Internal flag set by the loader when the user wrote `transition = ...` in this section's TOML. You don't write this — it's in the dataclass for completeness. |
 
 `transition_specified` is what lets the engine distinguish "user wrote

@@ -50,6 +50,11 @@ border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}`}
 
 A constant border is a solid-color ring with no animation. It is `frame_invariant`, so the engine's static-text fast path applies: the border is painted once and the widget sleeps for the hold duration rather than redrawing every tick.
 
+<DemoGif
+  src="/demos-pinned/border-constant.gif"
+  caption="constant magenta ring around the panel perimeter, text inside"
+/>
+
 Use an RGB list as a shorthand:
 
 <TomlExample

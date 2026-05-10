@@ -1,0 +1,25 @@
+# Pinned demo: static text with a fixed `font_color` (RGB list).
+# Embedded inline with the brand-color Common pattern on the
+# message widget page so the reader sees what the lavender RGB
+# triple actually paints.
+#
+# render-duration: 5
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "Aerial for Everybody"
+font_color = [189, 169, 234]

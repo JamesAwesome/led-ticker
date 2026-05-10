@@ -29,10 +29,15 @@ hold_seconds = 4.0`}
 
 Static logo (no text):
 
+<DemoGif
+  src="/demos-pinned/image-static-logo.gif"
+  caption="transparent moon centered with `pillarbox` fit"
+/>
+
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "image"
-path = "config/assets/my_logo.png"
+path = "config/assets/moon-transparent.png"
 fit = "pillarbox"
 image_align = "center"
 hold_seconds = 6.0`}
@@ -40,10 +45,15 @@ hold_seconds = 6.0`}
 
 Image with scrolling text overlay (`scroll_over` — text in front of the image):
 
+<DemoGif
+  src="/demos-pinned/image-scroll_over.gif"
+  caption="moon pinned to the left, magenta text marquees over the right side"
+/>
+
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "image"
-path = "config/assets/bunny-transparent.png"
+path = "config/assets/moon-transparent.png"
 fit = "pillarbox"
 image_align = "left"
 text = "Follow us on Instagram!"
@@ -54,30 +64,83 @@ font_color = [200, 100, 255]`}
 
 Scrolling text behind a transparent silhouette (`scroll` — text walks under the image; requires a PNG with transparency):
 
+<DemoGif
+  src="/demos-pinned/image-scroll_behind.gif"
+  caption="text scrolls under the moon — visible only through the transparent pillarbox area"
+/>
+
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "image"
-path = "config/assets/bunny-transparent.png"
+path = "config/assets/moon-transparent.png"
 fit = "pillarbox"
 image_align = "left"
-text = "Scrolling behind the bunny!"
+text = "Scrolling behind the moon!"
 text_align = "scroll"
 font_color = [200, 200, 255]`}
 />
 
 Two-row text overlay (set `bottom_text` to switch modes — image sits underneath):
 
+<DemoGif
+  src="/demos-pinned/image-two_row.gif"
+  caption="moon on the right, `@moonbunny` on top, scrolling promo on the bottom"
+/>
+
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "image"
-path = "config/assets/my_logo.png"
+path = "config/assets/moon-transparent.png"
 fit = "pillarbox"
 image_align = "right"
-top_text = "@myhandle"
+top_text = "@moonbunny"
+top_font = "5x8"
 top_color = [225, 48, 108]
 bottom_text = "Open daily 10am–8pm"
+bottom_font = "5x8"
 bottom_color = [255, 240, 200]
 hold_seconds = 6.0`}
+/>
+
+Typewriter overlay (single-row only — letters type in next to the image):
+
+<DemoGif
+  src="/demos-pinned/image-typewriter.gif"
+  caption="moon on the left, `moonbunny` types in on the right with rainbow font_color"
+/>
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "image"
+path = "config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "left"
+text = "moonbunny"
+text_align = "right"
+font_color = "rainbow"
+animation = "typewriter"
+hold_seconds = 5.0`}
+/>
+
+Typewriter + rainbow border (frame the panel as the text appears):
+
+<DemoGif
+  src="/demos-pinned/image-typewriter-border.gif"
+  caption="rainbow chase border around the perimeter, white text typing in beside the moon"
+/>
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "image"
+path = "config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "left"
+text = "moonbunny"
+text_align = "right"
+font_color = [255, 255, 255]
+animation = "typewriter"
+border = "rainbow"
+hold_seconds = 5.0`}
 />
 
 ## Pitfalls

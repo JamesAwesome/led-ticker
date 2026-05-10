@@ -491,3 +491,91 @@ async def test_rule14_typewriter_on_gif_empty_text(conf):
     result = await validate_config(conf(GOOD_CONFIG + extra))
     assert not result.valid
     assert any(e.rule == 14 for e in result.errors)
+
+
+# Rule 22: per-row band-layout — fonts must fit their row band.
+# Catches at config-load what previously only fired at first draw.
+
+_BIGSIGN_CONFIG = """\
+    [display]
+    rows = 64
+    cols = 256
+    chain = 1
+    default_scale = 4
+    """
+
+
+async def test_rule22_two_row_inter_bold_too_tall_for_band(conf):
+    """At scale=2, content_height=16 → per-row band = 8 logical.
+    Inter-Bold@18 has line_height = 12 logical (23 real / 2). Doesn't fit.
+    Same shape as the bug found in two_row-font-hierarchy.toml."""
+    extra = textwrap.dedent("""\
+
+        [[playlist.section]]
+        mode = "swap"
+        scale = 2
+        content_height = 16
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "@hi"
+        top_font = "Inter-Bold"
+        top_font_size = 18
+        bottom_text = "world"
+        """)
+    result = await validate_config(conf(_BIGSIGN_CONFIG + extra))
+    assert not result.valid, "config-load validate should catch font-too-tall"
+    assert any(
+        e.rule == 22 for e in result.errors
+    ), f"expected rule=22 in {[(e.rule, e.message) for e in result.errors]}"
+
+
+async def test_rule22_image_two_row_default_font_too_tall(conf):
+    """Image/gif two-row mode: default font is FONT_DEFAULT (6x12 = 12
+    logical). Doesn't fit an 8-logical band on smallsign at scale=1
+    + content_height=16. Catches the same shape against image widgets."""
+    smallsign = textwrap.dedent("""\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+        """)
+    extra = textwrap.dedent("""\
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "image"
+        path = "x.png"
+        top_text = "hi"
+        bottom_text = "world"
+        """)
+    result = await validate_config(conf(smallsign + extra))
+    assert not result.valid
+    assert any(e.rule == 22 for e in result.errors)
+
+
+async def test_rule22_passes_when_band_fits(conf):
+    """Inverse: 5x8 BDF on a content_height=16 50/50 split fits
+    exactly (line_height=8 logical, band=8). No issue raised."""
+    extra = textwrap.dedent("""\
+
+        [[playlist.section]]
+        mode = "swap"
+        scale = 2
+        content_height = 16
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "@hi"
+        bottom_text = "world"
+        """)
+    result = await validate_config(conf(_BIGSIGN_CONFIG + extra))
+    assert (
+        result.valid
+    ), f"5x8 BDF should fit; got: {[(e.rule, e.message) for e in result.errors]}"

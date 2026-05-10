@@ -11,6 +11,11 @@ Every text-bearing widget — `message`, `countdown`, `two_row`, `weather`, and 
 
 <DemoGif src="/demos/concepts-fonts.gif" caption="BDF 6x12 (left) vs Inter-Bold @ 14px (right)" />
 
+<DemoGif
+  src="/demos/concepts-fonts-bigsign.gif"
+  caption="Bigsign canvas (256×64) — BDF 6×12 stretched to 48 real px (chunky) vs Inter-Bold @ 28 px (smooth, half-panel-height)"
+/>
+
 ## BDF: the bundled bitmap fonts
 
 BDF fonts are pre-rasterized pixel-by-pixel at a fixed cell size — there is no antialiasing, no threshold tuning, and no runtime rendering overhead. They load instantly and look crisp at the sizes they were designed for. Four aliases ship with led-ticker; the numbers are pixel cell width × height:

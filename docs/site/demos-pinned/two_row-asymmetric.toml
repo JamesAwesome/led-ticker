@@ -1,0 +1,29 @@
+# render-duration: 8
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 24
+loop_count = 1
+hold_time = 7.0
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "@moonbunny"
+top_row_height = 6
+top_font = "Inter-Regular"
+top_font_size = 8
+top_color = [225, 48, 108]
+bottom_text = "Aerial · Pole · Hoop · Silk · All Levels"
+bottom_font = "Inter-Bold"
+bottom_font_size = 22
+bottom_color = [255, 240, 200]

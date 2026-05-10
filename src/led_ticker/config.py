@@ -74,6 +74,13 @@ class SectionConfig:
     # Optional section-level background color. Widgets that omit bg_color
     # inherit this value via _build_widget's default_bg_color parameter.
     bg_color: tuple[int, int, int] | None = None
+    # Per-pixel scroll cadence in milliseconds. None falls back to the
+    # engine default (50 ms = 1 logical pixel per engine tick). Lowering
+    # to 30-40 ms speeds up the marquee for dense RSS feeds or
+    # storefront layouts where the default reads as sluggish; raising
+    # above 50 makes it more deliberate. Applies to forever_scroll,
+    # infini_scroll, and the post-hold scroll on swap mode.
+    scroll_speed_ms: int | None = None
 
 
 @dataclass
@@ -190,6 +197,7 @@ def load_config(path: Path) -> AppConfig:
             scale=section_raw.get("scale", display.default_scale),
             content_height=section_raw.get("content_height", 16),
             bg_color=bg_color,
+            scroll_speed_ms=section_raw.get("scroll_speed_ms"),
         )
         sections.append(section)
 

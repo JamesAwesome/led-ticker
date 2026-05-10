@@ -1,0 +1,29 @@
+# Long demo: pacman sprite transition between two messages.
+# One sprite per gif so the page can present each as its own focused
+# reference. Long-pipeline because sprite-trail rendering takes ~3x
+# wallclock time per content second.
+#
+# render-duration: 30
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "pacman"
+duration = 2.0
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "pacman"
+
+[[playlist.section.widget]]
+type = "message"
+text = "+ ghosts"

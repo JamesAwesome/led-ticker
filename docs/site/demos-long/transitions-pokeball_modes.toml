@@ -1,0 +1,49 @@
+# Long demo: pokeball transition in its two single-sprite modes.
+# Section 1 disables pikachu (pokeball only — clean rolling-ball
+# wipe). Section 2 disables the pokeball sprite (pikachu only —
+# the chasing trail still extends across the panel; only the ball
+# is hidden). Each section sets show_* on its own transition so
+# the inter-widget AND the section-entry transitions both honor
+# the variant.
+#
+# render-duration: 35
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "pokeball"
+duration = 2.0
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+transition = "pokeball"
+show_pikachu = false
+
+[[playlist.section.widget]]
+type = "message"
+text = "pokeball"
+
+[[playlist.section.widget]]
+type = "message"
+text = "only"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+transition = "pokeball"
+show_pokeball = false
+
+[[playlist.section.widget]]
+type = "message"
+text = "pikachu"
+
+[[playlist.section.widget]]
+type = "message"
+text = "only"

@@ -1,4 +1,4 @@
-# render-duration: 10
+# render-duration: 14
 [display]
 rows = 16
 cols = 32
@@ -23,3 +23,8 @@ font_color = [225, 48, 108]
 type = "message"
 text = "Spring Classes Open"
 font_color = [255, 220, 0]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Drop-ins welcome"
+font_color = [120, 220, 255]

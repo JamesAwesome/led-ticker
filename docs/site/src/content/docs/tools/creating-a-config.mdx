@@ -61,7 +61,7 @@ The skill never silently auto-fixes a violation. Every problem the validator sur
 
 When a section needs assets, the skill places fonts at `config/fonts/<file>` and images at `config/assets/<file>`, verifies the path exists before referencing it in TOML, and never fetches URLs silently. The full decision tree for fit modes, alpha handling, and viewing-distance font-size tiers lives in [`asset-handling.md`](https://github.com/jamesawesome/led-ticker/blob/main/.claude/skills/creating-a-config/references/asset-handling.md) — the skill loads it on demand in Phase 2 and `add` mode.
 
-## Pitfalls
+## Tips
 
 ### The bundled snippet library predates hi-res fonts
 

@@ -112,7 +112,59 @@ type = "countdown"
 message = "Days Until Fall"
 countdown_date = 2026-09-22
 
-# --- GIF / image playback ---
+# Live RSS headlines from Nintendo Life — a known-stable feed for the demo.
+# Swap feed_url for any RSS/Atom URL of your own.
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Nintendo Life"
+color = "random"
+
+[[playlist.section.widget]]
+type = "rss_feed"
+feed_url = "https://www.nintendolife.com/feeds/news"
+update_interval = 3000
+
+# Crypto prices via Coinbase — no API key required.
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = "Cryptocurrency/USD"
+
+[[playlist.section.widget]]
+type = "coinbase"
+symbol = "BTC"
+currency = "USD"
+
+[[playlist.section.widget]]
+type = "coinbase"
+symbol = "ETH"
+currency = "USD"
+
+# MLB scores via the free MLB Stats API — no API key. Replace "PHI" with
+# your team code.
+
+[[playlist.section]]
+mode = "swap"
+transition = "scroll"
+transition_duration = 4.0
+loop_count = 0
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "PHI"
+timezone = "America/New_York"
+final_hold_hours = 6
+
+# --- GIF / image playback (optional) ---
 # The gif widget plays an animated GIF or static image at native physical
 # resolution (256×64), using the same fit/text-overlay knobs as the image
 # widget. Full reference: https://docs.ledticker.dev/widgets/gif/
@@ -128,3 +180,17 @@ countdown_date = 2026-09-22
 # type = "gif"
 # path = "assets/example.gif"
 # fit = "pillarbox"
+
+# --- Weather (optional) ---
+# Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/).
+# location can be a city name, zip code, or "lat,lon".
+#
+# [[playlist.section]]
+# mode = "swap"
+# loop_count = 1
+#
+# [[playlist.section.widget]]
+# type = "weather"
+# message = "NYC"
+# location = "New York"
+# units = "imperial"

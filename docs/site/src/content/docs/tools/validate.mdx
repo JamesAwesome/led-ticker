@@ -5,7 +5,7 @@ description: Statically inspect a led-ticker config TOML to surface errors and w
 
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-`led-ticker validate` reads a `config.toml` and reports configuration mistakes without opening a panel. It catches TOML parse errors, structural problems, widget-construction failures (via `_build_widget(validate_only=True)`), and a set of soft warnings about layout pitfalls that the engine would otherwise hit at runtime. The full list of what it catches is on the [Pitfalls](/pitfalls/) page; the implementation lives at [`src/led_ticker/validate.py`](https://github.com/jamesawesome/led-ticker/blob/main/src/led_ticker/validate.py).
+`led-ticker validate` reads a `config.toml` and reports configuration mistakes without opening a panel. It catches TOML parse errors, structural problems, widget-construction failures (via `_build_widget(validate_only=True)`), and a set of soft warnings about layout pitfalls that the engine would otherwise hit at runtime. The full list of what it catches is on the [Validation rules](/pitfalls/) page; the implementation lives at [`src/led_ticker/validate.py`](https://github.com/jamesawesome/led-ticker/blob/main/src/led_ticker/validate.py).
 
 It exists so that the most common config mistakes — a `text_align = "scroll"` paired with a `fit = "stretch"`, a hi-res font without `font_size`, a `content_height` that overflows the panel — surface on your laptop in milliseconds, instead of on the Pi after a deploy. It's also the contract the [`creating-a-config`](/tools/creating-a-config) skill uses to verify generated configs: the skill calls `validate --json` and refuses to ship anything that fails.
 
@@ -130,7 +130,7 @@ The `valid` field is true exactly when `errors` is empty — warnings do not fli
 
 ## What gets caught
 
-Quick reference. Each row maps to a longer entry on [Pitfalls](/pitfalls/).
+Quick reference. Each row maps to a longer entry on [Validation rules](/pitfalls/).
 
 | Check                                                            | Severity | Quick fix                                        |
 | ---------------------------------------------------------------- | -------- | ------------------------------------------------ |
@@ -142,7 +142,7 @@ Quick reference. Each row maps to a longer entry on [Pitfalls](/pitfalls/).
 | Per-row font line-height exceeds the band on `two_row` / two-row | error    | smaller `font_size`, or raise `content_height`   |
 | `two_row` widget at `scale = 4`                                  | warning  | use `scale = 2` (128 logical px wide)            |
 
-## Pitfalls
+## Tips
 
 ### The validator only catches static, config-time problems
 

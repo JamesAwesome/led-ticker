@@ -1,9 +1,9 @@
 ---
-title: Pitfalls
+title: Validation rules
 description: Configuration mistakes the validator catches before they bite on the panel.
 ---
 
-`led-ticker validate` reads your `config.toml` and reports the issues below. Run it before you deploy:
+`led-ticker validate` reads your `config.toml` and reports every rule below. Run it before you deploy:
 
 ```bash
 make validate CONFIG=config/config.toml
@@ -11,31 +11,33 @@ make validate CONFIG=config/config.toml
 
 It exits non-zero on errors so you can wire it into CI.
 
+The numeric IDs in headings below match the `rule` field on `--json` output (used by the [`creating-a-config`](/tools/creating-a-config/) skill and any other programmatic consumer); they're stable across releases. The human-readable CLI output drops them — every error / warning is self-contained on a single line.
+
 ## Errors
 
 Errors block the engine from starting. Fix all of these before deploying.
 
-### `text_align = "scroll"` with `fit = "stretch"` hides the text
+### Rule 3 — `text_align = "scroll"` with `fit = "stretch"` hides the text
 
 Stretch fills every panel pixel with image, leaving no transparent regions for the scrolling text to show through. Switch `fit` to `"pillarbox"`, `"letterbox"`, or `"crop"`, or change `text_align` to `"left"`, `"right"`, or `"auto"`.
 
-### `text_x_offset` is rejected in scroll modes
+### Rule 7 — `text_x_offset` is rejected in scroll modes
 
 Static `text_x_offset` doesn't compose with the per-tick scroll cursor. Either set `text_x_offset = 0` or change `text_align` to `"left"` or `"right"`.
 
-### `hold_seconds < 0.05` is almost certainly a unit error
+### Rule 8 — `hold_seconds < 0.05` is almost certainly a unit error
 
 `hold_seconds` is in seconds, not milliseconds. Anything under 50 ms is rejected. If you wrote `3000` thinking ms, you want `3.0`.
 
-### `animation` is only valid on `message`, `gif`, and `image`
+### Rule 12 — `animation` is only valid on `message`, `gif`, and `image`
 
 Other widget types have their own draw paths and ignore `animation` silently — the validator rejects it explicitly to make the no-op visible. For dynamic color on `weather`, `mlb`, `rss_feed`, the crypto widgets, or `two_row`, use `font_color = "rainbow"` or a gradient instead.
 
-### `animation = "typewriter"` on `gif` / `image` is single-row only
+### Rule 14 — `animation = "typewriter"` on `gif` / `image` is single-row only
 
 Typewriter draws fixed-position glyphs and rejects three combinations: `bottom_text` set (two-row mode), `text_align = "scroll"` / `"scroll_over"` (cursor moves each tick), or empty `text`. Drop the conflicting setting. Typewriter still composes with `font_color = "rainbow"` and `border = "rainbow"`.
 
-### Font line-height exceeds the per-row band
+### Rule 22 — Font line-height exceeds the per-row band
 
 On `two_row`, or on `gif` / `image` with `bottom_text` set, each row gets a slice of `content_height`. A font taller than its band would clip into the other row. Pick a smaller `font_size`, raise `content_height`, set `top_row_height` to give the offending row more space, or use a BDF alias (`5x8`, `6x12`).
 
@@ -43,6 +45,6 @@ On `two_row`, or on `gif` / `image` with `bottom_text` set, each row gets a slic
 
 Warnings don't block the engine, but they flag a likely rendering quirk worth resolving.
 
-### `two_row` at `scale = 4` collapses the canvas to 64 logical pixels wide
+### Rule 6 — `two_row` at `scale = 4` collapses the canvas to 64 logical pixels wide
 
 Most handles fit at 64 logical px, but anything longer overflows and the bottom row scrolls unintentionally. Use `scale = 2` (128 logical px) with `content_height ≤ 16`.

@@ -60,6 +60,13 @@ export default defineConfig({
           items: [{ autogenerate: { directory: "concepts" } }],
         },
         {
+          // Inline emoji is a content-author concern (which slugs render?
+          // what's the fallback for unknown ones?) — sits naturally next
+          // to Concepts, before deeper hardware/reference material.
+          label: "Assets",
+          items: [{ autogenerate: { directory: "assets" } }],
+        },
+        {
           label: "Tools",
           items: [{ autogenerate: { directory: "tools" } }],
         },
@@ -94,12 +101,8 @@ export default defineConfig({
           label: "Reference",
           items: [{ autogenerate: { directory: "reference" } }],
         },
-        {
-          label: "Assets",
-          items: [{ autogenerate: { directory: "assets" } }],
-        },
         { label: "Showcase", link: "/showcase/" },
-        { label: "Pitfalls", link: "/pitfalls/" },
+        { label: "Validation rules", link: "/pitfalls/" },
       ],
     }),
   ],

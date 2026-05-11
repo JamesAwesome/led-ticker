@@ -1,4 +1,4 @@
-# render-duration: 10
+# render-duration: 12
 [display]
 rows = 16
 cols = 32
@@ -17,10 +17,15 @@ hold_time = 2.5
 
 [[playlist.section.widget]]
 type = "message"
-text = "Hello"
+text = "Open daily"
 font_color = [120, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
-text = "World"
+text = "10am - 8pm"
 font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "message"
+text = "All ages"
+font_color = [255, 220, 0]

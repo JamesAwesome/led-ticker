@@ -31,3 +31,25 @@ def test_random_color_cycles():
     # Should cycle through 5 colors twice
     assert colors[0] == colors[5]
     assert colors[1] == colors[6]
+
+
+def test_new_palette_colors_exist_and_are_correct():
+    from led_ticker.colors import (
+        BLUE,
+        CYAN,
+        GREEN,
+        ORANGE,
+        PINK,
+        PURPLE,
+        RED,
+        YELLOW,
+    )
+
+    assert (RED.red, RED.green, RED.blue) == (255, 40, 40)
+    assert (GREEN.red, GREEN.green, GREEN.blue) == (46, 200, 46)
+    assert (BLUE.red, BLUE.green, BLUE.blue) == (40, 100, 255)
+    assert (YELLOW.red, YELLOW.green, YELLOW.blue) == (255, 220, 0)
+    assert (ORANGE.red, ORANGE.green, ORANGE.blue) == (255, 140, 0)
+    assert (PURPLE.red, PURPLE.green, PURPLE.blue) == (160, 60, 200)
+    assert (CYAN.red, CYAN.green, CYAN.blue) == (0, 220, 220)
+    assert (PINK.red, PINK.green, PINK.blue) == (240, 70, 200)

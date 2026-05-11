@@ -1,4 +1,4 @@
-# render-duration: 16
+# render-duration: 30
 # Tutorial Chapter 1 — destination config preview.
 #
 # Renders the moonbunny tutorial destination so the reader sees what
@@ -6,7 +6,13 @@
 # config/config.bigsign.moonbunny.example.toml — display knobs simplified
 # to chain=1 for the renderer, asset path made render-tool-relative.
 #
-# Cycle: ~14s end-to-end through the three sections (one full pass).
+# Cycle (one full pass through all three sections):
+#   Section 1 (Welcome): 2.5s hold + 0.5s wipe = 3.0s
+#   Section 2 (Brand card): bottom row scrolls full traversal
+#     (~16s at scroll_speed_ms=35) + 0.5s dissolve
+#   Section 3 (Info messages): 3 widgets × 2.5s + 2 wipes × 0.5s = 8.5s
+#   Total ≈ 28s; render-duration=24 captures sections 1+2 with bottom
+#   row scroll completing cleanly and section 3 starting.
 
 [display]
 rows = 64

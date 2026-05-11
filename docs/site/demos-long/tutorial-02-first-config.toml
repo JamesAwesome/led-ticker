@@ -1,0 +1,16 @@
+# render-duration: 12
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Welcome to Moonbunny"
+font_color = [225, 48, 108]

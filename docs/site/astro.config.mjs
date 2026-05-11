@@ -29,6 +29,16 @@ export default defineConfig({
         { label: "Home", link: "/" },
         { label: "Getting started", link: "/getting-started/" },
         {
+          label: "Tutorial",
+          items: [
+            { label: "1. Setup", link: "/tutorial/01-setup/" },
+            { label: "2. Your first config", link: "/tutorial/02-first-config/" },
+            { label: "3. Multi-widget sign", link: "/tutorial/03-multi-widget/" },
+            { label: "4. Custom branding", link: "/tutorial/04-custom-branding/" },
+            { label: "5. Polish & deploy", link: "/tutorial/05-polish/" },
+          ],
+        },
+        {
           label: "Widgets",
           items: [
             // Overview index first (matches the sibling Transitions

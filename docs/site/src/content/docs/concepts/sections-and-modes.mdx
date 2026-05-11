@@ -25,19 +25,23 @@ All widgets in the section scroll left as a continuous stream, separated by `•
 <TomlExample
   code={`[[playlist.section]]
 mode = "forever_scroll"
-loop_count = 2
+loop_count = 1
+scroll_step_ms = 35
 
 [[playlist.section.widget]]
 type = "message"
-text = "Open 9–5"
+text = "Open 9-5"
+font_color = [225, 48, 108]
 
 [[playlist.section.widget]]
 type = "message"
 text = "Free coffee Friday"
+font_color = [255, 220, 0]
 
 [[playlist.section.widget]]
-type = "weather"
-location = "Brooklyn, NY"`}
+type = "message"
+text = "All ages welcome"
+font_color = [120, 220, 255]`}
 />
 
 ## `infini_scroll` — one-at-a-time scroll
@@ -55,14 +59,22 @@ Each widget scrolls fully off the left edge of the panel before the next widget 
   code={`[[playlist.section]]
 mode = "infini_scroll"
 loop_count = 1
+scroll_step_ms = 35
 
 [[playlist.section.widget]]
 type = "message"
-text = "Now Enrolling — Kids Summer Camps"
+text = "Now Enrolling"
+font_color = [225, 48, 108]
 
 [[playlist.section.widget]]
 type = "message"
-text = "Spring Classes Open Today"`}
+text = "Spring Classes Open"
+font_color = [255, 220, 0]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Drop-ins welcome"
+font_color = [120, 220, 255]`}
 />
 
 ## `swap` — held with transitions
@@ -77,19 +89,29 @@ The transition used between widgets in the section is configured via the `transi
 />
 
 <TomlExample
-  code={`[[playlist.section]]
+  code={`[transitions]
+default = "push_left"
+duration = 0.5
+
+[[playlist.section]]
 mode = "swap"
 loop_count = 1
-hold_time = 4.0
-transition = "wipe_left"
+hold_time = 2.5
 
 [[playlist.section.widget]]
 type = "message"
-text = "First"
+text = "Open daily"
+font_color = [120, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
-text = "Second"`}
+text = "10am - 8pm"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "message"
+text = "All ages"
+font_color = [255, 220, 0]`}
 />
 
 ## `loop_count` and section progression

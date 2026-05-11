@@ -1,4 +1,4 @@
-# render-duration: 12
+# render-duration: 14
 # Introduces the two_row widget at scale=1 (full logical canvas = 64×16).
 # Using scale=1 on the section keeps the example simple: no per-section
 # scaling math, the canvas is the full 64-wide logical space, and BDF
@@ -8,9 +8,10 @@
 # Top row is held, center-aligned.
 #
 # Timing:
-#   hold_time=8.0 shows the top label while the bottom scrolls.
-#   At scroll_step_ms=35 a ~200-px bottom string takes ~7s to traverse.
-#   8s hold + 0.5s transitions ≈ 9s; 12s gives the full scroll pass.
+#   hold_time=1.5 lets the bottom scroll begin quickly; loop_count=3
+#   cycles the scroll 3× so the gif shows continuous motion.
+#   At scroll_step_ms=35 a ~200-px bottom string takes ~4s to traverse.
+#   3 × (1.5s hold + ~4s scroll) ≈ 16.5s; 14s captures ~2.5 full cycles.
 [display]
 rows = 64
 cols = 256
@@ -26,8 +27,8 @@ duration = 0.5
 mode = "swap"
 scale = 1
 content_height = 16
-loop_count = 1
-hold_time = 8.0
+loop_count = 3
+hold_time = 1.5
 scroll_step_ms = 35
 
 [[playlist.section.widget]]

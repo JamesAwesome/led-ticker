@@ -1,4 +1,4 @@
-# render-duration: 12
+# render-duration: 16
 [display]
 rows = 64
 cols = 256
@@ -8,7 +8,9 @@ brightness = 60
 
 [[playlist.section]]
 mode = "forever_scroll"
-loop_count = 1
+loop_count = 3
+hold_time = 1.0
+scroll_step_ms = 15
 
 [[playlist.section.widget]]
 type = "message"

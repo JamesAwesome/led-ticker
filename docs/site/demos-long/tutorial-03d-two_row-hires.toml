@@ -1,4 +1,4 @@
-# render-duration: 12
+# render-duration: 14
 # The polished two_row: scale=2, content_height=24, top_row_height=16.
 # Demonstrates the hi-res :instagram: emoji on the top row with an
 # Inter-Bold handle, and the bottom row scrolling in BDF.
@@ -13,8 +13,8 @@
 # position (row 4..19 which would bleed into the bottom band).
 #
 # Timing:
-#   hold_time=8.0 with scroll_step_ms=35; bottom string ≈ 7s to traverse.
-#   12s captures the full scroll pass with a tail.
+#   hold_time=1.5 with scroll_step_ms=35; loop_count=3 cycles the scroll
+#   3× for continuous motion. 14s captures ~2.5 full cycles.
 [display]
 rows = 64
 cols = 256
@@ -30,8 +30,8 @@ duration = 0.5
 mode = "swap"
 scale = 2
 content_height = 24
-loop_count = 1
-hold_time = 8.0
+loop_count = 3
+hold_time = 1.5
 scroll_step_ms = 35
 
 [[playlist.section.widget]]

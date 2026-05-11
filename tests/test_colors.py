@@ -54,3 +54,56 @@ def test_make_color_replaces_private_helper():
 
     assert hasattr(colors_mod, "make_color")
     assert not hasattr(colors_mod, "_color")
+
+
+def test_colors_module_has_no_eager_color_construction():
+    """Tripwire: module-level constants must be lazy. No `make_color(...)`
+    or `_color(...)` calls at module scope."""
+    import ast
+    import inspect
+
+    import led_ticker.colors as colors_mod
+
+    source = inspect.getsource(colors_mod)
+    tree = ast.parse(source)
+
+    offenders: list[str] = []
+    for node in tree.body:
+        if isinstance(node, ast.AnnAssign | ast.Assign):
+            value = node.value
+            if isinstance(value, ast.Call):
+                func_repr = ast.unparse(value.func)
+                if func_repr in {"make_color", "_color"}:
+                    offenders.append(ast.unparse(node))
+
+    assert not offenders, (
+        "colors.py has eager color construction at module scope — "
+        "move these behind `__getattr__`:\n" + "\n".join(offenders)
+    )
+
+
+def test_colors_module_defines_getattr():
+    import led_ticker.colors as colors_mod
+
+    assert hasattr(colors_mod, "__getattr__")
+
+
+def test_lazy_palette_helper_exists():
+    from led_ticker.colors import lazy_palette
+
+    assert callable(lazy_palette)
+
+
+def test_lazy_palette_builds_getattr_function():
+    from led_ticker.colors import lazy_palette
+
+    getter = lazy_palette({"FOO_COLOR": (10, 20, 30)})
+    foo = getter("FOO_COLOR")
+    assert (foo.red, foo.green, foo.blue) == (10, 20, 30)
+
+    try:
+        getter("MISSING")
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("getter must raise AttributeError for unknown names")

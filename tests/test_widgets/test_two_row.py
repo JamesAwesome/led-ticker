@@ -296,7 +296,7 @@ class TestRowSpacing:
         assert bot_emoji == 8
         assert bot_emoji - (top_emoji + 8) == 0  # rows touch
 
-    def test_height_20_produces_gap(self, monkeypatch):
+    def test_height_20_produces_no_gap(self, monkeypatch):
         import unittest.mock as m
 
         canvas = m.Mock()
@@ -315,12 +315,13 @@ class TestRowSpacing:
         w = TwoRowMessage(top_text="A", bottom_text="B")
         w.draw(canvas)
         (_, top_emoji), (_, bot_emoji) = captured
-        # 20-tall canvas: each half is 10 rows. 8-tall glyph centered in
-        # each half gives 1 row above + 1 row below per half. Gap between
-        # rows = (top half bottom margin) + (bottom half top margin) = 2.
-        assert top_emoji == 1  # 1 row of top margin
-        assert bot_emoji == 11  # half (10) + 1 row
-        assert bot_emoji - (top_emoji + 8) == 2  # 2-row gap between glyphs
+        # 20-tall canvas: each half is 10 rows. The emoji cap is raised to
+        # max(8, 10) = 10 so row_layout centers a 10-row sprite in the
+        # 10-row band: (10 - 10) // 2 = 0. The sprite anchors at the
+        # band's top edge — no centering gap, rows touch exactly.
+        assert top_emoji == 0  # top band: sprite anchors at band top (row 0)
+        assert bot_emoji == 10  # bottom band: sprite anchors at band top (row 10)
+        assert bot_emoji - (top_emoji + 10) == 0  # bands touch — no gap
 
 
 class TestTwoRowBgColor:
@@ -1124,3 +1125,34 @@ class TestTwoRowColorProvider:
         assert w._frame_count == 0
         w.advance_frame()
         assert w._frame_count == 1
+
+
+class TestRowLayout:
+    def test_hires_sprite_anchors_within_full_band(self):
+        """Original bug from PR #42: with top_row_height=16 at
+        scale=2, the hi-res :instagram: sprite (16 logical tall)
+        was placed at emoji_y=4 (centered for an 8-row sprite),
+        extending to row 20 — bleeding into the bottom band.
+
+        After the fix: row_layout receives the row's emoji_cap
+        as `sprite_logical_height`, so the 16-row sprite anchors
+        at emoji_y=0 within the 16-row band. No overlap.
+        """
+        from types import SimpleNamespace
+
+        from led_ticker.widgets.two_row import _row_layout
+
+        canvas = SimpleNamespace(height=24, scale=2, width=128)
+        # Top band = 16 rows, cap = max(8, 16) = 16
+        _, top_emoji_y = _row_layout(
+            canvas,
+            FONT_SMALL,
+            band_height=16,
+            band_offset=0,
+            sprite_logical_height=16,
+        )
+        assert top_emoji_y == 0, (
+            f"top_emoji_y={top_emoji_y}; expected 0 — a 16-row sprite "
+            "in a 16-row band should anchor at the band's top edge so "
+            "it doesn't bleed into the bottom band starting at row 16."
+        )

@@ -33,12 +33,6 @@ scroll_step_ms = 35
 type = "two_row"
 top_text = ":instagram: @moonbunny"
 top_row_height = 16
-# row_layout centers an EMOJI_ROW_CAP=8 sub-band within the 16-row top
-# band, so the default emoji_y = (16-8)//2 = 4 (logical). The hi-res
-# :instagram: sprite is 16 logical tall (32 real / scale=2) and would
-# render at rows 4..19 — bleeding 4 rows into the bottom band. Pulling
-# the emoji 4 rows up anchors it at row 0..15, exactly within the band.
-top_emoji_y_offset = -4
 top_font = "Inter-Bold"
 top_font_size = 22
 top_color = [225, 48, 108]

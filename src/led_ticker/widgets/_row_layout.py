@@ -33,6 +33,7 @@ def row_layout(
     font: Any,
     band_height: int,
     band_offset: int,
+    sprite_logical_height: int = EMOJI_ROW_CAP,
 ) -> tuple[int, int]:
     """Return (text_baseline_y, emoji_top_y) for one row's band.
 
@@ -43,19 +44,24 @@ def row_layout(
     is (4, 0) and bottom is (12, 4).
 
     Delegates baseline math to `compute_baseline_for_band`; centers
-    the emoji sprite on an `EMOJI_ROW_CAP`-tall sub-band so 8-px
-    emoji coexist with any text size.
+    the emoji sprite on a `sprite_logical_height`-tall sub-band so
+    sprites of any size coexist with any text size. Defaults to
+    `EMOJI_ROW_CAP = 8` (the low-res sprite height) for back-compat
+    with callers that don't know their actual sprite size.
 
-    For small bands (`band_height < EMOJI_ROW_CAP = 8`), the centered
-    formula would produce a negative `emoji_y` relative to the band —
-    clipping the top of the sprite above the band edge. Clamp to
-    `band_offset` so the emoji top is at least the band's top edge
-    (the bottom may then bleed into the next band's space, which is
-    benign as long as that space isn't occupied — typical asymmetric
-    layouts have a small top tag where this bleed lands harmlessly
-    before the bottom row's text baseline).
+    For small bands (`band_height < sprite_logical_height`), the
+    centered formula would produce a negative `emoji_y` relative to
+    the band — clipping the top of the sprite above the band edge.
+    Clamp to `band_offset` so the emoji top is at least the band's
+    top edge (the bottom may then bleed into the next band's space,
+    which is benign as long as that space isn't occupied — typical
+    asymmetric layouts have a small top tag where this bleed lands
+    harmlessly before the bottom row's text baseline).
     """
-    emoji_y = max(band_offset, (band_height - EMOJI_ROW_CAP) // 2 + band_offset)
+    emoji_y = max(
+        band_offset,
+        (band_height - sprite_logical_height) // 2 + band_offset,
+    )
     baseline = compute_baseline_for_band(
         font, band_height, safe_scale(canvas), valign="center"
     )

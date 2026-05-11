@@ -70,6 +70,13 @@ export default defineConfig({
           label: "Tools",
           items: [{ autogenerate: { directory: "tools" } }],
         },
+        // Validation rules sit next to Tools — they're what
+        // `led-ticker validate` reports.
+        { label: "Validation rules", link: "/pitfalls/" },
+        {
+          label: "Reference",
+          items: [{ autogenerate: { directory: "reference" } }],
+        },
         {
           label: "Hardware",
           items: [
@@ -97,12 +104,9 @@ export default defineConfig({
             },
           ],
         },
-        {
-          label: "Reference",
-          items: [{ autogenerate: { directory: "reference" } }],
-        },
-        { label: "Showcase", link: "/showcase/" },
-        { label: "Validation rules", link: "/pitfalls/" },
+        // Inspiration / browsing — last, because reaching it from
+        // anywhere else is a sign you've already learned what you came for.
+        { label: "Sign Showcase", link: "/showcase/" },
       ],
     }),
   ],

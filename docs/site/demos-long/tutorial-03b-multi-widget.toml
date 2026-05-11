@@ -1,4 +1,4 @@
-# render-duration: 35
+# render-duration: 25
 # Builds on tutorial-03a: adds a countdown widget and a third section
 # with an announcements ticker. Shows that swap and forever_scroll sections
 # can coexist and that the countdown widget drops in just like a message.
@@ -15,6 +15,9 @@ chain = 1
 default_scale = 4
 brightness = 60
 
+
+[title]
+delay = 0   # no title card; suppress the 5s default per-section title hold
 [transitions]
 default = "push_left"
 duration = 0.5

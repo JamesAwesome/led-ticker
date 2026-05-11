@@ -621,6 +621,29 @@ class TestFieldSurfaceMatchesTwoRow:
             )
 
 
+class TestImageTwoRowHiresEmojiAnchoring:
+    """Hi-res emoji in a band sized to fit it should anchor at the
+    band's top edge, not at the 8-row low-res-sprite centering
+    position. Mirrors `test_hires_sprite_anchors_within_full_band`
+    in test_two_row.py for the image two-row text overlay path."""
+
+    def test_hires_sprite_anchors_within_full_band(self):
+        from types import SimpleNamespace
+
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.widgets._row_layout import row_layout
+
+        canvas = SimpleNamespace(height=24, scale=2, width=128)
+        _, top_emoji_y = row_layout(
+            canvas,
+            FONT_SMALL,
+            band_height=16,
+            band_offset=0,
+            sprite_logical_height=16,
+        )
+        assert top_emoji_y == 0
+
+
 class TestResolvedFontSize:
     """`_resolved_font_size()` is the smart-default hook. If
     `self.font_size` is set, it returns as-is. If None, BDF returns

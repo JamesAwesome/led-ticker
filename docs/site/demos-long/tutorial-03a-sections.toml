@@ -1,0 +1,52 @@
+# render-duration: 20
+# Demonstrates two sections in one config: a forever_scroll section
+# (continuous ticker) and a swap section (held messages with transitions).
+# The reader sees both modes side-by-side in a single render.
+#
+# Timing:
+#   Section 1 forever_scroll: "Welcome to Moonbunny" + "Open Tuesday – Sunday  *  10am – 8pm"
+#     scroll at step_ms=40 across 64 logical px → ~10s for one pass
+#   Section 2 swap: "Open daily" (2.5s) → push_left → "10am - 8pm" (2.5s)
+#     → push_left; cycle = ~6s. loop_count=1 means one pass through both.
+#   Total ≈ 16s; 20s gives a comfortable tail.
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "push_left"
+duration = 0.5
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+scroll_step_ms = 40
+
+[[playlist.section.widget]]
+type = "message"
+text = "Welcome to Moonbunny"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open Tuesday – Sunday  *  10am – 8pm"
+font_color = [255, 240, 200]
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+transition = "push_left"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open daily"
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "10am – 8pm"
+font_color = [225, 48, 108]

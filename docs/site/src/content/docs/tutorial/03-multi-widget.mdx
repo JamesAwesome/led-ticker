@@ -1,11 +1,313 @@
 ---
 title: "Tutorial 3: Multi-widget sign"
-description: Add multiple widgets across sections, mix scroll modes, and drop in a two_row widget with inline emoji.
+description: Add multiple sections, mix forever_scroll and swap modes, and drop in a two_row widget with hi-res inline emoji.
 ---
 
 import TutorialNav from "../../../components/TutorialNav.astro";
+import DemoGif from "../../../components/DemoGif.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
 
-_Chapter content coming soon._
+<DemoGif
+  src="/demos-long/tutorial-03d-two_row-hires.gif"
+  caption="What you'll have by the end of this chapter — a two-row card with a hi-res Instagram logo and scrolling promo text."
+/>
+
+Chapter 2 ended with a single `forever_scroll` section and one message widget. This
+chapter adds sections, introduces the three display modes, shows how to mix widget
+types, and finishes with the `two_row` widget rendered at hi-res.
+
+<details>
+<summary>Reset block — start of Chapter 3</summary>
+
+If you need to reset to the starting point for this chapter, create
+`config/config.toml` with the state from the end of Chapter 2:
+
+```toml
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Welcome to Moonbunny"
+font_color = [225, 48, 108]
+```
+
+</details>
+
+## Sections and modes
+
+A config can have multiple `[[playlist.section]]` blocks. The playlist cycles
+through them in order, looping forever. Each section picks its own `mode`:
+
+- **`forever_scroll`** — all widgets in the section scroll end-to-end as a
+  continuous stream. The text exits left and re-enters right on the next loop.
+- **`swap`** — each widget is displayed individually, held for `hold_time`
+  seconds. If the content is wider than the canvas it scrolls before holding;
+  otherwise it's shown statically. Transitions between widgets are animated.
+- **`infini_scroll`** — like `forever_scroll` but each widget scrolls fully
+  off the left edge before the next one enters from the right. No overlap
+  between consecutive messages.
+
+Add a second section to your config — a `swap` section with two short messages:
+
+```toml
+[transitions]
+default = "push_left"
+duration = 0.5
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+scroll_step_ms = 40
+
+[[playlist.section.widget]]
+type = "message"
+text = "Welcome to Moonbunny"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open Tuesday – Sunday  *  10am – 8pm"
+font_color = [255, 240, 200]
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+transition = "push_left"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open daily"
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "10am – 8pm"
+font_color = [225, 48, 108]
+```
+
+A few new fields:
+
+- **`[transitions]`** — sets the default transition for the whole config.
+  `push_left` slides the outgoing content off left while the incoming content
+  slides in from the right. `duration = 0.5` sets the transition length in
+  seconds.
+- **`scroll_step_ms`** — milliseconds of wall-clock time between each one-pixel
+  scroll step. 40 ms gives a comfortable reading pace.
+- **`transition = "push_left"` on a section** — overrides the default for
+  that section's inter-widget transitions.
+- **`hold_time = 2.5`** — how long to hold each widget in `swap` mode before
+  moving to the next.
+
+Validate and render. You'll see the two messages scroll side-by-side in section 1,
+then the sign switches to the two held cards in section 2:
+
+<DemoGif
+  src="/demos-long/tutorial-03a-sections.gif"
+  caption="Two sections: forever_scroll followed by swap. The push_left transition connects both the section boundary and the swap within section 2."
+/>
+
+## Adding more widget types
+
+The `countdown` widget shows a day-count label. It takes `message` (the label
+text) and `countdown_date` (a TOML date literal). Add a third section that mixes
+a countdown with an announcements message:
+
+```toml
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+scroll_step_ms = 40
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Summer Camps"
+countdown_date = 2026-06-15
+font_color = [180, 220, 180]
+
+[[playlist.section.widget]]
+type = "message"
+text = "All ages welcome  *  Drop-ins welcome"
+font_color = [255, 220, 0]
+```
+
+The countdown renders as `Summer Camps: 35` (or however many days remain). It
+scrolls through the same `forever_scroll` stream as the message widget on either
+side — no special treatment needed.
+
+<DemoGif
+  src="/demos-long/tutorial-03b-multi-widget.gif"
+  caption="Three sections. The third section streams the countdown and the announcement message side-by-side in a continuous ticker."
+/>
+
+You can substitute any widget type wherever a `message` appears. The playlist
+engine treats them uniformly — widget output is just pixels on a canvas.
+
+## The two_row widget — basic
+
+`two_row` splits the canvas into a fixed top row and a scrolling bottom row.
+The top row holds a label or handle; the bottom row scrolls through longer content.
+
+Add a new `swap` section for the two_row widget. Setting `scale = 1` on the
+section overrides `default_scale` for this section only — the logical canvas
+becomes the full 64×16 pixel space, which is the simplest way to introduce
+`two_row` before layering on per-section scaling:
+
+```toml
+[[playlist.section]]
+mode = "swap"
+scale = 1
+content_height = 16
+loop_count = 1
+hold_time = 8.0
+scroll_step_ms = 35
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "@moonbunny"
+top_color = [225, 48, 108]
+top_align = "center"
+bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_color = [255, 240, 200]
+bottom_align = "left"
+```
+
+The `two_row` knobs used here:
+
+- **`top_text`** / **`bottom_text`** — the content for each row. The top is
+  held; the bottom scrolls automatically when it overflows the canvas width.
+- **`top_color`** / **`bottom_color`** — independent color per row.
+- **`top_align`** — `"center"` centers the top label. Options: `"left"`,
+  `"center"`, `"right"`.
+- **`bottom_align`** — `"left"` starts the bottom scroll from the left edge.
+
+<DemoGif
+  src="/demos-long/tutorial-03c-two_row-basic.gif"
+  caption="two_row at scale=1: '@moonbunny' held on top, the promo text scrolling across the bottom row."
+/>
+
+The top row is static throughout; only the bottom row moves. `hold_time = 8.0`
+gives the bottom text enough time to complete one full scroll pass.
+
+## Two-row with hi-res emoji — the hard configuration case
+
+The basic `two_row` above renders using the default BDF `5x8` bitmap font.
+That's crisp and readable, but the Instagram logo renders as a tiny 8×8
+pixel-art icon. The polished version uses `scale = 2`, a hi-res font for the
+handle, and the full-color 32×32 Instagram sprite.
+
+### Why the math matters
+
+led-ticker enforces one hard ceiling:
+
+```
+scale × content_height ≤ panel_h_real
+```
+
+For the bigsign at `default_scale = 4`, `panel_h_real = 64`. That means
+`content_height` can go up to **16** at the display-level scale of 4. But for a
+_section_-level scale of 2, the ceiling is 64 / 2 = 32 logical px — so you have
+room to make the section taller.
+
+For the hi-res two_row you want:
+
+| knob             | value       | real px             |
+| ---------------- | ----------- | ------------------- |
+| `scale`          | 2           | —                   |
+| `content_height` | 24          | 48 real px (≤ 64 ✓) |
+| `top_row_height` | 16          | 32 real px          |
+| bottom band      | 24 − 16 = 8 | 16 real px          |
+
+The 32×32 hi-res Instagram sprite is `32 real px / scale 2 = 16 logical px` tall.
+That fits exactly in the 16-row top band — but only if it starts at row 0.
+
+The default emoji positioning centers a sprite within the band's base emoji cap
+(8 logical rows). A 16-logical-tall sprite centered in an 8-row cap would
+render at rows 4 through 19 — bleeding 4 rows into the bottom band.
+`top_emoji_y_offset = -4` pulls it up by 4 rows, anchoring it at rows 0–15,
+exactly within the top band.
+
+### The config
+
+```toml
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 24
+loop_count = 1
+hold_time = 8.0
+scroll_step_ms = 35
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunny"
+top_row_height = 16
+top_emoji_y_offset = -4
+top_font = "Inter-Bold"
+top_font_size = 22
+top_color = [225, 48, 108]
+top_align = "left"
+bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_color = [255, 240, 200]
+bottom_align = "left"
+```
+
+New knobs:
+
+- **`top_row_height = 16`** — the top band takes 16 of the 24 logical rows.
+  The remaining 8 go to the bottom row.
+- **`top_emoji_y_offset = -4`** — shifts the emoji up 4 logical rows to anchor
+  it flush with the top of the band. Required when `top_row_height` is larger
+  than the default emoji cap.
+- **`top_font = "Inter-Bold"`** — switches the top row to the bundled
+  Inter Bold hi-res font. BDF fonts (`5x8`, `6x13`, etc.) are pixel-perfect
+  at any scale; hi-res fonts render at physical pixel granularity and look
+  proportional at scale ≥ 2.
+- **`top_font_size = 22`** — physical pixel height for the hi-res font.
+  Required when `top_font` is a hi-res font; the validator raises an error
+  if you omit it.
+
+<DemoGif
+  src="/demos-long/tutorial-03d-two_row-hires.gif"
+  caption="two_row at scale=2, content_height=24: the full-color Instagram sprite on the top row, Inter-Bold handle, BDF marquee below."
+/>
+
+Compare side-by-side with the BDF version from the previous section:
+
+<DemoGif
+  src="/demos-long/tutorial-03c-two_row-basic.gif"
+  caption="For reference: the same content at scale=1 with no hi-res font or emoji."
+/>
+
+The hi-res path activates automatically when `default_scale > 1` — you don't
+need a separate code path. The `:instagram:` slug always resolves to the correct
+sprite size for the current scale and band height.
+
+:::note
+**Older configs** — if you copied a config written before PR #43 landed, you may
+see `top_emoji_y_offset = -4` in your TOML but the sprite already aligns
+correctly without it. As of current `main` the hi-res sprite anchors
+automatically at the top of the band; the offset is only needed if you observe
+the sprite bleeding into the row below.
+:::
+
+## What's next
+
+Chapter 4 adds custom branding: the Atkinson Hyperlegible font for the title card
+and a still image widget that displays a logo.
+
+<RelatedPages
+  slugs={["concepts/sections-and-modes", "widgets/two_row", "reference/config-options", "pitfalls"]}
+/>
 
 <TutorialNav
   prev={{ href: "/tutorial/02-first-config/", title: "Tutorial 2: Your first config" }}

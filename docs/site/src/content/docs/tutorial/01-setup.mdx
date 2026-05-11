@@ -11,13 +11,14 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 
 <DemoGif
   src="/demos-long/tutorial-01-setup.gif"
-  caption="The destination config — four sections rotating in a loop. You'll build this in chapters 2–5."
+  caption="The destination config — three sections rotating in a loop. You'll build this in chapters 2–5."
 />
 
 Over the next five chapters you'll build a real bigsign config from scratch —
 starting with a single message and ending with a multi-section sign that rotates
-through a rainbow title card, an Instagram handle card, a moon image with
-scrolling text, and a ticker of short announcements.
+through a rainbow welcome card, a brand card (the @moonbunnyaerial handle next
+to the hi-res Instagram sprite over a moon image with scrolling promo copy),
+and a held info section (Summer Camps, Open daily, All levels).
 
 This chapter covers getting the code running on your laptop. No hardware needed.
 
@@ -65,9 +66,9 @@ writes each frame to a GIF instead of pushing it to hardware. The output is at
 native panel resolution (256×64 logical pixels, scaled up 4× by the renderer for
 readability).
 
-You should see a looping GIF that cycles through four sections — a rainbow title,
-an Instagram handle card, a moon image with scrolling text, and a ticker of short
-announcements:
+You should see a looping GIF that cycles through three sections — a rainbow
+welcome card, a brand card with the Instagram sprite + moon image + scrolling
+promo, and a held info section (Summer Camps, Open daily, All levels):
 
 <DemoGif
   src="/demos-long/tutorial-01-setup.gif"

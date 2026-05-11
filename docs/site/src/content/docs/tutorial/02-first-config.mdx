@@ -1,0 +1,215 @@
+---
+title: "Tutorial 2: Your first config"
+description: Write a minimal config.toml from scratch and render a scrolling message on the laptop preview.
+prev: false
+next: false
+---
+
+import TutorialNav from "../../../components/TutorialNav.astro";
+import DemoGif from "../../../components/DemoGif.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+<DemoGif
+  src="/demos-long/tutorial-02-first-config.gif"
+  caption="What you'll have by the end of this chapter — a single message scrolling across the sign in pink."
+/>
+
+You've cloned the repo and rendered the destination config. Now you'll write your
+own `config/config.toml` from scratch. By the end of this chapter you'll have a
+working one-section config and understand the structure every led-ticker config
+follows.
+
+## Starting point
+
+Delete any existing `config/config.toml` (if you followed along in Chapter 1, you
+may have one from the example). Start fresh:
+
+```bash
+rm -f config/config.toml
+```
+
+<details>
+<summary>Reset block — start of Chapter 2</summary>
+
+If you ever want to reset to exactly the starting point for this chapter, create
+`config/config.toml` with just the `[display]` block and no widgets yet:
+
+```toml
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+```
+
+</details>
+
+## The `[display]` block
+
+Open a new `config/config.toml` in your editor and add the display block:
+
+```toml
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+```
+
+What each field does:
+
+- **`rows = 64`** and **`cols = 256`** — the physical dimensions of the panel
+  array in pixels. The bigsign is eight 32×64 panels arranged in a 2×4
+  serpentine grid, giving a 256×64 physical canvas.
+- **`chain = 1`** — number of chains. The bigsign uses a single chain of eight
+  panels.
+- **`default_scale = 4`** — the logical-to-physical ratio. All drawing happens
+  on a **logical canvas** of `cols / scale × rows / scale` = 64×16 pixels.
+  Every logical pixel expands to a 4×4 block on the real panel. This keeps font
+  sizes and layout coordinates manageable, and is why the BDF pixel font looks
+  crisp at display size.
+- **`brightness = 60`** — panel brightness, 0–100. 60 is a comfortable starting
+  point.
+
+There are several Pi-specific hardware knobs you'll see in the example configs —
+`pixel_mapper`, `slowdown_gpio`, `gpio_mapping`, `pwm_bits`, `rp1_rio`. These
+control low-level GPIO timing and panel chaining. They have no effect on the
+laptop renderer and are safe to omit until you're deploying to real hardware.
+See [Hardware → Bigsign](/hardware/bigsign/) for details on those.
+
+## Add the first widget
+
+Below the `[display]` block, add a section with one message widget:
+
+```toml
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Welcome to Moonbunny"
+font_color = [225, 48, 108]
+```
+
+A few things to notice:
+
+**The double brackets `[[...]]`** — `[[playlist.section]]` and
+`[[playlist.section.widget]]` use TOML's array-of-tables syntax. Each
+`[[playlist.section]]` header appends a new section to the playlist array; each
+`[[playlist.section.widget]]` header appends a new widget to the most recently
+opened section. This is a common gotcha for TOML newcomers: single brackets
+`[...]` define a single table, double brackets `[[...]]` append to an array.
+
+**`mode = "forever_scroll"`** — the section runs all its widgets end-to-end in a
+continuous scrolling ticker. The text enters from the right, scrolls left, and
+the loop repeats. Other modes (`swap`, `infini_scroll`) are covered in Chapter 3.
+
+**`loop_count = 1`** — how many times to run the section before the playlist
+advances. For a multi-section config, `1` means each section plays once per
+playlist cycle.
+
+**`font_color = [225, 48, 108]`** — an RGB triple. led-ticker accepts colors as
+`[r, g, b]` lists anywhere a color is expected. This particular value is the
+Moonbunny pink.
+
+## Validate
+
+Before rendering, run the config validator:
+
+```bash
+uv run led-ticker validate config/config.toml
+```
+
+If everything is correct you'll see:
+
+```
+Validating config/config.toml...
+
+No issues found.
+```
+
+Try introducing a deliberate error — change `font_color = [225, 48, 108]` to
+`font_color = "pink"` and run validate again:
+
+```
+Validating config/config.toml...
+
+✗ ERROR   section[0].widget[0]: unknown font_color style 'pink'; available: ['color_cycle', 'gradient', 'rainbow', 'random']
+          Fix: See error message for details.
+
+1 issue(s): 1 error(s), 0 warning(s)
+```
+
+The validator catches type errors, unknown fields, and missing required values
+before you ever render. Get in the habit of running it after every edit. Revert
+the typo before continuing.
+
+## Render
+
+```bash
+make render-demo CONFIG=config/config.toml OUT=preview.gif
+open preview.gif        # macOS
+xdg-open preview.gif    # Linux
+```
+
+You should see "Welcome to Moonbunny" scrolling in pink across a black
+background — identical to the demo at the top of this page:
+
+<DemoGif
+  src="/demos-long/tutorial-02-first-config.gif"
+  caption="preview.gif — rendered from your config/config.toml"
+/>
+
+The GIF renderer runs the same display engine as the real hardware, so what you
+see here is an accurate preview of what will appear on the panel.
+
+## The edit-validate-render loop
+
+Most led-ticker development follows a tight loop: edit the TOML, validate, render,
+check the GIF, repeat. Try a few concrete changes to get comfortable with it:
+
+**Change the text.** Edit `text = "Welcome to Moonbunny"` to something longer,
+then re-render. A longer string takes more frames to scroll fully through — you
+may want to pass `--duration 20` to give it more time:
+
+```bash
+make render-demo CONFIG=config/config.toml OUT=preview.gif
+```
+
+**Change the color.** Try a different `[r, g, b]` triple — for example
+`[124, 173, 232]` (sky blue) or `[189, 169, 234]` (lavender). Validate and
+re-render after each change.
+
+**Add a second widget.** Append another `[[playlist.section.widget]]` block
+immediately after the first (still under the same `[[playlist.section]]`):
+
+```toml
+[[playlist.section.widget]]
+type = "message"
+text = "Open Tuesday – Sunday  *  10am – 8pm"
+font_color = [255, 240, 200]
+```
+
+Re-render. In `forever_scroll` mode both messages appear back-to-back in a
+single continuous stream, separated by a small gap. The `*` character renders
+as a mid-dot separator — a common convention in ticker text.
+
+Each edit-validate-render cycle takes under ten seconds on a laptop. Keep the
+loop tight and build confidence before moving on to the more complex sections in
+Chapter 3.
+
+## What's next
+
+Chapter 3 introduces multiple sections, the `swap` and `infini_scroll` modes, the
+`two_row` widget for two-line layouts, and hi-res emoji. You'll go from a single
+message to a sign that rotates through distinct content cards.
+
+<TutorialNav
+  prev={{ href: "/tutorial/01-setup/", title: "Tutorial 1: Setup" }}
+  next={{ href: "/tutorial/03-multi-widget/", title: "Tutorial 3: Multi-widget sign" }}
+/>
+
+<RelatedPages slugs={["concepts/sections-and-modes", "widgets/message", "tools/validate"]} />

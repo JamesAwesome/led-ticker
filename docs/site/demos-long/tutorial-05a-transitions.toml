@@ -1,0 +1,71 @@
+# render-duration: 20
+# Chapter 5 — transitions demo. Based on Chapter 4's final state
+# (tutorial-04c-image-with-text.toml) with two changes:
+#   1. A second section is added so between_sections is visible.
+#   2. within-section default = "wipe_left"; between sections = "dissolve".
+#
+# Cycle:
+#   Section 1: msg "Welcome to Moonbunny" (2.5s) → wipe_left (0.5s)
+#              → image+text (8.0s) → wipe_left (0.5s)
+#              → msg "Open daily 10am – 8pm" (2.5s)
+#   dissolve (1.0s)
+#   Section 2: msg "Summer Camps start June 15" (2.5s) → wipe_left (0.5s)
+#              → msg "All levels · All ages" (2.5s)
+#   dissolve (1.0s) → loop
+# ≈ 19.5s per cycle; 20s captures it.
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "wipe_left"
+duration = 0.5
+between_sections = "dissolve"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "Welcome to Moonbunny"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "image"
+path = "../../../config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "center"
+hold_seconds = 8.0
+scroll_speed_ms = 35
+top_text = "@moonbunny"
+top_font = "5x8"
+top_color = [225, 48, 108]
+bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_font = "AtkinsonHyperlegible-Bold"
+bottom_font_size = 22
+bottom_color = [255, 240, 200]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open daily 10am – 8pm"
+font_color = [120, 220, 255]
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "Summer Camps start June 15"
+font_color = [180, 220, 180]
+
+[[playlist.section.widget]]
+type = "message"
+text = "All levels · All ages"
+font_color = [255, 220, 0]

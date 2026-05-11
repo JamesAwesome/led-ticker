@@ -1,0 +1,66 @@
+---
+interface Props {
+  prev?: { href: string; title: string };
+  next?: { href: string; title: string };
+}
+const { prev, next } = Astro.props;
+---
+
+<nav class="tutorial-nav" aria-label="Tutorial chapter navigation">
+  <div class="prev">
+    {prev && <a href={prev.href}>← Back to {prev.title}</a>}
+  </div>
+  <div class="next">
+    {next && <a href={next.href}>Continue the tutorial: {next.title} →</a>}
+  </div>
+</nav>
+
+<style>
+  .tutorial-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2.5rem;
+    flex-wrap: wrap;
+  }
+  .tutorial-nav .prev a {
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-2);
+    text-decoration: none;
+  }
+  .tutorial-nav .prev a:hover {
+    color: var(--sl-color-text);
+    text-decoration: underline;
+  }
+  .tutorial-nav .next a {
+    display: inline-block;
+    background: var(--sl-color-accent-low);
+    border: 2px solid var(--sl-color-accent);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    font-weight: 700;
+    color: var(--sl-color-text);
+    text-decoration: none;
+  }
+  .tutorial-nav .next a:hover {
+    background: var(--sl-color-accent);
+    color: var(--sl-color-white);
+  }
+  .tutorial-nav .prev:empty,
+  .tutorial-nav .next:empty {
+    /* When there's no prev (chapter 1) or no next (chapter 5), the
+       empty slot collapses; the remaining slot anchors to its
+       justify-content position. */
+    display: none;
+  }
+  /* When only `next` is present (chapter 1), push the CTA to the right
+     side of the row rather than letting it sit centered. */
+  .tutorial-nav:has(.prev:empty) {
+    justify-content: flex-end;
+  }
+  /* When only `prev` is present (chapter 5), keep it left-aligned. */
+  .tutorial-nav:has(.next:empty) {
+    justify-content: flex-start;
+  }
+</style>

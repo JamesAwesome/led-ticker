@@ -1,0 +1,320 @@
+---
+title: "Tutorial 4: Custom branding"
+description: Load Atkinson Hyperlegible for distance-legible text, add a logo image widget, and combine the two with a text overlay for a polished brand card.
+prev: false
+next: false
+---
+
+import TutorialNav from "../../../components/TutorialNav.astro";
+import DemoGif from "../../../components/DemoGif.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+<DemoGif
+  src="/demos-long/tutorial-04c-image-with-text.gif"
+  caption="What you'll have by the end of this chapter — a moon logo with a scrolling Atkinson Hyperlegible promo line underneath."
+/>
+
+Chapter 3 left you with a polished `two_row` section using Inter-Bold and the hi-res Instagram sprite. This chapter adds the last two branding pieces: a custom font that was designed for real-world legibility, and an image widget that displays your logo.
+
+<details>
+<summary>Reset block — start of Chapter 4</summary>
+
+If you need to reset to the starting point for this chapter, create
+`config/config.toml` with the state from the end of Chapter 3:
+
+```toml
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "push_left"
+duration = 0.5
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+scroll_step_ms = 40
+
+[[playlist.section.widget]]
+type = "message"
+text = "Welcome to Moonbunny"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open Tuesday – Sunday  *  10am – 8pm"
+font_color = [255, 240, 200]
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+transition = "push_left"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open daily"
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "10am – 8pm"
+font_color = [225, 48, 108]
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+scroll_step_ms = 40
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Summer Camps"
+countdown_date = 2026-06-15
+font_color = [180, 220, 180]
+
+[[playlist.section.widget]]
+type = "message"
+text = "All ages welcome  *  Drop-ins welcome"
+font_color = [255, 220, 0]
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 24
+loop_count = 1
+hold_time = 8.0
+scroll_step_ms = 35
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunny"
+top_row_height = 16
+top_emoji_y_offset = -4
+top_font = "Inter-Bold"
+top_font_size = 22
+top_color = [225, 48, 108]
+top_align = "left"
+bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_color = [255, 240, 200]
+bottom_align = "left"
+```
+
+</details>
+
+## Adding a custom font
+
+led-ticker ships with Inter Bold and Inter Regular as bundled hi-res fonts, which
+cover most use cases. But for a venue sign that needs to be readable from across
+a room, a font designed specifically for legibility at distance makes a real
+difference.
+
+**Atkinson Hyperlegible** is a typeface created by the Braille Institute to maximize
+readability for people with low vision — and those same design choices (open letterforms,
+unambiguous character shapes, generous spacing) make it excellent for LED signs read
+from 3–10 metres away. It's available free under the Open Font License.
+
+Download it from the Braille Institute:
+
+> **https://brailleinstitute.org/freefont** — click "Download Now" for the ZIP.
+
+Alternatively, Google Fonts also hosts it:
+
+> https://fonts.google.com/specimen/Atkinson+Hyperlegible
+
+Both sources include Regular and Bold weights. Either `.otf` or `.ttf` files work —
+led-ticker's hi-res loader accepts both.
+
+Once downloaded, place the files next to your config:
+
+```
+config/
+  config.toml
+  fonts/
+    AtkinsonHyperlegible-Bold.otf
+    AtkinsonHyperlegible-Regular.otf
+```
+
+The `config/fonts/` directory is gitignored in the led-ticker repo, so the font
+files won't be committed if you're working inside the repository. For your own
+production config (outside the repo), treat `fonts/` as a sibling to `config.toml`
+— led-ticker finds it automatically at startup.
+
+:::note
+**Font name is the filename stem.** `AtkinsonHyperlegible-Bold.otf` is referenced
+in TOML as `top_font = "AtkinsonHyperlegible-Bold"`. No path, no extension — just
+the stem. The same applies to any other font you add to `config/fonts/`.
+:::
+
+## Using the font in a widget
+
+In Chapter 3's `two_row` section, the top row uses `top_font = "Inter-Bold"`. Swap
+it for the new font:
+
+```toml
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunny"
+top_row_height = 16
+top_emoji_y_offset = -4
+top_font = "AtkinsonHyperlegible-Bold"
+top_font_size = 22
+top_color = [225, 48, 108]
+top_align = "left"
+bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_color = [255, 240, 200]
+bottom_align = "left"
+```
+
+Only `top_font` changed. Everything else — scale, band heights, emoji offset — stays
+the same.
+
+Here is the Inter-Bold version from Chapter 3 for comparison:
+
+<DemoGif
+  src="/demos-long/tutorial-03d-two_row-hires.gif"
+  caption="Chapter 3: Inter-Bold on the top row. Clean, but the double-story 'a' and closed letterforms are harder to read at distance."
+/>
+
+And the same config with Atkinson Hyperlegible-Bold:
+
+<DemoGif
+  src="/demos-long/tutorial-04a-font.gif"
+  caption="Chapter 4: Atkinson Hyperlegible-Bold. Open single-story 'a', wider apertures, unambiguous 'n'/'m' stems — more readable at 5+ metres."
+/>
+
+The difference is subtle on-screen but pronounced on the physical panel. Atkinson's
+wider letter spacing and open forms survive the LED dot-grid better than Inter's
+tighter proportions at the same pixel size.
+
+If your font has thin strokes that wash out at the default rasterization threshold,
+the `font_threshold` knob (0–255, default 128) lets you lower the cutoff to preserve
+more of the hairlines. A value around 80 suits most thin-stroked typefaces. See
+[Concepts → Fonts](/concepts/fonts/) for the full tuning story.
+
+## Adding a logo image
+
+The `image` widget displays a PNG, JPEG, or WebP still image on the panel. The
+repository ships with `config/assets/moon-transparent.png` — a PNG with a
+transparent background — for exactly this use case.
+
+Add a new `swap` section after the `two_row` section:
+
+```toml
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open daily"
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "10am – 8pm"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "image"
+path = "config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "center"
+hold_seconds = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "All ages welcome"
+font_color = [255, 220, 0]
+```
+
+The `image` widget knobs used here:
+
+- **`path`** — path to the image file, relative to `config.toml`. The bundled
+  `moon-transparent.png` lives in `config/assets/`.
+- **`fit = "pillarbox"`** — scales the image to fill the panel height, leaving
+  black bars on the sides if the image is taller than it is wide. Other options:
+  `"letterbox"` (fill width, bars top/bottom), `"stretch"` (distort to fill),
+  `"crop"` (fill and trim). For a logo with transparent background, `"pillarbox"`
+  is usually the right choice.
+- **`image_align = "center"`** — centers the image horizontally within the panel.
+  Options: `"left"`, `"center"`, `"right"`.
+- **`hold_seconds = 4.0`** — how long to display the image before the next widget.
+  This is separate from the section's `hold_time` — `hold_seconds` is per-widget,
+  `hold_time` is the section default for widgets that don't set their own.
+
+<DemoGif
+  src="/demos-long/tutorial-04b-image.gif"
+  caption="Image widget in a swap section: two message cards, the moon logo, then a third message — all joined by push_left transitions."
+/>
+
+The transparent PNG regions render as black on the panel (LEDs are off), which
+creates a clean silhouette effect. Opaque images fill every pixel; transparent
+ones let the panel background show through.
+
+## Combining text and image
+
+The `image` widget supports the same two-row text overlay as the `two_row` widget
+from Chapter 3. Setting `top_text` and `bottom_text` on an `image` widget layers
+a held title on top and a scrolling promo line on the bottom — with the image
+visible behind or between them.
+
+Replace the bare image widget from above with the text overlay version:
+
+```toml
+[[playlist.section.widget]]
+type = "image"
+path = "config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "center"
+hold_seconds = 8.0
+scroll_speed_ms = 35
+top_text = "@moonbunny"
+top_font = "5x8"
+top_color = [225, 48, 108]
+bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_font = "AtkinsonHyperlegible-Bold"
+bottom_font_size = 22
+bottom_color = [255, 240, 200]
+```
+
+New knobs compared to the plain image widget:
+
+- **`hold_seconds = 8.0`** — longer hold to give the bottom text time to complete
+  one full scroll pass. The engine waits for at least one full traversal regardless,
+  but setting this explicitly prevents a premature cut.
+- **`scroll_speed_ms = 35`** — milliseconds per one-pixel scroll step for the
+  bottom text. Lower = faster; 35 ms is a comfortable reading pace.
+- **`top_text`** / **`top_font`** / **`top_color`** — held top row, same knobs as
+  `two_row`. Using `"5x8"` (a BDF font) here means no `top_font_size` is required.
+- **`bottom_text`** / **`bottom_font`** / **`bottom_font_size`** / **`bottom_color`**
+  — scrolling bottom row with Atkinson Hyperlegible-Bold. `bottom_font_size` is
+  required for any hi-res font; `22` (real pixels) fits comfortably in the bottom
+  band at `default_scale = 4`.
+
+<DemoGif
+  src="/demos-long/tutorial-04c-image-with-text.gif"
+  caption="Image widget with two-row text overlay: '@moonbunny' held on top, the moon logo centered, Atkinson Hyperlegible promo text scrolling across the bottom."
+/>
+
+This is the same two-row layout primitive as Chapter 3's `two_row` widget, applied
+directly to an image. The image paints behind the bottom text; where the bottom row
+overlaps the image, the text renders on top. Use `text_align = "scroll_over"` if
+you want the text always above the image (see [Widgets → image](/widgets/image/)
+for the full overlay paint-order options).
+
+## What's next
+
+Chapter 5 covers polish and deploy: `bg_color` for bordered sections, `border`
+effects, and the steps to get your config running on the Pi.
+
+<TutorialNav
+  prev={{ href: "/tutorial/03-multi-widget/", title: "Tutorial 3: Multi-widget sign" }}
+  next={{ href: "/tutorial/05-polish/", title: "Tutorial 5: Polish & deploy" }}
+/>
+
+<RelatedPages slugs={["concepts/fonts", "widgets/image", "assets/emoji"]} />

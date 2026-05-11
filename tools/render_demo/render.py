@@ -57,7 +57,10 @@ def _upscale(img: Image.Image, factor: int) -> Image.Image:
 
 
 async def _drive_engine(
-    rewritten_cfg_path: Path, duration_s: float, recorder_holder: list
+    rewritten_cfg_path: Path,
+    duration_s: float,
+    recorder_holder: list,
+    original_cfg_path: Path | None = None,
 ) -> float:
     """Start the led-ticker app on the rewritten config; substitute a
     RecordingMatrix for the real RGBMatrix; cancel after `duration_s`.
@@ -68,11 +71,19 @@ async def _drive_engine(
     the run ends. Returns the engine's stop-time (`time.monotonic()`)
     so the encoder can credit the LAST captured frame with the time
     that elapsed between its swap and the engine cancellation.
+
+    `original_cfg_path` — if supplied, anchors the hi-res font search
+    directory to ``<original_cfg_path.parent>/fonts/`` BEFORE the engine
+    starts. This lets demos that live outside the repo root (e.g. in
+    ``docs/site/demos-long/``) supply their own fonts in a local
+    ``fonts/`` subdirectory without those fonts needing to be in the
+    system ``config/fonts/`` or the engine's temp rewrite directory.
     """
+    from led_ticker import app as app_mod
     from led_ticker import frame as frame_mod
-    from led_ticker.app import run as app_run
 
     original_rgbmatrix = frame_mod.RGBMatrix
+    original_configure = app_mod._configure_user_font_dir
 
     def patched_rgbmatrix(*args, **kwargs):
         real = original_rgbmatrix(*args, **kwargs)
@@ -80,9 +91,17 @@ async def _drive_engine(
         recorder_holder.append(rec)
         return rec
 
+    # When the caller supplied the original config path, pre-anchor the
+    # hi-res font directory to that file's sibling ``fonts/`` dir.  We
+    # then suppress the app's own ``_configure_user_font_dir`` call so it
+    # doesn't re-anchor to the temp-dir copy (which has no fonts/).
+    if original_cfg_path is not None:
+        original_configure(original_cfg_path)
+        app_mod._configure_user_font_dir = lambda _path: None  # type: ignore[method-assign]
+
     frame_mod.RGBMatrix = patched_rgbmatrix
     try:
-        task = asyncio.create_task(app_run(rewritten_cfg_path))
+        task = asyncio.create_task(app_mod.run(rewritten_cfg_path))
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(asyncio.shield(task), timeout=duration_s)
         task.cancel()
@@ -90,6 +109,7 @@ async def _drive_engine(
             await task
     finally:
         frame_mod.RGBMatrix = original_rgbmatrix
+        app_mod._configure_user_font_dir = original_configure
     return time.monotonic()
 
 
@@ -118,7 +138,14 @@ def render(
         rewritten_path.write_bytes(tomli_w.dumps(rewritten).encode("utf-8"))
 
         recorder_holder: list = []
-        end_time = asyncio.run(_drive_engine(rewritten_path, duration, recorder_holder))
+        end_time = asyncio.run(
+            _drive_engine(
+                rewritten_path,
+                duration,
+                recorder_holder,
+                original_cfg_path=config_path,
+            )
+        )
 
         if not recorder_holder:
             raise RuntimeError(

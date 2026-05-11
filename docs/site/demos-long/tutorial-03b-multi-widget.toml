@@ -1,0 +1,69 @@
+# render-duration: 35
+# Builds on tutorial-03a: adds a countdown widget and a third section
+# with an announcements ticker. Shows that swap and forever_scroll sections
+# can coexist and that the countdown widget drops in just like a message.
+#
+# Timing:
+#   Section 1 forever_scroll: two messages scroll past → ~10s
+#   Section 2 swap: "Open daily" (2.5s) → "10am – 8pm" (2.5s) → ~6s
+#   Section 3 forever_scroll: countdown + announcement → ~8s
+#   Total ≈ 24s; 25s captures the full cycle.
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "push_left"
+duration = 0.5
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 3
+hold_time = 1.0
+scroll_step_ms = 40
+
+[[playlist.section.widget]]
+type = "message"
+text = "Welcome to Moonbunny"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open Tuesday – Sunday  *  10am – 8pm"
+font_color = [255, 240, 200]
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+transition = "push_left"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open daily"
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "10am – 8pm"
+font_color = [225, 48, 108]
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 3
+hold_time = 1.0
+scroll_step_ms = 40
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Summer Camps"
+countdown_date = 2026-06-15
+font_color = [180, 220, 180]
+
+[[playlist.section.widget]]
+type = "message"
+text = "All ages welcome  *  Drop-ins welcome"
+font_color = [255, 220, 0]

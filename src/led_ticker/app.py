@@ -36,6 +36,12 @@ from led_ticker.widgets.rss_feed import RSSFeedMonitor
 # Lives here (not in `colors.py`) because this is the only consumer; a
 # module-level `itertools.cycle` is mutable singleton state and belongs
 # next to the code whose lifecycle owns it.
+#
+# Note: the 8 palette imports above are intentionally eager — `app.py`
+# can't run without the graphics library anyway, so deferring color
+# materialization here buys nothing. Don't "lazify" this with
+# `lazy_palette` — the eagerness is the right tradeoff for the entry
+# point.
 RANDOM_COLOR: itertools.cycle = itertools.cycle(
     [RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE, CYAN, PINK]
 )

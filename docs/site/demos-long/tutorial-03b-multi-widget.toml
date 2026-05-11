@@ -1,13 +1,14 @@
-# render-duration: 25
+# render-duration: 35
 # Builds on tutorial-03a: adds a countdown widget and a third section
 # with an announcements ticker. Shows that swap and forever_scroll sections
 # can coexist and that the countdown widget drops in just like a message.
 #
-# Timing:
-#   Section 1 forever_scroll: two messages scroll past → ~10s
+# Timing (loop_count=1 on forever_scroll for a tight cycle):
+#   Section 1 forever_scroll: two messages scroll past → ~13s
 #   Section 2 swap: "Open daily" (2.5s) → "10am – 8pm" (2.5s) → ~6s
-#   Section 3 forever_scroll: countdown + announcement → ~8s
-#   Total ≈ 24s; 25s captures the full cycle.
+#   Section 3 forever_scroll: countdown + announcement scroll → ~13s
+#   Plus inter-section transitions. Total ≈ 33s; 35s captures one
+#   full cycle showing all three sections.
 [display]
 rows = 64
 cols = 256
@@ -24,7 +25,7 @@ duration = 0.5
 
 [[playlist.section]]
 mode = "forever_scroll"
-loop_count = 3
+loop_count = 1
 hold_time = 1.0
 scroll_step_ms = 40
 
@@ -56,7 +57,7 @@ font_color = [225, 48, 108]
 
 [[playlist.section]]
 mode = "forever_scroll"
-loop_count = 3
+loop_count = 1
 hold_time = 1.0
 scroll_step_ms = 40
 

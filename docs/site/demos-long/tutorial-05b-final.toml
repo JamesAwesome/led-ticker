@@ -1,15 +1,18 @@
-# render-duration: 16
+# render-duration: 65
 # Chapter 5 — final polished config. The destination state for the
 # whole tutorial. Mirrors config/config.bigsign.moonbunny.example.toml.
 #
 # Restructured from the 2-section transitions/borders state:
-#   - Section 1 (welcome card): rainbow font + rainbow border
+#   - Section 1 (welcome card): rainbow font + rainbow border (~3s)
 #   - Section 2 (brand card): per-section scale=2 so :instagram: renders
 #     as the hi-res 32×32 sprite next to the @moonbunnyaerial handle
+#     (~22s with full bottom-row scroll)
 #   - Section 3 (info messages): Summer Camps with rainbow border,
-#     Open daily, All levels
+#     Open daily, All levels — each overflows the canvas at scale=4 and
+#     scrolls once before holding (~39s total)
 #
-# Cycle ~14s; 16s captures one full pass.
+# Full cycle ≈ 65s. Long but complete — the chapter 5 final demo shows
+# everything the reader has built.
 [display]
 rows = 64
 cols = 256

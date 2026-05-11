@@ -12,7 +12,7 @@ import attrs
 import feedparser
 
 from led_ticker._types import Color
-from led_ticker.colors import DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR
+from led_ticker.colors import DEFAULT_COLOR, GREEN, RED
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets.message import TickerMessage
@@ -27,13 +27,13 @@ class RSSFeedMonitor:
     feed_url: str
     padding: int = 6
     colors: itertools.cycle[Color] = attrs.Factory(
-        lambda: itertools.cycle([DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR])
+        lambda: itertools.cycle([DEFAULT_COLOR, RED, GREEN])
     )
     max_stories: int = 5
     # When set, every story TickerMessage gets this color/provider
     # (e.g. `font_color = "rainbow"` paints all stories rainbow).
     # When unset (None), fall back to the legacy 3-color rotation
-    # (DEFAULT_COLOR / DOWN / UP) so existing configs keep working.
+    # (DEFAULT_COLOR / RED / GREEN) so existing configs keep working.
     font_color: Any = attrs.field(default=None, kw_only=True)
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     feed_title: TickerMessage | None = attrs.field(init=False, default=None)

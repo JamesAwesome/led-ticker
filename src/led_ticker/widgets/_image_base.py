@@ -559,10 +559,17 @@ class _BaseImageWidget(_FrameAware):
             color = color.color_for(self.frame_for("font_color"), 0, per_char_total)
         return draw_text(canvas, self.font, x, baseline_y, color, text)
 
-    def _measure_row_text(self, canvas: Canvas, row: int) -> int:
+    def _measure_row_text(
+        self, canvas: Canvas, row: int, max_emoji_height: int = EMOJI_ROW_CAP
+    ) -> int:
         """Width of one row's text in two-row mode. Uses per-row font
         and emoji-aware measurement when the row's text contains
         `:slug:` tokens; otherwise the plain `get_text_width` path.
+
+        `max_emoji_height` controls the hi-res / low-res fallback for
+        any inline emoji slugs. Caller passes the row's band height
+        so a hi-res sprite that fits the band visually is allowed
+        through; defaults to the static `EMOJI_ROW_CAP` for back-compat.
         """
         font = self._row_font(row)
         text = self._row_text(row)
@@ -570,7 +577,7 @@ class _BaseImageWidget(_FrameAware):
             from led_ticker.pixel_emoji import measure_width
 
             return measure_width(
-                font, text, canvas=canvas, max_emoji_height=EMOJI_ROW_CAP
+                font, text, canvas=canvas, max_emoji_height=max_emoji_height
             )
         return get_text_width(font, text, padding=0, canvas=canvas)
 
@@ -584,6 +591,7 @@ class _BaseImageWidget(_FrameAware):
         baseline_y: int,
         emoji_y: int,
         frame_count: int,
+        max_emoji_height: int = EMOJI_ROW_CAP,
     ) -> None:
         """Draw one row's text given pre-resolved font / text / color.
         Caller (`_render_two_row_tick`) resolves these once outside the
@@ -612,7 +620,7 @@ class _BaseImageWidget(_FrameAware):
                 color,
                 text,
                 emoji_y=emoji_y,
-                max_emoji_height=EMOJI_ROW_CAP,
+                max_emoji_height=max_emoji_height,
                 frame=frame_count,
             )
         elif hasattr(color, "color_for") and color.per_char:
@@ -717,6 +725,8 @@ class _BaseImageWidget(_FrameAware):
         text_canvas: Canvas,
         top: tuple[Any, str, Color, int, int, int],
         bottom: tuple[Any, str, Color, int, int, int],
+        top_emoji_cap: int = EMOJI_ROW_CAP,
+        bottom_emoji_cap: int = EMOJI_ROW_CAP,
     ) -> None:
         """Compose one two-row frame: reset canvas → paint image to the
         real canvas (native pixels) → paint each row to the text canvas
@@ -744,10 +754,16 @@ class _BaseImageWidget(_FrameAware):
         if self.border is not None:
             self.border.paint(real_canvas, self.frame_for("border"))
         self._draw_row_text(
-            text_canvas, *top, frame_count=self.frame_for(self._row_color_attr(0))
+            text_canvas,
+            *top,
+            frame_count=self.frame_for(self._row_color_attr(0)),
+            max_emoji_height=top_emoji_cap,
         )
         self._draw_row_text(
-            text_canvas, *bottom, frame_count=self.frame_for(self._row_color_attr(1))
+            text_canvas,
+            *bottom,
+            frame_count=self.frame_for(self._row_color_attr(1)),
+            max_emoji_height=bottom_emoji_cap,
         )
 
     # ------------------------------------------------------------------
@@ -1020,9 +1036,22 @@ class _BaseImageWidget(_FrameAware):
         top_emoji_y += self._row_emoji_y_offset(0)
         bottom_emoji_y += self._row_emoji_y_offset(1)
 
+        # Per-row emoji caps. When the band is taller than the static
+        # EMOJI_ROW_CAP (8 logical), raise the cap so a hi-res emoji
+        # that fits the band visually is allowed to render at hi-res.
+        # Default content_height = 16 with 50/50 split → band = 8 = cap,
+        # so existing demos behave identically; bumping content_height
+        # or top_row_height enables hi-res emoji on the affected row.
+        top_emoji_cap = max(EMOJI_ROW_CAP, top_h)
+        bottom_emoji_cap = max(EMOJI_ROW_CAP, bottom_h)
+
         # Measure both rows once (logical px); drives alignment + scroll.
-        top_width = self._measure_row_text(text_canvas, 0)
-        bottom_width = self._measure_row_text(text_canvas, 1)
+        top_width = self._measure_row_text(
+            text_canvas, 0, max_emoji_height=top_emoji_cap
+        )
+        bottom_width = self._measure_row_text(
+            text_canvas, 1, max_emoji_height=bottom_emoji_cap
+        )
 
         top_x = aligned_x(canvas_w, top_width, self._row_align(0))
 
@@ -1074,7 +1103,14 @@ class _BaseImageWidget(_FrameAware):
                 bottom_baseline,
                 bottom_emoji_y,
             )
-            self._render_two_row_tick(canvas, text_canvas, top_tuple, bottom_tuple)
+            self._render_two_row_tick(
+                canvas,
+                text_canvas,
+                top_tuple,
+                bottom_tuple,
+                top_emoji_cap=top_emoji_cap,
+                bottom_emoji_cap=bottom_emoji_cap,
+            )
             canvas = frame.matrix.SwapOnVSync(canvas)
             if text_is_wrapped:
                 text_canvas.real = canvas
@@ -1096,7 +1132,14 @@ class _BaseImageWidget(_FrameAware):
                 bottom_baseline,
                 bottom_emoji_y,
             )
-            self._render_two_row_tick(canvas, text_canvas, top_tuple, bottom_tuple)
+            self._render_two_row_tick(
+                canvas,
+                text_canvas,
+                top_tuple,
+                bottom_tuple,
+                top_emoji_cap=top_emoji_cap,
+                bottom_emoji_cap=bottom_emoji_cap,
+            )
             canvas = frame.matrix.SwapOnVSync(canvas)
             if text_is_wrapped:
                 text_canvas.real = canvas

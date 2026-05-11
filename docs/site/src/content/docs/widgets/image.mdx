@@ -6,7 +6,6 @@ description: Single PNG/JPG (or single-frame gif) at native panel resolution, wi
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
-import DecisionRule from "../../../components/DecisionRule.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `image` widget displays a single still image at native physical resolution — each LED maps to one pixel in the source. Use it for logos, product photos, brand artwork, or any single-frame graphic. This widget is essentially `gif` with a single frame: it shares the `gif` widget's full feature surface (fit modes, text overlay, two-row, animation, border) minus the per-frame mechanics — the only widget-specific knob is `hold_seconds` instead of `gif_loops`.
@@ -27,7 +26,7 @@ hold_seconds = 4.0`}
 
 ## Common patterns
 
-Static logo (no text):
+### Static logo (no text)
 
 <DemoGif
   src="/demos-pinned/image-static-logo.gif"
@@ -43,7 +42,7 @@ image_align = "center"
 hold_seconds = 6.0`}
 />
 
-Image with scrolling text overlay (`scroll_over` — text in front of the image):
+### Image with scrolling text overlay (`scroll_over` — text in front of the image)
 
 <DemoGif
   src="/demos-pinned/image-scroll_over.gif"
@@ -62,7 +61,7 @@ hold_seconds = 5.0
 font_color = [200, 100, 255]`}
 />
 
-Scrolling text behind a transparent silhouette (`scroll` — text walks under the image; requires a PNG with transparency):
+### Scrolling text behind a transparent silhouette (`scroll` — text walks under the image; requires a PNG with transparency)
 
 <DemoGif
   src="/demos-pinned/image-scroll_behind.gif"
@@ -80,7 +79,7 @@ text_align = "scroll"
 font_color = [200, 200, 255]`}
 />
 
-Two-row text overlay (set `bottom_text` to switch modes — image sits underneath):
+### Two-row text overlay (set `bottom_text` to switch modes — image sits underneath)
 
 <DemoGif
   src="/demos-pinned/image-two_row.gif"
@@ -96,13 +95,13 @@ image_align = "right"
 top_text = "@moonbunny"
 top_font = "5x8"
 top_color = [225, 48, 108]
-bottom_text = "Open daily 10am–8pm"
+bottom_text = "Open daily 10am – 8pm"
 bottom_font = "5x8"
 bottom_color = [255, 240, 200]
 hold_seconds = 6.0`}
 />
 
-Typewriter overlay (single-row only — letters type in next to the image):
+### Typewriter overlay (single-row only — letters type in next to the image)
 
 <DemoGif
   src="/demos-pinned/image-typewriter.gif"
@@ -122,7 +121,7 @@ animation = "typewriter"
 hold_seconds = 5.0`}
 />
 
-Typewriter + rainbow border (frame the panel as the text appears):
+### Typewriter + rainbow border (frame the panel as the text appears)
 
 <DemoGif
   src="/demos-pinned/image-typewriter-border.gif"
@@ -143,16 +142,26 @@ border = "rainbow"
 hold_seconds = 5.0`}
 />
 
-## Pitfalls
+## Tips
 
-<DecisionRule id="14" />
+### Typewriter is single-row only
 
-**`text_align="scroll"` + `fit="stretch"` is rejected at config-load.** The `scroll` mode exposes scrolling text through the transparent / pillarbox regions of the image. When `fit="stretch"`, the image fills the entire panel with no transparent or black regions — there is nothing for the text to show through. Use `text_align="scroll_over"` for a marquee over a fullscreen image, or use a PNG with transparency and `fit="pillarbox"`.
+`animation = "typewriter"` rejects three combinations: `bottom_text` set (two-row layout), `text_align = "scroll"` / `"scroll_over"` (cursor moves each tick), or empty `text`. Drop the conflicting setting; typewriter still composes with `font_color = "rainbow"` and `border = "rainbow"`.
 
-**`text_x_offset` is rejected with scroll modes.** The offset only applies to static text placement (`text_align = "left"` or `"right"`). With `scroll` or `scroll_over`, the marquee position is driven by the scroll logic; a constant x offset would skew the entry point in a confusing way.
+### `text_align="scroll"` needs transparency
 
-**`hold_seconds` must be at least `0.05`.** Values below this minimum are rejected at config-load.
+Stretch fills every pixel with image, leaving no transparent regions for the text to scroll through. Use `text_align="scroll_over"` for a fullscreen marquee, or pair `scroll` with a transparent PNG and `fit="pillarbox"`.
 
-**Animated source files only show frame 0.** If you pass an animated `.gif` or `.webp` to the `image` widget, only the first frame is decoded and displayed. Use the `gif` widget for animation.
+### `text_x_offset` is rejected in scroll modes
+
+Static offsets don't compose with the per-tick scroll cursor. Set `text_x_offset = 0` or change `text_align` to `"left"` or `"right"`.
+
+### `hold_seconds` must be at least 0.05
+
+`hold_seconds` is in seconds, not milliseconds. Anything under 50 ms is rejected — nothing shorter than one engine tick can actually display.
+
+### Animated source files only show frame 0
+
+The `image` widget decodes only the first frame of `.gif` / `.webp` files. Use the [`gif`](/widgets/gif/) widget for animation — it shares the entire `image` text-overlay surface plus per-frame mechanics.
 
 <RelatedPages slugs={["widgets/gif", "widgets/two_row", "assets/emoji"]} />

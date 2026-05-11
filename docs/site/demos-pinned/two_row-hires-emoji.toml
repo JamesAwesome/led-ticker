@@ -1,0 +1,48 @@
+# render-duration: 12
+# Hi-res :instagram: emoji on the top row of two_row.
+#
+# Bigsign canvas at scale=2 + content_height=24 + top_row_height=16:
+#   top band   = 16 logical = 32 real px → fits the 32×32 hires sprite
+#   bottom row = 8 logical  = 16 real px → fits the 5x8 BDF marquee
+#
+# Hi-res emoji fires when:
+#   - canvas is a ScaledCanvas (any default_scale > 1)
+#   - the row's emoji cap allows it: max(EMOJI_ROW_CAP=8, band_h)
+#   - the sprite's logical_height (physical/scale) <= cap
+# At scale=2 the 32-real :instagram: sprite is 16 logical, which fits the
+# 16-row top band's cap.
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 24
+loop_count = 1
+hold_time = 1.5
+scroll_step_ms = 35
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunny"
+top_row_height = 16
+# row_layout centers an EMOJI_ROW_CAP=8 sub-band within the 16-row top
+# band, so the default emoji_y = (16-8)//2 = 4 (logical). The hi-res
+# :instagram: sprite is 16 logical tall (32 real / scale=2) and would
+# render at rows 4..19 — bleeding 4 rows into the bottom band. Pulling
+# the emoji 4 rows up anchors it at row 0..15, exactly within the band.
+top_emoji_y_offset = -4
+top_font = "Inter-Bold"
+top_font_size = 22
+top_color = [225, 48, 108]
+top_align = "left"
+bottom_text = "Aerial • pole • silks • juggling • all levels • now booking"
+bottom_color = [255, 240, 200]
+bottom_align = "left"

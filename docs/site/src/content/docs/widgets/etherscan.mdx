@@ -32,7 +32,7 @@ api_key = "your_etherscan_api_key"`}
 
 ## Common patterns
 
-Pair with crypto price widgets in the same section for a full on-chain dashboard:
+### Pair with crypto price widgets in the same section for a full on-chain dashboard
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -45,7 +45,7 @@ type = "etherscan"
 api_key = "your_etherscan_api_key"`}
 />
 
-Dark background to make the colored gas values pop:
+### Dark background to make the colored gas values pop
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -54,12 +54,18 @@ api_key = "your_etherscan_api_key"
 bg_color = [0, 0, 40]`}
 />
 
-## Pitfalls
+## Tips
 
-**`ETHERSCAN_API_KEY` is required.** The widget calls `api.etherscan.io` with your key on every fetch. Without a valid key the Etherscan API returns an error object and the widget raises `ValueError` at startup. Get a free key at [etherscan.io/apis](https://etherscan.io/apis) — the free tier allows 5 calls per second and 100,000 calls per day, which is far more than any reasonable polling interval needs.
+### `ETHERSCAN_API_KEY` is required
 
-**Gas coloring is threshold-based, not delta-based.** Unlike the `coinbase` and `coingecko` widgets, the color of each gas value reflects its absolute Gwei level (green ≤ 50, yellow ≤ 70, red > 70), not a change vs the previous fetch. A "green" Low tier means gas is cheap right now, not that it went up.
+The widget calls `api.etherscan.io` with your key on every fetch. Without a valid key the Etherscan API returns an error object and the widget raises `ValueError` at startup. Get a free key at [etherscan.io/apis](https://etherscan.io/apis) — the free tier allows 5 calls per second and 100,000 calls per day, which is far more than any reasonable polling interval needs.
 
-**Gas prices can change rapidly.** During network congestion, gas can spike from 20 Gwei to 200 Gwei within minutes. The default 5-minute `update_interval` is appropriate for a passive display; drop to `update_interval = 60` if you need near-real-time visibility during volatile periods.
+### Gas coloring is threshold-based, not delta-based
+
+Unlike the `coinbase` and `coingecko` widgets, the color of each gas value reflects its absolute Gwei level (green ≤ 50, yellow ≤ 70, red > 70), not a change vs the previous fetch. A "green" Low tier means gas is cheap right now, not that it went up.
+
+### Gas prices can change rapidly
+
+During network congestion, gas can spike from 20 Gwei to 200 Gwei within minutes. The default 5-minute `update_interval` is appropriate for a passive display; drop to `update_interval = 60` if you need near-real-time visibility during volatile periods.
 
 <RelatedPages slugs={["widgets/coinbase", "widgets/coingecko", "widgets/mlb"]} />

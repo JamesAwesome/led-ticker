@@ -1,36 +1,28 @@
-# led-ticker configuration
-# Copy this to config.toml and customize for your setup.
+# led-ticker configuration — smallsign starter (160×16 canvas)
+#
+# 5× chained 32×16 panels = 160×16 logical canvas. Driven by a Raspberry Pi 4
+# through an Adafruit RGB Matrix bonnet. No pixel_mapper needed — panels are a
+# single horizontal chain, left-to-right.
+#
+# Copy this to config.toml and adjust the playlist sections for your content.
+# Full config-options reference: https://docs.ledticker.dev/reference/config-options/
 
 [display]
 rows = 16
 cols = 32
 chain = 5
 brightness = 60
-slowdown_gpio = 2
+slowdown_gpio = 2      # mandatory on Pi 4 — bump to 3+ if you see flicker
 gpio_mapping = "adafruit-hat"
 
 [title]
 delay = 5
 
 # --- Transitions ---
-# Global defaults for transitions between widgets and sections.
-# Available types: cut, push_left, push_right, push_up, push_down,
-#                  color_flash, wipe_left, wipe_right, wipe_up, wipe_down,
-#                  dissolve, split, nyancat, nyancat_reverse,
-#                  scroll, pokeball, pokeball_reverse, pokeball_alternating,
-#                  baseball, baseball_reverse, baseball_alternating,
-#                  pacman, pacman_reverse, pacman_alternating,
-#                  sailor_moon, sailor_moon_reverse, sailor_moon_alternating,
-#                  push_alternating, wipe_alternating, nyancat_alternating
-# Optional: transition_color = [R, G, B]  (custom color for flash/wipe)
-# Optional: transition_colors = [[R,G,B], [R,G,B], [R,G,B], [R,G,B]]
-#           (per-direction colors for wipe_alternating: left, right, up, down)
-# For scroll transition, use duration=4.0 and linear easing:
-#   transition = "scroll"
-#   transition_duration = 4.0
-#   easing = "linear"
-# Optional: show_pikachu = false  (hide Pikachu from pokeball transitions, default: true)
-# Available easing: linear, ease_out, ease_in_out
+# Global transition defaults. Full transition catalogue and per-family tuning
+# lives at https://docs.ledticker.dev/transitions/. The values below give a
+# 0.5-sec wipe between widgets within a section and a dissolve between sections
+# — readable on a 160×16 smallsign without being distracting.
 
 [transitions]
 default = "wipe_alternating"
@@ -40,6 +32,9 @@ between_sections = "dissolve"
 
 # --- Playlist ---
 # Each [[playlist.section]] displays in order, then the whole playlist loops.
+# Sections, modes, and timing knobs: https://docs.ledticker.dev/concepts/sections-and-modes/
+
+# Welcome / brand messages.
 
 [[playlist.section]]
 mode = "forever_scroll"
@@ -58,7 +53,7 @@ text = "May the Rabbit always be with you!"
 type = "message"
 text = "Always be your bunny best!"
 
-# --- Countdowns ---
+# Counts down to any date. Message + remaining days scroll across the panel.
 
 [[playlist.section]]
 mode = "forever_scroll"
@@ -79,89 +74,78 @@ type = "countdown"
 message = "Days Until Summer"
 countdown_date = 2026-06-20
 
-# --- RSS Feeds ---
-# Uncomment and add your favorite feeds:
-#
-# [[playlist.section]]
-# mode = "forever_scroll"
-# loop_count = 1
-#
-# [playlist.section.title]
-# type = "message"
-# text = "Nintendo Life"
-# color = "random"
-#
-# [[playlist.section.widget]]
-# type = "rss_feed"
-# feed_url = "https://www.nintendolife.com/feeds/news"
-# update_interval = 3000
+# Live RSS headlines from Nintendo Life — a known-stable feed for the demo.
+# Swap feed_url for any RSS/Atom URL of your own; update_interval is seconds
+# between fetches.
 
-# --- Crypto Prices ---
-# Uncomment to show crypto prices:
-#
-# [[playlist.section]]
-# mode = "forever_scroll"
-# loop_count = 2
-#
-# [playlist.section.title]
-# type = "message"
-# text = "Cryptocurrency/USD"
-#
-# [[playlist.section.widget]]
-# type = "coinbase"
-# symbol = "BTC"
-# currency = "USD"
-#
-# [[playlist.section.widget]]
-# type = "coinbase"
-# symbol = "ETH"
-# currency = "USD"
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
 
-# --- MLB Scores ---
-# Free MLB Stats API, no key needed.
-# One widget per team. Shows current series scores, live games, upcoming.
-# Options:
-#   team             = "PHI"               (required, 3-letter team abbreviation)
-#   timezone         = "America/New_York"  (default)
-#   final_hold_hours = 6                   (hours to show final score before moving on, default: 6)
-#
-# [[playlist.section]]
-# mode = "swap"
-# transition = "scroll"
-# transition_duration = 4.0
-# loop_count = 0
-#
-# [[playlist.section.widget]]
-# type = "mlb"
-# team = "PHI"
-# timezone = "America/New_York"
-# final_hold_hours = 6  # hours to show final score before switching to next game (default: 6)
+[playlist.section.title]
+type = "message"
+text = "Nintendo Life"
+color = "random"
 
-# --- MLB Standings ---
-# Free MLB Stats API, no key needed.
-# Shows top N teams by overall record, then your tracked teams.
-# During offseason/spring training, shows "Opens [date]" instead.
-# Options:
-#   teams    = ["NYM", "PHI"]        (required, list of 3-letter team abbreviations)
-#   title    = "MLB Standings"       (default)
-#   top_n    = 3                     (default, number of top teams to show)
-#   timezone = "America/New_York"    (default)
-#
-# [[playlist.section]]
-# mode = "swap"
-# transition = "baseball_alternating"
-# transition_duration = 2.0
-# hold_time = 6
-# loop_count = 1
-#
-# [[playlist.section.widget]]
-# type = "mlb_standings"
-# teams = ["NYM", "PHI"]
-# top_n = 3
+[[playlist.section.widget]]
+type = "rss_feed"
+feed_url = "https://www.nintendolife.com/feeds/news"
+update_interval = 3000
 
-# --- Weather ---
-# Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/)
-# Location can be: city name, zip code, or "lat,lon"
+# Crypto prices via Coinbase — no API key required.
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = "Cryptocurrency/USD"
+
+[[playlist.section.widget]]
+type = "coinbase"
+symbol = "BTC"
+currency = "USD"
+
+[[playlist.section.widget]]
+type = "coinbase"
+symbol = "ETH"
+currency = "USD"
+
+# MLB scores via the free MLB Stats API — no API key. Shows current series,
+# live game updates, upcoming matchups for the teams you pick.
+# Replace "PHI" with your team code.
+
+[[playlist.section]]
+mode = "swap"
+transition = "scroll"
+transition_duration = 4.0
+loop_count = 0
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "PHI"
+timezone = "America/New_York"
+final_hold_hours = 6   # hours to show final score before moving on
+
+# Top-N teams by record plus tracked teams. Shows "Opens [date]" during
+# offseason / spring training.
+
+[[playlist.section]]
+mode = "swap"
+transition = "baseball_alternating"
+transition_duration = 2.0
+hold_time = 6
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "mlb_standings"
+teams = ["NYM", "PHI"]
+top_n = 3
+
+# --- Weather (optional) ---
+# Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/).
+# location can be a city name, zip code, or "lat,lon".
 #
 # [[playlist.section]]
 # mode = "swap"

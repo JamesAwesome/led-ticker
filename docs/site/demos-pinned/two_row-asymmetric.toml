@@ -1,4 +1,4 @@
-# render-duration: 8
+# render-duration: 14
 [display]
 rows = 64
 cols = 256
@@ -14,7 +14,8 @@ mode = "swap"
 scale = 2
 content_height = 24
 loop_count = 1
-hold_time = 7.0
+hold_time = 1.5
+scroll_step_ms = 35
 
 [[playlist.section.widget]]
 type = "two_row"
@@ -23,7 +24,7 @@ top_row_height = 10
 top_font = "Inter-Bold"
 top_font_size = 14
 top_color = [225, 48, 108]
-bottom_text = "Aerial • Pole • Hoop • Silk • All Levels"
+bottom_text = "Aerial • Pole • Hoop • Silk • All Levels • All Ages welcome"
 bottom_font = "Inter-Bold"
 bottom_font_size = 22
 bottom_color = [255, 240, 200]

@@ -28,7 +28,7 @@ teams = ["NYY"]`}
 
 ## Common patterns
 
-Top-3 only — no tracked teams, just the league leaders:
+### Top-3 only — no tracked teams, just the league leaders
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -38,7 +38,7 @@ top_n = 3
 title = "MLB Top 3"`}
 />
 
-Tracked teams only — skip the overall leaders and show only the teams you care about:
+### Tracked teams only — skip the overall leaders and show only the teams you care about
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -47,7 +47,7 @@ teams = ["NYM", "NYY"]
 top_n = 0`}
 />
 
-Top-5 leaders plus two tracked teams, with a dark background and hourly updates:
+### Top-5 leaders plus two tracked teams, with a dark background and hourly updates
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -58,12 +58,18 @@ bg_color = [0, 40, 80]
 update_interval = 3600`}
 />
 
-## Pitfalls
+## Tips
 
-**Tracked teams dedup with top-N.** If a tracked team already appears in the top-N list, the widget shows them there and skips the duplicate. You won't see the same team twice.
+### Tracked teams dedup with top-N
 
-**Offseason and pre-season behavior.** When the current season's standings all show 0-0 (no games played yet), the widget fetches the upcoming schedule and shows an opening-day message like `Opens Mar 27`. Between the World Series and Spring Training, the MLB StatsAPI still returns the prior season's final standings — so the widget keeps displaying those rather than going blank. Expect last-season data from roughly mid-October through late March.
+If a tracked team already appears in the top-N list, the widget shows them there and skips the duplicate. You won't see the same team twice.
 
-**Poll interval defaults to daily.** Standings shift slowly — the default `update_interval` of 86400 s (24 hours) is appropriate for most displays. During a tight pennant race in September, `update_interval = 3600` gives hourly refreshes without being rude to the public API. Dropping below 60 s is not recommended.
+### Offseason and pre-season behavior
+
+When the current season's standings all show 0-0 (no games played yet), the widget fetches the upcoming schedule and shows an opening-day message like `Opens Mar 27`. Between the World Series and Spring Training, the MLB StatsAPI still returns the prior season's final standings — so the widget keeps displaying those rather than going blank. Expect last-season data from roughly mid-October through late March.
+
+### Poll interval defaults to daily
+
+Standings shift slowly — the default `update_interval` of 86400 s (24 hours) is appropriate for most displays. During a tight pennant race in September, `update_interval = 3600` gives hourly refreshes without being rude to the public API. Dropping below 60 s is not recommended.
 
 <RelatedPages slugs={["widgets/mlb", "widgets/rss_feed", "concepts/sections-and-modes"]} />

@@ -37,7 +37,7 @@ USER_FONT_DIR: Path = Path(__file__).parent.parent.parent.parent / "config" / "f
 # string.printable so widgets handling European-language feeds (Spanish,
 # French, German, etc) render correctly. Other characters fall back to
 # the '?' glyph at render time.
-EXTENDED_LATIN: str = "àáâãäåæçèéêëìíîïñòóôõöøùúûüýÿ" "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÑÒÓÔÕÖØÙÚÛÜÝŸ"
+EXTENDED_LATIN: str = "àáâãäåæçèéêëìíîïñòóôõöøùúûüýÿÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÑÒÓÔÕÖØÙÚÛÜÝŸ"
 
 # Common Unicode punctuation typesetters reach for in headlines and
 # storefront copy. Pre-rasterized so they actually render instead of

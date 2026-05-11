@@ -3,6 +3,7 @@ title: Sections and modes
 description: Sections group widgets, modes pick the run style — forever_scroll, infini_scroll, or swap.
 ---
 
+import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
@@ -14,24 +15,39 @@ A playlist is just an ordered list of sections. The engine runs them in sequence
 
 All widgets in the section scroll left as a continuous stream, separated by `•` bullet characters. The panel never clears between widgets; each one follows immediately after the last with just the bullet for spacing. This reads like a classic news ticker — rapid, dense, and meant to be absorbed at a glance.
 
-`forever_scroll` is the best fit for short-text widgets where the reader does not need to dwell: a weather condition, a price, a short announcement. Mix several short widgets together and the combined stream stays lively. Note that transitions are not used between widgets in this mode — the bullet-dot separator is the only visual break.
+`forever_scroll` is the best fit for short-text widgets where the reader does not need to dwell: a weather condition, a price, a short announcement. Mix several short widgets together and the combined stream stays lively. Transitions are not used between widgets in this mode — the bullet separator is the only break.
+
+<DemoGif
+  src="/demos-long/sections-forever_scroll.gif"
+  caption="`forever_scroll` — three messages and a countdown flow together separated by bullets; the panel never clears"
+/>
 
 <TomlExample
   code={`[[playlist.section]]
 mode = "forever_scroll"
-loop_count = 2
+loop_count = 1
+scroll_step_ms = 35
 
 [[playlist.section.widget]]
 type = "message"
-text = "Open 9–5"
+text = "Open 9-5"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Summer Camps"
+countdown_date = 2026-06-20
+font_color = [120, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
 text = "Free coffee Friday"
+font_color = [255, 220, 0]
 
 [[playlist.section.widget]]
-type = "weather"
-location = "Brooklyn, NY"`}
+type = "message"
+text = "All ages welcome"
+font_color = [180, 220, 180]`}
 />
 
 ## `infini_scroll` — one-at-a-time scroll
@@ -40,18 +56,37 @@ Each widget scrolls fully off the left edge of the panel before the next widget 
 
 `infini_scroll` suits medium-length messages that should read as distinct items — enrollment announcements, sale callouts, or any set of messages where you want each one to complete before the next begins. Like `forever_scroll`, no transitions are used between widgets in this mode.
 
+<DemoGif
+  src="/demos-long/sections-infini_scroll.gif"
+  caption="`infini_scroll` — three messages and a countdown each scroll fully off before the next enters; a clean gap between widgets"
+/>
+
 <TomlExample
   code={`[[playlist.section]]
 mode = "infini_scroll"
 loop_count = 1
+scroll_step_ms = 35
 
 [[playlist.section.widget]]
 type = "message"
-text = "Now Enrolling — Kids Summer Camps"
+text = "Now Enrolling"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Summer Camps"
+countdown_date = 2026-06-20
+font_color = [120, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
-text = "Spring Classes Open Today"`}
+text = "Spring Classes Open"
+font_color = [255, 220, 0]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Drop-ins welcome"
+font_color = [180, 220, 180]`}
 />
 
 ## `swap` — held with transitions
@@ -60,20 +95,42 @@ Each widget is displayed for `hold_time` seconds (default `3.0`). If the widget'
 
 The transition used between widgets in the section is configured via the `transition` field. If you omit `transition`, the global `[transitions] default` applies. When a section explicitly sets `transition = "..."`, that transition is also used when the section appears — overriding the global `between_sections` setting for that section's entry.
 
+<DemoGif
+  src="/demos-long/sections-swap.gif"
+  caption="`swap` — three messages and a moon image each hold for `hold_time`, then a transition (`push_left` here) reveals the next"
+/>
+
 <TomlExample
-  code={`[[playlist.section]]
+  code={`[transitions]
+default = "push_left"
+duration = 0.5
+
+[[playlist.section]]
 mode = "swap"
 loop_count = 1
-hold_time = 4.0
-transition = "wipe_left"
+hold_time = 2.5
 
 [[playlist.section.widget]]
 type = "message"
-text = "First"
+text = "Open daily"
+font_color = [120, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
-text = "Second"`}
+text = "10am - 8pm"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "image"
+path = "config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "center"
+hold_seconds = 3.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "All ages"
+font_color = [255, 220, 0]`}
 />
 
 ## `loop_count` and section progression
@@ -101,7 +158,7 @@ The section-level `scroll_step_ms` is distinct from the per-widget `scroll_speed
 
 ## Section backgrounds with `bg_color`
 
-Setting `bg_color` on a section paints a solid RGB color across the panel before any widget draws. Widgets in the section inherit that background unless they set their own `bg_color`, so a single `bg_color` at the section level brands every widget inside it without per-widget repetition. This is the cleanest way to give a section a brand color, a sport-team color, or a "nighttime" tint while keeping each widget's TOML focused on its own content.
+Setting `bg_color` on a section paints a solid RGB color across the panel before any widget draws. Widgets in the section inherit that background unless they set their own `bg_color` — one line at the section level instead of repeating it on every widget.
 
 <TomlExample
   code={`[[playlist.section]]
@@ -118,7 +175,7 @@ type = "message"
 text = "Spring Classes"`}
 />
 
-When a section has a `bg_color` and the next section has a different one, transitions paint the right color throughout — the engine forwards `outgoing_bg_color` and `incoming_bg_color` to the active transition so the panel never flashes through black at the cut-over. Widget-level `bg_color` works the same way for inter-widget transitions within a section. You don't need to do anything special; the engine wires this up automatically.
+When a section has a `bg_color` and the next section has a different one, transitions paint the right color throughout — the engine forwards `outgoing_bg_color` and `incoming_bg_color` to the active transition so the panel never flashes through black at the cut-over. Widget-level `bg_color` works the same way for inter-widget transitions within a section.
 
 A widget setting its own `bg_color` overrides the section default for that widget only. Use a section-level color as the base and only set widget-level `bg_color` when one widget needs a different tint.
 

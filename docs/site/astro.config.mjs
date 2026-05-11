@@ -6,10 +6,10 @@ import path from "node:path";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  // Update `site` to a custom domain after Cloudflare Pages setup.
-  // Default `*.pages.dev` URL works without `site` set, but sitemap
-  // will use relative URLs until this is filled in.
-  site: "https://led-ticker.pages.dev",
+  // Custom domain. Cloudflare Pages also serves preview deploys at
+  // `<branch>.led-ticker.pages.dev` for in-flight PRs — the custom
+  // domain only fronts the production build.
+  site: "https://docs.ledticker.dev",
   vite: {
     server: {
       fs: {
@@ -36,7 +36,7 @@ export default defineConfig({
             // then `message` pinned ahead of the rest since it's
             // the most-used widget — letting the autogenerate sort
             // would bury it alphabetically at position 7.
-            { label: "All widgets (overview)", link: "/widgets/" },
+            { label: "All widgets", link: "/widgets/" },
             { label: "message", link: "/widgets/message/" },
             { label: "countdown", link: "/widgets/countdown/" },
             { label: "two_row", link: "/widgets/two_row/" },
@@ -60,23 +60,53 @@ export default defineConfig({
           items: [{ autogenerate: { directory: "concepts" } }],
         },
         {
+          // Inline emoji is a content-author concern (which slugs render?
+          // what's the fallback for unknown ones?) — sits naturally next
+          // to Concepts, before deeper hardware/reference material.
+          label: "Assets",
+          items: [{ autogenerate: { directory: "assets" } }],
+        },
+        {
           label: "Tools",
           items: [{ autogenerate: { directory: "tools" } }],
         },
-        {
-          label: "Hardware",
-          items: [{ autogenerate: { directory: "hardware" } }],
-        },
+        // Validation rules sit next to Tools — they're what
+        // `led-ticker validate` reports.
+        { label: "Validation rules", link: "/pitfalls/" },
         {
           label: "Reference",
           items: [{ autogenerate: { directory: "reference" } }],
         },
         {
-          label: "Assets",
-          items: [{ autogenerate: { directory: "assets" } }],
+          label: "Hardware",
+          items: [
+            // Build pages and embedded reference configs alternate by sign
+            // type so a reader scanning the sidebar can pair each build
+            // walkthrough with the working config it produces. Reference
+            // configs link to the #reference-config anchor on the build
+            // page so a click lands directly on the embedded TOML.
+            { label: "Hardware: Bigsign reference build", link: "/hardware/bigsign/" },
+            {
+              label: 'Bigsign config - "Showroom"',
+              link: "/hardware/bigsign/#reference-config",
+            },
+            {
+              label: "Hardware: Smallsign reference build",
+              link: "/hardware/smallsign/",
+            },
+            {
+              label: 'Smallsign config - "Office Ticker"',
+              link: "/hardware/smallsign/#reference-config",
+            },
+            {
+              label: "Hardware: Building your own",
+              link: "/hardware/building-your-own/",
+            },
+          ],
         },
-        { label: "Showcase", link: "/showcase/" },
-        { label: "Pitfalls", link: "/pitfalls/" },
+        // Inspiration / browsing — last, because reaching it from
+        // anywhere else is a sign you've already learned what you came for.
+        { label: "Sign Showcase", link: "/showcase/" },
       ],
     }),
   ],

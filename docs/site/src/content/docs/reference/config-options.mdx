@@ -55,7 +55,7 @@ Global defaults for inter-widget and inter-section transitions.
 | `default`          | string         | `"cut"`    | Default inter-widget transition. Used by any section that omits its own `transition`.                                       |
 | `duration`         | float          | `0.5`      | Default transition duration in seconds. Sprite-trail transitions (pokeball, nyancat, scroll) typically want a longer value. |
 | `easing`           | string         | `"linear"` | Default easing curve. Accepted values: `linear`, `ease_out`, `ease_in_out`.                                                 |
-| `between_sections` | string / table | `"cut"`    | Transition fired at section boundaries when the incoming section did not explicitly set `transition` (see Pitfalls below).  |
+| `between_sections` | string / table | `"cut"`    | Transition fired at section boundaries when the incoming section did not explicitly set `transition` (see Tips below).      |
 
 Both `default` and `between_sections` accept either a bare string
 (transition name) or an inline table — e.g. `between_sections = { type = "wipe_left", duration = 0.8, easing = "ease_out" }`.
@@ -71,19 +71,16 @@ in order, then the playlist loops.
 | `loop_count`           | int            | `1`                       | How many times to play this section's widgets before moving on. `0` repeats forever within the section.                                                       |
 | `hold_time`            | float          | `3.0`                     | Seconds to hold each widget in `swap` mode. Ignored by `forever_scroll` / `infini_scroll`.                                                                    |
 | `continuous_scroll`    | bool           | `false`                   | Skip the held pause for overflowing text in scroll modes.                                                                                                     |
-| `transition`           | string / table | inherits global `default` | Inter-widget transition for `swap` mode. ALSO becomes the entry transition for this section when explicitly set (see Pitfalls).                               |
+| `transition`           | string / table | inherits global `default` | Inter-widget transition for `swap` mode. ALSO becomes the entry transition for this section when explicitly set (see Tips).                                   |
 | `transition_duration`  | float          | inherits global           | Per-section override for the transition's `duration`.                                                                                                         |
 | `transition_color`     | `[r, g, b]`    | `null`                    | Custom color for color-aware transitions (e.g. `color_flash`, `wipe_*`).                                                                                      |
 | `scale`                | int            | `display.default_scale`   | Per-section logical-to-physical scaling override. Useful for letterboxed countdowns at `scale = 2` on the bigsign.                                            |
-| `content_height`       | int            | `16`                      | Logical canvas height in rows. Hard ceiling: `content_height × scale ≤ panel_h_real` (see Pitfalls).                                                          |
+| `content_height`       | int            | `16`                      | Logical canvas height in rows. Hard ceiling: `content_height × scale ≤ panel_h_real` (see Tips).                                                              |
 | `bg_color`             | `[r, g, b]`    | `null`                    | Section-level background color. Widgets inherit this when they don't set their own `bg_color`.                                                                |
 | `scroll_step_ms`       | int            | `null` (= 50 ms)          | Milliseconds per logical pixel of scroll. Lower = faster marquee. Applies to `forever_scroll`, `infini_scroll`, and the post-hold scroll on `swap` mode.      |
 | `transition_specified` | bool           | `false`                   | Internal flag set by the loader when the user wrote `transition = ...` in this section's TOML. You don't write this — it's in the dataclass for completeness. |
 
-`transition_specified` is what lets the engine distinguish "user wrote
-`transition = X` here" from "this section inherited X from
-`[transitions] default`" — important for entry-transition selection
-(see Pitfalls below).
+`transition_specified` lets the engine tell user-written `transition = X` apart from the inherited default — the distinction drives entry-transition selection (see Tips).
 
 ## `[playlist.section.title]`
 
@@ -99,30 +96,14 @@ list.
 
 Per-widget options live on each widget's page. See [Widgets](/widgets/).
 
-## Pitfalls
+## Tips
 
-**A section's `transition` is BOTH the entry transition AND the
-inter-widget transition.** When a section explicitly writes
-`transition = "..."` in its TOML, that transition is used both for the
-inter-section ENTRY (when this section first appears) AND for
-inter-widget swaps within the section. Sections that omit `transition`
-fall back to `[transitions] between_sections` for entry. This solves
-the natural UX expectation — set `transition = "pokeball"` on a
-single-widget section and you'll see pokeball when the section appears
-— but it surprises people who expected `transition` to apply only
-within the section. If you want the global `between_sections` to fire
-on entry, leave `transition` unset on the section.
+### A section's `transition` is BOTH the entry transition AND the inter-widget transition
 
-**`content_height × scale ≤ panel_h_real`.** The wrapper centers a
-logical canvas of height `content_height × scale` on the real panel.
-On the bigsign at `scale = 4` and a 64-tall panel, that means
-`content_height ≤ 16`. Push above and the wrapper's vertical offset
-goes negative — the logical canvas is taller than the panel — and the
-top + bottom rows of your content silently clip. BDF text is forgiving
-because cells sit near the vertical center, but hi-res emoji and
-large hi-res fonts surface the clip immediately. For per-row
-breathing room use `text_y_offset` on the widget rather than over-
-sizing `content_height`. See [Hardware: Bigsign](/hardware/bigsign/)
-for the full discussion.
+When a section explicitly writes `transition = "..."` in its TOML, that transition is used both for the inter-section ENTRY (when this section first appears) AND for inter-widget swaps within the section. Sections that omit `transition` fall back to `[transitions] between_sections` for entry. This solves the natural UX expectation — set `transition = "pokeball"` on a single-widget section and you'll see pokeball when the section appears — but it surprises people who expected `transition` to apply only within the section. If you want the global `between_sections` to fire on entry, leave `transition` unset on the section.
+
+### `content_height × scale ≤ panel_h_real`
+
+The wrapper centers a logical canvas of height `content_height × scale` on the real panel. On the bigsign at `scale = 4` and a 64-tall panel, that means `content_height ≤ 16`. Push above and the wrapper's vertical offset goes negative — the logical canvas is taller than the panel — and the top + bottom rows of your content silently clip. BDF text is forgiving because cells sit near the vertical center, but hi-res emoji and large hi-res fonts surface the clip immediately. For per-row breathing room use `text_y_offset` on the widget rather than over-sizing `content_height`. See [Hardware: Bigsign](/hardware/bigsign/) for the full discussion.
 
 <RelatedPages slugs={["reference/cli", "concepts/sections-and-modes", "widgets"]} />

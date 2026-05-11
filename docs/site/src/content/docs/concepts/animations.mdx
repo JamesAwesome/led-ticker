@@ -5,7 +5,6 @@ description: typewriter — character-by-character reveal, composes with any fon
 
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
-import DecisionRule from "../../../components/DecisionRule.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 led-ticker has one animation right now: **typewriter** — a character-by-character reveal. Set `animation = "typewriter"` on a supported widget and the text types out one character at a time the moment the widget appears. The characters land in their final positions (no shifting), so the message assembles itself in place rather than scrolling in.
@@ -27,7 +26,7 @@ animation = "typewriter"`}
 
 ## Tuning `frames_per_char`
 
-The cadence is `frames_per_char × 50 ms` per character — the engine ticks at 50 ms and advances the typewriter counter once per tick. The default of `3` gives about 150 ms per character, which feels snappy but still readable at roughly 7 characters per second. A value of `5` or `6` reads as deliberate and is a good choice when you want the audience to register each character dropping in. Values above `10` start to feel comically slow. There is no separate animation clock — everything runs on the same 50 ms engine tick.
+The cadence is `frames_per_char × 50 ms` per character — the engine ticks at 50 ms and advances the typewriter counter once per tick. The default of `3` gives about 150 ms per character, which feels snappy but still readable at roughly 7 characters per second. A value of `5` or `6` reads as deliberate and is a good choice when you want the audience to register each character dropping in. Values above `10` read as comically slow. There is no separate animation clock — everything runs on the same 50 ms engine tick.
 
 To override `frames_per_char`, switch from the string shorthand to an inline TOML table with a `style` key:
 
@@ -50,7 +49,7 @@ animation = "typewriter"
 font_color = "rainbow"`}
 />
 
-Because rainbow is a continuous-phase provider (its counter does not reset between `loop_count` repetitions), the color sweep keeps flowing even as the typewriter retypes from scratch on each loop. The two effects compose cleanly without any special configuration.
+Because rainbow is a continuous-phase provider (its counter does not reset between `loop_count` repetitions), the color sweep keeps flowing even as the typewriter retypes from scratch on each loop.
 
 ## Restart-on-visit behavior
 
@@ -69,6 +68,14 @@ Typewriter has `restart_on_visit = true` — the reveal counter resets every tim
 
 On `gif` and `image` widgets, typewriter is restricted to single-row text overlays. It will raise a configuration error if `bottom_text` is also set (which activates two-row mode), if `text_align` is `"scroll"` or `"scroll_over"` (incompatible with a fixed-position reveal), or if `text` is empty.
 
-<DecisionRule id="12" />
+## Tips
+
+### `animation` is only valid on `message`, `gif`, and `image`
+
+Other widget types (`weather`, `mlb`, `rss_feed`, `two_row`, the crypto widgets) have their own draw paths and ignore `animation` silently — the validator rejects it explicitly to make the no-op visible. For dynamic color on those widgets, use `font_color = "rainbow"` or a gradient.
+
+### Typewriter is single-row only on `gif` and `image`
+
+On top of the widget-type check above, typewriter on `gif` / `image` rejects three combinations: `bottom_text` set, `text_align = "scroll"` / `"scroll_over"`, or empty `text`. Typewriter still composes with `font_color = "rainbow"` and `border = "rainbow"`.
 
 <RelatedPages slugs={["concepts/color-providers", "reference/frame-counters", "widgets/message"]} />

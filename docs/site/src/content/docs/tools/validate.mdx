@@ -1,11 +1,11 @@
 ---
 title: "Tool: validate"
-description: Statically inspect a led-ticker config TOML against the decision-rule registry to surface errors and warnings before they bite on the Pi.
+description: Statically inspect a led-ticker config TOML to surface errors and warnings before they bite on the Pi.
 ---
 
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-`led-ticker validate` reads a `config.toml` and runs it through the decision-rule registry without ever opening a panel. It catches TOML parse errors, structural problems, widget-construction failures (via `_build_widget(validate_only=True)`), and a set of soft warnings about layout pitfalls that the engine would otherwise hit at runtime. The implementation lives at [`src/led_ticker/validate.py`](https://github.com/jamesawesome/led-ticker/blob/main/src/led_ticker/validate.py).
+`led-ticker validate` reads a `config.toml` and reports configuration mistakes without opening a panel. It catches TOML parse errors, structural problems, widget-construction failures (via `_build_widget(validate_only=True)`), and soft layout warnings — before you deploy to the Pi. The full list is on the [Validation rules](/pitfalls/) page; the implementation lives at [`src/led_ticker/validate.py`](https://github.com/jamesawesome/led-ticker/blob/main/src/led_ticker/validate.py).
 
 It exists so that the most common config mistakes — a `text_align = "scroll"` paired with a `fit = "stretch"`, a hi-res font without `font_size`, a `content_height` that overflows the panel — surface on your laptop in milliseconds, instead of on the Pi after a deploy. It's also the contract the [`creating-a-config`](/tools/creating-a-config) skill uses to verify generated configs: the skill calls `validate --json` and refuses to ship anything that fails.
 
@@ -25,7 +25,7 @@ Warnings are gated behind a Phase-2 check — they only surface when no errors a
 
 ### Errors-only run
 
-A config that violates Rule 3 (`text_align = "scroll"` paired with `fit = "stretch"` on a gif/image widget):
+A config that pairs `text_align = "scroll"` with `fit = "stretch"` on a gif/image widget:
 
 ```bash
 led-ticker validate config/config.toml
@@ -34,7 +34,7 @@ led-ticker validate config/config.toml
 ```text
 Validating config/config.toml...
 
-✗ ERROR   section[0].widget[1]: text_align='scroll' with fit='stretch': no transparent regions for text to walk behind [rule 3]
+✗ ERROR   section[0].widget[1]: text_align='scroll' with fit='stretch': no transparent regions for text to walk behind
           Fix: Change fit to 'pillarbox', 'letterbox', or 'crop'; or change text_align to 'left'/'right'
 
 1 issue(s): 1 error(s), 0 warning(s)
@@ -42,7 +42,7 @@ Validating config/config.toml...
 
 ### Warnings-only run
 
-A config with no hard errors but a `transition_duration` that looks like milliseconds (Rule 21 — soft):
+A config with no hard errors but a `transition_duration` that looks like milliseconds:
 
 ```bash
 led-ticker validate config/config.toml
@@ -51,7 +51,7 @@ led-ticker validate config/config.toml
 ```text
 Validating config/config.toml...
 
-⚠ WARNING transitions.between_sections: transition_duration 800.0 looks like milliseconds (> 5 s is unusual) [rule 21]
+⚠ WARNING transitions.between_sections: transition_duration 800.0 looks like milliseconds (> 5 s is unusual)
           Fix: Divide by 1000 → 0.800 s
 
 1 issue(s): 0 error(s), 1 warning(s)
@@ -118,33 +118,39 @@ The JSON shape is stable and meant to be parsed:
 
 Each entry in `errors` and `warnings` follows the `ValidationIssue` dataclass defined in [`src/led_ticker/validate.py`](https://github.com/jamesawesome/led-ticker/blob/main/src/led_ticker/validate.py):
 
-| Field      | Type                     | Meaning                                                                                         |
-| ---------- | ------------------------ | ----------------------------------------------------------------------------------------------- |
-| `rule`     | `int \| null`            | The numeric rule id from the registry, or `null` for unclassified errors (e.g. raw TOML parse). |
-| `location` | `string`                 | Path into the config, e.g. `section[0].widget[1]` or `transitions.between_sections`.            |
-| `message`  | `string`                 | What the validator found.                                                                       |
-| `fix`      | `string`                 | A one-line suggestion that maps the problem to a concrete config change.                        |
-| `severity` | `"error"` or `"warning"` | Errors block the ticker at runtime; warnings are advisory and the ticker will still start.      |
+| Field      | Type                     | Meaning                                                                                                                                                                                |
+| ---------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rule`     | `int \| null`            | A numeric id used internally for test assertions and tooling. Stable across releases; not surfaced in the human-readable output. `null` for unclassified errors (e.g. raw TOML parse). |
+| `location` | `string`                 | Path into the config, e.g. `section[0].widget[1]` or `transitions.between_sections`.                                                                                                   |
+| `message`  | `string`                 | What the validator found.                                                                                                                                                              |
+| `fix`      | `string`                 | A one-line suggestion that maps the problem to a concrete config change.                                                                                                               |
+| `severity` | `"error"` or `"warning"` | Errors block the ticker at runtime; warnings are advisory and the ticker will still start.                                                                                             |
 
 The `valid` field is true exactly when `errors` is empty — warnings do not flip it.
 
-## Rule index
+## What gets caught
 
-These are the rules that have a fact-pack file in [`docs/content-source/rules/`](https://github.com/jamesawesome/led-ticker/tree/main/docs/content-source/rules) and are wired into the validator. The numeric id matches the `rule` field in the JSON output; the validator may surface additional unclassified errors with `rule: null` (e.g. raw TOML syntax errors).
+Quick reference. Each row maps to a longer entry on [Validation rules](/pitfalls/).
 
-| Rule # | Subject                                                              | Severity |
-| ------ | -------------------------------------------------------------------- | -------- |
-| 3      | `text_align = "scroll"` combined with `fit = "stretch"` on gif/image | Error    |
-| 6      | `two_row` widget at `scale = 4` (logical canvas only 64px wide)      | Warning  |
-| 7      | `text_x_offset` is invalid with a scrolling `text_align`             | Error    |
-| 8      | `hold_seconds < 0.05` (under 50 ms — almost certainly a typo)        | Error    |
-| 12     | `animation` set on a widget type that doesn't support it             | Error    |
-| 14     | `animation = "typewriter"` on gif/image is single-row only           | Error    |
+| Check                                                            | Severity | Quick fix                                        |
+| ---------------------------------------------------------------- | -------- | ------------------------------------------------ |
+| `text_align="scroll"` paired with `fit="stretch"`                | error    | use `pillarbox`/`letterbox`/`crop`               |
+| `text_x_offset` set with a scrolling `text_align`                | error    | drop the offset, or use a static `text_align`    |
+| `hold_seconds < 0.05`                                            | error    | raise to ≥ 0.05 (it's seconds, not ms)           |
+| `animation` on a widget that doesn't support it                  | error    | remove it; use `font_color = "rainbow"` instead  |
+| `animation = "typewriter"` on `gif` / `image` with conflicts     | error    | drop `bottom_text`, scroll mode, or empty `text` |
+| Per-row font line-height exceeds the band on `two_row` / two-row | error    | smaller `font_size`, or raise `content_height`   |
+| `two_row` widget at `scale = 4`                                  | warning  | use `scale = 2` (128 logical px wide)            |
+| `transition_duration` > 5 s or < 0.05 s                          | warning  | divide by 1000 (it's seconds, not milliseconds)  |
 
-## Pitfalls
+## Tips
 
-**The validator only catches static, config-time problems.** Anything that depends on runtime state — a stale `WEATHERAPI_KEY`, an unreachable RSS feed, an `image_path` that exists in your repo but not in the Docker bind mount, a network split-brain that makes Coinbase fetches time out — is out of scope. A green `validate` is necessary but not sufficient; the only way to fully verify a config is to run it against the panel (or the [`render-demo`](/tools/render-demo) gif pipeline).
+### The validator only catches static, config-time problems
 
-**Warnings are advisory, not blocking.** The ticker will start, scroll, and swap when only warnings are present, but the warning usually points at a rendering quirk you don't actually want — content_height overflow that silently clips the top and bottom rows on a bigsign, a `two_row` widget cramped into a 64px logical canvas, a `transition_duration` that looks like milliseconds when the engine wants seconds. Treat them as a checklist before you call a config done.
+Anything that depends on runtime state — a stale `WEATHERAPI_KEY`, an unreachable RSS feed, an `image_path` that exists in your repo but not in the Docker bind mount, a network split-brain that makes Coinbase fetches time out — is out of scope. A green `validate` is necessary but not sufficient; the only way to fully verify a config is to run it against the panel (or the [`render-demo`](/tools/render-demo) gif pipeline).
+
+### Warnings are advisory, not blocking
+
+The ticker will start, scroll, and swap when only warnings are present, but the warning usually points at a rendering quirk you don't actually want — content_height overflow that silently clips the top and bottom rows on a bigsign, a `two_row` widget cramped into a 64px logical canvas, a `transition_duration` that looks like milliseconds when the engine wants seconds. Treat them as a checklist before you call a config done.
 
 <RelatedPages slugs={["tools/creating-a-config", "pitfalls", "tools/render-demo"]} />

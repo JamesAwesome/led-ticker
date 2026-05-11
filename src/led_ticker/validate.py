@@ -532,13 +532,11 @@ def _format_json(result: ValidationResult) -> str:
 def _format_human(result: ValidationResult) -> str:
     lines = [f"Validating {result.path}...", ""]
     for issue in result.errors:
-        rule_tag = f" [rule {issue.rule}]" if issue.rule is not None else ""
-        lines.append(f"✗ ERROR   {issue.location}: {issue.message}{rule_tag}")
+        lines.append(f"✗ ERROR   {issue.location}: {issue.message}")
         lines.append(f"          Fix: {issue.fix}")
         lines.append("")
     for issue in result.warnings:
-        rule_tag = f" [rule {issue.rule}]" if issue.rule is not None else ""
-        lines.append(f"⚠ WARNING {issue.location}: {issue.message}{rule_tag}")
+        lines.append(f"⚠ WARNING {issue.location}: {issue.message}")
         lines.append(f"          Fix: {issue.fix}")
         lines.append("")
     n = len(result.errors) + len(result.warnings)

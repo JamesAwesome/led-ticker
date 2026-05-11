@@ -56,7 +56,7 @@ Hi-res glyphs are anti-aliased during rasterization and then binarized to 1-bit 
 
 The default 128 works well for medium-stroke fonts like Inter at typical bigsign sizes. Thin-stroked fonts — for example Beloved Sans Regular at 24–32 px — have anti-aliased edge pixels that land in the 60–100 range; at the 128 default those edges get clipped to zero, leaving glyphs visibly broken. Dropping to ~80 includes those edge pixels and restores the correct weight.
 
-**Match thresholds within a font family.** Bold at 128 has fewer lit pixels than Regular at 80 because the lower threshold fattens the regular strokes past Bold's natural weight. Set both to the same value so the panel shows what the type designer intended:
+**Match thresholds within a font family.** Bold at 128 has fewer lit pixels than Regular at 80 because the lower threshold fattens the regular strokes past Bold's natural weight. Set both to the same value:
 
 <TomlExample code={`[[playlist.section.widget]]
 type = "message"
@@ -73,6 +73,18 @@ font_size = 24
 font_threshold = 80 # match Bold above to preserve weight contrast`} />
 
 BDF fonts ignore `font_threshold` entirely — their bitmaps are already 1-bit.
+
+## Character coverage
+
+Hi-res fonts pre-rasterize a fixed character set when the font loads, not lazily on demand. The set covers what most signage actually uses:
+
+- **ASCII printable**: the standard `string.printable` range — letters, digits, punctuation, whitespace.
+- **Extended Latin**: the most common Latin-1 accented characters (`àáâãäåæçèéêëìíîïñòóôõöøùúûüýÿ` + uppercase variants), so European-language RSS feeds render correctly.
+- **Extended punctuation**: bullet (`•`), middle-dot (`·`), ellipsis (`…`), em-dash (`—`), en-dash (`–`), curly quotes (`’‘“”`), and guillemets (`«»`) — the typographic marks that show up in headlines, separator lists, and brand copy.
+
+Any character outside this set falls back to the `?` glyph at render time. If you see a `?` on the panel where you expected your character, the codepoint isn't in the rasterized set — the fix is to extend `EXTENDED_LATIN` or `EXTENDED_PUNCTUATION` in `src/led_ticker/fonts/hires_loader.py` and rebuild. A tripwire test (`tests/test_hires_font_loader.py:test_glyphs_for_extended_punctuation`) asserts the punctuation set stays rasterized AND that each glyph has lit pixels — catches both "char missing from the set" regressions and "char in set but threshold-clipped to zero pixels" issues.
+
+BDF fonts have no fallback mechanism — characters not in the BDF's bitmap are skipped entirely (zero advance, no glyph drawn). For BDF widgets, stick to ASCII unless you've verified the BDF you picked includes the codepoints you need.
 
 ## Decision tree
 

@@ -29,7 +29,7 @@ countdown_date = 2026-06-21`}
 
 ## Common patterns
 
-Branded color:
+### Branded color
 
 <DemoGif
   src="/demos-pinned/countdown-brand-color.gif"
@@ -44,7 +44,7 @@ countdown_date = 2026-09-01
 font_color = [255, 140, 0]`}
 />
 
-Rainbow sweep:
+### Rainbow sweep
 
 <DemoGif
   src="/demos-pinned/countdown-rainbow.gif"
@@ -59,7 +59,7 @@ countdown_date = 2026-12-31
 font_color = "rainbow"`}
 />
 
-Rainbow border with solid text:
+### Rainbow border with solid text
 
 <DemoGif
   src="/demos-pinned/countdown-rainbow-border.gif"
@@ -75,9 +75,10 @@ font_color = [255, 255, 255]
 border = "rainbow"`}
 />
 
-## Pitfalls
+## Tips
 
-`animation = "typewriter"` is **not** available on `countdown`. Typewriter is only
-supported on `message`, `gif`, and `image` widgets. Adding it raises at config load.
+### Typewriter is not available on `countdown`
+
+`animation = "typewriter"` is rejected on `countdown` — it's only supported on `message`, `gif`, and `image`. For dynamic color, use [`font_color = "rainbow"`](/concepts/color-providers/) or a gradient.
 
 <RelatedPages slugs={["widgets/message", "widgets/two_row", "concepts/color-providers"]} />

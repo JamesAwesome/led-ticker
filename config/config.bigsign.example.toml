@@ -1,8 +1,11 @@
-# led-ticker bigsign configuration
-# 8× P3 32×64 panels in a 2×4 vertical-serpentine layout → 64×256 logical canvas.
-# Driven by a Raspberry Pi 5 + Adafruit RGB Matrix HAT.
+# led-ticker bigsign configuration — 256×64 canvas
 #
-# Copy to config.toml on the bigsign Pi and customize.
+# 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64 logical.
+# Driven by a Raspberry Pi 5 through an Adafruit RGB Matrix HAT.
+#
+# Copy this to config.toml on the bigsign Pi and adjust the playlist for your
+# content. Full config-options reference:
+#   https://docs.ledticker.dev/reference/config-options/
 
 [display]
 rows = 32
@@ -10,33 +13,53 @@ cols = 64
 chain = 8
 parallel = 1
 
-# Remap each panel to its physical position. Chain enters at the bottom-right
-# panel and climbs each column bottom-to-top (1↑2 in column 4), then jumps
-# diagonally to the bottom of the next column to its left and climbs again
-# (3↑4 in column 3, 5↑6 in column 2, 7↑8 in column 1). All panels installed
-# upright (no 180° rotations). See /hardware/bigsign/ for the full diagram.
-# Format:
-#   Remap:WIDTH,HEIGHT|x,yORIENT|... (one entry per panel in chain order)
+# pixel_mapper tells the rgbmatrix library how each panel's position in the
+# data chain maps to its physical (x, y) on the finished canvas. The bigsign
+# chain enters at the bottom-right panel, climbs each column bottom-to-top,
+# then jumps diagonally to the bottom of the next column to its left. All
+# panels are installed upright (no 180° rotations). See the chain diagram and
+# instructions for deriving your own mapper string at:
+#   https://docs.ledticker.dev/hardware/bigsign/
+#
+# Format: Remap:WIDTH,HEIGHT|x,yORIENT|... (one entry per panel in chain order)
 # Orientations: n=normal, s=180°, e=270°, w=90°, x=discard.
 # If your top-row panels are physically flipped 180°, swap each top-row 'n'
-# below for 's' (e.g. "192,0n" → "192,0s").
+# for 's' (e.g. "192,0n" → "192,0s").
 pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
 
 brightness = 60
-slowdown_gpio = 3  # bumped from 2 to pair with rp1_rio=1; raise to 4-5 if flicker
-gpio_mapping = "adafruit-hat"
-default_scale = 4  # 4× scaling fills the 64-tall canvas
 
-# --- Performance tuning ---
-pwm_bits = 8              # 11 (default) → 8 ≈ 8× faster refresh, slightly worse color
-show_refresh = true       # log measured refresh Hz to stderr
-rp1_rio = 1               # Pi 5: RIO mode (faster, more CPU). Bumps slowdown_gpio above
-# pwm_lsb_nanoseconds = 130 # raise to 200+ if colors look wrong
-# no_hardware_pulse = false # almost always leave false; CPU-fallback is ~5× slower
+# default_scale = 4 means every widget draws at the standard 16-tall logical
+# canvas, and the ScaledCanvas wrapper expands every pixel to a 4×4 real block
+# to fill the 64-tall panel. Widget code never sees the 256×64 panel directly
+# — all drawing is in logical-pixel coordinates.
+default_scale = 4
+
+gpio_mapping = "adafruit-hat"
+
+# Pi 5 RP1 GPIO tuning.
+#
+# rp1_rio = 1 selects RIO (Registered IO) mode — faster refresh, more CPU
+# than PIO mode (rp1_rio = 0). The Pi 5 has cores to spare and the bigger
+# panel benefits from the extra Hz.
+#
+# slowdown_gpio = 3 pairs with rp1_rio = 1. The Pi 4 default of 2 is too
+# aggressive with RIO mode; raise to 4–5 if you still see flicker after
+# switching to RIO.
+#
+# pwm_bits = 8 drops from the 11-bit default, buying roughly 8× faster
+# refresh at a small color-depth cost. Barely noticeable for text and pixel
+# art; only relevant if you're displaying photos with smooth gradients.
+slowdown_gpio = 3
+rp1_rio = 1
+pwm_bits = 8
+show_refresh = true       # log measured refresh Hz to stderr; remove once stable
 
 [title]
 delay = 5
 
+# Global transition defaults. Full transition catalogue and per-family tuning
+# lives at https://docs.ledticker.dev/transitions/.
 [transitions]
 default = "push_left"
 duration = 0.5
@@ -44,11 +67,13 @@ easing = "ease_out"
 between_sections = "dissolve"
 
 # --- Playlist ---
+# Each [[playlist.section]] displays in order, then the whole playlist loops.
+# Sections, modes, and timing knobs: https://docs.ledticker.dev/concepts/sections-and-modes/
 
 [[playlist.section]]
 mode = "forever_scroll"
 loop_count = 1
-# scale defaults to display.default_scale (4)
+# scale inherits from display.default_scale (4)
 
 [playlist.section.title]
 type = "message"
@@ -63,12 +88,14 @@ text = "May the Rabbit always be with you!"
 type = "message"
 text = "Always be your bunny best!"
 
-# --- Countdowns at scale=2 (letterboxed for a different look) ---
+# --- Countdowns at scale=2 ---
+# Dropping to scale=2 gives 32px-tall content centered with 16px black bands
+# top and bottom — a visual change of pace between sections.
 
 [[playlist.section]]
 mode = "forever_scroll"
 loop_count = 2
-scale = 2  # 2× → 32px tall content centered with 16px black bands
+scale = 2
 
 [playlist.section.title]
 type = "message"
@@ -85,29 +112,85 @@ type = "countdown"
 message = "Days Until Fall"
 countdown_date = 2026-09-22
 
-# ---------------------------------------------------------------------------
-# GIF playback example
-#
-# `mode = "gif"` plays an animated GIF at the panel's native physical
-# resolution (256×64), bypassing the ScaledCanvas wrapper. Frame timing
-# comes from the GIF's own metadata; `loop_count` controls how many
-# complete passes play before the next section runs.
-#
-# `fit` options (default "pillarbox"):
-#   pillarbox — scale by height, center horizontally with black pillars
-#   letterbox — scale by width, center vertically with black bars
-#   stretch   — fill the whole panel, distorting aspect ratio
-#   crop      — scale to cover both axes, center-crop the excess
-#
-# `path` is resolved relative to this config file's directory. Drop GIFs
-# under `<config_dir>/assets/` and reference by relative path.
-# ---------------------------------------------------------------------------
+# Live RSS headlines from Nintendo Life — a known-stable feed for the demo.
+# Swap feed_url for any RSS/Atom URL of your own.
 
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Nintendo Life"
+color = "random"
+
+[[playlist.section.widget]]
+type = "rss_feed"
+feed_url = "https://www.nintendolife.com/feeds/news"
+update_interval = 3000
+
+# Crypto prices via Coinbase — no API key required.
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = "Cryptocurrency/USD"
+
+[[playlist.section.widget]]
+type = "coinbase"
+symbol = "BTC"
+currency = "USD"
+
+[[playlist.section.widget]]
+type = "coinbase"
+symbol = "ETH"
+currency = "USD"
+
+# MLB scores via the free MLB Stats API — no API key. Replace "PHI" with
+# your team code.
+
+[[playlist.section]]
+mode = "swap"
+transition = "scroll"
+transition_duration = 4.0
+loop_count = 0
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "PHI"
+timezone = "America/New_York"
+final_hold_hours = 6
+
+# --- GIF / image playback (optional) ---
+# The gif widget plays an animated GIF or static image at native physical
+# resolution (256×64), using the same fit/text-overlay knobs as the image
+# widget. Full reference: https://docs.ledticker.dev/widgets/gif/
+#
+# `path` resolves relative to this config file's directory. Drop assets
+# under `<config_dir>/assets/` and reference by relative path.
+#
 # [[playlist.section]]
-# mode = "gif"
+# mode = "swap"
 # loop_count = 2
 #
 # [[playlist.section.widget]]
 # type = "gif"
 # path = "assets/example.gif"
 # fit = "pillarbox"
+
+# --- Weather (optional) ---
+# Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/).
+# location can be a city name, zip code, or "lat,lon".
+#
+# [[playlist.section]]
+# mode = "swap"
+# loop_count = 1
+#
+# [[playlist.section.widget]]
+# type = "weather"
+# message = "NYC"
+# location = "New York"
+# units = "imperial"

@@ -1,0 +1,43 @@
+# render-duration: 14
+# Three message widgets + a moon image, each held for hold_time and
+# revealed with push_left. Cycle:
+#   msg1 (2.5s) → push (0.5s) → msg2 (2.5s) → push (0.5s)
+#   → image (3.0s) → push (0.5s) → msg3 (2.5s) → push (0.5s)
+# = 12.5s per cycle; 14s captures the cycle with a tail before loop.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "push_left"
+duration = 0.5
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open daily"
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "10am - 8pm"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "image"
+path = "../../../config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "center"
+hold_seconds = 3.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "All ages"
+font_color = [255, 220, 0]

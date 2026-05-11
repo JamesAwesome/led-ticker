@@ -79,9 +79,8 @@ class Random:
 
     def __init__(self) -> None:
         graphics = require_graphics()
-        # Use the same RANDOM_COLOR cycle as the rest of the codebase
-        # if it's worth aligning, but a uniform random over RGB also
-        # works fine for v1.
+        # Random color: pick a hue uniformly per call (independent of
+        # app.py's section-title RANDOM_COLOR cycle).
         r, g, b = colorsys.hsv_to_rgb(random.random(), 1.0, 1.0)
         self._color = graphics.Color(int(r * 255), int(g * 255), int(b * 255))
 

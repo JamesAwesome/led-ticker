@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import itertools
-
 from led_ticker._compat import require_graphics
 from led_ticker._types import Color
 
@@ -41,13 +39,3 @@ DOWN_TREND_COLOR: Color = make_color(194, 24, 7)
 NEUTRAL_TREND_COLOR: Color = make_color(180, 180, 180)  # gray for 0% / unknown
 
 LIME: Color = make_color(0, 255, 0)
-
-RANDOM_COLOR: itertools.cycle[Color] = itertools.cycle(
-    [
-        PURPLE,
-        LIME,
-        ORANGE,
-        UP_TREND_COLOR,
-        DOWN_TREND_COLOR,
-    ]
-)

@@ -114,8 +114,8 @@ bg_color = [255, 220, 0]`}
 
 ## Pitfalls
 
-### Typewriter is single-row only on `gif` and `image` widgets
+### Typewriter is single-row only on `gif` and `image`
 
-`animation = "typewriter"` works fine here on `message` (a single text field). On `gif` and `image` the typewriter needs fixed-position glyphs, so it can't combine with `bottom_text` (two-row layout), with `text_align = "scroll"` / `"scroll_over"` (the cursor moves each tick), or with an empty `text` field. The validator rejects these combinations at config-load — drop the conflicting setting and the typewriter still composes cleanly with `font_color = "rainbow"` and `border = "rainbow"`.
+`animation = "typewriter"` works on `message` without restriction. On `gif` and `image`, three combinations are rejected: `bottom_text` set, `text_align = "scroll"` / `"scroll_over"`, or empty `text`. Typewriter still composes with `font_color = "rainbow"` and `border = "rainbow"`.
 
 <RelatedPages slugs={["widgets/countdown", "widgets/two_row", "concepts/color-providers"]} />

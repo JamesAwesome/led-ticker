@@ -107,14 +107,14 @@ bottom_color = [255, 240, 200]`} />
 
 ### Font line-height must fit the per-row band
 
-Each row gets a slice of `content_height` — 50/50 by default, or per `top_row_height` when set. If a row's font has a logical line-height taller than its band, glyphs would clip into the other row's space, so the validator rejects it at config-load. The fixes: pick a smaller `font_size`, raise `content_height` so each band is taller, adjust `top_row_height` to give the offending row more space, or fall back to a BDF alias (`5x8`, `6x12`) whose fixed cell heights tend to fit small bands more reliably than hi-res fonts sized for visual weight. For `two_row` at `scale = 2`, the canonical pairing is BDF `5x8` on `content_height = 16`; Inter at sizes 14+ usually needs `content_height = 24` or larger.
+Each row gets a slice of `content_height` (50/50 by default, or per `top_row_height`). If a font's logical line-height exceeds its band, the validator rejects it. Pick a smaller `font_size`, raise `content_height`, adjust `top_row_height`, or use a BDF alias (`5x8`, `6x12`). Reference pairing: BDF `5x8` fits `content_height = 16`; Inter at sizes 14+ usually needs `content_height = 24` or larger.
 
-### `scale=4` is too narrow for handles
+### `scale = 4` is too narrow for handles
 
-At section `scale = 4` the bigsign's logical canvas is only 64 pixels wide (256 real px ÷ 4 = 64 logical px), which clips most @handles mid-word. The `two_row` widget is designed for `scale = 2` (128 logical px) on the bigsign. Override the section's scale with `scale = 2` — you can mix scales across sections in the same config.
+At `scale = 4` the bigsign's logical canvas is only 64 px wide — most `@handles` clip mid-word. Use `scale = 2` (128 logical px) on this widget; you can mix scales across sections.
 
 ### `content_height` hard ceiling
 
-On the bigsign at `scale = 4` the maximum `content_height` is 16 (`16 × 4 = 64` real rows). For `scale = 2` the ceiling is 32. Values above the ceiling push the logical canvas taller than the real panel; rows near the edges clip silently. For per-row breathing room use `top_text_y_offset` / `bottom_text_y_offset` rather than over-specifying `content_height`.
+On the bigsign: `content_height ≤ 16` at `scale = 4`, `content_height ≤ 32` at `scale = 2` (`content_height × scale ≤ panel_height`). Above the ceiling, rows near the edges clip silently. For per-row breathing room use `top_text_y_offset` / `bottom_text_y_offset`, not over-specified `content_height`.
 
 <RelatedPages slugs={["widgets/message", "widgets/gif", "concepts/display"]} />

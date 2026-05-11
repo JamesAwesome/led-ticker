@@ -72,10 +72,10 @@ On `gif` and `image` widgets, typewriter is restricted to single-row text overla
 
 ### `animation` is only valid on `message`, `gif`, and `image`
 
-The `animation` field drives effects like `typewriter` that need a controlled per-character draw loop. Data widgets (`weather`, `mlb`, `rss_feed`, the crypto widgets) and `two_row` have their own draw paths and don't participate in the animation loop, so the validator rejects `animation` on them at config-load. For dynamic color on those widgets, use `font_color = "rainbow"` or a gradient instead.
+Other widget types (`weather`, `mlb`, `rss_feed`, `two_row`, the crypto widgets) have their own draw paths and ignore `animation` silently — the validator rejects it explicitly to make the no-op visible. For dynamic color on those widgets, use `font_color = "rainbow"` or a gradient.
 
 ### Typewriter is single-row only on `gif` and `image`
 
-Beyond the widget-type check above, typewriter on `gif` / `image` adds three more constraints: it can't combine with `bottom_text` (two-row mode has no fixed positions for the cursor), with `text_align = "scroll"` / `"scroll_over"` (the cursor moves each tick), or with an empty `text`. Drop the conflicting setting and typewriter still composes cleanly with `font_color = "rainbow"` and `border = "rainbow"`.
+On top of the widget-type check above, typewriter on `gif` / `image` rejects three combinations: `bottom_text` set, `text_align = "scroll"` / `"scroll_over"`, or empty `text`. Typewriter still composes with `font_color = "rainbow"` and `border = "rainbow"`.
 
 <RelatedPages slugs={["concepts/color-providers", "reference/frame-counters", "widgets/message"]} />

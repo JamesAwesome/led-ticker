@@ -130,7 +130,17 @@ The `valid` field is true exactly when `errors` is empty — warnings do not fli
 
 ## What gets caught
 
-The full list of errors and warnings the validator surfaces is on the [Pitfalls](/pitfalls/) page — each entry includes the cause and the fix in human-readable prose.
+Quick reference. Each row maps to a longer entry on [Pitfalls](/pitfalls/).
+
+| Check                                                            | Severity | Quick fix                                        |
+| ---------------------------------------------------------------- | -------- | ------------------------------------------------ |
+| `text_align="scroll"` paired with `fit="stretch"`                | error    | use `pillarbox`/`letterbox`/`crop`               |
+| `text_x_offset` set with a scrolling `text_align`                | error    | drop the offset, or use a static `text_align`    |
+| `hold_seconds < 0.05`                                            | error    | raise to ≥ 0.05 (it's seconds, not ms)           |
+| `animation` on a widget that doesn't support it                  | error    | remove it; use `font_color = "rainbow"` instead  |
+| `animation = "typewriter"` on `gif` / `image` with conflicts     | error    | drop `bottom_text`, scroll mode, or empty `text` |
+| Per-row font line-height exceeds the band on `two_row` / two-row | error    | smaller `font_size`, or raise `content_height`   |
+| `two_row` widget at `scale = 4`                                  | warning  | use `scale = 2` (128 logical px wide)            |
 
 ## Pitfalls
 

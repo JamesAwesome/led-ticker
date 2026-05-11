@@ -146,22 +146,22 @@ hold_seconds = 5.0`}
 
 ### Typewriter is single-row only
 
-`animation = "typewriter"` needs fixed-position glyphs, so it can't combine with `bottom_text` (two-row layout has no fixed positions), with `text_align = "scroll"` / `"scroll_over"` (the cursor moves each tick), or with an empty `text` field. Drop the conflicting setting and the typewriter still composes cleanly with `font_color = "rainbow"` and `border = "rainbow"` — independent counters, all animate together.
+`animation = "typewriter"` rejects three combinations: `bottom_text` set (two-row layout), `text_align = "scroll"` / `"scroll_over"` (cursor moves each tick), or empty `text`. Drop the conflicting setting; typewriter still composes with `font_color = "rainbow"` and `border = "rainbow"`.
 
-### `text_align="scroll"` requires a non-opaque image
+### `text_align="scroll"` needs transparency
 
-The `scroll` mode displays scrolling text through transparent / pillarbox regions of the image. With `fit="stretch"` the image fills every pixel and there are no transparent regions for the text to walk behind. Use `text_align="scroll_over"` for a marquee over a fullscreen image, or use a PNG with transparency and `fit="pillarbox"`.
+Stretch fills every pixel with image, leaving no transparent regions for the text to scroll through. Use `text_align="scroll_over"` for a fullscreen marquee, or pair `scroll` with a transparent PNG and `fit="pillarbox"`.
 
-### `text_x_offset` is rejected with scroll modes
+### `text_x_offset` is rejected in scroll modes
 
-`text_x_offset` only applies to static text placement (`text_align = "left"` or `"right"`). With `scroll` or `scroll_over`, the marquee's x position is driven by the scroll logic; adding a constant offset would skew the entry point in a confusing way. Remove the offset, or switch to a static `text_align`.
+Static offsets don't compose with the per-tick scroll cursor. Set `text_x_offset = 0` or change `text_align` to `"left"` or `"right"`.
 
 ### `hold_seconds` must be at least 0.05
 
-Values below 0.05 (50 ms) are rejected at config-load. The minimum exists because anything shorter than one engine tick would skip rendering entirely.
+`hold_seconds` is in seconds, not milliseconds. Anything under 50 ms is rejected — nothing shorter than one engine tick can actually display.
 
 ### Animated source files only show frame 0
 
-If you pass an animated `.gif` or `.webp` to the `image` widget, only the first frame is decoded and displayed. Use the [`gif`](/widgets/gif/) widget for animation — it shares the entire `image` text-overlay surface plus per-frame mechanics.
+The `image` widget decodes only the first frame of `.gif` / `.webp` files. Use the [`gif`](/widgets/gif/) widget for animation — it shares the entire `image` text-overlay surface plus per-frame mechanics.
 
 <RelatedPages slugs={["widgets/gif", "widgets/two_row", "assets/emoji"]} />

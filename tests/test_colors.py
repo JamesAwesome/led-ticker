@@ -53,3 +53,19 @@ def test_new_palette_colors_exist_and_are_correct():
     assert (PURPLE.red, PURPLE.green, PURPLE.blue) == (160, 60, 200)
     assert (CYAN.red, CYAN.green, CYAN.blue) == (0, 220, 220)
     assert (PINK.red, PINK.green, PINK.blue) == (240, 70, 200)
+
+
+def test_make_color_public_helper():
+    from led_ticker.colors import make_color
+
+    c = make_color(10, 20, 30)
+    assert c.red == 10
+    assert c.green == 20
+    assert c.blue == 30
+
+
+def test_make_color_replaces_private_helper():
+    import led_ticker.colors as colors_mod
+
+    assert hasattr(colors_mod, "make_color")
+    assert not hasattr(colors_mod, "_color")

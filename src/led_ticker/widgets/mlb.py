@@ -15,7 +15,7 @@ import attrs
 
 from led_ticker._types import Canvas, Color, ColorTuple, DrawResult, Font
 from led_ticker.color_providers import ColorProvider
-from led_ticker.colors import RGB_WHITE, _color
+from led_ticker.colors import RGB_WHITE, make_color
 from led_ticker.drawing import compute_baseline, compute_cursor
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
@@ -31,9 +31,9 @@ _INTERVAL_LIVE: int = 45  # ~half-inning cadence
 _INTERVAL_IDLE: int = 300  # 5 minutes
 _INTERVAL_OFFSEASON: int = 86400  # daily
 
-WIN_COLOR: Color = _color(46, 200, 46)
-LOSS_COLOR: Color = _color(220, 30, 30)
-LIVE_COLOR: Color = _color(255, 40, 40)
+WIN_COLOR: Color = make_color(46, 200, 46)
+LOSS_COLOR: Color = make_color(220, 30, 30)
+LIVE_COLOR: Color = make_color(255, 40, 40)
 
 # All 30 MLB team primary colors
 MLB_TEAM_COLORS: dict[str, ColorTuple] = {
@@ -111,14 +111,14 @@ MLB_NAME_TO_ABBR: dict[str, str] = {v: k for k, v in MLB_TEAM_NAMES.items()}
 def _team_color(abbr: str) -> Color:
     """Get graphics.Color for a team abbreviation."""
     r, g, b = MLB_TEAM_COLORS.get(abbr, (255, 255, 255))
-    return _color(r, g, b)
+    return make_color(r, g, b)
 
 
 def _team_color_by_name(name: str) -> Color:
     """Get graphics.Color for an API team name (e.g. 'Mets')."""
     abbr = MLB_NAME_TO_ABBR.get(name, "")
     r, g, b = MLB_TEAM_COLORS.get(abbr, (255, 255, 255))
-    return _color(r, g, b)
+    return make_color(r, g, b)
 
 
 @dataclass
@@ -405,9 +405,9 @@ def _build_game_message(
         b1 = "\u25c6" if game.on_first else "\u25c7"
 
         # BSO in color: B|S|O
-        ball_c = _color(80, 255, 80)  # green
-        strike_c = _color(255, 255, 80)  # yellow
-        out_c = _color(255, 80, 80)  # red
+        ball_c = make_color(80, 255, 80)  # green
+        strike_c = make_color(255, 255, 80)  # yellow
+        out_c = make_color(255, 80, 80)  # red
 
         segments = [
             (game.away_abbr, away_c),
@@ -428,7 +428,7 @@ def _build_game_message(
         # Rain delay / cancelled / suspended / completed early. Show team
         # vs team with a short tag and reason if available, instead of
         # "(Final)" + None scores.
-        tag_color = _color(255, 200, 60)  # amber — distinct from win/loss/white
+        tag_color = make_color(255, 200, 60)  # amber — distinct from win/loss/white
         if game.postpone_reason:
             tag = f" ({game.postpone_tag}: {game.postpone_reason})"
         else:

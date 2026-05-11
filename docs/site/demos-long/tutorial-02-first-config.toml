@@ -1,4 +1,4 @@
-# render-duration: 16
+# render-duration: 7
 [display]
 rows = 64
 cols = 256
@@ -6,6 +6,9 @@ chain = 1
 default_scale = 4
 brightness = 60
 
+
+[title]
+delay = 0   # no title card; suppress the 5s default per-section title hold
 [[playlist.section]]
 mode = "forever_scroll"
 loop_count = 3

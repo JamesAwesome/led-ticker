@@ -1,4 +1,4 @@
-# render-duration: 20
+# render-duration: 12
 # Demonstrates two sections in one config: a forever_scroll section
 # (continuous ticker) and a swap section (held messages with transitions).
 # The reader sees both modes side-by-side in a single render.
@@ -16,6 +16,9 @@ chain = 1
 default_scale = 4
 brightness = 60
 
+
+[title]
+delay = 0   # no title card; suppress the 5s default per-section title hold
 [transitions]
 default = "push_left"
 duration = 0.5

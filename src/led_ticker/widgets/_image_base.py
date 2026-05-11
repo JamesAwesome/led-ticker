@@ -1025,25 +1025,35 @@ class _BaseImageWidget(_FrameAware):
         if not hasattr(bottom_color, "color_for"):
             bottom_color = _ConstantColor(bottom_color)
 
-        top_baseline, top_emoji_y = row_layout(
-            text_canvas, top_font, band_height=top_h, band_offset=0
-        )
-        bottom_baseline, bottom_emoji_y = row_layout(
-            text_canvas, bottom_font, band_height=bottom_h, band_offset=top_h
-        )
-        top_baseline += self._row_text_y_offset(0)
-        bottom_baseline += self._row_text_y_offset(1)
-        top_emoji_y += self._row_emoji_y_offset(0)
-        bottom_emoji_y += self._row_emoji_y_offset(1)
-
         # Per-row emoji caps. When the band is taller than the static
         # EMOJI_ROW_CAP (8 logical), raise the cap so a hi-res emoji
         # that fits the band visually is allowed to render at hi-res.
         # Default content_height = 16 with 50/50 split → band = 8 = cap,
         # so existing demos behave identically; bumping content_height
         # or top_row_height enables hi-res emoji on the affected row.
+        # Computed BEFORE row_layout so each call receives the correct cap
+        # as sprite_logical_height (mirrors two_row.py's ordering).
         top_emoji_cap = max(EMOJI_ROW_CAP, top_h)
         bottom_emoji_cap = max(EMOJI_ROW_CAP, bottom_h)
+
+        top_baseline, top_emoji_y = row_layout(
+            text_canvas,
+            top_font,
+            band_height=top_h,
+            band_offset=0,
+            sprite_logical_height=top_emoji_cap,
+        )
+        bottom_baseline, bottom_emoji_y = row_layout(
+            text_canvas,
+            bottom_font,
+            band_height=bottom_h,
+            band_offset=top_h,
+            sprite_logical_height=bottom_emoji_cap,
+        )
+        top_baseline += self._row_text_y_offset(0)
+        bottom_baseline += self._row_text_y_offset(1)
+        top_emoji_y += self._row_emoji_y_offset(0)
+        bottom_emoji_y += self._row_emoji_y_offset(1)
 
         # Measure both rows once (logical px); drives alignment + scroll.
         top_width = self._measure_row_text(

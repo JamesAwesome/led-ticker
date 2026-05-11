@@ -110,7 +110,7 @@ bottom_color = [255, 240, 200]`} />
   caption="Inter-Bold @ 22 handle next to the hi-res `:instagram:` sprite on a 16-row top band, scrolling promo on the 8-row bottom"
 />
 
-The hi-res sprite is 32 real pixels tall. At `scale = 2` it's 16 logical pixels, which exactly matches `top_row_height = 16` — but the default vertical placement centers an 8-row low-res sprite (the formula puts the sprite at row 4 of the band), which leaves the 16-row hi-res sprite bleeding 4 rows into the bottom row. Set `top_emoji_y_offset = -4` to pull the sprite up to the band's top edge. Smaller bands fall back to the 8×8 lo-res sprite automatically.
+The hi-res sprite is 32 real pixels tall. At `scale = 2` it's 16 logical pixels, which exactly matches `top_row_height = 16` — the sprite anchors at the top of the band with no bleed into the bottom row. Smaller bands fall back to the 8×8 lo-res sprite automatically.
 
 <TomlExample code={`[[playlist.section]]
 mode = "swap"
@@ -121,7 +121,6 @@ content_height = 24
 type = "two_row"
 top_text = ":instagram: @moonbunny"
 top_row_height = 16
-top_emoji_y_offset = -4 # anchor the 16-row hi-res sprite to the top edge of the 16-row band
 top_font = "Inter-Bold"
 top_font_size = 22
 top_color = [225, 48, 108]

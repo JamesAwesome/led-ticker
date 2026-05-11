@@ -1,13 +1,15 @@
-# render-duration: 20
-# Chapter 5 — final polished config. Builds on tutorial-05a-transitions with:
-#   1. border = "rainbow" on the Welcome message.
-#   2. font_color = "rainbow" on the title message for extra colour pop.
-#   3. between_sections = "dissolve" and default = "wipe_left" retained.
+# render-duration: 16
+# Chapter 5 — final polished config. The destination state for the
+# whole tutorial. Mirrors config/config.bigsign.moonbunny.example.toml.
 #
-# This is the destination state that readers have assembled over the
-# five tutorial chapters.
+# Restructured from the 2-section transitions/borders state:
+#   - Section 1 (welcome card): rainbow font + rainbow border
+#   - Section 2 (brand card): per-section scale=2 so :instagram: renders
+#     as the hi-res 32×32 sprite next to the @moonbunnyaerial handle
+#   - Section 3 (info messages): Summer Camps with rainbow border,
+#     Open daily, All levels
 #
-# Cycle matches tutorial-05a-transitions (~19.5s); 20s captures it.
+# Cycle ~14s; 16s captures one full pass.
 [display]
 rows = 64
 cols = 256
@@ -15,10 +17,15 @@ chain = 1
 default_scale = 4
 brightness = 60
 
+[title]
+delay = 0
+
 [transitions]
 default = "wipe_left"
 duration = 0.5
 between_sections = "dissolve"
+
+# --- Section 1: Welcome card with rainbow font + border ---
 
 [[playlist.section]]
 mode = "swap"
@@ -31,25 +38,33 @@ text = "Welcome to Moonbunny"
 font_color = "rainbow"
 border = "rainbow"
 
+# --- Section 2: Brand card with hi-res Instagram emoji (scale=2) ---
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 32
+loop_count = 1
+hold_time = 5.0
+
 [[playlist.section.widget]]
 type = "image"
 path = "../../../config/assets/moon-transparent.png"
 fit = "pillarbox"
 image_align = "center"
-hold_seconds = 8.0
+hold_seconds = 4.0
 scroll_speed_ms = 35
-top_text = "@moonbunny"
-top_font = "5x8"
+top_text = ":instagram: @moonbunnyaerial"
+top_row_height = 16
+top_font = "Inter-Bold"
+top_font_size = 16
 top_color = [225, 48, 108]
 bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
-bottom_font = "AtkinsonHyperlegible-Bold"
+bottom_font = "Inter-Bold"
 bottom_font_size = 22
 bottom_color = [255, 240, 200]
 
-[[playlist.section.widget]]
-type = "message"
-text = "Open daily 10am – 8pm"
-font_color = [120, 220, 255]
+# --- Section 3: Info messages ---
 
 [[playlist.section]]
 mode = "swap"
@@ -61,6 +76,11 @@ type = "message"
 text = "Summer Camps start June 15"
 font_color = [180, 220, 180]
 border = "rainbow"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open daily 10am – 8pm"
+font_color = [120, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"

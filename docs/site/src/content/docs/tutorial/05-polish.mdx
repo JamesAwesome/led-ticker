@@ -159,11 +159,6 @@ font_color = [180, 220, 180]
 border = "rainbow"
 ```
 
-<DemoGif
-  src="/demos-long/tutorial-05b-final.gif"
-  caption="Rainbow border chases the panel perimeter; rainbow font_color sweeps per-character across 'Welcome to Moonbunny'. Both effects animate continuously during the hold."
-/>
-
 A few things worth knowing about borders:
 
 - The border paints at **physical resolution** — at `default_scale = 4` it traces the
@@ -175,17 +170,124 @@ A few things worth knowing about borders:
 - `border` is accepted on `message`, `countdown`, `two_row`, `gif`, and `image`
   widgets. It raises at config-load for other types.
 
+## Polish the brand card
+
+The handle on the image widget currently uses BDF `5x8` at `default_scale = 4`. That
+caps the handle width at ~12 characters before it clips the panel — `@moonbunny`
+just barely fits. To use the full `@moonbunnyaerial` handle and show the hi-res
+Instagram sprite alongside it, the brand card needs its own section at `scale = 2`.
+
+Two changes — restructure the section layout, then upgrade the handle.
+
+**Restructure.** Pull the image widget out of Section 1 into its own section. This
+lets the brand card use `scale = 2` without affecting the welcome and info widgets,
+which look right at the default `scale = 4`:
+
+```toml
+# Section 1 — welcome card
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "Welcome to Moonbunny"
+font_color = "rainbow"
+border = "rainbow"
+
+# Section 2 — brand card (new, scale = 2)
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 32
+loop_count = 1
+hold_time = 5.0
+
+[[playlist.section.widget]]
+type = "image"
+path = "config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "center"
+hold_seconds = 4.0
+scroll_speed_ms = 35
+top_text = ":instagram: @moonbunnyaerial"
+top_row_height = 16
+top_font = "Inter-Bold"
+top_font_size = 16
+top_color = [225, 48, 108]
+bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_font = "Inter-Bold"
+bottom_font_size = 22
+bottom_color = [255, 240, 200]
+
+# Section 3 — info messages (the old Summer Camps + All levels section,
+# plus the "Open daily 10am – 8pm" message moved out of Section 1)
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "Summer Camps start June 15"
+font_color = [180, 220, 180]
+border = "rainbow"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open daily 10am – 8pm"
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "All levels · All ages"
+font_color = [255, 220, 0]
+```
+
+What changed on the brand card:
+
+- **`scale = 2` on Section 2** — overrides `default_scale = 4` for this section.
+  Logical canvas widens from 64 to 128 px, leaving room for the longer handle and
+  the hi-res Instagram sprite.
+- **`content_height = 32`** — fills the full panel height at scale 2
+  (`32 × 2 = 64` real px). The hard ceiling. This matters because the moon image
+  uses `fit = "pillarbox"` and looks best filling the panel.
+- **`top_row_height = 16`** — gives the top band 16 logical rows, which matches the
+  hi-res Instagram sprite's 16 logical px height (`32 real px / scale = 16 logical`).
+  Without this, the sprite falls back to the 8×8 lo-res variant.
+- **`top_text = ":instagram: @moonbunnyaerial"`** — the `:instagram:` inline emoji
+  renders as the full-colour hi-res sprite now that the band can fit it. The
+  remaining text is the full handle, no shortening needed.
+- **`top_font = "Inter-Bold"`, `top_font_size = 16`** — switched from `5x8` BDF to
+  Inter-Bold for visual consistency with the bottom row.
+- **`bottom_font = "Inter-Bold"`** — switched from Atkinson Hyperlegible to the
+  bundled Inter-Bold. Atkinson works great if you're keeping a personal copy in
+  `config/fonts/`, but the canonical destination config uses only bundled fonts so
+  a fresh `git clone` can render it without the font download.
+
+<DemoGif
+  src="/demos-long/tutorial-05b-final.gif"
+  caption="The final config. Welcome card with rainbow font + chasing border; brand card with the hi-res Instagram sprite and full @moonbunnyaerial handle; info section with Summer Camps + Open daily + All levels. wipe_left transitions within sections, dissolve between."
+/>
+
 ## What you've built
 
 Your config now has:
 
-- A multi-section playlist mixing `forever_scroll` and `swap` modes.
-- `two_row` with Atkinson Hyperlegible and a hi-res emoji on the brand card.
-- An `image` widget with a two-row text overlay.
-- `wipe_left` transitions between widgets, `dissolve` between sections.
-- Animated rainbow borders and per-character rainbow text on the headline widgets.
+- A three-section playlist in `swap` mode with `wipe_left` transitions between
+  widgets and `dissolve` between sections.
+- A welcome card with per-character rainbow `font_color` and a chasing rainbow
+  border around the panel perimeter.
+- A brand card running at per-section `scale = 2` so the hi-res Instagram sprite
+  renders at the full 32×32 next to the `@moonbunnyaerial` handle. The moon image
+  fills the panel; promo text scrolls across the bottom row.
+- An info section with three message widgets — Summer Camps (rainbow border),
+  Open daily, and All levels — held briefly so each is readable.
 
-That covers everything in the tutorial. The next step is getting it onto a Pi.
+That matches the destination config you rendered in Chapter 1
+(`config/config.bigsign.moonbunny.example.toml`). The next step is getting it onto
+a Pi.
 
 ## Deploying to a Pi
 

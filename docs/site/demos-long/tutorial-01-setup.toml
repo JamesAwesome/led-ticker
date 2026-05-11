@@ -1,4 +1,4 @@
-# render-duration: 23
+# render-duration: 65
 # Tutorial Chapter 1 — destination config preview.
 #
 # Renders the moonbunny tutorial destination so the reader sees what
@@ -6,12 +6,13 @@
 # config/config.bigsign.moonbunny.example.toml — display knobs simplified
 # to chain=1 for the renderer, asset path made render-tool-relative.
 #
-# Trims at end of Section 2 (brand card bottom-row scroll completes at
-# ~22s, then a 0.5s dissolve to Section 3). Section 3's info messages
-# are not included in the gif — they overflow the 64-logical canvas at
-# scale=4 and would each scroll for ~10s, ballooning the gif past 50s
-# for a chapter-1 teaser. Readers see Section 3 by running the config
-# themselves.
+# Captures one full cycle through all three sections:
+#   Section 1 (welcome card): ~3s
+#   Section 2 (brand card with full bottom-row scroll): ~22s
+#   Section 3 (three info messages, each scrolling because they overflow
+#     the 64-logical canvas at scale=4): ~39s
+#   Total ≈ 65s. The longer gif is intentional — the chapter 1 destination
+#   teaser shows the COMPLETE config so readers know what they're building.
 
 [display]
 rows = 64

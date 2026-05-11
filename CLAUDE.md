@@ -2,7 +2,7 @@
 
 Guidance for Claude Code when working in this repository.
 
-User-facing prose for every feature mentioned in this file lives on the docs site at <https://led-ticker.pages.dev>. This file keeps only the **load-bearing invariants** the assistant must respect when generating or modifying code, plus navigation aids (commands, file map, contributor flows). When this file links to a docs page, the link is the source of truth for "how the feature works"; the surrounding paragraph here is the source of truth for "how to keep it working."
+User-facing prose for every feature mentioned in this file lives on the docs site at <https://docs.ledticker.dev>. This file keeps only the **load-bearing invariants** the assistant must respect when generating or modifying code, plus navigation aids (commands, file map, contributor flows). When this file links to a docs page, the link is the source of truth for "how the feature works"; the surrounding paragraph here is the source of truth for "how to keep it working."
 
 ## Project Overview
 
@@ -11,7 +11,7 @@ User-facing prose for every feature mentioned in this file lives on the docs sit
 - **Smallsign** — Pi 4 + 5× chained 16×32 panels = 160×16 logical canvas, `default_scale = 1`
 - **Bigsign** — Pi 5 + 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64, `default_scale = 4`. Drawing logic stays at 16-tall logical content; `ScaledCanvas` expands every `SetPixel` to a `scale × scale` block on the real canvas and centers vertically.
 
-Hardware reference details: <https://led-ticker.pages.dev/hardware/smallsign/> · <https://led-ticker.pages.dev/hardware/bigsign/> · <https://led-ticker.pages.dev/hardware/building-your-own/>
+Hardware reference details: <https://docs.ledticker.dev/hardware/smallsign/> · <https://docs.ledticker.dev/hardware/bigsign/> · <https://docs.ledticker.dev/hardware/building-your-own/>
 
 ## Commands
 
@@ -25,7 +25,7 @@ make clean         # remove build artifacts
 make build-docker  # production image (single image, both Pis)
 ```
 
-Full CLI + Make-target reference: <https://led-ticker.pages.dev/reference/cli/>
+Full CLI + Make-target reference: <https://docs.ledticker.dev/reference/cli/>
 
 ## Architecture
 
@@ -81,13 +81,13 @@ src/led_ticker/
 
 Each bullet is a rule that must hold when modifying the named area. Full prose for the user-facing knobs lives on the linked docs page.
 
-**Inline emoji** (`pixel_emoji.py`) — `EMOJI_REGISTRY` is the source of truth; never inline a static slug list (it rots). Widgets that draw a single icon at a known (x, y) call `pixel_emoji.draw_emoji_at(canvas, slug, x, y)` rather than blitting; for layout math BEFORE the draw call `pixel_emoji.measure_emoji_at(canvas, slug)` so the gate matches `draw_emoji_at` exactly. Hires-only slugs (in `HIRES_REGISTRY` but not `EMOJI_REGISTRY`) have no low-res fallback — confirm `scale > 1` before using. Docs: <https://led-ticker.pages.dev/assets/emoji/>.
+**Inline emoji** (`pixel_emoji.py`) — `EMOJI_REGISTRY` is the source of truth; never inline a static slug list (it rots). Widgets that draw a single icon at a known (x, y) call `pixel_emoji.draw_emoji_at(canvas, slug, x, y)` rather than blitting; for layout math BEFORE the draw call `pixel_emoji.measure_emoji_at(canvas, slug)` so the gate matches `draw_emoji_at` exactly. Hires-only slugs (in `HIRES_REGISTRY` but not `EMOJI_REGISTRY`) have no low-res fallback — confirm `scale > 1` before using. Docs: <https://docs.ledticker.dev/assets/emoji/>.
 
 **Hi-res emoji on the bigsign** — Hires sprites paint DIRECTLY to the underlying real canvas (bypass the wrapper's block expansion). Routing happens via `isinstance(canvas, ScaledCanvas)` inside the helpers above; on smallsign / scale=1, the renderer falls back to the 8×8 sprite automatically. Hires sprites can be generated programmatically (`_generate_moon_hires` is the circle-subtraction template).
 
 **Hi-res transitions** — `nyancat`, `pokeball`, `baseball` families have hires variants that auto-activate when `frame_at` receives a `ScaledCanvas`. Sprites bundled at `src/led_ticker/transitions/sprites/`. Shared loader is `_hires_loader.py` (`@functools.cache`'d, paints to `unwrap_to_real(canvas)`). `HiresSpec.trail` selects what fills behind the leading entity (`"none"` / `"black"` / `"rainbow"`); trail saturates at `TRAIL_SATURATION_T=0.85`, snaps to incoming at `SNAP_THRESHOLD=0.95`. `sailor_moon` and `pacman` intentionally have no hires variant. Dispatch boilerplate is duplicated across the three hires families on purpose — refactor to a mixin only if a 4th family appears.
 
-**Hi-res fonts** — Loader scan order: `config/fonts/` (user-supplied; gitignored, re-anchored at startup to `<config.toml dir>/fonts/` via `app._configure_user_font_dir`), then `src/led_ticker/fonts/hires/` (bundled), then BDF aliases. Glyphs cached via `@functools.cache load_hires_font` keyed on `(name, size, threshold)` — `resolve_font` validates threshold type explicitly so `80.0` (float) and `80` (int) cache distinctly. Render path (`text_render._draw_hires_text`) paints to `unwrap_to_real(canvas).SetPixel` and multiplies logical coords by `canvas.scale` internally. `font_line_height(font)` and `compute_baseline(font, ...)` (in `drawing.py`) are font-aware — never hardcode a baseline or cell height. Docs: <https://led-ticker.pages.dev/concepts/fonts/>.
+**Hi-res fonts** — Loader scan order: `config/fonts/` (user-supplied; gitignored, re-anchored at startup to `<config.toml dir>/fonts/` via `app._configure_user_font_dir`), then `src/led_ticker/fonts/hires/` (bundled), then BDF aliases. Glyphs cached via `@functools.cache load_hires_font` keyed on `(name, size, threshold)` — `resolve_font` validates threshold type explicitly so `80.0` (float) and `80` (int) cache distinctly. Render path (`text_render._draw_hires_text`) paints to `unwrap_to_real(canvas).SetPixel` and multiplies logical coords by `canvas.scale` internally. `font_line_height(font)` and `compute_baseline(font, ...)` (in `drawing.py`) are font-aware — never hardcode a baseline or cell height. Docs: <https://docs.ledticker.dev/concepts/fonts/>.
 
 **Pillow anchor gotcha** (`hires_loader._rasterize_glyph`) — `pil_font.getbbox(ch)` returns coords in anchor `"la"` (left-ascender) space, NOT baseline-relative. Rasterizer renders at `(0, 0)` and computes `bearing_y = ascent - bbox[1]` to convert. If Pillow ever changes its default anchor, revisit this formula. **Width tracking** (`drawing.get_text_width`): hires advances are real pixels; for layout against logical widths the function ceil-divides by `getattr(canvas, "scale", 1)`. Pre-canvas call sites get `SCALE_FALLBACK = 4` (a bigsign-only assumption preserved for back-compat) — audit those if hires usage spreads beyond bigsign.
 
@@ -97,13 +97,13 @@ Each bullet is a rule that must hold when modifying the named area. Full prose f
 
 **Per-widget colors in TOML** — The loader auto-coerces 3-int lists in `font_color`, `color`, `top_color`, `bottom_color` to `graphics.Color`. `color = "random"` works for titles (cycles through `RANDOM_COLOR`).
 
-**Two-row widget** — `TwoRowMessage` renders held top + scrolling-on-overflow bottom. Bottom only scrolls when content exceeds canvas width. Per-row knobs use the `top_` / `bottom_` prefix convention; single-region widgets (TickerMessage, image text overlay) use unprefixed names. Don't mix conventions: the prefix on a single-region widget lies; dropping the prefix on a multi-region widget is unaddressable. Hires text fonts that don't fit a per-row band (font line-height > canvas.height // 2) raise at draw time identifying the row. Layout helpers in `widgets/_row_layout.py` are shared with image widgets — both must keep using them so row positioning can't drift. Docs: <https://led-ticker.pages.dev/widgets/two_row/>.
+**Two-row widget** — `TwoRowMessage` renders held top + scrolling-on-overflow bottom. Bottom only scrolls when content exceeds canvas width. Per-row knobs use the `top_` / `bottom_` prefix convention; single-region widgets (TickerMessage, image text overlay) use unprefixed names. Don't mix conventions: the prefix on a single-region widget lies; dropping the prefix on a multi-region widget is unaddressable. Hires text fonts that don't fit a per-row band (font line-height > canvas.height // 2) raise at draw time identifying the row. Layout helpers in `widgets/_row_layout.py` are shared with image widgets — both must keep using them so row positioning can't drift. Docs: <https://docs.ledticker.dev/widgets/two_row/>.
 
 **Per-section `content_height`** — Hard ceiling: `content_height × scale ≤ panel_h_real`. For bigsign at scale=4, that's `content_height ≤ 16`. Above the ceiling the wrapper's `_y_offset` goes negative and content silently clips. BDF text is forgiving (cells sit near the vertical center) but hires emoji and large hires fonts surface the clip immediately. For per-row breathing room, use `text_y_offset` on the widget — not a higher `content_height`.
 
 **ScaledCanvas / unwrap_to_real** — When `default_scale > 1` widgets receive a `ScaledCanvas` wrapper. `_swap` mutates `.real` in place so wrapper identity is stable across frames. `_y_offset` is cached at construction. `DrawText` cannot be scaled, so use `ScaledCanvas.draw_bdf_text` (uses `SetPixel`, inherits scaling). Use `scaled_canvas.unwrap_to_real(canvas)` whenever you need physical-pixel granularity (GIF widget, Dissolve transition) — without this, a SetPixel-based scatter at scale=4 only has 1024 grain points and dissolves render as fade-through-black at t=0.5.
 
-**GIF / Still image widgets** — Both extend `_BaseImageWidget` (`widgets/_image_base.py`) which provides the entire text-overlay surface: `text_align`, `text_valign`, `text_y_offset`, `text_x_offset`, `scroll_direction`, `scroll_speed_ms`, `font_size`, `text_loops`, inline `:slug:` emoji. Subclasses provide `_paint_full(canvas)`, `_paint_skip_black(canvas)`, `_load`, plus optional hooks `_pick_frame_for_elapsed(elapsed_ms)` and `_is_static() -> bool`. `_is_static()` drives the static-text fast path — multi-frame gifs MUST NOT fast-path (frames freeze on idx 0; tripwire `test_gif_static_text_does_not_freeze_animation`). Fit / alpha primitives live in `widgets/_image_fit.py` — canonical, do not duplicate. Validation rejects `text_align="scroll"` + `fit="stretch"`, `text_x_offset != 0` + scroll modes, `hold_seconds < 0.05`, BDF `font_size < cell_h`. Docs: <https://led-ticker.pages.dev/widgets/gif/> · <https://led-ticker.pages.dev/widgets/image/>.
+**GIF / Still image widgets** — Both extend `_BaseImageWidget` (`widgets/_image_base.py`) which provides the entire text-overlay surface: `text_align`, `text_valign`, `text_y_offset`, `text_x_offset`, `scroll_direction`, `scroll_speed_ms`, `font_size`, `text_loops`, inline `:slug:` emoji. Subclasses provide `_paint_full(canvas)`, `_paint_skip_black(canvas)`, `_load`, plus optional hooks `_pick_frame_for_elapsed(elapsed_ms)` and `_is_static() -> bool`. `_is_static()` drives the static-text fast path — multi-frame gifs MUST NOT fast-path (frames freeze on idx 0; tripwire `test_gif_static_text_does_not_freeze_animation`). Fit / alpha primitives live in `widgets/_image_fit.py` — canonical, do not duplicate. Validation rejects `text_align="scroll"` + `fit="stretch"`, `text_x_offset != 0` + scroll modes, `hold_seconds < 0.05`, BDF `font_size < cell_h`. Docs: <https://docs.ledticker.dev/widgets/gif/> · <https://docs.ledticker.dev/widgets/image/>.
 
 **`text_align="scroll"` vs `"scroll_over"` paint order** — `"scroll"`: text first, then `_paint_skip_black` paints non-black image pixels on top → text walks BEHIND the image silhouette (use with RGBA + transparent regions). `"scroll_over"`: image first, text on top → always visible (use with opaque RGB). `"auto"` resolves based on `image_align`: `left`→`right`, `right`→`left`, `center`→`scroll_over`.
 
@@ -167,7 +167,7 @@ These constraints were learned through extensive real-hardware testing. They are
 
 ### Transition System
 
-30+ transitions registered. Full catalogue + per-family knobs: <https://led-ticker.pages.dev/transitions/>. Categories:
+30+ transitions registered. Full catalogue + per-family knobs: <https://docs.ledticker.dev/transitions/>. Categories:
 
 - **Push** — outgoing + incoming move together (`push_left/right/up/down`, `push_alternating`, `push_random`). Use draw-blackout-draw to avoid DrawText overlap; receive `outgoing_scroll_pos` from `_swap_and_scroll` so they continue from where text stopped scrolling.
 - **Wipe** — stationary outgoing + colored sweep line erases (`wipe_left/right/up/down`, `wipe_alternating`, `wipe_random`). Draw outgoing at pos=0, SetPixel-blackout regions, draw sweep on top, snap to incoming at t=1.0. Blackouts erase `outgoing.draw()`'s text bleed (DrawText cannot be clipped) — they are NOT redundant against `Clear()`.
@@ -182,7 +182,7 @@ These constraints were learned through extensive real-hardware testing. They are
 
 ### Color providers and animations
 
-User-facing surface: <https://led-ticker.pages.dev/concepts/color-providers/> · <https://led-ticker.pages.dev/concepts/animations/> · <https://led-ticker.pages.dev/concepts/borders/> · <https://led-ticker.pages.dev/concepts/frame-counters/>.
+User-facing surface: <https://docs.ledticker.dev/concepts/color-providers/> · <https://docs.ledticker.dev/concepts/animations/> · <https://docs.ledticker.dev/concepts/borders/> · <https://docs.ledticker.dev/concepts/frame-counters/>.
 
 **Color provider contract** — `font_color` (and `top_color` / `bottom_color` on TwoRow / image widgets) accepts: constant `[r, g, b]`, legacy `"random"` sentinel, string shorthand (`"rainbow"` / `"color_cycle"`), or inline table (`{style = "gradient", from = [...], to = [...]}`). At config-load all normalize to a `ColorProvider` with `color_for(frame, char_index, total_chars) -> Color`. Constants wrap in `_ConstantColor` so widget-side dispatch is uniform. Per-char providers (`rainbow`, `gradient`) cause widgets that opt in to iterate characters and render each with its own color: currently `TickerMessage`, `TwoRowMessage` (per-row), and `_BaseImageWidget` text-overlay surface. Whole-string providers (`color_cycle`, `random`, constant) get a single `color_for` call per draw. New providers default `frame_invariant = False` (conservative). Data widgets (`coinbase`, `coingecko`, `etherscan`, `mlb`, `mlb_standings`) accept `font_color` as a whole-string provider — they call `color_for(frame, 0, 1)` once per draw tick and apply the result uniformly to the label / text segments (not per-char). Per-char providers like `rainbow` still work but only their first hue position (`char_index=0`) is used, cycling with `frame` across ticks.
 
@@ -238,7 +238,7 @@ User-facing surface: <https://led-ticker.pages.dev/concepts/color-providers/> ·
 
 ### Configuration
 
-User-facing reference: <https://led-ticker.pages.dev/reference/config-options/>.
+User-facing reference: <https://docs.ledticker.dev/reference/config-options/>.
 
 - App config: `config/config.toml` (mounted in Docker at `/code/config/`, gitignored)
 - Examples: `config/config.example.toml` (smallsign), `config/config.bigsign.example.toml` (bigsign with `pixel_mapper`, scaling, RP1 tuning), `config/config.moonbunny.example.toml` (real-world bigsign template)
@@ -252,9 +252,9 @@ User-facing reference: <https://led-ticker.pages.dev/reference/config-options/>.
 - Single image runs on both Pi 4 and Pi 5. The rgbmatrix library is hardcoded to `jamesawesome/rpi-rgb-led-matrix` (default branch `main`) — based on kingdo9's pi5_support (upstream PR [hzeller#1886](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886), maintainer-approved) with one patch on top: 42 anonymous `PIO` parameters in `pio_rp1.c` were given a name so the file builds under bullseye GCC 10. The library detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). The pre-RP1 codebase is preserved on the `pi4_legacy` branch. Track #1886 and retire our branch once it merges into `hzeller/master`.
 - On the Pi 5, the runtime CLI also accepts `--led-rp1-rio=0|1` (PIO vs Registered IO mode). For chain ≥ 2 with flicker, raise `slowdown_gpio` from 2 to 3+.
 - Config mounted read-only: `./config:/code/config:ro`.
-- Systemd: `deploy/led-ticker.service`. Full deploy walkthrough: <https://led-ticker.pages.dev/hardware/building-your-own/>.
+- Systemd: `deploy/led-ticker.service`. Full deploy walkthrough: <https://docs.ledticker.dev/hardware/building-your-own/>.
 
 ### Hardware quick reference
 
-- **Smallsign (Pi 4)** — 5× 32×16 = 160×16 px. `default_scale = 1`, `slowdown_gpio = 2`, `gpio_mapping = "adafruit-hat"`, ~20 fps. Full BOM + wiring: <https://led-ticker.pages.dev/hardware/smallsign/>.
-- **Bigsign (Pi 5)** — 8× P3 32×64 in a 2×4 vertical-serpentine = 256×64 px. `default_scale = 4`, `slowdown_gpio = 3` paired with `rp1_rio = 1`, `pwm_bits = 8`, custom `pixel_mapper` Remap string. DrawText clips safely at canvas edges (y can be negative or > height). Full BOM + chain diagram + Pi-5 tuning: <https://led-ticker.pages.dev/hardware/bigsign/>.
+- **Smallsign (Pi 4)** — 5× 32×16 = 160×16 px. `default_scale = 1`, `slowdown_gpio = 2`, `gpio_mapping = "adafruit-hat"`, ~20 fps. Full BOM + wiring: <https://docs.ledticker.dev/hardware/smallsign/>.
+- **Bigsign (Pi 5)** — 8× P3 32×64 in a 2×4 vertical-serpentine = 256×64 px. `default_scale = 4`, `slowdown_gpio = 3` paired with `rp1_rio = 1`, `pwm_bits = 8`, custom `pixel_mapper` Remap string. DrawText clips safely at canvas edges (y can be negative or > height). Full BOM + chain diagram + Pi-5 tuning: <https://docs.ledticker.dev/hardware/bigsign/>.

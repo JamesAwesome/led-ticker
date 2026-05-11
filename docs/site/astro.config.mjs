@@ -6,10 +6,10 @@ import path from "node:path";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  // Update `site` to a custom domain after Cloudflare Pages setup.
-  // Default `*.pages.dev` URL works without `site` set, but sitemap
-  // will use relative URLs until this is filled in.
-  site: "https://led-ticker.pages.dev",
+  // Custom domain. Cloudflare Pages also serves preview deploys at
+  // `<branch>.led-ticker.pages.dev` for in-flight PRs — the custom
+  // domain only fronts the production build.
+  site: "https://docs.ledticker.dev",
   vite: {
     server: {
       fs: {
@@ -66,12 +66,28 @@ export default defineConfig({
         {
           label: "Hardware",
           items: [
-            // Pin direct links to the embedded reference configs so they're
-            // discoverable from the sidebar, not buried inside a <details>
-            // halfway down the build pages.
-            { label: "Smallsign config", link: "/hardware/smallsign/#reference-config" },
-            { label: "Bigsign config", link: "/hardware/bigsign/#reference-config" },
-            { autogenerate: { directory: "hardware" } },
+            // Build pages and embedded reference configs alternate by sign
+            // type so a reader scanning the sidebar can pair each build
+            // walkthrough with the working config it produces. Reference
+            // configs link to the #reference-config anchor on the build
+            // page so a click lands directly on the embedded TOML.
+            { label: "Hardware: Bigsign reference build", link: "/hardware/bigsign/" },
+            {
+              label: 'Bigsign config - "Showroom"',
+              link: "/hardware/bigsign/#reference-config",
+            },
+            {
+              label: "Hardware: Smallsign reference build",
+              link: "/hardware/smallsign/",
+            },
+            {
+              label: 'Smallsign config - "Office Ticker"',
+              link: "/hardware/smallsign/#reference-config",
+            },
+            {
+              label: "Hardware: Building your own",
+              link: "/hardware/building-your-own/",
+            },
           ],
         },
         {

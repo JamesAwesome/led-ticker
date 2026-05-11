@@ -5,7 +5,7 @@
 # single horizontal chain, left-to-right.
 #
 # Copy this to config.toml and adjust the playlist sections for your content.
-# Full config-options reference: https://led-ticker.pages.dev/reference/config-options/
+# Full config-options reference: https://docs.ledticker.dev/reference/config-options/
 
 [display]
 rows = 16
@@ -20,7 +20,7 @@ delay = 5
 
 # --- Transitions ---
 # Global transition defaults. Full transition catalogue and per-family tuning
-# lives at https://led-ticker.pages.dev/transitions/. The values below give a
+# lives at https://docs.ledticker.dev/transitions/. The values below give a
 # 0.5-sec wipe between widgets within a section and a dissolve between sections
 # — readable on a 160×16 smallsign without being distracting.
 
@@ -32,7 +32,7 @@ between_sections = "dissolve"
 
 # --- Playlist ---
 # Each [[playlist.section]] displays in order, then the whole playlist loops.
-# Sections, modes, and timing knobs: https://led-ticker.pages.dev/concepts/sections-and-modes/
+# Sections, modes, and timing knobs: https://docs.ledticker.dev/concepts/sections-and-modes/
 
 [[playlist.section]]
 mode = "forever_scroll"

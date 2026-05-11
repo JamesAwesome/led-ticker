@@ -19,7 +19,7 @@ All widgets in the section scroll left as a continuous stream, separated by `•
 
 <DemoGif
   src="/demos-long/sections-forever_scroll.gif"
-  caption="`forever_scroll` — three short messages flow together separated by a bullet; the panel never clears"
+  caption="`forever_scroll` — three messages and a countdown flow together separated by bullets; the panel never clears"
 />
 
 <TomlExample
@@ -34,6 +34,12 @@ text = "Open 9-5"
 font_color = [225, 48, 108]
 
 [[playlist.section.widget]]
+type = "countdown"
+message = "Summer Camps"
+countdown_date = 2026-06-20
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
 type = "message"
 text = "Free coffee Friday"
 font_color = [255, 220, 0]
@@ -41,7 +47,7 @@ font_color = [255, 220, 0]
 [[playlist.section.widget]]
 type = "message"
 text = "All ages welcome"
-font_color = [120, 220, 255]`}
+font_color = [180, 220, 180]`}
 />
 
 ## `infini_scroll` — one-at-a-time scroll
@@ -52,7 +58,7 @@ Each widget scrolls fully off the left edge of the panel before the next widget 
 
 <DemoGif
   src="/demos-long/sections-infini_scroll.gif"
-  caption="`infini_scroll` — each widget scrolls fully off before the next enters; a clean gap between messages"
+  caption="`infini_scroll` — three messages and a countdown each scroll fully off before the next enters; a clean gap between widgets"
 />
 
 <TomlExample
@@ -67,6 +73,12 @@ text = "Now Enrolling"
 font_color = [225, 48, 108]
 
 [[playlist.section.widget]]
+type = "countdown"
+message = "Summer Camps"
+countdown_date = 2026-06-20
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
 type = "message"
 text = "Spring Classes Open"
 font_color = [255, 220, 0]
@@ -74,7 +86,7 @@ font_color = [255, 220, 0]
 [[playlist.section.widget]]
 type = "message"
 text = "Drop-ins welcome"
-font_color = [120, 220, 255]`}
+font_color = [180, 220, 180]`}
 />
 
 ## `swap` — held with transitions
@@ -85,7 +97,7 @@ The transition used between widgets in the section is configured via the `transi
 
 <DemoGif
   src="/demos-long/sections-swap.gif"
-  caption="`swap` — each widget holds for `hold_time`, then a transition (`push_left` here) reveals the next"
+  caption="`swap` — three messages and a moon image each hold for `hold_time`, then a transition (`push_left` here) reveals the next"
 />
 
 <TomlExample
@@ -107,6 +119,13 @@ font_color = [120, 220, 255]
 type = "message"
 text = "10am - 8pm"
 font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "image"
+path = "config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "center"
+hold_seconds = 3.0
 
 [[playlist.section.widget]]
 type = "message"

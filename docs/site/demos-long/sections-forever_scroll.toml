@@ -1,9 +1,11 @@
-# render-duration: 24
-# Three messages stream side-by-side at scroll_step_ms = 35.
-# Each pixel of cursor advance is 35 ms wallclock; the longest
-# message ("Free coffee Friday") needs the full ~16-sec inner pass
-# to clear the panel, plus a tail to show the final message reading
-# stably before the loop. 24 sec gives one complete pass with margin.
+# render-duration: 36
+# Four widgets stream side-by-side at scroll_step_ms = 35:
+# three messages + one countdown ("Summer Camps") to show that
+# forever_scroll mixes widget types in the same continuous stream.
+# Each pixel of cursor advance is 35 ms wallclock; the full
+# (canvas + four widgets + bullet separators) scroll plus the
+# 2-sec hold-at-end runs ~32 sec. 36 sec captures the cycle
+# with a tail before the playlist loops.
 [display]
 rows = 16
 cols = 32
@@ -25,6 +27,12 @@ text = "Open 9-5"
 font_color = [225, 48, 108]
 
 [[playlist.section.widget]]
+type = "countdown"
+message = "Summer Camps"
+countdown_date = 2026-06-20
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
 type = "message"
 text = "Free coffee Friday"
 font_color = [255, 220, 0]
@@ -32,4 +40,4 @@ font_color = [255, 220, 0]
 [[playlist.section.widget]]
 type = "message"
 text = "All ages welcome"
-font_color = [120, 220, 255]
+font_color = [180, 220, 180]

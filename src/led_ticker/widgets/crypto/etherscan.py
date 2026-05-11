@@ -12,13 +12,14 @@ import attrs
 from led_ticker._compat import require_graphics
 from led_ticker._types import Canvas, Color, DrawResult
 from led_ticker.color_providers import ColorProvider, _ConstantColor
-from led_ticker.colors import DEFAULT_COLOR, DOWN_TREND_COLOR, UP_TREND_COLOR
+from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import compute_baseline, get_text_width
 from led_ticker.fonts import FONT_LABEL, FONT_VALUE
 from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import _FrameAware
+from led_ticker.widgets.crypto._colors import DOWN_TREND_COLOR, UP_TREND_COLOR
 
 ETHERSCAN_API: str = "https://api.etherscan.io/api"
 GAS_BANNER: str = "Gas(gwei):"

@@ -1,0 +1,137 @@
+# render-duration: 45
+# Tutorial Chapter 1 — destination config preview.
+#
+# Renders the moonbunny tutorial destination so the reader sees what
+# they will build toward over chapters 2–5. Identical content to
+# config/config.bigsign.moonbunny.example.toml; paths adjusted for
+# the demos-long/ working directory.
+
+[display]
+rows = 64
+cols = 256
+chain = 1
+brightness = 60
+default_scale = 4
+
+[title]
+delay = 5
+
+[transitions]
+default = "wipe_left"
+duration = 0.6
+easing = "ease_out"
+between_sections = "dissolve"
+
+# --- Section 1: MOONBUNNY title card (swap) ---
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "MOONBUNNY :moon:"
+font = "Inter-Bold"
+font_size = 28
+font_threshold = 128
+font_color = "rainbow"
+
+# --- Section 2: @moonbunny two-row handle + promo (swap) ---
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 24
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunny"
+top_font = "Inter-Bold"
+top_font_size = 18
+top_font_threshold = 128
+top_color = [225, 48, 108]
+top_align = "center"
+bottom_text = "Aerial silks * lyra * flow props * all levels welcome"
+bottom_font = "Inter-Bold"
+bottom_font_size = 16
+bottom_font_threshold = 128
+bottom_color = [255, 240, 200]
+bottom_align = "left"
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunny"
+top_font = "Inter-Bold"
+top_font_size = 18
+top_font_threshold = 128
+top_color = [225, 48, 108]
+top_align = "center"
+bottom_text = "Now booking spring classes — beginners welcome!"
+bottom_font = "Inter-Bold"
+bottom_font_size = 16
+bottom_font_threshold = 128
+bottom_color = [189, 169, 234]
+bottom_align = "left"
+
+# --- Section 3: Moon image with scrolling text overlay (swap) ---
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 0.5
+
+[[playlist.section.widget]]
+type = "image"
+path = "../../../config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "right"
+text = "Find Your Strength  *  Find Your Community  *  Aerial for Everybody"
+text_align = "scroll"
+scroll_speed_ms = 50
+hold_seconds = 0.05
+text_loops = 1
+font = "Inter-Bold"
+font_size = 22
+font_threshold = 128
+font_color = [255, 240, 200]
+
+# --- Section 4: Quick promo messages (forever_scroll) ---
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "MOONBUNNY"
+font = "Inter-Bold"
+font_size = 22
+font_threshold = 128
+color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open Tuesday – Sunday, 10am – 8pm"
+font = "Inter-Bold"
+font_size = 22
+font_threshold = 128
+font_color = [255, 240, 200]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Kids Summer Camps — now enrolling!"
+font = "Inter-Bold"
+font_size = 22
+font_threshold = 128
+font_color = [189, 169, 234]
+
+[[playlist.section.widget]]
+type = "message"
+text = "All levels welcome  *  First class free"
+font = "Inter-Bold"
+font_size = 22
+font_threshold = 128
+font_color = [124, 173, 232]

@@ -1,0 +1,229 @@
+---
+title: "Tutorial 5: Polish & deploy"
+description: Add transitions and border effects to the moonbunny config, then copy it to a Raspberry Pi and run it with Docker.
+prev: false
+next: false
+---
+
+import TutorialNav from "../../../components/TutorialNav.astro";
+import DemoGif from "../../../components/DemoGif.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+<DemoGif
+  src="/demos-long/tutorial-05b-final.gif"
+  caption="What you'll have by the end of this chapter — wipe transitions between widgets, a dissolve between sections, and an animated rainbow border on the headline widget."
+/>
+
+Chapter 4 left you with a multi-section config: a scrolling welcome strip, a swap
+section with per-day hours, a two-row hi-res brand card, and an image widget with a
+text overlay. This chapter adds two polish layers — transitions and border effects —
+then covers getting the config onto a Pi.
+
+<details>
+<summary>Reset block — start of Chapter 5</summary>
+
+If you need to reset to the starting point for this chapter, create
+`config/config.toml` with the state from the end of Chapter 4:
+
+```toml
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "push_left"
+duration = 0.5
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "Welcome to Moonbunny"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "image"
+path = "config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "center"
+hold_seconds = 8.0
+scroll_speed_ms = 35
+top_text = "@moonbunny"
+top_font = "5x8"
+top_color = [225, 48, 108]
+bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_font = "AtkinsonHyperlegible-Bold"
+bottom_font_size = 22
+bottom_color = [255, 240, 200]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open daily 10am – 8pm"
+font_color = [120, 220, 255]
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "Summer Camps start June 15"
+font_color = [180, 220, 180]
+
+[[playlist.section.widget]]
+type = "message"
+text = "All levels · All ages"
+font_color = [255, 220, 0]
+```
+
+</details>
+
+## Transitions
+
+So far the config has used `push_left` for everything. The `[transitions]` block has
+two separate knobs — `default` controls transitions between widgets inside a section,
+and `between_sections` controls the transition when the playlist moves from one section
+to the next. You can set them independently.
+
+Replace the `[transitions]` block:
+
+```toml
+[transitions]
+default = "wipe_left"
+duration = 0.5
+between_sections = "dissolve"
+```
+
+- **`default = "wipe_left"`** — a vertical sweep line erases the outgoing widget,
+  then the incoming widget appears behind it. More visual punch than `push_left`; the
+  sweeping line makes each widget boundary feel intentional.
+- **`between_sections = "dissolve"`** — when the playlist moves from Section 1 to
+  Section 2 (or back), pixels scatter randomly rather than sliding. The contrast with
+  the within-section wipes gives viewers a clear signal that the topic has changed.
+- **`duration`** applies to both, unless overridden per-section with
+  `transition_duration`.
+
+<DemoGif
+  src="/demos-long/tutorial-05a-transitions.gif"
+  caption="wipe_left between widgets, dissolve between sections. The wipe sweep line is visible mid-transition; the dissolve scatter marks each section boundary."
+/>
+
+The full transition catalogue covers 30+ options organised into families:
+
+- **Push** (`push_left`, `push_right`, `push_up`, `push_down`, `push_alternating`,
+  `push_random`) — outgoing and incoming slide together as one unit.
+- **Wipe** (`wipe_left`, `wipe_right`, `wipe_up`, `wipe_down`, `wipe_alternating`,
+  `wipe_random`) — outgoing stays fixed while a coloured sweep line erases it.
+- **Sprite trails** — `nyancat`, `pokeball`, `baseball`, `pacman`, `sailor_moon`
+  (each has `_reverse` and `_alternating` variants; the first three have bigsign
+  hi-res variants).
+- **Special** — `cut` (instant), `color_flash`, `dissolve`, `split`, `scroll`.
+
+See the [Transitions catalogue](/transitions/) for per-family knobs and examples of
+each.
+
+## Border effects
+
+The `border` field paints an animated ring around the panel perimeter. It accepts
+`"rainbow"` for a chasing hue sweep, or an RGB array like `[255, 100, 200]` for a
+static colour.
+
+Add `border = "rainbow"` to the headline widget:
+
+```toml
+[[playlist.section.widget]]
+type = "message"
+text = "Welcome to Moonbunny"
+font_color = "rainbow"
+border = "rainbow"
+```
+
+`font_color = "rainbow"` was also added here — the per-character hue sweep across the
+text and the chasing perimeter ring use the same hue formula, so they feel like one
+coherent effect rather than two competing ones.
+
+For the second section's headline:
+
+```toml
+[[playlist.section.widget]]
+type = "message"
+text = "Summer Camps start June 15"
+font_color = [180, 220, 180]
+border = "rainbow"
+```
+
+<DemoGif
+  src="/demos-long/tutorial-05b-final.gif"
+  caption="Rainbow border chases the panel perimeter; rainbow font_color sweeps per-character across 'Welcome to Moonbunny'. Both effects animate continuously during the hold."
+/>
+
+A few things worth knowing about borders:
+
+- The border paints at **physical resolution** — at `default_scale = 4` it traces the
+  real 256×64 panel edge, not the logical 64×16 wrapper. The ring is always 1 pixel
+  wide at real-panel scale.
+- **Border, transitions, and font effects all compose.** The wipe transition runs
+  cleanly over a bordered widget; the rainbow font sweep continues animating during
+  the hold that the border is also chasing.
+- `border` is accepted on `message`, `countdown`, `two_row`, `gif`, and `image`
+  widgets. It raises at config-load for other types.
+
+## What you've built
+
+Your config now has:
+
+- A multi-section playlist mixing `forever_scroll` and `swap` modes.
+- `two_row` with Atkinson Hyperlegible and a hi-res emoji on the brand card.
+- An `image` widget with a two-row text overlay.
+- `wipe_left` transitions between widgets, `dissolve` between sections.
+- Animated rainbow borders and per-character rainbow text on the headline widgets.
+
+That covers everything in the tutorial. The next step is getting it onto a Pi.
+
+## Deploying to a Pi
+
+Three steps:
+
+1. **Copy your config directory to the Pi.** The `config/` folder (containing
+   `config.toml`, `fonts/`, and `assets/`) can live anywhere; `~/led-ticker/config/`
+   is a reasonable home.
+2. **Mount it into the container.** In `compose.yaml`, bind-mount the
+   config directory to `/code/config:ro` — the default path the app reads from.
+3. **Start the service.** `docker compose up -d` starts the container; the app reads
+   your config on startup and begins the playlist loop.
+
+The hardware pages below have the full bill of materials, wiring diagrams, and
+Pi-specific tuning for `slowdown_gpio`, `rp1_rio`, and `pixel_mapper`. If you are
+building from scratch rather than deploying to an existing panel, start with
+**Building your own**.
+
+<RelatedPages slugs={["hardware/bigsign", "hardware/smallsign", "hardware/building-your-own"]} />
+
+## What's next from here
+
+With a working panel config as a foundation, a few directions worth exploring:
+
+- **Try other transitions.** Swap `wipe_left` for `nyancat` or `pokeball` to see what
+  the sprite-trail families look like on your hardware. The [Transitions
+  catalogue](/transitions/) has a rendered preview for every option.
+- **Add live data widgets.** The `rss_feed`, `mlb`, `weather`, and `coinbase` widgets
+  pull live content and scroll it on the same canvas. See the
+  [Widgets reference](/widgets/) for setup details and required API keys.
+- **Validate before deploying.** `led-ticker validate config/config.toml` catches
+  typos, unknown widget types, and constraint violations before you restart the panel.
+  The [Config pitfalls](/reference/config-pitfalls/) page lists the most common
+  mistakes and their fix.
+- **Let Claude author configs for you.** The `creating-a-config` skill in Claude Code
+  knows the widget catalogue, bigsign vs smallsign tradeoffs, and the constraint list
+  from CLAUDE.md. Describe what you want displayed and it builds the TOML.
+
+<TutorialNav
+  prev={{ href: "/tutorial/04-custom-branding/", title: "Tutorial 4: Custom branding" }}
+/>

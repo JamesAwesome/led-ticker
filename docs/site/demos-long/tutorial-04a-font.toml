@@ -1,0 +1,49 @@
+# render-duration: 14
+# Chapter 4 — same two_row layout as tutorial-03d-two_row-hires.toml but
+# with top_font swapped from Inter-Bold to AtkinsonHyperlegible-Bold.
+# The font file lives in docs/site/demos-long/fonts/ (gitignored) — the
+# loader resolves it as <config_dir>/fonts/AtkinsonHyperlegible-Bold.ttf.
+#
+# Math:
+#   scale × content_height = 2 × 24 = 48 real px ≤ 64 real px ✓
+#   top band = 16 logical = 32 real px → fits the 32×32 hires sprite ✓
+#   bottom band = 24 - 16 = 8 logical = 16 real px → fits BDF marquee ✓
+#
+# top_emoji_y_offset = -4 anchors the 16-logical-tall hi-res sprite at
+# the top of the band (row 0..15) rather than the default cap-centered
+# position.
+#
+# Timing:
+#   hold_time=1.5 with scroll_step_ms=35; loop_count=3 cycles the scroll
+#   3× for continuous motion. 14s captures ~2.5 full cycles.
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "push_left"
+duration = 0.5
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 24
+loop_count = 3
+hold_time = 1.5
+scroll_step_ms = 35
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunny"
+top_row_height = 16
+top_emoji_y_offset = -4
+top_font = "AtkinsonHyperlegible-Bold"
+top_font_size = 22
+top_color = [225, 48, 108]
+top_align = "left"
+bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_color = [255, 240, 200]
+bottom_align = "left"

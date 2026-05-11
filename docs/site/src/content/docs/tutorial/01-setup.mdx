@@ -1,0 +1,101 @@
+---
+title: "Tutorial 1: Setup"
+description: Clone led-ticker, install dev deps, and render the bundled moonbunny showcase to see what you're building toward.
+prev: false
+next: false
+---
+
+import TutorialNav from "../../../components/TutorialNav.astro";
+import DemoGif from "../../../components/DemoGif.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+<DemoGif
+  src="/demos-long/tutorial-01-setup.gif"
+  caption="The destination config — four sections rotating in a loop. You'll build this in chapters 2–5."
+/>
+
+Over the next five chapters you'll build a real bigsign config from scratch —
+starting with a single message and ending with a multi-section sign that rotates
+through a rainbow title card, an Instagram handle card, a moon image with
+scrolling text, and a ticker of short announcements.
+
+This chapter covers getting the code running on your laptop. No hardware needed.
+
+## Prerequisites
+
+You'll need the following installed before you start:
+
+- **Git** — to clone the repository
+- **Python 3.13+** — led-ticker targets the latest stable CPython
+- **[uv](https://docs.astral.sh/uv/)** — the package manager used throughout the project (`pip install uv` or `brew install uv`)
+- **make** — standard on macOS and Linux; on Windows use WSL or Git Bash
+
+## Clone and install
+
+```bash
+git clone https://github.com/JamesAwesome/led-ticker.git
+cd led-ticker
+make dev
+```
+
+What each command does:
+
+- **`git clone`** — downloads the repository, including all bundled fonts, example
+  configs, and the laptop renderer.
+- **`cd led-ticker`** — enters the project root. All `make` targets and file paths
+  in this tutorial assume you're running from here.
+- **`make dev`** — runs `uv sync --extra dev` to install the Python package and all
+  dev dependencies into a local virtual environment, then installs the pre-commit
+  hooks. This does **not** require the `rgbmatrix` C library — that's only needed on
+  a real Raspberry Pi. Laptop development works entirely through a built-in stub.
+
+## Render the destination config
+
+Before writing a single line of your own TOML, render the tutorial destination
+config so you can see what "done" looks like:
+
+```bash
+make render-demo CONFIG=config/config.bigsign.moonbunny.example.toml OUT=preview.gif
+open preview.gif          # macOS
+xdg-open preview.gif      # Linux
+```
+
+`make render-demo` runs the same display engine that drives the real panels, but
+writes each frame to a GIF instead of pushing it to hardware. The output is at
+native panel resolution (256×64 logical pixels, scaled up 4× by the renderer for
+readability).
+
+You should see a looping GIF that cycles through four sections — a rainbow title,
+an Instagram handle card, a moon image with scrolling text, and a ticker of short
+announcements:
+
+<DemoGif
+  src="/demos-long/tutorial-01-setup.gif"
+  caption="preview.gif — rendered from config/config.bigsign.moonbunny.example.toml"
+/>
+
+Open `config/config.bigsign.moonbunny.example.toml` in your editor and skim it.
+You'll recognize each section in the GIF. The comments explain the Pi-specific
+knobs (`pixel_mapper`, `slowdown_gpio`, `rp1_rio`, `pwm_bits`) — those are safe
+to ignore for now; the laptop renderer skips them silently.
+
+## What this chapter doesn't cover
+
+This tutorial stays on the laptop renderer throughout. Deploying to a real Pi —
+building the `rgbmatrix` C library, wiring up the HAT, running the systemd
+service — is covered separately in
+[Building your own](/hardware/building-your-own/). Come back to that guide once
+you've finished the five chapters and have a config you're happy with.
+
+## What's next
+
+In Chapter 2 you'll build a config from scratch, adding your first `[display]`
+block and a single message widget. By the end of that chapter you'll have a
+working one-section config and understand the basic structure every led-ticker
+config follows.
+
+<TutorialNav
+  next={{ href: "/tutorial/02-first-config/", title: "Tutorial 2: Your first config" }}
+/>
+
+<RelatedPages slugs={["hardware/building-your-own", "getting-started"]} />

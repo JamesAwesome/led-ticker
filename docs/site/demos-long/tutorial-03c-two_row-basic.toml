@@ -1,0 +1,41 @@
+# render-duration: 14
+# Introduces the two_row widget at scale=1 (full logical canvas = 64×16).
+# Using scale=1 on the section keeps the example simple: no per-section
+# scaling math, the canvas is the full 64-wide logical space, and BDF
+# fonts render the same as in a message widget.
+#
+# The bottom row scrolls because the promo text exceeds the canvas width.
+# Top row is held, center-aligned.
+#
+# Timing:
+#   hold_time=1.5 lets the bottom scroll begin quickly; loop_count=3
+#   cycles the scroll 3× so the gif shows continuous motion.
+#   At scroll_step_ms=35 a ~200-px bottom string takes ~4s to traverse.
+#   3 × (1.5s hold + ~4s scroll) ≈ 16.5s; 14s captures ~2.5 full cycles.
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "push_left"
+duration = 0.5
+
+[[playlist.section]]
+mode = "swap"
+scale = 1
+content_height = 16
+loop_count = 3
+hold_time = 1.5
+scroll_step_ms = 35
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "@moonbunny"
+top_color = [225, 48, 108]
+top_align = "center"
+bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_color = [255, 240, 200]
+bottom_align = "left"

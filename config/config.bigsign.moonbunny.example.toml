@@ -1,0 +1,178 @@
+# led-ticker bigsign config — moonbunny tutorial destination
+#
+# This is the config the five-chapter tutorial walks you toward building.
+# It demonstrates the three most common section modes, two-row widgets,
+# image overlays, and hi-res Inter-Bold text — all on a 256×64 bigsign.
+#
+# Hardware: Pi 5 + 8× P3 32×64 panels in a 2×4 vertical-serpentine layout.
+# Full bigsign build guide: https://docs.ledticker.dev/hardware/bigsign/
+
+# ---------------------------------------------------------------------------
+# Display block
+#
+# These Pi-only knobs (pixel_mapper, slowdown_gpio, rp1_rio, pwm_bits) are
+# ignored by the laptop renderer — you can leave them in place and they do
+# no harm when running `make render-demo` locally.
+# ---------------------------------------------------------------------------
+
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+brightness = 60
+default_scale = 4
+gpio_mapping = "adafruit-hat"
+slowdown_gpio = 3
+rp1_rio = 1
+pwm_bits = 8
+
+[title]
+delay = 5
+
+[transitions]
+default = "wipe_left"
+duration = 0.6
+easing = "ease_out"
+between_sections = "dissolve"
+
+# ---------------------------------------------------------------------------
+# Section 1 — "MOONBUNNY" title card (swap, held)
+#
+# A held title card in swap mode. Inter-Bold at 28px fills the panel
+# vertically; per-char rainbow makes every letter a different hue.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "MOONBUNNY :moon:"
+font = "Inter-Bold"
+font_size = 28
+font_threshold = 128
+font_color = "rainbow"
+
+# ---------------------------------------------------------------------------
+# Section 2 — @moonbunny two-row handle + promo (swap)
+#
+# scale = 2 overrides the display's default_scale = 4 for this section
+# only — at scale=2 the logical canvas is 128 px wide (vs 64 at scale=4),
+# which gives us room for the @moonbunny handle alongside the hi-res
+# Instagram sprite on the top row. content_height = 24 (logical) × scale=2
+# = 48 real px, which fits within the 64-real-px panel height with 8 real
+# px breathing room above and below.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 24
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunny"
+top_font = "Inter-Bold"
+top_font_size = 18
+top_font_threshold = 128
+top_color = [225, 48, 108]
+top_align = "center"
+bottom_text = "Aerial silks * lyra * flow props * all levels welcome"
+bottom_font = "Inter-Bold"
+bottom_font_size = 16
+bottom_font_threshold = 128
+bottom_color = [255, 240, 200]
+bottom_align = "left"
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunny"
+top_font = "Inter-Bold"
+top_font_size = 18
+top_font_threshold = 128
+top_color = [225, 48, 108]
+top_align = "center"
+bottom_text = "Now booking spring classes — beginners welcome!"
+bottom_font = "Inter-Bold"
+bottom_font_size = 16
+bottom_font_threshold = 128
+bottom_color = [189, 169, 234]
+bottom_align = "left"
+
+# ---------------------------------------------------------------------------
+# Section 3 — Moon image with scrolling text overlay (swap)
+#
+# The moon image is pillarboxed on the right. Scrolling text walks BEHIND
+# the moon (text_align="scroll" + RGBA image), visible through transparent
+# regions of the moon's halo and hidden by the opaque moon body itself.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 0.5
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "right"
+text = "Find Your Strength  *  Find Your Community  *  Aerial for Everybody"
+text_align = "scroll"
+scroll_speed_ms = 50
+hold_seconds = 0.05
+text_loops = 1
+font = "Inter-Bold"
+font_size = 22
+font_threshold = 128
+font_color = [255, 240, 200]
+
+# ---------------------------------------------------------------------------
+# Section 4 — Quick promo messages (forever_scroll)
+#
+# Short messages in forever_scroll mode — they chain end-to-end so the
+# reader sees a continuous ribbon of copy. Good for announcements,
+# opening hours, and quick calls-to-action.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "MOONBUNNY"
+font = "Inter-Bold"
+font_size = 22
+font_threshold = 128
+color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open Tuesday – Sunday, 10am – 8pm"
+font = "Inter-Bold"
+font_size = 22
+font_threshold = 128
+font_color = [255, 240, 200]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Kids Summer Camps — now enrolling!"
+font = "Inter-Bold"
+font_size = 22
+font_threshold = 128
+font_color = [189, 169, 234]
+
+[[playlist.section.widget]]
+type = "message"
+text = "All levels welcome  *  First class free"
+font = "Inter-Bold"
+font_size = 22
+font_threshold = 128
+font_color = [124, 173, 232]

@@ -1,0 +1,11 @@
+# Atkinson Hyperlegible (and any other user-supplied fonts for the
+# tutorial demos) lives here locally for renders. The font binary is
+# NOT committed to the repo — readers download their own copy per the
+# tutorial.
+*.otf
+*.ttf
+*.woff
+*.woff2
+
+# But keep this .gitignore itself in the repo.
+!.gitignore

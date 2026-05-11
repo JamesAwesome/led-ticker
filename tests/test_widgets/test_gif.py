@@ -1438,9 +1438,11 @@ class TestGifPlayNoTextRefactor:
             len(observed_idxs) == 6
         ), f"expected 6 50ms ticks; got {len(observed_idxs)}"
         # Distinct frame indices over the run
-        assert set(observed_idxs) == {0, 1, 2}, (
-            f"expected all 3 frames seen over the run; " f"got {observed_idxs}"
-        )
+        assert set(observed_idxs) == {
+            0,
+            1,
+            2,
+        }, f"expected all 3 frames seen over the run; got {observed_idxs}"
 
     async def test_no_text_with_animated_border_calls_paint_per_tick(
         self, tmp_path, mock_frame
@@ -1486,10 +1488,9 @@ class TestGifPlayNoTextRefactor:
             f"got {len(border_paint_calls)} calls: {border_paint_calls}"
         )
         # Redundant tripwire: _frame_count must also have advanced.
-        assert widget._frame_count >= 9, (
-            f"_frame_count should advance ~10× over 500ms; "
-            f"got {widget._frame_count}"
-        )
+        assert (
+            widget._frame_count >= 9
+        ), f"_frame_count should advance ~10× over 500ms; got {widget._frame_count}"
 
     async def test_no_text_without_border_unchanged_image_paint(
         self, three_frame_gif, mock_frame

@@ -44,8 +44,7 @@ ALLOW_LIST: dict[str, str] = {
     # block. Frame is logically paused for the whole loop body, so
     # advancing inside would defeat the pause.
     "_scroll_between": (
-        "transition compositor; explicit pause_frame at entry, "
-        "resume_frame in finally"
+        "transition compositor; explicit pause_frame at entry, resume_frame in finally"
     ),
 }
 

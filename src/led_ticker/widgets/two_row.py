@@ -223,18 +223,24 @@ class TwoRowMessage(_FrameAware):
         bottom_emoji_y += self.bottom_emoji_y_offset
 
         # Cap each row's emoji height so a hi-res sprite doesn't overflow
-        # into the other row. Independent of the text font's line height.
-        row_emoji_cap = _EMOJI_ROW_CAP
+        # into the other row. When the band is taller than the default
+        # `_EMOJI_ROW_CAP`, raise the cap to match — a hi-res sprite that
+        # fits the band visually is allowed to render at hi-res. Default
+        # 50/50 split with content_height=16 produces band=8 = cap, so
+        # existing demos behave identically; bumping content_height or
+        # top_row_height enables hi-res emoji on the affected row.
+        top_emoji_cap = max(_EMOJI_ROW_CAP, top_h)
+        bottom_emoji_cap = max(_EMOJI_ROW_CAP, bottom_h)
 
         # Measure widths now that we have the canvas + row cap (so hi-res
         # vs. low-res fallback matches what `draw_with_emoji` will do).
         if self._top_width < 0:
             self._top_width = measure_width(
-                top_font, self.top_text, canvas, row_emoji_cap
+                top_font, self.top_text, canvas, top_emoji_cap
             )
         if self._bottom_width < 0:
             self._bottom_width = measure_width(
-                bottom_font, self.bottom_text, canvas, row_emoji_cap
+                bottom_font, self.bottom_text, canvas, bottom_emoji_cap
             )
 
         # Pass providers (not materialized colors) to draw_with_emoji
@@ -265,7 +271,7 @@ class TwoRowMessage(_FrameAware):
             self.top_color,
             self.top_text,
             emoji_y=top_emoji_y,
-            max_emoji_height=row_emoji_cap,
+            max_emoji_height=top_emoji_cap,
             frame=self.frame_for("top_color"),
         )
 
@@ -286,7 +292,7 @@ class TwoRowMessage(_FrameAware):
             self.bottom_color,
             self.bottom_text,
             emoji_y=bottom_emoji_y,
-            max_emoji_height=row_emoji_cap,
+            max_emoji_height=bottom_emoji_cap,
             frame=self.frame_for("bottom_color"),
         )
 

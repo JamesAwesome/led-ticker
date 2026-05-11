@@ -103,6 +103,32 @@ bottom_font = "Inter-Regular"
 bottom_font_size = 14
 bottom_color = [255, 240, 200]`} />
 
+Hi-res emoji on the top row — `:instagram:` renders as the full 32×32 sprite when the band can fit it:
+
+<DemoGif
+  src="/demos-pinned/two_row-hires-emoji.gif"
+  caption="Inter-Bold @ 22 handle next to the hi-res `:instagram:` sprite on a 16-row top band, scrolling promo on the 8-row bottom"
+/>
+
+The hi-res sprite is 32 real pixels tall. At `scale = 2` it's 16 logical pixels — so `top_row_height = 16` (with `content_height = 24`) gives the top band exactly enough room. Smaller bands fall back to the 8×8 lo-res sprite automatically.
+
+<TomlExample code={`[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 24
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunny"
+top_row_height = 16
+top_font = "Inter-Bold"
+top_font_size = 22
+top_color = [225, 48, 108]
+top_align = "left"
+bottom_text = "Aerial • pole • silks • juggling • all levels • now booking"
+bottom_color = [255, 240, 200]
+bottom_align = "left"`} />
+
 ## Tips
 
 ### Font line-height must fit the per-row band

@@ -8,10 +8,6 @@
 #   top band = 16 logical = 32 real px → fits the 32×32 hires sprite ✓
 #   bottom band = 24 - 16 = 8 logical = 16 real px → fits BDF marquee ✓
 #
-# top_emoji_y_offset = -4 anchors the 16-logical-tall hi-res sprite at
-# the top of the band (row 0..15) rather than the default cap-centered
-# position (row 4..19 which would bleed into the bottom band).
-#
 # Timing:
 #   hold_time=1.5 with scroll_step_ms=35; loop_count=3 cycles the scroll
 #   3× for continuous motion. 14s captures ~2.5 full cycles.
@@ -38,7 +34,6 @@ scroll_step_ms = 35
 type = "two_row"
 top_text = ":instagram: @moonbunny"
 top_row_height = 16
-top_emoji_y_offset = -4
 top_font = "Inter-Bold"
 top_font_size = 22
 top_color = [225, 48, 108]

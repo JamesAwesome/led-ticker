@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import itertools
 import logging
 import sys
 from pathlib import Path
@@ -11,7 +12,16 @@ from typing import Any
 
 import aiohttp
 
-from led_ticker.colors import RANDOM_COLOR
+from led_ticker.colors import (
+    BLUE,
+    CYAN,
+    GREEN,
+    ORANGE,
+    PINK,
+    PURPLE,
+    RED,
+    YELLOW,
+)
 from led_ticker.config import TransitionConfig, load_config
 from led_ticker.frame import LedFrame
 from led_ticker.ticker import Ticker, _maybe_wrap
@@ -21,6 +31,20 @@ from led_ticker.widgets.message import TickerMessage
 from led_ticker.widgets.mlb import MLBScoreMonitor
 from led_ticker.widgets.mlb_standings import MLBStandingsMonitor
 from led_ticker.widgets.rss_feed import RSSFeedMonitor
+
+# Section-title random color cycle. One stable color per section visit.
+# Lives here (not in `colors.py`) because this is the only consumer; a
+# module-level `itertools.cycle` is mutable singleton state and belongs
+# next to the code whose lifecycle owns it.
+#
+# Note: the 8 palette imports above are intentionally eager — `app.py`
+# can't run without the graphics library anyway, so deferring color
+# materialization here buys nothing. Don't "lazify" this with
+# `lazy_palette` — the eagerness is the right tradeoff for the entry
+# point.
+RANDOM_COLOR: itertools.cycle = itertools.cycle(
+    [RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE, CYAN, PINK]
+)
 
 
 def _setup_logging() -> None:

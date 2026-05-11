@@ -15,7 +15,7 @@ import attrs
 
 from led_ticker._types import Canvas, Color, ColorTuple, DrawResult, Font
 from led_ticker.color_providers import ColorProvider
-from led_ticker.colors import RGB_WHITE, make_color
+from led_ticker.colors import RGB_WHITE, lazy_palette, make_color
 from led_ticker.drawing import compute_baseline, compute_cursor
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
@@ -31,9 +31,22 @@ _INTERVAL_LIVE: int = 45  # ~half-inning cadence
 _INTERVAL_IDLE: int = 300  # 5 minutes
 _INTERVAL_OFFSEASON: int = 86400  # daily
 
-WIN_COLOR: Color = make_color(46, 200, 46)
-LOSS_COLOR: Color = make_color(220, 30, 30)
-LIVE_COLOR: Color = make_color(255, 40, 40)
+_team_palette = lazy_palette(
+    {
+        "WIN_COLOR": (46, 200, 46),
+        "LOSS_COLOR": (220, 30, 30),
+        "LIVE_COLOR": (255, 40, 40),
+    }
+)
+
+
+# PEP 562: external imports (`from led_ticker.widgets.mlb import WIN_COLOR`)
+# resolve through __getattr__ on first access. Bare-name use inside this
+# module must call `_team_palette(...)` directly because PEP 562 doesn't
+# fire for in-module name lookups.
+def __getattr__(name: str) -> Color:
+    return _team_palette(name)
+
 
 # All 30 MLB team primary colors
 MLB_TEAM_COLORS: dict[str, ColorTuple] = {
@@ -384,8 +397,10 @@ def _build_game_message(
 
     if game.state == "final":
         away_won = (game.away_score or 0) > (game.home_score or 0)
-        away_score_color = WIN_COLOR if away_won else LOSS_COLOR
-        home_score_color = LOSS_COLOR if away_won else WIN_COLOR
+        win_color = _team_palette("WIN_COLOR")
+        loss_color = _team_palette("LOSS_COLOR")
+        away_score_color = win_color if away_won else loss_color
+        home_score_color = loss_color if away_won else win_color
 
         segments: list[tuple[str, Color]] = [
             (game.away_abbr, away_c),

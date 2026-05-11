@@ -1,0 +1,43 @@
+# render-duration: 52
+# Four widgets at scroll_step_ms = 35: three messages plus one
+# countdown to demonstrate that infini_scroll mixes widget types
+# with each one scrolling fully off the left before the next enters
+# from the right. Each widget's full scroll pass (canvas + content)
+# × 35 ms/px ≈ 9-11 sec; four widgets plus the engine's setup +
+# section-loop overhead lands around ~45 sec, so 52 sec captures
+# one full cycle ending on an empty panel ready for the next loop.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "infini_scroll"
+loop_count = 1
+scroll_step_ms = 35
+
+[[playlist.section.widget]]
+type = "message"
+text = "Now Enrolling"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Summer Camps"
+countdown_date = 2026-06-20
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Spring Classes Open"
+font_color = [255, 220, 0]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Drop-ins welcome"
+font_color = [180, 220, 180]

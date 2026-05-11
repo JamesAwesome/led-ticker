@@ -16,7 +16,7 @@ The `push` family scrolls the outgoing and incoming widgets together — the old
 - `transition_duration` (seconds): default 0.5. Push transitions feel right at 0.4–0.8 s. Below 0.3 the motion blurs; above 1.2 it drags.
 - `easing`: `linear`, `ease_in_out` (default for pushes), `ease_out`. Linear is sharper; ease_in_out feels softer.
 
-## Pitfalls
+## Tips
 
 - Push transitions ignore `transition_color` (no sweep line, no flash).
 - Push reads from the engine's "outgoing scroll position" so a widget mid-scroll continues seamlessly into the push. This is why push transitions feel snappier than wipes.

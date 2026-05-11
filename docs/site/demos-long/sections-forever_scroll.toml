@@ -1,0 +1,43 @@
+# render-duration: 36
+# Four widgets stream side-by-side at scroll_step_ms = 35:
+# three messages + one countdown ("Summer Camps") to show that
+# forever_scroll mixes widget types in the same continuous stream.
+# Each pixel of cursor advance is 35 ms wallclock; the full
+# (canvas + four widgets + bullet separators) scroll plus the
+# 2-sec hold-at-end runs ~32 sec. 36 sec captures the cycle
+# with a tail before the playlist loops.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+scroll_step_ms = 35
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open 9-5"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Summer Camps"
+countdown_date = 2026-06-20
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Free coffee Friday"
+font_color = [255, 220, 0]
+
+[[playlist.section.widget]]
+type = "message"
+text = "All ages welcome"
+font_color = [180, 220, 180]

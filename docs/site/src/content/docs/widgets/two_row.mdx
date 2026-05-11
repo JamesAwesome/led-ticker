@@ -10,7 +10,7 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `two_row` widget renders two independent text strings on the same canvas: a **held top row** for a stable identifier (handle, headline, brand tag) and a **scrolling bottom row** for promotional copy that can be longer than the canvas width. When the bottom row fits, it stays fixed using `bottom_align`; when it overflows, it scrolls left automatically.
 
-It is designed for the bigsign in `swap` mode with `scale = 2` per section, which doubles the logical canvas width to 128 logical pixels — wide enough to hold most social handles on the top row without scrolling.
+Designed for the bigsign in `swap` mode at `scale = 2`, where the logical canvas is 128 pixels wide — enough for most social handles without scrolling.
 
 <DemoGif
   src="/demos-long/widget-two_row.gif"
@@ -31,7 +31,7 @@ bottom_text = "Open daily 10–6 · all levels welcome"`}
 
 ## Common patterns
 
-Brand-handle layout with inline emoji:
+### Brand-handle layout with inline emoji
 
 <DemoGif
   src="/demos-pinned/two_row-brand-handle.gif"
@@ -52,7 +52,7 @@ bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
 bottom_color = [255, 240, 200]
 bottom_align = "left"`} />
 
-Asymmetric row split — bold tag on top, larger marquee below:
+### Asymmetric row split — bold tag on top, larger marquee below
 
 <DemoGif
   src="/demos-pinned/two_row-asymmetric.gif"
@@ -73,12 +73,12 @@ top_row_height = 10
 top_font = "Inter-Bold"
 top_font_size = 14
 top_color = [225, 48, 108]
-bottom_text = "Aerial • Pole • Hoop • Silk • All Levels"
+bottom_text = "Aerial • Pole • Hoop • Silk • All Levels • All Ages welcome"
 bottom_font = "Inter-Bold"
 bottom_font_size = 22
 bottom_color = [255, 240, 200]`} />
 
-Per-row font hierarchy (Inter-Bold handle + Inter-Regular promo):
+### Per-row font hierarchy (Inter-Bold handle + Inter-Regular promo)
 
 <DemoGif
   src="/demos-pinned/two_row-font-hierarchy.gif"
@@ -103,10 +103,45 @@ bottom_font = "Inter-Regular"
 bottom_font_size = 14
 bottom_color = [255, 240, 200]`} />
 
-## Pitfalls
+### Hi-res emoji on the top row — `:instagram:` renders as the full 32×32 sprite when the band can fit it
 
-**Scale=4 is too narrow for handles.** At section `scale = 4` the logical canvas is only 64 pixels wide (256 real px ÷ 4 = 64 logical px), which clips most @handles mid-word. The two_row widget is designed for `scale = 2` (128 logical px) on the bigsign. Override the section's scale with `scale = 2` — you can mix scales across sections in the same config.
+<DemoGif
+  src="/demos-pinned/two_row-hires-emoji.gif"
+  caption="Inter-Bold @ 22 handle next to the hi-res `:instagram:` sprite on a 16-row top band, scrolling promo on the 8-row bottom"
+/>
 
-**`content_height` hard ceiling.** On the bigsign at scale=4 the maximum `content_height` is 16 (`16 × 4 = 64 real rows`). For `scale = 2` the ceiling is 32. Values above the ceiling push the logical canvas taller than the real panel; rows near the edges clip silently. For per-row breathing room use `top_text_y_offset` / `bottom_text_y_offset` rather than over-specifying `content_height`.
+The hi-res sprite is 32 real pixels tall. At `scale = 2` it's 16 logical pixels, which exactly matches `top_row_height = 16` — but the default vertical placement centers an 8-row low-res sprite (the formula puts the sprite at row 4 of the band), which leaves the 16-row hi-res sprite bleeding 4 rows into the bottom row. Set `top_emoji_y_offset = -4` to pull the sprite up to the band's top edge. Smaller bands fall back to the 8×8 lo-res sprite automatically.
+
+<TomlExample code={`[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 24
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunny"
+top_row_height = 16
+top_emoji_y_offset = -4 # anchor the 16-row hi-res sprite to the top edge of the 16-row band
+top_font = "Inter-Bold"
+top_font_size = 22
+top_color = [225, 48, 108]
+top_align = "left"
+bottom_text = "Aerial • pole • silks • juggling • all levels • now booking"
+bottom_color = [255, 240, 200]
+bottom_align = "left"`} />
+
+## Tips
+
+### Font line-height must fit the per-row band
+
+Each row gets a slice of `content_height` (50/50 by default, or per `top_row_height`). If a font's logical line-height exceeds its band, the validator rejects it. Pick a smaller `font_size`, raise `content_height`, adjust `top_row_height`, or use a BDF alias (`5x8`, `6x12`). Reference pairing: BDF `5x8` fits `content_height = 16`; Inter at sizes 14+ usually needs `content_height = 24` or larger.
+
+### `scale = 4` is too narrow for handles
+
+At `scale = 4` the bigsign's logical canvas is only 64 px wide — most `@handles` clip mid-word. Use `scale = 2` (128 logical px) on this widget; you can mix scales across sections.
+
+### `content_height` hard ceiling
+
+On the bigsign: `content_height ≤ 16` at `scale = 4`, `content_height ≤ 32` at `scale = 2` (`content_height × scale ≤ panel_height`). Above the ceiling, rows near the edges clip silently. For per-row breathing room use `top_text_y_offset` / `bottom_text_y_offset`, not over-specified `content_height`.
 
 <RelatedPages slugs={["widgets/message", "widgets/gif", "concepts/display"]} />

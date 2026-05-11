@@ -4,7 +4,7 @@ description: Multi-persona panel review of the led-ticker docs site (PM, UX, pro
 
 # Docs site panel review
 
-Review the led-ticker docs site with a four-persona panel: a product manager, a UX engineer, a moderately-technical prospective user, and a technical writer. Reviews run against a fresh **local build** of the site (`docs/site/dist/`) — the deployed site at <https://led-ticker.pages.dev> isn't public, so personas Read rendered HTML files locally instead of WebFetching URLs. Bonus: this works on feature branches before any deploy lands.
+Review the led-ticker docs site with a four-persona panel: a product manager, a UX engineer, a moderately-technical prospective user, and a technical writer. Reviews run against a fresh **local build** of the site (`docs/site/dist/`) — the deployed site at <https://docs.ledticker.dev> sits behind Cloudflare Access, so personas Read rendered HTML files locally instead of WebFetching URLs. Bonus: this works on feature branches before any deploy lands.
 
 ## Scope
 

@@ -388,7 +388,7 @@ class TestTwoRowLogicalUnits:
         captured: list = []
         orig = _BaseImageWidget._render_two_row_tick
 
-        def spy(self, real_c, text_c, *args):
+        def spy(self, real_c, text_c, *args, **kwargs):
             captured.append(isinstance(text_c, ScaledCanvas))
             return orig(self, real_c, text_c, *args)
 
@@ -432,7 +432,7 @@ class TestTwoRowLogicalUnits:
         captured: list = []
         orig = _BaseImageWidget._render_two_row_tick
 
-        def spy(self, real_c, text_c, *args):
+        def spy(self, real_c, text_c, *args, **kwargs):
             captured.append((type(text_c).__name__, isinstance(text_c, ScaledCanvas)))
             return orig(self, real_c, text_c, *args)
 
@@ -454,6 +454,71 @@ class TestTwoRowLogicalUnits:
             f"Expected text_canvas to be a ScaledCanvas wrapper so "
             f"hires emoji fires; got: {captured!r}"
         )
+
+    async def test_emoji_cap_scales_with_band_height(self, swapping_frame):
+        """Hi-res emoji on the top row of two-row needs the per-row
+        emoji cap to scale with band height. With default content_height
+        = 16 and 50/50 split, top band = 8 logical = 8 cap; the 32-real
+        hi-res sprite at scale=2 (16 logical) > 8 cap → falls back to
+        lores. Bumping content_height to 24 + top_row_height = 16 makes
+        the top band 16 logical, so the cap should also be 16, allowing
+        the hi-res sprite through.
+
+        Pin the per-row cap that gets passed to draw_with_emoji."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.fonts import (
+            FONT_SMALL,  # noqa: F401
+            resolve_font,
+        )
+
+        font = resolve_font("Inter-Regular", size=14)
+        # Use 5x8 BDF on the bottom — 8 logical line_height fits the 8-row
+        # bottom band exactly. Inter on top is fine in the 16-row top band.
+        w = _DummyImage(
+            top_text=":instagram: @brand",
+            bottom_text="hi",
+            top_font=font,
+            bottom_font=resolve_font("5x8"),
+            top_row_height=16,
+        )
+        # Force a tall content_height via the section wrap. _logical_scale
+        # is the wrapper scale; section content_height here is read from
+        # the wrapper's height, which we set via the canvas dims below.
+        w._logical_scale = 2
+
+        # _render_two_row_tick receives top_emoji_cap / bottom_emoji_cap
+        # kwargs from _play_with_two_row_text. Capture them.
+        captured: dict = {}
+        orig = _BaseImageWidget._render_two_row_tick
+
+        def spy(self, real_c, text_c, *args, **kwargs):
+            captured["top"] = kwargs.get("top_emoji_cap")
+            captured["bottom"] = kwargs.get("bottom_emoji_cap")
+            return orig(self, real_c, text_c, *args, **kwargs)
+
+        _BaseImageWidget._render_two_row_tick = spy  # type: ignore[method-assign]
+
+        # 256x48 real → wrapped at scale=2 = 128x24 logical, content_height=24.
+        # top_row_height=16 → top band 16 logical, bottom 8 logical.
+        real = _StubCanvas(width=256, height=48)
+        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
+            width=256, height=48
+        )
+
+        try:
+            await w._play_with_two_row_text(real, swapping_frame, n_ticks=1)
+        finally:
+            _BaseImageWidget._render_two_row_tick = orig  # type: ignore[method-assign]
+
+        # top band = 16 logical → cap raised from 8 default to 16.
+        # bottom band = 8 logical → cap stays 8.
+        assert (
+            captured["top"] == 16
+        ), f"expected top_emoji_cap = 16 (band size), got {captured['top']!r}"
+        assert (
+            captured["bottom"] == 8
+        ), f"expected bottom_emoji_cap = 8 (default floor), got {captured['bottom']!r}"
 
     async def test_oversized_logical_top_row_still_rejects(self, swapping_frame):
         """Even with logical-units conversion, a band that's too small
@@ -650,7 +715,7 @@ class TestSingleRowFontSize:
         captured: list = []
         orig = _BaseImageWidget._render_tick
 
-        def spy(self, canvas, text_canvas, *args):
+        def spy(self, canvas, text_canvas, *args, **kwargs):
             captured.append(
                 {
                     "is_wrapped": isinstance(text_canvas, ScaledCanvas),
@@ -690,7 +755,7 @@ class TestSingleRowFontSize:
         captured: list = []
         orig = _BaseImageWidget._render_tick
 
-        def spy(self, canvas, text_canvas, *args):
+        def spy(self, canvas, text_canvas, *args, **kwargs):
             if isinstance(text_canvas, ScaledCanvas):
                 captured.append(text_canvas.scale)
             return orig(self, canvas, text_canvas, *args)
@@ -725,7 +790,7 @@ class TestSingleRowFontSize:
         captured: list = []
         orig = _BaseImageWidget._render_tick
 
-        def spy(self, canvas, text_canvas, *args):
+        def spy(self, canvas, text_canvas, *args, **kwargs):
             captured.append(isinstance(text_canvas, ScaledCanvas))
             return orig(self, canvas, text_canvas, *args)
 
@@ -1014,9 +1079,9 @@ class TestImageBorderField:
         # without instantiation.
         assert StillImage.__attrs_attrs__  # sanity: attrs class
         names = [a.name for a in StillImage.__attrs_attrs__]
-        assert "border" in names, (
-            f"StillImage missing inherited `border` field; " f"fields: {names}"
-        )
+        assert (
+            "border" in names
+        ), f"StillImage missing inherited `border` field; fields: {names}"
 
     def test_border_default_is_none(self, tmp_path):
         """Default value is None — confirmed via construction."""
@@ -1141,9 +1206,11 @@ class TestRenderTickBorder:
         canvas = RealStub(width=64, height=32)
         widget._render_tick(canvas, canvas, 0, 12, 2, 60)
 
-        assert order_recorder == ["draw_text", "paint_skip_black", "border"], (
-            f"scroll: expected text→image-skip-black→border; " f"got {order_recorder}"
-        )
+        assert order_recorder == [
+            "draw_text",
+            "paint_skip_black",
+            "border",
+        ], f"scroll: expected text→image-skip-black→border; got {order_recorder}"
 
     def test_render_tick_no_border_omits_paint(self, tmp_path, order_recorder):
         """Border=None: no border calls, image+text path unchanged."""
@@ -1951,9 +2018,9 @@ class TestImageTypewriter:
             f"At frame=0 (visible='H'), provider should see total=3 "
             f"(text-char count of full 'Hi :star:'); got {mid_type_totals}"
         )
-        assert completion_totals == {3}, (
-            f"At completion, provider should see total=3; " f"got {completion_totals}"
-        )
+        assert completion_totals == {
+            3
+        }, f"At completion, provider should see total=3; got {completion_totals}"
 
     def test_three_effect_composition_independent_counters(self, tmp_path):
         """Architectural promise from PR #12: typewriter + rainbow font +

@@ -251,10 +251,9 @@ class TestDrawHiresText:
             for x in range(real_b.width)
             if real_b.get_pixel(x, y) != (0, 0, 0)
         )
-        assert lit_b > lit, (
-            "fully on-canvas text should paint more pixels than partly "
-            "off-canvas text"
-        )
+        assert (
+            lit_b > lit
+        ), "fully on-canvas text should paint more pixels than partly off-canvas text"
 
     def test_unknown_char_falls_back_to_question_mark(self):
         """Characters not in the rasterized set use the '?' glyph."""

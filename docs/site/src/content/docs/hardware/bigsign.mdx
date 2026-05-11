@@ -8,10 +8,7 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 
 The **bigsign** is led-ticker's reference build for tall multi-row
 displays: a Raspberry Pi 5 driving eight P3 32x64 RGB matrix panels
-arranged in a 2x4 vertical-serpentine layout for a 256x64 canvas. It's
-the platform the hi-res font, hi-res emoji, and `ScaledCanvas` work was
-designed against, and the dimensions the bigsign-flavored examples in
-`config/` assume. Different panel counts or layouts will work — the
+arranged in a 2x4 vertical-serpentine layout for a 256x64 canvas. The hi-res font, hi-res emoji, and `ScaledCanvas` features were all developed against this build, and the dimensions match the bigsign-flavored examples in `config/`. Different panel counts or layouts will work — the
 canvas math comes from `pixel_mapper`, not from a hardcoded shape — but
 the BOM, wiring diagram, and Pi-5 tuning knobs below are what we built
 and tested against. Drawing logic stays at a 16-tall logical canvas;
@@ -135,53 +132,171 @@ raise to `4` or `5` if you still see flicker. Higher values trade
 refresh rate for stability, same tradeoff as on the smallsign just at
 a higher floor.
 
-## Pitfalls
+## Tips
 
-**`content_height` cannot exceed 16 at scale = 4.** The hard ceiling is
-`content_height × scale ≤ panel_h_real`. For the bigsign at
-`scale = 4` and a 64-tall panel that's `content_height ≤ 16`. Pushing
-above the ceiling makes the wrapper's `_y_offset` go negative — the
-logical canvas is taller than the real panel — and the top + bottom
-rows of your content silently clip. BDF text is forgiving because cells
-sit near the vertical center, but hi-res emoji and large hi-res fonts
-surface the clip immediately (e.g. a hi-res `:instagram:` icon loses
-about 4 real px off the bottom). For per-row breathing room use
-`text_y_offset` on the widget, not a higher `content_height`.
+### `content_height` cannot exceed 16 at scale = 4
 
-**The `pixel_mapper` Remap string is sensitive to chain order.** Every
-entry in the string must correspond to a specific panel position in
-your data chain — get the order wrong (or rotate one panel 180° to
-match the rest of the row) and you'll see content split across panels
-or rendered upside down. The string in `config/config.bigsign.example.toml`
-matches a 2x4 serpentine starting at the bottom-right with all panels
-upright; if your panels are mounted differently, you'll need to edit
-each entry's orientation flag (`n`, `s`, `e`, `w`).
+The hard ceiling is `content_height × scale ≤ panel_h_real`. For the bigsign at `scale = 4` and a 64-tall panel that's `content_height ≤ 16`. Pushing above the ceiling makes the wrapper's `_y_offset` go negative — the logical canvas is taller than the real panel — and the top + bottom rows of your content silently clip. BDF text is forgiving because cells sit near the vertical center, but hi-res emoji and large hi-res fonts surface the clip immediately (e.g. a hi-res `:instagram:` icon loses about 4 real px off the bottom). For per-row breathing room use `text_y_offset` on the widget, not a higher `content_height`.
 
-**Hi-res emoji only render at scale ≥ 2.** Slugs like `:moon:` and
-`:instagram:` have a 32x32 hi-res sprite in `HIRES_REGISTRY` that
-paints directly to the unwrapped real canvas, bypassing the wrapper's
-4x4 block expansion for sharper detail. On a smallsign at
-`default_scale = 1` the renderer falls back to the 8x8 lo-res sprite
-automatically — same icon footprint, less detail. Don't expect hi-res
-emoji output on the smallsign.
+### The `pixel_mapper` Remap string is sensitive to chain order
 
-**`pixel_mapper` for non-bigsign layouts.** The Remap string
-follows the format `Remap:WIDTH,HEIGHT|x,yORIENT|...` with one
-entry per panel in chain order. Orientations: `n` = normal,
-`s` = 180°, `e` = 270°, `w` = 90°, `x` = discard. The bigsign's
-2×4 vertical-serpentine chain is documented above. For simpler
-layouts:
+Every entry in the string must correspond to a specific panel position in your data chain — get the order wrong (or rotate one panel 180° to match the rest of the row) and you'll see content split across panels or rendered upside down. The string in `config/config.bigsign.example.toml` matches a 2x4 serpentine starting at the bottom-right with all panels upright; if your panels are mounted differently, you'll need to edit each entry's orientation flag (`n`, `s`, `e`, `w`).
 
-- **2×2 grid (chain runs along the bottom row first, then top
-  row right-to-left)**, all panels upright:
-  `Remap:128,64|0,32n|64,32n|64,0n|0,0n`
-- **Single row of 4 panels**, all upright, chain enters left:
-  `Remap:256,32|0,0n|64,0n|128,0n|192,0n`
+### Hi-res emoji only render at scale ≥ 2
 
-If your physical layout doesn't match the chain order from the
-data cable, every panel in the wrong position needs an entry in
-the Remap string. See the upstream
-[hzeller/rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix)
-README for the full Remap reference.
+Slugs like `:moon:` and `:instagram:` have a 32x32 hi-res sprite in `HIRES_REGISTRY` that paints directly to the unwrapped real canvas, bypassing the wrapper's 4x4 block expansion for sharper detail. On a smallsign at `default_scale = 1` the renderer falls back to the 8x8 lo-res sprite automatically — same icon footprint, less detail. Don't expect hi-res emoji output on the smallsign.
+
+### `pixel_mapper` for non-bigsign layouts
+
+The Remap string follows the format `Remap:WIDTH,HEIGHT|x,yORIENT|...` with one entry per panel in chain order. Orientations: `n` = normal, `s` = 180°, `e` = 270°, `w` = 90°, `x` = discard. The bigsign's 2×4 vertical-serpentine chain is documented above. For simpler layouts:
+
+- **2×2 grid (chain runs along the bottom row first, then top row right-to-left)**, all panels upright: `Remap:128,64|0,32n|64,32n|64,0n|0,0n`
+- **Single row of 4 panels**, all upright, chain enters left: `Remap:256,32|0,0n|64,0n|128,0n|192,0n`
+
+If your physical layout doesn't match the chain order from the data cable, every panel in the wrong position needs an entry in the Remap string. See the upstream [hzeller/rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix) README for the full Remap reference.
+
+## Reference config
+
+A complete working config for this build, including the `pixel_mapper` string
+and the Pi 5 RP1 tuning this hardware needs. Drop this into `config/config.toml`
+and adjust the per-widget content.
+
+<details>
+<summary>Complete <code>config.bigsign.example.toml</code> (256×64 bigsign)</summary>
+
+```toml
+# led-ticker bigsign configuration — 256×64 canvas
+#
+# 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64 logical.
+# Driven by a Raspberry Pi 5 through an Adafruit RGB Matrix HAT.
+#
+# Copy this to config.toml on the bigsign Pi and adjust the playlist for your
+# content. Full config-options reference:
+#   https://docs.ledticker.dev/reference/config-options/
+
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+
+# pixel_mapper tells the rgbmatrix library how each panel's position in the
+# data chain maps to its physical (x, y) on the finished canvas. The bigsign
+# chain enters at the bottom-right panel, climbs each column bottom-to-top,
+# then jumps diagonally to the bottom of the next column to its left. All
+# panels are installed upright (no 180° rotations). See the chain diagram and
+# instructions for deriving your own mapper string at:
+#   https://docs.ledticker.dev/hardware/bigsign/
+#
+# Format: Remap:WIDTH,HEIGHT|x,yORIENT|... (one entry per panel in chain order)
+# Orientations: n=normal, s=180°, e=270°, w=90°, x=discard.
+# If your top-row panels are physically flipped 180°, swap each top-row 'n'
+# for 's' (e.g. "192,0n" → "192,0s").
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+
+brightness = 60
+
+# default_scale = 4 means every widget draws at the standard 16-tall logical
+# canvas, and the ScaledCanvas wrapper expands every pixel to a 4×4 real block
+# to fill the 64-tall panel. Widget code never sees the 256×64 panel directly
+# — all drawing is in logical-pixel coordinates.
+default_scale = 4
+
+gpio_mapping = "adafruit-hat"
+
+# Pi 5 RP1 GPIO tuning.
+#
+# rp1_rio = 1 selects RIO (Registered IO) mode — faster refresh, more CPU
+# than PIO mode (rp1_rio = 0). The Pi 5 has cores to spare and the bigger
+# panel benefits from the extra Hz.
+#
+# slowdown_gpio = 3 pairs with rp1_rio = 1. The Pi 4 default of 2 is too
+# aggressive with RIO mode; raise to 4–5 if you still see flicker after
+# switching to RIO.
+#
+# pwm_bits = 8 drops from the 11-bit default, buying roughly 8× faster
+# refresh at a small color-depth cost. Barely noticeable for text and pixel
+# art; only relevant if you're displaying photos with smooth gradients.
+slowdown_gpio = 3
+rp1_rio = 1
+pwm_bits = 8
+show_refresh = true       # log measured refresh Hz to stderr; remove once stable
+
+[title]
+delay = 5
+
+# Global transition defaults. Full transition catalogue and per-family tuning
+# lives at https://docs.ledticker.dev/transitions/.
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = "dissolve"
+
+# --- Playlist ---
+# Each [[playlist.section]] displays in order, then the whole playlist loops.
+# Sections, modes, and timing knobs: https://docs.ledticker.dev/concepts/sections-and-modes/
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+# scale inherits from display.default_scale (4)
+
+[playlist.section.title]
+type = "message"
+text = "#DevOps News"
+color = "random"
+
+[[playlist.section.widget]]
+type = "message"
+text = "May the Rabbit always be with you!"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Always be your bunny best!"
+
+# --- Countdowns at scale=2 ---
+# Dropping to scale=2 gives 32px-tall content centered with 16px black bands
+# top and bottom — a visual change of pace between sections.
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 2
+scale = 2
+
+[playlist.section.title]
+type = "message"
+text = "Count Downs"
+color = "random"
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Days Until Summer"
+countdown_date = 2026-06-20
+
+[[playlist.section.widget]]
+type = "countdown"
+message = "Days Until Fall"
+countdown_date = 2026-09-22
+
+# --- GIF / image playback ---
+# The gif widget plays an animated GIF or static image at native physical
+# resolution (256×64), using the same fit/text-overlay knobs as the image
+# widget. Full reference: https://docs.ledticker.dev/widgets/gif/
+#
+# `path` resolves relative to this config file's directory. Drop assets
+# under `<config_dir>/assets/` and reference by relative path.
+#
+# [[playlist.section]]
+# mode = "swap"
+# loop_count = 2
+#
+# [[playlist.section.widget]]
+# type = "gif"
+# path = "assets/example.gif"
+# fit = "pillarbox"
+```
+
+</details>
 
 <RelatedPages slugs={["hardware/smallsign", "concepts/display", "concepts/fonts"]} />

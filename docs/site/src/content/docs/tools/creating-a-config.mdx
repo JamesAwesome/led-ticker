@@ -18,7 +18,7 @@ The skill definition lives at [`.claude/skills/creating-a-config/SKILL.md`](http
 
 In Claude Code it surfaces as the `/creating-a-config` slash command. The skill is platform-agnostic — anywhere a Claude agent can read the SKILL.md (Claude Code, Claude.ai, the Anthropic API), the same flow applies.
 
-It exists because configs have a long tail of pitfalls — `content_height` ceilings, `text_align="scroll"` + `fit="stretch"` collisions, font-size vs viewing-distance mismatches, brand-font defaults that need to land on every text widget — and the skill threads all of them through a structured Q&A so you don't have to remember them. The output of every run is verified against [`led-ticker validate`](/tools/validate) before anything is written.
+It exists because configs have a long tail of sharp edges — `content_height` ceilings, `text_align="scroll"` + `fit="stretch"` collisions, font-size vs viewing-distance mismatches, brand-font defaults that need to land on every text widget — and the skill threads all of them through a structured Q&A so you don't have to remember them. The output of every run is verified against [`led-ticker validate`](/tools/validate) before anything is written.
 
 ## Modes
 
@@ -61,10 +61,14 @@ The skill never silently auto-fixes a violation. Every problem the validator sur
 
 When a section needs assets, the skill places fonts at `config/fonts/<file>` and images at `config/assets/<file>`, verifies the path exists before referencing it in TOML, and never fetches URLs silently. The full decision tree for fit modes, alpha handling, and viewing-distance font-size tiers lives in [`asset-handling.md`](https://github.com/jamesawesome/led-ticker/blob/main/.claude/skills/creating-a-config/references/asset-handling.md) — the skill loads it on demand in Phase 2 and `add` mode.
 
-## Pitfalls
+## Tips
 
-**The bundled snippet library predates hi-res fonts.** Most `references/snippets.md` snippets don't set `font` / `font_size` / `font_threshold` on every text-bearing widget, because the snippets were authored when BDF was the only option. The skill compensates by carrying the brand-font defaults from Phase 1 across every section in Phase 2 — message, countdown, two_row, weather, image/gif text overlays, and any `[playlist.section.title]` blocks — so you don't have to remember to set `font` on each widget yourself. If you bypass the skill and copy a snippet directly, you'll need to add the font fields by hand.
+### The bundled snippet library predates hi-res fonts
 
-**Running the skill outside Claude Code requires manually following the SKILL.md flow.** The `/creating-a-config` slash command is a Claude Code convenience; on other platforms (Claude.ai, the API) the skill is still available as instructions, but you trigger it by asking the agent to "use the creating-a-config skill" rather than via a slash command. The same Q&A wizard runs either way — the skill is platform-agnostic, only the entry point differs.
+Most `references/snippets.md` snippets don't set `font` / `font_size` / `font_threshold` on every text-bearing widget, because the snippets were authored when BDF was the only option. The skill compensates by carrying the brand-font defaults from Phase 1 across every section in Phase 2 — message, countdown, two_row, weather, image/gif text overlays, and any `[playlist.section.title]` blocks — so you don't have to remember to set `font` on each widget yourself. If you bypass the skill and copy a snippet directly, you'll need to add the font fields by hand.
+
+### Running the skill outside Claude Code requires manually following the SKILL.md flow
+
+The `/creating-a-config` slash command is a Claude Code convenience; on other platforms (Claude.ai, the API) the skill is still available as instructions, but you trigger it by asking the agent to "use the creating-a-config skill" rather than via a slash command. The same Q&A wizard runs either way — the skill is platform-agnostic, only the entry point differs.
 
 <RelatedPages slugs={["tools/validate", "concepts/sections-and-modes", "getting-started"]} />

@@ -255,10 +255,9 @@ class TestSwapAndScrollContinuous:
         # plus per-pixel scroll sleeps. Verify tick-sized sleeps appear (not the
         # old bare hold_time sleep).
         tick_s = ENGINE_TICK_MS / 1000
-        assert tick_s in sleep_calls, (
-            f"Expected tick-sized sleeps ({tick_s}s) in sleep_calls; "
-            f"got {sleep_calls}"
-        )
+        assert (
+            tick_s in sleep_calls
+        ), f"Expected tick-sized sleeps ({tick_s}s) in sleep_calls; got {sleep_calls}"
         # No single sleep should equal the full hold_time (old bare sleep gone).
         assert (
             0.1 not in sleep_calls

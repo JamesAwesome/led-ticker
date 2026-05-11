@@ -32,10 +32,3 @@ ORANGE: Color = make_color(255, 140, 0)
 PURPLE: Color = make_color(160, 60, 200)
 CYAN: Color = make_color(0, 220, 220)
 PINK: Color = make_color(240, 70, 200)
-
-# Legacy constants — removed in a later task once dependents migrate:
-UP_TREND_COLOR: Color = make_color(46, 139, 87)
-DOWN_TREND_COLOR: Color = make_color(194, 24, 7)
-NEUTRAL_TREND_COLOR: Color = make_color(180, 180, 180)  # gray for 0% / unknown
-
-LIME: Color = make_color(0, 255, 0)

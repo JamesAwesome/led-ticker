@@ -2,9 +2,7 @@
 
 from led_ticker.colors import (
     DEFAULT_COLOR,
-    DOWN_TREND_COLOR,
     RGB_WHITE,
-    UP_TREND_COLOR,
 )
 
 
@@ -18,11 +16,6 @@ def test_default_color_is_yellow():
     assert DEFAULT_COLOR.red == 255
     assert DEFAULT_COLOR.green == 255
     assert DEFAULT_COLOR.blue == 0
-
-
-def test_trend_colors():
-    assert UP_TREND_COLOR.red == 46
-    assert DOWN_TREND_COLOR.red == 194
 
 
 def test_new_palette_colors_exist_and_are_correct():

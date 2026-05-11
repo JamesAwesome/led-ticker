@@ -1,4 +1,8 @@
-# render-duration: 8
+# render-duration: 16
+# Three messages stream side-by-side at scroll_step_ms = 35.
+# Each pixel of cursor advance is 35 ms wallclock; with ~350 px of
+# total scroll distance (canvas + bullet-separated content), one
+# full pass is ~12.3 sec. 16 sec captures the cycle plus a tail.
 [display]
 rows = 16
 cols = 32

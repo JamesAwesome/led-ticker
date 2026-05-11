@@ -4,14 +4,14 @@ import unittest.mock as mock
 
 import pytest
 
-from led_ticker.colors import (
-    DEFAULT_COLOR,
+from led_ticker.colors import DEFAULT_COLOR
+from led_ticker.fonts import FONT_VALUE, FONT_VALUE_SMALL
+from led_ticker.widget import Widget
+from led_ticker.widgets.crypto._colors import (
     DOWN_TREND_COLOR,
     NEUTRAL_TREND_COLOR,
     UP_TREND_COLOR,
 )
-from led_ticker.fonts import FONT_VALUE, FONT_VALUE_SMALL
-from led_ticker.widget import Widget
 from led_ticker.widgets.crypto.coinbase import (
     CoinbasePriceMonitor,
     _draw_price_ticker,

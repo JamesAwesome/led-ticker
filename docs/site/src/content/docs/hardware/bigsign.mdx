@@ -8,10 +8,7 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 
 The **bigsign** is led-ticker's reference build for tall multi-row
 displays: a Raspberry Pi 5 driving eight P3 32x64 RGB matrix panels
-arranged in a 2x4 vertical-serpentine layout for a 256x64 canvas. It's
-the platform the hi-res font, hi-res emoji, and `ScaledCanvas` work was
-designed against, and the dimensions the bigsign-flavored examples in
-`config/` assume. Different panel counts or layouts will work — the
+arranged in a 2x4 vertical-serpentine layout for a 256x64 canvas. The hi-res font, hi-res emoji, and `ScaledCanvas` features were all developed against this build, and the dimensions match the bigsign-flavored examples in `config/`. Different panel counts or layouts will work — the
 canvas math comes from `pixel_mapper`, not from a hardcoded shape — but
 the BOM, wiring diagram, and Pi-5 tuning knobs below are what we built
 and tested against. Drawing logic stays at a 16-tall logical canvas;

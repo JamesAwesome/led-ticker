@@ -15,7 +15,7 @@ A playlist is just an ordered list of sections. The engine runs them in sequence
 
 All widgets in the section scroll left as a continuous stream, separated by `•` bullet characters. The panel never clears between widgets; each one follows immediately after the last with just the bullet for spacing. This reads like a classic news ticker — rapid, dense, and meant to be absorbed at a glance.
 
-`forever_scroll` is the best fit for short-text widgets where the reader does not need to dwell: a weather condition, a price, a short announcement. Mix several short widgets together and the combined stream stays lively. Note that transitions are not used between widgets in this mode — the bullet-dot separator is the only visual break.
+`forever_scroll` is the best fit for short-text widgets where the reader does not need to dwell: a weather condition, a price, a short announcement. Mix several short widgets together and the combined stream stays lively. Transitions are not used between widgets in this mode — the bullet separator is the only break.
 
 <DemoGif
   src="/demos-long/sections-forever_scroll.gif"
@@ -117,7 +117,7 @@ The section-level `scroll_step_ms` is distinct from the per-widget `scroll_speed
 
 ## Section backgrounds with `bg_color`
 
-Setting `bg_color` on a section paints a solid RGB color across the panel before any widget draws. Widgets in the section inherit that background unless they set their own `bg_color`, so a single `bg_color` at the section level brands every widget inside it without per-widget repetition. This is the cleanest way to give a section a brand color, a sport-team color, or a "nighttime" tint while keeping each widget's TOML focused on its own content.
+Setting `bg_color` on a section paints a solid RGB color across the panel before any widget draws. Widgets in the section inherit that background unless they set their own `bg_color` — one line at the section level instead of repeating it on every widget.
 
 <TomlExample
   code={`[[playlist.section]]
@@ -134,7 +134,7 @@ type = "message"
 text = "Spring Classes"`}
 />
 
-When a section has a `bg_color` and the next section has a different one, transitions paint the right color throughout — the engine forwards `outgoing_bg_color` and `incoming_bg_color` to the active transition so the panel never flashes through black at the cut-over. Widget-level `bg_color` works the same way for inter-widget transitions within a section. You don't need to do anything special; the engine wires this up automatically.
+When a section has a `bg_color` and the next section has a different one, transitions paint the right color throughout — the engine forwards `outgoing_bg_color` and `incoming_bg_color` to the active transition so the panel never flashes through black at the cut-over. Widget-level `bg_color` works the same way for inter-widget transitions within a section.
 
 A widget setting its own `bg_color` overrides the section default for that widget only. Use a section-level color as the base and only set widget-level `bg_color` when one widget needs a different tint.
 

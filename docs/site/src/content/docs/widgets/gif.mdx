@@ -10,7 +10,7 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `gif` widget plays animated images at native panel resolution — each LED maps to one pixel in the source, not a scaled block. Format-agnostic: anything Pillow opens with `n_frames` and `seek()` works (`.gif`, animated `.webp`, `.apng`, multi-frame `.tiff`). Per-frame durations come from the file's own metadata.
 
-An optional text overlay can be added without any additional configuration: set `text` and it appears on the panel alongside the animation. When the text is longer than the canvas, set `text_align = "scroll"` or `"scroll_over"` for a marquee. For two-row layouts (held top + scrolling bottom), set `bottom_text` to switch modes.
+Set `text` and it appears on the panel alongside the animation. When the text is longer than the canvas, set `text_align = "scroll"` or `"scroll_over"` for a marquee. For two-row layouts (held top + scrolling bottom), set `bottom_text` to switch modes.
 
 <DemoGif src="/demos/widget-gif.gif" caption="Pikachu wave gif with scroll_over text overlay" />
 

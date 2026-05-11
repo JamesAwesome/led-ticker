@@ -56,7 +56,7 @@ Hi-res glyphs are anti-aliased during rasterization and then binarized to 1-bit 
 
 The default 128 works well for medium-stroke fonts like Inter at typical bigsign sizes. Thin-stroked fonts — for example Beloved Sans Regular at 24–32 px — have anti-aliased edge pixels that land in the 60–100 range; at the 128 default those edges get clipped to zero, leaving glyphs visibly broken. Dropping to ~80 includes those edge pixels and restores the correct weight.
 
-**Match thresholds within a font family.** Bold at 128 has fewer lit pixels than Regular at 80 because the lower threshold fattens the regular strokes past Bold's natural weight. Set both to the same value so the panel shows what the type designer intended:
+**Match thresholds within a font family.** Bold at 128 has fewer lit pixels than Regular at 80 because the lower threshold fattens the regular strokes past Bold's natural weight. Set both to the same value:
 
 <TomlExample code={`[[playlist.section.widget]]
 type = "message"

@@ -26,7 +26,7 @@ animation = "typewriter"`}
 
 ## Tuning `frames_per_char`
 
-The cadence is `frames_per_char × 50 ms` per character — the engine ticks at 50 ms and advances the typewriter counter once per tick. The default of `3` gives about 150 ms per character, which feels snappy but still readable at roughly 7 characters per second. A value of `5` or `6` reads as deliberate and is a good choice when you want the audience to register each character dropping in. Values above `10` start to feel comically slow. There is no separate animation clock — everything runs on the same 50 ms engine tick.
+The cadence is `frames_per_char × 50 ms` per character — the engine ticks at 50 ms and advances the typewriter counter once per tick. The default of `3` gives about 150 ms per character, which feels snappy but still readable at roughly 7 characters per second. A value of `5` or `6` reads as deliberate and is a good choice when you want the audience to register each character dropping in. Values above `10` read as comically slow. There is no separate animation clock — everything runs on the same 50 ms engine tick.
 
 To override `frames_per_char`, switch from the string shorthand to an inline TOML table with a `style` key:
 
@@ -49,7 +49,7 @@ animation = "typewriter"
 font_color = "rainbow"`}
 />
 
-Because rainbow is a continuous-phase provider (its counter does not reset between `loop_count` repetitions), the color sweep keeps flowing even as the typewriter retypes from scratch on each loop. The two effects compose cleanly without any special configuration.
+Because rainbow is a continuous-phase provider (its counter does not reset between `loop_count` repetitions), the color sweep keeps flowing even as the typewriter retypes from scratch on each loop.
 
 ## Restart-on-visit behavior
 

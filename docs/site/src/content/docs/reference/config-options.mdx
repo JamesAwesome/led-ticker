@@ -80,10 +80,7 @@ in order, then the playlist loops.
 | `scroll_step_ms`       | int            | `null` (= 50 ms)          | Milliseconds per logical pixel of scroll. Lower = faster marquee. Applies to `forever_scroll`, `infini_scroll`, and the post-hold scroll on `swap` mode.      |
 | `transition_specified` | bool           | `false`                   | Internal flag set by the loader when the user wrote `transition = ...` in this section's TOML. You don't write this — it's in the dataclass for completeness. |
 
-`transition_specified` is what lets the engine distinguish "user wrote
-`transition = X` here" from "this section inherited X from
-`[transitions] default`" — important for entry-transition selection
-(see Pitfalls below).
+`transition_specified` lets the engine tell user-written `transition = X` apart from the inherited default — the distinction drives entry-transition selection (see Pitfalls).
 
 ## `[playlist.section.title]`
 

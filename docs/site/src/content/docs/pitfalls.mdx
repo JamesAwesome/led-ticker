@@ -48,3 +48,7 @@ Warnings don't block the engine, but they flag a likely rendering quirk worth re
 ### Rule 6 — `two_row` at `scale = 4` collapses the canvas to 64 logical pixels wide
 
 Most handles fit at 64 logical px, but anything longer overflows and the bottom row scrolls unintentionally. Use `scale = 2` (128 logical px) with `content_height ≤ 16`.
+
+### Rule 21 — `transition_duration` is in seconds, not milliseconds
+
+`transition_duration` takes seconds. A value above `5.0` is almost always a unit error (you wrote `800` thinking ms; you wanted `0.8`). The validator flags any duration above 5 s or below 50 ms across `[transitions] default`, `[transitions] between_sections`, and per-section overrides — the fix is to divide by 1000.

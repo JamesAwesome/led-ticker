@@ -1,0 +1,44 @@
+# render-duration: 14
+# Chapter 4 — introduces the image widget. Cycle:
+#   msg "Open daily" (2.5s) → push (0.5s)
+#   → msg "10am – 8pm" (2.5s) → push (0.5s)
+#   → image/moon (4.0s) → push (0.5s)
+#   → msg "All ages welcome" (2.5s) → push (0.5s)
+# = 12.5s + 1.5s transitions per cycle; 14s captures the cycle.
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "push_left"
+duration = 0.5
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open daily"
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "10am – 8pm"
+font_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "image"
+path = "../../../config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "center"
+hold_seconds = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "All ages welcome"
+font_color = [255, 220, 0]

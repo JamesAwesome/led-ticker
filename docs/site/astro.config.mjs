@@ -65,7 +65,14 @@ export default defineConfig({
         },
         {
           label: "Hardware",
-          items: [{ autogenerate: { directory: "hardware" } }],
+          items: [
+            // Pin direct links to the embedded reference configs so they're
+            // discoverable from the sidebar, not buried inside a <details>
+            // halfway down the build pages.
+            { label: "Smallsign config", link: "/hardware/smallsign/#reference-config" },
+            { label: "Bigsign config", link: "/hardware/bigsign/#reference-config" },
+            { autogenerate: { directory: "hardware" } },
+          ],
         },
         {
           label: "Reference",

@@ -43,9 +43,9 @@ The sprite family runs a pixel-art character across the panel that erases the ou
 
 <OptionsTable source="transitions/sprite" />
 
-## Hires on the bigsign
+## Hires available
 
-`nyancat`, `pokeball`, and `baseball` auto-activate hi-res sprites when the canvas is at scale > 1 (the bigsign). The hi-res variants are noticeably more detailed and read better at distance:
+`nyancat`, `pokeball`, and `baseball` auto-activate hi-res sprites whenever the canvas is at `default_scale > 1` — typically a bigsign-style build, but anything that wraps a `ScaledCanvas` qualifies. The hi-res variants are noticeably more detailed and read better at distance:
 
 - **nyancat** — animated webp Nyan Cat sprite at native physical resolution
 - **pokeball** — procedural ball with animated Pikachu run-cycle sprite

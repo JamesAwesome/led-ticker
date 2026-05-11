@@ -1,4 +1,4 @@
-# render-duration: 8
+# render-duration: 14
 [display]
 rows = 16
 cols = 32
@@ -12,7 +12,8 @@ default = "cut"
 [[playlist.section]]
 mode = "swap"
 loop_count = 1
-hold_time = 7.0
+hold_time = 1.5
+scroll_step_ms = 35
 
 [[playlist.section.widget]]
 type = "gif"

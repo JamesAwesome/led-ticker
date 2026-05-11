@@ -25,7 +25,6 @@ NEUTRAL_TREND_COLOR: Color = _color(180, 180, 180)  # gray for 0% / unknown
 LIME: Color = _color(0, 255, 0)
 ORANGE: Color = _color(255, 215, 0)
 
-BROWN: Color = _color(139, 69, 19)
 PURPLE: Color = _color(221, 160, 221)
 
 RANDOM_COLOR: itertools.cycle[Color] = itertools.cycle(

@@ -159,15 +159,16 @@ engine treats them uniformly — widget output is just pixels on a canvas.
 `two_row` splits the canvas into a fixed top row and a scrolling bottom row.
 The top row holds a label or handle; the bottom row scrolls through longer content.
 
-Add a new `swap` section for the two_row widget. Setting `scale = 1` on the
-section overrides `default_scale` for this section only — the logical canvas
-becomes the full 64×16 pixel space, which is the simplest way to introduce
-`two_row` before layering on per-section scaling:
+Add a new `swap` section for the two_row widget. Setting `scale = 2` on the
+section overrides `default_scale` for this section — the logical canvas becomes
+128 pixels wide, room enough for handles + inline emoji. `content_height = 16`
+with the default 50/50 band split gives an 8-row top band and an 8-row bottom
+band, each tall enough for the bundled BDF `5x8` font:
 
 ```toml
 [[playlist.section]]
 mode = "swap"
-scale = 1
+scale = 2
 content_height = 16
 loop_count = 1
 hold_time = 8.0
@@ -194,43 +195,52 @@ The `two_row` knobs used here:
 
 <DemoGif
   src="/demos-long/tutorial-03c-two_row-basic.gif"
-  caption="two_row at scale=1: '@moonbunny' held on top, the promo text scrolling across the bottom row."
+  caption="two_row at scale=2, content_height=16: '@moonbunny' held next to the 8×8 lo-res Instagram sprite on the top row, promo text scrolling across the bottom."
 />
 
 The top row is static throughout; only the bottom row moves. `hold_time = 8.0`
 gives the bottom text enough time to complete one full scroll pass.
 
+The `:instagram:` emoji renders as the **8×8 lo-res sprite** here. The full-color
+32×32 hi-res variant exists in the bundled emoji registry, but the 8-row top band
+is too short to fit it — the renderer caps emoji height at the band size and
+falls back to lo-res when the hi-res sprite would overflow. The next section
+shows how to make room for the hi-res sprite.
+
 ## Two-row with hi-res emoji — the hard configuration case
 
-The basic `two_row` above renders using the default BDF `5x8` bitmap font.
-That's crisp and readable, but the Instagram logo renders as a tiny 8×8
-pixel-art icon. The polished version uses `scale = 2`, a hi-res font for the
-handle, and the full-color 32×32 Instagram sprite.
+The basic `two_row` above renders using the default BDF `5x8` bitmap font and
+gets the 8×8 lo-res Instagram sprite because the 8-row top band can't fit
+anything bigger. The polished version keeps `scale = 2` but bumps three
+knobs — `content_height`, `top_row_height`, and a hi-res `top_font` — so the
+full-color 32×32 Instagram sprite renders alongside Inter-Bold text.
 
 ### Why the math matters
 
-led-ticker enforces one hard ceiling:
+led-ticker enforces one hard ceiling on per-section sizing:
 
 ```
 scale × content_height ≤ panel_h_real
 ```
 
-For the bigsign at `default_scale = 4`, `panel_h_real = 64`. That means
-`content_height` can go up to **16** at the display-level scale of 4. But for a
-_section_-level scale of 2, the ceiling is 64 / 2 = 32 logical px — so you have
-room to make the section taller.
+For the bigsign at `default_scale = 4`, `panel_h_real = 64`. With per-section
+`scale = 2`, the ceiling is `64 / 2 = 32` logical px — room to make the
+section taller than the previous `content_height = 16`.
 
 For the hi-res two_row you want:
 
-| knob             | value       | real px             |
-| ---------------- | ----------- | ------------------- |
-| `scale`          | 2           | —                   |
-| `content_height` | 24          | 48 real px (≤ 64 ✓) |
-| `top_row_height` | 16          | 32 real px          |
-| bottom band      | 24 − 16 = 8 | 16 real px          |
+| knob             | basic (above) | polished    | real px (polished)   |
+| ---------------- | ------------- | ----------- | -------------------- |
+| `scale`          | 2             | 2           | —                    |
+| `content_height` | 16            | 24          | 48 real px (≤ 64 ✓)  |
+| `top_row_height` | default (8)   | 16          | 32 real px           |
+| bottom band      | 8             | 24 − 16 = 8 | 16 real px           |
+| `top_font`       | default 5x8   | Inter-Bold  | hi-res rasterisation |
 
 The 32×32 hi-res Instagram sprite is `32 real px / scale 2 = 16 logical px` tall.
-That fits exactly in the 16-row top band.
+That fits the 16-row top band exactly — the band's emoji cap rises from 8 (in
+the basic version) to 16 (here), so the renderer uses the hi-res sprite instead
+of falling back to lo-res.
 
 ### The config
 
@@ -277,7 +287,7 @@ Compare side-by-side with the BDF version from the previous section:
 
 <DemoGif
   src="/demos-long/tutorial-03c-two_row-basic.gif"
-  caption="For reference: the same content at scale=1 with no hi-res font or emoji."
+  caption="For reference: the same content at content_height=16 (no extra top-row space) with the default 5x8 BDF font. The Instagram sprite drops to the 8×8 lo-res variant."
 />
 
 The hi-res path activates automatically when `default_scale > 1` — you don't

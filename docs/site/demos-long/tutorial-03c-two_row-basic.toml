@@ -1,16 +1,18 @@
 # render-duration: 14
-# Introduces the two_row widget at scale=1 (full logical canvas = 64×16).
-# Using scale=1 on the section keeps the example simple: no per-section
-# scaling math, the canvas is the full 64-wide logical space, and BDF
-# fonts render the same as in a message widget.
+# Introduces the two_row widget at the bigsign baseline scale=2.
 #
-# The bottom row scrolls because the promo text exceeds the canvas width.
-# Top row is held, center-aligned.
+# content_height=16 with default 50/50 band split gives an 8-row top
+# band + 8-row bottom band, each at scale=2 → 16 real px tall. The
+# BDF 5x8 default font fits the band exactly. The :instagram: emoji
+# renders as the 8×8 lo-res sprite because the band's emoji cap
+# (max(EMOJI_ROW_CAP=8, top_row_height=8) = 8) is smaller than the
+# 16-logical hi-res sprite — Chapter 3's hi-res section bumps the
+# band height to fit the bigger sprite.
 #
 # Timing:
 #   hold_time=1.5 lets the bottom scroll begin quickly; loop_count=3
 #   cycles the scroll 3× so the gif shows continuous motion.
-#   At scroll_step_ms=35 a ~200-px bottom string takes ~4s to traverse.
+#   At scroll_step_ms=35 a ~300-px bottom string takes ~4s to traverse.
 #   3 × (1.5s hold + ~4s scroll) ≈ 16.5s; 14s captures ~2.5 full cycles.
 [display]
 rows = 64
@@ -25,7 +27,7 @@ duration = 0.5
 
 [[playlist.section]]
 mode = "swap"
-scale = 1
+scale = 2
 content_height = 16
 loop_count = 3
 hold_time = 1.5

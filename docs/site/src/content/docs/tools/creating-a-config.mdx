@@ -18,7 +18,7 @@ The skill definition lives at [`.claude/skills/creating-a-config/SKILL.md`](http
 
 In Claude Code it surfaces as the `/creating-a-config` slash command. The skill is platform-agnostic — anywhere a Claude agent can read the SKILL.md (Claude Code, Claude.ai, the Anthropic API), the same flow applies.
 
-It exists because configs have a long tail of pitfalls — `content_height` ceilings, `text_align="scroll"` + `fit="stretch"` collisions, font-size vs viewing-distance mismatches, brand-font defaults that need to land on every text widget — and the skill threads all of them through a structured Q&A so you don't have to remember them. The output of every run is verified against [`led-ticker validate`](/tools/validate) before anything is written.
+It exists because configs have a long tail of sharp edges — `content_height` ceilings, `text_align="scroll"` + `fit="stretch"` collisions, font-size vs viewing-distance mismatches, brand-font defaults that need to land on every text widget — and the skill threads all of them through a structured Q&A so you don't have to remember them. The output of every run is verified against [`led-ticker validate`](/tools/validate) before anything is written.
 
 ## Modes
 

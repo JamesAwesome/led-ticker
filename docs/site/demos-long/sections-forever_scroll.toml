@@ -1,8 +1,9 @@
-# render-duration: 16
+# render-duration: 24
 # Three messages stream side-by-side at scroll_step_ms = 35.
-# Each pixel of cursor advance is 35 ms wallclock; with ~350 px of
-# total scroll distance (canvas + bullet-separated content), one
-# full pass is ~12.3 sec. 16 sec captures the cycle plus a tail.
+# Each pixel of cursor advance is 35 ms wallclock; the longest
+# message ("Free coffee Friday") needs the full ~16-sec inner pass
+# to clear the panel, plus a tail to show the final message reading
+# stably before the loop. 24 sec gives one complete pass with margin.
 [display]
 rows = 16
 cols = 32

@@ -13,7 +13,7 @@ The `special` family is a catch-all for transitions that don't fit the push, wip
 - `transition_duration` (seconds): default 0.5. `cut` ignores it (single frame). `color_flash`, `dissolve`, and `split` look right between 0.4–0.8 s. `scroll` is the exception — duration is implied by content width and the 1 px / frame cadence, not by `transition_duration`.
 - `transition_color` ([r, g, b]): used by `color_flash` (overrides the white) and `dissolve` (tints the static). Ignored by `cut`, `split`, `scroll`.
 
-## Pitfalls
+## Tips
 
 - **`scroll` vs `forever_scroll` mode look similar but render differently.** `scroll` is a section-to-section transition that uses `_scroll_between` to bridge two widgets with a `•` separator at 1 px / frame. `forever_scroll` is a section *mode* that scrolls all widgets continuously side-by-side with a separator drawn from the `DEFAULT_BUFFER_MSG` text character. Same visual rhythm, different code paths and different config surfaces.
 - **`dissolve` runs at physical resolution on bigsign.** Implementation unwraps the `ScaledCanvas` so the per-pixel scatter has the full 16,384-pixel grain. A logical-grain version (1,024 grain points at scale=4) collapses to fade-through-black at t=0.5 — that's a real bug the implementation avoids. If you ever rewrite `dissolve`, keep it on the unwrapped real canvas; tripwire `test_scatter_uses_physical_resolution_through_scaled_canvas` will catch a regression.

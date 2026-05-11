@@ -15,6 +15,6 @@ The `wipe` family uses a stationary outgoing widget plus a colored sweep line th
 - `transition_color` ([r, g, b]): override the sweep color on a single direction variant
 - `transition_colors` (list of [r, g, b]): custom color pool for `wipe_alternating` / `wipe_random`
 
-## Pitfalls
+## Tips
 
 `wipe_alternating` ignores `transition_color` (the singular form) — it cycles through a built-in palette tied to each direction. Use `transition_colors` (the list form) to set the pool for both `wipe_alternating` and `wipe_random`.

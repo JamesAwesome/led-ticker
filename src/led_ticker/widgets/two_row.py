@@ -205,11 +205,29 @@ class TwoRowMessage(_FrameAware):
         if self.bottom_bg_color is not None:
             fill_band(canvas, top_h, canvas_height, self.bottom_bg_color)
 
+        # Cap each row's emoji height so a hi-res sprite doesn't overflow
+        # into the other row. When the band is taller than the default
+        # `_EMOJI_ROW_CAP`, raise the cap to match — a hi-res sprite that
+        # fits the band visually is allowed to render at hi-res. Default
+        # 50/50 split with content_height=16 produces band=8 = cap, so
+        # existing demos behave identically; bumping content_height or
+        # top_row_height enables hi-res emoji on the affected row.
+        top_emoji_cap = max(_EMOJI_ROW_CAP, top_h)
+        bottom_emoji_cap = max(_EMOJI_ROW_CAP, bottom_h)
+
         top_text_y, top_emoji_y = _row_layout(
-            canvas, top_font, band_height=top_h, band_offset=0
+            canvas,
+            top_font,
+            band_height=top_h,
+            band_offset=0,
+            sprite_logical_height=top_emoji_cap,
         )
         bottom_text_y, bottom_emoji_y = _row_layout(
-            canvas, bottom_font, band_height=bottom_h, band_offset=top_h
+            canvas,
+            bottom_font,
+            band_height=bottom_h,
+            band_offset=top_h,
+            sprite_logical_height=bottom_emoji_cap,
         )
         # Apply per-row text + emoji nudges. Negative shifts up
         # (may clip the panel edge), positive shifts down. Setting
@@ -221,16 +239,6 @@ class TwoRowMessage(_FrameAware):
         bottom_text_y += self.bottom_text_y_offset
         top_emoji_y += self.top_emoji_y_offset
         bottom_emoji_y += self.bottom_emoji_y_offset
-
-        # Cap each row's emoji height so a hi-res sprite doesn't overflow
-        # into the other row. When the band is taller than the default
-        # `_EMOJI_ROW_CAP`, raise the cap to match — a hi-res sprite that
-        # fits the band visually is allowed to render at hi-res. Default
-        # 50/50 split with content_height=16 produces band=8 = cap, so
-        # existing demos behave identically; bumping content_height or
-        # top_row_height enables hi-res emoji on the affected row.
-        top_emoji_cap = max(_EMOJI_ROW_CAP, top_h)
-        bottom_emoji_cap = max(_EMOJI_ROW_CAP, bottom_h)
 
         # Measure widths now that we have the canvas + row cap (so hi-res
         # vs. low-res fallback matches what `draw_with_emoji` will do).

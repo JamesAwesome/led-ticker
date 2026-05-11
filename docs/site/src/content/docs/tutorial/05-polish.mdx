@@ -1,6 +1,8 @@
 ---
 title: "Tutorial 5: Polish & deploy"
 description: Add transitions and border effects to the moonbunny config, then copy it to a Raspberry Pi and run it with Docker.
+prev: false
+next: false
 ---
 
 import TutorialNav from "../../../components/TutorialNav.astro";
@@ -192,7 +194,7 @@ Three steps:
 1. **Copy your config directory to the Pi.** The `config/` folder (containing
    `config.toml`, `fonts/`, and `assets/`) can live anywhere; `~/led-ticker/config/`
    is a reasonable home.
-2. **Mount it into the container.** In your `docker-compose.yml`, bind-mount the
+2. **Mount it into the container.** In `compose.yaml`, bind-mount the
    config directory to `/code/config:ro` — the default path the app reads from.
 3. **Start the service.** `docker compose up -d` starts the container; the app reads
    your config on startup and begins the playlist loop.

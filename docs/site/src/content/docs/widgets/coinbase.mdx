@@ -29,7 +29,7 @@ currency = "USD"`}
 
 ## Common patterns
 
-A single coin display — common symbols include `BTC-USD`, `ETH-USD`, `SOL-USD`, and `DOGE-USD`:
+### A single coin display — common symbols include `BTC-USD`, `ETH-USD`, `SOL-USD`, and `DOGE-USD`
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -39,7 +39,7 @@ currency = "USD"
 font_color = [100, 150, 255]`}
 />
 
-Multiple coins in one section — each widget shows its own pair, and they scroll one after the other:
+### Multiple coins in one section — each widget shows its own pair, and they scroll one after the other
 
 <TomlExample code={`[[playlist.section.widget]]
 type = "coinbase"
@@ -56,7 +56,7 @@ type = "coinbase"
 symbol = "SOL-USD"
 currency = "USD"`} />
 
-Slower poll for a low-traffic display — the default 5-minute interval is already conservative, but you can extend it further:
+### Slower poll for a low-traffic display — the default 5-minute interval is already conservative, but you can extend it further
 
 <TomlExample
   code={`[[playlist.section.widget]]

@@ -28,7 +28,7 @@ teams = ["NYY"]`}
 
 ## Common patterns
 
-Top-3 only — no tracked teams, just the league leaders:
+### Top-3 only — no tracked teams, just the league leaders
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -38,7 +38,7 @@ top_n = 3
 title = "MLB Top 3"`}
 />
 
-Tracked teams only — skip the overall leaders and show only the teams you care about:
+### Tracked teams only — skip the overall leaders and show only the teams you care about
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -47,7 +47,7 @@ teams = ["NYM", "NYY"]
 top_n = 0`}
 />
 
-Top-5 leaders plus two tracked teams, with a dark background and hourly updates:
+### Top-5 leaders plus two tracked teams, with a dark background and hourly updates
 
 <TomlExample
   code={`[[playlist.section.widget]]

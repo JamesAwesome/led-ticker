@@ -32,7 +32,7 @@ You'll need a free API key from [WeatherAPI.com](https://www.weatherapi.com/) �
 
 ## Common patterns
 
-Two-color layout — gray label, bright temperature:
+### Two-color layout — gray label, bright temperature
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -44,7 +44,7 @@ font_color = [150, 150, 150]
 font_color_temp = [255, 255, 255]`}
 />
 
-Text-only display — no pixel icon, shows the condition string instead:
+### Text-only display — no pixel icon, shows the condition string instead
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -55,7 +55,7 @@ units = "imperial"
 show_icon = false`}
 />
 
-Slower poll for stable outdoor forecasts — fetch every 30 minutes:
+### Slower poll for stable outdoor forecasts — fetch every 30 minutes
 
 <TomlExample
   code={`[[playlist.section.widget]]

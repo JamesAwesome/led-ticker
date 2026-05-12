@@ -1566,7 +1566,11 @@ class TestAppRunBgColorHandoff:
         with (
             mock.patch.object(app_module, "load_config", return_value=cfg),
             mock.patch.object(
-                app_module, "build_frame_from_config", return_value=mock.Mock()
+                app_module,
+                "build_frame_from_config",
+                return_value=mock.Mock(
+                    **{"get_clean_canvas.return_value": mock.Mock(height=16, width=160)}
+                ),
             ),
             mock.patch.object(app_module, "_configure_user_font_dir"),
             mock.patch.object(app_module, "Ticker", _FakeTicker),

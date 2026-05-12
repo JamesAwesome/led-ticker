@@ -1,13 +1,14 @@
 # render-duration: 14
-# Introduces the two_row widget at the bigsign baseline scale=2.
+# Introduces the two_row widget at the simplest baseline: scale=1.
 #
-# content_height=16 with default 50/50 band split gives an 8-row top
-# band + 8-row bottom band, each at scale=2 → 16 real px tall. The
-# BDF 5x8 default font fits the band exactly. The :instagram: emoji
-# renders as the 8×8 lo-res sprite because the band's emoji cap
-# (max(EMOJI_ROW_CAP=8, top_row_height=8) = 8) is smaller than the
-# 16-logical hi-res sprite — Chapter 3's hi-res section bumps the
-# band height to fit the bigger sprite.
+# The _maybe_wrap fix (PR #48) makes scale=1 work correctly:
+# content_height=16 produces a 16-row logical canvas centered on the
+# panel; the default 50/50 band split gives an 8-row top band + 8-row
+# bottom band. The BDF 5x8 default font fits the band exactly. The
+# :instagram: emoji renders as the 8×8 lo-res sprite because the band's
+# emoji cap (max(EMOJI_ROW_CAP=8, top_row_height=8) = 8) is smaller
+# than the 16-logical hi-res sprite — Chapter 3's hi-res section bumps
+# scale to 2 and raises band height to fit the bigger sprite.
 #
 # Timing:
 #   hold_time=1.5 lets the bottom scroll begin quickly; loop_count=3
@@ -27,7 +28,7 @@ duration = 0.5
 
 [[playlist.section]]
 mode = "swap"
-scale = 2
+scale = 1
 content_height = 16
 loop_count = 3
 hold_time = 1.5

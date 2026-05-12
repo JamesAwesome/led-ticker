@@ -1278,3 +1278,119 @@ class TestEmojiPaddingSymmetric:
             pride_w + EMOJI_PADDING + text_w + EMOJI_PADDING + pride_w + EMOJI_PADDING
         )
         assert measure_width(FONT_SMALL, text, canvas=sc) == expected
+
+
+class TestHiresEmojiAtScale1Wrapper:
+    """Documents behavior when _maybe_wrap produces a scale=1 ScaledCanvas.
+
+    After the _maybe_wrap fix, ``_maybe_wrap(real, scale=1,
+    content_height=16)`` wraps the canvas in a ScaledCanvas (instead of
+    returning it unwrapped) when ``content_height < real.height``.  Because
+    ``draw_emoji_at`` gates hi-res on ``isinstance(canvas, ScaledCanvas)``,
+    this makes the hi-res path reachable at scale=1.
+
+    **Documented behavior (not a bug):** ``_draw_hires_emoji`` paints at
+    physical resolution, anchoring via ``iy_logical * scale +
+    wrapper._y_offset``.  At scale=1, ``ix_logical * 1 + y_offset`` equals
+    ``real_y_offset``.  A 32×32 sprite at logical y=0 therefore occupies
+    real rows ``_y_offset .. _y_offset + 31``.  With a 64-px-tall panel and
+    content_height=16, ``_y_offset = (64 - 16) // 2 = 24``, so the sprite
+    lands at real rows 24..55.  The content-height band is rows 24..39 (16
+    rows), meaning the bottom 16 rows of the sprite (real 40..55) sit BELOW
+    the content band but still WITHIN the physical panel.  This is the
+    same trade-off that exists at scale > 1; ``draw_with_emoji``'s
+    ``max_emoji_height`` / ``sprite_logical_height`` cap in ``_row_layout``
+    is the correct protection.  Calling ``draw_emoji_at`` directly bypasses
+    that cap.
+    """
+
+    def _make_wrapped_scale1(self):
+        """Build a 256×64 real canvas and wrap it at scale=1, content_height=16."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        real = _StubCanvas(width=256, height=64)
+        # content_height=16 < real.height=64  →  _maybe_wrap would wrap
+        wrapped = ScaledCanvas(real, scale=1, content_height=16)
+        return real, wrapped
+
+    def test_wrapper_properties(self):
+        """Sanity: scale=1 wrapper with content_height=16 on a 64-px panel."""
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        real, wrapped = self._make_wrapped_scale1()
+
+        assert isinstance(wrapped, ScaledCanvas)
+        assert wrapped.scale == 1
+        assert wrapped.content_height == 16
+        # y_offset = (64 - 16 * 1) // 2 = 24
+        assert wrapped._y_offset == 24
+        # logical canvas height is content_height
+        assert wrapped.height == 16
+
+    def test_hires_path_fires_at_scale1(self):
+        """draw_emoji_at takes the hi-res branch when canvas is a ScaledCanvas,
+        even at scale=1.  The hi-res sprite's lit pixels span ~32 real rows,
+        not the ~8 rows of the lo-res fallback.
+        """
+        from led_ticker.pixel_emoji import draw_emoji_at
+
+        real, wrapped = self._make_wrapped_scale1()
+
+        draw_emoji_at(wrapped, "instagram", 0, 0)
+
+        ys = {y for (x, y), rgb in real._pixels.items() if rgb != (0, 0, 0)}
+        assert len(ys) > 0, "no pixels were painted"
+
+        y_span = max(ys) - min(ys) + 1
+        # hi-res 32×32 sprite ⇒ span ≈ 32; lo-res 8×8 ⇒ span ≈ 8
+        assert y_span > 8, (
+            f"y_span={y_span} is too small to be a 32×32 hires sprite; "
+            "the hi-res path may not have fired"
+        )
+
+    def test_hires_y_placement_documents_overflow(self):
+        """Documents the y-coordinate placement of the sprite and the fact
+        that it overflows the content_height=16 band.
+
+        With _y_offset=24 and scale=1, a 32×32 sprite at logical y=0
+        occupies real rows 24..55.  The content band is rows 24..39.
+        Rows 40..55 are on-panel but outside the content region.
+        """
+        from led_ticker.pixel_emoji import draw_emoji_at
+
+        real, wrapped = self._make_wrapped_scale1()
+        # _y_offset == 24 (asserted in test_wrapper_properties)
+
+        draw_emoji_at(wrapped, "instagram", 0, 0)
+
+        lit_ys = {y for (x, y), rgb in real._pixels.items() if rgb != (0, 0, 0)}
+
+        # Sprite should start at or near row 24 (the _y_offset)
+        assert (
+            min(lit_ys) >= 24
+        ), f"Sprite painted above _y_offset: min real y={min(lit_ys)}, expected >= 24"
+        # Sprite should extend to around row 55 (24 + 32 - 1)
+        assert max(lit_ys) >= 40, (
+            f"Sprite top row={max(lit_ys)} expected >= 40; "
+            "it should overflow the content_height=16 band (rows 24..39)"
+        )
+        # The sprite stays within the physical panel (rows 0..63)
+        assert (
+            max(lit_ys) < 64
+        ), f"Sprite painted off-panel: max real y={max(lit_ys)} >= 64"
+
+    def test_hires_advance_at_scale1(self):
+        """draw_emoji_at returns the expected logical advance at scale=1.
+
+        At scale=1 the logical_width equals the physical_width (32 for
+        instagram) and the advance is logical_width + EMOJI_PADDING.
+        """
+        from led_ticker.pixel_emoji import EMOJI_PADDING, HIRES_REGISTRY, draw_emoji_at
+
+        _, wrapped = self._make_wrapped_scale1()
+        advance = draw_emoji_at(wrapped, "instagram", 0, 0)
+
+        expected_logical_w = HIRES_REGISTRY["instagram"].logical_width(scale=1)
+        assert advance == expected_logical_w + EMOJI_PADDING

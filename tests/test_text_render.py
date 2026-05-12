@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest.mock as mock_mod
 
-import pytest  # noqa: F401
+import pytest
 from rgbmatrix import RGBMatrix, RGBMatrixOptions, graphics
 
 from led_ticker.fonts import FONT_SMALL
@@ -275,3 +275,126 @@ class TestDrawHiresText:
         # '?' has fewer pixels than Inter's 'Ω' glyph would have, but
         # both are non-empty. Just assert SOMETHING was painted.
         assert lit > 0
+
+
+# ---------------------------------------------------------------------------
+# Pixel-parity tripwire: BDF rasterizer == native DrawText at scale=1
+# ---------------------------------------------------------------------------
+# The _maybe_wrap fix in ticker.py/_swap_and_scroll causes draw_text() to
+# route through draw_bdf_text (the ScaledCanvas BDF rasterizer) at scale=1
+# when content_height < canvas.height.  This is a behaviour change from the
+# previous path (graphics.DrawText → stub DrawText) for smallsign callers.
+#
+# The stub's DrawText and ScaledCanvas.draw_bdf_text both derive from the
+# same BDF parser (lit_pixels) with the same coordinate math (top_y =
+# baseline - bbx_height - bbx_yoff, base_x = cx + bbx_xoff).  The only
+# meaningful difference at scale=1 with _y_offset=0 is the loop structure —
+# they should produce identical pixel sets.  This class asserts that
+# invariant for every standard BDF font shipped with the package.
+#
+# If this test ever FAILS it means the two code paths have silently
+# diverged and smallsign rendering would change after the _maybe_wrap fix.
+# ---------------------------------------------------------------------------
+_PARITY_FONTS = [
+    ("5x8", "FONT_SMALL", 8),
+    ("6x10", "FONT_DELTA", 10),
+    ("6x12", "FONT_DEFAULT", 12),
+    ("7x13", "FONT_LABEL", 13),
+]
+_PARITY_TEXT = "Hello @world 123"
+
+
+def _stub_canvas(w: int = 256, h: int = 16):
+    """Return a fresh _StubCanvas (from the test stub, not a Mock)."""
+    from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+    opts = RGBMatrixOptions()
+    opts.cols = w
+    opts.rows = h
+    opts.chain_length = 1
+    matrix = RGBMatrix(options=opts)
+    return matrix.CreateFrameCanvas()
+
+
+@pytest.mark.parametrize("font_name,font_attr,cell_h", _PARITY_FONTS)
+class TestBdfRasterizerParityWithDrawText:
+    """Pixel-parity between stub DrawText and ScaledCanvas.draw_bdf_text.
+
+    Both render paths use the same BDF parser.  At scale=1 with _y_offset=0
+    they must produce identical (x, y, r, g, b) pixel writes so the
+    _maybe_wrap fix does not change smallsign rendering.
+    """
+
+    def _get_font(self, font_attr: str):
+        import led_ticker.fonts as fonts_mod
+
+        return getattr(fonts_mod, font_attr)
+
+    def test_pixel_sets_are_identical(self, font_name, font_attr, cell_h):
+        """Native DrawText and BDF rasterizer produce the same pixel set."""
+        from led_ticker.fonts import get_bdf_for
+
+        font = self._get_font(font_attr)
+        color = graphics.Color(255, 200, 100)
+
+        canvas_h = 16  # standard smallsign height
+        baseline_y = cell_h  # place baseline so text fits within the canvas
+
+        # --- Path A: stub graphics.DrawText (the "native" path) ---
+        canvas_a = _stub_canvas(w=256, h=canvas_h)
+        graphics.DrawText(canvas_a, font, 0, baseline_y, color, _PARITY_TEXT)
+        pixels_a = dict(canvas_a._pixels)  # snapshot
+
+        # --- Path B: ScaledCanvas.draw_bdf_text at scale=1, y_offset=0 ---
+        # content_height == canvas.height → _y_offset = (h - 1*h)//2 = 0
+        canvas_b = _stub_canvas(w=256, h=canvas_h)
+        bdf = get_bdf_for(font)
+        sc = ScaledCanvas(canvas_b, scale=1, content_height=canvas_h)
+        assert (
+            sc._y_offset == 0
+        ), "prerequisite: no vertical shift at scale=1 full-height"
+        sc.draw_bdf_text(bdf, 0, baseline_y, color, _PARITY_TEXT)
+        pixels_b = dict(canvas_b._pixels)  # snapshot
+
+        # Both paths must paint a non-trivial number of pixels (catch
+        # a font-loading failure that silently paints nothing).
+        assert (
+            len(pixels_a) > 10
+        ), f"{font_name}: DrawText painted too few pixels ({len(pixels_a)})"
+        assert (
+            len(pixels_b) > 10
+        ), f"{font_name}: draw_bdf_text painted too few pixels ({len(pixels_b)})"
+
+        # Core assertion: pixel sets are identical.
+        only_in_a = set(pixels_a.items()) - set(pixels_b.items())
+        only_in_b = set(pixels_b.items()) - set(pixels_a.items())
+        assert not only_in_a and not only_in_b, (
+            f"{font_name}: pixel sets diverge — "
+            f"{len(only_in_a)} pixels only in DrawText, "
+            f"{len(only_in_b)} pixels only in draw_bdf_text. "
+            "The _maybe_wrap fix would silently change smallsign rendering."
+        )
+
+    def test_advance_widths_match(self, font_name, font_attr, cell_h):
+        """Both paths must return the same advance width for layout correctness."""
+        from led_ticker.fonts import get_bdf_for
+
+        font = self._get_font(font_attr)
+        color = graphics.Color(255, 255, 255)
+        canvas_h = 16
+        baseline_y = cell_h
+
+        canvas_a = _stub_canvas(w=256, h=canvas_h)
+        advance_native = graphics.DrawText(
+            canvas_a, font, 0, baseline_y, color, _PARITY_TEXT
+        )
+
+        canvas_b = _stub_canvas(w=256, h=canvas_h)
+        bdf = get_bdf_for(font)
+        sc = ScaledCanvas(canvas_b, scale=1, content_height=canvas_h)
+        advance_bdf = sc.draw_bdf_text(bdf, 0, baseline_y, color, _PARITY_TEXT)
+
+        assert advance_native == advance_bdf, (
+            f"{font_name}: advance width mismatch — "
+            f"DrawText={advance_native}, draw_bdf_text={advance_bdf}"
+        )

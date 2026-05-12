@@ -1127,6 +1127,37 @@ class TestTwoRowColorProvider:
         assert w._frame_count == 1
 
 
+def test_two_row_band_split_honors_content_height_at_scale_1():
+    """Regression: _maybe_wrap at scale=1 returns the raw canvas unchanged,
+    ignoring content_height. When the real panel is taller than the logical
+    content_height (e.g. height=64 real, content_height=16), TwoRowMessage
+    sees the full 64-row canvas and splits it 32/32 instead of 8/8.
+
+    The fix: _maybe_wrap must wrap the canvas even at scale=1 when the raw
+    canvas height != content_height, so TwoRowMessage always receives a canvas
+    whose .height equals content_height.
+    """
+    import unittest.mock as m
+
+    from led_ticker.ticker import _maybe_wrap
+    from led_ticker.widgets._row_layout import resolve_band_heights
+
+    # Simulate a real panel canvas taller than content_height (e.g. a 64px
+    # panel running at scale=1 with a 16-row logical content window).
+    raw = m.Mock()
+    raw.width = 160
+    raw.height = 64  # real panel is 64px tall
+
+    canvas = _maybe_wrap(raw, scale=1, content_height=16)
+    top_h, _ = resolve_band_heights(canvas.height, None)
+
+    assert top_h == 8, (
+        f"top_h={top_h}; expected 8 — _maybe_wrap at scale=1 ignored "
+        "content_height=16, so TwoRowMessage split the raw 64-row canvas "
+        "into 32/32 instead of 8/8."
+    )
+
+
 class TestRowLayout:
     def test_hires_sprite_anchors_within_full_band(self):
         """Original bug from PR #42: with top_row_height=16 at

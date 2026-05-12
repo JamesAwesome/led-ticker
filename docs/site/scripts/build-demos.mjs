@@ -1,11 +1,22 @@
 #!/usr/bin/env node
 /**
- * Prebuild step: render each demo TOML to a gif if missing or stale.
+ * Local-only: render each demo TOML to a gif if missing or stale.
  *
  * Walks `demos/*.toml`. For each, checks `public/demos/<name>.gif`.
  * If the gif is missing or older than the TOML, runs the Python renderer.
- * Any failure aborts the build with a non-zero exit so we never deploy
- * with broken demo gifs.
+ * Any failure aborts with a non-zero exit so the maintainer notices.
+ *
+ * NOT part of the production `pnpm run build` pipeline — the rendered
+ * gifs in `public/demos/` are committed to git and served as-is by the
+ * Astro build. This script is for the maintainer's "I changed a demo
+ * TOML, re-render it before committing" workflow:
+ *
+ *   pnpm run build-demos
+ *
+ * Running it as part of CI burned GitHub Actions minutes for no benefit
+ * (the gifs were already committed); auto-rendering moved out of the
+ * build step. See `make render-pinned-demos` / `make render-long-demos`
+ * for the parallel manual flows on the other demo directories.
  */
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";

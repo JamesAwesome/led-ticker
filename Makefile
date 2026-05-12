@@ -125,3 +125,21 @@ render-pinned-demos:  ## Render every pinned short-render demo; local only, outp
 		echo "[render-pinned-demos] FAILED demos:$$failures"; \
 		exit 1; \
 	fi
+
+# Download Atkinson Hyperlegible TTFs into the gitignored fonts dir used by the
+# tutorial Chapter 4 demos (tutorial-04a-font, tutorial-04c-image-with-text).
+# Idempotent — skips files already present. Gitignored destination, so the
+# binaries never enter the repo; readers download their own copy per Chapter 4.
+setup-demo-fonts:  ## Download Atkinson Hyperlegible to docs/site/demos-long/fonts/
+	@mkdir -p docs/site/demos-long/fonts
+	@if [ ! -f docs/site/demos-long/fonts/AtkinsonHyperlegible-Bold.ttf ]; then \
+		echo "[setup-demo-fonts] downloading AtkinsonHyperlegible-Bold.ttf"; \
+		curl -sL "https://fonts.gstatic.com/s/atkinsonhyperlegible/v12/9Bt73C1KxNDXMspQ1lPyU89-1h6ONRlW45G8WbcNcw.ttf" \
+			-o docs/site/demos-long/fonts/AtkinsonHyperlegible-Bold.ttf; \
+	else echo "[setup-demo-fonts] AtkinsonHyperlegible-Bold.ttf already present"; fi
+	@if [ ! -f docs/site/demos-long/fonts/AtkinsonHyperlegible-Regular.ttf ]; then \
+		echo "[setup-demo-fonts] downloading AtkinsonHyperlegible-Regular.ttf"; \
+		curl -sL "https://fonts.gstatic.com/s/atkinsonhyperlegible/v12/9Bt23C1KxNDXMspQ1lPyU89-1h6ONRlW45GE5Q.ttf" \
+			-o docs/site/demos-long/fonts/AtkinsonHyperlegible-Regular.ttf; \
+	else echo "[setup-demo-fonts] AtkinsonHyperlegible-Regular.ttf already present"; fi
+	@echo "[setup-demo-fonts] ready — tutorial-04* demos can render with the polished font"

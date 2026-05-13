@@ -4,13 +4,16 @@ import asyncio
 import contextlib
 import itertools
 import unittest.mock as mock
+from unittest.mock import MagicMock
 
 import pytest
 
+from led_ticker.colors import RGB_WHITE
 from led_ticker.frame import LedFrame
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.ticker import (
     _build_ticker_iter,
+    _draw_hires_circle,
     _enqueue_ticker_objects,
     _has_index,
     _maybe_wrap,
@@ -221,12 +224,6 @@ class TestScrollSideBySideBufferDrawn:
 def test_draw_hires_circle_paints_filled_disk_on_scaled_canvas():
     """The disk fills a 32x32 physical bounding box centered in the
     content band, with the documented row-half-widths."""
-    from unittest.mock import MagicMock
-
-    from led_ticker.colors import RGB_WHITE
-    from led_ticker.scaled_canvas import ScaledCanvas
-    from led_ticker.ticker import _draw_hires_circle
-
     real = MagicMock()
     real.width = 256
     real.height = 64
@@ -259,11 +256,6 @@ def test_draw_hires_circle_paints_filled_disk_on_scaled_canvas():
 
 
 def test_draw_hires_circle_color_applied_uniformly():
-    from unittest.mock import MagicMock
-
-    from led_ticker.scaled_canvas import ScaledCanvas
-    from led_ticker.ticker import _draw_hires_circle
-
     real = MagicMock()
     real.width, real.height = 256, 64
     canvas = ScaledCanvas(real, scale=4, content_height=16)
@@ -275,16 +267,11 @@ def test_draw_hires_circle_color_applied_uniformly():
         assert (r, g, b) == (225, 48, 108)
 
 
-def test_draw_hires_circle_advance_is_ten_at_any_scale():
-    from unittest.mock import MagicMock
-
-    from led_ticker.colors import RGB_WHITE
-    from led_ticker.scaled_canvas import ScaledCanvas
-    from led_ticker.ticker import _draw_hires_circle
-
+@pytest.mark.parametrize("scale", [1, 4])
+def test_draw_hires_circle_advance_is_ten_at_any_scale(scale):
     real = MagicMock()
     real.width, real.height = 256, 64
-    canvas = ScaledCanvas(real, scale=4, content_height=16)
+    canvas = ScaledCanvas(real, scale=scale, content_height=16)
     _, cursor = _draw_hires_circle(canvas, cursor_pos=42, color=RGB_WHITE)
     assert cursor == 42 + 10
 

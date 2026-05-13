@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import inspect
 import itertools
 import logging
@@ -27,6 +28,7 @@ _CIRCLE_LOGICAL_RADIUS = 4  # 8-logical-px diameter
 _CIRCLE_LOGICAL_ADVANCE = 2 * _CIRCLE_LOGICAL_PAD + 2 * _CIRCLE_LOGICAL_RADIUS  # = 10
 
 
+@functools.cache
 def _build_circle_offsets(radius_physical: int) -> list[tuple[int, int]]:
     """Build the filled-disk offset table for a given physical radius.
 
@@ -47,17 +49,13 @@ def _build_circle_offsets(radius_physical: int) -> list[tuple[int, int]]:
     return offsets
 
 
-# Cache offset tables per (radius_physical) since scale changes are
-# rare (smallsign=1, bigsign=4) and the table has ~800 entries.
-_CIRCLE_OFFSET_CACHE: dict[int, list[tuple[int, int]]] = {}
-
-
 def _draw_hires_circle(
     canvas: ScaledCanvas, cursor_pos: int, color: ColorTuple
 ) -> tuple[ScaledCanvas, int]:
     """Paint a filled disk at physical resolution centered in the
-    canvas's content band. Used by _CircleBufferMsg on ScaledCanvas
-    only \u2014 plain Canvas paths go through TickerMessage's BDF rendering.
+    canvas's content band. Will be called by draw methods on ScaledCanvas
+    (added in upcoming tasks); plain Canvas paths go through TickerMessage's
+    BDF rendering.
 
     Logical footprint is 10 px wide (1 left pad + 8 disk + 1 right pad)
     matching today's " \u2022 " BDF advance so _scroll_side_by_side layout
@@ -67,10 +65,7 @@ def _draw_hires_circle(
     real = unwrap_to_real(canvas)
 
     radius_physical = _CIRCLE_LOGICAL_RADIUS * scale
-    offsets = _CIRCLE_OFFSET_CACHE.get(radius_physical)
-    if offsets is None:
-        offsets = _build_circle_offsets(radius_physical)
-        _CIRCLE_OFFSET_CACHE[radius_physical] = offsets
+    offsets = _build_circle_offsets(radius_physical)
 
     # Disk center in physical coords: skip the left pad, then add the
     # radius. y center is the middle of the content band (`_y_offset`

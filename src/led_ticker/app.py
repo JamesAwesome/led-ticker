@@ -83,6 +83,7 @@ _PROVIDER_COLOR_KEYS: set[str] = {
     "top_color",
     "bottom_color",
     "font_color_temp",
+    "text_separator_color",
 }
 
 # Keys that remain raw graphics.Color objects (background fills, title
@@ -517,6 +518,26 @@ async def _build_widget(
         )
     if border_value is not None:
         widget_cfg["border"] = _coerce_border(border_value)
+
+    # text_wrap / text_separator / text_separator_color — image widgets
+    # only. On non-image widgets, drop the no-op falsy defaults silently
+    # and raise on truthy values. Without the drop, even `text_wrap = false`
+    # would surface as a cryptic TypeError from attrs (those constructors
+    # don't accept these kwargs). For gif/image, leave the kwargs intact
+    # so they pass through; `_coerce_widget_colors` below still coerces
+    # text_separator_color.
+    if widget_type not in ("gif", "image"):
+        for wrap_key in (
+            "text_wrap",
+            "text_separator",
+            "text_separator_color",
+        ):
+            val = widget_cfg.pop(wrap_key, None)
+            if val not in (None, False):
+                raise ValueError(
+                    f'{wrap_key} is only valid on type="gif" or "image"; '
+                    f"got type={widget_type!r}."
+                )
 
     # Inject section default before color coercion runs. Skip when the
     # widget already specified bg_color (widget-level wins).

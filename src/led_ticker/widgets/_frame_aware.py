@@ -45,6 +45,7 @@ class _FrameAware:
             "bottom_color",
             "border",
             "animation",
+            "text_separator_color",
         }
     )
 

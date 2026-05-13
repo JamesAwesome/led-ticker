@@ -23,7 +23,10 @@
 | `font_size` | int | none | Real-pixel font size. For BDF: snaps down to the nearest integer multiple of cell height, defaults to `cell_h × section_scale` (12 on the small sign, 48 on bigsign at scale=4). For hires fonts: required — raises at config-load without a hint if unset. |
 | `font_threshold` | int 0–255 | `128` | Rasterization threshold for hires fonts. Lower = thicker glyphs; useful for thin-stroked fonts like Beloved Sans Regular at ~80. BDF fonts ignore this. |
 | `font_color` | RGB list / string / table | `[255, 255, 0]` | Text color. Constant `[r,g,b]`, `"rainbow"`, `"color_cycle"`, `"random"`, or `{style="gradient", from=[...], to=[...]}`. |
-| `text_loops` | int | `0` | Minimum number of full marquee traversals before the section transitions. Only meaningful with `text_align = "scroll"` or `"scroll_over"`. `0` = no floor (one traversal is always guaranteed). |
+| `text_loops` | int | `0` | Minimum number of full marquee traversals before the section transitions. Only meaningful with `text_align = "scroll"` or `"scroll_over"`. `0` = no floor (one traversal is always guaranteed). In wrap mode (`text_wrap = true`), counts complete cycle traversals (one cycle = text + separator) instead. |
+| `text_wrap` | bool | `false` | Seamless wrap mode for the marquee. When `true`, the text repeats with a separator between copies and at least one full copy is on the panel at every tick. Requires `text_align` to be `"scroll"` or `"scroll_over"`; rejected in two-row mode. |
+| `text_separator` | string | `" • "` (when `text_wrap = true`) | Glyph(s) drawn between repeats in wrap mode. `""` falls back to a two-space gap. Rendered in the widget's `font` — per-separator font override isn't supported in v1. |
+| `text_separator_color` | color spec | inherit `font_color` | Color for the separator in wrap mode. Whole-string provider (one hue per frame); accepts the same value types as `font_color`. |
 
 ## Two-row text overlay
 

@@ -79,6 +79,39 @@ text_align = "scroll"
 font_color = [200, 200, 255]`}
 />
 
+### Wrap mode (seamless marquee with a separator between repeats)
+
+<DemoGif
+  src="/demos-pinned/image-wrap.gif"
+  caption="`text_wrap = true` — cyan `hi friend` repeats with a steady yellow `•` separator between copies. The message is always visible somewhere on the panel; the separator color is independent of `font_color`."
+/>
+
+Setting `text_wrap = true` on a `scroll` or `scroll_over` marquee runs the text seamlessly — at every tick at least one full copy of the message is on the panel, with a configurable separator drawn between repeats. Use this for short slogans or repeating banners where the gap of an empty canvas between traversals breaks the rhythm.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "image"
+path = "config/assets/bunny-transparent.png"
+text = "hi friend"
+text_wrap = true
+text_align = "scroll_over"
+font_color = [120, 230, 255]              # cyan
+text_separator_color = [255, 200, 80]     # steady yellow separator
+# default separator: " • "                 # (omit text_separator to use it)`}
+/>
+
+| Field                  | Type       | Default                           | Meaning                                                                  |
+| ---------------------- | ---------- | --------------------------------- | ------------------------------------------------------------------------ |
+| `text_wrap`            | bool       | `false`                           | Toggle seamless wrap. Requires `text_align ∈ ("scroll", "scroll_over")`. |
+| `text_separator`       | string     | `" • "` (when `text_wrap = true`) | Glyph(s) between repeats. `""` falls back to a two-space gap.            |
+| `text_separator_color` | color spec | inherit `font_color`              | Color for the separator; whole-string provider (one hue per frame).      |
+
+Notes:
+
+- `text_loops` in wrap mode means **minimum number of cycle traversals** (one cycle = text + separator), not the off-right → off-left definition the default marquee uses.
+- Two-row mode (`bottom_text` set) refuses `text_wrap` in v1.
+- The separator renders in the widget's `font`; a per-separator font override isn't part of v1.
+
 ### Two-row text overlay (set `bottom_text` to switch modes — image sits underneath)
 
 <DemoGif

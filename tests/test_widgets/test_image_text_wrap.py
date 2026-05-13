@@ -8,21 +8,16 @@ for v1 and validated to refuse.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from led_ticker.widgets.still import StillImage
 
-# Reuse the shared 16×16 RGBA fixture used by other image-widget
-# tests. Path is conventional; if it doesn't exist locally, this
-# import-line failure surfaces the issue at test collection time.
-FIXTURE = Path(__file__).parent / "fixtures" / "test_16x16.png"
-
 
 def _still(**kwargs):
-    """Build a StillImage with the shared fixture and kw overrides."""
-    defaults = dict(path=str(FIXTURE), text="hello")
+    """Build a StillImage with stub path + text. Construction-only —
+    `path` is validated at `_load` time, so a non-existent dummy is
+    fine for tests that never call `play()`."""
+    defaults = dict(path="/dev/null/no_such_image.png", text="hello")
     defaults.update(kwargs)
     return StillImage(**defaults)
 
@@ -123,6 +118,85 @@ class TestSeparatorColorCoercion:
         assert hasattr(provider, "color_for")
         # Rainbow is per-char by default.
         assert provider.per_char is True
+
+
+class TestWrapOnWrongWidgetType:
+    """text_wrap / text_separator / text_separator_color are only
+    valid on gif/image widgets. Setting them on message, weather,
+    countdown, etc. surfaces a clean ValueError at config-load
+    rather than the cryptic TypeError attrs would raise."""
+
+    @pytest.mark.asyncio
+    async def test_text_wrap_on_message_rejected(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            with pytest.raises(ValueError, match="text_wrap.*only valid"):
+                await _build_widget(
+                    {"type": "message", "text": "hi", "text_wrap": True},
+                    session=session,
+                )
+
+    @pytest.mark.asyncio
+    async def test_text_separator_on_message_rejected(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            with pytest.raises(ValueError, match="text_separator.*only valid"):
+                await _build_widget(
+                    {
+                        "type": "message",
+                        "text": "hi",
+                        "text_separator": " * ",
+                    },
+                    session=session,
+                )
+
+    @pytest.mark.asyncio
+    async def test_text_separator_color_on_message_rejected(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            with pytest.raises(ValueError, match="text_separator_color.*only valid"):
+                await _build_widget(
+                    {
+                        "type": "message",
+                        "text": "hi",
+                        "text_separator_color": [255, 0, 0],
+                    },
+                    session=session,
+                )
+
+    @pytest.mark.asyncio
+    async def test_text_wrap_on_gif_accepted(self, tmp_path):
+        """Sanity check — gif accepts the field (regression guard
+        against an over-strict guard that would reject valid usage)."""
+        import aiohttp
+        from PIL import Image
+
+        from led_ticker.app import _build_widget
+
+        path = tmp_path / "x.gif"
+        Image.new("RGB", (16, 16), (255, 0, 0)).save(path, format="GIF")
+
+        async with aiohttp.ClientSession() as session:
+            widget = await _build_widget(
+                {
+                    "type": "gif",
+                    "path": str(path),
+                    "text": "hi",
+                    "text_wrap": True,
+                    "text_align": "scroll_over",
+                },
+                session=session,
+            )
+        assert widget.text_wrap is True
 
 
 # ---------------------------------------------------------------------------

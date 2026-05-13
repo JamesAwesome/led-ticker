@@ -519,6 +519,27 @@ async def _build_widget(
     if border_value is not None:
         widget_cfg["border"] = _coerce_border(border_value)
 
+    # text_wrap / text_separator / text_separator_color — image widgets
+    # only. Catches the cryptic TypeError that attrs would raise on a
+    # non-image widget (e.g. type="message") by failing at config-load
+    # with a typed error message. Leave the kwargs in widget_cfg so
+    # they pass through to the constructor for gif/image — the
+    # _coerce_widget_colors path below still coerces text_separator_color.
+    # `text_wrap = false` is the no-op default; only flag truthy values.
+    for wrap_key in (
+        "text_wrap",
+        "text_separator",
+        "text_separator_color",
+    ):
+        if widget_cfg.get(wrap_key) not in (None, False) and widget_type not in (
+            "gif",
+            "image",
+        ):
+            raise ValueError(
+                f'{wrap_key} is only valid on type="gif" or "image"; '
+                f"got type={widget_type!r}."
+            )
+
     # Inject section default before color coercion runs. Skip when the
     # widget already specified bg_color (widget-level wins).
     if default_bg_color is not None and "bg_color" not in widget_cfg:

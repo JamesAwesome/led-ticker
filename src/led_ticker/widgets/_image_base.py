@@ -96,6 +96,32 @@ class _BaseImageWidget(_FrameAware):
     scroll_speed_ms: int = attrs.field(default=50, kw_only=True)
     text_loops: int = attrs.field(default=0, kw_only=True)
 
+    # Wrap-mode marquee: continuous text + separator chase across the
+    # panel. Only valid with `text_align in ("scroll", "scroll_over")`.
+    # When True, the per-tick scroll loop runs at modular cycle width
+    # (text + separator) so the text never fully leaves the panel.
+    # `text_loops` reinterprets as "minimum cycle traversals" instead
+    # of the off-right-to-off-left definition used by the default
+    # marquee. Two-row mode (`bottom_text` set) refuses `text_wrap` —
+    # the bottom row already auto-scrolls on overflow with different
+    # semantics; conflating the two would be confusing.
+    text_wrap: bool = attrs.field(default=False, kw_only=True)
+
+    # The text inserted between repeats in `text_wrap` mode. None = use
+    # the default " • " when wrap is on (matching forever_scroll's
+    # default separator). Explicit "" → "  " (two-space gap, matching
+    # forever_scroll's empty-separator semantics). Any other value is
+    # rendered as-is.
+    text_separator: str | None = attrs.field(default=None, kw_only=True)
+
+    # Color for the separator in wrap mode. None = inherit `font_color`.
+    # The separator is rendered as a single "blob" — even when the
+    # value is a per-char provider (rainbow/gradient), it's called
+    # with `color_for(frame, 0, 1)` to pick one hue per frame. Its
+    # frame counter is registered in `_FrameAware._EFFECT_ATTRS` so
+    # continuous-phase providers stay in phase with the main text.
+    text_separator_color: Any | None = attrs.field(default=None, kw_only=True)
+
     # Animation effect (currently Typewriter only). When set, text
     # types out one character per `frames_per_char` ticks. Single-row
     # only — `_validate_common` raises if `bottom_text` is set or
@@ -232,6 +258,10 @@ class _BaseImageWidget(_FrameAware):
             self.bottom_color, "color_for"
         ):
             self.bottom_color = _ConstantColor(self.bottom_color)
+        if self.text_separator_color is not None and not hasattr(
+            self.text_separator_color, "color_for"
+        ):
+            self.text_separator_color = _ConstantColor(self.text_separator_color)
 
         validate_choice("image_align", image_align, VALID_IMAGE_ALIGNS)
         # Resolve text_align="auto" based on image_align so text doesn't
@@ -304,6 +334,46 @@ class _BaseImageWidget(_FrameAware):
                     "animation requires non-empty text "
                     "(typewriter has nothing to type out)"
                 )
+
+        # text_wrap validation. Wrap is a marquee variation, so it
+        # only makes sense with the scrolling alignments. It also
+        # composes oddly with two-row mode (the bottom row already
+        # auto-scrolls with different semantics) — refuse outright.
+        # Two-row check fires first so users with both violations get
+        # the more actionable diagnostic (text_align is meaningless in
+        # two-row mode anyway).
+        if self.text_wrap:
+            if self.bottom_text:
+                raise ValueError(
+                    "text_wrap=True is not supported in two-row mode "
+                    "(bottom_text set). The bottom row already "
+                    "auto-scrolls on overflow with different semantics. "
+                    "Use single-row image text for wrap, or omit "
+                    "bottom_text."
+                )
+            if self.text_align not in ("scroll", "scroll_over"):
+                raise ValueError(
+                    f"text_wrap=True requires text_align in "
+                    f"('scroll', 'scroll_over'); got "
+                    f"text_align={self.text_align!r}. "
+                    f"Wrap is a marquee variation; on static alignments "
+                    f"it has nothing to wrap."
+                )
+
+        # Separator fields require text_wrap=True. Without wrap, the
+        # separator has nowhere to render — silent no-op would mask
+        # a misconfiguration.
+        if self.text_separator is not None and not self.text_wrap:
+            raise ValueError(
+                f"text_separator={self.text_separator!r} requires "
+                f"text_wrap=True. The separator only renders in wrap "
+                f"mode."
+            )
+        if self.text_separator_color is not None and not self.text_wrap:
+            raise ValueError(
+                "text_separator_color requires text_wrap=True. The "
+                "separator only renders in wrap mode."
+            )
 
         # Two-row mode validation. `bottom_text != ""` switches the
         # widget to held-top + scrolling-bottom semantics (mirrors

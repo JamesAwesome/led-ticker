@@ -483,6 +483,183 @@ async def test_rule14_typewriter_on_gif_scroll_align(conf):
     assert any(e.rule == 14 for e in result.errors)
 
 
+async def test_rule23_two_row_top_text_overflows(conf):
+    # Smallsign 160-wide, scale=1: FONT_SMALL (5px advance) × 33 'M' = 165
+    # logical → 5px overflow. Held top row clips silently — warn.
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM"
+        bottom_text = "scrolls fine"
+        """
+    result = await validate_config(conf(cfg))
+    assert result.valid is True  # warning, not error
+    assert any(
+        w.rule == 23 for w in result.warnings
+    ), f"expected rule 23 warning; got {[w.rule for w in result.warnings]}"
+
+
+async def test_rule23_two_row_top_text_fits(conf):
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "fits fine"
+        bottom_text = "ok"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 23 for w in result.warnings)
+
+
+async def test_rule23_two_row_at_scale2_bigsign_clip(conf):
+    # Bigsign 256×64 real, section scale=2, content_height=32 →
+    # logical 128×32. FONT_SMALL (5px) × 30 'M' = 150 logical, canvas 128 → 22 overflow.
+    cfg = """\
+        [display]
+        rows = 32
+        cols = 64
+        chain = 8
+        default_scale = 4
+        pixel_mapper = "Remap:256,64|U-mapper"
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        scale = 2
+        content_height = 32
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMM"
+        bottom_text = "scrolls"
+        """
+    result = await validate_config(conf(cfg))
+    assert any(
+        w.rule == 23 for w in result.warnings
+    ), f"expected rule 23 warning; got {[w.rule for w in result.warnings]}"
+
+
+async def test_rule23_gif_with_bottom_text_overflows(conf):
+    # gif + bottom_text → two-row mode, top is held. Use font=5x8 so
+    # the line-height fits the 8-tall band (otherwise rule 22 fires and
+    # suppresses warnings). 5×33 = 165 > 160 canvas → overflow.
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        top_font = "5x8"
+        bottom_font = "5x8"
+        top_text = "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM"
+        bottom_text = "scrolls"
+        """
+    result = await validate_config(conf(cfg))
+    assert any(w.rule == 23 for w in result.warnings), (
+        f"expected rule 23 warning; got {[w.rule for w in result.warnings]}; "
+        f"errors: {[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule23_image_with_bottom_text_overflows(conf):
+    # Same as gif case but for the image widget.
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "image"
+        path = "x.png"
+        top_font = "5x8"
+        bottom_font = "5x8"
+        top_text = "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM"
+        bottom_text = "scrolls"
+        """
+    result = await validate_config(conf(cfg))
+    assert any(w.rule == 23 for w in result.warnings), (
+        f"expected rule 23 warning; got {[w.rule for w in result.warnings]}; "
+        f"errors: {[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule23_gif_single_row_does_not_warn(conf):
+    # No bottom_text → single-row mode. The top text would scroll, not clip.
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        text = "MMMMMMMMMMMMMMMMMMMMMMMMMMM"
+        text_align = "scroll"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 23 for w in result.warnings)
+
+
+async def test_rule23_message_widget_does_not_warn(conf):
+    # message widget scrolls on overflow — rule 23 is two-row only.
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 23 for w in result.warnings)
+
+
 async def test_rule14_typewriter_on_gif_empty_text(conf):
     extra = textwrap.dedent("""\
 

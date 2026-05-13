@@ -85,6 +85,29 @@ def _draw_hires_circle(
     return canvas, cursor_pos + _CIRCLE_LOGICAL_ADVANCE
 
 
+@attrs.define
+class _CircleBufferMsg(TickerMessage):
+    """forever_scroll buffer separator. Auto-routes to a hi-res circle
+    when the canvas is a ScaledCanvas; falls back to TickerMessage's
+    BDF rendering on plain canvases (smallsign / scale=1).
+
+    Not a registered widget \u2014 users never configure this directly.
+    Constructed by ticker.DEFAULT_BUFFER_MSG and by app._resolve_buffer_msg
+    for color-only sections.
+
+    Continuous-phase color sweep (Rainbow / ColorCycle) is provided
+    automatically by the provider's class-level `restart_on_visit =
+    False` \u2014 _FrameAware reads that attribute via getattr on the
+    provider, not on the widget.
+    """
+
+    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any):
+        if isinstance(canvas, ScaledCanvas):
+            color = self.font_color.color_for(self.frame_for("font_color"), 0, 1)
+            return _draw_hires_circle(canvas, cursor_pos, color)
+        return super().draw(canvas, cursor_pos, **kwargs)
+
+
 DEFAULT_BUFFER_MSG: TickerMessage = TickerMessage(
     " \u2022 ", center=False, font_color=RGB_WHITE
 )

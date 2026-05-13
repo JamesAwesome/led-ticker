@@ -8,11 +8,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from led_ticker.color_providers import Rainbow
 from led_ticker.colors import RGB_WHITE
 from led_ticker.frame import LedFrame
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.ticker import (
     _build_ticker_iter,
+    _CircleBufferMsg,
     _draw_hires_circle,
     _enqueue_ticker_objects,
     _has_index,
@@ -311,3 +313,72 @@ class TestScrollOneByOneReturnsLastPos:
             f"left edge; got {result}. The dissolve will draw the outgoing "
             "widget at pos=0 (flash-back bug) instead of off-screen."
         )
+
+
+def test_circle_buffer_msg_smallsign_delegates_to_super_draw():
+    """On a plain Canvas (no ScaledCanvas wrap), _CircleBufferMsg
+    must call TickerMessage.draw — pixel-identical to today's
+    DEFAULT_BUFFER_MSG. Tripwire for zero-drift on smallsign."""
+    from unittest.mock import patch
+
+    plain_canvas = MagicMock()
+    plain_canvas.width = 160
+    plain_canvas.height = 16
+    # Not a ScaledCanvas — isinstance(plain_canvas, ScaledCanvas) is False.
+
+    msg = _CircleBufferMsg(message=" • ", center=False, font_color=RGB_WHITE)
+
+    # Verify _draw_hires_circle is NOT called on the smallsign path
+    with patch("led_ticker.ticker._draw_hires_circle") as mock_hires:
+        out, cursor = msg.draw(plain_canvas, cursor_pos=0)
+        assert not mock_hires.called, (
+            "smallsign path must delegate to super().draw(), "
+            "not call _draw_hires_circle"
+        )
+
+    # And that draw returned the canvas and an advance > 0
+    # (TickerMessage's normal " • " advance depends on the default
+    # font's bullet width plus end padding).
+    assert out is plain_canvas
+    assert cursor > 0
+
+
+def test_circle_buffer_msg_hires_path_paints_circle():
+    """On ScaledCanvas, _CircleBufferMsg.draw must paint the hi-res
+    disk via _draw_hires_circle (not delegate to BDF)."""
+    real = MagicMock()
+    real.width, real.height = 256, 64
+    canvas = ScaledCanvas(real, scale=4, content_height=16)
+
+    msg = _CircleBufferMsg(message=" • ", center=False, font_color=RGB_WHITE)
+    out, cursor = msg.draw(canvas, cursor_pos=0)
+
+    assert out is canvas
+    assert cursor == 10  # logical advance
+    # Hires path painted SetPixel on the real canvas (not on the wrapper).
+    assert real.SetPixel.called
+
+
+def test_circle_buffer_msg_hires_rainbow_animates_per_frame():
+    """Rainbow font_color produces different colors on successive
+    draws once advance_frame() ticks the counter."""
+    real = MagicMock()
+    real.width, real.height = 256, 64
+    canvas = ScaledCanvas(real, scale=4, content_height=16)
+
+    msg = _CircleBufferMsg(message=" • ", center=False, font_color=Rainbow())
+
+    msg.draw(canvas, cursor_pos=0)
+    first_color = real.SetPixel.call_args_list[0].args[2:5]
+
+    # Advance several frames to ensure the rainbow hue moves past
+    # any quantization plateau.
+    for _ in range(30):
+        msg.advance_frame()
+    real.SetPixel.reset_mock()
+    msg.draw(canvas, cursor_pos=0)
+    second_color = real.SetPixel.call_args_list[0].args[2:5]
+
+    assert (
+        first_color != second_color
+    ), f"rainbow did not animate: both frames painted {first_color}"

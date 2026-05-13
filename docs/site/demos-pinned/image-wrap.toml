@@ -1,0 +1,32 @@
+# render-duration: 8
+# Wrap mode on a static image: bunny on the left + repeating "hi friend"
+# scrolling over with a default " • " separator. Cyan text + steady
+# yellow separator makes the cycle boundary easy to spot without
+# requiring readers to watch closely for hue changes.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 7.0
+
+[[playlist.section.widget]]
+type = "image"
+path = "../../../config/assets/bunny-transparent.png"
+fit = "pillarbox"
+image_align = "left"
+text = "hi friend"
+text_wrap = true
+text_align = "scroll_over"
+font_color = [120, 230, 255]
+text_separator_color = [255, 200, 80]
+scroll_speed_ms = 25
+hold_seconds = 8.0

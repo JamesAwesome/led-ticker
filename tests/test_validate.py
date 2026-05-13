@@ -838,3 +838,135 @@ async def test_rule22_passes_when_band_fits(conf):
     assert (
         result.valid
     ), f"5x8 BDF should fit; got: {[(e.rule, e.message) for e in result.errors]}"
+
+
+async def test_rule25_start_hold_on_swap_section_errors(conf):
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        start_hold = 0.0
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(
+        e.rule == 25 for e in result.errors
+    ), f"expected rule 25 error; got {[(e.rule, e.message) for e in result.errors]}"
+
+
+async def test_rule25_start_hold_on_gif_section_errors(conf):
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "gif"
+        start_hold = 0.0
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 25 for e in result.errors)
+
+
+async def test_rule25_start_hold_on_forever_scroll_is_allowed(conf):
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "forever_scroll"
+        start_hold = 0.0
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(e.rule != 25 for e in result.errors), (
+        f"start_hold on forever_scroll must validate clean; got errors: "
+        f"{[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule25_start_hold_on_infini_scroll_is_allowed(conf):
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "infini_scroll"
+        start_hold = 2.0
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(e.rule != 25 for e in result.errors)
+
+
+async def test_rule25_negative_start_hold_errors(conf):
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "forever_scroll"
+        start_hold = -1.0
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 25 for e in result.errors)
+
+
+async def test_rule25_zero_start_hold_is_allowed(conf):
+    # Exact zero is the load-bearing case for the whole feature — must NOT trip
+    # the negative-value error path.
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "forever_scroll"
+        start_hold = 0.0
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    assert result.valid is True
+    assert all(e.rule != 25 for e in result.errors)

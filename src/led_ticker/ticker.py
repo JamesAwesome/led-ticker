@@ -108,8 +108,8 @@ class _CircleBufferMsg(TickerMessage):
         return super().draw(canvas, cursor_pos, **kwargs)
 
 
-DEFAULT_BUFFER_MSG: TickerMessage = TickerMessage(
-    " \u2022 ", center=False, font_color=RGB_WHITE
+DEFAULT_BUFFER_MSG: TickerMessage = _CircleBufferMsg(
+    message=" \u2022 ", center=False, font_color=RGB_WHITE
 )
 
 

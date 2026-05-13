@@ -382,3 +382,13 @@ def test_circle_buffer_msg_hires_rainbow_animates_per_frame():
     assert (
         first_color != second_color
     ), f"rainbow did not animate: both frames painted {first_color}"
+
+
+def test_default_buffer_msg_is_circle_buffer_msg():
+    """DEFAULT_BUFFER_MSG must be a _CircleBufferMsg so bigsign sees
+    the hi-res circle automatically. Tripwire against accidental
+    revert to plain TickerMessage(' • ', ...)."""
+    from led_ticker.ticker import DEFAULT_BUFFER_MSG
+
+    assert isinstance(DEFAULT_BUFFER_MSG, _CircleBufferMsg)
+    assert DEFAULT_BUFFER_MSG.message == " • "

@@ -313,3 +313,103 @@ class TestTextLoopsTraversalFloor:
             f"text_loops=2 should run ~2x ticks of text_loops=1; "
             f"got ticks_1={ticks_1}, ticks_2={ticks_2}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Separator color inheritance + override (Task 6)
+# ---------------------------------------------------------------------------
+
+
+class TestSeparatorColorInheritance:
+    @pytest.mark.asyncio
+    async def test_separator_inherits_font_color_when_unset(self, tmp_path, mocker):
+        """text_separator_color=None should make the separator paint
+        with font_color resolved at its current frame."""
+        from led_ticker._compat import require_graphics
+
+        graphics = require_graphics()
+        path = _make_png(tmp_path, color=(0, 0, 0))
+        widget = StillImage(
+            path=str(path),
+            fit="stretch",
+            text="Hi",
+            text_wrap=True,
+            text_align="scroll_over",
+            text_separator=" * ",
+            font_color=graphics.Color(255, 0, 0),  # red
+            scroll_speed_ms=50,
+            hold_seconds=0.1,
+        )
+        real = _bigsign_real_canvas()
+        frame = mocker.MagicMock()
+        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        import led_ticker.widgets._image_base as base_mod
+
+        real_draw = base_mod.draw_text
+        captured: list = []
+
+        def _capture(canvas, font, x, baseline_y, color, text):
+            # Only capture separator draws — text=" * " or any of the
+            # default resolved values from _resolved_separator_text.
+            if text in (" • ", " * ", "  "):
+                captured.append(color)
+            return real_draw(canvas, font, x, baseline_y, color, text)
+
+        mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+
+        await widget.play(real, frame)
+
+        assert captured, "Expected at least one separator draw"
+        for c in captured:
+            assert (c.red, c.green, c.blue) == (255, 0, 0), (
+                f"Separator should inherit font_color=red; got "
+                f"({c.red},{c.green},{c.blue})"
+            )
+
+    @pytest.mark.asyncio
+    async def test_separator_uses_own_color_when_set(self, tmp_path, mocker):
+        """Explicit text_separator_color overrides font_color
+        inheritance for the separator."""
+        from led_ticker._compat import require_graphics
+
+        graphics = require_graphics()
+        path = _make_png(tmp_path, color=(0, 0, 0))
+        widget = StillImage(
+            path=str(path),
+            fit="stretch",
+            text="Hi",
+            text_wrap=True,
+            text_align="scroll_over",
+            text_separator=" * ",
+            font_color=graphics.Color(255, 0, 0),  # red
+            text_separator_color=graphics.Color(0, 0, 255),  # blue
+            scroll_speed_ms=50,
+            hold_seconds=0.1,
+        )
+        real = _bigsign_real_canvas()
+        frame = mocker.MagicMock()
+        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        import led_ticker.widgets._image_base as base_mod
+
+        real_draw = base_mod.draw_text
+        captured: list = []
+
+        def _capture(canvas, font, x, baseline_y, color, text):
+            if text in (" • ", " * ", "  "):
+                captured.append(color)
+            return real_draw(canvas, font, x, baseline_y, color, text)
+
+        mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+
+        await widget.play(real, frame)
+
+        assert captured, "Expected at least one separator draw"
+        for c in captured:
+            assert (c.red, c.green, c.blue) == (0, 0, 255), (
+                f"Separator should use text_separator_color=blue; "
+                f"got ({c.red},{c.green},{c.blue})"
+            )

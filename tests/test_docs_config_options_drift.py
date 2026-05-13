@@ -74,6 +74,7 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
         "content_height",
         "bg_color",
         "scroll_step_ms",
+        "start_hold",
         "transition_specified",
     },
 }

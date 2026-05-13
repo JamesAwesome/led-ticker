@@ -146,21 +146,23 @@ class TestBuildWidget:
 
 class TestBuildTitle:
     async def test_build_title_with_text(self):
-        title = await _build_title({"text": "News", "color": "random"})
+        title = await _build_title(
+            {"text": "News", "color": "random"}, session=mock.Mock()
+        )
         assert isinstance(title, TickerMessage)
         assert title.message == "News"
 
     async def test_build_title_none(self):
-        title = await _build_title(None)
+        title = await _build_title(None, session=mock.Mock())
         assert title is None
 
     async def test_build_title_no_color(self):
-        title = await _build_title({"text": "Plain"})
+        title = await _build_title({"text": "Plain"}, session=mock.Mock())
         assert isinstance(title, TickerMessage)
         assert title.message == "Plain"
 
     async def test_build_title_empty_text(self):
-        title = await _build_title({"text": ""})
+        title = await _build_title({"text": ""}, session=mock.Mock())
         assert isinstance(title, TickerMessage)
         assert title.message == ""
 
@@ -168,7 +170,9 @@ class TestBuildTitle:
         # TOML inline-tables and arrays come through as lists. The loader
         # should coerce a 3-int list into a graphics.Color (wrapped in
         # _ConstantColor after post_init). Access via color_for().
-        title = await _build_title({"text": "Pink", "color": [255, 150, 190]})
+        title = await _build_title(
+            {"text": "Pink", "color": [255, 150, 190]}, session=mock.Mock()
+        )
         assert title is not None
         color = title.font_color.color_for(0, 0, 1)
         assert color.red == 255
@@ -180,7 +184,9 @@ class TestBuildTitle:
         — same vocabulary as widget `font_color`."""
         from led_ticker.color_providers import Rainbow
 
-        title = await _build_title({"text": "Hi", "color": "rainbow"})
+        title = await _build_title(
+            {"text": "Hi", "color": "rainbow"}, session=mock.Mock()
+        )
         assert title is not None
         assert isinstance(title.font_color, Rainbow)
 
@@ -197,10 +203,64 @@ class TestBuildTitle:
                     "from": [255, 0, 0],
                     "to": [0, 0, 255],
                 },
-            }
+            },
+            session=mock.Mock(),
         )
         assert title is not None
         assert isinstance(title.font_color, Gradient)
+
+    async def test_build_title_with_font_field(self):
+        """Regression: `font = "..."` on [playlist.section.title] was
+        silently dropped. Docs say the title is "a regular message widget
+        with all its knobs available" — that includes `font`."""
+        from led_ticker.fonts import FONT_DEFAULT, FONT_SMALL
+
+        title = await _build_title({"text": "Hi", "font": "5x8"}, session=mock.Mock())
+        assert title is not None
+        assert title.font is FONT_SMALL
+        assert title.font is not FONT_DEFAULT
+
+    async def test_build_title_with_animation(self):
+        """Contract lockdown: `animation = "typewriter"` reaches the
+        title widget (previously dropped silently)."""
+        title = await _build_title(
+            {"text": "Hi", "animation": "typewriter"}, session=mock.Mock()
+        )
+        assert title is not None
+        assert title.animation is not None
+
+    async def test_build_title_with_border(self):
+        """Contract lockdown: `border = "rainbow_chase"` reaches the
+        title widget (previously dropped silently)."""
+        from led_ticker.borders import RainbowChaseBorder
+
+        title = await _build_title(
+            {"text": "Hi", "border": "rainbow"}, session=mock.Mock()
+        )
+        assert title is not None
+        assert isinstance(title.border, RainbowChaseBorder)
+
+    async def test_build_title_with_bg_color(self):
+        """Contract lockdown: `bg_color = [r, g, b]` reaches the title
+        widget (previously dropped silently)."""
+        title = await _build_title(
+            {"text": "Hi", "bg_color": [10, 20, 30]}, session=mock.Mock()
+        )
+        assert title is not None
+        assert title.bg_color is not None
+        assert title.bg_color.red == 10
+        assert title.bg_color.green == 20
+        assert title.bg_color.blue == 30
+
+    async def test_build_title_font_color_alias_for_color(self):
+        """`font_color` works on titles too (docs list both spellings
+        and they should be interchangeable for new configs)."""
+        title = await _build_title(
+            {"text": "Hi", "font_color": [200, 100, 50]}, session=mock.Mock()
+        )
+        assert title is not None
+        c = title.font_color.color_for(0, 0, 1)
+        assert (c.red, c.green, c.blue) == (200, 100, 50)
 
 
 class TestColorCoercion:
@@ -264,7 +324,7 @@ class TestExampleConfigWidgets:
         for section in config.sections:
             # Build title
             if section.title:
-                title = await _build_title(section.title)
+                title = await _build_title(section.title, session=mock.Mock())
                 assert isinstance(title, TickerMessage)
 
             # Build each widget
@@ -314,7 +374,7 @@ class TestExampleConfigWidgets:
 
         for section in config.sections:
             if section.title:
-                title = await _build_title(section.title)
+                title = await _build_title(section.title, session=mock.Mock())
                 assert isinstance(title, TickerMessage)
 
             for widget_cfg in section.widgets:
@@ -1667,9 +1727,9 @@ def test_resolve_buffer_msg_with_custom_font_inherits_default_text():
     # previous implementation passed the raw name through as `font=`,
     # which attrs silently accepted but would render as a string at
     # draw time.
-    assert not isinstance(msg.font, str), (
-        f"font must be resolved to a Font object, not the raw name " f"{msg.font!r}"
-    )
+    assert not isinstance(
+        msg.font, str
+    ), f"font must be resolved to a Font object, not the raw name {msg.font!r}"
 
 
 def test_resolve_buffer_msg_with_hires_font_resolves_via_resolve_font():

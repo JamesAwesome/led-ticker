@@ -444,6 +444,29 @@ class TestScrollSideBySide:
     and not multiple times per tick (over-advance from duplicates).
     """
 
+    def test_side_by_side_default_separator_paints_hires_circle_on_bigsign(self):
+        """At scale=4 with two widgets, the default buffer separator
+        renders as a hi-res circle (SetPixel on real canvas), not as
+        chunky BDF '•'. Tripwire that DEFAULT_BUFFER_MSG.draw routes
+        through _draw_hires_circle."""
+        from unittest.mock import MagicMock
+
+        from led_ticker.ticker import DEFAULT_BUFFER_MSG
+
+        real = MagicMock()
+        real.width, real.height = 256, 64
+        canvas = ScaledCanvas(real, scale=4, content_height=16)
+
+        out, cursor = DEFAULT_BUFFER_MSG.draw(canvas, cursor_pos=0)
+
+        # Hi-res circle path: SetPixel called many times on real canvas
+        # (not on the wrapper).
+        assert (
+            real.SetPixel.call_count > 700
+        ), f"expected disk paint (~800 pixels), got {real.SetPixel.call_count}"
+        # Logical advance matches the disk helper's contract.
+        assert cursor == 10
+
     async def test_end_of_scroll_hold_redraws_at_same_position(
         self, canvas, mock_frame, no_sleep
     ):

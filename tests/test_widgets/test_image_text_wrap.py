@@ -174,6 +174,23 @@ class TestWrapOnWrongWidgetType:
                 )
 
     @pytest.mark.asyncio
+    async def test_text_wrap_false_on_message_dropped_silently(self):
+        """`text_wrap = false` is the no-op default — explicitly writing
+        it on a non-image widget should NOT surface as a cryptic
+        TypeError. The guard pops the falsy key so the message
+        constructor never sees it."""
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            widget = await _build_widget(
+                {"type": "message", "text": "hi", "text_wrap": False},
+                session=session,
+            )
+        assert widget is not None
+
+    @pytest.mark.asyncio
     async def test_text_wrap_on_gif_accepted(self, tmp_path):
         """Sanity check — gif accepts the field (regression guard
         against an over-strict guard that would reject valid usage)."""

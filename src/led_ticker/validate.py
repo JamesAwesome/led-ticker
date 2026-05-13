@@ -586,10 +586,29 @@ async def validate_config(path: Path) -> ValidationResult:
     # Phase 1b: Static dict checks (rules enforced in widget constructors)
     errors.extend(_check_static(config))
 
-    # Phase 1c: Build-time checks via _build_widget(validate_only=True)
+    # Phase 1c: Build-time checks via _build_widget(validate_only=True).
+    # "unknown font" failures are downgraded to warnings (rule 24): the
+    # font may live on the deploy target but not the laptop drafting
+    # the config. Type / required-field errors stay hard.
     _configure_user_font_dir(path)
     build_errors = await _run_build_checks(config.sections, path.parent)
     for location, msg in build_errors:
+        if "unknown font " in msg:
+            warnings.append(
+                ValidationIssue(
+                    rule=24,
+                    location=location,
+                    severity="warning",
+                    message=msg,
+                    fix=(
+                        "Drop the font file into config/fonts/ on the deploy"
+                        " target, or pick one of the bundled fonts listed"
+                        " above (BDF: 5x8 / 6x10 / 6x12 / 7x13; hires:"
+                        " Inter-Bold / Inter-Regular)."
+                    ),
+                )
+            )
+            continue
         rule, fix = _classify_error(msg)
         errors.append(
             ValidationIssue(
@@ -603,7 +622,9 @@ async def validate_config(path: Path) -> ValidationResult:
 
     # Phase 1d: Per-row band-layout checks for two_row / image-two_row.
     # Only meaningful when build succeeded — otherwise the widget might
-    # not even have valid fonts to measure.
+    # not even have valid fonts to measure. Skipped widgets with a
+    # missing font (warning, not error) are handled by the per-widget
+    # `except ValueError: continue` inside _check_band_layout.
     if not errors:
         errors.extend(_check_band_layout(config))
 

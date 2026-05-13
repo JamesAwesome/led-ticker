@@ -1,5 +1,8 @@
 """Tests for led_ticker.config."""
 
+import textwrap
+from pathlib import Path
+
 import pytest
 
 from led_ticker.config import load_config
@@ -267,3 +270,74 @@ def test_transition_specified_false_when_section_omits_transition(tmp_path):
     # as "use between_sections for entry" rather than "use pokeball
     # for entry".
     assert cfg.sections[0].transition.type == "pokeball"
+
+
+def _write_cfg(tmp_path: Path, body: str) -> Path:
+    p = tmp_path / "config.toml"
+    p.write_text(textwrap.dedent(body))
+    return p
+
+
+def test_section_start_hold_defaults_to_none(tmp_path):
+    cfg = _write_cfg(
+        tmp_path,
+        """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [[playlist.section]]
+        mode = "forever_scroll"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """,
+    )
+    app = load_config(cfg)
+    assert app.sections[0].start_hold is None
+
+
+def test_section_start_hold_parses_zero(tmp_path):
+    cfg = _write_cfg(
+        tmp_path,
+        """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [[playlist.section]]
+        mode = "forever_scroll"
+        start_hold = 0.0
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """,
+    )
+    app = load_config(cfg)
+    assert app.sections[0].start_hold == 0.0
+
+
+def test_section_start_hold_parses_positive_float(tmp_path):
+    cfg = _write_cfg(
+        tmp_path,
+        """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [[playlist.section]]
+        mode = "forever_scroll"
+        start_hold = 2.5
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """,
+    )
+    app = load_config(cfg)
+    assert app.sections[0].start_hold == 2.5

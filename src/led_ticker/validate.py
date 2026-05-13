@@ -145,6 +145,35 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                     )
                 )
 
+        # Rule 26: separator_* fields are only honored by forever_scroll.
+        # On swap / gif / infini_scroll, the engine doesn't intersperse a
+        # buffer message, so the fields would silently do nothing. Reject
+        # so the misconfiguration surfaces. Single error per section even
+        # if multiple separator_* fields are set.
+        separator_set = (
+            section.separator is not None
+            or section.separator_font is not None
+            or section.separator_font_size is not None
+            or section.separator_color is not None
+        )
+        if separator_set and section.mode != "forever_scroll":
+            issues.append(
+                ValidationIssue(
+                    rule=26,
+                    location=f"section[{i}]",
+                    severity="error",
+                    message=(
+                        f"separator_* fields have no effect on"
+                        f" mode={section.mode!r};"
+                        " only forever_scroll inserts a separator between loops."
+                    ),
+                    fix=(
+                        "Remove separator / separator_font / separator_font_size"
+                        " / separator_color, or change mode to 'forever_scroll'."
+                    ),
+                )
+            )
+
         for j, widget_cfg in enumerate(section.widgets):
             loc = f"section[{i}].widget[{j}]"
             wtype = widget_cfg.get("type", "")
@@ -495,6 +524,61 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+def _check_separator_fonts(
+    config: AppConfig,
+) -> tuple[list[ValidationIssue], list[ValidationIssue]]:
+    """Resolve any `separator_font` set on forever_scroll sections.
+
+    Returns (errors, warnings). UnknownFontError → rule 24 warning
+    (consistent with widget-font behavior). Other ValueError (e.g.
+    "requires font_size") → rule 5 error.
+    """
+    from led_ticker.fonts import UnknownFontError, resolve_font
+
+    errors: list[ValidationIssue] = []
+    warnings: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        if section.mode != "forever_scroll":
+            continue  # Rule 26 already caught the wrong-mode case
+        if section.separator_font is None:
+            continue
+        try:
+            resolve_font(section.separator_font, size=section.separator_font_size)
+        except UnknownFontError as exc:
+            warnings.append(
+                ValidationIssue(
+                    rule=24,
+                    location=f"section[{i}].separator_font",
+                    severity="warning",
+                    message=str(exc),
+                    fix=(
+                        "Drop the font file into config/fonts/ on the deploy"
+                        " target, or pick one of the bundled fonts listed"
+                        " above (BDF: 5x8 / 6x10 / 6x12 / 7x13; hires:"
+                        " Inter-Bold / Inter-Regular)."
+                    ),
+                )
+            )
+        except ValueError as exc:
+            # e.g. "requires font_size" for hires font with no size — same
+            # message pattern as the existing rule 5.
+            msg = str(exc)
+            rule = 5 if "requires font_size" in msg else None
+            errors.append(
+                ValidationIssue(
+                    rule=rule,
+                    location=f"section[{i}].separator_font",
+                    severity="error",
+                    message=msg,
+                    fix=(
+                        "Add separator_font_size = <pixels> next to"
+                        " separator_font (e.g. separator_font_size = 24)."
+                    ),
+                )
+            )
+    return errors, warnings
+
+
 def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
     """Warn when held top_text on a two_row / image-two_row / gif-two_row
     widget is wider than the logical canvas.
@@ -653,6 +737,13 @@ async def validate_config(path: Path) -> ValidationResult:
                 fix=fix,
             )
         )
+
+    # Phase 1c (cont.): separator_font resolution — same warning/error
+    # routing as widget fonts above. Runs regardless of build errors so
+    # a broken widget doesn't suppress a separator_font warning.
+    sep_errors, sep_warnings = _check_separator_fonts(config)
+    errors.extend(sep_errors)
+    warnings.extend(sep_warnings)
 
     # Phase 1d: Per-row band-layout checks for two_row / image-two_row.
     # Only meaningful when build succeeded — otherwise the widget might

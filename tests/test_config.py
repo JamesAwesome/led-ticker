@@ -341,3 +341,147 @@ def test_section_start_hold_parses_positive_float(tmp_path):
     )
     app = load_config(cfg)
     assert app.sections[0].start_hold == 2.5
+
+
+def test_section_separator_defaults_to_none(tmp_path):
+    cfg = _write_cfg(
+        tmp_path,
+        """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [[playlist.section]]
+        mode = "forever_scroll"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """,
+    )
+    app = load_config(cfg)
+    s = app.sections[0]
+    assert s.separator is None
+    assert s.separator_font is None
+    assert s.separator_font_size is None
+    assert s.separator_color is None
+
+
+def test_section_separator_text_parses(tmp_path):
+    cfg = _write_cfg(
+        tmp_path,
+        """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [[playlist.section]]
+        mode = "forever_scroll"
+        separator = " * "
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """,
+    )
+    app = load_config(cfg)
+    assert app.sections[0].separator == " * "
+
+
+def test_section_separator_empty_string_parses(tmp_path):
+    cfg = _write_cfg(
+        tmp_path,
+        """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [[playlist.section]]
+        mode = "forever_scroll"
+        separator = ""
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """,
+    )
+    app = load_config(cfg)
+    # Empty string is a meaningful value distinct from None — it triggers the
+    # "two-space gap, no glyph" path in _resolve_buffer_msg. Must NOT collapse
+    # to None during parsing.
+    assert app.sections[0].separator == ""
+
+
+def test_section_separator_font_parses(tmp_path):
+    cfg = _write_cfg(
+        tmp_path,
+        """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [[playlist.section]]
+        mode = "forever_scroll"
+        separator_font = "Inter-Bold"
+        separator_font_size = 24
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """,
+    )
+    app = load_config(cfg)
+    s = app.sections[0]
+    assert s.separator_font == "Inter-Bold"
+    assert s.separator_font_size == 24
+
+
+def test_section_separator_color_parses_rgb_list(tmp_path):
+    cfg = _write_cfg(
+        tmp_path,
+        """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [[playlist.section]]
+        mode = "forever_scroll"
+        separator_color = [225, 48, 108]
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """,
+    )
+    app = load_config(cfg)
+    # Color is raw at this stage (list[int]); the parser doesn't normalize
+    # to ColorProvider — _resolve_buffer_msg does that in app.py at build
+    # time. Keep parsing trivial.
+    assert app.sections[0].separator_color == [225, 48, 108]
+
+
+def test_section_separator_color_parses_rainbow_string(tmp_path):
+    cfg = _write_cfg(
+        tmp_path,
+        """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [[playlist.section]]
+        mode = "forever_scroll"
+        separator_color = "rainbow"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """,
+    )
+    app = load_config(cfg)
+    assert app.sections[0].separator_color == "rainbow"

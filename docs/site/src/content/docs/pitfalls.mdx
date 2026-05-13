@@ -45,6 +45,10 @@ On `two_row`, or on `gif` / `image` with `bottom_text` set, each row gets a slic
 
 `start_hold` controls the pre-roll delay before a `forever_scroll` / `infini_scroll` section's first widget begins moving. It calls into `_scroll_and_delay`, which `swap` and `gif` modes don't use. Setting `start_hold` on a `swap` / `gif` section would silently do nothing — the validator rejects it so the misconfiguration surfaces immediately. For `swap` mode, the per-widget hold is `hold_time`. For `gif` mode, the gif's own duration controls timing. Also rejected: `start_hold < 0`.
 
+### Rule 26 — `separator_*` is only valid on `forever_scroll`
+
+The `separator`, `separator_font`, `separator_font_size`, and `separator_color` fields customize the small bullet that `forever_scroll` mode inserts between widgets in the side-by-side stream. `swap` and `gif` modes don't intersperse anything; `infini_scroll` fully exits each widget before the next, so no separator is needed. Setting any of these fields on a non-`forever_scroll` section would silently do nothing — the validator rejects it. Either remove the fields, or change `mode` to `"forever_scroll"`.
+
 ## Warnings
 
 Warnings don't block the engine, but they flag a likely rendering quirk worth resolving.

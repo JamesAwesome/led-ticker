@@ -187,3 +187,49 @@ class TestWrapRendersMultipleCopies:
             f"Wrap should draw >1 copy per tick: got "
             f"{len(main_text_draws)} main-text draws across {ticks} ticks."
         )
+
+    @pytest.mark.asyncio
+    async def test_wrap_right_direction_renders(self, tmp_path, mocker):
+        """Same defining property as the left-direction test, but
+        with scroll_direction='right'. Confirms Python's modular-%
+        on negative numbers wraps cleanly for both directions
+        without needing a special case."""
+        path = _make_png(tmp_path, color=(0, 0, 0))
+        widget = StillImage(
+            path=str(path),
+            fit="stretch",
+            text="Hi",
+            text_wrap=True,
+            text_align="scroll_over",
+            text_separator=" * ",
+            scroll_direction="right",
+            scroll_speed_ms=50,
+            hold_seconds=0.5,
+        )
+        real = _bigsign_real_canvas()
+        frame = mocker.MagicMock()
+        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        # Capture every draw_text call. Need to import the real
+        # function so the side_effect can call through.
+        import led_ticker.widgets._image_base as base_mod
+
+        real_draw = base_mod.draw_text
+        draws = []
+
+        def _capture(canvas, font, x, baseline_y, color, text):
+            draws.append((x, text))
+            return real_draw(canvas, font, x, baseline_y, color, text)
+
+        mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+
+        await widget.play(real, frame)
+
+        ticks = frame.matrix.SwapOnVSync.call_count
+        main_text_draws = [d for d in draws if d[1] == "Hi"]
+        assert ticks > 0, "No ticks ran"
+        assert len(main_text_draws) > ticks, (
+            f"Wrap should draw >1 copy per tick: got "
+            f"{len(main_text_draws)} main-text draws across {ticks} ticks."
+        )

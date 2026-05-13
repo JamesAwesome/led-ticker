@@ -84,6 +84,14 @@ class SectionConfig:
     # which controls a text-marquee cadence inside a single widget
     # rather than the engine's cursor advance across widgets.
     scroll_step_ms: int | None = None
+    # Pre-roll delay before the section's first widget begins scrolling
+    # (forever_scroll / infini_scroll only). `None` inherits the
+    # playlist-wide `[title] delay`. An explicit value (including 0.0)
+    # overrides — set `start_hold = 0.0` to make this section start
+    # immediately while leaving the global delay in place for other
+    # sections. Has no runtime effect on `swap` / `gif` modes; the
+    # validator (rule 25) rejects the field on those.
+    start_hold: float | None = None
 
 
 @dataclass
@@ -201,6 +209,7 @@ def load_config(path: Path) -> AppConfig:
             content_height=section_raw.get("content_height", 16),
             bg_color=bg_color,
             scroll_step_ms=section_raw.get("scroll_step_ms"),
+            start_hold=section_raw.get("start_hold"),
         )
         sections.append(section)
 

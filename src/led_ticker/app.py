@@ -712,9 +712,14 @@ def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:
 
     kwargs: dict[str, Any] = {"message": text, "center": False}
     if section.separator_font is not None:
-        kwargs["font"] = section.separator_font
-    if section.separator_font_size is not None:
-        kwargs["font_size"] = section.separator_font_size
+        # TickerMessage wants a resolved Font object (not a name + size
+        # pair). Mirror _build_widget's resolution path so hires
+        # separator_font / separator_font_size combinations work.
+        from led_ticker.fonts import resolve_font
+
+        kwargs["font"] = resolve_font(
+            section.separator_font, section.separator_font_size
+        )
     # Resolve color to a ColorProvider; fall back to white if unset.
     raw_color = (
         section.separator_color if section.separator_color is not None else RGB_WHITE

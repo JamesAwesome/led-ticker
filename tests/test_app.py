@@ -1663,6 +1663,36 @@ def test_resolve_buffer_msg_with_custom_font_inherits_default_text():
     msg = _resolve_buffer_msg(section)
     assert msg is not None
     assert msg.message == "•"
+    # TickerMessage wants a resolved Font, not a name string. The
+    # previous implementation passed the raw name through as `font=`,
+    # which attrs silently accepted but would render as a string at
+    # draw time.
+    assert not isinstance(msg.font, str), (
+        f"font must be resolved to a Font object, not the raw name " f"{msg.font!r}"
+    )
+
+
+def test_resolve_buffer_msg_with_hires_font_resolves_via_resolve_font():
+    """Regression: hires separator_font + separator_font_size used to crash
+    because TickerMessage has no `font_size` kwarg. _resolve_buffer_msg
+    must call resolve_font(name, size) and pass a Font object.
+    """
+    from led_ticker.app import _resolve_buffer_msg
+    from led_ticker.config import SectionConfig
+    from led_ticker.fonts.hires_loader import HiresFont
+
+    section = SectionConfig(
+        mode="forever_scroll",
+        separator=" * ",
+        separator_font="Inter-Bold",
+        separator_font_size=24,
+    )
+    msg = _resolve_buffer_msg(section)
+    assert msg is not None
+    assert msg.message == " * "
+    assert isinstance(
+        msg.font, HiresFont
+    ), f"expected HiresFont, got {type(msg.font).__name__}"
 
 
 def test_resolve_buffer_msg_with_constant_color():

@@ -683,48 +683,57 @@ def _resolve_title_delay(section_start_hold: float | None, global_delay: int) ->
 
 
 def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:
-    """Build a per-section forever_scroll separator TickerMessage.
+    """Build a per-section forever_scroll separator widget.
 
     Returns None when all four separator_* fields are unset — Ticker
-    will fall back to its DEFAULT_BUFFER_MSG default (white "•").
+    falls back to DEFAULT_BUFFER_MSG (a _CircleBufferMsg that adapts
+    to canvas type at draw time).
 
-    When any field is set:
-    - separator None but other fields set → use default "•" glyph
-    - separator "" → use "  " (two spaces, no glyph, minimum gap)
-    - separator non-empty → use as-is (no auto-padding)
-    - separator_font → passed to TickerMessage as font=
-    - separator_font_size → passed as font_size=
-    - separator_color → resolved via _coerce_color_provider, default white
+    Routing:
+    - All four unset → None (inherit default circle).
+    - Color-only override → _CircleBufferMsg with the user's color
+      (still adapts to canvas type — circle on bigsign, BDF '•' on
+      smallsign — just with a different fill).
+    - Any of separator / separator_font / separator_font_size set
+      → TickerMessage with literal text/font rendering (today's
+      behavior, unchanged).
     """
-    if (
-        section.separator is None
-        and section.separator_font is None
-        and section.separator_font_size is None
-        and section.separator_color is None
-    ):
+    text_or_font_set = (
+        section.separator is not None
+        or section.separator_font is not None
+        or section.separator_font_size is not None
+    )
+    color_set = section.separator_color is not None
+
+    if not text_or_font_set and not color_set:
         return None
 
-    # Empty string => "no glyph, minimum gap" semantic per the spec.
-    # Bare default => the historical "•" glyph.
+    color_provider = _coerce_color_provider(
+        section.separator_color if color_set else RGB_WHITE
+    )
+
+    if not text_or_font_set:
+        # Color-only: still want the hi-res circle on bigsign.
+        from led_ticker.ticker import _CircleBufferMsg
+
+        return _CircleBufferMsg(message=" • ", center=False, font_color=color_provider)
+
+    # Explicit text / font: TickerMessage with literal rendering.
     text = section.separator if section.separator is not None else "•"
     if text == "":
         text = "  "
 
-    kwargs: dict[str, Any] = {"message": text, "center": False}
+    kwargs: dict[str, Any] = {
+        "message": text,
+        "center": False,
+        "font_color": color_provider,
+    }
     if section.separator_font is not None:
-        # TickerMessage wants a resolved Font object (not a name + size
-        # pair). Mirror _build_widget's resolution path so hires
-        # separator_font / separator_font_size combinations work.
         from led_ticker.fonts import resolve_font
 
         kwargs["font"] = resolve_font(
             section.separator_font, section.separator_font_size
         )
-    # Resolve color to a ColorProvider; fall back to white if unset.
-    raw_color = (
-        section.separator_color if section.separator_color is not None else RGB_WHITE
-    )
-    kwargs["font_color"] = _coerce_color_provider(raw_color)
     return TickerMessage(**kwargs)
 
 

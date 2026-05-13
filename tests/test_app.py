@@ -1711,3 +1711,22 @@ def test_resolve_buffer_msg_with_constant_color():
     # invariant is that the requested RGB lands in the message somehow.
     color = msg.font_color.color_for(frame=0, char_index=0, total_chars=1)
     assert (color.red, color.green, color.blue) == (225, 48, 108)
+
+
+def test_resolve_buffer_msg_color_only_returns_circle_buffer_msg():
+    """separator_color set alone (no separator, no font) → _CircleBufferMsg
+    routes through the hi-res circle path on bigsign."""
+    from led_ticker.app import _resolve_buffer_msg
+    from led_ticker.config import SectionConfig
+    from led_ticker.ticker import _CircleBufferMsg
+
+    section = SectionConfig(mode="forever_scroll", separator_color=[225, 48, 108])
+    msg = _resolve_buffer_msg(section)
+
+    assert isinstance(
+        msg, _CircleBufferMsg
+    ), f"expected _CircleBufferMsg, got {type(msg).__name__}"
+    assert msg.message == " • "
+    # Color provider returns the user's RGB.
+    color = msg.font_color.color_for(0, 0, 1)
+    assert (color.red, color.green, color.blue) == (225, 48, 108)

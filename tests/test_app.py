@@ -1597,3 +1597,26 @@ class TestAppRunBgColorHandoff:
             f"as incoming_bg_color={section_two_bg!r}; "
             f"got {kw.get('incoming_bg_color')!r}."
         )
+
+
+def test_resolve_title_delay_inherits_when_none():
+    """When section.start_hold is None, fall through to config.title_delay."""
+    from led_ticker.app import _resolve_title_delay
+
+    assert _resolve_title_delay(None, 5) == 5.0
+
+
+def test_resolve_title_delay_zero_overrides():
+    """0.0 explicitly set must NOT fall through to the global default.
+    This is the load-bearing case for the whole feature.
+    """
+    from led_ticker.app import _resolve_title_delay
+
+    assert _resolve_title_delay(0.0, 5) == 0.0
+
+
+def test_resolve_title_delay_positive_overrides():
+    """Positive section.start_hold overrides the global default."""
+    from led_ticker.app import _resolve_title_delay
+
+    assert _resolve_title_delay(1.5, 5) == 1.5

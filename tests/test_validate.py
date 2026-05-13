@@ -150,6 +150,64 @@ async def test_rule3_scroll_plus_stretch(conf):
     assert any(e.rule == 3 for e in result.errors)
 
 
+async def test_rule24_missing_font_is_warning_not_error(conf):
+    # A font that doesn't exist in the bundle or in config/fonts/ used to
+    # hard-error. The validator now downgrades this to a warning so a
+    # config can be drafted on a machine that doesn't have the font yet,
+    # and shipped to a sign that does.
+    cfg = """\
+        [display]
+        rows = 32
+        cols = 64
+        chain = 8
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        font = "Some-Brand-Font"
+        font_size = 24
+        """
+    result = await validate_config(conf(cfg))
+    assert result.valid is True  # warnings allowed; CLI exits 0
+    assert any(w.rule == 24 for w in result.warnings), (
+        f"expected rule 24 warning; got {[w.rule for w in result.warnings]}; "
+        f"errors: {[(e.rule, e.message) for e in result.errors]}"
+    )
+    # Existing rule 5 message ("font requires font_size") and BDF size
+    # errors stay as ERRORS — they're real config bugs, not asset gaps.
+    assert all(e.rule != 24 for e in result.errors)
+
+
+async def test_rule5_missing_font_size_still_hard_errors(conf):
+    # Sibling check: `font = "Inter-Bold"` without `font_size` is still
+    # a hard error (rule 5), not a warning. The new rule-24 path is
+    # specific to "font name not resolved".
+    cfg = """\
+        [display]
+        rows = 32
+        cols = 64
+        chain = 8
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        font = "Inter-Bold"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 5 for e in result.errors)
+
+
 async def test_rule3_scroll_over_plus_stretch_is_allowed(conf):
     # `scroll_over` paints text ON TOP of the image — opaque `stretch`
     # is the intended pairing. The runtime widget accepts this combo;

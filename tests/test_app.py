@@ -1620,3 +1620,64 @@ def test_resolve_title_delay_positive_overrides():
     from led_ticker.app import _resolve_title_delay
 
     assert _resolve_title_delay(1.5, 5) == 1.5
+
+
+def test_resolve_buffer_msg_returns_none_when_all_fields_unset():
+    """Unset everything → None → Ticker falls back to DEFAULT_BUFFER_MSG."""
+    from led_ticker.app import _resolve_buffer_msg
+    from led_ticker.config import SectionConfig
+
+    section = SectionConfig(mode="forever_scroll")
+    assert _resolve_buffer_msg(section) is None
+
+
+def test_resolve_buffer_msg_with_separator_text_only():
+    """separator='*' → TickerMessage with message='*', default font/color."""
+    from led_ticker.app import _resolve_buffer_msg
+    from led_ticker.config import SectionConfig
+    from led_ticker.widgets.message import TickerMessage
+
+    section = SectionConfig(mode="forever_scroll", separator="*")
+    msg = _resolve_buffer_msg(section)
+    assert isinstance(msg, TickerMessage)
+    assert msg.message == "*"
+
+
+def test_resolve_buffer_msg_empty_string_maps_to_two_spaces():
+    """Load-bearing case for the 'no glyph but breathing room' semantic."""
+    from led_ticker.app import _resolve_buffer_msg
+    from led_ticker.config import SectionConfig
+
+    section = SectionConfig(mode="forever_scroll", separator="")
+    msg = _resolve_buffer_msg(section)
+    assert msg is not None
+    assert msg.message == "  "
+
+
+def test_resolve_buffer_msg_with_custom_font_inherits_default_text():
+    """separator_font alone (no separator) → default '•' in custom font."""
+    from led_ticker.app import _resolve_buffer_msg
+    from led_ticker.config import SectionConfig
+
+    section = SectionConfig(mode="forever_scroll", separator_font="5x8")
+    msg = _resolve_buffer_msg(section)
+    assert msg is not None
+    assert msg.message == "•"
+
+
+def test_resolve_buffer_msg_with_constant_color():
+    """separator_color = [r, g, b] → ColorProvider wraps the constant."""
+    from led_ticker.app import _resolve_buffer_msg
+    from led_ticker.config import SectionConfig
+
+    section = SectionConfig(
+        mode="forever_scroll", separator="*", separator_color=[225, 48, 108]
+    )
+    msg = _resolve_buffer_msg(section)
+    assert msg is not None
+    # TickerMessage stores font_color as a ColorProvider. Assert the
+    # provider returns the expected color when called. Exact attribute
+    # path depends on TickerMessage internals — adapt if needed; the
+    # invariant is that the requested RGB lands in the message somehow.
+    color = msg.font_color.color_for(frame=0, char_index=0, total_chars=1)
+    assert (color.red, color.green, color.blue) == (225, 48, 108)

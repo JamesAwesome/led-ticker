@@ -83,6 +83,7 @@ _PROVIDER_COLOR_KEYS: set[str] = {
     "top_color",
     "bottom_color",
     "font_color_temp",
+    "text_separator_color",
 }
 
 # Keys that remain raw graphics.Color objects (background fills, title

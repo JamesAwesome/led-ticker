@@ -74,3 +74,33 @@ class TestTextWrapValidation:
         # text_align="scroll" + non-stretch fit is fine.
         w = _still(text_wrap=True, text_align="scroll", fit="fit")
         assert w.text_wrap is True
+
+
+class TestSeparatorColorCoercion:
+    def test_separator_color_in_provider_keys(self):
+        """text_separator_color must be in _PROVIDER_COLOR_KEYS so
+        the app.py coercion path wraps raw [r,g,b] into a
+        ColorProvider before the widget sees it."""
+        from led_ticker.app import _PROVIDER_COLOR_KEYS
+
+        assert "text_separator_color" in _PROVIDER_COLOR_KEYS
+
+    def test_separator_color_in_effect_attrs(self):
+        """text_separator_color must be in _FrameAware._EFFECT_ATTRS
+        so it gets its own per-effect frame counter (matters for
+        continuous-phase providers like Rainbow)."""
+        from led_ticker.widgets._frame_aware import _FrameAware
+
+        assert "text_separator_color" in _FrameAware._EFFECT_ATTRS
+
+    def test_separator_color_string_coerced(self):
+        """When the app loader sees text_separator_color = 'rainbow',
+        _coerce_widget_colors must convert it to a Rainbow provider."""
+        from led_ticker.app import _coerce_widget_colors
+
+        cfg = {"text_separator_color": "rainbow"}
+        _coerce_widget_colors(cfg)
+        provider = cfg["text_separator_color"]
+        assert hasattr(provider, "color_for")
+        # Rainbow is per-char by default.
+        assert provider.per_char is True

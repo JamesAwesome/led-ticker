@@ -233,3 +233,83 @@ class TestWrapRendersMultipleCopies:
             f"Wrap should draw >1 copy per tick: got "
             f"{len(main_text_draws)} main-text draws across {ticks} ticks."
         )
+
+
+# ---------------------------------------------------------------------------
+# text_loops floors to N cycle traversals in wrap mode (Task 5)
+# ---------------------------------------------------------------------------
+
+
+class TestTextLoopsTraversalFloor:
+    """In wrap mode, `text_loops` reinterprets as the minimum number
+    of `cycle_width` traversals (one cycle = text + separator),
+    rather than one full off-right→off-left traversal. Locks in the
+    `ticks_per_text_loop = cycle_width if wrap_mode else ...` block
+    in `_image_base._play_with_text`."""
+
+    @pytest.mark.asyncio
+    async def test_wrap_short_duration_floors_to_one_cycle(self, tmp_path, mocker):
+        """`hold_seconds=0.5` would naturally run only 10 ticks (50ms
+        cadence). With `text_wrap=True`, the floor must push `n_ticks`
+        up to at least one `cycle_width`."""
+        path = _make_png(tmp_path, color=(0, 0, 0))
+        widget = StillImage(
+            path=str(path),
+            fit="stretch",
+            text="X",
+            text_wrap=True,
+            text_align="scroll_over",
+            text_separator=" * ",
+            scroll_speed_ms=50,
+            hold_seconds=0.5,  # 10 ticks naturally
+        )
+        real = _bigsign_real_canvas()
+        frame = mocker.MagicMock()
+        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        await widget.play(real, frame)
+
+        # text="X" + sep=" * " in BDF 6×12 — cycle_width is some
+        # value > 10. Assert it exceeds the natural duration without
+        # pinning the exact width (font advance is implementation-
+        # sensitive).
+        count = frame.matrix.SwapOnVSync.call_count
+        assert count > 10, (
+            f"text_wrap should floor n_ticks to >=1 cycle "
+            f"(>10 ticks for this 0.5s/50ms config); got {count}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_wrap_text_loops_2_runs_twice_cycles(self, tmp_path, mocker):
+        """`text_loops=2` runs ~2× the ticks of `text_loops=1`.
+        Compare two widgets identical except for `text_loops`."""
+
+        async def _ticks_for_loops(loops):
+            path = _make_png(tmp_path, color=(0, 0, 0))
+            widget = StillImage(
+                path=str(path),
+                fit="stretch",
+                text="X",
+                text_wrap=True,
+                text_align="scroll_over",
+                text_separator=" * ",
+                text_loops=loops,
+                scroll_speed_ms=50,
+                hold_seconds=0.5,
+            )
+            real = _bigsign_real_canvas()
+            frame = mocker.MagicMock()
+            frame.matrix.SwapOnVSync.side_effect = lambda c: c
+            await widget.play(real, frame)
+            return frame.matrix.SwapOnVSync.call_count
+
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        ticks_1 = await _ticks_for_loops(1)
+        ticks_2 = await _ticks_for_loops(2)
+        # Allow some implementation slack (±2 ticks) but enforce ~2x ratio.
+        assert ticks_2 >= 2 * ticks_1 - 2, (
+            f"text_loops=2 should run ~2x ticks of text_loops=1; "
+            f"got ticks_1={ticks_1}, ticks_2={ticks_2}"
+        )

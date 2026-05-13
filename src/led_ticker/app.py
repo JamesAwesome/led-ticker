@@ -640,7 +640,7 @@ async def _build_widget(
 async def _build_title(
     title_cfg: dict[str, Any] | None,
     *,
-    session: aiohttp.ClientSession | None = None,
+    session: aiohttp.ClientSession,
     config_dir: Path | None = None,
     default_bg_color: tuple[int, int, int] | None = None,
     panel_h_for_warning: int | None = None,
@@ -661,9 +661,9 @@ async def _build_title(
     `color_providers.Random` RNG — preserved because existing configs
     rely on this palette.
 
-    `session` may be None: type="message" has no `.start` classmethod,
-    so `_build_widget` never touches the session for titles. Production
-    callers still pass a real session for future-proofing.
+    `session` is required for consistency with `_build_widget` even
+    though title widgets (type="message") have no `.start` classmethod
+    and never touch it; callers always have one in scope.
     """
     if title_cfg is None:
         return None

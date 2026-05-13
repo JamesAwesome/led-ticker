@@ -104,3 +104,86 @@ class TestSeparatorColorCoercion:
         assert hasattr(provider, "color_for")
         # Rainbow is per-char by default.
         assert provider.per_char is True
+
+
+# ---------------------------------------------------------------------------
+# Wrap render math (Task 3)
+# ---------------------------------------------------------------------------
+
+from PIL import Image  # noqa: E402
+
+
+def _make_png(tmp_path, color=(200, 30, 40), size=(32, 32), name="img.png"):
+    """Build a tiny PNG fixture (mirrors test_still.py:_make_png)."""
+    img = Image.new("RGB", size, color=color)
+    p = tmp_path / name
+    img.save(p, format="PNG")
+    return p
+
+
+def _bigsign_real_canvas():
+    """Bigsign 2x4 vertical-serpentine canvas (mirrors test_still.py)."""
+    from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+    opts = RGBMatrixOptions()
+    opts.cols = 64
+    opts.rows = 32
+    opts.chain_length = 8
+    opts.parallel = 1
+    opts.pixel_mapper_config = "U-mapper"
+    return RGBMatrix(options=opts).CreateFrameCanvas()
+
+
+class TestWrapRendersMultipleCopies:
+    """The defining test: in wrap mode, the per-tick loop draws
+    multiple copies of (text + separator) so the panel is never
+    empty.
+
+    We capture every draw_text call and assert that the total
+    number of main-text draws exceeds the number of ticks — that
+    can only happen if a single tick draws more than one copy."""
+
+    @pytest.mark.asyncio
+    async def test_wrap_left_yields_multiple_text_copies(self, tmp_path, mocker):
+        path = _make_png(tmp_path, color=(0, 0, 0))
+        widget = StillImage(
+            path=str(path),
+            fit="stretch",
+            text="Hi",
+            text_wrap=True,
+            text_align="scroll_over",
+            text_separator=" * ",
+            scroll_speed_ms=50,
+            hold_seconds=0.5,
+        )
+        real = _bigsign_real_canvas()
+        frame = mocker.MagicMock()
+        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        # Capture every draw_text call. Need to import the real
+        # function so the side_effect can call through.
+        import led_ticker.widgets._image_base as base_mod
+
+        real_draw = base_mod.draw_text
+        draws = []
+
+        def _capture(canvas, font, x, baseline_y, color, text):
+            draws.append((x, text))
+            return real_draw(canvas, font, x, baseline_y, color, text)
+
+        mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+
+        await widget.play(real, frame)
+
+        # In wrap mode, every tick should draw (n_copies =
+        # ceil(canvas_w / cycle_width) + 1) copies of main text +
+        # the same number of separators. Even with the shortest cycle
+        # (text="Hi" + sep=" * ") on a 256-wide canvas, n_copies > 1.
+        ticks = frame.matrix.SwapOnVSync.call_count
+        main_text_draws = [d for d in draws if d[1] == "Hi"]
+        assert ticks > 0, "No ticks ran"
+        assert len(main_text_draws) > ticks, (
+            f"Wrap should draw >1 copy per tick: got "
+            f"{len(main_text_draws)} main-text draws across {ticks} ticks."
+        )

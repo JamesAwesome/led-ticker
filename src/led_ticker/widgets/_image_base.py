@@ -557,6 +557,85 @@ class _BaseImageWidget(_FrameAware):
             return measure_width(self.font, self.text, canvas=canvas)
         return get_text_width(self.font, self.text, padding=0, canvas=canvas)
 
+    def _resolved_separator_text(self) -> str:
+        """Resolve the separator string per wrap-mode semantics:
+          - None (default): " • "
+          - "" (explicit empty): "  " (two spaces — minimum gap so
+            adjacent copies don't visually butt up)
+          - any other value: as-is.
+
+        Mirrors `forever_scroll`'s separator literal-text rules so a
+        user moving from per-section to per-widget wraps gets the
+        same defaults."""
+        if self.text_separator is None:
+            return " • "
+        if self.text_separator == "":
+            return "  "
+        return self.text_separator
+
+    def _measure_separator(self, canvas: Canvas) -> int:
+        """Width of the resolved separator in logical px on `canvas`.
+        Uses the same font as the main text (per v1 scope — separator
+        font/font_size override is deferred)."""
+        sep = self._resolved_separator_text()
+        if not sep:
+            return 0
+        if EMOJI_PATTERN.search(sep):
+            from led_ticker.pixel_emoji import measure_width
+
+            return measure_width(self.font, sep, canvas=canvas)
+        return get_text_width(self.font, sep, padding=0, canvas=canvas)
+
+    def _draw_separator(
+        self,
+        canvas: Canvas,
+        x: int,
+        baseline_y: int,
+    ) -> None:
+        """Draw the resolved separator at (x, baseline_y) with the
+        right color. Whole-string color call so even a Rainbow on
+        text_separator_color paints the separator as one hue per
+        frame.
+
+        Reads its own per-effect counter via
+        `frame_for("text_separator_color")` when a dedicated provider
+        is set; otherwise falls back to `font_color`'s counter so
+        continuous-phase Rainbow / ColorCycle stays in phase with
+        the main text."""
+        sep = self._resolved_separator_text()
+        if not sep:
+            return
+        provider = (
+            self.text_separator_color
+            if self.text_separator_color is not None
+            else self.font_color
+        )
+        frame_count = self.frame_for(
+            "text_separator_color"
+            if self.text_separator_color is not None
+            else "font_color"
+        )
+        if hasattr(provider, "color_for"):
+            color = provider.color_for(frame_count, 0, 1)
+        else:
+            color = provider
+        if EMOJI_PATTERN.search(sep):
+            from led_ticker.pixel_emoji import draw_with_emoji
+
+            draw_with_emoji(
+                canvas,
+                self.font,
+                x,
+                baseline_y,
+                color,
+                sep,
+                emoji_y=baseline_y - 8,
+                frame=frame_count,
+                total_chars=1,
+            )
+        else:
+            draw_text(canvas, self.font, x, baseline_y, color, sep)
+
     def _draw_text(
         self,
         canvas: Canvas,
@@ -789,6 +868,50 @@ class _BaseImageWidget(_FrameAware):
                 text_override=text_override,
             )
 
+    def _render_wrap_tick(
+        self,
+        canvas: Canvas,
+        text_canvas: Canvas,
+        scroll_pos: int,
+        baseline_y: int,
+        text_width: int,
+        sep_width: int,
+        cycle_width: int,
+    ) -> None:
+        """Compose one wrap-mode frame: reset → image / border / text
+        in the right order for the current text_align, drawing
+        ceil(canvas_w / cycle_width) + 1 copies of (text + separator)
+        so the panel is never empty.
+
+        `scroll_pos` is the normalized leading-copy x-position in
+        [0, cycle_width). Copies render at
+        `scroll_pos - cycle_width + i * cycle_width` for
+        i in [0, n_copies)."""
+        reset_canvas(canvas, self.bg_color)
+        provider = self.font_color
+        canvas_w = text_canvas.width
+
+        n_copies = (canvas_w + cycle_width - 1) // cycle_width + 1
+        start_x = scroll_pos - cycle_width
+
+        def _draw_text_chain() -> None:
+            for i in range(n_copies):
+                x = start_x + i * cycle_width
+                self._draw_text(text_canvas, x, baseline_y, provider)
+                if sep_width > 0:
+                    self._draw_separator(text_canvas, x + text_width, baseline_y)
+
+        if self.text_align == "scroll":
+            _draw_text_chain()
+            self._paint_skip_black(canvas)
+            if self.border is not None:
+                self.border.paint(canvas, self.frame_for("border"))
+        else:  # scroll_over
+            self._paint_image(canvas)
+            if self.border is not None:
+                self.border.paint(canvas, self.frame_for("border"))
+            _draw_text_chain()
+
     def _render_two_row_tick(
         self,
         real_canvas: Canvas,
@@ -912,9 +1035,22 @@ class _BaseImageWidget(_FrameAware):
         )
 
         scrolling = self.text_align in ("scroll", "scroll_over")
+        wrap_mode = scrolling and self.text_wrap
+
+        # Wrap-mode constants: cycle_width is one full (text+sep)
+        # repeat; sep_width is needed by `_render_wrap_tick` to
+        # place the separator after each text copy.
+        sep_width = self._measure_separator(text_canvas) if wrap_mode else 0
+        cycle_width = (text_width + sep_width) if wrap_mode else 0
+
         if not scrolling:
             scroll_pos = 0
             scroll_step = 0
+        elif wrap_mode:
+            # Initial scroll_pos in [0, cycle_width): the leading copy
+            # starts flush-left. Direction is the step sign.
+            scroll_pos = 0
+            scroll_step = 1 if self.scroll_direction == "right" else -1
         elif self.scroll_direction == "right":
             scroll_pos = -text_width
             scroll_step = 1
@@ -936,7 +1072,9 @@ class _BaseImageWidget(_FrameAware):
         # match. To opt out (rare), reduce font_size so the text
         # naturally fits.
         if scrolling:
-            ticks_per_text_loop = text_w + text_width
+            # In wrap mode, one "loop" = one cycle (text + sep)
+            # rather than one full off-right→off-left traversal.
+            ticks_per_text_loop = cycle_width if wrap_mode else text_w + text_width
             min_loops = max(1, self.text_loops)
             n_ticks = max(n_ticks, min_loops * ticks_per_text_loop)
 
@@ -995,14 +1133,25 @@ class _BaseImageWidget(_FrameAware):
             # gradient. Mirrors `ticker._advance_frame_if_supported`'s
             # placement in `_swap_and_scroll` (advance BEFORE draw).
             self.advance_frame()
-            self._render_tick(
-                canvas,
-                text_canvas,
-                scroll_pos,
-                baseline_y,
-                text_x_left,
-                text_x_right,
-            )
+            if wrap_mode:
+                self._render_wrap_tick(
+                    canvas,
+                    text_canvas,
+                    scroll_pos,
+                    baseline_y,
+                    text_width,
+                    sep_width,
+                    cycle_width,
+                )
+            else:
+                self._render_tick(
+                    canvas,
+                    text_canvas,
+                    scroll_pos,
+                    baseline_y,
+                    text_x_left,
+                    text_x_right,
+                )
             canvas = frame.matrix.SwapOnVSync(canvas)
             # Follow the new back-buffer so next tick paints to the
             # correct canvas (CLAUDE.md hardware constraint #10).
@@ -1014,7 +1163,12 @@ class _BaseImageWidget(_FrameAware):
 
             if scrolling:
                 scroll_pos += scroll_step
-                if scroll_step < 0 and scroll_pos + text_width <= 0:
+                if wrap_mode:
+                    # Python's % on negative numbers with positive
+                    # divisor returns a non-negative result — works
+                    # for both scroll_direction values.
+                    scroll_pos %= cycle_width
+                elif scroll_step < 0 and scroll_pos + text_width <= 0:
                     scroll_pos = text_w
                 elif scroll_step > 0 and scroll_pos >= text_w:
                     scroll_pos = -text_width

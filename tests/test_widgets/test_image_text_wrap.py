@@ -413,3 +413,50 @@ class TestSeparatorColorInheritance:
                 f"Separator should use text_separator_color=blue; "
                 f"got ({c.red},{c.green},{c.blue})"
             )
+
+
+class TestSeparatorEmptyString:
+    """Test the literal-text semantics of _resolved_separator_text:
+      - None       -> " • " (default)
+      - ""         -> "  "  (two-space minimum gap)
+      - any other  -> as-is
+
+    Mirrors forever_scroll's separator literal-text rules so a user
+    moving from per-section wraps to per-widget wraps gets the same
+    defaults.
+
+    Construction-only tests — no need to call play(); we exercise the
+    helper directly. Use tmp_path + _make_png only because StillImage
+    requires a path for validation."""
+
+    def test_none_separator_renders_default_bullet(self, tmp_path):
+        path = _make_png(tmp_path, color=(0, 0, 0))
+        widget = StillImage(
+            path=str(path),
+            text="Hi",
+            text_wrap=True,
+            text_align="scroll_over",
+        )
+        assert widget._resolved_separator_text() == " • "
+
+    def test_empty_string_separator_renders_two_spaces(self, tmp_path):
+        path = _make_png(tmp_path, color=(0, 0, 0))
+        widget = StillImage(
+            path=str(path),
+            text="Hi",
+            text_wrap=True,
+            text_align="scroll_over",
+            text_separator="",
+        )
+        assert widget._resolved_separator_text() == "  "
+
+    def test_custom_string_separator_renders_as_is(self, tmp_path):
+        path = _make_png(tmp_path, color=(0, 0, 0))
+        widget = StillImage(
+            path=str(path),
+            text="Hi",
+            text_wrap=True,
+            text_align="scroll_over",
+            text_separator=" * ",
+        )
+        assert widget._resolved_separator_text() == " * "

@@ -56,3 +56,7 @@ Most handles fit at 64 logical px, but anything longer overflows and the bottom 
 ### Rule 23 — Held `top_text` is wider than the canvas
 
 The top row on a `two_row` widget (and the top row on `gif` / `image` widgets when `bottom_text` is set) is held — it doesn't scroll. If the rendered text is wider than the logical canvas, the right edge clips silently at runtime. The validator measures the text against the resolved font (including inline `:slug:` emoji) and warns when it would overflow. Shorten the text, drop inline emoji, lower `top_font_size`, or set the section's `scale` lower to widen the logical canvas (each step from `scale = 4` to `scale = 2` to `scale = 1` doubles the available width).
+
+### Rule 24 — `font` name is unknown
+
+The named font isn't bundled and didn't turn up in `config/fonts/`. This is a warning, not an error: a config drafted on a laptop without the brand font is still useful, and the file may live on the Pi by deploy time. The ticker will raise at startup if the section actually runs without the font present, so resolve the warning before deploy. Drop the font file into `config/fonts/` on the deploy target, or pick one of the bundled fonts (BDF: `5x8`, `6x10`, `6x12`, `7x13`; hires: `Inter-Bold`, `Inter-Regular`).

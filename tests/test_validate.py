@@ -970,3 +970,141 @@ async def test_rule25_zero_start_hold_is_allowed(conf):
     result = await validate_config(conf(cfg))
     assert result.valid is True
     assert all(e.rule != 25 for e in result.errors)
+
+
+async def test_rule26_separator_on_swap_errors(conf):
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        separator = "*"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 26 for e in result.errors)
+
+
+async def test_rule26_separator_on_gif_errors(conf):
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "gif"
+        separator = "*"
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 26 for e in result.errors)
+
+
+async def test_rule26_separator_on_infini_scroll_errors(conf):
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "infini_scroll"
+        separator = "*"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 26 for e in result.errors)
+
+
+async def test_rule26_separator_on_forever_scroll_is_allowed(conf):
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "forever_scroll"
+        separator = "*"
+        separator_color = [225, 48, 108]
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(e.rule != 26 for e in result.errors)
+
+
+async def test_rule26_separator_font_alone_on_swap_errors(conf):
+    """Rule 26 fires on ANY of the four fields, not just `separator`."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        separator_font = "Inter-Bold"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 26 for e in result.errors)
+
+
+async def test_rule24_separator_font_missing_emits_warning(conf):
+    """A separator_font that isn't bundled / in config/fonts/ must flow
+    through rule 24 (warning) — same treatment as widget fonts.
+    """
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "forever_scroll"
+        separator_font = "Some-Custom-Font"
+        separator_font_size = 24
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    # Warnings allowed → result.valid is True
+    assert result.valid is True
+    assert any(w.rule == 24 for w in result.warnings), (
+        f"expected rule 24 warning for unknown separator_font; got "
+        f"warnings={[w.rule for w in result.warnings]}, "
+        f"errors={[(e.rule, e.message) for e in result.errors]}"
+    )

@@ -92,6 +92,26 @@ class SectionConfig:
     # sections. Has no runtime effect on `swap` / `gif` modes; the
     # validator (rule 25) rejects the field on those.
     start_hold: float | None = None
+    # Per-section override for the forever_scroll loop separator
+    # (the small bullet "•" between widgets in side-by-side scroll).
+    # `None` inherits today's DEFAULT_BUFFER_MSG (white "•"). An empty
+    # string `""` renders as two spaces (no glyph, minimum gap). Any
+    # non-empty string is rendered as-is (no auto-padding — caller
+    # controls spacing). Only honored on mode = "forever_scroll";
+    # rule 26 rejects on other modes.
+    separator: str | None = None
+    # Font name (BDF alias or hires) for the separator glyph. `None`
+    # uses TickerMessage's default font (FONT_DEFAULT). Useful when the
+    # section's widget uses a custom display font and the separator
+    # should match.
+    separator_font: str | None = None
+    # Required for hires fonts; ignored for BDF.
+    separator_font_size: int | None = None
+    # Color provider config. Accepts the same shapes as widget
+    # `font_color`: [r, g, b], "rainbow", "color_cycle", or
+    # {style = "gradient", ...}. Raw value here; normalized to
+    # ColorProvider by app._resolve_buffer_msg at build time.
+    separator_color: list[int] | str | dict | None = None
 
 
 @dataclass
@@ -210,6 +230,10 @@ def load_config(path: Path) -> AppConfig:
             bg_color=bg_color,
             scroll_step_ms=section_raw.get("scroll_step_ms"),
             start_hold=section_raw.get("start_hold"),
+            separator=section_raw.get("separator"),
+            separator_font=section_raw.get("separator_font"),
+            separator_font_size=section_raw.get("separator_font_size"),
+            separator_color=section_raw.get("separator_color"),
         )
         sections.append(section)
 

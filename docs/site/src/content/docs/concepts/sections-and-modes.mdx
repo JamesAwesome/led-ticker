@@ -17,6 +17,8 @@ All widgets in the section scroll left as a continuous stream, separated by `•
 
 `forever_scroll` is the best fit for short-text widgets where the reader does not need to dwell: a weather condition, a price, a short announcement. Mix several short widgets together and the combined stream stays lively. Transitions are not used between widgets in this mode — the bullet separator is the only break.
 
+The separator is customizable per section. Set `separator` to any string — `" * "` or `" | "` are common alternatives — or `""` for a minimal two-space gap with no glyph. `separator_color` accepts the same shapes as widget `font_color` (constant `[r, g, b]`, `"rainbow"`, or a gradient table). `separator_font` and `separator_font_size` let you match the separator's typeface to the rest of the section. All four fields are rejected on non-`forever_scroll` modes.
+
 <DemoGif
   src="/demos-long/sections-forever_scroll.gif"
   caption="`forever_scroll` — three messages and a countdown flow together separated by bullets; the panel never clears"

@@ -20,9 +20,10 @@ from led_ticker.colors import (
     PINK,
     PURPLE,
     RED,
+    RGB_WHITE,
     YELLOW,
 )
-from led_ticker.config import TransitionConfig, load_config
+from led_ticker.config import SectionConfig, TransitionConfig, load_config
 from led_ticker.frame import LedFrame
 from led_ticker.ticker import Ticker, _maybe_wrap
 from led_ticker.transitions import get_transition_class, run_transition
@@ -681,6 +682,52 @@ def _resolve_title_delay(section_start_hold: float | None, global_delay: int) ->
     return float(global_delay)
 
 
+def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:
+    """Build a per-section forever_scroll separator TickerMessage.
+
+    Returns None when all four separator_* fields are unset — Ticker
+    will fall back to its DEFAULT_BUFFER_MSG default (white "•").
+
+    When any field is set:
+    - separator None but other fields set → use default "•" glyph
+    - separator "" → use "  " (two spaces, no glyph, minimum gap)
+    - separator non-empty → use as-is (no auto-padding)
+    - separator_font → passed to TickerMessage as font=
+    - separator_font_size → passed as font_size=
+    - separator_color → resolved via _coerce_color_provider, default white
+    """
+    if (
+        section.separator is None
+        and section.separator_font is None
+        and section.separator_font_size is None
+        and section.separator_color is None
+    ):
+        return None
+
+    # Empty string => "no glyph, minimum gap" semantic per the spec.
+    # Bare default => the historical "•" glyph.
+    text = section.separator if section.separator is not None else "•"
+    if text == "":
+        text = "  "
+
+    kwargs: dict[str, Any] = {"message": text, "center": False}
+    if section.separator_font is not None:
+        # TickerMessage wants a resolved Font object (not a name + size
+        # pair). Mirror _build_widget's resolution path so hires
+        # separator_font / separator_font_size combinations work.
+        from led_ticker.fonts import resolve_font
+
+        kwargs["font"] = resolve_font(
+            section.separator_font, section.separator_font_size
+        )
+    # Resolve color to a ColorProvider; fall back to white if unset.
+    raw_color = (
+        section.separator_color if section.separator_color is not None else RGB_WHITE
+    )
+    kwargs["font_color"] = _coerce_color_provider(raw_color)
+    return TickerMessage(**kwargs)
+
+
 RUN_MODES: dict[str, str] = {
     "forever_scroll": "run_forever_scroll",
     "infini_scroll": "run_infini_scroll",
@@ -926,6 +973,9 @@ async def run(config_path: Path) -> None:
                 }
                 if section.scroll_step_ms is not None:
                     ticker_kwargs["scroll_speed"] = section.scroll_step_ms / 1000
+                buffer_msg = _resolve_buffer_msg(section)
+                if buffer_msg is not None:
+                    ticker_kwargs["buffer_msg"] = buffer_msg
                 ticker = Ticker(**ticker_kwargs)
 
                 # If a between-section transition just ran, the title is

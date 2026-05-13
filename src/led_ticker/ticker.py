@@ -17,6 +17,79 @@ from led_ticker.scaled_canvas import ScaledCanvas, unwrap_to_real
 from led_ticker.widgets._image_fit import reset_canvas
 from led_ticker.widgets.message import TickerMessage
 
+# Logical footprint of the hi-res circle separator: 1 left pad + 8
+# circle + 1 right pad = 10 logical px. Matches today's " \u2022 " BDF
+# advance closely enough that _scroll_side_by_side layout doesn't
+# shift. Disk diameter at scale=4 = 32 physical px (same horizontal
+# footprint as a hi-res inline emoji).
+_CIRCLE_LOGICAL_PAD = 1
+_CIRCLE_LOGICAL_RADIUS = 4  # 8-logical-px diameter
+_CIRCLE_LOGICAL_ADVANCE = 2 * _CIRCLE_LOGICAL_PAD + 2 * _CIRCLE_LOGICAL_RADIUS  # = 10
+
+
+def _build_circle_offsets(radius_physical: int) -> list[tuple[int, int]]:
+    """Build the filled-disk offset table for a given physical radius.
+
+    Integer math only: row half-width = floor(sqrt(r\u00b2 - dy\u00b2)) computed
+    via incremental search per row. Returns offsets relative to the
+    disk center as (dx, dy). Used once per scale value and cached on
+    the helper below.
+    """
+    offsets: list[tuple[int, int]] = []
+    r_sq = radius_physical * radius_physical
+    for dy in range(-radius_physical, radius_physical + 1):
+        # Largest dx with dx\u00b2 + dy\u00b2 \u2264 r\u00b2.
+        dx_max = 0
+        while (dx_max + 1) * (dx_max + 1) + dy * dy <= r_sq:
+            dx_max += 1
+        for dx in range(-dx_max, dx_max + 1):
+            offsets.append((dx, dy))
+    return offsets
+
+
+# Cache offset tables per (radius_physical) since scale changes are
+# rare (smallsign=1, bigsign=4) and the table has ~800 entries.
+_CIRCLE_OFFSET_CACHE: dict[int, list[tuple[int, int]]] = {}
+
+
+def _draw_hires_circle(
+    canvas: ScaledCanvas, cursor_pos: int, color: ColorTuple
+) -> tuple[ScaledCanvas, int]:
+    """Paint a filled disk at physical resolution centered in the
+    canvas's content band. Used by _CircleBufferMsg on ScaledCanvas
+    only \u2014 plain Canvas paths go through TickerMessage's BDF rendering.
+
+    Logical footprint is 10 px wide (1 left pad + 8 disk + 1 right pad)
+    matching today's " \u2022 " BDF advance so _scroll_side_by_side layout
+    stays stable.
+    """
+    scale = canvas.scale
+    real = unwrap_to_real(canvas)
+
+    radius_physical = _CIRCLE_LOGICAL_RADIUS * scale
+    offsets = _CIRCLE_OFFSET_CACHE.get(radius_physical)
+    if offsets is None:
+        offsets = _build_circle_offsets(radius_physical)
+        _CIRCLE_OFFSET_CACHE[radius_physical] = offsets
+
+    # Disk center in physical coords: skip the left pad, then add the
+    # radius. y center is the middle of the content band (`_y_offset`
+    # is the band's top in physical y).
+    cx_physical = (cursor_pos + _CIRCLE_LOGICAL_PAD) * scale + radius_physical
+    cy_physical = canvas._y_offset + (canvas.height * scale) // 2
+
+    if isinstance(color, tuple):
+        r, g, b = color
+    else:
+        r, g, b = color.red, color.green, color.blue
+
+    set_px = real.SetPixel
+    for dx, dy in offsets:
+        set_px(cx_physical + dx, cy_physical + dy, r, g, b)
+
+    return canvas, cursor_pos + _CIRCLE_LOGICAL_ADVANCE
+
+
 DEFAULT_BUFFER_MSG: TickerMessage = TickerMessage(
     " \u2022 ", center=False, font_color=RGB_WHITE
 )

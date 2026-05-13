@@ -1,0 +1,34 @@
+# render-duration: 8
+# "BREAKING NEWS" + default " • " separator at scroll_speed_ms=25 cycles
+# fast enough that the seamless wrap is obvious within a few seconds.
+# Separator color = rainbow so it visually contrasts the steady magenta
+# message — demonstrates that text_separator_color is independent of
+# font_color when set.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 7.0
+
+[[playlist.section.widget]]
+type = "gif"
+path = "../../../config/assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+image_align = "left"
+text = "BREAKING NEWS"
+text_wrap = true
+text_align = "scroll_over"
+text_separator = " * "
+font_color = [225, 48, 108]
+text_separator_color = "rainbow"
+gif_loops = 999
+scroll_speed_ms = 25

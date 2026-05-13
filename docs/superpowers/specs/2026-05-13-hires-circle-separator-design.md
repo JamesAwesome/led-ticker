@@ -28,6 +28,23 @@ The opt-in trigger for "I want a custom glyph" is "user specified text or a font
 
 This is a slight semantic shift from the existing spec, which had `separator_color` alone build a `TickerMessage("•", font_color=…)`. New behavior: `separator_color` alone still produces the visible result the user wants ("a recolored dot"), but routes through `_CircleBufferMsg` so they get the hi-res circle on bigsign. On smallsign the rendered pixels are identical to the old spec because `_CircleBufferMsg` delegates to the embedded BDF bullet there.
 
+### Color is opt-in, not inherited from widgets
+
+`separator_color` and the widget's `font_color` are independent fields. Setting `font_color = "rainbow"` on a `message` widget does NOT cascade to the separator — the separator stays white unless `separator_color` is also set on the section. Each provider is constructed independently (`_resolve_buffer_msg` for the separator, `_build_widget` for widgets) and their frame counters tick independently inside the engine.
+
+This matches the existing spec's treatment of `separator` text (independent of widget text) and mirrors how every other per-section knob behaves. If a user wants rainbow text *and* a rainbow circle, they set both:
+
+```toml
+[[playlist.section]]
+mode = "forever_scroll"
+separator_color = "rainbow"
+
+[[playlist.section.widget]]
+type = "message"
+text = "HELLO"
+font_color = "rainbow"
+```
+
 ---
 
 ## `_CircleBufferMsg` — TickerMessage subclass

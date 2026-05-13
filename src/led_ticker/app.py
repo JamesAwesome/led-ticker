@@ -671,6 +671,16 @@ async def _build_title(title_cfg: dict[str, Any] | None) -> TickerMessage | None
     return TickerMessage(**kwargs)
 
 
+def _resolve_title_delay(section_start_hold: float | None, global_delay: int) -> float:
+    """Section-level start_hold wins over the playlist-wide [title] delay.
+
+    None means 'inherit'; any explicit value (including 0.0) overrides.
+    """
+    if section_start_hold is not None:
+        return section_start_hold
+    return float(global_delay)
+
+
 RUN_MODES: dict[str, str] = {
     "forever_scroll": "run_forever_scroll",
     "infini_scroll": "run_infini_scroll",
@@ -904,7 +914,9 @@ async def run(config_path: Path) -> None:
                     "monitors": widgets,
                     "frame": led_frame,
                     "title": title,
-                    "title_delay": config.title_delay,
+                    "title_delay": _resolve_title_delay(
+                        section.start_hold, config.title_delay
+                    ),
                     "notif_queue": notif_queue,
                     "transition_config": transition_config,
                     "hold_time": section.hold_time,

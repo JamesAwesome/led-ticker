@@ -111,6 +111,40 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
     """Synchronous checks on raw widget dicts for errors not caught by _build_widget."""
     issues: list[ValidationIssue] = []
     for i, section in enumerate(config.sections):
+        # Rule 25: start_hold is only meaningful on scroll modes
+        # (forever_scroll / infini_scroll), which are the only modes
+        # that call _scroll_and_delay. Setting it on swap / gif has
+        # no runtime effect — surface as an error so users don't think
+        # they're tuning something they're not.
+        if section.start_hold is not None:
+            if section.mode in ("swap", "gif"):
+                issues.append(
+                    ValidationIssue(
+                        rule=25,
+                        location=f"section[{i}]",
+                        severity="error",
+                        message=(
+                            f"start_hold has no effect on mode={section.mode!r};"
+                            " only forever_scroll / infini_scroll honor it."
+                        ),
+                        fix=(
+                            "Remove start_hold. For swap mode, use hold_time"
+                            " (per-widget hold). For gif mode, the gif's own"
+                            " duration controls timing."
+                        ),
+                    )
+                )
+            elif section.start_hold < 0:
+                issues.append(
+                    ValidationIssue(
+                        rule=25,
+                        location=f"section[{i}]",
+                        severity="error",
+                        message=(f"start_hold must be >= 0; got {section.start_hold}"),
+                        fix="Set start_hold to 0 or a positive number of seconds.",
+                    )
+                )
+
         for j, widget_cfg in enumerate(section.widgets):
             loc = f"section[{i}].widget[{j}]"
             wtype = widget_cfg.get("type", "")

@@ -52,3 +52,7 @@ Most handles fit at 64 logical px, but anything longer overflows and the bottom 
 ### Rule 21 — `transition_duration` is in seconds, not milliseconds
 
 `transition_duration` takes seconds. A value above `5.0` is almost always a unit error (you wrote `800` thinking ms; you wanted `0.8`). The validator flags any duration above 5 s or below 50 ms across `[transitions] default`, `[transitions] between_sections`, and per-section overrides — the fix is to divide by 1000.
+
+### Rule 23 — Held `top_text` is wider than the canvas
+
+The top row on a `two_row` widget (and the top row on `gif` / `image` widgets when `bottom_text` is set) is held — it doesn't scroll. If the rendered text is wider than the logical canvas, the right edge clips silently at runtime. The validator measures the text against the resolved font (including inline `:slug:` emoji) and warns when it would overflow. Shorten the text, drop inline emoji, lower `top_font_size`, or set the section's `scale` lower to widen the logical canvas (each step from `scale = 4` to `scale = 2` to `scale = 1` doubles the available width).

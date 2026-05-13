@@ -253,6 +253,16 @@ def _panel_h_real(display: DisplayConfig) -> int:
     return display.rows * display.parallel
 
 
+def _panel_w_real(display: DisplayConfig) -> int:
+    """Best-effort panel width in real pixels."""
+    if display.pixel_mapper.startswith("Remap:"):
+        # "Remap:256,64|..." — first number is total canvas width
+        remap = display.pixel_mapper[6:]
+        dims = remap.split("|")[0]
+        return int(dims.split(",")[0])
+    return display.cols * display.chain
+
+
 def _check_soft(config: AppConfig) -> list[ValidationIssue]:
     warnings: list[ValidationIssue] = []
     ph = _panel_h_real(config.display)
@@ -451,6 +461,102 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
+    """Warn when held top_text on a two_row / image-two_row / gif-two_row
+    widget is wider than the logical canvas.
+
+    The widget renders top_text as a HELD row (no scrolling) and clips
+    silently on overflow. Without this check, validation passes clean
+    even though the right edge of the held content gets cropped at
+    runtime — typical symptom is "the last character of my handle is
+    cut off."
+
+    Bottom rows are exempt: they scroll automatically on overflow, which
+    is the documented design.
+    """
+    from types import SimpleNamespace
+
+    from led_ticker.fonts import FONT_DEFAULT, FONT_SMALL, resolve_font
+    from led_ticker.pixel_emoji import measure_width
+    from led_ticker.scaled_canvas import ScaledCanvas
+    from led_ticker.widgets._row_layout import EMOJI_ROW_CAP, resolve_band_heights
+
+    issues: list[ValidationIssue] = []
+    panel_w = _panel_w_real(config.display)
+    panel_h = _panel_h_real(config.display)
+
+    for i, section in enumerate(config.sections):
+        scale = section.scale
+        content_h = section.content_height
+        # ScaledCanvas requires content_height × scale ≤ panel_h_real;
+        # if the section violates that, _check_soft already flags it as
+        # rule 1 — skip the width check here to avoid raising on
+        # already-known config errors.
+        if content_h * scale > panel_h:
+            continue
+        real = SimpleNamespace(width=panel_w, height=panel_h)
+        canvas = ScaledCanvas(real, scale=scale, content_height=content_h)
+        canvas_w = canvas.width
+
+        for j, widget_cfg in enumerate(section.widgets):
+            wtype = widget_cfg.get("type", "")
+            if wtype == "two_row":
+                default_font = FONT_SMALL
+            elif wtype in ("gif", "image"):
+                if widget_cfg.get("bottom_text", "") == "":
+                    continue  # single-row mode: top text is the scrolling content
+                default_font = FONT_DEFAULT
+            else:
+                continue
+
+            top_text = widget_cfg.get("top_text", "")
+            if not top_text:
+                continue
+
+            top_row_height = widget_cfg.get("top_row_height")
+            try:
+                top_h, _ = resolve_band_heights(content_h, top_row_height)
+            except ValueError:
+                continue
+
+            shared_font_name = widget_cfg.get("font")
+            shared_size = widget_cfg.get("font_size")
+            font_name = widget_cfg.get("top_font") or shared_font_name
+            font_size = widget_cfg.get("top_font_size") or shared_size
+            try:
+                font = (
+                    default_font
+                    if font_name is None
+                    else resolve_font(font_name, size=font_size)
+                )
+            except ValueError:
+                continue  # font resolution error caught elsewhere
+
+            emoji_cap = max(EMOJI_ROW_CAP, top_h)
+            width = measure_width(font, top_text, canvas, max_emoji_height=emoji_cap)
+            if width > canvas_w:
+                overflow = width - canvas_w
+                issues.append(
+                    ValidationIssue(
+                        rule=23,
+                        location=f"section[{i}].widget[{j}]",
+                        severity="warning",
+                        message=(
+                            f"top_text width ({width} logical px) exceeds the "
+                            f"{canvas_w}-wide logical canvas by {overflow} px. "
+                            f"The held row will clip its right edge at runtime."
+                        ),
+                        fix=(
+                            "Shorten top_text, drop inline emoji, use a smaller "
+                            "top_font_size, or set the section's scale lower "
+                            "to widen the logical canvas (scale = 1 gives the "
+                            "full panel width)."
+                        ),
+                    )
+                )
+    return issues
+
+
 async def validate_config(path: Path) -> ValidationResult:
     """Validate a TOML config file. Raises FileNotFoundError if path does not exist."""
     if not path.exists():
@@ -504,6 +610,7 @@ async def validate_config(path: Path) -> ValidationResult:
     # Phase 2: Soft rule warnings (only run when no hard errors)
     if not errors:
         warnings.extend(_check_soft(config))
+        warnings.extend(_check_held_top_text_overflow(config))
 
     return ValidationResult(path=path, errors=errors, warnings=warnings)
 

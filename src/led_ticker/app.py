@@ -637,39 +637,55 @@ async def _build_widget(
     return widget
 
 
-async def _build_title(title_cfg: dict[str, Any] | None) -> TickerMessage | None:
+async def _build_title(
+    title_cfg: dict[str, Any] | None,
+    *,
+    session: aiohttp.ClientSession,
+    config_dir: Path | None = None,
+    default_bg_color: tuple[int, int, int] | None = None,
+    panel_h_for_warning: int | None = None,
+) -> TickerMessage | None:
     """Build a title TickerMessage from config.
 
-    `color` accepts the same shapes as widget `font_color`: a constant
-    `[r, g, b]`, the `"random"` sentinel (which also accepts a stable
-    per-section choice via the legacy `RANDOM_COLOR` cycle), a string
-    shorthand (`"rainbow"` / `"color_cycle"`), or an inline table
-    (`{style = "rainbow", speed = 8}`). All shapes coerce to a
-    ColorProvider so titles can use the same animated effects as their
-    body widgets.
+    A section title is a regular `type="message"` widget — it supports
+    every knob `_build_widget` does (`font`, `font_size`, `animation`,
+    `border`, `bg_color`, etc.). Routing through `_build_widget` keeps
+    titles in lockstep with the message widget surface; an explicit
+    allowlist here would drift the moment a new knob lands.
+
+    `color` is the title-only spelling for the foreground text color
+    (every example config uses it). It is translated to `font_color`
+    here so the rest of the pipeline handles it uniformly. The legacy
+    `color = "random"` sentinel still picks from the RANDOM_COLOR
+    palette cycle (one stable color per section visit) rather than the
+    `color_providers.Random` RNG — preserved because existing configs
+    rely on this palette.
+
+    `session` is required for consistency with `_build_widget` even
+    though title widgets (type="message") have no `.start` classmethod
+    and never touch it; callers always have one in scope.
     """
     if title_cfg is None:
         return None
-    text = title_cfg.get("text", "")
-    color = title_cfg.get("color")
-    if color == "random":
-        # Preserve the legacy "random" semantic — picks from
-        # RANDOM_COLOR cycle (one stable color per section). The
-        # color_providers.Random class would also work here but uses a
-        # different RNG; cycle keeps the established palette.
-        font_color = next(RANDOM_COLOR)
-    elif color is not None:
-        # Any other shape (list, string shorthand, inline table) goes
-        # through the unified provider coercion. _coerce_color_provider
-        # already handles `[r,g,b]` → _ConstantColor, `"rainbow"` →
-        # Rainbow(), table → keyword'd provider, etc.
-        font_color = _coerce_color_provider(color)
-    else:
-        font_color = None
-    kwargs: dict[str, Any] = {"message": text}
-    if font_color is not None:
-        kwargs["font_color"] = font_color
-    return TickerMessage(**kwargs)
+
+    cfg = dict(title_cfg)
+    cfg["type"] = "message"
+    cfg.setdefault("text", "")
+
+    color = cfg.pop("color", None)
+    if color is not None and "font_color" not in cfg:
+        if color == "random":
+            cfg["font_color"] = next(RANDOM_COLOR)
+        else:
+            cfg["font_color"] = color
+
+    return await _build_widget(
+        cfg,
+        session=session,
+        config_dir=config_dir,
+        default_bg_color=default_bg_color,
+        panel_h_for_warning=panel_h_for_warning,
+    )
 
 
 def _resolve_title_delay(section_start_hold: float | None, global_delay: int) -> float:
@@ -871,7 +887,13 @@ async def run(config_path: Path) -> None:
                     else:
                         widgets.append(widget)
 
-                title = await _build_title(section.title)
+                title = await _build_title(
+                    section.title,
+                    session=session,
+                    config_dir=config_path.parent,
+                    default_bg_color=section.bg_color,
+                    panel_h_for_warning=panel_h_for_warning,
+                )
                 run_method = RUN_MODES.get(
                     section.mode,
                     "run_forever_scroll",

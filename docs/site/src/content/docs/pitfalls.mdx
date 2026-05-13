@@ -19,7 +19,7 @@ Errors block the engine from starting. Fix all of these before deploying.
 
 ### Rule 3 — `text_align = "scroll"` with `fit = "stretch"` hides the text
 
-Stretch fills every panel pixel with image, leaving no transparent regions for the scrolling text to show through. Switch `fit` to `"pillarbox"`, `"letterbox"`, or `"crop"`, or change `text_align` to `"left"`, `"right"`, or `"auto"`.
+Stretch fills every panel pixel with image, leaving no transparent regions for the scrolling text to show through. Use `text_align = "scroll_over"` (text paints on top of the image — the intended pairing with a fullscreen opaque stretch), switch `fit` to `"pillarbox"`, `"letterbox"`, or `"crop"`, or change `text_align` to `"left"`, `"right"`, or `"auto"`.
 
 ### Rule 7 — `text_x_offset` is rejected in scroll modes
 

@@ -150,6 +150,26 @@ async def test_rule3_scroll_plus_stretch(conf):
     assert any(e.rule == 3 for e in result.errors)
 
 
+async def test_rule3_scroll_over_plus_stretch_is_allowed(conf):
+    # `scroll_over` paints text ON TOP of the image — opaque `stretch`
+    # is the intended pairing. The runtime widget accepts this combo;
+    # the validator must not flag it.
+    extra = textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "image"
+        path = "x.png"
+        text = "marquee"
+        text_align = "scroll_over"
+        fit = "stretch"
+        """)
+    result = await validate_config(conf(GOOD_CONFIG + extra))
+    assert all(e.rule != 3 for e in result.errors), (
+        f"scroll_over + stretch is valid; got errors: "
+        f"{[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
 async def test_rule7_text_x_offset_with_scroll(conf):
     extra = textwrap.dedent("""\
 

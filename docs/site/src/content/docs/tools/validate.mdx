@@ -35,7 +35,7 @@ led-ticker validate config/config.toml
 Validating config/config.toml...
 
 ✗ ERROR   section[0].widget[1]: text_align='scroll' with fit='stretch': no transparent regions for text to walk behind
-          Fix: Change fit to 'pillarbox', 'letterbox', or 'crop'; or change text_align to 'left'/'right'
+          Fix: Use text_align='scroll_over' to paint text on top of the image, or change fit to 'pillarbox' / 'letterbox' / 'crop'.
 
 1 issue(s): 1 error(s), 0 warning(s)
 ```
@@ -76,7 +76,7 @@ Errors-only run:
       "rule": 3,
       "location": "section[0].widget[1]",
       "message": "text_align='scroll' with fit='stretch': no transparent regions for text to walk behind",
-      "fix": "Change fit to 'pillarbox', 'letterbox', or 'crop'; or change text_align to 'left'/'right'"
+      "fix": "Use text_align='scroll_over' to paint text on top of the image, or change fit to 'pillarbox' / 'letterbox' / 'crop'."
     }
   ],
   "warnings": []

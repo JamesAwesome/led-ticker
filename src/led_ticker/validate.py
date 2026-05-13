@@ -115,13 +115,12 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
             loc = f"section[{i}].widget[{j}]"
             wtype = widget_cfg.get("type", "")
 
-            # Rule 3: scroll + stretch
+            # Rule 3: scroll + stretch.
+            # Only `text_align="scroll"` paints text BEHIND the image
+            # (needs transparent regions). `text_align="scroll_over"`
+            # paints text ON TOP and is fine with `fit="stretch"`.
             if (
-                widget_cfg.get("text_align")
-                in (
-                    "scroll",
-                    "scroll_over",
-                )
+                widget_cfg.get("text_align") == "scroll"
                 and widget_cfg.get("fit") == "stretch"
             ):
                 issues.append(
@@ -134,8 +133,9 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                             " no transparent regions for text to walk behind"
                         ),
                         fix=(
-                            "Change fit to 'pillarbox', 'letterbox', or 'crop';"
-                            " or change text_align to 'left'/'right'"
+                            "Use text_align='scroll_over' to paint text on top"
+                            " of the image, or change fit to"
+                            " 'pillarbox' / 'letterbox' / 'crop'."
                         ),
                     )
                 )

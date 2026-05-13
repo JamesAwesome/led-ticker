@@ -268,6 +268,11 @@ class _BaseImageWidget(_FrameAware):
         # overlap the image by default. Authors can pin any value. In
         # two-row mode the single-row text_align is irrelevant — the
         # widget uses top_align/bottom_align — so leave "auto" as-is.
+        # Track whether the user wrote "auto" so the wrap-mode
+        # text_align check below can produce a more actionable error
+        # — without this flag the message reports the RESOLVED value
+        # (e.g. "right") which obscures the user's intent.
+        text_align_was_auto = self.text_align == "auto"
         if self.text_align == "auto" and not self.bottom_text:
             self.text_align = AUTO_TEXT_ALIGN_FOR_IMAGE[image_align]
         # Always validate text_align even when text="" (in single-row
@@ -351,13 +356,38 @@ class _BaseImageWidget(_FrameAware):
                     "Use single-row image text for wrap, or omit "
                     "bottom_text."
                 )
+            # Empty-text check: text_wrap=True with text="" would
+            # render an endless chain of separators on the panel —
+            # almost certainly a user typo. Refuse with a clear
+            # message. Skip when bottom_text is set so the two-row
+            # branch (above) is the single source of truth there.
+            if not self.text and not self.bottom_text:
+                raise ValueError(
+                    "text_wrap=True requires non-empty text (otherwise "
+                    "the marquee is just a chain of separators)."
+                )
             if self.text_align not in ("scroll", "scroll_over"):
+                # If the user wrote text_align="auto", the resolution
+                # above already replaced it with the side opposite the
+                # image — but "auto" never resolves to a scroll mode
+                # for image_align in {"left", "right"} (it resolves to
+                # "right" / "left"). Report the user-facing value so
+                # the diagnostic is actionable.
+                auto_hint = (
+                    " (text_align='auto' was resolved based on "
+                    "image_align before this check; pin "
+                    "text_align='scroll_over' or text_align='scroll' "
+                    "explicitly when using text_wrap)"
+                    if text_align_was_auto
+                    else ""
+                )
                 raise ValueError(
                     f"text_wrap=True requires text_align in "
                     f"('scroll', 'scroll_over'); got "
                     f"text_align={self.text_align!r}. "
                     f"Wrap is a marquee variation; on static alignments "
                     f"it has nothing to wrap."
+                    f"{auto_hint}"
                 )
 
         # Separator fields require text_wrap=True. Without wrap, the
@@ -1166,8 +1196,14 @@ class _BaseImageWidget(_FrameAware):
                 if wrap_mode:
                     # Python's % on negative numbers with positive
                     # divisor returns a non-negative result — works
-                    # for both scroll_direction values.
-                    scroll_pos %= cycle_width
+                    # for both scroll_direction values. Defensive
+                    # `if cycle_width:` guard: validation rejects
+                    # `text_wrap=True` with empty text (fix #5), so
+                    # cycle_width should always be > 0 here. Keep the
+                    # guard so a future code path that produces a
+                    # zero cycle doesn't crash with ZeroDivisionError.
+                    if cycle_width:
+                        scroll_pos %= cycle_width
                 elif scroll_step < 0 and scroll_pos + text_width <= 0:
                     scroll_pos = text_w
                 elif scroll_step > 0 and scroll_pos >= text_w:

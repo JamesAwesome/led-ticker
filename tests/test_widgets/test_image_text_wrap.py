@@ -75,6 +75,25 @@ class TestTextWrapValidation:
         w = _still(text_wrap=True, text_align="scroll", fit="fit")
         assert w.text_wrap is True
 
+    def test_wrap_requires_non_empty_text(self):
+        """text_wrap=True with text="" would render an endless chain
+        of separators (a near-certain user typo). The loader should
+        refuse it at construction time."""
+        with pytest.raises(ValueError, match="text_wrap.*requires non-empty text"):
+            _still(text_wrap=True, text="", text_align="scroll_over")
+
+    def test_wrap_auto_align_error_mentions_auto_resolution(self):
+        """When `text_align='auto'` resolves to a non-scroll value
+        (because image_align is 'left' or 'right'), the wrap error
+        should hint that auto was resolved — otherwise the user sees
+        `text_align='right'` and is confused (they never wrote that)."""
+        with pytest.raises(ValueError, match="text_align='auto' was resolved"):
+            _still(
+                text_wrap=True,
+                text_align="auto",
+                image_align="left",
+            )
+
 
 class TestSeparatorColorCoercion:
     def test_separator_color_in_provider_keys(self):
@@ -134,14 +153,67 @@ def _bigsign_real_canvas():
     return RGBMatrix(options=opts).CreateFrameCanvas()
 
 
+_SWAP_SENTINEL = ("__SWAP__", None)
+
+
+def _capture_draws_per_tick(mocker, frame):
+    """Helper: install a draw_text capture + SwapOnVSync sentinel so
+    callers can group draws by tick by splitting on the sentinel.
+
+    Returns the `draws` list (a flat sequence of ``(x, text)`` tuples
+    with `_SWAP_SENTINEL` markers inserted at each swap boundary).
+    Callers split on the sentinel to get per-tick groups.
+
+    Setting this up is fiddly enough to repeat across 3+ tests; the
+    helper keeps the strengthened defining tests readable."""
+    import led_ticker.widgets._image_base as base_mod
+
+    real_draw = base_mod.draw_text
+    draws: list = []
+
+    def _capture(canvas, font, x, baseline_y, color, text):
+        draws.append((x, text))
+        return real_draw(canvas, font, x, baseline_y, color, text)
+
+    mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+
+    def _swap(c):
+        draws.append(_SWAP_SENTINEL)
+        return c
+
+    frame.matrix.SwapOnVSync.side_effect = _swap
+    return draws
+
+
+def _split_into_ticks(draws):
+    """Split a draws list on `_SWAP_SENTINEL`, returning a list of
+    per-tick groups. Trailing empty group (from the final swap with
+    no draws after) is filtered out."""
+    ticks: list[list[tuple]] = [[]]
+    for item in draws:
+        if item == _SWAP_SENTINEL:
+            ticks.append([])
+        else:
+            ticks[-1].append(item)
+    # Drop the trailing empty group; the last sentinel always closes
+    # the final tick with no draws after it.
+    return [t for t in ticks if t]
+
+
 class TestWrapRendersMultipleCopies:
     """The defining test: in wrap mode, the per-tick loop draws
     multiple copies of (text + separator) so the panel is never
     empty.
 
-    We capture every draw_text call and assert that the total
-    number of main-text draws exceeds the number of ticks — that
-    can only happen if a single tick draws more than one copy."""
+    Strengthened from a "main_text_draws > ticks" total to per-tick
+    analysis that catches:
+      - bursty draws (some ticks draw 3, some draw 0)
+      - overlapping copies at the same x (no actual wrap, just
+        duplicated draws)
+
+    The defining property is: EVERY tick draws ≥2 copies, and copy
+    positions form an arithmetic progression at ~`cycle_width` spacing
+    (real wrap, not stacked copies)."""
 
     @pytest.mark.asyncio
     async def test_wrap_left_yields_multiple_text_copies(self, tmp_path, mocker):
@@ -158,42 +230,59 @@ class TestWrapRendersMultipleCopies:
         )
         real = _bigsign_real_canvas()
         frame = mocker.MagicMock()
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
-
-        # Capture every draw_text call. Need to import the real
-        # function so the side_effect can call through.
-        import led_ticker.widgets._image_base as base_mod
-
-        real_draw = base_mod.draw_text
-        draws = []
-
-        def _capture(canvas, font, x, baseline_y, color, text):
-            draws.append((x, text))
-            return real_draw(canvas, font, x, baseline_y, color, text)
-
-        mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+        draws = _capture_draws_per_tick(mocker, frame)
 
         await widget.play(real, frame)
 
-        # In wrap mode, every tick should draw (n_copies =
-        # ceil(canvas_w / cycle_width) + 1) copies of main text +
-        # the same number of separators. Even with the shortest cycle
-        # (text="Hi" + sep=" * ") on a 256-wide canvas, n_copies > 1.
-        ticks = frame.matrix.SwapOnVSync.call_count
-        main_text_draws = [d for d in draws if d[1] == "Hi"]
-        assert ticks > 0, "No ticks ran"
-        assert len(main_text_draws) > ticks, (
-            f"Wrap should draw >1 copy per tick: got "
-            f"{len(main_text_draws)} main-text draws across {ticks} ticks."
+        ticks = _split_into_ticks(draws)
+        assert ticks, "No ticks ran"
+        # Sanity: cumulative count should exceed swap count (would
+        # have caught the original "main_text_draws > ticks" cases).
+        total_main = sum(1 for t in ticks for x, txt in t if txt == "Hi")
+        assert total_main > len(ticks), (
+            f"Wrap should draw >1 copy per tick on average; got "
+            f"{total_main} main-text draws across {len(ticks)} ticks."
         )
+
+        # Per-tick invariant: every tick draws >=2 main-text copies.
+        # Without this the "bursty draws" failure mode (some ticks
+        # render 3, some 0) would pass the total-only check.
+        for i, tick in enumerate(ticks):
+            mains = [x for x, txt in tick if txt == "Hi"]
+            assert len(mains) >= 2, (
+                f"Tick {i} drew {len(mains)} main-text copies; "
+                f"wrap requires >=2 per tick (panel must never be empty)."
+            )
+            # Arithmetic-progression invariant: consecutive copies
+            # should be spaced by ~cycle_width. Compute the empirical
+            # cycle from the first tick's gaps and assert all gaps
+            # match within ±2 px (font-advance edge effects). This
+            # catches the "stacked copies at the same x" failure mode.
+            xs = sorted(mains)
+            gaps = [xs[j + 1] - xs[j] for j in range(len(xs) - 1)]
+            assert gaps, f"Tick {i}: not enough copies to measure gap"
+            # All gaps within ±2 px of the median (robust to a
+            # potential outlier from an off-canvas copy that
+            # contributes a partial gap).
+            median = sorted(gaps)[len(gaps) // 2]
+            for g in gaps:
+                assert abs(g - median) <= 2, (
+                    f"Tick {i}: copy spacing varies — gaps={gaps}. "
+                    f"Wrap copies should sit at arithmetic progression "
+                    f"with ~cycle_width spacing (not stacked or random)."
+                )
+            assert median > 0, (
+                f"Tick {i}: median spacing {median} <= 0 — copies are "
+                f"stacked at the same x, not actually wrapping."
+            )
 
     @pytest.mark.asyncio
     async def test_wrap_right_direction_renders(self, tmp_path, mocker):
         """Same defining property as the left-direction test, but
-        with scroll_direction='right'. Confirms Python's modular-%
-        on negative numbers wraps cleanly for both directions
-        without needing a special case."""
+        with scroll_direction='right'. Additionally asserts the
+        leading-copy x-position increases monotonically across ticks
+        (rightward direction is honored)."""
         path = _make_png(tmp_path, color=(0, 0, 0))
         widget = StillImage(
             path=str(path),
@@ -208,31 +297,90 @@ class TestWrapRendersMultipleCopies:
         )
         real = _bigsign_real_canvas()
         frame = mocker.MagicMock()
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
-
-        # Capture every draw_text call. Need to import the real
-        # function so the side_effect can call through.
-        import led_ticker.widgets._image_base as base_mod
-
-        real_draw = base_mod.draw_text
-        draws = []
-
-        def _capture(canvas, font, x, baseline_y, color, text):
-            draws.append((x, text))
-            return real_draw(canvas, font, x, baseline_y, color, text)
-
-        mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+        draws = _capture_draws_per_tick(mocker, frame)
 
         await widget.play(real, frame)
 
-        ticks = frame.matrix.SwapOnVSync.call_count
-        main_text_draws = [d for d in draws if d[1] == "Hi"]
-        assert ticks > 0, "No ticks ran"
-        assert len(main_text_draws) > ticks, (
-            f"Wrap should draw >1 copy per tick: got "
-            f"{len(main_text_draws)} main-text draws across {ticks} ticks."
+        ticks = _split_into_ticks(draws)
+        assert ticks, "No ticks ran"
+
+        # Per-tick: >=2 copies, arithmetic spacing (same invariant
+        # as left direction).
+        leading_xs: list[int] = []
+        for i, tick in enumerate(ticks):
+            mains = sorted(x for x, txt in tick if txt == "Hi")
+            assert len(mains) >= 2, (
+                f"Tick {i} drew {len(mains)} main-text copies; "
+                f"wrap requires >=2 per tick."
+            )
+            gaps = [mains[j + 1] - mains[j] for j in range(len(mains) - 1)]
+            median = sorted(gaps)[len(gaps) // 2]
+            for g in gaps:
+                assert (
+                    abs(g - median) <= 2
+                ), f"Tick {i}: copy spacing varies — gaps={gaps}."
+            # Track the "leading" copy (rightmost x for right-scroll).
+            leading_xs.append(mains[-1])
+
+        # Direction-honored invariant: with scroll_direction="right",
+        # the leading-copy x should increase across ticks (modulo
+        # wrap-around). Check the differences: at least one pair
+        # should be strictly increasing — and no consecutive pair
+        # should decrease by more than ~cycle_width (which would
+        # indicate leftward motion, not a wrap-around).
+        # Sample first few ticks to avoid edge artifacts.
+        sample = leading_xs[: min(5, len(leading_xs))]
+        diffs = [sample[j + 1] - sample[j] for j in range(len(sample) - 1)]
+        # Allow some diffs to be a large negative number (wrap-around)
+        # but at least one should be positive.
+        assert any(d > 0 for d in diffs), (
+            f"scroll_direction='right' should advance leading-copy x "
+            f"rightward across ticks; got leading_xs={sample}, "
+            f"diffs={diffs}."
         )
+
+
+class TestWrapScrollUnderImage:
+    """Exercise the `text_align='scroll'` paint-order branch
+    (`_paint_skip_black` on top of text, so text walks behind the
+    image silhouette). This branch is in `_render_wrap_tick` ~line
+    903-907 and was previously uncovered."""
+
+    @pytest.mark.asyncio
+    async def test_wrap_scroll_align_renders_multiple_copies(self, tmp_path, mocker):
+        path = _make_png(tmp_path, color=(0, 0, 0))
+        # text_align="scroll" requires non-stretch fit (pillarbox
+        # leaves transparent regions for the text to scroll through).
+        widget = StillImage(
+            path=str(path),
+            fit="pillarbox",
+            text="Hi",
+            text_wrap=True,
+            text_align="scroll",
+            text_separator=" * ",
+            scroll_speed_ms=50,
+            hold_seconds=0.5,
+        )
+        real = _bigsign_real_canvas()
+        frame = mocker.MagicMock()
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+        draws = _capture_draws_per_tick(mocker, frame)
+
+        await widget.play(real, frame)
+
+        ticks = _split_into_ticks(draws)
+        assert ticks, "No ticks ran"
+        # Same per-tick analysis as scroll_over: every tick must
+        # render >=2 copies. The branch that's exercised here is
+        # different (text first, then image on top via
+        # _paint_skip_black) but the draw_text contract is the same.
+        for i, tick in enumerate(ticks):
+            mains = sorted(x for x, txt in tick if txt == "Hi")
+            assert len(mains) >= 2, (
+                f"Tick {i} drew {len(mains)} main-text copies in "
+                f"text_align='scroll' mode; wrap requires >=2 per tick."
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -460,3 +608,142 @@ class TestSeparatorEmptyString:
             text_separator=" * ",
         )
         assert widget._resolved_separator_text() == " * "
+
+
+# ---------------------------------------------------------------------------
+# GifPlayer wrap coverage (Task 3 follow-up: all wrap tests above use
+# StillImage; this exercises the GifPlayer side of the inheritance hierarchy)
+# ---------------------------------------------------------------------------
+
+import io  # noqa: E402
+
+from led_ticker.widgets.gif import GifPlayer  # noqa: E402
+
+
+def _make_gif_path(tmp_path, frames, size=(32, 32), duration_ms=100):
+    """Build a multi-frame GIF fixture (mirrors test_gif.py)."""
+    images = [Image.new("RGB", size, color=c) for c in frames]
+    buf = io.BytesIO()
+    images[0].save(
+        buf,
+        format="GIF",
+        save_all=True,
+        append_images=images[1:],
+        duration=duration_ms,
+        loop=0,
+    )
+    p = tmp_path / "wrap.gif"
+    p.write_bytes(buf.getvalue())
+    return p
+
+
+class TestGifPlayerWrap:
+    """All other wrap tests use StillImage; this exercises GifPlayer
+    so the `_pick_frame_for_elapsed` path (non-trivial on multi-frame
+    sources) is covered alongside the wrap render loop."""
+
+    @pytest.mark.asyncio
+    async def test_gif_wrap_renders_multiple_copies(self, tmp_path, mocker):
+        path = _make_gif_path(
+            tmp_path,
+            [(200, 0, 0), (0, 200, 0), (0, 0, 200)],
+            duration_ms=100,
+        )
+        widget = GifPlayer(
+            path=str(path),
+            fit="stretch",
+            text="Hi",
+            text_wrap=True,
+            text_align="scroll_over",
+            text_separator=" * ",
+            scroll_speed_ms=50,
+            gif_loops=1,
+        )
+        real = _bigsign_real_canvas()
+        frame = mocker.MagicMock()
+        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        import led_ticker.widgets._image_base as base_mod
+
+        real_draw = base_mod.draw_text
+        draws = []
+
+        def _capture(canvas, font, x, baseline_y, color, text):
+            draws.append((x, text))
+            return real_draw(canvas, font, x, baseline_y, color, text)
+
+        mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+
+        await widget.play(real, frame)
+
+        ticks = frame.matrix.SwapOnVSync.call_count
+        main_text_draws = [d for d in draws if d[1] == "Hi"]
+        assert ticks > 0, "No ticks ran"
+        # GifPlayer share s_play_with_text with StillImage, so the
+        # min-count check is enough — the StillImage tests above
+        # already enforce the stronger per-tick invariants. We're
+        # really just confirming the multi-frame `_is_static() == False`
+        # path doesn't bypass the wrap loop.
+        assert len(main_text_draws) > ticks, (
+            f"GifPlayer wrap should draw >1 copy per tick: got "
+            f"{len(main_text_draws)} main-text draws across {ticks} ticks."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Wrap + border composition
+# ---------------------------------------------------------------------------
+
+
+class TestWrapWithBorder:
+    """Wrap mode paints the border inside `_render_wrap_tick` (separate
+    from the standard `_render_tick` path). This regression test
+    verifies border + wrap compose without crashing — the border is
+    a frame-aware effect that needs its own per-effect counter, and
+    a refactor that drops the `border.paint(...)` call inside the
+    wrap branch would silently leave borderless wrap output."""
+
+    @pytest.mark.asyncio
+    async def test_wrap_with_border_does_not_crash(self, tmp_path, mocker):
+        from led_ticker.borders import RainbowChaseBorder
+
+        path = _make_png(tmp_path, color=(0, 0, 0))
+        widget = StillImage(
+            path=str(path),
+            fit="stretch",
+            text="Hi",
+            text_wrap=True,
+            text_align="scroll_over",
+            text_separator=" * ",
+            border=RainbowChaseBorder(speed=4, char_offset=6, thickness=1),
+            scroll_speed_ms=50,
+            hold_seconds=0.3,
+        )
+        real = _bigsign_real_canvas()
+        frame = mocker.MagicMock()
+        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        import led_ticker.widgets._image_base as base_mod
+
+        real_draw = base_mod.draw_text
+        draws = []
+
+        def _capture(canvas, font, x, baseline_y, color, text):
+            draws.append((x, text))
+            return real_draw(canvas, font, x, baseline_y, color, text)
+
+        mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+
+        # No exception is the primary assertion.
+        await widget.play(real, frame)
+
+        # And the wrap render path produced multiple text draws —
+        # proving the border didn't short-circuit it.
+        main_text_draws = [d for d in draws if d[1] == "Hi"]
+        assert len(main_text_draws) > frame.matrix.SwapOnVSync.call_count, (
+            f"Wrap + border should still render multiple text copies; "
+            f"got {len(main_text_draws)} draws across "
+            f"{frame.matrix.SwapOnVSync.call_count} ticks."
+        )

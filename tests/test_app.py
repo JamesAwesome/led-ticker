@@ -202,6 +202,51 @@ class TestBuildTitle:
         assert title is not None
         assert isinstance(title.font_color, Gradient)
 
+    async def test_build_title_with_font_field(self):
+        """Regression: `font = "..."` on [playlist.section.title] was
+        silently dropped. Docs say the title is "a regular message widget
+        with all its knobs available" — that includes `font`."""
+        from led_ticker.fonts import FONT_DEFAULT, FONT_SMALL
+
+        title = await _build_title({"text": "Hi", "font": "5x8"})
+        assert title is not None
+        assert title.font is FONT_SMALL
+        assert title.font is not FONT_DEFAULT
+
+    async def test_build_title_with_animation(self):
+        """Contract lockdown: `animation = "typewriter"` reaches the
+        title widget (previously dropped silently)."""
+        title = await _build_title({"text": "Hi", "animation": "typewriter"})
+        assert title is not None
+        assert title.animation is not None
+
+    async def test_build_title_with_border(self):
+        """Contract lockdown: `border = "rainbow_chase"` reaches the
+        title widget (previously dropped silently)."""
+        from led_ticker.borders import RainbowChaseBorder
+
+        title = await _build_title({"text": "Hi", "border": "rainbow"})
+        assert title is not None
+        assert isinstance(title.border, RainbowChaseBorder)
+
+    async def test_build_title_with_bg_color(self):
+        """Contract lockdown: `bg_color = [r, g, b]` reaches the title
+        widget (previously dropped silently)."""
+        title = await _build_title({"text": "Hi", "bg_color": [10, 20, 30]})
+        assert title is not None
+        assert title.bg_color is not None
+        assert title.bg_color.red == 10
+        assert title.bg_color.green == 20
+        assert title.bg_color.blue == 30
+
+    async def test_build_title_font_color_alias_for_color(self):
+        """`font_color` works on titles too (docs list both spellings
+        and they should be interchangeable for new configs)."""
+        title = await _build_title({"text": "Hi", "font_color": [200, 100, 50]})
+        assert title is not None
+        c = title.font_color.color_for(0, 0, 1)
+        assert (c.red, c.green, c.blue) == (200, 100, 50)
+
 
 class TestColorCoercion:
     """Regression: configs can specify per-widget RGB colors as TOML

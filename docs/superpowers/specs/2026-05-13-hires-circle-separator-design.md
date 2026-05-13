@@ -52,29 +52,28 @@ font_color = "rainbow"
 A small private class in `ticker.py`, next to the existing `DEFAULT_BUFFER_MSG` definition. Not a registered widget; not exported. Subclasses `TickerMessage` with `text=" • "`, `center=False`, and the user-resolved color so the smallsign path inherits everything for free.
 
 ```python
+@attrs.define
 class _CircleBufferMsg(TickerMessage):
     """forever_scroll buffer separator. Auto-routes to a hi-res circle when
     the canvas is a ScaledCanvas; falls back to TickerMessage's BDF rendering
-    of " • " on plain canvases (smallsign / scale=1)."""
+    of " • " on plain canvases (smallsign / scale=1).
 
-    def __init__(self, color: Color | ColorProvider = RGB_WHITE) -> None:
-        super().__init__(text=" • ", center=False, font_color=color)
+    Construct via the same attrs init as TickerMessage:
+        _CircleBufferMsg(message=" • ", center=False, font_color=color)
+    """
 
     def draw(self, canvas, cursor_pos: int = 0, **kwargs):
         if isinstance(canvas, ScaledCanvas):
-            return _draw_hires_circle(canvas, cursor_pos, self._color_for_frame())
+            color = self.font_color.color_for(self.frame_for("font_color"), 0, 1)
+            return _draw_hires_circle(canvas, cursor_pos, color)
         return super().draw(canvas, cursor_pos=cursor_pos, **kwargs)
-
-    def _color_for_frame(self) -> Color:
-        # The parent normalizes font_color into a ColorProvider during __init__;
-        # implementation will resolve the attribute name from TickerMessage's
-        # internals (e.g. self._font_color_provider or whatever it's called).
-        return self._font_color_provider.color_for(self.frame_for("color"), 0, 1)
 ```
+
+`TickerMessage.__attrs_post_init__` already coerces a raw `Color` into `_ConstantColor` so `self.font_color.color_for(...)` is uniformly callable.
 
 `_FrameAware` is inherited from `TickerMessage` — frame counters, `frame_for(...)`, advance-frame plumbing all just work.
 
-**`restart_on_visit`:** `TickerMessage` defaults to True (text reveal restarts per visit). For a continuous-phase color sweep on the buffer message we want False, so Rainbow / ColorCycle stay smooth across loop iterations. Override as a class attribute on `_CircleBufferMsg` only — don't touch `TickerMessage`'s default.
+**`restart_on_visit`:** Continuous-phase behavior is already handled by the existing provider machinery. `Rainbow` and `ColorCycle` carry `restart_on_visit = False` as class attributes, and `_FrameAware.reset_frame()` calls `getattr(effect, "restart_on_visit", True)` on the **provider** — not the widget — to decide whether to reset the per-effect counter on visit-entry. So `_CircleBufferMsg` needs no widget-level override: setting `font_color = Rainbow()` automatically gives continuous sweep across forever_scroll loops. Tests must use real provider instances (not mocks lacking the attribute) to exercise this path.
 
 ### `_draw_hires_circle(canvas, cursor_pos, color) -> (canvas, int)`
 
@@ -127,17 +126,18 @@ def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:
 
     if not text_or_font_set:
         # Color-only: still want the hi-res circle, just in a different color.
-        return _CircleBufferMsg(color=color)
+        return _CircleBufferMsg(message=" • ", center=False, font_color=color)
 
-    # Explicit text / font: today's behavior, unchanged.
+    # Explicit text / font: today's behavior, unchanged. Mirrors the merged
+    # _resolve_buffer_msg in app.py — kwargs key is `message`, not `text`,
+    # and `font` is a resolved Font object (not a name).
     text = section.separator if section.separator is not None else "•"
     if text == "":
         text = "  "
-    kwargs: dict[str, Any] = {"text": text, "center": False, "font_color": color}
+    kwargs: dict[str, Any] = {"message": text, "center": False, "font_color": color}
     if section.separator_font is not None:
-        kwargs["font"] = _resolve_font(section.separator_font, section.separator_font_size)
-    if section.separator_font_size is not None:
-        kwargs["font_size"] = section.separator_font_size
+        from led_ticker.fonts import resolve_font
+        kwargs["font"] = resolve_font(section.separator_font, section.separator_font_size)
     return TickerMessage(**kwargs)
 ```
 
@@ -154,7 +154,7 @@ Cross-checked against the load-bearing invariants in `CLAUDE.md`:
 - **#5 (swap-then-sleep)** — engine-controlled. No change.
 - **#9 (ScaledCanvas wrapper survival)** — `_CircleBufferMsg.draw` does not re-wrap or rebind. The wrapper passed in is the engine's wrapper; we paint via `unwrap_to_real(canvas)` and leave the wrapper alone.
 - **#11 (per-pixel scatter at physical res on ScaledCanvas)** — disk rasterization writes directly to `unwrap_to_real(canvas)` so a 32-physical-px circle is 32 physical px, not a 8-logical-px circle expanded to a chunky 32-px block. This is the entire point of the feature.
-- **#12 (`advance_frame` per tick)** — `_scroll_side_by_side` already advances the buffer message per outer tick (deduped by `id()`). `_CircleBufferMsg` inherits `_FrameAware`, so `frame_for("color")` advances each tick and Rainbow / ColorCycle providers animate. `restart_on_visit = False` means the phase carries across loop iterations — continuous sweep rather than reset-per-loop, which is what users will want for the separator.
+- **#12 (`advance_frame` per tick)** — `_scroll_side_by_side` already advances the buffer message per outer tick (deduped by `id()`). `_CircleBufferMsg` inherits `_FrameAware`, so `frame_for("font_color")` advances each tick and Rainbow / ColorCycle providers animate. Continuous phase across visits is provided by the providers themselves (`restart_on_visit = False` is a class attribute on `Rainbow` / `ColorCycle`, read via `getattr(effect, ...)` in `_FrameAware.reset_frame`).
 
 ---
 

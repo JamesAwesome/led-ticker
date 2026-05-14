@@ -234,3 +234,141 @@ class TestSeparatorHelpersParameterized:
         width_custom = w._measure_separator(canvas, font=FONT_DEFAULT, separator=" ** ")
         # " ** " is wider than " • "
         assert width_custom > width_default
+
+
+def _bigsign_real_canvas():
+    """Bigsign 2x4 vertical-serpentine canvas (mirrors test_image_text_wrap.py)."""
+    from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+    opts = RGBMatrixOptions()
+    opts.cols = 64
+    opts.rows = 32
+    opts.chain_length = 8
+    opts.parallel = 1
+    opts.pixel_mapper_config = "U-mapper"
+    return RGBMatrix(options=opts).CreateFrameCanvas()
+
+
+_SWAP_SENTINEL = ("__SWAP__", None)
+
+
+def _capture_draws_per_tick(mocker, frame):
+    """Wrap draw_text + SwapOnVSync to capture (x, text) per tick.
+    Mirrors the v1 single-row helper in test_image_text_wrap.py."""
+    import led_ticker.widgets._image_base as base_mod
+
+    real_draw = base_mod.draw_text
+    draws: list = []
+
+    def _capture(canvas, font, x, baseline_y, color, text):
+        draws.append((x, text))
+        return real_draw(canvas, font, x, baseline_y, color, text)
+
+    mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+
+    def _swap(c):
+        draws.append(_SWAP_SENTINEL)
+        return c
+
+    frame.matrix.SwapOnVSync.side_effect = _swap
+    return draws
+
+
+def _split_into_ticks(draws):
+    """Group draws by SwapOnVSync sentinel; drop trailing empty group."""
+    ticks: list[list[tuple]] = [[]]
+    for item in draws:
+        if item == _SWAP_SENTINEL:
+            ticks.append([])
+        else:
+            ticks[-1].append(item)
+    return [t for t in ticks if t]
+
+
+class TestImageTwoRowWrapRenders:
+    """Defining tests for Task 5: in wrap mode, every tick paints
+    multiple bottom-row copies at cycle_width-spaced positions, while
+    the top row stays held at a single x.
+
+    Strengthened similarly to the v1 single-row wrap defining test:
+      - per-tick analysis (≥2 main-text copies per tick)
+      - arithmetic-progression copy positions (real wrap, not stacked)
+      - top row drawn exactly once per tick, never drifting"""
+
+    @pytest.mark.asyncio
+    async def test_bottom_wrap_renders_multiple_copies_per_tick(self, tmp_path, mocker):
+        path = _make_png(tmp_path)
+        widget = StillImage(
+            path=str(path),
+            fit="stretch",
+            top_text="TOP",
+            bottom_text="Hi",
+            bottom_text_wrap=True,
+            bottom_text_separator=" * ",
+            scroll_speed_ms=50,
+            hold_seconds=1.0,
+        )
+        real = _bigsign_real_canvas()
+        frame = mocker.MagicMock()
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+        draws = _capture_draws_per_tick(mocker, frame)
+
+        await widget.play(real, frame)
+
+        ticks = _split_into_ticks(draws)
+        assert len(ticks) > 0, "Expected at least one tick"
+
+        # For each of the first 5 ticks, verify ≥2 copies of "Hi"
+        # at arithmetic-progression-spaced x positions.
+        for tick_idx, tick in enumerate(ticks[:5]):
+            hi_xs = sorted(x for (x, t) in tick if t == "Hi")
+            assert len(hi_xs) >= 2, (
+                f"Tick {tick_idx}: expected >=2 copies of 'Hi'; "
+                f"got {len(hi_xs)} at xs={hi_xs}"
+            )
+            diffs = [hi_xs[i + 1] - hi_xs[i] for i in range(len(hi_xs) - 1)]
+            median = sorted(diffs)[len(diffs) // 2]
+            for d in diffs:
+                assert abs(d - median) <= 2, (
+                    f"Tick {tick_idx}: copy spacing not arithmetic. "
+                    f"xs={hi_xs}, diffs={diffs}"
+                )
+            assert median > 0
+
+    @pytest.mark.asyncio
+    async def test_top_row_held_during_bottom_wrap(self, tmp_path, mocker):
+        """Top row stays at its top_align position even while bottom
+        wraps. The top row should be drawn at a SINGLE x per tick."""
+        path = _make_png(tmp_path)
+        widget = StillImage(
+            path=str(path),
+            fit="stretch",
+            top_text="TOP",
+            top_align="left",
+            bottom_text="Hi",
+            bottom_text_wrap=True,
+            bottom_text_separator=" * ",
+            scroll_speed_ms=50,
+            hold_seconds=0.5,
+        )
+        real = _bigsign_real_canvas()
+        frame = mocker.MagicMock()
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+        draws = _capture_draws_per_tick(mocker, frame)
+
+        await widget.play(real, frame)
+
+        ticks = _split_into_ticks(draws)
+        # Collect top x positions across the first 5 ticks.
+        top_xs_per_tick = []
+        for tick in ticks[:5]:
+            top_xs = [x for (x, t) in tick if t == "TOP"]
+            assert len(top_xs) == 1, (
+                f"Top row should draw exactly once per tick; " f"got xs={top_xs}"
+            )
+            top_xs_per_tick.append(top_xs[0])
+
+        # All top x's should be the same (held).
+        assert (
+            len(set(top_xs_per_tick)) == 1
+        ), f"Top row drifted across ticks: {top_xs_per_tick}"

@@ -1073,6 +1073,79 @@ class _BaseImageWidget(_FrameAware):
             max_emoji_height=bottom_emoji_cap,
         )
 
+    def _render_two_row_wrap_tick(
+        self,
+        real_canvas: Canvas,
+        text_canvas: Canvas,
+        top: tuple[Any, str, Any, int, int, int],
+        bottom_font: Any,
+        bottom_text: str,
+        bottom_color: Any,
+        bottom_baseline: int,
+        bottom_emoji_y: int,
+        scroll_pos: int,
+        bottom_width: int,
+        sep_width: int,
+        cycle_width: int,
+        top_emoji_cap: int = EMOJI_ROW_CAP,
+        bottom_emoji_cap: int = EMOJI_ROW_CAP,
+    ) -> None:
+        """One wrap-mode tick: image + top (held) + bottom (multi-copy).
+
+        Mirrors `_render_two_row_tick` but the bottom row renders as
+        n_copies of (bottom_text + separator) at
+        `scroll_pos - cycle_width + i * cycle_width` — same pattern as
+        the v1 single-row `_render_wrap_tick`.
+
+        Top tuple shape matches `_render_two_row_tick`:
+            (font, text, color, x, baseline_y, emoji_y)
+        """
+        reset_canvas(real_canvas, self.bg_color)
+        self._paint_image(real_canvas)
+        if self.border is not None:
+            self.border.paint(real_canvas, self.frame_for("border"))
+
+        # Top row: single draw, held at its alignment x.
+        self._draw_row_text(
+            text_canvas,
+            *top,
+            frame_count=self.frame_for(self._row_color_attr(0)),
+            max_emoji_height=top_emoji_cap,
+        )
+
+        # Bottom row: n_copies of (text + separator).
+        canvas_w = text_canvas.width
+        n_copies = (canvas_w + cycle_width - 1) // cycle_width + 1
+        start_x = scroll_pos - cycle_width
+
+        for i in range(n_copies):
+            x = start_x + i * cycle_width
+            # bottom_text body
+            self._draw_row_text(
+                text_canvas,
+                bottom_font,
+                bottom_text,
+                bottom_color,
+                x,
+                bottom_baseline,
+                bottom_emoji_y,
+                frame_count=self.frame_for(self._row_color_attr(1)),
+                max_emoji_height=bottom_emoji_cap,
+            )
+            # separator (whole-string, parameterized helper)
+            if sep_width > 0:
+                self._draw_separator(
+                    text_canvas,
+                    x + bottom_width,
+                    bottom_baseline,
+                    font=bottom_font,
+                    separator=self.bottom_text_separator,
+                    explicit_provider=self.bottom_text_separator_color,
+                    explicit_frame_key="bottom_text_separator_color",
+                    inherit_provider=bottom_color,
+                    inherit_frame_key=self._row_color_attr(1),
+                )
+
     # ------------------------------------------------------------------
     # Shared text playback loop
     # ------------------------------------------------------------------
@@ -1409,8 +1482,29 @@ class _BaseImageWidget(_FrameAware):
 
         top_x = aligned_x(canvas_w, top_width, self._row_align(0))
 
-        bottom_scrolls = bottom_width > canvas_w
-        if bottom_scrolls:
+        # Wrap mode forces the scroll branch regardless of overflow.
+        # cycle_width is one full (bottom_text + separator) repeat; the
+        # marquee auto-floor reinterprets as N cycle traversals (mirrors
+        # v1 single-row wrap).
+        wrap_mode = self.bottom_text_wrap
+        sep_width = (
+            self._measure_separator(
+                text_canvas,
+                font=bottom_font,
+                separator=self.bottom_text_separator,
+            )
+            if wrap_mode
+            else 0
+        )
+        cycle_width = (bottom_width + sep_width) if wrap_mode else 0
+
+        bottom_scrolls = bottom_width > canvas_w or wrap_mode
+        if wrap_mode:
+            scroll_pos = 0
+            ticks_per_loop = cycle_width
+            min_loops = max(1, self.text_loops)
+            n_ticks = max(n_ticks, min_loops * ticks_per_loop)
+        elif bottom_scrolls:
             scroll_pos = canvas_w  # start off-right, scroll left
             # Marquee auto-floor — same contract as the single-row path.
             ticks_per_loop = canvas_w + bottom_width
@@ -1478,29 +1572,51 @@ class _BaseImageWidget(_FrameAware):
             # Advance the per-widget frame counter so ColorProviders
             # animate. See single-row path for rationale.
             self.advance_frame()
-            bottom_tuple = (
-                bottom_font,
-                bottom_text,
-                bottom_color,
-                scroll_pos,
-                bottom_baseline,
-                bottom_emoji_y,
-            )
-            self._render_two_row_tick(
-                canvas,
-                text_canvas,
-                top_tuple,
-                bottom_tuple,
-                top_emoji_cap=top_emoji_cap,
-                bottom_emoji_cap=bottom_emoji_cap,
-            )
+            if wrap_mode:
+                self._render_two_row_wrap_tick(
+                    canvas,
+                    text_canvas,
+                    top_tuple,
+                    bottom_font,
+                    bottom_text,
+                    bottom_color,
+                    bottom_baseline,
+                    bottom_emoji_y,
+                    scroll_pos,
+                    bottom_width,
+                    sep_width,
+                    cycle_width,
+                    top_emoji_cap=top_emoji_cap,
+                    bottom_emoji_cap=bottom_emoji_cap,
+                )
+            else:
+                bottom_tuple = (
+                    bottom_font,
+                    bottom_text,
+                    bottom_color,
+                    scroll_pos,
+                    bottom_baseline,
+                    bottom_emoji_y,
+                )
+                self._render_two_row_tick(
+                    canvas,
+                    text_canvas,
+                    top_tuple,
+                    bottom_tuple,
+                    top_emoji_cap=top_emoji_cap,
+                    bottom_emoji_cap=bottom_emoji_cap,
+                )
             canvas = frame.matrix.SwapOnVSync(canvas)
             if text_is_wrapped:
                 text_canvas.real = canvas
             else:
                 text_canvas = canvas
             await asyncio.sleep(tick_seconds)
-            if bottom_scrolls:
+            if wrap_mode:
+                scroll_pos -= 1
+                if cycle_width:
+                    scroll_pos %= cycle_width
+            elif bottom_scrolls:
                 scroll_pos -= 1
                 if scroll_pos + bottom_width <= 0:
                     scroll_pos = canvas_w

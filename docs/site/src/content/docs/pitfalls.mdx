@@ -49,6 +49,10 @@ On `two_row`, or on `gif` / `image` with `bottom_text` set, each row gets a slic
 
 The `separator`, `separator_font`, `separator_font_size`, and `separator_color` fields customize the small bullet that `forever_scroll` mode inserts between widgets in the side-by-side stream. `swap` and `gif` modes don't intersperse anything; `infini_scroll` fully exits each widget before the next, so no separator is needed. Setting any of these fields on a non-`forever_scroll` section would silently do nothing — the validator rejects it. Either remove the fields, or change `mode` to `"forever_scroll"`.
 
+### Rule 28 — `bottom_text_loops` requires `bottom_text_wrap`
+
+`bottom_text_loops` on a `two_row` widget controls how many full wrap cycles the bottom row must play before the section ends. A cycle is `bottom_text` + the separator — both only exist when `bottom_text_wrap = true`. In non-wrap mode the bottom row scrolls once over its overflow and there's no cycle to count, so the validator rejects `bottom_text_loops > 0` without wrap. Negative values are also rejected. Either turn on wrap mode, or drop `bottom_text_loops`.
+
 ## Warnings
 
 Warnings don't block the engine, but they flag a likely rendering quirk worth resolving.

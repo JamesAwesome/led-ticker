@@ -149,11 +149,12 @@ bottom_text_separator = " * "                 # default: " • "
 bottom_text_separator_color = "rainbow"       # default: inherit bottom_color`}
 />
 
-| Field                         | Type       | Default                                  | Meaning                                                                    |
-| ----------------------------- | ---------- | ---------------------------------------- | -------------------------------------------------------------------------- |
-| `bottom_text_wrap`            | bool       | `false`                                  | Toggle seamless wrap on the bottom row. Requires `bottom_text` non-empty.  |
-| `bottom_text_separator`       | string     | `" • "` (when `bottom_text_wrap = true`) | Glyph(s) between bottom-row repeats. `""` falls back to a two-space gap.   |
-| `bottom_text_separator_color` | color spec | inherit `bottom_color`                   | Color for the bottom separator; whole-string provider (one hue per frame). |
+| Field                         | Type       | Default                                  | Meaning                                                                                                           |
+| ----------------------------- | ---------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `bottom_text_wrap`            | bool       | `false`                                  | Toggle seamless wrap on the bottom row. Requires `bottom_text` non-empty.                                         |
+| `bottom_text_separator`       | string     | `" • "` (when `bottom_text_wrap = true`) | Glyph(s) between bottom-row repeats. `""` falls back to a two-space gap.                                          |
+| `bottom_text_separator_color` | color spec | inherit `bottom_color`                   | Color for the bottom separator; whole-string provider (one hue per frame).                                        |
+| `bottom_text_loops`           | int        | `0`                                      | Minimum full wrap cycles before the section can transition. `0` = no minimum. Requires `bottom_text_wrap = true`. |
 
 Notes:
 
@@ -161,6 +162,14 @@ Notes:
 - Top row never wraps (no `top_text_wrap` field exists).
 - The separator color inherits `bottom_color` (NOT `font_color`).
 - `bottom_text_wrap` is only allowed in `mode = "swap"`. In `forever_scroll` / `infini_scroll` modes, validation refuses it.
+
+### `bottom_text_loops`
+
+Minimum number of full wrap cycles the bottom row must complete before the section can transition. One cycle = `bottom_text` + `bottom_text_separator`. Default `0` means "no minimum" — the section's `hold_time` alone controls duration.
+
+- Requires `bottom_text_wrap = true`. Setting `bottom_text_loops > 0` without wrap is a validation error (rule 28); the bottom row in non-wrap mode scrolls once over its overflow and has no cycle.
+- When both `hold_time` and `bottom_text_loops` are set, the engine uses the LONGER of the two ("max" semantics): if `hold_time / scroll_speed_ms` exceeds `bottom_text_loops × cycle_ticks`, hold_time wins.
+- Mirrors `text_loops` on `gif` / `image` widgets in two-row mode.
 
 ## Tips
 

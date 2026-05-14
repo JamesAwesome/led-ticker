@@ -147,7 +147,7 @@ class TwoRowMessage(_FrameAware):
     # engine runs at least `bottom_text_loops × cycle_width` ticks
     # (one cycle = bottom_text + separator). Mirrors `text_loops` on
     # `_BaseImageWidget` two-row mode. Only meaningful when
-    # `bottom_text_wrap = True`; rule 27 rejects otherwise.
+    # `bottom_text_wrap = True`; rule 28 rejects otherwise.
     bottom_text_loops: int = attrs.field(default=0, kw_only=True)
 
     _top_width: int = attrs.field(init=False, default=-1)
@@ -206,6 +206,16 @@ class TwoRowMessage(_FrameAware):
                 "bottom_text_separator_color requires bottom_text_wrap=True."
             )
 
+        # Reject bool before any int comparisons — bool is a subclass of
+        # int in Python (`isinstance(True, int)` is True), so a TOML user
+        # who writes `bottom_text_loops = true` would otherwise silently
+        # get loops=1. Mirrors the explicit bool guard CLAUDE.md calls
+        # out for `font_threshold`.
+        if isinstance(self.bottom_text_loops, bool):
+            raise ValueError(
+                f"bottom_text_loops must be an integer, got bool "
+                f"({self.bottom_text_loops!r}). Use 0, 1, 2, … not true/false."
+            )
         if self.bottom_text_loops < 0:
             raise ValueError(
                 f"bottom_text_loops must be >= 0, got {self.bottom_text_loops!r}"

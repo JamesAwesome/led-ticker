@@ -1038,8 +1038,12 @@ async def _swap_and_scroll(
             _advance_frame_if_supported(ticker_obj)
             reset_canvas(canvas, bg_color)
             # Wrap-mode TwoRowMessage.draw() returns (canvas, cycle_width).
-            # Capture it on the first tick to extend n_ticks if the user
-            # set bottom_text_loops > 0.
+            # Capture on tick 0 to extend n_ticks when bottom_text_loops > 0.
+            # (Note: an initial draw at function entry, several lines up,
+            # has already happened — so tick 0 here is technically the
+            # widget's SECOND draw call. cycle_width is constant across
+            # draws so the value is correct either way; the capture lives
+            # inside the loop because the loop is where n_ticks is mutated.)
             canvas, cycle_width = ticker_obj.draw(canvas, cursor_pos=pos)
             if tick == 0 and loops_floor > 0 and cycle_width > 0:
                 n_ticks = max(n_ticks, loops_floor * cycle_width)

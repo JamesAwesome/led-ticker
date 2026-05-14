@@ -1205,6 +1205,94 @@ async def test_rule28_bottom_text_loops_zero_is_allowed(conf):
     assert result.valid is True
 
 
+async def test_rule28_bottom_text_loops_bool_errors(conf):
+    """bool is an int subclass — without an explicit guard, `true`/`false`
+    would silently behave as 1/0. Validator rejects to surface the typo."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        bottom_text_wrap = true
+        bottom_text_loops = true
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 28 and "bool" in e.message.lower() for e in result.errors), (
+        f"expected rule 28 bool error; got "
+        f"{[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule29_text_loops_on_two_row_is_did_you_mean_bridge(conf):
+    """The image-widget field `text_loops` is a common copy-paste typo on
+    two_row. Rule 29 surfaces it with a "did you mean bottom_text_loops?"
+    hint instead of letting it slip through to a runtime TypeError."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        text_loops = 4
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(
+        e.rule == 29 and "bottom_text_loops" in e.message for e in result.errors
+    ), (
+        f"expected rule 29 did-you-mean error; got "
+        f"{[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule29_text_loops_on_gif_widget_does_not_fire(conf):
+    """Rule 29 is two_row-specific. `text_loops` on a gif widget is
+    a legitimate field — must not trigger the bridge."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        text = "marquee"
+        text_align = "scroll_over"
+        text_loops = 4
+        """
+    result = await validate_config(conf(cfg))
+    assert all(e.rule != 29 for e in result.errors), (
+        f"rule 29 must not fire for gif widgets; got "
+        f"{[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
 class TestRule27WrapsForeverModeOnly:
     """bottom_text_wrap=True is only valid in mode=swap. Refused
     in forever_scroll and infini_scroll because the widget would

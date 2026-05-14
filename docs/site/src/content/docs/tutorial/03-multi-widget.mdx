@@ -353,11 +353,15 @@ What changed:
   (rule 28) because there's no cycle to count when the bottom only scrolls
   once.
 
-This combination is image-widget parity: `gif` and `image` widgets have used
-`text_loops` for the same purpose since [PR #58](https://github.com/JamesAwesome/led-ticker/pull/58).
-On TwoRowMessage the field is prefixed `bottom_text_loops` (matching the
-`bottom_*` convention) because the top row is held and only the bottom row
-can have cycles.
+A note on the field name: `bottom_text_loops` follows the `bottom_*` prefix
+convention used by all per-row knobs on `two_row` (`bottom_text_wrap`,
+`bottom_text_separator`, etc.) — the top row is held and only the bottom
+row can have cycles. If you've used the marquee loop count on a `gif` or
+`image` widget, the equivalent field there is called `text_loops` (no
+prefix), since those widgets are single-row by default and only optionally
+become two-row when `bottom_text` is set. Same concept, different name —
+the validator's rule 29 catches the common `text_loops` typo on `two_row`
+and points you at `bottom_text_loops`.
 
 ## What's next
 

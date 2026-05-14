@@ -238,3 +238,13 @@ class TestBottomTextLoops:
         """bottom_text_loops < 0 raises."""
         with pytest.raises(ValueError, match="bottom_text_loops must be >= 0"):
             _two_row(bottom_text_loops=-1)
+
+    def test_bottom_text_loops_bool_raises(self):
+        """bool is an int subclass in Python — without an explicit guard,
+        `bottom_text_loops = true` would silently behave as loops=1. The
+        post-init check rejects bool to surface the mistake."""
+        with pytest.raises(ValueError, match="must be an integer"):
+            _two_row(
+                bottom_text_loops=True,  # type: ignore[arg-type]
+                bottom_text_wrap=True,
+            )

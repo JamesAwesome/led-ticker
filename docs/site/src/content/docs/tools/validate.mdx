@@ -143,6 +143,7 @@ Quick reference. Each row maps to a longer entry on [Validation rules](/pitfalls
 | `start_hold` on `swap` / `gif` section or negative value         | error    | remove `start_hold` or set it to ≥ 0             |
 | `separator_*` set on a non-`forever_scroll` section              | error    | remove the field, or switch to `forever_scroll`  |
 | `bottom_text_loops` on `two_row` without `bottom_text_wrap`      | error    | set `bottom_text_wrap = true`, or drop the field |
+| `text_loops` on a `two_row` widget (rule 29)                     | error    | rename to `bottom_text_loops`                    |
 | `two_row` widget at `scale = 4`                                  | warning  | use `scale = 2` (128 logical px wide)            |
 | `transition_duration` > 5 s or < 0.05 s                          | warning  | divide by 1000 (it's seconds, not milliseconds)  |
 | Held `top_text` wider than the logical canvas                    | warning  | shorten text, smaller font, or lower `scale`     |

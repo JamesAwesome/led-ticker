@@ -288,16 +288,33 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
             if wtype == "two_row":
                 btl = widget_cfg.get("bottom_text_loops", 0)
                 btw = widget_cfg.get("bottom_text_wrap", False)
-                if isinstance(btl, int) and btl < 0:
+                # Reject bool first — bool is an int subclass, so without
+                # this check `bottom_text_loops = true` would silently
+                # behave as loops=1.
+                if isinstance(btl, bool):
+                    issues.append(
+                        ValidationIssue(
+                            rule=28,
+                            location=loc,
+                            severity="error",
+                            message=(
+                                f"bottom_text_loops must be an integer; got "
+                                f"bool ({btl!r}). Use 0, 1, 2, … not true/false."
+                            ),
+                            fix=(
+                                "Replace true/false with an integer count "
+                                "(e.g. bottom_text_loops = 3)."
+                            ),
+                        )
+                    )
+                elif isinstance(btl, int) and btl < 0:
                     issues.append(
                         ValidationIssue(
                             rule=28,
                             location=loc,
                             severity="error",
                             message=(f"bottom_text_loops must be >= 0; got {btl}"),
-                            fix=(
-                                "Set bottom_text_loops to 0 or a positive" " integer."
-                            ),
+                            fix="Set bottom_text_loops to 0 or a positive integer.",
                         )
                     )
                 elif isinstance(btl, int) and btl > 0 and not btw:
@@ -315,6 +332,40 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                             fix=(
                                 "Set bottom_text_wrap = true alongside "
                                 "bottom_text_loops, or drop bottom_text_loops."
+                            ),
+                        )
+                    )
+
+                # Rule 29: did-you-mean bridge for `text_loops` on two_row.
+                # `text_loops` is the image-widget field name for the same
+                # concept; users copying a gif/image marquee config to
+                # two_row will reach for it out of muscle memory. Without
+                # this targeted catch, a generic "unknown field" error
+                # (from the unknown-kwarg validator follow-up) won't
+                # suggest the correct name — and today the field slips
+                # straight through validation and crashes at runtime with
+                # `TypeError: TwoRowMessage.__init__() got an unexpected
+                # keyword argument 'text_loops'`.
+                if "text_loops" in widget_cfg:
+                    issues.append(
+                        ValidationIssue(
+                            rule=29,
+                            location=loc,
+                            severity="error",
+                            message=(
+                                "`text_loops` is not a valid field on a "
+                                "`two_row` widget — did you mean "
+                                "`bottom_text_loops`? The image widgets "
+                                "(`gif`, `image`) use `text_loops` because "
+                                "they're single-row by default; "
+                                "TwoRowMessage uses the bottom-prefixed "
+                                "name to match its bottom_text_wrap / "
+                                "bottom_text_separator family."
+                            ),
+                            fix=(
+                                "Rename `text_loops` to `bottom_text_loops` "
+                                "and set `bottom_text_wrap = true` (loops "
+                                "require wrap mode — see rule 28)."
                             ),
                         )
                     )

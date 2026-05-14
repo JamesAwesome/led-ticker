@@ -168,7 +168,7 @@ Notes:
 Minimum number of full wrap cycles the bottom row must complete before the section can transition. One cycle = `bottom_text` + `bottom_text_separator`. Default `0` means "no minimum" — the section's `hold_time` alone controls duration.
 
 - Requires `bottom_text_wrap = true`. Setting `bottom_text_loops > 0` without wrap is a validation error (rule 28); the bottom row in non-wrap mode scrolls once over its overflow and has no cycle.
-- When both `hold_time` and `bottom_text_loops` are set, the engine uses the LONGER of the two ("max" semantics): if `hold_time / scroll_step_ms` exceeds `bottom_text_loops × cycle_ticks`, hold_time wins. (Section-level `scroll_step_ms` controls the engine's per-tick advance; not to be confused with the per-widget `scroll_speed_ms` on `gif` / `image` text overlays.)
+- When both `hold_time` and `bottom_text_loops` are set, the engine uses the LONGER of the two ("max" semantics). To compute the crossover: `hold_time × 1000 / scroll_step_ms` (tick count from hold; `hold_time` is seconds, `scroll_step_ms` is milliseconds) vs `bottom_text_loops × cycle_width_logical_px` (tick count from loops, since the engine advances exactly one logical pixel per tick). Whichever is bigger wins. (Section-level `scroll_step_ms` controls the engine's per-tick advance; not to be confused with the per-widget `scroll_speed_ms` on `gif` / `image` text overlays.)
 - Mirrors `text_loops` on the [`gif`](/widgets/gif/) and [`image`](/widgets/image/) widgets in their two-row mode. The validator catches the cross-widget typo (rule 29) and points you at `bottom_text_loops`.
 
 ## Tips

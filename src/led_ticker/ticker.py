@@ -1013,6 +1013,28 @@ async def _swap_and_scroll(
 
     tick_seconds = ENGINE_TICK_MS / 1000
 
+    # Wrap-forever widgets (e.g., TwoRowMessage in bottom_text_wrap
+    # mode) opt out of the cursor_pos-based stop condition. The
+    # widget handles modular cursor_pos internally; the engine just
+    # drives draw() for hold_time and increments pos as if scrolling.
+    # Returning early bypasses both the existing scroll branch
+    # (which would terminate based on cursor_pos overshoot) and the
+    # held branch (which would call draw() with a fixed pos=0 — not
+    # what we want for a wrapping marquee).
+    # Strict `is True` check: mock.Mock() auto-attributes return a
+    # truthy Mock object, which would otherwise spuriously trigger
+    # this branch in tests using generic mock widgets.
+    if getattr(ticker_obj, "wraps_forever", False) is True:
+        n_ticks = max(1, int(hold_time * 1000) // ENGINE_TICK_MS)
+        for _ in range(n_ticks):
+            _advance_frame_if_supported(ticker_obj)
+            reset_canvas(canvas, bg_color)
+            canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
+            canvas = _swap(canvas, frame)
+            pos -= 1
+            await asyncio.sleep(scroll_speed)
+        return canvas, cursor_pos, pos
+
     if cursor_pos > canvas.width:
         if not continuous:
             # Pre-scroll hold: tick loop so frame-aware widgets animate.

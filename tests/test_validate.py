@@ -1502,6 +1502,38 @@ async def test_rule31_scroll_step_ms_positive_is_allowed(conf):
     assert all(e.rule != 31 for e in result.errors)
 
 
+async def test_rule33_mode_gif_warns(conf):
+    """mode='gif' is the legacy dedicated-gif section mode. The validator
+    surfaces a warning so authors know to migrate to mode='swap' + gif
+    widget, which gives access to the full section feature set."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "gif"
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        """
+    result = await validate_config(conf(cfg))
+    # Warning only — the config is still valid; ticker can start.
+    assert result.valid is True
+    assert any(
+        w.rule == 33 for w in result.warnings
+    ), f"expected rule 33 warning; got warnings={[w.rule for w in result.warnings]}"
+
+
+async def test_rule33_mode_swap_does_not_warn(conf):
+    """mode='swap' is the recommended pattern — must not trip rule 33."""
+    result = await validate_config(conf(GOOD_CONFIG))
+    assert all(w.rule != 33 for w in result.warnings)
+
+
 class TestRule27WrapsForeverModeOnly:
     """bottom_text_wrap=True is only valid in mode=swap. Refused
     in forever_scroll and infini_scroll because the widget would

@@ -553,6 +553,33 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                 )
             )
 
+    # Rule 33: mode = "gif" is legacy.
+    # The dedicated gif mode predates the current widget system. Today
+    # the same effect is achieved with mode = "swap" + a gif widget —
+    # which also gives access to transitions, hold_time, bg_color, and
+    # multi-widget sections. The old mode is preserved for back-compat
+    # but is undocumented and may be removed in a future release.
+    for i, section in enumerate(config.sections):
+        if section.mode == "gif":
+            warnings.append(
+                ValidationIssue(
+                    rule=33,
+                    location=f"section[{i}]",
+                    severity="warning",
+                    message=(
+                        "mode='gif' is legacy. Use mode='swap' with a "
+                        "gif widget for the same effect; the dedicated "
+                        "'gif' mode is preserved for back-compat but may "
+                        "be removed in a future release."
+                    ),
+                    fix=(
+                        "Change mode to 'swap'. Each gif widget in the "
+                        "section's `widget` list will play through its "
+                        "gif_loops then transition."
+                    ),
+                )
+            )
+
     # Rule 30: hold_time and bottom_text_loops both set on a two_row
     # widget — max() semantics apply and the larger tick count wins.
     # Surface a warning so users who set both deliberately get a

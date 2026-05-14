@@ -66,7 +66,10 @@ Field               Default            Description
                                        down to the nearest integer multiple of
                                        cell height.
 ``gif_loops``       ``1``              Per-visit gif loop count when dispatched
-                                       via run_swap. (Still widget uses
+                                       via run_swap. Set to ``0`` to play
+                                       through the section's ``hold_time``
+                                       (plays at least 1 loop). Negative values
+                                       are rejected. (Still widget uses
                                        ``hold_seconds`` instead.)
 ``text_loops``      ``0``              Floor on marquee traversals before
                                        section transitions. Only with scrolling
@@ -74,7 +77,7 @@ Field               Default            Description
 ==================  =================  ==========================================
 
 Constraints validated at construction:
-    - ``gif_loops >= 1``
+    - ``gif_loops >= 0``
     - ``text_loops >= 0``
     - ``scroll_speed_ms >= 20``
     - ``text_loops > 0`` requires ``text_align`` ∈ ``{scroll, scroll_over}``
@@ -131,8 +134,8 @@ class GifPlayer(_BaseImageWidget):
 
     def __attrs_post_init__(self) -> None:
         self._validate_common(image_align=self.image_align, fit=self.fit)
-        if self.gif_loops < 1:
-            raise ValueError(f"gif_loops must be >= 1, got {self.gif_loops!r}")
+        if self.gif_loops < 0:
+            raise ValueError(f"gif_loops must be >= 0, got {self.gif_loops!r}")
 
     def _load(self, panel_w: int = 0, panel_h: int = 0) -> None:
         """Decode all frames. Idempotent — second call is a no-op."""

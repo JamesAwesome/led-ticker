@@ -737,15 +737,30 @@ def test_text_loops_with_static_text_raises(tmp_path):
 
 
 def test_negative_numeric_fields_raise(tmp_path):
-    """Range validation: loops < 1, text_loops < 0,
-    scroll_speed_ms < MIN all raise instead of silently mis-behaving."""
+    """Range validation: gif_loops < 0, text_loops < 0,
+    scroll_speed_ms < MIN all raise instead of silently mis-behaving.
+    Note: gif_loops=0 is now VALID (means 'play through hold_time')."""
     path = _make_gif_path(tmp_path, [(0, 0, 0)])
     with pytest.raises(ValueError, match="gif_loops"):
-        GifPlayer(path=str(path), gif_loops=0)
+        GifPlayer(path=str(path), gif_loops=-1)
     with pytest.raises(ValueError, match="text_loops"):
         GifPlayer(path=str(path), text_loops=-1)
     with pytest.raises(ValueError, match="scroll_speed_ms"):
         GifPlayer(path=str(path), scroll_speed_ms=10)  # below MIN=20
+
+
+def test_gif_loops_zero_is_valid_post_init(tmp_path):
+    """gif_loops=0 is now valid — means 'play through hold_time'."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)])
+    widget = GifPlayer(path=str(path), gif_loops=0)
+    assert widget.gif_loops == 0
+
+
+def test_gif_loops_negative_still_raises(tmp_path):
+    """Boundary preserved: < 0 is still rejected."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)])
+    with pytest.raises(ValueError, match="gif_loops must be >= 0"):
+        GifPlayer(path=str(path), gif_loops=-1)
 
 
 async def test_play_scroll_text_wraps_after_full_traversal(tmp_path, mocker):

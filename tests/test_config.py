@@ -485,3 +485,42 @@ def test_section_separator_color_parses_rainbow_string(tmp_path):
     )
     app = load_config(cfg)
     assert app.sections[0].separator_color == "rainbow"
+
+
+def test_section_raw_round_trips_from_toml(tmp_path):
+    """_raw must contain the original section dict so the validator can
+    inspect unknown / cross-scope keys (rules 34 and 35)."""
+    cfg = _write_cfg(
+        tmp_path,
+        """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3.0
+        scroll_step_ms = 35
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """,
+    )
+    app = load_config(cfg)
+    raw = app.sections[0]._raw
+    assert raw["mode"] == "swap"
+    assert raw["hold_time"] == 3.0
+    assert raw["scroll_step_ms"] == 35
+    # widget list is stored under the TOML key "widget", not "widgets"
+    assert "widget" in raw
+
+
+def test_section_raw_is_empty_on_direct_construction():
+    """Direct programmatic construction of SectionConfig must not
+    require _raw — default factory gives an empty dict."""
+    from led_ticker.config import SectionConfig
+
+    s = SectionConfig(mode="swap")
+    assert s._raw == {}

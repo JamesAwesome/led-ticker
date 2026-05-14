@@ -522,6 +522,51 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                 )
             )
 
+    # Rule 30: hold_time and loop-count both set — max() semantics
+    # apply and one will silently override the other. Surface a
+    # warning so users who set both deliberately get a heads-up.
+    # Only fires when hold_time was EXPLICITLY written in TOML
+    # (hold_time_specified) — the default 3.0 is universally inherited
+    # and would be a false positive if every section warned on it.
+    for i, section in enumerate(config.sections):
+        if not section.hold_time_specified:
+            continue
+        for j, widget_cfg in enumerate(section.widgets):
+            wtype = widget_cfg.get("type", "")
+            loops_field: str | None = None
+            if wtype == "two_row":
+                btl = widget_cfg.get("bottom_text_loops", 0)
+                if isinstance(btl, int) and not isinstance(btl, bool) and btl > 0:
+                    loops_field = "bottom_text_loops"
+            elif wtype in ("gif", "image"):
+                tl = widget_cfg.get("text_loops", 0)
+                if isinstance(tl, int) and not isinstance(tl, bool) and tl > 0:
+                    loops_field = "text_loops"
+            if loops_field is None:
+                continue
+            warnings.append(
+                ValidationIssue(
+                    rule=30,
+                    location=f"section[{i}].widget[{j}]",
+                    severity="warning",
+                    message=(
+                        f"section sets hold_time={section.hold_time} AND "
+                        f"widget sets {loops_field}={widget_cfg.get(loops_field)}. "
+                        f"The engine uses max(hold_time_ticks, "
+                        f"{loops_field} × cycle_width) — whichever is "
+                        f"longer wins, so one silently overrides the "
+                        f"other depending on text length."
+                    ),
+                    fix=(
+                        f"For an EXACT loop count, drop hold_time from the "
+                        f"section (so {loops_field} is the only floor). "
+                        f"For a FIXED duration, drop {loops_field}. "
+                        f"If you understand max() and want both as floors, "
+                        f"ignore this warning."
+                    ),
+                )
+            )
+
     return warnings
 
 

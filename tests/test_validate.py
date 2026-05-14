@@ -1293,6 +1293,118 @@ async def test_rule29_text_loops_on_gif_widget_does_not_fire(conf):
     )
 
 
+async def test_rule30_hold_time_plus_bottom_text_loops_warns(conf):
+    """When hold_time is EXPLICITLY set alongside bottom_text_loops > 0
+    on a two_row widget, surface a warning that the two interact via
+    max() — whichever produces more ticks wins, and the other is
+    silently ignored. Common confusion: user sets loops=3 expecting
+    exact-3-loops, doesn't realize their hold_time can override it."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 8.0
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        bottom_text_wrap = true
+        bottom_text_loops = 3
+        """
+    result = await validate_config(conf(cfg))
+    # Warning, not error: config is valid; user just gets a heads-up.
+    assert result.valid is True
+    assert any(w.rule == 30 for w in result.warnings), (
+        f"expected rule 30 warning; got "
+        f"warnings={[(w.rule, w.message) for w in result.warnings]}"
+    )
+
+
+async def test_rule30_hold_time_plus_text_loops_on_gif_warns(conf):
+    """Symmetric for gif/image widgets: text_loops in two-row mode plus
+    explicit hold_time = same max() semantics, same warning."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 8.0
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        text = "marquee"
+        text_align = "scroll_over"
+        text_loops = 3
+        """
+    result = await validate_config(conf(cfg))
+    assert result.valid is True
+    assert any(w.rule == 30 for w in result.warnings)
+
+
+async def test_rule30_default_hold_time_does_not_warn(conf):
+    """The default hold_time = 3.0 (when user omits it from TOML)
+    must NOT trip rule 30 — only EXPLICITLY-set hold_time counts.
+    Otherwise every section that uses bottom_text_loops would warn,
+    contradicting the tutorial's "omit hold_time for exact loops"
+    pattern."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        bottom_text_wrap = true
+        bottom_text_loops = 3
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 30 for w in result.warnings), (
+        f"rule 30 must not fire when hold_time is at its default; "
+        f"got warnings={[(w.rule, w.message) for w in result.warnings]}"
+    )
+
+
+async def test_rule30_hold_time_alone_does_not_warn(conf):
+    """hold_time without any loop count is fine — that's the
+    default swap-mode pattern from before this PR."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 8.0
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 30 for w in result.warnings)
+
+
 class TestRule27WrapsForeverModeOnly:
     """bottom_text_wrap=True is only valid in mode=swap. Refused
     in forever_scroll and infini_scroll because the widget would

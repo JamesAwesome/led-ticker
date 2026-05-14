@@ -64,6 +64,13 @@ class SectionConfig:
     # transition selection).
     transition_specified: bool = False
     hold_time: float = 3.0  # seconds to hold each widget in swap mode
+    # Whether the user explicitly wrote `hold_time` in this section's TOML.
+    # Same mechanism as `transition_specified`: lets the validator surface
+    # a warning (rule 30) when a user sets both `hold_time` AND a loop
+    # count (e.g. `bottom_text_loops` on two_row) without realizing the
+    # engine uses `max()` of the two durations. The flag is purely
+    # informational; runtime behavior is unaffected.
+    hold_time_specified: bool = False
     continuous_scroll: bool = False  # skip holds for overflow text in scroll mode
     scale: int = 1  # falls back to display.default_scale in load_config
     # Logical canvas height in rows. Default 16 fits one row of 5x8 or 6x12
@@ -224,6 +231,7 @@ def load_config(path: Path) -> AppConfig:
             transition=trans,
             transition_specified=transition_specified,
             hold_time=section_raw.get("hold_time", 3.0),
+            hold_time_specified=("hold_time" in section_raw),
             continuous_scroll=section_raw.get("continuous_scroll", False),
             scale=section_raw.get("scale", display.default_scale),
             content_height=section_raw.get("content_height", 16),

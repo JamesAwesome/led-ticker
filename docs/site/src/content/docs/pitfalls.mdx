@@ -61,6 +61,10 @@ The `separator`, `separator_font`, `separator_font_size`, and `separator_color` 
 
 Warnings don't block the engine, but they flag a likely rendering quirk worth resolving.
 
+### Rule 30 — `hold_time` set alongside a loop-count field
+
+When a section has an explicit `hold_time` AND a widget with `bottom_text_loops` (on `two_row`) or `text_loops` (on `gif` / `image` in two-row wrap mode), the engine uses `max(hold_time_ticks, loops × cycle_width)` to compute section duration — whichever produces more ticks wins, the other is silently ignored. Common confusion: a user sets `bottom_text_loops = 3` expecting "exactly 3 loops" but their `hold_time` is large enough that it dominates, and the section runs for 5+ loops instead. The fix depends on intent: for an EXACT loop count, drop `hold_time` from the section so the loop field is the only floor; for a FIXED duration, drop the loops field; if you want both as floors and you understand `max()`, ignore the warning.
+
 ### Rule 6 — `two_row` at `scale = 4` collapses the canvas to 64 logical pixels wide
 
 Most handles fit at 64 logical px, but anything longer overflows and the bottom row scrolls unintentionally. Use `scale = 2` (128 logical px) with `content_height ≤ 16`.

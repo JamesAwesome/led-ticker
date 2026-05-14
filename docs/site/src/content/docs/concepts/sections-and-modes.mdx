@@ -183,7 +183,7 @@ A widget setting its own `bg_color` overrides the section default for that widge
 
 ## Legacy: `mode = "gif"`
 
-Preserved for backward compatibility, but the recommended setup for displaying gifs is `mode = "swap"` with a `gif` widget in the section's `widget` list. Direct use of `mode = "gif"` may be removed in a future release.
+Preserved for backward compatibility. The recommended setup for displaying gifs is `mode = "swap"` with a `gif` widget in the section's `widget` list — that form exposes the full per-widget knob surface (`hold_seconds`, `text`, `border`, `fit`, etc.) that the direct `mode = "gif"` form doesn't reach. Existing `mode = "gif"` configs continue to work.
 
 ## `default` vs `transition`
 

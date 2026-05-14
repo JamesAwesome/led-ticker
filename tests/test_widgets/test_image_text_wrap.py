@@ -42,7 +42,7 @@ class TestTextWrapValidation:
             _still(text_wrap=True, text_align="left")
 
     def test_wrap_refuses_two_row(self):
-        with pytest.raises(ValueError, match="text_wrap.*not supported.*two-row"):
+        with pytest.raises(ValueError, match="text_wrap.*single-row"):
             _still(
                 text_wrap=True,
                 top_text="top",

@@ -27,6 +27,9 @@
 | `bottom_text_y_offset` | int | `0` | Vertical nudge for the bottom row's text in logical rows. Negative = up. |
 | `bottom_emoji_y_offset` | int | `0` | Vertical nudge for the bottom row's emoji in logical rows. |
 | `bottom_bg_color` | RGB list | none | Per-band background fill for the bottom row only. Painted over any `bg_color`. |
+| `bottom_text_wrap` | bool | `false` | Seamless wrap mode for the bottom row. When `true`, the bottom row repeats with a separator between copies and at least one full copy is on the panel at every tick. Top row never wraps. Only allowed in `mode = "swap"`. |
+| `bottom_text_separator` | string | `" • "` (when `bottom_text_wrap = true`) | Glyph(s) drawn between bottom-row repeats in wrap mode. `""` falls back to a two-space gap. Rendered in the bottom row's font. |
+| `bottom_text_separator_color` | color spec | inherit `bottom_color` | Color for the bottom separator in wrap mode. Whole-string provider (one hue per frame); accepts the same value types as `bottom_color`. Inherits `bottom_color` (NOT `font_color`). |
 
 ## Layout
 

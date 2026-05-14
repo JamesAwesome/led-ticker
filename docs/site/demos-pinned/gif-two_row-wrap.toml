@@ -1,0 +1,34 @@
+# render-duration: 8
+# Two-row wrap on gif: pikachu + held magenta TOP + cyan bottom
+# wrapping at ~24px cycle. Demonstrates top-row-held + bottom-wrap.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 7.0
+
+[[playlist.section.widget]]
+type = "gif"
+path = "../../../config/assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+image_align = "left"
+top_text = "BREAKING"
+top_font = "5x8"
+top_color = [225, 48, 108]
+bottom_text = "tap to subscribe"
+bottom_font = "5x8"
+bottom_text_wrap = true
+bottom_text_separator = " * "
+bottom_color = [120, 230, 255]
+bottom_text_separator_color = "rainbow"
+gif_loops = 999
+scroll_speed_ms = 25

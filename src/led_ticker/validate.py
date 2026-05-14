@@ -579,6 +579,46 @@ def _check_separator_fonts(
     return errors, warnings
 
 
+def _check_wraps_forever_swap_only(
+    config: AppConfig,
+) -> list[ValidationIssue]:
+    """Rule 27: bottom_text_wrap=True is only valid in mode='swap'.
+
+    In forever_scroll and infini_scroll modes, widgets must terminate
+    naturally (the section advances based on widget completion).
+    A wraps_forever widget never terminates on cursor_pos — it would
+    block the chain. Catch at config-load with a clear error.
+    """
+    errors: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        if section.mode == "swap":
+            continue
+        for j, widget_cfg in enumerate(section.widgets):
+            if widget_cfg.get("bottom_text_wrap") is True:
+                errors.append(
+                    ValidationIssue(
+                        rule=27,
+                        location=(f"section[{i}].widget[{j}].bottom_text_wrap"),
+                        severity="error",
+                        message=(
+                            f"bottom_text_wrap=True is only allowed in "
+                            f"mode='swap'; got mode={section.mode!r}. "
+                            f"Other modes expect widgets to terminate "
+                            f"naturally — a wrapping widget would block "
+                            f"the chain."
+                        ),
+                        fix=(
+                            "Either change the section mode to 'swap' "
+                            "(time-bounded by hold_time), or drop "
+                            "bottom_text_wrap from the widget. The "
+                            "default off-right→off-left marquee works "
+                            "in any mode."
+                        ),
+                    )
+                )
+    return errors
+
+
 def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
     """Warn when held top_text on a two_row / image-two_row / gif-two_row
     widget is wider than the logical canvas.
@@ -744,6 +784,9 @@ async def validate_config(path: Path) -> ValidationResult:
     sep_errors, sep_warnings = _check_separator_fonts(config)
     errors.extend(sep_errors)
     warnings.extend(sep_warnings)
+
+    # Phase 1c (cont.): rule 27 — bottom_text_wrap requires mode=swap.
+    errors.extend(_check_wraps_forever_swap_only(config))
 
     # Phase 1d: Per-row band-layout checks for two_row / image-two_row.
     # Only meaningful when build succeeded — otherwise the widget might

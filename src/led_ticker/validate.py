@@ -422,6 +422,69 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                             ),
                         )
                     )
+
+            # Rule 34b: scroll_step_ms on a gif / image widget.
+            # `scroll_step_ms` is a SECTION-level field (engine cursor
+            # advance). On a gif/image widget it would be passed as an
+            # unknown kwarg and crash at startup. The widget-level
+            # equivalent is `scroll_speed_ms` (text-marquee cadence inside
+            # the widget's own play() loop). Scoped to gif/image only —
+            # those are the widget types that HAVE a scroll_speed_ms to
+            # be confused with. Other widget types receiving scroll_step_ms
+            # will be caught by a future unknown-kwarg validator.
+            if wtype in ("gif", "image") and "scroll_step_ms" in widget_cfg:
+                issues.append(
+                    ValidationIssue(
+                        rule=34,
+                        location=f"{loc}.scroll_step_ms",
+                        severity="error",
+                        message=(
+                            "`scroll_step_ms` is a section-level field, not a "
+                            "widget field. On a gif/image widget, did you mean "
+                            "`scroll_speed_ms`? "
+                            "`scroll_step_ms` sets the engine's per-tick cursor "
+                            "advance across all widgets in the section; "
+                            "`scroll_speed_ms` sets the text-marquee cadence "
+                            "inside this widget's play() loop."
+                        ),
+                        fix=(
+                            "Move `scroll_step_ms` to the `[[playlist.section]]` "
+                            "block (section level), or rename it to "
+                            "`scroll_speed_ms` to control the text-marquee speed "
+                            "inside this gif/image widget."
+                        ),
+                    )
+                )
+
+        # Rule 34a: scroll_speed_ms at section level.
+        # `scroll_speed_ms` is a per-widget field on gif/image widgets —
+        # it controls the text-marquee cadence inside a single widget's
+        # play() loop. At section level it is silently ignored (the
+        # section loader doesn't know the key). The section-level
+        # equivalent is `scroll_step_ms`. Inspect via _raw so the check
+        # runs on fields the dataclass discards.
+        if "scroll_speed_ms" in section._raw:
+            issues.append(
+                ValidationIssue(
+                    rule=34,
+                    location=f"section[{i}].scroll_speed_ms",
+                    severity="error",
+                    message=(
+                        "`scroll_speed_ms` is a widget-level field (gif/image "
+                        "text-marquee cadence), not a section field. At section "
+                        "level it is silently ignored. Did you mean "
+                        "`scroll_step_ms`? "
+                        "`scroll_step_ms` sets the engine's per-tick cursor "
+                        "advance across all widgets in the section."
+                    ),
+                    fix=(
+                        "Rename `scroll_speed_ms` to `scroll_step_ms` in the "
+                        "`[[playlist.section]]` block, or move it inside the "
+                        "gif/image `[[playlist.section.widget]]` block if you "
+                        "want to control the text-marquee speed on a specific widget."
+                    ),
+                )
+            )
     return issues
 
 

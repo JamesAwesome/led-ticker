@@ -1502,6 +1502,123 @@ async def test_rule31_scroll_step_ms_positive_is_allowed(conf):
     assert all(e.rule != 31 for e in result.errors)
 
 
+async def test_rule34a_scroll_speed_ms_at_section_level_errors(conf):
+    """scroll_speed_ms is a widget-level field. At section level it is
+    silently ignored. The validator catches it and points at scroll_step_ms."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        scroll_speed_ms = 40
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(
+        e.rule == 34 and "scroll_speed_ms" in e.location for e in result.errors
+    ), (
+        f"expected rule 34 error at section.scroll_speed_ms; "
+        f"got {[(e.rule, e.location, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule34b_scroll_step_ms_on_gif_widget_errors(conf):
+    """scroll_step_ms on a gif widget would be passed as an unknown kwarg and
+    crash at startup. The validator catches it and points at scroll_speed_ms."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        text = "marquee"
+        text_align = "scroll_over"
+        scroll_step_ms = 40
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(
+        e.rule == 34 and "scroll_step_ms" in e.location for e in result.errors
+    ), (
+        f"expected rule 34 error at widget.scroll_step_ms; "
+        f"got {[(e.rule, e.location, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule34b_scroll_step_ms_on_image_widget_errors(conf):
+    """Same as gif case but for the image widget type."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "image"
+        path = "x.png"
+        text = "caption"
+        scroll_step_ms = 40
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(
+        e.rule == 34 and "scroll_step_ms" in e.location for e in result.errors
+    ), (
+        f"expected rule 34 error at widget.scroll_step_ms; "
+        f"got {[(e.rule, e.location, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule34_scroll_step_ms_on_message_widget_does_not_fire(conf):
+    """Rule 34b is scoped to gif/image only — those are the widget types that
+    have a scroll_speed_ms to be confused with. A message widget with
+    scroll_step_ms is a different kind of error (unknown kwarg, deferred),
+    not a cross-scope confusion."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        scroll_step_ms = 40
+        """
+    result = await validate_config(conf(cfg))
+    assert all(e.rule != 34 for e in result.errors), (
+        f"rule 34 must not fire for message widgets; "
+        f"got {[(e.rule, e.location) for e in result.errors]}"
+    )
+
+
 async def test_rule33_mode_gif_warns(conf):
     """mode='gif' is the legacy dedicated-gif section mode. The validator
     surfaces a warning so authors know to migrate to mode='swap' + gif

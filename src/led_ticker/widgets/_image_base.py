@@ -122,6 +122,26 @@ class _BaseImageWidget(_FrameAware):
     # continuous-phase providers stay in phase with the main text.
     text_separator_color: Any | None = attrs.field(default=None, kw_only=True)
 
+    # Two-row wrap (v2). Mirrors text_wrap / text_separator /
+    # text_separator_color but applies to the BOTTOM row in two-row
+    # mode (bottom_text set). The top row never wraps. When True,
+    # the bottom row chases itself continuously with the separator
+    # between copies — even when bottom_text fits the canvas.
+    # v1's single-row text_wrap stays single-row-only and is refused
+    # in two-row mode.
+    bottom_text_wrap: bool = attrs.field(default=False, kw_only=True)
+
+    # Glyph(s) between bottom-row repeats in wrap mode. None → " • "
+    # default (matches v1 + forever_scroll). "" → "  " (two-space gap).
+    bottom_text_separator: str | None = attrs.field(default=None, kw_only=True)
+
+    # Color for the bottom separator. None inherits bottom_color
+    # (NOT font_color — separator is a piece of the bottom row).
+    # When set, gets its own per-effect frame counter via
+    # _FrameAware._EFFECT_ATTRS so continuous-phase Rainbow stays
+    # in phase with bottom_color.
+    bottom_text_separator_color: Any | None = attrs.field(default=None, kw_only=True)
+
     # Animation effect (currently Typewriter only). When set, text
     # types out one character per `frames_per_char` ticks. Single-row
     # only — `_validate_common` raises if `bottom_text` is set or
@@ -262,6 +282,12 @@ class _BaseImageWidget(_FrameAware):
             self.text_separator_color, "color_for"
         ):
             self.text_separator_color = _ConstantColor(self.text_separator_color)
+        if self.bottom_text_separator_color is not None and not hasattr(
+            self.bottom_text_separator_color, "color_for"
+        ):
+            self.bottom_text_separator_color = _ConstantColor(
+                self.bottom_text_separator_color
+            )
 
         validate_choice("image_align", image_align, VALID_IMAGE_ALIGNS)
         # Resolve text_align="auto" based on image_align so text doesn't
@@ -350,11 +376,9 @@ class _BaseImageWidget(_FrameAware):
         if self.text_wrap:
             if self.bottom_text:
                 raise ValueError(
-                    "text_wrap=True is not supported in two-row mode "
-                    "(bottom_text set). The bottom row already "
-                    "auto-scrolls on overflow with different semantics. "
-                    "Use single-row image text for wrap, or omit "
-                    "bottom_text."
+                    "text_wrap is single-row only; in two-row mode use "
+                    "bottom_text_wrap (the separator + color knobs use "
+                    "the bottom_text_* prefix too)."
                 )
             # Empty-text check: text_wrap=True with text="" would
             # render an endless chain of separators on the panel —
@@ -403,6 +427,28 @@ class _BaseImageWidget(_FrameAware):
             raise ValueError(
                 "text_separator_color requires text_wrap=True. The "
                 "separator only renders in wrap mode."
+            )
+
+        # bottom_text_wrap validation. Only valid in two-row mode
+        # (bottom_text non-empty). Always-wrap when set — even when
+        # bottom_text fits the canvas. The single ValueError covers
+        # both "two-row required" and "non-empty bottom_text required"
+        # because they fire on the same condition.
+        if self.bottom_text_wrap and not self.bottom_text:
+            raise ValueError(
+                "bottom_text_wrap=True requires non-empty bottom_text. "
+                "For single-row marquees use text_wrap."
+            )
+
+        # Separator fields require bottom_text_wrap.
+        if self.bottom_text_separator is not None and not self.bottom_text_wrap:
+            raise ValueError(
+                f"bottom_text_separator={self.bottom_text_separator!r} "
+                f"requires bottom_text_wrap=True."
+            )
+        if self.bottom_text_separator_color is not None and not self.bottom_text_wrap:
+            raise ValueError(
+                "bottom_text_separator_color requires bottom_text_wrap=True."
             )
 
         # Two-row mode validation. `bottom_text != ""` switches the

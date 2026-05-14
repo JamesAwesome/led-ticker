@@ -316,10 +316,14 @@ class TestImageTwoRowWrapRenders:
         await widget.play(real, frame)
 
         ticks = _split_into_ticks(draws)
-        assert len(ticks) > 0, "Expected at least one tick"
+        assert len(ticks) >= 5, (
+            f"Need at least 5 ticks to verify scroll_pos advancement; "
+            f"got {len(ticks)}"
+        )
 
         # For each of the first 5 ticks, verify ≥2 copies of "Hi"
         # at arithmetic-progression-spaced x positions.
+        leading_xs_per_tick: list[int] = []
         for tick_idx, tick in enumerate(ticks[:5]):
             hi_xs = sorted(x for (x, t) in tick if t == "Hi")
             assert len(hi_xs) >= 2, (
@@ -334,6 +338,20 @@ class TestImageTwoRowWrapRenders:
                     f"xs={hi_xs}, diffs={diffs}"
                 )
             assert median > 0
+            leading_xs_per_tick.append(hi_xs[0])
+
+        # scroll_pos must actually advance across ticks. A regression
+        # that froze scroll_pos=0 would render N spaced copies every
+        # tick — both checks above pass — but the marquee wouldn't
+        # move. Require >=3 distinct leading x positions across the
+        # first 5 ticks (allows for the modular-wrap reset boundary
+        # falling within the sample window).
+        distinct_leading = len(set(leading_xs_per_tick))
+        assert distinct_leading >= 3, (
+            f"scroll_pos must advance across ticks; got only "
+            f"{distinct_leading} distinct leading-copy x positions "
+            f"across 5 ticks: {leading_xs_per_tick}"
+        )
 
     @pytest.mark.asyncio
     async def test_top_row_held_during_bottom_wrap(self, tmp_path, mocker):

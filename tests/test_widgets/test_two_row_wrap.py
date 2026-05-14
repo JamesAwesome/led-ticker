@@ -115,8 +115,15 @@ class TestTwoRowWrapDrawRendersMultipleCopies:
         ), f"Expected >=2 copies of 'Hi'; got {len(hi_xs)} at xs={hi_xs}"
 
     def test_draw_modulates_cursor_pos(self, mocker):
-        """Calls with cursor_pos=0 and cursor_pos=-cycle_width should
-        produce equivalent copy counts (modular wrap)."""
+        """Calling draw() with cursor_pos=0 vs cursor_pos=-cycle_width
+        must produce IDENTICAL x positions for the bottom-row copies.
+        Verifies the modular `cursor_pos % cycle_width` semantics.
+
+        A weaker version of this test only compared copy counts, which
+        was tautological — n_copies depends only on canvas_w and
+        cycle_width, not cursor_pos. A regression that pinned
+        scroll_pos=0 regardless of cursor_pos would pass that check
+        but break wrap. The identity-comparison form catches it."""
         from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
         opts = RGBMatrixOptions()
@@ -151,16 +158,23 @@ class TestTwoRowWrapDrawRendersMultipleCopies:
 
             return _capture
 
+        # First call learns cycle_width (returned as the stride).
         mocker.patch.object(tr_mod, "draw_text", side_effect=make_capturer(draws_a))
-        w.draw(canvas, cursor_pos=0)
-        mocker.patch.object(tr_mod, "draw_text", side_effect=make_capturer(draws_b))
-        w.draw(canvas, cursor_pos=-100)
+        _, cycle_width = w.draw(canvas, cursor_pos=0)
+        assert cycle_width > 0, "Wrap mode must return a positive cycle_width"
 
-        hi_xs_a = [x for (x, t) in draws_a if t == "Hi"]
-        hi_xs_b = [x for (x, t) in draws_b if t == "Hi"]
-        assert len(hi_xs_a) == len(hi_xs_b), (
-            f"Modular wrap should yield consistent copy counts: "
-            f"got {len(hi_xs_a)} vs {len(hi_xs_b)}"
+        # Second call at cursor_pos = -cycle_width. Since
+        # cursor_pos % cycle_width should be 0 again, the x positions
+        # of bottom-text copies must be IDENTICAL to draws_a.
+        mocker.patch.object(tr_mod, "draw_text", side_effect=make_capturer(draws_b))
+        w.draw(canvas, cursor_pos=-cycle_width)
+
+        hi_xs_a = sorted(x for (x, t) in draws_a if t == "Hi")
+        hi_xs_b = sorted(x for (x, t) in draws_b if t == "Hi")
+        assert hi_xs_a == hi_xs_b, (
+            f"Modular wrap at cursor_pos=-{cycle_width} must yield "
+            f"IDENTICAL x positions to cursor_pos=0; got "
+            f"xs_a={hi_xs_a}, xs_b={hi_xs_b}"
         )
 
     def test_draw_top_row_held_during_wrap(self, mocker):

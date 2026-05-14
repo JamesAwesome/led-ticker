@@ -1,7 +1,6 @@
-# render-duration: 12
-# TwoRow scroll_through demo: bottom row scrolls from fully off the
-# right edge to fully off the left in a single pass per visit. Top
-# row stays held.
+# render-duration: 20
+# TwoRow scroll_through demo: bottom row runs THREE offscreen-to-offscreen
+# passes per visit (bottom_text_loops = 3). Top row stays held.
 [display]
 rows = 16
 cols = 32
@@ -27,3 +26,4 @@ bottom_text = "Some Long Song Title - Album Name (2026)"
 bottom_font = "5x8"
 bottom_color = [120, 230, 255]
 bottom_text_scroll = "scroll_through"
+bottom_text_loops = 3

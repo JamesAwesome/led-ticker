@@ -239,25 +239,17 @@ class TwoRowMessage(_FrameAware):
             raise ValueError(
                 f"bottom_text_loops must be >= 0, got {self.bottom_text_loops!r}"
             )
-        if self.bottom_text_loops > 0 and not self.bottom_text_wrap:
-            # Special case for the loops + scroll_through combo: the user
-            # is implicitly being told "add bottom_text_wrap=True", but
-            # scroll_through is mutually exclusive with wrap (see check
-            # below). Surface the real conflict directly so the user
-            # doesn't bounce between two incompatible errors.
-            if self.bottom_text_scroll == "scroll_through":
-                raise ValueError(
-                    f"bottom_text_loops={self.bottom_text_loops} is "
-                    f"incompatible with bottom_text_scroll='scroll_through'. "
-                    f"scroll_through is a single offscreen-to-offscreen "
-                    f"pass — there's no cycle to count. Drop "
-                    f"bottom_text_loops, or switch to the seamless "
-                    f"marquee (bottom_text_wrap=True + drop scroll_through)."
-                )
+        if (
+            self.bottom_text_loops > 0
+            and not self.bottom_text_wrap
+            and self.bottom_text_scroll != "scroll_through"
+        ):
             raise ValueError(
                 f"bottom_text_loops={self.bottom_text_loops} requires "
-                f"bottom_text_wrap=True. Without wrap, the bottom row "
-                f"scrolls once over its overflow — there's no cycle to count."
+                f"either bottom_text_wrap=True (seamless tiled marquee) "
+                f"or bottom_text_scroll='scroll_through' (repeat the "
+                f"offscreen pass N times). Without one of these, the "
+                f"bottom row has no cycle to count."
             )
 
         # bottom_text_scroll enum: validate value + mutex with wrap.
@@ -591,13 +583,21 @@ class TwoRowMessage(_FrameAware):
         # Bottom row: cursor_pos is supplied by the framework. Three
         # branches:
         #   * scroll_through mode forces offscreen-to-offscreen travel.
-        #     The engine drives cursor_pos from 0 downward; we anchor
-        #     bottom_x to `canvas.width + cursor_pos` so the first frame
-        #     paints fully off the right edge.
+        #     The engine drives cursor_pos from 0 downward; bottom_x
+        #     is computed modularly so each loop iteration wraps the
+        #     text back to canvas.width after it exits the left edge.
+        #     `bottom_text_loops` controls how many full passes run
+        #     before the section exits.
         #   * Default (marquee) fit branch holds at bottom_align.
         #   * Default (marquee) overflow branch lets cursor_pos drive.
         if self.bottom_text_scroll == "scroll_through":
-            bottom_x = canvas.width + cursor_pos
+            cycle_width = canvas.width + self._bottom_width
+            # `-cursor_pos % cycle_width` keeps the offset in [0, cycle_width).
+            # cycle_width is >= 1 (canvas.width > 0; _bottom_width >= 0
+            # though scroll_through requires non-empty bottom_text via
+            # validation, so _bottom_width > 0 in practice).
+            elapsed_in_cycle = (-cursor_pos) % cycle_width
+            bottom_x = canvas.width - elapsed_in_cycle
         elif self._bottom_width <= canvas.width and cursor_pos == 0:
             bottom_x = _aligned_x(canvas.width, self._bottom_width, self.bottom_align)
         else:
@@ -619,10 +619,14 @@ class TwoRowMessage(_FrameAware):
         # knows whether to scroll, and where to stop.
         #
         # scroll_through anchors the engine's stop math (-(cursor-width)
-        # + padding) to a stop_pos of -(canvas.width + bottom_width) so
-        # the bottom row lands fully off the left edge before exit.
-        # Inverting that formula: returned_cursor = 2*canvas.width +
-        # bottom_width + padding.
+        # + padding) to a stop_pos of -loops*cycle_width so the bottom
+        # row runs N full offscreen-to-offscreen passes before the
+        # section exits. Inverting that formula:
+        #   returned_cursor = canvas.width + loops*cycle_width + padding
+        # loops=0 → loops=1 (one pass), preserving back-compat for the
+        # default no-loops case.
         if self.bottom_text_scroll == "scroll_through":
-            return canvas, 2 * canvas.width + self._bottom_width + self.padding
+            loops = max(1, self.bottom_text_loops)
+            cycle_width = canvas.width + self._bottom_width
+            return canvas, canvas.width + loops * cycle_width + self.padding
         return canvas, cursor_pos + self._bottom_width + self.padding

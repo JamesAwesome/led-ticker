@@ -92,27 +92,28 @@ class TestBottomTextScrollValidation:
         assert w.bottom_text_scroll == "marquee"
         assert w.bottom_text_wrap is True
 
-    def test_loops_with_scroll_through_gets_direct_error(self):
-        """Combined: bottom_text_loops>0 + bottom_text_scroll=scroll_through
-        must give an error that mentions scroll_through, not bounce the
-        user through 'requires wrap=True' → 'wrap mutex with scroll_through'."""
-        with pytest.raises(ValueError) as exc_info:
-            _two_row(
-                bottom_text_loops=3,
-                bottom_text_scroll="scroll_through",
-            )
-        msg = str(exc_info.value)
-        # Error must mention both fields so user sees the actual conflict
-        # rather than being led to add bottom_text_wrap=True (which would
-        # then fail the scroll_through mutex).
-        assert "bottom_text_loops" in msg, (
-            f"Combined-error message should mention bottom_text_loops; " f"got: {msg!r}"
+    def test_loops_with_scroll_through_now_composes(self):
+        """bottom_text_loops composes with scroll_through to repeat the
+        offscreen pass N times. Previously this combo was rejected;
+        composition is the desired UX (real-world configs want
+        "scroll the bottom 3 times then transition" semantics)."""
+        w = _two_row(
+            bottom_text_loops=3,
+            bottom_text_scroll="scroll_through",
         )
-        assert "scroll_through" in msg, (
-            f"Combined-error message should mention scroll_through "
-            f"(not just bounce user through wrap-requirement chain); "
-            f"got: {msg!r}"
-        )
+        assert w.bottom_text_loops == 3
+        assert w.bottom_text_scroll == "scroll_through"
+        # Forces the engine to drive a multi-pass scroll.
+        assert w.forces_offscreen_scroll is True
+
+    def test_loops_with_marquee_default_still_rejected(self):
+        """The original validation contract still holds: bottom_text_loops
+        without EITHER wrap or scroll_through has no cycle to count."""
+        with pytest.raises(
+            ValueError,
+            match=r"bottom_text_loops.*requires.*(bottom_text_wrap|scroll_through)",
+        ):
+            _two_row(bottom_text_loops=3)  # default scroll=marquee, wrap=False
 
 
 class TestForcesOffscreenScrollProperty:
@@ -232,31 +233,81 @@ class TestScrollThroughDraw:
             f"got {top_x_a} then {top_x_b}"
         )
 
-    def test_returned_cursor_signals_full_offscreen_travel(self, canvas):
+    def test_returned_cursor_anchors_engine_stop_to_one_full_cycle(self, canvas):
         """The widget's returned cursor_pos must let the engine compute
-        a stop position equal to -(canvas.width + bottom_width).
+        a stop position equal to -cycle_width (= -(canvas.width + bottom_width)).
 
         Engine math: stop_pos = -(returned_cursor - canvas.width) + padding.
-        We want stop_pos = -(canvas.width + bottom_width).
-        Solving: returned_cursor = 2*canvas.width + bottom_width + padding.
-
-        Test guards against drift in either the widget formula or the
-        engine formula. Widget reports a cursor_pos that ANCHORS the
-        engine's stop math to the right total travel.
-        """
+        We derive the assertion BEHAVIORALLY (compute engine stop_pos
+        from returned cursor) rather than pinning the literal formula,
+        so a future refactor that rebalances widget-vs-engine math
+        without changing the visible behavior still passes."""
         w = TwoRowMessage(
             top_text="TOP",
             bottom_text="content",
             bottom_text_scroll="scroll_through",
         )
         _, cursor = w.draw(canvas, cursor_pos=0)
-        # bottom_width is cached on first draw — read it now.
         bottom_width = w._bottom_width
-        expected = 2 * canvas.width + bottom_width + w.padding
-        assert cursor == expected, (
-            f"scroll_through must return cursor={expected} so the engine's "
-            f"stop math (-(cursor-width)+padding) lands at "
-            f"-(canvas.width + bottom_width); got {cursor}"
+        cycle_width = canvas.width + bottom_width
+        engine_stop_pos = -(cursor - canvas.width) + w.padding
+        assert engine_stop_pos == -cycle_width, (
+            f"With loops=0 (default), engine stop_pos must be one full "
+            f"cycle_width ({cycle_width}); got {engine_stop_pos} from "
+            f"returned cursor {cursor}."
+        )
+
+    def test_returned_cursor_anchors_n_cycles_when_loops_set(self, canvas):
+        """With bottom_text_loops=N, the engine stop math must land at
+        -N*cycle_width so the bottom row scrolls through N full passes."""
+        w = TwoRowMessage(
+            top_text="TOP",
+            bottom_text="content",
+            bottom_text_scroll="scroll_through",
+            bottom_text_loops=3,
+        )
+        _, cursor = w.draw(canvas, cursor_pos=0)
+        bottom_width = w._bottom_width
+        cycle_width = canvas.width + bottom_width
+        engine_stop_pos = -(cursor - canvas.width) + w.padding
+        assert engine_stop_pos == -3 * cycle_width, (
+            f"With loops=3, engine stop_pos must be 3*cycle_width "
+            f"({3 * cycle_width}); got {engine_stop_pos} from "
+            f"returned cursor {cursor}."
+        )
+
+    def test_draw_wraps_modularly_across_loop_boundaries(self, canvas, monkeypatch):
+        """When loops>=2, cursor_pos at the boundary between two cycles
+        should put the bottom row back at canvas.width (start of new cycle)."""
+        captured = self._capture_draws(monkeypatch)
+        w = TwoRowMessage(
+            top_text="TOP",
+            bottom_text="text",
+            bottom_text_scroll="scroll_through",
+            bottom_text_loops=2,
+        )
+        # First populate _bottom_width by drawing at pos=0.
+        w.draw(canvas, cursor_pos=0)
+        captured.clear()
+
+        cycle_width = canvas.width + w._bottom_width
+        # At pos = -cycle_width, the second cycle begins — bottom_x must
+        # return to canvas.width (modular wrap).
+        w.draw(canvas, cursor_pos=-cycle_width)
+        bottom_x_at_cycle_boundary = captured[1][0]
+        assert bottom_x_at_cycle_boundary == canvas.width, (
+            f"At cursor_pos=-cycle_width ({-cycle_width}), bottom_x must "
+            f"wrap to canvas.width ({canvas.width}); got "
+            f"{bottom_x_at_cycle_boundary}. Modular formula broken."
+        )
+
+        captured.clear()
+        # One tick into cycle 2: pos = -cycle_width - 1
+        # → bottom_x = canvas.width - 1.
+        w.draw(canvas, cursor_pos=-cycle_width - 1)
+        assert captured[1][0] == canvas.width - 1, (
+            f"One tick into cycle 2: bottom_x should be canvas.width - 1 "
+            f"({canvas.width - 1}); got {captured[1][0]}"
         )
 
 

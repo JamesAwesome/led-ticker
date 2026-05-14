@@ -370,21 +370,30 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                             fix="Set bottom_text_loops to 0 or a positive integer.",
                         )
                     )
-                elif isinstance(btl, int) and btl > 0 and not btw:
+                elif (
+                    isinstance(btl, int)
+                    and btl > 0
+                    and not btw
+                    and widget_cfg.get("bottom_text_scroll") != "scroll_through"
+                ):
                     issues.append(
                         ValidationIssue(
                             rule=28,
                             location=loc,
                             severity="error",
                             message=(
-                                f"bottom_text_loops={btl} requires "
-                                f"bottom_text_wrap=true. Without wrap, the "
-                                f"bottom row scrolls once over its "
-                                f"overflow — there's no cycle to count."
+                                f"bottom_text_loops={btl} requires either "
+                                f"bottom_text_wrap=true (seamless tiled "
+                                f"marquee) or "
+                                f"bottom_text_scroll='scroll_through' "
+                                f"(repeat the offscreen pass N times). "
+                                f"Without one of these, the bottom row has "
+                                f"no cycle to count."
                             ),
                             fix=(
-                                "Set bottom_text_wrap = true alongside "
-                                "bottom_text_loops, or drop bottom_text_loops."
+                                "Either set bottom_text_wrap = true, OR set "
+                                "bottom_text_scroll = 'scroll_through', OR "
+                                "drop bottom_text_loops."
                             ),
                         )
                     )

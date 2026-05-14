@@ -130,8 +130,27 @@ class TwoRowMessage(_FrameAware):
     # chase via `pause_frame`.
     border: Any | None = attrs.field(default=None, kw_only=True)
 
+    # Two-row wrap (v2). Applies to the bottom row only — top stays
+    # held. When True, the bottom row chases itself continuously with
+    # a separator between copies, regardless of whether bottom_text
+    # fits the canvas. Engine cooperation: `wraps_forever` property
+    # below tells ticker._swap_and_scroll to skip its cursor_pos-based
+    # stop condition.
+    bottom_text_wrap: bool = attrs.field(default=False, kw_only=True)
+    bottom_text_separator: str | None = attrs.field(default=None, kw_only=True)
+    bottom_text_separator_color: Any | None = attrs.field(default=None, kw_only=True)
+
     _top_width: int = attrs.field(init=False, default=-1)
     _bottom_width: int = attrs.field(init=False, default=-1)
+
+    @property
+    def wraps_forever(self) -> bool:
+        """Engine cooperation signal: when True, ticker.py's
+        _swap_and_scroll skips its cursor_pos-based stop condition
+        and runs the widget's draw loop for hold_time instead.
+        Bottom row in wrap mode is intrinsically continuous —
+        only section duration / loop_count terminates it."""
+        return self.bottom_text_wrap and bool(self.bottom_text)
 
     def __attrs_post_init__(self) -> None:
         # Wrap raw Color → _ConstantColor for uniform provider dispatch in draw().
@@ -163,6 +182,29 @@ class TwoRowMessage(_FrameAware):
             raise ValueError(
                 f"top_row_height must be > 0; got {self.top_row_height!r}. "
                 f"Drop the field or set None to use the default 50/50 split."
+            )
+
+        if self.bottom_text_wrap and not self.bottom_text:
+            raise ValueError("bottom_text_wrap=True requires non-empty bottom_text.")
+        if self.bottom_text_separator is not None and not self.bottom_text_wrap:
+            raise ValueError(
+                f"bottom_text_separator={self.bottom_text_separator!r} "
+                f"requires bottom_text_wrap=True."
+            )
+        if self.bottom_text_separator_color is not None and not self.bottom_text_wrap:
+            raise ValueError(
+                "bottom_text_separator_color requires bottom_text_wrap=True."
+            )
+
+        # Defensive coercion to ColorProvider (mirrors top_color /
+        # bottom_color handling). app.py's _coerce_widget_colors path
+        # normally does this at config-load; this covers direct
+        # construction in tests.
+        if self.bottom_text_separator_color is not None and not hasattr(
+            self.bottom_text_separator_color, "color_for"
+        ):
+            self.bottom_text_separator_color = _ConstantColor(
+                self.bottom_text_separator_color
             )
 
     def _font_for_row(self, row_index: int) -> Font:

@@ -1110,7 +1110,7 @@ async def test_rule24_separator_font_missing_emits_warning(conf):
     )
 
 
-async def test_rule27_bottom_text_loops_without_wrap_errors(conf):
+async def test_rule28_bottom_text_loops_without_wrap_errors(conf):
     """bottom_text_loops > 0 requires bottom_text_wrap=True."""
     cfg = """\
         [display]
@@ -1131,13 +1131,13 @@ async def test_rule27_bottom_text_loops_without_wrap_errors(conf):
         """
     result = await validate_config(conf(cfg))
     assert not result.valid
-    assert any(e.rule == 27 and "wrap" in e.message.lower() for e in result.errors), (
-        f"expected rule 27 error about wrap; "
+    assert any(e.rule == 28 and "wrap" in e.message.lower() for e in result.errors), (
+        f"expected rule 28 error about wrap; "
         f"got {[(e.rule, e.message) for e in result.errors]}"
     )
 
 
-async def test_rule27_bottom_text_loops_negative_errors(conf):
+async def test_rule28_bottom_text_loops_negative_errors(conf):
     """bottom_text_loops < 0 is always an error."""
     cfg = """\
         [display]
@@ -1158,13 +1158,13 @@ async def test_rule27_bottom_text_loops_negative_errors(conf):
         """
     result = await validate_config(conf(cfg))
     assert not result.valid
-    assert any(e.rule == 27 and ">=" in e.message for e in result.errors), (
-        f"expected rule 27 error about >= 0; "
+    assert any(e.rule == 28 and ">=" in e.message for e in result.errors), (
+        f"expected rule 28 error about >= 0; "
         f"got {[(e.rule, e.message) for e in result.errors]}"
     )
 
 
-async def test_rule27_bottom_text_loops_with_wrap_is_allowed(conf):
+async def test_rule28_bottom_text_loops_with_wrap_is_allowed(conf):
     """bottom_text_loops > 0 with bottom_text_wrap=True is allowed."""
     cfg = """\
         [display]
@@ -1185,13 +1185,13 @@ async def test_rule27_bottom_text_loops_with_wrap_is_allowed(conf):
         bottom_text_loops = 4
         """
     result = await validate_config(conf(cfg))
-    rule_27_errors = [e for e in result.errors if e.rule == 27]
+    rule_28_errors = [e for e in result.errors if e.rule == 28]
     assert (
-        not rule_27_errors
-    ), f"expected no rule 27 error with wrap enabled; got {rule_27_errors}"
+        not rule_28_errors
+    ), f"expected no rule 28 error with wrap enabled; got {rule_28_errors}"
 
 
-async def test_rule27_bottom_text_loops_zero_is_allowed(conf):
+async def test_rule28_bottom_text_loops_zero_is_allowed(conf):
     """bottom_text_loops = 0 (default) is always allowed."""
     cfg = GOOD_CONFIG + textwrap.dedent("""\
 

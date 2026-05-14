@@ -279,17 +279,19 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                         )
                     )
 
-            # Rule 27: bottom_text_loops on two_row requires wrap mode
+            # Rule 28: bottom_text_loops on two_row requires wrap mode
             # (no concept of cycle without wrap separator). Mirrors the
             # post-init validation in TwoRowMessage so the error
             # surfaces at config-load time, not at runtime.
+            # (Rule 27 is taken: it covers bottom_text_wrap mode constraints
+            # from PR #59 — a related but distinct concern.)
             if wtype == "two_row":
                 btl = widget_cfg.get("bottom_text_loops", 0)
                 btw = widget_cfg.get("bottom_text_wrap", False)
                 if isinstance(btl, int) and btl < 0:
                     issues.append(
                         ValidationIssue(
-                            rule=27,
+                            rule=28,
                             location=loc,
                             severity="error",
                             message=(f"bottom_text_loops must be >= 0; got {btl}"),
@@ -301,7 +303,7 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                 elif isinstance(btl, int) and btl > 0 and not btw:
                     issues.append(
                         ValidationIssue(
-                            rule=27,
+                            rule=28,
                             location=loc,
                             severity="error",
                             message=(

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. **Every subagent prompt MUST instruct the subagent to run `git branch --show-current` as its first action and abort if the result is `main`.**
 
-**Goal:** Add `bottom_text_loops: int = 0` to `TwoRowMessage` and make the engine honor it in the `wraps_forever` branch, so `bottom_text_wrap = true` widgets can declare a minimum number of full cycles before the section transitions. Validation rule 27 rejects negative values and rejects `bottom_text_loops > 0` without `bottom_text_wrap = true`.
+**Goal:** Add `bottom_text_loops: int = 0` to `TwoRowMessage` and make the engine honor it in the `wraps_forever` branch, so `bottom_text_wrap = true` widgets can declare a minimum number of full cycles before the section transitions. Validation rule 28 rejects negative values and rejects `bottom_text_loops > 0` without `bottom_text_wrap = true`.
 
-**Architecture:** One new attrs field on `TwoRowMessage`. Engine's wrap-forever branch in `ticker.py` extends `n_ticks` on the first iteration using the cycle width that `draw()` already returns. New validate rule 27. Spec calls out the corollary validator unknown-kwarg gap as a related-but-separate follow-up.
+**Architecture:** One new attrs field on `TwoRowMessage`. Engine's wrap-forever branch in `ticker.py` extends `n_ticks` on the first iteration using the cycle width that `draw()` already returns. New validate rule 28. Spec calls out the corollary validator unknown-kwarg gap as a related-but-separate follow-up.
 
 **Tech Stack:** Python 3.13, pytest, attrs, `tomllib`. Docs in Astro Starlight MDX.
 
@@ -99,7 +99,7 @@ In `src/led_ticker/widgets/two_row.py`, after the existing `bottom_text_separato
     # engine runs at least `bottom_text_loops × cycle_width` ticks
     # (one cycle = bottom_text + separator). Mirrors `text_loops` on
     # `_BaseImageWidget` two-row mode. Only meaningful when
-    # `bottom_text_wrap = True`; rule 27 rejects otherwise.
+    # `bottom_text_wrap = True`; rule 28 rejects otherwise.
     bottom_text_loops: int = attrs.field(default=0, kw_only=True)
 ```
 
@@ -332,11 +332,11 @@ today's behavior exactly."
 
 ---
 
-### Task 3: Validator rule 27
+### Task 3: Validator rule 28
 
 **Files:**
-- Modify: `src/led_ticker/validate.py` — add rule 27 to `_check_static`
-- Test: `tests/test_validate.py` — 4 new rule-27 tests
+- Modify: `src/led_ticker/validate.py` — add rule 28 to `_check_static`
+- Test: `tests/test_validate.py` — 4 new rule-28 tests
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -363,8 +363,8 @@ async def test_rule27_bottom_text_loops_without_wrap_errors(conf):
         """
     result = await validate_config(conf(cfg))
     assert not result.valid
-    assert any(e.rule == 27 for e in result.errors), (
-        f"expected rule 27 error; got {[(e.rule, e.message) for e in result.errors]}"
+    assert any(e.rule == 28 for e in result.errors), (
+        f"expected rule 28 error; got {[(e.rule, e.message) for e in result.errors]}"
     )
 
 
@@ -389,7 +389,7 @@ async def test_rule27_bottom_text_loops_negative_errors(conf):
         """
     result = await validate_config(conf(cfg))
     assert not result.valid
-    assert any(e.rule == 27 for e in result.errors)
+    assert any(e.rule == 28 for e in result.errors)
 
 
 async def test_rule27_bottom_text_loops_with_wrap_is_allowed(conf):
@@ -448,14 +448,14 @@ Run: `uv run pytest tests/test_validate.py -k "rule27" -v`
 
 Expected: at least 2 FAIL (negative + without-wrap), 2 pass vacuously.
 
-Note: the without-wrap and negative tests may ALSO trigger Task 1's `__attrs_post_init__` errors if `_build_widget` constructs the widget during validation. Check whether the validator path catches them via the existing build-error machinery. If `_build_widget(validate_only=True)` short-circuits before construction (which it does — see `app.py:666`), the validator will NOT see post-init errors. Rule 27 in `_check_static` is what surfaces them at validate time.
+Note: the without-wrap and negative tests may ALSO trigger Task 1's `__attrs_post_init__` errors if `_build_widget` constructs the widget during validation. Check whether the validator path catches them via the existing build-error machinery. If `_build_widget(validate_only=True)` short-circuits before construction (which it does — see `app.py:666`), the validator will NOT see post-init errors. Rule 28 in `_check_static` is what surfaces them at validate time.
 
-- [ ] **Step 3: Add rule 27 to `_check_static`**
+- [ ] **Step 3: Add rule 28 to `_check_static`**
 
 In `src/led_ticker/validate.py`, find `_check_static` (around line 110). In the inner widget loop (`for j, widget_cfg in enumerate(...)`), after the existing widget-type-specific blocks, append a `two_row` block:
 
 ```python
-            # Rule 27: bottom_text_loops on two_row requires wrap mode
+            # Rule 28: bottom_text_loops on two_row requires wrap mode
             # (no concept of cycle without wrap separator). Mirrors the
             # post-init validation in TwoRowMessage so the error
             # surfaces at config-load time, not at runtime.
@@ -465,7 +465,7 @@ In `src/led_ticker/validate.py`, find `_check_static` (around line 110). In the 
                 if isinstance(btl, int) and btl < 0:
                     issues.append(
                         ValidationIssue(
-                            rule=27,
+                            rule=28,
                             location=loc,
                             severity="error",
                             message=(
@@ -480,7 +480,7 @@ In `src/led_ticker/validate.py`, find `_check_static` (around line 110). In the 
                 elif isinstance(btl, int) and btl > 0 and not btw:
                     issues.append(
                         ValidationIssue(
-                            rule=27,
+                            rule=28,
                             location=loc,
                             severity="error",
                             message=(
@@ -509,7 +509,7 @@ Run: `uv run pytest tests/test_validate.py -v` for regressions.
 
 ```bash
 git add src/led_ticker/validate.py tests/test_validate.py
-git commit -m "validate: rule 27 — bottom_text_loops requires bottom_text_wrap
+git commit -m "validate: rule 28 — bottom_text_loops requires bottom_text_wrap
 
 Surfaces the TwoRowMessage __attrs_post_init__ check at validate time
 so users see the error before deploy. Two conditions:
@@ -523,8 +523,8 @@ so users see the error before deploy. Two conditions:
 
 **Files:**
 - Modify: `docs/site/src/content/docs/widgets/two_row.mdx` — add `bottom_text_loops` field
-- Modify: `docs/site/src/content/docs/pitfalls.mdx` — rule 27 entry
-- Modify: `docs/site/src/content/docs/tools/validate.mdx` — rule 27 row
+- Modify: `docs/site/src/content/docs/pitfalls.mdx` — rule 28 entry
+- Modify: `docs/site/src/content/docs/tools/validate.mdx` — rule 28 row
 
 NOTE: this feature adds a WIDGET field, not a section field. The drift-test `test_docs_config_options_drift.py` covers section fields only (per the previous PR work). Don't touch it for this PR.
 
@@ -537,7 +537,7 @@ Open `docs/site/src/content/docs/widgets/two_row.mdx`. Find the section that doc
 
 Minimum number of full wrap cycles the bottom row must complete before the section can transition. One cycle = `bottom_text` + `bottom_text_separator`. Default `0` means "no minimum" — the section's `hold_time` alone controls duration.
 
-- Requires `bottom_text_wrap = true`. Setting `bottom_text_loops > 0` without wrap is a validation error (rule 27); the bottom row in non-wrap mode scrolls once over its overflow and has no cycle.
+- Requires `bottom_text_wrap = true`. Setting `bottom_text_loops > 0` without wrap is a validation error (rule 28); the bottom row in non-wrap mode scrolls once over its overflow and has no cycle.
 - When both `hold_time` and `bottom_text_loops` are set, the engine uses the LONGER of the two ("max" semantics): if `hold_time / scroll_speed_ms` exceeds `bottom_text_loops × cycle_ticks`, hold_time wins.
 - Mirrors `text_loops` on `gif` / `image` widgets in two-row mode.
 ```
@@ -549,7 +549,7 @@ Place this near the existing `bottom_text_wrap` / `bottom_text_separator` docume
 After the rule 26 entry (last one added in PR #55), append:
 
 ```markdown
-### Rule 27 — `bottom_text_loops` requires `bottom_text_wrap`
+### Rule 28 — `bottom_text_loops` requires `bottom_text_wrap`
 
 `bottom_text_loops` on a `two_row` widget controls how many full wrap cycles the bottom row must play before the section ends. A cycle is `bottom_text` + the separator — both only exist when `bottom_text_wrap = true`. In non-wrap mode the bottom row scrolls once over its overflow and there's no cycle to count, so the validator rejects `bottom_text_loops > 0` without wrap. Negative values are also rejected. Either turn on wrap mode, or drop `bottom_text_loops`.
 ```
@@ -577,7 +577,7 @@ Both PASS.
 git add docs/site/src/content/docs/widgets/two_row.mdx \
         docs/site/src/content/docs/pitfalls.mdx \
         docs/site/src/content/docs/tools/validate.mdx
-git commit -m "docs: bottom_text_loops on two_row + rule 27"
+git commit -m "docs: bottom_text_loops on two_row + rule 28"
 ```
 
 ---
@@ -604,14 +604,14 @@ make docs-lint
 
 All PASS.
 
-- [ ] **Step 3: Sweep example configs for rule-27 false positives**
+- [ ] **Step 3: Sweep example configs for rule-28 false positives**
 
 ```bash
 find config docs/site -name "*.toml" -not -path "*/node_modules/*" | while read -r f; do
   out=$(uv run led-ticker validate "$f" --json 2>/dev/null)
-  r27=$(echo "$out" | python -c "import json,sys; d=json.load(sys.stdin); print(len([e for e in d.get('errors',[]) if e.get('rule')==27]))" 2>/dev/null || echo 0)
-  if [ "$r27" -gt 0 ]; then
-    echo "FLAG: $f → $r27 rule-27 error(s)"
+  r28=$(echo "$out" | python -c "import json,sys; d=json.load(sys.stdin); print(len([e for e in d.get('errors',[]) if e.get('rule')==27]))" 2>/dev/null || echo 0)
+  if [ "$r28" -gt 0 ]; then
+    echo "FLAG: $f → $r28 rule-28 error(s)"
   fi
 done
 echo "sweep done"
@@ -651,15 +651,15 @@ bottom_font = "Inter-Regular"
 bottom_font_size = 24
 ```
 
-Run: `uv run led-ticker validate /tmp/bottom_text_loops_smoke.toml`. Expected: clean (no rule-27 errors).
+Run: `uv run led-ticker validate /tmp/bottom_text_loops_smoke.toml`. Expected: clean (no rule-28 errors).
 
-Same config but with `bottom_text_wrap` removed: expected to fail with rule 27.
+Same config but with `bottom_text_wrap` removed: expected to fail with rule 28.
 
 - [ ] **Step 5: Push + PR**
 
 ```bash
 git push -u origin worktree-bottom-text-loops
-gh pr create --title "two_row: bottom_text_loops for minimum wrap cycles (rule 27)" --body "..."
+gh pr create --title "two_row: bottom_text_loops for minimum wrap cycles (rule 28)" --body "..."
 ```
 
 PR body should reference both spec and plan, list the 4 task commits, and note the related-but-deferred validator unknown-kwarg gap.
@@ -668,7 +668,7 @@ PR body should reference both spec and plan, list the 4 task commits, and note t
 
 ## Self-review
 
-- **Spec coverage:** every requirement maps to a task. Field + post-init → Task 1. Engine cooperation → Task 2. Rule 27 → Task 3. Docs → Task 4.
+- **Spec coverage:** every requirement maps to a task. Field + post-init → Task 1. Engine cooperation → Task 2. Rule 28 → Task 3. Docs → Task 4.
 - **No placeholders:** all code blocks pasteable. Test bodies complete with assertions.
 - **Type consistency:** `bottom_text_loops: int = 0` everywhere. Engine reads via `getattr(ticker_obj, "bottom_text_loops", 0)` so Mock widgets without the attribute default to 0 (no spurious extension).
 - **Subagent contract:** every subagent prompt explicitly tells the subagent to run `git branch --show-current` first and abort if `main`. Cwd should always be the worktree (`.claude/worktrees/bottom-text-loops/`).
@@ -677,4 +677,4 @@ PR body should reference both spec and plan, list the 4 task commits, and note t
 
 - **No new property/method on TwoRowMessage.** The widget's draw() already returns `(canvas, cycle_width)` in wrap mode. The engine captures that return value on first iteration. One-line API surface change to the engine's existing return-value-discard pattern.
 - **First-iteration capture, not pre-draw.** Pre-drawing once to measure cycle width and then drawing again would either render a wasted frame (visible flicker) or require complex caching. First-iteration capture extends `n_ticks` after the first draw is already on-screen — cleanest semantics.
-- **Validation in BOTH __attrs_post_init__ AND rule 27.** Defense in depth: validator catches at config-time (clean error message, before runtime); post-init catches direct programmatic widget construction (test paths, etc).
+- **Validation in BOTH __attrs_post_init__ AND rule 28.** Defense in depth: validator catches at config-time (clean error message, before runtime); post-init catches direct programmatic widget construction (test paths, etc).

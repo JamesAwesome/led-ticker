@@ -85,7 +85,7 @@ The wrap branch's `cycle_width = self._bottom_width + sep_width` is in LOGICAL p
 
 ---
 
-## Validation (rule 27)
+## Validation (rule 28)
 
 Two checks, mirroring the shape of rule 25 / 26:
 
@@ -112,7 +112,7 @@ Both checks live in `_check_static` at the widget level. The widget's own `__att
    - Extend the `wraps_forever` branch in `_swap_and_scroll` to incorporate `bottom_text_loops`
 
 3. **`src/led_ticker/validate.py`**:
-   - Rule 27: section-level / widget-level check for the same two conditions enforced in `__attrs_post_init__`
+   - Rule 28: section-level / widget-level check for the same two conditions enforced in `__attrs_post_init__`
 
 4. **`tests/test_widgets/test_two_row_wrap.py`** — widget-level tests:
    - `bottom_text_loops = 0` preserves today's behavior (default)
@@ -125,7 +125,7 @@ Both checks live in `_check_static` at the widget level. The widget's own `__att
    - When `bottom_text_loops = 0`, engine ticks unchanged from today's behavior
    - When `hold_time` would produce more ticks than `bottom_text_loops × bottom_loop_ticks`, the longer duration wins
 
-6. **`tests/test_validate.py`** — rule 27 tests:
+6. **`tests/test_validate.py`** — rule 28 tests:
    - `bottom_text_loops > 0` with wrap=off → error
    - `bottom_text_loops < 0` → error
    - `bottom_text_loops > 0` with wrap=on → clean
@@ -135,8 +135,8 @@ Both checks live in `_check_static` at the widget level. The widget's own `__att
 
 8. **Docs**:
    - `docs/site/.../widgets/two_row.mdx` — add `bottom_text_loops` to the field table, explain the wrap-only constraint, link to the image widget's `text_loops` for cross-reference
-   - `docs/site/.../pitfalls.mdx` — Rule 27 entry under Errors
-   - `docs/site/.../tools/validate.mdx` — Rule 27 row in reference table
+   - `docs/site/.../pitfalls.mdx` — Rule 28 entry under Errors
+   - `docs/site/.../tools/validate.mdx` — Rule 28 row in reference table
 
 ---
 
@@ -144,7 +144,7 @@ Both checks live in `_check_static` at the widget level. The widget's own `__att
 
 Beyond the per-file test list above:
 
-- **Regression sweep:** validate every existing example config in `config/` and `docs/site/demos-*/`. None set `bottom_text_loops` today, so zero rule-27 hits expected.
+- **Regression sweep:** validate every existing example config in `config/` and `docs/site/demos-*/`. None set `bottom_text_loops` today, so zero rule-28 hits expected.
 - **Smoke test on the moonbunny scenario:**
   ```toml
   [[playlist.section.widget]]
@@ -160,7 +160,7 @@ Beyond the per-file test list above:
 ## Out of scope
 
 - **`text_loops` on TwoRowMessage as alias for `bottom_text_loops`.** Decided against in the brainstorming phase — would complicate the bottom_* convention. The validator gap fix (separate work, see below) makes the typo case surface clearly.
-- **`bottom_text_loops` for non-wrap mode.** Would need new engine logic to repeat the natural-overflow scroll. Not requested and adds surface area; rejected via rule 27.
+- **`bottom_text_loops` for non-wrap mode.** Would need new engine logic to repeat the natural-overflow scroll. Not requested and adds surface area; rejected via rule 28.
 - **`top_text_loops`.** The top row is held; loops don't apply.
 - **Renaming `text_loops` on `_BaseImageWidget` to `bottom_text_loops` in two-row mode.** Would create alias surface there too. Skip — image widgets are different shape (single-row that optionally becomes two-row).
 

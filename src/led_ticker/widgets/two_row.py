@@ -618,13 +618,14 @@ class TwoRowMessage(_FrameAware):
         # Report cursor at the bottom-row's right edge so `_swap_and_scroll`
         # knows whether to scroll, and where to stop.
         #
-        # scroll_through anchors the engine's stop math (-(cursor-width)
-        # + padding) to a stop_pos of -loops*cycle_width so the bottom
-        # row runs N full offscreen-to-offscreen passes before the
-        # section exits. Inverting that formula:
-        #   returned_cursor = canvas.width + loops*cycle_width + padding
-        # loops=0 → loops=1 (one pass), preserving back-compat for the
-        # default no-loops case.
+        # scroll_through: the engine's dedicated loop (forces_offscreen_scroll
+        # branch in _swap_and_scroll) overrides cursor_pos with its own
+        # max-of computation — n_passes = max(loops_or_1,
+        # ceil(hold_time_ticks / cycle_width)) — so the returned cursor
+        # here is used only to signal "overflow" (cursor > canvas.width)
+        # and is not used as the scroll stop-position on this path.
+        # The value returned still encodes loops*cycle_width to keep the
+        # old stop-math path consistent for any caller that reads it directly.
         if self.bottom_text_scroll == "scroll_through":
             loops = max(1, self.bottom_text_loops)
             cycle_width = canvas.width + self._bottom_width

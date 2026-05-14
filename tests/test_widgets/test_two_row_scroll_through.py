@@ -423,6 +423,266 @@ class TestScrollThroughEngineIntegration:
         )
 
 
+class TestScrollThroughHoldTimeUnification:
+    """Engine integration: scroll_through must honor hold_time as a floor
+    alongside bottom_text_loops, using max-of semantics:
+
+        n_passes = max(bottom_text_loops or 1,
+                       ceil(hold_time_ticks / cycle_width))
+
+    where hold_time_ticks = int(hold_time / scroll_speed)
+    and   cycle_width     = canvas.width + bottom_width.
+
+    These are real-widget tests driven through _swap_and_scroll.
+    """
+
+    @pytest.mark.asyncio
+    async def test_scroll_through_hold_time_alone_drives_passes(
+        self, swapping_frame, monkeypatch
+    ):
+        """hold_time=2.0, bottom_text_loops=0 → at least 2 full passes.
+
+        scroll_speed=0.05 → hold_time_ticks = int(2.0 / 0.05) = 40.
+        canvas.width=160, bottom text is short so cycle_width ~ 200.
+        ceil(40/200) = 1, but n_passes must be ≥ 2 because hold_time
+        exceeds one cycle by wall-clock even at the minimum loops=1
+        floor.  Actually at scroll_speed=0.01, ticks = 200,
+        cycle_width ≈ 200, ceil(200/200)=1 still.  Use a very long
+        text + small scroll_speed so hold_time_ticks >> cycle_width.
+
+        Strategy: bottom_text has width ~160 → cycle_width=320.
+        scroll_speed=0.001 → hold_time_ticks = int(2.0/0.001)=2000.
+        ceil(2000/320) = 7 → n_passes >= 7.
+        Verify final_pos <= -(7 * cycle_width).
+        """
+        import math
+
+        from led_ticker.ticker import _swap_and_scroll
+
+        async def _no_sleep(_):
+            return None
+
+        monkeypatch.setattr("asyncio.sleep", _no_sleep)
+
+        # Use a long bottom_text so bottom_width ≈ 160 and cycle_width ≈ 320.
+        widget = TwoRowMessage(
+            top_text="TOP",
+            bottom_text="A B C D E F G H I J K L M N O P Q R",
+            bottom_text_scroll="scroll_through",
+            bottom_text_loops=0,
+        )
+        canvas = swapping_frame.get_clean_canvas.return_value
+        scroll_speed = 0.001
+        hold_time = 2.0
+
+        _, _, final_pos = await _swap_and_scroll(
+            canvas,
+            swapping_frame,
+            widget,
+            scroll_speed=scroll_speed,
+            hold_time=hold_time,
+        )
+
+        bottom_width = widget._bottom_width
+        cycle_width = canvas.width + bottom_width
+        hold_time_ticks = int(hold_time / scroll_speed)
+        n_passes = max(
+            1, math.ceil(hold_time_ticks / cycle_width) if cycle_width > 0 else 1
+        )
+        expected_final = -(n_passes * cycle_width)
+        assert final_pos <= expected_final, (
+            f"hold_time alone must drive passes: expected final_pos <= "
+            f"{expected_final} ({n_passes} passes × {cycle_width}px); "
+            f"got {final_pos}. bottom_width={bottom_width}"
+        )
+        # Sanity: must be > 1 pass to verify hold_time actually had effect.
+        assert n_passes >= 2, (
+            f"Test setup: expected ≥2 passes from hold_time; only got "
+            f"{n_passes} (cycle_width={cycle_width}, hold_ticks={hold_time_ticks}). "
+            f"Adjust text length or scroll_speed."
+        )
+
+    @pytest.mark.asyncio
+    async def test_scroll_through_loops_wins_over_short_hold_time(
+        self, swapping_frame, monkeypatch
+    ):
+        """bottom_text_loops=3, hold_time=0.05 → exactly 3 passes.
+
+        hold_time is so short that hold_time_ticks < cycle_width,
+        so ceil(ticks/cycle_width) = 1 < loops_floor=3.
+        max picks loops_floor=3.
+        """
+
+        from led_ticker.ticker import _swap_and_scroll
+
+        async def _no_sleep(_):
+            return None
+
+        monkeypatch.setattr("asyncio.sleep", _no_sleep)
+
+        widget = TwoRowMessage(
+            top_text="TOP",
+            bottom_text="some scrolling content",
+            bottom_text_scroll="scroll_through",
+            bottom_text_loops=3,
+        )
+        canvas = swapping_frame.get_clean_canvas.return_value
+        scroll_speed = 0.05
+        hold_time = 0.05  # tiny — only 1 tick worth
+
+        _, _, final_pos = await _swap_and_scroll(
+            canvas,
+            swapping_frame,
+            widget,
+            scroll_speed=scroll_speed,
+            hold_time=hold_time,
+        )
+
+        bottom_width = widget._bottom_width
+        cycle_width = canvas.width + bottom_width
+        # Verify loops=3 was the controlling factor.
+        # final_pos must be exactly in range [-(3*cycle_width), -(2*cycle_width))
+        expected_exact = -(3 * cycle_width)
+        assert final_pos == expected_exact, (
+            f"loops=3 should control: expected final_pos={expected_exact}; "
+            f"got {final_pos}. bottom_width={bottom_width}, cycle_width={cycle_width}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_scroll_through_hold_time_wins_over_one_loop(
+        self, swapping_frame, monkeypatch
+    ):
+        """hold_time=5.0, bottom_text_loops=1 → multiple passes driven by hold_time.
+
+        With scroll_speed=0.001, hold_time_ticks=5000.
+        cycle_width ≈ 320 (wide text). ceil(5000/320)=16 > loops_floor=1.
+        n_passes=16, final_pos <= -(16 * cycle_width).
+        """
+        import math
+
+        from led_ticker.ticker import _swap_and_scroll
+
+        async def _no_sleep(_):
+            return None
+
+        monkeypatch.setattr("asyncio.sleep", _no_sleep)
+
+        widget = TwoRowMessage(
+            top_text="TOP",
+            bottom_text="A B C D E F G H I J K L M N O P Q R",
+            bottom_text_scroll="scroll_through",
+            bottom_text_loops=1,
+        )
+        canvas = swapping_frame.get_clean_canvas.return_value
+        scroll_speed = 0.001
+        hold_time = 5.0
+
+        _, _, final_pos = await _swap_and_scroll(
+            canvas,
+            swapping_frame,
+            widget,
+            scroll_speed=scroll_speed,
+            hold_time=hold_time,
+        )
+
+        bottom_width = widget._bottom_width
+        cycle_width = canvas.width + bottom_width
+        hold_time_ticks = int(hold_time / scroll_speed)
+        n_passes = max(
+            1, math.ceil(hold_time_ticks / cycle_width) if cycle_width > 0 else 1
+        )
+
+        # Must be more than 1 pass (hold_time wins).
+        assert n_passes > 1, (
+            f"Test setup: expected >1 passes from hold_time; got {n_passes}. "
+            f"Adjust text or scroll_speed."
+        )
+        expected_final = -(n_passes * cycle_width)
+        assert final_pos <= expected_final, (
+            f"hold_time should win over 1 loop: expected final_pos <= "
+            f"{expected_final} ({n_passes} passes); got {final_pos}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_scroll_through_both_zero_one_pass(self, swapping_frame, monkeypatch):
+        """Regression: hold_time=0.0, bottom_text_loops=0 → exactly 1 pass.
+
+        Both unset → baseline 1 pass. Back-compat.
+        """
+        from led_ticker.ticker import _swap_and_scroll
+
+        async def _no_sleep(_):
+            return None
+
+        monkeypatch.setattr("asyncio.sleep", _no_sleep)
+
+        widget = TwoRowMessage(
+            top_text="TOP",
+            bottom_text="some content",
+            bottom_text_scroll="scroll_through",
+            bottom_text_loops=0,
+        )
+        canvas = swapping_frame.get_clean_canvas.return_value
+
+        _, _, final_pos = await _swap_and_scroll(
+            canvas,
+            swapping_frame,
+            widget,
+            scroll_speed=0.05,
+            hold_time=0.0,
+        )
+
+        bottom_width = widget._bottom_width
+        cycle_width = canvas.width + bottom_width
+        expected_final = -(1 * cycle_width)
+        assert final_pos == expected_final, (
+            f"hold_time=0 + loops=0 must yield exactly 1 pass: "
+            f"expected {expected_final}, got {final_pos}. "
+            f"bottom_width={bottom_width}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_scroll_through_loops_only_unchanged(
+        self, swapping_frame, monkeypatch
+    ):
+        """Regression: bottom_text_loops=3, hold_time=0 → exactly 3 passes.
+
+        Existing TwoRow behavior preserved — loops alone controls passes
+        when hold_time is 0.
+        """
+        from led_ticker.ticker import _swap_and_scroll
+
+        async def _no_sleep(_):
+            return None
+
+        monkeypatch.setattr("asyncio.sleep", _no_sleep)
+
+        widget = TwoRowMessage(
+            top_text="TOP",
+            bottom_text="some scrolling content",
+            bottom_text_scroll="scroll_through",
+            bottom_text_loops=3,
+        )
+        canvas = swapping_frame.get_clean_canvas.return_value
+
+        _, _, final_pos = await _swap_and_scroll(
+            canvas,
+            swapping_frame,
+            widget,
+            scroll_speed=0.05,
+            hold_time=0.0,
+        )
+
+        bottom_width = widget._bottom_width
+        cycle_width = canvas.width + bottom_width
+        expected_final = -(3 * cycle_width)
+        assert final_pos == expected_final, (
+            f"loops=3 + hold_time=0 must yield exactly 3 passes: "
+            f"expected {expected_final}, got {final_pos}. "
+            f"bottom_width={bottom_width}"
+        )
+
+
 class TestScrollThroughRealWidgetEngineIntegration:
     """End-to-end: a real TwoRowMessage driven through _swap_and_scroll.
 

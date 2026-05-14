@@ -7,6 +7,7 @@ import functools
 import inspect
 import itertools
 import logging
+import math
 from typing import Any
 
 import attrs
@@ -1024,18 +1025,42 @@ async def _swap_and_scroll(
     if not skip_initial_draw:
         canvas = _swap(canvas, frame)
 
-    tick_seconds = ENGINE_TICK_MS / 1000
-
-    # scroll_through-style widgets ride the standard scroll branch but
-    # MUST skip both pre- and post-scroll holds — at pos=0 their text
-    # sits fully off the right edge (blank canvas during a pre-hold),
-    # and at the final pos it's fully off the left edge (blank canvas
-    # during a post-hold). Forcing `continuous=True` from the widget
-    # side suppresses both hold loops without otherwise altering the
-    # scroll math. Widget guarantees `cursor_pos > canvas.width` so
-    # the held-text branch never fires.
+    # scroll_through-style widgets: dedicated loop with max-of math for
+    # hold_time + bottom_text_loops (mirrors image widget's marquee
+    # auto-floor in _image_base._play_with_text).
+    #
+    # At pos=0 the bottom text sits fully off the right edge (blank
+    # canvas), and at the final pos it's fully off the left edge —
+    # neither endpoint is worth holding, so pre/post holds are skipped.
+    #
+    # n_passes = max(loops_or_1, ceil(hold_time_ticks / cycle_width))
+    # where cycle_width = canvas.width + bottom_width.
+    # This gives the same "hold_time as floor" semantics that image
+    # widgets already implement, removing the cross-widget asymmetry
+    # introduced in PR #63.
     if getattr(ticker_obj, "forces_offscreen_scroll", False) is True:
-        continuous = True
+        # First draw already happened above; _bottom_width is now set.
+        bottom_width = getattr(ticker_obj, "_bottom_width", 0)
+        cycle_width = canvas.width + bottom_width
+        hold_time_ticks = int(hold_time / scroll_speed) if scroll_speed > 0 else 0
+        loops_floor = getattr(ticker_obj, "bottom_text_loops", 0)
+        if isinstance(loops_floor, bool) or not isinstance(loops_floor, int):
+            loops_floor = 0
+        loops_floor = loops_floor or 1  # minimum 1 pass
+        n_passes = (
+            max(loops_floor, math.ceil(hold_time_ticks / cycle_width))
+            if cycle_width > 0
+            else loops_floor
+        )
+        stop = -(n_passes * cycle_width)
+        while pos > stop:
+            pos -= 1
+            _advance_frame_if_supported(ticker_obj)
+            reset_canvas(canvas, bg_color)
+            canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
+            canvas = _swap(canvas, frame)
+            await asyncio.sleep(scroll_speed)
+        return canvas, cursor_pos, pos
 
     # Wrap-forever widgets (e.g., TwoRowMessage in bottom_text_wrap
     # mode) opt out of the cursor_pos-based stop condition. The
@@ -1088,6 +1113,8 @@ async def _swap_and_scroll(
             await asyncio.sleep(scroll_speed)
             tick += 1
         return canvas, cursor_pos, pos
+
+    tick_seconds = ENGINE_TICK_MS / 1000
 
     if cursor_pos > canvas.width:
         if not continuous:

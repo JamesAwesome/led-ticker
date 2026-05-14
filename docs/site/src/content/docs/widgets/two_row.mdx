@@ -167,10 +167,10 @@ Notes:
 
 <DemoGif
   src="/demos-pinned/two_row-scroll_through.gif"
-  caption="held magenta `NOW PLAYING` on top, cyan song title flies through fully offscreen-to-offscreen on the bottom — one pass per visit"
+  caption="held magenta `NOW PLAYING` on top, cyan song title flies through offscreen-to-offscreen on the bottom. `hold_time = 10.0` drives the pass count via max-of math — no `bottom_text_loops` set, so the engine fills the section duration with as many passes as fit"
 />
 
-Setting `bottom_text_scroll = "scroll_through"` forces the bottom row to do a single offscreen-to-offscreen pass on every visit: text starts fully off the right edge, scrolls left, ends fully off the left edge. The widget then exits. `bottom_align` is ignored.
+Setting `bottom_text_scroll = "scroll_through"` forces the bottom row to scroll offscreen-to-offscreen: text starts fully off the right edge, scrolls left, ends fully off the left edge. The widget exits after the computed number of passes (controlled by `bottom_text_loops` and `hold_time` — see "Pass count" below; default is one pass). `bottom_align` is ignored.
 
 Use it when you want the "marquee runs through and is done" feel — a now-playing line that flies across and the section moves on — instead of the held-when-fits / scroll-when-overflows default.
 
@@ -205,8 +205,7 @@ Notes:
   bottom_text_loops = 3   # scroll on / scroll off, three times
   ```
 
-- **Section `hold_time` is IGNORED on `two_row`.** The widget exits as soon as `bottom_text_loops` passes complete (or one pass if loops = 0), regardless of `hold_time`. Pass duration is `(canvas.width + bottom_width) × scroll_step_ms` milliseconds; total visit = `loops × pass_duration`.
-- **Important:** the same field on [`gif`](/widgets/gif/) and [`image`](/widgets/image/) widgets behaves DIFFERENTLY: `hold_seconds` is honored as a _floor_ there (the marquee repeats to fill the hold time). If you mix the two widget types in one section, the section's effective length depends on which widget is up. Lock the asymmetry in your mental model or pick one widget type.
+- **`hold_time` acts as a floor.** When both `hold_time` and `bottom_text_loops` are set, the engine uses the LONGER of the two ("max" semantics): `n_passes = max(bottom_text_loops or 1, ceil((hold_time × 1000 / scroll_step_ms) / cycle_width))`. To compute the crossover: `hold_time × 1000 / scroll_step_ms` (tick count from hold; `hold_time` is seconds, `scroll_step_ms` is milliseconds) vs `bottom_text_loops × cycle_width_logical_px` (tick count from loops, since the engine advances exactly one logical pixel per tick). Whichever is bigger wins. This matches how [`gif`](/widgets/gif/) and [`image`](/widgets/image/) widgets handle the same field.
 
 ### `bottom_text_loops`
 
@@ -219,7 +218,7 @@ Number of full bottom-row cycles the widget plays before the section transitions
 
 - Without `bottom_text_wrap = true` or `bottom_text_scroll = "scroll_through"`, `bottom_text_loops > 0` is a validation error (rule 28) — the non-wrap, non-scroll-through bottom row scrolls once over its overflow and has no cycle to count.
 - **With `bottom_text_wrap = true`**: minimum number of full wrap cycles before the section transitions. When both `hold_time` and `bottom_text_loops` are set, the engine uses the LONGER of the two ("max" semantics). To compute the crossover: `hold_time × 1000 / scroll_step_ms` (tick count from hold) vs `bottom_text_loops × cycle_width_logical_px` (tick count from loops; the engine advances exactly one logical pixel per tick). Whichever is bigger wins.
-- **With `bottom_text_scroll = "scroll_through"`**: exact number of offscreen-to-offscreen passes. `hold_time` is ignored entirely on this path — the widget always runs exactly `bottom_text_loops` passes (or 1 if loops = 0).
+- **With `bottom_text_scroll = "scroll_through"`**: minimum number of offscreen-to-offscreen passes. When both `hold_time` and `bottom_text_loops` are set, the engine uses the LONGER of the two ("max" semantics). To compute the crossover: `hold_time × 1000 / scroll_step_ms` (tick count from hold) vs `bottom_text_loops × cycle_width_logical_px` (tick count from loops; the engine advances exactly one logical pixel per tick). Whichever is bigger wins. This is the same shape as the wrap-mode bullet above.
 - Mirrors `text_loops` on the [`gif`](/widgets/gif/) and [`image`](/widgets/image/) widgets in their two-row mode. The validator catches the cross-widget typo (rule 29) and points you at `bottom_text_loops`.
 
 ## Tips

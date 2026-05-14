@@ -1,0 +1,36 @@
+# render-duration: 8
+# Two-row wrap on a still image: moon on the left + held magenta TOP
+# + cyan bottom wrapping with rainbow separator. Mirrors the gif
+# variant (gif-two_row-wrap.toml) but uses a still PNG to demonstrate
+# the same wrap behavior in the `image` widget.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 7.0
+
+[[playlist.section.widget]]
+type = "image"
+path = "../../../config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "left"
+top_text = "BREAKING"
+top_font = "5x8"
+top_color = [225, 48, 108]
+bottom_text = "tap to subscribe"
+bottom_font = "5x8"
+bottom_text_wrap = true
+bottom_text_separator = " * "
+bottom_color = [120, 230, 255]
+bottom_text_separator_color = "rainbow"
+hold_seconds = 8.0
+scroll_speed_ms = 25

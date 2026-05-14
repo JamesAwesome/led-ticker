@@ -75,7 +75,7 @@ jobs:
         # CLOUDFLARE_ACCOUNT_ID under repo Settings → Secrets and
         # variables → Dependabot (separate from the Actions tab).
         if: github.actor != 'dependabot[bot]'
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

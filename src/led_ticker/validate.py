@@ -932,9 +932,9 @@ def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
         scale = section.scale
         content_h = section.content_height
         # ScaledCanvas requires content_height × scale ≤ panel_h_real;
-        # if the section violates that, _check_soft already flags it as
-        # rule 1 — skip the width check here to avoid raising on
-        # already-known config errors.
+        # if the section violates that, _check_static already flags it
+        # as rule 1 (error) — skip the width check here to avoid
+        # raising on already-known config errors.
         if content_h * scale > panel_h:
             continue
         real = SimpleNamespace(width=panel_w, height=panel_h)

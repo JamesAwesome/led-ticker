@@ -335,6 +335,36 @@ async def test_rule1_no_warning_when_within_limits(conf):
     assert all(w.rule != 1 for w in result.warnings)
 
 
+async def test_rule1_does_not_fire_at_exact_boundary(conf):
+    """Rule 1 uses strict `>` — equality is fine, only exceedance is an
+    error. Boundary test: content_height × scale == panel_h_real should
+    NOT fire (the panel exactly fits)."""
+    # panel_h = rows * parallel = 32 * 1 = 32; content_height=8, scale=4
+    # → 8 × 4 = 32 = panel_h. Boundary case.
+    cfg = """\
+        [display]
+        rows = 32
+        cols = 64
+        chain = 8
+        default_scale = 4
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        content_height = 8
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(e.rule != 1 for e in result.errors), (
+        f"rule 1 must not fire at exact boundary; "
+        f"got {[(e.rule, e.message) for e in result.errors]}"
+    )
+    assert all(w.rule != 1 for w in result.warnings)
+
+
 async def test_rule2_font_threshold_mismatch(conf):
     cfg = GOOD_CONFIG + textwrap.dedent("""\
 

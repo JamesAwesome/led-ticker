@@ -124,7 +124,7 @@ class SectionConfig:
     # Not included in repr to keep logs readable. Other consumers of
     # SectionConfig are unaffected — field has a default factory so
     # programmatic construction without _raw still works.
-    _raw: dict = field(default_factory=dict, repr=False)
+    _raw: dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
 
 
 @dataclass

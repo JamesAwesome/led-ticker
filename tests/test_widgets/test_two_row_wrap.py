@@ -72,3 +72,127 @@ class TestBottomTextWrapValidation:
     def test_wrap_accepted_with_bottom_text(self):
         w = _two_row(bottom_text_wrap=True)
         assert w.bottom_text_wrap is True
+
+
+class TestTwoRowWrapDrawRendersMultipleCopies:
+    """draw() in wrap mode renders multiple copies of bottom_text
+    in a single call. Engine drives cursor_pos; widget treats it
+    modularly via `cursor_pos % cycle_width`."""
+
+    def test_draw_renders_multiple_bottom_copies(self, mocker):
+        """At cursor_pos=0, the widget should render >=2 copies of
+        bottom_text on a 64px canvas with short bottom_text + separator."""
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 1
+        canvas = RGBMatrix(options=opts).CreateFrameCanvas()
+
+        w = TwoRowMessage(
+            top_text="TOP",
+            bottom_text="Hi",
+            bottom_text_wrap=True,
+            bottom_text_separator=" * ",
+        )
+
+        import led_ticker.widgets.two_row as tr_mod
+
+        draws: list[tuple[int, str]] = []
+        real_draw = tr_mod.draw_text
+
+        def _capture(c, font, x, y, color, text):
+            draws.append((x, text))
+            return real_draw(c, font, x, y, color, text)
+
+        mocker.patch.object(tr_mod, "draw_text", side_effect=_capture)
+        w.draw(canvas, cursor_pos=0)
+
+        hi_xs = sorted(x for (x, t) in draws if t == "Hi")
+        assert (
+            len(hi_xs) >= 2
+        ), f"Expected >=2 copies of 'Hi'; got {len(hi_xs)} at xs={hi_xs}"
+
+    def test_draw_modulates_cursor_pos(self, mocker):
+        """Calls with cursor_pos=0 and cursor_pos=-cycle_width should
+        produce equivalent copy counts (modular wrap)."""
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 1
+        canvas = RGBMatrix(options=opts).CreateFrameCanvas()
+
+        w = TwoRowMessage(
+            top_text="TOP",
+            bottom_text="Hi",
+            bottom_text_wrap=True,
+            bottom_text_separator=" * ",
+        )
+
+        import led_ticker.widgets.two_row as tr_mod
+
+        # Capture the ORIGINAL draw_text once, before any patch, so both
+        # captures pass through to the real function without chaining.
+        # Otherwise sequential `mocker.patch.object` calls stack and the
+        # second capturer's `real` points at the first mock — second
+        # draw's calls bleed into the first capture list.
+        original_draw_text = tr_mod.draw_text
+
+        draws_a: list[tuple[int, str]] = []
+        draws_b: list[tuple[int, str]] = []
+
+        def make_capturer(target):
+            def _capture(c, font, x, y, color, text):
+                target.append((x, text))
+                return original_draw_text(c, font, x, y, color, text)
+
+            return _capture
+
+        mocker.patch.object(tr_mod, "draw_text", side_effect=make_capturer(draws_a))
+        w.draw(canvas, cursor_pos=0)
+        mocker.patch.object(tr_mod, "draw_text", side_effect=make_capturer(draws_b))
+        w.draw(canvas, cursor_pos=-100)
+
+        hi_xs_a = [x for (x, t) in draws_a if t == "Hi"]
+        hi_xs_b = [x for (x, t) in draws_b if t == "Hi"]
+        assert len(hi_xs_a) == len(hi_xs_b), (
+            f"Modular wrap should yield consistent copy counts: "
+            f"got {len(hi_xs_a)} vs {len(hi_xs_b)}"
+        )
+
+    def test_draw_top_row_held_during_wrap(self, mocker):
+        """Top row stays at its top_align position regardless of
+        cursor_pos. One draw per call."""
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 1
+        canvas = RGBMatrix(options=opts).CreateFrameCanvas()
+
+        w = TwoRowMessage(
+            top_text="TOP",
+            top_align="left",
+            bottom_text="Hi",
+            bottom_text_wrap=True,
+            bottom_text_separator=" * ",
+        )
+
+        import led_ticker.widgets.two_row as tr_mod
+
+        draws: list[tuple[int, str]] = []
+        real_draw = tr_mod.draw_text
+
+        def _capture(c, font, x, y, color, text):
+            draws.append((x, text))
+            return real_draw(c, font, x, y, color, text)
+
+        mocker.patch.object(tr_mod, "draw_text", side_effect=_capture)
+        w.draw(canvas, cursor_pos=0)
+
+        top_xs = [x for (x, t) in draws if t == "TOP"]
+        assert len(top_xs) == 1, f"Top row should draw exactly once; got xs={top_xs}"

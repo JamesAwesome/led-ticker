@@ -1,0 +1,34 @@
+# render-duration: 14
+# bottom_text_loops demo: held BREAKING up top, bottom-row marquee
+# completes exactly TWO full wrap cycles before the section ends.
+# Without bottom_text_loops the section would end on hold_time alone,
+# which may cut the marquee mid-pass; with bottom_text_loops = 2 the
+# engine waits for the floor.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 1.0          # too short on its own — the loops floor kicks in
+scroll_step_ms = 30
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "BREAKING"
+top_font = "5x8"
+top_color = [225, 48, 108]
+bottom_text = "tap to subscribe"
+bottom_font = "5x8"
+bottom_color = [120, 230, 255]
+bottom_text_wrap = true
+bottom_text_separator = " * "
+bottom_text_separator_color = "rainbow"
+bottom_text_loops = 2

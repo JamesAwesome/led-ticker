@@ -210,6 +210,11 @@ Notes:
 
 ### `bottom_text_loops`
 
+<DemoGif
+  src="/demos-pinned/two_row-bottom_text_loops.gif"
+  caption="`bottom_text_loops = 2` paired with `bottom_text_wrap = true` — section's `hold_time = 1.0` would normally cut the marquee mid-pass, but the loops floor extends the visit to two complete wrap cycles before transition"
+/>
+
 Number of full bottom-row cycles the widget plays before the section transitions. Default `0` means "one pass" — preserved as the baseline behavior. The field requires EITHER `bottom_text_wrap = true` (seamless tiled marquee, one cycle = `bottom_text` + `bottom_text_separator`) OR `bottom_text_scroll = "scroll_through"` (one cycle = one offscreen-to-offscreen pass).
 
 - Without `bottom_text_wrap = true` or `bottom_text_scroll = "scroll_through"`, `bottom_text_loops > 0` is a validation error (rule 28) — the non-wrap, non-scroll-through bottom row scrolls once over its overflow and has no cycle to count.

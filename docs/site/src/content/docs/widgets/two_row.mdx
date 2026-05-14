@@ -163,12 +163,63 @@ Notes:
 - The separator color inherits `bottom_color` (NOT `font_color`).
 - `bottom_text_wrap` is only allowed in `mode = "swap"`. In `forever_scroll` / `infini_scroll` modes, validation refuses it.
 
+### Scroll-through mode (one pass, offscreen to offscreen)
+
+<DemoGif
+  src="/demos-pinned/two_row-scroll_through.gif"
+  caption="held magenta `NOW PLAYING` on top, cyan song title flies through fully offscreen-to-offscreen on the bottom — one pass per visit"
+/>
+
+Setting `bottom_text_scroll = "scroll_through"` forces the bottom row to do a single offscreen-to-offscreen pass on every visit: text starts fully off the right edge, scrolls left, ends fully off the left edge. The widget then exits. `bottom_align` is ignored.
+
+Use it when you want the "marquee runs through and is done" feel — a now-playing line that flies across and the section moves on — instead of the held-when-fits / scroll-when-overflows default.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "two_row"
+top_text = "NOW PLAYING"
+bottom_text = "some long song title that flies across"
+bottom_text_scroll = "scroll_through"`}
+/>
+
+| Field                | Type   | Default     | Meaning                                                                                                                                                  |
+| -------------------- | ------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bottom_text_scroll` | string | `"marquee"` | Bottom-row scroll style. `"marquee"` (default) preserves existing behavior; `"scroll_through"` forces single-pass offscreen-to-offscreen on every visit. |
+
+Behavior table:
+
+| Mode               | When bottom fits       | When bottom overflows                             |
+| ------------------ | ---------------------- | ------------------------------------------------- |
+| `"marquee"`        | held at `bottom_align` | cursor-driven single-pass (last char flush right) |
+| `"scroll_through"` | forced scroll-through  | forced scroll-through                             |
+
+Notes:
+
+- Mutually exclusive with `bottom_text_wrap = true` — pick one. Scroll-through repeats N offscreen-to-offscreen passes; wrap is a seamless tiled marquee.
+- Requires non-empty `bottom_text`.
+- Only valid in `mode = "swap"`. In `forever_scroll` / `infini_scroll` modes validation refuses it (rule 32), same as `bottom_text_wrap`.
+- **Pass count is controlled by `bottom_text_loops`** (default `0` = one pass per visit). Set `bottom_text_loops = N` to make the widget run N full passes before the section transitions:
+
+  ```toml
+  bottom_text_scroll = "scroll_through"
+  bottom_text_loops = 3   # scroll on / scroll off, three times
+  ```
+
+- **Section `hold_time` is IGNORED on `two_row`.** The widget exits as soon as `bottom_text_loops` passes complete (or one pass if loops = 0), regardless of `hold_time`. Pass duration is `(canvas.width + bottom_width) × scroll_step_ms` milliseconds; total visit = `loops × pass_duration`.
+- **Important:** the same field on [`gif`](/widgets/gif/) and [`image`](/widgets/image/) widgets behaves DIFFERENTLY: `hold_seconds` is honored as a _floor_ there (the marquee repeats to fill the hold time). If you mix the two widget types in one section, the section's effective length depends on which widget is up. Lock the asymmetry in your mental model or pick one widget type.
+
 ### `bottom_text_loops`
 
-Minimum number of full wrap cycles the bottom row must complete before the section can transition. One cycle = `bottom_text` + `bottom_text_separator`. Default `0` means "no minimum" — the section's `hold_time` alone controls duration.
+<DemoGif
+  src="/demos-pinned/two_row-bottom_text_loops.gif"
+  caption="`bottom_text_loops = 2` paired with `bottom_text_wrap = true` — section's `hold_time = 1.0` would normally cut the marquee mid-pass, but the loops floor extends the visit to two complete wrap cycles before transition"
+/>
 
-- Requires `bottom_text_wrap = true`. Setting `bottom_text_loops > 0` without wrap is a validation error (rule 28); the bottom row in non-wrap mode scrolls once over its overflow and has no cycle.
-- When both `hold_time` and `bottom_text_loops` are set, the engine uses the LONGER of the two ("max" semantics). To compute the crossover: `hold_time × 1000 / scroll_step_ms` (tick count from hold; `hold_time` is seconds, `scroll_step_ms` is milliseconds) vs `bottom_text_loops × cycle_width_logical_px` (tick count from loops, since the engine advances exactly one logical pixel per tick). Whichever is bigger wins. (Section-level `scroll_step_ms` controls the engine's per-tick advance; not to be confused with the per-widget `scroll_speed_ms` on `gif` / `image` text overlays.)
+Number of full bottom-row cycles the widget plays before the section transitions. Default `0` means "one pass" — preserved as the baseline behavior. The field requires EITHER `bottom_text_wrap = true` (seamless tiled marquee, one cycle = `bottom_text` + `bottom_text_separator`) OR `bottom_text_scroll = "scroll_through"` (one cycle = one offscreen-to-offscreen pass).
+
+- Without `bottom_text_wrap = true` or `bottom_text_scroll = "scroll_through"`, `bottom_text_loops > 0` is a validation error (rule 28) — the non-wrap, non-scroll-through bottom row scrolls once over its overflow and has no cycle to count.
+- **With `bottom_text_wrap = true`**: minimum number of full wrap cycles before the section transitions. When both `hold_time` and `bottom_text_loops` are set, the engine uses the LONGER of the two ("max" semantics). To compute the crossover: `hold_time × 1000 / scroll_step_ms` (tick count from hold) vs `bottom_text_loops × cycle_width_logical_px` (tick count from loops; the engine advances exactly one logical pixel per tick). Whichever is bigger wins.
+- **With `bottom_text_scroll = "scroll_through"`**: exact number of offscreen-to-offscreen passes. `hold_time` is ignored entirely on this path — the widget always runs exactly `bottom_text_loops` passes (or 1 if loops = 0).
 - Mirrors `text_loops` on the [`gif`](/widgets/gif/) and [`image`](/widgets/image/) widgets in their two-row mode. The validator catches the cross-widget typo (rule 29) and points you at `bottom_text_loops`.
 
 ## Tips

@@ -135,6 +135,8 @@ text = "All ages"
 font_color = [255, 220, 0]`}
 />
 
+For `gif` widgets in `swap` mode, `gif_loops = 0` plays the gif through the section's `hold_time` — the engine computes how many complete loops fit and plays at least one. This replaces the `gif_loops = 999` workaround. See [gif widget — `gif_loops = 0`](/widgets/gif/#playing-through-hold_time-gif_loops--0).
+
 ## `loop_count` and section progression
 
 `loop_count` controls how many times the engine runs through all of the section's widgets before moving on to the next section. A `loop_count` of `1` (the default) means the engine plays each widget once and then moves on. A value of `2` plays the whole set twice, and so on. Section-to-section transitions fire once when the engine leaves the section — they are not repeated on each loop.

@@ -59,7 +59,7 @@ image_align = "left"
 text = "Welcome to the show!"
 text_align = "scroll_over"
 font_color = [225, 48, 108]
-gif_loops = 999`}
+gif_loops = 0   # play through hold_time`}
 />
 
 ### Scrolling text behind a transparent silhouette (`scroll` — text walks under the image)
@@ -188,7 +188,7 @@ text = "hi friend"
 text_align = "right"
 font_color = "rainbow"
 animation = "typewriter"
-gif_loops = 999`}
+gif_loops = 0   # play through hold_time`}
 />
 
 ### Typewriter + rainbow border (frame the panel as the text appears)
@@ -209,10 +209,27 @@ text_align = "right"
 font_color = [255, 255, 255]
 animation = "typewriter"
 border = "rainbow"
-gif_loops = 999`}
+gif_loops = 0   # play through hold_time`}
 />
 
 ## Tips
+
+### Playing through `hold_time`: `gif_loops = 0`
+
+When you want a gif to fill its section's duration rather than playing a fixed number of times, set `gif_loops = 0`. The engine computes how many complete loops fit in `hold_time` and plays at least one even if the time budget is shorter than the gif's own duration. Replaces the older `gif_loops = 999` magic-number idiom.
+
+```toml
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+
+[[playlist.section.widget]]
+type = "gif"
+path = "config/assets/sparkles.gif"
+gif_loops = 0   # fills the section's hold_time
+```
+
+`gif_loops >= 1` still works exactly as before — it plays the exact count regardless of `hold_time`.
 
 ### Typewriter is single-row only
 

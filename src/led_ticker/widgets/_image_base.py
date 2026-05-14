@@ -633,74 +633,112 @@ class _BaseImageWidget(_FrameAware):
             return measure_width(self.font, self.text, canvas=canvas)
         return get_text_width(self.font, self.text, padding=0, canvas=canvas)
 
-    def _resolved_separator_text(self) -> str:
+    def _resolved_separator_text(self, separator: str | None = None) -> str:
         """Resolve the separator string per wrap-mode semantics:
           - None (default): " • "
           - "" (explicit empty): "  " (two spaces — minimum gap so
             adjacent copies don't visually butt up)
           - any other value: as-is.
 
+        When `separator` is None the helper reads `self.text_separator`
+        (v1 single-row default). v2 two-row callers pass
+        `self.bottom_text_separator` explicitly — that field's own
+        default of None still resolves to " • " here.
+
         Mirrors `forever_scroll`'s separator literal-text rules so a
         user moving from per-section to per-widget wraps gets the
         same defaults."""
-        if self.text_separator is None:
+        if separator is None:
+            separator = self.text_separator
+        if separator is None:
             return " • "
-        if self.text_separator == "":
+        if separator == "":
             return "  "
-        return self.text_separator
+        return separator
 
-    def _measure_separator(self, canvas: Canvas) -> int:
+    def _measure_separator(
+        self,
+        canvas: Canvas,
+        font: Any = None,
+        separator: str | None = None,
+    ) -> int:
         """Width of the resolved separator in logical px on `canvas`.
-        Uses the same font as the main text (per v1 scope — separator
-        font/font_size override is deferred)."""
-        sep = self._resolved_separator_text()
+
+        Defaults match v1 single-row behavior (self.font +
+        self.text_separator). Two-row callers pass
+        `font=self.bottom_font_or_fallback` and
+        `separator=self.bottom_text_separator`."""
+        sep = self._resolved_separator_text(separator)
         if not sep:
             return 0
+        if font is None:
+            font = self.font
         if EMOJI_PATTERN.search(sep):
             from led_ticker.pixel_emoji import measure_width
 
-            return measure_width(self.font, sep, canvas=canvas)
-        return get_text_width(self.font, sep, padding=0, canvas=canvas)
+            return measure_width(font, sep, canvas=canvas)
+        return get_text_width(font, sep, padding=0, canvas=canvas)
 
     def _draw_separator(
         self,
         canvas: Canvas,
         x: int,
         baseline_y: int,
+        font: Any = None,
+        separator: str | None = None,
+        explicit_provider: Any = None,
+        explicit_frame_key: str = "",
+        inherit_provider: Any = None,
+        inherit_frame_key: str = "",
     ) -> None:
         """Draw the resolved separator at (x, baseline_y) with the
         right color. Whole-string color call so even a Rainbow on
-        text_separator_color paints the separator as one hue per
-        frame.
+        the dedicated-separator-color provider paints the separator
+        as one hue per frame.
 
-        Reads its own per-effect counter via
-        `frame_for("text_separator_color")` when a dedicated provider
-        is set; otherwise falls back to `font_color`'s counter so
-        continuous-phase Rainbow / ColorCycle stays in phase with
-        the main text."""
-        sep = self._resolved_separator_text()
+        Callers pick "explicit" (the dedicated separator color knob)
+        and "inherit" (the row's main color used as fallback):
+          - v1 single-row default (no kwargs passed):
+            explicit = self.text_separator_color / "text_separator_color"
+            inherit  = self.font_color / "font_color"
+          - v2 two-row (Task 5 callers):
+            explicit = self.bottom_text_separator_color /
+                       "bottom_text_separator_color"
+            inherit  = self.bottom_color / "bottom_color"
+        """
+        sep = self._resolved_separator_text(separator)
         if not sep:
             return
-        provider = (
-            self.text_separator_color
-            if self.text_separator_color is not None
-            else self.font_color
-        )
-        frame_count = self.frame_for(
-            "text_separator_color"
-            if self.text_separator_color is not None
-            else "font_color"
-        )
+        if font is None:
+            font = self.font
+
+        # No-override path: preserve v1 single-row behavior exactly.
+        if explicit_provider is None and not explicit_frame_key:
+            explicit_provider = self.text_separator_color
+            explicit_frame_key = "text_separator_color"
+        if inherit_provider is None and not inherit_frame_key:
+            inherit_provider = self.font_color
+            inherit_frame_key = "font_color"
+
+        if explicit_provider is not None:
+            provider = explicit_provider
+            frame_key = explicit_frame_key
+        else:
+            provider = inherit_provider
+            frame_key = inherit_frame_key
+
+        frame_count = self.frame_for(frame_key)
         if hasattr(provider, "color_for"):
             color = provider.color_for(frame_count, 0, 1)
         else:
             color = provider
+
         if EMOJI_PATTERN.search(sep):
             from led_ticker.pixel_emoji import draw_with_emoji
 
             draw_with_emoji(
                 canvas,
-                self.font,
+                font,
                 x,
                 baseline_y,
                 color,
@@ -710,7 +748,7 @@ class _BaseImageWidget(_FrameAware):
                 total_chars=1,
             )
         else:
-            draw_text(canvas, self.font, x, baseline_y, color, sep)
+            draw_text(canvas, font, x, baseline_y, color, sep)
 
     def _draw_text(
         self,

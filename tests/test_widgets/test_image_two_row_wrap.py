@@ -196,3 +196,41 @@ class TestBottomTextWrapOnWrongWidgetType:
                 session=session,
             )
         assert widget.bottom_text_wrap is True
+
+
+class TestSeparatorHelpersParameterized:
+    """Verify _measure_separator / _draw_separator accept explicit
+    font + separator + provider args."""
+
+    def test_measure_separator_accepts_font_kwarg(self, tmp_path):
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.fonts import FONT_DEFAULT
+
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 16
+        opts.chain_length = 1
+        canvas = RGBMatrix(options=opts).CreateFrameCanvas()
+
+        w = _still_two_row(tmp_path, bottom_text_wrap=True)
+        width = w._measure_separator(canvas, font=FONT_DEFAULT)
+        assert width > 0
+
+    def test_measure_separator_accepts_separator_kwarg(self, tmp_path):
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.fonts import FONT_DEFAULT
+
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 16
+        opts.chain_length = 1
+        canvas = RGBMatrix(options=opts).CreateFrameCanvas()
+
+        w = _still_two_row(tmp_path, bottom_text_wrap=True)
+        # Pass an explicit separator — should override self.text_separator
+        width_default = w._measure_separator(canvas, font=FONT_DEFAULT)
+        width_custom = w._measure_separator(canvas, font=FONT_DEFAULT, separator=" ** ")
+        # " ** " is wider than " • "
+        assert width_custom > width_default

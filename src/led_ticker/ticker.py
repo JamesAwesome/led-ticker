@@ -1046,6 +1046,12 @@ async def _swap_and_scroll(
             # inside the loop because the loop is where n_ticks is mutated.)
             canvas, cycle_width = ticker_obj.draw(canvas, cursor_pos=pos)
             if tick == 0 and loops_floor > 0 and cycle_width > 0:
+                # cycle_width is in LOGICAL pixels. The `pos -= 1` below
+                # advances exactly one logical pixel per tick, so 1 tick
+                # = 1 pixel and `loops_floor * cycle_width` is the exact
+                # number of ticks for that many full wrap cycles. If the
+                # `pos -= 1` step size ever changes (e.g. to honor a
+                # per-tick pixel-skip), this math needs to be updated.
                 n_ticks = max(n_ticks, loops_floor * cycle_width)
             canvas = _swap(canvas, frame)
             pos -= 1

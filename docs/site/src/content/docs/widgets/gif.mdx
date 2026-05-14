@@ -109,7 +109,7 @@ text_separator_color = "rainbow"   # default: inherit font_color`}
 
 Notes:
 
-- `text_loops` in wrap mode means **minimum number of cycle traversals** (one cycle = text + separator), not the off-right → off-left definition the default marquee uses.
+- `text_loops` in wrap mode means **minimum number of cycle traversals** (one cycle = text + separator), not the off-right → off-left definition the default marquee uses. On the [`two_row`](/widgets/two_row/) widget the equivalent field is `bottom_text_loops` (prefixed to match `bottom_text_wrap` and friends on that widget).
 - Two-row mode (`bottom_text` set) refuses `text_wrap` in v1.
 - The separator renders in the widget's `font`; a per-separator font override isn't part of v1.
 

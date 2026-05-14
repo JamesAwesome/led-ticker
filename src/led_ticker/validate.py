@@ -350,7 +350,7 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                     issues.append(
                         ValidationIssue(
                             rule=29,
-                            location=loc,
+                            location=f"{loc}.text_loops",
                             severity="error",
                             message=(
                                 "`text_loops` is not a valid field on a "

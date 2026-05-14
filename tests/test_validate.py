@@ -1409,6 +1409,98 @@ async def test_rule30_hold_time_alone_does_not_warn(conf):
     assert all(w.rule != 30 for w in result.warnings)
 
 
+async def test_rule31_scroll_step_ms_zero_errors(conf):
+    """scroll_step_ms = 0 would ZeroDivisionError at startup
+    (ticker.py:_swap_and_scroll divides by it). Reject at validate time."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        scroll_step_ms = 0
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 31 for e in result.errors), (
+        f"expected rule 31 error; got "
+        f"{[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule31_scroll_step_ms_negative_errors(conf):
+    """Negative scroll_step_ms is nonsensical. Reject."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        scroll_step_ms = -10
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 31 for e in result.errors)
+
+
+async def test_rule31_scroll_step_ms_omitted_is_allowed(conf):
+    """Default (None / unset) inherits the engine default; no error."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(e.rule != 31 for e in result.errors)
+
+
+async def test_rule31_scroll_step_ms_positive_is_allowed(conf):
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        scroll_step_ms = 35
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(e.rule != 31 for e in result.errors)
+
+
 class TestRule27WrapsForeverModeOnly:
     """bottom_text_wrap=True is only valid in mode=swap. Refused
     in forever_scroll and infini_scroll because the widget would

@@ -111,6 +111,32 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
     """Synchronous checks on raw widget dicts for errors not caught by _build_widget."""
     issues: list[ValidationIssue] = []
     for i, section in enumerate(config.sections):
+        # Rule 31: scroll_step_ms must be positive. Zero divides in
+        # `ticker.py:_swap_and_scroll` (`int(hold_time / scroll_speed)`)
+        # and the wraps_forever branch is the primary user-reachable
+        # timing path now that bottom_text_loops ships. Negative values
+        # are nonsense — surface as a clear validate-time error rather
+        # than letting startup crash with a stack trace.
+        if section.scroll_step_ms is not None and section.scroll_step_ms <= 0:
+            issues.append(
+                ValidationIssue(
+                    rule=31,
+                    location=f"section[{i}]",
+                    severity="error",
+                    message=(
+                        f"scroll_step_ms must be > 0; got "
+                        f"{section.scroll_step_ms}. Section timing math "
+                        f"divides by this value — 0 raises ZeroDivisionError "
+                        f"at startup, negative values produce nonsensical "
+                        f"tick counts."
+                    ),
+                    fix=(
+                        "Set scroll_step_ms to a positive integer "
+                        "(typical range: 25–60 ms per logical pixel)."
+                    ),
+                )
+            )
+
         # Rule 25: start_hold is only meaningful on scroll modes
         # (forever_scroll / infini_scroll), which are the only modes
         # that call _scroll_and_delay. Setting it on swap / gif has

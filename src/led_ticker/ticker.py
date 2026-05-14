@@ -1033,6 +1033,12 @@ async def _swap_and_scroll(
         # complete in 3.5s if n_ticks derived from ENGINE_TICK_MS).
         n_ticks = max(1, int(hold_time / scroll_speed))
         loops_floor = getattr(ticker_obj, "bottom_text_loops", 0)
+        # Belt-and-suspenders: TwoRowMessage's post-init + validator
+        # already reject bool, but reading generically here keeps a
+        # hypothetical future widget exposing `wraps_forever` from
+        # accidentally getting loops=1 semantics via `True > 0`.
+        if isinstance(loops_floor, bool) or not isinstance(loops_floor, int):
+            loops_floor = 0
         tick = 0
         while tick < n_ticks:
             _advance_frame_if_supported(ticker_obj)

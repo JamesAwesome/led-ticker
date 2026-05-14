@@ -172,9 +172,11 @@ class TestWrapsForeverBottomTextLoops:
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
         # Mock widget: wraps_forever=True, bottom_text_loops=4, cycle_width=10
-        # → loops_floor * cycle_width = 40 ticks
-        # hold_time=0.5s, scroll_speed=0.05 → 10 ticks from hold_time
-        # Final: max(10, 40) = 40 draws expected.
+        # → loops_floor * cycle_width = 40 ticks inside the loop.
+        # hold_time=0.5s, scroll_speed=0.05 → 10 ticks from hold_time.
+        # Final loop runs max(10, 40) = 40 iterations. Plus an initial
+        # draw at function entry (line 1009 of ticker.py) BEFORE the
+        # wraps_forever branch, so actual draw count = 41 (1 + 40).
         widget = MagicMock()
         widget.wraps_forever = True
         widget.bottom_text_loops = 4
@@ -192,9 +194,11 @@ class TestWrapsForeverBottomTextLoops:
             continuous=False,
         )
 
-        # Expected at least 40 draw calls (4 loops × 10 cycle_width)
-        assert widget.draw.call_count >= 40, (
-            f"expected >= 40 draws (4 loops × 10 cycle_width), "
+        # Expected at least 41 draw calls (1 initial + 40 loop ticks).
+        # The >=41 bound is documented; the assertion uses >= so a future
+        # extra initial frame wouldn't fail the test.
+        assert widget.draw.call_count >= 41, (
+            f"expected >= 41 draws (1 initial + 40 loop), "
             f"got {widget.draw.call_count}"
         )
 

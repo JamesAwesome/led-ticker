@@ -210,3 +210,31 @@ class TestTwoRowWrapDrawRendersMultipleCopies:
 
         top_xs = [x for (x, t) in draws if t == "TOP"]
         assert len(top_xs) == 1, f"Top row should draw exactly once; got xs={top_xs}"
+
+
+class TestBottomTextLoops:
+    """Tests for the bottom_text_loops field."""
+
+    def test_bottom_text_loops_defaults_to_zero(self):
+        """bottom_text_loops should default to 0."""
+        w = _two_row()
+        assert w.bottom_text_loops == 0
+
+    def test_bottom_text_loops_with_wrap_constructs_cleanly(self):
+        """bottom_text_loops > 0 is accepted when bottom_text_wrap=True."""
+        w = _two_row(bottom_text_wrap=True, bottom_text_loops=2)
+        assert w.bottom_text_loops == 2
+        assert w.bottom_text_wrap is True
+
+    def test_bottom_text_loops_without_wrap_raises(self):
+        """bottom_text_loops > 0 without bottom_text_wrap=True raises."""
+        with pytest.raises(
+            ValueError,
+            match="bottom_text_loops=.* requires bottom_text_wrap=True",
+        ):
+            _two_row(bottom_text_loops=1)
+
+    def test_bottom_text_loops_negative_raises(self):
+        """bottom_text_loops < 0 raises."""
+        with pytest.raises(ValueError, match="bottom_text_loops must be >= 0"):
+            _two_row(bottom_text_loops=-1)

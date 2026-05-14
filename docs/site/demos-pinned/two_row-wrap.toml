@@ -1,0 +1,30 @@
+# render-duration: 8
+# Standalone TwoRowMessage with wrap: held BREAKING title +
+# scrolling-wrap "tap to subscribe" bottom.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 7.0
+scroll_step_ms = 25
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "BREAKING"
+top_font = "5x8"
+top_color = [225, 48, 108]
+bottom_text = "tap to subscribe"
+bottom_font = "5x8"
+bottom_text_wrap = true
+bottom_text_separator = " * "
+bottom_color = [120, 230, 255]
+bottom_text_separator_color = "rainbow"

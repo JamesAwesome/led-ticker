@@ -24,4 +24,4 @@ text_align = "right"
 font_color = [255, 255, 255]
 animation = "typewriter"
 border = "rainbow"
-gif_loops = 999
+gif_loops = 0

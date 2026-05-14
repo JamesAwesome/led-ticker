@@ -110,7 +110,34 @@ async def _run_build_checks(
 def _check_static(config: AppConfig) -> list[ValidationIssue]:
     """Synchronous checks on raw widget dicts for errors not caught by _build_widget."""
     issues: list[ValidationIssue] = []
+    ph = _panel_h_real(config.display)
     for i, section in enumerate(config.sections):
+        # Rule 1: content_height × scale ceiling.
+        # content_height × scale > panel_h_real causes the ScaledCanvas
+        # wrapper's _y_offset to go negative, silently clipping top and
+        # bottom rows. Promoted from warning to error: any config that
+        # trips this check will produce visually broken output on the panel
+        # regardless of widget type.
+        product = section.content_height * section.scale
+        if product > ph:
+            issues.append(
+                ValidationIssue(
+                    rule=1,
+                    location=f"section[{i}]",
+                    severity="error",
+                    message=(
+                        f"content_height {section.content_height}"
+                        f" × scale {section.scale}"
+                        f" = {product} exceeds panel height {ph}px"
+                        " — edges will clip"
+                    ),
+                    fix=(
+                        f"Lower content_height to {ph // section.scale}"
+                        " (= panel_h ÷ scale)"
+                    ),
+                )
+            )
+
         # Rule 31: scroll_step_ms must be positive. Zero divides in
         # `ticker.py:_swap_and_scroll` (`int(hold_time / scroll_speed)`)
         # and the wraps_forever branch is the primary user-reachable
@@ -395,6 +422,69 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                             ),
                         )
                     )
+
+            # Rule 34b: scroll_step_ms on a gif / image widget.
+            # `scroll_step_ms` is a SECTION-level field (engine cursor
+            # advance). On a gif/image widget it would be passed as an
+            # unknown kwarg and crash at startup. The widget-level
+            # equivalent is `scroll_speed_ms` (text-marquee cadence inside
+            # the widget's own play() loop). Scoped to gif/image only —
+            # those are the widget types that HAVE a scroll_speed_ms to
+            # be confused with. Other widget types receiving scroll_step_ms
+            # will be caught by a future unknown-kwarg validator.
+            if wtype in ("gif", "image") and "scroll_step_ms" in widget_cfg:
+                issues.append(
+                    ValidationIssue(
+                        rule=34,
+                        location=f"{loc}.scroll_step_ms",
+                        severity="error",
+                        message=(
+                            "`scroll_step_ms` is a section-level field, not a "
+                            "widget field. On a gif/image widget, did you mean "
+                            "`scroll_speed_ms`? "
+                            "`scroll_step_ms` sets the engine's per-tick cursor "
+                            "advance across all widgets in the section; "
+                            "`scroll_speed_ms` sets the text-marquee cadence "
+                            "inside this widget's play() loop."
+                        ),
+                        fix=(
+                            "Move `scroll_step_ms` to the `[[playlist.section]]` "
+                            "block (section level), or rename it to "
+                            "`scroll_speed_ms` to control the text-marquee speed "
+                            "inside this gif/image widget."
+                        ),
+                    )
+                )
+
+        # Rule 34a: scroll_speed_ms at section level.
+        # `scroll_speed_ms` is a per-widget field on gif/image widgets —
+        # it controls the text-marquee cadence inside a single widget's
+        # play() loop. At section level it is silently ignored (the
+        # section loader doesn't know the key). The section-level
+        # equivalent is `scroll_step_ms`. Inspect via _raw so the check
+        # runs on fields the dataclass discards.
+        if "scroll_speed_ms" in section._raw:
+            issues.append(
+                ValidationIssue(
+                    rule=34,
+                    location=f"section[{i}].scroll_speed_ms",
+                    severity="error",
+                    message=(
+                        "`scroll_speed_ms` is a widget-level field (gif/image "
+                        "text-marquee cadence), not a section field. At section "
+                        "level it is silently ignored. Did you mean "
+                        "`scroll_step_ms`? "
+                        "`scroll_step_ms` sets the engine's per-tick cursor "
+                        "advance across all widgets in the section."
+                    ),
+                    fix=(
+                        "Rename `scroll_speed_ms` to `scroll_step_ms` in the "
+                        "`[[playlist.section]]` block, or move it inside the "
+                        "gif/image `[[playlist.section.widget]]` block if you "
+                        "want to control the text-marquee speed on a specific widget."
+                    ),
+                )
+            )
     return issues
 
 
@@ -445,30 +535,8 @@ def _panel_w_real(display: DisplayConfig) -> int:
 
 def _check_soft(config: AppConfig) -> list[ValidationIssue]:
     warnings: list[ValidationIssue] = []
-    ph = _panel_h_real(config.display)
 
     for i, section in enumerate(config.sections):
-        # Rule 1: content_height overflow
-        product = section.content_height * section.scale
-        if product > ph:
-            warnings.append(
-                ValidationIssue(
-                    rule=1,
-                    location=f"section[{i}]",
-                    severity="warning",
-                    message=(
-                        f"content_height {section.content_height}"
-                        f" × scale {section.scale}"
-                        f" = {product} exceeds panel height {ph}px"
-                        " — edges will clip"
-                    ),
-                    fix=(
-                        f"Lower content_height to {ph // section.scale}"
-                        " (= panel_h ÷ scale)"
-                    ),
-                )
-            )
-
         # Rule 6: two_row at scale=4
         for j, widget_cfg in enumerate(section.widgets):
             if widget_cfg.get("type") == "two_row" and section.scale == 4:
@@ -484,6 +552,28 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                         fix="Add scale = 2 to this section for a 128px logical canvas",
                     )
                 )
+
+        # Rule 35: `default = "..."` inside a [[playlist.section]] block.
+        # `default` is a [transitions]-block key. Inside a section the
+        # equivalent is `transition`. Writing `default = "wipe_left"` in
+        # a section silently does nothing — the section loader discards
+        # any key it doesn't recognise. Inspect via _raw so we see
+        # original TOML keys that the dataclass swallows.
+        if "default" in section._raw:
+            warnings.append(
+                ValidationIssue(
+                    rule=35,
+                    location=f"section[{i}].default",
+                    severity="warning",
+                    message=(
+                        "`default` is a [transitions]-block key. "
+                        "Inside a [[playlist.section]], the equivalent "
+                        "is `transition`. The key as written is silently "
+                        "ignored."
+                    ),
+                    fix="Rename `default = '...'` to `transition = '...'`.",
+                )
+            )
 
         # Rule 2: font_threshold mismatch within font family
         family_thresholds: dict[str, list[int]] = {}
@@ -545,6 +635,33 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                     severity="warning",
                     message=f"transition_duration {d} is extremely short (< 50 ms)",
                     fix="Raise to at least 0.05 s",
+                )
+            )
+
+    # Rule 33: mode = "gif" is legacy.
+    # The dedicated gif mode predates the current widget system. Today
+    # the same effect is achieved with mode = "swap" + a gif widget —
+    # which also gives access to transitions, hold_time, bg_color, and
+    # multi-widget sections. The old mode is preserved for back-compat
+    # but is undocumented and may be removed in a future release.
+    for i, section in enumerate(config.sections):
+        if section.mode == "gif":
+            warnings.append(
+                ValidationIssue(
+                    rule=33,
+                    location=f"section[{i}]",
+                    severity="warning",
+                    message=(
+                        "mode='gif' is legacy. Use mode='swap' with a "
+                        "gif widget for the same effect; the dedicated "
+                        "'gif' mode is preserved for back-compat but may "
+                        "be removed in a future release."
+                    ),
+                    fix=(
+                        "Change mode to 'swap'. Each gif widget in the "
+                        "section's `widget` list will play through its "
+                        "gif_loops then transition."
+                    ),
                 )
             )
 
@@ -815,9 +932,9 @@ def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
         scale = section.scale
         content_h = section.content_height
         # ScaledCanvas requires content_height × scale ≤ panel_h_real;
-        # if the section violates that, _check_soft already flags it as
-        # rule 1 — skip the width check here to avoid raising on
-        # already-known config errors.
+        # if the section violates that, _check_static already flags it
+        # as rule 1 (error) — skip the width check here to avoid
+        # raising on already-known config errors.
         if content_h * scale > panel_h:
             continue
         real = SimpleNamespace(width=panel_w, height=panel_h)

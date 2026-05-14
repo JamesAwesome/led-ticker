@@ -1110,6 +1110,101 @@ async def test_rule24_separator_font_missing_emits_warning(conf):
     )
 
 
+async def test_rule27_bottom_text_loops_without_wrap_errors(conf):
+    """bottom_text_loops > 0 requires bottom_text_wrap=True."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        bottom_text_loops = 4
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 27 and "wrap" in e.message.lower() for e in result.errors), (
+        f"expected rule 27 error about wrap; "
+        f"got {[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule27_bottom_text_loops_negative_errors(conf):
+    """bottom_text_loops < 0 is always an error."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        bottom_text_loops = -1
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 27 and ">=" in e.message for e in result.errors), (
+        f"expected rule 27 error about >= 0; "
+        f"got {[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule27_bottom_text_loops_with_wrap_is_allowed(conf):
+    """bottom_text_loops > 0 with bottom_text_wrap=True is allowed."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        bottom_text_wrap = true
+        bottom_text_loops = 4
+        """
+    result = await validate_config(conf(cfg))
+    rule_27_errors = [e for e in result.errors if e.rule == 27]
+    assert (
+        not rule_27_errors
+    ), f"expected no rule 27 error with wrap enabled; got {rule_27_errors}"
+
+
+async def test_rule27_bottom_text_loops_zero_is_allowed(conf):
+    """bottom_text_loops = 0 (default) is always allowed."""
+    cfg = GOOD_CONFIG + textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        bottom_text_loops = 0
+        """)
+    result = await validate_config(conf(cfg))
+    assert result.valid is True
+
+
 class TestRule27WrapsForeverModeOnly:
     """bottom_text_wrap=True is only valid in mode=swap. Refused
     in forever_scroll and infini_scroll because the widget would

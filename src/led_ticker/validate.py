@@ -278,6 +278,44 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                             fix="Add text = '...' or remove animation",
                         )
                     )
+
+            # Rule 27: bottom_text_loops on two_row requires wrap mode
+            # (no concept of cycle without wrap separator). Mirrors the
+            # post-init validation in TwoRowMessage so the error
+            # surfaces at config-load time, not at runtime.
+            if wtype == "two_row":
+                btl = widget_cfg.get("bottom_text_loops", 0)
+                btw = widget_cfg.get("bottom_text_wrap", False)
+                if isinstance(btl, int) and btl < 0:
+                    issues.append(
+                        ValidationIssue(
+                            rule=27,
+                            location=loc,
+                            severity="error",
+                            message=(f"bottom_text_loops must be >= 0; got {btl}"),
+                            fix=(
+                                "Set bottom_text_loops to 0 or a positive" " integer."
+                            ),
+                        )
+                    )
+                elif isinstance(btl, int) and btl > 0 and not btw:
+                    issues.append(
+                        ValidationIssue(
+                            rule=27,
+                            location=loc,
+                            severity="error",
+                            message=(
+                                f"bottom_text_loops={btl} requires "
+                                f"bottom_text_wrap=true. Without wrap, the "
+                                f"bottom row scrolls once over its "
+                                f"overflow — there's no cycle to count."
+                            ),
+                            fix=(
+                                "Set bottom_text_wrap = true alongside "
+                                "bottom_text_loops, or drop bottom_text_loops."
+                            ),
+                        )
+                    )
     return issues
 
 

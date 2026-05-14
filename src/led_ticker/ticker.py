@@ -1025,8 +1025,6 @@ async def _swap_and_scroll(
     if not skip_initial_draw:
         canvas = _swap(canvas, frame)
 
-    tick_seconds = ENGINE_TICK_MS / 1000
-
     # scroll_through-style widgets: dedicated loop with max-of math for
     # hold_time + bottom_text_loops (mirrors image widget's marquee
     # auto-floor in _image_base._play_with_text).
@@ -1115,6 +1113,8 @@ async def _swap_and_scroll(
             await asyncio.sleep(scroll_speed)
             tick += 1
         return canvas, cursor_pos, pos
+
+    tick_seconds = ENGINE_TICK_MS / 1000
 
     if cursor_pos > canvas.width:
         if not continuous:

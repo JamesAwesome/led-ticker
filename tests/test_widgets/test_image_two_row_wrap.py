@@ -100,3 +100,99 @@ class TestBottomTextWrapValidation:
                 bottom_text="bottom",
                 text_wrap=True,
             )
+
+
+class TestBottomSeparatorColorRegistration:
+    def test_in_provider_keys(self):
+        from led_ticker.app import _PROVIDER_COLOR_KEYS
+
+        assert "bottom_text_separator_color" in _PROVIDER_COLOR_KEYS
+
+    def test_in_effect_attrs(self):
+        from led_ticker.widgets._frame_aware import _FrameAware
+
+        assert "bottom_text_separator_color" in _FrameAware._EFFECT_ATTRS
+
+    def test_rainbow_coerced(self):
+        from led_ticker.app import _coerce_widget_colors
+
+        cfg = {"bottom_text_separator_color": "rainbow"}
+        _coerce_widget_colors(cfg)
+        provider = cfg["bottom_text_separator_color"]
+        assert hasattr(provider, "color_for")
+        assert provider.per_char is True
+
+
+class TestBottomTextWrapOnWrongWidgetType:
+    """Same guard pattern v1 uses: drop falsy defaults silently,
+    raise on truthy values when the widget type can't accept the field."""
+
+    @pytest.mark.asyncio
+    async def test_bottom_text_wrap_on_message_rejected(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            with pytest.raises(ValueError, match="bottom_text_wrap.*only valid"):
+                await _build_widget(
+                    {
+                        "type": "message",
+                        "text": "hi",
+                        "bottom_text_wrap": True,
+                    },
+                    session=session,
+                )
+
+    @pytest.mark.asyncio
+    async def test_bottom_text_separator_on_message_rejected(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            with pytest.raises(ValueError, match="bottom_text_separator.*only valid"):
+                await _build_widget(
+                    {
+                        "type": "message",
+                        "text": "hi",
+                        "bottom_text_separator": " * ",
+                    },
+                    session=session,
+                )
+
+    @pytest.mark.asyncio
+    async def test_bottom_text_wrap_false_on_message_dropped_silently(self):
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            widget = await _build_widget(
+                {
+                    "type": "message",
+                    "text": "hi",
+                    "bottom_text_wrap": False,
+                },
+                session=session,
+            )
+        assert widget is not None
+
+    @pytest.mark.asyncio
+    async def test_bottom_text_wrap_on_two_row_accepted(self):
+        """two_row is a NEW addition to the allowed types in v2."""
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            widget = await _build_widget(
+                {
+                    "type": "two_row",
+                    "top_text": "TOP",
+                    "bottom_text": "bottom",
+                    "bottom_text_wrap": True,
+                },
+                session=session,
+            )
+        assert widget.bottom_text_wrap is True

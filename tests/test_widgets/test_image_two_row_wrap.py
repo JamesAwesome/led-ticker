@@ -372,3 +372,177 @@ class TestImageTwoRowWrapRenders:
         assert (
             len(set(top_xs_per_tick)) == 1
         ), f"Top row drifted across ticks: {top_xs_per_tick}"
+
+
+class TestBottomSeparatorColorInheritance:
+    @pytest.mark.asyncio
+    async def test_separator_inherits_bottom_color_when_unset(self, tmp_path, mocker):
+        """text_separator_color=None makes the separator paint with
+        bottom_color (NOT font_color — separator is part of the
+        bottom row)."""
+        from led_ticker._compat import require_graphics
+
+        graphics = require_graphics()
+        path = _make_png(tmp_path)
+        widget = StillImage(
+            path=str(path),
+            fit="stretch",
+            top_text="TOP",
+            bottom_text="Hi",
+            bottom_text_wrap=True,
+            bottom_text_separator=" * ",
+            font_color=graphics.Color(255, 0, 0),  # red — NOT used for separator
+            bottom_color=graphics.Color(0, 255, 0),  # green — separator should be this
+            scroll_speed_ms=50,
+            hold_seconds=0.2,
+        )
+        real = _bigsign_real_canvas()
+        frame = mocker.MagicMock()
+        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        # Capture draw_text calls; filter for separator.
+        import led_ticker.widgets._image_base as base_mod
+
+        real_draw = base_mod.draw_text
+        captured: list = []
+
+        def _capture(canvas, font, x, baseline_y, color, text):
+            if text in (" • ", " * ", "  "):
+                captured.append(color)
+            return real_draw(canvas, font, x, baseline_y, color, text)
+
+        mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+
+        await widget.play(real, frame)
+
+        assert captured, "Expected at least one separator draw"
+        for c in captured:
+            assert (c.red, c.green, c.blue) == (0, 255, 0), (
+                f"Separator should inherit bottom_color=green; got "
+                f"({c.red}, {c.green}, {c.blue})"
+            )
+
+    @pytest.mark.asyncio
+    async def test_separator_explicit_overrides_bottom_color(self, tmp_path, mocker):
+        """Setting bottom_text_separator_color overrides inheritance."""
+        from led_ticker._compat import require_graphics
+
+        graphics = require_graphics()
+        path = _make_png(tmp_path)
+        widget = StillImage(
+            path=str(path),
+            fit="stretch",
+            top_text="TOP",
+            bottom_text="Hi",
+            bottom_text_wrap=True,
+            bottom_text_separator=" * ",
+            bottom_color=graphics.Color(0, 255, 0),  # green
+            bottom_text_separator_color=graphics.Color(0, 0, 255),  # blue
+            scroll_speed_ms=50,
+            hold_seconds=0.2,
+        )
+        real = _bigsign_real_canvas()
+        frame = mocker.MagicMock()
+        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        import led_ticker.widgets._image_base as base_mod
+
+        real_draw = base_mod.draw_text
+        captured: list = []
+
+        def _capture(canvas, font, x, baseline_y, color, text):
+            if text in (" • ", " * ", "  "):
+                captured.append(color)
+            return real_draw(canvas, font, x, baseline_y, color, text)
+
+        mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+
+        await widget.play(real, frame)
+
+        assert captured, "Expected at least one separator draw"
+        for c in captured:
+            assert (c.red, c.green, c.blue) == (0, 0, 255), (
+                f"Separator should use blue (bottom_text_separator_color); "
+                f"got ({c.red}, {c.green}, {c.blue})"
+            )
+
+
+class TestImageTwoRowWrapWithBorder:
+    @pytest.mark.asyncio
+    async def test_wrap_with_border_no_crash(self, tmp_path, mocker):
+        """Border + bottom wrap compose without exception. Assert
+        the wrap loop still runs (bottom-row copies drawn per tick)."""
+        from led_ticker.borders import RainbowChaseBorder
+
+        path = _make_png(tmp_path)
+        widget = StillImage(
+            path=str(path),
+            fit="stretch",
+            top_text="TOP",
+            bottom_text="Hi",
+            bottom_text_wrap=True,
+            bottom_text_separator=" * ",
+            border=RainbowChaseBorder(speed=4, char_offset=6, thickness=1),
+            scroll_speed_ms=50,
+            hold_seconds=0.2,
+        )
+        real = _bigsign_real_canvas()
+        frame = mocker.MagicMock()
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+        draws = _capture_draws_per_tick(mocker, frame)
+
+        await widget.play(real, frame)
+
+        ticks = _split_into_ticks(draws)
+        hi_total = sum(len([d for d in tick if d[1] == "Hi"]) for tick in ticks)
+        assert hi_total > len(ticks), "Border did not block bottom-row wrap"
+
+
+class TestGifPlayerTwoRowWrap:
+    @pytest.mark.asyncio
+    async def test_gif_two_row_wrap_renders_multiple_copies(self, tmp_path, mocker):
+        """Multi-frame gif + bottom wrap. Exercises the interaction
+        between _pick_frame_for_elapsed and the wrap render path."""
+        from led_ticker.widgets.gif import GifPlayer
+
+        gif_path = tmp_path / "x.gif"
+        from PIL import Image
+
+        frames = [
+            Image.new("RGB", (32, 32), (200, 0, 0)),
+            Image.new("RGB", (32, 32), (0, 200, 0)),
+            Image.new("RGB", (32, 32), (0, 0, 200)),
+        ]
+        frames[0].save(
+            gif_path,
+            save_all=True,
+            append_images=frames[1:],
+            duration=100,
+            loop=0,
+        )
+
+        widget = GifPlayer(
+            path=str(gif_path),
+            fit="stretch",
+            top_text="TOP",
+            bottom_text="Hi",
+            bottom_text_wrap=True,
+            bottom_text_separator=" * ",
+            scroll_speed_ms=50,
+            gif_loops=2,
+        )
+
+        real = _bigsign_real_canvas()
+        frame = mocker.MagicMock()
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+        draws = _capture_draws_per_tick(mocker, frame)
+
+        await widget.play(real, frame)
+
+        ticks = _split_into_ticks(draws)
+        hi_total = sum(len([d for d in tick if d[1] == "Hi"]) for tick in ticks)
+        assert hi_total > len(ticks), (
+            "GifPlayer two-row wrap should render multiple bottom " "copies per tick"
+        )

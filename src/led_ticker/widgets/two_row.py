@@ -150,6 +150,16 @@ class TwoRowMessage(_FrameAware):
     # `bottom_text_wrap = True`; rule 28 rejects otherwise.
     bottom_text_loops: int = attrs.field(default=0, kw_only=True)
 
+    # Bottom-row scroll style enum. Default "marquee" preserves all
+    # legacy behavior (held-when-fits + cursor-driven scroll-on-overflow,
+    # or seamless tile when paired with bottom_text_wrap=True). Set
+    # "scroll_through" to force a single-pass offscreen-to-offscreen
+    # scroll on every visit — text starts at bottom_x = canvas.width
+    # (fully off the right) and ends past bottom_x + bottom_width < 0
+    # (fully off the left). bottom_align is ignored in scroll_through
+    # mode. Mutually exclusive with bottom_text_wrap=True.
+    bottom_text_scroll: str = attrs.field(default="marquee", kw_only=True)
+
     _top_width: int = attrs.field(init=False, default=-1)
     _bottom_width: int = attrs.field(init=False, default=-1)
 
@@ -161,6 +171,15 @@ class TwoRowMessage(_FrameAware):
         Bottom row in wrap mode is intrinsically continuous —
         only section duration / loop_count terminates it."""
         return self.bottom_text_wrap and bool(self.bottom_text)
+
+    @property
+    def forces_offscreen_scroll(self) -> bool:
+        """Engine cooperation signal — parallel to `wraps_forever`. When
+        True, `_swap_and_scroll` skips its pre/post-scroll holds and runs
+        a single-pass loop that decrements `pos` from 0 down past
+        `-(canvas.width + bottom_width)` — driving the bottom row from
+        fully off the right to fully off the left."""
+        return self.bottom_text_scroll == "scroll_through" and bool(self.bottom_text)
 
     def __attrs_post_init__(self) -> None:
         # Wrap raw Color → _ConstantColor for uniform provider dispatch in draw().
@@ -221,11 +240,47 @@ class TwoRowMessage(_FrameAware):
                 f"bottom_text_loops must be >= 0, got {self.bottom_text_loops!r}"
             )
         if self.bottom_text_loops > 0 and not self.bottom_text_wrap:
+            # Special case for the loops + scroll_through combo: the user
+            # is implicitly being told "add bottom_text_wrap=True", but
+            # scroll_through is mutually exclusive with wrap (see check
+            # below). Surface the real conflict directly so the user
+            # doesn't bounce between two incompatible errors.
+            if self.bottom_text_scroll == "scroll_through":
+                raise ValueError(
+                    f"bottom_text_loops={self.bottom_text_loops} is "
+                    f"incompatible with bottom_text_scroll='scroll_through'. "
+                    f"scroll_through is a single offscreen-to-offscreen "
+                    f"pass — there's no cycle to count. Drop "
+                    f"bottom_text_loops, or switch to the seamless "
+                    f"marquee (bottom_text_wrap=True + drop scroll_through)."
+                )
             raise ValueError(
                 f"bottom_text_loops={self.bottom_text_loops} requires "
                 f"bottom_text_wrap=True. Without wrap, the bottom row "
                 f"scrolls once over its overflow — there's no cycle to count."
             )
+
+        # bottom_text_scroll enum: validate value + mutex with wrap.
+        _valid_scroll = ("marquee", "scroll_through")
+        if self.bottom_text_scroll not in _valid_scroll:
+            raise ValueError(
+                f"bottom_text_scroll={self.bottom_text_scroll!r} is not a "
+                f"valid value. Pick one of: {', '.join(_valid_scroll)}."
+            )
+        if self.bottom_text_scroll == "scroll_through":
+            if self.bottom_text_wrap:
+                raise ValueError(
+                    "bottom_text_scroll='scroll_through' and "
+                    "bottom_text_wrap=True are mutually exclusive — "
+                    "the former is a one-pass offscreen-to-offscreen "
+                    "scroll, the latter is a seamless tiled marquee. "
+                    "Pick one."
+                )
+            if not self.bottom_text:
+                raise ValueError(
+                    "bottom_text_scroll='scroll_through' requires "
+                    "non-empty bottom_text — there's nothing to scroll."
+                )
 
         # Defensive coercion to ColorProvider (mirrors top_color /
         # bottom_color handling). app.py's _coerce_widget_colors path
@@ -533,11 +588,17 @@ class TwoRowMessage(_FrameAware):
             frame=self.frame_for("top_color"),
         )
 
-        # Bottom row: cursor_pos is supplied by the framework. On the
-        # first frame it's whatever start_pos says (typically 0). When
-        # the bottom row fits without overflow, we use bottom_align to
-        # nudge it; when it overflows, cursor_pos drives the scroll.
-        if self._bottom_width <= canvas.width and cursor_pos == 0:
+        # Bottom row: cursor_pos is supplied by the framework. Three
+        # branches:
+        #   * scroll_through mode forces offscreen-to-offscreen travel.
+        #     The engine drives cursor_pos from 0 downward; we anchor
+        #     bottom_x to `canvas.width + cursor_pos` so the first frame
+        #     paints fully off the right edge.
+        #   * Default (marquee) fit branch holds at bottom_align.
+        #   * Default (marquee) overflow branch lets cursor_pos drive.
+        if self.bottom_text_scroll == "scroll_through":
+            bottom_x = canvas.width + cursor_pos
+        elif self._bottom_width <= canvas.width and cursor_pos == 0:
             bottom_x = _aligned_x(canvas.width, self._bottom_width, self.bottom_align)
         else:
             bottom_x = cursor_pos
@@ -556,4 +617,12 @@ class TwoRowMessage(_FrameAware):
 
         # Report cursor at the bottom-row's right edge so `_swap_and_scroll`
         # knows whether to scroll, and where to stop.
+        #
+        # scroll_through anchors the engine's stop math (-(cursor-width)
+        # + padding) to a stop_pos of -(canvas.width + bottom_width) so
+        # the bottom row lands fully off the left edge before exit.
+        # Inverting that formula: returned_cursor = 2*canvas.width +
+        # bottom_width + padding.
+        if self.bottom_text_scroll == "scroll_through":
+            return canvas, 2 * canvas.width + self._bottom_width + self.padding
         return canvas, cursor_pos + self._bottom_width + self.padding

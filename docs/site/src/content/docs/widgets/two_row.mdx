@@ -163,6 +163,39 @@ Notes:
 - The separator color inherits `bottom_color` (NOT `font_color`).
 - `bottom_text_wrap` is only allowed in `mode = "swap"`. In `forever_scroll` / `infini_scroll` modes, validation refuses it.
 
+### Scroll-through mode (one pass, offscreen to offscreen)
+
+Setting `bottom_text_scroll = "scroll_through"` forces the bottom row to do a single offscreen-to-offscreen pass on every visit: text starts fully off the right edge, scrolls left, ends fully off the left edge. The widget then exits. `bottom_align` is ignored.
+
+Use it when you want the "marquee runs through and is done" feel — a now-playing line that flies across and the section moves on — instead of the held-when-fits / scroll-when-overflows default.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "two_row"
+top_text = "NOW PLAYING"
+bottom_text = "some long song title that flies across"
+bottom_text_scroll = "scroll_through"`}
+/>
+
+| Field                | Type   | Default     | Meaning                                                                                                                                                  |
+| -------------------- | ------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bottom_text_scroll` | string | `"marquee"` | Bottom-row scroll style. `"marquee"` (default) preserves existing behavior; `"scroll_through"` forces single-pass offscreen-to-offscreen on every visit. |
+
+Behavior table:
+
+| Mode               | When bottom fits       | When bottom overflows                             |
+| ------------------ | ---------------------- | ------------------------------------------------- |
+| `"marquee"`        | held at `bottom_align` | cursor-driven single-pass (last char flush right) |
+| `"scroll_through"` | forced scroll-through  | forced scroll-through                             |
+
+Notes:
+
+- Mutually exclusive with `bottom_text_wrap = true` — pick one. Scroll-through is one pass per visit; wrap is a seamless tiled marquee.
+- Requires non-empty `bottom_text`.
+- Only valid in `mode = "swap"`. In `forever_scroll` / `infini_scroll` modes validation refuses it (rule 32), same as `bottom_text_wrap`.
+- **Section `hold_time` is IGNORED on `two_row`.** The widget exits as soon as the scroll pass completes, regardless of `hold_time`. Pass duration is `(canvas.width + bottom_width) × scroll_step_ms` milliseconds. If you need post-scroll dead time before the section transitions, follow this widget with another widget in the same section.
+- **Important:** the same field on [`gif`](/widgets/gif/) and [`image`](/widgets/image/) widgets behaves DIFFERENTLY: `hold_seconds` is honored as a _floor_ there (the marquee repeats to fill the hold time). If you mix the two widget types in one section, the section's effective length depends on which widget is up. Lock the asymmetry in your mental model or pick one widget type.
+
 ### `bottom_text_loops`
 
 Minimum number of full wrap cycles the bottom row must complete before the section can transition. One cycle = `bottom_text` + `bottom_text_separator`. Default `0` means "no minimum" — the section's `hold_time` alone controls duration.

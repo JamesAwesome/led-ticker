@@ -295,6 +295,70 @@ The hi-res path activates automatically when `default_scale > 1` — you don't
 need a separate code path. The `:instagram:` slug always resolves to the correct
 sprite size for the current scale and band height.
 
+## Seamless wrap with a loop count
+
+The hi-res config above scrolls the bottom row once, end-to-end, then
+transitions. That works for short content but feels abrupt for marquee-style
+text. The bottom row supports a **continuous wrap mode**: when the text
+scrolls off the left edge, the next copy is already coming in from the
+right, separated by a glyph you control. Combine wrap with
+`bottom_text_loops` to declare exactly how many full passes the marquee
+plays before the section ends.
+
+Add three lines to the hi-res config:
+
+```toml
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 24
+loop_count = 1
+scroll_step_ms = 35
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunny"
+top_row_height = 16
+top_font = "Inter-Bold"
+top_font_size = 22
+top_color = [225, 48, 108]
+top_align = "left"
+bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_color = [255, 240, 200]
+bottom_align = "left"
+bottom_text_wrap = true
+bottom_text_separator = " · "
+bottom_text_loops = 3
+```
+
+What changed:
+
+- **`hold_time` is gone.** When `bottom_text_loops` is set, the engine runs
+  for `max(hold_time_ticks, loops × cycle_width)` ticks. Removing `hold_time`
+  uses the default (3.0s), which at `scroll_step_ms = 35` is only ~85 ticks
+  — far fewer than `3 × cycle_width`. The loops win and the section runs for
+  exactly 3 wrap cycles.
+- **`bottom_text_wrap = true`** switches the bottom row from "scroll once and
+  stop" to a continuous chase. The text plus separator forms one cycle; copies
+  follow each other across the canvas with no gap.
+- **`bottom_text_separator = " · "`** uses the same middle-dot character
+  that's already separating phrases inside `bottom_text`, so the seam between
+  wrap copies reads as part of the same rhythm. The string renders as-is — the
+  spaces around the dot are intentional padding. `""` would render as two
+  spaces (no glyph, minimum gap); `"*"` (no surrounding space) would butt the
+  asterisk directly against the adjacent letters.
+- **`bottom_text_loops = 3`** is the minimum number of full cycles before the
+  section can transition. Only meaningful with `bottom_text_wrap = true` —
+  setting `bottom_text_loops` on a non-wrap section is a validation error
+  (rule 28) because there's no cycle to count when the bottom only scrolls
+  once.
+
+This combination is image-widget parity: `gif` and `image` widgets have used
+`text_loops` for the same purpose since [PR #58](https://github.com/JamesAwesome/led-ticker/pull/58).
+On TwoRowMessage the field is prefixed `bottom_text_loops` (matching the
+`bottom_*` convention) because the top row is held and only the bottom row
+can have cycles.
+
 ## What's next
 
 Chapter 4 adds custom branding: the Atkinson Hyperlegible font for the title card

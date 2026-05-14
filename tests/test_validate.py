@@ -1651,6 +1651,62 @@ async def test_rule33_mode_swap_does_not_warn(conf):
     assert all(w.rule != 33 for w in result.warnings)
 
 
+async def test_rule35_default_inside_section_warns(conf):
+    """`default = '...'` written inside a [[playlist.section]] block is
+    silently ignored — it's a [transitions] key. The validator surfaces
+    this so the user knows to rename it to `transition = '...'`."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        default = "wipe_left"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    # Warning only — the config is valid; ticker can start.
+    assert result.valid is True
+    assert any(
+        w.rule == 35 for w in result.warnings
+    ), f"expected rule 35 warning; got warnings={[w.rule for w in result.warnings]}"
+
+
+async def test_rule35_default_in_transitions_block_does_not_warn(conf):
+    """`[transitions] default = '...'` is the legit global-default syntax.
+    Rule 35 must NOT fire here."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [transitions]
+        default = "wipe_left"
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 35 for w in result.warnings), (
+        f"rule 35 must not fire for [transitions] default; "
+        f"got warnings={[(w.rule, w.location) for w in result.warnings]}"
+    )
+
+
 class TestRule27WrapsForeverModeOnly:
     """bottom_text_wrap=True is only valid in mode=swap. Refused
     in forever_scroll and infini_scroll because the widget would

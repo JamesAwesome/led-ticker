@@ -553,6 +553,28 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                     )
                 )
 
+        # Rule 35: `default = "..."` inside a [[playlist.section]] block.
+        # `default` is a [transitions]-block key. Inside a section the
+        # equivalent is `transition`. Writing `default = "wipe_left"` in
+        # a section silently does nothing — the section loader discards
+        # any key it doesn't recognise. Inspect via _raw so we see
+        # original TOML keys that the dataclass swallows.
+        if "default" in section._raw:
+            warnings.append(
+                ValidationIssue(
+                    rule=35,
+                    location=f"section[{i}].default",
+                    severity="warning",
+                    message=(
+                        "`default` is a [transitions]-block key. "
+                        "Inside a [[playlist.section]], the equivalent "
+                        "is `transition`. The key as written is silently "
+                        "ignored."
+                    ),
+                    fix="Rename `default = '...'` to `transition = '...'`.",
+                )
+            )
+
         # Rule 2: font_threshold mismatch within font family
         family_thresholds: dict[str, list[int]] = {}
         for widget_cfg in section.widgets:

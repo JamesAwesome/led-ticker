@@ -176,7 +176,6 @@ Notes:
 - Requires non-empty `bottom_text` (two-row mode). Single-row text scroll lives under `text_align = "scroll"` / `"scroll_over"`.
 - Only valid in `mode = "swap"`. In `forever_scroll` / `infini_scroll` modes validation refuses it (rule 32).
 - `hold_seconds` is honored as a _floor_: at least one full pass per visit, or `text_loops × (canvas_width + bottom_width)` if larger, or whatever `hold_seconds` admits — whichever is greatest. The bottom row keeps cycling until that floor is met.
-- **Important:** the same field on the [`two_row`](/widgets/two_row/) widget behaves DIFFERENTLY: `hold_time` is _ignored_ there — the widget exits after exactly one pass per visit, no auto-loop. If you mix `two_row` widgets and image/gif widgets with scroll-through in one playlist, expect different section durations. Lock the asymmetry in your mental model or stick to one widget type for scroll-through visuals.
 - **Loop count for the bottom-row wrap:** use `text_loops` here on gif/image widgets (same field that controls single-row wrap loops). On the [`two_row`](/widgets/two_row/) widget — which is always two-row, not optionally — the equivalent field is named `bottom_text_loops` to match its bottom-prefix convention. The validator catches the cross-widget typo (rule 29) and points you at the right name.
 
 ### Two-row text overlay (set `bottom_text` to switch modes — image plays underneath)

@@ -1,6 +1,6 @@
 # render-duration: 20
-# TwoRow scroll_through demo: bottom row runs THREE offscreen-to-offscreen
-# passes per visit (bottom_text_loops = 3). Top row stays held.
+# TwoRow scroll_through demo: hold_time drives the pass count (max-of semantics).
+# bottom_text_loops = 0 + hold_time = 10.0 → engine fills the section with passes.
 [display]
 rows = 16
 cols = 32
@@ -14,7 +14,7 @@ default = "cut"
 [[playlist.section]]
 mode = "swap"
 loop_count = 1
-hold_time = 7.0
+hold_time = 10.0
 scroll_step_ms = 25
 
 [[playlist.section.widget]]
@@ -22,8 +22,8 @@ type = "two_row"
 top_text = "NOW PLAYING"
 top_font = "5x8"
 top_color = [225, 48, 108]
-bottom_text = "Some Long Song Title - Album Name (2026)"
+bottom_text = "Some Long Song Title - Album Name - Artist (2026)"
 bottom_font = "5x8"
 bottom_color = [120, 230, 255]
 bottom_text_scroll = "scroll_through"
-bottom_text_loops = 3
+bottom_text_loops = 0

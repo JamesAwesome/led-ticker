@@ -119,6 +119,12 @@ class SectionConfig:
     # {style = "gradient", ...}. Raw value here; normalized to
     # ColorProvider by app._resolve_buffer_msg at build time.
     separator_color: list[int] | str | dict | None = None
+    # Raw TOML dict for this section. Populated by load_config; used by
+    # the validator to inspect unknown / cross-scope keys (rules 34, 35).
+    # Not included in repr to keep logs readable. Other consumers of
+    # SectionConfig are unaffected — field has a default factory so
+    # programmatic construction without _raw still works.
+    _raw: dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
 
 
 @dataclass
@@ -242,6 +248,7 @@ def load_config(path: Path) -> AppConfig:
             separator_font=section_raw.get("separator_font"),
             separator_font_size=section_raw.get("separator_font_size"),
             separator_color=section_raw.get("separator_color"),
+            _raw=section_raw,
         )
         sections.append(section)
 

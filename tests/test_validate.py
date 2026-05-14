@@ -291,7 +291,7 @@ async def test_missing_config_file_raises():
 
 async def test_rule1_content_height_overflow(conf):
     # panel_h=32*1=32; content_height=20 × scale=1=20 ≤ 32 — no overflow at scale=1
-    # Use scale=4 explicitly: 20 * 4 = 80 > 32 → triggers rule 1
+    # Use scale=4 explicitly: 20 * 4 = 80 > 32 → triggers rule 1 (promoted to error)
     cfg = """\
         [display]
         rows = 32
@@ -309,8 +309,9 @@ async def test_rule1_content_height_overflow(conf):
         text = "hello"
         """
     result = await validate_config(conf(cfg))
-    assert result.valid is True  # soft warning, not error
-    assert any(w.rule == 1 for w in result.warnings)
+    assert result.valid is False  # now an error, not a warning
+    assert any(e.rule == 1 for e in result.errors)
+    assert all(w.rule != 1 for w in result.warnings)
 
 
 async def test_rule1_no_warning_when_within_limits(conf):
@@ -331,6 +332,36 @@ async def test_rule1_no_warning_when_within_limits(conf):
         text = "hello"
         """
     result = await validate_config(conf(cfg))
+    assert all(w.rule != 1 for w in result.warnings)
+
+
+async def test_rule1_does_not_fire_at_exact_boundary(conf):
+    """Rule 1 uses strict `>` — equality is fine, only exceedance is an
+    error. Boundary test: content_height × scale == panel_h_real should
+    NOT fire (the panel exactly fits)."""
+    # panel_h = rows * parallel = 32 * 1 = 32; content_height=8, scale=4
+    # → 8 × 4 = 32 = panel_h. Boundary case.
+    cfg = """\
+        [display]
+        rows = 32
+        cols = 64
+        chain = 8
+        default_scale = 4
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        content_height = 8
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(e.rule != 1 for e in result.errors), (
+        f"rule 1 must not fire at exact boundary; "
+        f"got {[(e.rule, e.message) for e in result.errors]}"
+    )
     assert all(w.rule != 1 for w in result.warnings)
 
 
@@ -377,12 +408,15 @@ async def test_rule2_no_warning_when_thresholds_match(conf):
 
 
 async def test_rule6_two_row_at_scale4(conf):
+    # Bigsign config: pixel_mapper gives panel_h_real=64; scale=4 × content_height=16
+    # = 64 ≤ 64 — no rule 1 error, so soft warnings can surface.
     cfg = """\
         [display]
         rows = 32
         cols = 64
         chain = 8
         default_scale = 4
+        pixel_mapper = "Remap:256,64|U-mapper"
 
         [[playlist.section]]
         mode = "swap"
@@ -1499,6 +1533,211 @@ async def test_rule31_scroll_step_ms_positive_is_allowed(conf):
         """
     result = await validate_config(conf(cfg))
     assert all(e.rule != 31 for e in result.errors)
+
+
+async def test_rule34a_scroll_speed_ms_at_section_level_errors(conf):
+    """scroll_speed_ms is a widget-level field. At section level it is
+    silently ignored. The validator catches it and points at scroll_step_ms."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        scroll_speed_ms = 40
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(
+        e.rule == 34 and "scroll_speed_ms" in e.location for e in result.errors
+    ), (
+        f"expected rule 34 error at section.scroll_speed_ms; "
+        f"got {[(e.rule, e.location, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule34b_scroll_step_ms_on_gif_widget_errors(conf):
+    """scroll_step_ms on a gif widget would be passed as an unknown kwarg and
+    crash at startup. The validator catches it and points at scroll_speed_ms."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        text = "marquee"
+        text_align = "scroll_over"
+        scroll_step_ms = 40
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(
+        e.rule == 34 and "scroll_step_ms" in e.location for e in result.errors
+    ), (
+        f"expected rule 34 error at widget.scroll_step_ms; "
+        f"got {[(e.rule, e.location, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule34b_scroll_step_ms_on_image_widget_errors(conf):
+    """Same as gif case but for the image widget type."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "image"
+        path = "x.png"
+        text = "caption"
+        scroll_step_ms = 40
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(
+        e.rule == 34 and "scroll_step_ms" in e.location for e in result.errors
+    ), (
+        f"expected rule 34 error at widget.scroll_step_ms; "
+        f"got {[(e.rule, e.location, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule34_scroll_step_ms_on_message_widget_does_not_fire(conf):
+    """Rule 34b is scoped to gif/image only — those are the widget types that
+    have a scroll_speed_ms to be confused with. A message widget with
+    scroll_step_ms is a different kind of error (unknown kwarg, deferred),
+    not a cross-scope confusion."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        scroll_step_ms = 40
+        """
+    result = await validate_config(conf(cfg))
+    assert all(e.rule != 34 for e in result.errors), (
+        f"rule 34 must not fire for message widgets; "
+        f"got {[(e.rule, e.location) for e in result.errors]}"
+    )
+
+
+async def test_rule33_mode_gif_warns(conf):
+    """mode='gif' is the legacy dedicated-gif section mode. The validator
+    surfaces a warning so authors know to migrate to mode='swap' + gif
+    widget, which gives access to the full section feature set."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "gif"
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        """
+    result = await validate_config(conf(cfg))
+    # Warning only — the config is still valid; ticker can start.
+    assert result.valid is True
+    assert any(
+        w.rule == 33 for w in result.warnings
+    ), f"expected rule 33 warning; got warnings={[w.rule for w in result.warnings]}"
+
+
+async def test_rule33_mode_swap_does_not_warn(conf):
+    """mode='swap' is the recommended pattern — must not trip rule 33."""
+    result = await validate_config(conf(GOOD_CONFIG))
+    assert all(w.rule != 33 for w in result.warnings)
+
+
+async def test_rule35_default_inside_section_warns(conf):
+    """`default = '...'` written inside a [[playlist.section]] block is
+    silently ignored — it's a [transitions] key. The validator surfaces
+    this so the user knows to rename it to `transition = '...'`."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        default = "wipe_left"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    # Warning only — the config is valid; ticker can start.
+    assert result.valid is True
+    assert any(
+        w.rule == 35 for w in result.warnings
+    ), f"expected rule 35 warning; got warnings={[w.rule for w in result.warnings]}"
+
+
+async def test_rule35_default_in_transitions_block_does_not_warn(conf):
+    """`[transitions] default = '...'` is the legit global-default syntax.
+    Rule 35 must NOT fire here."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [transitions]
+        default = "wipe_left"
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 35 for w in result.warnings), (
+        f"rule 35 must not fire for [transitions] default; "
+        f"got warnings={[(w.rule, w.location) for w in result.warnings]}"
+    )
 
 
 class TestRule27WrapsForeverModeOnly:

@@ -1,0 +1,29 @@
+# render-duration: 12
+# TwoRow scroll_through demo: bottom row scrolls from fully off the
+# right edge to fully off the left in a single pass per visit. Top
+# row stays held.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 7.0
+scroll_step_ms = 25
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "NOW PLAYING"
+top_font = "5x8"
+top_color = [225, 48, 108]
+bottom_text = "Some Long Song Title - Album Name (2026)"
+bottom_font = "5x8"
+bottom_color = [120, 230, 255]
+bottom_text_scroll = "scroll_through"

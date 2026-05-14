@@ -150,6 +150,11 @@ Notes:
 
 ### Scroll-through mode (bottom row, one offscreen pass)
 
+<DemoGif
+  src="/demos-pinned/image-two_row-scroll_through.gif"
+  caption="moon on the right, held magenta `@moonbunny` on top, cream promo scrolling fully offscreen-to-offscreen on the bottom — keeps cycling within `hold_seconds`"
+/>
+
 Setting `bottom_text_scroll = "scroll_through"` in two-row mode forces the bottom row to do an offscreen-to-offscreen scroll on every visit — text starts fully off the right edge and ends fully off the left edge — instead of the default "held when it fits, scroll only on overflow" behavior. `bottom_align` is ignored.
 
 <TomlExample

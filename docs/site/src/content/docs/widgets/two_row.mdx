@@ -165,6 +165,11 @@ Notes:
 
 ### Scroll-through mode (one pass, offscreen to offscreen)
 
+<DemoGif
+  src="/demos-pinned/two_row-scroll_through.gif"
+  caption="held magenta `NOW PLAYING` on top, cyan song title flies through fully offscreen-to-offscreen on the bottom — one pass per visit"
+/>
+
 Setting `bottom_text_scroll = "scroll_through"` forces the bottom row to do a single offscreen-to-offscreen pass on every visit: text starts fully off the right edge, scrolls left, ends fully off the left edge. The widget then exits. `bottom_align` is ignored.
 
 Use it when you want the "marquee runs through and is done" feel — a now-playing line that flies across and the section moves on — instead of the held-when-fits / scroll-when-overflows default.

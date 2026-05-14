@@ -51,6 +51,9 @@ Setting `bottom_text` to a non-empty string switches the widget to **two-row mod
 | `top_emoji_y_offset` | int | `0` | Vertical nudge for the top row's emoji in logical rows. Set equal to `top_text_y_offset` to shift the whole row together. |
 | `bottom_emoji_y_offset` | int | `0` | Vertical nudge for the bottom row's emoji in logical rows. |
 | `top_row_height` | int | none | Give the top band exactly N logical rows; the bottom gets the remainder. Default `None` splits 50/50. Use when the top and bottom rows need different font sizes. Must be `> 0` and `< canvas.height`. |
+| `bottom_text_wrap` | bool | `false` | Seamless wrap mode for the bottom row in two-row mode. When `true`, the bottom row repeats with a separator between copies and at least one full copy is on the panel at every tick. Requires `bottom_text` non-empty; top row never wraps. Only allowed in `mode = "swap"`. |
+| `bottom_text_separator` | string | `" • "` (when `bottom_text_wrap = true`) | Glyph(s) drawn between bottom-row repeats in wrap mode. `""` falls back to a two-space gap. Rendered in the bottom row's font. |
+| `bottom_text_separator_color` | color spec | inherit `bottom_color` | Color for the bottom separator in wrap mode. Whole-string provider (one hue per frame); accepts the same value types as `bottom_color`. Inherits `bottom_color` (NOT `font_color`) — separator is part of the bottom row. |
 
 ## GIF playback
 

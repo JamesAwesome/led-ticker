@@ -1108,3 +1108,89 @@ async def test_rule24_separator_font_missing_emits_warning(conf):
         f"warnings={[w.rule for w in result.warnings]}, "
         f"errors={[(e.rule, e.message) for e in result.errors]}"
     )
+
+
+class TestRule27WrapsForeverModeOnly:
+    """bottom_text_wrap=True is only valid in mode=swap. Refused
+    in forever_scroll and infini_scroll because the widget would
+    block the chain (wraps_forever never terminates on cursor_pos)."""
+
+    @pytest.mark.asyncio
+    async def test_bottom_text_wrap_in_forever_scroll_rejected(self, tmp_path):
+        cfg = tmp_path / "config.toml"
+        cfg.write_text("""\
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "forever_scroll"
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "TOP"
+bottom_text = "bottom"
+bottom_text_wrap = true
+""")
+        from led_ticker.validate import validate_config
+
+        result = await validate_config(cfg)
+        assert any(
+            issue.rule == 27 and "bottom_text_wrap" in issue.message
+            for issue in result.errors
+        ), f"Expected rule 27 error; got errors={result.errors}"
+
+    @pytest.mark.asyncio
+    async def test_bottom_text_wrap_in_infini_scroll_rejected(self, tmp_path):
+        cfg = tmp_path / "config.toml"
+        cfg.write_text("""\
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "infini_scroll"
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "TOP"
+bottom_text = "bottom"
+bottom_text_wrap = true
+""")
+        from led_ticker.validate import validate_config
+
+        result = await validate_config(cfg)
+        assert any(
+            issue.rule == 27 and "bottom_text_wrap" in issue.message
+            for issue in result.errors
+        ), f"Expected rule 27 error; got errors={result.errors}"
+
+    @pytest.mark.asyncio
+    async def test_bottom_text_wrap_in_swap_accepted(self, tmp_path):
+        cfg = tmp_path / "config.toml"
+        cfg.write_text("""\
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 5
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "TOP"
+bottom_text = "bottom"
+bottom_text_wrap = true
+""")
+        from led_ticker.validate import validate_config
+
+        result = await validate_config(cfg)
+        # Confirm no rule-27 error (other errors irrelevant for this test).
+        rule_27_errors = [e for e in result.errors if e.rule == 27]
+        assert (
+            not rule_27_errors
+        ), f"Expected no rule-27 error in swap mode; got {rule_27_errors}"

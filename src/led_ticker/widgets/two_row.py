@@ -49,9 +49,10 @@ import attrs
 from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR
-from led_ticker.drawing import safe_scale
+from led_ticker.drawing import get_text_width, safe_scale
 from led_ticker.fonts import FONT_SMALL, font_line_height_logical
-from led_ticker.pixel_emoji import draw_with_emoji, measure_width
+from led_ticker.pixel_emoji import EMOJI_PATTERN, draw_with_emoji, measure_width
+from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import _FrameAware
 from led_ticker.widgets._image_fit import fill_band
@@ -130,8 +131,27 @@ class TwoRowMessage(_FrameAware):
     # chase via `pause_frame`.
     border: Any | None = attrs.field(default=None, kw_only=True)
 
+    # Two-row wrap (v2). Applies to the bottom row only — top stays
+    # held. When True, the bottom row chases itself continuously with
+    # a separator between copies, regardless of whether bottom_text
+    # fits the canvas. Engine cooperation: `wraps_forever` property
+    # below tells ticker._swap_and_scroll to skip its cursor_pos-based
+    # stop condition.
+    bottom_text_wrap: bool = attrs.field(default=False, kw_only=True)
+    bottom_text_separator: str | None = attrs.field(default=None, kw_only=True)
+    bottom_text_separator_color: Any | None = attrs.field(default=None, kw_only=True)
+
     _top_width: int = attrs.field(init=False, default=-1)
     _bottom_width: int = attrs.field(init=False, default=-1)
+
+    @property
+    def wraps_forever(self) -> bool:
+        """Engine cooperation signal: when True, ticker.py's
+        _swap_and_scroll skips its cursor_pos-based stop condition
+        and runs the widget's draw loop for hold_time instead.
+        Bottom row in wrap mode is intrinsically continuous —
+        only section duration / loop_count terminates it."""
+        return self.bottom_text_wrap and bool(self.bottom_text)
 
     def __attrs_post_init__(self) -> None:
         # Wrap raw Color → _ConstantColor for uniform provider dispatch in draw().
@@ -165,11 +185,145 @@ class TwoRowMessage(_FrameAware):
                 f"Drop the field or set None to use the default 50/50 split."
             )
 
+        if self.bottom_text_wrap and not self.bottom_text:
+            raise ValueError("bottom_text_wrap=True requires non-empty bottom_text.")
+        if self.bottom_text_separator is not None and not self.bottom_text_wrap:
+            raise ValueError(
+                f"bottom_text_separator={self.bottom_text_separator!r} "
+                f"requires bottom_text_wrap=True."
+            )
+        if self.bottom_text_separator_color is not None and not self.bottom_text_wrap:
+            raise ValueError(
+                "bottom_text_separator_color requires bottom_text_wrap=True."
+            )
+
+        # Defensive coercion to ColorProvider (mirrors top_color /
+        # bottom_color handling). app.py's _coerce_widget_colors path
+        # normally does this at config-load; this covers direct
+        # construction in tests.
+        if self.bottom_text_separator_color is not None and not hasattr(
+            self.bottom_text_separator_color, "color_for"
+        ):
+            self.bottom_text_separator_color = _ConstantColor(
+                self.bottom_text_separator_color
+            )
+
     def _font_for_row(self, row_index: int) -> Font:
         """Resolve the font for a row, falling back to `self.font`."""
         if row_index == 0:
             return self.top_font if self.top_font is not None else self.font
         return self.bottom_font if self.bottom_font is not None else self.font
+
+    def _resolved_separator_text(self) -> str:
+        """Mirror of `_BaseImageWidget._resolved_separator_text` for the
+        bottom-row separator.
+          - None  : " • "  (default visual gap)
+          - ""    : "  "   (two spaces — minimum gap)
+          - else  : as-is.
+        Keeps the separator-literal contract identical to the v1
+        forever_scroll and image two-row wrap paths."""
+        if self.bottom_text_separator is None:
+            return " • "
+        if self.bottom_text_separator == "":
+            return "  "
+        return self.bottom_text_separator
+
+    def _measure_separator_width(self, canvas: Canvas, font: Font, sep: str) -> int:
+        """Width of the resolved separator in logical px on `canvas`."""
+        if not sep:
+            return 0
+        if EMOJI_PATTERN.search(sep):
+            return measure_width(font, sep, canvas=canvas)
+        return get_text_width(font, sep, padding=0, canvas=canvas)
+
+    def _draw_row_text_at(
+        self,
+        canvas: Canvas,
+        font: Font,
+        x: int,
+        baseline_y: int,
+        emoji_y: int,
+        text: str,
+        provider: Any,
+        frame_key: str,
+        emoji_cap: int,
+    ) -> None:
+        """Render a single row of text at (x, baseline_y) in wrap mode.
+
+        Routes plain text through `draw_text` (in this module's namespace
+        so tests can patch `tr_mod.draw_text`) and emoji-containing text
+        through `draw_with_emoji`. Per-char providers iterate via
+        `draw_text_per_char`; whole-string providers materialize a single
+        color per call."""
+        frame_count = self.frame_for(frame_key)
+        if EMOJI_PATTERN.search(text):
+            draw_with_emoji(
+                canvas,
+                font,
+                x,
+                baseline_y,
+                provider,
+                text,
+                emoji_y=emoji_y,
+                max_emoji_height=emoji_cap,
+                frame=frame_count,
+            )
+            return
+        # Plain text path — dispatch per-char vs whole-string.
+        if hasattr(provider, "color_for") and getattr(provider, "per_char", False):
+            draw_text_per_char(
+                canvas,
+                font,
+                x,
+                baseline_y,
+                text,
+                lambda idx, total: provider.color_for(frame_count, idx, total),
+            )
+            return
+        if hasattr(provider, "color_for"):
+            color = provider.color_for(frame_count, 0, len(text) or 1)
+        else:
+            color = provider
+        draw_text(canvas, font, x, baseline_y, color, text)
+
+    def _draw_bottom_separator(
+        self,
+        canvas: Canvas,
+        x: int,
+        baseline_y: int,
+        font: Font,
+        sep: str,
+    ) -> None:
+        """Whole-string color call. Inherits `bottom_color` when
+        `bottom_text_separator_color` is None (mirrors the
+        `_image_base._draw_separator` inherit-fallback contract)."""
+        if not sep:
+            return
+        if self.bottom_text_separator_color is not None:
+            provider = self.bottom_text_separator_color
+            frame_key = "bottom_text_separator_color"
+        else:
+            provider = self.bottom_color
+            frame_key = "bottom_color"
+        frame_count = self.frame_for(frame_key)
+        if hasattr(provider, "color_for"):
+            color = provider.color_for(frame_count, 0, 1)
+        else:
+            color = provider
+        if EMOJI_PATTERN.search(sep):
+            draw_with_emoji(
+                canvas,
+                font,
+                x,
+                baseline_y,
+                color,
+                sep,
+                emoji_y=baseline_y - 8,
+                frame=frame_count,
+                total_chars=1,
+            )
+        else:
+            draw_text(canvas, font, x, baseline_y, color, sep)
 
     def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
         del kwargs  # widget is meant for swap mode; y_offset/transitions ignored
@@ -270,6 +424,72 @@ class TwoRowMessage(_FrameAware):
 
         # Top row at a fixed x — held while the bottom scrolls.
         top_x = _aligned_x(canvas.width, self._top_width, self.top_align)
+
+        # Wrap mode: bottom row chases itself with separator. Engine's
+        # cursor_pos is treated modularly; widget renders n_copies of
+        # (bottom_text + separator) per draw call. Top row stays held
+        # above (single draw, NOT duplicated across copies).
+        #
+        # The wrap branch fully handles BOTH rows (rather than letting
+        # the existing non-wrap top/bottom draw run after) so tests can
+        # observe per-row draw calls through a single patched code path
+        # in this module's namespace. Returns `(canvas, cycle_width)`
+        # so the engine has a sane stride; `wraps_forever` (Task 2)
+        # gates the engine's stop-on-cursor logic in Task 7.
+        if self.bottom_text_wrap:
+            sep_text = self._resolved_separator_text()
+            sep_width = self._measure_separator_width(canvas, bottom_font, sep_text)
+            cycle_width = self._bottom_width + sep_width
+            if cycle_width <= 0:
+                # Defensive — validation rejects empty bottom_text and
+                # measure_width returns ≥ 0, so this should be unreachable.
+                # Fail soft (single draw) rather than divide-by-zero below.
+                cycle_width = max(1, self._bottom_width)
+
+            # Draw the held top row once.
+            self._draw_row_text_at(
+                canvas,
+                top_font,
+                top_x,
+                top_text_y,
+                top_emoji_y,
+                self.top_text,
+                self.top_color,
+                "top_color",
+                top_emoji_cap,
+            )
+
+            # Bottom row: n_copies of (bottom_text + separator). Python's
+            # `%` on negative dividends keeps `scroll_pos` in [0, cycle_width),
+            # so the engine can drive `cursor_pos` in either direction.
+            scroll_pos = cursor_pos % cycle_width
+            canvas_w = canvas.width
+            n_copies = (canvas_w + cycle_width - 1) // cycle_width + 1
+            start_x = scroll_pos - cycle_width
+
+            for i in range(n_copies):
+                x = start_x + i * cycle_width
+                self._draw_row_text_at(
+                    canvas,
+                    bottom_font,
+                    x,
+                    bottom_text_y,
+                    bottom_emoji_y,
+                    self.bottom_text,
+                    self.bottom_color,
+                    "bottom_color",
+                    bottom_emoji_cap,
+                )
+                if sep_width > 0:
+                    self._draw_bottom_separator(
+                        canvas,
+                        x + self._bottom_width,
+                        bottom_text_y,
+                        bottom_font,
+                        sep_text,
+                    )
+
+            return canvas, cycle_width
 
         draw_with_emoji(
             canvas,

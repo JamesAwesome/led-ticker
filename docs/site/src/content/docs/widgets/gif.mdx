@@ -113,6 +113,36 @@ Notes:
 - Two-row mode (`bottom_text` set) refuses `text_wrap` in v1.
 - The separator renders in the widget's `font`; a per-separator font override isn't part of v1.
 
+### Wrap mode (bottom row, seamless marquee)
+
+Setting `bottom_text_wrap = true` in two-row mode (when `bottom_text` is set) runs the bottom row as a seamless marquee — chasing itself across the canvas with a separator between repeats. Top row stays held at `top_align`; only the bottom row wraps. Engages even when the bottom text fits — predictable.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "gif"
+path = "config/assets/pika_wave_transparent.gif"
+top_text = "BREAKING"
+top_color = [225, 48, 108]
+bottom_text = "tap to subscribe"
+bottom_text_wrap = true
+bottom_text_separator = " * "                 # default: " • "
+bottom_text_separator_color = "rainbow"       # default: inherit bottom_color`}
+/>
+
+| Field                         | Type       | Default                                  | Meaning                                                                    |
+| ----------------------------- | ---------- | ---------------------------------------- | -------------------------------------------------------------------------- |
+| `bottom_text_wrap`            | bool       | `false`                                  | Toggle seamless wrap on the bottom row. Requires `bottom_text` non-empty.  |
+| `bottom_text_separator`       | string     | `" • "` (when `bottom_text_wrap = true`) | Glyph(s) between bottom-row repeats. `""` falls back to a two-space gap.   |
+| `bottom_text_separator_color` | color spec | inherit `bottom_color`                   | Color for the bottom separator; whole-string provider (one hue per frame). |
+
+Notes:
+
+- `bottom_text_wrap` always wraps when set, even if the bottom text fits the canvas.
+- Top row never wraps (refused by validation; no `top_text_wrap` field exists).
+- The separator color inherits `bottom_color` (NOT `font_color`) — separator is part of the bottom row.
+- v1's `text_wrap` stays single-row only — in two-row mode use `bottom_text_wrap`.
+- `bottom_text_wrap` is only allowed in `mode = "swap"`. In `forever_scroll` / `infini_scroll` modes, validation refuses it (those modes expect widgets to terminate naturally).
+
 ### Two-row text overlay (set `bottom_text` to switch modes — image plays underneath)
 
 <DemoGif

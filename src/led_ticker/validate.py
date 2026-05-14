@@ -370,21 +370,30 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                             fix="Set bottom_text_loops to 0 or a positive integer.",
                         )
                     )
-                elif isinstance(btl, int) and btl > 0 and not btw:
+                elif (
+                    isinstance(btl, int)
+                    and btl > 0
+                    and not btw
+                    and widget_cfg.get("bottom_text_scroll") != "scroll_through"
+                ):
                     issues.append(
                         ValidationIssue(
                             rule=28,
                             location=loc,
                             severity="error",
                             message=(
-                                f"bottom_text_loops={btl} requires "
-                                f"bottom_text_wrap=true. Without wrap, the "
-                                f"bottom row scrolls once over its "
-                                f"overflow — there's no cycle to count."
+                                f"bottom_text_loops={btl} requires either "
+                                f"bottom_text_wrap=true (seamless tiled "
+                                f"marquee) or "
+                                f"bottom_text_scroll='scroll_through' "
+                                f"(repeat the offscreen pass N times). "
+                                f"Without one of these, the bottom row has "
+                                f"no cycle to count."
                             ),
                             fix=(
-                                "Set bottom_text_wrap = true alongside "
-                                "bottom_text_loops, or drop bottom_text_loops."
+                                "Either set bottom_text_wrap = true, OR set "
+                                "bottom_text_scroll = 'scroll_through', OR "
+                                "drop bottom_text_loops."
                             ),
                         )
                     )
@@ -949,6 +958,52 @@ def _check_wraps_forever_swap_only(
     return errors
 
 
+def _check_scroll_through_swap_only(
+    config: AppConfig,
+) -> list[ValidationIssue]:
+    """Rule 32: bottom_text_scroll='scroll_through' is only valid in
+    mode='swap'. Parallel to rule 27 for bottom_text_wrap.
+
+    forever_scroll and infini_scroll drive widgets via _scroll_one_by_one /
+    _scroll_side_by_side, which read the widget's reported cursor_pos as
+    physical scroll travel. A scroll_through widget inflates cursor_pos
+    to `2 * canvas.width + bottom_width + padding` so the engine's
+    swap-mode stop math (`stop_pos = -(cursor - canvas.width) + padding`)
+    lands at -(canvas.width + bottom_width). In non-swap modes that
+    same inflated value produces 2× the expected scroll travel —
+    visible as a full canvas-width of blank ticks per visit.
+    """
+    errors: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        if section.mode == "swap":
+            continue
+        for j, widget_cfg in enumerate(section.widgets):
+            if widget_cfg.get("bottom_text_scroll") == "scroll_through":
+                errors.append(
+                    ValidationIssue(
+                        rule=32,
+                        location=(f"section[{i}].widget[{j}].bottom_text_scroll"),
+                        severity="error",
+                        message=(
+                            f"bottom_text_scroll='scroll_through' is only "
+                            f"allowed in mode='swap'; got mode="
+                            f"{section.mode!r}. Other modes interpret the "
+                            f"widget's cursor_pos as physical scroll "
+                            f"travel; scroll_through inflates it to "
+                            f"anchor swap-mode stop math, producing 2× "
+                            f"the expected travel in non-swap modes."
+                        ),
+                        fix=(
+                            "Either change the section mode to 'swap' "
+                            "(time-bounded by hold_time), or drop "
+                            "bottom_text_scroll from the widget. The "
+                            "default 'marquee' value works in any mode."
+                        ),
+                    )
+                )
+    return errors
+
+
 def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
     """Warn when held top_text on a two_row / image-two_row / gif-two_row
     widget is wider than the logical canvas.
@@ -1117,6 +1172,10 @@ async def validate_config(path: Path) -> ValidationResult:
 
     # Phase 1c (cont.): rule 27 — bottom_text_wrap requires mode=swap.
     errors.extend(_check_wraps_forever_swap_only(config))
+
+    # Phase 1c (cont.): rule 32 — bottom_text_scroll='scroll_through'
+    # requires mode=swap (parallel to rule 27).
+    errors.extend(_check_scroll_through_swap_only(config))
 
     # Phase 1d: Per-row band-layout checks for two_row / image-two_row.
     # Only meaningful when build succeeded — otherwise the widget might

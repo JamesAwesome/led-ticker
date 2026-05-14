@@ -1026,6 +1026,17 @@ async def _swap_and_scroll(
 
     tick_seconds = ENGINE_TICK_MS / 1000
 
+    # scroll_through-style widgets ride the standard scroll branch but
+    # MUST skip both pre- and post-scroll holds — at pos=0 their text
+    # sits fully off the right edge (blank canvas during a pre-hold),
+    # and at the final pos it's fully off the left edge (blank canvas
+    # during a post-hold). Forcing `continuous=True` from the widget
+    # side suppresses both hold loops without otherwise altering the
+    # scroll math. Widget guarantees `cursor_pos > canvas.width` so
+    # the held-text branch never fires.
+    if getattr(ticker_obj, "forces_offscreen_scroll", False) is True:
+        continuous = True
+
     # Wrap-forever widgets (e.g., TwoRowMessage in bottom_text_wrap
     # mode) opt out of the cursor_pos-based stop condition. The
     # widget handles modular cursor_pos internally; the engine just

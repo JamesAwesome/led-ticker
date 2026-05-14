@@ -1,0 +1,33 @@
+# render-duration: 14
+# gif scroll_through demo: pikachu on the left, held top row, scrolling
+# bottom row that flies through offscreen-to-offscreen.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 12.0
+scroll_step_ms = 25
+
+[[playlist.section.widget]]
+type = "gif"
+path = "../../../config/assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+image_align = "left"
+top_text = "NOW PLAYING"
+top_font = "5x8"
+top_color = [225, 48, 108]
+bottom_text = "Pikachu Theme - The OST Collection (2026)"
+bottom_font = "5x8"
+bottom_color = [120, 230, 255]
+bottom_text_scroll = "scroll_through"
+scroll_speed_ms = 25
+gif_loops = 999

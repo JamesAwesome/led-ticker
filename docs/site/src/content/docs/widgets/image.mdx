@@ -148,6 +148,36 @@ Notes:
 - `bottom_text_wrap` is only allowed in `mode = "swap"`. In `forever_scroll` / `infini_scroll` modes, validation refuses it (those modes expect widgets to terminate naturally).
 - **Loop count for the bottom-row wrap:** use `text_loops` here on gif/image widgets (same field that controls single-row wrap loops). On the [`two_row`](/widgets/two_row/) widget — which is always two-row, not optionally — the equivalent field is named `bottom_text_loops` to match its bottom-prefix convention. The validator catches the cross-widget typo (rule 29) and points you at the right name.
 
+### Scroll-through mode (bottom row, one offscreen pass)
+
+<DemoGif
+  src="/demos-pinned/image-two_row-scroll_through.gif"
+  caption="moon on the right, held magenta `@moonbunny` on top, cream promo scrolling fully offscreen-to-offscreen on the bottom — keeps cycling within `hold_seconds`"
+/>
+
+Setting `bottom_text_scroll = "scroll_through"` in two-row mode forces the bottom row to do an offscreen-to-offscreen scroll on every visit — text starts fully off the right edge and ends fully off the left edge — instead of the default "held when it fits, scroll only on overflow" behavior. `bottom_align` is ignored.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "image"
+path = "config/assets/album_art.png"
+top_text = "NOW PLAYING"
+bottom_text = "some long song title that flies across"
+bottom_text_scroll = "scroll_through"`}
+/>
+
+| Field                | Type   | Default     | Meaning                                                                                                                                                              |
+| -------------------- | ------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bottom_text_scroll` | string | `"marquee"` | Bottom-row scroll style. `"marquee"` preserves the held-on-fit / scroll-on-overflow default; `"scroll_through"` forces offscreen-to-offscreen passes on every visit. |
+
+Notes:
+
+- Mutually exclusive with `bottom_text_wrap = true` — pick one. Scroll-through is one pass; wrap is a seamless tile.
+- Requires non-empty `bottom_text` (two-row mode). Single-row text scroll lives under `text_align = "scroll"` / `"scroll_over"`.
+- Only valid in `mode = "swap"`. In `forever_scroll` / `infini_scroll` modes validation refuses it (rule 32).
+- `hold_seconds` is honored as a _floor_: at least one full pass per visit, or `text_loops × (canvas_width + bottom_width)` if larger, or whatever `hold_seconds` admits — whichever is greatest. The bottom row keeps cycling until that floor is met.
+- **Important:** the same field on the [`two_row`](/widgets/two_row/) widget behaves DIFFERENTLY: `hold_time` is _ignored_ there — the widget exits after exactly one pass per visit, no auto-loop. If you mix `two_row` widgets and image/gif widgets with scroll-through in one playlist, expect different section durations. Lock the asymmetry in your mental model or stick to one widget type for scroll-through visuals.
+
 ### Two-row text overlay (set `bottom_text` to switch modes — image sits underneath)
 
 <DemoGif

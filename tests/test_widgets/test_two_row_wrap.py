@@ -226,11 +226,14 @@ class TestBottomTextLoops:
         assert w.bottom_text_loops == 2
         assert w.bottom_text_wrap is True
 
-    def test_bottom_text_loops_without_wrap_raises(self):
-        """bottom_text_loops > 0 without bottom_text_wrap=True raises."""
+    def test_bottom_text_loops_without_wrap_or_scroll_through_raises(self):
+        """bottom_text_loops > 0 requires either bottom_text_wrap=True
+        (seamless tile) OR bottom_text_scroll='scroll_through' (repeat
+        the offscreen pass N times). Both compose; the rejection still
+        fires when neither is set."""
         with pytest.raises(
             ValueError,
-            match="bottom_text_loops=.* requires bottom_text_wrap=True",
+            match=r"bottom_text_loops=.*requires.*(bottom_text_wrap|scroll_through)",
         ):
             _two_row(bottom_text_loops=1)
 

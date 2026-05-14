@@ -142,6 +142,18 @@ class _BaseImageWidget(_FrameAware):
     # in phase with bottom_color.
     bottom_text_separator_color: Any | None = attrs.field(default=None, kw_only=True)
 
+    # Bottom-row scroll style — parallel to TwoRowMessage's field. See
+    # the docstring there for the contract; in short:
+    #   "marquee"        Default. Held when fits + cursor-driven scroll
+    #                    on overflow (or wrap when bottom_text_wrap=True).
+    #   "scroll_through" Force the offscreen marquee branch even when
+    #                    bottom_text fits. Bottom row starts at scroll_pos
+    #                    = canvas_w (off the right edge) and scrolls left
+    #                    every tick. Mutually exclusive with
+    #                    bottom_text_wrap=True. Only valid in two-row
+    #                    mode (bottom_text non-empty).
+    bottom_text_scroll: str = attrs.field(default="marquee", kw_only=True)
+
     # Animation effect (currently Typewriter only). When set, text
     # types out one character per `frames_per_char` ticks. Single-row
     # only — `_validate_common` raises if `bottom_text` is set or
@@ -450,6 +462,34 @@ class _BaseImageWidget(_FrameAware):
             raise ValueError(
                 "bottom_text_separator_color requires bottom_text_wrap=True."
             )
+
+        # bottom_text_scroll enum: validate value + mutex with wrap.
+        # Mirrors TwoRowMessage's validation contract exactly.
+        _valid_scroll = ("marquee", "scroll_through")
+        if self.bottom_text_scroll not in _valid_scroll:
+            raise ValueError(
+                f"bottom_text_scroll={self.bottom_text_scroll!r} is not a "
+                f"valid value. Pick one of: {', '.join(_valid_scroll)}."
+            )
+        if self.bottom_text_scroll == "scroll_through":
+            if self.bottom_text_wrap:
+                raise ValueError(
+                    "bottom_text_scroll='scroll_through' and "
+                    "bottom_text_wrap=True are mutually exclusive — "
+                    "the former is a one-pass offscreen-to-offscreen "
+                    "scroll, the latter is a seamless tiled marquee. "
+                    "Pick one."
+                )
+            if not self.bottom_text:
+                # Pointing the user at text_align (the single-row scroll
+                # knob) is more useful than telling them to add a
+                # bottom_text they probably don't want.
+                raise ValueError(
+                    "bottom_text_scroll='scroll_through' is only valid "
+                    "in two-row mode (bottom_text non-empty). For "
+                    "single-row scrolling on this widget, use "
+                    "text_align='scroll' or 'scroll_over' instead."
+                )
 
         # Two-row mode validation. `bottom_text != ""` switches the
         # widget to held-top + scrolling-bottom semantics (mirrors
@@ -1498,7 +1538,11 @@ class _BaseImageWidget(_FrameAware):
         )
         cycle_width = (bottom_width + sep_width) if wrap_mode else 0
 
-        bottom_scrolls = bottom_width > canvas_w or wrap_mode
+        # scroll_through forces the offscreen marquee branch regardless of
+        # whether bottom_text overflows. Mutex with wrap_mode is enforced
+        # at config-load, so the wrap branch below remains independent.
+        force_scroll_through = self.bottom_text_scroll == "scroll_through"
+        bottom_scrolls = bottom_width > canvas_w or wrap_mode or force_scroll_through
         if wrap_mode:
             scroll_pos = 0
             ticks_per_loop = cycle_width

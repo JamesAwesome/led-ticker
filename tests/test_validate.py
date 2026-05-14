@@ -1899,3 +1899,123 @@ bottom_text_wrap = true
         assert (
             not rule_27_errors
         ), f"Expected no rule-27 error in swap mode; got {rule_27_errors}"
+
+
+class TestRule32ScrollThroughSwapOnly:
+    """bottom_text_scroll='scroll_through' is only valid in mode=swap.
+    Refused in forever_scroll and infini_scroll for the same reason
+    as bottom_text_wrap (rule 27): those modes drive widgets via
+    _scroll_one_by_one / _scroll_side_by_side, which interpret the
+    widget's reported cursor_pos as physical scroll travel. The
+    scroll_through widget inflates cursor_pos to 2*canvas.width +
+    bottom_width + padding to anchor the engine's stop math in swap
+    mode — that same value, fed to forever_scroll, would produce 2×
+    the expected scroll travel and dead canvas between widgets."""
+
+    @pytest.mark.asyncio
+    async def test_scroll_through_in_forever_scroll_rejected(self, tmp_path):
+        cfg = tmp_path / "config.toml"
+        cfg.write_text("""\
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "forever_scroll"
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "TOP"
+bottom_text = "bottom"
+bottom_text_scroll = "scroll_through"
+""")
+        from led_ticker.validate import validate_config
+
+        result = await validate_config(cfg)
+        assert any(
+            issue.rule == 32 and "bottom_text_scroll" in issue.message
+            for issue in result.errors
+        ), f"Expected rule 32 error; got errors={result.errors}"
+
+    @pytest.mark.asyncio
+    async def test_scroll_through_in_infini_scroll_rejected(self, tmp_path):
+        cfg = tmp_path / "config.toml"
+        cfg.write_text("""\
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "infini_scroll"
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "TOP"
+bottom_text = "bottom"
+bottom_text_scroll = "scroll_through"
+""")
+        from led_ticker.validate import validate_config
+
+        result = await validate_config(cfg)
+        assert any(
+            issue.rule == 32 and "bottom_text_scroll" in issue.message
+            for issue in result.errors
+        ), f"Expected rule 32 error; got errors={result.errors}"
+
+    @pytest.mark.asyncio
+    async def test_scroll_through_in_swap_accepted(self, tmp_path):
+        cfg = tmp_path / "config.toml"
+        cfg.write_text("""\
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 5
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "TOP"
+bottom_text = "bottom"
+bottom_text_scroll = "scroll_through"
+""")
+        from led_ticker.validate import validate_config
+
+        result = await validate_config(cfg)
+        rule_32_errors = [e for e in result.errors if e.rule == 32]
+        assert (
+            not rule_32_errors
+        ), f"Expected no rule-32 error in swap mode; got {rule_32_errors}"
+
+    @pytest.mark.asyncio
+    async def test_scroll_through_marquee_default_not_flagged(self, tmp_path):
+        """The default value 'marquee' must NOT trigger rule 32 even in
+        forever_scroll mode — only the explicit scroll_through value
+        carries the mode constraint."""
+        cfg = tmp_path / "config.toml"
+        cfg.write_text("""\
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "forever_scroll"
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "TOP"
+bottom_text = "bottom"
+bottom_text_scroll = "marquee"
+""")
+        from led_ticker.validate import validate_config
+
+        result = await validate_config(cfg)
+        rule_32_errors = [e for e in result.errors if e.rule == 32]
+        assert (
+            not rule_32_errors
+        ), f"marquee mode should not trigger rule 32; got {rule_32_errors}"

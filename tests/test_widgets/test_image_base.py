@@ -571,6 +571,7 @@ class TestFieldSurfaceMatchesTwoRow:
         "top_emoji_y_offset": 0,
         "bottom_emoji_y_offset": 0,
         "top_row_height": None,
+        "bottom_text_scroll": "marquee",
     }
 
     def test_two_row_message_has_all_per_row_fields(self):

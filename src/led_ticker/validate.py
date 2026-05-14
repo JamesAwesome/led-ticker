@@ -111,6 +111,32 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
     """Synchronous checks on raw widget dicts for errors not caught by _build_widget."""
     issues: list[ValidationIssue] = []
     for i, section in enumerate(config.sections):
+        # Rule 31: scroll_step_ms must be positive. Zero divides in
+        # `ticker.py:_swap_and_scroll` (`int(hold_time / scroll_speed)`)
+        # and the wraps_forever branch is the primary user-reachable
+        # timing path now that bottom_text_loops ships. Negative values
+        # are nonsense — surface as a clear validate-time error rather
+        # than letting startup crash with a stack trace.
+        if section.scroll_step_ms is not None and section.scroll_step_ms <= 0:
+            issues.append(
+                ValidationIssue(
+                    rule=31,
+                    location=f"section[{i}]",
+                    severity="error",
+                    message=(
+                        f"scroll_step_ms must be > 0; got "
+                        f"{section.scroll_step_ms}. Section timing math "
+                        f"divides by this value — 0 raises ZeroDivisionError "
+                        f"at startup, negative values produce nonsensical "
+                        f"tick counts."
+                    ),
+                    fix=(
+                        "Set scroll_step_ms to a positive integer "
+                        "(typical range: 25–60 ms per logical pixel)."
+                    ),
+                )
+            )
+
         # Rule 25: start_hold is only meaningful on scroll modes
         # (forever_scroll / infini_scroll), which are the only modes
         # that call _scroll_and_delay. Setting it on swap / gif has
@@ -278,6 +304,97 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                             fix="Add text = '...' or remove animation",
                         )
                     )
+
+            # Rule 28: bottom_text_loops on two_row requires wrap mode
+            # (no concept of cycle without wrap separator). Mirrors the
+            # post-init validation in TwoRowMessage so the error
+            # surfaces at config-load time, not at runtime.
+            # (Rule 27 is taken: it covers bottom_text_wrap mode constraints
+            # from PR #59 — a related but distinct concern.)
+            if wtype == "two_row":
+                btl = widget_cfg.get("bottom_text_loops", 0)
+                btw = widget_cfg.get("bottom_text_wrap", False)
+                # Reject bool first — bool is an int subclass, so without
+                # this check `bottom_text_loops = true` would silently
+                # behave as loops=1.
+                if isinstance(btl, bool):
+                    issues.append(
+                        ValidationIssue(
+                            rule=28,
+                            location=loc,
+                            severity="error",
+                            message=(
+                                f"bottom_text_loops must be an integer; got "
+                                f"bool ({btl!r}). Use 0, 1, 2, … not true/false."
+                            ),
+                            fix=(
+                                "Replace true/false with an integer count "
+                                "(e.g. bottom_text_loops = 3)."
+                            ),
+                        )
+                    )
+                elif isinstance(btl, int) and btl < 0:
+                    issues.append(
+                        ValidationIssue(
+                            rule=28,
+                            location=loc,
+                            severity="error",
+                            message=(f"bottom_text_loops must be >= 0; got {btl}"),
+                            fix="Set bottom_text_loops to 0 or a positive integer.",
+                        )
+                    )
+                elif isinstance(btl, int) and btl > 0 and not btw:
+                    issues.append(
+                        ValidationIssue(
+                            rule=28,
+                            location=loc,
+                            severity="error",
+                            message=(
+                                f"bottom_text_loops={btl} requires "
+                                f"bottom_text_wrap=true. Without wrap, the "
+                                f"bottom row scrolls once over its "
+                                f"overflow — there's no cycle to count."
+                            ),
+                            fix=(
+                                "Set bottom_text_wrap = true alongside "
+                                "bottom_text_loops, or drop bottom_text_loops."
+                            ),
+                        )
+                    )
+
+                # Rule 29: did-you-mean bridge for `text_loops` on two_row.
+                # `text_loops` is the image-widget field name for the same
+                # concept; users copying a gif/image marquee config to
+                # two_row will reach for it out of muscle memory. Without
+                # this targeted catch, a generic "unknown field" error
+                # (from the unknown-kwarg validator follow-up) won't
+                # suggest the correct name — and today the field slips
+                # straight through validation and crashes at runtime with
+                # `TypeError: TwoRowMessage.__init__() got an unexpected
+                # keyword argument 'text_loops'`.
+                if "text_loops" in widget_cfg:
+                    issues.append(
+                        ValidationIssue(
+                            rule=29,
+                            location=f"{loc}.text_loops",
+                            severity="error",
+                            message=(
+                                "`text_loops` is not a valid field on a "
+                                "`two_row` widget — did you mean "
+                                "`bottom_text_loops`? The image widgets "
+                                "(`gif`, `image`) use `text_loops` because "
+                                "they're single-row by default; "
+                                "TwoRowMessage uses the bottom-prefixed "
+                                "name to match its bottom_text_wrap / "
+                                "bottom_text_separator family."
+                            ),
+                            fix=(
+                                "Rename `text_loops` to `bottom_text_loops` "
+                                "and set `bottom_text_wrap = true` (loops "
+                                "require wrap mode — see rule 28)."
+                            ),
+                        )
+                    )
     return issues
 
 
@@ -428,6 +545,57 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                     severity="warning",
                     message=f"transition_duration {d} is extremely short (< 50 ms)",
                     fix="Raise to at least 0.05 s",
+                )
+            )
+
+    # Rule 30: hold_time and bottom_text_loops both set on a two_row
+    # widget — max() semantics apply and the larger tick count wins.
+    # Surface a warning so users who set both deliberately get a
+    # heads-up that one will silently dominate the other depending
+    # on text length.
+    #
+    # SCOPED TO `two_row` ONLY: gif/image widgets in two-row mode
+    # also have a `text_loops` field, but on those widgets `play()`
+    # owns its own timing loop — `hold_time` from the section is
+    # NOT passed through to `_play_widget`. The two values can't
+    # interact there, so a warning would be misleading.
+    #
+    # Only fires when hold_time was EXPLICITLY written in TOML
+    # (hold_time_specified); the default 3.0 is universally
+    # inherited and would be a false positive otherwise.
+    for i, section in enumerate(config.sections):
+        if not section.hold_time_specified:
+            continue
+        for j, widget_cfg in enumerate(section.widgets):
+            if widget_cfg.get("type", "") != "two_row":
+                continue
+            btl = widget_cfg.get("bottom_text_loops", 0)
+            if not (isinstance(btl, int) and not isinstance(btl, bool) and btl > 0):
+                continue
+            warnings.append(
+                ValidationIssue(
+                    rule=30,
+                    location=f"section[{i}].widget[{j}]",
+                    severity="warning",
+                    message=(
+                        f"section sets hold_time={section.hold_time} AND "
+                        f"widget sets bottom_text_loops={btl}. The engine "
+                        f"runs for max(hold_time_ticks, "
+                        f"bottom_text_loops × cycle_width) ticks — "
+                        f"whichever is larger dominates. Result: depending "
+                        f"on bottom_text length, the user may get more "
+                        f"loops than requested (hold_time dominates) or "
+                        f"the section runs longer than hold_time (loops "
+                        f"dominate)."
+                    ),
+                    fix=(
+                        "For an EXACT loop count (the common case): drop "
+                        "hold_time from this section — bottom_text_loops "
+                        "becomes the only floor. "
+                        "For a FIXED duration: drop bottom_text_loops. "
+                        "If you intentionally want both as floors and "
+                        "understand max() semantics, ignore this warning."
+                    ),
                 )
             )
 

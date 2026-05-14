@@ -54,6 +54,7 @@ Setting `bottom_text` to a non-empty string switches the widget to **two-row mod
 | `bottom_text_wrap` | bool | `false` | Seamless wrap mode for the bottom row in two-row mode. When `true`, the bottom row repeats with a separator between copies and at least one full copy is on the panel at every tick. Requires `bottom_text` non-empty; top row never wraps. Only allowed in `mode = "swap"`. |
 | `bottom_text_separator` | string | `" • "` (when `bottom_text_wrap = true`) | Glyph(s) drawn between bottom-row repeats in wrap mode. `""` falls back to a two-space gap. Rendered in the bottom row's font. |
 | `bottom_text_separator_color` | color spec | inherit `bottom_color` | Color for the bottom separator in wrap mode. Whole-string provider (one hue per frame); accepts the same value types as `bottom_color`. Inherits `bottom_color` (NOT `font_color`) — separator is part of the bottom row. |
+| `text_loops` | int | `0` | Minimum number of full bottom-row wrap cycles before the section transitions in two-row mode (same field as single-row mode, reinterpreted as bottom-row cycle count when `bottom_text_wrap = true`). On the [`two_row`](/widgets/two_row/) widget the equivalent is `bottom_text_loops`. |
 
 ## GIF playback
 

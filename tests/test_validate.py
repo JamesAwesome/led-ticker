@@ -1110,6 +1110,397 @@ async def test_rule24_separator_font_missing_emits_warning(conf):
     )
 
 
+async def test_rule28_bottom_text_loops_without_wrap_errors(conf):
+    """bottom_text_loops > 0 requires bottom_text_wrap=True."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        bottom_text_loops = 4
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 28 and "wrap" in e.message.lower() for e in result.errors), (
+        f"expected rule 28 error about wrap; "
+        f"got {[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule28_bottom_text_loops_negative_errors(conf):
+    """bottom_text_loops < 0 is always an error."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        bottom_text_loops = -1
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 28 and ">=" in e.message for e in result.errors), (
+        f"expected rule 28 error about >= 0; "
+        f"got {[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule28_bottom_text_loops_with_wrap_is_allowed(conf):
+    """bottom_text_loops > 0 with bottom_text_wrap=True is allowed."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        bottom_text_wrap = true
+        bottom_text_loops = 4
+        """
+    result = await validate_config(conf(cfg))
+    rule_28_errors = [e for e in result.errors if e.rule == 28]
+    assert (
+        not rule_28_errors
+    ), f"expected no rule 28 error with wrap enabled; got {rule_28_errors}"
+
+
+async def test_rule28_bottom_text_loops_zero_is_allowed(conf):
+    """bottom_text_loops = 0 (default) is always allowed."""
+    cfg = GOOD_CONFIG + textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        bottom_text_loops = 0
+        """)
+    result = await validate_config(conf(cfg))
+    assert result.valid is True
+
+
+async def test_rule28_bottom_text_loops_bool_errors(conf):
+    """bool is an int subclass — without an explicit guard, `true`/`false`
+    would silently behave as 1/0. Validator rejects to surface the typo."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        bottom_text_wrap = true
+        bottom_text_loops = true
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 28 and "bool" in e.message.lower() for e in result.errors), (
+        f"expected rule 28 bool error; got "
+        f"{[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule29_text_loops_on_two_row_is_did_you_mean_bridge(conf):
+    """The image-widget field `text_loops` is a common copy-paste typo on
+    two_row. Rule 29 surfaces it with a "did you mean bottom_text_loops?"
+    hint instead of letting it slip through to a runtime TypeError."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        text_loops = 4
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(
+        e.rule == 29 and "bottom_text_loops" in e.message for e in result.errors
+    ), (
+        f"expected rule 29 did-you-mean error; got "
+        f"{[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule29_text_loops_on_gif_widget_does_not_fire(conf):
+    """Rule 29 is two_row-specific. `text_loops` on a gif widget is
+    a legitimate field — must not trigger the bridge."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        text = "marquee"
+        text_align = "scroll_over"
+        text_loops = 4
+        """
+    result = await validate_config(conf(cfg))
+    assert all(e.rule != 29 for e in result.errors), (
+        f"rule 29 must not fire for gif widgets; got "
+        f"{[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule30_hold_time_plus_bottom_text_loops_warns(conf):
+    """When hold_time is EXPLICITLY set alongside bottom_text_loops > 0
+    on a two_row widget, surface a warning that the two interact via
+    max() — whichever produces more ticks wins, and the other is
+    silently ignored. Common confusion: user sets loops=3 expecting
+    exact-3-loops, doesn't realize their hold_time can override it."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 8.0
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        bottom_text_wrap = true
+        bottom_text_loops = 3
+        """
+    result = await validate_config(conf(cfg))
+    # Warning, not error: config is valid; user just gets a heads-up.
+    assert result.valid is True
+    assert any(w.rule == 30 for w in result.warnings), (
+        f"expected rule 30 warning; got "
+        f"warnings={[(w.rule, w.message) for w in result.warnings]}"
+    )
+
+
+async def test_rule30_does_not_fire_on_gif_widget(conf):
+    """Rule 30 is scoped to `two_row` ONLY. On gif/image widgets the
+    `text_loops` field is honored INSIDE the widget's own `play()`
+    loop — `_play_widget` doesn't pass `hold_time` through, so the
+    two values can't interact. A warning here would be misleading."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 8.0
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        text = "marquee"
+        text_align = "scroll_over"
+        text_loops = 3
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 30 for w in result.warnings), (
+        f"rule 30 must not fire on gif (hold_time doesn't reach play loop); "
+        f"got warnings={[(w.rule, w.message) for w in result.warnings]}"
+    )
+
+
+async def test_rule30_default_hold_time_does_not_warn(conf):
+    """The default hold_time = 3.0 (when user omits it from TOML)
+    must NOT trip rule 30 — only EXPLICITLY-set hold_time counts.
+    Otherwise every section that uses bottom_text_loops would warn,
+    contradicting the tutorial's "omit hold_time for exact loops"
+    pattern."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        bottom_text_wrap = true
+        bottom_text_loops = 3
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 30 for w in result.warnings), (
+        f"rule 30 must not fire when hold_time is at its default; "
+        f"got warnings={[(w.rule, w.message) for w in result.warnings]}"
+    )
+
+
+async def test_rule30_hold_time_alone_does_not_warn(conf):
+    """hold_time without any loop count is fine — that's the
+    default swap-mode pattern from before this PR."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 8.0
+
+        [[playlist.section.widget]]
+        type = "two_row"
+        top_text = "TOP"
+        bottom_text = "marquee"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 30 for w in result.warnings)
+
+
+async def test_rule31_scroll_step_ms_zero_errors(conf):
+    """scroll_step_ms = 0 would ZeroDivisionError at startup
+    (ticker.py:_swap_and_scroll divides by it). Reject at validate time."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        scroll_step_ms = 0
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 31 for e in result.errors), (
+        f"expected rule 31 error; got "
+        f"{[(e.rule, e.message) for e in result.errors]}"
+    )
+
+
+async def test_rule31_scroll_step_ms_negative_errors(conf):
+    """Negative scroll_step_ms is nonsensical. Reject."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        scroll_step_ms = -10
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 31 for e in result.errors)
+
+
+async def test_rule31_scroll_step_ms_omitted_is_allowed(conf):
+    """Default (None / unset) inherits the engine default; no error."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(e.rule != 31 for e in result.errors)
+
+
+async def test_rule31_scroll_step_ms_positive_is_allowed(conf):
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 3
+        scroll_step_ms = 35
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert all(e.rule != 31 for e in result.errors)
+
+
 class TestRule27WrapsForeverModeOnly:
     """bottom_text_wrap=True is only valid in mode=swap. Refused
     in forever_scroll and infini_scroll because the widget would

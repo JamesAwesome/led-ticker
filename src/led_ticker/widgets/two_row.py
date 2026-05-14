@@ -141,6 +141,15 @@ class TwoRowMessage(_FrameAware):
     bottom_text_separator: str | None = attrs.field(default=None, kw_only=True)
     bottom_text_separator_color: Any | None = attrs.field(default=None, kw_only=True)
 
+    # Minimum wrap cycles the bottom row must complete before the section
+    # can end. 0 (default) preserves today's behavior — engine timing is
+    # controlled by section `hold_time` alone. > 0 raises the floor:
+    # engine runs at least `bottom_text_loops × cycle_width` ticks
+    # (one cycle = bottom_text + separator). Mirrors `text_loops` on
+    # `_BaseImageWidget` two-row mode. Only meaningful when
+    # `bottom_text_wrap = True`; rule 28 rejects otherwise.
+    bottom_text_loops: int = attrs.field(default=0, kw_only=True)
+
     _top_width: int = attrs.field(init=False, default=-1)
     _bottom_width: int = attrs.field(init=False, default=-1)
 
@@ -195,6 +204,27 @@ class TwoRowMessage(_FrameAware):
         if self.bottom_text_separator_color is not None and not self.bottom_text_wrap:
             raise ValueError(
                 "bottom_text_separator_color requires bottom_text_wrap=True."
+            )
+
+        # Reject bool before any int comparisons — bool is a subclass of
+        # int in Python (`isinstance(True, int)` is True), so a TOML user
+        # who writes `bottom_text_loops = true` would otherwise silently
+        # get loops=1. Mirrors the explicit bool guard CLAUDE.md calls
+        # out for `font_threshold`.
+        if isinstance(self.bottom_text_loops, bool):
+            raise ValueError(
+                f"bottom_text_loops must be an integer, got bool "
+                f"({self.bottom_text_loops!r}). Use 0, 1, 2, … not true/false."
+            )
+        if self.bottom_text_loops < 0:
+            raise ValueError(
+                f"bottom_text_loops must be >= 0, got {self.bottom_text_loops!r}"
+            )
+        if self.bottom_text_loops > 0 and not self.bottom_text_wrap:
+            raise ValueError(
+                f"bottom_text_loops={self.bottom_text_loops} requires "
+                f"bottom_text_wrap=True. Without wrap, the bottom row "
+                f"scrolls once over its overflow — there's no cycle to count."
             )
 
         # Defensive coercion to ColorProvider (mirrors top_color /

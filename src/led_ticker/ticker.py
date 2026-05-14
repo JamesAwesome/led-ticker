@@ -1032,13 +1032,37 @@ async def _swap_and_scroll(
         # section short (e.g. hold_time=7s + scroll_speed=0.025 would
         # complete in 3.5s if n_ticks derived from ENGINE_TICK_MS).
         n_ticks = max(1, int(hold_time / scroll_speed))
-        for _ in range(n_ticks):
+        loops_floor = getattr(ticker_obj, "bottom_text_loops", 0)
+        # Belt-and-suspenders: TwoRowMessage's post-init + validator
+        # already reject bool, but reading generically here keeps a
+        # hypothetical future widget exposing `wraps_forever` from
+        # accidentally getting loops=1 semantics via `True > 0`.
+        if isinstance(loops_floor, bool) or not isinstance(loops_floor, int):
+            loops_floor = 0
+        tick = 0
+        while tick < n_ticks:
             _advance_frame_if_supported(ticker_obj)
             reset_canvas(canvas, bg_color)
-            canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
+            # Wrap-mode TwoRowMessage.draw() returns (canvas, cycle_width).
+            # Capture on tick 0 to extend n_ticks when bottom_text_loops > 0.
+            # (Note: an initial draw at function entry, several lines up,
+            # has already happened — so tick 0 here is technically the
+            # widget's SECOND draw call. cycle_width is constant across
+            # draws so the value is correct either way; the capture lives
+            # inside the loop because the loop is where n_ticks is mutated.)
+            canvas, cycle_width = ticker_obj.draw(canvas, cursor_pos=pos)
+            if tick == 0 and loops_floor > 0 and cycle_width > 0:
+                # cycle_width is in LOGICAL pixels. The `pos -= 1` below
+                # advances exactly one logical pixel per tick, so 1 tick
+                # = 1 pixel and `loops_floor * cycle_width` is the exact
+                # number of ticks for that many full wrap cycles. If the
+                # `pos -= 1` step size ever changes (e.g. to honor a
+                # per-tick pixel-skip), this math needs to be updated.
+                n_ticks = max(n_ticks, loops_floor * cycle_width)
             canvas = _swap(canvas, frame)
             pos -= 1
             await asyncio.sleep(scroll_speed)
+            tick += 1
         return canvas, cursor_pos, pos
 
     if cursor_pos > canvas.width:

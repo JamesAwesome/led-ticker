@@ -291,7 +291,7 @@ async def test_missing_config_file_raises():
 
 async def test_rule1_content_height_overflow(conf):
     # panel_h=32*1=32; content_height=20 × scale=1=20 ≤ 32 — no overflow at scale=1
-    # Use scale=4 explicitly: 20 * 4 = 80 > 32 → triggers rule 1
+    # Use scale=4 explicitly: 20 * 4 = 80 > 32 → triggers rule 1 (promoted to error)
     cfg = """\
         [display]
         rows = 32
@@ -309,8 +309,9 @@ async def test_rule1_content_height_overflow(conf):
         text = "hello"
         """
     result = await validate_config(conf(cfg))
-    assert result.valid is True  # soft warning, not error
-    assert any(w.rule == 1 for w in result.warnings)
+    assert result.valid is False  # now an error, not a warning
+    assert any(e.rule == 1 for e in result.errors)
+    assert all(w.rule != 1 for w in result.warnings)
 
 
 async def test_rule1_no_warning_when_within_limits(conf):

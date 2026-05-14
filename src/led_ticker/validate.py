@@ -110,7 +110,34 @@ async def _run_build_checks(
 def _check_static(config: AppConfig) -> list[ValidationIssue]:
     """Synchronous checks on raw widget dicts for errors not caught by _build_widget."""
     issues: list[ValidationIssue] = []
+    ph = _panel_h_real(config.display)
     for i, section in enumerate(config.sections):
+        # Rule 1: content_height × scale ceiling.
+        # content_height × scale > panel_h_real causes the ScaledCanvas
+        # wrapper's _y_offset to go negative, silently clipping top and
+        # bottom rows. Promoted from warning to error: any config that
+        # trips this check will produce visually broken output on the panel
+        # regardless of widget type.
+        product = section.content_height * section.scale
+        if product > ph:
+            issues.append(
+                ValidationIssue(
+                    rule=1,
+                    location=f"section[{i}]",
+                    severity="error",
+                    message=(
+                        f"content_height {section.content_height}"
+                        f" × scale {section.scale}"
+                        f" = {product} exceeds panel height {ph}px"
+                        " — edges will clip"
+                    ),
+                    fix=(
+                        f"Lower content_height to {ph // section.scale}"
+                        " (= panel_h ÷ scale)"
+                    ),
+                )
+            )
+
         # Rule 31: scroll_step_ms must be positive. Zero divides in
         # `ticker.py:_swap_and_scroll` (`int(hold_time / scroll_speed)`)
         # and the wraps_forever branch is the primary user-reachable
@@ -445,30 +472,8 @@ def _panel_w_real(display: DisplayConfig) -> int:
 
 def _check_soft(config: AppConfig) -> list[ValidationIssue]:
     warnings: list[ValidationIssue] = []
-    ph = _panel_h_real(config.display)
 
     for i, section in enumerate(config.sections):
-        # Rule 1: content_height overflow
-        product = section.content_height * section.scale
-        if product > ph:
-            warnings.append(
-                ValidationIssue(
-                    rule=1,
-                    location=f"section[{i}]",
-                    severity="warning",
-                    message=(
-                        f"content_height {section.content_height}"
-                        f" × scale {section.scale}"
-                        f" = {product} exceeds panel height {ph}px"
-                        " — edges will clip"
-                    ),
-                    fix=(
-                        f"Lower content_height to {ph // section.scale}"
-                        " (= panel_h ÷ scale)"
-                    ),
-                )
-            )
-
         # Rule 6: two_row at scale=4
         for j, widget_cfg in enumerate(section.widgets):
             if widget_cfg.get("type") == "two_row" and section.scale == 4:

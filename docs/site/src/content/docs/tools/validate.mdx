@@ -145,11 +145,15 @@ Quick reference. Each row maps to a longer entry on [Validation rules](/pitfalls
 | `bottom_text_loops` on `two_row` without `bottom_text_wrap`      | error    | set `bottom_text_wrap = true`, or drop the field |
 | `text_loops` on a `two_row` widget (rule 29)                     | error    | rename to `bottom_text_loops`                    |
 | `scroll_step_ms <= 0` on a section (rule 31)                     | error    | set to a positive integer (e.g. 35)              |
+| `content_height × scale > panel_h_real` (rule 1)                 | error    | lower `content_height` to `panel_h ÷ scale`      |
+| `scroll_speed_ms` at section level or `scroll_step_ms` on widget | error    | swap fields to the correct scope (rule 34)       |
 | `two_row` widget at `scale = 4`                                  | warning  | use `scale = 2` (128 logical px wide)            |
 | `transition_duration` > 5 s or < 0.05 s                          | warning  | divide by 1000 (it's seconds, not milliseconds)  |
 | Held `top_text` wider than the logical canvas                    | warning  | shorten text, smaller font, or lower `scale`     |
 | `font` name is not bundled and not in `config/fonts/`            | warning  | drop the font file on the deploy target          |
 | `hold_time` set alongside `bottom_text_loops` on `two_row`       | warning  | drop one (or accept `max()` semantics)           |
+| `mode = "gif"` is a legacy mode (rule 33)                        | warning  | use `mode = "swap"` with a `gif` widget          |
+| `default = "..."` written inside a section block (rule 35)       | warning  | rename to `transition = "..."`                   |
 
 ## Tips
 
@@ -159,6 +163,6 @@ Anything that depends on runtime state — a stale `WEATHERAPI_KEY`, an unreacha
 
 ### Warnings are advisory, not blocking
 
-The ticker will start, scroll, and swap when only warnings are present, but the warning usually points at a rendering quirk you don't actually want — content_height overflow that silently clips the top and bottom rows on a bigsign, a `two_row` widget cramped into a 64px logical canvas, a `transition_duration` that looks like milliseconds when the engine wants seconds. Treat them as a checklist before you call a config done.
+The ticker will start, scroll, and swap when only warnings are present, but the warning usually points at a rendering quirk you don't actually want — a `two_row` widget cramped into a 64px logical canvas, a `transition_duration` that looks like milliseconds when the engine wants seconds, or a legacy `mode = "gif"` that would benefit from the full `swap`-mode feature set. Treat them as a checklist before you call a config done.
 
 <RelatedPages slugs={["tools/creating-a-config", "pitfalls", "tools/render-demo"]} />

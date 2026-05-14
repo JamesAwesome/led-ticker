@@ -1686,6 +1686,79 @@ async def test_rule33_mode_swap_does_not_warn(conf):
     assert all(w.rule != 33 for w in result.warnings)
 
 
+async def test_rule36_gif_loops_zero_in_mode_gif_warns(conf):
+    """gif_loops = 0 in mode = "gif" silently plays 1 loop (legacy path
+    doesn't thread hold_time). Surface as a warning so the user knows
+    the semantics don't propagate from mode='swap'."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "gif"
+        hold_time = 8.0
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        gif_loops = 0
+        """
+    result = await validate_config(conf(cfg))
+    # Rule 33 also fires (mode='gif' legacy) — that's expected. We just
+    # need rule 36 in there too.
+    assert any(w.rule == 36 for w in result.warnings), (
+        f"expected rule 36 warning; got "
+        f"{[(w.rule, w.message) for w in result.warnings]}"
+    )
+
+
+async def test_rule36_gif_loops_zero_in_mode_swap_does_not_warn(conf):
+    """In mode='swap' the semantics ARE plumbed through — no warning."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 8.0
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        gif_loops = 0
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 36 for w in result.warnings)
+
+
+async def test_rule36_gif_loops_positive_in_mode_gif_does_not_warn(conf):
+    """gif_loops = 5 (or any positive int) plays as a fixed count
+    regardless of mode — no warning needed."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "gif"
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        gif_loops = 5
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 36 for w in result.warnings)
+
+
 async def test_rule35_default_inside_section_warns(conf):
     """`default = '...'` written inside a [[playlist.section]] block is
     silently ignored — it's a [transitions] key. The validator surfaces

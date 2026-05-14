@@ -105,3 +105,7 @@ The named font isn't bundled and didn't turn up in `config/fonts/`. This is a wa
 ### Rule 35 — `default = "..."` inside a `[[playlist.section]]` is silently ignored
 
 `default` is a key in the `[transitions]` block — it sets the global default transition for all sections. Inside a `[[playlist.section]]` block the equivalent field is `transition`, not `default`. Writing `default = "wipe_left"` inside a section block looks valid to TOML but is silently dropped by the section loader. Rename it to `transition = "wipe_left"` to get the intended per-section override.
+
+### Rule 36 — `gif_loops = 0` in `mode = "gif"` silently plays 1 loop
+
+`gif_loops = 0` means "play through the section's `hold_time`" — but that plumbing only exists on the `mode = "swap"` path. The legacy `mode = "gif"` calls the gif widget's `play()` directly without threading `hold_time`, so the "play through hold_time" semantics don't reach there. A `gif_loops = 0` widget in a `mode = "gif"` section silently falls back to exactly one loop. Switch the section to `mode = "swap"` (the recommended setup; see rule 33) to get the intended duration-driven playback, or set `gif_loops` to an explicit positive integer for a fixed loop count.

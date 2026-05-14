@@ -229,6 +229,8 @@ class StillImage(_BaseImageWidget):
         real_canvas: Canvas,
         frame: Any,
         loop_count: int = 1,
+        *,
+        hold_time: float | None = None,
     ) -> Canvas:
         """Run the visit loop. Without text: paint once, hold for
         ``hold_seconds``. With text: per-tick scroll loop (fast-pathed
@@ -236,12 +238,14 @@ class StillImage(_BaseImageWidget):
         ``hold_seconds`` as a duration floor and ``text_loops`` as a
         traversal floor.
 
-        ``loop_count`` is unused; ``hold_seconds`` controls duration.
-        Accepted for compatibility with the ``_play_widget`` dispatch
-        signature in run_swap. The gif widget is the one that uses
-        ``loop_count`` (mapped from its ``gif_loops`` field).
+        ``loop_count`` and ``hold_time`` are unused; ``hold_seconds``
+        controls duration. Both are accepted for compatibility with the
+        ``_play_widget`` dispatch signature in run_swap (which passes
+        ``hold_time`` uniformly across play()-style widgets). The gif
+        widget is the one that uses ``loop_count`` / ``hold_time``
+        (mapped from its ``gif_loops`` field).
         """
-        del loop_count
+        del loop_count, hold_time
         self._load(panel_w=real_canvas.width, panel_h=real_canvas.height)
         if not self._pixels:
             return real_canvas

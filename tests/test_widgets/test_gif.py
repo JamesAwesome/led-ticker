@@ -737,15 +737,30 @@ def test_text_loops_with_static_text_raises(tmp_path):
 
 
 def test_negative_numeric_fields_raise(tmp_path):
-    """Range validation: loops < 1, text_loops < 0,
-    scroll_speed_ms < MIN all raise instead of silently mis-behaving."""
+    """Range validation: gif_loops < 0, text_loops < 0,
+    scroll_speed_ms < MIN all raise instead of silently mis-behaving.
+    Note: gif_loops=0 is now VALID (means 'play through hold_time')."""
     path = _make_gif_path(tmp_path, [(0, 0, 0)])
     with pytest.raises(ValueError, match="gif_loops"):
-        GifPlayer(path=str(path), gif_loops=0)
+        GifPlayer(path=str(path), gif_loops=-1)
     with pytest.raises(ValueError, match="text_loops"):
         GifPlayer(path=str(path), text_loops=-1)
     with pytest.raises(ValueError, match="scroll_speed_ms"):
         GifPlayer(path=str(path), scroll_speed_ms=10)  # below MIN=20
+
+
+def test_gif_loops_zero_is_valid_post_init(tmp_path):
+    """gif_loops=0 is now valid — means 'play through hold_time'."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)])
+    widget = GifPlayer(path=str(path), gif_loops=0)
+    assert widget.gif_loops == 0
+
+
+def test_gif_loops_negative_still_raises(tmp_path):
+    """Boundary preserved: < 0 is still rejected."""
+    path = _make_gif_path(tmp_path, [(0, 0, 0)])
+    with pytest.raises(ValueError, match="gif_loops must be >= 0"):
+        GifPlayer(path=str(path), gif_loops=-1)
 
 
 async def test_play_scroll_text_wraps_after_full_traversal(tmp_path, mocker):
@@ -1576,3 +1591,109 @@ class TestGifPlayNoTextBorderPerEffectCounter:
             f"first paint should see persisted counter (51); "
             f"got {captured[0]} — _frame_count was being read directly"
         )
+
+
+# ---------------------------------------------------------------------------
+# gif_loops = 0 hold_time semantics
+# ---------------------------------------------------------------------------
+
+
+class TestGifLoopsZeroHoldTime:
+    """gif_loops=0 + hold_time threads through to an effective loop count.
+
+    We patch at the CLASS level (not instance) because attrs slots prevent
+    instance-level monkey-patching. Each test uses a filter to only capture
+    calls for its specific widget instance.
+    """
+
+    async def test_gif_loops_zero_with_hold_time_computes_loops(self):
+        """8s / 1000ms-per-loop = 8 loops."""
+        widget = GifPlayer(path="x.gif", gif_loops=0)
+        widget._frames = [
+            (mock.Mock(), 250),
+            (mock.Mock(), 250),
+            (mock.Mock(), 250),
+            (mock.Mock(), 250),
+        ]
+        widget._loop_ms = 1000  # 4 frames × 250ms
+
+        canvas = mock.Mock()
+        frame = mock.Mock()
+        captured: dict = {}
+
+        async def fake_play_no_text(self_w, rc, f, lc):
+            if self_w is widget:
+                captured["loops"] = lc
+            return canvas
+
+        # text="" (default) → _has_text_content() returns False → no-text path
+        with (
+            mock.patch.object(GifPlayer, "_play_no_text", fake_play_no_text),
+            mock.patch.object(GifPlayer, "_load", lambda *_, **__: None),
+        ):
+            await widget.play(canvas, frame, loop_count=0, hold_time=8.0)
+
+        assert captured["loops"] == 8
+
+    async def test_gif_loops_zero_short_hold_time_minimum_one(self):
+        """0.5s / 1000ms-per-loop floor of 0.5 → max(1, 0) = 1."""
+        widget = GifPlayer(path="x.gif", gif_loops=0)
+        widget._frames = [(mock.Mock(), 1000)]
+        widget._loop_ms = 1000
+
+        captured: dict = {}
+
+        async def fake_play_no_text(self_w, rc, f, lc):
+            if self_w is widget:
+                captured["loops"] = lc
+            return rc
+
+        with (
+            mock.patch.object(GifPlayer, "_play_no_text", fake_play_no_text),
+            mock.patch.object(GifPlayer, "_load", lambda *_, **__: None),
+        ):
+            await widget.play(mock.Mock(), mock.Mock(), loop_count=0, hold_time=0.5)
+
+        assert captured["loops"] == 1
+
+    async def test_gif_loops_zero_no_hold_time_defaults_one(self):
+        """No hold_time provided → minimum 1 loop."""
+        widget = GifPlayer(path="x.gif", gif_loops=0)
+        widget._frames = [(mock.Mock(), 1000)]
+        widget._loop_ms = 1000
+
+        captured: dict = {}
+
+        async def fake_play_no_text(self_w, rc, f, lc):
+            if self_w is widget:
+                captured["loops"] = lc
+            return rc
+
+        with (
+            mock.patch.object(GifPlayer, "_play_no_text", fake_play_no_text),
+            mock.patch.object(GifPlayer, "_load", lambda *_, **__: None),
+        ):
+            await widget.play(mock.Mock(), mock.Mock(), loop_count=0)
+
+        assert captured["loops"] == 1
+
+    async def test_gif_loops_positive_unchanged_with_hold_time(self):
+        """gif_loops=5 + hold_time=8.0 → 5 loops (hold_time ignored)."""
+        widget = GifPlayer(path="x.gif", gif_loops=5)
+        widget._frames = [(mock.Mock(), 1000)]
+        widget._loop_ms = 1000
+
+        captured: dict = {}
+
+        async def fake_play_no_text(self_w, rc, f, lc):
+            if self_w is widget:
+                captured["loops"] = lc
+            return rc
+
+        with (
+            mock.patch.object(GifPlayer, "_play_no_text", fake_play_no_text),
+            mock.patch.object(GifPlayer, "_load", lambda *_, **__: None),
+        ):
+            await widget.play(mock.Mock(), mock.Mock(), loop_count=5, hold_time=8.0)
+
+        assert captured["loops"] == 5

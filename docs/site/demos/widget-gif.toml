@@ -30,5 +30,5 @@ text_align = "scroll_over"
 # scroll fit (and renders as a mild slow-motion gif which actually
 # helps readers see the effect).
 scroll_speed_ms = 25
-gif_loops = 999
+gif_loops = 0   # play through section's hold_time
 font_color = [255, 80, 200]   # magenta — reads cleanly over yellow pikachu

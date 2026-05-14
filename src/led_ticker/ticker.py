@@ -1025,7 +1025,13 @@ async def _swap_and_scroll(
     # truthy Mock object, which would otherwise spuriously trigger
     # this branch in tests using generic mock widgets.
     if getattr(ticker_obj, "wraps_forever", False) is True:
-        n_ticks = max(1, int(hold_time * 1000) // ENGINE_TICK_MS)
+        # Wall-clock-bounded loop: n_ticks * scroll_speed ≈ hold_time so
+        # custom `scroll_speed` settings (e.g., scroll_speed_ms=25 for
+        # a faster marquee) are honored AND total section duration
+        # still matches `hold_time`. Mismatch would otherwise cut the
+        # section short (e.g. hold_time=7s + scroll_speed=0.025 would
+        # complete in 3.5s if n_ticks derived from ENGINE_TICK_MS).
+        n_ticks = max(1, int(hold_time / scroll_speed))
         for _ in range(n_ticks):
             _advance_frame_if_supported(ticker_obj)
             reset_canvas(canvas, bg_color)

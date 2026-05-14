@@ -131,3 +131,29 @@ class TestWrapsForeverRespected:
         assert (
             1 <= widget.draw_calls < 100
         ), f"Bounded by hold_time; got {widget.draw_calls}"
+
+    @pytest.mark.asyncio
+    async def test_wraps_forever_honors_custom_scroll_speed(self, mocker):
+        """n_ticks must scale with scroll_speed so a faster marquee
+        (smaller scroll_speed) doesn't truncate the section's wall-clock
+        duration. With hold_time=1.0 and scroll_speed=0.025 (twice as
+        fast), n_ticks should ≈ 40 — total wall-clock still 1.0s,
+        marquee just ticks faster."""
+        from led_ticker.ticker import _swap_and_scroll
+
+        widget = _StubWrapsForeverWidget()
+        canvas = _make_test_canvas()
+        frame = mocker.MagicMock()
+        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        await _swap_and_scroll(canvas, frame, widget, scroll_speed=0.025, hold_time=1.0)
+
+        # 1.0s / 0.025s per tick = 40 ticks.
+        assert 35 <= widget.draw_calls <= 45, (
+            f"wraps_forever must honor scroll_speed: hold_time=1.0s + "
+            f"scroll_speed=0.025 → ~40 ticks; got {widget.draw_calls}. "
+            f"If this is ~20, the engine is computing n_ticks from "
+            f"ENGINE_TICK_MS instead of scroll_speed (cuts wall-clock "
+            f"duration in half for fast-marquee configs)."
+        )

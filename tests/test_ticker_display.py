@@ -632,7 +632,7 @@ class TestRunSwapPlayDispatch:
                 self.draw_called = True
                 return canvas, canvas.width
 
-            async def play(self, real_canvas, frame, loop_count=1):
+            async def play(self, real_canvas, frame, loop_count=1, **kwargs):
                 self.play_calls.append(loop_count)
                 return real_canvas
 
@@ -657,7 +657,7 @@ class TestRunSwapPlayDispatch:
         class _Recorder:
             _logical_scale = 1  # declares the field — should be set
 
-            async def play(self, real_canvas, frame, loop_count=1):
+            async def play(self, real_canvas, frame, loop_count=1, **kwargs):
                 return frame.matrix.SwapOnVSync(real_canvas)
 
         real = _StubCanvas(width=256, height=64)
@@ -686,7 +686,7 @@ class TestRunSwapPlayDispatch:
             def __init__(self):
                 self.received_canvas = None
 
-            async def play(self, real_canvas, frame, loop_count=1):
+            async def play(self, real_canvas, frame, loop_count=1, **kwargs):
                 self.received_canvas = real_canvas
                 # Pretend SwapOnVSync gave us a fresh back-buffer
                 return frame.matrix.SwapOnVSync(real_canvas)
@@ -706,6 +706,25 @@ class TestRunSwapPlayDispatch:
         # Widget got the unwrapped real canvas, not the ScaledCanvas
         assert widget.received_canvas is real
 
+    async def test_play_widget_passes_hold_time_to_widget(self, mock_frame):
+        """_play_widget threads section_hold_time → widget.play(hold_time=...)."""
+        from rgbmatrix import _StubCanvas
+
+        received: dict = {}
+
+        class _HoldCapture:
+            async def play(self, real_canvas, frame, loop_count=1, **kwargs):
+                received["hold_time"] = kwargs.get("hold_time")
+                return frame.matrix.SwapOnVSync(real_canvas)
+
+        plain_canvas = _StubCanvas(width=160, height=16)
+        mock_frame.matrix.SwapOnVSync.return_value = _StubCanvas(width=160, height=16)
+        widget = _HoldCapture()
+
+        await _play_widget(plain_canvas, mock_frame, widget, section_hold_time=8.0)
+
+        assert received.get("hold_time") == 8.0
+
     async def test_title_then_gif_uses_both_paths(
         self, canvas, mock_frame, make_widget, no_sleep
     ):
@@ -721,7 +740,7 @@ class TestRunSwapPlayDispatch:
             def draw(self, canvas, cursor_pos=0, **kwargs):
                 return canvas, canvas.width
 
-            async def play(self, real_canvas, frame, loop_count=1):
+            async def play(self, real_canvas, frame, loop_count=1, **kwargs):
                 self.played += 1
                 return real_canvas
 

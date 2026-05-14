@@ -66,7 +66,10 @@ Field               Default            Description
                                        down to the nearest integer multiple of
                                        cell height.
 ``gif_loops``       ``1``              Per-visit gif loop count when dispatched
-                                       via run_swap. (Still widget uses
+                                       via run_swap. Set to ``0`` to play
+                                       through the section's ``hold_time``
+                                       (plays at least 1 loop). Negative values
+                                       are rejected. (Still widget uses
                                        ``hold_seconds`` instead.)
 ``text_loops``      ``0``              Floor on marquee traversals before
                                        section transitions. Only with scrolling
@@ -74,7 +77,7 @@ Field               Default            Description
 ==================  =================  ==========================================
 
 Constraints validated at construction:
-    - ``gif_loops >= 1``
+    - ``gif_loops >= 0``
     - ``text_loops >= 0``
     - ``scroll_speed_ms >= 20``
     - ``text_loops > 0`` requires ``text_align`` ∈ ``{scroll, scroll_over}``
@@ -131,8 +134,8 @@ class GifPlayer(_BaseImageWidget):
 
     def __attrs_post_init__(self) -> None:
         self._validate_common(image_align=self.image_align, fit=self.fit)
-        if self.gif_loops < 1:
-            raise ValueError(f"gif_loops must be >= 1, got {self.gif_loops!r}")
+        if self.gif_loops < 0:
+            raise ValueError(f"gif_loops must be >= 0, got {self.gif_loops!r}")
 
     def _load(self, panel_w: int = 0, panel_h: int = 0) -> None:
         """Decode all frames. Idempotent — second call is a no-op."""
@@ -248,6 +251,8 @@ class GifPlayer(_BaseImageWidget):
         real_canvas: Canvas,
         frame: Any,
         loop_count: int = 1,
+        *,
+        hold_time: float | None = None,
     ) -> Canvas:
         """Run the playback loop.
 
@@ -261,12 +266,27 @@ class GifPlayer(_BaseImageWidget):
         ``loop_count × sum(durations)``. Text renders per-tick at its
         current scroll position (or static for left/right alignments).
 
+        When ``loop_count == 0`` (``gif_loops = 0`` in config): if
+        ``hold_time`` is provided, compute how many full gif loops fit in
+        that duration (minimum 1). Without ``hold_time`` (e.g.
+        ``forever_scroll`` context) fall back to 1 loop.
+
         Per CLAUDE.md #1, the SwapOnVSync return value MUST be captured
         every iteration.
         """
         self._load(panel_w=real_canvas.width, panel_h=real_canvas.height)
         if not self._frames:
             return real_canvas
+
+        # gif_loops = 0 means "play loops that fit in section hold_time".
+        # When hold_time is provided, compute the effective loop count; when
+        # it isn't (e.g. forever_scroll context, or no section caller),
+        # fall back to 1 loop. Minimum 1 either way.
+        if loop_count == 0:
+            if hold_time is not None and self._loop_ms > 0:
+                loop_count = max(1, int(hold_time * 1000 / self._loop_ms))
+            else:
+                loop_count = 1
 
         if not self._has_text_content():
             return await self._play_no_text(real_canvas, frame, loop_count)

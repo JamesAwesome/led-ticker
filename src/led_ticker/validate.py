@@ -665,17 +665,62 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                 )
             )
 
+    # Rule 36: gif_loops = 0 + mode = "gif" doesn't get hold_time.
+    # gif_loops = 0 means "play through section's hold_time" — but that
+    # plumbing only exists on the mode = "swap" path (via _play_widget).
+    # The legacy mode = "gif" calls widget.play() directly without
+    # threading hold_time, so gif_loops = 0 silently falls back to
+    # exactly 1 loop. Surface as a warning so users get the heads-up
+    # rather than a one-loop-then-stop surprise on their panel.
+    for i, section in enumerate(config.sections):
+        if section.mode != "gif":
+            continue
+        for j, widget_cfg in enumerate(section.widgets):
+            if widget_cfg.get("type") != "gif":
+                continue
+            gl = widget_cfg.get("gif_loops", 1)
+            if isinstance(gl, int) and not isinstance(gl, bool) and gl == 0:
+                warnings.append(
+                    ValidationIssue(
+                        rule=36,
+                        location=f"section[{i}].widget[{j}]",
+                        severity="warning",
+                        message=(
+                            "gif_loops=0 in mode='gif' silently plays "
+                            "exactly 1 loop — hold_time isn't threaded "
+                            "to the legacy mode='gif' code path. The "
+                            "'play through hold_time' semantics only "
+                            "apply in mode='swap'."
+                        ),
+                        fix=(
+                            "Switch the section to mode='swap' (the "
+                            "recommended setup; see rule 33) so "
+                            "gif_loops=0 plays through hold_time. "
+                            "Or set gif_loops to an explicit positive "
+                            "integer."
+                        ),
+                    )
+                )
+
     # Rule 30: hold_time and bottom_text_loops both set on a two_row
     # widget — max() semantics apply and the larger tick count wins.
     # Surface a warning so users who set both deliberately get a
     # heads-up that one will silently dominate the other depending
     # on text length.
     #
-    # SCOPED TO `two_row` ONLY: gif/image widgets in two-row mode
-    # also have a `text_loops` field, but on those widgets `play()`
-    # owns its own timing loop — `hold_time` from the section is
-    # NOT passed through to `_play_widget`. The two values can't
-    # interact there, so a warning would be misleading.
+    # SCOPED TO `two_row` ONLY: gif/image widgets in two-row mode also
+    # have a `text_loops` field, but it means something different there.
+    # On gif/image, `text_loops` is a marquee-traversal floor inside the
+    # widget's own play() loop — a minimum number of times the text
+    # scrolls across the panel during playback, not a section-duration
+    # multiplier the way `bottom_text_loops` works on TwoRowMessage
+    # (which the engine uses to extend the section's wraps_forever
+    # tick count via max(hold_time_ticks, loops × cycle_width)). The
+    # interaction model on gif/image doesn't admit the same kind of
+    # silent-dominance trap, so the warning would be misleading.
+    # (For the gif `gif_loops` ↔ `hold_time` interaction, see
+    # _play_widget — section.hold_time IS threaded to widget.play() so
+    # `gif_loops = 0` can play through the section's duration.)
     #
     # Only fires when hold_time was EXPLICITLY written in TOML
     # (hold_time_specified); the default 3.0 is universally

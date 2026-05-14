@@ -788,28 +788,41 @@ def _set_logical_scale(widget: Any, scale: int) -> None:
         widget._logical_scale = scale
 
 
-async def _play_widget(canvas: Any, frame: Any, widget: Any) -> Any:
+async def _play_widget(
+    canvas: Any, frame: Any, widget: Any, *, section_hold_time: float = 3.0
+) -> Any:
     """Hand the canvas off to a widget's `play()` method.
 
     Used by widgets that drive their own animation loop (e.g. GifPlayer).
     Unwraps any ScaledCanvas wrappers so the widget paints at native
     physical resolution; the wrapper is re-anchored to the new
     back-buffer canvas afterward so subsequent draws stay scaled.
+
+    ``section_hold_time`` is forwarded to ``widget.play()`` as ``hold_time``
+    so gif widgets with ``gif_loops = 0`` can compute how many loops fit in
+    the section's duration.
     """
     # `gif_loops` is the canonical name on GifPlayer; fall back to `loops`
-    # for any future play()-style widget that doesn't follow the same
-    # naming. Either way 0/None coerces to 1.
-    loops = getattr(widget, "gif_loops", None) or getattr(widget, "loops", 1) or 1
+    # for any future play()-style widget that doesn't follow the same naming.
+    # NOTE: do NOT coerce 0 here — gif_loops=0 is a valid sentinel meaning
+    # "play through hold_time"; the coercion to a non-zero count happens
+    # inside GifPlayer.play() once it can reference _loop_ms.
+    gif_loops = getattr(widget, "gif_loops", None)
+    loops = gif_loops if gif_loops is not None else (getattr(widget, "loops", 1) or 1)
     if isinstance(canvas, ScaledCanvas):
         innermost = canvas
         while isinstance(innermost.real, ScaledCanvas):
             innermost = innermost.real
         _set_logical_scale(widget, canvas.scale)
-        new_real = await widget.play(innermost.real, frame, loop_count=loops)
+        new_real = await widget.play(
+            innermost.real, frame, loop_count=loops, hold_time=section_hold_time
+        )
         innermost.real = new_real
         return canvas
     _set_logical_scale(widget, 1)
-    return await widget.play(canvas, frame, loop_count=loops)
+    return await widget.play(
+        canvas, frame, loop_count=loops, hold_time=section_hold_time
+    )
 
 
 async def _show_one(
@@ -841,7 +854,7 @@ async def _show_one(
     if hasattr(widget, "reset_frame"):
         widget.reset_frame()
     if _has_play(widget):
-        canvas = await _play_widget(canvas, frame, widget)
+        canvas = await _play_widget(canvas, frame, widget, section_hold_time=hold_time)
         return canvas, 0
     canvas, _, prev_pos = await _swap_and_scroll(
         canvas,

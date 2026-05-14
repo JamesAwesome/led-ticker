@@ -23,4 +23,4 @@ text = "hi friend"
 text_align = "right"
 font_color = "rainbow"
 animation = "typewriter"
-gif_loops = 999
+gif_loops = 0

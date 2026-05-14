@@ -1362,9 +1362,10 @@ async def test_rule30_hold_time_plus_bottom_text_loops_warns(conf):
 
 async def test_rule30_does_not_fire_on_gif_widget(conf):
     """Rule 30 is scoped to `two_row` ONLY. On gif/image widgets the
-    `text_loops` field is honored INSIDE the widget's own `play()`
-    loop — `_play_widget` doesn't pass `hold_time` through, so the
-    two values can't interact. A warning here would be misleading."""
+    `text_loops` field controls marquee traversal count INSIDE the
+    widget's own `play()` loop — it interacts with the gif's own
+    timing logic, not with `hold_time` directly. A warning here would
+    be misleading."""
     cfg = """\
         [display]
         rows = 16
@@ -1385,7 +1386,8 @@ async def test_rule30_does_not_fire_on_gif_widget(conf):
         """
     result = await validate_config(conf(cfg))
     assert all(w.rule != 30 for w in result.warnings), (
-        f"rule 30 must not fire on gif (hold_time doesn't reach play loop); "
+        "rule 30 must not fire on gif "
+        f"(text_loops is a marquee knob, not a hold_time interaction); "
         f"got warnings={[(w.rule, w.message) for w in result.warnings]}"
     )
 
@@ -1682,6 +1684,79 @@ async def test_rule33_mode_swap_does_not_warn(conf):
     """mode='swap' is the recommended pattern — must not trip rule 33."""
     result = await validate_config(conf(GOOD_CONFIG))
     assert all(w.rule != 33 for w in result.warnings)
+
+
+async def test_rule36_gif_loops_zero_in_mode_gif_warns(conf):
+    """gif_loops = 0 in mode = "gif" silently plays 1 loop (legacy path
+    doesn't thread hold_time). Surface as a warning so the user knows
+    the semantics don't propagate from mode='swap'."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "gif"
+        hold_time = 8.0
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        gif_loops = 0
+        """
+    result = await validate_config(conf(cfg))
+    # Rule 33 also fires (mode='gif' legacy) — that's expected. We just
+    # need rule 36 in there too.
+    assert any(w.rule == 36 for w in result.warnings), (
+        f"expected rule 36 warning; got "
+        f"{[(w.rule, w.message) for w in result.warnings]}"
+    )
+
+
+async def test_rule36_gif_loops_zero_in_mode_swap_does_not_warn(conf):
+    """In mode='swap' the semantics ARE plumbed through — no warning."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 8.0
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        gif_loops = 0
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 36 for w in result.warnings)
+
+
+async def test_rule36_gif_loops_positive_in_mode_gif_does_not_warn(conf):
+    """gif_loops = 5 (or any positive int) plays as a fixed count
+    regardless of mode — no warning needed."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "gif"
+
+        [[playlist.section.widget]]
+        type = "gif"
+        path = "x.gif"
+        gif_loops = 5
+        """
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 36 for w in result.warnings)
 
 
 async def test_rule35_default_inside_section_warns(conf):

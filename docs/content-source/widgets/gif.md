@@ -60,7 +60,7 @@ Setting `bottom_text` to a non-empty string switches the widget to **two-row mod
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `gif_loops` | int | `1` | Number of times the gif loops per visit when dispatched via `run_swap`. Must be `>= 1`. Multiplied by the sum of all frame durations to compute total play time. |
+| `gif_loops` | int | `1` | Number of times the gif plays per visit. Set to `0` to play through the section's `hold_time` (the recommended idiom for "show this gif for the section's duration"). Negative values are rejected. `gif_loops >= 1` plays the exact count regardless of `hold_time`. |
 
 ## Animation
 

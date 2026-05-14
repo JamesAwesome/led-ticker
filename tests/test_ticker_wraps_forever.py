@@ -157,3 +157,125 @@ class TestWrapsForeverRespected:
             f"ENGINE_TICK_MS instead of scroll_speed (cuts wall-clock "
             f"duration in half for fast-marquee configs)."
         )
+
+
+class TestWrapsForeverBottomTextLoops:
+    @pytest.mark.asyncio
+    async def test_wraps_forever_extends_n_ticks_for_bottom_text_loops(self, mocker):
+        """When bottom_text_loops > 0 and N × cycle_width exceeds the
+        hold_time-based n_ticks, engine runs the extended count.
+        """
+        from unittest.mock import MagicMock
+
+        from led_ticker.ticker import _swap_and_scroll
+
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        # Mock widget: wraps_forever=True, bottom_text_loops=4, cycle_width=10
+        # → loops_floor * cycle_width = 40 ticks inside the loop.
+        # hold_time=0.5s, scroll_speed=0.05 → 10 ticks from hold_time.
+        # Final loop runs max(10, 40) = 40 iterations. Plus an initial
+        # draw at function entry (line 1009 of ticker.py) BEFORE the
+        # wraps_forever branch, so actual draw count = 41 (1 + 40).
+        widget = MagicMock()
+        widget.wraps_forever = True
+        widget.bottom_text_loops = 4
+        widget.bg_color = None
+        widget.draw.return_value = (MagicMock(), 10)  # (canvas, cycle_width=10)
+        frame = MagicMock()
+        frame.matrix.SwapOnVSync = lambda c: c
+
+        await _swap_and_scroll(
+            MagicMock(width=128),
+            frame,
+            widget,
+            hold_time=0.5,
+            scroll_speed=0.05,
+            continuous=False,
+        )
+
+        # Expected at least 41 draw calls (1 initial + 40 loop ticks).
+        # The >=41 bound is documented; the assertion uses >= so a future
+        # extra initial frame wouldn't fail the test.
+        assert widget.draw.call_count >= 41, (
+            f"expected >= 41 draws (1 initial + 40 loop), "
+            f"got {widget.draw.call_count}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_wraps_forever_hold_time_wins_when_longer(self, mocker):
+        """When hold_time-derived n_ticks exceeds N × cycle_width, the
+        longer duration wins (matches max() semantics).
+        """
+        from unittest.mock import MagicMock
+
+        from led_ticker.ticker import _swap_and_scroll
+
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        # hold_time=5s, scroll_speed=0.05 → 100 ticks
+        # bottom_text_loops=2, cycle_width=10 → 20 ticks
+        # max(100, 20) = 100. Don't truncate.
+        widget = MagicMock()
+        widget.wraps_forever = True
+        widget.bottom_text_loops = 2
+        widget.bg_color = None
+        widget.draw.return_value = (MagicMock(), 10)
+        frame = MagicMock()
+        frame.matrix.SwapOnVSync = lambda c: c
+
+        await _swap_and_scroll(
+            MagicMock(width=128),
+            frame,
+            widget,
+            hold_time=5.0,
+            scroll_speed=0.05,
+            continuous=False,
+        )
+
+        # hold_time gives 100 ticks; bottom_text_loops gives 20; max is 100.
+        assert (
+            95 <= widget.draw.call_count <= 105
+        ), f"expected ~100 draws (hold_time wins), got {widget.draw.call_count}"
+
+    @pytest.mark.asyncio
+    async def test_wraps_forever_bottom_text_loops_zero_uses_hold_time_only(
+        self, mocker
+    ):
+        """Regression: bottom_text_loops=0 (default) preserves today's exact
+        behavior. n_ticks comes purely from hold_time / scroll_speed.
+        """
+        from unittest.mock import MagicMock
+
+        from led_ticker.ticker import _swap_and_scroll
+
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        # hold_time=0.5s, scroll_speed=0.05 → 10 ticks
+        widget = MagicMock()
+        widget.wraps_forever = True
+        widget.bottom_text_loops = 0
+        widget.bg_color = None
+        widget.draw.return_value = (
+            MagicMock(),
+            100,
+        )  # Big cycle_width — should be IGNORED
+        frame = MagicMock()
+        frame.matrix.SwapOnVSync = lambda c: c
+
+        await _swap_and_scroll(
+            MagicMock(width=128),
+            frame,
+            widget,
+            hold_time=0.5,
+            scroll_speed=0.05,
+            continuous=False,
+        )
+
+        # Should be 11 (1 initial draw + 10 loop ticks from hold_time only;
+        # the big cycle_width=100 must NOT trigger extension when loops=0).
+        assert widget.draw.call_count == 11, (
+            f"expected exactly 11 draws "
+            f"(1 initial + 10 hold_time ticks, no extension), "
+            f"got {widget.draw.call_count}"
+        )

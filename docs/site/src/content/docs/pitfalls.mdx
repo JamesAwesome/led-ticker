@@ -49,9 +49,25 @@ On `two_row`, or on `gif` / `image` with `bottom_text` set, each row gets a slic
 
 The `separator`, `separator_font`, `separator_font_size`, and `separator_color` fields customize the small bullet that `forever_scroll` mode inserts between widgets in the side-by-side stream. `swap` and `gif` modes don't intersperse anything; `infini_scroll` fully exits each widget before the next, so no separator is needed. Setting any of these fields on a non-`forever_scroll` section would silently do nothing — the validator rejects it. Either remove the fields, or change `mode` to `"forever_scroll"`.
 
+### Rule 28 — `bottom_text_loops` requires `bottom_text_wrap`
+
+`bottom_text_loops` on a `two_row` widget controls how many full wrap cycles the bottom row must play before the section ends. A cycle is `bottom_text` + the separator — both only exist when `bottom_text_wrap = true`. In non-wrap mode the bottom row scrolls once over its overflow and there's no cycle to count, so the validator rejects `bottom_text_loops > 0` without wrap. Negative values and `true` / `false` (bool — `bool` is a Python int subclass, so without an explicit guard `bottom_text_loops = true` would silently behave as `1`) are also rejected. Either turn on wrap mode, drop `bottom_text_loops`, or replace the bool with an integer count.
+
+### Rule 31 — `scroll_step_ms` must be positive
+
+`scroll_step_ms` is the engine's per-tick advance, in milliseconds per logical pixel. The wraps_forever branch in `_swap_and_scroll` computes `n_ticks = int(hold_time / scroll_speed)` where `scroll_speed = scroll_step_ms / 1000`. A value of `0` raises `ZeroDivisionError` at startup; negative values produce nonsensical tick counts. Set `scroll_step_ms` to a positive integer (typical range: 25–60 ms per pixel) or omit the field to inherit the engine default.
+
+### Rule 29 — `text_loops` on `two_row` (did you mean `bottom_text_loops`?)
+
+`text_loops` is the marquee-loop field on the `gif` / `image` widgets — those widgets are single-row by default and use the unprefixed name. The `two_row` widget is always two-row and uses `bottom_text_loops` to match its `bottom_text_wrap` / `bottom_text_separator` family. A config that writes `text_loops = N` on a `two_row` widget is almost always a copy-paste from a gif/image marquee config — the validator catches it and points at the right name. Rename `text_loops` to `bottom_text_loops` and set `bottom_text_wrap = true` (loops require wrap mode — see rule 28).
+
 ## Warnings
 
 Warnings don't block the engine, but they flag a likely rendering quirk worth resolving.
+
+### Rule 30 — `hold_time` set alongside `bottom_text_loops`
+
+When a section has an explicit `hold_time` AND a `two_row` widget with `bottom_text_loops > 0`, the engine uses `max(hold_time_ticks, bottom_text_loops × cycle_width)` to compute section duration — the larger value dominates. Common confusion: a user sets `bottom_text_loops = 3` expecting "exactly 3 loops" but their `hold_time` (say `8.0` at `scroll_step_ms = 35` ≈ 228 ticks) happens to exceed `3 × cycle_width`, and the section runs for 5+ loops instead. The fix depends on intent: for an EXACT loop count, drop `hold_time` from the section so `bottom_text_loops` is the only floor; for a FIXED duration, drop `bottom_text_loops`; if you want both as floors and you understand `max()`, ignore the warning. Rule 30 is scoped to `two_row` only — gif/image widgets handle their own timing inside `play()` and `hold_time` doesn't reach them, so the same field combination on those widgets is harmless and silent.
 
 ### Rule 6 — `two_row` at `scale = 4` collapses the canvas to 64 logical pixels wide
 

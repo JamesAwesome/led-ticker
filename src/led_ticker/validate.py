@@ -522,27 +522,29 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                 )
             )
 
-    # Rule 30: hold_time and loop-count both set — max() semantics
-    # apply and one will silently override the other. Surface a
-    # warning so users who set both deliberately get a heads-up.
+    # Rule 30: hold_time and bottom_text_loops both set on a two_row
+    # widget — max() semantics apply and the larger tick count wins.
+    # Surface a warning so users who set both deliberately get a
+    # heads-up that one will silently dominate the other depending
+    # on text length.
+    #
+    # SCOPED TO `two_row` ONLY: gif/image widgets in two-row mode
+    # also have a `text_loops` field, but on those widgets `play()`
+    # owns its own timing loop — `hold_time` from the section is
+    # NOT passed through to `_play_widget`. The two values can't
+    # interact there, so a warning would be misleading.
+    #
     # Only fires when hold_time was EXPLICITLY written in TOML
-    # (hold_time_specified) — the default 3.0 is universally inherited
-    # and would be a false positive if every section warned on it.
+    # (hold_time_specified); the default 3.0 is universally
+    # inherited and would be a false positive otherwise.
     for i, section in enumerate(config.sections):
         if not section.hold_time_specified:
             continue
         for j, widget_cfg in enumerate(section.widgets):
-            wtype = widget_cfg.get("type", "")
-            loops_field: str | None = None
-            if wtype == "two_row":
-                btl = widget_cfg.get("bottom_text_loops", 0)
-                if isinstance(btl, int) and not isinstance(btl, bool) and btl > 0:
-                    loops_field = "bottom_text_loops"
-            elif wtype in ("gif", "image"):
-                tl = widget_cfg.get("text_loops", 0)
-                if isinstance(tl, int) and not isinstance(tl, bool) and tl > 0:
-                    loops_field = "text_loops"
-            if loops_field is None:
+            if widget_cfg.get("type", "") != "two_row":
+                continue
+            btl = widget_cfg.get("bottom_text_loops", 0)
+            if not (isinstance(btl, int) and not isinstance(btl, bool) and btl > 0):
                 continue
             warnings.append(
                 ValidationIssue(
@@ -551,18 +553,22 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                     severity="warning",
                     message=(
                         f"section sets hold_time={section.hold_time} AND "
-                        f"widget sets {loops_field}={widget_cfg.get(loops_field)}. "
-                        f"The engine uses max(hold_time_ticks, "
-                        f"{loops_field} × cycle_width) — whichever is "
-                        f"longer wins, so one silently overrides the "
-                        f"other depending on text length."
+                        f"widget sets bottom_text_loops={btl}. The engine "
+                        f"runs for max(hold_time_ticks, "
+                        f"bottom_text_loops × cycle_width) ticks — "
+                        f"whichever is larger dominates. Result: depending "
+                        f"on bottom_text length, the user may get more "
+                        f"loops than requested (hold_time dominates) or "
+                        f"the section runs longer than hold_time (loops "
+                        f"dominate)."
                     ),
                     fix=(
-                        f"For an EXACT loop count, drop hold_time from the "
-                        f"section (so {loops_field} is the only floor). "
-                        f"For a FIXED duration, drop {loops_field}. "
-                        f"If you understand max() and want both as floors, "
-                        f"ignore this warning."
+                        "For an EXACT loop count (the common case): drop "
+                        "hold_time from this section — bottom_text_loops "
+                        "becomes the only floor. "
+                        "For a FIXED duration: drop bottom_text_loops. "
+                        "If you intentionally want both as floors and "
+                        "understand max() semantics, ignore this warning."
                     ),
                 )
             )

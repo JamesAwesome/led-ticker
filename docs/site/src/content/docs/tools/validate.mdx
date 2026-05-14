@@ -148,7 +148,7 @@ Quick reference. Each row maps to a longer entry on [Validation rules](/pitfalls
 | `transition_duration` > 5 s or < 0.05 s                          | warning  | divide by 1000 (it's seconds, not milliseconds)  |
 | Held `top_text` wider than the logical canvas                    | warning  | shorten text, smaller font, or lower `scale`     |
 | `font` name is not bundled and not in `config/fonts/`            | warning  | drop the font file on the deploy target          |
-| `hold_time` set alongside `bottom_text_loops` / `text_loops`     | warning  | drop one (or accept `max()` semantics)           |
+| `hold_time` set alongside `bottom_text_loops` on `two_row`       | warning  | drop one (or accept `max()` semantics)           |
 
 ## Tips
 

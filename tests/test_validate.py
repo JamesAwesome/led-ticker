@@ -1326,9 +1326,11 @@ async def test_rule30_hold_time_plus_bottom_text_loops_warns(conf):
     )
 
 
-async def test_rule30_hold_time_plus_text_loops_on_gif_warns(conf):
-    """Symmetric for gif/image widgets: text_loops in two-row mode plus
-    explicit hold_time = same max() semantics, same warning."""
+async def test_rule30_does_not_fire_on_gif_widget(conf):
+    """Rule 30 is scoped to `two_row` ONLY. On gif/image widgets the
+    `text_loops` field is honored INSIDE the widget's own `play()`
+    loop — `_play_widget` doesn't pass `hold_time` through, so the
+    two values can't interact. A warning here would be misleading."""
     cfg = """\
         [display]
         rows = 16
@@ -1348,8 +1350,10 @@ async def test_rule30_hold_time_plus_text_loops_on_gif_warns(conf):
         text_loops = 3
         """
     result = await validate_config(conf(cfg))
-    assert result.valid is True
-    assert any(w.rule == 30 for w in result.warnings)
+    assert all(w.rule != 30 for w in result.warnings), (
+        f"rule 30 must not fire on gif (hold_time doesn't reach play loop); "
+        f"got warnings={[(w.rule, w.message) for w in result.warnings]}"
+    )
 
 
 async def test_rule30_default_hold_time_does_not_warn(conf):

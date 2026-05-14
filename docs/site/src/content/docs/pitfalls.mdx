@@ -61,9 +61,9 @@ The `separator`, `separator_font`, `separator_font_size`, and `separator_color` 
 
 Warnings don't block the engine, but they flag a likely rendering quirk worth resolving.
 
-### Rule 30 — `hold_time` set alongside a loop-count field
+### Rule 30 — `hold_time` set alongside `bottom_text_loops`
 
-When a section has an explicit `hold_time` AND a widget with `bottom_text_loops` (on `two_row`) or `text_loops` (on `gif` / `image` in two-row wrap mode), the engine uses `max(hold_time_ticks, loops × cycle_width)` to compute section duration — whichever produces more ticks wins, the other is silently ignored. Common confusion: a user sets `bottom_text_loops = 3` expecting "exactly 3 loops" but their `hold_time` is large enough that it dominates, and the section runs for 5+ loops instead. The fix depends on intent: for an EXACT loop count, drop `hold_time` from the section so the loop field is the only floor; for a FIXED duration, drop the loops field; if you want both as floors and you understand `max()`, ignore the warning.
+When a section has an explicit `hold_time` AND a `two_row` widget with `bottom_text_loops > 0`, the engine uses `max(hold_time_ticks, bottom_text_loops × cycle_width)` to compute section duration — the larger value dominates. Common confusion: a user sets `bottom_text_loops = 3` expecting "exactly 3 loops" but their `hold_time` (say `8.0` at `scroll_step_ms = 35` ≈ 228 ticks) happens to exceed `3 × cycle_width`, and the section runs for 5+ loops instead. The fix depends on intent: for an EXACT loop count, drop `hold_time` from the section so `bottom_text_loops` is the only floor; for a FIXED duration, drop `bottom_text_loops`; if you want both as floors and you understand `max()`, ignore the warning. Rule 30 is scoped to `two_row` only — gif/image widgets handle their own timing inside `play()` and `hold_time` doesn't reach them, so the same field combination on those widgets is harmless and silent.
 
 ### Rule 6 — `two_row` at `scale = 4` collapses the canvas to 64 logical pixels wide
 

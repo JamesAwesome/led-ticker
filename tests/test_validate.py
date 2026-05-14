@@ -1362,9 +1362,10 @@ async def test_rule30_hold_time_plus_bottom_text_loops_warns(conf):
 
 async def test_rule30_does_not_fire_on_gif_widget(conf):
     """Rule 30 is scoped to `two_row` ONLY. On gif/image widgets the
-    `text_loops` field is honored INSIDE the widget's own `play()`
-    loop — `_play_widget` doesn't pass `hold_time` through, so the
-    two values can't interact. A warning here would be misleading."""
+    `text_loops` field controls marquee traversal count INSIDE the
+    widget's own `play()` loop — it interacts with the gif's own
+    timing logic, not with `hold_time` directly. A warning here would
+    be misleading."""
     cfg = """\
         [display]
         rows = 16
@@ -1385,7 +1386,8 @@ async def test_rule30_does_not_fire_on_gif_widget(conf):
         """
     result = await validate_config(conf(cfg))
     assert all(w.rule != 30 for w in result.warnings), (
-        f"rule 30 must not fire on gif (hold_time doesn't reach play loop); "
+        "rule 30 must not fire on gif "
+        f"(text_loops is a marquee knob, not a hold_time interaction); "
         f"got warnings={[(w.rule, w.message) for w in result.warnings]}"
     )
 

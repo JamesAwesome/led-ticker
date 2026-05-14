@@ -181,6 +181,14 @@ When a section has a `bg_color` and the next section has a different one, transi
 
 A widget setting its own `bg_color` overrides the section default for that widget only. Use a section-level color as the base and only set widget-level `bg_color` when one widget needs a different tint.
 
+## Legacy: `mode = "gif"`
+
+Preserved for backward compatibility, but the recommended setup for displaying gifs is `mode = "swap"` with a `gif` widget in the section's `widget` list. Direct use of `mode = "gif"` may be removed in a future release.
+
+## `default` vs `transition`
+
+The `[transitions]` block uses `default = "wipe_left"` for the playlist-wide default. Inside a `[[playlist.section]]` the equivalent is `transition = "wipe_left"` — writing `default = ` inside a section block has no effect (the key is silently dropped).
+
 ## Which mode to use
 
 | Mode             | When to use                                                                                        |

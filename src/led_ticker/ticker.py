@@ -1032,13 +1032,21 @@ async def _swap_and_scroll(
         # section short (e.g. hold_time=7s + scroll_speed=0.025 would
         # complete in 3.5s if n_ticks derived from ENGINE_TICK_MS).
         n_ticks = max(1, int(hold_time / scroll_speed))
-        for _ in range(n_ticks):
+        loops_floor = getattr(ticker_obj, "bottom_text_loops", 0)
+        tick = 0
+        while tick < n_ticks:
             _advance_frame_if_supported(ticker_obj)
             reset_canvas(canvas, bg_color)
-            canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
+            # Wrap-mode TwoRowMessage.draw() returns (canvas, cycle_width).
+            # Capture it on the first tick to extend n_ticks if the user
+            # set bottom_text_loops > 0.
+            canvas, cycle_width = ticker_obj.draw(canvas, cursor_pos=pos)
+            if tick == 0 and loops_floor > 0 and cycle_width > 0:
+                n_ticks = max(n_ticks, loops_floor * cycle_width)
             canvas = _swap(canvas, frame)
             pos -= 1
             await asyncio.sleep(scroll_speed)
+            tick += 1
         return canvas, cursor_pos, pos
 
     if cursor_pos > canvas.width:

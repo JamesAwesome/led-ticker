@@ -60,8 +60,7 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
     # transition_specified is on the SectionConfig dataclass but not a
     # TOML key the user writes (the loader sets it based on whether
     # `transition` was present); documenting it explains why the field
-    # exists. Intentionally omitted: transition_colors (rare; plural
-    # form), show_pikachu / show_pokeball (per-transition niche).
+    # exists.
     "section": {
         "mode",
         "loop_count",
@@ -70,6 +69,7 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
         "transition",
         "transition_duration",
         "transition_color",
+        "transition_colors",
         "scale",
         "content_height",
         "bg_color",
@@ -78,6 +78,8 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
         "separator_color",
         "separator_font",
         "separator_font_size",
+        "show_pikachu",
+        "show_pokeball",
         "start_hold",
         "transition_specified",
     },

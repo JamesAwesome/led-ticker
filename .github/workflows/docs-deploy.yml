@@ -43,10 +43,11 @@ jobs:
         with:
           enable-cache: true
 
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-
+      # `actions/setup-python` doesn't ship a manifest entry for
+      # Debian 13 (Trixie) on x64 as of this writing. Skip it —
+      # `uv sync` reads `.python-version` (3.13) and installs the
+      # right interpreter via uv's own Python distribution, which
+      # works on any glibc Linux regardless of distro version.
       - name: Install Python deps
         run: uv sync
 

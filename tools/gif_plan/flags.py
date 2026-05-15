@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from tools.gif_plan.totals import recommended_render_duration_s
 from tools.gif_plan.widgets import (
-    canvas_width_logical,
     estimate_content_width_logical,
 )
 
@@ -114,13 +113,8 @@ def _check_scroll_steps(config: dict) -> list[dict]:
 def _check_zero_cycles(config: dict) -> list[dict]:
     """Detect wrap/scroll_through widgets with zero content_width."""
     flags: list[dict] = []
-    display = config.get("display", {})
     sections = (config.get("playlist") or {}).get("section") or []
-    # canvas_width_logical call retained for parity with planner shape checks;
-    # value is unused here but the call exercises display/section validation.
-    _ = display
     for i, section in enumerate(sections):
-        _ = canvas_width_logical(display, section)
         for j, w in enumerate(section.get("widget", [])):
             wrap = w.get("text_wrap") or w.get("bottom_text_wrap")
             scroll_through = w.get("bottom_text_scroll") == "scroll_through"

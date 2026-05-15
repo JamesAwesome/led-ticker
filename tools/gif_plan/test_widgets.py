@@ -5,6 +5,7 @@ from __future__ import annotations
 from tools.gif_plan.widgets import (
     canvas_width_logical,
     estimate_content_width_logical,
+    ticker_message_visit_ms,
 )
 
 
@@ -68,3 +69,59 @@ class TestContentWidth:
 
     def test_empty_text_zero_width(self):
         assert estimate_content_width_logical("", font="5x8") == 0
+
+
+class TestTickerMessageVisitMs:
+    def test_static_text_fits_uses_hold_time(self):
+        # Text fits → static hold. 4 seconds × 1000 = 4000 ms.
+        widget = {"type": "message", "text": "HI", "font": "5x8"}
+        section = {"hold_time": 4.0, "scroll_step_ms": 25}
+        assert ticker_message_visit_ms(widget, section, canvas_w=160) == 4000
+
+    def test_overflow_scrolls_one_pass(self):
+        # text width = 160 (assume), canvas = 160 → pass = (160+160)×25 = 8000.
+        widget = {
+            "type": "message",
+            # 32 chars × 5 = 160 (overflows 160 canvas, since 160 < 161).
+            "text": "x" * 33,  # 33 × 5 = 165 px overflow
+            "font": "5x8",
+        }
+        section = {"hold_time": 2.0, "scroll_step_ms": 25}
+        result = ticker_message_visit_ms(widget, section, canvas_w=160)
+        # Pass duration = (160 + 165) × 25 = 8125 ms; > hold so wins.
+        # But we also add the hold to the total for pre+post-scroll pause.
+        # Spec: pass_ms only; the engine's hold_time happens around it
+        # but for "did the gif capture the full scroll" the pass is
+        # what matters. Use pass_ms as the visit floor.
+        assert result == 8125
+
+    def test_text_wrap_uses_max_of_loops_or_hold(self):
+        # text_wrap=true: max(text_loops × cycle_ms, hold × 1000).
+        widget = {
+            "type": "message",
+            "text": "BREAK",  # 5 chars × 5 = 25 px
+            "font": "5x8",
+            "text_wrap": True,
+            "text_separator": " • ",  # 3 chars × 5 = 15 px (approx)
+            "text_loops": 3,
+        }
+        section = {"hold_time": 1.0, "scroll_step_ms": 25}
+        # cycle = 25 + 15 = 40 px. 3 × 40 × 25 = 3000 ms. hold=1000ms.
+        # max(3000, 1000) = 3000.
+        result = ticker_message_visit_ms(widget, section, canvas_w=160)
+        assert result == 3000
+
+    def test_text_wrap_hold_wins_over_short_loops(self):
+        widget = {
+            "type": "message",
+            "text": "HI",
+            "font": "5x8",
+            "text_wrap": True,
+            "text_separator": " • ",
+            "text_loops": 1,
+        }
+        section = {"hold_time": 10.0, "scroll_step_ms": 25}
+        # cycle = 10 + 15 = 25 px. 1 × 25 × 25 = 625 ms. hold=10000ms.
+        # max = 10000.
+        result = ticker_message_visit_ms(widget, section, canvas_w=160)
+        assert result == 10000

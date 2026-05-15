@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from PIL import Image as PILImage
 from tools.gif_plan.widgets import (
     canvas_width_logical,
     estimate_content_width_logical,
+    gif_visit_ms,
+    image_visit_ms,
     ticker_message_visit_ms,
     two_row_visit_ms,
 )
@@ -197,3 +200,73 @@ class TestTwoRowVisitMs:
         # cycle = 160 + 10 = 170. 1 × 170 × 25 = 4250 ms. hold=20000.
         # max = 20000.
         assert result == 20000
+
+
+class TestImageVisitMs:
+    def test_no_text_uses_hold_seconds(self):
+        widget = {"type": "image", "path": "x.png", "hold_seconds": 6.0}
+        section = {"scroll_step_ms": 25}
+        assert image_visit_ms(widget, section, canvas_w=160) == 6000
+
+    def test_with_bottom_text_scroll_through(self):
+        widget = {
+            "type": "image",
+            "path": "x.png",
+            "hold_seconds": 8.0,
+            "top_text": "TOP",
+            "bottom_text": "HI",  # 10 px
+            "bottom_text_scroll": "scroll_through",
+        }
+        section = {"scroll_step_ms": 25}
+        # cycle = 160+10 = 170. 1 × 170 × 25 = 4250 ms. hold=8000ms.
+        # max = 8000.
+        assert image_visit_ms(widget, section, canvas_w=160) == 8000
+
+
+class TestGifVisitMs:
+    def test_unresolvable_path_uses_fallback(self):
+        widget = {
+            "type": "gif",
+            "path": "/nonexistent/path.gif",
+            "gif_loops": 3,
+        }
+        section = {"scroll_step_ms": 25}
+        # Fallback: 100ms × n_frames assumed = 100 × 10 = 1000 per loop
+        # × 3 loops = 3000. Implementation falls back to 100×10 estimate.
+        result = gif_visit_ms(widget, section, canvas_w=160)
+        assert result > 0
+        # Emits a warning via the caller; visit just doesn't crash.
+
+    def test_gif_loops_zero_uses_hold_seconds(self, tmp_path):
+        # Create a real tiny gif so the path resolves.
+        gif_path = tmp_path / "tiny.gif"
+        frames = [
+            PILImage.new("RGB", (8, 8), (255, 0, 0)),
+            PILImage.new("RGB", (8, 8), (0, 255, 0)),
+        ]
+        frames[0].save(
+            gif_path, save_all=True, append_images=frames[1:], duration=100, loop=0
+        )
+        widget = {
+            "type": "gif",
+            "path": str(gif_path),
+            "gif_loops": 0,
+            "hold_seconds": 5.0,
+        }
+        section = {"scroll_step_ms": 25}
+        # gif_loops=0 → use hold_seconds × 1000.
+        assert gif_visit_ms(widget, section, canvas_w=160) == 5000
+
+    def test_gif_loops_positive_uses_frame_sum(self, tmp_path):
+        gif_path = tmp_path / "tiny.gif"
+        frames = [
+            PILImage.new("RGB", (8, 8), (255, 0, 0)),
+            PILImage.new("RGB", (8, 8), (0, 255, 0)),
+        ]
+        # 2 frames × 100ms each = 200ms per loop × 3 loops = 600ms.
+        frames[0].save(
+            gif_path, save_all=True, append_images=frames[1:], duration=100, loop=0
+        )
+        widget = {"type": "gif", "path": str(gif_path), "gif_loops": 3}
+        section = {"scroll_step_ms": 25}
+        assert gif_visit_ms(widget, section, canvas_w=160) == 600

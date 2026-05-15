@@ -9,6 +9,12 @@ from __future__ import annotations
 
 import math
 import re
+from pathlib import Path
+
+try:
+    from PIL import Image as PILImage
+except ImportError:  # pragma: no cover
+    PILImage = None  # Pillow is in the repo env; guard for portability.
 
 # BDF font alias → cell width in pixels. Covers the canonical aliases
 # from src/led_ticker/fonts/__init__.py. Unknown aliases fall back to 6.
@@ -153,3 +159,76 @@ def two_row_visit_ms(
     if bottom_w > canvas_w:
         return (canvas_w + bottom_w) * step_ms
     return hold_ms
+
+
+def image_visit_ms(
+    widget: dict,
+    section: dict,
+    canvas_w: int,
+) -> int:
+    """Visit time in ms for an image widget.
+
+    If `bottom_text` is set → two-row text-overlay path (delegates
+    to two_row_visit_ms shape). Otherwise: hold_seconds × 1000.
+
+    NOTE: image widget `hold_seconds` is a widget-level field
+    (unlike message/two_row's section-level `hold_time`). We read
+    widget.hold_seconds here, not section.hold_time.
+    """
+    if widget.get("bottom_text"):
+        # Inject a synthetic section dict so two_row's math can run
+        # using hold_seconds (widget) instead of hold_time (section).
+        synth_section = dict(section)
+        synth_section["hold_time"] = widget.get("hold_seconds") or 0.0
+        return two_row_visit_ms(widget, synth_section, canvas_w)
+    return int(float(widget.get("hold_seconds") or 0) * 1000)
+
+
+def _gif_frame_durations_ms(path: Path) -> list[int]:
+    """Read per-frame durations from a gif. Returns ms per frame.
+
+    Raises FileNotFoundError or generic Exception on bad input.
+    """
+    if PILImage is None:
+        raise RuntimeError("Pillow not available")
+    durations: list[int] = []
+    with PILImage.open(path) as im:
+        n = getattr(im, "n_frames", 1)
+        for i in range(n):
+            im.seek(i)
+            dur = im.info.get("duration", 100)
+            durations.append(int(dur))
+    return durations
+
+
+def gif_visit_ms(
+    widget: dict,
+    section: dict,
+    canvas_w: int,
+) -> int:
+    """Visit time in ms for a gif widget.
+
+    gif_loops > 0: sum(frame_durations) × gif_loops.
+    gif_loops == 0: hold_seconds × 1000 (PR-64 unified behavior).
+
+    If the path can't be resolved → fall back to 100ms × 10 frames =
+    1000 ms per loop. Caller flags this separately via the warning
+    pathway; this function doesn't raise.
+    """
+    if widget.get("bottom_text"):
+        # Same delegation as image_visit_ms for the text-overlay case.
+        synth_section = dict(section)
+        synth_section["hold_time"] = widget.get("hold_seconds") or 0.0
+        return two_row_visit_ms(widget, synth_section, canvas_w)
+
+    loops = int(widget.get("gif_loops") or 0)
+    if loops == 0:
+        return int(float(widget.get("hold_seconds") or 0) * 1000)
+
+    path = Path(widget.get("path", ""))
+    try:
+        durations = _gif_frame_durations_ms(path)
+        per_loop = sum(durations)
+    except Exception:
+        per_loop = 100 * 10  # 1000 ms fallback for unresolvable paths.
+    return per_loop * loops

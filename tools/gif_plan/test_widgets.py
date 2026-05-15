@@ -83,7 +83,7 @@ class TestTickerMessageVisitMs:
         assert ticker_message_visit_ms(widget, section, canvas_w=160) == 4000
 
     def test_overflow_scrolls_one_pass(self):
-        # text width = 160 (assume), canvas = 160 → pass = (160+160)×25 = 8000.
+        # text width = 160 (assume), canvas = 160 → pass = (160+165)×25 = 8125.
         widget = {
             "type": "message",
             # 32 chars × 5 = 160 (overflows 160 canvas, since 160 < 161).
@@ -92,12 +92,10 @@ class TestTickerMessageVisitMs:
         }
         section = {"hold_time": 2.0, "scroll_step_ms": 25}
         result = ticker_message_visit_ms(widget, section, canvas_w=160)
-        # Pass duration = (160 + 165) × 25 = 8125 ms; > hold so wins.
-        # But we also add the hold to the total for pre+post-scroll pause.
-        # Spec: pass_ms only; the engine's hold_time happens around it
-        # but for "did the gif capture the full scroll" the pass is
-        # what matters. Use pass_ms as the visit floor.
-        assert result == 8125
+        # Engine `_swap_and_scroll` overflow branch: pre-scroll hold +
+        # scroll + post-scroll hold. Pass = (160 + 165) × 25 = 8125 ms;
+        # hold = 2000 ms each side. Total = 2000 + 8125 + 2000 = 12125 ms.
+        assert result == 12125
 
     def test_text_wrap_uses_max_of_loops_or_hold(self):
         # text_wrap=true: max(text_loops × cycle_ms, hold × 1000).
@@ -156,8 +154,10 @@ class TestTwoRowVisitMs:
             "font": "5x8",
         }
         result = two_row_visit_ms(widget, self._section(), canvas_w=160)
-        # pass = (160 + 200) × 25 = 9000 ms.
-        assert result == 9000
+        # Engine `_swap_and_scroll` overflow branch: pre-scroll hold +
+        # scroll + post-scroll hold. Pass = (160 + 200) × 25 = 9000 ms;
+        # hold = 5000 ms each side. Total = 5000 + 9000 + 5000 = 19000 ms.
+        assert result == 19000
 
     def test_wrap_uses_max_of_loops_or_hold(self):
         widget = {

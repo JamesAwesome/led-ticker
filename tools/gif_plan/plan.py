@@ -56,7 +56,9 @@ _WIDGET_DISPATCH = {
 }
 
 
-def _summarize_widget(widget: dict, section: dict, canvas_w: int) -> dict:
+def _summarize_widget(
+    widget: dict, section: dict, canvas_w: int, display: dict
+) -> dict:
     fn = _WIDGET_DISPATCH.get(widget.get("type", ""))
     if fn is None:
         return {
@@ -64,7 +66,7 @@ def _summarize_widget(widget: dict, section: dict, canvas_w: int) -> dict:
             "visit_ms": 0,
             "note": "widget type not modelled deterministically",
         }
-    visit_ms = fn(widget, section, canvas_w)
+    visit_ms = fn(widget, section, canvas_w, display)
     return {"type": widget.get("type"), "visit_ms": visit_ms}
 
 
@@ -78,7 +80,9 @@ def plan(config_path: Path) -> dict:
     sections_summary: list[dict] = []
     for i, s in enumerate(sections_raw):
         canvas_w = canvas_width_logical(display, s)
-        widgets = [_summarize_widget(w, s, canvas_w) for w in s.get("widget", [])]
+        widgets = [
+            _summarize_widget(w, s, canvas_w, display) for w in s.get("widget", [])
+        ]
         total = section_total_ms(s, display)
         sections_summary.append(
             {

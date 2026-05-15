@@ -22,7 +22,7 @@ _WIDGET_DISPATCH = {
 }
 
 
-def _widget_visit_ms(widget: dict, section: dict, canvas_w: int) -> int:
+def _widget_visit_ms(widget: dict, section: dict, canvas_w: int, display: dict) -> int:
     """Dispatch a single widget to its visit-time computer.
     Returns 0 for widget types the planner doesn't cover yet
     (weather, mlb, crypto, rss_feed, etc) — those have data-fetch
@@ -30,7 +30,7 @@ def _widget_visit_ms(widget: dict, section: dict, canvas_w: int) -> int:
     fn = _WIDGET_DISPATCH.get(widget.get("type", ""))
     if fn is None:
         return 0
-    return fn(widget, section, canvas_w)
+    return fn(widget, section, canvas_w, display)
 
 
 def section_total_ms(section: dict, display: dict) -> int | None:
@@ -41,7 +41,7 @@ def section_total_ms(section: dict, display: dict) -> int | None:
         return None
     canvas_w = canvas_width_logical(display, section)
     widgets = section.get("widget", [])
-    per_visit = sum(_widget_visit_ms(w, section, canvas_w) for w in widgets)
+    per_visit = sum(_widget_visit_ms(w, section, canvas_w, display) for w in widgets)
     loop_count = int(section.get("loop_count") or 1)
     return per_visit * loop_count
 

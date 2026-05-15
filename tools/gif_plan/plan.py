@@ -38,6 +38,16 @@ from tools.gif_plan.widgets import (  # noqa: E402
     two_row_visit_ms,
 )
 
+# Exit codes. 0/1/2 come from flag severity (see `_exit_code`); 3 is
+# reserved for tool/usage errors (missing file, malformed TOML) so a
+# caller can tell "config has warnings" (1/2) apart from "tool failed".
+EXIT_TOOL_ERROR = 3
+
+
+class PlanError(Exception):
+    """Recoverable, user-facing planner error (bad path / malformed TOML)."""
+
+
 _HEADER_RE = re.compile(r"^\s*#\s*render-duration\s*:\s*(\d+)\s*$", re.MULTILINE)
 
 
@@ -71,9 +81,17 @@ def _summarize_widget(
 
 
 def plan(config_path: Path) -> dict:
-    raw = config_path.read_text(encoding="utf-8")
+    try:
+        raw = config_path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise PlanError(f"config not found: {config_path}") from exc
+    except (IsADirectoryError, PermissionError, OSError) as exc:
+        raise PlanError(f"cannot read config {config_path}: {exc}") from exc
     header = _read_render_duration_header(raw)
-    config = tomllib.loads(raw)
+    try:
+        config = tomllib.loads(raw)
+    except tomllib.TOMLDecodeError as exc:
+        raise PlanError(f"malformed TOML in {config_path}: {exc}") from exc
     display = config.get("display", {})
     sections_raw = (config.get("playlist") or {}).get("section") or []
 
@@ -139,7 +157,9 @@ def _human_render(plan_data: dict) -> str:
     for s in plan_data["sections"]:
         total = s["section_total_ms"]
         total_str = (
-            f"{total}ms" if total is not None else "runtime-dependent (forever_scroll)"
+            f"{total}ms"
+            if total is not None
+            else "runtime-dependent (forever_scroll / loop_count=0)"
         )
         idx = s["index"]
         mode = s["mode"]
@@ -165,7 +185,11 @@ def main() -> int:
     p.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     args = p.parse_args()
 
-    data = plan(args.config)
+    try:
+        data = plan(args.config)
+    except PlanError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_TOOL_ERROR
     if args.json:
         print(json.dumps(data, indent=2))
     else:

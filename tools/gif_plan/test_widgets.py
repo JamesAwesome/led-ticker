@@ -218,9 +218,12 @@ class TestImageVisitMs:
             "bottom_text_scroll": "scroll_through",
         }
         section = {"scroll_step_ms": 25}
-        # cycle = 160+10 = 170. 1 × 170 × 25 = 4250 ms. hold=8000ms.
-        # max = 8000.
-        assert image_visit_ms(widget, section, canvas_w=160) == 8000
+        # Image two-row overlay ticks on the WIDGET's scroll_speed_ms
+        # (default 50), NOT the section's scroll_step_ms, and the bottom
+        # row inherits the image FONT_DEFAULT (6x12): "HI" = 2×6 = 12 px.
+        # cycle = 160+12 = 172. 1 × 172 × 50 = 8600 ms. hold=8000 ms.
+        # max = 8600.
+        assert image_visit_ms(widget, section, canvas_w=160) == 8600
 
     def test_image_default_hold_seconds_is_five(self):
         """Configs that omit hold_seconds default to 5.0 (matches StillImage)."""
@@ -237,11 +240,10 @@ class TestGifVisitMs:
             "gif_loops": 3,
         }
         section = {"scroll_step_ms": 25}
-        # Fallback: 100ms × n_frames assumed = 100 × 10 = 1000 per loop
-        # × 3 loops = 3000. Implementation falls back to 100×10 estimate.
+        # Fallback: 100ms × 10 assumed frames = 1000 ms per loop
+        # × 3 loops = 3000 ms (no text → no marquee floor).
         result = gif_visit_ms(widget, section, canvas_w=160)
-        assert result > 0
-        # Emits a warning via the caller; visit just doesn't crash.
+        assert result == 3000
 
     def test_gif_loops_zero_uses_section_hold_time(self, tmp_path):
         # Create a real tiny gif so the path resolves.

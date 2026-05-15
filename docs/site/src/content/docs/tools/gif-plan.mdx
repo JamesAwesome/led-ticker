@@ -43,24 +43,23 @@ For every widget in every `swap`-mode section the planner derives a per-visit du
 - **Widget visit time** — per-widget milliseconds based on the widget's type and its scroll/hold/wrap configuration.
 - **Section total** — sum of widget visits times `loop_count`.
 - **Playlist total** — sum of section totals across all `swap`-mode sections.
-- **Recommended `# render-duration:`** — `ceil(total_ms / 1000) + 1` second of buffer to capture the trailing transition.
+- **Recommended `# render-duration:`** — `ceil(total_ms / 1000) + 1`: one extra second of buffer to capture the trailing transition.
 
 Modelled widget types: `message`, `countdown`, `two_row`, `image`, `still`, `gif`.
 
 ## What flags it raises
 
-The planner reports up to five classes of flag, each with a `severity` (`info` / `warning` / `error`), a `location` (e.g. `section[0].widget[1]`), and a one-line fix:
+The planner reports the following flags, each with a `severity` (`info` / `warning` / `error`), a `location` (e.g. `section[0].widget[1]`), and a one-line fix:
 
-| Code                      | Severity | What it means                                                                                                |
-| ------------------------- | -------- | ------------------------------------------------------------------------------------------------------------ |
-| `mid_pass_cutoff`         | error    | A pinned `# render-duration:` header is shorter than the playlist total — the gif will cut content mid-pass. |
-| `scroll_step_too_fast`    | warning  | `scroll_step_ms < 20` — below the readable range; canonical is 25-30.                                        |
-| `scroll_step_too_slow`    | warning  | `scroll_step_ms > 80` — above the readable range; canonical is 25-30.                                        |
-| `zero_cycle_width`        | error    | A `text_wrap` / `bottom_text_wrap` / `scroll_through` widget has empty text, so there's no cycle to count.   |
-| `pixel_mapper_present`    | info     | A bigsign `pixel_mapper` is in play; the planner's canvas-width math is approximate for those configs.       |
-| `loop_count_zero_runtime` | info     | `loop_count = 0` means loop-forever in the engine; playlist total is runtime-dependent.                      |
-
-A clean run also surfaces a `render_duration_suggestion` info flag when no `# render-duration:` header is present and the planner has a finite total to recommend.
+| Code                         | Severity | What it means                                                                                                |
+| ---------------------------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `mid_pass_cutoff`            | error    | A pinned `# render-duration:` header is shorter than the playlist total — the gif will cut content mid-pass. |
+| `zero_cycle_width`           | error    | A `text_wrap` / `bottom_text_wrap` / `scroll_through` widget has empty text, so there's no cycle to count.   |
+| `scroll_step_too_fast`       | warning  | `scroll_step_ms < 20` — below the readable range; canonical is 25-30.                                        |
+| `scroll_step_too_slow`       | warning  | `scroll_step_ms > 80` — above the readable range; canonical is 25-30.                                        |
+| `render_duration_suggestion` | info     | No `# render-duration:` header is present; the planner suggests the value it would write.                    |
+| `pixel_mapper_present`       | info     | A bigsign `pixel_mapper` is in play; the planner's canvas-width math is approximate for those configs.       |
+| `loop_count_zero_runtime`    | info     | `loop_count = 0` means loop-forever in the engine; playlist total is runtime-dependent.                      |
 
 ## The `# render-duration:` header convention
 
@@ -90,7 +89,7 @@ The same `readRenderDuration` parser is used by the auto-render path described i
 
 A handful of cases are intentionally out of scope in v1:
 
-- **`forever_scroll` / `infini_scroll` modes** — duration is runtime-dependent, not derivable from the TOML. Sections in these modes contribute `None` to the section total and are surfaced as `runtime-dependent` in the output.
+- **`forever_scroll` / `infini_scroll` modes, and `loop_count = 0`** — duration is runtime-dependent, not derivable from the TOML (`loop_count = 0` runs as `itertools.cycle` — loop forever). These sections contribute `None` to the section total and are surfaced as `runtime-dependent` in the output (with a `loop_count_zero_runtime` info flag for the loop case).
 - **Data-fetch widgets** — `weather`, `coinbase`, `coingecko`, `mlb`, `mlb_standings`, `rss_feed`, `etherscan`. Their visit time depends on what comes back over the wire (story count, ticker count, game state). They contribute `0ms` to the per-section total; treat the planner's number as a lower bound for sections built around them.
 - **Bigsign `pixel_mapper` transformations** — when a `pixel_mapper` Remap string is present, the planner uses a best-effort canvas-width approximation. The `pixel_mapper_present` info flag surfaces this so you know to sanity-check the recommended duration against the rendered gif.
 

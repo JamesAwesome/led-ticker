@@ -34,10 +34,19 @@ def _widget_visit_ms(widget: dict, section: dict, canvas_w: int, display: dict) 
 
 
 def section_total_ms(section: dict, display: dict) -> int | None:
-    """Total ms for one section. Returns None for forever_scroll /
-    infini_scroll (runtime-dependent — caller flags as info)."""
+    """Total ms for one section. Returns None when the duration is
+    runtime-dependent (caller flags as info):
+
+      - forever_scroll / infini_scroll modes, or
+      - loop_count == 0, which the engine runs as `itertools.cycle`
+        (ticker.py: `if loop_count: chain(... * loop_count) else
+        cycle(...)`) — i.e. loop forever. Coercing 0→1 here would feed
+        an arbitrary single-pass total into the recommended duration.
+    """
     mode = section.get("mode", "swap")
     if mode in ("forever_scroll", "infini_scroll"):
+        return None
+    if section.get("loop_count") == 0:
         return None
     canvas_w = canvas_width_logical(display, section)
     widgets = section.get("widget", [])

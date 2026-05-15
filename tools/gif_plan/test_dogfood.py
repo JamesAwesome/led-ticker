@@ -49,6 +49,14 @@ _MID_PASS_XFAILS: dict[str, str] = {
         "the hold (7s) + a sliver of scroll; the full deterministic "
         "scroll takes ~15s."
     ),
+    "gif-two_row.toml": (
+        "gif two-row overlay ticks at the widget scroll_speed_ms default "
+        "(50), so one full marquee of the 34-char bottom row is ~16.5s; "
+        "render-duration=14 deliberately crops the tail of the scroll for "
+        "a punchy loop (same visual-focus convention as the other two_row "
+        "demos). Planner math is correct — it now models the widget "
+        "scroll_speed_ms tick rate instead of the section scroll_step_ms."
+    ),
 }
 
 # Demos where the header is materially larger than the planner's

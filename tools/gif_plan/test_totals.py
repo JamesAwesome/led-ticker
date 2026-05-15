@@ -47,6 +47,43 @@ class TestSectionTotal:
         # None for the caller to flag.
         assert section_total_ms(section, display) is None
 
+    def test_loop_count_zero_returns_none(self):
+        # loop_count=0 → engine runs itertools.cycle (loop forever), so
+        # the section duration is runtime-dependent. It must NOT be
+        # coerced to a finite single-pass total (regression: 0→1).
+        section = {
+            "mode": "swap",
+            "loop_count": 0,
+            "widget": [{"type": "message", "text": "x", "font": "5x8"}],
+        }
+        display = {"cols": 32, "chain": 5, "default_scale": 1}
+        assert section_total_ms(section, display) is None
+
+    def test_loop_count_zero_excluded_from_playlist_total(self):
+        from tools.gif_plan.totals import playlist_total_ms
+
+        config = {
+            "display": {"cols": 32, "chain": 5, "default_scale": 1},
+            "playlist": {
+                "section": [
+                    {
+                        "mode": "swap",
+                        "loop_count": 1,
+                        "hold_time": 4.0,
+                        "widget": [{"type": "message", "text": "x", "font": "5x8"}],
+                    },
+                    {
+                        "mode": "swap",
+                        "loop_count": 0,  # forever — contributes nothing
+                        "hold_time": 9.0,
+                        "widget": [{"type": "message", "text": "y", "font": "5x8"}],
+                    },
+                ]
+            },
+        }
+        # Only the finite section (4000 ms) counts.
+        assert playlist_total_ms(config) == 4000
+
 
 class TestPlaylistTotal:
     def test_single_section(self):

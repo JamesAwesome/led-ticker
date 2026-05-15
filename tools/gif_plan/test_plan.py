@@ -143,6 +143,107 @@ font = "5x8"
         assert data["render_duration_header"] == 8
 
 
+class TestHumanRender:
+    """The default (non-JSON) terminal output — `make plan-gif` path."""
+
+    def test_human_output_contains_summary_lines(self, tmp_path):
+        cfg = _write_config(
+            tmp_path,
+            """
+[display]
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 4.0
+scroll_step_ms = 25
+
+[[playlist.section.widget]]
+type = "message"
+text = "HI"
+font = "5x8"
+""",
+            header="# render-duration: 5",
+        )
+        r = _run_cli(str(cfg))  # no --json
+        assert r.returncode == 0, r.stderr
+        out = r.stdout
+        assert "playlist_total:" in out
+        assert "recommended_render_duration:" in out
+        assert "header `# render-duration:` found: 5s" in out
+        assert "section[0]" in out
+        assert "widget[0] type=message" in out
+
+    def test_human_output_renders_flags(self, tmp_path):
+        cfg = _write_config(
+            tmp_path,
+            """
+[display]
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 2.0
+scroll_step_ms = 10
+
+[[playlist.section.widget]]
+type = "message"
+text = "HI"
+font = "5x8"
+""",
+            header="# render-duration: 3",
+        )
+        r = _run_cli(str(cfg))
+        assert r.returncode == 1, r.stderr
+        assert "flags:" in r.stdout
+        assert "scroll_step_too_fast" in r.stdout
+
+    def test_human_output_marks_forever_section_runtime_dependent(self, tmp_path):
+        cfg = _write_config(
+            tmp_path,
+            """
+[display]
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 0
+hold_time = 3.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "HI"
+font = "5x8"
+""",
+        )
+        r = _run_cli(str(cfg))
+        assert r.returncode == 0, r.stderr
+        assert "runtime-dependent" in r.stdout
+        assert "loop_count_zero_runtime" in r.stdout
+
+
+class TestCliErrorHandling:
+    """Missing / malformed config must exit with a code distinct from
+    the flag-severity codes (0/1/2) so callers can tell a tool failure
+    apart from a config that merely has warnings."""
+
+    def test_missing_config_exits_three_with_stderr(self, tmp_path):
+        r = _run_cli(str(tmp_path / "does-not-exist.toml"))
+        assert r.returncode == 3
+        assert "config not found" in r.stderr
+        assert r.stdout == ""
+
+    def test_malformed_toml_exits_three_with_stderr(self, tmp_path):
+        cfg = tmp_path / "bad.toml"
+        cfg.write_text("# render-duration: 5\n[display\ncols = 32\n")
+        r = _run_cli(str(cfg))
+        assert r.returncode == 3
+        assert "malformed TOML" in r.stderr
+
+
 class TestSchema:
     def test_json_output_has_required_keys(self, tmp_path):
         cfg = _write_config(

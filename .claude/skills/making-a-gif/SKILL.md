@@ -5,7 +5,7 @@ description: Use when a user (or sub-agent) wants to plan or make a demo gif of 
 
 # Making a led-ticker Demo Gif
 
-You are helping the user plan a demo gif for the led-ticker project. There are two modes: **docs** (polished, committed under `docs/site/public/demos-pinned/`) and **dev** (throwaway preview to `/tmp/`).
+You are helping the user plan a demo gif for the led-ticker project. There are two modes: **docs** (polished — the source TOML is committed under `docs/site/demos-pinned/` and the rendered gif under `docs/site/public/demos-pinned/`) and **dev** (throwaway preview to `/tmp/`).
 
 ## Step 0: Detect mode
 

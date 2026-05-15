@@ -12,7 +12,7 @@ make plan-gif CONFIG=path/to.toml
 
 ## Output
 
-**Human (default)**:
+**Human (default)** — a clean run (`make plan-gif CONFIG=docs/site/demos-pinned/two_row-wrap.toml`):
 ```
 config: docs/site/demos-pinned/two_row-wrap.toml
 playlist_total: 7000ms
@@ -21,11 +21,15 @@ header `# render-duration:` found: 8s
 
 section[0] mode=swap loop_count=1 → 7000ms
   widget[0] type=two_row visit=7000ms
+```
 
+When the `# render-duration:` header is shorter than the deterministic
+total, the planner flags it (and exits non-zero):
+```
 flags:
   [ERROR] playlist :: mid_pass_cutoff
-    render-duration: 8 cuts ~125ms of playlist content mid-pass.
-    fix: Bump to 9 (matches the deterministic playlist total + 1s buffer).
+    render-duration: 6 cuts ~1000ms of playlist content mid-pass.
+    fix: Bump to 8 (matches the deterministic playlist total + 1s buffer).
 ```
 
 **JSON (`--json`)**: same data, machine-parseable. Consumed by the `making-a-gif` skill.
@@ -35,6 +39,9 @@ flags:
 - `0` — clean.
 - `1` — warnings only.
 - `2` — errors (impossible math or mid-pass cutoff with header set).
+- `3` — tool/usage error (config not found, malformed TOML). Distinct
+  from `1`/`2` so a caller can tell a tool failure apart from a config
+  that merely has flags. The message goes to stderr; stdout stays empty.
 
 ## What it covers
 
@@ -50,7 +57,8 @@ Widgets: `message`, `countdown`, `two_row`, `image`, `still`, `gif`.
 ## Tests
 
 ```bash
-PYTHONPATH=. uv run pytest tools/gif_plan/ -v
+make test                                      # runs as part of the suite
+PYTHONPATH=tests/stubs uv run pytest tools/gif_plan/ -v   # just this tool
 ```
 
 Includes:

@@ -113,3 +113,43 @@ def ticker_message_visit_ms(
     if content_w > canvas_w:
         return (canvas_w + content_w) * step_ms
     return hold_ms
+
+
+def two_row_visit_ms(
+    widget: dict,
+    section: dict,
+    canvas_w: int,
+) -> int:
+    """Visit time in ms for a TwoRowMessage widget.
+
+    Branches on bottom_text_scroll, bottom_text_wrap, and overflow:
+      - bottom_text_scroll='scroll_through': max(loops × cycle_ms,
+        hold × 1000). cycle = canvas_w + bottom_width.
+      - bottom_text_wrap=True: max(loops × cycle_ms, hold × 1000).
+        cycle = bottom_width + separator_width.
+      - Default + overflow: (canvas_w + bottom_width) × step_ms.
+      - Default + fits: hold_time × 1000.
+    """
+    font = widget.get("bottom_font") or widget.get("font", "5x8")
+    font_size = widget.get("bottom_font_size") or widget.get("font_size")
+    bottom_text = widget.get("bottom_text", "")
+    step_ms = int(section.get("scroll_step_ms") or 50)
+    hold_ms = int(float(section.get("hold_time") or 0) * 1000)
+    bottom_w = estimate_content_width_logical(bottom_text, font, font_size)
+
+    if widget.get("bottom_text_scroll") == "scroll_through":
+        cycle_px = canvas_w + bottom_w
+        cycle_ms = cycle_px * step_ms
+        loops = int(widget.get("bottom_text_loops") or 0) or 1
+        return max(loops * cycle_ms, hold_ms)
+
+    if widget.get("bottom_text_wrap"):
+        sep = widget.get("bottom_text_separator") or " • "
+        sep_w = estimate_content_width_logical(sep, font, font_size)
+        cycle_ms = (bottom_w + sep_w) * step_ms
+        loops = int(widget.get("bottom_text_loops") or 0)
+        return max(loops * cycle_ms, hold_ms)
+
+    if bottom_w > canvas_w:
+        return (canvas_w + bottom_w) * step_ms
+    return hold_ms

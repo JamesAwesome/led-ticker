@@ -6,6 +6,7 @@ from tools.gif_plan.widgets import (
     canvas_width_logical,
     estimate_content_width_logical,
     ticker_message_visit_ms,
+    two_row_visit_ms,
 )
 
 
@@ -125,3 +126,74 @@ class TestTickerMessageVisitMs:
         # max = 10000.
         result = ticker_message_visit_ms(widget, section, canvas_w=160)
         assert result == 10000
+
+
+class TestTwoRowVisitMs:
+    def _section(self, **kw):
+        base = {"hold_time": 5.0, "scroll_step_ms": 25}
+        base.update(kw)
+        return base
+
+    def test_default_short_bottom_fits_uses_hold(self):
+        widget = {
+            "type": "two_row",
+            "top_text": "TOP",
+            "bottom_text": "HI",  # fits 160 canvas
+            "font": "5x8",
+        }
+        result = two_row_visit_ms(widget, self._section(), canvas_w=160)
+        # Static bottom → hold_time × 1000.
+        assert result == 5000
+
+    def test_default_overflow_bottom_scrolls_one_pass(self):
+        widget = {
+            "type": "two_row",
+            "top_text": "TOP",
+            "bottom_text": "x" * 40,  # 40 × 5 = 200 px overflow
+            "font": "5x8",
+        }
+        result = two_row_visit_ms(widget, self._section(), canvas_w=160)
+        # pass = (160 + 200) × 25 = 9000 ms.
+        assert result == 9000
+
+    def test_wrap_uses_max_of_loops_or_hold(self):
+        widget = {
+            "type": "two_row",
+            "top_text": "TOP",
+            "bottom_text": "tap",  # 3 × 5 = 15 px
+            "font": "5x8",
+            "bottom_text_wrap": True,
+            "bottom_text_separator": " * ",  # 3 × 5 = 15 px
+            "bottom_text_loops": 3,
+        }
+        result = two_row_visit_ms(widget, self._section(hold_time=1.0), canvas_w=160)
+        # cycle = 15+15 = 30. 3 × 30 × 25 = 2250 ms. hold=1000. max=2250.
+        assert result == 2250
+
+    def test_scroll_through_uses_max_of_loops_or_hold(self):
+        widget = {
+            "type": "two_row",
+            "top_text": "TOP",
+            "bottom_text": "x" * 40,  # 200 px
+            "font": "5x8",
+            "bottom_text_scroll": "scroll_through",
+            "bottom_text_loops": 2,
+        }
+        result = two_row_visit_ms(widget, self._section(hold_time=1.0), canvas_w=160)
+        # cycle = 160 + 200 = 360. 2 × 360 × 25 = 18000 ms. hold=1000.
+        # max = 18000.
+        assert result == 18000
+
+    def test_scroll_through_hold_wins(self):
+        widget = {
+            "type": "two_row",
+            "top_text": "TOP",
+            "bottom_text": "HI",  # 10 px
+            "font": "5x8",
+            "bottom_text_scroll": "scroll_through",
+            # No loops → defaults to 1.
+        }
+        result = two_row_visit_ms(widget, self._section(hold_time=20.0), canvas_w=160)
+        # cycle = 160 + 10 = 170. 1 × 170 × 25 = 4250 ms. hold=20000.
+        # max = 20000.
+        assert result == 20000

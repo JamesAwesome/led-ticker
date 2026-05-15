@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos
+.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif
 
 # --- Developer Setup ---
 
@@ -63,6 +63,9 @@ docs-format:  ## Auto-format the docs site with prettier
 
 render-demo:  ## Render a single demo gif. Usage: make render-demo CONFIG=path/to.toml OUT=out.gif
 	uv run python tools/render_demo/render.py $(CONFIG) -o $(OUT)
+
+plan-gif:  ## Plan a demo gif (math + flags). Usage: make plan-gif CONFIG=path/to.toml
+	uv run python tools/gif_plan/plan.py $(CONFIG)
 
 # Long-running widget demos (data-fetch widgets — coinbase, mlb, rss_feed, …).
 # Source TOMLs in docs/site/demos-long/, output to docs/site/public/demos-long/

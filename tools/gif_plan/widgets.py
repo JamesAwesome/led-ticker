@@ -11,20 +11,20 @@ import math
 import re
 
 # BDF font alias → cell width in pixels. Covers the canonical aliases
-# used across the demo configs. Unknown aliases fall back to 6.
+# from src/led_ticker/fonts/__init__.py. Unknown aliases fall back to 6.
 _BDF_CELL_WIDTH = {
     "5x8": 5,
+    "6x10": 6,
     "6x12": 6,
     "7x13": 7,
-    "FONT_SMALL": 5,
-    "FONT_DEFAULT": 6,
 }
 
-# Pattern matching :slug: inline emoji. Each slug renders as an 8-px
-# sprite by default; the band cap may scale this up but 8 is a safe
-# baseline for the planner.
+# Pattern matching :slug: inline emoji. Mirrors src/led_ticker/pixel_emoji.py
+# EMOJI_PATTERN: lowercase letters + underscore, no digits. Each slug
+# renders as an 8-px sprite by default; the band cap may scale this up
+# but 8 is a safe baseline for the planner.
 _EMOJI_SPRITE_WIDTH = 8
-_EMOJI_PATTERN = re.compile(r":[a-z0-9_]+:")
+_EMOJI_PATTERN = re.compile(r":[a-z_]+:")
 
 
 def canvas_width_logical(display: dict, section: dict) -> int:

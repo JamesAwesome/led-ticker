@@ -222,6 +222,12 @@ class TestImageVisitMs:
         # max = 8000.
         assert image_visit_ms(widget, section, canvas_w=160) == 8000
 
+    def test_image_default_hold_seconds_is_five(self):
+        """Configs that omit hold_seconds default to 5.0 (matches StillImage)."""
+        widget = {"type": "image", "path": "x.png"}
+        section = {"scroll_step_ms": 25}
+        assert image_visit_ms(widget, section, canvas_w=160) == 5000
+
 
 class TestGifVisitMs:
     def test_unresolvable_path_uses_fallback(self):
@@ -237,7 +243,7 @@ class TestGifVisitMs:
         assert result > 0
         # Emits a warning via the caller; visit just doesn't crash.
 
-    def test_gif_loops_zero_uses_hold_seconds(self, tmp_path):
+    def test_gif_loops_zero_uses_section_hold_time(self, tmp_path):
         # Create a real tiny gif so the path resolves.
         gif_path = tmp_path / "tiny.gif"
         frames = [
@@ -251,10 +257,10 @@ class TestGifVisitMs:
             "type": "gif",
             "path": str(gif_path),
             "gif_loops": 0,
-            "hold_seconds": 5.0,
         }
-        section = {"scroll_step_ms": 25}
-        # gif_loops=0 → use hold_seconds × 1000.
+        # gif widget has NO hold_seconds field — engine reads section.hold_time
+        # when gif_loops=0 (PR-64 behavior).
+        section = {"scroll_step_ms": 25, "hold_time": 5.0}
         assert gif_visit_ms(widget, section, canvas_w=160) == 5000
 
     def test_gif_loops_positive_uses_frame_sum(self, tmp_path):
@@ -270,3 +276,13 @@ class TestGifVisitMs:
         widget = {"type": "gif", "path": str(gif_path), "gif_loops": 3}
         section = {"scroll_step_ms": 25}
         assert gif_visit_ms(widget, section, canvas_w=160) == 600
+
+    def test_gif_default_gif_loops_is_one(self, tmp_path):
+        """Configs that omit gif_loops default to 1 (matches GifPlayer)."""
+        gif_path = tmp_path / "tiny.gif"
+        frames = [PILImage.new("RGB", (8, 8), (255, 0, 0))]
+        frames[0].save(gif_path, save_all=True, duration=200, loop=0)
+        widget = {"type": "gif", "path": str(gif_path)}  # no gif_loops
+        section = {"scroll_step_ms": 25}
+        # 1 frame × 200ms × 1 loop = 200.
+        assert gif_visit_ms(widget, section, canvas_w=160) == 200

@@ -171,17 +171,17 @@ def image_visit_ms(
     If `bottom_text` is set → two-row text-overlay path (delegates
     to two_row_visit_ms shape). Otherwise: hold_seconds × 1000.
 
-    NOTE: image widget `hold_seconds` is a widget-level field
-    (unlike message/two_row's section-level `hold_time`). We read
-    widget.hold_seconds here, not section.hold_time.
+    NOTE: image widget `hold_seconds` is a widget-level field (default
+    5.0 from `StillImage`, unlike message/two_row's section-level
+    `hold_time`). We read widget.hold_seconds here, not section.hold_time.
     """
     if widget.get("bottom_text"):
         # Inject a synthetic section dict so two_row's math can run
         # using hold_seconds (widget) instead of hold_time (section).
         synth_section = dict(section)
-        synth_section["hold_time"] = widget.get("hold_seconds") or 0.0
+        synth_section["hold_time"] = widget.get("hold_seconds", 5.0)
         return two_row_visit_ms(widget, synth_section, canvas_w)
-    return int(float(widget.get("hold_seconds") or 0) * 1000)
+    return int(float(widget.get("hold_seconds", 5.0)) * 1000)
 
 
 def _gif_frame_durations_ms(path: Path) -> list[int]:
@@ -209,26 +209,27 @@ def gif_visit_ms(
     """Visit time in ms for a gif widget.
 
     gif_loops > 0: sum(frame_durations) × gif_loops.
-    gif_loops == 0: hold_seconds × 1000 (PR-64 unified behavior).
+    gif_loops == 0: section.hold_time × 1000 (PR-64 behavior).
+    Default gif_loops is 1 (from `GifPlayer`).
+
+    GifPlayer has no widget-level `hold_seconds` — when `gif_loops=0`
+    the engine reads SECTION `hold_time` to compute n_loops.
 
     If the path can't be resolved → fall back to 100ms × 10 frames =
-    1000 ms per loop. Caller flags this separately via the warning
-    pathway; this function doesn't raise.
+    1000 ms per loop. Logged via narrow OSError/RuntimeError catch.
     """
     if widget.get("bottom_text"):
-        # Same delegation as image_visit_ms for the text-overlay case.
-        synth_section = dict(section)
-        synth_section["hold_time"] = widget.get("hold_seconds") or 0.0
-        return two_row_visit_ms(widget, synth_section, canvas_w)
+        # Two-row text overlay: gif's effective hold is section.hold_time.
+        return two_row_visit_ms(widget, section, canvas_w)
 
-    loops = int(widget.get("gif_loops") or 0)
+    loops = int(widget.get("gif_loops", 1))
     if loops == 0:
-        return int(float(widget.get("hold_seconds") or 0) * 1000)
+        return int(float(section.get("hold_time") or 0) * 1000)
 
     path = Path(widget.get("path", ""))
     try:
         durations = _gif_frame_durations_ms(path)
         per_loop = sum(durations)
-    except Exception:
+    except (FileNotFoundError, PermissionError, OSError, RuntimeError):
         per_loop = 100 * 10  # 1000 ms fallback for unresolvable paths.
     return per_loop * loops

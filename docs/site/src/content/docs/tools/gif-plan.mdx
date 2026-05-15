@@ -1,0 +1,111 @@
+---
+title: "Tool: gif-plan"
+description: Compute the deterministic playtime of a led-ticker demo TOML and flag common timing bugs before you render the gif.
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+`gif-plan` reads a led-ticker `config.toml` and computes, from the config alone, how long the playlist takes to play through once. It also runs a handful of heuristic checks for the timing bugs that show up most often when authoring a demo gif. The script lives at [`tools/gif_plan/plan.py`](https://github.com/jamesawesome/led-ticker/blob/main/tools/gif_plan/plan.py) and ships as `make plan-gif`.
+
+It exists so that the question "what `--duration` should I render this with?" has a single deterministic answer instead of a guess-and-recheck loop. The planner is the math layer; [`render-demo`](/tools/render-demo/) is the pixels layer. Both read the same TOML.
+
+## Quick start
+
+Run the planner against any demo TOML from the repo root:
+
+```bash
+make plan-gif CONFIG=docs/site/demos-pinned/two_row-wrap.toml
+```
+
+Output is plain text — config path, playlist total in milliseconds, recommended render duration, then a per-section breakdown and any flags:
+
+```text
+config: docs/site/demos-pinned/two_row-wrap.toml
+playlist_total: 7000ms
+recommended_render_duration: 8s
+header `# render-duration:` found: 8s
+
+section[0] mode=swap loop_count=1 → 7000ms
+  widget[0] type=two_row visit=7000ms
+```
+
+For tooling integration (the [making-a-gif](https://github.com/jamesawesome/led-ticker/tree/main/.claude/skills/making-a-gif) skill is the main consumer), pass `--json` for the same data as a machine-parseable object:
+
+```bash
+uv run python tools/gif_plan/plan.py docs/site/demos-pinned/two_row-wrap.toml --json
+```
+
+## What it computes
+
+For every widget in every `swap`-mode section the planner derives a per-visit duration from the same TOML knobs the runtime engine reads — hold time, scroll step, content width, wrap/loop counts, image hold seconds. The numbers are aggregated bottom-up:
+
+- **Widget visit time** — per-widget milliseconds based on the widget's type and its scroll/hold/wrap configuration.
+- **Section total** — sum of widget visits times `loop_count`.
+- **Playlist total** — sum of section totals across all `swap`-mode sections.
+- **Recommended `# render-duration:`** — `ceil(total_ms / 1000) + 1` second of buffer to capture the trailing transition.
+
+Modelled widget types: `message`, `countdown`, `two_row`, `image`, `still`, `gif`.
+
+## What flags it raises
+
+The planner reports up to five classes of flag, each with a `severity` (`info` / `warning` / `error`), a `location` (e.g. `section[0].widget[1]`), and a one-line fix:
+
+| Code                      | Severity | What it means                                                                                                |
+| ------------------------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `mid_pass_cutoff`         | error    | A pinned `# render-duration:` header is shorter than the playlist total — the gif will cut content mid-pass. |
+| `scroll_step_too_fast`    | warning  | `scroll_step_ms < 20` — below the readable range; canonical is 25-30.                                        |
+| `scroll_step_too_slow`    | warning  | `scroll_step_ms > 80` — above the readable range; canonical is 25-30.                                        |
+| `zero_cycle_width`        | error    | A `text_wrap` / `bottom_text_wrap` / `scroll_through` widget has empty text, so there's no cycle to count.   |
+| `pixel_mapper_present`    | info     | A bigsign `pixel_mapper` is in play; the planner's canvas-width math is approximate for those configs.       |
+| `loop_count_zero_runtime` | info     | `loop_count = 0` means loop-forever in the engine; playlist total is runtime-dependent.                      |
+
+A clean run also surfaces a `render_duration_suggestion` info flag when no `# render-duration:` header is present and the planner has a finite total to recommend.
+
+## The `# render-duration:` header convention
+
+Pinned demos (the TOMLs under [`docs/site/demos-pinned/`](https://github.com/jamesawesome/led-ticker/tree/main/docs/site/demos-pinned)) declare their render duration as a comment on the top line of the file:
+
+<TomlExample
+  code={`# render-duration: 12
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "A long marquee that needs more time to scroll all the way across..."
+font_color = "rainbow"`}
+/>
+
+`make render-pinned-demos` reads that header to pick the right `--duration` per demo, so every pinned gif renders with exactly the time its playlist needs (no more, no less). The planner enforces both sides of that contract:
+
+- When the header is missing, the planner emits an `info` flag suggesting the value it would write.
+- When the header is present but shorter than the playlist total, the planner emits an `error` flag (`mid_pass_cutoff`) and exits non-zero — `render-pinned-demos` would otherwise produce a gif that cuts off mid-section.
+
+The same `readRenderDuration` parser is used by the auto-render path described in [render-demo](/tools/render-demo/) — both pipelines honour the comment.
+
+## What it does NOT model
+
+A handful of cases are intentionally out of scope in v1:
+
+- **`forever_scroll` / `infini_scroll` modes** — duration is runtime-dependent, not derivable from the TOML. Sections in these modes contribute `None` to the section total and are surfaced as `runtime-dependent` in the output.
+- **Data-fetch widgets** — `weather`, `coinbase`, `coingecko`, `mlb`, `mlb_standings`, `rss_feed`, `etherscan`. Their visit time depends on what comes back over the wire (story count, ticker count, game state). They contribute `0ms` to the per-section total; treat the planner's number as a lower bound for sections built around them.
+- **Bigsign `pixel_mapper` transformations** — when a `pixel_mapper` Remap string is present, the planner uses a best-effort canvas-width approximation. The `pixel_mapper_present` info flag surfaces this so you know to sanity-check the recommended duration against the rendered gif.
+
+## Exit codes
+
+| Code | Meaning                                                                  |
+| ---- | ------------------------------------------------------------------------ |
+| `0`  | Clean — no flags above `info` severity.                                  |
+| `1`  | At least one `warning`-severity flag, no errors.                         |
+| `2`  | At least one `error`-severity flag (mid-pass cutoff or impossible math). |
+
+This makes the CLI safe to wire into a pre-render gate: any non-zero exit means the planner found something worth pausing on before encoding the gif.
+
+## Companion skill
+
+The Claude Code skill at [`.claude/skills/making-a-gif/`](https://github.com/jamesawesome/led-ticker/tree/main/.claude/skills/making-a-gif) wraps `gif-plan` and `render-demo` into a single workflow — it calls `plan.py --json`, surfaces the flags, adds a judgment layer for LED-panel color/contrast quirks (black-is-invisible, washed white-on-white), and proposes the exact `make render-demo` command with the right `--duration`. Use it from any agent that can read `SKILL.md`; the CLI itself stays usable on its own.
+
+<RelatedPages slugs={["tools/render-demo", "reference/cli"]} />

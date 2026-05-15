@@ -83,19 +83,19 @@ class TestTickerMessageVisitMs:
         assert ticker_message_visit_ms(widget, section, canvas_w=160) == 4000
 
     def test_overflow_scrolls_one_pass(self):
-        # text width = 160 (assume), canvas = 160 → pass = (160+165)×25 = 8125.
+        # text width = 165, canvas = 160 → scroll traverses 5 px overflow.
         widget = {
             "type": "message",
-            # 32 chars × 5 = 160 (overflows 160 canvas, since 160 < 161).
-            "text": "x" * 33,  # 33 × 5 = 165 px overflow
+            # 33 chars × 5 = 165 px (overflows 160 canvas by 5 px).
+            "text": "x" * 33,
             "font": "5x8",
         }
         section = {"hold_time": 2.0, "scroll_step_ms": 25}
         result = ticker_message_visit_ms(widget, section, canvas_w=160)
         # Engine `_swap_and_scroll` overflow branch: pre-scroll hold +
-        # scroll + post-scroll hold. Pass = (160 + 165) × 25 = 8125 ms;
-        # hold = 2000 ms each side. Total = 2000 + 8125 + 2000 = 12125 ms.
-        assert result == 12125
+        # scroll + post-scroll hold. Scroll = (165 - 160) × 25 = 125 ms;
+        # hold = 2000 ms each side. Total = 2000 + 125 + 2000 = 4125 ms.
+        assert result == 4125
 
     def test_text_wrap_uses_max_of_loops_or_hold(self):
         # text_wrap=true: max(text_loops × cycle_ms, hold × 1000).
@@ -150,14 +150,14 @@ class TestTwoRowVisitMs:
         widget = {
             "type": "two_row",
             "top_text": "TOP",
-            "bottom_text": "x" * 40,  # 40 × 5 = 200 px overflow
+            "bottom_text": "x" * 40,  # 40 × 5 = 200 px (40 px overflow)
             "font": "5x8",
         }
         result = two_row_visit_ms(widget, self._section(), canvas_w=160)
         # Engine `_swap_and_scroll` overflow branch: pre-scroll hold +
-        # scroll + post-scroll hold. Pass = (160 + 200) × 25 = 9000 ms;
-        # hold = 5000 ms each side. Total = 5000 + 9000 + 5000 = 19000 ms.
-        assert result == 19000
+        # scroll + post-scroll hold. Scroll = (200 - 160) × 25 = 1000 ms;
+        # hold = 5000 ms each side. Total = 5000 + 1000 + 5000 = 11000 ms.
+        assert result == 11000
 
     def test_wrap_uses_max_of_loops_or_hold(self):
         widget = {

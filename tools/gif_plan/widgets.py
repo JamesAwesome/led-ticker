@@ -117,7 +117,9 @@ def ticker_message_visit_ms(
       - text_wrap=True: marquee. visit = max(loops × cycle_ms,
         hold × 1000).
       - Text overflow (content_w > canvas_w): single-pass scroll.
-        visit = (canvas_w + content_w) × scroll_step_ms.
+        Engine `_swap_and_scroll` scrolls only the visible overflow,
+        not a full marquee: scroll = (content_w - canvas_w) ×
+        scroll_step_ms, bracketed by pre/post-scroll holds.
       - Static fit: hold_time × 1000.
     """
     font = widget.get("font", "5x8")
@@ -143,7 +145,10 @@ def ticker_message_visit_ms(
     if content_w > canvas_w:
         # Engine in `_swap_and_scroll` overflow branch: pre-scroll hold
         # + scroll + post-scroll hold (each hold = hold_time × 1000 ms).
-        scroll_ms = (canvas_w + content_w) * step_ms
+        # The engine stops at `stop_pos = -(cursor_pos - canvas.width)`,
+        # so total scroll distance is (content_w - canvas_w) pixels —
+        # NOT the classic marquee (content_w + canvas_w).
+        scroll_ms = (content_w - canvas_w) * step_ms
         return hold_ms + scroll_ms + hold_ms
     return hold_ms
 
@@ -163,15 +168,23 @@ def two_row_visit_ms(
         hold × 1000). cycle = canvas_w + bottom_width.
       - bottom_text_wrap=True: max(loops × cycle_ms, hold × 1000).
         cycle = bottom_width + separator_width.
-      - Default + overflow: (canvas_w + bottom_width) × step_ms PLUS
-        pre/post-scroll holds (engine `_swap_and_scroll` brackets the
-        scroll with two hold_time pauses).
+      - Default + overflow:
+          * Standalone TwoRowMessage widget (include_pre_post_hold=True):
+            engine `_swap_and_scroll` only traverses the overflow:
+            (bottom_width - canvas_w) × step_ms, bracketed by
+            pre/post-scroll holds.
+          * Image/gif two-row text overlay (include_pre_post_hold=False):
+            `_play_with_two_row_text` runs a full marquee:
+            (canvas_w + bottom_width) × step_ms, floor-extended to one
+            full traversal even if the source's natural duration is
+            shorter.
       - Default + fits: hold_time × 1000.
 
     `include_pre_post_hold`: set False when this helper is invoked
     from `image_visit_ms` / `gif_visit_ms` — those widgets use
     `_play_with_two_row_text` which runs for a single n_ticks budget
-    (no separate pre/post-scroll holds).
+    (no separate pre/post-scroll holds) and uses different scroll
+    math (full marquee, not overflow-only).
     """
     font = widget.get("bottom_font") or widget.get("font", "5x8")
     font_size = widget.get("bottom_font_size") or widget.get("font_size")
@@ -195,13 +208,17 @@ def two_row_visit_ms(
         return max(loops * cycle_ms, hold_ms)
 
     if bottom_w > canvas_w:
-        scroll_ms = (canvas_w + bottom_w) * step_ms
         if include_pre_post_hold:
-            # Engine `_swap_and_scroll` overflow branch: pre-scroll hold
-            # + scroll + post-scroll hold (each = hold_time × 1000 ms).
+            # Standalone TwoRowMessage: engine `_swap_and_scroll` only
+            # traverses the visible overflow (bottom_w - canvas_w pixels),
+            # bracketed by pre/post-scroll holds. NOT a full marquee.
+            scroll_ms = (bottom_w - canvas_w) * step_ms
             return hold_ms + scroll_ms + hold_ms
-        # Image/gif widget two-row path: single n_ticks budget,
-        # marquee-floor extends to at least one full pass.
+        # Image/gif two-row text overlay: `_play_with_two_row_text` runs
+        # a FULL off-right→off-left marquee. ticks_per_loop in
+        # _image_base.py line ~1554 is (canvas_w + bottom_width); the
+        # marquee-floor extends n_ticks to at least one full traversal.
+        scroll_ms = (canvas_w + bottom_w) * step_ms
         return max(scroll_ms, hold_ms)
     return hold_ms
 

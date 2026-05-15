@@ -34,10 +34,15 @@ Announce: "Using making-a-gif skill in **\<mode\>** mode."
 ## Step 2: Run the deterministic planner
 
 ```bash
+# From the repo root — preferred entry point (human-readable output):
+make plan-gif CONFIG=<path>
+
+# Or direct, for JSON output (requires `cd` to repo root first):
 uv run python tools/gif_plan/plan.py <path> --json
 ```
 
-Parse the JSON output. The schema:
+The make target emits a human-readable summary; the direct CLI with
+`--json` emits the structured payload below. Parse the JSON output. The schema:
 - `total_ms`: deterministic playlist total.
 - `recommended_render_duration_s`: ceiling-of-seconds + 1 buffer.
 - `render_duration_header`: existing `# render-duration:` value (or null).
@@ -58,7 +63,7 @@ The CLI does NOT cover these — you do.
 Scan the config's color fields (`font_color`, `top_color`, `bottom_color`, `bg_color`, `border`, separator colors). For each:
 
 - **Pure black `[0, 0, 0]`** → LED panel renders this as INVISIBLE (off-pixels). Surface as a warning unless the user is intentionally using black as a "transparent" effect. Suggest `[10, 10, 10]` or a brand color.
-- **Pure white `[255, 255, 255]`** → washes blue-white on the panel. Suggest `[254, 255, 204]` (cream, from `config.moonbunny.example.toml`) for warm-white or a brand color.
+- **Pure white `[255, 255, 255]`** → washes blue-white on the panel. Suggest `[254, 255, 204]` (cream, from `config.bigsign.moonbunny.example.toml`) for warm-white or a brand color.
 - **Dark-on-dark** (luminance Δ < 30): low contrast risk. Suggest previewing at `brightness = 60` first.
 
 ### Brand color palette (sampled from config.bigsign.example.toml + moonbunny configs)

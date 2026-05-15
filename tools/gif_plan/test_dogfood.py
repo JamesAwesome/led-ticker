@@ -44,24 +44,10 @@ _MID_PASS_XFAILS: dict[str, str] = {
         "hold_seconds=8 deliberately exceeds render-duration=5 — see "
         "image-typewriter.toml header comment."
     ),
-    "two_row-asymmetric.toml": (
-        "Bigsign scale=2 + long bottom row: render-duration=14 captures "
-        "the hold + most of the scroll for visual focus on hierarchy; "
-        "the full deterministic scroll takes ~18s."
-    ),
-    "two_row-brand-handle.toml": (
-        "Bigsign scale=2 + long bottom row: render-duration=12 captures "
-        "the brand handle hold + scroll start; the full scroll takes "
-        "~15s."
-    ),
     "two_row-font-hierarchy.toml": (
         "Bigsign scale=2 + hires bottom row: render-duration=8 captures "
         "the hold (7s) + a sliver of scroll; the full deterministic "
-        "scroll takes ~14s."
-    ),
-    "two_row-hires-emoji.toml": (
-        "Bigsign scale=2 + long BDF bottom row: render-duration=12 "
-        "captures hold + scroll start; the full scroll takes ~18s."
+        "scroll takes ~15s."
     ),
 }
 

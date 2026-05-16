@@ -12,6 +12,10 @@ from typing import Any
 
 import aiohttp
 
+from led_ticker._planning_contract import (
+    PATH_BACKED_WIDGET_TYPES,
+    resolve_widget_path,
+)
 from led_ticker.colors import (
     BLUE,
     CYAN,
@@ -650,13 +654,11 @@ async def _build_widget(
     # File-backed widgets get config-relative paths resolved here so
     # the widgets themselves don't need to know about config layout.
     if (
-        widget_type in ("gif", "image")
+        widget_type in PATH_BACKED_WIDGET_TYPES
         and "path" in widget_cfg
         and config_dir is not None
     ):
-        candidate = Path(widget_cfg["path"])
-        if not candidate.is_absolute():
-            widget_cfg["path"] = str((config_dir / candidate).resolve())
+        widget_cfg["path"] = resolve_widget_path(config_dir, widget_cfg["path"])
 
     # Convert color keys (font_color, top_color, bottom_color) to
     # ColorProvider instances. Constant [r,g,b] lists get wrapped in

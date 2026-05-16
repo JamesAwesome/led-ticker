@@ -64,16 +64,20 @@ VALID_TEXT_ALIGNS: frozenset[str] = frozenset(
 VALID_TEXT_VALIGNS: frozenset[str] = frozenset({"top", "center", "bottom"})
 VALID_SCROLL_DIRECTIONS: frozenset[str] = frozenset({"left", "right"})
 
-# `text_align="auto"` resolves to the side opposite the image so they don't
-# overlap. Centered image → scroll_over (always paints over, no overlap).
-AUTO_TEXT_ALIGN_FOR_IMAGE: dict[str, str] = {
-    "left": "right",
-    "right": "left",
-    "center": "scroll_over",
-}
+# These three are the canonical source for out-of-tree planning tools
+# (tools/gif_plan). They live in the dependency-free
+# `led_ticker._planning_contract` leaf so the planner can import them
+# for microseconds instead of dragging this ~365-module file's PIL /
+# aiohttp / asyncio world. Re-exported here so existing engine call
+# sites and `from _image_base import …` references are unchanged.
+# `text_align="auto"` resolves to the side opposite the image so they
+# don't overlap; centered image → scroll_over (paints over, no overlap).
+from led_ticker._planning_contract import (  # noqa: E402
+    AUTO_TEXT_ALIGN_FOR_IMAGE,
+    MIN_SCROLL_SPEED_MS,
+    TEXT_EDGE_PADDING_PX,
+)
 
-TEXT_EDGE_PADDING_PX: int = 2
-MIN_SCROLL_SPEED_MS: int = 20
 HOLD_SECONDS_FLOOR: float = 0.05
 
 

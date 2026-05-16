@@ -91,6 +91,14 @@ def _resolve_widget_paths(config: dict, config_dir: Path) -> None:
     the config dir, so every such gif would silently hit the
     1000ms/loop fallback and the predicted duration would be wrong.
     """
+    # SPIKE POC: the resolution RULE is now imported from the engine's
+    # dependency-free leaf instead of hand-mirrored here. One definition
+    # both `app._build_widget` and this function obey — the round-3
+    # CRITICAL bug (planner re-derived it, resolved against cwd) becomes
+    # structurally impossible. The leaf is pure stdlib, so this import
+    # costs microseconds (measured: no PIL/aiohttp/asyncio pulled).
+    from led_ticker._planning_contract import resolve_widget_path
+
     sections = (config.get("playlist") or {}).get("section") or []
     for section in sections:
         for widget in section.get("widget", []):
@@ -99,9 +107,7 @@ def _resolve_widget_paths(config: dict, config_dir: Path) -> None:
             raw_path = widget.get("path")
             if not raw_path:
                 continue
-            candidate = Path(raw_path)
-            if not candidate.is_absolute():
-                widget["path"] = str((config_dir / candidate).resolve())
+            widget["path"] = resolve_widget_path(config_dir, raw_path)
 
 
 def plan(config_path: Path) -> dict:

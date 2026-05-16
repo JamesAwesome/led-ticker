@@ -93,15 +93,18 @@ A handful of cases are intentionally out of scope in v1:
 - **Data-fetch widgets** — `weather`, `coinbase`, `coingecko`, `mlb`, `mlb_standings`, `rss_feed`, `etherscan`. Their visit time depends on what comes back over the wire (story count, ticker count, game state). They contribute `0ms` to the per-section total; treat the planner's number as a lower bound for sections built around them.
 - **Bigsign `pixel_mapper` transformations** — when a `pixel_mapper` Remap string is present, the planner uses a best-effort canvas-width approximation. The `pixel_mapper_present` info flag surfaces this so you know to sanity-check the recommended duration against the rendered gif.
 
+A sharp edge worth knowing: a large `gif_loops` (e.g. `gif_loops = 999`, sometimes used as a "just keep the gif animating" idiom) **is** modelled literally — the planner reports the full `sum(durations) × gif_loops` duration, which can be many minutes. That is faithful to the engine (the gif really would play that long), so a demo that wants only a short capture of a long-looping gif must declare a deliberately short `# render-duration:` and accept the `mid_pass_cutoff` flag as expected. This is the gif analogue of the `loop_count = 0` case above.
+
 ## Exit codes
 
-| Code | Meaning                                                                  |
-| ---- | ------------------------------------------------------------------------ |
-| `0`  | Clean — no flags above `info` severity.                                  |
-| `1`  | At least one `warning`-severity flag, no errors.                         |
-| `2`  | At least one `error`-severity flag (mid-pass cutoff or impossible math). |
+| Code | Meaning                                                                                            |
+| ---- | -------------------------------------------------------------------------------------------------- |
+| `0`  | Clean — no flags above `info` severity.                                                            |
+| `1`  | At least one `warning`-severity flag, no errors.                                                   |
+| `2`  | At least one `error`-severity flag (mid-pass cutoff or impossible math).                           |
+| `3`  | Tool/usage error — config not found or malformed TOML. Message goes to stderr; stdout stays empty. |
 
-This makes the CLI safe to wire into a pre-render gate: any non-zero exit means the planner found something worth pausing on before encoding the gif.
+`3` is deliberately distinct from `1`/`2` so a caller can tell a tool failure apart from a config that merely has flags. This makes the CLI safe to wire into a pre-render gate: any non-zero exit means the planner found something worth pausing on before encoding the gif.
 
 ## Companion skill
 

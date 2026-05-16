@@ -243,40 +243,46 @@ def two_row_visit_ms(
 ) -> int:
     """Visit time in ms for a TwoRowMessage widget.
 
-    Branches on bottom_text_scroll, bottom_text_wrap, and overflow:
-      - bottom_text_scroll='scroll_through': max(loops × cycle_ms,
-        hold × 1000). cycle = canvas_w + bottom_width.
-      - bottom_text_wrap=True: max(loops × cycle_ms, hold × 1000).
-        cycle = bottom_width + separator_width.
-      - Default + overflow:
-          * Standalone TwoRowMessage widget (include_pre_post_hold=True):
-            engine `_swap_and_scroll` only traverses the overflow:
-            (bottom_width - canvas_w) × step_ms, bracketed by
-            pre/post-scroll holds.
-          * Image/gif two-row text overlay (include_pre_post_hold=False):
-            `_play_with_two_row_text` runs a full marquee:
-            (canvas_w + bottom_width) × step_ms, floor-extended to one
-            full traversal even if the source's natural duration is
-            shorter.
-      - Default + fits: hold_time × 1000.
+    Two engine paths share this helper; `include_pre_post_hold`
+    selects which (and is the discriminator for tick rate, default
+    font, and the loop-floor field — see the body):
 
-    `include_pre_post_hold`: set False when this helper is invoked
-    from `image_visit_ms` / `gif_visit_ms` — those widgets use
-    `_play_with_two_row_text` which runs for a single n_ticks budget
-    (no separate pre/post-scroll holds) and uses different scroll
-    math (full marquee, not overflow-only).
+    Standalone TwoRowMessage (`include_pre_post_hold=True`) — section
+    `scroll_step_ms`, FONT_SMALL, loop floor = `bottom_text_loops`:
+      - scroll_through: max((bottom_text_loops or 1) × cycle, hold);
+        cycle = (canvas_w + bottom_width) × step_ms.
+      - wrap: max(bottom_text_loops × cycle, hold); cycle =
+        (bottom_width + sep_width) × step_ms (loops=0 → hold wins).
+      - overflow: (bottom_width − canvas_w) × step_ms bracketed by
+        pre/post-scroll holds (engine traverses only the overflow).
+      - fits: hold.
+
+    Image/gif two-row overlay (`include_pre_post_hold=False`) —
+    `_play_with_two_row_text` runs `n_ticks = max(source_ticks,
+    max(1, text_loops) × ticks_per_loop)`. Widget `scroll_speed_ms`,
+    FONT_DEFAULT, loop floor = the image widget's `text_loops` (NOT
+    `bottom_text_loops`). The caller passes the engine's n_ticks
+    SOURCE in as `hold` (still → hold_seconds; gif → gif duration):
+      - scroll_through / overflow: ticks_per_loop = canvas_w +
+        bottom_width.
+      - wrap: ticks_per_loop = bottom_width + sep_width.
+      - fits (no wrap / scroll_through, bottom fits): hold (= source).
     """
     if include_pre_post_hold:
-        # Standalone TwoRowMessage: ticks on the SECTION's scroll_step_ms
-        # and defaults to FONT_SMALL (two_row.py: `font = FONT_SMALL`).
+        # Standalone TwoRowMessage: ticks on the SECTION's scroll_step_ms,
+        # defaults to FONT_SMALL, and the loop floor is `bottom_text_loops`
+        # (two_row.py: `font = FONT_SMALL`, `bottom_text_loops`).
         step_ms = _section_step_ms(section)
         default_font = _FONT_SMALL
+        loops_field = int(widget.get("bottom_text_loops") or 0)
     else:
         # Image/gif text overlay (`_play_with_two_row_text`): ticks on the
-        # WIDGET's scroll_speed_ms and inherits the image widget's
-        # FONT_DEFAULT (_image_base.py: `font = FONT_DEFAULT`).
+        # WIDGET's scroll_speed_ms, inherits the image FONT_DEFAULT, and
+        # the loop floor is the image widget's `text_loops` — NOT
+        # `bottom_text_loops` (_image_base.py:1549,1555 read `self.text_loops`).
         step_ms = _widget_tick_ms(widget)
         default_font = _FONT_DEFAULT
+        loops_field = int(widget.get("text_loops") or 0)
     font = widget.get("bottom_font") or widget.get("font", default_font)
     font_size = widget.get("bottom_font_size") or widget.get("font_size")
     bottom_text = widget.get("bottom_text", "")
@@ -285,16 +291,19 @@ def two_row_visit_ms(
     bottom_w = estimate_content_width_logical(bottom_text, font, font_size, scale)
 
     if widget.get("bottom_text_scroll") == "scroll_through":
-        cycle_px = canvas_w + bottom_w
-        cycle_ms = cycle_px * step_ms
-        loops = int(widget.get("bottom_text_loops") or 0) or 1
+        cycle_ms = (canvas_w + bottom_w) * step_ms
+        # Standalone scroll_through always runs ≥1 pass; the overlay's
+        # marquee floor is `max(1, text_loops)` (engine line 1556).
+        loops = (loops_field or 1) if include_pre_post_hold else max(1, loops_field)
         return max(loops * cycle_ms, hold_ms)
 
     if widget.get("bottom_text_wrap"):
         sep = widget.get("bottom_text_separator") or " • "
         sep_w = estimate_content_width_logical(sep, font, font_size, scale)
         cycle_ms = (bottom_w + sep_w) * step_ms
-        loops = int(widget.get("bottom_text_loops") or 0)
+        # Standalone wrap: loops=0 → hold wins. Overlay wrap: engine
+        # floors n_ticks to `max(1, text_loops) × cycle_width` (line 1550).
+        loops = loops_field if include_pre_post_hold else max(1, loops_field)
         return max(loops * cycle_ms, hold_ms)
 
     if bottom_w > canvas_w:
@@ -305,10 +314,13 @@ def two_row_visit_ms(
             scroll_ms = (bottom_w - canvas_w) * step_ms
             return hold_ms + scroll_ms + hold_ms
         # Image/gif two-row text overlay: `_play_with_two_row_text` runs
-        # a FULL off-right→off-left marquee. ticks_per_loop in
-        # _image_base.py line ~1554 is (canvas_w + bottom_width); the
-        # marquee-floor extends n_ticks to at least one full traversal.
-        scroll_ms = (canvas_w + bottom_w) * step_ms
+        # a FULL off-right→off-left marquee. ticks_per_loop (line 1554) is
+        # (canvas_w + bottom_width); n_ticks is floored to
+        # `max(1, text_loops) × ticks_per_loop` (line 1556) and the
+        # source duration (passed in as hold_ms by the caller) is the
+        # other arm of the engine's `max()`.
+        loops = max(1, loops_field)
+        scroll_ms = loops * (canvas_w + bottom_w) * step_ms
         return max(scroll_ms, hold_ms)
     return hold_ms
 
@@ -390,19 +402,18 @@ def gif_visit_ms(
     If the path can't be resolved → fall back to 100ms × 10 frames =
     1000 ms per loop. Logged via narrow OSError/RuntimeError catch.
 
-    `bottom_text` → two-row overlay. A single-row scrolling caption
-    (`text` + resolved scroll alignment) extends the gif's natural
-    duration to `_play_with_text`'s marquee floor, same as image.
+    `bottom_text` → two-row overlay. The gif's playback duration
+    (sum(durations) × gif_loops) is the engine's `n_ticks` SOURCE
+    (`_image_base.py:1199-1200`), one arm of the `max()` against the
+    marquee floor — so it is injected as the synthetic hold, mirroring
+    `image_visit_ms` injecting `hold_seconds` for stills. A single-row
+    scrolling caption extends the gif duration to `_play_with_text`'s
+    marquee floor, same as image.
     """
-    if widget.get("bottom_text"):
-        # Two-row text overlay: gif's effective hold is section.hold_time.
-        return two_row_visit_ms(
-            widget, section, canvas_w, display, include_pre_post_hold=False
-        )
-
     loops = int(widget.get("gif_loops", 1))
     if loops == 0:
-        # PR-64: the engine reads SECTION hold_time (default 3.0s).
+        # PR-64: the engine reads SECTION hold_time (default 3.0s) and
+        # plays floor(hold_ms / loop_ms) loops; approximate with hold_ms.
         total_ms = _section_hold_ms(section)
     else:
         path = Path(widget.get("path", ""))
@@ -412,6 +423,17 @@ def gif_visit_ms(
         except (FileNotFoundError, PermissionError, OSError, RuntimeError):
             per_loop = 100 * 10  # 1000 ms fallback for unresolvable paths.
         total_ms = per_loop * loops
+
+    if widget.get("bottom_text"):
+        # Two-row overlay: the engine floors n_ticks (derived from the
+        # gif duration) up to the marquee. Inject the gif duration as the
+        # synthetic hold so two_row_visit_ms's `max(marquee, hold)` uses
+        # the correct source — section.hold_time is NOT the gif's source.
+        synth_section = dict(section)
+        synth_section["hold_time"] = total_ms / 1000
+        return two_row_visit_ms(
+            widget, synth_section, canvas_w, display, include_pre_post_hold=False
+        )
 
     if _single_row_scrolls(widget):
         # `_play_with_text`: n_ticks = total_ms // tick_ms, then the

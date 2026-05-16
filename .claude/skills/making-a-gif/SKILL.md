@@ -53,6 +53,7 @@ Exit code:
 - `0` → clean.
 - `1` → warnings only (relay, continue).
 - `2` → errors (relay, stop until fixed).
+- `3` → tool error: config not found / malformed TOML (message on stderr). Fix the path or TOML before re-running; not a planning result.
 
 ## Step 3: Apply the judgment overlay
 

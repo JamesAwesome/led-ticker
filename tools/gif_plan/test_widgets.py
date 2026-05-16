@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from PIL import Image as PILImage
 from tools.gif_plan.widgets import (
+    _single_row_floor_ticks,
+    _single_row_scrolls,
     canvas_width_logical,
     estimate_content_width_logical,
     gif_visit_ms,
@@ -288,3 +290,149 @@ class TestGifVisitMs:
         section = {"scroll_step_ms": 25}
         # 1 frame × 200ms × 1 loop = 200.
         assert gif_visit_ms(widget, section, canvas_w=160) == 200
+
+
+class TestSingleRowScrolls:
+    """`_single_row_scrolls` resolves text_align=auto via image_align."""
+
+    def test_no_text_does_not_scroll(self):
+        assert _single_row_scrolls({"type": "image"}) is False
+
+    def test_bottom_text_is_two_row_not_single_row(self):
+        assert _single_row_scrolls({"text": "hi", "bottom_text": "x"}) is False
+
+    def test_default_center_image_scrolls_via_auto(self):
+        # text_align defaults to "auto"; image_align defaults to
+        # "center" → AUTO resolves to "scroll_over" → scrolls.
+        assert _single_row_scrolls({"text": "hi"}) is True
+
+    def test_auto_left_image_does_not_scroll(self):
+        # image_align="left" → AUTO → "right" (static), not a marquee.
+        assert _single_row_scrolls({"text": "hi", "image_align": "left"}) is False
+
+    def test_explicit_scroll_aligns_scroll(self):
+        assert _single_row_scrolls({"text": "hi", "text_align": "scroll"}) is True
+
+    def test_explicit_left_align_does_not_scroll(self):
+        assert _single_row_scrolls({"text": "hi", "text_align": "left"}) is False
+
+
+class TestSingleRowFloorTicks:
+    """`_single_row_floor_ticks` mirrors `_play_with_text`'s marquee floor."""
+
+    def test_non_wrap_is_canvas_plus_text_width(self):
+        # "ABCDE" @ 5x8 = 25 px; non-wrap loop = canvas_w + text_w.
+        w = {"text": "ABCDE", "font": "5x8"}
+        assert _single_row_floor_ticks(w, canvas_w=160, scale=1) == 185
+
+    def test_text_loops_multiplies_the_floor(self):
+        w = {"text": "ABCDE", "font": "5x8", "text_loops": 3}
+        assert _single_row_floor_ticks(w, canvas_w=160, scale=1) == 555
+
+    def test_wrap_mode_is_text_plus_separator(self):
+        # wrap loop = text_w (25) + sep_w (" * " @ 5x8 = 15) = 40.
+        w = {
+            "text": "ABCDE",
+            "font": "5x8",
+            "text_wrap": True,
+            "text_separator": " * ",
+        }
+        assert _single_row_floor_ticks(w, canvas_w=160, scale=1) == 40
+
+
+class TestGifTwoRowSourceDuration:
+    """Regression: the gif two-row overlay must use the gif's
+    sum(durations)×gif_loops as the n_ticks source — NOT the section
+    hold_time. (`_image_base.py:1199-1200`.)"""
+
+    def test_fits_uses_gif_duration_not_section_hold(self, tmp_path):
+        gif_path = tmp_path / "g.gif"
+        PILImage.new("RGB", (8, 8), (1, 2, 3)).save(
+            gif_path, save_all=True, duration=100, loop=0
+        )
+        # 1 frame × 100ms × 50 loops = 5000 ms of gif playback.
+        widget = {
+            "type": "gif",
+            "path": str(gif_path),
+            "gif_loops": 50,
+            "top_text": "TOP",
+            "bottom_text": "HI",  # fits 160 → no marquee, held for source
+        }
+        section = {"scroll_step_ms": 25}  # NO hold_time → engine default 3.0
+        # Must be the gif duration (5000), NOT _section_hold_ms (3000).
+        assert gif_visit_ms(widget, section, canvas_w=160) == 5000
+
+    def test_long_gif_source_floors_the_marquee(self, tmp_path):
+        gif_path = tmp_path / "g.gif"
+        PILImage.new("RGB", (8, 8), (1, 2, 3)).save(
+            gif_path, save_all=True, duration=100, loop=0
+        )
+        # 100ms × 1000 loops = 100000 ms source. Bottom overflows so
+        # the engine runs max(source_ticks, marquee). Marquee =
+        # (160 + 40×6) × 50 = 20000; source 100000 dominates.
+        widget = {
+            "type": "gif",
+            "path": str(gif_path),
+            "gif_loops": 1000,
+            "top_text": "TOP",
+            "bottom_text": "x" * 40,  # 240 px @ FONT_DEFAULT 6x12
+        }
+        section = {}
+        assert gif_visit_ms(widget, section, canvas_w=160) == 100000
+
+
+class TestTwoRowOverlayLoopField:
+    """The image/gif overlay loop floor is the widget's `text_loops`
+    (`_image_base.py:1549,1555`); standalone TwoRowMessage uses
+    `bottom_text_loops` (two_row.py)."""
+
+    def test_overlay_applies_text_loops_multiplier(self):
+        widget = {
+            "type": "image",
+            "path": "x.png",
+            "top_text": "TOP",
+            "bottom_text": "x" * 40,  # 240 px @ 6x12, overflows 160
+            "text_loops": 3,
+        }
+        section = {"scroll_step_ms": 25}  # ignored — overlay uses 50
+        # loops=max(1,3)=3; 3 × (160+240) × 50 = 60000; hold (default
+        # hold_seconds 5.0) = 5000 → max = 60000.
+        assert image_visit_ms(widget, section, canvas_w=160) == 60000
+
+    def test_overlay_uses_text_loops_not_bottom_text_loops(self):
+        widget = {
+            "type": "image",
+            "path": "x.png",
+            "top_text": "TOP",
+            "bottom_text": "x" * 40,
+            "text_loops": 2,
+            "bottom_text_loops": 99,  # standalone-only field; ignored here
+        }
+        section = {"scroll_step_ms": 25}
+        # text_loops=2 wins: 2 × 400 × 50 = 40000 (not 99-based).
+        assert image_visit_ms(widget, section, canvas_w=160) == 40000
+
+    def test_standalone_uses_bottom_text_loops_not_text_loops(self):
+        widget = {
+            "type": "two_row",
+            "top_text": "TOP",
+            "bottom_text": "x" * 40,  # 200 px @ FONT_SMALL 5x8
+            "font": "5x8",
+            "bottom_text_scroll": "scroll_through",
+            "bottom_text_loops": 2,
+            "text_loops": 99,  # overlay-only field; ignored for standalone
+        }
+        section = {"hold_time": 1.0, "scroll_step_ms": 25}
+        # bottom_text_loops=2 wins: 2 × (160+200) × 25 = 18000.
+        assert two_row_visit_ms(widget, section, canvas_w=160) == 18000
+
+
+class TestExplicitHoldTimeZero:
+    """An explicit `hold_time = 0` is honoured, NOT coerced to the
+    SectionConfig default of 3.0s."""
+
+    def test_message_hold_time_zero(self):
+        widget = {"type": "message", "text": "HI", "font": "5x8"}
+        section = {"hold_time": 0, "scroll_step_ms": 25}
+        # Fits, hold_time explicitly 0 → 0 ms (default would be 3000).
+        assert ticker_message_visit_ms(widget, section, canvas_w=160) == 0

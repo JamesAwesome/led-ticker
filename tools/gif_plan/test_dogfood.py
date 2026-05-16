@@ -57,6 +57,18 @@ _MID_PASS_XFAILS: dict[str, str] = {
         "demos). Planner math is correct — it now models the widget "
         "scroll_speed_ms tick rate instead of the section scroll_step_ms."
     ),
+    "gif-two_row-scroll_through.toml": (
+        "gif_loops=999 is a 'keep the gif animating' idiom — the engine "
+        "would literally play ~999 gif loops (~999s), and the planner now "
+        "correctly models the gif's sum(durations)×loops source duration "
+        "as the n_ticks floor (it previously read section hold_time and "
+        "matched the header only by accident). The interesting content is "
+        "one ~9s bottom-text scroll-through; render-duration=14 captures "
+        "that. The deterministic gif-loop total is not what the demo is "
+        "trying to show — same visual-focus convention as the other "
+        "two_row demos. (Planner math is correct; see also the "
+        "large-gif_loops note in the gif-plan docs.)"
+    ),
 }
 
 # Demos where the header is materially larger than the planner's

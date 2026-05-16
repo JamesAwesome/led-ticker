@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 from PIL import Image
-from tools.gif_plan.plan import plan
+from tools.gif_plan.plan import _resolve_widget_paths, plan
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -342,3 +342,88 @@ class TestGifPathResolution:
         data = plan(cfg)
         # 2 × 100 × 4 = 800ms (absolute path resolves directly).
         assert data["total_ms"] == 800
+
+
+class TestResolveWidgetPathsUnit:
+    """Direct unit coverage of `_resolve_widget_paths` branches."""
+
+    def test_relative_gif_path_rewritten_to_config_dir(self, tmp_path):
+        cfg = {
+            "playlist": {
+                "section": [{"widget": [{"type": "gif", "path": "../a/x.gif"}]}]
+            }
+        }
+        _resolve_widget_paths(cfg, tmp_path / "cfg")
+        resolved = cfg["playlist"]["section"][0]["widget"][0]["path"]
+        assert Path(resolved).is_absolute()
+        assert resolved == str((tmp_path / "a" / "x.gif").resolve())
+
+    def test_image_and_still_relative_paths_rewritten(self, tmp_path):
+        cfg = {
+            "playlist": {
+                "section": [
+                    {
+                        "widget": [
+                            {"type": "image", "path": "pics/a.png"},
+                            {"type": "still", "path": "pics/b.png"},
+                        ]
+                    }
+                ]
+            }
+        }
+        _resolve_widget_paths(cfg, tmp_path)
+        ws = cfg["playlist"]["section"][0]["widget"]
+        assert ws[0]["path"] == str((tmp_path / "pics" / "a.png").resolve())
+        assert ws[1]["path"] == str((tmp_path / "pics" / "b.png").resolve())
+
+    def test_absolute_path_left_untouched(self, tmp_path):
+        abs_p = str((tmp_path / "abs.gif").resolve())
+        cfg = {"playlist": {"section": [{"widget": [{"type": "gif", "path": abs_p}]}]}}
+        _resolve_widget_paths(cfg, tmp_path / "elsewhere")
+        assert cfg["playlist"]["section"][0]["widget"][0]["path"] == abs_p
+
+    def test_non_file_widget_and_missing_path_are_skipped(self, tmp_path):
+        cfg = {
+            "playlist": {
+                "section": [
+                    {
+                        "widget": [
+                            {"type": "message", "text": "hi"},  # no path key
+                            {"type": "gif"},  # gif but no path
+                            {"type": "gif", "path": ""},  # empty path
+                        ]
+                    }
+                ]
+            }
+        }
+        _resolve_widget_paths(cfg, tmp_path)  # must not raise
+        ws = cfg["playlist"]["section"][0]["widget"]
+        assert "path" not in ws[0]
+        assert "path" not in ws[1]
+        assert ws[2]["path"] == ""
+
+    def test_missing_playlist_and_sections_are_safe(self, tmp_path):
+        for cfg in ({}, {"playlist": {}}, {"playlist": {"section": []}}):
+            _resolve_widget_paths(cfg, tmp_path)  # must not raise
+
+    def test_resolved_but_missing_file_still_rewritten_and_flagged(self, tmp_path):
+        # The file doesn't exist; the path is still made absolute, and
+        # gif_visit_ms must fall back gracefully (1000ms/loop) AND the
+        # planner must surface a gif_path_unresolved warning rather than
+        # let the confidently-wrong number pass silently.
+        cfg = tmp_path / "demo.toml"
+        cfg.write_text(
+            "[display]\ncols = 32\nchain = 5\n\n"
+            '[[playlist.section]]\nmode = "swap"\n\n'
+            "[[playlist.section.widget]]\n"
+            'type = "gif"\n'
+            'path = "missing/nope.gif"\n'
+            "gif_loops = 2\n"
+        )
+        data = plan(cfg)
+        # Fallback: 1000ms/loop × 2 = 2000ms (no crash).
+        assert data["total_ms"] == 2000
+        codes = [f["code"] for f in data["flags"]]
+        assert "gif_path_unresolved" in codes
+        flag = next(f for f in data["flags"] if f["code"] == "gif_path_unresolved")
+        assert flag["severity"] == "warning"

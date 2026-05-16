@@ -189,19 +189,21 @@ class TestTwoRowVisitMs:
         # max = 18000.
         assert result == 18000
 
-    def test_scroll_through_hold_wins(self):
+    def test_scroll_through_hold_rounds_up_to_whole_cycles(self):
         widget = {
             "type": "two_row",
             "top_text": "TOP",
-            "bottom_text": "HI",  # 10 px
+            "bottom_text": "HI",  # 10 px @ 5x8
             "font": "5x8",
             "bottom_text_scroll": "scroll_through",
-            # No loops → defaults to 1.
+            # No loops → loops_floor defaults to 1.
         }
         result = two_row_visit_ms(widget, self._section(hold_time=20.0), canvas_w=160)
-        # cycle = 160 + 10 = 170. 1 × 170 × 25 = 4250 ms. hold=20000.
-        # max = 20000.
-        assert result == 20000
+        # Engine (`_swap_and_scroll`): cycle_width = 160 + 10 = 170;
+        # hold_ticks = 20000 // 25 = 800; n_passes = max(1,
+        # ceil(800/170)=5) = 5 — the hold is rounded UP to 5 whole
+        # cycles, NOT left at the raw 20000. 5 × 170 × 25 = 21250.
+        assert result == 21250
 
 
 class TestImageVisitMs:

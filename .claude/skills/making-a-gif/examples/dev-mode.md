@@ -48,9 +48,9 @@ border = { style = "rainbow_chase", speed = 20 }
 **Command for the user**:
 
 ```bash
-make render-demo CONFIG=/tmp/border-chase-preview.toml OUT=/tmp/preview-border-chase-20.gif
-# (Or with shorter duration:)
-uv run python tools/render_demo/render.py /tmp/border-chase-preview.toml -o /tmp/preview-border-chase-20.gif --duration 3
+make render-demo CONFIG=/tmp/border-chase-preview.toml OUT=/tmp/border-chase-preview.gif
+# (Or call the renderer directly to override the duration:)
+uv run python tools/render_demo/render.py /tmp/border-chase-preview.toml -o /tmp/border-chase-preview.gif --duration 3
 ```
 
 **Skip**:

@@ -182,3 +182,40 @@ class TestLoopCountZero:
             sections_summary=[],
         )
         assert not any(f["code"] == "loop_count_zero_runtime" for f in flags)
+
+
+class TestGifPathUnresolved:
+    def _check(self, widget: dict) -> list[dict]:
+        return check_all(
+            config={
+                "display": {"cols": 32, "chain": 5},
+                "playlist": {"section": [{"widget": [widget]}]},
+            },
+            playlist_total_ms=1000,
+            render_duration_header=None,
+            sections_summary=[],
+        )
+
+    def test_missing_gif_file_warns(self):
+        flags = self._check({"type": "gif", "path": "/no/such/file.gif"})
+        hit = [f for f in flags if f["code"] == "gif_path_unresolved"]
+        assert len(hit) == 1
+        assert hit[0]["severity"] == "warning"
+
+    def test_existing_gif_file_does_not_warn(self, tmp_path):
+        from PIL import Image
+
+        g = tmp_path / "ok.gif"
+        Image.new("RGB", (8, 8), (1, 2, 3)).save(g, save_all=True, duration=100)
+        flags = self._check({"type": "gif", "path": str(g)})
+        assert not any(f["code"] == "gif_path_unresolved" for f in flags)
+
+    def test_missing_image_path_is_not_flagged(self):
+        # image/still timing comes from hold_seconds, not the file —
+        # only `gif` is scoped for this warning.
+        flags = self._check({"type": "image", "path": "/no/such/pic.png"})
+        assert not any(f["code"] == "gif_path_unresolved" for f in flags)
+
+    def test_gif_without_path_is_not_flagged(self):
+        flags = self._check({"type": "gif", "gif_loops": 2})
+        assert not any(f["code"] == "gif_path_unresolved" for f in flags)

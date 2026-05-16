@@ -140,3 +140,55 @@ def test_recommendation_within_loose_band(
         f"{cfg_path.name}: header {header}s vs planner {rec}s out of "
         f"±20% band ({low}-{high})."
     )
+
+
+# Curated tripwire: demos whose authors deliberately set the header to
+# the planner's exact recommendation (rec == header today). The ±20%
+# band above is loose-by-construction and ~37% of it is now strict-
+# xfailed, so a coordinated ~15% formula drift could slip through it.
+# This list pins the anchor demos to ±1s — a much tighter net that a
+# systematic regression cannot widen. If a legitimate formula change
+# moves one of these, update the engine-derived expectation here
+# deliberately (don't loosen the tolerance).
+_TIGHT_MATCH_DEMOS: tuple[str, ...] = (
+    "border-constant.toml",
+    "countdown-brand-color.toml",
+    "countdown-rainbow-border.toml",
+    "countdown-rainbow.toml",
+    "gif-scroll_over.toml",
+    "gif-two_row-wrap.toml",
+    "gif-typewriter.toml",
+    "gif-typewriter-border.toml",
+    "gif-wrap.toml",
+    "image-static-logo.toml",
+    "image-two_row.toml",
+    "message-brand-color.toml",
+    "message-gradient.toml",
+    "message-hires-grand-opening.toml",
+    "message-inline-emoji.toml",
+    "message-typewriter-rainbow.toml",
+    "message-yellow-bg.toml",
+    "two_row-wrap.toml",
+)
+
+
+@pytest.mark.parametrize("name", _TIGHT_MATCH_DEMOS)
+def test_curated_demos_match_header_tightly(name: str):
+    """±1s tripwire on the must-match anchor demos. Complements the
+    loose ±20% band (which is hollowed out by the xfail list)."""
+    assert name not in _DRIFT_XFAILS, (
+        f"{name} is both a tight-match anchor and drift-xfailed — "
+        f"contradiction; remove it from one list."
+    )
+    result = plan(DEMO_DIR / name)
+    header = result["render_duration_header"]
+    assert header is not None, f"{name} lost its `# render-duration:` header"
+    rec = result["recommended_render_duration_s"]
+    tol = max(1, round(header * 0.10))
+    assert abs(rec - header) <= tol, (
+        f"{name}: planner {rec}s drifted from header {header}s by more "
+        f"than ±{tol}s — a curated must-match demo. Investigate the "
+        f"formula change; do not loosen this assertion."
+    )
+    errs = [f for f in result["flags"] if f["code"] == "mid_pass_cutoff"]
+    assert not errs, f"{name} unexpectedly trips mid_pass_cutoff: {errs}"

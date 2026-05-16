@@ -297,10 +297,24 @@ def two_row_visit_ms(
     bottom_w = estimate_content_width_logical(bottom_text, font, font_size, scale)
 
     if widget.get("bottom_text_scroll") == "scroll_through":
-        cycle_ms = (canvas_w + bottom_w) * step_ms
-        # Standalone scroll_through always runs ≥1 pass; the overlay's
-        # marquee floor is `max(1, text_loops)` (engine line 1556).
-        loops = (loops_field or 1) if include_pre_post_hold else max(1, loops_field)
+        cycle_width = canvas_w + bottom_w
+        cycle_ms = cycle_width * step_ms
+        if include_pre_post_hold:
+            # Standalone (`_swap_and_scroll`, ticker.py:1044-1055):
+            # n_passes = max(loops_floor, ceil(hold_ticks / cycle_width)),
+            # then the bottom scrolls n_passes WHOLE cycles. The hold
+            # contribution is rounded UP to a whole cycle — `max(loops ×
+            # cycle, hold_ms)` would under-count by up to one cycle.
+            loops_floor = loops_field or 1
+            hold_ticks = hold_ms // step_ms if step_ms else 0
+            if cycle_width > 0:
+                n_passes = max(loops_floor, -(-hold_ticks // cycle_width))
+            else:
+                n_passes = loops_floor
+            return n_passes * cycle_ms
+        # Overlay (`_play_with_two_row_text`): n_ticks = max(source,
+        # max(1, text_loops) × ticks_per_loop) (engine lines 1554-1556).
+        loops = max(1, loops_field)
         return max(loops * cycle_ms, hold_ms)
 
     if widget.get("bottom_text_wrap"):
@@ -402,7 +416,11 @@ def gif_visit_ms(
     """Visit time in ms for a gif widget.
 
     gif_loops > 0: sum(frame_durations) × gif_loops.
-    gif_loops == 0: section.hold_time × 1000 (PR-64 behavior).
+    gif_loops == 0: the engine plays whole loops that fit in the
+    section hold_time — `loop_count = max(1, int(hold_ms / loop_ms))`,
+    `total_ms = loop_ms × loop_count` (gif.py:285-301). Because it
+    rounds to WHOLE loops, a gif whose single loop is longer than
+    hold_time still plays one full loop (total can exceed hold_ms).
     Default gif_loops is 1 (from `GifPlayer`).
 
     GifPlayer has no widget-level `hold_seconds` — when `gif_loops=0`
@@ -419,18 +437,22 @@ def gif_visit_ms(
     stills). A single-row scrolling caption extends the gif duration to
     `_play_with_text`'s marquee floor, same as image.
     """
+    path = Path(widget.get("path", ""))
+    try:
+        per_loop = sum(_gif_frame_durations_ms(path))
+    except (FileNotFoundError, PermissionError, OSError, RuntimeError):
+        per_loop = 100 * 10  # 1000 ms fallback for unresolvable paths.
+    per_loop = max(1, per_loop)
+
     loops = int(widget.get("gif_loops", 1))
     if loops == 0:
-        # PR-64: the engine reads SECTION hold_time (default 3.0s) and
-        # plays floor(hold_ms / loop_ms) loops; approximate with hold_ms.
-        total_ms = _section_hold_ms(section)
+        # Engine: loop_count = max(1, int(hold_ms / loop_ms)); the gif
+        # plays that many WHOLE loops (gif.py:285-301). A loop longer
+        # than hold_time still plays once, so total can exceed hold_ms.
+        hold_ms = _section_hold_ms(section)
+        loop_count = max(1, hold_ms // per_loop)
+        total_ms = per_loop * loop_count
     else:
-        path = Path(widget.get("path", ""))
-        try:
-            durations = _gif_frame_durations_ms(path)
-            per_loop = sum(durations)
-        except (FileNotFoundError, PermissionError, OSError, RuntimeError):
-            per_loop = 100 * 10  # 1000 ms fallback for unresolvable paths.
         total_ms = per_loop * loops
 
     if widget.get("bottom_text"):

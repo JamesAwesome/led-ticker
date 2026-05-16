@@ -7,6 +7,8 @@ warnings set 1; info-only is 0.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from tools.gif_plan.totals import recommended_render_duration_s
 from tools.gif_plan.widgets import (
     estimate_content_width_logical,
@@ -40,6 +42,43 @@ def check_all(
     flags.extend(_check_zero_cycles(config))
     flags.extend(_check_pixel_mapper(config))
     flags.extend(_check_loop_count_zero(config))
+    flags.extend(_check_gif_paths(config))
+    return flags
+
+
+def _check_gif_paths(config: dict) -> list[dict]:
+    """Warn when a gif widget's path doesn't resolve to a real file.
+
+    `plan._resolve_widget_paths` has already rewritten paths to be
+    absolute (relative to the config dir). If the file still isn't
+    there, `gif_visit_ms` silently uses the 1000ms/loop fallback — a
+    confidently-wrong duration. Surface it instead of letting it pass.
+
+    Scoped to `gif` only: image/still timing comes from hold_seconds,
+    not the file, so a missing image path doesn't skew the estimate.
+    """
+    flags: list[dict] = []
+    sections = (config.get("playlist") or {}).get("section") or []
+    for i, section in enumerate(sections):
+        for j, w in enumerate(section.get("widget", [])):
+            if w.get("type") != "gif":
+                continue
+            raw = w.get("path")
+            if not raw:
+                continue
+            if not Path(raw).is_file():
+                flags.append(
+                    _flag(
+                        "warning",
+                        f"section[{i}].widget[{j}]",
+                        "gif_path_unresolved",
+                        f"gif path {raw!r} does not resolve to a file; the "
+                        f"predicted duration uses the 1000ms/loop fallback "
+                        f"and is almost certainly wrong.",
+                        "Fix the path (relative paths resolve against the "
+                        "config file's directory).",
+                    )
+                )
     return flags
 
 

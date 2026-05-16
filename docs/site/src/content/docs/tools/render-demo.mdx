@@ -54,6 +54,10 @@ make render-demo CONFIG=demo.toml OUT=demo.gif
 
 The output gif is upscaled 4× by default so individual LED pixels read clearly on retina displays.
 
+## Planning before rendering
+
+If you're not sure what `--duration` to use, run [`gif-plan`](/tools/gif-plan/) first — it computes the deterministic playtime from your config and suggests the right `# render-duration:` header value before you commit to a 10-second render.
+
 ## CLI flags
 
 The Makefile target wraps `uv run python tools/render_demo/render.py`. The user-facing flags:

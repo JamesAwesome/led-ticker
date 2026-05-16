@@ -1,4 +1,4 @@
-# render-duration: 20
+# render-duration: 12
 # TwoRow scroll_through demo: hold_time drives the pass count (max-of semantics).
 # bottom_text_loops = 0 + hold_time = 10.0 → engine fills the section with passes.
 [display]

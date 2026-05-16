@@ -1,4 +1,4 @@
-# render-duration: 14
+# render-duration: 13
 # gif scroll_through demo: pikachu on the left, held top row, scrolling
 # bottom row that flies through offscreen-to-offscreen.
 [display]
@@ -30,4 +30,4 @@ bottom_font = "5x8"
 bottom_color = [120, 230, 255]
 bottom_text_scroll = "scroll_through"
 scroll_speed_ms = 25
-gif_loops = 999
+gif_loops = 0   # play through hold_time / scroll_through pass

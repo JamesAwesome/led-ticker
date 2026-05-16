@@ -1,7 +1,4 @@
-# render-duration: 5
-# hold_seconds is set higher than render-duration so the captured
-# window contains exactly one type-out + hold — no half-restart of
-# the second cycle at the gif's loop boundary.
+# render-duration: 6
 [display]
 rows = 16
 cols = 32
@@ -15,7 +12,7 @@ default = "cut"
 [[playlist.section]]
 mode = "swap"
 loop_count = 1
-hold_time = 8.0
+hold_time = 5.0
 
 [[playlist.section.widget]]
 type = "image"
@@ -27,4 +24,4 @@ text_align = "right"
 font_color = [255, 255, 255]
 animation = "typewriter"
 border = "rainbow"
-hold_seconds = 8.0
+hold_seconds = 5.0

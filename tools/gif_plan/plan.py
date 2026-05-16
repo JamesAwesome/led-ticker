@@ -80,6 +80,30 @@ def _summarize_widget(
     return {"type": widget.get("type"), "visit_ms": visit_ms}
 
 
+def _resolve_widget_paths(config: dict, config_dir: Path) -> None:
+    """Rewrite non-absolute gif/image widget paths to be relative to the
+    config file's directory, in place.
+
+    Mirrors the engine exactly (`app.py:652-659`): file-backed widgets
+    take config-relative paths. Without this, `gif_visit_ms` would
+    `Path(widget["path"])` against the CALLER's cwd — pinned demos use
+    paths like `../../../config/assets/foo.gif` that only resolve from
+    the config dir, so every such gif would silently hit the
+    1000ms/loop fallback and the predicted duration would be wrong.
+    """
+    sections = (config.get("playlist") or {}).get("section") or []
+    for section in sections:
+        for widget in section.get("widget", []):
+            if widget.get("type") not in ("gif", "image", "still"):
+                continue
+            raw_path = widget.get("path")
+            if not raw_path:
+                continue
+            candidate = Path(raw_path)
+            if not candidate.is_absolute():
+                widget["path"] = str((config_dir / candidate).resolve())
+
+
 def plan(config_path: Path) -> dict:
     try:
         raw = config_path.read_text(encoding="utf-8")
@@ -92,6 +116,7 @@ def plan(config_path: Path) -> dict:
         config = tomllib.loads(raw)
     except tomllib.TOMLDecodeError as exc:
         raise PlanError(f"malformed TOML in {config_path}: {exc}") from exc
+    _resolve_widget_paths(config, config_path.parent)
     display = config.get("display", {})
     sections_raw = (config.get("playlist") or {}).get("section") or []
 

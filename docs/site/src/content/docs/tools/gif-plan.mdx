@@ -92,8 +92,13 @@ A handful of cases are intentionally out of scope in v1:
 - **`forever_scroll` / `infini_scroll` modes, and `loop_count = 0`** — duration is runtime-dependent, not derivable from the TOML (`loop_count = 0` runs as `itertools.cycle` — loop forever). These sections contribute `None` to the section total and are surfaced as `runtime-dependent` in the output (with a `loop_count_zero_runtime` info flag for the loop case).
 - **Data-fetch widgets** — `weather`, `coinbase`, `coingecko`, `mlb`, `mlb_standings`, `rss_feed`, `etherscan`. Their visit time depends on what comes back over the wire (story count, ticker count, game state). They contribute `0ms` to the per-section total; treat the planner's number as a lower bound for sections built around them.
 - **Bigsign `pixel_mapper` transformations** — when a `pixel_mapper` Remap string is present, the planner uses a best-effort canvas-width approximation. The `pixel_mapper_present` info flag surfaces this so you know to sanity-check the recommended duration against the rendered gif.
+- **Inter-widget and inter-section transition time** — every transition between two widgets, and between two sections, runs for its own duration (commonly ~0.5s). The planner sums only widget visit times and adds a single flat `+1s` buffer to the recommendation — it does **not** add per-transition time. For a playlist with many widgets/sections this under-counts: treat the recommended duration as a lower bound and add roughly the transition duration per boundary (e.g. a 5-section × 3-widget playlist has ~14 transitions ≈ 7s the planner doesn't see).
 
-A sharp edge worth knowing: a large `gif_loops` (e.g. `gif_loops = 999`, sometimes used as a "just keep the gif animating" idiom) **is** modelled literally — the planner reports the full `sum(durations) × gif_loops` duration, which can be many minutes. That is faithful to the engine (the gif really would play that long), so a demo that wants only a short capture of a long-looping gif must declare a deliberately short `# render-duration:` and accept the `mid_pass_cutoff` flag as expected. This is the gif analogue of the `loop_count = 0` case above.
+### Sharp edge: large `gif_loops`
+
+A large `gif_loops` (e.g. `999`, the "just keep it animating" idiom) is modelled literally — the planner reports `sum(durations) × gif_loops`, read from the actual gif frames, which can run to minutes. That is faithful to the engine: the gif really would play that long.
+
+To capture only a short clip of a long-looping gif, set a deliberately short `# render-duration:` and treat the resulting `mid_pass_cutoff` flag as expected, not a bug. This is the gif analogue of the `loop_count = 0` case above.
 
 ## Exit codes
 

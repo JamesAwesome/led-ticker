@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
+
+from PIL import Image
+from tools.gif_plan.plan import plan
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -277,3 +281,64 @@ font = "5x8"
         section = data["sections"][0]
         for key in ("index", "mode", "section_total_ms", "widgets"):
             assert key in section, f"Missing section key: {key}"
+
+
+class TestGifPathResolution:
+    """Regression: relative gif paths must resolve against the CONFIG
+    file's directory, not the caller's cwd. Mirrors app.py:652-659.
+    Before the fix, a pinned demo's `../../../config/assets/x.gif`
+    failed to resolve from the repo root and silently hit the
+    1000ms/loop fallback, mispredicting every gif demo's duration."""
+
+    def _make_gif(self, path: Path, *, frames: int, dur_ms: int) -> None:
+        imgs = [Image.new("RGB", (8, 8), (i, i, i)) for i in range(frames)]
+        imgs[0].save(
+            path,
+            save_all=True,
+            append_images=imgs[1:],
+            duration=dur_ms,
+            loop=0,
+        )
+
+    def test_relative_gif_path_resolves_against_config_dir(self, tmp_path):
+        # Layout: <tmp>/assets/x.gif and <tmp>/cfg/demo.toml referencing
+        # it as a config-relative "../assets/x.gif".
+        (tmp_path / "assets").mkdir()
+        (tmp_path / "cfg").mkdir()
+        self._make_gif(tmp_path / "assets" / "x.gif", frames=5, dur_ms=80)
+        cfg = tmp_path / "cfg" / "demo.toml"
+        cfg.write_text(
+            "[display]\ncols = 32\nchain = 5\n\n"
+            '[[playlist.section]]\nmode = "swap"\n\n'
+            "[[playlist.section.widget]]\n"
+            'type = "gif"\n'
+            'path = "../assets/x.gif"\n'
+            "gif_loops = 3\n"
+        )
+        # Run with cwd = repo root (as `make plan-gif` / dogfood does).
+        prev = os.getcwd()
+        os.chdir(REPO_ROOT)
+        try:
+            data = plan(cfg)
+        finally:
+            os.chdir(prev)
+        # 5 frames × 80ms × 3 loops = 1200ms — NOT the 1000×3=3000
+        # fallback that a cwd-relative (unresolved) path would produce.
+        assert data["sections"][0]["widgets"][0]["visit_ms"] == 1200
+        assert data["total_ms"] == 1200
+
+    def test_absolute_gif_path_is_left_untouched(self, tmp_path):
+        gif = tmp_path / "abs.gif"
+        self._make_gif(gif, frames=2, dur_ms=100)
+        cfg = tmp_path / "demo.toml"
+        cfg.write_text(
+            "[display]\ncols = 32\nchain = 5\n\n"
+            '[[playlist.section]]\nmode = "swap"\n\n'
+            "[[playlist.section.widget]]\n"
+            'type = "gif"\n'
+            f'path = "{gif}"\n'
+            "gif_loops = 4\n"
+        )
+        data = plan(cfg)
+        # 2 × 100 × 4 = 800ms (absolute path resolves directly).
+        assert data["total_ms"] == 800

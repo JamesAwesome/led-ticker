@@ -240,6 +240,7 @@ def two_row_visit_ms(
     display: dict | None = None,
     *,
     include_pre_post_hold: bool = True,
+    source_ms: int | None = None,
 ) -> int:
     """Visit time in ms for a TwoRowMessage widget.
 
@@ -286,7 +287,12 @@ def two_row_visit_ms(
     font = widget.get("bottom_font") or widget.get("font", default_font)
     font_size = widget.get("bottom_font_size") or widget.get("font_size")
     bottom_text = widget.get("bottom_text", "")
-    hold_ms = _section_hold_ms(section)
+    # For the image/gif overlay the engine's n_ticks SOURCE is the
+    # widget's own playback duration (still: hold_seconds; gif:
+    # sum(durations)×gif_loops). The caller passes it as an exact
+    # integer `source_ms` — going via a float `hold_time` seconds field
+    # would lose 1ms on odd-ms gif durations (ms→s→ms round-trip).
+    hold_ms = source_ms if source_ms is not None else _section_hold_ms(section)
     scale = _section_scale(section, display)
     bottom_w = estimate_content_width_logical(bottom_text, font, font_size, scale)
 
@@ -346,16 +352,19 @@ def image_visit_ms(
     5.0 from `StillImage`, unlike message/two_row's section-level
     `hold_time`). We read widget.hold_seconds here, not section.hold_time.
     """
+    hold_ms = int(float(widget.get("hold_seconds", 5.0)) * 1000)
     if widget.get("bottom_text"):
-        # Inject a synthetic section dict so two_row's math can run
-        # using hold_seconds (widget) instead of hold_time (section).
-        synth_section = dict(section)
-        synth_section["hold_time"] = widget.get("hold_seconds", 5.0)
+        # Two-row overlay: the engine's n_ticks SOURCE for a still is
+        # hold_seconds (still.py). Pass it as an exact int `source_ms`.
         return two_row_visit_ms(
-            widget, synth_section, canvas_w, display, include_pre_post_hold=False
+            widget,
+            section,
+            canvas_w,
+            display,
+            include_pre_post_hold=False,
+            source_ms=hold_ms,
         )
 
-    hold_ms = int(float(widget.get("hold_seconds", 5.0)) * 1000)
     if _single_row_scrolls(widget):
         # `_play_with_text`: n_ticks starts from hold_seconds, then the
         # marquee-traversal floor extends it to at least one full pass.
@@ -405,10 +414,10 @@ def gif_visit_ms(
     `bottom_text` → two-row overlay. The gif's playback duration
     (sum(durations) × gif_loops) is the engine's `n_ticks` SOURCE
     (`_image_base.py:1199-1200`), one arm of the `max()` against the
-    marquee floor — so it is injected as the synthetic hold, mirroring
-    `image_visit_ms` injecting `hold_seconds` for stills. A single-row
-    scrolling caption extends the gif duration to `_play_with_text`'s
-    marquee floor, same as image.
+    marquee floor — passed to two_row_visit_ms as the exact integer
+    `source_ms` (mirrors `image_visit_ms` passing hold_seconds for
+    stills). A single-row scrolling caption extends the gif duration to
+    `_play_with_text`'s marquee floor, same as image.
     """
     loops = int(widget.get("gif_loops", 1))
     if loops == 0:
@@ -426,13 +435,16 @@ def gif_visit_ms(
 
     if widget.get("bottom_text"):
         # Two-row overlay: the engine floors n_ticks (derived from the
-        # gif duration) up to the marquee. Inject the gif duration as the
-        # synthetic hold so two_row_visit_ms's `max(marquee, hold)` uses
-        # the correct source — section.hold_time is NOT the gif's source.
-        synth_section = dict(section)
-        synth_section["hold_time"] = total_ms / 1000
+        # gif duration) up to the marquee. Pass the gif duration as the
+        # exact integer source so two_row_visit_ms's `max(marquee,
+        # source)` uses it — section.hold_time is NOT the gif's source.
         return two_row_visit_ms(
-            widget, synth_section, canvas_w, display, include_pre_post_hold=False
+            widget,
+            section,
+            canvas_w,
+            display,
+            include_pre_post_hold=False,
+            source_ms=total_ms,
         )
 
     if _single_row_scrolls(widget):

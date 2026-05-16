@@ -50,9 +50,10 @@ Widgets: `message`, `countdown`, `two_row`, `image`, `still`, `gif`.
 
 ## What it does NOT cover (v1)
 
-- `forever_scroll` / `infini_scroll` modes — timing is runtime-dependent.
+- `forever_scroll` / `infini_scroll` modes, and `loop_count = 0` — timing is runtime-dependent.
 - Data-fetch widgets (`weather`, `coinbase`, `mlb`, `rss_feed`, `etherscan`, `coingecko`) — visit time depends on fetched data.
 - Bigsign pixel_mapper transformations — canvas-width math is approximate.
+- Inter-widget / inter-section transition time (~0.5s each) — only a flat +1s buffer is added; recommended duration is a lower bound for playlists with many boundaries.
 
 ## Tests
 

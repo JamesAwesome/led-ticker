@@ -436,3 +436,124 @@ class TestExplicitHoldTimeZero:
         section = {"hold_time": 0, "scroll_step_ms": 25}
         # Fits, hold_time explicitly 0 → 0 ms (default would be 3000).
         assert ticker_message_visit_ms(widget, section, canvas_w=160) == 0
+
+
+class TestSingleRowScrollingCaption:
+    """image/gif with `text` and a resolved scroll alignment runs
+    `_play_with_text`'s marquee floor at the WIDGET scroll_speed_ms."""
+
+    def test_image_single_row_scroll_marquee_floor(self):
+        widget = {
+            "type": "image",
+            "path": "x.png",
+            "text": "A" * 10,  # 10 × 6 (FONT_DEFAULT) = 60 px
+            # text_align defaults "auto"; image_align defaults "center"
+            # → "scroll_over" → scrolls.
+        }
+        section = {"scroll_step_ms": 25}  # ignored — overlay uses 50
+        # tick=50; source_ticks = max(1, 5000//50)=100 (hold_seconds
+        # default 5.0). floor = max(1,0→1)×(160+60)=220. max → 220.
+        # 220 × 50 = 11000.
+        assert image_visit_ms(widget, section, canvas_w=160) == 11000
+
+    def test_gif_single_row_scroll_marquee_floor(self, tmp_path):
+        gif_path = tmp_path / "g.gif"
+        PILImage.new("RGB", (8, 8), (1, 2, 3)).save(
+            gif_path, save_all=True, duration=100, loop=0
+        )
+        widget = {
+            "type": "gif",
+            "path": str(gif_path),
+            "gif_loops": 3,  # source = 300ms
+            "text": "A" * 10,  # 60 px @ 6x12
+        }
+        section = {}
+        # source_ticks = max(1, 300//50)=6; floor = (160+60)=220.
+        # max(6,220) × 50 = 11000.
+        assert gif_visit_ms(widget, section, canvas_w=160) == 11000
+
+    def test_image_static_align_does_not_marquee(self):
+        widget = {
+            "type": "image",
+            "path": "x.png",
+            "text": "A" * 10,
+            "text_align": "left",  # static — no marquee floor
+            "hold_seconds": 4.0,
+        }
+        assert image_visit_ms(widget, {}, canvas_w=160) == 4000
+
+
+class TestTwoRowOverlayWrap:
+    """`include_pre_post_hold=False` + bottom_text_wrap: engine floors
+    n_ticks to max(1, text_loops) × (bottom_w + sep_w)."""
+
+    def test_image_overlay_wrap_applies_text_loops(self):
+        widget = {
+            "type": "image",
+            "path": "x.png",
+            "top_text": "TOP",
+            "bottom_text": "AB",  # 12 px @ FONT_DEFAULT 6x12
+            "bottom_text_wrap": True,
+            "bottom_text_separator": " * ",  # 18 px @ 6x12
+            "text_loops": 2,
+            "hold_seconds": 1.0,  # source = 1000ms
+        }
+        section = {"scroll_step_ms": 25}  # ignored — overlay uses 50
+        # cycle = (12+18)×50 = 1500; loops = max(1,2)=2 → 3000;
+        # max(3000, source 1000) = 3000.
+        assert image_visit_ms(widget, section, canvas_w=160) == 3000
+
+
+class TestGifLoopsZeroWithBottomText:
+    """gif_loops=0 + bottom_text: source = section hold_time, fed into
+    the overlay max(marquee, source)."""
+
+    def test_fits_uses_section_hold_as_source(self, tmp_path):
+        gif_path = tmp_path / "g.gif"
+        PILImage.new("RGB", (8, 8), (1, 2, 3)).save(
+            gif_path, save_all=True, duration=100, loop=0
+        )
+        widget = {
+            "type": "gif",
+            "path": str(gif_path),
+            "gif_loops": 0,
+            "top_text": "TOP",
+            "bottom_text": "HI",  # 12 px @ 6x12, fits → held for source
+        }
+        section = {"hold_time": 4.0}
+        assert gif_visit_ms(widget, section, canvas_w=160) == 4000
+
+    def test_overflow_marquee_floors_section_hold_source(self, tmp_path):
+        gif_path = tmp_path / "g.gif"
+        PILImage.new("RGB", (8, 8), (1, 2, 3)).save(
+            gif_path, save_all=True, duration=100, loop=0
+        )
+        widget = {
+            "type": "gif",
+            "path": str(gif_path),
+            "gif_loops": 0,
+            "top_text": "TOP",
+            "bottom_text": "x" * 40,  # 240 px @ 6x12 > 160
+        }
+        section = {"hold_time": 1.0}  # source = 1000ms
+        # loops=max(1,0)=1; marquee = (160+240)×50 = 20000;
+        # max(20000, source 1000) = 20000.
+        assert gif_visit_ms(widget, section, canvas_w=160) == 20000
+
+
+class TestHiresWidthScaleConversion:
+    """Hi-res font width is real-pixel; ceil-divided by section scale to
+    land on the logical-pixel basis (mirrors drawing.get_text_width)."""
+
+    def test_hires_width_scale_one(self):
+        # cell_w_real = ceil(20 × 0.55) = 11; 4 chars × 11 = 44.
+        assert estimate_content_width_logical("ABCD", "Inter", 20, 1) == 44
+
+    def test_hires_width_scale_four_ceil_divides(self):
+        # 44 real px ÷ scale 4 → ceil(44/4) = 11 logical px.
+        assert estimate_content_width_logical("ABCD", "Inter", 20, 4) == 11
+
+    def test_single_row_floor_uses_scaled_width(self):
+        w = {"text": "ABCD", "font": "Inter", "font_size": 20}
+        # scale=4 → text_w 11 logical; non-wrap floor = 160 + 11 = 171.
+        assert _single_row_floor_ticks(w, canvas_w=160, scale=4) == 171

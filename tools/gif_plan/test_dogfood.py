@@ -58,16 +58,15 @@ _MID_PASS_XFAILS: dict[str, str] = {
         "scroll_speed_ms tick rate instead of the section scroll_step_ms."
     ),
     "gif-two_row-scroll_through.toml": (
-        "gif_loops=999 is a 'keep the gif animating' idiom — the engine "
-        "would literally play ~999 gif loops (~999s), and the planner now "
-        "correctly models the gif's sum(durations)×loops source duration "
-        "as the n_ticks floor (it previously read section hold_time and "
-        "matched the header only by accident). The interesting content is "
-        "one ~9s bottom-text scroll-through; render-duration=14 captures "
-        "that. The deterministic gif-loop total is not what the demo is "
-        "trying to show — same visual-focus convention as the other "
-        "two_row demos. (Planner math is correct; see also the "
-        "large-gif_loops note in the gif-plan docs.)"
+        "gif_loops=999 is a 'keep the gif animating' idiom. The planner "
+        "resolves the gif against the config dir and reads its real "
+        "5×80ms=400ms/loop, so the deterministic total is 400×999 "
+        "≈ 399600ms (~400s) — that source duration dominates the bottom "
+        "marquee floor in the engine's max(). render-duration=14 "
+        "deliberately captures only the opening scroll-through; the demo "
+        "is not trying to show 400s of looping pikachu. Same visual-focus "
+        "convention as the other two_row demos; see the large-gif_loops "
+        "note in the gif-plan docs."
     ),
 }
 
@@ -85,6 +84,15 @@ _DRIFT_XFAILS: dict[str, str] = {
     "two_row-scroll_through.toml": (
         "scroll_through with hold_time=10s yields ~10s of playback; "
         "header=20 over-buffers so a second pass renders fully."
+    ),
+    "gif-silent.toml": (
+        "Now that gif paths resolve against the config dir, the planner "
+        "reads the real gif: 5×80ms × gif_loops=3 = 1200ms of "
+        "deterministic playback (rec 3). header=5 over-buffers a short "
+        "silent loop for a comfortable hold — a deliberate generous "
+        "header, not a planner error. (Previously this demo passed only "
+        "because the CWD path bug inflated it to the 1000ms/loop "
+        "fallback; the planner is now correct.)"
     ),
 }
 

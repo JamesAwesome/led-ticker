@@ -34,66 +34,16 @@ DEMO_DIR = REPO_ROOT / "docs" / "site" / "demos-pinned"
 # deterministic playback — the gif captures a visual focus window,
 # not the entire scroll/hold cycle. Planner correctly flags the
 # mid-pass cutoff; the demo intent overrides.
-_MID_PASS_XFAILS: dict[str, str] = {
-    "image-typewriter.toml": (
-        "hold_seconds=8 deliberately exceeds render-duration=5 so the "
-        "captured window contains a clean type-out + comfortable hold "
-        "without re-entering the next cycle."
-    ),
-    "image-typewriter-border.toml": (
-        "hold_seconds=8 deliberately exceeds render-duration=5 — see "
-        "image-typewriter.toml header comment."
-    ),
-    "two_row-font-hierarchy.toml": (
-        "Bigsign scale=2 + hires bottom row: render-duration=8 captures "
-        "the hold (7s) + a sliver of scroll; the full deterministic "
-        "scroll takes ~15s."
-    ),
-    "gif-two_row.toml": (
-        "gif two-row overlay ticks at the widget scroll_speed_ms default "
-        "(50), so one full marquee of the 34-char bottom row is ~16.5s; "
-        "render-duration=14 deliberately crops the tail of the scroll for "
-        "a punchy loop (same visual-focus convention as the other two_row "
-        "demos). Planner math is correct — it now models the widget "
-        "scroll_speed_ms tick rate instead of the section scroll_step_ms."
-    ),
-    "gif-two_row-scroll_through.toml": (
-        "gif_loops=999 is a 'keep the gif animating' idiom. The planner "
-        "resolves the gif against the config dir and reads its real "
-        "5×80ms=400ms/loop, so the deterministic total is 400×999 "
-        "≈ 399600ms (~400s) — that source duration dominates the bottom "
-        "marquee floor in the engine's max(). render-duration=14 "
-        "deliberately captures only the opening scroll-through; the demo "
-        "is not trying to show 400s of looping pikachu. Same visual-focus "
-        "convention as the other two_row demos; see the large-gif_loops "
-        "note in the gif-plan docs."
-    ),
-}
+# (All entries cleared: audit PR fixed all 5 mid-pass errors.)
+_MID_PASS_XFAILS: dict[str, str] = {}
 
 # Demos where the header is materially larger than the planner's
 # deterministic total — the gif over-buffers past the visible cycle
 # for stylistic reasons. The planner's math is correct; the header is
 # generous.
+# (All entries cleared: audit PR trimmed all 5 over-specified headers.)
 _DRIFT_XFAILS: dict[str, str] = {
     **_MID_PASS_XFAILS,
-    "two_row-bottom_text_loops.toml": (
-        "Wrap floor + bottom_text_loops=2 takes ~6s of deterministic "
-        "playback; header=14 over-buffers for an extra hold beyond the "
-        "loop floor."
-    ),
-    "two_row-scroll_through.toml": (
-        "scroll_through with hold_time=10s yields ~10s of playback; "
-        "header=20 over-buffers so a second pass renders fully."
-    ),
-    "gif-silent.toml": (
-        "Now that gif paths resolve against the config dir, the planner "
-        "reads the real gif: 5×80ms × gif_loops=3 = 1200ms of "
-        "deterministic playback (rec 3). header=5 over-buffers a short "
-        "silent loop for a comfortable hold — a deliberate generous "
-        "header, not a planner error. (Previously this demo passed only "
-        "because the CWD path bug inflated it to the 1000ms/loop "
-        "fallback; the planner is now correct.)"
-    ),
 }
 
 

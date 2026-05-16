@@ -26,6 +26,7 @@ jobs:
     outputs:
       python: ${{ steps.f.outputs.python }}
       docs: ${{ steps.f.outputs.docs }}
+      gif_plan: ${{ steps.f.outputs.gif_plan }}
     steps:
       - uses: actions/checkout@v6
       - id: f
@@ -42,6 +43,11 @@ jobs:
             docs:
               - 'docs/site/**'
               - 'docs/content-source/**'
+              - '.github/workflows/ci.yml'
+            gif_plan:
+              - 'tools/gif_plan/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
               - '.github/workflows/ci.yml'
 
   lint:
@@ -75,7 +81,23 @@ jobs:
       - uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: true
-      - run: PYTHONPATH=tests/stubs uv run --extra dev pytest --cov=src/led_ticker --cov-report=term-missing
+      # `tools/gif_plan` is a standalone tool with its own gated job
+      # below — exclude it here so it doesn't run on unrelated Python
+      # changes. `--ignore-glob` (anchored to the dir segment) is used
+      # rather than `--ignore=tools/gif_plan`, which `testpaths` defeats.
+      # `make test` locally still runs it via testpaths.
+      - run: PYTHONPATH=tests/stubs uv run --extra dev pytest --cov=src/led_ticker --cov-report=term-missing "--ignore-glob=*/gif_plan/*"
+
+  gif-plan-test:
+    needs: changes
+    if: needs.changes.outputs.gif_plan == 'true'
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: true
+      - run: PYTHONPATH=tests/stubs uv run --extra dev pytest tools/gif_plan/
 
   docs-lint:
     needs: changes
@@ -99,7 +121,7 @@ jobs:
   # upstream job is success or skipped; fails if any upstream failed
   # or was cancelled.
   ci-passed:
-    needs: [changes, lint, typecheck, test, docs-lint]
+    needs: [changes, lint, typecheck, test, gif-plan-test, docs-lint]
     if: always()
     runs-on: self-hosted
     steps:
@@ -112,13 +134,14 @@ jobs:
           LINT_RESULT: ${{ needs.lint.result }}
           TYPECHECK_RESULT: ${{ needs.typecheck.result }}
           TEST_RESULT: ${{ needs.test.result }}
+          GIF_PLAN_TEST_RESULT: ${{ needs.gif-plan-test.result }}
           DOCS_LINT_RESULT: ${{ needs.docs-lint.result }}
         run: |
           if [[ "$CHANGES_RESULT" != "success" ]]; then
             echo "Job 'changes' result: $CHANGES_RESULT — refusing to declare CI green."
             exit 1
           fi
-          for job in lint:"$LINT_RESULT" typecheck:"$TYPECHECK_RESULT" test:"$TEST_RESULT" docs-lint:"$DOCS_LINT_RESULT"; do
+          for job in lint:"$LINT_RESULT" typecheck:"$TYPECHECK_RESULT" test:"$TEST_RESULT" gif-plan-test:"$GIF_PLAN_TEST_RESULT" docs-lint:"$DOCS_LINT_RESULT"; do
             name="${job%%:*}"
             result="${job#*:}"
             case "$result" in

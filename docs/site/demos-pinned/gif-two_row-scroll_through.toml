@@ -1,10 +1,9 @@
-# render-duration: 12
+# render-duration: 14
 # gif scroll_through demo: pikachu on the left, held top row, scrolling
 # bottom row that flies through offscreen-to-offscreen.
-# hold_time is kept SHORT so the marquee floor (one full cycle_width
-# pass) dominates over the gif source duration — otherwise the engine
-# starts a second scroll pass before the section ends, which breaks the
-# GIF loop boundary.
+# hold_time matches render-duration so gif_loops=0 produces enough
+# source frames to keep the engine running continuously for the full
+# render window — no frozen last frame at the GIF loop boundary.
 [display]
 rows = 16
 cols = 32
@@ -18,7 +17,7 @@ default = "cut"
 [[playlist.section]]
 mode = "swap"
 loop_count = 1
-hold_time = 4.0
+hold_time = 14.0
 scroll_step_ms = 25
 
 [[playlist.section.widget]]

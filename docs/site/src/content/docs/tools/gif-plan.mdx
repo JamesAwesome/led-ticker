@@ -5,15 +5,7 @@ description: Get the recommended render --duration for a led-ticker demo TOML, a
 
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-`gif-plan` reads a led-ticker demo `config.toml` and prints the
-recommended `--duration` to render it with. It exists so the question
-"how long should I render this?" has a one-shot answer instead of a
-guess-render-recheck loop. It is deliberately a **coarse** estimate —
-it models only the dominant timing terms (hold time, overflow scroll,
-gif loops); precision is not the goal, not wasting a render is. The
-script lives at [`tools/gif_plan/plan.py`](https://github.com/jamesawesome/led-ticker/blob/main/tools/gif_plan/plan.py)
-and ships as `make plan-gif`. The math layer is the planner;
-[`render-demo`](/tools/render-demo/) is the pixels layer.
+`gif-plan` reads a led-ticker demo `config.toml` and prints the recommended `--duration` to render it with. It exists so the question "how long should I render this?" has a one-shot answer instead of a guess-render-recheck loop. The estimate is deliberately coarse — it models only the dominant timing terms (hold time, overflow scroll, gif loops); precision is not the goal, not wasting a render is. The script lives at [`tools/gif_plan/plan.py`](https://github.com/jamesawesome/led-ticker/blob/main/tools/gif_plan/plan.py) and ships as `make plan-gif`. The math layer is the planner; [`render-demo`](/tools/render-demo/) is the pixels layer.
 
 ## Usage
 
@@ -27,18 +19,12 @@ Output is at most two lines:
 duration: 8
 ```
 
-If the file carries a `# render-duration: N` header on its top line
-and `N` is shorter than the estimated playtime, it adds a cutoff line
-and exits non-zero — that is the one check that stops you shipping a
-gif that clips mid-content and having to re-render:
+If the file carries a `# render-duration: N` header and `N` is shorter than the estimated playtime, it adds a cutoff line and exits non-zero — that is the one check that stops you shipping a gif that clips mid-content and having to re-render:
 
 ```text
 duration: 8
 cutoff: header 5s < ~8s needed
 ```
-
-`# render-duration:` is the header `make render-pinned-demos` reads to
-pick each pinned demo's `--duration`.
 
 ## Exit codes
 

@@ -11,7 +11,7 @@ Two modes: **docs** (polished — source TOML committed under `docs/site/demos-p
 
 1. **Get a TOML.** Pasted config → save to `/tmp/gif-plan-<topic>.toml`. A path → use as-is. Only an intent described → draft a minimal config, save to `/tmp/`.
 
-2. **Get the duration:** `make plan-gif CONFIG=<path>` (from repo root). It prints `duration: <N>` and, if a `# render-duration:` header is too short, a `cutoff:` line + non-zero exit. Use `<N>` as the render `--duration`. Exit `3` = bad path/TOML (fix and re-run, not a result).
+2. **Get the duration:** `make plan-gif CONFIG=<path>` (from repo root). It prints `duration: <N>` and, if a `# render-duration:` header is too short, a `cutoff: header Xs < ~Ys needed` line (relay it verbatim) + non-zero exit. Use `<N>` as the render `--duration`. Exit `2` = the header is too short: `duration:` is still valid — relay the `cutoff:` line and use `<N>`. Exit `3` = bad path/TOML (fix and re-run, not a result).
 
 3. **Colour/contrast judgement** (the tool does NOT do this — you do). Scan colour fields (`font_color`, `top_color`, `bottom_color`, `bg_color`, `border`, separators):
    - Pure black `[0,0,0]` → renders INVISIBLE on the panel. Warn unless used intentionally as "transparent"; suggest `[10,10,10]` or a brand colour.
@@ -23,7 +23,7 @@ Two modes: **docs** (polished — source TOML committed under `docs/site/demos-p
 
 5. **Surface the recommendation:** the `--duration`, any cutoff/colour notes, and the exact command:
    - Docs: `make render-demo CONFIG=docs/site/demos-pinned/<name>.toml OUT=docs/site/public/demos-pinned/<name>.gif`; add/update the `# render-duration:` header in the source TOML.
-   - Dev: `make render-demo CONFIG=/tmp/gif-plan-<topic>.toml OUT=/tmp/preview-<topic>.gif`. For a dev preview, a shorter `--duration` (one pass + a beat) is fine — verification, not a polished loop.
+   - Dev: `make render-demo CONFIG=/tmp/gif-plan-<topic>.toml OUT=/tmp/preview-<topic>.gif`. For a dev preview a shorter duration is fine (one pass + a beat); pass it via the direct renderer — `uv run python tools/render_demo/render.py <cfg> -o <out> --duration <N>` — since `make render-demo` does not take `--duration`.
 
 ## Don'ts
 

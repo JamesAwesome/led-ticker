@@ -78,12 +78,13 @@ def widget_ms(widget: dict, section: dict, canvas_w: int, config_dir: Path) -> i
     if wtype in ("image", "still"):
         return int(float(widget.get("hold_seconds", _DEFAULT_HOLD_SECONDS)) * 1000)
     if wtype == "gif":
-        if int(widget.get("gif_loops", 1)) == 0:
+        loops = int(widget.get("gif_loops", 1))
+        if loops == 0:
             return hold_ms
         p = Path(widget.get("path", ""))
         if not p.is_absolute():
             p = (config_dir / p).resolve()
-        return _gif_loop_ms(p) * int(widget.get("gif_loops", 1))
+        return _gif_loop_ms(p) * loops
     return 0  # data-fetch / unknown — runtime-dependent, contributes 0
 
 

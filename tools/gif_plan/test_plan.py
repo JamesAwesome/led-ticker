@@ -33,6 +33,7 @@ class TestContentWidth:
         assert _content_w("HELLO") == 5 * 6
 
     def test_emoji_counts_as_8(self):
+        # ":star:" stripped -> "hi  yo" (6 chars) x6 + 1 emoji x8 = 44
         assert _content_w("hi :star: yo") == 6 * 6 + 8
 
     def test_empty(self):

@@ -11,7 +11,10 @@ Two modes: **docs** (polished — source TOML committed under `docs/site/demos-p
 
 1. **Get a TOML.** Pasted config → save to `/tmp/gif-plan-<topic>.toml`. A path → use as-is. Only an intent described → draft a minimal config, save to `/tmp/`.
 
-2. **Get the duration:** `make plan-gif CONFIG=<path>` (from repo root). It prints `duration: <N>` and, if a `# render-duration:` header is too short, a `cutoff: header Xs < ~Ys needed` line (relay it verbatim) + non-zero exit. Use `<N>` as the render `--duration`. Exit `2` = the header is too short: `duration:` is still valid — relay the `cutoff:` line and use `<N>`. Exit `3` = bad path/TOML (fix and re-run, not a result).
+2. **Get the duration:** `make plan-gif CONFIG=<path>` (from repo root). It prints `duration: <N>` and, if a `# render-duration:` header is too short, a `cutoff: header Xs < ~Ys needed` line (relay it verbatim) + non-zero exit.
+   - **If the source TOML already has a `# render-duration: H` header, `H` is the intended capture window — render with `H`. `<N>`/`cutoff:` are advisory only; never override an existing header with `<N>`.** Looping / large-`gif_loops` demos (the `gif_loops = 999` "keep animating" idiom) deliberately pin a short `H` while `<N>` reports the multi-minute full playthrough — exit `2` there is *expected*, not a bug. Keep `H`.
+   - Only when there is **no** header (a brand-new demo): use `<N>` as the `--duration` and add `# render-duration: <N>` to the TOML.
+   - Exit `3` = bad path/TOML (fix and re-run, not a result).
 
 3. **Colour/contrast judgement** (the tool does NOT do this — you do). Scan colour fields (`font_color`, `top_color`, `bottom_color`, `bg_color`, `border`, separators):
    - Pure black `[0,0,0]` → renders INVISIBLE on the panel. Warn unless used intentionally as "transparent"; suggest `[10,10,10]` or a brand colour.
@@ -21,9 +24,10 @@ Two modes: **docs** (polished — source TOML committed under `docs/site/demos-p
 
 4. **Caption (docs mode only).** Read 2-3 existing `<DemoGif caption="...">` lines from `docs/site/src/content/docs/widgets/<widget>.mdx` and match their matter-of-fact, visual voice.
 
-5. **Surface the recommendation:** the `--duration`, any cutoff/colour notes, and the exact command:
-   - Docs: `make render-demo CONFIG=docs/site/demos-pinned/<name>.toml OUT=docs/site/public/demos-pinned/<name>.gif`; add/update the `# render-duration:` header in the source TOML.
-   - Dev: `make render-demo CONFIG=/tmp/gif-plan-<topic>.toml OUT=/tmp/preview-<topic>.gif`. For a dev preview a shorter duration is fine (one pass + a beat); pass it via the direct renderer — `uv run python tools/render_demo/render.py <cfg> -o <out> --duration <N>` — since `make render-demo` does not take `--duration`.
+5. **Surface the recommendation:** the chosen duration, any cutoff/colour notes, and the exact command. `make render-demo` does NOT pass `--duration` (it uses the renderer default), so render at a specific length via the direct renderer:
+   - Docs, existing/pinned demo (TOML has `# render-duration: H`): render at the header — `uv run python tools/render_demo/render.py docs/site/demos-pinned/<name>.toml -o docs/site/public/demos-pinned/<name>.gif --duration H`. (Or `make render-pinned-demos` to rebuild the whole pinned set, which reads each header.) Do not change `H` to `<N>`.
+   - Docs, new demo (no header yet): add `# render-duration: <N>` to the TOML, then `uv run python tools/render_demo/render.py docs/site/demos-pinned/<name>.toml -o docs/site/public/demos-pinned/<name>.gif --duration <N>`.
+   - Dev: `uv run python tools/render_demo/render.py /tmp/gif-plan-<topic>.toml -o /tmp/preview-<topic>.gif --duration <N>`. A shorter duration (one pass + a beat) is fine — verification, not a polished loop.
 
 ## Don'ts
 

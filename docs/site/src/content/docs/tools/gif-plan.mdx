@@ -43,7 +43,12 @@ The estimate is coarse and intentionally ignores some cases:
 bigsign `pixel_mapper` (naive canvas-width); wrap floors, two-row
 overlay marquee, hires width, and inter-widget transition time (not
 modelled — treat the number as a lower bound for transition-heavy
-playlists). The companion skill at
+playlists). For looping or large-`gif_loops` demos (the
+`gif_loops = 999` "keep animating" idiom) the recommended `--duration`
+is the full multi-minute playthrough, not the capture window — such
+demos deliberately pin a short `# render-duration:` header; render
+with the header, treat the recommendation as an upper bound. The
+companion skill at
 [`.claude/skills/making-a-gif/`](https://github.com/jamesawesome/led-ticker/tree/main/.claude/skills/making-a-gif)
 wraps this plus `render-demo` and adds LED-panel colour/contrast
 judgement.

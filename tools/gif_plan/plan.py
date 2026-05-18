@@ -1,225 +1,144 @@
-"""CLI entry point for the led-ticker demo-gif planner.
+"""Coarse demo-gif duration estimator for the making-a-gif skill.
 
-Usage:
-    uv run python tools/gif_plan/plan.py <config.toml> [--json]
+Single purpose: tell Claude the `--duration` to render a led-ticker
+demo with, and flag when a pinned `# render-duration:` header is too
+short (the gif would clip and need re-rendering). Deliberately rough —
+it models only the dominant timing terms. Precision is not the goal;
+not wasting a render is. See
+docs/superpowers/specs/2026-05-18-gif-plan-reduction-design.md.
 """
 
 from __future__ import annotations
 
-import argparse
-import json
+import math
 import re
 import sys
+import tomllib
 from pathlib import Path
 
-# Mirror tools/render_demo/render.py — make the repo root importable so
-# `from tools.gif_plan.x import y` works when invoked as a script.
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+_FONT_CELL_W = 6  # FONT_DEFAULT (6x12) cell width, px
+_EMOJI_W = 8  # inline :slug: sprite width, px
+_DEFAULT_HOLD_S = 3.0  # SectionConfig.hold_time default
+_DEFAULT_HOLD_SECONDS = 5.0  # StillImage.hold_seconds default
+_DEFAULT_STEP_MS = 50  # scroll step when a section omits scroll_step_ms
+_GIF_FALLBACK_LOOP_MS = 1000  # used when a gif path can't be read
 
-# Python 3.11+ has tomllib in stdlib.
-try:
-    import tomllib
-except ImportError:  # pragma: no cover
-    import tomli as tomllib  # type: ignore[no-redef]
+_EMOJI_RE = re.compile(r":[a-z_]+:")
+_HEADER_RE = re.compile(r"^\s*#\s*render-duration\s*:\s*(\d+)", re.MULTILINE)
 
-from tools.gif_plan.flags import check_all  # noqa: E402
-from tools.gif_plan.totals import (  # noqa: E402
-    playlist_total_ms,
-    recommended_render_duration_s,
-    section_total_ms,
-)
-from tools.gif_plan.widgets import (  # noqa: E402
-    canvas_width_logical,
-    gif_visit_ms,
-    image_visit_ms,
-    ticker_message_visit_ms,
-    two_row_visit_ms,
-)
-
-# Exit codes. 0/1/2 come from flag severity (see `_exit_code`); 3 is
-# reserved for tool/usage errors (missing file, malformed TOML) so a
-# caller can tell "config has warnings" (1/2) apart from "tool failed".
+EXIT_OK = 0
+EXIT_CUTOFF = 2
 EXIT_TOOL_ERROR = 3
 
 
 class PlanError(Exception):
-    """Recoverable, user-facing planner error (bad path / malformed TOML)."""
+    """Recoverable tool/usage error (missing or malformed TOML)."""
 
 
-_HEADER_RE = re.compile(r"^\s*#\s*render-duration\s*:\s*(\d+)\s*$", re.MULTILINE)
+def _canvas_w(display: dict, section: dict) -> int:
+    cols = int(display.get("cols", 64))
+    chain = int(display.get("chain", 1))
+    scale = int(section.get("scale") or display.get("default_scale") or 1)
+    return cols * chain // max(1, scale)
 
 
-def _read_render_duration_header(text: str) -> int | None:
-    m = _HEADER_RE.search(text)
+def _content_w(text: str) -> int:
+    if not text:
+        return 0
+    emoji = len(_EMOJI_RE.findall(text))
+    stripped = _EMOJI_RE.sub("", text)
+    return len(stripped) * _FONT_CELL_W + emoji * _EMOJI_W
+
+
+def _gif_loop_ms(path: Path) -> int:
+    try:
+        from PIL import Image
+    except ImportError:
+        return _GIF_FALLBACK_LOOP_MS
+    try:
+        with Image.open(path) as im:
+            total = 0
+            for i in range(getattr(im, "n_frames", 1)):
+                im.seek(i)
+                total += int(im.info.get("duration", 100))
+            return max(1, total)
+    except (FileNotFoundError, OSError, ValueError):
+        return _GIF_FALLBACK_LOOP_MS
+
+
+def widget_ms(widget: dict, section: dict, canvas_w: int, config_dir: Path) -> int:
+    """Coarse per-widget visit time in ms. Dominant terms only."""
+    wtype = widget.get("type", "")
+    hold_ms = int(float(section.get("hold_time", _DEFAULT_HOLD_S)) * 1000)
+    if wtype in ("message", "countdown", "two_row"):
+        text = widget.get("bottom_text") or widget.get("text", "")
+        step = int(section.get("scroll_step_ms") or _DEFAULT_STEP_MS)
+        overflow = max(0, _content_w(text) - canvas_w)
+        return hold_ms + overflow * step
+    if wtype in ("image", "still"):
+        return int(float(widget.get("hold_seconds", _DEFAULT_HOLD_SECONDS)) * 1000)
+    if wtype == "gif":
+        if int(widget.get("gif_loops", 1)) == 0:
+            return hold_ms
+        p = Path(widget.get("path", ""))
+        if not p.is_absolute():
+            p = (config_dir / p).resolve()
+        return _gif_loop_ms(p) * int(widget.get("gif_loops", 1))
+    return 0  # data-fetch / unknown — runtime-dependent, contributes 0
+
+
+def total_ms(config: dict, config_dir: Path) -> int:
+    display = config.get("display", {})
+    sections = (config.get("playlist") or {}).get("section") or []
+    total = 0
+    for s in sections:
+        if s.get("mode", "swap") != "swap" or s.get("loop_count") == 0:
+            continue  # forever/infini/loop-forever — runtime-dependent
+        cw = _canvas_w(display, s)
+        loop = int(s.get("loop_count") or 1)
+        per = sum(widget_ms(w, s, cw, config_dir) for w in s.get("widget", []))
+        total += per * loop
+    return total
+
+
+def recommended_s(total: int) -> int:
+    return max(1, math.ceil(total / 1000) + 1)
+
+
+def _read_header(raw: str) -> int | None:
+    m = _HEADER_RE.search(raw)
     return int(m.group(1)) if m else None
 
 
-_WIDGET_DISPATCH = {
-    "message": ticker_message_visit_ms,
-    "countdown": ticker_message_visit_ms,
-    "two_row": two_row_visit_ms,
-    "image": image_visit_ms,
-    "still": image_visit_ms,
-    "gif": gif_visit_ms,
-}
-
-
-def _summarize_widget(
-    widget: dict, section: dict, canvas_w: int, display: dict
-) -> dict:
-    fn = _WIDGET_DISPATCH.get(widget.get("type", ""))
-    if fn is None:
-        return {
-            "type": widget.get("type", "unknown"),
-            "visit_ms": 0,
-            "note": "widget type not modelled deterministically",
-        }
-    visit_ms = fn(widget, section, canvas_w, display)
-    return {"type": widget.get("type"), "visit_ms": visit_ms}
-
-
-def _resolve_widget_paths(config: dict, config_dir: Path) -> None:
-    """Rewrite non-absolute gif/image widget paths to be relative to the
-    config file's directory, in place.
-
-    Mirrors the engine exactly (`app.py:652-659`): file-backed widgets
-    take config-relative paths. Without this, `gif_visit_ms` would
-    `Path(widget["path"])` against the CALLER's cwd — pinned demos use
-    paths like `../../../config/assets/foo.gif` that only resolve from
-    the config dir, so every such gif would silently hit the
-    1000ms/loop fallback and the predicted duration would be wrong.
-    """
-    sections = (config.get("playlist") or {}).get("section") or []
-    for section in sections:
-        for widget in section.get("widget", []):
-            if widget.get("type") not in ("gif", "image", "still"):
-                continue
-            raw_path = widget.get("path")
-            if not raw_path:
-                continue
-            candidate = Path(raw_path)
-            if not candidate.is_absolute():
-                widget["path"] = str((config_dir / candidate).resolve())
-
-
-def plan(config_path: Path) -> dict:
+def plan(config_path: Path) -> tuple[int, int | None, int]:
+    """Return (recommended_s, header_s_or_None, total_ms)."""
     try:
         raw = config_path.read_text(encoding="utf-8")
-    except FileNotFoundError as exc:
-        raise PlanError(f"config not found: {config_path}") from exc
-    except (IsADirectoryError, PermissionError, OSError) as exc:
-        raise PlanError(f"cannot read config {config_path}: {exc}") from exc
-    header = _read_render_duration_header(raw)
+    except (FileNotFoundError, IsADirectoryError, PermissionError, OSError) as e:
+        raise PlanError(f"cannot read config {config_path}: {e}") from e
     try:
         config = tomllib.loads(raw)
-    except tomllib.TOMLDecodeError as exc:
-        raise PlanError(f"malformed TOML in {config_path}: {exc}") from exc
-    _resolve_widget_paths(config, config_path.parent)
-    display = config.get("display", {})
-    sections_raw = (config.get("playlist") or {}).get("section") or []
-
-    sections_summary: list[dict] = []
-    for i, s in enumerate(sections_raw):
-        canvas_w = canvas_width_logical(display, s)
-        widgets = [
-            _summarize_widget(w, s, canvas_w, display) for w in s.get("widget", [])
-        ]
-        total = section_total_ms(s, display)
-        sections_summary.append(
-            {
-                "index": i,
-                "mode": s.get("mode", "swap"),
-                "hold_time": s.get("hold_time"),
-                "scroll_step_ms": s.get("scroll_step_ms"),
-                "loop_count": s.get("loop_count", 1),
-                "canvas_w": canvas_w,
-                "widgets": widgets,
-                "section_total_ms": total,
-            }
-        )
-
-    total_ms = playlist_total_ms(config)
-    flags = check_all(
-        config=config,
-        playlist_total_ms=total_ms,
-        render_duration_header=header,
-        sections_summary=sections_summary,
-    )
-
-    return {
-        "config_path": str(config_path),
-        "render_duration_header": header,
-        "sections": sections_summary,
-        "total_ms": total_ms,
-        "recommended_render_duration_s": recommended_render_duration_s(total_ms),
-        "flags": flags,
-    }
+    except tomllib.TOMLDecodeError as e:
+        raise PlanError(f"malformed TOML in {config_path}: {e}") from e
+    tot = total_ms(config, config_path.parent)
+    return recommended_s(tot), _read_header(raw), tot
 
 
-def _exit_code(flags: list[dict]) -> int:
-    severities = {f["severity"] for f in flags}
-    if "error" in severities:
-        return 2
-    if "warning" in severities:
-        return 1
-    return 0
-
-
-def _human_render(plan_data: dict) -> str:
-    """Plain-text summary for terminal use."""
-    lines: list[str] = []
-    lines.append(f"config: {plan_data['config_path']}")
-    lines.append(f"playlist_total: {plan_data['total_ms']}ms")
-    lines.append(
-        f"recommended_render_duration: {plan_data['recommended_render_duration_s']}s"
-    )
-    header = plan_data["render_duration_header"]
-    if header is not None:
-        lines.append(f"header `# render-duration:` found: {header}s")
-    lines.append("")
-    for s in plan_data["sections"]:
-        total = s["section_total_ms"]
-        total_str = (
-            f"{total}ms"
-            if total is not None
-            else "runtime-dependent (forever_scroll / loop_count=0)"
-        )
-        idx = s["index"]
-        mode = s["mode"]
-        loops = s["loop_count"]
-        lines.append(f"section[{idx}] mode={mode} loop_count={loops} → {total_str}")
-        for j, w in enumerate(s["widgets"]):
-            lines.append(
-                f"  widget[{j}] type={w['type']} visit={w.get('visit_ms', 0)}ms"
-            )
-    if plan_data["flags"]:
-        lines.append("")
-        lines.append("flags:")
-        for f in plan_data["flags"]:
-            lines.append(f"  [{f['severity'].upper()}] {f['location']} :: {f['code']}")
-            lines.append(f"    {f['message']}")
-            lines.append(f"    fix: {f['fix']}")
-    return "\n".join(lines)
-
-
-def main() -> int:
-    p = argparse.ArgumentParser(description="Plan a led-ticker demo gif")
-    p.add_argument("config", type=Path, help="Path to the demo config TOML")
-    p.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
-    args = p.parse_args()
-
-    try:
-        data = plan(args.config)
-    except PlanError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    if len(args) != 1:
+        print("usage: plan.py <config.toml>", file=sys.stderr)
         return EXIT_TOOL_ERROR
-    if args.json:
-        print(json.dumps(data, indent=2))
-    else:
-        print(_human_render(data))
-    return _exit_code(data["flags"])
+    try:
+        rec, header, tot = plan(Path(args[0]))
+    except PlanError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return EXIT_TOOL_ERROR
+    print(f"duration: {rec}")
+    if header is not None and header * 1000 < tot:
+        print(f"cutoff: header {header}s < ~{math.ceil(tot / 1000)}s needed")
+        return EXIT_CUTOFF
+    return EXIT_OK
 
 
 if __name__ == "__main__":

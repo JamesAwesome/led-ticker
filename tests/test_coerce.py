@@ -48,3 +48,11 @@ class TestCoerceInt:
     def test_none_rejected(self):
         with pytest.raises(ValueError, match="must be an int"):
             coerce_int(None, field="font_size")
+
+    def test_warning_carries_fix_string(self):
+        """CoercionWarning.fix should be a one-line actionable instruction."""
+        _, warning = coerce_int("25", field="font_size")
+        assert warning is not None
+        assert warning.fix  # non-empty
+        assert "font_size" in warning.fix
+        assert "25" in warning.fix

@@ -114,19 +114,45 @@ class ColorCycle:
     """Whole-string hue rotation; char_index ignored.
 
     `speed` is degrees of hue advanced per frame. Default matches the
-    legacy ColorCycle (speed=5)."""
+    legacy ColorCycle (speed=5).
+
+    Optional `from_hue` / `to_hue` (degrees, 0–360) restrict the sweep
+    to a hue arc instead of the full wheel. The shorter arc is always
+    chosen: e.g. from_hue=0 (red) + to_hue=240 (blue) sweeps the 120°
+    arc through magenta rather than the 240° arc through yellow/green.
+    Pass as keyword args from the parser after RGB→hue conversion;
+    not exposed directly in TOML (users write `from = [r,g,b]`)."""
 
     per_char: bool = False
     frame_invariant: bool = False
     restart_on_visit: bool = False  # continuous cycle across loop_count boundaries
 
-    def __init__(self, speed: int = 5) -> None:
+    def __init__(
+        self,
+        speed: int = 5,
+        from_hue: float | None = None,
+        to_hue: float | None = None,
+    ) -> None:
         self.speed = speed
+        if from_hue is not None and to_hue is not None:
+            diff = (to_hue - from_hue) % 360
+            if diff > 180:
+                diff -= 360  # take the shorter arc (may be negative = backward)
+            self._from_hue: float = from_hue
+            self._span: float = diff  # signed; 0 means same hue (caught by parser)
+        else:
+            self._from_hue = 0.0
+            self._span = 360.0  # full wheel
 
     def color_for(self, frame: int, char_index: int, total_chars: int) -> Color:
         graphics = require_graphics()
-        hue = ((frame * self.speed) % 360) / 360
-        r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+        span = self._span if self._span != 0 else 360.0
+        progress = (frame * self.speed) % abs(span)
+        if span < 0:
+            hue = (self._from_hue - progress) % 360
+        else:
+            hue = (self._from_hue + progress) % 360
+        r, g, b = colorsys.hsv_to_rgb(hue / 360.0, 1.0, 1.0)
         return graphics.Color(int(r * 255), int(g * 255), int(b * 255))
 
 

@@ -7,7 +7,7 @@ import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-`font_color` accepts five forms: a `[r, g, b]` list (constant), the string shorthands `"rainbow"`, `"color_cycle"`, and `"random"`, or an inline table for a gradient. The first three cover most signs. The same field on `top_color` / `bottom_color` for `two_row` and image widgets behaves identically — pick once per widget, swap providers without changing anything else.
+`font_color` accepts five forms: a `[r, g, b]` list (constant), the string shorthands `"rainbow"`, `"color_cycle"`, and `"random"`, or an inline table for a gradient or a ranged color cycle. The first three cover most signs. The same field on `top_color` / `bottom_color` for `two_row` and image widgets behaves identically — pick once per widget, swap providers without changing anything else.
 
 <DemoGif
   src="/demos/concepts-color-providers.gif"
@@ -16,13 +16,14 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 
 ## The five providers
 
-| Provider   | Syntax                                           | Per-char? | Animates?                       |
-| ---------- | ------------------------------------------------ | --------- | ------------------------------- |
-| Constant   | `[r, g, b]`                                      | no        | no                              |
-| Rainbow    | `"rainbow"`                                      | **yes**   | yes — hue sweeps per frame      |
-| ColorCycle | `"color_cycle"`                                  | no        | yes — whole-string hue rotation |
-| Gradient   | `{style = "gradient", from = [...], to = [...]}` | **yes**   | no — frozen interpolation       |
-| Random     | `"random"`                                       | no        | no — picks once on visit        |
+| Provider         | Syntax                                                       | Per-char? | Animates?                       |
+| ---------------- | ------------------------------------------------------------ | --------- | ------------------------------- |
+| Constant         | `[r, g, b]`                                                  | no        | no                              |
+| Rainbow          | `"rainbow"`                                                  | **yes**   | yes — hue sweeps per frame      |
+| ColorCycle       | `"color_cycle"`                                              | no        | yes — whole-string hue rotation |
+| ColorCycle range | `{style = "color_cycle", from = [...], to = [...], speed=N}` | no        | yes — restricted hue arc        |
+| Gradient         | `{style = "gradient", from = [...], to = [...]}`             | **yes**   | no — frozen interpolation       |
+| Random           | `"random"`                                                   | no        | no — picks once on visit        |
 
 **Per-char** providers (rainbow, gradient) assign a unique color to each character position and call `color_for` once per character per draw. **Whole-string** providers (constant, color_cycle, random) compute one color per draw and apply it to the entire message.
 
@@ -72,6 +73,35 @@ font_color = "color_cycle"`}
 
 Speed is configurable via `{style = "color_cycle", speed = N}` (degrees per tick, default 5).
 
+### Restricting the hue arc
+
+Add `from` and `to` RGB colors to restrict the cycle to the shorter arc between those two hues instead of sweeping the full wheel. The engine always takes the shorter path — `from = [255, 0, 0]` (red) and `to = [0, 0, 255]` (blue) sweeps through the 120° magenta/violet arc rather than the 240° yellow/green/cyan arc. Without `from`/`to`, full-wheel behavior is unchanged.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "Now Playing"
+font_color = {style = "color_cycle", from = [225, 48, 108], to = [120, 230, 255], speed = 5}`}
+/>
+
+`from` and `to` must both be present or both absent. Achromatic colors (gray, white, black) are rejected — their hue is undefined. `speed = 0` is also rejected; use a plain `[r, g, b]` constant instead.
+
+### Common patterns
+
+**Brand palette sweep** — limit the cycle to your two brand colors so the animation never wanders into off-brand hues:
+
+<TomlExample
+  code={`font_color = {style = "color_cycle", from = [189, 169, 234], to = [255, 176, 240], speed = 3}
+# Lavender → soft pink — stays in a narrow pastel arc`}
+/>
+
+**Warm-cool oscillation** — a tight arc between two complementary hues creates a slow temperature-shift effect:
+
+<TomlExample
+  code={`font_color = {style = "color_cycle", from = [255, 140, 0], to = [120, 230, 255], speed = 2}
+# Amber → cyan — warm/cool pulse`}
+/>
+
 ## Gradient
 
 A frozen left-to-right interpolation between two colors. `char_index` drives the interpolation; the frame counter is ignored — so the colors never shift, but each character gets its own tint. Unlike rainbow and color_cycle, gradient does not require the per-tick render loop; the engine can take a paint-once-and-sleep fast path for otherwise-static content.
@@ -99,7 +129,7 @@ font_color = "random"`}
 ## Which to use
 
 - **Constant** — brand colors, anything that shouldn't animate.
-- **Color_cycle** — the whole message shifts hue together; subtler than rainbow.
+- **Color_cycle** — the whole message shifts hue together; subtler than rainbow. Add `from`/`to` to keep the sweep inside your brand palette.
 - **Rainbow** — per-character hue sweep; use it when flair is the point (kids' sections, grand openings, announcements).
 - **Gradient** — frozen left-to-right interpolation; good when your brand has two anchor colors you want to bridge.
 - **Random** — picks a different color each time the section plays; no animation.

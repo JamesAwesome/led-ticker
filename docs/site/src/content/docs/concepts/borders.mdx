@@ -1,13 +1,13 @@
 ---
 title: Borders
-description: An animated rainbow chase or constant-color ring around the panel perimeter.
+description: Rainbow chase, color_cycle, or constant-color ring around the panel perimeter.
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-A border paints a 1- or 2-pixel-thick ring around the entire panel perimeter. Two styles are available: an animated **rainbow chase** that sweeps a continuous hue gradient clockwise around the edge, and a **constant color** that frames the content in a steady solid color. Both paint at physical panel resolution — they bypass the `ScaledCanvas` block-expansion path and call `SetPixel` on the real underlying canvas, so a 1-pixel border is always exactly one LED wide regardless of scale.
+A border paints a 1- or 2-pixel-thick ring around the entire panel perimeter. Three styles are available: an animated **rainbow chase** that sweeps a hue gradient per pixel around the edge, a **color_cycle** that pulses the entire border as one animated hue, and a **constant color** that frames the content in a steady solid color. All three paint at physical panel resolution — they bypass the `ScaledCanvas` block-expansion path and call `SetPixel` on the real underlying canvas, so a 1-pixel border is always exactly one LED wide regardless of scale.
 
 <DemoGif
   src="/demos/concepts-borders.gif"
@@ -15,6 +15,12 @@ A border paints a 1- or 2-pixel-thick ring around the entire panel perimeter. Tw
 />
 
 ## Border styles
+
+| Style         | Shorthand                | Per-pixel color?          | Animates? |
+| ------------- | ------------------------ | ------------------------- | --------- |
+| `rainbow`     | `border = "rainbow"`     | yes — hue chase           | yes       |
+| `color_cycle` | `border = "color_cycle"` | no — whole border one hue | yes       |
+| `constant`    | `border = [r,g,b]`       | no — uniform              | no        |
 
 ### Rainbow chase
 
@@ -45,6 +51,74 @@ border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}`}
 **`char_offset`** (default `6`): hue spacing between adjacent perimeter pixels. At `6` and 640 pixels, roughly 10 full rainbows tile around the bigsign edge. Reduce it toward `1` for a slow gradient wash; raise it above `10` for a tighter, flickery pattern.
 
 **`thickness`** (default `1`): `1` is a single-pixel ring; `2` is two concentric rings. Thickness 2 reads better at viewing distance. The two rings share the same hue index sequence, so the inner ring continues where the outer ring ends rather than repeating.
+
+### Color cycle
+
+A color_cycle border paints every perimeter pixel the same color per frame, and that color cycles through the hue wheel over time. Unlike the rainbow chase — which gives each pixel its own hue offset — color_cycle pulses the border as a single unified color. The effect is a slow wash of light that shifts hue without any chasing motion.
+
+<DemoGif
+  src="/demos-pinned/border-color_cycle.gif"
+  caption="`color_cycle` border at `speed = 5`, `thickness = 2` — entire perimeter pulses as one hue with no per-pixel chase"
+/>
+
+String shorthand uses the full 360° wheel at the default speed:
+
+<TomlExample
+  title="String shorthand"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+border = "color_cycle"`}
+/>
+
+Tune `speed` and `thickness` via an inline table:
+
+<TomlExample
+  title="With tuning"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+border = {style = "color_cycle", speed = 5, thickness = 2}`}
+/>
+
+**`speed`** (default `5`): degrees of hue rotation per engine tick. Higher = faster pulse.
+
+**`thickness`** (default `1`): `1` is a single-pixel ring; `2` is two concentric rings.
+
+#### Restricting the hue arc
+
+Add `from` and `to` RGB colors to confine the cycle to a specific hue arc — the border will pulse between those two colors rather than sweeping the full spectrum. The engine always takes the shorter arc between the two hues.
+
+<DemoGif
+  src="/demos-pinned/border-color_cycle-range.gif"
+  caption="soft pink → lavender arc at `speed = 2` — border pulses only within the pink/purple band, never drifting into green or yellow"
+/>
+
+<TomlExample
+  code={`# Soft pink → lavender arc — stays within the brand palette
+border = {style = "color_cycle", from = [255, 176, 240], to = [189, 169, 234], speed = 2, thickness = 2}`}
+/>
+
+`speed = 0` is rejected — use `border = [r, g, b]` for a static color. Achromatic `from`/`to` colors (gray, white, black) are also rejected since their hue is undefined.
+
+#### Common patterns
+
+**Brand-palette pulse** — lock the border to your two brand hues so it never wanders off-palette:
+
+<TomlExample
+  code={`border = {style = "color_cycle", from = [189, 169, 234], to = [255, 176, 240], speed = 2, thickness = 2}
+# Lavender → soft pink pulse, 2-ring border`}
+/>
+
+**Contrasting border from text** — pair a color_cycle border with a complementary arc on `font_color`:
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "Open"
+font_color = {style = "color_cycle", from = [255, 200, 50], to = [255, 100, 0], speed = 4}   # amber arc
+border   = {style = "color_cycle", from = [120, 230, 255], to = [50, 100, 255], speed = 4}   # blue arc`}
+/>
 
 ### Constant
 
@@ -90,6 +164,6 @@ Data widgets render custom layouts and a perimeter border is not a meaningful co
 
 ## Continuous-phase behavior
 
-The rainbow chase has `restart_on_visit = false` — its phase counter advances continuously and never resets between `loop_count` repetitions. If a section repeats with `loop_count = 2`, the chase picks up exactly where it left off at the end of the first loop rather than restarting from the beginning. The border also composes cleanly with other effects: a `TickerMessage` can carry `animation = "typewriter"` and `border = "rainbow"` simultaneously, and each effect tracks its own independent counter. See [frame counters](/reference/frame-counters/) for the full model of restart-on-visit versus continuous-phase behavior.
+Both `rainbow` and `color_cycle` borders have `restart_on_visit = false` — their phase counters advance continuously and never reset between `loop_count` repetitions. If a section repeats with `loop_count = 2`, the border picks up exactly where it left off at the end of the first loop rather than snapping back to the start. The border also composes cleanly with other effects: a `TickerMessage` can carry `animation = "typewriter"` and `border = "rainbow"` simultaneously, and each effect tracks its own independent counter. See [frame counters](/reference/frame-counters/) for the full model of restart-on-visit versus continuous-phase behavior.
 
 <RelatedPages slugs={["concepts/color-providers", "reference/frame-counters", "widgets/message"]} />

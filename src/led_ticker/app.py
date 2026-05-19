@@ -149,6 +149,27 @@ def _coerce_color_provider(value: Any) -> Any:
     )
 
 
+def _rgb_to_hue(rgb: list[int] | tuple[int, ...], context: str) -> float:
+    """Convert an [r,g,b] triple to a hue in degrees [0, 360).
+
+    Raises ValueError when the color is nearly achromatic (saturation
+    < 0.1) — the hue of a gray/white/black is undefined and using it
+    as a `color_cycle` range endpoint produces meaningless output.
+    """
+    import colorsys as _cs
+
+    r, g, b = (c / 255.0 for c in rgb)
+    h, s, _ = _cs.rgb_to_hsv(r, g, b)
+    if s < 0.1:
+        raise ValueError(
+            f"{context}: color {list(rgb)!r} is nearly achromatic "
+            f"(saturation={s:.2f}); hue is undefined. "
+            "Use a saturated color (e.g. [255,0,0] for red) so the "
+            "hue arc is meaningful."
+        )
+    return h * 360.0
+
+
 def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
     """Instantiate a provider by name with kwargs. Validates kwargs
     against each provider's __init__ signature; raises with a helpful
@@ -191,6 +212,37 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
         kwargs["from_color"] = graphics.Color(*from_val)
         kwargs["to_color"] = graphics.Color(*to_val)
 
+    if style == "color_cycle":
+        from_val = kwargs.pop("from", None)
+        to_val = kwargs.pop("to", None)
+        if (from_val is None) != (to_val is None):
+            raise ValueError(
+                "font_color style 'color_cycle' requires both 'from' and 'to' "
+                "when specifying a hue range, or neither for the full wheel: "
+                "font_color = {style='color_cycle', from=[r,g,b], to=[r,g,b]}"
+            )
+        speed = kwargs.get("speed", 5)
+        if speed == 0:
+            raise ValueError(
+                "font_color style 'color_cycle' with speed=0 is a static color — "
+                "use font_color = [r, g, b] instead"
+            )
+        if from_val is not None:
+            from_hue = _rgb_to_hue(from_val, "font_color 'color_cycle' from")
+            to_hue = _rgb_to_hue(to_val, "font_color 'color_cycle' to")
+            diff = (to_hue - from_hue) % 360
+            if diff > 180:
+                diff -= 360
+            if diff == 0:
+                raise ValueError(
+                    f"font_color 'color_cycle' from and to have the same hue "
+                    f"({from_hue:.0f}°); use a plain color instead: "
+                    "font_color = [r, g, b]"
+                )
+            kwargs["from_hue"] = from_hue
+            kwargs["to_hue"] = to_hue
+            allowed_kwargs = {"speed", "from_hue", "to_hue"}
+
     unknown = set(kwargs.keys()) - allowed_kwargs
     if unknown:
         raise ValueError(
@@ -223,7 +275,7 @@ def _coerce_border(value: Any) -> Any:
     Raises ValueError on unknown styles, missing required kwargs, or
     unknown kwargs.
     """
-    from led_ticker.borders import ConstantBorder, RainbowChaseBorder
+    from led_ticker.borders import ColorCycleBorder, ConstantBorder, RainbowChaseBorder
 
     def _validate_rgb(rgb: Any, context: str) -> tuple[int, int, int]:
         """Validate an RGB triple for a border `constant` color.
@@ -263,9 +315,11 @@ def _coerce_border(value: Any) -> Any:
     if isinstance(value, str):
         if value == "rainbow":
             return RainbowChaseBorder()
+        if value == "color_cycle":
+            return ColorCycleBorder()
         raise ValueError(
             f"unknown border style {value!r}; "
-            "available: 'rainbow', or use an inline table"
+            "available: 'rainbow', 'color_cycle', or use an inline table"
         )
     # Inline table
     if isinstance(value, dict):
@@ -301,8 +355,44 @@ def _coerce_border(value: Any) -> Any:
             return ConstantBorder(
                 color=_validate_rgb(color, "'constant' color"), **kwargs
             )
+        if style == "color_cycle":
+            allowed = {"speed", "thickness", "from", "to"}
+            unknown = set(kwargs.keys()) - allowed
+            if unknown:
+                raise ValueError(
+                    f"border style 'color_cycle' got unknown keys "
+                    f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
+                )
+            speed = kwargs.get("speed", 5)
+            if speed == 0:
+                raise ValueError(
+                    "border style 'color_cycle' with speed=0 is a static color — "
+                    "use border = [r, g, b] instead"
+                )
+            from_val = kwargs.pop("from", None)
+            to_val = kwargs.pop("to", None)
+            if (from_val is None) != (to_val is None):
+                raise ValueError(
+                    "border style 'color_cycle' requires both 'from' and 'to' "
+                    "when specifying a hue range, or neither for the full wheel"
+                )
+            if from_val is not None:
+                from_hue = _rgb_to_hue(from_val, "border 'color_cycle' from")
+                to_hue = _rgb_to_hue(to_val, "border 'color_cycle' to")
+                diff = (to_hue - from_hue) % 360
+                if diff > 180:
+                    diff -= 360
+                if diff == 0:
+                    raise ValueError(
+                        f"border 'color_cycle' from and to have the same hue "
+                        f"({from_hue:.0f}°); use border = [r, g, b] instead"
+                    )
+                kwargs["from_hue"] = from_hue
+                kwargs["to_hue"] = to_hue
+            return ColorCycleBorder(**kwargs)
         raise ValueError(
-            f"unknown border style {style!r}; available: 'rainbow', 'constant'"
+            f"unknown border style {style!r}; "
+            "available: 'rainbow', 'constant', 'color_cycle'"
         )
     # Reject anything else loudly
     raise ValueError(

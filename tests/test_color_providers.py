@@ -115,6 +115,89 @@ class TestColorCycle:
         assert (c0.red, c0.green, c0.blue) != (c10.red, c10.green, c10.blue)
 
 
+class TestColorCycleRange:
+    """color_cycle with from_hue/to_hue restricts the sweep to a hue arc."""
+
+    def test_no_range_full_wheel_unchanged(self):
+        """Without from/to the provider behaves exactly as before."""
+        import colorsys
+
+        from led_ticker.color_providers import ColorCycle
+
+        provider = ColorCycle(speed=5)
+        for frame in [0, 10, 36, 72]:
+            c = provider.color_for(frame, 0, 1)
+            expected_hue = ((frame * 5) % 360) / 360
+            er, eg, eb = (
+                int(x * 255) for x in colorsys.hsv_to_rgb(expected_hue, 1.0, 1.0)
+            )
+            assert (c.red, c.green, c.blue) == (er, eg, eb)
+
+    def test_range_starts_at_from_hue(self):
+        """Frame 0 should produce from_hue exactly."""
+        import colorsys
+
+        from led_ticker.color_providers import ColorCycle
+
+        # Red (hue=0°) → Green (hue=120°), forward arc
+        provider = ColorCycle(speed=5, from_hue=0.0, to_hue=120.0)
+        c = provider.color_for(0, 0, 1)
+        er, eg, eb = (int(x * 255) for x in colorsys.hsv_to_rgb(0.0, 1.0, 1.0))
+        assert (c.red, c.green, c.blue) == (er, eg, eb)
+
+    def test_forward_arc_stays_in_range(self):
+        """Red→Green (120° forward): hues should stay in [0°, 120°]."""
+        import colorsys
+
+        from led_ticker.color_providers import ColorCycle
+
+        provider = ColorCycle(speed=1, from_hue=0.0, to_hue=120.0)
+        for frame in range(200):
+            c = provider.color_for(frame, 0, 1)
+            h, _, _ = colorsys.rgb_to_hsv(c.red / 255, c.green / 255, c.blue / 255)
+            hue_deg = h * 360
+            assert (
+                0 <= hue_deg <= 120.0 or hue_deg == 0.0
+            ), f"frame {frame}: hue {hue_deg:.1f}° outside [0°, 120°]"
+
+    def test_shorter_arc_red_to_blue(self):
+        """Red (0°) → Blue (240°): shorter arc = 120° backward through magenta.
+
+        The hue should stay in [240°, 360°] (magenta/violet band), never
+        passing through yellow/green/cyan (the longer 240° forward arc)."""
+        import colorsys
+
+        from led_ticker.color_providers import ColorCycle
+
+        provider = ColorCycle(speed=1, from_hue=0.0, to_hue=240.0)
+        for frame in range(1, 150):
+            c = provider.color_for(frame, 0, 1)
+            h, _, _ = colorsys.rgb_to_hsv(c.red / 255, c.green / 255, c.blue / 255)
+            hue_deg = h * 360
+            # Backward arc: hue decreases from 0° → 360°/300°/240°
+            # In [240, 360] or back at 0 (frame 0 only)
+            in_backward_band = hue_deg >= 240.0 or hue_deg == 0.0
+            assert in_backward_band, (
+                f"frame {frame}: hue {hue_deg:.1f}° — expected shorter arc "
+                f"(magenta band 240–360°), got yellow/green/cyan"
+            )
+
+    def test_range_wraps_back_to_start(self):
+        """After one full arc traversal the hue should return to from_hue."""
+
+        from led_ticker.color_providers import ColorCycle
+
+        # 120° arc, speed=1 → 120 frames per cycle
+        provider = ColorCycle(speed=1, from_hue=0.0, to_hue=120.0)
+        c_start = provider.color_for(0, 0, 1)
+        c_wrap = provider.color_for(120, 0, 1)
+        assert (c_start.red, c_start.green, c_start.blue) == (
+            c_wrap.red,
+            c_wrap.green,
+            c_wrap.blue,
+        )
+
+
 class TestGradient:
     """Linear left-to-right; char_index spaces hues; frame ignored."""
 

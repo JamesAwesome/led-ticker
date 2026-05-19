@@ -56,6 +56,11 @@ border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}`}
 
 A color_cycle border paints every perimeter pixel the same color per frame, and that color cycles through the hue wheel over time. Unlike the rainbow chase — which gives each pixel its own hue offset — color_cycle pulses the border as a single unified color. The effect is a slow wash of light that shifts hue without any chasing motion.
 
+<DemoGif
+  src="/demos-pinned/border-color_cycle.gif"
+  caption="`color_cycle` border at `speed = 5`, `thickness = 2` — entire perimeter pulses as one hue with no per-pixel chase"
+/>
+
 String shorthand uses the full 360° wheel at the default speed:
 
 <TomlExample
@@ -84,9 +89,14 @@ border = {style = "color_cycle", speed = 3, thickness = 2}`}
 
 Add `from` and `to` RGB colors to confine the cycle to a specific hue arc — the border will pulse between those two colors rather than sweeping the full spectrum. The engine always takes the shorter arc between the two hues.
 
+<DemoGif
+  src="/demos-pinned/border-color_cycle-range.gif"
+  caption="soft pink → lavender arc at `speed = 2` — border pulses only within the pink/purple band, never drifting into green or yellow"
+/>
+
 <TomlExample
-  code={`# Magenta → cyan arc — border pulses in the blue/purple band
-border = {style = "color_cycle", from = [225, 48, 108], to = [120, 230, 255], speed = 3}`}
+  code={`# Soft pink → lavender arc — stays within the brand palette
+border = {style = "color_cycle", from = [255, 176, 240], to = [189, 169, 234], speed = 2, thickness = 2}`}
 />
 
 `speed = 0` is rejected — use `border = [r, g, b]` for a static color. Achromatic `from`/`to` colors (gray, white, black) are also rejected since their hue is undefined.

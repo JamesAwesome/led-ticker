@@ -64,7 +64,7 @@ docs-format:  ## Auto-format the docs site with prettier
 render-demo:  ## Render a single demo gif. Usage: make render-demo CONFIG=path/to.toml OUT=out.gif
 	uv run python tools/render_demo/render.py $(CONFIG) -o $(OUT)
 
-plan-gif:  ## Plan a demo gif (math + flags). Usage: make plan-gif CONFIG=path/to.toml
+plan-gif:  ## Recommended render --duration for a demo (+ cutoff guard). Usage: make plan-gif CONFIG=path/to.toml
 	uv run python tools/gif_plan/plan.py $(CONFIG)
 
 # Long-running widget demos (data-fetch widgets — coinbase, mlb, rss_feed, …).

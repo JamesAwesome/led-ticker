@@ -39,7 +39,7 @@ type = "image"
 path = "config/assets/moon-transparent.png"
 fit = "pillarbox"
 image_align = "center"
-hold_seconds = 6.0`}
+hold_seconds = 4.0`}
 />
 
 ### Image with scrolling text overlay (`scroll_over` — text in front of the image)
@@ -57,7 +57,7 @@ fit = "pillarbox"
 image_align = "left"
 text = "Follow us on Instagram!"
 text_align = "scroll_over"
-hold_seconds = 5.0
+hold_seconds = 7.0
 font_color = [200, 100, 255]`}
 />
 
@@ -160,9 +160,13 @@ Setting `bottom_text_scroll = "scroll_through"` in two-row mode forces the botto
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "image"
-path = "config/assets/album_art.png"
-top_text = "NOW PLAYING"
-bottom_text = "some long song title that flies across"
+path = "config/assets/moon-transparent.png"
+fit = "pillarbox"
+image_align = "right"
+top_text = "@moonbunny"
+top_color = [225, 48, 108]
+bottom_text = "Aerial circus school - now booking spring sessions"
+bottom_color = [255, 240, 200]
 bottom_text_scroll = "scroll_through"`}
 />
 
@@ -196,7 +200,7 @@ top_color = [225, 48, 108]
 bottom_text = "Open daily 10am – 8pm"
 bottom_font = "5x8"
 bottom_color = [255, 240, 200]
-hold_seconds = 6.0`}
+hold_seconds = 7.0`}
 />
 
 ### Typewriter overlay (single-row only — letters type in next to the image)
@@ -216,7 +220,7 @@ text = "moonbunny"
 text_align = "right"
 font_color = "rainbow"
 animation = "typewriter"
-hold_seconds = 5.0`}
+hold_seconds = 8.0`}
 />
 
 ### Typewriter + rainbow border (frame the panel as the text appears)
@@ -237,7 +241,7 @@ text_align = "right"
 font_color = [255, 255, 255]
 animation = "typewriter"
 border = "rainbow"
-hold_seconds = 5.0`}
+hold_seconds = 8.0`}
 />
 
 ## Tips

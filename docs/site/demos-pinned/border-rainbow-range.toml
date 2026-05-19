@@ -1,0 +1,26 @@
+# render-duration: 6
+# RainbowChaseBorder with from/to hue range (warm fire arc).
+# Red → amber — chase stays within the red/orange/yellow band,
+# never drifting into green or blue.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 5.0
+scroll_step_ms = 30
+
+[[playlist.section.widget]]
+type = "message"
+text = "Fire"
+font = "5x8"
+font_color = [254, 255, 204]
+border = {style = "rainbow", from = [220, 30, 0], to = [255, 180, 0], speed = 3, thickness = 2}

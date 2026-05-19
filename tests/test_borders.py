@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest.mock as mock
 
 from led_ticker.borders import (
+    ColorCycleBorder,
     ConstantBorder,
     RainbowChaseBorder,
     _perimeter_pixels,
@@ -219,6 +220,68 @@ class TestConstantBorder:
         ConstantBorder(color=(255, 0, 0)).paint(c0, frame_count=0)
         ConstantBorder(color=(255, 0, 0)).paint(c1, frame_count=999)
         assert c0.pixels == c1.pixels
+
+
+class TestColorCycleBorder:
+    """Whole-border single animated hue — complement to rainbow chase."""
+
+    def test_frame_invariant_is_false(self):
+        assert ColorCycleBorder().frame_invariant is False
+
+    def test_paints_every_perimeter_pixel(self):
+        c = _StubCanvas(10, 4)
+        ColorCycleBorder().paint(c, frame_count=0)
+        assert len(c.pixels) == 24  # 2*(10+4)-4
+
+    def test_all_pixels_same_color_per_frame(self):
+        """Every perimeter pixel gets the same color within one paint call."""
+        c = _StubCanvas(10, 4)
+        ColorCycleBorder(speed=5).paint(c, frame_count=7)
+        colors = set(c.pixels.values())
+        assert len(colors) == 1, f"Expected 1 unique color, got {len(colors)}: {colors}"
+
+    def test_color_advances_with_frame(self):
+        """Different frames must produce different hues."""
+        c0 = _StubCanvas(10, 4)
+        c10 = _StubCanvas(10, 4)
+        ColorCycleBorder(speed=5).paint(c0, frame_count=0)
+        ColorCycleBorder(speed=5).paint(c10, frame_count=10)
+        assert next(iter(c0.pixels.values())) != next(iter(c10.pixels.values()))
+
+    def test_no_range_full_wheel(self):
+        """Without from/to, hues from different frames should span a wide range."""
+        import colorsys
+
+        hues = set()
+        b = ColorCycleBorder(speed=5)
+        for frame in range(72):  # 72 frames × 5°/frame = full 360°
+            c = _StubCanvas(10, 4)
+            b.paint(c, frame_count=frame)
+            r, g, bl = next(iter(c.pixels.values()))
+            h, _, _ = colorsys.rgb_to_hsv(r / 255, g / 255, bl / 255)
+            hues.add(round(h * 360))
+        # Full wheel: should see hues spread across all 360°
+        assert max(hues) - min(hues) > 300
+
+    def test_range_shorter_arc_red_to_blue(self):
+        """Red→Blue (shorter arc = magenta band): hues must stay in [240°, 360°]."""
+        import colorsys
+
+        b = ColorCycleBorder(speed=1, from_hue=0.0, to_hue=240.0)
+        for frame in range(1, 150):
+            c = _StubCanvas(10, 4)
+            b.paint(c, frame_count=frame)
+            r, g, bl = next(iter(c.pixels.values()))
+            h, _, _ = colorsys.rgb_to_hsv(r / 255, g / 255, bl / 255)
+            hue_deg = h * 360
+            assert (
+                hue_deg >= 240.0 or hue_deg == 0.0
+            ), f"frame {frame}: hue {hue_deg:.1f}° — expected magenta band (240–360°)"
+
+    def test_thickness_2_paints_both_rings(self):
+        c = _StubCanvas(10, 4)
+        ColorCycleBorder(thickness=2).paint(c, frame_count=0)
+        assert len(c.pixels) == 40  # outer (24) + inner (16)
 
 
 class TestBorderPaintsBeforeText:

@@ -7,7 +7,7 @@ import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-A border paints a 1- or 2-pixel-thick ring around the entire panel perimeter. Three styles are available: an animated **rainbow chase** that sweeps a hue gradient per pixel around the edge, a **color_cycle** that pulses the entire border as one animated hue, and a **constant color** that frames the content in a steady solid color. All three paint at physical panel resolution — they bypass the `ScaledCanvas` block-expansion path and call `SetPixel` on the real underlying canvas, so a 1-pixel border is always exactly one LED wide regardless of scale.
+A border paints a 1- or 2-pixel-thick ring around the entire panel perimeter. Three styles are available: an animated **rainbow chase** that sweeps a hue gradient per pixel around the edge, a **color_cycle** that pulses the entire border as one animated hue, and a **constant color** that frames the content in a steady solid color. Both `rainbow` and `color_cycle` accept optional `from` / `to` RGB colors to confine the animation to a specific hue arc instead of sweeping the full spectrum. All three paint at physical panel resolution — they bypass the `ScaledCanvas` block-expansion path and call `SetPixel` on the real underlying canvas, so a 1-pixel border is always exactly one LED wide regardless of scale.
 
 <DemoGif
   src="/demos/concepts-borders.gif"
@@ -51,6 +51,48 @@ border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}`}
 **`char_offset`** (default `6`): hue spacing between adjacent perimeter pixels. At `6` and 640 pixels, roughly 10 full rainbows tile around the bigsign edge. Reduce it toward `1` for a slow gradient wash; raise it above `10` for a tighter, flickery pattern.
 
 **`thickness`** (default `1`): `1` is a single-pixel ring; `2` is two concentric rings. Thickness 2 reads better at viewing distance. The two rings share the same hue index sequence, so the inner ring continues where the outer ring ends rather than repeating.
+
+#### Restricting the hue arc
+
+Add `from` and `to` RGB colors to confine the chase to a specific hue arc — the chase will tile only within those two hues rather than sweeping the full 360° spectrum. The engine always takes the shorter arc between the two hues.
+
+<DemoGif
+  src="/demos-pinned/border-rainbow-range.gif"
+  caption="red → amber arc at `speed = 3`, `thickness = 2` — chase tiles only within the warm fire band, never entering green or blue"
+/>
+
+<TomlExample
+  code={`# Warm fire arc — red to amber, 2-ring border
+border = {style = "rainbow", from = [220, 30, 0], to = [255, 180, 0], speed = 3, thickness = 2}`}
+/>
+
+`char_offset` controls how many full arc-widths tile around the perimeter — the same density semantics as the full-wheel chase, just measured in arc-degrees instead of 360°. A narrow arc (60°) with `char_offset = 6` produces roughly the same number of tiles as the full-wheel chase, because the hue spacing is relative to the arc width. Achromatic `from`/`to` colors (gray, white, black) are rejected since their hue is undefined. Same-hue `from`/`to` is also rejected — use `border = [r, g, b]` for a static color.
+
+#### Common patterns
+
+**Fire / warm tones** — keep the chase in the red-to-amber band:
+
+<TomlExample
+  code={`border = {style = "rainbow", from = [220, 30, 0], to = [255, 180, 0], speed = 3, thickness = 2}
+# Red → amber chase, 2-ring border`}
+/>
+
+**Cool ocean sweep** — blue-to-cyan arc for a cold-light feel:
+
+<TomlExample
+  code={`border = {style = "rainbow", from = [0, 80, 255], to = [0, 220, 255], speed = 4, thickness = 1}
+# Deep blue → cyan chase`}
+/>
+
+**Rainbow chase + arc-restricted font_color** — pair a full rainbow border with a brand-palette text color:
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "Open"
+font_color = {style = "color_cycle", from = [255, 176, 240], to = [189, 169, 234], speed = 3}
+border = {style = "rainbow", from = [255, 176, 240], to = [189, 169, 234], speed = 3, thickness = 2}`}
+/>
 
 ### Color cycle
 

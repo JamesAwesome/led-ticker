@@ -266,6 +266,8 @@ def _coerce_border(value: Any) -> Any:
     - `"rainbow"` (string shorthand) → `RainbowChaseBorder()` with defaults
     - `{style = "rainbow", speed = N, char_offset = N, thickness = N}`
       → `RainbowChaseBorder` with kwargs.
+    - `{style = "rainbow", from = [r,g,b], to = [r,g,b], ...}`
+      → `RainbowChaseBorder` restricted to the shorter hue arc.
     - `{style = "constant", color = [r, g, b], thickness = N}`
       → `ConstantBorder` with the color + thickness.
     - `[r, g, b]` (list/tuple) → `ConstantBorder` shorthand.
@@ -330,13 +332,33 @@ def _coerce_border(value: Any) -> Any:
         style = value["style"]
         kwargs = {k: v for k, v in value.items() if k != "style"}
         if style == "rainbow":
-            allowed = {"speed", "char_offset", "thickness"}
+            allowed = {"speed", "char_offset", "thickness", "from", "to"}
             unknown = set(kwargs.keys()) - allowed
             if unknown:
                 raise ValueError(
                     f"border style 'rainbow' got unknown keys "
                     f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
                 )
+            from_val = kwargs.pop("from", None)
+            to_val = kwargs.pop("to", None)
+            if (from_val is None) != (to_val is None):
+                raise ValueError(
+                    "border style 'rainbow' requires both 'from' and 'to' "
+                    "when specifying a hue range, or neither for the full wheel"
+                )
+            if from_val is not None:
+                from_hue = _rgb_to_hue(from_val, "border 'rainbow' from")
+                to_hue = _rgb_to_hue(to_val, "border 'rainbow' to")
+                diff = (to_hue - from_hue) % 360
+                if diff > 180:
+                    diff -= 360
+                if diff == 0:
+                    raise ValueError(
+                        f"border 'rainbow' from and to have the same hue "
+                        f"({from_hue:.0f}°); use border = [r, g, b] instead"
+                    )
+                kwargs["from_hue"] = from_hue
+                kwargs["to_hue"] = to_hue
             return RainbowChaseBorder(**kwargs)
         if style == "constant":
             allowed = {"color", "thickness"}

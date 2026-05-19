@@ -7,12 +7,18 @@ ring around the panel edge at PHYSICAL resolution (bypasses
 so a 1-px border on bigsign actually draws as 1 real LED, not a 4×4
 block.
 
-Two flavors today:
+Three flavors today:
 
 - `RainbowChaseBorder` — per-pixel hue indexed by perimeter position
   (clockwise from top-left, hop count 0..N-1) advancing per frame.
   Same `((idx * char_offset) + frame * speed) % 360` formula
   `Rainbow.color_for` uses for letters, just indexed differently.
+- `ColorCycleBorder` — whole-border single animated hue. The entire
+  perimeter is one color per frame; the hue advances by `speed`
+  degrees per frame. Optionally restricted to a hue arc via
+  `from_hue` / `to_hue` (shorter-arc sweep, same semantics as the
+  `ColorCycle` text provider). Complement to `RainbowChaseBorder`
+  (which varies hue per perimeter pixel; this does not).
 - `ConstantBorder` — solid-color outline; no animation. Marked
   `frame_invariant=True` so the static-text fast path in image
   widgets (and any future BorderEffect-aware fast paths) can opt
@@ -178,6 +184,57 @@ class RainbowChaseBorder:
             hue = ((idx * self.char_offset) + frame_count * self.speed) % 360
             r, g, b = colorsys.hsv_to_rgb(hue / 360.0, 1.0, 1.0)
             real.SetPixel(x, y, int(r * 255), int(g * 255), int(b * 255))
+
+
+class ColorCycleBorder:
+    """Whole-border single animated hue.
+
+    The entire perimeter is painted with one color per frame; the hue
+    advances by `speed` degrees per frame. Optionally restricted to a
+    hue arc via `from_hue` / `to_hue` (shorter-arc sweep, same
+    semantics as `ColorCycle`). Without `from_hue` / `to_hue` the
+    sweep covers the full 360° wheel.
+
+    Complement to `RainbowChaseBorder` — that varies hue per perimeter
+    pixel; this paints every pixel the same color and cycles over time.
+
+    `speed = 0` is rejected at config-load (raises ValueError). Use
+    `border = [r, g, b]` for a static single-color border instead."""
+
+    frame_invariant: bool = False
+    restart_on_visit: bool = False
+
+    def __init__(
+        self,
+        speed: int = 5,
+        from_hue: float | None = None,
+        to_hue: float | None = None,
+        thickness: int = 1,
+    ) -> None:
+        self.speed = speed
+        self.thickness = thickness
+        if from_hue is not None and to_hue is not None:
+            diff = (to_hue - from_hue) % 360
+            if diff > 180:
+                diff -= 360
+            self._from_hue: float = from_hue
+            self._span: float = diff
+        else:
+            self._from_hue = 0.0
+            self._span = 360.0
+
+    def paint(self, canvas: Canvas, frame_count: int) -> None:
+        span = self._span if self._span != 0 else 360.0
+        progress = (frame_count * self.speed) % abs(span)
+        if span < 0:
+            hue = (self._from_hue - progress) % 360
+        else:
+            hue = (self._from_hue + progress) % 360
+        r, g, b = colorsys.hsv_to_rgb(hue / 360.0, 1.0, 1.0)
+        real = unwrap_to_real(canvas)
+        ri, gi, bi = int(r * 255), int(g * 255), int(b * 255)
+        for x, y in _perimeter_pixels(real.width, real.height, self.thickness):
+            real.SetPixel(x, y, ri, gi, bi)
 
 
 class ConstantBorder:

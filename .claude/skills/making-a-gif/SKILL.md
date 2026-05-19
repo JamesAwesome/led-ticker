@@ -12,9 +12,23 @@ Two modes: **docs** (polished — source TOML committed under `docs/site/demos-p
 1. **Get a TOML.** Pasted config → save to `/tmp/gif-plan-<topic>.toml`. A path → use as-is. Only an intent described → draft a minimal config, save to `/tmp/`.
 
 2. **Get the duration:** `make plan-gif CONFIG=<path>` (from repo root). It prints `duration: <N>` and, if a `# render-duration:` header is too short, a `cutoff: header Xs < ~Ys needed` line (relay it verbatim) + non-zero exit.
-   - **If the source TOML already has a `# render-duration: H` header, `H` is the intended capture window — render with `H`. `<N>`/`cutoff:` are advisory only; never override an existing header with `<N>`.** Looping / large-`gif_loops` demos (the `gif_loops = 999` "keep animating" idiom) deliberately pin a short `H` while `<N>` reports the multi-minute full playthrough — exit `2` there is *expected*, not a bug; keep `H`. If the demo is **not** a looping/large-`gif_loops` case, surface the `cutoff:` to the user so they can decide whether the header is intentionally short or just wrong.
-   - Only when there is **no** header (a brand-new demo): use `<N>` as the `--duration` and add `# render-duration: <N>` to the TOML.
-   - Exit `3` = bad path/TOML (fix and re-run, not a result).
+
+   **The planner is a rough estimate for NEW configs only.** Its model has significant blind spots — a `cutoff:` on an EXISTING config is one signal, not a verdict:
+
+   | Situation | What planner reports | What actually happens |
+   |-----------|---------------------|----------------------|
+   | `gif_loops = 999` | 999 × loop_ms (400s+) | Renderer captures cleanly at `H` |
+   | `text_align = "scroll"` on gif widget | Partial overflow time | Always runs ≥ 1 full text pass (scroll floor) |
+   | Intentional partial capture | "Too short" | Short `H` is deliberate (e.g. typewriter capturing part of hold) |
+   | Hires fonts at `scale > 1` | 6 px/char BDF estimate | Narrower glyphs → text fits, no scroll → static GIF if re-rendered |
+   | `bottom_text_loops`, `bottom_text_wrap` | Not modeled | Planner underestimates |
+   | `bottom_text_scroll = "scroll_through"` | Partial overflow | Full pass = canvas_w + content_w ticks |
+
+   **Existing configs (TOML has `# render-duration: H`):** render with `H`; never change it to `<N>` based on planner output. Surface a `cutoff:` only if none of the blind spots above explain it. Do NOT re-render existing pinned demos unless asked — even "correct" math doesn't guarantee the result looks better.
+
+   **New configs (no header):** use `<N>` as the duration and add `# render-duration: <N>` to the TOML.
+
+   Exit `3` = bad path/TOML (fix and re-run, not a planning result).
 
 3. **Colour/contrast judgement** (the tool does NOT do this — you do). Scan colour fields (`font_color`, `top_color`, `bottom_color`, `bg_color`, `border`, separators):
    - Pure black `[0,0,0]` → renders INVISIBLE on the panel. Warn unless used intentionally as "transparent"; suggest `[10,10,10]` or a brand colour.
@@ -24,15 +38,20 @@ Two modes: **docs** (polished — source TOML committed under `docs/site/demos-p
 
 4. **Caption (docs mode only).** Read 2-3 existing `<DemoGif caption="...">` lines from `docs/site/src/content/docs/widgets/<widget>.mdx` and match their matter-of-fact, visual voice.
 
-5. **Surface the recommendation:** the chosen duration, any cutoff/colour notes, and the exact command. `make render-demo` does NOT pass `--duration` (it uses the renderer default), so render at a specific length via the direct renderer:
-   - Docs, existing/pinned demo (TOML has `# render-duration: H`): render at the header — `uv run python tools/render_demo/render.py docs/site/demos-pinned/<name>.toml -o docs/site/public/demos-pinned/<name>.gif --duration H`. (Or `make render-pinned-demos` to rebuild the whole pinned set, which reads each header.) Do not change `H` to `<N>`.
-   - Docs, new demo (no header yet): add `# render-duration: <N>` to the TOML, then `uv run python tools/render_demo/render.py docs/site/demos-pinned/<name>.toml -o docs/site/public/demos-pinned/<name>.gif --duration <N>`.
-   - Dev: `uv run python tools/render_demo/render.py /tmp/gif-plan-<topic>.toml -o /tmp/preview-<topic>.gif --duration <N>`. A shorter duration (one pass + a beat) is fine — verification, not a polished loop.
+5. **Surface the recommendation:** the chosen duration, any cutoff/colour notes, and the exact command. `make render-demo` does NOT pass `--duration`, so render at a specific length via the direct renderer:
+   - Existing/pinned demo: `uv run python tools/render_demo/render.py docs/site/demos-pinned/<name>.toml -o docs/site/public/demos-pinned/<name>.gif --duration H`. (Or `make render-pinned-demos` to rebuild the whole pinned set from headers.)
+   - New docs demo: add `# render-duration: <N>` to the TOML, then same command with `--duration <N>`.
+   - Dev: `uv run python tools/render_demo/render.py /tmp/gif-plan-<topic>.toml -o /tmp/preview-<topic>.gif --duration <N>`. Shorter (one pass + a beat) is fine — verification, not a polished loop.
+
+## Docs-sync audit (separate from planner)
+
+When asked to verify that docs match generated GIFs, do a manual read-and-compare of the inline `<TomlExample code={...}>` blocks in `docs/site/src/content/docs/widgets/<widget>.mdx` against the actual pinned configs in `docs/site/demos-pinned/`. The planner does not help here. Key fields to verify: `hold_time`/`hold_seconds`, `path`, text content (`top_text`, `bottom_text`, `text`), and any fields called out in the adjacent caption.
 
 ## Don'ts
 
-- Don't run `make render-demo` yourself — rendering takes ~10s and the user usually iterates the config first. Suggest the command.
+- Don't run the renderer yourself — rendering takes ~10s and the user usually iterates first. Suggest the command.
 - Don't modify the user's config unless asked.
-- Don't hand-compute durations — that's what `make plan-gif` is for; re-invoke it instead.
+- Don't hand-compute durations — re-invoke `make plan-gif` instead.
+- Don't change existing `# render-duration:` headers based on planner output without explicit user direction.
 
 See `examples/example.md` for an end-to-end walkthrough.

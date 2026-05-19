@@ -189,6 +189,63 @@ class TestRainbowChaseBorder:
         )
 
 
+class TestRainbowChaseBorderHueRange:
+    """from_hue / to_hue arc restriction on RainbowChaseBorder."""
+
+    def test_all_hues_within_arc(self):
+        """With from/to set, every painted hue must fall within the arc."""
+        import colorsys
+
+        c = _StubCanvas(20, 8)
+        # Red (0°) → green (120°) — 120° forward arc
+        RainbowChaseBorder(from_hue=0.0, to_hue=120.0).paint(c, frame_count=0)
+        for (x, y), (r, g, b) in c.pixels.items():
+            h, _s, _v = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
+            hue_deg = h * 360
+            assert (
+                0 <= hue_deg <= 120
+            ), f"hue {hue_deg:.1f}° outside 0–120° arc at ({x},{y})"
+
+    def test_arc_advances_with_frame(self):
+        """frame_count advances the phase within the arc, producing
+        different colors across frames."""
+        c0 = _StubCanvas(20, 8)
+        c1 = _StubCanvas(20, 8)
+        RainbowChaseBorder(from_hue=0.0, to_hue=90.0, speed=4).paint(c0, frame_count=0)
+        RainbowChaseBorder(from_hue=0.0, to_hue=90.0, speed=4).paint(c1, frame_count=10)
+        differing = sum(1 for k in c0.pixels if c0.pixels[k] != c1.pixels[k])
+        assert differing > 0, "arc-restricted chase did not advance with frame_count"
+
+    def test_shorter_arc_chosen_for_obtuse_span(self):
+        """Red→blue spans 240° forward or 120° backward. The shorter
+        (backward) arc must be selected, keeping hues in 240–360°."""
+        import colorsys
+
+        c = _StubCanvas(20, 8)
+        # Red 0°, Blue 240°. Shorter arc is −120° (through magenta/purple).
+        RainbowChaseBorder(from_hue=0.0, to_hue=240.0, char_offset=1).paint(
+            c, frame_count=0
+        )
+        for (x, y), (r, g, b) in c.pixels.items():
+            h, _s, _v = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
+            hue_deg = h * 360
+            in_arc = hue_deg >= 240 or hue_deg == 0
+            assert in_arc, f"hue {hue_deg:.1f}° not in 240–360° arc at ({x},{y})"
+
+    def test_speed_zero_is_frame_invariant(self):
+        """speed=0 with an arc produces identical output every frame."""
+        assert (
+            RainbowChaseBorder(from_hue=0.0, to_hue=120.0, speed=0).frame_invariant
+            is True
+        )
+
+    def test_full_wheel_when_no_from_to(self):
+        """Without from/to, _arc sentinel is 360.0 (full wheel)."""
+        b = RainbowChaseBorder()
+        assert b._arc == 360.0
+        assert b._from_hue == 0.0
+
+
 class TestConstantBorder:
     def test_frame_invariant_is_true(self):
         assert ConstantBorder(color=(255, 0, 0)).frame_invariant is True

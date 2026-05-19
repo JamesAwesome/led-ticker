@@ -135,9 +135,22 @@ def _perimeter_pixels(
 class RainbowChaseBorder:
     """Per-pixel rainbow chase around the perimeter.
 
-    Hue at perimeter index `idx` and frame `f` is:
+    Without `from_hue`/`to_hue`, hue at perimeter index `idx` and
+    frame `f` is:
 
         hue = ((idx * char_offset) + f * speed) % 360
+
+    With `from_hue`/`to_hue` (shorter-arc restriction), the formula
+    maps the same index+frame value into the arc:
+
+        phase = (idx * char_offset + f * speed) % arc_width
+        hue   = from_hue + phase        (arc_width > 0, forward arc)
+        hue   = from_hue - phase        (arc_width < 0, backward arc)
+
+    where `arc_width = (to_hue - from_hue) % 360`, adjusted to the
+    shorter arc (< 180°). `char_offset` controls how many full arc
+    widths tile around the perimeter — the same density semantics as
+    the full-wheel case, just measured in arc-degrees instead of 360°.
 
     Defaults are tuned for bigsign-scale panels (256+64+256+64 = 640
     perimeter pixels at scale=4) so the chase moves at a comfortable
@@ -147,15 +160,14 @@ class RainbowChaseBorder:
     revolution at 50ms/frame). `char_offset = 6` gives ~60 distinct
     hue cycles around the 640-pixel perimeter — visually dense
     enough to read as "rainbow" rather than "two-color gradient".
-    `thickness = 1` is a 1-pixel border; `2` is a 2-pixel ring.
+    With a narrow arc, the same `char_offset` tiles more full
+    arc-cycles around the edge. `thickness = 1` is a 1-pixel border;
+    `2` is a 2-pixel ring.
 
     `frame_invariant` is dynamic: True only when `speed == 0` (the
     chase doesn't advance per frame, so paint output is identical
-    every tick). Lets a future fast-path gate skip per-tick redraws
-    on a pinned rainbow without animation. `char_offset` doesn't
-    affect frame-invariance — it indexes by perimeter position, not
-    by frame, so the per-pixel pattern still varies even with
-    `char_offset = 0` if `speed > 0`.
+    every tick). `char_offset` doesn't affect frame-invariance — it
+    indexes by perimeter position, not by frame.
     """
 
     # Continuous chase: phase advances across loop_count boundaries
@@ -167,10 +179,21 @@ class RainbowChaseBorder:
         speed: int = 4,
         char_offset: int = 6,
         thickness: int = 1,
+        from_hue: float | None = None,
+        to_hue: float | None = None,
     ) -> None:
         self.speed = speed
         self.char_offset = char_offset
         self.thickness = thickness
+        if from_hue is not None and to_hue is not None:
+            diff = (to_hue - from_hue) % 360
+            if diff > 180:
+                diff -= 360
+            self._from_hue: float = from_hue
+            self._arc: float = diff
+        else:
+            self._from_hue = 0.0
+            self._arc = 360.0  # sentinel: full wheel
 
     @property
     def frame_invariant(self) -> bool:
@@ -178,10 +201,16 @@ class RainbowChaseBorder:
 
     def paint(self, canvas: Canvas, frame_count: int) -> None:
         real = unwrap_to_real(canvas)
+        arc = self._arc if self._arc != 0 else 360.0
+        abs_arc = abs(arc)
         for idx, (x, y) in enumerate(
             _perimeter_pixels(real.width, real.height, self.thickness)
         ):
-            hue = ((idx * self.char_offset) + frame_count * self.speed) % 360
+            phase = (idx * self.char_offset + frame_count * self.speed) % abs_arc
+            if arc < 0:
+                hue = (self._from_hue - phase) % 360
+            else:
+                hue = (self._from_hue + phase) % 360
             r, g, b = colorsys.hsv_to_rgb(hue / 360.0, 1.0, 1.0)
             real.SetPixel(x, y, int(r * 255), int(g * 255), int(b * 255))
 

@@ -57,3 +57,41 @@ def coerce_int(value: object, *, field: str) -> tuple[int, CoercionWarning | Non
             fix=f'Replace {field} = "{value}" with {field} = {coerced} (no quotes).',
         )
     raise ValueError(f"{field} must be an int; got {type(value).__name__} ({value!r}).")
+
+
+def coerce_float(value: object, *, field: str) -> tuple[float, CoercionWarning | None]:
+    """Coerce string-of-number → float. Accept int passthrough.
+
+    Rejects: bool, non-numeric strings, None.
+    """
+    if isinstance(value, bool):
+        raise ValueError(
+            f"{field} must be a float; got bool ({value!r}). "
+            f"Use a number (e.g. {field} = 3.0)."
+        )
+    if isinstance(value, int):
+        return float(value), None
+    if isinstance(value, float):
+        return value, None
+    if isinstance(value, str):
+        try:
+            coerced = float(value)
+        except ValueError:
+            raise ValueError(
+                f'{field} must be a float; got str ("{value}"). '
+                f"Drop the quotes around the number (e.g. {field} = 3.0 "
+                f'instead of {field} = "3.0").'
+            ) from None
+        return coerced, CoercionWarning(
+            field=field,
+            original=value,
+            coerced=coerced,
+            message=(
+                f'{field} was a string ("{value}"); coerced to float {coerced}. '
+                f"Drop the quotes around the number to silence this warning."
+            ),
+            fix=f'Replace {field} = "{value}" with {field} = {coerced} (no quotes).',
+        )
+    raise ValueError(
+        f"{field} must be a float; got {type(value).__name__} ({value!r})."
+    )

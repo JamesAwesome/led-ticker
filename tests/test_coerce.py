@@ -2,7 +2,7 @@
 
 import pytest
 
-from led_ticker._coerce import CoercionWarning, coerce_int
+from led_ticker._coerce import CoercionWarning, coerce_float, coerce_int
 
 
 class TestCoerceInt:
@@ -56,3 +56,49 @@ class TestCoerceInt:
         assert warning.fix  # non-empty
         assert "font_size" in warning.fix
         assert "25" in warning.fix
+
+
+class TestCoerceFloat:
+    def test_float_passthrough(self):
+        value, warning = coerce_float(3.0, field="hold_time")
+        assert value == 3.0
+        assert warning is None
+
+    def test_int_promotes_to_float_no_warning(self):
+        # int → float promotion is standard Python; no coercion warning.
+        value, warning = coerce_float(3, field="hold_time")
+        assert value == 3.0
+        assert isinstance(value, float)
+        assert warning is None
+
+    def test_string_of_decimal_coerces_with_warning(self):
+        value, warning = coerce_float("3.0", field="hold_time")
+        assert value == 3.0
+        assert warning is not None
+        assert warning.field == "hold_time"
+        assert warning.original == "3.0"
+        assert warning.coerced == 3.0
+
+    def test_string_of_integer_coerces_to_float(self):
+        value, warning = coerce_float("3", field="hold_time")
+        assert value == 3.0
+        assert warning is not None
+
+    def test_bool_rejected(self):
+        with pytest.raises(ValueError, match="must be a float"):
+            coerce_float(True, field="hold_time")
+
+    def test_non_numeric_string_rejected(self):
+        with pytest.raises(ValueError, match="must be a float"):
+            coerce_float("3s", field="hold_time")
+
+    def test_none_rejected(self):
+        with pytest.raises(ValueError, match="must be a float"):
+            coerce_float(None, field="hold_time")
+
+    def test_warning_carries_fix_string(self):
+        """Same convention as coerce_int — warnings include actionable fix."""
+        _, warning = coerce_float("3.0", field="hold_time")
+        assert warning is not None
+        assert warning.fix
+        assert "hold_time" in warning.fix

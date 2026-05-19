@@ -1,4 +1,4 @@
-# render-duration: 8
+# render-duration: 14
 # bottom_text_loops demo: held BREAKING up top, bottom-row marquee
 # completes exactly TWO full wrap cycles before the section ends.
 # Without bottom_text_loops the section would end on hold_time alone,

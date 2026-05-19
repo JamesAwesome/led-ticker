@@ -19,7 +19,7 @@ The slug list rots fast as new icons are added. The source of truth is `src/led_
 | `:pride:` | <img src="/emoji/pride-low.png" width="64" alt="pride lowres"> | <img src="/emoji/pride-hi.png" width="64" alt="pride hires"> | Pride flag stripes (default rainbow; see variants below) |
 | `:rain:` | <img src="/emoji/rain-low.png" width="64" alt="rain lowres"> | <img src="/emoji/rain-hi.png" width="64" alt="rain hires"> | Rain icon |
 | `:snow:` | <img src="/emoji/snow-low.png" width="64" alt="snow lowres"> | <img src="/emoji/snow-hi.png" width="64" alt="snow hires"> | Snow icon |
-| `:star:` | <img src="/emoji/star-low.png" width="64" alt="star lowres"> | <img src="/emoji/star-hi.png" width="64" alt="star hires"> | Yellow star |
+| `:star:` | <img src="/emoji/star-low.png" width="64" alt="star lowres"> | <img src="/emoji/star-hi.png" width="64" alt="star hires"> | Yellow star (default; see color variants below) |
 | `:sun:` | <img src="/emoji/sun-low.png" width="64" alt="sun lowres"> | <img src="/emoji/sun-hi.png" width="64" alt="sun hires"> | Sun icon |
 | `:taco:` | <img src="/emoji/taco-low.png" width="64" alt="taco lowres"> | <img src="/emoji/taco-hi.png" width="64" alt="taco hires"> | Taco |
 | `:thunder:` | <img src="/emoji/thunder-low.png" width="64" alt="thunder lowres"> | <img src="/emoji/thunder-hi.png" width="64" alt="thunder hires"> | Thunder icon |
@@ -39,6 +39,20 @@ The slug list rots fast as new icons are added. The source of truth is `src/led_
 | `:heart_blue:` | <img src="/emoji/heart_blue-low.png" width="48" alt="heart_blue lowres"> | <img src="/emoji/heart_blue-hi.png" width="48" alt="heart_blue hires"> |
 | `:heart_purple:` | <img src="/emoji/heart_purple-low.png" width="48" alt="heart_purple lowres"> | <img src="/emoji/heart_purple-hi.png" width="48" alt="heart_purple hires"> |
 | `:heart_pink:` | <img src="/emoji/heart_pink-low.png" width="48" alt="heart_pink lowres"> | <img src="/emoji/heart_pink-hi.png" width="48" alt="heart_pink hires"> |
+
+### Star colors
+
+`:star:` defaults to yellow. Six additional color slugs share the same shape:
+
+| Slug | Lowres | Hires |
+|------|--------|-------|
+| `:star_red:` | <img src="/emoji/star_red-low.png" width="48" alt="star_red lowres"> | <img src="/emoji/star_red-hi.png" width="48" alt="star_red hires"> |
+| `:star_orange:` | <img src="/emoji/star_orange-low.png" width="48" alt="star_orange lowres"> | <img src="/emoji/star_orange-hi.png" width="48" alt="star_orange hires"> |
+| `:star_yellow:` | <img src="/emoji/star_yellow-low.png" width="48" alt="star_yellow lowres"> | <img src="/emoji/star_yellow-hi.png" width="48" alt="star_yellow hires"> |
+| `:star_green:` | <img src="/emoji/star_green-low.png" width="48" alt="star_green lowres"> | <img src="/emoji/star_green-hi.png" width="48" alt="star_green hires"> |
+| `:star_blue:` | <img src="/emoji/star_blue-low.png" width="48" alt="star_blue lowres"> | <img src="/emoji/star_blue-hi.png" width="48" alt="star_blue hires"> |
+| `:star_purple:` | <img src="/emoji/star_purple-low.png" width="48" alt="star_purple lowres"> | <img src="/emoji/star_purple-hi.png" width="48" alt="star_purple hires"> |
+| `:star_pink:` | <img src="/emoji/star_pink-low.png" width="48" alt="star_pink lowres"> | <img src="/emoji/star_pink-hi.png" width="48" alt="star_pink hires"> |
 
 ### Cat colors
 

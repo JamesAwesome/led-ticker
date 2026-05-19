@@ -52,7 +52,7 @@ cyan song title flies fully offscreen-to-offscreen on the bottom".
 Then surface:
 
 ```bash
-make render-demo CONFIG=docs/site/demos-pinned/two_row-scroll_through.toml OUT=docs/site/public/demos-pinned/two_row-scroll_through.gif
+uv run python tools/render_demo/render.py docs/site/demos-pinned/two_row-scroll_through.toml -o docs/site/public/demos-pinned/two_row-scroll_through.gif --duration 10
 ```
 
 Wire `<DemoGif>` into the docs page with the caption; commit the TOML,

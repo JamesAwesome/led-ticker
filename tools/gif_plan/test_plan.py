@@ -191,6 +191,97 @@ text = "HI"
         assert "usage:" in capsys.readouterr().err
 
 
+class TestConstantsMatchEngine:
+    """Bind plan.py's mirrored constants to their led_ticker source.
+
+    A future engine default change will fail these assertions loudly
+    instead of silently mis-estimating gif durations.
+    """
+
+    def test_font_cell_w_matches_font_default_bbx_width(self):
+        """_FONT_CELL_W mirrors the FONT_DEFAULT (6x12.bdf) cell advance width.
+
+        Source: get_bdf_for(FONT_DEFAULT).bbx_width — the FONTBOUNDINGBOX
+        width parsed from 6x12.bdf, which is the canonical advance width
+        for that bitmap font.
+        """
+        from tools.gif_plan.plan import _FONT_CELL_W
+
+        from led_ticker.fonts import FONT_DEFAULT, get_bdf_for
+
+        engine_value = get_bdf_for(FONT_DEFAULT).bbx_width
+        assert engine_value == _FONT_CELL_W, (
+            f"plan._FONT_CELL_W={_FONT_CELL_W} drifted from "
+            f"get_bdf_for(FONT_DEFAULT).bbx_width={engine_value}"
+        )
+
+    def test_default_hold_s_matches_section_config(self):
+        """_DEFAULT_HOLD_S mirrors SectionConfig.hold_time default.
+
+        Source: SectionConfig.__dataclass_fields__['hold_time'].default —
+        SectionConfig is a plain dataclass; field defaults are directly
+        accessible via __dataclass_fields__.
+        """
+        from tools.gif_plan.plan import _DEFAULT_HOLD_S
+
+        from led_ticker.config import SectionConfig
+
+        engine_value = SectionConfig.__dataclass_fields__["hold_time"].default
+        assert engine_value == _DEFAULT_HOLD_S, (
+            f"plan._DEFAULT_HOLD_S={_DEFAULT_HOLD_S} drifted from "
+            f"SectionConfig.hold_time default={engine_value}"
+        )
+
+    def test_default_hold_seconds_matches_still_image(self):
+        """_DEFAULT_HOLD_SECONDS mirrors StillImage.hold_seconds default.
+
+        Source: attrs.fields(StillImage) — StillImage is an attrs class
+        (@attrs.define); field defaults are accessible via attrs.fields().
+        """
+        import attrs
+        from tools.gif_plan.plan import _DEFAULT_HOLD_SECONDS
+
+        from led_ticker.widgets.still import StillImage
+
+        engine_value = next(
+            f.default for f in attrs.fields(StillImage) if f.name == "hold_seconds"
+        )
+        assert engine_value == _DEFAULT_HOLD_SECONDS, (
+            f"plan._DEFAULT_HOLD_SECONDS={_DEFAULT_HOLD_SECONDS} drifted from "
+            f"StillImage.hold_seconds default={engine_value}"
+        )
+
+    def test_default_step_ms_matches_engine_tick(self):
+        """_DEFAULT_STEP_MS mirrors ENGINE_TICK_MS in ticker.py.
+
+        The plan uses _DEFAULT_STEP_MS as the per-pixel scroll cadence when
+        a section omits scroll_step_ms. The engine's default scroll cadence
+        is Ticker.scroll_speed = 0.05 s = 50 ms = ENGINE_TICK_MS. Both
+        constants should agree.
+
+        Source: led_ticker.ticker.ENGINE_TICK_MS — a module-level int
+        constant. Cross-checked against attrs.fields(Ticker).scroll_speed
+        default (0.05 s → 50 ms) to catch either drifting independently.
+        """
+        import attrs
+        from tools.gif_plan.plan import _DEFAULT_STEP_MS
+
+        from led_ticker.ticker import ENGINE_TICK_MS, Ticker
+
+        assert ENGINE_TICK_MS == _DEFAULT_STEP_MS, (
+            f"plan._DEFAULT_STEP_MS={_DEFAULT_STEP_MS} drifted from "
+            f"ticker.ENGINE_TICK_MS={ENGINE_TICK_MS}"
+        )
+        scroll_speed_default = next(
+            f.default for f in attrs.fields(Ticker) if f.name == "scroll_speed"
+        )
+        assert int(scroll_speed_default * 1000) == _DEFAULT_STEP_MS, (
+            f"plan._DEFAULT_STEP_MS={_DEFAULT_STEP_MS} drifted from "
+            f"Ticker.scroll_speed default {scroll_speed_default}s "
+            f"(= {int(scroll_speed_default * 1000)} ms)"
+        )
+
+
 class TestPinnedDemoSanity:
     """Every shipped demo must produce a usable number without crashing.
     NO accuracy assertion — the precise +/-20% pin is intentionally

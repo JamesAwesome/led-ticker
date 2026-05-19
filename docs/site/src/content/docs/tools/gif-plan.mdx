@@ -5,7 +5,9 @@ description: Get the recommended render --duration for a led-ticker demo TOML, a
 
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-`gif-plan` reads a led-ticker demo `config.toml` and prints the recommended `--duration` to render it with. It exists so the question "how long should I render this?" has a one-shot answer instead of a guess-render-recheck loop. The estimate is deliberately coarse — it models only the dominant timing terms (hold time, overflow scroll, gif loops); precision is not the goal, not wasting a render is. The script lives at [`tools/gif_plan/plan.py`](https://github.com/jamesawesome/led-ticker/blob/main/tools/gif_plan/plan.py) and ships as `make plan-gif`. The math layer is the planner; [`render-demo`](/tools/render-demo/) is the pixels layer.
+`gif-plan` reads a led-ticker demo `config.toml` and prints the recommended `--duration` to render it with. It exists so the question "how long should I render this?" has a one-shot answer instead of a guess-render-recheck loop. The estimate is deliberately coarse — it models only the dominant timing terms (hold time, overflow scroll, gif loops); precision is not the goal, not wasting a render is.
+
+The script lives at [`tools/gif_plan/plan.py`](https://github.com/jamesawesome/led-ticker/blob/main/tools/gif_plan/plan.py) and ships as `make plan-gif`. The math layer is the planner; [`render-demo`](/tools/render-demo/) is the pixels layer.
 
 ## Usage
 
@@ -28,27 +30,23 @@ cutoff: header 5s < ~8s needed
 
 ## Exit codes
 
-| Code | Meaning                                                              |
-| ---- | -------------------------------------------------------------------- |
-| `0`  | Clean — recommended duration printed.                                |
-| `2`  | The `# render-duration:` header is shorter than the estimate.        |
-| `3`  | Tool error — config not found or malformed TOML (message on stderr). |
+| Code | Meaning                                                                                                                          |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | Clean — recommended duration printed.                                                                                            |
+| `2`  | The `# render-duration:` header is shorter than the estimate (expected, and ignorable, when `gif_loops` is intentionally large). |
+| `3`  | Tool error — config not found or malformed TOML (message on stderr).                                                             |
 
 ## Out of scope
 
 The estimate is coarse and intentionally ignores some cases:
-`forever_scroll` / `infini_scroll` / `loop_count = 0` sections
-(runtime-dependent → contribute 0); data-fetch widgets (`weather`,
-`mlb`, crypto, `rss_feed` — depend on fetched data → contribute 0);
-bigsign `pixel_mapper` (naive canvas-width); wrap floors, two-row
-overlay marquee, hires width, and inter-widget transition time (not
-modelled — treat the number as a lower bound for transition-heavy
-playlists). For looping or large-`gif_loops` demos (the
-`gif_loops = 999` "keep animating" idiom) the recommended `--duration`
-is the full multi-minute playthrough, not the capture window — such
-demos deliberately pin a short `# render-duration:` header; render
-with the header, treat the recommendation as an upper bound. The
-companion skill at
+
+- `forever_scroll` / `infini_scroll` / `loop_count = 0` sections — runtime-dependent, contribute 0.
+- Data-fetch widgets (`weather`, `mlb`, crypto, `rss_feed`) — depend on fetched data, contribute 0.
+- Bigsign `pixel_mapper` — naive canvas-width used.
+- Wrap floors, two-row overlay marquee, hires width, inter-widget transition time — not modelled; treat the number as a lower bound for transition-heavy playlists.
+- For looping or large-`gif_loops` demos (the `gif_loops = 999` "keep animating" idiom) the recommended `--duration` is the full multi-minute playthrough, not the capture window — such demos deliberately pin a short `# render-duration:` header; render with the header, treat the recommendation as an upper bound.
+
+The companion skill at
 [`.claude/skills/making-a-gif/`](https://github.com/jamesawesome/led-ticker/tree/main/.claude/skills/making-a-gif)
 wraps this plus `render-demo` and adds LED-panel colour/contrast
 judgement.

@@ -75,7 +75,7 @@ def widget_ms(widget: dict, section: dict, canvas_w: int, config_dir: Path) -> i
         step = int(section.get("scroll_step_ms") or _DEFAULT_STEP_MS)
         overflow = max(0, _content_w(text) - canvas_w)
         return hold_ms + overflow * step
-    if wtype in ("image", "still"):
+    if wtype in ("image",):
         return int(float(widget.get("hold_seconds", _DEFAULT_HOLD_SECONDS)) * 1000)
     if wtype == "gif":
         loops = int(widget.get("gif_loops", 1))

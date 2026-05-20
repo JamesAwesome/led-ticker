@@ -2019,3 +2019,86 @@ bottom_text_scroll = "marquee"
         assert (
             not rule_32_errors
         ), f"marquee mode should not trigger rule 32; got {rule_32_errors}"
+
+
+@pytest.mark.asyncio
+async def test_validate_surfaces_coerced_font_size_as_warning(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("""
+[display]
+rows = 64
+cols = 256
+default_scale = 4
+
+[[playlist.section]]
+mode = "swap"
+content_height = 16
+hold_time = 3.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+font = "Inter-Bold"
+font_size = "25"
+""")
+    from led_ticker.validate import validate_config
+
+    result = await validate_config(cfg)
+    assert result.valid  # warnings don't fail validation
+    assert len(result.errors) == 0
+    assert any(w.rule == 37 and "font_size" in w.message for w in result.warnings)
+
+
+@pytest.mark.asyncio
+async def test_validate_surfaces_image_align_case_as_warning(tmp_path):
+    from PIL import Image
+
+    img_path = tmp_path / "tiny.png"
+    Image.new("RGB", (1, 1), (255, 0, 0)).save(img_path)
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("""
+[display]
+rows = 64
+cols = 256
+default_scale = 4
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "image"
+path = "tiny.png"
+image_align = "Left"
+""")
+    from led_ticker.validate import validate_config
+
+    result = await validate_config(cfg)
+    assert result.valid
+    assert any(w.rule == 37 and "image_align" in w.message for w in result.warnings)
+
+
+@pytest.mark.asyncio
+async def test_validate_font_size_true_still_errors(tmp_path):
+    """Bool is still a hard error — the rule-28 / rule-10 pattern."""
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("""
+[display]
+rows = 64
+cols = 256
+default_scale = 4
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+font = "Inter-Bold"
+font_size = true
+""")
+    from led_ticker.validate import validate_config
+
+    result = await validate_config(cfg)
+    assert not result.valid
+    assert any("must be an int" in e.message for e in result.errors)

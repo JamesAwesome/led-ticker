@@ -12,6 +12,28 @@ widget's page — this page covers the top-level blocks that wrap them:
 Field names and defaults match the dataclasses in
 `src/led_ticker/config.py`. For per-widget knobs see [Widgets](/widgets/).
 
+## Coercion behavior
+
+Some config slips that would crash startup are silently corrected with a warning. Warnings show up in `led-ticker validate` output AND in the runtime log — fix the source to silence them.
+
+**Numeric strings → numbers.** Every integer or float field accepts a string-of-digits in addition to a bare number:
+
+```toml
+font_size = "25"   # works (coerced to 25, warns)
+font_size = 25     # canonical, no warning
+```
+
+Applies to `font_size`, `font_threshold`, `hold_time`, `brightness`, `content_height`, `scale`, `loop_count`, and every other numeric field on `[display]`, `[[playlist.section]]`, and per-widget configs.
+
+**Closed-set enum strings → case-insensitive.** Fields with a fixed value set (`text_align`, `text_valign`, `image_align`, `scroll_direction`, `fit`, `bottom_text_scroll`, `easing`) are case-insensitive. The canonical form is lowercase:
+
+```toml
+image_align = "Left"   # works (coerced to "left", warns)
+image_align = "left"   # canonical, no warning
+```
+
+**What's NOT coerced.** Colors (`[r, g, b]`), booleans, file paths, and free-text fields stay strict — typos here surface as hard errors rather than silent fixes. The `style` keys inside inline-table providers (`font_color = {style="rainbow", ...}`) also stay case-sensitive.
+
 ## `[display]`
 
 Hardware and panel-layout settings. Most of these map straight onto

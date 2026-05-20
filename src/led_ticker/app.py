@@ -28,6 +28,12 @@ from led_ticker.frame import LedFrame
 from led_ticker.ticker import Ticker, _maybe_wrap
 from led_ticker.transitions import get_transition_class, run_transition
 from led_ticker.widgets import get_widget_class
+from led_ticker.widgets._image_base import (
+    VALID_SCROLL_DIRECTIONS,
+    VALID_TEXT_ALIGNS,
+    VALID_TEXT_VALIGNS,
+)
+from led_ticker.widgets._image_fit import VALID_FITS, VALID_IMAGE_ALIGNS
 from led_ticker.widgets.message import TickerMessage
 from led_ticker.widgets.mlb import MLBScoreMonitor
 from led_ticker.widgets.mlb_standings import MLBStandingsMonitor
@@ -507,6 +513,82 @@ def _is_hires_font_name(name: str) -> bool:
     return name in list_available_hires_fonts()
 
 
+# Numeric fields that flow through widget_cfg before reaching the
+# widget constructor. The pop()-side fields (font_size, font_threshold,
+# top_font_size, etc.) also pass through here so their type is fixed
+# before resolve_font sees them.
+_WIDGET_INT_FIELDS = frozenset(
+    {
+        "font_size",
+        "font_threshold",
+        "top_font_size",
+        "bottom_font_size",
+        "top_font_threshold",
+        "bottom_font_threshold",
+        "top_row_height",
+        "text_loops",
+        "bottom_text_loops",
+        "gif_loops",
+        "padding",
+        "scroll_speed_ms",
+        "text_x_offset",
+        "text_y_offset",
+        "top_text_y_offset",
+        "bottom_text_y_offset",
+    }
+)
+
+_WIDGET_FLOAT_FIELDS = frozenset(
+    {
+        "hold_seconds",
+    }
+)
+
+
+# text_align includes "auto": image widgets use it as a pre-resolution sentinel
+# (maps to a side opposite the image at draw time); VALID_TEXT_ALIGNS covers
+# post-resolution values only, so the coerce-side set augments it here.
+_WIDGET_ENUM_FIELDS: dict[str, frozenset[str]] = {
+    "text_align": VALID_TEXT_ALIGNS | {"auto"},
+    "text_valign": VALID_TEXT_VALIGNS,
+    "image_align": VALID_IMAGE_ALIGNS,
+    "scroll_direction": VALID_SCROLL_DIRECTIONS,
+    "fit": VALID_FITS,
+    "bottom_text_scroll": frozenset({"marquee", "scroll_through"}),
+}
+
+
+def _coerce_widget_cfg(
+    widget_cfg: dict[str, Any],
+    collector: list[Any] | None,
+) -> None:
+    """In-place coerce of widget_cfg numeric fields. Bool stays a hard
+    error so the existing bottom_text_loops / font_threshold guards
+    continue to fire."""
+    from led_ticker._coerce import coerce_choice, coerce_float, coerce_int
+
+    for name in list(widget_cfg.keys()):
+        if name in _WIDGET_INT_FIELDS:
+            value, warning = coerce_int(widget_cfg[name], field=f"widget.{name}")
+            widget_cfg[name] = value
+            if warning is not None and collector is not None:
+                collector.append(warning)
+        elif name in _WIDGET_FLOAT_FIELDS:
+            value, warning = coerce_float(widget_cfg[name], field=f"widget.{name}")
+            widget_cfg[name] = value
+            if warning is not None and collector is not None:
+                collector.append(warning)
+        elif name in _WIDGET_ENUM_FIELDS:
+            value, warning = coerce_choice(
+                widget_cfg[name],
+                field=f"widget.{name}",
+                valid=_WIDGET_ENUM_FIELDS[name],
+            )
+            widget_cfg[name] = value
+            if warning is not None and collector is not None:
+                collector.append(warning)
+
+
 def _build_trans_obj(trans_cfg: TransitionConfig) -> Any:
     """Construct a transition instance from a `TransitionConfig`.
 
@@ -539,6 +621,7 @@ async def _build_widget(
     default_bg_color: tuple[int, int, int] | None = None,
     panel_h_for_warning: int | None = None,
     validate_only: bool = False,
+    coercion_collector: list[Any] | None = None,
 ) -> Any:
     """Instantiate a widget from its config dict.
 
@@ -590,6 +673,8 @@ async def _build_widget(
 
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)
+
+    _coerce_widget_cfg(widget_cfg, coercion_collector)
 
     # Animation field. Currently allowed on `message`, `gif`, and
     # `image` — image widgets restrict to single-row mode (validated
@@ -986,6 +1071,12 @@ def _configure_user_font_dir(config_path: Path) -> None:
 async def run(config_path: Path) -> None:
     """Main application loop."""
     config = load_config(config_path)
+    # Surface any coerce warnings recorded by load_config (string-of-digits
+    # int/float fields, mixed-case enum strings). Same messages that
+    # `led-ticker validate` shows as rule-37 warnings; logging at startup
+    # lets users who skip pre-flight still see the fixes.
+    for w in config._coerce_warnings:
+        logging.warning("config coerce: %s", w.message)
     _configure_user_font_dir(config_path)
 
     led_frame = build_frame_from_config(config.display)
@@ -1016,6 +1107,7 @@ async def run(config_path: Path) -> None:
         while True:
             for section in config.sections:
                 widgets: list[Any] = []
+                runtime_coerce: list[Any] = []
                 for widget_cfg in section.widgets:
                     # Cache async widgets to avoid leaking background tasks
                     key = _cache_key(widget_cfg)
@@ -1029,6 +1121,7 @@ async def run(config_path: Path) -> None:
                             config_dir=config_path.parent,
                             default_bg_color=section.bg_color,
                             panel_h_for_warning=panel_h_for_warning,
+                            coercion_collector=runtime_coerce,
                         )
                         widget_cache[key] = widget
                     # Container widgets expand into stories
@@ -1044,6 +1137,11 @@ async def run(config_path: Path) -> None:
                         widgets.extend(widget.feed_stories)
                     else:
                         widgets.append(widget)
+                # Drain coerce warnings collected during this section's
+                # widget build. Empty in the common case; one log line per
+                # CoercionWarning otherwise.
+                for w in runtime_coerce:
+                    logging.warning("config coerce: %s", w.message)
 
                 title = await _build_title(
                     section.title,

@@ -154,7 +154,10 @@ async def run_transition(
     outgoing_bg_color = _normalize_bg(outgoing_bg_color)
     incoming_bg_color = _normalize_bg(incoming_bg_color)
 
-    ease_fn = EASING.get(easing, linear)
+    # `easing` is validated at config-load via coerce_choice against
+    # EASING.keys(); direct dict access here raises a clean KeyError
+    # for programmatic callers who skipped that path.
+    ease_fn = EASING[easing]
     frame_count = max(1, int(duration / scroll_speed))
     if hasattr(transition, "min_frames"):
         frame_count = max(frame_count, transition.min_frames)

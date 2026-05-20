@@ -2183,3 +2183,13 @@ class TestHiresSnapRespectsIncomingBg:
         )
         real.Fill.assert_any_call(255, 230, 80)
         real.Clear.assert_not_called()
+
+
+def test_easing_lookup_unknown_raises():
+    """Programmatic use with an unknown easing should fail loudly,
+    not silently fall back to linear. Config-load coerces case + checks
+    membership upstream, so this is the second-line guard."""
+    from led_ticker.transitions import EASING
+
+    with pytest.raises(KeyError):
+        _ = EASING["easeout"]

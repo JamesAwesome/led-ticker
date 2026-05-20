@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from led_ticker._coerce import CoercionWarning
+
 
 @dataclass
 class DisplayConfig:
@@ -138,6 +140,105 @@ class AppConfig:
     between_sections: TransitionConfig = field(
         default_factory=TransitionConfig,
     )
+    # Warnings collected during load_config when string-of-digits or
+    # mixed-case enum values get coerced to canonical typed values.
+    # validate.py surfaces these as rule-37 warnings; app.py:run() logs
+    # them at startup. Empty list when no coercions fired.
+    _coerce_warnings: list[CoercionWarning] = field(
+        default_factory=list, repr=False, compare=False
+    )
+
+
+_DISPLAY_INT_FIELDS: frozenset[str] = frozenset(
+    {
+        "rows",
+        "cols",
+        "chain",
+        "parallel",
+        "default_scale",
+        "brightness",
+        "slowdown_gpio",
+        "pwm_bits",
+        "pwm_lsb_nanoseconds",
+        "rp1_rio",
+    }
+)
+
+
+def _coerce_display(
+    display_raw: dict[str, Any], warnings: list[CoercionWarning]
+) -> DisplayConfig:
+    """Build DisplayConfig from raw TOML, coercing string-of-digits → int
+    on numeric fields. Warnings appended to `warnings`."""
+    import dataclasses
+
+    from led_ticker._coerce import coerce_int
+
+    defaults = {f.name: f.default for f in dataclasses.fields(DisplayConfig)}
+    kwargs: dict[str, Any] = {}
+    for name in _DISPLAY_INT_FIELDS:
+        if name in display_raw:
+            value, warning = coerce_int(display_raw[name], field=f"display.{name}")
+            kwargs[name] = value
+            if warning is not None:
+                warnings.append(warning)
+        else:
+            kwargs[name] = defaults[name]
+    # String / bool fields pass through without coercion.
+    for name in set(defaults) - _DISPLAY_INT_FIELDS:
+        kwargs[name] = display_raw.get(name, defaults[name])
+    return DisplayConfig(**kwargs)
+
+
+def _coerce_section(
+    section_raw: dict[str, Any],
+    index: int,
+    display: DisplayConfig,
+    warnings: list[CoercionWarning],
+) -> dict[str, Any]:
+    """Coerce SectionConfig numeric fields. Returns a kwargs dict
+    suitable for passing to SectionConfig(...). Bool-typed and
+    free-text fields pass through unchanged."""
+    from led_ticker._coerce import coerce_float, coerce_int
+
+    prefix = f"section[{index}]"
+
+    def _maybe(name: str, coerce: Any, default: Any) -> Any:
+        if name not in section_raw:
+            return default
+        value, warning = coerce(section_raw[name], field=f"{prefix}.{name}")
+        if warning is not None:
+            warnings.append(warning)
+        return value
+
+    return {
+        "loop_count": _maybe("loop_count", coerce_int, 1),
+        "hold_time": _maybe("hold_time", coerce_float, 3.0),
+        "scale": _maybe("scale", coerce_int, display.default_scale),
+        "content_height": _maybe("content_height", coerce_int, 16),
+        "scroll_step_ms": _maybe("scroll_step_ms", coerce_int, None),
+        "start_hold": _maybe("start_hold", coerce_float, None),
+        "separator_font_size": _maybe("separator_font_size", coerce_int, None),
+    }
+
+
+def _coerce_easing(
+    raw: dict[str, Any],
+    default_easing: str,
+    prefix: str,
+    warnings: list[CoercionWarning],
+) -> str:
+    """Coerce the `easing` value if present. Unknown values raise."""
+    from led_ticker._coerce import coerce_choice
+    from led_ticker.transitions import EASING
+
+    if "easing" not in raw:
+        return default_easing
+    valid = frozenset(EASING.keys())
+    value, warning = coerce_choice(raw["easing"], field=f"{prefix}.easing", valid=valid)
+    if warning is not None:
+        warnings.append(warning)
+    return value
 
 
 def _parse_transition(
@@ -175,34 +276,22 @@ def load_config(path: Path) -> AppConfig:
         raw = tomllib.load(f)
 
     display_raw = raw.get("display", {})
-    display = DisplayConfig(
-        rows=display_raw.get("rows", 16),
-        cols=display_raw.get("cols", 32),
-        chain=display_raw.get("chain", 1),
-        parallel=display_raw.get("parallel", 1),
-        pixel_mapper=display_raw.get("pixel_mapper", ""),
-        default_scale=display_raw.get("default_scale", 1),
-        brightness=display_raw.get("brightness", 100),
-        slowdown_gpio=display_raw.get("slowdown_gpio", 1),
-        gpio_mapping=display_raw.get("gpio_mapping", "adafruit-hat"),
-        pwm_bits=display_raw.get("pwm_bits", 11),
-        pwm_lsb_nanoseconds=display_raw.get("pwm_lsb_nanoseconds", 130),
-        show_refresh=display_raw.get("show_refresh", False),
-        no_hardware_pulse=display_raw.get("no_hardware_pulse", False),
-        rp1_rio=display_raw.get("rp1_rio", 0),
-    )
+    coerce_warnings: list[CoercionWarning] = []
+    display = _coerce_display(display_raw, coerce_warnings)
 
     transitions_raw = raw.get("transitions", {})
     default_transition = TransitionConfig(
         type=transitions_raw.get("default", "cut"),
         duration=transitions_raw.get("duration", 0.5),
-        easing=transitions_raw.get("easing", "linear"),
+        easing=_coerce_easing(
+            transitions_raw, "linear", "transitions", coerce_warnings
+        ),
         show_pikachu=transitions_raw.get("show_pikachu", True),
         show_pokeball=transitions_raw.get("show_pokeball", True),
     )
 
     sections = []
-    for section_raw in raw.get("playlist", {}).get("section", []):
+    for i, section_raw in enumerate(raw.get("playlist", {}).get("section", [])):
         trans = _parse_transition(
             section_raw.get("transition"),
             default_transition,
@@ -214,7 +303,7 @@ def load_config(path: Path) -> AppConfig:
         # whether the section should override `between_sections` for
         # its inter-section ENTRY transition.
         transition_specified = "transition" in section_raw
-        # Per-section overrides
+        # Per-section transition overrides
         if "transition_duration" in section_raw:
             trans.duration = section_raw["transition_duration"]
         if "transition_color" in section_raw:
@@ -225,30 +314,34 @@ def load_config(path: Path) -> AppConfig:
             trans.show_pikachu = section_raw["show_pikachu"]
         if "show_pokeball" in section_raw:
             trans.show_pokeball = section_raw["show_pokeball"]
+        # Coerce section-level transition easing if present in dict form
+        if isinstance(section_raw.get("transition"), dict):
+            trans.easing = _coerce_easing(
+                section_raw["transition"],
+                trans.easing,
+                f"section[{i}].transition",
+                coerce_warnings,
+            )
 
         bg_color_raw = section_raw.get("bg_color")
         bg_color = tuple(bg_color_raw) if bg_color_raw is not None else None
 
+        section_kwargs = _coerce_section(section_raw, i, display, coerce_warnings)
+
         section = SectionConfig(
             mode=section_raw.get("mode", "forever_scroll"),
-            loop_count=section_raw.get("loop_count", 1),
             title=section_raw.get("title"),
             widgets=section_raw.get("widget", []),
             transition=trans,
             transition_specified=transition_specified,
-            hold_time=section_raw.get("hold_time", 3.0),
             hold_time_specified=("hold_time" in section_raw),
             continuous_scroll=section_raw.get("continuous_scroll", False),
-            scale=section_raw.get("scale", display.default_scale),
-            content_height=section_raw.get("content_height", 16),
             bg_color=bg_color,
-            scroll_step_ms=section_raw.get("scroll_step_ms"),
-            start_hold=section_raw.get("start_hold"),
             separator=section_raw.get("separator"),
             separator_font=section_raw.get("separator_font"),
-            separator_font_size=section_raw.get("separator_font_size"),
             separator_color=section_raw.get("separator_color"),
             _raw=section_raw,
+            **section_kwargs,
         )
         sections.append(section)
 
@@ -263,4 +356,5 @@ def load_config(path: Path) -> AppConfig:
         title_delay=raw.get("title", {}).get("delay", 5),
         default_transition=default_transition,
         between_sections=between_sections,
+        _coerce_warnings=coerce_warnings,
     )

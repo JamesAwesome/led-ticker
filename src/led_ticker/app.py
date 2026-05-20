@@ -543,7 +543,13 @@ def _widget_enum_fields() -> dict[str, frozenset[str]]:
     """Closed-set enum fields recognized at widget-build time. The
     widget's own validators (validate_choice in _image_fit /
     _image_base) still run after coercion — this just normalizes case
-    + whitespace upstream so the validator never sees 'Left'."""
+    + whitespace upstream so the validator never sees 'Left'.
+
+    Note on `text_align`: image widgets accept ``"auto"`` as a
+    pre-resolution sentinel (the default; the widget maps it to a
+    side opposite the image at draw time). The widget's strict
+    `VALID_TEXT_ALIGNS` only covers post-resolution values, so the
+    coerce-side set augments it with ``"auto"``."""
     from led_ticker.widgets._image_base import (
         VALID_SCROLL_DIRECTIONS,
         VALID_TEXT_ALIGNS,
@@ -552,7 +558,7 @@ def _widget_enum_fields() -> dict[str, frozenset[str]]:
     from led_ticker.widgets._image_fit import VALID_FITS, VALID_IMAGE_ALIGNS
 
     return {
-        "text_align": VALID_TEXT_ALIGNS,
+        "text_align": VALID_TEXT_ALIGNS | {"auto"},
         "text_valign": VALID_TEXT_VALIGNS,
         "image_align": VALID_IMAGE_ALIGNS,
         "scroll_direction": VALID_SCROLL_DIRECTIONS,

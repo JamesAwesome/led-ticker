@@ -1607,6 +1607,108 @@ class _StopApp(Exception):
     `app.run`'s `while True` loop in tests."""
 
 
+class TestAppRunDrainLoopTripwire:
+    """Tripwire for the Task 11 shape-bug: the per-section runtime
+    coerce-drain loop must NOT engulf the widget-expansion block. If
+    it does (as in the commit that was caught at final verification),
+    sections with no coerce warnings — the common case — get an empty
+    widgets list and the engine hangs in `while True`.
+
+    The test exercises run() on a section whose widget HAS a coerce
+    warning (font_size = "25"), then asserts that Ticker was
+    constructed with a non-empty monitors list. If the drain-and-expand
+    blocks ever get re-tangled, this fails with len(monitors) == 0
+    instead of hanging.
+    """
+
+    @staticmethod
+    async def _run_one_section(widget_cfg: dict) -> list:
+        """Helper: invoke app.run() with a single-section config until
+        Ticker is constructed; return the kwargs Ticker received."""
+        from led_ticker import app as app_module
+        from led_ticker.app import run as app_run
+        from led_ticker.config import (
+            AppConfig,
+            DisplayConfig,
+            SectionConfig,
+            TransitionConfig,
+        )
+
+        cfg = AppConfig(
+            display=DisplayConfig(rows=16, cols=32, chain=5),
+            sections=[
+                SectionConfig(
+                    mode="swap",
+                    widgets=[widget_cfg],
+                ),
+            ],
+            between_sections=TransitionConfig(type="cut"),
+        )
+
+        captured: list = []
+
+        class _CapturingTicker:
+            def __init__(self, *args, **kwargs):
+                captured.append(kwargs)
+                self.last_scroll_pos = 0
+                raise _StopApp("captured monitors")
+
+            async def run_swap(self, **kw):
+                pass
+
+        with (
+            mock.patch.object(app_module, "load_config", return_value=cfg),
+            mock.patch.object(
+                app_module,
+                "build_frame_from_config",
+                return_value=mock.Mock(
+                    **{"get_clean_canvas.return_value": mock.Mock(height=16, width=160)}
+                ),
+            ),
+            mock.patch.object(app_module, "_configure_user_font_dir"),
+            mock.patch.object(app_module, "Ticker", _CapturingTicker),
+            pytest.raises(_StopApp),
+        ):
+            await app_run(Path("ignored.toml"))
+
+        return captured
+
+    async def test_widget_without_coerce_warning_still_reaches_ticker(self):
+        """The load-bearing case: a widget with NO coercions needed must
+        still be added to the section's monitors. The drain loop
+        previously engulfed the expansion block, so when
+        `runtime_coerce` was empty (the common case), `widgets` stayed
+        empty and Ticker received `monitors=[]`."""
+        captured = await self._run_one_section({"type": "message", "text": "hi"})
+        assert len(captured) == 1
+        monitors = captured[0].get("monitors")
+        assert monitors and len(monitors) == 1, (
+            f"section's widget never reached Ticker.monitors — the "
+            f"runtime coerce-drain loop likely re-engulfed the widget "
+            f"expansion block (the Task 11 shape-bug). Got: {monitors!r}"
+        )
+
+    async def test_widget_with_coerce_warning_still_reaches_ticker(self):
+        """Sanity case: the SAME assertion must hold when a coerce
+        warning DOES fire. Pre-fix this case worked even with the bug
+        (because the engulfed expansion ran inside the drain loop), so
+        this test catches a different regression — a future drain loop
+        that fails to expand."""
+        captured = await self._run_one_section(
+            {
+                "type": "message",
+                "text": "hi",
+                "font": "Inter-Bold",
+                "font_size": "25",
+            }
+        )
+        assert len(captured) == 1
+        monitors = captured[0].get("monitors")
+        assert (
+            monitors and len(monitors) == 1
+        ), f"section's widget never reached Ticker.monitors. Got: {monitors!r}"
+
+
 class TestAppRunBgColorHandoff:
     """End-to-end threading test for `last_bg_color` → next section's
     `outgoing_bg_color` in `app.run`. The unit-level run_transition
@@ -1917,28 +2019,66 @@ class TestBuildWidgetCoerceEnum:
                 )
 
     @pytest.mark.asyncio
-    async def test_coerces_text_align_case_on_message(self):
-        """text_align is on multiple widget types; image enums reach
-        message widgets via the same enum-coerce path."""
-        import contextlib
-
+    async def test_coerces_text_align_case_on_image(self, tmp_path):
+        """text_align on an image widget: 'Left' must coerce to 'left'
+        and the widget must accept the canonical value."""
         import aiohttp
+        from PIL import Image
 
         from led_ticker._coerce import CoercionWarning
         from led_ticker.app import _build_widget
 
+        img_path = tmp_path / "tiny.png"
+        Image.new("RGB", (1, 1), (255, 0, 0)).save(img_path)
+
         warnings: list[CoercionWarning] = []
         async with aiohttp.ClientSession() as session:
-            widget_cfg = {"type": "message", "text": "hi", "text_align": "Left"}
-            # text_align isn't a valid TickerMessage kwarg, but the
-            # coercion pass still normalizes string before the
-            # constructor runs. The widget may reject text_align
-            # downstream — that's fine for testing coercion specifically.
-            with contextlib.suppress(Exception):
-                await _build_widget(
+            widget_cfg = {
+                "type": "image",
+                "path": "tiny.png",
+                "text": "hi",
+                "text_align": "Left",
+            }
+            widget = await _build_widget(
+                widget_cfg,
+                session,
+                config_dir=tmp_path,
+                coercion_collector=warnings,
+            )
+        assert widget is not None
+        assert widget.text_align == "left"
+        assert any(w.field == "widget.text_align" for w in warnings)
+
+    @pytest.mark.asyncio
+    async def test_text_align_auto_still_accepted(self, tmp_path):
+        """Regression: text_align='auto' is the documented default
+        sentinel for image widgets — it resolves at draw time to a
+        side opposite the image. The coerce frozenset MUST include
+        'auto' even though VALID_TEXT_ALIGNS (the post-resolution
+        strict set in _image_base) doesn't, or any explicit
+        text_align='auto' / 'Auto' breaks at config load."""
+        import aiohttp
+        from PIL import Image
+
+        from led_ticker.app import _build_widget
+
+        img_path = tmp_path / "tiny.png"
+        Image.new("RGB", (1, 1), (255, 0, 0)).save(img_path)
+
+        for value in ("auto", "Auto", "AUTO"):
+            async with aiohttp.ClientSession() as session:
+                widget_cfg = {
+                    "type": "image",
+                    "path": "tiny.png",
+                    "text": "hi",
+                    "text_align": value,
+                }
+                widget = await _build_widget(
                     widget_cfg,
                     session,
-                    coercion_collector=warnings,
+                    config_dir=tmp_path,
                 )
-        # Even if the build failed, the coerce pass ran and recorded.
-        assert any(w.field == "widget.text_align" for w in warnings)
+            # Widget resolves 'auto' to a concrete side at construction;
+            # the only contract is the build doesn't raise.
+            assert widget is not None
+            assert widget.text_align in {"left", "right", "scroll_over"}

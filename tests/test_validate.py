@@ -2135,5 +2135,12 @@ font_size = "25"
     result = await validate_config(cfg)
     type_errors = [e for e in result.errors if "'<' not supported" in e.message]
     assert type_errors == []
-    coerce = [w for w in result.warnings if "font_size" in w.message]
-    assert len(coerce) >= 1
+    matches = [
+        w
+        for w in result.warnings
+        if w.rule == 37 and "font_size" in w.location and '"25"' in w.message and w.fix
+    ]
+    assert len(matches) == 1, (
+        f"expected exactly one rule-37 warning for font_size; "
+        f"got warnings: {result.warnings!r}"
+    )

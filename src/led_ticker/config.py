@@ -149,39 +149,44 @@ class AppConfig:
     )
 
 
+_DISPLAY_INT_FIELDS: frozenset[str] = frozenset(
+    {
+        "rows",
+        "cols",
+        "chain",
+        "parallel",
+        "default_scale",
+        "brightness",
+        "slowdown_gpio",
+        "pwm_bits",
+        "pwm_lsb_nanoseconds",
+        "rp1_rio",
+    }
+)
+
+
 def _coerce_display(
     display_raw: dict[str, Any], warnings: list[CoercionWarning]
 ) -> DisplayConfig:
     """Build DisplayConfig from raw TOML, coercing string-of-digits → int
     on numeric fields. Warnings appended to `warnings`."""
+    import dataclasses
+
     from led_ticker._coerce import coerce_int
 
-    int_fields = (
-        ("rows", 16),
-        ("cols", 32),
-        ("chain", 1),
-        ("parallel", 1),
-        ("default_scale", 1),
-        ("brightness", 100),
-        ("slowdown_gpio", 1),
-        ("pwm_bits", 11),
-        ("pwm_lsb_nanoseconds", 130),
-        ("rp1_rio", 0),
-    )
+    defaults = {f.name: f.default for f in dataclasses.fields(DisplayConfig)}
     kwargs: dict[str, Any] = {}
-    for name, default in int_fields:
+    for name in _DISPLAY_INT_FIELDS:
         if name in display_raw:
             value, warning = coerce_int(display_raw[name], field=f"display.{name}")
             kwargs[name] = value
             if warning is not None:
                 warnings.append(warning)
         else:
-            kwargs[name] = default
-    # String / bool fields don't need coercion at this stage.
-    kwargs["pixel_mapper"] = display_raw.get("pixel_mapper", "")
-    kwargs["gpio_mapping"] = display_raw.get("gpio_mapping", "adafruit-hat")
-    kwargs["show_refresh"] = display_raw.get("show_refresh", False)
-    kwargs["no_hardware_pulse"] = display_raw.get("no_hardware_pulse", False)
+            kwargs[name] = defaults[name]
+    # String / bool fields pass through without coercion.
+    for name in set(defaults) - _DISPLAY_INT_FIELDS:
+        kwargs[name] = display_raw.get(name, defaults[name])
     return DisplayConfig(**kwargs)
 
 

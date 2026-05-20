@@ -28,6 +28,12 @@ from led_ticker.frame import LedFrame
 from led_ticker.ticker import Ticker, _maybe_wrap
 from led_ticker.transitions import get_transition_class, run_transition
 from led_ticker.widgets import get_widget_class
+from led_ticker.widgets._image_base import (
+    VALID_SCROLL_DIRECTIONS,
+    VALID_TEXT_ALIGNS,
+    VALID_TEXT_VALIGNS,
+)
+from led_ticker.widgets._image_fit import VALID_FITS, VALID_IMAGE_ALIGNS
 from led_ticker.widgets.message import TickerMessage
 from led_ticker.widgets.mlb import MLBScoreMonitor
 from led_ticker.widgets.mlb_standings import MLBStandingsMonitor
@@ -539,32 +545,17 @@ _WIDGET_FLOAT_FIELDS = frozenset(
 )
 
 
-def _widget_enum_fields() -> dict[str, frozenset[str]]:
-    """Closed-set enum fields recognized at widget-build time. The
-    widget's own validators (validate_choice in _image_fit /
-    _image_base) still run after coercion — this just normalizes case
-    + whitespace upstream so the validator never sees 'Left'.
-
-    Note on `text_align`: image widgets accept ``"auto"`` as a
-    pre-resolution sentinel (the default; the widget maps it to a
-    side opposite the image at draw time). The widget's strict
-    `VALID_TEXT_ALIGNS` only covers post-resolution values, so the
-    coerce-side set augments it with ``"auto"``."""
-    from led_ticker.widgets._image_base import (
-        VALID_SCROLL_DIRECTIONS,
-        VALID_TEXT_ALIGNS,
-        VALID_TEXT_VALIGNS,
-    )
-    from led_ticker.widgets._image_fit import VALID_FITS, VALID_IMAGE_ALIGNS
-
-    return {
-        "text_align": VALID_TEXT_ALIGNS | {"auto"},
-        "text_valign": VALID_TEXT_VALIGNS,
-        "image_align": VALID_IMAGE_ALIGNS,
-        "scroll_direction": VALID_SCROLL_DIRECTIONS,
-        "fit": VALID_FITS,
-        "bottom_text_scroll": frozenset({"marquee", "scroll_through"}),
-    }
+# text_align includes "auto": image widgets use it as a pre-resolution sentinel
+# (maps to a side opposite the image at draw time); VALID_TEXT_ALIGNS covers
+# post-resolution values only, so the coerce-side set augments it here.
+_WIDGET_ENUM_FIELDS: dict[str, frozenset[str]] = {
+    "text_align": VALID_TEXT_ALIGNS | {"auto"},
+    "text_valign": VALID_TEXT_VALIGNS,
+    "image_align": VALID_IMAGE_ALIGNS,
+    "scroll_direction": VALID_SCROLL_DIRECTIONS,
+    "fit": VALID_FITS,
+    "bottom_text_scroll": frozenset({"marquee", "scroll_through"}),
+}
 
 
 def _coerce_widget_cfg(
@@ -576,7 +567,7 @@ def _coerce_widget_cfg(
     continue to fire."""
     from led_ticker._coerce import coerce_choice, coerce_float, coerce_int
 
-    enum_fields = _widget_enum_fields()
+    enum_fields = _WIDGET_ENUM_FIELDS
     for name in list(widget_cfg.keys()):
         if name in _WIDGET_INT_FIELDS:
             value, warning = coerce_int(widget_cfg[name], field=f"widget.{name}")

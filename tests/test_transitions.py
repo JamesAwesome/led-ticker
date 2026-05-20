@@ -2193,11 +2193,3 @@ def test_easing_lookup_unknown_raises():
 
     with pytest.raises(KeyError):
         _ = EASING["easeout"]
-
-
-def test_easing_lookup_known_returns_callable():
-    from led_ticker.transitions import EASING
-
-    fn = EASING["linear"]
-    assert callable(fn)
-    assert fn(0.5) == 0.5

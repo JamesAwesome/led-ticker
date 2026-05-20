@@ -85,26 +85,34 @@ def _classify_error(msg: str) -> tuple[int | None, str]:
 
 async def _run_build_checks(
     sections: list[SectionConfig], config_dir: Path
-) -> list[tuple[str, str]]:
+) -> tuple[list[tuple[str, str]], list[tuple[str, Any]]]:
     """Run _build_widget(validate_only=True) for every widget.
 
-    Returns (location, error_msg) pairs.
+    Returns (build_errors, coerce_warnings):
+    - build_errors: (location, error_msg) pairs
+    - coerce_warnings: (location, CoercionWarning) pairs collected from
+      _build_widget's coercion pass for each widget.
     """
     from led_ticker.app import _build_widget
 
     issues: list[tuple[str, str]] = []
+    warnings: list[tuple[str, Any]] = []
     for i, section in enumerate(sections):
         for j, widget_cfg in enumerate(section.widgets):
+            widget_warnings: list[Any] = []
             try:
                 await _build_widget(
                     copy.deepcopy(widget_cfg),
                     session=None,  # type: ignore[arg-type]
                     config_dir=config_dir,
                     validate_only=True,
+                    coercion_collector=widget_warnings,
                 )
             except Exception as e:
                 issues.append((f"section[{i}].widget[{j}]", str(e)))
-    return issues
+            for w in widget_warnings:
+                warnings.append((f"section[{i}].widget[{j}]", w))
+    return issues, warnings
 
 
 def _check_static(config: AppConfig) -> list[ValidationIssue]:
@@ -1134,7 +1142,7 @@ async def validate_config(path: Path) -> ValidationResult:
     # font may live on the deploy target but not the laptop drafting
     # the config. Type / required-field errors stay hard.
     _configure_user_font_dir(path)
-    build_errors = await _run_build_checks(config.sections, path.parent)
+    build_errors, build_warnings = await _run_build_checks(config.sections, path.parent)
     for location, msg in build_errors:
         if "unknown font " in msg:
             warnings.append(
@@ -1160,6 +1168,34 @@ async def validate_config(path: Path) -> ValidationResult:
                 severity="error",
                 message=msg,
                 fix=fix,
+            )
+        )
+
+    # Rule 37: coerce warnings — widget-level (from _build_widget's pass)
+    # and config-load (DisplayConfig + SectionConfig + TransitionConfig).
+    # The fix string is derived from the warning at surface time: writing
+    # the canonical typed form (`field = <coerced>`) silences the warning.
+    def _coerce_fix(w: Any) -> str:
+        return f"Set {w.field} to {w.coerced!r} (the canonical typed form)."
+
+    for location, w in build_warnings:
+        warnings.append(
+            ValidationIssue(
+                rule=37,
+                location=f"{location}.{w.field}",
+                severity="warning",
+                message=w.message,
+                fix=_coerce_fix(w),
+            )
+        )
+    for w in config._coerce_warnings:
+        warnings.append(
+            ValidationIssue(
+                rule=37,
+                location=w.field,
+                severity="warning",
+                message=w.message,
+                fix=_coerce_fix(w),
             )
         )
 

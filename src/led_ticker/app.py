@@ -1049,6 +1049,14 @@ def build_frame_from_config(display) -> LedFrame:
     )
 
 
+def _log_coerce_warnings(config: Any) -> None:
+    """Emit one logging.warning per CoercionWarning collected during
+    load_config. Mirrors the messages surfaced by `led-ticker validate`
+    so users who run the binary directly still see the same fixes."""
+    for w in getattr(config, "_coerce_warnings", []):
+        logging.warning("config coerce: %s", w.message)
+
+
 def _configure_user_font_dir(config_path: Path) -> None:
     """Anchor user-supplied hi-res fonts to ``<config_dir>/fonts/``.
 
@@ -1075,6 +1083,7 @@ def _configure_user_font_dir(config_path: Path) -> None:
 async def run(config_path: Path) -> None:
     """Main application loop."""
     config = load_config(config_path)
+    _log_coerce_warnings(config)
     _configure_user_font_dir(config_path)
 
     led_frame = build_frame_from_config(config.display)
@@ -1105,6 +1114,7 @@ async def run(config_path: Path) -> None:
         while True:
             for section in config.sections:
                 widgets: list[Any] = []
+                runtime_coerce: list[Any] = []
                 for widget_cfg in section.widgets:
                     # Cache async widgets to avoid leaking background tasks
                     key = _cache_key(widget_cfg)
@@ -1118,8 +1128,11 @@ async def run(config_path: Path) -> None:
                             config_dir=config_path.parent,
                             default_bg_color=section.bg_color,
                             panel_h_for_warning=panel_h_for_warning,
+                            coercion_collector=runtime_coerce,
                         )
                         widget_cache[key] = widget
+                for w in runtime_coerce:
+                    logging.warning("config coerce: %s", w.message)
                     # Container widgets expand into stories
                     if isinstance(
                         widget,

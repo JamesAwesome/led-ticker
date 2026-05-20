@@ -185,6 +185,81 @@ def _coerce_display(
     return DisplayConfig(**kwargs)
 
 
+def _coerce_section(
+    section_raw: dict[str, Any],
+    index: int,
+    display: DisplayConfig,
+    warnings: list[CoercionWarning],
+) -> dict[str, Any]:
+    """Coerce SectionConfig numeric fields. Returns a kwargs dict
+    suitable for passing to SectionConfig(...). Bool-typed and
+    free-text fields pass through unchanged."""
+    from led_ticker._coerce import coerce_float, coerce_int
+
+    prefix = f"section[{index}]"
+
+    def _maybe_int(name: str, default: Any) -> Any:
+        if name not in section_raw:
+            return default
+        value, warning = coerce_int(section_raw[name], field=f"{prefix}.{name}")
+        if warning is not None:
+            warnings.append(warning)
+        return value
+
+    def _maybe_float(name: str, default: Any) -> Any:
+        if name not in section_raw:
+            return default
+        value, warning = coerce_float(section_raw[name], field=f"{prefix}.{name}")
+        if warning is not None:
+            warnings.append(warning)
+        return value
+
+    def _maybe_optional_int(name: str) -> int | None:
+        if name not in section_raw:
+            return None
+        value, warning = coerce_int(section_raw[name], field=f"{prefix}.{name}")
+        if warning is not None:
+            warnings.append(warning)
+        return value
+
+    def _maybe_optional_float(name: str) -> float | None:
+        if name not in section_raw:
+            return None
+        value, warning = coerce_float(section_raw[name], field=f"{prefix}.{name}")
+        if warning is not None:
+            warnings.append(warning)
+        return value
+
+    return {
+        "loop_count": _maybe_int("loop_count", 1),
+        "hold_time": _maybe_float("hold_time", 3.0),
+        "scale": _maybe_int("scale", display.default_scale),
+        "content_height": _maybe_int("content_height", 16),
+        "scroll_step_ms": _maybe_optional_int("scroll_step_ms"),
+        "start_hold": _maybe_optional_float("start_hold"),
+        "separator_font_size": _maybe_optional_int("separator_font_size"),
+    }
+
+
+def _coerce_easing(
+    raw: dict[str, Any],
+    default_easing: str,
+    prefix: str,
+    warnings: list[CoercionWarning],
+) -> str:
+    """Coerce the `easing` value if present. Unknown values raise."""
+    from led_ticker._coerce import coerce_choice
+    from led_ticker.transitions import EASING
+
+    if "easing" not in raw:
+        return default_easing
+    valid = frozenset(EASING.keys())
+    value, warning = coerce_choice(raw["easing"], field=f"{prefix}.easing", valid=valid)
+    if warning is not None:
+        warnings.append(warning)
+    return value
+
+
 def _parse_transition(
     raw: dict | str | None,
     default: TransitionConfig,
@@ -227,13 +302,15 @@ def load_config(path: Path) -> AppConfig:
     default_transition = TransitionConfig(
         type=transitions_raw.get("default", "cut"),
         duration=transitions_raw.get("duration", 0.5),
-        easing=transitions_raw.get("easing", "linear"),
+        easing=_coerce_easing(
+            transitions_raw, "linear", "transitions", coerce_warnings
+        ),
         show_pikachu=transitions_raw.get("show_pikachu", True),
         show_pokeball=transitions_raw.get("show_pokeball", True),
     )
 
     sections = []
-    for section_raw in raw.get("playlist", {}).get("section", []):
+    for i, section_raw in enumerate(raw.get("playlist", {}).get("section", [])):
         trans = _parse_transition(
             section_raw.get("transition"),
             default_transition,
@@ -245,7 +322,7 @@ def load_config(path: Path) -> AppConfig:
         # whether the section should override `between_sections` for
         # its inter-section ENTRY transition.
         transition_specified = "transition" in section_raw
-        # Per-section overrides
+        # Per-section transition overrides
         if "transition_duration" in section_raw:
             trans.duration = section_raw["transition_duration"]
         if "transition_color" in section_raw:
@@ -256,30 +333,34 @@ def load_config(path: Path) -> AppConfig:
             trans.show_pikachu = section_raw["show_pikachu"]
         if "show_pokeball" in section_raw:
             trans.show_pokeball = section_raw["show_pokeball"]
+        # Coerce section-level transition easing if present in dict form
+        if isinstance(section_raw.get("transition"), dict):
+            trans.easing = _coerce_easing(
+                section_raw["transition"],
+                trans.easing,
+                f"section[{i}].transition",
+                coerce_warnings,
+            )
 
         bg_color_raw = section_raw.get("bg_color")
         bg_color = tuple(bg_color_raw) if bg_color_raw is not None else None
 
+        section_kwargs = _coerce_section(section_raw, i, display, coerce_warnings)
+
         section = SectionConfig(
             mode=section_raw.get("mode", "forever_scroll"),
-            loop_count=section_raw.get("loop_count", 1),
             title=section_raw.get("title"),
             widgets=section_raw.get("widget", []),
             transition=trans,
             transition_specified=transition_specified,
-            hold_time=section_raw.get("hold_time", 3.0),
             hold_time_specified=("hold_time" in section_raw),
             continuous_scroll=section_raw.get("continuous_scroll", False),
-            scale=section_raw.get("scale", display.default_scale),
-            content_height=section_raw.get("content_height", 16),
             bg_color=bg_color,
-            scroll_step_ms=section_raw.get("scroll_step_ms"),
-            start_hold=section_raw.get("start_hold"),
             separator=section_raw.get("separator"),
             separator_font=section_raw.get("separator_font"),
-            separator_font_size=section_raw.get("separator_font_size"),
             separator_color=section_raw.get("separator_color"),
             _raw=section_raw,
+            **section_kwargs,
         )
         sections.append(section)
 

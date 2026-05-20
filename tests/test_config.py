@@ -596,3 +596,88 @@ mode = "swap"
         "display.brightness",
         "display.slowdown_gpio",
     }
+
+
+def test_load_config_coerces_section_hold_time_string(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+
+[[playlist.section]]
+mode = "swap"
+hold_time = "3.0"
+""")
+    from led_ticker.config import load_config
+
+    config = load_config(cfg)
+    assert config.sections[0].hold_time == 3.0
+    assert any(w.field == "section[0].hold_time" for w in config._coerce_warnings)
+
+
+def test_load_config_coerces_section_content_height_string(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+
+[[playlist.section]]
+mode = "swap"
+content_height = "16"
+scale = "2"
+loop_count = "3"
+""")
+    from led_ticker.config import load_config
+
+    config = load_config(cfg)
+    assert config.sections[0].content_height == 16
+    assert config.sections[0].scale == 2
+    assert config.sections[0].loop_count == 3
+    fields_warned = {w.field for w in config._coerce_warnings}
+    assert "section[0].content_height" in fields_warned
+    assert "section[0].scale" in fields_warned
+    assert "section[0].loop_count" in fields_warned
+
+
+def test_load_config_coerces_transition_easing_case(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+
+[transitions]
+default = "cut"
+easing = "Linear"
+
+[[playlist.section]]
+mode = "swap"
+""")
+    from led_ticker.config import load_config
+
+    config = load_config(cfg)
+    assert config.default_transition.easing == "linear"
+    assert any(w.field == "transitions.easing" for w in config._coerce_warnings)
+
+
+def test_load_config_unknown_easing_raises(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+
+[transitions]
+easing = "easeout"
+
+[[playlist.section]]
+mode = "swap"
+""")
+    import pytest
+
+    from led_ticker.config import load_config
+
+    with pytest.raises(ValueError, match="not a valid choice"):
+        load_config(cfg)

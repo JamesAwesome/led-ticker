@@ -546,3 +546,53 @@ hold_time = "3.0"
     assert isinstance(config._coerce_warnings, list)
     # The actual coercion in load_config is Task 6 — for now the list
     # exists but may be empty. This test just asserts the field is wired.
+
+
+def test_load_config_coerces_display_brightness_string(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+brightness = "60"
+
+[[playlist.section]]
+mode = "swap"
+""")
+    from led_ticker.config import load_config
+
+    config = load_config(cfg)
+    assert config.display.brightness == 60
+    assert isinstance(config.display.brightness, int)
+    assert any(w.field == "display.brightness" for w in config._coerce_warnings)
+
+
+def test_load_config_coerces_multiple_display_fields(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("""
+[display]
+rows = "16"
+cols = "32"
+chain = "1"
+brightness = "60"
+slowdown_gpio = "3"
+
+[[playlist.section]]
+mode = "swap"
+""")
+    from led_ticker.config import load_config
+
+    config = load_config(cfg)
+    assert config.display.rows == 16
+    assert config.display.cols == 32
+    assert config.display.chain == 1
+    assert config.display.brightness == 60
+    assert config.display.slowdown_gpio == 3
+    fields_warned = {w.field for w in config._coerce_warnings}
+    assert fields_warned >= {
+        "display.rows",
+        "display.cols",
+        "display.chain",
+        "display.brightness",
+        "display.slowdown_gpio",
+    }

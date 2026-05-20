@@ -149,6 +149,42 @@ class AppConfig:
     )
 
 
+def _coerce_display(
+    display_raw: dict[str, Any], warnings: list[CoercionWarning]
+) -> DisplayConfig:
+    """Build DisplayConfig from raw TOML, coercing string-of-digits → int
+    on numeric fields. Warnings appended to `warnings`."""
+    from led_ticker._coerce import coerce_int
+
+    int_fields = (
+        ("rows", 16),
+        ("cols", 32),
+        ("chain", 1),
+        ("parallel", 1),
+        ("default_scale", 1),
+        ("brightness", 100),
+        ("slowdown_gpio", 1),
+        ("pwm_bits", 11),
+        ("pwm_lsb_nanoseconds", 130),
+        ("rp1_rio", 0),
+    )
+    kwargs: dict[str, Any] = {}
+    for name, default in int_fields:
+        if name in display_raw:
+            value, warning = coerce_int(display_raw[name], field=f"display.{name}")
+            kwargs[name] = value
+            if warning is not None:
+                warnings.append(warning)
+        else:
+            kwargs[name] = default
+    # String / bool fields don't need coercion at this stage.
+    kwargs["pixel_mapper"] = display_raw.get("pixel_mapper", "")
+    kwargs["gpio_mapping"] = display_raw.get("gpio_mapping", "adafruit-hat")
+    kwargs["show_refresh"] = display_raw.get("show_refresh", False)
+    kwargs["no_hardware_pulse"] = display_raw.get("no_hardware_pulse", False)
+    return DisplayConfig(**kwargs)
+
+
 def _parse_transition(
     raw: dict | str | None,
     default: TransitionConfig,
@@ -184,22 +220,8 @@ def load_config(path: Path) -> AppConfig:
         raw = tomllib.load(f)
 
     display_raw = raw.get("display", {})
-    display = DisplayConfig(
-        rows=display_raw.get("rows", 16),
-        cols=display_raw.get("cols", 32),
-        chain=display_raw.get("chain", 1),
-        parallel=display_raw.get("parallel", 1),
-        pixel_mapper=display_raw.get("pixel_mapper", ""),
-        default_scale=display_raw.get("default_scale", 1),
-        brightness=display_raw.get("brightness", 100),
-        slowdown_gpio=display_raw.get("slowdown_gpio", 1),
-        gpio_mapping=display_raw.get("gpio_mapping", "adafruit-hat"),
-        pwm_bits=display_raw.get("pwm_bits", 11),
-        pwm_lsb_nanoseconds=display_raw.get("pwm_lsb_nanoseconds", 130),
-        show_refresh=display_raw.get("show_refresh", False),
-        no_hardware_pulse=display_raw.get("no_hardware_pulse", False),
-        rp1_rio=display_raw.get("rp1_rio", 0),
-    )
+    coerce_warnings: list[CoercionWarning] = []
+    display = _coerce_display(display_raw, coerce_warnings)
 
     transitions_raw = raw.get("transitions", {})
     default_transition = TransitionConfig(
@@ -272,4 +294,5 @@ def load_config(path: Path) -> AppConfig:
         title_delay=raw.get("title", {}).get("delay", 5),
         default_transition=default_transition,
         between_sections=between_sections,
+        _coerce_warnings=coerce_warnings,
     )

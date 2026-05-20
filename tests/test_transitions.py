@@ -2183,3 +2183,20 @@ class TestHiresSnapRespectsIncomingBg:
         )
         real.Fill.assert_any_call(255, 230, 80)
         real.Clear.assert_not_called()
+
+
+def test_resolve_easing_unknown_raises():
+    """Programmatic use with an unknown easing should fail loudly,
+    not silently fall back to linear."""
+    from led_ticker.transitions import _resolve_easing
+
+    with pytest.raises(KeyError, match="easeout"):
+        _resolve_easing("easeout")
+
+
+def test_resolve_easing_known_returns_callable():
+    from led_ticker.transitions import _resolve_easing
+
+    fn = _resolve_easing("linear")
+    assert callable(fn)
+    assert fn(0.5) == 0.5  # linear: identity-ish

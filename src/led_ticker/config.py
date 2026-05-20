@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from led_ticker._coerce import CoercionWarning
+
 
 @dataclass
 class DisplayConfig:
@@ -137,6 +139,13 @@ class AppConfig:
     )
     between_sections: TransitionConfig = field(
         default_factory=TransitionConfig,
+    )
+    # Warnings collected during load_config when string-of-digits or
+    # mixed-case enum values get coerced to canonical typed values.
+    # validate.py surfaces these as rule-37 warnings; app.py:run() logs
+    # them at startup. Empty list when no coercions fired.
+    _coerce_warnings: list[CoercionWarning] = field(
+        default_factory=list, repr=False, compare=False
     )
 
 

@@ -524,3 +524,25 @@ def test_section_raw_is_empty_on_direct_construction():
 
     s = SectionConfig(mode="swap")
     assert s._raw == {}
+
+
+def test_load_config_collects_coerce_warnings(tmp_path):
+    """AppConfig._coerce_warnings is a list; populated when load_config
+    coerces a string-of-digits to int on a Section field."""
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+
+[[playlist.section]]
+mode = "swap"
+hold_time = "3.0"
+""")
+    from led_ticker.config import load_config
+
+    config = load_config(cfg)
+    assert hasattr(config, "_coerce_warnings")
+    assert isinstance(config._coerce_warnings, list)
+    # The actual coercion in load_config is Task 6 — for now the list
+    # exists but may be empty. This test just asserts the field is wired.

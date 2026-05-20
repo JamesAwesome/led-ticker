@@ -539,6 +539,28 @@ _WIDGET_FLOAT_FIELDS = frozenset(
 )
 
 
+def _widget_enum_fields() -> dict[str, frozenset[str]]:
+    """Closed-set enum fields recognized at widget-build time. The
+    widget's own validators (validate_choice in _image_fit /
+    _image_base) still run after coercion — this just normalizes case
+    + whitespace upstream so the validator never sees 'Left'."""
+    from led_ticker.widgets._image_base import (
+        VALID_SCROLL_DIRECTIONS,
+        VALID_TEXT_ALIGNS,
+        VALID_TEXT_VALIGNS,
+    )
+    from led_ticker.widgets._image_fit import VALID_FITS, VALID_IMAGE_ALIGNS
+
+    return {
+        "text_align": VALID_TEXT_ALIGNS,
+        "text_valign": VALID_TEXT_VALIGNS,
+        "image_align": VALID_IMAGE_ALIGNS,
+        "scroll_direction": VALID_SCROLL_DIRECTIONS,
+        "fit": VALID_FITS,
+        "bottom_text_scroll": frozenset({"marquee", "scroll_through"}),
+    }
+
+
 def _coerce_widget_cfg(
     widget_cfg: dict[str, Any],
     collector: list[Any] | None,
@@ -546,8 +568,9 @@ def _coerce_widget_cfg(
     """In-place coerce of widget_cfg numeric fields. Bool stays a hard
     error so the existing bottom_text_loops / font_threshold guards
     continue to fire."""
-    from led_ticker._coerce import coerce_float, coerce_int
+    from led_ticker._coerce import coerce_choice, coerce_float, coerce_int
 
+    enum_fields = _widget_enum_fields()
     for name in list(widget_cfg.keys()):
         if name in _WIDGET_INT_FIELDS:
             value, warning = coerce_int(widget_cfg[name], field=f"widget.{name}")
@@ -556,6 +579,15 @@ def _coerce_widget_cfg(
                 collector.append(warning)
         elif name in _WIDGET_FLOAT_FIELDS:
             value, warning = coerce_float(widget_cfg[name], field=f"widget.{name}")
+            widget_cfg[name] = value
+            if warning is not None and collector is not None:
+                collector.append(warning)
+        elif name in enum_fields:
+            value, warning = coerce_choice(
+                widget_cfg[name],
+                field=f"widget.{name}",
+                valid=enum_fields[name],
+            )
             widget_cfg[name] = value
             if warning is not None and collector is not None:
                 collector.append(warning)

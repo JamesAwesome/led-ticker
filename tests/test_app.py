@@ -1858,3 +1858,87 @@ def test_resolve_buffer_msg_color_only_returns_circle_buffer_msg():
     # Color provider returns the user's RGB.
     color = msg.font_color.color_for(0, 0, 1)
     assert (color.red, color.green, color.blue) == (225, 48, 108)
+
+
+class TestBuildWidgetCoerceEnum:
+    @pytest.mark.asyncio
+    async def test_coerces_image_align_case(self, tmp_path):
+        """image_align = 'Left' should coerce to 'left' and warn."""
+        import aiohttp
+        from PIL import Image
+
+        from led_ticker._coerce import CoercionWarning
+        from led_ticker.app import _build_widget
+
+        img_path = tmp_path / "tiny.png"
+        Image.new("RGB", (1, 1), (255, 0, 0)).save(img_path)
+
+        warnings: list[CoercionWarning] = []
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {
+                "type": "image",
+                "path": "tiny.png",
+                "image_align": "Left",
+                "fit": "Letterbox",
+            }
+            widget = await _build_widget(
+                widget_cfg,
+                session,
+                config_dir=tmp_path,
+                coercion_collector=warnings,
+            )
+        assert widget is not None
+        fields_warned = {w.field for w in warnings}
+        assert "widget.image_align" in fields_warned
+        assert "widget.fit" in fields_warned
+
+    @pytest.mark.asyncio
+    async def test_unknown_image_align_rejected(self, tmp_path):
+        """'Middle' (after lowercase) still isn't a valid image_align."""
+        import aiohttp
+        from PIL import Image
+
+        from led_ticker.app import _build_widget
+
+        img_path = tmp_path / "tiny.png"
+        Image.new("RGB", (1, 1), (255, 0, 0)).save(img_path)
+
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {
+                "type": "image",
+                "path": "tiny.png",
+                "image_align": "Middle",
+            }
+            with pytest.raises(ValueError, match="not a valid choice"):
+                await _build_widget(
+                    widget_cfg,
+                    session,
+                    config_dir=tmp_path,
+                )
+
+    @pytest.mark.asyncio
+    async def test_coerces_text_align_case_on_message(self):
+        """text_align is on multiple widget types; image enums reach
+        message widgets via the same enum-coerce path."""
+        import contextlib
+
+        import aiohttp
+
+        from led_ticker._coerce import CoercionWarning
+        from led_ticker.app import _build_widget
+
+        warnings: list[CoercionWarning] = []
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {"type": "message", "text": "hi", "text_align": "Left"}
+            # text_align isn't a valid TickerMessage kwarg, but the
+            # coercion pass still normalizes string before the
+            # constructor runs. The widget may reject text_align
+            # downstream — that's fine for testing coercion specifically.
+            with contextlib.suppress(Exception):
+                await _build_widget(
+                    widget_cfg,
+                    session,
+                    coercion_collector=warnings,
+                )
+        # Even if the build failed, the coerce pass ran and recorded.
+        assert any(w.field == "widget.text_align" for w in warnings)

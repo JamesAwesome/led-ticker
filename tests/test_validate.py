@@ -2102,3 +2102,38 @@ font_size = true
     result = await validate_config(cfg)
     assert not result.valid
     assert any("must be an int" in e.message for e in result.errors)
+
+
+@pytest.mark.asyncio
+async def test_original_bug_font_size_string_no_typeerror(tmp_path):
+    """Regression: font_size = "25" on a hires font used to crash with
+    `TypeError: '<' not supported between instances of 'str' and 'int'`
+    deep in resolve_font. After coerce-and-warn, it's a warning."""
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("""
+[display]
+rows = 64
+cols = 256
+default_scale = 4
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 30.0
+
+[[playlist.section.widget]]
+type = "gif"
+path = "missing.gif"
+fit = "letterbox"
+image_align = "center"
+text = "Moon         Bunny"
+font = "Inter-Bold"
+font_size = "25"
+""")
+    from led_ticker.validate import validate_config
+
+    result = await validate_config(cfg)
+    type_errors = [e for e in result.errors if "'<' not supported" in e.message]
+    assert type_errors == []
+    coerce = [w for w in result.warnings if "font_size" in w.message]
+    assert len(coerce) >= 1

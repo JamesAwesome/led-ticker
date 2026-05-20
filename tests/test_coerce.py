@@ -2,7 +2,7 @@
 
 import pytest
 
-from led_ticker._coerce import CoercionWarning, coerce_float, coerce_int
+from led_ticker._coerce import CoercionWarning, coerce_choice, coerce_float, coerce_int
 
 
 class TestCoerceInt:
@@ -102,3 +102,51 @@ class TestCoerceFloat:
         assert warning is not None
         assert warning.fix
         assert "hold_time" in warning.fix
+
+
+class TestCoerceChoice:
+    VALID = frozenset({"left", "right", "center"})
+
+    def test_canonical_value_passthrough(self):
+        value, warning = coerce_choice("left", field="image_align", valid=self.VALID)
+        assert value == "left"
+        assert warning is None
+
+    def test_uppercase_lowercases_with_warning(self):
+        value, warning = coerce_choice("Left", field="image_align", valid=self.VALID)
+        assert value == "left"
+        assert warning is not None
+        assert warning.field == "image_align"
+        assert warning.original == "Left"
+        assert warning.coerced == "left"
+
+    def test_whitespace_stripped(self):
+        value, warning = coerce_choice(
+            "  right  ", field="image_align", valid=self.VALID
+        )
+        assert value == "right"
+        assert warning is not None
+
+    def test_mixed_case_lowercases(self):
+        value, warning = coerce_choice("CENTER", field="image_align", valid=self.VALID)
+        assert value == "center"
+        assert warning is not None
+
+    def test_unknown_value_after_normalize_rejected(self):
+        with pytest.raises(ValueError, match="not a valid"):
+            coerce_choice("Middle", field="image_align", valid=self.VALID)
+
+    def test_unknown_value_passthrough_rejected(self):
+        with pytest.raises(ValueError, match="not a valid"):
+            coerce_choice("middle", field="image_align", valid=self.VALID)
+
+    def test_non_string_rejected(self):
+        with pytest.raises(ValueError, match="must be a string"):
+            coerce_choice(42, field="image_align", valid=self.VALID)
+
+    def test_warning_carries_fix_string(self):
+        _, warning = coerce_choice("Left", field="image_align", valid=self.VALID)
+        assert warning is not None
+        assert warning.fix
+        assert "image_align" in warning.fix
+        assert "left" in warning.fix

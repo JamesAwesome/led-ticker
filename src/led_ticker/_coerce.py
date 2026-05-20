@@ -95,3 +95,38 @@ def coerce_float(value: object, *, field: str) -> tuple[float, CoercionWarning |
     raise ValueError(
         f"{field} must be a float; got {type(value).__name__} ({value!r})."
     )
+
+
+def coerce_choice(
+    value: object, *, field: str, valid: frozenset[str]
+) -> tuple[str, CoercionWarning | None]:
+    """Normalize a closed-set enum string (lowercase + strip).
+
+    Raise ValueError if the input isn't a string, or if the normalized
+    value still isn't in `valid`.
+    """
+    if not isinstance(value, str):
+        raise ValueError(
+            f"{field} must be a string; got {type(value).__name__} "
+            f"({value!r}). Expected one of {sorted(valid)}."
+        )
+    normalized = value.strip().lower()
+    if normalized not in valid:
+        raise ValueError(
+            f'{field}="{value}" is not a valid choice; expected one of '
+            f"{sorted(valid)}."
+        )
+    if normalized == value:
+        return normalized, None
+    return normalized, CoercionWarning(
+        field=field,
+        original=value,
+        coerced=normalized,
+        message=(
+            f'{field} was "{value}"; coerced to "{normalized}". Enum '
+            f"values are case-insensitive but the canonical form is "
+            f'lowercase — write {field} = "{normalized}" to silence '
+            f"this warning."
+        ),
+        fix=f'Replace {field} = "{value}" with {field} = "{normalized}".',
+    )

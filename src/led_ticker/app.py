@@ -1131,8 +1131,6 @@ async def run(config_path: Path) -> None:
                             coercion_collector=runtime_coerce,
                         )
                         widget_cache[key] = widget
-                for w in runtime_coerce:
-                    logging.warning("config coerce: %s", w.message)
                     # Container widgets expand into stories
                     if isinstance(
                         widget,
@@ -1146,6 +1144,11 @@ async def run(config_path: Path) -> None:
                         widgets.extend(widget.feed_stories)
                     else:
                         widgets.append(widget)
+                # Drain coerce warnings collected during this section's
+                # widget build. Empty in the common case; one log line per
+                # CoercionWarning otherwise.
+                for w in runtime_coerce:
+                    logging.warning("config coerce: %s", w.message)
 
                 title = await _build_title(
                     section.title,

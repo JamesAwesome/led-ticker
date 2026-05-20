@@ -567,7 +567,6 @@ def _coerce_widget_cfg(
     continue to fire."""
     from led_ticker._coerce import coerce_choice, coerce_float, coerce_int
 
-    enum_fields = _WIDGET_ENUM_FIELDS
     for name in list(widget_cfg.keys()):
         if name in _WIDGET_INT_FIELDS:
             value, warning = coerce_int(widget_cfg[name], field=f"widget.{name}")
@@ -579,11 +578,11 @@ def _coerce_widget_cfg(
             widget_cfg[name] = value
             if warning is not None and collector is not None:
                 collector.append(warning)
-        elif name in enum_fields:
+        elif name in _WIDGET_ENUM_FIELDS:
             value, warning = coerce_choice(
                 widget_cfg[name],
                 field=f"widget.{name}",
-                valid=enum_fields[name],
+                valid=_WIDGET_ENUM_FIELDS[name],
             )
             widget_cfg[name] = value
             if warning is not None and collector is not None:

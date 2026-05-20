@@ -593,6 +593,74 @@ class TestBuildWidgetFontResolution:
         assert not hasattr(widget, "font_threshold")
 
 
+class TestBuildWidgetCoerceNumeric:
+    @pytest.mark.asyncio
+    async def test_coerces_font_size_string(self):
+        """font_size = "25" should coerce to int 25 and emit a warning,
+        not crash with TypeError deep in resolve_font."""
+        import aiohttp
+
+        from led_ticker._coerce import CoercionWarning
+        from led_ticker.app import _build_widget
+
+        warnings: list[CoercionWarning] = []
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {
+                "type": "message",
+                "text": "hi",
+                "font": "Inter-Bold",
+                "font_size": "25",
+            }
+            widget = await _build_widget(
+                widget_cfg,
+                session,
+                coercion_collector=warnings,
+            )
+        assert widget is not None
+        assert any(w.field == "widget.font_size" for w in warnings)
+
+    @pytest.mark.asyncio
+    async def test_coerces_font_threshold_string(self):
+        import aiohttp
+
+        from led_ticker._coerce import CoercionWarning
+        from led_ticker.app import _build_widget
+
+        warnings: list[CoercionWarning] = []
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {
+                "type": "message",
+                "text": "hi",
+                "font": "Inter-Bold",
+                "font_size": 25,
+                "font_threshold": "80",
+            }
+            widget = await _build_widget(
+                widget_cfg,
+                session,
+                coercion_collector=warnings,
+            )
+        assert widget is not None
+        assert any(w.field == "widget.font_threshold" for w in warnings)
+
+    @pytest.mark.asyncio
+    async def test_font_size_bool_still_rejected(self):
+        """Bool stays a hard error — the existing rule 28 guard pattern."""
+        import aiohttp
+
+        from led_ticker.app import _build_widget
+
+        async with aiohttp.ClientSession() as session:
+            widget_cfg = {
+                "type": "message",
+                "text": "hi",
+                "font": "Inter-Bold",
+                "font_size": True,
+            }
+            with pytest.raises(ValueError, match="must be an int"):
+                await _build_widget(widget_cfg, session)
+
+
 class TestSmallSignFontSizeGuard:
     """Hi-res renders at native physical pixels. On the small sign
     (default_scale=1, panel_h=16), a font_size > 14 will overflow

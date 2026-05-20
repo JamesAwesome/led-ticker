@@ -2185,18 +2185,19 @@ class TestHiresSnapRespectsIncomingBg:
         real.Clear.assert_not_called()
 
 
-def test_resolve_easing_unknown_raises():
+def test_easing_lookup_unknown_raises():
     """Programmatic use with an unknown easing should fail loudly,
-    not silently fall back to linear."""
-    from led_ticker.transitions import _resolve_easing
+    not silently fall back to linear. Config-load coerces case + checks
+    membership upstream, so this is the second-line guard."""
+    from led_ticker.transitions import EASING
 
-    with pytest.raises(KeyError, match="easeout"):
-        _resolve_easing("easeout")
+    with pytest.raises(KeyError):
+        _ = EASING["easeout"]
 
 
-def test_resolve_easing_known_returns_callable():
-    from led_ticker.transitions import _resolve_easing
+def test_easing_lookup_known_returns_callable():
+    from led_ticker.transitions import EASING
 
-    fn = _resolve_easing("linear")
+    fn = EASING["linear"]
     assert callable(fn)
-    assert fn(0.5) == 0.5  # linear: identity-ish
+    assert fn(0.5) == 0.5

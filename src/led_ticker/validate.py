@@ -1171,7 +1171,13 @@ async def validate_config(path: Path) -> ValidationResult:
             )
         )
 
-    # Rule 37: widget-level coerce warnings from _build_widget's coercion pass
+    # Rule 37: coerce warnings — widget-level (from _build_widget's pass)
+    # and config-load (DisplayConfig + SectionConfig + TransitionConfig).
+    # The fix string is derived from the warning at surface time: writing
+    # the canonical typed form (`field = <coerced>`) silences the warning.
+    def _coerce_fix(w: Any) -> str:
+        return f"Set {w.field} to {w.coerced!r} (the canonical typed form)."
+
     for location, w in build_warnings:
         warnings.append(
             ValidationIssue(
@@ -1179,12 +1185,9 @@ async def validate_config(path: Path) -> ValidationResult:
                 location=f"{location}.{w.field}",
                 severity="warning",
                 message=w.message,
-                fix=w.fix,
+                fix=_coerce_fix(w),
             )
         )
-
-    # Rule 37: config-load coerce warnings from load_config
-    # (DisplayConfig + SectionConfig + TransitionConfig fields)
     for w in config._coerce_warnings:
         warnings.append(
             ValidationIssue(
@@ -1192,7 +1195,7 @@ async def validate_config(path: Path) -> ValidationResult:
                 location=w.field,
                 severity="warning",
                 message=w.message,
-                fix=w.fix,
+                fix=_coerce_fix(w),
             )
         )
 

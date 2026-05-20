@@ -1055,14 +1055,6 @@ def build_frame_from_config(display) -> LedFrame:
     )
 
 
-def _log_coerce_warnings(config: Any) -> None:
-    """Emit one logging.warning per CoercionWarning collected during
-    load_config. Mirrors the messages surfaced by `led-ticker validate`
-    so users who run the binary directly still see the same fixes."""
-    for w in getattr(config, "_coerce_warnings", []):
-        logging.warning("config coerce: %s", w.message)
-
-
 def _configure_user_font_dir(config_path: Path) -> None:
     """Anchor user-supplied hi-res fonts to ``<config_dir>/fonts/``.
 
@@ -1089,7 +1081,12 @@ def _configure_user_font_dir(config_path: Path) -> None:
 async def run(config_path: Path) -> None:
     """Main application loop."""
     config = load_config(config_path)
-    _log_coerce_warnings(config)
+    # Surface any coerce warnings recorded by load_config (string-of-digits
+    # int/float fields, mixed-case enum strings). Same messages that
+    # `led-ticker validate` shows as rule-37 warnings; logging at startup
+    # lets users who skip pre-flight still see the fixes.
+    for w in config._coerce_warnings:
+        logging.warning("config coerce: %s", w.message)
     _configure_user_font_dir(config_path)
 
     led_frame = build_frame_from_config(config.display)

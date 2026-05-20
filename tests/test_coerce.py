@@ -49,14 +49,6 @@ class TestCoerceInt:
         with pytest.raises(ValueError, match="must be an int"):
             coerce_int(None, field="font_size")
 
-    def test_warning_carries_fix_string(self):
-        """CoercionWarning.fix should be a one-line actionable instruction."""
-        _, warning = coerce_int("25", field="font_size")
-        assert warning is not None
-        assert warning.fix  # non-empty
-        assert "font_size" in warning.fix
-        assert "25" in warning.fix
-
 
 class TestCoerceFloat:
     def test_float_passthrough(self):
@@ -95,13 +87,6 @@ class TestCoerceFloat:
     def test_none_rejected(self):
         with pytest.raises(ValueError, match="must be a float"):
             coerce_float(None, field="hold_time")
-
-    def test_warning_carries_fix_string(self):
-        """Same convention as coerce_int — warnings include actionable fix."""
-        _, warning = coerce_float("3.0", field="hold_time")
-        assert warning is not None
-        assert warning.fix
-        assert "hold_time" in warning.fix
 
 
 class TestCoerceChoice:
@@ -143,10 +128,3 @@ class TestCoerceChoice:
     def test_non_string_rejected(self):
         with pytest.raises(ValueError, match="must be a string"):
             coerce_choice(42, field="image_align", valid=self.VALID)
-
-    def test_warning_carries_fix_string(self):
-        _, warning = coerce_choice("Left", field="image_align", valid=self.VALID)
-        assert warning is not None
-        assert warning.fix
-        assert "image_align" in warning.fix
-        assert "left" in warning.fix

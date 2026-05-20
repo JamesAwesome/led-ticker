@@ -21,7 +21,6 @@ class CoercionWarning:
     original: object
     coerced: object
     message: str
-    fix: str
 
 
 def coerce_int(value: object, *, field: str) -> tuple[int, CoercionWarning | None]:
@@ -54,7 +53,6 @@ def coerce_int(value: object, *, field: str) -> tuple[int, CoercionWarning | Non
                 f'{field} was a string ("{value}"); coerced to int {coerced}. '
                 f"Drop the quotes around the number to silence this warning."
             ),
-            fix=f'Replace {field} = "{value}" with {field} = {coerced} (no quotes).',
         )
     raise ValueError(f"{field} must be an int; got {type(value).__name__} ({value!r}).")
 
@@ -90,7 +88,6 @@ def coerce_float(value: object, *, field: str) -> tuple[float, CoercionWarning |
                 f'{field} was a string ("{value}"); coerced to float {coerced}. '
                 f"Drop the quotes around the number to silence this warning."
             ),
-            fix=f'Replace {field} = "{value}" with {field} = {coerced} (no quotes).',
         )
     raise ValueError(
         f"{field} must be a float; got {type(value).__name__} ({value!r})."
@@ -128,5 +125,4 @@ def coerce_choice(
             f'lowercase — write {field} = "{normalized}" to silence '
             f"this warning."
         ),
-        fix=f'Replace {field} = "{value}" with {field} = "{normalized}".',
     )

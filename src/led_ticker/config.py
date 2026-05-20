@@ -198,46 +198,22 @@ def _coerce_section(
 
     prefix = f"section[{index}]"
 
-    def _maybe_int(name: str, default: Any) -> Any:
+    def _maybe(name: str, coerce: Any, default: Any) -> Any:
         if name not in section_raw:
             return default
-        value, warning = coerce_int(section_raw[name], field=f"{prefix}.{name}")
-        if warning is not None:
-            warnings.append(warning)
-        return value
-
-    def _maybe_float(name: str, default: Any) -> Any:
-        if name not in section_raw:
-            return default
-        value, warning = coerce_float(section_raw[name], field=f"{prefix}.{name}")
-        if warning is not None:
-            warnings.append(warning)
-        return value
-
-    def _maybe_optional_int(name: str) -> int | None:
-        if name not in section_raw:
-            return None
-        value, warning = coerce_int(section_raw[name], field=f"{prefix}.{name}")
-        if warning is not None:
-            warnings.append(warning)
-        return value
-
-    def _maybe_optional_float(name: str) -> float | None:
-        if name not in section_raw:
-            return None
-        value, warning = coerce_float(section_raw[name], field=f"{prefix}.{name}")
+        value, warning = coerce(section_raw[name], field=f"{prefix}.{name}")
         if warning is not None:
             warnings.append(warning)
         return value
 
     return {
-        "loop_count": _maybe_int("loop_count", 1),
-        "hold_time": _maybe_float("hold_time", 3.0),
-        "scale": _maybe_int("scale", display.default_scale),
-        "content_height": _maybe_int("content_height", 16),
-        "scroll_step_ms": _maybe_optional_int("scroll_step_ms"),
-        "start_hold": _maybe_optional_float("start_hold"),
-        "separator_font_size": _maybe_optional_int("separator_font_size"),
+        "loop_count": _maybe("loop_count", coerce_int, 1),
+        "hold_time": _maybe("hold_time", coerce_float, 3.0),
+        "scale": _maybe("scale", coerce_int, display.default_scale),
+        "content_height": _maybe("content_height", coerce_int, 16),
+        "scroll_step_ms": _maybe("scroll_step_ms", coerce_int, None),
+        "start_hold": _maybe("start_hold", coerce_float, None),
+        "separator_font_size": _maybe("separator_font_size", coerce_int, None),
     }
 
 

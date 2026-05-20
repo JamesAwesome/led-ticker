@@ -31,16 +31,6 @@ EASING: dict[str, Callable[[float], float]] = {
 }
 
 
-def _resolve_easing(easing: str) -> Callable[[float], float]:
-    """Look up an easing function by name. Raises KeyError on unknown
-    values (was a silent fallback to `linear` pre-coerce-and-warn —
-    config-load now catches unknown values via coerce_choice, but
-    programmatic callers still benefit from a loud failure)."""
-    if easing not in EASING:
-        raise KeyError(f"unknown easing {easing!r}; expected one of {sorted(EASING)}")
-    return EASING[easing]
-
-
 # --- Transition protocol and registry ---
 
 
@@ -164,7 +154,10 @@ async def run_transition(
     outgoing_bg_color = _normalize_bg(outgoing_bg_color)
     incoming_bg_color = _normalize_bg(incoming_bg_color)
 
-    ease_fn = _resolve_easing(easing)
+    # `easing` is validated at config-load via coerce_choice against
+    # EASING.keys(); direct dict access here raises a clean KeyError
+    # for programmatic callers who skipped that path.
+    ease_fn = EASING[easing]
     frame_count = max(1, int(duration / scroll_speed))
     if hasattr(transition, "min_frames"):
         frame_count = max(frame_count, transition.min_frames)

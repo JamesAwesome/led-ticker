@@ -2082,3 +2082,70 @@ class TestBuildWidgetCoerceEnum:
             # the only contract is the build doesn't raise.
             assert widget is not None
             assert widget.text_align in {"left", "right", "scroll_over"}
+
+
+class TestValidateRgb:
+    """_validate_rgb is a module-level helper usable from all coerce paths."""
+
+    def test_rejects_bool_components(self):
+        from led_ticker.app import _validate_rgb
+
+        with pytest.raises(ValueError, match="components must be ints"):
+            _validate_rgb([True, False, 0], "font_color list")
+
+    def test_rejects_out_of_range(self):
+        from led_ticker.app import _validate_rgb
+
+        with pytest.raises(ValueError, match="RGB values must be 0-255"):
+            _validate_rgb([300, 0, 0], "font_color list")
+
+    def test_rejects_wrong_length(self):
+        from led_ticker.app import _validate_rgb
+
+        with pytest.raises(ValueError, match=r"must be \[r,g,b\]"):
+            _validate_rgb([1, 2], "font_color list")
+
+    def test_accepts_valid_rgb(self):
+        from led_ticker.app import _validate_rgb
+
+        assert _validate_rgb([255, 128, 0], "font_color list") == (255, 128, 0)
+
+    def test_context_appears_in_message(self):
+        from led_ticker.app import _validate_rgb
+
+        with pytest.raises(ValueError, match="bg_color"):
+            _validate_rgb([True, 0, 0], "bg_color")
+
+
+class TestCoerceColorProviderValidation:
+    """_coerce_color_provider validates rgb lists via _validate_rgb."""
+
+    def test_rejects_bool_component(self):
+        from led_ticker.app import _coerce_color_provider
+
+        with pytest.raises(ValueError, match="components must be ints"):
+            _coerce_color_provider([True, 0, 0])
+
+    def test_rejects_out_of_range(self):
+        from led_ticker.app import _coerce_color_provider
+
+        with pytest.raises(ValueError, match="RGB values must be 0-255"):
+            _coerce_color_provider([256, 0, 0])
+
+
+class TestCoerceWidgetColorsValidation:
+    """_coerce_widget_colors validates raw color keys via _validate_rgb."""
+
+    def test_bg_color_rejects_bool_component(self):
+        from led_ticker.app import _coerce_widget_colors
+
+        cfg = {"bg_color": [True, 0, 0]}
+        with pytest.raises(ValueError, match="components must be ints"):
+            _coerce_widget_colors(cfg)
+
+    def test_bg_color_rejects_out_of_range(self):
+        from led_ticker.app import _coerce_widget_colors
+
+        cfg = {"bg_color": [256, 0, 0]}
+        with pytest.raises(ValueError, match="RGB values must be 0-255"):
+            _coerce_widget_colors(cfg)

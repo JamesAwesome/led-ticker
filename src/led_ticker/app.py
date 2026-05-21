@@ -131,9 +131,9 @@ def _coerce_color_provider(value: Any) -> Any:
     if isinstance(value, graphics.Color):
         return _ConstantColor(value)
 
-    # `[r, g, b]` list/tuple → wrap as constant
+    # `[r, g, b]` list/tuple → validate then wrap as constant
     if isinstance(value, list | tuple) and len(value) == 3:
-        return _ConstantColor(graphics.Color(*value))
+        return _ConstantColor(graphics.Color(*_validate_rgb(value, "font_color list")))
 
     # String shorthand
     if isinstance(value, str):
@@ -174,6 +174,22 @@ def _rgb_to_hue(rgb: list[int] | tuple[int, ...], context: str) -> float:
             "hue arc is meaningful."
         )
     return h * 360.0
+
+
+def _validate_rgb(rgb: Any, context: str) -> tuple[int, int, int]:
+    """Validate an RGB triple at config-load time.
+
+    - Reject bool components (bool is int subclass; `[True, False, True]`
+      would silently coerce to (1, 0, 1)).
+    - Reject out-of-range values; SetPixel takes 0..255 bytes.
+    """
+    if not (isinstance(rgb, list | tuple) and len(rgb) == 3):
+        raise ValueError(f"{context} must be [r,g,b]; got {rgb!r}")
+    if not all(isinstance(c, int) and not isinstance(c, bool) for c in rgb):
+        raise ValueError(f"{context} components must be ints; got {list(rgb)!r}")
+    if not all(0 <= c <= 255 for c in rgb):
+        raise ValueError(f"{context} RGB values must be 0-255; got {list(rgb)!r}")
+    return tuple(rgb)
 
 
 def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
@@ -285,29 +301,6 @@ def _coerce_border(value: Any) -> Any:
     """
     from led_ticker.borders import ColorCycleBorder, ConstantBorder, RainbowChaseBorder
 
-    def _validate_rgb(rgb: Any, context: str) -> tuple[int, int, int]:
-        """Validate an RGB triple for a border `constant` color.
-
-        - Reject bool components (bool is an int subclass; without
-          this guard `[True, False, True]` would silently coerce to
-          (1, 0, 1)). Same hardening pattern documented for
-          `font_threshold` in CLAUDE.md.
-        - Reject out-of-range values; SetPixel takes 0..255 bytes.
-          Letting `[300, -50, 999]` through produces undefined
-          rgbmatrix behavior and silently broken renders.
-        """
-        if not (isinstance(rgb, list | tuple) and len(rgb) == 3):
-            raise ValueError(f"border {context} must be [r,g,b]; got {rgb!r}")
-        if not all(isinstance(c, int) and not isinstance(c, bool) for c in rgb):
-            raise ValueError(
-                f"border {context} components must be ints; got {list(rgb)!r}"
-            )
-        if not all(0 <= c <= 255 for c in rgb):
-            raise ValueError(
-                f"border {context} RGB values must be 0-255; got {list(rgb)!r}"
-            )
-        return tuple(rgb)
-
     if value is None:
         return None
     # Already a BorderEffect — duck-typed via the `paint` method
@@ -318,7 +311,7 @@ def _coerce_border(value: Any) -> Any:
     # via the inline-table form below. Bool is rejected (subclass of
     # int) and out-of-range values are rejected (SetPixel needs 0-255).
     if isinstance(value, list | tuple) and len(value) == 3:
-        return ConstantBorder(color=_validate_rgb(value, "shorthand color"))
+        return ConstantBorder(color=_validate_rgb(value, "border shorthand color"))
     # String shorthand
     if isinstance(value, str):
         if value == "rainbow":
@@ -381,7 +374,7 @@ def _coerce_border(value: Any) -> Any:
                 )
             color = kwargs.pop("color")
             return ConstantBorder(
-                color=_validate_rgb(color, "'constant' color"), **kwargs
+                color=_validate_rgb(color, "border constant color"), **kwargs
             )
         if style == "color_cycle":
             allowed = {"speed", "thickness", "from", "to"}
@@ -500,7 +493,7 @@ def _coerce_widget_colors(cfg: dict[str, Any]) -> None:
 
     for key in _RAW_COLOR_KEYS:
         if key in cfg and isinstance(cfg[key], list | tuple) and len(cfg[key]) == 3:
-            cfg[key] = graphics.Color(*cfg[key])
+            cfg[key] = graphics.Color(*_validate_rgb(cfg[key], key))
 
 
 def _is_hires_font_name(name: str) -> bool:

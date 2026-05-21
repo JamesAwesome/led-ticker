@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from rgbmatrix.graphics import Color
 
 from led_ticker.color_providers import Random, _ConstantColor
@@ -296,6 +297,55 @@ class TestFrameInvariantFlag:
         from led_ticker.color_providers import ColorCycle
 
         assert ColorCycle().frame_invariant is False
+
+
+class TestColorProviderBase:
+    def test_subclass_without_frame_invariant_raises(self):
+        from led_ticker.color_providers import ColorProviderBase
+
+        with pytest.raises(TypeError, match="frame_invariant"):
+
+            class BadProvider(ColorProviderBase):
+                per_char = False
+
+                def color_for(self, frame, char_index, total_chars):
+                    return None  # pragma: no cover
+
+    def test_subclass_with_class_attribute_ok(self):
+        from led_ticker.color_providers import ColorProviderBase
+
+        class GoodProvider(ColorProviderBase):
+            per_char = False
+            frame_invariant = True
+
+            def color_for(self, frame, char_index, total_chars):
+                return None  # pragma: no cover
+
+    def test_subclass_with_property_ok(self):
+        from led_ticker.color_providers import ColorProviderBase
+
+        class DynamicProvider(ColorProviderBase):
+            per_char = False
+
+            @property
+            def frame_invariant(self) -> bool:
+                return False
+
+            def color_for(self, frame, char_index, total_chars):
+                return None  # pragma: no cover
+
+    def test_existing_providers_satisfy_base(self):
+        from led_ticker.color_providers import (
+            ColorCycle,
+            ColorProviderBase,
+            Gradient,
+            Rainbow,
+            Random,
+            _ConstantColor,
+        )
+
+        for cls in (_ConstantColor, Random, Rainbow, ColorCycle, Gradient):
+            assert issubclass(cls, ColorProviderBase), f"{cls.__name__} not a subclass"
 
 
 class TestContinuousProviderRestartOnVisit:

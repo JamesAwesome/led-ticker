@@ -1175,16 +1175,15 @@ async def run(config_path: Path) -> None:
                     "run_forever_scroll",
                 )
 
-                # Pick the inter-section ENTRY transition. Precedence:
-                #   1. If the section explicitly set `transition`,
-                #      use that — same object as the inter-widget
-                #      transition. Solves the "single-widget section
-                #      with `transition = pokeball` never fires" UX
-                #      bug: the configured value now controls how the
-                #      section APPEARS (not just inter-widget moves).
-                #   2. Else fall back to `between_sections` (the
-                #      global default for sections that don't override).
-                if section.transition_specified:
+                # Entry transition precedence:
+                #   1. entry_transition (explicit per-section entry override)
+                #   2. transition (when transition_specified)
+                #   3. between_sections (global default)
+                if section.entry_transition is not None:
+                    entry_trans = _build_trans_obj(section.entry_transition)
+                    entry_duration = section.entry_transition.duration
+                    entry_easing = section.entry_transition.easing
+                elif section.transition_specified:
                     entry_trans = _build_trans_obj(section.transition)
                     entry_duration = section.transition.duration
                     entry_easing = section.transition.easing
@@ -1244,14 +1243,16 @@ async def run(config_path: Path) -> None:
                         incoming_bg_color=section.bg_color,
                     )
 
-                # Build within-section transition config (used between
-                # widgets within a multi-widget section). Mirrors the
-                # entry transition selection above when the section
-                # specifies one — same `_build_trans_obj` factory.
-                trans_cfg = section.transition
-                if trans_cfg.type != "cut":
-                    trans_cfg.transition_obj = _build_trans_obj(trans_cfg)
-                    transition_config = trans_cfg
+                # Widget transition precedence:
+                #   1. widget_transition (explicit per-section widget override)
+                #   2. transition (when transition_specified)
+                #   3. None (cut)
+                widget_trans_cfg = section.widget_transition or (
+                    section.transition if section.transition_specified else None
+                )
+                if widget_trans_cfg is not None and widget_trans_cfg.type != "cut":
+                    widget_trans_cfg.transition_obj = _build_trans_obj(widget_trans_cfg)
+                    transition_config = widget_trans_cfg
                 else:
                     transition_config = None
 

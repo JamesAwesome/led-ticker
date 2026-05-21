@@ -2298,3 +2298,33 @@ class TestUnknownKwargAllowlist:
         cfg = {"type": "message", "text": "hi", "text_color": [255, 0, 0]}
         with pytest.raises(ValueError, match="got unknown field"):
             await _build_widget(cfg, session=None, validate_only=False)  # type: ignore[arg-type]
+
+    @pytest.mark.asyncio
+    async def test_update_interval_on_data_widget_does_not_raise(self):
+        """update_interval is accepted by cls.start(), not an attrs field —
+        must not be flagged as unknown."""
+        from led_ticker.app import _build_widget
+
+        cfg = {
+            "type": "weather",
+            "location": "New York",
+            "update_interval": 7200,
+        }
+        # validate_only=True returns before calling cls.start(), so no
+        # real API key is needed — and the real start() signature is
+        # intact for inspect.signature() to find update_interval.
+        result = await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_genuinely_unknown_field_on_data_widget_still_raises(self):
+        """Unknown field not in start() params on a data widget is still caught."""
+        from led_ticker.app import _build_widget
+
+        cfg = {
+            "type": "weather",
+            "location": "New York",
+            "xyz_bad_field": "bad",
+        }
+        with pytest.raises(ValueError, match="got unknown field"):
+            await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]

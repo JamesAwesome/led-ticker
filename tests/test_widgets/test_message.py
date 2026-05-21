@@ -502,3 +502,57 @@ class TestHiresPerCharCursorMatchesHolistic:
             f"Sum-of-ceils accumulation can overshoot ceil-of-sum and break "
             f"scroll detection."
         )
+
+
+class TestBaselineCache:
+    """compute_baseline is frame-invariant — result depends only on the
+    font metrics and canvas dimensions, both fixed within a section.
+    Cache it after the first draw to avoid recomputing per tick."""
+
+    def test_ticker_message_baseline_computed_once(self, canvas, monkeypatch):
+        import led_ticker.widgets.message as message_mod
+        from led_ticker.widgets.message import TickerMessage
+
+        calls: list = []
+        original = message_mod.compute_baseline
+
+        def _track(*args, **kwargs):
+            calls.append(args)
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(message_mod, "compute_baseline", _track)
+
+        widget = TickerMessage(message="Hello")
+        widget.draw(canvas)
+        widget.draw(canvas)
+        widget.draw(canvas)
+
+        assert len(calls) == 1, (
+            f"compute_baseline called {len(calls)} times"
+            " — should be cached after first draw"
+        )
+
+    def test_ticker_countdown_baseline_computed_once(self, canvas, monkeypatch):
+        from datetime import date
+
+        import led_ticker.widgets.message as message_mod
+        from led_ticker.widgets.message import TickerCountdown
+
+        calls: list = []
+        original = message_mod.compute_baseline
+
+        def _track(*args, **kwargs):
+            calls.append(args)
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(message_mod, "compute_baseline", _track)
+
+        widget = TickerCountdown(message="Days", countdown_date=date(2027, 1, 1))
+        widget.draw(canvas)
+        widget.draw(canvas)
+        widget.draw(canvas)
+
+        assert len(calls) == 1, (
+            f"compute_baseline called {len(calls)} times"
+            " — should be cached after first draw"
+        )

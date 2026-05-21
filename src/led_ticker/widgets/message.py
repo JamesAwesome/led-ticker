@@ -41,6 +41,7 @@ class TickerMessage(_FrameAware):
     border: Any | None = attrs.field(default=None, kw_only=True)
     _content_width: int = attrs.field(init=False, default=-1)
     _has_emoji: bool = attrs.field(init=False, default=False)
+    _baseline_y: int = attrs.field(init=False, default=-1)
 
     def __attrs_post_init__(self) -> None:
         # Coerce raw graphics.Color into _ConstantColor so draw() can
@@ -110,7 +111,9 @@ class TickerMessage(_FrameAware):
         # `visible_text` shorter than the full message.
         start_pos = cursor_pos
 
-        baseline_y = compute_baseline(self.font, canvas, valign="center")
+        if self._baseline_y < 0:
+            self._baseline_y = compute_baseline(self.font, canvas, valign="center")
+        baseline_y = self._baseline_y
 
         # Paint border BEFORE text so text overlaps the border on
         # collision (border frames the panel; text floats inside).
@@ -215,6 +218,7 @@ class TickerCountdown(_FrameAware):
     # physical resolution; advances on its per-effect counter
     # (read via `frame_for("border")`).
     border: Any | None = attrs.field(default=None, kw_only=True)
+    _baseline_y: int = attrs.field(init=False, default=-1)
 
     def __attrs_post_init__(self) -> None:
         # Coerce raw graphics.Color into _ConstantColor so draw() can
@@ -241,7 +245,9 @@ class TickerCountdown(_FrameAware):
             canvas.width, content_width, cursor_pos, self.padding, self.center
         )
 
-        baseline_y = compute_baseline(self.font, canvas, valign="center")
+        if self._baseline_y < 0:
+            self._baseline_y = compute_baseline(self.font, canvas, valign="center")
+        baseline_y = self._baseline_y
 
         # Paint border BEFORE text — same contract as `TickerMessage`.
         # Border frames the panel; text floats inside. Border reads

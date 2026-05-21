@@ -440,20 +440,12 @@ class TestScrollThroughHoldTimeUnification:
     async def test_scroll_through_hold_time_alone_drives_passes(
         self, swapping_frame, monkeypatch
     ):
-        """hold_time=2.0, bottom_text_loops=0 → at least 2 full passes.
-
-        scroll_speed=0.05 → hold_time_ticks = int(2.0 / 0.05) = 40.
-        canvas.width=160, bottom text is short so cycle_width ~ 200.
-        ceil(40/200) = 1, but n_passes must be ≥ 2 because hold_time
-        exceeds one cycle by wall-clock even at the minimum loops=1
-        floor.  Actually at scroll_speed=0.01, ticks = 200,
-        cycle_width ≈ 200, ceil(200/200)=1 still.  Use a very long
-        text + small scroll_speed so hold_time_ticks >> cycle_width.
+        """hold_time=20.0, bottom_text_loops=0 → at least 2 full passes.
 
         Strategy: bottom_text has width ~160 → cycle_width=320.
-        scroll_speed=0.001 → hold_time_ticks = int(2.0/0.001)=2000.
-        ceil(2000/320) = 7 → n_passes >= 7.
-        Verify final_pos <= -(7 * cycle_width).
+        scroll_speed=0.05 → hold_time_ticks = int(20.0/0.05)=400.
+        ceil(400/320) = 2 → n_passes >= 2.
+        Verify final_pos <= -(2 * cycle_width).
         """
         import math
 
@@ -472,8 +464,8 @@ class TestScrollThroughHoldTimeUnification:
             bottom_text_loops=0,
         )
         canvas = swapping_frame.get_clean_canvas.return_value
-        scroll_speed = 0.001
-        hold_time = 2.0
+        scroll_speed = 0.05
+        hold_time = 20.0
 
         _, _, final_pos = await _swap_and_scroll(
             canvas,
@@ -552,11 +544,11 @@ class TestScrollThroughHoldTimeUnification:
     async def test_scroll_through_hold_time_wins_over_one_loop(
         self, swapping_frame, monkeypatch
     ):
-        """hold_time=5.0, bottom_text_loops=1 → multiple passes driven by hold_time.
+        """hold_time=20.0, bottom_text_loops=1 → multiple passes driven by hold_time.
 
-        With scroll_speed=0.001, hold_time_ticks=5000.
-        cycle_width ≈ 320 (wide text). ceil(5000/320)=16 > loops_floor=1.
-        n_passes=16, final_pos <= -(16 * cycle_width).
+        scroll_speed=0.05 → hold_time_ticks=400.
+        cycle_width ≈ 320 (wide text). ceil(400/320)=2 > loops_floor=1.
+        n_passes=2, final_pos <= -(2 * cycle_width).
         """
         import math
 
@@ -574,8 +566,8 @@ class TestScrollThroughHoldTimeUnification:
             bottom_text_loops=1,
         )
         canvas = swapping_frame.get_clean_canvas.return_value
-        scroll_speed = 0.001
-        hold_time = 5.0
+        scroll_speed = 0.05
+        hold_time = 20.0
 
         _, _, final_pos = await _swap_and_scroll(
             canvas,

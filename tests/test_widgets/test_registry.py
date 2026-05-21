@@ -34,3 +34,13 @@ def test_get_unknown_widget_raises():
 
 def test_registry_has_twelve_widgets():
     assert len(_WIDGET_REGISTRY) == 12
+
+
+def test_register_duplicate_name_raises():
+    from led_ticker.widgets import register
+
+    with pytest.raises(ValueError, match="Widget name.*message.*already registered"):
+
+        @register("message")
+        class ShouldFail:
+            pass

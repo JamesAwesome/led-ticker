@@ -214,6 +214,16 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
         "gradient": (Gradient, {"from_color", "to_color"}),
     }
 
+    # Maps style → TOML-facing key names (what the user writes in their config).
+    # Used in error messages so we show "from"/"to" instead of internal names
+    # like "from_color"/"from_hue" that the user never types.
+    _user_allowed: dict[str, set[str]] = {
+        "random": set(),
+        "rainbow": {"speed", "char_offset"},
+        "color_cycle": {"speed", "from", "to"},
+        "gradient": {"from", "to"},
+    }
+
     if style not in registry:
         raise ValueError(
             f"unknown font_color style {style!r}; available: {sorted(registry.keys())}"
@@ -279,7 +289,7 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
     if unknown:
         raise ValueError(
             f"font_color style {style!r} got unknown keys {sorted(unknown)!r}; "
-            f"allowed: {sorted(allowed_kwargs)}"
+            f"allowed: {sorted(_user_allowed[style])}"
         )
     return cls(**kwargs)
 

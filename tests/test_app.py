@@ -2175,3 +2175,34 @@ class TestProviderFromStyleRgbValidation:
             _provider_from_style(
                 "color_cycle", {"from": [True, 0, 0], "to": [0, 255, 0]}
             )
+
+
+class TestProviderFromStyleErrorMessages:
+    """Unknown-key error messages show TOML-facing key names, not internal ones."""
+
+    def test_gradient_unknown_key_shows_user_facing_allowed(self):
+        from led_ticker.app import _provider_from_style
+
+        with pytest.raises(ValueError) as exc_info:
+            _provider_from_style(
+                "gradient",
+                {"from": [255, 0, 0], "to": [0, 255, 0], "wobble": 3},
+            )
+        msg = str(exc_info.value)
+        assert "from_color" not in msg, f"internal name leaked into error: {msg}"
+        assert "to_color" not in msg, f"internal name leaked into error: {msg}"
+        assert "from" in msg
+
+    def test_color_cycle_range_unknown_key_shows_user_facing_allowed(self):
+        from led_ticker.app import _provider_from_style
+
+        with pytest.raises(ValueError) as exc_info:
+            _provider_from_style(
+                "color_cycle",
+                {"from": [255, 0, 0], "to": [0, 255, 0], "wobble": 3},
+            )
+        msg = str(exc_info.value)
+        assert "from_hue" not in msg, f"internal name leaked into error: {msg}"
+        assert "to_hue" not in msg, f"internal name leaked into error: {msg}"
+        assert "from" in msg
+        assert "to" in msg

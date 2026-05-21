@@ -654,9 +654,7 @@ class _BaseImageWidget(_FrameAware):
         Mirrors `TickerMessage.draw`'s animation branch: calls
         `Typewriter.frame_for(frame, full_text, canvas_width, text_width)`
         and reads `.visible_text` from the returned `AnimationFrame`.
-        `cursor_override` is intentionally ignored — image widgets fix
-        cursor via `text_align`, not animation overrides (Bounce was
-        removed in the PR #11 rework).
+        cursor position is controlled via `text_align`.
         """
         if self.animation is None:
             return self.text

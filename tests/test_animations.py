@@ -12,7 +12,6 @@ class TestTypewriter:
         anim = Typewriter()
         f = anim.frame_for(0, "WATCH ME", canvas_width=256, text_width=48)
         assert f.visible_text == "W"
-        assert f.cursor_override is None
 
     def test_frame_advances_slice(self):
         # Default frames_per_char=3: 3 frames per char.

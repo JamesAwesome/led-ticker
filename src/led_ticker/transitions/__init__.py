@@ -36,7 +36,7 @@ EASING: dict[str, Callable[[float], float]] = {
 
 @runtime_checkable
 class Transition(Protocol):
-    min_frames: int
+    min_frames: int = 0
 
     def frame_at(
         self,
@@ -71,6 +71,11 @@ def _normalize_bg(c: Any) -> tuple[int, int, int] | None:
 
 def register_transition(name: str) -> Callable[[type], type]:
     def decorator(cls: type) -> type:
+        if name in _TRANSITION_REGISTRY:
+            raise ValueError(
+                f"Transition name {name!r} is already registered to"
+                f" {_TRANSITION_REGISTRY[name].__name__!r}."
+            )
         _TRANSITION_REGISTRY[name] = cls
         return cls
 

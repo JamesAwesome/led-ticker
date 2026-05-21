@@ -62,11 +62,11 @@ out (continuous chase); `ConstantBorder` keeps the default
 
 from __future__ import annotations
 
-import colorsys
 import functools
 from typing import Any, Protocol
 
 from led_ticker._types import Canvas
+from led_ticker.color_lut import hue_color
 from led_ticker.scaled_canvas import unwrap_to_real
 
 
@@ -233,8 +233,8 @@ class RainbowChaseBorder(BorderEffectBase):
                 hue = (self._from_hue - phase) % 360
             else:
                 hue = (self._from_hue + phase) % 360
-            r, g, b = colorsys.hsv_to_rgb(hue / 360.0, 1.0, 1.0)
-            real.SetPixel(x, y, int(r * 255), int(g * 255), int(b * 255))
+            color = hue_color(hue)
+            real.SetPixel(x, y, color.red, color.green, color.blue)
 
 
 class ColorCycleBorder(BorderEffectBase):
@@ -281,11 +281,10 @@ class ColorCycleBorder(BorderEffectBase):
             hue = (self._from_hue - progress) % 360
         else:
             hue = (self._from_hue + progress) % 360
-        r, g, b = colorsys.hsv_to_rgb(hue / 360.0, 1.0, 1.0)
+        color = hue_color(hue)
         real = unwrap_to_real(canvas)
-        ri, gi, bi = int(r * 255), int(g * 255), int(b * 255)
         for x, y in _perimeter_pixels(real.width, real.height, self.thickness):
-            real.SetPixel(x, y, ri, gi, bi)
+            real.SetPixel(x, y, color.red, color.green, color.blue)
 
 
 class ConstantBorder(BorderEffectBase):

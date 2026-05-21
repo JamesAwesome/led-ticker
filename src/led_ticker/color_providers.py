@@ -30,12 +30,11 @@ opt out (continuous sweep / cycle); the others keep the default
 
 from __future__ import annotations
 
-import colorsys
 import random
 from typing import Protocol
 
-from led_ticker._compat import require_graphics
 from led_ticker._types import Color
+from led_ticker.color_lut import hue_color
 
 
 class ColorProviderBase:
@@ -103,11 +102,9 @@ class Random(ColorProviderBase):
     frame_invariant: bool = True
 
     def __init__(self) -> None:
-        graphics = require_graphics()
         # Random color: pick a hue uniformly per call (independent of
         # app.py's section-title RANDOM_COLOR cycle).
-        r, g, b = colorsys.hsv_to_rgb(random.random(), 1.0, 1.0)
-        self._color = graphics.Color(int(r * 255), int(g * 255), int(b * 255))
+        self._color = hue_color(random.random() * 360)
 
     def color_for(self, frame: int, char_index: int, total_chars: int) -> Color:
         return self._color
@@ -129,10 +126,8 @@ class Rainbow(ColorProviderBase):
         self.char_offset = char_offset
 
     def color_for(self, frame: int, char_index: int, total_chars: int) -> Color:
-        graphics = require_graphics()
-        hue = ((frame * self.speed + char_index * self.char_offset) % 360) / 360
-        r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
-        return graphics.Color(int(r * 255), int(g * 255), int(b * 255))
+        hue_int = (frame * self.speed + char_index * self.char_offset) % 360
+        return hue_color(hue_int)
 
 
 class ColorCycle(ColorProviderBase):
@@ -170,15 +165,13 @@ class ColorCycle(ColorProviderBase):
             self._span = 360.0  # full wheel
 
     def color_for(self, frame: int, char_index: int, total_chars: int) -> Color:
-        graphics = require_graphics()
         span = self._span if self._span != 0 else 360.0
         progress = (frame * self.speed) % abs(span)
         if span < 0:
             hue = (self._from_hue - progress) % 360
         else:
             hue = (self._from_hue + progress) % 360
-        r, g, b = colorsys.hsv_to_rgb(hue / 360.0, 1.0, 1.0)
-        return graphics.Color(int(r * 255), int(g * 255), int(b * 255))
+        return hue_color(hue)
 
 
 class Gradient(ColorProviderBase):
@@ -193,6 +186,8 @@ class Gradient(ColorProviderBase):
         self._to = to_color
 
     def color_for(self, frame: int, char_index: int, total_chars: int) -> Color:
+        from led_ticker._compat import require_graphics
+
         graphics = require_graphics()
         if total_chars <= 1:
             return self._from

@@ -614,3 +614,26 @@ class TestBorderEffectBase:
 
         for cls in (RainbowChaseBorder, ColorCycleBorder, ConstantBorder):
             assert issubclass(cls, BorderEffectBase), f"{cls.__name__} not a subclass"
+
+
+class TestColorLUTBorders:
+    """RainbowChaseBorder and ColorCycleBorder use the shared LUT instead
+    of per-call colorsys.hsv_to_rgb."""
+
+    def test_rainbow_chase_same_position_same_frame_returns_same_pixel(self):
+        """Same perimeter position at same frame must produce the same RGB.
+        Verifies the LUT is consistent across calls."""
+        c1 = _StubCanvas(20, 8)
+        c2 = _StubCanvas(20, 8)
+        b = RainbowChaseBorder(speed=4, char_offset=6)
+        b.paint(c1, frame_count=5)
+        b.paint(c2, frame_count=5)
+        assert c1.pixels == c2.pixels, "Same frame must produce identical pixels"
+
+    def test_color_cycle_border_frame_zero_hue_zero_is_red(self):
+        """ColorCycleBorder at frame=0 with speed=1: hue=(0*1)%360=0 → red (255,0,0)."""
+        c = _StubCanvas(10, 4)
+        ColorCycleBorder(speed=1).paint(c, frame_count=0)
+        assert all(
+            rgb == (255, 0, 0) for rgb in c.pixels.values()
+        ), f"Expected all red at frame=0, got: {set(c.pixels.values())}"

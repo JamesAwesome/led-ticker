@@ -370,3 +370,64 @@ class TestContinuousProviderRestartOnVisit:
             "ColorCycle.restart_on_visit must be False — the cycle "
             "should advance continuously across loop_count boundaries"
         )
+
+
+class TestColorLUT:
+    """Precomputed 360-entry hue → Color table.
+
+    hue_color(deg) must return a pre-built Color object — the same object
+    for repeated calls with the same integer degree, no colorsys call
+    needed after the first build."""
+
+    def test_hue_color_returns_red_at_zero(self):
+        from led_ticker.color_lut import hue_color
+
+        c = hue_color(0)
+        assert c.red == 255
+        assert c.green == 0
+        assert c.blue == 0
+
+    def test_hue_color_same_degree_returns_same_object(self):
+        """Core LUT contract: same degree → same pre-built object (not a
+        new allocation). Identity check — colorsys is only called once."""
+        from led_ticker.color_lut import hue_color
+
+        c1 = hue_color(120)
+        c2 = hue_color(120)
+        assert c1 is c2, (
+            "hue_color should return the same object for the same degree — "
+            "LUT is not working"
+        )
+
+    def test_hue_color_wraps_at_360(self):
+        from led_ticker.color_lut import hue_color
+
+        assert hue_color(0) is hue_color(360)
+        assert hue_color(0) is hue_color(720)
+
+    def test_hue_color_float_truncates(self):
+        """Float degrees truncate to int — 119.9 and 119.0 both hit LUT[119]."""
+        from led_ticker.color_lut import hue_color
+
+        assert hue_color(119.9) is hue_color(119.0)
+
+    def test_rainbow_same_args_returns_same_object(self):
+        """Rainbow.color_for with the same (frame, char_index) must return
+        the cached Color object, not a freshly-allocated one."""
+        from led_ticker.color_providers import Rainbow
+
+        r = Rainbow()
+        c1 = r.color_for(frame=5, char_index=2, total_chars=10)
+        c2 = r.color_for(frame=5, char_index=2, total_chars=10)
+        assert (
+            c1 is c2
+        ), "Rainbow.color_for should use the LUT — same args → same object"
+
+    def test_color_cycle_same_frame_returns_same_object(self):
+        from led_ticker.color_providers import ColorCycle
+
+        cc = ColorCycle(speed=5)
+        c1 = cc.color_for(frame=10, char_index=0, total_chars=1)
+        c2 = cc.color_for(frame=10, char_index=4, total_chars=1)
+        # ColorCycle ignores char_index — same frame → same LUT entry
+        assert c1 is c2

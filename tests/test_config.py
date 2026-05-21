@@ -659,3 +659,76 @@ mode = "swap"
 
     with pytest.raises(ValueError, match="not a valid choice"):
         load_config(cfg)
+
+
+def test_entry_transition_parsed_from_toml(tmp_path):
+    """entry_transition is parsed when present in TOML."""
+    config_file = tmp_path / "c.toml"
+    config_file.write_text(
+        "[display]\nrows=16\ncols=32\nchain=5\n"
+        '[[playlist.section]]\nmode="swap"\n'
+        'entry_transition = "pokeball"\n'
+    )
+    cfg = load_config(config_file)
+    assert cfg.sections[0].entry_transition is not None
+    assert cfg.sections[0].entry_transition.type == "pokeball"
+
+
+def test_entry_transition_none_when_absent(tmp_path):
+    config_file = tmp_path / "c.toml"
+    config_file.write_text(
+        "[display]\nrows=16\ncols=32\nchain=5\n" '[[playlist.section]]\nmode="swap"\n'
+    )
+    cfg = load_config(config_file)
+    assert cfg.sections[0].entry_transition is None
+
+
+def test_widget_transition_parsed_from_toml(tmp_path):
+    config_file = tmp_path / "c.toml"
+    config_file.write_text(
+        "[display]\nrows=16\ncols=32\nchain=5\n"
+        '[[playlist.section]]\nmode="swap"\n'
+        'widget_transition = "wipe_left"\n'
+    )
+    cfg = load_config(config_file)
+    assert cfg.sections[0].widget_transition is not None
+    assert cfg.sections[0].widget_transition.type == "wipe_left"
+
+
+def test_widget_transition_none_when_absent(tmp_path):
+    config_file = tmp_path / "c.toml"
+    config_file.write_text(
+        "[display]\nrows=16\ncols=32\nchain=5\n" '[[playlist.section]]\nmode="swap"\n'
+    )
+    cfg = load_config(config_file)
+    assert cfg.sections[0].widget_transition is None
+
+
+def test_entry_transition_and_transition_coexist(tmp_path):
+    """entry_transition and transition can both be set independently."""
+    config_file = tmp_path / "c.toml"
+    config_file.write_text(
+        "[display]\nrows=16\ncols=32\nchain=5\n"
+        '[[playlist.section]]\nmode="swap"\n'
+        'transition = "wipe_left"\n'
+        'entry_transition = "pokeball"\n'
+    )
+    cfg = load_config(config_file)
+    assert cfg.sections[0].transition.type == "wipe_left"
+    assert cfg.sections[0].transition_specified is True
+    assert cfg.sections[0].entry_transition is not None
+    assert cfg.sections[0].entry_transition.type == "pokeball"
+
+
+def test_entry_transition_dict_form(tmp_path):
+    """entry_transition accepts the dict form with duration."""
+    config_file = tmp_path / "c.toml"
+    config_file.write_text(
+        "[display]\nrows=16\ncols=32\nchain=5\n"
+        '[[playlist.section]]\nmode="swap"\n'
+        '[playlist.section.entry_transition]\ntype = "dissolve"\nduration = 0.8\n'
+    )
+    cfg = load_config(config_file)
+    assert cfg.sections[0].entry_transition is not None
+    assert cfg.sections[0].entry_transition.type == "dissolve"
+    assert cfg.sections[0].entry_transition.duration == 0.8

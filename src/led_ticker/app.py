@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import difflib
+import inspect
 import itertools
 import logging
 import sys
@@ -887,6 +888,18 @@ async def _build_widget(
     cls_init_fields = {
         a.name for a in getattr(cls, "__attrs_attrs__", ()) if a.init is not False
     }
+    # start()-based data widgets accept kwargs like update_interval via cls.start()
+    # that are not attrs fields — include them in the allowlist so configs using
+    # these widgets don't get false-positive "unknown field" errors.
+    if hasattr(cls, "start"):
+        try:
+            start_params = set(inspect.signature(cls.start).parameters) - {
+                "session",
+                "cls",
+            }
+            cls_init_fields |= start_params
+        except (ValueError, TypeError):
+            pass  # unintrospectable; don't expand
     unknown = set(widget_cfg.keys()) - cls_init_fields
     if unknown:
         suggestions = []

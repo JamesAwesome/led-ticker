@@ -1050,6 +1050,55 @@ class TestPlayLoopAdvancesFrame:
         assert w._frame_count == 0
 
 
+class TestPlayWithTextDriftCompensation:
+    """_play_with_text and _play_with_two_row_text must subtract elapsed
+    work time from each tick's sleep so scroll speed stays accurate (C3).
+    Each tick calls loop.time() twice: once at t0 and once inside max().
+    """
+
+    async def test_single_row_subtracts_work_time(self, monkeypatch):
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.fonts import FONT_DEFAULT
+
+        sleep_calls: list[float] = []
+
+        async def _record(seconds: float) -> None:
+            sleep_calls.append(seconds)
+
+        monkeypatch.setattr("led_ticker.widgets._image_base.asyncio.sleep", _record)
+
+        tick_times = iter([0.000, 0.025] * 500)  # 25 ms work per tick
+        mock_loop = mock.Mock()
+        mock_loop.time.side_effect = lambda: next(tick_times)
+        monkeypatch.setattr(
+            "led_ticker.widgets._image_base.asyncio.get_running_loop",
+            lambda: mock_loop,
+        )
+
+        frame = mock.Mock()
+        frame.matrix.SwapOnVSync.return_value = _StubCanvas(width=160, height=16)
+
+        w = _DummyImage(
+            text="hi",
+            text_align="scroll_over",
+            font=FONT_DEFAULT,
+            font_size=None,
+            scroll_speed_ms=50,
+        )
+        w._logical_scale = 1
+        real = _StubCanvas(width=160, height=16)
+
+        await w._play_with_text(real, frame, n_ticks=3)
+
+        tick_s = 50 / 1000  # scroll_speed_ms / 1000 = 0.05
+        expected = tick_s - 0.025  # 0.025
+        assert sleep_calls, "no per-tick sleep calls recorded"
+        assert all(
+            abs(s - expected) < 1e-9 for s in sleep_calls
+        ), f"expected {expected}s sleeps (drift-compensated), got {sleep_calls}"
+
+
 class _TrackingProvider:
     """Test provider: per_char=True, records every (frame, idx, total)."""
 

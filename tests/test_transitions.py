@@ -1,6 +1,5 @@
 """Tests for transition effects."""
 
-import asyncio
 import unittest.mock as mock
 
 import pytest
@@ -1107,10 +1106,8 @@ class TestPushRandomDelegatesFrameAt:
 
 @pytest.fixture
 def no_sleep(monkeypatch):
-    _real_sleep = asyncio.sleep
-
     async def _fast(seconds):
-        await _real_sleep(0)
+        pass
 
     monkeypatch.setattr("led_ticker.transitions.asyncio.sleep", _fast)
 

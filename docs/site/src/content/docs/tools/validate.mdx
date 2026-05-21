@@ -147,6 +147,7 @@ Quick reference. Each row maps to a longer entry on [Validation rules](/pitfalls
 | `scroll_step_ms <= 0` on a section (rule 31)                     | error    | set to a positive integer (e.g. 35)              |
 | `content_height × scale > panel_h_real` (rule 1)                 | error    | lower `content_height` to `panel_h ÷ scale`      |
 | `scroll_speed_ms` at section level or `scroll_step_ms` on widget | error    | swap fields to the correct scope (rule 34)       |
+| Unknown widget field name (typo in TOML)                         | error    | run `--list-fields TYPE` to see valid names      |
 | `two_row` widget at `scale = 4`                                  | warning  | use `scale = 2` (128 logical px wide)            |
 | `transition_duration` > 5 s or < 0.05 s                          | warning  | divide by 1000 (it's seconds, not milliseconds)  |
 | Held `top_text` wider than the logical canvas                    | warning  | shorten text, smaller font, or lower `scale`     |
@@ -155,6 +156,23 @@ Quick reference. Each row maps to a longer entry on [Validation rules](/pitfalls
 | `mode = "gif"` is a legacy mode (rule 33)                        | warning  | use `mode = "swap"` with a `gif` widget          |
 | `default = "..."` written inside a section block (rule 35)       | warning  | rename to `transition = "..."`                   |
 | `gif_loops = 0` inside a `mode = "gif"` section (rule 36)        | warning  | switch to `mode = "swap"` or set positive count  |
+
+## Discovering widget fields — `--list-fields`
+
+If you're not sure what fields a widget type accepts, run:
+
+```bash
+led-ticker validate --list-fields message
+led-ticker validate --list-fields two_row
+led-ticker validate --list-fields gif
+```
+
+This prints the widget's full field surface in two groups:
+
+- **Widget-level fields** — attrs fields the widget constructor accepts directly, with types and defaults.
+- **Dispatch-level fields** — shared fields `_build_widget` handles before construction (e.g. `font`, `font_size`, `animation`, `border`).
+
+When you use an unrecognized field name in a widget config block, the validator now catches it with a did-you-mean suggestion (rule 38). The fix line in the error output points at `--list-fields` so you can immediately see the correct name.
 
 ## Tips
 

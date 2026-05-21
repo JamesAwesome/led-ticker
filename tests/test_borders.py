@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import unittest.mock as mock
 
+import pytest
+
 from led_ticker.borders import (
     ColorCycleBorder,
     ConstantBorder,
@@ -556,3 +558,48 @@ class TestRainbowChaseBorderRestartOnVisit:
             "the perimeter chase should advance continuously across "
             "loop_count boundaries within a section"
         )
+
+
+class TestBorderEffectBase:
+    def test_subclass_without_frame_invariant_raises(self):
+        from led_ticker.borders import BorderEffectBase
+
+        with pytest.raises(TypeError, match="frame_invariant"):
+
+            class BadBorder(BorderEffectBase):
+                def paint(self, canvas, frame_count):
+                    pass  # pragma: no cover
+
+    def test_subclass_with_class_attribute_ok(self):
+        from led_ticker.borders import BorderEffectBase
+
+        class GoodBorder(BorderEffectBase):
+            frame_invariant = True
+
+            def paint(self, canvas, frame_count):
+                pass  # pragma: no cover
+
+    def test_subclass_with_property_ok(self):
+        from led_ticker.borders import BorderEffectBase
+
+        class DynamicBorder(BorderEffectBase):
+            @property
+            def frame_invariant(self) -> bool:
+                return False
+
+            def __init__(self, speed: int) -> None:
+                self._speed = speed
+
+            def paint(self, canvas, frame_count):
+                pass  # pragma: no cover
+
+    def test_existing_borders_satisfy_base(self):
+        from led_ticker.borders import (
+            BorderEffectBase,
+            ColorCycleBorder,
+            ConstantBorder,
+            RainbowChaseBorder,
+        )
+
+        for cls in (RainbowChaseBorder, ColorCycleBorder, ConstantBorder):
+            assert issubclass(cls, BorderEffectBase), f"{cls.__name__} not a subclass"

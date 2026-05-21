@@ -1351,7 +1351,9 @@ class _BaseImageWidget(_FrameAware):
             await asyncio.sleep(n_ticks * tick_seconds)
             return canvas
 
+        loop = asyncio.get_running_loop()
         for tick in range(n_ticks):
+            t0 = loop.time()
             self._pick_frame_for_elapsed(tick * tick_ms)
             # Advance the widget's own frame counter so ColorProviders
             # (rainbow, color_cycle) animate over time. Without this,
@@ -1386,7 +1388,7 @@ class _BaseImageWidget(_FrameAware):
                 text_canvas.real = canvas
             else:
                 text_canvas = canvas
-            await asyncio.sleep(tick_seconds)
+            await asyncio.sleep(max(0.0, tick_seconds - (loop.time() - t0)))
 
             if scrolling:
                 scroll_pos += scroll_step
@@ -1611,7 +1613,9 @@ class _BaseImageWidget(_FrameAware):
             await asyncio.sleep(n_ticks * tick_seconds)
             return canvas
 
+        loop = asyncio.get_running_loop()
         for tick in range(n_ticks):
+            t0 = loop.time()
             self._pick_frame_for_elapsed(tick * tick_ms)
             # Advance the per-widget frame counter so ColorProviders
             # animate. See single-row path for rationale.
@@ -1655,7 +1659,7 @@ class _BaseImageWidget(_FrameAware):
                 text_canvas.real = canvas
             else:
                 text_canvas = canvas
-            await asyncio.sleep(tick_seconds)
+            await asyncio.sleep(max(0.0, tick_seconds - (loop.time() - t0)))
             if wrap_mode:
                 scroll_pos -= 1
                 if cycle_width:

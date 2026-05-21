@@ -846,6 +846,49 @@ class TestScroll:
         assert result is canvas
 
 
+class TestScrollInlinedDrawing:
+    def test_frame_at_does_not_import_draw_scroll_frame(self):
+        """Scroll.frame_at must not import the private _draw_scroll_frame
+        from ticker. Extension authors must not depend on engine privates.
+        Inline the logic into frame_at instead."""
+        import inspect
+
+        source = inspect.getsource(Scroll.frame_at)
+        assert "_draw_scroll_frame" not in source, (
+            "Scroll.frame_at still imports _draw_scroll_frame from ticker — "
+            "inline the draw logic into frame_at directly"
+        )
+
+    def test_blackout_region_cleared_at_mid_scroll(self, canvas, make_widget):
+        """At mid-scroll the region between outgoing tail and the right
+        edge of the canvas is blacked out so outgoing text doesn't bleed
+        through the gap region."""
+        scroll = Scroll()
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        # At t=0.5, sep_w=14: scroll_offset = int(0.5 * 174) = 87
+        # clear_start = max(0, 160 - 87) = 73 → should black out x in [73, 159]
+        scroll.frame_at(0.5, canvas, outgoing, incoming)
+        black_calls = [
+            c for c in canvas.SetPixel.call_args_list if c.args[2:] == (0, 0, 0)
+        ]
+        assert len(black_calls) > 0, "No blackout pixels were set during mid-scroll"
+        x_values = {c.args[0] for c in black_calls}
+        assert min(x_values) == 73
+        assert max(x_values) == 159
+
+    def test_bullet_painted_at_mid_scroll(self, canvas, make_widget):
+        """Bullet (2×2 white dot) is painted during scroll."""
+        scroll = Scroll()
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        scroll.frame_at(0.5, canvas, outgoing, incoming)
+        white_calls = [
+            c for c in canvas.SetPixel.call_args_list if c.args[2:] == (255, 255, 255)
+        ]
+        assert len(white_calls) >= 1, "No bullet pixels were painted"
+
+
 # --- PushAlternating ---
 
 

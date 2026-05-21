@@ -20,10 +20,9 @@ from led_ticker.ticker import (
 @pytest.fixture
 def no_sleep(monkeypatch):
     """Patch asyncio.sleep in ticker module to be instant."""
-    _real_sleep = asyncio.sleep
 
     async def _fast(seconds):
-        await _real_sleep(0)  # yield control but don't wait
+        pass
 
     monkeypatch.setattr("led_ticker.ticker.asyncio.sleep", _fast)
 

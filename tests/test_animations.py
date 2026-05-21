@@ -41,3 +41,23 @@ class TestTypewriter:
         # frame=10 → progress = 10//5+1 = 3 chars
         f = anim.frame_for(10, "ABCDEF", canvas_width=256, text_width=36)
         assert f.visible_text == "ABC"
+
+
+class TestAnimationProtocol:
+    def test_animation_protocol_exists(self):
+        from led_ticker.animations import Animation
+
+        assert Animation is not None
+
+    def test_typewriter_satisfies_animation_protocol(self):
+        from led_ticker.animations import Animation, Typewriter
+
+        assert isinstance(Typewriter(), Animation)
+
+    def test_plain_object_does_not_satisfy_animation(self):
+        from led_ticker.animations import Animation
+
+        class NotAnAnimation:
+            pass
+
+        assert not isinstance(NotAnAnimation(), Animation)

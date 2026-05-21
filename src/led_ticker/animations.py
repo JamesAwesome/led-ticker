@@ -13,6 +13,7 @@ visibility, providers control color. The two compose freely.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 
 
 @dataclass
@@ -24,6 +25,33 @@ class AnimationFrame:
     """
 
     visible_text: str
+
+
+@runtime_checkable
+class Animation(Protocol):
+    """Protocol for frame-aware animations on TickerMessage and image widgets.
+
+    An animation controls how much of ``full_text`` is revealed each tick.
+    The ``frame`` counter comes from the widget's ``_FrameAware`` counter
+    for the ``"animation"`` effect slot — it ticks at ENGINE_TICK_MS
+    cadence, pauses during transitions, and resets per-visit (unless the
+    class sets ``restart_on_visit = False``).
+
+    Implementing a new animation: return growing prefixes of ``full_text``
+    in ``visible_text`` for a typewriter effect, or return ``full_text``
+    unchanged and control something else (e.g. cursor position via a
+    future field on ``AnimationFrame``).
+
+    See ``Typewriter`` for the canonical implementation.
+    """
+
+    def frame_for(
+        self,
+        frame: int,
+        full_text: str,
+        canvas_width: int,
+        text_width: int,
+    ) -> AnimationFrame: ...
 
 
 class Typewriter:

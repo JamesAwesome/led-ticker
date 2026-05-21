@@ -724,7 +724,9 @@ class TestSingleRowFontSize:
     on bigsign wraps at scale=`_logical_scale`; small sign no wrap;
     explicit `font_size` honored exactly."""
 
-    async def test_bdf_default_wraps_at_logical_scale_on_bigsign(self, swapping_frame):
+    async def test_bdf_default_wraps_at_logical_scale_on_bigsign(
+        self, swapping_frame, monkeypatch
+    ):
         """BDF + `font_size=None` (smart default) + bigsign → wraps at
         scale=4. Same observable behavior as the old `text_scale=1`
         path post-bd61140."""
@@ -732,6 +734,11 @@ class TestSingleRowFontSize:
 
         from led_ticker.fonts import FONT_DEFAULT
         from led_ticker.scaled_canvas import ScaledCanvas
+
+        async def _instant(_):
+            pass
+
+        monkeypatch.setattr("led_ticker.widgets._image_base.asyncio.sleep", _instant)
 
         w = _DummyImage(text="hi", font=FONT_DEFAULT, font_size=None)
         w._logical_scale = 4
@@ -765,13 +772,18 @@ class TestSingleRowFontSize:
             c["scale"] == 4 for c in captured
         ), f"Expected wrapper at logical-scale (4); got {captured!r}"
 
-    async def test_explicit_font_size_24_wraps_at_2(self, swapping_frame):
+    async def test_explicit_font_size_24_wraps_at_2(self, swapping_frame, monkeypatch):
         """Explicit `font_size=24` with BDF 6×12 on bigsign → block
         scale = 24 // 12 = 2. User intent honored over `_logical_scale`."""
         from rgbmatrix import _StubCanvas
 
         from led_ticker.fonts import FONT_DEFAULT
         from led_ticker.scaled_canvas import ScaledCanvas
+
+        async def _instant(_):
+            pass
+
+        monkeypatch.setattr("led_ticker.widgets._image_base.asyncio.sleep", _instant)
 
         w = _DummyImage(text="hi", font=FONT_DEFAULT, font_size=24)
         w._logical_scale = 4
@@ -800,13 +812,20 @@ class TestSingleRowFontSize:
             s == 2 for s in captured
         ), f"Expected wrapper.scale=2 (24px / 12px cell); got {captured!r}"
 
-    async def test_no_wrap_on_small_sign_with_default(self, swapping_frame):
+    async def test_no_wrap_on_small_sign_with_default(
+        self, swapping_frame, monkeypatch
+    ):
         """Small sign (`_logical_scale=1`) + BDF + `font_size=None` →
         block scale = 12 // 12 = 1 → no wrap."""
         from rgbmatrix import _StubCanvas
 
         from led_ticker.fonts import FONT_DEFAULT
         from led_ticker.scaled_canvas import ScaledCanvas
+
+        async def _instant(_):
+            pass
+
+        monkeypatch.setattr("led_ticker.widgets._image_base.asyncio.sleep", _instant)
 
         w = _DummyImage(text="hi", font=FONT_DEFAULT, font_size=None)
         w._logical_scale = 1
@@ -880,7 +899,9 @@ class TestPlayLoopAdvancesFrame:
     the per-char hue offset is visible but doesn't sweep over time.
     """
 
-    async def test_single_row_advances_frame_per_tick(self, swapping_frame):
+    async def test_single_row_advances_frame_per_tick(
+        self, swapping_frame, monkeypatch
+    ):
         """Per-tick loop with scrolling text must increment _frame_count
         once per tick. The marquee auto-floor may extend the actual
         loop count past `n_ticks`, so assert `_frame_count` matches
@@ -888,6 +909,11 @@ class TestPlayLoopAdvancesFrame:
         from rgbmatrix import _StubCanvas
 
         from led_ticker.fonts import FONT_DEFAULT
+
+        async def _instant(_):
+            pass
+
+        monkeypatch.setattr("led_ticker.widgets._image_base.asyncio.sleep", _instant)
 
         w = _DummyImage(
             text="hi", text_align="scroll_over", font=FONT_DEFAULT, font_size=None
@@ -906,12 +932,17 @@ class TestPlayLoopAdvancesFrame:
         assert w._frame_count >= 5
         assert w._frame_count == len(w.paint_full_calls)
 
-    async def test_two_row_advances_frame_per_tick(self, swapping_frame):
+    async def test_two_row_advances_frame_per_tick(self, swapping_frame, monkeypatch):
         """Two-row per-tick loop must also advance _frame_count.
         FONT_SMALL (5×8) fits a 16-row canvas split 8/8."""
         from rgbmatrix import _StubCanvas
 
         from led_ticker.fonts import FONT_SMALL
+
+        async def _instant(_):
+            pass
+
+        monkeypatch.setattr("led_ticker.widgets._image_base.asyncio.sleep", _instant)
 
         w = _DummyImage(
             top_text="A", bottom_text="B" * 80, font=FONT_SMALL, font_size=None

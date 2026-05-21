@@ -1107,11 +1107,16 @@ class TestStillBgColor:
         assert s.bg_color is None
 
     @pytest.mark.asyncio
-    async def test_bg_color_set_uses_fill_in_play(self, tmp_path, mocker):
+    async def test_bg_color_set_uses_fill_in_play(self, tmp_path, mocker, monkeypatch):
         from PIL import Image
         from rgbmatrix.graphics import Color
 
         from led_ticker.widgets.still import StillImage
+
+        async def _instant(_):
+            pass
+
+        monkeypatch.setattr("led_ticker.widgets.still.asyncio.sleep", _instant)
 
         path = tmp_path / "x.png"
         Image.new("RGB", (4, 4), (255, 0, 0)).save(path)

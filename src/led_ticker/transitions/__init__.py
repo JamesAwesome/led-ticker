@@ -270,16 +270,23 @@ def _reset_presenter(obj: Any) -> None:
 
 # --- Auto-import submodules so decorators execute ---
 # ruff: noqa: E402
-from led_ticker.transitions import (  # noqa: F401
-    baseball,
-    effects,
-    nyancat,
-    pacman,
-    pokeball,
-    push,
-    sailor_moon,
-    wipe,
-)
+# pkgutil discovers every non-private .py file under transitions/ so
+# @register_transition decorators run automatically. Adding a new
+# transitions/my_effect.py only requires the decorator — no manual
+# entry here. Private modules (leading _) are excluded.
+import importlib
+import pkgutil
+
+import led_ticker.transitions as _transitions_pkg
+
+for _mod_info in pkgutil.iter_modules(
+    _transitions_pkg.__path__,
+    _transitions_pkg.__name__ + ".",
+):
+    if not _mod_info.name.rsplit(".", 1)[-1].startswith("_"):
+        importlib.import_module(_mod_info.name)
+
+del importlib, pkgutil, _transitions_pkg, _mod_info
 
 # --- Re-export all transition classes ---
 from led_ticker.transitions.baseball import (  # noqa: F401

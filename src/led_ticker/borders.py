@@ -63,6 +63,7 @@ out (continuous chase); `ConstantBorder` keeps the default
 from __future__ import annotations
 
 import colorsys
+import functools
 from typing import Any, Protocol
 
 from led_ticker._types import Canvas
@@ -97,6 +98,7 @@ class BorderEffect(Protocol):
     def paint(self, canvas: Canvas, frame_count: int) -> None: ...
 
 
+@functools.cache
 def _perimeter_pixels(
     width: int,
     height: int,

@@ -88,6 +88,17 @@ class TestPerimeterGeometry:
         px = _perimeter_pixels(3, 10, thickness=2)
         assert len(px) == 2 * (3 + 10) - 4 == 22
 
+    def test_same_args_return_cached_object(self):
+        """_perimeter_pixels is pure — repeated calls with the same
+        args must return the same list object, not a freshly-built one.
+        Without caching, each call allocates a new list every frame."""
+        a = _perimeter_pixels(160, 16, thickness=1)
+        b = _perimeter_pixels(160, 16, thickness=1)
+        assert a is b, (
+            "_perimeter_pixels should be @functools.cache'd — same args must "
+            "return the same list object"
+        )
+
 
 class _StubCanvas:
     """Minimal canvas double for paint tests — captures SetPixel calls."""

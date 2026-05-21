@@ -2183,3 +2183,36 @@ class TestMigrationError:
         loc, msg, fix = migrations[0]
         assert "text_scale" in msg
         assert "font_size" in fix
+
+
+class TestUnknownKwargValidationRule:
+    """Unknown widget kwargs surface as rule-38 errors in ValidationResult."""
+
+    @pytest.mark.asyncio
+    async def test_unknown_kwarg_surfaces_as_validation_error(self, tmp_path):
+        """text_color (typo for font_color) → rule=38 error in ValidationResult."""
+        from led_ticker.validate import validate_config
+
+        toml_text = """
+[display]
+rows = 16
+cols = 160
+hardware_mapping = "adafruit-hat"
+gpio_slowdown = 2
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+text_color = [255, 0, 0]
+"""
+        config_path = tmp_path / "config.toml"
+        config_path.write_text(toml_text)
+        result = await validate_config(config_path)
+
+        assert not result.valid
+        rule_38_errors = [e for e in result.errors if e.rule == 38]
+        assert len(rule_38_errors) == 1
+        assert "text_color" in rule_38_errors[0].message

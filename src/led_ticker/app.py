@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import difflib
 import itertools
 import logging
 import sys
@@ -879,6 +880,26 @@ async def _build_widget(
     # ColorProvider instances. Constant [r,g,b] lists get wrapped in
     # _ConstantColor so all downstream widget code is uniform.
     _coerce_widget_colors(widget_cfg)
+
+    # Dispatch-level keys were all popped above; remaining keys are splatted
+    # directly into cls(**widget_cfg). Any key not in attrs __init__ raises
+    # a raw TypeError from attrs — catch it here with a usable message.
+    cls_init_fields = {
+        a.name for a in getattr(cls, "__attrs_attrs__", ()) if a.init is not False
+    }
+    unknown = set(widget_cfg.keys()) - cls_init_fields
+    if unknown:
+        suggestions = []
+        for key in sorted(unknown):
+            matches = difflib.get_close_matches(
+                key, sorted(cls_init_fields), n=1, cutoff=0.6
+            )
+            hint = f" (did you mean {matches[0]!r}?)" if matches else ""
+            suggestions.append(f"{key!r}{hint}")
+        raise ValueError(
+            f"widget type={widget_type!r} got unknown "
+            f"{'field' if len(unknown) == 1 else 'fields'}: " + ", ".join(suggestions)
+        )
 
     if validate_only:
         return None

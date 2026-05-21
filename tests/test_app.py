@@ -2229,3 +2229,72 @@ class TestProviderFromStyleErrorMessages:
         assert "to_hue" not in msg, f"internal name leaked into error: {msg}"
         assert "from" in msg
         assert "to" in msg
+
+
+class TestUnknownKwargAllowlist:
+    """_build_widget raises a clear ValueError (not TypeError) for unknown
+    widget fields, surfacing at validate-time instead of startup."""
+
+    @pytest.mark.asyncio
+    async def test_typo_field_raises_value_error(self):
+        from led_ticker.app import _build_widget
+
+        cfg = {"type": "message", "text": "hi", "text_color": [255, 0, 0]}
+        with pytest.raises(ValueError, match="got unknown field"):
+            await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+
+    @pytest.mark.asyncio
+    async def test_did_you_mean_suggestion_included(self):
+        """font_clor → suggests font_color via difflib."""
+        from led_ticker.app import _build_widget
+
+        cfg = {"type": "message", "text": "hi", "font_clor": [255, 0, 0]}
+        with pytest.raises(ValueError, match="did you mean 'font_color'"):
+            await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+
+    @pytest.mark.asyncio
+    async def test_no_suggestion_for_random_garbage(self):
+        """Completely unlike any field → error still raised, no suggestion."""
+        from led_ticker.app import _build_widget
+
+        cfg = {"type": "message", "text": "hi", "xyz_not_a_field": 1}
+        with pytest.raises(ValueError, match="got unknown field"):
+            await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+
+    @pytest.mark.asyncio
+    async def test_multiple_unknown_fields_all_reported(self):
+        """Both bad keys appear in the error message."""
+        from led_ticker.app import _build_widget
+
+        cfg = {
+            "type": "message",
+            "text": "hi",
+            "text_color": [255, 0, 0],
+            "alignement": "left",
+        }
+        with pytest.raises(ValueError, match="got unknown fields"):
+            await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+
+    @pytest.mark.asyncio
+    async def test_valid_fields_do_not_raise(self):
+        """Sanity check: a well-formed message config passes the allowlist."""
+        from led_ticker.app import _build_widget
+
+        cfg = {
+            "type": "message",
+            "text": "hello",
+            "font_color": [255, 255, 255],
+            "center": True,
+            "padding": 4,
+        }
+        result = await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+        assert result is None  # validate_only=True returns None on success
+
+    @pytest.mark.asyncio
+    async def test_fires_at_runtime_not_only_validate(self):
+        """The check runs even when validate_only=False (before cls(**widget_cfg))."""
+        from led_ticker.app import _build_widget
+
+        cfg = {"type": "message", "text": "hi", "text_color": [255, 0, 0]}
+        with pytest.raises(ValueError, match="got unknown field"):
+            await _build_widget(cfg, session=None, validate_only=False)  # type: ignore[arg-type]

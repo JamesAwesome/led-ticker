@@ -36,7 +36,7 @@ EASING: dict[str, Callable[[float], float]] = {
 
 @runtime_checkable
 class Transition(Protocol):
-    min_frames: int
+    min_frames: int = 0
 
     def frame_at(
         self,

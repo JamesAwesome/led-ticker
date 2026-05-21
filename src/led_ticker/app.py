@@ -100,7 +100,7 @@ _PROVIDER_COLOR_KEYS: set[str] = {
 _RAW_COLOR_KEYS: set[str] = _COLOR_KEYS - _PROVIDER_COLOR_KEYS
 
 
-def _coerce_color_provider(value: Any) -> Any:
+def _coerce_color_provider(value: Any, context: str = "font_color") -> Any:
     """Convert a TOML color spec to a ColorProvider instance.
 
     Accepts:
@@ -114,6 +114,10 @@ def _coerce_color_provider(value: Any) -> Any:
 
     Raises ValueError on unknown strings, unknown styles, missing
     required kwargs, or unknown kwargs.
+
+    The ``context`` parameter is included in error messages so callers
+    for fields other than ``font_color`` (e.g. ``top_color``,
+    ``bottom_color``) produce accurate diagnostics.
     """
     from led_ticker.color_providers import _ConstantColor
 
@@ -131,9 +135,9 @@ def _coerce_color_provider(value: Any) -> Any:
     if isinstance(value, graphics.Color):
         return _ConstantColor(value)
 
-    # `[r, g, b]` list/tuple → wrap as constant
+    # `[r, g, b]` list/tuple → validate then wrap as constant
     if isinstance(value, list | tuple) and len(value) == 3:
-        return _ConstantColor(graphics.Color(*value))
+        return _ConstantColor(graphics.Color(*_validate_rgb(value, f"{context} list")))
 
     # String shorthand
     if isinstance(value, str):
@@ -153,6 +157,22 @@ def _coerce_color_provider(value: Any) -> Any:
         f"font_color must be [r,g,b], 'random'/'rainbow'/'color_cycle', "
         f"or {{style='...'}}; got {value!r}"
     )
+
+
+def _validate_rgb(rgb: Any, context: str) -> tuple[int, int, int]:
+    """Validate an RGB triple at config-load time.
+
+    - Reject bool components (bool is int subclass; `[True, False, True]`
+      would silently coerce to (1, 0, 1)).
+    - Reject out-of-range values; SetPixel takes 0..255 bytes.
+    """
+    if not (isinstance(rgb, list | tuple) and len(rgb) == 3):
+        raise ValueError(f"{context} must be [r,g,b]; got {rgb!r}")
+    if not all(isinstance(c, int) and not isinstance(c, bool) for c in rgb):
+        raise ValueError(f"{context} components must be ints; got {list(rgb)!r}")
+    if not all(0 <= c <= 255 for c in rgb):
+        raise ValueError(f"{context} RGB values must be 0-255; got {list(rgb)!r}")
+    return tuple(rgb)
 
 
 def _rgb_to_hue(rgb: list[int] | tuple[int, ...], context: str) -> float:
@@ -194,6 +214,16 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
         "gradient": (Gradient, {"from_color", "to_color"}),
     }
 
+    # Maps style → TOML-facing key names (what the user writes in their config).
+    # Used in error messages so we show "from"/"to" instead of internal names
+    # like "from_color"/"from_hue" that the user never types.
+    _user_allowed: dict[str, set[str]] = {
+        "random": set(),
+        "rainbow": {"speed", "char_offset"},
+        "color_cycle": {"speed", "from", "to"},
+        "gradient": {"from", "to"},
+    }
+
     if style not in registry:
         raise ValueError(
             f"unknown font_color style {style!r}; available: {sorted(registry.keys())}"
@@ -215,8 +245,12 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
                 "font_color style 'gradient' requires 'from' and 'to': "
                 "font_color = {style='gradient', from=[r,g,b], to=[r,g,b]}"
             )
-        kwargs["from_color"] = graphics.Color(*from_val)
-        kwargs["to_color"] = graphics.Color(*to_val)
+        kwargs["from_color"] = graphics.Color(
+            *_validate_rgb(from_val, "font_color gradient 'from'")
+        )
+        kwargs["to_color"] = graphics.Color(
+            *_validate_rgb(to_val, "font_color gradient 'to'")
+        )
 
     if style == "color_cycle":
         from_val = kwargs.pop("from", None)
@@ -234,6 +268,8 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
                 "use font_color = [r, g, b] instead"
             )
         if from_val is not None:
+            from_val = list(_validate_rgb(from_val, "font_color color_cycle 'from'"))
+            to_val = list(_validate_rgb(to_val, "font_color color_cycle 'to'"))
             from_hue = _rgb_to_hue(from_val, "font_color 'color_cycle' from")
             to_hue = _rgb_to_hue(to_val, "font_color 'color_cycle' to")
             diff = (to_hue - from_hue) % 360
@@ -253,7 +289,7 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
     if unknown:
         raise ValueError(
             f"font_color style {style!r} got unknown keys {sorted(unknown)!r}; "
-            f"allowed: {sorted(allowed_kwargs)}"
+            f"allowed: {sorted(_user_allowed[style])}"
         )
     return cls(**kwargs)
 
@@ -285,29 +321,6 @@ def _coerce_border(value: Any) -> Any:
     """
     from led_ticker.borders import ColorCycleBorder, ConstantBorder, RainbowChaseBorder
 
-    def _validate_rgb(rgb: Any, context: str) -> tuple[int, int, int]:
-        """Validate an RGB triple for a border `constant` color.
-
-        - Reject bool components (bool is an int subclass; without
-          this guard `[True, False, True]` would silently coerce to
-          (1, 0, 1)). Same hardening pattern documented for
-          `font_threshold` in CLAUDE.md.
-        - Reject out-of-range values; SetPixel takes 0..255 bytes.
-          Letting `[300, -50, 999]` through produces undefined
-          rgbmatrix behavior and silently broken renders.
-        """
-        if not (isinstance(rgb, list | tuple) and len(rgb) == 3):
-            raise ValueError(f"border {context} must be [r,g,b]; got {rgb!r}")
-        if not all(isinstance(c, int) and not isinstance(c, bool) for c in rgb):
-            raise ValueError(
-                f"border {context} components must be ints; got {list(rgb)!r}"
-            )
-        if not all(0 <= c <= 255 for c in rgb):
-            raise ValueError(
-                f"border {context} RGB values must be 0-255; got {list(rgb)!r}"
-            )
-        return tuple(rgb)
-
     if value is None:
         return None
     # Already a BorderEffect — duck-typed via the `paint` method
@@ -318,7 +331,7 @@ def _coerce_border(value: Any) -> Any:
     # via the inline-table form below. Bool is rejected (subclass of
     # int) and out-of-range values are rejected (SetPixel needs 0-255).
     if isinstance(value, list | tuple) and len(value) == 3:
-        return ConstantBorder(color=_validate_rgb(value, "shorthand color"))
+        return ConstantBorder(color=_validate_rgb(value, "border shorthand color"))
     # String shorthand
     if isinstance(value, str):
         if value == "rainbow":
@@ -381,7 +394,7 @@ def _coerce_border(value: Any) -> Any:
                 )
             color = kwargs.pop("color")
             return ConstantBorder(
-                color=_validate_rgb(color, "'constant' color"), **kwargs
+                color=_validate_rgb(color, "border constant color"), **kwargs
             )
         if style == "color_cycle":
             allowed = {"speed", "thickness", "from", "to"}
@@ -496,11 +509,11 @@ def _coerce_widget_colors(cfg: dict[str, Any]) -> None:
 
     for key in _PROVIDER_COLOR_KEYS:
         if key in cfg:
-            cfg[key] = _coerce_color_provider(cfg[key])
+            cfg[key] = _coerce_color_provider(cfg[key], context=key)
 
     for key in _RAW_COLOR_KEYS:
         if key in cfg and isinstance(cfg[key], list | tuple) and len(cfg[key]) == 3:
-            cfg[key] = graphics.Color(*cfg[key])
+            cfg[key] = graphics.Color(*_validate_rgb(cfg[key], key))
 
 
 def _is_hires_font_name(name: str) -> bool:
@@ -640,17 +653,23 @@ async def _build_widget(
     users who set a font size that won't fit vertically. Bigsign hi-res
     is the supported use case, so callers pass None for it.
     """
+    from led_ticker.validate import MigrationError
+
     # Migration check: text_scale was the BDF block-expansion knob.
     # Replaced by font_size (real pixels) which works uniformly for
     # BDF and HiresFont. Loud failure here catches stale TOMLs at
     # load time rather than letting them silently render wrong.
     if "text_scale" in widget_cfg:
-        raise ValueError(
+        raise MigrationError(
             "text_scale removed in favor of font_size (real pixels). "
             "Migrate: font_size = N × cell_h_of_your_font. "
             "For BDF 6×12: font_size = N × 12 (e.g. text_scale=2 → "
             "font_size=24, text_scale=4 → font_size=48). "
-            "For BDF 5×8: font_size = N × 8."
+            "For BDF 5×8: font_size = N × 8.",
+            suggested_fix=(
+                "Replace text_scale with font_size = N × cell_h"
+                " (e.g. font_size=24 for 6×12 BDF at 2×)"
+            ),
         )
 
     # Migration check: presentation = "..." was the wrapper-based effect
@@ -658,7 +677,7 @@ async def _build_widget(
     # (typewriter/bounce on TickerMessage). Loud failure here catches
     # stale TOMLs at load time.
     if "presentation" in widget_cfg:
-        raise ValueError(
+        raise MigrationError(
             "presentation removed in favor of font_color (color effects) + "
             "animation (typewriter on TickerMessage). Migration:\n"
             "  presentation = 'typewriter'  → animation = 'typewriter' "
@@ -668,7 +687,8 @@ async def _build_widget(
             "  presentation = 'pulse' / 'bounce' — these effects were "
             "removed in the rework. Use font_color = [r,g,b] / 'rainbow' / "
             "'color_cycle' / 'gradient' and/or animation = 'typewriter' "
-            "instead."
+            "instead.",
+            suggested_fix="Use font_color / animation instead of presentation",
         )
 
     widget_type = widget_cfg.pop("type")
@@ -1155,16 +1175,15 @@ async def run(config_path: Path) -> None:
                     "run_forever_scroll",
                 )
 
-                # Pick the inter-section ENTRY transition. Precedence:
-                #   1. If the section explicitly set `transition`,
-                #      use that — same object as the inter-widget
-                #      transition. Solves the "single-widget section
-                #      with `transition = pokeball` never fires" UX
-                #      bug: the configured value now controls how the
-                #      section APPEARS (not just inter-widget moves).
-                #   2. Else fall back to `between_sections` (the
-                #      global default for sections that don't override).
-                if section.transition_specified:
+                # Entry transition precedence:
+                #   1. entry_transition (explicit per-section entry override)
+                #   2. transition (when transition_specified)
+                #   3. between_sections (global default)
+                if section.entry_transition is not None:
+                    entry_trans = _build_trans_obj(section.entry_transition)
+                    entry_duration = section.entry_transition.duration
+                    entry_easing = section.entry_transition.easing
+                elif section.transition_specified:
                     entry_trans = _build_trans_obj(section.transition)
                     entry_duration = section.transition.duration
                     entry_easing = section.transition.easing
@@ -1224,14 +1243,16 @@ async def run(config_path: Path) -> None:
                         incoming_bg_color=section.bg_color,
                     )
 
-                # Build within-section transition config (used between
-                # widgets within a multi-widget section). Mirrors the
-                # entry transition selection above when the section
-                # specifies one — same `_build_trans_obj` factory.
-                trans_cfg = section.transition
-                if trans_cfg.type != "cut":
-                    trans_cfg.transition_obj = _build_trans_obj(trans_cfg)
-                    transition_config = trans_cfg
+                # Widget transition precedence:
+                #   1. widget_transition (explicit per-section widget override)
+                #   2. transition (when transition_specified)
+                #   3. None (cut)
+                widget_trans_cfg = section.widget_transition or (
+                    section.transition if section.transition_specified else None
+                )
+                if widget_trans_cfg is not None and widget_trans_cfg.type != "cut":
+                    widget_trans_cfg.transition_obj = _build_trans_obj(widget_trans_cfg)
+                    transition_config = widget_trans_cfg
                 else:
                     transition_config = None
 

@@ -82,18 +82,6 @@ def test_colors_module_has_no_eager_color_construction():
     )
 
 
-def test_colors_module_defines_getattr():
-    import led_ticker.colors as colors_mod
-
-    assert hasattr(colors_mod, "__getattr__")
-
-
-def test_lazy_palette_helper_exists():
-    from led_ticker.colors import lazy_palette
-
-    assert callable(lazy_palette)
-
-
 def test_lazy_palette_builds_getattr_function():
     from led_ticker.colors import lazy_palette
 

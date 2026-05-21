@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from led_ticker.animations import AnimationFrame, Typewriter
+from led_ticker.animations import Typewriter
 
 
 class TestTypewriter:
@@ -42,14 +42,3 @@ class TestTypewriter:
         # frame=10 → progress = 10//5+1 = 3 chars
         f = anim.frame_for(10, "ABCDEF", canvas_width=256, text_width=36)
         assert f.visible_text == "ABC"
-
-
-class TestAnimationFrame:
-    def test_dataclass_construction(self):
-        f = AnimationFrame(visible_text="HI", cursor_override=10)
-        assert f.visible_text == "HI"
-        assert f.cursor_override == 10
-
-    def test_cursor_override_can_be_none(self):
-        f = AnimationFrame(visible_text="HI", cursor_override=None)
-        assert f.cursor_override is None

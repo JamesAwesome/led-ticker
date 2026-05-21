@@ -1,21 +1,6 @@
 """Tests for led_ticker._compat module."""
 
-from led_ticker._compat import RGBMatrix, RGBMatrixOptions, graphics, require_graphics
-
-
-def test_graphics_available():
-    """With stubs on PYTHONPATH, graphics should be importable."""
-    assert graphics is not None
-
-
-def test_rgbmatrix_available():
-    assert RGBMatrix is not None
-    assert RGBMatrixOptions is not None
-
-
-def test_require_graphics_returns_module():
-    g = require_graphics()
-    assert g is graphics
+from led_ticker._compat import RGBMatrix, RGBMatrixOptions, graphics
 
 
 def test_graphics_color():

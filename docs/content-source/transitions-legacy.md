@@ -148,6 +148,33 @@ Choose durations to match the transition's visual pace:
 
 **Section transition precedence rule:** When a section's TOML writes `transition = "..."`, that transition fires for BOTH entry and inter-widget. Sections that omit `transition` fall back to `[transitions] between_sections` for entry.
 
+### Fine-grained control: `entry_transition` and `widget_transition`
+
+For independent control over entry and within-section transitions, use the dedicated fields:
+
+- `entry_transition` — controls how THIS section appears (overrides both `transition` and `between_sections` for this section's entry only)
+- `widget_transition` — controls inter-widget swaps within this section (overrides `transition` for within-section only)
+
+```toml
+[[playlist.section]]
+mode = "swap"
+entry_transition = "pokeball"     # this section pops in with pokeball
+widget_transition = "wipe_left"   # widgets within the section wipe left between swaps
+```
+
+Both fields accept the same string or dict form as `transition`:
+
+```toml
+[[playlist.section]]
+mode = "swap"
+entry_transition = {type = "dissolve", duration = 0.8}
+widget_transition = "push_left"
+```
+
+**Precedence (entry):** `entry_transition` > `transition` (when set) > `[transitions] between_sections`
+
+**Precedence (widget):** `widget_transition` > `transition` (when set) > none (cut)
+
 ### Sweep line color customization (wipe transitions)
 
 Wipe transitions accept `transition_color` or `transition_colors` to customize the sweep-line color. **Both keys are valid at two levels:**

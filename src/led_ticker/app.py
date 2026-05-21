@@ -1367,7 +1367,11 @@ def _list_widget_fields(widget_type: str) -> str:
     lines: list[str] = [f'Fields for type="{widget_type}":', ""]
 
     # Widget-specific attrs fields (init=True only)
-    init_attrs = [a for a in getattr(cls, "__attrs_attrs__", ()) if a.init is not False]
+    init_attrs = [
+        a
+        for a in getattr(cls, "__attrs_attrs__", ())
+        if a.init is not False and a.name != "session"
+    ]
     if init_attrs:
         lines.append("Widget-level fields:")
         for a in init_attrs:

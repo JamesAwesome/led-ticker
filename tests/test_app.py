@@ -2149,3 +2149,29 @@ class TestCoerceWidgetColorsValidation:
         cfg = {"bg_color": [256, 0, 0]}
         with pytest.raises(ValueError, match="RGB values must be 0-255"):
             _coerce_widget_colors(cfg)
+
+
+class TestProviderFromStyleRgbValidation:
+    """_provider_from_style validates rgb endpoints for gradient and color_cycle."""
+
+    def test_gradient_from_rejects_bool(self):
+        from led_ticker.app import _provider_from_style
+
+        with pytest.raises(ValueError, match="components must be ints"):
+            _provider_from_style(
+                "gradient", {"from": [True, 0, 0], "to": [255, 255, 0]}
+            )
+
+    def test_gradient_to_rejects_out_of_range(self):
+        from led_ticker.app import _provider_from_style
+
+        with pytest.raises(ValueError, match="RGB values must be 0-255"):
+            _provider_from_style("gradient", {"from": [255, 0, 0], "to": [0, 256, 0]})
+
+    def test_color_cycle_from_rejects_bool(self):
+        from led_ticker.app import _provider_from_style
+
+        with pytest.raises(ValueError, match="components must be ints"):
+            _provider_from_style(
+                "color_cycle", {"from": [True, 0, 0], "to": [0, 255, 0]}
+            )

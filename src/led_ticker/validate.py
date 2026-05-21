@@ -74,6 +74,14 @@ _ERROR_PATTERNS: list[tuple[str, int | None, str]] = [
         10,
         "Use an integer 0–255 for font_threshold (not float, string, or bool)",
     ),
+    (
+        "got unknown field",
+        38,
+        (
+            "Remove or rename the field. "
+            "Run `led-ticker validate --list-fields TYPE` to see valid fields."
+        ),
+    ),
 ]
 
 

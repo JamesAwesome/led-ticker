@@ -1342,6 +1342,81 @@ async def run(config_path: Path) -> None:
                     last_widget = title
 
 
+def _list_widget_fields(widget_type: str) -> str:
+    """Return a human-readable field listing for widget_type.
+
+    Shows dispatch-level fields (_build_widget pops these before the
+    allowlist check) and the widget's init-able attrs fields with types
+    and defaults.
+    """
+    import attrs as _attrs
+
+    from led_ticker.widgets import _WIDGET_REGISTRY
+
+    if widget_type not in _WIDGET_REGISTRY:
+        candidates = sorted(_WIDGET_REGISTRY.keys())
+        matches = difflib.get_close_matches(widget_type, candidates, n=3, cutoff=0.6)
+        hint = (
+            f"\nDid you mean: {', '.join(repr(m) for m in matches)}" if matches else ""
+        )
+        raise ValueError(
+            f"Unknown widget type: {widget_type!r}. " f"Available: {candidates}{hint}"
+        )
+
+    cls = _WIDGET_REGISTRY[widget_type]
+    lines: list[str] = [f'Fields for type="{widget_type}":', ""]
+
+    # Widget-specific attrs fields (init=True only)
+    init_attrs = [a for a in getattr(cls, "__attrs_attrs__", ()) if a.init is not False]
+    if init_attrs:
+        lines.append("Widget-level fields:")
+        for a in init_attrs:
+            if a.type is None:
+                type_str = ""
+            elif isinstance(a.type, str):
+                type_str = a.type
+            else:
+                type_str = getattr(a.type, "__name__", str(a.type))
+
+            if a.default is _attrs.NOTHING:
+                default_str = "(required)"
+            elif isinstance(a.default, _attrs.Factory):  # type: ignore[arg-type]
+                default_str = "default: <computed>"
+            else:
+                default_str = f"default: {a.default!r}"
+
+            lines.append(f"  {a.name:<30}  {type_str:<35}  {default_str}")
+        lines.append("")
+
+    # Dispatch-level fields that _build_widget handles (popped before allowlist)
+    lines.append("Dispatch-level fields (shared; _build_widget handles these):")
+    dispatch: list[tuple[str, str]] = [
+        ("type", "required; widget type name (e.g. 'message', 'gif')"),
+        ("text", "alias → widget's primary text field"),
+        ("font", "BDF alias or hi-res font name"),
+        ("font_size", "pixel height; required for hi-res fonts"),
+        ("font_threshold", "int 0–255; default 128"),
+        ("animation", "e.g. 'typewriter'; valid on message/gif/image only"),
+        ("border", "{style='...',...}; valid on message/countdown/two_row/gif/image"),
+        ("text_wrap", "bool; valid on gif/image only"),
+        ("text_separator", "str; valid on gif/image only"),
+        ("text_separator_color", "color; valid on gif/image only"),
+        ("bottom_text_wrap", "bool; valid on gif/image/two_row"),
+        ("bottom_text_separator", "str; valid on gif/image/two_row"),
+        ("bottom_text_separator_color", "color; valid on gif/image/two_row"),
+        ("top_font", "font name; valid on two_row"),
+        ("top_font_size", "pixel height; valid on two_row"),
+        ("top_font_threshold", "int 0–255; valid on two_row"),
+        ("bottom_font", "font name; valid on two_row"),
+        ("bottom_font_size", "pixel height; valid on two_row"),
+        ("bottom_font_threshold", "int 0–255; valid on two_row"),
+    ]
+    for name, desc in dispatch:
+        lines.append(f"  {name:<30}  {desc}")
+
+    return "\n".join(lines)
+
+
 def main() -> None:
     """CLI entry point."""
     _setup_logging()
@@ -1363,17 +1438,49 @@ def main() -> None:
         "validate",
         help="Validate a config file without running the display",
     )
-    val_parser.add_argument("path", type=Path, help="Path to TOML config file")
+    val_parser.add_argument(
+        "path",
+        type=Path,
+        nargs="?",
+        default=None,
+        help="Path to TOML config file (required unless --list-fields is given)",
+    )
     val_parser.add_argument(
         "--json",
         action="store_true",
         dest="json_output",
         help="Emit JSON output",
     )
+    val_parser.add_argument(
+        "--list-fields",
+        metavar="TYPE",
+        dest="list_fields",
+        default=None,
+        help=(
+            "Print all valid fields for a widget type and exit "
+            "(e.g. --list-fields message)"
+        ),
+    )
 
     args = parser.parse_args()
 
     if args.command == "validate":
+        if args.list_fields is not None:
+            try:
+                print(_list_widget_fields(args.list_fields))
+            except ValueError as e:
+                print(str(e), file=sys.stderr)
+                sys.exit(2)
+            sys.exit(0)
+
+        if args.path is None:
+            val_parser.print_usage(sys.stderr)
+            print(
+                "error: path is required when --list-fields is not given",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+
         from led_ticker.validate import (  # noqa: PLC0415
             _format_human,
             _format_json,

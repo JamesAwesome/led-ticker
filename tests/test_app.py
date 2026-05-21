@@ -2328,3 +2328,54 @@ class TestUnknownKwargAllowlist:
         }
         with pytest.raises(ValueError, match="got unknown field"):
             await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+
+
+class TestListWidgetFields:
+    """_list_widget_fields returns a formatted string for a valid widget type."""
+
+    def test_returns_str_for_message(self):
+        from led_ticker.app import _list_widget_fields
+
+        result = _list_widget_fields("message")
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_contains_attrs_field_names(self):
+        """Known TickerMessage attrs fields appear in the output."""
+        from led_ticker.app import _list_widget_fields
+
+        result = _list_widget_fields("message")
+        assert "message" in result
+        assert "font_color" in result
+        assert "padding" in result
+
+    def test_contains_dispatch_field_names(self):
+        """Dispatch-level fields (font, animation) appear in the output."""
+        from led_ticker.app import _list_widget_fields
+
+        result = _list_widget_fields("message")
+        assert "font" in result
+        assert "animation" in result
+        assert "type" in result
+
+    def test_unknown_type_raises_value_error(self):
+        """An unknown widget type raises ValueError."""
+        from led_ticker.app import _list_widget_fields
+
+        with pytest.raises(ValueError, match="Unknown widget type"):
+            _list_widget_fields("nonexistent_widget")
+
+    def test_unknown_type_includes_did_you_mean(self):
+        """A close mis-spelling includes a suggestion."""
+        from led_ticker.app import _list_widget_fields
+
+        with pytest.raises(ValueError, match="Did you mean"):
+            _list_widget_fields("mesage")
+
+    def test_two_row_fields_included(self):
+        """two_row widget shows its specific fields."""
+        from led_ticker.app import _list_widget_fields
+
+        result = _list_widget_fields("two_row")
+        assert "top_text" in result
+        assert "bottom_text" in result

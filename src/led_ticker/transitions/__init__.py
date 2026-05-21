@@ -46,7 +46,28 @@ class Transition(Protocol):
         incoming: Any,
         **kwargs: Any,
     ) -> Canvas:
-        """Render one frame at progress t (0.0 to 1.0)."""
+        """Render one frame at progress t (0.0–1.0).
+
+        Recognized kwargs (passed by run_transition; safe to ignore if
+        the transition doesn't need them):
+
+        - ``outgoing_scroll_pos: int`` — pixel offset where the outgoing
+          widget stopped scrolling. Push transitions use this to continue
+          the scroll in the same direction without a visible jump.
+        - ``duration_ms: int`` — total transition duration in milliseconds.
+          Sprite-trail transitions use this to compute crossing speed so
+          the entity reaches the far edge exactly when t=1.0.
+        - ``incoming_bg_color: tuple[int,int,int] | None`` — the new
+          section's background color. Hires snap transitions (pokeball,
+          nyancat, baseball) use this at t≥0.95 to Fill() before drawing
+          incoming so a bg-colored section doesn't flash black for one
+          tick.
+
+        At t=0: render only outgoing. At t=1.0: render only incoming.
+        The runner calls ``canvas.Clear()`` or ``canvas.Fill()`` BEFORE
+        each ``frame_at`` call — transitions must NOT clear the canvas
+        themselves.
+        """
         ...
 
 

@@ -106,6 +106,17 @@ class TestTransitionRegistry:
         with pytest.raises(ValueError, match="Unknown transition"):
             get_transition_class("sparkle_explosion")
 
+    def test_register_duplicate_transition_raises(self):
+        from led_ticker.transitions import register_transition
+
+        with pytest.raises(
+            ValueError, match="Transition name.*cut.*already registered"
+        ):
+
+            @register_transition("cut")
+            class ShouldFail:
+                pass
+
 
 # --- Cut ---
 

@@ -38,6 +38,31 @@ from led_ticker._compat import require_graphics
 from led_ticker._types import Color
 
 
+class ColorProviderBase:
+    """Optional base for ColorProvider implementations.
+
+    Enforces that every subclass declares ``frame_invariant`` explicitly
+    (as a class attribute or ``@property``) so the fast-path gate in
+    ``_play_with_text`` / ``_play_with_two_row_text`` never silently
+    freezes an animated widget.
+
+    Lying *True-when-False* makes the widget freeze with no error; lying
+    *False-when-True* wastes one per-tick redraw but renders correctly.
+    Neither lie is detectable at runtime — the only protection is forcing
+    authors to answer the question at class definition time.
+    """
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        super().__init_subclass__(**kwargs)
+        if "frame_invariant" not in cls.__dict__:
+            raise TypeError(
+                f"{cls.__name__} must define 'frame_invariant' as a class "
+                "attribute or property. Set True if color_for() output is "
+                "independent of the frame argument (constant, gradient); "
+                "False if it varies per frame (rainbow, color_cycle)."
+            )
+
+
 class ColorProvider(Protocol):
     """Returns a Color given a frame counter and (for per-char
     providers) a character index within the string being drawn.
@@ -54,7 +79,7 @@ class ColorProvider(Protocol):
     def color_for(self, frame: int, char_index: int, total_chars: int) -> Color: ...
 
 
-class _ConstantColor:
+class _ConstantColor(ColorProviderBase):
     """Wraps a single Color so plain `font_color = [r,g,b]` configs
     route through the same `color_for` interface as effects."""
 
@@ -68,7 +93,7 @@ class _ConstantColor:
         return self._color
 
 
-class Random:
+class Random(ColorProviderBase):
     """Picks a single random color at construction; returns it for
     every call. Matches the existing `font_color = "random"` sentinel
     semantic — one stable color per widget instance, not a per-frame
@@ -88,7 +113,7 @@ class Random:
         return self._color
 
 
-class Rainbow:
+class Rainbow(ColorProviderBase):
     """Per-character hue offset, advancing per frame.
 
     `speed` is degrees of hue advanced per frame. `char_offset` is the
@@ -110,7 +135,7 @@ class Rainbow:
         return graphics.Color(int(r * 255), int(g * 255), int(b * 255))
 
 
-class ColorCycle:
+class ColorCycle(ColorProviderBase):
     """Whole-string hue rotation; char_index ignored.
 
     `speed` is degrees of hue advanced per frame. Default matches the
@@ -156,7 +181,7 @@ class ColorCycle:
         return graphics.Color(int(r * 255), int(g * 255), int(b * 255))
 
 
-class Gradient:
+class Gradient(ColorProviderBase):
     """Linear left-to-right gradient between `from_color` and
     `to_color`. char_index drives interpolation; frame is ignored."""
 

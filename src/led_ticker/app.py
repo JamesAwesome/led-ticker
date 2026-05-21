@@ -100,7 +100,7 @@ _PROVIDER_COLOR_KEYS: set[str] = {
 _RAW_COLOR_KEYS: set[str] = _COLOR_KEYS - _PROVIDER_COLOR_KEYS
 
 
-def _coerce_color_provider(value: Any) -> Any:
+def _coerce_color_provider(value: Any, context: str = "font_color") -> Any:
     """Convert a TOML color spec to a ColorProvider instance.
 
     Accepts:
@@ -114,6 +114,10 @@ def _coerce_color_provider(value: Any) -> Any:
 
     Raises ValueError on unknown strings, unknown styles, missing
     required kwargs, or unknown kwargs.
+
+    The ``context`` parameter is included in error messages so callers
+    for fields other than ``font_color`` (e.g. ``top_color``,
+    ``bottom_color``) produce accurate diagnostics.
     """
     from led_ticker.color_providers import _ConstantColor
 
@@ -133,7 +137,7 @@ def _coerce_color_provider(value: Any) -> Any:
 
     # `[r, g, b]` list/tuple → validate then wrap as constant
     if isinstance(value, list | tuple) and len(value) == 3:
-        return _ConstantColor(graphics.Color(*_validate_rgb(value, "font_color list")))
+        return _ConstantColor(graphics.Color(*_validate_rgb(value, f"{context} list")))
 
     # String shorthand
     if isinstance(value, str):
@@ -155,6 +159,22 @@ def _coerce_color_provider(value: Any) -> Any:
     )
 
 
+def _validate_rgb(rgb: Any, context: str) -> tuple[int, int, int]:
+    """Validate an RGB triple at config-load time.
+
+    - Reject bool components (bool is int subclass; `[True, False, True]`
+      would silently coerce to (1, 0, 1)).
+    - Reject out-of-range values; SetPixel takes 0..255 bytes.
+    """
+    if not (isinstance(rgb, list | tuple) and len(rgb) == 3):
+        raise ValueError(f"{context} must be [r,g,b]; got {rgb!r}")
+    if not all(isinstance(c, int) and not isinstance(c, bool) for c in rgb):
+        raise ValueError(f"{context} components must be ints; got {list(rgb)!r}")
+    if not all(0 <= c <= 255 for c in rgb):
+        raise ValueError(f"{context} RGB values must be 0-255; got {list(rgb)!r}")
+    return tuple(rgb)
+
+
 def _rgb_to_hue(rgb: list[int] | tuple[int, ...], context: str) -> float:
     """Convert an [r,g,b] triple to a hue in degrees [0, 360).
 
@@ -174,22 +194,6 @@ def _rgb_to_hue(rgb: list[int] | tuple[int, ...], context: str) -> float:
             "hue arc is meaningful."
         )
     return h * 360.0
-
-
-def _validate_rgb(rgb: Any, context: str) -> tuple[int, int, int]:
-    """Validate an RGB triple at config-load time.
-
-    - Reject bool components (bool is int subclass; `[True, False, True]`
-      would silently coerce to (1, 0, 1)).
-    - Reject out-of-range values; SetPixel takes 0..255 bytes.
-    """
-    if not (isinstance(rgb, list | tuple) and len(rgb) == 3):
-        raise ValueError(f"{context} must be [r,g,b]; got {rgb!r}")
-    if not all(isinstance(c, int) and not isinstance(c, bool) for c in rgb):
-        raise ValueError(f"{context} components must be ints; got {list(rgb)!r}")
-    if not all(0 <= c <= 255 for c in rgb):
-        raise ValueError(f"{context} RGB values must be 0-255; got {list(rgb)!r}")
-    return tuple(rgb)
 
 
 def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
@@ -231,8 +235,12 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
                 "font_color style 'gradient' requires 'from' and 'to': "
                 "font_color = {style='gradient', from=[r,g,b], to=[r,g,b]}"
             )
-        kwargs["from_color"] = graphics.Color(*from_val)
-        kwargs["to_color"] = graphics.Color(*to_val)
+        kwargs["from_color"] = graphics.Color(
+            *_validate_rgb(from_val, "font_color gradient 'from'")
+        )
+        kwargs["to_color"] = graphics.Color(
+            *_validate_rgb(to_val, "font_color gradient 'to'")
+        )
 
     if style == "color_cycle":
         from_val = kwargs.pop("from", None)
@@ -250,6 +258,8 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
                 "use font_color = [r, g, b] instead"
             )
         if from_val is not None:
+            from_val = list(_validate_rgb(from_val, "font_color color_cycle 'from'"))
+            to_val = list(_validate_rgb(to_val, "font_color color_cycle 'to'"))
             from_hue = _rgb_to_hue(from_val, "font_color 'color_cycle' from")
             to_hue = _rgb_to_hue(to_val, "font_color 'color_cycle' to")
             diff = (to_hue - from_hue) % 360
@@ -489,7 +499,7 @@ def _coerce_widget_colors(cfg: dict[str, Any]) -> None:
 
     for key in _PROVIDER_COLOR_KEYS:
         if key in cfg:
-            cfg[key] = _coerce_color_provider(cfg[key])
+            cfg[key] = _coerce_color_provider(cfg[key], context=key)
 
     for key in _RAW_COLOR_KEYS:
         if key in cfg and isinstance(cfg[key], list | tuple) and len(cfg[key]) == 3:

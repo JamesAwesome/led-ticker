@@ -307,7 +307,7 @@ for _mod_info in pkgutil.iter_modules(
     if not _mod_info.name.rsplit(".", 1)[-1].startswith("_"):
         importlib.import_module(_mod_info.name)
 
-del importlib, pkgutil, _transitions_pkg, _mod_info
+del importlib, pkgutil, _transitions_pkg
 
 # --- Re-export all transition classes ---
 from led_ticker.transitions.baseball import (  # noqa: F401

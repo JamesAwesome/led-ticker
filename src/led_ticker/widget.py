@@ -29,9 +29,6 @@ class Widget(Protocol):
 
         Recognized kwargs:
         - ``y_offset`` (int): vertical offset from natural baseline
-        - ``region`` (Region | None): sub-area of canvas to draw within
-          (default: full canvas — plumbed for forward-compat with zoned
-          layouts; widgets that don't care should ignore it)
         - ``font_color`` (Color): override the widget's own font color
 
         ``scale`` is **not** a kwarg. If ``canvas`` is a ``ScaledCanvas``,
@@ -46,15 +43,6 @@ class Widget(Protocol):
 @runtime_checkable
 class Updatable(Protocol):
     """Any object that can update itself asynchronously."""
-
-    async def update(self) -> None:
-        """Fetch fresh data from an external source."""
-        ...
-
-
-@runtime_checkable
-class AsyncWidget(Widget, Protocol):
-    """A widget that fetches data asynchronously and updates itself."""
 
     async def update(self) -> None:
         """Fetch fresh data from an external source."""

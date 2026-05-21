@@ -1,5 +1,7 @@
 """Widget registry and auto-discovery."""
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from typing import Any, TypeVar
 
@@ -12,6 +14,11 @@ def register(name: str) -> Callable[[_T], _T]:
     """Decorator to register a widget class by config name."""
 
     def decorator(cls: _T) -> _T:
+        if name in _WIDGET_REGISTRY:
+            raise ValueError(
+                f"Widget name {name!r} is already registered to"
+                f" {_WIDGET_REGISTRY[name].__name__!r}."  # type: ignore[union-attr]
+            )
         _WIDGET_REGISTRY[name] = cls  # type: ignore[arg-type]
         return cls
 

@@ -19,15 +19,11 @@ from dataclasses import dataclass
 class AnimationFrame:
     """What the widget should render at the current frame.
 
-    visible_text:    The slice (or full text) to draw. Typewriter
-                     returns growing prefixes.
-    cursor_override: If set, place the text at this x. If None, the
-                     orchestrator's cursor_pos is used (i.e. the
-                     animation doesn't reposition).
+    visible_text: The slice (or full text) to draw. Typewriter returns
+                  growing prefixes.
     """
 
     visible_text: str
-    cursor_override: int | None
 
 
 class Typewriter:
@@ -50,7 +46,4 @@ class Typewriter:
         # char every 3 frames.
         progress = (frame // self.frames_per_char) + 1
         chars_visible = min(len(full_text), progress * self.chars_per_frame)
-        return AnimationFrame(
-            visible_text=full_text[:chars_visible],
-            cursor_override=None,
-        )
+        return AnimationFrame(visible_text=full_text[:chars_visible])

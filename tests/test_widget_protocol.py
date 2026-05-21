@@ -8,7 +8,7 @@ from led_ticker.drawing import Region
 from led_ticker.widget import (
     _MAX_BACKOFF,
     _MIN_BACKOFF,
-    AsyncWidget,
+    Updatable,
     Widget,
     run_monitor_loop,
 )
@@ -64,8 +64,8 @@ def test_widget_protocol_conformance():
 
 def test_async_widget_protocol_conformance():
     w = SimpleAsyncWidget()
-    assert isinstance(w, AsyncWidget)
     assert isinstance(w, Widget)
+    assert isinstance(w, Updatable)
 
 
 def test_non_widget_does_not_match():

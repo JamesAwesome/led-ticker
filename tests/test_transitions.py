@@ -2190,3 +2190,24 @@ def test_easing_lookup_unknown_raises():
 
     with pytest.raises(KeyError):
         _ = EASING["easeout"]
+
+
+# --- Transition.min_frames Protocol ---
+
+
+class TestMinFramesProtocol:
+    def test_protocol_class_has_zero_default(self):
+        """Transition.min_frames class attribute must be 0 so callers that
+        access it via the Protocol class get the documented default."""
+        from led_ticker.transitions import Transition
+
+        assert Transition.min_frames == 0
+
+    def test_transition_without_min_frames_still_accessible_via_protocol(self):
+        """A transition that omits min_frames can still access the default
+        via Transition.min_frames = 0 without needing to explicitly define it."""
+        from led_ticker.transitions import Transition
+
+        # Verify the default is accessible on the Protocol class
+        assert hasattr(Transition, "min_frames")
+        assert Transition.min_frames == 0

@@ -65,6 +65,15 @@ class SectionConfig:
     # wanted X to fire on section entry (see app.py inter-section
     # transition selection).
     transition_specified: bool = False
+    # Independent transition for this section's inter-section ENTRY.
+    # When set, overrides both `transition` (when transition_specified=True)
+    # and the global `between_sections` default for this section's appearance.
+    # `None` means fall through to transition/between_sections precedence.
+    entry_transition: TransitionConfig | None = None
+    # Independent transition for inter-widget swaps within this section.
+    # When set, overrides `transition` (when transition_specified=True).
+    # `None` means fall through to transition/cut.
+    widget_transition: TransitionConfig | None = None
     hold_time: float = 3.0  # seconds to hold each widget in swap mode
     # Whether the user explicitly wrote `hold_time` in this section's TOML.
     # Same mechanism as `transition_specified`: lets the validator surface
@@ -323,6 +332,22 @@ def load_config(path: Path) -> AppConfig:
                 coerce_warnings,
             )
 
+        # Parse entry_transition and widget_transition independently.
+        # We cannot use _parse_transition(section_raw.get(...), default) because
+        # _parse_transition(None, default) returns `default` — not `None`.
+        # The fields must be None when absent so the engine can distinguish
+        # "user set this" from "user did not set this".
+        entry_transition = (
+            _parse_transition(section_raw["entry_transition"], TransitionConfig())
+            if "entry_transition" in section_raw
+            else None
+        )
+        widget_transition = (
+            _parse_transition(section_raw["widget_transition"], TransitionConfig())
+            if "widget_transition" in section_raw
+            else None
+        )
+
         bg_color_raw = section_raw.get("bg_color")
         bg_color = tuple(bg_color_raw) if bg_color_raw is not None else None
 
@@ -334,6 +359,8 @@ def load_config(path: Path) -> AppConfig:
             widgets=section_raw.get("widget", []),
             transition=trans,
             transition_specified=transition_specified,
+            entry_transition=entry_transition,
+            widget_transition=widget_transition,
             hold_time_specified=("hold_time" in section_raw),
             continuous_scroll=section_raw.get("continuous_scroll", False),
             bg_color=bg_color,

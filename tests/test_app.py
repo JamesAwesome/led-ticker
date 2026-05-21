@@ -848,9 +848,20 @@ class TestFontSizeMigration:
             "text_scale": 4,
         }
 
+        from led_ticker.validate import MigrationError
+
         async with aiohttp.ClientSession() as s:
-            with pytest.raises(ValueError, match="text_scale removed"):
+            with pytest.raises(MigrationError, match="text_scale removed"):
                 await _build_widget(cfg, s, config_dir=tmp_path)
+
+    @pytest.mark.asyncio
+    async def test_text_scale_raises_migration_error_not_value_error(self, tmp_path):
+        from led_ticker.app import _build_widget
+        from led_ticker.validate import MigrationError
+
+        cfg = {"type": "message", "text": "hi", "text_scale": 2}
+        with pytest.raises(MigrationError, match="text_scale removed"):
+            await _build_widget(cfg, session=None, config_dir=tmp_path)  # type: ignore[arg-type]
 
     @pytest.mark.asyncio
     async def test_migration_message_includes_conversion_formula(self, tmp_path):
@@ -860,6 +871,7 @@ class TestFontSizeMigration:
         from PIL import Image
 
         from led_ticker.app import _build_widget
+        from led_ticker.validate import MigrationError
 
         gif_path = tmp_path / "tiny.gif"
         Image.new("RGB", (4, 4)).save(gif_path, format="GIF")
@@ -873,7 +885,7 @@ class TestFontSizeMigration:
         }
 
         async with aiohttp.ClientSession() as s:
-            with pytest.raises(ValueError) as exc_info:
+            with pytest.raises(MigrationError) as exc_info:
                 await _build_widget(cfg, s, config_dir=tmp_path)
 
         msg = str(exc_info.value)
@@ -979,6 +991,7 @@ class TestPresentationMigration:
         import pytest
 
         from led_ticker.app import _build_widget
+        from led_ticker.validate import MigrationError
 
         cfg = {
             "type": "message",
@@ -986,18 +999,28 @@ class TestPresentationMigration:
             "presentation": "rainbow",
         }
         async with aiohttp.ClientSession() as s:
-            with pytest.raises(ValueError, match="presentation removed"):
+            with pytest.raises(MigrationError, match="presentation removed"):
                 await _build_widget(cfg, session=s)
+
+    @pytest.mark.asyncio
+    async def test_presentation_raises_migration_error_not_value_error(self):
+        from led_ticker.app import _build_widget
+        from led_ticker.validate import MigrationError
+
+        cfg = {"type": "message", "text": "hi", "presentation": "rainbow"}
+        with pytest.raises(MigrationError, match="presentation removed"):
+            await _build_widget(cfg, session=None)  # type: ignore[arg-type]
 
     async def test_migration_message_includes_mapping_table(self):
         import aiohttp
         import pytest
 
         from led_ticker.app import _build_widget
+        from led_ticker.validate import MigrationError
 
         cfg = {"type": "message", "text": "hi", "presentation": "typewriter"}
         async with aiohttp.ClientSession() as s:
-            with pytest.raises(ValueError) as exc:
+            with pytest.raises(MigrationError) as exc:
                 await _build_widget(cfg, session=s)
 
         msg = str(exc.value)
@@ -2082,3 +2105,127 @@ class TestBuildWidgetCoerceEnum:
             # the only contract is the build doesn't raise.
             assert widget is not None
             assert widget.text_align in {"left", "right", "scroll_over"}
+
+
+class TestValidateRgb:
+    """_validate_rgb is a module-level helper usable from all coerce paths."""
+
+    def test_rejects_bool_components(self):
+        from led_ticker.app import _validate_rgb
+
+        with pytest.raises(ValueError, match="components must be ints"):
+            _validate_rgb([True, False, 0], "font_color list")
+
+    def test_rejects_out_of_range(self):
+        from led_ticker.app import _validate_rgb
+
+        with pytest.raises(ValueError, match="RGB values must be 0-255"):
+            _validate_rgb([300, 0, 0], "font_color list")
+
+    def test_rejects_wrong_length(self):
+        from led_ticker.app import _validate_rgb
+
+        with pytest.raises(ValueError, match=r"must be \[r,g,b\]"):
+            _validate_rgb([1, 2], "font_color list")
+
+    def test_accepts_valid_rgb(self):
+        from led_ticker.app import _validate_rgb
+
+        assert _validate_rgb([255, 128, 0], "font_color list") == (255, 128, 0)
+
+    def test_context_appears_in_message(self):
+        from led_ticker.app import _validate_rgb
+
+        with pytest.raises(ValueError, match="bg_color"):
+            _validate_rgb([True, 0, 0], "bg_color")
+
+
+class TestCoerceColorProviderValidation:
+    """_coerce_color_provider validates rgb lists via _validate_rgb."""
+
+    def test_rejects_bool_component(self):
+        from led_ticker.app import _coerce_color_provider
+
+        with pytest.raises(ValueError, match="components must be ints"):
+            _coerce_color_provider([True, 0, 0])
+
+    def test_rejects_out_of_range(self):
+        from led_ticker.app import _coerce_color_provider
+
+        with pytest.raises(ValueError, match="RGB values must be 0-255"):
+            _coerce_color_provider([256, 0, 0])
+
+
+class TestCoerceWidgetColorsValidation:
+    """_coerce_widget_colors validates raw color keys via _validate_rgb."""
+
+    def test_bg_color_rejects_bool_component(self):
+        from led_ticker.app import _coerce_widget_colors
+
+        cfg = {"bg_color": [True, 0, 0]}
+        with pytest.raises(ValueError, match="components must be ints"):
+            _coerce_widget_colors(cfg)
+
+    def test_bg_color_rejects_out_of_range(self):
+        from led_ticker.app import _coerce_widget_colors
+
+        cfg = {"bg_color": [256, 0, 0]}
+        with pytest.raises(ValueError, match="RGB values must be 0-255"):
+            _coerce_widget_colors(cfg)
+
+
+class TestProviderFromStyleRgbValidation:
+    """_provider_from_style validates rgb endpoints for gradient and color_cycle."""
+
+    def test_gradient_from_rejects_bool(self):
+        from led_ticker.app import _provider_from_style
+
+        with pytest.raises(ValueError, match="components must be ints"):
+            _provider_from_style(
+                "gradient", {"from": [True, 0, 0], "to": [255, 255, 0]}
+            )
+
+    def test_gradient_to_rejects_out_of_range(self):
+        from led_ticker.app import _provider_from_style
+
+        with pytest.raises(ValueError, match="RGB values must be 0-255"):
+            _provider_from_style("gradient", {"from": [255, 0, 0], "to": [0, 256, 0]})
+
+    def test_color_cycle_from_rejects_bool(self):
+        from led_ticker.app import _provider_from_style
+
+        with pytest.raises(ValueError, match="components must be ints"):
+            _provider_from_style(
+                "color_cycle", {"from": [True, 0, 0], "to": [0, 255, 0]}
+            )
+
+
+class TestProviderFromStyleErrorMessages:
+    """Unknown-key error messages show TOML-facing key names, not internal ones."""
+
+    def test_gradient_unknown_key_shows_user_facing_allowed(self):
+        from led_ticker.app import _provider_from_style
+
+        with pytest.raises(ValueError) as exc_info:
+            _provider_from_style(
+                "gradient",
+                {"from": [255, 0, 0], "to": [0, 255, 0], "wobble": 3},
+            )
+        msg = str(exc_info.value)
+        assert "from_color" not in msg, f"internal name leaked into error: {msg}"
+        assert "to_color" not in msg, f"internal name leaked into error: {msg}"
+        assert "from" in msg
+
+    def test_color_cycle_range_unknown_key_shows_user_facing_allowed(self):
+        from led_ticker.app import _provider_from_style
+
+        with pytest.raises(ValueError) as exc_info:
+            _provider_from_style(
+                "color_cycle",
+                {"from": [255, 0, 0], "to": [0, 255, 0], "wobble": 3},
+            )
+        msg = str(exc_info.value)
+        assert "from_hue" not in msg, f"internal name leaked into error: {msg}"
+        assert "to_hue" not in msg, f"internal name leaked into error: {msg}"
+        assert "from" in msg
+        assert "to" in msg

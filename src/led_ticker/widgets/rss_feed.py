@@ -63,7 +63,7 @@ class RSSFeedMonitor:
         logging.info("Updating RSS Feed from: %s", self.feed_url)
         async with self.session.get(self.feed_url) as response:
             feed_data = await response.text()
-            feed = feedparser.parse(feed_data)
+            feed = await asyncio.to_thread(feedparser.parse, feed_data)
             self.feed_title = TickerMessage(
                 feed["channel"]["title"],  # type: ignore[index]
                 font_color=self._story_color(),

@@ -244,6 +244,14 @@ class TestSwapAndScrollContinuous:
 
         monkeypatch.setattr("led_ticker.ticker.asyncio.sleep", _record)
 
+        # Zero elapsed work time → max(0.0, tick_s - 0.0) = tick_s exactly,
+        # so the existing `tick_s in sleep_calls` assertion stays valid.
+        mock_loop = mock.Mock()
+        mock_loop.time.return_value = 0.0
+        monkeypatch.setattr(
+            "led_ticker.ticker.asyncio.get_running_loop", lambda: mock_loop
+        )
+
         widget = make_widget(content_width=200)
         await _swap_and_scroll(
             canvas, mock_frame, widget, hold_time=0.1, continuous=False
@@ -261,6 +269,76 @@ class TestSwapAndScrollContinuous:
         assert (
             0.1 not in sleep_calls
         ), f"hold_time bare sleep must not appear; sleep_calls={sleep_calls}"
+
+
+class TestTickDriftCompensation:
+    """Tick loops must subtract elapsed work time from the sleep so the
+    panel animates at a steady ENGINE_TICK_MS cadence even when draw +
+    swap take measurable time (C3). Each tick calls loop.time() twice:
+    once at t0 = loop.time() and once inside the max() subtraction.
+    """
+
+    async def test_swap_and_scroll_held_text_subtracts_work_time(
+        self, canvas, mock_frame, make_widget, monkeypatch
+    ):
+        from led_ticker.ticker import ENGINE_TICK_MS, _swap_and_scroll
+
+        sleep_calls: list[float] = []
+
+        async def _record(seconds: float) -> None:
+            sleep_calls.append(seconds)
+
+        monkeypatch.setattr("led_ticker.ticker.asyncio.sleep", _record)
+
+        # Simulate 30 ms of work per tick: loop.time() returns alternating
+        # 0.000 (t0) and 0.030 (after work). Each tick consumes two values.
+        tick_times = iter([0.000, 0.030] * 100)
+        mock_loop = mock.Mock()
+        mock_loop.time.side_effect = lambda: next(tick_times)
+        monkeypatch.setattr(
+            "led_ticker.ticker.asyncio.get_running_loop", lambda: mock_loop
+        )
+
+        widget = make_widget(content_width=40)  # fits canvas → held-text branch
+        await _swap_and_scroll(canvas, mock_frame, widget, hold_time=0.05)
+
+        tick_s = ENGINE_TICK_MS / 1000  # 0.05
+        expected = tick_s - 0.030  # 0.020
+        assert sleep_calls, "no sleep calls recorded"
+        assert all(
+            abs(s - expected) < 1e-9 for s in sleep_calls
+        ), f"expected {expected}s sleeps (drift-compensated), got {sleep_calls}"
+
+    async def test_scroll_and_delay_subtracts_work_time(
+        self, canvas, mock_frame, make_widget, no_sleep, monkeypatch
+    ):
+        from led_ticker.ticker import ENGINE_TICK_MS, _scroll_and_delay
+
+        sleep_calls: list[float] = []
+
+        async def _record(seconds: float) -> None:
+            sleep_calls.append(seconds)
+
+        monkeypatch.setattr("led_ticker.ticker.asyncio.sleep", _record)
+
+        tick_times = iter([0.000, 0.020] * 100)  # 20 ms work per tick
+        mock_loop = mock.Mock()
+        mock_loop.time.side_effect = lambda: next(tick_times)
+        monkeypatch.setattr(
+            "led_ticker.ticker.asyncio.get_running_loop", lambda: mock_loop
+        )
+
+        widget = make_widget(content_width=40)
+        canvas_result, _ = await _scroll_and_delay(
+            canvas, mock_frame, widget, delay=0.1
+        )
+
+        tick_s = ENGINE_TICK_MS / 1000  # 0.05
+        expected = tick_s - 0.020  # 0.030
+        assert sleep_calls, "no sleep calls recorded"
+        assert all(
+            abs(s - expected) < 1e-9 for s in sleep_calls
+        ), f"expected {expected}s sleeps, got {sleep_calls}"
 
 
 class TestSwapOnVSyncCapture:

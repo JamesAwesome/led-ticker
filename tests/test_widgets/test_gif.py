@@ -520,6 +520,15 @@ async def test_play_with_text_uses_scroll_speed_cadence(tmp_path, mocker):
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
+    # Zero elapsed work time so drift compensation leaves sleep unchanged:
+    # max(0.0, tick_s - (loop.time() - t0)) = tick_s when both calls return 0.0.
+    mock_loop = mocker.MagicMock()
+    mock_loop.time.return_value = 0.0
+    mocker.patch(
+        "led_ticker.widgets._image_base.asyncio.get_running_loop",
+        return_value=mock_loop,
+    )
+
     await widget.play(real, frame, loop_count=1)
 
     sleeps = [c.args[0] for c in sleep_mock.await_args_list]

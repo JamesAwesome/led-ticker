@@ -2,6 +2,7 @@
 
 import unittest.mock as mock
 
+import feedparser as _feedparser
 import pytest
 
 from led_ticker.widgets.message import TickerMessage
@@ -131,3 +132,32 @@ class TestRssFontColor:
         # Title + every story shares the same provider instance.
         assert feed.feed_title.font_color is rainbow
         assert all(s.font_color is rainbow for s in feed.feed_stories)
+
+
+class TestFeedparserOffEventLoop:
+    """feedparser.parse is CPU-bound XML parsing. Calling it directly on
+    the event loop blocks all other coroutines for the full parse duration.
+    It must be offloaded via asyncio.to_thread (C2)."""
+
+    async def test_feedparser_called_via_to_thread(self, mock_session, monkeypatch):
+        """asyncio.to_thread must be called with feedparser.parse and the
+        raw feed text — not feedparser.parse called directly."""
+        calls: list[tuple] = []
+
+        async def _fake_to_thread(func, *args, **kwargs):
+            calls.append((func, args, kwargs))
+            return func(*args, **kwargs)
+
+        monkeypatch.setattr(
+            "led_ticker.widgets.rss_feed.asyncio.to_thread", _fake_to_thread
+        )
+
+        monitor = RSSFeedMonitor(
+            session=mock_session, feed_url="http://example.com/rss"
+        )
+        await monitor.update()
+
+        assert len(calls) == 1, f"expected 1 to_thread call, got {len(calls)}: {calls}"
+        func, args, kwargs = calls[0]
+        assert func is _feedparser.parse, f"expected feedparser.parse, got {func}"
+        assert args == (SAMPLE_RSS,), f"expected (SAMPLE_RSS,), got {args}"

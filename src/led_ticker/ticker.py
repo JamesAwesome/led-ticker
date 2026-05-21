@@ -441,12 +441,14 @@ async def _scroll_and_delay(
     # frame for the full delay.
     n_ticks = max(1, int(delay * 1000) // ENGINE_TICK_MS)
     tick_seconds = ENGINE_TICK_MS / 1000
+    loop = asyncio.get_running_loop()
     for _ in range(n_ticks):
+        t0 = loop.time()
         _advance_frame_if_supported(ticker_obj)
         reset_canvas(canvas, bg_color)
         canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
         canvas = _swap(canvas, frame)
-        await asyncio.sleep(tick_seconds)
+        await asyncio.sleep(max(0.0, tick_seconds - (loop.time() - t0)))
     return canvas, cursor_pos
 
 
@@ -630,13 +632,15 @@ async def _scroll_side_by_side(
             canvas = _swap(canvas, frame)
             n_hold_ticks = max(1, int(hold_at_end * 1000) // ENGINE_TICK_MS)
             tick_seconds = ENGINE_TICK_MS / 1000
+            loop = asyncio.get_running_loop()
             for _ in range(n_hold_ticks):
+                t0 = loop.time()
                 _advance_frame_if_supported(buffered_objects[0])
                 bg_hold = getattr(buffered_objects[0], "bg_color", None)
                 reset_canvas(canvas, bg_hold)
                 canvas, _ = buffered_objects[0].draw(canvas, cursor_pos=held_pos)
                 canvas = _swap(canvas, frame)
-                await asyncio.sleep(tick_seconds)
+                await asyncio.sleep(max(0.0, tick_seconds - (loop.time() - t0)))
             return held_pos
 
         if mon_0_end_pos < 0:
@@ -1115,17 +1119,19 @@ async def _swap_and_scroll(
         return canvas, cursor_pos, pos
 
     tick_seconds = ENGINE_TICK_MS / 1000
+    loop = asyncio.get_running_loop()
 
     if cursor_pos > canvas.width:
         if not continuous:
             # Pre-scroll hold: tick loop so frame-aware widgets animate.
             n_ticks = max(1, int(hold_time * 1000) // ENGINE_TICK_MS)
             for _ in range(n_ticks):
+                t0 = loop.time()
                 _advance_frame_if_supported(ticker_obj)
                 reset_canvas(canvas, bg_color)
                 canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
                 canvas = _swap(canvas, frame)
-                await asyncio.sleep(tick_seconds)
+                await asyncio.sleep(max(0.0, tick_seconds - (loop.time() - t0)))
 
         # cursor_pos from draw() includes end_padding (default 6px),
         # which is spacing for forever_scroll side-by-side layout.
@@ -1147,19 +1153,21 @@ async def _swap_and_scroll(
         if not continuous:
             n_ticks = max(1, int(hold_time * 1000) // ENGINE_TICK_MS)
             for _ in range(n_ticks):
+                t0 = loop.time()
                 _advance_frame_if_supported(ticker_obj)
                 reset_canvas(canvas, bg_color)
                 canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
                 canvas = _swap(canvas, frame)
-                await asyncio.sleep(tick_seconds)
+                await asyncio.sleep(max(0.0, tick_seconds - (loop.time() - t0)))
     else:
         # Held text: tick loop so frame-aware widgets animate during hold.
         n_ticks = max(1, int(hold_time * 1000) // ENGINE_TICK_MS)
         for _ in range(n_ticks):
+            t0 = loop.time()
             _advance_frame_if_supported(ticker_obj)
             reset_canvas(canvas, bg_color)
             canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
             canvas = _swap(canvas, frame)
-            await asyncio.sleep(tick_seconds)
+            await asyncio.sleep(max(0.0, tick_seconds - (loop.time() - t0)))
 
     return canvas, cursor_pos, pos

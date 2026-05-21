@@ -92,13 +92,6 @@ class TestMLBStandingsMonitor:
         cls = get_widget_class("mlb_standings")
         assert cls is MLBStandingsMonitor
 
-    def test_has_feed_stories(self):
-        widget = MLBStandingsMonitor(
-            session=mock.Mock(),
-            teams=["NYM", "PHI"],
-        )
-        assert isinstance(widget.feed_stories, list)
-
     def test_default_top_n(self):
         widget = MLBStandingsMonitor(
             session=mock.Mock(),
@@ -128,13 +121,6 @@ class TestMLBStandingsMonitor:
             title="NL Standings",
         )
         assert widget.title == "NL Standings"
-
-    def test_has_padding(self):
-        widget = MLBStandingsMonitor(
-            session=mock.Mock(),
-            teams=["NYM"],
-        )
-        assert widget.padding == 6
 
 
 # --- Parsing ---

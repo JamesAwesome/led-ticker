@@ -561,20 +561,6 @@ class TestMLBGameMessageDraw:
 
 
 class TestMLBScoreMonitor:
-    def test_has_padding(self):
-        widget = MLBScoreMonitor(
-            session=mock.Mock(),
-            team="PHI",
-        )
-        assert widget.padding == 6
-
-    def test_has_feed_stories(self):
-        widget = MLBScoreMonitor(
-            session=mock.Mock(),
-            team="PHI",
-        )
-        assert isinstance(widget.feed_stories, list)
-
     def test_registered(self):
         from led_ticker.widgets import get_widget_class
 

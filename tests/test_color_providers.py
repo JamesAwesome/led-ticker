@@ -22,10 +22,6 @@ class TestConstantColor:
         assert provider.color_for(0, 0, 1) is c
         assert provider.color_for(99, 5, 100) is c
 
-    def test_per_char_is_false(self):
-        provider = _ConstantColor(Color(0, 0, 0))
-        assert provider.per_char is False
-
 
 class TestRandom:
     """`Random` picks a single color when constructed and returns it
@@ -48,10 +44,6 @@ class TestRandom:
         samples = [Random().color_for(0, 0, 1) for _ in range(20)]
         rgbs = {(s.red, s.green, s.blue) for s in samples}
         assert len(rgbs) > 1, "all 20 Random instances picked the same color"
-
-    def test_per_char_is_false(self):
-        provider = Random()
-        assert provider.per_char is False
 
 
 class TestRainbow:

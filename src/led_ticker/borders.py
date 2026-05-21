@@ -69,6 +69,26 @@ from led_ticker._types import Canvas
 from led_ticker.scaled_canvas import unwrap_to_real
 
 
+class BorderEffectBase:
+    """Optional base for BorderEffect implementations.
+
+    Enforces that every subclass declares ``frame_invariant`` explicitly
+    (class attribute or ``@property``) so the fast-path predicate in
+    image widgets cannot silently freeze an animated border. Analogous
+    to ``ColorProviderBase`` — see its docstring for the full rationale.
+    """
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        super().__init_subclass__(**kwargs)
+        if "frame_invariant" not in cls.__dict__:
+            raise TypeError(
+                f"{cls.__name__} must define 'frame_invariant' as a class "
+                "attribute or property. Set True if paint() output is "
+                "frame-independent (ConstantBorder); False if it varies per "
+                "frame (RainbowChaseBorder, ColorCycleBorder)."
+            )
+
+
 class BorderEffect(Protocol):
     """Paints a perimeter outline on `canvas` at frame-aware state."""
 
@@ -132,7 +152,7 @@ def _perimeter_pixels(
     return pixels
 
 
-class RainbowChaseBorder:
+class RainbowChaseBorder(BorderEffectBase):
     """Per-pixel rainbow chase around the perimeter.
 
     Without `from_hue`/`to_hue`, hue at perimeter index `idx` and
@@ -215,7 +235,7 @@ class RainbowChaseBorder:
             real.SetPixel(x, y, int(r * 255), int(g * 255), int(b * 255))
 
 
-class ColorCycleBorder:
+class ColorCycleBorder(BorderEffectBase):
     """Whole-border single animated hue.
 
     The entire perimeter is painted with one color per frame; the hue
@@ -266,7 +286,7 @@ class ColorCycleBorder:
             real.SetPixel(x, y, ri, gi, bi)
 
 
-class ConstantBorder:
+class ConstantBorder(BorderEffectBase):
     """Solid-color perimeter outline; no animation."""
 
     frame_invariant: bool = True

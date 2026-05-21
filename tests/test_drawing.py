@@ -396,8 +396,10 @@ class TestGetTextWidthMemoization:
         assert len(_TEXT_WIDTH_CACHE) == 2  # two entries cached
 
     def test_cache_evicts_at_maxsize(self):
-        """Cache wholesale-clears when it hits maxsize so memory stays
-        bounded even if a config spawns many unique strings."""
+        """Cache evicts at maxsize so memory stays bounded even if a
+        config spawns many unique strings. After eviction the cache
+        must contain exactly maxsize entries — pop-one-oldest, not
+        wholesale-clear."""
         from led_ticker.drawing import (
             _TEXT_WIDTH_CACHE,
             _TEXT_WIDTH_CACHE_MAXSIZE,
@@ -405,8 +407,39 @@ class TestGetTextWidthMemoization:
 
         _TEXT_WIDTH_CACHE.clear()
         canvas = SimpleNamespace(scale=1, width=160)
-        # Spawn maxsize + 5 distinct text values.
         for i in range(_TEXT_WIDTH_CACHE_MAXSIZE + 5):
             get_text_width(FONT_DEFAULT, f"text_{i}", padding=0, canvas=canvas)
-        # After eviction-then-fill, cache size should be ≤ maxsize.
-        assert len(_TEXT_WIDTH_CACHE) <= _TEXT_WIDTH_CACHE_MAXSIZE
+        # Pop-oldest keeps exactly maxsize entries; wholesale-clear would leave ~6.
+        assert len(_TEXT_WIDTH_CACHE) == _TEXT_WIDTH_CACHE_MAXSIZE
+
+    def test_cache_retains_most_recent_entry_after_overflow(self):
+        """The entry that triggered eviction must survive. Wholesale-clear
+        would also evict the triggering entry (cache drops from maxsize
+        to 1 right after clear), leaving the very next call a miss too.
+        """
+        from led_ticker.drawing import (
+            _TEXT_WIDTH_CACHE,
+            _TEXT_WIDTH_CACHE_MAXSIZE,
+        )
+
+        _TEXT_WIDTH_CACHE.clear()
+        canvas = SimpleNamespace(scale=1, width=160)
+
+        # Fill to exactly maxsize.
+        for i in range(_TEXT_WIDTH_CACHE_MAXSIZE):
+            get_text_width(FONT_DEFAULT, f"old_{i}", padding=0, canvas=canvas)
+
+        assert len(_TEXT_WIDTH_CACHE) == _TEXT_WIDTH_CACHE_MAXSIZE
+
+        # This call triggers eviction (len >= maxsize), then inserts the new key.
+        result = get_text_width(FONT_DEFAULT, "the_new_entry", padding=0, canvas=canvas)
+
+        # Cache must stay at maxsize (evict-1 + insert-1).
+        assert len(_TEXT_WIDTH_CACHE) == _TEXT_WIDTH_CACHE_MAXSIZE
+
+        # The new entry survives — calling again hits the cache, no new entries.
+        result2 = get_text_width(
+            FONT_DEFAULT, "the_new_entry", padding=0, canvas=canvas
+        )
+        assert result == result2
+        assert len(_TEXT_WIDTH_CACHE) == _TEXT_WIDTH_CACHE_MAXSIZE

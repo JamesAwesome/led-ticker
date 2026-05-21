@@ -93,8 +93,8 @@ def get_text_width(font: Any, text: str, padding: int = 6, canvas: Any = None) -
     `(id(font), text, padding, scale)`. Per-frame callers (weather,
     etherscan, coinbase) hit the cache instead of re-summing glyph
     advances every draw — saves O(len(text)) dict lookups per call.
-    Cache wholesale-clears at ``_TEXT_WIDTH_CACHE_MAXSIZE = 256``
-    entries.
+    Cache evicts the oldest entry at ``_TEXT_WIDTH_CACHE_MAXSIZE = 256``
+    entries, staying at exactly maxsize instead of dropping to 1.
     """
     # Resolve effective scale once for both caching and computation.
     scale = SCALE_FALLBACK if canvas is None else safe_scale(canvas)
@@ -120,7 +120,7 @@ def get_text_width(font: Any, text: str, padding: int = 6, canvas: Any = None) -
         width = sum(font.CharacterWidth(ord(c)) for c in text) + padding
 
     if len(_TEXT_WIDTH_CACHE) >= _TEXT_WIDTH_CACHE_MAXSIZE:
-        _TEXT_WIDTH_CACHE.clear()
+        _TEXT_WIDTH_CACHE.pop(next(iter(_TEXT_WIDTH_CACHE)))
     _TEXT_WIDTH_CACHE[key] = width
     return width
 

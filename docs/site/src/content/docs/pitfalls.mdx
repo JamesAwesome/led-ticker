@@ -74,6 +74,17 @@ These two fields look similar but live at different scopes:
 
 Writing `scroll_speed_ms` in a `[[playlist.section]]` block (section scope) silently does nothing — the section loader doesn't know the field. Writing `scroll_step_ms` on a `gif` or `image` widget passes it as an unknown kwarg that crashes at startup. The validator catches both and points at the correct scope.
 
+### Rule 38 — Unknown field name on a widget
+
+A key in a `[[playlist.section.widget]]` block doesn't match any field the widget accepts. This previously passed validation and crashed at startup with a raw `TypeError` from attrs internals. The validator now catches it at config-load time and includes a did-you-mean suggestion:
+
+```
+✗ ERROR   section[0].widget[0]: widget type='message' got unknown field: 'text_color' (did you mean 'font_color'?)
+          Fix: Remove or rename the field. Run `led-ticker validate --list-fields message` to see valid fields.
+```
+
+Common sources: copy-pasting a field name from the wrong widget type (`text_color` instead of `font_color`; `alignement` misspelling of `center`; `scroll_speed_ms` on a non-image widget). Run `led-ticker validate --list-fields TYPE` to see all accepted fields for a given widget type.
+
 ## Warnings
 
 Warnings don't block the engine, but they flag a likely rendering quirk worth resolving.

@@ -32,21 +32,22 @@ class ValidationResult:
         return len(self.errors) == 0
 
 
+class MigrationError(Exception):
+    """Raised by _build_widget when a widget config uses a removed knob.
+
+    Carries both the human-readable message AND the suggested fix string
+    so _run_build_checks can route it without substring-matching against
+    _ERROR_PATTERNS.
+    """
+
+    def __init__(self, message: str, suggested_fix: str) -> None:
+        super().__init__(message)
+        self.message = message
+        self.suggested_fix = suggested_fix
+
+
 # Maps substrings in exception messages to (rule, fix) pairs.
 _ERROR_PATTERNS: list[tuple[str, int | None, str]] = [
-    (
-        "text_scale removed",
-        20,
-        (
-            "Replace text_scale with font_size = N × cell_h"
-            " (e.g. font_size=24 for 6×12 BDF at 2×)"
-        ),
-    ),
-    (
-        "presentation removed",
-        None,
-        "Use font_color / animation instead of presentation",
-    ),
     (
         "animation is only valid on",
         12,
@@ -85,18 +86,21 @@ def _classify_error(msg: str) -> tuple[int | None, str]:
 
 async def _run_build_checks(
     sections: list[SectionConfig], config_dir: Path
-) -> tuple[list[tuple[str, str]], list[tuple[str, Any]]]:
+) -> tuple[list[tuple[str, str]], list[tuple[str, Any]], list[tuple[str, str, str]]]:
     """Run _build_widget(validate_only=True) for every widget.
 
-    Returns (build_errors, coerce_warnings):
+    Returns (build_errors, coerce_warnings, migration_errors):
     - build_errors: (location, error_msg) pairs
     - coerce_warnings: (location, CoercionWarning) pairs collected from
       _build_widget's coercion pass for each widget.
+    - migration_errors: (location, message, suggested_fix) triples from
+      MigrationError raised by _build_widget for removed knobs.
     """
     from led_ticker.app import _build_widget
 
     issues: list[tuple[str, str]] = []
     warnings: list[tuple[str, Any]] = []
+    migrations: list[tuple[str, str, str]] = []
     for i, section in enumerate(sections):
         for j, widget_cfg in enumerate(section.widgets):
             widget_warnings: list[Any] = []
@@ -108,11 +112,15 @@ async def _run_build_checks(
                     validate_only=True,
                     coercion_collector=widget_warnings,
                 )
+            except MigrationError as e:
+                migrations.append(
+                    (f"section[{i}].widget[{j}]", e.message, e.suggested_fix)
+                )
             except Exception as e:
                 issues.append((f"section[{i}].widget[{j}]", str(e)))
             for w in widget_warnings:
                 warnings.append((f"section[{i}].widget[{j}]", w))
-    return issues, warnings
+    return issues, warnings, migrations
 
 
 def _check_static(config: AppConfig) -> list[ValidationIssue]:
@@ -1142,7 +1150,19 @@ async def validate_config(path: Path) -> ValidationResult:
     # font may live on the deploy target but not the laptop drafting
     # the config. Type / required-field errors stay hard.
     _configure_user_font_dir(path)
-    build_errors, build_warnings = await _run_build_checks(config.sections, path.parent)
+    build_errors, build_warnings, migration_errors = await _run_build_checks(
+        config.sections, path.parent
+    )
+    for location, msg, fix in migration_errors:
+        errors.append(
+            ValidationIssue(
+                rule=20 if "text_scale" in msg else None,
+                location=location,
+                severity="error",
+                message=msg,
+                fix=fix,
+            )
+        )
     for location, msg in build_errors:
         if "unknown font " in msg:
             warnings.append(

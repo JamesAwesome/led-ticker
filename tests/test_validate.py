@@ -41,8 +41,10 @@ async def test_build_widget_validate_only_returns_none_for_valid_widget():
 
 
 async def test_build_widget_validate_only_raises_on_text_scale():
+    from led_ticker.validate import MigrationError
+
     cfg = {"type": "message", "text": "hi", "text_scale": 2}
-    with pytest.raises(ValueError, match="text_scale"):
+    with pytest.raises(MigrationError, match="text_scale"):
         await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
 
 
@@ -2144,3 +2146,40 @@ font_size = "25"
         f"expected exactly one rule-37 warning for font_size; "
         f"got warnings: {result.warnings!r}"
     )
+
+
+class TestMigrationError:
+    """MigrationError carries its fix string; _run_build_checks routes it directly."""
+
+    def test_migration_error_importable_from_validate(self):
+        from led_ticker.validate import MigrationError
+
+        err = MigrationError(
+            "text_scale removed ...",
+            "Replace with font_size = N × cell_h",
+        )
+        assert err.message == "text_scale removed ..."
+        assert err.suggested_fix == "Replace with font_size = N × cell_h"
+
+    def test_migration_error_is_exception(self):
+        from led_ticker.validate import MigrationError
+
+        with pytest.raises(MigrationError):
+            raise MigrationError("msg", "fix")
+
+    @pytest.mark.asyncio
+    async def test_run_build_checks_returns_migration_errors_separately(self, tmp_path):
+        """MigrationError from _build_widget comes back as a third list."""
+        from led_ticker.config import SectionConfig
+        from led_ticker.validate import _run_build_checks
+
+        section = SectionConfig(
+            mode="swap",
+            widgets=[{"type": "message", "text": "hi", "text_scale": 2}],
+        )
+        errors, warnings, migrations = await _run_build_checks([section], tmp_path)
+        assert len(errors) == 0
+        assert len(migrations) == 1
+        loc, msg, fix = migrations[0]
+        assert "text_scale" in msg
+        assert "font_size" in fix

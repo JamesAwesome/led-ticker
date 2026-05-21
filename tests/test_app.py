@@ -848,9 +848,20 @@ class TestFontSizeMigration:
             "text_scale": 4,
         }
 
+        from led_ticker.validate import MigrationError
+
         async with aiohttp.ClientSession() as s:
-            with pytest.raises(ValueError, match="text_scale removed"):
+            with pytest.raises(MigrationError, match="text_scale removed"):
                 await _build_widget(cfg, s, config_dir=tmp_path)
+
+    @pytest.mark.asyncio
+    async def test_text_scale_raises_migration_error_not_value_error(self, tmp_path):
+        from led_ticker.app import _build_widget
+        from led_ticker.validate import MigrationError
+
+        cfg = {"type": "message", "text": "hi", "text_scale": 2}
+        with pytest.raises(MigrationError, match="text_scale removed"):
+            await _build_widget(cfg, session=None, config_dir=tmp_path)  # type: ignore[arg-type]
 
     @pytest.mark.asyncio
     async def test_migration_message_includes_conversion_formula(self, tmp_path):
@@ -860,6 +871,7 @@ class TestFontSizeMigration:
         from PIL import Image
 
         from led_ticker.app import _build_widget
+        from led_ticker.validate import MigrationError
 
         gif_path = tmp_path / "tiny.gif"
         Image.new("RGB", (4, 4)).save(gif_path, format="GIF")
@@ -873,7 +885,7 @@ class TestFontSizeMigration:
         }
 
         async with aiohttp.ClientSession() as s:
-            with pytest.raises(ValueError) as exc_info:
+            with pytest.raises(MigrationError) as exc_info:
                 await _build_widget(cfg, s, config_dir=tmp_path)
 
         msg = str(exc_info.value)
@@ -979,6 +991,7 @@ class TestPresentationMigration:
         import pytest
 
         from led_ticker.app import _build_widget
+        from led_ticker.validate import MigrationError
 
         cfg = {
             "type": "message",
@@ -986,18 +999,28 @@ class TestPresentationMigration:
             "presentation": "rainbow",
         }
         async with aiohttp.ClientSession() as s:
-            with pytest.raises(ValueError, match="presentation removed"):
+            with pytest.raises(MigrationError, match="presentation removed"):
                 await _build_widget(cfg, session=s)
+
+    @pytest.mark.asyncio
+    async def test_presentation_raises_migration_error_not_value_error(self):
+        from led_ticker.app import _build_widget
+        from led_ticker.validate import MigrationError
+
+        cfg = {"type": "message", "text": "hi", "presentation": "rainbow"}
+        with pytest.raises(MigrationError, match="presentation removed"):
+            await _build_widget(cfg, session=None)  # type: ignore[arg-type]
 
     async def test_migration_message_includes_mapping_table(self):
         import aiohttp
         import pytest
 
         from led_ticker.app import _build_widget
+        from led_ticker.validate import MigrationError
 
         cfg = {"type": "message", "text": "hi", "presentation": "typewriter"}
         async with aiohttp.ClientSession() as s:
-            with pytest.raises(ValueError) as exc:
+            with pytest.raises(MigrationError) as exc:
                 await _build_widget(cfg, session=s)
 
         msg = str(exc.value)

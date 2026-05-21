@@ -653,17 +653,23 @@ async def _build_widget(
     users who set a font size that won't fit vertically. Bigsign hi-res
     is the supported use case, so callers pass None for it.
     """
+    from led_ticker.validate import MigrationError
+
     # Migration check: text_scale was the BDF block-expansion knob.
     # Replaced by font_size (real pixels) which works uniformly for
     # BDF and HiresFont. Loud failure here catches stale TOMLs at
     # load time rather than letting them silently render wrong.
     if "text_scale" in widget_cfg:
-        raise ValueError(
+        raise MigrationError(
             "text_scale removed in favor of font_size (real pixels). "
             "Migrate: font_size = N × cell_h_of_your_font. "
             "For BDF 6×12: font_size = N × 12 (e.g. text_scale=2 → "
             "font_size=24, text_scale=4 → font_size=48). "
-            "For BDF 5×8: font_size = N × 8."
+            "For BDF 5×8: font_size = N × 8.",
+            suggested_fix=(
+                "Replace text_scale with font_size = N × cell_h"
+                " (e.g. font_size=24 for 6×12 BDF at 2×)"
+            ),
         )
 
     # Migration check: presentation = "..." was the wrapper-based effect
@@ -671,7 +677,7 @@ async def _build_widget(
     # (typewriter/bounce on TickerMessage). Loud failure here catches
     # stale TOMLs at load time.
     if "presentation" in widget_cfg:
-        raise ValueError(
+        raise MigrationError(
             "presentation removed in favor of font_color (color effects) + "
             "animation (typewriter on TickerMessage). Migration:\n"
             "  presentation = 'typewriter'  → animation = 'typewriter' "
@@ -681,7 +687,8 @@ async def _build_widget(
             "  presentation = 'pulse' / 'bounce' — these effects were "
             "removed in the rework. Use font_color = [r,g,b] / 'rainbow' / "
             "'color_cycle' / 'gradient' and/or animation = 'typewriter' "
-            "instead."
+            "instead.",
+            suggested_fix="Use font_color / animation instead of presentation",
         )
 
     widget_type = widget_cfg.pop("type")

@@ -43,3 +43,8 @@ def test_stub_canvas_size_parallel_chains():
     canvas = frame.matrix.CreateFrameCanvas()
     assert canvas.height == 64  # 32 × 2 parallel
     assert canvas.width == 256  # 64 × 4 chain
+
+
+def test_ledframe_matrix_is_not_none_after_construction():
+    frame = LedFrame(led_cols=32, led_chain=5)
+    assert frame.matrix is not None

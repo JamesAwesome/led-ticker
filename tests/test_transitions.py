@@ -680,8 +680,9 @@ class TestDissolve:
         # SetPixel calls go to `real`, not the wrapper.
         assert real.SetPixel.call_count == 256 * 64
         # Sequence cached at physical dims, not logical (64*16=1024)
-        assert dissolve._sequence is not None
-        assert len(dissolve._sequence) == 256 * 64
+        seq = dissolve._get_sequence(256, 64)
+        assert seq is not None
+        assert len(seq) == 256 * 64
 
     def test_returns_canvas(self, canvas, make_widget):
         outgoing = make_widget(40)
@@ -1153,6 +1154,40 @@ class TestPushRandomDelegatesFrameAt:
 
     def test_registered_as_push_random(self):
         assert get_transition_class("push_random") is PushRandom
+
+
+class TestPushRandomMinFrames:
+    def test_current_is_set_at_construction(self):
+        from led_ticker.transitions.push import PushRandom
+
+        pr = PushRandom()
+        assert pr._current is not None
+
+    def test_min_frames_reflects_sub_transition(self):
+        from led_ticker.transitions.push import PushRandom
+
+        pr = PushRandom()
+        # Must equal the sub-transition's min_frames, not a hardcoded fallback
+        expected = getattr(pr._current, "min_frames", 10)
+        assert pr.min_frames == expected
+
+
+class TestDissolveSequenceCache:
+    def test_two_instances_same_seed_share_sequence_object(self):
+        from led_ticker.transitions.effects import Dissolve
+
+        d1 = Dissolve(seed=7)
+        d2 = Dissolve(seed=7)
+        seq1 = d1._get_sequence(160, 16)
+        seq2 = d2._get_sequence(160, 16)
+        assert seq1 is seq2
+
+    def test_different_seed_gives_different_sequence(self):
+        from led_ticker.transitions.effects import Dissolve
+
+        d1 = Dissolve(seed=1)
+        d2 = Dissolve(seed=2)
+        assert d1._get_sequence(160, 16) != d2._get_sequence(160, 16)
 
 
 # --- run_transition ---

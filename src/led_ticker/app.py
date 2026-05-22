@@ -1374,7 +1374,7 @@ def _list_widget_fields(widget_type: str) -> str:
             f"\nDid you mean: {', '.join(repr(m) for m in matches)}" if matches else ""
         )
         raise ValueError(
-            f"Unknown widget type: {widget_type!r}. " f"Available: {candidates}{hint}"
+            f"Unknown widget type: {widget_type!r}. Available: {candidates}{hint}"
         )
 
     cls = _WIDGET_REGISTRY[widget_type]

@@ -234,15 +234,14 @@ class PushRandom:
 
     def __init__(self, **kwargs: Any) -> None:
         self._rng = random.Random()
-        self._last_cls: type[Transition] | None = None
+        chosen_cls = self._rng.choice(self._PUSH_CLASSES)
+        self._last_cls: type[Transition] = chosen_cls
         self._last_t: float = 1.0
-        self._current: Transition | None = None
+        self._current: Transition = chosen_cls()
 
     @property
     def min_frames(self) -> int:
-        if self._current is not None:
-            return getattr(self._current, "min_frames", 10)
-        return 10
+        return getattr(self._current, "min_frames", 10)
 
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any

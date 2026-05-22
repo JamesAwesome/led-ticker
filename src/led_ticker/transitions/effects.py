@@ -2,10 +2,21 @@
 
 from __future__ import annotations
 
+import functools
 from typing import Any
 
 from led_ticker._types import Canvas, ColorTuple
 from led_ticker.transitions import register_transition
+
+
+@functools.cache
+def _dissolve_sequence(w: int, h: int, seed: int) -> list[tuple[int, int]]:
+    import random
+
+    rng = random.Random(seed)
+    coords = [(x, y) for y in range(h) for x in range(w)]
+    rng.shuffle(coords)
+    return coords
 
 
 @register_transition("cut")
@@ -62,17 +73,9 @@ class Dissolve:
 
     def __init__(self, seed: int = 42, **kwargs: Any) -> None:
         self.seed: int = seed
-        self._sequence: list[tuple[int, int]] | None = None
 
     def _get_sequence(self, w: int, h: int) -> list[tuple[int, int]]:
-        if self._sequence is None or len(self._sequence) != w * h:
-            import random
-
-            rng = random.Random(self.seed)
-            coords = [(x, y) for y in range(h) for x in range(w)]
-            rng.shuffle(coords)
-            self._sequence = coords
-        return self._sequence
+        return _dissolve_sequence(w, h, self.seed)
 
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any

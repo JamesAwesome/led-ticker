@@ -259,3 +259,26 @@ def test_widget_draw_rejects_unknown_kwargs():
     canvas = frame.get_clean_canvas()
     with pytest.raises(TypeError):
         msg.draw(canvas, cursor_pos=0, region="should-fail")
+
+
+class TestFrameAwareWidgetProtocol:
+    def test_frame_aware_widget_protocol_exported(self):
+        from led_ticker.widget import FrameAwareWidget
+
+        assert FrameAwareWidget is not None
+
+    def test_ticker_message_satisfies_frame_aware_widget(self):
+        from led_ticker.widget import FrameAwareWidget
+        from led_ticker.widgets.message import TickerMessage
+
+        w = TickerMessage(message="hi")
+        assert isinstance(w, FrameAwareWidget)
+
+    def test_plain_widget_does_not_satisfy_frame_aware_widget(self):
+        from led_ticker.widget import FrameAwareWidget
+
+        class PlainWidget:
+            def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
+                return canvas, cursor_pos
+
+        assert not isinstance(PlainWidget(), FrameAwareWidget)

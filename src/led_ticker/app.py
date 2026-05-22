@@ -889,10 +889,11 @@ async def _build_widget(
     if widget_type in ("gif", "image") and not widget_cfg.get("bottom_text", ""):
         two_row_only = [k for k in ("top_color", "bottom_color") if k in widget_cfg]
         if two_row_only:
+            verb = "is" if len(two_row_only) == 1 else "are"
             raise ValueError(
                 f"widget type={widget_type!r}: "
                 + ", ".join(repr(k) for k in two_row_only)
-                + " are only valid in two-row mode (when bottom_text is set). "
+                + f" {verb} only valid in two-row mode (when bottom_text is set). "
                 "Use font_color for single-row image widgets."
             )
 

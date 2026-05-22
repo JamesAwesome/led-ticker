@@ -8,7 +8,7 @@ The full display is 16px tall, so the cat is centered at y=3.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from led_ticker._types import Canvas, ColorTuple, PixelData
 from led_ticker.scaled_canvas import ScaledCanvas
@@ -256,6 +256,7 @@ class NyanCat:
     path (small sign / tests) is preserved unchanged.
     """
 
+    scale_switch_at: ClassVar[float] = 0.0
     _registry_name: str = "nyancat"
 
     def __init__(self, **kwargs: Any) -> None:
@@ -299,6 +300,7 @@ class NyanCat:
 class NyanCatReverse:
     """Nyan Cat flies right-to-left, rainbow fills screen before cut."""
 
+    scale_switch_at: ClassVar[float] = 0.0
     _registry_name: str = "nyancat_reverse"
 
     def __init__(self, **kwargs: Any) -> None:
@@ -341,6 +343,8 @@ class NyanCatReverse:
 @register_transition("nyancat_alternating")
 class NyanCatAlternating:
     """Cycles through nyancat -> nyancat_reverse."""
+
+    scale_switch_at: ClassVar[float] = 0.0
 
     def __init__(self, **kwargs: Any) -> None:
         self._transitions: list[Transition] = [

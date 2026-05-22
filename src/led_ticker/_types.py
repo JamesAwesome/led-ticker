@@ -15,6 +15,9 @@ class CanvasLike(Protocol):
 
     Satisfied by: the rgbmatrix real canvas, test stub _StubCanvas,
     and ScaledCanvas (which delegates to a real canvas).
+
+    Use for isinstance checks only. Type annotations should use Canvas (= Any)
+    to remain compatible with call sites that access rgbmatrix-specific attrs.
     """
 
     width: int
@@ -25,8 +28,8 @@ class CanvasLike(Protocol):
     def Fill(self, r: int, g: int, b: int) -> None: ...
 
 
-# Public alias — import `Canvas` everywhere; `CanvasLike` is for isinstance checks.
-Canvas = CanvasLike
+# Public alias — use Canvas in annotations throughout; CanvasLike for isinstance checks.
+Canvas = Any
 
 # C extension objects with no stubs — remain as Any until native stubs exist.
 Font = Any

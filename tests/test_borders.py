@@ -116,6 +116,20 @@ class TestRainbowChaseBorder:
     """Per-pixel rainbow chase. Hue at perimeter index `idx` and frame
     `f`: ((idx * char_offset) + f * speed) % 360."""
 
+    def test_rainbow_chase_border_satisfies_protocol(self):
+        """RainbowChaseBorder must structurally satisfy BorderEffect even
+        though its frame_invariant is a @property rather than a plain class
+        attribute.  BorderEffect is not @runtime_checkable (isinstance is
+        unavailable), so we verify the two required members directly:
+        frame_invariant is accessible on an instance and paint is callable."""
+        b = RainbowChaseBorder()
+        # frame_invariant is a @property — hasattr resolves it correctly.
+        assert hasattr(b, "frame_invariant"), "frame_invariant must be accessible"
+        assert isinstance(
+            b.frame_invariant, bool
+        ), "frame_invariant must return bool (property, not plain attribute)"
+        assert callable(b.paint), "paint must be callable"
+
     def test_frame_invariant_false_for_default_speed(self):
         """Default speed=4 means the chase advances per frame —
         output is frame-variant."""

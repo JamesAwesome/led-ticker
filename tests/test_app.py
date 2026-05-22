@@ -2379,3 +2379,54 @@ class TestListWidgetFields:
         result = _list_widget_fields("two_row")
         assert "top_text" in result
         assert "bottom_text" in result
+
+
+class TestSingleRowColorGuard:
+    """top_color / bottom_color are two-row-only on gif/image widgets.
+    On a single-row widget they're silently ignored; the guard makes it loud.
+    """
+
+    @pytest.mark.asyncio
+    async def test_top_color_on_single_row_gif_raises(self):
+        """top_color on a gif without bottom_text must raise — not silently vanish."""
+        from led_ticker.app import _build_widget
+
+        cfg = {
+            "type": "gif",
+            "path": "/nonexistent/tiny.gif",
+            "fit": "stretch",
+            "top_color": [255, 220, 70],
+        }
+        with pytest.raises(ValueError, match="two-row mode"):
+            await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+
+    @pytest.mark.asyncio
+    async def test_bottom_color_on_single_row_image_raises(self):
+        """bottom_color on single-row image must raise — not silently ignored."""
+        from led_ticker.app import _build_widget
+
+        cfg = {
+            "type": "image",
+            "path": "/nonexistent/tiny.png",
+            "fit": "stretch",
+            "bottom_color": [255, 150, 190],
+        }
+        with pytest.raises(ValueError, match="two-row mode"):
+            await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+
+    @pytest.mark.asyncio
+    async def test_top_color_on_two_row_gif_does_not_raise(self):
+        """top_color is valid when bottom_text is set (two-row mode)."""
+        from led_ticker.app import _build_widget
+
+        cfg = {
+            "type": "gif",
+            "path": "/nonexistent/tiny.gif",
+            "fit": "stretch",
+            "top_text": "@MoonBunny",
+            "bottom_text": "Follow us!",
+            "top_color": [255, 220, 70],
+            "bottom_color": [255, 150, 190],
+        }
+        result = await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+        assert result is None  # validate_only returns None on success

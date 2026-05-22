@@ -33,7 +33,7 @@ class LedFrame:
     # Pi 5 (kingdo9 fork) only: 0 = PIO mode (low CPU), 1 = RP1 RIO mode
     # (higher CPU, higher refresh). Ignored on Pi 4 builds.
     led_rp1_rio: int = 0
-    matrix: RGBMatrixType = attrs.field(init=False, default=None)
+    matrix: RGBMatrixType = attrs.field(init=False)
 
     def __attrs_post_init__(self) -> None:
         options = RGBMatrixOptions()

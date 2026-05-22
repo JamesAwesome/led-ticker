@@ -206,8 +206,9 @@ User-facing surface: <https://docs.ledticker.dev/concepts/color-providers/> · <
 2. Add `@register("my_widget")` decorator
 3. Implement `draw(canvas, cursor_pos=0, *, y_offset: int = 0, font_color: Any = None) -> (canvas, int)`
 4. Use `y_offset` directly in layout (e.g. `baseline_y + y_offset`) — omitting it breaks PushUp/PushDown transitions
-5. For async data: implement `update()` and use `run_monitor_loop()`
-6. Add import to `src/led_ticker/widgets/__init__.py`
+5. For animated `font_color` (rainbow, color_cycle) or `border` effects: inherit `_FrameAware` from `widgets/_frame_aware.py` and decorate with `@attrs.define`. Without `_FrameAware`, the engine's `advance_frame()` calls are no-ops and animated effects render as static colors.
+6. For async data: implement `update()` and use `run_monitor_loop()`
+7. Add import to `src/led_ticker/widgets/__init__.py`
 
 ### Adding a New Transition
 

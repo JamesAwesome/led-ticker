@@ -203,3 +203,88 @@ class TestSailorMoonAlternating:
 
         # Different directions should produce different pixel patterns
         assert canvas_a != canvas_b
+
+
+# --- scales_incoming_early ---
+
+
+class TestScalesIncomingEarly:
+    """Tripwire: all sailor moon variants must suppress the mid-transition
+    scale switch so the wand sprite stays physically consistent when crossing
+    a section boundary with different scale values (e.g. scale=2 → scale=4).
+    """
+
+    def test_sailor_moon_suppresses_early_switch(self):
+        assert SailorMoon.scales_incoming_early is False
+
+    def test_sailor_moon_reverse_suppresses_early_switch(self):
+        assert SailorMoonReverse.scales_incoming_early is False
+
+    def test_sailor_moon_alternating_suppresses_early_switch(self):
+        assert SailorMoonAlternating.scales_incoming_early is False
+
+    async def test_run_transition_honours_scales_incoming_early(
+        self, make_widget, monkeypatch
+    ):
+        """run_transition must not rewrap the canvas mid-transition when the
+        transition sets scales_incoming_early=False.
+
+        Scenario: outgoing section has scale=2, incoming section has scale=4.
+        The sailor moon wipe should keep the canvas at scale=2 for the entire
+        transition so the wand sprite does not double in physical size at t=0.5.
+        """
+        import asyncio
+        import unittest.mock as mock
+
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions import run_transition
+
+        monkeypatch.setattr(asyncio, "sleep", mock.AsyncMock())
+
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 8
+        opts.parallel = 1
+        opts.pixel_mapper_config = "U-mapper"
+        real_canvas = RGBMatrix(options=opts).CreateFrameCanvas()
+
+        outgoing_canvas = ScaledCanvas(real_canvas, scale=2, content_height=32)
+
+        frame = mock.Mock()
+        frame.matrix.CreateFrameCanvas.return_value = real_canvas
+        # SwapOnVSync receives the underlying real canvas and must return a
+        # physical canvas (not a wrapper); _swap then rewires wrapper.real.
+        frame.matrix.SwapOnVSync.return_value = real_canvas
+
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        sm = SailorMoon()
+
+        canvas_scales_seen: list[int] = []
+        original_frame_at = sm.frame_at
+
+        def tracking_frame_at(t, canvas, out, inc, **kwargs):
+            canvas_scales_seen.append(getattr(canvas, "scale", 1))
+            return original_frame_at(t, canvas, out, inc, **kwargs)
+
+        sm.frame_at = tracking_frame_at
+
+        await run_transition(
+            outgoing_canvas,
+            frame,
+            outgoing,
+            incoming,
+            transition=sm,
+            duration=0.4,
+            incoming_scale=4,
+            incoming_content_height=16,
+        )
+
+        # Every frame_at call should have seen a canvas at scale=2 (outgoing),
+        # never scale=4, because scales_incoming_early=False.
+        assert all(
+            s == 2 for s in canvas_scales_seen
+        ), f"Canvas scale changed mid-transition: {canvas_scales_seen}"

@@ -495,7 +495,9 @@ async def _scroll_one_by_one(
         pos = 0
         last_drawn_pos = pos
 
+    loop = asyncio.get_running_loop()
     while True:
+        t0 = loop.time()
         # Advance the per-tick frame on the widget currently on-screen
         # so animated providers (rainbow, color_cycle) animate during
         # the scroll. Without this, RSS stories with `font_color =
@@ -515,7 +517,7 @@ async def _scroll_one_by_one(
                 break
 
         canvas = _swap(canvas, frame)
-        await asyncio.sleep(scroll_speed)
+        await asyncio.sleep(max(0.0, scroll_speed - (loop.time() - t0)))
 
     canvas.Clear()  # final blank — keep as Clear (no specific widget bg here)
     canvas = _swap(canvas, frame)
@@ -564,7 +566,9 @@ async def _scroll_side_by_side(
         logging.info("Returned to _scroll_side_by_side ...")
         pos = 0
 
+    loop = asyncio.get_running_loop()
     while True:
+        t0 = loop.time()
         # Advance the per-tick frame on every UNIQUE widget being
         # drawn this tick so animated providers (rainbow, color_cycle)
         # animate during side-by-side scroll. Dedup by id() because
@@ -641,7 +645,6 @@ async def _scroll_side_by_side(
             canvas = _swap(canvas, frame)
             n_hold_ticks = max(1, int(hold_at_end * 1000) // ENGINE_TICK_MS)
             tick_seconds = ENGINE_TICK_MS / 1000
-            loop = asyncio.get_running_loop()
             for _ in range(n_hold_ticks):
                 t0 = loop.time()
                 _advance_frame_if_supported(buffered_objects[0])
@@ -657,7 +660,7 @@ async def _scroll_side_by_side(
             pos = mon_0_end_pos - 1
 
         canvas = _swap(canvas, frame)
-        await asyncio.sleep(scroll_speed)
+        await asyncio.sleep(max(0.0, scroll_speed - (loop.time() - t0)))
 
         if not len(buffered_objects):
             return pos

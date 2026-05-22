@@ -189,7 +189,17 @@ async def run_transition(
         frame_count = max(frame_count, transition.min_frames)
 
     current_scale = getattr(canvas, "scale", 1)
-    needs_switch = incoming_scale is not None and incoming_scale != current_scale
+    # Wipe-style transitions set scales_incoming_early=False to prevent the
+    # mid-transition scale switch: they draw the outgoing at its native scale
+    # for the entire duration, so the wand/sweep sprite stays physically
+    # consistent and the outgoing content doesn't snap to a new scale at t=0.5.
+    # Dissolve blends need the switch so the incoming fades in at its own scale.
+    scales_incoming_early = getattr(transition, "scales_incoming_early", True)
+    needs_switch = (
+        incoming_scale is not None
+        and incoming_scale != current_scale
+        and scales_incoming_early
+    )
     incoming_canvas: Canvas | None = None
 
     # Freeze any _FrameAware widget on outgoing/incoming for the duration of

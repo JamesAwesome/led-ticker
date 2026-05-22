@@ -1,4 +1,4 @@
-"""Tripwire: RANDOM_COLOR lives in app.py with the 8-color palette."""
+"""Tripwire: RANDOM_COLOR lives in app/factories.py; re-exported via app/__init__.py."""
 
 from led_ticker import app, colors
 

@@ -18,6 +18,7 @@ from led_ticker.ticker import (
     _draw_hires_circle,
     _enqueue_ticker_objects,
     _has_index,
+    _has_play,
     _maybe_wrap,
     _scroll_one_by_one,
     _scroll_side_by_side,
@@ -392,3 +393,29 @@ def test_default_buffer_msg_is_circle_buffer_msg():
 
     assert isinstance(DEFAULT_BUFFER_MSG, _CircleBufferMsg)
     assert DEFAULT_BUFFER_MSG.message == " • "
+
+
+class TestHasPlayDispatch:
+    def test_returns_true_for_async_play(self):
+        class AsyncWidget:
+            async def play(self, canvas): ...
+
+        assert _has_play(AsyncWidget()) is True
+
+    def test_returns_false_for_no_play(self):
+        class DrawOnlyWidget:
+            def draw(self, canvas, cursor_pos=0): ...
+
+        assert _has_play(DrawOnlyWidget()) is False
+
+    def test_raises_for_sync_play(self):
+        class SyncPlayWidget:
+            def play(self, canvas): ...
+
+        with pytest.raises(RuntimeError, match="play.*not.*coroutine"):
+            _has_play(SyncPlayWidget())
+
+    def test_mock_returns_false_not_raises(self):
+        """MagicMock auto-creates .play on access — must not raise."""
+        w = MagicMock()
+        assert _has_play(w) is False

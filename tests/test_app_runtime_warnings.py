@@ -25,9 +25,12 @@ async def test_run_logs_load_time_coerce_warnings(caplog, tmp_path):
     section loop begins."""
     import sys
 
-    run_module = sys.modules["led_ticker.app.run"]
+    # Import the module first to ensure it's in sys.modules
+    import led_ticker.app.run  # noqa: F401
     from led_ticker.app import run as app_run
     from led_ticker.config import load_config
+
+    run_module = sys.modules["led_ticker.app.run"]
 
     cfg = tmp_path / "config.toml"
     cfg.write_text("""

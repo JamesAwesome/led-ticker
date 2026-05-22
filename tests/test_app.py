@@ -1650,7 +1650,8 @@ class TestAppRunDrainLoopTripwire:
         Ticker is constructed; return the kwargs Ticker received."""
         import sys
 
-        run_module = sys.modules["led_ticker.app.run"]
+        # Import the module first to ensure it's in sys.modules
+        import led_ticker.app.run  # noqa: F401
         from led_ticker.app import run as app_run
         from led_ticker.config import (
             AppConfig,
@@ -1658,6 +1659,8 @@ class TestAppRunDrainLoopTripwire:
             SectionConfig,
             TransitionConfig,
         )
+
+        run_module = sys.modules["led_ticker.app.run"]
 
         cfg = AppConfig(
             display=DisplayConfig(rows=16, cols=32, chain=5),
@@ -1756,7 +1759,8 @@ class TestAppRunBgColorHandoff:
         before the `run_transition` call site uses it."""
         import sys
 
-        run_module = sys.modules["led_ticker.app.run"]
+        # Import the module first to ensure it's in sys.modules
+        import led_ticker.app.run  # noqa: F401
         from led_ticker.app import run as app_run
         from led_ticker.config import (
             AppConfig,
@@ -1764,6 +1768,8 @@ class TestAppRunBgColorHandoff:
             SectionConfig,
             TransitionConfig,
         )
+
+        run_module = sys.modules["led_ticker.app.run"]
 
         section_one_bg = (255, 0, 0)
         section_two_bg = (0, 255, 0)

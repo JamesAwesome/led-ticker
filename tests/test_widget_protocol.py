@@ -8,6 +8,7 @@ from led_ticker.drawing import Region
 from led_ticker.widget import (
     _MAX_BACKOFF,
     _MIN_BACKOFF,
+    Playable,
     Updatable,
     Widget,
     run_monitor_loop,
@@ -71,6 +72,13 @@ def test_async_widget_protocol_conformance():
 def test_non_widget_does_not_match():
     assert not isinstance("not a widget", Widget)
     assert not isinstance(42, Widget)
+
+
+def test_gifplayer_satisfies_playable_protocol():
+    from led_ticker.widgets.gif import GifPlayer
+
+    widget = GifPlayer(path="nonexistent.gif")
+    assert isinstance(widget, Playable)
 
 
 def test_widget_draw_returns_tuple():

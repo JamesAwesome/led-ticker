@@ -772,13 +772,24 @@ async def _scroll_between(
 
 
 def _has_play(widget: Any) -> bool:
-    """True iff `widget`'s class declares an async `play` method.
+    """True iff ``widget``'s class declares an async ``play`` method.
 
     Looks at the class (not the instance) so Mocks — which auto-create
-    a callable `.play` attribute on access — don't false-positive.
+    a callable ``.play`` attribute on access — don't false-positive.
+
+    Raises ``RuntimeError`` if the class has a ``play`` attribute that is
+    NOT a coroutinefunction: that is almost certainly a missing ``async``
+    keyword and would silently route the widget to the ``draw()`` path.
     """
     method = getattr(type(widget), "play", None)
-    return inspect.iscoroutinefunction(method)
+    if method is None:
+        return False
+    if not inspect.iscoroutinefunction(method):
+        raise RuntimeError(
+            f"{type(widget).__name__}.play exists but is not a coroutine function. "
+            "Did you forget 'async def play'?"
+        )
+    return True
 
 
 def _set_logical_scale(widget: Any, scale: int) -> None:

@@ -49,6 +49,22 @@ class Updatable(Protocol):
         ...
 
 
+@runtime_checkable
+class Playable(Protocol):
+    """Any widget that runs its own async display loop via ``play()``."""
+
+    async def play(
+        self,
+        real_canvas: Canvas,
+        frame: Any,
+        loop_count: int = 1,
+        *,
+        hold_time: float | None = None,
+    ) -> Canvas:
+        """Drive the display until cancelled."""
+        ...
+
+
 async def run_monitor_loop(
     widget: Updatable,
     interval: float,

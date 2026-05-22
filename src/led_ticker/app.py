@@ -882,6 +882,20 @@ async def _build_widget(
     # _ConstantColor so all downstream widget code is uniform.
     _coerce_widget_colors(widget_cfg)
 
+    # Reject top_color / bottom_color on single-row image widgets.
+    # These fields are two-row-only (activated when bottom_text != ""); on a
+    # single-row widget they're silently ignored, misleading users who expect
+    # them to affect the visible text color.
+    if widget_type in ("gif", "image") and not widget_cfg.get("bottom_text", ""):
+        two_row_only = [k for k in ("top_color", "bottom_color") if k in widget_cfg]
+        if two_row_only:
+            raise ValueError(
+                f"widget type={widget_type!r}: "
+                + ", ".join(repr(k) for k in two_row_only)
+                + " are only valid in two-row mode (when bottom_text is set). "
+                "Use font_color for single-row image widgets."
+            )
+
     # Dispatch-level keys were all popped above; remaining keys are splatted
     # directly into cls(**widget_cfg). Any key not in attrs __init__ raises
     # a raw TypeError from attrs — catch it here with a usable message.

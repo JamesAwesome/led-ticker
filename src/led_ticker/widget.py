@@ -66,6 +66,19 @@ class Playable(Protocol):
         ...
 
 
+@runtime_checkable
+class FrameAwareWidget(Protocol):
+    """Widget that tracks per-effect frame counters for animated ColorProviders,
+    BorderEffects, and Animations. Implement by inheriting ``_FrameAware`` from
+    ``widgets/_frame_aware.py`` — do not implement these methods manually."""
+
+    def advance_frame(self) -> None: ...
+    def pause_frame(self) -> None: ...
+    def resume_frame(self) -> None: ...
+    def reset_frame(self) -> None: ...
+    def frame_for(self, effect_name: str) -> int: ...
+
+
 async def run_monitor_loop(
     widget: Updatable,
     interval: float,

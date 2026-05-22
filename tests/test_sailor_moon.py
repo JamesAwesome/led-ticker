@@ -205,33 +205,35 @@ class TestSailorMoonAlternating:
         assert canvas_a != canvas_b
 
 
-# --- scales_incoming_early ---
+# --- scale_switch_at ---
 
 
-class TestScalesIncomingEarly:
-    """Tripwire: all sailor moon variants must suppress the mid-transition
-    scale switch so the wand sprite stays physically consistent when crossing
-    a section boundary with different scale values (e.g. scale=2 → scale=4).
+class TestScaleSwitchAt:
+    """Tripwire: sailor moon variants must set scale_switch_at=0.0 so the
+    canvas is re-wrapped to the incoming scale BEFORE the first frame.
+    This keeps the wand sprite physically consistent throughout a cross-scale
+    transition (e.g. scale=2 → scale=4) with no snap at t=0.5.
     """
 
-    def test_sailor_moon_suppresses_early_switch(self):
-        assert SailorMoon.scales_incoming_early is False
+    def test_sailor_moon_switches_at_zero(self):
+        assert SailorMoon.scale_switch_at == 0.0
 
-    def test_sailor_moon_reverse_suppresses_early_switch(self):
-        assert SailorMoonReverse.scales_incoming_early is False
+    def test_sailor_moon_reverse_switches_at_zero(self):
+        assert SailorMoonReverse.scale_switch_at == 0.0
 
-    def test_sailor_moon_alternating_suppresses_early_switch(self):
-        assert SailorMoonAlternating.scales_incoming_early is False
+    def test_sailor_moon_alternating_switches_at_zero(self):
+        assert SailorMoonAlternating.scale_switch_at == 0.0
 
-    async def test_run_transition_honours_scales_incoming_early(
+    async def test_run_transition_uses_incoming_scale_from_first_frame(
         self, make_widget, monkeypatch
     ):
-        """run_transition must not rewrap the canvas mid-transition when the
-        transition sets scales_incoming_early=False.
+        """run_transition must use incoming_scale from frame 0 when the
+        transition sets scale_switch_at=0.0.
 
         Scenario: outgoing section has scale=2, incoming section has scale=4.
-        The sailor moon wipe should keep the canvas at scale=2 for the entire
-        transition so the wand sprite does not double in physical size at t=0.5.
+        With scale_switch_at=0.0 the canvas is re-wrapped at scale=4 before
+        the loop starts, so every frame_at call sees a scale=4 canvas.
+        The wand sprite is then physically consistent throughout.
         """
         import asyncio
         import unittest.mock as mock
@@ -283,8 +285,8 @@ class TestScalesIncomingEarly:
             incoming_content_height=16,
         )
 
-        # Every frame_at call should have seen a canvas at scale=2 (outgoing),
-        # never scale=4, because scales_incoming_early=False.
+        # Every frame_at call should have seen a canvas at scale=4 (incoming),
+        # never scale=2, because scale_switch_at=0.0.
         assert all(
-            s == 2 for s in canvas_scales_seen
-        ), f"Canvas scale changed mid-transition: {canvas_scales_seen}"
+            s == 4 for s in canvas_scales_seen
+        ), f"Expected all frames at scale=4, got: {canvas_scales_seen}"

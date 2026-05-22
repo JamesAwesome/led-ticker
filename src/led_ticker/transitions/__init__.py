@@ -189,18 +189,24 @@ async def run_transition(
         frame_count = max(frame_count, transition.min_frames)
 
     current_scale = getattr(canvas, "scale", 1)
-    # Wipe-style transitions set scales_incoming_early=False to prevent the
-    # mid-transition scale switch: they draw the outgoing at its native scale
-    # for the entire duration, so the wand/sweep sprite stays physically
-    # consistent and the outgoing content doesn't snap to a new scale at t=0.5.
-    # Dissolve blends need the switch so the incoming fades in at its own scale.
-    scales_incoming_early = getattr(transition, "scales_incoming_early", True)
-    needs_switch = (
-        incoming_scale is not None
-        and incoming_scale != current_scale
-        and scales_incoming_early
-    )
+    needs_switch = incoming_scale is not None and incoming_scale != current_scale
     incoming_canvas: Canvas | None = None
+
+    # `scale_switch_at` controls when the canvas is re-wrapped at incoming_scale.
+    # Default 0.5 (dissolve behavior): outgoing fades out at its scale, incoming
+    # fades in at its own scale.  Wipe-style sprite transitions (e.g. sailor moon)
+    # set this to 0.0 so the canvas is at incoming_scale from the very first frame
+    # — the wand sprite stays physically consistent and there is no snap midway.
+    scale_switch_at: float = getattr(transition, "scale_switch_at", 0.5)
+
+    if needs_switch and scale_switch_at <= 0.0:
+        # Switch immediately: create incoming canvas before the loop starts.
+        incoming_canvas = _maybe_wrap(
+            frame.matrix.CreateFrameCanvas(),
+            incoming_scale,
+            incoming_content_height,
+        )
+        needs_switch = False  # already switched — skip in-loop check
 
     # Freeze any _FrameAware widget on outgoing/incoming for the duration of
     # the transition. Otherwise rendering the widget for compositing
@@ -225,12 +231,12 @@ async def run_transition(
         for i in range(frame_count + 1):
             t = ease_fn(i / max(1, frame_count))
 
-            # At t >= 0.5, switch to a wrapper at incoming_scale so the
-            # incoming widget dissolves in at its native size.
+            # At t >= scale_switch_at, switch to a wrapper at incoming_scale
+            # so the incoming widget dissolves in at its native size.
             if (
                 needs_switch
                 and incoming_scale is not None
-                and t >= 0.5
+                and t >= scale_switch_at
                 and incoming_canvas is None
             ):
                 incoming_canvas = _maybe_wrap(

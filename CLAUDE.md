@@ -20,7 +20,7 @@ make dev           # uv sync (install all deps)
 make test          # pytest with coverage (no Docker, no hardware)
 make lint          # ruff
 make format        # ruff format
-make validate      # led-ticker validate CONFIG=path.toml (config preflight)
+make validate      # led-ticker validate CONFIG=path.toml (config preflight); supports --list-fields type=<name> to print a widget's recognized TOML fields
 make clean         # remove build artifacts
 make build-docker  # production image (single image, both Pis)
 ```
@@ -113,13 +113,13 @@ Each bullet is a rule that must hold when modifying the named area. Full prose f
 
 **Typewriter on image widgets** (`animation = "typewriter"` on `gif` / `image`) — Single-row only. Raises if `bottom_text != ""`, `text_align ∈ ("scroll", "scroll_over")`, or `text == ""`. Reads its per-effect counter via `frame_for("animation")` so it composes cleanly with continuous-phase `font_color` / `border`. Forces the slow path (`_play_with_text` gate predicate adds `AND animation is None`). Tripwires: `TestImageTypewriter` (5 tests).
 
-**`play()`-style widgets in `run_swap`** — A widget can opt out of the standard hold-and-scroll path by exposing an async `play(real_canvas, frame, loop_count) -> Canvas` method. `_run_swap`'s `_show_one` helper dispatches to `_play_widget` (which unwraps the ScaledCanvas, calls `play()`, then re-anchors `.real` to the new back-buffer) when `_has_play(widget)` returns true. `_has_play` checks `inspect.iscoroutinefunction(type(widget).play)` — looking at the CLASS, not the instance — so Mock objects don't false-positive. Currently used by `GifPlayer` and `StillImage`.
+**`play()`-style widgets in `run_swap`** — A widget can opt out of the standard hold-and-scroll path by exposing an async `play(real_canvas, frame, loop_count) -> Canvas` method. `_run_swap`'s `_show_one` helper dispatches to `_play_widget` (which unwraps the ScaledCanvas, calls `play()`, then re-anchors `.real` to the new back-buffer) when `_has_play(widget)` returns true. `_has_play` checks `inspect.iscoroutinefunction(type(widget).play)` — looking at the CLASS, not the instance — so Mock objects don't false-positive. Currently used by `GifPlayer` and `StillImage`. If the class has a `play` attribute that is NOT a coroutinefunction (e.g., forgot `async`), `_has_play` raises `RuntimeError` rather than silently routing the widget to the `draw()` path.
 
 **BDF glyphs carry pre-computed `lit_pixels`** — `BDFGlyph.lit_pixels` is a flat `list[tuple[int, int]]` of `(col, row)` for set bits, computed at parse time. Bigsign rasterizer iterates this directly (most cells are unlit). `bitmap` is preserved as the source of truth; `test_bdf_parser.py` asserts the two stay in sync.
 
 ### Key Patterns
 
-**Widget Protocol** — All widgets implement `draw(canvas, cursor_pos=0, **kwargs) -> (canvas, int)`. Support `y_offset = kwargs.get("y_offset", 0)` for vertical transitions. Async data widgets implement `update()` and use `run_monitor_loop()` with exponential backoff.
+**Widget Protocol** — All widgets implement `draw(canvas, cursor_pos=0, *, y_offset: int = 0, font_color: Any = None) -> (canvas, int)`. The `y_offset` param shifts the widget vertically; omitting it breaks PushUp/PushDown transitions. Async data widgets implement `update()` and use `run_monitor_loop()` with exponential backoff.
 
 **Widget Registry** — `@register("name")` decorator. Config loader uses `get_widget_class(name)`.
 
@@ -184,9 +184,11 @@ These constraints were learned through extensive real-hardware testing. They are
 
 User-facing surface: <https://docs.ledticker.dev/concepts/color-providers/> · <https://docs.ledticker.dev/concepts/animations/> · <https://docs.ledticker.dev/concepts/borders/> · <https://docs.ledticker.dev/concepts/frame-counters/>.
 
-**Color provider contract** — `font_color` (and `top_color` / `bottom_color` on TwoRow / image widgets) accepts: constant `[r, g, b]`, legacy `"random"` sentinel, string shorthand (`"rainbow"` / `"color_cycle"`), or inline table (`{style = "gradient", from = [...], to = [...]}`). At config-load all normalize to a `ColorProvider` with `color_for(frame, char_index, total_chars) -> Color`. Constants wrap in `_ConstantColor` so widget-side dispatch is uniform. Per-char providers (`rainbow`, `gradient`) cause widgets that opt in to iterate characters and render each with its own color: currently `TickerMessage`, `TwoRowMessage` (per-row), and `_BaseImageWidget` text-overlay surface. Whole-string providers (`color_cycle`, `random`, constant) get a single `color_for` call per draw. New providers default `frame_invariant = False` (conservative). Data widgets (`coinbase`, `coingecko`, `etherscan`, `mlb`, `mlb_standings`) accept `font_color` as a whole-string provider — they call `color_for(frame, 0, 1)` once per draw tick and apply the result uniformly to the label / text segments (not per-char). Per-char providers like `rainbow` still work but only their first hue position (`char_index=0`) is used, cycling with `frame` across ticks.
+**Color provider contract** — `font_color` (and `top_color` / `bottom_color` on TwoRow / image widgets) accepts: constant `[r, g, b]`, legacy `"random"` sentinel, string shorthand (`"rainbow"` / `"color_cycle"`), or inline table (`{style = "gradient", from = [...], to = [...]}`). At config-load all normalize to a `ColorProvider` with `color_for(frame, char_index, total_chars) -> Color`. Constants wrap in `_ConstantColor` so widget-side dispatch is uniform. Per-char providers (`rainbow`, `gradient`) cause widgets that opt in to iterate characters and render each with its own color: currently `TickerMessage`, `TwoRowMessage` (per-row), and `_BaseImageWidget` text-overlay surface. Whole-string providers (`color_cycle`, `random`, constant) get a single `color_for` call per draw. New providers default `frame_invariant = False` (conservative). `ColorProvider` subclasses that omit the `frame_invariant` class attribute raise `TypeError` at definition time via `__init_subclass__` — the same enforcement applies to `BorderEffect` subclasses. Data widgets (`coinbase`, `coingecko`, `etherscan`, `mlb`, `mlb_standings`) accept `font_color` as a whole-string provider — they call `color_for(frame, 0, 1)` once per draw tick and apply the result uniformly to the label / text segments (not per-char). Per-char providers like `rainbow` still work but only their first hue position (`char_index=0`) is used, cycling with `frame` across ticks.
 
 **Per-char providers + emoji** — Rainbow / gradient sweep continuously across `:slug:` emoji boundaries: sprites render as sprites, the letters between/around them get per-char colors with `char_index` advancing across the emoji segments without resetting. Implemented via `pixel_emoji.draw_with_emoji(color: Color | ColorProvider, frame=N)` + `text_render.draw_text_per_char`.
+
+**Animation contract** — Custom animations implement the `Animation` Protocol (`src/led_ticker/animations.py`): `def frame_for(self, frame: int, text: str, canvas_width: int, content_width: int) -> AnimationFrame`. `AnimationFrame` carries `visible_text: str` (the slice to render this tick). Currently only `Typewriter` is shipped; the Protocol documents the contract for future animations.
 
 **`animation = "typewriter"`** — Field on `TickerMessage`, `gif`, `image` (single-row only on the image side). `_build_widget` raises if `animation` appears on other widget types. Color and animation compose. `frames_per_char` (default 3) controls speed via the inline-table form: `animation = {style = "typewriter", frames_per_char = 6}`. The previous `WidgetPresenter` wrapper + `presentation = "..."` knob was removed; `Bounce` (animation) and `Pulse` (color provider) were removed in the rework. Migration error in `_build_widget` points users at the remaining knobs.
 
@@ -202,8 +204,8 @@ User-facing surface: <https://docs.ledticker.dev/concepts/color-providers/> · <
 
 1. Create `src/led_ticker/widgets/my_widget.py`
 2. Add `@register("my_widget")` decorator
-3. Implement `draw(canvas, cursor_pos=0, **kwargs) -> (canvas, int)`
-4. Support `y_offset = kwargs.get("y_offset", 0)` — use `12 + y_offset` in DrawText
+3. Implement `draw(canvas, cursor_pos=0, *, y_offset: int = 0, font_color: Any = None) -> (canvas, int)`
+4. Use `y_offset` directly in layout (e.g. `baseline_y + y_offset`) — omitting it breaks PushUp/PushDown transitions
 5. For async data: implement `update()` and use `run_monitor_loop()`
 6. Add import to `src/led_ticker/widgets/__init__.py`
 
@@ -215,7 +217,7 @@ User-facing surface: <https://docs.ledticker.dev/concepts/color-providers/> · <
 4. At t=0: show only outgoing. At t=1.0: show only incoming.
 5. Use SetPixel for visual effects (sweep lines, blackout regions) — NOT ShadowCanvas
 6. Never call `widget.draw()` on anything other than the real `canvas` parameter
-7. Add import to `src/led_ticker/transitions/__init__.py` (submodule import + re-export)
+7. No manual registration needed — `transitions/__init__.py` uses `pkgutil.iter_modules` to auto-discover every non-private `.py` file in `transitions/`. Creating the file and applying `@register_transition` is sufficient.
 
 ### Testing
 
@@ -244,7 +246,7 @@ User-facing reference: <https://docs.ledticker.dev/reference/config-options/>.
 - Examples: `config/config.example.toml` (smallsign), `config/config.bigsign.example.toml` (bigsign with `pixel_mapper`, scaling, RP1 tuning), `config/config.moonbunny.example.toml` (real-world bigsign template)
 - API keys: `.env` (see `.env.example`)
 
-**Section transition precedence** — When a section explicitly writes `transition = "..."` in its TOML, that transition is used for BOTH the inter-section ENTRY (when this section appears) AND inter-widget transitions (between widgets within the section). Sections that omit `transition` fall back to `[transitions] between_sections` for entry. The `transition_specified: bool` flag on `SectionConfig` records whether the user wrote the field — without it the parser cannot distinguish "user wrote `transition = X`" from "section inherited X from default". `_build_trans_obj` is the shared factory used for both entry and inter-widget transitions.
+**Section transition precedence** — When a section explicitly writes `transition = "..."` in its TOML, that transition is used for BOTH the inter-section ENTRY (when this section appears) AND inter-widget transitions (between widgets within the section). Sections that omit `transition` fall back to `[transitions] between_sections` for entry. The `transition_specified: bool` flag on `SectionConfig` records whether the user wrote the field — without it the parser cannot distinguish "user wrote `transition = X`" from "section inherited X from default". `_build_trans_obj` is the shared factory used for both entry and inter-widget transitions. For independent control, sections also accept `entry_transition` (overrides how THIS section appears, ignoring `between_sections` and `transition`) and `widget_transition` (overrides inter-widget transitions within this section). Precedence: `entry_transition` > `transition` > `between_sections` for entry; `widget_transition` > `transition` > cut for within-section.
 
 ### Docker / Deployment
 

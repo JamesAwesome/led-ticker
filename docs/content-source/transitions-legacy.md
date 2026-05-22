@@ -243,4 +243,4 @@ class MyTransition:
         return canvas
 ```
 
-Then import and re-export it in `src/led_ticker/transitions/__init__.py`.
+No import registration needed — `transitions/__init__.py` uses `pkgutil.iter_modules` to auto-discover every non-private `.py` file in the `transitions/` package. Creating the file and applying `@register_transition` is sufficient.

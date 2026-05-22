@@ -20,7 +20,7 @@ make dev           # uv sync (install all deps)
 make test          # pytest with coverage (no Docker, no hardware)
 make lint          # ruff
 make format        # ruff format
-make validate      # led-ticker validate CONFIG=path.toml (config preflight); supports --list-fields type=<name> to print a widget's recognized TOML fields
+make validate      # led-ticker validate CONFIG=path.toml (config preflight); supports --list-fields <type> (e.g. --list-fields message) to print a widget's recognized TOML fields
 make clean         # remove build artifacts
 make build-docker  # production image (single image, both Pis)
 ```
@@ -188,7 +188,7 @@ User-facing surface: <https://docs.ledticker.dev/concepts/color-providers/> · <
 
 **Per-char providers + emoji** — Rainbow / gradient sweep continuously across `:slug:` emoji boundaries: sprites render as sprites, the letters between/around them get per-char colors with `char_index` advancing across the emoji segments without resetting. Implemented via `pixel_emoji.draw_with_emoji(color: Color | ColorProvider, frame=N)` + `text_render.draw_text_per_char`.
 
-**Animation contract** — Custom animations implement the `Animation` Protocol (`src/led_ticker/animations.py`): `def frame_for(self, frame: int, text: str, canvas_width: int, content_width: int) -> AnimationFrame`. `AnimationFrame` carries `visible_text: str` (the slice to render this tick). Currently only `Typewriter` is shipped; the Protocol documents the contract for future animations.
+**Animation contract** — Custom animations implement the `Animation` Protocol (`src/led_ticker/animations.py`): `def frame_for(self, frame: int, full_text: str, canvas_width: int, text_width: int) -> AnimationFrame`. `AnimationFrame` carries `visible_text: str` (the slice to render this tick). Currently only `Typewriter` is shipped; the Protocol documents the contract for future animations.
 
 **`animation = "typewriter"`** — Field on `TickerMessage`, `gif`, `image` (single-row only on the image side). `_build_widget` raises if `animation` appears on other widget types. Color and animation compose. `frames_per_char` (default 3) controls speed via the inline-table form: `animation = {style = "typewriter", frames_per_char = 6}`. The previous `WidgetPresenter` wrapper + `presentation = "..."` knob was removed; `Bounce` (animation) and `Pulse` (color provider) were removed in the rework. Migration error in `_build_widget` points users at the remaining knobs.
 

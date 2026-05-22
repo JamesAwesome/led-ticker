@@ -431,3 +431,23 @@ class TestLowresShowPokeballToggle:
             if canvas.get_pixel(x, y) in ball_colors
         )
         assert ball_pixels > 0, "expected ball pixels with show_pokeball=True"
+
+
+# --- scale_switch_at ---
+
+
+class TestScaleSwitchAt:
+    """Tripwire: pokeball variants must set scale_switch_at=0.0 so the canvas
+    is re-wrapped to the incoming scale BEFORE the first frame.  Sprite
+    sprites (Pikachu, pokeball) are physically consistent throughout any
+    cross-scale transition with no snap at t=0.5.
+    """
+
+    def test_pokeball_switches_at_zero(self):
+        assert Pokeball.scale_switch_at == 0.0
+
+    def test_pokeball_reverse_switches_at_zero(self):
+        assert PokeballReverse.scale_switch_at == 0.0
+
+    def test_pokeball_alternating_switches_at_zero(self):
+        assert PokeballAlternating.scale_switch_at == 0.0

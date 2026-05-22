@@ -2,7 +2,12 @@
 
 from rgbmatrix import _StubCanvas
 
-from led_ticker.transitions import NyanCat, NyanCatReverse, get_transition_class
+from led_ticker.transitions import (
+    NyanCat,
+    NyanCatAlternating,
+    NyanCatReverse,
+    get_transition_class,
+)
 from led_ticker.transitions.nyancat import (
     NYAN_CAT,
     RAINBOW,
@@ -320,3 +325,23 @@ class TestNyanCatAlternatingDelegatesToHires:
         ) as fwd_hires:
             alt.frame_at(0.5, wrapped, outgoing, incoming, duration_ms=500)
             fwd_hires.assert_called_once()
+
+
+# --- scale_switch_at ---
+
+
+class TestScaleSwitchAt:
+    """Tripwire: nyancat variants must set scale_switch_at=0.0 so the canvas
+    is re-wrapped to the incoming scale BEFORE the first frame.  The cat and
+    rainbow trail are physically consistent throughout any cross-scale
+    transition with no snap at t=0.5.
+    """
+
+    def test_nyancat_switches_at_zero(self):
+        assert NyanCat.scale_switch_at == 0.0
+
+    def test_nyancat_reverse_switches_at_zero(self):
+        assert NyanCatReverse.scale_switch_at == 0.0
+
+    def test_nyancat_alternating_switches_at_zero(self):
+        assert NyanCatAlternating.scale_switch_at == 0.0

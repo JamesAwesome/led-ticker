@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from led_ticker._types import Canvas, PixelData
 from led_ticker.scaled_canvas import ScaledCanvas
@@ -325,6 +325,7 @@ class Baseball:
     """
 
     min_frames: int = 40
+    scale_switch_at: ClassVar[float] = 0.0
 
     def __init__(self, **kwargs: Any) -> None:
         pass
@@ -368,6 +369,7 @@ class BaseballReverse:
     """Baseball rolls right-to-left, erasing outgoing content."""
 
     min_frames: int = 40
+    scale_switch_at: ClassVar[float] = 0.0
 
     def __init__(self, **kwargs: Any) -> None:
         pass
@@ -409,6 +411,8 @@ class BaseballReverse:
 @register_transition("baseball_alternating")
 class BaseballAlternating:
     """Cycles through baseball -> baseball_reverse."""
+
+    scale_switch_at: ClassVar[float] = 0.0
 
     def __init__(self, **kwargs: Any) -> None:
         self._transitions: list[Transition] = [

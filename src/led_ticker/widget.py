@@ -23,15 +23,16 @@ class Widget(Protocol):
         self,
         canvas: Canvas,
         cursor_pos: int = 0,
-        **kwargs: Any,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
     ) -> DrawResult:
         """Render to canvas starting at cursor_pos.
 
-        Recognized kwargs:
-        - ``y_offset`` (int): vertical offset from natural baseline
-        - ``font_color`` (Color): override the widget's own font color
+        ``y_offset``: vertical offset from the widget's natural baseline.
+        ``font_color``: override the widget's own font color (Color or ColorProvider).
 
-        ``scale`` is **not** a kwarg. If ``canvas`` is a ``ScaledCanvas``,
+        ``scale`` is **not** a param. If ``canvas`` is a ``ScaledCanvas``,
         scaling is transparent. Widgets that need to read scale can use
         ``getattr(canvas, "scale", 1)``.
 

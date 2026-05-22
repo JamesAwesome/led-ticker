@@ -270,10 +270,15 @@ class MLBGameMessage:
     def reset_frame(self) -> None:
         self._frame_count = 0
 
-    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
         from led_ticker.pixel_emoji import draw_with_emoji, measure_width
-
-        y_offset: int = kwargs.get("y_offset", 0)
 
         if self._content_width < 0:
             self._content_width = sum(

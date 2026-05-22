@@ -122,7 +122,14 @@ class CoinbasePriceMonitor(_FrameAware):
         yesterday = date.today() - timedelta(days=1)
         return await self.get_spot_price(spot_date=yesterday)
 
-    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
         change_str = f"{self.change_24h:.2f}%"
         price_str = f"{self.price:.4f}"
         return _draw_price_ticker(
@@ -134,7 +141,7 @@ class CoinbasePriceMonitor(_FrameAware):
             center=self.center,
             padding=self.padding,
             end_padding=self.padding,
-            y_offset=kwargs.get("y_offset", 0),
+            y_offset=y_offset,
             font_color=self.font_color,
             frame_count=self.frame_for("font_color"),
         )

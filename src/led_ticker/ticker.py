@@ -102,11 +102,20 @@ class _CircleBufferMsg(TickerMessage):
     provider, not on the widget.
     """
 
-    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any):
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ):
         if isinstance(canvas, ScaledCanvas):
             color = self.font_color.color_for(self.frame_for("font_color"), 0, 1)
             return _draw_hires_circle(canvas, cursor_pos, color)
-        return super().draw(canvas, cursor_pos, **kwargs)
+        return super().draw(
+            canvas, cursor_pos, y_offset=y_offset, font_color=font_color
+        )
 
 
 DEFAULT_BUFFER_MSG: TickerMessage = _CircleBufferMsg(

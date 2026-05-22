@@ -4,7 +4,8 @@ import asyncio
 import contextlib
 import unittest.mock as mock
 
-from led_ticker.drawing import Region
+import pytest
+
 from led_ticker.widget import (
     _MAX_BACKOFF,
     _MIN_BACKOFF,
@@ -13,19 +14,6 @@ from led_ticker.widget import (
     Widget,
     run_monitor_loop,
 )
-
-
-def test_widget_protocol_accepts_region_kwarg():
-    """Existing widgets must accept (and ignore) a `region` kwarg."""
-    from led_ticker.frame import LedFrame
-    from led_ticker.widgets.message import TickerMessage
-
-    msg = TickerMessage(message="hi")
-    frame = LedFrame(led_cols=32, led_chain=5)
-    canvas = frame.get_clean_canvas()
-    region = Region(0, 0, canvas.width, canvas.height)
-    _, pos = msg.draw(canvas, cursor_pos=0, region=region)
-    assert pos >= 0
 
 
 def test_run_transition_accepts_region_kwarg():
@@ -41,7 +29,7 @@ def test_run_transition_accepts_region_kwarg():
 class SimpleWidget:
     """A minimal Widget implementation for testing."""
 
-    def draw(self, canvas, cursor_pos=0, **kwargs):
+    def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
         return canvas, cursor_pos + 10
 
 
@@ -51,7 +39,7 @@ class SimpleAsyncWidget:
     def __init__(self):
         self.update_count = 0
 
-    def draw(self, canvas, cursor_pos=0, **kwargs):
+    def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
         return canvas, cursor_pos + 10
 
     async def update(self):
@@ -260,3 +248,14 @@ async def test_backoff_resets_on_success(monkeypatch):
     # The interval after recovery should be normal (0.05)
     normal_intervals = [d for d in sleep_durations if d == 0.05]
     assert len(normal_intervals) >= 2  # initial + post-recovery
+
+
+def test_widget_draw_rejects_unknown_kwargs():
+    from led_ticker.frame import LedFrame
+    from led_ticker.widgets.message import TickerMessage
+
+    msg = TickerMessage(message="hi")
+    frame = LedFrame(led_cols=32, led_chain=5)
+    canvas = frame.get_clean_canvas()
+    with pytest.raises(TypeError):
+        msg.draw(canvas, cursor_pos=0, region="should-fail")

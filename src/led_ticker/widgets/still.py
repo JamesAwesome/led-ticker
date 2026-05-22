@@ -213,11 +213,18 @@ class StillImage(_BaseImageWidget):
     # Widget protocol + per-section orchestration
     # ------------------------------------------------------------------
 
-    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
         """Paint the image to the real canvas at native res. Used for
         transition compositing only (text is not painted here — see
         :meth:`GifPlayer.draw` for rationale)."""
-        del cursor_pos, kwargs
+        del cursor_pos, y_offset, font_color
         real = unwrap_to_real(canvas)
         self._load(panel_w=real.width, panel_h=real.height)
         if self._pixels:

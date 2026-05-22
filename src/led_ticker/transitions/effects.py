@@ -173,9 +173,8 @@ class Scroll:
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
     ) -> Canvas:
-        from led_ticker.ticker import _draw_scroll_frame
-
         w = canvas.width
+        h = getattr(canvas, "height", 16)
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
 
         if t >= 1.0:
@@ -190,14 +189,25 @@ class Scroll:
         bullet_x = w + self._gap - scroll_offset
         incoming_pos = w + self._sep_w - scroll_offset
 
-        _draw_scroll_frame(
-            canvas,
-            outgoing,
-            incoming,
-            outgoing_pos,
-            bullet_x,
-            incoming_pos,
-            clear_start,
-        )
+        outgoing.draw(canvas, cursor_pos=outgoing_pos)
+
+        # Black out the tail region so outgoing text doesn't bleed
+        # into the gap between outgoing and the bullet.
+        if 0 <= clear_start < w:
+            for y in range(h):
+                for x in range(clear_start, w):
+                    canvas.SetPixel(x, y, 0, 0, 0)
+
+        # Bullet: 2×2 white dot centered vertically.
+        y_center = h // 2
+        for dy in range(-1, 1):
+            for dx in range(2):
+                px = bullet_x + dx
+                py = y_center + dy
+                if 0 <= px < w and 0 <= py < h:
+                    canvas.SetPixel(px, py, 255, 255, 255)
+
+        if incoming_pos < w:
+            incoming.draw(canvas, cursor_pos=incoming_pos)
 
         return canvas

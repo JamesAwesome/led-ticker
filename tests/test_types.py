@@ -1,6 +1,8 @@
 """Tests that CanvasLike Protocol in _types.py is satisfied
 by all canvas implementations."""
 
+from typing import Any
+
 from led_ticker._types import Canvas, CanvasLike
 
 
@@ -10,8 +12,8 @@ class TestCanvasLike:
 
         assert CanvasLike is not None
 
-    def test_canvas_alias_equals_canvaslike(self):
-        assert Canvas is CanvasLike
+    def test_canvas_is_any(self):
+        assert Canvas is Any
 
     def test_stub_canvas_satisfies_protocol(self):
         from rgbmatrix import RGBMatrix, RGBMatrixOptions

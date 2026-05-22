@@ -19,6 +19,7 @@ even when it doesn't):
 
 from __future__ import annotations
 
+import attrs
 import pytest
 
 from led_ticker.widgets.two_row import TwoRowMessage
@@ -746,6 +747,7 @@ class TestScrollThroughRealWidgetEngineIntegration:
 
         captured: list[int] = []
 
+        @attrs.define
         class _RecordingTwoRow(TwoRowMessage):
             def draw(self, canvas, cursor_pos=0, **kwargs):
                 captured.append(cursor_pos)

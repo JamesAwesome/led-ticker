@@ -54,6 +54,15 @@ class _FrameAware:
     _frame_paused: bool = attrs.field(init=False, default=False)
     _effect_frames: dict[str, int] = attrs.field(init=False, factory=dict)
 
+    def __new__(cls, *args: object, **kwargs: object) -> _FrameAware:
+        if cls is not _FrameAware and "__attrs_attrs__" not in cls.__dict__:
+            raise TypeError(
+                f"{cls.__name__} inherits _FrameAware but is not decorated with "
+                "@attrs.define — frame-counter fields will not be initialized "
+                "correctly."
+            )
+        return super().__new__(cls)
+
     def _iter_effects(self):
         """Yield (attr_name, effect_instance) for each non-None
         effect on the widget. Centralized so `advance_frame`,

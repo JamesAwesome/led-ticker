@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import attrs
+import pytest
 
 from led_ticker.widgets._frame_aware import _FrameAware
 
@@ -164,6 +165,28 @@ class TestEffectFrames:
         widget.reset_frame()
         # No restart_on_visit attribute → defaults to True → zeroes
         assert widget._effect_frames["font_color"] == 0
+
+
+class TestFrameAwareGuard:
+    def test_properly_decorated_subclass_constructs_fine(self):
+        @attrs.define
+        class GoodWidget(_FrameAware):
+            name: str = attrs.field(default="")
+
+        w = GoodWidget()
+        assert w._frame_count == 0
+
+    def test_undecorated_subclass_raises_on_instantiation(self):
+        class BadWidget(_FrameAware):
+            name: str = attrs.field(default="")
+
+        with pytest.raises(TypeError, match="attrs.define"):
+            BadWidget()
+
+    def test_frame_aware_itself_can_be_instantiated(self):
+        """_FrameAware() itself must not trigger the guard."""
+        fa = _FrameAware()
+        assert fa._frame_count == 0
 
 
 class TestEffectAttrsCompleteness:

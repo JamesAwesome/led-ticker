@@ -23,7 +23,9 @@ async def test_run_logs_load_time_coerce_warnings(caplog, tmp_path):
     """A config with string-of-digits on a [display] / section field
     must produce a logging.WARNING during run() startup, before the
     section loop begins."""
-    from led_ticker import app as app_module
+    import sys
+
+    run_module = sys.modules["led_ticker.app.run"]
     from led_ticker.app import run as app_run
     from led_ticker.config import load_config
 
@@ -53,16 +55,16 @@ text = "hi"
             pass
 
     with (
-        mock.patch.object(app_module, "load_config", return_value=parsed),
+        mock.patch.object(run_module, "load_config", return_value=parsed),
         mock.patch.object(
-            app_module,
+            run_module,
             "build_frame_from_config",
             return_value=mock.Mock(
                 **{"get_clean_canvas.return_value": mock.Mock(height=16, width=160)}
             ),
         ),
-        mock.patch.object(app_module, "_configure_user_font_dir"),
-        mock.patch.object(app_module, "Ticker", _StoppingTicker),
+        mock.patch.object(run_module, "_configure_user_font_dir"),
+        mock.patch.object(run_module, "Ticker", _StoppingTicker),
         caplog.at_level(logging.WARNING),
         pytest.raises(_StopApp),
     ):

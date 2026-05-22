@@ -21,6 +21,10 @@ The sprite family runs a pixel-art character across the panel that erases the ou
 | `show_pikachu` | `true` | Render the Pikachu run-cycle sprite chasing the ball |
 | `show_pokeball` | `true` | Render the pokeball sprite (set `false` for Pikachu-only chase) |
 
+## Cross-scale transitions
+
+Sprite transitions work correctly when the outgoing and incoming sections have different `scale` values (e.g. a `scale=2` section swapping to a `scale=4` section). The canvas is switched to the incoming scale before the first frame, so the sprite stays physically consistent throughout — there is no size snap mid-transition.
+
 ## Tuning
 
 - `transition_duration`: sprite transitions need time to traverse the panel — 1.5–2.5 s feels right

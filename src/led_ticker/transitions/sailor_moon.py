@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from led_ticker._types import Canvas, PixelData
 from led_ticker.transitions import Transition, register_transition
@@ -174,6 +174,10 @@ class SailorMoon:
     """Moon Stick wand sweeps left-to-right with sparkle trail."""
 
     min_frames: int = 40
+    # Switch to the incoming section's scale before the very first frame so the
+    # wand sprite stays physically consistent throughout.  Dissolve-style
+    # transitions use the default (0.5) to blend both scales mid-transition.
+    scale_switch_at: ClassVar[float] = 0.0
 
     def __init__(self, **kwargs: Any) -> None:
         pass
@@ -201,6 +205,7 @@ class SailorMoonReverse:
     """Moon Stick wand sweeps right-to-left with sparkle trail."""
 
     min_frames: int = 40
+    scale_switch_at: ClassVar[float] = 0.0
 
     def __init__(self, **kwargs: Any) -> None:
         pass
@@ -226,6 +231,8 @@ class SailorMoonReverse:
 @register_transition("sailor_moon_alternating")
 class SailorMoonAlternating:
     """Cycles through sailor_moon -> sailor_moon_reverse."""
+
+    scale_switch_at: ClassVar[float] = 0.0
 
     def __init__(self, **kwargs: Any) -> None:
         self._transitions: list[Transition] = [

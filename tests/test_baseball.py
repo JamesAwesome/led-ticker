@@ -280,3 +280,23 @@ class TestBaseballHiresDispatch:
             if real.get_pixel(x, y) == (250, 250, 245)
         )
         assert white_pixels > 100
+
+
+# --- scale_switch_at ---
+
+
+class TestScaleSwitchAt:
+    """Tripwire: baseball variants must set scale_switch_at=0.0 so the canvas
+    is re-wrapped to the incoming scale BEFORE the first frame.  The ball
+    sprite is physically consistent throughout any cross-scale transition
+    with no snap at t=0.5.
+    """
+
+    def test_baseball_switches_at_zero(self):
+        assert Baseball.scale_switch_at == 0.0
+
+    def test_baseball_reverse_switches_at_zero(self):
+        assert BaseballReverse.scale_switch_at == 0.0
+
+    def test_baseball_alternating_switches_at_zero(self):
+        assert BaseballAlternating.scale_switch_at == 0.0

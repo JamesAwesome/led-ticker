@@ -1648,7 +1648,10 @@ class TestAppRunDrainLoopTripwire:
     async def _run_one_section(widget_cfg: dict) -> list:
         """Helper: invoke app.run() with a single-section config until
         Ticker is constructed; return the kwargs Ticker received."""
-        from led_ticker import app as app_module
+        import sys
+
+        # Import the module first to ensure it's in sys.modules
+        import led_ticker.app.run  # noqa: F401
         from led_ticker.app import run as app_run
         from led_ticker.config import (
             AppConfig,
@@ -1656,6 +1659,8 @@ class TestAppRunDrainLoopTripwire:
             SectionConfig,
             TransitionConfig,
         )
+
+        run_module = sys.modules["led_ticker.app.run"]
 
         cfg = AppConfig(
             display=DisplayConfig(rows=16, cols=32, chain=5),
@@ -1680,16 +1685,16 @@ class TestAppRunDrainLoopTripwire:
                 pass
 
         with (
-            mock.patch.object(app_module, "load_config", return_value=cfg),
+            mock.patch.object(run_module, "load_config", return_value=cfg),
             mock.patch.object(
-                app_module,
+                run_module,
                 "build_frame_from_config",
                 return_value=mock.Mock(
                     **{"get_clean_canvas.return_value": mock.Mock(height=16, width=160)}
                 ),
             ),
-            mock.patch.object(app_module, "_configure_user_font_dir"),
-            mock.patch.object(app_module, "Ticker", _CapturingTicker),
+            mock.patch.object(run_module, "_configure_user_font_dir"),
+            mock.patch.object(run_module, "Ticker", _CapturingTicker),
             pytest.raises(_StopApp),
         ):
             await app_run(Path("ignored.toml"))
@@ -1752,7 +1757,10 @@ class TestAppRunBgColorHandoff:
         incoming_bg_color=green)`. Catches a regression where
         `last_bg_color = section.bg_color` is dropped or moved
         before the `run_transition` call site uses it."""
-        from led_ticker import app as app_module
+        import sys
+
+        # Import the module first to ensure it's in sys.modules
+        import led_ticker.app.run  # noqa: F401
         from led_ticker.app import run as app_run
         from led_ticker.config import (
             AppConfig,
@@ -1760,6 +1768,8 @@ class TestAppRunBgColorHandoff:
             SectionConfig,
             TransitionConfig,
         )
+
+        run_module = sys.modules["led_ticker.app.run"]
 
         section_one_bg = (255, 0, 0)
         section_two_bg = (0, 255, 0)
@@ -1817,18 +1827,18 @@ class TestAppRunBgColorHandoff:
                 pass
 
         with (
-            mock.patch.object(app_module, "load_config", return_value=cfg),
+            mock.patch.object(run_module, "load_config", return_value=cfg),
             mock.patch.object(
-                app_module,
+                run_module,
                 "build_frame_from_config",
                 return_value=mock.Mock(
                     **{"get_clean_canvas.return_value": mock.Mock(height=16, width=160)}
                 ),
             ),
-            mock.patch.object(app_module, "_configure_user_font_dir"),
-            mock.patch.object(app_module, "Ticker", _FakeTicker),
+            mock.patch.object(run_module, "_configure_user_font_dir"),
+            mock.patch.object(run_module, "Ticker", _FakeTicker),
             mock.patch.object(
-                app_module, "run_transition", side_effect=fake_run_transition
+                run_module, "run_transition", side_effect=fake_run_transition
             ),
             pytest.raises(_StopApp),
         ):

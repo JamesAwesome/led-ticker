@@ -107,8 +107,14 @@ class EtherscanGasMonitor(_FrameAware):
                 "High": result["FastGasPrice"],
             }
 
-    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
-        y_offset: int = kwargs.get("y_offset", 0)
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
         # FONT_LABEL and FONT_VALUE share the same canonical BDF baseline
         # (both 12-tall cells); compute once at canvas resolution.
         baseline_y = compute_baseline(FONT_LABEL, canvas, valign="center") + y_offset

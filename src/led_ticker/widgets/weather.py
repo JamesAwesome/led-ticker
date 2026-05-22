@@ -115,9 +115,14 @@ class WeatherWidget(_FrameAware):
                 self.current_temp = int(current["temp_c"])
             self.weather = current["condition"]["text"]
 
-    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
-        y_offset: int = kwargs.get("y_offset", 0)
-
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
         temp_text = f"{self.current_temp}{self.unit_symbol}"
         label_text = f"{self.message}: "
 

@@ -53,15 +53,19 @@ class TickerMessage(_FrameAware):
             self.font_color = _ConstantColor(self.font_color)
         self._has_emoji = bool(EMOJI_PATTERN.search(self.message))
 
-    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
-        # Allow callers to override font_color via kwargs (legacy path),
-        # but coerce raw Color to provider for uniform handling below.
-        provider_kwarg = kwargs.get("font_color")
-        if provider_kwarg is not None and not hasattr(provider_kwarg, "color_for"):
-            provider_kwarg = _ConstantColor(provider_kwarg)
-        provider: ColorProvider = provider_kwarg or self.font_color
-
-        y_offset: int = kwargs.get("y_offset", 0)
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
+        # Allow callers to override font_color, but coerce raw Color to
+        # provider for uniform handling below.
+        if font_color is not None and not hasattr(font_color, "color_for"):
+            font_color = _ConstantColor(font_color)
+        provider: ColorProvider = font_color or self.font_color
 
         # If animation is set, ask it for the slice. Animations don't
         # currently override cursor position (Bounce was removed); if a
@@ -226,15 +230,19 @@ class TickerCountdown(_FrameAware):
         if not hasattr(self.font_color, "color_for"):
             self.font_color = _ConstantColor(self.font_color)
 
-    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
-        # Allow callers to override font_color via kwargs (legacy path),
-        # but coerce raw Color to provider for uniform handling below.
-        provider_kwarg = kwargs.get("font_color")
-        if provider_kwarg is not None and not hasattr(provider_kwarg, "color_for"):
-            provider_kwarg = _ConstantColor(provider_kwarg)
-        provider: ColorProvider = provider_kwarg or self.font_color
-
-        y_offset: int = kwargs.get("y_offset", 0)
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
+        # Allow callers to override font_color, but coerce raw Color to
+        # provider for uniform handling below.
+        if font_color is not None and not hasattr(font_color, "color_for"):
+            font_color = _ConstantColor(font_color)
+        provider: ColorProvider = font_color or self.font_color
 
         today = date.today()
         days_until = (self.countdown_date - today).days

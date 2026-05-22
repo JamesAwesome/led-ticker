@@ -94,7 +94,14 @@ class CoinGeckoPriceMonitor(_FrameAware):
 
                 self.price_data = {"price": price, "change_24h": change_24h}
 
-    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
         return _draw_price_ticker(
             canvas,
             self.symbol,
@@ -104,7 +111,7 @@ class CoinGeckoPriceMonitor(_FrameAware):
             center=self.center,
             padding=self.padding,
             end_padding=self.padding,
-            y_offset=kwargs.get("y_offset", 0),
+            y_offset=y_offset,
             font_color=self.font_color,
             frame_count=self.frame_for("font_color"),
         )

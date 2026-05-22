@@ -230,7 +230,14 @@ class GifPlayer(_BaseImageWidget):
     # Widget protocol + per-section orchestration
     # ------------------------------------------------------------------
 
-    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
         """Paint the current frame to the real canvas at native res.
 
         Used for transition compositing (entry/exit dissolves). Text is
@@ -238,7 +245,7 @@ class GifPlayer(_BaseImageWidget):
         with just the gif, and there's no scroll-position state at
         draw time.
         """
-        del cursor_pos, kwargs
+        del cursor_pos, y_offset, font_color
         real = unwrap_to_real(canvas)
         self._load(panel_w=real.width, panel_h=real.height)
         if not self._frames:

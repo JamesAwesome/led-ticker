@@ -402,8 +402,18 @@ class TwoRowMessage(_FrameAware):
         else:
             draw_text(canvas, font, x, baseline_y, color, sep)
 
-    def draw(self, canvas: Canvas, cursor_pos: int = 0, **kwargs: Any) -> DrawResult:
-        del kwargs  # widget is meant for swap mode; y_offset/transitions ignored
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
+        del (
+            y_offset,
+            font_color,
+        )  # widget is meant for swap mode; y_offset/transitions ignored
 
         canvas_height = getattr(canvas, "height", 16)
 

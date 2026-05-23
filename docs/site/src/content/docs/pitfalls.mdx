@@ -85,6 +85,17 @@ A key in a `[[playlist.section.widget]]` block doesn't match any field the widge
 
 Common sources: copy-pasting a field name from the wrong widget type (`text_color` instead of `font_color`; `alignement` misspelling of `center`; `scroll_speed_ms` on a non-image widget). Run `led-ticker validate --list-fields TYPE` to see all accepted fields for a given widget type.
 
+### Rule 39 — Unknown transition name
+
+A transition name in `[transitions] default`, `[transitions] between_sections`, or a per-section `transition` / `entry_transition` / `widget_transition` field doesn't exist in the transition registry. A typo here always crashes at startup, so this check runs even without `--strict`. The error includes a did-you-mean hint when the typo is close to a known name:
+
+```
+✗ ERROR   transitions.default: unknown transition 'wipe_alternaiting' (did you mean 'wipe_alternating'?)
+          Fix: Check the transition name spelling. Run `led-ticker validate --list-fields` or see docs.ledticker.dev/transitions/ for the full catalogue.
+```
+
+The sentinel value `"cut"` is always accepted. For the full list of available names, see [Transitions](/transitions/).
+
 ## Warnings
 
 Warnings don't block the engine, but they flag a likely rendering quirk worth resolving.
@@ -120,3 +131,18 @@ The named font isn't bundled and didn't turn up in `config/fonts/`. This is a wa
 ### Rule 36 — `gif_loops = 0` in `mode = "gif"` silently plays 1 loop
 
 `gif_loops = 0` means "play through the section's `hold_time`" — but that plumbing only exists on the `mode = "swap"` path. The legacy `mode = "gif"` calls the gif widget's `play()` directly without threading `hold_time`, so the "play through hold_time" semantics don't reach there. A `gif_loops = 0` widget in a `mode = "gif"` section silently falls back to exactly one loop. Switch the section to `mode = "swap"` (the recommended setup; see rule 33) to get the intended duration-driven playback, or set `gif_loops` to an explicit positive integer for a fixed loop count.
+
+## Strict-only checks
+
+These checks only run when you pass `--strict` to `led-ticker validate`. Use `--strict` in CI so a warning-clean config is enforced before deploy — all existing warnings are also promoted to errors in strict mode.
+
+### Rule 40 — Asset `path` does not exist on disk
+
+In `--strict` mode, any `path` field on a `gif` or `image` widget must point to a file that exists relative to the config file's directory. This check is strict-only because the asset may only live on the deploy target (Pi), not on your laptop:
+
+```
+✗ ERROR   section[0].widget[0]: asset path 'assets/missing.gif' does not exist (resolved to /home/pi/config/assets/missing.gif)
+          Fix: Check the path is correct relative to the config file. In --strict mode all referenced asset files must be present.
+```
+
+Run `validate` without `--strict` during local drafting; switch to `--strict` on the Pi or in CI once all assets are in place.

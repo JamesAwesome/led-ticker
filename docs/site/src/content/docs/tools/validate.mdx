@@ -103,6 +103,29 @@ Warnings-only run:
 
 The CLI exits `0` when the config is valid (no errors; warnings allowed), `1` when there are errors, and `2` when the file does not exist.
 
+### Strict mode — promote warnings to errors
+
+Pass `--strict` to treat every warning as an error and also enable asset-path existence checks ([Rule 40](/pitfalls/#rule-40--asset-path-does-not-exist-on-disk)):
+
+```bash
+led-ticker validate --strict config/config.toml
+```
+
+In strict mode:
+
+- All warnings are promoted to errors — `valid` is `false` if any warnings were found.
+- `gif` and `image` widget `path` fields must exist on disk (relative to the config file).
+
+Exit codes are the same: `0` clean, `1` errors (or promoted warnings), `2` file not found.
+
+**CI use case:** gate deploys on a warning-clean config:
+
+```bash
+led-ticker validate --strict config/config.toml || exit 1
+```
+
+Run `validate` without `--strict` during local drafting (assets may not be present locally); switch to `--strict` on the Pi or in your CI pipeline once all assets are in place.
+
 ## Output format
 
 The JSON shape is stable and meant to be parsed:
@@ -132,30 +155,32 @@ The `valid` field is true exactly when `errors` is empty — warnings do not fli
 
 Quick reference. Each row maps to a longer entry on [Validation rules](/pitfalls/).
 
-| Check                                                            | Severity | Quick fix                                        |
-| ---------------------------------------------------------------- | -------- | ------------------------------------------------ |
-| `text_align="scroll"` paired with `fit="stretch"`                | error    | use `pillarbox`/`letterbox`/`crop`               |
-| `text_x_offset` set with a scrolling `text_align`                | error    | drop the offset, or use a static `text_align`    |
-| `hold_seconds < 0.05`                                            | error    | raise to ≥ 0.05 (it's seconds, not ms)           |
-| `animation` on a widget that doesn't support it                  | error    | remove it; use `font_color = "rainbow"` instead  |
-| `animation = "typewriter"` on `gif` / `image` with conflicts     | error    | drop `bottom_text`, scroll mode, or empty `text` |
-| Per-row font line-height exceeds the band on `two_row` / two-row | error    | smaller `font_size`, or raise `content_height`   |
-| `start_hold` on `swap` / `gif` section or negative value         | error    | remove `start_hold` or set it to ≥ 0             |
-| `separator_*` set on a non-`forever_scroll` section              | error    | remove the field, or switch to `forever_scroll`  |
-| `bottom_text_loops` on `two_row` without `bottom_text_wrap`      | error    | set `bottom_text_wrap = true`, or drop the field |
-| `text_loops` on a `two_row` widget (rule 29)                     | error    | rename to `bottom_text_loops`                    |
-| `scroll_step_ms <= 0` on a section (rule 31)                     | error    | set to a positive integer (e.g. 35)              |
-| `content_height × scale > panel_h_real` (rule 1)                 | error    | lower `content_height` to `panel_h ÷ scale`      |
-| `scroll_speed_ms` at section level or `scroll_step_ms` on widget | error    | swap fields to the correct scope (rule 34)       |
-| Unknown widget field name (typo in TOML)                         | error    | run `--list-fields TYPE` to see valid names      |
-| `two_row` widget at `scale = 4`                                  | warning  | use `scale = 2` (128 logical px wide)            |
-| `transition_duration` > 5 s or < 0.05 s                          | warning  | divide by 1000 (it's seconds, not milliseconds)  |
-| Held `top_text` wider than the logical canvas                    | warning  | shorten text, smaller font, or lower `scale`     |
-| `font` name is not bundled and not in `config/fonts/`            | warning  | drop the font file on the deploy target          |
-| `hold_time` set alongside `bottom_text_loops` on `two_row`       | warning  | drop one (or accept `max()` semantics)           |
-| `mode = "gif"` is a legacy mode (rule 33)                        | warning  | use `mode = "swap"` with a `gif` widget          |
-| `default = "..."` written inside a section block (rule 35)       | warning  | rename to `transition = "..."`                   |
-| `gif_loops = 0` inside a `mode = "gif"` section (rule 36)        | warning  | switch to `mode = "swap"` or set positive count  |
+| Check                                                            | Severity | Quick fix                                                           |
+| ---------------------------------------------------------------- | -------- | ------------------------------------------------------------------- |
+| `text_align="scroll"` paired with `fit="stretch"`                | error    | use `pillarbox`/`letterbox`/`crop`                                  |
+| `text_x_offset` set with a scrolling `text_align`                | error    | drop the offset, or use a static `text_align`                       |
+| `hold_seconds < 0.05`                                            | error    | raise to ≥ 0.05 (it's seconds, not ms)                              |
+| `animation` on a widget that doesn't support it                  | error    | remove it; use `font_color = "rainbow"` instead                     |
+| `animation = "typewriter"` on `gif` / `image` with conflicts     | error    | drop `bottom_text`, scroll mode, or empty `text`                    |
+| Per-row font line-height exceeds the band on `two_row` / two-row | error    | smaller `font_size`, or raise `content_height`                      |
+| `start_hold` on `swap` / `gif` section or negative value         | error    | remove `start_hold` or set it to ≥ 0                                |
+| `separator_*` set on a non-`forever_scroll` section              | error    | remove the field, or switch to `forever_scroll`                     |
+| `bottom_text_loops` on `two_row` without `bottom_text_wrap`      | error    | set `bottom_text_wrap = true`, or drop the field                    |
+| `text_loops` on a `two_row` widget (rule 29)                     | error    | rename to `bottom_text_loops`                                       |
+| `scroll_step_ms <= 0` on a section (rule 31)                     | error    | set to a positive integer (e.g. 35)                                 |
+| `content_height × scale > panel_h_real` (rule 1)                 | error    | lower `content_height` to `panel_h ÷ scale`                         |
+| `scroll_speed_ms` at section level or `scroll_step_ms` on widget | error    | swap fields to the correct scope (rule 34)                          |
+| Unknown widget field name (typo in TOML)                         | error    | run `--list-fields TYPE` to see valid names                         |
+| Unknown transition name (typo in any transition field)           | error    | did-you-mean hint; see [Transitions](/transitions/) for valid names |
+| Asset `path` does not exist on disk (`--strict` only)            | error    | check path is relative to config file                               |
+| `two_row` widget at `scale = 4`                                  | warning  | use `scale = 2` (128 logical px wide)                               |
+| `transition_duration` > 5 s or < 0.05 s                          | warning  | divide by 1000 (it's seconds, not milliseconds)                     |
+| Held `top_text` wider than the logical canvas                    | warning  | shorten text, smaller font, or lower `scale`                        |
+| `font` name is not bundled and not in `config/fonts/`            | warning  | drop the font file on the deploy target                             |
+| `hold_time` set alongside `bottom_text_loops` on `two_row`       | warning  | drop one (or accept `max()` semantics)                              |
+| `mode = "gif"` is a legacy mode (rule 33)                        | warning  | use `mode = "swap"` with a `gif` widget                             |
+| `default = "..."` written inside a section block (rule 35)       | warning  | rename to `transition = "..."`                                      |
+| `gif_loops = 0` inside a `mode = "gif"` section (rule 36)        | warning  | switch to `mode = "swap"` or set positive count                     |
 
 ## Discovering widget fields — `--list-fields`
 
@@ -183,5 +208,7 @@ Anything that depends on runtime state — a stale `WEATHERAPI_KEY`, an unreacha
 ### Warnings are advisory, not blocking
 
 The ticker will start, scroll, and swap when only warnings are present, but the warning usually points at a rendering quirk you don't actually want — a `two_row` widget cramped into a 64px logical canvas, a `transition_duration` that looks like milliseconds when the engine wants seconds, or a legacy `mode = "gif"` that would benefit from the full `swap`-mode feature set. Treat them as a checklist before you call a config done.
+
+Pass `--strict` to promote all warnings to errors and enforce a warning-clean config in CI. See the [Strict mode](#strict-mode--promote-warnings-to-errors) section above.
 
 <RelatedPages slugs={["tools/creating-a-config", "pitfalls", "tools/render-demo"]} />

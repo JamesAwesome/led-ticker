@@ -2321,8 +2321,8 @@ text = "hello"
 """)
         )
         rule_39 = [e for e in result.errors if e.rule == 39]
-        assert len(rule_39) >= 1
-        assert any("unkown_name" in e.message for e in rule_39)
+        assert len(rule_39) == 1
+        assert "unkown_name" in rule_39[0].message
 
     async def test_unknown_widget_transition_is_error(self, conf):
         result = await validate_config(

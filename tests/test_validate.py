@@ -2210,27 +2210,7 @@ text = "hello"
         rule_39 = [e for e in result.errors if e.rule == 39]
         assert len(rule_39) == 1
         assert "wipe_leftt" in rule_39[0].message
-
-    async def test_did_you_mean_appears_for_close_typo(self, conf):
-        result = await validate_config(
-            conf("""
-[display]
-rows = 32
-cols = 64
-chain = 8
-default_scale = 1
-
-[[playlist.section]]
-mode = "swap"
-transition = "wipe_leftt"
-
-[[playlist.section.widget]]
-type = "message"
-text = "hello"
-""")
-        )
-        rule_39 = [e for e in result.errors if e.rule == 39]
-        assert any("wipe_left" in e.message for e in rule_39)
+        assert "wipe_left" in rule_39[0].message
 
     async def test_cut_sentinel_is_always_valid(self, conf):
         result = await validate_config(
@@ -2319,6 +2299,52 @@ text = "hello"
         rule_39 = [e for e in result.errors if e.rule == 39]
         assert len(rule_39) == 1
         assert "dissolvre" in rule_39[0].message
+
+    async def test_unknown_default_transition_is_error(self, conf):
+        result = await validate_config(
+            conf("""
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[transitions]
+default = "unkown_name"
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+""")
+        )
+        rule_39 = [e for e in result.errors if e.rule == 39]
+        assert len(rule_39) >= 1
+        assert any("unkown_name" in e.message for e in rule_39)
+
+    async def test_unknown_widget_transition_is_error(self, conf):
+        result = await validate_config(
+            conf("""
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+widget_transition = "wipe_leffttt"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+""")
+        )
+        rule_39 = [e for e in result.errors if e.rule == 39]
+        assert len(rule_39) == 1
+        assert "wipe_leffttt" in rule_39[0].message
 
 
 class TestUnknownKwargValidationRule:

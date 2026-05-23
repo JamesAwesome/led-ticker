@@ -112,6 +112,11 @@ def get_transition_class(name: str) -> type[Transition]:
     return _TRANSITION_REGISTRY[name]
 
 
+def list_transition_names() -> list[str]:
+    """Return all registered transition names, sorted alphabetically."""
+    return sorted(_TRANSITION_REGISTRY.keys())
+
+
 # --- Transition runner ---
 
 

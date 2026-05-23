@@ -521,6 +521,55 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 39: Named transitions must exist in the transition registry.
+
+    Runs in normal mode — a typo in a transition name always fails at startup
+    and has no deploy-target excuse. The "cut" sentinel is always valid.
+    """
+    import difflib
+
+    from led_ticker.config import TransitionConfig
+    from led_ticker.transitions import list_transition_names
+
+    valid_names = list_transition_names()
+    valid_set = set(valid_names)
+    issues: list[ValidationIssue] = []
+
+    def _check(trans_cfg: TransitionConfig | None, location: str) -> None:
+        if trans_cfg is None or trans_cfg.type == "cut":
+            return
+        if trans_cfg.type in valid_set:
+            return
+        close = difflib.get_close_matches(trans_cfg.type, valid_names, n=1, cutoff=0.6)
+        hint = f" (did you mean {close[0]!r}?)" if close else ""
+        issues.append(
+            ValidationIssue(
+                rule=39,
+                location=location,
+                severity="error",
+                message=f"unknown transition {trans_cfg.type!r}{hint}",
+                fix=(
+                    "Check the transition name spelling. "
+                    "Run `led-ticker validate --list-fields` or see "
+                    "docs.ledticker.dev/transitions/ for the full catalogue."
+                ),
+            )
+        )
+
+    _check(config.default_transition, "transitions.default")
+    _check(config.between_sections, "transitions.between_sections")
+    for i, section in enumerate(config.sections):
+        if section.transition_specified:
+            _check(section.transition, f"section[{i}].transition")
+        if section.entry_transition is not None:
+            _check(section.entry_transition, f"section[{i}].entry_transition")
+        if section.widget_transition is not None:
+            _check(section.widget_transition, f"section[{i}].widget_transition")
+
+    return issues
+
+
 _WEIGHT_SUFFIXES = frozenset(
     [
         "Regular",
@@ -1152,6 +1201,11 @@ async def validate_config(path: Path) -> ValidationResult:
 
     # Phase 1b: Static dict checks (rules enforced in widget constructors)
     errors.extend(_check_static(config))
+
+    # Phase 1b (cont.): Rule 39 — transition name registry check.
+    # Always runs (not just --strict): a typo in a transition name always
+    # fails at startup and has no deploy-target excuse.
+    errors.extend(_check_transition_names(config))
 
     # Phase 1c: Build-time checks via _build_widget(validate_only=True).
     # "unknown font" failures are downgraded to warnings (rule 24): the

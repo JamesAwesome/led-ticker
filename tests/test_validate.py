@@ -2185,6 +2185,142 @@ class TestMigrationError:
         assert "font_size" in fix
 
 
+class TestRule39TransitionNames:
+    """Unknown transition names surface as rule-39 errors."""
+
+    async def test_unknown_transition_in_section_is_error(self, conf):
+        result = await validate_config(
+            conf("""
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_leftt"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+""")
+        )
+        assert not result.valid
+        rule_39 = [e for e in result.errors if e.rule == 39]
+        assert len(rule_39) == 1
+        assert "wipe_leftt" in rule_39[0].message
+
+    async def test_did_you_mean_appears_for_close_typo(self, conf):
+        result = await validate_config(
+            conf("""
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_leftt"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+""")
+        )
+        rule_39 = [e for e in result.errors if e.rule == 39]
+        assert any("wipe_left" in e.message for e in rule_39)
+
+    async def test_cut_sentinel_is_always_valid(self, conf):
+        result = await validate_config(
+            conf("""
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+""")
+        )
+        rule_39 = [e for e in result.errors if e.rule == 39]
+        assert rule_39 == []
+
+    async def test_known_transition_name_passes(self, conf):
+        result = await validate_config(
+            conf("""
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_left"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+""")
+        )
+        rule_39 = [e for e in result.errors if e.rule == 39]
+        assert rule_39 == []
+
+    async def test_unknown_between_sections_is_error(self, conf):
+        result = await validate_config(
+            conf("""
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[transitions]
+between_sections = "pokball_alternating"
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+""")
+        )
+        rule_39 = [e for e in result.errors if e.rule == 39]
+        assert len(rule_39) == 1
+        assert "pokball_alternating" in rule_39[0].message
+
+    async def test_unknown_entry_transition_is_error(self, conf):
+        result = await validate_config(
+            conf("""
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+entry_transition = "dissolvre"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+""")
+        )
+        rule_39 = [e for e in result.errors if e.rule == 39]
+        assert len(rule_39) == 1
+        assert "dissolvre" in rule_39[0].message
+
+
 class TestUnknownKwargValidationRule:
     """Unknown widget kwargs surface as rule-38 errors in ValidationResult."""
 

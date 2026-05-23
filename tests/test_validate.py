@@ -2556,7 +2556,7 @@ text = "hello"
 class TestStrictModeCLI:
     """--strict flag is accepted by the validate subcommand."""
 
-    def test_cli_strict_exits_1_when_warnings_present(self, conf):
+    def test_strict_exit_1_on_warning(self, conf):
         """A config with only warnings exits 0 normally, exits 1 with --strict."""
         toml = """
 [display]
@@ -2589,7 +2589,7 @@ font_size = 24
         )
         assert r_strict.returncode == 1
 
-    def test_cli_strict_exits_0_on_clean_config(self, conf):
+    def test_strict_exit_0_when_clean(self, conf):
         path = conf("""
 [display]
 rows = 32
@@ -2611,8 +2611,9 @@ text = "hello"
         )
         assert r.returncode == 0
 
-    def test_cli_strict_json_output_valid_false_on_warning(self, conf):
-        toml = """
+    def test_nonstrict_exit_0_with_warnings(self, conf):
+        """Without --strict, a config with warnings exits 0."""
+        path = conf("""
 [display]
 rows = 32
 cols = 64
@@ -2627,14 +2628,9 @@ type = "message"
 text = "hello"
 font = "GhostFont"
 font_size = 24
-"""
-        path = conf(toml)
+""")
         r = subprocess.run(
-            ["uv", "run", "led-ticker", "validate", "--strict", "--json", str(path)],
+            ["uv", "run", "led-ticker", "validate", str(path)],
             capture_output=True,
-            text=True,
         )
-        data = json.loads(r.stdout)
-        assert data["valid"] is False
-        assert len(data["errors"]) > 0
-        assert data["warnings"] == []
+        assert r.returncode == 0

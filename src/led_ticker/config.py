@@ -149,6 +149,7 @@ class AppConfig:
     between_sections: TransitionConfig = field(
         default_factory=TransitionConfig,
     )
+    between_sections_specified: bool = False
     # Warnings collected during load_config when string-of-digits or
     # mixed-case enum values get coerced to canonical typed values.
     # validate.py surfaces these as rule-37 warnings; app.py:run() logs
@@ -372,6 +373,7 @@ def load_config(path: Path) -> AppConfig:
         )
         sections.append(section)
 
+    between_sections_specified = "between_sections" in transitions_raw
     between_sections = _parse_transition(
         transitions_raw.get("between_sections"),
         default_transition,
@@ -383,5 +385,6 @@ def load_config(path: Path) -> AppConfig:
         title_delay=raw.get("title", {}).get("delay", 5),
         default_transition=default_transition,
         between_sections=between_sections,
+        between_sections_specified=between_sections_specified,
         _coerce_warnings=coerce_warnings,
     )

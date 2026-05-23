@@ -570,6 +570,46 @@ def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+def _check_asset_paths(config: AppConfig, config_dir: Path) -> list[ValidationIssue]:
+    """Rule 40: Asset `path` fields for gif/image widgets must exist on disk.
+
+    Only runs in --strict mode. In normal mode, missing paths are silently
+    allowed because the asset might only be present on the deploy target.
+    """
+    issues: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        for j, widget_cfg in enumerate(section.widgets):
+            if widget_cfg.get("type") not in ("gif", "image"):
+                continue
+            raw_path = widget_cfg.get("path")
+            if not raw_path:
+                continue
+            candidate = Path(raw_path)
+            resolved = (
+                candidate
+                if candidate.is_absolute()
+                else (config_dir / candidate).resolve()
+            )
+            if not resolved.exists():
+                issues.append(
+                    ValidationIssue(
+                        rule=40,
+                        location=f"section[{i}].widget[{j}]",
+                        severity="error",
+                        message=(
+                            f"asset path {raw_path!r} does not exist"
+                            f" (resolved to {resolved})"
+                        ),
+                        fix=(
+                            "Check the path is correct relative to the config "
+                            "file. In --strict mode all referenced asset files "
+                            "must be present."
+                        ),
+                    )
+                )
+    return issues
+
+
 _WEIGHT_SUFFIXES = frozenset(
     [
         "Regular",
@@ -1173,8 +1213,16 @@ def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
-async def validate_config(path: Path) -> ValidationResult:
-    """Validate a TOML config file. Raises FileNotFoundError if path does not exist."""
+async def validate_config(path: Path, *, strict: bool = False) -> ValidationResult:
+    """Validate a TOML config file. Raises FileNotFoundError if path does not exist.
+
+    When ``strict=True``:
+    - Asset path existence is checked (rule 40). Paths are allowed to be absent
+      in normal mode because assets may only live on the deploy target.
+    - All accumulated warnings are promoted to errors before returning.
+      ``ValidationResult.warnings`` will be empty; callers check ``result.valid``
+      as usual.
+    """
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
 
@@ -1307,6 +1355,18 @@ async def validate_config(path: Path) -> ValidationResult:
     if not errors:
         warnings.extend(_check_soft(config))
         warnings.extend(_check_held_top_text_overflow(config))
+
+    # Phase 2 (strict only): asset path existence check.
+    # Not in normal mode — asset files may only exist on the deploy target.
+    if strict:
+        errors.extend(_check_asset_paths(config, path.parent))
+
+    # Strict: promote all remaining warnings to errors before returning.
+    # ValidationResult.valid checks len(errors) == 0; promoting warnings
+    # here means callers don't need to change their result.valid check.
+    if strict and warnings:
+        errors.extend(warnings)
+        warnings = []
 
     return ValidationResult(path=path, errors=errors, warnings=warnings)
 

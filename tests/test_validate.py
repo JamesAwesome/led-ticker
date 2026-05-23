@@ -2551,3 +2551,90 @@ text = "hello"
         strict = await validate_config(config_path, strict=True)
         assert normal.valid
         assert strict.valid
+
+
+class TestStrictModeCLI:
+    """--strict flag is accepted by the validate subcommand."""
+
+    def test_cli_strict_exits_1_when_warnings_present(self, conf):
+        """A config with only warnings exits 0 normally, exits 1 with --strict."""
+        toml = """
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+font = "GhostFont"
+font_size = 24
+"""
+        path = conf(toml)
+        # Normal mode: exits 0 (warning, not error)
+        r_normal = subprocess.run(
+            ["uv", "run", "led-ticker", "validate", str(path)],
+            capture_output=True,
+        )
+        assert r_normal.returncode == 0, r_normal.stderr.decode()
+
+        # Strict mode: exits 1 (warning promoted to error)
+        r_strict = subprocess.run(
+            ["uv", "run", "led-ticker", "validate", "--strict", str(path)],
+            capture_output=True,
+        )
+        assert r_strict.returncode == 1
+
+    def test_cli_strict_exits_0_on_clean_config(self, conf):
+        path = conf("""
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 3.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+""")
+        r = subprocess.run(
+            ["uv", "run", "led-ticker", "validate", "--strict", str(path)],
+            capture_output=True,
+        )
+        assert r.returncode == 0
+
+    def test_cli_strict_json_output_valid_false_on_warning(self, conf):
+        toml = """
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+font = "GhostFont"
+font_size = 24
+"""
+        path = conf(toml)
+        r = subprocess.run(
+            ["uv", "run", "led-ticker", "validate", "--strict", "--json", str(path)],
+            capture_output=True,
+            text=True,
+        )
+        data = json.loads(r.stdout)
+        assert data["valid"] is False
+        assert len(data["errors"]) > 0
+        assert data["warnings"] == []

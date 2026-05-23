@@ -71,6 +71,16 @@ def main() -> None:
             "(e.g. --list-fields message)"
         ),
     )
+    val_parser.add_argument(
+        "--strict",
+        action="store_true",
+        default=False,
+        help=(
+            "Treat all warnings as errors. "
+            "Also checks that asset file paths (gif/image `path`) exist. "
+            "Use in CI to enforce a warning-clean config."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -98,7 +108,7 @@ def main() -> None:
         )
 
         try:
-            result = asyncio.run(validate_config(args.path))
+            result = asyncio.run(validate_config(args.path, strict=args.strict))
         except FileNotFoundError as e:
             print(str(e), file=sys.stderr)
             sys.exit(2)

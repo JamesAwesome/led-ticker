@@ -39,9 +39,17 @@ and as a pre-flight check before deploying a config to a Pi.
 ```bash
 led-ticker validate config/config.toml
 led-ticker validate config/config.toml --json
+led-ticker validate --strict config/config.toml
 ```
 
-Exits `0` on a clean config, `1` on validation errors, `2` if the
+| Flag            | Default | Notes                                                                                                                                    |
+| --------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `path`          | —       | Path to the config file. Required unless `--list-fields` is given.                                                                       |
+| `--json`        | off     | Emit machine-readable JSON instead of human-readable text. Used by the `creating-a-config` skill.                                        |
+| `--strict`      | off     | Promote all warnings to errors. Also checks that `gif`/`image` `path` fields exist on disk. Use in CI to enforce a warning-clean config. |
+| `--list-fields` | —       | Print all valid fields for a widget type and exit (e.g. `--list-fields message`). No `path` argument required.                           |
+
+Exits `0` on a clean config, `1` on validation errors (or promoted warnings with `--strict`), `2` if the
 config file isn't found. See [Tools: validate](/tools/validate/) for
 the full output format (human + JSON), exit codes, and CI examples.
 
@@ -100,7 +108,7 @@ companion `deploy/install.sh` in the repo.
 
 ### `--led-*` flags belong to the `rgbmatrix` library, not `led-ticker`
 
-The `led-ticker` CLI itself only accepts `--config` / `-c` (and the `validate` subcommand's `path` and `--json`). Hardware tuning — panel geometry, GPIO mapping, brightness, RP1 mode — is configured through the `[display]` block in your TOML, not via command-line flags. The `rgbmatrix` library's own `--led-*` CLI flags exist (and `[display]` maps onto them internally) but you don't pass them to `led-ticker`. See [Reference: Config options](/reference/config-options/) for the `[display]` field list.
+The `led-ticker` CLI itself only accepts `--config` / `-c` (and the `validate` subcommand's `path`, `--json`, `--strict`, and `--list-fields`). Hardware tuning — panel geometry, GPIO mapping, brightness, RP1 mode — is configured through the `[display]` block in your TOML, not via command-line flags. The `rgbmatrix` library's own `--led-*` CLI flags exist (and `[display]` maps onto them internally) but you don't pass them to `led-ticker`. See [Reference: Config options](/reference/config-options/) for the `[display]` field list.
 
 ### `make test` automatically sets `PYTHONPATH=tests/stubs`
 

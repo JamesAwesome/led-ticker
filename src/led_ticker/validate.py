@@ -558,7 +558,8 @@ def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
         )
 
     _check(config.default_transition, "transitions.default")
-    _check(config.between_sections, "transitions.between_sections")
+    if config.between_sections_specified:
+        _check(config.between_sections, "transitions.between_sections")
     for i, section in enumerate(config.sections):
         if section.transition_specified:
             _check(section.transition, f"section[{i}].transition")

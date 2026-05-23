@@ -2590,6 +2590,7 @@ font_size = 24
         assert r_strict.returncode == 1
 
     def test_strict_exit_0_when_clean(self, conf):
+        """A warning-free config exits 0 even with --strict."""
         path = conf("""
 [display]
 rows = 32

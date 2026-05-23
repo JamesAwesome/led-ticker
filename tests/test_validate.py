@@ -2378,3 +2378,176 @@ text_color = [255, 0, 0]
         rule_38_errors = [e for e in result.errors if e.rule == 38]
         assert len(rule_38_errors) == 1
         assert "text_color" in rule_38_errors[0].message
+
+
+class TestRule40AssetPaths:
+    """Asset path existence is checked in --strict mode only."""
+
+    async def test_missing_gif_path_in_strict_mode_is_error(self, tmp_path):
+        toml_text = """
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/missing.gif"
+"""
+        config_path = tmp_path / "config.toml"
+        config_path.write_text(toml_text)
+        result = await validate_config(config_path, strict=True)
+        rule_40 = [e for e in result.errors if e.rule == 40]
+        assert len(rule_40) == 1
+        assert "missing.gif" in rule_40[0].message
+
+    async def test_missing_gif_path_in_normal_mode_is_not_error(self, tmp_path):
+        toml_text = """
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/missing.gif"
+"""
+        config_path = tmp_path / "config.toml"
+        config_path.write_text(toml_text)
+        result = await validate_config(config_path)
+        rule_40 = [e for e in result.errors if e.rule == 40]
+        assert rule_40 == []
+
+    async def test_existing_gif_path_in_strict_mode_passes(self, tmp_path):
+        gif_path = tmp_path / "assets" / "test.gif"
+        gif_path.parent.mkdir()
+        gif_path.write_bytes(b"GIF89a")
+        toml_text = """
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/test.gif"
+"""
+        config_path = tmp_path / "config.toml"
+        config_path.write_text(toml_text)
+        result = await validate_config(config_path, strict=True)
+        rule_40 = [e for e in result.errors if e.rule == 40]
+        assert rule_40 == []
+
+    async def test_message_widget_path_not_checked(self, tmp_path):
+        toml_text = """
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+"""
+        config_path = tmp_path / "config.toml"
+        config_path.write_text(toml_text)
+        result = await validate_config(config_path, strict=True)
+        rule_40 = [e for e in result.errors if e.rule == 40]
+        assert rule_40 == []
+
+
+class TestStrictModeWarningPromotion:
+    """In strict mode, warnings become errors."""
+
+    async def test_strict_promotes_unknown_font_warning_to_error(self, tmp_path):
+        toml_text = """
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+font = "NonExistentFont"
+font_size = 24
+"""
+        config_path = tmp_path / "config.toml"
+        config_path.write_text(toml_text)
+
+        # Normal mode: rule 24 is a warning
+        normal = await validate_config(config_path)
+        rule_24_warnings = [w for w in normal.warnings if w.rule == 24]
+        assert len(rule_24_warnings) == 1
+        assert normal.valid  # warnings don't fail normal mode
+
+        # Strict mode: rule 24 becomes an error
+        strict = await validate_config(config_path, strict=True)
+        rule_24_errors = [e for e in strict.errors if e.rule == 24]
+        assert len(rule_24_errors) == 1
+        assert not strict.valid
+
+    async def test_strict_mode_no_warnings_remain(self, tmp_path):
+        toml_text = """
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+font = "NonExistentFont"
+font_size = 24
+"""
+        config_path = tmp_path / "config.toml"
+        config_path.write_text(toml_text)
+        strict = await validate_config(config_path, strict=True)
+        assert strict.warnings == []
+
+    async def test_clean_config_valid_in_both_modes(self, tmp_path):
+        toml_text = """
+[display]
+rows = 32
+cols = 64
+chain = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 3.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+"""
+        config_path = tmp_path / "config.toml"
+        config_path.write_text(toml_text)
+        normal = await validate_config(config_path)
+        strict = await validate_config(config_path, strict=True)
+        assert normal.valid
+        assert strict.valid

@@ -46,8 +46,8 @@ if ! python3 -c "import rgbmatrix" 2>/dev/null; then
 fi
 
 # Install the package
-echo "==> Installing led-ticker package..."
-pip install "${REPO_DIR}"
+echo "==> Installing led-ticker package (upgrading if already installed)..."
+pip install --upgrade "${REPO_DIR}"
 
 # Copy config if not present (bigsign gets its own example)
 if [ ! -f "${INSTALL_DIR}/config.toml" ]; then

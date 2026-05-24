@@ -1,5 +1,7 @@
 # led-ticker
 
+[![CI](https://github.com/JamesAwesome/led-ticker/actions/workflows/ci.yml/badge.svg)](https://github.com/JamesAwesome/led-ticker/actions/workflows/ci.yml)
+
 An asyncio Python toolkit that drives RGB LED matrix panels from a Raspberry Pi via a TOML config. Two reference builds share one codebase and one Docker image:
 
 - **Smallsign** — Pi 4 + 5× chained 16×32 panels = 160×16 logical canvas

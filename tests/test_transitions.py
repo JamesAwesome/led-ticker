@@ -461,6 +461,12 @@ class TestWipeUp:
         result = wipe.frame_at(0.5, canvas, make_widget(40), make_widget(40))
         assert result is canvas
 
+    def test_mid_blackout_uses_subfill(self, canvas, make_widget):
+        wipe = WipeUp()
+        # t=0.5: sweep_row=max(0,15-min(8,15))=7; blackout rows [8..15]
+        wipe.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        canvas.SubFill.assert_called_once_with(0, 8, 160, 8, 0, 0, 0)
+
 
 # --- ColorFlash ---
 
@@ -559,6 +565,13 @@ class TestWipeLeft:
         result = wipe.frame_at(0.5, canvas, outgoing, incoming)
         assert result is canvas
 
+    def test_mid_blackout_uses_subfill(self, canvas, make_widget):
+        wipe = WipeLeft()
+        # t=0.5: boundary=min(int(0.5*161),160)=80; line_x=160-80=80
+        # blackout SubFill(80, 0, 80, 16, 0,0,0)
+        wipe.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        canvas.SubFill.assert_called_once_with(80, 0, 80, 16, 0, 0, 0)
+
 
 # --- WipeRight ---
 
@@ -611,6 +624,12 @@ class TestWipeRight:
         wipe = WipeRight()
         result = wipe.frame_at(0.5, canvas, outgoing, incoming)
         assert result is canvas
+
+    def test_mid_blackout_uses_subfill(self, canvas, make_widget):
+        wipe = WipeRight()
+        # t=0.5: boundary=80; blackout SubFill(0, 0, 80, 16, 0,0,0)
+        wipe.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        canvas.SubFill.assert_called_once_with(0, 0, 80, 16, 0, 0, 0)
 
 
 # --- Dissolve ---
@@ -792,6 +811,12 @@ class TestWipeDown:
         wipe = WipeDown()
         result = wipe.frame_at(0.5, canvas, outgoing, incoming)
         assert result is canvas
+
+    def test_mid_blackout_uses_subfill(self, canvas, make_widget):
+        wipe = WipeDown()
+        # t=0.5: sweep_row=min(int(0.5*17),16)=8; blackout rows [0..7]
+        wipe.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        canvas.SubFill.assert_called_once_with(0, 0, 160, 8, 0, 0, 0)
 
 
 # --- Scroll ---

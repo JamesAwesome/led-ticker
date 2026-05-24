@@ -26,7 +26,6 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO_ROOT / "tests" / "stubs"))
 sys.path.insert(0, str(_REPO_ROOT))
 
-import imageio.v2 as imageio  # noqa: E402
 import tomli_w  # noqa: E402
 from PIL import Image  # noqa: E402
 from tools.render_demo.placeholder import (  # noqa: E402
@@ -191,7 +190,13 @@ def render(
         # a scalar); pass the sum as a scalar in that case so a fully-
         # static render still encodes the engine's wall-clock hold.
         encode_duration = durations[0] if len(kept) == 1 else durations
-        imageio.mimsave(out_path, kept, format="GIF", duration=encode_duration, loop=0)
+        kept[0].save(
+            out_path,
+            save_all=True,
+            append_images=kept[1:],
+            duration=encode_duration,
+            loop=0,
+        )
 
 
 def _intervals_ms(timestamps: list[float], end_time: float) -> list[float]:

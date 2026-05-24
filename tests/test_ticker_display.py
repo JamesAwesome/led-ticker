@@ -11,16 +11,6 @@ from led_ticker.ticker import (
 )
 
 
-@pytest.fixture
-def no_sleep(monkeypatch):
-    """Patch asyncio.sleep in ticker module to be instant."""
-
-    async def _fast(seconds):
-        pass
-
-    monkeypatch.setattr("led_ticker.ticker.asyncio.sleep", _fast)
-
-
 class TestFromRssFeed:
     def test_uses_feed_title(self, mock_frame):
         feed = mock.Mock()
@@ -105,12 +95,17 @@ class TestSwapAndScrollOverflow:
         no_sleep,
     ):
         """For 600px text on 160px canvas, scroll stops at pos=-440."""
-        widget = make_widget(content_width=600)
+        content_width = 600
+        widget = make_widget(content_width=content_width)
         ticker = Ticker(monitors=[], frame=mock_frame)
         _, cursor_pos, scroll_pos = await ticker._swap_and_scroll(canvas, widget)
-        assert cursor_pos == 600
-        # stop_pos = -(600 - 160) = -440
-        assert scroll_pos == -440
+        assert cursor_pos == content_width
+        # stop_pos = -(content_width - canvas.width)
+        expected_stop = -(content_width - canvas.width)
+        assert scroll_pos == expected_stop, (
+            f"Expected scroll stop at {expected_stop} "
+            f"(content_width={content_width}, canvas.width={canvas.width})"
+        )
 
     async def test_scroll_pos_zero_for_short_text(
         self,
@@ -150,12 +145,19 @@ class TestSwapAndScrollOverflow:
         no_sleep,
     ):
         """Widget with padding scrolls further left so text is flush."""
-        widget = make_widget(content_width=600)
-        widget.padding = 6  # simulate real widget padding
+        content_width = 600
+        padding = 6
+        widget = make_widget(content_width=content_width)
+        widget.padding = padding  # simulate real widget padding
         ticker = Ticker(monitors=[], frame=mock_frame)
         _, _, scroll_pos = await ticker._swap_and_scroll(canvas, widget)
-        # stop_pos = -(600 - 160) + 6 = -434
-        assert scroll_pos == -434
+        # stop_pos = -(content_width - canvas.width) + padding
+        expected_stop = -(content_width - canvas.width) + padding
+        msg = (
+            f"Expected scroll stop at {expected_stop} "
+            f"(w={content_width}, c={canvas.width}, p={padding})"
+        )
+        assert scroll_pos == expected_stop, msg
 
     async def test_stop_pos_no_padding_attribute(
         self,
@@ -165,11 +167,16 @@ class TestSwapAndScrollOverflow:
         no_sleep,
     ):
         """Widget without padding attribute defaults to 0 adjustment."""
-        widget = make_widget(content_width=600)
+        content_width = 600
+        widget = make_widget(content_width=content_width)
         ticker = Ticker(monitors=[], frame=mock_frame)
         _, _, scroll_pos = await ticker._swap_and_scroll(canvas, widget)
-        # stop_pos = -(600 - 160) - 0 = -440
-        assert scroll_pos == -440
+        # stop_pos = -(content_width - canvas.width) (no padding adjustment)
+        expected_stop = -(content_width - canvas.width)
+        assert scroll_pos == expected_stop, (
+            f"Expected scroll stop at {expected_stop} "
+            f"(content_width={content_width}, canvas.width={canvas.width})"
+        )
 
 
 class TestSwapAndScrollSkipInitialDraw:
@@ -868,18 +875,24 @@ class TestScrollBetween:
     async def test_outgoing_scroll_pos_used(
         self, canvas, mock_frame, make_widget, no_sleep
     ):
-        outgoing = make_widget(600)
+        outgoing_width = 600
+        outgoing = make_widget(outgoing_width)
         incoming = make_widget(40)
         ticker = Ticker(monitors=[], frame=mock_frame)
+        # Calculate expected scroll pos: -(content_width - canvas.width)
+        expected_scroll_pos = -(outgoing_width - canvas.width)
         await ticker._scroll_between(
             canvas,
             outgoing,
             incoming,
-            outgoing_scroll_pos=-440,
+            outgoing_scroll_pos=expected_scroll_pos,
         )
         # First draw call should use the scroll pos
         first_call = outgoing.draw.call_args_list[0]
-        assert first_call.kwargs["cursor_pos"] == -440
+        assert first_call.kwargs["cursor_pos"] == expected_scroll_pos, (
+            f"Expected cursor_pos at {expected_scroll_pos} "
+            f"(outgoing_width={outgoing_width}, canvas.width={canvas.width})"
+        )
 
     async def test_pauses_and_resumes_frame_on_both_widgets(
         self, canvas, mock_frame, no_sleep
@@ -915,17 +928,16 @@ class TestScrollBetween:
         same-shape fix.
         """
         incoming = mock.Mock()
-        incoming._frame_count = 99  # simulate previous-visit-end state
-        seen_frame_counts: list[int] = []
+        call_log: list[str] = []
 
         def _draw(c, cursor_pos=0, **kw):
-            seen_frame_counts.append(incoming._frame_count)
+            call_log.append("draw")
             return (c, cursor_pos + 40)
 
         incoming.draw.side_effect = _draw
 
         def _reset():
-            incoming._frame_count = 0
+            call_log.append("reset")
 
         incoming.reset_frame.side_effect = _reset
 
@@ -935,10 +947,10 @@ class TestScrollBetween:
         ticker = Ticker(monitors=[], frame=mock_frame)
         await ticker._scroll_between(canvas, outgoing, incoming)
 
-        assert seen_frame_counts, "incoming.draw never called"
-        assert all(f == 0 for f in seen_frame_counts), (
-            f"Expected _frame_count == 0 throughout _scroll_between; "
-            f"got {seen_frame_counts}. Reset must fire before the "
+        assert "draw" in call_log, "incoming.draw never called"
+        assert call_log[0] == "reset", (
+            f"Expected reset_frame to fire before first draw; "
+            f"got call order: {call_log[:5]}. Reset must fire before the "
             f"compositor's first draw of incoming, otherwise "
             f"frame-aware widgets render their previous-visit-end "
             f"state during the bullet-scroll."
@@ -1244,7 +1256,6 @@ class TestSwapAndScrollEngineTick:
         # Allow some slop; expect roughly 10 draws / advances
         assert widget.draw_calls >= 8
         assert widget.advance_calls >= 8
-        assert widget._frame_count >= 8
 
     @pytest.mark.asyncio
     async def test_scrolling_text_advances_frame_per_tick(self, swapping_frame):

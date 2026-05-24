@@ -14,16 +14,6 @@ from led_ticker.pixel_emoji import draw_with_emoji, measure_width
 from led_ticker.scaled_canvas import ScaledCanvas
 
 
-def _bigsign_real_canvas():
-    opts = RGBMatrixOptions()
-    opts.cols = 64
-    opts.rows = 32
-    opts.chain_length = 8
-    opts.parallel = 1
-    opts.pixel_mapper_config = "U-mapper"
-    return RGBMatrix(options=opts).CreateFrameCanvas()
-
-
 class TestCountTextChars:
     """Counts text chars excluding emoji slugs — used by callers
     that need to pass an explicit `total_chars` to `draw_with_emoji`
@@ -58,8 +48,8 @@ class TestCountTextChars:
         assert count_text_chars("x:star:y:sun:z") == 3
 
 
-def test_draw_with_emoji_runs_on_scaled_canvas_text_only():
-    real = _bigsign_real_canvas()
+def test_draw_with_emoji_runs_on_scaled_canvas_text_only(bigsign_canvas):
+    real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
     color = (255, 0, 0)
     advance = draw_with_emoji(sc, FONT_SMALL, cursor_pos=0, y=8, color=color, text="HI")
@@ -67,9 +57,9 @@ def test_draw_with_emoji_runs_on_scaled_canvas_text_only():
     assert advance == 10
 
 
-def test_draw_with_emoji_runs_on_scaled_canvas_with_emoji():
+def test_draw_with_emoji_runs_on_scaled_canvas_with_emoji(bigsign_canvas):
     """Emoji segment SetPixels and text segment goes through draw_text."""
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
     color = (255, 255, 255)
     # Should not raise. Baseball emoji is 8 wide; "Hi" follows.
@@ -99,14 +89,14 @@ def test_measure_width_with_emoji():
     assert width > 0
 
 
-def test_measure_width_uses_hires_logical_width_on_scaled_canvas():
+def test_measure_width_uses_hires_logical_width_on_scaled_canvas(bigsign_canvas):
     """Regression: when rendered on a ScaledCanvas, measure_width must
     use the hi-res sprite's logical width — otherwise low-res-shorter
     emoji like :flower: (5 wide low-res, 8 wide at scale=4 hi-res) cause
     overflow-scroll detection to silently fail because measured width
     underestimates rendered width.
     """
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
     # Low-res :flower: is 5 wide; hi-res at scale=4 is 8 logical wide
     no_canvas = measure_width(FONT_SMALL, ":flower:")
@@ -117,12 +107,12 @@ def test_measure_width_uses_hires_logical_width_on_scaled_canvas():
     assert with_canvas == 10
 
 
-def test_measure_width_respects_max_emoji_height():
+def test_measure_width_respects_max_emoji_height(bigsign_canvas):
     """When max_emoji_height forces hi-res→low-res fallback (e.g. two_row
     at scale=2 caps emoji height at 8 logical), measure_width must mirror
     that fallback so cached widths match what gets rendered.
     """
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     # At scale=2, hi-res 32px is 16 logical tall — exceeds the 8-row cap
     sc = ScaledCanvas(real, scale=2)
     capped = measure_width(FONT_SMALL, ":flower:", sc, max_emoji_height=8)
@@ -133,7 +123,7 @@ def test_measure_width_respects_max_emoji_height():
     assert uncapped == 18
 
 
-def test_message_widget_overflow_scroll_with_hires_emoji():
+def test_message_widget_overflow_scroll_with_hires_emoji(bigsign_canvas):
     """Regression for the bigsign bug where 7 hi-res emojis (=70 logical
     px at scale=4) didn't trigger scroll because measure_width returned
     64 (low-res widths sum). Verifies TickerMessage now reports a width
@@ -141,7 +131,7 @@ def test_message_widget_overflow_scroll_with_hires_emoji():
     """
     from led_ticker.widgets.message import TickerMessage
 
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
     msg = TickerMessage(message=":moon::sun::star::instagram::email::baseball::flower:")
     _, cursor_pos = msg.draw(sc, cursor_pos=0)
@@ -168,8 +158,8 @@ def test_instagram_and_email_emojis_registered():
     assert len(registry["email"]) > 0
 
 
-def test_instagram_emoji_renders_through_scaled_canvas():
-    real = _bigsign_real_canvas()
+def test_instagram_emoji_renders_through_scaled_canvas(bigsign_canvas):
+    real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
     advance = draw_with_emoji(
         sc,
@@ -182,8 +172,8 @@ def test_instagram_emoji_renders_through_scaled_canvas():
     assert advance > 0
 
 
-def test_email_emoji_renders_through_scaled_canvas():
-    real = _bigsign_real_canvas()
+def test_email_emoji_renders_through_scaled_canvas(bigsign_canvas):
+    real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
     advance = draw_with_emoji(
         sc,
@@ -204,8 +194,8 @@ def test_moon_emoji_registered():
     assert len(registry["moon"]) > 0
 
 
-def test_moon_emoji_renders_through_scaled_canvas():
-    real = _bigsign_real_canvas()
+def test_moon_emoji_renders_through_scaled_canvas(bigsign_canvas):
+    real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
     advance = draw_with_emoji(
         sc, FONT_SMALL, cursor_pos=0, y=8, color=(255, 255, 255), text=":moon: hi"
@@ -258,7 +248,7 @@ def test_hires_moon_logical_width_matches_lowres():
     assert moon.physical_size == 32  # full canvas height preserved
 
 
-def test_hires_moon_paints_real_canvas_at_physical_resolution():
+def test_hires_moon_paints_real_canvas_at_physical_resolution(bigsign_canvas):
     """Hi-res emoji writes individual physical pixels — proven by checking
     that lit pixels appear at columns NOT divisible by `scale`. The
     low-res path would expand each 8×8 logical pixel into a 4×4 block,
@@ -266,7 +256,7 @@ def test_hires_moon_paints_real_canvas_at_physical_resolution():
     block-aligned. A lit pixel at col 11 (mod 4 = 3) only happens when
     the hi-res path is in use.
     """
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
 
     # y=12 is the standard BDF baseline; iy_default = y - 8 = 4
@@ -287,11 +277,11 @@ def test_hires_moon_paints_real_canvas_at_physical_resolution():
     )
 
 
-def test_hires_falls_back_to_lowres_on_real_canvas():
+def test_hires_falls_back_to_lowres_on_real_canvas(bigsign_canvas):
     """No ScaledCanvas → no hi-res path. The 8×8 :moon: should render
     on the small sign's plain canvas.
     """
-    real = _bigsign_real_canvas()  # not wrapped in ScaledCanvas
+    real = bigsign_canvas  # not wrapped in ScaledCanvas
     advance = draw_with_emoji(
         real,
         FONT_SMALL,
@@ -356,14 +346,14 @@ def test_instagram_hires_has_central_lens_hole():
     assert (16, 16) not in lit
 
 
-def test_max_emoji_height_falls_back_to_lowres():
+def test_max_emoji_height_falls_back_to_lowres(bigsign_canvas):
     """When `max_emoji_height` is below the hi-res sprite's logical
     height, the renderer must fall back to the 8×8 sprite — otherwise
     the hi-res icon overflows the row in a two_row layout (the bug
     seen on the bigsign at scale=2 where 32 physical = 16 logical
     pixels tall, exceeding the 8-tall row band).
     """
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     sc = ScaledCanvas(real, scale=2)  # 32 physical / 2 = 16 logical tall sprite
 
     # First, no cap → hi-res used. Real(11, _) should be lit (non-block-aligned).
@@ -399,9 +389,9 @@ def test_max_emoji_height_falls_back_to_lowres():
 
 
 @pytest.mark.parametrize("slug", ["instagram", "sun", "star", "email"])
-def test_hires_emoji_renders_via_scaled_canvas(slug):
+def test_hires_emoji_renders_via_scaled_canvas(slug, bigsign_canvas):
     """Each new hi-res emoji should render through the wrapper-bypass path."""
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
     advance = draw_with_emoji(
         sc, FONT_SMALL, cursor_pos=0, y=8, color=(255, 255, 255), text=f":{slug}:"
@@ -770,7 +760,9 @@ class TestDrawEmojiAt:
         assert advance == 8 + EMOJI_PADDING
         assert canvas.count_nonzero() > 0
 
-    def test_hires_on_scaled_canvas_routes_through_hires_path(self, monkeypatch):
+    def test_hires_on_scaled_canvas_routes_through_hires_path(
+        self, monkeypatch, bigsign_canvas
+    ):
         """On a ScaledCanvas, draw_emoji_at routes through _draw_hires_emoji.
         Asserted by hooking the private helper — proves the hires gate
         actually fires rather than counting pixels (the lowres-via-wrapper
@@ -781,7 +773,7 @@ class TestDrawEmojiAt:
         from led_ticker.pixel_emoji import draw_emoji_at
         from led_ticker.scaled_canvas import ScaledCanvas
 
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         sc = ScaledCanvas(real, scale=4)
 
         calls: list[str] = []
@@ -801,7 +793,7 @@ class TestDrawEmojiAt:
             "hires gate isn't firing."
         )
 
-    def test_hires_falls_back_when_max_height_too_small(self):
+    def test_hires_falls_back_when_max_height_too_small(self, bigsign_canvas):
         """A two-row caller passes max_emoji_height=4 (canvas.height // 2
         on a 16-tall logical canvas wrapped at scale=2). Hires sprite is
         32 // 2 = 16 logical tall, which exceeds 4 — must fall back to
@@ -809,7 +801,7 @@ class TestDrawEmojiAt:
         from led_ticker.pixel_emoji import EMOJI_PADDING, draw_emoji_at
         from led_ticker.scaled_canvas import ScaledCanvas
 
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         sc = ScaledCanvas(real, scale=2)
         advance = draw_emoji_at(sc, "sun", x=0, y=0, max_emoji_height=4)
         # Lowres advance is 8 + EMOJI_PADDING; hires would be different
@@ -827,7 +819,7 @@ class TestDrawEmojiAt:
         with pytest.raises(KeyError):
             draw_emoji_at(canvas, "definitely_not_a_slug", x=0, y=0)
 
-    def test_partly_cloudy_resolves_via_hires_on_scaled_canvas(self):
+    def test_partly_cloudy_resolves_via_hires_on_scaled_canvas(self, bigsign_canvas):
         """partly_cloudy has a hires variant — `draw_emoji_at` picks it
         on a ScaledCanvas. After auto-trim, lit_w=27 → logical_width(4)
         = ceil(27/4) = 7, so advance = 7 + EMOJI_PADDING.
@@ -835,7 +827,7 @@ class TestDrawEmojiAt:
         from led_ticker.pixel_emoji import EMOJI_PADDING, draw_emoji_at
         from led_ticker.scaled_canvas import ScaledCanvas
 
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         sc = ScaledCanvas(real, scale=4)
         advance = draw_emoji_at(sc, "partly_cloudy", x=0, y=0)
         assert advance == 7 + EMOJI_PADDING
@@ -871,16 +863,18 @@ class TestMeasureEmojiAtMatchesDrawEmojiAt:
 
     @pytest.mark.parametrize("slug", _WEATHER_SLUGS)
     @pytest.mark.parametrize("scale", [2, 4])
-    def test_agrees_on_scaled_canvas(self, slug, scale):
+    def test_agrees_on_scaled_canvas(self, slug, scale, bigsign_canvas):
+        from rgbmatrix import _StubCanvas
+
         from led_ticker.pixel_emoji import draw_emoji_at, measure_emoji_at
         from led_ticker.scaled_canvas import ScaledCanvas
 
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         sc = ScaledCanvas(real, scale=scale)
         measured = measure_emoji_at(sc, slug)
         # Fresh wrapper so the draw doesn't see the previous frame.
         drawn_advance = draw_emoji_at(
-            ScaledCanvas(_bigsign_real_canvas(), scale=scale), slug, 0, 4
+            ScaledCanvas(_StubCanvas(width=256, height=64), scale=scale), slug, 0, 4
         )
         assert measured == drawn_advance, (
             f"measure_emoji_at({slug!r}, scale={scale}) returned "
@@ -889,18 +883,20 @@ class TestMeasureEmojiAtMatchesDrawEmojiAt:
             f"text on top of the icon (scale=2) or with a visible gap."
         )
 
-    def test_max_emoji_height_fallback_agrees(self):
+    def test_max_emoji_height_fallback_agrees(self, bigsign_canvas):
         """When max_emoji_height forces hires→lowres fallback, both
         helpers must agree on the lowres advance."""
+        from rgbmatrix import _StubCanvas
+
         from led_ticker.pixel_emoji import draw_emoji_at, measure_emoji_at
         from led_ticker.scaled_canvas import ScaledCanvas
 
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         sc = ScaledCanvas(real, scale=2)
         # Hires sun at scale=2 is 16 logical tall — max=4 forces lowres.
         measured = measure_emoji_at(sc, "sun", max_emoji_height=4)
         drawn_advance = draw_emoji_at(
-            ScaledCanvas(_bigsign_real_canvas(), scale=2),
+            ScaledCanvas(_StubCanvas(width=256, height=64), scale=2),
             "sun",
             0,
             4,
@@ -926,11 +922,13 @@ class TestMeasureEmojiAt:
         )
 
     def test_hires_on_bigsign_scale_4(self):
+        from rgbmatrix import _StubCanvas
+
         from led_ticker.pixel_emoji import EMOJI_PADDING, measure_emoji_at
         from led_ticker.scaled_canvas import ScaledCanvas
 
         # SUN_HIRES is physical_size=32; at scale=4 logical_width=8.
-        sc = ScaledCanvas(_bigsign_real_canvas(), scale=4)
+        sc = ScaledCanvas(_StubCanvas(width=256, height=64), scale=4)
         assert measure_emoji_at(sc, "sun") == 8 + EMOJI_PADDING
 
     def test_hires_on_bigsign_scale_2(self):
@@ -940,10 +938,12 @@ class TestMeasureEmojiAt:
         constant. After auto-trim sun has lit_w=30 → logical_width(2)
         = ceil(30/2) = 15.
         """
+        from rgbmatrix import _StubCanvas
+
         from led_ticker.pixel_emoji import EMOJI_PADDING, measure_emoji_at
         from led_ticker.scaled_canvas import ScaledCanvas
 
-        sc = ScaledCanvas(_bigsign_real_canvas(), scale=2)
+        sc = ScaledCanvas(_StubCanvas(width=256, height=64), scale=2)
         assert measure_emoji_at(sc, "sun") == 15 + EMOJI_PADDING
 
     def test_unknown_slug_raises(self):
@@ -1254,7 +1254,9 @@ class TestEmojiPaddingSymmetric:
         )
         assert advance == measured
 
-    def test_pride_love_pride_total_width_matches_symmetric_formula(self):
+    def test_pride_love_pride_total_width_matches_symmetric_formula(
+        self, bigsign_canvas
+    ):
         """`:pride: LOVE :pride:` on a bigsign-equivalent ScaledCanvas:
         `measure_width` must return the symmetric-padded total
         `pride_w + PAD + text_w(' LOVE ') + PAD + pride_w + PAD`.
@@ -1269,7 +1271,7 @@ class TestEmojiPaddingSymmetric:
         from led_ticker.pixel_emoji import EMOJI_PADDING, HIRES_REGISTRY, measure_width
         from led_ticker.scaled_canvas import ScaledCanvas
 
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         sc = ScaledCanvas(real, scale=4)
         text = ":pride: LOVE :pride:"
         pride_w = HIRES_REGISTRY["pride"].logical_width(scale=sc.scale)

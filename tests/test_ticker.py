@@ -145,16 +145,6 @@ class TestEnqueueTickerObjects:
         assert results == ["T", 1, 2]
 
 
-@pytest.fixture
-def no_sleep(monkeypatch):
-    _real_sleep = asyncio.sleep
-
-    async def _fast(seconds):
-        await _real_sleep(0)
-
-    monkeypatch.setattr("led_ticker.ticker.asyncio.sleep", _fast)
-
-
 def _make_widget(content_width: int = 40, end_padding: int = 6):
     """Mock widget that mimics TickerMessage's draw return contract:
     cursor_pos returned = pos + content_width + end_padding.

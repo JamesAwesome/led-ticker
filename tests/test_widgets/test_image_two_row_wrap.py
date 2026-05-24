@@ -236,19 +236,6 @@ class TestSeparatorHelpersParameterized:
         assert width_custom > width_default
 
 
-def _bigsign_real_canvas():
-    """Bigsign 2x4 vertical-serpentine canvas (mirrors test_image_text_wrap.py)."""
-    from rgbmatrix import RGBMatrix, RGBMatrixOptions
-
-    opts = RGBMatrixOptions()
-    opts.cols = 64
-    opts.rows = 32
-    opts.chain_length = 8
-    opts.parallel = 1
-    opts.pixel_mapper_config = "U-mapper"
-    return RGBMatrix(options=opts).CreateFrameCanvas()
-
-
 _SWAP_SENTINEL = ("__SWAP__", None)
 
 
@@ -296,7 +283,9 @@ class TestImageTwoRowWrapRenders:
       - top row drawn exactly once per tick, never drifting"""
 
     @pytest.mark.asyncio
-    async def test_bottom_wrap_renders_multiple_copies_per_tick(self, tmp_path, mocker):
+    async def test_bottom_wrap_renders_multiple_copies_per_tick(
+        self, tmp_path, mocker, bigsign_canvas
+    ):
         path = _make_png(tmp_path)
         widget = StillImage(
             path=str(path),
@@ -308,7 +297,7 @@ class TestImageTwoRowWrapRenders:
             scroll_speed_ms=50,
             hold_seconds=1.0,
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
         draws = _capture_draws_per_tick(mocker, frame)
@@ -354,7 +343,9 @@ class TestImageTwoRowWrapRenders:
         )
 
     @pytest.mark.asyncio
-    async def test_top_row_held_during_bottom_wrap(self, tmp_path, mocker):
+    async def test_top_row_held_during_bottom_wrap(
+        self, tmp_path, mocker, bigsign_canvas
+    ):
         """Top row stays at its top_align position even while bottom
         wraps. The top row should be drawn at a SINGLE x per tick."""
         path = _make_png(tmp_path)
@@ -369,7 +360,7 @@ class TestImageTwoRowWrapRenders:
             scroll_speed_ms=50,
             hold_seconds=0.5,
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
         draws = _capture_draws_per_tick(mocker, frame)
@@ -394,7 +385,9 @@ class TestImageTwoRowWrapRenders:
 
 class TestBottomSeparatorColorInheritance:
     @pytest.mark.asyncio
-    async def test_separator_inherits_bottom_color_when_unset(self, tmp_path, mocker):
+    async def test_separator_inherits_bottom_color_when_unset(
+        self, tmp_path, mocker, bigsign_canvas
+    ):
         """text_separator_color=None makes the separator paint with
         bottom_color (NOT font_color — separator is part of the
         bottom row)."""
@@ -414,7 +407,7 @@ class TestBottomSeparatorColorInheritance:
             scroll_speed_ms=50,
             hold_seconds=0.2,
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         frame.matrix.SwapOnVSync.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -442,7 +435,9 @@ class TestBottomSeparatorColorInheritance:
             )
 
     @pytest.mark.asyncio
-    async def test_separator_explicit_overrides_bottom_color(self, tmp_path, mocker):
+    async def test_separator_explicit_overrides_bottom_color(
+        self, tmp_path, mocker, bigsign_canvas
+    ):
         """Setting bottom_text_separator_color overrides inheritance."""
         from led_ticker._compat import require_graphics
 
@@ -460,7 +455,7 @@ class TestBottomSeparatorColorInheritance:
             scroll_speed_ms=50,
             hold_seconds=0.2,
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         frame.matrix.SwapOnVSync.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -489,7 +484,7 @@ class TestBottomSeparatorColorInheritance:
 
 class TestImageTwoRowWrapWithBorder:
     @pytest.mark.asyncio
-    async def test_wrap_with_border_no_crash(self, tmp_path, mocker):
+    async def test_wrap_with_border_no_crash(self, tmp_path, mocker, bigsign_canvas):
         """Border + bottom wrap compose without exception. Assert
         the wrap loop still runs (bottom-row copies drawn per tick)."""
         from led_ticker.borders import RainbowChaseBorder
@@ -506,7 +501,7 @@ class TestImageTwoRowWrapWithBorder:
             scroll_speed_ms=50,
             hold_seconds=0.2,
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
         draws = _capture_draws_per_tick(mocker, frame)
@@ -520,7 +515,9 @@ class TestImageTwoRowWrapWithBorder:
 
 class TestGifPlayerTwoRowWrap:
     @pytest.mark.asyncio
-    async def test_gif_two_row_wrap_renders_multiple_copies(self, tmp_path, mocker):
+    async def test_gif_two_row_wrap_renders_multiple_copies(
+        self, tmp_path, mocker, bigsign_canvas
+    ):
         """Multi-frame gif + bottom wrap. Exercises the interaction
         between _pick_frame_for_elapsed and the wrap render path."""
         from led_ticker.widgets.gif import GifPlayer
@@ -552,7 +549,7 @@ class TestGifPlayerTwoRowWrap:
             gif_loops=2,
         )
 
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
         draws = _capture_draws_per_tick(mocker, frame)

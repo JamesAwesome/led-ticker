@@ -212,7 +212,7 @@ class Shimmer(ColorProviderBase):
 
     per_char: bool = True
     frame_invariant: bool = False
-    restart_on_visit: bool = False
+    restart_on_visit: bool = False  # continuous glide across loop_count boundaries
 
     def __init__(
         self,

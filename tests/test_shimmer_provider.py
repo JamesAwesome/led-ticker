@@ -139,6 +139,7 @@ class TestShimmerColorFor:
         # Should not raise
         c = p.color_for(frame=0, char_index=0, total_chars=1)
         assert c is not None
+        assert isinstance(c, Color)
 
     def test_cycle_repeats(self):
         """After one full cycle, frame 0 and frame cycle_end give same output."""
@@ -166,3 +167,108 @@ class TestShimmerColorFor:
         assert c.red == 255
         assert c.green == 255
         assert c.blue == 0
+
+
+class TestShimmerCoercion:
+    """_coerce_color_provider wiring for shimmer style."""
+
+    def _coerce(self, value):
+        from led_ticker.app.coercion import _coerce_color_provider
+
+        return _coerce_color_provider(value)
+
+    def test_basic_shimmer_dict(self):
+        """Minimal dict returns a Shimmer instance."""
+        from led_ticker.color_providers import Shimmer
+
+        p = self._coerce({"style": "shimmer"})
+        assert isinstance(p, Shimmer)
+
+    def test_defaults_applied(self):
+        """Absent base/shimmer get their documented defaults."""
+        from led_ticker.color_providers import Shimmer
+
+        p = self._coerce({"style": "shimmer"})
+        assert isinstance(p, Shimmer)
+        assert (p._base.red, p._base.green, p._base.blue) == (60, 60, 80)
+        assert (p._shimmer.red, p._shimmer.green, p._shimmer.blue) == (255, 255, 255)
+        assert p.speed == 14.0
+        assert p.width == 8.0
+        assert p.pause == 0.5
+
+    def test_base_rgb_list(self):
+        p = self._coerce({"style": "shimmer", "base": [100, 50, 200]})
+        assert (p._base.red, p._base.green, p._base.blue) == (100, 50, 200)
+
+    def test_shimmer_rgb_list(self):
+        p = self._coerce({"style": "shimmer", "shimmer": [255, 220, 100]})
+        assert (p._shimmer.red, p._shimmer.green, p._shimmer.blue) == (255, 220, 100)
+
+    def test_base_string_white(self):
+        p = self._coerce({"style": "shimmer", "base": "white"})
+        assert (p._base.red, p._base.green, p._base.blue) == (255, 255, 255)
+
+    def test_shimmer_string_gold(self):
+        p = self._coerce({"style": "shimmer", "shimmer": "gold"})
+        assert (p._shimmer.red, p._shimmer.green, p._shimmer.blue) == (255, 200, 50)
+
+    def test_shimmer_string_blue(self):
+        p = self._coerce({"style": "shimmer", "shimmer": "blue"})
+        assert (p._shimmer.red, p._shimmer.green, p._shimmer.blue) == (100, 180, 255)
+
+    def test_shimmer_string_cyan(self):
+        p = self._coerce({"style": "shimmer", "shimmer": "cyan"})
+        assert (p._shimmer.red, p._shimmer.green, p._shimmer.blue) == (0, 220, 220)
+
+    def test_unknown_base_shorthand_raises(self):
+        with pytest.raises(ValueError, match="unknown"):
+            self._coerce({"style": "shimmer", "base": "magenta"})
+
+    def test_unknown_shimmer_shorthand_raises(self):
+        with pytest.raises(ValueError, match="unknown"):
+            self._coerce({"style": "shimmer", "shimmer": "magenta"})
+
+    def test_custom_speed_width_pause(self):
+        p = self._coerce(
+            {
+                "style": "shimmer",
+                "speed": 20.0,
+                "width": 5.0,
+                "pause": 1.5,
+            }
+        )
+        assert p.speed == 20.0
+        assert p.width == 5.0
+        assert p.pause == 1.5
+
+    def test_unknown_kwarg_raises(self):
+        with pytest.raises(ValueError, match="unknown"):
+            self._coerce({"style": "shimmer", "bogus": 42})
+
+    def test_invalid_base_rgb_raises(self):
+        with pytest.raises(ValueError):
+            self._coerce({"style": "shimmer", "base": [300, 0, 0]})
+
+    def test_invalid_shimmer_rgb_raises(self):
+        with pytest.raises(ValueError):
+            self._coerce({"style": "shimmer", "shimmer": [0, 0, -1]})
+
+    def test_all_four_shorthands_resolve(self):
+        """Each shorthand in _SHIMMER_COLOR_SHORTHANDS resolves without error."""
+        from led_ticker.app.coercion import _SHIMMER_COLOR_SHORTHANDS
+
+        for name in _SHIMMER_COLOR_SHORTHANDS:
+            p = self._coerce({"style": "shimmer", "shimmer": name})
+            expected = _SHIMMER_COLOR_SHORTHANDS[name]
+            assert (
+                p._shimmer.red,
+                p._shimmer.green,
+                p._shimmer.blue,
+            ) == expected, f"shorthand {name!r} did not resolve to {expected}"
+
+    def test_shimmer_string_shorthand_plain(self):
+        """Plain string 'shimmer' resolves to a Shimmer instance with defaults."""
+        from led_ticker.color_providers import Shimmer
+
+        p = self._coerce("shimmer")
+        assert isinstance(p, Shimmer)

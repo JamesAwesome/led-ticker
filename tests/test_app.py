@@ -2189,39 +2189,39 @@ class TestProviderFromStyleErrorMessages:
 
 
 class TestUnknownKwargAllowlist:
-    """_build_widget raises a clear ValueError (not TypeError) for unknown
+    """validate_widget_cfg raises a clear ValueError (not TypeError) for unknown
     widget fields, surfacing at validate-time instead of startup."""
 
     @pytest.mark.asyncio
     async def test_typo_field_raises_value_error(self):
-        from led_ticker.app import _build_widget
+        from led_ticker.app.factories import validate_widget_cfg
 
         cfg = {"type": "message", "text": "hi", "text_color": [255, 0, 0]}
         with pytest.raises(ValueError, match="got unknown field"):
-            await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+            await validate_widget_cfg(cfg, session=None)
 
     @pytest.mark.asyncio
     async def test_did_you_mean_suggestion_included(self):
         """font_clor → suggests font_color via difflib."""
-        from led_ticker.app import _build_widget
+        from led_ticker.app.factories import validate_widget_cfg
 
         cfg = {"type": "message", "text": "hi", "font_clor": [255, 0, 0]}
         with pytest.raises(ValueError, match="did you mean 'font_color'"):
-            await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+            await validate_widget_cfg(cfg, session=None)
 
     @pytest.mark.asyncio
     async def test_no_suggestion_for_random_garbage(self):
         """Completely unlike any field → error still raised, no suggestion."""
-        from led_ticker.app import _build_widget
+        from led_ticker.app.factories import validate_widget_cfg
 
         cfg = {"type": "message", "text": "hi", "xyz_not_a_field": 1}
         with pytest.raises(ValueError, match="got unknown field"):
-            await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+            await validate_widget_cfg(cfg, session=None)
 
     @pytest.mark.asyncio
     async def test_multiple_unknown_fields_all_reported(self):
         """Both bad keys appear in the error message."""
-        from led_ticker.app import _build_widget
+        from led_ticker.app.factories import validate_widget_cfg
 
         cfg = {
             "type": "message",
@@ -2230,12 +2230,12 @@ class TestUnknownKwargAllowlist:
             "alignement": "left",
         }
         with pytest.raises(ValueError, match="got unknown fields"):
-            await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+            await validate_widget_cfg(cfg, session=None)
 
     @pytest.mark.asyncio
     async def test_valid_fields_do_not_raise(self):
         """Sanity check: a well-formed message config passes the allowlist."""
-        from led_ticker.app import _build_widget
+        from led_ticker.app.factories import validate_widget_cfg
 
         cfg = {
             "type": "message",
@@ -2244,39 +2244,39 @@ class TestUnknownKwargAllowlist:
             "center": True,
             "padding": 4,
         }
-        result = await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
-        assert result is None  # validate_only=True returns None on success
+        result = await validate_widget_cfg(cfg, session=None)
+        assert result is None  # validate_widget_cfg returns None on success
 
     @pytest.mark.asyncio
     async def test_fires_at_runtime_not_only_validate(self):
-        """The check runs even when validate_only=False (before cls(**widget_cfg))."""
+        """The check runs even during full _build_widget (before cls(**widget_cfg))."""
         from led_ticker.app import _build_widget
 
         cfg = {"type": "message", "text": "hi", "text_color": [255, 0, 0]}
         with pytest.raises(ValueError, match="got unknown field"):
-            await _build_widget(cfg, session=None, validate_only=False)  # type: ignore[arg-type]
+            await _build_widget(cfg, session=None)  # type: ignore[arg-type]
 
     @pytest.mark.asyncio
     async def test_update_interval_on_data_widget_does_not_raise(self):
         """update_interval is accepted by cls.start(), not an attrs field —
         must not be flagged as unknown."""
-        from led_ticker.app import _build_widget
+        from led_ticker.app.factories import validate_widget_cfg
 
         cfg = {
             "type": "weather",
             "location": "New York",
             "update_interval": 7200,
         }
-        # validate_only=True returns before calling cls.start(), so no
-        # real API key is needed — and the real start() signature is
+        # validate_widget_cfg runs all validation without calling cls.start(),
+        # so no real API key is needed — and the real start() signature is
         # intact for inspect.signature() to find update_interval.
-        result = await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+        result = await validate_widget_cfg(cfg, session=None)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_genuinely_unknown_field_on_data_widget_still_raises(self):
         """Unknown field not in start() params on a data widget is still caught."""
-        from led_ticker.app import _build_widget
+        from led_ticker.app.factories import validate_widget_cfg
 
         cfg = {
             "type": "weather",
@@ -2284,7 +2284,7 @@ class TestUnknownKwargAllowlist:
             "xyz_bad_field": "bad",
         }
         with pytest.raises(ValueError, match="got unknown field"):
-            await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+            await validate_widget_cfg(cfg, session=None)
 
 
 class TestListWidgetFields:
@@ -2346,7 +2346,7 @@ class TestSingleRowColorGuard:
     @pytest.mark.asyncio
     async def test_top_color_on_single_row_gif_raises(self):
         """top_color on a gif without bottom_text must raise — not silently vanish."""
-        from led_ticker.app import _build_widget
+        from led_ticker.app.factories import validate_widget_cfg
 
         cfg = {
             "type": "gif",
@@ -2355,12 +2355,12 @@ class TestSingleRowColorGuard:
             "top_color": [255, 220, 70],
         }
         with pytest.raises(ValueError, match="two-row mode"):
-            await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+            await validate_widget_cfg(cfg, session=None)
 
     @pytest.mark.asyncio
     async def test_bottom_color_on_single_row_image_raises(self):
         """bottom_color on single-row image must raise — not silently ignored."""
-        from led_ticker.app import _build_widget
+        from led_ticker.app.factories import validate_widget_cfg
 
         cfg = {
             "type": "image",
@@ -2369,12 +2369,12 @@ class TestSingleRowColorGuard:
             "bottom_color": [255, 150, 190],
         }
         with pytest.raises(ValueError, match="two-row mode"):
-            await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+            await validate_widget_cfg(cfg, session=None)
 
     @pytest.mark.asyncio
     async def test_top_color_on_two_row_gif_does_not_raise(self):
         """top_color is valid when bottom_text is set (two-row mode)."""
-        from led_ticker.app import _build_widget
+        from led_ticker.app.factories import validate_widget_cfg
 
         cfg = {
             "type": "gif",
@@ -2385,8 +2385,8 @@ class TestSingleRowColorGuard:
             "top_color": [255, 220, 70],
             "bottom_color": [255, 150, 190],
         }
-        result = await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
-        assert result is None  # validate_only returns None on success
+        result = await validate_widget_cfg(cfg, session=None)
+        assert result is None  # validate_widget_cfg returns None on success
 
 
 class TestPerSectionQueue:
@@ -2716,3 +2716,45 @@ class TestValidateCfgFields:
 
         cfg = {"message": "hello"}
         _validate_cfg_fields(cfg, TickerMessage, "message")  # must not raise
+
+
+class TestValidateWidgetCfg:
+    async def test_validate_raises_on_unknown_field(self, tmp_path):
+        from led_ticker.app.factories import validate_widget_cfg
+
+        cfg = {"type": "message", "text": "hello", "invalid_field": "value"}
+        with pytest.raises(ValueError, match="invalid_field"):
+            await validate_widget_cfg(cfg, session=None, config_dir=tmp_path)
+
+    async def test_validate_raises_on_migration_error(self, tmp_path):
+        from led_ticker.app.factories import validate_widget_cfg
+        from led_ticker.validate import MigrationError
+
+        cfg = {"type": "message", "text": "hello", "text_scale": 2}
+        with pytest.raises(MigrationError):
+            await validate_widget_cfg(cfg, session=None, config_dir=tmp_path)
+
+    async def test_validate_does_not_instantiate(self, tmp_path, monkeypatch):
+        import led_ticker.widgets.message as msg_module
+        from led_ticker.app.factories import validate_widget_cfg
+
+        constructed = []
+        original_init = msg_module.TickerMessage.__init__
+
+        def _spy_init(self, *args, **kwargs):
+            constructed.append(1)
+            original_init(self, *args, **kwargs)
+
+        monkeypatch.setattr(msg_module.TickerMessage, "__init__", _spy_init)
+
+        cfg = {"type": "message", "text": "hello"}
+        await validate_widget_cfg(cfg, session=None, config_dir=tmp_path)
+        assert not constructed
+
+    def test_build_widget_has_no_validate_only_parameter(self):
+        import inspect
+
+        from led_ticker.app.factories import _build_widget
+
+        params = inspect.signature(_build_widget).parameters
+        assert "validate_only" not in params

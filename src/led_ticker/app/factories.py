@@ -235,6 +235,9 @@ async def validate_widget_cfg(
 
     Raises ValueError, MigrationError, or other exceptions on invalid config.
     Mutates widget_cfg in-place (type is popped, values coerced).
+
+    `session` is accepted for signature parity with `_build_widget` and is not
+    used during validation — validation never calls data-widget `.start()`.
     """
     from led_ticker.validate import MigrationError
 

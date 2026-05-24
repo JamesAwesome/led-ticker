@@ -1736,7 +1736,7 @@ class TestRunTransitionCrossScale:
         from PIL import Image
 
         from led_ticker.scaled_canvas import ScaledCanvas
-        from led_ticker.ticker import _play_widget
+        from led_ticker.ticker import Ticker
         from led_ticker.widgets.gif import GifPlayer
 
         # Tiny 1-frame gif for the incoming side
@@ -1767,7 +1767,8 @@ class TestRunTransitionCrossScale:
         # Step 2: hand the new wrapper to _play_widget (the real handoff
         # path used by _show_one in run_swap).
         with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
-            result = await _play_widget(new_wrapper, bigsign_frame, incoming)
+            ticker = Ticker(monitors=[], frame=bigsign_frame)
+            result = await ticker._play_widget(new_wrapper, incoming)
 
         # Result is still the wrapper (rebound to the new back-buffer)
         assert result is new_wrapper

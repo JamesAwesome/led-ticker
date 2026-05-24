@@ -8,12 +8,6 @@ import pytest
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.ticker import (
     Ticker,
-    _play_widget,
-    _run_swap,
-    _scroll_and_delay,
-    _scroll_between,
-    _show_one,
-    _swap_and_scroll,
 )
 
 
@@ -53,9 +47,8 @@ class TestFromRssFeed:
 class TestSwapAndScroll:
     async def test_fits_in_canvas(self, canvas, mock_frame, make_widget, no_sleep):
         widget = make_widget(content_width=40)
-        result_canvas, pos, scroll_pos = await _swap_and_scroll(
-            canvas, mock_frame, widget
-        )
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        result_canvas, pos, scroll_pos = await ticker._swap_and_scroll(canvas, widget)
         assert result_canvas is canvas
         assert pos == 40
         assert scroll_pos == 0  # no scrolling needed
@@ -70,7 +63,8 @@ class TestSwapAndScroll:
         no_sleep,
     ):
         widget = make_widget(content_width=200)
-        await _swap_and_scroll(canvas, mock_frame, widget)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._swap_and_scroll(canvas, widget)
         # Should have scrolled the full text (many draw calls)
         assert widget.draw.call_count > 10
 
@@ -84,7 +78,8 @@ class TestSwapAndScrollOverflow:
         no_sleep,
     ):
         widget = make_widget(content_width=200)
-        await _swap_and_scroll(canvas, mock_frame, widget)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._swap_and_scroll(canvas, widget)
         # Should have called draw many times to scroll the full text
         assert widget.draw.call_count > 10
 
@@ -96,7 +91,8 @@ class TestSwapAndScrollOverflow:
         no_sleep,
     ):
         widget = make_widget(content_width=100)
-        await _swap_and_scroll(canvas, mock_frame, widget)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._swap_and_scroll(canvas, widget)
         # Tick loop calls draw multiple times during the held-text hold;
         # no scroll draw calls occur since the text fits.
         assert widget.draw.call_count >= 1
@@ -110,7 +106,8 @@ class TestSwapAndScrollOverflow:
     ):
         """For 600px text on 160px canvas, scroll stops at pos=-440."""
         widget = make_widget(content_width=600)
-        _, cursor_pos, scroll_pos = await _swap_and_scroll(canvas, mock_frame, widget)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, cursor_pos, scroll_pos = await ticker._swap_and_scroll(canvas, widget)
         assert cursor_pos == 600
         # stop_pos = -(600 - 160) = -440
         assert scroll_pos == -440
@@ -124,7 +121,8 @@ class TestSwapAndScrollOverflow:
     ):
         """Short text that fits on screen returns scroll_pos=0."""
         widget = make_widget(content_width=100)
-        _, _, scroll_pos = await _swap_and_scroll(canvas, mock_frame, widget)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, _, scroll_pos = await ticker._swap_and_scroll(canvas, widget)
         assert scroll_pos == 0
 
     async def test_scroll_stop_position_math(
@@ -137,7 +135,8 @@ class TestSwapAndScrollOverflow:
         """Verify stop_pos formula: -(content_width - canvas_width)."""
         for width in [200, 320, 500, 1000]:
             widget = make_widget(content_width=width)
-            _, _, scroll_pos = await _swap_and_scroll(canvas, mock_frame, widget)
+            ticker = Ticker(monitors=[], frame=mock_frame)
+            _, _, scroll_pos = await ticker._swap_and_scroll(canvas, widget)
             expected = -(width - canvas.width)
             assert (
                 scroll_pos == expected
@@ -153,7 +152,8 @@ class TestSwapAndScrollOverflow:
         """Widget with padding scrolls further left so text is flush."""
         widget = make_widget(content_width=600)
         widget.padding = 6  # simulate real widget padding
-        _, _, scroll_pos = await _swap_and_scroll(canvas, mock_frame, widget)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, _, scroll_pos = await ticker._swap_and_scroll(canvas, widget)
         # stop_pos = -(600 - 160) + 6 = -434
         assert scroll_pos == -434
 
@@ -166,7 +166,8 @@ class TestSwapAndScrollOverflow:
     ):
         """Widget without padding attribute defaults to 0 adjustment."""
         widget = make_widget(content_width=600)
-        _, _, scroll_pos = await _swap_and_scroll(canvas, mock_frame, widget)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, _, scroll_pos = await ticker._swap_and_scroll(canvas, widget)
         # stop_pos = -(600 - 160) - 0 = -440
         assert scroll_pos == -440
 
@@ -182,8 +183,9 @@ class TestSwapAndScrollSkipInitialDraw:
         self, canvas, mock_frame, make_widget, no_sleep
     ):
         widget = make_widget(content_width=40)
-        await _swap_and_scroll(
-            canvas, mock_frame, widget, skip_initial_draw=True, hold_time=0.05
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._swap_and_scroll(
+            canvas, widget, skip_initial_draw=True, hold_time=0.05
         )
         # skip_initial_draw=True suppresses the initial swap; the tick loop
         # still runs for the hold. Verify that fewer swaps occurred vs the
@@ -199,7 +201,8 @@ class TestSwapAndScrollSkipInitialDraw:
         # Default path includes the initial swap + tick loop swaps.
         # With hold_time=0.05 → 1 tick → total 2 swaps (initial + 1 tick).
         widget = make_widget(content_width=40)
-        await _swap_and_scroll(canvas, mock_frame, widget, hold_time=0.05)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=0.05)
         assert mock_frame.matrix.SwapOnVSync.call_count == 2
 
 
@@ -222,9 +225,8 @@ class TestSwapAndScrollContinuous:
         monkeypatch.setattr("led_ticker.ticker.asyncio.sleep", _record)
 
         widget = make_widget(content_width=200)  # overflows 160-wide canvas
-        await _swap_and_scroll(
-            canvas, mock_frame, widget, hold_time=3.0, continuous=True
-        )
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=3.0, continuous=True)
         # No 3-second hold_time sleeps should appear when continuous=True.
         assert (
             3.0 not in sleep_calls
@@ -253,9 +255,8 @@ class TestSwapAndScrollContinuous:
         )
 
         widget = make_widget(content_width=200)
-        await _swap_and_scroll(
-            canvas, mock_frame, widget, hold_time=0.1, continuous=False
-        )
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=0.1, continuous=False)
         # With the tick loop, hold_time=0.1s produces 2 ticks (max(1, 100//50))
         # per hold phase, each sleeping ENGINE_TICK_MS/1000 = 0.05s.
         # For an overflow widget: pre-scroll hold + post-scroll hold → 4 tick sleeps
@@ -281,7 +282,7 @@ class TestTickDriftCompensation:
     async def test_swap_and_scroll_held_text_subtracts_work_time(
         self, canvas, mock_frame, make_widget, monkeypatch
     ):
-        from led_ticker.ticker import ENGINE_TICK_MS, _swap_and_scroll
+        from led_ticker.ticker import ENGINE_TICK_MS
 
         sleep_calls: list[float] = []
 
@@ -300,7 +301,8 @@ class TestTickDriftCompensation:
         )
 
         widget = make_widget(content_width=40)  # fits canvas → held-text branch
-        await _swap_and_scroll(canvas, mock_frame, widget, hold_time=0.05)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=0.05)
 
         tick_s = ENGINE_TICK_MS / 1000  # 0.05
         expected = tick_s - 0.030  # 0.020
@@ -312,7 +314,7 @@ class TestTickDriftCompensation:
     async def test_scroll_and_delay_subtracts_work_time(
         self, canvas, mock_frame, make_widget, no_sleep, monkeypatch
     ):
-        from led_ticker.ticker import ENGINE_TICK_MS, _scroll_and_delay
+        from led_ticker.ticker import ENGINE_TICK_MS
 
         sleep_calls: list[float] = []
 
@@ -329,9 +331,8 @@ class TestTickDriftCompensation:
         )
 
         widget = make_widget(content_width=40)
-        canvas_result, _ = await _scroll_and_delay(
-            canvas, mock_frame, widget, delay=0.1
-        )
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        canvas_result, _ = await ticker._scroll_and_delay(canvas, widget, delay=0.1)
 
         tick_s = ENGINE_TICK_MS / 1000  # 0.05
         expected = tick_s - 0.020  # 0.030
@@ -358,7 +359,8 @@ class TestSwapOnVSyncCapture:
     ):
         widget = make_widget(content_width=200)  # overflow → multiple frames
         canvas = swapping_frame.get_clean_canvas()
-        await _swap_and_scroll(canvas, swapping_frame, widget)
+        ticker = Ticker(monitors=[], frame=swapping_frame)
+        await ticker._swap_and_scroll(canvas, widget)
 
         canvas_args = {id(call.args[0]) for call in widget.draw.call_args_list}
         assert len(canvas_args) >= 2, (
@@ -401,9 +403,8 @@ class TestScrollAndDelay:
         self, canvas, mock_frame, make_widget, no_sleep
     ):
         widget = make_widget(content_width=40)
-        _, pos = await _scroll_and_delay(
-            canvas, mock_frame, widget, delay=0, cursor_pos=5
-        )
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, pos = await ticker._scroll_and_delay(canvas, widget, delay=0, cursor_pos=5)
         assert pos > 0
         assert widget.draw.call_count >= 5
 
@@ -411,9 +412,8 @@ class TestScrollAndDelay:
         self, canvas, mock_frame, make_widget, no_sleep
     ):
         widget = make_widget(content_width=40)
-        _, pos = await _scroll_and_delay(
-            canvas, mock_frame, widget, delay=0, cursor_pos=0
-        )
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, pos = await ticker._scroll_and_delay(canvas, widget, delay=0, cursor_pos=0)
         # Initial draw + the post-scroll hold tick loop's draw
         # (n_ticks=max(1, 0//50)=1) — 2 calls total. Without the tick
         # loop this would be 1.
@@ -432,13 +432,14 @@ class TestScrollAndDelay:
         widget.draw.side_effect = lambda c, cursor_pos=0, **kw: (c, cursor_pos + 40)
         widget._advance_frame_count = 0
 
-        def _advance():
+        def _advance(**kwargs):
             widget._advance_frame_count += 1
 
         widget.advance_frame.side_effect = _advance
 
+        ticker = Ticker(monitors=[], frame=mock_frame)
         # cursor_pos=5 → 5 scroll-in iterations + 1 post-scroll tick (delay=0).
-        await _scroll_and_delay(canvas, mock_frame, widget, delay=0, cursor_pos=5)
+        await ticker._scroll_and_delay(canvas, widget, delay=0, cursor_pos=5)
 
         assert widget._advance_frame_count == 6, (
             f"Expected 6 advance_frame calls (5 scroll-in + 1 post-scroll); "
@@ -462,13 +463,14 @@ class TestScrollAndDelay:
         widget.draw.side_effect = lambda c, cursor_pos=0, **kw: (c, cursor_pos + 40)
         widget._advance_frame_count = 0
 
-        def _advance():
+        def _advance(**kwargs):
             widget._advance_frame_count += 1
 
         widget.advance_frame.side_effect = _advance
 
+        ticker = Ticker(monitors=[], frame=mock_frame)
         # delay=0.5s @ ENGINE_TICK_MS=50ms → 10 ticks expected.
-        await _scroll_and_delay(canvas, mock_frame, widget, delay=0.5, cursor_pos=0)
+        await ticker._scroll_and_delay(canvas, widget, delay=0.5, cursor_pos=0)
 
         assert widget._advance_frame_count == 10
 
@@ -482,8 +484,6 @@ class TestScrollOneByOne:
         """Hardware bug: smoke §17 (RSS feed + rainbow) rendered as
         a static gradient because _scroll_one_by_one's while loop
         never advanced the widget's frame counter."""
-        from led_ticker.ticker import _scroll_one_by_one
-
         widget = mock.Mock()
         # Widget is 5 wide; scrolls until final_pos < 0. Starting at
         # cursor_pos=0, final_pos = 5 first tick, then cursor_pos
@@ -492,7 +492,7 @@ class TestScrollOneByOne:
         widget.draw.side_effect = lambda c, cursor_pos=0: (c, cursor_pos + 5)
         widget._advance_frame_count = 0
 
-        def _advance():
+        def _advance(**kwargs):
             widget._advance_frame_count += 1
 
         widget.advance_frame.side_effect = _advance
@@ -500,7 +500,10 @@ class TestScrollOneByOne:
         queue = asyncio.Queue()
         await queue.put(widget)
 
-        await _scroll_one_by_one(canvas, mock_frame, queue, scroll_speed=0)
+        ticker = Ticker(
+            monitors=[], frame=mock_frame, notif_queue=queue, scroll_speed=0
+        )
+        await ticker._scroll_one_by_one(canvas)
 
         # Loop ran for ~6 ticks before final_pos < 0 broke it (cursor=0,-1,-2,...).
         # advance_frame must have been called once per tick — at minimum 1.
@@ -559,8 +562,6 @@ class TestScrollSideBySide:
         scroll-in. Every draw afterward is part of the hold and must
         be at the SAME cursor_pos as the initial held-position draw.
         """
-        from led_ticker.ticker import _scroll_side_by_side
-
         draw_positions: list[int] = []
         widget = mock.Mock()
 
@@ -574,9 +575,10 @@ class TestScrollSideBySide:
         queue = asyncio.Queue()
         await queue.put(widget)
 
-        await _scroll_side_by_side(
-            canvas, mock_frame, queue, scroll_speed=0, hold_at_end=0.2
+        ticker = Ticker(
+            monitors=[], frame=mock_frame, notif_queue=queue, scroll_speed=0
         )
+        await ticker._scroll_side_by_side(canvas, hold_at_end=0.2)
 
         # First draw establishes the held end-position; every hold
         # tick must redraw at that same pos. Variation = visual snap.
@@ -599,14 +601,12 @@ class TestScrollSideBySide:
         providers (rainbow, color_cycle) keep sweeping. Without this,
         the rainbow freezes the moment the text stops moving — visible
         on hardware as smoke §17 RSS feed."""
-        from led_ticker.ticker import _scroll_side_by_side
-
         widget = mock.Mock()
         widget.draw.side_effect = lambda c, cursor_pos=0: (c, cursor_pos + 30)
         widget._advance_frame_count = 0
         widget.bg_color = None
 
-        def _advance():
+        def _advance(**kwargs):
             widget._advance_frame_count += 1
 
         widget.advance_frame.side_effect = _advance
@@ -617,9 +617,10 @@ class TestScrollSideBySide:
         # hold_at_end=0.5s @ ENGINE_TICK_MS=50ms → ≥10 hold ticks
         # expected, plus a small number of scroll-in ticks before
         # the hold begins.
-        await _scroll_side_by_side(
-            canvas, mock_frame, queue, scroll_speed=0, hold_at_end=0.5
+        ticker = Ticker(
+            monitors=[], frame=mock_frame, notif_queue=queue, scroll_speed=0
         )
+        await ticker._scroll_side_by_side(canvas, hold_at_end=0.5)
 
         assert widget._advance_frame_count >= 10, (
             f"Expected ≥10 advance_frame calls covering the 0.5s "
@@ -635,7 +636,6 @@ class TestScrollSideBySide:
         widget per tick. Animated providers (rainbow, color_cycle)
         on any of them must animate. Without per-tick advance, all
         scrolling stories freeze on their visit-initial hue."""
-        from led_ticker.ticker import _scroll_side_by_side
 
         def _make_widget(width: int):
             w = mock.Mock()
@@ -643,7 +643,7 @@ class TestScrollSideBySide:
             w._advance_frame_count = 0
             w.bg_color = None
 
-            def _advance():
+            def _advance(**kwargs):
                 w._advance_frame_count += 1
 
             w.advance_frame.side_effect = _advance
@@ -655,9 +655,10 @@ class TestScrollSideBySide:
         await queue.put(w1)
         await queue.put(w2)
 
-        await _scroll_side_by_side(
-            canvas, mock_frame, queue, scroll_speed=0, hold_at_end=0
+        ticker = Ticker(
+            monitors=[], frame=mock_frame, notif_queue=queue, scroll_speed=0
         )
+        await ticker._scroll_side_by_side(canvas, hold_at_end=0)
 
         # Both widgets should have been advanced. Not asserting an
         # exact count — the loop runs many ticks scrolling everything
@@ -681,7 +682,8 @@ class TestRunSwap:
         w2 = make_widget(40)
         await q.put(w1)
         await q.put(w2)
-        await _run_swap(canvas, mock_frame, q)
+        ticker = Ticker(monitors=[], frame=mock_frame, notif_queue=q)
+        await ticker._run_swap(canvas)
         assert w1.draw.called
         assert w2.draw.called
 
@@ -689,7 +691,8 @@ class TestRunSwap:
         q = asyncio.Queue()
         w = make_widget(40)
         await q.put(w)
-        await _run_swap(canvas, mock_frame, q)
+        ticker = Ticker(monitors=[], frame=mock_frame, notif_queue=q)
+        await ticker._run_swap(canvas)
         assert w.draw.called
 
 
@@ -716,7 +719,8 @@ class TestRunSwapPlayDispatch:
         widget = _PlayOnly()
         q = asyncio.Queue()
         await q.put(widget)
-        await _run_swap(canvas, mock_frame, q)
+        ticker = Ticker(monitors=[], frame=mock_frame, notif_queue=q)
+        await ticker._run_swap(canvas)
 
         # play() ran with gif_loops=3; draw() was not invoked
         assert widget.play_calls == [3]
@@ -742,11 +746,12 @@ class TestRunSwapPlayDispatch:
         widget = _Recorder()
 
         # Wrapped (bigsign): scale should propagate
-        await _play_widget(ScaledCanvas(real, scale=4), mock_frame, widget)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._play_widget(ScaledCanvas(real, scale=4), widget)
         assert widget._logical_scale == 4
 
         # Unwrapped (small sign): scale should reset to 1
-        await _play_widget(_StubCanvas(width=160, height=16), mock_frame, widget)
+        await ticker._play_widget(_StubCanvas(width=160, height=16), widget)
         assert widget._logical_scale == 1
 
     async def test_play_widget_preserves_scaled_wrapper(self, mock_frame):
@@ -775,7 +780,8 @@ class TestRunSwapPlayDispatch:
         wrapper = ScaledCanvas(real, scale=4)
         widget = _Recorder()
 
-        out = await _play_widget(wrapper, mock_frame, widget)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        out = await ticker._play_widget(wrapper, widget)
 
         # Same wrapper returned, now pointing at the new back-buffer
         assert out is wrapper
@@ -798,7 +804,8 @@ class TestRunSwapPlayDispatch:
         mock_frame.matrix.SwapOnVSync.return_value = _StubCanvas(width=160, height=16)
         widget = _HoldCapture()
 
-        await _play_widget(plain_canvas, mock_frame, widget, section_hold_time=8.0)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._play_widget(plain_canvas, widget, section_hold_time=8.0)
 
         assert received.get("hold_time") == 8.0
 
@@ -826,7 +833,8 @@ class TestRunSwapPlayDispatch:
         q = asyncio.Queue()
         await q.put(title)
         await q.put(gif)
-        await _run_swap(canvas, mock_frame, q)
+        ticker = Ticker(monitors=[], frame=mock_frame, notif_queue=q)
+        await ticker._run_swap(canvas)
 
         assert title.draw.called
         assert gif.played == 1
@@ -836,9 +844,9 @@ class TestScrollBetween:
     async def test_returns_pos_zero(self, canvas, mock_frame, make_widget, no_sleep):
         outgoing = make_widget(40)
         incoming = make_widget(40)
-        _, scroll_pos = await _scroll_between(
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, scroll_pos = await ticker._scroll_between(
             canvas,
-            mock_frame,
             outgoing,
             incoming,
             outgoing_scroll_pos=0,
@@ -848,9 +856,9 @@ class TestScrollBetween:
     async def test_both_widgets_drawn(self, canvas, mock_frame, make_widget, no_sleep):
         outgoing = make_widget(40)
         incoming = make_widget(40)
-        await _scroll_between(
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._scroll_between(
             canvas,
-            mock_frame,
             outgoing,
             incoming,
         )
@@ -862,9 +870,9 @@ class TestScrollBetween:
     ):
         outgoing = make_widget(600)
         incoming = make_widget(40)
-        await _scroll_between(
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._scroll_between(
             canvas,
-            mock_frame,
             outgoing,
             incoming,
             outgoing_scroll_pos=-440,
@@ -887,7 +895,8 @@ class TestScrollBetween:
         incoming = mock.Mock()
         incoming.draw.side_effect = lambda c, cursor_pos=0: (c, cursor_pos + 40)
 
-        await _scroll_between(canvas, mock_frame, outgoing, incoming)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._scroll_between(canvas, outgoing, incoming)
 
         outgoing.pause_frame.assert_called_once()
         outgoing.resume_frame.assert_called_once()
@@ -923,7 +932,8 @@ class TestScrollBetween:
         outgoing = mock.Mock()
         outgoing.draw.side_effect = lambda c, cursor_pos=0: (c, cursor_pos + 40)
 
-        await _scroll_between(canvas, mock_frame, outgoing, incoming)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._scroll_between(canvas, outgoing, incoming)
 
         assert seen_frame_counts, "incoming.draw never called"
         assert all(f == 0 for f in seen_frame_counts), (
@@ -946,8 +956,9 @@ class TestScrollBetween:
         # Force an exception during the loop.
         mock_frame.matrix.SwapOnVSync.side_effect = RuntimeError("simulated")
 
+        ticker = Ticker(monitors=[], frame=mock_frame)
         with pytest.raises(RuntimeError):
-            await _scroll_between(canvas, mock_frame, outgoing, incoming)
+            await ticker._scroll_between(canvas, outgoing, incoming)
 
         outgoing.resume_frame.assert_called_once()
         incoming.resume_frame.assert_called_once()
@@ -970,7 +981,10 @@ class TestRunSwapWithScroll:
         trans.transition_obj = Scroll()
         trans.duration = 4.0
         trans.easing = "linear"
-        await _run_swap(canvas, mock_frame, q, transition=trans)
+        ticker = Ticker(
+            monitors=[], frame=mock_frame, notif_queue=q, transition_config=trans
+        )
+        await ticker._run_swap(canvas)
         assert w1.draw.called
         assert w2.draw.called
         assert w3.draw.called
@@ -990,7 +1004,10 @@ class TestRunSwapWithScroll:
         trans.transition_obj = PushLeft()
         trans.duration = 0.5
         trans.easing = "linear"
-        await _run_swap(canvas, mock_frame, q, transition=trans)
+        ticker = Ticker(
+            monitors=[], frame=mock_frame, notif_queue=q, transition_config=trans
+        )
+        await ticker._run_swap(canvas)
         assert w1.draw.called
         assert w2.draw.called
 
@@ -1038,8 +1055,6 @@ class TestSwapAndScrollUsesResetCanvas:
     async def test_no_bg_calls_clear(self, mock_frame):
         import unittest.mock as mock_mod
 
-        from led_ticker.ticker import _swap_and_scroll
-
         canvas = mock_mod.MagicMock()
         canvas.width = 160
         canvas.height = 16
@@ -1047,7 +1062,8 @@ class TestSwapAndScrollUsesResetCanvas:
         widget.bg_color = None
         widget.draw.return_value = (canvas, 100)
 
-        await _swap_and_scroll(canvas, mock_frame, widget, hold_time=0.0)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=0.0)
 
         canvas.Clear.assert_called()
         canvas.Fill.assert_not_called()
@@ -1058,8 +1074,6 @@ class TestSwapAndScrollUsesResetCanvas:
 
         from rgbmatrix.graphics import Color
 
-        from led_ticker.ticker import _swap_and_scroll
-
         canvas = mock_mod.MagicMock()
         canvas.width = 160
         canvas.height = 16
@@ -1067,7 +1081,8 @@ class TestSwapAndScrollUsesResetCanvas:
         widget.bg_color = Color(70, 80, 90)
         widget.draw.return_value = (canvas, 100)
 
-        await _swap_and_scroll(canvas, mock_frame, widget, hold_time=0.0)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=0.0)
 
         canvas.Clear.assert_not_called()
         canvas.Fill.assert_called_with(70, 80, 90)
@@ -1087,8 +1102,6 @@ class TestSwapAndScrollEngineTick:
         times. Spy on widget.draw to assert it does."""
         from rgbmatrix import _StubCanvas
 
-        from led_ticker.ticker import _swap_and_scroll
-
         class _SpyWidget:
             def __init__(self):
                 self.draw_calls = 0
@@ -1101,7 +1114,7 @@ class TestSwapAndScrollEngineTick:
                 # Return cursor_pos < canvas.width so it stays in held branch
                 return canvas, 5
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 self.advance_calls += 1
                 self._frame_count += 1
 
@@ -1119,7 +1132,8 @@ class TestSwapAndScrollEngineTick:
         )
 
         # hold_time = 0.5s with tick_ms = 50 → ~10 ticks
-        await _swap_and_scroll(canvas, swapping_frame, widget, hold_time=0.5)
+        ticker = Ticker(monitors=[], frame=swapping_frame)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=0.5)
 
         # Allow some slop; expect roughly 10 draws / advances
         assert widget.draw_calls >= 8
@@ -1131,8 +1145,6 @@ class TestSwapAndScrollEngineTick:
         """Scroll branch also calls advance_frame per tick so providers
         animate during scroll-to-end."""
         from rgbmatrix import _StubCanvas
-
-        from led_ticker.ticker import _swap_and_scroll
 
         class _SpyWidget:
             def __init__(self):
@@ -1146,7 +1158,7 @@ class TestSwapAndScrollEngineTick:
                 # Return cursor_pos > canvas.width to trigger scroll
                 return canvas, 200
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 self.advance_calls += 1
                 self._frame_count += 1
 
@@ -1167,9 +1179,8 @@ class TestSwapAndScrollEngineTick:
             width=160, height=16
         )
 
-        await _swap_and_scroll(
-            canvas, swapping_frame, widget, hold_time=0.05, scroll_speed=0.001
-        )
+        ticker = Ticker(monitors=[], frame=swapping_frame, scroll_speed=0.001)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=0.05)
 
         # Should have many draws (one per scroll px) AND advance_frame per tick
         assert widget.advance_calls > 0
@@ -1187,8 +1198,6 @@ class TestSwapAndScrollEngineTick:
         a duck-type check."""
         from rgbmatrix import _StubCanvas
 
-        from led_ticker.ticker import _swap_and_scroll
-
         class _NoAdvance:
             def draw(self, canvas, cursor_pos=0, **kwargs):
                 return canvas, 5
@@ -1204,7 +1213,8 @@ class TestSwapAndScrollEngineTick:
         )
 
         # Should complete without AttributeError
-        await _swap_and_scroll(canvas, swapping_frame, widget, hold_time=0.1)
+        ticker = Ticker(monitors=[], frame=swapping_frame)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=0.1)
 
 
 class TestShowOneResetsFrame:
@@ -1230,7 +1240,7 @@ class TestShowOneResetsFrame:
                 self._frame_count = 0
                 self.reset_called = True
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 self._frame_count += 1
 
             @property
@@ -1243,7 +1253,8 @@ class TestShowOneResetsFrame:
             width=160, height=16
         )
 
-        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+        ticker = Ticker(monitors=[], frame=swapping_frame)
+        await ticker._show_one(canvas, widget, hold_time=0.1)
 
         assert widget.reset_called
 
@@ -1268,7 +1279,8 @@ class TestShowOneResetsFrame:
         )
 
         # Should complete without AttributeError
-        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+        ticker = Ticker(monitors=[], frame=swapping_frame)
+        await ticker._show_one(canvas, widget, hold_time=0.1)
 
     async def test_show_one_calls_reset_frame_unconditionally(
         self, swapping_frame, no_sleep
@@ -1297,7 +1309,7 @@ class TestShowOneResetsFrame:
                 self._frame_count = 0
                 self.reset_called = True
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 self._frame_count += 1
 
             @property
@@ -1310,7 +1322,8 @@ class TestShowOneResetsFrame:
             width=160, height=16
         )
 
-        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+        ticker = Ticker(monitors=[], frame=swapping_frame)
+        await ticker._show_one(canvas, widget, hold_time=0.1)
 
         # reset_frame() is always called — per-effect semantics live
         # inside _FrameAware.reset_frame, not in _show_one
@@ -1344,7 +1357,7 @@ class TestShowOneResetsFrame:
                 self._frame_count = 0
                 self.reset_called = True
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 self._frame_count += 1
 
             @property
@@ -1357,7 +1370,8 @@ class TestShowOneResetsFrame:
             width=160, height=16
         )
 
-        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+        ticker = Ticker(monitors=[], frame=swapping_frame)
+        await ticker._show_one(canvas, widget, hold_time=0.1)
 
         assert widget.reset_called, (
             "Typewriter (restart_on_visit=True) must still trigger "
@@ -1399,7 +1413,7 @@ class TestTypewriterPlusRainbowBorderComposition:
             def draw(self, canvas, cursor_pos=0, **kwargs):
                 return canvas, 5
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 if self._frame_paused:
                     return
                 self._frame_count += 1
@@ -1426,13 +1440,14 @@ class TestTypewriterPlusRainbowBorderComposition:
         )
 
         # Run two visits in a row (simulates loop_count > 1)
-        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+        ticker = Ticker(monitors=[], frame=swapping_frame)
+        await ticker._show_one(canvas, widget, hold_time=0.1)
         animation_frame_after_iter1 = widget._effect_frames["animation"]
         border_frame_after_iter1 = widget._effect_frames["border"]
         assert animation_frame_after_iter1 > 0
         assert border_frame_after_iter1 > 0
 
-        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+        await ticker._show_one(canvas, widget, hold_time=0.1)
         # Typewriter counter zeroed at the start of iter 2, then
         # advanced through iter 2 — should be smaller than the
         # accumulated value from iter 1
@@ -1461,7 +1476,7 @@ class TestTypewriterPlusRainbowBorderComposition:
             def draw(self, canvas, cursor_pos=0, **kwargs):
                 return canvas, 5
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 if self._frame_paused:
                     return
                 self._frame_count += 1
@@ -1480,7 +1495,8 @@ class TestTypewriterPlusRainbowBorderComposition:
             width=160, height=16
         )
 
-        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+        ticker = Ticker(monitors=[], frame=swapping_frame)
+        await ticker._show_one(canvas, widget, hold_time=0.1)
         # Iter 2 should see _frame_count reset to 0 at entry, then
         # climbing through the iter — small value, NOT 99 + N
         assert widget._frame_count < 99
@@ -1505,7 +1521,7 @@ class TestTypewriterPlusRainbowBorderComposition:
             def draw(self, canvas, cursor_pos=0, **kwargs):
                 return canvas, 5
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 if self._frame_paused:
                     return
                 self._frame_count += 1
@@ -1525,10 +1541,11 @@ class TestTypewriterPlusRainbowBorderComposition:
             width=160, height=16
         )
 
-        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+        ticker = Ticker(monitors=[], frame=swapping_frame)
+        await ticker._show_one(canvas, widget, hold_time=0.1)
         border_after_iter1 = widget._effect_frames["border"]
 
-        await _show_one(canvas, swapping_frame, widget, hold_time=0.1)
+        await ticker._show_one(canvas, widget, hold_time=0.1)
         border_after_iter2 = widget._effect_frames["border"]
 
         # Strictly increasing: iter 2 added more ticks on top of iter 1

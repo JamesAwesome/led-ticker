@@ -13,6 +13,11 @@ class _Dummy(_FrameAware):
     """Minimal subclass to exercise the mixin."""
 
 
+@attrs.define
+class _SimpleWidget(_FrameAware):
+    """Minimal subclass for visit-ownership tests."""
+
+
 class TestFrameAware:
     def test_initial_frame_count_is_zero(self):
         d = _Dummy()
@@ -300,3 +305,46 @@ class TestEffectAttrsCompleteness:
         assert not self._annotation_mentions_effect("int")
         assert not self._annotation_mentions_effect("Any | None")
         assert not self._annotation_mentions_effect(None)
+
+
+class TestVisitOwnership:
+    """Tests for _FrameAware visit-ownership tracking (Large #4)."""
+
+    def test_advance_frame_no_visit_id_is_unchecked(self):
+        """Calling advance_frame() without visit_id works as before."""
+        w = _SimpleWidget()
+        w.advance_frame()
+        assert w._frame_count == 1
+
+    def test_advance_frame_same_visit_id_allowed(self):
+        """Multiple advance_frame calls with the same visit_id are fine."""
+        w = _SimpleWidget()
+        w.advance_frame(visit_id=1)
+        w.advance_frame(visit_id=1)
+        assert w._frame_count == 2
+
+    def test_advance_frame_different_visit_id_raises(self):
+        """advance_frame with a new visit_id when one is already claimed raises."""
+        w = _SimpleWidget()
+        w.advance_frame(visit_id=1)
+        with pytest.raises(RuntimeError, match="claimed by visit_id"):
+            w.advance_frame(visit_id=2)
+
+    def test_reset_frame_clears_visit_owner(self):
+        """reset_frame() releases the visit claim so a new visit_id can take over."""
+        w = _SimpleWidget()
+        w.advance_frame(visit_id=1)
+        w.reset_frame()
+        w.advance_frame(visit_id=2)
+        assert w._frame_count == 1
+
+    def test_advance_frame_no_visit_id_after_claimed_does_not_raise(self):
+        """Callers that don't pass visit_id bypass the ownership check."""
+        w = _SimpleWidget()
+        w.advance_frame(visit_id=1)
+        w.advance_frame()  # no visit_id — must not raise
+        assert w._frame_count == 2
+
+    def test_visit_owner_is_none_initially(self):
+        w = _SimpleWidget()
+        assert w._visit_owner is None

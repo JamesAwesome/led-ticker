@@ -6,19 +6,18 @@ set -euo pipefail
 #
 # Override the rgbmatrix fork via env vars (defaults target Pi 4):
 #   PI5=1 sudo bash deploy/install.sh
-#     → kingdo9/rpi-rgb-led-matrix_pwm_experiment @ pi5_support
+#     → jamesawesome/rpi-rgb-led-matrix @ pi5_support
 #   RGBMATRIX_REPO=... RGBMATRIX_REF=... sudo bash deploy/install.sh
 
 INSTALL_DIR="/opt/led-ticker"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Pick the rgbmatrix fork. Both Pi 4 and Pi 5 build off our jamesawesome fork:
+# Both Pi 4 and Pi 5 build from our jamesawesome fork:
 # main = Pi 4 (existing sign), pi5_support = kingdo9 PR #1886 + our build patch.
+: "${RGBMATRIX_REPO:=https://github.com/jamesawesome/rpi-rgb-led-matrix.git}"
 if [ "${PI5:-0}" = "1" ]; then
-    : "${RGBMATRIX_REPO:=https://github.com/jamesawesome/rpi-rgb-led-matrix.git}"
     : "${RGBMATRIX_REF:=pi5_support}"
 else
-    : "${RGBMATRIX_REPO:=https://github.com/jamesawesome/rpi-rgb-led-matrix.git}"
     : "${RGBMATRIX_REF:=main}"
 fi
 
@@ -46,8 +45,8 @@ if ! python3 -c "import rgbmatrix" 2>/dev/null; then
 fi
 
 # Install the package
-echo "==> Installing led-ticker package..."
-pip install "${REPO_DIR}"
+echo "==> Installing led-ticker package (upgrading if already installed)..."
+pip install --upgrade "${REPO_DIR}"
 
 # Copy config if not present (bigsign gets its own example)
 if [ ! -f "${INSTALL_DIR}/config.toml" ]; then

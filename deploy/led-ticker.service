@@ -9,8 +9,15 @@ User=root
 WorkingDirectory=/opt/led-ticker
 EnvironmentFile=/opt/led-ticker/.env
 ExecStart=/opt/led-ticker/venv/bin/led-ticker --config /opt/led-ticker/config.toml
-Restart=always
+Restart=on-failure
 RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# Harden the service. Root is required for GPIO access; the options
+# below constrain what a compromised process can do with root.
+NoNewPrivileges=yes
+PrivateTmp=yes
 
 [Install]
 WantedBy=multi-user.target

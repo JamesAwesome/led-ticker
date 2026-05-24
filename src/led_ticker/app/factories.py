@@ -161,6 +161,7 @@ def _resolve_fonts(
 def _validate_cfg_fields(
     widget_cfg: dict[str, Any],
     cls: type,
+    widget_type: str,
 ) -> None:
     """Check that all keys in widget_cfg are recognized attrs fields of cls.
 
@@ -193,7 +194,7 @@ def _validate_cfg_fields(
             hint = f" (did you mean {matches[0]!r}?)" if matches else ""
             suggestions.append(f"{key!r}{hint}")
         raise ValueError(
-            f"widget type={cls.__name__!r} got unknown "
+            f"widget type={widget_type!r} got unknown "
             f"{'field' if len(unknown) == 1 else 'fields'}: " + ", ".join(suggestions)
         )
 
@@ -406,7 +407,7 @@ async def _build_widget(
     # Dispatch-level keys were all popped above; remaining keys are splatted
     # directly into cls(**widget_cfg). Any key not in attrs __init__ raises
     # a raw TypeError from attrs — catch it here with a usable message.
-    _validate_cfg_fields(widget_cfg, cls)
+    _validate_cfg_fields(widget_cfg, cls, widget_type)
 
     if validate_only:
         return None

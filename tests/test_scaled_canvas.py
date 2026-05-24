@@ -259,3 +259,31 @@ def test_paint_hires_plain_canvas():
 
     paint_hires(real, lambda r, s, y: calls.append((r, s, y)))
     assert calls == [(real, 1, 0)]
+
+
+def test_rebind_innermost_single_wrapper():
+    real_a = _make_real_canvas(real_w=256, real_h=64)
+    real_b = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real_a, scale=4)
+    sc.rebind_innermost(real_b)
+    assert sc.real is real_b
+
+
+def test_rebind_innermost_nested_wrappers():
+    real_a = _make_real_canvas(real_w=256, real_h=64)
+    real_b = _make_real_canvas(real_w=256, real_h=64)
+    inner = ScaledCanvas(real_a, scale=4)
+    # Outer wraps inner — __attrs_post_init__ peels to real_a (64px) for validation.
+    outer = ScaledCanvas(inner, scale=4, content_height=16)
+    outer.rebind_innermost(real_b)
+    assert inner.real is real_b  # deepest wrapper updated
+    assert outer.real is inner  # outer unchanged
+
+
+def test_rebind_innermost_does_not_change_outer_real_on_nesting():
+    real_a = _make_real_canvas(real_w=256, real_h=64)
+    real_b = _make_real_canvas(real_w=256, real_h=64)
+    inner = ScaledCanvas(real_a, scale=4)
+    outer = ScaledCanvas(inner, scale=4, content_height=16)
+    outer.rebind_innermost(real_b)
+    assert outer.real is inner  # outer still points at inner

@@ -410,17 +410,14 @@ class Ticker:
             gif_loops if gif_loops is not None else (getattr(widget, "loops", 1) or 1)
         )
         if isinstance(canvas, ScaledCanvas):
-            innermost = canvas
-            while isinstance(innermost.real, ScaledCanvas):
-                innermost = innermost.real
             Ticker._set_logical_scale(widget, canvas.scale)
             new_real = await widget.play(
-                innermost.real,
+                unwrap_to_real(canvas),
                 self.frame,
                 loop_count=loops,
                 hold_time=section_hold_time,
             )
-            innermost.real = new_real
+            canvas.rebind_innermost(new_real)
             return canvas
         Ticker._set_logical_scale(widget, 1)
         return await widget.play(

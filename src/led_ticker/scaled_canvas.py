@@ -98,6 +98,19 @@ class ScaledCanvas:
             for dx in range(s):
                 set_px(rx + dx, rry, r, g, b)
 
+    def rebind_innermost(self, new_real: Any) -> None:
+        """Rewire the innermost `.real` to `new_real`, leaving outer wrappers intact.
+
+        Called after `widget.play()` returns a new back-buffer canvas so
+        subsequent draws through this wrapper use the fresh canvas. Walks
+        nested ScaledCanvas wrappers — cross-scale dissolve transitions wrap
+        a wrapper at transition time; we must reach the bottom of the chain.
+        """
+        innermost = self
+        while isinstance(innermost.real, ScaledCanvas):
+            innermost = innermost.real
+        innermost.real = new_real
+
     def draw_bdf_text(self, bdf, x: int, y: int, color, text: str) -> int:
         """Draw `text` at logical (x, y) baseline. Returns total advance width.
 

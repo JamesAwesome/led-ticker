@@ -341,10 +341,11 @@ class TestColorProviderBase:
             Gradient,
             Rainbow,
             Random,
+            Shimmer,
             _ConstantColor,
         )
 
-        for cls in (_ConstantColor, Random, Rainbow, ColorCycle, Gradient):
+        for cls in (_ConstantColor, Random, Rainbow, ColorCycle, Gradient, Shimmer):
             assert issubclass(cls, ColorProviderBase), f"{cls.__name__} not a subclass"
 
 

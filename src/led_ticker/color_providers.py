@@ -30,6 +30,7 @@ opt out (continuous sweep / cycle); the others keep the default
 
 from __future__ import annotations
 
+import math
 import random
 from typing import Protocol
 
@@ -195,4 +196,67 @@ class Gradient(ColorProviderBase):
         r = int(self._from.red + (self._to.red - self._from.red) * t)
         g = int(self._from.green + (self._to.green - self._from.green) * t)
         b = int(self._from.blue + (self._to.blue - self._from.blue) * t)
+        return graphics.Color(r, g, b)
+
+
+_SHIMMER_FPS = 30.0
+
+
+class Shimmer(ColorProviderBase):
+    """Cosine bright-spot sweep across text characters.
+
+    A `shimmer_color` spot glides left-to-right over the `base_color`
+    text, then pauses, then repeats. `speed` (chars/second), `width`
+    (chars), and `pause` (seconds) tune the feel.
+    """
+
+    per_char: bool = True
+    frame_invariant: bool = False
+    restart_on_visit: bool = False  # continuous glide across loop_count boundaries
+
+    def __init__(
+        self,
+        base_color: Color,
+        shimmer_color: Color,
+        speed: float = 14.0,
+        width: float = 8.0,
+        pause: float = 0.5,
+    ) -> None:
+        if speed <= 0:
+            raise ValueError(f"Shimmer speed must be > 0; got {speed!r}")
+        if width <= 0:
+            raise ValueError(f"Shimmer width must be > 0; got {width!r}")
+        if pause < 0:
+            raise ValueError(f"Shimmer pause must be >= 0; got {pause!r}")
+        self._base = base_color
+        self._shimmer = shimmer_color
+        self.speed = speed
+        self.width = width
+        self.pause = pause
+
+    def color_for(self, frame: int, char_index: int, total_chars: int) -> Color:
+        from led_ticker._compat import require_graphics
+
+        graphics = require_graphics()
+        chars = max(total_chars, 1)
+        sweep_frames = chars / self.speed * _SHIMMER_FPS
+        pause_frames = self.pause * _SHIMMER_FPS
+        cycle_frames = sweep_frames + pause_frames
+
+        t = float(frame) % cycle_frames
+
+        if t >= sweep_frames:
+            return self._base
+
+        center = t / sweep_frames * chars
+        d = abs(char_index - center)
+        half_width = self.width / 2.0
+
+        if d >= half_width:
+            return self._base
+
+        factor = 0.5 + 0.5 * math.cos(math.pi * d / half_width)
+        r = int(self._base.red + (self._shimmer.red - self._base.red) * factor)
+        g = int(self._base.green + (self._shimmer.green - self._base.green) * factor)
+        b = int(self._base.blue + (self._shimmer.blue - self._base.blue) * factor)
         return graphics.Color(r, g, b)

@@ -138,7 +138,7 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
     for i, section in enumerate(config.sections):
         # Rule 1: content_height × scale ceiling.
         # content_height × scale > panel_h_real causes the ScaledCanvas
-        # wrapper's _y_offset to go negative, silently clipping top and
+        # wrapper's y_offset_real to go negative, silently clipping top and
         # bottom rows. Promoted from warning to error: any config that
         # trips this check will produce visually broken output on the panel
         # regardless of widget type.

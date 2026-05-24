@@ -24,7 +24,7 @@ Sans Bold @ ~22 on the bottom row.
 
 **Hard ceiling**: `canvas.height * scale ≤ panel_h_real`. On bigsign
 (scale=4, panel=64 real rows) the cap is `content_height = 16`.
-Higher values overflow the wrapper into negative `_y_offset`
+Higher values overflow the wrapper into negative `y_offset_real`
 territory; rows near the top/bottom logical edges clip silently.
 This is most visible with hi-res `:instagram:` etc. emoji where 4-8
 real px of the sprite get cut off at the panel edge. For per-row

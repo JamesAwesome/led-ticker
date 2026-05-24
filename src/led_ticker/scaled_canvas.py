@@ -38,7 +38,7 @@ class ScaledCanvas:
 
     def __attrs_post_init__(self) -> None:
         # `content_height * scale` must fit inside the actual panel
-        # height — otherwise `_y_offset` goes negative and content near
+        # height — otherwise `y_offset_real` goes negative and content near
         # the top/bottom logical edges silently clips against the panel
         # boundaries. The user-facing pitfall: a TwoRowMessage with
         # `:instagram:` hi-res emoji losing 4-8 real px at the panel

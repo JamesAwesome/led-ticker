@@ -1,0 +1,32 @@
+# API keys and secrets — never bake into image layers
+.env
+
+# Version control metadata
+.git
+.gitignore
+.github
+
+# Local config — mounted read-only at runtime via compose.yaml
+config/config.toml
+config/config.bigsign.example.toml
+config/config.moonbunny.example.toml
+
+# Python build artifacts
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.venv
+dist/
+build/
+
+# Development tools and tests
+tests/
+tools/
+docs/
+.claude/
+
+# Editor/OS files
+.DS_Store
+*.swp
+*.swo

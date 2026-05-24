@@ -86,6 +86,79 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
     return cls(**kwargs)
 
 
+def _resolve_fonts(
+    widget_cfg: dict[str, Any],
+    widget_type: str,
+    cls: type | None,
+    panel_h_for_warning: int | None,
+) -> None:
+    """Resolve font name strings in widget_cfg to font objects, in place.
+
+    Pops ``font``, ``font_size``, ``font_threshold``, ``top_font``,
+    ``top_font_size``, ``top_font_threshold``, ``bottom_font``,
+    ``bottom_font_size``, and ``bottom_font_threshold`` from
+    ``widget_cfg``, then inserts back the resolved font objects and
+    (for the main font) ``font_size`` when ``cls`` accepts it as an
+    attrs field.
+
+    Raises ``ValueError`` when a hi-res font name is supplied without
+    the matching ``*_size`` key (the rasterizer requires an explicit
+    target height).  Logs a warning when ``panel_h_for_warning`` is set
+    and a hi-res ``font_size`` exceeds it.
+    """
+    from led_ticker.fonts import resolve_font
+    from led_ticker.fonts.hires_loader import HiresFont
+
+    font_name = widget_cfg.pop("font", None)
+    font_size = widget_cfg.pop("font_size", None)
+    font_threshold = widget_cfg.pop("font_threshold", None)
+    if font_name is not None:
+        if _is_hires_font_name(font_name) and font_size is None:
+            raise ValueError(
+                f"HiresFont {font_name!r} requires font_size (real "
+                f"pixels). e.g. font_size = 24 for bigsign, "
+                f"font_size = 12 for small sign."
+            )
+        font = resolve_font(font_name, font_size, threshold=font_threshold)
+        widget_cfg["font"] = font
+
+        if (
+            isinstance(font, HiresFont)
+            and panel_h_for_warning is not None
+            and font_size is not None
+            and font_size > panel_h_for_warning - 2
+        ):
+            logging.warning(
+                "font_size=%d exceeds panel height %dpx (-2 margin) for "
+                "font %r — text will clip vertically. Hi-res fonts are "
+                "intended for the bigsign (64px); on the small sign, "
+                "stick to BDF aliases (5x8, 6x12) or font_size <= %d.",
+                font_size,
+                panel_h_for_warning,
+                font_name,
+                panel_h_for_warning - 2,
+            )
+
+    cls_fields = {a.name for a in getattr(cls, "__attrs_attrs__", ())}
+    if font_size is not None and "font_size" in cls_fields:
+        widget_cfg["font_size"] = font_size
+
+    for prefix in ("top_font", "bottom_font"):
+        row_name = widget_cfg.pop(prefix, None)
+        row_size = widget_cfg.pop(f"{prefix}_size", None)
+        row_threshold = widget_cfg.pop(f"{prefix}_threshold", None)
+        if row_name is not None:
+            if _is_hires_font_name(row_name) and row_size is None:
+                raise ValueError(
+                    f"HiresFont {row_name!r} requires {prefix}_size "
+                    f"(real pixels). e.g. {prefix}_size = 22 for "
+                    f"bigsign two-row layouts."
+                )
+            widget_cfg[prefix] = resolve_font(
+                row_name, row_size, threshold=row_threshold
+            )
+
+
 def _resolve_asset_paths(
     widget_cfg: dict[str, Any],
     widget_type: str,
@@ -256,86 +329,12 @@ async def _build_widget(
     if default_bg_color is not None and "bg_color" not in widget_cfg:
         widget_cfg["bg_color"] = list(default_bg_color)
 
-    # Resolve `font` + `font_size` (+ optional `font_threshold`) into a
-    # font object before passing to the widget. Hi-res fonts come from
-    # config/fonts/ or the bundled hires/ dir; BDF aliases (6x12, 5x8,
-    # etc.) fall back to the C bitmap fonts. Raises UnknownFontError on
-    # bogus names. `font_threshold` (0-255, default 128) is only
-    # meaningful for hi-res; lower it (~80) for thin-stroked fonts.
-    font_name = widget_cfg.pop("font", None)
-    font_size = widget_cfg.pop("font_size", None)
-    font_threshold = widget_cfg.pop("font_threshold", None)
-    if font_name is not None:
-        from led_ticker.fonts import resolve_font
-        from led_ticker.fonts.hires_loader import HiresFont
-
-        # HiresFont requires explicit font_size at construction (the
-        # rasterizer needs a real-px target). BDF fonts pass through
-        # to widget which derives a smart default at first paint.
-        if _is_hires_font_name(font_name) and font_size is None:
-            raise ValueError(
-                f"HiresFont {font_name!r} requires font_size (real "
-                f"pixels). e.g. font_size = 24 for bigsign, "
-                f"font_size = 12 for small sign."
-            )
-        font = resolve_font(font_name, font_size, threshold=font_threshold)
-        widget_cfg["font"] = font
-
-        # Warn on small-sign vertical overflow. Hi-res renders at native
-        # physical pixels, so font_size is compared directly to panel
-        # height. -2 leaves a 1px margin top + bottom (descenders, etc).
-        # BDF fonts are sized by their FONTBOUNDINGBOX (e.g. 6x12 = 12)
-        # and pre-validated to fit, so only warn for HiresFont here.
-        if (
-            isinstance(font, HiresFont)
-            and panel_h_for_warning is not None
-            and font_size is not None
-            and font_size > panel_h_for_warning - 2
-        ):
-            logging.warning(
-                "font_size=%d exceeds panel height %dpx (-2 margin) for "
-                "font %r — text will clip vertically. Hi-res fonts are "
-                "intended for the bigsign (64px); on the small sign, "
-                "stick to BDF aliases (5x8, 6x12) or font_size <= %d.",
-                font_size,
-                panel_h_for_warning,
-                font_name,
-                panel_h_for_warning - 2,
-            )
-
-    # Per-row font overrides for TwoRowMessage. Same resolution as the
-    # main `font` knob but keyed `top_font` / `bottom_font`. Each
-    # accepts its own _size and _threshold. Resolved object replaces
-    # the string name in widget_cfg so the widget constructor sees a
-    # Font / HiresFont, not a string.
-    for prefix in ("top_font", "bottom_font"):
-        row_name = widget_cfg.pop(prefix, None)
-        row_size = widget_cfg.pop(f"{prefix}_size", None)
-        row_threshold = widget_cfg.pop(f"{prefix}_threshold", None)
-        if row_name is not None:
-            from led_ticker.fonts import resolve_font
-
-            if _is_hires_font_name(row_name) and row_size is None:
-                raise ValueError(
-                    f"HiresFont {row_name!r} requires {prefix}_size "
-                    f"(real pixels). e.g. {prefix}_size = 22 for "
-                    f"bigsign two-row layouts."
-                )
-            widget_cfg[prefix] = resolve_font(
-                row_name, row_size, threshold=row_threshold
-            )
+    _resolve_fonts(widget_cfg, widget_type, cls, panel_h_for_warning)
 
     # Config uses "text" but TickerMessage/TickerCountdown use "message".
     # Only rename for widgets that don't accept `text` natively (e.g.
     # GifPlayer takes `text` directly for its alongside-text feature).
     cls_fields = {a.name for a in getattr(cls, "__attrs_attrs__", ())}
-
-    # Pass font_size through only to widgets that accept it (gif/still
-    # subclass _BaseImageWidget which has font_size as an attrs field).
-    # TickerMessage and similar widgets don't have font_size and would
-    # raise TypeError if it's injected.
-    if font_size is not None and "font_size" in cls_fields:
-        widget_cfg["font_size"] = font_size
 
     if "text" in widget_cfg and "text" not in cls_fields:
         if "message" not in widget_cfg:

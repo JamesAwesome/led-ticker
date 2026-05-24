@@ -28,7 +28,7 @@ from led_ticker.app.factories import (
 )
 from led_ticker.config import load_config
 from led_ticker.ticker import Ticker, _maybe_wrap
-from led_ticker.transitions import run_transition
+from led_ticker.transitions import Transition, run_transition
 from led_ticker.widgets.mlb import MLBScoreMonitor
 from led_ticker.widgets.mlb_standings import MLBStandingsMonitor
 from led_ticker.widgets.rss_feed import RSSFeedMonitor
@@ -50,7 +50,7 @@ async def run(config_path: Path) -> None:
     # Default inter-section transition built once at startup. Used for
     # sections that don't specify their own `transition` field — see
     # the per-section override logic below.
-    default_section_trans: Any = _build_trans_obj(config.between_sections)
+    default_section_trans: Transition | None = _build_trans_obj(config.between_sections)
 
     # Compute the panel height to use for hi-res font_size warnings.
     # Only meaningful on the small sign (default_scale == 1) — bigsign
@@ -151,6 +151,9 @@ async def run(config_path: Path) -> None:
                     and entry_trans is not None
                 )
                 if just_transitioned:
+                    assert (
+                        entry_trans is not None
+                    )  # narrowed: just_transitioned requires it
                     canvas = _maybe_wrap(
                         led_frame.get_clean_canvas(),
                         last_scale,

@@ -93,7 +93,8 @@ class BorderEffectBase:
 class BorderEffect(Protocol):
     """Paints a perimeter outline on `canvas` at frame-aware state."""
 
-    frame_invariant: bool  # may be a @property; Protocol checks presence only
+    @property
+    def frame_invariant(self) -> bool: ...
 
     def paint(self, canvas: Canvas, frame_count: int) -> None: ...
 

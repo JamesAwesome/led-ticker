@@ -10,6 +10,7 @@ canvas directly without a wrapper.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import attrs
@@ -140,3 +141,17 @@ def unwrap_to_real(canvas: Any) -> Any:
     while isinstance(canvas, ScaledCanvas):
         canvas = canvas.real
     return canvas
+
+
+def paint_hires(canvas: Any, callback: Callable[[Any, int, int], None]) -> None:
+    """Call `callback(real_canvas, scale, y_offset_real)` with unwrapped coords.
+
+    For a ScaledCanvas, unwraps to the innermost real canvas and forwards
+    `canvas.scale` and `canvas.y_offset_real`. For any other canvas, passes
+    through with scale=1 and y_offset=0. Use this instead of the three-line
+    unwrap idiom whenever a paint site needs to write at physical resolution.
+    """
+    if isinstance(canvas, ScaledCanvas):
+        callback(unwrap_to_real(canvas), canvas.scale, canvas.y_offset_real)
+    else:
+        callback(canvas, 1, 0)

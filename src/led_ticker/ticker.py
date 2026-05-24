@@ -15,7 +15,7 @@ import attrs
 from led_ticker._types import Canvas, ColorTuple
 from led_ticker.colors import RGB_WHITE
 from led_ticker.drawing import get_widget_padding
-from led_ticker.scaled_canvas import ScaledCanvas, unwrap_to_real
+from led_ticker.scaled_canvas import ScaledCanvas, paint_hires, unwrap_to_real
 from led_ticker.widgets._image_fit import reset_canvas
 from led_ticker.widgets.message import TickerMessage
 
@@ -62,27 +62,21 @@ def _draw_hires_circle(
     matching today's " \u2022 " BDF advance so _scroll_side_by_side layout
     stays stable.
     """
-    scale = canvas.scale
-    real = unwrap_to_real(canvas)
-
-    radius_physical = _CIRCLE_LOGICAL_RADIUS * scale
-    offsets = _build_circle_offsets(radius_physical)
-
-    # Disk center in physical coords: skip the left pad, then add the
-    # radius. y center is the middle of the content band (`y_offset_real`
-    # is the band's top in physical y).
-    cx_physical = (cursor_pos + _CIRCLE_LOGICAL_PAD) * scale + radius_physical
-    cy_physical = canvas.y_offset_real + (canvas.height * scale) // 2
-
     if isinstance(color, tuple):
         r, g, b = color
     else:
         r, g, b = color.red, color.green, color.blue
 
-    set_px = real.SetPixel
-    for dx, dy in offsets:
-        set_px(cx_physical + dx, cy_physical + dy, r, g, b)
+    def _paint(real: Any, scale: int, y_offset_real: int) -> None:
+        radius_physical = _CIRCLE_LOGICAL_RADIUS * scale
+        offsets = _build_circle_offsets(radius_physical)
+        cx_physical = (cursor_pos + _CIRCLE_LOGICAL_PAD) * scale + radius_physical
+        cy_physical = y_offset_real + (canvas.height * scale) // 2
+        set_px = real.SetPixel
+        for dx, dy in offsets:
+            set_px(cx_physical + dx, cy_physical + dy, r, g, b)
 
+    paint_hires(canvas, _paint)
     return canvas, cursor_pos + _CIRCLE_LOGICAL_ADVANCE
 
 

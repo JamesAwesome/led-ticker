@@ -221,3 +221,32 @@ def test_no_private_y_offset():
     real = _make_real_canvas(real_w=256, real_h=64)
     sc = ScaledCanvas(real, scale=4)
     assert not hasattr(sc, "_y_offset"), "_y_offset must be gone after rename"
+
+
+def test_paint_hires_scaled_canvas_no_letterbox():
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=4)
+    calls: list[tuple] = []
+    from led_ticker.scaled_canvas import paint_hires
+
+    paint_hires(sc, lambda r, s, y: calls.append((r, s, y)))
+    assert calls == [(real, 4, 0)]  # scale=4, y_offset_real=(64-64)//2=0
+
+
+def test_paint_hires_scaled_canvas_with_letterbox():
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=2)  # y_offset_real = (64 - 32) // 2 = 16
+    calls: list[tuple] = []
+    from led_ticker.scaled_canvas import paint_hires
+
+    paint_hires(sc, lambda r, s, y: calls.append((r, s, y)))
+    assert calls == [(real, 2, 16)]
+
+
+def test_paint_hires_plain_canvas():
+    real = _make_real_canvas(real_w=256, real_h=64)
+    calls: list[tuple] = []
+    from led_ticker.scaled_canvas import paint_hires
+
+    paint_hires(real, lambda r, s, y: calls.append((r, s, y)))
+    assert calls == [(real, 1, 0)]

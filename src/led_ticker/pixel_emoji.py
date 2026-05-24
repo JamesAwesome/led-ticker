@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from led_ticker._types import Canvas, Font, PixelData
-from led_ticker.scaled_canvas import ScaledCanvas
+from led_ticker.scaled_canvas import ScaledCanvas, paint_hires
 from led_ticker.text_render import draw_text, draw_text_per_char
 
 # Canonical emoji slug pattern shared by `_parse_segments` and any
@@ -3042,18 +3042,16 @@ def _draw_hires_emoji(
     block, defeating the purpose of the hi-res sprite. Calling
     `real.SetPixel` writes individual physical LEDs.
     """
-    real = canvas.real
-    scale = canvas.scale
-    real_y_offset = canvas.y_offset_real
 
-    real_x_anchor = ix_logical * scale
-    real_y_anchor = iy_logical * scale + real_y_offset
+    def _paint(real: Any, scale: int, y_offset_real: int) -> None:
+        real_x_anchor = ix_logical * scale
+        real_y_anchor = iy_logical * scale + y_offset_real
+        real_w = real.width
+        real_h = real.height
+        for px, py, r, g, b in hires.pixels:
+            rx = real_x_anchor + px
+            ry = real_y_anchor + py
+            if 0 <= rx < real_w and 0 <= ry < real_h:
+                real.SetPixel(rx, ry, r, g, b)
 
-    real_w = real.width
-    real_h = real.height
-
-    for px, py, r, g, b in hires.pixels:
-        rx = real_x_anchor + px
-        ry = real_y_anchor + py
-        if 0 <= rx < real_w and 0 <= ry < real_h:
-            real.SetPixel(rx, ry, r, g, b)
+    paint_hires(canvas, _paint)

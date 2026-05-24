@@ -28,6 +28,11 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO_ROOT / "tests" / "stubs"))
 sys.path.insert(0, str(_REPO_ROOT))
 
+import pytest  # noqa: E402
+
+pytest.importorskip("tomli_w")
+pytest.importorskip("imageio")
+
 from PIL import Image  # noqa: E402
 from tools.render_demo.render import render  # noqa: E402
 

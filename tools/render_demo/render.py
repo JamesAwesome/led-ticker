@@ -10,6 +10,8 @@ Usage:
         [--duration 5] [--upscale 4] [--fps 20] [--start-section 0]
 """
 
+# Requires optional render deps: pip install "led-ticker[render]"
+
 from __future__ import annotations
 
 import argparse

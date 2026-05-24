@@ -163,13 +163,13 @@ class TestPushLeft:
         incoming.draw.assert_called_once()
         assert incoming.draw.call_args.kwargs["cursor_pos"] == 85
 
-    def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
+    def test_midpoint_uses_subfill_for_blackout(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushLeft()
+        # t=0.5: scroll_offset=85, clear_start=max(0,160+10-85)=85, w-clear_start=75
         push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
-        # SetPixel used to black out the right zone before drawing incoming
-        assert canvas.SetPixel.call_count > 0
+        canvas.SubFill.assert_called_once_with(85, 0, 75, 16, 0, 0, 0)
 
     def test_outgoing_scroll_pos_used(self, canvas, make_widget):
         """Outgoing should continue from its final scroll position."""
@@ -237,12 +237,14 @@ class TestPushUp:
         # Incoming should have positive y_offset (entering from below)
         assert incoming.draw.call_args.kwargs["y_offset"] > 0
 
-    def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
+    def test_midpoint_uses_subfill_for_blackout(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushUp()
+        # t=0.5: scroll_offset=int(0.5*20)=10, incoming_y=16+4-10=10
+        # boundary_row=max(0,min(16,10))=10, SubFill from row 10, height 6
         push.frame_at(0.5, canvas, outgoing, incoming)
-        assert canvas.SetPixel.call_count > 0
+        canvas.SubFill.assert_called_once_with(0, 10, 160, 6, 0, 0, 0)
 
     def test_outgoing_scroll_pos_used(self, canvas, make_widget):
         """Outgoing should stay at its scrolled position, not reset to 0."""
@@ -289,12 +291,14 @@ class TestPushDown:
         # Incoming should have negative y_offset (entering from top)
         assert incoming.draw.call_args.kwargs["y_offset"] < 0
 
-    def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
+    def test_midpoint_uses_subfill_for_blackout(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushDown()
+        # t=0.5: scroll_offset=10, incoming_y=-(16+4)+10=-10
+        # boundary_row=max(0,min(16,-10+16))=6, SubFill from row 6, height 10
         push.frame_at(0.5, canvas, outgoing, incoming)
-        assert canvas.SetPixel.call_count > 0
+        canvas.SubFill.assert_called_once_with(0, 6, 160, 10, 0, 0, 0)
 
     def test_outgoing_scroll_pos_used(self, canvas, make_widget):
         outgoing = make_widget(600)
@@ -352,13 +356,13 @@ class TestPushRight:
         # At t=0.25: boundary=40, incoming_pos = -160 + 40 = -120
         assert incoming.draw.call_args.kwargs["cursor_pos"] == -120
 
-    def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
+    def test_midpoint_uses_subfill_for_blackout(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushRight()
+        # t=0.5: boundary=int(0.5*160)=80, SubFill from x=80, width=80
         push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
-        # SetPixel used to black out right zone between incoming and outgoing
-        assert canvas.SetPixel.call_count > 0
+        canvas.SubFill.assert_called_once_with(80, 0, 80, 16, 0, 0, 0)
 
     def test_outgoing_at_scroll_pos_for_first_frame(self, canvas, make_widget):
         """At t=0, outgoing is at its natural hold position."""

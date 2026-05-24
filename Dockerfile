@@ -17,7 +17,7 @@ RUN apt-get update && \
 # Increment RGBMATRIX_CACHE_BUST to force a fresh clone when the fork's main
 # branch changes but the clone instruction text hasn't — Docker caches by
 # instruction hash, not by remote content.
-ARG RGBMATRIX_CACHE_BUST=1
+ARG RGBMATRIX_CACHE_BUST=2
 RUN cd /opt && \
     git clone --depth=1 --branch main \
         https://github.com/jamesawesome/rpi-rgb-led-matrix.git rgbmatrix-src && \

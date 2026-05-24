@@ -411,7 +411,8 @@ class TestBorderPaintsBeforeText:
         border.frame_invariant = False
 
         widget = TickerMessage("HELLO", border=border)
-        widget._frame_count = 42
+        for _ in range(42):
+            widget.advance_frame()
         canvas = RealStub(width=64, height=16)
         widget.draw(canvas)
 
@@ -446,7 +447,8 @@ class TestCountdownBorder:
         border.frame_invariant = False
 
         widget = TickerCountdown("Days", countdown_date=date(2027, 1, 1), border=border)
-        widget._frame_count = 17
+        for _ in range(17):
+            widget.advance_frame()
         canvas = RealStub(width=64, height=16)
         widget.draw(canvas)
 
@@ -516,7 +518,8 @@ class TestTwoRowBorder:
             bottom_text="tagline",
             border=border,
         )
-        widget._frame_count = 42
+        for _ in range(42):
+            widget.advance_frame()
         canvas = RealStub(width=128, height=16)
         widget.draw(canvas)
 

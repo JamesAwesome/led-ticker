@@ -905,17 +905,16 @@ class TestScrollBetween:
         same-shape fix.
         """
         incoming = mock.Mock()
-        incoming._frame_count = 99  # simulate previous-visit-end state
-        seen_frame_counts: list[int] = []
+        call_log: list[str] = []
 
         def _draw(c, cursor_pos=0, **kw):
-            seen_frame_counts.append(incoming._frame_count)
+            call_log.append("draw")
             return (c, cursor_pos + 40)
 
         incoming.draw.side_effect = _draw
 
         def _reset():
-            incoming._frame_count = 0
+            call_log.append("reset")
 
         incoming.reset_frame.side_effect = _reset
 
@@ -925,10 +924,10 @@ class TestScrollBetween:
         ticker = Ticker(monitors=[], frame=mock_frame)
         await ticker._scroll_between(canvas, outgoing, incoming)
 
-        assert seen_frame_counts, "incoming.draw never called"
-        assert all(f == 0 for f in seen_frame_counts), (
-            f"Expected _frame_count == 0 throughout _scroll_between; "
-            f"got {seen_frame_counts}. Reset must fire before the "
+        assert "draw" in call_log, "incoming.draw never called"
+        assert call_log[0] == "reset", (
+            f"Expected reset_frame to fire before first draw; "
+            f"got call order: {call_log[:5]}. Reset must fire before the "
             f"compositor's first draw of incoming, otherwise "
             f"frame-aware widgets render their previous-visit-end "
             f"state during the bullet-scroll."
@@ -1128,7 +1127,6 @@ class TestSwapAndScrollEngineTick:
         # Allow some slop; expect roughly 10 draws / advances
         assert widget.draw_calls >= 8
         assert widget.advance_calls >= 8
-        assert widget._frame_count >= 8
 
     @pytest.mark.asyncio
     async def test_scrolling_text_advances_frame_per_tick(self, swapping_frame):

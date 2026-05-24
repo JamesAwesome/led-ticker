@@ -1317,17 +1317,16 @@ class TestRunTransition:
                 incoming.draw(canvas, cursor_pos=0)
 
         incoming = mock.Mock()
-        incoming._frame_count = 99  # simulate previous-visit-end state
-        seen_frame_counts: list[int] = []
+        call_log: list[str] = []
 
         def _draw(c, cursor_pos=0, **kw):
-            seen_frame_counts.append(incoming._frame_count)
+            call_log.append("draw")
             return (c, cursor_pos + 30)
 
         incoming.draw.side_effect = _draw
 
         def _reset():
-            incoming._frame_count = 0
+            call_log.append("reset")
 
         incoming.reset_frame.side_effect = _reset
 
@@ -1346,10 +1345,10 @@ class TestRunTransition:
             duration=0.1,
         )
 
-        assert seen_frame_counts, "incoming.draw was never called"
-        assert all(f == 0 for f in seen_frame_counts), (
-            f"Expected _frame_count == 0 throughout the transition; "
-            f"got {seen_frame_counts}. Without reset, the compositor "
+        assert "draw" in call_log, "incoming.draw was never called"
+        assert call_log[0] == "reset", (
+            f"Expected reset_frame to fire before first draw; "
+            f"got call order: {call_log[:5]}. Without reset, the compositor "
             f"renders the widget's previous-visit-end state — visible "
             f"as full typewriter text flashing during a wipe-in, then "
             f"snapping back to frame=0 when the section starts."

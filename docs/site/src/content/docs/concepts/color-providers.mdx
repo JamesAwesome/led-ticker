@@ -7,11 +7,11 @@ import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-`font_color` accepts six forms: a `[r, g, b]` list (constant), the string shorthands `"rainbow"`, `"color_cycle"`, `"shimmer"`, and `"random"`, or an inline table for a gradient, a ranged color cycle, or a tuned shimmer. The first three cover most signs. The same field on `top_color` / `bottom_color` for `two_row` and image widgets behaves identically — pick once per widget, swap providers without changing anything else.
+`font_color` accepts six forms: a `[r, g, b]` list (constant), the string shorthands `"rainbow"`, `"color_cycle"`, `"shimmer"`, and `"random"`, or an inline table for a gradient, a ranged color cycle, or a tuned shimmer. The constant, rainbow, and color_cycle forms cover most signs. The same field on `top_color` / `bottom_color` for `two_row` and image widgets behaves identically — pick once per widget, swap providers without changing anything else.
 
 <DemoGif
   src="/demos/concepts-color-providers.gif"
-  caption="rainbow → color_cycle → gradient → constant → random"
+  caption="rainbow → color_cycle → gradient → constant → random (shimmer not shown)"
 />
 
 ## The six providers
@@ -26,7 +26,7 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 | Shimmer          | `"shimmer"` or `{style = "shimmer", shimmer = "gold", ...}`  | **yes**   | yes — bright-spot sweep with pause |
 | Random           | `"random"`                                                   | no        | no — picks once on visit           |
 
-**Per-char** providers (rainbow, gradient) assign a unique color to each character position and call `color_for` once per character per draw. **Whole-string** providers (constant, color_cycle, random) compute one color per draw and apply it to the entire message.
+**Per-char** providers (rainbow, gradient, shimmer) assign a unique color to each character position and call `color_for` once per character per draw. **Whole-string** providers (constant, color_cycle, random) compute one color per draw and apply it to the entire message.
 
 ## Constant
 

@@ -1,11 +1,9 @@
 FROM python:3.13-bullseye AS rgbmatrix
 
-# rpi-rgb-led-matrix: jamesawesome/main — based on kingdo9's pi5_support branch
-# (upstream PR hzeller#1886) with our build patch (named the unused PIO param in
-# pio_rp1.c so it builds under bullseye GCC 10). Validated 2026-04-29 to run on
-# both the Pi 4 sign and the Pi 5 bigsign — runtime detects the SoC and selects
-# the BCM2711 GPIO path or the RP1 PIO path. The pre-RP1 codebase is preserved
-# on the `pi4_legacy` branch. Once #1886 merges, switch to hzeller/master.
+# rpi-rgb-led-matrix: jamesawesome/main — Pi5 RP1 support (hzeller#1886, now
+# merged upstream) plus three patches: GCC10 anonymous-param fix (pio_rp1.c),
+# Pillow shim (graphics.py), SubFill Python binding (core.pyx). Validated
+# 2026-04-29 to run on both Pi 4 (BCM2711 GPIO) and Pi 5 (RP1 PIO/RIO).
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -16,6 +14,10 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Layer 1: rgbmatrix (only rebuilds if the pinned ref changes)
+# Increment RGBMATRIX_CACHE_BUST to force a fresh clone when the fork's main
+# branch changes but the clone instruction text hasn't — Docker caches by
+# instruction hash, not by remote content.
+ARG RGBMATRIX_CACHE_BUST=1
 RUN cd /opt && \
     git clone --depth=1 --branch main \
         https://github.com/jamesawesome/rpi-rgb-led-matrix.git rgbmatrix-src && \

@@ -85,9 +85,14 @@ class ScaledCanvas:
 
     def SetPixel(self, x: int, y: int, r: int, g: int, b: int) -> None:
         s = self.scale
+        real = self.real
+        set_px = real.SetPixel
         rx = x * s
         ry = y * s + self.y_offset_real
-        self.real.SubFill(rx, ry, s, s, r, g, b)
+        for dy in range(s):
+            rry = ry + dy
+            for dx in range(s):
+                set_px(rx + dx, rry, r, g, b)
 
     def rebind_innermost(self, new_real: Any) -> None:
         """Rewire the innermost `.real` to `new_real`, leaving outer wrappers intact.

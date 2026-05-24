@@ -406,17 +406,16 @@ class TestBuildWidgetSectionBgPropagation:
     async def test_section_bg_propagates_when_widget_omits_it(self):
         """When the section config has bg_color and the widget config
         doesn't, the widget receives the section bg as a default."""
-        import aiohttp
 
         from led_ticker.app import _build_widget
 
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {"type": "message", "text": "hi"}
-            widget = await _build_widget(
-                widget_cfg,
-                session,
-                default_bg_color=(10, 20, 30),
-            )
+        session = mock.Mock()
+        widget_cfg = {"type": "message", "text": "hi"}
+        widget = await _build_widget(
+            widget_cfg,
+            session,
+            default_bg_color=(10, 20, 30),
+        )
         assert widget.bg_color is not None
         assert widget.bg_color.red == 10
         assert widget.bg_color.green == 20
@@ -425,145 +424,132 @@ class TestBuildWidgetSectionBgPropagation:
     @pytest.mark.asyncio
     async def test_widget_bg_overrides_section_bg(self):
         """When both section and widget specify bg_color, widget wins."""
-        import aiohttp
 
         from led_ticker.app import _build_widget
 
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {
-                "type": "message",
-                "text": "hi",
-                "bg_color": [100, 100, 100],
-            }
-            widget = await _build_widget(
-                widget_cfg,
-                session,
-                default_bg_color=(10, 20, 30),
-            )
+        session = mock.Mock()
+        widget_cfg = {
+            "type": "message",
+            "text": "hi",
+            "bg_color": [100, 100, 100],
+        }
+        widget = await _build_widget(
+            widget_cfg,
+            session,
+            default_bg_color=(10, 20, 30),
+        )
         assert widget.bg_color.red == 100  # widget value, not section
 
     @pytest.mark.asyncio
     async def test_no_section_bg_no_widget_bg_yields_none(self):
-        import aiohttp
-
         from led_ticker.app import _build_widget
 
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {"type": "message", "text": "hi"}
-            widget = await _build_widget(widget_cfg, session)
+        session = mock.Mock()
+        widget_cfg = {"type": "message", "text": "hi"}
+        widget = await _build_widget(widget_cfg, session)
         assert widget.bg_color is None
 
 
 class TestBuildWidgetFontResolution:
     @pytest.mark.asyncio
     async def test_hires_font_name_resolves_to_HiresFont(self):
-        import aiohttp
-
         from led_ticker.app import _build_widget
         from led_ticker.fonts.hires_loader import HiresFont
 
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {
-                "type": "message",
-                "text": "hi",
-                "font": "Inter-Regular",
-                "font_size": 28,
-            }
-            widget = await _build_widget(widget_cfg, session)
+        session = mock.Mock()
+        widget_cfg = {
+            "type": "message",
+            "text": "hi",
+            "font": "Inter-Regular",
+            "font_size": 28,
+        }
+        widget = await _build_widget(widget_cfg, session)
         assert isinstance(widget.font, HiresFont)
         assert widget.font.size == 28
 
     @pytest.mark.asyncio
     async def test_bdf_alias_resolves_to_C_font(self):
-        import aiohttp
-
         from led_ticker.app import _build_widget
         from led_ticker.fonts import FONT_DEFAULT
 
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {"type": "message", "text": "hi", "font": "6x12"}
-            widget = await _build_widget(widget_cfg, session)
+        session = mock.Mock()
+        widget_cfg = {"type": "message", "text": "hi", "font": "6x12"}
+        widget = await _build_widget(widget_cfg, session)
         assert widget.font is FONT_DEFAULT
 
     @pytest.mark.asyncio
     async def test_no_font_field_keeps_class_default(self):
-        import aiohttp
-
         from led_ticker.app import _build_widget
         from led_ticker.fonts import FONT_DEFAULT
 
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {"type": "message", "text": "hi"}
-            widget = await _build_widget(widget_cfg, session)
+        session = mock.Mock()
+        widget_cfg = {"type": "message", "text": "hi"}
+        widget = await _build_widget(widget_cfg, session)
         # TickerMessage's class default is FONT_DEFAULT.
         assert widget.font is FONT_DEFAULT
 
     @pytest.mark.asyncio
     async def test_unknown_font_name_raises(self):
-        import aiohttp
-
         from led_ticker.app import _build_widget
         from led_ticker.fonts import UnknownFontError
 
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {
-                "type": "message",
-                "text": "hi",
-                "font": "totally-not-a-font",
-                "font_size": 24,
-            }
-            try:
-                await _build_widget(widget_cfg, session)
-            except UnknownFontError as e:
-                assert "totally-not-a-font" in str(e)
-                return
-            raise AssertionError("expected UnknownFontError")
+        session = mock.Mock()
+        widget_cfg = {
+            "type": "message",
+            "text": "hi",
+            "font": "totally-not-a-font",
+            "font_size": 24,
+        }
+        try:
+            await _build_widget(widget_cfg, session)
+        except UnknownFontError as e:
+            assert "totally-not-a-font" in str(e)
+            return
+        raise AssertionError("expected UnknownFontError")
 
     @pytest.mark.asyncio
     async def test_hires_without_font_size_raises(self):
         """HiresFont in a TOML widget config without explicit
         font_size raises with the size-hint error message — caught at
         config-load via `_is_hires_font_name`."""
-        import aiohttp
         import pytest
 
         from led_ticker.app import _build_widget
 
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {
-                "type": "message",
-                "text": "hi",
-                "font": "Inter-Regular",
-                # no font_size
-            }
-            with pytest.raises(ValueError, match="HiresFont.*requires font_size"):
-                await _build_widget(widget_cfg, session)
+        session = mock.Mock()
+        widget_cfg = {
+            "type": "message",
+            "text": "hi",
+            "font": "Inter-Regular",
+            # no font_size
+        }
+        with pytest.raises(ValueError, match="HiresFont.*requires font_size"):
+            await _build_widget(widget_cfg, session)
 
     @pytest.mark.asyncio
     async def test_font_threshold_plumbed_through_to_rasterizer(self):
         """`font_threshold` in TOML must reach the loader so thin-stroked
         fonts (Beloved Sans Regular) can override the 50% cutoff."""
-        import aiohttp
 
         from led_ticker.app import _build_widget
         from led_ticker.fonts.hires_loader import HiresFont
 
-        async with aiohttp.ClientSession() as session:
-            cfg_default = {
-                "type": "message",
-                "text": "hi",
-                "font": "Inter-Regular",
-                "font_size": 24,
-            }
-            cfg_low_thr = {
-                "type": "message",
-                "text": "hi",
-                "font": "Inter-Regular",
-                "font_size": 24,
-                "font_threshold": 64,
-            }
-            w_default = await _build_widget(cfg_default, session)
-            w_low_thr = await _build_widget(cfg_low_thr, session)
+        session = mock.Mock()
+        cfg_default = {
+            "type": "message",
+            "text": "hi",
+            "font": "Inter-Regular",
+            "font_size": 24,
+        }
+        cfg_low_thr = {
+            "type": "message",
+            "text": "hi",
+            "font": "Inter-Regular",
+            "font_size": 24,
+            "font_threshold": 64,
+        }
+        w_default = await _build_widget(cfg_default, session)
+        w_low_thr = await _build_widget(cfg_low_thr, session)
 
         assert isinstance(w_default.font, HiresFont)
         assert isinstance(w_low_thr.font, HiresFont)
@@ -575,20 +561,19 @@ class TestBuildWidgetFontResolution:
     async def test_font_threshold_not_passed_as_widget_kwarg(self):
         """`font_threshold` is consumed by the resolver — must not leak
         through to the widget constructor (would fail with unexpected kwarg)."""
-        import aiohttp
 
         from led_ticker.app import _build_widget
 
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {
-                "type": "message",
-                "text": "hi",
-                "font": "Inter-Regular",
-                "font_size": 24,
-                "font_threshold": 80,
-            }
-            # Would raise TypeError if font_threshold leaked into TickerMessage.
-            widget = await _build_widget(widget_cfg, session)
+        session = mock.Mock()
+        widget_cfg = {
+            "type": "message",
+            "text": "hi",
+            "font": "Inter-Regular",
+            "font_size": 24,
+            "font_threshold": 80,
+        }
+        # Would raise TypeError if font_threshold leaked into TickerMessage.
+        widget = await _build_widget(widget_cfg, session)
         assert widget.message == "hi"
         assert not hasattr(widget, "font_threshold")
 
@@ -598,67 +583,63 @@ class TestBuildWidgetCoerceNumeric:
     async def test_coerces_font_size_string(self):
         """font_size = "25" should coerce to int 25 and emit a warning,
         not crash with TypeError deep in resolve_font."""
-        import aiohttp
 
         from led_ticker._coerce import CoercionWarning
         from led_ticker.app import _build_widget
 
         warnings: list[CoercionWarning] = []
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {
-                "type": "message",
-                "text": "hi",
-                "font": "Inter-Bold",
-                "font_size": "25",
-            }
-            widget = await _build_widget(
-                widget_cfg,
-                session,
-                coercion_collector=warnings,
-            )
+        session = mock.Mock()
+        widget_cfg = {
+            "type": "message",
+            "text": "hi",
+            "font": "Inter-Bold",
+            "font_size": "25",
+        }
+        widget = await _build_widget(
+            widget_cfg,
+            session,
+            coercion_collector=warnings,
+        )
         assert widget is not None
         assert any(w.field == "widget.font_size" for w in warnings)
 
     @pytest.mark.asyncio
     async def test_coerces_font_threshold_string(self):
-        import aiohttp
-
         from led_ticker._coerce import CoercionWarning
         from led_ticker.app import _build_widget
 
         warnings: list[CoercionWarning] = []
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {
-                "type": "message",
-                "text": "hi",
-                "font": "Inter-Bold",
-                "font_size": 25,
-                "font_threshold": "80",
-            }
-            widget = await _build_widget(
-                widget_cfg,
-                session,
-                coercion_collector=warnings,
-            )
+        session = mock.Mock()
+        widget_cfg = {
+            "type": "message",
+            "text": "hi",
+            "font": "Inter-Bold",
+            "font_size": 25,
+            "font_threshold": "80",
+        }
+        widget = await _build_widget(
+            widget_cfg,
+            session,
+            coercion_collector=warnings,
+        )
         assert widget is not None
         assert any(w.field == "widget.font_threshold" for w in warnings)
 
     @pytest.mark.asyncio
     async def test_font_size_bool_still_rejected(self):
         """Bool stays a hard error — the existing rule 28 guard pattern."""
-        import aiohttp
 
         from led_ticker.app import _build_widget
 
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {
-                "type": "message",
-                "text": "hi",
-                "font": "Inter-Bold",
-                "font_size": True,
-            }
-            with pytest.raises(ValueError, match="must be an int"):
-                await _build_widget(widget_cfg, session)
+        session = mock.Mock()
+        widget_cfg = {
+            "type": "message",
+            "text": "hi",
+            "font": "Inter-Bold",
+            "font_size": True,
+        }
+        with pytest.raises(ValueError, match="must be an int"):
+            await _build_widget(widget_cfg, session)
 
 
 class TestSmallSignFontSizeGuard:
@@ -671,19 +652,17 @@ class TestSmallSignFontSizeGuard:
     async def test_warns_when_font_size_overflows_small_sign(self, caplog):
         import logging
 
-        import aiohttp
-
         from led_ticker.app import _build_widget
 
-        async with aiohttp.ClientSession() as session:
-            with caplog.at_level(logging.WARNING):
-                widget_cfg = {
-                    "type": "message",
-                    "text": "hi",
-                    "font": "Inter-Regular",
-                    "font_size": 24,  # bigger than 16-2=14
-                }
-                await _build_widget(widget_cfg, session, panel_h_for_warning=16)
+        session = mock.Mock()
+        with caplog.at_level(logging.WARNING):
+            widget_cfg = {
+                "type": "message",
+                "text": "hi",
+                "font": "Inter-Regular",
+                "font_size": 24,  # bigger than 16-2=14
+            }
+            await _build_widget(widget_cfg, session, panel_h_for_warning=16)
         assert any(
             "exceeds panel height" in r.message for r in caplog.records
         ), f"expected overflow warning, got: {[r.message for r in caplog.records]}"
@@ -692,19 +671,17 @@ class TestSmallSignFontSizeGuard:
     async def test_no_warning_when_font_fits(self, caplog):
         import logging
 
-        import aiohttp
-
         from led_ticker.app import _build_widget
 
-        async with aiohttp.ClientSession() as session:
-            with caplog.at_level(logging.WARNING):
-                widget_cfg = {
-                    "type": "message",
-                    "text": "hi",
-                    "font": "Inter-Regular",
-                    "font_size": 12,  # fits in 16-2=14
-                }
-                await _build_widget(widget_cfg, session, panel_h_for_warning=16)
+        session = mock.Mock()
+        with caplog.at_level(logging.WARNING):
+            widget_cfg = {
+                "type": "message",
+                "text": "hi",
+                "font": "Inter-Regular",
+                "font_size": 12,  # fits in 16-2=14
+            }
+            await _build_widget(widget_cfg, session, panel_h_for_warning=16)
         assert not any("exceeds panel height" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
@@ -713,19 +690,17 @@ class TestSmallSignFontSizeGuard:
         to skip the check — large hi-res font_sizes are intentional."""
         import logging
 
-        import aiohttp
-
         from led_ticker.app import _build_widget
 
-        async with aiohttp.ClientSession() as session:
-            with caplog.at_level(logging.WARNING):
-                widget_cfg = {
-                    "type": "message",
-                    "text": "hi",
-                    "font": "Inter-Regular",
-                    "font_size": 40,  # huge but bigsign-appropriate
-                }
-                await _build_widget(widget_cfg, session, panel_h_for_warning=None)
+        session = mock.Mock()
+        with caplog.at_level(logging.WARNING):
+            widget_cfg = {
+                "type": "message",
+                "text": "hi",
+                "font": "Inter-Regular",
+                "font_size": 40,  # huge but bigsign-appropriate
+            }
+            await _build_widget(widget_cfg, session, panel_h_for_warning=None)
         assert not any("exceeds panel height" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
@@ -735,19 +710,17 @@ class TestSmallSignFontSizeGuard:
         trip it even with a `font_size` in the config."""
         import logging
 
-        import aiohttp
-
         from led_ticker.app import _build_widget
 
-        async with aiohttp.ClientSession() as session:
-            with caplog.at_level(logging.WARNING):
-                widget_cfg = {
-                    "type": "message",
-                    "text": "hi",
-                    "font": "6x12",
-                    "font_size": 40,  # ignored — BDF is 12px regardless
-                }
-                await _build_widget(widget_cfg, session, panel_h_for_warning=16)
+        session = mock.Mock()
+        with caplog.at_level(logging.WARNING):
+            widget_cfg = {
+                "type": "message",
+                "text": "hi",
+                "font": "6x12",
+                "font_size": 40,  # ignored — BDF is 12px regardless
+            }
+            await _build_widget(widget_cfg, session, panel_h_for_warning=16)
         assert not any("exceeds panel height" in r.message for r in caplog.records)
 
 
@@ -831,7 +804,6 @@ class TestFontSizeMigration:
     async def test_text_scale_in_config_raises_migration_error(self, tmp_path):
         """Any `text_scale` key in a widget config dict triggers the
         migration error. Message includes the conversion formula."""
-        import aiohttp
         from PIL import Image
 
         from led_ticker.app import _build_widget
@@ -850,9 +822,9 @@ class TestFontSizeMigration:
 
         from led_ticker.validate import MigrationError
 
-        async with aiohttp.ClientSession() as s:
-            with pytest.raises(MigrationError, match="text_scale removed"):
-                await _build_widget(cfg, s, config_dir=tmp_path)
+        s = mock.Mock()
+        with pytest.raises(MigrationError, match="text_scale removed"):
+            await _build_widget(cfg, s, config_dir=tmp_path)
 
     @pytest.mark.asyncio
     async def test_text_scale_raises_migration_error_not_value_error(self, tmp_path):
@@ -867,7 +839,6 @@ class TestFontSizeMigration:
     async def test_migration_message_includes_conversion_formula(self, tmp_path):
         """The error message must tell the user *how* to migrate, not
         just that they need to. Formula: font_size = N × cell_h."""
-        import aiohttp
         from PIL import Image
 
         from led_ticker.app import _build_widget
@@ -884,9 +855,9 @@ class TestFontSizeMigration:
             "text_scale": 2,
         }
 
-        async with aiohttp.ClientSession() as s:
-            with pytest.raises(MigrationError) as exc_info:
-                await _build_widget(cfg, s, config_dir=tmp_path)
+        s = mock.Mock()
+        with pytest.raises(MigrationError) as exc_info:
+            await _build_widget(cfg, s, config_dir=tmp_path)
 
         msg = str(exc_info.value)
         # Must include the formula and concrete examples.
@@ -899,7 +870,6 @@ class TestFontSizeMigration:
         """HiresFont (any TTF/OTF name resolved to a HiresFont) requires
         explicit `font_size` — the rasterizer needs a real-px target.
         BDF fonts get the smart default, but HiresFont cannot."""
-        import aiohttp
         import pytest
         from PIL import Image
 
@@ -917,16 +887,15 @@ class TestFontSizeMigration:
             # No font_size!
         }
 
-        async with aiohttp.ClientSession() as s:
-            with pytest.raises(ValueError, match="HiresFont.*requires font_size"):
-                await _build_widget(cfg, s, config_dir=tmp_path)
+        s = mock.Mock()
+        with pytest.raises(ValueError, match="HiresFont.*requires font_size"):
+            await _build_widget(cfg, s, config_dir=tmp_path)
 
     @pytest.mark.asyncio
     async def test_bdf_without_font_size_succeeds(self, tmp_path):
         """BDF font without font_size is the natural case — smart
         default kicks in at first paint. _build_widget shouldn't
         complain."""
-        import aiohttp
         from PIL import Image
 
         from led_ticker.app import _build_widget
@@ -943,8 +912,8 @@ class TestFontSizeMigration:
             # No font_size — should resolve to default BDF, no error.
         }
 
-        async with aiohttp.ClientSession() as s:
-            widget = await _build_widget(cfg, s, config_dir=tmp_path)
+        s = mock.Mock()
+        widget = await _build_widget(cfg, s, config_dir=tmp_path)
 
         assert widget.font_size is None  # smart default, not yet resolved
 
@@ -955,7 +924,6 @@ class TestFontSizeMigration:
         single-font path; the per-row branch is symmetric and a
         future refactor could silently drop the guard if no test
         covers it."""
-        import aiohttp
         import pytest
         from PIL import Image
 
@@ -976,9 +944,9 @@ class TestFontSizeMigration:
             "bottom_font_size": 14,
         }
 
-        async with aiohttp.ClientSession() as s:
-            with pytest.raises(ValueError, match="HiresFont.*requires top_font_size"):
-                await _build_widget(cfg, s, config_dir=tmp_path)
+        s = mock.Mock()
+        with pytest.raises(ValueError, match="HiresFont.*requires top_font_size"):
+            await _build_widget(cfg, s, config_dir=tmp_path)
 
 
 class TestPresentationMigration:
@@ -987,7 +955,6 @@ class TestPresentationMigration:
     widgets is also rejected."""
 
     async def test_presentation_in_config_raises_migration_error(self):
-        import aiohttp
         import pytest
 
         from led_ticker.app import _build_widget
@@ -998,9 +965,9 @@ class TestPresentationMigration:
             "text": "hi",
             "presentation": "rainbow",
         }
-        async with aiohttp.ClientSession() as s:
-            with pytest.raises(MigrationError, match="presentation removed"):
-                await _build_widget(cfg, session=s)
+        s = mock.Mock()
+        with pytest.raises(MigrationError, match="presentation removed"):
+            await _build_widget(cfg, session=s)
 
     @pytest.mark.asyncio
     async def test_presentation_raises_migration_error_not_value_error(self):
@@ -1012,16 +979,15 @@ class TestPresentationMigration:
             await _build_widget(cfg, session=None)  # type: ignore[arg-type]
 
     async def test_migration_message_includes_mapping_table(self):
-        import aiohttp
         import pytest
 
         from led_ticker.app import _build_widget
         from led_ticker.validate import MigrationError
 
         cfg = {"type": "message", "text": "hi", "presentation": "typewriter"}
-        async with aiohttp.ClientSession() as s:
-            with pytest.raises(MigrationError) as exc:
-                await _build_widget(cfg, session=s)
+        s = mock.Mock()
+        with pytest.raises(MigrationError) as exc:
+            await _build_widget(cfg, session=s)
 
         msg = str(exc.value)
         assert "animation" in msg
@@ -1030,7 +996,6 @@ class TestPresentationMigration:
         assert "typewriter" in msg
 
     async def test_animation_on_weather_raises(self, tmp_path):
-        import aiohttp
         import pytest
 
         from led_ticker.app import _build_widget
@@ -1041,26 +1006,23 @@ class TestPresentationMigration:
             "location": "NYC",
             "animation": "typewriter",
         }
-        async with aiohttp.ClientSession() as s:
-            with pytest.raises(ValueError, match='only valid on type="message"'):
-                await _build_widget(cfg, session=s)
+        s = mock.Mock()
+        with pytest.raises(ValueError, match='only valid on type="message"'):
+            await _build_widget(cfg, session=s)
 
     async def test_animation_on_message_succeeds(self):
-        import aiohttp
-
         from led_ticker.animations import Typewriter
         from led_ticker.app import _build_widget
 
         cfg = {"type": "message", "text": "hi", "animation": "typewriter"}
-        async with aiohttp.ClientSession() as s:
-            widget = await _build_widget(cfg, session=s)
+        s = mock.Mock()
+        widget = await _build_widget(cfg, session=s)
         assert isinstance(widget.animation, Typewriter)
 
     async def test_animation_field_accepted_on_image_widget(self, tmp_path):
         """`type = "image"` with `animation = "typewriter"` builds without
         error. Mirrors the existing TickerMessage animation acceptance.
         Uses a real PNG so _load() doesn't trip."""
-        import aiohttp
         from PIL import Image
 
         from led_ticker.app import _build_widget
@@ -1075,14 +1037,13 @@ class TestPresentationMigration:
             "text_align": "left",
             "animation": "typewriter",
         }
-        async with aiohttp.ClientSession() as s:
-            widget = await _build_widget(cfg, session=s)
+        s = mock.Mock()
+        widget = await _build_widget(cfg, session=s)
         assert widget.animation is not None
 
     async def test_animation_field_accepted_on_gif_widget(self, tmp_path):
         """`type = "gif"` with `animation = "typewriter"` builds. Same
         contract as image — the field lives on `_BaseImageWidget`."""
-        import aiohttp
         from PIL import Image
 
         from led_ticker.app import _build_widget
@@ -1097,8 +1058,8 @@ class TestPresentationMigration:
             "text_align": "left",
             "animation": "typewriter",
         }
-        async with aiohttp.ClientSession() as s:
-            widget = await _build_widget(cfg, session=s)
+        s = mock.Mock()
+        widget = await _build_widget(cfg, session=s)
         assert widget.animation is not None
 
 
@@ -1107,30 +1068,24 @@ class TestColorProviderCoercion:
     'color_cycle' (provider strings), or {style = "...", ...} tables."""
 
     async def test_list_becomes_constant_color(self):
-        import aiohttp
-
         from led_ticker.app import _build_widget
         from led_ticker.color_providers import _ConstantColor
 
         cfg = {"type": "message", "text": "hi", "font_color": [255, 0, 0]}
-        async with aiohttp.ClientSession() as s:
-            widget = await _build_widget(cfg, session=s)
+        s = mock.Mock()
+        widget = await _build_widget(cfg, session=s)
         assert isinstance(widget.font_color, _ConstantColor)
 
     async def test_string_rainbow_becomes_rainbow_provider(self):
-        import aiohttp
-
         from led_ticker.app import _build_widget
         from led_ticker.color_providers import Rainbow
 
         cfg = {"type": "message", "text": "hi", "font_color": "rainbow"}
-        async with aiohttp.ClientSession() as s:
-            widget = await _build_widget(cfg, session=s)
+        s = mock.Mock()
+        widget = await _build_widget(cfg, session=s)
         assert isinstance(widget.font_color, Rainbow)
 
     async def test_table_with_style_and_kwargs(self):
-        import aiohttp
-
         from led_ticker.app import _build_widget
         from led_ticker.color_providers import Rainbow
 
@@ -1139,31 +1094,28 @@ class TestColorProviderCoercion:
             "text": "hi",
             "font_color": {"style": "rainbow", "speed": 16},
         }
-        async with aiohttp.ClientSession() as s:
-            widget = await _build_widget(cfg, session=s)
+        s = mock.Mock()
+        widget = await _build_widget(cfg, session=s)
         assert isinstance(widget.font_color, Rainbow)
         assert widget.font_color.speed == 16
 
     async def test_unknown_style_string_raises(self):
-        import aiohttp
         import pytest
 
         from led_ticker.app import _build_widget
 
         cfg = {"type": "message", "text": "hi", "font_color": "unknownstyle"}
-        async with aiohttp.ClientSession() as s:
-            with pytest.raises(ValueError, match="unknown.*style"):
-                await _build_widget(cfg, session=s)
+        s = mock.Mock()
+        with pytest.raises(ValueError, match="unknown.*style"):
+            await _build_widget(cfg, session=s)
 
     async def test_random_string_becomes_random_provider(self):
-        import aiohttp
-
         from led_ticker.app import _build_widget
         from led_ticker.color_providers import Random
 
         cfg = {"type": "message", "text": "hi", "font_color": "random"}
-        async with aiohttp.ClientSession() as s:
-            widget = await _build_widget(cfg, session=s)
+        s = mock.Mock()
+        widget = await _build_widget(cfg, session=s)
         assert isinstance(widget.font_color, Random)
 
     async def test_weather_font_color_temp_string_becomes_provider(self, monkeypatch):
@@ -1171,7 +1123,6 @@ class TestColorProviderCoercion:
         font_color. Without `font_color_temp` in _PROVIDER_COLOR_KEYS,
         the string passes through and crashes at draw time."""
         monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
-        import aiohttp
 
         from led_ticker.app import _build_widget
         from led_ticker.color_providers import Rainbow
@@ -1182,13 +1133,12 @@ class TestColorProviderCoercion:
             "location": "NYC",
             "font_color_temp": "rainbow",
         }
-        async with aiohttp.ClientSession() as s:
-            widget = await _build_widget(cfg, session=s)
+        s = mock.Mock()
+        widget = await _build_widget(cfg, session=s)
         assert isinstance(widget.font_color_temp, Rainbow)
 
     async def test_weather_font_color_temp_table_becomes_provider(self, monkeypatch):
         monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
-        import aiohttp
 
         from led_ticker.app import _build_widget
         from led_ticker.color_providers import Gradient
@@ -1203,8 +1153,8 @@ class TestColorProviderCoercion:
                 "to": [0, 0, 255],
             },
         }
-        async with aiohttp.ClientSession() as s:
-            widget = await _build_widget(cfg, session=s)
+        s = mock.Mock()
+        widget = await _build_widget(cfg, session=s)
         assert isinstance(widget.font_color_temp, Gradient)
 
 
@@ -1999,7 +1949,6 @@ class TestBuildWidgetCoerceEnum:
     @pytest.mark.asyncio
     async def test_coerces_image_align_case(self, tmp_path):
         """image_align = 'Left' should coerce to 'left' and warn."""
-        import aiohttp
         from PIL import Image
 
         from led_ticker._coerce import CoercionWarning
@@ -2009,19 +1958,19 @@ class TestBuildWidgetCoerceEnum:
         Image.new("RGB", (1, 1), (255, 0, 0)).save(img_path)
 
         warnings: list[CoercionWarning] = []
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {
-                "type": "image",
-                "path": "tiny.png",
-                "image_align": "Left",
-                "fit": "Letterbox",
-            }
-            widget = await _build_widget(
-                widget_cfg,
-                session,
-                config_dir=tmp_path,
-                coercion_collector=warnings,
-            )
+        session = mock.Mock()
+        widget_cfg = {
+            "type": "image",
+            "path": "tiny.png",
+            "image_align": "Left",
+            "fit": "Letterbox",
+        }
+        widget = await _build_widget(
+            widget_cfg,
+            session,
+            config_dir=tmp_path,
+            coercion_collector=warnings,
+        )
         assert widget is not None
         fields_warned = {w.field for w in warnings}
         assert "widget.image_align" in fields_warned
@@ -2030,7 +1979,6 @@ class TestBuildWidgetCoerceEnum:
     @pytest.mark.asyncio
     async def test_unknown_image_align_rejected(self, tmp_path):
         """'Middle' (after lowercase) still isn't a valid image_align."""
-        import aiohttp
         from PIL import Image
 
         from led_ticker.app import _build_widget
@@ -2038,24 +1986,23 @@ class TestBuildWidgetCoerceEnum:
         img_path = tmp_path / "tiny.png"
         Image.new("RGB", (1, 1), (255, 0, 0)).save(img_path)
 
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {
-                "type": "image",
-                "path": "tiny.png",
-                "image_align": "Middle",
-            }
-            with pytest.raises(ValueError, match="not a valid choice"):
-                await _build_widget(
-                    widget_cfg,
-                    session,
-                    config_dir=tmp_path,
-                )
+        session = mock.Mock()
+        widget_cfg = {
+            "type": "image",
+            "path": "tiny.png",
+            "image_align": "Middle",
+        }
+        with pytest.raises(ValueError, match="not a valid choice"):
+            await _build_widget(
+                widget_cfg,
+                session,
+                config_dir=tmp_path,
+            )
 
     @pytest.mark.asyncio
     async def test_coerces_text_align_case_on_image(self, tmp_path):
         """text_align on an image widget: 'Left' must coerce to 'left'
         and the widget must accept the canonical value."""
-        import aiohttp
         from PIL import Image
 
         from led_ticker._coerce import CoercionWarning
@@ -2065,19 +2012,19 @@ class TestBuildWidgetCoerceEnum:
         Image.new("RGB", (1, 1), (255, 0, 0)).save(img_path)
 
         warnings: list[CoercionWarning] = []
-        async with aiohttp.ClientSession() as session:
-            widget_cfg = {
-                "type": "image",
-                "path": "tiny.png",
-                "text": "hi",
-                "text_align": "Left",
-            }
-            widget = await _build_widget(
-                widget_cfg,
-                session,
-                config_dir=tmp_path,
-                coercion_collector=warnings,
-            )
+        session = mock.Mock()
+        widget_cfg = {
+            "type": "image",
+            "path": "tiny.png",
+            "text": "hi",
+            "text_align": "Left",
+        }
+        widget = await _build_widget(
+            widget_cfg,
+            session,
+            config_dir=tmp_path,
+            coercion_collector=warnings,
+        )
         assert widget is not None
         assert widget.text_align == "left"
         assert any(w.field == "widget.text_align" for w in warnings)
@@ -2090,7 +2037,6 @@ class TestBuildWidgetCoerceEnum:
         'auto' even though VALID_TEXT_ALIGNS (the post-resolution
         strict set in _image_base) doesn't, or any explicit
         text_align='auto' / 'Auto' breaks at config load."""
-        import aiohttp
         from PIL import Image
 
         from led_ticker.app import _build_widget
@@ -2099,18 +2045,18 @@ class TestBuildWidgetCoerceEnum:
         Image.new("RGB", (1, 1), (255, 0, 0)).save(img_path)
 
         for value in ("auto", "Auto", "AUTO"):
-            async with aiohttp.ClientSession() as session:
-                widget_cfg = {
-                    "type": "image",
-                    "path": "tiny.png",
-                    "text": "hi",
-                    "text_align": value,
-                }
-                widget = await _build_widget(
-                    widget_cfg,
-                    session,
-                    config_dir=tmp_path,
-                )
+            session = mock.Mock()
+            widget_cfg = {
+                "type": "image",
+                "path": "tiny.png",
+                "text": "hi",
+                "text_align": value,
+            }
+            widget = await _build_widget(
+                widget_cfg,
+                session,
+                config_dir=tmp_path,
+            )
             # Widget resolves 'auto' to a concrete side at construction;
             # the only contract is the build doesn't raise.
             assert widget is not None

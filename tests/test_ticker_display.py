@@ -1145,6 +1145,52 @@ class TestTickerRunSwap:
         assert w1.draw.called
 
 
+class TestCreateTaskHandlesStored:
+    """asyncio.create_task results must be stored on Ticker._enqueue_task. (S5)
+
+    Each run method (run_swap, run_forever_scroll, run_infini_scroll) spawns
+    a background task via asyncio.create_task. The returned Task handle must
+    be saved so done callbacks fire for silent exception reporting and so the
+    teardown path in run.py can cancel it on SIGINT.
+    """
+
+    async def test_run_swap_stores_task_handle(self, mock_frame, make_widget, no_sleep):
+        w = make_widget(40)
+        q = asyncio.Queue()
+        ticker = Ticker(monitors=[w], frame=mock_frame, notif_queue=q)
+        assert ticker._enqueue_task is None, "must be None before run"
+        await ticker.run_swap(loop_count=1)
+        assert (
+            ticker._enqueue_task is not None
+        ), "Ticker._enqueue_task must be set after run_swap — task handle not stored"
+
+    async def test_run_forever_scroll_stores_task_handle(
+        self, mock_frame, make_widget, no_sleep
+    ):
+        w = make_widget(10)
+        q = asyncio.Queue()
+        ticker = Ticker(monitors=[w], frame=mock_frame, notif_queue=q)
+        assert ticker._enqueue_task is None, "must be None before run"
+        await ticker.run_forever_scroll(loop_count=1)
+        assert ticker._enqueue_task is not None, (
+            "Ticker._enqueue_task must be set after run_forever_scroll — "
+            "task handle not stored"
+        )
+
+    async def test_run_infini_scroll_stores_task_handle(
+        self, mock_frame, make_widget, no_sleep
+    ):
+        w = make_widget(10)
+        q = asyncio.Queue()
+        ticker = Ticker(monitors=[w], frame=mock_frame, notif_queue=q)
+        assert ticker._enqueue_task is None, "must be None before run"
+        await ticker.run_infini_scroll(loop_count=1)
+        assert ticker._enqueue_task is not None, (
+            "Ticker._enqueue_task must be set after run_infini_scroll — "
+            "task handle not stored"
+        )
+
+
 class TestTickerRunForeverScroll:
     async def test_default_start_pos_is_canvas_width(
         self, mock_frame, make_widget, no_sleep

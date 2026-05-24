@@ -1766,6 +1766,7 @@ class TestAppRunBgColorHandoff:
             def __init__(self, *args, **kwargs):
                 type(self).instances.append(self)
                 self.last_scroll_pos = 0
+                self._enqueue_task = None
 
             async def run_swap(self, **kw):
                 pass
@@ -2434,6 +2435,7 @@ class TestPerSectionQueue:
             def __init__(self, *args, **kwargs):
                 received_queues.append(kwargs.get("notif_queue"))
                 self.last_scroll_pos = 0
+                self._enqueue_task = None
                 # Only raise after we've seen both sections
                 if len(received_queues) >= 2:
                     raise _StopApp("captured both sections")

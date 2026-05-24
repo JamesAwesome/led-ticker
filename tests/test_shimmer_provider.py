@@ -254,7 +254,7 @@ class TestShimmerCoercion:
             self._coerce({"style": "shimmer", "shimmer": [0, 0, -1]})
 
     def test_all_four_shorthands_resolve(self):
-        """Each shorthand in _SHIMMER_COLOR_SHORTHANDS resolves without error."""
+        """Each shorthand resolves for both base= and shimmer= slots."""
         from led_ticker.app.coercion import _SHIMMER_COLOR_SHORTHANDS
 
         for name in _SHIMMER_COLOR_SHORTHANDS:
@@ -264,7 +264,26 @@ class TestShimmerCoercion:
                 p._shimmer.red,
                 p._shimmer.green,
                 p._shimmer.blue,
-            ) == expected, f"shorthand {name!r} did not resolve to {expected}"
+            ) == expected, f"shimmer shorthand {name!r} did not resolve to {expected}"
+
+        for name in _SHIMMER_COLOR_SHORTHANDS:
+            p = self._coerce({"style": "shimmer", "base": name})
+            expected = _SHIMMER_COLOR_SHORTHANDS[name]
+            assert (
+                p._base.red,
+                p._base.green,
+                p._base.blue,
+            ) == expected, f"base shorthand {name!r} did not resolve to {expected}"
+
+    def test_base_color_internal_name_rejected(self):
+        """base_color (internal kwarg name) is rejected with a clear error."""
+        with pytest.raises(ValueError, match="base_color"):
+            self._coerce({"style": "shimmer", "base_color": [255, 0, 0]})
+
+    def test_shimmer_color_internal_name_rejected(self):
+        """shimmer_color (internal kwarg name) is rejected with a clear error."""
+        with pytest.raises(ValueError, match="shimmer_color"):
+            self._coerce({"style": "shimmer", "shimmer_color": [255, 0, 0]})
 
     def test_shimmer_string_shorthand_plain(self):
         """Plain string 'shimmer' resolves to a Shimmer instance with defaults."""

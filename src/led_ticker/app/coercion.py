@@ -58,7 +58,7 @@ def _coerce_color_provider(value: Any, context: str = "font_color") -> Any:
     Accepts:
     - `[r, g, b]` / `(r, g, b)` → `_ConstantColor(graphics.Color(...))`
     - `"random"` → `Random()`
-    - `"rainbow"` / `"color_cycle"` → corresponding provider with defaults
+    - `"rainbow"` / `"color_cycle"` / `"shimmer"` → corresponding provider with defaults
     - `{style = "...", ...kwargs}` → named provider with kwargs
     - already a Color (graphics.Color) → wrap in `_ConstantColor`
     - already a ColorProvider → returned as-is
@@ -244,6 +244,14 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
             allowed_kwargs = {"speed", "from_hue", "to_hue"}
 
     if style == "shimmer":
+        # base_color/shimmer_color are internal names injected below — reject them
+        # if the user somehow typed them directly (they should use base= / shimmer=)
+        for _internal in ("base_color", "shimmer_color"):
+            if _internal in kwargs:
+                raise ValueError(
+                    f"font_color shimmer: use 'base' and 'shimmer' keys, not "
+                    f"{_internal!r} (that is an internal name)"
+                )
         base_val = kwargs.pop("base", None)
         shimmer_val = kwargs.pop("shimmer", None)
 

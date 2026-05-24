@@ -218,13 +218,6 @@ def test_allow_list_entries_actually_pause_and_resume_frame():
         if node.name not in ALLOW_LIST:
             continue
 
-        # Shims that delegate to a class method have no redraw loops of
-        # their own — the pause/resume contract lives in the method.
-        # Skip functions with no loops to avoid false failures on shims.
-        has_loop = any(_is_loop(child) for child in ast.walk(node))
-        if not has_loop:
-            continue
-
         n_pause = _count_method_calls(node, "pause_frame")
         n_resume = _count_method_calls(node, "resume_frame")
 

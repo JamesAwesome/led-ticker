@@ -22,6 +22,7 @@ from __future__ import annotations
 import attrs
 import pytest
 
+from led_ticker.ticker import Ticker
 from led_ticker.widgets.two_row import TwoRowMessage
 
 
@@ -370,15 +371,12 @@ class TestScrollThroughEngineIntegration:
 
         monkeypatch.setattr("asyncio.sleep", _no_sleep)
 
-        from led_ticker.ticker import _swap_and_scroll
-
         widget = self._fake_scroll_through_widget(bottom_width=200, canvas_width=160)
         canvas = swapping_frame.get_clean_canvas.return_value
-        await _swap_and_scroll(
+        ticker = Ticker(monitors=[], frame=swapping_frame, scroll_speed=0.0)
+        await ticker._swap_and_scroll(
             canvas,
-            swapping_frame,
             widget,
-            scroll_speed=0.0,
             hold_time=1.0,  # Non-trivial: pre-hold loop would fire 20 ticks.
         )
         zero_pos_draws = [
@@ -407,15 +405,12 @@ class TestScrollThroughEngineIntegration:
 
         monkeypatch.setattr("asyncio.sleep", _no_sleep)
 
-        from led_ticker.ticker import _swap_and_scroll
-
         widget = self._fake_scroll_through_widget(bottom_width=200, canvas_width=160)
         canvas = swapping_frame.get_clean_canvas.return_value
-        _, _, final_pos = await _swap_and_scroll(
+        ticker = Ticker(monitors=[], frame=swapping_frame, scroll_speed=0.0)
+        _, _, final_pos = await ticker._swap_and_scroll(
             canvas,
-            swapping_frame,
             widget,
-            scroll_speed=0.0,
             hold_time=0.0,
         )
         assert final_pos <= -(canvas.width + 200), (
@@ -450,8 +445,6 @@ class TestScrollThroughHoldTimeUnification:
         """
         import math
 
-        from led_ticker.ticker import _swap_and_scroll
-
         async def _no_sleep(_):
             return None
 
@@ -468,11 +461,10 @@ class TestScrollThroughHoldTimeUnification:
         scroll_speed = 0.05
         hold_time = 20.0
 
-        _, _, final_pos = await _swap_and_scroll(
+        ticker = Ticker(monitors=[], frame=swapping_frame, scroll_speed=scroll_speed)
+        _, _, final_pos = await ticker._swap_and_scroll(
             canvas,
-            swapping_frame,
             widget,
-            scroll_speed=scroll_speed,
             hold_time=hold_time,
         )
 
@@ -506,8 +498,6 @@ class TestScrollThroughHoldTimeUnification:
         max picks loops_floor=3.
         """
 
-        from led_ticker.ticker import _swap_and_scroll
-
         async def _no_sleep(_):
             return None
 
@@ -523,11 +513,10 @@ class TestScrollThroughHoldTimeUnification:
         scroll_speed = 0.05
         hold_time = 0.05  # tiny — only 1 tick worth
 
-        _, _, final_pos = await _swap_and_scroll(
+        ticker = Ticker(monitors=[], frame=swapping_frame, scroll_speed=scroll_speed)
+        _, _, final_pos = await ticker._swap_and_scroll(
             canvas,
-            swapping_frame,
             widget,
-            scroll_speed=scroll_speed,
             hold_time=hold_time,
         )
 
@@ -553,8 +542,6 @@ class TestScrollThroughHoldTimeUnification:
         """
         import math
 
-        from led_ticker.ticker import _swap_and_scroll
-
         async def _no_sleep(_):
             return None
 
@@ -570,11 +557,10 @@ class TestScrollThroughHoldTimeUnification:
         scroll_speed = 0.05
         hold_time = 20.0
 
-        _, _, final_pos = await _swap_and_scroll(
+        ticker = Ticker(monitors=[], frame=swapping_frame, scroll_speed=scroll_speed)
+        _, _, final_pos = await ticker._swap_and_scroll(
             canvas,
-            swapping_frame,
             widget,
-            scroll_speed=scroll_speed,
             hold_time=hold_time,
         )
 
@@ -602,7 +588,6 @@ class TestScrollThroughHoldTimeUnification:
 
         Both unset → baseline 1 pass. Back-compat.
         """
-        from led_ticker.ticker import _swap_and_scroll
 
         async def _no_sleep(_):
             return None
@@ -617,11 +602,10 @@ class TestScrollThroughHoldTimeUnification:
         )
         canvas = swapping_frame.get_clean_canvas.return_value
 
-        _, _, final_pos = await _swap_and_scroll(
+        ticker = Ticker(monitors=[], frame=swapping_frame, scroll_speed=0.05)
+        _, _, final_pos = await ticker._swap_and_scroll(
             canvas,
-            swapping_frame,
             widget,
-            scroll_speed=0.05,
             hold_time=0.0,
         )
 
@@ -643,7 +627,6 @@ class TestScrollThroughHoldTimeUnification:
         Existing TwoRow behavior preserved — loops alone controls passes
         when hold_time is 0.
         """
-        from led_ticker.ticker import _swap_and_scroll
 
         async def _no_sleep(_):
             return None
@@ -658,11 +641,10 @@ class TestScrollThroughHoldTimeUnification:
         )
         canvas = swapping_frame.get_clean_canvas.return_value
 
-        _, _, final_pos = await _swap_and_scroll(
+        ticker = Ticker(monitors=[], frame=swapping_frame, scroll_speed=0.05)
+        _, _, final_pos = await ticker._swap_and_scroll(
             canvas,
-            swapping_frame,
             widget,
-            scroll_speed=0.05,
             hold_time=0.0,
         )
 
@@ -694,8 +676,6 @@ class TestScrollThroughRealWidgetEngineIntegration:
     async def test_real_two_row_scroll_through_clears_left_edge(
         self, swapping_frame, monkeypatch
     ):
-        from led_ticker.ticker import _swap_and_scroll
-
         async def _no_sleep(_):
             return None
 
@@ -709,11 +689,10 @@ class TestScrollThroughRealWidgetEngineIntegration:
         canvas = swapping_frame.get_clean_canvas.return_value
 
         # Real widget needs to measure its bottom_width on first draw.
-        _, _, final_pos = await _swap_and_scroll(
+        ticker = Ticker(monitors=[], frame=swapping_frame, scroll_speed=0.0)
+        _, _, final_pos = await ticker._swap_and_scroll(
             canvas,
-            swapping_frame,
             widget,
-            scroll_speed=0.0,
             hold_time=1.0,  # Non-trivial: a pre-hold would inflate ticks.
         )
 
@@ -743,8 +722,6 @@ class TestScrollThroughRealWidgetEngineIntegration:
         produces slots-only instances so post-construction monkeypatch
         and mocker.spy both fail.
         """
-        from led_ticker.ticker import _swap_and_scroll
-
         captured: list[int] = []
 
         @attrs.define
@@ -764,9 +741,8 @@ class TestScrollThroughRealWidgetEngineIntegration:
             bottom_text_scroll="scroll_through",
         )
         canvas = swapping_frame.get_clean_canvas.return_value
-        await _swap_and_scroll(
-            canvas, swapping_frame, widget, scroll_speed=0.0, hold_time=1.0
-        )
+        ticker = Ticker(monitors=[], frame=swapping_frame, scroll_speed=0.0)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=1.0)
 
         zero_pos_draws = [pos for pos in captured if pos == 0]
         assert len(zero_pos_draws) == 1, (

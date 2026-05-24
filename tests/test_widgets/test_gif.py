@@ -30,16 +30,6 @@ def _make_gif_path(tmp_path, frames, size=(32, 32), duration_ms=100):
     return p
 
 
-def _bigsign_real_canvas():
-    opts = RGBMatrixOptions()
-    opts.cols = 64
-    opts.rows = 32
-    opts.chain_length = 8
-    opts.parallel = 1
-    opts.pixel_mapper_config = "U-mapper"
-    return RGBMatrix(options=opts).CreateFrameCanvas()
-
-
 def test_load_decodes_lazily(tmp_path):
     path = _make_gif_path(tmp_path, [(255, 0, 0), (0, 255, 0)])
     widget = GifPlayer(path=str(path), fit="stretch")
@@ -51,10 +41,10 @@ def test_load_decodes_lazily(tmp_path):
     assert len(widget._frames) == 2
 
 
-def test_draw_paints_first_frame_to_real_canvas(tmp_path):
+def test_draw_paints_first_frame_to_real_canvas(tmp_path, bigsign_canvas):
     path = _make_gif_path(tmp_path, [(200, 30, 40)])
     widget = GifPlayer(path=str(path), fit="stretch")
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
 
     canvas, advance = widget.draw(real, cursor_pos=0)
 
@@ -65,12 +55,12 @@ def test_draw_paints_first_frame_to_real_canvas(tmp_path):
     assert real.get_pixel(real.width - 1, real.height - 1) != (0, 0, 0)
 
 
-def test_draw_unwraps_scaled_canvas(tmp_path):
+def test_draw_unwraps_scaled_canvas(tmp_path, bigsign_canvas):
     """ScaledCanvas wrapper must be bypassed so the GIF paints at native
     physical resolution, not as scale×scale blocks."""
     path = _make_gif_path(tmp_path, [(255, 255, 0)])
     widget = GifPlayer(path=str(path), fit="stretch")
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
 
     canvas, advance = widget.draw(sc, cursor_pos=0)
@@ -84,7 +74,7 @@ def test_draw_unwraps_scaled_canvas(tmp_path):
     assert real.get_pixel(1, 1) != (0, 0, 0)
 
 
-def test_draw_paints_current_frame_after_play(tmp_path):
+def test_draw_paints_current_frame_after_play(tmp_path, bigsign_canvas):
     """After `play()` advances the frame index, draw() should paint the
     new current frame, not frame 0."""
     path = _make_gif_path(tmp_path, [(200, 0, 0), (0, 200, 0)])
@@ -92,7 +82,7 @@ def test_draw_paints_current_frame_after_play(tmp_path):
     widget._load()
     widget._current_frame_idx = 1  # simulate end-of-play state
 
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     widget.draw(real, cursor_pos=0)
 
     # Pixel should reflect frame 1 (green), not frame 0 (red)
@@ -106,10 +96,10 @@ def test_missing_file_raises_at_load(tmp_path):
         widget._load()
 
 
-async def test_play_loops_through_frames(tmp_path, mocker):
+async def test_play_loops_through_frames(tmp_path, mocker, bigsign_canvas):
     path = _make_gif_path(tmp_path, [(255, 0, 0), (0, 255, 0)], duration_ms=10)
     widget = GifPlayer(path=str(path), fit="stretch")
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
 
     # Stub frame.matrix.SwapOnVSync to return a fresh canvas each call —
     # mirrors the real-stub tripwire from CLAUDE.md #1 / conftest.py.
@@ -137,10 +127,10 @@ async def test_play_loops_through_frames(tmp_path, mocker):
     assert widget._current_frame_idx == 1
 
 
-async def test_play_clamps_zero_loop_count_to_one(tmp_path, mocker):
+async def test_play_clamps_zero_loop_count_to_one(tmp_path, mocker, bigsign_canvas):
     path = _make_gif_path(tmp_path, [(50, 50, 50)], duration_ms=10)
     widget = GifPlayer(path=str(path), fit="stretch")
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -151,7 +141,7 @@ async def test_play_clamps_zero_loop_count_to_one(tmp_path, mocker):
     assert frame.matrix.SwapOnVSync.call_count == 1
 
 
-async def test_play_uses_engine_cadence_without_text(tmp_path, mocker):
+async def test_play_uses_engine_cadence_without_text(tmp_path, mocker, bigsign_canvas):
     """_play_no_text now runs at ENGINE_TICK_MS (50ms) cadence regardless of
     gif frame durations. For 2 frames at 120ms each (total 240ms), that
     means 240 // 50 = 4 ticks, each sleeping 0.05s. The total wall-clock
@@ -159,7 +149,7 @@ async def test_play_uses_engine_cadence_without_text(tmp_path, mocker):
     # Use distinct colors so PIL does not collapse identical frames into one.
     path = _make_gif_path(tmp_path, [(10, 20, 30), (40, 50, 60)], duration_ms=120)
     widget = GifPlayer(path=str(path), fit="stretch")
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
 
@@ -282,7 +272,7 @@ def test_text_y_offset_shifts_baseline(tmp_path, valign, offset, h, expected):
     ],
 )
 async def test_text_x_offset_shifts_static_text(
-    tmp_path, mocker, align, offset, expected_x
+    tmp_path, mocker, align, offset, expected_x, bigsign_canvas
 ):
     path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
     widget = GifPlayer(
@@ -292,7 +282,7 @@ async def test_text_x_offset_shifts_static_text(
         text_align=align,
         text_x_offset=offset,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -323,7 +313,9 @@ def test_text_x_offset_with_scroll_raises(tmp_path):
         )
 
 
-async def test_top_valign_paints_at_panel_top_when_wrapped(tmp_path, mocker):
+async def test_top_valign_paints_at_panel_top_when_wrapped(
+    tmp_path, mocker, bigsign_canvas
+):
     """With text_valign='top' (and smart-default wrap scale on bigsign),
     the wrapper spans the FULL panel (content_height = panel_h // scale)
     — text paints at the panel's TOP edge, not letterboxed."""
@@ -338,7 +330,7 @@ async def test_top_valign_paints_at_panel_top_when_wrapped(tmp_path, mocker):
         text_valign="top",
     )
     widget._logical_scale = 4  # Simulate bigsign
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -363,7 +355,9 @@ async def test_top_valign_paints_at_panel_top_when_wrapped(tmp_path, mocker):
     assert seen_y[0] == 10
 
 
-async def test_scroll_direction_right_advances_positively(tmp_path, mocker):
+async def test_scroll_direction_right_advances_positively(
+    tmp_path, mocker, bigsign_canvas
+):
     """scroll_direction='right' starts text off the LEFT edge and moves
     it rightward across the panel — opposite of the default."""
     path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
@@ -375,7 +369,7 @@ async def test_scroll_direction_right_advances_positively(tmp_path, mocker):
         scroll_speed_ms=50,
         scroll_direction="right",
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -399,13 +393,13 @@ async def test_scroll_direction_right_advances_positively(tmp_path, mocker):
     assert seen_x[2] == seen_x[0] + 2
 
 
-def test_image_align_left_anchors_at_x_zero(tmp_path):
+def test_image_align_left_anchors_at_x_zero(tmp_path, bigsign_canvas):
     """GifPlayer threads image_align through to decode_gif. After load(),
     a 32×32 pillarboxed source aligned 'left' should leave cols 64+
     black on the bigsign panel."""
     path = _make_gif_path(tmp_path, [(255, 255, 255)], size=(32, 32))
     widget = GifPlayer(path=str(path), fit="pillarbox", image_align="left")
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
 
     widget.draw(real, cursor_pos=0)
 
@@ -502,7 +496,9 @@ def test_paint_skip_black_leaves_zero_pixels_untouched(tmp_path):
         assert canvas.get_pixel(x, 1) == (0, 255, 0)
 
 
-async def test_play_with_text_uses_scroll_speed_cadence(tmp_path, mocker):
+async def test_play_with_text_uses_scroll_speed_cadence(
+    tmp_path, mocker, bigsign_canvas
+):
     """With SCROLLING text, ticks happen at scroll_speed_ms regardless
     of frame durations — that's what lets text scroll smoothly over
     slow GIFs. (Static text uses a fast path: paint once, sleep
@@ -515,7 +511,7 @@ async def test_play_with_text_uses_scroll_speed_cadence(tmp_path, mocker):
         text_align="scroll_over",  # scrolling, ticks per scroll_speed_ms
         scroll_speed_ms=60,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -541,7 +537,7 @@ async def test_play_with_text_uses_scroll_speed_cadence(tmp_path, mocker):
     assert all(abs(s - 0.06) < 1e-6 for s in sleeps)
 
 
-async def test_play_static_right_text_overlays_gif(tmp_path, mocker):
+async def test_play_static_right_text_overlays_gif(tmp_path, mocker, bigsign_canvas):
     """Static right-aligned text paints AFTER gif → text pixels override."""
     path = _make_gif_path(tmp_path, [(0, 0, 0)])
     widget = GifPlayer(
@@ -551,7 +547,7 @@ async def test_play_static_right_text_overlays_gif(tmp_path, mocker):
         text_align="right",
         font_color=Color(255, 0, 0),
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -566,7 +562,7 @@ async def test_play_static_right_text_overlays_gif(tmp_path, mocker):
     assert real.get_pixel(text_x, baseline_y - 1) == (255, 0, 0)
 
 
-async def test_play_static_left_text_at_x_2(tmp_path, mocker):
+async def test_play_static_left_text_at_x_2(tmp_path, mocker, bigsign_canvas):
     path = _make_gif_path(tmp_path, [(0, 0, 0)])
     widget = GifPlayer(
         path=str(path),
@@ -575,7 +571,7 @@ async def test_play_static_left_text_at_x_2(tmp_path, mocker):
         text_align="left",
         font_color=Color(0, 255, 0),
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -586,7 +582,7 @@ async def test_play_static_left_text_at_x_2(tmp_path, mocker):
     assert real.get_pixel(2, baseline_y - 1) == (0, 255, 0)
 
 
-async def test_play_scroll_over_text_overlays_gif(tmp_path, mocker):
+async def test_play_scroll_over_text_overlays_gif(tmp_path, mocker, bigsign_canvas):
     """scroll_over: gif painted first, text on top — so text is always
     visible (opposite of `scroll`, which puts text under and skips black
     gif pixels). Capture each tick's canvas state and assert the text
@@ -601,7 +597,7 @@ async def test_play_scroll_over_text_overlays_gif(tmp_path, mocker):
         font_color=Color(255, 255, 255),
         scroll_speed_ms=50,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     w, h = real.width, real.height
 
     pixels = bytes([180] * (w * h * 3))
@@ -640,7 +636,7 @@ async def test_play_scroll_over_text_overlays_gif(tmp_path, mocker):
     assert real.height > 12  # bigsign canvas, just keep test marker
 
 
-async def test_text_loops_extends_section_duration(tmp_path, mocker):
+async def test_text_loops_extends_section_duration(tmp_path, mocker, bigsign_canvas):
     """text_loops puts a floor on tick count: section runs at least
     N text traversals even if the gif's own loop_count is shorter."""
     # Gif loops fast (1 frame × 50 ms × 1 loop = 50 ms total, 1 tick).
@@ -653,7 +649,7 @@ async def test_text_loops_extends_section_duration(tmp_path, mocker):
         scroll_speed_ms=50,
         text_loops=2,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -668,7 +664,9 @@ async def test_text_loops_extends_section_duration(tmp_path, mocker):
     assert 2 * one_traversal <= count < 3 * one_traversal
 
 
-async def test_hires_marquee_completes_full_traversal_default(tmp_path, mocker):
+async def test_hires_marquee_completes_full_traversal_default(
+    tmp_path, mocker, bigsign_canvas
+):
     """Hardware-observed: a hires-wide marquee got cut off mid-pass when
     gif_loops × loop_ms < (text_w + text_width) × scroll_speed_ms. The
     auto-floor (text_loops=0 default) extends to at least one full pass,
@@ -686,7 +684,7 @@ async def test_hires_marquee_completes_full_traversal_default(tmp_path, mocker):
         scroll_speed_ms=50,
         font=font,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -701,7 +699,9 @@ async def test_hires_marquee_completes_full_traversal_default(tmp_path, mocker):
     assert frame.matrix.SwapOnVSync.call_count >= 256 + 150
 
 
-async def test_text_loops_zero_extends_to_one_full_traversal(tmp_path, mocker):
+async def test_text_loops_zero_extends_to_one_full_traversal(
+    tmp_path, mocker, bigsign_canvas
+):
     """text_loops=0 (default) now floors to one full marquee traversal.
     Before: gif duration ruled — short gifs cut off mid-marquee. After:
     the floor ensures the marquee doesn't get truncated. This protects
@@ -715,7 +715,7 @@ async def test_text_loops_zero_extends_to_one_full_traversal(tmp_path, mocker):
         text_align="scroll_over",
         scroll_speed_ms=50,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -772,7 +772,9 @@ def test_gif_loops_negative_still_raises(tmp_path):
         GifPlayer(path=str(path), gif_loops=-1)
 
 
-async def test_play_scroll_text_wraps_after_full_traversal(tmp_path, mocker):
+async def test_play_scroll_text_wraps_after_full_traversal(
+    tmp_path, mocker, bigsign_canvas
+):
     """Scroll wraps `scroll_pos` back to text_w when text fully exits left.
     Without this test, off-by-one in `<= 0` vs `< 0` wrap condition could
     ship green: the existing tests only watch monotonically-decreasing
@@ -785,7 +787,7 @@ async def test_play_scroll_text_wraps_after_full_traversal(tmp_path, mocker):
         text_align="scroll_over",
         scroll_speed_ms=50,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -831,7 +833,7 @@ async def test_play_scroll_text_wraps_after_full_traversal(tmp_path, mocker):
     ), f"wrap should reset to text_w={real.width}, got {seen_x[wrap_idx]}"
 
 
-async def test_play_scroll_text_advances_position(tmp_path, mocker):
+async def test_play_scroll_text_advances_position(tmp_path, mocker, bigsign_canvas):
     """Scroll mode decrements scroll_pos by 1 per tick. Capture the
     DrawText x-coordinate each tick to verify monotonic advance."""
     path = _make_gif_path(tmp_path, [(0, 0, 0)], duration_ms=50)
@@ -842,7 +844,7 @@ async def test_play_scroll_text_advances_position(tmp_path, mocker):
         text_align="scroll_over",
         scroll_speed_ms=50,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -874,7 +876,9 @@ async def test_play_scroll_text_advances_position(tmp_path, mocker):
     ]
 
 
-async def test_play_scroll_text_visible_through_black_pillars(tmp_path, mocker):
+async def test_play_scroll_text_visible_through_black_pillars(
+    tmp_path, mocker, bigsign_canvas
+):
     """The whole point of scroll mode: gif on top, text under, but
     black gif pixels are skipped so text shines through pillars.
     Capture canvas state at the specific tick that lands the text in
@@ -889,7 +893,7 @@ async def test_play_scroll_text_visible_through_black_pillars(tmp_path, mocker):
         font_color=Color(0, 0, 200),
         scroll_speed_ms=50,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     w, h = real.width, real.height
 
     band_y = (h - 12) // 2 + 10 - 1
@@ -980,7 +984,9 @@ class TestFrameForElapsed:
         assert w._frame_for_elapsed(350, 350) == 0  # wrap
 
 
-async def test_play_with_emoji_routes_through_emoji_painter(tmp_path, mocker):
+async def test_play_with_emoji_routes_through_emoji_painter(
+    tmp_path, mocker, bigsign_canvas
+):
     """When `text` contains a `:slug:` token, _play_with_text must
     dispatch to draw_with_emoji (not draw_text) so the icon actually
     renders. Spy on the dispatcher; assert it gets called."""
@@ -992,7 +998,7 @@ async def test_play_with_emoji_routes_through_emoji_painter(tmp_path, mocker):
         text_align="right",
         font_color=Color(255, 220, 50),
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -1007,7 +1013,9 @@ async def test_play_with_emoji_routes_through_emoji_painter(tmp_path, mocker):
     assert spy.called, "draw_with_emoji should be invoked for `:slug:` text"
 
 
-async def test_static_text_wider_than_canvas_clamps_to_left_edge(tmp_path, mocker):
+async def test_static_text_wider_than_canvas_clamps_to_left_edge(
+    tmp_path, mocker, bigsign_canvas
+):
     """text_x_right = max(2, text_w - text_width - 2). With text wider
     than canvas, the unclamped expression goes negative. Drop the max()
     and DrawText would draw partially off the panel — no test catches it
@@ -1020,7 +1028,7 @@ async def test_static_text_wider_than_canvas_clamps_to_left_edge(tmp_path, mocke
         text_align="right",
         font_color=Color(255, 255, 255),
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -1038,7 +1046,7 @@ async def test_static_text_wider_than_canvas_clamps_to_left_edge(tmp_path, mocke
     assert seen_x[0] == 2
 
 
-async def test_play_emoji_with_wrap_and_scroll(tmp_path, mocker):
+async def test_play_emoji_with_wrap_and_scroll(tmp_path, mocker, bigsign_canvas):
     """The actual user combo (Section 15 in config.gif_test): emoji slug
     + wrap at smart-default scale + text_align="scroll_over". Test that
     logical/physical unit handling in `_measure_text` is correct."""
@@ -1053,7 +1061,7 @@ async def test_play_emoji_with_wrap_and_scroll(tmp_path, mocker):
         text_loops=1,
     )
     widget._logical_scale = 4  # Simulate bigsign
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -1078,7 +1086,7 @@ async def test_play_emoji_with_wrap_and_scroll(tmp_path, mocker):
         )
 
 
-async def test_play_with_wrap_uses_scaled_canvas(tmp_path, mocker):
+async def test_play_with_wrap_uses_scaled_canvas(tmp_path, mocker, bigsign_canvas):
     """Smart-default wrap at _logical_scale wraps the real canvas in a
     ScaledCanvas just for text painting — block-expands each glyph pixel
     so text is visible on bigsign. Confirm by spying on draw_text."""
@@ -1093,7 +1101,7 @@ async def test_play_with_wrap_uses_scaled_canvas(tmp_path, mocker):
         font_color=Color(255, 255, 255),
     )
     widget._logical_scale = 4  # Simulate bigsign
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -1117,7 +1125,9 @@ async def test_play_with_wrap_uses_scaled_canvas(tmp_path, mocker):
     assert all(c.scale == 4 for c in seen_canvases)
 
 
-async def test_play_no_wrap_text_canvas_follows_back_buffer(tmp_path, mocker):
+async def test_play_no_wrap_text_canvas_follows_back_buffer(
+    tmp_path, mocker, bigsign_canvas
+):
     """Regression: when no ScaledCanvas wrapper is created (small sign,
     or BDF + font_size matching native cell_h on bigsign with scale=1),
     text_canvas IS the real canvas. After SwapOnVSync the `canvas`
@@ -1135,7 +1145,7 @@ async def test_play_no_wrap_text_canvas_follows_back_buffer(tmp_path, mocker):
     widget = GifPlayer(
         path=str(path), fit="stretch", text="X", text_align="scroll_over"
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
 
     frame = mocker.MagicMock()
     swap_returns: list[object] = []
@@ -1250,7 +1260,7 @@ async def test_play_two_row_no_wrap_text_canvas_follows_back_buffer(tmp_path, mo
         )
 
 
-async def test_play_native_uses_real_canvas(tmp_path, mocker):
+async def test_play_native_uses_real_canvas(tmp_path, mocker, bigsign_canvas):
     """Default font_size + _logical_scale=1 (no wrap path) — draw_text
     gets the raw real canvas, no ScaledCanvas wrapper."""
     from led_ticker.scaled_canvas import ScaledCanvas
@@ -1262,7 +1272,7 @@ async def test_play_native_uses_real_canvas(tmp_path, mocker):
         text="HI",
         text_align="right",
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -1278,7 +1288,7 @@ async def test_play_native_uses_real_canvas(tmp_path, mocker):
     assert seen and not any(isinstance(c, ScaledCanvas) for c in seen)
 
 
-def test_draw_does_not_paint_text(tmp_path):
+def test_draw_does_not_paint_text(tmp_path, bigsign_canvas):
     """draw() (used for transition compositing) deliberately skips text
     rendering. Asserts no text-coloured pixels appear after draw()."""
     path = _make_gif_path(tmp_path, [(0, 0, 0)])
@@ -1289,7 +1299,7 @@ def test_draw_does_not_paint_text(tmp_path):
         text_align="left",
         font_color=Color(255, 0, 255),
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
 
     widget.draw(real, cursor_pos=0)
 
@@ -1299,7 +1309,9 @@ def test_draw_does_not_paint_text(tmp_path):
             assert real.get_pixel(x, y) != (255, 0, 255)
 
 
-async def test_gif_static_text_does_not_freeze_animation(tmp_path, mocker):
+async def test_gif_static_text_does_not_freeze_animation(
+    tmp_path, mocker, bigsign_canvas
+):
     """REGRESSION: static text alongside a multi-frame gif must NOT
     freeze the gif on frame 0. The static-text fast path applies only
     when the source itself is static — `_is_static()` returns False
@@ -1319,7 +1331,7 @@ async def test_gif_static_text_does_not_freeze_animation(tmp_path, mocker):
         text_align="right",  # static — would trigger fast-path on a still
         scroll_speed_ms=50,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())

@@ -29,19 +29,6 @@ def _still_two_row(tmp_path, **kwargs):
     return StillImage(**defaults)
 
 
-def _bigsign_real_canvas():
-    """Bigsign 2x4 vertical-serpentine canvas (256x64)."""
-    from rgbmatrix import RGBMatrix, RGBMatrixOptions
-
-    opts = RGBMatrixOptions()
-    opts.cols = 64
-    opts.rows = 32
-    opts.chain_length = 8
-    opts.parallel = 1
-    opts.pixel_mapper_config = "U-mapper"
-    return RGBMatrix(options=opts).CreateFrameCanvas()
-
-
 class TestBottomTextScrollDefaultsOnImage:
     def test_field_defaults_to_marquee(self, tmp_path):
         w = _still_two_row(tmp_path)
@@ -148,7 +135,7 @@ class TestImageScrollThroughForcesOffscreenScroll:
 
     @pytest.mark.asyncio
     async def test_short_bottom_text_starts_offscreen_when_scroll_through(
-        self, tmp_path, mocker
+        self, tmp_path, mocker, bigsign_canvas
     ):
         """A two-letter `bottom_text="Hi"` would normally be held at
         `bottom_align="center"` because it fits the 256-wide canvas.
@@ -165,7 +152,7 @@ class TestImageScrollThroughForcesOffscreenScroll:
             scroll_speed_ms=50,
             hold_seconds=0.5,
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
         draws = _capture_draws_per_tick(mocker, frame)
@@ -208,7 +195,7 @@ class TestImageScrollThroughForcesOffscreenScroll:
 
     @pytest.mark.asyncio
     async def test_marquee_default_still_holds_short_bottom_text(
-        self, tmp_path, mocker
+        self, tmp_path, mocker, bigsign_canvas
     ):
         """Regression guard: with the default `bottom_text_scroll=
         "marquee"`, a short bottom_text that fits still holds at its
@@ -224,7 +211,7 @@ class TestImageScrollThroughForcesOffscreenScroll:
             scroll_speed_ms=50,
             hold_seconds=0.5,
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
         draws = _capture_draws_per_tick(mocker, frame)

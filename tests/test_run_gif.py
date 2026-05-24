@@ -8,7 +8,6 @@ import io
 from unittest import mock
 
 from PIL import Image
-from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.ticker import Ticker
@@ -31,18 +30,8 @@ def _make_gif(tmp_path, n_frames=2, size=(32, 32), duration_ms=10):
     return p
 
 
-def _bigsign_real_canvas():
-    opts = RGBMatrixOptions()
-    opts.cols = 64
-    opts.rows = 32
-    opts.chain_length = 8
-    opts.parallel = 1
-    opts.pixel_mapper_config = "U-mapper"
-    return RGBMatrix(options=opts).CreateFrameCanvas()
-
-
-async def test_run_gif_invokes_widget_play(tmp_path, mocker):
-    real = _bigsign_real_canvas()
+async def test_run_gif_invokes_widget_play(tmp_path, mocker, bigsign_canvas):
+    real = bigsign_canvas
     frame = mock.Mock()
     frame.get_clean_canvas.return_value = real
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
@@ -67,10 +56,10 @@ async def test_run_gif_invokes_widget_play(tmp_path, mocker):
     assert widget._current_frame_idx == 1
 
 
-async def test_run_gif_unwraps_scaled_canvas(tmp_path, mocker):
+async def test_run_gif_unwraps_scaled_canvas(tmp_path, mocker, bigsign_canvas):
     """When the section's scale > 1, the orchestrator must paint to the
     underlying real canvas, not the wrapper."""
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
     frame = mock.Mock()
     frame.get_clean_canvas.return_value = sc
@@ -97,11 +86,13 @@ async def test_run_gif_unwraps_scaled_canvas(tmp_path, mocker):
     assert real_after.get_pixel(1, 1) != (0, 0, 0)
 
 
-async def test_run_gif_enqueues_monitors_when_queue_empty(tmp_path, mocker):
+async def test_run_gif_enqueues_monitors_when_queue_empty(
+    tmp_path, mocker, bigsign_canvas
+):
     """Regression: run_gif must enqueue from self.monitors, not assume
     the queue is pre-populated. (The previous implementation skipped
     _build_then_enqueue and would deadlock in production.)"""
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mock.Mock()
     frame.get_clean_canvas.return_value = real
     frame.matrix.SwapOnVSync.side_effect = lambda c: c

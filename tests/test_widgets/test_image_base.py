@@ -349,7 +349,9 @@ class TestTwoRowLogicalUnits:
     band" exception on hardware.
     """
 
-    async def test_top_row_height_interpreted_as_logical(self, swapping_frame):
+    async def test_top_row_height_interpreted_as_logical(
+        self, monkeypatch, swapping_frame
+    ):
         """Set `_logical_scale = 4` (bigsign), `top_row_height = 5`
         (logical) → effective top band should be 20 real px, leaving
         44 real px for the bottom on a 64-row canvas. Hires Inter @
@@ -392,11 +394,8 @@ class TestTwoRowLogicalUnits:
             captured.append(isinstance(text_c, ScaledCanvas))
             return orig(self, real_c, text_c, *args)
 
-        _BaseImageWidget._render_two_row_tick = spy  # type: ignore[method-assign]
-        try:
-            await w._play_with_two_row_text(real, swapping_frame, n_ticks=1)
-        finally:
-            _BaseImageWidget._render_two_row_tick = orig  # type: ignore[method-assign]
+        monkeypatch.setattr(_BaseImageWidget, "_render_two_row_tick", spy)
+        await w._play_with_two_row_text(real, swapping_frame, n_ticks=1)
 
         assert captured, (
             "_render_two_row_tick was never reached — validation may "
@@ -405,7 +404,9 @@ class TestTwoRowLogicalUnits:
         )
         assert all(captured), "Expected text_canvas to be wrapped"
 
-    async def test_hires_emoji_fires_on_text_canvas_wrapper(self, swapping_frame):
+    async def test_hires_emoji_fires_on_text_canvas_wrapper(
+        self, monkeypatch, swapping_frame
+    ):
         """Regression: the two-row image path must wrap the real canvas
         in a ScaledCanvas before drawing text/emoji, so hires emoji
         (e.g. `:instagram:`) fires the `isinstance(c, ScaledCanvas)`
@@ -436,18 +437,14 @@ class TestTwoRowLogicalUnits:
             captured.append((type(text_c).__name__, isinstance(text_c, ScaledCanvas)))
             return orig(self, real_c, text_c, *args)
 
-        # attrs locks instance attrs but the class itself is patchable
-        _BaseImageWidget._render_two_row_tick = spy  # type: ignore[method-assign]
+        monkeypatch.setattr(_BaseImageWidget, "_render_two_row_tick", spy)
 
         real = _StubCanvas(width=256, height=64)
         swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
             width=256, height=64
         )
 
-        try:
-            await w._play_with_two_row_text(real, swapping_frame, n_ticks=1)
-        finally:
-            _BaseImageWidget._render_two_row_tick = orig  # type: ignore[method-assign]
+        await w._play_with_two_row_text(real, swapping_frame, n_ticks=1)
 
         assert captured, "_render_two_row_tick was never called"
         assert all(is_wrapped for _name, is_wrapped in captured), (
@@ -455,7 +452,7 @@ class TestTwoRowLogicalUnits:
             f"hires emoji fires; got: {captured!r}"
         )
 
-    async def test_emoji_cap_scales_with_band_height(self, swapping_frame):
+    async def test_emoji_cap_scales_with_band_height(self, monkeypatch, swapping_frame):
         """Hi-res emoji on the top row of two-row needs the per-row
         emoji cap to scale with band height. With default content_height
         = 16 and 50/50 split, top band = 8 logical = 8 cap; the 32-real
@@ -497,7 +494,7 @@ class TestTwoRowLogicalUnits:
             captured["bottom"] = kwargs.get("bottom_emoji_cap")
             return orig(self, real_c, text_c, *args, **kwargs)
 
-        _BaseImageWidget._render_two_row_tick = spy  # type: ignore[method-assign]
+        monkeypatch.setattr(_BaseImageWidget, "_render_two_row_tick", spy)
 
         # 256x48 real → wrapped at scale=2 = 128x24 logical, content_height=24.
         # top_row_height=16 → top band 16 logical, bottom 8 logical.
@@ -506,10 +503,7 @@ class TestTwoRowLogicalUnits:
             width=256, height=48
         )
 
-        try:
-            await w._play_with_two_row_text(real, swapping_frame, n_ticks=1)
-        finally:
-            _BaseImageWidget._render_two_row_tick = orig  # type: ignore[method-assign]
+        await w._play_with_two_row_text(real, swapping_frame, n_ticks=1)
 
         # top band = 16 logical → cap raised from 8 default to 16.
         # bottom band = 8 logical → cap stays 8.

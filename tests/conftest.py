@@ -1,5 +1,6 @@
 """Shared test fixtures."""
 
+import asyncio
 import itertools
 import os
 import sys
@@ -73,6 +74,48 @@ def make_widget():
         return widget
 
     return _factory
+
+
+@pytest.fixture
+def no_sleep(monkeypatch):
+    """Patch asyncio.sleep to yield to the event loop without real delay.
+
+    Replaces the ``asyncio.sleep`` binding inside every led_ticker module
+    that calls it so tests run fast while still giving the event loop a chance
+    to schedule other coroutines (important for tests that drive multiple
+    concurrent tasks).
+
+    Each led_ticker module does ``import asyncio`` and then calls
+    ``asyncio.sleep(...)``, so the live reference lives on the shared
+    ``asyncio`` module object.  Patching ``asyncio.sleep`` once is sufficient
+    because all modules share the same import.
+    """
+    _real_sleep = asyncio.sleep
+
+    async def _zero_sleep(seconds):
+        await _real_sleep(0)
+
+    monkeypatch.setattr(asyncio, "sleep", _zero_sleep)
+
+
+@pytest.fixture
+def bigsign_canvas():
+    """Bigsign 2x4 vertical-serpentine real canvas (256×64).
+
+    Equivalent to the ``_bigsign_real_canvas()`` helpers that used to live in
+    individual test modules.  The stub RGBMatrix with U-mapper produces a
+    256-wide × 64-tall canvas which is what ScaledCanvas(scale=4) wraps on the
+    bigsign hardware.
+    """
+    from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+    opts = RGBMatrixOptions()
+    opts.cols = 64
+    opts.rows = 32
+    opts.chain_length = 8
+    opts.parallel = 1
+    opts.pixel_mapper_config = "U-mapper"
+    return RGBMatrix(options=opts).CreateFrameCanvas()
 
 
 def make_aiohttp_session(json_response=None, text_response=None):

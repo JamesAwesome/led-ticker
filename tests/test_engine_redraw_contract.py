@@ -241,3 +241,43 @@ def test_allow_list_entries_actually_pause_and_resume_frame():
             )
 
     assert not failures, "\n  - ".join(["Allow-list violations:"] + failures)
+
+
+# If this constant drifts from the actual count, update it AND update
+# the AST scanner's loop-detection logic so it still covers all sites.
+_EXPECTED_SWAP_CALL_COUNT = 12
+
+
+class TestSwapCallCountTripwire:
+    """Mechanical tripwire for the AST scanner's loop-detection assumption.
+
+    The scanner finds redraw loops by looking for `_swap(` calls in the
+    loop body. If a future refactor extracts `advance_frame + draw + _swap`
+    into a helper method, `_swap(` disappears from the loop body and the
+    scanner silently stops checking the advance_frame requirement.
+
+    This test asserts the count of `_swap(` calls in ticker.py matches a
+    declared constant. Changing the constant requires also updating the
+    AST scanner to maintain its coverage. (S20)
+    """
+
+    def test_swap_call_count_matches_expected(self):
+        import ast
+        from pathlib import Path
+
+        source = Path("src/led_ticker/ticker.py").read_text()
+        tree = ast.parse(source)
+
+        swap_calls = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "_swap"
+        ]
+        assert len(swap_calls) == _EXPECTED_SWAP_CALL_COUNT, (
+            f"Expected {_EXPECTED_SWAP_CALL_COUNT} _swap( calls in ticker.py, "
+            f"found {len(swap_calls)}. If you extracted a helper that wraps _swap, "
+            "update _EXPECTED_SWAP_CALL_COUNT here AND update the AST scanner in "
+            "this file to detect the new pattern."
+        )

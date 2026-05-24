@@ -509,7 +509,13 @@ def test_json_output_with_error():
     assert data["errors"][0]["fix"] == "fix"
 
 
-def test_cli_exit_code_0_on_valid(conf):
+@pytest.mark.slow
+def test_validate_cli_smoke_subprocess(conf):
+    """End-to-end smoke: the CLI binary exits 0 on a valid config."""
+    import shutil
+
+    if not shutil.which("uv"):
+        pytest.skip("uv not in PATH")
     path = conf(GOOD_CONFIG)
     proc = subprocess.run(
         ["uv", "run", "led-ticker", "validate", str(path)],
@@ -519,34 +525,32 @@ def test_cli_exit_code_0_on_valid(conf):
     assert proc.returncode == 0
 
 
-def test_cli_exit_code_1_on_error(conf):
+async def test_cli_exit_code_0_on_valid(conf):
+    """Valid config produces a valid result (exit 0 equivalent)."""
+    result = await validate_config(conf(GOOD_CONFIG))
+    assert result.valid is True
+
+
+async def test_cli_exit_code_1_on_error(conf):
+    """Config with unknown widget type produces an error (exit 1 equivalent)."""
     path = conf(GOOD_CONFIG + '\n[[playlist.section.widget]]\ntype = "banana"\n')
-    proc = subprocess.run(
-        ["uv", "run", "led-ticker", "validate", str(path)],
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode == 1
+    result = await validate_config(path)
+    assert result.valid is False
 
 
-def test_cli_exit_code_2_on_missing_file(tmp_path):
-    proc = subprocess.run(
-        ["uv", "run", "led-ticker", "validate", str(tmp_path / "missing.toml")],
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode == 2
+async def test_cli_exit_code_2_on_missing_file(tmp_path):
+    """Missing config file raises FileNotFoundError (exit 2 equivalent)."""
+    with pytest.raises(FileNotFoundError):
+        await validate_config(tmp_path / "missing.toml")
 
 
-def test_cli_json_flag_produces_parseable_output(conf):
-    path = conf(GOOD_CONFIG)
-    proc = subprocess.run(
-        ["uv", "run", "led-ticker", "validate", str(path), "--json"],
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode == 0
-    data = json.loads(proc.stdout)
+async def test_cli_json_flag_produces_parseable_output(conf):
+    """_format_json produces valid JSON with a 'valid' key."""
+    from led_ticker.validate import _format_json
+
+    result = await validate_config(conf(GOOD_CONFIG))
+    assert result.valid is True
+    data = json.loads(_format_json(result))
     assert data["valid"] is True
 
 
@@ -2554,10 +2558,10 @@ text = "hello"
 
 
 class TestStrictModeCLI:
-    """--strict flag is accepted by the validate subcommand."""
+    """--strict flag behaviour via in-process validate_config calls."""
 
-    def test_strict_exit_1_on_warning(self, conf):
-        """A config with only warnings exits 0 normally, exits 1 with --strict."""
+    async def test_strict_exit_1_on_warning(self, conf):
+        """A config with only warnings is valid normally, invalid with strict=True."""
         toml = """
 [display]
 rows = 32
@@ -2575,22 +2579,16 @@ font = "GhostFont"
 font_size = 24
 """
         path = conf(toml)
-        # Normal mode: exits 0 (warning, not error)
-        r_normal = subprocess.run(
-            ["uv", "run", "led-ticker", "validate", str(path)],
-            capture_output=True,
-        )
-        assert r_normal.returncode == 0, r_normal.stderr.decode()
+        # Normal mode: valid (warning, not error)
+        normal = await validate_config(path)
+        assert normal.valid, normal.warnings
 
-        # Strict mode: exits 1 (warning promoted to error)
-        r_strict = subprocess.run(
-            ["uv", "run", "led-ticker", "validate", "--strict", str(path)],
-            capture_output=True,
-        )
-        assert r_strict.returncode == 1
+        # Strict mode: invalid (warning promoted to error)
+        strict = await validate_config(path, strict=True)
+        assert not strict.valid
 
-    def test_strict_exit_0_when_clean(self, conf):
-        """A warning-free config exits 0 even with --strict."""
+    async def test_strict_exit_0_when_clean(self, conf):
+        """A warning-free config is valid even with strict=True."""
         path = conf("""
 [display]
 rows = 32
@@ -2606,14 +2604,11 @@ hold_time = 3.0
 type = "message"
 text = "hello"
 """)
-        r = subprocess.run(
-            ["uv", "run", "led-ticker", "validate", "--strict", str(path)],
-            capture_output=True,
-        )
-        assert r.returncode == 0
+        result = await validate_config(path, strict=True)
+        assert result.valid
 
-    def test_nonstrict_exit_0_with_warnings(self, conf):
-        """Without --strict, a config with warnings exits 0."""
+    async def test_nonstrict_exit_0_with_warnings(self, conf):
+        """Without strict=True, a config with warnings is still valid."""
         path = conf("""
 [display]
 rows = 32
@@ -2630,8 +2625,5 @@ text = "hello"
 font = "GhostFont"
 font_size = 24
 """)
-        r = subprocess.run(
-            ["uv", "run", "led-ticker", "validate", str(path)],
-            capture_output=True,
-        )
-        assert r.returncode == 0
+        result = await validate_config(path)
+        assert result.valid

@@ -231,19 +231,6 @@ def _make_png(tmp_path, color=(200, 30, 40), size=(32, 32), name="img.png"):
     return p
 
 
-def _bigsign_real_canvas():
-    """Bigsign 2x4 vertical-serpentine canvas (mirrors test_still.py)."""
-    from rgbmatrix import RGBMatrix, RGBMatrixOptions
-
-    opts = RGBMatrixOptions()
-    opts.cols = 64
-    opts.rows = 32
-    opts.chain_length = 8
-    opts.parallel = 1
-    opts.pixel_mapper_config = "U-mapper"
-    return RGBMatrix(options=opts).CreateFrameCanvas()
-
-
 _SWAP_SENTINEL = ("__SWAP__", None)
 
 
@@ -307,7 +294,9 @@ class TestWrapRendersMultipleCopies:
     (real wrap, not stacked copies)."""
 
     @pytest.mark.asyncio
-    async def test_wrap_left_yields_multiple_text_copies(self, tmp_path, mocker):
+    async def test_wrap_left_yields_multiple_text_copies(
+        self, tmp_path, mocker, bigsign_canvas
+    ):
         path = _make_png(tmp_path, color=(0, 0, 0))
         widget = StillImage(
             path=str(path),
@@ -319,7 +308,7 @@ class TestWrapRendersMultipleCopies:
             scroll_speed_ms=50,
             hold_seconds=0.5,
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
         draws = _capture_draws_per_tick(mocker, frame)
@@ -369,7 +358,7 @@ class TestWrapRendersMultipleCopies:
             )
 
     @pytest.mark.asyncio
-    async def test_wrap_right_direction_renders(self, tmp_path, mocker):
+    async def test_wrap_right_direction_renders(self, tmp_path, mocker, bigsign_canvas):
         """Same defining property as the left-direction test, but
         with scroll_direction='right'. Additionally asserts the
         leading-copy x-position increases monotonically across ticks
@@ -386,7 +375,7 @@ class TestWrapRendersMultipleCopies:
             scroll_speed_ms=50,
             hold_seconds=0.5,
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
         draws = _capture_draws_per_tick(mocker, frame)
@@ -439,7 +428,9 @@ class TestWrapScrollUnderImage:
     903-907 and was previously uncovered."""
 
     @pytest.mark.asyncio
-    async def test_wrap_scroll_align_renders_multiple_copies(self, tmp_path, mocker):
+    async def test_wrap_scroll_align_renders_multiple_copies(
+        self, tmp_path, mocker, bigsign_canvas
+    ):
         path = _make_png(tmp_path, color=(0, 0, 0))
         # text_align="scroll" requires non-stretch fit (pillarbox
         # leaves transparent regions for the text to scroll through).
@@ -453,7 +444,7 @@ class TestWrapScrollUnderImage:
             scroll_speed_ms=50,
             hold_seconds=0.5,
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
         draws = _capture_draws_per_tick(mocker, frame)
@@ -487,7 +478,9 @@ class TestTextLoopsTraversalFloor:
     in `_image_base._play_with_text`."""
 
     @pytest.mark.asyncio
-    async def test_wrap_short_duration_floors_to_one_cycle(self, tmp_path, mocker):
+    async def test_wrap_short_duration_floors_to_one_cycle(
+        self, tmp_path, mocker, bigsign_canvas
+    ):
         """`hold_seconds=0.5` would naturally run only 10 ticks (50ms
         cadence). With `text_wrap=True`, the floor must push `n_ticks`
         up to at least one `cycle_width`."""
@@ -502,7 +495,7 @@ class TestTextLoopsTraversalFloor:
             scroll_speed_ms=50,
             hold_seconds=0.5,  # 10 ticks naturally
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         frame.matrix.SwapOnVSync.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -520,7 +513,9 @@ class TestTextLoopsTraversalFloor:
         )
 
     @pytest.mark.asyncio
-    async def test_wrap_text_loops_2_runs_twice_cycles(self, tmp_path, mocker):
+    async def test_wrap_text_loops_2_runs_twice_cycles(
+        self, tmp_path, mocker, bigsign_canvas
+    ):
         """`text_loops=2` runs ~2× the ticks of `text_loops=1`.
         Compare two widgets identical except for `text_loops`."""
 
@@ -537,7 +532,7 @@ class TestTextLoopsTraversalFloor:
                 scroll_speed_ms=50,
                 hold_seconds=0.5,
             )
-            real = _bigsign_real_canvas()
+            real = bigsign_canvas
             frame = mocker.MagicMock()
             frame.matrix.SwapOnVSync.side_effect = lambda c: c
             await widget.play(real, frame)
@@ -561,7 +556,9 @@ class TestTextLoopsTraversalFloor:
 
 class TestSeparatorColorInheritance:
     @pytest.mark.asyncio
-    async def test_separator_inherits_font_color_when_unset(self, tmp_path, mocker):
+    async def test_separator_inherits_font_color_when_unset(
+        self, tmp_path, mocker, bigsign_canvas
+    ):
         """text_separator_color=None should make the separator paint
         with font_color resolved at its current frame."""
         from led_ticker._compat import require_graphics
@@ -579,7 +576,7 @@ class TestSeparatorColorInheritance:
             scroll_speed_ms=50,
             hold_seconds=0.1,
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         frame.matrix.SwapOnVSync.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -608,7 +605,9 @@ class TestSeparatorColorInheritance:
             )
 
     @pytest.mark.asyncio
-    async def test_separator_uses_own_color_when_set(self, tmp_path, mocker):
+    async def test_separator_uses_own_color_when_set(
+        self, tmp_path, mocker, bigsign_canvas
+    ):
         """Explicit text_separator_color overrides font_color
         inheritance for the separator."""
         from led_ticker._compat import require_graphics
@@ -627,7 +626,7 @@ class TestSeparatorColorInheritance:
             scroll_speed_ms=50,
             hold_seconds=0.1,
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         frame.matrix.SwapOnVSync.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -734,7 +733,9 @@ class TestGifPlayerWrap:
     sources) is covered alongside the wrap render loop."""
 
     @pytest.mark.asyncio
-    async def test_gif_wrap_renders_multiple_copies(self, tmp_path, mocker):
+    async def test_gif_wrap_renders_multiple_copies(
+        self, tmp_path, mocker, bigsign_canvas
+    ):
         path = _make_gif_path(
             tmp_path,
             [(200, 0, 0), (0, 200, 0), (0, 0, 200)],
@@ -750,7 +751,7 @@ class TestGifPlayerWrap:
             scroll_speed_ms=50,
             gif_loops=1,
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         frame.matrix.SwapOnVSync.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -796,7 +797,9 @@ class TestWrapWithBorder:
     wrap branch would silently leave borderless wrap output."""
 
     @pytest.mark.asyncio
-    async def test_wrap_with_border_does_not_crash(self, tmp_path, mocker):
+    async def test_wrap_with_border_does_not_crash(
+        self, tmp_path, mocker, bigsign_canvas
+    ):
         from led_ticker.borders import RainbowChaseBorder
 
         path = _make_png(tmp_path, color=(0, 0, 0))
@@ -811,7 +814,7 @@ class TestWrapWithBorder:
             scroll_speed_ms=50,
             hold_seconds=0.3,
         )
-        real = _bigsign_real_canvas()
+        real = bigsign_canvas
         frame = mocker.MagicMock()
         frame.matrix.SwapOnVSync.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())

@@ -2554,3 +2554,42 @@ class TestLoadConfigOffEventLoop:
         assert (
             str(args[0]) == "ignored.toml"
         ), f"Expected load_config to be called with config_path, got: {args}"
+
+
+class TestResolveAssetPaths:
+    def test_relative_path_resolved_to_absolute(self, tmp_path):
+        from led_ticker.app.factories import _resolve_asset_paths
+
+        cfg = {"path": "gifs/rainbow.gif"}
+        config_dir = tmp_path / "config"
+        _resolve_asset_paths(cfg, "gif", config_dir)
+        assert cfg["path"] == str((config_dir / "gifs/rainbow.gif").resolve())
+
+    def test_absolute_path_unchanged(self, tmp_path):
+        from led_ticker.app.factories import _resolve_asset_paths
+
+        absolute = "/home/pi/gifs/rainbow.gif"
+        cfg = {"path": absolute}
+        _resolve_asset_paths(cfg, "gif", tmp_path)
+        assert cfg["path"] == absolute
+
+    def test_non_gif_type_unchanged(self, tmp_path):
+        from led_ticker.app.factories import _resolve_asset_paths
+
+        cfg = {"path": "something.gif"}
+        _resolve_asset_paths(cfg, "message", tmp_path)
+        assert cfg["path"] == "something.gif"
+
+    def test_no_path_key_is_noop(self, tmp_path):
+        from led_ticker.app.factories import _resolve_asset_paths
+
+        cfg = {"text": "hello"}
+        _resolve_asset_paths(cfg, "gif", tmp_path)
+        assert "path" not in cfg
+
+    def test_none_config_dir_leaves_path_unchanged(self):
+        from led_ticker.app.factories import _resolve_asset_paths
+
+        cfg = {"path": "gifs/rainbow.gif"}
+        _resolve_asset_paths(cfg, "gif", None)
+        assert cfg["path"] == "gifs/rainbow.gif"

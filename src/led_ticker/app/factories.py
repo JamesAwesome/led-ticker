@@ -91,6 +91,10 @@ def _resolve_asset_paths(
     widget_type: str,
     config_dir: Path | None,
 ) -> None:
+    """Resolve relative `path` to absolute anchored at config_dir.
+
+    Widgets don't need to know config layout; this keeps that knowledge here.
+    """
     if widget_type not in ("gif", "image"):
         return
     if "path" not in widget_cfg:

@@ -1005,21 +1005,6 @@ async def _build_then_enqueue(
     await _enqueue_ticker_objects(ticker_iter, notif_queue)
 
 
-async def _enqueue_from_rss_feed(
-    feed: Any,
-    notif_queue: asyncio.Queue[Any],
-    custom_title: Any = None,
-    loop_count: int | None = None,
-) -> None:
-    title = custom_title if custom_title else feed.feed_title
-    ticker_iter = _build_ticker_iter(
-        feed.feed_stories,
-        title=title,
-        loop_count=loop_count or 0,
-    )
-    await _enqueue_ticker_objects(ticker_iter, notif_queue)
-
-
 BULLET_WIDTH: int = 2  # 2px wide dot
 BULLET_COLOR: ColorTuple = (255, 255, 255)
 SCROLL_GAP: int = 6  # px of black on each side of bullet

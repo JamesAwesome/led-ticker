@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib  # type: ignore[import-not-found]
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any

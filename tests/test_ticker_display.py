@@ -1667,3 +1667,88 @@ class TestTypewriterPlusRainbowBorderComposition:
 
         # Strictly increasing: iter 2 added more ticks on top of iter 1
         assert border_after_iter2 > border_after_iter1
+
+
+class TestScrollDriftCompensation:
+    """Scroll loops must subtract elapsed draw+swap time from each sleep
+    so the actual cadence matches scroll_speed regardless of frame work (S2).
+    """
+
+    async def test_scroll_one_by_one_subtracts_work_time(
+        self, canvas, mock_frame, monkeypatch
+    ):
+        """When each tick's draw+swap takes 20ms, sleep should be
+        max(0, scroll_speed - 0.020), not the raw scroll_speed."""
+        sleep_calls: list[float] = []
+
+        async def _record(seconds: float) -> None:
+            sleep_calls.append(seconds)
+
+        monkeypatch.setattr("led_ticker.ticker.asyncio.sleep", _record)
+
+        # Simulate 20ms of work per tick: t0 = 0.000, loop.time()-t0 = 0.020.
+        # Each tick consumes two values from the iterator.
+        tick_times = iter([0.000, 0.020] * 200)
+        mock_loop = mock.Mock()
+        mock_loop.time.side_effect = lambda: next(tick_times)
+        monkeypatch.setattr(
+            "led_ticker.ticker.asyncio.get_running_loop", lambda: mock_loop
+        )
+
+        scroll_speed = 0.05
+        widget = mock.Mock()
+        # Widget is 5px wide; final_pos < 0 once pos goes negative
+        widget.draw.side_effect = lambda c, cursor_pos=0, **kw: (
+            c,
+            cursor_pos + 5,
+        )
+
+        queue = asyncio.Queue()
+        await queue.put(widget)
+
+        ticker = Ticker(
+            monitors=[], frame=mock_frame, scroll_speed=scroll_speed, notif_queue=queue
+        )
+        await ticker._scroll_one_by_one(canvas)
+
+        expected = scroll_speed - 0.020  # 0.030
+        assert sleep_calls, "no sleep calls recorded"
+        for s in sleep_calls:
+            assert (
+                abs(s - expected) < 1e-9
+            ), f"expected drift-compensated sleep {expected}s, got {s}"
+
+    async def test_scroll_one_by_one_clamps_to_zero_on_overrun(
+        self, canvas, mock_frame, monkeypatch
+    ):
+        """When work takes longer than scroll_speed, sleep is clamped to 0
+        rather than going negative."""
+        sleep_calls: list[float] = []
+
+        async def _record(seconds: float) -> None:
+            sleep_calls.append(seconds)
+
+        monkeypatch.setattr("led_ticker.ticker.asyncio.sleep", _record)
+
+        # Work takes 80ms per tick — longer than scroll_speed=0.05
+        tick_times = iter([0.000, 0.080] * 200)
+        mock_loop = mock.Mock()
+        mock_loop.time.side_effect = lambda: next(tick_times)
+        monkeypatch.setattr(
+            "led_ticker.ticker.asyncio.get_running_loop", lambda: mock_loop
+        )
+
+        widget = mock.Mock()
+        widget.draw.side_effect = lambda c, cursor_pos=0, **kw: (c, cursor_pos + 5)
+
+        queue = asyncio.Queue()
+        await queue.put(widget)
+
+        ticker = Ticker(
+            monitors=[], frame=mock_frame, scroll_speed=0.05, notif_queue=queue
+        )
+        await ticker._scroll_one_by_one(canvas)
+
+        assert sleep_calls, "no sleep calls recorded"
+        for s in sleep_calls:
+            assert s == 0.0, f"expected 0.0 (clamped), got {s}"

@@ -455,11 +455,13 @@ class Ticker:
         # then snaps to frame=0 when the section begins.
         if hasattr(incoming, "reset_frame"):
             incoming.reset_frame()
+        loop = asyncio.get_running_loop()
         try:
             w = canvas.width
             sep_w = scroll_separator_width()
             total_travel = w + sep_w
             for offset in range(total_travel + 1):
+                t0 = loop.time()
                 canvas.Clear()
                 outgoing_pos = outgoing_scroll_pos - offset
                 clear_start = max(0, w - offset)
@@ -475,7 +477,7 @@ class Ticker:
                     clear_start,
                 )
                 canvas = _swap(canvas, self.frame)
-                await asyncio.sleep(self.scroll_speed)
+                await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
             return canvas, 0
         finally:
             if hasattr(outgoing, "resume_frame"):
@@ -506,6 +508,8 @@ class Ticker:
         if not skip_initial_draw:
             canvas = _swap(canvas, self.frame)
 
+        loop = asyncio.get_running_loop()
+
         if getattr(ticker_obj, "forces_offscreen_scroll", False) is True:
             bottom_width = getattr(ticker_obj, "_bottom_width", 0)
             cycle_width = canvas.width + bottom_width
@@ -523,12 +527,13 @@ class Ticker:
             )
             stop = -(n_passes * cycle_width)
             while pos > stop:
+                t0 = loop.time()
                 pos -= 1
                 self._advance_frame_if_supported(ticker_obj)
                 reset_canvas(canvas, bg_color)
                 canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
                 canvas = _swap(canvas, self.frame)
-                await asyncio.sleep(self.scroll_speed)
+                await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
             return canvas, cursor_pos, pos
 
         if getattr(ticker_obj, "wraps_forever", False) is True:
@@ -538,6 +543,7 @@ class Ticker:
                 loops_floor = 0
             tick = 0
             while tick < n_ticks:
+                t0 = loop.time()
                 self._advance_frame_if_supported(ticker_obj)
                 reset_canvas(canvas, bg_color)
                 canvas, cycle_width = ticker_obj.draw(canvas, cursor_pos=pos)
@@ -545,7 +551,7 @@ class Ticker:
                     n_ticks = max(n_ticks, loops_floor * cycle_width)
                 canvas = _swap(canvas, self.frame)
                 pos -= 1
-                await asyncio.sleep(self.scroll_speed)
+                await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
                 tick += 1
             return canvas, cursor_pos, pos
 
@@ -559,12 +565,13 @@ class Ticker:
             padding = get_widget_padding(ticker_obj, default=0)
             stop_pos = -(cursor_pos - canvas.width) + padding
             while pos > stop_pos:
+                t0 = loop.time()
                 pos -= 1
                 self._advance_frame_if_supported(ticker_obj)
                 reset_canvas(canvas, bg_color)
                 canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
                 canvas = _swap(canvas, self.frame)
-                await asyncio.sleep(self.scroll_speed)
+                await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
 
             if not continuous:
                 n_ticks = max(1, int(hold_time * 1000) // ENGINE_TICK_MS)
@@ -700,6 +707,7 @@ class Ticker:
             # and the delay).
             canvas = _swap(canvas, self.frame)
 
+        loop = asyncio.get_running_loop()
         while pos > 0:
             # Advance the per-tick frame so animated title providers
             # (rainbow, color_cycle) animate during scroll-in. Without
@@ -707,12 +715,13 @@ class Ticker:
             # scrolls in from off-canvas, then suddenly animates after
             # landing — visually inconsistent with the post-scroll hold
             # below and with `_swap_and_scroll`'s scroll branch.
+            t0 = loop.time()
             self._advance_frame_if_supported(ticker_obj)
             reset_canvas(canvas, bg_color)
             canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
             pos -= 1
             canvas = _swap(canvas, self.frame)
-            await asyncio.sleep(self.scroll_speed)
+            await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
 
         # Post-scroll hold: tick loop so animated title providers
         # (color_cycle, rainbow) actually animate during the delay.
@@ -756,12 +765,14 @@ class Ticker:
             pos = 0
             last_drawn_pos = pos
 
+        loop = asyncio.get_running_loop()
         while True:
             # Advance the per-tick frame on the widget currently on-screen
             # so animated providers (rainbow, color_cycle) animate during
             # the scroll. Without this, RSS stories with `font_color =
             # "rainbow"` render as a static gradient that scrolls but
             # doesn't sweep over time.
+            t0 = loop.time()
             self._advance_frame_if_supported(ticker_object)
             reset_canvas(canvas, getattr(ticker_object, "bg_color", None))
             canvas, final_pos = ticker_object.draw(canvas, cursor_pos=pos)
@@ -776,7 +787,7 @@ class Ticker:
                     break
 
             canvas = _swap(canvas, self.frame)
-            await asyncio.sleep(self.scroll_speed)
+            await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
 
         canvas.Clear()  # final blank — keep as Clear (no specific widget bg here)
         canvas = _swap(canvas, self.frame)
@@ -820,6 +831,7 @@ class Ticker:
             logging.info("Returned to _scroll_side_by_side ...")
             pos = 0
 
+        loop = asyncio.get_running_loop()
         while True:
             # Advance the per-tick frame on every UNIQUE widget being
             # drawn this tick so animated providers (rainbow, color_cycle)
@@ -828,6 +840,7 @@ class Ticker:
             # multiple times (e.g. with a buffer_message widget repeated
             # between stories) — calling advance_frame multiple times per
             # tick would over-advance and skew the animation phase.
+            t0 = loop.time()
             seen: set[int] = set()
             for buf_w in buffered_objects:
                 if id(buf_w) not in seen:
@@ -913,7 +926,7 @@ class Ticker:
                 pos = mon_0_end_pos - 1
 
             canvas = _swap(canvas, self.frame)
-            await asyncio.sleep(self.scroll_speed)
+            await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
 
             if not len(buffered_objects):
                 return pos

@@ -148,9 +148,10 @@ class SplitHorizontal:
             left = half - reveal
             right = half + reveal
             # Black out center band
-            for y in range(h):
-                for x in range(max(0, left), min(right, w)):
-                    canvas.SetPixel(x, y, 0, 0, 0)
+            band_x = max(0, left)
+            band_w = min(right, w) - band_x
+            if band_w > 0:
+                canvas.SubFill(band_x, 0, band_w, h, 0, 0, 0)
             # Magenta edge lines
             for y in range(h):
                 if 0 <= left < w:
@@ -201,9 +202,7 @@ class Scroll:
         # Black out the tail region so outgoing text doesn't bleed
         # into the gap between outgoing and the bullet.
         if 0 <= clear_start < w:
-            for y in range(h):
-                for x in range(clear_start, w):
-                    canvas.SetPixel(x, y, 0, 0, 0)
+            canvas.SubFill(clear_start, 0, w - clear_start, h, 0, 0, 0)
 
         # Bullet: 2×2 white dot centered vertically.
         y_center = h // 2

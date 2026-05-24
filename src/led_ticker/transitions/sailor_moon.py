@@ -85,9 +85,8 @@ def draw_sailor_moon_frame(
 
     # Black out everything left of sparkle zone
     blackout_end = min(width, max(0, wand_x - SPARKLE_ZONE))
-    for y in range(height):
-        for x in range(blackout_end):
-            canvas.SetPixel(x, y, 0, 0, 0)
+    if blackout_end > 0:
+        canvas.SubFill(0, 0, blackout_end, height, 0, 0, 0)
 
     # Draw sparkle zone (between wand_x - SPARKLE_ZONE and wand_x)
     sparkle_start = max(0, wand_x - SPARKLE_ZONE)
@@ -135,9 +134,8 @@ def draw_sailor_moon_frame_rtl(
 
     # Black out everything right of sparkle zone
     blackout_start = max(0, min(width, wand_x + WAND_WIDTH + SPARKLE_ZONE))
-    for y in range(height):
-        for x in range(blackout_start, width):
-            canvas.SetPixel(x, y, 0, 0, 0)
+    if blackout_start < width:
+        canvas.SubFill(blackout_start, 0, width - blackout_start, height, 0, 0, 0)
 
     # Draw sparkle zone to the right of the wand
     sparkle_start = max(0, wand_x + WAND_WIDTH)

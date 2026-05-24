@@ -50,10 +50,7 @@ class PushLeft:
         # 2. Black out from incoming_pos to canvas width (clear the right zone)
         clear_start = max(0, incoming_pos)
         if clear_start < w:
-            x_range = range(clear_start, w)
-            for y in range(h):
-                for x in x_range:
-                    canvas.SetPixel(x, y, 0, 0, 0)
+            canvas.SubFill(clear_start, 0, w - clear_start, h, 0, 0, 0)
 
         # 3. Draw incoming on the cleared right side
         if incoming_pos < w:
@@ -107,10 +104,7 @@ class PushRight:
         incoming.draw(canvas, cursor_pos=incoming_pos)
 
         # 2. Black out right zone — clip incoming to left zone only
-        x_range = range(boundary, w)
-        for y in range(h):
-            for x in x_range:
-                canvas.SetPixel(x, y, 0, 0, 0)
+        canvas.SubFill(boundary, 0, w - boundary, h, 0, 0, 0)
 
         # 3. Draw outgoing starting at boundary (no bleed into left zone
         #    since DrawText only renders rightward from cursor_pos)
@@ -158,9 +152,7 @@ class PushUp:
         # 2. Black out rows from boundary downward (incoming zone)
         boundary_row = max(0, min(h, incoming_y))
         if boundary_row < h:
-            for y in range(boundary_row, h):
-                for x in range(w):
-                    canvas.SetPixel(x, y, 0, 0, 0)
+            canvas.SubFill(0, boundary_row, w, h - boundary_row, 0, 0, 0)
 
         # 3. Draw incoming on the cleared bottom zone
         if incoming_y < h:
@@ -209,9 +201,7 @@ class PushDown:
         # 2. Black out rows from boundary downward (outgoing zone)
         boundary_row = max(0, min(h, incoming_y + h))
         if boundary_row < h:
-            for y in range(boundary_row, h):
-                for x in range(w):
-                    canvas.SetPixel(x, y, 0, 0, 0)
+            canvas.SubFill(0, boundary_row, w, h - boundary_row, 0, 0, 0)
 
         # 3. Draw outgoing shifted down on the cleared bottom zone
         outgoing.draw(

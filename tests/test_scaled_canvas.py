@@ -176,13 +176,13 @@ class TestContentHeightCeiling:
         """16 × 4 = 64 exactly matches the panel — must construct OK."""
         real = _make_real_canvas(real_w=256, real_h=64)
         sc = ScaledCanvas(real, scale=4, content_height=16)
-        assert sc._y_offset == 0
+        assert sc.y_offset_real == 0
 
     def test_under_fit_passes_with_letterbox(self):
         """8 × 4 = 32 < 64 — letterboxes (16 real rows top + bottom)."""
         real = _make_real_canvas(real_w=256, real_h=64)
         sc = ScaledCanvas(real, scale=4, content_height=8)
-        assert sc._y_offset == 16
+        assert sc.y_offset_real == 16
 
     def test_nested_wrapper_uses_innermost_real_height(self):
         """Cross-scale dissolves wrap a wrapper. The validation must
@@ -201,3 +201,89 @@ class TestContentHeightCeiling:
             ScaledCanvas(real, scale=4, content_height=24)
         # 64 // 4 = 16
         assert "content_height ≤ 16" in str(exc_info.value)
+
+
+def test_y_offset_real_attribute_name_at_scale_2():
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=2)
+    # y_offset_real = (64 - 16*2) // 2 = 16
+    assert sc.y_offset_real == 16
+
+
+def test_y_offset_real_attribute_name_at_scale_4_no_letterbox():
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=4)
+    # y_offset_real = (64 - 16*4) // 2 = 0
+    assert sc.y_offset_real == 0
+
+
+def test_no_private_y_offset():
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=4)
+    assert not hasattr(sc, "_y_offset"), "_y_offset must be gone after rename"
+
+
+def test_paint_hires_scaled_canvas_no_letterbox():
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=4)
+    calls: list[tuple] = []
+    from led_ticker.scaled_canvas import paint_hires
+
+    paint_hires(sc, lambda r, s, y: calls.append((r, s, y)))
+    assert calls == [(real, 4, 0)]  # scale=4, y_offset_real=(64-64)//2=0
+
+
+def test_paint_hires_scaled_canvas_with_letterbox():
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=2)  # y_offset_real = (64 - 32) // 2 = 16
+    calls: list[tuple] = []
+    from led_ticker.scaled_canvas import paint_hires
+
+    paint_hires(sc, lambda r, s, y: calls.append((r, s, y)))
+    assert calls == [(real, 2, 16)]
+
+
+def test_safe_scale_matches_isinstance_for_scaled_canvas():
+    from led_ticker.drawing import safe_scale
+
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=4)
+    assert safe_scale(sc) > 1
+    assert safe_scale(real) == 1
+
+
+def test_paint_hires_plain_canvas():
+    real = _make_real_canvas(real_w=256, real_h=64)
+    calls: list[tuple] = []
+    from led_ticker.scaled_canvas import paint_hires
+
+    paint_hires(real, lambda r, s, y: calls.append((r, s, y)))
+    assert calls == [(real, 1, 0)]
+
+
+def test_rebind_innermost_single_wrapper():
+    real_a = _make_real_canvas(real_w=256, real_h=64)
+    real_b = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real_a, scale=4)
+    sc.rebind_innermost(real_b)
+    assert sc.real is real_b
+
+
+def test_rebind_innermost_nested_wrappers():
+    real_a = _make_real_canvas(real_w=256, real_h=64)
+    real_b = _make_real_canvas(real_w=256, real_h=64)
+    inner = ScaledCanvas(real_a, scale=4)
+    # Outer wraps inner — __attrs_post_init__ peels to real_a (64px) for validation.
+    outer = ScaledCanvas(inner, scale=4, content_height=16)
+    outer.rebind_innermost(real_b)
+    assert inner.real is real_b  # deepest wrapper updated
+    assert outer.real is inner  # outer unchanged
+
+
+def test_rebind_innermost_does_not_change_outer_real_on_nesting():
+    real_a = _make_real_canvas(real_w=256, real_h=64)
+    real_b = _make_real_canvas(real_w=256, real_h=64)
+    inner = ScaledCanvas(real_a, scale=4)
+    outer = ScaledCanvas(inner, scale=4, content_height=16)
+    outer.rebind_innermost(real_b)
+    assert outer.real is inner  # outer still points at inner

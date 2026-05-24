@@ -10,6 +10,7 @@ canvas directly without a wrapper.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import attrs
@@ -24,7 +25,7 @@ class ScaledCanvas:
     `real` is mutable so `_swap()` in ticker.py can rewire the wrapper to
     point at the new back-buffer canvas after each `SwapOnVSync`. Within
     a Ticker session every back buffer comes from the same RGBMatrix so
-    its dimensions are constant — we cache `_y_offset` once at
+    its dimensions are constant — we cache `y_offset_real` once at
     construction. `scale` and `content_height` are frozen.
     """
 
@@ -33,7 +34,7 @@ class ScaledCanvas:
     content_height: int = attrs.field(
         default=CONTENT_HEIGHT, on_setattr=attrs.setters.frozen
     )
-    _y_offset: int = attrs.field(init=False, default=0)
+    y_offset_real: int = attrs.field(init=False, default=0)
 
     def __attrs_post_init__(self) -> None:
         # `content_height * scale` must fit inside the actual panel
@@ -61,7 +62,7 @@ class ScaledCanvas:
                 f"content near the logical canvas edges. Pick "
                 f"content_height ≤ {max_content_height}."
             )
-        self._y_offset = (self.real.height - self.content_height * self.scale) // 2
+        self.y_offset_real = (self.real.height - self.content_height * self.scale) // 2
 
     @property
     def width(self) -> int:
@@ -91,11 +92,24 @@ class ScaledCanvas:
         real = self.real
         set_px = real.SetPixel
         rx = x * s
-        ry = y * s + self._y_offset
+        ry = y * s + self.y_offset_real
         for dy in range(s):
             rry = ry + dy
             for dx in range(s):
                 set_px(rx + dx, rry, r, g, b)
+
+    def rebind_innermost(self, new_real: Any) -> None:
+        """Rewire the innermost `.real` to `new_real`, leaving outer wrappers intact.
+
+        Called after `widget.play()` returns a new back-buffer canvas so
+        subsequent draws through this wrapper use the fresh canvas. Walks
+        nested ScaledCanvas wrappers — cross-scale dissolve transitions wrap
+        a wrapper at transition time; we must reach the bottom of the chain.
+        """
+        innermost = self
+        while isinstance(innermost.real, ScaledCanvas):
+            innermost = innermost.real
+        innermost.real = new_real
 
     def draw_bdf_text(self, bdf, x: int, y: int, color, text: str) -> int:
         """Draw `text` at logical (x, y) baseline. Returns total advance width.
@@ -140,3 +154,17 @@ def unwrap_to_real(canvas: Any) -> Any:
     while isinstance(canvas, ScaledCanvas):
         canvas = canvas.real
     return canvas
+
+
+def paint_hires(canvas: Any, callback: Callable[[Any, int, int], None]) -> None:
+    """Call `callback(real_canvas, scale, y_offset_real)` with unwrapped coords.
+
+    For a ScaledCanvas, unwraps to the innermost real canvas and forwards
+    `canvas.scale` and `canvas.y_offset_real`. For any other canvas, passes
+    through with scale=1 and y_offset=0. Use this instead of the three-line
+    unwrap idiom whenever a paint site needs to write at physical resolution.
+    """
+    if isinstance(canvas, ScaledCanvas):
+        callback(unwrap_to_real(canvas), canvas.scale, canvas.y_offset_real)
+    else:
+        callback(canvas, 1, 0)

@@ -38,7 +38,7 @@ src/led_ticker/
   _compat.py           # Lazy rgbmatrix import shim (real lib or stub)
   _types.py            # Canvas type alias used across the package
   app.py               # CLI entry point (led-ticker --config config.toml)
-  config.py            # TOML config loader (tomllib/tomli)
+  config.py            # TOML config loader (stdlib tomllib)
   ticker.py            # Display orchestrator (scroll/swap/forever_scroll modes)
   frame.py             # LedFrame hardware wrapper
   scaled_canvas.py     # ScaledCanvas wrapper + unwrap_to_real

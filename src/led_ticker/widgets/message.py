@@ -18,6 +18,19 @@ from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import _FrameAware
 
 
+def _coerce_font_color(value: Any) -> ColorProvider:
+    """Coerce a raw Color or ColorProvider to a ColorProvider.
+
+    Wraps ``graphics.Color`` in ``_ConstantColor`` so ``draw()`` can
+    always call ``provider.color_for(...)``.  Handles direct construction
+    (test paths, MLB widget building TickerMessages with
+    ``font_color=Color(...)``) as well as the already-coerced TOML path.
+    """
+    if not hasattr(value, "color_for"):
+        return _ConstantColor(value)
+    return value
+
+
 @register("message")
 @attrs.define
 class TickerMessage(_FrameAware):
@@ -25,7 +38,10 @@ class TickerMessage(_FrameAware):
 
     message: str
     font: Font = attrs.Factory(lambda: FONT_DEFAULT)
-    font_color: Color | ColorProvider = attrs.Factory(lambda: DEFAULT_COLOR)
+    font_color: ColorProvider = attrs.field(
+        default=attrs.Factory(lambda: DEFAULT_COLOR),
+        converter=_coerce_font_color,
+    )
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     center: bool = True
     padding: int = 6
@@ -44,13 +60,6 @@ class TickerMessage(_FrameAware):
     _baseline_y: int = attrs.field(init=False, default=-1)
 
     def __attrs_post_init__(self) -> None:
-        # Coerce raw graphics.Color into _ConstantColor so draw() can
-        # uniformly call self.font_color.color_for(...). _build_widget
-        # already does this for TOML configs; this handles direct
-        # construction (test paths, MLB widget building TickerMessages
-        # programmatically with font_color=Color(...)).
-        if not hasattr(self.font_color, "color_for"):
-            self.font_color = _ConstantColor(self.font_color)
         self._has_emoji = bool(EMOJI_PATTERN.search(self.message))
 
     def draw(
@@ -213,7 +222,10 @@ class TickerCountdown(_FrameAware):
     message: str
     countdown_date: date
     font: Font = attrs.Factory(lambda: FONT_DEFAULT)
-    font_color: Color | ColorProvider = attrs.Factory(lambda: DEFAULT_COLOR)
+    font_color: ColorProvider = attrs.field(
+        default=attrs.Factory(lambda: DEFAULT_COLOR),
+        converter=_coerce_font_color,
+    )
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     center: bool = True
     padding: int = 6
@@ -223,12 +235,6 @@ class TickerCountdown(_FrameAware):
     # (read via `frame_for("border")`).
     border: Any | None = attrs.field(default=None, kw_only=True)
     _baseline_y: int = attrs.field(init=False, default=-1)
-
-    def __attrs_post_init__(self) -> None:
-        # Coerce raw graphics.Color into _ConstantColor so draw() can
-        # uniformly call self.font_color.color_for(...).
-        if not hasattr(self.font_color, "color_for"):
-            self.font_color = _ConstantColor(self.font_color)
 
     def draw(
         self,

@@ -336,14 +336,16 @@ def _coerce_border(value: Any) -> BorderEffect | None:
         return ConstantBorder(color=_validate_rgb(value, "border shorthand color"))
     # String shorthand
     if isinstance(value, str):
-        if value == "rainbow":
-            return RainbowChaseBorder()
-        if value == "color_cycle":
-            return ColorCycleBorder()
-        raise ValueError(
-            f"unknown border style {value!r}; "
-            "available: 'rainbow', 'color_cycle', or use an inline table"
-        )
+        match value:
+            case "rainbow":
+                return RainbowChaseBorder()
+            case "color_cycle":
+                return ColorCycleBorder()
+            case _:
+                raise ValueError(
+                    f"unknown border style {value!r}; "
+                    "available: 'rainbow', 'color_cycle', or use an inline table"
+                )
     # Inline table
     if isinstance(value, dict):
         if "style" not in value:
@@ -352,91 +354,93 @@ def _coerce_border(value: Any) -> BorderEffect | None:
             )
         style = value["style"]
         kwargs = {k: v for k, v in value.items() if k != "style"}
-        if style == "rainbow":
-            allowed = {"speed", "char_offset", "thickness", "from", "to"}
-            unknown = set(kwargs.keys()) - allowed
-            if unknown:
-                raise ValueError(
-                    f"border style 'rainbow' got unknown keys "
-                    f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
-                )
-            from_val = kwargs.pop("from", None)
-            to_val = kwargs.pop("to", None)
-            if (from_val is None) != (to_val is None):
-                raise ValueError(
-                    "border style 'rainbow' requires both 'from' and 'to' "
-                    "when specifying a hue range, or neither for the full wheel"
-                )
-            if from_val is not None:
-                from_hue = _rgb_to_hue(from_val, "border 'rainbow' from")
-                to_hue = _rgb_to_hue(to_val, "border 'rainbow' to")
-                diff = (to_hue - from_hue) % 360
-                if diff > 180:
-                    diff -= 360
-                if diff == 0:
+        match style:
+            case "rainbow":
+                allowed = {"speed", "char_offset", "thickness", "from", "to"}
+                unknown = set(kwargs.keys()) - allowed
+                if unknown:
                     raise ValueError(
-                        f"border 'rainbow' from and to have the same hue "
-                        f"({from_hue:.0f}°); use border = [r, g, b] instead"
+                        f"border style 'rainbow' got unknown keys "
+                        f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
                     )
-                kwargs["from_hue"] = from_hue
-                kwargs["to_hue"] = to_hue
-            return RainbowChaseBorder(**kwargs)
-        if style == "constant":
-            allowed = {"color", "thickness"}
-            unknown = set(kwargs.keys()) - allowed
-            if unknown:
-                raise ValueError(
-                    f"border style 'constant' got unknown keys "
-                    f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
-                )
-            if "color" not in kwargs:
-                raise ValueError(
-                    "border style 'constant' requires 'color' kwarg: "
-                    "border = {style='constant', color=[r,g,b]}"
-                )
-            color = kwargs.pop("color")
-            return ConstantBorder(
-                color=_validate_rgb(color, "border constant color"), **kwargs
-            )
-        if style == "color_cycle":
-            allowed = {"speed", "thickness", "from", "to"}
-            unknown = set(kwargs.keys()) - allowed
-            if unknown:
-                raise ValueError(
-                    f"border style 'color_cycle' got unknown keys "
-                    f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
-                )
-            speed = kwargs.get("speed", 5)
-            if speed == 0:
-                raise ValueError(
-                    "border style 'color_cycle' with speed=0 is a static color — "
-                    "use border = [r, g, b] instead"
-                )
-            from_val = kwargs.pop("from", None)
-            to_val = kwargs.pop("to", None)
-            if (from_val is None) != (to_val is None):
-                raise ValueError(
-                    "border style 'color_cycle' requires both 'from' and 'to' "
-                    "when specifying a hue range, or neither for the full wheel"
-                )
-            if from_val is not None:
-                from_hue = _rgb_to_hue(from_val, "border 'color_cycle' from")
-                to_hue = _rgb_to_hue(to_val, "border 'color_cycle' to")
-                diff = (to_hue - from_hue) % 360
-                if diff > 180:
-                    diff -= 360
-                if diff == 0:
+                from_val = kwargs.pop("from", None)
+                to_val = kwargs.pop("to", None)
+                if (from_val is None) != (to_val is None):
                     raise ValueError(
-                        f"border 'color_cycle' from and to have the same hue "
-                        f"({from_hue:.0f}°); use border = [r, g, b] instead"
+                        "border style 'rainbow' requires both 'from' and 'to' "
+                        "when specifying a hue range, or neither for the full wheel"
                     )
-                kwargs["from_hue"] = from_hue
-                kwargs["to_hue"] = to_hue
-            return ColorCycleBorder(**kwargs)
-        raise ValueError(
-            f"unknown border style {style!r}; "
-            "available: 'rainbow', 'constant', 'color_cycle'"
-        )
+                if from_val is not None:
+                    from_hue = _rgb_to_hue(from_val, "border 'rainbow' from")
+                    to_hue = _rgb_to_hue(to_val, "border 'rainbow' to")
+                    diff = (to_hue - from_hue) % 360
+                    if diff > 180:
+                        diff -= 360
+                    if diff == 0:
+                        raise ValueError(
+                            f"border 'rainbow' from and to have the same hue "
+                            f"({from_hue:.0f}°); use border = [r, g, b] instead"
+                        )
+                    kwargs["from_hue"] = from_hue
+                    kwargs["to_hue"] = to_hue
+                return RainbowChaseBorder(**kwargs)
+            case "constant":
+                allowed = {"color", "thickness"}
+                unknown = set(kwargs.keys()) - allowed
+                if unknown:
+                    raise ValueError(
+                        f"border style 'constant' got unknown keys "
+                        f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
+                    )
+                if "color" not in kwargs:
+                    raise ValueError(
+                        "border style 'constant' requires 'color' kwarg: "
+                        "border = {style='constant', color=[r,g,b]}"
+                    )
+                color = kwargs.pop("color")
+                return ConstantBorder(
+                    color=_validate_rgb(color, "border constant color"), **kwargs
+                )
+            case "color_cycle":
+                allowed = {"speed", "thickness", "from", "to"}
+                unknown = set(kwargs.keys()) - allowed
+                if unknown:
+                    raise ValueError(
+                        f"border style 'color_cycle' got unknown keys "
+                        f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
+                    )
+                speed = kwargs.get("speed", 5)
+                if speed == 0:
+                    raise ValueError(
+                        "border style 'color_cycle' with speed=0 is a static color — "
+                        "use border = [r, g, b] instead"
+                    )
+                from_val = kwargs.pop("from", None)
+                to_val = kwargs.pop("to", None)
+                if (from_val is None) != (to_val is None):
+                    raise ValueError(
+                        "border style 'color_cycle' requires both 'from' and 'to' "
+                        "when specifying a hue range, or neither for the full wheel"
+                    )
+                if from_val is not None:
+                    from_hue = _rgb_to_hue(from_val, "border 'color_cycle' from")
+                    to_hue = _rgb_to_hue(to_val, "border 'color_cycle' to")
+                    diff = (to_hue - from_hue) % 360
+                    if diff > 180:
+                        diff -= 360
+                    if diff == 0:
+                        raise ValueError(
+                            f"border 'color_cycle' from and to have the same hue "
+                            f"({from_hue:.0f}°); use border = [r, g, b] instead"
+                        )
+                    kwargs["from_hue"] = from_hue
+                    kwargs["to_hue"] = to_hue
+                return ColorCycleBorder(**kwargs)
+            case _:
+                raise ValueError(
+                    f"unknown border style {style!r}; "
+                    "available: 'rainbow', 'constant', 'color_cycle'"
+                )
     # Reject anything else loudly
     raise ValueError(
         f"border must be a string, table, or [r,g,b] list; got {type(value).__name__}"
@@ -462,35 +466,37 @@ def _coerce_animation(value: Any) -> Animation | None:
         "typewriter": (Typewriter, {"chars_per_frame", "frames_per_char"}),
     }
 
-    if isinstance(value, str):
-        if value not in registry:
+    match value:
+        case str():
+            if value not in registry:
+                raise ValueError(
+                    f"unknown animation {value!r}; available: {sorted(registry.keys())}"
+                )
+            cls, _allowed = registry[value]
+            return cls()
+        case dict():
+            if "style" not in value:
+                raise ValueError(
+                    f"animation table requires 'style' key; got {list(value.keys())!r}"
+                )
+            style = value["style"]
+            if style not in registry:
+                raise ValueError(
+                    f"unknown animation {style!r}; available: {sorted(registry.keys())}"
+                )
+            cls, allowed = registry[style]
+            kwargs = {k: v for k, v in value.items() if k != "style"}
+            unknown = set(kwargs.keys()) - allowed
+            if unknown:
+                raise ValueError(
+                    f"animation {style!r} got unknown keys {sorted(unknown)!r}; "
+                    f"allowed: {sorted(allowed)}"
+                )
+            return cls(**kwargs)
+        case _:
             raise ValueError(
-                f"unknown animation {value!r}; available: {sorted(registry.keys())}"
+                f"animation must be a string or table; " f"got {type(value).__name__}"
             )
-        cls, _allowed = registry[value]
-        return cls()
-
-    if isinstance(value, dict):
-        if "style" not in value:
-            raise ValueError(
-                f"animation table requires 'style' key; got {list(value.keys())!r}"
-            )
-        style = value["style"]
-        if style not in registry:
-            raise ValueError(
-                f"unknown animation {style!r}; available: {sorted(registry.keys())}"
-            )
-        cls, allowed = registry[style]
-        kwargs = {k: v for k, v in value.items() if k != "style"}
-        unknown = set(kwargs.keys()) - allowed
-        if unknown:
-            raise ValueError(
-                f"animation {style!r} got unknown keys {sorted(unknown)!r}; "
-                f"allowed: {sorted(allowed)}"
-            )
-        return cls(**kwargs)
-
-    raise ValueError(f"animation must be a string or table; got {type(value).__name__}")
 
 
 def _coerce_widget_colors(cfg: dict[str, Any]) -> None:

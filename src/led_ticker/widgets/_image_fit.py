@@ -115,39 +115,42 @@ def apply_fit(
     width so it has no effect.
     """
     sw, sh = src.size
-    if fit == "stretch":
-        scaled = src.resize((panel_w, panel_h), Image.Resampling.LANCZOS)
-        return flatten_onto_black(scaled, panel_w, panel_h, 0, 0)
-
-    if fit == "crop":
-        scale = max(panel_w / sw, panel_h / sh)
-        new_w = max(panel_w, int(round(sw * scale)))
-        new_h = max(panel_h, int(round(sh * scale)))
-        scaled = src.resize((new_w, new_h), Image.Resampling.LANCZOS)
-        x0 = (new_w - panel_w) // 2
-        y0 = (new_h - panel_h) // 2
-        cropped = scaled.crop((x0, y0, x0 + panel_w, y0 + panel_h))
-        return flatten_onto_black(cropped, panel_w, panel_h, 0, 0)
-
-    # pillarbox / letterbox both fit-by-axis with black bands.
-    if fit == "pillarbox":
-        scale = panel_h / sh
-        if int(round(sw * scale)) > panel_w:
-            scale = panel_w / sw  # fall back to width-fit if width would overflow
-    else:  # letterbox
-        scale = panel_w / sw
-        if int(round(sh * scale)) > panel_h:
+    match fit:
+        case "stretch":
+            scaled = src.resize((panel_w, panel_h), Image.Resampling.LANCZOS)
+            return flatten_onto_black(scaled, panel_w, panel_h, 0, 0)
+        case "crop":
+            scale = max(panel_w / sw, panel_h / sh)
+            new_w = max(panel_w, int(round(sw * scale)))
+            new_h = max(panel_h, int(round(sh * scale)))
+            scaled = src.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            x0 = (new_w - panel_w) // 2
+            y0 = (new_h - panel_h) // 2
+            cropped = scaled.crop((x0, y0, x0 + panel_w, y0 + panel_h))
+            return flatten_onto_black(cropped, panel_w, panel_h, 0, 0)
+        case "pillarbox":
             scale = panel_h / sh
+            if int(round(sw * scale)) > panel_w:
+                scale = panel_w / sw  # fall back to width-fit if width would overflow
+        case "letterbox":
+            scale = panel_w / sw
+            if int(round(sh * scale)) > panel_h:
+                scale = panel_h / sh
+        case _:
+            # Should not reach here if validated properly, but handle gracefully
+            raise ValueError(f"unknown fit mode {fit!r}")
 
+    # Handle pillarbox and letterbox (both computed scale above)
     new_w = max(1, int(round(sw * scale)))
     new_h = max(1, int(round(sh * scale)))
     scaled = src.resize((new_w, new_h), Image.Resampling.LANCZOS)
-    if image_align == "left":
-        x_off = 0
-    elif image_align == "right":
-        x_off = max(0, panel_w - new_w)
-    else:  # center
-        x_off = (panel_w - new_w) // 2
+    match image_align:
+        case "left":
+            x_off = 0
+        case "right":
+            x_off = max(0, panel_w - new_w)
+        case _:  # center
+            x_off = (panel_w - new_w) // 2
     return flatten_onto_black(scaled, panel_w, panel_h, x_off, (panel_h - new_h) // 2)
 
 

@@ -12,6 +12,21 @@ on:
   push:
     branches: [main]
 
+# SECURITY NOTE: self-hosted runner model
+# Both workflows use `on: pull_request:` which only allows PRs from
+# collaborators on a PRIVATE repository. The self-hosted runner is a
+# production Raspberry Pi with GPIO hardware access.
+#
+# If this repo is ever made public, the following changes are REQUIRED
+# before any PR is accepted:
+#   1. Add `environment: ci` to all jobs that run on self-hosted
+#      (requires reviewer approval before workflow runs on fork PRs)
+#   OR
+#   2. Migrate fork PRs to `workflow_run:` trigger so untrusted code
+#      does not run on the self-hosted runner.
+#
+# Do not make the repo public without implementing one of the above.
+
 permissions:
   contents: read
   pull-requests: read   # dorny/paths-filter calls the Files API to detect changed paths

@@ -144,7 +144,7 @@ def _maybe_wrap(canvas: Any, scale: int, content_height: int = 16) -> Any:
 
     Wraps when scale > 1 (bigsign) OR when content_height is smaller than the
     raw canvas height (scale=1 bigsign running a narrow content region). In
-    both cases the wrapper's _y_offset centers the content band and widgets
+    both cases the wrapper's y_offset_real centers the content band and widgets
     read canvas.height == content_height instead of the raw panel height.
 
     `content_height` controls the wrapper's logical height. Default 16 matches

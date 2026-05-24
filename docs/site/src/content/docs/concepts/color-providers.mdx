@@ -1,31 +1,32 @@
 ---
 title: Color providers
-description: Constant, rainbow, gradient, color_cycle, and random — how font_color accepts more than just an RGB list.
+description: Constant, rainbow, gradient, color_cycle, shimmer, and random — how font_color accepts more than just an RGB list.
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-`font_color` accepts five forms: a `[r, g, b]` list (constant), the string shorthands `"rainbow"`, `"color_cycle"`, and `"random"`, or an inline table for a gradient or a ranged color cycle. The first three cover most signs. The same field on `top_color` / `bottom_color` for `two_row` and image widgets behaves identically — pick once per widget, swap providers without changing anything else.
+`font_color` accepts six forms: a `[r, g, b]` list (constant), the string shorthands `"rainbow"`, `"color_cycle"`, `"shimmer"`, and `"random"`, or an inline table for a gradient, a ranged color cycle, or a tuned shimmer. The constant, rainbow, and color_cycle forms cover most signs. The same field on `top_color` / `bottom_color` for `two_row` and image widgets behaves identically — pick once per widget, swap providers without changing anything else.
 
 <DemoGif
   src="/demos/concepts-color-providers.gif"
-  caption="rainbow → color_cycle → gradient → constant → random"
+  caption="rainbow → color_cycle → gradient → constant → random (shimmer not shown)"
 />
 
-## The five providers
+## The six providers
 
-| Provider         | Syntax                                                       | Per-char? | Animates?                       |
-| ---------------- | ------------------------------------------------------------ | --------- | ------------------------------- |
-| Constant         | `[r, g, b]`                                                  | no        | no                              |
-| Rainbow          | `"rainbow"`                                                  | **yes**   | yes — hue sweeps per frame      |
-| ColorCycle       | `"color_cycle"`                                              | no        | yes — whole-string hue rotation |
-| ColorCycle range | `{style = "color_cycle", from = [...], to = [...], speed=N}` | no        | yes — restricted hue arc        |
-| Gradient         | `{style = "gradient", from = [...], to = [...]}`             | **yes**   | no — frozen interpolation       |
-| Random           | `"random"`                                                   | no        | no — picks once on visit        |
+| Provider         | Syntax                                                       | Per-char? | Animates?                          |
+| ---------------- | ------------------------------------------------------------ | --------- | ---------------------------------- |
+| Constant         | `[r, g, b]`                                                  | no        | no                                 |
+| Rainbow          | `"rainbow"`                                                  | **yes**   | yes — hue sweeps per frame         |
+| ColorCycle       | `"color_cycle"`                                              | no        | yes — whole-string hue rotation    |
+| ColorCycle range | `{style = "color_cycle", from = [...], to = [...], speed=N}` | no        | yes — restricted hue arc           |
+| Gradient         | `{style = "gradient", from = [...], to = [...]}`             | **yes**   | no — frozen interpolation          |
+| Shimmer          | `"shimmer"` or `{style = "shimmer", shimmer = "gold", ...}`  | **yes**   | yes — bright-spot sweep with pause |
+| Random           | `"random"`                                                   | no        | no — picks once on visit           |
 
-**Per-char** providers (rainbow, gradient) assign a unique color to each character position and call `color_for` once per character per draw. **Whole-string** providers (constant, color_cycle, random) compute one color per draw and apply it to the entire message.
+**Per-char** providers (rainbow, gradient, shimmer) assign a unique color to each character position and call `color_for` once per character per draw. **Whole-string** providers (constant, color_cycle, random) compute one color per draw and apply it to the entire message.
 
 ## Constant
 
@@ -115,6 +116,69 @@ font_color = {style = "gradient", from = [255, 80, 80], to = [80, 80, 255]}`}
 
 `from` and `to` are `[r, g, b]` triplets. The first character gets `from`, the last gets `to`, and all others interpolate linearly between them.
 
+## Shimmer
+
+A bright spot glides left-to-right across the text — one `shimmer_color` highlight sweeping over a `base_color` rest state — then pauses, then repeats. The spot fades in and out with a cosine curve so it blends smoothly rather than clipping abruptly.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "Now Hiring"
+font_color = "shimmer"`}
+/>
+
+`"shimmer"` as a plain string uses the defaults: dim blue-gray base, white highlight, 14 chars/second, 8-char-wide spot, 0.5 s pause between sweeps. Tune with an inline table:
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "Grand Opening"
+font_color = {style = "shimmer", base = [40, 40, 60], shimmer = "gold", speed = 10, width = 6, pause = 1.0}`}
+/>
+
+| Field     | Default        | Description                                                                      |
+| --------- | -------------- | -------------------------------------------------------------------------------- |
+| `base`    | `[60, 60, 80]` | Rest color. `[r, g, b]` or a shorthand: `"white"`, `"gold"`, `"blue"`, `"cyan"`. |
+| `shimmer` | `"white"`      | Highlight color. Same formats as `base`.                                         |
+| `speed`   | `14.0`         | Chars per second the spot travels. Lower = slower, dreamier.                     |
+| `width`   | `8.0`          | Spot width in chars. Wider = broader glow; narrower = sharper.                   |
+| `pause`   | `0.5`          | Seconds of rest (base color only) between sweeps.                                |
+
+Shimmer is a continuous-phase provider — it does not reset between `loop_count` repetitions, so the sweep keeps flowing across playlist loops rather than snapping back to the start.
+
+**Shimmer with a dark base color:** The base defaults to a dark blue-gray (`[60, 60, 80]`). If you want truly black resting characters, set `base = [0, 0, 0]`. High-contrast setups (dark base, bright shimmer) look best; a light base with a slightly-brighter shimmer produces a subtle, professional feel.
+
+### Common patterns
+
+<DemoGif
+  src="/demos/concepts-shimmer-patterns.gif"
+  caption="frost → gold coin → hot ember → neon breathe"
+/>
+
+**Frost** — cool blue rest state, white highlight, slow sweep. The spot glides wide and lazy across the text, leaving it dim and icy at rest.
+
+<TomlExample
+  code={`font_color = {style = "shimmer", base = "blue", shimmer = "white", speed = 5, width = 4, pause = 1.2}`}
+/>
+
+**Gold coin** — dark amber base, classic gold `[255, 215, 0]` (#FFD700) highlight. Narrow, fast sweep with a pause between cycles — the bright streak catches and disappears like light glancing off a spinning coin.
+
+<TomlExample
+  code={`font_color = {style = "shimmer", base = [90, 55, 0], shimmer = [255, 215, 0], speed = 18, width = 3, pause = 0.8}`}
+/>
+
+**Hot ember** — near-black red base, orange highlight. Medium speed, narrow width — a glowing coal that briefly catches.
+
+<TomlExample
+  code={`font_color = {style = "shimmer", base = [60, 10, 0], shimmer = [255, 120, 30], speed = 12, width = 4, pause = 0.6}`}
+/>
+
+**Neon breathe** — near-black base, bright cyan highlight, wide spot, no pause. The spot sweeps without stopping, so the text breathes continuously rather than flashing and going dark.
+
+<TomlExample
+  code={`font_color = {style = "shimmer", base = [0, 5, 0], shimmer = [0, 230, 200], speed = 5, width = 10, pause = 0}`}
+/>
+
 ## Random
 
 Picks a single random color at widget construction and holds it for the duration of the visit. The color does not change frame-to-frame or character-to-character; it just picks something different each time the section plays. Useful for adding variety to long-running displays without any visible animation.
@@ -132,6 +196,7 @@ font_color = "random"`}
 - **Color_cycle** — the whole message shifts hue together; subtler than rainbow. Add `from`/`to` to keep the sweep inside your brand palette.
 - **Rainbow** — per-character hue sweep; use it when flair is the point (kids' sections, grand openings, announcements).
 - **Gradient** — frozen left-to-right interpolation; good when your brand has two anchor colors you want to bridge.
+- **Shimmer** — a gliding bright-spot sweep; good for drawing attention to a single message, "now open" signage, or any case where you want motion without full-rainbow energy.
 - **Random** — picks a different color each time the section plays; no animation.
 
 ## Inline emoji and per-char providers

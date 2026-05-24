@@ -1,0 +1,52 @@
+# render-duration: 18
+# Demo: four named shimmer patterns — frost, gold coin, hot ember, neon breathe.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+# 1. Frost — cool blue rest state, white highlight, slow + wide sweep.
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "FROST"
+font_color = {style = "shimmer", base = "blue", shimmer = "white", speed = 5, width = 4, pause = 1.2}
+
+# 2. Gold coin — dark amber base, classic gold #FFD700 highlight, narrow + fast.
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "GOLD COIN"
+font_color = {style = "shimmer", base = [90, 55, 0], shimmer = [255, 215, 0], speed = 18, width = 3, pause = 0.8}
+
+# 3. Hot ember — near-black red base, orange highlight, medium speed + narrow.
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "HOT EMBER"
+font_color = {style = "shimmer", base = [60, 10, 0], shimmer = [255, 120, 30], speed = 12, width = 4, pause = 0.6}
+
+# 4. Neon breathe — near-black base, bright cyan highlight, wide + no pause.
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "NEON GLOW"
+font_color = {style = "shimmer", base = [0, 5, 0], shimmer = [0, 230, 200], speed = 5, width = 10, pause = 0}

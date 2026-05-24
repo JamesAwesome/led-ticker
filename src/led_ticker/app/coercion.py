@@ -44,6 +44,13 @@ _PROVIDER_COLOR_KEYS: set[str] = {
 # working unchanged while provider integration rolls out.
 _RAW_COLOR_KEYS: set[str] = _COLOR_KEYS - _PROVIDER_COLOR_KEYS
 
+_SHIMMER_COLOR_SHORTHANDS: dict[str, tuple[int, int, int]] = {
+    "white": (255, 255, 255),
+    "gold": (255, 200, 50),
+    "blue": (100, 180, 255),
+    "cyan": (0, 220, 220),
+}
+
 
 def _coerce_color_provider(value: Any, context: str = "font_color") -> Any:
     """Convert a TOML color spec to a ColorProvider instance.
@@ -51,7 +58,7 @@ def _coerce_color_provider(value: Any, context: str = "font_color") -> Any:
     Accepts:
     - `[r, g, b]` / `(r, g, b)` → `_ConstantColor(graphics.Color(...))`
     - `"random"` → `Random()`
-    - `"rainbow"` / `"color_cycle"` → corresponding provider with defaults
+    - `"rainbow"` / `"color_cycle"` / `"shimmer"` → corresponding provider with defaults
     - `{style = "...", ...kwargs}` → named provider with kwargs
     - already a Color (graphics.Color) → wrap in `_ConstantColor`
     - already a ColorProvider → returned as-is
@@ -150,6 +157,7 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
         Gradient,
         Rainbow,
         Random,
+        Shimmer,
     )
 
     registry = {
@@ -157,6 +165,10 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
         "rainbow": (Rainbow, {"speed", "char_offset"}),
         "color_cycle": (ColorCycle, {"speed"}),
         "gradient": (Gradient, {"from_color", "to_color"}),
+        "shimmer": (
+            Shimmer,
+            {"speed", "width", "pause", "base_color", "shimmer_color"},
+        ),
     }
 
     # Maps style → TOML-facing key names (what the user writes in their config).
@@ -167,6 +179,7 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
         "rainbow": {"speed", "char_offset"},
         "color_cycle": {"speed", "from", "to"},
         "gradient": {"from", "to"},
+        "shimmer": {"base", "shimmer", "speed", "width", "pause"},
     }
 
     if style not in registry:
@@ -229,6 +242,45 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
             kwargs["from_hue"] = from_hue
             kwargs["to_hue"] = to_hue
             allowed_kwargs = {"speed", "from_hue", "to_hue"}
+
+    if style == "shimmer":
+        # base_color/shimmer_color are internal names injected below — reject them
+        # if the user somehow typed them directly (they should use base= / shimmer=)
+        for _internal in ("base_color", "shimmer_color"):
+            if _internal in kwargs:
+                raise ValueError(
+                    f"font_color shimmer: use 'base' and 'shimmer' keys, not "
+                    f"{_internal!r} (that is an internal name)"
+                )
+        base_val = kwargs.pop("base", None)
+        shimmer_val = kwargs.pop("shimmer", None)
+
+        if base_val is None:
+            base_rgb: tuple[int, int, int] = (60, 60, 80)
+        elif isinstance(base_val, str):
+            if base_val not in _SHIMMER_COLOR_SHORTHANDS:
+                raise ValueError(
+                    f"font_color shimmer 'base' shorthand {base_val!r} unknown; "
+                    f"available: {sorted(_SHIMMER_COLOR_SHORTHANDS)} or use [r, g, b]"
+                )
+            base_rgb = _SHIMMER_COLOR_SHORTHANDS[base_val]
+        else:
+            base_rgb = _validate_rgb(base_val, "font_color shimmer 'base'")
+
+        if shimmer_val is None:
+            shimmer_rgb: tuple[int, int, int] = (255, 255, 255)
+        elif isinstance(shimmer_val, str):
+            if shimmer_val not in _SHIMMER_COLOR_SHORTHANDS:
+                raise ValueError(
+                    f"font_color shimmer 'shimmer' shorthand {shimmer_val!r} unknown; "
+                    f"available: {sorted(_SHIMMER_COLOR_SHORTHANDS)} or use [r, g, b]"
+                )
+            shimmer_rgb = _SHIMMER_COLOR_SHORTHANDS[shimmer_val]
+        else:
+            shimmer_rgb = _validate_rgb(shimmer_val, "font_color shimmer 'shimmer'")
+
+        kwargs["base_color"] = graphics.Color(*base_rgb)
+        kwargs["shimmer_color"] = graphics.Color(*shimmer_rgb)
 
     unknown = set(kwargs.keys()) - allowed_kwargs
     if unknown:

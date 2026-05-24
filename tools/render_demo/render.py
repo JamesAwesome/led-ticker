@@ -169,12 +169,11 @@ def render(
         # pause) gets its real duration rather than a flat tick_ms.
         #
         # Collapse runs of identical consecutive frames into a single
-        # kept frame whose duration sums the interval of each. Without
-        # this, imageio.mimsave's silent identical-frame dedupe would
-        # discard the cumulative display time anyway.
+        # kept frame whose duration sums the interval of each. This
+        # avoids creating unnecessary duplicate frames in the output gif.
         #
-        # imageio quirk: scalar `duration` is seconds; list `duration`
-        # is milliseconds. We use ms in both shapes for consistency.
+        # PIL quirk: scalar `duration` is centiseconds; list `duration`
+        # is milliseconds. We use ms in list form for consistency.
         intervals_ms = _intervals_ms(rec.timestamps, end_time)
         kept: list[Image.Image] = []
         durations: list[float] = []

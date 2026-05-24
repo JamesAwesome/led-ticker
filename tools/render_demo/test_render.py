@@ -13,7 +13,6 @@ sys.path.insert(0, str(_REPO_ROOT))
 import pytest  # noqa: E402
 
 pytest.importorskip("tomli_w")
-pytest.importorskip("imageio")
 
 from PIL import Image  # noqa: E402
 

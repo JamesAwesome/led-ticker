@@ -2330,3 +2330,19 @@ class TestMinFramesProtocol:
         # Verify the default is accessible on the Protocol class
         assert hasattr(Transition, "min_frames")
         assert Transition.min_frames == 0
+
+
+class TestNyanCatFrameDrawing:
+    def test_draw_nyan_frame_uses_subfill_for_rainbow(self, canvas):
+        from led_ticker.transitions.nyancat import RAINBOW, draw_nyan_frame
+
+        # At progress=0.5 the trail covers a visible portion of the canvas
+        draw_nyan_frame(canvas, progress=0.5, width=160, height=16)
+        # 6 rainbow stripes → 6 SubFill calls (one per stripe color)
+        assert canvas.SubFill.call_count == len(RAINBOW)
+
+    def test_draw_nyan_frame_rtl_uses_subfill_for_rainbow(self, canvas):
+        from led_ticker.transitions.nyancat import RAINBOW, draw_nyan_frame_rtl
+
+        draw_nyan_frame_rtl(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count == len(RAINBOW)

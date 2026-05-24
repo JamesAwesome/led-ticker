@@ -77,6 +77,11 @@ class _StubCanvas:
         if 0 <= x < self.width and 0 <= y < self.height:
             self._pixels[(x, y)] = (r, g, b)
 
+    def SubFill(self, x, y, width, height, red, green, blue):
+        for dy in range(height):
+            for dx in range(width):
+                self.SetPixel(x + dx, y + dy, red, green, blue)
+
     def SetImage(self, image, offset_x=0, offset_y=0):
         """Stub for the real rgbmatrix's `canvas.SetImage(pil_image, x, y)`.
 

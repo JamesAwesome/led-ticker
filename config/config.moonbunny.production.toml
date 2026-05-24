@@ -102,18 +102,23 @@ border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 [[playlist.section]]
 mode = "swap"
 loop_count = 1
-hold_time = 30.0
+hold_time = 6.0
 transition = "dissolve"
-transition_duration = 0.8
+transition_duration = 1.0
+scale = 2                # without this, content_height = 16 logical max
+content_height = 32      # 32 × scale 2 = 64 real = full panel height (at ceiling)
 
 [[playlist.section.widget]]
-type = "message"
-text = ":moon: :bunny:"
-font = "beloved-sans-bold"
-font_size = 26
-font_threshold = 80
-font_color = "rainbow"
-border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+type = "gif"
+path = "assets/moon_bunny_transparent.gif"
+fit = "letterbox"
+image_align = "center"
+text_align = "left"
+text = " Moon                   Bunny"
+font = "Inter-Bold"
+font_size = 25
+gif_loops = 70
+border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 
 # ---------------------------------------------------------------------------
 # Section 3 — "Find Your" combined scroll
@@ -166,7 +171,7 @@ text = "KIDS SUMMER CAMPS  :star:  NOW ENROLLING  :star:  ALL AGES WELCOME"
 text_wrap = true
 text_align = "scroll"
 text_separator = " :star: "
-scroll_speed_ms = 30
+scroll_speed_ms = 50
 text_loops = 8
 font = "Inter-Bold"
 font_size = 48
@@ -203,7 +208,7 @@ font = "hunters_kpop"
 font_size = 62
 font_threshold = 128
 font_color = {style = "gradient", from = [225, 48, 108], to = [120, 90, 220]}
-border = {style = "constant", color = [120, 90, 220], thickness = 2}
+border = {style = "rainbow", from = [225, 48, 108], to = [120, 90, 220], thickness = 2}
 
 # Alt version using gif
 #
@@ -232,6 +237,7 @@ border = {style = "constant", color = [120, 90, 220], thickness = 2}
 mode = "swap"
 loop_count = 4
 hold_time = 3.0
+transition = "wipe_alternating"
 
 [playlist.section.title]
 type = "message"
@@ -322,7 +328,7 @@ scroll_speed_ms = 50
 
 [[playlist.section]]
 mode = "swap"
-loop_count = 3
+loop_count = 2
 transition = "cut"
 transition_duration = 1.0
 scale = 2                # without this, content_height = 16 logical max
@@ -337,7 +343,7 @@ top_font = "Inter-Bold"
 top_font_size = 22
 top_font_threshold = 128
 bottom_text = "Now booking spring classes — all levels welcome!"
-bottom_text_loops = 3
+bottom_text_loops = 2
 bottom_text_scroll = "scroll_through"
 bottom_color = [254, 255, 204]
 bottom_align = "left"
@@ -354,7 +360,7 @@ top_font = "Inter-Bold"
 top_font_size = 22
 top_font_threshold = 128
 bottom_text = "Kids Summer Camps now enrolling — sign up today!"
-bottom_text_loops = 3
+bottom_text_loops = 2
 bottom_text_scroll = "scroll_through"
 bottom_color = [255, 176, 240]
 bottom_align = "left"
@@ -371,7 +377,7 @@ top_font = "Inter-Bold"
 top_font_size = 22
 top_font_threshold = 128
 bottom_text = "Aerial silks • lyra • flow props • ballet • dance"
-bottom_text_loops = 3
+bottom_text_loops = 2
 bottom_text_scroll = "scroll_through"
 bottom_color = [189, 169, 234]
 bottom_align = "left"
@@ -396,3 +402,4 @@ text = ":instagram: @moonbunnyaerial  :moon: :email: info@moonbunnyaerial.com"
 font = "Inter-Bold"
 font_size = 48
 font_color = "color_cycle"
+border = {style = "color_cycle", speed = 2, thickness = 2}

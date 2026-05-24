@@ -1324,8 +1324,8 @@ class TestHiresEmojiAtScale1Wrapper:
         assert isinstance(wrapped, ScaledCanvas)
         assert wrapped.scale == 1
         assert wrapped.content_height == 16
-        # y_offset = (64 - 16 * 1) // 2 = 24
-        assert wrapped._y_offset == 24
+        # y_offset_real = (64 - 16 * 1) // 2 = 24
+        assert wrapped.y_offset_real == 24
         # logical canvas height is content_height
         assert wrapped.height == 16
 

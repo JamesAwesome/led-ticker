@@ -176,13 +176,13 @@ class TestContentHeightCeiling:
         """16 × 4 = 64 exactly matches the panel — must construct OK."""
         real = _make_real_canvas(real_w=256, real_h=64)
         sc = ScaledCanvas(real, scale=4, content_height=16)
-        assert sc._y_offset == 0
+        assert sc.y_offset_real == 0
 
     def test_under_fit_passes_with_letterbox(self):
         """8 × 4 = 32 < 64 — letterboxes (16 real rows top + bottom)."""
         real = _make_real_canvas(real_w=256, real_h=64)
         sc = ScaledCanvas(real, scale=4, content_height=8)
-        assert sc._y_offset == 16
+        assert sc.y_offset_real == 16
 
     def test_nested_wrapper_uses_innermost_real_height(self):
         """Cross-scale dissolves wrap a wrapper. The validation must
@@ -201,3 +201,23 @@ class TestContentHeightCeiling:
             ScaledCanvas(real, scale=4, content_height=24)
         # 64 // 4 = 16
         assert "content_height ≤ 16" in str(exc_info.value)
+
+
+def test_y_offset_real_attribute_name_at_scale_2():
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=2)
+    # y_offset_real = (64 - 16*2) // 2 = 16
+    assert sc.y_offset_real == 16
+
+
+def test_y_offset_real_attribute_name_at_scale_4_no_letterbox():
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=4)
+    # y_offset_real = (64 - 16*4) // 2 = 0
+    assert sc.y_offset_real == 0
+
+
+def test_no_private_y_offset():
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=4)
+    assert not hasattr(sc, "_y_offset"), "_y_offset must be gone after rename"

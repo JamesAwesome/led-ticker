@@ -48,7 +48,7 @@ def _draw_hires_text(
     """
     real = unwrap_to_real(canvas)
     scale = getattr(canvas, "scale", 1)
-    y_offset = getattr(canvas, "_y_offset", 0)
+    y_offset = getattr(canvas, "y_offset_real", 0)
     real_baseline_y = y * scale + y_offset
     real_x = x * scale
 
@@ -138,7 +138,7 @@ def draw_text_per_char(
         # a different Color per glyph from `color_fn`.
         real = unwrap_to_real(canvas)
         scale = getattr(canvas, "scale", 1)
-        y_offset = getattr(canvas, "_y_offset", 0)
+        y_offset = getattr(canvas, "y_offset_real", 0)
         real_baseline_y = y * scale + y_offset
         real_x = x_logical * scale
 

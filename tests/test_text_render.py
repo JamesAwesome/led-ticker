@@ -351,7 +351,7 @@ class TestBdfRasterizerParityWithDrawText:
         bdf = get_bdf_for(font)
         sc = ScaledCanvas(canvas_b, scale=1, content_height=canvas_h)
         assert (
-            sc._y_offset == 0
+            sc.y_offset_real == 0
         ), "prerequisite: no vertical shift at scale=1 full-height"
         sc.draw_bdf_text(bdf, 0, baseline_y, color, _PARITY_TEXT)
         pixels_b = dict(canvas_b._pixels)  # snapshot

@@ -24,7 +24,7 @@ class ScaledCanvas:
     `real` is mutable so `_swap()` in ticker.py can rewire the wrapper to
     point at the new back-buffer canvas after each `SwapOnVSync`. Within
     a Ticker session every back buffer comes from the same RGBMatrix so
-    its dimensions are constant — we cache `_y_offset` once at
+    its dimensions are constant — we cache `y_offset_real` once at
     construction. `scale` and `content_height` are frozen.
     """
 
@@ -33,7 +33,7 @@ class ScaledCanvas:
     content_height: int = attrs.field(
         default=CONTENT_HEIGHT, on_setattr=attrs.setters.frozen
     )
-    _y_offset: int = attrs.field(init=False, default=0)
+    y_offset_real: int = attrs.field(init=False, default=0)
 
     def __attrs_post_init__(self) -> None:
         # `content_height * scale` must fit inside the actual panel
@@ -61,7 +61,7 @@ class ScaledCanvas:
                 f"content near the logical canvas edges. Pick "
                 f"content_height ≤ {max_content_height}."
             )
-        self._y_offset = (self.real.height - self.content_height * self.scale) // 2
+        self.y_offset_real = (self.real.height - self.content_height * self.scale) // 2
 
     @property
     def width(self) -> int:
@@ -91,7 +91,7 @@ class ScaledCanvas:
         real = self.real
         set_px = real.SetPixel
         rx = x * s
-        ry = y * s + self._y_offset
+        ry = y * s + self.y_offset_real
         for dy in range(s):
             rry = ry + dy
             for dx in range(s):

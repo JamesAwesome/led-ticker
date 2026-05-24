@@ -69,10 +69,10 @@ def _draw_hires_circle(
     offsets = _build_circle_offsets(radius_physical)
 
     # Disk center in physical coords: skip the left pad, then add the
-    # radius. y center is the middle of the content band (`_y_offset`
+    # radius. y center is the middle of the content band (`y_offset_real`
     # is the band's top in physical y).
     cx_physical = (cursor_pos + _CIRCLE_LOGICAL_PAD) * scale + radius_physical
-    cy_physical = canvas._y_offset + (canvas.height * scale) // 2
+    cy_physical = canvas.y_offset_real + (canvas.height * scale) // 2
 
     if isinstance(color, tuple):
         r, g, b = color

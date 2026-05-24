@@ -3044,7 +3044,7 @@ def _draw_hires_emoji(
     """
     real = canvas.real
     scale = canvas.scale
-    real_y_offset = canvas._y_offset
+    real_y_offset = canvas.y_offset_real
 
     real_x_anchor = ix_logical * scale
     real_y_anchor = iy_logical * scale + real_y_offset

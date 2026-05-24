@@ -233,8 +233,10 @@ async def run_transition(
     # Outgoing is intentionally NOT reset: its previous-end state is
     # the visual continuity story for the wipe-out.
     _reset_presenter(incoming)
+    loop = asyncio.get_running_loop()
     try:
         for i in range(frame_count + 1):
+            t0 = loop.time()
             t = ease_fn(i / max(1, frame_count))
 
             # At t >= scale_switch_at, switch to a wrapper at incoming_scale
@@ -285,7 +287,7 @@ async def run_transition(
                 incoming_canvas = new_canvas
             else:
                 canvas = new_canvas
-            await asyncio.sleep(scroll_speed)
+            await asyncio.sleep(max(0.0, scroll_speed - (loop.time() - t0)))
     finally:
         _resume_presenter(outgoing)
         _resume_presenter(incoming)

@@ -2470,3 +2470,87 @@ class TestPerSectionQueue:
             f"Expected all queues to be distinct objects, but some were reused. "
             f"Queue IDs: {queue_ids}"
         )
+
+
+class TestLoadConfigOffEventLoop:
+    """load_config uses blocking file I/O; must run via asyncio.to_thread. (S21)"""
+
+    async def test_load_config_called_via_to_thread(self, monkeypatch):
+        """Verify that load_config is wrapped in asyncio.to_thread to avoid
+        blocking the event loop during config file I/O operations."""
+        import sys
+        from pathlib import Path
+
+        # Import the module to ensure it's in sys.modules
+        import led_ticker.app.run  # noqa: F401
+        from led_ticker.app import run as app_run
+        from led_ticker.config import (
+            AppConfig,
+            DisplayConfig,
+            SectionConfig,
+            TransitionConfig,
+        )
+
+        run_module = sys.modules["led_ticker.app.run"]
+
+        # Create a minimal config for testing
+        cfg = AppConfig(
+            display=DisplayConfig(rows=16, cols=32, chain=5),
+            sections=[
+                SectionConfig(
+                    mode="swap",
+                    widgets=[{"type": "message", "text": "test"}],
+                ),
+            ],
+            between_sections=TransitionConfig(type="cut"),
+        )
+
+        # Track calls to asyncio.to_thread
+        to_thread_calls: list = []
+
+        async def _fake_to_thread(func, *args, **kwargs):
+            # Store function name if available, otherwise use the func object
+            func_name = getattr(func, "__name__", None)
+            to_thread_calls.append((func_name, args))
+            return func(*args, **kwargs)
+
+        # Patch asyncio.to_thread
+        import asyncio
+
+        monkeypatch.setattr(asyncio, "to_thread", _fake_to_thread)
+
+        # Also patch the other dependencies to stop early
+        class _CapturingTicker:
+            def __init__(self, *args, **kwargs):
+                raise _StopApp("captured")
+
+            async def run_swap(self, **kw):
+                pass
+
+        with (
+            mock.patch.object(run_module, "load_config", return_value=cfg),
+            mock.patch.object(
+                run_module,
+                "build_frame_from_config",
+                return_value=mock.Mock(
+                    **{"get_clean_canvas.return_value": mock.Mock(height=16, width=160)}
+                ),
+            ),
+            mock.patch.object(run_module, "_configure_user_font_dir"),
+            mock.patch.object(run_module, "Ticker", _CapturingTicker),
+            pytest.raises(_StopApp),
+        ):
+            await app_run(Path("ignored.toml"))
+
+        # Verify that asyncio.to_thread was called with load_config.
+        # The mock object won't have __name__, so check that to_thread was
+        # called with the mocked load_config and the config_path argument.
+        assert (
+            len(to_thread_calls) > 0
+        ), "asyncio.to_thread must be called to wrap load_config"
+        # Verify the call was with load_config (mocked) and config_path
+        _, args = to_thread_calls[0]
+        assert len(args) == 1
+        assert (
+            str(args[0]) == "ignored.toml"
+        ), f"Expected load_config to be called with config_path, got: {args}"

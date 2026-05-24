@@ -36,7 +36,7 @@ from led_ticker.widgets.rss_feed import RSSFeedMonitor
 
 async def run(config_path: Path) -> None:
     """Main application loop."""
-    config = load_config(config_path)
+    config = await asyncio.to_thread(load_config, config_path)
     # Surface any coerce warnings recorded by load_config (string-of-digits
     # int/float fields, mixed-case enum strings). Same messages that
     # `led-ticker validate` shows as rule-37 warnings; logging at startup

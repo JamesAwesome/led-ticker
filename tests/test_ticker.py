@@ -474,3 +474,10 @@ class TestTickerMethodsMigrated:
 
         ticker = Ticker(monitors=[], frame=MagicMock())
         assert callable(ticker._scroll_side_by_side)
+
+    def test_advance_frame_if_supported_is_instance_method(self):
+        from unittest.mock import MagicMock
+
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert hasattr(ticker, "_advance_frame_if_supported")
+        assert callable(ticker._advance_frame_if_supported)

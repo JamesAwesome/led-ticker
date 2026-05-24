@@ -364,6 +364,15 @@ class Ticker:
         if hasattr(widget, "_logical_scale"):
             widget._logical_scale = scale
 
+    def _advance_frame_if_supported(self, widget: Any) -> None:
+        """Call `widget.advance_frame()` if the widget exposes it.
+
+        Quietly no-ops on widgets without the _FrameAware mixin.
+        After Task 5, this will pass `visit_id=self._current_visit`.
+        """
+        if hasattr(widget, "advance_frame"):
+            widget.advance_frame()
+
     async def _hold_ticks(
         self,
         canvas: Canvas,
@@ -378,7 +387,7 @@ class Ticker:
         cursor_pos = 0
         for _ in range(n_ticks):
             t0 = loop.time()
-            _advance_frame_if_supported(widget)
+            self._advance_frame_if_supported(widget)
             reset_canvas(canvas, bg_color)
             canvas, cursor_pos = widget.draw(canvas, cursor_pos=pos)
             canvas = _swap(canvas, self.frame)
@@ -521,7 +530,7 @@ class Ticker:
             stop = -(n_passes * cycle_width)
             while pos > stop:
                 pos -= 1
-                _advance_frame_if_supported(ticker_obj)
+                self._advance_frame_if_supported(ticker_obj)
                 reset_canvas(canvas, bg_color)
                 canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
                 canvas = _swap(canvas, self.frame)
@@ -535,7 +544,7 @@ class Ticker:
                 loops_floor = 0
             tick = 0
             while tick < n_ticks:
-                _advance_frame_if_supported(ticker_obj)
+                self._advance_frame_if_supported(ticker_obj)
                 reset_canvas(canvas, bg_color)
                 canvas, cycle_width = ticker_obj.draw(canvas, cursor_pos=pos)
                 if tick == 0 and loops_floor > 0 and cycle_width > 0:
@@ -557,7 +566,7 @@ class Ticker:
             stop_pos = -(cursor_pos - canvas.width) + padding
             while pos > stop_pos:
                 pos -= 1
-                _advance_frame_if_supported(ticker_obj)
+                self._advance_frame_if_supported(ticker_obj)
                 reset_canvas(canvas, bg_color)
                 canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
                 canvas = _swap(canvas, self.frame)
@@ -701,7 +710,7 @@ class Ticker:
             # scrolls in from off-canvas, then suddenly animates after
             # landing — visually inconsistent with the post-scroll hold
             # below and with `_swap_and_scroll`'s scroll branch.
-            _advance_frame_if_supported(ticker_obj)
+            self._advance_frame_if_supported(ticker_obj)
             reset_canvas(canvas, bg_color)
             canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
             pos -= 1
@@ -755,7 +764,7 @@ class Ticker:
             # the scroll. Without this, RSS stories with `font_color =
             # "rainbow"` render as a static gradient that scrolls but
             # doesn't sweep over time.
-            _advance_frame_if_supported(ticker_object)
+            self._advance_frame_if_supported(ticker_object)
             reset_canvas(canvas, getattr(ticker_object, "bg_color", None))
             canvas, final_pos = ticker_object.draw(canvas, cursor_pos=pos)
             last_drawn_pos = pos
@@ -823,7 +832,7 @@ class Ticker:
             seen: set[int] = set()
             for buf_w in buffered_objects:
                 if id(buf_w) not in seen:
-                    _advance_frame_if_supported(buf_w)
+                    self._advance_frame_if_supported(buf_w)
                     seen.add(id(buf_w))
 
             # Side-by-side scroll uses the FIRST buffered widget's bg_color for
@@ -1059,13 +1068,3 @@ def _draw_scroll_frame(
 def scroll_separator_width(gap: int = SCROLL_GAP) -> int:
     """Total pixel width of the scroll separator: gap + bullet + gap."""
     return gap + BULLET_WIDTH + gap
-
-
-def _advance_frame_if_supported(widget: Any) -> None:
-    """Call `widget.advance_frame()` if the widget exposes it.
-
-    Quietly no-ops on widgets without the _FrameAware mixin so the
-    orchestrator works for both old (transitional) and new widgets.
-    """
-    if hasattr(widget, "advance_frame"):
-        widget.advance_frame()

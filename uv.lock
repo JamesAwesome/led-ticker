@@ -440,9 +440,7 @@ dependencies = [
     { name = "aiohttp" },
     { name = "attrs" },
     { name = "feedparser" },
-    { name = "imageio" },
     { name = "pillow" },
-    { name = "tomli-w" },
 ]
 
 [package.optional-dependencies]
@@ -455,13 +453,17 @@ dev = [
     { name = "pytest-mock" },
     { name = "ruff" },
 ]
+render = [
+    { name = "imageio" },
+    { name = "tomli-w" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.9" },
     { name = "attrs", specifier = ">=23.0" },
     { name = "feedparser", specifier = ">=6.0" },
-    { name = "imageio", specifier = ">=2.31" },
+    { name = "imageio", marker = "extra == 'render'", specifier = ">=2.31" },
     { name = "pillow", specifier = ">=10.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0" },
     { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1" },
@@ -470,10 +472,9 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.12" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
-    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
-    { name = "tomli-w", specifier = ">=1.0" },
+    { name = "tomli-w", marker = "extra == 'render'", specifier = ">=1.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["render", "dev"]
 
 [[package]]
 name = "multidict"

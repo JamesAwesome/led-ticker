@@ -8,6 +8,10 @@ from typing import Any
 from led_ticker._types import Canvas, ColorTuple
 from led_ticker.transitions import register_transition
 
+# ColorFlash phase thresholds
+_FLASH_ONSET: float = 1 / 3
+_FLASH_FADEOUT: float = 2 / 3
+
 
 @functools.cache
 def _dissolve_sequence(w: int, h: int, seed: int) -> list[tuple[int, int]]:
@@ -45,9 +49,9 @@ class ColorFlash:
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
     ) -> Canvas:
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
-        if t < 0.33:
+        if t < _FLASH_ONSET:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
-        elif t < 0.66:
+        elif t < _FLASH_FADEOUT:
             canvas.Fill(*self.color)
         else:
             incoming.draw(canvas, cursor_pos=0)

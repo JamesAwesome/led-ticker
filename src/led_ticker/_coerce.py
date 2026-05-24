@@ -12,10 +12,10 @@ would reopen the hole that the existing `bottom_text_loops` and
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import attrs
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class CoercionWarning:
     field: str
     original: object

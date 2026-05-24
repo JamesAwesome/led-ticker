@@ -21,6 +21,7 @@ make test          # pytest with coverage (no Docker, no hardware)
 make lint          # ruff
 make format        # ruff format
 make validate      # led-ticker validate CONFIG=path.toml (config preflight); supports --list-fields <type> (e.g. --list-fields message) to print a widget's recognized TOML fields
+make render-emoji-previews  # re-generate emoji preview PNGs after adding new slugs
 make clean         # remove build artifacts
 make build-docker  # production image (single image, both Pis)
 ```
@@ -37,7 +38,7 @@ src/led_ticker/
   _compat.py           # Lazy rgbmatrix import shim (real lib or stub)
   _types.py            # Canvas type alias used across the package
   app.py               # CLI entry point (led-ticker --config config.toml)
-  config.py            # TOML config loader (tomllib/tomli)
+  config.py            # TOML config loader (stdlib tomllib)
   ticker.py            # Display orchestrator (scroll/swap/forever_scroll modes)
   frame.py             # LedFrame hardware wrapper
   scaled_canvas.py     # ScaledCanvas wrapper + unwrap_to_real

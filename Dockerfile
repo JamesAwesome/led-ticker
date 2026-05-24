@@ -17,7 +17,7 @@ RUN apt-get update && \
 
 # Layer 1: rgbmatrix (only rebuilds if the pinned ref changes)
 RUN cd /opt && \
-    git clone --depth=1 \
+    git clone --depth=1 --branch main \
         https://github.com/jamesawesome/rpi-rgb-led-matrix.git rgbmatrix-src && \
     cd rgbmatrix-src && \
     pip install .

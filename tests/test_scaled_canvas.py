@@ -287,3 +287,29 @@ def test_rebind_innermost_does_not_change_outer_real_on_nesting():
     outer = ScaledCanvas(inner, scale=4, content_height=16)
     outer.rebind_innermost(real_b)
     assert outer.real is inner  # outer still points at inner
+
+
+def test_subfill_paints_scaled_block_at_scale_4():
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=4)
+    # Logical (2, 1) size 3×2 → real (8, 4) size 12×8 (no letterbox at scale=4)
+    sc.SubFill(2, 1, 3, 2, 255, 0, 0)
+    for y in range(4, 12):
+        for x in range(8, 20):
+            assert real.get_pixel(x, y) == (255, 0, 0), f"pixel ({x},{y}) not red"
+    assert real.get_pixel(7, 4) == (0, 0, 0)  # left edge — not painted
+    assert real.get_pixel(20, 4) == (0, 0, 0)  # right edge — not painted
+    assert real.get_pixel(8, 3) == (0, 0, 0)  # top edge — not painted
+    assert real.get_pixel(8, 12) == (0, 0, 0)  # bottom edge — not painted
+
+
+def test_subfill_respects_y_offset_at_scale_2():
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=2)
+    # y_offset = (64 - 16*2) // 2 = 16 (letterbox)
+    sc.SubFill(0, 0, 1, 1, 0, 255, 0)
+    # Logical (0,0) 1×1 → real (0, 16) 2×2
+    assert real.get_pixel(0, 16) == (0, 255, 0)
+    assert real.get_pixel(1, 17) == (0, 255, 0)
+    assert real.get_pixel(0, 15) == (0, 0, 0)  # letterbox above
+    assert real.get_pixel(0, 18) == (0, 0, 0)  # outside below

@@ -1,16 +1,15 @@
-# led-ticker shimmer smoke test — Pi 5 bigsign (256×64 canvas)
+# Moon Bunny Aerial — store-window display config (Pi 5 bigsign).
 #
-# One section per notable shimmer configuration variant. Useful for
-# visually verifying the effect on hardware and for comparing the
-# tuning knobs side-by-side.
+# Hung in a building window at street level, viewable from across the street.
+# 8× P3 32×64 panels in 2×4 vertical-serpentine = 256×64 logical.
+# Brand: Beloved Sans + Inter, lavender / pink / sky / cream palette.
+# Site: https://www.moonbunnyaerial.com  •  IG: @moonbunnyaerial
 #
-# Shimmer sends a cosine bright-spot sweeping left-to-right across the
-# text. The `base` color is the rest state; `shimmer` is the peak
-# highlight. `speed` (chars/sec), `width` (chars), and `pause` (seconds)
-# shape the timing.
-#
-# Run with:
-#   led-ticker config/config.shimmer_test.bigsign.example.toml
+# Far-viewing distance ⇒ all text uses hires fonts at 24-32px (no BDF).
+
+# ---------------------------------------------------------------------------
+# Display + RP1 performance tuning (matches config.bigsign.example.toml)
+# ---------------------------------------------------------------------------
 
 [display]
 rows = 32
@@ -20,362 +19,388 @@ parallel = 1
 pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
 
 brightness = 60
-default_scale = 4
-gpio_mapping = "adafruit-hat"
 slowdown_gpio = 3
-rp1_rio = 1
+gpio_mapping = "adafruit-hat"
+default_scale = 4
+
 pwm_bits = 8
 show_refresh = true
+rp1_rio = 1
 
 [title]
-delay = 4
+delay = 5
 
+# Playful, animated transitions matching the warm/empowering brand voice.
+# `wipe_alternating` cycles through directions using brand-colored sweep
+# lines; `pokeball_alternating` is the section divider — a fun cue that
+# something new is starting.
 [transitions]
-default = "dissolve"
-duration = 0.6
-between_sections = "dissolve"
+default = "wipe_alternating"
+duration = 0.8
+easing = "ease_in_out"
+between_sections = "pokeball_alternating"
+# Brand-tinted wipe color pool: lavender, pink, sky, cream
+transition_colors = [[189, 169, 234], [255, 176, 240], [124, 173, 232], [254, 255, 204]]
 
 # ---------------------------------------------------------------------------
-# 1. Plain string shorthand — all defaults.
-#    base = [60, 60, 80] (dim blue-gray), shimmer = white,
-#    speed = 14 chars/sec, width = 8 chars, pause = 0.5 s.
-#    Baseline: what you get from `font_color = "shimmer"` with no tuning.
+# Brand color palette (from brand_guide.png)
+#
+#   lavender_primary = [189, 169, 234]   BDA9EA — the brand's signature lavender
+#   pink             = [255, 176, 240]   FFB0F0 — soft pink accent
+#   sky              = [124, 173, 232]   7CADE8 — cool blue accent
+#   navy             = [10,  74, 137]    0A4A89 — deep blue (high contrast)
+#   teal             = [11, 126, 135]    0B7E87 — secondary depth
+#   cream            = [254, 255, 204]   FEFFCC — warm white, body text
 # ---------------------------------------------------------------------------
 
-[[playlist.section]]
-mode = "swap"
-hold_time = 8.0
-loop_count = 2
-
-[playlist.section.title]
-type = "message"
-text = "1. Plain shimmer"
-color = [120, 120, 160]
-
-[[playlist.section.widget]]
-type = "message"
-text = "JUST SHIMMER"
-font = "Inter-Bold"
-font_size = 24
-font_color = "shimmer"
-
-[[playlist.section.widget]]
-type = "message"
-text = "DEFAULT SETTINGS"
-font = "Inter-Bold"
-font_size = 24
-font_color = "shimmer"
-
 # ---------------------------------------------------------------------------
-# 2. Gold shimmer — `shimmer = "gold"` string shorthand.
-#    Default dim blue-gray base + gold highlight. High contrast between
-#    the cool base and warm peak — flashy, attention-grabbing.
+# Section 1 — Logo hero (full-panel banner with rainbow border)
+#
+# Uses logo_banner_color.png — already laid out as horizontal lockup:
+# moon icon + "MOON BUNNY AERIAL" + "AERIAL FOR EVERYBODY" tagline.
+# letterbox fit means tiny black bars top/bottom; rainbow border frames it.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "swap"
-hold_time = 8.0
-loop_count = 2
-
-[playlist.section.title]
-type = "message"
-text = "2. Gold shimmer"
-color = [200, 160, 40]
-
-[[playlist.section.widget]]
-type = "message"
-text = "GRAND OPENING"
-font = "Inter-Bold"
-font_size = 24
-font_color = {style = "shimmer", shimmer = "gold"}
+loop_count = 1
+hold_time = 6.0
+transition = "dissolve"
+transition_duration = 1.0
+scale = 2                # without this, content_height = 16 logical max
+content_height = 32      # 32 × scale 2 = 64 real = full panel height (at ceiling)
 
 [[playlist.section.widget]]
-type = "message"
-text = "NOW OPEN"
-font = "Inter-Bold"
-font_size = 24
-font_color = {style = "shimmer", shimmer = "gold"}
-
-# ---------------------------------------------------------------------------
-# 3. Cyan shimmer — `shimmer = "cyan"` string shorthand.
-#    Same default base, aqua highlight. Cooler, more technical feel.
-# ---------------------------------------------------------------------------
-
-[[playlist.section]]
-mode = "swap"
-hold_time = 8.0
-loop_count = 2
-
-[playlist.section.title]
-type = "message"
-text = "3. Cyan shimmer"
-color = [0, 180, 200]
-
-[[playlist.section.widget]]
-type = "message"
-text = "LIVE DATA FEED"
-font = "Inter-Bold"
-font_size = 24
-font_color = {style = "shimmer", shimmer = "cyan"}
-
-[[playlist.section.widget]]
-type = "message"
-text = "CONNECTING"
-font = "Inter-Bold"
-font_size = 24
-font_color = {style = "shimmer", shimmer = "cyan"}
-
-# ---------------------------------------------------------------------------
-# 4. Blue base + white shimmer — `base = "blue"` string shorthand.
-#    Cool blue resting state, white peak. All-cool palette — good for
-#    winter themes or tech-forward branding.
-# ---------------------------------------------------------------------------
-
-[[playlist.section]]
-mode = "swap"
-hold_time = 8.0
-loop_count = 2
-
-[playlist.section.title]
-type = "message"
-text = "4. Blue base"
-color = [80, 140, 255]
-
-[[playlist.section.widget]]
-type = "message"
-text = "ICY COOL"
-font = "Inter-Bold"
-font_size = 24
-font_color = {style = "shimmer", base = "blue", shimmer = "white"}
-
-[[playlist.section.widget]]
-type = "message"
-text = "FROST EFFECT"
-font = "Inter-Bold"
-font_size = 24
-font_color = {style = "shimmer", base = "blue", shimmer = "white"}
-
-# ---------------------------------------------------------------------------
-# 5. Narrow glint — width = 3, speed = 22, pause = 1.5.
-#    A tight, fast-moving spark that crosses the text and then sits dark
-#    for 1.5 seconds. Sharp and intermittent — good for short messages
-#    that need a "moment" without continuous motion.
-# ---------------------------------------------------------------------------
-
-[[playlist.section]]
-mode = "swap"
-hold_time = 8.0
-loop_count = 2
-
-[playlist.section.title]
-type = "message"
-text = "5. Narrow glint"
-color = [200, 200, 200]
-
-[[playlist.section.widget]]
-type = "message"
-text = "CLOSING SOON"
-font = "Inter-Bold"
-font_size = 24
-font_color = {style = "shimmer", base = [20, 20, 30], shimmer = "white", speed = 22, width = 3, pause = 1.5}
-
-[[playlist.section.widget]]
-type = "message"
-text = "LAST CALL"
-font = "Inter-Bold"
-font_size = 24
-font_color = {style = "shimmer", base = [30, 10, 0], shimmer = "gold", speed = 22, width = 3, pause = 1.5}
-
-# ---------------------------------------------------------------------------
-# 6. Wide bloom — width = 14, speed = 6, pause = 0.
-#    Slow, continuous sweep with no pause — the whole text blooms in
-#    and out like breathing. Subtle and ambient; good for always-on
-#    background displays where constant motion would be jarring.
-# ---------------------------------------------------------------------------
-
-[[playlist.section]]
-mode = "swap"
-hold_time = 10.0
-loop_count = 2
-
-[playlist.section.title]
-type = "message"
-text = "6. Wide bloom"
-color = [160, 120, 220]
-
-[[playlist.section.widget]]
-type = "message"
-text = "AMBIENT GLOW"
-font = "Inter-Bold"
-font_size = 24
-font_color = {style = "shimmer", base = [40, 20, 60], shimmer = [200, 160, 255], speed = 6, width = 14, pause = 0}
-
-[[playlist.section.widget]]
-type = "message"
-text = "SLOW BREATHE"
-font = "Inter-Bold"
-font_size = 24
-font_color = {style = "shimmer", base = [10, 30, 10], shimmer = [180, 255, 180], speed = 6, width = 14, pause = 0}
-
-# ---------------------------------------------------------------------------
-# 7. Custom RGB — dark charcoal base, soft lavender shimmer.
-#    Both colors as explicit [r, g, b] triples. Shows that shorthands
-#    are optional; any RGB pair works. Restrained, design-forward feel.
-# ---------------------------------------------------------------------------
-
-[[playlist.section]]
-mode = "swap"
-hold_time = 8.0
-loop_count = 2
-
-[playlist.section.title]
-type = "message"
-text = "7. Custom RGB"
-color = [180, 160, 240]
-
-[[playlist.section.widget]]
-type = "message"
-text = "BESPOKE COLORS"
-font = "Inter-Bold"
-font_size = 24
-font_color = {style = "shimmer", base = [25, 25, 35], shimmer = [200, 190, 255]}
-
-[[playlist.section.widget]]
-type = "message"
-text = "YOUR PALETTE"
-font = "Inter-Bold"
-font_size = 24
-font_color = {style = "shimmer", base = [35, 15, 0], shimmer = [255, 200, 120], speed = 10, width = 10}
-
-# ---------------------------------------------------------------------------
-# 8. Two-row layout — shimmer on both rows independently.
-#    top_color and bottom_color each get their own shimmer config.
-#    Different speed + shimmer color per row shows that the two providers
-#    run their own phase counters independently.
-# ---------------------------------------------------------------------------
-
-[[playlist.section]]
-mode = "swap"
-hold_time = 10.0
-loop_count = 2
-scale = 2
-content_height = 32
-
-[playlist.section.title]
-type = "message"
-text = "8. Two-row shimmer"
-color = [200, 180, 120]
-
-[[playlist.section.widget]]
-type = "two_row"
-top_text = "SHIMMER TOP ROW"
-top_color = {style = "shimmer", shimmer = "gold", speed = 10, width = 8}
-top_align = "center"
+type = "gif"
+path = "assets/logo_rainbow.gif"
+fit = "letterbox"
+image_align = "left"
+top_text = "Moon Bunny "
+top_row_height = 16      # 16 × scale 2 = 32 real → just fits Inter-Bold @ 25 (line-height 32)
 top_font = "Inter-Bold"
-top_font_size = 14
-bottom_text = "shimmer bottom row — slower, cooler"
-bottom_color = {style = "shimmer", base = "blue", shimmer = "white", speed = 6, width = 10}
-bottom_align = "center"
-bottom_font = "Inter-Regular"
-bottom_font_size = 14
+top_font_size = 25
+top_color = "rainbow"
+top_align = "right"
 
-[[playlist.section.widget]]
-type = "two_row"
-top_text = "GOLD ABOVE"
-top_color = {style = "shimmer", shimmer = "gold", pause = 0.8}
-top_align = "center"
-top_font = "Inter-Bold"
-top_font_size = 14
-bottom_text = "cyan below, independent phase"
-bottom_color = {style = "shimmer", shimmer = "cyan", speed = 18, pause = 0.3}
-bottom_align = "center"
-bottom_font = "Inter-Regular"
-bottom_font_size = 14
+bottom_text = "Aerial For Everybody "
+bottom_font = "Inter-Bold"
+bottom_font_size = 19
+bottom_color = "rainbow"
+bottom_align = "right"
+
+gif_loops = 21
+border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 
 # ---------------------------------------------------------------------------
-# 9. Scale = 2 with shimmer — lower scale for a different feel.
-#    Dropping to scale=2 gives 32px-tall content with 16px letterbox
-#    bands. Shimmer behaves identically — it runs per logical character,
-#    not per pixel, so scale has no effect on the sweep timing.
+# Section 2 — "MOONBUNNY" double rainbow hold
+#
+# Static hold at large size with rainbow per-char text AND rainbow border
+# chasing around the perimeter — two rainbows. The :moon: + :bunny:
+# emoji slugs render the hires moon and bunny sprites at native scale.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "swap"
-hold_time = 8.0
-loop_count = 2
-scale = 2
-
-[playlist.section.title]
-type = "message"
-text = "9. Scale 2 shimmer"
-color = [200, 200, 120]
+loop_count = 1
+hold_time = 6.0
+transition = "dissolve"
+transition_duration = 1.0
+scale = 2                # without this, content_height = 16 logical max
+content_height = 32      # 32 × scale 2 = 64 real = full panel height (at ceiling)
 
 [[playlist.section.widget]]
-type = "message"
-text = "SCALE TWO WITH SHIMMER"
-font_color = {style = "shimmer", shimmer = "gold", speed = 12, width = 10}
-
-[[playlist.section.widget]]
-type = "message"
-text = "SAME SWEEP, DIFFERENT HEIGHT"
-font_color = "shimmer"
-
-# ---------------------------------------------------------------------------
-# 10. Gold coin — dark amber base, bright yellow-gold specular highlight.
-#     Narrow width + brief pause mimics the flash of light catching a
-#     spinning coin: most of the time the coin is dark gold, then a
-#     tight bright streak crosses it and disappears. [255, 215, 0] is
-#     the classic gold (#FFD700); [90, 55, 0] gives a warm dark base
-#     without going fully black.
-# ---------------------------------------------------------------------------
-
-[[playlist.section]]
-mode = "swap"
-hold_time = 8.0
-loop_count = 2
-
-[playlist.section.title]
-type = "message"
-text = "10. Gold coin"
-color = [200, 160, 0]
-
-[[playlist.section.widget]]
-type = "message"
-text = "GOLD COIN"
+type = "gif"
+path = "assets/moon_bunny_transparent.gif"
+fit = "letterbox"
+image_align = "center"
+text_align = "left"
+text = " Moon                   Bunny"
 font = "Inter-Bold"
-font_size = 24
-font_color = {style = "shimmer", base = [90, 55, 0], shimmer = [255, 215, 0], speed = 18, width = 4, pause = 0.8}
-
-[[playlist.section.widget]]
-type = "message"
-text = "LIMITED EDITION"
-font = "Inter-Bold"
-font_size = 24
-font_color = {style = "shimmer", base = [90, 55, 0], shimmer = [255, 215, 0], speed = 18, width = 4, pause = 0.8}
+font_size = 25
+font_color = {style = "shimmer", base = [255, 244, 79], shimmer = "white", width = 4, speed = 6}
+gif_loops = 70
+border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 
 # ---------------------------------------------------------------------------
-# 11. forever_scroll shimmer — sweeping over a long scrolling message.
-#     In forever_scroll mode the frame counter advances continuously, so
-#     the spot sweeps across the full text as it scrolls. The sweep length
-#     is proportional to total_chars, so long messages get a proportionally
-#     longer sweep duration at the same chars/sec speed.
+# Section 3 — "Find Your" combined scroll
+#
+# logo_moon_only.png pillarboxed on the left; the three brand phrases
+# walk BEHIND the moon (text_align="scroll" — image painted on top with
+# skip-black, so text shows through the transparent regions of the
+# moon's halo and disappears behind the moon body itself). Per-char
+# lavender → pink gradient gives the ombre look.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "forever_scroll"
+start_hold = 0.0
+loop_count = 4
+transition = "sailor_moon"
+transition_duration = 2.0
+separator = " :heart_blue: "
+
+[[playlist.section.widget]]
+type = "message"
+text = "Find Your Strength  :heart:  Find Your Community  :heart_green:  Aerial for Everybody"
+font = "Inter-Bold"
+font_size = 48
+font_color = {style = "gradient", from = [189, 169, 234], to = [255, 176, 240]}
+border = {style = "constant", color = [255, 176, 240], thickness = 2}
+
+# ---------------------------------------------------------------------------
+# Section 3 — Kids Summer Camps  (with Pikachu wave + rainbow border)
+#
+# pika_wave_transparent.gif (220×220) pillarboxed on the left at scale=4
+# native res; scrolling text "KIDS SUMMER CAMPS — NOW ENROLLING" walks
+# across the panel with the rainbow border chasing around the perimeter.
+# Transition pinned to pokeball_alternating per the user's request.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
 loop_count = 1
+hold_time = 8.0
+transition = "pokeball_alternating"
+transition_duration = 1.5
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+image_align = "left"
+text = "KIDS SUMMER CAMPS  :star:  NOW ENROLLING  :star:  ALL AGES WELCOME"
+text_wrap = true
+text_align = "scroll"
+text_separator = " :star: "
+scroll_speed_ms = 50
+text_loops = 8
+font = "Inter-Bold"
+font_size = 48
+font_threshold = 80
+font_color = [255, 176, 240]   # pink — pops against pikachu yellow
+border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
+
+# ---------------------------------------------------------------------------
+# Section 4 — K-pop dance class (promo)
+#
+# kpop-dance.webp (540×400 ≈ 1.35:1) pillarboxed on the left. Inter-Bold
+# at 26 reads cleanly across the street (more open shapes than Beloved
+# Sans at this size). text_align="scroll_over" paints the video first
+# then the text — so the marquee walks IN FRONT of the dance footage,
+# guaranteed visible regardless of frame brightness (kpop-dance.webp
+# has no transparent regions).
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "forever_scroll"
+start_hold = 0.0
+loop_count = 4
+transition = "nyancat_alternating"
+transition_duration = 2.0
+separator = " * "
+separator_font = "hunters_kpop"
+separator_font_size = 62
+separator_color = [225, 48, 108]
+
+[[playlist.section.widget]]
+type = "message"
+text = "K-POP DANCE CLASS  *  NOW OPEN  *  ALL LEVELS"
+font = "hunters_kpop"
+font_size = 62
+font_threshold = 128
+font_color = {style = "gradient", from = [225, 48, 108], to = [120, 90, 220]}
+border = {style = "rainbow", from = [225, 48, 108], to = [120, 90, 220], thickness = 2}
+
+# Alt version using gif
+#
+# [[playlist.section.widget]]
+# type = "gif"
+# path = "assets/kpop-dance.webp"
+# fit = "pillarbox"
+# image_align = "center"
+# text = "K-POP DANCE CLASS  *  NOW OPEN  *  ALL LEVELS"
+# text_align = "scroll_over"
+# text_loops = 5
+# scroll_speed_ms = 50
+# font = "hunters_kpop"
+# font_size = 48
+# font_threshold = 128
+# font_color = [255, 176, 240]  # pink — high contrast on the dance video
+
+# ---------------------------------------------------------------------------
+# Section 5 — Classes we offer
+#
+# One discipline per beat. Cycles through: Aerial Silks, Lyra, Flow Props,
+# Ballet, Dance, All Levels — using brand color rotation.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 4
+hold_time = 3.0
+transition = "wipe_alternating"
 
 [playlist.section.title]
 type = "message"
-text = "11. Scroll shimmer"
-color = [160, 200, 160]
+text = "Classes"
+font = "Inter-Bold"
+font_size = 48
+color = [189, 169, 234]   # lavender
 
 [[playlist.section.widget]]
 type = "message"
-text = "Shimmer in forever_scroll — the bright spot travels across the full text as it scrolls past."
-font_color = {style = "shimmer", shimmer = "gold", speed = 14, width = 8, pause = 0.5}
+text = "Aerial Silks"
+font = "Inter-Bold"
+font_size = 48
+font_color = [255, 176, 240]   # pink
 
 [[playlist.section.widget]]
 type = "message"
-text = "Wide bloom in scroll — slow and dreamy across a long run of text with no hard pause."
-font_color = {style = "shimmer", base = [20, 20, 40], shimmer = [180, 180, 255], speed = 7, width = 16, pause = 0}
+text = "Lyra"
+font = "Inter-Bold"
+font_size = 48
+font_color = [124, 173, 232]   # sky
+
+[[playlist.section.widget]]
+type = "message"
+text = "Flow Props"
+font = "Inter-Bold"
+font_size = 48
+font_color = [254, 255, 204]   # cream
+
+[[playlist.section.widget]]
+type = "message"
+text = "Ballet"
+font = "Inter-Bold"
+font_size = 48
+font_color = [255, 176, 240]   # pink
+
+[[playlist.section.widget]]
+type = "message"
+text = "Dance"
+font = "Inter-Bold"
+font_size = 48
+font_color = [124, 173, 232]   # sky
+
+[[playlist.section.widget]]
+type = "message"
+text = "All Levels"
+font = "Inter-Bold"
+font_size = 48
+font_color = [254, 255, 204]   # cream
+
+# ---------------------------------------------------------------------------
+# Section 6 — Welcoming / inclusion (combined scroll)
+#
+# All three phrases on one continuous marquee with a per-char
+# pink → cream → lavender ColorCycle so the whole line cycles
+# through the brand palette as it scrolls.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+transition = "sailor_moon_alternating"
+transition_duration = 0.6
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pride_trans.gif"
+fit = "stretch"
+text = "Beginner Friendly - Kid Friendly - Everybody Friendly"
+text_align = "scroll_over"
+text_wrap = true
+text_separator = " - "
+text_loops = 10
+font = "best_love"
+font_size = 42
+font_color = [0, 0, 0]
+scroll_speed_ms = 50
+
+# ---------------------------------------------------------------------------
+# Section 7 — IG handle two-row (storefront-window layout)
+#
+# scale=2 ⇒ 128 logical px wide so "@moonbunnyaerial" fits on the held
+# top row. content_height=20 gives 2 rows of breathing space between
+# the two text bands. Inter-Bold for the handle (matches the IG look),
+# Inter-Regular for the bottom promo line (lighter weight reads as
+# secondary copy from across the street).
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 2
+transition = "cut"
+transition_duration = 1.0
+scale = 2                # without this, content_height = 16 logical max
+content_height = 32      # 32 × scale 2 = 64 real = full panel height (at ceiling)
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunnyaerial"
+top_color = [225, 48, 108]   # IG brand magenta
+top_align = "center"
+top_font = "Inter-Bold"
+top_font_size = 22
+top_font_threshold = 128
+bottom_text = "Now booking spring classes — all levels welcome!"
+bottom_text_loops = 2
+bottom_text_scroll = "scroll_through"
+bottom_color = [254, 255, 204]
+bottom_align = "left"
+bottom_font = "Inter-Regular"
+bottom_font_size = 24
+bottom_font_threshold = 128
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunnyaerial"
+top_color = [225, 48, 108]
+top_align = "center"
+top_font = "Inter-Bold"
+top_font_size = 22
+top_font_threshold = 128
+bottom_text = "Kids Summer Camps now enrolling — sign up today!"
+bottom_text_loops = 2
+bottom_text_scroll = "scroll_through"
+bottom_color = [255, 176, 240]
+bottom_align = "left"
+bottom_font = "Inter-Regular"
+bottom_font_size = 24
+bottom_font_threshold = 128
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":instagram: @moonbunnyaerial"
+top_color = [225, 48, 108]
+top_align = "center"
+top_font = "Inter-Bold"
+top_font_size = 22
+top_font_threshold = 128
+bottom_text = "Aerial silks • lyra • flow props • ballet • dance"
+bottom_text_loops = 2
+bottom_text_scroll = "scroll_through"
+bottom_color = [189, 169, 234]
+bottom_align = "left"
+bottom_font = "Inter-Regular"
+bottom_font_size = 24
+bottom_font_threshold = 128
+
+# ---------------------------------------------------------------------------
+# Section 8 — Connect (combined scroll: site + email + IG handle)
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "forever_scroll"
+start_hold = 0.0
+loop_count = 4
+hold_time = 0.5
+separator = "  :bunny:  "
+
+[[playlist.section.widget]]
+type = "message"
+text = ":instagram: @moonbunnyaerial  :moon: :email: info@moonbunnyaerial.com"
+font = "Inter-Bold"
+font_size = 48
+font_color = "color_cycle"
+border = {style = "color_cycle", speed = 2, thickness = 2}

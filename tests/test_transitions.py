@@ -759,6 +759,13 @@ class TestSplitHorizontal:
         result = split.frame_at(0.5, canvas, outgoing, incoming)
         assert result is canvas
 
+    def test_late_blackout_uses_subfill(self, canvas, make_widget):
+        split = SplitHorizontal()
+        # t=0.9: half=80, reveal=int(0.9*80)=72; left=80-72=8, right=80+72=152
+        # band_x=max(0,8)=8, band_w=min(152,160)-8=144
+        split.frame_at(0.9, canvas, make_widget(40), make_widget(40))
+        canvas.SubFill.assert_called_once_with(8, 0, 144, 16, 0, 0, 0)
+
 
 # --- WipeDown ---
 
@@ -891,21 +898,14 @@ class TestScrollInlinedDrawing:
 
     def test_blackout_region_cleared_at_mid_scroll(self, canvas, make_widget):
         """At mid-scroll the region between outgoing tail and the right
-        edge of the canvas is blacked out so outgoing text doesn't bleed
-        through the gap region."""
+        edge of the canvas is blacked out via SubFill."""
         scroll = Scroll()
         outgoing = make_widget(40)
         incoming = make_widget(40)
-        # At t=0.5, sep_w=14: scroll_offset = int(0.5 * 174) = 87
-        # clear_start = max(0, 160 - 87) = 73 → should black out x in [73, 159]
+        # t=0.5, sep_w=14: scroll_offset=int(0.5*174)=87
+        # clear_start=max(0,160-87)=73, w-clear_start=87
         scroll.frame_at(0.5, canvas, outgoing, incoming)
-        black_calls = [
-            c for c in canvas.SetPixel.call_args_list if c.args[2:] == (0, 0, 0)
-        ]
-        assert len(black_calls) > 0, "No blackout pixels were set during mid-scroll"
-        x_values = {c.args[0] for c in black_calls}
-        assert min(x_values) == 73
-        assert max(x_values) == 159
+        canvas.SubFill.assert_called_once_with(73, 0, 87, 16, 0, 0, 0)
 
     def test_bullet_painted_at_mid_scroll(self, canvas, make_widget):
         """Bullet (2×2 white dot) is painted during scroll."""

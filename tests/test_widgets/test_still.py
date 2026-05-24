@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import pytest
 from PIL import Image
-from rgbmatrix import RGBMatrix, RGBMatrixOptions
 from rgbmatrix.graphics import Color
 
 from led_ticker.scaled_canvas import ScaledCanvas
@@ -36,16 +35,6 @@ def _make_jpg(tmp_path, color=(140, 90, 60), size=(64, 32), name="img.jpg"):
     return p
 
 
-def _bigsign_real_canvas():
-    opts = RGBMatrixOptions()
-    opts.cols = 64
-    opts.rows = 32
-    opts.chain_length = 8
-    opts.parallel = 1
-    opts.pixel_mapper_config = "U-mapper"
-    return RGBMatrix(options=opts).CreateFrameCanvas()
-
-
 # ---------------------------------------------------------------------------
 # Decode + draw basics
 # ---------------------------------------------------------------------------
@@ -62,10 +51,10 @@ def test_load_decodes_lazily(tmp_path):
     assert len(widget._pixels) == 256 * 64 * 3
 
 
-def test_draw_paints_to_real_canvas(tmp_path):
+def test_draw_paints_to_real_canvas(tmp_path, bigsign_canvas):
     path = _make_png(tmp_path, color=(200, 30, 40))
     widget = StillImage(path=str(path), fit="stretch")
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
 
     canvas, advance = widget.draw(real, cursor_pos=0)
 
@@ -74,12 +63,12 @@ def test_draw_paints_to_real_canvas(tmp_path):
     assert real.get_pixel(real.width - 1, real.height - 1) == (200, 30, 40)
 
 
-def test_draw_unwraps_scaled_canvas(tmp_path):
+def test_draw_unwraps_scaled_canvas(tmp_path, bigsign_canvas):
     """ScaledCanvas wrapper must be bypassed so the image paints at
     native physical resolution, not as scale×scale blocks."""
     path = _make_png(tmp_path, color=(255, 255, 0))
     widget = StillImage(path=str(path), fit="stretch")
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
 
     canvas, advance = widget.draw(sc, cursor_pos=0)
@@ -90,10 +79,10 @@ def test_draw_unwraps_scaled_canvas(tmp_path):
     assert real.get_pixel(1, 1) != (0, 0, 0)
 
 
-def test_jpg_loads(tmp_path):
+def test_jpg_loads(tmp_path, bigsign_canvas):
     path = _make_jpg(tmp_path, color=(140, 90, 60))
     widget = StillImage(path=str(path), fit="stretch")
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     widget.draw(real, cursor_pos=0)
     # JPEG compression tweaks colors slightly; just assert non-black
     r, g, b = real.get_pixel(128, 32)
@@ -111,7 +100,7 @@ def test_missing_file_raises(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_alpha_zero_pixels_become_black(tmp_path):
+def test_alpha_zero_pixels_become_black(tmp_path, bigsign_canvas):
     """Fully-transparent RGBA pixels (alpha=0) must composite onto
     black so the existing skip-black scroll path treats them as
     skip-zones."""
@@ -119,7 +108,7 @@ def test_alpha_zero_pixels_become_black(tmp_path):
     # them transparent; the decoder should emit black at every pixel.
     path = _make_png(tmp_path, color=(255, 0, 0), alpha=0)
     widget = StillImage(path=str(path), fit="stretch")
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     widget.draw(real, cursor_pos=0)
     # Every pixel should be black (transparent areas)
     for x in (0, 64, 128, 200, 255):
@@ -127,11 +116,11 @@ def test_alpha_zero_pixels_become_black(tmp_path):
             assert real.get_pixel(x, y) == (0, 0, 0)
 
 
-def test_alpha_full_pixels_paint_normally(tmp_path):
+def test_alpha_full_pixels_paint_normally(tmp_path, bigsign_canvas):
     """Fully-opaque RGBA pixels (alpha=255) paint at their RGB color."""
     path = _make_png(tmp_path, color=(0, 200, 100), alpha=255)
     widget = StillImage(path=str(path), fit="stretch")
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     widget.draw(real, cursor_pos=0)
     assert real.get_pixel(128, 32) == (0, 200, 100)
 
@@ -202,11 +191,11 @@ def test_text_align_auto_resolves_from_image_align(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-async def test_play_no_text_holds_for_hold_seconds(tmp_path, mocker):
+async def test_play_no_text_holds_for_hold_seconds(tmp_path, mocker, bigsign_canvas):
     """Without text: paint once, swap, then sleep for hold_seconds."""
     path = _make_png(tmp_path, color=(50, 100, 150))
     widget = StillImage(path=str(path), fit="stretch", hold_seconds=2.0)
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -222,7 +211,7 @@ async def test_play_no_text_holds_for_hold_seconds(tmp_path, mocker):
     assert real.get_pixel(128, 32) == (50, 100, 150)
 
 
-async def test_play_with_text_runs_scroll_loop(tmp_path, mocker):
+async def test_play_with_text_runs_scroll_loop(tmp_path, mocker, bigsign_canvas):
     """With text scrolling: per-tick loop for at least one full marquee
     traversal. hold_seconds sets a minimum, but the auto-floor (for
     text_loops=0) ensures the marquee doesn't get truncated mid-pass.
@@ -236,7 +225,7 @@ async def test_play_with_text_runs_scroll_loop(tmp_path, mocker):
         scroll_speed_ms=50,
         hold_seconds=1.0,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -251,7 +240,9 @@ async def test_play_with_text_runs_scroll_loop(tmp_path, mocker):
     assert one_traversal <= count < 2 * one_traversal
 
 
-async def test_play_with_text_text_loops_extends_duration(tmp_path, mocker):
+async def test_play_with_text_text_loops_extends_duration(
+    tmp_path, mocker, bigsign_canvas
+):
     """text_loops floor extends the section past hold_seconds when needed."""
     path = _make_png(tmp_path, color=(0, 0, 0))
     widget = StillImage(
@@ -263,7 +254,7 @@ async def test_play_with_text_text_loops_extends_duration(tmp_path, mocker):
         hold_seconds=0.5,  # 10 ticks; would dominate without text_loops
         text_loops=2,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -279,7 +270,9 @@ async def test_play_with_text_text_loops_extends_duration(tmp_path, mocker):
     assert 2 * one_traversal <= count < 3 * one_traversal
 
 
-async def test_scroll_direction_right_advances_positively(tmp_path, mocker):
+async def test_scroll_direction_right_advances_positively(
+    tmp_path, mocker, bigsign_canvas
+):
     """scroll_direction="right" mirrors the default — text starts off
     the LEFT edge and moves rightward."""
     path = _make_png(tmp_path, color=(0, 0, 0))
@@ -292,7 +285,7 @@ async def test_scroll_direction_right_advances_positively(tmp_path, mocker):
         hold_seconds=0.5,
         scroll_direction="right",
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -364,7 +357,7 @@ def test_text_y_offset_shifts_baseline(tmp_path, valign, offset, h, expected):
     ],
 )
 async def test_text_x_offset_shifts_static_text(
-    tmp_path, mocker, align, offset, expected_x
+    tmp_path, mocker, align, offset, expected_x, bigsign_canvas
 ):
     """text_x_offset adds to whatever text_align computes — extends the
     valign-style adjustment to the horizontal axis. No-op for scrolling
@@ -378,7 +371,7 @@ async def test_text_x_offset_shifts_static_text(
         text_x_offset=offset,
         hold_seconds=0.05,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -408,7 +401,9 @@ def test_text_x_offset_with_scroll_raises(tmp_path):
         )
 
 
-async def test_top_valign_paints_at_panel_top_when_wrapped(tmp_path, mocker):
+async def test_top_valign_paints_at_panel_top_when_wrapped(
+    tmp_path, mocker, bigsign_canvas
+):
     """With text_valign='top' (and smart-default wrap scale on bigsign),
     the wrapper uses content_height = panel_h // scale so it spans the
     full panel — text paints at the panel's TOP edge, not letterboxed."""
@@ -424,7 +419,7 @@ async def test_top_valign_paints_at_panel_top_when_wrapped(tmp_path, mocker):
         hold_seconds=0.05,
     )
     widget._logical_scale = 4  # Simulate bigsign
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -452,7 +447,7 @@ async def test_top_valign_paints_at_panel_top_when_wrapped(tmp_path, mocker):
     assert seen_y[0] == 10
 
 
-async def test_emoji_routes_through_emoji_painter(tmp_path, mocker):
+async def test_emoji_routes_through_emoji_painter(tmp_path, mocker, bigsign_canvas):
     path = _make_png(tmp_path, color=(0, 0, 0))
     widget = StillImage(
         path=str(path),
@@ -462,7 +457,7 @@ async def test_emoji_routes_through_emoji_painter(tmp_path, mocker):
         font_color=Color(255, 220, 50),
         hold_seconds=0.1,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -476,7 +471,7 @@ async def test_emoji_routes_through_emoji_painter(tmp_path, mocker):
     assert spy.called
 
 
-async def test_wrap_uses_scaled_canvas(tmp_path, mocker):
+async def test_wrap_uses_scaled_canvas(tmp_path, mocker, bigsign_canvas):
     """Text wraps at smart default _logical_scale on bigsign (no
     explicit font_size). Ensures emoji gate fires for hires sprites."""
     path = _make_png(tmp_path, color=(0, 0, 0))
@@ -488,7 +483,7 @@ async def test_wrap_uses_scaled_canvas(tmp_path, mocker):
         hold_seconds=0.1,
     )
     widget._logical_scale = 4  # Simulate bigsign
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -505,7 +500,7 @@ async def test_wrap_uses_scaled_canvas(tmp_path, mocker):
     assert all(isinstance(c, ScaledCanvas) and c.scale == 4 for c in seen_canvases)
 
 
-async def test_text_canvas_follows_back_buffer(tmp_path, mocker):
+async def test_text_canvas_follows_back_buffer(tmp_path, mocker, bigsign_canvas):
     """Regression: with text_scale=1 (no wrapper) the text canvas
     reference must follow each SwapOnVSync return — otherwise text
     paints to the front buffer every other tick → pulsing flicker.
@@ -521,7 +516,7 @@ async def test_text_canvas_follows_back_buffer(tmp_path, mocker):
         scroll_speed_ms=50,
         hold_seconds=0.15,  # ~3 ticks
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
 
     swap_returns: list[object] = []
 
@@ -573,13 +568,13 @@ def _real_asset(name: str):
     )
 
 
-def test_transparent_test_asset_decodes_to_black_corners():
+def test_transparent_test_asset_decodes_to_black_corners(bigsign_canvas):
     """moon-transparent.png has alpha=0 corners. After decode, those
     corners should be (0, 0, 0)."""
     asset = _real_asset("moon-transparent.png")
 
     widget = StillImage(path=str(asset), fit="pillarbox")
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     widget.draw(real, cursor_pos=0)
 
     # Top-left and bottom-right corners are well outside the moon
@@ -587,13 +582,13 @@ def test_transparent_test_asset_decodes_to_black_corners():
     assert real.get_pixel(255, 63) == (0, 0, 0)
 
 
-def test_opaque_jpg_test_asset_fills_panel():
+def test_opaque_jpg_test_asset_fills_panel(bigsign_canvas):
     """heart-tunnel-opaque.jpg has no transparency; stretch fills the
     panel with non-black pixels."""
     asset = _real_asset("heart-tunnel-opaque.jpg")
 
     widget = StillImage(path=str(asset), fit="stretch")
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     widget.draw(real, cursor_pos=0)
 
     # Sample a handful — none should be pure black
@@ -607,7 +602,7 @@ def test_opaque_jpg_test_asset_fills_panel():
 # ---------------------------------------------------------------------------
 
 
-async def test_play_no_text_captures_swap_return(tmp_path, mocker):
+async def test_play_no_text_captures_swap_return(tmp_path, mocker, bigsign_canvas):
     """Hardware constraint #1: SwapOnVSync return must be captured.
     Uses a fresh-canvas-per-swap fake so a regression that drops the
     capture (e.g. `frame.matrix.SwapOnVSync(canvas)` without the
@@ -615,7 +610,7 @@ async def test_play_no_text_captures_swap_return(tmp_path, mocker):
     the latest swap return."""
     path = _make_png(tmp_path, color=(50, 100, 150))
     widget = StillImage(path=str(path), fit="stretch", hold_seconds=0.05)
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
 
     swap_returns: list[object] = []
 
@@ -668,7 +663,7 @@ async def test_hold_seconds_zero_raises(tmp_path):
     StillImage(path=str(path), hold_seconds=0.05)
 
 
-async def test_scroll_direction_left_initial_position(tmp_path, mocker):
+async def test_scroll_direction_left_initial_position(tmp_path, mocker, bigsign_canvas):
     """Default scroll_direction='left' starts text at scroll_pos=text_w
     (off-right edge) — symmetric counterpart to the right-direction test."""
     path = _make_png(tmp_path, color=(0, 0, 0))
@@ -681,7 +676,7 @@ async def test_scroll_direction_left_initial_position(tmp_path, mocker):
         hold_seconds=0.15,
         # scroll_direction defaults to "left"
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -700,7 +695,7 @@ async def test_scroll_direction_left_initial_position(tmp_path, mocker):
     assert seen_x[1] == 255
 
 
-async def test_scroll_wrap_around_left_direction(tmp_path, mocker):
+async def test_scroll_wrap_around_left_direction(tmp_path, mocker, bigsign_canvas):
     """When text fully exits left, scroll_pos resets to text_w. Off-by-one
     in the wrap condition (`<=` vs `<`) ships green without this test."""
     path = _make_png(tmp_path, color=(0, 0, 0))
@@ -713,7 +708,7 @@ async def test_scroll_wrap_around_left_direction(tmp_path, mocker):
         hold_seconds=0.05,
         text_loops=2,  # forces enough ticks to see a wrap
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -736,7 +731,7 @@ async def test_scroll_wrap_around_left_direction(tmp_path, mocker):
     assert seen_x[increases[0]] == 256
 
 
-async def test_scroll_wrap_around_right_direction(tmp_path, mocker):
+async def test_scroll_wrap_around_right_direction(tmp_path, mocker, bigsign_canvas):
     """Mirror of the left-direction wrap test for scroll_direction='right'."""
     path = _make_png(tmp_path, color=(0, 0, 0))
     widget = StillImage(
@@ -749,7 +744,7 @@ async def test_scroll_wrap_around_right_direction(tmp_path, mocker):
         hold_seconds=0.05,
         text_loops=2,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -785,7 +780,9 @@ def test_image_align_noop_on_full_width_fits(tmp_path):
         assert a == b == c, f"image_align affected {fit} output"
 
 
-async def test_text_x_offset_combined_with_text_y_offset(tmp_path, mocker):
+async def test_text_x_offset_combined_with_text_y_offset(
+    tmp_path, mocker, bigsign_canvas
+):
     """text_x_offset and text_y_offset must be orthogonal — applying
     one shouldn't affect the other."""
     path = _make_png(tmp_path)
@@ -799,7 +796,7 @@ async def test_text_x_offset_combined_with_text_y_offset(tmp_path, mocker):
         text_y_offset=-3,
         hold_seconds=0.05,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -841,7 +838,7 @@ def test_decode_still_uses_frame_zero_of_animated_source(tmp_path):
     assert r > 200 and g < 100, f"expected red frame-0, got ({r},{g},{b})"
 
 
-async def test_font_too_large_raises_at_first_paint(tmp_path, mocker):
+async def test_font_too_large_raises_at_first_paint(tmp_path, mocker, bigsign_canvas):
     """font_size that resolves to a wrap scale leaving the text_canvas
     too short for the BDF cell height — raise loudly at first paint
     instead of silently clipping."""
@@ -858,7 +855,7 @@ async def test_font_too_large_raises_at_first_paint(tmp_path, mocker):
         font_size=72,  # BDF: 72//12=6 scale → 64//6=10 rows < 12
         hold_seconds=0.05,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -887,7 +884,7 @@ def test_text_align_scroll_with_stretch_raises(tmp_path):
         )
 
 
-async def test_static_fast_path_captures_swap_return(tmp_path, mocker):
+async def test_static_fast_path_captures_swap_return(tmp_path, mocker, bigsign_canvas):
     """The static-text fast path also calls SwapOnVSync — it must capture
     the return per CLAUDE.md hardware constraint #1. Uses fresh-canvas-
     per-swap so a regression dropping the assignment fails."""
@@ -899,7 +896,7 @@ async def test_static_fast_path_captures_swap_return(tmp_path, mocker):
         text_align="left",  # static — triggers fast path
         hold_seconds=0.1,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
 
     swap_returns: list[object] = []
 
@@ -918,7 +915,9 @@ async def test_static_fast_path_captures_swap_return(tmp_path, mocker):
     assert result is not real
 
 
-async def test_text_canvas_follows_back_buffer_when_wrapped(tmp_path, mocker):
+async def test_text_canvas_follows_back_buffer_when_wrapped(
+    tmp_path, mocker, bigsign_canvas
+):
     """On bigsign (smart-default wrap at _logical_scale) the text canvas
     is a ScaledCanvas wrapper — its `.real` attribute must be re-anchored
     to the new back-buffer after each swap (CLAUDE.md #10). Test runs the
@@ -936,7 +935,7 @@ async def test_text_canvas_follows_back_buffer_when_wrapped(tmp_path, mocker):
         hold_seconds=0.15,
     )
     widget._logical_scale = 4  # Simulate bigsign
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
 
     swap_returns: list[object] = []
 
@@ -972,7 +971,7 @@ async def test_text_canvas_follows_back_buffer_when_wrapped(tmp_path, mocker):
         assert wrapped_real is swap_returns[i - 1]
 
 
-async def test_text_loops_when_wrapped(tmp_path, mocker):
+async def test_text_loops_when_wrapped(tmp_path, mocker, bigsign_canvas):
     """`ticks_per_text_loop = text_w + text_width` uses LOGICAL widths.
     On bigsign (smart-default wrap at scale=4), test that text_loops=2
     runs exactly 2 full traversals without regression to physical widths."""
@@ -987,7 +986,7 @@ async def test_text_loops_when_wrapped(tmp_path, mocker):
         text_loops=2,
     )
     widget._logical_scale = 4  # Simulate bigsign
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -1003,7 +1002,7 @@ async def test_text_loops_when_wrapped(tmp_path, mocker):
     assert 2 * one_traversal <= count < 3 * one_traversal
 
 
-async def test_wrap_around_fires_at_correct_tick(tmp_path, mocker):
+async def test_wrap_around_fires_at_correct_tick(tmp_path, mocker, bigsign_canvas):
     """Wrap condition uses `<= 0`. A regression to `< 0` would fire one
     tick later. Pin which tick fires the wrap by asserting BOTH the
     pre-wrap tick had value -text_width AND the wrap tick reset to
@@ -1018,7 +1017,7 @@ async def test_wrap_around_fires_at_correct_tick(tmp_path, mocker):
         hold_seconds=0.05,
         text_loops=2,
     )
-    real = _bigsign_real_canvas()
+    real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.matrix.SwapOnVSync.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())

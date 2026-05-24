@@ -98,6 +98,26 @@ def no_sleep(monkeypatch):
     monkeypatch.setattr(asyncio, "sleep", _zero_sleep)
 
 
+@pytest.fixture
+def bigsign_canvas():
+    """Bigsign 2x4 vertical-serpentine real canvas (256×64).
+
+    Equivalent to the ``_bigsign_real_canvas()`` helpers that used to live in
+    individual test modules.  The stub RGBMatrix with U-mapper produces a
+    256-wide × 64-tall canvas which is what ScaledCanvas(scale=4) wraps on the
+    bigsign hardware.
+    """
+    from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+    opts = RGBMatrixOptions()
+    opts.cols = 64
+    opts.rows = 32
+    opts.chain_length = 8
+    opts.parallel = 1
+    opts.pixel_mapper_config = "U-mapper"
+    return RGBMatrix(options=opts).CreateFrameCanvas()
+
+
 def make_aiohttp_session(json_response=None, text_response=None):
     """Create a mock aiohttp session that returns the given response."""
     session = mock.MagicMock()

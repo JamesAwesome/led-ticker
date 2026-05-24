@@ -11,16 +11,6 @@ from led_ticker.ticker import (
 )
 
 
-@pytest.fixture
-def no_sleep(monkeypatch):
-    """Patch asyncio.sleep in ticker module to be instant."""
-
-    async def _fast(seconds):
-        pass
-
-    monkeypatch.setattr("led_ticker.ticker.asyncio.sleep", _fast)
-
-
 class TestFromRssFeed:
     def test_uses_feed_title(self, mock_frame):
         feed = mock.Mock()

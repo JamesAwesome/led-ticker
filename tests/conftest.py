@@ -1,5 +1,6 @@
 """Shared test fixtures."""
 
+import asyncio
 import itertools
 import os
 import sys
@@ -73,6 +74,28 @@ def make_widget():
         return widget
 
     return _factory
+
+
+@pytest.fixture
+def no_sleep(monkeypatch):
+    """Patch asyncio.sleep to yield to the event loop without real delay.
+
+    Replaces the ``asyncio.sleep`` binding inside every led_ticker module
+    that calls it so tests run fast while still giving the event loop a chance
+    to schedule other coroutines (important for tests that drive multiple
+    concurrent tasks).
+
+    Each led_ticker module does ``import asyncio`` and then calls
+    ``asyncio.sleep(...)``, so the live reference lives on the shared
+    ``asyncio`` module object.  Patching ``asyncio.sleep`` once is sufficient
+    because all modules share the same import.
+    """
+    _real_sleep = asyncio.sleep
+
+    async def _zero_sleep(seconds):
+        await _real_sleep(0)
+
+    monkeypatch.setattr(asyncio, "sleep", _zero_sleep)
 
 
 def make_aiohttp_session(json_response=None, text_response=None):

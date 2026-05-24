@@ -1193,14 +1193,6 @@ class TestDissolveSequenceCache:
 # --- run_transition ---
 
 
-@pytest.fixture
-def no_sleep(monkeypatch):
-    async def _fast(seconds):
-        pass
-
-    monkeypatch.setattr("led_ticker.transitions.asyncio.sleep", _fast)
-
-
 class TestRunTransition:
     async def test_runs_correct_frame_count(
         self,

@@ -57,13 +57,25 @@ def _is_loop(node: ast.AST) -> bool:
 
 
 def _has_advance_call(node: ast.AST) -> bool:
-    """Whether `node`'s subtree calls `_advance_frame_if_supported(...)`."""
-    return any(
-        isinstance(n, ast.Call)
-        and isinstance(n.func, ast.Name)
-        and n.func.id == "_advance_frame_if_supported"
-        for n in ast.walk(node)
-    )
+    """Whether `node`'s subtree calls `_advance_frame_if_supported(...)`.
+
+    Matches both the free-function form (`_advance_frame_if_supported(w)`)
+    and the instance-method form (`self._advance_frame_if_supported(w)`)
+    so the scanner stays green before and after the method migration.
+    """
+    for n in ast.walk(node):
+        if not isinstance(n, ast.Call):
+            continue
+        # Free function: _advance_frame_if_supported(...)
+        if isinstance(n.func, ast.Name) and n.func.id == "_advance_frame_if_supported":
+            return True
+        # Instance method: self._advance_frame_if_supported(...)
+        if (
+            isinstance(n.func, ast.Attribute)
+            and n.func.attr == "_advance_frame_if_supported"
+        ):
+            return True
+    return False
 
 
 def _has_swap_call(node: ast.AST) -> bool:
@@ -140,6 +152,14 @@ def _function_has_advance_in_loops(
             f"_advance_frame_if_supported (and no enclosing loop does)"
         )
     return issues
+
+
+def test_has_advance_call_detects_attribute_form():
+    """_has_advance_call must match self._advance_frame_if_supported(...)."""
+    code = "async def f(self): self._advance_frame_if_supported(w)"
+    tree = ast.parse(code)
+    func = tree.body[0]
+    assert _has_advance_call(func)
 
 
 def test_every_redraw_loop_advances_frame():

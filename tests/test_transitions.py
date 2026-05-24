@@ -163,13 +163,13 @@ class TestPushLeft:
         incoming.draw.assert_called_once()
         assert incoming.draw.call_args.kwargs["cursor_pos"] == 85
 
-    def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
+    def test_midpoint_uses_subfill_for_blackout(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushLeft()
+        # t=0.5: scroll_offset=85, clear_start=max(0,160+10-85)=85, w-clear_start=75
         push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
-        # SetPixel used to black out the right zone before drawing incoming
-        assert canvas.SetPixel.call_count > 0
+        canvas.SubFill.assert_called_once_with(85, 0, 75, 16, 0, 0, 0)
 
     def test_outgoing_scroll_pos_used(self, canvas, make_widget):
         """Outgoing should continue from its final scroll position."""
@@ -237,12 +237,14 @@ class TestPushUp:
         # Incoming should have positive y_offset (entering from below)
         assert incoming.draw.call_args.kwargs["y_offset"] > 0
 
-    def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
+    def test_midpoint_uses_subfill_for_blackout(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushUp()
+        # t=0.5: scroll_offset=int(0.5*20)=10, incoming_y=16+4-10=10
+        # boundary_row=max(0,min(16,10))=10, SubFill from row 10, height 6
         push.frame_at(0.5, canvas, outgoing, incoming)
-        assert canvas.SetPixel.call_count > 0
+        canvas.SubFill.assert_called_once_with(0, 10, 160, 6, 0, 0, 0)
 
     def test_outgoing_scroll_pos_used(self, canvas, make_widget):
         """Outgoing should stay at its scrolled position, not reset to 0."""
@@ -289,12 +291,14 @@ class TestPushDown:
         # Incoming should have negative y_offset (entering from top)
         assert incoming.draw.call_args.kwargs["y_offset"] < 0
 
-    def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
+    def test_midpoint_uses_subfill_for_blackout(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushDown()
+        # t=0.5: scroll_offset=10, incoming_y=-(16+4)+10=-10
+        # boundary_row=max(0,min(16,-10+16))=6, SubFill from row 6, height 10
         push.frame_at(0.5, canvas, outgoing, incoming)
-        assert canvas.SetPixel.call_count > 0
+        canvas.SubFill.assert_called_once_with(0, 6, 160, 10, 0, 0, 0)
 
     def test_outgoing_scroll_pos_used(self, canvas, make_widget):
         outgoing = make_widget(600)
@@ -352,13 +356,13 @@ class TestPushRight:
         # At t=0.25: boundary=40, incoming_pos = -160 + 40 = -120
         assert incoming.draw.call_args.kwargs["cursor_pos"] == -120
 
-    def test_midpoint_uses_setpixel_for_blackout(self, canvas, make_widget):
+    def test_midpoint_uses_subfill_for_blackout(self, canvas, make_widget):
         outgoing = make_widget(40)
         incoming = make_widget(40)
         push = PushRight()
+        # t=0.5: boundary=int(0.5*160)=80, SubFill from x=80, width=80
         push.frame_at(0.5, canvas, outgoing, incoming, outgoing_scroll_pos=0)
-        # SetPixel used to black out right zone between incoming and outgoing
-        assert canvas.SetPixel.call_count > 0
+        canvas.SubFill.assert_called_once_with(80, 0, 80, 16, 0, 0, 0)
 
     def test_outgoing_at_scroll_pos_for_first_frame(self, canvas, make_widget):
         """At t=0, outgoing is at its natural hold position."""
@@ -456,6 +460,12 @@ class TestWipeUp:
         wipe = WipeUp()
         result = wipe.frame_at(0.5, canvas, make_widget(40), make_widget(40))
         assert result is canvas
+
+    def test_mid_blackout_uses_subfill(self, canvas, make_widget):
+        wipe = WipeUp()
+        # t=0.5: sweep_row=max(0,15-min(8,15))=7; blackout rows [8..15]
+        wipe.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        canvas.SubFill.assert_called_once_with(0, 8, 160, 8, 0, 0, 0)
 
 
 # --- ColorFlash ---
@@ -555,6 +565,13 @@ class TestWipeLeft:
         result = wipe.frame_at(0.5, canvas, outgoing, incoming)
         assert result is canvas
 
+    def test_mid_blackout_uses_subfill(self, canvas, make_widget):
+        wipe = WipeLeft()
+        # t=0.5: boundary=min(int(0.5*161),160)=80; line_x=160-80=80
+        # blackout SubFill(80, 0, 80, 16, 0,0,0)
+        wipe.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        canvas.SubFill.assert_called_once_with(80, 0, 80, 16, 0, 0, 0)
+
 
 # --- WipeRight ---
 
@@ -607,6 +624,12 @@ class TestWipeRight:
         wipe = WipeRight()
         result = wipe.frame_at(0.5, canvas, outgoing, incoming)
         assert result is canvas
+
+    def test_mid_blackout_uses_subfill(self, canvas, make_widget):
+        wipe = WipeRight()
+        # t=0.5: boundary=80; blackout SubFill(0, 0, 80, 16, 0,0,0)
+        wipe.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        canvas.SubFill.assert_called_once_with(0, 0, 80, 16, 0, 0, 0)
 
 
 # --- Dissolve ---
@@ -736,6 +759,13 @@ class TestSplitHorizontal:
         result = split.frame_at(0.5, canvas, outgoing, incoming)
         assert result is canvas
 
+    def test_late_blackout_uses_subfill(self, canvas, make_widget):
+        split = SplitHorizontal()
+        # t=0.9: half=80, reveal=int(0.9*80)=72; left=80-72=8, right=80+72=152
+        # band_x=max(0,8)=8, band_w=min(152,160)-8=144
+        split.frame_at(0.9, canvas, make_widget(40), make_widget(40))
+        canvas.SubFill.assert_called_once_with(8, 0, 144, 16, 0, 0, 0)
+
 
 # --- WipeDown ---
 
@@ -788,6 +818,12 @@ class TestWipeDown:
         wipe = WipeDown()
         result = wipe.frame_at(0.5, canvas, outgoing, incoming)
         assert result is canvas
+
+    def test_mid_blackout_uses_subfill(self, canvas, make_widget):
+        wipe = WipeDown()
+        # t=0.5: sweep_row=min(int(0.5*17),16)=8; blackout rows [0..7]
+        wipe.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        canvas.SubFill.assert_called_once_with(0, 0, 160, 8, 0, 0, 0)
 
 
 # --- Scroll ---
@@ -862,21 +898,14 @@ class TestScrollInlinedDrawing:
 
     def test_blackout_region_cleared_at_mid_scroll(self, canvas, make_widget):
         """At mid-scroll the region between outgoing tail and the right
-        edge of the canvas is blacked out so outgoing text doesn't bleed
-        through the gap region."""
+        edge of the canvas is blacked out via SubFill."""
         scroll = Scroll()
         outgoing = make_widget(40)
         incoming = make_widget(40)
-        # At t=0.5, sep_w=14: scroll_offset = int(0.5 * 174) = 87
-        # clear_start = max(0, 160 - 87) = 73 → should black out x in [73, 159]
+        # t=0.5, sep_w=14: scroll_offset=int(0.5*174)=87
+        # clear_start=max(0,160-87)=73, w-clear_start=87
         scroll.frame_at(0.5, canvas, outgoing, incoming)
-        black_calls = [
-            c for c in canvas.SetPixel.call_args_list if c.args[2:] == (0, 0, 0)
-        ]
-        assert len(black_calls) > 0, "No blackout pixels were set during mid-scroll"
-        x_values = {c.args[0] for c in black_calls}
-        assert min(x_values) == 73
-        assert max(x_values) == 159
+        canvas.SubFill.assert_called_once_with(73, 0, 87, 16, 0, 0, 0)
 
     def test_bullet_painted_at_mid_scroll(self, canvas, make_widget):
         """Bullet (2×2 white dot) is painted during scroll."""
@@ -2301,3 +2330,106 @@ class TestMinFramesProtocol:
         # Verify the default is accessible on the Protocol class
         assert hasattr(Transition, "min_frames")
         assert Transition.min_frames == 0
+
+
+class TestNyanCatFrameDrawing:
+    def test_draw_nyan_frame_uses_subfill_for_rainbow(self, canvas):
+        from led_ticker.transitions.nyancat import RAINBOW, draw_nyan_frame
+
+        # At progress=0.5 the trail covers a visible portion of the canvas
+        draw_nyan_frame(canvas, progress=0.5, width=160, height=16)
+        # 6 rainbow stripes → 6 SubFill calls (one per stripe color)
+        assert canvas.SubFill.call_count == len(RAINBOW)
+
+    def test_draw_nyan_frame_rtl_uses_subfill_for_rainbow(self, canvas):
+        from led_ticker.transitions.nyancat import RAINBOW, draw_nyan_frame_rtl
+
+        draw_nyan_frame_rtl(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count == len(RAINBOW)
+
+
+class TestPacmanFrameDrawing:
+    def test_ltr_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.pacman import draw_pacman_frame
+
+        # At progress=0.5 pacman is mid-screen; blackout_end > 0
+        draw_pacman_frame(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        # LTR: SubFill(0, 0, blackout_end, height, 0, 0, 0)
+        assert first_call.args[0] == 0  # x
+        assert first_call.args[1] == 0  # y
+        assert first_call.args[4:] == (0, 0, 0)  # black
+
+    def test_rtl_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.pacman import draw_pacman_frame_rtl
+
+        draw_pacman_frame_rtl(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        # RTL: SubFill(blackout_start, 0, width - blackout_start, height, 0, 0, 0)
+        assert first_call.args[1] == 0  # y
+        assert first_call.args[4:] == (0, 0, 0)  # black
+
+
+class TestPokeballFrameDrawing:
+    def test_ltr_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.pokeball import draw_pokeball_frame
+
+        draw_pokeball_frame(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        assert first_call.args[0] == 0
+        assert first_call.args[1] == 0
+        assert first_call.args[4:] == (0, 0, 0)
+
+    def test_rtl_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.pokeball import draw_pokeball_frame_rtl
+
+        draw_pokeball_frame_rtl(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        assert first_call.args[1] == 0
+        assert first_call.args[4:] == (0, 0, 0)
+
+
+class TestBaseballFrameDrawing:
+    def test_ltr_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.baseball import draw_baseball_frame
+
+        draw_baseball_frame(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        assert first_call.args[0] == 0
+        assert first_call.args[1] == 0
+        assert first_call.args[4:] == (0, 0, 0)
+
+    def test_rtl_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.baseball import draw_baseball_frame_rtl
+
+        draw_baseball_frame_rtl(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        assert first_call.args[1] == 0
+        assert first_call.args[4:] == (0, 0, 0)
+
+
+class TestSailorMoonFrameDrawing:
+    def test_ltr_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.sailor_moon import draw_sailor_moon_frame
+
+        draw_sailor_moon_frame(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        assert first_call.args[0] == 0
+        assert first_call.args[1] == 0
+        assert first_call.args[4:] == (0, 0, 0)
+
+    def test_rtl_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.sailor_moon import draw_sailor_moon_frame_rtl
+
+        draw_sailor_moon_frame_rtl(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        assert first_call.args[1] == 0
+        assert first_call.args[4:] == (0, 0, 0)

@@ -221,9 +221,8 @@ def draw_pacman_frame(
     # Black out from the left edge up through Pac-Man's right (front)
     # edge. Pac-Man is then drawn ON TOP of this blackout band.
     blackout_end = min(width, max(0, pacman_x + PACMAN_SIZE))
-    for y in range(height):
-        for x in range(blackout_end):
-            canvas.SetPixel(x, y, 0, 0, 0)
+    if blackout_end > 0:
+        canvas.SubFill(0, 0, blackout_end, height, 0, 0, 0)
 
     # Draw ghosts (ahead of Pac-Man)
     pixels_traveled = max(0, int(progress * total_travel))
@@ -268,9 +267,8 @@ def draw_pacman_frame_rtl(
     # Black out from Pac-Man's left (front) edge to the right edge.
     # Pac-Man is then drawn ON TOP of this blackout band.
     blackout_start = max(0, min(width, pacman_x))
-    for y in range(height):
-        for x in range(blackout_start, width):
-            canvas.SetPixel(x, y, 0, 0, 0)
+    if blackout_start < width:
+        canvas.SubFill(blackout_start, 0, width - blackout_start, height, 0, 0, 0)
 
     # Draw ghosts (ahead of Pac-Man, to the left)
     pixels_traveled = max(0, int(progress * total_travel))

@@ -89,6 +89,14 @@ class ScaledCanvas:
         ry = y * s + self.y_offset_real
         self.real.SubFill(rx, ry, s, s, r, g, b)
 
+    def SubFill(
+        self, x: int, y: int, width: int, height: int, r: int, g: int, b: int
+    ) -> None:
+        s = self.scale
+        self.real.SubFill(
+            x * s, y * s + self.y_offset_real, width * s, height * s, r, g, b
+        )
+
     def rebind_innermost(self, new_real: Any) -> None:
         """Rewire the innermost `.real` to `new_real`, leaving outer wrappers intact.
 

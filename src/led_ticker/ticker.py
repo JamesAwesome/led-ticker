@@ -1039,10 +1039,7 @@ def _draw_scroll_frame(
     outgoing.draw(canvas, cursor_pos=outgoing_pos)
 
     if 0 <= clear_start < w:
-        x_range = range(clear_start, w)
-        for y in range(h):
-            for x in x_range:
-                canvas.SetPixel(x, y, 0, 0, 0)
+        canvas.SubFill(clear_start, 0, w - clear_start, h, 0, 0, 0)
 
     _draw_bullet(canvas, bullet_x)
 

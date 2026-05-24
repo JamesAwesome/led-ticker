@@ -739,9 +739,8 @@ def draw_pokeball_frame(
 
     # Black out everything to the left of the ball
     blackout_end = min(width, max(0, ball_x))
-    for y in range(height):
-        for x in range(blackout_end):
-            canvas.SetPixel(x, y, 0, 0, 0)
+    if blackout_end > 0:
+        canvas.SubFill(0, 0, blackout_end, height, 0, 0, 0)
 
     # Draw the pokeball sprite (clipped to canvas bounds)
     if show_pokeball:
@@ -794,9 +793,8 @@ def draw_pokeball_frame_rtl(
 
     # Black out everything to the right of the ball
     blackout_start = max(0, min(width, ball_x + SPRITE_SIZE))
-    for y in range(height):
-        for x in range(blackout_start, width):
-            canvas.SetPixel(x, y, 0, 0, 0)
+    if blackout_start < width:
+        canvas.SubFill(blackout_start, 0, width - blackout_start, height, 0, 0, 0)
 
     # Draw the pokeball sprite (flipped horizontally)
     if show_pokeball:

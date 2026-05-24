@@ -1,3 +1,12 @@
+# Base image migration note (M14):
+# python:3.13-bullseye (Debian 11) reaches EOL June 2026. Migrate to
+# python:3.13-bookworm (Debian 12, GCC 12) when ready. Before migrating:
+#   1. Verify the RP1 build patch (named anonymous PIO params in pio_rp1.c)
+#      still compiles cleanly under GCC 12 — it was written for GCC 10.
+#   2. Test a multi-stage build: copy only the compiled rgbmatrix .so from
+#      the build stage into a python:3.13-bookworm-slim final stage (~200MB
+#      smaller). Verify libstdc++/libgcc links are satisfied by the slim image.
+#   3. Run make test + test on both Pi 4 and Pi 5 hardware before merging.
 FROM python:3.13-bullseye AS rgbmatrix
 
 # rpi-rgb-led-matrix: jamesawesome/main — Pi5 RP1 support (hzeller#1886, now

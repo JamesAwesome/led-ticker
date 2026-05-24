@@ -2346,3 +2346,90 @@ class TestNyanCatFrameDrawing:
 
         draw_nyan_frame_rtl(canvas, progress=0.5, width=160, height=16)
         assert canvas.SubFill.call_count == len(RAINBOW)
+
+
+class TestPacmanFrameDrawing:
+    def test_ltr_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.pacman import draw_pacman_frame
+
+        # At progress=0.5 pacman is mid-screen; blackout_end > 0
+        draw_pacman_frame(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        # LTR: SubFill(0, 0, blackout_end, height, 0, 0, 0)
+        assert first_call.args[0] == 0  # x
+        assert first_call.args[1] == 0  # y
+        assert first_call.args[4:] == (0, 0, 0)  # black
+
+    def test_rtl_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.pacman import draw_pacman_frame_rtl
+
+        draw_pacman_frame_rtl(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        # RTL: SubFill(blackout_start, 0, width - blackout_start, height, 0, 0, 0)
+        assert first_call.args[1] == 0  # y
+        assert first_call.args[4:] == (0, 0, 0)  # black
+
+
+class TestPokeballFrameDrawing:
+    def test_ltr_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.pokeball import draw_pokeball_frame
+
+        draw_pokeball_frame(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        assert first_call.args[0] == 0
+        assert first_call.args[1] == 0
+        assert first_call.args[4:] == (0, 0, 0)
+
+    def test_rtl_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.pokeball import draw_pokeball_frame_rtl
+
+        draw_pokeball_frame_rtl(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        assert first_call.args[1] == 0
+        assert first_call.args[4:] == (0, 0, 0)
+
+
+class TestBaseballFrameDrawing:
+    def test_ltr_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.baseball import draw_baseball_frame
+
+        draw_baseball_frame(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        assert first_call.args[0] == 0
+        assert first_call.args[1] == 0
+        assert first_call.args[4:] == (0, 0, 0)
+
+    def test_rtl_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.baseball import draw_baseball_frame_rtl
+
+        draw_baseball_frame_rtl(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        assert first_call.args[1] == 0
+        assert first_call.args[4:] == (0, 0, 0)
+
+
+class TestSailorMoonFrameDrawing:
+    def test_ltr_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.sailor_moon import draw_sailor_moon_frame
+
+        draw_sailor_moon_frame(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        assert first_call.args[0] == 0
+        assert first_call.args[1] == 0
+        assert first_call.args[4:] == (0, 0, 0)
+
+    def test_rtl_blackout_uses_subfill(self, canvas):
+        from led_ticker.transitions.sailor_moon import draw_sailor_moon_frame_rtl
+
+        draw_sailor_moon_frame_rtl(canvas, progress=0.5, width=160, height=16)
+        assert canvas.SubFill.call_count >= 1
+        first_call = canvas.SubFill.call_args_list[0]
+        assert first_call.args[1] == 0
+        assert first_call.args[4:] == (0, 0, 0)

@@ -13,10 +13,31 @@ duplicate these helpers in a new module.
 
 from __future__ import annotations
 
+from enum import StrEnum
+
 from PIL import Image
 
-VALID_FITS: frozenset[str] = frozenset({"pillarbox", "letterbox", "stretch", "crop"})
-VALID_IMAGE_ALIGNS: frozenset[str] = frozenset({"left", "center", "right"})
+
+class Fit(StrEnum):
+    """Valid fit modes for image widgets."""
+
+    PILLARBOX = "pillarbox"
+    LETTERBOX = "letterbox"
+    STRETCH = "stretch"
+    CROP = "crop"
+
+
+class ImageAlign(StrEnum):
+    """Valid horizontal alignment modes for images."""
+
+    LEFT = "left"
+    CENTER = "center"
+    RIGHT = "right"
+
+
+# Backward-compatibility aliases
+VALID_FITS: frozenset[str] = frozenset(Fit)
+VALID_IMAGE_ALIGNS: frozenset[str] = frozenset(ImageAlign)
 
 
 def validate_choice(name: str, value: str, allowed: frozenset[str]) -> None:

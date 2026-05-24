@@ -27,6 +27,7 @@ methods and the base class picks.
 from __future__ import annotations
 
 import asyncio
+from enum import StrEnum
 from typing import Any
 
 import attrs
@@ -58,11 +59,35 @@ from led_ticker.widgets._row_layout import (
     row_layout,
 )
 
-VALID_TEXT_ALIGNS: frozenset[str] = frozenset(
-    {"left", "right", "scroll", "scroll_over"}
-)
-VALID_TEXT_VALIGNS: frozenset[str] = frozenset({"top", "center", "bottom"})
-VALID_SCROLL_DIRECTIONS: frozenset[str] = frozenset({"left", "right"})
+
+class TextAlign(StrEnum):
+    """Valid horizontal text alignment modes."""
+
+    LEFT = "left"
+    RIGHT = "right"
+    SCROLL = "scroll"
+    SCROLL_OVER = "scroll_over"
+
+
+class TextValign(StrEnum):
+    """Valid vertical text alignment modes."""
+
+    TOP = "top"
+    CENTER = "center"
+    BOTTOM = "bottom"
+
+
+class ScrollDirection(StrEnum):
+    """Valid scroll direction modes."""
+
+    LEFT = "left"
+    RIGHT = "right"
+
+
+# Backward-compatibility aliases
+VALID_TEXT_ALIGNS: frozenset[str] = frozenset(TextAlign)
+VALID_TEXT_VALIGNS: frozenset[str] = frozenset(TextValign)
+VALID_SCROLL_DIRECTIONS: frozenset[str] = frozenset(ScrollDirection)
 
 # `text_align="auto"` resolves to the side opposite the image so they don't
 # overlap. Centered image → scroll_over (always paints over, no overlap).

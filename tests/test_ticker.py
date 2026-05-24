@@ -19,10 +19,7 @@ from led_ticker.ticker import (
     _draw_hires_circle,
     _enqueue_ticker_objects,
     _has_index,
-    _has_play,
     _maybe_wrap,
-    _scroll_one_by_one,
-    _scroll_side_by_side,
     _swap,
 )
 
@@ -197,15 +194,15 @@ class TestScrollSideBySideBufferDrawn:
         await queue.put(title)
         await queue.put(next_monitor)
 
+        ticker = Ticker(
+            monitors=[], frame=frame, notif_queue=queue, buffer_msg=buffer_msg
+        )
+
         # Run a few iterations then cancel
         async def runner():
-            await _scroll_side_by_side(
+            await ticker._scroll_side_by_side(
                 canvas,
-                frame,
-                queue,
-                buffer_message=buffer_msg,
                 cursor_pos=18,  # title at pos=18, end at 64; next iter end at 63
-                scroll_speed=0,
                 hold_at_end=0,
             )
 
@@ -300,12 +297,11 @@ class TestScrollOneByOneReturnsLastPos:
         queue: asyncio.Queue = asyncio.Queue()
         await queue.put(widget)
 
-        result = await _scroll_one_by_one(
+        ticker = Ticker(monitors=[], frame=frame, notif_queue=queue)
+
+        result = await ticker._scroll_one_by_one(
             canvas,
-            frame,
-            queue,
             cursor_pos=0,
-            scroll_speed=0,
         )
         # Widget exits left -> last_drawn_pos should be heavily negative
         # (specifically, at most -content_width so the widget is fully
@@ -401,25 +397,25 @@ class TestHasPlayDispatch:
         class AsyncWidget:
             async def play(self, canvas): ...
 
-        assert _has_play(AsyncWidget()) is True
+        assert Ticker._has_play(AsyncWidget()) is True
 
     def test_returns_false_for_no_play(self):
         class DrawOnlyWidget:
             def draw(self, canvas, cursor_pos=0): ...
 
-        assert _has_play(DrawOnlyWidget()) is False
+        assert Ticker._has_play(DrawOnlyWidget()) is False
 
     def test_raises_for_sync_play(self):
         class SyncPlayWidget:
             def play(self, canvas): ...
 
         with pytest.raises(RuntimeError, match="play.*not.*coroutine"):
-            _has_play(SyncPlayWidget())
+            Ticker._has_play(SyncPlayWidget())
 
     def test_mock_returns_false_not_raises(self):
         """MagicMock auto-creates .play on access — must not raise."""
         w = MagicMock()
-        assert _has_play(w) is False
+        assert Ticker._has_play(w) is False
 
 
 class TestTickerMethodsMigrated:
@@ -454,3 +450,27 @@ class TestTickerMethodsMigrated:
     def test_run_swap_is_instance_method(self):
         ticker = Ticker(monitors=[], frame=MagicMock())
         assert callable(ticker._run_swap)
+
+    def test_run_gif_is_instance_method(self):
+        from unittest.mock import MagicMock
+
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._run_gif)
+
+    def test_scroll_and_delay_is_instance_method(self):
+        from unittest.mock import MagicMock
+
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._scroll_and_delay)
+
+    def test_scroll_one_by_one_is_instance_method(self):
+        from unittest.mock import MagicMock
+
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._scroll_one_by_one)
+
+    def test_scroll_side_by_side_is_instance_method(self):
+        from unittest.mock import MagicMock
+
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._scroll_side_by_side)

@@ -8,7 +8,6 @@ import pytest
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.ticker import (
     Ticker,
-    _scroll_and_delay,
 )
 
 
@@ -315,7 +314,7 @@ class TestTickDriftCompensation:
     async def test_scroll_and_delay_subtracts_work_time(
         self, canvas, mock_frame, make_widget, no_sleep, monkeypatch
     ):
-        from led_ticker.ticker import ENGINE_TICK_MS, _scroll_and_delay
+        from led_ticker.ticker import ENGINE_TICK_MS
 
         sleep_calls: list[float] = []
 
@@ -332,9 +331,8 @@ class TestTickDriftCompensation:
         )
 
         widget = make_widget(content_width=40)
-        canvas_result, _ = await _scroll_and_delay(
-            canvas, mock_frame, widget, delay=0.1
-        )
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        canvas_result, _ = await ticker._scroll_and_delay(canvas, widget, delay=0.1)
 
         tick_s = ENGINE_TICK_MS / 1000  # 0.05
         expected = tick_s - 0.020  # 0.030
@@ -405,9 +403,8 @@ class TestScrollAndDelay:
         self, canvas, mock_frame, make_widget, no_sleep
     ):
         widget = make_widget(content_width=40)
-        _, pos = await _scroll_and_delay(
-            canvas, mock_frame, widget, delay=0, cursor_pos=5
-        )
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, pos = await ticker._scroll_and_delay(canvas, widget, delay=0, cursor_pos=5)
         assert pos > 0
         assert widget.draw.call_count >= 5
 
@@ -415,9 +412,8 @@ class TestScrollAndDelay:
         self, canvas, mock_frame, make_widget, no_sleep
     ):
         widget = make_widget(content_width=40)
-        _, pos = await _scroll_and_delay(
-            canvas, mock_frame, widget, delay=0, cursor_pos=0
-        )
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, pos = await ticker._scroll_and_delay(canvas, widget, delay=0, cursor_pos=0)
         # Initial draw + the post-scroll hold tick loop's draw
         # (n_ticks=max(1, 0//50)=1) — 2 calls total. Without the tick
         # loop this would be 1.
@@ -441,8 +437,9 @@ class TestScrollAndDelay:
 
         widget.advance_frame.side_effect = _advance
 
+        ticker = Ticker(monitors=[], frame=mock_frame)
         # cursor_pos=5 → 5 scroll-in iterations + 1 post-scroll tick (delay=0).
-        await _scroll_and_delay(canvas, mock_frame, widget, delay=0, cursor_pos=5)
+        await ticker._scroll_and_delay(canvas, widget, delay=0, cursor_pos=5)
 
         assert widget._advance_frame_count == 6, (
             f"Expected 6 advance_frame calls (5 scroll-in + 1 post-scroll); "
@@ -471,8 +468,9 @@ class TestScrollAndDelay:
 
         widget.advance_frame.side_effect = _advance
 
+        ticker = Ticker(monitors=[], frame=mock_frame)
         # delay=0.5s @ ENGINE_TICK_MS=50ms → 10 ticks expected.
-        await _scroll_and_delay(canvas, mock_frame, widget, delay=0.5, cursor_pos=0)
+        await ticker._scroll_and_delay(canvas, widget, delay=0.5, cursor_pos=0)
 
         assert widget._advance_frame_count == 10
 
@@ -486,8 +484,6 @@ class TestScrollOneByOne:
         """Hardware bug: smoke §17 (RSS feed + rainbow) rendered as
         a static gradient because _scroll_one_by_one's while loop
         never advanced the widget's frame counter."""
-        from led_ticker.ticker import _scroll_one_by_one
-
         widget = mock.Mock()
         # Widget is 5 wide; scrolls until final_pos < 0. Starting at
         # cursor_pos=0, final_pos = 5 first tick, then cursor_pos
@@ -504,7 +500,10 @@ class TestScrollOneByOne:
         queue = asyncio.Queue()
         await queue.put(widget)
 
-        await _scroll_one_by_one(canvas, mock_frame, queue, scroll_speed=0)
+        ticker = Ticker(
+            monitors=[], frame=mock_frame, notif_queue=queue, scroll_speed=0
+        )
+        await ticker._scroll_one_by_one(canvas)
 
         # Loop ran for ~6 ticks before final_pos < 0 broke it (cursor=0,-1,-2,...).
         # advance_frame must have been called once per tick — at minimum 1.
@@ -563,8 +562,6 @@ class TestScrollSideBySide:
         scroll-in. Every draw afterward is part of the hold and must
         be at the SAME cursor_pos as the initial held-position draw.
         """
-        from led_ticker.ticker import _scroll_side_by_side
-
         draw_positions: list[int] = []
         widget = mock.Mock()
 
@@ -578,9 +575,10 @@ class TestScrollSideBySide:
         queue = asyncio.Queue()
         await queue.put(widget)
 
-        await _scroll_side_by_side(
-            canvas, mock_frame, queue, scroll_speed=0, hold_at_end=0.2
+        ticker = Ticker(
+            monitors=[], frame=mock_frame, notif_queue=queue, scroll_speed=0
         )
+        await ticker._scroll_side_by_side(canvas, hold_at_end=0.2)
 
         # First draw establishes the held end-position; every hold
         # tick must redraw at that same pos. Variation = visual snap.
@@ -603,8 +601,6 @@ class TestScrollSideBySide:
         providers (rainbow, color_cycle) keep sweeping. Without this,
         the rainbow freezes the moment the text stops moving — visible
         on hardware as smoke §17 RSS feed."""
-        from led_ticker.ticker import _scroll_side_by_side
-
         widget = mock.Mock()
         widget.draw.side_effect = lambda c, cursor_pos=0: (c, cursor_pos + 30)
         widget._advance_frame_count = 0
@@ -621,9 +617,10 @@ class TestScrollSideBySide:
         # hold_at_end=0.5s @ ENGINE_TICK_MS=50ms → ≥10 hold ticks
         # expected, plus a small number of scroll-in ticks before
         # the hold begins.
-        await _scroll_side_by_side(
-            canvas, mock_frame, queue, scroll_speed=0, hold_at_end=0.5
+        ticker = Ticker(
+            monitors=[], frame=mock_frame, notif_queue=queue, scroll_speed=0
         )
+        await ticker._scroll_side_by_side(canvas, hold_at_end=0.5)
 
         assert widget._advance_frame_count >= 10, (
             f"Expected ≥10 advance_frame calls covering the 0.5s "
@@ -639,7 +636,6 @@ class TestScrollSideBySide:
         widget per tick. Animated providers (rainbow, color_cycle)
         on any of them must animate. Without per-tick advance, all
         scrolling stories freeze on their visit-initial hue."""
-        from led_ticker.ticker import _scroll_side_by_side
 
         def _make_widget(width: int):
             w = mock.Mock()
@@ -659,9 +655,10 @@ class TestScrollSideBySide:
         await queue.put(w1)
         await queue.put(w2)
 
-        await _scroll_side_by_side(
-            canvas, mock_frame, queue, scroll_speed=0, hold_at_end=0
+        ticker = Ticker(
+            monitors=[], frame=mock_frame, notif_queue=queue, scroll_speed=0
         )
+        await ticker._scroll_side_by_side(canvas, hold_at_end=0)
 
         # Both widgets should have been advanced. Not asserting an
         # exact count — the loop runs many ticks scrolling everything

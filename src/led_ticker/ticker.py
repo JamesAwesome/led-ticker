@@ -268,10 +268,8 @@ class Ticker:
             )
         )
 
-        await _run_gif(
+        await self._run_gif(
             canvas,
-            self.frame,
-            self.notif_queue,
             loop_count=loop_count,
         )
 
@@ -296,15 +294,11 @@ class Ticker:
             )
         )
 
-        self.last_scroll_pos = await _scroll_side_by_side(
+        self.last_scroll_pos = await self._scroll_side_by_side(
             canvas,
-            self.frame,
-            self.notif_queue,
             delay=self.title_delay,
-            buffer_message=self.buffer_msg,
             cursor_pos=cursor_pos,
             hold_at_end=self.hold_time,
-            scroll_speed=self.scroll_speed,
         )
 
     async def run_infini_scroll(
@@ -329,13 +323,10 @@ class Ticker:
 
         cursor_pos = start_pos if start_pos is not None else canvas.width
 
-        self.last_scroll_pos = await _scroll_one_by_one(
+        self.last_scroll_pos = await self._scroll_one_by_one(
             canvas,
-            self.frame,
-            self.notif_queue,
             cursor_pos=cursor_pos,
             delay=self.title_delay,
-            scroll_speed=self.scroll_speed,
         )
 
     # --- Engine helper methods (migrated from module-level) ---
@@ -683,6 +674,280 @@ class Ticker:
 
         return prev_scroll_pos
 
+    async def _scroll_and_delay(
+        self,
+        canvas: Canvas,
+        ticker_obj: Any,
+        delay: float,
+        cursor_pos: int = 0,
+    ) -> tuple[Canvas, int]:
+        logging.info("Running _scroll_and_delay ...")
+        bg_color = getattr(ticker_obj, "bg_color", None)
+        reset_canvas(canvas, bg_color)
+        pos = cursor_pos
+
+        canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
+
+        if pos <= 0:
+            # Title is already in its final position — swap once so it's
+            # on-screen immediately (no blank frame between transition end
+            # and the delay).
+            canvas = _swap(canvas, self.frame)
+
+        while pos > 0:
+            # Advance the per-tick frame so animated title providers
+            # (rainbow, color_cycle) animate during scroll-in. Without
+            # this, the title freezes on its visit-initial hue while it
+            # scrolls in from off-canvas, then suddenly animates after
+            # landing — visually inconsistent with the post-scroll hold
+            # below and with `_swap_and_scroll`'s scroll branch.
+            _advance_frame_if_supported(ticker_obj)
+            reset_canvas(canvas, bg_color)
+            canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
+            pos -= 1
+            canvas = _swap(canvas, self.frame)
+            await asyncio.sleep(self.scroll_speed)
+
+        # Post-scroll hold: tick loop so animated title providers
+        # (color_cycle, rainbow) actually animate during the delay.
+        # Mirrors the pattern in `_swap_and_scroll`. Without this, an
+        # animated title held at pos=0 would freeze on the visit-initial
+        # frame for the full delay.
+        n_ticks = max(1, int(delay * 1000) // ENGINE_TICK_MS)
+        canvas, cursor_pos = await self._hold_ticks(
+            canvas, ticker_obj, n_ticks, pos, bg_color
+        )
+        return canvas, cursor_pos
+
+    async def _scroll_one_by_one(
+        self,
+        canvas: Canvas,
+        delay: float = 0,
+        cursor_pos: int = 0,
+    ) -> int:
+        """Scroll widgets one-by-one, each fully scrolling off before the next.
+
+        Returns the cursor_pos at which the last widget was drawn before exiting.
+        The caller stashes this on `Ticker.last_scroll_pos` so the inter-section
+        dissolve has a consistent starting point — without this, the dissolve
+        would draw the outgoing widget at pos=0 (the field default), causing
+        a one-frame "flash-back" of the last widget reappearing center-canvas
+        before the dissolve begins.
+        """
+        ticker_object = await self.notif_queue.get()
+        pos = cursor_pos
+        last_drawn_pos = pos
+
+        if delay:
+            canvas, cursor_pos = await self._scroll_and_delay(
+                canvas,
+                ticker_object,
+                delay,
+                cursor_pos=pos,
+            )
+            logging.info("Returned to _scroll_one_by_one ...")
+            pos = 0
+            last_drawn_pos = pos
+
+        while True:
+            # Advance the per-tick frame on the widget currently on-screen
+            # so animated providers (rainbow, color_cycle) animate during
+            # the scroll. Without this, RSS stories with `font_color =
+            # "rainbow"` render as a static gradient that scrolls but
+            # doesn't sweep over time.
+            _advance_frame_if_supported(ticker_object)
+            reset_canvas(canvas, getattr(ticker_object, "bg_color", None))
+            canvas, final_pos = ticker_object.draw(canvas, cursor_pos=pos)
+            last_drawn_pos = pos
+            pos -= 1
+
+            if final_pos < 0:
+                pos = canvas.width
+                try:
+                    ticker_object = self.notif_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+
+            canvas = _swap(canvas, self.frame)
+            await asyncio.sleep(self.scroll_speed)
+
+        canvas.Clear()  # final blank — keep as Clear (no specific widget bg here)
+        canvas = _swap(canvas, self.frame)
+        # last_drawn_pos is heavily negative at this point (the widget exited
+        # left), so the inter-section dissolve renders outgoing off-canvas →
+        # visually identical to the cleared state we just swapped.
+        return last_drawn_pos
+
+    async def _scroll_side_by_side(
+        self,
+        canvas: Canvas,
+        delay: float = 0,
+        cursor_pos: int = 0,
+        hold_at_end: float = 2.0,
+    ) -> int:
+        """Scroll widgets side-by-side. Returns the final scroll position so the
+        caller can stash it on `Ticker.last_scroll_pos` for inter-section
+        transitions.
+
+        When the queue is exhausted and only the last widget remains, scrolling
+        stops once the widget's content right edge reaches the canvas right edge
+        (last char fully visible). The function holds for `hold_at_end` seconds,
+        then returns. This produces a clean readable end-state that an
+        inter-section dissolve can fade out from.
+        """
+        logging.info("Running _scroll_side_by_side ...")
+        buffered_objects: list[Any] = []
+        next_monitor = await self.notif_queue.get()
+        buffered_objects.append(next_monitor)
+        pos = cursor_pos
+        queue_empty = False
+
+        if delay:
+            canvas, cursor_pos = await self._scroll_and_delay(
+                canvas,
+                next_monitor,
+                delay,
+                cursor_pos=pos,
+            )
+            logging.info("Returned to _scroll_side_by_side ...")
+            pos = 0
+
+        while True:
+            # Advance the per-tick frame on every UNIQUE widget being
+            # drawn this tick so animated providers (rainbow, color_cycle)
+            # animate during side-by-side scroll. Dedup by id() because
+            # buffered_objects can contain the same widget instance
+            # multiple times (e.g. with a buffer_message widget repeated
+            # between stories) — calling advance_frame multiple times per
+            # tick would over-advance and skew the animation phase.
+            seen: set[int] = set()
+            for buf_w in buffered_objects:
+                if id(buf_w) not in seen:
+                    _advance_frame_if_supported(buf_w)
+                    seen.add(id(buf_w))
+
+            # Side-by-side scroll uses the FIRST buffered widget's bg_color for
+            # the whole canvas. Mixing widgets with different bg_color in this
+            # mode is an accepted pitfall (design spec) — the bg flips at the
+            # moment the leftmost widget exits and the next one becomes index 0.
+            first_widget = buffered_objects[0] if buffered_objects else None
+            bg = getattr(first_widget, "bg_color", None) if first_widget else None
+            reset_canvas(canvas, bg)
+
+            mon_index = 0
+            canvas, cursor_pos = buffered_objects[mon_index].draw(
+                canvas, cursor_pos=pos
+            )
+            mon_0_end_pos = cursor_pos
+
+            pos -= 1
+
+            while cursor_pos < canvas.width:
+                mon_index += 1
+
+                if _has_index(mon_index, buffered_objects):
+                    canvas, cursor_pos = buffered_objects[mon_index].draw(
+                        canvas,
+                        cursor_pos=cursor_pos,
+                    )
+                elif not queue_empty:
+                    if self.notif_queue.empty():
+                        queue_empty = True
+                        break
+                    next_monitor = self.notif_queue.get_nowait()
+                    if self.buffer_msg:
+                        buffered_objects.append(self.buffer_msg)
+                    buffered_objects.append(next_monitor)
+                    # `mon_index += 1` already ran for this iteration but the
+                    # index we tried (e.g. 1) didn't exist yet, so we appended
+                    # instead. Step mon_index back so the next iteration's
+                    # increment lands on the just-appended buffer_message
+                    # rather than skipping past it to next_monitor — otherwise
+                    # the buffer is skipped for one frame and next_monitor is
+                    # drawn at the title's end (no spacing), then re-drawn one
+                    # frame later with the buffer pushing it off-screen right.
+                    # That produces a one-frame "flash" of the next widget's
+                    # leftmost column at the right edge of the panel.
+                    mon_index -= 1
+                else:
+                    break
+
+            # Hold the last widget at end-of-scroll instead of letting it
+            # scroll fully off the left. mon_0_end_pos is the right edge of
+            # the widget's content (including end_padding); when it's at or
+            # within the canvas, the last character is fully visible.
+            # Tick the frame counter during the hold so animated providers
+            # (rainbow, color_cycle) keep sweeping while the text is at
+            # rest — without the tick loop, the rainbow freezes the moment
+            # the text stops moving (visible as static gradient on §17).
+            # `held_pos = pos + 1` recovers the input cursor_pos that
+            # produced the just-drawn frame (the outer loop did `pos -= 1`
+            # AFTER the draw). The hold loop redraws at exactly `held_pos`
+            # so the visual position matches the just-drawn frame — using
+            # `held_pos - 1` would snap the text 1px left between the
+            # final scroll frame and the first hold tick.
+            if (
+                len(buffered_objects) == 1
+                and queue_empty
+                and mon_0_end_pos <= canvas.width
+            ):
+                held_pos = pos + 1
+                canvas = _swap(canvas, self.frame)
+                n_hold_ticks = max(1, int(hold_at_end * 1000) // ENGINE_TICK_MS)
+                bg_hold = getattr(buffered_objects[0], "bg_color", None)
+                canvas, _ = await self._hold_ticks(
+                    canvas, buffered_objects[0], n_hold_ticks, held_pos, bg_hold
+                )
+                return held_pos
+
+            if mon_0_end_pos < 0:
+                buffered_objects.pop(0)
+                pos = mon_0_end_pos - 1
+
+            canvas = _swap(canvas, self.frame)
+            await asyncio.sleep(self.scroll_speed)
+
+            if not len(buffered_objects):
+                return pos
+
+    async def _run_gif(
+        self,
+        canvas: Canvas,
+        loop_count: int = 0,
+    ) -> None:
+        """Pull GifPlayer widgets from the queue and play() each in turn.
+
+        The widget's `play()` method paints to the real canvas (unwrapping
+        any ScaledCanvas) and returns the back-buffer canvas after its
+        final swap; we feed that back into the next widget's play() so
+        swap chaining stays correct.
+        """
+        # Unwrap ScaledCanvas wrappers so GIF frames paint at native physical
+        # resolution. `_play_widget` keeps its own innermost-wrapper pointer
+        # for the post-swap rebind step; this site just wants the raw canvas.
+        # Capture the wrapper scale before unwrapping so play()-style widgets
+        # can interpret logical-unit knobs (e.g. `top_row_height`).
+        wrapper_scale = canvas.scale if isinstance(canvas, ScaledCanvas) else 1
+        real = unwrap_to_real(canvas)
+        while True:
+            try:
+                widget = self.notif_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                try:
+                    widget = await asyncio.wait_for(self.notif_queue.get(), timeout=0.1)
+                except TimeoutError:
+                    return
+            # Skip non-GIF widgets (e.g. section titles enqueued by
+            # _build_then_enqueue). GIF mode takes over the whole panel —
+            # titles don't have a sensible place to render here.
+            if not Ticker._has_play(widget):
+                logging.debug(
+                    "_run_gif skipping non-GIF widget %s", type(widget).__name__
+                )
+                continue
+            Ticker._set_logical_scale(widget, wrapper_scale)
+            real = await widget.play(real, self.frame, loop_count=loop_count)
+
 
 # --- Queue builders ---
 
@@ -746,264 +1011,6 @@ async def _enqueue_from_rss_feed(
     await _enqueue_ticker_objects(ticker_iter, notif_queue)
 
 
-# --- Display modes ---
-
-
-async def _scroll_and_delay(
-    canvas: Canvas,
-    frame: Any,
-    ticker_obj: Any,
-    delay: float,
-    cursor_pos: int = 0,
-    scroll_speed: float = 0.05,
-) -> tuple[Canvas, int]:
-    logging.info("Running _scroll_and_delay ...")
-    bg_color = getattr(ticker_obj, "bg_color", None)
-    reset_canvas(canvas, bg_color)
-    pos = cursor_pos
-
-    canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
-
-    if pos <= 0:
-        # Title is already in its final position — swap once so it's
-        # on-screen immediately (no blank frame between transition end
-        # and the delay).
-        canvas = _swap(canvas, frame)
-
-    while pos > 0:
-        # Advance the per-tick frame so animated title providers
-        # (rainbow, color_cycle) animate during scroll-in. Without
-        # this, the title freezes on its visit-initial hue while it
-        # scrolls in from off-canvas, then suddenly animates after
-        # landing — visually inconsistent with the post-scroll hold
-        # below and with `_swap_and_scroll`'s scroll branch.
-        _advance_frame_if_supported(ticker_obj)
-        reset_canvas(canvas, bg_color)
-        canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
-        pos -= 1
-        canvas = _swap(canvas, frame)
-        await asyncio.sleep(scroll_speed)
-
-    # Post-scroll hold: tick loop so animated title providers
-    # (color_cycle, rainbow) actually animate during the delay.
-    # Mirrors the pattern in `_swap_and_scroll`. Without this, an
-    # animated title held at pos=0 would freeze on the visit-initial
-    # frame for the full delay.
-    n_ticks = max(1, int(delay * 1000) // ENGINE_TICK_MS)
-    tick_seconds = ENGINE_TICK_MS / 1000
-    loop = asyncio.get_running_loop()
-    for _ in range(n_ticks):
-        t0 = loop.time()
-        _advance_frame_if_supported(ticker_obj)
-        reset_canvas(canvas, bg_color)
-        canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
-        canvas = _swap(canvas, frame)
-        await asyncio.sleep(max(0.0, tick_seconds - (loop.time() - t0)))
-    return canvas, cursor_pos
-
-
-async def _scroll_one_by_one(
-    canvas: Canvas,
-    frame: Any,
-    notif_queue: asyncio.Queue[Any],
-    delay: float = 0,
-    cursor_pos: int = 0,
-    scroll_speed: float = 0.05,
-) -> int:
-    """Scroll widgets one-by-one, each fully scrolling off before the next.
-
-    Returns the cursor_pos at which the last widget was drawn before exiting.
-    The caller stashes this on `Ticker.last_scroll_pos` so the inter-section
-    dissolve has a consistent starting point — without this, the dissolve
-    would draw the outgoing widget at pos=0 (the field default), causing
-    a one-frame "flash-back" of the last widget reappearing center-canvas
-    before the dissolve begins.
-    """
-    ticker_object = await notif_queue.get()
-    pos = cursor_pos
-    last_drawn_pos = pos
-
-    if delay:
-        canvas, cursor_pos = await _scroll_and_delay(
-            canvas,
-            frame,
-            ticker_object,
-            delay,
-            cursor_pos=pos,
-            scroll_speed=scroll_speed,
-        )
-        logging.info("Returned to _scroll_one_by_one ...")
-        pos = 0
-        last_drawn_pos = pos
-
-    while True:
-        # Advance the per-tick frame on the widget currently on-screen
-        # so animated providers (rainbow, color_cycle) animate during
-        # the scroll. Without this, RSS stories with `font_color =
-        # "rainbow"` render as a static gradient that scrolls but
-        # doesn't sweep over time.
-        _advance_frame_if_supported(ticker_object)
-        reset_canvas(canvas, getattr(ticker_object, "bg_color", None))
-        canvas, final_pos = ticker_object.draw(canvas, cursor_pos=pos)
-        last_drawn_pos = pos
-        pos -= 1
-
-        if final_pos < 0:
-            pos = canvas.width
-            try:
-                ticker_object = notif_queue.get_nowait()
-            except asyncio.QueueEmpty:
-                break
-
-        canvas = _swap(canvas, frame)
-        await asyncio.sleep(scroll_speed)
-
-    canvas.Clear()  # final blank — keep as Clear (no specific widget bg here)
-    canvas = _swap(canvas, frame)
-    # last_drawn_pos is heavily negative at this point (the widget exited
-    # left), so the inter-section dissolve renders outgoing off-canvas →
-    # visually identical to the cleared state we just swapped.
-    return last_drawn_pos
-
-
-async def _scroll_side_by_side(
-    canvas: Canvas,
-    frame: Any,
-    notif_queue: asyncio.Queue[Any],
-    buffer_message: Any = None,
-    delay: float = 0,
-    cursor_pos: int = 0,
-    scroll_speed: float = 0.05,
-    hold_at_end: float = 2.0,
-) -> int:
-    """Scroll widgets side-by-side. Returns the final scroll position so the
-    caller can stash it on `Ticker.last_scroll_pos` for inter-section
-    transitions.
-
-    When the queue is exhausted and only the last widget remains, scrolling
-    stops once the widget's content right edge reaches the canvas right edge
-    (last char fully visible). The function holds for `hold_at_end` seconds,
-    then returns. This produces a clean readable end-state that an
-    inter-section dissolve can fade out from.
-    """
-    logging.info("Running _scroll_side_by_side ...")
-    buffered_objects: list[Any] = []
-    next_monitor = await notif_queue.get()
-    buffered_objects.append(next_monitor)
-    pos = cursor_pos
-    queue_empty = False
-
-    if delay:
-        canvas, cursor_pos = await _scroll_and_delay(
-            canvas,
-            frame,
-            next_monitor,
-            delay,
-            cursor_pos=pos,
-            scroll_speed=scroll_speed,
-        )
-        logging.info("Returned to _scroll_side_by_side ...")
-        pos = 0
-
-    while True:
-        # Advance the per-tick frame on every UNIQUE widget being
-        # drawn this tick so animated providers (rainbow, color_cycle)
-        # animate during side-by-side scroll. Dedup by id() because
-        # buffered_objects can contain the same widget instance
-        # multiple times (e.g. with a buffer_message widget repeated
-        # between stories) — calling advance_frame multiple times per
-        # tick would over-advance and skew the animation phase.
-        seen: set[int] = set()
-        for buf_w in buffered_objects:
-            if id(buf_w) not in seen:
-                _advance_frame_if_supported(buf_w)
-                seen.add(id(buf_w))
-
-        # Side-by-side scroll uses the FIRST buffered widget's bg_color for
-        # the whole canvas. Mixing widgets with different bg_color in this
-        # mode is an accepted pitfall (design spec) — the bg flips at the
-        # moment the leftmost widget exits and the next one becomes index 0.
-        first_widget = buffered_objects[0] if buffered_objects else None
-        bg = getattr(first_widget, "bg_color", None) if first_widget else None
-        reset_canvas(canvas, bg)
-
-        mon_index = 0
-        canvas, cursor_pos = buffered_objects[mon_index].draw(canvas, cursor_pos=pos)
-        mon_0_end_pos = cursor_pos
-
-        pos -= 1
-
-        while cursor_pos < canvas.width:
-            mon_index += 1
-
-            if _has_index(mon_index, buffered_objects):
-                canvas, cursor_pos = buffered_objects[mon_index].draw(
-                    canvas,
-                    cursor_pos=cursor_pos,
-                )
-            elif not queue_empty:
-                if notif_queue.empty():
-                    queue_empty = True
-                    break
-                next_monitor = notif_queue.get_nowait()
-                if buffer_message:
-                    buffered_objects.append(buffer_message)
-                buffered_objects.append(next_monitor)
-                # `mon_index += 1` already ran for this iteration but the
-                # index we tried (e.g. 1) didn't exist yet, so we appended
-                # instead. Step mon_index back so the next iteration's
-                # increment lands on the just-appended buffer_message
-                # rather than skipping past it to next_monitor — otherwise
-                # the buffer is skipped for one frame and next_monitor is
-                # drawn at the title's end (no spacing), then re-drawn one
-                # frame later with the buffer pushing it off-screen right.
-                # That produces a one-frame "flash" of the next widget's
-                # leftmost column at the right edge of the panel.
-                mon_index -= 1
-            else:
-                break
-
-        # Hold the last widget at end-of-scroll instead of letting it
-        # scroll fully off the left. mon_0_end_pos is the right edge of
-        # the widget's content (including end_padding); when it's at or
-        # within the canvas, the last character is fully visible.
-        # Tick the frame counter during the hold so animated providers
-        # (rainbow, color_cycle) keep sweeping while the text is at
-        # rest — without the tick loop, the rainbow freezes the moment
-        # the text stops moving (visible as static gradient on §17).
-        # `held_pos = pos + 1` recovers the input cursor_pos that
-        # produced the just-drawn frame (the outer loop did `pos -= 1`
-        # AFTER the draw). The hold loop redraws at exactly `held_pos`
-        # so the visual position matches the just-drawn frame — using
-        # `held_pos - 1` would snap the text 1px left between the
-        # final scroll frame and the first hold tick.
-        if len(buffered_objects) == 1 and queue_empty and mon_0_end_pos <= canvas.width:
-            held_pos = pos + 1
-            canvas = _swap(canvas, frame)
-            n_hold_ticks = max(1, int(hold_at_end * 1000) // ENGINE_TICK_MS)
-            tick_seconds = ENGINE_TICK_MS / 1000
-            loop = asyncio.get_running_loop()
-            for _ in range(n_hold_ticks):
-                t0 = loop.time()
-                _advance_frame_if_supported(buffered_objects[0])
-                bg_hold = getattr(buffered_objects[0], "bg_color", None)
-                reset_canvas(canvas, bg_hold)
-                canvas, _ = buffered_objects[0].draw(canvas, cursor_pos=held_pos)
-                canvas = _swap(canvas, frame)
-                await asyncio.sleep(max(0.0, tick_seconds - (loop.time() - t0)))
-            return held_pos
-
-        if mon_0_end_pos < 0:
-            buffered_objects.pop(0)
-            pos = mon_0_end_pos - 1
-
-        canvas = _swap(canvas, frame)
-        await asyncio.sleep(scroll_speed)
-
-        if not len(buffered_objects):
-            return pos
-
-
 BULLET_WIDTH: int = 2  # 2px wide dot
 BULLET_COLOR: ColorTuple = (255, 255, 255)
 SCROLL_GAP: int = 6  # px of black on each side of bullet
@@ -1052,54 +1059,6 @@ def _draw_scroll_frame(
 def scroll_separator_width(gap: int = SCROLL_GAP) -> int:
     """Total pixel width of the scroll separator: gap + bullet + gap."""
     return gap + BULLET_WIDTH + gap
-
-
-def _has_play(widget: Any) -> bool:
-    """Delegate to ``Ticker._has_play``."""
-    return Ticker._has_play(widget)
-
-
-def _set_logical_scale(widget: Any, scale: int) -> None:
-    """Delegate to ``Ticker._set_logical_scale``."""
-    Ticker._set_logical_scale(widget, scale)
-
-
-async def _run_gif(
-    canvas: Canvas,
-    frame: Any,
-    notif_queue: asyncio.Queue[Any],
-    loop_count: int = 0,
-) -> None:
-    """Pull GifPlayer widgets from the queue and play() each in turn.
-
-    The widget's `play()` method paints to the real canvas (unwrapping
-    any ScaledCanvas) and returns the back-buffer canvas after its
-    final swap; we feed that back into the next widget's play() so
-    swap chaining stays correct.
-    """
-    # Unwrap ScaledCanvas wrappers so GIF frames paint at native physical
-    # resolution. `_play_widget` keeps its own innermost-wrapper pointer
-    # for the post-swap rebind step; this site just wants the raw canvas.
-    # Capture the wrapper scale before unwrapping so play()-style widgets
-    # can interpret logical-unit knobs (e.g. `top_row_height`).
-    wrapper_scale = canvas.scale if isinstance(canvas, ScaledCanvas) else 1
-    real = unwrap_to_real(canvas)
-    while True:
-        try:
-            widget = notif_queue.get_nowait()
-        except asyncio.QueueEmpty:
-            try:
-                widget = await asyncio.wait_for(notif_queue.get(), timeout=0.1)
-            except TimeoutError:
-                return
-        # Skip non-GIF widgets (e.g. section titles enqueued by
-        # _build_then_enqueue). GIF mode takes over the whole panel —
-        # titles don't have a sensible place to render here.
-        if not _has_play(widget):
-            logging.debug("_run_gif skipping non-GIF widget %s", type(widget).__name__)
-            continue
-        _set_logical_scale(widget, wrapper_scale)
-        real = await widget.play(real, frame, loop_count=loop_count)
 
 
 def _advance_frame_if_supported(widget: Any) -> None:

@@ -53,6 +53,7 @@ class _FrameAware:
     _frame_count: int = attrs.field(init=False, default=0)
     _frame_paused: bool = attrs.field(init=False, default=False)
     _effect_frames: dict[str, int] = attrs.field(init=False, factory=dict)
+    _visit_owner: int | None = attrs.field(init=False, default=None)
 
     def __new__(cls, *args: object, **kwargs: object) -> _FrameAware:
         if cls is not _FrameAware and "__attrs_attrs__" not in cls.__dict__:
@@ -72,11 +73,26 @@ class _FrameAware:
             if effect is not None:
                 yield attr, effect
 
-    def advance_frame(self) -> None:
+    def advance_frame(self, *, visit_id: int | None = None) -> None:
         """Increment the primary counter AND all per-effect counters.
-        No-op if paused."""
+        No-op if paused.
+
+        When *visit_id* is given, records the first caller as the owner
+        and raises ``RuntimeError`` if a different ``visit_id`` calls before
+        ``reset_frame()`` clears the claim. Callers that omit *visit_id*
+        bypass the ownership check.
+        """
         if self._frame_paused:
             return
+        if visit_id is not None:
+            if self._visit_owner is not None and self._visit_owner != visit_id:
+                raise RuntimeError(
+                    f"{type(self).__name__} frame counter is claimed by visit_id "
+                    f"{self._visit_owner!r}, but advance_frame called with "
+                    f"{visit_id!r}. The same widget instance appears to be "
+                    "advancing in two concurrent section visits."
+                )
+            self._visit_owner = visit_id
         self._frame_count += 1
         for attr_name, _ in self._iter_effects():
             self._effect_frames[attr_name] = self._effect_frames.get(attr_name, 0) + 1
@@ -98,10 +114,13 @@ class _FrameAware:
         gives `RainbowChaseBorder` continuous phase across loop_count
         boundaries while still letting `Typewriter` retype.
 
+        Clears the visit ownership claim so a new visit_id can take over.
+
         Does NOT clear the pause flag — pause/resume are
         transition-scoped, reset is visit-scoped, the two are
         independent."""
         self._frame_count = 0
+        self._visit_owner = None
         for attr_name, effect in self._iter_effects():
             if getattr(effect, "restart_on_visit", True):
                 self._effect_frames[attr_name] = 0

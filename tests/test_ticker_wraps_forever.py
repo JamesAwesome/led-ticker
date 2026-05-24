@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from led_ticker.ticker import Ticker
+
 
 class _StubWrapsForeverWidget:
     """Minimal widget that signals `wraps_forever=True`. draw() returns
@@ -54,15 +56,14 @@ class TestWrapsForeverRespected:
     async def test_wraps_forever_widget_runs_for_hold_time(self, mocker):
         """A widget with wraps_forever=True should be drawn for the
         full hold_time, NOT terminate based on cursor_pos."""
-        from led_ticker.ticker import _swap_and_scroll
-
         widget = _StubWrapsForeverWidget()
         canvas = _make_test_canvas()
         frame = mocker.MagicMock()
         frame.matrix.SwapOnVSync.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
-        await _swap_and_scroll(canvas, frame, widget, scroll_speed=0.05, hold_time=0.5)
+        ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.05)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=0.5)
 
         # hold_time=0.5s at ENGINE_TICK_MS=50ms → ~10 ticks minimum.
         assert widget.draw_calls >= 10, (
@@ -73,15 +74,14 @@ class TestWrapsForeverRespected:
     @pytest.mark.asyncio
     async def test_finite_widget_unaffected(self, mocker):
         """Widgets without wraps_forever attribute behave as before."""
-        from led_ticker.ticker import _swap_and_scroll
-
         widget = _StubFiniteWidget()
         canvas = _make_test_canvas()
         frame = mocker.MagicMock()
         frame.matrix.SwapOnVSync.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
-        await _swap_and_scroll(canvas, frame, widget, scroll_speed=0.05, hold_time=0.5)
+        ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.05)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=0.5)
 
         # Finite widget should terminate (no infinite loop). Exact
         # draw_calls depends on scroll path; just confirm it ran.
@@ -92,15 +92,14 @@ class TestWrapsForeverRespected:
         """A widget with wraps_forever=True should have cursor_pos
         decremented across ticks (engine drives the marquee), NOT
         held at pos=0 like the held-text branch."""
-        from led_ticker.ticker import _swap_and_scroll
-
         widget = _StubWrapsForeverWidget()
         canvas = _make_test_canvas()
         frame = mocker.MagicMock()
         frame.matrix.SwapOnVSync.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
-        await _swap_and_scroll(canvas, frame, widget, scroll_speed=0.05, hold_time=0.5)
+        ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.05)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=0.5)
 
         # cursor_positions should contain a range of decreasing values
         # (engine advances pos). If the held branch ran instead, every
@@ -117,15 +116,14 @@ class TestWrapsForeverRespected:
     @pytest.mark.asyncio
     async def test_wraps_forever_widget_bounded_by_hold_time(self, mocker):
         """hold_time still bounds wraps_forever — not actually infinite."""
-        from led_ticker.ticker import _swap_and_scroll
-
         widget = _StubWrapsForeverWidget()
         canvas = _make_test_canvas()
         frame = mocker.MagicMock()
         frame.matrix.SwapOnVSync.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
-        await _swap_and_scroll(canvas, frame, widget, scroll_speed=0.05, hold_time=0.1)
+        ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.05)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=0.1)
 
         # 0.1s hold ≈ 2 ticks at 50ms.
         assert (
@@ -139,15 +137,14 @@ class TestWrapsForeverRespected:
         duration. With hold_time=1.0 and scroll_speed=0.025 (twice as
         fast), n_ticks should ≈ 40 — total wall-clock still 1.0s,
         marquee just ticks faster."""
-        from led_ticker.ticker import _swap_and_scroll
-
         widget = _StubWrapsForeverWidget()
         canvas = _make_test_canvas()
         frame = mocker.MagicMock()
         frame.matrix.SwapOnVSync.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
-        await _swap_and_scroll(canvas, frame, widget, scroll_speed=0.025, hold_time=1.0)
+        ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.025)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=1.0)
 
         # 1.0s / 0.025s per tick = 40 ticks.
         assert 35 <= widget.draw_calls <= 45, (
@@ -167,8 +164,6 @@ class TestWrapsForeverBottomTextLoops:
         """
         from unittest.mock import MagicMock
 
-        from led_ticker.ticker import _swap_and_scroll
-
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
         # Mock widget: wraps_forever=True, bottom_text_loops=4, cycle_width=10
@@ -185,12 +180,11 @@ class TestWrapsForeverBottomTextLoops:
         frame = MagicMock()
         frame.matrix.SwapOnVSync = lambda c: c
 
-        await _swap_and_scroll(
+        ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.05)
+        await ticker._swap_and_scroll(
             MagicMock(width=128),
-            frame,
             widget,
             hold_time=0.5,
-            scroll_speed=0.05,
             continuous=False,
         )
 
@@ -209,8 +203,6 @@ class TestWrapsForeverBottomTextLoops:
         """
         from unittest.mock import MagicMock
 
-        from led_ticker.ticker import _swap_and_scroll
-
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
         # hold_time=5s, scroll_speed=0.05 → 100 ticks
@@ -224,12 +216,11 @@ class TestWrapsForeverBottomTextLoops:
         frame = MagicMock()
         frame.matrix.SwapOnVSync = lambda c: c
 
-        await _swap_and_scroll(
+        ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.05)
+        await ticker._swap_and_scroll(
             MagicMock(width=128),
-            frame,
             widget,
             hold_time=5.0,
-            scroll_speed=0.05,
             continuous=False,
         )
 
@@ -247,8 +238,6 @@ class TestWrapsForeverBottomTextLoops:
         """
         from unittest.mock import MagicMock
 
-        from led_ticker.ticker import _swap_and_scroll
-
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
         # hold_time=0.5s, scroll_speed=0.05 → 10 ticks
@@ -263,12 +252,11 @@ class TestWrapsForeverBottomTextLoops:
         frame = MagicMock()
         frame.matrix.SwapOnVSync = lambda c: c
 
-        await _swap_and_scroll(
+        ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.05)
+        await ticker._swap_and_scroll(
             MagicMock(width=128),
-            frame,
             widget,
             hold_time=0.5,
-            scroll_speed=0.05,
             continuous=False,
         )
 

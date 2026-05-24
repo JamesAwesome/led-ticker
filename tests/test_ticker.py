@@ -13,15 +13,13 @@ from led_ticker.colors import RGB_WHITE
 from led_ticker.frame import LedFrame
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.ticker import (
+    Ticker,
     _build_ticker_iter,
     _CircleBufferMsg,
     _draw_hires_circle,
     _enqueue_ticker_objects,
     _has_index,
-    _has_play,
     _maybe_wrap,
-    _scroll_one_by_one,
-    _scroll_side_by_side,
     _swap,
 )
 
@@ -196,15 +194,15 @@ class TestScrollSideBySideBufferDrawn:
         await queue.put(title)
         await queue.put(next_monitor)
 
+        ticker = Ticker(
+            monitors=[], frame=frame, notif_queue=queue, buffer_msg=buffer_msg
+        )
+
         # Run a few iterations then cancel
         async def runner():
-            await _scroll_side_by_side(
+            await ticker._scroll_side_by_side(
                 canvas,
-                frame,
-                queue,
-                buffer_message=buffer_msg,
                 cursor_pos=18,  # title at pos=18, end at 64; next iter end at 63
-                scroll_speed=0,
                 hold_at_end=0,
             )
 
@@ -299,12 +297,11 @@ class TestScrollOneByOneReturnsLastPos:
         queue: asyncio.Queue = asyncio.Queue()
         await queue.put(widget)
 
-        result = await _scroll_one_by_one(
+        ticker = Ticker(monitors=[], frame=frame, notif_queue=queue)
+
+        result = await ticker._scroll_one_by_one(
             canvas,
-            frame,
-            queue,
             cursor_pos=0,
-            scroll_speed=0,
         )
         # Widget exits left -> last_drawn_pos should be heavily negative
         # (specifically, at most -content_width so the widget is fully
@@ -400,22 +397,122 @@ class TestHasPlayDispatch:
         class AsyncWidget:
             async def play(self, canvas): ...
 
-        assert _has_play(AsyncWidget()) is True
+        assert Ticker._has_play(AsyncWidget()) is True
 
     def test_returns_false_for_no_play(self):
         class DrawOnlyWidget:
             def draw(self, canvas, cursor_pos=0): ...
 
-        assert _has_play(DrawOnlyWidget()) is False
+        assert Ticker._has_play(DrawOnlyWidget()) is False
 
     def test_raises_for_sync_play(self):
         class SyncPlayWidget:
             def play(self, canvas): ...
 
         with pytest.raises(RuntimeError, match="play.*not.*coroutine"):
-            _has_play(SyncPlayWidget())
+            Ticker._has_play(SyncPlayWidget())
 
     def test_mock_returns_false_not_raises(self):
         """MagicMock auto-creates .play on access — must not raise."""
         w = MagicMock()
-        assert _has_play(w) is False
+        assert Ticker._has_play(w) is False
+
+
+class TestTickerMethodsMigrated:
+    """Verify that the engine operations are now Ticker instance/static methods."""
+
+    def test_has_play_is_static_method(self):
+        assert callable(Ticker._has_play)
+
+    def test_set_logical_scale_is_static_method(self):
+        assert callable(Ticker._set_logical_scale)
+
+    def test_hold_ticks_method_exists(self):
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._hold_ticks)
+
+    def test_swap_and_scroll_is_instance_method(self):
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._swap_and_scroll)
+
+    def test_scroll_between_is_instance_method(self):
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._scroll_between)
+
+    def test_play_widget_is_instance_method(self):
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._play_widget)
+
+    def test_show_one_is_instance_method(self):
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._show_one)
+
+    def test_run_swap_is_instance_method(self):
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._run_swap)
+
+    def test_run_gif_is_instance_method(self):
+        from unittest.mock import MagicMock
+
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._run_gif)
+
+    def test_scroll_and_delay_is_instance_method(self):
+        from unittest.mock import MagicMock
+
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._scroll_and_delay)
+
+    def test_scroll_one_by_one_is_instance_method(self):
+        from unittest.mock import MagicMock
+
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._scroll_one_by_one)
+
+    def test_scroll_side_by_side_is_instance_method(self):
+        from unittest.mock import MagicMock
+
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._scroll_side_by_side)
+
+    def test_advance_frame_if_supported_is_instance_method(self):
+        from unittest.mock import MagicMock
+
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert hasattr(ticker, "_advance_frame_if_supported")
+        assert callable(ticker._advance_frame_if_supported)
+
+
+class TestTickerVisitCounter:
+    """_show_one increments _current_visit before each widget visit (Large #4)."""
+
+    @pytest.mark.asyncio
+    async def test_current_visit_increments_per_show_one(self, no_sleep):
+        """_show_one increments _current_visit before each widget visit."""
+        from unittest.mock import MagicMock
+
+        frame = MagicMock()
+        frame.get_clean_canvas.return_value = MagicMock(width=256, height=64)
+        frame.matrix.SwapOnVSync.return_value = MagicMock(width=256, height=64)
+
+        ticker = Ticker(monitors=[], frame=frame)
+        assert ticker._current_visit == 0
+
+        canvas = MagicMock(width=256, height=64)
+        widget = MagicMock()
+        widget.draw.return_value = (canvas, 0)
+        widget.forces_offscreen_scroll = False
+        widget.wraps_forever = False
+
+        await ticker._show_one(canvas, widget, hold_time=0.05)
+        assert ticker._current_visit == 1
+
+        await ticker._show_one(canvas, widget, hold_time=0.05)
+        assert ticker._current_visit == 2
+
+    def test_visit_counter_starts_at_zero(self):
+        from unittest.mock import MagicMock
+
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert ticker._visit_counter == 0
+        assert ticker._current_visit == 0

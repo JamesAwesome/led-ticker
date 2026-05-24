@@ -41,6 +41,7 @@ from led_ticker.app.factories import (
     _resolve_buffer_msg,
     _resolve_title_delay,
     build_frame_from_config,
+    validate_widget_cfg,
 )
 
 # Run loop
@@ -80,4 +81,5 @@ __all__ = [
     "load_config",
     "main",
     "run",
+    "validate_widget_cfg",
 ]

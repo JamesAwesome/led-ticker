@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from led_ticker.app import _build_widget
+from led_ticker.app.factories import validate_widget_cfg
 from led_ticker.validate import ValidationIssue, ValidationResult, validate_config
 
 
@@ -34,24 +34,24 @@ def test_valid_with_only_warnings():
     assert r.valid is True
 
 
-async def test_build_widget_validate_only_returns_none_for_valid_widget():
+async def test_validate_widget_cfg_returns_none_for_valid_widget():
     cfg = {"type": "message", "text": "hello"}
-    result = await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+    result = await validate_widget_cfg(cfg, session=None)
     assert result is None
 
 
-async def test_build_widget_validate_only_raises_on_text_scale():
+async def test_validate_widget_cfg_raises_on_text_scale():
     from led_ticker.validate import MigrationError
 
     cfg = {"type": "message", "text": "hi", "text_scale": 2}
     with pytest.raises(MigrationError, match="text_scale"):
-        await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+        await validate_widget_cfg(cfg, session=None)
 
 
-async def test_build_widget_validate_only_raises_on_animation_wrong_type():
+async def test_validate_widget_cfg_raises_on_animation_wrong_type():
     cfg = {"type": "weather", "location": "NYC", "animation": "typewriter"}
     with pytest.raises(ValueError, match="animation is only valid"):
-        await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
+        await validate_widget_cfg(cfg, session=None)
 
 
 @pytest.fixture

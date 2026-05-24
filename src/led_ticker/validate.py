@@ -95,16 +95,16 @@ def _classify_error(msg: str) -> tuple[int | None, str]:
 async def _run_build_checks(
     sections: list[SectionConfig], config_dir: Path
 ) -> tuple[list[tuple[str, str]], list[tuple[str, Any]], list[tuple[str, str, str]]]:
-    """Run _build_widget(validate_only=True) for every widget.
+    """Run validate_widget_cfg for every widget.
 
     Returns (build_errors, coerce_warnings, migration_errors):
     - build_errors: (location, error_msg) pairs
     - coerce_warnings: (location, CoercionWarning) pairs collected from
-      _build_widget's coercion pass for each widget.
+      validate_widget_cfg's coercion pass for each widget.
     - migration_errors: (location, message, suggested_fix) triples from
-      MigrationError raised by _build_widget for removed knobs.
+      MigrationError raised by validate_widget_cfg for removed knobs.
     """
-    from led_ticker.app import _build_widget
+    from led_ticker.app.factories import validate_widget_cfg
 
     issues: list[tuple[str, str]] = []
     warnings: list[tuple[str, Any]] = []
@@ -113,11 +113,10 @@ async def _run_build_checks(
         for j, widget_cfg in enumerate(section.widgets):
             widget_warnings: list[Any] = []
             try:
-                await _build_widget(
+                await validate_widget_cfg(
                     copy.deepcopy(widget_cfg),
-                    session=None,  # type: ignore[arg-type]
+                    session=None,
                     config_dir=config_dir,
-                    validate_only=True,
                     coercion_collector=widget_warnings,
                 )
             except MigrationError as e:

@@ -219,31 +219,22 @@ def _resolve_asset_paths(
         widget_cfg["path"] = str((config_dir / candidate).resolve())
 
 
-async def _build_widget(
+async def validate_widget_cfg(
     widget_cfg: dict[str, Any],
-    session: aiohttp.ClientSession,
+    session: aiohttp.ClientSession | None,
     config_dir: Path | None = None,
     default_bg_color: tuple[int, int, int] | None = None,
     panel_h_for_warning: int | None = None,
-    validate_only: bool = False,
     coercion_collector: list[Any] | None = None,
-) -> Any:
-    """Instantiate a widget from its config dict.
+) -> None:
+    """Run all widget configuration validation phases without constructing the widget.
 
-    `config_dir` is the directory containing the config.toml; used to
-    resolve relative `path` values for widgets that reference asset
-    files (currently just `type = "gif"`).
+    Equivalent to the former _build_widget(validate_only=True) path but with an
+    explicit name and return type. Used by validate.py so the construction/validation
+    boundary is explicit.
 
-    `default_bg_color` is the section-level bg as an `(r, g, b)` tuple
-    (or None). It's injected into `widget_cfg["bg_color"]` only when
-    the widget config doesn't already specify it — preserving the
-    "widget overrides section" precedence rule.
-
-    `panel_h_for_warning` is the real panel height in pixels (or None
-    to skip the check). When set and a hi-res `font_size` exceeds
-    `panel_h_for_warning - 2`, log a warning — this catches small-sign
-    users who set a font size that won't fit vertically. Bigsign hi-res
-    is the supported use case, so callers pass None for it.
+    Raises ValueError, MigrationError, or other exceptions on invalid config.
+    Mutates widget_cfg in-place (type is popped, values coerced).
     """
     from led_ticker.validate import MigrationError
 
@@ -409,15 +400,45 @@ async def _build_widget(
     # a raw TypeError from attrs — catch it here with a usable message.
     _validate_cfg_fields(widget_cfg, cls, widget_type)
 
-    if validate_only:
-        return None
 
+async def _build_widget(
+    widget_cfg: dict[str, Any],
+    session: aiohttp.ClientSession,
+    config_dir: Path | None = None,
+    default_bg_color: tuple[int, int, int] | None = None,
+    panel_h_for_warning: int | None = None,
+    coercion_collector: list[Any] | None = None,
+) -> Any:
+    """Instantiate a widget from its config dict.
+
+    `config_dir` is the directory containing the config.toml; used to
+    resolve relative `path` values for widgets that reference asset
+    files (currently just `type = "gif"`).
+
+    `default_bg_color` is the section-level bg as an `(r, g, b)` tuple
+    (or None). It's injected into `widget_cfg["bg_color"]` only when
+    the widget config doesn't already specify it — preserving the
+    "widget overrides section" precedence rule.
+
+    `panel_h_for_warning` is the real panel height in pixels (or None
+    to skip the check). When set and a hi-res `font_size` exceeds
+    `panel_h_for_warning - 2`, log a warning — this catches small-sign
+    users who set a font size that won't fit vertically. Bigsign hi-res
+    is the supported use case, so callers pass None for it.
+    """
+    widget_type = widget_cfg.get("type")  # peek before validate_widget_cfg pops it
+    await validate_widget_cfg(
+        widget_cfg,
+        session=session,
+        config_dir=config_dir,
+        default_bg_color=default_bg_color,
+        panel_h_for_warning=panel_h_for_warning,
+        coercion_collector=coercion_collector,
+    )
+    cls = get_widget_class(widget_type)
     if hasattr(cls, "start"):
-        widget = await cls.start(session=session, **widget_cfg)
-    else:
-        widget = cls(**widget_cfg)
-
-    return widget
+        return await cls.start(session=session, **widget_cfg)
+    return cls(**widget_cfg)
 
 
 async def _build_title(

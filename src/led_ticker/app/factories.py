@@ -86,6 +86,22 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
     return cls(**kwargs)
 
 
+def _resolve_asset_paths(
+    widget_cfg: dict[str, Any],
+    widget_type: str,
+    config_dir: Path | None,
+) -> None:
+    if widget_type not in ("gif", "image"):
+        return
+    if "path" not in widget_cfg:
+        return
+    if config_dir is None:
+        return
+    candidate = Path(widget_cfg["path"])
+    if not candidate.is_absolute():
+        widget_cfg["path"] = str((config_dir / candidate).resolve())
+
+
 async def _build_widget(
     widget_cfg: dict[str, Any],
     session: aiohttp.ClientSession,
@@ -323,16 +339,7 @@ async def _build_widget(
         else:
             widget_cfg.pop("text")
 
-    # File-backed widgets get config-relative paths resolved here so
-    # the widgets themselves don't need to know about config layout.
-    if (
-        widget_type in ("gif", "image")
-        and "path" in widget_cfg
-        and config_dir is not None
-    ):
-        candidate = Path(widget_cfg["path"])
-        if not candidate.is_absolute():
-            widget_cfg["path"] = str((config_dir / candidate).resolve())
+    _resolve_asset_paths(widget_cfg, widget_type, config_dir)
 
     # Convert color keys (font_color, top_color, bottom_color) to
     # ColorProvider instances. Constant [r,g,b] lists get wrapped in

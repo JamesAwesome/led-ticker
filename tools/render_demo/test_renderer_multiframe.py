@@ -28,6 +28,10 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO_ROOT / "tests" / "stubs"))
 sys.path.insert(0, str(_REPO_ROOT))
 
+import pytest  # noqa: E402
+
+pytest.importorskip("tomli_w")
+
 from PIL import Image  # noqa: E402
 from tools.render_demo.render import render  # noqa: E402
 
@@ -60,7 +64,7 @@ def test_render_animated_widget_produces_multiframe_gif(tmp_path: Path) -> None:
     cfg.write_text(FIXTURE_TOML)
     out = tmp_path / "out.gif"
 
-    render(cfg, out, duration=4.0, upscale=1, fps=20)
+    render(cfg, out, duration=4.0, upscale=1)
 
     assert out.exists(), "Renderer produced no output file"
     im = Image.open(out)
@@ -83,7 +87,7 @@ def test_render_first_and_last_frames_differ(tmp_path: Path) -> None:
     cfg.write_text(FIXTURE_TOML)
     out = tmp_path / "out.gif"
 
-    render(cfg, out, duration=4.0, upscale=1, fps=20)
+    render(cfg, out, duration=4.0, upscale=1)
 
     im = Image.open(out)
     im.seek(0)

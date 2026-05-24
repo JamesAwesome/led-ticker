@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif
+.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews setup-demo-fonts
 
 # --- Developer Setup ---
 
@@ -19,13 +19,13 @@ test:  ## Run pytest with coverage (no Docker needed)
 # --- Quality ---
 
 lint:  ## Run ruff linter
-	uv run ruff check src/ tests/
+	uv run ruff check src/ tests/ tools/
 
 typecheck:  ## Run pyright type checker
 	uv run pyright src/
 
 format:  ## Run ruff formatter
-	uv run ruff format src/ tests/
+	uv run ruff format src/ tests/ tools/
 
 # --- Config validation ---
 
@@ -66,6 +66,9 @@ render-demo:  ## Render a single demo gif. Usage: make render-demo CONFIG=path/t
 
 plan-gif:  ## Recommended render --duration for a demo (+ cutoff guard). Usage: make plan-gif CONFIG=path/to.toml
 	uv run python tools/gif_plan/plan.py $(CONFIG)
+
+render-emoji-previews:  ## Re-generate per-slug emoji preview PNGs in docs/site/public/emoji/
+	uv run python tools/render_emoji_previews.py
 
 # Long-running widget demos (data-fetch widgets — coinbase, mlb, rss_feed, …).
 # Source TOMLs in docs/site/demos-long/, output to docs/site/public/demos-long/

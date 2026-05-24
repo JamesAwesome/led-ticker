@@ -7,8 +7,10 @@ on the fly for any image/gif paths that don't resolve.
 
 Usage:
     uv run python tools/render_demo/render.py <config.toml> -o out.gif \\
-        [--duration 5] [--upscale 4] [--fps 20] [--start-section 0]
+        [--duration 5] [--upscale 4] [--start-section 0]
 """
+
+# Requires optional render deps: pip install "led-ticker[render]"
 
 from __future__ import annotations
 
@@ -26,7 +28,6 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO_ROOT / "tests" / "stubs"))
 sys.path.insert(0, str(_REPO_ROOT))
 
-import imageio.v2 as imageio  # noqa: E402
 import tomli_w  # noqa: E402
 from PIL import Image  # noqa: E402
 from tools.render_demo.placeholder import (  # noqa: E402
@@ -119,7 +120,6 @@ def render(
     *,
     duration: float = 5.0,
     upscale: int = 4,
-    fps: int = 20,
     start_section: int = 0,
 ) -> None:
     config = _load_config(config_path)
@@ -169,12 +169,11 @@ def render(
         # pause) gets its real duration rather than a flat tick_ms.
         #
         # Collapse runs of identical consecutive frames into a single
-        # kept frame whose duration sums the interval of each. Without
-        # this, imageio.mimsave's silent identical-frame dedupe would
-        # discard the cumulative display time anyway.
+        # kept frame whose duration sums the interval of each. This
+        # avoids creating unnecessary duplicate frames in the output gif.
         #
-        # imageio quirk: scalar `duration` is seconds; list `duration`
-        # is milliseconds. We use ms in both shapes for consistency.
+        # Pillow GIF encoder: `duration` is always milliseconds for both
+        # scalar and list forms when using Image.save.
         intervals_ms = _intervals_ms(rec.timestamps, end_time)
         kept: list[Image.Image] = []
         durations: list[float] = []
@@ -191,7 +190,13 @@ def render(
         # a scalar); pass the sum as a scalar in that case so a fully-
         # static render still encodes the engine's wall-clock hold.
         encode_duration = durations[0] if len(kept) == 1 else durations
-        imageio.mimsave(out_path, kept, format="GIF", duration=encode_duration, loop=0)
+        kept[0].save(
+            out_path,
+            save_all=True,
+            append_images=kept[1:],
+            duration=encode_duration,
+            loop=0,
+        )
 
 
 def _intervals_ms(timestamps: list[float], end_time: float) -> list[float]:
@@ -223,9 +228,6 @@ def main() -> None:
         "--upscale", type=int, default=4, help="Pixel upscale factor (default 4)"
     )
     parser.add_argument(
-        "--fps", type=int, default=20, help="Output gif fps (default 20)"
-    )
-    parser.add_argument(
         "--start-section",
         type=int,
         default=0,
@@ -242,7 +244,6 @@ def main() -> None:
         args.output,
         duration=args.duration,
         upscale=args.upscale,
-        fps=args.fps,
         start_section=args.start_section,
     )
 

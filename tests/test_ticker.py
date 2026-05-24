@@ -481,3 +481,38 @@ class TestTickerMethodsMigrated:
         ticker = Ticker(monitors=[], frame=MagicMock())
         assert hasattr(ticker, "_advance_frame_if_supported")
         assert callable(ticker._advance_frame_if_supported)
+
+
+class TestTickerVisitCounter:
+    """_show_one increments _current_visit before each widget visit (Large #4)."""
+
+    @pytest.mark.asyncio
+    async def test_current_visit_increments_per_show_one(self, no_sleep):
+        """_show_one increments _current_visit before each widget visit."""
+        from unittest.mock import MagicMock
+
+        frame = MagicMock()
+        frame.get_clean_canvas.return_value = MagicMock(width=256, height=64)
+        frame.matrix.SwapOnVSync.return_value = MagicMock(width=256, height=64)
+
+        ticker = Ticker(monitors=[], frame=frame)
+        assert ticker._current_visit == 0
+
+        canvas = MagicMock(width=256, height=64)
+        widget = MagicMock()
+        widget.draw.return_value = (canvas, 0)
+        widget.forces_offscreen_scroll = False
+        widget.wraps_forever = False
+
+        await ticker._show_one(canvas, widget, hold_time=0.05)
+        assert ticker._current_visit == 1
+
+        await ticker._show_one(canvas, widget, hold_time=0.05)
+        assert ticker._current_visit == 2
+
+    def test_visit_counter_starts_at_zero(self):
+        from unittest.mock import MagicMock
+
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert ticker._visit_counter == 0
+        assert ticker._current_visit == 0

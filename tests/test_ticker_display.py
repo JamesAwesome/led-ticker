@@ -432,7 +432,7 @@ class TestScrollAndDelay:
         widget.draw.side_effect = lambda c, cursor_pos=0, **kw: (c, cursor_pos + 40)
         widget._advance_frame_count = 0
 
-        def _advance():
+        def _advance(**kwargs):
             widget._advance_frame_count += 1
 
         widget.advance_frame.side_effect = _advance
@@ -463,7 +463,7 @@ class TestScrollAndDelay:
         widget.draw.side_effect = lambda c, cursor_pos=0, **kw: (c, cursor_pos + 40)
         widget._advance_frame_count = 0
 
-        def _advance():
+        def _advance(**kwargs):
             widget._advance_frame_count += 1
 
         widget.advance_frame.side_effect = _advance
@@ -492,7 +492,7 @@ class TestScrollOneByOne:
         widget.draw.side_effect = lambda c, cursor_pos=0: (c, cursor_pos + 5)
         widget._advance_frame_count = 0
 
-        def _advance():
+        def _advance(**kwargs):
             widget._advance_frame_count += 1
 
         widget.advance_frame.side_effect = _advance
@@ -606,7 +606,7 @@ class TestScrollSideBySide:
         widget._advance_frame_count = 0
         widget.bg_color = None
 
-        def _advance():
+        def _advance(**kwargs):
             widget._advance_frame_count += 1
 
         widget.advance_frame.side_effect = _advance
@@ -643,7 +643,7 @@ class TestScrollSideBySide:
             w._advance_frame_count = 0
             w.bg_color = None
 
-            def _advance():
+            def _advance(**kwargs):
                 w._advance_frame_count += 1
 
             w.advance_frame.side_effect = _advance
@@ -1114,7 +1114,7 @@ class TestSwapAndScrollEngineTick:
                 # Return cursor_pos < canvas.width so it stays in held branch
                 return canvas, 5
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 self.advance_calls += 1
                 self._frame_count += 1
 
@@ -1158,7 +1158,7 @@ class TestSwapAndScrollEngineTick:
                 # Return cursor_pos > canvas.width to trigger scroll
                 return canvas, 200
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 self.advance_calls += 1
                 self._frame_count += 1
 
@@ -1240,7 +1240,7 @@ class TestShowOneResetsFrame:
                 self._frame_count = 0
                 self.reset_called = True
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 self._frame_count += 1
 
             @property
@@ -1309,7 +1309,7 @@ class TestShowOneResetsFrame:
                 self._frame_count = 0
                 self.reset_called = True
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 self._frame_count += 1
 
             @property
@@ -1357,7 +1357,7 @@ class TestShowOneResetsFrame:
                 self._frame_count = 0
                 self.reset_called = True
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 self._frame_count += 1
 
             @property
@@ -1413,7 +1413,7 @@ class TestTypewriterPlusRainbowBorderComposition:
             def draw(self, canvas, cursor_pos=0, **kwargs):
                 return canvas, 5
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 if self._frame_paused:
                     return
                 self._frame_count += 1
@@ -1476,7 +1476,7 @@ class TestTypewriterPlusRainbowBorderComposition:
             def draw(self, canvas, cursor_pos=0, **kwargs):
                 return canvas, 5
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 if self._frame_paused:
                     return
                 self._frame_count += 1
@@ -1521,7 +1521,7 @@ class TestTypewriterPlusRainbowBorderComposition:
             def draw(self, canvas, cursor_pos=0, **kwargs):
                 return canvas, 5
 
-            def advance_frame(self):
+            def advance_frame(self, *, visit_id=None):
                 if self._frame_paused:
                     return
                 self._frame_count += 1

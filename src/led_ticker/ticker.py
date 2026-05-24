@@ -184,6 +184,8 @@ class Ticker:
     # to this default.
     scroll_speed: float = 0.05
     last_scroll_pos: int = attrs.field(init=False, default=0)
+    _visit_counter: int = attrs.field(init=False, default=0)
+    _current_visit: int = attrs.field(init=False, default=0)
 
     @classmethod
     def from_rss_feed(
@@ -365,13 +367,14 @@ class Ticker:
             widget._logical_scale = scale
 
     def _advance_frame_if_supported(self, widget: Any) -> None:
-        """Call `widget.advance_frame()` if the widget exposes it.
+        """Call `widget.advance_frame(visit_id=self._current_visit)` if supported.
 
         Quietly no-ops on widgets without the _FrameAware mixin.
-        After Task 5, this will pass `visit_id=self._current_visit`.
+        Passes the current visit ID so _FrameAware can detect aliasing bugs
+        (same widget instance advancing in two concurrent section visits).
         """
         if hasattr(widget, "advance_frame"):
-            widget.advance_frame()
+            widget.advance_frame(visit_id=self._current_visit)
 
     async def _hold_ticks(
         self,
@@ -603,6 +606,8 @@ class Ticker:
         Resets the widget's frame counters at the start of each visit
         (via `reset_frame()` if the widget exposes it).
         """
+        self._visit_counter += 1
+        self._current_visit = self._visit_counter
         if hasattr(widget, "reset_frame"):
             widget.reset_frame()
         if Ticker._has_play(widget):

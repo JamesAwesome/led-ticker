@@ -27,6 +27,7 @@ jobs:
       python: ${{ steps.f.outputs.python }}
       docs: ${{ steps.f.outputs.docs }}
       gif_plan: ${{ steps.f.outputs.gif_plan }}
+      docker: ${{ steps.f.outputs.docker }}
     steps:
       - uses: actions/checkout@v6
       - id: f
@@ -48,6 +49,11 @@ jobs:
               - 'tools/gif_plan/**'
               - 'pyproject.toml'
               - 'uv.lock'
+              - '.github/workflows/ci.yml'
+            docker:
+              - 'Dockerfile'
+              - 'pyproject.toml'
+              - 'src/**'
               - '.github/workflows/ci.yml'
 
   lint:
@@ -117,11 +123,23 @@ jobs:
         working-directory: docs/site
         run: pnpm run lint
 
+  docker-build:
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build Docker image
+        run: docker build --no-cache -t led-ticker-ci-test .
+      - name: Clean up test image
+        if: always()
+        run: docker rmi led-ticker-ci-test || true
+
   # Single rollup that branch protection can require. Passes iff every
   # upstream job is success or skipped; fails if any upstream failed
   # or was cancelled.
   ci-passed:
-    needs: [changes, lint, typecheck, test, gif-plan-test, docs-lint]
+    needs: [changes, lint, typecheck, test, gif-plan-test, docs-lint, docker-build]
     if: always()
     runs-on: self-hosted
     steps:
@@ -136,12 +154,13 @@ jobs:
           TEST_RESULT: ${{ needs.test.result }}
           GIF_PLAN_TEST_RESULT: ${{ needs.gif-plan-test.result }}
           DOCS_LINT_RESULT: ${{ needs.docs-lint.result }}
+          DOCKER_BUILD_RESULT: ${{ needs.docker-build.result }}
         run: |
           if [[ "$CHANGES_RESULT" != "success" ]]; then
             echo "Job 'changes' result: $CHANGES_RESULT — refusing to declare CI green."
             exit 1
           fi
-          for job in lint:"$LINT_RESULT" typecheck:"$TYPECHECK_RESULT" test:"$TEST_RESULT" gif-plan-test:"$GIF_PLAN_TEST_RESULT" docs-lint:"$DOCS_LINT_RESULT"; do
+          for job in lint:"$LINT_RESULT" typecheck:"$TYPECHECK_RESULT" test:"$TEST_RESULT" gif-plan-test:"$GIF_PLAN_TEST_RESULT" docs-lint:"$DOCS_LINT_RESULT" docker-build:"$DOCKER_BUILD_RESULT"; do
             name="${job%%:*}"
             result="${job#*:}"
             case "$result" in

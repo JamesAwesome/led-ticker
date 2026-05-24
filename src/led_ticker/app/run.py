@@ -8,6 +8,7 @@ the run loop here only orchestrates.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -238,7 +239,18 @@ async def run(config_path: Path) -> None:
                 ):
                     run_kwargs["start_pos"] = 0
 
-                await getattr(ticker, run_method)(**run_kwargs)
+                try:
+                    await getattr(ticker, run_method)(**run_kwargs)
+                except asyncio.CancelledError:
+                    raise
+                finally:
+                    if (
+                        ticker._enqueue_task is not None
+                        and not ticker._enqueue_task.done()
+                    ):
+                        ticker._enqueue_task.cancel()
+                        with contextlib.suppress(asyncio.CancelledError, Exception):
+                            await ticker._enqueue_task
 
                 # Brief pause before between-sections transition
                 if section.continuous_scroll:

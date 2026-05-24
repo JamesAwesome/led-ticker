@@ -181,6 +181,7 @@ class Ticker:
     last_scroll_pos: int = attrs.field(init=False, default=0)
     _visit_counter: int = attrs.field(init=False, default=0)
     _current_visit: int = attrs.field(init=False, default=0)
+    _enqueue_task: asyncio.Task | None = attrs.field(init=False, default=None)
 
     @classmethod
     def from_rss_feed(
@@ -213,12 +214,19 @@ class Ticker:
         title = self.title if self.title else None
         assert self.notif_queue is not None
 
-        asyncio.create_task(
+        self._enqueue_task = asyncio.create_task(
             _build_then_enqueue(
                 self.monitors,
                 self.notif_queue,
                 title=title,
                 loop_count=loop_count,
+            )
+        )
+        self._enqueue_task.add_done_callback(
+            lambda t: (
+                logging.error("enqueue task failed: %s", t.exception())
+                if not t.cancelled() and t.exception() is not None
+                else None
             )
         )
 
@@ -256,12 +264,19 @@ class Ticker:
         # We pass title=None to _build_then_enqueue rather than relying
         # on _run_gif's defensive non-play() skip (which is a tripwire,
         # not the primary suppression mechanism).
-        asyncio.create_task(
+        self._enqueue_task = asyncio.create_task(
             _build_then_enqueue(
                 self.monitors,
                 self.notif_queue,
                 title=None,
                 loop_count=1,
+            )
+        )
+        self._enqueue_task.add_done_callback(
+            lambda t: (
+                logging.error("enqueue task failed: %s", t.exception())
+                if not t.cancelled() and t.exception() is not None
+                else None
             )
         )
 
@@ -282,12 +297,19 @@ class Ticker:
         cursor_pos = start_pos if start_pos is not None else canvas.width
         assert self.notif_queue is not None
 
-        asyncio.create_task(
+        self._enqueue_task = asyncio.create_task(
             _build_then_enqueue(
                 self.monitors,
                 self.notif_queue,
                 title=title,
                 loop_count=loop_count,
+            )
+        )
+        self._enqueue_task.add_done_callback(
+            lambda t: (
+                logging.error("enqueue task failed: %s", t.exception())
+                if not t.cancelled() and t.exception() is not None
+                else None
             )
         )
 
@@ -309,12 +331,19 @@ class Ticker:
         title = self.title if self.title else None
         assert self.notif_queue is not None
 
-        asyncio.create_task(
+        self._enqueue_task = asyncio.create_task(
             _build_then_enqueue(
                 self.monitors,
                 self.notif_queue,
                 title=title,
                 loop_count=loop_count,
+            )
+        )
+        self._enqueue_task.add_done_callback(
+            lambda t: (
+                logging.error("enqueue task failed: %s", t.exception())
+                if not t.cancelled() and t.exception() is not None
+                else None
             )
         )
 

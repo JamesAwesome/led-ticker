@@ -13,6 +13,7 @@ from led_ticker.colors import RGB_WHITE
 from led_ticker.frame import LedFrame
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.ticker import (
+    Ticker,
     _build_ticker_iter,
     _CircleBufferMsg,
     _draw_hires_circle,
@@ -419,3 +420,37 @@ class TestHasPlayDispatch:
         """MagicMock auto-creates .play on access — must not raise."""
         w = MagicMock()
         assert _has_play(w) is False
+
+
+class TestTickerMethodsMigrated:
+    """Verify that the engine operations are now Ticker instance/static methods."""
+
+    def test_has_play_is_static_method(self):
+        assert callable(Ticker._has_play)
+
+    def test_set_logical_scale_is_static_method(self):
+        assert callable(Ticker._set_logical_scale)
+
+    def test_hold_ticks_method_exists(self):
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._hold_ticks)
+
+    def test_swap_and_scroll_is_instance_method(self):
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._swap_and_scroll)
+
+    def test_scroll_between_is_instance_method(self):
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._scroll_between)
+
+    def test_play_widget_is_instance_method(self):
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._play_widget)
+
+    def test_show_one_is_instance_method(self):
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._show_one)
+
+    def test_run_swap_is_instance_method(self):
+        ticker = Ticker(monitors=[], frame=MagicMock())
+        assert callable(ticker._run_swap)

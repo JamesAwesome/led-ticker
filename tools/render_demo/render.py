@@ -7,7 +7,7 @@ on the fly for any image/gif paths that don't resolve.
 
 Usage:
     uv run python tools/render_demo/render.py <config.toml> -o out.gif \\
-        [--duration 5] [--upscale 4] [--fps 20] [--start-section 0]
+        [--duration 5] [--upscale 4] [--start-section 0]
 """
 
 # Requires optional render deps: pip install "led-ticker[render]"
@@ -120,7 +120,6 @@ def render(
     *,
     duration: float = 5.0,
     upscale: int = 4,
-    fps: int = 20,
     start_section: int = 0,
 ) -> None:
     config = _load_config(config_path)
@@ -230,9 +229,6 @@ def main() -> None:
         "--upscale", type=int, default=4, help="Pixel upscale factor (default 4)"
     )
     parser.add_argument(
-        "--fps", type=int, default=20, help="Output gif fps (default 20)"
-    )
-    parser.add_argument(
         "--start-section",
         type=int,
         default=0,
@@ -249,7 +245,6 @@ def main() -> None:
         args.output,
         duration=args.duration,
         upscale=args.upscale,
-        fps=args.fps,
         start_section=args.start_section,
     )
 

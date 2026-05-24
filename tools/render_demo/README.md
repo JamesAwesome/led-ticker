@@ -7,7 +7,7 @@ docs site to generate per-widget demo gifs from minimal config snippets.
 
 ```bash
 uv run python tools/render_demo/render.py path/to/config.toml -o out.gif \
-  [--duration 5] [--upscale 4] [--fps 20] [--start-section 0]
+  [--duration 5] [--upscale 4] [--start-section 0]
 ```
 
 ## How it works

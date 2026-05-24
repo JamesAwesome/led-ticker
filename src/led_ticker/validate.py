@@ -1255,7 +1255,7 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
     # fails at startup and has no deploy-target excuse.
     errors.extend(_check_transition_names(config))
 
-    # Phase 1c: Build-time checks via _build_widget(validate_only=True).
+    # Phase 1c: Build-time checks via validate_widget_cfg.
     # "unknown font" failures are downgraded to warnings (rule 24): the
     # font may live on the deploy target but not the laptop drafting
     # the config. Type / required-field errors stay hard.

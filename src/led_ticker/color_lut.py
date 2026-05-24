@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from led_ticker._types import Color
 
-_HUE_TABLE: list | None = None
+_HUE_TABLE: list[Color] | None = None
 
 
 def hue_color(hue_degrees: float) -> Color:
@@ -34,7 +34,7 @@ def hue_color(hue_degrees: float) -> Color:
         from led_ticker._compat import require_graphics
 
         graphics = require_graphics()
-        table: list = []
+        table: list[Color] = []
         for h in range(360):
             r, g, b = colorsys.hsv_to_rgb(h / 360.0, 1.0, 1.0)
             table.append(graphics.Color(int(r * 255), int(g * 255), int(b * 255)))

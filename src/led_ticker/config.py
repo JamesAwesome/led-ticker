@@ -44,8 +44,8 @@ class TransitionConfig:
 class SectionConfig:
     mode: str  # "forever_scroll", "infini_scroll", "swap"
     loop_count: int = 1
-    title: dict | None = None
-    widgets: list[dict] = field(default_factory=list)
+    title: dict[str, Any] | None = None
+    widgets: list[dict[str, Any]] = field(default_factory=list)
     transition: TransitionConfig = field(
         default_factory=TransitionConfig,
     )
@@ -125,7 +125,7 @@ class SectionConfig:
     # `font_color`: [r, g, b], "rainbow", "color_cycle", or
     # {style = "gradient", ...}. Raw value here; normalized to
     # ColorProvider by app._resolve_buffer_msg at build time.
-    separator_color: list[int] | str | dict | None = None
+    separator_color: list[int] | str | dict[str, Any] | None = None
     # Raw TOML dict for this section. Populated by load_config; used by
     # the validator to inspect unknown / cross-scope keys (rules 34, 35).
     # Not included in repr to keep logs readable. Other consumers of
@@ -248,7 +248,7 @@ def _coerce_easing(
 
 
 def _parse_transition(
-    raw: dict | str | None,
+    raw: dict[str, Any] | str | None,
     default: TransitionConfig,
 ) -> TransitionConfig:
     if raw is None:

@@ -2593,3 +2593,72 @@ class TestResolveAssetPaths:
         cfg = {"path": "gifs/rainbow.gif"}
         _resolve_asset_paths(cfg, "gif", None)
         assert cfg["path"] == "gifs/rainbow.gif"
+
+
+class TestResolveFonts:
+    def test_no_font_key_is_noop(self):
+        from led_ticker.app.factories import _resolve_fonts
+
+        cfg = {"message": "hello"}
+        _resolve_fonts(cfg, "message", None, None)
+        assert "font" not in cfg
+
+    def test_bdf_font_name_resolved_to_object(self):
+        from led_ticker.app.factories import _resolve_fonts
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        cfg = {"font": "5x8"}
+        _resolve_fonts(cfg, "message", None, None)
+        # BDF aliases resolve to the rgbmatrix Font object, not a HiresFont
+        assert not isinstance(cfg["font"], str)
+        assert not isinstance(cfg["font"], HiresFont)
+
+    def test_hires_font_without_font_size_raises(self):
+        from led_ticker.app.factories import _resolve_fonts
+
+        cfg = {"font": "Inter-Bold"}
+        with pytest.raises(ValueError, match="requires font_size"):
+            _resolve_fonts(cfg, "message", None, None)
+
+    def test_hires_font_with_font_size_resolved(self):
+        from led_ticker.app.factories import _resolve_fonts
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        cfg = {"font": "Inter-Bold", "font_size": 24}
+        _resolve_fonts(cfg, "message", None, None)
+        assert isinstance(cfg["font"], HiresFont)
+
+    def test_per_row_fonts_resolved(self):
+        from led_ticker.app.factories import _resolve_fonts
+        from led_ticker.fonts.hires_loader import HiresFont
+
+        cfg = {"top_font": "5x8", "bottom_font": "6x12"}
+        _resolve_fonts(cfg, "two_row", None, None)
+        # BDF aliases resolve to rgbmatrix Font objects, not strings or HiresFont
+        assert not isinstance(cfg["top_font"], str)
+        assert not isinstance(cfg["top_font"], HiresFont)
+        assert not isinstance(cfg["bottom_font"], str)
+        assert not isinstance(cfg["bottom_font"], HiresFont)
+
+    def test_per_row_hires_without_size_raises(self):
+        from led_ticker.app.factories import _resolve_fonts
+
+        cfg = {"top_font": "Inter-Bold"}
+        with pytest.raises(ValueError, match="requires top_font_size"):
+            _resolve_fonts(cfg, "two_row", None, None)
+
+    def test_font_size_passed_through_when_cls_accepts_it(self):
+        from led_ticker.app.factories import _resolve_fonts
+        from led_ticker.widgets.gif import GifPlayer
+
+        cfg = {"font": "5x8", "font_size": 8}
+        _resolve_fonts(cfg, "gif", GifPlayer, None)
+        assert cfg.get("font_size") == 8
+
+    def test_font_size_dropped_when_cls_does_not_accept_it(self):
+        from led_ticker.app.factories import _resolve_fonts
+        from led_ticker.widgets.message import TickerMessage
+
+        cfg = {"font": "5x8", "font_size": 8}
+        _resolve_fonts(cfg, "message", TickerMessage, None)
+        assert "font_size" not in cfg

@@ -634,6 +634,7 @@ class Ticker:
         """Run swap display mode with optional transitions."""
         from led_ticker.transitions import Scroll, run_transition
 
+        assert self.notif_queue is not None
         is_scroll = self.transition_config is not None and isinstance(
             self.transition_config.transition_obj, Scroll
         )
@@ -748,6 +749,7 @@ class Ticker:
         a one-frame "flash-back" of the last widget reappearing center-canvas
         before the dissolve begins.
         """
+        assert self.notif_queue is not None
         ticker_object = await self.notif_queue.get()
         pos = cursor_pos
         last_drawn_pos = pos
@@ -809,6 +811,7 @@ class Ticker:
         then returns. This produces a clean readable end-state that an
         inter-section dissolve can fade out from.
         """
+        assert self.notif_queue is not None
         logging.info("Running _scroll_side_by_side ...")
         buffered_objects: list[Any] = []
         next_monitor = await self.notif_queue.get()
@@ -941,6 +944,7 @@ class Ticker:
         # for the post-swap rebind step; this site just wants the raw canvas.
         # Capture the wrapper scale before unwrapping so play()-style widgets
         # can interpret logical-unit knobs (e.g. `top_row_height`).
+        assert self.notif_queue is not None
         wrapper_scale = canvas.scale if isinstance(canvas, ScaledCanvas) else 1
         real = unwrap_to_real(canvas)
         while True:

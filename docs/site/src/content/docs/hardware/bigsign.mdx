@@ -136,7 +136,7 @@ a higher floor.
 
 ### `content_height` cannot exceed 16 at scale = 4
 
-The hard ceiling is `content_height × scale ≤ panel_h_real`. For the bigsign at `scale = 4` and a 64-tall panel that's `content_height ≤ 16`. Pushing above the ceiling makes the wrapper's `_y_offset` go negative — the logical canvas is taller than the real panel — and the top + bottom rows of your content silently clip. BDF text is forgiving because cells sit near the vertical center, but hi-res emoji and large hi-res fonts surface the clip immediately (e.g. a hi-res `:instagram:` icon loses about 4 real px off the bottom). For per-row breathing room use `text_y_offset` on the widget, not a higher `content_height`.
+The hard ceiling is `content_height × scale ≤ panel_h_real`. For the bigsign at `scale = 4` and a 64-tall panel that's `content_height ≤ 16`. Pushing above the ceiling makes the wrapper's vertical offset go negative — the logical canvas is taller than the real panel — and the top + bottom rows of your content silently clip. BDF text is forgiving because cells sit near the vertical center, but hi-res emoji and large hi-res fonts surface the clip immediately (e.g. a hi-res `:instagram:` icon loses about 4 real px off the bottom). For per-row breathing room use `text_y_offset` on the widget, not a higher `content_height`.
 
 ### The `pixel_mapper` Remap string is sensitive to chain order
 

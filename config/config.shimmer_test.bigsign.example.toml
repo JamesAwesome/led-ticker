@@ -321,7 +321,40 @@ text = "SAME SWEEP, DIFFERENT HEIGHT"
 font_color = "shimmer"
 
 # ---------------------------------------------------------------------------
-# 10. forever_scroll shimmer — sweeping over a long scrolling message.
+# 10. Gold coin — dark amber base, bright yellow-gold specular highlight.
+#     Narrow width + brief pause mimics the flash of light catching a
+#     spinning coin: most of the time the coin is dark gold, then a
+#     tight bright streak crosses it and disappears. [255, 215, 0] is
+#     the classic gold (#FFD700); [90, 55, 0] gives a warm dark base
+#     without going fully black.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = "10. Gold coin"
+color = [200, 160, 0]
+
+[[playlist.section.widget]]
+type = "message"
+text = "GOLD COIN"
+font = "Inter-Bold"
+font_size = 24
+font_color = {style = "shimmer", base = [90, 55, 0], shimmer = [255, 215, 0], speed = 18, width = 4, pause = 0.8}
+
+[[playlist.section.widget]]
+type = "message"
+text = "LIMITED EDITION"
+font = "Inter-Bold"
+font_size = 24
+font_color = {style = "shimmer", base = [90, 55, 0], shimmer = [255, 215, 0], speed = 18, width = 4, pause = 0.8}
+
+# ---------------------------------------------------------------------------
+# 11. forever_scroll shimmer — sweeping over a long scrolling message.
 #     In forever_scroll mode the frame counter advances continuously, so
 #     the spot sweeps across the full text as it scrolls. The sweep length
 #     is proportional to total_chars, so long messages get a proportionally
@@ -334,7 +367,7 @@ loop_count = 1
 
 [playlist.section.title]
 type = "message"
-text = "10. Scroll shimmer"
+text = "11. Scroll shimmer"
 color = [160, 200, 160]
 
 [[playlist.section.widget]]

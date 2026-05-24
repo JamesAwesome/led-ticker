@@ -158,6 +158,46 @@ def _resolve_fonts(
             )
 
 
+def _validate_cfg_fields(
+    widget_cfg: dict[str, Any],
+    cls: type,
+) -> None:
+    """Check that all keys in widget_cfg are recognized attrs fields of cls.
+
+    Raises ValueError with did-you-mean suggestions on unknown keys.
+    Also includes `cls.start()` parameter names for data widgets that use
+    a class-method factory instead of direct construction.
+    """
+    cls_init_fields = {
+        a.name for a in getattr(cls, "__attrs_attrs__", ()) if a.init is not False
+    }
+    # start()-based data widgets accept kwargs like update_interval via cls.start()
+    # that are not attrs fields — include them in the allowlist so configs using
+    # these widgets don't get false-positive "unknown field" errors.
+    if hasattr(cls, "start"):
+        try:
+            start_params = set(inspect.signature(cls.start).parameters) - {
+                "session",
+                "cls",
+            }
+            cls_init_fields |= start_params
+        except (ValueError, TypeError) as exc:
+            logging.debug("skipping widget construction: %s", exc)
+    unknown = set(widget_cfg.keys()) - cls_init_fields
+    if unknown:
+        suggestions = []
+        for key in sorted(unknown):
+            matches = difflib.get_close_matches(
+                key, sorted(cls_init_fields), n=1, cutoff=0.6
+            )
+            hint = f" (did you mean {matches[0]!r}?)" if matches else ""
+            suggestions.append(f"{key!r}{hint}")
+        raise ValueError(
+            f"widget type={cls.__name__!r} got unknown "
+            f"{'field' if len(unknown) == 1 else 'fields'}: " + ", ".join(suggestions)
+        )
+
+
 def _resolve_asset_paths(
     widget_cfg: dict[str, Any],
     widget_type: str,
@@ -366,34 +406,7 @@ async def _build_widget(
     # Dispatch-level keys were all popped above; remaining keys are splatted
     # directly into cls(**widget_cfg). Any key not in attrs __init__ raises
     # a raw TypeError from attrs — catch it here with a usable message.
-    cls_init_fields = {
-        a.name for a in getattr(cls, "__attrs_attrs__", ()) if a.init is not False
-    }
-    # start()-based data widgets accept kwargs like update_interval via cls.start()
-    # that are not attrs fields — include them in the allowlist so configs using
-    # these widgets don't get false-positive "unknown field" errors.
-    if hasattr(cls, "start"):
-        try:
-            start_params = set(inspect.signature(cls.start).parameters) - {
-                "session",
-                "cls",
-            }
-            cls_init_fields |= start_params
-        except (ValueError, TypeError) as exc:
-            logging.debug("skipping widget construction: %s", exc)
-    unknown = set(widget_cfg.keys()) - cls_init_fields
-    if unknown:
-        suggestions = []
-        for key in sorted(unknown):
-            matches = difflib.get_close_matches(
-                key, sorted(cls_init_fields), n=1, cutoff=0.6
-            )
-            hint = f" (did you mean {matches[0]!r}?)" if matches else ""
-            suggestions.append(f"{key!r}{hint}")
-        raise ValueError(
-            f"widget type={widget_type!r} got unknown "
-            f"{'field' if len(unknown) == 1 else 'fields'}: " + ", ".join(suggestions)
-        )
+    _validate_cfg_fields(widget_cfg, cls)
 
     if validate_only:
         return None

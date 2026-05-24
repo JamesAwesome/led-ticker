@@ -2682,3 +2682,29 @@ class TestResolveFonts:
         with caplog.at_level(logging.WARNING):
             _resolve_fonts(cfg, None, panel_h_for_warning=14)
         assert not any("clip vertically" in r.message for r in caplog.records)
+
+
+class TestValidateCfgFields:
+    def test_unknown_field_raises_with_name(self):
+        from led_ticker.app.factories import _validate_cfg_fields
+        from led_ticker.widgets.message import TickerMessage
+
+        cfg = {"message": "hello", "unknown_field": "value"}
+        with pytest.raises(ValueError, match="unknown_field"):
+            _validate_cfg_fields(cfg, TickerMessage)
+
+    def test_did_you_mean_hint_included(self):
+        from led_ticker.app.factories import _validate_cfg_fields
+        from led_ticker.widgets.message import TickerMessage
+
+        # "massage" is close to "message" — difflib should suggest "message"
+        cfg = {"massage": "hello"}
+        with pytest.raises(ValueError, match="did you mean"):
+            _validate_cfg_fields(cfg, TickerMessage)
+
+    def test_valid_fields_do_not_raise(self):
+        from led_ticker.app.factories import _validate_cfg_fields
+        from led_ticker.widgets.message import TickerMessage
+
+        cfg = {"message": "hello"}
+        _validate_cfg_fields(cfg, TickerMessage)  # must not raise

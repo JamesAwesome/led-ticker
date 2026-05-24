@@ -370,8 +370,8 @@ async def _build_widget(
                 "cls",
             }
             cls_init_fields |= start_params
-        except (ValueError, TypeError):
-            pass  # unintrospectable; don't expand
+        except (ValueError, TypeError) as exc:
+            logging.debug("skipping widget construction: %s", exc)
     unknown = set(widget_cfg.keys()) - cls_init_fields
     if unknown:
         suggestions = []

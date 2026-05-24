@@ -37,7 +37,7 @@ from led_ticker.colors import (
 )
 from led_ticker.config import SectionConfig, TransitionConfig
 from led_ticker.frame import LedFrame
-from led_ticker.transitions import get_transition_class
+from led_ticker.transitions import Transition, get_transition_class
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
 
@@ -61,7 +61,7 @@ def _cache_key(widget_cfg: dict[str, Any]) -> str:
     return str(sorted(widget_cfg.items()))
 
 
-def _build_trans_obj(trans_cfg: TransitionConfig) -> Any:
+def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
     """Construct a transition instance from a `TransitionConfig`.
 
     Returns None when `trans_cfg.type == "cut"` (treated as

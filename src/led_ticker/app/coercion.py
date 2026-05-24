@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from led_ticker.animations import Animation
+from led_ticker.borders import BorderEffect
+from led_ticker.color_providers import ColorProvider
 from led_ticker.widgets._image_base import (
     VALID_SCROLL_DIRECTIONS,
     VALID_TEXT_ALIGNS,
@@ -52,7 +55,9 @@ _SHIMMER_COLOR_SHORTHANDS: dict[str, tuple[int, int, int]] = {
 }
 
 
-def _coerce_color_provider(value: Any, context: str = "font_color") -> Any:
+def _coerce_color_provider(
+    value: Any, context: str = "font_color"
+) -> ColorProvider | None:
     """Convert a TOML color spec to a ColorProvider instance.
 
     Accepts:
@@ -148,7 +153,7 @@ def _rgb_to_hue(rgb: list[int] | tuple[int, ...], context: str) -> float:
     return h * 360.0
 
 
-def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
+def _provider_from_style(style: str, kwargs: dict[str, Any]) -> ColorProvider:
     """Instantiate a provider by name with kwargs. Validates kwargs
     against each provider's __init__ signature; raises with a helpful
     message on unknown styles or missing/unknown kwargs."""
@@ -291,14 +296,14 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> Any:
     return cls(**kwargs)
 
 
-def _coerce_color(value: Any) -> Any:
+def _coerce_color(value: Any) -> ColorProvider | None:
     """Backwards-compat shim: defers to _coerce_color_provider for
     new uses. Kept so any out-of-tree caller doesn't immediately break.
     """
     return _coerce_color_provider(value)
 
 
-def _coerce_border(value: Any) -> Any:
+def _coerce_border(value: Any) -> BorderEffect | None:
     """Convert a TOML border spec to a `BorderEffect` instance.
 
     Accepts:
@@ -438,7 +443,7 @@ def _coerce_border(value: Any) -> Any:
     )
 
 
-def _coerce_animation(value: Any) -> Any:
+def _coerce_animation(value: Any) -> Animation | None:
     """Convert a TOML animation spec to an Animation instance.
 
     Accepts:

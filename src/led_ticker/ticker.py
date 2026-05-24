@@ -14,7 +14,7 @@ import attrs
 
 from led_ticker._types import Canvas, ColorTuple
 from led_ticker.colors import RGB_WHITE
-from led_ticker.drawing import get_widget_padding
+from led_ticker.drawing import get_widget_padding, safe_scale
 from led_ticker.scaled_canvas import ScaledCanvas, paint_hires, unwrap_to_real
 from led_ticker.widgets._image_fit import reset_canvas
 from led_ticker.widgets.message import TickerMessage
@@ -939,7 +939,7 @@ class Ticker:
         # Capture the wrapper scale before unwrapping so play()-style widgets
         # can interpret logical-unit knobs (e.g. `top_row_height`).
         assert self.notif_queue is not None
-        wrapper_scale = canvas.scale if isinstance(canvas, ScaledCanvas) else 1
+        wrapper_scale = safe_scale(canvas)
         real = unwrap_to_real(canvas)
         while True:
             try:

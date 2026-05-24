@@ -243,6 +243,15 @@ def test_paint_hires_scaled_canvas_with_letterbox():
     assert calls == [(real, 2, 16)]
 
 
+def test_safe_scale_matches_isinstance_for_scaled_canvas():
+    from led_ticker.drawing import safe_scale
+
+    real = _make_real_canvas(real_w=256, real_h=64)
+    sc = ScaledCanvas(real, scale=4)
+    assert safe_scale(sc) > 1
+    assert safe_scale(real) == 1
+
+
 def test_paint_hires_plain_canvas():
     real = _make_real_canvas(real_w=256, real_h=64)
     calls: list[tuple] = []

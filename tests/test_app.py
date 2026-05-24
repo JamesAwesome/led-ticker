@@ -2386,3 +2386,85 @@ class TestSingleRowColorGuard:
         }
         result = await _build_widget(cfg, session=None, validate_only=True)  # type: ignore[arg-type]
         assert result is None  # validate_only returns None on success
+
+
+class TestPerSectionQueue:
+    """A fresh asyncio.Queue must be created per section visit, not reused
+    across sections. Sharing queues allows a fast section's leftover items
+    to be consumed by the next section's Ticker. (S3)
+    """
+
+    @pytest.mark.asyncio
+    async def test_fresh_queue_per_section(self):
+        """Verify that each section gets its own fresh asyncio.Queue."""
+        import sys
+
+        import led_ticker.app.run  # noqa: F401
+        from led_ticker.app import run as app_run
+        from led_ticker.config import (
+            AppConfig,
+            DisplayConfig,
+            SectionConfig,
+            TransitionConfig,
+        )
+
+        run_module = sys.modules["led_ticker.app.run"]
+
+        # Create a config with 2 sections to exercise the per-section loop
+        cfg = AppConfig(
+            display=DisplayConfig(rows=16, cols=32, chain=5),
+            sections=[
+                SectionConfig(
+                    mode="swap",
+                    widgets=[{"type": "message", "text": "Section 1"}],
+                ),
+                SectionConfig(
+                    mode="swap",
+                    widgets=[{"type": "message", "text": "Section 2"}],
+                ),
+            ],
+            between_sections=TransitionConfig(type="cut"),
+        )
+
+        received_queues: list = []
+
+        OriginalTicker = __import__("led_ticker.ticker", fromlist=["Ticker"]).Ticker
+
+        class _SpyTicker(OriginalTicker):
+            def __init__(self, *args, **kwargs):
+                received_queues.append(kwargs.get("notif_queue"))
+                self.last_scroll_pos = 0
+                # Only raise after we've seen both sections
+                if len(received_queues) >= 2:
+                    raise _StopApp("captured both sections")
+
+            async def run_swap(self, **kw):
+                pass
+
+        with (
+            mock.patch.object(run_module, "load_config", return_value=cfg),
+            mock.patch.object(
+                run_module,
+                "build_frame_from_config",
+                return_value=mock.Mock(
+                    **{"get_clean_canvas.return_value": mock.Mock(height=16, width=160)}
+                ),
+            ),
+            mock.patch.object(run_module, "_configure_user_font_dir"),
+            mock.patch.object(run_module, "Ticker", _SpyTicker),
+            pytest.raises(_StopApp),
+        ):
+            await app_run(Path("ignored.toml"))
+
+        # We should have captured at least 2 Ticker instantiations (one per section)
+        assert len(received_queues) >= 2, (
+            f"Expected at least 2 Ticker instantiations (one per section), "
+            f"got {len(received_queues)}"
+        )
+
+        # All queues should be distinct objects (fresh per section)
+        queue_ids = [id(q) for q in received_queues]
+        assert len(set(queue_ids)) == len(queue_ids), (
+            f"Expected all queues to be distinct objects, but some were reused. "
+            f"Queue IDs: {queue_ids}"
+        )

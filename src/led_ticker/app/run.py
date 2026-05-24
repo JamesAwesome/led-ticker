@@ -59,7 +59,6 @@ async def run(config_path: Path) -> None:
     )
 
     async with aiohttp.ClientSession() as session:
-        notif_queue: asyncio.Queue[Any] = asyncio.Queue()
         last_widget: Any = None  # track for section-to-section transitions
         last_scroll_pos: int = 0  # track scroll pos for between-section transitions
         last_scale: int = config.display.default_scale  # outgoing section's scale
@@ -71,6 +70,7 @@ async def run(config_path: Path) -> None:
 
         while True:
             for section in config.sections:
+                notif_queue: asyncio.Queue[Any] = asyncio.Queue()
                 widgets: list[Any] = []
                 runtime_coerce: list[Any] = []
                 for widget_cfg in section.widgets:

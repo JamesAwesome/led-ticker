@@ -172,8 +172,8 @@ def render(
         # kept frame whose duration sums the interval of each. This
         # avoids creating unnecessary duplicate frames in the output gif.
         #
-        # PIL quirk: scalar `duration` is centiseconds; list `duration`
-        # is milliseconds. We use ms in list form for consistency.
+        # Pillow GIF encoder: `duration` is always milliseconds for both
+        # scalar and list forms when using Image.save.
         intervals_ms = _intervals_ms(rec.timestamps, end_time)
         kept: list[Image.Image] = []
         durations: list[float] = []

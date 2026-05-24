@@ -1096,11 +1096,14 @@ class TestRunSwapWithScroll:
         await q.put(w2)
         await q.put(w3)
         trans = mock.Mock()
-        trans.transition_obj = Scroll()
         trans.duration = 4.0
         trans.easing = "linear"
         ticker = Ticker(
-            monitors=[], frame=mock_frame, notif_queue=q, transition_config=trans
+            monitors=[],
+            frame=mock_frame,
+            notif_queue=q,
+            transition_config=trans,
+            transition_fn=Scroll(),
         )
         await ticker._run_swap(canvas)
         assert w1.draw.called
@@ -1119,11 +1122,14 @@ class TestRunSwapWithScroll:
         await q.put(w1)
         await q.put(w2)
         trans = mock.Mock()
-        trans.transition_obj = PushLeft()
         trans.duration = 0.5
         trans.easing = "linear"
         ticker = Ticker(
-            monitors=[], frame=mock_frame, notif_queue=q, transition_config=trans
+            monitors=[],
+            frame=mock_frame,
+            notif_queue=q,
+            transition_config=trans,
+            transition_fn=PushLeft(),
         )
         await ticker._run_swap(canvas)
         assert w1.draw.called

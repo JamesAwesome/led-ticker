@@ -38,7 +38,6 @@ class TransitionConfig:
     colors: list[tuple[int, int, int]] | None = None
     show_pikachu: bool = True
     show_pokeball: bool = True
-    transition_obj: Any = None
 
 
 @dataclass

@@ -196,9 +196,10 @@ async def run(config_path: Path) -> None:
                     section.transition if section.transition_specified else None
                 )
                 if widget_trans_cfg is not None and widget_trans_cfg.type != "cut":
-                    widget_trans_cfg.transition_obj = _build_trans_obj(widget_trans_cfg)
+                    transition_fn = _build_trans_obj(widget_trans_cfg)
                     transition_config = widget_trans_cfg
                 else:
+                    transition_fn = None
                     transition_config = None
 
                 ticker_kwargs: dict[str, Any] = {
@@ -210,6 +211,7 @@ async def run(config_path: Path) -> None:
                     ),
                     "notif_queue": notif_queue,
                     "transition_config": transition_config,
+                    "transition_fn": transition_fn,
                     "hold_time": section.hold_time,
                     "continuous_scroll": section.continuous_scroll,
                     "scale": section.scale,

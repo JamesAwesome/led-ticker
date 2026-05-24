@@ -7,6 +7,20 @@ import pytest
 
 from led_ticker.config import load_config
 
+
+class TestTransitionObjNotMutated:
+    def test_transition_config_has_no_transition_obj_field(self):
+        import dataclasses
+
+        from led_ticker.config import TransitionConfig
+
+        fields = {f.name for f in dataclasses.fields(TransitionConfig)}
+        assert "transition_obj" not in fields, (
+            "transition_obj must be a local variable in run.py, "
+            "not a field on the shared TransitionConfig dataclass."
+        )
+
+
 SAMPLE_CONFIG = """\
 [display]
 rows = 16

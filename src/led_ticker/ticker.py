@@ -168,6 +168,7 @@ class Ticker:
     buffer_msg: Any = attrs.Factory(lambda: DEFAULT_BUFFER_MSG)
     notif_queue: asyncio.Queue[Any] | None = None
     transition_config: Any = None
+    transition_fn: Any = None
     hold_time: float = 3.0
     continuous_scroll: bool = False
     scale: int = 1
@@ -634,7 +635,7 @@ class Ticker:
 
         assert self.notif_queue is not None
         is_scroll = self.transition_config is not None and isinstance(
-            self.transition_config.transition_obj, Scroll
+            self.transition_fn, Scroll
         )
         ticker_object = await self.notif_queue.get()
         canvas, prev_scroll_pos = await self._show_one(
@@ -665,7 +666,7 @@ class Ticker:
                     self.frame,
                     prev_object,
                     ticker_object,
-                    transition=self.transition_config.transition_obj,
+                    transition=self.transition_fn,
                     duration=self.transition_config.duration,
                     easing=self.transition_config.easing,
                     outgoing_scroll_pos=prev_scroll_pos,

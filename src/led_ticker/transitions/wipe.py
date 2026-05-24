@@ -47,9 +47,7 @@ class WipeUp(_BaseWipe):
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             # Black out rows below sweep (erased region)
             if sweep_row < h - 1:
-                for y in range(sweep_row + 1, h):
-                    for x in range(w):
-                        canvas.SetPixel(x, y, 0, 0, 0)
+                canvas.SubFill(0, sweep_row + 1, w, h - sweep_row - 1, 0, 0, 0)
             # Sweep line (2px thick)
             for dy in range(2):
                 row = sweep_row + dy
@@ -80,10 +78,7 @@ class WipeLeft(_BaseWipe):
             line_x = w - boundary
             # Black out right of sweep line (erased region)
             if boundary > 0:
-                x_range = range(line_x, w)
-                for y in range(h):
-                    for x in x_range:
-                        canvas.SetPixel(x, y, 0, 0, 0)
+                canvas.SubFill(line_x, 0, w - line_x, h, 0, 0, 0)
             # Sweep line at line_x
             sweep_w = min(2, line_x)
             if sweep_w > 0:
@@ -113,10 +108,7 @@ class WipeRight(_BaseWipe):
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             # Black out left of boundary (erased region)
             if boundary > 0:
-                x_range = range(boundary)
-                for y in range(h):
-                    for x in x_range:
-                        canvas.SetPixel(x, y, 0, 0, 0)
+                canvas.SubFill(0, 0, boundary, h, 0, 0, 0)
             # Sweep line at boundary
             sweep_w = min(2, w - boundary)
             if sweep_w > 0:
@@ -147,9 +139,7 @@ class WipeDown(_BaseWipe):
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             # Black out rows above sweep (erased region)
             if sweep_row > 0:
-                for y in range(min(sweep_row, h)):
-                    for x in range(w):
-                        canvas.SetPixel(x, y, 0, 0, 0)
+                canvas.SubFill(0, 0, w, min(sweep_row, h), 0, 0, 0)
             # Sweep line (2px thick)
             for dy in range(2):
                 row = sweep_row - dy

@@ -191,13 +191,10 @@ def draw_nyan_frame(
 
     for stripe_idx, (r, g, b) in enumerate(RAINBOW):
         y_start = RAINBOW_TOP_Y + stripe_idx * RAINBOW_STRIPE_HEIGHT
-        for dy in range(RAINBOW_STRIPE_HEIGHT):
-            y = y_start + dy
-            if 0 <= y < height:
-                x_lo = max(0, trail_start)
-                x_hi = min(width, max(0, trail_end))
-                for x in range(x_lo, x_hi):
-                    canvas.SetPixel(x, y, r, g, b)
+        x_lo = max(0, trail_start)
+        x_hi = min(width, max(0, trail_end))
+        if x_lo < x_hi:
+            canvas.SubFill(x_lo, y_start, x_hi - x_lo, RAINBOW_STRIPE_HEIGHT, r, g, b)
 
     # Draw the cat sprite (clipped to canvas)
     for dx, dy, r, g, b in NYAN_CAT:
@@ -230,11 +227,9 @@ def draw_nyan_frame_rtl(
 
     for stripe_idx, (r, g, b) in enumerate(RAINBOW):
         y_start = RAINBOW_TOP_Y + stripe_idx * RAINBOW_STRIPE_HEIGHT
-        for dy in range(RAINBOW_STRIPE_HEIGHT):
-            y = y_start + dy
-            if 0 <= y < height:
-                for x in range(max(0, trail_start), width):
-                    canvas.SetPixel(x, y, r, g, b)
+        x_lo = max(0, trail_start)
+        if x_lo < width:
+            canvas.SubFill(x_lo, y_start, width - x_lo, RAINBOW_STRIPE_HEIGHT, r, g, b)
 
     # Draw the cat sprite (horizontally flipped)
     for dx, dy, r, g, b in NYAN_CAT:

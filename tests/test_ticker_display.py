@@ -964,6 +964,112 @@ class TestScrollBetween:
         incoming.resume_frame.assert_called_once()
 
 
+class TestDrawScrollFrame:
+    """Unit tests for the private _draw_scroll_frame helper."""
+
+    def _make_canvas(self, w=64, h=16):
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        options = RGBMatrixOptions()
+        options.cols = w
+        options.rows = h
+        options.chain_length = 1
+        return RGBMatrix(options=options).CreateFrameCanvas()
+
+    def test_clear_start_blacks_out_tail_region(self):
+        """Pixels from clear_start to w-1 must be black after _draw_scroll_frame."""
+        from unittest.mock import MagicMock
+
+        from led_ticker.ticker import _draw_scroll_frame
+
+        canvas = self._make_canvas(w=64, h=16)
+        for y in range(16):
+            for x in range(32, 64):
+                canvas.SetPixel(x, y, 255, 0, 0)
+
+        outgoing = MagicMock()
+        outgoing.draw.return_value = (canvas, 0)
+        incoming = MagicMock()
+        incoming.draw.return_value = (canvas, 0)
+
+        _draw_scroll_frame(
+            canvas,
+            outgoing,
+            incoming,
+            outgoing_pos=-64,
+            bullet_x=-64,
+            incoming_pos=200,
+            clear_start=32,
+        )
+
+        for y in range(16):
+            for x in range(32, 64):
+                assert canvas.get_pixel(x, y) == (
+                    0,
+                    0,
+                    0,
+                ), f"pixel ({x},{y}) not cleared"
+
+    def test_clear_start_zero_blacks_entire_canvas(self):
+        from unittest.mock import MagicMock
+
+        from led_ticker.ticker import _draw_scroll_frame
+
+        canvas = self._make_canvas(w=64, h=16)
+        for y in range(16):
+            for x in range(64):
+                canvas.SetPixel(x, y, 0, 0, 255)
+
+        outgoing = MagicMock()
+        outgoing.draw.return_value = (canvas, 0)
+        incoming = MagicMock()
+        incoming.draw.return_value = (canvas, 0)
+
+        _draw_scroll_frame(
+            canvas,
+            outgoing,
+            incoming,
+            outgoing_pos=-64,
+            bullet_x=-64,
+            incoming_pos=200,
+            clear_start=0,
+        )
+
+        for y in range(16):
+            for x in range(64):
+                assert canvas.get_pixel(x, y) == (
+                    0,
+                    0,
+                    0,
+                ), f"pixel ({x},{y}) not cleared"
+
+    def test_no_clear_when_clear_start_equals_width(self):
+        """clear_start == w means nothing to clear; existing pixels survive."""
+        from unittest.mock import MagicMock
+
+        from led_ticker.ticker import _draw_scroll_frame
+
+        canvas = self._make_canvas(w=64, h=16)
+        canvas.SetPixel(63, 0, 255, 0, 0)
+
+        outgoing = MagicMock()
+        outgoing.draw.return_value = (canvas, 0)
+        incoming = MagicMock()
+        incoming.draw.return_value = (canvas, 0)
+
+        _draw_scroll_frame(
+            canvas,
+            outgoing,
+            incoming,
+            outgoing_pos=-64,
+            bullet_x=-64,
+            incoming_pos=200,
+            clear_start=64,
+        )
+
+        assert canvas.get_pixel(63, 0) == (255, 0, 0)
+
+
 class TestRunSwapWithScroll:
     async def test_scroll_processes_all_widgets(
         self, canvas, mock_frame, make_widget, no_sleep

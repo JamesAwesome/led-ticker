@@ -88,7 +88,6 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
 
 def _resolve_fonts(
     widget_cfg: dict[str, Any],
-    widget_type: str,
     cls: type | None,
     panel_h_for_warning: int | None,
 ) -> None:
@@ -329,7 +328,7 @@ async def _build_widget(
     if default_bg_color is not None and "bg_color" not in widget_cfg:
         widget_cfg["bg_color"] = list(default_bg_color)
 
-    _resolve_fonts(widget_cfg, widget_type, cls, panel_h_for_warning)
+    _resolve_fonts(widget_cfg, cls, panel_h_for_warning)
 
     # Config uses "text" but TickerMessage/TickerCountdown use "message".
     # Only rename for widgets that don't accept `text` natively (e.g.

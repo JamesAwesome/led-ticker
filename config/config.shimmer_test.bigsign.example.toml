@@ -1,0 +1,348 @@
+# led-ticker shimmer smoke test — Pi 5 bigsign (256×64 canvas)
+#
+# One section per notable shimmer configuration variant. Useful for
+# visually verifying the effect on hardware and for comparing the
+# tuning knobs side-by-side.
+#
+# Shimmer sends a cosine bright-spot sweeping left-to-right across the
+# text. The `base` color is the rest state; `shimmer` is the peak
+# highlight. `speed` (chars/sec), `width` (chars), and `pause` (seconds)
+# shape the timing.
+#
+# Run with:
+#   led-ticker config/config.shimmer_test.bigsign.example.toml
+
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+
+brightness = 60
+default_scale = 4
+gpio_mapping = "adafruit-hat"
+slowdown_gpio = 3
+rp1_rio = 1
+pwm_bits = 8
+show_refresh = true
+
+[title]
+delay = 4
+
+[transitions]
+default = "dissolve"
+duration = 0.6
+between_sections = "dissolve"
+
+# ---------------------------------------------------------------------------
+# 1. Plain string shorthand — all defaults.
+#    base = [60, 60, 80] (dim blue-gray), shimmer = white,
+#    speed = 14 chars/sec, width = 8 chars, pause = 0.5 s.
+#    Baseline: what you get from `font_color = "shimmer"` with no tuning.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = "1. Plain shimmer"
+color = [120, 120, 160]
+
+[[playlist.section.widget]]
+type = "message"
+text = "JUST SHIMMER"
+font = "Inter-Bold"
+font_size = 24
+font_color = "shimmer"
+
+[[playlist.section.widget]]
+type = "message"
+text = "DEFAULT SETTINGS"
+font = "Inter-Bold"
+font_size = 24
+font_color = "shimmer"
+
+# ---------------------------------------------------------------------------
+# 2. Gold shimmer — `shimmer = "gold"` string shorthand.
+#    Default dim blue-gray base + gold highlight. High contrast between
+#    the cool base and warm peak — flashy, attention-grabbing.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = "2. Gold shimmer"
+color = [200, 160, 40]
+
+[[playlist.section.widget]]
+type = "message"
+text = "GRAND OPENING"
+font = "Inter-Bold"
+font_size = 24
+font_color = {style = "shimmer", shimmer = "gold"}
+
+[[playlist.section.widget]]
+type = "message"
+text = "NOW OPEN"
+font = "Inter-Bold"
+font_size = 24
+font_color = {style = "shimmer", shimmer = "gold"}
+
+# ---------------------------------------------------------------------------
+# 3. Cyan shimmer — `shimmer = "cyan"` string shorthand.
+#    Same default base, aqua highlight. Cooler, more technical feel.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = "3. Cyan shimmer"
+color = [0, 180, 200]
+
+[[playlist.section.widget]]
+type = "message"
+text = "LIVE DATA FEED"
+font = "Inter-Bold"
+font_size = 24
+font_color = {style = "shimmer", shimmer = "cyan"}
+
+[[playlist.section.widget]]
+type = "message"
+text = "CONNECTING"
+font = "Inter-Bold"
+font_size = 24
+font_color = {style = "shimmer", shimmer = "cyan"}
+
+# ---------------------------------------------------------------------------
+# 4. Blue base + white shimmer — `base = "blue"` string shorthand.
+#    Cool blue resting state, white peak. All-cool palette — good for
+#    winter themes or tech-forward branding.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = "4. Blue base"
+color = [80, 140, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "ICY COOL"
+font = "Inter-Bold"
+font_size = 24
+font_color = {style = "shimmer", base = "blue", shimmer = "white"}
+
+[[playlist.section.widget]]
+type = "message"
+text = "FROST EFFECT"
+font = "Inter-Bold"
+font_size = 24
+font_color = {style = "shimmer", base = "blue", shimmer = "white"}
+
+# ---------------------------------------------------------------------------
+# 5. Narrow glint — width = 3, speed = 22, pause = 1.5.
+#    A tight, fast-moving spark that crosses the text and then sits dark
+#    for 1.5 seconds. Sharp and intermittent — good for short messages
+#    that need a "moment" without continuous motion.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = "5. Narrow glint"
+color = [200, 200, 200]
+
+[[playlist.section.widget]]
+type = "message"
+text = "CLOSING SOON"
+font = "Inter-Bold"
+font_size = 24
+font_color = {style = "shimmer", base = [20, 20, 30], shimmer = "white", speed = 22, width = 3, pause = 1.5}
+
+[[playlist.section.widget]]
+type = "message"
+text = "LAST CALL"
+font = "Inter-Bold"
+font_size = 24
+font_color = {style = "shimmer", base = [30, 10, 0], shimmer = "gold", speed = 22, width = 3, pause = 1.5}
+
+# ---------------------------------------------------------------------------
+# 6. Wide bloom — width = 14, speed = 6, pause = 0.
+#    Slow, continuous sweep with no pause — the whole text blooms in
+#    and out like breathing. Subtle and ambient; good for always-on
+#    background displays where constant motion would be jarring.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 10.0
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = "6. Wide bloom"
+color = [160, 120, 220]
+
+[[playlist.section.widget]]
+type = "message"
+text = "AMBIENT GLOW"
+font = "Inter-Bold"
+font_size = 24
+font_color = {style = "shimmer", base = [40, 20, 60], shimmer = [200, 160, 255], speed = 6, width = 14, pause = 0}
+
+[[playlist.section.widget]]
+type = "message"
+text = "SLOW BREATHE"
+font = "Inter-Bold"
+font_size = 24
+font_color = {style = "shimmer", base = [10, 30, 10], shimmer = [180, 255, 180], speed = 6, width = 14, pause = 0}
+
+# ---------------------------------------------------------------------------
+# 7. Custom RGB — dark charcoal base, soft lavender shimmer.
+#    Both colors as explicit [r, g, b] triples. Shows that shorthands
+#    are optional; any RGB pair works. Restrained, design-forward feel.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = "7. Custom RGB"
+color = [180, 160, 240]
+
+[[playlist.section.widget]]
+type = "message"
+text = "BESPOKE COLORS"
+font = "Inter-Bold"
+font_size = 24
+font_color = {style = "shimmer", base = [25, 25, 35], shimmer = [200, 190, 255]}
+
+[[playlist.section.widget]]
+type = "message"
+text = "YOUR PALETTE"
+font = "Inter-Bold"
+font_size = 24
+font_color = {style = "shimmer", base = [35, 15, 0], shimmer = [255, 200, 120], speed = 10, width = 10}
+
+# ---------------------------------------------------------------------------
+# 8. Two-row layout — shimmer on both rows independently.
+#    top_color and bottom_color each get their own shimmer config.
+#    Different speed + shimmer color per row shows that the two providers
+#    run their own phase counters independently.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 10.0
+loop_count = 2
+scale = 2
+content_height = 32
+
+[playlist.section.title]
+type = "message"
+text = "8. Two-row shimmer"
+color = [200, 180, 120]
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "SHIMMER TOP ROW"
+top_color = {style = "shimmer", shimmer = "gold", speed = 10, width = 8}
+top_align = "center"
+top_font = "Inter-Bold"
+top_font_size = 14
+bottom_text = "shimmer bottom row — slower, cooler"
+bottom_color = {style = "shimmer", base = "blue", shimmer = "white", speed = 6, width = 10}
+bottom_align = "center"
+bottom_font = "Inter-Regular"
+bottom_font_size = 14
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "GOLD ABOVE"
+top_color = {style = "shimmer", shimmer = "gold", pause = 0.8}
+top_align = "center"
+top_font = "Inter-Bold"
+top_font_size = 14
+bottom_text = "cyan below, independent phase"
+bottom_color = {style = "shimmer", shimmer = "cyan", speed = 18, pause = 0.3}
+bottom_align = "center"
+bottom_font = "Inter-Regular"
+bottom_font_size = 14
+
+# ---------------------------------------------------------------------------
+# 9. Scale = 2 with shimmer — lower scale for a different feel.
+#    Dropping to scale=2 gives 32px-tall content with 16px letterbox
+#    bands. Shimmer behaves identically — it runs per logical character,
+#    not per pixel, so scale has no effect on the sweep timing.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 2
+scale = 2
+
+[playlist.section.title]
+type = "message"
+text = "9. Scale 2 shimmer"
+color = [200, 200, 120]
+
+[[playlist.section.widget]]
+type = "message"
+text = "SCALE TWO WITH SHIMMER"
+font_color = {style = "shimmer", shimmer = "gold", speed = 12, width = 10}
+
+[[playlist.section.widget]]
+type = "message"
+text = "SAME SWEEP, DIFFERENT HEIGHT"
+font_color = "shimmer"
+
+# ---------------------------------------------------------------------------
+# 10. forever_scroll shimmer — sweeping over a long scrolling message.
+#     In forever_scroll mode the frame counter advances continuously, so
+#     the spot sweeps across the full text as it scrolls. The sweep length
+#     is proportional to total_chars, so long messages get a proportionally
+#     longer sweep duration at the same chars/sec speed.
+# ---------------------------------------------------------------------------
+
+[[playlist.section]]
+mode = "forever_scroll"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "10. Scroll shimmer"
+color = [160, 200, 160]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Shimmer in forever_scroll — the bright spot travels across the full text as it scrolls past."
+font_color = {style = "shimmer", shimmer = "gold", speed = 14, width = 8, pause = 0.5}
+
+[[playlist.section.widget]]
+type = "message"
+text = "Wide bloom in scroll — slow and dreamy across a long run of text with no hard pause."
+font_color = {style = "shimmer", base = [20, 20, 40], shimmer = [180, 180, 255], speed = 7, width = 16, pause = 0}

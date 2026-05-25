@@ -54,6 +54,25 @@ async def test_validate_widget_cfg_raises_on_animation_wrong_type():
         await validate_widget_cfg(cfg, session=None)
 
 
+@pytest.mark.asyncio
+async def test_validate_widget_cfg_rss_feed_font_fields_do_not_crash():
+    """font/font_size/font_threshold on rss_feed must not raise 'unknown field'.
+
+    Regression for: _resolve_fonts unconditionally re-inserted the resolved
+    font object even for widgets without a `font` attrs field.
+    """
+    cfg = {
+        "type": "rss_feed",
+        "feed_url": "https://example.com/rss",
+        "font": "Inter-Regular",
+        "font_size": 16,
+        "font_threshold": 80,
+    }
+    # Should not raise; font fields are consumed by _resolve_fonts.
+    result = await validate_widget_cfg(cfg, session=None)
+    assert result is None
+
+
 @pytest.fixture
 def conf(tmp_path):
     """Write a TOML string to a temp file and return its Path."""

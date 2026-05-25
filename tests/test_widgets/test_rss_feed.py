@@ -60,6 +60,33 @@ class TestRSSFeedMonitor:
         for story in monitor.feed_stories:
             assert isinstance(story, TickerMessage)
 
+    async def test_font_propagates_to_stories(self, mock_session):
+        """font= on RSSFeedMonitor must flow to every generated TickerMessage."""
+        from led_ticker.fonts import resolve_font
+
+        custom_font = resolve_font("Inter-Regular", 16, threshold=80)
+        monitor = RSSFeedMonitor(
+            session=mock_session,
+            feed_url="http://example.com/rss",
+            font=custom_font,
+        )
+        await monitor.update()
+
+        assert monitor.feed_title.font is custom_font
+        assert all(s.font is custom_font for s in monitor.feed_stories)
+
+    async def test_font_defaults_to_font_default(self, mock_session):
+        """No font= specified → stories use FONT_DEFAULT (back-compat)."""
+        from led_ticker.fonts import FONT_DEFAULT
+
+        monitor = RSSFeedMonitor(
+            session=mock_session, feed_url="http://example.com/rss"
+        )
+        await monitor.update()
+
+        assert monitor.feed_title.font is FONT_DEFAULT
+        assert all(s.font is FONT_DEFAULT for s in monitor.feed_stories)
+
 
 class TestRssBgColor:
     def test_field_exists(self):

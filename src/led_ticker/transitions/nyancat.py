@@ -13,6 +13,7 @@ from typing import Any, ClassVar
 from led_ticker._types import Canvas, ColorTuple, PixelData
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.transitions import Transition, register_transition
+from led_ticker.transitions._hires_loader import SNAP_THRESHOLD
 from led_ticker.transitions._hires_registry import HIRES_REGISTRY
 
 # RGB colors for the rainbow trail (top to bottom, 2px each = 12px)
@@ -251,7 +252,7 @@ class NyanCat:
     path (small sign / tests) is preserved unchanged.
     """
 
-    scale_switch_at: ClassVar[float] = 0.0
+    scale_switch_at: ClassVar[float] = SNAP_THRESHOLD
     _registry_name: str = "nyancat"
 
     def __init__(self, **kwargs: Any) -> None:
@@ -295,7 +296,7 @@ class NyanCat:
 class NyanCatReverse:
     """Nyan Cat flies right-to-left, rainbow fills screen before cut."""
 
-    scale_switch_at: ClassVar[float] = 0.0
+    scale_switch_at: ClassVar[float] = SNAP_THRESHOLD
     _registry_name: str = "nyancat_reverse"
 
     def __init__(self, **kwargs: Any) -> None:
@@ -339,7 +340,7 @@ class NyanCatReverse:
 class NyanCatAlternating:
     """Cycles through nyancat -> nyancat_reverse."""
 
-    scale_switch_at: ClassVar[float] = 0.0
+    scale_switch_at: ClassVar[float] = SNAP_THRESHOLD
 
     def __init__(self, **kwargs: Any) -> None:
         self._transitions: list[Transition] = [

@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 from led_ticker._types import Canvas, PixelData
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.transitions import Transition, register_transition
+from led_ticker.transitions._hires_loader import SNAP_THRESHOLD
 
 SPRITE_SIZE: int = 14
 SPRITE_Y_OFFSET: int = 1  # centers 14px sprite in 16px display
@@ -323,7 +324,7 @@ class Baseball:
     """
 
     min_frames: int = 40
-    scale_switch_at: ClassVar[float] = 0.0
+    scale_switch_at: ClassVar[float] = SNAP_THRESHOLD
 
     def __init__(self, **kwargs: Any) -> None:
         pass
@@ -367,7 +368,7 @@ class BaseballReverse:
     """Baseball rolls right-to-left, erasing outgoing content."""
 
     min_frames: int = 40
-    scale_switch_at: ClassVar[float] = 0.0
+    scale_switch_at: ClassVar[float] = SNAP_THRESHOLD
 
     def __init__(self, **kwargs: Any) -> None:
         pass
@@ -410,7 +411,7 @@ class BaseballReverse:
 class BaseballAlternating:
     """Cycles through baseball -> baseball_reverse."""
 
-    scale_switch_at: ClassVar[float] = 0.0
+    scale_switch_at: ClassVar[float] = SNAP_THRESHOLD
 
     def __init__(self, **kwargs: Any) -> None:
         self._transitions: list[Transition] = [

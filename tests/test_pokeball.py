@@ -437,17 +437,73 @@ class TestLowresShowPokeballToggle:
 
 
 class TestScaleSwitchAt:
-    """Tripwire: pokeball variants must set scale_switch_at=0.0 so the canvas
-    is re-wrapped to the incoming scale BEFORE the first frame.  Sprite
-    sprites (Pikachu, pokeball) are physically consistent throughout any
-    cross-scale transition with no snap at t=0.5.
+    """Tripwire: pokeball variants must set scale_switch_at=SNAP_THRESHOLD so
+    the outgoing widget is drawn at its native scale during the trail phase.
+    Switching immediately (0.0) caused the outgoing content to render at the
+    wrong scale from frame 0, producing a one-frame position jerk before the
+    trail covered it.  SNAP_THRESHOLD defers the switch to t=0.95 — the trail
+    has fully covered the panel by then, so the wrong-scale draw at the switch
+    frame is overwritten by the snap before it reaches the display.
     """
 
-    def test_pokeball_switches_at_zero(self):
-        assert Pokeball.scale_switch_at == 0.0
+    def test_pokeball_switches_at_snap_threshold(self):
+        from led_ticker.transitions._hires_loader import SNAP_THRESHOLD
 
-    def test_pokeball_reverse_switches_at_zero(self):
-        assert PokeballReverse.scale_switch_at == 0.0
+        assert Pokeball.scale_switch_at == SNAP_THRESHOLD
 
-    def test_pokeball_alternating_switches_at_zero(self):
-        assert PokeballAlternating.scale_switch_at == 0.0
+    def test_pokeball_reverse_switches_at_snap_threshold(self):
+        from led_ticker.transitions._hires_loader import SNAP_THRESHOLD
+
+        assert PokeballReverse.scale_switch_at == SNAP_THRESHOLD
+
+    def test_pokeball_alternating_switches_at_snap_threshold(self):
+        from led_ticker.transitions._hires_loader import SNAP_THRESHOLD
+
+        assert PokeballAlternating.scale_switch_at == SNAP_THRESHOLD
+
+    def test_cross_scale_outgoing_not_drawn_at_wrong_scale(self):
+        """Regression: outgoing widget must be drawn at outgoing scale on frame 0.
+
+        When transitioning from scale=2 to scale=4, the outgoing widget's
+        cached _top_width (measured at scale=2 logical units) is used by
+        _aligned_x(canvas.width, ...).  If the canvas is already at scale=4
+        (width=64) on frame 0, _aligned_x gives a wrong position and the
+        widget jumps visually.  scale_switch_at=SNAP_THRESHOLD keeps the
+        canvas at scale=2 until the trail has covered the panel.
+        """
+        from unittest.mock import MagicMock
+
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        real = MagicMock()
+        real.width = 256
+        real.height = 64
+        real.SetPixel = MagicMock()
+        real.SubFill = MagicMock()
+        real.Clear = MagicMock()
+        real.Fill = MagicMock()
+
+        outgoing_canvas_widths: list[int] = []
+        outgoing = MagicMock()
+
+        def capture_draw(canvas, cursor_pos=0, **_kw):
+            outgoing_canvas_widths.append(canvas.width)
+
+        outgoing.draw.side_effect = capture_draw
+
+        incoming = MagicMock()
+        incoming.draw = MagicMock()
+
+        # Canvas starts at scale=2 (outgoing section)
+        canvas = ScaledCanvas(real, scale=2, content_height=32)
+
+        transition = Pokeball()
+        # frame_at at t=0 — canvas at scale=2 (scale_switch_at=0.95, not yet switched)
+        transition.frame_at(0.0, canvas, outgoing, incoming)
+
+        # The outgoing widget must have been drawn on the scale=2 canvas (width=128)
+        assert outgoing_canvas_widths, "outgoing.draw was never called"
+        assert outgoing_canvas_widths[0] == 128, (
+            f"outgoing drawn at canvas.width={outgoing_canvas_widths[0]} "
+            f"(expected 128 for scale=2); was the scale switched too early?"
+        )

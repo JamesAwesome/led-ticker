@@ -331,17 +331,22 @@ class TestNyanCatAlternatingDelegatesToHires:
 
 
 class TestScaleSwitchAt:
-    """Tripwire: nyancat variants must set scale_switch_at=0.0 so the canvas
-    is re-wrapped to the incoming scale BEFORE the first frame.  The cat and
-    rainbow trail are physically consistent throughout any cross-scale
-    transition with no snap at t=0.5.
+    """Tripwire: nyancat variants must set scale_switch_at=SNAP_THRESHOLD so
+    the outgoing widget is drawn at its native scale during the trail phase.
+    See pokeball.py TestScaleSwitchAt for the full rationale.
     """
 
-    def test_nyancat_switches_at_zero(self):
-        assert NyanCat.scale_switch_at == 0.0
+    def test_nyancat_switches_at_snap_threshold(self):
+        from led_ticker.transitions._hires_loader import SNAP_THRESHOLD
 
-    def test_nyancat_reverse_switches_at_zero(self):
-        assert NyanCatReverse.scale_switch_at == 0.0
+        assert NyanCat.scale_switch_at == SNAP_THRESHOLD
 
-    def test_nyancat_alternating_switches_at_zero(self):
-        assert NyanCatAlternating.scale_switch_at == 0.0
+    def test_nyancat_reverse_switches_at_snap_threshold(self):
+        from led_ticker.transitions._hires_loader import SNAP_THRESHOLD
+
+        assert NyanCatReverse.scale_switch_at == SNAP_THRESHOLD
+
+    def test_nyancat_alternating_switches_at_snap_threshold(self):
+        from led_ticker.transitions._hires_loader import SNAP_THRESHOLD
+
+        assert NyanCatAlternating.scale_switch_at == SNAP_THRESHOLD

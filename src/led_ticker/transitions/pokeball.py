@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 from led_ticker._types import Canvas, PixelData
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.transitions import Transition, register_transition
+from led_ticker.transitions._hires_loader import SNAP_THRESHOLD
 from led_ticker.transitions._hires_registry import HIRES_REGISTRY
 
 SPRITE_SIZE: int = 14
@@ -830,7 +831,7 @@ class Pokeball:
     """
 
     min_frames: int = 40
-    scale_switch_at: ClassVar[float] = 0.0
+    scale_switch_at: ClassVar[float] = SNAP_THRESHOLD
     _registry_name: str = "pokeball"
 
     def __init__(
@@ -891,7 +892,7 @@ class PokeballReverse:
     """Pokeball rolls right-to-left, erasing outgoing content."""
 
     min_frames: int = 40
-    scale_switch_at: ClassVar[float] = 0.0
+    scale_switch_at: ClassVar[float] = SNAP_THRESHOLD
     _registry_name: str = "pokeball_reverse"
 
     def __init__(
@@ -951,7 +952,7 @@ class PokeballReverse:
 class PokeballAlternating:
     """Cycles through pokeball -> pokeball_reverse."""
 
-    scale_switch_at: ClassVar[float] = 0.0
+    scale_switch_at: ClassVar[float] = SNAP_THRESHOLD
 
     def __init__(self, **kwargs: Any) -> None:
         self._transitions: list[Transition] = [

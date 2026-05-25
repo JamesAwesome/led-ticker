@@ -1030,3 +1030,99 @@ def _list_widget_fields(widget_type: str) -> str:
             lines.append(f"  {name:<28}  {desc}")
 
     return "\n".join(lines)
+
+
+def _list_section_fields() -> str:
+    """Return a human-readable listing of [[playlist.section]] fields."""
+    _SECTION_FIELDS: list[tuple[str, str, str, str]] = [
+        # (name, type_str, default_str, description)
+        (
+            "mode",
+            '"forever_scroll" | "infini_scroll" | "swap"',
+            "(required)",
+            "scroll/display mode for this section",
+        ),
+        (
+            "loop_count",
+            "int",
+            "default: 1",
+            "times the section repeats before advancing; 0 = infinite",
+        ),
+        (
+            "hold_time",
+            "float (seconds)",
+            "default: 3.0",
+            "seconds each widget is held in swap mode",
+        ),
+        (
+            "scroll_step_ms",
+            "int (ms)",
+            "default: 50",
+            "engine cadence — ms per pixel-step in scroll modes; lower = faster scroll",
+        ),
+        (
+            "start_hold",
+            "float (seconds)",
+            "default: [title].delay",
+            "pre-roll pause before first widget scrolls in",
+        ),
+        (
+            "content_height",
+            "int (rows)",
+            "default: 16",
+            "logical canvas height; must not exceed panel_h ÷ scale (see rule 1)",
+        ),
+        (
+            "scale",
+            "int",
+            "default: [display].default_scale",
+            "per-section scale override (bigsign default 4, smallsign default 1)",
+        ),
+        (
+            "bg_color",
+            "[r, g, b]",
+            "default: none",
+            "section background color; widgets inherit this if they omit bg_color",
+        ),
+        (
+            "continuous_scroll",
+            "bool",
+            "default: false",
+            "skip per-widget hold pauses in scroll mode — content streams continuously",
+        ),
+        (
+            "separator",
+            "str",
+            "default: '•'",
+            "bullet between widgets in side-by-side scroll; '' = two spaces",
+        ),
+        (
+            "transition",
+            "str",
+            "default: [transitions].default",
+            "inter-widget transition; also used as section entry transition",
+        ),
+        (
+            "entry_transition",
+            "str",
+            "default: [transitions].between_sections",
+            "overrides how THIS section appears — independent of widget transitions",
+        ),
+        (
+            "widget_transition",
+            "str",
+            "default: transition or cut",
+            "overrides inter-widget transitions within this section only",
+        ),
+        (
+            "transition_duration",
+            "float (seconds)",
+            "default: [transitions].duration",
+            "duration for transitions within this section",
+        ),
+    ]
+
+    lines: list[str] = ["Fields for [[playlist.section]]:", ""]
+    for name, type_str, default_str, description in _SECTION_FIELDS:
+        lines.append(f"  {name:<28}  {type_str:<44}  {default_str}  — {description}")
+    return "\n".join(lines)

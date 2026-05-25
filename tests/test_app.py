@@ -2448,6 +2448,57 @@ class TestListWidgetFieldsDataWidgets:
         assert "top-record" in output or "top_n" in output
 
 
+class TestListSectionFields:
+    def test_returns_string(self):
+        from led_ticker.app.factories import _list_section_fields
+
+        output = _list_section_fields()
+        assert isinstance(output, str)
+        assert len(output) > 0
+
+    def test_shows_mode_as_required(self):
+        from led_ticker.app.factories import _list_section_fields
+
+        output = _list_section_fields()
+        assert "mode" in output
+        assert "required" in output
+
+    def test_shows_loop_count_with_infinite_note(self):
+        from led_ticker.app.factories import _list_section_fields
+
+        output = _list_section_fields()
+        assert "loop_count" in output
+        assert "infinite" in output or "0 = " in output
+
+    def test_shows_hold_time_with_seconds(self):
+        from led_ticker.app.factories import _list_section_fields
+
+        output = _list_section_fields()
+        assert "hold_time" in output
+        assert "3.0" in output or "seconds" in output
+
+    def test_shows_scroll_step_ms(self):
+        from led_ticker.app.factories import _list_section_fields
+
+        output = _list_section_fields()
+        assert "scroll_step_ms" in output
+        assert "50" in output or "ms" in output
+
+    def test_shows_content_height_with_rule_note(self):
+        from led_ticker.app.factories import _list_section_fields
+
+        output = _list_section_fields()
+        assert "content_height" in output
+        assert "rule 1" in output or "scale" in output
+
+    def test_shows_transition_fields(self):
+        from led_ticker.app.factories import _list_section_fields
+
+        output = _list_section_fields()
+        assert "entry_transition" in output
+        assert "widget_transition" in output
+
+
 class TestSingleRowColorGuard:
     """top_color / bottom_color are two-row-only on gif/image widgets.
     On a single-row widget they're silently ignored; the guard makes it loud.

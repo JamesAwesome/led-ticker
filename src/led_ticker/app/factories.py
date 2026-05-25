@@ -7,6 +7,7 @@ functions are called.
 
 from __future__ import annotations
 
+import collections
 import difflib
 import inspect
 import itertools
@@ -40,6 +41,163 @@ from led_ticker.frame import LedFrame
 from led_ticker.transitions import Transition, get_transition_class
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
+
+# ---------------------------------------------------------------------------
+# Field metadata for --list-fields CLI output
+# ---------------------------------------------------------------------------
+
+FieldHint = collections.namedtuple(
+    "FieldHint", ["display_type", "description", "default_display"]
+)
+
+# Human-readable type strings, descriptions, and default overrides for --list-fields.
+# Fields not in this dict fall back to attrs annotation + repr.
+FIELD_HINTS: dict[str, FieldHint] = {
+    # Universal widget fields
+    "font": FieldHint(
+        "font name", "BDF alias or hi-res font name", "panel default font"
+    ),
+    "font_size": FieldHint(
+        "int (pixels)", "text height in real pixels; required for hi-res fonts", "none"
+    ),
+    "font_threshold": FieldHint(
+        "int 0–255", "bitmask threshold for hi-res font rendering", "128"
+    ),
+    "font_color": FieldHint(
+        'color | "rainbow" | "color_cycle" | "shimmer" | {style=...}',
+        "text color or animated color provider",
+        "white",
+    ),
+    "bg_color": FieldHint("[r, g, b] | none", "solid background fill color", "none"),
+    "animation": FieldHint(
+        '"typewriter" | {style="typewriter", frames_per_char=N}',
+        "text animation effect",
+        "none",
+    ),
+    "border": FieldHint(
+        '{style="rainbow_chase", speed=N, width=N}',
+        "animated border painted at panel edges",
+        "none",
+    ),
+    # TickerMessage / TickerCountdown
+    "text": FieldHint("str", "widget text content", None),
+    "center": FieldHint("bool", "center text when it fits; false = left-align", "true"),
+    "padding": FieldHint(
+        "int (pixels)", "end padding (spacing in side-by-side scroll)", "6"
+    ),
+    # GifPlayer / StillImage single-row
+    "path": FieldHint("str", "path to file (relative to config dir or absolute)", None),
+    "text_align": FieldHint(
+        '"auto" | "scroll" | "scroll_over" | "left" | "right" | "center"',
+        "text scroll/position mode",
+        '"auto"',
+    ),
+    "text_valign": FieldHint(
+        '"top" | "center" | "bottom"', "vertical text alignment", '"center"'
+    ),
+    "fit": FieldHint(
+        '"pillarbox" | "letterbox" | "stretch" | "crop"',
+        "how image fills canvas",
+        '"pillarbox"',
+    ),
+    "image_align": FieldHint(
+        '"left" | "center" | "right"',
+        "horizontal image alignment within canvas",
+        '"center"',
+    ),
+    "scroll_direction": FieldHint(
+        '"left" | "right"', "direction the text scrolls", '"left"'
+    ),
+    "scroll_speed_ms": FieldHint("int (ms)", "milliseconds per scroll step", "50"),
+    "text_loops": FieldHint(
+        "int", "minimum full scroll traversals before advancing; 0 = one loop", "0"
+    ),
+    "loops": FieldHint(
+        "int", "per-visit gif loop count; 0 = play through hold_time", "1"
+    ),
+    "hold_seconds": FieldHint(
+        "float (seconds)", "how long to display before advancing", None
+    ),
+    # GifPlayer / StillImage two-row overlay (active when bottom_text != "")
+    "top_text": FieldHint("str", "top row text content", "''"),
+    "bottom_text": FieldHint(
+        "str", "bottom row text; set to non-empty to enable two-row mode", "''"
+    ),
+    "top_color": FieldHint(
+        'color | "rainbow" | "color_cycle" | "shimmer" | {style=...}',
+        "top row text color",
+        "white",
+    ),
+    "bottom_color": FieldHint(
+        'color | "rainbow" | "color_cycle" | "shimmer" | {style=...}',
+        "bottom row text color",
+        "white",
+    ),
+    "top_align": FieldHint(
+        '"left" | "center" | "right"', "top row horizontal alignment", '"center"'
+    ),
+    "bottom_align": FieldHint(
+        '"left" | "center" | "right"', "bottom row horizontal alignment", '"center"'
+    ),
+    "bottom_text_scroll": FieldHint(
+        '"marquee" | "hold"', "bottom row scroll behavior on overflow", '"marquee"'
+    ),
+    "top_row_height": FieldHint(
+        "int | none", "top row height in logical pixels (none = 50/50 split)", "none"
+    ),
+}
+
+# Attrs fields on gif/image widgets that only activate when bottom_text != "".
+# _list_widget_fields groups these into a separate "Two-row overlay" section.
+TWO_ROW_OVERLAY_FIELDS: frozenset[str] = frozenset(
+    {
+        "top_text",
+        "bottom_text",
+        "top_color",
+        "bottom_color",
+        "top_align",
+        "bottom_align",
+        "top_font",
+        "top_font_size",
+        "top_font_threshold",
+        "top_text_y_offset",
+        "top_emoji_y_offset",
+        "bottom_font",
+        "bottom_font_size",
+        "bottom_font_threshold",
+        "bottom_text_y_offset",
+        "bottom_emoji_y_offset",
+        "bottom_text_scroll",
+        "bottom_text_wrap",
+        "bottom_text_separator",
+        "bottom_text_separator_color",
+        "top_row_height",
+    }
+)
+
+# Dispatch-level fields and which widget types they apply to.
+# None = applies to all types. Fields applicable to the queried type
+# AND not already present in widget-level attrs are shown in "Shared fields".
+_DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
+    "type": None,
+    "text": None,
+    "font_size": None,
+    "font_threshold": None,
+    "animation": {"message", "gif", "image"},
+    "border": {"message", "countdown", "two_row", "gif", "image"},
+    "text_wrap": {"gif", "image"},
+    "text_separator": {"gif", "image"},
+    "text_separator_color": {"gif", "image"},
+    "bottom_text_wrap": {"gif", "image", "two_row"},
+    "bottom_text_separator": {"gif", "image", "two_row"},
+    "bottom_text_separator_color": {"gif", "image", "two_row"},
+    "top_font": {"two_row"},
+    "top_font_size": {"two_row"},
+    "top_font_threshold": {"two_row"},
+    "bottom_font": {"two_row"},
+    "bottom_font_size": {"two_row"},
+    "bottom_font_threshold": {"two_row"},
+}
 
 # Section-title random color cycle. One stable color per section visit.
 # Lives here (not in `colors.py`) because this is the only consumer; a

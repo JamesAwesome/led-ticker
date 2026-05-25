@@ -865,7 +865,8 @@ def _list_widget_fields(widget_type: str) -> str:
             default_str = "default: <computed>"
         else:
             default_str = f"default: {a.default!r}"
-        return f"  {a.name:<28}  {type_str:<44}  {default_str}"
+        desc_str = f"  — {hint.description}" if hint and hint.description else ""
+        return f"  {a.name:<28}  {type_str:<44}  {default_str}{desc_str}"
 
     # Partition widget attrs into required / optional / two-row-overlay.
     # Two-row overlay only applies to gif/image — for other types all attrs
@@ -921,7 +922,8 @@ def _list_widget_fields(widget_type: str) -> str:
             default_part = (
                 f"default: {hint.default_display}" if hint.default_display else ""
             )
-            desc = f"{type_part}  {default_part}".rstrip()
+            desc_suffix = f"  — {hint.description}" if hint.description else ""
+            desc = f"{type_part}  {default_part}{desc_suffix}".rstrip()
         else:
             desc = ""
         dispatch_rows.append((name, desc))

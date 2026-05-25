@@ -37,7 +37,12 @@ src/led_ticker/
   __init__.py          # Package root
   _compat.py           # Lazy rgbmatrix import shim (real lib or stub)
   _types.py            # Canvas type alias used across the package
-  app.py               # CLI entry point (led-ticker --config config.toml)
+  app/
+    cli.py             # CLI entry point (led-ticker --config config.toml)
+    run.py             # Main async display loop
+    factories.py       # Widget/transition/frame factories; validate_widget_cfg (public validation API)
+    coercion.py        # Raw TOML value coercion helpers
+  app.py               # Thin shim — re-exports app/ entry points
   config.py            # TOML config loader (stdlib tomllib)
   ticker.py            # Display orchestrator (scroll/swap/forever_scroll modes)
   frame.py             # LedFrame hardware wrapper
@@ -110,7 +115,7 @@ Each bullet is a rule that must hold when modifying the named area. Full prose f
 
 **Two-row text overlay on image widgets** — Setting `bottom_text != ""` on a gif/image widget switches it to held-top + scroll-on-overflow-bottom. `_play_with_two_row_text` paints the image to the unwrapped real canvas (native pixels) but wraps the same canvas in a `ScaledCanvas` for text+emoji draw. All band-height / baseline math operates in LOGICAL units against the wrapper — same coordinate system as TwoRowMessage. The wrap is also why hires emoji fires correctly (`isinstance(canvas, ScaledCanvas)` gate sees the wrapper). Wrapper `.real` is rebound after each `SwapOnVSync` (constraint #10). Single-row knobs (`text_align`, `text_valign`, `text_x_offset`, `font_size`) are refused in two-row mode. Tripwires: `TestTwoRowLogicalUnits`, `TestFieldSurfaceMatchesTwoRow`.
 
-**Single-row image text — `font_size` is the unified knob** — `_resolved_font_size` resolves user-facing `font_size` (real pixels), then `block_scale_for_font_size(font, font_size)` converts to integer block scale. BDF: rounds down to nearest integer multiple of cell height (raises if `font_size < cell_h`). HiresFont: always 1. Wrap scale at the call site is `block_scale` for BDF and `_logical_scale` for HiresFont (so the hires-emoji ScaledCanvas gate still fires). HiresFont configs MUST specify `font_size` explicitly; `_build_widget` raises with a hint. Migration error catches stale `text_scale =` TOMLs at config-load with the formula. Tripwires: `TestSingleRowFontSize`, `TestResolvedFontSize`, `TestBlockScaleForFontSize`, `TestFontSizeMigration`.
+**Single-row image text — `font_size` is the unified knob** — `_resolved_font_size` resolves user-facing `font_size` (real pixels), then `block_scale_for_font_size(font, font_size)` converts to integer block scale. BDF: rounds down to nearest integer multiple of cell height (raises if `font_size < cell_h`). HiresFont: always 1. Wrap scale at the call site is `block_scale` for BDF and `_logical_scale` for HiresFont (so the hires-emoji ScaledCanvas gate still fires). HiresFont configs MUST specify `font_size` explicitly; `validate_widget_cfg` raises with a hint. Migration error catches stale `text_scale =` TOMLs at config-load with the formula. Tripwires: `TestSingleRowFontSize`, `TestResolvedFontSize`, `TestBlockScaleForFontSize`, `TestFontSizeMigration`.
 
 **Typewriter on image widgets** (`animation = "typewriter"` on `gif` / `image`) — Single-row only. Raises if `bottom_text != ""`, `text_align ∈ ("scroll", "scroll_over")`, or `text == ""`. Reads its per-effect counter via `frame_for("animation")` so it composes cleanly with continuous-phase `font_color` / `border`. Forces the slow path (`_play_with_text` gate predicate adds `AND animation is None`). Tripwires: `TestImageTypewriter` (5 tests).
 
@@ -193,7 +198,7 @@ User-facing surface: <https://docs.ledticker.dev/concepts/color-providers/> · <
 
 **Animation contract** — Custom animations implement the `Animation` Protocol (`src/led_ticker/animations.py`): `def frame_for(self, frame: int, full_text: str, canvas_width: int, text_width: int) -> AnimationFrame`. `AnimationFrame` carries `visible_text: str` (the slice to render this tick). Currently only `Typewriter` is shipped; the Protocol documents the contract for future animations.
 
-**`animation = "typewriter"`** — Field on `TickerMessage`, `gif`, `image` (single-row only on the image side). `_build_widget` raises if `animation` appears on other widget types. Color and animation compose. `frames_per_char` (default 3) controls speed via the inline-table form: `animation = {style = "typewriter", frames_per_char = 6}`. The previous `WidgetPresenter` wrapper + `presentation = "..."` knob was removed; `Bounce` (animation) and `Pulse` (color provider) were removed in the rework. Migration error in `_build_widget` points users at the remaining knobs.
+**`animation = "typewriter"`** — Field on `TickerMessage`, `gif`, `image` (single-row only on the image side). `validate_widget_cfg` raises if `animation` appears on other widget types. Color and animation compose. `frames_per_char` (default 3) controls speed via the inline-table form: `animation = {style = "typewriter", frames_per_char = 6}`. The previous `WidgetPresenter` wrapper + `presentation = "..."` knob was removed; `Bounce` (animation) and `Pulse` (color provider) were removed in the rework. Migration error in `_build_widget` points users at the remaining knobs.
 
 **Engine tick** (`_swap_and_scroll`) — Held-text branches run a tick loop calling `advance_frame + draw + swap` at `ENGINE_TICK_MS = 50ms` cadence so frame-aware effects animate during holds. Scroll branch also calls `advance_frame` per tick.
 

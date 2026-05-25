@@ -2594,6 +2594,14 @@ class TestResolveAssetPaths:
         _resolve_asset_paths(cfg, "gif", None)
         assert cfg["path"] == "gifs/rainbow.gif"
 
+    def test_image_type_also_resolved(self, tmp_path):
+        from led_ticker.app.factories import _resolve_asset_paths
+
+        cfg = {"path": "images/bg.png"}
+        config_dir = tmp_path / "config"
+        _resolve_asset_paths(cfg, "image", config_dir)
+        assert cfg["path"] == str((config_dir / "images/bg.png").resolve())
+
 
 class TestResolveFonts:
     def test_no_font_key_is_noop(self):
@@ -2758,3 +2766,34 @@ class TestValidateWidgetCfg:
 
         params = inspect.signature(_build_widget).parameters
         assert "validate_only" not in params
+
+
+@pytest.mark.parametrize(
+    "cfg,expected_cls",
+    [
+        ({"type": "message", "text": "hello"}, "TickerMessage"),
+        (
+            {"type": "two_row", "top_text": "hi", "bottom_text": "there"},
+            "TwoRowMessage",
+        ),
+    ],
+)
+class TestBuildWidgetRoundtrip:
+    """validate_widget_cfg passes → _build_widget constructs without error."""
+
+    async def test_validate_then_build(self, cfg, expected_cls, tmp_path):
+        import copy
+
+        import aiohttp
+
+        from led_ticker.app.factories import _build_widget, validate_widget_cfg
+
+        validation_cfg = copy.deepcopy(cfg)
+        result = await validate_widget_cfg(
+            validation_cfg, session=None, config_dir=tmp_path
+        )
+        assert result is None
+
+        async with aiohttp.ClientSession() as session:
+            widget = await _build_widget(cfg, session=session, config_dir=tmp_path)
+        assert type(widget).__name__ == expected_cls

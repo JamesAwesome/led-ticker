@@ -416,7 +416,7 @@ async def _build_widget(
 
     `config_dir` is the directory containing the config.toml; used to
     resolve relative `path` values for widgets that reference asset
-    files (currently just `type = "gif"`).
+    files (currently `"gif"` and `"image"`).
 
     `default_bg_color` is the section-level bg as an `(r, g, b)` tuple
     (or None). It's injected into `widget_cfg["bg_color"]` only when

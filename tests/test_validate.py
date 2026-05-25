@@ -2184,9 +2184,30 @@ class TestMigrationError:
         errors, warnings, migrations = await _run_build_checks([section], tmp_path)
         assert len(errors) == 0
         assert len(migrations) == 1
-        loc, msg, fix = migrations[0]
+        loc, msg, fix, fix_key, fix_replacement_key = migrations[0]
         assert "text_scale" in msg
         assert "font_size" in fix
+
+    def test_migration_error_carries_fix_keys(self):
+        """MigrationError stores fix_key and fix_replacement_key."""
+        from led_ticker.validate import MigrationError
+
+        e = MigrationError(
+            "gif_loops renamed to play_count",
+            suggested_fix='Rename "gif_loops" to "play_count"',
+            fix_key="gif_loops",
+            fix_replacement_key="play_count",
+        )
+        assert e.fix_key == "gif_loops"
+        assert e.fix_replacement_key == "play_count"
+
+    def test_migration_error_default_fix_keys_none(self):
+        """MigrationError fix_key defaults to None (not auto-fixable)."""
+        from led_ticker.validate import MigrationError
+
+        e = MigrationError("text_scale removed", suggested_fix="Use font_size")
+        assert e.fix_key is None
+        assert e.fix_replacement_key is None
 
 
 class TestRule39TransitionNames:

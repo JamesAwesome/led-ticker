@@ -19,6 +19,8 @@ class ValidationIssue:
     message: str
     fix: str
     severity: Literal["error", "warning"]
+    fix_key: str | None = None
+    fix_replacement_key: str | None = None
 
 
 @dataclass
@@ -40,10 +42,19 @@ class MigrationError(Exception):
     _ERROR_PATTERNS.
     """
 
-    def __init__(self, message: str, suggested_fix: str) -> None:
+    def __init__(
+        self,
+        message: str,
+        suggested_fix: str,
+        *,
+        fix_key: str | None = None,
+        fix_replacement_key: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.message = message
         self.suggested_fix = suggested_fix
+        self.fix_key = fix_key
+        self.fix_replacement_key = fix_replacement_key
 
 
 # Maps substrings in exception messages to (rule, fix) pairs.
@@ -94,21 +105,27 @@ def _classify_error(msg: str) -> tuple[int | None, str]:
 
 async def _run_build_checks(
     sections: list[SectionConfig], config_dir: Path
-) -> tuple[list[tuple[str, str]], list[tuple[str, Any]], list[tuple[str, str, str]]]:
+) -> tuple[
+    list[tuple[str, str]],
+    list[tuple[str, Any]],
+    list[tuple[str, str, str, str | None, str | None]],
+]:
     """Run validate_widget_cfg for every widget.
 
     Returns (build_errors, coerce_warnings, migration_errors):
     - build_errors: (location, error_msg) pairs
     - coerce_warnings: (location, CoercionWarning) pairs collected from
       validate_widget_cfg's coercion pass for each widget.
-    - migration_errors: (location, message, suggested_fix) triples from
-      MigrationError raised by validate_widget_cfg for removed knobs.
+    - migration_errors: (location, message, suggested_fix, fix_key,
+      fix_replacement_key) 5-tuples from MigrationError raised by
+      validate_widget_cfg for removed knobs. fix_key and
+      fix_replacement_key are None when the rename is not auto-fixable.
     """
     from led_ticker.app.factories import validate_widget_cfg
 
     issues: list[tuple[str, str]] = []
     warnings: list[tuple[str, Any]] = []
-    migrations: list[tuple[str, str, str]] = []
+    migrations: list[tuple[str, str, str, str | None, str | None]] = []
     for i, section in enumerate(sections):
         for j, widget_cfg in enumerate(section.widgets):
             widget_warnings: list[Any] = []
@@ -121,7 +138,13 @@ async def _run_build_checks(
                 )
             except MigrationError as e:
                 migrations.append(
-                    (f"section[{i}].widget[{j}]", e.message, e.suggested_fix)
+                    (
+                        f"section[{i}].widget[{j}]",
+                        e.message,
+                        e.suggested_fix,
+                        e.fix_key,
+                        e.fix_replacement_key,
+                    )
                 )
             except Exception as e:
                 issues.append((f"section[{i}].widget[{j}]", str(e)))
@@ -1284,7 +1307,7 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
     build_errors, build_warnings, migration_errors = await _run_build_checks(
         config.sections, path.parent
     )
-    for location, msg, fix in migration_errors:
+    for location, msg, fix, fix_key, fix_replacement_key in migration_errors:
         errors.append(
             ValidationIssue(
                 rule=20 if "text_scale" in msg else None,
@@ -1292,6 +1315,8 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
                 severity="error",
                 message=msg,
                 fix=fix,
+                fix_key=fix_key,
+                fix_replacement_key=fix_replacement_key,
             )
         )
     for location, msg in build_errors:

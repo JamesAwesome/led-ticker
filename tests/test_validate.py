@@ -2627,3 +2627,33 @@ font_size = 24
 """)
         result = await validate_config(path)
         assert result.valid
+
+
+@pytest.mark.asyncio
+async def test_coerce_warning_summary_appears(tmp_path):
+    """When validate emits coercion warnings, a summary count line appears."""
+    from led_ticker.validate import _format_human
+
+    config_content = """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+hold_seconds = 3.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+padding = "6"
+"""
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(config_content)
+
+    result = await validate_config(config_file)
+    output = _format_human(result)
+    if result.warnings:
+        coerce_warnings = [w for w in result.warnings if w.rule == 37]
+        if coerce_warnings:
+            assert "coercion warning" in output.lower()

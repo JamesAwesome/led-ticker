@@ -1403,6 +1403,7 @@ def _format_human(result: ValidationResult) -> str:
         lines.append(f"          Fix: {issue.fix}")
         lines.append("")
     n = len(result.errors) + len(result.warnings)
+    coerce_count = sum(1 for w in result.warnings if w.rule == 37)
     if n == 0:
         lines.append("No issues found.")
     else:
@@ -1411,4 +1412,9 @@ def _format_human(result: ValidationResult) -> str:
             f" {len(result.errors)} error(s),"
             f" {len(result.warnings)} warning(s)"
         )
+        if coerce_count:
+            lines.append(
+                f"  {coerce_count} coercion warning(s)"
+                " — update your config to silence these."
+            )
     return "\n".join(lines)

@@ -898,6 +898,7 @@ def build_frame_from_config(display) -> LedFrame:
         led_rp1_rio=display.rp1_rio,
         led_multiplexing=display.multiplexing,
         led_row_addr_type=display.row_addr_type,
+        led_panel_type=display.panel_type,
     )
 
 

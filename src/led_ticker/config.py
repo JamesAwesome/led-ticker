@@ -32,6 +32,10 @@ class DisplayConfig:
     # row_addr_type: 0=direct 1=AB-addr 2=direct-shifted 3=ABC-shifted
     multiplexing: int = 0
     row_addr_type: int = 0
+    # Driver IC init — set to "FM6126A" or "FM6127" for panels that use those
+    # chips (common on cheap P2/P3 AliExpress panels). Without it, FM6126A panels
+    # power up in a bad state and show the bottom half mirrored or garbled.
+    panel_type: str = ""
 
 
 @dataclass

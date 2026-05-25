@@ -909,7 +909,7 @@ def _list_widget_fields(widget_type: str) -> str:
         dispatch_rows.append((name, desc))
 
     if dispatch_rows:
-        lines.append("Shared fields (all types):")
+        lines.append("Shared fields:")
         for name, desc in dispatch_rows:
             lines.append(f"  {name:<28}  {desc}")
 

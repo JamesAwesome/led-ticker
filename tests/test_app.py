@@ -2322,7 +2322,7 @@ class TestListWidgetFields:
         result = _list_widget_fields("message")
         assert "text_wrap" not in result
 
-    def test_gif_shows_text_wrap_in_shared(self):
+    def test_gif_shows_text_wrap(self):
         from led_ticker.app import _list_widget_fields
 
         result = _list_widget_fields("gif")

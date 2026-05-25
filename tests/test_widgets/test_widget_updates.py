@@ -47,7 +47,7 @@ class TestWeatherUpdate:
         w = WeatherWidget(
             session=session,
             location="40.7,-74.0",
-            message="NYC",
+            text="NYC",
         )
         await w.update()
         assert w.current_temp == 72
@@ -66,7 +66,7 @@ class TestWeatherUpdate:
         w = WeatherWidget(
             session=session,
             location="London",
-            message="LDN",
+            text="LDN",
             units="metric",
         )
         await w.update()
@@ -80,7 +80,7 @@ class TestWeatherUpdate:
         w = WeatherWidget(
             session=session,
             location="nowhere",
-            message="T",
+            text="T",
         )
         with pytest.raises(ValueError, match="WeatherAPI error 1006"):
             await w.update()
@@ -92,7 +92,7 @@ class TestWeatherUpdate:
         w = WeatherWidget(
             session=session,
             location="NYC",
-            message="T",
+            text="T",
         )
         with pytest.raises(ValueError, match="API key is invalid"):
             await w.update()
@@ -103,7 +103,7 @@ class TestWeatherUpdate:
         w = WeatherWidget(
             session=session,
             location="NYC",
-            message="T",
+            text="T",
         )
         with pytest.raises(KeyError):
             await w.update()
@@ -113,7 +113,7 @@ class TestWeatherUpdate:
         w = WeatherWidget(
             session=mock.Mock(),
             location="NYC",
-            message="T",
+            text="T",
         )
         w.current_temp = 72
         w.weather = "Clear"
@@ -143,7 +143,7 @@ class TestWeatherUpdate:
         widget = await WeatherWidget.start(
             session=session,
             location="40.7,-74.0",
-            message="NYC",
+            text="NYC",
         )
         assert isinstance(widget, WeatherWidget)
         assert widget.current_temp == 72
@@ -153,7 +153,7 @@ class TestWeatherUpdate:
         w = WeatherWidget(
             session=mock.Mock(),
             location={"lat": 40.7, "lon": -74.0},
-            message="NYC",
+            text="NYC",
         )
         assert w.location == "40.7,-74.0"
 
@@ -174,7 +174,7 @@ class TestRSSFeedUpdate:
             feed_url="http://example.com/rss",
         )
         assert isinstance(widget, RSSFeedMonitor)
-        assert widget.feed_title.message == "Test"
+        assert widget.feed_title.text == "Test"
 
     async def test_update_with_empty_feed(self):
         empty = '<?xml version="1.0"?><rss><channel><title>E</title></channel></rss>'

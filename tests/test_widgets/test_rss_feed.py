@@ -41,9 +41,9 @@ class TestRSSFeedMonitor:
         await monitor.update()
 
         assert isinstance(monitor.feed_title, TickerMessage)
-        assert monitor.feed_title.message == "Test Feed"
+        assert monitor.feed_title.text == "Test Feed"
         assert len(monitor.feed_stories) == 3
-        assert monitor.feed_stories[0].message == "Story One"
+        assert monitor.feed_stories[0].text == "Story One"
 
     async def test_update_respects_max_stories(self, mock_session):
         monitor = RSSFeedMonitor(
@@ -76,9 +76,9 @@ class TestRssBgColor:
             session=mock_session, feed_url="https://example.com/feed", bg_color=bg
         )
         # Manually populate stories the way update() would. Bypass network.
-        feed.feed_title = TickerMessage("Title", bg_color=bg)
+        feed.feed_title = TickerMessage(text="Title", bg_color=bg)
         feed.feed_stories = [
-            TickerMessage(item, bg_color=bg) for item in ("a", "b", "c")
+            TickerMessage(text=item, bg_color=bg) for item in ("a", "b", "c")
         ]
 
         assert feed.bg_color is bg

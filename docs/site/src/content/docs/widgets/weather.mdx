@@ -19,7 +19,7 @@ The `weather` widget fetches current conditions and temperature from [WeatherAPI
   title="Minimal example"
   code={`[[playlist.section.widget]]
 type = "weather"
-message = "Brooklyn"
+text = "Brooklyn"
 location = "Brooklyn, NY"
 units = "imperial"`}
 />
@@ -30,7 +30,7 @@ You'll need a free API key from [WeatherAPI.com](https://www.weatherapi.com/) �
 
 <OptionsTable source="widgets/weather" />
 
-Weather's content is set via either `text =` or `message =` — both spellings work. The internal Python attribute is `message`, but `text =` is supported for consistency with the message and countdown widgets.
+Weather's content is set via `text =`. The `message =` spelling is no longer accepted — use `text =` for consistency with the message and countdown widgets.
 
 ## Common patterns
 
@@ -39,7 +39,7 @@ Weather's content is set via either `text =` or `message =` — both spellings w
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "weather"
-message = "NYC"
+text = "NYC"
 location = "New York"
 units = "imperial"
 font_color = [150, 150, 150]
@@ -51,7 +51,7 @@ font_color_temp = [255, 255, 255]`}
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "weather"
-message = "Weather"
+text = "Weather"
 location = "10001"
 units = "imperial"
 show_icon = false`}
@@ -62,7 +62,7 @@ show_icon = false`}
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "weather"
-message = "Outside"
+text = "Outside"
 location = {lat = 40.71, lon = -74.01}
 units = "metric"
 update_interval = 1800`}

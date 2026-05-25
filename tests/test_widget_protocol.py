@@ -254,7 +254,7 @@ def test_widget_draw_rejects_unknown_kwargs():
     from led_ticker.frame import LedFrame
     from led_ticker.widgets.message import TickerMessage
 
-    msg = TickerMessage(message="hi")
+    msg = TickerMessage(text="hi")
     frame = LedFrame(led_cols=32, led_chain=5)
     canvas = frame.get_clean_canvas()
     with pytest.raises(TypeError):
@@ -271,7 +271,7 @@ class TestFrameAwareWidgetProtocol:
         from led_ticker.widget import FrameAwareWidget
         from led_ticker.widgets.message import TickerMessage
 
-        w = TickerMessage(message="hi")
+        w = TickerMessage(text="hi")
         assert isinstance(w, FrameAwareWidget)
 
     def test_plain_widget_does_not_satisfy_frame_aware_widget(self):

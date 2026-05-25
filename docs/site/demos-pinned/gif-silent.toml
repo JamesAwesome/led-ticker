@@ -19,4 +19,4 @@ type = "gif"
 path = "../../../config/assets/pika_wave_transparent.gif"
 fit = "pillarbox"
 image_align = "center"
-gif_loops = 3
+play_count = 3

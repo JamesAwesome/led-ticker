@@ -189,7 +189,7 @@ type = "gif"
 path = "assets/pika_wave_transparent.gif"
 fit = "pillarbox"
 image_align = "center"
-gif_loops = 3
+play_count = 3
 border = "rainbow"
 
 # ---------------------------------------------------------------------------
@@ -197,7 +197,7 @@ border = "rainbow"
 #    on a multi-frame source. Tests the per-tick loop (gif frames
 #    advance, border chases, text holds at left). Border paints
 #    AFTER image AND BEFORE text — text overlaps border on collision.
-#    `loop_count = 3` × `gif_loops = 3` exercises the visit-reset
+#    `loop_count = 3` × `loops = 3` exercises the visit-reset
 #    fix: the rainbow chase phase MUST advance continuously across
 #    the 3 inner loop iterations (no snap back to phase 0).
 # ---------------------------------------------------------------------------
@@ -217,7 +217,7 @@ text_align = "right"
 font = "Inter-Bold"
 font_size = 16
 font_color = [255, 220, 80]
-gif_loops = 3
+play_count = 3
 border = "rainbow"
 
 # ---------------------------------------------------------------------------
@@ -277,7 +277,7 @@ text_align = "right"
 font = "Inter-Bold"
 font_size = 16
 font_color = "color_cycle"
-gif_loops = 3
+play_count = 3
 border = "rainbow"
 
 # ===========================================================================

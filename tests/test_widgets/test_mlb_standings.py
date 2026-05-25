@@ -386,7 +386,7 @@ class TestOffseason:
 
         assert len(widget.feed_stories) == 1
         # Offseason path produced an "Opens <date>" message
-        assert widget.feed_stories[0].message.startswith("Opens ")
+        assert widget.feed_stories[0].text.startswith("Opens ")
         # Title is set
         assert widget.feed_title is not None
 
@@ -400,7 +400,7 @@ class TestOffseason:
         await widget.update()
 
         assert len(widget.feed_stories) == 1
-        assert widget.feed_stories[0].message == "Opens soon"
+        assert widget.feed_stories[0].text == "Opens soon"
 
     @pytest.mark.asyncio
     async def test_update_skips_offseason_when_games_played(self):
@@ -417,7 +417,7 @@ class TestOffseason:
         # MLBGameMessage doesn't have a single .message; just verify it's not
         # the offseason TickerMessage.
         if isinstance(first_msg, TickerMessage):
-            assert not first_msg.message.startswith("Opens")
+            assert not first_msg.text.startswith("Opens")
 
     @pytest.mark.asyncio
     async def test_update_handles_api_error_gracefully(self):
@@ -431,7 +431,7 @@ class TestOffseason:
         await widget.update()
 
         assert len(widget.feed_stories) == 1
-        assert widget.feed_stories[0].message == "No Data"
+        assert widget.feed_stories[0].text == "No Data"
 
     @pytest.mark.asyncio
     async def test_offseason_fetches_teams_endpoint_once(self):

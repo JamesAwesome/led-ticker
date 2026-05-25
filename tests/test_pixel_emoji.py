@@ -133,7 +133,7 @@ def test_message_widget_overflow_scroll_with_hires_emoji(bigsign_canvas):
 
     real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
-    msg = TickerMessage(message=":moon::sun::star::instagram::email::baseball::flower:")
+    msg = TickerMessage(text=":moon::sun::star::instagram::email::baseball::flower:")
     _, cursor_pos = msg.draw(sc, cursor_pos=0)
     # Canvas is 64 logical wide (256 / 4). 7 hi-res emojis = 7 × (8 + 2) = 70.
     # cursor_pos returns content_width + padding (default 6) = 76. Caller

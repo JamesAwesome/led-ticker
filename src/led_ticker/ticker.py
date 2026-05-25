@@ -113,7 +113,7 @@ class _CircleBufferMsg(TickerMessage):
 
 
 DEFAULT_BUFFER_MSG: TickerMessage = _CircleBufferMsg(
-    message=" \u2022 ", center=False, font_color=RGB_WHITE
+    text=" \u2022 ", center=False, font_color=RGB_WHITE
 )
 
 
@@ -432,13 +432,10 @@ class Ticker:
         back-buffer canvas afterward so subsequent draws stay scaled.
 
         ``section_hold_time`` is forwarded to ``widget.play()`` as ``hold_time``
-        so gif widgets with ``gif_loops = 0`` can compute how many loops fit in
+        so gif widgets with ``play_count = 0`` can compute how many loops fit in
         the section's duration.
         """
-        gif_loops = getattr(widget, "gif_loops", None)
-        loops = (
-            gif_loops if gif_loops is not None else (getattr(widget, "loops", 1) or 1)
-        )
+        loops = getattr(widget, "play_count", 1) or 1
         if isinstance(canvas, ScaledCanvas):
             Ticker._set_logical_scale(widget, canvas.scale)
             new_real = await widget.play(

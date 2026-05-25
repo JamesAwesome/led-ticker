@@ -6,9 +6,7 @@ description: How content swaps between widgets — push, wipe, sprite, and speci
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 A transition runs between widgets in `swap` mode (and between sections regardless
-of mode). The pick is set in your `[transitions]` block — `default` applies
-between widgets, `between_sections` applies at section boundaries. Each section
-can override with `transition = "..."`.
+of mode). Global defaults live in `[transitions]`; each section can override them.
 
 ## The four families
 
@@ -28,12 +26,43 @@ can override with `transition = "..."`.
 | Info-dense  | `push_up`                                                           | `dissolve`             |
 | Branded-pro | `wipe_alternating` (with `transition_color` from the brand palette) | `dissolve`             |
 
-## Tuning
+## Global settings (`[transitions]`)
 
-- `transition_duration` (seconds): default 0.5; range 0.3–1.5 is typical
-- `easing`: `linear` (sharp) / `ease_out` / `ease_in_out` (default for pushes)
-- `transition_color`: RGB list — used by wipe sweep lines and color_flash
-- `transition_colors`: list of RGB lists — used by `wipe_alternating` / `wipe_random` for a custom color pool
+These apply everywhere unless a section overrides them:
+
+| Field              | Default    | Notes                                                                          |
+| ------------------ | ---------- | ------------------------------------------------------------------------------ |
+| `default`          | `"cut"`    | Fallback inter-widget transition for every section                             |
+| `between_sections` | `"cut"`    | Fallback entry transition when a section doesn't set its own                   |
+| `duration`         | `0.5`      | Transition duration in seconds. 0.3–1.5 is typical; sprite trails want 1.0–2.0 |
+| `easing`           | `"linear"` | `linear` / `ease_out` / `ease_in_out`                                          |
+
+Both `default` and `between_sections` accept an inline table for extra knobs:
+`between_sections = { type = "wipe_left", duration = 0.8, easing = "ease_out" }`.
+
+## Per-section overrides (`[[playlist.section]]`)
+
+Each section has three transition slots, all accepting a bare string or inline table:
+
+| Field               | What it controls                                     | Precedence                                                 |
+| ------------------- | ---------------------------------------------------- | ---------------------------------------------------------- |
+| `transition`        | **Both** entry and inter-widget (the shortcut)       | Overrides `default` / `between_sections` for both slots    |
+| `entry_transition`  | How **this section enters** (inter-section boundary) | Highest priority for entry — overrides `transition`        |
+| `widget_transition` | Swaps **between widgets** within this section        | Highest priority for inter-widget — overrides `transition` |
+
+**The `transition` shortcut:** writing `transition = "pokeball"` on a section sets pokeball for _both_ the entry and inter-widget swaps. This is usually what you want for single-widget sections. For multi-widget sections use `entry_transition` + `widget_transition` to control the two slots independently.
+
+**Full precedence chains:**
+
+- Entry: `entry_transition` → `transition` (if explicitly set) → `[transitions] between_sections`
+- Inter-widget: `widget_transition` → `transition` (if explicitly set) → `[transitions] default`
+
+Additional per-section knobs (apply on top of `transition`):
+
+- `transition_duration`: override the duration (seconds)
+- `transition_color`: RGB list — sweep color for wipe family and color_flash
+- `transition_colors`: list of RGB lists — color pool for `wipe_alternating` / `wipe_random`
+- `show_pikachu` / `show_pokeball`: toggle sprite elements on pokeball-family transitions
 
 <RelatedPages
   slugs={["transitions/push", "transitions/wipe", "transitions/sprite", "transitions/special"]}

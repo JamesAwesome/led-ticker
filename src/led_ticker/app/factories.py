@@ -429,7 +429,7 @@ async def _build_widget(
     users who set a font size that won't fit vertically. Bigsign hi-res
     is the supported use case, so callers pass None for it.
     """
-    widget_type = widget_cfg.get("type")  # peek before validate_widget_cfg pops it
+    widget_type: str = widget_cfg["type"]  # peek before validate_widget_cfg pops it
     await validate_widget_cfg(
         widget_cfg,
         session=session,

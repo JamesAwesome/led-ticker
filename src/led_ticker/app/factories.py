@@ -12,6 +12,7 @@ import difflib
 import inspect
 import itertools
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -200,6 +201,48 @@ _DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
     "bottom_font": {"two_row"},
     "bottom_font_size": {"two_row"},
     "bottom_font_threshold": {"two_row"},
+}
+
+
+def _enum_validator(allowed: set[str], hint: str) -> Callable[[Any], str | None]:
+    """Return a validator that checks value is in allowed (post-coercion)."""
+
+    def validate(value: Any) -> str | None:
+        if isinstance(value, str) and value not in allowed:
+            return f"got {value!r}; valid values: {hint}"
+        return None
+
+    return validate
+
+
+# Field-level validators called in validate_widget_cfg after coercion.
+# Each callable receives the (already coerced) value and returns an error
+# string or None. Keyed by TOML field name.
+FIELD_VALIDATORS: dict[str, Callable[[Any], str | None]] = {
+    "text_align": _enum_validator(
+        {"auto", "scroll", "scroll_over", "left", "right", "center"},
+        '"auto" | "scroll" | "scroll_over" | "left" | "right" | "center"',
+    ),
+    "fit": _enum_validator(
+        {"pillarbox", "letterbox", "stretch", "crop"},
+        '"pillarbox" | "letterbox" | "stretch" | "crop"',
+    ),
+    "scroll_direction": _enum_validator(
+        {"left", "right"},
+        '"left" | "right"',
+    ),
+    "image_align": _enum_validator(
+        {"left", "center", "right"},
+        '"left" | "center" | "right"',
+    ),
+    "text_valign": _enum_validator(
+        {"top", "center", "bottom"},
+        '"top" | "center" | "bottom"',
+    ),
+    "bottom_text_scroll": _enum_validator(
+        {"marquee", "scroll_through"},
+        '"marquee" | "scroll_through"',
+    ),
 }
 
 # Section-title random color cycle. One stable color per section visit.
@@ -442,6 +485,13 @@ async def validate_widget_cfg(
     cls = get_widget_class(widget_type)
 
     _coerce_widget_cfg(widget_cfg, coercion_collector)
+
+    # Enum allowlist checks — run after coercion so case-normalised values pass.
+    for _field_name, _validator in FIELD_VALIDATORS.items():
+        if _field_name in widget_cfg:
+            _err = _validator(widget_cfg[_field_name])
+            if _err is not None:
+                raise ValueError(f"widget type={widget_type!r}: {_field_name} {_err}")
 
     # Animation field. Currently allowed on `message`, `gif`, and
     # `image` — image widgets restrict to single-row mode (validated

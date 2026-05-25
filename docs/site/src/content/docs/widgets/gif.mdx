@@ -40,7 +40,7 @@ type = "gif"
 path = "config/assets/pika_wave_transparent.gif"
 fit = "pillarbox"
 image_align = "center"
-gif_loops = 3`}
+loops = 3`}
 />
 
 ### Scrolling marquee over the image (`scroll_over` — text in front)
@@ -59,7 +59,7 @@ image_align = "left"
 text = "Welcome to the show!"
 text_align = "scroll_over"
 font_color = [225, 48, 108]
-gif_loops = 0   # play through hold_time`}
+loops = 0   # play through hold_time`}
 />
 
 ### Scrolling text behind a transparent silhouette (`scroll` — text walks under the image)
@@ -78,7 +78,7 @@ image_align = "left"
 text = "Scrolling behind Pika!"
 text_align = "scroll"
 font_color = [200, 200, 255]
-gif_loops = 5`}
+loops = 5`}
 />
 
 ### Wrap mode (seamless marquee with a separator between repeats)
@@ -197,7 +197,7 @@ top_color = [225, 48, 108]
 bottom_text = "Aerial circus · all levels welcome"
 bottom_font = "5x8"
 bottom_color = [255, 240, 200]
-gif_loops = 3`}
+loops = 3`}
 />
 
 ### Typewriter overlay (single-row only — letters type in next to the animation)
@@ -217,7 +217,7 @@ text = "hi friend"
 text_align = "right"
 font_color = "rainbow"
 animation = "typewriter"
-gif_loops = 0   # play through hold_time`}
+loops = 0   # play through hold_time`}
 />
 
 ### Typewriter + rainbow border (frame the panel as the text appears)
@@ -238,14 +238,14 @@ text_align = "right"
 font_color = [255, 255, 255]
 animation = "typewriter"
 border = "rainbow"
-gif_loops = 0   # play through hold_time`}
+loops = 0   # play through hold_time`}
 />
 
 ## Tips
 
-### Playing through `hold_time`: `gif_loops = 0`
+### Playing through `hold_time`: `loops = 0`
 
-When you want a gif to fill its section's duration rather than playing a fixed number of times, set `gif_loops = 0`. The engine computes how many complete loops fit in `hold_time` and plays at least one even if the time budget is shorter than the gif's own duration. Replaces the older `gif_loops = 999` magic-number idiom.
+When you want a gif to fill its section's duration rather than playing a fixed number of times, set `loops = 0`. The engine computes how many complete loops fit in `hold_time` and plays at least one even if the time budget is shorter than the gif's own duration. Replaces the older `loops = 999` magic-number idiom.
 
 ```toml
 [[playlist.section]]
@@ -255,10 +255,10 @@ hold_time = 8.0
 [[playlist.section.widget]]
 type = "gif"
 path = "config/assets/sparkles.gif"
-gif_loops = 0   # fills the section's hold_time
+loops = 0   # fills the section's hold_time
 ```
 
-`gif_loops >= 1` still works exactly as before — it plays the exact count regardless of `hold_time`.
+`loops >= 1` still works exactly as before — it plays the exact count regardless of `hold_time`.
 
 ### Typewriter is single-row only
 

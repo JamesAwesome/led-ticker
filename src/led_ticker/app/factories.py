@@ -147,6 +147,93 @@ FIELD_HINTS: dict[str, FieldHint] = {
     "top_row_height": FieldHint(
         "int | none", "top row height in logical pixels (none = 50/50 split)", "none"
     ),
+    # --- Countdown ---
+    "countdown_date": FieldHint(
+        "YYYY-MM-DD",
+        "target date to count down to (ISO format, e.g. 2026-12-25)",
+        None,
+    ),
+    # --- Weather ---
+    "location": FieldHint(
+        "str",
+        "WeatherAPI query string — city name, zip code, or lat,lon",
+        None,
+    ),
+    "units": FieldHint(
+        '"imperial" | "metric"',
+        "temperature unit system",
+        '"imperial"',
+    ),
+    "font_color_temp": FieldHint(
+        "color | ...",
+        "color for the temperature value (separate from label font_color)",
+        "white",
+    ),
+    "show_icon": FieldHint(
+        "bool",
+        "show weather condition icon alongside temperature",
+        "true",
+    ),
+    # --- RSS feed ---
+    "feed_url": FieldHint(
+        "str (URL)",
+        "RSS or Atom feed URL to poll for headlines",
+        None,
+    ),
+    "max_stories": FieldHint(
+        "int",
+        "maximum stories to show per cycle",
+        "5",
+    ),
+    # --- Coinbase / CoinGecko ---
+    "symbol": FieldHint(
+        "str",
+        "crypto ticker symbol (e.g. BTC, ETH)",
+        None,
+    ),
+    "symbol_id": FieldHint(
+        "str",
+        "CoinGecko coin ID (e.g. bitcoin, ethereum) — CoinGecko only",
+        None,
+    ),
+    "currency": FieldHint(
+        "str",
+        "fiat currency for price quote (e.g. USD, EUR)",
+        None,
+    ),
+    # --- MLB ---
+    "team": FieldHint(
+        "str",
+        "MLB team abbreviation (e.g. PHI, NYM, LAD)",
+        None,
+    ),
+    "final_hold_hours": FieldHint(
+        "int (hours)",
+        "hours to display final score before advancing to next widget",
+        "6",
+    ),
+    # --- MLB standings ---
+    "title": FieldHint(
+        "str",
+        "standings panel header text",
+        '"MLB Standings"',
+    ),
+    "top_n": FieldHint(
+        "int",
+        "number of top-record teams to show (in addition to tracked teams)",
+        "3",
+    ),
+    # --- Shared: data widgets ---
+    "timezone": FieldHint(
+        "str (TZ name)",
+        "IANA timezone name for game/event times (e.g. America/New_York)",
+        '"America/New_York"',
+    ),
+    "teams": FieldHint(
+        "list[str]",
+        "MLB team codes to always include in standings regardless of record",
+        "[]",
+    ),
 }
 
 # Attrs fields on gif/image widgets that only activate when bottom_text != "".

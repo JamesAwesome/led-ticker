@@ -2402,6 +2402,52 @@ class TestListWidgetFields:
         assert "bottom_text" in result
 
 
+class TestListWidgetFieldsDataWidgets:
+    """FIELD_HINTS coverage for data widget fields."""
+
+    def test_countdown_shows_countdown_date_description(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("countdown")
+        assert "countdown_date" in output
+        assert "count down to" in output.lower()
+
+    def test_weather_shows_location_description(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("weather")
+        assert "location" in output
+        assert "WeatherAPI" in output or "query" in output.lower()
+
+    def test_weather_shows_units_enum(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("weather")
+        assert "imperial" in output
+        assert "metric" in output
+
+    def test_rss_feed_shows_feed_url_description(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("rss_feed")
+        assert "feed_url" in output
+        assert "URL" in output or "url" in output.lower()
+
+    def test_mlb_shows_team_description(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("mlb")
+        assert "team" in output
+        assert "PHI" in output or "abbreviation" in output.lower()
+
+    def test_mlb_standings_shows_top_n_description(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("mlb_standings")
+        assert "top_n" in output
+        assert "top-record" in output or "top_n" in output
+
+
 class TestSingleRowColorGuard:
     """top_color / bottom_color are two-row-only on gif/image widgets.
     On a single-row widget they're silently ignored; the guard makes it loud.

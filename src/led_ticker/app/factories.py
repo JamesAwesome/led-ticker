@@ -112,7 +112,7 @@ FIELD_HINTS: dict[str, FieldHint] = {
     "text_loops": FieldHint(
         "int", "minimum full scroll traversals before advancing; 0 = one loop", "0"
     ),
-    "loops": FieldHint(
+    "gif_loops": FieldHint(
         "int", "per-visit gif loop count; 0 = play through hold_time", "1"
     ),
     "hold_seconds": FieldHint(
@@ -140,7 +140,9 @@ FIELD_HINTS: dict[str, FieldHint] = {
         '"left" | "center" | "right"', "bottom row horizontal alignment", '"center"'
     ),
     "bottom_text_scroll": FieldHint(
-        '"marquee" | "hold"', "bottom row scroll behavior on overflow", '"marquee"'
+        '"marquee" | "scroll_through"',
+        "bottom row scroll behavior on overflow",
+        '"marquee"',
     ),
     "top_row_height": FieldHint(
         "int | none", "top row height in logical pixels (none = 50/50 split)", "none"
@@ -181,6 +183,7 @@ TWO_ROW_OVERLAY_FIELDS: frozenset[str] = frozenset(
 _DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
     "type": None,
     "text": None,
+    "font": None,
     "font_size": None,
     "font_threshold": None,
     "animation": {"message", "gif", "image"},

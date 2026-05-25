@@ -233,7 +233,7 @@ transition_duration = 0.6
 
 [playlist.section.title]
 text = "BUNNY"
-color = [255, 180, 200]
+font_color = [255, 180, 200]
 
 [[playlist.section.widget]]
 type = "image"

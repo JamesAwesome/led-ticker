@@ -237,7 +237,7 @@ transition_duration = 0.6
 
 [playlist.section.title]
 text = "HELLO!"
-color = [255, 220, 50]
+font_color = [255, 220, 50]
 
 [[playlist.section.widget]]
 type = "gif"

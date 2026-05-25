@@ -21,7 +21,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = "#DevOps News"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "message"
@@ -40,7 +40,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = "Weather"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "weather"
@@ -81,7 +81,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = "Count Downs"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "countdown"
@@ -122,7 +122,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = "Nintendo Life"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "rss_feed"

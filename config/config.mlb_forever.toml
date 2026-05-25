@@ -21,7 +21,7 @@ loop_count = 0
 [playlist.section.title]
 type = "message"
 text = "MLB Scores"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "mlb"

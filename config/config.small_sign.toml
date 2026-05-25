@@ -27,7 +27,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = ":bunny: #DevOps News :taco:"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "message"
@@ -52,7 +52,7 @@ loop_count = 2
 [playlist.section.title]
 type = "message"
 text = "Weather"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "weather"
@@ -94,7 +94,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = "Count Downs"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "countdown"
@@ -133,7 +133,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = "Nintendo Life"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "rss_feed"
@@ -152,7 +152,7 @@ loop_count = 2
 [playlist.section.title]
 type = "message"
 text = ":baseball: Oh! That's Baseball!! :baseball:"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "mlb"
@@ -176,7 +176,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = ":baseball: MLB Standings :baseball:"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "mlb_standings"
@@ -197,7 +197,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = "Anime News Network"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "rss_feed"

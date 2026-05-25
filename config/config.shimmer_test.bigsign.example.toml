@@ -50,7 +50,7 @@ loop_count = 2
 [playlist.section.title]
 type = "message"
 text = "1. Plain shimmer"
-color = [120, 120, 160]
+font_color = [120, 120, 160]
 
 [[playlist.section.widget]]
 type = "message"
@@ -80,7 +80,7 @@ loop_count = 2
 [playlist.section.title]
 type = "message"
 text = "2. Gold shimmer"
-color = [200, 160, 40]
+font_color = [200, 160, 40]
 
 [[playlist.section.widget]]
 type = "message"
@@ -109,7 +109,7 @@ loop_count = 2
 [playlist.section.title]
 type = "message"
 text = "3. Cyan shimmer"
-color = [0, 180, 200]
+font_color = [0, 180, 200]
 
 [[playlist.section.widget]]
 type = "message"
@@ -139,7 +139,7 @@ loop_count = 2
 [playlist.section.title]
 type = "message"
 text = "4. Blue base"
-color = [80, 140, 255]
+font_color = [80, 140, 255]
 
 [[playlist.section.widget]]
 type = "message"
@@ -170,7 +170,7 @@ loop_count = 2
 [playlist.section.title]
 type = "message"
 text = "5. Narrow glint"
-color = [200, 200, 200]
+font_color = [200, 200, 200]
 
 [[playlist.section.widget]]
 type = "message"
@@ -201,7 +201,7 @@ loop_count = 2
 [playlist.section.title]
 type = "message"
 text = "6. Wide bloom"
-color = [160, 120, 220]
+font_color = [160, 120, 220]
 
 [[playlist.section.widget]]
 type = "message"
@@ -231,7 +231,7 @@ loop_count = 2
 [playlist.section.title]
 type = "message"
 text = "7. Custom RGB"
-color = [180, 160, 240]
+font_color = [180, 160, 240]
 
 [[playlist.section.widget]]
 type = "message"
@@ -264,7 +264,7 @@ content_height = 32
 [playlist.section.title]
 type = "message"
 text = "8. Two-row shimmer"
-color = [200, 180, 120]
+font_color = [200, 180, 120]
 
 [[playlist.section.widget]]
 type = "two_row"
@@ -308,7 +308,7 @@ scale = 2
 [playlist.section.title]
 type = "message"
 text = "9. Scale 2 shimmer"
-color = [200, 200, 120]
+font_color = [200, 200, 120]
 
 [[playlist.section.widget]]
 type = "message"
@@ -337,7 +337,7 @@ loop_count = 2
 [playlist.section.title]
 type = "message"
 text = "10. Gold coin"
-color = [200, 160, 0]
+font_color = [200, 160, 0]
 
 [[playlist.section.widget]]
 type = "message"
@@ -368,7 +368,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = "11. Scroll shimmer"
-color = [160, 200, 160]
+font_color = [160, 200, 160]
 
 [[playlist.section.widget]]
 type = "message"

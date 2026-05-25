@@ -78,7 +78,7 @@ transition = "cut"
 [playlist.section.title]
 type = "message"
 text = "1: rainbow + emoji"
-color = [200, 220, 255]
+font_color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
@@ -95,7 +95,7 @@ transition = "cut"
 [playlist.section.title]
 type = "message"
 text = "2: TITLE RAINBOW"
-color = "rainbow"
+font_color = "rainbow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -131,7 +131,7 @@ transition = "cut"
 [playlist.section.title]
 type = "message"
 text = "4: typewriter + rainbow"
-color = [200, 220, 255]
+font_color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
@@ -149,7 +149,7 @@ transition = "cut"
 [playlist.section.title]
 type = "message"
 text = "5: typewriter"
-color = [200, 220, 255]
+font_color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
@@ -167,7 +167,7 @@ transition = "cut"
 [playlist.section.title]
 type = "message"
 text = "6: color_cycle"
-color = [200, 220, 255]
+font_color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
@@ -184,7 +184,7 @@ transition = "cut"
 [playlist.section.title]
 type = "message"
 text = "7: rainbow"
-color = [200, 220, 255]
+font_color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
@@ -201,7 +201,7 @@ transition = "cut"
 [playlist.section.title]
 type = "message"
 text = "8: gradient"
-color = [200, 220, 255]
+font_color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
@@ -218,7 +218,7 @@ transition = "cut"
 [playlist.section.title]
 type = "message"
 text = "9: rainbow + countdown"
-color = [200, 220, 255]
+font_color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "countdown"
@@ -236,7 +236,7 @@ transition = "cut"
 [playlist.section.title]
 type = "message"
 text = "10: color_cycle + weather"
-color = [200, 220, 255]
+font_color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "weather"
@@ -255,7 +255,7 @@ transition = "cut"
 [playlist.section.title]
 type = "message"
 text = "11: hires + rainbow"
-color = [200, 220, 255]
+font_color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
@@ -274,7 +274,7 @@ transition = "cut"
 [playlist.section.title]
 type = "message"
 text = "12: hires + gradient"
-color = [200, 220, 255]
+font_color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
@@ -293,7 +293,7 @@ transition = "cut"
 [playlist.section.title]
 type = "message"
 text = "13: hires + typewriter"
-color = [200, 220, 255]
+font_color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
@@ -355,7 +355,7 @@ transition = "cut"
 [playlist.section.title]
 type = "message"
 text = "16: hires + emoji + rainbow"
-color = [200, 220, 255]
+font_color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
@@ -376,7 +376,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = "Nintendo Life"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "rss_feed"

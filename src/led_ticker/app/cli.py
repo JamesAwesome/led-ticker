@@ -68,7 +68,8 @@ def main() -> None:
         default=None,
         help=(
             "Print all valid fields for a widget type and exit "
-            "(e.g. --list-fields message)"
+            "(e.g. --list-fields message). "
+            "Use --list-fields section for [[playlist.section]] fields."
         ),
     )
     val_parser.add_argument(
@@ -81,11 +82,25 @@ def main() -> None:
             "Use in CI to enforce a warning-clean config."
         ),
     )
+    val_parser.add_argument(
+        "--fix",
+        action="store_true",
+        default=False,
+        help=(
+            "Apply auto-fixable migrations (key renames) to the config file in-place. "
+            "NOTE: comments in the TOML file will not be preserved."
+        ),
+    )
 
     args = parser.parse_args()
 
     if args.command == "validate":
         if args.list_fields is not None:
+            from led_ticker.app.factories import _list_section_fields  # noqa: PLC0415
+
+            if args.list_fields == "section":
+                print(_list_section_fields())
+                sys.exit(0)
             try:
                 print(_list_widget_fields(args.list_fields))
             except ValueError as e:
@@ -112,6 +127,24 @@ def main() -> None:
         except FileNotFoundError as e:
             print(str(e), file=sys.stderr)
             sys.exit(2)
+
+        if args.fix:
+            from led_ticker.validate import apply_migrations  # noqa: PLC0415
+
+            n = apply_migrations(args.path, result)
+            if n > 0:
+                print(
+                    f"Applied {n} migration(s). "
+                    "Re-run validate to check for remaining issues.",
+                    file=sys.stderr,
+                )
+                print(
+                    "NOTE: TOML comments were not preserved.",
+                    file=sys.stderr,
+                )
+            else:
+                print("No auto-fixable migrations found.", file=sys.stderr)
+            sys.exit(0)
 
         if args.json_output:
             print(_format_json(result))

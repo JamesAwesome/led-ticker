@@ -803,12 +803,7 @@ def _configure_user_font_dir(config_path: Path) -> None:
 
 
 def _list_widget_fields(widget_type: str) -> str:
-    """Return a human-readable field listing for widget_type.
-
-    Shows dispatch-level fields (_build_widget pops these before the
-    allowlist check) and the widget's init-able attrs fields with types
-    and defaults.
-    """
+    """Return a human-readable grouped field listing for widget_type."""
     import attrs as _attrs
 
     from led_ticker.widgets import _WIDGET_REGISTRY
@@ -824,58 +819,98 @@ def _list_widget_fields(widget_type: str) -> str:
         )
 
     cls = _WIDGET_REGISTRY[widget_type]
-    lines: list[str] = [f'Fields for type="{widget_type}":', ""]
-
-    # Widget-specific attrs fields (init=True only)
     init_attrs = [
         a
         for a in getattr(cls, "__attrs_attrs__", ())
         if a.init is not False and a.name != "session"
     ]
-    if init_attrs:
-        lines.append("Widget-level fields:")
-        for a in init_attrs:
-            if a.type is None:
-                type_str = ""
-            elif isinstance(a.type, str):
-                type_str = a.type
-            else:
-                type_str = getattr(a.type, "__name__", str(a.type))
+    widget_field_names = {a.name for a in init_attrs}
 
-            if a.default is _attrs.NOTHING:
-                default_str = "(required)"
-            elif isinstance(a.default, _attrs.Factory):  # type: ignore[arg-type]
-                default_str = "default: <computed>"
-            else:
-                default_str = f"default: {a.default!r}"
+    def _render_field(a: Any) -> str:
+        hint = FIELD_HINTS.get(a.name)
+        type_str = (
+            hint.display_type
+            if hint
+            else (
+                a.type
+                if isinstance(a.type, str)
+                else getattr(a.type, "__name__", str(a.type))
+                if a.type is not None
+                else ""
+            )
+        )
+        if a.default is _attrs.NOTHING:
+            default_str = "(required)"
+        elif hint and hint.default_display is not None:
+            default_str = f"default: {hint.default_display}"
+        elif isinstance(a.default, _attrs.Factory):  # type: ignore[arg-type]
+            default_str = "default: <computed>"
+        else:
+            default_str = f"default: {a.default!r}"
+        return f"  {a.name:<28}  {type_str:<44}  {default_str}"
 
-            lines.append(f"  {a.name:<30}  {type_str:<35}  {default_str}")
+    # Partition widget attrs into required / optional / two-row-overlay.
+    # Two-row overlay only applies to gif/image — for other types all attrs
+    # go into required/optional only.
+    use_two_row_split = widget_type in ("gif", "image")
+    required_attrs = [a for a in init_attrs if a.default is _attrs.NOTHING]
+    if use_two_row_split:
+        two_row_attrs = [
+            a
+            for a in init_attrs
+            if a.default is not _attrs.NOTHING and a.name in TWO_ROW_OVERLAY_FIELDS
+        ]
+        optional_attrs = [
+            a
+            for a in init_attrs
+            if a.default is not _attrs.NOTHING and a.name not in TWO_ROW_OVERLAY_FIELDS
+        ]
+    else:
+        two_row_attrs = []
+        optional_attrs = [a for a in init_attrs if a.default is not _attrs.NOTHING]
+
+    lines: list[str] = [f'Fields for type="{widget_type}":', ""]
+
+    if required_attrs:
+        lines.append("Required:")
+        for a in required_attrs:
+            lines.append(_render_field(a))
         lines.append("")
 
-    # Dispatch-level fields that _build_widget handles (popped before allowlist)
-    lines.append("Dispatch-level fields (shared; _build_widget handles these):")
-    dispatch: list[tuple[str, str]] = [
-        ("type", "required; widget type name (e.g. 'message', 'gif')"),
-        ("text", "alias → widget's primary text field"),
-        ("font", "BDF alias or hi-res font name"),
-        ("font_size", "pixel height; required for hi-res fonts"),
-        ("font_threshold", "int 0–255; default 128"),
-        ("animation", "e.g. 'typewriter'; valid on message/gif/image only"),
-        ("border", "{style='...',...}; valid on message/countdown/two_row/gif/image"),
-        ("text_wrap", "bool; valid on gif/image only"),
-        ("text_separator", "str; valid on gif/image only"),
-        ("text_separator_color", "color; valid on gif/image only"),
-        ("bottom_text_wrap", "bool; valid on gif/image/two_row"),
-        ("bottom_text_separator", "str; valid on gif/image/two_row"),
-        ("bottom_text_separator_color", "color; valid on gif/image/two_row"),
-        ("top_font", "font name; valid on two_row"),
-        ("top_font_size", "pixel height; valid on two_row"),
-        ("top_font_threshold", "int 0–255; valid on two_row"),
-        ("bottom_font", "font name; valid on two_row"),
-        ("bottom_font_size", "pixel height; valid on two_row"),
-        ("bottom_font_threshold", "int 0–255; valid on two_row"),
-    ]
-    for name, desc in dispatch:
-        lines.append(f"  {name:<30}  {desc}")
+    if optional_attrs:
+        lines.append("Optional:")
+        for a in optional_attrs:
+            lines.append(_render_field(a))
+        lines.append("")
+
+    if two_row_attrs:
+        lines.append("Two-row overlay (set bottom_text to enable):")
+        for a in two_row_attrs:
+            lines.append(_render_field(a))
+        lines.append("")
+
+    # Shared dispatch fields: applicable to this widget type AND not
+    # already shown in widget-level (dedup by name).
+    dispatch_rows: list[tuple[str, str]] = []
+    for name, applicable_types in _DISPATCH_APPLICABLE_TYPES.items():
+        if applicable_types is not None and widget_type not in applicable_types:
+            continue
+        if name in widget_field_names:
+            continue  # already shown above
+        hint = FIELD_HINTS.get(name)
+        if hint:
+            type_part = hint.display_type
+            default_part = (
+                f"default: {hint.default_display}" if hint.default_display else ""
+            )
+            desc = f"{type_part}  {default_part}".rstrip()
+        else:
+            desc = ""
+        dispatch_rows.append((name, desc))
+
+    if dispatch_rows:
+        lines.append("Shared fields (all types):")
+        for name, desc in dispatch_rows:
+            lines.append(f"  {name:<28}  {desc}")
 
     return "\n".join(lines)

@@ -2288,49 +2288,109 @@ class TestUnknownKwargAllowlist:
 
 
 class TestListWidgetFields:
-    """_list_widget_fields returns a formatted string for a valid widget type."""
+    """_list_widget_fields grouped output and FIELD_HINTS rendering."""
 
-    def test_returns_str_for_message(self):
+    def test_message_has_required_section(self):
         from led_ticker.app import _list_widget_fields
 
         result = _list_widget_fields("message")
-        assert isinstance(result, str)
-        assert len(result) > 0
+        assert "Required:" in result
 
-    def test_contains_attrs_field_names(self):
-        """Known TickerMessage attrs fields appear in the output."""
+    def test_message_has_optional_section(self):
         from led_ticker.app import _list_widget_fields
 
         result = _list_widget_fields("message")
-        assert "message" in result
-        assert "font_color" in result
-        assert "padding" in result
+        assert "Optional:" in result
 
-    def test_contains_dispatch_field_names(self):
-        """Dispatch-level fields (font, animation) appear in the output."""
+    def test_message_no_two_row_section(self):
+        """message widget has no two-row overlay fields."""
         from led_ticker.app import _list_widget_fields
 
         result = _list_widget_fields("message")
-        assert "font" in result
-        assert "animation" in result
-        assert "type" in result
+        assert "Two-row" not in result
+
+    def test_gif_has_two_row_section(self):
+        from led_ticker.app import _list_widget_fields
+
+        result = _list_widget_fields("gif")
+        assert "Two-row overlay" in result
+
+    def test_message_hides_gif_only_dispatch_fields(self):
+        """text_wrap (gif/image only) must not appear in message output."""
+        from led_ticker.app import _list_widget_fields
+
+        result = _list_widget_fields("message")
+        assert "text_wrap" not in result
+
+    def test_gif_shows_text_wrap_in_shared(self):
+        from led_ticker.app import _list_widget_fields
+
+        result = _list_widget_fields("gif")
+        assert "text_wrap" in result
+
+    def test_gif_shows_valid_values_for_text_align(self):
+        from led_ticker.app import _list_widget_fields
+
+        result = _list_widget_fields("gif")
+        assert '"auto" | "scroll"' in result
+
+    def test_gif_shows_valid_values_for_fit(self):
+        from led_ticker.app import _list_widget_fields
+
+        result = _list_widget_fields("gif")
+        assert '"pillarbox" | "letterbox"' in result
+
+    def test_font_default_is_human_readable(self):
+        """Font object repr must not appear; FIELD_HINTS override shows plain text."""
+        from led_ticker.app import _list_widget_fields
+
+        result = _list_widget_fields("message")
+        assert "panel default font" in result
+        assert "object at 0x" not in result
+
+    def test_font_color_shows_provider_options(self):
+        from led_ticker.app import _list_widget_fields
+
+        result = _list_widget_fields("message")
+        assert '"rainbow"' in result
+
+    def test_font_not_duplicated_for_message(self):
+        """font is an attrs field on TickerMessage; must not also appear in Shared."""
+        from led_ticker.app import _list_widget_fields
+
+        result = _list_widget_fields("message")
+        # font appears in Optional but NOT in Shared fields section
+        assert "Optional:" in result
+        sections = result.split("\n\n")
+        shared_section = next(
+            (s for s in sections if s.startswith("Shared fields")), ""
+        )
+        # shared section must not have a bare "font" line (font_size/font_threshold ok)
+        shared_lines = [
+            ln for ln in shared_section.splitlines() if ln.startswith("  font ")
+        ]
+        assert shared_lines == [], f"font appeared in Shared section: {shared_lines}"
+
+    def test_animation_any_none_not_shown(self):
+        """animation: Any | None must not appear; FIELD_HINTS gives readable type."""
+        from led_ticker.app import _list_widget_fields
+
+        result = _list_widget_fields("message")
+        assert "Any | None" not in result
 
     def test_unknown_type_raises_value_error(self):
-        """An unknown widget type raises ValueError."""
         from led_ticker.app import _list_widget_fields
 
         with pytest.raises(ValueError, match="Unknown widget type"):
             _list_widget_fields("nonexistent_widget")
 
     def test_unknown_type_includes_did_you_mean(self):
-        """A close mis-spelling includes a suggestion."""
         from led_ticker.app import _list_widget_fields
 
         with pytest.raises(ValueError, match="Did you mean"):
             _list_widget_fields("mesage")
 
-    def test_two_row_fields_included(self):
-        """two_row widget shows its specific fields."""
+    def test_two_row_fields_included_for_two_row_type(self):
         from led_ticker.app import _list_widget_fields
 
         result = _list_widget_fields("two_row")

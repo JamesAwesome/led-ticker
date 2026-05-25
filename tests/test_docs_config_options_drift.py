@@ -51,11 +51,16 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
     "display": {f.name for f in fields(DisplayConfig)},
     # [title] has just one knob.
     "title": {"delay"},
-    # [transitions] surfaces the four common knobs. show_pikachu and
-    # show_pokeball ARE accepted by the loader at this level but are
-    # niche per-transition controls; intentionally omitted to keep the
-    # table focused on the most-set fields.
-    "transitions": {"default", "duration", "easing", "between_sections"},
+    # [transitions] surfaces the common knobs plus show_pikachu/show_pokeball
+    # which are valid global defaults (parsed from transitions_raw in load_config).
+    "transitions": {
+        "default",
+        "duration",
+        "easing",
+        "between_sections",
+        "show_pikachu",
+        "show_pokeball",
+    },
     # [[playlist.section]] — covers the user-facing knobs.
     # transition_specified is on the SectionConfig dataclass but not a
     # TOML key the user writes (the loader sets it based on whether
@@ -67,6 +72,8 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
         "hold_time",
         "continuous_scroll",
         "transition",
+        "entry_transition",
+        "widget_transition",
         "transition_duration",
         "transition_color",
         "transition_colors",

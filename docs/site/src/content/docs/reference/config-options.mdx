@@ -23,7 +23,7 @@ font_size = "25"   # works (coerced to 25, warns)
 font_size = 25     # canonical, no warning
 ```
 
-Applies to `font_size`, `font_threshold`, `hold_time`, `brightness`, `content_height`, `scale`, `loop_count`, and every other numeric field on `[display]`, `[[playlist.section]]`, and per-widget configs.
+Applies to all numeric fields across `[display]`, `[[playlist.section]]`, and per-widget configs — including `rows`, `cols`, `chain`, `parallel`, `slowdown_gpio`, `pwm_bits`, `pwm_lsb_nanoseconds`, `rp1_rio`, `font_size`, `font_threshold`, `hold_time`, `brightness`, `content_height`, `scale`, `loop_count`, `scroll_step_ms`, `start_hold`, `separator_font_size`, and others.
 
 **Closed-set enum strings → case-insensitive.** Fields with a fixed value set (`text_align`, `text_valign`, `image_align`, `scroll_direction`, `fit`, `bottom_text_scroll`, `easing`) are case-insensitive. The canonical form is lowercase:
 
@@ -78,6 +78,8 @@ Global defaults for inter-widget and inter-section transitions.
 | `duration`         | float          | `0.5`      | Default transition duration in seconds. Sprite-trail transitions (pokeball, nyancat, scroll) typically want a longer value.                                                                    |
 | `easing`           | string         | `"linear"` | Default easing curve. Accepted values: `linear`, `ease_out`, `ease_in_out`.                                                                                                                    |
 | `between_sections` | string / table | `"cut"`    | Fallback transition fired at section boundaries. Lowest priority in the entry-transition chain — overridden by a section's `entry_transition` or explicitly-set `transition` (see Tips below). |
+| `show_pikachu`     | bool           | `true`     | Global default for the pokeball-family Pikachu sprite. Can be overridden per-section.                                                                                                          |
+| `show_pokeball`    | bool           | `true`     | Global default for the pokeball-family ball sprite. Can be overridden per-section.                                                                                                             |
 
 Both `default` and `between_sections` accept either a bare string
 (transition name) or an inline table — e.g. `between_sections = { type = "wipe_left", duration = 0.8, easing = "ease_out" }`.

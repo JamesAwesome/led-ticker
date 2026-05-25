@@ -1257,6 +1257,56 @@ def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+def _parse_widget_location(location: str) -> tuple[int, int] | None:
+    """Parse 'section[i].widget[j]' → (i, j). Returns None if not a widget location."""
+    import re
+
+    m = re.match(r"^section\[(\d+)\]\.widget\[(\d+)\]$", location)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    return None
+
+
+def apply_migrations(path: Path, result: ValidationResult) -> int:
+    """Apply all auto-fixable migrations from result to the TOML file at path.
+
+    Reads, patches, and rewrites the TOML. Comments are not preserved
+    (tomli_w limitation). Returns the number of fixes applied.
+    """
+    import tomllib
+
+    import tomli_w
+
+    fixable = [
+        e
+        for e in result.errors
+        if e.fix_key and e.fix_replacement_key and _parse_widget_location(e.location)
+    ]
+    if not fixable:
+        return 0
+
+    raw = path.read_bytes()
+    data = tomllib.loads(raw.decode())
+
+    applied = 0
+    sections = data.get("playlist", {}).get("section", [])
+    for issue in fixable:
+        loc = _parse_widget_location(issue.location)
+        if loc is None:
+            continue
+        section_idx, widget_idx = loc
+        try:
+            widget = sections[section_idx]["widget"][widget_idx]
+        except (IndexError, KeyError):
+            continue
+        if issue.fix_key in widget:
+            widget[issue.fix_replacement_key] = widget.pop(issue.fix_key)
+            applied += 1
+
+    path.write_bytes(tomli_w.dumps(data).encode())
+    return applied
+
+
 async def validate_config(path: Path, *, strict: bool = False) -> ValidationResult:
     """Validate a TOML config file. Raises FileNotFoundError if path does not exist.
 

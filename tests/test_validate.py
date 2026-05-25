@@ -2706,6 +2706,90 @@ padding = "6"
     assert "coercion warning" in output.lower()
 
 
+async def test_apply_migrations_renames_gif_loops(tmp_path):
+    """apply_migrations renames gif_loops → play_count in the TOML file."""
+    from led_ticker.validate import apply_migrations
+
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "test.gif"
+gif_loops = 2
+"""
+    )
+    result = await validate_config(config_file)
+    n = apply_migrations(config_file, result)
+    assert n == 1
+
+    # File on disk should now use play_count
+    patched = config_file.read_text()
+    assert "play_count" in patched
+    assert "gif_loops" not in patched
+
+
+async def test_apply_migrations_returns_zero_when_nothing_to_fix(tmp_path):
+    """apply_migrations returns 0 when no auto-fixable errors exist."""
+    from led_ticker.validate import apply_migrations
+
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+"""
+    )
+    result = await validate_config(config_file)
+    n = apply_migrations(config_file, result)
+    assert n == 0
+
+
+async def test_apply_migrations_leaves_non_fixable_errors(tmp_path):
+    """apply_migrations does not remove non-auto-fixable errors (e.g. text_scale)."""
+    from led_ticker.validate import apply_migrations
+
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+text_scale = 2
+"""
+    )
+    result = await validate_config(config_file)
+    n = apply_migrations(config_file, result)
+    assert n == 0
+    text_scale_errors = [e for e in result.errors if "text_scale" in e.message]
+    assert text_scale_errors, "text_scale error should still be present"
+
+
 @pytest.mark.asyncio
 async def test_rule_41_title_color_key(tmp_path):
     """Rule 41: title color = ... triggers a validate error."""

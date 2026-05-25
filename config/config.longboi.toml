@@ -15,11 +15,11 @@
 # sprite transitions (pokeball, baseball, nyancat) all activate automatically.
 
 [display]
-rows = 64
+rows = 32
 cols = 128
 chain = 4
 brightness = 60
-default_scale = 4
+default_scale = 2
 gpio_mapping = "adafruit-hat"
 panel_type = "FM6126A"
 

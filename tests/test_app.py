@@ -2909,3 +2909,17 @@ class TestMessageFieldRename:
         assert not any(
             line.strip().startswith("message") for line in result.splitlines()
         )
+
+    @pytest.mark.asyncio
+    async def test_weather_message_field_not_affected(self):
+        """WeatherWidget still uses 'message', not 'text'; 'text' is unknown on it."""
+        from led_ticker.app.factories import validate_widget_cfg
+
+        # weather widget's 'message' field must still work
+        good_cfg = {"type": "weather", "location": "NYC", "message": "NYC"}
+        await validate_widget_cfg(good_cfg, session=None)  # must not raise
+
+        # 'text' is not a valid field on weather — unknown field error
+        bad_cfg = {"type": "weather", "location": "NYC", "text": "NYC"}
+        with pytest.raises(ValueError, match="unknown field"):
+            await validate_widget_cfg(bad_cfg, session=None)

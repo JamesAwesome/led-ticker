@@ -1,0 +1,312 @@
+# led-ticker configuration — longboi (512×64 canvas)
+#
+# 4× Muen P2 128×64 panels chained horizontally = 512×64 physical.
+# Driven by a Raspberry Pi 5 through an Adafruit RGB Matrix Bonnet (3211).
+# No pixel_mapper needed — single horizontal chain, left-to-right.
+#
+# Each P2 panel is internally 2×64×32 (scan-row split), so the driver sees
+# 8× 64×64 panels instead of 4× 128×64. cols=64 + chain=8 matches that
+# internal wiring and eliminates the mirrored bottom-half artifact.
+#
+# default_scale = 4 means all widgets draw at a logical 128×16 canvas and the
+# ScaledCanvas wrapper expands every pixel to a 4×4 real block on the 64-tall
+# panel. Same layout model as bigsign; hires fonts, hires emoji, and hires
+# sprite transitions (pokeball, baseball, nyancat) all activate automatically.
+
+[display]
+rows = 64
+cols = 64
+chain = 8
+brightness = 60
+default_scale = 4
+gpio_mapping = "adafruit-hat"
+
+# Pi 5 RP1 GPIO tuning — start with rp1_rio = 0 (PIO mode) and switch to
+# rp1_rio = 1 (RIO / Registered IO, faster refresh) once stable on hardware.
+# Raise slowdown_gpio to 4–5 if flicker persists.
+slowdown_gpio = 3
+rp1_rio = 1
+pwm_bits = 8
+show_refresh = true        # log measured Hz to stderr; remove once stable
+multiplexing = 1           # try 1–5 if bottom half is inverted/garbled; 0 = direct (default)
+
+[title]
+delay = 5
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = {type = "nyancat_alternating", duration = 4.0}
+
+# --------------------------------------------------------------------------
+# Playlist
+# --------------------------------------------------------------------------
+
+# --- Messages ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "pacman_alternating"
+transition_duration = 3.0
+continuous_scroll = true
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":bunny: #DevOps News :taco:"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Check out Datadog MCP!"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "message"
+text = "Talk to #team-foundations for all your DevOps needs!"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "message"
+text = "Ask me about eden review apps! :taco:"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+# --- Weather ---
+# Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/).
+
+[[playlist.section]]
+mode = "swap"
+transition = "push_alternating"
+hold_time = 6
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = "Weather"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "weather"
+text = "New York"
+location = "New York"
+units = "imperial"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "weather"
+text = "Philadelphia"
+location = "Philadelphia"
+units = "imperial"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "weather"
+text = "Milwaukee"
+location = "Milwaukee"
+units = "imperial"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "weather"
+text = "Minneapolis"
+location = "Minneapolis"
+units = "imperial"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "weather"
+text = "Washington DC"
+location = "Washington DC"
+units = "imperial"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+# --- Countdowns ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_alternating"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Count Downs"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "4th of July"
+countdown_date = 2026-07-04
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "Halloween"
+countdown_date = 2026-10-31
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "Thanksgiving"
+countdown_date = 2026-11-26
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "Christmas"
+countdown_date = 2026-12-25
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "New Years"
+countdown_date = 2027-01-01
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+# --- Nintendo Life RSS ---
+# Hires pokeball_alternating auto-activates at default_scale = 4.
+
+[[playlist.section]]
+mode = "swap"
+transition = "pokeball_alternating"
+transition_duration = 2.0
+continuous_scroll = true
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Nintendo Life"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "rss_feed"
+feed_url = "https://www.nintendolife.com/feeds/news"
+update_interval = 3000
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+# --- MLB Scores ---
+# Hires baseball_alternating auto-activates at default_scale = 4.
+
+[[playlist.section]]
+mode = "swap"
+transition = "baseball_alternating"
+transition_duration = 2.0
+hold_time = 6
+loop_count = 2
+
+[playlist.section.title]
+type = "message"
+text = ":baseball: Oh! That's Baseball!! :baseball:"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "PHI"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "NYM"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+# --- MLB Standings ---
+# Hires baseball_alternating auto-activates at default_scale = 4.
+
+[[playlist.section]]
+mode = "swap"
+transition = "baseball_alternating"
+transition_duration = 2.0
+hold_time = 6
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":baseball: MLB Standings :baseball:"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "mlb_standings"
+teams = ["PHI", "NYM"]
+title = "MLB Standings"
+top_n = 3
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+
+# --- Anime News Network ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "sailor_moon_alternating"
+transition_duration = 2.0
+continuous_scroll = true
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Anime News Network"
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "rss_feed"
+feed_url = "https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us"
+update_interval = 3000
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80

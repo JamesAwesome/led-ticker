@@ -13,6 +13,7 @@ import feedparser
 
 from led_ticker._types import Color
 from led_ticker.colors import DEFAULT_COLOR, GREEN, RED
+from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets.message import TickerMessage
@@ -36,6 +37,7 @@ class RSSFeedMonitor:
     # (DEFAULT_COLOR / RED / GREEN) so existing configs keep working.
     font_color: Any = attrs.field(default=None, kw_only=True)
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
+    font: Any = attrs.field(default=attrs.Factory(lambda: FONT_DEFAULT), kw_only=True)
     feed_title: TickerMessage | None = attrs.field(init=False, default=None)
     feed_stories: list[TickerMessage] = attrs.field(init=False, factory=list)
 
@@ -66,12 +68,14 @@ class RSSFeedMonitor:
             feed = await asyncio.to_thread(feedparser.parse, feed_data)
             self.feed_title = TickerMessage(
                 feed["channel"]["title"],  # type: ignore[index]
+                font=self.font,
                 font_color=self._story_color(),
                 bg_color=self.bg_color,
             )
             self.feed_stories = [
                 TickerMessage(
                     item["title"],  # type: ignore[index]
+                    font=self.font,
                     font_color=self._story_color(),
                     bg_color=self.bg_color,
                 )

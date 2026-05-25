@@ -11,7 +11,7 @@ import aiohttp
 import attrs
 import feedparser
 
-from led_ticker._types import Color
+from led_ticker._types import Color, Font
 from led_ticker.colors import DEFAULT_COLOR, GREEN, RED
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
@@ -37,7 +37,7 @@ class RSSFeedMonitor:
     # (DEFAULT_COLOR / RED / GREEN) so existing configs keep working.
     font_color: Any = attrs.field(default=None, kw_only=True)
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
-    font: Any = attrs.field(default=attrs.Factory(lambda: FONT_DEFAULT), kw_only=True)
+    font: Font = attrs.field(default=attrs.Factory(lambda: FONT_DEFAULT), kw_only=True)
     feed_title: TickerMessage | None = attrs.field(init=False, default=None)
     feed_stories: list[TickerMessage] = attrs.field(init=False, factory=list)
 

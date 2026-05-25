@@ -441,6 +441,7 @@ dependencies = [
     { name = "attrs" },
     { name = "feedparser" },
     { name = "pillow" },
+    { name = "tomli-w" },
 ]
 
 [package.optional-dependencies]
@@ -472,6 +473,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.12" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
+    { name = "tomli-w", specifier = ">=1.0" },
     { name = "tomli-w", marker = "extra == 'render'", specifier = ">=1.0" },
 ]
 provides-extras = ["render", "dev"]

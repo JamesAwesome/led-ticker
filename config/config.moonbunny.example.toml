@@ -210,7 +210,7 @@ text = "Classes"
 font = "beloved-sans-bold"
 font_size = 24
 font_threshold = 80
-color = [189, 169, 234]
+font_color = [189, 169, 234]
 
 [[playlist.section.widget]]
 type = "message"

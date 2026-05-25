@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import copy
 import json
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
+
+import tomli_w
 
 if TYPE_CHECKING:
     from led_ticker.config import AppConfig, DisplayConfig, SectionConfig
@@ -19,6 +22,8 @@ class ValidationIssue:
     message: str
     fix: str
     severity: Literal["error", "warning"]
+    fix_key: str | None = None
+    fix_replacement_key: str | None = None
 
 
 @dataclass
@@ -40,10 +45,19 @@ class MigrationError(Exception):
     _ERROR_PATTERNS.
     """
 
-    def __init__(self, message: str, suggested_fix: str) -> None:
+    def __init__(
+        self,
+        message: str,
+        suggested_fix: str,
+        *,
+        fix_key: str | None = None,
+        fix_replacement_key: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.message = message
         self.suggested_fix = suggested_fix
+        self.fix_key = fix_key
+        self.fix_replacement_key = fix_replacement_key
 
 
 # Maps substrings in exception messages to (rule, fix) pairs.
@@ -94,21 +108,27 @@ def _classify_error(msg: str) -> tuple[int | None, str]:
 
 async def _run_build_checks(
     sections: list[SectionConfig], config_dir: Path
-) -> tuple[list[tuple[str, str]], list[tuple[str, Any]], list[tuple[str, str, str]]]:
+) -> tuple[
+    list[tuple[str, str]],
+    list[tuple[str, Any]],
+    list[tuple[str, str, str, str | None, str | None]],
+]:
     """Run validate_widget_cfg for every widget.
 
     Returns (build_errors, coerce_warnings, migration_errors):
     - build_errors: (location, error_msg) pairs
     - coerce_warnings: (location, CoercionWarning) pairs collected from
       validate_widget_cfg's coercion pass for each widget.
-    - migration_errors: (location, message, suggested_fix) triples from
-      MigrationError raised by validate_widget_cfg for removed knobs.
+    - migration_errors: (location, message, suggested_fix, fix_key,
+      fix_replacement_key) 5-tuples from MigrationError raised by
+      validate_widget_cfg for removed knobs. fix_key and
+      fix_replacement_key are None when the rename is not auto-fixable.
     """
     from led_ticker.app.factories import validate_widget_cfg
 
     issues: list[tuple[str, str]] = []
     warnings: list[tuple[str, Any]] = []
-    migrations: list[tuple[str, str, str]] = []
+    migrations: list[tuple[str, str, str, str | None, str | None]] = []
     for i, section in enumerate(sections):
         for j, widget_cfg in enumerate(section.widgets):
             widget_warnings: list[Any] = []
@@ -121,7 +141,13 @@ async def _run_build_checks(
                 )
             except MigrationError as e:
                 migrations.append(
-                    (f"section[{i}].widget[{j}]", e.message, e.suggested_fix)
+                    (
+                        f"section[{i}].widget[{j}]",
+                        e.message,
+                        e.suggested_fix,
+                        e.fix_key,
+                        e.fix_replacement_key,
+                    )
                 )
             except Exception as e:
                 issues.append((f"section[{i}].widget[{j}]", str(e)))
@@ -515,6 +541,29 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                         "gif/image `[[playlist.section.widget]]` block if you "
                         "want to control the text-marquee speed on a specific widget."
                     ),
+                )
+            )
+
+        # Rule 41: title "color" was renamed to "font_color". The translation
+        # that used to silently accept the old name was removed; configs still
+        # using it will fail at runtime. Surface at validate time so users get
+        # the message before deploying.
+        if section.title and "color" in section.title:
+            issues.append(
+                ValidationIssue(
+                    rule=41,
+                    location=f"section[{i}].title",
+                    severity="error",
+                    message=(
+                        'title field "color" was renamed to "font_color" —'
+                        " update your config"
+                    ),
+                    fix=(
+                        'Rename "color" to "font_color" in your'
+                        " [playlist.section.title] block."
+                    ),
+                    fix_key="color",
+                    fix_replacement_key="font_color",
                 )
             )
     return issues
@@ -1213,6 +1262,75 @@ def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+def _parse_widget_location(location: str) -> tuple[int, int] | None:
+    """Parse 'section[i].widget[j]' → (i, j). Returns None if not a widget location."""
+    import re
+
+    m = re.match(r"^section\[(\d+)\]\.widget\[(\d+)\]$", location)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    return None
+
+
+def _parse_title_location(location: str) -> int | None:
+    """Parse 'section[i].title' → i. Returns None if not a title location."""
+    import re
+
+    m = re.match(r"^section\[(\d+)\]\.title$", location)
+    return int(m.group(1)) if m else None
+
+
+def apply_migrations(path: Path, result: ValidationResult) -> int:
+    """Apply all auto-fixable migrations from result to the TOML file at path.
+
+    Reads, patches, and rewrites the TOML. Comments are not preserved
+    (tomli_w limitation). Returns the number of fixes applied.
+    """
+    fixable = [
+        e
+        for e in result.errors
+        if e.fix_key
+        and e.fix_replacement_key
+        and (
+            _parse_widget_location(e.location) is not None
+            or _parse_title_location(e.location) is not None
+        )
+    ]
+    if not fixable:
+        return 0
+
+    raw = path.read_bytes()
+    data = tomllib.loads(raw.decode())
+
+    applied = 0
+    sections = data.get("playlist", {}).get("section", [])
+    for issue in fixable:
+        widget_loc = _parse_widget_location(issue.location)
+        if widget_loc is not None:
+            section_idx, widget_idx = widget_loc
+            try:
+                widget = sections[section_idx]["widget"][widget_idx]
+            except (IndexError, KeyError):
+                continue
+            if issue.fix_key in widget:
+                widget[issue.fix_replacement_key] = widget.pop(issue.fix_key)
+                applied += 1
+            continue
+
+        title_loc = _parse_title_location(issue.location)
+        if title_loc is not None:
+            try:
+                title = sections[title_loc].get("title")
+            except (IndexError, KeyError):
+                continue
+            if title and issue.fix_key in title:
+                title[issue.fix_replacement_key] = title.pop(issue.fix_key)
+                applied += 1
+
+    path.write_bytes(tomli_w.dumps(data).encode())
+    return applied
+
+
 async def validate_config(path: Path, *, strict: bool = False) -> ValidationResult:
     """Validate a TOML config file. Raises FileNotFoundError if path does not exist.
 
@@ -1263,7 +1381,7 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
     build_errors, build_warnings, migration_errors = await _run_build_checks(
         config.sections, path.parent
     )
-    for location, msg, fix in migration_errors:
+    for location, msg, fix, fix_key, fix_replacement_key in migration_errors:
         errors.append(
             ValidationIssue(
                 rule=20 if "text_scale" in msg else None,
@@ -1271,6 +1389,8 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
                 severity="error",
                 message=msg,
                 fix=fix,
+                fix_key=fix_key,
+                fix_replacement_key=fix_replacement_key,
             )
         )
     for location, msg in build_errors:

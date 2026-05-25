@@ -30,7 +30,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = ":baseball: MLB Standings"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "mlb_standings"
@@ -51,7 +51,7 @@ loop_count = 0
 [playlist.section.title]
 type = "message"
 text = ":baseball: MLB Scores"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "mlb"

@@ -71,7 +71,7 @@ transition_duration = 0.6
 [playlist.section.title]
 type = "message"
 text = "CATS HI"
-color = [240, 180, 100]
+font_color = [240, 180, 100]
 
 [[playlist.section.widget]]
 type = "message"
@@ -123,7 +123,7 @@ transition_duration = 0.6
 [playlist.section.title]
 type = "message"
 text = "WEATHER"
-color = [200, 220, 255]
+font_color = [200, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
@@ -152,7 +152,7 @@ transition_duration = 0.6
 [playlist.section.title]
 type = "message"
 text = "MIX"
-color = [255, 240, 200]
+font_color = [255, 240, 200]
 
 [[playlist.section.widget]]
 type = "message"
@@ -176,7 +176,7 @@ transition_duration = 0.6
 [playlist.section.title]
 type = "message"
 text = "WITH TEXT"
-color = [225, 48, 108]
+font_color = [225, 48, 108]
 
 [[playlist.section.widget]]
 type = "message"
@@ -216,7 +216,7 @@ transition_duration = 0.6
 [playlist.section.title]
 type = "message"
 text = "HEARTS"
-color = [255, 100, 130]
+font_color = [255, 100, 130]
 
 [[playlist.section.widget]]
 type = "message"
@@ -240,7 +240,7 @@ transition_duration = 0.6
 [playlist.section.title]
 type = "message"
 text = "PRIDE"
-color = [255, 140, 0]
+font_color = [255, 140, 0]
 
 [[playlist.section.widget]]
 type = "message"
@@ -261,7 +261,7 @@ transition_duration = 0.6
 [playlist.section.title]
 type = "message"
 text = "CATS"
-color = [240, 180, 100]
+font_color = [240, 180, 100]
 
 [[playlist.section.widget]]
 type = "message"

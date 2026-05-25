@@ -153,7 +153,7 @@ class TestBuildWidget:
 class TestBuildTitle:
     async def test_build_title_with_text(self):
         title = await _build_title(
-            {"text": "News", "color": "random"}, session=mock.Mock()
+            {"text": "News", "font_color": "random"}, session=mock.Mock()
         )
         assert isinstance(title, TickerMessage)
         assert title.text == "News"
@@ -177,7 +177,7 @@ class TestBuildTitle:
         # should coerce a 3-int list into a graphics.Color (wrapped in
         # _ConstantColor after post_init). Access via color_for().
         title = await _build_title(
-            {"text": "Pink", "color": [255, 150, 190]}, session=mock.Mock()
+            {"text": "Pink", "font_color": [255, 150, 190]}, session=mock.Mock()
         )
         assert title is not None
         color = title.font_color.color_for(0, 0, 1)
@@ -186,25 +186,23 @@ class TestBuildTitle:
         assert color.blue == 190
 
     async def test_build_title_with_provider_string(self):
-        """Title `color = "rainbow"` should produce a Rainbow provider
-        — same vocabulary as widget `font_color`."""
+        """Title `font_color = "rainbow"` should produce a Rainbow provider."""
         from led_ticker.color_providers import Rainbow
 
         title = await _build_title(
-            {"text": "Hi", "color": "rainbow"}, session=mock.Mock()
+            {"text": "Hi", "font_color": "rainbow"}, session=mock.Mock()
         )
         assert title is not None
         assert isinstance(title.font_color, Rainbow)
 
     async def test_build_title_with_provider_table(self):
-        """Title `color = {style = "gradient", from = [...], to = [...]}`
-        should produce a Gradient provider."""
+        """Title font_color with style="gradient" should produce a Gradient provider."""
         from led_ticker.color_providers import Gradient
 
         title = await _build_title(
             {
                 "text": "Hi",
-                "color": {
+                "font_color": {
                     "style": "gradient",
                     "from": [255, 0, 0],
                     "to": [0, 0, 255],
@@ -2403,6 +2401,159 @@ class TestListWidgetFields:
         assert "top_text" in result
         assert "bottom_text" in result
 
+    def test_play_count_description_mentions_hold_time(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("gif")
+        assert "play_count" in output
+        assert "hold_time" in output.lower() or "hold" in output.lower()
+
+    def test_text_loops_description_clarifies_zero_means_one(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("gif")
+        assert "text_loops" in output
+        # The description must not leave "0" ambiguous
+        assert (
+            "NOT zero" in output
+            or "one loop" in output.lower()
+            or "= one" in output.lower()
+        )
+
+    def test_hold_seconds_description_appears_on_image(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("image")
+        assert "hold_seconds" in output
+        assert "still" in output.lower() or "minimum" in output.lower()
+
+
+class TestListWidgetFieldsDataWidgets:
+    """FIELD_HINTS coverage for data widget fields."""
+
+    def test_countdown_shows_countdown_date_description(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("countdown")
+        assert "countdown_date" in output
+        assert "count down to" in output.lower()
+
+    def test_weather_shows_location_description(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("weather")
+        assert "location" in output
+        assert "WeatherAPI" in output or "query" in output.lower()
+
+    def test_weather_shows_units_enum(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("weather")
+        assert "imperial" in output
+        assert "metric" in output
+
+    def test_rss_feed_shows_feed_url_description(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("rss_feed")
+        assert "feed_url" in output
+        assert "URL" in output or "url" in output.lower()
+
+    def test_mlb_shows_team_description(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("mlb")
+        assert "team" in output
+        assert "PHI" in output or "abbreviation" in output.lower()
+
+    def test_mlb_standings_shows_top_n_description(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("mlb_standings")
+        assert "top_n" in output
+        assert "top-record" in output or "top_n" in output
+
+
+class TestListSectionFields:
+    def test_returns_string(self):
+        from led_ticker.app.factories import _list_section_fields
+
+        output = _list_section_fields()
+        assert isinstance(output, str)
+        assert len(output) > 0
+
+    def test_shows_mode_as_required(self):
+        from led_ticker.app.factories import _list_section_fields
+
+        output = _list_section_fields()
+        assert "mode" in output
+        assert "required" in output
+
+    def test_shows_loop_count_with_infinite_note(self):
+        from led_ticker.app.factories import _list_section_fields
+
+        output = _list_section_fields()
+        assert "loop_count" in output
+        assert "infinite" in output or "0 = " in output
+
+    def test_shows_hold_time_with_seconds(self):
+        from led_ticker.app.factories import _list_section_fields
+
+        output = _list_section_fields()
+        assert "hold_time" in output
+        assert "3.0" in output or "seconds" in output
+
+    def test_shows_scroll_step_ms(self):
+        from led_ticker.app.factories import _list_section_fields
+
+        output = _list_section_fields()
+        assert "scroll_step_ms" in output
+        assert "50" in output or "ms" in output
+
+    def test_shows_content_height_with_rule_note(self):
+        from led_ticker.app.factories import _list_section_fields
+
+        output = _list_section_fields()
+        assert "content_height" in output
+        assert "rule 1" in output or "scale" in output
+
+    def test_shows_transition_fields(self):
+        from led_ticker.app.factories import _list_section_fields
+
+        output = _list_section_fields()
+        assert "entry_transition" in output
+        assert "widget_transition" in output
+
+    def test_cli_list_fields_section(self):
+        """led-ticker validate --list-fields section prints section fields."""
+        import os
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        repo_root = str(Path(__file__).parent.parent)
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "led_ticker.app.cli",
+                "validate",
+                "--list-fields",
+                "section",
+            ],
+            env={
+                **os.environ,
+                "PYTHONPATH": f"{repo_root}/src:{repo_root}/tests/stubs",
+            },
+            capture_output=True,
+            text=True,
+            cwd=repo_root,
+        )
+        assert result.returncode == 0
+        assert "hold_time" in result.stdout
+        assert "loop_count" in result.stdout
+        assert "scroll_step_ms" in result.stdout
+
 
 class TestSingleRowColorGuard:
     """top_color / bottom_color are two-row-only on gif/image widgets.
@@ -2929,6 +3080,36 @@ class TestMessageFieldRename:
         cfg = {"type": "weather", "message": "Brooklyn", "location": "Brooklyn, NY"}
         with pytest.raises(MigrationError, match="message"):
             await validate_widget_cfg(cfg, session=None)
+
+
+class TestTitleColorRename:
+    """color field renamed to font_color on section titles."""
+
+    @pytest.mark.asyncio
+    async def test_title_color_raises_migration_error(self):
+        """title color = ... raises MigrationError at build time."""
+        from led_ticker.validate import MigrationError
+
+        with pytest.raises(MigrationError, match='renamed from "color"'):
+            await _build_title(
+                {"type": "message", "text": "Hello", "color": "random"},
+                session=None,
+            )
+
+    @pytest.mark.asyncio
+    async def test_title_font_color_works(self):
+        """title font_color = ... builds successfully."""
+        widget = await _build_title(
+            {"type": "message", "text": "Hello", "font_color": [255, 0, 0]},
+            session=None,
+        )
+        assert widget is not None
+
+    @pytest.mark.asyncio
+    async def test_title_no_color_works(self):
+        """title with no color field builds successfully."""
+        widget = await _build_title({"type": "message", "text": "Hello"}, session=None)
+        assert widget is not None
 
 
 class TestGifLoopsRename:

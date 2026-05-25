@@ -110,13 +110,19 @@ FIELD_HINTS: dict[str, FieldHint] = {
     ),
     "scroll_speed_ms": FieldHint("int (ms)", "milliseconds per scroll step", "50"),
     "text_loops": FieldHint(
-        "int", "minimum full scroll traversals before advancing; 0 = one loop", "0"
+        "int",
+        "minimum full text scrolls before advancing; 0 = one loop (NOT zero loops)",
+        "0",
     ),
     "play_count": FieldHint(
-        "int", "per-visit gif play count; 0 = play through hold_time", "1"
+        "int",
+        "times the gif/image plays per visit; 0 = loop for section hold_time duration",
+        "1",
     ),
     "hold_seconds": FieldHint(
-        "float (seconds)", "how long to display before advancing", None
+        "float (seconds)",
+        "minimum display time for still images; section hold_time wins if longer",
+        "0.0",
     ),
     # GifPlayer / StillImage two-row overlay (active when bottom_text != "")
     "top_text": FieldHint("str", "top row text content", "''"),
@@ -146,6 +152,93 @@ FIELD_HINTS: dict[str, FieldHint] = {
     ),
     "top_row_height": FieldHint(
         "int | none", "top row height in logical pixels (none = 50/50 split)", "none"
+    ),
+    # --- Countdown ---
+    "countdown_date": FieldHint(
+        "YYYY-MM-DD",
+        "target date to count down to (ISO format, e.g. 2026-12-25)",
+        None,
+    ),
+    # --- Weather ---
+    "location": FieldHint(
+        "str",
+        "WeatherAPI query string — city name, zip code, or lat,lon",
+        None,
+    ),
+    "units": FieldHint(
+        '"imperial" | "metric"',
+        "temperature unit system",
+        '"imperial"',
+    ),
+    "font_color_temp": FieldHint(
+        "color | ...",
+        "color for the temperature value (separate from label font_color)",
+        "white",
+    ),
+    "show_icon": FieldHint(
+        "bool",
+        "show weather condition icon alongside temperature",
+        "true",
+    ),
+    # --- RSS feed ---
+    "feed_url": FieldHint(
+        "str (URL)",
+        "RSS or Atom feed URL to poll for headlines",
+        None,
+    ),
+    "max_stories": FieldHint(
+        "int",
+        "maximum stories to show per cycle",
+        "5",
+    ),
+    # --- Coinbase / CoinGecko ---
+    "symbol": FieldHint(
+        "str",
+        "crypto ticker symbol (e.g. BTC, ETH)",
+        None,
+    ),
+    "symbol_id": FieldHint(
+        "str",
+        "CoinGecko coin ID (e.g. bitcoin, ethereum) — CoinGecko only",
+        None,
+    ),
+    "currency": FieldHint(
+        "str",
+        "fiat currency for price quote (e.g. USD, EUR)",
+        None,
+    ),
+    # --- MLB ---
+    "team": FieldHint(
+        "str",
+        "MLB team abbreviation (e.g. PHI, NYM, LAD)",
+        None,
+    ),
+    "final_hold_hours": FieldHint(
+        "int (hours)",
+        "hours to display final score before advancing to next widget",
+        "6",
+    ),
+    # --- MLB standings ---
+    "title": FieldHint(
+        "str",
+        "standings panel header text",
+        '"MLB Standings"',
+    ),
+    "top_n": FieldHint(
+        "int",
+        "number of top-record teams to show (in addition to tracked teams)",
+        "3",
+    ),
+    # --- Shared: data widgets ---
+    "timezone": FieldHint(
+        "str (TZ name)",
+        "IANA timezone name for game/event times (e.g. America/New_York)",
+        '"America/New_York"',
+    ),
+    "teams": FieldHint(
+        "list[str]",
+        "MLB team codes to always include in standings regardless of record",
+        "[]",
     ),
 }
 
@@ -451,6 +544,8 @@ async def validate_widget_cfg(
             'The primary text field was renamed from "message" to "text". '
             'Update your config: replace message = "..." with text = "...".',
             suggested_fix='Rename "message" to "text" in your config.',
+            fix_key="message",
+            fix_replacement_key="text",
         )
 
     if "gif_loops" in widget_cfg:
@@ -458,6 +553,8 @@ async def validate_widget_cfg(
             "gif_loops was renamed to play_count. "
             "Update your config: replace gif_loops = N with play_count = N.",
             suggested_fix='Rename "gif_loops" to "play_count" in your config.',
+            fix_key="gif_loops",
+            fix_replacement_key="play_count",
         )
 
     if "loops" in widget_cfg:
@@ -465,6 +562,8 @@ async def validate_widget_cfg(
             "loops was renamed to play_count. "
             "Update your config: replace loops = N with play_count = N.",
             suggested_fix='Rename "loops" to "play_count" in your config.',
+            fix_key="loops",
+            fix_replacement_key="play_count",
         )
 
     widget_type = widget_cfg.pop("type")
@@ -639,13 +738,9 @@ async def _build_title(
     titles in lockstep with the message widget surface; an explicit
     allowlist here would drift the moment a new knob lands.
 
-    `color` is the title-only spelling for the foreground text color
-    (every example config uses it). It is translated to `font_color`
-    here so the rest of the pipeline handles it uniformly. The legacy
-    `color = "random"` sentinel still picks from the RANDOM_COLOR
-    palette cycle (one stable color per section visit) rather than the
-    `color_providers.Random` RNG — preserved because existing configs
-    rely on this palette.
+    `color` is no longer accepted as a title field — it was renamed to
+    `font_color`. Using the old spelling raises `MigrationError` so users
+    see a clear message and are forced to update their config.
 
     `session` is required for consistency with `_build_widget` even
     though title widgets (type="message") have no `.start` classmethod
@@ -658,12 +753,19 @@ async def _build_title(
     cfg["type"] = "message"
     cfg.setdefault("text", "")
 
-    color = cfg.pop("color", None)
-    if color is not None and "font_color" not in cfg:
-        if color == "random":
-            cfg["font_color"] = next(RANDOM_COLOR)
-        else:
-            cfg["font_color"] = color
+    if "color" in cfg:
+        from led_ticker.validate import MigrationError
+
+        raise MigrationError(
+            'The title color field was renamed from "color" to "font_color". '
+            'Update your config: replace color = "..." with font_color = "...".',
+            suggested_fix=(
+                'Rename "color" to "font_color" in your'
+                " [playlist.section.title] config."
+            ),
+            fix_key="color",
+            fix_replacement_key="font_color",
+        )
 
     return await _build_widget(
         cfg,
@@ -933,4 +1035,100 @@ def _list_widget_fields(widget_type: str) -> str:
         for name, desc in dispatch_rows:
             lines.append(f"  {name:<28}  {desc}")
 
+    return "\n".join(lines)
+
+
+def _list_section_fields() -> str:
+    """Return a human-readable listing of [[playlist.section]] fields."""
+    _SECTION_FIELDS: list[tuple[str, str, str, str]] = [
+        # (name, type_str, default_str, description)
+        (
+            "mode",
+            '"forever_scroll" | "infini_scroll" | "swap"',
+            "(required)",
+            "scroll/display mode for this section",
+        ),
+        (
+            "loop_count",
+            "int",
+            "default: 1",
+            "times the section repeats before advancing; 0 = infinite",
+        ),
+        (
+            "hold_time",
+            "float (seconds)",
+            "default: 3.0",
+            "seconds each widget is held in swap mode",
+        ),
+        (
+            "scroll_step_ms",
+            "int (ms)",
+            "default: 50",
+            "engine cadence — ms per pixel-step in scroll modes; lower = faster scroll",
+        ),
+        (
+            "start_hold",
+            "float (seconds)",
+            "default: [title].delay",
+            "pre-roll pause before first widget scrolls in",
+        ),
+        (
+            "content_height",
+            "int (rows)",
+            "default: 16",
+            "logical canvas height; must not exceed panel_h ÷ scale (see rule 1)",
+        ),
+        (
+            "scale",
+            "int",
+            "default: [display].default_scale",
+            "per-section scale override (bigsign default 4, smallsign default 1)",
+        ),
+        (
+            "bg_color",
+            "[r, g, b]",
+            "default: none",
+            "section background color; widgets inherit this if they omit bg_color",
+        ),
+        (
+            "continuous_scroll",
+            "bool",
+            "default: false",
+            "skip per-widget hold pauses in scroll mode — content streams continuously",
+        ),
+        (
+            "separator",
+            "str",
+            "default: '•'",
+            "bullet between widgets in side-by-side scroll; '' = two spaces",
+        ),
+        (
+            "transition",
+            "str",
+            "default: [transitions].default",
+            "inter-widget transition; also used as section entry transition",
+        ),
+        (
+            "entry_transition",
+            "str",
+            "default: [transitions].between_sections",
+            "overrides how THIS section appears — independent of widget transitions",
+        ),
+        (
+            "widget_transition",
+            "str",
+            "default: transition or cut",
+            "overrides inter-widget transitions within this section only",
+        ),
+        (
+            "transition_duration",
+            "float (seconds)",
+            "default: [transitions].duration",
+            "duration for transitions within this section",
+        ),
+    ]
+
+    lines: list[str] = ["Fields for [[playlist.section]]:", ""]
+    for name, type_str, default_str, description in _SECTION_FIELDS:
+        lines.append(f"  {name:<28}  {type_str:<44}  {default_str}  — {description}")
     return "\n".join(lines)

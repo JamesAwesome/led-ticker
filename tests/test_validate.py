@@ -2184,9 +2184,30 @@ class TestMigrationError:
         errors, warnings, migrations = await _run_build_checks([section], tmp_path)
         assert len(errors) == 0
         assert len(migrations) == 1
-        loc, msg, fix = migrations[0]
+        loc, msg, fix, fix_key, fix_replacement_key = migrations[0]
         assert "text_scale" in msg
         assert "font_size" in fix
+
+    def test_migration_error_carries_fix_keys(self):
+        """MigrationError stores fix_key and fix_replacement_key."""
+        from led_ticker.validate import MigrationError
+
+        e = MigrationError(
+            "gif_loops renamed to play_count",
+            suggested_fix='Rename "gif_loops" to "play_count"',
+            fix_key="gif_loops",
+            fix_replacement_key="play_count",
+        )
+        assert e.fix_key == "gif_loops"
+        assert e.fix_replacement_key == "play_count"
+
+    def test_migration_error_default_fix_keys_none(self):
+        """MigrationError fix_key defaults to None (not auto-fixable)."""
+        from led_ticker.validate import MigrationError
+
+        e = MigrationError("text_scale removed", suggested_fix="Use font_size")
+        assert e.fix_key is None
+        assert e.fix_replacement_key is None
 
 
 class TestRule39TransitionNames:
@@ -2382,6 +2403,31 @@ text_color = [255, 0, 0]
         rule_38_errors = [e for e in result.errors if e.rule == 38]
         assert len(rule_38_errors) == 1
         assert "text_color" in rule_38_errors[0].message
+
+
+async def test_validation_result_carries_fix_keys_for_gif_loops(tmp_path):
+    """ValidationResult.errors carries fix_key/fix_replacement_key for gif_loops."""
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "test.gif"
+gif_loops = 2
+"""
+    )
+    result = await validate_config(config_file)
+    migration_errors = [e for e in result.errors if e.fix_key == "gif_loops"]
+    assert migration_errors, "expected error with fix_key='gif_loops'"
+    assert migration_errors[0].fix_replacement_key == "play_count"
 
 
 class TestRule40AssetPaths:
@@ -2658,3 +2704,201 @@ padding = "6"
         coerce_warnings
     ), "expected at least one rule-37 coercion warning from padding='6'"
     assert "coercion warning" in output.lower()
+
+
+async def test_apply_migrations_renames_gif_loops(tmp_path):
+    """apply_migrations renames gif_loops → play_count in the TOML file."""
+    from led_ticker.validate import apply_migrations
+
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "test.gif"
+gif_loops = 2
+"""
+    )
+    result = await validate_config(config_file)
+    n = apply_migrations(config_file, result)
+    assert n == 1
+
+    # File on disk should now use play_count
+    patched = config_file.read_text()
+    assert "play_count" in patched
+    assert "gif_loops" not in patched
+
+
+async def test_apply_migrations_returns_zero_when_nothing_to_fix(tmp_path):
+    """apply_migrations returns 0 when no auto-fixable errors exist."""
+    from led_ticker.validate import apply_migrations
+
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+"""
+    )
+    result = await validate_config(config_file)
+    n = apply_migrations(config_file, result)
+    assert n == 0
+
+
+async def test_apply_migrations_leaves_non_fixable_errors(tmp_path):
+    """apply_migrations does not remove non-auto-fixable errors (e.g. text_scale)."""
+    from led_ticker.validate import apply_migrations
+
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+text_scale = 2
+"""
+    )
+    result = await validate_config(config_file)
+    n = apply_migrations(config_file, result)
+    assert n == 0
+    text_scale_errors = [e for e in result.errors if "text_scale" in e.message]
+    assert text_scale_errors, "text_scale error should still be present"
+
+
+@pytest.mark.asyncio
+async def test_rule_41_title_color_key(tmp_path):
+    """Rule 41: title color = ... triggers a validate error."""
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "forever_scroll"
+
+[playlist.section.title]
+type = "message"
+text = "News"
+color = "random"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+"""
+    )
+    result = await validate_config(config_file)
+    rule_41 = [e for e in result.errors if e.rule == 41]
+    assert rule_41, "expected rule 41 error for title color ="
+    assert rule_41[0].location == "section[0].title"
+    assert "font_color" in rule_41[0].fix
+
+
+@pytest.mark.asyncio
+async def test_apply_migrations_renames_title_color(tmp_path):
+    """apply_migrations renames title color → font_color in the TOML file."""
+    from led_ticker.validate import apply_migrations
+
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "forever_scroll"
+
+[playlist.section.title]
+type = "message"
+text = "News"
+color = "random"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+"""
+    )
+    result = await validate_config(config_file)
+    n = apply_migrations(config_file, result)
+    assert n == 1
+
+    patched = config_file.read_text()
+    assert "font_color" in patched
+    assert "\ncolor " not in patched  # no bare "color" key (font_color is fine)
+
+
+def test_cli_fix_flag_renames_gif_loops(tmp_path):
+    """led-ticker validate --fix renames gif_loops → play_count in the file."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "test.gif"
+gif_loops = 2
+"""
+    )
+    repo_root = str(Path(__file__).parent.parent)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "led_ticker.app.cli",
+            "validate",
+            "--fix",
+            str(config_file),
+        ],
+        env={
+            **os.environ,
+            "PYTHONPATH": f"{repo_root}/src:{repo_root}/tests/stubs",
+        },
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+    )
+    assert "Applied 1 migration" in result.stderr
+    patched = config_file.read_text()
+    assert "play_count" in patched
+    assert "gif_loops" not in patched

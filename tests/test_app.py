@@ -2529,8 +2529,9 @@ class TestListSectionFields:
         import os
         import subprocess
         import sys
+        from pathlib import Path
 
-        repo_root = "/Users/james/projects/github/jamesawesome/led-ticker"
+        repo_root = str(Path(__file__).parent.parent)
         result = subprocess.run(
             [
                 sys.executable,

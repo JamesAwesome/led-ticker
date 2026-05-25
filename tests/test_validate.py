@@ -2861,6 +2861,7 @@ def test_cli_fix_flag_renames_gif_loops(tmp_path):
     import os
     import subprocess
     import sys
+    from pathlib import Path
 
     config_file = tmp_path / "config.toml"
     config_file.write_text(
@@ -2879,7 +2880,7 @@ path = "test.gif"
 gif_loops = 2
 """
     )
-    repo_root = "/Users/james/projects/github/jamesawesome/led-ticker"
+    repo_root = str(Path(__file__).parent.parent)
     result = subprocess.run(
         [
             sys.executable,

@@ -249,4 +249,4 @@ text_align = "left"
 font = "Inter-Regular"
 font_size = 24
 font_color = [225, 48, 108]
-loops = 17  # ~10s of playback
+play_count = 17  # ~10s of playback

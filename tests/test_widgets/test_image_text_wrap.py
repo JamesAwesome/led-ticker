@@ -749,7 +749,7 @@ class TestGifPlayerWrap:
             text_align="scroll_over",
             text_separator=" * ",
             scroll_speed_ms=50,
-            loops=1,
+            play_count=1,
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()

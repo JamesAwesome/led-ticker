@@ -30,4 +30,4 @@ bottom_font = "5x8"
 bottom_color = [120, 230, 255]
 bottom_text_scroll = "scroll_through"
 scroll_speed_ms = 25
-gif_loops = 999
+play_count = 999

@@ -549,7 +549,7 @@ _WIDGET_INT_FIELDS = frozenset(
         "top_row_height",
         "text_loops",
         "bottom_text_loops",
-        "loops",
+        "play_count",
         "padding",
         "scroll_speed_ms",
         "text_x_offset",

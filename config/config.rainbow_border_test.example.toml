@@ -189,7 +189,7 @@ type = "gif"
 path = "assets/pika_wave_transparent.gif"
 fit = "pillarbox"
 image_align = "center"
-loops = 3
+play_count = 3
 border = "rainbow"
 
 # ---------------------------------------------------------------------------
@@ -217,7 +217,7 @@ text_align = "right"
 font = "Inter-Bold"
 font_size = 16
 font_color = [255, 220, 80]
-loops = 3
+play_count = 3
 border = "rainbow"
 
 # ---------------------------------------------------------------------------
@@ -277,7 +277,7 @@ text_align = "right"
 font = "Inter-Bold"
 font_size = 16
 font_color = "color_cycle"
-loops = 3
+play_count = 3
 border = "rainbow"
 
 # ===========================================================================

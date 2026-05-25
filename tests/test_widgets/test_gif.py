@@ -746,12 +746,12 @@ def test_text_loops_with_static_text_raises(tmp_path):
 
 
 def test_negative_numeric_fields_raise(tmp_path):
-    """Range validation: loops < 0, text_loops < 0,
+    """Range validation: play_count < 0, text_loops < 0,
     scroll_speed_ms < MIN all raise instead of silently mis-behaving.
-    Note: loops=0 is now VALID (means 'play through hold_time')."""
+    Note: play_count=0 is now VALID (means 'play through hold_time')."""
     path = _make_gif_path(tmp_path, [(0, 0, 0)])
-    with pytest.raises(ValueError, match="loops"):
-        GifPlayer(path=str(path), loops=-1)
+    with pytest.raises(ValueError, match="play_count"):
+        GifPlayer(path=str(path), play_count=-1)
     with pytest.raises(ValueError, match="text_loops"):
         GifPlayer(path=str(path), text_loops=-1)
     with pytest.raises(ValueError, match="scroll_speed_ms"):
@@ -759,17 +759,17 @@ def test_negative_numeric_fields_raise(tmp_path):
 
 
 def test_gif_loops_zero_is_valid_post_init(tmp_path):
-    """loops=0 is now valid — means 'play through hold_time'."""
+    """play_count=0 is now valid — means 'play through hold_time'."""
     path = _make_gif_path(tmp_path, [(0, 0, 0)])
-    widget = GifPlayer(path=str(path), loops=0)
-    assert widget.loops == 0
+    widget = GifPlayer(path=str(path), play_count=0)
+    assert widget.play_count == 0
 
 
 def test_gif_loops_negative_still_raises(tmp_path):
     """Boundary preserved: < 0 is still rejected."""
     path = _make_gif_path(tmp_path, [(0, 0, 0)])
-    with pytest.raises(ValueError, match="loops must be >= 0"):
-        GifPlayer(path=str(path), loops=-1)
+    with pytest.raises(ValueError, match="play_count must be >= 0"):
+        GifPlayer(path=str(path), play_count=-1)
 
 
 async def test_play_scroll_text_wraps_after_full_traversal(
@@ -1210,7 +1210,7 @@ async def test_play_two_row_no_wrap_text_canvas_follows_back_buffer(tmp_path, mo
         top_font=FONT_SMALL,
         bottom_text="hi",
         bottom_font=FONT_SMALL,
-        loops=3,
+        play_count=3,
     )
     # Smallsign-shaped real canvas: 160x16 like the demo TOML.
     opts = RGBMatrixOptions()
@@ -1615,12 +1615,12 @@ class TestGifPlayNoTextBorderPerEffectCounter:
 
 
 # ---------------------------------------------------------------------------
-# loops = 0 hold_time semantics
+# play_count = 0 hold_time semantics
 # ---------------------------------------------------------------------------
 
 
 class TestGifLoopsZeroHoldTime:
-    """loops=0 + hold_time threads through to an effective loop count.
+    """play_count=0 + hold_time threads through to an effective loop count.
 
     We patch at the CLASS level (not instance) because attrs slots prevent
     instance-level monkey-patching. Each test uses a filter to only capture
@@ -1629,7 +1629,7 @@ class TestGifLoopsZeroHoldTime:
 
     async def test_gif_loops_zero_with_hold_time_computes_loops(self):
         """8s / 1000ms-per-loop = 8 loops."""
-        widget = GifPlayer(path="x.gif", loops=0)
+        widget = GifPlayer(path="x.gif", play_count=0)
         widget._frames = [
             (mock.Mock(), 250),
             (mock.Mock(), 250),
@@ -1658,7 +1658,7 @@ class TestGifLoopsZeroHoldTime:
 
     async def test_gif_loops_zero_short_hold_time_minimum_one(self):
         """0.5s / 1000ms-per-loop floor of 0.5 → max(1, 0) = 1."""
-        widget = GifPlayer(path="x.gif", loops=0)
+        widget = GifPlayer(path="x.gif", play_count=0)
         widget._frames = [(mock.Mock(), 1000)]
         widget._loop_ms = 1000
 
@@ -1679,7 +1679,7 @@ class TestGifLoopsZeroHoldTime:
 
     async def test_gif_loops_zero_no_hold_time_defaults_one(self):
         """No hold_time provided → minimum 1 loop."""
-        widget = GifPlayer(path="x.gif", loops=0)
+        widget = GifPlayer(path="x.gif", play_count=0)
         widget._frames = [(mock.Mock(), 1000)]
         widget._loop_ms = 1000
 
@@ -1699,8 +1699,8 @@ class TestGifLoopsZeroHoldTime:
         assert captured["loops"] == 1
 
     async def test_gif_loops_positive_unchanged_with_hold_time(self):
-        """loops=5 + hold_time=8.0 → 5 loops (hold_time ignored)."""
-        widget = GifPlayer(path="x.gif", loops=5)
+        """play_count=5 + hold_time=8.0 → 5 loops (hold_time ignored)."""
+        widget = GifPlayer(path="x.gif", play_count=5)
         widget._frames = [(mock.Mock(), 1000)]
         widget._loop_ms = 1000
 

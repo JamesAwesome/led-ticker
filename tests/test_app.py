@@ -2932,7 +2932,7 @@ class TestMessageFieldRename:
 
 
 class TestGifLoopsRename:
-    """gif_loops field renamed to loops on GifPlayer."""
+    """gif_loops field renamed to play_count on GifPlayer (via loops)."""
 
     @pytest.mark.asyncio
     async def test_gif_loops_raises_migration_error(self):
@@ -2940,19 +2940,29 @@ class TestGifLoopsRename:
         from led_ticker.validate import MigrationError
 
         cfg = {"type": "gif", "path": "x.gif", "gif_loops": 2}
-        with pytest.raises(MigrationError, match="loops"):
+        with pytest.raises(MigrationError, match="play_count"):
             await validate_widget_cfg(cfg, session=None)
 
     @pytest.mark.asyncio
-    async def test_loops_field_works_on_gif(self):
+    async def test_loops_raises_migration_error(self):
         from led_ticker.app.factories import validate_widget_cfg
+        from led_ticker.validate import MigrationError
 
         cfg = {"type": "gif", "path": "x.gif", "loops": 2}
+        with pytest.raises(MigrationError, match="play_count"):
+            await validate_widget_cfg(cfg, session=None)
+
+    @pytest.mark.asyncio
+    async def test_play_count_field_works_on_gif(self):
+        from led_ticker.app.factories import validate_widget_cfg
+
+        cfg = {"type": "gif", "path": "x.gif", "play_count": 2}
         await validate_widget_cfg(cfg.copy(), session=None)  # must not raise
 
-    def test_list_fields_gif_shows_loops_not_gif_loops(self):
+    def test_list_fields_gif_shows_play_count_not_loops(self):
         from led_ticker.app import _list_widget_fields
 
         result = _list_widget_fields("gif")
-        assert "  loops " in result or "loops\n" in result
+        assert "  play_count " in result or "play_count\n" in result
         assert "gif_loops" not in result
+        assert "  loops " not in result

@@ -6,7 +6,7 @@ for shared concept docs (text alignments, transparency compositing,
 run_swap dispatch, native-resolution painting). Both widgets inherit
 from :class:`led_ticker.widgets._image_base._BaseImageWidget` so the
 text-overlay surface is identical; the only widget-specific knobs are
-``hold_seconds`` (this widget) vs ``loops`` (gif).
+``hold_seconds`` (this widget) vs ``play_count`` (gif).
 
 Schema (TOML config keys for ``type = "image"``):
 
@@ -49,7 +49,7 @@ Field               Default            Description
                                        ``text_loops > 0`` becomes a duration
                                        FLOOR: section runs for
                                        ``max(hold_seconds, text_loops × traversal)``.
-                                       (Gif widget uses ``loops`` instead.)
+                                       (Gif widget uses ``play_count`` instead.)
 ``text_loops``      ``0``              Floor on marquee passes before
                                        transitioning. Only meaningful for
                                        scrolling text.
@@ -250,7 +250,7 @@ class StillImage(_BaseImageWidget):
         ``_play_widget`` dispatch signature in run_swap (which passes
         ``hold_time`` uniformly across play()-style widgets). The gif
         widget is the one that uses ``loop_count`` / ``hold_time``
-        (mapped from its ``loops`` field).
+        (mapped from its ``play_count`` field).
         """
         del loop_count, hold_time
         self._load(panel_w=real_canvas.width, panel_h=real_canvas.height)

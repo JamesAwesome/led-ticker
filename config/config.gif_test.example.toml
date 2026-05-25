@@ -83,7 +83,7 @@ color = [255, 220, 50]
 type = "gif"
 path = "assets/pika_wave.gif"
 fit = "pillarbox"
-loops = 17  # ~10s of playback (17 × 600ms per loop)
+play_count = 17  # ~10s of playback (17 × 600ms per loop)
 
 # ---------------------------------------------------------------------------
 # Section 2 — stretch
@@ -308,7 +308,7 @@ color = [255, 140, 0]
 type = "gif"
 path = "assets/pride.gif"
 fit = "stretch"
-loops = 5  # ~5s of playback inside the single visit
+play_count = 5  # ~5s of playback inside the single visit
 
 # ---------------------------------------------------------------------------
 # Section 12 — TRANSPARENT pikachu pinned LEFT + scrolling marquee
@@ -367,7 +367,7 @@ image_align = "right"
 text = "@brand"
 text_align = "left"
 font_color = [225, 48, 108]
-loops = 17  # ~10s of playback
+play_count = 17  # ~10s of playback
 
 # ---------------------------------------------------------------------------
 # Section 14 — pride_trans.gif as a full-screen BACKGROUND with BLACK

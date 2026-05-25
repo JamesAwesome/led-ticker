@@ -432,10 +432,10 @@ class Ticker:
         back-buffer canvas afterward so subsequent draws stay scaled.
 
         ``section_hold_time`` is forwarded to ``widget.play()`` as ``hold_time``
-        so gif widgets with ``loops = 0`` can compute how many loops fit in
+        so gif widgets with ``play_count = 0`` can compute how many loops fit in
         the section's duration.
         """
-        loops = getattr(widget, "loops", 1) or 1
+        loops = getattr(widget, "play_count", 1) or 1
         if isinstance(canvas, ScaledCanvas):
             Ticker._set_logical_scale(widget, canvas.scale)
             new_real = await widget.play(

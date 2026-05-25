@@ -22,5 +22,5 @@ image_align = "left"
 text = "Welcome to the show!"
 text_align = "scroll_over"
 font_color = [225, 48, 108]
-gif_loops = 0
+play_count = 0
 scroll_speed_ms = 25

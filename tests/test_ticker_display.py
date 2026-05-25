@@ -713,7 +713,7 @@ class TestRunSwapPlayDispatch:
             def __init__(self):
                 self.draw_called = False
                 self.play_calls: list[int] = []
-                self.loops = 3
+                self.play_count = 3
 
             def draw(self, canvas, cursor_pos=0, **kwargs):
                 self.draw_called = True
@@ -729,7 +729,7 @@ class TestRunSwapPlayDispatch:
         ticker = Ticker(monitors=[], frame=mock_frame, notif_queue=q)
         await ticker._run_swap(canvas)
 
-        # play() ran with loops=3; draw() was not invoked
+        # play() ran with play_count=3; draw() was not invoked
         assert widget.play_calls == [3]
         assert not widget.draw_called
 
@@ -826,7 +826,7 @@ class TestRunSwapPlayDispatch:
         class _PlayWidget:
             def __init__(self):
                 self.played = 0
-                self.loops = 1
+                self.play_count = 1
 
             def draw(self, canvas, cursor_pos=0, **kwargs):
                 return canvas, canvas.width

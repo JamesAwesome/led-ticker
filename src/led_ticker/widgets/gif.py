@@ -14,7 +14,7 @@ the natural fit.
 Counterpart to :class:`led_ticker.widgets.still.StillImage` — both
 inherit from :class:`led_ticker.widgets._image_base._BaseImageWidget`
 so the text-overlay surface is identical. The only widget-specific
-knobs are ``loops`` (this widget) vs ``hold_seconds`` (still).
+knobs are ``play_count`` (this widget) vs ``hold_seconds`` (still).
 
 The widget lazily decodes all frames on first use, paints frames
 directly to the underlying real canvas (bypassing ScaledCanvas so each
@@ -65,7 +65,7 @@ Field               Default            Description
                                        must specify explicitly. For BDF, snaps
                                        down to the nearest integer multiple of
                                        cell height.
-``loops``           ``1``              Per-visit gif loop count when dispatched
+``play_count``      ``1``              Per-visit gif loop count when dispatched
                                        via run_swap. Set to ``0`` to play
                                        through the section's ``hold_time``
                                        (plays at least 1 loop). Negative values
@@ -77,7 +77,7 @@ Field               Default            Description
 ==================  =================  ==========================================
 
 Constraints validated at construction:
-    - ``loops >= 0``
+    - ``play_count >= 0``
     - ``text_loops >= 0``
     - ``scroll_speed_ms >= 20``
     - ``text_loops > 0`` requires ``text_align`` ∈ ``{scroll, scroll_over}``
@@ -117,7 +117,7 @@ class GifPlayer(_BaseImageWidget):
     path: str
     fit: str = "pillarbox"
     image_align: str = "center"
-    loops: int = 1
+    play_count: int = 1
 
     _frames: list[tuple[bytes, int]] = attrs.field(init=False, factory=list)
     _current_frame_idx: int = attrs.field(init=False, default=0)
@@ -134,8 +134,8 @@ class GifPlayer(_BaseImageWidget):
 
     def __attrs_post_init__(self) -> None:
         self._validate_common(image_align=self.image_align, fit=self.fit)
-        if self.loops < 0:
-            raise ValueError(f"loops must be >= 0, got {self.loops!r}")
+        if self.play_count < 0:
+            raise ValueError(f"play_count must be >= 0, got {self.play_count!r}")
 
     def _load(self, panel_w: int = 0, panel_h: int = 0) -> None:
         """Decode all frames. Idempotent — second call is a no-op."""
@@ -273,7 +273,7 @@ class GifPlayer(_BaseImageWidget):
         ``loop_count × sum(durations)``. Text renders per-tick at its
         current scroll position (or static for left/right alignments).
 
-        When ``loop_count == 0`` (``loops = 0`` in config): if
+        When ``loop_count == 0`` (``play_count = 0`` in config): if
         ``hold_time`` is provided, compute how many full gif loops fit in
         that duration (minimum 1). Without ``hold_time`` (e.g.
         ``forever_scroll`` context) fall back to 1 loop.
@@ -285,7 +285,7 @@ class GifPlayer(_BaseImageWidget):
         if not self._frames:
             return real_canvas
 
-        # loops = 0 means "play loops that fit in section hold_time".
+        # play_count = 0 means "play loops that fit in section hold_time".
         # When hold_time is provided, compute the effective loop count; when
         # it isn't (e.g. forever_scroll context, or no section caller),
         # fall back to 1 loop. Minimum 1 either way.

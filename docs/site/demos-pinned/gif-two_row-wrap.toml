@@ -30,5 +30,5 @@ bottom_text_wrap = true
 bottom_text_separator = " * "
 bottom_color = [120, 230, 255]
 bottom_text_separator_color = "rainbow"
-gif_loops = 0
+play_count = 0
 scroll_speed_ms = 25

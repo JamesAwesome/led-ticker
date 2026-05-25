@@ -546,7 +546,7 @@ class TestGifPlayerTwoRowWrap:
             bottom_text_wrap=True,
             bottom_text_separator=" * ",
             scroll_speed_ms=50,
-            gif_loops=2,
+            loops=2,
         )
 
         real = bigsign_canvas

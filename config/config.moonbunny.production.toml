@@ -88,7 +88,7 @@ bottom_font_size = 19
 bottom_color = "rainbow"
 bottom_align = "right"
 
-gif_loops = 21
+loops = 21
 border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 
 # ---------------------------------------------------------------------------
@@ -118,7 +118,7 @@ text = " Moon                   Bunny"
 font = "Inter-Bold"
 font_size = 25
 font_color = {style = "shimmer", base = [255, 244, 79], shimmer = "white", speed = 10, width = 5, pause = 1.5}
-gif_loops = 70
+loops = 70
 border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 
 # ---------------------------------------------------------------------------

@@ -782,16 +782,16 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                     fix=(
                         "Change mode to 'swap'. Each gif widget in the "
                         "section's `widget` list will play through its "
-                        "gif_loops then transition."
+                        "loops then transition."
                     ),
                 )
             )
 
-    # Rule 36: gif_loops = 0 + mode = "gif" doesn't get hold_time.
-    # gif_loops = 0 means "play through section's hold_time" — but that
+    # Rule 36: loops = 0 + mode = "gif" doesn't get hold_time.
+    # loops = 0 means "play through section's hold_time" — but that
     # plumbing only exists on the mode = "swap" path (via _play_widget).
     # The legacy mode = "gif" calls widget.play() directly without
-    # threading hold_time, so gif_loops = 0 silently falls back to
+    # threading hold_time, so loops = 0 silently falls back to
     # exactly 1 loop. Surface as a warning so users get the heads-up
     # rather than a one-loop-then-stop surprise on their panel.
     for i, section in enumerate(config.sections):
@@ -800,7 +800,7 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
         for j, widget_cfg in enumerate(section.widgets):
             if widget_cfg.get("type") != "gif":
                 continue
-            gl = widget_cfg.get("gif_loops", 1)
+            gl = widget_cfg.get("loops", 1)
             if isinstance(gl, int) and not isinstance(gl, bool) and gl == 0:
                 warnings.append(
                     ValidationIssue(
@@ -808,7 +808,7 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                         location=f"section[{i}].widget[{j}]",
                         severity="warning",
                         message=(
-                            "gif_loops=0 in mode='gif' silently plays "
+                            "loops=0 in mode='gif' silently plays "
                             "exactly 1 loop — hold_time isn't threaded "
                             "to the legacy mode='gif' code path. The "
                             "'play through hold_time' semantics only "
@@ -817,8 +817,8 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                         fix=(
                             "Switch the section to mode='swap' (the "
                             "recommended setup; see rule 33) so "
-                            "gif_loops=0 plays through hold_time. "
-                            "Or set gif_loops to an explicit positive "
+                            "loops=0 plays through hold_time. "
+                            "Or set loops to an explicit positive "
                             "integer."
                         ),
                     )
@@ -840,9 +840,9 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
     # tick count via max(hold_time_ticks, loops × cycle_width)). The
     # interaction model on gif/image doesn't admit the same kind of
     # silent-dominance trap, so the warning would be misleading.
-    # (For the gif `gif_loops` ↔ `hold_time` interaction, see
+    # (For the gif `loops` ↔ `hold_time` interaction, see
     # _play_widget — section.hold_time IS threaded to widget.play() so
-    # `gif_loops = 0` can play through the section's duration.)
+    # `loops = 0` can play through the section's duration.)
     #
     # Only fires when hold_time was EXPLICITLY written in TOML
     # (hold_time_specified); the default 3.0 is universally

@@ -1693,7 +1693,7 @@ async def test_rule33_mode_swap_does_not_warn(conf):
 
 
 async def test_rule36_gif_loops_zero_in_mode_gif_warns(conf):
-    """gif_loops = 0 in mode = "gif" silently plays 1 loop (legacy path
+    """loops = 0 in mode = "gif" silently plays 1 loop (legacy path
     doesn't thread hold_time). Surface as a warning so the user knows
     the semantics don't propagate from mode='swap'."""
     cfg = """\
@@ -1710,7 +1710,7 @@ async def test_rule36_gif_loops_zero_in_mode_gif_warns(conf):
         [[playlist.section.widget]]
         type = "gif"
         path = "x.gif"
-        gif_loops = 0
+        loops = 0
         """
     result = await validate_config(conf(cfg))
     # Rule 33 also fires (mode='gif' legacy) — that's expected. We just
@@ -1737,14 +1737,14 @@ async def test_rule36_gif_loops_zero_in_mode_swap_does_not_warn(conf):
         [[playlist.section.widget]]
         type = "gif"
         path = "x.gif"
-        gif_loops = 0
+        loops = 0
         """
     result = await validate_config(conf(cfg))
     assert all(w.rule != 36 for w in result.warnings)
 
 
 async def test_rule36_gif_loops_positive_in_mode_gif_does_not_warn(conf):
-    """gif_loops = 5 (or any positive int) plays as a fixed count
+    """loops = 5 (or any positive int) plays as a fixed count
     regardless of mode — no warning needed."""
     cfg = """\
         [display]
@@ -1759,7 +1759,7 @@ async def test_rule36_gif_loops_positive_in_mode_gif_does_not_warn(conf):
         [[playlist.section.widget]]
         type = "gif"
         path = "x.gif"
-        gif_loops = 5
+        loops = 5
         """
     result = await validate_config(conf(cfg))
     assert all(w.rule != 36 for w in result.warnings)

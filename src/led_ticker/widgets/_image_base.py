@@ -12,7 +12,7 @@ the per-tick scroll loop. Subclasses provide:
     (default no-op for single-frame stills)
 
 Subclasses also add their own type-specific fields (`path`, `fit`,
-`image_align`, plus `gif_loops` / `hold_seconds` for per-visit
+`image_align`, plus `loops` / `hold_seconds` for per-visit
 duration).
 
 When `bg_color` is set on the widget, `_paint_image()` dispatches to
@@ -1311,7 +1311,7 @@ class _BaseImageWidget(_FrameAware):
         # Marquee-traversal floor: extend n_ticks so the marquee
         # always completes at least one full pass (off-right → off-
         # left or vice-versa). Without this, the source's natural
-        # duration (gif_loops × loop_ms, or hold_seconds for stills)
+        # duration (loops × loop_ms, or hold_seconds for stills)
         # could end mid-marquee — which got worse when hi-res fonts
         # arrived because the same string is 2-3× wider per char than
         # BDF, so a duration that fit the BDF marquee no longer fits

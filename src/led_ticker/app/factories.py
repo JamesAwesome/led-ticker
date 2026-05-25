@@ -112,7 +112,7 @@ FIELD_HINTS: dict[str, FieldHint] = {
     "text_loops": FieldHint(
         "int", "minimum full scroll traversals before advancing; 0 = one loop", "0"
     ),
-    "gif_loops": FieldHint(
+    "loops": FieldHint(
         "int", "per-visit gif loop count; 0 = play through hold_time", "1"
     ),
     "hold_seconds": FieldHint(
@@ -449,6 +449,13 @@ async def validate_widget_cfg(
             'The primary text field was renamed from "message" to "text". '
             'Update your config: replace message = "..." with text = "...".',
             suggested_fix='Rename "message" to "text" in your config.',
+        )
+
+    if "gif_loops" in widget_cfg:
+        raise MigrationError(
+            "gif_loops was renamed to loops. "
+            "Update your config: replace gif_loops = N with loops = N.",
+            suggested_fix='Rename "gif_loops" to "loops" in your config.',
         )
 
     widget_type = widget_cfg.pop("type")

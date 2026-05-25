@@ -133,7 +133,7 @@ fit = "stretch"                         # <-- VIOLATION B (part 1)
 text = "New arrivals every Friday!"
 text_align = "scroll"                   # <-- VIOLATION B (part 2): scroll + stretch
 font_color = [255, 255, 255]
-gif_loops = 2
+loops = 2
 
 # ---------------------------------------------------------------------------
 # Section 5: Brand message (mode=swap)

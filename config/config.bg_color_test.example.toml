@@ -130,7 +130,7 @@ bg_color = [255, 230, 0]    # bright yellow
 type = "gif"
 path = "assets/pika_wave_transparent.gif"
 fit = "pillarbox"
-gif_loops = 3
+loops = 3
 
 # ---------------------------------------------------------------------------
 # 7. Explicit black bg overrides a colored section default

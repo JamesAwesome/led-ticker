@@ -2405,6 +2405,31 @@ text_color = [255, 0, 0]
         assert "text_color" in rule_38_errors[0].message
 
 
+async def test_validation_result_carries_fix_keys_for_gif_loops(tmp_path):
+    """ValidationResult.errors carries fix_key/fix_replacement_key for gif_loops."""
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "test.gif"
+gif_loops = 2
+"""
+    )
+    result = await validate_config(config_file)
+    migration_errors = [e for e in result.errors if e.fix_key == "gif_loops"]
+    assert migration_errors, "expected error with fix_key='gif_loops'"
+    assert migration_errors[0].fix_replacement_key == "play_count"
+
+
 class TestRule40AssetPaths:
     """Asset path existence is checked in --strict mode only."""
 

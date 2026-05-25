@@ -538,6 +538,8 @@ async def validate_widget_cfg(
             'The primary text field was renamed from "message" to "text". '
             'Update your config: replace message = "..." with text = "...".',
             suggested_fix='Rename "message" to "text" in your config.',
+            fix_key="message",
+            fix_replacement_key="text",
         )
 
     if "gif_loops" in widget_cfg:
@@ -545,6 +547,8 @@ async def validate_widget_cfg(
             "gif_loops was renamed to play_count. "
             "Update your config: replace gif_loops = N with play_count = N.",
             suggested_fix='Rename "gif_loops" to "play_count" in your config.',
+            fix_key="gif_loops",
+            fix_replacement_key="play_count",
         )
 
     if "loops" in widget_cfg:
@@ -552,6 +556,8 @@ async def validate_widget_cfg(
             "loops was renamed to play_count. "
             "Update your config: replace loops = N with play_count = N.",
             suggested_fix='Rename "loops" to "play_count" in your config.',
+            fix_key="loops",
+            fix_replacement_key="play_count",
         )
 
     widget_type = widget_cfg.pop("type")
@@ -751,6 +757,8 @@ async def _build_title(
                 'Rename "color" to "font_color" in your'
                 " [playlist.section.title] config."
             ),
+            fix_key="color",
+            fix_replacement_key="font_color",
         )
 
     return await _build_widget(

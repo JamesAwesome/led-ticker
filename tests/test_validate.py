@@ -68,8 +68,7 @@ async def test_validate_widget_cfg_rss_feed_font_fields_do_not_crash():
         "font_size": 16,
         "font_threshold": 80,
     }
-    # Should not raise; font fields are consumed by _resolve_fonts and
-    # (before Task 2) discarded since rss_feed has no font attr yet.
+    # Should not raise; font fields are consumed by _resolve_fonts.
     result = await validate_widget_cfg(cfg, session=None)
     assert result is None
 

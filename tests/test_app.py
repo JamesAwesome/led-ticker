@@ -2498,6 +2498,35 @@ class TestListSectionFields:
         assert "entry_transition" in output
         assert "widget_transition" in output
 
+    def test_cli_list_fields_section(self):
+        """led-ticker validate --list-fields section prints section fields."""
+        import os
+        import subprocess
+        import sys
+
+        repo_root = "/Users/james/projects/github/jamesawesome/led-ticker"
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "led_ticker.app.cli",
+                "validate",
+                "--list-fields",
+                "section",
+            ],
+            env={
+                **os.environ,
+                "PYTHONPATH": f"{repo_root}/src:{repo_root}/tests/stubs",
+            },
+            capture_output=True,
+            text=True,
+            cwd=repo_root,
+        )
+        assert result.returncode == 0
+        assert "hold_time" in result.stdout
+        assert "loop_count" in result.stdout
+        assert "scroll_step_ms" in result.stdout
+
 
 class TestSingleRowColorGuard:
     """top_color / bottom_color are two-row-only on gif/image widgets.

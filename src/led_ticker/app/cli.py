@@ -68,7 +68,8 @@ def main() -> None:
         default=None,
         help=(
             "Print all valid fields for a widget type and exit "
-            "(e.g. --list-fields message)"
+            "(e.g. --list-fields message). "
+            "Use --list-fields section for [[playlist.section]] fields."
         ),
     )
     val_parser.add_argument(
@@ -95,6 +96,11 @@ def main() -> None:
 
     if args.command == "validate":
         if args.list_fields is not None:
+            from led_ticker.app.factories import _list_section_fields  # noqa: PLC0415
+
+            if args.list_fields == "section":
+                print(_list_section_fields())
+                sys.exit(0)
             try:
                 print(_list_widget_fields(args.list_fields))
             except ValueError as e:

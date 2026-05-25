@@ -517,6 +517,27 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                     ),
                 )
             )
+
+        # Rule 41: title "color" was renamed to "font_color". The translation
+        # that used to silently accept the old name was removed; configs still
+        # using it will fail at runtime. Surface at validate time so users get
+        # the message before deploying.
+        if section.title and "color" in section.title:
+            issues.append(
+                ValidationIssue(
+                    rule=41,
+                    location=f"section[{i}].title",
+                    severity="error",
+                    message=(
+                        'title field "color" was renamed to "font_color" —'
+                        " update your config"
+                    ),
+                    fix=(
+                        'Rename "color" to "font_color" in your'
+                        " [playlist.section.title] block."
+                    ),
+                )
+            )
     return issues
 
 

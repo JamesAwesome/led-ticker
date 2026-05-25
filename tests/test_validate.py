@@ -2658,3 +2658,34 @@ padding = "6"
         coerce_warnings
     ), "expected at least one rule-37 coercion warning from padding='6'"
     assert "coercion warning" in output.lower()
+
+
+@pytest.mark.asyncio
+async def test_rule_41_title_color_key(tmp_path):
+    """Rule 41: title color = ... triggers a validate error."""
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "forever_scroll"
+
+[playlist.section.title]
+type = "message"
+text = "News"
+color = "random"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+"""
+    )
+    result = await validate_config(config_file)
+    rule_41 = [e for e in result.errors if e.rule == 41]
+    assert rule_41, "expected rule 41 error for title color ="
+    assert rule_41[0].location == "section[0].title"
+    assert "font_color" in rule_41[0].fix

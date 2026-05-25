@@ -2653,7 +2653,8 @@ padding = "6"
 
     result = await validate_config(config_file)
     output = _format_human(result)
-    if result.warnings:
-        coerce_warnings = [w for w in result.warnings if w.rule == 37]
-        if coerce_warnings:
-            assert "coercion warning" in output.lower()
+    coerce_warnings = [w for w in result.warnings if w.rule == 37]
+    assert (
+        coerce_warnings
+    ), "expected at least one rule-37 coercion warning from padding='6'"
+    assert "coercion warning" in output.lower()

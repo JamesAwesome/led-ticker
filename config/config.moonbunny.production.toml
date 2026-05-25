@@ -238,7 +238,7 @@ border = {style = "rainbow", from = [225, 48, 108], to = [120, 90, 220], thickne
 mode = "swap"
 loop_count = 4
 hold_time = 3.0
-transition = "wipe_alternating"
+widget_transition = "wipe_alternating"
 
 [playlist.section.title]
 type = "message"

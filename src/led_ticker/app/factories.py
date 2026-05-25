@@ -110,13 +110,19 @@ FIELD_HINTS: dict[str, FieldHint] = {
     ),
     "scroll_speed_ms": FieldHint("int (ms)", "milliseconds per scroll step", "50"),
     "text_loops": FieldHint(
-        "int", "minimum full scroll traversals before advancing; 0 = one loop", "0"
+        "int",
+        "minimum full text scrolls before advancing; 0 = one loop (NOT zero loops)",
+        "0",
     ),
     "play_count": FieldHint(
-        "int", "per-visit gif play count; 0 = play through hold_time", "1"
+        "int",
+        "times the gif/image plays per visit; 0 = loop for section hold_time duration",
+        "1",
     ),
     "hold_seconds": FieldHint(
-        "float (seconds)", "how long to display before advancing", None
+        "float (seconds)",
+        "minimum display time for still images; section hold_time wins if longer",
+        "0.0",
     ),
     # GifPlayer / StillImage two-row overlay (active when bottom_text != "")
     "top_text": FieldHint("str", "top row text content", "''"),

@@ -2401,6 +2401,32 @@ class TestListWidgetFields:
         assert "top_text" in result
         assert "bottom_text" in result
 
+    def test_play_count_description_mentions_hold_time(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("gif")
+        assert "play_count" in output
+        assert "hold_time" in output.lower() or "hold" in output.lower()
+
+    def test_text_loops_description_clarifies_zero_means_one(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("gif")
+        assert "text_loops" in output
+        # The description must not leave "0" ambiguous
+        assert (
+            "NOT zero" in output
+            or "one loop" in output.lower()
+            or "= one" in output.lower()
+        )
+
+    def test_hold_seconds_description_appears_on_image(self):
+        from led_ticker.app import _list_widget_fields
+
+        output = _list_widget_fields("image")
+        assert "hold_seconds" in output
+        assert "still" in output.lower() or "minimum" in output.lower()
+
 
 class TestListWidgetFieldsDataWidgets:
     """FIELD_HINTS coverage for data widget fields."""

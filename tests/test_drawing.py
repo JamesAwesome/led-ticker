@@ -330,7 +330,7 @@ class TestHiresMessageBaselineCentersOnBigsign:
 
         font = resolve_font("Inter-Regular", 24)
         widget = TickerMessage(
-            message="MM",  # dense glyphs, ensures lit pixels in the band
+            text="MM",  # dense glyphs, ensures lit pixels in the band
             font=font,
             font_color=Color(255, 255, 255),
             center=False,

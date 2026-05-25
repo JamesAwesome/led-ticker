@@ -78,7 +78,7 @@ def widget_ms(widget: dict, section: dict, canvas_w: int, config_dir: Path) -> i
     if wtype in ("image",):
         return int(float(widget.get("hold_seconds", _DEFAULT_HOLD_SECONDS)) * 1000)
     if wtype == "gif":
-        loops = int(widget.get("gif_loops", 1))
+        loops = int(widget.get("loops", 1))
         if loops == 0:
             return hold_ms
         p = Path(widget.get("path", ""))

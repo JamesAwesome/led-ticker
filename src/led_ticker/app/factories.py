@@ -7,6 +7,7 @@ functions are called.
 
 from __future__ import annotations
 
+import collections
 import difflib
 import inspect
 import itertools
@@ -40,6 +41,167 @@ from led_ticker.frame import LedFrame
 from led_ticker.transitions import Transition, get_transition_class
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
+
+# ---------------------------------------------------------------------------
+# Field metadata for --list-fields CLI output
+# ---------------------------------------------------------------------------
+
+FieldHint = collections.namedtuple(
+    "FieldHint", ["display_type", "description", "default_display"]
+)
+
+# Human-readable type strings, descriptions, and default overrides for --list-fields.
+# Fields not in this dict fall back to attrs annotation + repr.
+FIELD_HINTS: dict[str, FieldHint] = {
+    # Universal widget fields
+    "font": FieldHint(
+        "font name", "BDF alias or hi-res font name", "panel default font"
+    ),
+    "font_size": FieldHint(
+        "int (pixels)", "text height in real pixels; required for hi-res fonts", "none"
+    ),
+    "font_threshold": FieldHint(
+        "int 0–255", "bitmask threshold for hi-res font rendering", "128"
+    ),
+    "font_color": FieldHint(
+        'color | "rainbow" | "color_cycle" | "shimmer" | {style=...}',
+        "text color or animated color provider",
+        "white",
+    ),
+    "bg_color": FieldHint("[r, g, b] | none", "solid background fill color", "none"),
+    "animation": FieldHint(
+        '"typewriter" | {style="typewriter", frames_per_char=N}',
+        "text animation effect",
+        "none",
+    ),
+    "border": FieldHint(
+        '{style="rainbow_chase", speed=N, width=N}',
+        "animated border painted at panel edges",
+        "none",
+    ),
+    # TickerMessage / TickerCountdown
+    "text": FieldHint("str", "widget text content", None),
+    "center": FieldHint("bool", "center text when it fits; false = left-align", "true"),
+    "padding": FieldHint(
+        "int (pixels)", "end padding (spacing in side-by-side scroll)", "6"
+    ),
+    # GifPlayer / StillImage single-row
+    "path": FieldHint("str", "path to file (relative to config dir or absolute)", None),
+    "text_align": FieldHint(
+        '"auto" | "scroll" | "scroll_over" | "left" | "right" | "center"',
+        "text scroll/position mode",
+        '"auto"',
+    ),
+    "text_valign": FieldHint(
+        '"top" | "center" | "bottom"', "vertical text alignment", '"center"'
+    ),
+    "fit": FieldHint(
+        '"pillarbox" | "letterbox" | "stretch" | "crop"',
+        "how image fills canvas",
+        '"pillarbox"',
+    ),
+    "image_align": FieldHint(
+        '"left" | "center" | "right"',
+        "horizontal image alignment within canvas",
+        '"center"',
+    ),
+    "scroll_direction": FieldHint(
+        '"left" | "right"', "direction the text scrolls", '"left"'
+    ),
+    "scroll_speed_ms": FieldHint("int (ms)", "milliseconds per scroll step", "50"),
+    "text_loops": FieldHint(
+        "int", "minimum full scroll traversals before advancing; 0 = one loop", "0"
+    ),
+    "play_count": FieldHint(
+        "int", "per-visit gif play count; 0 = play through hold_time", "1"
+    ),
+    "hold_seconds": FieldHint(
+        "float (seconds)", "how long to display before advancing", None
+    ),
+    # GifPlayer / StillImage two-row overlay (active when bottom_text != "")
+    "top_text": FieldHint("str", "top row text content", "''"),
+    "bottom_text": FieldHint(
+        "str", "bottom row text; set to non-empty to enable two-row mode", "''"
+    ),
+    "top_color": FieldHint(
+        'color | "rainbow" | "color_cycle" | "shimmer" | {style=...}',
+        "top row text color",
+        "white",
+    ),
+    "bottom_color": FieldHint(
+        'color | "rainbow" | "color_cycle" | "shimmer" | {style=...}',
+        "bottom row text color",
+        "white",
+    ),
+    "top_align": FieldHint(
+        '"left" | "center" | "right"', "top row horizontal alignment", '"center"'
+    ),
+    "bottom_align": FieldHint(
+        '"left" | "center" | "right"', "bottom row horizontal alignment", '"center"'
+    ),
+    "bottom_text_scroll": FieldHint(
+        '"marquee" | "scroll_through"',
+        "bottom row scroll behavior on overflow",
+        '"marquee"',
+    ),
+    "top_row_height": FieldHint(
+        "int | none", "top row height in logical pixels (none = 50/50 split)", "none"
+    ),
+}
+
+# Attrs fields on gif/image widgets that only activate when bottom_text != "".
+# _list_widget_fields groups these into a separate "Two-row overlay" section.
+TWO_ROW_OVERLAY_FIELDS: frozenset[str] = frozenset(
+    {
+        "top_text",
+        "bottom_text",
+        "top_color",
+        "bottom_color",
+        "top_align",
+        "bottom_align",
+        "top_font",
+        "top_font_size",
+        "top_font_threshold",
+        "top_text_y_offset",
+        "top_emoji_y_offset",
+        "bottom_font",
+        "bottom_font_size",
+        "bottom_font_threshold",
+        "bottom_text_y_offset",
+        "bottom_emoji_y_offset",
+        "bottom_text_scroll",
+        "bottom_text_wrap",
+        "bottom_text_separator",
+        "bottom_text_separator_color",
+        "top_row_height",
+    }
+)
+
+# Dispatch-level fields and which widget types they apply to.
+# None = applies to all types. Fields applicable to the queried type
+# AND not already present in widget-level attrs are shown in "Shared fields".
+_DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
+    "type": None,
+    "text": None,
+    "font": None,
+    "font_size": None,
+    "font_threshold": None,
+    "animation": {"message", "gif", "image"},
+    "border": {"message", "countdown", "two_row", "gif", "image"},
+    "text_wrap": {"gif", "image"},
+    "text_separator": {"gif", "image"},
+    "text_separator_color": {"gif", "image"},
+    "bottom_text_wrap": {"gif", "image", "two_row"},
+    "bottom_text_separator": {"gif", "image", "two_row"},
+    "bottom_text_separator_color": {"gif", "image", "two_row"},
+    "top_font": {"two_row"},
+    "top_font_size": {"two_row"},
+    "top_font_threshold": {"two_row"},
+    "bottom_font": {"two_row"},
+    "bottom_font_size": {"two_row"},
+    "bottom_font_threshold": {"two_row"},
+}
+
 
 # Section-title random color cycle. One stable color per section visit.
 # Lives here (not in `colors.py`) because this is the only consumer; a
@@ -277,6 +439,34 @@ async def validate_widget_cfg(
             suggested_fix="Use font_color / animation instead of presentation",
         )
 
+    # Migration check: the primary text field on TickerMessage,
+    # TickerCountdown, and WeatherWidget was renamed from "message" to
+    # "text". Loud failure here catches stale TOMLs at load time.
+    if "message" in widget_cfg and widget_cfg.get("type") in (
+        "message",
+        "countdown",
+        "weather",
+    ):
+        raise MigrationError(
+            'The primary text field was renamed from "message" to "text". '
+            'Update your config: replace message = "..." with text = "...".',
+            suggested_fix='Rename "message" to "text" in your config.',
+        )
+
+    if "gif_loops" in widget_cfg:
+        raise MigrationError(
+            "gif_loops was renamed to play_count. "
+            "Update your config: replace gif_loops = N with play_count = N.",
+            suggested_fix='Rename "gif_loops" to "play_count" in your config.',
+        )
+
+    if "loops" in widget_cfg:
+        raise MigrationError(
+            "loops was renamed to play_count. "
+            "Update your config: replace loops = N with play_count = N.",
+            suggested_fix='Rename "loops" to "play_count" in your config.',
+        )
+
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)
 
@@ -364,17 +554,6 @@ async def validate_widget_cfg(
         widget_cfg["bg_color"] = list(default_bg_color)
 
     _resolve_fonts(widget_cfg, cls, panel_h_for_warning)
-
-    # Config uses "text" but TickerMessage/TickerCountdown use "message".
-    # Only rename for widgets that don't accept `text` natively (e.g.
-    # GifPlayer takes `text` directly for its alongside-text feature).
-    cls_fields = {a.name for a in getattr(cls, "__attrs_attrs__", ())}
-
-    if "text" in widget_cfg and "text" not in cls_fields:
-        if "message" not in widget_cfg:
-            widget_cfg["message"] = widget_cfg.pop("text")
-        else:
-            widget_cfg.pop("text")
 
     _resolve_asset_paths(widget_cfg, widget_type, config_dir)
 
@@ -539,7 +718,7 @@ def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:
         # Color-only: still want the hi-res circle on bigsign.
         from led_ticker.ticker import _CircleBufferMsg
 
-        return _CircleBufferMsg(message=" • ", center=False, font_color=color_provider)
+        return _CircleBufferMsg(text=" • ", center=False, font_color=color_provider)
 
     # Explicit text / font: TickerMessage with literal rendering.
     text = section.separator if section.separator is not None else "•"
@@ -547,7 +726,7 @@ def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:
         text = "  "
 
     kwargs: dict[str, Any] = {
-        "message": text,
+        "text": text,
         "center": False,
         "font_color": color_provider,
     }
@@ -642,12 +821,7 @@ def _configure_user_font_dir(config_path: Path) -> None:
 
 
 def _list_widget_fields(widget_type: str) -> str:
-    """Return a human-readable field listing for widget_type.
-
-    Shows dispatch-level fields (_build_widget pops these before the
-    allowlist check) and the widget's init-able attrs fields with types
-    and defaults.
-    """
+    """Return a human-readable grouped field listing for widget_type."""
     import attrs as _attrs
 
     from led_ticker.widgets import _WIDGET_REGISTRY
@@ -663,58 +837,100 @@ def _list_widget_fields(widget_type: str) -> str:
         )
 
     cls = _WIDGET_REGISTRY[widget_type]
-    lines: list[str] = [f'Fields for type="{widget_type}":', ""]
-
-    # Widget-specific attrs fields (init=True only)
     init_attrs = [
         a
         for a in getattr(cls, "__attrs_attrs__", ())
         if a.init is not False and a.name != "session"
     ]
-    if init_attrs:
-        lines.append("Widget-level fields:")
-        for a in init_attrs:
-            if a.type is None:
-                type_str = ""
-            elif isinstance(a.type, str):
-                type_str = a.type
-            else:
-                type_str = getattr(a.type, "__name__", str(a.type))
+    widget_field_names = {a.name for a in init_attrs}
 
-            if a.default is _attrs.NOTHING:
-                default_str = "(required)"
-            elif isinstance(a.default, _attrs.Factory):  # type: ignore[arg-type]
-                default_str = "default: <computed>"
-            else:
-                default_str = f"default: {a.default!r}"
+    def _render_field(a: Any) -> str:
+        hint = FIELD_HINTS.get(a.name)
+        type_str = (
+            hint.display_type
+            if hint
+            else (
+                a.type
+                if isinstance(a.type, str)
+                else getattr(a.type, "__name__", str(a.type))
+                if a.type is not None
+                else ""
+            )
+        )
+        if a.default is _attrs.NOTHING:
+            default_str = "(required)"
+        elif hint and hint.default_display is not None:
+            default_str = f"default: {hint.default_display}"
+        elif isinstance(a.default, _attrs.Factory):  # type: ignore[arg-type]
+            default_str = "default: <computed>"
+        else:
+            default_str = f"default: {a.default!r}"
+        desc_str = f"  — {hint.description}" if hint and hint.description else ""
+        return f"  {a.name:<28}  {type_str:<44}  {default_str}{desc_str}"
 
-            lines.append(f"  {a.name:<30}  {type_str:<35}  {default_str}")
+    # Partition widget attrs into required / optional / two-row-overlay.
+    # Two-row overlay only applies to gif/image — for other types all attrs
+    # go into required/optional only.
+    use_two_row_split = widget_type in ("gif", "image")
+    required_attrs = [a for a in init_attrs if a.default is _attrs.NOTHING]
+    if use_two_row_split:
+        two_row_attrs = [
+            a
+            for a in init_attrs
+            if a.default is not _attrs.NOTHING and a.name in TWO_ROW_OVERLAY_FIELDS
+        ]
+        optional_attrs = [
+            a
+            for a in init_attrs
+            if a.default is not _attrs.NOTHING and a.name not in TWO_ROW_OVERLAY_FIELDS
+        ]
+    else:
+        two_row_attrs = []
+        optional_attrs = [a for a in init_attrs if a.default is not _attrs.NOTHING]
+
+    lines: list[str] = [f'Fields for type="{widget_type}":', ""]
+
+    if required_attrs:
+        lines.append("Required:")
+        for a in required_attrs:
+            lines.append(_render_field(a))
         lines.append("")
 
-    # Dispatch-level fields that _build_widget handles (popped before allowlist)
-    lines.append("Dispatch-level fields (shared; _build_widget handles these):")
-    dispatch: list[tuple[str, str]] = [
-        ("type", "required; widget type name (e.g. 'message', 'gif')"),
-        ("text", "alias → widget's primary text field"),
-        ("font", "BDF alias or hi-res font name"),
-        ("font_size", "pixel height; required for hi-res fonts"),
-        ("font_threshold", "int 0–255; default 128"),
-        ("animation", "e.g. 'typewriter'; valid on message/gif/image only"),
-        ("border", "{style='...',...}; valid on message/countdown/two_row/gif/image"),
-        ("text_wrap", "bool; valid on gif/image only"),
-        ("text_separator", "str; valid on gif/image only"),
-        ("text_separator_color", "color; valid on gif/image only"),
-        ("bottom_text_wrap", "bool; valid on gif/image/two_row"),
-        ("bottom_text_separator", "str; valid on gif/image/two_row"),
-        ("bottom_text_separator_color", "color; valid on gif/image/two_row"),
-        ("top_font", "font name; valid on two_row"),
-        ("top_font_size", "pixel height; valid on two_row"),
-        ("top_font_threshold", "int 0–255; valid on two_row"),
-        ("bottom_font", "font name; valid on two_row"),
-        ("bottom_font_size", "pixel height; valid on two_row"),
-        ("bottom_font_threshold", "int 0–255; valid on two_row"),
-    ]
-    for name, desc in dispatch:
-        lines.append(f"  {name:<30}  {desc}")
+    if optional_attrs:
+        lines.append("Optional:")
+        for a in optional_attrs:
+            lines.append(_render_field(a))
+        lines.append("")
+
+    if two_row_attrs:
+        lines.append("Two-row overlay (set bottom_text to enable):")
+        for a in two_row_attrs:
+            lines.append(_render_field(a))
+        lines.append("")
+
+    # Shared dispatch fields: applicable to this widget type AND not
+    # already shown in widget-level (dedup by name).
+    dispatch_rows: list[tuple[str, str]] = []
+    for name, applicable_types in _DISPATCH_APPLICABLE_TYPES.items():
+        if applicable_types is not None and widget_type not in applicable_types:
+            continue
+        if name in widget_field_names:
+            continue  # already shown above
+        hint = FIELD_HINTS.get(name)
+        if hint:
+            type_part = hint.display_type
+            default_part = (
+                f"default: {hint.default_display}" if hint.default_display else ""
+            )
+            desc_suffix = f"  — {hint.description}" if hint.description else ""
+            desc = f"{type_part}  {default_part}{desc_suffix}".rstrip()
+        else:
+            desc = ""
+        dispatch_rows.append((name, desc))
+
+    if dispatch_rows:
+        lines.append("Shared fields:")
+        for name, desc in dispatch_rows:
+            lines.append(f"  {name:<28}  {desc}")
 
     return "\n".join(lines)

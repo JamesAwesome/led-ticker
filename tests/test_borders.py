@@ -384,7 +384,7 @@ class TestBorderPaintsBeforeText:
         border.frame_invariant = False
         border.paint.side_effect = lambda *a, **kw: order.append("border")
 
-        widget = TickerMessage("HELLO", border=border)
+        widget = TickerMessage(text="HELLO", border=border)
         canvas = RealStub(width=64, height=16)
 
         # `draw_text` lives in text_render — patching it here lets us
@@ -410,7 +410,7 @@ class TestBorderPaintsBeforeText:
         border = mock.Mock()
         border.frame_invariant = False
 
-        widget = TickerMessage("HELLO", border=border)
+        widget = TickerMessage(text="HELLO", border=border)
         for _ in range(42):
             widget.advance_frame()
         canvas = RealStub(width=64, height=16)
@@ -424,7 +424,7 @@ class TestBorderPaintsBeforeText:
 
         from led_ticker.widgets.message import TickerMessage
 
-        widget = TickerMessage("HELLO")  # border=None default
+        widget = TickerMessage(text="HELLO")  # border=None default
         canvas = RealStub(width=64, height=16)
         # Should run without error and produce no border-related calls.
         widget.draw(canvas)

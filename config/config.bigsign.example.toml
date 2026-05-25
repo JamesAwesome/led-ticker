@@ -104,12 +104,12 @@ color = "random"
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Days Until Summer"
+text = "Days Until Summer"
 countdown_date = 2026-06-20
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Days Until Fall"
+text = "Days Until Fall"
 countdown_date = 2026-09-22
 
 # Live RSS headlines from Nintendo Life — a known-stable feed for the demo.
@@ -191,6 +191,6 @@ final_hold_hours = 6
 #
 # [[playlist.section.widget]]
 # type = "weather"
-# message = "NYC"
+# text = "NYC"
 # location = "New York"
 # units = "imperial"

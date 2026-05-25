@@ -1693,7 +1693,7 @@ async def test_rule33_mode_swap_does_not_warn(conf):
 
 
 async def test_rule36_gif_loops_zero_in_mode_gif_warns(conf):
-    """gif_loops = 0 in mode = "gif" silently plays 1 loop (legacy path
+    """play_count = 0 in mode = "gif" silently plays 1 loop (legacy path
     doesn't thread hold_time). Surface as a warning so the user knows
     the semantics don't propagate from mode='swap'."""
     cfg = """\
@@ -1710,7 +1710,7 @@ async def test_rule36_gif_loops_zero_in_mode_gif_warns(conf):
         [[playlist.section.widget]]
         type = "gif"
         path = "x.gif"
-        gif_loops = 0
+        play_count = 0
         """
     result = await validate_config(conf(cfg))
     # Rule 33 also fires (mode='gif' legacy) — that's expected. We just
@@ -1737,14 +1737,14 @@ async def test_rule36_gif_loops_zero_in_mode_swap_does_not_warn(conf):
         [[playlist.section.widget]]
         type = "gif"
         path = "x.gif"
-        gif_loops = 0
+        play_count = 0
         """
     result = await validate_config(conf(cfg))
     assert all(w.rule != 36 for w in result.warnings)
 
 
 async def test_rule36_gif_loops_positive_in_mode_gif_does_not_warn(conf):
-    """gif_loops = 5 (or any positive int) plays as a fixed count
+    """play_count = 5 (or any positive int) plays as a fixed count
     regardless of mode — no warning needed."""
     cfg = """\
         [display]
@@ -1759,7 +1759,7 @@ async def test_rule36_gif_loops_positive_in_mode_gif_does_not_warn(conf):
         [[playlist.section.widget]]
         type = "gif"
         path = "x.gif"
-        gif_loops = 5
+        play_count = 5
         """
     result = await validate_config(conf(cfg))
     assert all(w.rule != 36 for w in result.warnings)
@@ -2627,3 +2627,34 @@ font_size = 24
 """)
         result = await validate_config(path)
         assert result.valid
+
+
+@pytest.mark.asyncio
+async def test_coerce_warning_summary_appears(tmp_path):
+    """When validate emits coercion warnings, a summary count line appears."""
+    from led_ticker.validate import _format_human
+
+    config_content = """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+hold_seconds = 3.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+padding = "6"
+"""
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(config_content)
+
+    result = await validate_config(config_file)
+    output = _format_human(result)
+    coerce_warnings = [w for w in result.warnings if w.rule == 37]
+    assert (
+        coerce_warnings
+    ), "expected at least one rule-37 coercion warning from padding='6'"
+    assert "coercion warning" in output.lower()

@@ -30,7 +30,7 @@ class WeatherWidget(_FrameAware):
 
     session: aiohttp.ClientSession
     location: str  # query string: "New York", "10001", "40.71,-74.01"
-    message: str
+    text: str
     units: str = "imperial"
     font: Font = attrs.Factory(lambda: FONT_DEFAULT)
     font_color: Color | ColorProvider = attrs.Factory(lambda: DEFAULT_COLOR)
@@ -124,7 +124,7 @@ class WeatherWidget(_FrameAware):
         font_color: Any = None,
     ) -> DrawResult:
         temp_text = f"{self.current_temp}{self.unit_symbol}"
-        label_text = f"{self.message}: "
+        label_text = f"{self.text}: "
 
         # Resolve the icon slug once and read its actual rendered footprint
         # via `measure_emoji_at` — keeps layout in sync with whichever

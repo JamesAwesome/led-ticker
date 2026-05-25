@@ -22,5 +22,5 @@ image_align = "left"
 text = "Scrolling behind Pika!"
 text_align = "scroll"
 font_color = [200, 200, 255]
-gif_loops = 5
+play_count = 5
 scroll_speed_ms = 25

@@ -30,11 +30,11 @@ cutoff: header 5s < ~8s needed
 
 ## Exit codes
 
-| Code | Meaning                                                                                                                          |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `0`  | Clean — recommended duration printed.                                                                                            |
-| `2`  | The `# render-duration:` header is shorter than the estimate (expected, and ignorable, when `gif_loops` is intentionally large). |
-| `3`  | Tool error — config not found or malformed TOML (message on stderr).                                                             |
+| Code | Meaning                                                                                                                           |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | Clean — recommended duration printed.                                                                                             |
+| `2`  | The `# render-duration:` header is shorter than the estimate (expected, and ignorable, when `play_count` is intentionally large). |
+| `3`  | Tool error — config not found or malformed TOML (message on stderr).                                                              |
 
 ## Out of scope
 
@@ -44,7 +44,7 @@ The estimate is coarse and intentionally ignores some cases:
 - Data-fetch widgets (`weather`, `mlb`, crypto, `rss_feed`) — depend on fetched data, contribute 0.
 - Bigsign `pixel_mapper` — naive canvas-width used.
 - Wrap floors, two-row overlay marquee, hires width, inter-widget transition time — not modelled; treat the number as a lower bound for transition-heavy playlists.
-- For looping or large-`gif_loops` demos (the `gif_loops = 999` "keep animating" idiom) the recommended `--duration` is the full multi-minute playthrough, not the capture window — such demos deliberately pin a short `# render-duration:` header; render with the header, treat the recommendation as an upper bound.
+- For looping or large-`play_count` demos (the `play_count = 999` "keep animating" idiom) the recommended `--duration` is the full multi-minute playthrough, not the capture window — such demos deliberately pin a short `# render-duration:` header; render with the header, treat the recommendation as an upper bound.
 
 The companion skill at
 [`.claude/skills/making-a-gif/`](https://github.com/jamesawesome/led-ticker/tree/main/.claude/skills/making-a-gif)

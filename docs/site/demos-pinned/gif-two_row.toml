@@ -26,4 +26,4 @@ top_color = [225, 48, 108]
 bottom_text = "Aerial circus · all levels welcome"
 bottom_font = "5x8"
 bottom_color = [255, 240, 200]
-gif_loops = 3
+play_count = 3

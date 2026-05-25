@@ -10,12 +10,12 @@ from led_ticker.widgets.message import TickerCountdown, TickerMessage
 
 class TestTickerMessage:
     def test_conforms_to_widget_protocol(self):
-        msg = TickerMessage(message="hello")
+        msg = TickerMessage(text="hello")
         assert isinstance(msg, Widget)
 
     def test_draw_centered(self, canvas):
         msg = TickerMessage(
-            message="This is a message",
+            text="This is a message",
             font=FONT_DEFAULT,
             font_color=RGB_WHITE,
         )
@@ -24,7 +24,7 @@ class TestTickerMessage:
 
     def test_draw_uncentered(self, canvas):
         msg = TickerMessage(
-            message="This is a message",
+            text="This is a message",
             font=FONT_DEFAULT,
             font_color=RGB_WHITE,
             center=False,
@@ -36,7 +36,7 @@ class TestTickerMessage:
     def test_draw_overflow_not_centered(self, canvas):
         long_text = "This is a message" * 10
         msg = TickerMessage(
-            message=long_text,
+            text=long_text,
             font=FONT_DEFAULT,
             font_color=RGB_WHITE,
         )
@@ -46,7 +46,7 @@ class TestTickerMessage:
 
     def test_draw_with_font_color_kwarg(self, canvas):
         msg = TickerMessage(
-            message="test",
+            text="test",
             font=FONT_DEFAULT,
             font_color=DEFAULT_COLOR,
         )
@@ -55,37 +55,37 @@ class TestTickerMessage:
         assert canvas2 is canvas
 
     def test_draw_returns_canvas(self, canvas):
-        msg = TickerMessage(message="hi")
+        msg = TickerMessage(text="hi")
         result_canvas, _ = msg.draw(canvas)
         assert result_canvas is canvas
 
     def test_emoji_detected_only_for_slug_pattern(self):
         # Real emoji slugs trigger the emoji renderer
-        assert TickerMessage(message=":taco: lunch")._has_emoji is True
-        assert TickerMessage(message="hi :baseball:")._has_emoji is True
+        assert TickerMessage(text=":taco: lunch")._has_emoji is True
+        assert TickerMessage(text="hi :baseball:")._has_emoji is True
 
     def test_url_does_not_trigger_emoji_path(self):
         # Two-colon strings that are NOT emoji slugs (URLs, timestamps,
         # "key: value: more") must not be routed through the emoji renderer.
-        assert TickerMessage(message="https://x.com/path")._has_emoji is False
-        assert TickerMessage(message="Now: 12:30 PM")._has_emoji is False
-        assert TickerMessage(message="A: B: C")._has_emoji is False
+        assert TickerMessage(text="https://x.com/path")._has_emoji is False
+        assert TickerMessage(text="Now: 12:30 PM")._has_emoji is False
+        assert TickerMessage(text="A: B: C")._has_emoji is False
 
     def test_emoji_pattern_rejects_uppercase_and_digits(self):
         # Pattern is :[a-z_]+: — uppercase or digits in the slug shouldn't match.
-        assert TickerMessage(message=":Taco: lunch")._has_emoji is False
-        assert TickerMessage(message=":taco1: lunch")._has_emoji is False
+        assert TickerMessage(text=":Taco: lunch")._has_emoji is False
+        assert TickerMessage(text=":taco1: lunch")._has_emoji is False
 
 
 class TestTickerCountdown:
     def test_conforms_to_widget_protocol(self):
-        cd = TickerCountdown(message="Test", countdown_date=date(2030, 1, 1))
+        cd = TickerCountdown(text="Test", countdown_date=date(2030, 1, 1))
         assert isinstance(cd, Widget)
 
     def test_draw_shows_days(self, canvas):
         future = date(2099, 12, 31)
         cd = TickerCountdown(
-            message="Future",
+            text="Future",
             countdown_date=future,
             font=FONT_DEFAULT,
             font_color=RGB_WHITE,
@@ -97,7 +97,7 @@ class TestTickerCountdown:
     def test_draw_past_date_negative_days(self, canvas):
         past = date(2020, 1, 1)
         cd = TickerCountdown(
-            message="Past",
+            text="Past",
             countdown_date=past,
             font=FONT_DEFAULT,
             font_color=RGB_WHITE,
@@ -109,25 +109,25 @@ class TestTickerCountdown:
 
 class TestBgColor:
     def test_bg_color_default_is_none(self):
-        msg = TickerMessage(message="hi")
+        msg = TickerMessage(text="hi")
         assert msg.bg_color is None
 
     def test_bg_color_accepts_color(self):
         from rgbmatrix.graphics import Color
 
         bg = Color(20, 40, 60)
-        msg = TickerMessage(message="hi", bg_color=bg)
+        msg = TickerMessage(text="hi", bg_color=bg)
         assert msg.bg_color is bg
 
     def test_countdown_bg_color_default_is_none(self):
-        cd = TickerCountdown(message="X", countdown_date=date(2099, 1, 1))
+        cd = TickerCountdown(text="X", countdown_date=date(2099, 1, 1))
         assert cd.bg_color is None
 
     def test_countdown_accepts_bg_color(self):
         from rgbmatrix.graphics import Color
 
         cd = TickerCountdown(
-            message="X", countdown_date=date(2099, 1, 1), bg_color=Color(1, 2, 3)
+            text="X", countdown_date=date(2099, 1, 1), bg_color=Color(1, 2, 3)
         )
         assert cd.bg_color.red == 1
 
@@ -142,7 +142,7 @@ class TestTickerMessageColorProvider:
         from led_ticker.color_providers import _ConstantColor
         from led_ticker.widgets.message import TickerMessage
 
-        widget = TickerMessage("HELLO", font_color=Color(255, 0, 0))
+        widget = TickerMessage(text="HELLO", font_color=Color(255, 0, 0))
         assert isinstance(widget.font_color, _ConstantColor)
 
     def test_constructor_passes_through_existing_provider(self):
@@ -150,13 +150,13 @@ class TestTickerMessageColorProvider:
         from led_ticker.widgets.message import TickerMessage
 
         rainbow = Rainbow()
-        widget = TickerMessage("HELLO", font_color=rainbow)
+        widget = TickerMessage(text="HELLO", font_color=rainbow)
         assert widget.font_color is rainbow
 
     def test_advance_frame_increments_count(self):
         from led_ticker.widgets.message import TickerMessage
 
-        widget = TickerMessage("HI")
+        widget = TickerMessage(text="HI")
         assert widget._frame_count == 0
         widget.advance_frame()
         assert widget._frame_count == 1
@@ -170,13 +170,13 @@ class TestTickerMessageAnimation:
         from led_ticker.animations import Typewriter
         from led_ticker.widgets.message import TickerMessage
 
-        widget = TickerMessage("HELLO", animation=Typewriter())
+        widget = TickerMessage(text="HELLO", animation=Typewriter())
         assert isinstance(widget.animation, Typewriter)
 
     def test_no_animation_by_default(self):
         from led_ticker.widgets.message import TickerMessage
 
-        widget = TickerMessage("HELLO")
+        widget = TickerMessage(text="HELLO")
         assert widget.animation is None
 
 
@@ -213,7 +213,7 @@ class TestTypewriterPlusPerCharProvider:
 
         provider = _TrackingProvider()
         widget = TickerMessage(
-            "ABCDE", font_color=provider, animation=Typewriter(frames_per_char=3)
+            text="ABCDE", font_color=provider, animation=Typewriter(frames_per_char=3)
         )
         # frame=3 with frames_per_char=3 → typewriter reveals 2 chars
         # (progress = (3//3)+1 = 2). The +1 in the formula means frame=0
@@ -264,7 +264,7 @@ class TestTypewriterPlusPerCharProvider:
         from led_ticker.widgets.message import TickerMessage
 
         long_text = "RAINBOW TYPES OUT"  # 17 chars × 6 logical ≈ 102 px
-        widget = TickerMessage(long_text, animation=Typewriter(frames_per_char=3))
+        widget = TickerMessage(text=long_text, animation=Typewriter(frames_per_char=3))
         widget._frame_count = 0  # only "R" visible
         canvas = _StubCanvas(width=64, height=16)
 
@@ -288,7 +288,7 @@ class TestTypewriterPlusPerCharProvider:
         from led_ticker.animations import Typewriter
         from led_ticker.widgets.message import TickerMessage
 
-        widget = TickerMessage("HI", animation=Typewriter())
+        widget = TickerMessage(text="HI", animation=Typewriter())
         widget._frame_count = 6
         canvas = _StubCanvas(width=64, height=16)
 
@@ -320,7 +320,7 @@ class TestTypewriterPlusPerCharProvider:
 
         provider = _TrackingProvider()
         widget = TickerMessage(
-            "ABCDE", font_color=provider, animation=Typewriter(frames_per_char=3)
+            text="ABCDE", font_color=provider, animation=Typewriter(frames_per_char=3)
         )
         # frame=15 → 15 // 3 = 5 chars revealed (full string).
         widget._frame_count = 15
@@ -360,7 +360,7 @@ class TestTypewriterPlusPerCharProvider:
         # Full message: "AB:star:CD" → 4 text chars + 1 emoji.
         # `count_text_chars` returns 4 (excludes emoji).
         widget = TickerMessage(
-            "AB:star:CD",
+            text="AB:star:CD",
             font_color=provider,
             animation=Typewriter(frames_per_char=3),
         )
@@ -384,7 +384,7 @@ class TestTypewriterPlusPerCharProvider:
             f"'AB:star:CD' excluding emoji); got "
             f"{[c[2] for c in provider.calls]!r}. If this fails, "
             f"TickerMessage's emoji branch likely stopped passing "
-            f"`total_chars=count_text_chars(self.message)` to "
+            f"`total_chars=count_text_chars(self.text)` to "
             f"draw_with_emoji and the hue-anchoring contract has "
             f"diverged from the image-widget side."
         )
@@ -400,7 +400,7 @@ class TestTickerCountdownColorProvider:
         from led_ticker.widgets.message import TickerCountdown
 
         widget = TickerCountdown(
-            "Days", countdown_date=date(2027, 1, 1), font_color=Color(255, 0, 0)
+            text="Days", countdown_date=date(2027, 1, 1), font_color=Color(255, 0, 0)
         )
         assert isinstance(widget.font_color, _ConstantColor)
 
@@ -409,7 +409,7 @@ class TestTickerCountdownColorProvider:
 
         from led_ticker.widgets.message import TickerCountdown
 
-        widget = TickerCountdown("Days", countdown_date=date(2027, 1, 1))
+        widget = TickerCountdown(text="Days", countdown_date=date(2027, 1, 1))
         assert widget._frame_count == 0
         widget.advance_frame()
         assert widget._frame_count == 1
@@ -438,7 +438,7 @@ class TestTickerCountdownColorProvider:
 
         provider = _TrackingProvider()
         widget = TickerCountdown(
-            "Days", countdown_date=date(2027, 1, 1), font_color=provider
+            text="Days", countdown_date=date(2027, 1, 1), font_color=provider
         )
         canvas = _StubCanvas(width=160, height=16)
 
@@ -483,7 +483,7 @@ class TestHiresPerCharCursorMatchesHolistic:
 
         font = resolve_font("Inter-Bold", 24)
         widget = TickerMessage(
-            "INTER BOLD RAINBOW",
+            text="INTER BOLD RAINBOW",
             font=font,
             font_color=Rainbow(),
             padding=0,  # remove end-padding to compare cursor_pos directly
@@ -522,7 +522,7 @@ class TestBaselineCache:
 
         monkeypatch.setattr(message_mod, "compute_baseline", _track)
 
-        widget = TickerMessage(message="Hello")
+        widget = TickerMessage(text="Hello")
         widget.draw(canvas)
         widget.draw(canvas)
         widget.draw(canvas)
@@ -547,7 +547,7 @@ class TestBaselineCache:
 
         monkeypatch.setattr(message_mod, "compute_baseline", _track)
 
-        widget = TickerCountdown(message="Days", countdown_date=date(2027, 1, 1))
+        widget = TickerCountdown(text="Days", countdown_date=date(2027, 1, 1))
         widget.draw(canvas)
         widget.draw(canvas)
         widget.draw(canvas)

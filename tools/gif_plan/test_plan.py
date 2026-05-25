@@ -70,18 +70,18 @@ class TestWidgetMs:
     def test_gif_loops_times_frame_sum(self, tmp_path):
         g = tmp_path / "g.gif"
         _gif(g, frames=2, dur_ms=100)
-        w = {"type": "gif", "path": str(g), "gif_loops": 3}
+        w = {"type": "gif", "path": str(g), "loops": 3}
         assert widget_ms(w, {}, 160, tmp_path) == 600
 
     def test_gif_loops_zero_is_section_hold(self, tmp_path):
-        w = {"type": "gif", "path": "x.gif", "gif_loops": 0}
+        w = {"type": "gif", "path": "x.gif", "loops": 0}
         assert widget_ms(w, {"hold_time": 4.0}, 160, tmp_path) == 4000
 
     def test_gif_relative_path_resolves_against_config_dir(self, tmp_path):
         (tmp_path / "assets").mkdir()
         (tmp_path / "cfg").mkdir()
         _gif(tmp_path / "assets" / "x.gif", frames=5, dur_ms=80)
-        w = {"type": "gif", "path": "../assets/x.gif", "gif_loops": 2}
+        w = {"type": "gif", "path": "../assets/x.gif", "loops": 2}
         prev = os.getcwd()
         os.chdir(REPO_ROOT)
         try:

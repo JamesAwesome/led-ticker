@@ -36,7 +36,7 @@ def _coerce_font_color(value: Any) -> ColorProvider:
 class TickerMessage(_FrameAware):
     """A static text message for the LED display."""
 
-    message: str
+    text: str
     font: Font = attrs.Factory(lambda: FONT_DEFAULT)
     font_color: ColorProvider = attrs.field(
         default=attrs.Factory(lambda: DEFAULT_COLOR),
@@ -60,7 +60,7 @@ class TickerMessage(_FrameAware):
     _baseline_y: int = attrs.field(init=False, default=-1)
 
     def __attrs_post_init__(self) -> None:
-        self._has_emoji = bool(EMOJI_PATTERN.search(self.message))
+        self._has_emoji = bool(EMOJI_PATTERN.search(self.text))
 
     def draw(
         self,
@@ -79,7 +79,7 @@ class TickerMessage(_FrameAware):
         # If animation is set, ask it for the slice. Animations don't
         # currently override cursor position (Bounce was removed); if a
         # future animation needs that, re-add the override branch.
-        full_text = self.message
+        full_text = self.text
         if self.animation is not None:
             if self._content_width < 0:
                 # Measure once for animation use; emoji path measures below.
@@ -107,12 +107,12 @@ class TickerMessage(_FrameAware):
 
                 self._content_width = measure_width(
                     self.font,
-                    self.message,
+                    self.text,
                     canvas,
                 )
             else:
                 self._content_width = get_text_width(
-                    self.font, self.message, padding=0, canvas=canvas
+                    self.font, self.text, padding=0, canvas=canvas
                 )
         content_width = self._content_width
         cursor_pos, end_padding = compute_cursor(
@@ -161,16 +161,16 @@ class TickerMessage(_FrameAware):
                 visible_text,
                 y_offset=y_offset,
                 frame=self.frame_for("font_color"),
-                total_chars=count_text_chars(self.message),
+                total_chars=count_text_chars(self.text),
             )
         elif provider.per_char:
             # Per-char rendering: iterate visible_text, draw each char
             # with its own color (rainbow / gradient). The shared
             # `draw_text_per_char` helper handles the HiresFont
             # real-pixel cursor tracking that avoids the per-char
-            # ceil-divide drift. `total_chars=len(self.message)`
+            # ceil-divide drift. `total_chars=len(self.text)`
             # anchors each char's hue to its position in the FULL
-            # message — typewriter mid-cycle reveals char N at the
+            # text — typewriter mid-cycle reveals char N at the
             # hue char N will have at completion, not a hue
             # compressed to the visible slice. Mirrors the image-
             # widget contract in `_BaseImageWidget._draw_text`.
@@ -183,7 +183,7 @@ class TickerMessage(_FrameAware):
                 lambda idx, total: provider.color_for(
                     self.frame_for("font_color"), idx, total
                 ),
-                total_chars=len(self.message),
+                total_chars=len(self.text),
             )
         else:
             color = provider.color_for(
@@ -219,7 +219,7 @@ class TickerMessage(_FrameAware):
 class TickerCountdown(_FrameAware):
     """A countdown to a specific date."""
 
-    message: str
+    text: str
     countdown_date: date
     font: Font = attrs.Factory(lambda: FONT_DEFAULT)
     font_color: ColorProvider = attrs.field(
@@ -252,7 +252,7 @@ class TickerCountdown(_FrameAware):
 
         today = date.today()
         days_until = (self.countdown_date - today).days
-        text = f"{self.message}: {days_until}"
+        text = f"{self.text}: {days_until}"
 
         content_width = get_text_width(self.font, text, padding=0, canvas=canvas)
         cursor_pos, end_padding = compute_cursor(

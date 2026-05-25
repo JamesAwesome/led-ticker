@@ -53,7 +53,7 @@ def make_gif_placeholder(
     out_path: Path, *, width: int, height: int, missing_path: str
 ) -> None:
     """3-frame placeholder. Pulse alternates background slightly so
-    widget code that reads gif_loops × frame_count behaves naturally."""
+    widget code that reads loops × frame_count behaves naturally."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     frames = []

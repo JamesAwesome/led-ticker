@@ -2819,3 +2819,50 @@ text = "Hello"
     assert rule_41, "expected rule 41 error for title color ="
     assert rule_41[0].location == "section[0].title"
     assert "font_color" in rule_41[0].fix
+
+
+def test_cli_fix_flag_renames_gif_loops(tmp_path):
+    """led-ticker validate --fix renames gif_loops → play_count in the file."""
+    import os
+    import subprocess
+    import sys
+
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "test.gif"
+gif_loops = 2
+"""
+    )
+    repo_root = "/Users/james/projects/github/jamesawesome/led-ticker"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "led_ticker.app.cli",
+            "validate",
+            "--fix",
+            str(config_file),
+        ],
+        env={
+            **os.environ,
+            "PYTHONPATH": f"{repo_root}/src:{repo_root}/tests/stubs",
+        },
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+    )
+    assert "Applied 1 migration" in result.stderr
+    patched = config_file.read_text()
+    assert "play_count" in patched
+    assert "gif_loops" not in patched

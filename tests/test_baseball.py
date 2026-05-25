@@ -286,17 +286,22 @@ class TestBaseballHiresDispatch:
 
 
 class TestScaleSwitchAt:
-    """Tripwire: baseball variants must set scale_switch_at=0.0 so the canvas
-    is re-wrapped to the incoming scale BEFORE the first frame.  The ball
-    sprite is physically consistent throughout any cross-scale transition
-    with no snap at t=0.5.
+    """Tripwire: baseball variants must set scale_switch_at=SNAP_THRESHOLD so
+    the outgoing widget is drawn at its native scale during the trail phase.
+    See pokeball.py TestScaleSwitchAt for the full rationale.
     """
 
-    def test_baseball_switches_at_zero(self):
-        assert Baseball.scale_switch_at == 0.0
+    def test_baseball_switches_at_snap_threshold(self):
+        from led_ticker.transitions._hires_loader import SNAP_THRESHOLD
 
-    def test_baseball_reverse_switches_at_zero(self):
-        assert BaseballReverse.scale_switch_at == 0.0
+        assert Baseball.scale_switch_at == SNAP_THRESHOLD
 
-    def test_baseball_alternating_switches_at_zero(self):
-        assert BaseballAlternating.scale_switch_at == 0.0
+    def test_baseball_reverse_switches_at_snap_threshold(self):
+        from led_ticker.transitions._hires_loader import SNAP_THRESHOLD
+
+        assert BaseballReverse.scale_switch_at == SNAP_THRESHOLD
+
+    def test_baseball_alternating_switches_at_snap_threshold(self):
+        from led_ticker.transitions._hires_loader import SNAP_THRESHOLD
+
+        assert BaseballAlternating.scale_switch_at == SNAP_THRESHOLD

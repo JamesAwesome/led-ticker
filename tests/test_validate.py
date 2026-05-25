@@ -2821,6 +2821,41 @@ text = "Hello"
     assert "font_color" in rule_41[0].fix
 
 
+@pytest.mark.asyncio
+async def test_apply_migrations_renames_title_color(tmp_path):
+    """apply_migrations renames title color → font_color in the TOML file."""
+    from led_ticker.validate import apply_migrations
+
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        """
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "forever_scroll"
+
+[playlist.section.title]
+type = "message"
+text = "News"
+color = "random"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Hello"
+"""
+    )
+    result = await validate_config(config_file)
+    n = apply_migrations(config_file, result)
+    assert n == 1
+
+    patched = config_file.read_text()
+    assert "font_color" in patched
+    assert "\ncolor " not in patched  # no bare "color" key (font_color is fine)
+
+
 def test_cli_fix_flag_renames_gif_loops(tmp_path):
     """led-ticker validate --fix renames gif_loops → play_count in the file."""
     import os

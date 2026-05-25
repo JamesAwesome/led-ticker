@@ -559,6 +559,8 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                         'Rename "color" to "font_color" in your'
                         " [playlist.section.title] block."
                     ),
+                    fix_key="color",
+                    fix_replacement_key="font_color",
                 )
             )
     return issues
@@ -1267,6 +1269,14 @@ def _parse_widget_location(location: str) -> tuple[int, int] | None:
     return None
 
 
+def _parse_title_location(location: str) -> int | None:
+    """Parse 'section[i].title' → i. Returns None if not a title location."""
+    import re
+
+    m = re.match(r"^section\[(\d+)\]\.title$", location)
+    return int(m.group(1)) if m else None
+
+
 def apply_migrations(path: Path, result: ValidationResult) -> int:
     """Apply all auto-fixable migrations from result to the TOML file at path.
 
@@ -1280,7 +1290,12 @@ def apply_migrations(path: Path, result: ValidationResult) -> int:
     fixable = [
         e
         for e in result.errors
-        if e.fix_key and e.fix_replacement_key and _parse_widget_location(e.location)
+        if e.fix_key
+        and e.fix_replacement_key
+        and (
+            _parse_widget_location(e.location) is not None
+            or _parse_title_location(e.location) is not None
+        )
     ]
     if not fixable:
         return 0
@@ -1291,17 +1306,27 @@ def apply_migrations(path: Path, result: ValidationResult) -> int:
     applied = 0
     sections = data.get("playlist", {}).get("section", [])
     for issue in fixable:
-        loc = _parse_widget_location(issue.location)
-        if loc is None:
+        widget_loc = _parse_widget_location(issue.location)
+        if widget_loc is not None:
+            section_idx, widget_idx = widget_loc
+            try:
+                widget = sections[section_idx]["widget"][widget_idx]
+            except (IndexError, KeyError):
+                continue
+            if issue.fix_key in widget:
+                widget[issue.fix_replacement_key] = widget.pop(issue.fix_key)
+                applied += 1
             continue
-        section_idx, widget_idx = loc
-        try:
-            widget = sections[section_idx]["widget"][widget_idx]
-        except (IndexError, KeyError):
-            continue
-        if issue.fix_key in widget:
-            widget[issue.fix_replacement_key] = widget.pop(issue.fix_key)
-            applied += 1
+
+        title_loc = _parse_title_location(issue.location)
+        if title_loc is not None:
+            try:
+                title = sections[title_loc].get("title")
+            except (IndexError, KeyError):
+                continue
+            if title and issue.fix_key in title:
+                title[issue.fix_replacement_key] = title.pop(issue.fix_key)
+                applied += 1
 
     path.write_bytes(tomli_w.dumps(data).encode())
     return applied

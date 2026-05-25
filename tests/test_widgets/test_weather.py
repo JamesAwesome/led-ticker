@@ -19,7 +19,7 @@ def weather_widget():
     w = WeatherWidget(
         session=mock.Mock(),
         location="40.7,-74.0",
-        message="NYC",
+        text="NYC",
     )
     w.current_temp = 72
     w.weather = "Clear"
@@ -34,7 +34,7 @@ class TestWeatherWidget:
         w = WeatherWidget(
             session=mock.Mock(),
             location="New York",
-            message="Test",
+            text="Test",
             units="imperial",
         )
         assert w.unit_symbol == "F"
@@ -43,7 +43,7 @@ class TestWeatherWidget:
         w = WeatherWidget(
             session=mock.Mock(),
             location="London",
-            message="Test",
+            text="Test",
             units="metric",
         )
         assert w.unit_symbol == "C"
@@ -53,7 +53,7 @@ class TestWeatherWidget:
         w = WeatherWidget(
             session=mock.Mock(),
             location={"lat": 40.7, "lon": -74.0},
-            message="NYC",
+            text="NYC",
         )
         assert w.location == "40.7,-74.0"
 
@@ -61,7 +61,7 @@ class TestWeatherWidget:
         w = WeatherWidget(
             session=mock.Mock(),
             location="New York",
-            message="NYC",
+            text="NYC",
         )
         assert w.location == "New York"
 
@@ -78,7 +78,7 @@ class TestWeatherWidget:
         w = WeatherWidget(
             session=mock.Mock(),
             location="NYC",
-            message="NYC",
+            text="NYC",
             center=False,
         )
         w.current_temp = 72
@@ -92,7 +92,7 @@ def test_weather_bg_color_default_is_none(monkeypatch):
     monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
     from led_ticker.widgets.weather import WeatherWidget
 
-    w = WeatherWidget(session=mock.Mock(), location="London", message="London")
+    w = WeatherWidget(session=mock.Mock(), location="London", text="London")
     assert w.bg_color is None
 
 
@@ -105,7 +105,7 @@ def test_weather_bg_color_accepts_color(monkeypatch):
     w = WeatherWidget(
         session=mock.Mock(),
         location="London",
-        message="London",
+        text="London",
         bg_color=Color(5, 10, 15),
     )
     assert w.bg_color.red == 5
@@ -124,7 +124,7 @@ class TestWeatherColorProvider:
 
         w = WeatherWidget(
             session=mock.Mock(),
-            message="NYC",
+            text="NYC",
             location="NYC",
             font_color=Color(255, 0, 0),
         )
@@ -138,7 +138,7 @@ class TestWeatherColorProvider:
 
         w = WeatherWidget(
             session=mock.Mock(),
-            message="NYC",
+            text="NYC",
             location="NYC",
             font_color_temp=Color(0, 255, 0),
         )
@@ -150,14 +150,14 @@ class TestWeatherColorProvider:
 
         provider = Rainbow()
         w = WeatherWidget(
-            session=mock.Mock(), message="NYC", location="NYC", font_color=provider
+            session=mock.Mock(), text="NYC", location="NYC", font_color=provider
         )
         assert w.font_color is provider
 
     def test_advance_frame_increments_count(self):
         from led_ticker.widgets.weather import WeatherWidget
 
-        w = WeatherWidget(session=mock.Mock(), message="NYC", location="NYC")
+        w = WeatherWidget(session=mock.Mock(), text="NYC", location="NYC")
         assert w._frame_count == 0
         w.advance_frame()
         assert w._frame_count == 1
@@ -193,7 +193,7 @@ class TestWeatherPerCharProviderDispatch:
         provider = _TrackingProvider()
         w = WeatherWidget(
             session=mock.Mock(),
-            message="Brooklyn",
+            text="Brooklyn",
             location="Brooklyn",
             font_color=provider,
             show_icon=False,  # also exercises the condition draw branch
@@ -231,7 +231,7 @@ class TestWeatherPerCharProviderDispatch:
         temp_provider = _TrackingProvider()
         w = WeatherWidget(
             session=mock.Mock(),
-            message="NYC",
+            text="NYC",
             location="NYC",
             font_color_temp=temp_provider,
         )
@@ -276,7 +276,7 @@ class TestWeatherPerEffectCounter:
         provider = _TrackingProvider()
         w = WeatherWidget(
             session=mock.Mock(),
-            message="NYC",
+            text="NYC",
             location="NYC",
             font_color=provider,
         )
@@ -313,7 +313,7 @@ class TestWeatherPerEffectCounter:
         temp_provider = _TrackingProvider()
         w = WeatherWidget(
             session=mock.Mock(),
-            message="NYC",
+            text="NYC",
             location="NYC",
             font_color_temp=temp_provider,
         )
@@ -379,7 +379,7 @@ class TestWeatherWidgetHiresOnScaledCanvas:
 
         monkeypatch.setattr(pixel_emoji, "_draw_hires_emoji", spy)
 
-        w = WeatherWidget(session=mock.Mock(), location="NYC", message="NYC")
+        w = WeatherWidget(session=mock.Mock(), location="NYC", text="NYC")
         w.current_temp = 72
         w.weather = "Clear"  # -> "sun" -> SUN_HIRES exists
         w.draw(sc)
@@ -422,7 +422,7 @@ class TestWeatherWidgetHiresOnScaledCanvas:
 
         monkeypatch.setattr(pixel_emoji, "_draw_hires_emoji", spy)
 
-        w = WeatherWidget(session=mock.Mock(), location="NYC", message="NYC")
+        w = WeatherWidget(session=mock.Mock(), location="NYC", text="NYC")
         w.current_temp = 72
         w.weather = "Partly cloudy"
         result_canvas, cursor_pos = w.draw(sc)
@@ -471,7 +471,7 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         monkeypatch.setattr(pixel_emoji, "_draw_hires_emoji", spy)
 
         font = resolve_font("Inter-Bold", 24)
-        w = WeatherWidget(session=mock.Mock(), location="NYC", message="NYC", font=font)
+        w = WeatherWidget(session=mock.Mock(), location="NYC", text="NYC", font=font)
         w.current_temp = 72
         w.weather = "Clear"  # -> "sun" -> SUN_HIRES exists
         w.draw(sc)
@@ -522,7 +522,7 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         w = WeatherWidget(
             session=mock.Mock(),
             location="NYC",
-            message="NYC",
+            text="NYC",
             center=True,
         )
         w.current_temp = 72
@@ -565,7 +565,7 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         monkeypatch.setattr(pixel_emoji, "draw_emoji_at", spy)
 
         canvas = _StubCanvas(width=160, height=16)
-        w = WeatherWidget(session=mock.Mock(), location="NYC", message="NYC")
+        w = WeatherWidget(session=mock.Mock(), location="NYC", text="NYC")
         w.current_temp = 72
         w.weather = "Clear"
         w.draw(canvas)

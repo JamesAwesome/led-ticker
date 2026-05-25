@@ -44,31 +44,31 @@ color = "random"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "New York"
+text = "New York"
 location = "New York"
 units = "imperial"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "Philadelphia"
+text = "Philadelphia"
 location = "Philadelphia"
 units = "imperial"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "Milwaukee"
+text = "Milwaukee"
 location = "Milwaukee"
 units = "imperial"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "Minneapolis"
+text = "Minneapolis"
 location = "Minneapolis"
 units = "imperial"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "Washington DC"
+text = "Washington DC"
 location = "Washington DC"
 units = "imperial"
 

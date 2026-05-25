@@ -191,6 +191,6 @@ final_hold_hours = 6
 #
 # [[playlist.section.widget]]
 # type = "weather"
-# message = "NYC"
+# text = "NYC"
 # location = "New York"
 # units = "imperial"

@@ -1008,7 +1008,7 @@ class TestPresentationMigration:
 
         cfg = {
             "type": "weather",
-            "message": "NYC",
+            "text": "NYC",
             "location": "NYC",
             "animation": "typewriter",
         }
@@ -1135,7 +1135,7 @@ class TestColorProviderCoercion:
 
         cfg = {
             "type": "weather",
-            "message": "NYC",
+            "text": "NYC",
             "location": "NYC",
             "font_color_temp": "rainbow",
         }
@@ -1151,7 +1151,7 @@ class TestColorProviderCoercion:
 
         cfg = {
             "type": "weather",
-            "message": "NYC",
+            "text": "NYC",
             "location": "NYC",
             "font_color_temp": {
                 "style": "gradient",
@@ -1480,7 +1480,7 @@ class TestBuildWidgetWithBorder:
         data widgets."""
         cfg = {
             "type": "weather",
-            "message": "NYC",
+            "text": "NYC",
             "location": "NYC",
             "border": "rainbow",
         }
@@ -2911,18 +2911,24 @@ class TestMessageFieldRename:
         )
 
     @pytest.mark.asyncio
-    async def test_weather_message_field_not_affected(self):
-        """WeatherWidget still uses 'message', not 'text'; 'text' is unknown on it."""
+    async def test_weather_text_field_works(self):
+        import aiohttp
+
+        from led_ticker.app.factories import _build_widget
+
+        cfg = {"type": "weather", "text": "Brooklyn", "location": "Brooklyn, NY"}
+        async with aiohttp.ClientSession() as session:
+            widget = await _build_widget(cfg.copy(), session=session)
+        assert widget.text == "Brooklyn"
+
+    @pytest.mark.asyncio
+    async def test_weather_message_raises_migration_error(self):
         from led_ticker.app.factories import validate_widget_cfg
+        from led_ticker.validate import MigrationError
 
-        # weather widget's 'message' field must still work
-        good_cfg = {"type": "weather", "location": "NYC", "message": "NYC"}
-        await validate_widget_cfg(good_cfg, session=None)  # must not raise
-
-        # 'text' is not a valid field on weather — unknown field error
-        bad_cfg = {"type": "weather", "location": "NYC", "text": "NYC"}
-        with pytest.raises(ValueError, match="unknown field"):
-            await validate_widget_cfg(bad_cfg, session=None)
+        cfg = {"type": "weather", "message": "Brooklyn", "location": "Brooklyn, NY"}
+        with pytest.raises(MigrationError, match="message"):
+            await validate_widget_cfg(cfg, session=None)
 
 
 class TestGifLoopsRename:

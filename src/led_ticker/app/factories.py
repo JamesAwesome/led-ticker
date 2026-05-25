@@ -439,12 +439,14 @@ async def validate_widget_cfg(
             suggested_fix="Use font_color / animation instead of presentation",
         )
 
-    # Migration check: the primary text field on TickerMessage and
-    # TickerCountdown was renamed from "message" to "text". Loud failure
-    # here catches stale TOMLs at load time. Only raise for widget types
-    # that no longer have a "message" field (message, countdown) — other
-    # widget types (e.g. weather) still legitimately use "message".
-    if "message" in widget_cfg and widget_cfg.get("type") in ("message", "countdown"):
+    # Migration check: the primary text field on TickerMessage,
+    # TickerCountdown, and WeatherWidget was renamed from "message" to
+    # "text". Loud failure here catches stale TOMLs at load time.
+    if "message" in widget_cfg and widget_cfg.get("type") in (
+        "message",
+        "countdown",
+        "weather",
+    ):
         raise MigrationError(
             'The primary text field was renamed from "message" to "text". '
             'Update your config: replace message = "..." with text = "...".',

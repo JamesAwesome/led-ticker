@@ -158,6 +158,6 @@ top_n = 3
 #
 # [[playlist.section.widget]]
 # type = "weather"
-# message = "NYC"
+# text = "NYC"
 # location = "New York"
 # units = "imperial"

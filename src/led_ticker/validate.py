@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import copy
 import json
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
+
+import tomli_w
 
 if TYPE_CHECKING:
     from led_ticker.config import AppConfig, DisplayConfig, SectionConfig
@@ -1283,10 +1286,6 @@ def apply_migrations(path: Path, result: ValidationResult) -> int:
     Reads, patches, and rewrites the TOML. Comments are not preserved
     (tomli_w limitation). Returns the number of fixes applied.
     """
-    import tomllib
-
-    import tomli_w
-
     fixable = [
         e
         for e in result.errors

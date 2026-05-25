@@ -67,6 +67,8 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
         "hold_time",
         "continuous_scroll",
         "transition",
+        "entry_transition",
+        "widget_transition",
         "transition_duration",
         "transition_color",
         "transition_colors",

@@ -366,6 +366,9 @@ def _resolve_fonts(
     font_name = widget_cfg.pop("font", None)
     font_size = widget_cfg.pop("font_size", None)
     font_threshold = widget_cfg.pop("font_threshold", None)
+
+    cls_fields = {a.name for a in getattr(cls, "__attrs_attrs__", ())}
+
     if font_name is not None:
         if _is_hires_font_name(font_name) and font_size is None:
             raise ValueError(
@@ -374,7 +377,12 @@ def _resolve_fonts(
                 f"font_size = 12 for small sign."
             )
         font = resolve_font(font_name, font_size, threshold=font_threshold)
-        widget_cfg["font"] = font
+        # Only re-insert the resolved font when cls has a `font` attrs field.
+        # When cls is None (direct / test calls), insert unconditionally.
+        # This prevents widgets without a font field (e.g. rss_feed) from
+        # getting an unexpected key that _validate_cfg_fields later rejects.
+        if cls is None or "font" in cls_fields:
+            widget_cfg["font"] = font
 
         if (
             isinstance(font, HiresFont)
@@ -393,7 +401,6 @@ def _resolve_fonts(
                 panel_h_for_warning - 2,
             )
 
-    cls_fields = {a.name for a in getattr(cls, "__attrs_attrs__", ())}
     if font_size is not None and "font_size" in cls_fields:
         widget_cfg["font_size"] = font_size
 

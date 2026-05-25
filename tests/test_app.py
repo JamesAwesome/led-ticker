@@ -153,7 +153,7 @@ class TestBuildWidget:
 class TestBuildTitle:
     async def test_build_title_with_text(self):
         title = await _build_title(
-            {"text": "News", "color": "random"}, session=mock.Mock()
+            {"text": "News", "font_color": "random"}, session=mock.Mock()
         )
         assert isinstance(title, TickerMessage)
         assert title.text == "News"
@@ -177,7 +177,7 @@ class TestBuildTitle:
         # should coerce a 3-int list into a graphics.Color (wrapped in
         # _ConstantColor after post_init). Access via color_for().
         title = await _build_title(
-            {"text": "Pink", "color": [255, 150, 190]}, session=mock.Mock()
+            {"text": "Pink", "font_color": [255, 150, 190]}, session=mock.Mock()
         )
         assert title is not None
         color = title.font_color.color_for(0, 0, 1)
@@ -186,25 +186,23 @@ class TestBuildTitle:
         assert color.blue == 190
 
     async def test_build_title_with_provider_string(self):
-        """Title `color = "rainbow"` should produce a Rainbow provider
-        — same vocabulary as widget `font_color`."""
+        """Title `font_color = "rainbow"` should produce a Rainbow provider."""
         from led_ticker.color_providers import Rainbow
 
         title = await _build_title(
-            {"text": "Hi", "color": "rainbow"}, session=mock.Mock()
+            {"text": "Hi", "font_color": "rainbow"}, session=mock.Mock()
         )
         assert title is not None
         assert isinstance(title.font_color, Rainbow)
 
     async def test_build_title_with_provider_table(self):
-        """Title `color = {style = "gradient", from = [...], to = [...]}`
-        should produce a Gradient provider."""
+        """Title font_color with style="gradient" should produce a Gradient provider."""
         from led_ticker.color_providers import Gradient
 
         title = await _build_title(
             {
                 "text": "Hi",
-                "color": {
+                "font_color": {
                     "style": "gradient",
                     "from": [255, 0, 0],
                     "to": [0, 0, 255],
@@ -2929,6 +2927,36 @@ class TestMessageFieldRename:
         cfg = {"type": "weather", "message": "Brooklyn", "location": "Brooklyn, NY"}
         with pytest.raises(MigrationError, match="message"):
             await validate_widget_cfg(cfg, session=None)
+
+
+class TestTitleColorRename:
+    """color field renamed to font_color on section titles."""
+
+    @pytest.mark.asyncio
+    async def test_title_color_raises_migration_error(self):
+        """title color = ... raises MigrationError at build time."""
+        from led_ticker.validate import MigrationError
+
+        with pytest.raises(MigrationError, match='renamed from "color"'):
+            await _build_title(
+                {"type": "message", "text": "Hello", "color": "random"},
+                session=None,
+            )
+
+    @pytest.mark.asyncio
+    async def test_title_font_color_works(self):
+        """title font_color = ... builds successfully."""
+        widget = await _build_title(
+            {"type": "message", "text": "Hello", "font_color": [255, 0, 0]},
+            session=None,
+        )
+        assert widget is not None
+
+    @pytest.mark.asyncio
+    async def test_title_no_color_works(self):
+        """title with no color field builds successfully."""
+        widget = await _build_title({"type": "message", "text": "Hello"}, session=None)
+        assert widget is not None
 
 
 class TestGifLoopsRename:

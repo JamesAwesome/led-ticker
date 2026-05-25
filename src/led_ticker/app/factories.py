@@ -639,13 +639,9 @@ async def _build_title(
     titles in lockstep with the message widget surface; an explicit
     allowlist here would drift the moment a new knob lands.
 
-    `color` is the title-only spelling for the foreground text color
-    (every example config uses it). It is translated to `font_color`
-    here so the rest of the pipeline handles it uniformly. The legacy
-    `color = "random"` sentinel still picks from the RANDOM_COLOR
-    palette cycle (one stable color per section visit) rather than the
-    `color_providers.Random` RNG — preserved because existing configs
-    rely on this palette.
+    `color` is no longer accepted as a title field — it was renamed to
+    `font_color`. Using the old spelling raises `MigrationError` so users
+    see a clear message and are forced to update their config.
 
     `session` is required for consistency with `_build_widget` even
     though title widgets (type="message") have no `.start` classmethod
@@ -658,12 +654,17 @@ async def _build_title(
     cfg["type"] = "message"
     cfg.setdefault("text", "")
 
-    color = cfg.pop("color", None)
-    if color is not None and "font_color" not in cfg:
-        if color == "random":
-            cfg["font_color"] = next(RANDOM_COLOR)
-        else:
-            cfg["font_color"] = color
+    if "color" in cfg:
+        from led_ticker.validate import MigrationError
+
+        raise MigrationError(
+            'The title color field was renamed from "color" to "font_color". '
+            'Update your config: replace color = "..." with font_color = "...".',
+            suggested_fix=(
+                'Rename "color" to "font_color" in your'
+                " [playlist.section.title] config."
+            ),
+        )
 
     return await _build_widget(
         cfg,

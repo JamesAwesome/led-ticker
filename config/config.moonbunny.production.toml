@@ -245,7 +245,7 @@ type = "message"
 text = "Classes"
 font = "Inter-Bold"
 font_size = 48
-color = [189, 169, 234]   # lavender
+font_color = [189, 169, 234]   # lavender
 
 [[playlist.section.widget]]
 type = "message"

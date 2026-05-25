@@ -77,7 +77,7 @@ transition_duration = 0.6
 
 [playlist.section.title]
 text = "PIKACHU"
-color = [255, 220, 50]
+font_color = [255, 220, 50]
 
 [[playlist.section.widget]]
 type = "gif"
@@ -302,7 +302,7 @@ transition_duration = 0.6
 
 [playlist.section.title]
 text = "PRIDE"
-color = [255, 140, 0]
+font_color = [255, 140, 0]
 
 [[playlist.section.widget]]
 type = "gif"
@@ -357,7 +357,7 @@ transition_duration = 0.6
 
 [playlist.section.title]
 text = "HELLO!"
-color = [255, 220, 50]
+font_color = [255, 220, 50]
 
 [[playlist.section.widget]]
 type = "gif"

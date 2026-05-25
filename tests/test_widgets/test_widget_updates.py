@@ -174,7 +174,7 @@ class TestRSSFeedUpdate:
             feed_url="http://example.com/rss",
         )
         assert isinstance(widget, RSSFeedMonitor)
-        assert widget.feed_title.message == "Test"
+        assert widget.feed_title.text == "Test"
 
     async def test_update_with_empty_feed(self):
         empty = '<?xml version="1.0"?><rss><channel><title>E</title></channel></rss>'

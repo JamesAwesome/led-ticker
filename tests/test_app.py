@@ -82,21 +82,22 @@ class TestBuildWidget:
     """Test that _build_widget correctly maps config dicts to widget instances."""
 
     async def test_message_with_text_key(self):
-        """Config uses 'text' — must map to 'message' param."""
+        """Config uses 'text' — populates the text field directly."""
         cfg = {"type": "message", "text": "Hello world"}
         widget = await _build_widget(cfg, session=mock.Mock())
         assert isinstance(widget, TickerMessage)
-        assert widget.message == "Hello world"
+        assert widget.text == "Hello world"
 
-    async def test_message_with_message_key(self):
-        """Config can also use 'message' directly."""
+    async def test_message_with_message_key_raises_migration_error(self):
+        """Old 'message' key now raises MigrationError."""
+        from led_ticker.validate import MigrationError
+
         cfg = {"type": "message", "message": "Hello world"}
-        widget = await _build_widget(cfg, session=mock.Mock())
-        assert isinstance(widget, TickerMessage)
-        assert widget.message == "Hello world"
+        with pytest.raises(MigrationError, match="text"):
+            await _build_widget(cfg, session=mock.Mock())
 
     async def test_countdown_with_text_key(self):
-        """Countdown config uses 'text' — must map to 'message'."""
+        """Countdown config uses 'text' — populates the text field directly."""
         cfg = {
             "type": "countdown",
             "text": "Days Until Spring",
@@ -104,31 +105,36 @@ class TestBuildWidget:
         }
         widget = await _build_widget(cfg, session=mock.Mock())
         assert isinstance(widget, TickerCountdown)
-        assert widget.message == "Days Until Spring"
+        assert widget.text == "Days Until Spring"
 
-    async def test_countdown_with_message_key(self):
+    async def test_countdown_with_message_key_raises_migration_error(self):
+        """Old 'message' key on countdown now raises MigrationError."""
+        from led_ticker.validate import MigrationError
+
         cfg = {
             "type": "countdown",
             "message": "Days Until Spring",
             "countdown_date": date(2026, 3, 20),
         }
-        widget = await _build_widget(cfg, session=mock.Mock())
-        assert isinstance(widget, TickerCountdown)
+        with pytest.raises(MigrationError, match="text"):
+            await _build_widget(cfg, session=mock.Mock())
 
     async def test_unknown_widget_type_raises(self):
         cfg = {"type": "nonexistent_widget"}
         with pytest.raises(ValueError, match="Unknown widget type"):
             await _build_widget(cfg, session=mock.Mock())
 
-    async def test_text_key_does_not_override_message(self):
-        """If both 'text' and 'message' are present, 'message' wins."""
+    async def test_both_text_and_message_keys_raise_migration_error(self):
+        """Having both 'text' and 'message' raises MigrationError."""
+        from led_ticker.validate import MigrationError
+
         cfg = {
             "type": "message",
             "text": "from text",
             "message": "from message",
         }
-        widget = await _build_widget(cfg, session=mock.Mock())
-        assert widget.message == "from message"
+        with pytest.raises(MigrationError, match="text"):
+            await _build_widget(cfg, session=mock.Mock())
 
     async def test_built_widget_conforms_to_protocol(self):
         cfg = {"type": "message", "text": "test"}
@@ -141,7 +147,7 @@ class TestBuildWidget:
         for _ in range(3):
             cfg = {"type": "message", "text": "repeat"}
             widget = await _build_widget(cfg, session=mock.Mock())
-            assert widget.message == "repeat"
+            assert widget.text == "repeat"
 
 
 class TestBuildTitle:
@@ -150,7 +156,7 @@ class TestBuildTitle:
             {"text": "News", "color": "random"}, session=mock.Mock()
         )
         assert isinstance(title, TickerMessage)
-        assert title.message == "News"
+        assert title.text == "News"
 
     async def test_build_title_none(self):
         title = await _build_title(None, session=mock.Mock())
@@ -159,12 +165,12 @@ class TestBuildTitle:
     async def test_build_title_no_color(self):
         title = await _build_title({"text": "Plain"}, session=mock.Mock())
         assert isinstance(title, TickerMessage)
-        assert title.message == "Plain"
+        assert title.text == "Plain"
 
     async def test_build_title_empty_text(self):
         title = await _build_title({"text": ""}, session=mock.Mock())
         assert isinstance(title, TickerMessage)
-        assert title.message == ""
+        assert title.text == ""
 
     async def test_build_title_with_rgb_list_color(self):
         # TOML inline-tables and arrays come through as lists. The loader
@@ -574,7 +580,7 @@ class TestBuildWidgetFontResolution:
         }
         # Would raise TypeError if font_threshold leaked into TickerMessage.
         widget = await _build_widget(widget_cfg, session)
-        assert widget.message == "hi"
+        assert widget.text == "hi"
         assert not hasattr(widget, "font_threshold")
 
 
@@ -1854,7 +1860,7 @@ def test_resolve_buffer_msg_with_separator_text_only():
     section = SectionConfig(mode="forever_scroll", separator="*")
     msg = _resolve_buffer_msg(section)
     assert isinstance(msg, TickerMessage)
-    assert msg.message == "*"
+    assert msg.text == "*"
 
 
 def test_resolve_buffer_msg_empty_string_maps_to_two_spaces():
@@ -1865,7 +1871,7 @@ def test_resolve_buffer_msg_empty_string_maps_to_two_spaces():
     section = SectionConfig(mode="forever_scroll", separator="")
     msg = _resolve_buffer_msg(section)
     assert msg is not None
-    assert msg.message == "  "
+    assert msg.text == "  "
 
 
 def test_resolve_buffer_msg_with_custom_font_inherits_default_text():
@@ -1876,7 +1882,7 @@ def test_resolve_buffer_msg_with_custom_font_inherits_default_text():
     section = SectionConfig(mode="forever_scroll", separator_font="5x8")
     msg = _resolve_buffer_msg(section)
     assert msg is not None
-    assert msg.message == "•"
+    assert msg.text == "•"
     # TickerMessage wants a resolved Font, not a name string. The
     # previous implementation passed the raw name through as `font=`,
     # which attrs silently accepted but would render as a string at
@@ -1903,7 +1909,7 @@ def test_resolve_buffer_msg_with_hires_font_resolves_via_resolve_font():
     )
     msg = _resolve_buffer_msg(section)
     assert msg is not None
-    assert msg.message == " * "
+    assert msg.text == " * "
     assert isinstance(
         msg.font, HiresFont
     ), f"expected HiresFont, got {type(msg.font).__name__}"
@@ -1940,7 +1946,7 @@ def test_resolve_buffer_msg_color_only_returns_circle_buffer_msg():
     assert isinstance(
         msg, _CircleBufferMsg
     ), f"expected _CircleBufferMsg, got {type(msg).__name__}"
-    assert msg.message == " • "
+    assert msg.text == " • "
     # Color provider returns the user's RGB.
     color = msg.font_color.color_for(0, 0, 1)
     assert (color.red, color.green, color.blue) == (225, 48, 108)
@@ -2667,7 +2673,7 @@ class TestResolveFonts:
     def test_no_font_key_is_noop(self):
         from led_ticker.app.factories import _resolve_fonts
 
-        cfg = {"message": "hello"}
+        cfg = {"text": "hello"}
         _resolve_fonts(cfg, None, None)
         assert "font" not in cfg
 
@@ -2757,7 +2763,7 @@ class TestValidateCfgFields:
         from led_ticker.app.factories import _validate_cfg_fields
         from led_ticker.widgets.message import TickerMessage
 
-        cfg = {"message": "hello", "unknown_field": "value"}
+        cfg = {"text": "hello", "unknown_field": "value"}
         with pytest.raises(ValueError, match="unknown_field"):
             _validate_cfg_fields(cfg, TickerMessage, "message")
 
@@ -2765,8 +2771,8 @@ class TestValidateCfgFields:
         from led_ticker.app.factories import _validate_cfg_fields
         from led_ticker.widgets.message import TickerMessage
 
-        # "massage" is close to "message" — difflib should suggest "message"
-        cfg = {"massage": "hello"}
+        # "txet" is close to "text" — difflib should suggest "text"
+        cfg = {"txet": "hello"}
         with pytest.raises(ValueError, match="did you mean"):
             _validate_cfg_fields(cfg, TickerMessage, "message")
 
@@ -2782,7 +2788,7 @@ class TestValidateCfgFields:
         from led_ticker.app.factories import _validate_cfg_fields
         from led_ticker.widgets.message import TickerMessage
 
-        cfg = {"message": "hello"}
+        cfg = {"text": "hello"}
         _validate_cfg_fields(cfg, TickerMessage, "message")  # must not raise
 
 
@@ -2857,3 +2863,49 @@ class TestBuildWidgetRoundtrip:
         async with aiohttp.ClientSession() as session:
             widget = await _build_widget(cfg, session=session, config_dir=tmp_path)
         assert type(widget).__name__ == expected_cls
+
+
+class TestMessageFieldRename:
+    """message field renamed to text on TickerMessage and TickerCountdown."""
+
+    @pytest.mark.asyncio
+    async def test_message_key_raises_migration_error(self):
+        from led_ticker.app.factories import validate_widget_cfg
+        from led_ticker.validate import MigrationError
+
+        cfg = {"type": "message", "message": "hello"}
+        with pytest.raises(MigrationError, match="text"):
+            await validate_widget_cfg(cfg, session=None)
+
+    @pytest.mark.asyncio
+    async def test_text_key_works_on_ticker_message(self):
+        import aiohttp
+
+        from led_ticker.app.factories import _build_widget
+
+        cfg = {"type": "message", "text": "hello"}
+        async with aiohttp.ClientSession() as session:
+            widget = await _build_widget(cfg.copy(), session=session)
+        assert widget.text == "hello"
+
+    @pytest.mark.asyncio
+    async def test_message_key_raises_on_countdown(self):
+        from led_ticker.app.factories import validate_widget_cfg
+        from led_ticker.validate import MigrationError
+
+        cfg = {
+            "type": "countdown",
+            "message": "Days Until Summer",
+            "target_date": "2026-06-21",
+        }
+        with pytest.raises(MigrationError, match="text"):
+            await validate_widget_cfg(cfg, session=None)
+
+    def test_list_fields_message_type_shows_text_not_message(self):
+        from led_ticker.app import _list_widget_fields
+
+        result = _list_widget_fields("message")
+        assert "  text " in result
+        assert not any(
+            line.strip().startswith("message") for line in result.splitlines()
+        )

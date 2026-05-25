@@ -439,6 +439,18 @@ async def validate_widget_cfg(
             suggested_fix="Use font_color / animation instead of presentation",
         )
 
+    # Migration check: the primary text field on TickerMessage and
+    # TickerCountdown was renamed from "message" to "text". Loud failure
+    # here catches stale TOMLs at load time. Only raise for widget types
+    # that no longer have a "message" field (message, countdown) — other
+    # widget types (e.g. weather) still legitimately use "message".
+    if "message" in widget_cfg and widget_cfg.get("type") in ("message", "countdown"):
+        raise MigrationError(
+            'The primary text field was renamed from "message" to "text". '
+            'Update your config: replace message = "..." with text = "...".',
+            suggested_fix='Rename "message" to "text" in your config.',
+        )
+
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)
 
@@ -526,17 +538,6 @@ async def validate_widget_cfg(
         widget_cfg["bg_color"] = list(default_bg_color)
 
     _resolve_fonts(widget_cfg, cls, panel_h_for_warning)
-
-    # Config uses "text" but TickerMessage/TickerCountdown use "message".
-    # Only rename for widgets that don't accept `text` natively (e.g.
-    # GifPlayer takes `text` directly for its alongside-text feature).
-    cls_fields = {a.name for a in getattr(cls, "__attrs_attrs__", ())}
-
-    if "text" in widget_cfg and "text" not in cls_fields:
-        if "message" not in widget_cfg:
-            widget_cfg["message"] = widget_cfg.pop("text")
-        else:
-            widget_cfg.pop("text")
 
     _resolve_asset_paths(widget_cfg, widget_type, config_dir)
 
@@ -701,7 +702,7 @@ def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:
         # Color-only: still want the hi-res circle on bigsign.
         from led_ticker.ticker import _CircleBufferMsg
 
-        return _CircleBufferMsg(message=" • ", center=False, font_color=color_provider)
+        return _CircleBufferMsg(text=" • ", center=False, font_color=color_provider)
 
     # Explicit text / font: TickerMessage with literal rendering.
     text = section.separator if section.separator is not None else "•"
@@ -709,7 +710,7 @@ def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:
         text = "  "
 
     kwargs: dict[str, Any] = {
-        "message": text,
+        "text": text,
         "center": False,
         "font_color": color_provider,
     }

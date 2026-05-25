@@ -237,7 +237,7 @@ transition_duration = 1.5
 
 [[playlist.section.widget]]
 type = "weather"
-message = "Brooklyn"
+text = "Brooklyn"
 location = "Brooklyn"
 units = "imperial"
 show_icon = true
@@ -389,7 +389,7 @@ transition_duration = 1.5
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Days to NYE"
+text = "Days to NYE"
 countdown_date = 2027-01-01
 font = "Inter-Bold"
 font_size = 24

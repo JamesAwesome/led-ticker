@@ -56,31 +56,31 @@ color = "random"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "New York"
+text = "New York"
 location = "New York"
 units = "imperial"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "Philadelphia"
+text = "Philadelphia"
 location = "Philadelphia"
 units = "imperial"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "Milwaukee"
+text = "Milwaukee"
 location = "Milwaukee"
 units = "imperial"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "Minneapolis"
+text = "Minneapolis"
 location = "Minneapolis"
 units = "imperial"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "Washington DC"
+text = "Washington DC"
 location = "Washington DC"
 units = "imperial"
 
@@ -98,27 +98,27 @@ color = "random"
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "4th of July"
+text = "4th of July"
 countdown_date = 2026-07-04
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Halloween"
+text = "Halloween"
 countdown_date = 2026-10-31
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Thanksgiving"
+text = "Thanksgiving"
 countdown_date = 2026-11-26
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Christmas"
+text = "Christmas"
 countdown_date = 2026-12-25
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "New Years"
+text = "New Years"
 countdown_date = 2027-01-01
 
 # --- Nintendo ---

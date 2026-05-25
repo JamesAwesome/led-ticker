@@ -113,7 +113,7 @@ class _CircleBufferMsg(TickerMessage):
 
 
 DEFAULT_BUFFER_MSG: TickerMessage = _CircleBufferMsg(
-    message=" \u2022 ", center=False, font_color=RGB_WHITE
+    text=" \u2022 ", center=False, font_color=RGB_WHITE
 )
 
 

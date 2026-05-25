@@ -66,12 +66,12 @@ color = "random"
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Days Until Spring"
+text = "Days Until Spring"
 countdown_date = 2026-03-20
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Days Until Summer"
+text = "Days Until Summer"
 countdown_date = 2026-06-20
 
 # Live RSS headlines from Nintendo Life — a known-stable feed for the demo.

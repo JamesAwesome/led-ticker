@@ -314,7 +314,7 @@ def test_circle_buffer_msg_smallsign_delegates_to_super_draw():
     plain_canvas.height = 16
     # Not a ScaledCanvas — isinstance(plain_canvas, ScaledCanvas) is False.
 
-    msg = _CircleBufferMsg(message=" • ", center=False, font_color=RGB_WHITE)
+    msg = _CircleBufferMsg(text=" • ", center=False, font_color=RGB_WHITE)
 
     # Verify _draw_hires_circle is NOT called on the smallsign path
     with patch("led_ticker.ticker._draw_hires_circle") as mock_hires:
@@ -338,7 +338,7 @@ def test_circle_buffer_msg_hires_path_paints_circle():
     real.width, real.height = 256, 64
     canvas = ScaledCanvas(real, scale=4, content_height=16)
 
-    msg = _CircleBufferMsg(message=" • ", center=False, font_color=RGB_WHITE)
+    msg = _CircleBufferMsg(text=" • ", center=False, font_color=RGB_WHITE)
     out, cursor = msg.draw(canvas, cursor_pos=0)
 
     assert out is canvas
@@ -354,7 +354,7 @@ def test_circle_buffer_msg_hires_rainbow_animates_per_frame():
     real.width, real.height = 256, 64
     canvas = ScaledCanvas(real, scale=4, content_height=16)
 
-    msg = _CircleBufferMsg(message=" • ", center=False, font_color=Rainbow())
+    msg = _CircleBufferMsg(text=" • ", center=False, font_color=Rainbow())
 
     msg.draw(canvas, cursor_pos=0)
     first_color = real.SetPixel.call_args_list[0].args[2:5]
@@ -379,7 +379,7 @@ def test_default_buffer_msg_is_circle_buffer_msg():
     from led_ticker.ticker import DEFAULT_BUFFER_MSG
 
     assert isinstance(DEFAULT_BUFFER_MSG, _CircleBufferMsg)
-    assert DEFAULT_BUFFER_MSG.message == " • "
+    assert DEFAULT_BUFFER_MSG.text == " • "
 
 
 class TestHasPlayDispatch:

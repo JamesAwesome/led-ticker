@@ -9,6 +9,7 @@ import pytest
 from led_ticker.borders import (
     ColorCycleBorder,
     ConstantBorder,
+    LightbulbBorder,
     RainbowChaseBorder,
     _lightbulb_positions,
     _perimeter_pixels,
@@ -714,3 +715,143 @@ class TestLightbulbPositions:
         a = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
         b = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
         assert a is b  # functools.cache returns the same object
+
+
+class _FakeRealCanvas:
+    """Minimal stub: just records SetPixel calls."""
+
+    def __init__(self, w, h):
+        self.width = w
+        self.height = h
+        self.pixels: dict[tuple[int, int], tuple[int, int, int]] = {}
+
+    def SetPixel(self, x, y, r, g, b):
+        self.pixels[(x, y)] = (r, g, b)
+
+
+class TestLightbulbBorderConstruction:
+    def test_class_attrs(self):
+        """frame_invariant=False (animates), restart_on_visit=False (continuous)."""
+        b = LightbulbBorder(mode="chase")
+        assert b.frame_invariant is False
+        # restart_on_visit is a CLASS attribute
+        assert LightbulbBorder.restart_on_visit is False
+
+    def test_defaults(self):
+        """Default mode='chase', gap=3, sensible defaults for everything else."""
+        b = LightbulbBorder(mode="chase")
+        assert b.mode == "chase"
+        assert b.gap == 3
+        assert b.lit_color == (255, 220, 140)
+        assert b.unlit_color == (40, 20, 0)
+        assert b.direction == "cw"
+        assert b.chase_density == 3
+
+    def test_mode_dependent_speed_default_chase(self):
+        """Default speed_frames=2 for chase."""
+        b = LightbulbBorder(mode="chase")
+        assert b.speed_frames == 2
+
+    def test_explicit_speed_frames_overrides_default(self):
+        b = LightbulbBorder(mode="chase", speed_frames=10)
+        assert b.speed_frames == 10
+
+
+class TestLightbulbBorderChase:
+    def test_paints_lit_and_unlit_colors(self):
+        """At frame=0 with chase_density=3, every 3rd bulb is lit;
+        the rest get unlit_color."""
+        canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="chase",
+            chase_density=3,
+            lit_color=(255, 0, 0),
+            unlit_color=(10, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(canvas, frame_count=0)
+        # Every pixel of the canvas perimeter region got SOME color
+        # (either lit_color or unlit_color). Sample: pixel (0,0) is
+        # part of the top-left corner bulb (idx=0); idx % 3 == 0 so lit.
+        assert canvas.pixels[(0, 0)] == (255, 0, 0)
+        # Idx 1 (next clockwise) is on the top edge — unlit (1 % 3 != 0).
+        # Find its position: second bulb in the list at gap+N from top-left = 6.
+        assert canvas.pixels[(6, 0)] == (10, 0, 0)
+
+    def test_chase_advances_clockwise(self):
+        """Frame=speed_frames vs frame=0: lit set rotated by 1 bulb cw."""
+        canvas_0 = _FakeRealCanvas(256, 64)
+        canvas_1 = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="chase",
+            chase_density=3,
+            speed_frames=2,
+            lit_color=(255, 0, 0),
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(canvas_0, frame_count=0)
+        b.paint(canvas_1, frame_count=2)
+        # Bulb idx 0 (top-left corner at (0,0)) is lit at frame=0,
+        # unlit at frame=speed_frames (step advanced by 1, so
+        # (0 - 1) % 3 != 0).
+        assert canvas_0.pixels[(0, 0)] == (255, 0, 0)
+        assert canvas_1.pixels[(0, 0)] == (0, 0, 0)
+        # Bulb idx 1 (top edge x=6) was unlit at frame=0, becomes lit at
+        # frame=speed_frames: (1 - 1) % 3 == 0.
+        assert canvas_0.pixels[(6, 0)] == (0, 0, 0)
+        assert canvas_1.pixels[(6, 0)] == (255, 0, 0)
+
+    def test_chase_ccw_reverses(self):
+        """direction='ccw' rotates the opposite way."""
+        canvas_cw = _FakeRealCanvas(256, 64)
+        canvas_ccw = _FakeRealCanvas(256, 64)
+        b_cw = LightbulbBorder(
+            mode="chase",
+            direction="cw",
+            chase_density=3,
+            speed_frames=2,
+            lit_color=(255, 0, 0),
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b_ccw = LightbulbBorder(
+            mode="chase",
+            direction="ccw",
+            chase_density=3,
+            speed_frames=2,
+            lit_color=(255, 0, 0),
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b_cw.paint(canvas_cw, frame_count=2)
+        b_ccw.paint(canvas_ccw, frame_count=2)
+        # Bulb 2 (idx=2). cw: (2-1)%3=1, unlit. ccw: (2+1)%3=0, lit.
+        bulb_2_pos = (12, 0)  # third bulb on top edge, x=2*stride=12
+        assert canvas_cw.pixels[bulb_2_pos] == (0, 0, 0)
+        assert canvas_ccw.pixels[bulb_2_pos] == (255, 0, 0)
+
+    def test_bulb_size_paints_NxN_block(self):
+        """A 3x3 bulb covers all 9 pixels of its NxN square."""
+        canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="chase",
+            chase_density=1,  # all lit
+            lit_color=(123, 45, 67),
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(canvas, frame_count=0)
+        # Top-left corner bulb at (0,0) lit; should fill (0..2, 0..2).
+        for dy in range(3):
+            for dx in range(3):
+                assert canvas.pixels[(dx, dy)] == (
+                    123,
+                    45,
+                    67,
+                ), f"bulb pixel ({dx},{dy}) not painted lit"

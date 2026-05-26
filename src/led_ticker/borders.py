@@ -369,3 +369,109 @@ class ConstantBorder(BorderEffectBase):
         r, g, b = self._rgb
         for x, y in _perimeter_pixels(real.width, real.height, self.thickness):
             real.SetPixel(x, y, r, g, b)
+
+
+class LightbulbBorder(BorderEffectBase):
+    """Marquee-style border: discrete bulb sprites around the perimeter.
+
+    Each bulb is an NxN sprite (default 3x3 on big panels, auto-falls
+    back to 1x1 on small panels). Bulbs are evenly spaced around the
+    perimeter and animate via three modes:
+
+    - "chase": every Nth bulb is lit, the lit set walks around the
+      perimeter (clockwise by default). Classic marquee.
+    - "alternate": even/odd bulbs flip on each phase. Looks like a
+      shimmering twinkle.
+    - "unison": all bulbs blink on/off in unison. Vegas attention.
+
+    All modes paint BOTH lit and unlit colors per frame — there's no
+    expectation that "off" pixels are black. Default lit_color is a
+    warm white; default unlit_color is a dim warm orange that mimics
+    the soft glow of unpowered incandescent bulbs.
+
+    Paints at PHYSICAL resolution via `unwrap_to_real` — bypasses
+    ScaledCanvas block expansion.
+    """
+
+    frame_invariant: bool = False
+    restart_on_visit: bool = False
+
+    def __init__(
+        self,
+        *,
+        mode: str = "chase",
+        bulb_size: int | None = None,
+        gap: int = 3,
+        lit_color: tuple[int, int, int] = (255, 220, 140),
+        unlit_color: tuple[int, int, int] = (40, 20, 0),
+        speed_frames: int | None = None,
+        chase_density: int = 3,
+        direction: str = "cw",
+    ) -> None:
+        self.mode = mode
+        # bulb_size=None means "auto-detect on first paint". Resolution
+        # is lazy because panel height isn't known at construction
+        # time (the border is built during config-load before any
+        # canvas exists).
+        self._bulb_size_override = bulb_size
+        self.gap = gap
+        self.lit_color = lit_color
+        self.unlit_color = unlit_color
+        # Per-mode default speed_frames. Picked for a 50ms engine tick:
+        #   chase=2     -> 100ms/step,  ~10s/rev on 100-bulb bigsign
+        #   alternate=5 -> 250ms/toggle
+        #   unison=8    -> 400ms/blink
+        if speed_frames is None:
+            speed_frames = {"chase": 2, "alternate": 5, "unison": 8}.get(mode, 2)
+        self.speed_frames = speed_frames
+        self.chase_density = chase_density
+        self.direction = direction
+
+    def _resolve_bulb_size(self, real_height: int) -> int:
+        if self._bulb_size_override is not None:
+            return self._bulb_size_override
+        # Auto-fallback: small panels (smallsign) get 1x1; everything
+        # else gets 3x3. Threshold of 32 cleanly separates the two
+        # reference builds (bigsign h=64, smallsign h=16).
+        return 3 if real_height >= 32 else 1
+
+    def paint(self, canvas: Canvas, frame_count: int) -> None:
+        real = unwrap_to_real(canvas)
+        bulb_size = self._resolve_bulb_size(real.height)
+        positions = _lightbulb_positions(real.width, real.height, bulb_size, self.gap)
+        phase = frame_count // self.speed_frames
+
+        if self.mode == "chase":
+            step = phase if self.direction == "cw" else -phase
+            for idx, (x0, y0) in enumerate(positions):
+                is_lit = ((idx - step) % self.chase_density) == 0
+                rgb = self.lit_color if is_lit else self.unlit_color
+                self._paint_bulb(real, x0, y0, bulb_size, rgb)
+        elif self.mode == "alternate":
+            flip = phase % 2
+            for idx, (x0, y0) in enumerate(positions):
+                is_lit = ((idx + flip) % 2) == 0
+                rgb = self.lit_color if is_lit else self.unlit_color
+                self._paint_bulb(real, x0, y0, bulb_size, rgb)
+        elif self.mode == "unison":
+            rgb = self.lit_color if (phase % 2) == 0 else self.unlit_color
+            for x0, y0 in positions:
+                self._paint_bulb(real, x0, y0, bulb_size, rgb)
+        else:
+            raise ValueError(
+                f"LightbulbBorder.mode must be 'chase', 'alternate', or "
+                f"'unison'; got {self.mode!r}"
+            )
+
+    @staticmethod
+    def _paint_bulb(
+        real: Any,
+        x0: int,
+        y0: int,
+        size: int,
+        rgb: tuple[int, int, int],
+    ) -> None:
+        r, g, b = rgb
+        for dy in range(size):
+            for dx in range(size):
+                real.SetPixel(x0 + dx, y0 + dy, r, g, b)

@@ -127,7 +127,7 @@ path = "assets/circus_tent_transparent.png"
 fit = "letterbox"
 image_align = "center"
 text_align = "left"
-text = " Circus                  Aerial"
+text = "  Aerial                 Circus"
 font = "Inter-Bold"
 font_size = 25
 font_color = {style = "shimmer", base = [225, 48, 108], shimmer = "white", speed = 10, width = 5, pause = 1.5}

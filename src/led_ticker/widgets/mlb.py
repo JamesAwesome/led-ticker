@@ -124,6 +124,14 @@ MLB_TEAM_NAMES: dict[str, str] = {
 MLB_NAME_TO_ABBR: dict[str, str] = {v: k for k, v in MLB_TEAM_NAMES.items()}
 
 
+def _fit_team_name(abbr: str, zone_w: int, font: Font, canvas: Canvas) -> str:
+    """Return the short team name if it fits in zone_w logical pixels, else abbr."""
+    from led_ticker.pixel_emoji import measure_width
+
+    name = MLB_TEAM_NAMES.get(abbr, abbr)
+    return name if measure_width(font, name, canvas) <= zone_w else abbr
+
+
 def _lift_color(r: int, g: int, b: int, min_max: int = 120) -> tuple[int, int, int]:
     """Scale dark colors proportionally so the brightest channel >= min_max.
 
@@ -590,13 +598,21 @@ class MLBScoreboardMessage(_FrameAware):
         away_abbr = game.away_abbr
         home_abbr = game.home_abbr
 
+        # In preview (no score yet), try to show the full team name if it fits.
+        if game.state == "preview":
+            away_label = _fit_team_name(away_abbr, left_w, self.font, canvas)
+            home_label = _fit_team_name(home_abbr, right_w, self.font, canvas)
+        else:
+            away_label = away_abbr
+            home_label = home_abbr
+
         # Away team (left column)
-        _draw_centered(away_abbr, 0, left_w, top_baseline, away_c)
+        _draw_centered(away_label, 0, left_w, top_baseline, away_c)
         away_score_str = str(game.away_score) if game.away_score is not None else "–"
         _draw_centered(away_score_str, 0, left_w, bottom_baseline, away_score_c)
 
         # Home team (right column)
-        _draw_centered(home_abbr, right_start, right_w, top_baseline, home_c)
+        _draw_centered(home_label, right_start, right_w, top_baseline, home_c)
         home_score_str = str(game.home_score) if game.home_score is not None else "–"
         _draw_centered(
             home_score_str, right_start, right_w, bottom_baseline, home_score_c

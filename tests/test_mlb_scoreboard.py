@@ -464,3 +464,40 @@ async def test_layout_ticker_builds_game_messages():
     monitor = await _run_update_with_schedule("ticker", _phi_nym_schedule())
     game_stories = [s for s in monitor.feed_stories if isinstance(s, MLBGameMessage)]
     assert len(game_stories) >= 1
+
+
+# ---------------------------------------------------------------------------
+# _fit_team_name: full name vs abbreviation fallback
+# ---------------------------------------------------------------------------
+
+
+def test_fit_team_name_returns_name_when_it_fits():
+    """Short names like 'Mets' should fit in a 128px column and be returned."""
+    from led_ticker.fonts import FONT_DEFAULT
+    from led_ticker.widgets.mlb import _fit_team_name
+
+    canvas = _stub_canvas(w=128, h=16)
+    # 'Mets' is 4 chars — should easily fit in a 38px zone
+    result = _fit_team_name("NYM", 38, FONT_DEFAULT, canvas)
+    assert result == "Mets"
+
+
+def test_fit_team_name_falls_back_to_abbr_when_too_wide():
+    """On a narrow canvas, even short names should fall back to the abbreviation."""
+    from led_ticker.fonts import FONT_DEFAULT
+    from led_ticker.widgets.mlb import _fit_team_name
+
+    canvas = _stub_canvas(w=32, h=16)
+    # zone_w=0 — nothing fits except empty string; any name should fall back
+    result = _fit_team_name("NYM", 0, FONT_DEFAULT, canvas)
+    assert result == "NYM"
+
+
+def test_fit_team_name_unknown_abbr_returns_abbr():
+    """An unknown abbreviation returns itself regardless of zone width."""
+    from led_ticker.fonts import FONT_DEFAULT
+    from led_ticker.widgets.mlb import _fit_team_name
+
+    canvas = _stub_canvas(w=128, h=16)
+    result = _fit_team_name("XYZ", 200, FONT_DEFAULT, canvas)
+    assert result == "XYZ"

@@ -55,6 +55,7 @@ class RGBMatrixOptions:
         # Pi 5 fork (kingdo9) only — present here so tests exercise the
         # rp1_rio code path. Real Pi 4 builds don't expose this attribute.
         self.rp1_rio = 0
+        self.limit_refresh_rate_hz = 0
 
 
 class _StubCanvas:

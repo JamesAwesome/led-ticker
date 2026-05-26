@@ -258,7 +258,7 @@ class MLBGameMessage:
         self._content_width: int = -1
         self._frame_count: int = 0
 
-    def advance_frame(self) -> None:
+    def advance_frame(self, *, visit_id: int | None = None) -> None:
         self._frame_count += 1
 
     def pause_frame(self) -> None:

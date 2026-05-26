@@ -155,6 +155,66 @@ def _perimeter_pixels(
     return pixels
 
 
+@functools.cache
+def _lightbulb_positions(
+    width: int,
+    height: int,
+    bulb_size: int,
+    gap: int,
+) -> list[tuple[int, int]]:
+    """Return the list of bulb top-left corners around the perimeter.
+
+    Clockwise from the top-left corner. Includes the 4 corner bulbs
+    exactly once each. Between-corner bulbs leave `gap` pixels of empty
+    space against neighboring bulbs (including against the corner
+    bulbs).
+
+    Each bulb occupies pixels (x0..x0+N-1, y0..y0+N-1), where
+    N = bulb_size. Top-left anchoring (vs. center) means bulb_size can
+    be even — 2x2 has no center pixel but its top-left corner is well-
+    defined.
+
+    `width` and `height` are PHYSICAL panel dimensions — feed
+    `unwrap_to_real(canvas).width / .height` when working from a
+    ScaledCanvas. The function is cached so repeated calls with the
+    same geometry return the same list object.
+    """
+    n = bulb_size
+    stride = n + gap
+    positions: list[tuple[int, int]] = []
+
+    # Top-left corner
+    positions.append((0, 0))
+    # Top edge (between corners), left-to-right.
+    # First non-corner bulb: x0 = n + gap. Last non-corner: x0 <= w - 2n - gap.
+    x = stride
+    while x <= width - 2 * n - gap:
+        positions.append((x, 0))
+        x += stride
+    # Top-right corner
+    positions.append((width - n, 0))
+    # Right edge (between corners), top-to-bottom.
+    y = stride
+    while y <= height - 2 * n - gap:
+        positions.append((width - n, y))
+        y += stride
+    # Bottom-right corner
+    positions.append((width - n, height - n))
+    # Bottom edge (between corners), right-to-left.
+    x = width - n - stride
+    while x >= stride:
+        positions.append((x, height - n))
+        x -= stride
+    # Bottom-left corner
+    positions.append((0, height - n))
+    # Left edge (between corners), bottom-to-top.
+    y = height - n - stride
+    while y >= stride:
+        positions.append((0, y))
+        y -= stride
+    return positions
+
+
 class RainbowChaseBorder(BorderEffectBase):
     """Per-pixel rainbow chase around the perimeter.
 

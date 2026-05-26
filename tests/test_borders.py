@@ -10,6 +10,7 @@ from led_ticker.borders import (
     ColorCycleBorder,
     ConstantBorder,
     RainbowChaseBorder,
+    _lightbulb_positions,
     _perimeter_pixels,
 )
 
@@ -654,3 +655,62 @@ class TestColorLUTBorders:
         assert all(
             rgb == (255, 0, 0) for rgb in c.pixels.values()
         ), f"Expected all red at frame=0, got: {set(c.pixels.values())}"
+
+
+class TestLightbulbPositions:
+    def test_bigsign_3x3_gap3_count(self):
+        """Exact bulb count for bigsign-default geometry.
+
+        Formula: top edge has bulbs at x0 ∈ {N+gap, 2*(N+gap), ...} where
+        x0 ≤ w - 2N - gap. For w=256, h=64, N=3, gap=3, stride=6:
+        - Top between-corner: x0 ∈ {6, 12, ..., 246} → 41 bulbs
+        - Right between-corner: y0 ∈ {6, 12, ..., 54} → 9 bulbs
+        - Bottom mirrors top: 41 bulbs
+        - Left mirrors right: 9 bulbs
+        - 4 corners
+        - Total: 4 + 41 + 9 + 41 + 9 = 104
+        """
+        positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        assert len(positions) == 104
+
+    def test_includes_four_corners(self):
+        """Corner bulbs appear in the clockwise list exactly once each."""
+        positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        assert (0, 0) in positions
+        assert (256 - 3, 0) in positions
+        assert (256 - 3, 64 - 3) in positions
+        assert (0, 64 - 3) in positions
+
+    def test_clockwise_order(self):
+        """First bulb is top-left, sequence walks clockwise."""
+        positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        assert positions[0] == (0, 0)
+        # Last bulb should be on the left edge going up — y decreasing, x = 0.
+        assert positions[-1][0] == 0
+        # The second bulb should be on the top edge (y=0)
+        assert positions[1][1] == 0
+        # Walk continues clockwise: top edge x increases
+        top_edge = [(x, y) for x, y in positions if y == 0]
+        xs = [x for x, _ in top_edge]
+        assert xs == sorted(xs)
+
+    def test_no_duplicates(self):
+        """Each bulb position appears exactly once."""
+        positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        assert len(positions) == len(set(positions))
+
+    def test_smallsign_1x1_gap1(self):
+        """1x1 bulbs on smallsign-class panel, exact count."""
+        # Top: x0 ∈ {N+gap=2, ..., ≤ w-2N-gap = 157}. Largest even ≤ 157 = 156.
+        # Count = (156-2)/2+1 = 78.
+        # Right: y0 ∈ {2, ..., ≤ h-2N-gap = 13}. Largest even ≤ 13 = 12.
+        # Count = (12-2)/2+1 = 6.
+        # Total: 4 + 78 + 6 + 78 + 6 = 172.
+        positions = _lightbulb_positions(160, 16, bulb_size=1, gap=1)
+        assert len(positions) == 172
+
+    def test_cached(self):
+        """Repeated calls with identical args return the SAME list object."""
+        a = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        b = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        assert a is b  # functools.cache returns the same object

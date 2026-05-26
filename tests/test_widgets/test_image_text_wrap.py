@@ -259,7 +259,7 @@ def _capture_draws_per_tick(mocker, frame):
         draws.append(_SWAP_SENTINEL)
         return c
 
-    frame.matrix.SwapOnVSync.side_effect = _swap
+    frame.swap.side_effect = _swap
     return draws
 
 
@@ -497,7 +497,7 @@ class TestTextLoopsTraversalFloor:
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame.swap.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
         await widget.play(real, frame)
@@ -506,7 +506,7 @@ class TestTextLoopsTraversalFloor:
         # value > 10. Assert it exceeds the natural duration without
         # pinning the exact width (font advance is implementation-
         # sensitive).
-        count = frame.matrix.SwapOnVSync.call_count
+        count = frame.swap.call_count
         assert count > 10, (
             f"text_wrap should floor n_ticks to >=1 cycle "
             f"(>10 ticks for this 0.5s/50ms config); got {count}"
@@ -534,9 +534,9 @@ class TestTextLoopsTraversalFloor:
             )
             real = bigsign_canvas
             frame = mocker.MagicMock()
-            frame.matrix.SwapOnVSync.side_effect = lambda c: c
+            frame.swap.side_effect = lambda c: c
             await widget.play(real, frame)
-            return frame.matrix.SwapOnVSync.call_count
+            return frame.swap.call_count
 
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
@@ -578,7 +578,7 @@ class TestSeparatorColorInheritance:
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame.swap.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
         import led_ticker.widgets._image_base as base_mod
@@ -628,7 +628,7 @@ class TestSeparatorColorInheritance:
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame.swap.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
         import led_ticker.widgets._image_base as base_mod
@@ -753,7 +753,7 @@ class TestGifPlayerWrap:
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame.swap.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
         import led_ticker.widgets._image_base as base_mod
@@ -769,7 +769,7 @@ class TestGifPlayerWrap:
 
         await widget.play(real, frame)
 
-        ticks = frame.matrix.SwapOnVSync.call_count
+        ticks = frame.swap.call_count
         main_text_draws = [d for d in draws if d[1] == "Hi"]
         assert ticks > 0, "No ticks ran"
         # GifPlayer share s_play_with_text with StillImage, so the
@@ -816,7 +816,7 @@ class TestWrapWithBorder:
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame.swap.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
         import led_ticker.widgets._image_base as base_mod
@@ -836,8 +836,8 @@ class TestWrapWithBorder:
         # And the wrap render path produced multiple text draws —
         # proving the border didn't short-circuit it.
         main_text_draws = [d for d in draws if d[1] == "Hi"]
-        assert len(main_text_draws) > frame.matrix.SwapOnVSync.call_count, (
+        assert len(main_text_draws) > frame.swap.call_count, (
             f"Wrap + border should still render multiple text copies; "
             f"got {len(main_text_draws)} draws across "
-            f"{frame.matrix.SwapOnVSync.call_count} ticks."
+            f"{frame.swap.call_count} ticks."
         )

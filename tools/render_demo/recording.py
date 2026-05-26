@@ -49,10 +49,10 @@ class RecordingMatrix:
         self.frames: list[Image.Image] = []
         self.timestamps: list[float] = []
 
-    def SwapOnVSync(self, canvas: Any) -> Any:
+    def SwapOnVSync(self, canvas: Any, framerate_fraction: int = 1) -> Any:
         self.frames.append(snapshot_to_image(canvas))
         self.timestamps.append(time.monotonic())
-        return self._matrix.SwapOnVSync(canvas)
+        return self._matrix.SwapOnVSync(canvas, framerate_fraction)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._matrix, name)

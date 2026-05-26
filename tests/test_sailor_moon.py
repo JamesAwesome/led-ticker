@@ -259,7 +259,7 @@ class TestScaleSwitchAt:
         frame.matrix.CreateFrameCanvas.return_value = real_canvas
         # SwapOnVSync receives the underlying real canvas and must return a
         # physical canvas (not a wrapper); _swap then rewires wrapper.real.
-        frame.matrix.SwapOnVSync.return_value = real_canvas
+        frame.swap.return_value = real_canvas
 
         outgoing = make_widget(40)
         incoming = make_widget(40)

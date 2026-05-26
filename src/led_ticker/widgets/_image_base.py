@@ -1364,7 +1364,7 @@ class _BaseImageWidget(_FrameAware):
                 text_x_left,
                 text_x_right,
             )
-            canvas = frame.matrix.SwapOnVSync(canvas)
+            canvas = frame.swap(canvas)
             # Even though we return immediately, follow the new back-
             # buffer so the wrapper identity stays in sync — guards
             # against a future change adding work after the swap and
@@ -1404,7 +1404,7 @@ class _BaseImageWidget(_FrameAware):
                     text_x_left,
                     text_x_right,
                 )
-            canvas = frame.matrix.SwapOnVSync(canvas)
+            canvas = frame.swap(canvas)
             # Follow the new back-buffer so next tick paints to the
             # correct canvas (CLAUDE.md hardware constraint #10).
             if text_is_wrapped:
@@ -1628,7 +1628,7 @@ class _BaseImageWidget(_FrameAware):
                 top_emoji_cap=top_emoji_cap,
                 bottom_emoji_cap=bottom_emoji_cap,
             )
-            canvas = frame.matrix.SwapOnVSync(canvas)
+            canvas = frame.swap(canvas)
             if text_is_wrapped:
                 text_canvas.real = canvas
             else:
@@ -1677,7 +1677,7 @@ class _BaseImageWidget(_FrameAware):
                     top_emoji_cap=top_emoji_cap,
                     bottom_emoji_cap=bottom_emoji_cap,
                 )
-            canvas = frame.matrix.SwapOnVSync(canvas)
+            canvas = frame.swap(canvas)
             if text_is_wrapped:
                 text_canvas.real = canvas
             else:

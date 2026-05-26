@@ -341,7 +341,7 @@ class GifPlayer(_BaseImageWidget):
             self._paint_image(canvas)
             if self.border is not None:
                 self.border.paint(canvas, self.frame_for("border"))
-            canvas = frame.matrix.SwapOnVSync(canvas)
+            canvas = frame.swap(canvas)
             await asyncio.sleep(tick_seconds)
 
         self._current_frame_idx = len(self._frames) - 1

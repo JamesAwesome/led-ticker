@@ -134,9 +134,9 @@ def _swap(canvas: Any, frame: Any) -> Any:
     the same wrapper (now pointing at the new back-buffer).
     """
     if isinstance(canvas, ScaledCanvas):
-        canvas.real = frame.matrix.SwapOnVSync(canvas.real)
+        canvas.real = frame.swap(canvas.real)
         return canvas
-    return frame.matrix.SwapOnVSync(canvas)
+    return frame.swap(canvas)
 
 
 def _maybe_wrap(canvas: Any, scale: int, content_height: int = 16) -> Any:

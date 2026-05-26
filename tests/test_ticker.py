@@ -178,7 +178,7 @@ class TestScrollSideBySideBufferDrawn:
         canvas.Clear = mock.Mock()
 
         frame = mock.Mock()
-        frame.matrix.SwapOnVSync = mock.Mock(return_value=canvas)
+        frame.swap = mock.Mock(return_value=canvas)
 
         queue: asyncio.Queue = asyncio.Queue()
         await queue.put(title)
@@ -282,7 +282,7 @@ class TestScrollOneByOneReturnsLastPos:
         canvas.width = 64
         canvas.Clear = mock.Mock()
         frame = mock.Mock()
-        frame.matrix.SwapOnVSync = mock.Mock(return_value=canvas)
+        frame.swap = mock.Mock(return_value=canvas)
 
         queue: asyncio.Queue = asyncio.Queue()
         await queue.put(widget)
@@ -483,7 +483,7 @@ class TestTickerVisitCounter:
 
         frame = MagicMock()
         frame.get_clean_canvas.return_value = MagicMock(width=256, height=64)
-        frame.matrix.SwapOnVSync.return_value = MagicMock(width=256, height=64)
+        frame.swap.return_value = MagicMock(width=256, height=64)
 
         ticker = Ticker(monitors=[], frame=frame)
         assert ticker._current_visit == 0

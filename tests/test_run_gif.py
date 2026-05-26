@@ -34,7 +34,7 @@ async def test_run_gif_invokes_widget_play(tmp_path, mocker, bigsign_canvas):
     real = bigsign_canvas
     frame = mock.Mock()
     frame.get_clean_canvas.return_value = real
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
 
     mocker.patch("asyncio.sleep", new=mock.AsyncMock())
 
@@ -51,7 +51,7 @@ async def test_run_gif_invokes_widget_play(tmp_path, mocker, bigsign_canvas):
     await ticker.run_gif(loop_count=2)
 
     # 2 loops × 2 frames = 4 swaps issued by play()
-    assert frame.matrix.SwapOnVSync.call_count == 4
+    assert frame.swap.call_count == 4
     # And widget ended on the last frame
     assert widget._current_frame_idx == 1
 
@@ -63,7 +63,7 @@ async def test_run_gif_unwraps_scaled_canvas(tmp_path, mocker, bigsign_canvas):
     sc = ScaledCanvas(real, scale=4)
     frame = mock.Mock()
     frame.get_clean_canvas.return_value = sc
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
 
     mocker.patch("asyncio.sleep", new=mock.AsyncMock())
 
@@ -81,7 +81,7 @@ async def test_run_gif_unwraps_scaled_canvas(tmp_path, mocker, bigsign_canvas):
 
     # Pixel at col 1 (mod 4 = 1, NOT block-aligned) lit on the real
     # canvas → proves we bypassed the wrapper.
-    real_after = frame.matrix.SwapOnVSync.call_args.args[0]
+    real_after = frame.swap.call_args.args[0]
     # Some non-zero pixel exists at a non-block-aligned col
     assert real_after.get_pixel(1, 1) != (0, 0, 0)
 
@@ -95,7 +95,7 @@ async def test_run_gif_enqueues_monitors_when_queue_empty(
     real = bigsign_canvas
     frame = mock.Mock()
     frame.get_clean_canvas.return_value = real
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
 
     mocker.patch("asyncio.sleep", new=mock.AsyncMock())
 
@@ -112,4 +112,4 @@ async def test_run_gif_enqueues_monitors_when_queue_empty(
     await ticker.run_gif(loop_count=1)
 
     # 1 loop × 2 frames = 2 swaps — would be 0 if monitors weren't enqueued
-    assert frame.matrix.SwapOnVSync.call_count == 2
+    assert frame.swap.call_count == 2

@@ -28,9 +28,11 @@ led_rgb_sequence = "BRG"
 # Pi 5 RP1 RIO backend (faster refresh, slightly more CPU than PIO).
 # rp1_rio = 1 requires row_addr_type = 0 (default) — do not set row_addr_type = 1.
 # Raise slowdown_gpio to 4–5 if flicker appears.
-slowdown_gpio = 3
+slowdown_gpio = 4
 rp1_rio = 1
 pwm_bits = 8     # 8-bit PWM: faster refresh, slightly less color depth than default 11
+pwm_lsb_nanoseconds = 200  # raised from default 130 — gives FM6126A shift registers more settle time across the 512-column chain
+show_refresh = true        # log measured refresh Hz to stderr; remove once scan-lag tuning is done
 
 [title]
 delay = 5

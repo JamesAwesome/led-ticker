@@ -1,0 +1,70 @@
+# MLB scoreboard layout test config — longboi (512×64 canvas, logical 128×16)
+#
+# Tests layout = "scoreboard" mode at hires scale=4.
+# Usage: cp config/config.mlb_scoreboard_test.toml config/config.toml
+
+[display]
+rows = 64
+cols = 128
+chain = 4
+brightness = 60
+default_scale = 4
+gpio_mapping = "adafruit-hat"
+panel_type = "FM6126A"
+led_rgb_sequence = "BRG"
+slowdown_gpio = 3
+rp1_rio = 1
+pwm_bits = 8
+
+[title]
+delay = 5
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = {type = "baseball_alternating", duration = 2.0}
+
+# --- MLB Scoreboard ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "baseball_alternating"
+transition_duration = 2.0
+hold_time = 8
+loop_count = 0
+
+[playlist.section.title]
+type = "message"
+text = ":baseball: MLB Scoreboard :baseball:"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "PHI"
+layout = "scoreboard"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "NYM"
+layout = "scoreboard"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "LAD"
+layout = "scoreboard"
+timezone = "America/Los_Angeles"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80

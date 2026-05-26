@@ -26,6 +26,7 @@ panel_type = "FM6126A"
 # Pi 5 RP1 GPIO tuning — start with rp1_rio = 0 (PIO mode) and switch to
 # rp1_rio = 1 (RIO / Registered IO, faster refresh) once stable on hardware.
 # Raise slowdown_gpio to 4–5 if flicker persists.
+row_addr_type = 1
 slowdown_gpio = 3
 rp1_rio = 1
 pwm_bits = 8

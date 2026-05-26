@@ -563,6 +563,31 @@ class MLBScoreboardMessage(_FrameAware):
             home_score_str, right_start, right_w, bottom_baseline, home_score_c
         )
 
+        # ABS challenge pips — superscript beside each team abbreviation
+        def _draw_pips(
+            count: int | None, abbr: str, zone_start: int, zone_w: int, y: int
+        ) -> None:
+            if count is None:
+                return
+            n = min(count, 2)
+            abbr_w = measure_width(self.font, abbr, canvas)
+            abbr_center = zone_start + max(0, (zone_w - abbr_w) // 2)
+            pip_x = abbr_center + abbr_w + 1
+            pip_w = measure_width(FONT_SMALL, "●", canvas)
+            for i in range(2):
+                color = _CHALLENGE_COLOR if i < n else _CHALLENGE_USED
+                draw_with_emoji(
+                    canvas,
+                    FONT_SMALL,
+                    pip_x + i * (pip_w + 1),
+                    y=y + y_offset,
+                    color=color,
+                    text="●",
+                )
+
+        _draw_pips(game.away_challenges, away_abbr, 0, left_w, top_baseline)
+        _draw_pips(game.home_challenges, home_abbr, right_start, right_w, top_baseline)
+
         # --- Center zone ---
         center_total = canvas.width - left_w - right_w
         center_half = center_total // 2

@@ -309,3 +309,78 @@ def test_scoreboard_diamond_second_base_occupied_paints_in_center_right():
         (x, y): c for (x, y), c in canvas._pixels.items() if x >= cr_start and y < 8
     }
     assert len(top_row_center_right) > 0
+
+
+# ---------------------------------------------------------------------------
+# Task 7: ABS challenge pip rendering
+# ---------------------------------------------------------------------------
+
+
+def _count_pixels_in_zone(canvas, x_start, x_end, y_start=0, y_end=16):
+    return sum(
+        1 for (x, y) in canvas._pixels if x_start <= x < x_end and y_start <= y < y_end
+    )
+
+
+def test_scoreboard_abs_pips_two_remaining_paints_more_than_zero():
+    """Two remaining challenges should add pixels to the right of away abbr."""
+    canvas = _stub_canvas()
+    game = GameInfo(
+        home_abbr="PHI",
+        away_abbr="NYM",
+        state="live",
+        home_score=5,
+        away_score=3,
+        inning="▲7",
+        outs=0,
+        balls=0,
+        strikes=0,
+        away_challenges=2,
+        home_challenges=2,
+    )
+    msg = MLBScoreboardMessage(game=game, team_abbr="PHI")
+    msg.draw(canvas)
+    # Canvas must have pixels — pips included somewhere in left column
+    assert _count_pixels_in_zone(canvas, 0, 38, 0, 8) > 0
+
+
+def test_scoreboard_abs_pips_none_does_not_crash():
+    """None challenges should render without error (pips hidden)."""
+    canvas = _stub_canvas()
+    game = GameInfo(
+        home_abbr="PHI",
+        away_abbr="NYM",
+        state="live",
+        home_score=5,
+        away_score=3,
+        inning="▲7",
+        outs=0,
+        balls=0,
+        strikes=0,
+        away_challenges=None,
+        home_challenges=None,
+    )
+    msg = MLBScoreboardMessage(game=game, team_abbr="PHI")
+    _, cursor = msg.draw(canvas)
+    assert cursor == 128
+
+
+def test_scoreboard_abs_pips_clamped_to_two():
+    """Values > 2 must not raise an error."""
+    canvas = _stub_canvas()
+    game = GameInfo(
+        home_abbr="PHI",
+        away_abbr="NYM",
+        state="live",
+        home_score=5,
+        away_score=3,
+        inning="▲7",
+        outs=0,
+        balls=0,
+        strikes=0,
+        away_challenges=5,
+        home_challenges=3,
+    )
+    msg = MLBScoreboardMessage(game=game, team_abbr="PHI")
+    _, cursor = msg.draw(canvas)
+    assert cursor == 128

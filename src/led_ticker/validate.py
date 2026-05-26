@@ -1262,6 +1262,188 @@ def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+def _check_lightbulb_border(config: AppConfig) -> list[ValidationIssue]:
+    """Rules 42-49: value-range checks for the 'lightbulbs' border style.
+
+    These run BEFORE _coerce_border so users get clear, ruled errors
+    instead of ValueError stack traces. Coercion still rejects malformed
+    types (e.g. bulb_size as a string); these rules add value-range
+    semantics.
+    """
+    issues: list[ValidationIssue] = []
+    panel_h = _panel_h_real(config.display)
+
+    valid_modes = {"chase", "alternate", "unison"}
+    valid_directions = {"cw", "ccw"}
+
+    for sec_idx, section in enumerate(config.sections):
+        for w_idx, widget_cfg in enumerate(section.widgets):
+            border_raw = widget_cfg.get("border")
+            # Only inspect inline-table lightbulb borders; shorthand
+            # string and other styles are out of scope.
+            if not isinstance(border_raw, dict):
+                continue
+            if border_raw.get("style") != "lightbulbs":
+                continue
+
+            loc = f"section[{sec_idx}].widget[{w_idx}].border"
+            mode = border_raw.get("mode", "chase")
+
+            # Rule 42: bulb_size must be a positive int (when set).
+            bulb_size = border_raw.get("bulb_size")
+            if bulb_size is not None:
+                if not isinstance(bulb_size, int) or isinstance(bulb_size, bool):
+                    issues.append(
+                        ValidationIssue(
+                            rule=42,
+                            location=loc,
+                            severity="error",
+                            message=(
+                                f"bulb_size must be a positive integer; "
+                                f"got {type(bulb_size).__name__}"
+                            ),
+                            fix=(
+                                "Set bulb_size to a positive integer, or omit "
+                                "it for the panel-size auto-default."
+                            ),
+                        )
+                    )
+                elif bulb_size <= 0:
+                    issues.append(
+                        ValidationIssue(
+                            rule=42,
+                            location=loc,
+                            severity="error",
+                            message=(
+                                f"bulb_size must be a positive integer; got {bulb_size}"
+                            ),
+                            fix=(
+                                "Set bulb_size to a positive integer, or omit "
+                                "it for the panel-size auto-default."
+                            ),
+                        )
+                    )
+                else:
+                    # Rule 43: bulb_size must fit the panel height.
+                    max_bulb = panel_h // 2
+                    if bulb_size > max_bulb:
+                        issues.append(
+                            ValidationIssue(
+                                rule=43,
+                                location=loc,
+                                severity="error",
+                                message=(
+                                    f"bulb_size={bulb_size} exceeds max={max_bulb} "
+                                    f"for a panel of physical height {panel_h}"
+                                ),
+                                fix=(
+                                    f"Reduce bulb_size to ≤ {max_bulb}, or omit it "
+                                    f"to use the panel-size auto-default."
+                                ),
+                            )
+                        )
+
+            # Rule 44: mode must be one of {chase, alternate, unison}.
+            if mode not in valid_modes:
+                issues.append(
+                    ValidationIssue(
+                        rule=44,
+                        location=loc,
+                        severity="error",
+                        message=(
+                            f"mode={mode!r} unknown; expected one of "
+                            f"{sorted(valid_modes)}"
+                        ),
+                        fix=f"Set mode to one of {sorted(valid_modes)}.",
+                    )
+                )
+
+            # Rule 45: direction (when set) must be 'cw' or 'ccw'.
+            direction = border_raw.get("direction")
+            if direction is not None and direction not in valid_directions:
+                issues.append(
+                    ValidationIssue(
+                        rule=45,
+                        location=loc,
+                        severity="error",
+                        message=(
+                            f"direction={direction!r} unknown; expected 'cw' or 'ccw'"
+                        ),
+                        fix="Set direction to 'cw' or 'ccw'.",
+                    )
+                )
+
+            # Rule 46: chase_density (when set) must be ≥ 1.
+            chase_density = border_raw.get("chase_density")
+            if chase_density is not None and (
+                not isinstance(chase_density, int)
+                or isinstance(chase_density, bool)
+                or chase_density < 1
+            ):
+                issues.append(
+                    ValidationIssue(
+                        rule=46,
+                        location=loc,
+                        severity="error",
+                        message=(
+                            f"chase_density must be an integer ≥ 1; "
+                            f"got {chase_density!r}"
+                        ),
+                        fix="Set chase_density to a positive integer.",
+                    )
+                )
+
+            # Rule 47: gap must be ≥ 0 (when set).
+            gap = border_raw.get("gap")
+            if gap is not None and (
+                not isinstance(gap, int) or isinstance(gap, bool) or gap < 0
+            ):
+                issues.append(
+                    ValidationIssue(
+                        rule=47,
+                        location=loc,
+                        severity="error",
+                        message=f"gap must be an integer ≥ 0; got {gap!r}",
+                        fix=(
+                            "Set gap to 0 or a positive integer (bulbs would "
+                            "overlap with a negative gap)."
+                        ),
+                    )
+                )
+
+            # Rule 48: chase_density set on non-chase mode is ignored — warn.
+            if chase_density is not None and mode in valid_modes and mode != "chase":
+                issues.append(
+                    ValidationIssue(
+                        rule=48,
+                        location=loc,
+                        severity="warning",
+                        message=(
+                            f"chase_density is only used by mode='chase'; "
+                            f"ignored for mode={mode!r}"
+                        ),
+                        fix="Remove chase_density, or change mode to 'chase'.",
+                    )
+                )
+
+            # Rule 49: direction set on non-chase mode is ignored — warn.
+            if direction is not None and mode in valid_modes and mode != "chase":
+                issues.append(
+                    ValidationIssue(
+                        rule=49,
+                        location=loc,
+                        severity="warning",
+                        message=(
+                            f"direction is only used by mode='chase'; "
+                            f"ignored for mode={mode!r}"
+                        ),
+                        fix="Remove direction, or change mode to 'chase'.",
+                    )
+                )
+
+    return issues
+
+
 def _parse_widget_location(location: str) -> tuple[int, int] | None:
     """Parse 'section[i].widget[j]' → (i, j). Returns None if not a widget location."""
     import re
@@ -1372,6 +1554,15 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
     # Always runs (not just --strict): a typo in a transition name always
     # fails at startup and has no deploy-target excuse.
     errors.extend(_check_transition_names(config))
+
+    # Phase 1b (cont.): Rules 42-49 — lightbulbs border value-range checks.
+    # Run before build checks so users see ruled errors rather than
+    # ValueError stack traces from _coerce_border.
+    for issue in _check_lightbulb_border(config):
+        if issue.severity == "warning":
+            warnings.append(issue)
+        else:
+            errors.append(issue)
 
     # Phase 1c: Build-time checks via validate_widget_cfg.
     # "unknown font" failures are downgraded to warnings (rule 24): the

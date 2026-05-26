@@ -33,6 +33,11 @@ rp1_rio = 1
 pwm_bits = 8     # 8-bit PWM: faster refresh, slightly less color depth than default 11
 show_refresh = true
 
+# Cap refresh at 100 Hz so SwapOnVSync(canvas, framerate_fraction=5) lands
+# at the same scan-cycle point every frame at 20 fps — eliminates top/bottom
+# motion lag on the 512-column chain (hzeller/rpi-rgb-led-matrix issue #941).
+limit_refresh_rate_hz = 100
+
 [title]
 delay = 5
 

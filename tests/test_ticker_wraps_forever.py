@@ -61,7 +61,7 @@ class TestWrapsForeverRespected:
         widget = _StubWrapsForeverWidget()
         canvas = _make_test_canvas()
         frame = mock.MagicMock()
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame.swap.side_effect = lambda c: c
         with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.05)
             await ticker._swap_and_scroll(canvas, widget, hold_time=0.5)
@@ -78,7 +78,7 @@ class TestWrapsForeverRespected:
         widget = _StubFiniteWidget()
         canvas = _make_test_canvas()
         frame = mock.MagicMock()
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame.swap.side_effect = lambda c: c
         with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.05)
             await ticker._swap_and_scroll(canvas, widget, hold_time=0.5)
@@ -95,7 +95,7 @@ class TestWrapsForeverRespected:
         widget = _StubWrapsForeverWidget()
         canvas = _make_test_canvas()
         frame = mock.MagicMock()
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame.swap.side_effect = lambda c: c
         with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.05)
             await ticker._swap_and_scroll(canvas, widget, hold_time=0.5)
@@ -118,7 +118,7 @@ class TestWrapsForeverRespected:
         widget = _StubWrapsForeverWidget()
         canvas = _make_test_canvas()
         frame = mock.MagicMock()
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame.swap.side_effect = lambda c: c
         with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.05)
             await ticker._swap_and_scroll(canvas, widget, hold_time=0.1)
@@ -138,7 +138,7 @@ class TestWrapsForeverRespected:
         widget = _StubWrapsForeverWidget()
         canvas = _make_test_canvas()
         frame = mock.MagicMock()
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame.swap.side_effect = lambda c: c
         with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.025)
             await ticker._swap_and_scroll(canvas, widget, hold_time=1.0)
@@ -175,7 +175,7 @@ class TestWrapsForeverBottomTextLoops:
                 10,
             )  # (canvas, cycle_width=10)
             frame = mock.MagicMock()
-            frame.matrix.SwapOnVSync = lambda c: c
+            frame.swap = lambda c: c
 
             ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.05)
             await ticker._swap_and_scroll(
@@ -208,7 +208,7 @@ class TestWrapsForeverBottomTextLoops:
             widget.bg_color = None
             widget.draw.return_value = (mock.MagicMock(), 10)
             frame = mock.MagicMock()
-            frame.matrix.SwapOnVSync = lambda c: c
+            frame.swap = lambda c: c
 
             ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.05)
             await ticker._swap_and_scroll(
@@ -239,7 +239,7 @@ class TestWrapsForeverBottomTextLoops:
                 100,
             )  # Big cycle_width — should be IGNORED
             frame = mock.MagicMock()
-            frame.matrix.SwapOnVSync = lambda c: c
+            frame.swap = lambda c: c
 
             ticker = Ticker(monitors=[], frame=frame, scroll_speed=0.05)
             await ticker._swap_and_scroll(

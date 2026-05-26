@@ -296,7 +296,7 @@ class StillImage(_BaseImageWidget):
             self._paint_image(canvas)
             if self.border is not None:
                 self.border.paint(canvas, self.frame_for("border"))
-            canvas = frame.matrix.SwapOnVSync(canvas)
+            canvas = frame.swap(canvas)
             await asyncio.sleep(self.hold_seconds)
             return canvas
 
@@ -311,6 +311,6 @@ class StillImage(_BaseImageWidget):
             reset_canvas(canvas, self.bg_color)
             self._paint_image(canvas)
             self.border.paint(canvas, self.frame_for("border"))
-            canvas = frame.matrix.SwapOnVSync(canvas)
+            canvas = frame.swap(canvas)
             await asyncio.sleep(tick_seconds)
         return canvas

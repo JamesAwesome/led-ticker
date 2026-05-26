@@ -20,6 +20,7 @@ from led_ticker.drawing import compute_baseline, compute_cursor
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
+from led_ticker.widgets._frame_aware import _FrameAware
 from led_ticker.widgets.message import TickerMessage
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -36,6 +37,8 @@ _team_palette = lazy_palette(
         "WIN_COLOR": (46, 200, 46),
         "LOSS_COLOR": (220, 30, 30),
         "LIVE_COLOR": (255, 40, 40),
+        "CHALLENGE_COLOR": (255, 180, 0),  # amber — remaining ABS challenge pip
+        "CHALLENGE_USED": (60, 40, 0),  # dim amber — used ABS challenge pip
     }
 )
 
@@ -121,9 +124,36 @@ MLB_TEAM_NAMES: dict[str, str] = {
 MLB_NAME_TO_ABBR: dict[str, str] = {v: k for k, v in MLB_TEAM_NAMES.items()}
 
 
+def _fit_team_name(abbr: str, zone_w: int, font: Font, canvas: Canvas) -> str:
+    """Return the short team name if it fits in zone_w logical pixels, else abbr."""
+    from led_ticker.pixel_emoji import measure_width
+
+    name = MLB_TEAM_NAMES.get(abbr, abbr)
+    return name if measure_width(font, name, canvas) <= zone_w else abbr
+
+
+def _lift_color(r: int, g: int, b: int, min_max: int = 120) -> tuple[int, int, int]:
+    """Scale dark colors proportionally so the brightest channel >= min_max.
+
+    Preserves hue and saturation; teams already above the threshold are unchanged.
+    At display brightness=60, min_max=120 ensures the peak channel renders at ~72
+    on the physical panel — clearly legible against a black background.
+    """
+    peak = max(r, g, b)
+    if peak == 0 or peak >= min_max:
+        return r, g, b
+    scale = min_max / peak
+    return (
+        min(255, round(r * scale)),
+        min(255, round(g * scale)),
+        min(255, round(b * scale)),
+    )
+
+
 def _team_color(abbr: str) -> Color:
     """Get graphics.Color for a team abbreviation."""
     r, g, b = MLB_TEAM_COLORS.get(abbr, (255, 255, 255))
+    r, g, b = _lift_color(r, g, b)
     return make_color(r, g, b)
 
 
@@ -131,6 +161,7 @@ def _team_color_by_name(name: str) -> Color:
     """Get graphics.Color for an API team name (e.g. 'Mets')."""
     abbr = MLB_NAME_TO_ABBR.get(name, "")
     r, g, b = MLB_TEAM_COLORS.get(abbr, (255, 255, 255))
+    r, g, b = _lift_color(r, g, b)
     return make_color(r, g, b)
 
 
@@ -155,6 +186,9 @@ class GameInfo:
     postpone_reason: str = ""
     # For state="postponed": short tag like "PPD", "SUSP", "CANC"
     postpone_tag: str = "PPD"
+    # ABS challenge counts (None = system not in effect / data unavailable)
+    home_challenges: int | None = None
+    away_challenges: int | None = None
 
 
 @dataclass
@@ -342,18 +376,22 @@ def _build_series_title(
         away = team_abbr if home != team_abbr else series.opponent_abbr
         away_c = _team_color(away)
         home_c = _team_color(home)
+        away_name = MLB_TEAM_NAMES.get(away, away)
+        home_name = MLB_TEAM_NAMES.get(home, home)
         segments: list[tuple[str, Color]] = [
-            (away, away_c),
+            (away_name, away_c),
             (" @ ", RGB_WHITE),
-            (home, home_c),
+            (home_name, home_c),
         ]
         # First listed team is away, second is home
         first_is_team = away == team_abbr
     else:
+        team_name = MLB_TEAM_NAMES.get(team_abbr, team_abbr)
+        opp_name = MLB_TEAM_NAMES.get(series.opponent_abbr, series.opponent_abbr)
         segments = [
-            (team_abbr, team_c),
+            (team_name, team_c),
             (" vs ", RGB_WHITE),
-            (series.opponent_abbr, opp_c),
+            (opp_name, opp_c),
         ]
         # First listed team is always team_abbr
         first_is_team = True
@@ -474,6 +512,247 @@ def _build_game_message(
     )
 
 
+def _build_scoreboard_message(
+    game: GameInfo,
+    team_abbr: str,
+    tz: ZoneInfo,
+    bg_color: Color | None = None,
+    font: Font | None = None,
+    font_color: Color | ColorProvider | None = None,
+) -> MLBScoreboardMessage:
+    """Build a scoreboard-layout message for a single game."""
+    from led_ticker.fonts import FONT_DEFAULT as _FONT_DEFAULT
+
+    return MLBScoreboardMessage(
+        game=game,
+        team_abbr=team_abbr,
+        tz=tz,
+        bg_color=bg_color,
+        font=font if font is not None else _FONT_DEFAULT,
+        font_color=font_color,
+    )
+
+
+@attrs.define
+class MLBScoreboardMessage(_FrameAware):
+    """Scoreboard-style two-column game display.
+
+    Renders: [away team + score] [center: inning/BSO/diamond] [home team + score]
+    with ABS challenge pips beside each team name.
+    """
+
+    game: GameInfo
+    team_abbr: str
+    tz: ZoneInfo | None = None
+    bg_color: Color | None = None
+    font_color: Color | ColorProvider | None = attrs.field(default=None, kw_only=True)
+    font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
+        from led_ticker.drawing import compute_baseline_for_band, safe_scale
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.pixel_emoji import draw_with_emoji, measure_width
+
+        scale = safe_scale(canvas)
+        half_h = canvas.height // 2  # logical rows per band (8 on 128×16 canvas)
+
+        # Zone widths (logical pixels)
+        left_w = canvas.width * 30 // 100
+        right_w = canvas.width * 30 // 100
+        right_start = canvas.width - right_w
+
+        # Baselines: top half (team names), bottom half (scores)
+        top_baseline = compute_baseline_for_band(
+            self.font, half_h, scale, valign="center"
+        )
+        bottom_baseline = half_h + compute_baseline_for_band(
+            self.font, half_h, scale, valign="center"
+        )
+
+        game = self.game
+
+        # Determine colors
+        away_c = _team_color(game.away_abbr)
+        home_c = _team_color(game.home_abbr)
+
+        if game.state == "final":
+            away_won = (game.away_score or 0) > (game.home_score or 0)
+            win_c = _team_palette("WIN_COLOR")
+            loss_c = _team_palette("LOSS_COLOR")
+            away_score_c = win_c if away_won else loss_c
+            home_score_c = loss_c if away_won else win_c
+        else:
+            away_score_c = RGB_WHITE
+            home_score_c = RGB_WHITE
+
+        def _draw_centered(
+            text: str, zone_start: int, zone_w: int, y: int, color: Color
+        ) -> None:
+            w = measure_width(self.font, text, canvas)
+            x = zone_start + max(0, (zone_w - w) // 2)
+            draw_with_emoji(canvas, self.font, x, y + y_offset, color, text)
+
+        away_abbr = game.away_abbr
+        home_abbr = game.home_abbr
+
+        # Use the full team name when it fits in the column; fall back to abbreviation.
+        away_label = _fit_team_name(away_abbr, left_w, self.font, canvas)
+        home_label = _fit_team_name(home_abbr, right_w, self.font, canvas)
+
+        # Away team (left column)
+        _draw_centered(away_label, 0, left_w, top_baseline, away_c)
+        away_score_str = str(game.away_score) if game.away_score is not None else "–"
+        _draw_centered(away_score_str, 0, left_w, bottom_baseline, away_score_c)
+
+        # Home team (right column)
+        _draw_centered(home_label, right_start, right_w, top_baseline, home_c)
+        home_score_str = str(game.home_score) if game.home_score is not None else "–"
+        _draw_centered(
+            home_score_str, right_start, right_w, bottom_baseline, home_score_c
+        )
+
+        # ABS challenge pips — superscript beside each team abbreviation
+        def _draw_pips(
+            count: int | None, abbr: str, zone_start: int, zone_w: int, y: int
+        ) -> None:
+            if count is None:
+                return
+            n = min(count, 2)
+            abbr_w = measure_width(self.font, abbr, canvas)
+            abbr_center = zone_start + max(0, (zone_w - abbr_w) // 2)
+            pip_x = abbr_center + abbr_w + 1
+            pip_w = measure_width(FONT_SMALL, "●", canvas)
+            for i in range(2):
+                color = (
+                    _team_palette("CHALLENGE_COLOR")
+                    if i < n
+                    else _team_palette("CHALLENGE_USED")
+                )
+                draw_with_emoji(
+                    canvas,
+                    FONT_SMALL,
+                    pip_x + i * (pip_w + 1),
+                    y=y + y_offset,
+                    color=color,
+                    text="●",
+                )
+
+        _draw_pips(game.away_challenges, away_abbr, 0, left_w, top_baseline)
+        _draw_pips(game.home_challenges, home_abbr, right_start, right_w, top_baseline)
+
+        # --- Center zone ---
+        center_total = canvas.width - left_w - right_w
+        center_half = center_total // 2
+        cl_start = left_w  # center-left x start
+        cr_start = left_w + center_half  # center-right x start
+
+        small_top = compute_baseline_for_band(
+            FONT_SMALL, half_h, scale, valign="center"
+        )
+        small_bottom = half_h + compute_baseline_for_band(
+            FONT_SMALL, half_h, scale, valign="center"
+        )
+
+        def _draw_small(text: str, x: int, y: int, color: Color) -> None:
+            draw_with_emoji(
+                canvas, FONT_SMALL, x, y=y + y_offset, color=color, text=text
+            )
+
+        # Helper: draw primary-font text horizontally centered in the full
+        # center zone (cl_start → right_start).
+        def _draw_center(text: str, y: int, color: Color) -> None:
+            w = measure_width(self.font, text, canvas)
+            x = cl_start + max(0, (center_total - w) // 2)
+            draw_with_emoji(
+                canvas, self.font, x, y=y + y_offset, color=color, text=text
+            )
+
+        if game.state == "live":
+            # Row 0: inning + outs dots
+            inning_str = game.inning or "–"
+            out_c = make_color(255, 80, 80)
+            outs = game.outs or 0
+            outs_str = "●" * outs + "○" * (3 - outs)
+            _draw_small(inning_str, cl_start, small_top, RGB_WHITE)
+            inning_w = measure_width(FONT_SMALL, inning_str, canvas)
+            _draw_small(outs_str, cl_start + inning_w + 2, small_top, out_c)
+
+            # Row 1: B/S count
+            ball_c = make_color(80, 255, 80)
+            strike_c = make_color(255, 255, 80)
+            _draw_small(str(game.balls), cl_start, small_bottom, ball_c)
+            b_w = measure_width(FONT_SMALL, str(game.balls), canvas)
+            _draw_small("B ", cl_start + b_w, small_bottom, RGB_WHITE)
+            bs_w = b_w + measure_width(FONT_SMALL, "B ", canvas)
+            _draw_small(str(game.strikes), cl_start + bs_w, small_bottom, strike_c)
+            s_w = measure_width(FONT_SMALL, str(game.strikes), canvas)
+            _draw_small("S", cl_start + bs_w + s_w, small_bottom, RGB_WHITE)
+
+            # Diamond: center-right zone
+            occupied_c = make_color(255, 220, 50)  # yellow
+            empty_c = make_color(50, 50, 50)  # dim
+            b2 = "◆" if game.on_second else "◇"
+            b3 = "◆" if game.on_third else "◇"
+            b1 = "◆" if game.on_first else "◇"
+
+            b2_c = occupied_c if game.on_second else empty_c
+            b3_c = occupied_c if game.on_third else empty_c
+            b1_c = occupied_c if game.on_first else empty_c
+
+            char_w = measure_width(FONT_SMALL, b2, canvas)
+            b1_w = measure_width(FONT_SMALL, b1, canvas)
+            cr_center = cr_start + center_half // 2
+
+            # Row 0: 2B centered
+            _draw_small(b2, cr_center - char_w // 2, small_top, b2_c)
+
+            # Row 1: 3B left, 1B right
+            _draw_small(b3, cr_start, small_bottom, b3_c)
+            _draw_small(b1, cr_start + center_half - b1_w, small_bottom, b1_c)
+
+        elif game.state == "final":
+            full_baseline = compute_baseline_for_band(
+                self.font, canvas.height, scale, valign="center"
+            )
+            _draw_center("FINAL", full_baseline, make_color(180, 180, 180))
+
+        elif game.state == "preview":
+            _tz = self.tz or ZoneInfo("UTC")
+            if game.start_time:
+                local = game.start_time.astimezone(_tz)
+                now = datetime.now(_tz)
+                if local.date() == now.date():
+                    date_str = "Today"
+                elif local.date() == (now + timedelta(days=1)).date():
+                    date_str = "Tmrw"
+                else:
+                    date_str = local.strftime("%a")
+                time_str = local.strftime("%-I:%M %p")
+            else:
+                date_str = ""
+                time_str = "TBD"
+            _draw_center(date_str, top_baseline, make_color(160, 160, 160))
+            _draw_center(time_str, bottom_baseline, RGB_WHITE)
+
+        elif game.state == "postponed":
+            tag_c = make_color(255, 200, 60)
+            _draw_center(game.postpone_tag, top_baseline, tag_c)
+            if game.postpone_reason:
+                _draw_center(game.postpone_reason[:6], bottom_baseline, tag_c)
+
+        elif game.state == "off_day":
+            _draw_center("–", top_baseline, make_color(120, 120, 120))
+
+        return canvas, cursor_pos + canvas.width
+
+
 @register("mlb")
 @attrs.define
 class MLBScoreMonitor:
@@ -487,14 +766,15 @@ class MLBScoreMonitor:
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     font_color: Color | ColorProvider | None = attrs.field(default=None, kw_only=True)
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+    layout: str = attrs.field(default="ticker", kw_only=True)
     _team_id: int = attrs.field(init=False, default=0)
     _tz: ZoneInfo | None = attrs.field(init=False, default=None)
     _has_live_game: bool = attrs.field(init=False, default=False)
-    feed_title: TickerMessage | MLBGameMessage | None = attrs.field(
-        init=False, default=None
+    feed_title: TickerMessage | MLBGameMessage | MLBScoreboardMessage | None = (
+        attrs.field(init=False, default=None)
     )
-    feed_stories: list[TickerMessage | MLBGameMessage] = attrs.field(
-        init=False, factory=list
+    feed_stories: list[TickerMessage | MLBGameMessage | MLBScoreboardMessage] = (
+        attrs.field(init=False, factory=list)
     )
 
     @classmethod
@@ -566,7 +846,7 @@ class MLBScoreMonitor:
         url = (
             f"{MLB_API}/schedule?teamId={self._team_id}"
             f"&startDate={start}&endDate={end}&sportId=1"
-            f"&hydrate=team,linescore"
+            f"&hydrate=team,linescore,challenges"
         )
 
         try:
@@ -655,9 +935,16 @@ class MLBScoreMonitor:
             font_color=self.font_color,
         )
         self.feed_title = series_title
-        stories: list[TickerMessage | MLBGameMessage] = [series_title]
+        _build_msg = (
+            _build_scoreboard_message
+            if self.layout == "scoreboard"
+            else _build_game_message
+        )
+        stories: list[TickerMessage | MLBGameMessage | MLBScoreboardMessage] = [
+            series_title
+        ]
         stories.extend(
-            _build_game_message(
+            _build_msg(
                 g,
                 self.team,
                 tz,
@@ -716,6 +1003,18 @@ class MLBScoreMonitor:
                     on_second = "second" in offense
                     on_third = "third" in offense
 
+                # ABS challenges — present only for games where the system is active.
+                home_challenges: int | None = None
+                away_challenges: int | None = None
+                challenges = g.get("challenges", {})
+                if challenges:
+                    hc = challenges.get("home", {})
+                    ac = challenges.get("away", {})
+                    if hc is not None and "remainingChallenges" in hc:
+                        home_challenges = int(hc["remainingChallenges"])
+                    if ac is not None and "remainingChallenges" in ac:
+                        away_challenges = int(ac["remainingChallenges"])
+
                 start_time: datetime | None = None
                 game_date = g.get("gameDate")
                 if game_date:
@@ -755,6 +1054,8 @@ class MLBScoreMonitor:
                         on_third=on_third,
                         postpone_reason=reason if postponed_state else "",
                         postpone_tag=postpone_tag if postponed_state else "PPD",
+                        home_challenges=home_challenges,
+                        away_challenges=away_challenges,
                     )
                 )
 

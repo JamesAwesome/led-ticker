@@ -38,7 +38,7 @@ loop_count = 0
 type = "message"
 text = ":baseball: MLB Scoreboard :baseball:"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 font_color = "random"
 
@@ -48,7 +48,7 @@ team = "PHI"
 layout = "scoreboard"
 timezone = "America/New_York"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
@@ -57,7 +57,7 @@ team = "NYM"
 layout = "scoreboard"
 timezone = "America/New_York"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
@@ -66,5 +66,5 @@ team = "LAD"
 layout = "scoreboard"
 timezone = "America/Los_Angeles"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80

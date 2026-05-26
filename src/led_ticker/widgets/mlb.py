@@ -629,6 +629,15 @@ class MLBScoreboardMessage(_FrameAware):
                 canvas, FONT_SMALL, x, y=y + y_offset, color=color, text=text
             )
 
+        # Helper: draw primary-font text horizontally centered in the full
+        # center zone (cl_start → right_start).
+        def _draw_center(text: str, y: int, color: Color) -> None:
+            w = measure_width(self.font, text, canvas)
+            x = cl_start + max(0, (center_total - w) // 2)
+            draw_with_emoji(
+                canvas, self.font, x, y=y + y_offset, color=color, text=text
+            )
+
         if game.state == "live":
             # Row 0: inning + outs dots
             inning_str = game.inning or "–"
@@ -673,24 +682,34 @@ class MLBScoreboardMessage(_FrameAware):
             _draw_small(b1, cr_start + center_half - b1_w, small_bottom, b1_c)
 
         elif game.state == "final":
-            _draw_small("FINAL", cl_start, small_top, make_color(180, 180, 180))
+            _draw_center("FINAL", top_baseline, make_color(180, 180, 180))
 
         elif game.state == "preview":
             _tz = self.tz or ZoneInfo("UTC")
-            time_str = (
-                _format_game_time(game.start_time, _tz) if game.start_time else "TBD"
-            )
-            _draw_small(time_str, cl_start, small_top, RGB_WHITE)
+            if game.start_time:
+                local = game.start_time.astimezone(_tz)
+                now = datetime.now(_tz)
+                if local.date() == now.date():
+                    date_str = "Today"
+                elif local.date() == (now + timedelta(days=1)).date():
+                    date_str = "Tmrw"
+                else:
+                    date_str = local.strftime("%a")
+                time_str = local.strftime("%-I:%M %p")
+            else:
+                date_str = ""
+                time_str = "TBD"
+            _draw_center(date_str, top_baseline, make_color(160, 160, 160))
+            _draw_center(time_str, bottom_baseline, RGB_WHITE)
 
         elif game.state == "postponed":
             tag_c = make_color(255, 200, 60)
-            _draw_small(game.postpone_tag, cl_start, small_top, tag_c)
+            _draw_center(game.postpone_tag, top_baseline, tag_c)
             if game.postpone_reason:
-                _draw_small(game.postpone_reason[:6], cl_start, small_bottom, tag_c)
+                _draw_center(game.postpone_reason[:6], bottom_baseline, tag_c)
 
         elif game.state == "off_day":
-            off_c = make_color(120, 120, 120)  # grey
-            _draw_small("–", cl_start, small_top, off_c)
+            _draw_center("–", top_baseline, make_color(120, 120, 120))
 
         return canvas, cursor_pos + canvas.width
 

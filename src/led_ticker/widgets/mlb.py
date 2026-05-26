@@ -567,7 +567,7 @@ class MLBScoreboardMessage(_FrameAware):
         center_total = canvas.width - left_w - right_w
         center_half = center_total // 2
         cl_start = left_w  # center-left x start
-        cr_start = left_w + center_half  # center-right x start  # noqa: F841
+        cr_start = left_w + center_half  # center-right x start
 
         small_top = compute_baseline_for_band(
             FONT_SMALL, half_h, scale, valign="center"
@@ -601,6 +601,27 @@ class MLBScoreboardMessage(_FrameAware):
             _draw_small(str(game.strikes), cl_start + bs_w, small_bottom, strike_c)
             s_w = measure_width(FONT_SMALL, str(game.strikes), canvas)
             _draw_small("S", cl_start + bs_w + s_w, small_bottom, RGB_WHITE)
+
+            # Diamond: center-right zone
+            occupied_c = make_color(255, 220, 50)  # yellow
+            empty_c = make_color(50, 50, 50)  # dim
+            b2 = "◆" if game.on_second else "◇"
+            b3 = "◆" if game.on_third else "◇"
+            b1 = "◆" if game.on_first else "◇"
+
+            b2_c = occupied_c if game.on_second else empty_c
+            b3_c = occupied_c if game.on_third else empty_c
+            b1_c = occupied_c if game.on_first else empty_c
+
+            char_w = measure_width(FONT_SMALL, b2, canvas)
+            cr_center = cr_start + center_half // 2
+
+            # Row 0: 2B centered
+            _draw_small(b2, cr_center - char_w // 2, small_top, b2_c)
+
+            # Row 1: 3B left, 1B right
+            _draw_small(b3, cr_start, small_bottom, b3_c)
+            _draw_small(b1, cr_start + center_half - char_w, small_bottom, b1_c)
 
         elif game.state == "final":
             _draw_small("F", cl_start, small_top, RGB_WHITE)

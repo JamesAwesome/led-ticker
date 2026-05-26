@@ -278,3 +278,34 @@ def test_scoreboard_preview_draws_without_error():
     msg = MLBScoreboardMessage(game=game, team_abbr="PHI")
     _, cursor = msg.draw(canvas)
     assert cursor == 128
+
+
+# ---------------------------------------------------------------------------
+# Task 6: Diamond rendering
+# ---------------------------------------------------------------------------
+
+
+def test_scoreboard_diamond_second_base_occupied_paints_in_center_right():
+    """With runner on 2B, center-right zone must have pixels in the top row."""
+    canvas = _stub_canvas()
+    game = GameInfo(
+        home_abbr="PHI",
+        away_abbr="NYM",
+        state="live",
+        home_score=5,
+        away_score=3,
+        inning="▲7",
+        outs=0,
+        balls=0,
+        strikes=0,
+        on_second=True,
+        on_first=False,
+        on_third=False,
+    )
+    msg = MLBScoreboardMessage(game=game, team_abbr="PHI")
+    msg.draw(canvas)
+    cr_start = 128 * 30 // 100 + (128 - 2 * (128 * 30 // 100)) // 2
+    top_row_center_right = {
+        (x, y): c for (x, y), c in canvas._pixels.items() if x >= cr_start and y < 8
+    }
+    assert len(top_row_center_right) > 0

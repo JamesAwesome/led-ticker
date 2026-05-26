@@ -376,18 +376,22 @@ def _build_series_title(
         away = team_abbr if home != team_abbr else series.opponent_abbr
         away_c = _team_color(away)
         home_c = _team_color(home)
+        away_name = MLB_TEAM_NAMES.get(away, away)
+        home_name = MLB_TEAM_NAMES.get(home, home)
         segments: list[tuple[str, Color]] = [
-            (away, away_c),
+            (away_name, away_c),
             (" @ ", RGB_WHITE),
-            (home, home_c),
+            (home_name, home_c),
         ]
         # First listed team is away, second is home
         first_is_team = away == team_abbr
     else:
+        team_name = MLB_TEAM_NAMES.get(team_abbr, team_abbr)
+        opp_name = MLB_TEAM_NAMES.get(series.opponent_abbr, series.opponent_abbr)
         segments = [
-            (team_abbr, team_c),
+            (team_name, team_c),
             (" vs ", RGB_WHITE),
-            (series.opponent_abbr, opp_c),
+            (opp_name, opp_c),
         ]
         # First listed team is always team_abbr
         first_is_team = True
@@ -598,13 +602,9 @@ class MLBScoreboardMessage(_FrameAware):
         away_abbr = game.away_abbr
         home_abbr = game.home_abbr
 
-        # In preview (no score yet), try to show the full team name if it fits.
-        if game.state == "preview":
-            away_label = _fit_team_name(away_abbr, left_w, self.font, canvas)
-            home_label = _fit_team_name(home_abbr, right_w, self.font, canvas)
-        else:
-            away_label = away_abbr
-            home_label = home_abbr
+        # Use the full team name when it fits in the column; fall back to abbreviation.
+        away_label = _fit_team_name(away_abbr, left_w, self.font, canvas)
+        home_label = _fit_team_name(home_abbr, right_w, self.font, canvas)
 
         # Away team (left column)
         _draw_centered(away_label, 0, left_w, top_baseline, away_c)

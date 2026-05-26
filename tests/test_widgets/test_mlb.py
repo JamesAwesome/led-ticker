@@ -544,6 +544,12 @@ class TestMLBGameMessageDraw:
         msg = MLBGameMessage([("test", mock.Mock())])
         assert msg.font is FONT_DEFAULT
 
+    def test_advance_frame_accepts_visit_id_kwarg(self):
+        """Regression: _advance_frame_if_supported passes visit_id=N; must not crash."""
+        msg = MLBGameMessage([("PHI", mock.Mock())])
+        msg.advance_frame(visit_id=42)  # must not raise TypeError
+        assert msg._frame_count == 1
+
     def test_accepts_hires_font_kwarg(self):
         """Regression: MLBGameMessage now accepts a `font` so the user
         can set `font="Inter-Bold"` on `mlb` / `mlb_standings` widgets

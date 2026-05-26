@@ -14,6 +14,7 @@ from led_ticker.borders import (
     _lightbulb_positions,
     _perimeter_pixels,
 )
+from led_ticker.scaled_canvas import ScaledCanvas
 
 
 class TestPerimeterGeometry:
@@ -855,3 +856,105 @@ class TestLightbulbBorderChase:
                     45,
                     67,
                 ), f"bulb pixel ({dx},{dy}) not painted lit"
+
+
+class TestLightbulbBorderAlternate:
+    def test_complementary_toggle(self):
+        """frame=0 and frame=speed_frames produce complementary lit-sets
+        (every bulb is in exactly one of the two)."""
+        canvas_0 = _FakeRealCanvas(256, 64)
+        canvas_1 = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="alternate",
+            speed_frames=5,
+            lit_color=(255, 0, 0),
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(canvas_0, frame_count=0)
+        b.paint(canvas_1, frame_count=5)
+        # Bulb idx 0 lit at frame=0 (0+0)%2=0; unlit at frame=5 (0+1)%2=1.
+        assert canvas_0.pixels[(0, 0)] == (255, 0, 0)
+        assert canvas_1.pixels[(0, 0)] == (0, 0, 0)
+        # Bulb idx 1 unlit at frame=0 (1+0)%2=1; lit at frame=5 (1+1)%2=0.
+        assert canvas_0.pixels[(6, 0)] == (0, 0, 0)
+        assert canvas_1.pixels[(6, 0)] == (255, 0, 0)
+
+
+class TestLightbulbBorderUnison:
+    def test_all_lit_then_all_unlit(self):
+        """frame=0 paints lit; frame=speed_frames paints unlit; all bulbs
+        share state."""
+        canvas_lit = _FakeRealCanvas(256, 64)
+        canvas_dark = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="unison",
+            speed_frames=8,
+            lit_color=(255, 0, 0),
+            unlit_color=(20, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(canvas_lit, frame_count=0)
+        b.paint(canvas_dark, frame_count=8)
+        # Sample multiple bulb positions: all should be lit at frame=0.
+        for pos in [(0, 0), (6, 0), (256 - 3, 0), (0, 64 - 3)]:
+            assert canvas_lit.pixels[pos] == (
+                255,
+                0,
+                0,
+            ), f"bulb at {pos} not lit at frame=0"
+            assert canvas_dark.pixels[pos] == (
+                20,
+                0,
+                0,
+            ), f"bulb at {pos} not unlit at frame=8"
+
+
+class TestLightbulbAutoBulbSize:
+    def test_bigsign_auto_3x3(self):
+        """No bulb_size override on a 64-tall panel → 3x3 bulbs."""
+        canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(mode="chase", lit_color=(1, 1, 1), unlit_color=(0, 0, 0))
+        b.paint(canvas, frame_count=0)
+        # Top-left corner bulb is 3x3 → pixel (2, 2) painted with the
+        # corner bulb's color (idx=0, chase_density=3 → lit).
+        assert (2, 2) in canvas.pixels
+
+    def test_smallsign_auto_1x1(self):
+        """No bulb_size override on a 16-tall panel → 1x1 bulbs."""
+        canvas = _FakeRealCanvas(160, 16)
+        b = LightbulbBorder(mode="chase", lit_color=(1, 1, 1), unlit_color=(0, 0, 0))
+        b.paint(canvas, frame_count=0)
+        # 1x1 means each bulb is a single pixel. Top-left corner is (0,0)
+        # painted; pixel (1, 1) should NOT have been touched.
+        assert (0, 0) in canvas.pixels
+        assert (1, 1) not in canvas.pixels
+
+
+class TestLightbulbPhysicalResolution:
+    def test_paints_through_unwrap_to_real(self):
+        """When given a ScaledCanvas, paint() targets the real canvas
+        underneath (1-pixel sprites, not block-expanded)."""
+        real = _FakeRealCanvas(256, 64)
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+        b = LightbulbBorder(
+            mode="unison",
+            speed_frames=1,
+            lit_color=(255, 0, 0),
+            unlit_color=(0, 0, 0),
+            bulb_size=1,
+            gap=1,
+        )
+        b.paint(wrapped, frame_count=0)
+        # Real canvas pixels should be set at physical positions, NOT
+        # at logical positions * scale.
+        assert (0, 0) in real.pixels
+        # If paint had used wrapped.SetPixel, it would have block-
+        # expanded the 1x1 bulb to a 4x4 region, painting (0..3, 0..3).
+        # In physical-resolution mode only (0, 0) gets painted from
+        # that one bulb.
+        # (1, 1) should NOT be painted — it's inside the rectangle,
+        # not on the perimeter.
+        assert (1, 1) not in real.pixels

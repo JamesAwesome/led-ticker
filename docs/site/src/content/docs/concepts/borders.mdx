@@ -16,11 +16,12 @@ A border paints a 1- or 2-pixel-thick ring around the entire panel perimeter. Th
 
 ## Border styles
 
-| Style         | Shorthand                | Per-pixel color?          | Animates? |
-| ------------- | ------------------------ | ------------------------- | --------- |
-| `rainbow`     | `border = "rainbow"`     | yes — hue chase           | yes       |
-| `color_cycle` | `border = "color_cycle"` | no — whole border one hue | yes       |
-| `constant`    | `border = [r,g,b]`       | no — uniform              | no        |
+| Style         | Shorthand                | Per-pixel color?           | Animates? |
+| ------------- | ------------------------ | -------------------------- | --------- |
+| `rainbow`     | `border = "rainbow"`     | yes — hue chase            | yes       |
+| `color_cycle` | `border = "color_cycle"` | no — whole border one hue  | yes       |
+| `constant`    | `border = [r,g,b]`       | no — uniform               | no        |
+| `lightbulbs`  | `border = "lightbulbs"`  | no — discrete bulb sprites | yes       |
 
 ### Rainbow chase
 
@@ -207,5 +208,49 @@ Data widgets render custom layouts and a perimeter border is not a meaningful co
 ## Continuous-phase behavior
 
 Both `rainbow` and `color_cycle` borders have `restart_on_visit = false` — their phase counters advance continuously and never reset between `loop_count` repetitions. If a section repeats with `loop_count = 2`, the border picks up exactly where it left off at the end of the first loop rather than snapping back to the start. The border also composes cleanly with other effects: a `TickerMessage` can carry `animation = "typewriter"` and `border = "rainbow"` simultaneously, and each effect tracks its own independent counter. See [frame counters](/reference/frame-counters/) for the full model of restart-on-visit versus continuous-phase behavior.
+
+## Lightbulbs
+
+The `lightbulbs` style paints discrete NxN bulb sprites around the perimeter — the classic Vegas-marquee aesthetic. Each bulb is a fixed-size square sprite at one of ~100 (bigsign-default) clockwise-ordered positions; the animation modes flip which bulbs are "lit" vs "unlit" per frame. Both colors paint every frame, so "off" bulbs glow dimly like physical incandescent bulbs without power — the default is a warm-white lit color over a dim warm-orange unlit color.
+
+The simplest form is the string shorthand:
+
+<TomlExample
+  code={`[[section]]
+[[section.widget]]
+type = "message"
+text = "HELLO"
+border = "lightbulbs"`}
+/>
+
+Defaults: `mode = "chase"`, `bulb_size = 3` on big panels (auto-falls back to `1` on panels shorter than 32 physical pixels), `gap = 3`, warm-white lit / dim-warm-orange unlit colors.
+
+### Modes
+
+- **`chase`** — every Nth bulb (default 3rd) is lit; the lit set walks clockwise (or `direction = "ccw"`) around the perimeter, advancing one bulb position every `speed_frames` engine ticks. Classic traveling-marquee look.
+- **`alternate`** — even/odd bulbs flip on each phase. Half the bulbs lit at any time, switching every `speed_frames` ticks. Looks like a shimmer or twinkle without directional motion.
+- **`unison`** — all bulbs share state. All lit, then all unlit, alternating every `speed_frames` ticks. Loud attention-grabber.
+
+### Full table form
+
+<TomlExample
+  code={`border = { style = "lightbulbs",
+           mode = "chase",                # "chase" | "alternate" | "unison"
+           bulb_size = 3,                 # optional; auto from panel height
+           gap = 3,                       # pixels between bulb edges
+           lit_color = [255, 220, 140],   # warm white default
+           unlit_color = [40, 20, 0],     # dim warm-orange default
+           speed_frames = 2,              # frames per state transition
+           chase_density = 3,             # only used by mode="chase"
+           direction = "cw" }             # "cw" | "ccw", only used by mode="chase"`}
+/>
+
+`speed_frames` defaults differ by mode: `2` for chase (~100 ms per bulb step), `5` for alternate (~250 ms per toggle), `8` for unison (~400 ms per blink). Higher values slow the animation; the engine ticks at 50 ms.
+
+### When to use each style
+
+`lightbulbs` reads as a **physical object** (a marquee of light fixtures). `rainbow` / `color_cycle` read as a **graphical effect** (a halo or outline). Pick the former for theatrical / vintage / sports-bar / Vegas-pastiche aesthetics; pick the latter for clean / modern / decorative work.
+
+`lightbulbs` is unconditionally animated (`frame_invariant = False`) — image-widget fast paths correctly force per-tick redraws on it, same as the other animated borders.
 
 <RelatedPages slugs={["concepts/color-providers", "reference/frame-counters", "widgets/message"]} />

@@ -1,0 +1,308 @@
+# Lightbulb border smoke test — Pi 5 bigsign.
+#
+# Exercises every knob on the new `LightbulbBorder` style across all
+# 3 animation modes. Use this when validating the feature on real
+# hardware: cut transitions and short holds make it fast to iterate.
+# Edit config, `docker compose restart`, observe.
+#
+# Sections:
+#   1.  Default chase shorthand           — `border = "lightbulbs"`
+#   2.  Alternate (twinkle)               — even/odd toggle
+#   3.  Unison blink                      — all-on/all-off
+#   4.  CCW chase                         — direction reversed
+#   5.  Red marquee                       — custom lit/unlit (red theme)
+#   6.  Black unlit ("off" look)          — lit bulbs only, gaps go black
+#   7.  Big bulbs (5×5)                   — chunky marquee
+#   8.  Tight bulbs (2×2 gap=2)           — dense necklace
+#   9.  Slow + dense chase                — speed_frames=8 chase_density=5
+#   10. Two-row + lightbulbs              — different widget surface
+#   11. loop_count=3 continuous phase     — verify restart_on_visit=False
+#
+# Tunables to watch on hardware:
+#   - bulb_size      — 1..panel_h/2. Default auto-picks 3 on bigsign.
+#                      Bigger = chunkier marquee, fewer bulbs.
+#   - gap            — pixels between bulb edges. Default 3.
+#                      Larger gap = sparser, more "physical objects."
+#   - speed_frames   — frames per state transition. Higher = slower.
+#                      Defaults: chase=2, alternate=5, unison=8.
+#   - chase_density  — 1 in N bulbs lit. Default 3 (classic marquee
+#                      third). 2 = sparkle, 4-5 = dim-set with a
+#                      moving "leader" bulb every 4-5 spaces.
+#   - lit_color /    — defaults are warm-white over dim-warm-orange,
+#     unlit_color      mimicking unpowered incandescent bulbs.
+#
+# What to watch for:
+#   - All 3 modes should look distinct: chase has clear directional
+#     motion; alternate is in-place toggle; unison is uniform blink.
+#   - §6 (black unlit) is the cleanest way to see the bulb placement
+#     — the "lit only" pattern reveals the underlying clockwise list.
+#   - §4 (CCW) should travel the opposite direction from §1 — easy to
+#     verify by watching the top edge.
+#   - §11's chase phase MUST advance continuously across the 3 inner
+#     loops (no snap back to phase 0). Same as RainbowChaseBorder's
+#     restart_on_visit=False semantics.
+#   - §7's 5×5 bulbs should fit cleanly on the bigsign (max bulb_size
+#     for h=64 is 32). If the top-edge and bottom-edge bulbs overlap
+#     visually, rule 43 (panel-height ceiling) failed to catch it.
+
+[display]
+rows = 32
+cols = 64
+chain = 8
+parallel = 1
+pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+
+brightness = 60
+slowdown_gpio = 3
+gpio_mapping = "adafruit-hat"
+default_scale = 4
+
+pwm_bits = 8
+rp1_rio = 1
+
+[title]
+delay = 0.5
+
+[transitions]
+default = "cut"
+duration = 0.2
+easing = "linear"
+between_sections = "cut"
+
+# ---------------------------------------------------------------------------
+# 1. Default chase shorthand — `border = "lightbulbs"` with no kwargs.
+#    Establishes the baseline marquee look: warm-white bulbs over dim
+#    warm-orange unlit positions, every 3rd bulb lit, clockwise travel
+#    at ~100ms per bulb step. ~104 bulbs total around the bigsign
+#    perimeter (256×64, bulb_size=3, gap=3).
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "MARQUEE"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = "lightbulbs"
+
+# ---------------------------------------------------------------------------
+# 2. Alternate (twinkle) — even/odd bulbs flip on each phase.
+#    Half the bulbs lit at any time, switching every speed_frames=5
+#    ticks (~250ms per toggle). No directional motion — looks like a
+#    static shimmer.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "TWINKLE"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = { style = "lightbulbs", mode = "alternate" }
+
+# ---------------------------------------------------------------------------
+# 3. Unison blink — Vegas all-on/all-off attention-grabber.
+#    Every bulb shares state; toggles every speed_frames=8 ticks
+#    (~400ms per blink). Classic emergency-marquee feel. Use sparingly
+#    in production — it's loud.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "BLINK"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 200, 50]
+border = { style = "lightbulbs", mode = "unison" }
+
+# ---------------------------------------------------------------------------
+# 4. CCW chase — direction reversed. Compare visually against §1:
+#    the lit bulbs should travel counter-clockwise around the panel.
+#    Watch the top edge — bulbs walk RIGHT-to-LEFT here, vs §1's
+#    LEFT-to-RIGHT.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "REVERSE"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = { style = "lightbulbs", direction = "ccw" }
+
+# ---------------------------------------------------------------------------
+# 5. Red marquee — custom lit/unlit colors. Bright red bulbs over a
+#    deeper red unlit glow. Mimics a sports-bar marquee. Lit/unlit
+#    are both painted every frame so the perimeter never goes
+#    completely dark — physical-marquee feel.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "GAME ON"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 220, 100]
+border = { style = "lightbulbs", lit_color = [255, 40, 40], unlit_color = [60, 0, 0] }
+
+# ---------------------------------------------------------------------------
+# 6. Black unlit ("off" look) — `unlit_color = [0, 0, 0]` makes
+#    only the LIT bulbs visible. Cleanest way to see the bulb
+#    placement: you see the chase pattern as discrete moving dots
+#    against an otherwise-blank perimeter. Use this when validating
+#    bulb-count / spacing math on hardware.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "DOTS"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = { style = "lightbulbs", unlit_color = [0, 0, 0] }
+
+# ---------------------------------------------------------------------------
+# 7. Big bulbs (5×5) — chunkier marquee. Fewer bulbs (~76 on bigsign
+#    vs ~104 default). Each lit bulb is much more visually prominent;
+#    chase feels slower because each "step" covers more perimeter.
+#    Max bulb_size for h=64 is 32 (rule 43); 5 is comfortable.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "CHUNKY"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = { style = "lightbulbs", bulb_size = 5, gap = 3 }
+
+# ---------------------------------------------------------------------------
+# 8. Tight bulbs (2×2 gap=2) — dense necklace feel. ~156 bulbs around
+#    the perimeter — twice as many as default. Individual bulbs are
+#    less prominent but the chase looks smoother and more flowing.
+#    Trade-off: more visual noise, less obvious "marquee" gestalt.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "NECKLACE"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = { style = "lightbulbs", bulb_size = 2, gap = 2 }
+
+# ---------------------------------------------------------------------------
+# 9. Slow + dense chase — speed_frames=8 (slow), chase_density=5
+#    (every 5th bulb lit, fewer lit bulbs scattered widely).
+#    A meditative variant: the lit cluster is sparser and travels
+#    more leisurely. Useful for ambient signage where you want
+#    motion without being attention-demanding.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "AMBIENT"
+font = "Inter-Bold"
+font_size = 24
+font_color = [200, 230, 255]
+border = { style = "lightbulbs", speed_frames = 8, chase_density = 5 }
+
+# ---------------------------------------------------------------------------
+# 10. Two-row widget + lightbulbs border — verifies the border works
+#     on the multi-row text surface at scale=2. The border paints at
+#     REAL panel resolution (256×64) regardless of the section's
+#     scale=2 wrapper — it frames the SIGN edge, not the logical
+#     128×32 canvas. Same coordinate-system property as the existing
+#     RainbowChaseBorder.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 32
+hold_time = 8.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "TONIGHT"
+top_color = [255, 220, 100]
+top_align = "center"
+top_font = "Inter-Bold"
+top_font_size = 14
+bottom_text = "Live Music & Karaoke"
+bottom_color = [255, 240, 200]
+bottom_align = "center"
+bottom_font = "Inter-Regular"
+bottom_font_size = 14
+border = "lightbulbs"
+
+# ---------------------------------------------------------------------------
+# 11. loop_count = 3 continuous phase — verifies restart_on_visit=False.
+#     The chase phase MUST advance smoothly across all 3 inner loop
+#     iterations without snapping back to phase 0 on each visit.
+#     Same semantics as RainbowChaseBorder's continuous-phase contract.
+#
+#     Watch for: lit-bulb position at the start of loop 2 picks up
+#     EXACTLY where it left off at the end of loop 1 (and so on for
+#     loop 3). If you see a visible "jump" or "snap" between loops,
+#     restart_on_visit regressed.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 4.0
+loop_count = 3
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "CONTINUOUS"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = "lightbulbs"

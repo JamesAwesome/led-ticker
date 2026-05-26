@@ -9,9 +9,12 @@ import pytest
 from led_ticker.borders import (
     ColorCycleBorder,
     ConstantBorder,
+    LightbulbBorder,
     RainbowChaseBorder,
+    _lightbulb_positions,
     _perimeter_pixels,
 )
+from led_ticker.scaled_canvas import ScaledCanvas
 
 
 class TestPerimeterGeometry:
@@ -654,3 +657,304 @@ class TestColorLUTBorders:
         assert all(
             rgb == (255, 0, 0) for rgb in c.pixels.values()
         ), f"Expected all red at frame=0, got: {set(c.pixels.values())}"
+
+
+class TestLightbulbPositions:
+    def test_bigsign_3x3_gap3_count(self):
+        """Exact bulb count for bigsign-default geometry.
+
+        Formula: top edge has bulbs at x0 ∈ {N+gap, 2*(N+gap), ...} where
+        x0 ≤ w - 2N - gap. For w=256, h=64, N=3, gap=3, stride=6:
+        - Top between-corner: x0 ∈ {6, 12, ..., 246} → 41 bulbs
+        - Right between-corner: y0 ∈ {6, 12, ..., 54} → 9 bulbs
+        - Bottom mirrors top: 41 bulbs
+        - Left mirrors right: 9 bulbs
+        - 4 corners
+        - Total: 4 + 41 + 9 + 41 + 9 = 104
+        """
+        positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        assert len(positions) == 104
+
+    def test_includes_four_corners(self):
+        """Corner bulbs appear in the clockwise list exactly once each."""
+        positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        assert (0, 0) in positions
+        assert (256 - 3, 0) in positions
+        assert (256 - 3, 64 - 3) in positions
+        assert (0, 64 - 3) in positions
+
+    def test_clockwise_order(self):
+        """First bulb is top-left, sequence walks clockwise."""
+        positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        assert positions[0] == (0, 0)
+        # Last bulb should be on the left edge going up — y decreasing, x = 0.
+        assert positions[-1][0] == 0
+        # The second bulb should be on the top edge (y=0)
+        assert positions[1][1] == 0
+        # Walk continues clockwise: top edge x increases
+        top_edge = [(x, y) for x, y in positions if y == 0]
+        xs = [x for x, _ in top_edge]
+        assert xs == sorted(xs)
+
+    def test_no_duplicates(self):
+        """Each bulb position appears exactly once."""
+        positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        assert len(positions) == len(set(positions))
+
+    def test_smallsign_1x1_gap1(self):
+        """1x1 bulbs on smallsign-class panel, exact count."""
+        # Top: x0 ∈ {N+gap=2, ..., ≤ w-2N-gap = 157}. Largest even ≤ 157 = 156.
+        # Count = (156-2)/2+1 = 78.
+        # Right: y0 ∈ {2, ..., ≤ h-2N-gap = 13}. Largest even ≤ 13 = 12.
+        # Count = (12-2)/2+1 = 6.
+        # Total: 4 + 78 + 6 + 78 + 6 = 172.
+        positions = _lightbulb_positions(160, 16, bulb_size=1, gap=1)
+        assert len(positions) == 172
+
+    def test_cached(self):
+        """Repeated calls with identical args return the SAME list object."""
+        a = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        b = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        assert a is b  # functools.cache returns the same object
+
+
+class _FakeRealCanvas:
+    """Minimal stub: just records SetPixel calls."""
+
+    def __init__(self, w, h):
+        self.width = w
+        self.height = h
+        self.pixels: dict[tuple[int, int], tuple[int, int, int]] = {}
+
+    def SetPixel(self, x, y, r, g, b):
+        self.pixels[(x, y)] = (r, g, b)
+
+
+class TestLightbulbBorderConstruction:
+    def test_class_attrs(self):
+        """frame_invariant=False (animates), restart_on_visit=False (continuous)."""
+        b = LightbulbBorder(mode="chase")
+        assert b.frame_invariant is False
+        # restart_on_visit is a CLASS attribute
+        assert LightbulbBorder.restart_on_visit is False
+
+    def test_defaults(self):
+        """Default mode='chase', gap=3, sensible defaults for everything else."""
+        b = LightbulbBorder(mode="chase")
+        assert b.mode == "chase"
+        assert b.gap == 3
+        assert b.lit_color == (255, 220, 140)
+        assert b.unlit_color == (40, 20, 0)
+        assert b.direction == "cw"
+        assert b.chase_density == 3
+
+    def test_mode_dependent_speed_default_chase(self):
+        """Default speed_frames=2 for chase."""
+        b = LightbulbBorder(mode="chase")
+        assert b.speed_frames == 2
+
+    def test_explicit_speed_frames_overrides_default(self):
+        b = LightbulbBorder(mode="chase", speed_frames=10)
+        assert b.speed_frames == 10
+
+
+class TestLightbulbBorderChase:
+    def test_paints_lit_and_unlit_colors(self):
+        """At frame=0 with chase_density=3, every 3rd bulb is lit;
+        the rest get unlit_color."""
+        canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="chase",
+            chase_density=3,
+            lit_color=(255, 0, 0),
+            unlit_color=(10, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(canvas, frame_count=0)
+        # Every pixel of the canvas perimeter region got SOME color
+        # (either lit_color or unlit_color). Sample: pixel (0,0) is
+        # part of the top-left corner bulb (idx=0); idx % 3 == 0 so lit.
+        assert canvas.pixels[(0, 0)] == (255, 0, 0)
+        # Idx 1 (next clockwise) is on the top edge — unlit (1 % 3 != 0).
+        # Find its position: second bulb in the list at gap+N from top-left = 6.
+        assert canvas.pixels[(6, 0)] == (10, 0, 0)
+
+    def test_chase_advances_clockwise(self):
+        """Frame=speed_frames vs frame=0: lit set rotated by 1 bulb cw."""
+        canvas_0 = _FakeRealCanvas(256, 64)
+        canvas_1 = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="chase",
+            chase_density=3,
+            speed_frames=2,
+            lit_color=(255, 0, 0),
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(canvas_0, frame_count=0)
+        b.paint(canvas_1, frame_count=2)
+        # Bulb idx 0 (top-left corner at (0,0)) is lit at frame=0,
+        # unlit at frame=speed_frames (step advanced by 1, so
+        # (0 - 1) % 3 != 0).
+        assert canvas_0.pixels[(0, 0)] == (255, 0, 0)
+        assert canvas_1.pixels[(0, 0)] == (0, 0, 0)
+        # Bulb idx 1 (top edge x=6) was unlit at frame=0, becomes lit at
+        # frame=speed_frames: (1 - 1) % 3 == 0.
+        assert canvas_0.pixels[(6, 0)] == (0, 0, 0)
+        assert canvas_1.pixels[(6, 0)] == (255, 0, 0)
+
+    def test_chase_ccw_reverses(self):
+        """direction='ccw' rotates the opposite way."""
+        canvas_cw = _FakeRealCanvas(256, 64)
+        canvas_ccw = _FakeRealCanvas(256, 64)
+        b_cw = LightbulbBorder(
+            mode="chase",
+            direction="cw",
+            chase_density=3,
+            speed_frames=2,
+            lit_color=(255, 0, 0),
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b_ccw = LightbulbBorder(
+            mode="chase",
+            direction="ccw",
+            chase_density=3,
+            speed_frames=2,
+            lit_color=(255, 0, 0),
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b_cw.paint(canvas_cw, frame_count=2)
+        b_ccw.paint(canvas_ccw, frame_count=2)
+        # Bulb 2 (idx=2). cw: (2-1)%3=1, unlit. ccw: (2+1)%3=0, lit.
+        bulb_2_pos = (12, 0)  # third bulb on top edge, x=2*stride=12
+        assert canvas_cw.pixels[bulb_2_pos] == (0, 0, 0)
+        assert canvas_ccw.pixels[bulb_2_pos] == (255, 0, 0)
+
+    def test_bulb_size_paints_NxN_block(self):
+        """A 3x3 bulb covers all 9 pixels of its NxN square."""
+        canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="chase",
+            chase_density=1,  # all lit
+            lit_color=(123, 45, 67),
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(canvas, frame_count=0)
+        # Top-left corner bulb at (0,0) lit; should fill (0..2, 0..2).
+        for dy in range(3):
+            for dx in range(3):
+                assert canvas.pixels[(dx, dy)] == (
+                    123,
+                    45,
+                    67,
+                ), f"bulb pixel ({dx},{dy}) not painted lit"
+
+
+class TestLightbulbBorderAlternate:
+    def test_complementary_toggle(self):
+        """frame=0 and frame=speed_frames produce complementary lit-sets
+        (every bulb is in exactly one of the two)."""
+        canvas_0 = _FakeRealCanvas(256, 64)
+        canvas_1 = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="alternate",
+            speed_frames=5,
+            lit_color=(255, 0, 0),
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(canvas_0, frame_count=0)
+        b.paint(canvas_1, frame_count=5)
+        # Bulb idx 0 lit at frame=0 (0+0)%2=0; unlit at frame=5 (0+1)%2=1.
+        assert canvas_0.pixels[(0, 0)] == (255, 0, 0)
+        assert canvas_1.pixels[(0, 0)] == (0, 0, 0)
+        # Bulb idx 1 unlit at frame=0 (1+0)%2=1; lit at frame=5 (1+1)%2=0.
+        assert canvas_0.pixels[(6, 0)] == (0, 0, 0)
+        assert canvas_1.pixels[(6, 0)] == (255, 0, 0)
+
+
+class TestLightbulbBorderUnison:
+    def test_all_lit_then_all_unlit(self):
+        """frame=0 paints lit; frame=speed_frames paints unlit; all bulbs
+        share state."""
+        canvas_lit = _FakeRealCanvas(256, 64)
+        canvas_dark = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="unison",
+            speed_frames=8,
+            lit_color=(255, 0, 0),
+            unlit_color=(20, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(canvas_lit, frame_count=0)
+        b.paint(canvas_dark, frame_count=8)
+        # Sample multiple bulb positions: all should be lit at frame=0.
+        for pos in [(0, 0), (6, 0), (256 - 3, 0), (0, 64 - 3)]:
+            assert canvas_lit.pixels[pos] == (
+                255,
+                0,
+                0,
+            ), f"bulb at {pos} not lit at frame=0"
+            assert canvas_dark.pixels[pos] == (
+                20,
+                0,
+                0,
+            ), f"bulb at {pos} not unlit at frame=8"
+
+
+class TestLightbulbAutoBulbSize:
+    def test_bigsign_auto_3x3(self):
+        """No bulb_size override on a 64-tall panel → 3x3 bulbs."""
+        canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(mode="chase", lit_color=(1, 1, 1), unlit_color=(0, 0, 0))
+        b.paint(canvas, frame_count=0)
+        # Top-left corner bulb is 3x3 → pixel (2, 2) painted with the
+        # corner bulb's color (idx=0, chase_density=3 → lit).
+        assert (2, 2) in canvas.pixels
+
+    def test_smallsign_auto_1x1(self):
+        """No bulb_size override on a 16-tall panel → 1x1 bulbs."""
+        canvas = _FakeRealCanvas(160, 16)
+        b = LightbulbBorder(mode="chase", lit_color=(1, 1, 1), unlit_color=(0, 0, 0))
+        b.paint(canvas, frame_count=0)
+        # 1x1 means each bulb is a single pixel. Top-left corner is (0,0)
+        # painted; pixel (1, 1) should NOT have been touched.
+        assert (0, 0) in canvas.pixels
+        assert (1, 1) not in canvas.pixels
+
+
+class TestLightbulbPhysicalResolution:
+    def test_paints_through_unwrap_to_real(self):
+        """When given a ScaledCanvas, paint() targets the real canvas
+        underneath (1-pixel sprites, not block-expanded)."""
+        real = _FakeRealCanvas(256, 64)
+        wrapped = ScaledCanvas(real, scale=4, content_height=16)
+        b = LightbulbBorder(
+            mode="unison",
+            speed_frames=1,
+            lit_color=(255, 0, 0),
+            unlit_color=(0, 0, 0),
+            bulb_size=1,
+            gap=1,
+        )
+        b.paint(wrapped, frame_count=0)
+        # Real canvas pixels should be set at physical positions, NOT
+        # at logical positions * scale.
+        assert (0, 0) in real.pixels
+        # If paint had used wrapped.SetPixel, it would have block-
+        # expanded the 1x1 bulb to a 4x4 region, painting (0..3, 0..3).
+        # In physical-resolution mode only (0, 0) gets painted from
+        # that one bulb.
+        # (1, 1) should NOT be painted — it's inside the rectangle,
+        # not on the perimeter.
+        assert (1, 1) not in real.pixels

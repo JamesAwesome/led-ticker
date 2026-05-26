@@ -321,7 +321,12 @@ def _coerce_border(value: Any) -> BorderEffect | None:
     Raises ValueError on unknown styles, missing required kwargs, or
     unknown kwargs.
     """
-    from led_ticker.borders import ColorCycleBorder, ConstantBorder, RainbowChaseBorder
+    from led_ticker.borders import (
+        ColorCycleBorder,
+        ConstantBorder,
+        LightbulbBorder,
+        RainbowChaseBorder,
+    )
 
     if value is None:
         return None
@@ -341,10 +346,13 @@ def _coerce_border(value: Any) -> BorderEffect | None:
                 return RainbowChaseBorder()
             case "color_cycle":
                 return ColorCycleBorder()
+            case "lightbulbs":
+                return LightbulbBorder()
             case _:
                 raise ValueError(
                     f"unknown border style {value!r}; "
-                    "available: 'rainbow', 'color_cycle', or use an inline table"
+                    "available: 'rainbow', 'color_cycle', 'lightbulbs', "
+                    "or use an inline table"
                 )
     # Inline table
     if isinstance(value, dict):
@@ -436,10 +444,42 @@ def _coerce_border(value: Any) -> BorderEffect | None:
                     kwargs["from_hue"] = from_hue
                     kwargs["to_hue"] = to_hue
                 return ColorCycleBorder(**kwargs)
+            case "lightbulbs":
+                allowed = {
+                    "mode",
+                    "bulb_size",
+                    "gap",
+                    "lit_color",
+                    "unlit_color",
+                    "speed_frames",
+                    "chase_density",
+                    "direction",
+                }
+                unknown = set(kwargs.keys()) - allowed
+                if unknown:
+                    raise ValueError(
+                        f"border style 'lightbulbs' got unknown keys "
+                        f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
+                    )
+                # Coerce RGB-list color fields to tuples; _validate_rgb
+                # rejects out-of-range / wrong-shape values.
+                if "lit_color" in kwargs:
+                    kwargs["lit_color"] = tuple(
+                        _validate_rgb(
+                            kwargs["lit_color"], "border lightbulbs lit_color"
+                        )
+                    )
+                if "unlit_color" in kwargs:
+                    kwargs["unlit_color"] = tuple(
+                        _validate_rgb(
+                            kwargs["unlit_color"], "border lightbulbs unlit_color"
+                        )
+                    )
+                return LightbulbBorder(**kwargs)
             case _:
                 raise ValueError(
                     f"unknown border style {style!r}; "
-                    "available: 'rainbow', 'constant', 'color_cycle'"
+                    "available: 'rainbow', 'constant', 'color_cycle', 'lightbulbs'"
                 )
     # Reject anything else loudly
     raise ValueError(

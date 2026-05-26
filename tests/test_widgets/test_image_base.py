@@ -378,9 +378,7 @@ class TestTwoRowLogicalUnits:
         w._logical_scale = 4
 
         real = _StubCanvas(width=256, height=64)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=256, height=64
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=256, height=64)
 
         # Spy: the static fast-path renders one tick. Capture that
         # `_render_two_row_tick` actually got called — proves we passed
@@ -440,9 +438,7 @@ class TestTwoRowLogicalUnits:
         monkeypatch.setattr(_BaseImageWidget, "_render_two_row_tick", spy)
 
         real = _StubCanvas(width=256, height=64)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=256, height=64
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=256, height=64)
 
         await w._play_with_two_row_text(real, swapping_frame, n_ticks=1)
 
@@ -499,9 +495,7 @@ class TestTwoRowLogicalUnits:
         # 256x48 real → wrapped at scale=2 = 128x24 logical, content_height=24.
         # top_row_height=16 → top band 16 logical, bottom 8 logical.
         real = _StubCanvas(width=256, height=48)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=256, height=48
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=256, height=48)
 
         await w._play_with_two_row_text(real, swapping_frame, n_ticks=1)
 
@@ -751,9 +745,7 @@ class TestSingleRowFontSize:
 
         _BaseImageWidget._render_tick = spy  # type: ignore[method-assign]
         real = _StubCanvas(width=256, height=64)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=256, height=64
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=256, height=64)
 
         try:
             await w._play_with_text(real, swapping_frame, n_ticks=1)
@@ -792,9 +784,7 @@ class TestSingleRowFontSize:
 
         _BaseImageWidget._render_tick = spy  # type: ignore[method-assign]
         real = _StubCanvas(width=256, height=64)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=256, height=64
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=256, height=64)
 
         try:
             await w._play_with_text(real, swapping_frame, n_ticks=1)
@@ -833,9 +823,7 @@ class TestSingleRowFontSize:
 
         _BaseImageWidget._render_tick = spy  # type: ignore[method-assign]
         real = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         try:
             await w._play_with_text(real, swapping_frame, n_ticks=1)
@@ -914,9 +902,7 @@ class TestPlayLoopAdvancesFrame:
         )
         w._logical_scale = 1
         real = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         await w._play_with_text(real, swapping_frame, n_ticks=5)
 
@@ -943,9 +929,7 @@ class TestPlayLoopAdvancesFrame:
         )
         w._logical_scale = 1
         real = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         await w._play_with_two_row_text(real, swapping_frame, n_ticks=4)
 
@@ -974,9 +958,7 @@ class TestPlayLoopAdvancesFrame:
         )
         w._logical_scale = 1
         real = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         await w._play_with_text(real, swapping_frame, n_ticks=3)
 
@@ -1004,9 +986,7 @@ class TestPlayLoopAdvancesFrame:
         )
         w._logical_scale = 1
         real = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         await w._play_with_text(real, swapping_frame, n_ticks=10)
 
@@ -1035,9 +1015,7 @@ class TestPlayLoopAdvancesFrame:
         )
         w._logical_scale = 1
         real = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         await w._play_with_text(real, swapping_frame, n_ticks=10)
 
@@ -1071,7 +1049,7 @@ class TestPlayWithTextDriftCompensation:
         )
 
         frame = mock.Mock()
-        frame.matrix.SwapOnVSync.return_value = _StubCanvas(width=160, height=16)
+        frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         w = _DummyImage(
             text="hi",
@@ -1623,7 +1601,7 @@ class TestPlayWithTextBorderFastPath:
             mock.patch("asyncio.sleep", new=mock.AsyncMock()),
         ):
             await static_widget._play_with_text(
-                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame.swap.return_value,
                 mock_frame,
                 n_ticks=10,
             )
@@ -1646,7 +1624,7 @@ class TestPlayWithTextBorderFastPath:
             mock.patch("asyncio.sleep", new=mock.AsyncMock()),
         ):
             await static_widget._play_with_text(
-                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame.swap.return_value,
                 mock_frame,
                 n_ticks=10,
             )
@@ -1695,7 +1673,7 @@ class TestPlayWithTwoRowBorderFastPath:
             mock.patch("asyncio.sleep", new=mock.AsyncMock()),
         ):
             await static_widget._play_with_two_row_text(
-                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame.swap.return_value,
                 mock_frame,
                 n_ticks=10,
             )
@@ -1715,7 +1693,7 @@ class TestPlayWithTwoRowBorderFastPath:
             mock.patch("asyncio.sleep", new=mock.AsyncMock()),
         ):
             await static_widget._play_with_two_row_text(
-                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame.swap.return_value,
                 mock_frame,
                 n_ticks=10,
             )
@@ -1915,20 +1893,20 @@ class TestImageTypewriter:
         frame = mocker.MagicMock()
         # Each swap returns a fresh canvas (mirrors swapping_frame fixture
         # — see CLAUDE.md tripwire #1).
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame.swap.side_effect = lambda c: c
         # Auto-MagicMock canvas needs concrete width/height for _load's
         # panel-dim arithmetic and for downstream layout math.
-        frame.matrix.SwapOnVSync.return_value.width = 64
-        frame.matrix.SwapOnVSync.return_value.height = 16
+        frame.swap.return_value.width = 64
+        frame.swap.return_value.height = 16
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
-        await widget.play(frame.matrix.SwapOnVSync.return_value, frame, loop_count=1)
+        await widget.play(frame.swap.return_value, frame, loop_count=1)
 
         # Slow path runs N ticks; we just need > 1 to prove fast path
         # was bypassed. Default `hold_seconds=0.5` → ~10 ticks at 50ms.
-        assert frame.matrix.SwapOnVSync.call_count > 1, (
+        assert frame.swap.call_count > 1, (
             f"animation=Typewriter must force per-tick loop; "
-            f"got SwapOnVSync.call_count={frame.matrix.SwapOnVSync.call_count} "
+            f"got SwapOnVSync.call_count={frame.swap.call_count} "
             f"(==1 means fast path ran, freezing typewriter at frame=0)"
         )
 

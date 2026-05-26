@@ -101,7 +101,7 @@ async def test_play_loops_through_frames(tmp_path, mocker, bigsign_canvas):
     widget = GifPlayer(path=str(path), fit="stretch")
     real = bigsign_canvas
 
-    # Stub frame.matrix.SwapOnVSync to return a fresh canvas each call —
+    # Stub frame.swap to return a fresh canvas each call —
     # mirrors the real-stub tripwire from CLAUDE.md #1 / conftest.py.
     frame = mocker.MagicMock()
     swap_returns = []
@@ -111,7 +111,7 @@ async def test_play_loops_through_frames(tmp_path, mocker, bigsign_canvas):
         swap_returns.append(new)
         return new
 
-    frame.matrix.SwapOnVSync.side_effect = fake_swap
+    frame.swap.side_effect = fake_swap
 
     # Stub asyncio.sleep so the test runs instantly
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
@@ -119,7 +119,7 @@ async def test_play_loops_through_frames(tmp_path, mocker, bigsign_canvas):
     final = await widget.play(real, frame, loop_count=2)
 
     # 2 loops × 2 frames = 4 swaps
-    assert frame.matrix.SwapOnVSync.call_count == 4
+    assert frame.swap.call_count == 4
     # Final canvas is whatever the last swap returned (drop-capture
     # regression: we MUST capture the swap return value)
     assert final is swap_returns[-1]
@@ -132,13 +132,13 @@ async def test_play_clamps_zero_loop_count_to_one(tmp_path, mocker, bigsign_canv
     widget = GifPlayer(path=str(path), fit="stretch")
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     await widget.play(real, frame, loop_count=0)
 
     # Treated as "play once"
-    assert frame.matrix.SwapOnVSync.call_count == 1
+    assert frame.swap.call_count == 1
 
 
 async def test_play_uses_engine_cadence_without_text(tmp_path, mocker, bigsign_canvas):
@@ -151,7 +151,7 @@ async def test_play_uses_engine_cadence_without_text(tmp_path, mocker, bigsign_c
     widget = GifPlayer(path=str(path), fit="stretch")
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
 
     sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
@@ -284,7 +284,7 @@ async def test_text_x_offset_shifts_static_text(
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen_x: list[int] = []
@@ -332,7 +332,7 @@ async def test_top_valign_paints_at_panel_top_when_wrapped(
     widget._logical_scale = 4  # Simulate bigsign
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen_canvases: list[object] = []
@@ -371,7 +371,7 @@ async def test_scroll_direction_right_advances_positively(
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen_x: list[int] = []
@@ -513,7 +513,7 @@ async def test_play_with_text_uses_scroll_speed_cadence(
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     # Zero elapsed work time so drift compensation leaves sleep unchanged:
@@ -549,7 +549,7 @@ async def test_play_static_right_text_overlays_gif(tmp_path, mocker, bigsign_can
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     await widget.play(real, frame, loop_count=1)
@@ -573,7 +573,7 @@ async def test_play_static_left_text_at_x_2(tmp_path, mocker, bigsign_canvas):
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     await widget.play(real, frame, loop_count=1)
@@ -619,7 +619,7 @@ async def test_play_scroll_over_text_overlays_gif(tmp_path, mocker, bigsign_canv
         return c
 
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = swap
+    frame.swap.side_effect = swap
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     # Just need enough loops that target_tick gets executed; the
@@ -651,7 +651,7 @@ async def test_text_loops_extends_section_duration(tmp_path, mocker, bigsign_can
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     await widget.play(real, frame, loop_count=1)
@@ -660,7 +660,7 @@ async def test_text_loops_extends_section_duration(tmp_path, mocker, bigsign_can
     # text_loops=2 the floor is ≥ 2 traversals, < 3. Bounds avoid
     # pinning the exact formula.
     one_traversal = 256 + 6
-    count = frame.matrix.SwapOnVSync.call_count
+    count = frame.swap.call_count
     assert 2 * one_traversal <= count < 3 * one_traversal
 
 
@@ -686,7 +686,7 @@ async def test_hires_marquee_completes_full_traversal_default(
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     # loops=1 × 50ms = 50ms natural / 50ms tick = 1 tick.
@@ -696,7 +696,7 @@ async def test_hires_marquee_completes_full_traversal_default(
     await widget.play(real, frame, loop_count=1)
 
     # Lower bound: text_w (256) + minimum text_width (~150 conservative).
-    assert frame.matrix.SwapOnVSync.call_count >= 256 + 150
+    assert frame.swap.call_count >= 256 + 150
 
 
 async def test_text_loops_zero_extends_to_one_full_traversal(
@@ -717,7 +717,7 @@ async def test_text_loops_zero_extends_to_one_full_traversal(
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     await widget.play(real, frame, loop_count=1)
@@ -726,7 +726,7 @@ async def test_text_loops_zero_extends_to_one_full_traversal(
     # auto-floor extends to text_w + text_width = 256 + 6 = 262 ticks
     # so the marquee completes one full pass.
     one_traversal = 256 + 6
-    count = frame.matrix.SwapOnVSync.call_count
+    count = frame.swap.call_count
     assert one_traversal <= count < 2 * one_traversal
 
 
@@ -789,7 +789,7 @@ async def test_play_scroll_text_wraps_after_full_traversal(
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen_x: list[int] = []
@@ -846,7 +846,7 @@ async def test_play_scroll_text_advances_position(tmp_path, mocker, bigsign_canv
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen_x: list[int] = []
@@ -922,7 +922,7 @@ async def test_play_scroll_text_visible_through_black_pillars(
         return c
 
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = swap
+    frame.swap.side_effect = swap
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     await widget.play(real, frame, loop_count=1)
@@ -1000,7 +1000,7 @@ async def test_play_with_emoji_routes_through_emoji_painter(
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     spy = mocker.patch(
@@ -1030,7 +1030,7 @@ async def test_static_text_wider_than_canvas_clamps_to_left_edge(
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen_x: list[int] = []
@@ -1063,7 +1063,7 @@ async def test_play_emoji_with_wrap_and_scroll(tmp_path, mocker, bigsign_canvas)
     widget._logical_scale = 4  # Simulate bigsign
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     emoji_calls = mocker.patch(
@@ -1103,7 +1103,7 @@ async def test_play_with_wrap_uses_scaled_canvas(tmp_path, mocker, bigsign_canva
     widget._logical_scale = 4  # Simulate bigsign
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen_canvases: list[object] = []
@@ -1155,7 +1155,7 @@ async def test_play_no_wrap_text_canvas_follows_back_buffer(
         swap_returns.append(new)
         return new
 
-    frame.matrix.SwapOnVSync.side_effect = fake_swap
+    frame.swap.side_effect = fake_swap
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen: list[object] = []
@@ -1228,7 +1228,7 @@ async def test_play_two_row_no_wrap_text_canvas_follows_back_buffer(tmp_path, mo
         swap_returns.append(new)
         return new
 
-    frame.matrix.SwapOnVSync.side_effect = fake_swap
+    frame.swap.side_effect = fake_swap
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen: list[object] = []
@@ -1274,7 +1274,7 @@ async def test_play_native_uses_real_canvas(tmp_path, mocker, bigsign_canvas):
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     seen: list[object] = []
@@ -1333,7 +1333,7 @@ async def test_gif_static_text_does_not_freeze_animation(
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
-    frame.matrix.SwapOnVSync.side_effect = lambda c: c
+    frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     # loops=1 × 3 frames × 50ms = 150ms / 50ms tick = 3 ticks.
@@ -1375,7 +1375,7 @@ class TestGifBgColor:
         gif._panel_h = 4
 
         frame_obj = mocker.MagicMock()
-        frame_obj.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame_obj.swap.side_effect = lambda c: c
         await gif._play_no_text(canvas, frame_obj, loop_count=1)
 
         # No bg → Clear should have been called per-frame (2 frames × 1 loop = 2).
@@ -1405,7 +1405,7 @@ class TestGifBgColor:
         gif._panel_h = 4
 
         frame_obj = mocker.MagicMock()
-        frame_obj.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame_obj.swap.side_effect = lambda c: c
         await gif._play_no_text(canvas, frame_obj, loop_count=1)
 
         canvas.Clear.assert_not_called()
@@ -1464,7 +1464,7 @@ class TestGifPlayNoTextRefactor:
             mock.patch("asyncio.sleep", new=mock.AsyncMock()),
         ):
             await widget._play_no_text(
-                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame.swap.return_value,
                 mock_frame,
                 loop_count=1,
             )
@@ -1513,7 +1513,7 @@ class TestGifPlayNoTextRefactor:
 
         with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             await widget._play_no_text(
-                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame.swap.return_value,
                 mock_frame,
                 loop_count=1,
             )
@@ -1544,14 +1544,13 @@ class TestGifPlayNoTextRefactor:
         # (300ms / 50ms) by counting swaps (one per tick).
         with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             await widget._play_no_text(
-                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame.swap.return_value,
                 mock_frame,
                 loop_count=1,
             )
 
-        assert mock_frame.matrix.SwapOnVSync.call_count == 6, (
-            f"expected 6 swaps (300ms / 50ms); "
-            f"got {mock_frame.matrix.SwapOnVSync.call_count}"
+        assert mock_frame.swap.call_count == 6, (
+            f"expected 6 swaps (300ms / 50ms); " f"got {mock_frame.swap.call_count}"
         )
 
 
@@ -1600,7 +1599,7 @@ class TestGifPlayNoTextBorderPerEffectCounter:
 
         with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             await widget._play_no_text(
-                mock_frame.matrix.SwapOnVSync.return_value,
+                mock_frame.swap.return_value,
                 mock_frame,
                 loop_count=1,
             )

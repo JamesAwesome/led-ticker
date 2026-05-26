@@ -197,9 +197,9 @@ class TestSwapAndScrollSkipInitialDraw:
         # skip_initial_draw=True suppresses the initial swap; the tick loop
         # still runs for the hold. Verify that fewer swaps occurred vs the
         # default path.  Concrete: hold_time=0.05 → 1 tick → 1 swap (no initial).
-        assert mock_frame.matrix.SwapOnVSync.call_count == 1, (
+        assert mock_frame.swap.call_count == 1, (
             f"skip_initial_draw=True should suppress only the initial swap; "
-            f"got {mock_frame.matrix.SwapOnVSync.call_count} swaps."
+            f"got {mock_frame.swap.call_count} swaps."
         )
 
     async def test_default_includes_initial_swap(
@@ -210,7 +210,7 @@ class TestSwapAndScrollSkipInitialDraw:
         widget = make_widget(content_width=40)
         ticker = Ticker(monitors=[], frame=mock_frame)
         await ticker._swap_and_scroll(canvas, widget, hold_time=0.05)
-        assert mock_frame.matrix.SwapOnVSync.call_count == 2
+        assert mock_frame.swap.call_count == 2
 
 
 class TestSwapAndScrollContinuous:
@@ -746,10 +746,10 @@ class TestRunSwapPlayDispatch:
             _logical_scale = 1  # declares the field — should be set
 
             async def play(self, real_canvas, frame, loop_count=1, **kwargs):
-                return frame.matrix.SwapOnVSync(real_canvas)
+                return frame.swap(real_canvas)
 
         real = _StubCanvas(width=256, height=64)
-        mock_frame.matrix.SwapOnVSync.return_value = _StubCanvas(width=256, height=64)
+        mock_frame.swap.return_value = _StubCanvas(width=256, height=64)
         widget = _Recorder()
 
         # Wrapped (bigsign): scale should propagate
@@ -778,11 +778,11 @@ class TestRunSwapPlayDispatch:
             async def play(self, real_canvas, frame, loop_count=1, **kwargs):
                 self.received_canvas = real_canvas
                 # Pretend SwapOnVSync gave us a fresh back-buffer
-                return frame.matrix.SwapOnVSync(real_canvas)
+                return frame.swap(real_canvas)
 
         real = _StubCanvas(width=256, height=64)
         new_real = _StubCanvas(width=256, height=64)
-        mock_frame.matrix.SwapOnVSync.return_value = new_real
+        mock_frame.swap.return_value = new_real
 
         wrapper = ScaledCanvas(real, scale=4)
         widget = _Recorder()
@@ -805,10 +805,10 @@ class TestRunSwapPlayDispatch:
         class _HoldCapture:
             async def play(self, real_canvas, frame, loop_count=1, **kwargs):
                 received["hold_time"] = kwargs.get("hold_time")
-                return frame.matrix.SwapOnVSync(real_canvas)
+                return frame.swap(real_canvas)
 
         plain_canvas = _StubCanvas(width=160, height=16)
-        mock_frame.matrix.SwapOnVSync.return_value = _StubCanvas(width=160, height=16)
+        mock_frame.swap.return_value = _StubCanvas(width=160, height=16)
         widget = _HoldCapture()
 
         ticker = Ticker(monitors=[], frame=mock_frame)
@@ -966,7 +966,7 @@ class TestScrollBetween:
         outgoing.draw.side_effect = lambda c, cursor_pos=0: (c, cursor_pos + 40)
         incoming = mock.Mock()
         # Force an exception during the loop.
-        mock_frame.matrix.SwapOnVSync.side_effect = RuntimeError("simulated")
+        mock_frame.swap.side_effect = RuntimeError("simulated")
 
         ticker = Ticker(monitors=[], frame=mock_frame)
         with pytest.raises(RuntimeError):
@@ -1297,9 +1297,7 @@ class TestSwapAndScrollEngineTick:
 
         widget = _SpyWidget()
         canvas = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         # hold_time = 0.5s with tick_ms = 50 → ~10 ticks
         ticker = Ticker(monitors=[], frame=swapping_frame)
@@ -1344,9 +1342,7 @@ class TestSwapAndScrollEngineTick:
 
         widget = _SpyWidget()
         canvas = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         ticker = Ticker(monitors=[], frame=swapping_frame, scroll_speed=0.001)
         await ticker._swap_and_scroll(canvas, widget, hold_time=0.05)
@@ -1377,9 +1373,7 @@ class TestSwapAndScrollEngineTick:
 
         widget = _NoAdvance()
         canvas = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         # Should complete without AttributeError
         ticker = Ticker(monitors=[], frame=swapping_frame)
@@ -1418,9 +1412,7 @@ class TestShowOneResetsFrame:
 
         widget = _SpyWidget()
         canvas = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         ticker = Ticker(monitors=[], frame=swapping_frame)
         await ticker._show_one(canvas, widget, hold_time=0.1)
@@ -1443,9 +1435,7 @@ class TestShowOneResetsFrame:
 
         widget = _NoMixin()
         canvas = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         # Should complete without AttributeError
         ticker = Ticker(monitors=[], frame=swapping_frame)
@@ -1487,9 +1477,7 @@ class TestShowOneResetsFrame:
 
         widget = _SpyWidget()
         canvas = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         ticker = Ticker(monitors=[], frame=swapping_frame)
         await ticker._show_one(canvas, widget, hold_time=0.1)
@@ -1535,9 +1523,7 @@ class TestShowOneResetsFrame:
 
         widget = _SpyWidget()
         canvas = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         ticker = Ticker(monitors=[], frame=swapping_frame)
         await ticker._show_one(canvas, widget, hold_time=0.1)
@@ -1604,9 +1590,7 @@ class TestTypewriterPlusRainbowBorderComposition:
 
         widget = _SpyWidget()
         canvas = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         # Run two visits in a row (simulates loop_count > 1)
         ticker = Ticker(monitors=[], frame=swapping_frame)
@@ -1660,9 +1644,7 @@ class TestTypewriterPlusRainbowBorderComposition:
 
         widget = _SpyWidget()
         canvas = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         ticker = Ticker(monitors=[], frame=swapping_frame)
         await ticker._show_one(canvas, widget, hold_time=0.1)
@@ -1706,9 +1688,7 @@ class TestTypewriterPlusRainbowBorderComposition:
 
         widget = _SpyWidget()
         canvas = _StubCanvas(width=160, height=16)
-        swapping_frame.matrix.SwapOnVSync.return_value = _StubCanvas(
-            width=160, height=16
-        )
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
 
         ticker = Ticker(monitors=[], frame=swapping_frame)
         await ticker._show_one(canvas, widget, hold_time=0.1)

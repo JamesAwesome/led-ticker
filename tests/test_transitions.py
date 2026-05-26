@@ -1244,7 +1244,7 @@ class TestRunTransition:
             scroll_speed=0.05,
         )
         # duration=0.5 / scroll_speed=0.05 = 10 frames + 1 final
-        assert mock_frame.matrix.SwapOnVSync.call_count == 11
+        assert mock_frame.swap.call_count == 11
 
     async def test_final_frame_shows_incoming(
         self,
@@ -1441,7 +1441,7 @@ class TestRunTransition:
             scroll_speed=0.05,
         )
         # min_frames=40, so at least 41 swaps (40 + 1 final)
-        assert mock_frame.matrix.SwapOnVSync.call_count == 41
+        assert mock_frame.swap.call_count == 41
 
     async def test_non_wipe_unaffected_by_min_frames(
         self,
@@ -1465,7 +1465,7 @@ class TestRunTransition:
             scroll_speed=0.05,
         )
         # duration=0.1 / 0.05 = 2 frames + 1 final = 3
-        assert mock_frame.matrix.SwapOnVSync.call_count == 3
+        assert mock_frame.swap.call_count == 3
 
     async def test_longer_duration_respected_over_min_frames(
         self,
@@ -1488,7 +1488,7 @@ class TestRunTransition:
             duration=5.0,  # 100 frames > min_frames=40
             scroll_speed=0.05,
         )
-        assert mock_frame.matrix.SwapOnVSync.call_count == 101
+        assert mock_frame.swap.call_count == 101
 
 
 # --- ScaledCanvas integration ---
@@ -1520,7 +1520,7 @@ class TestRunTransitionOnScaledCanvas:
         frame = mock.Mock()
         frame.get_clean_canvas.return_value = real_bigsign_canvas
         # Real swap returns a different stub canvas each time; mock that
-        frame.matrix.SwapOnVSync.side_effect = lambda c: type(real_bigsign_canvas)(
+        frame.swap.side_effect = lambda c: type(real_bigsign_canvas)(
             width=c.width, height=c.height
         )
         return frame
@@ -1626,7 +1626,7 @@ class TestRunTransitionCrossScale:
     def bigsign_frame(self, real_bigsign_canvas):
         frame = mock.Mock()
         frame.get_clean_canvas.return_value = real_bigsign_canvas
-        frame.matrix.SwapOnVSync.side_effect = lambda c: type(real_bigsign_canvas)(
+        frame.swap.side_effect = lambda c: type(real_bigsign_canvas)(
             width=c.width, height=c.height
         )
         # CreateFrameCanvas must return a fresh real canvas (not a ScaledCanvas)
@@ -1888,7 +1888,7 @@ class TestRunTransitionIncomingBgColor:
         behavior. No regression for sections without bg_color."""
         outgoing = mock.Mock()
         incoming = mock.Mock()
-        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+        mock_frame.swap.return_value = capturing_canvas
 
         await run_transition(
             capturing_canvas,
@@ -1916,7 +1916,7 @@ class TestRunTransitionIncomingBgColor:
         flash."""
         outgoing = mock.Mock()
         incoming = mock.Mock()
-        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+        mock_frame.swap.return_value = capturing_canvas
 
         await run_transition(
             capturing_canvas,
@@ -1948,7 +1948,7 @@ class TestRunTransitionIncomingBgColor:
         `incoming_bg_color` — no normalization or clamping."""
         outgoing = mock.Mock()
         incoming = mock.Mock()
-        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+        mock_frame.swap.return_value = capturing_canvas
 
         await run_transition(
             capturing_canvas,
@@ -1978,7 +1978,7 @@ class TestRunTransitionIncomingBgColor:
 
         outgoing = mock.Mock()
         incoming = mock.Mock()
-        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+        mock_frame.swap.return_value = capturing_canvas
 
         await run_transition(
             capturing_canvas,
@@ -2028,7 +2028,7 @@ class TestRunTransitionOutgoingBgColor:
         back to Clear since incoming is None."""
         outgoing = mock.Mock()
         incoming = mock.Mock()
-        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+        mock_frame.swap.return_value = capturing_canvas
 
         await run_transition(
             capturing_canvas,
@@ -2056,7 +2056,7 @@ class TestRunTransitionOutgoingBgColor:
         — bg color and scale flip together."""
         outgoing = mock.Mock()
         incoming = mock.Mock()
-        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+        mock_frame.swap.return_value = capturing_canvas
 
         await run_transition(
             capturing_canvas,
@@ -2089,7 +2089,7 @@ class TestRunTransitionOutgoingBgColor:
 
         outgoing = mock.Mock()
         incoming = mock.Mock()
-        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+        mock_frame.swap.return_value = capturing_canvas
 
         await run_transition(
             capturing_canvas,
@@ -2118,7 +2118,7 @@ class TestRunTransitionOutgoingBgColor:
         bordered widgets."""
         outgoing = mock.Mock()
         incoming = mock.Mock()
-        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+        mock_frame.swap.return_value = capturing_canvas
 
         captured_kwargs: list[dict] = []
 
@@ -2166,7 +2166,7 @@ class TestRunTransitionOutgoingBgColor:
         `<=` (or `<` to `>` etc.) at this exact frame."""
         outgoing = mock.Mock()
         incoming = mock.Mock()
-        mock_frame.matrix.SwapOnVSync.return_value = capturing_canvas
+        mock_frame.swap.return_value = capturing_canvas
 
         await run_transition(
             capturing_canvas,

@@ -570,7 +570,7 @@ class MLBScoreMonitor:
         url = (
             f"{MLB_API}/schedule?teamId={self._team_id}"
             f"&startDate={start}&endDate={end}&sportId=1"
-            f"&hydrate=team,linescore"
+            f"&hydrate=team,linescore,challenges"
         )
 
         try:
@@ -720,6 +720,18 @@ class MLBScoreMonitor:
                     on_second = "second" in offense
                     on_third = "third" in offense
 
+                # ABS challenges — present only for games where the system is active.
+                home_challenges: int | None = None
+                away_challenges: int | None = None
+                challenges = g.get("challenges", {})
+                if challenges:
+                    hc = challenges.get("home", {})
+                    ac = challenges.get("away", {})
+                    if hc is not None and "remainingChallenges" in hc:
+                        home_challenges = int(hc["remainingChallenges"])
+                    if ac is not None and "remainingChallenges" in ac:
+                        away_challenges = int(ac["remainingChallenges"])
+
                 start_time: datetime | None = None
                 game_date = g.get("gameDate")
                 if game_date:
@@ -759,6 +771,8 @@ class MLBScoreMonitor:
                         on_third=on_third,
                         postpone_reason=reason if postponed_state else "",
                         postpone_tag=postpone_tag if postponed_state else "PPD",
+                        home_challenges=home_challenges,
+                        away_challenges=away_challenges,
                     )
                 )
 

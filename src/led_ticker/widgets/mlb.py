@@ -20,6 +20,7 @@ from led_ticker.drawing import compute_baseline, compute_cursor
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
+from led_ticker.widgets._frame_aware import _FrameAware
 from led_ticker.widgets.message import TickerMessage
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -475,6 +476,36 @@ def _build_game_message(
     return MLBGameMessage(
         segments, center=True, bg_color=bg_color, font=font, font_color=font_color
     )
+
+
+_CHALLENGE_COLOR: Color = make_color(255, 180, 0)  # amber
+_CHALLENGE_USED: Color = make_color(60, 40, 0)  # dim amber
+
+
+@attrs.define
+class MLBScoreboardMessage(_FrameAware):
+    """Scoreboard-style two-column game display.
+
+    Renders: [away team + score] [center: inning/BSO/diamond] [home team + score]
+    with ABS challenge pips beside each team name.
+    """
+
+    game: GameInfo
+    team_abbr: str
+    tz: ZoneInfo | None = None
+    bg_color: Color | None = None
+    font_color: Color | ColorProvider | None = attrs.field(default=None, kw_only=True)
+    font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
+        return canvas, cursor_pos + canvas.width
 
 
 @register("mlb")

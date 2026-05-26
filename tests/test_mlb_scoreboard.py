@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import attrs
 
-from led_ticker.widgets.mlb import GameInfo, MLBScoreMonitor
+from led_ticker.widgets.mlb import GameInfo, MLBScoreboardMessage, MLBScoreMonitor
 
 
 def test_gameinfo_challenge_fields_default_to_none():
@@ -116,3 +118,83 @@ def test_parse_games_challenges_none_when_absent():
     assert len(games) == 1
     assert games[0].home_challenges is None
     assert games[0].away_challenges is None
+
+
+# ---------------------------------------------------------------------------
+# Task 3: MLBScoreboardMessage skeleton
+# ---------------------------------------------------------------------------
+
+
+def _live_game() -> GameInfo:
+    return GameInfo(
+        home_abbr="PHI",
+        away_abbr="NYM",
+        state="live",
+        home_score=5,
+        away_score=3,
+        inning="▲7",
+        outs=2,
+        balls=1,
+        strikes=2,
+        on_first=False,
+        on_second=True,
+        on_third=False,
+    )
+
+
+def _stub_canvas(w=128, h=16):
+    from rgbmatrix import _StubCanvas
+
+    return _StubCanvas(width=w, height=h)
+
+
+def test_scoreboard_draw_live_returns_correct_cursor():
+    canvas = _stub_canvas()
+    msg = MLBScoreboardMessage(game=_live_game(), team_abbr="PHI")
+    _, cursor = msg.draw(canvas)
+    assert cursor == 128
+
+
+def test_scoreboard_draw_final():
+    canvas = _stub_canvas()
+    game = GameInfo(
+        home_abbr="PHI", away_abbr="NYM", state="final", home_score=5, away_score=3
+    )
+    msg = MLBScoreboardMessage(game=game, team_abbr="PHI")
+    result_canvas, cursor = msg.draw(canvas)
+    assert cursor == 128
+    assert result_canvas is canvas
+
+
+def test_scoreboard_draw_preview():
+    canvas = _stub_canvas()
+    game = GameInfo(
+        home_abbr="PHI",
+        away_abbr="NYM",
+        state="preview",
+        start_time=datetime(2026, 5, 26, 23, 10, tzinfo=UTC),
+    )
+    msg = MLBScoreboardMessage(game=game, team_abbr="PHI")
+    _, cursor = msg.draw(canvas)
+    assert cursor == 128
+
+
+def test_scoreboard_draw_postponed():
+    canvas = _stub_canvas()
+    game = GameInfo(
+        home_abbr="PHI",
+        away_abbr="NYM",
+        state="postponed",
+        postpone_tag="PPD",
+        postpone_reason="Rain",
+    )
+    msg = MLBScoreboardMessage(game=game, team_abbr="PHI")
+    _, cursor = msg.draw(canvas)
+    assert cursor == 128
+
+
+def test_scoreboard_advance_frame_accepts_visit_id():
+    msg = MLBScoreboardMessage(game=_live_game(), team_abbr="PHI")
+    msg.advance_frame(visit_id=42)
+    msg.advance_frame(visit_id=42)
+    assert msg._frame_count == 2

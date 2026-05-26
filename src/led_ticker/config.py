@@ -36,6 +36,7 @@ class DisplayConfig:
     # chips (common on cheap P2/P3 AliExpress panels). Without it, FM6126A panels
     # power up in a bad state and show the bottom half mirrored or garbled.
     panel_type: str = ""
+    led_rgb_sequence: str = "RGB"
 
 
 @dataclass

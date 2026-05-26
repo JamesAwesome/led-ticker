@@ -58,6 +58,7 @@ Hardware and panel-layout settings. Most of these map straight onto
 | `multiplexing`        | int    | `0`              | Panel scan-row wiring scheme. `0` = direct. Try `1`–`5` if the bottom half of the panel shows inverted or garbled content. See the rgbmatrix docs for the full list.                                                                  |
 | `row_addr_type`       | int    | `0`              | Row address type. `0` = direct (default). Change only if the panel uses a non-standard address decoder (AB-addressed, ABC-shifted, etc.).                                                                                             |
 | `panel_type`          | string | `""`             | Driver IC init sequence. Set to `"FM6126A"` or `"FM6127"` for panels that use those chips (common on cheap P2/P3 AliExpress panels). Without it, FM6126A panels power up in a bad state and show the bottom half mirrored or garbled. |
+| `led_rgb_sequence`    | string | `"RGB"`          | RGB channel order. Change to `"RBG"`, `"GRB"`, etc. if colors appear wrong — e.g. purple/blue tint (missing green) often means green and blue are swapped; try `"RBG"`.                                                               |
 
 These are the common knobs. The full set of `rgbmatrix` library
 options is broader — see `CLAUDE.md` for the additional Pi-5 tuning

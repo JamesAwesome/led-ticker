@@ -1,5 +1,7 @@
 """Tests for led_ticker.frame."""
 
+from unittest.mock import MagicMock
+
 from led_ticker.frame import LedFrame
 
 
@@ -48,3 +50,39 @@ def test_stub_canvas_size_parallel_chains():
 def test_ledframe_matrix_is_not_none_after_construction():
     frame = LedFrame(led_cols=32, led_chain=5)
     assert frame.matrix is not None
+
+
+def test_framerate_fraction_default():
+    """limit_refresh_rate_hz=0 → fraction stays at 1 (no change to behaviour)."""
+    frame = LedFrame(led_limit_refresh_rate_hz=0)
+    assert frame._framerate_fraction == 1
+
+
+def test_framerate_fraction_computed():
+    """100 Hz / 20 fps engine = fraction 5."""
+    frame = LedFrame(led_limit_refresh_rate_hz=100)
+    assert frame._framerate_fraction == 5
+
+
+def test_framerate_fraction_rounds():
+    """15 Hz / 20 fps rounds to 0.75 → floor-at-1 → 1."""
+    frame = LedFrame(led_limit_refresh_rate_hz=15)
+    assert frame._framerate_fraction == 1
+
+
+def test_swap_passes_fraction_to_matrix():
+    """frame.swap() must forward _framerate_fraction to SwapOnVSync."""
+    frame = LedFrame(led_limit_refresh_rate_hz=100)
+    mock_matrix = MagicMock()
+    frame.matrix = mock_matrix
+    canvas = object()
+    frame.swap(canvas)
+    mock_matrix.SwapOnVSync.assert_called_once_with(canvas, 5)
+
+
+def test_swap_returns_new_canvas():
+    """frame.swap() returns the back-buffer (new canvas, not the same object)."""
+    frame = LedFrame()
+    canvas = frame.matrix.CreateFrameCanvas()
+    result = frame.swap(canvas)
+    assert result is not canvas

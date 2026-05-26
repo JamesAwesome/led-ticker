@@ -25,19 +25,19 @@ def canvas():
 
 @pytest.fixture
 def mock_frame(canvas):
-    """Mock LedFrame with canvas and SwapOnVSync."""
+    """Mock LedFrame with canvas and swap method."""
     frame = mock.Mock()
     frame.get_clean_canvas.return_value = canvas
-    frame.matrix.SwapOnVSync.return_value = canvas
+    frame.swap.return_value = canvas
     return frame
 
 
 @pytest.fixture
 def swapping_frame():
-    """Mock LedFrame whose SwapOnVSync rotates between two canvas objects.
+    """Mock LedFrame whose swap rotates between two canvas objects.
 
-    Use this for regression tests of the SwapOnVSync-capture rule
-    (CLAUDE.md constraint #1). On real hardware, SwapOnVSync returns the
+    Use this for regression tests of the swap-capture rule
+    (CLAUDE.md constraint #1). On real hardware, swap returns the
     previous front buffer (a different object) which becomes the new
     back buffer. If production code drops the return value, drawing
     continues on the front buffer and tearing/corruption results.
@@ -54,7 +54,7 @@ def swapping_frame():
 
     frame = mock.Mock()
     frame.get_clean_canvas.return_value = canvas_a
-    frame.matrix.SwapOnVSync.side_effect = itertools.cycle([canvas_b, canvas_a])
+    frame.swap.side_effect = itertools.cycle([canvas_b, canvas_a])
     # Stash for assertions
     frame._canvas_a = canvas_a
     frame._canvas_b = canvas_b

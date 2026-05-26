@@ -96,8 +96,8 @@ def _has_swap_call(node: ast.AST) -> bool:
         # `_swap(canvas, frame)` — Name call.
         if isinstance(n.func, ast.Name) and n.func.id == "_swap":
             return True
-        # `frame.matrix.SwapOnVSync(canvas)` etc. — Attribute call.
-        if isinstance(n.func, ast.Attribute) and n.func.attr == "SwapOnVSync":
+        # `frame.swap(canvas)` etc. — Attribute call.
+        if isinstance(n.func, ast.Attribute) and n.func.attr == "swap":
             return True
     return False
 

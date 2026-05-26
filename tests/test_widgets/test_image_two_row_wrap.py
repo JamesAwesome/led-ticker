@@ -257,7 +257,7 @@ def _capture_draws_per_tick(mocker, frame):
         draws.append(_SWAP_SENTINEL)
         return c
 
-    frame.matrix.SwapOnVSync.side_effect = _swap
+    frame.swap.side_effect = _swap
     return draws
 
 
@@ -409,7 +409,7 @@ class TestBottomSeparatorColorInheritance:
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame.swap.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
         # Capture draw_text calls; filter for separator.
@@ -457,7 +457,7 @@ class TestBottomSeparatorColorInheritance:
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
-        frame.matrix.SwapOnVSync.side_effect = lambda c: c
+        frame.swap.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
         import led_ticker.widgets._image_base as base_mod

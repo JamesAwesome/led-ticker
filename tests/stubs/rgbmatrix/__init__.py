@@ -141,7 +141,7 @@ class RGBMatrix:
     def CreateFrameCanvas(self):
         return _StubCanvas(width=self._width, height=self._height)
 
-    def SwapOnVSync(self, canvas):
+    def SwapOnVSync(self, canvas, framerate_fraction=1):
         """Simulate double-buffering: return the previous back buffer."""
         if self._back_buffer is None:
             self._back_buffer = _StubCanvas(

@@ -112,7 +112,7 @@ def _capture_draws_per_tick(mocker, frame):
         draws.append(_SWAP_SENTINEL)
         return c
 
-    frame.matrix.SwapOnVSync.side_effect = _swap
+    frame.swap.side_effect = _swap
     return draws
 
 

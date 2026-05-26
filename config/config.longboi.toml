@@ -22,7 +22,7 @@ brightness = 60
 default_scale = 4
 gpio_mapping = "adafruit-hat"
 panel_type = "FM6126A"
-led_rgb_sequence = "RBG"
+led_rgb_sequence = "GRB"
 
 # Pi 5 RP1 GPIO tuning — start with rp1_rio = 0 (PIO mode) and switch to
 # rp1_rio = 1 (RIO / Registered IO, faster refresh) once stable on hardware.

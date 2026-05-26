@@ -155,6 +155,10 @@ The Remap string follows the format `Remap:WIDTH,HEIGHT|x,yORIENT|...` with one 
 
 If your physical layout doesn't match the chain order from the data cable, every panel in the wrong position needs an entry in the Remap string. See the upstream [hzeller/rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix) README for the full Remap reference.
 
+### Wiring or driver problem? Run `panel-test` first
+
+If your widgets render with the wrong colors, a garbled bottom half, only one panel lit, or visible flicker, the issue is most likely in the hardware layer (`led_rgb_sequence`, `panel_type`, `chain`, `slowdown_gpio`) — not in your config. The [`panel-test`](/tools/panel-test/) diagnostic isolates the hardware layer by painting flat R/G/B/W/B colors, so you can verify wiring and driver init before debugging widgets.
+
 ## Reference config
 
 A complete working config for this build, including the `pixel_mapper` string

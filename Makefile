@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews setup-demo-fonts
+.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews setup-demo-fonts panel-test panel-test-docker
 
 # --- Developer Setup ---
 
@@ -34,6 +34,42 @@ format:  ## Run ruff formatter
 CONFIG ?= config/config.toml
 validate:  ## Validate a config TOML. Usage: make validate [CONFIG=path/to.toml]
 	uv run led-ticker validate $(CONFIG)
+
+# --- Panel diagnostics ---
+
+# Cycle full panel through R/G/B/White/Black for hardware-layer diagnostics.
+# Use this when widgets render wrong but you don't know if it's a config or
+# wiring/driver issue. Reuses [display] from the given config TOML.
+PANEL_CONFIG = $(if $(filter command,$(origin CONFIG)),$(CONFIG),config/config.longboi.toml)
+HOLD ?= 2
+
+panel-test:  ## Cycle full panel through R/G/B/W/B. Usage: make panel-test [CONFIG=config/config.longboi.toml] [HOLD=2]
+	uv run python scripts/panel_color_test.py \
+	  --config $(PANEL_CONFIG) \
+	  --hold $(HOLD)
+
+# Run the panel-test inside the production Docker image — this is what you'll
+# run on longboi/bigsign/smallsign over SSH. Requires `make build-docker` to
+# have run at least once.
+#
+# IMPORTANT: stop the running ticker first or the diagnostic will fight it for
+# the matrix:
+#   docker compose stop       # or: sudo systemctl stop led-ticker
+#   make panel-test-docker
+#   docker compose start      # or: sudo systemctl start led-ticker
+#
+# --privileged + --network host match compose.yaml so behavior is identical to
+# prod. -it gives the script a TTY so Ctrl-C reaches Python and the black-
+# frame cleanup runs. -v scripts:ro means script edits don't require rebuilding
+# the image.
+panel-test-docker:  ## Cycle R/G/B/W/B inside Docker. Stop the running ticker first.
+	docker run --rm -it --privileged --network host \
+	  -v $(PWD)/config:/code/config:ro \
+	  -v $(PWD)/scripts:/code/scripts:ro \
+	  led-ticker \
+	  python /code/scripts/panel_color_test.py \
+	    --config /code/$(PANEL_CONFIG) \
+	    --hold $(HOLD)
 
 # --- Docker (production image only) ---
 

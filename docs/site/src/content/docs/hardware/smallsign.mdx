@@ -107,6 +107,10 @@ The smallsign is 16 logical rows tall and 16 physical rows tall — there is no 
 
 Setting `brightness = 255` doesn't make the panels brighter — the rgbmatrix library reads it as "the maximum, plus a lot more" and behavior is undefined. Stay in 0-100; 60 is a typical indoor value.
 
+### Wiring or driver problem? Run `panel-test` first
+
+If your widgets render with the wrong colors, only one panel lit, or visible flicker during scrolling, the issue is most likely in the hardware layer (`led_rgb_sequence`, `chain`, `slowdown_gpio`) — not in your config. The [`panel-test`](/tools/panel-test/) diagnostic isolates the hardware layer by painting flat R/G/B/W/B colors, so you can verify wiring before debugging widgets.
+
 ## Reference config
 
 A complete working config for this build. Drop this into `config/config.toml`

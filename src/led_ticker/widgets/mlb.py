@@ -506,6 +506,7 @@ class MLBScoreboardMessage(_FrameAware):
         font_color: Any = None,
     ) -> DrawResult:
         from led_ticker.drawing import compute_baseline_for_band, safe_scale
+        from led_ticker.fonts import FONT_SMALL
         from led_ticker.pixel_emoji import draw_with_emoji, measure_width
 
         scale = safe_scale(canvas)
@@ -561,6 +562,62 @@ class MLBScoreboardMessage(_FrameAware):
         _draw_centered(
             home_score_str, right_start, right_w, bottom_baseline, home_score_c
         )
+
+        # --- Center zone ---
+        center_total = canvas.width - left_w - right_w
+        center_half = center_total // 2
+        cl_start = left_w  # center-left x start
+        cr_start = left_w + center_half  # center-right x start  # noqa: F841
+
+        small_top = compute_baseline_for_band(
+            FONT_SMALL, half_h, scale, valign="center"
+        )
+        small_bottom = half_h + compute_baseline_for_band(
+            FONT_SMALL, half_h, scale, valign="center"
+        )
+
+        def _draw_small(text: str, x: int, y: int, color: Color) -> None:
+            draw_with_emoji(
+                canvas, FONT_SMALL, x, y=y + y_offset, color=color, text=text
+            )
+
+        if game.state == "live":
+            # Row 0: inning + outs dots
+            inning_str = game.inning or "–"
+            out_c = make_color(255, 80, 80)
+            outs = game.outs or 0
+            outs_str = "●" * outs + "○" * (3 - outs)
+            _draw_small(inning_str, cl_start, small_top, RGB_WHITE)
+            inning_w = measure_width(FONT_SMALL, inning_str, canvas)
+            _draw_small(outs_str, cl_start + inning_w + 2, small_top, out_c)
+
+            # Row 1: B/S count
+            ball_c = make_color(80, 255, 80)
+            strike_c = make_color(255, 255, 80)
+            _draw_small(str(game.balls), cl_start, small_bottom, ball_c)
+            b_w = measure_width(FONT_SMALL, str(game.balls), canvas)
+            _draw_small("B ", cl_start + b_w, small_bottom, RGB_WHITE)
+            bs_w = b_w + measure_width(FONT_SMALL, "B ", canvas)
+            _draw_small(str(game.strikes), cl_start + bs_w, small_bottom, strike_c)
+            s_w = measure_width(FONT_SMALL, str(game.strikes), canvas)
+            _draw_small("S", cl_start + bs_w + s_w, small_bottom, RGB_WHITE)
+
+        elif game.state == "final":
+            _draw_small("F", cl_start, small_top, RGB_WHITE)
+            _draw_small("FINAL", cl_start, small_bottom, make_color(180, 180, 180))
+
+        elif game.state == "preview":
+            _tz = self.tz or ZoneInfo("UTC")
+            time_str = (
+                _format_game_time(game.start_time, _tz) if game.start_time else "TBD"
+            )
+            _draw_small(time_str, cl_start, small_top, RGB_WHITE)
+
+        elif game.state == "postponed":
+            tag_c = make_color(255, 200, 60)
+            _draw_small(game.postpone_tag, cl_start, small_top, tag_c)
+            if game.postpone_reason:
+                _draw_small(game.postpone_reason[:6], cl_start, small_bottom, tag_c)
 
         return canvas, cursor_pos + canvas.width
 

@@ -243,3 +243,38 @@ def test_scoreboard_final_win_loss_colors():
     msg.draw(canvas)
     # Just assert no exception and some pixels rendered
     assert len(canvas._pixels) > 0
+
+
+# ---------------------------------------------------------------------------
+# Task 5: Center zone rendering
+# ---------------------------------------------------------------------------
+
+
+def test_scoreboard_center_pixels_for_live_game():
+    """Center zone must paint pixels for a live game."""
+    canvas = _stub_canvas()
+    msg = MLBScoreboardMessage(game=_live_game(), team_abbr="PHI")
+    msg.draw(canvas)
+    center_start = 128 * 30 // 100
+    center_end = 128 - 128 * 30 // 100
+    center_pixels = {
+        (x, y): c
+        for (x, y), c in canvas._pixels.items()
+        if center_start <= x < center_end
+    }
+    assert len(center_pixels) > 0
+
+
+def test_scoreboard_preview_draws_without_error():
+    from datetime import datetime
+
+    canvas = _stub_canvas()
+    game = GameInfo(
+        home_abbr="PHI",
+        away_abbr="NYM",
+        state="preview",
+        start_time=datetime(2026, 5, 26, 23, 10, tzinfo=UTC),
+    )
+    msg = MLBScoreboardMessage(game=game, team_abbr="PHI")
+    _, cursor = msg.draw(canvas)
+    assert cursor == 128

@@ -146,3 +146,51 @@ In `--strict` mode, any `path` field on a `gif` or `image` widget must point to 
 ```
 
 Run `validate` without `--strict` during local drafting; switch to `--strict` on the Pi or in CI once all assets are in place.
+
+### Rule 42 — `bulb_size` must be a positive integer
+
+The `bulb_size` field on a `lightbulbs` border must be a positive integer (or omitted to use the panel-size auto-default).
+
+**Fix:** Set `bulb_size = 3` (typical bigsign value) or omit the field.
+
+### Rule 43 — `bulb_size` exceeds panel-height ceiling
+
+A `lightbulbs` border with `bulb_size > panel_height // 2` would have its top-edge and bottom-edge bulbs overlap. Catches: `bulb_size = 9` on a smallsign-class 16-row panel (max=8).
+
+**Fix:** Reduce `bulb_size` to ≤ `panel_height // 2`, or omit it to use the auto-default (3 on big panels, 1 on small).
+
+### Rule 44 — `mode` must be `chase`, `alternate`, or `unison`
+
+Typo in the `mode` field, or a mode that doesn't exist yet.
+
+**Fix:** Set `mode` to one of `chase`, `alternate`, or `unison`.
+
+### Rule 45 — `direction` must be `cw` or `ccw`
+
+The `direction` field on a chase-mode lightbulbs border must be one of those two values.
+
+**Fix:** Set `direction = "cw"` (clockwise) or `direction = "ccw"` (counter-clockwise).
+
+### Rule 46 — `chase_density` must be an integer ≥ 1
+
+`chase_density = N` means "1 in N bulbs is lit". Values less than 1 are nonsensical.
+
+**Fix:** Set `chase_density` to 1 (every bulb lit), 2 (every other), 3 (every third — classic marquee), etc.
+
+### Rule 47 — `gap` must be ≥ 0
+
+Negative gaps would cause bulbs to overlap, producing an undefined visual.
+
+**Fix:** Set `gap = 0` (bulbs touching) or a positive integer.
+
+### Rule 48 — `chase_density` ignored outside chase mode (warning)
+
+`chase_density` only affects the chase animation. Setting it on `mode = "alternate"` or `mode = "unison"` is silently ignored.
+
+**Fix:** Either remove `chase_density`, or change `mode` to `chase`.
+
+### Rule 49 — `direction` ignored outside chase mode (warning)
+
+`direction` only affects the chase animation.
+
+**Fix:** Either remove `direction`, or change `mode` to `chase`.

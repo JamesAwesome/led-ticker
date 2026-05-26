@@ -8,6 +8,8 @@ from led_ticker._compat import RGBMatrix, RGBMatrixOptions
 from led_ticker._types import Canvas
 from led_ticker._types import RGBMatrix as RGBMatrixType
 
+_ENGINE_FPS: int = 20  # must stay in sync with ENGINE_TICK_MS = 50 in ticker.py
+
 
 @attrs.define
 class LedFrame:
@@ -37,6 +39,7 @@ class LedFrame:
     # SwapOnVSync timing more predictable relative to the scan cycle on
     # long chains where the uncapped rate causes visible motion artifacts.
     led_limit_refresh_rate_hz: int = 0
+    _framerate_fraction: int = attrs.field(init=False)
     matrix: RGBMatrixType = attrs.field(init=False)
 
     def __attrs_post_init__(self) -> None:
@@ -76,9 +79,24 @@ class LedFrame:
             options.limit_refresh_rate_hz = self.led_limit_refresh_rate_hz
 
         self.matrix = RGBMatrix(options=options)
+        self._framerate_fraction = (
+            max(1, round(self.led_limit_refresh_rate_hz / _ENGINE_FPS))
+            if self.led_limit_refresh_rate_hz
+            else 1
+        )
 
     def get_clean_canvas(self) -> Canvas:
         """Get a clean canvas ready for rendering."""
         canvas = self.matrix.CreateFrameCanvas()
         canvas.Clear()
         return canvas
+
+    def swap(self, canvas: Canvas) -> Canvas:
+        """Swap the back-buffer to the display.
+
+        Single centralized swap point. The framerate_fraction argument
+        makes SwapOnVSync land at a fixed position in the hardware scan
+        cycle, eliminating the scan-seam tearing visible on long chains.
+        Future overlay_hooks will iterate here before the swap.
+        """
+        return self.matrix.SwapOnVSync(canvas, self._framerate_fraction)

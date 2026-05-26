@@ -306,7 +306,7 @@ class TestWrapRendersMultipleCopies:
             text_align="scroll_over",
             text_separator=" * ",
             scroll_speed_ms=50,
-            hold_seconds=0.5,
+            hold_time=0.5,
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
@@ -373,7 +373,7 @@ class TestWrapRendersMultipleCopies:
             text_separator=" * ",
             scroll_direction="right",
             scroll_speed_ms=50,
-            hold_seconds=0.5,
+            hold_time=0.5,
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
@@ -442,7 +442,7 @@ class TestWrapScrollUnderImage:
             text_align="scroll",
             text_separator=" * ",
             scroll_speed_ms=50,
-            hold_seconds=0.5,
+            hold_time=0.5,
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
@@ -481,7 +481,7 @@ class TestTextLoopsTraversalFloor:
     async def test_wrap_short_duration_floors_to_one_cycle(
         self, tmp_path, mocker, bigsign_canvas
     ):
-        """`hold_seconds=0.5` would naturally run only 10 ticks (50ms
+        """`hold_time=0.5` would naturally run only 10 ticks (50ms
         cadence). With `text_wrap=True`, the floor must push `n_ticks`
         up to at least one `cycle_width`."""
         path = _make_png(tmp_path, color=(0, 0, 0))
@@ -493,7 +493,7 @@ class TestTextLoopsTraversalFloor:
             text_align="scroll_over",
             text_separator=" * ",
             scroll_speed_ms=50,
-            hold_seconds=0.5,  # 10 ticks naturally
+            hold_time=0.5,  # 10 ticks naturally
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
@@ -530,7 +530,7 @@ class TestTextLoopsTraversalFloor:
                 text_separator=" * ",
                 text_loops=loops,
                 scroll_speed_ms=50,
-                hold_seconds=0.5,
+                hold_time=0.5,
             )
             real = bigsign_canvas
             frame = mocker.MagicMock()
@@ -574,7 +574,7 @@ class TestSeparatorColorInheritance:
             text_separator=" * ",
             font_color=graphics.Color(255, 0, 0),  # red
             scroll_speed_ms=50,
-            hold_seconds=0.1,
+            hold_time=0.1,
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
@@ -624,7 +624,7 @@ class TestSeparatorColorInheritance:
             font_color=graphics.Color(255, 0, 0),  # red
             text_separator_color=graphics.Color(0, 0, 255),  # blue
             scroll_speed_ms=50,
-            hold_seconds=0.1,
+            hold_time=0.1,
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
@@ -812,7 +812,7 @@ class TestWrapWithBorder:
             text_separator=" * ",
             border=RainbowChaseBorder(speed=4, char_offset=6, thickness=1),
             scroll_speed_ms=50,
-            hold_seconds=0.3,
+            hold_time=0.3,
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()

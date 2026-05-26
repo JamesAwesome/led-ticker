@@ -295,7 +295,7 @@ class TestImageTwoRowWrapRenders:
             bottom_text_wrap=True,
             bottom_text_separator=" * ",
             scroll_speed_ms=50,
-            hold_seconds=1.0,
+            hold_time=1.0,
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
@@ -358,7 +358,7 @@ class TestImageTwoRowWrapRenders:
             bottom_text_wrap=True,
             bottom_text_separator=" * ",
             scroll_speed_ms=50,
-            hold_seconds=0.5,
+            hold_time=0.5,
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
@@ -405,7 +405,7 @@ class TestBottomSeparatorColorInheritance:
             font_color=graphics.Color(255, 0, 0),  # red — NOT used for separator
             bottom_color=graphics.Color(0, 255, 0),  # green — separator should be this
             scroll_speed_ms=50,
-            hold_seconds=0.2,
+            hold_time=0.2,
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
@@ -453,7 +453,7 @@ class TestBottomSeparatorColorInheritance:
             bottom_color=graphics.Color(0, 255, 0),  # green
             bottom_text_separator_color=graphics.Color(0, 0, 255),  # blue
             scroll_speed_ms=50,
-            hold_seconds=0.2,
+            hold_time=0.2,
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
@@ -499,7 +499,7 @@ class TestImageTwoRowWrapWithBorder:
             bottom_text_separator=" * ",
             border=RainbowChaseBorder(speed=4, char_offset=6, thickness=1),
             scroll_speed_ms=50,
-            hold_seconds=0.2,
+            hold_time=0.2,
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()

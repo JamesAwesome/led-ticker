@@ -3,7 +3,7 @@
 Mirrors test_gif.py's structure: load + decode + draw + paint helpers,
 plus full coverage of the text-overlay variants (left/right/scroll/
 scroll_over), text_valign, scroll_direction, validation, and the
-hold_seconds duration path.
+hold_time duration path.
 """
 
 from __future__ import annotations
@@ -160,8 +160,8 @@ def test_negative_numerics_raise(tmp_path):
         StillImage(path=str(path), text_loops=-1)
     with pytest.raises(ValueError, match="scroll_speed_ms"):
         StillImage(path=str(path), scroll_speed_ms=10)
-    with pytest.raises(ValueError, match="hold_seconds"):
-        StillImage(path=str(path), hold_seconds=-1.0)
+    with pytest.raises(ValueError, match="hold_time"):
+        StillImage(path=str(path), hold_time=-1.0)
 
 
 def test_text_loops_with_static_text_raises(tmp_path):
@@ -191,10 +191,10 @@ def test_text_align_auto_resolves_from_image_align(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-async def test_play_no_text_holds_for_hold_seconds(tmp_path, mocker, bigsign_canvas):
-    """Without text: paint once, swap, then sleep for hold_seconds."""
+async def test_play_no_text_holds_for_hold_time(tmp_path, mocker, bigsign_canvas):
+    """Without text: paint once, swap, then sleep for hold_time."""
     path = _make_png(tmp_path, color=(50, 100, 150))
-    widget = StillImage(path=str(path), fit="stretch", hold_seconds=2.0)
+    widget = StillImage(path=str(path), fit="stretch", hold_time=2.0)
     real = bigsign_canvas
     frame = mocker.MagicMock()
     frame.swap.side_effect = lambda c: c
@@ -204,7 +204,7 @@ async def test_play_no_text_holds_for_hold_seconds(tmp_path, mocker, bigsign_can
 
     # One swap (paint + display)
     assert frame.swap.call_count == 1
-    # One sleep call for hold_seconds
+    # One sleep call for hold_time
     sleeps = [c.args[0] for c in sleep_mock.await_args_list]
     assert sleeps == [2.0]
     # Image was painted
@@ -213,7 +213,7 @@ async def test_play_no_text_holds_for_hold_seconds(tmp_path, mocker, bigsign_can
 
 async def test_play_with_text_runs_scroll_loop(tmp_path, mocker, bigsign_canvas):
     """With text scrolling: per-tick loop for at least one full marquee
-    traversal. hold_seconds sets a minimum, but the auto-floor (for
+    traversal. hold_time sets a minimum, but the auto-floor (for
     text_loops=0) ensures the marquee doesn't get truncated mid-pass.
     """
     path = _make_png(tmp_path, color=(0, 0, 0))
@@ -223,7 +223,7 @@ async def test_play_with_text_runs_scroll_loop(tmp_path, mocker, bigsign_canvas)
         text="X",
         text_align="scroll_over",
         scroll_speed_ms=50,
-        hold_seconds=1.0,
+        hold_time=1.0,
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
@@ -243,7 +243,7 @@ async def test_play_with_text_runs_scroll_loop(tmp_path, mocker, bigsign_canvas)
 async def test_play_with_text_text_loops_extends_duration(
     tmp_path, mocker, bigsign_canvas
 ):
-    """text_loops floor extends the section past hold_seconds when needed."""
+    """text_loops floor extends the section past hold_time when needed."""
     path = _make_png(tmp_path, color=(0, 0, 0))
     widget = StillImage(
         path=str(path),
@@ -251,7 +251,7 @@ async def test_play_with_text_text_loops_extends_duration(
         text="X",
         text_align="scroll_over",
         scroll_speed_ms=50,
-        hold_seconds=0.5,  # 10 ticks; would dominate without text_loops
+        hold_time=0.5,  # 10 ticks; would dominate without text_loops
         text_loops=2,
     )
     real = bigsign_canvas
@@ -282,7 +282,7 @@ async def test_scroll_direction_right_advances_positively(
         text="X",
         text_align="scroll_over",
         scroll_speed_ms=50,
-        hold_seconds=0.5,
+        hold_time=0.5,
         scroll_direction="right",
     )
     real = bigsign_canvas
@@ -369,7 +369,7 @@ async def test_text_x_offset_shifts_static_text(
         text="X",  # 6-px wide in stub font
         text_align=align,
         text_x_offset=offset,
-        hold_seconds=0.05,
+        hold_time=0.05,
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
@@ -416,7 +416,7 @@ async def test_top_valign_paints_at_panel_top_when_wrapped(
         text="X",
         text_align="right",
         text_valign="top",
-        hold_seconds=0.05,
+        hold_time=0.05,
     )
     widget._logical_scale = 4  # Simulate bigsign
     real = bigsign_canvas
@@ -455,7 +455,7 @@ async def test_emoji_routes_through_emoji_painter(tmp_path, mocker, bigsign_canv
         text=":sun: hot",
         text_align="right",
         font_color=Color(255, 220, 50),
-        hold_seconds=0.1,
+        hold_time=0.1,
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
@@ -480,7 +480,7 @@ async def test_wrap_uses_scaled_canvas(tmp_path, mocker, bigsign_canvas):
         fit="stretch",
         text="HI",
         text_align="right",
-        hold_seconds=0.1,
+        hold_time=0.1,
     )
     widget._logical_scale = 4  # Simulate bigsign
     real = bigsign_canvas
@@ -514,7 +514,7 @@ async def test_text_canvas_follows_back_buffer(tmp_path, mocker, bigsign_canvas)
         # path is exercised. Static text fast-paths to a single paint.
         text_align="scroll_over",
         scroll_speed_ms=50,
-        hold_seconds=0.15,  # ~3 ticks
+        hold_time=0.15,  # ~3 ticks
     )
     real = bigsign_canvas
 
@@ -609,7 +609,7 @@ async def test_play_no_text_captures_swap_return(tmp_path, mocker, bigsign_canva
     assignment) would surface — the returned canvas wouldn't match
     the latest swap return."""
     path = _make_png(tmp_path, color=(50, 100, 150))
-    widget = StillImage(path=str(path), fit="stretch", hold_seconds=0.05)
+    widget = StillImage(path=str(path), fit="stretch", hold_time=0.05)
     real = bigsign_canvas
 
     swap_returns: list[object] = []
@@ -651,16 +651,16 @@ def test_load_re_decodes_when_panel_size_changes(tmp_path):
     assert widget._pixels is not first
 
 
-async def test_hold_seconds_zero_raises(tmp_path):
-    """hold_seconds < 0.05 (the floor) should raise; semantics of
+async def test_hold_time_zero_raises(tmp_path):
+    """hold_time < 0.05 (the floor) should raise; semantics of
     instant flash are surprising."""
     path = _make_png(tmp_path)
-    with pytest.raises(ValueError, match="hold_seconds"):
-        StillImage(path=str(path), hold_seconds=0.0)
-    with pytest.raises(ValueError, match="hold_seconds"):
-        StillImage(path=str(path), hold_seconds=0.04)
+    with pytest.raises(ValueError, match="hold_time"):
+        StillImage(path=str(path), hold_time=0.0)
+    with pytest.raises(ValueError, match="hold_time"):
+        StillImage(path=str(path), hold_time=0.04)
     # Exactly the floor is fine
-    StillImage(path=str(path), hold_seconds=0.05)
+    StillImage(path=str(path), hold_time=0.05)
 
 
 async def test_scroll_direction_left_initial_position(tmp_path, mocker, bigsign_canvas):
@@ -673,7 +673,7 @@ async def test_scroll_direction_left_initial_position(tmp_path, mocker, bigsign_
         text="X",
         text_align="scroll_over",  # avoid scroll+stretch validator
         scroll_speed_ms=50,
-        hold_seconds=0.15,
+        hold_time=0.15,
         # scroll_direction defaults to "left"
     )
     real = bigsign_canvas
@@ -705,7 +705,7 @@ async def test_scroll_wrap_around_left_direction(tmp_path, mocker, bigsign_canva
         text="X",
         text_align="scroll",
         scroll_speed_ms=50,
-        hold_seconds=0.05,
+        hold_time=0.05,
         text_loops=2,  # forces enough ticks to see a wrap
     )
     real = bigsign_canvas
@@ -741,7 +741,7 @@ async def test_scroll_wrap_around_right_direction(tmp_path, mocker, bigsign_canv
         text_align="scroll",
         scroll_direction="right",
         scroll_speed_ms=50,
-        hold_seconds=0.05,
+        hold_time=0.05,
         text_loops=2,
     )
     real = bigsign_canvas
@@ -794,7 +794,7 @@ async def test_text_x_offset_combined_with_text_y_offset(
         text_valign="top",
         text_x_offset=10,
         text_y_offset=-3,
-        hold_seconds=0.05,
+        hold_time=0.05,
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
@@ -853,7 +853,7 @@ async def test_font_too_large_raises_at_first_paint(tmp_path, mocker, bigsign_ca
         text="HI",
         text_align="scroll_over",
         font_size=72,  # BDF: 72//12=6 scale → 64//6=10 rows < 12
-        hold_seconds=0.05,
+        hold_time=0.05,
     )
     real = bigsign_canvas
     frame = mocker.MagicMock()
@@ -894,7 +894,7 @@ async def test_static_fast_path_captures_swap_return(tmp_path, mocker, bigsign_c
         fit="stretch",
         text="X",
         text_align="left",  # static — triggers fast path
-        hold_seconds=0.1,
+        hold_time=0.1,
     )
     real = bigsign_canvas
 
@@ -932,7 +932,7 @@ async def test_text_canvas_follows_back_buffer_when_wrapped(
         text="X",
         text_align="scroll_over",  # per-tick loop runs
         scroll_speed_ms=50,
-        hold_seconds=0.15,
+        hold_time=0.15,
     )
     widget._logical_scale = 4  # Simulate bigsign
     real = bigsign_canvas
@@ -982,7 +982,7 @@ async def test_text_loops_when_wrapped(tmp_path, mocker, bigsign_canvas):
         text="X",
         text_align="scroll_over",
         scroll_speed_ms=50,
-        hold_seconds=0.05,
+        hold_time=0.05,
         text_loops=2,
     )
     widget._logical_scale = 4  # Simulate bigsign
@@ -1014,7 +1014,7 @@ async def test_wrap_around_fires_at_correct_tick(tmp_path, mocker, bigsign_canva
         text="X",
         text_align="scroll",
         scroll_speed_ms=50,
-        hold_seconds=0.05,
+        hold_time=0.05,
         text_loops=2,
     )
     real = bigsign_canvas
@@ -1064,7 +1064,7 @@ def test_font_too_large_raises_on_various_panels(tmp_path, mocker, panel_h, scal
         text="X",
         text_align="scroll_over",
         font_size=12 * scale,
-        hold_seconds=0.05,
+        hold_time=0.05,
     )
     canvas = _StubCanvas(width=panel_h * 4, height=panel_h)
     frame = mocker.MagicMock()
@@ -1155,7 +1155,7 @@ class TestStillPlayNoTextBorder:
 
         img_path = tmp_path / "x.png"
         Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
-        return StillImage(path=img_path, hold_seconds=0.5)
+        return StillImage(path=img_path, hold_time=0.5)
 
     async def test_no_border_takes_fast_path(self, still, mock_frame, mocker):
         """Single SwapOnVSync, single sleep covering the full hold."""
@@ -1176,7 +1176,7 @@ class TestStillPlayNoTextBorder:
         assert sleep_mock.call_count == 1
 
     async def test_animated_border_runs_per_tick_loop(self, still, mock_frame, mocker):
-        """RainbowChaseBorder(speed=4) → per-tick loop for hold_seconds=0.5.
+        """RainbowChaseBorder(speed=4) → per-tick loop for hold_time=0.5.
         Border.paint fires per tick with increasing frame_count."""
         from led_ticker.borders import RainbowChaseBorder
         from led_ticker.ticker import ENGINE_TICK_MS
@@ -1214,7 +1214,7 @@ class TestStillPlayNoTextBorderPerEffectCounter:
 
         img_path = tmp_path / "x.png"
         Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
-        return StillImage(path=img_path, hold_seconds=0.1)
+        return StillImage(path=img_path, hold_time=0.1)
 
     async def test_animated_border_reads_per_effect_counter(
         self, still, mock_frame, mocker

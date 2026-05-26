@@ -673,8 +673,7 @@ class MLBScoreboardMessage(_FrameAware):
             _draw_small(b1, cr_start + center_half - b1_w, small_bottom, b1_c)
 
         elif game.state == "final":
-            _draw_small("F", cl_start, small_top, RGB_WHITE)
-            _draw_small("FINAL", cl_start, small_bottom, make_color(180, 180, 180))
+            _draw_small("FINAL", cl_start, small_top, make_color(180, 180, 180))
 
         elif game.state == "preview":
             _tz = self.tz or ZoneInfo("UTC")

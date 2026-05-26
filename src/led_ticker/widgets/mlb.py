@@ -155,6 +155,9 @@ class GameInfo:
     postpone_reason: str = ""
     # For state="postponed": short tag like "PPD", "SUSP", "CANC"
     postpone_tag: str = "PPD"
+    # ABS challenge counts (None = system not in effect / data unavailable)
+    home_challenges: int | None = None
+    away_challenges: int | None = None
 
 
 @dataclass
@@ -487,6 +490,7 @@ class MLBScoreMonitor:
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     font_color: Color | ColorProvider | None = attrs.field(default=None, kw_only=True)
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+    layout: str = attrs.field(default="ticker", kw_only=True)
     _team_id: int = attrs.field(init=False, default=0)
     _tz: ZoneInfo | None = attrs.field(init=False, default=None)
     _has_live_game: bool = attrs.field(init=False, default=False)

@@ -2921,3 +2921,217 @@ gif_loops = 2
     patched = config_file.read_text()
     assert "play_count" in patched
     assert "gif_loops" not in patched
+
+
+# ---------------------------------------------------------------------------
+# Rules 42-49: lightbulbs border style value-range checks
+# ---------------------------------------------------------------------------
+
+
+class TestRule42BulbSizeNonPositive:
+    async def test_zero_raises(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", bulb_size = 0}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 42 for i in result.errors
+        ), f"expected rule 42; got errors={errs}"
+
+    async def test_negative_raises(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", bulb_size = -3}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 42 for i in result.errors
+        ), f"expected rule 42; got errors={errs}"
+
+
+class TestRule43BulbSizeTooLarge:
+    async def test_too_large_for_panel(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+chain = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", bulb_size = 9}
+""")
+        result = await validate_config(cfg)
+        # max allowed = 16 // 2 = 8; 9 > 8 → rule 43
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 43 and "9" in i.message for i in result.errors
+        ), f"expected rule 43 with '9'; got errors={errs}"
+
+
+class TestRule44UnknownMode:
+    async def test_unknown_mode(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 64
+cols = 128
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", mode = "sparkle"}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 44 for i in result.errors
+        ), f"expected rule 44; got errors={errs}"
+
+
+class TestRule45BadDirection:
+    async def test_bad_direction(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 64
+cols = 128
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", mode = "chase", direction = "diag"}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 45 for i in result.errors
+        ), f"expected rule 45; got errors={errs}"
+
+
+class TestRule46BadChaseDensity:
+    async def test_chase_density_zero(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 64
+cols = 128
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", mode = "chase", chase_density = 0}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 46 for i in result.errors
+        ), f"expected rule 46; got errors={errs}"
+
+
+class TestRule47NegativeGap:
+    async def test_negative_gap(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 64
+cols = 128
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", gap = -1}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 47 for i in result.errors
+        ), f"expected rule 47; got errors={errs}"
+
+
+class TestRule48ChaseDensityOnNonChase:
+    async def test_warning_on_non_chase(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 64
+cols = 128
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", mode = "unison", chase_density = 5}
+""")
+        result = await validate_config(cfg)
+        warns = [(w.rule, w.message) for w in result.warnings]
+        assert any(
+            i.rule == 48 for i in result.warnings
+        ), f"expected rule 48 warning; got warnings={warns}"
+
+
+class TestRule49DirectionOnNonChase:
+    async def test_warning_on_non_chase(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 64
+cols = 128
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", mode = "alternate", direction = "ccw"}
+""")
+        result = await validate_config(cfg)
+        warns = [(w.rule, w.message) for w in result.warnings]
+        assert any(
+            i.rule == 49 for i in result.warnings
+        ), f"expected rule 49 warning; got warnings={warns}"

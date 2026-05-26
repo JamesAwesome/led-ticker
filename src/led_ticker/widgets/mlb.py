@@ -124,9 +124,28 @@ MLB_TEAM_NAMES: dict[str, str] = {
 MLB_NAME_TO_ABBR: dict[str, str] = {v: k for k, v in MLB_TEAM_NAMES.items()}
 
 
+def _lift_color(r: int, g: int, b: int, min_max: int = 120) -> tuple[int, int, int]:
+    """Scale dark colors proportionally so the brightest channel >= min_max.
+
+    Preserves hue and saturation; teams already above the threshold are unchanged.
+    At display brightness=60, min_max=120 ensures the peak channel renders at ~72
+    on the physical panel — clearly legible against a black background.
+    """
+    peak = max(r, g, b)
+    if peak == 0 or peak >= min_max:
+        return r, g, b
+    scale = min_max / peak
+    return (
+        min(255, round(r * scale)),
+        min(255, round(g * scale)),
+        min(255, round(b * scale)),
+    )
+
+
 def _team_color(abbr: str) -> Color:
     """Get graphics.Color for a team abbreviation."""
     r, g, b = MLB_TEAM_COLORS.get(abbr, (255, 255, 255))
+    r, g, b = _lift_color(r, g, b)
     return make_color(r, g, b)
 
 
@@ -134,6 +153,7 @@ def _team_color_by_name(name: str) -> Color:
     """Get graphics.Color for an API team name (e.g. 'Mets')."""
     abbr = MLB_NAME_TO_ABBR.get(name, "")
     r, g, b = MLB_TEAM_COLORS.get(abbr, (255, 255, 255))
+    r, g, b = _lift_color(r, g, b)
     return make_color(r, g, b)
 
 

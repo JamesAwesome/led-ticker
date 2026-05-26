@@ -440,6 +440,14 @@ def _phi_nym_schedule(state: str = "live") -> dict:
     }
 
 
+def test_scoreboard_draw_off_day():
+    canvas = _stub_canvas()
+    game = GameInfo(home_abbr="PHI", away_abbr="", state="off_day")
+    msg = MLBScoreboardMessage(game=game, team_abbr="PHI")
+    _, cursor = msg.draw(canvas)
+    assert cursor == 128
+
+
 @pytest.mark.asyncio
 async def test_layout_scoreboard_builds_scoreboard_messages():
     monitor = await _run_update_with_schedule("scoreboard", _phi_nym_schedule())

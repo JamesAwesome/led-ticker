@@ -689,6 +689,10 @@ class MLBScoreboardMessage(_FrameAware):
             if game.postpone_reason:
                 _draw_small(game.postpone_reason[:6], cl_start, small_bottom, tag_c)
 
+        elif game.state == "off_day":
+            off_c = make_color(120, 120, 120)  # grey
+            _draw_small("–", cl_start, small_top, off_c)
+
         return canvas, cursor_pos + canvas.width
 
 

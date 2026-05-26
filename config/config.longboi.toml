@@ -25,18 +25,13 @@ panel_type = "FM6126A"
 # Muen P2 panels wire HUB75 G-pin → Red LED, R-pin → Blue LED, B-pin → Green LED.
 led_rgb_sequence = "BRG"
 
-# Pi 5 RP1 backend.
-# rp1_rio = 0 uses PIO/DMA mode — SwapOnVSync aligns reliably to the scan-cycle
-# seam, preventing the top/bottom lag visible during motion with RIO mode.
-# rp1_rio = 1 (RIO) is faster but its vsync-wait doesn't land consistently on
-# the seam for a 512-column chain, causing both top and bottom rows to appear
-# one frame behind during transitions.
-# row_addr_type = 0 (default) — do not set row_addr_type = 1 with either mode.
+# Pi 5 RP1 RIO backend (faster refresh, slightly more CPU than PIO).
+# rp1_rio = 1 requires row_addr_type = 0 (default) — do not set row_addr_type = 1.
 # Raise slowdown_gpio to 4–5 if flicker appears.
 slowdown_gpio = 3
-rp1_rio = 0
+rp1_rio = 1
 pwm_bits = 8     # 8-bit PWM: faster refresh, slightly less color depth than default 11
-show_refresh = true        # log measured refresh Hz to stderr
+show_refresh = true
 
 [title]
 delay = 5

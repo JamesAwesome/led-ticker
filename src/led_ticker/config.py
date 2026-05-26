@@ -27,6 +27,7 @@ class DisplayConfig:
     show_refresh: bool = False  # log measured refresh rate to stderr
     no_hardware_pulse: bool = False  # disable hw PWM (rare; uses CPU instead)
     rp1_rio: int = 0  # Pi 5 only: 0 = PIO (low CPU), 1 = RIO (faster, more CPU)
+    limit_refresh_rate_hz: int = 0  # cap hardware refresh rate (0 = unlimited)
     # Panel scan / wiring — tune if the bottom half renders inverted or garbled.
     # multiplexing: 0=direct 1=Stripe 2=Checker 3=Spiral 4=ZStripe 5=ZnMirrorZStripe
     # row_addr_type: 0=direct 1=AB-addr 2=direct-shifted 3=ABC-shifted
@@ -177,6 +178,7 @@ _DISPLAY_INT_FIELDS: frozenset[str] = frozenset(
         "pwm_bits",
         "pwm_lsb_nanoseconds",
         "rp1_rio",
+        "limit_refresh_rate_hz",
     }
 )
 

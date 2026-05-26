@@ -33,6 +33,10 @@ class LedFrame:
     # Pi 5 (kingdo9 fork) only: 0 = PIO mode (low CPU), 1 = RP1 RIO mode
     # (higher CPU, higher refresh). Ignored on Pi 4 builds.
     led_rp1_rio: int = 0
+    # Cap hardware refresh rate in Hz (0 = unlimited). Useful for making
+    # SwapOnVSync timing more predictable relative to the scan cycle on
+    # long chains where the uncapped rate causes visible motion artifacts.
+    led_limit_refresh_rate_hz: int = 0
     matrix: RGBMatrixType = attrs.field(init=False)
 
     def __attrs_post_init__(self) -> None:
@@ -67,6 +71,9 @@ class LedFrame:
         # builds where the Python binding doesn't have it.
         if self.led_rp1_rio and hasattr(options, "rp1_rio"):
             options.rp1_rio = self.led_rp1_rio
+
+        if self.led_limit_refresh_rate_hz and hasattr(options, "limit_refresh_rate_hz"):
+            options.limit_refresh_rate_hz = self.led_limit_refresh_rate_hz
 
         self.matrix = RGBMatrix(options=options)
 

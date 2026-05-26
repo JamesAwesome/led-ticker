@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import attrs
+import pytest
 
 from led_ticker.widgets.mlb import GameInfo, MLBScoreboardMessage, MLBScoreMonitor
 
@@ -384,3 +385,74 @@ def test_scoreboard_abs_pips_clamped_to_two():
     msg = MLBScoreboardMessage(game=game, team_abbr="PHI")
     _, cursor = msg.draw(canvas)
     assert cursor == 128
+
+
+async def _run_update_with_schedule(layout: str, schedule: dict):
+    """Helper: build a monitor, inject a schedule response, run update()."""
+    import unittest.mock as mock
+    from zoneinfo import ZoneInfo
+
+    session = mock.MagicMock()
+    monitor = MLBScoreMonitor(session=session, team="PHI", layout=layout)
+    monitor._team_id = 143  # PHI's real ID — skip team resolution
+    monitor._tz = ZoneInfo("America/New_York")
+
+    resp = mock.AsyncMock()
+    resp.json = mock.AsyncMock(return_value=schedule)
+    session.get.return_value.__aenter__ = mock.AsyncMock(return_value=resp)
+    session.get.return_value.__aexit__ = mock.AsyncMock(return_value=False)
+
+    await monitor.update()
+    return monitor
+
+
+def _phi_nym_schedule(state: str = "live") -> dict:
+    return {
+        "dates": [
+            {
+                "games": [
+                    {
+                        "gamePk": 1,
+                        "gameDate": "2026-05-26T23:10:00Z",
+                        "gameType": "R",
+                        "status": {
+                            "abstractGameState": "Live" if state == "live" else "Final",
+                            "detailedState": "In Progress"
+                            if state == "live"
+                            else "Final",
+                        },
+                        "teams": {
+                            "home": {"team": {"abbreviation": "PHI"}, "score": 5},
+                            "away": {"team": {"abbreviation": "NYM"}, "score": 3},
+                        },
+                        "linescore": {
+                            "currentInning": 7,
+                            "inningHalf": "top",
+                            "balls": 1,
+                            "strikes": 2,
+                            "outs": 1,
+                            "offense": {},
+                        },
+                    }
+                ]
+            }
+        ]
+    }
+
+
+@pytest.mark.asyncio
+async def test_layout_scoreboard_builds_scoreboard_messages():
+    monitor = await _run_update_with_schedule("scoreboard", _phi_nym_schedule())
+    game_stories = [
+        s for s in monitor.feed_stories if isinstance(s, MLBScoreboardMessage)
+    ]
+    assert len(game_stories) >= 1
+
+
+@pytest.mark.asyncio
+async def test_layout_ticker_builds_game_messages():
+    from led_ticker.widgets.mlb import MLBGameMessage
+
+    monitor = await _run_update_with_schedule("ticker", _phi_nym_schedule())
+    game_stories = [s for s in monitor.feed_stories if isinstance(s, MLBGameMessage)]
+    assert len(game_stories) >= 1

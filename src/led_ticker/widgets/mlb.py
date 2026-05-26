@@ -37,6 +37,8 @@ _team_palette = lazy_palette(
         "WIN_COLOR": (46, 200, 46),
         "LOSS_COLOR": (220, 30, 30),
         "LIVE_COLOR": (255, 40, 40),
+        "CHALLENGE_COLOR": (255, 180, 0),  # amber — remaining ABS challenge pip
+        "CHALLENGE_USED": (60, 40, 0),  # dim amber — used ABS challenge pip
     }
 )
 
@@ -478,8 +480,25 @@ def _build_game_message(
     )
 
 
-_CHALLENGE_COLOR: Color = make_color(255, 180, 0)  # amber
-_CHALLENGE_USED: Color = make_color(60, 40, 0)  # dim amber
+def _build_scoreboard_message(
+    game: GameInfo,
+    team_abbr: str,
+    tz: ZoneInfo,
+    bg_color: Color | None = None,
+    font: Font | None = None,
+    font_color: Color | ColorProvider | None = None,
+) -> MLBScoreboardMessage:
+    """Build a scoreboard-layout message for a single game."""
+    from led_ticker.fonts import FONT_DEFAULT as _FONT_DEFAULT
+
+    return MLBScoreboardMessage(
+        game=game,
+        team_abbr=team_abbr,
+        tz=tz,
+        bg_color=bg_color,
+        font=font if font is not None else _FONT_DEFAULT,
+        font_color=font_color,
+    )
 
 
 @attrs.define
@@ -575,7 +594,11 @@ class MLBScoreboardMessage(_FrameAware):
             pip_x = abbr_center + abbr_w + 1
             pip_w = measure_width(FONT_SMALL, "●", canvas)
             for i in range(2):
-                color = _CHALLENGE_COLOR if i < n else _CHALLENGE_USED
+                color = (
+                    _team_palette("CHALLENGE_COLOR")
+                    if i < n
+                    else _team_palette("CHALLENGE_USED")
+                )
                 draw_with_emoji(
                     canvas,
                     FONT_SMALL,
@@ -686,11 +709,11 @@ class MLBScoreMonitor:
     _team_id: int = attrs.field(init=False, default=0)
     _tz: ZoneInfo | None = attrs.field(init=False, default=None)
     _has_live_game: bool = attrs.field(init=False, default=False)
-    feed_title: TickerMessage | MLBGameMessage | None = attrs.field(
-        init=False, default=None
+    feed_title: TickerMessage | MLBGameMessage | MLBScoreboardMessage | None = (
+        attrs.field(init=False, default=None)
     )
-    feed_stories: list[TickerMessage | MLBGameMessage] = attrs.field(
-        init=False, factory=list
+    feed_stories: list[TickerMessage | MLBGameMessage | MLBScoreboardMessage] = (
+        attrs.field(init=False, factory=list)
     )
 
     @classmethod
@@ -851,9 +874,16 @@ class MLBScoreMonitor:
             font_color=self.font_color,
         )
         self.feed_title = series_title
-        stories: list[TickerMessage | MLBGameMessage] = [series_title]
+        _build_msg = (
+            _build_scoreboard_message
+            if self.layout == "scoreboard"
+            else _build_game_message
+        )
+        stories: list[TickerMessage | MLBGameMessage | MLBScoreboardMessage] = [
+            series_title
+        ]
         stories.extend(
-            _build_game_message(
+            _build_msg(
                 g,
                 self.team,
                 tz,

@@ -614,6 +614,7 @@ class MLBScoreboardMessage(_FrameAware):
             b1_c = occupied_c if game.on_first else empty_c
 
             char_w = measure_width(FONT_SMALL, b2, canvas)
+            b1_w = measure_width(FONT_SMALL, b1, canvas)
             cr_center = cr_start + center_half // 2
 
             # Row 0: 2B centered
@@ -621,7 +622,7 @@ class MLBScoreboardMessage(_FrameAware):
 
             # Row 1: 3B left, 1B right
             _draw_small(b3, cr_start, small_bottom, b3_c)
-            _draw_small(b1, cr_start + center_half - char_w, small_bottom, b1_c)
+            _draw_small(b1, cr_start + center_half - b1_w, small_bottom, b1_c)
 
         elif game.state == "final":
             _draw_small("F", cl_start, small_top, RGB_WHITE)

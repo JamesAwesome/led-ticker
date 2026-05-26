@@ -1431,6 +1431,93 @@ class TestCoerceBorder:
         assert b.thickness == 1
 
 
+class TestCoerceLightbulbsShorthand:
+    def test_string_shorthand(self):
+        """border = "lightbulbs" → LightbulbBorder with defaults."""
+        from led_ticker.app import _coerce_border
+        from led_ticker.borders import LightbulbBorder
+
+        result = _coerce_border("lightbulbs")
+        assert isinstance(result, LightbulbBorder)
+        assert result.mode == "chase"
+        assert result._bulb_size_override is None
+        assert result.gap == 3
+
+
+class TestCoerceLightbulbsTable:
+    def test_minimal_table(self):
+        """border = {style="lightbulbs"} → LightbulbBorder with defaults."""
+        from led_ticker.app import _coerce_border
+        from led_ticker.borders import LightbulbBorder
+
+        result = _coerce_border({"style": "lightbulbs"})
+        assert isinstance(result, LightbulbBorder)
+        assert result.mode == "chase"
+
+    def test_full_table(self):
+        """All knobs round-trip through coercion."""
+        from led_ticker.app import _coerce_border
+        from led_ticker.borders import LightbulbBorder
+
+        result = _coerce_border(
+            {
+                "style": "lightbulbs",
+                "mode": "alternate",
+                "bulb_size": 2,
+                "gap": 4,
+                "lit_color": [200, 100, 50],
+                "unlit_color": [10, 5, 0],
+                "speed_frames": 6,
+                "chase_density": 2,
+                "direction": "ccw",
+            }
+        )
+        assert isinstance(result, LightbulbBorder)
+        assert result.mode == "alternate"
+        assert result._bulb_size_override == 2
+        assert result.gap == 4
+        assert result.lit_color == (200, 100, 50)
+        assert result.unlit_color == (10, 5, 0)
+        assert result.speed_frames == 6
+        assert result.chase_density == 2
+        assert result.direction == "ccw"
+
+    def test_rejects_unknown_key(self):
+        from led_ticker.app import _coerce_border
+
+        with pytest.raises(ValueError, match="unknown keys"):
+            _coerce_border(
+                {
+                    "style": "lightbulbs",
+                    "mode": "chase",
+                    "wattage": 60,  # not a real field
+                }
+            )
+
+    def test_rgb_validation_lit_color(self):
+        """lit_color = [r,g,b] must pass _validate_rgb."""
+        from led_ticker.app import _coerce_border
+
+        with pytest.raises(ValueError):
+            _coerce_border(
+                {
+                    "style": "lightbulbs",
+                    "lit_color": [300, 0, 0],  # > 255
+                }
+            )
+
+    def test_rgb_validation_unlit_color(self):
+        from led_ticker.app import _coerce_border
+
+        with pytest.raises(ValueError):
+            _coerce_border(
+                {
+                    "style": "lightbulbs",
+                    "unlit_color": [-1, 0, 0],
+                }
+            )
+
+
 class TestBuildWidgetWithBorder:
     """Integration: TickerMessage with `border = "rainbow"` builds
     cleanly. Border on non-message widget types is rejected loudly

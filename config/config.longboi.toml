@@ -31,8 +31,6 @@ led_rgb_sequence = "BRG"
 slowdown_gpio = 3
 rp1_rio = 1
 pwm_bits = 8     # 8-bit PWM: faster refresh, slightly less color depth than default 11
-limit_refresh_rate_hz = 100  # cap scan rate so SwapOnVSync lands at a predictable phase; tune if lag persists
-show_refresh = true          # log measured refresh Hz to stderr
 
 [title]
 delay = 5

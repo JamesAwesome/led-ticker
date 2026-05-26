@@ -4,9 +4,10 @@
 # Driven by a Raspberry Pi 5 through an Adafruit RGB Matrix Bonnet (3211).
 # No pixel_mapper needed — single horizontal chain, left-to-right.
 #
-# Each P2 panel is internally 2×64×32 (scan-row split), so the driver sees
-# 8× 64×64 panels instead of 4× 128×64. cols=64 + chain=8 matches that
-# internal wiring and eliminates the mirrored bottom-half artifact.
+# These panels use 1/32 scan with an FM6126A (or compatible) driver IC.
+# panel_type = "FM6126A" sends the required initialization sequence at startup;
+# without it the driver powers up in a bad state and the bottom half of each
+# panel renders mirrored or garbled.
 #
 # default_scale = 4 means all widgets draw at a logical 128×16 canvas and the
 # ScaledCanvas wrapper expands every pixel to a 4×4 real block on the 64-tall
@@ -15,20 +16,21 @@
 
 [display]
 rows = 64
-cols = 64
-chain = 8
+cols = 128
+chain = 4
 brightness = 60
 default_scale = 4
 gpio_mapping = "adafruit-hat"
+panel_type = "FM6126A"
+# Muen P2 panels wire HUB75 G-pin → Red LED, R-pin → Blue LED, B-pin → Green LED.
+led_rgb_sequence = "BRG"
 
-# Pi 5 RP1 GPIO tuning — start with rp1_rio = 0 (PIO mode) and switch to
-# rp1_rio = 1 (RIO / Registered IO, faster refresh) once stable on hardware.
-# Raise slowdown_gpio to 4–5 if flicker persists.
+# Pi 5 RP1 RIO backend (faster refresh, slightly more CPU than PIO).
+# rp1_rio = 1 requires row_addr_type = 0 (default) — do not set row_addr_type = 1.
+# Raise slowdown_gpio to 4–5 if flicker appears.
 slowdown_gpio = 3
 rp1_rio = 1
-pwm_bits = 8
-show_refresh = true        # log measured Hz to stderr; remove once stable
-multiplexing = 1           # try 1–5 if bottom half is inverted/garbled; 0 = direct (default)
+pwm_bits = 8     # 8-bit PWM: faster refresh, slightly less color depth than default 11
 
 [title]
 delay = 5

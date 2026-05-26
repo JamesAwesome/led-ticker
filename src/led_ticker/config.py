@@ -27,6 +27,16 @@ class DisplayConfig:
     show_refresh: bool = False  # log measured refresh rate to stderr
     no_hardware_pulse: bool = False  # disable hw PWM (rare; uses CPU instead)
     rp1_rio: int = 0  # Pi 5 only: 0 = PIO (low CPU), 1 = RIO (faster, more CPU)
+    # Panel scan / wiring — tune if the bottom half renders inverted or garbled.
+    # multiplexing: 0=direct 1=Stripe 2=Checker 3=Spiral 4=ZStripe 5=ZnMirrorZStripe
+    # row_addr_type: 0=direct 1=AB-addr 2=direct-shifted 3=ABC-shifted
+    multiplexing: int = 0
+    row_addr_type: int = 0
+    # Driver IC init — set to "FM6126A" or "FM6127" for panels that use those
+    # chips (common on cheap P2/P3 AliExpress panels). Without it, FM6126A panels
+    # power up in a bad state and show the bottom half mirrored or garbled.
+    panel_type: str = ""
+    led_rgb_sequence: str = "RGB"
 
 
 @dataclass

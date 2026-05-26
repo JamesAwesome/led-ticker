@@ -198,3 +198,48 @@ def test_scoreboard_advance_frame_accepts_visit_id():
     msg.advance_frame(visit_id=42)
     msg.advance_frame(visit_id=42)
     assert msg._frame_count == 2
+
+
+# ---------------------------------------------------------------------------
+# Task 4: Team column rendering
+# ---------------------------------------------------------------------------
+
+
+def test_scoreboard_draws_pixels_for_team_names():
+    """draw() must paint at least one pixel — smoke test that rendering occurs."""
+    canvas = _stub_canvas()
+    msg = MLBScoreboardMessage(game=_live_game(), team_abbr="PHI")
+    msg.draw(canvas)
+    assert len(canvas._pixels) > 0
+
+
+def test_scoreboard_live_score_pixels_exist():
+    """Score digits must produce pixels in the bottom half of the canvas."""
+    canvas = _stub_canvas()
+    game = GameInfo(
+        home_abbr="PHI",
+        away_abbr="NYM",
+        state="live",
+        home_score=5,
+        away_score=3,
+        inning="▲7",
+        outs=1,
+        balls=1,
+        strikes=1,
+    )
+    msg = MLBScoreboardMessage(game=game, team_abbr="PHI")
+    msg.draw(canvas)
+    bottom_half_pixels = {(x, y): c for (x, y), c in canvas._pixels.items() if y >= 8}
+    assert len(bottom_half_pixels) > 0
+
+
+def test_scoreboard_final_win_loss_colors():
+    """Final state renders without errors (uses win/loss palette)."""
+    canvas = _stub_canvas()
+    game = GameInfo(
+        home_abbr="PHI", away_abbr="NYM", state="final", home_score=5, away_score=3
+    )  # PHI wins (home)
+    msg = MLBScoreboardMessage(game=game, team_abbr="PHI")
+    msg.draw(canvas)
+    # Just assert no exception and some pixels rendered
+    assert len(canvas._pixels) > 0

@@ -505,6 +505,63 @@ class MLBScoreboardMessage(_FrameAware):
         y_offset: int = 0,
         font_color: Any = None,
     ) -> DrawResult:
+        from led_ticker.drawing import compute_baseline_for_band, safe_scale
+        from led_ticker.pixel_emoji import draw_with_emoji, measure_width
+
+        scale = safe_scale(canvas)
+        half_h = canvas.height // 2  # logical rows per band (8 on 128×16 canvas)
+
+        # Zone widths (logical pixels)
+        left_w = canvas.width * 30 // 100
+        right_w = canvas.width * 30 // 100
+        right_start = canvas.width - right_w
+
+        # Baselines: top half (team names), bottom half (scores)
+        top_baseline = compute_baseline_for_band(
+            self.font, half_h, scale, valign="center"
+        )
+        bottom_baseline = half_h + compute_baseline_for_band(
+            self.font, half_h, scale, valign="center"
+        )
+
+        game = self.game
+
+        # Determine colors
+        away_c = _team_color(game.away_abbr)
+        home_c = _team_color(game.home_abbr)
+
+        if game.state == "final":
+            away_won = (game.away_score or 0) > (game.home_score or 0)
+            win_c = _team_palette("WIN_COLOR")
+            loss_c = _team_palette("LOSS_COLOR")
+            away_score_c = win_c if away_won else loss_c
+            home_score_c = loss_c if away_won else win_c
+        else:
+            away_score_c = RGB_WHITE
+            home_score_c = RGB_WHITE
+
+        def _draw_centered(
+            text: str, zone_start: int, zone_w: int, y: int, color: Color
+        ) -> None:
+            w = measure_width(self.font, text, canvas)
+            x = zone_start + max(0, (zone_w - w) // 2)
+            draw_with_emoji(canvas, self.font, x, y + y_offset, color, text)
+
+        away_abbr = game.away_abbr
+        home_abbr = game.home_abbr
+
+        # Away team (left column)
+        _draw_centered(away_abbr, 0, left_w, top_baseline, away_c)
+        away_score_str = str(game.away_score) if game.away_score is not None else "–"
+        _draw_centered(away_score_str, 0, left_w, bottom_baseline, away_score_c)
+
+        # Home team (right column)
+        _draw_centered(home_abbr, right_start, right_w, top_baseline, home_c)
+        home_score_str = str(game.home_score) if game.home_score is not None else "–"
+        _draw_centered(
+            home_score_str, right_start, right_w, bottom_baseline, home_score_c
+        )
+
         return canvas, cursor_pos + canvas.width
 
 

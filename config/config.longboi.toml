@@ -35,7 +35,9 @@ led_rgb_sequence = "BRG"
 # Raise slowdown_gpio to 4–5 if flicker appears.
 slowdown_gpio = 3
 rp1_rio = 0
-pwm_bits = 8     # 8-bit PWM: faster refresh, slightly less color depth than default 11
+pwm_bits = 6     # 6-bit PWM: PIO mode has lower throughput than RIO; dropping to 6 bits
+                 # runs 4× more scan cycles/sec than 8-bit, keeping flicker above the
+                 # visible threshold. 64 brightness levels is sufficient for text.
 show_refresh = true        # log measured refresh Hz to stderr
 
 [title]

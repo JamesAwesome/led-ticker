@@ -104,7 +104,7 @@ All durations in milliseconds; `scroll_step_ms` is the section-level step (defau
 canvas_w = (display.cols × display.chain) / section.scale
 ```
 
-The bigsign's vertical-serpentine `pixel_mapper` doesn't change logical width — that math is already correct from led-ticker's engine.
+The bigsign's vertical-serpentine `pixel_mapper_config` doesn't change logical width — that math is already correct from led-ticker's engine.
 
 ### Content width approximation
 

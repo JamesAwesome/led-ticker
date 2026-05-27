@@ -37,7 +37,7 @@ This is the minimum-surface change. The existing `_check_static` flow already it
 Section-level error. Located in `_check_static`.
 
 ```python
-# panel_h_real is computed from display.pixel_mapper or rows × parallel
+# panel_h_real is computed from display.pixel_mapper_config or rows × parallel
 ph_real = _panel_h_real(config.display)
 product = section.content_height * section.scale
 if product > ph_real:

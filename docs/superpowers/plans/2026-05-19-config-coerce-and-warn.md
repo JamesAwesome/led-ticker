@@ -537,7 +537,7 @@ rows = "16"
 cols = "32"
 chain = "1"
 brightness = "60"
-slowdown_gpio = "3"
+gpio_slowdown = "3"
 
 [[playlist.section]]
 mode = "swap"
@@ -549,7 +549,7 @@ mode = "swap"
     assert config.display.cols == 32
     assert config.display.chain == 1
     assert config.display.brightness == 60
-    assert config.display.slowdown_gpio == 3
+    assert config.display.gpio_slowdown == 3
     # Five coercions, one warning per field.
     fields_warned = {w.field for w in config._coerce_warnings}
     assert fields_warned >= {
@@ -557,7 +557,7 @@ mode = "swap"
         "display.cols",
         "display.chain",
         "display.brightness",
-        "display.slowdown_gpio",
+        "display.gpio_slowdown",
     }
 ```
 
@@ -585,7 +585,7 @@ def _coerce_display(
         ("parallel", 1),
         ("default_scale", 1),
         ("brightness", 100),
-        ("slowdown_gpio", 1),
+        ("gpio_slowdown", 1),
         ("pwm_bits", 11),
         ("pwm_lsb_nanoseconds", 130),
         ("rp1_rio", 0),
@@ -602,10 +602,10 @@ def _coerce_display(
         else:
             kwargs[name] = default
     # String / bool fields don't need coercion at this stage.
-    kwargs["pixel_mapper"] = display_raw.get("pixel_mapper", "")
-    kwargs["gpio_mapping"] = display_raw.get("gpio_mapping", "adafruit-hat")
-    kwargs["show_refresh"] = display_raw.get("show_refresh", False)
-    kwargs["no_hardware_pulse"] = display_raw.get("no_hardware_pulse", False)
+    kwargs["pixel_mapper_config"] = display_raw.get("pixel_mapper_config", "")
+    kwargs["hardware_mapping"] = display_raw.get("hardware_mapping", "adafruit-hat")
+    kwargs["show_refresh_rate"] = display_raw.get("show_refresh_rate", False)
+    kwargs["disable_hardware_pulsing"] = display_raw.get("disable_hardware_pulsing", False)
     return DisplayConfig(**kwargs)
 ```
 

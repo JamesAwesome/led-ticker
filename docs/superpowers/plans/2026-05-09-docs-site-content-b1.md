@@ -18,7 +18,7 @@
 
 | File | Action | Notes |
 |------|--------|-------|
-| `docs/site/src/content/docs/concepts/display.mdx` | Create | Explains rows / cols / chain / parallel / pixel_mapper / default_scale |
+| `docs/site/src/content/docs/concepts/display.mdx` | Create | Explains rows / cols / chain / parallel / pixel_mapper_config / default_scale |
 | `docs/site/src/content/docs/concepts/fonts.mdx` | Create | BDF vs hires, font_size, font_threshold, when to use which |
 | `docs/site/src/content/docs/concepts/color-providers.mdx` | Create | constant / rainbow / gradient / color_cycle / random + per-char vs whole-string |
 
@@ -209,7 +209,7 @@ Page structure:
 ```mdx
 ---
 title: Display
-description: How rows, cols, chain, parallel, scale, and pixel_mapper combine into a logical canvas.
+description: How rows, cols, chain, parallel, scale, and pixel_mapper_config combine into a logical canvas.
 ---
 
 import TomlExample from '../../../components/TomlExample.astro';
@@ -232,17 +232,17 @@ cols = 32
 chain = 5
 default_scale = 1
 brightness = 60
-slowdown_gpio = 2`} />
+gpio_slowdown = 2`} />
 
 <TomlExample title="Bigsign" code={`[display]
 rows = 32
 cols = 64
 chain = 8
 parallel = 1
-pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
 default_scale = 4
 brightness = 60
-slowdown_gpio = 3
+gpio_slowdown = 3
 pwm_bits = 8
 rp1_rio = 1`} />
 
@@ -278,7 +278,7 @@ Expected: 7 pages built (was 6, +1 for display).
 
 ```bash
 git add docs/site/src/content/docs/concepts/display.mdx
-git commit -m "feat(docs): concepts/display.mdx — rows/cols/scale/pixel_mapper concept"
+git commit -m "feat(docs): concepts/display.mdx — rows/cols/scale/pixel_mapper_config concept"
 ```
 
 ---

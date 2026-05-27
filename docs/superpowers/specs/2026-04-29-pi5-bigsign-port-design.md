@@ -28,7 +28,7 @@ All current widgets and transitions are ported with a deliberately blocky, pixel
 ## Hardware constants
 
 - **Pi:** Raspberry Pi 5 running Raspbian 64-bit
-- **HAT:** Adafruit RGB Matrix HAT (same `gpio_mapping = "adafruit-hat"`)
+- **HAT:** Adafruit RGB Matrix HAT (same `hardware_mapping = "adafruit-hat"`)
 - **Panels:** 8× 32×64 P3, single serpentine chain
 - **Layout (cable enters bottom-right at panel 1):**
   ```
@@ -48,7 +48,7 @@ The current image pins `github.com/jamesawesome/rpi-rgb-led-matrix`, which targe
 3. Add a Docker build-arg `RGBMATRIX_REF` so the same `Dockerfile` produces a `pi4` and `pi5` image variant.
 4. `pyproject.toml` dependency uses the same build-arg via a wheel build step or installs the library at image-build time (current pattern).
 
-**Risk:** the Pi-5 fork may be less mature than the Pi-4 one. We'll verify hardware refresh quality on first boot and tune `slowdown_gpio` / `pwm_lsb_nanoseconds` as needed.
+**Risk:** the Pi-5 fork may be less mature than the Pi-4 one. We'll verify hardware refresh quality on first boot and tune `gpio_slowdown` / `pwm_lsb_nanoseconds` as needed.
 
 ## Configuration
 
@@ -60,14 +60,14 @@ rows = 32              # was 16
 cols = 64              # was 32
 chain = 8              # was 5
 parallel = 1
-pixel_mapper = "U-mapper"   # NEW — defaults to "" for existing sign
+pixel_mapper_config = "U-mapper"   # NEW — defaults to "" for existing sign
 brightness = 60
-slowdown_gpio = 2      # tune per-Pi
-gpio_mapping = "adafruit-hat"
+gpio_slowdown = 2      # tune per-Pi
+hardware_mapping = "adafruit-hat"
 default_scale = 4      # NEW — base scale factor for widgets/transitions
 ```
 
-`LedFrame` already exposes a `led_pixel_mapper` attribute; the TOML loader needs to wire `pixel_mapper` through to it.
+`LedFrame` already exposes a `led_pixel_mapper_config` attribute; the TOML loader needs to wire `pixel_mapper_config` through to it.
 
 ### Per-section override
 
@@ -224,7 +224,7 @@ Target stays 20 fps (0.05 s/frame). Pi 5 has meaningful headroom over Pi 4. If w
 
 ### Existing sign: zero regression
 
-The existing Pi 4 sign keeps building against the current fork (current `RGBMATRIX_REF` becomes the default for the `pi4` image). All existing tests pass. All existing config files keep working — `pixel_mapper` defaults to `""`, `default_scale` defaults to `1`.
+The existing Pi 4 sign keeps building against the current fork (current `RGBMATRIX_REF` becomes the default for the `pi4` image). All existing tests pass. All existing config files keep working — `pixel_mapper_config` defaults to `""`, `default_scale` defaults to `1`.
 
 ## Testing
 
@@ -252,7 +252,7 @@ Assertions: `SetPixel` blocks land at correct `(x, y, scale)` positions.
 On first boot of the new sign:
 1. Port `config/config.toml` to bigsign config (same content, new `[display]` block).
 2. Verify each widget renders with each transition.
-3. Tune `slowdown_gpio` and `pwm_lsb_nanoseconds` until refresh is clean (no flicker, no tearing).
+3. Tune `gpio_slowdown` and `pwm_lsb_nanoseconds` until refresh is clean (no flicker, no tearing).
 4. Confirm 20 fps target is hit; if not, apply frame-budget levers.
 
 ## Rollout order
@@ -260,12 +260,12 @@ On first boot of the new sign:
 Phases are roughly independent and can be reviewed/merged separately:
 
 1. **Pi 5 fork research + dependency pin.** Survey forks, pick one, re-fork under `jamesawesome/`, add `RGBMATRIX_REF` build-arg. Independent unblocker.
-2. **Canvas-size config plumbing.** Wire `pixel_mapper` and `default_scale` from TOML through to `LedFrame` and `Ticker`. No widget changes; existing tests pass unchanged.
+2. **Canvas-size config plumbing.** Wire `pixel_mapper_config` and `default_scale` from TOML through to `LedFrame` and `Ticker`. No widget changes; existing tests pass unchanged.
 3. **`Region` type + plumb wrapper through draw signatures.** Mechanical change across widgets and `run_transition`: add the optional `region` kwarg, accept either real-canvas or wrapper. No behavior change at `scale = 1`. Existing tests pass unchanged.
 4. **`ScaledCanvas` + BDF parser + `draw_text()` helper.** New helper and rendering path. The pure-Python BDF parser plus the wrapper class. Add unit tests against the parser (correct glyph bitmaps for sample chars) and the wrapper (correct block placement at scale = 2 and scale = 4).
 5. **Replace `graphics.DrawText` calls in widgets and transitions with `draw_text()`.** Mechanical, file-by-file. No behavior change at `scale = 1`.
 6. **Wire scale through Ticker.** Read `scale` from each section, build the `ScaledCanvas` wrapper when `scale > 1`, pass it into widget `draw()` and `run_transition`. After this lands, bigsign config can render.
-7. **Hardware boot + tuning.** Manual verification on the new sign. Tune timing constants (`slowdown_gpio`, `pwm_lsb_nanoseconds`), per-transition step delays for the new logical width. Update bigsign `config.toml`.
+7. **Hardware boot + tuning.** Manual verification on the new sign. Tune timing constants (`gpio_slowdown`, `pwm_lsb_nanoseconds`), per-transition step delays for the new logical width. Update bigsign `config.toml`.
 
 ## Deferred / future work
 

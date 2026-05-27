@@ -393,18 +393,18 @@ cols = 128
 chain = 4
 brightness = 60
 default_scale = 4
-gpio_mapping = "adafruit-hat"
+hardware_mapping = "adafruit-hat"
 panel_type = "FM6126A"
 # Muen P2 panels wire HUB75 G-pin → Red LED, R-pin → Blue LED, B-pin → Green LED.
 led_rgb_sequence = "BRG"
 
 # Pi 5 RP1 RIO backend (faster refresh, slightly more CPU than PIO).
-# rp1_rio = 1 requires row_addr_type = 0 (default) — do not set row_addr_type = 1.
-# Raise slowdown_gpio to 4–5 if flicker appears.
-slowdown_gpio = 3
+# rp1_rio = 1 requires row_address_type = 0 (default) — do not set row_address_type = 1.
+# Raise gpio_slowdown to 4–5 if flicker appears.
+gpio_slowdown = 3
 rp1_rio = 1
 pwm_bits = 8     # 8-bit PWM: faster refresh, slightly less color depth than default 11
-show_refresh = true
+show_refresh_rate = true
 # Cap refresh at 100 Hz so SwapOnVSync(canvas, framerate_fraction=5) lands
 # at the same scan-cycle point every frame at 20 fps — eliminates top/bottom
 # motion lag on the 512-column chain (hzeller/rpi-rgb-led-matrix issue #941).
@@ -463,7 +463,7 @@ gh pr create \
 - [ ] `pytest tests/test_frame.py` — 5 new tests for fraction computation and `swap()` delegation
 - [ ] `pytest tests/test_swap_centralization.py` — AST tripwire passes
 - [ ] `make test` — full suite green
-- [ ] Deploy to longboi and verify motion is smooth with `show_refresh = true` confirming ~100 Hz
+- [ ] Deploy to longboi and verify motion is smooth with `show_refresh_rate = true` confirming ~100 Hz
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF

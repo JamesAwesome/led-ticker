@@ -29,7 +29,7 @@ Coerce-and-warn was chosen over reject-with-clear-error because the user prefers
 **Numeric strings → number.** Every `int` / `float` field on:
 
 - `SectionConfig` (`config.py`): `content_height`, `scale`, `hold_time`, `loop_count`, `start_hold`, `scroll_step_ms`, `separator_font_size`, etc.
-- `DisplayConfig` (`config.py`): `rows`, `cols`, `chain`, `parallel`, `brightness`, `slowdown_gpio`, `pwm_bits`, `pwm_lsb_ns`, `default_scale`, etc.
+- `DisplayConfig` (`config.py`): `rows`, `cols`, `chain`, `parallel`, `brightness`, `gpio_slowdown`, `pwm_bits`, `pwm_lsb_ns`, `default_scale`, etc.
 - Widget dataclass fields with `int` / `float` type annotations (especially `_image_base.py`, `two_row.py`, `message.py`, `weather.py`, the crypto widgets).
 - Font-resolution fields popped in `_build_widget`: `font_size`, `font_threshold`, `top_font_size`, `bottom_font_size`, `separator_font_size`.
 

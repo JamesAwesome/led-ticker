@@ -3,7 +3,7 @@
 Cycles the panel through Red → Green → Blue → White → Black, looping
 forever until Ctrl-C. Reuses the same config loader and LedFrame
 construction the main app uses, so all hardware knobs (panel_type,
-led_rgb_sequence, chain, slowdown_gpio, rp1_rio, etc.) come straight
+led_rgb_sequence, chain_length, gpio_slowdown, rp1_rio, etc.) come straight
 from the config TOML.
 
 Use this to isolate hardware/wiring/driver issues from config issues.

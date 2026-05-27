@@ -442,7 +442,8 @@ async def test_rule2_no_warning_when_thresholds_match(conf):
 
 
 async def test_rule6_two_row_at_scale4(conf):
-    # Bigsign config: pixel_mapper gives panel_h_real=64; scale=4 × content_height=16
+    # Bigsign config: pixel_mapper_config gives panel_h_real=64
+    # scale=4 × content_height=16
     # = 64 ≤ 64 — no rule 1 error, so soft warnings can surface.
     cfg = """\
         [display]

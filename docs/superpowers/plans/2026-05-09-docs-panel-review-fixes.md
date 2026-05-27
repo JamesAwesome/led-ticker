@@ -4,7 +4,7 @@
 
 **Goal:** Land the ship-blocking fixes + voice/IA polish from the four-persona docs site review (PR #29's `/review-docs` panel run on 2026-05-09).
 
-**Architecture:** Two PRs. **PR 1 (Tasks 1-4)** is the orientation + structural-defect bundle: Getting Started no-hardware path + Pitfalls page populate + double-`<h1>` accessibility bug fix. These are the showstoppers (PM + User + UX convergent) plus a verifiable a11y/SEO defect. **PR 2 (Tasks 5-11)** is the voice + IA polish bundle: sidebar reorder + frame-counters relocation + concepts pages voice cleanup + heading renames + concepts/display dedup + Tools group label + hardware-page newcomer polish (HUB75 def, cost estimates, `pixel_mapper` example) + Rule 14 label fix. The two PRs touch disjoint file sets — they can run sequentially or in parallel worktrees, but sequential is cleaner for review.
+**Architecture:** Two PRs. **PR 1 (Tasks 1-4)** is the orientation + structural-defect bundle: Getting Started no-hardware path + Pitfalls page populate + double-`<h1>` accessibility bug fix. These are the showstoppers (PM + User + UX convergent) plus a verifiable a11y/SEO defect. **PR 2 (Tasks 5-11)** is the voice + IA polish bundle: sidebar reorder + frame-counters relocation + concepts pages voice cleanup + heading renames + concepts/display dedup + Tools group label + hardware-page newcomer polish (HUB75 def, cost estimates, `pixel_mapper_config` example) + Rule 14 label fix. The two PRs touch disjoint file sets — they can run sequentially or in parallel worktrees, but sequential is cleaner for review.
 
 **Tech stack:** Astro Starlight v0.39.x docs site at `docs/site/`. MDX content under `docs/site/src/content/docs/`. Reusable components at `docs/site/src/components/`. Markdown fact-packs under `docs/content-source/`. Build via `make docs-build` or `pnpm --dir docs/site run build`. Lint via `make docs-lint`.
 
@@ -40,7 +40,7 @@
 | `docs/site/src/content/docs/tools/creating-a-config.mdx` | Modify | Heading rename: `## Validation philosophy` → `## How violations are surfaced`. Rewrite the section's first paragraph to drop "flag-and-ask discipline" jargon |
 | `docs/site/src/content/docs/widgets/message.mdx` | Modify | Replace bare `<DecisionRule id="14" />` with descriptive `### Typewriter is single-row only` heading + the rule callout below it |
 | `docs/site/src/content/docs/hardware/smallsign.mdx` | Modify | Define HUB75 once in the BOM section. Add cost ballpark to BOM. |
-| `docs/site/src/content/docs/hardware/bigsign.mdx` | Modify | Add cost ballpark. Add a worked `pixel_mapper` example for a simple 2×2 layout in the Pitfalls section. |
+| `docs/site/src/content/docs/hardware/bigsign.mdx` | Modify | Add cost ballpark. Add a worked `pixel_mapper_config` example for a simple 2×2 layout in the Pitfalls section. |
 
 ---
 
@@ -883,7 +883,7 @@ The full field reference — every knob, default value, and
 Pi-version note — lives at
 [Reference: Config options](/reference/config-options/#display).
 The most-touched fields are above (`rows`, `cols`, `chain`,
-`default_scale`, `pixel_mapper`, `slowdown_gpio`); see the
+`default_scale`, `pixel_mapper_config`, `gpio_slowdown`); see the
 reference page when you need `pwm_bits`, `pwm_lsb_nanoseconds`,
 `rp1_rio`, or the other Pi-tuning options.
 ```
@@ -976,13 +976,13 @@ landing here from the sidebar knows immediately that this is the AI
 assistant entry, not another command to type."
 ```
 
-## Task 10: Hardware page polish — HUB75 def, cost estimates, `pixel_mapper` example
+## Task 10: Hardware page polish — HUB75 def, cost estimates, `pixel_mapper_config` example
 
 **Files:**
 - Modify: `docs/site/src/content/docs/hardware/smallsign.mdx`
 - Modify: `docs/site/src/content/docs/hardware/bigsign.mdx`
 
-User panel review surfaced three concrete gaps: HUB75 used without explanation; no dollar cost anywhere; `pixel_mapper` Remap string format unexplained for non-bigsign layouts.
+User panel review surfaced three concrete gaps: HUB75 used without explanation; no dollar cost anywhere; `pixel_mapper_config` Remap string format unexplained for non-bigsign layouts.
 
 - [ ] **Step 1: Add HUB75 definition + cost estimate to smallsign**
 
@@ -1010,7 +1010,7 @@ Cross-check current pricing before ordering — these numbers were
 verified in early 2026 and panel prices fluctuate.
 ```
 
-- [ ] **Step 2: Add cost estimate + pixel_mapper example to bigsign**
+- [ ] **Step 2: Add cost estimate + pixel_mapper_config example to bigsign**
 
 In `hardware/bigsign.mdx`, immediately after the BOM table, add:
 
@@ -1023,10 +1023,10 @@ Cross-check current pricing before ordering — these numbers were
 verified in early 2026.
 ```
 
-Then in the same file, find the existing **Pitfalls** section (already covers `pixel_mapper` chain-order sensitivity per a prior PR). Append a new pitfall paragraph for `pixel_mapper` examples on simpler layouts:
+Then in the same file, find the existing **Pitfalls** section (already covers `pixel_mapper_config` chain-order sensitivity per a prior PR). Append a new pitfall paragraph for `pixel_mapper_config` examples on simpler layouts:
 
 ```mdx
-**`pixel_mapper` for non-bigsign layouts.** The Remap string
+**`pixel_mapper_config` for non-bigsign layouts.** The Remap string
 follows the format `Remap:WIDTH,HEIGHT|x,yORIENT|...` with one
 entry per panel in chain order. Orientations: `n` = normal,
 `s` = 180°, `e` = 270°, `w` = 90°, `x` = discard. The bigsign's
@@ -1059,7 +1059,7 @@ Expected: 0 lint errors, 39 pages built.
 
 ```bash
 git add docs/site/src/content/docs/hardware/smallsign.mdx docs/site/src/content/docs/hardware/bigsign.mdx
-git commit -m "docs: hardware — define HUB75, add cost estimates, document pixel_mapper
+git commit -m "docs: hardware — define HUB75, add cost estimates, document pixel_mapper_config
 
 User panel review (the prospective-user persona, who came from a
 \"saw it on HN, deciding whether to build one\" framing) surfaced
@@ -1071,7 +1071,7 @@ three specific gaps that nearly bounced them:
   - No dollar cost anywhere — \"a Pi 4, five panels, a bonnet\"
     leaves the reader Googling every line item to ballpark the
     project as $50, $200, or $500
-  - pixel_mapper Remap string format is referenced as
+  - pixel_mapper_config Remap string format is referenced as
     \"see config.bigsign.example.toml\" but never explained, so
     a builder doing a 2×2 or 1×4 layout has no working example
 
@@ -1175,14 +1175,14 @@ Second of two PRs addressing the four-persona panel review (run via /review-docs
 - **Heading renames** — drop AI-archetypal "Picking the right X" / "Validation philosophy" headings on color-providers, sections-and-modes, transitions/index, and tools/creating-a-config.
 - **concepts/display dedup** — drop the duplicate `[display]` options table that lived alongside the canonical version in reference/config-options. Replaced with a short pointer.
 - **Tools group label** — lead the creating-a-config page intro with the "Claude skill, not CLI" distinction so the sidebar grouping doesn't mislead.
-- **Hardware page polish** — define HUB75 once on smallsign; add Total cost lines to both smallsign (~$150–200) and bigsign (~$400–600); add worked `pixel_mapper` Remap examples for 2×2 and 1×4 layouts.
+- **Hardware page polish** — define HUB75 once on smallsign; add Total cost lines to both smallsign (~$150–200) and bigsign (~$400–600); add worked `pixel_mapper_config` Remap examples for 2×2 and 1×4 layouts.
 - **Rule 14 label fix** — descriptive `### Typewriter is single-row only` heading above the bare callout on widgets/message.
 
 ## Test plan
 
 - [x] `pnpm run lint` clean (0/0/0)
 - [x] `pnpm run build` builds 39 pages (no count change — frame-counters just moved URLs)
-- [x] All 9 verification grep checks pass (frame-counters move, sidebar order, headings, costs, HUB75, pixel_mapper, Rule 14)
+- [x] All 9 verification grep checks pass (frame-counters move, sidebar order, headings, costs, HUB75, pixel_mapper_config, Rule 14)
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
@@ -1206,7 +1206,7 @@ EOF
 - ✅ Nice-to-have: concepts/display dedup → Task 8
 - ✅ Nice-to-have: Hardware cost estimates → Task 10
 - ✅ Nice-to-have: HUB75 unexplained → Task 10
-- ✅ Nice-to-have: pixel_mapper Remap examples → Task 10
+- ✅ Nice-to-have: pixel_mapper_config Remap examples → Task 10
 - ✅ Nice-to-have: Rule 14 label → Task 11
 
 **Placeholder scan** — no TBDs / TODOs / "fill in later" / "add appropriate X". Every step has the actual content the implementer needs (specific paragraphs, file paths, commands, expected outputs).

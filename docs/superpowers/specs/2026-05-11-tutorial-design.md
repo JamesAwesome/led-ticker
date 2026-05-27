@@ -108,7 +108,7 @@ Each demo TOML carries a `# render-duration: <N>` comment so re-renders are dete
 **Length:** ~150-200 lines of MDX.
 
 **Content arc:**
-1. Reset block: copy this `[display]` block into `config/config.toml`. Explain each knob briefly (rows, cols, chain, default_scale). Call out which knobs are "hardware-only, ignore for now" (brightness, slowdown_gpio, gpio_mapping if present in the snippet).
+1. Reset block: copy this `[display]` block into `config/config.toml`. Explain each knob briefly (rows, cols, chain, default_scale). Call out which knobs are "hardware-only, ignore for now" (brightness, gpio_slowdown, hardware_mapping if present in the snippet).
 2. Add the smallest possible playlist: one `forever_scroll` section with one `message` widget that says "Welcome to Moonbunny". Walk through the TOML line by line.
 3. Run `led-ticker validate config/config.toml`. Show expected output ("No issues found"). Mention what an error would look like.
 4. Render with `make render-demo CONFIG=config/config.toml OUT=preview.gif`. Inline gif shows the scrolling welcome message.

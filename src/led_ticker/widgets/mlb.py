@@ -868,7 +868,21 @@ class MLBScoreMonitor:
             ]
             return
 
-        games = self._parse_games(data, tz)
+        try:
+            games = self._parse_games(data, tz)
+        except Exception:
+            logger.exception("MLB parse error for %s", self.team)
+            title = TickerMessage(
+                f"{team_name}",
+                font_color=title_color,
+                bg_color=self.bg_color,
+            )
+            self.feed_title = title
+            self.feed_stories = [
+                title,
+                TickerMessage("No Data", font_color=body_color, bg_color=self.bg_color),
+            ]
+            return
 
         if not games:
             title = TickerMessage(
@@ -1017,14 +1031,16 @@ class MLBScoreMonitor:
                 # ABS challenges — present only for games where the system is active.
                 home_challenges: int | None = None
                 away_challenges: int | None = None
-                challenges = g.get("challenges", {})
-                if challenges:
-                    hc = challenges.get("home", {})
-                    ac = challenges.get("away", {})
-                    if hc is not None and "remainingChallenges" in hc:
-                        home_challenges = int(hc["remainingChallenges"])
-                    if ac is not None and "remainingChallenges" in ac:
-                        away_challenges = int(ac["remainingChallenges"])
+                challenges = g.get("challenges")
+                if isinstance(challenges, dict):
+                    hc = challenges.get("home")
+                    ac = challenges.get("away")
+                    if isinstance(hc, dict) and "remainingChallenges" in hc:
+                        with contextlib.suppress(TypeError, ValueError):
+                            home_challenges = int(hc["remainingChallenges"])
+                    if isinstance(ac, dict) and "remainingChallenges" in ac:
+                        with contextlib.suppress(TypeError, ValueError):
+                            away_challenges = int(ac["remainingChallenges"])
 
                 start_time: datetime | None = None
                 game_date = g.get("gameDate")

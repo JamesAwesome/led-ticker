@@ -674,3 +674,175 @@ async def test_monitor_threads_small_font_to_scoreboard_messages():
         assert (
             story.small_font is FONT_DEFAULT
         ), f"story.small_font is {story.small_font!r}, expected FONT_DEFAULT"
+
+
+# ---------------------------------------------------------------------------
+# Stale-game-state / parse robustness tests
+# ---------------------------------------------------------------------------
+
+
+def _challenges_game_fixture(challenges) -> dict:
+    """Schedule fixture with a configurable challenges value for fault-injection."""
+    return {
+        "dates": [
+            {
+                "games": [
+                    {
+                        "gamePk": 1,
+                        "gameDate": "2026-05-26T23:10:00Z",
+                        "gameType": "R",
+                        "status": {
+                            "abstractGameState": "Live",
+                            "detailedState": "In Progress",
+                        },
+                        "teams": {
+                            "home": {"team": {"abbreviation": "PHI"}, "score": 5},
+                            "away": {"team": {"abbreviation": "NYM"}, "score": 3},
+                        },
+                        "linescore": {
+                            "currentInning": 7,
+                            "inningHalf": "top",
+                            "balls": 1,
+                            "strikes": 2,
+                            "outs": 1,
+                            "offense": {},
+                        },
+                        "challenges": challenges,
+                    }
+                ]
+            }
+        ]
+    }
+
+
+def test_parse_games_challenges_as_list_does_not_raise():
+    """challenges field that is a list (unexpected API shape) must not raise."""
+    from zoneinfo import ZoneInfo
+
+    monitor = _make_monitor_for_parse()
+    schedule = _challenges_game_fixture([{"home": 2}, {"away": 1}])
+    games = monitor._parse_games(schedule, ZoneInfo("America/New_York"))
+    assert len(games) == 1
+    assert games[0].home_challenges is None
+    assert games[0].away_challenges is None
+
+
+def test_parse_games_challenges_remaining_non_int_does_not_raise():
+    """Non-numeric remaining value must be silently ignored."""
+    from zoneinfo import ZoneInfo
+
+    monitor = _make_monitor_for_parse()
+    schedule = _challenges_game_fixture(
+        {
+            "home": {"remaining": "two"},
+            "away": {"remaining": None},
+        }
+    )
+    games = monitor._parse_games(schedule, ZoneInfo("America/New_York"))
+    assert len(games) == 1
+    assert games[0].home_challenges is None
+    assert games[0].away_challenges is None
+
+
+@pytest.mark.asyncio
+async def test_update_parse_error_shows_no_data_not_stale():
+    """A _parse_games exception must clear stale data and show 'No Data'."""
+    import unittest.mock as mock
+    from zoneinfo import ZoneInfo
+
+    session = mock.MagicMock()
+    monitor = MLBScoreMonitor(session=session, team="PHI")
+    monitor._team_id = 143
+    monitor._tz = ZoneInfo("America/New_York")
+
+    from rgbmatrix.graphics import Color
+
+    from led_ticker.widgets.mlb import MLBGameMessage
+
+    stale = MLBGameMessage([("PHI 5 NYM 3 (Final)", Color(255, 255, 255))])
+    monitor.feed_stories = [stale]
+
+    resp = mock.AsyncMock()
+    resp.json = mock.AsyncMock(return_value="not a dict")  # str has no .get()
+    resp.__aenter__ = mock.AsyncMock(return_value=resp)
+    resp.__aexit__ = mock.AsyncMock(return_value=False)
+    session.get.return_value = resp
+
+    await monitor.update()
+
+    from led_ticker.widgets.message import TickerMessage
+
+    assert not any(isinstance(s, MLBGameMessage) for s in monitor.feed_stories)
+    assert any(
+        isinstance(s, TickerMessage) and "No Data" in s.text
+        for s in monitor.feed_stories
+    )
+
+
+# ---------------------------------------------------------------------------
+# _find_current_series hold-window boundary tests
+# ---------------------------------------------------------------------------
+
+
+def _make_monitor_for_series() -> MLBScoreMonitor:
+    import unittest.mock as mock
+    from zoneinfo import ZoneInfo
+
+    monitor = MLBScoreMonitor(session=mock.MagicMock(), team="PHI")
+    monitor._tz = ZoneInfo("America/New_York")
+    return monitor
+
+
+def test_find_current_series_past_hold_window_returns_none():
+    """All-final series whose last game ended beyond final_hold_hours returns None."""
+    from zoneinfo import ZoneInfo
+
+    monitor = _make_monitor_for_series()
+    tz = ZoneInfo("America/New_York")
+    now = datetime(2026, 5, 27, 18, 0, tzinfo=tz)
+    game_time = now - timedelta(hours=8)
+    series = [
+        SeriesInfo(
+            opponent_abbr="NYM",
+            games=[
+                GameInfo(
+                    home_abbr="PHI",
+                    away_abbr="NYM",
+                    state="final",
+                    home_score=5,
+                    away_score=3,
+                    start_time=game_time,
+                )
+            ],
+        )
+    ]
+    result = monitor._find_current_series(series, now)
+    assert result is None
+
+
+def test_find_current_series_within_hold_window_returns_series():
+    """All-final series whose last game ended within final_hold_hours is returned."""
+    from zoneinfo import ZoneInfo
+
+    monitor = _make_monitor_for_series()
+    tz = ZoneInfo("America/New_York")
+    now = datetime(2026, 5, 27, 18, 0, tzinfo=tz)
+    game_time = now - timedelta(hours=4)
+    series = [
+        SeriesInfo(
+            opponent_abbr="NYM",
+            games=[
+                GameInfo(
+                    home_abbr="PHI",
+                    away_abbr="NYM",
+                    state="final",
+                    home_score=5,
+                    away_score=3,
+                    start_time=game_time,
+                )
+            ],
+        )
+    ]
+    result = monitor._find_current_series(series, now)
+    assert result is not None
+    assert result.opponent_abbr == "NYM"

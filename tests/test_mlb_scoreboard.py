@@ -501,3 +501,176 @@ def test_fit_team_name_unknown_abbr_returns_abbr():
     canvas = _stub_canvas(w=128, h=16)
     result = _fit_team_name("XYZ", 200, FONT_DEFAULT, canvas)
     assert result == "XYZ"
+
+
+# ---------------------------------------------------------------------------
+# small_font field
+# ---------------------------------------------------------------------------
+
+
+def test_scoreboard_small_font_defaults_to_font_small():
+    """small_font attr exists and defaults to FONT_SMALL."""
+    from led_ticker.fonts import FONT_SMALL
+
+    msg = MLBScoreboardMessage(game=_live_game(), team_abbr="PHI")
+    assert msg.small_font is FONT_SMALL
+
+
+def test_scoreboard_small_font_accepted_as_kwarg():
+    """small_font can be overridden at construction time."""
+    from led_ticker.fonts import FONT_DEFAULT
+
+    msg = MLBScoreboardMessage(
+        game=_live_game(), team_abbr="PHI", small_font=FONT_DEFAULT
+    )
+    assert msg.small_font is FONT_DEFAULT
+
+
+def test_build_scoreboard_message_threads_small_font():
+    """_build_scoreboard_message passes small_font into the built object."""
+    from zoneinfo import ZoneInfo
+
+    from led_ticker.fonts import FONT_DEFAULT
+    from led_ticker.widgets.mlb import _build_scoreboard_message
+
+    game = _live_game()
+    msg = _build_scoreboard_message(
+        game,
+        team_abbr="PHI",
+        tz=ZoneInfo("America/New_York"),
+        small_font=FONT_DEFAULT,
+    )
+    assert msg.small_font is FONT_DEFAULT
+
+
+def test_scoreboard_draw_uses_self_small_font_not_hardcoded():
+    """Center zone draws must route through self.small_font, not FONT_SMALL.
+
+    Strategy: pass FONT_DEFAULT as small_font (a different object than FONT_SMALL),
+    then spy on draw_with_emoji calls to verify FONT_SMALL is never passed when a
+    custom small_font is set.
+    """
+    from led_ticker.fonts import FONT_DEFAULT, FONT_SMALL
+    from led_ticker.pixel_emoji import draw_with_emoji as real_dwe
+
+    canvas = _stub_canvas()
+    game = GameInfo(
+        home_abbr="PHI",
+        away_abbr="NYM",
+        state="live",
+        home_score=5,
+        away_score=3,
+        inning="▲7",
+        outs=2,
+        balls=1,
+        strikes=2,
+        on_first=True,
+        on_second=False,
+        on_third=False,
+    )
+    # Use FONT_DEFAULT as the small_font — it's a different object than FONT_SMALL
+    msg = MLBScoreboardMessage(game=game, team_abbr="PHI", small_font=FONT_DEFAULT)
+
+    fonts_drawn = []
+
+    def _spy_dwe(canvas, font, *args, **kwargs):
+        fonts_drawn.append(font)
+        return real_dwe(canvas, font, *args, **kwargs)
+
+    import unittest.mock as mock
+
+    with mock.patch("led_ticker.pixel_emoji.draw_with_emoji", side_effect=_spy_dwe):
+        msg.draw(canvas)
+
+    assert (
+        FONT_DEFAULT in fonts_drawn
+    ), "small_font (FONT_DEFAULT) was never used in draw()"
+    assert (
+        FONT_SMALL not in fonts_drawn
+    ), "hardcoded FONT_SMALL is still being used in draw()"
+
+
+# ---------------------------------------------------------------------------
+# MLBScoreMonitor.small_font
+# ---------------------------------------------------------------------------
+
+
+def test_monitor_small_font_defaults_to_font_small():
+    """MLBScoreMonitor.small_font defaults to FONT_SMALL."""
+    import unittest.mock as mock
+
+    from led_ticker.fonts import FONT_SMALL
+
+    session = mock.MagicMock()
+    monitor = MLBScoreMonitor(session=session, team="PHI")
+    assert monitor.small_font is FONT_SMALL
+
+
+@pytest.mark.asyncio
+async def test_monitor_threads_small_font_to_scoreboard_messages():
+    """When layout=scoreboard, update() passes small_font to each built message."""
+    import unittest.mock as mock
+    from datetime import UTC, datetime
+    from zoneinfo import ZoneInfo
+
+    from led_ticker.fonts import FONT_DEFAULT
+
+    session = mock.MagicMock()
+    monitor = MLBScoreMonitor(
+        session=session,
+        team="PHI",
+        layout="scoreboard",
+        small_font=FONT_DEFAULT,
+    )
+    monitor._tz = ZoneInfo("America/New_York")
+    monitor._team_id = 143  # PHI team id — skip resolve step
+
+    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    schedule = {
+        "dates": [
+            {
+                "games": [
+                    {
+                        "gamePk": 1,
+                        "gameDate": now_str,
+                        "gameType": "R",
+                        "status": {
+                            "abstractGameState": "Live",
+                            "detailedState": "In Progress",
+                        },
+                        "teams": {
+                            "home": {"team": {"abbreviation": "PHI"}, "score": 3},
+                            "away": {"team": {"abbreviation": "NYM"}, "score": 1},
+                        },
+                        "linescore": {
+                            "currentInning": 4,
+                            "inningHalf": "top",
+                            "balls": 0,
+                            "strikes": 0,
+                            "outs": 0,
+                            "offense": {},
+                        },
+                    }
+                ]
+            }
+        ]
+    }
+
+    async def _fake_get(*args, **kwargs):
+        resp = mock.AsyncMock()
+        resp.json.return_value = schedule
+        return resp
+
+    session.get.return_value.__aenter__ = _fake_get
+    session.get.return_value.__aexit__ = mock.AsyncMock(return_value=False)
+
+    await monitor.update()
+
+    scoreboard_stories = [
+        s for s in monitor.feed_stories if isinstance(s, MLBScoreboardMessage)
+    ]
+    assert scoreboard_stories, "no MLBScoreboardMessage in feed_stories"
+    for story in scoreboard_stories:
+        assert (
+            story.small_font is FONT_DEFAULT
+        ), f"story.small_font is {story.small_font!r}, expected FONT_DEFAULT"

@@ -59,7 +59,7 @@ class LedFrame:
         options.brightness = self.led_brightness
         options.pwm_lsb_nanoseconds = self.led_pwm_lsb_nanoseconds
         if self.led_pwm_dither_bits and hasattr(options, "pwm_dither_bits"):
-            options.pwm_dither_bits = self.led_pwm_dither_bits
+            options.pwm_dither_bits = self.led_pwm_dither_bits  # type: ignore[attr-defined]
         options.led_rgb_sequence = self.led_rgb_sequence
         options.pixel_mapper_config = self.led_pixel_mapper
         options.panel_type = self.led_panel_type

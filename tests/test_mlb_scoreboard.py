@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import attrs
 import pytest
 
-from led_ticker.widgets.mlb import GameInfo, MLBScoreboardMessage, MLBScoreMonitor
+from led_ticker.widgets.mlb import (
+    GameInfo,
+    MLBScoreboardMessage,
+    MLBScoreMonitor,
+    SeriesInfo,
+)
 
 
 def test_gameinfo_challenge_fields_default_to_none():
@@ -38,11 +43,9 @@ def _make_monitor_for_parse():
     return monitor
 
 
-def test_parse_games_extracts_abs_challenges_when_present():
-    monitor = _make_monitor_for_parse()
-    from zoneinfo import ZoneInfo
-
-    schedule = {
+def _challenges_game_fixture(challenges: dict) -> dict:
+    """Schedule fixture with the given challenges value."""
+    return {
         "dates": [
             {
                 "games": [
@@ -66,19 +69,12 @@ def test_parse_games_extracts_abs_challenges_when_present():
                             "outs": 1,
                             "offense": {},
                         },
-                        "challenges": {
-                            "home": {"remainingChallenges": 2},
-                            "away": {"remainingChallenges": 1},
-                        },
+                        "challenges": challenges,
                     }
                 ]
             }
         ]
     }
-    games = monitor._parse_games(schedule, ZoneInfo("America/New_York"))
-    assert len(games) == 1
-    assert games[0].home_challenges == 2
-    assert games[0].away_challenges == 1
 
 
 def test_parse_games_challenges_none_when_absent():
@@ -674,3 +670,295 @@ async def test_monitor_threads_small_font_to_scoreboard_messages():
         assert (
             story.small_font is FONT_DEFAULT
         ), f"story.small_font is {story.small_font!r}, expected FONT_DEFAULT"
+
+
+# ---------------------------------------------------------------------------
+# Stale-game-state / parse robustness tests
+# ---------------------------------------------------------------------------
+
+
+def _challenges_game_fixture(challenges) -> dict:
+    """Schedule fixture with a configurable challenges value for fault-injection."""
+    return {
+        "dates": [
+            {
+                "games": [
+                    {
+                        "gamePk": 1,
+                        "gameDate": "2026-05-26T23:10:00Z",
+                        "gameType": "R",
+                        "status": {
+                            "abstractGameState": "Live",
+                            "detailedState": "In Progress",
+                        },
+                        "teams": {
+                            "home": {"team": {"abbreviation": "PHI"}, "score": 5},
+                            "away": {"team": {"abbreviation": "NYM"}, "score": 3},
+                        },
+                        "linescore": {
+                            "currentInning": 7,
+                            "inningHalf": "top",
+                            "balls": 1,
+                            "strikes": 2,
+                            "outs": 1,
+                            "offense": {},
+                        },
+                        "challenges": challenges,
+                    }
+                ]
+            }
+        ]
+    }
+
+
+def test_parse_games_challenges_as_list_does_not_raise():
+    """challenges field that is a list (unexpected API shape) must not raise."""
+    from zoneinfo import ZoneInfo
+
+    monitor = _make_monitor_for_parse()
+    schedule = _challenges_game_fixture([{"home": 2}, {"away": 1}])
+    games = monitor._parse_games(schedule, ZoneInfo("America/New_York"))
+    assert len(games) == 1
+    assert games[0].home_challenges is None
+    assert games[0].away_challenges is None
+
+
+def test_parse_games_challenges_remaining_non_int_does_not_raise():
+    """Non-numeric remaining value must be silently ignored."""
+    from zoneinfo import ZoneInfo
+
+    monitor = _make_monitor_for_parse()
+    schedule = _challenges_game_fixture(
+        {
+            "home": {"remaining": "two"},
+            "away": {"remaining": None},
+        }
+    )
+    games = monitor._parse_games(schedule, ZoneInfo("America/New_York"))
+    assert len(games) == 1
+    assert games[0].home_challenges is None
+    assert games[0].away_challenges is None
+
+
+@pytest.mark.asyncio
+async def test_update_parse_error_shows_no_data_not_stale():
+    """A _parse_games exception must clear stale data and show 'No Data'."""
+    import unittest.mock as mock
+    from zoneinfo import ZoneInfo
+
+    session = mock.MagicMock()
+    monitor = MLBScoreMonitor(session=session, team="PHI")
+    monitor._team_id = 143
+    monitor._tz = ZoneInfo("America/New_York")
+
+    from rgbmatrix.graphics import Color
+
+    from led_ticker.widgets.mlb import MLBGameMessage
+
+    stale = MLBGameMessage([("PHI 5 NYM 3 (Final)", Color(255, 255, 255))])
+    monitor.feed_stories = [stale]
+
+    resp = mock.AsyncMock()
+    resp.json = mock.AsyncMock(return_value="not a dict")  # str has no .get()
+    resp.__aenter__ = mock.AsyncMock(return_value=resp)
+    resp.__aexit__ = mock.AsyncMock(return_value=False)
+    session.get.return_value = resp
+
+    await monitor.update()
+
+    from led_ticker.widgets.message import TickerMessage
+
+    assert not any(isinstance(s, MLBGameMessage) for s in monitor.feed_stories)
+    assert any(
+        isinstance(s, TickerMessage) and "No Data" in s.text
+        for s in monitor.feed_stories
+    )
+
+
+# ---------------------------------------------------------------------------
+# _find_current_series hold-window boundary tests
+# ---------------------------------------------------------------------------
+
+
+def _make_monitor_for_series() -> MLBScoreMonitor:
+    import unittest.mock as mock
+    from zoneinfo import ZoneInfo
+
+    monitor = MLBScoreMonitor(session=mock.MagicMock(), team="PHI")
+    monitor._tz = ZoneInfo("America/New_York")
+    return monitor
+
+
+def test_find_current_series_past_hold_window_returns_none():
+    """All-final series whose last game ended beyond final_hold_hours returns None."""
+    from zoneinfo import ZoneInfo
+
+    monitor = _make_monitor_for_series()
+    tz = ZoneInfo("America/New_York")
+    now = datetime(2026, 5, 27, 18, 0, tzinfo=tz)
+    game_time = now - timedelta(hours=8)
+    series = [
+        SeriesInfo(
+            opponent_abbr="NYM",
+            games=[
+                GameInfo(
+                    home_abbr="PHI",
+                    away_abbr="NYM",
+                    state="final",
+                    home_score=5,
+                    away_score=3,
+                    start_time=game_time,
+                )
+            ],
+        )
+    ]
+    result = monitor._find_current_series(series, now)
+    assert result is None
+
+
+def test_find_current_series_within_hold_window_returns_series():
+    """All-final series whose last game ended within final_hold_hours is returned."""
+    from zoneinfo import ZoneInfo
+
+    monitor = _make_monitor_for_series()
+    tz = ZoneInfo("America/New_York")
+    now = datetime(2026, 5, 27, 18, 0, tzinfo=tz)
+    game_time = now - timedelta(hours=4)
+    series = [
+        SeriesInfo(
+            opponent_abbr="NYM",
+            games=[
+                GameInfo(
+                    home_abbr="PHI",
+                    away_abbr="NYM",
+                    state="final",
+                    home_score=5,
+                    away_score=3,
+                    start_time=game_time,
+                )
+            ],
+        )
+    ]
+    result = monitor._find_current_series(series, now)
+    assert result is not None
+    assert result.opponent_abbr == "NYM"
+
+
+# ---------------------------------------------------------------------------
+# _fetch_abs_challenges
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fetch_abs_challenges_active_game():
+    """Returns (home, away) remaining counts when ABS is active."""
+    import unittest.mock as mock
+
+    session = mock.MagicMock()
+    monitor = MLBScoreMonitor(session=session, team="PHI")
+
+    resp = mock.AsyncMock()
+    resp.json = mock.AsyncMock(
+        return_value={
+            "gameData": {
+                "absChallenges": {
+                    "hasChallenges": True,
+                    "home": {"remaining": 2, "usedSuccessful": 0, "usedFailed": 0},
+                    "away": {"remaining": 0, "usedSuccessful": 2, "usedFailed": 2},
+                }
+            }
+        }
+    )
+    resp.__aenter__ = mock.AsyncMock(return_value=resp)
+    resp.__aexit__ = mock.AsyncMock(return_value=False)
+    session.get.return_value = resp
+
+    home, away = await monitor._fetch_abs_challenges(823294)
+    assert home == 2
+    assert away == 0
+
+
+@pytest.mark.asyncio
+async def test_fetch_abs_challenges_inactive_returns_none():
+    """Returns (None, None) when absChallenges is empty (ABS not active)."""
+    import unittest.mock as mock
+
+    session = mock.MagicMock()
+    monitor = MLBScoreMonitor(session=session, team="PHI")
+
+    resp = mock.AsyncMock()
+    resp.json = mock.AsyncMock(return_value={"gameData": {"absChallenges": {}}})
+    resp.__aenter__ = mock.AsyncMock(return_value=resp)
+    resp.__aexit__ = mock.AsyncMock(return_value=False)
+    session.get.return_value = resp
+
+    home, away = await monitor._fetch_abs_challenges(823294)
+    assert home is None
+    assert away is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_abs_challenges_error_returns_none():
+    """Network errors return (None, None) without raising."""
+    import unittest.mock as mock
+
+    session = mock.MagicMock()
+    monitor = MLBScoreMonitor(session=session, team="PHI")
+    session.get.side_effect = Exception("network error")
+
+    home, away = await monitor._fetch_abs_challenges(823294)
+    assert home is None
+    assert away is None
+
+
+# ---------------------------------------------------------------------------
+# update() ABS challenge hydration integration
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_update_hydrates_abs_challenges_for_live_game():
+    """Live games get ABS challenge counts fetched from the live feed during update()."""  # noqa: E501
+    import unittest.mock as mock
+    from zoneinfo import ZoneInfo
+
+    session = mock.MagicMock()
+    monitor = MLBScoreMonitor(session=session, team="PHI", layout="scoreboard")
+    monitor._team_id = 143
+    monitor._tz = ZoneInfo("America/New_York")
+
+    schedule_resp = mock.AsyncMock()
+    schedule_resp.json = mock.AsyncMock(return_value=_phi_nym_schedule("live"))
+    schedule_resp.__aenter__ = mock.AsyncMock(return_value=schedule_resp)
+    schedule_resp.__aexit__ = mock.AsyncMock(return_value=False)
+
+    live_resp = mock.AsyncMock()
+    live_resp.json = mock.AsyncMock(
+        return_value={
+            "gameData": {
+                "absChallenges": {
+                    "hasChallenges": True,
+                    "home": {"remaining": 2, "usedSuccessful": 0, "usedFailed": 0},
+                    "away": {"remaining": 1, "usedSuccessful": 1, "usedFailed": 0},
+                }
+            }
+        }
+    )
+    live_resp.__aenter__ = mock.AsyncMock(return_value=live_resp)
+    live_resp.__aexit__ = mock.AsyncMock(return_value=False)
+
+    def get_side_effect(url):
+        if "v1.1" in url:
+            return live_resp
+        return schedule_resp
+
+    session.get = mock.MagicMock(side_effect=get_side_effect)
+
+    await monitor.update()
+
+    scoreboard_msgs = [
+        s for s in monitor.feed_stories if isinstance(s, MLBScoreboardMessage)
+    ]
+    assert len(scoreboard_msgs) >= 1
+    assert scoreboard_msgs[0].game.home_challenges == 2
+    assert scoreboard_msgs[0].game.away_challenges == 1

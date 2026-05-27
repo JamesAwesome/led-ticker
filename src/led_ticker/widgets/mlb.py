@@ -700,7 +700,9 @@ class MLBScoreboardMessage(_FrameAware):
             s_w = measure_width(self.small_font, str(game.strikes), canvas)
             _draw_small("S", cl_start + bs_w + s_w, small_bottom, RGB_WHITE)
 
-            # Diamond: center-right zone
+            # Diamond: center-right zone — use main font for larger glyphs.
+            # Pack 3B/1B with a 2px gap, cluster centered in the zone.
+            # 2B centered horizontally above the midpoint.
             occupied_c = make_color(255, 220, 50)  # yellow
             empty_c = make_color(50, 50, 50)  # dim
             b2 = "◆" if game.on_second else "◇"
@@ -711,16 +713,31 @@ class MLBScoreboardMessage(_FrameAware):
             b3_c = occupied_c if game.on_third else empty_c
             b1_c = occupied_c if game.on_first else empty_c
 
-            char_w = measure_width(self.small_font, b2, canvas)
-            b1_w = measure_width(self.small_font, b1, canvas)
-            cr_center = cr_start + center_half // 2
+            dw = measure_width(self.font, b2, canvas)
+            diamond_gap = 2
+            cluster_w = 2 * dw + diamond_gap
+            cluster_x = cr_start + max(0, (center_half - cluster_w) // 2)
+            b3_x = cluster_x
+            b1_x = cluster_x + dw + diamond_gap
+            b2_x = cluster_x + dw + diamond_gap // 2 - dw // 2
 
-            # Row 0: 2B centered
-            _draw_small(b2, cr_center - char_w // 2, small_top, b2_c)
-
-            # Row 1: 3B left, 1B right
-            _draw_small(b3, cr_start, small_bottom, b3_c)
-            _draw_small(b1, cr_start + center_half - b1_w, small_bottom, b1_c)
+            # 2B uses top-band center baseline; 3B/1B use bottom-band
+            # bottom-aligned so the glyphs sit inside the band without clip.
+            diamond_top_y = compute_baseline_for_band(
+                self.font, half_h, scale, valign="center"
+            )
+            diamond_bot_y = half_h + compute_baseline_for_band(
+                self.font, half_h, scale, valign="bottom"
+            )
+            draw_with_emoji(
+                canvas, self.font, b2_x, y=diamond_top_y + y_offset, color=b2_c, text=b2
+            )
+            draw_with_emoji(
+                canvas, self.font, b3_x, y=diamond_bot_y + y_offset, color=b3_c, text=b3
+            )
+            draw_with_emoji(
+                canvas, self.font, b1_x, y=diamond_bot_y + y_offset, color=b1_c, text=b1
+            )
 
         elif game.state == "final":
             full_baseline = compute_baseline_for_band(

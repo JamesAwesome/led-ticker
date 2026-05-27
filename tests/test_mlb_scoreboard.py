@@ -541,3 +541,50 @@ def test_build_scoreboard_message_threads_small_font():
         small_font=FONT_DEFAULT,
     )
     assert msg.small_font is FONT_DEFAULT
+
+
+def test_scoreboard_draw_uses_self_small_font_not_hardcoded():
+    """Center zone draws must route through self.small_font, not FONT_SMALL.
+
+    Strategy: pass FONT_DEFAULT as small_font (a different object than FONT_SMALL),
+    then spy on draw_with_emoji calls to verify FONT_SMALL is never passed when a
+    custom small_font is set.
+    """
+    from led_ticker.fonts import FONT_DEFAULT, FONT_SMALL
+    from led_ticker.pixel_emoji import draw_with_emoji as real_dwe
+
+    canvas = _stub_canvas()
+    game = GameInfo(
+        home_abbr="PHI",
+        away_abbr="NYM",
+        state="live",
+        home_score=5,
+        away_score=3,
+        inning="▲7",
+        outs=2,
+        balls=1,
+        strikes=2,
+        on_first=True,
+        on_second=False,
+        on_third=False,
+    )
+    # Use FONT_DEFAULT as the small_font — it's a different object than FONT_SMALL
+    msg = MLBScoreboardMessage(game=game, team_abbr="PHI", small_font=FONT_DEFAULT)
+
+    fonts_drawn = []
+
+    def _spy_dwe(canvas, font, *args, **kwargs):
+        fonts_drawn.append(font)
+        return real_dwe(canvas, font, *args, **kwargs)
+
+    import unittest.mock as mock
+
+    with mock.patch("led_ticker.pixel_emoji.draw_with_emoji", side_effect=_spy_dwe):
+        msg.draw(canvas)
+
+    assert (
+        FONT_DEFAULT in fonts_drawn
+    ), "small_font (FONT_DEFAULT) was never used in draw()"
+    assert (
+        FONT_SMALL not in fonts_drawn
+    ), "hardcoded FONT_SMALL is still being used in draw()"

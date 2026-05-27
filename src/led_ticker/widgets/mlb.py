@@ -558,7 +558,6 @@ class MLBScoreboardMessage(_FrameAware):
         font_color: Any = None,
     ) -> DrawResult:
         from led_ticker.drawing import compute_baseline_for_band, safe_scale
-        from led_ticker.fonts import FONT_SMALL
         from led_ticker.pixel_emoji import draw_with_emoji, measure_width
 
         scale = safe_scale(canvas)
@@ -629,7 +628,7 @@ class MLBScoreboardMessage(_FrameAware):
             abbr_w = measure_width(self.font, abbr, canvas)
             abbr_center = zone_start + max(0, (zone_w - abbr_w) // 2)
             pip_x = abbr_center + abbr_w + 1
-            pip_w = measure_width(FONT_SMALL, "●", canvas)
+            pip_w = measure_width(self.small_font, "●", canvas)
             for i in range(2):
                 color = (
                     _team_palette("CHALLENGE_COLOR")
@@ -638,7 +637,7 @@ class MLBScoreboardMessage(_FrameAware):
                 )
                 draw_with_emoji(
                     canvas,
-                    FONT_SMALL,
+                    self.small_font,
                     pip_x + i * (pip_w + 1),
                     y=y + y_offset,
                     color=color,
@@ -655,15 +654,15 @@ class MLBScoreboardMessage(_FrameAware):
         cr_start = left_w + center_half  # center-right x start
 
         small_top = compute_baseline_for_band(
-            FONT_SMALL, half_h, scale, valign="center"
+            self.small_font, half_h, scale, valign="center"
         )
         small_bottom = half_h + compute_baseline_for_band(
-            FONT_SMALL, half_h, scale, valign="center"
+            self.small_font, half_h, scale, valign="center"
         )
 
         def _draw_small(text: str, x: int, y: int, color: Color) -> None:
             draw_with_emoji(
-                canvas, FONT_SMALL, x, y=y + y_offset, color=color, text=text
+                canvas, self.small_font, x, y=y + y_offset, color=color, text=text
             )
 
         # Helper: draw primary-font text horizontally centered in the full
@@ -682,18 +681,18 @@ class MLBScoreboardMessage(_FrameAware):
             outs = game.outs or 0
             outs_str = "●" * outs + "○" * (3 - outs)
             _draw_small(inning_str, cl_start, small_top, RGB_WHITE)
-            inning_w = measure_width(FONT_SMALL, inning_str, canvas)
+            inning_w = measure_width(self.small_font, inning_str, canvas)
             _draw_small(outs_str, cl_start + inning_w + 2, small_top, out_c)
 
             # Row 1: B/S count
             ball_c = make_color(80, 255, 80)
             strike_c = make_color(255, 255, 80)
             _draw_small(str(game.balls), cl_start, small_bottom, ball_c)
-            b_w = measure_width(FONT_SMALL, str(game.balls), canvas)
+            b_w = measure_width(self.small_font, str(game.balls), canvas)
             _draw_small("B ", cl_start + b_w, small_bottom, RGB_WHITE)
-            bs_w = b_w + measure_width(FONT_SMALL, "B ", canvas)
+            bs_w = b_w + measure_width(self.small_font, "B ", canvas)
             _draw_small(str(game.strikes), cl_start + bs_w, small_bottom, strike_c)
-            s_w = measure_width(FONT_SMALL, str(game.strikes), canvas)
+            s_w = measure_width(self.small_font, str(game.strikes), canvas)
             _draw_small("S", cl_start + bs_w + s_w, small_bottom, RGB_WHITE)
 
             # Diamond: center-right zone
@@ -707,8 +706,8 @@ class MLBScoreboardMessage(_FrameAware):
             b3_c = occupied_c if game.on_third else empty_c
             b1_c = occupied_c if game.on_first else empty_c
 
-            char_w = measure_width(FONT_SMALL, b2, canvas)
-            b1_w = measure_width(FONT_SMALL, b1, canvas)
+            char_w = measure_width(self.small_font, b2, canvas)
+            b1_w = measure_width(self.small_font, b1, canvas)
             cr_center = cr_start + center_half // 2
 
             # Row 0: 2B centered

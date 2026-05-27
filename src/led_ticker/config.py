@@ -49,6 +49,7 @@ class TransitionConfig:
     colors: list[tuple[int, int, int]] | None = None
     show_pikachu: bool = True
     show_pokeball: bool = True
+    transition_fps: float | None = None  # None = use run_transition default (20 fps)
 
 
 @dataclass
@@ -285,6 +286,7 @@ def _parse_transition(
         colors=colors,
         show_pikachu=raw.get("show_pikachu", default.show_pikachu),
         show_pokeball=raw.get("show_pokeball", default.show_pokeball),
+        transition_fps=raw.get("transition_fps", default.transition_fps),
     )
 
 
@@ -324,6 +326,8 @@ def load_config(path: Path) -> AppConfig:
         # Per-section transition overrides
         if "transition_duration" in section_raw:
             trans.duration = section_raw["transition_duration"]
+        if "transition_fps" in section_raw:
+            trans.transition_fps = section_raw["transition_fps"]
         if "transition_color" in section_raw:
             trans.color = tuple(section_raw["transition_color"])
         if "transition_colors" in section_raw:

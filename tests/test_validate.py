@@ -3135,3 +3135,38 @@ border = {style = "lightbulbs", mode = "alternate", direction = "ccw"}
         assert any(
             i.rule == 49 for i in result.warnings
         ), f"expected rule 49 warning; got warnings={warns}"
+
+
+async def test_rule50_transition_fps_too_low_warns(conf):
+    cfg = GOOD_CONFIG.replace(
+        "[[playlist.section]]",
+        '[[playlist.section]]\ntransition = "push_left"\ntransition_fps = 2.0',
+        1,
+    )
+    result = await validate_config(conf(cfg))
+    assert any(w.rule == 50 for w in result.warnings)
+
+
+async def test_rule50_transition_fps_too_high_warns(conf):
+    cfg = GOOD_CONFIG.replace(
+        "[[playlist.section]]",
+        '[[playlist.section]]\ntransition = "push_left"\ntransition_fps = 200.0',
+        1,
+    )
+    result = await validate_config(conf(cfg))
+    assert any(w.rule == 50 for w in result.warnings)
+
+
+async def test_rule50_transition_fps_valid_no_warning(conf):
+    cfg = GOOD_CONFIG.replace(
+        "[[playlist.section]]",
+        '[[playlist.section]]\ntransition = "push_left"\ntransition_fps = 40.0',
+        1,
+    )
+    result = await validate_config(conf(cfg))
+    assert all(w.rule != 50 for w in result.warnings)
+
+
+async def test_rule50_transition_fps_absent_no_warning(conf):
+    result = await validate_config(conf(GOOD_CONFIG))
+    assert all(w.rule != 50 for w in result.warnings)

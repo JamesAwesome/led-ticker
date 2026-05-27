@@ -1098,6 +1098,7 @@ class TestRunSwapWithScroll:
         trans = mock.Mock()
         trans.duration = 4.0
         trans.easing = "linear"
+        trans.transition_fps = None
         ticker = Ticker(
             monitors=[],
             frame=mock_frame,
@@ -1124,6 +1125,7 @@ class TestRunSwapWithScroll:
         trans = mock.Mock()
         trans.duration = 0.5
         trans.easing = "linear"
+        trans.transition_fps = None
         ticker = Ticker(
             monitors=[],
             frame=mock_frame,

@@ -234,6 +234,7 @@ font_threshold = 80
 mode = "swap"
 transition = "baseball_alternating"
 transition_duration = 2.0
+transition_fps = 40
 hold_time = 6
 loop_count = 2
 
@@ -268,6 +269,7 @@ font_threshold = 80
 mode = "swap"
 transition = "baseball_alternating"
 transition_duration = 2.0
+transition_fps = 40
 hold_time = 6
 loop_count = 1
 

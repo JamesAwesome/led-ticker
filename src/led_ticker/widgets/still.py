@@ -45,7 +45,7 @@ Field               Default            Description
                                        must specify explicitly. For BDF, snaps
                                        down to the nearest integer multiple of
                                        cell height.
-``hold_time``    ``5.0``            Per-visit display duration. With
+``hold_time``      ``5.0``            Per-visit display duration. With
                                        ``text_loops > 0`` becomes a duration
                                        FLOOR: section runs for
                                        ``max(hold_time, text_loops × traversal)``.
@@ -244,7 +244,7 @@ class StillImage(_BaseImageWidget):
         ``hold_time`` as a duration floor and ``text_loops`` as a
         traversal floor.
 
-        ``loop_count`` and ``hold_time`` are unused; ``hold_time``
+        ``loop_count`` and the ``hold_time`` parameter are unused; ``self.hold_time``
         controls duration. Both are accepted for compatibility with the
         ``_play_widget`` dispatch signature in run_swap (which passes
         ``hold_time`` uniformly across play()-style widgets). The gif

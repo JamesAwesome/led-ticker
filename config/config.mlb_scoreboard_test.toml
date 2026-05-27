@@ -23,7 +23,7 @@ delay = 5
 default = "push_left"
 duration = 0.5
 easing = "ease_out"
-between_sections = {type = "baseball_alternating", duration = 2.0}
+between_sections = {type = "baseball_alternating", duration = 2.0, transition_fps = 40}
 
 # --- MLB Scoreboard ---
 
@@ -31,6 +31,7 @@ between_sections = {type = "baseball_alternating", duration = 2.0}
 mode = "swap"
 transition = "baseball_alternating"
 transition_duration = 2.0
+transition_fps = 40
 hold_time = 8
 loop_count = 0
 

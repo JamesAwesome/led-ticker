@@ -687,6 +687,7 @@ class Ticker:
                     continuous=continuous_scroll,
                 )
             elif self.transition_config is not None:
+                _fps = self.transition_config.transition_fps
                 canvas = await run_transition(
                     canvas,
                     self.frame,
@@ -695,6 +696,7 @@ class Ticker:
                     transition=self.transition_fn,
                     duration=self.transition_config.duration,
                     easing=self.transition_config.easing,
+                    scroll_speed=(1.0 / _fps) if _fps is not None else 0.05,
                     outgoing_scroll_pos=prev_scroll_pos,
                     outgoing_bg_color=getattr(prev_object, "bg_color", None),
                     incoming_bg_color=getattr(ticker_object, "bg_color", None),

@@ -33,6 +33,7 @@ class CoinGeckoPriceMonitor(_FrameAware):
     session: aiohttp.ClientSession
     center: bool = True
     padding: int = 6
+    hold_time: float = 0.0
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     font_color: Color | ColorProvider = attrs.field(default=None, kw_only=True)
     price_data: dict[str, str] = attrs.field(

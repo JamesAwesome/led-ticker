@@ -10,7 +10,7 @@
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 parallel = 1
 
 # pixel_mapper tells the rgbmatrix library how each panel's position in the
@@ -25,7 +25,7 @@ parallel = 1
 # Orientations: n=normal, s=180°, e=270°, w=90°, x=discard.
 # If your top-row panels are physically flipped 180°, swap each top-row 'n'
 # for 's' (e.g. "192,0n" → "192,0s").
-pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
 
 brightness = 60
 
@@ -35,7 +35,7 @@ brightness = 60
 # — all drawing is in logical-pixel coordinates.
 default_scale = 4
 
-gpio_mapping = "adafruit-hat"
+hardware_mapping = "adafruit-hat"
 
 # Pi 5 RP1 GPIO tuning.
 #
@@ -50,10 +50,10 @@ gpio_mapping = "adafruit-hat"
 # pwm_bits = 8 drops from the 11-bit default, buying roughly 8× faster
 # refresh at a small color-depth cost. Barely noticeable for text and pixel
 # art; only relevant if you're displaying photos with smooth gradients.
-slowdown_gpio = 3
+gpio_slowdown = 3
 rp1_rio = 1
 pwm_bits = 8
-show_refresh = true       # log measured refresh Hz to stderr; remove once stable
+show_refresh_rate = true  # log measured refresh Hz to stderr; remove once stable
 
 [title]
 delay = 5

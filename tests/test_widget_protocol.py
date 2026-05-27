@@ -255,7 +255,7 @@ def test_widget_draw_rejects_unknown_kwargs():
     from led_ticker.widgets.message import TickerMessage
 
     msg = TickerMessage(text="hi")
-    frame = LedFrame(led_cols=32, led_chain=5)
+    frame = LedFrame(led_cols=32, led_chain_length=5)
     canvas = frame.get_clean_canvas()
     with pytest.raises(TypeError):
         msg.draw(canvas, cursor_pos=0, region="should-fail")

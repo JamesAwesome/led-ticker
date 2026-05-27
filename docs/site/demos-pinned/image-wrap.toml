@@ -29,4 +29,4 @@ text_align = "scroll_over"
 font_color = [120, 230, 255]
 text_separator_color = [255, 200, 80]
 scroll_speed_ms = 25
-hold_seconds = 8.0
+hold_time = 8.0

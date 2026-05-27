@@ -25,4 +25,4 @@ top_color = [225, 48, 108]
 bottom_text = "Open daily 10am – 8pm"
 bottom_font = "5x8"
 bottom_color = [255, 240, 200]
-hold_seconds = 7.0
+hold_time = 7.0

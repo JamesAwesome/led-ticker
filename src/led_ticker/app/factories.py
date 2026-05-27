@@ -121,7 +121,7 @@ FIELD_HINTS: dict[str, FieldHint] = {
     ),
     "hold_time": FieldHint(
         "float (seconds)",
-        "minimum display time for still images; section hold_time wins if longer",
+        "per-widget display duration floor; 0.0 defers to section",
         "0.0",
     ),
     # GifPlayer / StillImage two-row overlay (active when bottom_text != "")

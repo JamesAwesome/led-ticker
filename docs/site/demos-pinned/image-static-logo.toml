@@ -19,4 +19,4 @@ type = "image"
 path = "../../../config/assets/moon-transparent.png"
 fit = "pillarbox"
 image_align = "center"
-hold_seconds = 4.0
+hold_time = 4.0

@@ -879,6 +879,41 @@ async def test_fetch_abs_challenges_active_game():
 
 
 @pytest.mark.asyncio
+async def test_fetch_abs_challenges_no_challenge_made_yet():
+    """Returns remaining counts when ABS is equipped but no challenge made yet.
+
+    hasChallenges=false is the initial state before any challenge is thrown —
+    the field flips to true only after the first challenge. The non-empty dict
+    is the reliable indicator that ABS is active; hasChallenges alone is not.
+    Confirmed 2026-05-27 against CIN@NYM (gamePk=823626) at Citi Field.
+    """
+    import unittest.mock as mock
+
+    session = mock.MagicMock()
+    monitor = MLBScoreMonitor(session=session, team="NYM")
+
+    resp = mock.AsyncMock()
+    resp.json = mock.AsyncMock(
+        return_value={
+            "gameData": {
+                "absChallenges": {
+                    "hasChallenges": False,
+                    "home": {"remaining": 2, "usedSuccessful": 0, "usedFailed": 0},
+                    "away": {"remaining": 2, "usedSuccessful": 0, "usedFailed": 0},
+                }
+            }
+        }
+    )
+    resp.__aenter__ = mock.AsyncMock(return_value=resp)
+    resp.__aexit__ = mock.AsyncMock(return_value=False)
+    session.get.return_value = resp
+
+    home, away = await monitor._fetch_abs_challenges(823626)
+    assert home == 2
+    assert away == 2
+
+
+@pytest.mark.asyncio
 async def test_fetch_abs_challenges_inactive_returns_none():
     """Returns (None, None) when absChallenges is empty (ABS not active)."""
     import unittest.mock as mock

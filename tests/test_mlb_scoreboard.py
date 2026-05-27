@@ -838,3 +838,70 @@ def test_find_current_series_within_hold_window_returns_series():
     result = monitor._find_current_series(series, now)
     assert result is not None
     assert result.opponent_abbr == "NYM"
+
+
+# ---------------------------------------------------------------------------
+# _fetch_abs_challenges
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fetch_abs_challenges_active_game():
+    """Returns (home, away) remaining counts when ABS is active."""
+    import unittest.mock as mock
+
+    session = mock.MagicMock()
+    monitor = MLBScoreMonitor(session=session, team="PHI")
+
+    resp = mock.AsyncMock()
+    resp.json = mock.AsyncMock(
+        return_value={
+            "gameData": {
+                "absChallenges": {
+                    "hasChallenges": True,
+                    "home": {"remaining": 2, "usedSuccessful": 0, "usedFailed": 0},
+                    "away": {"remaining": 0, "usedSuccessful": 2, "usedFailed": 2},
+                }
+            }
+        }
+    )
+    resp.__aenter__ = mock.AsyncMock(return_value=resp)
+    resp.__aexit__ = mock.AsyncMock(return_value=False)
+    session.get.return_value = resp
+
+    home, away = await monitor._fetch_abs_challenges(823294)
+    assert home == 2
+    assert away == 0
+
+
+@pytest.mark.asyncio
+async def test_fetch_abs_challenges_inactive_returns_none():
+    """Returns (None, None) when absChallenges is empty (ABS not active)."""
+    import unittest.mock as mock
+
+    session = mock.MagicMock()
+    monitor = MLBScoreMonitor(session=session, team="PHI")
+
+    resp = mock.AsyncMock()
+    resp.json = mock.AsyncMock(return_value={"gameData": {"absChallenges": {}}})
+    resp.__aenter__ = mock.AsyncMock(return_value=resp)
+    resp.__aexit__ = mock.AsyncMock(return_value=False)
+    session.get.return_value = resp
+
+    home, away = await monitor._fetch_abs_challenges(823294)
+    assert home is None
+    assert away is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_abs_challenges_error_returns_none():
+    """Network errors return (None, None) without raising."""
+    import unittest.mock as mock
+
+    session = mock.MagicMock()
+    monitor = MLBScoreMonitor(session=session, team="PHI")
+    session.get.side_effect = Exception("network error")
+
+    home, away = await monitor._fetch_abs_challenges(823294)
+    assert home is None
+    assert away is None

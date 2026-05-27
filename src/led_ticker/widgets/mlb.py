@@ -26,6 +26,7 @@ from led_ticker.widgets.message import TickerMessage
 logger: logging.Logger = logging.getLogger(__name__)
 
 MLB_API: str = "https://statsapi.mlb.com/api/v1"
+_MLB_LIVE_API: str = "https://statsapi.mlb.com/api/v1.1"
 
 # Update intervals (seconds)
 _INTERVAL_LIVE: int = 45  # ~half-inning cadence
@@ -1177,3 +1178,29 @@ class MLBScoreMonitor:
             ):
                 return g
         return None
+
+    async def _fetch_abs_challenges(
+        self, game_pk: int
+    ) -> tuple[int | None, int | None]:
+        """Fetch ABS challenge remaining counts from the live game feed.
+
+        Returns (home_remaining, away_remaining), or (None, None) when ABS is
+        not active for this game or the request fails.
+        """
+        url = f"{_MLB_LIVE_API}/game/{game_pk}/feed/live?fields=gameData,absChallenges"
+        try:
+            async with self.session.get(url) as resp:
+                data = await resp.json()
+        except Exception:
+            logger.exception("ABS challenge fetch failed for gamePk=%s", game_pk)
+            return None, None
+
+        abs_ch = data.get("gameData", {}).get("absChallenges", {})
+        if not abs_ch or not abs_ch.get("hasChallenges"):
+            return None, None
+
+        home = abs_ch.get("home", {})
+        away = abs_ch.get("away", {})
+        with contextlib.suppress(TypeError, ValueError):
+            return int(home.get("remaining", 0)), int(away.get("remaining", 0))
+        return None, None

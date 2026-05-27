@@ -619,6 +619,54 @@ def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+def _check_transition_fps(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 50: transition_fps must be in the usable range 5–120 fps.
+
+    Values below 5 fps will look like a slideshow and may indicate a
+    typo (seconds entered instead of fps). Values above 120 fps exceed
+    what a Pi can push to the matrix; the sleep budget goes negative.
+    """
+    issues: list[ValidationIssue] = []
+
+    def _check(fps: float | None, location: str) -> None:
+        if fps is None:
+            return
+        if fps < 5 or fps > 120:
+            issues.append(
+                ValidationIssue(
+                    rule=50,
+                    location=location,
+                    severity="warning",
+                    message=(
+                        f"transition_fps={fps} is outside the usable range "
+                        f"5–120 fps"
+                    ),
+                    fix=(
+                        "Use a value between 5 and 120. "
+                        "Typical values: 20 (default), 30, 40. "
+                        "Values below 5 may be seconds instead of fps."
+                    ),
+                )
+            )
+
+    _check(config.default_transition.transition_fps, "transitions.default")
+    _check(config.between_sections.transition_fps, "transitions.between_sections")
+    for i, section in enumerate(config.sections):
+        _check(section.transition.transition_fps, f"section[{i}].transition")
+        if section.entry_transition is not None:
+            _check(
+                section.entry_transition.transition_fps,
+                f"section[{i}].entry_transition",
+            )
+        if section.widget_transition is not None:
+            _check(
+                section.widget_transition.transition_fps,
+                f"section[{i}].widget_transition",
+            )
+
+    return issues
+
+
 def _check_asset_paths(config: AppConfig, config_dir: Path) -> list[ValidationIssue]:
     """Rule 40: Asset `path` fields for gif/image widgets must exist on disk.
 
@@ -1666,6 +1714,7 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
     if not errors:
         warnings.extend(_check_soft(config))
         warnings.extend(_check_held_top_text_overflow(config))
+        warnings.extend(_check_transition_fps(config))
 
     # Phase 2 (strict only): asset path existence check.
     # Not in normal mode — asset files may only exist on the deploy target.

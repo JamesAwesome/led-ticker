@@ -2,7 +2,7 @@
 #
 # 4× Muen P2 128×64 panels chained horizontally = 512×64 physical.
 # Driven by a Raspberry Pi 5 through an Adafruit RGB Matrix Bonnet (3211).
-# No pixel_mapper needed — single horizontal chain, left-to-right.
+# No pixel_mapper_config needed — single horizontal chain_length, left-to-right.
 #
 # These panels use 1/32 scan with an FM6126A (or compatible) driver IC.
 # panel_type = "FM6126A" sends the required initialization sequence at startup;
@@ -17,21 +17,21 @@
 [display]
 rows = 64
 cols = 128
-chain = 4
+chain_length = 4
 brightness = 60
 default_scale = 4
-gpio_mapping = "adafruit-hat"
+hardware_mapping = "adafruit-hat"
 panel_type = "FM6126A"
 # Muen P2 panels wire HUB75 G-pin → Red LED, R-pin → Blue LED, B-pin → Green LED.
 led_rgb_sequence = "BRG"
 
 # Pi 5 RP1 RIO backend (faster refresh, slightly more CPU than PIO).
-# rp1_rio = 1 requires row_addr_type = 0 (default) — do not set row_addr_type = 1.
-# Raise slowdown_gpio to 4–5 if flicker appears.
-slowdown_gpio = 3
+# rp1_rio = 1 requires row_address_type = 0 (default) — do not set row_address_type = 1.
+# Raise gpio_slowdown to 4–5 if flicker appears.
+gpio_slowdown = 3
 rp1_rio = 1
 pwm_bits = 8     # 8-bit PWM: faster refresh, slightly less color depth than default 11
-show_refresh = true
+show_refresh_rate = true
 
 [title]
 delay = 5

@@ -13,15 +13,15 @@ cols = 64
 chain_length = 8
 parallel = 1
 
-# pixel_mapper tells the rgbmatrix library how each panel's position in the
-# data chain maps to its physical (x, y) on the finished canvas. The bigsign
-# chain enters at the bottom-right panel, climbs each column bottom-to-top,
+# pixel_mapper_config tells the rgbmatrix library how each panel's position in the
+# data chain_length maps to its physical (x, y) on the finished canvas. The bigsign
+# chain_length enters at the bottom-right panel, climbs each column bottom-to-top,
 # then jumps diagonally to the bottom of the next column to its left. All
-# panels are installed upright (no 180° rotations). See the chain diagram and
+# panels are installed upright (no 180° rotations). See the chain_length diagram and
 # instructions for deriving your own mapper string at:
 #   https://docs.ledticker.dev/hardware/bigsign/
 #
-# Format: Remap:WIDTH,HEIGHT|x,yORIENT|... (one entry per panel in chain order)
+# Format: Remap:WIDTH,HEIGHT|x,yORIENT|... (one entry per panel in chain_length order)
 # Orientations: n=normal, s=180°, e=270°, w=90°, x=discard.
 # If your top-row panels are physically flipped 180°, swap each top-row 'n'
 # for 's' (e.g. "192,0n" → "192,0s").
@@ -43,7 +43,7 @@ hardware_mapping = "adafruit-hat"
 # than PIO mode (rp1_rio = 0). The Pi 5 has cores to spare and the bigger
 # panel benefits from the extra Hz.
 #
-# slowdown_gpio = 3 pairs with rp1_rio = 1. The Pi 4 default of 2 is too
+# gpio_slowdown = 3 pairs with rp1_rio = 1. The Pi 4 default of 2 is too
 # aggressive with RIO mode; raise to 4–5 if you still see flicker after
 # switching to RIO.
 #

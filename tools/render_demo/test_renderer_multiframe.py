@@ -39,7 +39,7 @@ FIXTURE_TOML = """
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 default_scale = 1
 brightness = 60
 

@@ -31,8 +31,8 @@ adjust panel count, panel pitch, or layout to fit your space.
 Anything between those two — three panels in a row, six panels in a
 2x3 grid, a custom non-rectangular layout — is fine; the rgbmatrix
 library and the led-ticker engine don't assume the reference shapes.
-You'll edit the `[display]` block (`rows`, `cols`, `chain`,
-`pixel_mapper`) to match your wiring.
+You'll edit the `[display]` block (`rows`, `cols`, `chain_length`,
+`pixel_mapper_config`) to match your wiring.
 
 You don't need any of this hardware to start. The
 [`render-demo`](/tools/render-demo/) tool runs the real ticker engine
@@ -106,7 +106,7 @@ A minimal config you can render right now:
   code={`[display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 default_scale = 1
 brightness = 60
 

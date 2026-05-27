@@ -21,15 +21,15 @@ def test_build_frame_passes_pixel_mapper_and_parallel():
     display = DisplayConfig(
         rows=32,
         cols=64,
-        chain=8,
+        chain_length=8,
         parallel=1,
-        pixel_mapper="U-mapper",
+        pixel_mapper_config="U-mapper",
         default_scale=4,
     )
     frame = build_frame_from_config(display)
-    assert frame.led_pixel_mapper == "U-mapper"
+    assert frame.led_pixel_mapper_config == "U-mapper"
     assert frame.led_parallel == 1
-    assert frame.led_chain == 8
+    assert frame.led_chain_length == 8
     assert frame.led_rows == 32
     assert frame.led_cols == 64
 
@@ -38,44 +38,44 @@ def test_build_frame_existing_sign_defaults():
     display = DisplayConfig(
         rows=16,
         cols=32,
-        chain=5,
+        chain_length=5,
         brightness=60,
-        slowdown_gpio=2,
+        gpio_slowdown=2,
     )
     frame = build_frame_from_config(display)
-    assert frame.led_pixel_mapper == ""
+    assert frame.led_pixel_mapper_config == ""
     assert frame.led_parallel == 1
     assert frame.led_brightness == 60
-    assert frame.led_slowdown_gpio == 2
+    assert frame.led_gpio_slowdown == 2
 
 
 def test_build_frame_logs_show_refresh_explanation_when_enabled(caplog):
-    """show_refresh=true makes the C library print Hz to stderr with
+    """show_refresh_rate=true makes the C library print Hz to stderr with
     backspaces — looks like log corruption to first-time readers. We
     log a one-time note pointing at where to look so it's not mistaken
     for a glitch."""
     import logging
 
-    display = DisplayConfig(rows=32, cols=64, chain=8, show_refresh=True)
+    display = DisplayConfig(rows=32, cols=64, chain_length=8, show_refresh_rate=True)
     with caplog.at_level(logging.INFO):
         build_frame_from_config(display)
     msgs = [r.message for r in caplog.records]
     assert any(
-        "show_refresh=true" in m and "stderr" in m for m in msgs
-    ), f"expected show_refresh explanation; got: {msgs}"
+        "show_refresh_rate=true" in m and "stderr" in m for m in msgs
+    ), f"expected show_refresh_rate explanation; got: {msgs}"
 
 
 def test_build_frame_no_show_refresh_log_when_disabled(caplog):
     """No spurious explainer log when the user didn't ask for it."""
     import logging
 
-    display = DisplayConfig(rows=16, cols=32, chain=5, show_refresh=False)
+    display = DisplayConfig(rows=16, cols=32, chain_length=5, show_refresh_rate=False)
     with caplog.at_level(logging.INFO):
         build_frame_from_config(display)
     msgs = [r.message for r in caplog.records]
     assert not any(
         "live Hz updates" in m for m in msgs
-    ), f"didn't expect show_refresh explainer; got: {msgs}"
+    ), f"didn't expect show_refresh_rate explainer; got: {msgs}"
 
 
 class TestBuildWidget:
@@ -1224,7 +1224,7 @@ class TestSectionTransitionFiresOnEntry:
             """[display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 default_scale = 1
 [transitions]
 between_sections = "dissolve"
@@ -1275,7 +1275,7 @@ text = "SECOND"
             """[display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 default_scale = 1
 [transitions]
 between_sections = "dissolve"
@@ -1704,7 +1704,7 @@ class TestAppRunDrainLoopTripwire:
         run_module = sys.modules["led_ticker.app.run"]
 
         cfg = AppConfig(
-            display=DisplayConfig(rows=16, cols=32, chain=5),
+            display=DisplayConfig(rows=16, cols=32, chain_length=5),
             sections=[
                 SectionConfig(
                     mode="swap",
@@ -1816,7 +1816,7 @@ class TestAppRunBgColorHandoff:
         section_two_bg = (0, 255, 0)
 
         cfg = AppConfig(
-            display=DisplayConfig(rows=16, cols=32, chain=5),
+            display=DisplayConfig(rows=16, cols=32, chain_length=5),
             sections=[
                 SectionConfig(
                     mode="swap",
@@ -2717,7 +2717,7 @@ class TestPerSectionQueue:
 
         # Create a config with 2 sections to exercise the per-section loop
         cfg = AppConfig(
-            display=DisplayConfig(rows=16, cols=32, chain=5),
+            display=DisplayConfig(rows=16, cols=32, chain_length=5),
             sections=[
                 SectionConfig(
                     mode="swap",
@@ -2799,7 +2799,7 @@ class TestLoadConfigOffEventLoop:
 
         # Create a minimal config for testing
         cfg = AppConfig(
-            display=DisplayConfig(rows=16, cols=32, chain=5),
+            display=DisplayConfig(rows=16, cols=32, chain_length=5),
             sections=[
                 SectionConfig(
                     mode="swap",

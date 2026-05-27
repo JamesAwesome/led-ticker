@@ -485,7 +485,7 @@ The estimate is coarse and intentionally ignores some cases:
 `forever_scroll` / `infini_scroll` / `loop_count = 0` sections
 (runtime-dependent → contribute 0); data-fetch widgets (`weather`,
 `mlb`, crypto, `rss_feed` — depend on fetched data → contribute 0);
-bigsign `pixel_mapper` (naive canvas-width); wrap floors, two-row
+bigsign `pixel_mapper_config` (naive canvas-width); wrap floors, two-row
 overlay marquee, hires width, and inter-widget transition time (not
 modelled — treat the number as a lower bound for transition-heavy
 playlists). The companion skill at

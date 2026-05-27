@@ -38,7 +38,7 @@ Write `scripts/panel_color_test.py` with the following content exactly:
 Cycles the panel through Red → Green → Blue → White → Black, looping
 forever until Ctrl-C. Reuses the same config loader and LedFrame
 construction the main app uses, so all hardware knobs (panel_type,
-led_rgb_sequence, chain, slowdown_gpio, rp1_rio, etc.) come straight
+led_rgb_sequence, chain, gpio_slowdown, rp1_rio, etc.) come straight
 from the config TOML.
 
 Use this to isolate hardware/wiring/driver issues from config issues.
@@ -366,7 +366,7 @@ description: Cycle the panel through full-frame R, G, B, White, Black so hardwar
 
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-`panel-test` paints the panel solid Red → Green → Blue → White → Black on repeat. It exists to **isolate the hardware layer from the config layer**: when widgets render wrong, this tells you whether your `led_rgb_sequence`, `panel_type`, `chain`, or `slowdown_gpio` is at fault before you start tearing apart your TOML. The implementation is a single `~50`-line script at [`scripts/panel_color_test.py`](https://github.com/jamesawesome/led-ticker/blob/main/scripts/panel_color_test.py).
+`panel-test` paints the panel solid Red → Green → Blue → White → Black on repeat. It exists to **isolate the hardware layer from the config layer**: when widgets render wrong, this tells you whether your `led_rgb_sequence`, `panel_type`, `chain`, or `gpio_slowdown` is at fault before you start tearing apart your TOML. The implementation is a single `~50`-line script at [`scripts/panel_color_test.py`](https://github.com/jamesawesome/led-ticker/blob/main/scripts/panel_color_test.py).
 
 It reads the `[display]` section of any led-ticker config TOML and reuses the same `LedFrame` construction the main app uses — so every panel knob (FM6126A init, BRG-vs-RGB remapping, chain length, `rp1_rio`, slowdown) is exactly as the running ticker would see it. Widget config is ignored entirely.
 
@@ -418,7 +418,7 @@ Each color holds for `--hold` seconds (default 2.0). Per cycle it logs `[N/5] <N
 | Red shows green, or Green shows blue, etc. | `led_rgb_sequence` is wrong | `[display] led_rgb_sequence` in your config — see [config-options](/reference/config-options/). Common values: `"RGB"` (default), `"BRG"` (panels wired G→R, R→B, B→G — typical Muen P2). |
 | Bottom half of each panel garbled, mirrored, or stuck-on | `panel_type = "FM6126A"` missing or driver init not running | Set `[display] panel_type = "FM6126A"` (or `"FM6127"`). Without it FM6126A driver chips power up in a bad state. |
 | Only the first panel of the chain lights up | `chain` set wrong, or HUB75 IDC cables crossed | Verify `[display] chain` matches your physical chain length. Then verify each panel's OUT goes to the next panel's IN — easy to flip an IDC cable. |
-| Visible flicker during the solid-color holds | `slowdown_gpio` too low for your wiring | Bump `[display] slowdown_gpio` — Pi 4 typically wants `2`, longer chains and Pi 5 often want `3` or higher. |
+| Visible flicker during the solid-color holds | `gpio_slowdown` too low for your wiring | Bump `[display] gpio_slowdown` — Pi 4 typically wants `2`, longer chains and Pi 5 often want `3` or higher. |
 | Dim or visibly-off pixels during the White frame | Hardware fault on those pixels | Physical inspection — replace the panel if widespread. |
 | Pixels still glowing during the Black frame | Stuck-on pixels (hardware fault) | Physical inspection. Note position so you can rule it out in normal operation. |
 
@@ -553,7 +553,7 @@ Open `docs/site/src/content/docs/hardware/bigsign.mdx`. The `## Tips` section st
 ```mdx
 ### Wiring or driver problem? Run `panel-test` first
 
-If your widgets render with the wrong colors, a garbled bottom half, only one panel lit, or visible flicker, the issue is most likely in the hardware layer (`led_rgb_sequence`, `panel_type`, `chain`, `slowdown_gpio`) — not in your config. The [`panel-test`](/tools/panel-test/) diagnostic isolates the hardware layer by painting flat R/G/B/W/B colors, so you can verify wiring and driver init before debugging widgets.
+If your widgets render with the wrong colors, a garbled bottom half, only one panel lit, or visible flicker, the issue is most likely in the hardware layer (`led_rgb_sequence`, `panel_type`, `chain`, `gpio_slowdown`) — not in your config. The [`panel-test`](/tools/panel-test/) diagnostic isolates the hardware layer by painting flat R/G/B/W/B colors, so you can verify wiring and driver init before debugging widgets.
 ```
 
 - [ ] **Step 2: Append the same tip (lightly adapted) to smallsign.mdx**
@@ -563,7 +563,7 @@ Open `docs/site/src/content/docs/hardware/smallsign.mdx`. The `## Tips` section 
 ```mdx
 ### Wiring or driver problem? Run `panel-test` first
 
-If your widgets render with the wrong colors, only one panel lit, or visible flicker during scrolling, the issue is most likely in the hardware layer (`led_rgb_sequence`, `chain`, `slowdown_gpio`) — not in your config. The [`panel-test`](/tools/panel-test/) diagnostic isolates the hardware layer by painting flat R/G/B/W/B colors, so you can verify wiring before debugging widgets.
+If your widgets render with the wrong colors, only one panel lit, or visible flicker during scrolling, the issue is most likely in the hardware layer (`led_rgb_sequence`, `chain`, `gpio_slowdown`) — not in your config. The [`panel-test`](/tools/panel-test/) diagnostic isolates the hardware layer by painting flat R/G/B/W/B colors, so you can verify wiring before debugging widgets.
 ```
 
 (Smallsign panels don't typically use FM6126A, so the `panel_type` mention is dropped from this version.)

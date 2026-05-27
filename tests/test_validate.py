@@ -89,7 +89,7 @@ GOOD_CONFIG = """\
     [display]
     rows = 32
     cols = 64
-    chain = 8
+    chain_length = 8
     default_scale = 1
 
     [[playlist.section]]
@@ -180,7 +180,7 @@ async def test_rule24_missing_font_is_warning_not_error(conf):
         [display]
         rows = 32
         cols = 64
-        chain = 8
+        chain_length = 8
         default_scale = 1
 
         [[playlist.section]]
@@ -212,7 +212,7 @@ async def test_rule5_missing_font_size_still_hard_errors(conf):
         [display]
         rows = 32
         cols = 64
-        chain = 8
+        chain_length = 8
         default_scale = 1
 
         [[playlist.section]]
@@ -330,7 +330,7 @@ async def test_rule1_content_height_overflow(conf):
         [display]
         rows = 32
         cols = 64
-        chain = 8
+        chain_length = 8
         default_scale = 4
 
         [[playlist.section]]
@@ -354,7 +354,7 @@ async def test_rule1_no_warning_when_within_limits(conf):
         [display]
         rows = 32
         cols = 64
-        chain = 8
+        chain_length = 8
         default_scale = 1
 
         [[playlist.section]]
@@ -379,7 +379,7 @@ async def test_rule1_does_not_fire_at_exact_boundary(conf):
         [display]
         rows = 32
         cols = 64
-        chain = 8
+        chain_length = 8
         default_scale = 4
 
         [[playlist.section]]
@@ -442,15 +442,16 @@ async def test_rule2_no_warning_when_thresholds_match(conf):
 
 
 async def test_rule6_two_row_at_scale4(conf):
-    # Bigsign config: pixel_mapper gives panel_h_real=64; scale=4 × content_height=16
+    # Bigsign config: pixel_mapper_config gives panel_h_real=64
+    # scale=4 × content_height=16
     # = 64 ≤ 64 — no rule 1 error, so soft warnings can surface.
     cfg = """\
         [display]
         rows = 32
         cols = 64
-        chain = 8
+        chain_length = 8
         default_scale = 4
-        pixel_mapper = "Remap:256,64|U-mapper"
+        pixel_mapper_config = "Remap:256,64|U-mapper"
 
         [[playlist.section]]
         mode = "swap"
@@ -494,7 +495,7 @@ async def test_rule21_normal_duration_no_warning(conf):
         [display]
         rows = 32
         cols = 64
-        chain = 8
+        chain_length = 8
         default_scale = 1
 
         [[playlist.section]]
@@ -640,7 +641,7 @@ async def test_rule23_two_row_top_text_overflows(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -664,7 +665,7 @@ async def test_rule23_two_row_top_text_fits(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -687,9 +688,9 @@ async def test_rule23_two_row_at_scale2_bigsign_clip(conf):
         [display]
         rows = 32
         cols = 64
-        chain = 8
+        chain_length = 8
         default_scale = 4
-        pixel_mapper = "Remap:256,64|U-mapper"
+        pixel_mapper_config = "Remap:256,64|U-mapper"
 
         [[playlist.section]]
         mode = "swap"
@@ -716,7 +717,7 @@ async def test_rule23_gif_with_bottom_text_overflows(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -744,7 +745,7 @@ async def test_rule23_image_with_bottom_text_overflows(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -772,7 +773,7 @@ async def test_rule23_gif_single_row_does_not_warn(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -795,7 +796,7 @@ async def test_rule23_message_widget_does_not_warn(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -831,7 +832,7 @@ _BIGSIGN_CONFIG = """\
     [display]
     rows = 64
     cols = 256
-    chain = 1
+    chain_length = 1
     default_scale = 4
     """
 
@@ -870,7 +871,7 @@ async def test_rule22_image_two_row_default_font_too_tall(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
         """)
     extra = textwrap.dedent("""\
@@ -917,7 +918,7 @@ async def test_rule25_start_hold_on_swap_section_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -941,7 +942,7 @@ async def test_rule25_start_hold_on_gif_section_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -962,7 +963,7 @@ async def test_rule25_start_hold_on_forever_scroll_is_allowed(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -985,7 +986,7 @@ async def test_rule25_start_hold_on_infini_scroll_is_allowed(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1005,7 +1006,7 @@ async def test_rule25_negative_start_hold_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1028,7 +1029,7 @@ async def test_rule25_zero_start_hold_is_allowed(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1049,7 +1050,7 @@ async def test_rule26_separator_on_swap_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1071,7 +1072,7 @@ async def test_rule26_separator_on_gif_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1092,7 +1093,7 @@ async def test_rule26_separator_on_infini_scroll_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1113,7 +1114,7 @@ async def test_rule26_separator_on_forever_scroll_is_allowed(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1135,7 +1136,7 @@ async def test_rule26_separator_font_alone_on_swap_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1160,7 +1161,7 @@ async def test_rule24_separator_font_missing_emits_warning(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1188,7 +1189,7 @@ async def test_rule28_bottom_text_loops_without_wrap_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1215,7 +1216,7 @@ async def test_rule28_bottom_text_loops_negative_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1242,7 +1243,7 @@ async def test_rule28_bottom_text_loops_with_wrap_is_allowed(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1284,7 +1285,7 @@ async def test_rule28_bottom_text_loops_bool_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1314,7 +1315,7 @@ async def test_rule29_text_loops_on_two_row_is_did_you_mean_bridge(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1344,7 +1345,7 @@ async def test_rule29_text_loops_on_gif_widget_does_not_fire(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1375,7 +1376,7 @@ async def test_rule30_hold_time_plus_bottom_text_loops_warns(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1408,7 +1409,7 @@ async def test_rule30_does_not_fire_on_gif_widget(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1440,7 +1441,7 @@ async def test_rule30_default_hold_time_does_not_warn(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1467,7 +1468,7 @@ async def test_rule30_hold_time_alone_does_not_warn(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1490,7 +1491,7 @@ async def test_rule31_scroll_step_ms_zero_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1516,7 +1517,7 @@ async def test_rule31_scroll_step_ms_negative_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1539,7 +1540,7 @@ async def test_rule31_scroll_step_ms_omitted_is_allowed(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1559,7 +1560,7 @@ async def test_rule31_scroll_step_ms_positive_is_allowed(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1582,7 +1583,7 @@ async def test_rule34a_scroll_speed_ms_at_section_level_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1611,7 +1612,7 @@ async def test_rule34b_scroll_step_ms_on_gif_widget_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1641,7 +1642,7 @@ async def test_rule34b_scroll_step_ms_on_image_widget_errors(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1673,7 +1674,7 @@ async def test_rule34_scroll_step_ms_on_message_widget_does_not_fire(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1700,7 +1701,7 @@ async def test_rule33_mode_gif_warns(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1732,7 +1733,7 @@ async def test_rule36_gif_loops_zero_in_mode_gif_warns(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1759,7 +1760,7 @@ async def test_rule36_gif_loops_zero_in_mode_swap_does_not_warn(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1782,7 +1783,7 @@ async def test_rule36_gif_loops_positive_in_mode_gif_does_not_warn(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1805,7 +1806,7 @@ async def test_rule35_default_inside_section_warns(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [[playlist.section]]
@@ -1832,7 +1833,7 @@ async def test_rule35_default_in_transitions_block_does_not_warn(conf):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
         default_scale = 1
 
         [transitions]
@@ -1865,7 +1866,7 @@ class TestRule27WrapsForeverModeOnly:
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "forever_scroll"
@@ -1891,7 +1892,7 @@ bottom_text_wrap = true
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "infini_scroll"
@@ -1917,7 +1918,7 @@ bottom_text_wrap = true
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "swap"
@@ -1957,7 +1958,7 @@ class TestRule32ScrollThroughSwapOnly:
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "forever_scroll"
@@ -1983,7 +1984,7 @@ bottom_text_scroll = "scroll_through"
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "infini_scroll"
@@ -2009,7 +2010,7 @@ bottom_text_scroll = "scroll_through"
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "swap"
@@ -2039,7 +2040,7 @@ bottom_text_scroll = "scroll_through"
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "forever_scroll"
@@ -2251,7 +2252,7 @@ class TestRule39TransitionNames:
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2275,7 +2276,7 @@ text = "hello"
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2296,7 +2297,7 @@ text = "hello"
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2317,7 +2318,7 @@ text = "hello"
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [transitions]
@@ -2341,7 +2342,7 @@ text = "hello"
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2363,7 +2364,7 @@ text = "hello"
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [transitions]
@@ -2387,7 +2388,7 @@ text = "hello"
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2445,7 +2446,7 @@ async def test_validation_result_carries_fix_keys_for_gif_loops(tmp_path):
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "swap"
@@ -2470,7 +2471,7 @@ class TestRule40AssetPaths:
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2492,7 +2493,7 @@ path = "assets/missing.gif"
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2516,7 +2517,7 @@ path = "assets/missing.gif"
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2537,7 +2538,7 @@ path = "assets/test.gif"
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2562,7 +2563,7 @@ class TestStrictModeWarningPromotion:
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2594,7 +2595,7 @@ font_size = 24
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2616,7 +2617,7 @@ font_size = 24
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2644,7 +2645,7 @@ class TestStrictModeCLI:
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2671,7 +2672,7 @@ font_size = 24
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2691,7 +2692,7 @@ text = "hello"
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
@@ -2716,7 +2717,7 @@ async def test_coerce_warning_summary_appears(tmp_path):
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 hold_seconds = 3.0
@@ -2748,7 +2749,7 @@ async def test_apply_migrations_renames_gif_loops(tmp_path):
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "swap"
@@ -2779,7 +2780,7 @@ async def test_apply_migrations_returns_zero_when_nothing_to_fix(tmp_path):
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "swap"
@@ -2804,7 +2805,7 @@ async def test_apply_migrations_leaves_non_fixable_errors(tmp_path):
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "swap"
@@ -2831,7 +2832,7 @@ async def test_rule_41_title_color_key(tmp_path):
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "forever_scroll"
@@ -2864,7 +2865,7 @@ async def test_apply_migrations_renames_title_color(tmp_path):
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "forever_scroll"
@@ -2901,7 +2902,7 @@ def test_cli_fix_flag_renames_gif_loops(tmp_path):
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "swap"
@@ -2948,7 +2949,7 @@ class TestRule42BulbSizeNonPositive:
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "swap"
@@ -2970,7 +2971,7 @@ border = {style = "lightbulbs", bulb_size = 0}
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "swap"
@@ -2994,7 +2995,7 @@ class TestRule43BulbSizeTooLarge:
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "swap"

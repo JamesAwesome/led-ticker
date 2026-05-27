@@ -4,7 +4,7 @@
 
 **Goal:** Port led-ticker to a Raspberry Pi 5 driving 8× P3 32×64 panels in a 2×4 serpentine layout (logical 64×256 canvas), while keeping the existing 16×160 sign working from the same `main` branch.
 
-**Architecture:** Single codebase, config-driven. New `[display].pixel_mapper`, `[display].parallel`, `[display].default_scale` keys plus per-section `scale` override. A `ScaledCanvas` wrapper transparently scales `SetPixel` calls into `scale × scale` blocks and vertically centers the logical 16-tall canvas inside the real canvas. Pure-Python BDF rasterization replaces C-level `graphics.DrawText` when `scale > 1`. A `Region` type is plumbed for future zoned layouts but always equals the full canvas in this port.
+**Architecture:** Single codebase, config-driven. New `[display].pixel_mapper_config`, `[display].parallel`, `[display].default_scale` keys plus per-section `scale` override. A `ScaledCanvas` wrapper transparently scales `SetPixel` calls into `scale × scale` blocks and vertically centers the logical 16-tall canvas inside the real canvas. Pure-Python BDF rasterization replaces C-level `graphics.DrawText` when `scale > 1`. A `Region` type is plumbed for future zoned layouts but always equals the full canvas in this port.
 
 **Tech stack:** Python 3.13, attrs/dataclasses, asyncio, hzeller `rpi-rgb-led-matrix` (Pi 4 fork or new Pi 5 fork via Docker build-arg), pytest.
 
@@ -25,8 +25,8 @@
 
 **Modify:**
 - `src/led_ticker/drawing.py` — add `Region` dataclass
-- `src/led_ticker/config.py` — add `parallel`, `pixel_mapper`, `default_scale` to `DisplayConfig`; add `scale` to `SectionConfig`
-- `src/led_ticker/frame.py` — wire `parallel` from config (already has `led_pixel_mapper`)
+- `src/led_ticker/config.py` — add `parallel`, `pixel_mapper_config`, `default_scale` to `DisplayConfig`; add `scale` to `SectionConfig`
+- `src/led_ticker/frame.py` — wire `parallel` from config (already has `led_pixel_mapper_config`)
 - `src/led_ticker/app.py` — pass new config fields through to `LedFrame`
 - `src/led_ticker/ticker.py` — wrap real canvas in `ScaledCanvas` when section `scale > 1`
 - `src/led_ticker/widget.py` — add `region` to widget protocol docstring
@@ -108,7 +108,7 @@ git commit -m "Add Region dataclass for forward-compat with zoned layouts"
 
 ---
 
-## Task 2: Add `parallel`, `pixel_mapper`, `default_scale` to `DisplayConfig`; add `scale` to `SectionConfig`
+## Task 2: Add `parallel`, `pixel_mapper_config`, `default_scale` to `DisplayConfig`; add `scale` to `SectionConfig`
 
 **Files:**
 - Modify: `src/led_ticker/config.py:14-21,35-46,89-102,113+`
@@ -140,7 +140,7 @@ mode = "swap"
 """)
     cfg = load_config(config_path)
     assert cfg.display.parallel == 1
-    assert cfg.display.pixel_mapper == ""
+    assert cfg.display.pixel_mapper_config == ""
     assert cfg.display.default_scale == 1
     assert cfg.sections[0].scale == 1
 
@@ -153,7 +153,7 @@ rows = 32
 cols = 64
 chain = 8
 parallel = 1
-pixel_mapper = "U-mapper"
+pixel_mapper_config = "U-mapper"
 default_scale = 4
 
 [[playlist.section]]
@@ -162,7 +162,7 @@ scale = 2
 """)
     cfg = load_config(config_path)
     assert cfg.display.parallel == 1
-    assert cfg.display.pixel_mapper == "U-mapper"
+    assert cfg.display.pixel_mapper_config == "U-mapper"
     assert cfg.display.default_scale == 4
     assert cfg.sections[0].scale == 2
 
@@ -201,11 +201,11 @@ class DisplayConfig:
     cols: int = 32
     chain: int = 1
     parallel: int = 1
-    pixel_mapper: str = ""
+    pixel_mapper_config: str = ""
     default_scale: int = 1
     brightness: int = 100
-    slowdown_gpio: int = 1
-    gpio_mapping: str = "adafruit-hat"
+    gpio_slowdown: int = 1
+    hardware_mapping: str = "adafruit-hat"
 ```
 
 In `SectionConfig` (after `continuous_scroll`):
@@ -231,11 +231,11 @@ display = DisplayConfig(
     cols=display_raw.get("cols", 32),
     chain=display_raw.get("chain", 1),
     parallel=display_raw.get("parallel", 1),
-    pixel_mapper=display_raw.get("pixel_mapper", ""),
+    pixel_mapper_config=display_raw.get("pixel_mapper_config", ""),
     default_scale=display_raw.get("default_scale", 1),
     brightness=display_raw.get("brightness", 100),
-    slowdown_gpio=display_raw.get("slowdown_gpio", 1),
-    gpio_mapping=display_raw.get("gpio_mapping", "adafruit-hat"),
+    gpio_slowdown=display_raw.get("gpio_slowdown", 1),
+    hardware_mapping=display_raw.get("hardware_mapping", "adafruit-hat"),
 )
 ```
 
@@ -260,18 +260,18 @@ Expected: PASS (all existing config tests + new ones)
 
 ```bash
 git add src/led_ticker/config.py tests/test_config.py
-git commit -m "Config: add parallel/pixel_mapper/default_scale + per-section scale"
+git commit -m "Config: add parallel/pixel_mapper_config/default_scale + per-section scale"
 ```
 
 ---
 
-## Task 3: Wire `parallel` and `pixel_mapper` from `DisplayConfig` through `LedFrame` in `app.py`
+## Task 3: Wire `parallel` and `pixel_mapper_config` from `DisplayConfig` through `LedFrame` in `app.py`
 
 **Files:**
 - Modify: `src/led_ticker/app.py` (wherever it constructs `LedFrame`)
 - Test: `tests/test_app.py` or `tests/test_frame.py`
 
-`LedFrame` already has `led_pixel_mapper` and `led_parallel` attributes — `app.py` likely doesn't pass them through yet.
+`LedFrame` already has `led_pixel_mapper_config` and `led_parallel` attributes — `app.py` likely doesn't pass them through yet.
 
 - [ ] **Step 1: Find the `LedFrame(...)` construction in `app.py`**
 
@@ -286,13 +286,13 @@ from led_ticker.app import build_frame_from_config  # or however app constructs 
 from led_ticker.config import DisplayConfig
 
 
-def test_build_frame_passes_pixel_mapper_and_parallel():
+def test_build_frame_passes_pixel_mapper_config_and_parallel():
     display = DisplayConfig(
         rows=32, cols=64, chain=8, parallel=1,
-        pixel_mapper="U-mapper", default_scale=4,
+        pixel_mapper_config="U-mapper", default_scale=4,
     )
     frame = build_frame_from_config(display)
-    assert frame.led_pixel_mapper == "U-mapper"
+    assert frame.led_pixel_mapper_config == "U-mapper"
     assert frame.led_parallel == 1
     assert frame.led_chain == 8
 ```
@@ -301,10 +301,10 @@ If `app.py` doesn't expose a `build_frame_from_config` helper, refactor the inli
 
 - [ ] **Step 3: Run test to verify it fails**
 
-Run: `make test ARGS="tests/test_app.py::test_build_frame_passes_pixel_mapper_and_parallel"`
+Run: `make test ARGS="tests/test_app.py::test_build_frame_passes_pixel_mapper_config_and_parallel"`
 Expected: FAIL
 
-- [ ] **Step 4: Add `pixel_mapper`, `parallel` to the `LedFrame` construction in `app.py`**
+- [ ] **Step 4: Add `pixel_mapper_config`, `parallel` to the `LedFrame` construction in `app.py`**
 
 In `app.py`, the `LedFrame(...)` call should pass through:
 
@@ -314,10 +314,10 @@ frame = LedFrame(
     led_cols=display.cols,
     led_chain=display.chain,
     led_parallel=display.parallel,
-    led_pixel_mapper=display.pixel_mapper,
+    led_pixel_mapper_config=display.pixel_mapper_config,
     led_brightness=display.brightness,
-    led_slowdown_gpio=display.slowdown_gpio,
-    led_gpio_mapping=display.gpio_mapping,
+    led_slowdown_gpio=display.gpio_slowdown,
+    led_gpio_mapping=display.hardware_mapping,
 )
 ```
 
@@ -330,7 +330,7 @@ Expected: PASS
 
 ```bash
 git add src/led_ticker/app.py tests/test_app.py
-git commit -m "App: wire parallel and pixel_mapper from config to LedFrame"
+git commit -m "App: wire parallel and pixel_mapper_config from config to LedFrame"
 ```
 
 ---
@@ -355,7 +355,7 @@ def test_stub_canvas_size_honors_u_mapper_fold():
         led_cols=64,
         led_chain=8,
         led_parallel=1,
-        led_pixel_mapper="U-mapper",
+        led_pixel_mapper_config="U-mapper",
     )
     canvas = frame.matrix.CreateFrameCanvas()
     # 1×8 chain folded U-mapper => 2 rows × 4 cols of panels
@@ -1418,7 +1418,7 @@ def test_bigsign_example_config_loads():
     assert cfg.display.rows == 32
     assert cfg.display.cols == 64
     assert cfg.display.chain == 8
-    assert cfg.display.pixel_mapper == "U-mapper"
+    assert cfg.display.pixel_mapper_config == "U-mapper"
     assert cfg.display.default_scale == 4
     assert len(cfg.sections) >= 1
 ```
@@ -1438,10 +1438,10 @@ rows = 32
 cols = 64
 chain = 8
 parallel = 1
-pixel_mapper = "U-mapper"
+pixel_mapper_config = "U-mapper"
 brightness = 60
-slowdown_gpio = 2
-gpio_mapping = "adafruit-hat"
+gpio_slowdown = 2
+hardware_mapping = "adafruit-hat"
 default_scale = 4
 ```
 
@@ -1534,10 +1534,10 @@ Per the existing systemd deploy pattern (`deploy/led-ticker.service`), point a f
 
 - [ ] **Step 2: Confirm panel arrangement matches expected serpentine layout**
 
-Display a known pattern (e.g., a test message). Verify text appears unbroken across panel boundaries — if it appears mirrored or split, the cable serpentines opposite to assumed; add `Rotate:180` to `pixel_mapper`:
+Display a known pattern (e.g., a test message). Verify text appears unbroken across panel boundaries — if it appears mirrored or split, the cable serpentines opposite to assumed; add `Rotate:180` to `pixel_mapper_config`:
 
 ```toml
-pixel_mapper = "U-mapper;Rotate:180"
+pixel_mapper_config = "U-mapper;Rotate:180"
 ```
 
 (or just `Rotate:180` if U-mapper isn't needed.)
@@ -1553,12 +1553,12 @@ Cycle through the playlist and confirm:
 - [ ] **Step 4: Tune timing constants if refresh is unstable**
 
 If flicker or tearing appears, edit the bigsign config:
-- Increase `slowdown_gpio` (try 3, 4, 5) until flicker stops
+- Increase `gpio_slowdown` (try 3, 4, 5) until flicker stops
 - If colors are wrong, try `pwm_lsb_nanoseconds = 200` (default 130)
 
 - [ ] **Step 5: Verify 20 fps target is hit**
 
-Add `[display].show_refresh = true` (if a `LedFrame.led_show_refresh` flag is exposed via config — if not, this step is informational only). Watch the matrix's reported refresh rate. Should comfortably exceed 100 Hz at the configured `pwm_bits=11`. The 20 fps animation rate is a separate concern — if widget loops feel sluggish, profile with `cProfile` and apply the frame-budget levers from the spec.
+Add `[display].show_refresh_rate = true` (if a `LedFrame.led_show_refresh` flag is exposed via config — if not, this step is informational only). Watch the matrix's reported refresh rate. Should comfortably exceed 100 Hz at the configured `pwm_bits=11`. The 20 fps animation rate is a separate concern — if widget loops feel sluggish, profile with `cProfile` and apply the frame-budget levers from the spec.
 
 - [ ] **Step 6: Add a section with `scale = 2` and verify letterboxing**
 

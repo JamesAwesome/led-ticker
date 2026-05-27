@@ -823,7 +823,7 @@ rows = 32
 cols = 64
 chain = 8
 default_scale = 4
-pixel_mapper = "Remap:256,64|U-mapper"
+pixel_mapper_config = "Remap:256,64|U-mapper"
 
 [[playlist.section]]
 mode = "forever_scroll"

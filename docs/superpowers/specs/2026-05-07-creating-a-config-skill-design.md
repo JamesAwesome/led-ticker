@@ -193,7 +193,7 @@ Short table-driven document. Sections:
 - **Small sign (160×16, scale=1)**: BDF only, no hires anything (fonts / transitions / emoji are no-ops or invalid), 1px border max, viewing distance ≤10ft realistic.
 - **Bigsign (256×64, scale=4)**: hires fonts/transitions/emoji available, **content_height ≤ 16** (hard ceiling: `content_height × scale ≤ panel_h_real`), scale=2 for handle layouts (TwoRow), scale=4 for headlines.
 - **Viewing distance heuristics**: close → BDF FONT_DEFAULT (6×12) OK on either sign; medium → bigsign + hires Inter @ 16-22; far → bigsign + hires Inter @ 24-32.
-- **Refresh tuning notes (Pi 5 / bigsign only)**: `pwm_bits = 8` for ~8× faster refresh, `rp1_rio = 1` for RIO mode, `slowdown_gpio` raise to 3+ if flicker.
+- **Refresh tuning notes (Pi 5 / bigsign only)**: `pwm_bits = 8` for ~8× faster refresh, `rp1_rio = 1` for RIO mode, `gpio_slowdown` raise to 3+ if flicker.
 
 ### `references/widgets.md`
 

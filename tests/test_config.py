@@ -25,9 +25,9 @@ SAMPLE_CONFIG = """\
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 brightness = 60
-slowdown_gpio = 2
+gpio_slowdown = 2
 
 [title]
 delay = 5
@@ -70,9 +70,9 @@ def config(tmp_path):
 def test_load_config_display(config):
     assert config.display.rows == 16
     assert config.display.cols == 32
-    assert config.display.chain == 5
+    assert config.display.chain_length == 5
     assert config.display.brightness == 60
-    assert config.display.slowdown_gpio == 2
+    assert config.display.gpio_slowdown == 2
 
 
 def test_load_config_sections(config):
@@ -111,7 +111,7 @@ text = "hi"
     config = load_config(p)
     assert config.display.rows == 16
     assert config.display.brightness == 100
-    assert config.display.gpio_mapping == "adafruit-hat"
+    assert config.display.hardware_mapping == "adafruit-hat"
     assert config.title_delay == 5
 
 
@@ -122,21 +122,21 @@ def test_display_config_new_field_defaults_match_existing_sign(tmp_path):
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "swap"
 """)
     cfg = load_config(p)
     assert cfg.display.parallel == 1
-    assert cfg.display.pixel_mapper == ""
+    assert cfg.display.pixel_mapper_config == ""
     assert cfg.display.default_scale == 1
     assert cfg.sections[0].scale == 1
     # Performance defaults preserve existing-sign behavior
     assert cfg.display.pwm_bits == 11
     assert cfg.display.pwm_lsb_nanoseconds == 130
-    assert cfg.display.show_refresh is False
-    assert cfg.display.no_hardware_pulse is False
+    assert cfg.display.show_refresh_rate is False
+    assert cfg.display.disable_hardware_pulsing is False
     assert cfg.display.rp1_rio == 0
 
 
@@ -147,11 +147,11 @@ def test_display_config_perf_tuning_keys(tmp_path):
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 pwm_bits = 8
 pwm_lsb_nanoseconds = 200
-show_refresh = true
-no_hardware_pulse = false
+show_refresh_rate = true
+disable_hardware_pulsing = false
 rp1_rio = 1
 
 [[playlist.section]]
@@ -160,7 +160,7 @@ mode = "swap"
     cfg = load_config(p)
     assert cfg.display.pwm_bits == 8
     assert cfg.display.pwm_lsb_nanoseconds == 200
-    assert cfg.display.show_refresh is True
+    assert cfg.display.show_refresh_rate is True
     assert cfg.display.rp1_rio == 1
 
 
@@ -170,9 +170,9 @@ def test_display_config_bigsign_keys(tmp_path):
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 parallel = 1
-pixel_mapper = "U-mapper"
+pixel_mapper_config = "U-mapper"
 default_scale = 4
 
 [[playlist.section]]
@@ -181,7 +181,7 @@ scale = 2
 """)
     cfg = load_config(p)
     assert cfg.display.parallel == 1
-    assert cfg.display.pixel_mapper == "U-mapper"
+    assert cfg.display.pixel_mapper_config == "U-mapper"
     assert cfg.display.default_scale == 4
     assert cfg.sections[0].scale == 2
 
@@ -193,18 +193,18 @@ def test_bigsign_example_config_loads(tmp_path):
     cfg = load_config(repo_root / "config" / "config.bigsign.example.toml")
     assert cfg.display.rows == 32
     assert cfg.display.cols == 64
-    assert cfg.display.chain == 8
+    assert cfg.display.chain_length == 8
     assert cfg.display.parallel == 1
     # Custom Remap: 2×4 vertical-serpentine, all panels upright.
     # See the config file for the exact panel placement string.
-    assert cfg.display.pixel_mapper.startswith("Remap:")
-    assert "256,64" in cfg.display.pixel_mapper  # 256 wide × 64 tall canvas
+    assert cfg.display.pixel_mapper_config.startswith("Remap:")
+    assert "256,64" in cfg.display.pixel_mapper_config  # 256 wide × 64 tall canvas
     assert cfg.display.default_scale == 4
     # Performance defaults baked into the example
-    assert cfg.display.slowdown_gpio == 3
+    assert cfg.display.gpio_slowdown == 3
     assert cfg.display.pwm_bits == 8
     assert cfg.display.rp1_rio == 1
-    assert cfg.display.show_refresh is True
+    assert cfg.display.show_refresh_rate is True
     assert len(cfg.sections) >= 1
     # First section inherits default_scale
     assert cfg.sections[0].scale == 4
@@ -219,7 +219,7 @@ def test_section_scale_falls_back_to_default(tmp_path):
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 default_scale = 4
 
 [[playlist.section]]
@@ -232,7 +232,7 @@ mode = "swap"
 def test_section_bg_color_defaults_to_none(tmp_path):
     config_file = tmp_path / "c.toml"
     config_file.write_text(
-        "[display]\nrows=16\ncols=32\nchain=5\n"
+        "[display]\nrows=16\ncols=32\nchain_length=5\n"
         '[[playlist.section]]\nmode="forever_scroll"\n'
     )
     cfg = load_config(config_file)
@@ -242,7 +242,7 @@ def test_section_bg_color_defaults_to_none(tmp_path):
 def test_section_bg_color_parsed_from_toml(tmp_path):
     config_file = tmp_path / "c.toml"
     config_file.write_text(
-        "[display]\nrows=16\ncols=32\nchain=5\n"
+        "[display]\nrows=16\ncols=32\nchain_length=5\n"
         '[[playlist.section]]\nmode="forever_scroll"\n'
         "bg_color=[26, 59, 142]\n"
     )
@@ -256,7 +256,7 @@ def test_transition_specified_true_when_section_has_transition_key(tmp_path):
     whether to override `between_sections` for inter-section entry."""
     config_file = tmp_path / "c.toml"
     config_file.write_text(
-        "[display]\nrows=16\ncols=32\nchain=5\n"
+        "[display]\nrows=16\ncols=32\nchain_length=5\n"
         '[[playlist.section]]\nmode="swap"\n'
         'transition = "pokeball"\n'
     )
@@ -272,7 +272,7 @@ def test_transition_specified_false_when_section_omits_transition(tmp_path):
     wanted X" from "X was the global default I never overrode"."""
     config_file = tmp_path / "c.toml"
     config_file.write_text(
-        "[display]\nrows=16\ncols=32\nchain=5\n"
+        "[display]\nrows=16\ncols=32\nchain_length=5\n"
         "[transitions]\n"
         'default = "pokeball"\n'  # global default; section inherits
         '[[playlist.section]]\nmode="swap"\n'
@@ -299,7 +299,7 @@ def test_section_start_hold_defaults_to_none(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [[playlist.section]]
         mode = "forever_scroll"
@@ -320,7 +320,7 @@ def test_section_start_hold_parses_zero(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [[playlist.section]]
         mode = "forever_scroll"
@@ -342,7 +342,7 @@ def test_section_start_hold_parses_positive_float(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [[playlist.section]]
         mode = "forever_scroll"
@@ -364,7 +364,7 @@ def test_section_separator_defaults_to_none(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [[playlist.section]]
         mode = "forever_scroll"
@@ -389,7 +389,7 @@ def test_section_separator_text_parses(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [[playlist.section]]
         mode = "forever_scroll"
@@ -411,7 +411,7 @@ def test_section_separator_empty_string_parses(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [[playlist.section]]
         mode = "forever_scroll"
@@ -436,7 +436,7 @@ def test_section_separator_font_parses(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [[playlist.section]]
         mode = "forever_scroll"
@@ -461,7 +461,7 @@ def test_section_separator_color_parses_rgb_list(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [[playlist.section]]
         mode = "forever_scroll"
@@ -486,7 +486,7 @@ def test_section_separator_color_parses_rainbow_string(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [[playlist.section]]
         mode = "forever_scroll"
@@ -510,7 +510,7 @@ def test_section_raw_round_trips_from_toml(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [[playlist.section]]
         mode = "swap"
@@ -565,9 +565,9 @@ def test_load_config_coerces_multiple_display_fields(tmp_path):
 [display]
 rows = "16"
 cols = "32"
-chain = "1"
+chain_length = "1"
 brightness = "60"
-slowdown_gpio = "3"
+gpio_slowdown = "3"
 
 [[playlist.section]]
 mode = "swap"
@@ -577,16 +577,16 @@ mode = "swap"
     config = load_config(cfg)
     assert config.display.rows == 16
     assert config.display.cols == 32
-    assert config.display.chain == 1
+    assert config.display.chain_length == 1
     assert config.display.brightness == 60
-    assert config.display.slowdown_gpio == 3
+    assert config.display.gpio_slowdown == 3
     fields_warned = {w.field for w in config._coerce_warnings}
     assert fields_warned >= {
         "display.rows",
         "display.cols",
-        "display.chain",
+        "display.chain_length",
         "display.brightness",
-        "display.slowdown_gpio",
+        "display.gpio_slowdown",
     }
 
 
@@ -679,7 +679,7 @@ def test_entry_transition_parsed_from_toml(tmp_path):
     """entry_transition is parsed when present in TOML."""
     config_file = tmp_path / "c.toml"
     config_file.write_text(
-        "[display]\nrows=16\ncols=32\nchain=5\n"
+        "[display]\nrows=16\ncols=32\nchain_length=5\n"
         '[[playlist.section]]\nmode="swap"\n'
         'entry_transition = "pokeball"\n'
     )
@@ -691,7 +691,8 @@ def test_entry_transition_parsed_from_toml(tmp_path):
 def test_entry_transition_none_when_absent(tmp_path):
     config_file = tmp_path / "c.toml"
     config_file.write_text(
-        "[display]\nrows=16\ncols=32\nchain=5\n" '[[playlist.section]]\nmode="swap"\n'
+        "[display]\nrows=16\ncols=32\nchain_length=5\n"
+        '[[playlist.section]]\nmode="swap"\n'
     )
     cfg = load_config(config_file)
     assert cfg.sections[0].entry_transition is None
@@ -700,7 +701,7 @@ def test_entry_transition_none_when_absent(tmp_path):
 def test_widget_transition_parsed_from_toml(tmp_path):
     config_file = tmp_path / "c.toml"
     config_file.write_text(
-        "[display]\nrows=16\ncols=32\nchain=5\n"
+        "[display]\nrows=16\ncols=32\nchain_length=5\n"
         '[[playlist.section]]\nmode="swap"\n'
         'widget_transition = "wipe_left"\n'
     )
@@ -712,7 +713,8 @@ def test_widget_transition_parsed_from_toml(tmp_path):
 def test_widget_transition_none_when_absent(tmp_path):
     config_file = tmp_path / "c.toml"
     config_file.write_text(
-        "[display]\nrows=16\ncols=32\nchain=5\n" '[[playlist.section]]\nmode="swap"\n'
+        "[display]\nrows=16\ncols=32\nchain_length=5\n"
+        '[[playlist.section]]\nmode="swap"\n'
     )
     cfg = load_config(config_file)
     assert cfg.sections[0].widget_transition is None
@@ -722,7 +724,7 @@ def test_entry_transition_and_transition_coexist(tmp_path):
     """entry_transition and transition can both be set independently."""
     config_file = tmp_path / "c.toml"
     config_file.write_text(
-        "[display]\nrows=16\ncols=32\nchain=5\n"
+        "[display]\nrows=16\ncols=32\nchain_length=5\n"
         '[[playlist.section]]\nmode="swap"\n'
         'transition = "wipe_left"\n'
         'entry_transition = "pokeball"\n'
@@ -738,7 +740,7 @@ def test_entry_transition_dict_form(tmp_path):
     """entry_transition accepts the dict form with duration."""
     config_file = tmp_path / "c.toml"
     config_file.write_text(
-        "[display]\nrows=16\ncols=32\nchain=5\n"
+        "[display]\nrows=16\ncols=32\nchain_length=5\n"
         '[[playlist.section]]\nmode="swap"\n'
         '[playlist.section.entry_transition]\ntype = "dissolve"\nduration = 0.8\n'
     )
@@ -760,7 +762,7 @@ def test_transition_fps_parsed_from_section_toml(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [[playlist.section]]
         mode = "swap"
@@ -782,7 +784,7 @@ def test_transition_fps_parsed_from_inline_dict(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [transitions]
         between_sections = {type = "push_left", duration = 1.0, transition_fps = 30.0}
@@ -805,7 +807,7 @@ def test_transition_fps_absent_stays_none(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [[playlist.section]]
         mode = "swap"
@@ -829,7 +831,7 @@ def test_transition_fps_converts_to_scroll_speed(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [[playlist.section]]
         mode = "swap"
@@ -856,7 +858,7 @@ def test_transition_fps_none_yields_default_scroll_speed(tmp_path):
         [display]
         rows = 16
         cols = 32
-        chain = 5
+        chain_length = 5
 
         [[playlist.section]]
         mode = "swap"

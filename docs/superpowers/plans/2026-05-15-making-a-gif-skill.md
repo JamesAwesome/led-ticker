@@ -15,7 +15,7 @@
 - Repo path: `/Users/james/projects/github/jamesawesome/led-ticker/`.
 - Pre-commit needs `node` on PATH for docs-lint. If `which node` fails, prepend `/Users/<user>/.nvm/versions/node/<v>/bin/` to PATH before any git commit.
 
-**Caveat — canvas-width math:** The CLI's canvas-width formula `(cols × chain) / scale` is accurate for smallsign-style configs (the 35 existing pinned demos all use this shape). Bigsign configs with a `pixel_mapper` (e.g., "U-mapper") have a transformed layout the naive formula gets wrong. v1 emits an info-severity flag when `pixel_mapper` is set and continues with the naive math; the user can sanity-check. v2 may inspect the mapper string.
+**Caveat — canvas-width math:** The CLI's canvas-width formula `(cols × chain) / scale` is accurate for smallsign-style configs (the 35 existing pinned demos all use this shape). Bigsign configs with a `pixel_mapper_config` (e.g., "U-mapper") have a transformed layout the naive formula gets wrong. v1 emits an info-severity flag when `pixel_mapper_config` is set and continues with the naive math; the user can sanity-check. v2 may inspect the mapper string.
 
 ---
 
@@ -63,7 +63,7 @@ class TestCanvasWidth:
         display = {"cols": 64, "chain": 8, "default_scale": 4}
         section = {}
         # Naive: (64 × 8) / 4 = 128. This is the v1 caveat — bigsign
-        # actual is 64, but pixel_mapper handling is future work.
+        # actual is 64, but pixel_mapper_config handling is future work.
         assert canvas_width_logical(display, section) == 128
 
     def test_missing_default_scale_treated_as_one(self):
@@ -99,9 +99,9 @@ def canvas_width_logical(display: dict, section: dict) -> int:
     Formula: (display.cols × display.chain) / scale, where scale =
     section.scale OR display.default_scale OR 1.
 
-    Caveat: pixel_mapper-based configs (e.g., bigsign U-mapper) have
+    Caveat: pixel_mapper_config-based configs (e.g., bigsign U-mapper) have
     a transformed layout this naive formula gets wrong. Callers
-    should flag pixel_mapper presence at the section level.
+    should flag pixel_mapper_config presence at the section level.
     """
     cols = int(display.get("cols", 0))
     chain = int(display.get("chain", 1))
@@ -1063,9 +1063,9 @@ class TestZeroCycle:
 
 
 class TestPixelMapperInfo:
-    def test_pixel_mapper_present(self):
+    def test_pixel_mapper_config_present(self):
         config = {
-            "display": {"cols": 64, "chain": 8, "pixel_mapper": "U-mapper"},
+            "display": {"cols": 64, "chain": 8, "pixel_mapper_config": "U-mapper"},
             "playlist": {"section": []},
         }
         flags = check_all(
@@ -1074,7 +1074,7 @@ class TestPixelMapperInfo:
             render_duration_header=None,
             sections_summary=[],
         )
-        info = [f for f in flags if f["code"] == "pixel_mapper_present"]
+        info = [f for f in flags if f["code"] == "pixel_mapper_config_present"]
         assert len(info) == 1
         assert info[0]["severity"] == "info"
 ```
@@ -1131,7 +1131,7 @@ def check_all(
     flags.extend(_check_render_duration(playlist_total_ms, render_duration_header))
     flags.extend(_check_scroll_steps(config))
     flags.extend(_check_zero_cycles(config))
-    flags.extend(_check_pixel_mapper(config))
+    flags.extend(_check_pixel_mapper_config(config))
     return flags
 
 
@@ -1216,14 +1216,14 @@ def _check_zero_cycles(config: dict) -> list[dict]:
     return flags
 
 
-def _check_pixel_mapper(config: dict) -> list[dict]:
+def _check_pixel_mapper_config(config: dict) -> list[dict]:
     display = config.get("display", {})
-    if "pixel_mapper" in display or "pixel_mapper_config" in display:
+    if "pixel_mapper_config" in display or "pixel_mapper_config" in display:
         return [_flag(
             "info",
             "display",
-            "pixel_mapper_present",
-            "pixel_mapper detected; canvas-width math is approximate for bigsign-style configs in v1.",
+            "pixel_mapper_config_present",
+            "pixel_mapper_config detected; canvas-width math is approximate for bigsign-style configs in v1.",
             "Sanity-check the recommended render-duration against the visual output.",
         )]
     return []
@@ -1685,7 +1685,7 @@ For data-fetch widgets (weather, coinbase, mlb, rss_feed, etherscan, coingecko),
 
 - [ ] **Step 3: Tune any formula or add per-demo skip until all pass**
 
-If a real demo trips a flag, investigate first; only skip if the demo is genuinely covered by a known v1 limitation (e.g., bigsign pixel_mapper math).
+If a real demo trips a flag, investigate first; only skip if the demo is genuinely covered by a known v1 limitation (e.g., bigsign pixel_mapper_config math).
 
 - [ ] **Step 4: Commit**
 
@@ -2058,7 +2058,7 @@ Widgets: `message`, `countdown`, `two_row`, `image`, `still`, `gif`.
 
 - `forever_scroll` / `infini_scroll` modes — timing is runtime-dependent.
 - Data-fetch widgets (`weather`, `coinbase`, `mlb`, `rss_feed`, etherscan, `coingecko`) — visit time depends on fetched data.
-- Bigsign pixel_mapper transformations — canvas-width math is approximate.
+- Bigsign pixel_mapper_config transformations — canvas-width math is approximate.
 
 ## Tests
 
@@ -2120,7 +2120,7 @@ PATH=/Users/$(whoami)/.nvm/versions/node/v24.14.1/bin:$PATH gh pr create \
 
 New project-local skill + companion CLI for planning led-ticker demo gifs.
 
-- `tools/gif_plan/` — deterministic Python CLI. Computes per-widget visit time, section + playlist totals, recommended render-duration. Flags mid-pass cutoffs, out-of-band scroll_step_ms, zero-cycle widgets, pixel_mapper caveats.
+- `tools/gif_plan/` — deterministic Python CLI. Computes per-widget visit time, section + playlist totals, recommended render-duration. Flags mid-pass cutoffs, out-of-band scroll_step_ms, zero-cycle widgets, pixel_mapper_config caveats.
 - `.claude/skills/making-a-gif/` — Claude-facing skill that wraps the CLI, adds LED-panel color/contrast judgment, suggests captions for docs mode and `/tmp/` output paths for dev mode.
 
 ## Test plan

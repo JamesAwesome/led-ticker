@@ -96,7 +96,7 @@ Net: ~2,000 lines + 169 tests → ~120 lines + ~15 tests.
 - `docs/site/src/content/docs/tools/gif-plan.mdx`: cut to a short page
   — one-paragraph "what it does", the one command, the two-line
   output, the exit codes, one out-of-scope sentence
-  (`forever_scroll` / `loop_count=0` / data-fetch / `pixel_mapper` /
+  (`forever_scroll` / `loop_count=0` / data-fetch / `pixel_mapper_config` /
   rough estimate). Delete the flag table, the `# render-duration:`
   deep-dive, the sharp-edge subsection, per-widget detail.
 - `docs/site/src/content/docs/reference/cli.mdx`: `make plan-gif` row

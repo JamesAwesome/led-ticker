@@ -1,6 +1,6 @@
 ---
 title: Display
-description: How rows, cols, chain, parallel, scale, and pixel_mapper combine into a logical canvas.
+description: How rows, cols, chain_length, parallel, scale, and pixel_mapper_config combine into a logical canvas.
 ---
 
 import TomlExample from "../../../components/TomlExample.astro";
@@ -17,10 +17,10 @@ Two hardware configurations ship as ready-to-use examples — the maintainer's d
   code={`[display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 default_scale = 1
 brightness = 60
-slowdown_gpio = 2`}
+gpio_slowdown = 2`}
 />
 
 <TomlExample
@@ -28,12 +28,12 @@ slowdown_gpio = 2`}
   code={`[display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 parallel = 1
-pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
 default_scale = 4
 brightness = 60
-slowdown_gpio = 3
+gpio_slowdown = 3
 pwm_bits = 8
 rp1_rio = 1`}
 />
@@ -61,8 +61,8 @@ hold_time = 4.0`}
 The full field reference — every knob, default value, and
 Pi-version note — lives at
 [Reference: Config options](/reference/config-options/#display).
-The most-touched fields are above (`rows`, `cols`, `chain`,
-`default_scale`, `pixel_mapper`, `slowdown_gpio`); see the
+The most-touched fields are above (`rows`, `cols`, `chain_length`,
+`default_scale`, `pixel_mapper_config`, `gpio_slowdown`); see the
 reference page when you need `pwm_bits`, `pwm_lsb_nanoseconds`,
 `rp1_rio`, or the other Pi-tuning options.
 

@@ -1,10 +1,10 @@
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 brightness = 60
-slowdown_gpio = 2
-gpio_mapping = "adafruit-hat"
+gpio_slowdown = 2
+hardware_mapping = "adafruit-hat"
 
 [title]
 delay = 5

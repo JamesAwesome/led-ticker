@@ -26,7 +26,7 @@ For hardware setup, BOM, and wiring diagrams see [docs.ledticker.dev/hardware/bu
 Everything is configured via a TOML file. Three reference configs ship in `config/`:
 
 - `config.example.toml` — smallsign starter (160×16)
-- `config.bigsign.example.toml` — bigsign with `pixel_mapper`, scaling, RP1 tuning (256×64)
+- `config.bigsign.example.toml` — bigsign with `pixel_mapper_config`, scaling, RP1 tuning (256×64)
 - `config.moonbunny.example.toml` — real-world bigsign storefront layout
 
 Full config reference: <https://docs.ledticker.dev/reference/config-options/>. Per-widget pages document every knob: <https://docs.ledticker.dev/widgets/>.
@@ -69,7 +69,7 @@ The compose file mounts `./config` read-only into the container so you edit TOML
 
 ## Hardware
 
-The single Docker image detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). On the Pi 5 the runtime CLI accepts `--led-rp1-rio=0|1` for the RP1 backend mode; for chain ≥ 2 with flicker raise `slowdown_gpio` from 2 to 3+.
+The single Docker image detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). On the Pi 5 the runtime CLI accepts `--led-rp1-rio=0|1` for the RP1 backend mode; for chain ≥ 2 with flicker raise `gpio_slowdown` from 2 to 3+.
 
 Hardware reference (BOM, wiring, panel-tuning knobs): <https://docs.ledticker.dev/hardware/building-your-own/>.
 

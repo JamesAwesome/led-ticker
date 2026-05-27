@@ -30,4 +30,4 @@ bottom_font = "5x8"
 bottom_color = [255, 240, 200]
 bottom_text_scroll = "scroll_through"
 scroll_speed_ms = 25
-hold_seconds = 12.0
+hold_time = 12.0

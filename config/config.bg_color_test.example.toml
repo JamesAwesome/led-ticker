@@ -99,7 +99,7 @@ bg_color = [180, 60, 0]     # burnt orange
 type = "image"
 path = "assets/bunny-nontransparent.png"
 fit = "pillarbox"
-hold_seconds = 6.0
+hold_time = 6.0
 
 # ---------------------------------------------------------------------------
 # 5. StillImage with transparent PNG + bg
@@ -114,7 +114,7 @@ bg_color = [10, 130, 80]    # forest green
 type = "image"
 path = "assets/bunny-transparent.png"
 fit = "pillarbox"
-hold_seconds = 6.0
+hold_time = 6.0
 
 # ---------------------------------------------------------------------------
 # 6. GIF (animated) with bg through pillarbox + transparency

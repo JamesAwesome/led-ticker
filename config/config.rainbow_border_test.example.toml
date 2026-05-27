@@ -119,7 +119,7 @@ type = "image"
 path = "assets/bunny-transparent.png"
 fit = "pillarbox"
 image_align = "center"
-hold_seconds = 7.0
+hold_time = 7.0
 border = "rainbow"
 
 # ---------------------------------------------------------------------------
@@ -139,7 +139,7 @@ type = "image"
 path = "assets/bunny-transparent.png"
 fit = "pillarbox"
 image_align = "center"
-hold_seconds = 7.0
+hold_time = 7.0
 border = [220, 50, 50]
 
 # ---------------------------------------------------------------------------
@@ -167,7 +167,7 @@ font = "Inter-Bold"
 font_size = 16
 font_color = [255, 255, 255]
 scroll_speed_ms = 40
-hold_seconds = 8.0
+hold_time = 8.0
 border = "rainbow"
 
 # ---------------------------------------------------------------------------
@@ -248,7 +248,7 @@ font = "Inter-Bold"
 font_size = 16
 font_color = "rainbow"
 scroll_speed_ms = 40
-hold_seconds = 8.0
+hold_time = 8.0
 border = "rainbow"
 
 # ---------------------------------------------------------------------------

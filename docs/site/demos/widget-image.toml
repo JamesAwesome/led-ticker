@@ -27,5 +27,5 @@ text = "Bunny says hi"
 text_align = "scroll_over"
 # See widget-gif.toml for the rationale on scroll_speed_ms = 25.
 scroll_speed_ms = 25
-hold_seconds = 7.0
+hold_time = 7.0
 font_color = [200, 100, 255]

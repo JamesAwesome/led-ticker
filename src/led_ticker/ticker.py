@@ -635,6 +635,7 @@ class Ticker:
         self._current_visit = self._visit_counter
         if hasattr(widget, "reset_frame"):
             widget.reset_frame()
+        hold_time = max(hold_time, getattr(widget, "hold_time", 0.0))
         if Ticker._has_play(widget):
             canvas = await self._play_widget(
                 canvas, widget, section_hold_time=hold_time

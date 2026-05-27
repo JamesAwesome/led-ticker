@@ -67,6 +67,7 @@ def make_widget():
 
     def _factory(content_width=40):
         widget = mock.Mock()
+        widget.hold_time = 0.0
         widget.draw.side_effect = lambda c, cursor_pos=0, **kw: (
             c,
             cursor_pos + content_width,

@@ -72,7 +72,7 @@ transition_duration = 1.0
 type = "image"
 path = "assets/logo_banner_color.png"
 fit = "letterbox"
-hold_seconds = 6.0
+hold_time = 6.0
 border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 
 # ---------------------------------------------------------------------------
@@ -122,7 +122,7 @@ image_align = "left"
 text = "Find Your Strength  *  Find Your Community  *  Aerial for Everybody"
 text_align = "scroll"
 scroll_speed_ms = 50
-hold_seconds = 0.05   # min: text_loops drives the real duration
+hold_time = 0.05   # min: text_loops drives the real duration
 text_loops = 1
 font = "beloved-sans-bold"
 font_size = 28

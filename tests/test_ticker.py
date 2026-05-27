@@ -490,6 +490,7 @@ class TestTickerVisitCounter:
 
         canvas = MagicMock(width=256, height=64)
         widget = MagicMock()
+        widget.hold_time = 0.0
         widget.draw.return_value = (canvas, 0)
         widget.forces_offscreen_scroll = False
         widget.wraps_forever = False

@@ -132,7 +132,7 @@ font = "Inter-Bold"
 font_size = 25
 font_color = {style = "shimmer", base = [225, 48, 108], shimmer = "white", speed = 10, width = 5, pause = 1.5}
 border = { style = "lightbulbs", lit_color = [255, 40, 40], unlit_color = [60, 0, 0] }
-hold_seconds = 60
+hold_time = 60
 
 # ---------------------------------------------------------------------------
 # Section 3 — "Find Your" combined scroll

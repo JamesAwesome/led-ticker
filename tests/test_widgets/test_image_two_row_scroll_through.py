@@ -150,7 +150,7 @@ class TestImageScrollThroughForcesOffscreenScroll:
             bottom_align="center",
             bottom_text_scroll="scroll_through",
             scroll_speed_ms=50,
-            hold_seconds=0.5,
+            hold_time=0.5,
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()
@@ -209,7 +209,7 @@ class TestImageScrollThroughForcesOffscreenScroll:
             bottom_text="Hi",
             bottom_align="center",
             scroll_speed_ms=50,
-            hold_seconds=0.5,
+            hold_time=0.5,
         )
         real = bigsign_canvas
         frame = mocker.MagicMock()

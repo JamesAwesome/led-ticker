@@ -64,7 +64,7 @@ class TestWidgetMs:
         s = {"hold_time": 0.0, "scroll_step_ms": 25}
         assert widget_ms(w, s, 160, Path(".")) == (240 - 160) * 25
 
-    def test_image_default_hold_seconds(self):
+    def test_image_default_hold_time(self):
         assert widget_ms({"type": "image"}, {}, 160, Path(".")) == 5000
 
     def test_gif_loops_times_frame_sum(self, tmp_path):
@@ -232,8 +232,8 @@ class TestConstantsMatchEngine:
             f"SectionConfig.hold_time default={engine_value}"
         )
 
-    def test_default_hold_seconds_matches_still_image(self):
-        """_DEFAULT_HOLD_SECONDS mirrors StillImage.hold_seconds default.
+    def test_default_hold_time_matches_still_image(self):
+        """_DEFAULT_HOLD_SECONDS mirrors StillImage.hold_time default.
 
         Source: attrs.fields(StillImage) — StillImage is an attrs class
         (@attrs.define); field defaults are accessible via attrs.fields().
@@ -244,11 +244,11 @@ class TestConstantsMatchEngine:
         from led_ticker.widgets.still import StillImage
 
         engine_value = next(
-            f.default for f in attrs.fields(StillImage) if f.name == "hold_seconds"
+            f.default for f in attrs.fields(StillImage) if f.name == "hold_time"
         )
         assert engine_value == _DEFAULT_HOLD_SECONDS, (
             f"plan._DEFAULT_HOLD_SECONDS={_DEFAULT_HOLD_SECONDS} drifted from "
-            f"StillImage.hold_seconds default={engine_value}"
+            f"StillImage.hold_time default={engine_value}"
         )
 
     def test_default_step_ms_matches_engine_tick(self):

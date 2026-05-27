@@ -45,6 +45,7 @@ class TickerMessage(_FrameAware):
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     center: bool = True
     padding: int = 6
+    hold_time: float = 0.0
     animation: Any | None = attrs.field(default=None, kw_only=True)
     # Optional perimeter border effect (rainbow chase, constant color,
     # etc.). When set, paints a 1-px ring around the panel perimeter

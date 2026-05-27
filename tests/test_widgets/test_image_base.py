@@ -1584,7 +1584,7 @@ class TestPlayWithTextBorderFastPath:
             path=img_path,
             text="HI",
             text_align="left",
-            hold_seconds=0.5,  # 10 ticks at 50ms
+            hold_time=0.5,  # 10 ticks at 50ms
         )
 
     async def test_fast_path_with_constant_border_runs_once(
@@ -1655,7 +1655,7 @@ class TestPlayWithTwoRowBorderFastPath:
             bottom_text="x",
             top_align="center",
             bottom_align="center",
-            hold_seconds=0.5,
+            hold_time=0.5,
             font=FONT_SMALL,
         )
 
@@ -1886,7 +1886,7 @@ class TestImageTypewriter:
             tmp_path,
             text="Hello",
             text_align="left",
-            hold_seconds=0.5,
+            hold_time=0.5,
             animation=Typewriter(),
         )
 
@@ -1903,7 +1903,7 @@ class TestImageTypewriter:
         await widget.play(frame.swap.return_value, frame, loop_count=1)
 
         # Slow path runs N ticks; we just need > 1 to prove fast path
-        # was bypassed. Default `hold_seconds=0.5` → ~10 ticks at 50ms.
+        # was bypassed. Default `hold_time=0.5` → ~10 ticks at 50ms.
         assert frame.swap.call_count > 1, (
             f"animation=Typewriter must force per-tick loop; "
             f"got SwapOnVSync.call_count={frame.swap.call_count} "

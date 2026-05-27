@@ -2507,11 +2507,11 @@ class TestListWidgetFields:
             or "= one" in output.lower()
         )
 
-    def test_hold_seconds_description_appears_on_image(self):
+    def test_hold_time_description_appears_on_image(self):
         from led_ticker.app import _list_widget_fields
 
         output = _list_widget_fields("image")
-        assert "hold_seconds" in output
+        assert "hold_time" in output
         assert "still" in output.lower() or "minimum" in output.lower()
 
 

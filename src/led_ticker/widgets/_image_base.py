@@ -12,7 +12,7 @@ the per-tick scroll loop. Subclasses provide:
     (default no-op for single-frame stills)
 
 Subclasses also add their own type-specific fields (`path`, `fit`,
-`image_align`, plus `play_count` / `hold_seconds` for per-visit
+`image_align`, plus `play_count` / `hold_time` for per-visit
 duration).
 
 When `bg_color` is set on the widget, `_paint_image()` dispatches to
@@ -99,7 +99,7 @@ AUTO_TEXT_ALIGN_FOR_IMAGE: dict[str, str] = {
 
 TEXT_EDGE_PADDING_PX: int = 2
 MIN_SCROLL_SPEED_MS: int = 20
-HOLD_SECONDS_FLOOR: float = 0.05
+HOLD_TIME_FLOOR: float = 0.05
 
 
 @attrs.define
@@ -1220,7 +1220,7 @@ class _BaseImageWidget(_FrameAware):
         n_ticks: int,
     ) -> Canvas:
         """Per-tick text scroll loop. Subclass computes `n_ticks` (gif:
-        from sum(durations)*play_count; still: from hold_seconds), then calls
+        from sum(durations)*play_count; still: from hold_time), then calls
         this. Single-frame stills inherit `_pick_frame_for_elapsed` as
         a no-op; gif overrides it to advance `_current_frame_idx` per
         tick from the elapsed time.
@@ -1311,7 +1311,7 @@ class _BaseImageWidget(_FrameAware):
         # Marquee-traversal floor: extend n_ticks so the marquee
         # always completes at least one full pass (off-right → off-
         # left or vice-versa). Without this, the source's natural
-        # duration (play_count × loop_ms, or hold_seconds for stills)
+        # duration (play_count × loop_ms, or hold_time for stills)
         # could end mid-marquee — which got worse when hi-res fonts
         # arrived because the same string is 2-3× wider per char than
         # BDF, so a duration that fit the BDF marquee no longer fits

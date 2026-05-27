@@ -21,6 +21,6 @@ fit = "pillarbox"
 image_align = "left"
 text = "Scrolling behind the moon!"
 text_align = "scroll"
-hold_seconds = 7.0
+hold_time = 7.0
 font_color = [200, 200, 255]
 scroll_speed_ms = 25

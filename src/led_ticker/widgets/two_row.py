@@ -97,6 +97,7 @@ class TwoRowMessage(_FrameAware):
     top_align: str = "center"
     bottom_align: str = "center"
     padding: int = 6
+    hold_time: float = 0.0
     # Backwards-compat: top_center=True is the same as top_align="center".
     # If you set top_center=False, top_align="left" is used (legacy default).
     top_center: bool | None = None

@@ -197,7 +197,7 @@ def test_renderer_preserves_engine_wallclock_when_frames_repeat(tmp_path):
 
 
 # Static-fast-path tripwire. A widget that hits `_play_with_text`'s
-# static fast path (image widget at hold_seconds with no scrolling
+# static fast path (image widget at hold_time with no scrolling
 # text and no animation) only triggers ONE SwapOnVSync, then sleeps
 # for the full hold. Before the timestamp-based encoder, the lone
 # captured frame got tick_ms (50ms) as its duration regardless of
@@ -231,7 +231,7 @@ def test_renderer_static_fast_path_credits_single_frame_with_hold(tmp_path):
     output gif (visually fine for a still image, but metadata wrong).
 
     Post-fix: lone captured frame → durations = [end_time - swap_t]
-    → ~hold_seconds output gif.
+    → ~hold_time output gif.
     """
     cfg = tmp_path / "demo.toml"
     cfg.write_text(_STATIC_FAST_PATH_CONFIG)

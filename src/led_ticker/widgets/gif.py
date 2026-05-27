@@ -8,13 +8,13 @@ Despite the name, the decoder (:mod:`_gif_decode`) just calls
 Per-frame durations come from ``img.info["duration"]`` which Pillow
 populates from the format's native chunk metadata. For static
 (single-frame) sources prefer :class:`StillImage` (``type = "image"``)
-which has a ``hold_seconds`` knob — a 1-frame "gif" works but isn't
+which has a ``hold_time`` knob — a 1-frame "gif" works but isn't
 the natural fit.
 
 Counterpart to :class:`led_ticker.widgets.still.StillImage` — both
 inherit from :class:`led_ticker.widgets._image_base._BaseImageWidget`
 so the text-overlay surface is identical. The only widget-specific
-knobs are ``play_count`` (this widget) vs ``hold_seconds`` (still).
+knobs are ``play_count`` (this widget) vs ``hold_time`` (still).
 
 The widget lazily decodes all frames on first use, paints frames
 directly to the underlying real canvas (bypassing ScaledCanvas so each
@@ -70,7 +70,7 @@ Field               Default            Description
                                        through the section's ``hold_time``
                                        (plays at least 1 loop). Negative values
                                        are rejected. (Still widget uses
-                                       ``hold_seconds`` instead.)
+                                       ``hold_time`` instead.)
 ``text_loops``      ``0``              Floor on marquee traversals before
                                        section transitions. Only with scrolling
                                        text; 0 = no floor.

@@ -319,9 +319,10 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                     )
                 )
 
-            # Rule 8: hold_time < 0.05
+            # Rule 8: hold_time < 0.05 (positive but below floor)
+            # hold_time = 0.0 means "defer to section" and is explicitly allowed.
             hold_s = widget_cfg.get("hold_time")
-            if hold_s is not None and float(hold_s) < 0.05:
+            if hold_s is not None and hold_s > 0 and float(hold_s) < 0.05:
                 issues.append(
                     ValidationIssue(
                         rule=8,

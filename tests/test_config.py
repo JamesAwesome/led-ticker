@@ -746,3 +746,76 @@ def test_entry_transition_dict_form(tmp_path):
     assert cfg.sections[0].entry_transition is not None
     assert cfg.sections[0].entry_transition.type == "dissolve"
     assert cfg.sections[0].entry_transition.duration == 0.8
+
+
+def test_transition_fps_defaults_to_none():
+    from led_ticker.config import TransitionConfig
+
+    cfg = TransitionConfig()
+    assert cfg.transition_fps is None
+
+
+def test_transition_fps_parsed_from_section_toml(tmp_path):
+    toml = textwrap.dedent("""\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [[playlist.section]]
+        mode = "swap"
+        transition = "push_left"
+        transition_fps = 40.0
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+    """)
+    p = tmp_path / "cfg.toml"
+    p.write_text(toml)
+    cfg = load_config(p)
+    assert cfg.sections[0].transition.transition_fps == 40.0
+
+
+def test_transition_fps_parsed_from_inline_dict(tmp_path):
+    toml = textwrap.dedent("""\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [transitions]
+        between_sections = {type = "push_left", duration = 1.0, transition_fps = 30.0}
+
+        [[playlist.section]]
+        mode = "swap"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+    """)
+    p = tmp_path / "cfg.toml"
+    p.write_text(toml)
+    cfg = load_config(p)
+    assert cfg.between_sections.transition_fps == 30.0
+
+
+def test_transition_fps_absent_stays_none(tmp_path):
+    toml = textwrap.dedent("""\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [[playlist.section]]
+        mode = "swap"
+        transition = "push_left"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+    """)
+    p = tmp_path / "cfg.toml"
+    p.write_text(toml)
+    cfg = load_config(p)
+    assert cfg.sections[0].transition.transition_fps is None

@@ -8,7 +8,7 @@ import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-The `image` widget displays a single still image at native physical resolution — each LED maps to one pixel in the source. Use it for logos, product photos, brand artwork, or any single-frame graphic. This widget is essentially `gif` with a single frame: it shares the `gif` widget's full feature surface (fit modes, text overlay, two-row, animation, border) minus the per-frame mechanics — the only widget-specific knob is `hold_seconds` instead of `play_count`.
+The `image` widget displays a single still image at native physical resolution — each LED maps to one pixel in the source. Use it for logos, product photos, brand artwork, or any single-frame graphic. This widget is essentially `gif` with a single frame: it shares the `gif` widget's full feature surface (fit modes, text overlay, two-row, animation, border) minus the per-frame mechanics — the only widget-specific knob is `hold_time` instead of `play_count`.
 
 <DemoGif src="/demos/widget-image.gif" caption="Bunny png with scroll_over text overlay" />
 
@@ -17,7 +17,7 @@ The `image` widget displays a single still image at native physical resolution �
   code={`[[playlist.section.widget]]
 type = "image"
 path = "config/assets/my_logo.png"
-hold_seconds = 4.0`}
+hold_time = 4.0`}
 />
 
 ## Options
@@ -39,7 +39,7 @@ type = "image"
 path = "config/assets/moon-transparent.png"
 fit = "pillarbox"
 image_align = "center"
-hold_seconds = 4.0`}
+hold_time = 4.0`}
 />
 
 ### Image with scrolling text overlay (`scroll_over` — text in front of the image)
@@ -57,7 +57,7 @@ fit = "pillarbox"
 image_align = "left"
 text = "Follow us on Instagram!"
 text_align = "scroll_over"
-hold_seconds = 7.0
+hold_time = 7.0
 font_color = [200, 100, 255]`}
 />
 
@@ -152,7 +152,7 @@ Notes:
 
 <DemoGif
   src="/demos-pinned/image-two_row-scroll_through.gif"
-  caption="moon on the right, held magenta `@moonbunny` on top, cream promo scrolling fully offscreen-to-offscreen on the bottom — keeps cycling within `hold_seconds`"
+  caption="moon on the right, held magenta `@moonbunny` on top, cream promo scrolling fully offscreen-to-offscreen on the bottom — keeps cycling within `hold_time`"
 />
 
 Setting `bottom_text_scroll = "scroll_through"` in two-row mode forces the bottom row to do an offscreen-to-offscreen scroll on every visit — text starts fully off the right edge and ends fully off the left edge — instead of the default "held when it fits, scroll only on overflow" behavior. `bottom_align` is ignored.
@@ -179,7 +179,7 @@ Notes:
 - Mutually exclusive with `bottom_text_wrap = true` — pick one. Scroll-through is one pass; wrap is a seamless tile.
 - Requires non-empty `bottom_text` (two-row mode). Single-row text scroll lives under `text_align = "scroll"` / `"scroll_over"`.
 - Only valid in `mode = "swap"`. In `forever_scroll` / `infini_scroll` modes validation refuses it (rule 32).
-- `hold_seconds` is honored as a _floor_: at least one full pass per visit, or `text_loops × (canvas_width + bottom_width)` if larger, or whatever `hold_seconds` admits — whichever is greatest. The bottom row keeps cycling until that floor is met.
+- `hold_time` is honored as a _floor_: at least one full pass per visit, or `text_loops × (canvas_width + bottom_width)` if larger, or whatever `hold_time` admits — whichever is greatest. The bottom row keeps cycling until that floor is met.
 
 ### Two-row text overlay (set `bottom_text` to switch modes — image sits underneath)
 
@@ -200,7 +200,7 @@ top_color = [225, 48, 108]
 bottom_text = "Open daily 10am – 8pm"
 bottom_font = "5x8"
 bottom_color = [255, 240, 200]
-hold_seconds = 7.0`}
+hold_time = 7.0`}
 />
 
 ### Typewriter overlay (single-row only — letters type in next to the image)
@@ -220,7 +220,7 @@ text = "moonbunny"
 text_align = "right"
 font_color = "rainbow"
 animation = "typewriter"
-hold_seconds = 8.0`}
+hold_time = 8.0`}
 />
 
 ### Typewriter + rainbow border (frame the panel as the text appears)
@@ -241,7 +241,7 @@ text_align = "right"
 font_color = [255, 255, 255]
 animation = "typewriter"
 border = "rainbow"
-hold_seconds = 8.0`}
+hold_time = 8.0`}
 />
 
 ## Tips
@@ -258,9 +258,9 @@ Stretch fills every pixel with image, leaving no transparent regions for the tex
 
 Static offsets don't compose with the per-tick scroll cursor. Set `text_x_offset = 0` or change `text_align` to `"left"` or `"right"`.
 
-### `hold_seconds` must be at least 0.05
+### `hold_time` must be at least 0.05
 
-`hold_seconds` is in seconds, not milliseconds. Anything under 50 ms is rejected — nothing shorter than one engine tick can actually display.
+`hold_time` is in seconds, not milliseconds. Anything under 50 ms is rejected — nothing shorter than one engine tick can actually display.
 
 ### Animated source files only show frame 0
 

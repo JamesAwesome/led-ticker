@@ -23,7 +23,7 @@ font_size = "25"   # works (coerced to 25, warns)
 font_size = 25     # canonical, no warning
 ```
 
-Applies to all numeric fields across `[display]`, `[[playlist.section]]`, and per-widget configs — including `rows`, `cols`, `chain`, `parallel`, `slowdown_gpio`, `pwm_bits`, `pwm_lsb_nanoseconds`, `rp1_rio`, `font_size`, `font_threshold`, `hold_time`, `brightness`, `content_height`, `scale`, `loop_count`, `scroll_step_ms`, `start_hold`, `separator_font_size`, and others.
+Applies to all numeric fields across `[display]`, `[[playlist.section]]`, and per-widget configs — including `rows`, `cols`, `chain`, `parallel`, `slowdown_gpio`, `pwm_bits`, `pwm_lsb_nanoseconds`, `pwm_dither_bits`, `rp1_rio`, `font_size`, `font_threshold`, `hold_time`, `brightness`, `content_height`, `scale`, `loop_count`, `scroll_step_ms`, `start_hold`, `separator_font_size`, and others.
 
 **Closed-set enum strings → case-insensitive.** Fields with a fixed value set (`text_align`, `text_valign`, `image_align`, `scroll_direction`, `fit`, `bottom_text_scroll`, `easing`) are case-insensitive. The canonical form is lowercase:
 
@@ -52,6 +52,7 @@ Hardware and panel-layout settings. Most of these map straight onto
 | `gpio_mapping`          | string | `"adafruit-hat"` | rgbmatrix GPIO pinout. `"adafruit-hat"` covers the Adafruit HAT and bonnet.                                                                                                                                                           |
 | `pwm_bits`              | int    | `11`             | PWM bit depth. Drop to `8` on the bigsign for ~8x faster refresh at a small color cost.                                                                                                                                               |
 | `pwm_lsb_nanoseconds`   | int    | `130`            | PWM LSB timing; raise toward `200+` if colors look wrong.                                                                                                                                                                             |
+| `pwm_dither_bits`       | int    | `0`              | Temporal dithering depth (0=off, 1–2). Spreads PWM energy more evenly across rows; try `1` or `2` if a specific row appears brighter than its neighbors at sub-100% brightness.                                                       |
 | `show_refresh`          | bool   | `false`          | Log measured refresh Hz to stderr — useful when tuning the bigsign.                                                                                                                                                                   |
 | `no_hardware_pulse`     | bool   | `false`          | Disable hardware PWM and use a CPU fallback. Roughly 5x slower; almost always leave at `false`.                                                                                                                                       |
 | `rp1_rio`               | int    | `0`              | Pi 5 only. `0` = PIO mode (lower CPU). `1` = RIO mode (faster refresh, more CPU). Bigsign uses `1`. Ignored on Pi 4.                                                                                                                  |

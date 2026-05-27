@@ -319,8 +319,8 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                     )
                 )
 
-            # Rule 8: hold_seconds < 0.05
-            hold_s = widget_cfg.get("hold_seconds")
+            # Rule 8: hold_time < 0.05
+            hold_s = widget_cfg.get("hold_time")
             if hold_s is not None and float(hold_s) < 0.05:
                 issues.append(
                     ValidationIssue(
@@ -328,10 +328,10 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                         location=loc,
                         severity="error",
                         message=(
-                            f"hold_seconds={hold_s} is too short"
+                            f"hold_time={hold_s} is too short"
                             " (< 50 ms), likely a typo"
                         ),
-                        fix="Raise hold_seconds to at least 0.05 (50 ms)",
+                        fix="Raise hold_time to at least 0.05 (50 ms)",
                     )
                 )
 

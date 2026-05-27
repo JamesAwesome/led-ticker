@@ -263,13 +263,13 @@ async def test_rule7_text_x_offset_with_scroll(conf):
     assert any(e.rule == 7 for e in result.errors)
 
 
-async def test_rule8_hold_seconds_too_short(conf):
+async def test_rule8_hold_time_too_short(conf):
     extra = textwrap.dedent("""\
 
         [[playlist.section.widget]]
         type = "image"
         path = "x.png"
-        hold_seconds = 0.001
+        hold_time = 0.001
         """)
     result = await validate_config(conf(GOOD_CONFIG + extra))
     assert not result.valid

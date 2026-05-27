@@ -104,7 +104,7 @@ hold_time = 0.5
 type = "image"
 path = "assets/does-not-exist.png"
 fit = "pillarbox"
-hold_seconds = 0.5
+hold_time = 0.5
 """)
     out = tmp_path / "out.gif"
 

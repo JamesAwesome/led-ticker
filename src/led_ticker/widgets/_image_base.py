@@ -99,7 +99,7 @@ AUTO_TEXT_ALIGN_FOR_IMAGE: dict[str, str] = {
 
 TEXT_EDGE_PADDING_PX: int = 2
 MIN_SCROLL_SPEED_MS: int = 20
-HOLD_SECONDS_FLOOR: float = 0.05
+HOLD_TIME_FLOOR: float = 0.05
 
 
 @attrs.define

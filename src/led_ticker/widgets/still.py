@@ -6,7 +6,7 @@ for shared concept docs (text alignments, transparency compositing,
 run_swap dispatch, native-resolution painting). Both widgets inherit
 from :class:`led_ticker.widgets._image_base._BaseImageWidget` so the
 text-overlay surface is identical; the only widget-specific knobs are
-``hold_seconds`` (this widget) vs ``play_count`` (gif).
+``hold_time`` (this widget) vs ``play_count`` (gif).
 
 Schema (TOML config keys for ``type = "image"``):
 
@@ -45,10 +45,10 @@ Field               Default            Description
                                        must specify explicitly. For BDF, snaps
                                        down to the nearest integer multiple of
                                        cell height.
-``hold_seconds``    ``5.0``            Per-visit display duration. With
+``hold_time``    ``5.0``            Per-visit display duration. With
                                        ``text_loops > 0`` becomes a duration
                                        FLOOR: section runs for
-                                       ``max(hold_seconds, text_loops × traversal)``.
+                                       ``max(hold_time, text_loops × traversal)``.
                                        (Gif widget uses ``play_count`` instead.)
 ``text_loops``      ``0``              Floor on marquee passes before
                                        transitioning. Only meaningful for
@@ -60,7 +60,7 @@ Field               Default            Description
 (centered image has no opposite pillar, so we put text over the gif).
 
 Constraints validated at construction:
-    - ``hold_seconds >= 0.05``
+    - ``hold_time >= 0.05``
     - ``text_loops >= 0``
     - ``scroll_speed_ms >= 20``
     - ``text_loops > 0`` requires ``text_align`` ∈ ``{scroll, scroll_over}``
@@ -87,7 +87,7 @@ from PIL import Image
 from led_ticker._types import Canvas, DrawResult
 from led_ticker.scaled_canvas import unwrap_to_real
 from led_ticker.widgets import register
-from led_ticker.widgets._image_base import HOLD_SECONDS_FLOOR, _BaseImageWidget
+from led_ticker.widgets._image_base import HOLD_TIME_FLOOR, _BaseImageWidget
 from led_ticker.widgets._image_fit import (
     VALID_FITS,
     VALID_IMAGE_ALIGNS,
@@ -138,7 +138,7 @@ class StillImage(_BaseImageWidget):
     path: str
     fit: str = "pillarbox"
     image_align: str = "center"
-    hold_seconds: float = 5.0
+    hold_time: float = 5.0
 
     # Single decoded frame (panel_w * panel_h * 3 RGB bytes)
     _pixels: bytes = attrs.field(init=False, default=b"")
@@ -150,10 +150,9 @@ class StillImage(_BaseImageWidget):
 
     def __attrs_post_init__(self) -> None:
         self._validate_common(image_align=self.image_align, fit=self.fit)
-        if self.hold_seconds < HOLD_SECONDS_FLOOR:
+        if self.hold_time < HOLD_TIME_FLOOR:
             raise ValueError(
-                f"hold_seconds must be >= {HOLD_SECONDS_FLOOR}, "
-                f"got {self.hold_seconds!r}"
+                f"hold_time must be >= {HOLD_TIME_FLOOR}, " f"got {self.hold_time!r}"
             )
 
     def _load(self, panel_w: int = 0, panel_h: int = 0) -> None:
@@ -240,12 +239,12 @@ class StillImage(_BaseImageWidget):
         hold_time: float | None = None,
     ) -> Canvas:
         """Run the visit loop. Without text: paint once, hold for
-        ``hold_seconds``. With text: per-tick scroll loop (fast-pathed
+        ``hold_time``. With text: per-tick scroll loop (fast-pathed
         to a single paint + sleep when text is static), with
-        ``hold_seconds`` as a duration floor and ``text_loops`` as a
+        ``hold_time`` as a duration floor and ``text_loops`` as a
         traversal floor.
 
-        ``loop_count`` and ``hold_time`` are unused; ``hold_seconds``
+        ``loop_count`` and ``hold_time`` are unused; ``hold_time``
         controls duration. Both are accepted for compatibility with the
         ``_play_widget`` dispatch signature in run_swap (which passes
         ``hold_time`` uniformly across play()-style widgets). The gif
@@ -259,12 +258,12 @@ class StillImage(_BaseImageWidget):
 
         if not self._has_text_content():
             return await self._play_no_text(real_canvas, frame)
-        # Compute n_ticks from hold_seconds; the base class loop applies
+        # Compute n_ticks from hold_time; the base class loop applies
         # the text_loops floor and the static-text fast path internally.
         from led_ticker.widgets._image_base import MIN_SCROLL_SPEED_MS
 
         tick_ms = max(MIN_SCROLL_SPEED_MS, self.scroll_speed_ms)
-        n_ticks = max(1, int(self.hold_seconds * 1000) // tick_ms)
+        n_ticks = max(1, int(self.hold_time * 1000) // tick_ms)
         return await self._play_with_text(real_canvas, frame, n_ticks)
 
     async def _play_no_text(self, real_canvas: Canvas, frame: Any) -> Canvas:
@@ -297,14 +296,14 @@ class StillImage(_BaseImageWidget):
             if self.border is not None:
                 self.border.paint(canvas, self.frame_for("border"))
             canvas = frame.swap(canvas)
-            await asyncio.sleep(self.hold_seconds)
+            await asyncio.sleep(self.hold_time)
             return canvas
 
         # Slow path: per-tick loop for animated border. `border_is_static`
         # being False guarantees `self.border` is non-None (per the
         # predicate above) — assert to narrow the type for pyright.
         assert self.border is not None
-        n_ticks = max(1, int(self.hold_seconds * 1000) // ENGINE_TICK_MS)
+        n_ticks = max(1, int(self.hold_time * 1000) // ENGINE_TICK_MS)
         tick_seconds = ENGINE_TICK_MS / 1000
         for _ in range(n_ticks):
             self.advance_frame()

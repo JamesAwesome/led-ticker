@@ -601,7 +601,7 @@ _WIDGET_INT_FIELDS = frozenset(
 
 _WIDGET_FLOAT_FIELDS = frozenset(
     {
-        "hold_seconds",
+        "hold_time",
     }
 )
 

@@ -119,7 +119,7 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "times the gif/image plays per visit; 0 = loop for section hold_time duration",
         "1",
     ),
-    "hold_seconds": FieldHint(
+    "hold_time": FieldHint(
         "float (seconds)",
         "minimum display time for still images; section hold_time wins if longer",
         "0.0",

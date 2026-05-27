@@ -38,8 +38,8 @@ _team_palette = lazy_palette(
         "WIN_COLOR": (46, 200, 46),
         "LOSS_COLOR": (220, 30, 30),
         "LIVE_COLOR": (255, 40, 40),
-        "CHALLENGE_COLOR": (255, 180, 0),  # amber — remaining ABS challenge pip
-        "CHALLENGE_USED": (60, 40, 0),  # dim amber — used ABS challenge pip
+        "CHALLENGE_COLOR": (255, 140, 0),  # orange — remaining ABS challenge dash
+        "CHALLENGE_USED": (140, 140, 140),  # grey — used ABS challenge dash
     }
 )
 
@@ -619,34 +619,32 @@ class MLBScoreboardMessage(_FrameAware):
             home_score_str, right_start, right_w, bottom_baseline, home_score_c
         )
 
-        # ABS challenge pips — superscript beside each team abbreviation
-        def _draw_pips(
-            count: int | None, abbr: str, zone_start: int, zone_w: int, y: int
-        ) -> None:
+        # ABS challenge dashes — two "-" stacked vertically in outer bottom corners.
+        # Orange = remaining (unused), grey = used. Away: far-left x=0.
+        # Home: far-right x=canvas.width-dash_w. Stacked at 1/4 and 3/4
+        # through the bottom band so they read like a colon without overlap.
+        def _draw_dash_pips(count: int | None, align_right: bool) -> None:
             if count is None:
                 return
             n = min(count, 2)
-            abbr_w = measure_width(self.font, abbr, canvas)
-            abbr_center = zone_start + max(0, (zone_w - abbr_w) // 2)
-            pip_x = abbr_center + abbr_w + 1
-            pip_w = measure_width(self.small_font, "●", canvas)
-            for i in range(2):
+            dash_w = measure_width(self.small_font, "-", canvas)
+            x = (canvas.width - dash_w) if align_right else 0
+            # 5/8 and 7/8 through the bottom band → ~6px physical gap between
+            # dashes at scale=4, matching the colon character's dot spacing.
+            y1 = half_h + (5 * half_h) // 8
+            y2 = half_h + (7 * half_h) // 8
+            for i, y in enumerate((y1, y2)):
                 color = (
                     _team_palette("CHALLENGE_COLOR")
                     if i < n
                     else _team_palette("CHALLENGE_USED")
                 )
                 draw_with_emoji(
-                    canvas,
-                    self.small_font,
-                    pip_x + i * (pip_w + 1),
-                    y=y + y_offset,
-                    color=color,
-                    text="●",
+                    canvas, self.small_font, x, y=y + y_offset, color=color, text="-"
                 )
 
-        _draw_pips(game.away_challenges, away_abbr, 0, left_w, top_baseline)
-        _draw_pips(game.home_challenges, home_abbr, right_start, right_w, top_baseline)
+        _draw_dash_pips(game.away_challenges, align_right=False)
+        _draw_dash_pips(game.home_challenges, align_right=True)
 
         # --- Center zone ---
         center_total = canvas.width - left_w - right_w

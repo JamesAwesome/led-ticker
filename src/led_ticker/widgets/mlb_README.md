@@ -34,7 +34,7 @@ challenge counts. One call per live game per update cycle.
 endpoint to return `{}` for `absChallenges` even when ABS is active. Confirmed
 2026-05-27 against PHI@SD (gamePk=823295) at Petco Park.
 
-**`gameData.absChallenges` structure when ABS is active:**
+**`gameData.absChallenges` when ABS is active and a challenge has been made:**
 ```json
 {
   "hasChallenges": true,
@@ -43,17 +43,30 @@ endpoint to return `{}` for `absChallenges` even when ABS is active. Confirmed
 }
 ```
 
-**`gameData.absChallenges` when ABS is not active:**
+**`gameData.absChallenges` when ABS is active but no challenge made yet:**
+```json
+{
+  "hasChallenges": false,
+  "home": { "remaining": 2, "usedSuccessful": 0, "usedFailed": 0 },
+  "away": { "remaining": 2, "usedSuccessful": 0, "usedFailed": 0 }
+}
+```
+
+**`gameData.absChallenges` when ABS is not active at this park:**
 ```json
 {}
 ```
 
-The relevant field is `remaining` (integer). Use `hasChallenges: true` as the
-gate — an empty dict means ABS is not in effect for this game.
+The relevant field is `remaining` (integer). **Gate on the dict being non-empty
+(`"home" in abs_ch`), NOT on `hasChallenges`.** `hasChallenges` is `false` for
+the entire game until the first challenge is thrown — it would suppress the pip
+display for all games that haven't yet challenged. The empty dict is the
+reliable "ABS not active" signal.
 
-Confirmed active at Petco Park (SD) on 2026-05-27 (PHI@SD, gamePk=823295).
-All other live games checked on 2026-05-27 returned `{}` — ABS is not
-universally deployed.
+Confirmed 2026-05-27:
+- Petco Park (SD): `hasChallenges: true` mid-game (PHI@SD, gamePk=823295)
+- Citi Field (NYM): `hasChallenges: false`, `remaining: 2` both teams (CIN@NYM, gamePk=823626) — ABS active, no challenge made yet
+- Other venues checked returned `{}` — ABS not deployed
 
 ### Team Lookup
 ```
@@ -66,7 +79,9 @@ abbreviation → numeric `teamId` used in the schedule URL.
 ## Notes
 
 - ABS (Automated Ball-Strike) is not universally deployed. Empty
-  `absChallenges` dict means not active for this game — treat as `None`.
+  `absChallenges` dict (`{}`) means not active for this game — treat as `None`.
+  `hasChallenges: false` does NOT mean inactive — it means no challenge has been
+  thrown yet (initial state for every ABS-equipped game).
 - The schedule endpoint hydrate list (`team`, `linescore`) is stable.
   Do not add unverified hydrate names — they fail silently (key absent, no
   error, no warning from the API).

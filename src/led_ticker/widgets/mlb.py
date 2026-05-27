@@ -1206,7 +1206,10 @@ class MLBScoreMonitor:
             return None, None
 
         abs_ch = data.get("gameData", {}).get("absChallenges", {})
-        if not abs_ch or not abs_ch.get("hasChallenges"):
+        # Empty dict means ABS is not active at this park. Non-empty means ABS
+        # is equipped; hasChallenges is false until the first challenge is made,
+        # so we gate on the dict being non-empty rather than on hasChallenges.
+        if not abs_ch or "home" not in abs_ch:
             return None, None
 
         home = abs_ch.get("home") or {}

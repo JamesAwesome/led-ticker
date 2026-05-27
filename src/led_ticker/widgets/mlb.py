@@ -619,18 +619,24 @@ class MLBScoreboardMessage(_FrameAware):
             home_score_str, right_start, right_w, bottom_baseline, home_score_c
         )
 
-        # ABS challenge dashes — two "-" stacked vertically in outer bottom corners.
-        # Orange = remaining (unused), grey = used. Away: far-left x=0.
-        # Home: far-right x=canvas.width-dash_w. Stacked at 1/4 and 3/4
-        # through the bottom band so they read like a colon without overlap.
+        # ABS challenge dashes — two "-" stacked vertically, centered in the
+        # gap between the score number and the outer edge of each zone.
+        # Orange = remaining (unused), grey = used.
+        # 5/8 and 7/8 through the bottom band → ~6px physical gap between
+        # dashes at scale=4, matching the colon character's dot spacing.
         def _draw_dash_pips(count: int | None, align_right: bool) -> None:
             if count is None:
                 return
             n = min(count, 2)
             dash_w = measure_width(self.small_font, "-", canvas)
-            x = (canvas.width - dash_w) if align_right else 0
-            # 5/8 and 7/8 through the bottom band → ~6px physical gap between
-            # dashes at scale=4, matching the colon character's dot spacing.
+            if align_right:
+                score_w = measure_width(self.font, home_score_str, canvas)
+                score_inner = right_start + max(0, (right_w - score_w) // 2) + score_w
+                x = score_inner + max(0, (canvas.width - score_inner - dash_w) // 2)
+            else:
+                score_w = measure_width(self.font, away_score_str, canvas)
+                score_inner = max(0, (left_w - score_w) // 2)
+                x = max(0, (score_inner - dash_w) // 2)
             y1 = half_h + (5 * half_h) // 8
             y2 = half_h + (7 * half_h) // 8
             for i, y in enumerate((y1, y2)):

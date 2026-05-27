@@ -1209,8 +1209,8 @@ class MLBScoreMonitor:
         if not abs_ch or not abs_ch.get("hasChallenges"):
             return None, None
 
-        home = abs_ch.get("home", {})
-        away = abs_ch.get("away", {})
+        home = abs_ch.get("home") or {}
+        away = abs_ch.get("away") or {}
         with contextlib.suppress(TypeError, ValueError):
             return int(home.get("remaining", 0)), int(away.get("remaining", 0))
         return None, None

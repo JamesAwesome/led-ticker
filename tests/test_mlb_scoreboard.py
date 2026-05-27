@@ -38,11 +38,9 @@ def _make_monitor_for_parse():
     return monitor
 
 
-def test_parse_games_extracts_abs_challenges_when_present():
-    monitor = _make_monitor_for_parse()
-    from zoneinfo import ZoneInfo
-
-    schedule = {
+def _challenges_game_fixture(challenges: dict) -> dict:
+    """Schedule fixture with the given challenges value."""
+    return {
         "dates": [
             {
                 "games": [
@@ -66,15 +64,36 @@ def test_parse_games_extracts_abs_challenges_when_present():
                             "outs": 1,
                             "offense": {},
                         },
-                        "challenges": {
-                            "home": {"remainingChallenges": 2},
-                            "away": {"remainingChallenges": 1},
-                        },
+                        "challenges": challenges,
                     }
                 ]
             }
         ]
     }
+
+
+def test_parse_games_extracts_abs_challenges_remaining_field():
+    """Parses the 'remaining' field confirmed in the live game feed."""
+    monitor = _make_monitor_for_parse()
+    from zoneinfo import ZoneInfo
+
+    schedule = _challenges_game_fixture(
+        {"home": {"remaining": 2}, "away": {"remaining": 1}}
+    )
+    games = monitor._parse_games(schedule, ZoneInfo("America/New_York"))
+    assert len(games) == 1
+    assert games[0].home_challenges == 2
+    assert games[0].away_challenges == 1
+
+
+def test_parse_games_extracts_abs_challenges_remaining_challenges_field():
+    """Also parses the legacy 'remainingChallenges' field as a fallback."""
+    monitor = _make_monitor_for_parse()
+    from zoneinfo import ZoneInfo
+
+    schedule = _challenges_game_fixture(
+        {"home": {"remainingChallenges": 2}, "away": {"remainingChallenges": 1}}
+    )
     games = monitor._parse_games(schedule, ZoneInfo("America/New_York"))
     assert len(games) == 1
     assert games[0].home_challenges == 2
@@ -713,6 +732,7 @@ def _challenges_game_fixture(challenges) -> dict:
             }
         ]
     }
+
 
 
 def test_parse_games_challenges_as_list_does_not_raise():

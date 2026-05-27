@@ -606,9 +606,9 @@ def test_monitor_small_font_defaults_to_font_small():
     assert monitor.small_font is FONT_SMALL
 
 
-def test_monitor_threads_small_font_to_scoreboard_messages():
+@pytest.mark.asyncio
+async def test_monitor_threads_small_font_to_scoreboard_messages():
     """When layout=scoreboard, update() passes small_font to each built message."""
-    import asyncio
     import unittest.mock as mock
     from datetime import UTC, datetime
     from zoneinfo import ZoneInfo
@@ -664,7 +664,7 @@ def test_monitor_threads_small_font_to_scoreboard_messages():
     session.get.return_value.__aenter__ = _fake_get
     session.get.return_value.__aexit__ = mock.AsyncMock(return_value=False)
 
-    asyncio.get_event_loop().run_until_complete(monitor.update())
+    await monitor.update()
 
     scoreboard_stories = [
         s for s in monitor.feed_stories if isinstance(s, MLBScoreboardMessage)

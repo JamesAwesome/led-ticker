@@ -12,7 +12,7 @@
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `hold_seconds` | float | `5.0` | How long to display the image per visit. With `text_loops > 0`, becomes a duration **floor**: the section runs for `max(hold_seconds, text_loops × traversal)` so a long marquee always completes. Minimum `0.05`. |
+| `hold_time` | float | `5.0` | How long to display the image per visit. With `text_loops > 0`, becomes a duration **floor**: the section runs for `max(hold_time, text_loops × traversal)` so a long marquee always completes. Minimum `0.05`. |
 
 ## Single-row text overlay
 

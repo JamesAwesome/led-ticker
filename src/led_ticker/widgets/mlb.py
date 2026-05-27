@@ -885,6 +885,16 @@ class MLBScoreMonitor:
             ]
             return
 
+        # Concurrently hydrate ABS challenge counts for live games.
+        live_games = [g for g in games if g.state == "live" and g.game_pk]
+        if live_games:
+            results = await asyncio.gather(
+                *(self._fetch_abs_challenges(g.game_pk) for g in live_games)
+            )
+            for g, (home_ch, away_ch) in zip(live_games, results, strict=False):
+                g.home_challenges = home_ch
+                g.away_challenges = away_ch
+
         if not games:
             title = TickerMessage(
                 f"{team_name}",

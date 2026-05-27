@@ -905,3 +905,56 @@ async def test_fetch_abs_challenges_error_returns_none():
     home, away = await monitor._fetch_abs_challenges(823294)
     assert home is None
     assert away is None
+
+
+# ---------------------------------------------------------------------------
+# update() ABS challenge hydration integration
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_update_hydrates_abs_challenges_for_live_game():
+    """Live games get ABS challenge counts fetched from the live feed during update()."""  # noqa: E501
+    import unittest.mock as mock
+    from zoneinfo import ZoneInfo
+
+    session = mock.MagicMock()
+    monitor = MLBScoreMonitor(session=session, team="PHI", layout="scoreboard")
+    monitor._team_id = 143
+    monitor._tz = ZoneInfo("America/New_York")
+
+    schedule_resp = mock.AsyncMock()
+    schedule_resp.json = mock.AsyncMock(return_value=_phi_nym_schedule("live"))
+    schedule_resp.__aenter__ = mock.AsyncMock(return_value=schedule_resp)
+    schedule_resp.__aexit__ = mock.AsyncMock(return_value=False)
+
+    live_resp = mock.AsyncMock()
+    live_resp.json = mock.AsyncMock(
+        return_value={
+            "gameData": {
+                "absChallenges": {
+                    "hasChallenges": True,
+                    "home": {"remaining": 2, "usedSuccessful": 0, "usedFailed": 0},
+                    "away": {"remaining": 1, "usedSuccessful": 1, "usedFailed": 0},
+                }
+            }
+        }
+    )
+    live_resp.__aenter__ = mock.AsyncMock(return_value=live_resp)
+    live_resp.__aexit__ = mock.AsyncMock(return_value=False)
+
+    def get_side_effect(url):
+        if "v1.1" in url:
+            return live_resp
+        return schedule_resp
+
+    session.get = mock.MagicMock(side_effect=get_side_effect)
+
+    await monitor.update()
+
+    scoreboard_msgs = [
+        s for s in monitor.feed_stories if isinstance(s, MLBScoreboardMessage)
+    ]
+    assert len(scoreboard_msgs) >= 1
+    assert scoreboard_msgs[0].game.home_challenges == 2
+    assert scoreboard_msgs[0].game.away_challenges == 1

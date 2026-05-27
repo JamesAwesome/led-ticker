@@ -17,7 +17,7 @@ from led_ticker._types import Canvas, Color, ColorTuple, DrawResult, Font
 from led_ticker.color_providers import ColorProvider
 from led_ticker.colors import RGB_WHITE, lazy_palette, make_color
 from led_ticker.drawing import compute_baseline, compute_cursor
-from led_ticker.fonts import FONT_DEFAULT
+from led_ticker.fonts import FONT_DEFAULT, FONT_SMALL
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import _FrameAware
@@ -518,17 +518,17 @@ def _build_scoreboard_message(
     tz: ZoneInfo,
     bg_color: Color | None = None,
     font: Font | None = None,
+    small_font: Font | None = None,
     font_color: Color | ColorProvider | None = None,
 ) -> MLBScoreboardMessage:
     """Build a scoreboard-layout message for a single game."""
-    from led_ticker.fonts import FONT_DEFAULT as _FONT_DEFAULT
-
     return MLBScoreboardMessage(
         game=game,
         team_abbr=team_abbr,
         tz=tz,
         bg_color=bg_color,
-        font=font if font is not None else _FONT_DEFAULT,
+        font=font if font is not None else FONT_DEFAULT,
+        small_font=small_font if small_font is not None else FONT_SMALL,
         font_color=font_color,
     )
 
@@ -547,6 +547,7 @@ class MLBScoreboardMessage(_FrameAware):
     bg_color: Color | None = None
     font_color: Color | ColorProvider | None = attrs.field(default=None, kw_only=True)
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+    small_font: Font = attrs.field(default=FONT_SMALL, kw_only=True)
 
     def draw(
         self,
@@ -557,7 +558,6 @@ class MLBScoreboardMessage(_FrameAware):
         font_color: Any = None,
     ) -> DrawResult:
         from led_ticker.drawing import compute_baseline_for_band, safe_scale
-        from led_ticker.fonts import FONT_SMALL
         from led_ticker.pixel_emoji import draw_with_emoji, measure_width
 
         scale = safe_scale(canvas)
@@ -628,7 +628,7 @@ class MLBScoreboardMessage(_FrameAware):
             abbr_w = measure_width(self.font, abbr, canvas)
             abbr_center = zone_start + max(0, (zone_w - abbr_w) // 2)
             pip_x = abbr_center + abbr_w + 1
-            pip_w = measure_width(FONT_SMALL, "●", canvas)
+            pip_w = measure_width(self.small_font, "●", canvas)
             for i in range(2):
                 color = (
                     _team_palette("CHALLENGE_COLOR")
@@ -637,7 +637,7 @@ class MLBScoreboardMessage(_FrameAware):
                 )
                 draw_with_emoji(
                     canvas,
-                    FONT_SMALL,
+                    self.small_font,
                     pip_x + i * (pip_w + 1),
                     y=y + y_offset,
                     color=color,
@@ -654,15 +654,15 @@ class MLBScoreboardMessage(_FrameAware):
         cr_start = left_w + center_half  # center-right x start
 
         small_top = compute_baseline_for_band(
-            FONT_SMALL, half_h, scale, valign="center"
+            self.small_font, half_h, scale, valign="center"
         )
         small_bottom = half_h + compute_baseline_for_band(
-            FONT_SMALL, half_h, scale, valign="center"
+            self.small_font, half_h, scale, valign="center"
         )
 
         def _draw_small(text: str, x: int, y: int, color: Color) -> None:
             draw_with_emoji(
-                canvas, FONT_SMALL, x, y=y + y_offset, color=color, text=text
+                canvas, self.small_font, x, y=y + y_offset, color=color, text=text
             )
 
         # Helper: draw primary-font text horizontally centered in the full
@@ -681,18 +681,18 @@ class MLBScoreboardMessage(_FrameAware):
             outs = game.outs or 0
             outs_str = "●" * outs + "○" * (3 - outs)
             _draw_small(inning_str, cl_start, small_top, RGB_WHITE)
-            inning_w = measure_width(FONT_SMALL, inning_str, canvas)
+            inning_w = measure_width(self.small_font, inning_str, canvas)
             _draw_small(outs_str, cl_start + inning_w + 2, small_top, out_c)
 
             # Row 1: B/S count
             ball_c = make_color(80, 255, 80)
             strike_c = make_color(255, 255, 80)
             _draw_small(str(game.balls), cl_start, small_bottom, ball_c)
-            b_w = measure_width(FONT_SMALL, str(game.balls), canvas)
+            b_w = measure_width(self.small_font, str(game.balls), canvas)
             _draw_small("B ", cl_start + b_w, small_bottom, RGB_WHITE)
-            bs_w = b_w + measure_width(FONT_SMALL, "B ", canvas)
+            bs_w = b_w + measure_width(self.small_font, "B ", canvas)
             _draw_small(str(game.strikes), cl_start + bs_w, small_bottom, strike_c)
-            s_w = measure_width(FONT_SMALL, str(game.strikes), canvas)
+            s_w = measure_width(self.small_font, str(game.strikes), canvas)
             _draw_small("S", cl_start + bs_w + s_w, small_bottom, RGB_WHITE)
 
             # Diamond: center-right zone
@@ -706,8 +706,8 @@ class MLBScoreboardMessage(_FrameAware):
             b3_c = occupied_c if game.on_third else empty_c
             b1_c = occupied_c if game.on_first else empty_c
 
-            char_w = measure_width(FONT_SMALL, b2, canvas)
-            b1_w = measure_width(FONT_SMALL, b1, canvas)
+            char_w = measure_width(self.small_font, b2, canvas)
+            b1_w = measure_width(self.small_font, b1, canvas)
             cr_center = cr_start + center_half // 2
 
             # Row 0: 2B centered
@@ -767,6 +767,7 @@ class MLBScoreMonitor:
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     font_color: Color | ColorProvider | None = attrs.field(default=None, kw_only=True)
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+    small_font: Font = attrs.field(default=FONT_SMALL, kw_only=True)
     layout: str = attrs.field(default="ticker", kw_only=True)
     _team_id: int = attrs.field(init=False, default=0)
     _tz: ZoneInfo | None = attrs.field(init=False, default=None)
@@ -936,25 +937,34 @@ class MLBScoreMonitor:
             font_color=self.font_color,
         )
         self.feed_title = series_title
-        _build_msg = (
-            _build_scoreboard_message
-            if self.layout == "scoreboard"
-            else _build_game_message
-        )
         stories: list[TickerMessage | MLBGameMessage | MLBScoreboardMessage] = [
             series_title
         ]
-        stories.extend(
-            _build_msg(
-                g,
-                self.team,
-                tz,
-                bg_color=self.bg_color,
-                font=self.font,
-                font_color=self.font_color,
+        if self.layout == "scoreboard":
+            stories.extend(
+                _build_scoreboard_message(
+                    g,
+                    self.team,
+                    tz,
+                    bg_color=self.bg_color,
+                    font=self.font,
+                    small_font=self.small_font,
+                    font_color=self.font_color,
+                )
+                for g in current.games
             )
-            for g in current.games
-        )
+        else:
+            stories.extend(
+                _build_game_message(
+                    g,
+                    self.team,
+                    tz,
+                    bg_color=self.bg_color,
+                    font=self.font,
+                    font_color=self.font_color,
+                )
+                for g in current.games
+            )
         self.feed_stories = stories
         self._has_live_game = any(g.state == "live" for g in current.games)
 

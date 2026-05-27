@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import attrs
 import pytest
 
-from led_ticker.widgets.mlb import GameInfo, MLBScoreboardMessage, MLBScoreMonitor
+from led_ticker.widgets.mlb import (
+    GameInfo,
+    MLBScoreboardMessage,
+    MLBScoreMonitor,
+    SeriesInfo,
+)
 
 
 def test_gameinfo_challenge_fields_default_to_none():
@@ -704,7 +709,6 @@ def _challenges_game_fixture(challenges) -> dict:
             }
         ]
     }
-
 
 
 def test_parse_games_challenges_as_list_does_not_raise():

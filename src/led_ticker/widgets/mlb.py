@@ -848,7 +848,7 @@ class MLBScoreMonitor:
         url = (
             f"{MLB_API}/schedule?teamId={self._team_id}"
             f"&startDate={start}&endDate={end}&sportId=1"
-            f"&hydrate=team,linescore,challenges"
+            f"&hydrate=team,linescore"
         )
 
         try:
@@ -1028,34 +1028,10 @@ class MLBScoreMonitor:
                     on_second = "second" in offense
                     on_third = "third" in offense
 
-                # ABS challenges — present only for games where the system is active.
-                # The live game feed uses "remaining"; the schedule hydrate key name
-                # is unconfirmed (observed "remainingChallenges" in test fixtures, but
-                # never verified against a live schedule response). Try both.
+                # ABS challenges — hydrated separately for live games
+                # via _fetch_abs_challenges.
                 home_challenges: int | None = None
                 away_challenges: int | None = None
-                challenges = g.get("challenges")
-                if isinstance(challenges, dict):
-                    hc = challenges.get("home")
-                    ac = challenges.get("away")
-                    if isinstance(hc, dict):
-                        raw = (
-                            hc.get("remaining")
-                            if "remaining" in hc
-                            else hc.get("remainingChallenges")
-                        )
-                        if raw is not None:
-                            with contextlib.suppress(TypeError, ValueError):
-                                home_challenges = int(raw)
-                    if isinstance(ac, dict):
-                        raw = (
-                            ac.get("remaining")
-                            if "remaining" in ac
-                            else ac.get("remainingChallenges")
-                        )
-                        if raw is not None:
-                            with contextlib.suppress(TypeError, ValueError):
-                                away_challenges = int(raw)
 
                 start_time: datetime | None = None
                 game_date = g.get("gameDate")

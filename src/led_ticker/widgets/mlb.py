@@ -766,6 +766,7 @@ class MLBScoreMonitor:
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     font_color: Color | ColorProvider | None = attrs.field(default=None, kw_only=True)
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+    small_font: Font = attrs.field(default=FONT_SMALL, kw_only=True)
     layout: str = attrs.field(default="ticker", kw_only=True)
     _team_id: int = attrs.field(init=False, default=0)
     _tz: ZoneInfo | None = attrs.field(init=False, default=None)
@@ -935,25 +936,34 @@ class MLBScoreMonitor:
             font_color=self.font_color,
         )
         self.feed_title = series_title
-        _build_msg = (
-            _build_scoreboard_message
-            if self.layout == "scoreboard"
-            else _build_game_message
-        )
         stories: list[TickerMessage | MLBGameMessage | MLBScoreboardMessage] = [
             series_title
         ]
-        stories.extend(
-            _build_msg(
-                g,
-                self.team,
-                tz,
-                bg_color=self.bg_color,
-                font=self.font,
-                font_color=self.font_color,
+        if self.layout == "scoreboard":
+            stories.extend(
+                _build_scoreboard_message(
+                    g,
+                    self.team,
+                    tz,
+                    bg_color=self.bg_color,
+                    font=self.font,
+                    small_font=self.small_font,
+                    font_color=self.font_color,
+                )
+                for g in current.games
             )
-            for g in current.games
-        )
+        else:
+            stories.extend(
+                _build_game_message(
+                    g,
+                    self.team,
+                    tz,
+                    bg_color=self.bg_color,
+                    font=self.font,
+                    font_color=self.font_color,
+                )
+                for g in current.games
+            )
         self.feed_stories = stories
         self._has_live_game = any(g.state == "live" for g in current.games)
 

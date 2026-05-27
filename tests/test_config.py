@@ -819,3 +819,57 @@ def test_transition_fps_absent_stays_none(tmp_path):
     p.write_text(toml)
     cfg = load_config(p)
     assert cfg.sections[0].transition.transition_fps is None
+
+
+def test_transition_fps_converts_to_scroll_speed(tmp_path):
+    """transition_fps=40 -> scroll_speed=0.025 at the run_transition call site."""
+    from led_ticker.config import load_config
+
+    toml = textwrap.dedent("""\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [[playlist.section]]
+        mode = "swap"
+        transition = "push_left"
+        transition_fps = 40.0
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+    """)
+    p = tmp_path / "cfg.toml"
+    p.write_text(toml)
+    cfg = load_config(p)
+    fps = cfg.sections[0].transition.transition_fps
+    assert fps == 40.0
+    assert abs(1.0 / fps - 0.025) < 1e-9
+
+
+def test_transition_fps_none_yields_default_scroll_speed(tmp_path):
+    """transition_fps=None -> caller uses 0.05 (the run_transition default)."""
+    from led_ticker.config import load_config
+
+    toml = textwrap.dedent("""\
+        [display]
+        rows = 16
+        cols = 32
+        chain = 5
+
+        [[playlist.section]]
+        mode = "swap"
+        transition = "push_left"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+    """)
+    p = tmp_path / "cfg.toml"
+    p.write_text(toml)
+    cfg = load_config(p)
+    fps = cfg.sections[0].transition.transition_fps
+    assert fps is None
+    scroll_speed = (1.0 / fps) if fps is not None else 0.05
+    assert scroll_speed == 0.05

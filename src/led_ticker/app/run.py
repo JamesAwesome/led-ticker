@@ -129,14 +129,17 @@ async def run(config_path: Path) -> None:
                     entry_trans = _build_trans_obj(section.entry_transition)
                     entry_duration = section.entry_transition.duration
                     entry_easing = section.entry_transition.easing
+                    entry_fps = section.entry_transition.transition_fps
                 elif section.transition_specified:
                     entry_trans = _build_trans_obj(section.transition)
                     entry_duration = section.transition.duration
                     entry_easing = section.transition.easing
+                    entry_fps = section.transition.transition_fps
                 else:
                     entry_trans = default_section_trans
                     entry_duration = config.between_sections.duration
                     entry_easing = config.between_sections.easing
+                    entry_fps = config.between_sections.transition_fps
 
                 # Run section-to-section transition.
                 # Wrap at the OUTGOING section's scale so the outgoing widget
@@ -167,6 +170,9 @@ async def run(config_path: Path) -> None:
                         transition=entry_trans,
                         duration=entry_duration,
                         easing=entry_easing,
+                        scroll_speed=(1.0 / entry_fps)
+                        if entry_fps is not None
+                        else 0.05,
                         outgoing_scroll_pos=last_scroll_pos,
                         # Smoothly cross between scales: outgoing fades out
                         # at last_scale; at t >= 0.5 the wrapper switches

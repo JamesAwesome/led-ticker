@@ -23,7 +23,7 @@ font_size = "25"   # works (coerced to 25, warns)
 font_size = 25     # canonical, no warning
 ```
 
-Applies to all numeric fields across `[display]`, `[[playlist.section]]`, and per-widget configs — including `rows`, `cols`, `chain`, `parallel`, `slowdown_gpio`, `pwm_bits`, `pwm_lsb_nanoseconds`, `rp1_rio`, `font_size`, `font_threshold`, `hold_time`, `brightness`, `content_height`, `scale`, `loop_count`, `scroll_step_ms`, `start_hold`, `separator_font_size`, and others.
+Applies to all numeric fields across `[display]`, `[[playlist.section]]`, and per-widget configs — including `rows`, `cols`, `chain_length`, `parallel`, `gpio_slowdown`, `pwm_bits`, `pwm_lsb_nanoseconds`, `rp1_rio`, `font_size`, `font_threshold`, `hold_time`, `brightness`, `content_height`, `scale`, `loop_count`, `scroll_step_ms`, `start_hold`, `separator_font_size`, and others.
 
 **Closed-set enum strings → case-insensitive.** Fields with a fixed value set (`text_align`, `text_valign`, `image_align`, `scroll_direction`, `fit`, `bottom_text_scroll`, `easing`) are case-insensitive. The canonical form is lowercase:
 
@@ -41,7 +41,7 @@ Hardware and panel-layout settings. Most of these map straight onto
 
 | Field                      | Type   | Default          | Notes                                                                                                                                                                                                                                 |
 | -------------------------- | ------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `rows`                     | int    | `16`             | Panel row count (per panel, not chain total). 16 for 16x32 panels; 32 for P3 32x64 panels.                                                                                                                                            |
+| `rows`                     | int    | `16`             | Panel row count (per panel, not total across the chain). 16 for 16x32 panels; 32 for P3 32x64 panels.                                                                                                                                 |
 | `cols`                     | int    | `32`             | Panel column count (per panel). 32 for 16x32; 64 for P3 32x64.                                                                                                                                                                        |
 | `chain_length`             | int    | `1`              | Number of panels chained together. The smallsign reference uses 5; the bigsign uses 8.                                                                                                                                                |
 | `parallel`                 | int    | `1`              | Number of parallel panel chains. Both reference builds use 1.                                                                                                                                                                         |

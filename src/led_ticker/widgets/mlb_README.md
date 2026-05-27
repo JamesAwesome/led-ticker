@@ -25,18 +25,21 @@ Valid hydrates confirmed working: `team`, `linescore`.
 ### Live Game Feed
 ```
 GET https://statsapi.mlb.com/api/v1.1/game/{gamePk}/feed/live
-  ?fields=gameData,absChallenges
 ```
 
 Returns the full real-time game state. Used only for live games to hydrate ABS
 challenge counts. One call per live game per update cycle.
 
+**Do NOT add `?fields=gameData,absChallenges`** — that filter causes the
+endpoint to return `{}` for `absChallenges` even when ABS is active. Confirmed
+2026-05-27 against PHI@SD (gamePk=823295) at Petco Park.
+
 **`gameData.absChallenges` structure when ABS is active:**
 ```json
 {
   "hasChallenges": true,
-  "home": { "remaining": 2, "usedSuccessful": 0, "usedFailed": 0 },
-  "away": { "remaining": 0, "usedSuccessful": 2, "usedFailed": 2 }
+  "home": { "remaining": 1, "usedSuccessful": 0, "usedFailed": 1 },
+  "away": { "remaining": 2, "usedSuccessful": 0, "usedFailed": 0 }
 }
 ```
 
@@ -48,9 +51,9 @@ challenge counts. One call per live game per update cycle.
 The relevant field is `remaining` (integer). Use `hasChallenges: true` as the
 gate — an empty dict means ABS is not in effect for this game.
 
-Confirmed active at Petco Park (SD) on 2026-05-26. The four live games checked
-on 2026-05-27 (MIA@TOR, WSH@CLE, STL@MIL, SEA@ATH) all returned `{}` —
-ABS is not universally deployed.
+Confirmed active at Petco Park (SD) on 2026-05-27 (PHI@SD, gamePk=823295).
+All other live games checked on 2026-05-27 returned `{}` — ABS is not
+universally deployed.
 
 ### Team Lookup
 ```

@@ -1197,7 +1197,7 @@ class MLBScoreMonitor:
         Returns (home_remaining, away_remaining), or (None, None) when ABS is
         not active for this game or the request fails.
         """
-        url = f"{_MLB_LIVE_API}/game/{game_pk}/feed/live?fields=gameData,absChallenges"
+        url = f"{_MLB_LIVE_API}/game/{game_pk}/feed/live"
         try:
             async with self.session.get(url) as resp:
                 data = await resp.json()

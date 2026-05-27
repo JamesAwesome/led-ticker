@@ -270,9 +270,9 @@ class TestBuildSeriesTitle:
         msg = _build_series_title("PHI", series, ET)
         assert isinstance(msg, MLBGameMessage)
         texts = [t for t, _ in msg.segments]
-        assert texts[0] == "NYM"  # away first
+        assert texts[0] == "Mets"  # away first
         assert texts[1] == " @ "
-        assert texts[2] == "PHI"  # home second
+        assert texts[2] == "Phillies"  # home second
         text = "".join(texts)
         # Record ordered by position: NYM @ PHI → NYM_wins-PHI_wins
         # PHI has 2 wins, NYM has 1: "1-2"
@@ -299,9 +299,9 @@ class TestBuildSeriesTitle:
         )
         msg = _build_series_title("PHI", series, ET)
         texts = [t for t, _ in msg.segments]
-        assert texts[0] == "PHI"
+        assert texts[0] == "Phillies"
         assert texts[1] == " vs "
-        assert texts[2] == "NYM"
+        assert texts[2] == "Mets"
         # Record ordered by position: PHI vs NYM → PHI_wins-NYM_wins
         text = "".join(texts)
         assert " 1-0" in text
@@ -355,9 +355,9 @@ class TestBuildSeriesTitle:
         msg = _build_series_title("PIT", series, ET)
         texts = [t for t, _ in msg.segments]
         # PIT @ NYM → PIT is away (first), NYM is home (second)
-        assert texts[0] == "PIT"
+        assert texts[0] == "Pirates"
         assert texts[1] == " @ "
-        assert texts[2] == "NYM"
+        assert texts[2] == "Mets"
         text = "".join(texts)
         # PIT has 0 wins (first), NYM has 1 win (second)
         assert " 0-1" in text
@@ -378,9 +378,9 @@ class TestBuildSeriesTitle:
         assert ":flower:" in text
         # Single home team: should use @ separator
         texts = [t for t, _ in msg.segments]
-        assert texts[0] == "BAL"
+        assert texts[0] == "Orioles"
         assert texts[1] == " @ "
-        assert texts[2] == "PHI"
+        assert texts[2] == "Phillies"
 
     def test_single_game_no_record(self):
         """Single-game matchups shouldn't show series record."""

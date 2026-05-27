@@ -501,3 +501,43 @@ def test_fit_team_name_unknown_abbr_returns_abbr():
     canvas = _stub_canvas(w=128, h=16)
     result = _fit_team_name("XYZ", 200, FONT_DEFAULT, canvas)
     assert result == "XYZ"
+
+
+# ---------------------------------------------------------------------------
+# small_font field
+# ---------------------------------------------------------------------------
+
+
+def test_scoreboard_small_font_defaults_to_font_small():
+    """small_font attr exists and defaults to FONT_SMALL."""
+    from led_ticker.fonts import FONT_SMALL
+
+    msg = MLBScoreboardMessage(game=_live_game(), team_abbr="PHI")
+    assert msg.small_font is FONT_SMALL
+
+
+def test_scoreboard_small_font_accepted_as_kwarg():
+    """small_font can be overridden at construction time."""
+    from led_ticker.fonts import FONT_DEFAULT
+
+    msg = MLBScoreboardMessage(
+        game=_live_game(), team_abbr="PHI", small_font=FONT_DEFAULT
+    )
+    assert msg.small_font is FONT_DEFAULT
+
+
+def test_build_scoreboard_message_threads_small_font():
+    """_build_scoreboard_message passes small_font into the built object."""
+    from zoneinfo import ZoneInfo
+
+    from led_ticker.fonts import FONT_DEFAULT
+    from led_ticker.widgets.mlb import _build_scoreboard_message
+
+    game = _live_game()
+    msg = _build_scoreboard_message(
+        game,
+        team_abbr="PHI",
+        tz=ZoneInfo("America/New_York"),
+        small_font=FONT_DEFAULT,
+    )
+    assert msg.small_font is FONT_DEFAULT

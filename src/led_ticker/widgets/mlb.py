@@ -17,7 +17,7 @@ from led_ticker._types import Canvas, Color, ColorTuple, DrawResult, Font
 from led_ticker.color_providers import ColorProvider
 from led_ticker.colors import RGB_WHITE, lazy_palette, make_color
 from led_ticker.drawing import compute_baseline, compute_cursor
-from led_ticker.fonts import FONT_DEFAULT
+from led_ticker.fonts import FONT_DEFAULT, FONT_SMALL
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import _FrameAware
@@ -518,17 +518,17 @@ def _build_scoreboard_message(
     tz: ZoneInfo,
     bg_color: Color | None = None,
     font: Font | None = None,
+    small_font: Font | None = None,
     font_color: Color | ColorProvider | None = None,
 ) -> MLBScoreboardMessage:
     """Build a scoreboard-layout message for a single game."""
-    from led_ticker.fonts import FONT_DEFAULT as _FONT_DEFAULT
-
     return MLBScoreboardMessage(
         game=game,
         team_abbr=team_abbr,
         tz=tz,
         bg_color=bg_color,
-        font=font if font is not None else _FONT_DEFAULT,
+        font=font if font is not None else FONT_DEFAULT,
+        small_font=small_font if small_font is not None else FONT_SMALL,
         font_color=font_color,
     )
 
@@ -547,6 +547,7 @@ class MLBScoreboardMessage(_FrameAware):
     bg_color: Color | None = None
     font_color: Color | ColorProvider | None = attrs.field(default=None, kw_only=True)
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+    small_font: Font = attrs.field(default=FONT_SMALL, kw_only=True)
 
     def draw(
         self,

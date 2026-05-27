@@ -42,10 +42,10 @@ class TestContentWidth:
 
 class TestCanvasWidth:
     def test_default_scale(self):
-        assert _canvas_w({"cols": 32, "chain": 5}, {}) == 160
+        assert _canvas_w({"cols": 32, "chain_length": 5}, {}) == 160
 
     def test_section_scale_override(self):
-        assert _canvas_w({"cols": 32, "chain": 5}, {"scale": 2}) == 80
+        assert _canvas_w({"cols": 32, "chain_length": 5}, {"scale": 2}) == 80
 
 
 class TestWidgetMs:
@@ -96,7 +96,7 @@ class TestWidgetMs:
 class TestTotals:
     def test_skips_non_swap_and_loop_count_zero(self):
         cfg = {
-            "display": {"cols": 32, "chain": 5},
+            "display": {"cols": 32, "chain_length": 5},
             "playlist": {
                 "section": [
                     {
@@ -120,7 +120,7 @@ class TestTotals:
 
     def test_loop_count_multiplies(self):
         cfg = {
-            "display": {"cols": 32, "chain": 5},
+            "display": {"cols": 32, "chain_length": 5},
             "playlist": {
                 "section": [
                     {
@@ -149,7 +149,7 @@ class TestCli:
     _BODY = """
 [display]
 cols = 32
-chain = 5
+chain_length = 5
 
 [[playlist.section]]
 mode = "swap"

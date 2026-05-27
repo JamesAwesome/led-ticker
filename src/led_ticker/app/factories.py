@@ -877,25 +877,25 @@ RUN_MODES: dict[str, str] = {
 def build_frame_from_config(display) -> LedFrame:
     """Build an LedFrame from a DisplayConfig."""
     logging.info(
-        "Display: %dx%d rows × %dx%d cols (chain=%d parallel=%d) "
-        "mapper=%r brightness=%d slowdown_gpio=%d pwm_bits=%d "
-        "pwm_lsb_ns=%d rp1_rio=%d limit_refresh_hz=%d show_refresh=%s",
+        "Display: %dx%d rows × %dx%d cols (chain_length=%d parallel=%d) "
+        "mapper=%r brightness=%d gpio_slowdown=%d pwm_bits=%d "
+        "pwm_lsb_ns=%d rp1_rio=%d limit_refresh_hz=%d show_refresh_rate=%s",
         display.rows,
         display.parallel,
         display.cols,
-        display.chain,
-        display.chain,
+        display.chain_length,
+        display.chain_length,
         display.parallel,
-        display.pixel_mapper or "(none)",
+        display.pixel_mapper_config or "(none)",
         display.brightness,
-        display.slowdown_gpio,
+        display.gpio_slowdown,
         display.pwm_bits,
         display.pwm_lsb_nanoseconds,
         display.rp1_rio,
         display.limit_refresh_rate_hz,
-        display.show_refresh,
+        display.show_refresh_rate,
     )
-    if display.show_refresh:
+    if display.show_refresh_rate:
         # The rgbmatrix C library prints the live refresh rate to
         # stderr using `\b` backspaces so it overwrites in place.
         # That's by design (a status line, not a log line) but it
@@ -904,27 +904,27 @@ def build_frame_from_config(display) -> LedFrame:
         # the log stream cleanly. Note where to look so users don't
         # think it's broken.
         logging.info(
-            "show_refresh=true: live Hz updates print to stderr in place "
+            "show_refresh_rate=true: live Hz updates print to stderr in place "
             "(separate from this log stream — that's the C library, "
             "not a glitch). Disable in config to silence."
         )
     return LedFrame(
         led_rows=display.rows,
         led_cols=display.cols,
-        led_chain=display.chain,
+        led_chain_length=display.chain_length,
         led_parallel=display.parallel,
-        led_pixel_mapper=display.pixel_mapper,
-        led_slowdown_gpio=display.slowdown_gpio,
+        led_pixel_mapper_config=display.pixel_mapper_config,
+        led_gpio_slowdown=display.gpio_slowdown,
         led_brightness=display.brightness,
-        led_gpio_mapping=display.gpio_mapping,
+        led_hardware_mapping=display.hardware_mapping,
         led_pwm_bits=display.pwm_bits,
         led_pwm_lsb_nanoseconds=display.pwm_lsb_nanoseconds,
-        led_show_refresh=display.show_refresh,
-        led_no_hardware_pulse=display.no_hardware_pulse,
+        led_show_refresh_rate=display.show_refresh_rate,
+        led_disable_hardware_pulsing=display.disable_hardware_pulsing,
         led_rp1_rio=display.rp1_rio,
         led_limit_refresh_rate_hz=display.limit_refresh_rate_hz,
         led_multiplexing=display.multiplexing,
-        led_row_addr_type=display.row_addr_type,
+        led_row_address_type=display.row_address_type,
         led_panel_type=display.panel_type,
         led_rgb_sequence=display.led_rgb_sequence,
     )

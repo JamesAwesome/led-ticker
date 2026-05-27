@@ -879,7 +879,7 @@ def build_frame_from_config(display) -> LedFrame:
     logging.info(
         "Display: %dx%d rows × %dx%d cols (chain_length=%d parallel=%d) "
         "mapper=%r brightness=%d gpio_slowdown=%d pwm_bits=%d "
-        "pwm_lsb_ns=%d rp1_rio=%d limit_refresh_hz=%d show_refresh_rate=%s",
+        "pwm_lsb_ns=%d dither=%d rp1_rio=%d limit_refresh_hz=%d show_refresh_rate=%s",
         display.rows,
         display.parallel,
         display.cols,
@@ -891,6 +891,7 @@ def build_frame_from_config(display) -> LedFrame:
         display.gpio_slowdown,
         display.pwm_bits,
         display.pwm_lsb_nanoseconds,
+        display.pwm_dither_bits,
         display.rp1_rio,
         display.limit_refresh_rate_hz,
         display.show_refresh_rate,
@@ -919,6 +920,7 @@ def build_frame_from_config(display) -> LedFrame:
         led_hardware_mapping=display.hardware_mapping,
         led_pwm_bits=display.pwm_bits,
         led_pwm_lsb_nanoseconds=display.pwm_lsb_nanoseconds,
+        led_pwm_dither_bits=display.pwm_dither_bits,
         led_show_refresh_rate=display.show_refresh_rate,
         led_disable_hardware_pulsing=display.disable_hardware_pulsing,
         led_rp1_rio=display.rp1_rio,

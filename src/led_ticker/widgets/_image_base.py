@@ -791,7 +791,7 @@ class _BaseImageWidget(_FrameAware):
             frame_key = inherit_frame_key
 
         frame_count = self.frame_for(frame_key)
-        if hasattr(provider, "color_for"):
+        if provider is not None and hasattr(provider, "color_for"):
             color = provider.color_for(frame_count, 0, 1)
         else:
             color = provider

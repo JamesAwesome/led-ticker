@@ -13,8 +13,8 @@ def test_frame_get_clean_canvas():
 
 def test_frame_default_values():
     frame = LedFrame()
-    assert frame.led_rows == 32
-    assert frame.led_cols == 64
+    assert frame.led_rows == 16
+    assert frame.led_cols == 32
     assert frame.led_brightness == 100
     assert frame.led_hardware_mapping == "adafruit-hat"
 

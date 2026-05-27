@@ -29,7 +29,7 @@ class TestCanvasLike:
         from led_ticker.frame import LedFrame
         from led_ticker.scaled_canvas import ScaledCanvas
 
-        frame = LedFrame(led_cols=32, led_chain_length=5)
+        frame = LedFrame(led_rows=32, led_cols=32, led_chain_length=5)
         canvas = frame.get_clean_canvas()
         scaled = ScaledCanvas(real=canvas, scale=2)
         assert isinstance(scaled, CanvasLike)

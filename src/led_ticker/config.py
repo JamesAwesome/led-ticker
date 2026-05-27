@@ -24,6 +24,9 @@ class DisplayConfig:
     # Performance / refresh tuning
     pwm_bits: int = 11  # 8 ≈ 8× faster refresh, slightly worse color depth
     pwm_lsb_nanoseconds: int = 130  # higher = slower but more stable
+    pwm_dither_bits: int = (
+        0  # 0=off, 1–2 spreads PWM energy to reduce row brightness unevenness
+    )
     show_refresh_rate: bool = False  # log measured refresh rate to stderr
     disable_hardware_pulsing: bool = False  # disable hw PWM (rare; uses CPU instead)
     rp1_rio: int = 0  # Pi 5 only: 0 = PIO (low CPU), 1 = RIO (faster, more CPU)
@@ -178,6 +181,7 @@ _DISPLAY_INT_FIELDS: frozenset[str] = frozenset(
         "gpio_slowdown",
         "pwm_bits",
         "pwm_lsb_nanoseconds",
+        "pwm_dither_bits",
         "rp1_rio",
         "limit_refresh_rate_hz",
     }

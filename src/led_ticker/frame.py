@@ -15,14 +15,15 @@ _ENGINE_FPS: int = 20  # must stay in sync with ENGINE_TICK_MS = 50 in ticker.py
 class LedFrame:
     """Hardware abstraction for an LED rgbmatrix panel."""
 
-    led_rows: int = 32
-    led_cols: int = 64
+    led_rows: int = 16
+    led_cols: int = 32
     led_chain_length: int = 1
     led_parallel: int = 1
     led_pwm_bits: int = 11
+    led_pwm_dither_bits: int = 0
     led_brightness: int = 100
     led_hardware_mapping: str = "adafruit-hat"
-    led_scan_mode: int = 1
+    led_scan_mode: int = 0
     led_pwm_lsb_nanoseconds: int = 130
     led_show_refresh_rate: bool = False
     led_gpio_slowdown: int = 1
@@ -57,6 +58,8 @@ class LedFrame:
         options.pwm_bits = self.led_pwm_bits
         options.brightness = self.led_brightness
         options.pwm_lsb_nanoseconds = self.led_pwm_lsb_nanoseconds
+        if self.led_pwm_dither_bits and hasattr(options, "pwm_dither_bits"):
+            options.pwm_dither_bits = self.led_pwm_dither_bits  # type: ignore[attr-defined]
         options.led_rgb_sequence = self.led_rgb_sequence
         options.pixel_mapper_config = self.led_pixel_mapper_config
         options.panel_type = self.led_panel_type

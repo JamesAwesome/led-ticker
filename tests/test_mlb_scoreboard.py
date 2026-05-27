@@ -320,9 +320,22 @@ def _count_pixels_in_zone(canvas, x_start, x_end, y_start=0, y_end=16):
 
 
 def test_scoreboard_abs_pips_two_remaining_paints_more_than_zero():
-    """Two remaining challenges should add pixels to the right of away abbr."""
-    canvas = _stub_canvas()
-    game = GameInfo(
+    """Two remaining challenges paint stacked dashes at outer bottom corners."""
+    # Build with and without pips so we can isolate the dash contribution.
+    game_base = GameInfo(
+        home_abbr="PHI",
+        away_abbr="NYM",
+        state="live",
+        home_score=5,
+        away_score=3,
+        inning="▲7",
+        outs=0,
+        balls=0,
+        strikes=0,
+        away_challenges=None,
+        home_challenges=None,
+    )
+    game_pips = GameInfo(
         home_abbr="PHI",
         away_abbr="NYM",
         state="live",
@@ -335,10 +348,19 @@ def test_scoreboard_abs_pips_two_remaining_paints_more_than_zero():
         away_challenges=2,
         home_challenges=2,
     )
-    msg = MLBScoreboardMessage(game=game, team_abbr="PHI")
-    msg.draw(canvas)
-    # Canvas must have pixels — pips included somewhere in left column
-    assert _count_pixels_in_zone(canvas, 0, 38, 0, 8) > 0
+    canvas_no = _stub_canvas()
+    MLBScoreboardMessage(game=game_base, team_abbr="PHI").draw(canvas_no)
+    canvas_yes = _stub_canvas()
+    MLBScoreboardMessage(game=game_pips, team_abbr="PHI").draw(canvas_yes)
+
+    # Away dashes at far-left (x=0), home dashes at far-right (x≥123).
+    # Both canvases share all other rendering; pips are the only delta.
+    assert _count_pixels_in_zone(canvas_yes, 0, 5, 0, 16) > _count_pixels_in_zone(
+        canvas_no, 0, 5, 0, 16
+    )
+    assert _count_pixels_in_zone(canvas_yes, 123, 128, 0, 16) > _count_pixels_in_zone(
+        canvas_no, 123, 128, 0, 16
+    )
 
 
 def test_scoreboard_abs_pips_none_does_not_crash():

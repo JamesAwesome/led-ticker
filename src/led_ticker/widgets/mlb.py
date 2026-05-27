@@ -26,6 +26,7 @@ from led_ticker.widgets.message import TickerMessage
 logger: logging.Logger = logging.getLogger(__name__)
 
 MLB_API: str = "https://statsapi.mlb.com/api/v1"
+_MLB_LIVE_API: str = "https://statsapi.mlb.com/api/v1.1"
 
 # Update intervals (seconds)
 _INTERVAL_LIVE: int = 45  # ~half-inning cadence
@@ -848,7 +849,7 @@ class MLBScoreMonitor:
         url = (
             f"{MLB_API}/schedule?teamId={self._team_id}"
             f"&startDate={start}&endDate={end}&sportId=1"
-            f"&hydrate=team,linescore,challenges"
+            f"&hydrate=team,linescore"
         )
 
         try:
@@ -868,7 +869,31 @@ class MLBScoreMonitor:
             ]
             return
 
-        games = self._parse_games(data, tz)
+        try:
+            games = self._parse_games(data, tz)
+        except Exception:
+            logger.exception("MLB parse error for %s", self.team)
+            title = TickerMessage(
+                f"{team_name}",
+                font_color=title_color,
+                bg_color=self.bg_color,
+            )
+            self.feed_title = title
+            self.feed_stories = [
+                title,
+                TickerMessage("No Data", font_color=body_color, bg_color=self.bg_color),
+            ]
+            return
+
+        # Concurrently hydrate ABS challenge counts for live games.
+        live_games = [g for g in games if g.state == "live" and g.game_pk]
+        if live_games:
+            results = await asyncio.gather(
+                *(self._fetch_abs_challenges(g.game_pk) for g in live_games)
+            )
+            for g, (home_ch, away_ch) in zip(live_games, results, strict=False):
+                g.home_challenges = home_ch
+                g.away_challenges = away_ch
 
         if not games:
             title = TickerMessage(
@@ -1014,17 +1039,10 @@ class MLBScoreMonitor:
                     on_second = "second" in offense
                     on_third = "third" in offense
 
-                # ABS challenges — present only for games where the system is active.
+                # ABS challenges — hydrated separately for live games
+                # via _fetch_abs_challenges.
                 home_challenges: int | None = None
                 away_challenges: int | None = None
-                challenges = g.get("challenges", {})
-                if challenges:
-                    hc = challenges.get("home", {})
-                    ac = challenges.get("away", {})
-                    if hc is not None and "remainingChallenges" in hc:
-                        home_challenges = int(hc["remainingChallenges"])
-                    if ac is not None and "remainingChallenges" in ac:
-                        away_challenges = int(ac["remainingChallenges"])
 
                 start_time: datetime | None = None
                 game_date = g.get("gameDate")
@@ -1170,3 +1188,29 @@ class MLBScoreMonitor:
             ):
                 return g
         return None
+
+    async def _fetch_abs_challenges(
+        self, game_pk: int
+    ) -> tuple[int | None, int | None]:
+        """Fetch ABS challenge remaining counts from the live game feed.
+
+        Returns (home_remaining, away_remaining), or (None, None) when ABS is
+        not active for this game or the request fails.
+        """
+        url = f"{_MLB_LIVE_API}/game/{game_pk}/feed/live"
+        try:
+            async with self.session.get(url) as resp:
+                data = await resp.json()
+        except Exception:
+            logger.exception("ABS challenge fetch failed for gamePk=%s", game_pk)
+            return None, None
+
+        abs_ch = data.get("gameData", {}).get("absChallenges", {})
+        if not abs_ch or not abs_ch.get("hasChallenges"):
+            return None, None
+
+        home = abs_ch.get("home") or {}
+        away = abs_ch.get("away") or {}
+        with contextlib.suppress(TypeError, ValueError):
+            return int(home.get("remaining", 0)), int(away.get("remaining", 0))
+        return None, None

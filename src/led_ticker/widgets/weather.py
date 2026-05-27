@@ -46,6 +46,7 @@ class WeatherWidget(_FrameAware):
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     center: bool = True
     padding: int = 6
+    hold_time: float = 0.0
     show_icon: bool = True
     unit_symbol: str = attrs.field(init=False, default="")
     current_temp: int = attrs.field(init=False, default=0)

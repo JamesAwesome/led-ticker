@@ -1536,6 +1536,78 @@ class TestShowOneResetsFrame:
         )
 
 
+class TestShowOneWidgetHoldTimeOverride:
+    """Widget-level hold_time raises the effective hold above section hold_time."""
+
+    async def test_widget_hold_time_overrides_section_when_larger(
+        self, swapping_frame, no_sleep
+    ):
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.ticker import ENGINE_TICK_MS, Ticker
+        from led_ticker.widgets.message import TickerMessage
+
+        ticker = Ticker(monitors=[], frame=swapping_frame)
+        # Widget requests 0.3 s → 6 ticks; widget should win over section 0.1 s
+        widget = TickerMessage(text="hi", hold_time=0.3)
+        canvas = _StubCanvas(width=160, height=16)
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
+
+        swap_calls_before = swapping_frame.swap.call_count
+        await ticker._show_one(canvas, widget, hold_time=0.1)
+        n_swaps = swapping_frame.swap.call_count - swap_calls_before
+
+        expected_ticks = max(1, int(0.3 * 1000) // ENGINE_TICK_MS)  # 6
+        assert n_swaps >= expected_ticks, (
+            f"Expected >= {expected_ticks} swaps (widget hold_time=0.3 wins), "
+            f"got {n_swaps}"
+        )
+
+    async def test_section_hold_time_wins_when_larger(self, swapping_frame, no_sleep):
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.ticker import ENGINE_TICK_MS, Ticker
+        from led_ticker.widgets.message import TickerMessage
+
+        ticker = Ticker(monitors=[], frame=swapping_frame)
+        widget = TickerMessage(text="hi", hold_time=0.1)
+        canvas = _StubCanvas(width=160, height=16)
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
+
+        swap_calls_before = swapping_frame.swap.call_count
+        await ticker._show_one(canvas, widget, hold_time=0.3)
+        n_swaps = swapping_frame.swap.call_count - swap_calls_before
+
+        expected_ticks = max(1, int(0.3 * 1000) // ENGINE_TICK_MS)  # 6
+        assert n_swaps >= expected_ticks, (
+            f"Expected >= {expected_ticks} swaps (section hold_time=0.3 wins), "
+            f"got {n_swaps}"
+        )
+
+    async def test_widget_hold_time_zero_defers_to_section(
+        self, swapping_frame, no_sleep
+    ):
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.ticker import ENGINE_TICK_MS, Ticker
+        from led_ticker.widgets.message import TickerMessage
+
+        ticker = Ticker(monitors=[], frame=swapping_frame)
+        widget = TickerMessage(text="hi", hold_time=0.0)  # 0 = defer
+        canvas = _StubCanvas(width=160, height=16)
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
+
+        swap_calls_before = swapping_frame.swap.call_count
+        await ticker._show_one(canvas, widget, hold_time=0.15)
+        n_swaps = swapping_frame.swap.call_count - swap_calls_before
+
+        expected_ticks = max(1, int(0.15 * 1000) // ENGINE_TICK_MS)  # 3
+        assert n_swaps >= expected_ticks, (
+            f"Expected >= {expected_ticks} swaps (section hold_time=0.15 used), "
+            f"got {n_swaps}"
+        )
+
+
 class TestTypewriterPlusRainbowBorderComposition:
     """Per-effect counters let a widget with both Typewriter
     (restart=True) and RainbowChaseBorder (restart=False) get the

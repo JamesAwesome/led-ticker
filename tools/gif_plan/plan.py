@@ -19,7 +19,7 @@ from pathlib import Path
 _FONT_CELL_W = 6  # FONT_DEFAULT (6x12) cell width, px
 _EMOJI_W = 8  # inline :slug: sprite width, px
 _DEFAULT_HOLD_S = 3.0  # SectionConfig.hold_time default
-_DEFAULT_HOLD_SECONDS = 5.0  # StillImage.hold_seconds default
+_DEFAULT_HOLD_SECONDS = 5.0  # StillImage.hold_time default
 _DEFAULT_STEP_MS = 50  # scroll step when a section omits scroll_step_ms
 _GIF_FALLBACK_LOOP_MS = 1000  # used when a gif path can't be read
 
@@ -76,7 +76,7 @@ def widget_ms(widget: dict, section: dict, canvas_w: int, config_dir: Path) -> i
         overflow = max(0, _content_w(text) - canvas_w)
         return hold_ms + overflow * step
     if wtype in ("image",):
-        return int(float(widget.get("hold_seconds", _DEFAULT_HOLD_SECONDS)) * 1000)
+        return int(float(widget.get("hold_time", _DEFAULT_HOLD_SECONDS)) * 1000)
     if wtype == "gif":
         loops = int(widget.get("loops", 1))
         if loops == 0:

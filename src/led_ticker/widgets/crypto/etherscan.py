@@ -55,6 +55,7 @@ class EtherscanGasMonitor(_FrameAware):
     session: aiohttp.ClientSession
     api_key: str
     padding: int = 0  # no end_padding; uses hardcoded padding in segments
+    hold_time: float = 0.0
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     font_color: Color | ColorProvider = attrs.field(default=None, kw_only=True)
     price_data: dict[str, str] = attrs.field(init=False, factory=dict)

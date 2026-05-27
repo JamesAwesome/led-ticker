@@ -74,6 +74,7 @@ class MLBStandingsMonitor:
     top_n: int = 3
     timezone: str = "America/New_York"
     padding: int = 6
+    hold_time: float = 0.0
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     font_color: Color | ColorProvider | None = attrs.field(default=None, kw_only=True)
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)

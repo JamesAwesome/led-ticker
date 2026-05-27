@@ -35,7 +35,7 @@ type = "image"
 path = "../../../config/assets/moon-transparent.png"
 fit = "pillarbox"
 image_align = "center"
-hold_seconds = 3.0
+hold_time = 3.0
 
 [[playlist.section.widget]]
 type = "message"

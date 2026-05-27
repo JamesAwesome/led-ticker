@@ -263,17 +263,30 @@ async def test_rule7_text_x_offset_with_scroll(conf):
     assert any(e.rule == 7 for e in result.errors)
 
 
-async def test_rule8_hold_seconds_too_short(conf):
+async def test_rule8_hold_time_too_short(conf):
     extra = textwrap.dedent("""\
 
         [[playlist.section.widget]]
         type = "image"
         path = "x.png"
-        hold_seconds = 0.001
+        hold_time = 0.001
         """)
     result = await validate_config(conf(GOOD_CONFIG + extra))
     assert not result.valid
     assert any(e.rule == 8 for e in result.errors)
+
+
+async def test_rule8_hold_time_zero_is_valid(conf):
+    """hold_time = 0.0 means 'defer to section' and must not trigger Rule 8."""
+    extra = textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        hold_time = 0.0
+        """)
+    result = await validate_config(conf(GOOD_CONFIG + extra))
+    assert result.valid, f"hold_time=0.0 should be valid, got errors: {result.errors}"
 
 
 async def test_rule14_typewriter_on_gif_two_row(conf):

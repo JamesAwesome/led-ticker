@@ -1,5 +1,5 @@
 # render-duration: 5
-# hold_seconds is set higher than render-duration so the captured
+# hold_time is set higher than render-duration so the captured
 # window contains exactly one type-out + a comfortable hold — no
 # half-restart of the second cycle at the gif's loop boundary.
 [display]
@@ -26,4 +26,4 @@ text = "moonbunny"
 text_align = "right"
 font_color = "rainbow"
 animation = "typewriter"
-hold_seconds = 8.0
+hold_time = 8.0

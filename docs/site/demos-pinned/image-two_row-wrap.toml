@@ -32,5 +32,5 @@ bottom_text_wrap = true
 bottom_text_separator = " * "
 bottom_color = [120, 230, 255]
 bottom_text_separator_color = "rainbow"
-hold_seconds = 8.0
+hold_time = 8.0
 scroll_speed_ms = 25

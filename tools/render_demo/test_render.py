@@ -23,7 +23,7 @@ _MINIMAL_CONFIG = """\
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 default_scale = 1
 brightness = 60
 
@@ -91,7 +91,7 @@ def test_renderer_substitutes_placeholder_for_missing_image(tmp_path):
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 default_scale = 1
 brightness = 60
 
@@ -135,7 +135,7 @@ _STATIC_HOLD_CONFIG = """\
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 default_scale = 1
 brightness = 60
 
@@ -207,7 +207,7 @@ _STATIC_FAST_PATH_CONFIG = """\
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 default_scale = 1
 brightness = 60
 

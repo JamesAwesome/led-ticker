@@ -252,7 +252,7 @@ User-facing surface: <https://docs.ledticker.dev/concepts/color-providers/> · <
 User-facing reference: <https://docs.ledticker.dev/reference/config-options/>.
 
 - App config: `config/config.toml` (mounted in Docker at `/code/config/`, gitignored)
-- Examples: `config/config.example.toml` (smallsign), `config/config.bigsign.example.toml` (bigsign with `pixel_mapper`, scaling, RP1 tuning), `config/config.moonbunny.example.toml` (real-world bigsign template)
+- Examples: `config/config.example.toml` (smallsign), `config/config.bigsign.example.toml` (bigsign with `pixel_mapper_config`, scaling, RP1 tuning), `config/config.moonbunny.example.toml` (real-world bigsign template)
 - API keys: `.env` (see `.env.example`)
 
 **Section transition precedence** — When a section explicitly writes `transition = "..."` in its TOML, that transition is used for BOTH the inter-section ENTRY (when this section appears) AND inter-widget transitions (between widgets within the section). Sections that omit `transition` fall back to `[transitions] between_sections` for entry. The `transition_specified: bool` flag on `SectionConfig` records whether the user wrote the field — without it the parser cannot distinguish "user wrote `transition = X`" from "section inherited X from default". `_build_trans_obj` is the shared factory used for both entry and inter-widget transitions. For independent control, sections also accept `entry_transition` (overrides how THIS section appears, ignoring `between_sections` and `transition`) and `widget_transition` (overrides inter-widget transitions within this section). Precedence: `entry_transition` > `transition` > `between_sections` for entry; `widget_transition` > `transition` > cut for within-section.
@@ -261,11 +261,11 @@ User-facing reference: <https://docs.ledticker.dev/reference/config-options/>.
 
 - Production image: `python:3.13-bullseye` base, 3-layer caching (rgbmatrix → deps → source).
 - Single image runs on both Pi 4 and Pi 5. The rgbmatrix library is hardcoded to `jamesawesome/rpi-rgb-led-matrix` (default branch `main`) — Pi5 RP1 support (hzeller#1886, merged upstream) plus three patches: GCC10 anonymous-param fix (`pio_rp1.c`), Pillow shim (`graphics.py`), SubFill Python binding (`core.pyx`). The library detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). The pre-RP1 codebase is preserved on the `pi4_legacy` branch.
-- On the Pi 5, the runtime CLI also accepts `--led-rp1-rio=0|1` (PIO vs Registered IO mode). For chain ≥ 2 with flicker, raise `slowdown_gpio` from 2 to 3+.
+- On the Pi 5, the runtime CLI also accepts `--led-rp1-rio=0|1` (PIO vs Registered IO mode). For chain length ≥ 2 with flicker, raise `gpio_slowdown` from 2 to 3+.
 - Config mounted read-only: `./config:/code/config:ro`.
 - Systemd: `deploy/led-ticker.service`. Full deploy walkthrough: <https://docs.ledticker.dev/hardware/building-your-own/>.
 
 ### Hardware quick reference
 
-- **Smallsign (Pi 4)** — 5× 32×16 = 160×16 px. `default_scale = 1`, `slowdown_gpio = 2`, `gpio_mapping = "adafruit-hat"`, ~20 fps. Full BOM + wiring: <https://docs.ledticker.dev/hardware/smallsign/>.
-- **Bigsign (Pi 5)** — 8× P3 32×64 in a 2×4 vertical-serpentine = 256×64 px. `default_scale = 4`, `slowdown_gpio = 3` paired with `rp1_rio = 1`, `pwm_bits = 8`, custom `pixel_mapper` Remap string. DrawText clips safely at canvas edges (y can be negative or > height). Full BOM + chain diagram + Pi-5 tuning: <https://docs.ledticker.dev/hardware/bigsign/>.
+- **Smallsign (Pi 4)** — 5× 32×16 = 160×16 px. `default_scale = 1`, `gpio_slowdown = 2`, `hardware_mapping = "adafruit-hat"`, ~20 fps. Full BOM + wiring: <https://docs.ledticker.dev/hardware/smallsign/>.
+- **Bigsign (Pi 5)** — 8× P3 32×64 in a 2×4 vertical-serpentine = 256×64 px. `default_scale = 4`, `gpio_slowdown = 3` paired with `rp1_rio = 1`, `pwm_bits = 8`, custom `pixel_mapper_config` Remap string. DrawText clips safely at canvas edges (y can be negative or > height). Full BOM + chain diagram + Pi-5 tuning: <https://docs.ledticker.dev/hardware/bigsign/>.

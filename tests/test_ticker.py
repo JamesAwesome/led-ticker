@@ -26,7 +26,7 @@ from led_ticker.ticker import (
 
 def test_maybe_wrap_skips_wrap_when_canvas_fits():
     # Smallsign: panel_h == content_height == 16, scale=1 → no wrap needed.
-    frame = LedFrame(led_cols=32, led_chain=5)
+    frame = LedFrame(led_cols=32, led_chain_length=5)
     canvas = frame.get_clean_canvas()
     # The stub canvas height is 32; use content_height=canvas.height so it fits.
     result = _maybe_wrap(canvas, scale=1, content_height=canvas.height)
@@ -37,7 +37,9 @@ def test_maybe_wrap_skips_wrap_when_canvas_fits():
 def test_maybe_wrap_engages_when_content_height_smaller_than_panel():
     # Bigsign running at scale=1: panel_h=64, content_height=16 → must wrap
     # so widgets see canvas.height == 16 and content is vertically centered.
-    frame = LedFrame(led_rows=32, led_cols=64, led_chain=8, led_pixel_mapper="U-mapper")
+    frame = LedFrame(
+        led_rows=32, led_cols=64, led_chain_length=8, led_pixel_mapper_config="U-mapper"
+    )
     canvas = frame.get_clean_canvas()
     assert canvas.height == 64  # sanity-check the test fixture
     result = _maybe_wrap(canvas, scale=1, content_height=16)
@@ -48,7 +50,9 @@ def test_maybe_wrap_engages_when_content_height_smaller_than_panel():
 
 
 def test_maybe_wrap_returns_scaled_canvas_at_scale_4():
-    frame = LedFrame(led_rows=32, led_cols=64, led_chain=8, led_pixel_mapper="U-mapper")
+    frame = LedFrame(
+        led_rows=32, led_cols=64, led_chain_length=8, led_pixel_mapper_config="U-mapper"
+    )
     canvas = frame.get_clean_canvas()
     result = _maybe_wrap(canvas, scale=4)
     assert isinstance(result, ScaledCanvas)
@@ -57,7 +61,7 @@ def test_maybe_wrap_returns_scaled_canvas_at_scale_4():
 
 
 def test_swap_handles_real_canvas():
-    frame = LedFrame(led_cols=32, led_chain=5)
+    frame = LedFrame(led_cols=32, led_chain_length=5)
     canvas = frame.get_clean_canvas()
     new_canvas = _swap(canvas, frame)
     # Stub returns a different canvas object on swap
@@ -65,7 +69,9 @@ def test_swap_handles_real_canvas():
 
 
 def test_swap_handles_scaled_canvas_in_place():
-    frame = LedFrame(led_rows=32, led_cols=64, led_chain=8, led_pixel_mapper="U-mapper")
+    frame = LedFrame(
+        led_rows=32, led_cols=64, led_chain_length=8, led_pixel_mapper_config="U-mapper"
+    )
     canvas = frame.get_clean_canvas()
     wrapper = ScaledCanvas(canvas, scale=4)
     original_real = wrapper.real

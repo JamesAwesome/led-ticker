@@ -149,7 +149,7 @@ git commit -m "skill: scaffold creating-a-config directory"
 
 - `pwm_bits = 8` (down from default 11) — ~8× faster refresh, minor color hit
 - `rp1_rio = 1` — RIO mode, faster + more CPU. `0` for PIO mode (lower CPU).
-- `slowdown_gpio = 3` — raise to 4–5 if flicker.
+- `gpio_slowdown = 3` — raise to 4–5 if flicker.
 - Only suggest these for "info-dense" tone with many sections.
 
 ## What does NOT work where
@@ -164,7 +164,7 @@ Read CLAUDE.md sections listed above and skim `config.example.toml` + `config.bi
 
 - [ ] **Step 2: Write the file using the structure above**
 
-Fill in concrete numbers from CLAUDE.md (Pi 4 / Pi 5 model names, `slowdown_gpio` defaults, exact panel layout). Include the HTML comment header naming source sections.
+Fill in concrete numbers from CLAUDE.md (Pi 4 / Pi 5 model names, `gpio_slowdown` defaults, exact panel layout). Include the HTML comment header naming source sections.
 
 - [ ] **Step 3: Validate cross-references**
 

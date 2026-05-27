@@ -38,7 +38,7 @@ If you ever want to reset to exactly the starting point for this chapter, create
 [display]
 rows = 64
 cols = 256
-chain = 1
+chain_length = 1
 default_scale = 4
 brightness = 60
 ```
@@ -53,7 +53,7 @@ Open a new `config/config.toml` in your editor and add the display block:
 [display]
 rows = 64
 cols = 256
-chain = 1
+chain_length = 1
 default_scale = 4
 brightness = 60
 ```
@@ -63,7 +63,7 @@ What each field does:
 - **`rows = 64`** and **`cols = 256`** — the physical dimensions of the panel
   array in pixels. The bigsign is eight 32×64 panels arranged in a 2×4
   serpentine grid, giving a 256×64 physical canvas.
-- **`chain = 1`** — number of chains. The bigsign uses a single chain of eight
+- **`chain_length = 1`** — number of chains. The bigsign uses a single chain of eight
   panels.
 - **`default_scale = 4`** — the logical-to-physical ratio. All drawing happens
   on a **logical canvas** of `cols / scale × rows / scale` = 64×16 pixels.
@@ -74,7 +74,7 @@ What each field does:
   point.
 
 There are several Pi-specific hardware knobs you'll see in the example configs —
-`pixel_mapper`, `slowdown_gpio`, `gpio_mapping`, `pwm_bits`, `rp1_rio`. These
+`pixel_mapper_config`, `gpio_slowdown`, `hardware_mapping`, `pwm_bits`, `rp1_rio`. These
 control low-level GPIO timing and panel chaining. They have no effect on the
 laptop renderer and are safe to omit until you're deploying to real hardware.
 See [Hardware → Bigsign](/hardware/bigsign/) for details on those.

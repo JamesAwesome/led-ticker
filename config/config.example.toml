@@ -1,8 +1,8 @@
 # led-ticker configuration — smallsign starter (160×16 canvas)
 #
 # 5× chained 32×16 panels = 160×16 logical canvas. Driven by a Raspberry Pi 4
-# through an Adafruit RGB Matrix bonnet. No pixel_mapper needed — panels are a
-# single horizontal chain, left-to-right.
+# through an Adafruit RGB Matrix bonnet. No pixel_mapper_config needed — panels are a
+# single horizontal chain_length, left-to-right.
 #
 # Copy this to config.toml and adjust the playlist sections for your content.
 # Full config-options reference: https://docs.ledticker.dev/reference/config-options/
@@ -10,10 +10,10 @@
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 brightness = 60
-slowdown_gpio = 2      # mandatory on Pi 4 — bump to 3+ if you see flicker
-gpio_mapping = "adafruit-hat"
+gpio_slowdown = 2      # mandatory on Pi 4 — bump to 3+ if you see flicker
+hardware_mapping = "adafruit-hat"
 
 [title]
 delay = 5

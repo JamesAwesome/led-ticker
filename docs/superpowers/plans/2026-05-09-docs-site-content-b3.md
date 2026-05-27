@@ -283,13 +283,13 @@ Required sections:
 1. **Frontmatter** — `title: "Hardware: Bigsign"`, one-sentence description.
 2. **At a glance** — Pi 5, 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64 pixels, `default_scale = 4`, drawing logic stays at 16-tall logical and `ScaledCanvas` blows it up. Same Docker image as the small sign.
 3. **Bill of materials** — table. Cover Pi 5, the 8 panels, Adafruit HAT or equivalent, 5V power supply (sized for 8 panels), shroud / frame. Note the rgbmatrix library detects the SoC at runtime.
-4. **The 2×4 serpentine layout** — one paragraph + a small ASCII diagram showing how the 8 panels are arranged and the data chain order. Reference `pixel_mapper` in the config snippet.
-5. **Config snippet** — a TomlExample with the minimal `[display]` block from `config.bigsign.example.toml`. Include `rows`, `cols`, `chain`, `parallel`, `default_scale`, `pixel_mapper`, `pwm_bits`, `rp1_rio`, `led_slowdown_gpio`. Inline notes on the Pi-5-specific knobs.
+4. **The 2×4 serpentine layout** — one paragraph + a small ASCII diagram showing how the 8 panels are arranged and the data chain order. Reference `pixel_mapper_config` in the config snippet.
+5. **Config snippet** — a TomlExample with the minimal `[display]` block from `config.bigsign.example.toml`. Include `rows`, `cols`, `chain`, `parallel`, `default_scale`, `pixel_mapper_config`, `pwm_bits`, `rp1_rio`, `led_slowdown_gpio`. Inline notes on the Pi-5-specific knobs.
 6. **Pi-5 tuning** — 3 short subsections:
    - `pwm_bits = 8` (down from default 11) for ~8× faster refresh; minor color hit.
    - `rp1_rio = 1` (RIO mode — faster, more CPU; `0` = PIO mode, lower CPU).
    - `led_slowdown_gpio = 3` paired with `rp1_rio = 1`; raise to 4–5 if flicker.
-7. **Pitfalls** — (a) **`content_height ≤ 16` ceiling**: at scale=4 panels are 64-tall, so `content_height = 20` makes the wrapper's `_y_offset` go negative and content clips silently; explicit warning. (b) `pixel_mapper` Remap string is sensitive to the panel chain order — the 2×4 serpentine string is what config.bigsign.example.toml uses. (c) hi-res emoji (`:moon:`, `:instagram:`) only render on bigsign at scale=4; on small-sign they fall back to 8×8 lo-res.
+7. **Pitfalls** — (a) **`content_height ≤ 16` ceiling**: at scale=4 panels are 64-tall, so `content_height = 20` makes the wrapper's `_y_offset` go negative and content clips silently; explicit warning. (b) `pixel_mapper_config` Remap string is sensitive to the panel chain order — the 2×4 serpentine string is what config.bigsign.example.toml uses. (c) hi-res emoji (`:moon:`, `:instagram:`) only render on bigsign at scale=4; on small-sign they fall back to 8×8 lo-res.
 8. **RelatedPages** — `hardware/small-sign`, `concepts/display`, `concepts/fonts`.
 
 - [ ] **Step 4: Lint and build, commit**
@@ -367,7 +367,7 @@ Required sections:
 
 1. **Frontmatter** — `title: "Reference: Config options"`, one-sentence description.
 2. **Intro** — this page is the cross-cutting view of every TOML knob, organized by section. Per-widget options live on each widget's page (link); this page covers `[display]`, `[title]`, `[transitions]`, and `[[playlist.section]]`.
-3. **`[display]`** — markdown table: Field, Type, Default, Description. Cover: rows, cols, chain, parallel, default_scale, brightness, led_gpio_mapping, led_slowdown_gpio, pwm_bits, pwm_lsb_nanoseconds, rp1_rio, pixel_mapper, show_refresh. Cite Pi-5-only knobs explicitly.
+3. **`[display]`** — markdown table: Field, Type, Default, Description. Cover: rows, cols, chain, parallel, default_scale, brightness, led_gpio_mapping, led_slowdown_gpio, pwm_bits, pwm_lsb_nanoseconds, rp1_rio, pixel_mapper_config, show_refresh_rate. Cite Pi-5-only knobs explicitly.
 4. **`[title]`** — table: delay (default 5).
 5. **`[transitions]`** — table: default, duration, easing, between_sections.
 6. **`[[playlist.section]]`** — table: mode, hold_time, loop_count, transition, transition_duration, transition_color, scale, content_height, bg_color, transition_specified. Briefly note the section-vs-global precedence.

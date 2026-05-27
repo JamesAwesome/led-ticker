@@ -56,7 +56,7 @@ docs/site/src/content/docs/
 ├── getting-started.mdx                "First sign in 10 minutes"
 │
 ├── concepts/
-│   ├── display.mdx                    rows / cols / scale / content_height / pixel_mapper
+│   ├── display.mdx                    rows / cols / scale / content_height / pixel_mapper_config
 │   ├── sections-and-modes.mdx         forever_scroll / infini_scroll / swap
 │   ├── fonts.mdx                      BDF vs hires (TTF/OTF), font_size, font_threshold
 │   ├── color-providers.mdx            constant / rainbow / gradient / color_cycle / random

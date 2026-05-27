@@ -14,28 +14,28 @@ from led_ticker._coerce import CoercionWarning
 class DisplayConfig:
     rows: int = 16
     cols: int = 32
-    chain: int = 1
+    chain_length: int = 1
     parallel: int = 1
-    pixel_mapper: str = ""
+    pixel_mapper_config: str = ""
     default_scale: int = 1
     brightness: int = 100
-    slowdown_gpio: int = 1
-    gpio_mapping: str = "adafruit-hat"
+    gpio_slowdown: int = 1
+    hardware_mapping: str = "adafruit-hat"
     # Performance / refresh tuning
     pwm_bits: int = 11  # 8 ≈ 8× faster refresh, slightly worse color depth
     pwm_lsb_nanoseconds: int = 130  # higher = slower but more stable
     pwm_dither_bits: int = (
         0  # 0=off, 1–2 spreads PWM energy to reduce row brightness unevenness
     )
-    show_refresh: bool = False  # log measured refresh rate to stderr
-    no_hardware_pulse: bool = False  # disable hw PWM (rare; uses CPU instead)
+    show_refresh_rate: bool = False  # log measured refresh rate to stderr
+    disable_hardware_pulsing: bool = False  # disable hw PWM (rare; uses CPU instead)
     rp1_rio: int = 0  # Pi 5 only: 0 = PIO (low CPU), 1 = RIO (faster, more CPU)
     limit_refresh_rate_hz: int = 0  # cap hardware refresh rate (0 = unlimited)
     # Panel scan / wiring — tune if the bottom half renders inverted or garbled.
     # multiplexing: 0=direct 1=Stripe 2=Checker 3=Spiral 4=ZStripe 5=ZnMirrorZStripe
-    # row_addr_type: 0=direct 1=AB-addr 2=direct-shifted 3=ABC-shifted
+    # row_address_type: 0=direct 1=AB-addr 2=direct-shifted 3=ABC-shifted
     multiplexing: int = 0
-    row_addr_type: int = 0
+    row_address_type: int = 0
     # Driver IC init — set to "FM6126A" or "FM6127" for panels that use those
     # chips (common on cheap P2/P3 AliExpress panels). Without it, FM6126A panels
     # power up in a bad state and show the bottom half mirrored or garbled.
@@ -174,11 +174,11 @@ _DISPLAY_INT_FIELDS: frozenset[str] = frozenset(
     {
         "rows",
         "cols",
-        "chain",
+        "chain_length",
         "parallel",
         "default_scale",
         "brightness",
-        "slowdown_gpio",
+        "gpio_slowdown",
         "pwm_bits",
         "pwm_lsb_nanoseconds",
         "pwm_dither_bits",

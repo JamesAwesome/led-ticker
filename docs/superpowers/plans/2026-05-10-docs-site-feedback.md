@@ -91,7 +91,7 @@ For hardware setup, BOM, and wiring diagrams see [docs.ledticker.dev/hardware](h
 Everything is configured via a TOML file. Three reference configs ship in `config/`:
 
 - `config.example.toml` — smallsign starter (160×16)
-- `config.bigsign.example.toml` — bigsign with `pixel_mapper`, scaling, RP1 tuning (256×64)
+- `config.bigsign.example.toml` — bigsign with `pixel_mapper_config`, scaling, RP1 tuning (256×64)
 - `config.moonbunny.example.toml` — real-world bigsign storefront layout
 
 Full config reference: <https://docs.ledticker.dev/reference/config-options/>. Per-widget pages document every knob: <https://docs.ledticker.dev/widgets/>.
@@ -134,7 +134,7 @@ The compose file mounts `./config` read-only into the container so you edit TOML
 
 ## Hardware
 
-The single Docker image detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). On the Pi 5 the runtime CLI accepts `--led-rp1-rio=0|1` for the RP1 backend mode; for chain ≥ 2 with flicker raise `slowdown_gpio` from 2 to 3+.
+The single Docker image detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). On the Pi 5 the runtime CLI accepts `--led-rp1-rio=0|1` for the RP1 backend mode; for chain ≥ 2 with flicker raise `gpio_slowdown` from 2 to 3+.
 
 Hardware reference (BOM, wiring, panel-tuning knobs): <https://docs.ledticker.dev/hardware/>.
 
@@ -1038,14 +1038,14 @@ Expected output: zero errors. (Comments don't affect validation, but this catche
 
 - [ ] **Step 1: Apply the same pattern as Task 4.1**
 
-The bigsign config is denser and references specific hardware tuning (`pixel_mapper`, `slowdown_gpio`, `rp1_rio`, `pwm_bits`). The comment voice should explain WHY each value is set, not just WHAT it does.
+The bigsign config is denser and references specific hardware tuning (`pixel_mapper_config`, `gpio_slowdown`, `rp1_rio`, `pwm_bits`). The comment voice should explain WHY each value is set, not just WHAT it does.
 
 Sample target voice for the display block:
 
 ```toml
 [display]
 # Bigsign canvas: 8 P3 32x64 panels arranged as a 2x4 vertical
-# serpentine = 256x64 logical. The pixel_mapper string is what
+# serpentine = 256x64 logical. The pixel_mapper_config string is what
 # tells the rgbmatrix library how to remap pixels onto the physical
 # chain — see https://docs.ledticker.dev/hardware/bigsign/ for the
 # diagram and how to derive your own mapper string.
@@ -1053,7 +1053,7 @@ rows = 32
 cols = 64
 chain = 8
 parallel = 1
-pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
 
 # default_scale = 4 means: every widget draws at the standard 16-tall
 # logical canvas, and the ScaledCanvas wrapper expands every pixel to
@@ -1063,11 +1063,11 @@ default_scale = 4
 
 brightness = 60
 
-# Pi 5 RP1 GPIO tuning. slowdown_gpio paired with rp1_rio mode = 1
+# Pi 5 RP1 GPIO tuning. gpio_slowdown paired with rp1_rio mode = 1
 # (PIO mode) gives stable refresh on an 8-panel chain. Drop pwm_bits
 # from default 11 to 8 to keep refresh rate above the perceptual
 # flicker floor at this chain length.
-slowdown_gpio = 3
+gpio_slowdown = 3
 rp1_rio = 1
 pwm_bits = 8
 ```
@@ -1125,7 +1125,7 @@ Expected output: > 0.
 ```mdx
 ## Reference config
 
-A complete working config for this build, including the `pixel_mapper` string and the Pi 5 RP1 tuning that this hardware needs. Drop this into `config/config.toml` and adjust the per-widget content.
+A complete working config for this build, including the `pixel_mapper_config` string and the Pi 5 RP1 tuning that this hardware needs. Drop this into `config/config.toml` and adjust the per-widget content.
 
 <details>
 <summary>Complete <code>config.bigsign.example.toml</code> (256×64 bigsign)</summary>

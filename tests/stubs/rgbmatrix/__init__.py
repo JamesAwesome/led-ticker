@@ -21,7 +21,7 @@ KNOWN STUB-vs-REAL DIVERGENCES (with rationale):
     `pixel_mapper_config="U-mapper"` to get a 256×64 canvas.
   - `RGBMatrix.show_refresh_rate` is a config-only flag here; the real
     lib's stderr Hz output is not simulated. The startup explainer log
-    (`app.build_frame_from_config` when `show_refresh=true`) makes the
+    (`app.build_frame_from_config` when `show_refresh_rate=true`) makes the
     behaviour visible to users either way.
   - `RGBMatrix.SwapOnVSync` returns the SAME canvas object in this
     stub by default. Test fixtures that need to verify capture-the-

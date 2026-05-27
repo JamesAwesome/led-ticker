@@ -46,7 +46,7 @@ Skill loads `references/hardware-guide.md`.
 **Answer:** bigsign (256×64)
 
 **Skill response:** Records `default_scale = 4`, `rows = 32`, `cols = 64`, `chain = 8`.
-Notes: Pi 5 target, RP1 tuning will be needed. Uses the serpentine `pixel_mapper` from
+Notes: Pi 5 target, RP1 tuning will be needed. Uses the serpentine `pixel_mapper_config` from
 `config.bigsign.example.toml`. Hires fonts and hires emoji are available.
 
 ### Q2 — Use case
@@ -422,7 +422,7 @@ Skill skips this question for branded-pro tone.
 should still include the standard Pi 5 / RP1 tuning knobs in `[display]` regardless
 of tone. The condition "only ask if tone=info-dense" relates to whether to ASK the
 user about tuning. The template includes `pwm_bits = 8`, `rp1_rio = 1`,
-`slowdown_gpio = 3` regardless. The skill correctly uses the bigsign hardware
+`gpio_slowdown = 3` regardless. The skill correctly uses the bigsign hardware
 template for the `[display]` block without being prompted.
 
 ### Q6 — Save destination
@@ -492,15 +492,15 @@ rows = 32
 cols = 64
 chain = 8
 parallel = 1
-pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
 
 brightness = 60
-slowdown_gpio = 3
-gpio_mapping = "adafruit-hat"
+gpio_slowdown = 3
+hardware_mapping = "adafruit-hat"
 default_scale = 4
 
 pwm_bits = 8
-show_refresh = true
+show_refresh_rate = true
 rp1_rio = 1
 
 [title]
@@ -616,8 +616,8 @@ font_color = [255, 140, 60]
 **Structural similarities:**
 
 - Both use the identical `[display]` block (same hardware, same Pi 5 / RP1 tuning:
-  `slowdown_gpio=3`, `pwm_bits=8`, `rp1_rio=1`, `default_scale=4`,
-  `pixel_mapper` serpentine string).
+  `gpio_slowdown=3`, `pwm_bits=8`, `rp1_rio=1`, `default_scale=4`,
+  `pixel_mapper_config` serpentine string).
 - Both include a `[title]` block (`delay = 5`).
 - Both include a `[transitions]` block with `easing = "ease_in_out"`.
 - Both have a hero/brand section in `forever_scroll` mode with multiple message
@@ -739,7 +739,7 @@ mistakes.
 moonbunny template for a coffee-shop store window on the bigsign. It:
 
 - Uses the correct `[[playlist.section]]` / `[[playlist.section.widget]]` TOML structure throughout
-- Has the right hardware block (Pi 5 / RP1 tuning, pixel_mapper, brightness=60)
+- Has the right hardware block (Pi 5 / RP1 tuning, pixel_mapper_config, brightness=60)
 - Correctly applies `scale = 2` for the two_row handle section (Rule 6)
 - Specifies `font_size` on all HiresFont widgets (Rule 5)
 - Stays at or under `content_height = 16` (Rule 1 safe)

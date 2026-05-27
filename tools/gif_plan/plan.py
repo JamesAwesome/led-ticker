@@ -37,7 +37,7 @@ class PlanError(Exception):
 
 def _canvas_w(display: dict, section: dict) -> int:
     cols = int(display.get("cols", 64))
-    chain = int(display.get("chain", 1))
+    chain = int(display.get("chain_length", 1))
     scale = int(section.get("scale") or display.get("default_scale") or 1)
     return cols * chain // max(1, scale)
 

@@ -4,12 +4,12 @@
 [display]
 rows = 32
 cols = 64
-chain = 8
+chain_length = 8
 parallel = 1
-pixel_mapper = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
 brightness = 60
-slowdown_gpio = 3
-gpio_mapping = "adafruit-hat"
+gpio_slowdown = 3
+hardware_mapping = "adafruit-hat"
 default_scale = 4
 rp1_rio = 1
 

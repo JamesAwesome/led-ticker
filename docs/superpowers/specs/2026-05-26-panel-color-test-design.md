@@ -5,7 +5,7 @@
 
 ## Problem
 
-When a new panel build (or a freshly-flashed Pi) doesn't render correctly, the failure mode is often in the **hardware/driver layer**, not the config layer: FM6126A init didn't run, `led_rgb_sequence` is wired wrong (Red shows green), chain length is off, `slowdown_gpio` is too low and the image flickers, dead/stuck pixels are masquerading as missing glyphs. Today the only way to diagnose those is to write a config and watch a widget render — which conflates "config bug" with "hardware bug" and makes triage slow.
+When a new panel build (or a freshly-flashed Pi) doesn't render correctly, the failure mode is often in the **hardware/driver layer**, not the config layer: FM6126A init didn't run, `led_rgb_sequence` is wired wrong (Red shows green), chain length is off, `gpio_slowdown` is too low and the image flickers, dead/stuck pixels are masquerading as missing glyphs. Today the only way to diagnose those is to write a config and watch a widget render — which conflates "config bug" with "hardware bug" and makes triage slow.
 
 The existing tooling covers the **config layer** (`led-ticker validate`, `make render-demo`) but nothing covers the **hardware layer** in isolation.
 
@@ -123,7 +123,7 @@ Sections (matching the style of `tools/validate.mdx`):
    | Red shows green / Green shows blue | `led_rgb_sequence` wrong | `[display] led_rgb_sequence` ([config-options](/reference/config-options/)) |
    | Bottom half of panel garbled or mirrored | `panel_type = "FM6126A"` missing or driver init not running | `[display] panel_type` |
    | Only first panel of the chain lights up | `chain` setting wrong or HUB75 cable order off | `[display] chain` + wiring |
-   | Flicker during solid colors | `slowdown_gpio` too low for the chain | bump `slowdown_gpio` |
+   | Flicker during solid colors | `gpio_slowdown` too low for the chain | bump `gpio_slowdown` |
    | Dim or dead pixels during white frame | hardware fault on those pixels | physical inspection |
    | Stuck-on pixels during black frame | hardware fault on those pixels | physical inspection |
 
@@ -174,6 +174,6 @@ Sections (matching the style of `tools/validate.mdx`):
   - Red is red (not green or blue) — confirms `led_rgb_sequence = "BRG"` is correctly remapping.
   - All 4 panels in the chain light up uniformly — confirms `chain = 4` and HUB75 cable order.
   - Bottom half of each panel renders cleanly during the white frame — confirms `panel_type = "FM6126A"` is sending init.
-  - No flicker during the 2s holds — confirms `slowdown_gpio = 3` is adequate.
+  - No flicker during the 2s holds — confirms `gpio_slowdown = 3` is adequate.
   - Ctrl-C exits and the panel goes black (not stuck on the last color).
 - `docker compose start` restores normal ticker operation.

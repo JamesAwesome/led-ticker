@@ -657,9 +657,9 @@ def _font_family(name: str) -> str:
 
 def _panel_h_real(display: DisplayConfig) -> int:
     """Best-effort panel height in real pixels."""
-    if display.pixel_mapper.startswith("Remap:"):
+    if display.pixel_mapper_config.startswith("Remap:"):
         # "Remap:256,64|..." — second number is total canvas height
-        remap = display.pixel_mapper[6:]
+        remap = display.pixel_mapper_config[6:]
         dims = remap.split("|")[0]
         return int(dims.split(",")[1])
     return display.rows * display.parallel

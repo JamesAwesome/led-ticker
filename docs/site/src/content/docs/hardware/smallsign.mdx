@@ -37,7 +37,7 @@ Adafruit bonnet / HAT and the rgbmatrix library this project uses.
 | ---------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Raspberry Pi 4 Model B       | 1        | 2 GB is plenty. A microSD card and a USB-C power supply for the Pi itself.                                                                                              |
 | 32x16 RGB matrix panel       | 5        | HUB75 panels with the standard 16-pin IDC connector. Matched panels render most consistently.                                                                           |
-| Adafruit RGB matrix bonnet   | 1        | Sets `gpio_mapping = "adafruit-hat"` in the config. The HAT works equivalently.                                                                                         |
+| Adafruit RGB matrix bonnet   | 1        | Sets `hardware_mapping = "adafruit-hat"` in the config. The HAT works equivalently.                                                                                     |
 | 5V power supply              | 1        | Size for the chain — five 32x16 panels at full white draw several amps. A 5V / 10A brick is a comfortable headroom pick. Do NOT power the panels off the Pi's USB rail. |
 | 16-pin IDC ribbon cables     | 4        | One between each pair of panels. Most panels ship with one short cable; you may need extras to reach all four gaps.                                                     |
 | Power pigtails / barrel jack | 1+       | Whatever your panels expect. Each panel has its own 2-pin power input.                                                                                                  |
@@ -51,7 +51,7 @@ Cross-check current pricing before ordering — these numbers were
 verified in early 2026 and panel prices fluctuate.
 
 The config tells the rgbmatrix library you're using the bonnet/HAT via
-`gpio_mapping = "adafruit-hat"`. If you swap to a bare wiring harness,
+`hardware_mapping = "adafruit-hat"`. If you swap to a bare wiring harness,
 that flag changes too — see the [hzeller/rpi-rgb-led-matrix
 README](https://github.com/hzeller/rpi-rgb-led-matrix) for alternatives.
 
@@ -70,7 +70,7 @@ splitter on the back).
 
 The Pi's bonnet plugs onto the GPIO header in the standard orientation
 and the bonnet's HUB75 output plugs into the first panel's data input.
-The `chain` field in the config (next section) tells led-ticker how
+The `chain_length` field in the config (next section) tells led-ticker how
 many panels are linked.
 
 ## Config snippet
@@ -82,20 +82,20 @@ The minimal `[display]` block for the smallsign — straight from
   code={`[display]
 rows = 16              # panel height
 cols = 32              # panel width
-chain = 5              # number of panels chained left-to-right
+chain_length = 5              # number of panels chained left-to-right
 brightness = 60        # 0-100, not 0-255
-slowdown_gpio = 2      # mandatory on Pi 4 — bump to 3+ if flicker
-gpio_mapping = "adafruit-hat"  # Adafruit bonnet or HAT`}
+gpio_slowdown = 2      # mandatory on Pi 4 — bump to 3+ if flicker
+hardware_mapping = "adafruit-hat"  # Adafruit bonnet or HAT`}
 />
 
-The 160x16 logical canvas is `cols * chain` wide by `rows` tall. Every
+The 160x16 logical canvas is `cols * chain_length` wide by `rows` tall. Every
 widget on the smallsign draws to that canvas at native pixel
 resolution — no `ScaledCanvas` wrapper, no logical-to-physical block
 expansion.
 
 ## Tips
 
-### `slowdown_gpio` is mandatory on the Pi 4
+### `gpio_slowdown` is mandatory on the Pi 4
 
 Without it (or with it set to 0) the rgbmatrix library updates the GPIO faster than the Pi 4 can keep up, and you'll see panels glitch, flicker, or display garbage. Start at `2` — that's the example config's default — and bump it to 3 or higher if you still see flicker. Higher values trade refresh rate for stability.
 
@@ -109,7 +109,7 @@ Setting `brightness = 255` doesn't make the panels brighter — the rgbmatrix li
 
 ### Wiring or driver problem? Run `panel-test` first
 
-If your widgets render with the wrong colors, only one panel lit, or visible flicker during scrolling, the issue is most likely in the hardware layer (`led_rgb_sequence`, `chain`, `slowdown_gpio`) — not in your config. The [`panel-test`](/tools/panel-test/) diagnostic isolates the hardware layer by painting flat R/G/B/W/B colors, so you can verify wiring before debugging widgets.
+If your widgets render with the wrong colors, only one panel lit, or visible flicker during scrolling, the issue is most likely in the hardware layer (`led_rgb_sequence`, `chain_length`, `gpio_slowdown`) — not in your config. The [`panel-test`](/tools/panel-test/) diagnostic isolates the hardware layer by painting flat R/G/B/W/B colors, so you can verify wiring before debugging widgets.
 
 ## Reference config
 
@@ -123,7 +123,7 @@ and adjust the per-widget content for your sign.
 # led-ticker configuration — smallsign starter (160×16 canvas)
 #
 # 5× chained 32×16 panels = 160×16 logical canvas. Driven by a Raspberry Pi 4
-# through an Adafruit RGB Matrix bonnet. No pixel_mapper needed — panels are a
+# through an Adafruit RGB Matrix bonnet. No pixel_mapper_config needed — panels are a
 # single horizontal chain, left-to-right.
 #
 # Copy this to config.toml and adjust the playlist sections for your content.
@@ -132,10 +132,10 @@ and adjust the per-widget content for your sign.
 [display]
 rows = 16
 cols = 32
-chain = 5
+chain_length = 5
 brightness = 60
-slowdown_gpio = 2      # mandatory on Pi 4 — bump to 3+ if you see flicker
-gpio_mapping = "adafruit-hat"
+gpio_slowdown = 2      # mandatory on Pi 4 — bump to 3+ if you see flicker
+hardware_mapping = "adafruit-hat"
 
 [title]
 delay = 5

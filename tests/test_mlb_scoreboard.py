@@ -353,13 +353,14 @@ def test_scoreboard_abs_pips_two_remaining_paints_more_than_zero():
     canvas_yes = _stub_canvas()
     MLBScoreboardMessage(game=game_pips, team_abbr="PHI").draw(canvas_yes)
 
-    # Away dashes at far-left (x=0), home dashes at far-right (x≥123).
-    # Both canvases share all other rendering; pips are the only delta.
-    assert _count_pixels_in_zone(canvas_yes, 0, 5, 0, 16) > _count_pixels_in_zone(
-        canvas_no, 0, 5, 0, 16
+    # Away dashes are centered between the left edge and the away score.
+    # Home dashes are centered between the home score and the right edge.
+    # Check the outer third of each zone (x<13 away, x>115 home) for delta.
+    assert _count_pixels_in_zone(canvas_yes, 0, 13, 0, 16) > _count_pixels_in_zone(
+        canvas_no, 0, 13, 0, 16
     )
-    assert _count_pixels_in_zone(canvas_yes, 123, 128, 0, 16) > _count_pixels_in_zone(
-        canvas_no, 123, 128, 0, 16
+    assert _count_pixels_in_zone(canvas_yes, 115, 128, 0, 16) > _count_pixels_in_zone(
+        canvas_no, 115, 128, 0, 16
     )
 
 

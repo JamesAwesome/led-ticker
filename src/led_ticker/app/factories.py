@@ -218,6 +218,23 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "hours to display final score before advancing to next widget",
         "6",
     ),
+    "small_font": FieldHint(
+        "font name",
+        "secondary font for scoreboard center zone (inning, outs, BSO, bases);"
+        " BDF alias or hi-res font name",
+        "5x8 (FONT_SMALL)",
+    ),
+    "small_font_size": FieldHint(
+        "int (pixels)",
+        "text height for small_font in real pixels;"
+        " required when small_font is a hi-res font",
+        "none",
+    ),
+    "small_font_threshold": FieldHint(
+        "int 0–255",
+        "bitmask threshold for small_font hi-res rendering",
+        "128",
+    ),
     # --- MLB standings ---
     "title": FieldHint(
         "str",
@@ -350,7 +367,8 @@ def _resolve_fonts(
 
     Pops ``font``, ``font_size``, ``font_threshold``, ``top_font``,
     ``top_font_size``, ``top_font_threshold``, ``bottom_font``,
-    ``bottom_font_size``, and ``bottom_font_threshold`` from
+    ``bottom_font_size``, ``bottom_font_threshold``, ``small_font``,
+    ``small_font_size``, and ``small_font_threshold`` from
     ``widget_cfg``, then inserts back the resolved font objects and
     (for the main font) ``font_size`` when ``cls`` accepts it as an
     attrs field.
@@ -404,7 +422,7 @@ def _resolve_fonts(
     if font_size is not None and "font_size" in cls_fields:
         widget_cfg["font_size"] = font_size
 
-    for prefix in ("top_font", "bottom_font"):
+    for prefix in ("top_font", "bottom_font", "small_font"):
         row_name = widget_cfg.pop(prefix, None)
         row_size = widget_cfg.pop(f"{prefix}_size", None)
         row_threshold = widget_cfg.pop(f"{prefix}_threshold", None)

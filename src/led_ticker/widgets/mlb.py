@@ -964,6 +964,7 @@ class MLBScoreMonitor:
                 bg_color=self.bg_color,
             )
             self.feed_title = title
+            next_label = "season over"
             if next_game:
                 opp = (
                     next_game.away_abbr
@@ -971,6 +972,7 @@ class MLBScoreMonitor:
                     else next_game.home_abbr
                 )
                 opp_name = MLB_TEAM_NAMES.get(opp, opp)
+                next_label = opp_name
                 if next_game.start_time:
                     time_str = _format_game_time(next_game.start_time, tz)
                 else:
@@ -995,7 +997,7 @@ class MLBScoreMonitor:
                 "MLB %s updated: %d stories (next: %s)",
                 self.team,
                 len(self.feed_stories),
-                opp_name if next_game else "season over",
+                next_label,
             )
             return
 

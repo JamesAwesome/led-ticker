@@ -681,6 +681,28 @@ class MLBScoreboardMessage(_FrameAware):
         return canvas, cursor_pos + canvas.width
 
 
+def _compute_preview_two_row(
+    game: GameInfo,
+    team_abbr: str,
+    tz: ZoneInfo,
+    series_wins: int,
+    series_losses: int,
+) -> tuple[list[tuple[str, Color]], list[tuple[str, Color]]]:
+    """Compute top/bottom segment lists for a preview-state game."""
+    away_c = _team_color(game.away_abbr)
+    home_c = _team_color(game.home_abbr)
+    top: list[tuple[str, Color]] = [
+        (game.away_abbr, away_c),
+        (" @ ", RGB_WHITE),
+        (game.home_abbr, home_c),
+    ]
+    if series_wins + series_losses > 0:
+        top.append((f" ({series_wins}-{series_losses})", make_color(150, 150, 150)))
+    time_str = _format_game_time(game.start_time, tz) if game.start_time else "TBD"
+    bot: list[tuple[str, Color]] = [(time_str, RGB_WHITE)]
+    return top, bot
+
+
 def _build_two_row_message(
     game: GameInfo,
     team_abbr: str,
@@ -691,8 +713,16 @@ def _build_two_row_message(
     top_font: Font | None = None,
     top_row_height: int | None = None,
     font_color: Color | ColorProvider | None = None,
+    series_wins: int = 0,
+    series_losses: int = 0,
 ) -> "MLBTwoRowMessage":
     """Build a two-row layout message for a single game."""
+    if game.state == "preview":
+        top_segs, bot_segs = _compute_preview_two_row(
+            game, team_abbr, tz, series_wins, series_losses
+        )
+    else:
+        top_segs, bot_segs = [], []
     return MLBTwoRowMessage(
         game=game,
         team_abbr=team_abbr,
@@ -703,6 +733,8 @@ def _build_two_row_message(
         top_font=top_font,
         top_row_height=top_row_height,
         font_color=font_color,
+        top_segments=top_segs,
+        bottom_segments=bot_segs,
     )
 
 
@@ -999,6 +1031,8 @@ class MLBScoreMonitor:
                     top_font=self.top_font,
                     top_row_height=self.top_row_height,
                     font_color=self.font_color,
+                    series_wins=current.team_wins,
+                    series_losses=current.team_losses,
                 )
                 for g in current.games
             )

@@ -714,3 +714,65 @@ class TestMLBTwoRowLayout:
         )
         msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
         assert isinstance(msg, MLBTwoRowMessage)
+
+    def test_preview_top_has_away_at_home(self):
+        """Top segments contain AWAY, '@', HOME with team colors."""
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message, _team_color
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI", state="preview",
+            start_time=None,
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        texts = [t for t, _ in msg.top_segments]
+        colors = [c for _, c in msg.top_segments]
+        assert "NYM" in texts
+        assert "@" in " ".join(texts)
+        assert "PHI" in texts
+        nym_idx = texts.index("NYM")
+        phi_idx = texts.index("PHI")
+        assert colors[nym_idx] == _team_color("NYM")
+        assert colors[phi_idx] == _team_color("PHI")
+
+    def test_preview_bottom_has_game_time(self):
+        """Bottom segments contain a formatted start time."""
+        import datetime
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        tz = ZoneInfo("America/New_York")
+        # today at 7:10 PM ET
+        now = datetime.datetime.now(tz).replace(hour=19, minute=10, second=0, microsecond=0)
+        game = GameInfo(away_abbr="NYM", home_abbr="PHI", state="preview", start_time=now)
+        msg = _build_two_row_message(game, "PHI", tz)
+        bottom_text = "".join(t for t, _ in msg.bottom_segments)
+        assert "7:10" in bottom_text or "PM" in bottom_text
+
+    def test_preview_top_includes_series_record_when_decided(self):
+        """Series record appears in top segments when total_decided > 0."""
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(away_abbr="NYM", home_abbr="PHI", state="preview", start_time=None)
+        msg = _build_two_row_message(
+            game, "PHI", ZoneInfo("America/New_York"),
+            series_wins=2, series_losses=1,
+        )
+        top_text = "".join(t for t, _ in msg.top_segments)
+        assert "2-1" in top_text or "2" in top_text
+
+    def test_preview_top_omits_record_when_no_games_decided(self):
+        """No record segment when series_wins + series_losses == 0."""
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(away_abbr="NYM", home_abbr="PHI", state="preview", start_time=None)
+        msg = _build_two_row_message(
+            game, "PHI", ZoneInfo("America/New_York"),
+            series_wins=0, series_losses=0,
+        )
+        top_text = "".join(t for t, _ in msg.top_segments)
+        # no record numbers
+        assert "0-0" not in top_text
+        assert "1-0" not in top_text

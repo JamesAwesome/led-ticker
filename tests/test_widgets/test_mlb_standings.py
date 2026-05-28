@@ -467,3 +467,36 @@ class TestMlbStandingsBgColor:
             session=mock.Mock(), teams=[], bg_color=Color(11, 22, 33)
         )
         assert w.bg_color.green == 22
+
+
+class TestMLBStandingsUpdateLogging:
+    """Periodic update() must log INFO so users can verify the background
+    task is firing — silent success vs silent failure must be distinguishable.
+    """
+
+    async def test_standings_update_logs_info(self, caplog) -> None:
+        import logging
+        from unittest.mock import AsyncMock, MagicMock
+
+        from led_ticker.widgets.mlb_standings import MLBStandingsMonitor
+
+        session = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json = AsyncMock(return_value={"records": []})
+        session.get.return_value.__aenter__ = AsyncMock(return_value=mock_resp)
+        session.get.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        widget = MLBStandingsMonitor(session=session, teams=["NYM"])
+        from zoneinfo import ZoneInfo
+
+        widget._tz = ZoneInfo("America/New_York")
+
+        with caplog.at_level(logging.INFO, logger="led_ticker.widgets.mlb_standings"):
+            await widget.update()
+
+        matching = [
+            r
+            for r in caplog.records
+            if r.levelno == logging.INFO and "standings" in r.message.lower()
+        ]
+        assert matching, f"expected INFO log; got {[r.message for r in caplog.records]}"

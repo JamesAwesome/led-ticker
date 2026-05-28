@@ -179,6 +179,10 @@ class MLBStandingsMonitor:
                 )
 
         self.feed_stories = stories
+        logger.info(
+            "MLB standings updated: %d stories",
+            len(self.feed_stories),
+        )
 
     def _parse_standings(
         self,
@@ -272,6 +276,10 @@ class MLBStandingsMonitor:
                 msg, font_color=body_color, center=True, bg_color=self.bg_color
             ),
         ]
+        logger.info(
+            "MLB standings updated: %d stories (offseason)",
+            len(self.feed_stories),
+        )
 
     def _set_error_state(self) -> None:
         """Set display to error state."""
@@ -285,3 +293,7 @@ class MLBStandingsMonitor:
         self.feed_stories = [
             TickerMessage("No Data", font_color=body_color, bg_color=self.bg_color),
         ]
+        logger.info(
+            "MLB standings updated: %d stories (no data)",
+            len(self.feed_stories),
+        )

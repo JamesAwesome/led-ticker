@@ -209,10 +209,17 @@ The widget ships with docs, matching every other widget:
   `{ label: "pool", link: "/widgets/pool/" }` to the widgets sidebar group.
 - **Config example** `config/config.example.toml` — add a commented `pool`
   widget block.
-- **Demo gif** (`/demos-long/widget-pool.gif`) requires a working config + a
-  render pass (see the `making-a-gif` skill). Generating it depends on a
-  reachable InfluxDB with data, so it may be produced as a follow-up; until
-  then the `<DemoGif>` may point at a placeholder or be omitted.
+- **Demo gif** `docs/site/demos-long/widget-pool.gif` — a committed deliverable,
+  produced via the `making-a-gif` skill and wired into the `<DemoGif>` on
+  `pool.mdx` (same as every other widget). It should capture the full cycle
+  (title → today → 7-day → season) so the colors and screens are visible.
+
+  Rendering the real widget needs a reachable InfluxDB with data at render
+  time. The plan must pick one of: (a) render on a machine that can reach the
+  live InfluxDB (using the same `.env`); or (b) provide a small seeding/fixture
+  path so the render harness can produce representative values offline. The
+  plan should confirm which the `render-demo` tooling can support before
+  committing to an approach.
 
 ## Testing
 

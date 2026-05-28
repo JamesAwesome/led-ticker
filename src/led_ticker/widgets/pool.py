@@ -185,6 +185,9 @@ class PoolMonitor:
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
     layout: str = attrs.field(default="ticker", kw_only=True)
     label_color: Color = attrs.field(default=RGB_WHITE, kw_only=True)
+    top_font: Font | None = attrs.field(default=None, kw_only=True)
+    bottom_font: Font | None = attrs.field(default=None, kw_only=True)
+    top_row_height: int | None = attrs.field(default=None, kw_only=True)
     feed_title: SegmentMessage | None = attrs.field(init=False, default=None)
     feed_stories: list[SegmentMessage] = attrs.field(init=False, factory=list)
 

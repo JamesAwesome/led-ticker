@@ -458,6 +458,29 @@ class TestTwoRowLayout:
         ticker_builder.assert_called_once()
         two_row_builder.assert_not_called()
 
+    def test_top_font_field_default_is_none(self):
+        m = _monitor()
+        assert m.top_font is None
+
+    def test_bottom_font_field_default_is_none(self):
+        m = _monitor()
+        assert m.bottom_font is None
+
+    def test_top_row_height_field_default_is_none(self):
+        m = _monitor()
+        assert m.top_row_height is None
+
+    def test_per_row_fields_accept_overrides(self):
+        sentinel_font = object()
+        m = _monitor(
+            top_font=sentinel_font,
+            bottom_font=sentinel_font,
+            top_row_height=4,
+        )
+        assert m.top_font is sentinel_font
+        assert m.bottom_font is sentinel_font
+        assert m.top_row_height == 4
+
 
 # Container Protocol conformance for PoolMonitor is asserted in
 # tests/test_widget_protocol.py::test_container_protocol_recognizes_pool_monitor

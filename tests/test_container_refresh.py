@@ -173,8 +173,9 @@ def test_app_run_passes_containers_to_ticker_unexpanded() -> None:
 
 async def test_enqueue_ticker_objects_handles_empty_iterator() -> None:
     """An immediately-empty iterator (empty container + loop_count=0)
-    must terminate cleanly — without the StopIteration guard, PEP 479
-    promotes it to RuntimeError inside this async function.
+    must terminate cleanly AND put a `None` sentinel on the queue so
+    blocking consumers (`await notif_queue.get()` in `_run_swap` etc.)
+    wake up and return instead of hanging forever.
     """
     from led_ticker.ticker import _enqueue_ticker_objects
 
@@ -184,4 +185,59 @@ async def test_enqueue_ticker_objects_handles_empty_iterator() -> None:
     # Should return without raising
     await _enqueue_ticker_objects(empty_iter, queue)
 
+    # Sentinel must be on the queue so consumers wake up.
+    assert queue.qsize() == 1
+    assert queue.get_nowait() is None
+
+
+async def test_enqueue_ticker_objects_puts_sentinel_after_exhaustion() -> None:
+    """A non-empty iterator must still emit a `None` sentinel after the
+    final real item so consumers know the producer is done.
+    """
+    from led_ticker.ticker import _enqueue_ticker_objects
+
+    queue: asyncio.Queue[object] = asyncio.Queue()
+    items_iter = iter(["a", "b"])
+
+    await _enqueue_ticker_objects(items_iter, queue)
+
+    assert queue.get_nowait() == "a"
+    assert queue.get_nowait() == "b"
+    assert queue.get_nowait() is None
     assert queue.empty()
+
+
+async def test_run_swap_terminates_on_empty_source_list() -> None:
+    """Empty section (no widgets, no title) must not hang the engine —
+    the enqueue sentinel + consumer-side guard cleanly end the section.
+
+    Regression test for the live-container-refresh hang: pre-fix, the
+    producer's StopIteration guard returned silently and the consumer
+    blocked forever on `await notif_queue.get()`.
+    """
+    import asyncio as _asyncio
+
+    from led_ticker.ticker import Ticker, _build_then_enqueue
+
+    # Build a Ticker with no monitors and no title.
+    queue: _asyncio.Queue[object] = _asyncio.Queue()
+    ticker = Ticker(
+        monitors=[],
+        frame=None,  # _run_swap doesn't dispatch through frame on empty
+        title=None,
+        notif_queue=queue,
+    )
+
+    # Spawn the producer (will immediately put a None sentinel).
+    producer = _asyncio.create_task(
+        _build_then_enqueue([], queue, title=None, loop_count=1)
+    )
+
+    # _run_swap should observe the sentinel on its first get() and
+    # return 0 immediately — wrap in wait_for to fail loud on hang.
+    result = await _asyncio.wait_for(
+        ticker._run_swap(canvas=None, delay=0, hold_time=0, continuous_scroll=False),
+        timeout=2.0,
+    )
+    assert result == 0
+    await producer

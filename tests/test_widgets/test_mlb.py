@@ -773,3 +773,190 @@ class TestMLBTwoRowLayout:
             series_wins=0, series_losses=0,
         )
         assert len(msg.top_segments) == 3  # exactly: away_abbr, " @ ", home_abbr — no record segment
+
+    def test_final_top_away_wins_scores_use_win_loss_colors(self):
+        """Away win: away score = WIN_COLOR, home score = LOSS_COLOR."""
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import WIN_COLOR, LOSS_COLOR, _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        texts = [t for t, _ in msg.top_segments]
+        colors = [c for _, c in msg.top_segments]
+        # NYM (away) won 5-3: find " 5" score segment
+        score_idx_away = next(i for i, t in enumerate(texts) if "5" in t)
+        score_idx_home = next(i for i, t in enumerate(texts) if "3" in t)
+        assert colors[score_idx_away] is WIN_COLOR
+        assert colors[score_idx_home] is LOSS_COLOR
+
+    def test_final_top_home_wins_colors_flipped(self):
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import WIN_COLOR, LOSS_COLOR, _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=3, home_score=8, state="final",
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        texts = [t for t, _ in msg.top_segments]
+        colors = [c for _, c in msg.top_segments]
+        score_idx_away = next(i for i, t in enumerate(texts) if "3" in t)
+        score_idx_home = next(i for i, t in enumerate(texts) if "8" in t)
+        assert colors[score_idx_away] is LOSS_COLOR
+        assert colors[score_idx_home] is WIN_COLOR
+
+    def test_final_bottom_has_final_text(self):
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        bottom_text = "".join(t for t, _ in msg.bottom_segments)
+        assert "FINAL" in bottom_text
+
+    def test_final_bottom_has_series_record_when_multi_game(self):
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+        )
+        msg = _build_two_row_message(
+            game, "PHI", ZoneInfo("America/New_York"),
+            series_wins=2, series_losses=1,
+            series_total_games=3,
+        )
+        bottom_text = "".join(t for t, _ in msg.bottom_segments)
+        assert "leads" in bottom_text or "Tied" in bottom_text
+
+    def test_final_bottom_omits_record_on_single_game(self):
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+        )
+        msg = _build_two_row_message(
+            game, "PHI", ZoneInfo("America/New_York"),
+            series_wins=1, series_losses=0,
+            series_total_games=1,
+        )
+        bottom_text = "".join(t for t, _ in msg.bottom_segments)
+        assert "leads" not in bottom_text
+        assert "FINAL" in bottom_text
+
+    def test_live_top_has_team_abbrs_and_scores(self):
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=3, home_score=5, state="live",
+            inning="▼7", balls=2, strikes=1, outs=1,
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        full = "".join(t for t, _ in msg.top_segments)
+        assert "NYM" in full
+        assert "PHI" in full
+        assert "3" in full
+        assert "5" in full
+
+    def test_live_bottom_has_inning(self):
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=3, home_score=5, state="live",
+            inning="▼7", balls=2, strikes=1, outs=1,
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        bottom_text = "".join(t for t, _ in msg.bottom_segments)
+        assert "▼7" in bottom_text or "7" in bottom_text
+
+    def test_live_bottom_has_base_diamonds(self):
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=3, home_score=5, state="live",
+            inning="▼7", balls=2, strikes=1, outs=1,
+            on_first=True, on_second=False, on_third=True,
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        bottom_text = "".join(t for t, _ in msg.bottom_segments)
+        assert "◆" in bottom_text  # occupied
+        assert "◇" in bottom_text  # empty
+
+    def test_live_bottom_bso_colors(self):
+        """BSO values: balls=green, strikes=yellow, outs=red.
+        Use 3/2/1 so all three values are distinct — avoids dict key collision
+        when strikes and outs share a value like '1'.
+        """
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+        from led_ticker.colors import make_color
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=3, home_score=5, state="live",
+            inning="▼7", balls=3, strikes=2, outs=1,
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        ball_c = make_color(80, 255, 80)
+        strike_c = make_color(255, 255, 80)
+        out_c = make_color(255, 80, 80)
+        seg_map = {t: c for t, c in msg.bottom_segments}
+        assert seg_map.get("3") == ball_c    # balls
+        assert seg_map.get("2") == strike_c  # strikes
+        assert seg_map.get("1") == out_c     # outs
+
+    def test_postponed_top_has_matchup(self):
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message, _team_color
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI", state="postponed",
+            postpone_tag="PPD", postpone_reason="Rain",
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        texts = [t for t, _ in msg.top_segments]
+        colors = [c for _, c in msg.top_segments]
+        assert "NYM" in texts
+        assert "PHI" in texts
+        assert colors[texts.index("NYM")] == _team_color("NYM")
+        assert colors[texts.index("PHI")] == _team_color("PHI")
+
+    def test_postponed_bottom_has_tag_and_reason(self):
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI", state="postponed",
+            postpone_tag="PPD", postpone_reason="Rain",
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        bottom_text = "".join(t for t, _ in msg.bottom_segments)
+        assert "PPD" in bottom_text
+        assert "Rain" in bottom_text
+
+    def test_postponed_bottom_tag_only_when_no_reason(self):
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI", state="postponed",
+            postpone_tag="CANC", postpone_reason="",
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        bottom_text = "".join(t for t, _ in msg.bottom_segments)
+        assert "CANC" in bottom_text

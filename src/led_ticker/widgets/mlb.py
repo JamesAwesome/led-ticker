@@ -703,6 +703,130 @@ def _compute_preview_two_row(
     return top, bot
 
 
+def _compute_final_two_row(
+    game: GameInfo,
+    team_abbr: str,
+    tz: ZoneInfo,  # uniform signature — unused here
+    series_wins: int,
+    series_losses: int,
+    series_total_games: int = 1,
+) -> tuple[list[tuple[str, Color]], list[tuple[str, Color]]]:
+    """Compute top/bottom segment lists for a final-state game."""
+    win_c = _team_palette("WIN_COLOR")
+    loss_c = _team_palette("LOSS_COLOR")
+    away_c = _team_color(game.away_abbr)
+    home_c = _team_color(game.home_abbr)
+    away_won = (game.away_score or 0) > (game.home_score or 0)
+    away_score_c = win_c if away_won else loss_c
+    home_score_c = loss_c if away_won else win_c
+
+    away_score_str = str(game.away_score) if game.away_score is not None else "–"
+    home_score_str = str(game.home_score) if game.home_score is not None else "–"
+
+    top: list[tuple[str, Color]] = []
+    top.append((game.away_abbr, away_c))
+    top.append((f" {away_score_str}", away_score_c))
+    top.append(("  ", RGB_WHITE))
+    top.append((game.home_abbr, home_c))
+    top.append((f" {home_score_str}", home_score_c))
+
+    grey = make_color(180, 180, 180)  # grey — FINAL label
+    bot: list[tuple[str, Color]] = [("FINAL", grey)]
+
+    if series_total_games > 1 and (series_wins + series_losses) > 0:
+        bot.append((" · ", grey))
+        if series_wins > series_losses:
+            leader_abbr = team_abbr
+        elif series_losses > series_wins:
+            opp = game.home_abbr if game.away_abbr == team_abbr else game.away_abbr
+            leader_abbr = opp
+        else:
+            leader_abbr = None
+
+        if leader_abbr is None:
+            bot.append((f"Tied {series_wins}-{series_losses}", RGB_WHITE))
+        else:
+            bot.append((leader_abbr, _team_color(leader_abbr)))
+            bot.append((f" leads {series_wins}-{series_losses}", RGB_WHITE))
+
+    return top, bot
+
+
+def _compute_live_two_row(
+    game: GameInfo,
+    team_abbr: str,  # uniform signature — unused here
+    tz: ZoneInfo,    # uniform signature — unused here
+    series_wins: int,   # uniform signature — unused here
+    series_losses: int, # uniform signature — unused here
+) -> tuple[list[tuple[str, Color]], list[tuple[str, Color]]]:
+    """Compute top/bottom segment lists for a live-state game."""
+    away_c = _team_color(game.away_abbr)
+    home_c = _team_color(game.home_abbr)
+    away_score_str = str(game.away_score) if game.away_score is not None else "–"
+    home_score_str = str(game.home_score) if game.home_score is not None else "–"
+
+    top: list[tuple[str, Color]] = []
+    top.append((game.away_abbr, away_c))
+    top.append((f" {away_score_str}", RGB_WHITE))
+    top.append(("  ", RGB_WHITE))
+    top.append((game.home_abbr, home_c))
+    top.append((f" {home_score_str}", RGB_WHITE))
+
+    live_c = _team_palette("LIVE_COLOR")
+    ball_c = make_color(80, 255, 80)    # green — balls
+    strike_c = make_color(255, 255, 80)  # yellow — strikes
+    out_c = make_color(255, 80, 80)     # red — outs
+    occupied_c = make_color(255, 220, 50)  # yellow — occupied base
+    empty_c = make_color(50, 50, 50)       # dim — empty base
+
+    inning_str = game.inning or "–"
+    b3 = "◆" if game.on_third else "◇"
+    b2 = "◆" if game.on_second else "◇"
+    b1 = "◆" if game.on_first else "◇"
+    b3_c = occupied_c if game.on_third else empty_c
+    b2_c = occupied_c if game.on_second else empty_c
+    b1_c = occupied_c if game.on_first else empty_c
+
+    bot: list[tuple[str, Color]] = [
+        (inning_str, live_c),
+        ("  ", RGB_WHITE),
+        (b3, b3_c),
+        (b2, b2_c),
+        (b1, b1_c),
+        ("  ", RGB_WHITE),
+        (str(game.balls), ball_c),
+        ("·", RGB_WHITE),
+        (str(game.strikes), strike_c),
+        ("·", RGB_WHITE),
+        (str(game.outs), out_c),
+    ]
+    return top, bot
+
+
+def _compute_postponed_two_row(
+    game: GameInfo,
+    team_abbr: str,    # uniform signature — unused here
+    tz: ZoneInfo,      # uniform signature — unused here
+    series_wins: int,  # uniform signature — unused here
+    series_losses: int, # uniform signature — unused here
+) -> tuple[list[tuple[str, Color]], list[tuple[str, Color]]]:
+    """Compute top/bottom segment lists for a postponed-state game."""
+    away_c = _team_color(game.away_abbr)
+    home_c = _team_color(game.home_abbr)
+    top: list[tuple[str, Color]] = [
+        (game.away_abbr, away_c),
+        (" @ ", RGB_WHITE),
+        (game.home_abbr, home_c),
+    ]
+    tag_color = make_color(255, 200, 60)  # amber — postponed/cancelled tag
+    if game.postpone_reason:
+        tag = f"{game.postpone_tag}: {game.postpone_reason}"
+    else:
+        tag = game.postpone_tag
+    bot: list[tuple[str, Color]] = [(tag, tag_color)]
+    return top, bot
+
+
 def _build_two_row_message(
     game: GameInfo,
     team_abbr: str,
@@ -715,10 +839,23 @@ def _build_two_row_message(
     font_color: Color | ColorProvider | None = None,
     series_wins: int = 0,
     series_losses: int = 0,
+    series_total_games: int = 1,
 ) -> "MLBTwoRowMessage":
     """Build a two-row layout message for a single game."""
     if game.state == "preview":
         top_segs, bot_segs = _compute_preview_two_row(
+            game, team_abbr, tz, series_wins, series_losses
+        )
+    elif game.state == "final":
+        top_segs, bot_segs = _compute_final_two_row(
+            game, team_abbr, tz, series_wins, series_losses, series_total_games
+        )
+    elif game.state == "live":
+        top_segs, bot_segs = _compute_live_two_row(
+            game, team_abbr, tz, series_wins, series_losses
+        )
+    elif game.state == "postponed":
+        top_segs, bot_segs = _compute_postponed_two_row(
             game, team_abbr, tz, series_wins, series_losses
         )
     else:
@@ -1033,6 +1170,7 @@ class MLBScoreMonitor:
                     font_color=self.font_color,
                     series_wins=current.team_wins,
                     series_losses=current.team_losses,
+                    series_total_games=len(current.games),
                 )
                 for g in current.games
             )

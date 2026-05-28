@@ -202,6 +202,23 @@ class TestBuildScreens:
         texts = "".join(t for t, _ in season.segments)
         assert "Season" in texts
 
+    def test_missing_values_render_dashes(self):
+        m = _monitor(units="imperial")
+        m._build_screens(
+            current_c=27.78,
+            current_age_s=10.0,
+            past_c=27.2,
+            today_min_c=None,
+            today_max_c=None,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        today_texts = "".join(t for t, _ in m.feed_stories[0].segments)
+        assert "--" in today_texts
+
 
 class TestConformance:
     def test_stories_are_widgets(self):

@@ -177,6 +177,7 @@ class PoolMonitor:
             "Accept": "application/csv",
         }
         async with self.session.post(url, data=flux, headers=headers) as resp:
+            resp.raise_for_status()
             text = await resp.text()
         return _parse_scalar_csv(text)
 
@@ -284,4 +285,6 @@ class PoolMonitor:
 
     def _set_placeholder(self) -> None:
         self.feed_title = SegmentMessage([(self.title, RGB_WHITE)], center=True)
-        self.feed_stories = [SegmentMessage([("POOL ", DIM), ("--", DIM)], center=True)]
+        self.feed_stories = [
+            SegmentMessage([(f"{self.title} ", DIM), ("--", DIM)], center=True)
+        ]

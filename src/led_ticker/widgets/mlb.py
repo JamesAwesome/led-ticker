@@ -258,10 +258,6 @@ def _parse_team_abbr(team_data: dict[str, Any]) -> str:
     return team_data.get("abbreviation", "???")
 
 
-MLBGameMessage = SegmentMessage
-"""Backward-compatible alias: SegmentMessage was promoted from MLBGameMessage."""
-
-
 def _build_series_title(
     team_abbr: str,
     series: SeriesInfo,
@@ -269,7 +265,7 @@ def _build_series_title(
     bg_color: Color | None = None,
     font: Font | None = None,
     font_color: Color | ColorProvider | None = None,
-) -> MLBGameMessage:
+) -> SegmentMessage:
     """Build the title message for a series.
 
     Uses AWAY @ HOME when all games share the same home team,
@@ -329,7 +325,7 @@ def _build_series_title(
         segments.append((record, RGB_WHITE))
 
     # Center the title if it fits on screen
-    return MLBGameMessage(
+    return SegmentMessage(
         segments, center=True, bg_color=bg_color, font=font, font_color=font_color
     )
 
@@ -341,7 +337,7 @@ def _build_game_message(
     bg_color: Color | None = None,
     font: Font | None = None,
     font_color: Color | ColorProvider | None = None,
-) -> MLBGameMessage:
+) -> SegmentMessage:
     """Build a message for a single game.
 
     Uses standard baseball convention: away team listed first.
@@ -418,7 +414,7 @@ def _build_game_message(
             (f" {time_str}", RGB_WHITE),
         ]
 
-    return MLBGameMessage(
+    return SegmentMessage(
         segments, center=True, bg_color=bg_color, font=font, font_color=font_color
     )
 
@@ -704,10 +700,10 @@ class MLBScoreMonitor:
     _team_id: int = attrs.field(init=False, default=0)
     _tz: ZoneInfo | None = attrs.field(init=False, default=None)
     _has_live_game: bool = attrs.field(init=False, default=False)
-    feed_title: TickerMessage | MLBGameMessage | MLBScoreboardMessage | None = (
+    feed_title: TickerMessage | SegmentMessage | MLBScoreboardMessage | None = (
         attrs.field(init=False, default=None)
     )
-    feed_stories: list[TickerMessage | MLBGameMessage | MLBScoreboardMessage] = (
+    feed_stories: list[TickerMessage | SegmentMessage | MLBScoreboardMessage] = (
         attrs.field(init=False, factory=list)
     )
 
@@ -921,7 +917,7 @@ class MLBScoreMonitor:
             font_color=self.font_color,
         )
         self.feed_title = series_title
-        stories: list[TickerMessage | MLBGameMessage | MLBScoreboardMessage] = [
+        stories: list[TickerMessage | SegmentMessage | MLBScoreboardMessage] = [
             series_title
         ]
         if self.layout == "scoreboard":

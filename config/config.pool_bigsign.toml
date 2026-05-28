@@ -5,9 +5,9 @@
 #
 # Single section, single pool widget in two_row mode. Cycles 5
 # screens: title → today → 7-day → season HI → season LO. Hi-res
-# Inter font: 16 px for the label (top row), 32 px fills the data
-# row (bottom). Cyan label_color matches the longboi/smallsign
-# pool test configs.
+# Inter font at size 16 in BOTH rows (symmetric 8/8 logical split,
+# the TwoRowMessage default). Cyan label_color matches the longboi
+# and smallsign pool test configs.
 #
 # Usage:
 #   cp config/config.pool_bigsign.toml config/config.toml
@@ -51,13 +51,18 @@ update_interval = 60   # fast: prove the background fetch fires every minute
 # sensor_id = "12345"  # optional; omit to use cross-sensor global aggregate
 stale_after = 900
 layout = "two_row"
-# Hi-res Inter at the bigsign-tuned sizes.
-# font_size = 32 fills the 32-real bottom band; top_font_size = 16
-# gives a smaller label (~50% of the 32-real top band).
+# Inter at font_size = 16 in both rows. Inter's line-height at size
+# 16 is right at the 8-logical-row band budget on a 16-tall canvas
+# (scale = 4); larger sizes overflow at draw time with
+#   "top font line-height (N logical rows) exceeds the per-row band"
+#
+# To get a more dramatic label / value contrast (small top, bigger
+# bottom number) drop the SECTION to `scale = 2` and bump
+# `content_height = 32` — that gives 16-real-tall bands instead of
+# 32-real-tall and lets a font_size = 24 bottom fit comfortably.
+# Deferred to a follow-up; this config gets the soak test going first.
 font = "Inter-Regular"
-font_size = 32
+font_size = 16
 font_threshold = 80
-top_font_size = 16
-# bottom_font_size omitted — falls back to font_size = 32.
 # label_color tints "POOL 24H" / "POOL 7D AVG" / "POOL SEASON" prefix labels.
 label_color = [130, 220, 255]

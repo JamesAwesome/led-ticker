@@ -87,11 +87,13 @@ async def run(config_path: Path) -> None:
                             coercion_collector=runtime_coerce,
                         )
                         widget_cache[key] = widget
-                    # Containers are expanded by the engine on every
-                    # cycle pass via _expand_sources — pushing the
-                    # container itself (not its current feed_stories)
-                    # keeps the displayed content in sync with the
-                    # container's background update() task.
+                    # Containers (Protocol in widget.py) are expanded by the
+                    # engine on every cycle pass via _expand_sources — pushing
+                    # the container itself (not its current feed_stories)
+                    # keeps the displayed content in sync with the container's
+                    # background update() task. PoolMonitor satisfies Container
+                    # structurally (has feed_stories), so no isinstance check
+                    # is needed here.
                     widgets.append(widget)
                 # Drain coerce warnings collected during this section's
                 # widget build. Empty in the common case; one log line per

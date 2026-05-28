@@ -19,11 +19,10 @@ from led_ticker.colors import RGB_WHITE
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
-from led_ticker.widgets.message import TickerMessage
+from led_ticker.widgets.message import SegmentMessage, TickerMessage
 from led_ticker.widgets.mlb import (
     MLB_API,
     MLB_NAME_TO_ABBR,
-    MLBGameMessage,
     _team_color_by_name,
 )
 
@@ -46,7 +45,7 @@ def _build_standing_message(
     bg_color: Color | None = None,
     font: Font | None = None,
     font_color: Color | ColorProvider | None = None,
-) -> MLBGameMessage:
+) -> SegmentMessage:
     """Build a display message for a single team's standing."""
     team_c = _team_color_by_name(standing.name)
 
@@ -58,7 +57,7 @@ def _build_standing_message(
         (f" {standing.wins}-{standing.losses}", RGB_WHITE),
         (f" {gb_str}", RGB_WHITE),
     ]
-    return MLBGameMessage(
+    return SegmentMessage(
         segments, center=True, bg_color=bg_color, font=font, font_color=font_color
     )
 
@@ -80,7 +79,7 @@ class MLBStandingsMonitor:
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
     _tz: ZoneInfo | None = attrs.field(init=False, default=None)
     feed_title: TickerMessage | None = attrs.field(init=False, default=None)
-    feed_stories: list[TickerMessage | MLBGameMessage] = attrs.field(
+    feed_stories: list[TickerMessage | SegmentMessage] = attrs.field(
         init=False, factory=list
     )
 
@@ -144,7 +143,7 @@ class MLBStandingsMonitor:
             center=True,
             bg_color=self.bg_color,
         )
-        stories: list[TickerMessage | MLBGameMessage] = []
+        stories: list[TickerMessage | SegmentMessage] = []
 
         # Top N teams
         top_names: set[str] = set()

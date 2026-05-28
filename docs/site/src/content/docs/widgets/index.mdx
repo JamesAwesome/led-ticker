@@ -24,13 +24,14 @@ one that fits your data, then read its page for the full options list.
 | [`coingecko`](/widgets/coingecko/)         | CoinGecko                   | crypto price (alternative source)          |
 | [`etherscan`](/widgets/etherscan/)         | Etherscan                   | Ethereum gas                               |
 | [`gif`](/widgets/gif/)                     | local file                  | animated gifs / webp / multi-frame images  |
-| [`image`](/widgets/image/)                 | static PNG / JPG            |
+| [`image`](/widgets/image/)                 | static PNG / JPG            |                                            |
+| [`pool`](/widgets/pool/)                   | pool_monitor InfluxDB       | water temp (today / 7-day / season)        |
 
 ## By complexity
 
 - **Just text:** `message`, `countdown`. No external dependencies.
 - **Two text rows (storefront layout):** `two_row` at section `scale=2`.
-- **Live data (background fetch):** `weather`, `rss_feed`, `mlb`, `mlb_standings`, the three crypto widgets. Each has retry + exponential backoff.
+- **Live data (background fetch):** `weather`, `rss_feed`, `mlb`, `mlb_standings`, `pool`, the three crypto widgets. Each has retry + exponential backoff.
 - **Visual:** `gif`, `image`. Both support text overlay, fit modes (pillarbox / letterbox / stretch / crop), and per-row two-row layouts.
 
 ## Common knobs

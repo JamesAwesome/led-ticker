@@ -59,6 +59,7 @@ export default defineConfig({
             { label: "coinbase", link: "/widgets/coinbase/" },
             { label: "coingecko", link: "/widgets/coingecko/" },
             { label: "etherscan", link: "/widgets/etherscan/" },
+            { label: "pool", link: "/widgets/pool/" },
           ],
         },
         {

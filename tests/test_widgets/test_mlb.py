@@ -4,11 +4,11 @@ import unittest.mock as mock
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from led_ticker.widgets.message import SegmentMessage
 from led_ticker.widgets.mlb import (
     MLB_TEAM_COLORS,
     MLB_TEAM_NAMES,
     GameInfo,
-    MLBGameMessage,
     MLBScoreMonitor,
     SeriesInfo,
     _build_game_message,
@@ -268,7 +268,7 @@ class TestBuildSeriesTitle:
             team_losses=1,
         )
         msg = _build_series_title("PHI", series, ET)
-        assert isinstance(msg, MLBGameMessage)
+        assert isinstance(msg, SegmentMessage)
         texts = [t for t, _ in msg.segments]
         assert texts[0] == "Mets"  # away first
         assert texts[1] == " @ "
@@ -521,12 +521,12 @@ class TestBuildGameMessage:
         assert texts[2] == "PHI"  # home
 
 
-# --- MLBGameMessage draw ---
+# --- SegmentMessage draw ---
 
 
-class TestMLBGameMessageDraw:
+class TestSegmentMessageDraw:
     def test_returns_canvas_and_cursor(self, canvas):
-        msg = MLBGameMessage(
+        msg = SegmentMessage(
             [("PHI", mock.Mock()), ("5", mock.Mock())],
         )
         result_canvas, cursor_pos = msg.draw(canvas)
@@ -534,31 +534,31 @@ class TestMLBGameMessageDraw:
         assert cursor_pos > 0
 
     def test_has_padding_attribute(self):
-        msg = MLBGameMessage([("test", mock.Mock())])
+        msg = SegmentMessage([("test", mock.Mock())])
         assert hasattr(msg, "padding")
         assert msg.padding == 6
 
     def test_default_font_is_FONT_DEFAULT(self):
         from led_ticker.fonts import FONT_DEFAULT
 
-        msg = MLBGameMessage([("test", mock.Mock())])
+        msg = SegmentMessage([("test", mock.Mock())])
         assert msg.font is FONT_DEFAULT
 
     def test_advance_frame_accepts_visit_id_kwarg(self):
         """Regression: _advance_frame_if_supported passes visit_id=N; must not crash."""
-        msg = MLBGameMessage([("PHI", mock.Mock())])
+        msg = SegmentMessage([("PHI", mock.Mock())])
         msg.advance_frame(visit_id=42)  # must not raise TypeError
         assert msg._frame_count == 1
 
     def test_accepts_hires_font_kwarg(self):
-        """Regression: MLBGameMessage now accepts a `font` so the user
+        """Regression: SegmentMessage now accepts a `font` so the user
         can set `font="Inter-Bold"` on `mlb` / `mlb_standings` widgets
         and have it propagate into the colored segments."""
         from led_ticker.fonts import resolve_font
         from led_ticker.fonts.hires_loader import HiresFont
 
         font = resolve_font("Inter-Regular", 24)
-        msg = MLBGameMessage([("test", mock.Mock())], font=font)
+        msg = SegmentMessage([("test", mock.Mock())], font=font)
         assert isinstance(msg.font, HiresFont)
         assert msg.font is font
 
@@ -657,8 +657,8 @@ class TestMlbBgColor:
         assert w.bg_color.red == 70
 
     def test_game_message_has_bg_color_field(self):
-        """MLBGameMessage needs bg_color so the orchestrator can read it."""
-        msg = MLBGameMessage(
+        """SegmentMessage needs bg_color so the orchestrator can read it."""
+        msg = SegmentMessage(
             [
                 (
                     "NYY 4 BOS 2 (Final)",
@@ -675,7 +675,7 @@ class TestMlbBgColor:
         from rgbmatrix.graphics import Color
 
         bg = Color(10, 20, 30)
-        msg = MLBGameMessage(
+        msg = SegmentMessage(
             [("NYY", Color(255, 255, 255))],
             bg_color=bg,
         )

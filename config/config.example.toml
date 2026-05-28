@@ -143,6 +143,24 @@ type = "mlb_standings"
 teams = ["NYM", "PHI"]
 top_n = 3
 
+# Pool water temperature from the pool_monitor InfluxDB server.
+# Requires INFLUXDB_URL / INFLUXDB_TOKEN / INFLUXDB_ORG / INFLUXDB_BUCKET in .env.
+
+[[playlist.section]]
+mode = "swap"
+transition = "scroll"
+transition_duration = 2.0
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "pool"
+title = "POOL TEMPS"
+# sensor_id = "12345"   # optional; omit to use the only/first sensor
+units = "imperial"
+update_interval = 300
+stale_after = 900
+
 # --- Weather (optional) ---
 # Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/).
 # location can be a city name, zip code, or "lat,lon".

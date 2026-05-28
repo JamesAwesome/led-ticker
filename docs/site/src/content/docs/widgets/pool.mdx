@@ -1,0 +1,57 @@
+---
+title: pool widget
+description: Pool water temperature from a pool_monitor InfluxDB v2 server. Cycles title, today (current temp + trend + hi/lo), 7-day, and season screens.
+---
+
+import DemoGif from "../../../components/DemoGif.astro";
+import TomlExample from "../../../components/TomlExample.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+The `pool` widget reads water temperature from a [pool_monitor](https://github.com/JamesAwesome/pool_monitor) InfluxDB v2 server and cycles four screens: a title card, today's current temperature with a trend arrow (▲/▼/–) and today's hi/lo, a 7-day mean with hi/lo, and a season (current-year) hi/lo. Temperature is zone-colored — blue below 70°F, green 70–79°F, orange 80–89°F, red 90°F and above — making the current comfort level visible at a glance. Data is fetched in the background via async polling so the display keeps running even if the server is temporarily unreachable.
+
+<DemoGif
+  src="/demos-long/widget-pool.gif"
+  caption="Pool widget cycling through title, today's temp with trend arrow and hi/lo, 7-day average, and season records."
+/>
+
+<TomlExample
+  title="Minimal example"
+  code={`[[playlist.section.widget]]
+type = "pool"
+title = "POOL TEMPS"
+units = "imperial"`}
+/>
+
+## Required environment variables
+
+The widget reads connection details from your `.env` file. `INFLUXDB_TOKEN` is required; the rest have sensible defaults for the standard pool_monitor Docker Compose stack.
+
+| Variable          | Required | Default                | Description                       |
+| ----------------- | -------- | ---------------------- | --------------------------------- |
+| `INFLUXDB_TOKEN`  | **yes**  | —                      | InfluxDB v2 authentication token. |
+| `INFLUXDB_URL`    | no       | `http://influxdb:8086` | InfluxDB v2 base URL.             |
+| `INFLUXDB_ORG`    | no       | `pool`                 | InfluxDB organization name.       |
+| `INFLUXDB_BUCKET` | no       | `pool_temps`           | InfluxDB bucket name.             |
+
+All four can also be overridden per-widget in TOML via `influxdb_url`, `influxdb_org`, and `influxdb_bucket` — useful if you have multiple sensors on different servers.
+
+## Options
+
+<OptionsTable source="widgets/pool" />
+
+## Tips
+
+### `INFLUXDB_TOKEN` must be set before startup
+
+The widget raises `ValueError` at the first poll if the token is missing. Add `INFLUXDB_TOKEN=<your-token>` to your `.env` file (see `.env.example`) and restart the container.
+
+### Stale data turns dim gray
+
+When the most recent reading is older than `stale_after` seconds (default 15 minutes), the current temperature renders in dim gray instead of the zone color. This is a visual signal that the sensor or network connection may need attention.
+
+### Trend arrow uses a 30-minute lookback
+
+The trend arrow compares the current reading against the 30-minute trailing average. A sub-0.5°F change shows `–` (steady) to avoid jitter from sensor noise.
+
+<RelatedPages slugs={["widgets/weather", "widgets/index"]} />

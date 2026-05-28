@@ -417,30 +417,46 @@ class TestTwoRowLayout:
         m = _monitor(layout="two_row")
         assert m.layout == "two_row"
 
-    def test_layout_two_row_dispatch_uses_build_two_row_screens(self):
-        """When layout=two_row, update() routes to the two_row builder.
-        At this skeleton stage the builder produces empty stories; the
-        next task fills it in.
-        """
+    @pytest.mark.asyncio
+    async def test_layout_two_row_dispatch_uses_build_two_row_screens(self):
+        """When layout=two_row, update() routes to the two_row builder,
+        not the ticker builder. Patches the two builders at the class
+        level (mock.patch.object works on attrs slotted classes — the
+        slots constraint only blocks NEW attributes on instances)."""
         m = _monitor(layout="two_row")
-        # NOTE: PoolMonitor is @attrs.define (slotted), so we cannot
-        # dynamically assign a tripwire attribute on the instance. The
-        # skeleton test only proves that the method exists and accepts
-        # the expected kwargs; Task 3 verifies the dispatch path through
-        # update() once the builder has observable output.
-        m._build_two_row_screens(
-            current_c=27.78,
-            current_age_s=10.0,
-            past_c=27.2,
-            today_min_c=25.6,
-            today_max_c=28.9,
-            d7_mean_c=26.7,
-            d7_min_c=24.4,
-            d7_max_c=28.9,
-            season_min_c=21.7,
-            season_max_c=31.1,
-        )
-        # No assertion on stories yet — the skeleton only proves the method exists.
+
+        async def _fake_query(range_start, agg):
+            return 27.0, "2026-05-28T00:00:00Z"
+
+        with (
+            mock.patch.object(PoolMonitor, "_query", side_effect=_fake_query),
+            mock.patch.object(PoolMonitor, "_build_two_row_screens") as two_row_builder,
+            mock.patch.object(PoolMonitor, "_build_ticker_screens") as ticker_builder,
+        ):
+            await m.update()
+
+        two_row_builder.assert_called_once()
+        ticker_builder.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_layout_ticker_dispatch_uses_build_ticker_screens(self):
+        """Default layout=ticker routes to the ticker builder. Tripwire
+        against a regression where a future change inverts the dispatch.
+        """
+        m = _monitor()  # default layout = "ticker"
+
+        async def _fake_query(range_start, agg):
+            return 27.0, "2026-05-28T00:00:00Z"
+
+        with (
+            mock.patch.object(PoolMonitor, "_query", side_effect=_fake_query),
+            mock.patch.object(PoolMonitor, "_build_two_row_screens") as two_row_builder,
+            mock.patch.object(PoolMonitor, "_build_ticker_screens") as ticker_builder,
+        ):
+            await m.update()
+
+        ticker_builder.assert_called_once()
+        two_row_builder.assert_not_called()
 
 
 # Container Protocol conformance for PoolMonitor is asserted in

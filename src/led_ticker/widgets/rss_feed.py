@@ -18,6 +18,8 @@ from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets.message import TickerMessage
 
+logger: logging.Logger = logging.getLogger(__name__)
+
 
 @register("rss_feed")
 @attrs.define
@@ -62,7 +64,7 @@ class RSSFeedMonitor:
         return widget
 
     async def update(self) -> None:
-        logging.info("Updating RSS Feed from: %s", self.feed_url)
+        logger.info("Updating RSS Feed from: %s", self.feed_url)
         async with self.session.get(self.feed_url) as response:
             feed_data = await response.text()
             feed = await asyncio.to_thread(feedparser.parse, feed_data)
@@ -81,3 +83,8 @@ class RSSFeedMonitor:
                 )
                 for item in itertools.islice(feed["items"], self.max_stories)  # type: ignore[index]
             ]
+        logger.info(
+            "RSS %s updated: %d stories",
+            self.feed_url,
+            len(self.feed_stories),
+        )

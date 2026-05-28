@@ -8,6 +8,7 @@ import inspect
 import itertools
 import logging
 import math
+from collections.abc import Iterator
 from typing import Any
 
 import attrs
@@ -18,6 +19,8 @@ from led_ticker.drawing import get_widget_padding, safe_scale
 from led_ticker.scaled_canvas import ScaledCanvas, paint_hires, unwrap_to_real
 from led_ticker.widgets._image_fit import reset_canvas
 from led_ticker.widgets.message import TickerMessage
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 # Logical footprint of the hi-res circle separator: 1 left pad + 8
 # circle + 1 right pad = 10 logical px. Matches today's " \u2022 " BDF
@@ -665,6 +668,13 @@ class Ticker:
             self.transition_fn, Scroll
         )
         ticker_object = await self.notif_queue.get()
+        # `None` is the iterator-exhausted sentinel from
+        # `_enqueue_ticker_objects`. An empty container (or empty
+        # section) produces this on the very first get(); returning
+        # here ends the section cleanly instead of crashing on
+        # `_show_one(None, ...)`.
+        if ticker_object is None:
+            return 0
         canvas, prev_scroll_pos = await self._show_one(
             canvas, ticker_object, hold_time=hold_time
         )
@@ -672,6 +682,10 @@ class Ticker:
         prev_object = ticker_object
         while not self.notif_queue.empty():
             ticker_object = self.notif_queue.get_nowait()
+            # Sentinel mid-stream: producer exhausted the iterator.
+            # Stop draining the queue and return the current scroll pos.
+            if ticker_object is None:
+                break
 
             if is_scroll:
                 canvas, prev_scroll_pos = await self._scroll_between(
@@ -781,6 +795,11 @@ class Ticker:
         """
         assert self.notif_queue is not None
         ticker_object = await self.notif_queue.get()
+        # Iterator-exhausted sentinel — empty section, nothing to scroll.
+        # Return the input cursor_pos as the "last drawn" position; the
+        # caller's inter-section dissolve will treat this as a no-op start.
+        if ticker_object is None:
+            return cursor_pos
         pos = cursor_pos
         last_drawn_pos = pos
 
@@ -815,6 +834,10 @@ class Ticker:
                     ticker_object = self.notif_queue.get_nowait()
                 except asyncio.QueueEmpty:
                     break
+                # Sentinel: producer exhausted the iterator. End this
+                # section so the inter-section dissolve can run.
+                if ticker_object is None:
+                    break
 
             canvas = _swap(canvas, self.frame)
             await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
@@ -847,6 +870,11 @@ class Ticker:
         logging.info("Running _scroll_side_by_side ...")
         buffered_objects: list[Any] = []
         next_monitor = await self.notif_queue.get()
+        # Iterator-exhausted sentinel on the first pull means there's
+        # nothing to scroll — return the input cursor_pos so the
+        # inter-section dissolve has a sane starting point.
+        if next_monitor is None:
+            return cursor_pos
         buffered_objects.append(next_monitor)
         pos = cursor_pos
         queue_empty = False
@@ -906,6 +934,13 @@ class Ticker:
                         queue_empty = True
                         break
                     next_monitor = self.notif_queue.get_nowait()
+                    # Sentinel: producer exhausted the iterator. Mark
+                    # the queue drained so the outer loop holds the
+                    # last widget at end-of-scroll instead of waiting
+                    # for more items that will never come.
+                    if next_monitor is None:
+                        queue_empty = True
+                        break
                     if self.buffer_msg:
                         buffered_objects.append(self.buffer_msg)
                     buffered_objects.append(next_monitor)
@@ -989,6 +1024,10 @@ class Ticker:
                     widget = await asyncio.wait_for(self.notif_queue.get(), timeout=0.1)
                 except TimeoutError:
                     return
+            # Iterator-exhausted sentinel — producer is done. End the
+            # section so the inter-section transition can run.
+            if widget is None:
+                return
             # Skip non-GIF widgets (e.g. section titles enqueued by
             # _build_then_enqueue). GIF mode takes over the whole panel —
             # titles don't have a sensible place to render here.
@@ -1004,15 +1043,77 @@ class Ticker:
 # --- Queue builders ---
 
 
+def _expand_sources(sources: list[Any]) -> list[Any]:
+    """Expand `Container` widgets into their current `feed_stories`;
+    pass non-containers through unchanged. Called once per pass through
+    a section — re-reading `feed_stories` here is what keeps the displayed
+    content in sync with each container's background `update()` task.
+    """
+    from led_ticker.widget import Container
+
+    out: list[Any] = []
+    for s in sources:
+        if isinstance(s, Container):
+            out.extend(s.feed_stories)
+        else:
+            out.append(s)
+    return out
+
+
 def _build_ticker_iter(
     ticker_objects: list[Any],
     title: Any = None,
     loop_count: int = 0,
-) -> Any:
+) -> Iterator[Any]:
+    """Build the engine's per-tick iterator over a section's widgets.
+
+    `ticker_objects` may contain `Container` widgets — they are
+    expanded into their current `feed_stories` on EVERY pass through
+    the section. Snapshotting at first pass would freeze the displayed
+    content even though container `update()` tasks keep running (the
+    longboi stale-display bug, 2026-05-28).
+
+    `loop_count=0` cycles forever; `loop_count=N` makes exactly N passes.
+    Either way, each pass calls `_expand_sources` so live updates land
+    on the panel within at most one cycle of latency.
+
+    `title` is prepended ONCE (not repeated per pass).
+    """
+    n_sources = len(ticker_objects)
+
     if loop_count:
-        ticker_iter = itertools.chain(ticker_objects * loop_count)
+
+        def passes() -> Iterator[Any]:
+            for pass_idx in range(loop_count):
+                widgets = _expand_sources(ticker_objects)
+                logger.debug(
+                    "section pass %d/%d: %d sources → %d widgets",
+                    pass_idx + 1,
+                    loop_count,
+                    n_sources,
+                    len(widgets),
+                )
+                yield from widgets
+
+        ticker_iter: Iterator[Any] = passes()
     else:
-        ticker_iter = itertools.cycle(ticker_objects)
+
+        def cycle_with_refresh() -> Iterator[Any]:
+            pass_idx = 0
+            while True:
+                widgets = _expand_sources(ticker_objects)
+                logger.debug(
+                    "section cycle %d: %d sources → %d widgets",
+                    pass_idx,
+                    n_sources,
+                    len(widgets),
+                )
+                if not widgets:
+                    return
+                yield from widgets
+                pass_idx += 1
+
+        ticker_iter = cycle_with_refresh()
 
     if title:
         ticker_iter = itertools.chain([title], ticker_iter)
@@ -1023,7 +1124,24 @@ def _build_ticker_iter(
 async def _enqueue_ticker_objects(
     ticker_iter: Any, notif_queue: asyncio.Queue[Any]
 ) -> None:
-    await notif_queue.put(next(ticker_iter))
+    """Pull from ticker_iter into notif_queue until exhausted.
+
+    With per-pass container refresh (2026-05-28), an empty container
+    can produce an immediately-empty iterator. Guard the first next()
+    call so PEP 479 doesn't promote StopIteration to RuntimeError.
+
+    On exhaustion (either initial-empty or mid-iteration StopIteration),
+    enqueue a `None` sentinel so blocking consumers (`await
+    notif_queue.get()` in `_run_swap` / `_scroll_one_by_one` /
+    `_scroll_side_by_side` / `_run_gif`) see a wake-up and can return
+    cleanly instead of hanging forever waiting on an item that will
+    never arrive.
+    """
+    try:
+        await notif_queue.put(next(ticker_iter))
+    except StopIteration:
+        await notif_queue.put(None)
+        return
     while True:
         try:
             await notif_queue.put(next(ticker_iter))
@@ -1033,6 +1151,7 @@ async def _enqueue_ticker_objects(
             if notif_queue.qsize() > 10:
                 await asyncio.sleep(0)
         except StopIteration:
+            await notif_queue.put(None)
             break
 
 

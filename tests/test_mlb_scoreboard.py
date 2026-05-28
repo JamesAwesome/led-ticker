@@ -1020,3 +1020,43 @@ async def test_update_hydrates_abs_challenges_for_live_game():
     assert len(scoreboard_msgs) >= 1
     assert scoreboard_msgs[0].game.home_challenges == 2
     assert scoreboard_msgs[0].game.away_challenges == 1
+
+
+class TestMLBUpdateLogging:
+    """Periodic update() must log INFO so users can tell the background
+    task is firing. Without these logs there is no diagnostic signal
+    that update() ran successfully — silent success looks like silent
+    failure when the panel goes stale.
+    """
+
+    async def test_update_logs_info_with_story_count(self, caplog) -> None:
+        import logging
+        from unittest.mock import AsyncMock, MagicMock
+
+        from led_ticker.widgets.mlb import MLBScoreMonitor
+
+        # Mock session that returns an empty schedule (no games)
+        session = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json = AsyncMock(return_value={"dates": []})
+        session.get.return_value.__aenter__ = AsyncMock(return_value=mock_resp)
+        session.get.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        widget = MLBScoreMonitor(session=session, team="NYM")
+        widget._team_id = 121  # NYM
+        from zoneinfo import ZoneInfo
+
+        widget._tz = ZoneInfo("America/New_York")
+
+        with caplog.at_level(logging.INFO, logger="led_ticker.widgets.mlb"):
+            await widget.update()
+
+        # Find an INFO record matching the expected pattern
+        info_records = [r for r in caplog.records if r.levelno == logging.INFO]
+        matching = [
+            r for r in info_records if "updated" in r.message and "NYM" in r.message
+        ]
+        assert matching, (
+            f"expected INFO log mentioning 'updated' and team 'NYM'; "
+            f"got: {[r.message for r in info_records]}"
+        )

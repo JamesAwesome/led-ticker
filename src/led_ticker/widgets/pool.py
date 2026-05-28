@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import csv
+import io
+
 from led_ticker._types import Color
 from led_ticker.colors import BLUE, GREEN, ORANGE, RED, make_color
 
@@ -59,3 +62,45 @@ def _trend_arrow(
     if delta < -_TREND_DEADBAND_F:
         return down
     return steady
+
+
+def _build_flux(
+    *, bucket: str, sensor_id: str | None, range_start: str, agg: str
+) -> str:
+    """Build a single-scalar Flux query.
+
+    `range_start` is a Flux duration ('-7d', '-1h') or an RFC3339
+    timestamp. `agg` is one of 'last', 'mean', 'min', 'max'.
+    """
+    sensor_clause = f' and r.id == "{sensor_id}"' if sensor_id else ""
+    return (
+        f'from(bucket: "{bucket}")\n'
+        f"  |> range(start: {range_start})\n"
+        f'  |> filter(fn: (r) => r._measurement == "mqtt_consumer"'
+        f' and r._field == "temperature_C"{sensor_clause})\n'
+        f"  |> {agg}()"
+    )
+
+
+def _parse_scalar_csv(text: str) -> tuple[float | None, str | None]:
+    """Parse an InfluxDB v2 annotated-CSV response into (value, time).
+
+    Returns (None, None) when there is no data row. Reads the first
+    data row's `_value` (float) and `_time` columns.
+    """
+    reader = csv.reader(io.StringIO(text))
+    header: list[str] | None = None
+    for row in reader:
+        if not row or all(c == "" for c in row):
+            continue
+        if row[0].startswith("#"):
+            continue
+        if header is None:
+            header = row
+            continue
+        record = dict(zip(header, row, strict=False))
+        raw = record.get("_value", "")
+        if raw == "":
+            return None, None
+        return float(raw), record.get("_time") or None
+    return None, None

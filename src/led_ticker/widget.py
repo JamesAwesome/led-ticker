@@ -79,6 +79,20 @@ class FrameAwareWidget(Protocol):
     def frame_for(self, effect_name: str) -> int: ...
 
 
+@runtime_checkable
+class Container(Protocol):
+    """Widget that expands into a live, mutable list of child widgets.
+
+    The engine re-reads `feed_stories` on every pass through the section,
+    so updates from the container's background `update()` task are picked
+    up without requiring the outer section loop to cycle. Without this,
+    a `loop_count = 0` section would snapshot stories at section-build
+    time and never refresh.
+    """
+
+    feed_stories: list[Widget]
+
+
 async def run_monitor_loop(
     widget: Updatable,
     interval: float,

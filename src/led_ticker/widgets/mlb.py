@@ -861,6 +861,11 @@ class MLBScoreMonitor:
                 title,
                 TickerMessage("No Data", font_color=body_color, bg_color=self.bg_color),
             ]
+            logger.info(
+                "MLB %s updated: %d stories (no data)",
+                self.team,
+                len(self.feed_stories),
+            )
             return
 
         now = datetime.now(tz)
@@ -888,6 +893,11 @@ class MLBScoreMonitor:
                 title,
                 TickerMessage("No Data", font_color=body_color, bg_color=self.bg_color),
             ]
+            logger.info(
+                "MLB %s updated: %d stories (no data)",
+                self.team,
+                len(self.feed_stories),
+            )
             return
 
         try:
@@ -904,6 +914,11 @@ class MLBScoreMonitor:
                 title,
                 TickerMessage("No Data", font_color=body_color, bg_color=self.bg_color),
             ]
+            logger.info(
+                "MLB %s updated: %d stories (no data)",
+                self.team,
+                len(self.feed_stories),
+            )
             return
 
         # Concurrently hydrate ABS challenge counts for live games.
@@ -930,6 +945,11 @@ class MLBScoreMonitor:
                 ),
             ]
             self._has_live_game = False
+            logger.info(
+                "MLB %s updated: %d stories (season over)",
+                self.team,
+                len(self.feed_stories),
+            )
             return
 
         series = self._group_into_series(games)
@@ -971,6 +991,12 @@ class MLBScoreMonitor:
                     ),
                 ]
             self._has_live_game = False
+            logger.info(
+                "MLB %s updated: %d stories (next: %s)",
+                self.team,
+                len(self.feed_stories),
+                opp_name if next_game else "season over",
+            )
             return
 
         # Build display from current series
@@ -1013,6 +1039,13 @@ class MLBScoreMonitor:
             )
         self.feed_stories = stories
         self._has_live_game = any(g.state == "live" for g in current.games)
+        n_live = sum(1 for g in current.games if g.state == "live")
+        logger.info(
+            "MLB %s updated: %d stories (live: %d)",
+            self.team,
+            len(self.feed_stories),
+            n_live,
+        )
 
     def _parse_games(
         self, schedule_data: dict[str, Any], tz: ZoneInfo

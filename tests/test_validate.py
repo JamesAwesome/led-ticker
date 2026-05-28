@@ -3184,3 +3184,78 @@ async def test_rule50_transition_fps_valid_no_warning(conf):
 async def test_rule50_transition_fps_absent_no_warning(conf):
     result = await validate_config(conf(GOOD_CONFIG))
     assert all(w.rule != 50 for w in result.warnings)
+
+
+class TestPoolLayoutValidation:
+    """Pool widget `layout` field validation."""
+
+    @pytest.mark.asyncio
+    async def test_unknown_layout_value_raises(self):
+        from unittest.mock import MagicMock
+
+        from led_ticker.app.factories import validate_widget_cfg
+
+        cfg = {"type": "pool", "layout": "scoreboard"}
+        with pytest.raises(ValueError, match="layout.*ticker.*two_row"):
+            await validate_widget_cfg(cfg, session=MagicMock())
+
+    @pytest.mark.asyncio
+    async def test_ticker_layout_accepted(self):
+        from unittest.mock import MagicMock
+
+        from led_ticker.app.factories import validate_widget_cfg
+
+        cfg = {"type": "pool", "layout": "ticker"}
+        await validate_widget_cfg(cfg, session=MagicMock())  # should not raise
+
+    @pytest.mark.asyncio
+    async def test_two_row_layout_accepted(self):
+        from unittest.mock import MagicMock
+
+        from led_ticker.app.factories import validate_widget_cfg
+
+        cfg = {"type": "pool", "layout": "two_row"}
+        await validate_widget_cfg(cfg, session=MagicMock())  # should not raise
+
+    @pytest.mark.asyncio
+    async def test_top_font_with_ticker_layout_raises(self):
+        from unittest.mock import MagicMock
+
+        from led_ticker.app.factories import validate_widget_cfg
+
+        cfg = {
+            "type": "pool",
+            "layout": "ticker",
+            "top_font_size": 16,
+        }
+        with pytest.raises(ValueError, match="layout.*two_row"):
+            await validate_widget_cfg(cfg, session=MagicMock())
+
+    @pytest.mark.asyncio
+    async def test_top_font_with_default_layout_raises(self):
+        """Same check applies when layout is omitted (defaults to ticker)."""
+        from unittest.mock import MagicMock
+
+        from led_ticker.app.factories import validate_widget_cfg
+
+        cfg = {
+            "type": "pool",
+            "top_row_height": 4,
+        }
+        with pytest.raises(ValueError, match="layout.*two_row"):
+            await validate_widget_cfg(cfg, session=MagicMock())
+
+    @pytest.mark.asyncio
+    async def test_per_row_knobs_ok_under_two_row(self):
+        from unittest.mock import MagicMock
+
+        from led_ticker.app.factories import validate_widget_cfg
+
+        cfg = {
+            "type": "pool",
+            "layout": "two_row",
+            "top_font_size": 16,
+            "bottom_font_size": 32,
+            "top_row_height": 4,
+        }
+        await validate_widget_cfg(cfg, session=MagicMock())  # should not raise

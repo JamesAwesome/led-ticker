@@ -591,6 +591,38 @@ async def validate_widget_cfg(
             fix_replacement_key="play_count",
         )
 
+    # Pool-specific layout validation
+    if widget_cfg.get("type") == "pool":
+        layout_value = widget_cfg.get("layout", "ticker")
+        valid_layouts = ["ticker", "two_row"]
+        if layout_value not in valid_layouts:
+            suggestion = difflib.get_close_matches(
+                str(layout_value), valid_layouts, n=1, cutoff=0.4
+            )
+            hint = f" (did you mean {suggestion[0]!r}?)" if suggestion else ""
+            raise ValueError(
+                f"pool widget layout must be one of {valid_layouts}; "
+                f"got {layout_value!r}{hint}"
+            )
+        if layout_value == "ticker":
+            two_row_only = {
+                "top_font",
+                "top_font_size",
+                "top_font_threshold",
+                "bottom_font",
+                "bottom_font_size",
+                "bottom_font_threshold",
+                "top_row_height",
+            }
+            offenders = two_row_only & set(widget_cfg.keys())
+            if offenders:
+                offender = sorted(offenders)[0]
+                raise ValueError(
+                    f"pool widget {offender!r} only applies when "
+                    f"layout='two_row'; remove the field or set "
+                    f"layout='two_row'."
+                )
+
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)
 

@@ -481,6 +481,145 @@ class TestTwoRowLayout:
         assert m.bottom_font is sentinel_font
         assert m.top_row_height == 4
 
+    def _build(self, **overrides):
+        """Run _build_two_row_screens with defaults; allow per-test overrides."""
+        m = _monitor(layout="two_row", **overrides.pop("monitor_kwargs", {}))
+        args = dict(
+            current_c=27.78,
+            current_age_s=10.0,
+            past_c=27.2,
+            today_min_c=25.6,
+            today_max_c=28.9,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        args.update(overrides)
+        m._build_two_row_screens(**args)
+        return m
+
+    def test_yields_title_plus_four_stories(self):
+        m = self._build()
+        assert m.feed_title is not None
+        assert len(m.feed_stories) == 4
+
+    def test_title_is_two_row_message(self):
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        m = self._build()
+        assert isinstance(m.feed_title, TwoRowMessage)
+
+    def test_all_stories_are_two_row_messages(self):
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        m = self._build()
+        for s in m.feed_stories:
+            assert isinstance(s, TwoRowMessage)
+
+    def test_title_screen_text(self):
+        m = self._build()
+        assert m.feed_title.top_text == "POOL"
+        assert m.feed_title.bottom_text == "TEMPS"
+
+    def test_today_screen_text(self):
+        m = self._build()
+        today = m.feed_stories[0]
+        assert today.top_text == "POOL 24H"
+        assert today.bottom_text == "82F"  # 27.78C -> 82F
+
+    def test_seven_day_screen_text(self):
+        m = self._build()
+        d7 = m.feed_stories[1]
+        assert d7.top_text == "POOL 7D AVG"
+        assert d7.bottom_text == "80"  # 26.7C -> 80F
+
+    def test_season_hi_screen_text(self):
+        m = self._build()
+        season_hi = m.feed_stories[2]
+        assert season_hi.top_text == "POOL SEASON HI"
+        assert season_hi.bottom_text == "88"  # 31.1C -> 88F
+
+    def test_season_lo_screen_text(self):
+        m = self._build()
+        season_lo = m.feed_stories[3]
+        assert season_lo.top_text == "POOL SEASON LO"
+        assert season_lo.bottom_text == "71"  # 21.7C -> 71F
+
+    def test_today_bottom_color_is_zone_color(self):
+        from led_ticker.widgets.pool import _zone_color
+
+        m = self._build()
+        today = m.feed_stories[0]
+        # TwoRowMessage wraps raw Color in _ConstantColor; unwrap via ._color.
+        assert today.bottom_color._color is _zone_color(82.0)
+
+    def test_today_bottom_color_when_stale(self):
+        from led_ticker.widgets.pool import DIM
+
+        m = self._build(current_age_s=10_000.0)  # well past stale_after=900
+        today = m.feed_stories[0]
+        assert today.bottom_color._color is DIM
+
+    def test_seven_day_bottom_color_is_avg(self):
+        from led_ticker.widgets.pool import AVG_COLOR
+
+        m = self._build()
+        assert m.feed_stories[1].bottom_color._color is AVG_COLOR
+
+    def test_season_hi_bottom_color_is_hi(self):
+        from led_ticker.widgets.pool import HI_COLOR
+
+        m = self._build()
+        assert m.feed_stories[2].bottom_color._color is HI_COLOR
+
+    def test_season_lo_bottom_color_is_lo(self):
+        from led_ticker.widgets.pool import LO_COLOR
+
+        m = self._build()
+        assert m.feed_stories[3].bottom_color._color is LO_COLOR
+
+    def test_label_color_threads_to_every_top(self):
+        sentinel = object()
+        m = self._build(monitor_kwargs={"label_color": sentinel})
+        # TwoRowMessage wraps raw Color in _ConstantColor; unwrap via ._color.
+        assert m.feed_title.top_color._color is sentinel
+        for s in m.feed_stories:
+            assert s.top_color._color is sentinel
+
+    def test_no_trend_arrow_in_today_screen(self):
+        m = self._build()
+        today = m.feed_stories[0]
+        # The bottom row must be just the temp value — no ^/v/- arrow glyph.
+        assert today.bottom_text == "82F"  # exact match
+
+    def test_per_row_fields_thread_to_two_row_message(self):
+        sentinel_font_top = object()
+        sentinel_font_bottom = object()
+        m = self._build(
+            monitor_kwargs={
+                "top_font": sentinel_font_top,
+                "bottom_font": sentinel_font_bottom,
+                "top_row_height": 4,
+            }
+        )
+        today = m.feed_stories[0]
+        assert today.top_font is sentinel_font_top
+        assert today.bottom_font is sentinel_font_bottom
+        assert today.top_row_height == 4
+
+    def test_feed_stories_type_accepts_both_message_types(self):
+        """feed_stories must accept SegmentMessage (ticker) or
+        TwoRowMessage (two_row) — Container Protocol conformance
+        depends on the field's declared type."""
+        from led_ticker.widgets.message import SegmentMessage
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        m = self._build()
+        for s in m.feed_stories:
+            assert isinstance(s, SegmentMessage | TwoRowMessage)
+
 
 # Container Protocol conformance for PoolMonitor is asserted in
 # tests/test_widget_protocol.py::test_container_protocol_recognizes_pool_monitor

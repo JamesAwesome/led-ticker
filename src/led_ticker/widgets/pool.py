@@ -20,6 +20,7 @@ from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets.message import SegmentMessage
+from led_ticker.widgets.two_row import TwoRowMessage
 
 # Deadband (in the display unit) below which a change reads as "steady" —
 # avoids flicker on sub-degree sensor noise.
@@ -188,8 +189,12 @@ class PoolMonitor:
     top_font: Font | None = attrs.field(default=None, kw_only=True)
     bottom_font: Font | None = attrs.field(default=None, kw_only=True)
     top_row_height: int | None = attrs.field(default=None, kw_only=True)
-    feed_title: SegmentMessage | None = attrs.field(init=False, default=None)
-    feed_stories: list[SegmentMessage] = attrs.field(init=False, factory=list)
+    feed_title: SegmentMessage | TwoRowMessage | None = attrs.field(
+        init=False, default=None
+    )
+    feed_stories: list[SegmentMessage | TwoRowMessage] = attrs.field(
+        init=False, factory=list
+    )
 
     @classmethod
     async def start(
@@ -320,8 +325,51 @@ class PoolMonitor:
         """Build feed_title + feed_stories in two_row layout. See spec
         docs/superpowers/specs/2026-05-28-pool-two-row-layout-design.md.
         """
-        # Filled in by Task 3.
-        return None
+        now_display = _c_to_display(current_c, self.units)
+        zone_f = _c_to_display(current_c, "imperial")
+        stale = current_age_s > self.stale_after
+
+        kw = {
+            "font": self.font,
+            "top_font": self.top_font,
+            "bottom_font": self.bottom_font,
+            "top_row_height": self.top_row_height,
+            "top_color": self.label_color,
+        }
+
+        self.feed_title = TwoRowMessage(
+            top_text="POOL",
+            bottom_text="TEMPS",
+            bottom_color=RGB_WHITE,
+            **kw,
+        )
+
+        today_bottom_color = DIM if stale else _zone_color(zone_f)
+        today = TwoRowMessage(
+            top_text="POOL 24H",
+            bottom_text=_fmt_temp(now_display, self.units),
+            bottom_color=today_bottom_color,
+            **kw,
+        )
+        d7 = TwoRowMessage(
+            top_text="POOL 7D AVG",
+            bottom_text=self._disp(d7_mean_c),
+            bottom_color=AVG_COLOR,
+            **kw,
+        )
+        season_hi = TwoRowMessage(
+            top_text="POOL SEASON HI",
+            bottom_text=self._disp(season_max_c),
+            bottom_color=HI_COLOR,
+            **kw,
+        )
+        season_lo = TwoRowMessage(
+            top_text="POOL SEASON LO",
+            bottom_text=self._disp(season_min_c),
+            bottom_color=LO_COLOR,
+            **kw,
+        )
+        self.feed_stories = [today, d7, season_hi, season_lo]
 
     def _build_ticker_screens(
         self,

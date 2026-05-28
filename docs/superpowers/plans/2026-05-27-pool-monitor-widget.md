@@ -32,7 +32,7 @@ Expected: PASS (note the count; this is the green baseline).
 - Modify `src/led_ticker/widgets/message.py` — add the generic `SegmentMessage` class (moved from `mlb.py`).
 - Modify `src/led_ticker/widgets/mlb.py` — delete `MLBGameMessage`, import `SegmentMessage`, alias `MLBGameMessage = SegmentMessage` removed in favor of renaming usages.
 - Modify `src/led_ticker/widgets/mlb_standings.py` — use `SegmentMessage`.
-- Modify `src/led_ticker/app/run.py` — import `PoolMonitor`, add it to the container `isinstance` tuple (line ~96).
+- (No `app/run.py` change needed as of the 2026-05-28 Container Protocol refactor — `PoolMonitor` is recognized structurally via its `feed_stories` field. See updated Task 5.)
 - Create `tests/test_widgets/test_pool.py` — widget + helper tests.
 - Modify `tests/test_widgets/test_mlb_standings.py` and `tests/test_widgets/test_mlb.py` — update `MLBGameMessage` references to `SegmentMessage`.
 - Modify `config/config.example.toml` — add a `pool` example block.
@@ -694,57 +694,42 @@ git commit -m "feat: add PoolMonitor widget with cycling temp screens"
 
 ---
 
-## Task 5: Register the monitor as a container in the run loop
+## Task 5: Assert Container Protocol conformance
+
+> **Note (2026-05-28):** The 2026-05-28 `Container` Protocol refactor (PR #122)
+> replaced the per-type `isinstance` tuple in `app/run.py` with a structural
+> Protocol check inside `_expand_sources`. Any widget that declares
+> `feed_stories: list[Widget]` is recognized automatically, so no wiring
+> is needed in `app/run.py` for `PoolMonitor`. This task now just asserts
+> structural conformance via an `isinstance(..., Container)` check.
 
 **Files:**
-- Modify: `src/led_ticker/app/run.py` (import line ~32-34; isinstance ~line 96)
-- Test: `tests/test_widgets/test_pool.py`
+- Test: `tests/test_widget_protocol.py` (alongside the existing MLB/RSS/standings conformance tests)
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `tests/test_widgets/test_pool.py`:
+Append to `tests/test_widget_protocol.py`:
 
 ```python
-class TestRunIntegration:
-    def test_pool_is_recognized_container(self):
-        # run.py expands these container types' feed_stories into the playlist.
-        import inspect
-        from led_ticker.app import run
-        src = inspect.getsource(run)
-        assert "PoolMonitor" in src
+def test_container_protocol_recognizes_pool_monitor() -> None:
+    """PoolMonitor exposes feed_stories — must satisfy Container so the
+    engine re-expands its cycle screens per pass (same path as MLB / RSS /
+    standings; this is what gives pool live-refresh for free)."""
+    from unittest.mock import MagicMock
+
+    from led_ticker.widget import Container
+    from led_ticker.widgets.pool import PoolMonitor
+
+    monitor = PoolMonitor(session=MagicMock())
+    assert isinstance(monitor, Container)
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [ ] **Step 2: Run to verify it passes**
 
-Run: `pytest tests/test_widgets/test_pool.py::TestRunIntegration -v`
-Expected: FAIL — `PoolMonitor` not referenced in `run.py`.
+Run: `pytest tests/test_widget_protocol.py::test_container_protocol_recognizes_pool_monitor -v`
+Expected: PASS — `PoolMonitor` declares `feed_stories` on the class so it satisfies the Protocol structurally.
 
-- [ ] **Step 3: Wire it in**
-
-In `src/led_ticker/app/run.py`, add after the other monitor imports (~line 34):
-
-```python
-from led_ticker.widgets.pool import PoolMonitor
-```
-
-Change the container check (~line 96) from:
-
-```python
-                        RSSFeedMonitor | MLBScoreMonitor | MLBStandingsMonitor,
-```
-
-to:
-
-```python
-                        RSSFeedMonitor | MLBScoreMonitor | MLBStandingsMonitor | PoolMonitor,
-```
-
-- [ ] **Step 4: Run to verify it passes**
-
-Run: `pytest tests/test_widgets/test_pool.py::TestRunIntegration -v`
-Expected: PASS.
-
-- [ ] **Step 5: Full suite + type check**
+- [ ] **Step 3: Full suite + type check**
 
 Run: `pytest tests/ -q && pyright src/led_ticker/app/run.py`
 Expected: PASS, 0 type errors.

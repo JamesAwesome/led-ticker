@@ -275,12 +275,9 @@ class TestSensorIdValidation:
             await PoolMonitor.start(session=mock.Mock(), sensor_id='abc"def')
 
 
-class TestRunIntegration:
-    def test_pool_is_recognized_container(self):
-        # run.py expands these container types' feed_stories into the playlist.
-        import inspect
-
-        from led_ticker.app import run
-
-        src = inspect.getsource(run)
-        assert "PoolMonitor" in src
+# Container Protocol conformance for PoolMonitor is asserted in
+# tests/test_widget_protocol.py::test_container_protocol_recognizes_pool_monitor
+# alongside the MLB / RSS / standings conformance tests. The 2026-05-28
+# Container refactor removed the per-type isinstance tuple from app/run.py,
+# so an older test that searched the run.py source for "PoolMonitor" no
+# longer applies — structural Protocol conformance is the new contract.

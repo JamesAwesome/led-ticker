@@ -64,16 +64,14 @@ last good `feed_stories` keep displaying.
 
 ### Integration into the run loop
 
-`PoolMonitor` is a container widget. `app/run.py` (~line 94) has an `isinstance`
-check listing the container types whose `feed_stories` get expanded into the
-playlist:
-
-```python
-if isinstance(widget, RSSFeedMonitor | MLBScoreMonitor | MLBStandingsMonitor):
-    widgets.extend(widget.feed_stories)
-```
-
-`PoolMonitor` must be added to that tuple.
+`PoolMonitor` is a container widget. As of the 2026-05-28 `Container` Protocol
+refactor (PR #122), `app/run.py` no longer lists container types explicitly —
+any widget that exposes `feed_stories: list[Widget]` satisfies the
+`Container` Protocol structurally and is re-expanded by `_expand_sources`
+on every pass through the section. `PoolMonitor` declares `feed_stories`
+on the class, so no wiring in `app/run.py` is needed; the engine picks it
+up automatically. The Container conformance is asserted by
+`tests/test_widget_protocol.py::test_container_protocol_recognizes_pool_monitor`.
 
 ### Reading InfluxDB (chosen: raw Flux over injected session)
 

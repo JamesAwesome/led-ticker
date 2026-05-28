@@ -316,6 +316,19 @@ def test_container_protocol_recognizes_standings_monitor() -> None:
     assert isinstance(monitor, Container)
 
 
+def test_container_protocol_recognizes_pool_monitor() -> None:
+    """PoolMonitor exposes feed_stories — must satisfy Container so the
+    engine re-expands its cycle screens per pass (same path as MLB / RSS /
+    standings; this is what gives pool live-refresh for free)."""
+    from unittest.mock import MagicMock
+
+    from led_ticker.widget import Container
+    from led_ticker.widgets.pool import PoolMonitor
+
+    monitor = PoolMonitor(session=MagicMock())
+    assert isinstance(monitor, Container)
+
+
 def test_container_protocol_rejects_plain_widget() -> None:
     """TickerMessage has no feed_stories — must NOT satisfy Container."""
     from led_ticker.widget import Container

@@ -61,8 +61,10 @@ class TestUnits:
         assert _c_to_display(25.0, "metric") == pytest.approx(25.0)
 
     def test_fmt_temp_rounds_and_suffixes(self):
-        assert _fmt_temp(81.6, "imperial") == "82°F"
-        assert _fmt_temp(25.4, "metric") == "25°C"
+        # No degree symbol — hires Inter at small font_size drops U+00B0
+        # to '?'. Consistent with the weather widget's bare 'F'/'C'.
+        assert _fmt_temp(81.6, "imperial") == "82F"
+        assert _fmt_temp(25.4, "metric") == "25C"
 
 
 SAMPLE_CSV = (
@@ -109,6 +111,30 @@ class TestBuildFlux:
         assert "r.id ==" not in flux
         assert "|> last()" in flux
 
+    def test_inserts_group_before_aggregation(self):
+        """`group()` must precede the aggregation step so a multi-sensor
+        bucket returns a single GLOBAL aggregate row, not one per series.
+        Without this, the CSV parser picks the first series's aggregate,
+        which depends on tag-value sort order and on which sensors have
+        data in the query range — surfacing as inconsistent values between
+        today/7-day (where one sensor dominates) and season (where multiple
+        do). Tripwire: drop the `group()` and this test catches it before
+        hardware regresses.
+        """
+        flux = _build_flux(
+            bucket="pool_temps",
+            sensor_id=None,
+            range_start="-7d",
+            agg="max",
+        )
+        # group() comes after filter() and before the aggregation.
+        group_idx = flux.find("|> group()")
+        max_idx = flux.find("|> max()")
+        filter_idx = flux.find("|> filter")
+        assert group_idx != -1, "expected `|> group()` in Flux query"
+        assert max_idx != -1
+        assert filter_idx < group_idx < max_idx
+
 
 # ---------------------------------------------------------------------------
 # PoolMonitor widget tests
@@ -147,6 +173,40 @@ class TestBuildScreens:
         for s in m.feed_stories:
             assert isinstance(s, SegmentMessage)
 
+    def test_widget_font_threads_into_feed_title_and_stories(self):
+        """Custom `font` configured on the widget must reach every
+        SegmentMessage (title + 3 stories + placeholder). Without this
+        wiring, bigsign configs that specify `font = "Inter-Regular"`
+        would silently fall back to FONT_DEFAULT (BDF), producing the
+        chunky-text-misplaced bug fixed alongside config.pool_longboi.toml.
+        """
+        sentinel_font = object()  # Font is duck-typed downstream
+        m = _monitor(font=sentinel_font)
+        m._build_screens(
+            current_c=27.78,
+            current_age_s=10.0,
+            past_c=27.2,
+            today_min_c=25.6,
+            today_max_c=28.9,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        assert m.feed_title.font is sentinel_font
+        for s in m.feed_stories:
+            assert s.font is sentinel_font
+
+    def test_widget_font_threads_into_placeholder(self):
+        """Placeholder screens (shown on initial fetch / failure) must
+        also carry the configured font."""
+        sentinel_font = object()
+        m = _monitor(font=sentinel_font)
+        m._set_placeholder()
+        assert m.feed_title.font is sentinel_font
+        assert m.feed_stories[0].font is sentinel_font
+
     def test_today_screen_has_temp_and_arrow(self):
         m = _monitor(units="imperial")
         m._build_screens(
@@ -163,7 +223,7 @@ class TestBuildScreens:
         )
         today = m.feed_stories[0]
         texts = "".join(t for t, _ in today.segments)
-        assert "82°F" in texts  # 27.78C -> 82F
+        assert "82F" in texts  # 27.78C -> 82F (no degree symbol — see _fmt_temp)
         assert "^" in texts  # rising (27.78 > 27.2 by >0.5F)
 
     def test_stale_dims_temp(self):
@@ -181,7 +241,8 @@ class TestBuildScreens:
             season_max_c=31.1,
         )
         today = m.feed_stories[0]
-        temp_color = today.segments[0][1]
+        # segments[0] is the "Pool 24h " label; the temp is segment 1.
+        temp_color = today.segments[1][1]
         assert temp_color is DIM
 
     def test_season_label_spelled_out(self):
@@ -201,6 +262,75 @@ class TestBuildScreens:
         season = m.feed_stories[2]
         texts = "".join(t for t, _ in season.segments)
         assert "Season" in texts
+
+    def test_label_color_threads_into_every_label_segment(self):
+        """The configurable `label_color` (default white, set to e.g.
+        icy cyan in config.pool_longboi.toml) must reach every prefix-
+        label and separator segment across all three screens. Without
+        this wiring, a config like `label_color = [130, 220, 255]`
+        would silently fall back to white.
+        """
+        sentinel_color = object()  # Color is duck-typed by SegmentMessage
+        m = _monitor(label_color=sentinel_color)
+        m._build_screens(
+            current_c=27.78,
+            current_age_s=10.0,
+            past_c=27.2,
+            today_min_c=25.6,
+            today_max_c=28.9,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        # today: segments[0]=Pool24h label, segments[4]="/" separator
+        today_segments = m.feed_stories[0].segments
+        assert today_segments[0][1] is sentinel_color
+        assert today_segments[4][1] is sentinel_color
+        # 7-day: segments[0]=Pool7D label, segments[2]=spacer, segments[4]="/"
+        d7_segments = m.feed_stories[1].segments
+        assert d7_segments[0][1] is sentinel_color
+        assert d7_segments[2][1] is sentinel_color
+        assert d7_segments[4][1] is sentinel_color
+        # season: segments[0]=PoolSeasonHI label, segments[2]="  LO " label
+        season_segments = m.feed_stories[2].segments
+        assert season_segments[0][1] is sentinel_color
+        assert season_segments[2][1] is sentinel_color
+
+    def test_label_color_threads_into_placeholder(self):
+        sentinel_color = object()
+        m = _monitor(label_color=sentinel_color)
+        m._set_placeholder()
+        # Placeholder story: both segments use label_color.
+        for _text, color in m.feed_stories[0].segments:
+            assert color is sentinel_color
+
+    def test_every_screen_carries_pool_prefix(self):
+        """Each cycle screen leads with a 'Pool ...' label so users
+        sharing the panel with other widgets can tell at a glance what
+        data they're looking at. Tripwire — if a future refactor drops
+        the labels, this catches it before reaching hardware.
+        """
+        m = _monitor(units="imperial")
+        m._build_screens(
+            current_c=27.78,
+            current_age_s=10.0,
+            past_c=27.2,
+            today_min_c=25.6,
+            today_max_c=28.9,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        today_texts = "".join(t for t, _ in m.feed_stories[0].segments)
+        d7_texts = "".join(t for t, _ in m.feed_stories[1].segments)
+        season_texts = "".join(t for t, _ in m.feed_stories[2].segments)
+        assert "Pool 24h" in today_texts
+        assert "Pool 7D" in d7_texts
+        assert "Pool Season" in season_texts
 
     def test_missing_values_render_dashes(self):
         m = _monitor(units="imperial")
@@ -237,9 +367,10 @@ class TestBuildScreens:
             season_max_c=31.0,
         )
         today = m.feed_stories[0]
-        # First segment is the temp text in the zone color
-        assert today.segments[0][1] is ORANGE
-        assert "28°C" in today.segments[0][0]
+        # segments[0] is the "Pool 24h " label; the temp is segment 1
+        # and carries the zone color.
+        assert today.segments[1][1] is ORANGE
+        assert "28C" in today.segments[1][0]
 
 
 class TestConformance:

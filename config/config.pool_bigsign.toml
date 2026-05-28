@@ -1,0 +1,63 @@
+# Pool widget — bigsign (256×64) hardware testing config (two_row layout)
+#
+# 8× P3 32×64 panels in a 2×4 vertical-serpentine = 256×64 logical.
+# Driven by a Raspberry Pi 5 through an Adafruit RGB Matrix HAT.
+#
+# Single section, single pool widget in two_row mode. Cycles 5
+# screens: title → today → 7-day → season HI → season LO. Hi-res
+# Inter font: 16 px for the label (top row), 32 px fills the data
+# row (bottom). Cyan label_color matches the longboi/smallsign
+# pool test configs.
+#
+# Usage:
+#   cp config/config.pool_bigsign.toml config/config.toml
+#   # Make sure .env defines INFLUXDB_TOKEN (and URL/ORG/BUCKET if not default):
+#   #   INFLUXDB_URL=http://pool_monitor:8086
+#   #   INFLUXDB_ORG=pool
+#   #   INFLUXDB_BUCKET=pool_temps
+#   #   INFLUXDB_TOKEN=...
+#   docker compose up
+
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+parallel = 1
+
+# Vertical-serpentine mapping. See https://docs.ledticker.dev/hardware/bigsign/
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+
+brightness = 60
+default_scale = 4
+
+hardware_mapping = "adafruit-hat"
+
+# Pi 5 RP1 tuning (matches config.bigsign.example.toml).
+gpio_slowdown = 3
+rp1_rio = 1
+pwm_bits = 8
+show_refresh_rate = true
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 5
+loop_count = 0  # infinite — soak test
+
+[[playlist.section.widget]]
+type = "pool"
+title = "POOL TEMPS"
+units = "imperial"
+update_interval = 60   # fast: prove the background fetch fires every minute
+# sensor_id = "12345"  # optional; omit to use cross-sensor global aggregate
+stale_after = 900
+layout = "two_row"
+# Hi-res Inter at the bigsign-tuned sizes.
+# font_size = 32 fills the 32-real bottom band; top_font_size = 16
+# gives a smaller label (~50% of the 32-real top band).
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+top_font_size = 16
+# bottom_font_size omitted — falls back to font_size = 32.
+# label_color tints "POOL 24H" / "POOL 7D AVG" / "POOL SEASON" prefix labels.
+label_color = [130, 220, 255]

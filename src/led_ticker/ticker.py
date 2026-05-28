@@ -1004,6 +1004,23 @@ class Ticker:
 # --- Queue builders ---
 
 
+def _expand_sources(sources: list[Any]) -> list[Any]:
+    """Expand `Container` widgets into their current `feed_stories`;
+    pass non-containers through unchanged. Called once per pass through
+    a section — re-reading `feed_stories` here is what keeps the displayed
+    content in sync with each container's background `update()` task.
+    """
+    from led_ticker.widget import Container
+
+    out: list[Any] = []
+    for s in sources:
+        if isinstance(s, Container):
+            out.extend(s.feed_stories)
+        else:
+            out.append(s)
+    return out
+
+
 def _build_ticker_iter(
     ticker_objects: list[Any],
     title: Any = None,

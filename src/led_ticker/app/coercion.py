@@ -27,6 +27,7 @@ _COLOR_KEYS: set[str] = {
     "bg_color",
     "top_bg_color",
     "bottom_bg_color",
+    "label_color",
 }
 
 # Keys that are text/foreground colors and should be coerced to

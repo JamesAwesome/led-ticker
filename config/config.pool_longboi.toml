@@ -57,3 +57,7 @@ stale_after = 900
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
+# Icy cyan for the "Pool 24h" / "Pool 7D" / "Pool Season" prefix labels
+# and separators. Default is white — tweak the RGB to taste (raise the
+# blue channel for cooler, raise the red for more lavender).
+label_color = [130, 220, 255]

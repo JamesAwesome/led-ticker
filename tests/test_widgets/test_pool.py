@@ -239,6 +239,49 @@ class TestBuildScreens:
         texts = "".join(t for t, _ in season.segments)
         assert "Season" in texts
 
+    def test_label_color_threads_into_every_label_segment(self):
+        """The configurable `label_color` (default white, set to e.g.
+        icy cyan in config.pool_longboi.toml) must reach every prefix-
+        label and separator segment across all three screens. Without
+        this wiring, a config like `label_color = [130, 220, 255]`
+        would silently fall back to white.
+        """
+        sentinel_color = object()  # Color is duck-typed by SegmentMessage
+        m = _monitor(label_color=sentinel_color)
+        m._build_screens(
+            current_c=27.78,
+            current_age_s=10.0,
+            past_c=27.2,
+            today_min_c=25.6,
+            today_max_c=28.9,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        # today: segments[0]=Pool24h label, segments[4]="/" separator
+        today_segments = m.feed_stories[0].segments
+        assert today_segments[0][1] is sentinel_color
+        assert today_segments[4][1] is sentinel_color
+        # 7-day: segments[0]=Pool7D label, segments[2]=spacer, segments[4]="/"
+        d7_segments = m.feed_stories[1].segments
+        assert d7_segments[0][1] is sentinel_color
+        assert d7_segments[2][1] is sentinel_color
+        assert d7_segments[4][1] is sentinel_color
+        # season: segments[0]=PoolSeasonHI label, segments[2]="  LO " label
+        season_segments = m.feed_stories[2].segments
+        assert season_segments[0][1] is sentinel_color
+        assert season_segments[2][1] is sentinel_color
+
+    def test_label_color_threads_into_placeholder(self):
+        sentinel_color = object()
+        m = _monitor(label_color=sentinel_color)
+        m._set_placeholder()
+        # Placeholder story: both segments use label_color.
+        for _text, color in m.feed_stories[0].segments:
+            assert color is sentinel_color
+
     def test_every_screen_carries_pool_prefix(self):
         """Each cycle screen leads with a 'Pool ...' label so users
         sharing the panel with other widgets can tell at a glance what

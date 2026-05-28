@@ -33,14 +33,13 @@ _SENSOR_ID_RE: re.Pattern[str] = re.compile(r"^[A-Za-z0-9_-]+$")
 # `stale_after`) — kept distinctly washed-out so users can tell the
 # temperature isn't current.
 #
-# LABEL_COLOR is for prefix labels ("Pool 24h", "Pool 7D", etc.) and
-# separators ("/"). White for max readability on LED panels — anything
-# dimmer than full white renders washed-out at the typical brightness=60.
+# The prefix labels ("Pool 24h", "Pool 7D", etc.) and separators ("/")
+# use the widget's configurable `label_color` field — defaults to white
+# but can be tinted (e.g. an icy cyan for a pool widget).
 #
 # STEADY_COLOR is the 7-day mean — neutral white-ish, distinct from the
 # zone-colored "current" temp on the today screen.
 DIM: Color = make_color(110, 110, 110)
-LABEL_COLOR: Color = RGB_WHITE
 STEADY_COLOR: Color = make_color(210, 210, 210)
 HI_COLOR: Color = ORANGE
 LO_COLOR: Color = BLUE
@@ -162,6 +161,7 @@ class PoolMonitor:
     )
     influxdb_token: str = attrs.field(factory=lambda: os.getenv("INFLUXDB_TOKEN", ""))
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+    label_color: Color = attrs.field(default=RGB_WHITE, kw_only=True)
     feed_title: SegmentMessage | None = attrs.field(init=False, default=None)
     feed_stories: list[SegmentMessage] = attrs.field(init=False, factory=list)
 
@@ -280,11 +280,11 @@ class PoolMonitor:
         arrow, arrow_color = _trend_arrow(now_display, past_display, ascii_only=True)
         today = SegmentMessage(
             [
-                ("Pool 24h ", LABEL_COLOR),
+                ("Pool 24h ", self.label_color),
                 (_fmt_temp(now_display, self.units), temp_color),
                 (f" {arrow} ", arrow_color),
                 (self._disp(today_max_c), HI_COLOR),
-                ("/", LABEL_COLOR),
+                ("/", self.label_color),
                 (self._disp(today_min_c), LO_COLOR),
             ],
             center=True,
@@ -292,11 +292,11 @@ class PoolMonitor:
         )
         d7 = SegmentMessage(
             [
-                ("Pool 7D AVG ", LABEL_COLOR),
+                ("Pool 7D AVG ", self.label_color),
                 (self._disp(d7_mean_c), STEADY_COLOR),
-                ("  ", LABEL_COLOR),
+                ("  ", self.label_color),
                 (self._disp(d7_max_c), HI_COLOR),
-                ("/", LABEL_COLOR),
+                ("/", self.label_color),
                 (self._disp(d7_min_c), LO_COLOR),
             ],
             center=True,
@@ -304,9 +304,9 @@ class PoolMonitor:
         )
         season = SegmentMessage(
             [
-                ("Pool Season HI ", LABEL_COLOR),
+                ("Pool Season HI ", self.label_color),
                 (self._disp(season_max_c), HI_COLOR),
-                ("  LO ", LABEL_COLOR),
+                ("  LO ", self.label_color),
                 (self._disp(season_min_c), LO_COLOR),
             ],
             center=True,
@@ -320,7 +320,7 @@ class PoolMonitor:
         )
         self.feed_stories = [
             SegmentMessage(
-                [(f"{self.title} ", LABEL_COLOR), ("--", LABEL_COLOR)],
+                [(f"{self.title} ", self.label_color), ("--", self.label_color)],
                 center=True,
                 font=self.font,
             )

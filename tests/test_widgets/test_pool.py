@@ -570,20 +570,43 @@ class TestTwoRowLayout:
         today = m.feed_stories[0]
         assert today.bottom_color.color_for(0, 0, 1) is DIM
 
-    def test_seven_day_bottom_color_is_avg(self):
-        from led_ticker.widgets.pool import AVG_COLOR
+    def test_seven_day_bottom_uses_hilo_color_provider(self):
+        """7D bottom row "84/76F" colors each segment: HI orange, slash
+        in label_color, LO blue, unit suffix label_color."""
+        from led_ticker.widgets.pool import HI_COLOR, LO_COLOR
 
         m = self._build()
-        assert m.feed_stories[1].bottom_color.color_for(0, 0, 1) is AVG_COLOR
+        provider = m.feed_stories[1].bottom_color
+        assert provider.per_char is True
+        # bottom_text = "84/76F"
+        # indices 0,1 -> HI_COLOR; 2 -> label_color; 3,4 -> LO_COLOR; 5 -> label
+        assert provider.color_for(0, 0, 6) is HI_COLOR
+        assert provider.color_for(0, 1, 6) is HI_COLOR
+        assert provider.color_for(0, 3, 6) is LO_COLOR
+        assert provider.color_for(0, 4, 6) is LO_COLOR
 
-    def test_season_bottom_color_is_avg(self):
-        """Combined HI/LO bottom uses AVG_COLOR (pink) — neither hi nor lo
-        dominates, so a neutral 'summary' color reads better than
-        biasing toward HI_COLOR or LO_COLOR."""
-        from led_ticker.widgets.pool import AVG_COLOR
+    def test_seven_day_separator_and_unit_use_label_color(self):
+        """The '/' and 'F' chars in "84/76F" carry label_color (configurable)."""
+        sentinel = object()
+        m = self._build(monitor_kwargs={"label_color": sentinel})
+        provider = m.feed_stories[1].bottom_color
+        # separator at index 2, unit letter at index 5
+        assert provider.color_for(0, 2, 6) is sentinel
+        assert provider.color_for(0, 5, 6) is sentinel
+
+    def test_season_bottom_uses_hilo_color_provider(self):
+        """Season bottom mirrors 7D: HI orange, LO blue, separator + unit
+        in label_color."""
+        from led_ticker.widgets.pool import HI_COLOR, LO_COLOR
 
         m = self._build()
-        assert m.feed_stories[2].bottom_color.color_for(0, 0, 1) is AVG_COLOR
+        provider = m.feed_stories[2].bottom_color
+        assert provider.per_char is True
+        # bottom_text = "88/71F" — same shape as 7D
+        assert provider.color_for(0, 0, 6) is HI_COLOR
+        assert provider.color_for(0, 1, 6) is HI_COLOR
+        assert provider.color_for(0, 3, 6) is LO_COLOR
+        assert provider.color_for(0, 4, 6) is LO_COLOR
 
     def test_label_color_threads_to_every_top(self):
         sentinel = object()

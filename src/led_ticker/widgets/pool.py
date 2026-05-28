@@ -14,8 +14,9 @@ from typing import Any, Self
 import aiohttp
 import attrs
 
-from led_ticker._types import Color
-from led_ticker.colors import BLUE, GREEN, ORANGE, RED, RGB_WHITE, make_color
+from led_ticker._types import Color, Font
+from led_ticker.colors import BLUE, GREEN, ORANGE, PINK, RED, RGB_WHITE, make_color
+from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets.message import SegmentMessage
@@ -26,9 +27,27 @@ _TREND_DEADBAND: float = 0.5
 
 _SENSOR_ID_RE: re.Pattern[str] = re.compile(r"^[A-Za-z0-9_-]+$")
 
-# Dim gray for stale temps and segment labels.
+# Color palette.
+#
+# DIM is reserved for the stale-temp signal (sensor data older than
+# `stale_after`) — kept distinctly washed-out so users can tell the
+# temperature isn't current.
+#
+# The prefix labels ("Pool 24h", "Pool 7D", etc.) and separators ("/")
+# use the widget's configurable `label_color` field — defaults to white
+# but can be tinted (e.g. an icy cyan for a pool widget).
+#
+# AVG_COLOR is the 7-day mean — pink, deliberately distinct from the
+# HI/LO orange/blue axis and from white labels. The 7D AVG is the only
+# value on its row that isn't an extreme, so it gets its own attention-
+# grabbing color.
+#
+# STEADY_COLOR is the trend-arrow "no change" case (used only when
+# `_trend_arrow` returns the steady glyph). Kept neutral gray so the
+# arrow reads as the absence of trend rather than a third alert color.
 DIM: Color = make_color(110, 110, 110)
-STEADY_COLOR: Color = make_color(150, 150, 150)
+AVG_COLOR: Color = PINK
+STEADY_COLOR: Color = make_color(210, 210, 210)
 HI_COLOR: Color = ORANGE
 LO_COLOR: Color = BLUE
 
@@ -52,8 +71,13 @@ def _c_to_display(temp_c: float, units: str) -> float:
 
 
 def _fmt_temp(temp_display: float, units: str) -> str:
-    """Whole-degree temp with unit suffix, e.g. '82°F'."""
-    suffix = "°F" if units == "imperial" else "°C"
+    """Whole-degree temp with unit suffix, e.g. '82F'.
+
+    No degree symbol — the hires Inter rasterized at small `font_size`
+    drops the U+00B0 glyph (renders as '?'), and the weather widget
+    already uses bare 'F'/'C' for the same reason. Stay consistent.
+    """
+    suffix = "F" if units == "imperial" else "C"
     return f"{round(temp_display)}{suffix}"
 
 
@@ -85,6 +109,20 @@ def _build_flux(
 
     `range_start` is a Flux duration ('-7d', '-1h') or an RFC3339
     timestamp. `agg` is one of 'last', 'mean', 'min', 'max'.
+
+    A `group()` is inserted before the aggregation so that buckets
+    with multiple sensors (pool water + ambient air + heater coil etc.)
+    return a single global aggregate row, not one row per series.
+    Without `group()` the CSV parser would pick the first series's
+    aggregate — which depends on InfluxDB's tag-value sort order and
+    on which sensors happen to have data in the query range. That
+    inconsistency surfaced as "season HI 37°F but pool app shows 90°F"
+    on a multi-sensor bucket: for short ranges only the pool sensor
+    had data so its max returned first; for year-to-date the ambient
+    air sensor had data too and sorted earlier.
+
+    Set `sensor_id` in config to pin a specific sensor and skip the
+    cross-sensor aggregation.
     """
     sensor_clause = f' and r.id == "{sensor_id}"' if sensor_id else ""
     return (
@@ -92,6 +130,7 @@ def _build_flux(
         f"  |> range(start: {range_start})\n"
         f'  |> filter(fn: (r) => r._measurement == "mqtt_consumer"'
         f' and r._field == "temperature_C"{sensor_clause})\n'
+        f"  |> group()\n"
         f"  |> {agg}()"
     )
 
@@ -143,6 +182,8 @@ class PoolMonitor:
         factory=lambda: os.getenv("INFLUXDB_BUCKET", "pool_temps")
     )
     influxdb_token: str = attrs.field(factory=lambda: os.getenv("INFLUXDB_TOKEN", ""))
+    font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+    label_color: Color = attrs.field(default=RGB_WHITE, kw_only=True)
     feed_title: SegmentMessage | None = attrs.field(init=False, default=None)
     feed_stories: list[SegmentMessage] = attrs.field(init=False, factory=list)
 
@@ -186,7 +227,18 @@ class PoolMonitor:
         async with self.session.post(url, data=flux, headers=headers) as resp:
             resp.raise_for_status()
             text = await resp.text()
-        return _parse_scalar_csv(text)
+        value, ts = _parse_scalar_csv(text)
+        # DEBUG-level so production logs stay quiet; flip --log-level DEBUG
+        # to verify each scalar query is returning a sensible value when
+        # the displayed numbers look wrong (e.g. season HI too low).
+        logger.debug(
+            "pool query: range=%s agg=%s → value=%s ts=%s",
+            range_start,
+            agg,
+            value,
+            ts,
+        )
+        return value, ts
 
     async def update(self) -> None:
         year_start = f"{datetime.now(UTC).year}-01-01T00:00:00Z"
@@ -253,47 +305,56 @@ class PoolMonitor:
         zone_f = _c_to_display(current_c, "imperial")
         stale = current_age_s > self.stale_after
 
-        self.feed_title = SegmentMessage([(self.title, RGB_WHITE)], center=True)
+        self.feed_title = SegmentMessage(
+            [(self.title, RGB_WHITE)], center=True, font=self.font
+        )
 
         temp_color = DIM if stale else _zone_color(zone_f)
         arrow, arrow_color = _trend_arrow(now_display, past_display, ascii_only=True)
         today = SegmentMessage(
             [
+                ("Pool 24h ", self.label_color),
                 (_fmt_temp(now_display, self.units), temp_color),
                 (f" {arrow} ", arrow_color),
                 (self._disp(today_max_c), HI_COLOR),
-                ("/", DIM),
+                ("/", self.label_color),
                 (self._disp(today_min_c), LO_COLOR),
             ],
             center=True,
+            font=self.font,
         )
         d7 = SegmentMessage(
             [
-                ("7D ", DIM),
-                ("AVG ", DIM),
-                (self._disp(d7_mean_c), STEADY_COLOR),
-                ("  ", DIM),
+                ("Pool 7D AVG ", self.label_color),
+                (self._disp(d7_mean_c), AVG_COLOR),
+                ("  ", self.label_color),
                 (self._disp(d7_max_c), HI_COLOR),
-                ("/", DIM),
+                ("/", self.label_color),
                 (self._disp(d7_min_c), LO_COLOR),
             ],
             center=True,
+            font=self.font,
         )
         season = SegmentMessage(
             [
-                ("Season ", DIM),
-                ("HI ", DIM),
+                ("Pool Season HI ", self.label_color),
                 (self._disp(season_max_c), HI_COLOR),
-                ("  ", DIM),
-                ("LO ", DIM),
+                ("  LO ", self.label_color),
                 (self._disp(season_min_c), LO_COLOR),
             ],
             center=True,
+            font=self.font,
         )
         self.feed_stories = [today, d7, season]
 
     def _set_placeholder(self) -> None:
-        self.feed_title = SegmentMessage([(self.title, RGB_WHITE)], center=True)
+        self.feed_title = SegmentMessage(
+            [(self.title, RGB_WHITE)], center=True, font=self.font
+        )
         self.feed_stories = [
-            SegmentMessage([(f"{self.title} ", DIM), ("--", DIM)], center=True)
+            SegmentMessage(
+                [(f"{self.title} ", self.label_color), ("--", self.label_color)],
+                center=True,
+                font=self.font,
+            )
         ]

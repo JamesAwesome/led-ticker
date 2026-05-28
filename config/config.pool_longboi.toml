@@ -1,12 +1,13 @@
-# Pool widget — longboi (bigsign) hardware testing config
+# Pool widget — longboi hardware testing config
 #
-# 256×64 logical canvas (8× P3 32×64 panels, 2×4 vertical-serpentine),
-# default_scale = 4. Single section, single pool widget, infinite loop —
-# soak-test the title → today → 7-day → season cycle on the big panel and
-# watch the periodic INFO log confirm update() is firing.
+# Longboi = 4× Muen P2 128×64 panels chained horizontally = 512×64 physical.
+# Driven by a Raspberry Pi 5 through an Adafruit RGB Matrix Bonnet (3211).
+# No pixel_mapper_config — single horizontal chain, left to right.
 #
-# Mirrors `config.bigsign.example.toml` for the display/RP1 tuning;
-# stripped down to one section so the pool widget owns the whole panel.
+# Display block matches config.longboi.toml verbatim — same panel_type init
+# (FM6126A), same BRG wiring, same Pi 5 RP1 tuning. Single section, single
+# pool widget, infinite loop — soak-test the title → today → 7-day → season
+# cycle and watch the `pool: ...` INFO log confirm update() is firing.
 #
 # Usage:
 #   cp config/config.pool_longboi.toml config/config.toml
@@ -18,27 +19,22 @@
 #   docker compose up
 
 [display]
-rows = 32
-cols = 64
-chain_length = 8
-parallel = 1
-
-# Vertical-serpentine mapping. Chain enters at the bottom-right panel,
-# climbs each column bottom-to-top, then jumps diagonally to the next
-# column to the left. See https://docs.ledticker.dev/hardware/bigsign/
-# if your build flips top-row panels 180° (swap each top-row 'n' for 's').
-pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
-
+rows = 64
+cols = 128
+chain_length = 4
 brightness = 60
 default_scale = 4
-
 hardware_mapping = "adafruit-hat"
+panel_type = "FM6126A"
+# Muen P2 panels wire HUB75 G-pin → Red LED, R-pin → Blue LED, B-pin → Green LED.
+led_rgb_sequence = "BRG"
 
-# Pi 5 RP1 GPIO tuning (matches config.bigsign.example.toml).
-gpio_slowdown = 3
+# Pi 5 RP1 RIO backend (matches config.longboi.toml).
+gpio_slowdown = 5
 rp1_rio = 1
-pwm_bits = 8
-show_refresh_rate = true  # log measured refresh Hz to stderr; useful while testing
+pwm_bits = 7
+limit_refresh_rate_hz = 100
+show_refresh_rate = true
 
 [[playlist.section]]
 mode = "swap"
@@ -52,3 +48,16 @@ units = "imperial"
 update_interval = 60   # fast: prove the background fetch fires every minute
 # sensor_id = "12345"  # optional; omit to use the only/first sensor in the bucket
 stale_after = 900
+# Hires text — sized for a dedicated full-panel display on longboi's 512×64.
+# font_size = 32 fills half the panel height (32 real px on a 64-tall panel)
+# so the temperature value is legible from across the pool. Matches the
+# "single widget gets a big size" convention; raise to 48 if you want it
+# bigger still (the Season HI ../LO .. screen is the longest at ~14 chars
+# and stays under 512px wide even at 32).
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+# Icy cyan for the "Pool 24h" / "Pool 7D" / "Pool Season" prefix labels
+# and separators. Default is white — tweak the RGB to taste (raise the
+# blue channel for cooler, raise the red for more lavender).
+label_color = [130, 220, 255]

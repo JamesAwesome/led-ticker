@@ -4,11 +4,19 @@
 # Skipped by `make render-long-demos` if INFLUXDB_TOKEN isn't set in
 # the environment. Reads INFLUXDB_URL/ORG/BUCKET/TOKEN from .env.
 # render-duration: 30
+#
+# Single 64×128 panel, default_scale = 4 → 32×16 logical canvas.
+# Symmetric 8/8 split with Inter-Regular at font_size = 16 in BOTH
+# rows. The real bigsign config (config.pool_bigsign.toml) uses
+# top_font_size = 16 with bottom_font_size = 32 for a more dramatic
+# label vs value contrast — but that requires more vertical headroom
+# than the demo panel provides, so the demo dials both rows to 16
+# and still shows the layout shape clearly.
 
 [display]
-rows = 32
-cols = 64
-chain_length = 8
+rows = 64
+cols = 128
+chain_length = 1
 default_scale = 4
 brightness = 60
 
@@ -24,7 +32,6 @@ units = "imperial"
 update_interval = 5
 layout = "two_row"
 font = "Inter-Regular"
-font_size = 32
+font_size = 16
 font_threshold = 80
-top_font_size = 16
 label_color = [130, 220, 255]

@@ -145,6 +145,8 @@ top_n = 3
 
 # Pool water temperature from the pool_monitor InfluxDB server.
 # Requires INFLUXDB_URL / INFLUXDB_TOKEN / INFLUXDB_ORG / INFLUXDB_BUCKET in .env.
+# Cycles four screens: title → "Pool 24h" (current + today HI/LO) →
+# "Pool 7D AVG" (week mean + week HI/LO) → "Pool Season HI/LO" (year-to-date).
 
 [[playlist.section]]
 mode = "swap"
@@ -156,10 +158,18 @@ loop_count = 1
 [[playlist.section.widget]]
 type = "pool"
 title = "POOL TEMPS"
-# sensor_id = "12345"   # optional; omit to use the only/first sensor
+# sensor_id = "12345"   # optional. Without it the widget aggregates GLOBALLY
+                        # across every sensor matching `_field=temperature_C`
+                        # in the bucket — fine for single-sensor setups but
+                        # may pick up ambient/heater readings on multi-sensor
+                        # buckets. Set sensor_id to pin one sensor.
 units = "imperial"
 update_interval = 300
 stale_after = 900
+# Optional: tint the prefix labels ("Pool 24h" / "Pool 7D" / "Pool Season")
+# and separators. Defaults to white. Use [r,g,b] e.g. [130, 220, 255] for
+# an icy cyan that fits the pool theme.
+# label_color = [130, 220, 255]
 
 # --- Weather (optional) ---
 # Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/).

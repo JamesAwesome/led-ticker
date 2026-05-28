@@ -156,7 +156,7 @@ def _monitor(**kw):
 class TestBuildScreens:
     def test_title_and_three_stories(self):
         m = _monitor(title="POOL TEMPS", units="imperial")
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=27.2,
@@ -182,7 +182,7 @@ class TestBuildScreens:
         """
         sentinel_font = object()  # Font is duck-typed downstream
         m = _monitor(font=sentinel_font)
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=27.2,
@@ -209,7 +209,7 @@ class TestBuildScreens:
 
     def test_today_screen_has_temp_and_arrow(self):
         m = _monitor(units="imperial")
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=27.2,
@@ -228,7 +228,7 @@ class TestBuildScreens:
 
     def test_stale_dims_temp(self):
         m = _monitor(units="imperial", stale_after=900)
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=1800.0,
             past_c=27.2,
@@ -247,7 +247,7 @@ class TestBuildScreens:
 
     def test_season_label_spelled_out(self):
         m = _monitor(units="imperial")
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=27.2,
@@ -272,7 +272,7 @@ class TestBuildScreens:
         """
         sentinel_color = object()  # Color is duck-typed by SegmentMessage
         m = _monitor(label_color=sentinel_color)
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=27.2,
@@ -313,7 +313,7 @@ class TestBuildScreens:
         the labels, this catches it before reaching hardware.
         """
         m = _monitor(units="imperial")
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=27.2,
@@ -334,7 +334,7 @@ class TestBuildScreens:
 
     def test_missing_values_render_dashes(self):
         m = _monitor(units="imperial")
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=27.2,
@@ -354,7 +354,7 @@ class TestBuildScreens:
 
         m = _monitor(units="metric")
         # 28°C = 82.4°F — should be the ORANGE (warm) zone.
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=28.0,
             current_age_s=10.0,
             past_c=27.5,
@@ -376,7 +376,7 @@ class TestBuildScreens:
 class TestConformance:
     def test_stories_are_widgets(self):
         m = _monitor()
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=None,
@@ -404,6 +404,303 @@ class TestSensorIdValidation:
         monkeypatch.setenv("INFLUXDB_TOKEN", "tok")
         with pytest.raises(ValueError, match="Invalid sensor_id"):
             await PoolMonitor.start(session=mock.Mock(), sensor_id='abc"def')
+
+
+class TestTwoRowLayout:
+    """Pool widget two_row layout: title + 4 stories using TwoRowMessage."""
+
+    def test_layout_defaults_to_ticker(self):
+        m = _monitor()
+        assert m.layout == "ticker"
+
+    def test_layout_two_row_field_accepts_value(self):
+        m = _monitor(layout="two_row")
+        assert m.layout == "two_row"
+
+    @pytest.mark.asyncio
+    async def test_layout_two_row_dispatch_uses_build_two_row_screens(self):
+        """When layout=two_row, update() routes to the two_row builder,
+        not the ticker builder. Patches the two builders at the class
+        level (mock.patch.object works on attrs slotted classes — the
+        slots constraint only blocks NEW attributes on instances)."""
+        m = _monitor(layout="two_row")
+
+        async def _fake_query(range_start, agg):
+            return 27.0, "2026-05-28T00:00:00Z"
+
+        with (
+            mock.patch.object(PoolMonitor, "_query", side_effect=_fake_query),
+            mock.patch.object(PoolMonitor, "_build_two_row_screens") as two_row_builder,
+            mock.patch.object(PoolMonitor, "_build_ticker_screens") as ticker_builder,
+        ):
+            await m.update()
+
+        two_row_builder.assert_called_once()
+        ticker_builder.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_layout_ticker_dispatch_uses_build_ticker_screens(self):
+        """Default layout=ticker routes to the ticker builder. Tripwire
+        against a regression where a future change inverts the dispatch.
+        """
+        m = _monitor()  # default layout = "ticker"
+
+        async def _fake_query(range_start, agg):
+            return 27.0, "2026-05-28T00:00:00Z"
+
+        with (
+            mock.patch.object(PoolMonitor, "_query", side_effect=_fake_query),
+            mock.patch.object(PoolMonitor, "_build_two_row_screens") as two_row_builder,
+            mock.patch.object(PoolMonitor, "_build_ticker_screens") as ticker_builder,
+        ):
+            await m.update()
+
+        ticker_builder.assert_called_once()
+        two_row_builder.assert_not_called()
+
+    def test_top_font_field_default_is_none(self):
+        m = _monitor()
+        assert m.top_font is None
+
+    def test_bottom_font_field_default_is_none(self):
+        m = _monitor()
+        assert m.bottom_font is None
+
+    def test_top_row_height_field_default_is_none(self):
+        m = _monitor()
+        assert m.top_row_height is None
+
+    def test_per_row_fields_accept_overrides(self):
+        sentinel_font = object()
+        m = _monitor(
+            top_font=sentinel_font,
+            bottom_font=sentinel_font,
+            top_row_height=4,
+        )
+        assert m.top_font is sentinel_font
+        assert m.bottom_font is sentinel_font
+        assert m.top_row_height == 4
+
+    def _build(self, **overrides):
+        """Run _build_two_row_screens with defaults; allow per-test overrides."""
+        m = _monitor(layout="two_row", **overrides.pop("monitor_kwargs", {}))
+        args = dict(
+            current_c=27.78,
+            current_age_s=10.0,
+            past_c=27.2,
+            today_min_c=25.6,
+            today_max_c=28.9,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        args.update(overrides)
+        m._build_two_row_screens(**args)
+        return m
+
+    def test_yields_title_plus_three_stories(self):
+        m = self._build()
+        assert m.feed_title is not None
+        assert len(m.feed_stories) == 3
+
+    def test_title_is_two_row_message(self):
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        m = self._build()
+        assert isinstance(m.feed_title, TwoRowMessage)
+
+    def test_all_stories_are_two_row_messages(self):
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        m = self._build()
+        for s in m.feed_stories:
+            assert isinstance(s, TwoRowMessage)
+
+    def test_title_screen_text(self):
+        m = self._build()
+        assert m.feed_title.top_text == "POOL"
+        assert m.feed_title.bottom_text == "TEMPS"
+
+    def test_today_screen_text(self):
+        m = self._build()
+        today = m.feed_stories[0]
+        assert today.top_text == "POOL 24H"
+        assert today.bottom_text == "82F"  # 27.78C -> 82F
+
+    def test_seven_day_screen_text(self):
+        """7D screen combines HI/LO into one bottom row with units."""
+        m = self._build()
+        d7 = m.feed_stories[1]
+        assert d7.top_text == "POOL 7D"
+        # 28.9C -> 84F (hi), 24.4C -> 76F (lo); _disp rounds to nearest int.
+        assert d7.bottom_text == "84/76F"
+
+    def test_season_screen_text(self):
+        """Season screen combines HI/LO into one bottom row with units."""
+        m = self._build()
+        season = m.feed_stories[2]
+        assert season.top_text == "POOL SEASON"
+        # 31.1C -> 88F (hi), 21.7C -> 71F (lo).
+        assert season.bottom_text == "88/71F"
+
+    def test_metric_units_use_C_suffix(self):
+        """Combined HI/LO uses C suffix when units = metric."""
+        m = self._build(monitor_kwargs={"units": "metric"})
+        d7 = m.feed_stories[1]
+        season = m.feed_stories[2]
+        assert d7.bottom_text == "29/24C"  # 28.9 / 24.4 rounded
+        assert season.bottom_text == "31/22C"  # 31.1 / 21.7 rounded
+
+    def test_today_bottom_color_is_zone_color(self):
+        from led_ticker.widgets.pool import _zone_color
+
+        m = self._build()
+        today = m.feed_stories[0]
+        # TwoRowMessage wraps raw Color in _ConstantColor; resolve via the
+        # public color_for(0, 0, 1) which returns the wrapped Color identity-
+        # preserving. Codebase convention — see tests/test_color_providers.py.
+        assert today.bottom_color.color_for(0, 0, 1) is _zone_color(82.0)
+
+    def test_today_bottom_color_when_stale(self):
+        from led_ticker.widgets.pool import DIM
+
+        m = self._build(current_age_s=10_000.0)  # well past stale_after=900
+        today = m.feed_stories[0]
+        assert today.bottom_color.color_for(0, 0, 1) is DIM
+
+    def test_seven_day_bottom_uses_hilo_color_provider(self):
+        """7D bottom row "84/76F" colors each segment: HI orange, slash
+        in label_color, LO blue, unit suffix label_color."""
+        from led_ticker.widgets.pool import HI_COLOR, LO_COLOR
+
+        m = self._build()
+        provider = m.feed_stories[1].bottom_color
+        assert provider.per_char is True
+        # bottom_text = "84/76F"
+        # indices 0,1 -> HI_COLOR; 2 -> label_color; 3,4 -> LO_COLOR; 5 -> label
+        assert provider.color_for(0, 0, 6) is HI_COLOR
+        assert provider.color_for(0, 1, 6) is HI_COLOR
+        assert provider.color_for(0, 3, 6) is LO_COLOR
+        assert provider.color_for(0, 4, 6) is LO_COLOR
+
+    def test_seven_day_separator_and_unit_use_label_color(self):
+        """The '/' and 'F' chars in "84/76F" carry label_color (configurable)."""
+        sentinel = object()
+        m = self._build(monitor_kwargs={"label_color": sentinel})
+        provider = m.feed_stories[1].bottom_color
+        # separator at index 2, unit letter at index 5
+        assert provider.color_for(0, 2, 6) is sentinel
+        assert provider.color_for(0, 5, 6) is sentinel
+
+    def test_season_bottom_uses_hilo_color_provider(self):
+        """Season bottom mirrors 7D: HI orange, LO blue, separator + unit
+        in label_color."""
+        from led_ticker.widgets.pool import HI_COLOR, LO_COLOR
+
+        m = self._build()
+        provider = m.feed_stories[2].bottom_color
+        assert provider.per_char is True
+        # bottom_text = "88/71F" — same shape as 7D
+        assert provider.color_for(0, 0, 6) is HI_COLOR
+        assert provider.color_for(0, 1, 6) is HI_COLOR
+        assert provider.color_for(0, 3, 6) is LO_COLOR
+        assert provider.color_for(0, 4, 6) is LO_COLOR
+
+    def test_label_color_threads_to_every_top(self):
+        sentinel = object()
+        m = self._build(monitor_kwargs={"label_color": sentinel})
+        # TwoRowMessage wraps raw Color in _ConstantColor; resolve via the
+        # public color_for(0, 0, 1) which returns the wrapped Color identity-
+        # preserving. Codebase convention — see tests/test_color_providers.py.
+        assert m.feed_title.top_color.color_for(0, 0, 1) is sentinel
+        for s in m.feed_stories:
+            assert s.top_color.color_for(0, 0, 1) is sentinel
+
+    def test_no_trend_arrow_in_today_screen(self):
+        m = self._build()
+        today = m.feed_stories[0]
+        # The bottom row must be just the temp value — no ^/v/- arrow glyph.
+        assert today.bottom_text == "82F"  # exact match
+
+    def test_per_row_fields_thread_to_two_row_message(self):
+        sentinel_font_top = object()
+        sentinel_font_bottom = object()
+        m = self._build(
+            monitor_kwargs={
+                "top_font": sentinel_font_top,
+                "bottom_font": sentinel_font_bottom,
+                "top_row_height": 4,
+            }
+        )
+        today = m.feed_stories[0]
+        assert today.top_font is sentinel_font_top
+        assert today.bottom_font is sentinel_font_bottom
+        assert today.top_row_height == 4
+
+    def test_feed_stories_type_accepts_both_message_types(self):
+        """feed_stories must accept SegmentMessage (ticker) or
+        TwoRowMessage (two_row) — Container Protocol conformance
+        depends on the field's declared type."""
+        from led_ticker.widgets.message import SegmentMessage
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        m = self._build()
+        for s in m.feed_stories:
+            assert isinstance(s, SegmentMessage | TwoRowMessage)
+
+    def test_placeholder_in_two_row_mode_uses_two_row_message(self):
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        m = _monitor(layout="two_row")
+        m._set_placeholder()
+        assert isinstance(m.feed_title, TwoRowMessage)
+        assert m.feed_title.top_text == "POOL"
+        assert m.feed_title.bottom_text == "TEMPS"
+        assert len(m.feed_stories) == 1
+        assert isinstance(m.feed_stories[0], TwoRowMessage)
+        assert m.feed_stories[0].top_text == "POOL TEMPS"
+        assert m.feed_stories[0].bottom_text == "--"
+
+    def test_placeholder_in_ticker_mode_unchanged(self):
+        """Existing ticker-mode placeholder behavior must not regress."""
+        from led_ticker.widgets.message import SegmentMessage
+
+        m = _monitor()  # default layout=ticker
+        m._set_placeholder()
+        assert isinstance(m.feed_title, SegmentMessage)
+        for s in m.feed_stories:
+            assert isinstance(s, SegmentMessage)
+
+    @pytest.mark.asyncio
+    async def test_pool_config_accepts_top_font_via_factories(self):
+        """End-to-end: pool config with per-row font knobs (top_font_size,
+        bottom_font_size, etc.) survives validate_widget_cfg cleanly.
+        The dispatch-table widening done in this task also surfaces these
+        fields in `led-ticker validate --list-fields pool` output. Guards
+        against a future regression that narrows _resolve_fonts to gate
+        on _DISPATCH_APPLICABLE_TYPES (which would suddenly make this
+        test fail for pool unless the type set already includes "pool")."""
+        from unittest.mock import MagicMock
+
+        from led_ticker.app.factories import validate_widget_cfg
+
+        session = MagicMock()
+        cfg = {
+            "type": "pool",
+            "layout": "two_row",
+            "font": "Inter-Regular",
+            "font_size": 32,
+            "font_threshold": 80,
+            "top_font_size": 16,
+            "bottom_font_size": 32,
+            "label_color": [130, 220, 255],
+        }
+        # Don't actually start the widget (would need INFLUXDB_TOKEN);
+        # we only need validate_widget_cfg to accept the field set.
+        await validate_widget_cfg(cfg, session=session)
+        # If we got here without raising, the fields were accepted.
 
 
 # Container Protocol conformance for PoolMonitor is asserted in

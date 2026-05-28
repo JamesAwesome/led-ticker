@@ -683,7 +683,7 @@ class MLBScoreboardMessage(_FrameAware):
 
 def _compute_preview_two_row(
     game: GameInfo,
-    team_abbr: str,
+    team_abbr: str,  # uniform signature — used by final/live/postponed helpers
     tz: ZoneInfo,
     series_wins: int,
     series_losses: int,
@@ -697,7 +697,7 @@ def _compute_preview_two_row(
         (game.home_abbr, home_c),
     ]
     if series_wins + series_losses > 0:
-        top.append((f" ({series_wins}-{series_losses})", make_color(150, 150, 150)))
+        top.append((f" ({series_wins}-{series_losses})", make_color(150, 150, 150)))  # grey — series record
     time_str = _format_game_time(game.start_time, tz) if game.start_time else "TBD"
     bot: list[tuple[str, Color]] = [(time_str, RGB_WHITE)]
     return top, bot

@@ -760,7 +760,7 @@ class TestMLBTwoRowLayout:
             series_wins=2, series_losses=1,
         )
         top_text = "".join(t for t, _ in msg.top_segments)
-        assert "2-1" in top_text or "2" in top_text
+        assert "2-1" in top_text
 
     def test_preview_top_omits_record_when_no_games_decided(self):
         """No record segment when series_wins + series_losses == 0."""
@@ -772,7 +772,4 @@ class TestMLBTwoRowLayout:
             game, "PHI", ZoneInfo("America/New_York"),
             series_wins=0, series_losses=0,
         )
-        top_text = "".join(t for t, _ in msg.top_segments)
-        # no record numbers
-        assert "0-0" not in top_text
-        assert "1-0" not in top_text
+        assert len(msg.top_segments) == 3  # exactly: away_abbr, " @ ", home_abbr — no record segment

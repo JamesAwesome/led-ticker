@@ -203,3 +203,23 @@ font_color = "random"
 type = "rss_feed"
 feed_url = "https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us"
 update_interval = 3000  # 50 minutes
+
+# --- Pool Temps ---
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 6
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":droplet: Pool Temps"
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "pool"
+title = "POOL TEMPS"
+units = "imperial"
+update_interval = 300
+stale_after = 900
+label_color = [130, 220, 255]

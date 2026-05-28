@@ -34,7 +34,7 @@ The widget reads connection details from your `.env` file. `INFLUXDB_TOKEN` is r
 | `INFLUXDB_ORG`    | no       | `pool`                 | InfluxDB organization name.       |
 | `INFLUXDB_BUCKET` | no       | `pool_temps`           | InfluxDB bucket name.             |
 
-All four can also be overridden per-widget in TOML via `influxdb_url`, `influxdb_org`, and `influxdb_bucket` — useful if you have multiple sensors on different servers.
+The three non-secret connection fields can also be overridden per-widget in TOML via `influxdb_url`, `influxdb_org`, and `influxdb_bucket` — useful if you have multiple sensors on different servers.
 
 ## Options
 
@@ -44,7 +44,7 @@ All four can also be overridden per-widget in TOML via `influxdb_url`, `influxdb
 
 ### `INFLUXDB_TOKEN` must be set before startup
 
-The widget raises `ValueError` at the first poll if the token is missing. Add `INFLUXDB_TOKEN=<your-token>` to your `.env` file (see `.env.example`) and restart the container.
+The widget raises `ValueError` during startup (before the first poll) if the token is missing. Add `INFLUXDB_TOKEN=<your-token>` to your `.env` file (see `.env.example`) and restart the container.
 
 ### Stale data turns dim gray
 

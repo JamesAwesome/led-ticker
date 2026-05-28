@@ -7,6 +7,7 @@ import csv
 import io
 import logging
 import os
+import re
 from datetime import UTC, datetime
 from typing import Any, Self
 
@@ -19,9 +20,11 @@ from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets.message import SegmentMessage
 
-# Deadband (in °F) below which a change reads as "steady" — avoids
-# flicker on sub-degree sensor noise.
-_TREND_DEADBAND_F: float = 0.5
+# Deadband (in the display unit) below which a change reads as "steady" —
+# avoids flicker on sub-degree sensor noise.
+_TREND_DEADBAND: float = 0.5
+
+_SENSOR_ID_RE: re.Pattern[str] = re.compile(r"^[A-Za-z0-9_-]+$")
 
 # Dim gray for stale temps and segment labels.
 DIM: Color = make_color(110, 110, 110)
@@ -68,9 +71,9 @@ def _trend_arrow(
     if past_f is None:
         return steady
     delta = now_f - past_f
-    if delta > _TREND_DEADBAND_F:
+    if delta > _TREND_DEADBAND:
         return up
-    if delta < -_TREND_DEADBAND_F:
+    if delta < -_TREND_DEADBAND:
         return down
     return steady
 
@@ -153,6 +156,10 @@ class PoolMonitor:
         widget = cls(session=session, **kwargs)
         if not widget.influxdb_token:
             raise ValueError("INFLUXDB_TOKEN not set. Add it to your .env file.")
+        if widget.sensor_id is not None and not _SENSOR_ID_RE.match(widget.sensor_id):
+            raise ValueError(
+                f"Invalid sensor_id {widget.sensor_id!r}: " "must match [A-Za-z0-9_-]+"
+            )
         widget._set_placeholder()
         try:
             await widget.update()
@@ -240,17 +247,19 @@ class PoolMonitor:
         season_min_c: float | None,
         season_max_c: float | None,
     ) -> None:
-        now_f = _c_to_display(current_c, self.units)
-        past_f = _c_to_display(past_c, self.units) if past_c is not None else None
+        now_display = _c_to_display(current_c, self.units)
+        past_display = _c_to_display(past_c, self.units) if past_c is not None else None
+        # Zone color always evaluated in °F so thresholds are consistent across units.
+        zone_f = _c_to_display(current_c, "imperial")
         stale = current_age_s > self.stale_after
 
         self.feed_title = SegmentMessage([(self.title, RGB_WHITE)], center=True)
 
-        temp_color = DIM if stale else _zone_color(now_f)
-        arrow, arrow_color = _trend_arrow(now_f, past_f, ascii_only=True)
+        temp_color = DIM if stale else _zone_color(zone_f)
+        arrow, arrow_color = _trend_arrow(now_display, past_display, ascii_only=True)
         today = SegmentMessage(
             [
-                (_fmt_temp(now_f, self.units), temp_color),
+                (_fmt_temp(now_display, self.units), temp_color),
                 (f" {arrow} ", arrow_color),
                 (self._disp(today_max_c), HI_COLOR),
                 ("/", DIM),

@@ -219,6 +219,28 @@ class TestBuildScreens:
         today_texts = "".join(t for t, _ in m.feed_stories[0].segments)
         assert "--" in today_texts
 
+    def test_metric_units_pick_correct_zone(self):
+        from led_ticker.colors import ORANGE
+
+        m = _monitor(units="metric")
+        # 28°C = 82.4°F — should be the ORANGE (warm) zone.
+        m._build_screens(
+            current_c=28.0,
+            current_age_s=10.0,
+            past_c=27.5,
+            today_min_c=25.0,
+            today_max_c=29.0,
+            d7_mean_c=27.0,
+            d7_min_c=24.0,
+            d7_max_c=29.0,
+            season_min_c=21.0,
+            season_max_c=31.0,
+        )
+        today = m.feed_stories[0]
+        # First segment is the temp text in the zone color
+        assert today.segments[0][1] is ORANGE
+        assert "28°C" in today.segments[0][0]
+
 
 class TestConformance:
     def test_stories_are_widgets(self):
@@ -244,6 +266,13 @@ class TestMissingToken:
         monkeypatch.delenv("INFLUXDB_TOKEN", raising=False)
         with pytest.raises(ValueError, match="INFLUXDB_TOKEN"):
             await PoolMonitor.start(session=mock.Mock())
+
+
+class TestSensorIdValidation:
+    async def test_invalid_sensor_id_rejected(self, monkeypatch):
+        monkeypatch.setenv("INFLUXDB_TOKEN", "tok")
+        with pytest.raises(ValueError, match="Invalid sensor_id"):
+            await PoolMonitor.start(session=mock.Mock(), sensor_id='abc"def')
 
 
 class TestRunIntegration:

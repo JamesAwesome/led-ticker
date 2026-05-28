@@ -207,6 +207,15 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "fiat currency for price quote (e.g. USD, EUR)",
         None,
     ),
+    # --- MLB / Pool (shared layout knob) ---
+    "layout": FieldHint(
+        '"ticker" | "two_row" | "scoreboard"',
+        "widget render mode. pool: ticker (single-row segmented, with "
+        "trend arrow) or two_row (stacked label-on-top / big-value-on-"
+        "bottom, bigsign-recommended). mlb: ticker or scoreboard (two-"
+        "column zone layout with ABS challenge pips).",
+        '"ticker"',
+    ),
     # --- MLB ---
     "team": FieldHint(
         "str",
@@ -304,12 +313,12 @@ _DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
     "bottom_text_wrap": {"gif", "image", "two_row"},
     "bottom_text_separator": {"gif", "image", "two_row"},
     "bottom_text_separator_color": {"gif", "image", "two_row"},
-    "top_font": {"two_row"},
-    "top_font_size": {"two_row"},
-    "top_font_threshold": {"two_row"},
-    "bottom_font": {"two_row"},
-    "bottom_font_size": {"two_row"},
-    "bottom_font_threshold": {"two_row"},
+    "top_font": {"two_row", "pool"},
+    "top_font_size": {"two_row", "pool"},
+    "top_font_threshold": {"two_row", "pool"},
+    "bottom_font": {"two_row", "pool"},
+    "bottom_font_size": {"two_row", "pool"},
+    "bottom_font_threshold": {"two_row", "pool"},
 }
 
 
@@ -590,6 +599,38 @@ async def validate_widget_cfg(
             fix_key="loops",
             fix_replacement_key="play_count",
         )
+
+    # Pool-specific layout validation
+    if widget_cfg.get("type") == "pool":
+        layout_value = widget_cfg.get("layout", "ticker")
+        valid_layouts = ["ticker", "two_row"]
+        if layout_value not in valid_layouts:
+            suggestion = difflib.get_close_matches(
+                str(layout_value), valid_layouts, n=1, cutoff=0.4
+            )
+            hint = f" (did you mean {suggestion[0]!r}?)" if suggestion else ""
+            raise ValueError(
+                f"pool widget layout must be one of {valid_layouts}; "
+                f"got {layout_value!r}{hint}"
+            )
+        if layout_value == "ticker":
+            two_row_only = {
+                "top_font",
+                "top_font_size",
+                "top_font_threshold",
+                "bottom_font",
+                "bottom_font_size",
+                "bottom_font_threshold",
+                "top_row_height",
+            }
+            offenders = two_row_only & set(widget_cfg.keys())
+            if offenders:
+                offender = sorted(offenders)[0]
+                raise ValueError(
+                    f"pool widget {offender!r} only applies when "
+                    f"layout='two_row'; remove the field or set "
+                    f"layout='two_row'."
+                )
 
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)

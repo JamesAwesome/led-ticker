@@ -1,0 +1,38 @@
+# Long demo: pool widget in two_row layout (bigsign-targeted).
+# requires-env: INFLUXDB_TOKEN
+#
+# Skipped by `make render-long-demos` if INFLUXDB_TOKEN isn't set in
+# the environment. Reads INFLUXDB_URL/ORG/BUCKET/TOKEN from .env.
+# render-duration: 25
+#
+# Mirrors config.pool_bigsign.toml: single panel sized 64×128 px
+# (smallest panel that exercises the same `scale = 2` +
+# `content_height = 32` band-budget math as the bigsign mapper),
+# Inter-Bold at 19/25 per moonbunny.production reference, cyan
+# label_color.
+
+[display]
+rows = 64
+cols = 128
+chain_length = 1
+default_scale = 4
+brightness = 60
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 32
+loop_count = 1
+hold_time = 5.0
+
+[[playlist.section.widget]]
+type = "pool"
+title = "POOL TEMPS"
+units = "imperial"
+update_interval = 5
+layout = "two_row"
+font = "Inter-Bold"
+font_size = 25
+font_threshold = 80
+top_font_size = 19
+label_color = [130, 220, 255]

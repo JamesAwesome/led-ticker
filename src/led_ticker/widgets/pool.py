@@ -15,11 +15,13 @@ import aiohttp
 import attrs
 
 from led_ticker._types import Color, Font
+from led_ticker.color_providers import ColorProviderBase
 from led_ticker.colors import BLUE, GREEN, ORANGE, PINK, RED, RGB_WHITE, make_color
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets.message import SegmentMessage
+from led_ticker.widgets.two_row import TwoRowMessage
 
 # Deadband (in the display unit) below which a change reads as "steady" —
 # avoids flicker on sub-degree sensor noise.
@@ -50,6 +52,48 @@ AVG_COLOR: Color = PINK
 STEADY_COLOR: Color = make_color(210, 210, 210)
 HI_COLOR: Color = ORANGE
 LO_COLOR: Color = BLUE
+
+
+class _HiLoColorProvider(ColorProviderBase):
+    """Per-char color for combined HI/LO bottom rows like "84/72F".
+
+    Paints the HI portion in `hi_color`, the LO portion in `lo_color`,
+    and the separator + unit-letter suffix in `label_color`. Indices
+    are passed in at construction so the provider doesn't need to know
+    the underlying text — keeps it dumb.
+
+    `per_char = True` triggers TwoRowMessage's per-character render
+    path. `frame_invariant = True` because no animation.
+    """
+
+    per_char: bool = True
+    frame_invariant: bool = True
+
+    def __init__(
+        self,
+        *,
+        hi_end: int,
+        lo_start: int,
+        lo_end: int,
+        hi_color: Color,
+        lo_color: Color,
+        label_color: Color,
+    ) -> None:
+        self._hi_end = hi_end
+        self._lo_start = lo_start
+        self._lo_end = lo_end
+        self._hi_color = hi_color
+        self._lo_color = lo_color
+        self._label_color = label_color
+
+    def color_for(self, frame: int, char_index: int, total_chars: int) -> Color:
+        if char_index < self._hi_end:
+            return self._hi_color
+        if char_index < self._lo_start:
+            return self._label_color
+        if char_index < self._lo_end:
+            return self._lo_color
+        return self._label_color
 
 
 def _zone_color(temp_f: float) -> Color:
@@ -183,9 +227,17 @@ class PoolMonitor:
     )
     influxdb_token: str = attrs.field(factory=lambda: os.getenv("INFLUXDB_TOKEN", ""))
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+    layout: str = attrs.field(default="ticker", kw_only=True)
     label_color: Color = attrs.field(default=RGB_WHITE, kw_only=True)
-    feed_title: SegmentMessage | None = attrs.field(init=False, default=None)
-    feed_stories: list[SegmentMessage] = attrs.field(init=False, factory=list)
+    top_font: Font | None = attrs.field(default=None, kw_only=True)
+    bottom_font: Font | None = attrs.field(default=None, kw_only=True)
+    top_row_height: int | None = attrs.field(default=None, kw_only=True)
+    feed_title: SegmentMessage | TwoRowMessage | None = attrs.field(
+        init=False, default=None
+    )
+    feed_stories: list[SegmentMessage | TwoRowMessage] = attrs.field(
+        init=False, factory=list
+    )
 
     @classmethod
     async def start(
@@ -257,18 +309,32 @@ class PoolMonitor:
             return
 
         age = self._age_seconds(current_time)
-        self._build_screens(
-            current_c=current_c,
-            current_age_s=age,
-            past_c=past_c,
-            today_min_c=today_min_c,
-            today_max_c=today_max_c,
-            d7_mean_c=d7_mean_c,
-            d7_min_c=d7_min_c,
-            d7_max_c=d7_max_c,
-            season_min_c=season_min_c,
-            season_max_c=season_max_c,
-        )
+        if self.layout == "two_row":
+            self._build_two_row_screens(
+                current_c=current_c,
+                current_age_s=age,
+                past_c=past_c,
+                today_min_c=today_min_c,
+                today_max_c=today_max_c,
+                d7_mean_c=d7_mean_c,
+                d7_min_c=d7_min_c,
+                d7_max_c=d7_max_c,
+                season_min_c=season_min_c,
+                season_max_c=season_max_c,
+            )
+        else:
+            self._build_ticker_screens(
+                current_c=current_c,
+                current_age_s=age,
+                past_c=past_c,
+                today_min_c=today_min_c,
+                today_max_c=today_max_c,
+                d7_mean_c=d7_mean_c,
+                d7_min_c=d7_min_c,
+                d7_max_c=d7_max_c,
+                season_min_c=season_min_c,
+                season_max_c=season_max_c,
+            )
 
     @staticmethod
     def _age_seconds(ts: str | None) -> float:
@@ -285,7 +351,87 @@ class PoolMonitor:
             return "--"
         return str(round(_c_to_display(c, self.units)))
 
-    def _build_screens(
+    def _build_two_row_screens(
+        self,
+        *,
+        current_c: float,
+        current_age_s: float,
+        past_c: float | None,
+        today_min_c: float | None,
+        today_max_c: float | None,
+        d7_mean_c: float | None,
+        d7_min_c: float | None,
+        d7_max_c: float | None,
+        season_min_c: float | None,
+        season_max_c: float | None,
+    ) -> None:
+        """Build feed_title + feed_stories in two_row layout. See spec
+        docs/superpowers/specs/2026-05-28-pool-two-row-layout-design.md.
+        """
+        now_display = _c_to_display(current_c, self.units)
+        zone_f = _c_to_display(current_c, "imperial")
+        stale = current_age_s > self.stale_after
+
+        kw = {
+            "font": self.font,
+            "top_font": self.top_font,
+            "bottom_font": self.bottom_font,
+            "top_row_height": self.top_row_height,
+            "top_color": self.label_color,
+        }
+
+        self.feed_title = TwoRowMessage(
+            top_text="POOL",
+            bottom_text="TEMPS",
+            bottom_color=RGB_WHITE,
+            **kw,
+        )
+
+        unit_letter = "F" if self.units == "imperial" else "C"
+        today_bottom_color = DIM if stale else _zone_color(zone_f)
+        today = TwoRowMessage(
+            top_text="POOL 24H",
+            bottom_text=_fmt_temp(now_display, self.units),
+            bottom_color=today_bottom_color,
+            **kw,
+        )
+
+        d7_hi = self._disp(d7_max_c)
+        d7_lo = self._disp(d7_min_c)
+        d7_text = f"{d7_hi}/{d7_lo}{unit_letter}"
+        d7 = TwoRowMessage(
+            top_text="POOL 7D",
+            bottom_text=d7_text,
+            bottom_color=_HiLoColorProvider(
+                hi_end=len(d7_hi),
+                lo_start=len(d7_hi) + 1,
+                lo_end=len(d7_hi) + 1 + len(d7_lo),
+                hi_color=HI_COLOR,
+                lo_color=LO_COLOR,
+                label_color=self.label_color,
+            ),
+            **kw,
+        )
+
+        season_hi = self._disp(season_max_c)
+        season_lo = self._disp(season_min_c)
+        season_text = f"{season_hi}/{season_lo}{unit_letter}"
+        season = TwoRowMessage(
+            top_text="POOL SEASON",
+            bottom_text=season_text,
+            bottom_color=_HiLoColorProvider(
+                hi_end=len(season_hi),
+                lo_start=len(season_hi) + 1,
+                lo_end=len(season_hi) + 1 + len(season_lo),
+                hi_color=HI_COLOR,
+                lo_color=LO_COLOR,
+                label_color=self.label_color,
+            ),
+            **kw,
+        )
+        self.feed_stories = [today, d7, season]
+
+    def _build_ticker_screens(
         self,
         *,
         current_c: float,
@@ -348,6 +494,28 @@ class PoolMonitor:
         self.feed_stories = [today, d7, season]
 
     def _set_placeholder(self) -> None:
+        if self.layout == "two_row":
+            kw = {
+                "font": self.font,
+                "top_font": self.top_font,
+                "bottom_font": self.bottom_font,
+                "top_row_height": self.top_row_height,
+                "top_color": self.label_color,
+                "bottom_color": self.label_color,
+            }
+            self.feed_title = TwoRowMessage(
+                top_text="POOL",
+                bottom_text="TEMPS",
+                **kw,
+            )
+            self.feed_stories = [
+                TwoRowMessage(
+                    top_text=self.title,
+                    bottom_text="--",
+                    **kw,
+                )
+            ]
+            return
         self.feed_title = SegmentMessage(
             [(self.title, RGB_WHITE)], center=True, font=self.font
         )

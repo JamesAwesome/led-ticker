@@ -681,6 +681,58 @@ class MLBScoreboardMessage(_FrameAware):
         return canvas, cursor_pos + canvas.width
 
 
+def _build_two_row_message(
+    game: GameInfo,
+    team_abbr: str,
+    tz: ZoneInfo,
+    bg_color: Color | None = None,
+    font: Font | None = None,
+    small_font: Font | None = None,
+    top_font: Font | None = None,
+    top_row_height: int | None = None,
+    font_color: Color | ColorProvider | None = None,
+) -> "MLBTwoRowMessage":
+    """Build a two-row layout message for a single game."""
+    return MLBTwoRowMessage(
+        game=game,
+        team_abbr=team_abbr,
+        tz=tz,
+        bg_color=bg_color,
+        font=font if font is not None else FONT_DEFAULT,
+        small_font=small_font if small_font is not None else FONT_SMALL,
+        top_font=top_font,
+        top_row_height=top_row_height,
+        font_color=font_color,
+    )
+
+
+@attrs.define
+class MLBTwoRowMessage(_FrameAware):
+    """Two-band game display: score/matchup on top, status on bottom."""
+
+    game: GameInfo
+    team_abbr: str
+    tz: ZoneInfo | None = None
+    bg_color: Color | None = None
+    font_color: Color | ColorProvider | None = attrs.field(default=None, kw_only=True)
+    font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+    small_font: Font = attrs.field(default=FONT_SMALL, kw_only=True)
+    top_font: Font | None = attrs.field(default=None, kw_only=True)
+    top_row_height: int | None = attrs.field(default=None, kw_only=True)
+    top_segments: list[tuple[str, Color]] = attrs.field(factory=list)
+    bottom_segments: list[tuple[str, Color]] = attrs.field(factory=list)
+
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
+        return canvas, canvas.width  # stub — implemented in later tasks
+
+
 @register("mlb")
 @attrs.define
 class MLBScoreMonitor:
@@ -697,13 +749,15 @@ class MLBScoreMonitor:
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
     small_font: Font = attrs.field(default=FONT_SMALL, kw_only=True)
     layout: str = attrs.field(default="ticker", kw_only=True)
+    top_font: Font | None = attrs.field(default=None, kw_only=True)
+    top_row_height: int | None = attrs.field(default=None, kw_only=True)
     _team_id: int = attrs.field(init=False, default=0)
     _tz: ZoneInfo | None = attrs.field(init=False, default=None)
     _has_live_game: bool = attrs.field(init=False, default=False)
-    feed_title: TickerMessage | SegmentMessage | MLBScoreboardMessage | None = (
+    feed_title: TickerMessage | SegmentMessage | MLBScoreboardMessage | MLBTwoRowMessage | None = (
         attrs.field(init=False, default=None)
     )
-    feed_stories: list[TickerMessage | SegmentMessage | MLBScoreboardMessage] = (
+    feed_stories: list[TickerMessage | SegmentMessage | MLBScoreboardMessage | MLBTwoRowMessage] = (
         attrs.field(init=False, factory=list)
     )
 
@@ -917,7 +971,7 @@ class MLBScoreMonitor:
             font_color=self.font_color,
         )
         self.feed_title = series_title
-        stories: list[TickerMessage | SegmentMessage | MLBScoreboardMessage] = [
+        stories: list[TickerMessage | SegmentMessage | MLBScoreboardMessage | MLBTwoRowMessage] = [
             series_title
         ]
         if self.layout == "scoreboard":
@@ -929,6 +983,21 @@ class MLBScoreMonitor:
                     bg_color=self.bg_color,
                     font=self.font,
                     small_font=self.small_font,
+                    font_color=self.font_color,
+                )
+                for g in current.games
+            )
+        elif self.layout == "two_row":
+            stories.extend(
+                _build_two_row_message(
+                    g,
+                    self.team,
+                    tz,
+                    bg_color=self.bg_color,
+                    font=self.font,
+                    small_font=self.small_font,
+                    top_font=self.top_font,
+                    top_row_height=self.top_row_height,
                     font_color=self.font_color,
                 )
                 for g in current.games

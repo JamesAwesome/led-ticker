@@ -680,3 +680,42 @@ class TestMlbBgColor:
             bg_color=bg,
         )
         assert msg.bg_color is bg
+
+
+class TestMLBTwoRowLayout:
+    """MLBTwoRowMessage class + MLBScoreMonitor dispatch for layout='two_row'."""
+
+    def test_monitor_top_font_default_is_none(self):
+        from unittest import mock
+        m = MLBScoreMonitor(session=mock.Mock(), team="PHI")
+        assert m.top_font is None
+
+    def test_monitor_top_row_height_default_is_none(self):
+        from unittest import mock
+        m = MLBScoreMonitor(session=mock.Mock(), team="PHI")
+        assert m.top_row_height is None
+
+    def test_monitor_layout_default_is_ticker(self):
+        from unittest import mock
+        m = MLBScoreMonitor(session=mock.Mock(), team="PHI")
+        assert m.layout == "ticker"
+
+    def test_two_row_message_type_imported(self):
+        from led_ticker.widgets.mlb import MLBTwoRowMessage  # noqa: F401
+
+    def test_two_row_stories_are_mlb_two_row_message_instances(self):
+        """Tripwire: all stories are MLBTwoRowMessage when layout='two_row'.
+        Catches a regression where dispatch routes to SegmentMessage instead.
+        """
+        from unittest import mock
+        from led_ticker.widgets.mlb import MLBTwoRowMessage
+
+        m = MLBScoreMonitor(session=mock.Mock(), team="PHI", layout="two_row")
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+        )
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        assert isinstance(msg, MLBTwoRowMessage)

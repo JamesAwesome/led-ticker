@@ -183,6 +183,7 @@ class PoolMonitor:
     )
     influxdb_token: str = attrs.field(factory=lambda: os.getenv("INFLUXDB_TOKEN", ""))
     font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+    layout: str = attrs.field(default="ticker", kw_only=True)
     label_color: Color = attrs.field(default=RGB_WHITE, kw_only=True)
     feed_title: SegmentMessage | None = attrs.field(init=False, default=None)
     feed_stories: list[SegmentMessage] = attrs.field(init=False, factory=list)
@@ -257,18 +258,32 @@ class PoolMonitor:
             return
 
         age = self._age_seconds(current_time)
-        self._build_screens(
-            current_c=current_c,
-            current_age_s=age,
-            past_c=past_c,
-            today_min_c=today_min_c,
-            today_max_c=today_max_c,
-            d7_mean_c=d7_mean_c,
-            d7_min_c=d7_min_c,
-            d7_max_c=d7_max_c,
-            season_min_c=season_min_c,
-            season_max_c=season_max_c,
-        )
+        if self.layout == "two_row":
+            self._build_two_row_screens(
+                current_c=current_c,
+                current_age_s=age,
+                past_c=past_c,
+                today_min_c=today_min_c,
+                today_max_c=today_max_c,
+                d7_mean_c=d7_mean_c,
+                d7_min_c=d7_min_c,
+                d7_max_c=d7_max_c,
+                season_min_c=season_min_c,
+                season_max_c=season_max_c,
+            )
+        else:
+            self._build_ticker_screens(
+                current_c=current_c,
+                current_age_s=age,
+                past_c=past_c,
+                today_min_c=today_min_c,
+                today_max_c=today_max_c,
+                d7_mean_c=d7_mean_c,
+                d7_min_c=d7_min_c,
+                d7_max_c=d7_max_c,
+                season_min_c=season_min_c,
+                season_max_c=season_max_c,
+            )
 
     @staticmethod
     def _age_seconds(ts: str | None) -> float:
@@ -285,7 +300,27 @@ class PoolMonitor:
             return "--"
         return str(round(_c_to_display(c, self.units)))
 
-    def _build_screens(
+    def _build_two_row_screens(
+        self,
+        *,
+        current_c: float,
+        current_age_s: float,
+        past_c: float | None,
+        today_min_c: float | None,
+        today_max_c: float | None,
+        d7_mean_c: float | None,
+        d7_min_c: float | None,
+        d7_max_c: float | None,
+        season_min_c: float | None,
+        season_max_c: float | None,
+    ) -> None:
+        """Build feed_title + feed_stories in two_row layout. See spec
+        docs/superpowers/specs/2026-05-28-pool-two-row-layout-design.md.
+        """
+        # Filled in by Task 3.
+        return None
+
+    def _build_ticker_screens(
         self,
         *,
         current_c: float,

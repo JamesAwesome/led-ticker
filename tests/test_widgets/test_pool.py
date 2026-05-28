@@ -156,7 +156,7 @@ def _monitor(**kw):
 class TestBuildScreens:
     def test_title_and_three_stories(self):
         m = _monitor(title="POOL TEMPS", units="imperial")
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=27.2,
@@ -182,7 +182,7 @@ class TestBuildScreens:
         """
         sentinel_font = object()  # Font is duck-typed downstream
         m = _monitor(font=sentinel_font)
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=27.2,
@@ -209,7 +209,7 @@ class TestBuildScreens:
 
     def test_today_screen_has_temp_and_arrow(self):
         m = _monitor(units="imperial")
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=27.2,
@@ -228,7 +228,7 @@ class TestBuildScreens:
 
     def test_stale_dims_temp(self):
         m = _monitor(units="imperial", stale_after=900)
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=1800.0,
             past_c=27.2,
@@ -247,7 +247,7 @@ class TestBuildScreens:
 
     def test_season_label_spelled_out(self):
         m = _monitor(units="imperial")
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=27.2,
@@ -272,7 +272,7 @@ class TestBuildScreens:
         """
         sentinel_color = object()  # Color is duck-typed by SegmentMessage
         m = _monitor(label_color=sentinel_color)
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=27.2,
@@ -313,7 +313,7 @@ class TestBuildScreens:
         the labels, this catches it before reaching hardware.
         """
         m = _monitor(units="imperial")
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=27.2,
@@ -334,7 +334,7 @@ class TestBuildScreens:
 
     def test_missing_values_render_dashes(self):
         m = _monitor(units="imperial")
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=27.2,
@@ -354,7 +354,7 @@ class TestBuildScreens:
 
         m = _monitor(units="metric")
         # 28°C = 82.4°F — should be the ORANGE (warm) zone.
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=28.0,
             current_age_s=10.0,
             past_c=27.5,
@@ -376,7 +376,7 @@ class TestBuildScreens:
 class TestConformance:
     def test_stories_are_widgets(self):
         m = _monitor()
-        m._build_screens(
+        m._build_ticker_screens(
             current_c=27.78,
             current_age_s=10.0,
             past_c=None,
@@ -404,6 +404,43 @@ class TestSensorIdValidation:
         monkeypatch.setenv("INFLUXDB_TOKEN", "tok")
         with pytest.raises(ValueError, match="Invalid sensor_id"):
             await PoolMonitor.start(session=mock.Mock(), sensor_id='abc"def')
+
+
+class TestTwoRowLayout:
+    """Pool widget two_row layout: title + 4 stories using TwoRowMessage."""
+
+    def test_layout_defaults_to_ticker(self):
+        m = _monitor()
+        assert m.layout == "ticker"
+
+    def test_layout_two_row_field_accepts_value(self):
+        m = _monitor(layout="two_row")
+        assert m.layout == "two_row"
+
+    def test_layout_two_row_dispatch_uses_build_two_row_screens(self):
+        """When layout=two_row, update() routes to the two_row builder.
+        At this skeleton stage the builder produces empty stories; the
+        next task fills it in.
+        """
+        m = _monitor(layout="two_row")
+        # NOTE: PoolMonitor is @attrs.define (slotted), so we cannot
+        # dynamically assign a tripwire attribute on the instance. The
+        # skeleton test only proves that the method exists and accepts
+        # the expected kwargs; Task 3 verifies the dispatch path through
+        # update() once the builder has observable output.
+        m._build_two_row_screens(
+            current_c=27.78,
+            current_age_s=10.0,
+            past_c=27.2,
+            today_min_c=25.6,
+            today_max_c=28.9,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        # No assertion on stories yet — the skeleton only proves the method exists.
 
 
 # Container Protocol conformance for PoolMonitor is asserted in

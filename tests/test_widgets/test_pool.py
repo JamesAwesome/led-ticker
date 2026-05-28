@@ -624,6 +624,29 @@ class TestTwoRowLayout:
         for s in m.feed_stories:
             assert isinstance(s, SegmentMessage | TwoRowMessage)
 
+    def test_placeholder_in_two_row_mode_uses_two_row_message(self):
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        m = _monitor(layout="two_row")
+        m._set_placeholder()
+        assert isinstance(m.feed_title, TwoRowMessage)
+        assert m.feed_title.top_text == "POOL"
+        assert m.feed_title.bottom_text == "TEMPS"
+        assert len(m.feed_stories) == 1
+        assert isinstance(m.feed_stories[0], TwoRowMessage)
+        assert m.feed_stories[0].top_text == "POOL TEMPS"
+        assert m.feed_stories[0].bottom_text == "--"
+
+    def test_placeholder_in_ticker_mode_unchanged(self):
+        """Existing ticker-mode placeholder behavior must not regress."""
+        from led_ticker.widgets.message import SegmentMessage
+
+        m = _monitor()  # default layout=ticker
+        m._set_placeholder()
+        assert isinstance(m.feed_title, SegmentMessage)
+        for s in m.feed_stories:
+            assert isinstance(s, SegmentMessage)
+
 
 # Container Protocol conformance for PoolMonitor is asserted in
 # tests/test_widget_protocol.py::test_container_protocol_recognizes_pool_monitor

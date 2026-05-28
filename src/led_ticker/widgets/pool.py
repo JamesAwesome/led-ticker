@@ -434,6 +434,28 @@ class PoolMonitor:
         self.feed_stories = [today, d7, season]
 
     def _set_placeholder(self) -> None:
+        if self.layout == "two_row":
+            kw = {
+                "font": self.font,
+                "top_font": self.top_font,
+                "bottom_font": self.bottom_font,
+                "top_row_height": self.top_row_height,
+                "top_color": self.label_color,
+                "bottom_color": self.label_color,
+            }
+            self.feed_title = TwoRowMessage(
+                top_text="POOL",
+                bottom_text="TEMPS",
+                **kw,
+            )
+            self.feed_stories = [
+                TwoRowMessage(
+                    top_text=self.title,
+                    bottom_text="--",
+                    **kw,
+                )
+            ]
+            return
         self.feed_title = SegmentMessage(
             [(self.title, RGB_WHITE)], center=True, font=self.font
         )

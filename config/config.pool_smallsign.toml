@@ -1,0 +1,37 @@
+# Pool widget — smallsign hardware testing config
+#
+# 160×16 logical canvas, 5× 32×16 panels chained, default_scale = 1.
+# Single section, single pool widget, infinite loop — soak-test the
+# title → today → 7-day → season cycle and watch the periodic INFO log
+# ("pool: N stories ...") confirm update() is firing.
+#
+# Usage:
+#   cp config/config.pool_smallsign.toml config/config.toml
+#   # Make sure .env defines INFLUXDB_TOKEN (and URL/ORG/BUCKET if not default):
+#   #   INFLUXDB_URL=http://pool_monitor:8086
+#   #   INFLUXDB_ORG=pool
+#   #   INFLUXDB_BUCKET=pool_temps
+#   #   INFLUXDB_TOKEN=...
+#   docker compose up
+
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+brightness = 60
+gpio_slowdown = 2
+hardware_mapping = "adafruit-hat"
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 5
+loop_count = 0  # infinite — soak test
+
+[[playlist.section.widget]]
+type = "pool"
+title = "POOL TEMPS"
+units = "imperial"
+update_interval = 60   # fast: prove the background fetch fires every minute
+# sensor_id = "12345"  # optional; omit to use the only/first sensor in the bucket
+stale_after = 900

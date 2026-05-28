@@ -40,6 +40,30 @@ The three non-secret connection fields can also be overridden per-widget in TOML
 
 <OptionsTable source="widgets/pool" />
 
+## Layouts
+
+The pool widget renders in one of two modes, selected by `layout`:
+
+### `layout = "ticker"` (default)
+
+Single-row segmented screens. The today screen shows current temp + trend arrow (▲ / ▼ / –) and today's HI/LO. The 7-day screen shows the mean alongside hi/lo. The season screen shows HI and LO together. Best for smaller panels (smallsign 160×16) where vertical space is limited.
+
+<DemoGif
+  src="/demos-long/widget-pool.gif"
+  caption="Pool widget in ticker layout — single-row segmented screens with trend arrow and hi/lo."
+/>
+
+### `layout = "two_row"`
+
+Stacked label-on-top / big-number-on-bottom. Top row carries a descriptive label (`POOL 24H`, `POOL 7D AVG`, `POOL SEASON HI`, `POOL SEASON LO`). Bottom row carries the headline value in a semantic color (zone-color current temp, pink 7-day mean, orange season HI, blue season LO). The trend arrow is intentionally dropped — bottom is the value only. Season splits into HI and LO screens. Best for bigsign / longboi (256×64 / 512×64) where vertical headroom is available.
+
+<DemoGif
+  src="/demos-long/widget-pool-two-row.gif"
+  caption="Pool widget in two_row layout — stacked label-on-top, big-number-on-bottom."
+/>
+
+Per-row fonts/sizes/thresholds (`top_font`, `top_font_size`, `top_font_threshold`, `bottom_font`, `bottom_font_size`, `bottom_font_threshold`) and an explicit `top_row_height` (logical rows) apply ONLY in `layout = "two_row"`. Setting them under ticker layout raises a config-load error.
+
 ## Tips
 
 ### `INFLUXDB_TOKEN` must be set before startup

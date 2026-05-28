@@ -7,6 +7,8 @@ bug fixed in 2026-05-28.
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from led_ticker.ticker import _build_ticker_iter, _expand_sources
@@ -119,3 +121,61 @@ def test_build_ticker_iter_loop_zero_no_title_cycles_widgets() -> None:
     ticker_iter = _build_ticker_iter(["x", "y"], title=None, loop_count=0)
     pulled = [next(ticker_iter) for _ in range(5)]
     assert pulled == ["x", "y", "x", "y", "x"]
+
+
+def test_app_run_passes_containers_to_ticker_unexpanded() -> None:
+    """app/run.py must push containers as-is into Ticker.monitors so the
+    engine can re-expand them per cycle. Pre-expanding here defeats the
+    refresh — see _build_ticker_iter.
+
+    This is a source-level tripwire: it scans app/run.py to ensure the
+    pre-expansion stanza removed in 2026-05-28 doesn't come back.
+    """
+    import ast
+    import pathlib
+
+    src = pathlib.Path("src/led_ticker/app/run.py").read_text()
+    tree = ast.parse(src)
+
+    # Walk for any `widgets.extend(<x>.feed_stories)` call
+    class ExtendVisitor(ast.NodeVisitor):
+        def __init__(self) -> None:
+            self.found = False
+
+        def visit_Call(self, node: ast.Call) -> None:
+            if (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr == "extend"
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "widgets"
+                and node.args
+                and isinstance(node.args[0], ast.Attribute)
+                and node.args[0].attr == "feed_stories"
+            ):
+                self.found = True
+            self.generic_visit(node)
+
+    visitor = ExtendVisitor()
+    visitor.visit(tree)
+    assert not visitor.found, (
+        "app/run.py must not pre-expand widget.feed_stories — "
+        "the engine re-expands containers per cycle via _expand_sources. "
+        "See docs/superpowers/plans/2026-05-28-live-container-refresh.md."
+    )
+
+
+@pytest.mark.asyncio
+async def test_enqueue_ticker_objects_handles_empty_iterator() -> None:
+    """An immediately-empty iterator (empty container + loop_count=0)
+    must terminate cleanly — without the StopIteration guard, PEP 479
+    promotes it to RuntimeError inside this async function.
+    """
+    from led_ticker.ticker import _enqueue_ticker_objects
+
+    queue: asyncio.Queue[object] = asyncio.Queue()
+    empty_iter = iter([])
+
+    # Should return without raising
+    await _enqueue_ticker_objects(empty_iter, queue)
+
+    assert queue.empty()

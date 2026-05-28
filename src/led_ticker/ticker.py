@@ -1088,7 +1088,16 @@ def _build_ticker_iter(
 async def _enqueue_ticker_objects(
     ticker_iter: Any, notif_queue: asyncio.Queue[Any]
 ) -> None:
-    await notif_queue.put(next(ticker_iter))
+    """Pull from ticker_iter into notif_queue until exhausted.
+
+    With per-pass container refresh (2026-05-28), an empty container
+    can produce an immediately-empty iterator. Guard the first next()
+    call so PEP 479 doesn't promote StopIteration to RuntimeError.
+    """
+    try:
+        await notif_queue.put(next(ticker_iter))
+    except StopIteration:
+        return
     while True:
         try:
             await notif_queue.put(next(ticker_iter))

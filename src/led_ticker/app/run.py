@@ -29,9 +29,6 @@ from led_ticker.app.factories import (
 from led_ticker.config import load_config
 from led_ticker.ticker import Ticker, _maybe_wrap
 from led_ticker.transitions import Transition, run_transition
-from led_ticker.widgets.mlb import MLBScoreMonitor
-from led_ticker.widgets.mlb_standings import MLBStandingsMonitor
-from led_ticker.widgets.rss_feed import RSSFeedMonitor
 
 
 async def run(config_path: Path) -> None:
@@ -90,19 +87,12 @@ async def run(config_path: Path) -> None:
                             coercion_collector=runtime_coerce,
                         )
                         widget_cache[key] = widget
-                    # Container widgets expand into stories
-                    if isinstance(
-                        widget,
-                        RSSFeedMonitor | MLBScoreMonitor | MLBStandingsMonitor,
-                    ):
-                        logging.debug(
-                            "Expanding %s: %d stories",
-                            type(widget).__name__,
-                            len(widget.feed_stories),
-                        )
-                        widgets.extend(widget.feed_stories)
-                    else:
-                        widgets.append(widget)
+                    # Containers are expanded by the engine on every
+                    # cycle pass via _expand_sources — pushing the
+                    # container itself (not its current feed_stories)
+                    # keeps the displayed content in sync with the
+                    # container's background update() task.
+                    widgets.append(widget)
                 # Drain coerce warnings collected during this section's
                 # widget build. Empty in the common case; one log line per
                 # CoercionWarning otherwise.

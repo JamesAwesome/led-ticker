@@ -244,3 +244,14 @@ class TestMissingToken:
         monkeypatch.delenv("INFLUXDB_TOKEN", raising=False)
         with pytest.raises(ValueError, match="INFLUXDB_TOKEN"):
             await PoolMonitor.start(session=mock.Mock())
+
+
+class TestRunIntegration:
+    def test_pool_is_recognized_container(self):
+        # run.py expands these container types' feed_stories into the playlist.
+        import inspect
+
+        from led_ticker.app import run
+
+        src = inspect.getsource(run)
+        assert "PoolMonitor" in src

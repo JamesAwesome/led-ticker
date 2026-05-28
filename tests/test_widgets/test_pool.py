@@ -1,7 +1,13 @@
+import unittest.mock as mock
+
 import pytest
 
 from led_ticker.colors import BLUE, GREEN, ORANGE, RED
+from led_ticker.widget import Widget
+from led_ticker.widgets.message import SegmentMessage
 from led_ticker.widgets.pool import (
+    DIM,
+    PoolMonitor,
     _build_flux,
     _c_to_display,
     _fmt_temp,
@@ -102,3 +108,122 @@ class TestBuildFlux:
         )
         assert "r.id ==" not in flux
         assert "|> last()" in flux
+
+
+# ---------------------------------------------------------------------------
+# PoolMonitor widget tests
+# ---------------------------------------------------------------------------
+
+
+def _monitor(**kw):
+    """PoolMonitor without network; env + session mocked."""
+    return PoolMonitor(
+        session=mock.Mock(),
+        influxdb_url="http://influx:8086",
+        influxdb_org="pool",
+        influxdb_bucket="pool_temps",
+        influxdb_token="tok",
+        **kw,
+    )
+
+
+class TestBuildScreens:
+    def test_title_and_three_stories(self):
+        m = _monitor(title="POOL TEMPS", units="imperial")
+        m._build_screens(
+            current_c=27.78,
+            current_age_s=10.0,
+            past_c=27.2,
+            today_min_c=25.6,
+            today_max_c=28.9,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        assert m.feed_title.segments[0][0] == "POOL TEMPS"
+        assert len(m.feed_stories) == 3
+        for s in m.feed_stories:
+            assert isinstance(s, SegmentMessage)
+
+    def test_today_screen_has_temp_and_arrow(self):
+        m = _monitor(units="imperial")
+        m._build_screens(
+            current_c=27.78,
+            current_age_s=10.0,
+            past_c=27.2,
+            today_min_c=25.6,
+            today_max_c=28.9,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        today = m.feed_stories[0]
+        texts = "".join(t for t, _ in today.segments)
+        assert "82°F" in texts  # 27.78C -> 82F
+        assert "^" in texts  # rising (27.78 > 27.2 by >0.5F)
+
+    def test_stale_dims_temp(self):
+        m = _monitor(units="imperial", stale_after=900)
+        m._build_screens(
+            current_c=27.78,
+            current_age_s=1800.0,
+            past_c=27.2,
+            today_min_c=25.6,
+            today_max_c=28.9,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        today = m.feed_stories[0]
+        temp_color = today.segments[0][1]
+        assert temp_color is DIM
+
+    def test_season_label_spelled_out(self):
+        m = _monitor(units="imperial")
+        m._build_screens(
+            current_c=27.78,
+            current_age_s=10.0,
+            past_c=27.2,
+            today_min_c=25.6,
+            today_max_c=28.9,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        season = m.feed_stories[2]
+        texts = "".join(t for t, _ in season.segments)
+        assert "Season" in texts
+
+
+class TestConformance:
+    def test_stories_are_widgets(self):
+        m = _monitor()
+        m._build_screens(
+            current_c=27.78,
+            current_age_s=10.0,
+            past_c=None,
+            today_min_c=25.6,
+            today_max_c=28.9,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        assert isinstance(m.feed_title, Widget)
+        assert all(isinstance(s, Widget) for s in m.feed_stories)
+
+
+class TestMissingToken:
+    async def test_start_raises_without_token(self, monkeypatch):
+        monkeypatch.delenv("INFLUXDB_TOKEN", raising=False)
+        with pytest.raises(ValueError, match="INFLUXDB_TOKEN"):
+            await PoolMonitor.start(session=mock.Mock())

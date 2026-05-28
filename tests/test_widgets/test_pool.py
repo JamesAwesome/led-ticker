@@ -649,9 +649,13 @@ class TestTwoRowLayout:
 
     @pytest.mark.asyncio
     async def test_pool_config_accepts_top_font_via_factories(self):
-        """End-to-end: a config with top_font/top_font_size on a pool
-        widget must build cleanly. Before widening _DISPATCH_APPLICABLE_TYPES,
-        this raised 'unknown field' validation errors."""
+        """End-to-end: pool config with per-row font knobs (top_font_size,
+        bottom_font_size, etc.) survives validate_widget_cfg cleanly.
+        The dispatch-table widening done in this task also surfaces these
+        fields in `led-ticker validate --list-fields pool` output. Guards
+        against a future regression that narrows _resolve_fonts to gate
+        on _DISPATCH_APPLICABLE_TYPES (which would suddenly make this
+        test fail for pool unless the type set already includes "pool")."""
         from unittest.mock import MagicMock
 
         from led_ticker.app.factories import validate_widget_cfg

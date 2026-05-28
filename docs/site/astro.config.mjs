@@ -109,6 +109,14 @@ export default defineConfig({
               link: "/hardware/smallsign/#reference-config",
             },
             {
+              label: "Hardware: Longboi reference build",
+              link: "/hardware/longboi/",
+            },
+            {
+              label: 'Longboi config - "Meeting Backdrop"',
+              link: "/hardware/longboi/#config-snippet",
+            },
+            {
               label: "Hardware: Building your own",
               link: "/hardware/building-your-own/",
             },

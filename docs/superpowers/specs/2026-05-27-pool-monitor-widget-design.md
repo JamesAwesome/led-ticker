@@ -192,6 +192,28 @@ Config keys map directly to `@attrs.define` fields (the project's standard
 schema mechanism). `sensor_id` omitted → query without an `id` filter (assumes a
 single sensor / first match).
 
+## Documentation
+
+The widget ships with docs, matching every other widget:
+
+- **New page** `docs/site/src/content/docs/widgets/pool.mdx` — same structure as
+  `weather.mdx`: frontmatter (`title`, `description`), intro paragraph, a
+  `<DemoGif>`, a `<TomlExample>` minimal config, an `<OptionsTable>` for all
+  config fields, and `<RelatedPages>`. Must document the `.env` requirement
+  (`INFLUXDB_URL/TOKEN/ORG/BUCKET`), since the widget is non-functional without
+  it.
+- **Index table** `docs/site/src/content/docs/widgets/index.mdx` — add a `pool`
+  row to the widget table and include `pool` in the "Live data (background
+  fetch)" list.
+- **Sidebar nav** `docs/site/astro.config.mjs` — add
+  `{ label: "pool", link: "/widgets/pool/" }` to the widgets sidebar group.
+- **Config example** `config/config.example.toml` — add a commented `pool`
+  widget block.
+- **Demo gif** (`/demos-long/widget-pool.gif`) requires a working config + a
+  render pass (see the `making-a-gif` skill). Generating it depends on a
+  reachable InfluxDB with data, so it may be produced as a follow-up; until
+  then the `<DemoGif>` may point at a placeholder or be omitted.
+
 ## Testing
 
 Mirror `tests/test_widgets/test_weather.py` and the MLB standings tests:

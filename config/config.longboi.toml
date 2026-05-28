@@ -32,7 +32,6 @@ gpio_slowdown = 5
 rp1_rio = 1
 pwm_bits = 7     # 7-bit PWM: tuned for camera; default is 11
 limit_refresh_rate_hz = 100   # caps refresh to stabilise image on camera
-show_refresh_rate = true
 
 [title]
 delay = 5
@@ -60,7 +59,7 @@ loop_count = 1
 type = "message"
 text = ":bunny: #DevOps News :taco:"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 font_color = "random"
 
@@ -68,21 +67,21 @@ font_color = "random"
 type = "message"
 text = "Check out Datadog MCP!"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
 type = "message"
 text = "Talk to #team-foundations for all your DevOps needs!"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
 type = "message"
 text = "Ask me about eden review apps! :taco:"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 # --- Weather ---
@@ -98,7 +97,7 @@ loop_count = 2
 type = "message"
 text = "Weather"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 font_color = "random"
 
@@ -108,7 +107,7 @@ text = "New York"
 location = "New York"
 units = "imperial"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
@@ -117,7 +116,7 @@ text = "Philadelphia"
 location = "Philadelphia"
 units = "imperial"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
@@ -126,7 +125,7 @@ text = "Milwaukee"
 location = "Milwaukee"
 units = "imperial"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
@@ -135,7 +134,7 @@ text = "Minneapolis"
 location = "Minneapolis"
 units = "imperial"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
@@ -144,7 +143,7 @@ text = "Washington DC"
 location = "Washington DC"
 units = "imperial"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 # --- Countdowns ---
@@ -158,7 +157,7 @@ loop_count = 1
 type = "message"
 text = "Count Downs"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 font_color = "random"
 
@@ -167,7 +166,7 @@ type = "countdown"
 text = "4th of July"
 countdown_date = 2026-07-04
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
@@ -175,7 +174,7 @@ type = "countdown"
 text = "Halloween"
 countdown_date = 2026-10-31
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
@@ -183,7 +182,7 @@ type = "countdown"
 text = "Thanksgiving"
 countdown_date = 2026-11-26
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
@@ -191,7 +190,7 @@ type = "countdown"
 text = "Christmas"
 countdown_date = 2026-12-25
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
@@ -199,7 +198,7 @@ type = "countdown"
 text = "New Years"
 countdown_date = 2027-01-01
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 # --- Nintendo Life RSS ---
@@ -216,7 +215,7 @@ loop_count = 1
 type = "message"
 text = "Nintendo Life"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 font_color = "random"
 
@@ -225,7 +224,7 @@ type = "rss_feed"
 feed_url = "https://www.nintendolife.com/feeds/news"
 update_interval = 3000
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 # --- MLB Scores ---
@@ -243,7 +242,7 @@ loop_count = 2
 type = "message"
 text = ":baseball: Oh! That's Baseball!! :baseball:"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 font_color = "random"
 
@@ -252,7 +251,7 @@ type = "mlb"
 team = "PHI"
 timezone = "America/New_York"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
@@ -260,7 +259,7 @@ type = "mlb"
 team = "NYM"
 timezone = "America/New_York"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 
 # --- MLB Standings ---
@@ -278,7 +277,7 @@ loop_count = 1
 type = "message"
 text = ":baseball: MLB Standings :baseball:"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 font_color = "random"
 
@@ -289,8 +288,36 @@ title = "MLB Standings"
 top_n = 3
 timezone = "America/New_York"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
+
+# --- Pool Temps ---
+# Requires INFLUXDB_TOKEN (and URL/ORG/BUCKET) in .env.
+
+[[playlist.section]]
+mode = "swap"
+transition = "wipe_alternating"
+hold_time = 6
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Pool Temps"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "pool"
+title = "POOL TEMPS"
+units = "imperial"
+update_interval = 60
+stale_after = 900
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+label_color = [130, 220, 255]
 
 # --- Anime News Network ---
 
@@ -305,7 +332,7 @@ loop_count = 1
 type = "message"
 text = "Anime News Network"
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80
 font_color = "random"
 
@@ -314,5 +341,5 @@ type = "rss_feed"
 feed_url = "https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us"
 update_interval = 3000
 font = "Inter-Regular"
-font_size = 16
+font_size = 32
 font_threshold = 80

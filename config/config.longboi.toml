@@ -27,10 +27,11 @@ led_rgb_sequence = "BRG"
 
 # Pi 5 RP1 RIO backend (faster refresh, slightly more CPU than PIO).
 # rp1_rio = 1 requires row_address_type = 0 (default) — do not set row_address_type = 1.
-# Raise gpio_slowdown to 4–5 if flicker appears.
-gpio_slowdown = 3
+# Raise gpio_slowdown to 4–5 if flicker persists.
+gpio_slowdown = 5
 rp1_rio = 1
-pwm_bits = 8     # 8-bit PWM: faster refresh, slightly less color depth than default 11
+pwm_bits = 7     # 7-bit PWM: tuned for camera; default is 11
+limit_refresh_rate_hz = 100   # caps refresh to stabilise image on camera
 show_refresh_rate = true
 
 [title]

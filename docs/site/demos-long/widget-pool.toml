@@ -1,0 +1,24 @@
+# Long demo: pool water temperature from pool_monitor InfluxDB.
+# requires-env: INFLUXDB_TOKEN
+#
+# Skipped by `make render-long-demos` if INFLUXDB_TOKEN isn't set in
+# the environment. Reads INFLUXDB_URL/ORG/BUCKET/TOKEN from .env.
+# render-duration: 25
+
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+brightness = 60
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 5.0
+
+[[playlist.section.widget]]
+type = "pool"
+title = "POOL TEMPS"
+units = "imperial"
+update_interval = 5

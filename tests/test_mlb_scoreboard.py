@@ -478,10 +478,10 @@ async def test_layout_scoreboard_builds_scoreboard_messages():
 
 @pytest.mark.asyncio
 async def test_layout_ticker_builds_game_messages():
-    from led_ticker.widgets.mlb import MLBGameMessage
+    from led_ticker.widgets.mlb import SegmentMessage
 
     monitor = await _run_update_with_schedule("ticker", _phi_nym_schedule())
-    game_stories = [s for s in monitor.feed_stories if isinstance(s, MLBGameMessage)]
+    game_stories = [s for s in monitor.feed_stories if isinstance(s, SegmentMessage)]
     assert len(game_stories) >= 1
 
 
@@ -776,9 +776,9 @@ async def test_update_parse_error_shows_no_data_not_stale():
 
     from rgbmatrix.graphics import Color
 
-    from led_ticker.widgets.mlb import MLBGameMessage
+    from led_ticker.widgets.mlb import SegmentMessage
 
-    stale = MLBGameMessage([("PHI 5 NYM 3 (Final)", Color(255, 255, 255))])
+    stale = SegmentMessage([("PHI 5 NYM 3 (Final)", Color(255, 255, 255))])
     monitor.feed_stories = [stale]
 
     resp = mock.AsyncMock()
@@ -791,7 +791,7 @@ async def test_update_parse_error_shows_no_data_not_stale():
 
     from led_ticker.widgets.message import TickerMessage
 
-    assert not any(isinstance(s, MLBGameMessage) for s in monitor.feed_stories)
+    assert not any(isinstance(s, SegmentMessage) for s in monitor.feed_stories)
     assert any(
         isinstance(s, TickerMessage) and "No Data" in s.text
         for s in monitor.feed_stories

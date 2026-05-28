@@ -2,10 +2,31 @@
 
 from datetime import date
 
-from led_ticker.colors import DEFAULT_COLOR, RGB_WHITE
+from led_ticker.colors import DEFAULT_COLOR, GREEN, RGB_WHITE
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import Widget
 from led_ticker.widgets.message import TickerCountdown, TickerMessage
+
+
+class TestSegmentMessage:
+    def test_segments_stored(self):
+        from led_ticker.widgets.message import SegmentMessage
+
+        msg = SegmentMessage([("A", RGB_WHITE), ("B", GREEN)])
+        assert [t for t, _ in msg.segments] == ["A", "B"]
+
+    def test_conforms_to_widget_protocol(self):
+        from led_ticker.widgets.message import SegmentMessage
+
+        assert isinstance(SegmentMessage([("x", RGB_WHITE)]), Widget)
+
+    def test_draw_centered_returns_canvas(self, canvas):
+        from led_ticker.widgets.message import SegmentMessage
+
+        msg = SegmentMessage([("82", RGB_WHITE)], center=True)
+        result_canvas, cursor_pos = msg.draw(canvas)
+        assert result_canvas is canvas
+        assert cursor_pos == 160
 
 
 class TestTickerMessage:

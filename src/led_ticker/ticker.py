@@ -8,6 +8,7 @@ import inspect
 import itertools
 import logging
 import math
+from collections.abc import Iterator
 from typing import Any
 
 import attrs
@@ -18,6 +19,8 @@ from led_ticker.drawing import get_widget_padding, safe_scale
 from led_ticker.scaled_canvas import ScaledCanvas, paint_hires, unwrap_to_real
 from led_ticker.widgets._image_fit import reset_canvas
 from led_ticker.widgets.message import TickerMessage
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 # Logical footprint of the hi-res circle separator: 1 left pad + 8
 # circle + 1 right pad = 10 logical px. Matches today's " \u2022 " BDF
@@ -1025,11 +1028,56 @@ def _build_ticker_iter(
     ticker_objects: list[Any],
     title: Any = None,
     loop_count: int = 0,
-) -> Any:
+) -> Iterator[Any]:
+    """Build the engine's per-tick iterator over a section's widgets.
+
+    `ticker_objects` may contain `Container` widgets — they are
+    expanded into their current `feed_stories` on EVERY pass through
+    the section. Snapshotting at first pass would freeze the displayed
+    content even though container `update()` tasks keep running (the
+    longboi stale-display bug, 2026-05-28).
+
+    `loop_count=0` cycles forever; `loop_count=N` makes exactly N passes.
+    Either way, each pass calls `_expand_sources` so live updates land
+    on the panel within at most one cycle of latency.
+
+    `title` is prepended ONCE (not repeated per pass).
+    """
+    n_sources = len(ticker_objects)
+
     if loop_count:
-        ticker_iter = itertools.chain(ticker_objects * loop_count)
+
+        def passes() -> Iterator[Any]:
+            for pass_idx in range(loop_count):
+                widgets = _expand_sources(ticker_objects)
+                logger.debug(
+                    "section pass %d/%d: %d sources → %d widgets",
+                    pass_idx + 1,
+                    loop_count,
+                    n_sources,
+                    len(widgets),
+                )
+                yield from widgets
+
+        ticker_iter: Iterator[Any] = passes()
     else:
-        ticker_iter = itertools.cycle(ticker_objects)
+
+        def cycle_with_refresh() -> Iterator[Any]:
+            pass_idx = 0
+            while True:
+                widgets = _expand_sources(ticker_objects)
+                logger.debug(
+                    "section cycle %d: %d sources → %d widgets",
+                    pass_idx,
+                    n_sources,
+                    len(widgets),
+                )
+                if not widgets:
+                    return
+                yield from widgets
+                pass_idx += 1
+
+        ticker_iter = cycle_with_refresh()
 
     if title:
         ticker_iter = itertools.chain([title], ticker_iter)

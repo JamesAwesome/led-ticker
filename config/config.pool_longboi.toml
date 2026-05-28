@@ -52,3 +52,10 @@ units = "imperial"
 update_interval = 60   # fast: prove the background fetch fires every minute
 # sensor_id = "12345"  # optional; omit to use the only/first sensor in the bucket
 stale_after = 900
+# Hires text — matches the MLB section's font setup in config.longboi.toml.
+# Default (BDF) glyphs scale 4× on bigsign and end up chunky and misplaced
+# inside the 16-tall logical band; Inter at font_size=16 renders cleanly at
+# physical resolution (bypasses the ScaledCanvas block expansion for text).
+font = "Inter-Regular"
+font_size = 16
+font_threshold = 80

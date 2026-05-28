@@ -147,6 +147,40 @@ class TestBuildScreens:
         for s in m.feed_stories:
             assert isinstance(s, SegmentMessage)
 
+    def test_widget_font_threads_into_feed_title_and_stories(self):
+        """Custom `font` configured on the widget must reach every
+        SegmentMessage (title + 3 stories + placeholder). Without this
+        wiring, bigsign configs that specify `font = "Inter-Regular"`
+        would silently fall back to FONT_DEFAULT (BDF), producing the
+        chunky-text-misplaced bug fixed alongside config.pool_longboi.toml.
+        """
+        sentinel_font = object()  # Font is duck-typed downstream
+        m = _monitor(font=sentinel_font)
+        m._build_screens(
+            current_c=27.78,
+            current_age_s=10.0,
+            past_c=27.2,
+            today_min_c=25.6,
+            today_max_c=28.9,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        assert m.feed_title.font is sentinel_font
+        for s in m.feed_stories:
+            assert s.font is sentinel_font
+
+    def test_widget_font_threads_into_placeholder(self):
+        """Placeholder screens (shown on initial fetch / failure) must
+        also carry the configured font."""
+        sentinel_font = object()
+        m = _monitor(font=sentinel_font)
+        m._set_placeholder()
+        assert m.feed_title.font is sentinel_font
+        assert m.feed_stories[0].font is sentinel_font
+
     def test_today_screen_has_temp_and_arrow(self):
         m = _monitor(units="imperial")
         m._build_screens(

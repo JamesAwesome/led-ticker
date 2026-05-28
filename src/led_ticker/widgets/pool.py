@@ -14,8 +14,9 @@ from typing import Any, Self
 import aiohttp
 import attrs
 
-from led_ticker._types import Color
+from led_ticker._types import Color, Font
 from led_ticker.colors import BLUE, GREEN, ORANGE, RED, RGB_WHITE, make_color
+from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets.message import SegmentMessage
@@ -143,6 +144,7 @@ class PoolMonitor:
         factory=lambda: os.getenv("INFLUXDB_BUCKET", "pool_temps")
     )
     influxdb_token: str = attrs.field(factory=lambda: os.getenv("INFLUXDB_TOKEN", ""))
+    font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
     feed_title: SegmentMessage | None = attrs.field(init=False, default=None)
     feed_stories: list[SegmentMessage] = attrs.field(init=False, factory=list)
 
@@ -253,7 +255,9 @@ class PoolMonitor:
         zone_f = _c_to_display(current_c, "imperial")
         stale = current_age_s > self.stale_after
 
-        self.feed_title = SegmentMessage([(self.title, RGB_WHITE)], center=True)
+        self.feed_title = SegmentMessage(
+            [(self.title, RGB_WHITE)], center=True, font=self.font
+        )
 
         temp_color = DIM if stale else _zone_color(zone_f)
         arrow, arrow_color = _trend_arrow(now_display, past_display, ascii_only=True)
@@ -266,6 +270,7 @@ class PoolMonitor:
                 (self._disp(today_min_c), LO_COLOR),
             ],
             center=True,
+            font=self.font,
         )
         d7 = SegmentMessage(
             [
@@ -278,6 +283,7 @@ class PoolMonitor:
                 (self._disp(d7_min_c), LO_COLOR),
             ],
             center=True,
+            font=self.font,
         )
         season = SegmentMessage(
             [
@@ -289,11 +295,16 @@ class PoolMonitor:
                 (self._disp(season_min_c), LO_COLOR),
             ],
             center=True,
+            font=self.font,
         )
         self.feed_stories = [today, d7, season]
 
     def _set_placeholder(self) -> None:
-        self.feed_title = SegmentMessage([(self.title, RGB_WHITE)], center=True)
+        self.feed_title = SegmentMessage(
+            [(self.title, RGB_WHITE)], center=True, font=self.font
+        )
         self.feed_stories = [
-            SegmentMessage([(f"{self.title} ", DIM), ("--", DIM)], center=True)
+            SegmentMessage(
+                [(f"{self.title} ", DIM), ("--", DIM)], center=True, font=self.font
+            )
         ]

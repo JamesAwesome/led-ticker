@@ -1,24 +1,45 @@
 # MLB Widget Options
 
-`MLBScoreMonitor` fetches live game state from MLB's free StatsAPI (no API key required) and renders the tracked team's current series with different display modes depending on game state:
+`MLBScoreMonitor` fetches live game state from MLB's free StatsAPI (no API key required) and renders the tracked team's current series. Two layouts are available:
 
-- **Pre-game** — `NYY @ BOS  Today 7:05 PM` (upcoming game with time)
+**`layout = "ticker"` (default)** — scrolling ticker line:
+
+- **Pre-game** — `NYY @ BOS  Today 7:05 PM`
 - **Live** — `NYY 3 BOS 5 ▲6 ◇◆◇ 1·2·1` (score + inning + bases + BSO in color)
 - **Final** — `NYY 4 BOS 5 (Final)` (win in green, loss in red)
 - **Postponed** — `NYY @ BOS (PPD: Rain)` (amber tag with short reason)
 
-A series title is shown before the per-game messages, e.g. `NYY @ BOS 1-0` (including the running series record once any game is decided). Spring Training and All-Star games append `(ST)` or `(ASG)` with a pixel-art icon.
+A series title is shown before the per-game messages, e.g. `NYY @ BOS 1-0`.
+
+**`layout = "scoreboard"`** — two-column display for big-sign / longboi panels:
+
+```
+NYY  3  |  ▲6  ◇◆◇  |  5  BOS
+         |  1·2·1    |
+```
+
+Away team name and score fill the left column; home team name and score fill the right column; the centre zone shows inning + outs (top) and ball/strike count + base diamonds (bottom). Team names are shown in their brand colour; scores are coloured by win/loss state (green/red) during final games. Geometric base diamonds are drawn in yellow (occupied) or dim grey (empty).
+
+If ABS (Automated Ball-Strike) challenges are active at the park, two stacked dashes appear in the bottom-row outer corners — orange for remaining challenges, grey for used. The row is hidden entirely when ABS is not in effect.
+
+Spring Training and All-Star games append `(ST)` or `(ASG)` in ticker mode.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `team` | string | required | Three-letter MLB team abbreviation (e.g. `"NYY"`, `"LAD"`, `"BOS"`). Case-insensitive. See the full list of codes below. |
-| `timezone` | string | `"America/New_York"` | IANA timezone for game-time formatting (e.g. `"America/Los_Angeles"`, `"America/Chicago"`). Affects how "Today 7:05 PM" vs "Tmrw" vs day-of-week labels are computed. |
-| `padding` | int | `6` | Horizontal padding (logical pixels) added after each message when scrolling. |
-| `final_hold_hours` | int | `6` | How many hours after a game ends to keep showing its final score before moving on to the next series. Default is 6 hours (covers west-coast game end times for east-coast displays). |
-| `bg_color` | RGB list | none | Background fill color painted behind all game messages. |
-| `font_color` | RGB list / string / table | unset | Override color for ALL message segments (team abbrevs, scores, inning, bases, BSO). Default unset — leaves the widget's per-segment coloring intact: each team abbrev in its `MLB_TEAM_COLORS` brand color, score colored by win/loss state, base/strike/out indicators in their state colors. Set this only if you want a single uniform color for the whole game line; setting it erases the team brand coloring and game-state semantics. |
-| `font` | string / Font | `"6x12"` (FONT_DEFAULT) | BDF font name or hires font for all game message text. |
-| `update_interval` | int | `300` | Seconds between StatsAPI fetches (passed to `start()`). Default is 5 minutes. The widget automatically shortens its internal poll to ~45 s during a live game and extends to 5 minutes during idle / offseason. |
+| `layout` | string | `"ticker"` | Display style: `"ticker"` (scrolling line) or `"scoreboard"` (two-column). |
+| `timezone` | string | `"America/New_York"` | IANA timezone for game-time formatting (e.g. `"America/Los_Angeles"`, `"America/Chicago"`). |
+| `padding` | int | `6` | Horizontal padding (logical pixels) after each message when scrolling. Ticker layout only. |
+| `final_hold_hours` | int | `6` | Hours after a game ends to keep showing its final score. Default covers west-coast games for east-coast displays. |
+| `bg_color` | RGB list | none | Background fill colour behind all game messages. |
+| `font_color` | RGB list / string / table | unset | Override colour for all text. Default leaves per-segment colours intact (team brand colours, win/loss state on scores, etc.). |
+| `font` | string | `"6x12"` | Font name for team names and scores. Use a hires font name (e.g. `"Inter-Regular"`) with `font_size` and `font_threshold` for big-sign panels. |
+| `font_size` | int | none | Point size for hires fonts. Required when `font` is a TTF/OTF name. |
+| `font_threshold` | int | `128` | Anti-alias threshold (0–255) for hires fonts. Lower values preserve thin strokes; `80` works well for Inter Regular. |
+| `small_font` | string | same as `font` | Font for the centre zone (inning, B/S count, base diamonds). Scoreboard layout only. Defaults to the same font as `font`. |
+| `small_font_size` | int | none | Point size for `small_font`. |
+| `small_font_threshold` | int | same as `font_threshold` | Anti-alias threshold for `small_font`. |
+| `update_interval` | int | `300` | Seconds between StatsAPI fetches. The widget shortens polling to ~45 s during live games automatically. |
 
 ## Team codes
 

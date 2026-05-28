@@ -98,24 +98,29 @@ Zone widths are approximate; implementation should measure the font and adjust s
 team columns are equal width and the center content is centred.
 
 **Team columns (left and right):**
-- Row 1: team abbreviation in team color, with ABS challenge pips as superscript
-  (small amber-colored dots immediately to the right of the abbreviation)
+- Row 1: team abbreviation in team color
 - Row 2: score in team win/loss color (final) or white (live/preview)
-- ABS pips: filled amber `●` for remaining, dim `●` for used, row hidden if `None`
+- ABS challenge indicators: two `-` dashes stacked vertically at the outer bottom corner
+  of each zone (left edge for away, right edge for home), centered in the gap between the
+  score number and the outer edge. Orange `(255, 140, 0)` = remaining challenges;
+  grey `(140, 140, 140)` = used. Hidden entirely (`None`) when ABS is not in effect at
+  this park. Gate on non-empty `absChallenges` dict — `hasChallenges: false` is the
+  pre-challenge initial state, not "ABS inactive".
 
 **Center-left zone (rows 1–2):**
 - Row 1: inning string (`▲7`) + outs as colored dots (red filled = recorded, dim = remaining)
 - Row 2: ball count (blue) + `B` + space + strike count (yellow) + `S`
 
 **Center-right zone (rows 1–2):**
-- True baseball diamond rendered across both rows:
+- True baseball diamond rendered across both rows using the **main font** (same as scores):
   - Row 1, center cell: 2B (◆ if occupied, ◇ if empty)
   - Row 2, left cell: 3B; right cell: 1B
+  - 3B and 1B are packed with a 2px gap, cluster centred in the zone
+  - Yellow (255, 220, 50) = occupied; dim grey (50, 50, 50) = empty
 
-Center content uses a smaller font — approximately half the primary font size. For hires
-fonts, use the next smaller registered size in the font registry. For BDF fonts, use the
-next smaller BDF size available. If no smaller size is available, use the primary font
-and accept the overflow gracefully (clip to canvas).
+The inning string, outs dots, and B/S count (center-left zone) use `small_font`.
+The diamond base glyphs (◆/◇) use the **main font** (`font`) so they read at the same
+visual weight as the score numbers.
 
 ### Game States
 
@@ -174,18 +179,25 @@ feed_stories: list[TickerMessage | MLBGameMessage | MLBScoreboardMessage]
 
 ---
 
-## ABS Challenge Pips — Rendering Detail
+## ABS Challenge Indicators — Rendering Detail
 
-Rendered as small Unicode filled circles `●` (U+25CF) and dim circles `●` using a
-reduced-brightness color:
+Rendered as two `-` dashes stacked vertically (like a colon `:`) at the outer bottom
+corner of each score zone, centered in the gap between the score number and the zone edge:
 
 ```python
-CHALLENGE_COLOR = make_color(255, 180, 0)   # amber
-CHALLENGE_USED  = make_color(60, 40, 0)     # dim amber
+CHALLENGE_COLOR = make_color(255, 140, 0)   # orange — remaining
+CHALLENGE_USED  = make_color(140, 140, 140) # grey — used
 ```
 
-Maximum 2 pips per team (standard MLB ABS rules). If the API returns a value greater
-than 2, clamp to 2 — do not break layout.
+The dashes are positioned at 5/8 and 7/8 through the bottom band (≈6 px physical gap at
+scale=4, matching the colon character's dot spacing). Maximum 2 indicators per team
+(standard MLB ABS rules); values > 2 are clamped.
+
+**Data source:** `gameData.absChallenges` from the live game feed
+(`/api/v1.1/game/{gamePk}/feed/live`), hydrated concurrently for all live games per
+update cycle. The schedule endpoint `hydrate=challenges` is a no-op — do not use it.
+Gate on the dict being **non-empty** (`"home" in abs_ch`); `hasChallenges: false` is
+the initial state before any challenge is thrown, not an "ABS inactive" signal.
 
 ---
 

@@ -207,6 +207,15 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "fiat currency for price quote (e.g. USD, EUR)",
         None,
     ),
+    # --- MLB / Pool (shared layout knob) ---
+    "layout": FieldHint(
+        '"ticker" | "two_row" | "scoreboard"',
+        "widget render mode. pool: ticker (single-row segmented, with "
+        "trend arrow) or two_row (stacked label-on-top / big-value-on-"
+        "bottom, bigsign-recommended). mlb: ticker or scoreboard (two-"
+        "column zone layout with ABS challenge pips).",
+        '"ticker"',
+    ),
     # --- MLB ---
     "team": FieldHint(
         "str",

@@ -1,0 +1,208 @@
+# Longboi Hardware Reference Doc Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Add a standalone hardware reference page for the "longboi" display build — Pi 5 + four Muen P2 panels, permanent meeting backdrop — including BOM, the E-pin assembly callout, camera-tuned config, and photo placeholders.
+
+**Architecture:** One new MDX page (`docs/site/src/content/docs/hardware/longboi.mdx`) following the existing bigsign/smallsign page structure. Nav entry added to `astro.config.mjs`. No code changes — documentation only.
+
+**Tech Stack:** Astro Starlight MDX, existing `TomlExample` and `RelatedPages` components.
+
+---
+
+## File Map
+
+| Action | File |
+|---|---|
+| Create | `docs/site/src/content/docs/hardware/longboi.mdx` |
+| Modify | `docs/site/astro.config.mjs` |
+
+---
+
+### Task 1: Create `longboi.mdx`
+
+**Files:**
+- Create: `docs/site/src/content/docs/hardware/longboi.mdx`
+
+Reference for structure and component usage: `docs/site/src/content/docs/hardware/bigsign.mdx`.
+
+The display `[display]` block to embed comes from `config/config.mlb_scoreboard_test.toml` (camera-tuned settings), not from `config/config.longboi.toml`. Key difference: `gpio_slowdown=5`, `pwm_bits=7`, `limit_refresh_rate_hz=100`.
+
+- [ ] **Step 1: Create the file with all sections**
+
+```mdx
+---
+title: "Hardware: Longboi reference build"
+description: led-ticker's reference build for widescreen single-row displays — Pi 5 + four Muen P2 128×64 panels chained horizontally for a 512×64 canvas (~1m wide).
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+The **longboi** is led-ticker's reference build for widescreen single-row
+displays: a Raspberry Pi 5 driving four [Muen P2 128×64 indoor LED panels](https://www.aliexpress.us/item/3256808899822704.html)
+chained horizontally for a 512×64 canvas — roughly 100 cm × 13 cm overall.
+The MLB scoreboard layout and the hires font pipeline were developed against
+this build. It sits on top of a bookcase and appears on camera during
+meetings, which is why the reference config is tuned to minimise flicker in
+video.
+
+## At a glance
+
+- Raspberry Pi 5
+- 4× Muen P2 128×64 LED panels chained left-to-right = 512×64 physical canvas
+- ~100 cm × 13 cm overall (four 256 mm × 128 mm panels end-to-end)
+- `default_scale = 4` — every logical pixel becomes a 4×4 block on the real panel; drawing logic stays at the standard 16-tall logical canvas
+- No `pixel_mapper_config` needed — a single horizontal chain with `chain_length = 4` is enough
+- Same Docker image as the bigsign; the rgbmatrix library detects the SoC at runtime
+
+## Bill of materials
+
+| Component | Quantity | Notes |
+|---|---|---|
+| Raspberry Pi 5 | 1 | 4 GB is plenty. A microSD card and a USB-C supply for the Pi itself. |
+| [Muen P2 128×64 indoor LED panel](https://www.aliexpress.us/item/3256808899822704.html) | 4 | HUB75 panels, 256 mm × 128 mm each, P2 (2 mm) pitch. FM6126A driver IC — `panel_type = "FM6126A"` is required in config. |
+| Adafruit RGB Matrix Bonnet | 1 | Sets `hardware_mapping = "adafruit-hat"` in the config. The HAT works equivalently. |
+| [Mean Well LRS-200-5 5 V 40 A supply](https://www.amazon.com/dp/B0B6HSLSQQ) | 1 | 200 W headroom for four P2 panels. Wire directly to panel power inputs — do NOT power panels off the Pi. |
+| 16-pin IDC ribbon cables | 3+ | One between each panel in the chain. Most panels ship with a short cable; buy extras for the longer runs. |
+| Power distribution wire / pigtails | 1+ | Each panel has its own 2-pin power input. Daisy-chain from the PSU or use a busbar. |
+
+**Total cost (rough):** ~$300–400 USD. The PSU and four panels are the dominant line items. Cross-check current pricing before ordering.
+
+## Assembly notes
+
+### E-pin soldering (required for 64-row panels)
+
+:::caution[Required step — do not skip]
+64-row panels need the **E address line** for row addressing beyond row 32.
+The Adafruit bonnet was designed for 32-row panels and does not wire E by
+default. Without it the bottom half of every panel renders mirrored or
+garbled.
+:::
+
+Solder a jumper wire from **GPIO 8** to the **E pad** on the Adafruit bonnet.
+Follow the [Adafruit RGB Matrix Bonnet setup guide](https://learn.adafruit.com/adafruit-rgb-matrix-bonnet-for-raspberry-pi/matrix-setup)
+for pad location and soldering instructions.
+
+This is the one step not covered by the panel datasheet or the rgbmatrix
+README — everything else (IDC cables, power wiring) is standard HUB75.
+
+### Panel init sequence (`panel_type = "FM6126A"`)
+
+The Muen P2 panels use the FM6126A (or compatible) driver IC, which requires
+a proprietary initialization sequence at startup. Set `panel_type = "FM6126A"`
+in the config. Without it the driver powers up in a bad state and the first
+scan lines render with the wrong brightness or color.
+
+### Color channel order (`led_rgb_sequence = "BRG"`)
+
+These panels wire the HUB75 R/G/B lines in a non-standard order (G → Red LED,
+R → Blue LED, B → Green LED). Set `led_rgb_sequence = "BRG"`. Without it
+all colors are wrong.
+
+## Config snippet
+
+The minimal `[display]` block for the longboi, tuned for camera use
+(`pwm_bits = 7` and `limit_refresh_rate_hz = 100` reduce flicker visible in
+video):
+
+<TomlExample
+  code={`[display]
+rows = 64
+cols = 128
+chain_length = 4
+brightness = 60
+default_scale = 4
+hardware_mapping = "adafruit-hat"
+panel_type = "FM6126A"        # FM6126A init sequence — required for Muen P2
+led_rgb_sequence = "BRG"      # Muen P2 color channel order
+gpio_slowdown = 5             # Pi 5 + rp1_rio=1; raise if flicker persists
+rp1_rio = 1                   # RIO mode (faster refresh, more CPU than PIO)
+pwm_bits = 7                  # 7-bit PWM: tuned for camera; default is 11
+limit_refresh_rate_hz = 100   # caps refresh to stabilise image on camera`}
+/>
+
+### Tuning knobs
+
+| Setting | Value | Why |
+|---|---|---|
+| `gpio_slowdown` | `5` | Pi 5 with `rp1_rio=1` needs higher slowdown than Pi 4. Raise to 6 if flicker persists. |
+| `rp1_rio` | `1` | RIO (Registered IO) mode on the Pi 5 RP1 — faster refresh, slightly more CPU than PIO (`0`). |
+| `pwm_bits` | `7` | 7-bit PWM keeps the refresh rate high while limiting flicker visible in video. Default is 11. |
+| `limit_refresh_rate_hz` | `100` | Caps the refresh to a stable rate for camera capture. Remove if not on camera. |
+| `panel_type` | `"FM6126A"` | Required FM6126A init sequence; without it the bottom half of panels is garbled. |
+| `led_rgb_sequence` | `"BRG"` | Muen P2 non-standard color wiring. Without it all colors are wrong. |
+| `default_scale` | `4` | Maps the 16-tall logical canvas to the 64-tall physical panel. |
+
+## Photos
+
+_Photos coming soon._
+
+- Full display on bookcase (form factor)
+- E-pin solder joint on the bonnet (the critical assembly step)
+- Back of panels showing IDC cable routing
+
+<RelatedPages slugs={["hardware/bigsign", "hardware/building-your-own", "widgets/mlb"]} />
+```
+
+- [ ] **Step 2: Verify the file renders with the docs lint check**
+
+Run from the repo root:
+```bash
+cd docs/site && pnpm run build 2>&1 | tail -20
+```
+Expected: build completes without errors. Any MDX parse error will appear here.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add docs/site/src/content/docs/hardware/longboi.mdx
+git commit -m "docs: add longboi hardware reference build page"
+```
+
+---
+
+### Task 2: Register in sidebar navigation
+
+**Files:**
+- Modify: `docs/site/astro.config.mjs`
+
+The hardware section currently has bigsign, smallsign, and building-your-own entries (lines ~98–115). Add longboi after smallsign, before building-your-own.
+
+- [ ] **Step 1: Add the nav entry**
+
+In `docs/site/astro.config.mjs`, find this block:
+
+```js
+            {
+              label: "Hardware: Building your own",
+              link: "/hardware/building-your-own/",
+            },
+```
+
+Add above it:
+
+```js
+            {
+              label: "Hardware: Longboi reference build",
+              link: "/hardware/longboi/",
+            },
+            {
+              label: 'Longboi config - "Meeting Backdrop"',
+              link: "/hardware/longboi/#config-snippet",
+            },
+```
+
+- [ ] **Step 2: Verify build still passes**
+
+```bash
+cd docs/site && pnpm run build 2>&1 | tail -20
+```
+Expected: build completes without errors.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add docs/site/astro.config.mjs
+git commit -m "docs: add longboi to sidebar navigation"
+```

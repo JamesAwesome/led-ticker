@@ -217,7 +217,8 @@ class TestBuildScreens:
             season_max_c=31.1,
         )
         today = m.feed_stories[0]
-        temp_color = today.segments[0][1]
+        # segments[0] is the "Pool 24h " label; the temp is segment 1.
+        temp_color = today.segments[1][1]
         assert temp_color is DIM
 
     def test_season_label_spelled_out(self):
@@ -237,6 +238,32 @@ class TestBuildScreens:
         season = m.feed_stories[2]
         texts = "".join(t for t, _ in season.segments)
         assert "Season" in texts
+
+    def test_every_screen_carries_pool_prefix(self):
+        """Each cycle screen leads with a 'Pool ...' label so users
+        sharing the panel with other widgets can tell at a glance what
+        data they're looking at. Tripwire — if a future refactor drops
+        the labels, this catches it before reaching hardware.
+        """
+        m = _monitor(units="imperial")
+        m._build_screens(
+            current_c=27.78,
+            current_age_s=10.0,
+            past_c=27.2,
+            today_min_c=25.6,
+            today_max_c=28.9,
+            d7_mean_c=26.7,
+            d7_min_c=24.4,
+            d7_max_c=28.9,
+            season_min_c=21.7,
+            season_max_c=31.1,
+        )
+        today_texts = "".join(t for t, _ in m.feed_stories[0].segments)
+        d7_texts = "".join(t for t, _ in m.feed_stories[1].segments)
+        season_texts = "".join(t for t, _ in m.feed_stories[2].segments)
+        assert "Pool 24h" in today_texts
+        assert "Pool 7D" in d7_texts
+        assert "Pool Season" in season_texts
 
     def test_missing_values_render_dashes(self):
         m = _monitor(units="imperial")
@@ -273,9 +300,10 @@ class TestBuildScreens:
             season_max_c=31.0,
         )
         today = m.feed_stories[0]
-        # First segment is the temp text in the zone color
-        assert today.segments[0][1] is ORANGE
-        assert "28C" in today.segments[0][0]
+        # segments[0] is the "Pool 24h " label; the temp is segment 1
+        # and carries the zone color.
+        assert today.segments[1][1] is ORANGE
+        assert "28C" in today.segments[1][0]
 
 
 class TestConformance:

@@ -647,6 +647,31 @@ class TestTwoRowLayout:
         for s in m.feed_stories:
             assert isinstance(s, SegmentMessage)
 
+    @pytest.mark.asyncio
+    async def test_pool_config_accepts_top_font_via_factories(self):
+        """End-to-end: a config with top_font/top_font_size on a pool
+        widget must build cleanly. Before widening _DISPATCH_APPLICABLE_TYPES,
+        this raised 'unknown field' validation errors."""
+        from unittest.mock import MagicMock
+
+        from led_ticker.app.factories import validate_widget_cfg
+
+        session = MagicMock()
+        cfg = {
+            "type": "pool",
+            "layout": "two_row",
+            "font": "Inter-Regular",
+            "font_size": 32,
+            "font_threshold": 80,
+            "top_font_size": 16,
+            "bottom_font_size": 32,
+            "label_color": [130, 220, 255],
+        }
+        # Don't actually start the widget (would need INFLUXDB_TOKEN);
+        # we only need validate_widget_cfg to accept the field set.
+        await validate_widget_cfg(cfg, session=session)
+        # If we got here without raising, the fields were accepted.
+
 
 # Container Protocol conformance for PoolMonitor is asserted in
 # tests/test_widget_protocol.py::test_container_protocol_recognizes_pool_monitor

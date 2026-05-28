@@ -304,12 +304,12 @@ _DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
     "bottom_text_wrap": {"gif", "image", "two_row"},
     "bottom_text_separator": {"gif", "image", "two_row"},
     "bottom_text_separator_color": {"gif", "image", "two_row"},
-    "top_font": {"two_row"},
-    "top_font_size": {"two_row"},
-    "top_font_threshold": {"two_row"},
-    "bottom_font": {"two_row"},
-    "bottom_font_size": {"two_row"},
-    "bottom_font_threshold": {"two_row"},
+    "top_font": {"two_row", "pool"},
+    "top_font_size": {"two_row", "pool"},
+    "top_font_threshold": {"two_row", "pool"},
+    "bottom_font": {"two_row", "pool"},
+    "bottom_font_size": {"two_row", "pool"},
+    "bottom_font_threshold": {"two_row", "pool"},
 }
 
 

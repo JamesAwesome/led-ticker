@@ -53,8 +53,13 @@ def _c_to_display(temp_c: float, units: str) -> float:
 
 
 def _fmt_temp(temp_display: float, units: str) -> str:
-    """Whole-degree temp with unit suffix, e.g. '82°F'."""
-    suffix = "°F" if units == "imperial" else "°C"
+    """Whole-degree temp with unit suffix, e.g. '82F'.
+
+    No degree symbol — the hires Inter rasterized at small `font_size`
+    drops the U+00B0 glyph (renders as '?'), and the weather widget
+    already uses bare 'F'/'C' for the same reason. Stay consistent.
+    """
+    suffix = "F" if units == "imperial" else "C"
     return f"{round(temp_display)}{suffix}"
 
 

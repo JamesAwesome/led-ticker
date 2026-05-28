@@ -61,8 +61,10 @@ class TestUnits:
         assert _c_to_display(25.0, "metric") == pytest.approx(25.0)
 
     def test_fmt_temp_rounds_and_suffixes(self):
-        assert _fmt_temp(81.6, "imperial") == "82°F"
-        assert _fmt_temp(25.4, "metric") == "25°C"
+        # No degree symbol — hires Inter at small font_size drops U+00B0
+        # to '?'. Consistent with the weather widget's bare 'F'/'C'.
+        assert _fmt_temp(81.6, "imperial") == "82F"
+        assert _fmt_temp(25.4, "metric") == "25C"
 
 
 SAMPLE_CSV = (
@@ -197,7 +199,7 @@ class TestBuildScreens:
         )
         today = m.feed_stories[0]
         texts = "".join(t for t, _ in today.segments)
-        assert "82°F" in texts  # 27.78C -> 82F
+        assert "82F" in texts  # 27.78C -> 82F (no degree symbol — see _fmt_temp)
         assert "^" in texts  # rising (27.78 > 27.2 by >0.5F)
 
     def test_stale_dims_temp(self):
@@ -273,7 +275,7 @@ class TestBuildScreens:
         today = m.feed_stories[0]
         # First segment is the temp text in the zone color
         assert today.segments[0][1] is ORANGE
-        assert "28°C" in today.segments[0][0]
+        assert "28C" in today.segments[0][0]
 
 
 class TestConformance:

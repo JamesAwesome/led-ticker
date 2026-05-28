@@ -34,13 +34,13 @@ _SENSOR_ID_RE: re.Pattern[str] = re.compile(r"^[A-Za-z0-9_-]+$")
 # temperature isn't current.
 #
 # LABEL_COLOR is for prefix labels ("Pool 24h", "Pool 7D", etc.) and
-# separators ("/"). Brighter than DIM so it's actually readable on
-# LED panels at modest brightness (60).
+# separators ("/"). White for max readability on LED panels — anything
+# dimmer than full white renders washed-out at the typical brightness=60.
 #
 # STEADY_COLOR is the 7-day mean — neutral white-ish, distinct from the
 # zone-colored "current" temp on the today screen.
 DIM: Color = make_color(110, 110, 110)
-LABEL_COLOR: Color = make_color(190, 190, 190)
+LABEL_COLOR: Color = RGB_WHITE
 STEADY_COLOR: Color = make_color(210, 210, 210)
 HI_COLOR: Color = ORANGE
 LO_COLOR: Color = BLUE

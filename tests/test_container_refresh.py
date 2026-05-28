@@ -7,11 +7,21 @@ bug fixed in 2026-05-28.
 
 from __future__ import annotations
 
+import ast
 import asyncio
+import pathlib
 
 import pytest
 
 from led_ticker.ticker import _build_ticker_iter, _expand_sources
+
+APP_RUN_PATH = (
+    pathlib.Path(__file__).resolve().parent.parent
+    / "src"
+    / "led_ticker"
+    / "app"
+    / "run.py"
+)
 
 
 class FakeContainer:
@@ -131,10 +141,7 @@ def test_app_run_passes_containers_to_ticker_unexpanded() -> None:
     This is a source-level tripwire: it scans app/run.py to ensure the
     pre-expansion stanza removed in 2026-05-28 doesn't come back.
     """
-    import ast
-    import pathlib
-
-    src = pathlib.Path("src/led_ticker/app/run.py").read_text()
+    src = APP_RUN_PATH.read_text()
     tree = ast.parse(src)
 
     # Walk for any `widgets.extend(<x>.feed_stories)` call
@@ -164,7 +171,6 @@ def test_app_run_passes_containers_to_ticker_unexpanded() -> None:
     )
 
 
-@pytest.mark.asyncio
 async def test_enqueue_ticker_objects_handles_empty_iterator() -> None:
     """An immediately-empty iterator (empty container + loop_count=0)
     must terminate cleanly — without the StopIteration guard, PEP 479

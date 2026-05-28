@@ -552,41 +552,45 @@ class TestTwoRowLayout:
 
         m = self._build()
         today = m.feed_stories[0]
-        # TwoRowMessage wraps raw Color in _ConstantColor; unwrap via ._color.
-        assert today.bottom_color._color is _zone_color(82.0)
+        # TwoRowMessage wraps raw Color in _ConstantColor; resolve via the
+        # public color_for(0, 0, 1) which returns the wrapped Color identity-
+        # preserving. Codebase convention — see tests/test_color_providers.py.
+        assert today.bottom_color.color_for(0, 0, 1) is _zone_color(82.0)
 
     def test_today_bottom_color_when_stale(self):
         from led_ticker.widgets.pool import DIM
 
         m = self._build(current_age_s=10_000.0)  # well past stale_after=900
         today = m.feed_stories[0]
-        assert today.bottom_color._color is DIM
+        assert today.bottom_color.color_for(0, 0, 1) is DIM
 
     def test_seven_day_bottom_color_is_avg(self):
         from led_ticker.widgets.pool import AVG_COLOR
 
         m = self._build()
-        assert m.feed_stories[1].bottom_color._color is AVG_COLOR
+        assert m.feed_stories[1].bottom_color.color_for(0, 0, 1) is AVG_COLOR
 
     def test_season_hi_bottom_color_is_hi(self):
         from led_ticker.widgets.pool import HI_COLOR
 
         m = self._build()
-        assert m.feed_stories[2].bottom_color._color is HI_COLOR
+        assert m.feed_stories[2].bottom_color.color_for(0, 0, 1) is HI_COLOR
 
     def test_season_lo_bottom_color_is_lo(self):
         from led_ticker.widgets.pool import LO_COLOR
 
         m = self._build()
-        assert m.feed_stories[3].bottom_color._color is LO_COLOR
+        assert m.feed_stories[3].bottom_color.color_for(0, 0, 1) is LO_COLOR
 
     def test_label_color_threads_to_every_top(self):
         sentinel = object()
         m = self._build(monitor_kwargs={"label_color": sentinel})
-        # TwoRowMessage wraps raw Color in _ConstantColor; unwrap via ._color.
-        assert m.feed_title.top_color._color is sentinel
+        # TwoRowMessage wraps raw Color in _ConstantColor; resolve via the
+        # public color_for(0, 0, 1) which returns the wrapped Color identity-
+        # preserving. Codebase convention — see tests/test_color_providers.py.
+        assert m.feed_title.top_color.color_for(0, 0, 1) is sentinel
         for s in m.feed_stories:
-            assert s.top_color._color is sentinel
+            assert s.top_color.color_for(0, 0, 1) is sentinel
 
     def test_no_trend_arrow_in_today_screen(self):
         m = self._build()

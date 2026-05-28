@@ -16,12 +16,11 @@ import attrs
 from led_ticker._types import Canvas, Color, ColorTuple, DrawResult, Font
 from led_ticker.color_providers import ColorProvider
 from led_ticker.colors import RGB_WHITE, lazy_palette, make_color
-from led_ticker.drawing import compute_baseline, compute_cursor
 from led_ticker.fonts import FONT_DEFAULT, FONT_SMALL
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import _FrameAware
-from led_ticker.widgets.message import TickerMessage
+from led_ticker.widgets.message import SegmentMessage, TickerMessage
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -259,97 +258,8 @@ def _parse_team_abbr(team_data: dict[str, Any]) -> str:
     return team_data.get("abbreviation", "???")
 
 
-class MLBGameMessage:
-    """A single game rendered with team colors and score colors.
-
-    Segments are drawn through `draw_with_emoji` so any segment text
-    can contain `:flower:` / `:star:` / etc. slugs that render as
-    inline pixel-art icons. (Previously the widget had its own
-    `icon: PixelData | None` parameter and rendered via the now-deleted
-    `mlb_icons.draw_mlb_icon` helper — that's been folded into the
-    standard emoji-rendering path.)
-
-    `font_color` is an optional `ColorProvider` override. When set it
-    replaces the per-segment colors, allowing a `color_cycle` effect to
-    animate the whole message. `advance_frame()` increments the frame
-    counter so `_advance_frame_if_supported` in the engine picks it up.
-    """
-
-    def __init__(
-        self,
-        segments: list[tuple[str, Color]],
-        padding: int = 6,
-        center: bool = False,
-        bg_color: Color | None = None,
-        font: Font | None = None,
-        font_color: Color | ColorProvider | None = None,
-    ) -> None:
-        self.segments: list[tuple[str, Color]] = segments
-        self.padding: int = padding
-        self.center: bool = center
-        self.bg_color: Color | None = bg_color
-        self.font: Font = font if font is not None else FONT_DEFAULT
-        self.font_color: Color | ColorProvider | None = font_color
-        self._content_width: int = -1
-        self._frame_count: int = 0
-
-    def advance_frame(self, *, visit_id: int | None = None) -> None:
-        self._frame_count += 1
-
-    def pause_frame(self) -> None:
-        pass
-
-    def resume_frame(self) -> None:
-        pass
-
-    def reset_frame(self) -> None:
-        self._frame_count = 0
-
-    def draw(
-        self,
-        canvas: Canvas,
-        cursor_pos: int = 0,
-        *,
-        y_offset: int = 0,
-        font_color: Any = None,
-    ) -> DrawResult:
-        from led_ticker.pixel_emoji import draw_with_emoji, measure_width
-
-        if self._content_width < 0:
-            self._content_width = sum(
-                measure_width(self.font, text, canvas) for text, _ in self.segments
-            )
-
-        content_width = self._content_width
-        cursor_pos, end_padding = compute_cursor(
-            canvas.width,
-            content_width,
-            cursor_pos,
-            self.padding,
-            self.center,
-        )
-
-        # If a color provider override is set, use it for all segments.
-        # This enables color_cycle / rainbow effects on game messages.
-        override_color: Color | None = None
-        if self.font_color is not None and hasattr(self.font_color, "color_for"):
-            override_color = self.font_color.color_for(self._frame_count, 0, 1)
-
-        baseline_y = compute_baseline(self.font, canvas, valign="center")
-        for text, seg_color in self.segments:
-            color = override_color if override_color is not None else seg_color
-            cursor_pos += draw_with_emoji(
-                canvas,
-                self.font,
-                int(cursor_pos),
-                y=baseline_y,
-                color=color,
-                text=text,
-                y_offset=y_offset,
-            )
-
-        cursor_pos += end_padding
-        return canvas, cursor_pos
+MLBGameMessage = SegmentMessage
+"""Backward-compatible alias: SegmentMessage was promoted from MLBGameMessage."""
 
 
 def _build_series_title(

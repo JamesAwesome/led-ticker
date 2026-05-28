@@ -5,8 +5,7 @@ import unittest.mock as mock
 import pytest
 
 from led_ticker.colors import RGB_WHITE
-from led_ticker.widgets.message import TickerMessage
-from led_ticker.widgets.mlb import MLBGameMessage
+from led_ticker.widgets.message import SegmentMessage, TickerMessage
 from led_ticker.widgets.mlb_standings import (
     MLBStandingsMonitor,
     TeamStanding,
@@ -35,7 +34,7 @@ class TestBuildStandingMessage:
     def test_basic_format(self):
         s = TeamStanding(name="Yankees", wins=45, losses=20, rank=1, games_back="-")
         msg = _build_standing_message(s)
-        assert isinstance(msg, MLBGameMessage)
+        assert isinstance(msg, SegmentMessage)
         texts = [t for t, _ in msg.segments]
         assert texts[0] == "1. "
         assert texts[1] == "Yankees"
@@ -414,7 +413,7 @@ class TestOffseason:
         # Should have a real standings story, not "Opens ..."
         assert len(widget.feed_stories) >= 1
         first_msg = widget.feed_stories[0]
-        # MLBGameMessage doesn't have a single .message; just verify it's not
+        # SegmentMessage doesn't have a single .message; just verify it's not
         # the offseason TickerMessage.
         if isinstance(first_msg, TickerMessage):
             assert not first_msg.text.startswith("Opens")

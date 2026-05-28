@@ -134,7 +134,10 @@ class TestEnqueueTickerObjects:
             results.append(await queue.get())
             await asyncio.sleep(0.01)
 
-        assert results == items
+        # The producer appends a `None` sentinel after the final item so
+        # blocking consumers wake up on iterator exhaustion instead of
+        # hanging on `await queue.get()` forever.
+        assert results == [*items, None]
 
     async def test_enqueues_with_title(self):
         queue = asyncio.Queue()
@@ -148,7 +151,9 @@ class TestEnqueueTickerObjects:
             results.append(await queue.get())
             await asyncio.sleep(0.01)
 
-        assert results == ["T", 1, 2]
+        # Trailing `None` is the iterator-exhausted sentinel — see
+        # `_enqueue_ticker_objects` docstring.
+        assert results == ["T", 1, 2, None]
 
 
 def _make_widget(content_width: int = 40, end_padding: int = 6):

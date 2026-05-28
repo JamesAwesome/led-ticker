@@ -27,11 +27,8 @@ from led_ticker.app.factories import (
     build_frame_from_config,
 )
 from led_ticker.config import load_config
-from led_ticker.ticker import Ticker, _maybe_wrap
+from led_ticker.ticker import Ticker, _expand_sources, _maybe_wrap
 from led_ticker.transitions import Transition, run_transition
-from led_ticker.widgets.mlb import MLBScoreMonitor
-from led_ticker.widgets.mlb_standings import MLBStandingsMonitor
-from led_ticker.widgets.rss_feed import RSSFeedMonitor
 
 
 async def run(config_path: Path) -> None:
@@ -90,19 +87,12 @@ async def run(config_path: Path) -> None:
                             coercion_collector=runtime_coerce,
                         )
                         widget_cache[key] = widget
-                    # Container widgets expand into stories
-                    if isinstance(
-                        widget,
-                        RSSFeedMonitor | MLBScoreMonitor | MLBStandingsMonitor,
-                    ):
-                        logging.debug(
-                            "Expanding %s: %d stories",
-                            type(widget).__name__,
-                            len(widget.feed_stories),
-                        )
-                        widgets.extend(widget.feed_stories)
-                    else:
-                        widgets.append(widget)
+                    # Containers are expanded by the engine on every
+                    # cycle pass via _expand_sources — pushing the
+                    # container itself (not its current feed_stories)
+                    # keeps the displayed content in sync with the
+                    # container's background update() task.
+                    widgets.append(widget)
                 # Drain coerce warnings collected during this section's
                 # widget build. Empty in the common case; one log line per
                 # CoercionWarning otherwise.
@@ -147,7 +137,19 @@ async def run(config_path: Path) -> None:
                 # from the scale change happens at the very end of the
                 # transition (one frame), where the new section's first render
                 # immediately overwrites it.
-                first_widget = title if title else (widgets[0] if widgets else None)
+                #
+                # Containers (MLB/RSS/standings monitors) don't implement
+                # draw() — they expose `feed_stories` instead. If a section
+                # starts with a container and has no [section.title], expand
+                # to the container's first current story so the transition's
+                # `incoming.draw()` call has a real widget to render.
+                if title:
+                    first_widget = title
+                elif widgets:
+                    expanded = _expand_sources(widgets)
+                    first_widget = expanded[0] if expanded else None
+                else:
+                    first_widget = None
                 just_transitioned = (
                     last_widget is not None
                     and first_widget is not None
@@ -270,7 +272,18 @@ async def run(config_path: Path) -> None:
                 last_scale = section.scale
                 last_content_height = section.content_height
                 last_bg_color = section.bg_color
+                # Containers (MLB/RSS/standings monitors) don't implement
+                # draw() — the next section's transition would crash on
+                # `outgoing.draw()` if last_widget were a container. Expand
+                # to the container's last current story; if the container
+                # is currently empty, keep the previous last_widget (the
+                # next transition will use whatever was last on-screen).
                 if widgets:
-                    last_widget = widgets[-1]
+                    expanded = _expand_sources(widgets)
+                    if expanded:
+                        last_widget = expanded[-1]
+                    # else: container is empty this cycle — keep prior
+                    # last_widget so the next transition still has a real
+                    # widget to render as outgoing.
                 elif title:
                     last_widget = title

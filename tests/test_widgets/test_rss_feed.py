@@ -188,3 +188,30 @@ class TestFeedparserOffEventLoop:
         func, args, kwargs = calls[0]
         assert func is _feedparser.parse, f"expected feedparser.parse, got {func}"
         assert args == (SAMPLE_RSS,), f"expected (SAMPLE_RSS,), got {args}"
+
+
+class TestRSSFeedUpdateLogging:
+    """Periodic update() must log INFO so users can tell the background
+    task is firing.
+    """
+
+    async def test_rss_update_logs_info(self, mock_session, caplog) -> None:
+        import logging
+
+        from led_ticker.widgets.rss_feed import RSSFeedMonitor
+
+        widget = RSSFeedMonitor(
+            session=mock_session, feed_url="http://example.com/feed"
+        )
+
+        with caplog.at_level(logging.INFO, logger="led_ticker.widgets.rss_feed"):
+            await widget.update()
+
+        matching = [
+            r
+            for r in caplog.records
+            if r.levelno == logging.INFO
+            and "updated" in r.message
+            and str(len(widget.feed_stories)) in r.message
+        ]
+        assert matching, f"expected INFO log; got {[r.message for r in caplog.records]}"

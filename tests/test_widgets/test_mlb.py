@@ -703,19 +703,14 @@ class TestMLBTwoRowLayout:
     def test_two_row_message_type_imported(self):
         from led_ticker.widgets.mlb import MLBTwoRowMessage  # noqa: F401
 
-    def test_two_row_stories_are_mlb_two_row_message_instances(self):
-        """Tripwire: all stories are MLBTwoRowMessage when layout='two_row'.
-        Catches a regression where dispatch routes to SegmentMessage instead.
-        """
-        from unittest import mock
-        from led_ticker.widgets.mlb import MLBTwoRowMessage
+    def test_build_two_row_message_factory_returns_mlb_two_row_message(self):
+        """Factory smoke test: _build_two_row_message returns MLBTwoRowMessage."""
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import MLBTwoRowMessage, _build_two_row_message
 
-        m = MLBScoreMonitor(session=mock.Mock(), team="PHI", layout="two_row")
         game = GameInfo(
             away_abbr="NYM", home_abbr="PHI",
             away_score=5, home_score=3, state="final",
         )
-        from zoneinfo import ZoneInfo
-        from led_ticker.widgets.mlb import _build_two_row_message
         msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
         assert isinstance(msg, MLBTwoRowMessage)

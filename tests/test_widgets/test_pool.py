@@ -500,10 +500,10 @@ class TestTwoRowLayout:
         m._build_two_row_screens(**args)
         return m
 
-    def test_yields_title_plus_four_stories(self):
+    def test_yields_title_plus_three_stories(self):
         m = self._build()
         assert m.feed_title is not None
-        assert len(m.feed_stories) == 4
+        assert len(m.feed_stories) == 3
 
     def test_title_is_two_row_message(self):
         from led_ticker.widgets.two_row import TwoRowMessage
@@ -530,22 +530,28 @@ class TestTwoRowLayout:
         assert today.bottom_text == "82F"  # 27.78C -> 82F
 
     def test_seven_day_screen_text(self):
+        """7D screen combines HI/LO into one bottom row with units."""
         m = self._build()
         d7 = m.feed_stories[1]
-        assert d7.top_text == "POOL 7D AVG"
-        assert d7.bottom_text == "80"  # 26.7C -> 80F
+        assert d7.top_text == "POOL 7D"
+        # 28.9C -> 84F (hi), 24.4C -> 76F (lo); _disp rounds to nearest int.
+        assert d7.bottom_text == "84/76F"
 
-    def test_season_hi_screen_text(self):
+    def test_season_screen_text(self):
+        """Season screen combines HI/LO into one bottom row with units."""
         m = self._build()
-        season_hi = m.feed_stories[2]
-        assert season_hi.top_text == "POOL SEASON HI"
-        assert season_hi.bottom_text == "88"  # 31.1C -> 88F
+        season = m.feed_stories[2]
+        assert season.top_text == "POOL SEASON"
+        # 31.1C -> 88F (hi), 21.7C -> 71F (lo).
+        assert season.bottom_text == "88/71F"
 
-    def test_season_lo_screen_text(self):
-        m = self._build()
-        season_lo = m.feed_stories[3]
-        assert season_lo.top_text == "POOL SEASON LO"
-        assert season_lo.bottom_text == "71"  # 21.7C -> 71F
+    def test_metric_units_use_C_suffix(self):
+        """Combined HI/LO uses C suffix when units = metric."""
+        m = self._build(monitor_kwargs={"units": "metric"})
+        d7 = m.feed_stories[1]
+        season = m.feed_stories[2]
+        assert d7.bottom_text == "29/24C"  # 28.9 / 24.4 rounded
+        assert season.bottom_text == "31/22C"  # 31.1 / 21.7 rounded
 
     def test_today_bottom_color_is_zone_color(self):
         from led_ticker.widgets.pool import _zone_color
@@ -570,17 +576,14 @@ class TestTwoRowLayout:
         m = self._build()
         assert m.feed_stories[1].bottom_color.color_for(0, 0, 1) is AVG_COLOR
 
-    def test_season_hi_bottom_color_is_hi(self):
-        from led_ticker.widgets.pool import HI_COLOR
+    def test_season_bottom_color_is_avg(self):
+        """Combined HI/LO bottom uses AVG_COLOR (pink) — neither hi nor lo
+        dominates, so a neutral 'summary' color reads better than
+        biasing toward HI_COLOR or LO_COLOR."""
+        from led_ticker.widgets.pool import AVG_COLOR
 
         m = self._build()
-        assert m.feed_stories[2].bottom_color.color_for(0, 0, 1) is HI_COLOR
-
-    def test_season_lo_bottom_color_is_lo(self):
-        from led_ticker.widgets.pool import LO_COLOR
-
-        m = self._build()
-        assert m.feed_stories[3].bottom_color.color_for(0, 0, 1) is LO_COLOR
+        assert m.feed_stories[2].bottom_color.color_for(0, 0, 1) is AVG_COLOR
 
     def test_label_color_threads_to_every_top(self):
         sentinel = object()

@@ -3,11 +3,14 @@
 # 8× P3 32×64 panels in a 2×4 vertical-serpentine = 256×64 logical.
 # Driven by a Raspberry Pi 5 through an Adafruit RGB Matrix HAT.
 #
-# Single section, single pool widget in two_row mode. Cycles 5
-# screens: title → today → 7-day → season HI → season LO. Hi-res
-# Inter font at size 16 in BOTH rows (symmetric 8/8 logical split,
-# the TwoRowMessage default). Cyan label_color matches the longboi
-# and smallsign pool test configs.
+# Single section, single pool widget in two_row mode. Cycles 4
+# screens: title → today → 7-day → season. 7-day and season each
+# show HI/LO combined on the bottom row (e.g. "84/72F"). Hi-res
+# Inter-Bold sized per the moonbunny.production reference (top
+# label smaller, bottom value larger). Section-level `scale = 2`
+# + `content_height = 32` doubles real pixels per logical row so
+# the larger font sizes fit without overflowing per-row bands.
+# Cyan label_color matches longboi/smallsign for visual consistency.
 #
 # Usage:
 #   cp config/config.pool_bigsign.toml config/config.toml
@@ -40,8 +43,16 @@ show_refresh_rate = true
 
 [[playlist.section]]
 mode = "swap"
+# Drop to scale = 2 + content_height = 32 (matches moonbunny.production
+# pattern): doubles real pixels per logical row so Inter-Bold at
+# 19/25 fits the per-row bands. At default_scale = 4 with
+# content_height = 16, the bands are only 8 logical rows / 32 real,
+# which can't fit Inter-Bold at sizes above ~16 without overflowing
+# the font's line-height budget.
+scale = 2
+content_height = 32   # 32 × scale 2 = 64 real = full panel height
 hold_time = 5
-loop_count = 0  # infinite — soak test
+loop_count = 0        # infinite — soak test
 
 [[playlist.section.widget]]
 type = "pool"
@@ -51,18 +62,15 @@ update_interval = 60   # fast: prove the background fetch fires every minute
 # sensor_id = "12345"  # optional; omit to use cross-sensor global aggregate
 stale_after = 900
 layout = "two_row"
-# Inter at font_size = 16 in both rows. Inter's line-height at size
-# 16 is right at the 8-logical-row band budget on a 16-tall canvas
-# (scale = 4); larger sizes overflow at draw time with
-#   "top font line-height (N logical rows) exceeds the per-row band"
-#
-# To get a more dramatic label / value contrast (small top, bigger
-# bottom number) drop the SECTION to `scale = 2` and bump
-# `content_height = 32` — that gives 16-real-tall bands instead of
-# 32-real-tall and lets a font_size = 24 bottom fit comfortably.
-# Deferred to a follow-up; this config gets the soak test going first.
-font = "Inter-Regular"
-font_size = 16
+# Inter-Bold sized per moonbunny.production:
+#   bottom_font_size = 25 → line-height ~32 real, fits the 32-real
+#                            bottom band at top_row_height = 16
+#                            (symmetric default split).
+#   top_font_size    = 19 → line-height ~24 real, smaller label
+#                            reads as secondary above the value.
+font = "Inter-Bold"
+font_size = 25   # base size; bottom inherits, top_font_size overrides
 font_threshold = 80
-# label_color tints "POOL 24H" / "POOL 7D AVG" / "POOL SEASON" prefix labels.
+top_font_size = 19
+# label_color tints "POOL 24H" / "POOL 7D" / "POOL SEASON" prefix labels.
 label_color = [130, 220, 255]

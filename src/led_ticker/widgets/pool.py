@@ -344,6 +344,7 @@ class PoolMonitor:
             **kw,
         )
 
+        unit_letter = "F" if self.units == "imperial" else "C"
         today_bottom_color = DIM if stale else _zone_color(zone_f)
         today = TwoRowMessage(
             top_text="POOL 24H",
@@ -352,24 +353,20 @@ class PoolMonitor:
             **kw,
         )
         d7 = TwoRowMessage(
-            top_text="POOL 7D AVG",
-            bottom_text=self._disp(d7_mean_c),
+            top_text="POOL 7D",
+            bottom_text=f"{self._disp(d7_max_c)}/{self._disp(d7_min_c)}{unit_letter}",
             bottom_color=AVG_COLOR,
             **kw,
         )
-        season_hi = TwoRowMessage(
-            top_text="POOL SEASON HI",
-            bottom_text=self._disp(season_max_c),
-            bottom_color=HI_COLOR,
+        season = TwoRowMessage(
+            top_text="POOL SEASON",
+            bottom_text=(
+                f"{self._disp(season_max_c)}/{self._disp(season_min_c)}{unit_letter}"
+            ),
+            bottom_color=AVG_COLOR,
             **kw,
         )
-        season_lo = TwoRowMessage(
-            top_text="POOL SEASON LO",
-            bottom_text=self._disp(season_min_c),
-            bottom_color=LO_COLOR,
-            **kw,
-        )
-        self.feed_stories = [today, d7, season_hi, season_lo]
+        self.feed_stories = [today, d7, season]
 
     def _build_ticker_screens(
         self,

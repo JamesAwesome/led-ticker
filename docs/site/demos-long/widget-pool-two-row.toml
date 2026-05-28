@@ -3,15 +3,13 @@
 #
 # Skipped by `make render-long-demos` if INFLUXDB_TOKEN isn't set in
 # the environment. Reads INFLUXDB_URL/ORG/BUCKET/TOKEN from .env.
-# render-duration: 30
+# render-duration: 25
 #
-# Single 64×128 panel, default_scale = 4 → 32×16 logical canvas.
-# Symmetric 8/8 split with Inter-Regular at font_size = 16 in BOTH
-# rows. The real bigsign config (config.pool_bigsign.toml) uses
-# top_font_size = 16 with bottom_font_size = 32 for a more dramatic
-# label vs value contrast — but that requires more vertical headroom
-# than the demo panel provides, so the demo dials both rows to 16
-# and still shows the layout shape clearly.
+# Mirrors config.pool_bigsign.toml: single panel sized 64×128 px
+# (smallest panel that exercises the same `scale = 2` +
+# `content_height = 32` band-budget math as the bigsign mapper),
+# Inter-Bold at 19/25 per moonbunny.production reference, cyan
+# label_color.
 
 [display]
 rows = 64
@@ -22,6 +20,8 @@ brightness = 60
 
 [[playlist.section]]
 mode = "swap"
+scale = 2
+content_height = 32
 loop_count = 1
 hold_time = 5.0
 
@@ -31,7 +31,8 @@ title = "POOL TEMPS"
 units = "imperial"
 update_interval = 5
 layout = "two_row"
-font = "Inter-Regular"
-font_size = 16
+font = "Inter-Bold"
+font_size = 25
 font_threshold = 80
+top_font_size = 19
 label_color = [130, 220, 255]

@@ -1,0 +1,54 @@
+# Pool widget — longboi (bigsign) hardware testing config
+#
+# 256×64 logical canvas (8× P3 32×64 panels, 2×4 vertical-serpentine),
+# default_scale = 4. Single section, single pool widget, infinite loop —
+# soak-test the title → today → 7-day → season cycle on the big panel and
+# watch the periodic INFO log confirm update() is firing.
+#
+# Mirrors `config.bigsign.example.toml` for the display/RP1 tuning;
+# stripped down to one section so the pool widget owns the whole panel.
+#
+# Usage:
+#   cp config/config.pool_longboi.toml config/config.toml
+#   # Make sure .env defines INFLUXDB_TOKEN (and URL/ORG/BUCKET if not default):
+#   #   INFLUXDB_URL=http://pool_monitor:8086
+#   #   INFLUXDB_ORG=pool
+#   #   INFLUXDB_BUCKET=pool_temps
+#   #   INFLUXDB_TOKEN=...
+#   docker compose up
+
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+parallel = 1
+
+# Vertical-serpentine mapping. Chain enters at the bottom-right panel,
+# climbs each column bottom-to-top, then jumps diagonally to the next
+# column to the left. See https://docs.ledticker.dev/hardware/bigsign/
+# if your build flips top-row panels 180° (swap each top-row 'n' for 's').
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+
+brightness = 60
+default_scale = 4
+
+hardware_mapping = "adafruit-hat"
+
+# Pi 5 RP1 GPIO tuning (matches config.bigsign.example.toml).
+gpio_slowdown = 3
+rp1_rio = 1
+pwm_bits = 8
+show_refresh_rate = true  # log measured refresh Hz to stderr; useful while testing
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 5
+loop_count = 0  # infinite — soak test
+
+[[playlist.section.widget]]
+type = "pool"
+title = "POOL TEMPS"
+units = "imperial"
+update_interval = 60   # fast: prove the background fetch fires every minute
+# sensor_id = "12345"  # optional; omit to use the only/first sensor in the bucket
+stale_after = 900

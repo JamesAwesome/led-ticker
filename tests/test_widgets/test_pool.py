@@ -111,6 +111,30 @@ class TestBuildFlux:
         assert "r.id ==" not in flux
         assert "|> last()" in flux
 
+    def test_inserts_group_before_aggregation(self):
+        """`group()` must precede the aggregation step so a multi-sensor
+        bucket returns a single GLOBAL aggregate row, not one per series.
+        Without this, the CSV parser picks the first series's aggregate,
+        which depends on tag-value sort order and on which sensors have
+        data in the query range — surfacing as inconsistent values between
+        today/7-day (where one sensor dominates) and season (where multiple
+        do). Tripwire: drop the `group()` and this test catches it before
+        hardware regresses.
+        """
+        flux = _build_flux(
+            bucket="pool_temps",
+            sensor_id=None,
+            range_start="-7d",
+            agg="max",
+        )
+        # group() comes after filter() and before the aggregation.
+        group_idx = flux.find("|> group()")
+        max_idx = flux.find("|> max()")
+        filter_idx = flux.find("|> filter")
+        assert group_idx != -1, "expected `|> group()` in Flux query"
+        assert max_idx != -1
+        assert filter_idx < group_idx < max_idx
+
 
 # ---------------------------------------------------------------------------
 # PoolMonitor widget tests

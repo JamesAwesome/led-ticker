@@ -102,6 +102,20 @@ def _build_flux(
 
     `range_start` is a Flux duration ('-7d', '-1h') or an RFC3339
     timestamp. `agg` is one of 'last', 'mean', 'min', 'max'.
+
+    A `group()` is inserted before the aggregation so that buckets
+    with multiple sensors (pool water + ambient air + heater coil etc.)
+    return a single global aggregate row, not one row per series.
+    Without `group()` the CSV parser would pick the first series's
+    aggregate — which depends on InfluxDB's tag-value sort order and
+    on which sensors happen to have data in the query range. That
+    inconsistency surfaced as "season HI 37°F but pool app shows 90°F"
+    on a multi-sensor bucket: for short ranges only the pool sensor
+    had data so its max returned first; for year-to-date the ambient
+    air sensor had data too and sorted earlier.
+
+    Set `sensor_id` in config to pin a specific sensor and skip the
+    cross-sensor aggregation.
     """
     sensor_clause = f' and r.id == "{sensor_id}"' if sensor_id else ""
     return (
@@ -109,6 +123,7 @@ def _build_flux(
         f"  |> range(start: {range_start})\n"
         f'  |> filter(fn: (r) => r._measurement == "mqtt_consumer"'
         f' and r._field == "temperature_C"{sensor_clause})\n'
+        f"  |> group()\n"
         f"  |> {agg}()"
     )
 
@@ -205,7 +220,18 @@ class PoolMonitor:
         async with self.session.post(url, data=flux, headers=headers) as resp:
             resp.raise_for_status()
             text = await resp.text()
-        return _parse_scalar_csv(text)
+        value, ts = _parse_scalar_csv(text)
+        # DEBUG-level so production logs stay quiet; flip --log-level DEBUG
+        # to verify each scalar query is returning a sensible value when
+        # the displayed numbers look wrong (e.g. season HI too low).
+        logger.debug(
+            "pool query: range=%s agg=%s → value=%s ts=%s",
+            range_start,
+            agg,
+            value,
+            ts,
+        )
+        return value, ts
 
     async def update(self) -> None:
         year_start = f"{datetime.now(UTC).year}-01-01T00:00:00Z"

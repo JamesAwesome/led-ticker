@@ -79,3 +79,26 @@ font_threshold = 80
 small_font = "Inter-Regular"
 small_font_size = 20
 small_font_threshold = 80
+
+# --- MLB Standings ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "push_left"
+transition_duration = 0.5
+hold_time = 30
+loop_count = 0
+
+[playlist.section.title]
+type = "message"
+text = ":baseball: MLB Standings :baseball:"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "mlb_standings"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80

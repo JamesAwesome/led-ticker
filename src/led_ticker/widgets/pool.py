@@ -15,7 +15,7 @@ import aiohttp
 import attrs
 
 from led_ticker._types import Color, Font
-from led_ticker.colors import BLUE, GREEN, ORANGE, RED, RGB_WHITE, make_color
+from led_ticker.colors import BLUE, GREEN, ORANGE, PINK, RED, RGB_WHITE, make_color
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import run_monitor_loop
 from led_ticker.widgets import register
@@ -37,9 +37,16 @@ _SENSOR_ID_RE: re.Pattern[str] = re.compile(r"^[A-Za-z0-9_-]+$")
 # use the widget's configurable `label_color` field — defaults to white
 # but can be tinted (e.g. an icy cyan for a pool widget).
 #
-# STEADY_COLOR is the 7-day mean — neutral white-ish, distinct from the
-# zone-colored "current" temp on the today screen.
+# AVG_COLOR is the 7-day mean — pink, deliberately distinct from the
+# HI/LO orange/blue axis and from white labels. The 7D AVG is the only
+# value on its row that isn't an extreme, so it gets its own attention-
+# grabbing color.
+#
+# STEADY_COLOR is the trend-arrow "no change" case (used only when
+# `_trend_arrow` returns the steady glyph). Kept neutral gray so the
+# arrow reads as the absence of trend rather than a third alert color.
 DIM: Color = make_color(110, 110, 110)
+AVG_COLOR: Color = PINK
 STEADY_COLOR: Color = make_color(210, 210, 210)
 HI_COLOR: Color = ORANGE
 LO_COLOR: Color = BLUE
@@ -319,7 +326,7 @@ class PoolMonitor:
         d7 = SegmentMessage(
             [
                 ("Pool 7D AVG ", self.label_color),
-                (self._disp(d7_mean_c), STEADY_COLOR),
+                (self._disp(d7_mean_c), AVG_COLOR),
                 ("  ", self.label_color),
                 (self._disp(d7_max_c), HI_COLOR),
                 ("/", self.label_color),

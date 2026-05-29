@@ -2956,7 +2956,7 @@ def draw_emoji_at(
     bottom_baseline: int | None = None,
     max_emoji_height: int | None = None,
 ) -> int:
-    """Draw a single emoji slug at logical x. Returns the advance.
+    """Draw a single emoji slug at a logical position. Returns the advance.
 
     Supply exactly one of `y` (logical TOP-left) or `bottom_baseline`
     (logical baseline; the icon's BOTTOM anchors there, exact at any scale).
@@ -2995,7 +2995,8 @@ def draw_emoji_at(
         return hires.logical_width(canvas.scale) + EMOJI_PADDING
 
     # Low-res 8×8 sprite bottom-anchors at `bottom_baseline - 8` (logical,
-    # exact at any scale since it paints through the wrapper).
+    # exact at any scale since it paints through the wrapper;
+    # 8 = low-res sprite height in logical pixels).
     iy = (bottom_baseline - 8) if bottom_baseline is not None else y
     icon = _get_registry()[slug]  # KeyError on unknown slug — intentional
     iw = _emoji_width(icon)

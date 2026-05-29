@@ -839,6 +839,28 @@ class TestDrawEmojiAt:
         advance = draw_emoji_at(sc, "partly_cloudy", x=0, y=0)
         assert advance == 7 + EMOJI_PADDING
 
+    def test_draw_emoji_at_bottom_baseline_low_res(self):
+        """Low-res branch of bottom_baseline: on a plain canvas (no ScaledCanvas)
+        the 8x8 sprite bottom-anchors at `bottom_baseline - 8`. baseline=12 → top
+        row 4 → an 8-row sprite occupies rows 4..11."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.pixel_emoji import draw_emoji_at
+
+        canvas = _StubCanvas(width=160, height=16)
+        advance = draw_emoji_at(canvas, "baseball", 0, bottom_baseline=12)
+        assert advance > 0
+        lit_rows = [
+            ry
+            for ry in range(canvas.height)
+            for rx in range(canvas.width)
+            if canvas.get_pixel(rx, ry) != (0, 0, 0)
+        ]
+        assert lit_rows, "baseball emoji painted no pixels"
+        # 8x8 sprite anchored with top row = 12 - 8 = 4 → all lit rows in 4..11.
+        assert min(lit_rows) >= 4
+        assert max(lit_rows) <= 11
+
 
 _WEATHER_SLUGS = ["sun", "cloud", "rain", "snow", "thunder", "fog", "partly_cloudy"]
 

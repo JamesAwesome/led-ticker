@@ -467,15 +467,12 @@ def _coerce_border(value: Any) -> BorderEffect | None:
                 # rejects out-of-range / wrong-shape values.
                 # "rainbow" sentinel passes through untouched — handled by
                 # LightbulbBorder.__init__. Any other string is invalid.
-                if "lit_color" in kwargs:
-                    if kwargs["lit_color"] == "rainbow":
-                        pass  # sentinel — handled by LightbulbBorder
-                    else:
-                        kwargs["lit_color"] = tuple(
-                            _validate_rgb(
-                                kwargs["lit_color"], "border lightbulbs lit_color"
-                            )
+                if "lit_color" in kwargs and kwargs["lit_color"] != "rainbow":
+                    kwargs["lit_color"] = tuple(
+                        _validate_rgb(
+                            kwargs["lit_color"], "border lightbulbs lit_color"
                         )
+                    )
                 if "unlit_color" in kwargs:
                     kwargs["unlit_color"] = tuple(
                         _validate_rgb(

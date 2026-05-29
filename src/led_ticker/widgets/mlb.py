@@ -892,7 +892,7 @@ def _build_two_row_message(
         team_abbr=team_abbr,
         tz=tz,
         bg_color=bg_color,
-        font=font if font is not None else FONT_DEFAULT,
+        font=font if font is not None else FONT_SMALL,
         small_font=small_font if small_font is not None else FONT_SMALL,
         top_font=top_font,
         top_row_height=top_row_height,
@@ -983,7 +983,7 @@ def _build_two_row_series_title(
         team_abbr=team_abbr,
         tz=tz,
         bg_color=bg_color,
-        font=font if font is not None else FONT_DEFAULT,
+        font=font if font is not None else FONT_SMALL,
         small_font=small_font if small_font is not None else FONT_SMALL,
         top_font=top_font,
         top_row_height=top_row_height,
@@ -1002,7 +1002,10 @@ class MLBTwoRowMessage(_FrameAware):
     tz: ZoneInfo | None = None
     bg_color: Color | None = None
     font_color: Color | ColorProvider | None = attrs.field(default=None, kw_only=True)
-    font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+    # Default FONT_SMALL (line-height 8) so the default 8-row band fits — same
+    # default as TwoRowMessage, and what the band-overflow guard in draw()
+    # assumes for the no-font-configured case.
+    font: Font = attrs.field(default=FONT_SMALL, kw_only=True)
     small_font: Font = attrs.field(default=FONT_SMALL, kw_only=True)
     top_font: Font | None = attrs.field(default=None, kw_only=True)
     top_row_height: int | None = attrs.field(default=None, kw_only=True)
@@ -1018,7 +1021,7 @@ class MLBTwoRowMessage(_FrameAware):
         font_color: Any = None,
     ) -> DrawResult:
         from led_ticker.drawing import compute_baseline_for_band, safe_scale
-        from led_ticker.fonts import HiresFont, font_line_height_logical
+        from led_ticker.fonts import font_line_height_logical
         from led_ticker.pixel_emoji import draw_with_emoji, measure_width
         from led_ticker.widgets._row_layout import resolve_band_heights
 
@@ -1027,24 +1030,17 @@ class MLBTwoRowMessage(_FrameAware):
         top_font = self.top_font if self.top_font is not None else self.font
         bot_font = self.font
 
-        # Validate each row's HIRES font fits within its band (logical units).
+        # Validate each row's font fits within its band (logical units).
         # `font_line_height_logical` handles the BDF-vs-HiresFont branch
-        # (BDF returns logical px, HiresFont ceil-divs by scale). Mirrors the
-        # intent of the equivalent guard in TwoRowMessage.draw so a too-tall
-        # hires font raises with the offending row named instead of silently
-        # clipping. Scoped to HiresFont because hires text hard-clips, whereas
-        # this widget's default BDF font (FONT_DEFAULT, line-height 12) renders
-        # in an 8-row band via BDF's forgiving vertical centering (a documented
-        # behavior — see CLAUDE.md). TwoRowMessage's guard covers BDF too only
-        # because its default font is FONT_SMALL (line-height 8, fits exactly);
-        # MLB's default is FONT_DEFAULT, so a literal BDF check would reject the
-        # shipping default layout.
+        # (BDF returns logical px, HiresFont ceil-divs by scale). Mirrors
+        # TwoRowMessage.draw's guard: any font (BDF or hires) whose line-height
+        # exceeds its band raises with the offending row named, rather than
+        # silently clipping. The widget's default font is FONT_SMALL
+        # (line-height 8) so the default 8-row band fits without overriding.
         for row_label, row_font, band_h in (
             ("top", top_font, top_h),
             ("bottom", bot_font, bot_h),
         ):
-            if not isinstance(row_font, HiresFont):
-                continue
             font_lh_logical = font_line_height_logical(row_font, scale)
             if font_lh_logical > band_h:
                 raise ValueError(
@@ -1104,7 +1100,10 @@ class MLBScoreMonitor:
     hold_time: float = 0.0
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
     font_color: Color | ColorProvider | None = attrs.field(default=None, kw_only=True)
-    font: Font = attrs.field(default=FONT_DEFAULT, kw_only=True)
+    # None when the config omits `font`. Resolved per-layout at draw-build time:
+    # two_row falls back to FONT_SMALL (fits an 8-row band), ticker / scoreboard
+    # fall back to FONT_DEFAULT. See the `display_font` resolution in update().
+    font: Font | None = attrs.field(default=None, kw_only=True)
     small_font: Font = attrs.field(default=FONT_SMALL, kw_only=True)
     layout: str = attrs.field(default="ticker", kw_only=True)
     top_font: Font | None = attrs.field(default=None, kw_only=True)
@@ -1315,14 +1314,24 @@ class MLBScoreMonitor:
             )
             return
 
-        # Build display from current series
+        # Build display from current series.
+        # Resolve the effective font: two_row falls back to FONT_SMALL (fits an
+        # 8-row band under the band-overflow guard), ticker / scoreboard fall
+        # back to FONT_DEFAULT. A configured font is used as-is for all layouts.
+        if self.font is not None:
+            display_font = self.font
+        elif self.layout == "two_row":
+            display_font = FONT_SMALL
+        else:
+            display_font = FONT_DEFAULT
+
         if self.layout == "two_row":
             series_title: _MLBStoryT = _build_two_row_series_title(
                 self.team,
                 current,
                 tz,
                 bg_color=self.bg_color,
-                font=self.font,
+                font=display_font,
                 small_font=self.small_font,
                 top_font=self.top_font,
                 top_row_height=self.top_row_height,
@@ -1334,7 +1343,7 @@ class MLBScoreMonitor:
                 current,
                 tz,
                 bg_color=self.bg_color,
-                font=self.font,
+                font=display_font,
                 font_color=self.font_color,
             )
         self.feed_title = series_title
@@ -1346,7 +1355,7 @@ class MLBScoreMonitor:
                     self.team,
                     tz,
                     bg_color=self.bg_color,
-                    font=self.font,
+                    font=display_font,
                     small_font=self.small_font,
                     font_color=self.font_color,
                 )
@@ -1359,7 +1368,7 @@ class MLBScoreMonitor:
                     self.team,
                     tz,
                     bg_color=self.bg_color,
-                    font=self.font,
+                    font=display_font,
                     small_font=self.small_font,
                     top_font=self.top_font,
                     top_row_height=self.top_row_height,
@@ -1377,7 +1386,7 @@ class MLBScoreMonitor:
                     self.team,
                     tz,
                     bg_color=self.bg_color,
-                    font=self.font,
+                    font=display_font,
                     font_color=self.font_color,
                 )
                 for g in current.games

@@ -1117,12 +1117,9 @@ class TestMLBTwoRowLayout:
         """Band-overflow guard: a HIRES font taller than its band raises,
         naming the offending row.
 
-        Scoped to hires fonts because hires text hard-clips, whereas the
-        default BDF FONT_DEFAULT (line-height 12) renders in an 8-row band
-        via BDF's forgiving centering. Mirrors TwoRowMessage's
-        `test_hires_font_too_large_raises_at_draw`: Inter@40 is ~46 real px
-        → 12 logical at scale=4, and the top half of a 16-row canvas is
-        8 logical rows, so it doesn't fit.
+        The guard is universal (BDF and hires alike) — mirrors
+        TwoRowMessage.draw. On the 160x16 scale=1 canvas each band is 8
+        logical rows; Inter@40 far exceeds that, so it doesn't fit.
         """
         from zoneinfo import ZoneInfo
 
@@ -1141,6 +1138,48 @@ class TestMLBTwoRowLayout:
         )
         with pytest.raises(ValueError, match="line-height"):
             msg.draw(canvas)
+
+    def test_draw_raises_when_bdf_font_exceeds_band(self, canvas):
+        """Universal guard: a too-tall BDF font also raises (not just hires).
+
+        FONT_DEFAULT is 6x12 (line-height 12 logical); each band on the
+        160x16 scale=1 canvas is 8 logical rows, so 12 > 8 overflows. This
+        is the behavior the universal guard adds over a hires-only scope.
+        The widget's actual default (FONT_SMALL, line-height 8) fits, so
+        this only fires when a config explicitly picks a taller BDF font.
+        """
+        from zoneinfo import ZoneInfo
+
+        import pytest
+
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+        )
+        msg = _build_two_row_message(
+            game, "PHI", ZoneInfo("America/New_York"), font=FONT_DEFAULT
+        )
+        with pytest.raises(ValueError, match="line-height"):
+            msg.draw(canvas)
+
+    def test_draw_default_font_fits_default_band(self, canvas):
+        """The no-font default (FONT_SMALL) fits the default 8-row band."""
+        from zoneinfo import ZoneInfo
+
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        assert msg.font is FONT_SMALL
+        # Must not raise — FONT_SMALL line-height 8 == band 8.
+        msg.draw(canvas)
 
     def test_top_font_threads_through_from_monitor(self):
         """top_font set on MLBScoreMonitor reaches MLBTwoRowMessage instances."""

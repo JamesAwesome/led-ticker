@@ -998,6 +998,7 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
       - `type = "two_row"` (TwoRowMessage)
       - `type = "gif"` / `type = "image"` with `bottom_text != ""`
         (image/gif two-row text overlay mode)
+      - `type = "mlb"` with `layout = "two_row"` (MLBTwoRowMessage)
     """
     from led_ticker.fonts import (
         FONT_DEFAULT,
@@ -1016,13 +1017,18 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
 
             # Default-font choice mirrors the widget classes:
             # TwoRowMessage's `font` defaults to FONT_SMALL (5x8);
-            # _BaseImageWidget's `font` defaults to FONT_DEFAULT (6x12).
+            # _BaseImageWidget's `font` defaults to FONT_DEFAULT (6x12);
+            # MLBTwoRowMessage's two_row `font` falls back to FONT_SMALL (5x8).
             if wtype == "two_row":
                 default_font = FONT_SMALL
             elif wtype in ("gif", "image"):
                 if widget_cfg.get("bottom_text", "") == "":
                     continue  # single-row mode: no per-band check needed
                 default_font = FONT_DEFAULT
+            elif wtype == "mlb":
+                if widget_cfg.get("layout") != "two_row":
+                    continue  # ticker / scoreboard don't band-split text
+                default_font = FONT_SMALL
             else:
                 continue
 

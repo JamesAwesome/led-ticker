@@ -891,6 +891,74 @@ async def test_rule22_image_two_row_default_font_too_tall(conf):
     assert any(e.rule == 22 for e in result.errors)
 
 
+async def test_rule22_mlb_two_row_font_too_tall(conf):
+    """MLB two_row: Inter@32 at default_scale=4 + content_height=16 → band
+    8 logical, line-height 10. This is the exact config that crashed on
+    hardware; the band check must now catch it at config-load time."""
+    extra = textwrap.dedent("""\
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 8
+
+        [[playlist.section.widget]]
+        type = "mlb"
+        team = "PHI"
+        layout = "two_row"
+        font = "Inter-Regular"
+        font_size = 32
+        """)
+    result = await validate_config(conf(_BIGSIGN_CONFIG + extra))
+    assert not result.valid, "config-load validate should catch font-too-tall"
+    assert any(
+        e.rule == 22 for e in result.errors
+    ), f"expected rule=22 in {[(e.rule, e.message) for e in result.errors]}"
+
+
+async def test_rule22_mlb_two_row_passes_at_scale2_content32(conf):
+    """MLB two_row sized per the pool_bigsign pattern (scale=2,
+    content_height=32 → 16-logical bands) fits Inter@25. No rule-22 error."""
+    extra = textwrap.dedent("""\
+
+        [[playlist.section]]
+        mode = "swap"
+        scale = 2
+        content_height = 32
+        hold_time = 8
+
+        [[playlist.section.widget]]
+        type = "mlb"
+        team = "PHI"
+        layout = "two_row"
+        font = "Inter-Regular"
+        font_size = 25
+        """)
+    result = await validate_config(conf(_BIGSIGN_CONFIG + extra))
+    assert not any(
+        e.rule == 22 for e in result.errors
+    ), f"unexpected rule=22 in {[(e.rule, e.message) for e in result.errors]}"
+
+
+async def test_rule22_mlb_ticker_layout_not_band_checked(conf):
+    """Ticker layout doesn't band-split — Inter@32 is fine there and must
+    NOT trigger the per-row band check."""
+    extra = textwrap.dedent("""\
+
+        [[playlist.section]]
+        mode = "swap"
+        hold_time = 8
+
+        [[playlist.section.widget]]
+        type = "mlb"
+        team = "PHI"
+        layout = "ticker"
+        font = "Inter-Regular"
+        font_size = 32
+        """)
+    result = await validate_config(conf(_BIGSIGN_CONFIG + extra))
+    assert not any(e.rule == 22 for e in result.errors)
+
+
 async def test_rule22_passes_when_band_fits(conf):
     """Inverse: 5x8 BDF on a content_height=16 50/50 split fits
     exactly (line_height=8 logical, band=8). No issue raised."""

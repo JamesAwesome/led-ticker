@@ -373,9 +373,9 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         calls: list[str] = []
         original = pixel_emoji._draw_hires_emoji
 
-        def spy(canvas, hires, ix, iy):
+        def spy(canvas, hires, ix, **kwargs):
             calls.append("hires")
-            return original(canvas, hires, ix, iy)
+            return original(canvas, hires, ix, **kwargs)
 
         monkeypatch.setattr(pixel_emoji, "_draw_hires_emoji", spy)
 
@@ -416,9 +416,9 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         calls: list[str] = []
         original = pixel_emoji._draw_hires_emoji
 
-        def spy(canvas, hires, ix, iy):
+        def spy(canvas, hires, ix, **kwargs):
             calls.append("hires")
-            return original(canvas, hires, ix, iy)
+            return original(canvas, hires, ix, **kwargs)
 
         monkeypatch.setattr(pixel_emoji, "_draw_hires_emoji", spy)
 
@@ -464,9 +464,15 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         captured_iy: list[int] = []
         original = pixel_emoji._draw_hires_emoji
 
-        def spy(canvas, hires, ix, iy):
-            captured_iy.append(iy)
-            return original(canvas, hires, ix, iy)
+        def spy(canvas, hires, ix, *, top_logical=None, bottom_baseline_logical=None):
+            captured_iy.append(top_logical)
+            return original(
+                canvas,
+                hires,
+                ix,
+                top_logical=top_logical,
+                bottom_baseline_logical=bottom_baseline_logical,
+            )
 
         monkeypatch.setattr(pixel_emoji, "_draw_hires_emoji", spy)
 

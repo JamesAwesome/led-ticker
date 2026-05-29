@@ -2849,19 +2849,6 @@ def draw_with_emoji(
             len(value) for seg_type, value in segments if seg_type == "text"
         )
 
-    # Default emoji_y anchors the 8-logical-px-tall sprite to the text
-    # baseline (`iy = y - 8`). The lowres 8×8 sprite and the hires
-    # 32×32-at-scale=4 sprite both occupy 8 logical rows, so a single
-    # baseline-anchored formula works for both. For BDF (baseline=12)
-    # this evaluates to iy=4, matching the previously-hardcoded
-    # visually-validated value. For HiresFont (baseline depends on
-    # font + canvas) it computes the correct anchor — the previous
-    # `(line_h - 8) // 2` formula mixed real-px line_h with logical
-    # iy, producing iy=10 for Inter-Bold @ 24 and clipping the emoji
-    # off the bottom of the panel.
-    # Callers (e.g. two_row) can always override via explicit emoji_y.
-    iy_default = (y + y_offset) - 8
-
     # Hi-res path is only available on a ScaledCanvas — anywhere else we
     # fall back to the regular 8×8 sprite.
     use_hires = isinstance(canvas, ScaledCanvas)
@@ -2882,7 +2869,6 @@ def draw_with_emoji(
             if prev_was_text:
                 total += EMOJI_PADDING
             ix = int(cursor_pos + total)
-            iy = iy_default if emoji_y is None else emoji_y
 
             # Hi-res only fires if (a) we're on a ScaledCanvas, (b) a hi-res
             # variant exists, and (c) the sprite fits within the caller's
@@ -2895,9 +2881,20 @@ def draw_with_emoji(
                     hires = candidate
 
             if hires is not None:
-                _draw_hires_emoji(canvas, hires, ix, iy)
+                # Default path bottom-anchors the sprite at the text baseline
+                # in REAL pixels (exact at any scale). An explicit emoji_y is a
+                # logical TOP position from a band-layout caller — preserve it.
+                if emoji_y is None:
+                    _draw_hires_emoji(
+                        canvas, hires, ix, bottom_baseline_logical=(y + y_offset)
+                    )
+                else:
+                    _draw_hires_emoji(canvas, hires, ix, top_logical=emoji_y)
                 total += hires.logical_width(canvas.scale) + EMOJI_PADDING
             else:
+                # Low-res 8×8 sprite paints through the wrapper (logical space),
+                # so a logical `baseline - 8` bottom-anchor is exact at any scale.
+                iy = (y + y_offset) - 8 if emoji_y is None else emoji_y
                 icon = _get_registry()[value]
                 iw = _emoji_width(icon)
                 w = canvas.width
@@ -2984,7 +2981,7 @@ def draw_emoji_at(
             hires = candidate
 
     if hires is not None:
-        _draw_hires_emoji(canvas, hires, x, y)
+        _draw_hires_emoji(canvas, hires, x, top_logical=y)
         return hires.logical_width(canvas.scale) + EMOJI_PADDING
 
     icon = _get_registry()[slug]  # KeyError on unknown slug — intentional
@@ -3034,18 +3031,39 @@ def _draw_hires_emoji(
     canvas: ScaledCanvas,
     hires: HiResEmoji,
     ix_logical: int,
-    iy_logical: int,
+    *,
+    top_logical: int | None = None,
+    bottom_baseline_logical: int | None = None,
 ) -> None:
     """Paint a hi-res sprite directly to the ScaledCanvas's real canvas.
 
-    The wrapper's `SetPixel` would expand each pixel to a `scale × scale`
-    block, defeating the purpose of the hi-res sprite. Calling
-    `real.SetPixel` writes individual physical LEDs.
+    Exactly one vertical anchor must be supplied:
+      - ``bottom_baseline_logical``: the sprite's BOTTOM is placed at this
+        logical baseline, computed in real pixels
+        (``real_top = baseline*scale + y_offset_real - physical_size``) so it
+        is exact at any scale — not just scales that divide ``physical_size``.
+      - ``top_logical``: the sprite's TOP starts at this logical row
+        (``real_top = top*scale + y_offset_real``). Used by explicit-position
+        callers (single-icon placement, two-row band layout).
+
+    The wrapper's ``SetPixel`` would expand each pixel to a ``scale × scale``
+    block, defeating the hi-res sprite; ``real.SetPixel`` writes individual
+    physical LEDs. Out-of-bounds rows/cols are skipped (top-clip safe).
     """
+    if (top_logical is None) == (bottom_baseline_logical is None):
+        raise ValueError(
+            "_draw_hires_emoji requires exactly one of top_logical / "
+            "bottom_baseline_logical"
+        )
 
     def _paint(real: Any, scale: int, y_offset_real: int) -> None:
         real_x_anchor = ix_logical * scale
-        real_y_anchor = iy_logical * scale + y_offset_real
+        if bottom_baseline_logical is not None:
+            real_y_anchor = (
+                bottom_baseline_logical * scale + y_offset_real - hires.physical_size
+            )
+        else:
+            real_y_anchor = top_logical * scale + y_offset_real
         real_w = real.width
         real_h = real.height
         for px, py, r, g, b in hires.pixels:

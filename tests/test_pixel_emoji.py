@@ -10,7 +10,12 @@ import pytest
 from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
 from led_ticker.fonts import FONT_SMALL
-from led_ticker.pixel_emoji import draw_with_emoji, measure_width
+from led_ticker.pixel_emoji import (
+    HIRES_REGISTRY,
+    draw_emoji_at,
+    draw_with_emoji,
+    measure_width,
+)
 from led_ticker.scaled_canvas import ScaledCanvas
 
 
@@ -331,9 +336,9 @@ def test_instagram_hires_uses_gradient_colors():
     from led_ticker.pixel_emoji import INSTAGRAM_HIRES
 
     distinct_colors = {(r, g, b) for _, _, r, g, b in INSTAGRAM_HIRES.pixels}
-    assert (
-        len(distinct_colors) > 50
-    ), f"IG hi-res should have many gradient colors; got {len(distinct_colors)}"
+    assert len(distinct_colors) > 50, (
+        f"IG hi-res should have many gradient colors; got {len(distinct_colors)}"
+    )
 
 
 def test_instagram_hires_has_central_lens_hole():
@@ -480,10 +485,10 @@ class TestDrawWithEmojiHiresFont:
 
         font = resolve_font("Inter-Bold", 24)
 
-        captured_iy: list[int] = []
+        captured_baseline: list[int] = []
 
-        def _spy(canvas, hires, ix, iy):
-            captured_iy.append(iy)
+        def _spy(canvas, hires, ix, *, top_logical=None, bottom_baseline_logical=None):
+            captured_baseline.append(bottom_baseline_logical)
 
         with mock.patch("led_ticker.pixel_emoji._draw_hires_emoji", _spy):
             draw_with_emoji(
@@ -495,14 +500,14 @@ class TestDrawWithEmojiHiresFont:
                 text=":taco: hi",
             )
 
-        assert captured_iy, "hires path didn't fire"
-        # iy = y - 8 = 2 (logical). Anchors emoji bottom to baseline:
-        # real y_anchor = 2*4 = 8, sprite extends to real y=40 = baseline.
-        assert captured_iy[0] == 2, (
-            f"Expected iy=2 (baseline-anchored: y=10 - emoji_h=8); "
-            f"got {captured_iy[0]}. Likely regression of the unit-"
-            f"mismatched (line_h - 8) // 2 formula that produced 10 "
-            f"and clipped the emoji off the bottom of the panel."
+        assert captured_baseline, "hires path didn't fire"
+        # Default path bottom-anchors at the logical baseline (y + y_offset).
+        # At scale=4: real bottom = 10*4 - 32 = 8 → sprite extends to real
+        # y=40 = baseline. The previous unit-mismatched (line_h - 8) // 2
+        # formula produced iy=10 and clipped the emoji off the panel bottom.
+        assert captured_baseline[0] == 10, (
+            f"Expected bottom_baseline_logical=10 (= y + y_offset); "
+            f"got {captured_baseline[0]}."
         )
 
     def test_emoji_y_default_unchanged_for_bdf(self):
@@ -779,9 +784,9 @@ class TestDrawEmojiAt:
         calls: list[str] = []
         original = pixel_emoji._draw_hires_emoji
 
-        def spy(canvas, hires, ix, iy):
+        def spy(canvas, hires, ix, **kwargs):
             calls.append("hires")
-            return original(canvas, hires, ix, iy)
+            return original(canvas, hires, ix, **kwargs)
 
         monkeypatch.setattr(pixel_emoji, "_draw_hires_emoji", spy)
 
@@ -1370,18 +1375,18 @@ class TestHiresEmojiAtScale1Wrapper:
         lit_ys = {y for (x, y), rgb in real._pixels.items() if rgb != (0, 0, 0)}
 
         # Sprite should start at or near row 24 (the _y_offset)
-        assert (
-            min(lit_ys) >= 24
-        ), f"Sprite painted above _y_offset: min real y={min(lit_ys)}, expected >= 24"
+        assert min(lit_ys) >= 24, (
+            f"Sprite painted above _y_offset: min real y={min(lit_ys)}, expected >= 24"
+        )
         # Sprite should extend to around row 55 (24 + 32 - 1)
         assert max(lit_ys) >= 40, (
             f"Sprite top row={max(lit_ys)} expected >= 40; "
             "it should overflow the content_height=16 band (rows 24..39)"
         )
         # The sprite stays within the physical panel (rows 0..63)
-        assert (
-            max(lit_ys) < 64
-        ), f"Sprite painted off-panel: max real y={max(lit_ys)} >= 64"
+        assert max(lit_ys) < 64, (
+            f"Sprite painted off-panel: max real y={max(lit_ys)} >= 64"
+        )
 
     def test_hires_advance_at_scale1(self):
         """draw_emoji_at returns the expected logical advance at scale=1.
@@ -1396,3 +1401,92 @@ class TestHiresEmojiAtScale1Wrapper:
 
         expected_logical_w = HIRES_REGISTRY["instagram"].logical_width(scale=1)
         assert advance == expected_logical_w + EMOJI_PADDING
+
+
+# ---------------------------------------------------------------------------
+# Real-pixel bottom-anchor for inline hi-res emoji (arbitrary scale)
+# ---------------------------------------------------------------------------
+def _fresh_bigsign_real():
+    from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+    opts = RGBMatrixOptions()
+    opts.rows = 32
+    opts.cols = 64
+    opts.chain_length = 8
+    opts.parallel = 1
+    opts.pixel_mapper_config = "U-mapper"
+    return RGBMatrix(options=opts).CreateFrameCanvas()
+
+
+def _sprite_max_py(slug: str) -> int:
+    """Lowest lit row index in the hi-res sprite (sprites leave row 31 blank)."""
+    return max(py for _x, py, *_ in HIRES_REGISTRY[slug].pixels)
+
+
+def _lit_pixels(real) -> list[tuple[int, int]]:
+    return [
+        (rx, ry)
+        for ry in range(real.height)
+        for rx in range(real.width)
+        if real.get_pixel(rx, ry) != (0, 0, 0)
+    ]
+
+
+def _lowest_lit_row(real) -> int:
+    return max(ry for _rx, ry in _lit_pixels(real))
+
+
+def _expected_bottom(baseline: int, scale: int, y_off: int, slug: str) -> int:
+    physical = HIRES_REGISTRY[slug].physical_size
+    return baseline * scale + y_off - physical + _sprite_max_py(slug)
+
+
+def test_hires_emoji_bottom_anchored_at_scale_2():
+    sc = ScaledCanvas(_fresh_bigsign_real(), scale=2)  # y_offset_real = 16
+    baseline = 12
+    draw_with_emoji(sc, FONT_SMALL, 0, baseline, (255, 255, 255), ":baseball:")
+    assert _lowest_lit_row(sc.real) == _expected_bottom(
+        baseline, 2, sc.y_offset_real, "baseball"
+    )
+
+
+def test_hires_emoji_baseline_gap_is_scale_invariant():
+    baseline = 12
+
+    sc4 = ScaledCanvas(_fresh_bigsign_real(), scale=4)
+    draw_with_emoji(sc4, FONT_SMALL, 0, baseline, (255, 255, 255), ":baseball:")
+    gap4 = (baseline * 4 + sc4.y_offset_real) - _lowest_lit_row(sc4.real)
+
+    sc2 = ScaledCanvas(_fresh_bigsign_real(), scale=2)
+    draw_with_emoji(sc2, FONT_SMALL, 0, baseline, (255, 255, 255), ":baseball:")
+    gap2 = (baseline * 2 + sc2.y_offset_real) - _lowest_lit_row(sc2.real)
+
+    assert gap2 == gap4
+
+
+def test_hires_emoji_bottom_anchored_at_scale_3():
+    sc = ScaledCanvas(_fresh_bigsign_real(), scale=3, content_height=16)  # y_off=8
+    baseline = 12
+    draw_with_emoji(sc, FONT_SMALL, 0, baseline, (255, 255, 255), ":baseball:")
+    assert _lowest_lit_row(sc.real) == _expected_bottom(
+        baseline, 3, sc.y_offset_real, "baseball"
+    )
+
+
+def test_hires_emoji_top_clip_is_safe_at_scale_2():
+    sc = ScaledCanvas(_fresh_bigsign_real(), scale=2)  # y_off=16
+    baseline = 4  # real_top = 4*2 + 16 - 32 = -8 → top rows clip
+    draw_with_emoji(sc, FONT_SMALL, 0, baseline, (255, 255, 255), ":baseball:")
+    for rx, ry in _lit_pixels(sc.real):
+        assert 0 <= ry < sc.real.height
+        assert 0 <= rx < sc.real.width
+
+
+def test_draw_emoji_at_keeps_top_anchor():
+    sc = ScaledCanvas(_fresh_bigsign_real(), scale=2)  # y_offset_real = 16 (non-zero)
+    top = 3
+    draw_emoji_at(sc, "baseball", 0, top)
+    sprite = HIRES_REGISTRY["baseball"]
+    min_py = min(py for _x, py, *_ in sprite.pixels)
+    expected_top_row = top * sc.scale + sc.y_offset_real + min_py
+    assert min(ry for _rx, ry in _lit_pixels(sc.real)) == expected_top_row

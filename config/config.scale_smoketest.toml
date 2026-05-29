@@ -1,0 +1,144 @@
+# Scale smoke-test — bigsign (256×64 canvas)
+#
+# Exercises inline-emoji vertical alignment across per-section scales to
+# verify the real-pixel bottom-anchor fix (PR #131). Walk the sections on
+# hardware and confirm the emoji sit INLINE with the text at every scale —
+# not hanging below the baseline (the pre-fix scale≠4 bug).
+#
+# Per-section `scale` + `content_height` combos exercised (content_height ×
+# scale ≤ 64 real panel rows):
+#   scale=4, content_height=16  → 8-logical emoji  (must stay correct)
+#   scale=3, content_height=21  → 10-logical emoji (arbitrary scale, newly exact)
+#   scale=2, content_height=32  → 16-logical emoji (the original bug)
+#   scale=1, content_height=64  → low-res 8×8 emoji on a plain canvas
+#
+# Fixed call sites covered: draw_with_emoji default (message sections),
+# two_row (held/scroll text), and draw_emoji_at (weather condition icon).
+#
+# Usage: cp config/config.scale_smoketest.toml config/config.toml
+#   The weather section needs WEATHERAPI_KEY in .env (https://www.weatherapi.com/).
+
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+parallel = 1
+# Vertical-serpentine 2×4 panel map. See https://docs.ledticker.dev/hardware/bigsign/
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+brightness = 60
+default_scale = 4
+hardware_mapping = "adafruit-hat"
+gpio_slowdown = 3
+rp1_rio = 1
+pwm_bits = 8
+show_refresh_rate = true
+
+[title]
+delay = 5
+
+[transitions]
+default = "cut"
+duration = 0.5
+easing = "ease_out"
+between_sections = "cut"
+
+# --- scale = 4 (default bigsign; 8-logical emoji — must stay inline) ---
+
+[[playlist.section]]
+mode = "swap"
+scale = 4
+content_height = 16
+hold_time = 8
+loop_count = 0
+
+[[playlist.section.widget]]
+type = "message"
+text = ":baseball: SCALE 4 :star:"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+# --- scale = 3 (arbitrary scale; 10-logical emoji — newly exact) ---
+
+[[playlist.section]]
+mode = "swap"
+scale = 3
+content_height = 21
+hold_time = 8
+loop_count = 0
+
+[[playlist.section.widget]]
+type = "message"
+text = ":moon: SCALE 3 :sun:"
+font = "Inter-Regular"
+font_size = 36
+font_threshold = 80
+
+# --- scale = 2 (the original bug; 16-logical emoji) ---
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 32
+hold_time = 8
+loop_count = 0
+
+[[playlist.section.widget]]
+type = "message"
+text = ":baseball: SCALE 2 :star:"
+font = "Inter-Regular"
+font_size = 25
+font_threshold = 80
+
+# --- scale = 1 (plain full-panel canvas; low-res 8×8 emoji) ---
+
+[[playlist.section]]
+mode = "swap"
+scale = 1
+content_height = 64
+hold_time = 8
+loop_count = 0
+
+[[playlist.section.widget]]
+type = "message"
+text = ":baseball: SCALE 1 :star:"
+font = "Inter-Regular"
+font_size = 44
+font_threshold = 80
+
+# --- two_row at scale = 2 (held top + bottom; inline emoji in each row) ---
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 32
+hold_time = 8
+loop_count = 0
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":baseball: Two-Row Top"
+bottom_text = "scale 2 bottom :star:"
+font = "Inter-Regular"
+font_size = 25
+font_threshold = 80
+top_font_size = 16
+
+# --- weather at scale = 2 (exercises draw_emoji_at condition icon) ---
+# Requires WEATHERAPI_KEY in .env.
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 32
+hold_time = 8
+loop_count = 0
+
+[[playlist.section.widget]]
+type = "weather"
+text = "New York"
+location = "New York"
+units = "imperial"
+font = "Inter-Regular"
+font_size = 25
+font_threshold = 80

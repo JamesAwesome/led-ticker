@@ -703,6 +703,20 @@ def _compute_preview_two_row(
     return top, bot
 
 
+def _pip_segments(count: int | None) -> list[tuple[str, Color]]:
+    """ABS challenge pip dashes for one team's score.
+
+    Returns empty list when count is None (ABS not in effect).
+    Orange dashes for remaining challenges, grey for used (max 2 shown).
+    """
+    if count is None:
+        return []
+    chal_c = _team_palette("CHALLENGE_COLOR")
+    used_c = _team_palette("CHALLENGE_USED")
+    n = min(count, 2)
+    return [("-", chal_c if i < n else used_c) for i in range(2)]
+
+
 def _compute_final_two_row(
     game: GameInfo,
     team_abbr: str,
@@ -726,9 +740,11 @@ def _compute_final_two_row(
     top: list[tuple[str, Color]] = []
     top.append((game.away_abbr, away_c))
     top.append((f" {away_score_str}", away_score_c))
+    top.extend(_pip_segments(game.away_challenges))
     top.append(("  ", RGB_WHITE))
     top.append((game.home_abbr, home_c))
     top.append((f" {home_score_str}", home_score_c))
+    top.extend(_pip_segments(game.home_challenges))
 
     grey = make_color(180, 180, 180)  # grey — FINAL label
     bot: list[tuple[str, Color]] = [("FINAL", grey)]
@@ -768,9 +784,11 @@ def _compute_live_two_row(
     top: list[tuple[str, Color]] = []
     top.append((game.away_abbr, away_c))
     top.append((f" {away_score_str}", RGB_WHITE))
+    top.extend(_pip_segments(game.away_challenges))
     top.append(("  ", RGB_WHITE))
     top.append((game.home_abbr, home_c))
     top.append((f" {home_score_str}", RGB_WHITE))
+    top.extend(_pip_segments(game.home_challenges))
 
     live_c = _team_palette("LIVE_COLOR")
     ball_c = make_color(80, 255, 80)    # green — balls

@@ -960,3 +960,52 @@ class TestMLBTwoRowLayout:
         msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
         bottom_text = "".join(t for t, _ in msg.bottom_segments)
         assert "CANC" in bottom_text
+
+    def test_pips_hidden_when_challenges_none(self):
+        """No pip segments when away/home challenges are None."""
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+            away_challenges=None, home_challenges=None,
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        top_texts = [t for t, _ in msg.top_segments]
+        assert "-" not in top_texts
+
+    def test_pips_trailing_away_score_one_remaining(self):
+        """Away has 1 challenge remaining: 1 orange + 1 grey. Home has 2: 2 orange."""
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message, CHALLENGE_COLOR, CHALLENGE_USED
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+            away_challenges=1, home_challenges=2,
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        pip_segs = [(t, c) for t, c in msg.top_segments if t == "-"]
+        # 2 away pips + 2 home pips = 4 total
+        assert len(pip_segs) == 4
+        orange_pips = [c for _, c in pip_segs if c is CHALLENGE_COLOR]
+        grey_pips = [c for _, c in pip_segs if c is CHALLENGE_USED]
+        # away=1 remaining → 1 orange; home=2 remaining → 2 orange; total=3
+        assert len(orange_pips) == 3
+        assert len(grey_pips) == 1
+
+    def test_pips_all_grey_when_zero_remaining(self):
+        """Both teams used all challenges: 4 grey dashes."""
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message, CHALLENGE_USED
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+            away_challenges=0, home_challenges=0,
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        pip_segs = [(t, c) for t, c in msg.top_segments if t == "-"]
+        assert len(pip_segs) == 4
+        assert all(c is CHALLENGE_USED for _, c in pip_segs)

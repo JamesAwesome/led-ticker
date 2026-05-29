@@ -7,7 +7,7 @@ import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-A border paints a 1- or 2-pixel-thick ring around the entire panel perimeter. Three styles are available: an animated **rainbow chase** that sweeps a hue gradient per pixel around the edge, a **color_cycle** that pulses the entire border as one animated hue, and a **constant color** that frames the content in a steady solid color. Both `rainbow` and `color_cycle` accept optional `from` / `to` RGB colors to confine the animation to a specific hue arc instead of sweeping the full spectrum. All three paint at physical panel resolution — they bypass the `ScaledCanvas` block-expansion path and call `SetPixel` on the real underlying canvas, so a 1-pixel border is always exactly one LED wide regardless of scale.
+A border paints a 1- or 2-pixel-thick ring around the entire panel perimeter. Four styles are available: an animated **rainbow chase** that sweeps a hue gradient per pixel around the edge, a **color_cycle** that pulses the entire border as one animated hue, a **constant color** that frames the content in a steady solid color, and **lightbulbs** that paint discrete bulb sprites for a classic marquee aesthetic — lit bulbs can optionally use a static rainbow coloring. Both `rainbow` and `color_cycle` accept optional `from` / `to` RGB colors to confine the animation to a specific hue arc instead of sweeping the full spectrum. All styles paint at physical panel resolution — they bypass the `ScaledCanvas` block-expansion path and call `SetPixel` on the real underlying canvas, so a 1-pixel border is always exactly one LED wide regardless of scale.
 
 <DemoGif
   src="/demos/concepts-borders.gif"
@@ -16,12 +16,12 @@ A border paints a 1- or 2-pixel-thick ring around the entire panel perimeter. Th
 
 ## Border styles
 
-| Style         | Shorthand                | Per-pixel color?           | Animates? |
-| ------------- | ------------------------ | -------------------------- | --------- |
-| `rainbow`     | `border = "rainbow"`     | yes — hue chase            | yes       |
-| `color_cycle` | `border = "color_cycle"` | no — whole border one hue  | yes       |
-| `constant`    | `border = [r,g,b]`       | no — uniform               | no        |
-| `lightbulbs`  | `border = "lightbulbs"`  | no — discrete bulb sprites | yes       |
+| Style         | Shorthand                | Per-pixel color?            | Animates? |
+| ------------- | ------------------------ | --------------------------- | --------- |
+| `rainbow`     | `border = "rainbow"`     | yes — hue chase             | yes       |
+| `color_cycle` | `border = "color_cycle"` | no — whole border one hue   | yes       |
+| `constant`    | `border = [r,g,b]`       | no — uniform                | no        |
+| `lightbulbs`  | `border = "lightbulbs"`  | optional — rainbow or solid | yes       |
 
 ### Rainbow chase
 
@@ -228,8 +228,25 @@ Defaults: `mode = "chase"`, `bulb_size = 3` on big panels (auto-falls back to `1
 ### Modes
 
 - **`chase`** — every Nth bulb (default 3rd) is lit; the lit set walks clockwise (or `direction = "ccw"`) around the perimeter, advancing one bulb position every `speed_frames` engine ticks. Classic traveling-marquee look.
+
+<DemoGif
+  src="/demos-pinned/border-lightbulbs-chase.gif"
+  caption="`chase` — warm-white marquee, the lit window travels clockwise"
+/>
+
 - **`alternate`** — even/odd bulbs flip on each phase. Half the bulbs lit at any time, switching every `speed_frames` ticks. Looks like a shimmer or twinkle without directional motion.
+
+<DemoGif
+  src="/demos-pinned/border-lightbulbs-alternate.gif"
+  caption="`alternate` — even/odd bulbs flip in place, a directionless twinkle"
+/>
+
 - **`unison`** — all bulbs share state. All lit, then all unlit, alternating every `speed_frames` ticks. Loud attention-grabber.
+
+<DemoGif
+  src="/demos-pinned/border-lightbulbs-unison.gif"
+  caption="`unison` — every bulb blinks on and off together"
+/>
 
 ### Full table form
 
@@ -238,19 +255,68 @@ Defaults: `mode = "chase"`, `bulb_size = 3` on big panels (auto-falls back to `1
            mode = "chase",                # "chase" | "alternate" | "unison"
            bulb_size = 3,                 # optional; auto from panel height
            gap = 3,                       # pixels between bulb edges
-           lit_color = [255, 220, 140],   # warm white default
+           lit_color = [255, 220, 140],   # warm white default; or "rainbow"
            unlit_color = [40, 20, 0],     # dim warm-orange default
            speed_frames = 2,              # frames per state transition
            chase_density = 3,             # only used by mode="chase"
-           direction = "cw" }             # "cw" | "ccw", only used by mode="chase"`}
+           direction = "cw",              # "cw" | "ccw", only used by mode="chase"
+           hue_wraps = 1.0 }              # only used when lit_color = "rainbow"`}
 />
 
 `speed_frames` defaults differ by mode: `2` for chase (~100 ms per bulb step), `5` for alternate (~250 ms per toggle), `8` for unison (~400 ms per blink). Higher values slow the animation; the engine ticks at 50 ms.
+
+### Rainbow bulbs
+
+Set `lit_color = "rainbow"` to color each lit bulb by its position around the perimeter — a full hue spectrum wrapped around the ring. The hues are **static in space**: they do not rotate over time, so with `mode = "chase"` the lit window travels across a fixed string of colored bulbs, exactly like a strand of party or Christmas lights. Unlit bulbs keep their `unlit_color` glow.
+
+<DemoGif
+  src="/demos-pinned/border-lightbulbs-rainbow.gif"
+  caption={
+    '`lit_color = "rainbow"` with `mode = "chase"` — a traveling lit window over a fixed rainbow string'
+  }
+/>
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "PARTY"
+border = { style = "lightbulbs", mode = "chase", lit_color = "rainbow" }`}
+/>
+
+**`hue_wraps`** (default `1.0`): how many full spectra tile around the perimeter. `1.0` wraps one rainbow once around the whole edge, so adjacent bulbs differ only subtly. Raise it to `2` or `3` to tile multiple rainbows and widen the per-bulb color contrast.
+
+<TomlExample
+  code={`# Two full spectra around the ring — punchier per-bulb color
+border = { style = "lightbulbs", lit_color = "rainbow", hue_wraps = 2 }`}
+/>
 
 ### When to use each style
 
 `lightbulbs` reads as a **physical object** (a marquee of light fixtures). `rainbow` / `color_cycle` read as a **graphical effect** (a halo or outline). Pick the former for theatrical / vintage / sports-bar / Vegas-pastiche aesthetics; pick the latter for clean / modern / decorative work.
 
 `lightbulbs` is unconditionally animated (`frame_invariant = False`) — image-widget fast paths correctly force per-tick redraws on it, same as the other animated borders.
+
+#### Common patterns
+
+**Vegas / theatrical marquee** — a fast, tightly-packed traveling lit window:
+
+<TomlExample
+  code={`border = { style = "lightbulbs", mode = "chase", speed_frames = 1, chase_density = 2 }
+# Every other bulb lit, advancing one step per engine tick`}
+/>
+
+**Rainbow party lights** — a calm static strand of colored bulbs, all lit at once:
+
+<TomlExample
+  code={`border = { style = "lightbulbs", mode = "chase", lit_color = "rainbow", chase_density = 1 }
+# chase_density = 1 lights every bulb — a steady rainbow strand`}
+/>
+
+**Holiday / themed two-color** — pick a palette for lit and unlit, then alternate:
+
+<TomlExample
+  code={`border = { style = "lightbulbs", mode = "alternate", lit_color = [200, 30, 30], unlit_color = [20, 120, 40] }
+# Red / green holiday twinkle`}
+/>
 
 <RelatedPages slugs={["concepts/color-providers", "reference/frame-counters", "widgets/message"]} />

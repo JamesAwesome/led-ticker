@@ -704,18 +704,19 @@ def _compute_preview_two_row(
     return top, bot
 
 
-def _pip_segments(count: int | None) -> list[tuple[str, Color]]:
+def _pip_segments(count: int | None, small_font: Font) -> list[tuple[str, Color, Font]]:
     """ABS challenge pip dashes for one team's score.
 
     Returns empty list when count is None (ABS not in effect).
     Orange dashes for remaining challenges, grey for used (max 2 shown).
+    Pips use small_font so they render smaller than the main score text.
     """
     if count is None:
         return []
     chal_c = _team_palette("CHALLENGE_COLOR")
     used_c = _team_palette("CHALLENGE_USED")
     n = min(count, 2)
-    return [("-", chal_c if i < n else used_c) for i in range(2)]
+    return [("-", chal_c if i < n else used_c, small_font) for i in range(2)]
 
 
 def _compute_final_two_row(
@@ -725,8 +726,10 @@ def _compute_final_two_row(
     series_wins: int,
     series_losses: int,
     series_total_games: int = 1,
-) -> tuple[list[tuple[str, Color]], list[tuple[str, Color]]]:
+    small_font: Font | None = None,
+) -> tuple[list, list]:
     """Compute top/bottom segment lists for a final-state game."""
+    _small_font = small_font if small_font is not None else FONT_SMALL
     win_c = _team_palette("WIN_COLOR")
     loss_c = _team_palette("LOSS_COLOR")
     away_c = _team_color(game.away_abbr)
@@ -738,14 +741,14 @@ def _compute_final_two_row(
     away_score_str = str(game.away_score) if game.away_score is not None else "–"
     home_score_str = str(game.home_score) if game.home_score is not None else "–"
 
-    top: list[tuple[str, Color]] = []
+    top: list = []
     top.append((game.away_abbr, away_c))
     top.append((f" {away_score_str}", away_score_c))
-    top.extend(_pip_segments(game.away_challenges))
+    top.extend(_pip_segments(game.away_challenges, _small_font))
     top.append(("  ", RGB_WHITE))
     top.append((game.home_abbr, home_c))
     top.append((f" {home_score_str}", home_score_c))
-    top.extend(_pip_segments(game.home_challenges))
+    top.extend(_pip_segments(game.home_challenges, _small_font))
 
     grey = make_color(180, 180, 180)  # grey — FINAL label
     bot: list[tuple[str, Color]] = [("FINAL", grey)]
@@ -775,21 +778,23 @@ def _compute_live_two_row(
     tz: ZoneInfo,    # uniform signature — unused here
     series_wins: int,   # uniform signature — unused here
     series_losses: int, # uniform signature — unused here
-) -> tuple[list[tuple[str, Color]], list[tuple[str, Color]]]:
+    small_font: Font | None = None,
+) -> tuple[list, list]:
     """Compute top/bottom segment lists for a live-state game."""
+    _small_font = small_font if small_font is not None else FONT_SMALL
     away_c = _team_color(game.away_abbr)
     home_c = _team_color(game.home_abbr)
     away_score_str = str(game.away_score) if game.away_score is not None else "–"
     home_score_str = str(game.home_score) if game.home_score is not None else "–"
 
-    top: list[tuple[str, Color]] = []
+    top: list = []
     top.append((game.away_abbr, away_c))
     top.append((f" {away_score_str}", RGB_WHITE))
-    top.extend(_pip_segments(game.away_challenges))
+    top.extend(_pip_segments(game.away_challenges, _small_font))
     top.append(("  ", RGB_WHITE))
     top.append((game.home_abbr, home_c))
     top.append((f" {home_score_str}", RGB_WHITE))
-    top.extend(_pip_segments(game.home_challenges))
+    top.extend(_pip_segments(game.home_challenges, _small_font))
 
     live_c = _team_palette("LIVE_COLOR")
     ball_c = make_color(80, 255, 80)    # green — balls
@@ -861,17 +866,20 @@ def _build_two_row_message(
     series_total_games: int = 1,
 ) -> MLBTwoRowMessage:
     """Build a two-row layout message for a single game."""
+    _small_font = small_font if small_font is not None else FONT_SMALL
     if game.state == "preview":
         top_segs, bot_segs = _compute_preview_two_row(
             game, team_abbr, tz, series_wins, series_losses
         )
     elif game.state == "final":
         top_segs, bot_segs = _compute_final_two_row(
-            game, team_abbr, tz, series_wins, series_losses, series_total_games
+            game, team_abbr, tz, series_wins, series_losses, series_total_games,
+            small_font=_small_font,
         )
     elif game.state == "live":
         top_segs, bot_segs = _compute_live_two_row(
-            game, team_abbr, tz, series_wins, series_losses
+            game, team_abbr, tz, series_wins, series_losses,
+            small_font=_small_font,
         )
     elif game.state == "postponed":
         top_segs, bot_segs = _compute_postponed_two_row(
@@ -935,16 +943,23 @@ class MLBTwoRowMessage(_FrameAware):
         )
 
         def _render_segments(
-            segments: list[tuple[str, Color]],
+            segments: list,
             baseline: int,
-            font: Font,
+            default_font: Font,
         ) -> None:
             if not segments:
                 return
-            total_w = sum(measure_width(font, t, canvas) for t, _ in segments)
+            # Measure total width using per-segment font override when present
+            total_w = 0
+            for seg in segments:
+                seg_font = seg[2] if len(seg) == 3 else default_font
+                total_w += measure_width(seg_font, seg[0], canvas)
             x = max(0, (canvas.width - total_w) // 2)
-            for text, color in segments:
-                x += draw_with_emoji(canvas, font, x, baseline + y_offset, color, text)
+            for seg in segments:
+                seg_font = seg[2] if len(seg) == 3 else default_font
+                x += draw_with_emoji(
+                    canvas, seg_font, x, baseline + y_offset, seg[1], seg[0]
+                )
 
         _render_segments(self.top_segments, top_baseline, top_font)
         _render_segments(self.bottom_segments, bot_baseline, bot_font)

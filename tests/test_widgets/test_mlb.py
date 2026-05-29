@@ -999,7 +999,7 @@ class TestMLBTwoRowLayout:
             away_challenges=None, home_challenges=None,
         )
         msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
-        top_texts = [t for t, _ in msg.top_segments]
+        top_texts = [seg[0] for seg in msg.top_segments]
         assert "-" not in top_texts
 
     def test_pips_trailing_away_score_one_remaining(self):
@@ -1018,11 +1018,11 @@ class TestMLBTwoRowLayout:
             away_challenges=1, home_challenges=2,
         )
         msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
-        pip_segs = [(t, c) for t, c in msg.top_segments if t == "-"]
+        pip_segs = [seg for seg in msg.top_segments if seg[0] == "-"]
         # 2 away pips + 2 home pips = 4 total
         assert len(pip_segs) == 4
-        orange_pips = [c for _, c in pip_segs if c is CHALLENGE_COLOR]
-        grey_pips = [c for _, c in pip_segs if c is CHALLENGE_USED]
+        orange_pips = [seg for seg in pip_segs if seg[1] is CHALLENGE_COLOR]
+        grey_pips = [seg for seg in pip_segs if seg[1] is CHALLENGE_USED]
         # away=1 remaining → 1 orange; home=2 remaining → 2 orange; total=3
         assert len(orange_pips) == 3
         assert len(grey_pips) == 1
@@ -1039,9 +1039,50 @@ class TestMLBTwoRowLayout:
             away_challenges=0, home_challenges=0,
         )
         msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
-        pip_segs = [(t, c) for t, c in msg.top_segments if t == "-"]
+        pip_segs = [seg for seg in msg.top_segments if seg[0] == "-"]
         assert len(pip_segs) == 4
-        assert all(c is CHALLENGE_USED for _, c in pip_segs)
+        assert all(seg[1] is CHALLENGE_USED for seg in pip_segs)
+
+    def test_pips_use_small_font_in_segments(self):
+        """Pip segments carry small_font as a per-segment font override."""
+        from zoneinfo import ZoneInfo
+
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+            away_challenges=1, home_challenges=1,
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        # 3-tuple segments carry a font override
+        pip_segs = [seg for seg in msg.top_segments if seg[0] == "-"]
+        assert len(pip_segs) == 4
+        for seg in pip_segs:
+            assert len(seg) == 3, "pip segments must carry font override"
+            assert seg[2] is FONT_SMALL
+
+    def test_pips_use_custom_small_font_when_passed(self):
+        """When small_font is passed to _build_two_row_message, pips use it."""
+        from zoneinfo import ZoneInfo
+
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+            away_challenges=2, home_challenges=0,
+        )
+        msg = _build_two_row_message(
+            game, "PHI", ZoneInfo("America/New_York"), small_font=FONT_DEFAULT
+        )
+        pip_segs = [seg for seg in msg.top_segments if seg[0] == "-"]
+        assert len(pip_segs) == 4
+        for seg in pip_segs:
+            assert len(seg) == 3
+            assert seg[2] is FONT_DEFAULT
 
     def test_draw_returns_canvas_and_does_not_crash(self, canvas):
         """draw() completes without error and returns (canvas, cursor_pos)."""
@@ -1097,3 +1138,55 @@ class TestMLBTwoRowLayout:
             game, "PHI", ZoneInfo("America/New_York"), top_row_height=4
         )
         assert msg.top_row_height == 4
+
+    def test_dispatch_two_row_branch_exists_in_update(self):
+        """Tripwire: update() source contains the two_row dispatch branch.
+
+        Confirms the elif dispatch hasn't been removed or renamed, which would
+        cause layout='two_row' to silently fall through to the ticker layout.
+        """
+        import inspect
+
+        from led_ticker.widgets.mlb import MLBScoreMonitor
+
+        source = inspect.getsource(MLBScoreMonitor.update)
+        assert 'layout == "two_row"' in source, (
+            "The 'layout == \"two_row\"' dispatch branch is missing from "
+            "MLBScoreMonitor.update — layout='two_row' would silently fall "
+            "through to ticker layout."
+        )
+
+    def test_dispatch_two_row_produces_mlb_two_row_message_instances(self):
+        """Tripwire: _build_two_row_message is routed for all game states.
+
+        Verifies that the factory itself returns MLBTwoRowMessage for every
+        game state that the dispatch branch would encounter in update().
+        """
+        from zoneinfo import ZoneInfo
+
+        from led_ticker.widgets.mlb import MLBTwoRowMessage, _build_two_row_message
+
+        tz = ZoneInfo("America/New_York")
+
+        states_and_games = [
+            GameInfo(away_abbr="NYM", home_abbr="PHI", state="preview"),
+            GameInfo(
+                away_abbr="NYM", home_abbr="PHI",
+                away_score=3, home_score=5, state="final",
+            ),
+            GameInfo(
+                away_abbr="NYM", home_abbr="PHI",
+                away_score=1, home_score=2, state="live",
+                inning="▼5", balls=1, strikes=2, outs=1,
+            ),
+            GameInfo(
+                away_abbr="NYM", home_abbr="PHI",
+                state="postponed", postpone_tag="PPD",
+            ),
+        ]
+        for game in states_and_games:
+            msg = _build_two_row_message(game, "PHI", tz)
+            assert isinstance(msg, MLBTwoRowMessage), (
+                f"Expected MLBTwoRowMessage for state={game.state!r}, "
+                f"got {type(msg).__name__}"
+            )

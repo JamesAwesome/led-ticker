@@ -2997,7 +2997,12 @@ def draw_emoji_at(
     # Low-res 8×8 sprite bottom-anchors at `bottom_baseline - 8` (logical,
     # exact at any scale since it paints through the wrapper;
     # 8 = low-res sprite height in logical pixels).
-    iy = (bottom_baseline - 8) if bottom_baseline is not None else y
+    # Invariant: exactly one of bottom_baseline / y is not None (validated above).
+    if bottom_baseline is not None:
+        iy = bottom_baseline - 8
+    else:
+        assert y is not None  # enforced by the ValueError check above
+        iy = y
     icon = _get_registry()[slug]  # KeyError on unknown slug — intentional
     iw = _emoji_width(icon)
     w = canvas.width
@@ -3077,6 +3082,7 @@ def _draw_hires_emoji(
                 bottom_baseline_logical * scale + y_offset_real - hires.physical_size
             )
         else:
+            assert top_logical is not None  # enforced by the ValueError check above
             real_y_anchor = top_logical * scale + y_offset_real
         real_w = real.width
         real_h = real.height

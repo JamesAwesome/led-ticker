@@ -373,9 +373,9 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         calls: list[str] = []
         original = pixel_emoji._draw_hires_emoji
 
-        def spy(canvas, hires, ix, iy):
+        def spy(canvas, hires, ix, **kwargs):
             calls.append("hires")
-            return original(canvas, hires, ix, iy)
+            return original(canvas, hires, ix, **kwargs)
 
         monkeypatch.setattr(pixel_emoji, "_draw_hires_emoji", spy)
 
@@ -416,9 +416,9 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         calls: list[str] = []
         original = pixel_emoji._draw_hires_emoji
 
-        def spy(canvas, hires, ix, iy):
+        def spy(canvas, hires, ix, **kwargs):
             calls.append("hires")
-            return original(canvas, hires, ix, iy)
+            return original(canvas, hires, ix, **kwargs)
 
         monkeypatch.setattr(pixel_emoji, "_draw_hires_emoji", spy)
 
@@ -436,12 +436,13 @@ class TestWeatherWidgetHiresOnScaledCanvas:
 
     def test_icon_y_anchors_to_text_baseline_with_hires_font(self, monkeypatch):
         """Tripwire: when WeatherWidget is configured with a HiresFont,
-        the icon's logical top-row must equal `baseline_y - 8` so it
-        sits on the same line as the text. Mirrors `draw_with_emoji`'s
-        unified `iy = y - 8` formula. Without this fix the icon stayed
-        locked at the legacy hardcoded y=4, leaving it floating above
-        the text baseline (e.g. Inter-Bold @ 24 on bigsign has
-        baseline=10 logical → expected iy=2, broken iy=4).
+        the icon's logical bottom must anchor at the text baseline so it
+        sits on the same line as the text. Weather passes
+        `draw_emoji_at(..., bottom_baseline=baseline_y)`, which routes to
+        `_draw_hires_emoji(..., bottom_baseline_logical=baseline_y)` — exact
+        at any scale. Without this fix the icon stayed locked at the legacy
+        hardcoded y=4, leaving it floating above the text baseline (e.g.
+        Inter-Bold @ 24 on bigsign has baseline=10 logical).
         """
         monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
         from rgbmatrix import RGBMatrix, RGBMatrixOptions
@@ -461,12 +462,18 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         real = RGBMatrix(options=opts).CreateFrameCanvas()
         sc = ScaledCanvas(real, scale=4)
 
-        captured_iy: list[int] = []
+        captured_baseline: list[int] = []
         original = pixel_emoji._draw_hires_emoji
 
-        def spy(canvas, hires, ix, iy):
-            captured_iy.append(iy)
-            return original(canvas, hires, ix, iy)
+        def spy(canvas, hires, ix, *, top_logical=None, bottom_baseline_logical=None):
+            captured_baseline.append(bottom_baseline_logical)
+            return original(
+                canvas,
+                hires,
+                ix,
+                top_logical=top_logical,
+                bottom_baseline_logical=bottom_baseline_logical,
+            )
 
         monkeypatch.setattr(pixel_emoji, "_draw_hires_emoji", spy)
 
@@ -476,14 +483,13 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         w.weather = "Clear"  # -> "sun" -> SUN_HIRES exists
         w.draw(sc)
 
-        assert captured_iy, "hires path didn't fire"
-        # Assert the relationship, not a literal — survives Inter
-        # metric tweaks. baseline includes valign="center" math; the
-        # icon's top-row should be exactly 8 above it.
-        expected_iy = compute_baseline(font, sc, "center") - 8
-        assert captured_iy[0] == expected_iy, (
-            f"Icon y should be baseline_y - 8 = {expected_iy}; got "
-            f"{captured_iy[0]}. Likely regression of the legacy "
+        assert captured_baseline, "hires path didn't fire"
+        # Assert the relationship, not a literal — survives Inter metric
+        # tweaks. The icon's bottom anchors exactly at the text baseline.
+        expected_baseline = compute_baseline(font, sc, "center")
+        assert captured_baseline[0] == expected_baseline, (
+            f"Icon bottom should anchor at baseline_y = {expected_baseline}; "
+            f"got {captured_baseline[0]}. Likely regression of the legacy "
             f"hardcoded `4 + y_offset` that didn't track the font's "
             f"shifted baseline."
         )
@@ -538,17 +544,15 @@ class TestWeatherWidgetHiresOnScaledCanvas:
             f"hires sprite widths at non-default scales."
         )
 
-    def test_icon_y_for_bdf_default_is_4(self, monkeypatch):
+    def test_icon_bottom_baseline_for_bdf_default_is_12(self, monkeypatch):
         """Back-compat literal-value tripwire. With FONT_DEFAULT (BDF
-        6×12, baseline=12) the formula `baseline_y - 8` evaluates to
-        4 — identical to the previous hardcoded value. Pinning the
-        literal here is a complement to the formula tripwire above:
-        a refactor that produces a structurally-equivalent but
-        differently-named expression (e.g. `compute_baseline_for_band(
-        ..., n)`) which happens to ALSO equal 4 for FONT_DEFAULT
-        wouldn't be wrong here, but a refactor that drifts to a
-        different value would fail this even if its formula-spelled
-        equivalent passed the formula tripwire.
+        6×12, baseline=12) weather passes `draw_emoji_at(...,
+        bottom_baseline=12)`. The low-res path then bottom-anchors the
+        8-row sprite at `12 - 8 = 4`, identical to the previous hardcoded
+        value. Pinning the baseline literal here is a complement to the
+        formula tripwire above: a refactor that drifts to a different
+        baseline would fail this even if its formula-spelled equivalent
+        passed the formula tripwire.
         """
         monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
         from rgbmatrix import _StubCanvas
@@ -556,10 +560,12 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         from led_ticker import pixel_emoji
         from led_ticker.widgets.weather import WeatherWidget
 
-        captured_y: list[int] = []
+        captured_baseline: list[int] = []
 
-        def spy(canvas, slug, x, y, *, max_emoji_height=None):
-            captured_y.append(y)
+        def spy(
+            canvas, slug, x, y=None, *, bottom_baseline=None, max_emoji_height=None
+        ):
+            captured_baseline.append(bottom_baseline)
             return 10  # SUN lowres advance: 8 + EMOJI_PADDING
 
         monkeypatch.setattr(pixel_emoji, "draw_emoji_at", spy)
@@ -570,9 +576,9 @@ class TestWeatherWidgetHiresOnScaledCanvas:
         w.weather = "Clear"
         w.draw(canvas)
 
-        assert captured_y == [4], (
-            f"BDF default expected to invoke draw_emoji_at with y=4 "
-            f"(baseline_y=12 - 8). Got {captured_y}."
+        assert captured_baseline == [12], (
+            f"BDF default expected to invoke draw_emoji_at with "
+            f"bottom_baseline=12. Got {captured_baseline}."
         )
 
 

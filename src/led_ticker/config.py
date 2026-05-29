@@ -342,6 +342,12 @@ def load_config(path: Path) -> AppConfig:
         )
     if busy_light.size < 1:
         raise ValueError(f"busy_light.size must be >= 1; got {busy_light.size}.")
+    if len(busy_light.color) != 3 or not all(
+        isinstance(c, int) for c in busy_light.color
+    ):
+        raise ValueError(
+            f"busy_light.color must be 3 ints [r, g, b]; got {busy_light.color!r}."
+        )
 
     sections = []
     for i, section_raw in enumerate(raw.get("playlist", {}).get("section", [])):

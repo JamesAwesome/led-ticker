@@ -3274,6 +3274,52 @@ border = {style = "lightbulbs", lit_color = "rainbow", hue_wraps = true}
             i.rule == 51 and i.severity == "error" for i in result.errors
         ), f"expected rule 51 error for bool hue_wraps; got errors={errs}"
 
+    async def test_hue_wraps_nan_is_error(self, tmp_path):
+        # nan is a valid TOML float; without the isfinite guard it slips
+        # past rule 51 (nan <= 0 is False) and crashes hue_color at render.
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", lit_color = "rainbow", hue_wraps = nan}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 51 and i.severity == "error" for i in result.errors
+        ), f"expected rule 51 error for nan hue_wraps; got errors={errs}"
+
+    async def test_hue_wraps_inf_is_error(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", lit_color = "rainbow", hue_wraps = inf}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 51 and i.severity == "error" for i in result.errors
+        ), f"expected rule 51 error for inf hue_wraps; got errors={errs}"
+
     async def test_hue_wraps_without_rainbow_is_warning(self, tmp_path):
         cfg = tmp_path / "c.toml"
         cfg.write_text("""

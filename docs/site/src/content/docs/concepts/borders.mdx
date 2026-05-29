@@ -1,13 +1,13 @@
 ---
 title: Borders
-description: Rainbow chase, color_cycle, or constant-color ring around the panel perimeter.
+description: Rainbow chase, color_cycle, constant-color, or lightbulb marquee border around the panel perimeter.
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-A border paints a 1- or 2-pixel-thick ring around the entire panel perimeter. Four styles are available: an animated **rainbow chase** that sweeps a hue gradient per pixel around the edge, a **color_cycle** that pulses the entire border as one animated hue, a **constant color** that frames the content in a steady solid color, and **lightbulbs** that paint discrete bulb sprites for a classic marquee aesthetic — lit bulbs can optionally use a static rainbow coloring. Both `rainbow` and `color_cycle` accept optional `from` / `to` RGB colors to confine the animation to a specific hue arc instead of sweeping the full spectrum. All styles paint at physical panel resolution — they bypass the `ScaledCanvas` block-expansion path and call `SetPixel` on the real underlying canvas, so a 1-pixel border is always exactly one LED wide regardless of scale.
+A border paints a decorative outline around the entire panel perimeter. Four styles are available: an animated **rainbow chase** that sweeps a hue gradient per pixel around the edge, a **color_cycle** that pulses the entire border as one animated hue, a **constant color** that frames the content in a steady solid color, and **lightbulbs** that paint discrete bulb sprites for a classic marquee aesthetic — lit bulbs can optionally use a static rainbow coloring. Both `rainbow` and `color_cycle` accept optional `from` / `to` RGB colors to confine the animation to a specific hue arc instead of sweeping the full spectrum. All styles paint at physical panel resolution — they bypass the `ScaledCanvas` block-expansion path and call `SetPixel` on the real underlying canvas, so a pixel-ring border is always exactly one LED wide regardless of scale.
 
 <DemoGif
   src="/demos/concepts-borders.gif"

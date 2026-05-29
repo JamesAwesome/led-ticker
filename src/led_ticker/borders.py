@@ -7,7 +7,7 @@ ring around the panel edge at PHYSICAL resolution (bypasses
 so a 1-px border on bigsign actually draws as 1 real LED, not a 4×4
 block.
 
-Three flavors today:
+Four flavors today:
 
 - `RainbowChaseBorder` — per-pixel hue indexed by perimeter position
   (clockwise from top-left, hop count 0..N-1) advancing per frame.
@@ -23,6 +23,10 @@ Three flavors today:
   `frame_invariant=True` so the static-text fast path in image
   widgets (and any future BorderEffect-aware fast paths) can opt
   out of per-tick redraws.
+- `LightbulbBorder` — discrete NxN bulb sprites around the perimeter
+  (Vegas-marquee aesthetic), animated via chase / alternate / unison.
+  Lit bulbs can be a fixed color or, with `lit_color="rainbow"`, take
+  a hue from their perimeter position (static in space).
 
 The `BorderEffect` Protocol exposes:
 - `paint(canvas, frame_count)` — paints the perimeter on `canvas`.

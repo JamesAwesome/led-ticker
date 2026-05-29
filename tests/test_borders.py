@@ -1073,6 +1073,27 @@ class TestLightbulbBorderRainbow:
         assert lit_canvas.pixels[(0, 0)] == (c0.red, c0.green, c0.blue)
         assert off_canvas.pixels[(0, 0)] == (2, 2, 2)
 
+    def test_rainbow_hues_are_static_across_frames(self):
+        """The defining property: rainbow hues are keyed to perimeter
+        index, NOT frame_count. With chase_density=1 every bulb is lit
+        at every frame, so the painted output must be identical across
+        frames — a regression that added frame_count to the hue formula
+        would change this and is otherwise invisible to single-frame
+        tests."""
+        c0 = _FakeRealCanvas(256, 64)
+        c50 = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="chase",
+            chase_density=1,  # all bulbs lit at every frame
+            lit_color="rainbow",
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(c0, frame_count=0)
+        b.paint(c50, frame_count=50)
+        assert c0.pixels == c50.pixels
+
 
 class TestLightbulbRainbowCoercion:
     def test_rainbow_sentinel_builds_border(self):

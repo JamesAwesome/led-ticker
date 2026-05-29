@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -1490,11 +1491,15 @@ def _check_lightbulb_border(config: AppConfig) -> list[ValidationIssue]:
                     )
                 )
 
-            # Rule 51: hue_wraps (when set) must be a positive number.
+            # Rule 51: hue_wraps (when set) must be a positive, finite number.
+            # The isfinite guard rejects nan/inf — both are valid TOML floats
+            # that would otherwise slip past (`nan <= 0` is False) and crash
+            # at render time in hue_color's int() conversion.
             hue_wraps = border_raw.get("hue_wraps")
             if hue_wraps is not None and (
                 isinstance(hue_wraps, bool)
                 or not isinstance(hue_wraps, int | float)
+                or not math.isfinite(hue_wraps)
                 or hue_wraps <= 0
             ):
                 issues.append(
@@ -1503,7 +1508,8 @@ def _check_lightbulb_border(config: AppConfig) -> list[ValidationIssue]:
                         location=loc,
                         severity="error",
                         message=(
-                            f"hue_wraps must be a positive number; got {hue_wraps!r}"
+                            f"hue_wraps must be a positive, finite number; "
+                            f"got {hue_wraps!r}"
                         ),
                         fix="Set hue_wraps to a positive number (e.g. 1.0 or 2).",
                     )

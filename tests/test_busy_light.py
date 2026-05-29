@@ -79,3 +79,34 @@ def test_size_clamps_to_canvas_bounds():
     busy.is_busy = True
     busy.paint(canvas)  # must not raise / paint out of range
     assert _lit(canvas) == {(x, y) for x in range(8) for y in range(8)}
+
+
+def test_registered_hook_paints_dot_through_frame_swap(tmp_path):
+    """End-to-end: a BusyLight.paint hook on a real LedFrame lights the
+    corner when busy and clears it when not, through frame.swap()."""
+    import asyncio
+
+    from led_ticker.frame import LedFrame
+
+    f = tmp_path / ".busy"
+    busy = BusyLight(file_path=str(f), corner="top_right", color=(255, 0, 0), size=4)
+    frame = LedFrame(led_cols=64, led_rows=32)
+    frame.overlay_hooks.append(busy.paint)
+
+    canvas = frame.get_clean_canvas()
+    f.write_text("")  # go busy
+    asyncio.run(busy.update())
+    frame.swap(canvas)  # paint hook runs on `canvas` before SwapOnVSync
+    assert canvas.get_pixel(canvas.width - 1, 0) == (255, 0, 0)
+
+    f.unlink()  # not busy
+    asyncio.run(busy.update())
+    canvas2 = frame.get_clean_canvas()
+    frame.swap(canvas2)
+    lit = [
+        (x, y)
+        for y in range(canvas2.height)
+        for x in range(canvas2.width)
+        if canvas2.get_pixel(x, y) != (0, 0, 0)
+    ]
+    assert lit == []

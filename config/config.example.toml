@@ -192,3 +192,15 @@ stale_after = 900
 # text = "NYC"
 # location = "New York"
 # units = "imperial"
+
+# Busy light — a persistent corner dot that lights up while a local file
+# exists. Toggle with `touch ~/.busy` / `rm ~/.busy`. The dot composites
+# over every section and transition. (Real calendar/Slack sources are a
+# future addition behind the same overlay.)
+# [busy_light]
+# enabled = true
+# file_path = "~/.busy"
+# poll_interval = 5.0
+# corner = "top_right"       # top_left | top_right | bottom_left | bottom_right
+# color = [255, 0, 0]
+# size = 4                    # dot side length in physical pixels

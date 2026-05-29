@@ -6,6 +6,7 @@ import unittest.mock as mock
 
 import pytest
 
+from led_ticker.app.coercion import _coerce_border
 from led_ticker.borders import (
     ColorCycleBorder,
     ConstantBorder,
@@ -1071,3 +1072,26 @@ class TestLightbulbBorderRainbow:
         c0 = hue_color(0)
         assert lit_canvas.pixels[(0, 0)] == (c0.red, c0.green, c0.blue)
         assert off_canvas.pixels[(0, 0)] == (2, 2, 2)
+
+
+class TestLightbulbRainbowCoercion:
+    def test_rainbow_sentinel_builds_border(self):
+        b = _coerce_border(
+            {"style": "lightbulbs", "mode": "chase", "lit_color": "rainbow"}
+        )
+        assert isinstance(b, LightbulbBorder)
+        assert b._rainbow_lit is True
+
+    def test_hue_wraps_accepted(self):
+        b = _coerce_border(
+            {"style": "lightbulbs", "lit_color": "rainbow", "hue_wraps": 3}
+        )
+        assert b.hue_wraps == 3
+
+    def test_junk_lit_color_string_rejected(self):
+        with pytest.raises(ValueError, match="lit_color"):
+            _coerce_border({"style": "lightbulbs", "lit_color": "banana"})
+
+    def test_rgb_lit_color_still_validated(self):
+        b = _coerce_border({"style": "lightbulbs", "lit_color": [10, 20, 30]})
+        assert b.lit_color == (10, 20, 30)

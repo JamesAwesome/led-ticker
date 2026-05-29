@@ -42,9 +42,9 @@ class LedFrame:
     # SwapOnVSync timing more predictable relative to the scan cycle on
     # long chains where the uncapped rate causes visible motion artifacts.
     led_limit_refresh_rate_hz: int = 0
+    overlay_hooks: list[Callable[[Canvas], None]] = attrs.field(factory=list)
     _framerate_fraction: int = attrs.field(init=False)
     matrix: RGBMatrixType = attrs.field(init=False)
-    overlay_hooks: list[Callable[[Canvas], None]] = attrs.field(factory=list)
 
     def __attrs_post_init__(self) -> None:
         options = RGBMatrixOptions()

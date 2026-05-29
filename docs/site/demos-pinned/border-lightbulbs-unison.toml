@@ -1,0 +1,21 @@
+# render-duration: 5
+# Lightbulb border, mode="unison" — all bulbs blink on/off together.
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 5.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "BLINK"
+border = { style = "lightbulbs", mode = "unison" }

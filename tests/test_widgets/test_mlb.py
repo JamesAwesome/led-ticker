@@ -1219,3 +1219,122 @@ class TestMLBTwoRowLayout:
                 f"Expected MLBTwoRowMessage for state={game.state!r}, "
                 f"got {type(msg).__name__}"
             )
+
+    def test_series_title_is_two_row_message(self):
+        """The two_row series title is an MLBTwoRowMessage, not a SegmentMessage."""
+        from zoneinfo import ZoneInfo
+
+        from led_ticker.widgets.mlb import (
+            MLBTwoRowMessage,
+            _build_two_row_series_title,
+        )
+
+        series = SeriesInfo(
+            opponent_abbr="NYM",
+            games=[GameInfo(away_abbr="NYM", home_abbr="PHI", state="preview")],
+        )
+        title = _build_two_row_series_title(
+            "PHI", series, ZoneInfo("America/New_York")
+        )
+        assert isinstance(title, MLBTwoRowMessage)
+
+    def test_series_title_top_band_has_matchup_with_team_colors(self):
+        """Top band carries Away @ Home in team colors."""
+        from zoneinfo import ZoneInfo
+
+        from led_ticker.widgets.mlb import _build_two_row_series_title, _team_color
+
+        series = SeriesInfo(
+            opponent_abbr="NYM",
+            games=[GameInfo(away_abbr="NYM", home_abbr="PHI", state="preview")],
+        )
+        title = _build_two_row_series_title(
+            "PHI", series, ZoneInfo("America/New_York")
+        )
+        top_text = "".join(t for t, _ in title.top_segments)
+        assert "@" in top_text
+        assert "Mets" in top_text  # away (NYM) full name
+        assert "Phillies" in top_text  # home (PHI) full name
+        colors = [c for _, c in title.top_segments]
+        assert _team_color("NYM") in colors
+        assert _team_color("PHI") in colors
+
+    def test_series_title_bottom_band_has_record_when_multi_game_decided(self):
+        """Bottom band shows the leader-relative record on a decided series."""
+        from zoneinfo import ZoneInfo
+
+        from led_ticker.widgets.mlb import _build_two_row_series_title
+
+        series = SeriesInfo(
+            opponent_abbr="NYM",
+            games=[
+                GameInfo(away_abbr="NYM", home_abbr="PHI", state="final"),
+                GameInfo(away_abbr="NYM", home_abbr="PHI", state="final"),
+                GameInfo(away_abbr="NYM", home_abbr="PHI", state="preview"),
+            ],
+            team_wins=2,
+            team_losses=1,
+        )
+        title = _build_two_row_series_title(
+            "PHI", series, ZoneInfo("America/New_York")
+        )
+        bottom_text = "".join(t for t, _ in title.bottom_segments)
+        assert "leads" in bottom_text
+        assert "2-1" in bottom_text
+        assert "PHI" in bottom_text  # monitored team leads
+
+    def test_series_title_bottom_band_empty_on_single_game(self):
+        """No record on the bottom band for a one-game series."""
+        from zoneinfo import ZoneInfo
+
+        from led_ticker.widgets.mlb import _build_two_row_series_title
+
+        series = SeriesInfo(
+            opponent_abbr="NYM",
+            games=[GameInfo(away_abbr="NYM", home_abbr="PHI", state="preview")],
+            team_wins=0,
+            team_losses=0,
+        )
+        title = _build_two_row_series_title(
+            "PHI", series, ZoneInfo("America/New_York")
+        )
+        assert title.bottom_segments == []
+
+    def test_series_title_bottom_band_shows_spring_badge(self):
+        """Spring-training series surfaces the (ST) badge on the bottom band."""
+        from zoneinfo import ZoneInfo
+
+        from led_ticker.widgets.mlb import _build_two_row_series_title
+
+        series = SeriesInfo(
+            opponent_abbr="NYM",
+            games=[
+                GameInfo(
+                    away_abbr="NYM", home_abbr="PHI",
+                    state="preview", game_type="S",
+                )
+            ],
+        )
+        title = _build_two_row_series_title(
+            "PHI", series, ZoneInfo("America/New_York")
+        )
+        bottom_text = "".join(t for t, _ in title.bottom_segments)
+        assert "(ST)" in bottom_text
+
+    def test_series_title_threads_per_row_fields(self):
+        """top_font and top_row_height reach the title MLBTwoRowMessage."""
+        from zoneinfo import ZoneInfo
+
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.widgets.mlb import _build_two_row_series_title
+
+        series = SeriesInfo(
+            opponent_abbr="NYM",
+            games=[GameInfo(away_abbr="NYM", home_abbr="PHI", state="preview")],
+        )
+        title = _build_two_row_series_title(
+            "PHI", series, ZoneInfo("America/New_York"),
+            top_font=FONT_DEFAULT, top_row_height=6,
+        )
+        assert title.top_font is FONT_DEFAULT
+        assert title.top_row_height == 6

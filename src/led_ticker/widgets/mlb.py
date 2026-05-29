@@ -902,6 +902,97 @@ def _build_two_row_message(
     )
 
 
+def _build_two_row_series_title(
+    team_abbr: str,
+    series: SeriesInfo,
+    tz: ZoneInfo,
+    bg_color: Color | None = None,
+    font: Font | None = None,
+    small_font: Font | None = None,
+    top_font: Font | None = None,
+    top_row_height: int | None = None,
+    font_color: Color | ColorProvider | None = None,
+) -> MLBTwoRowMessage:
+    """Two-band series title for two_row layout.
+
+    Top band carries the matchup (`Away @ Home`, or `team vs opp` for a
+    split-home series) in team colors. Bottom band carries the series
+    record (`PHI leads 2-1` / `Tied 1-1`, same form as the FINAL card) and
+    any (ST)/(ASG) special-game badge. Mirrors `_build_series_title`'s
+    matchup/badge logic; only the layout differs.
+    """
+    team_c = _team_color(team_abbr)
+    opp_c = _team_color(series.opponent_abbr)
+
+    home_teams = {g.home_abbr for g in series.games}
+    all_same_home = len(home_teams) == 1
+
+    if all_same_home:
+        home = next(iter(home_teams))
+        away = team_abbr if home != team_abbr else series.opponent_abbr
+        away_name = MLB_TEAM_NAMES.get(away, away)
+        home_name = MLB_TEAM_NAMES.get(home, home)
+        top: list[tuple[str, Color]] = [
+            (away_name, _team_color(away)),
+            (" @ ", RGB_WHITE),
+            (home_name, _team_color(home)),
+        ]
+    else:
+        team_name = MLB_TEAM_NAMES.get(team_abbr, team_abbr)
+        opp_name = MLB_TEAM_NAMES.get(series.opponent_abbr, series.opponent_abbr)
+        top = [
+            (team_name, team_c),
+            (" vs ", RGB_WHITE),
+            (opp_name, opp_c),
+        ]
+
+    # Bottom band: series record (leader-relative, like the FINAL card).
+    bot: list[tuple[str, Color]] = []
+    total_games = len(series.games)
+    total_decided = series.team_wins + series.team_losses
+    if total_games > 1 and total_decided > 0:
+        if series.team_wins > series.team_losses:
+            leader_abbr: str | None = team_abbr
+            w, lo = series.team_wins, series.team_losses
+        elif series.team_losses > series.team_wins:
+            leader_abbr = series.opponent_abbr
+            w, lo = series.team_losses, series.team_wins
+        else:
+            leader_abbr = None
+        if leader_abbr is None:
+            bot.append((f"Tied {series.team_wins}-{series.team_losses}", RGB_WHITE))
+        else:
+            bot.append((leader_abbr, _team_color(leader_abbr)))
+            bot.append((f" leads {w}-{lo}", RGB_WHITE))
+
+    # Special-game badge on the bottom band, after any record.
+    is_spring = any(g.game_type == "S" for g in series.games)
+    is_allstar = any(g.game_type == "A" for g in series.games)
+    badge = ""
+    if is_spring:
+        badge = "(ST) :flower:"
+    elif is_allstar:
+        badge = "(ASG) :star:"
+    if badge:
+        if bot:
+            bot.append(("  ", RGB_WHITE))
+        bot.append((badge, RGB_WHITE))
+
+    return MLBTwoRowMessage(
+        game=series.games[0],
+        team_abbr=team_abbr,
+        tz=tz,
+        bg_color=bg_color,
+        font=font if font is not None else FONT_DEFAULT,
+        small_font=small_font if small_font is not None else FONT_SMALL,
+        top_font=top_font,
+        top_row_height=top_row_height,
+        font_color=font_color,
+        top_segments=top,
+        bottom_segments=bot,
+    )
+
+
 @attrs.define
 class MLBTwoRowMessage(_FrameAware):
     """Two-band game display: score/matchup on top, status on bottom."""
@@ -1225,14 +1316,27 @@ class MLBScoreMonitor:
             return
 
         # Build display from current series
-        series_title = _build_series_title(
-            self.team,
-            current,
-            tz,
-            bg_color=self.bg_color,
-            font=self.font,
-            font_color=self.font_color,
-        )
+        if self.layout == "two_row":
+            series_title: _MLBStoryT = _build_two_row_series_title(
+                self.team,
+                current,
+                tz,
+                bg_color=self.bg_color,
+                font=self.font,
+                small_font=self.small_font,
+                top_font=self.top_font,
+                top_row_height=self.top_row_height,
+                font_color=self.font_color,
+            )
+        else:
+            series_title = _build_series_title(
+                self.team,
+                current,
+                tz,
+                bg_color=self.bg_color,
+                font=self.font,
+                font_color=self.font_color,
+            )
         self.feed_title = series_title
         stories: list[_MLBStoryT] = [series_title]
         if self.layout == "scoreboard":

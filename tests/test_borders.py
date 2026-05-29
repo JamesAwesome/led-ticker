@@ -14,6 +14,7 @@ from led_ticker.borders import (
     _lightbulb_positions,
     _perimeter_pixels,
 )
+from led_ticker.color_lut import hue_color
 from led_ticker.scaled_canvas import ScaledCanvas
 
 
@@ -958,3 +959,91 @@ class TestLightbulbPhysicalResolution:
         # (1, 1) should NOT be painted — it's inside the rectangle,
         # not on the perimeter.
         assert (1, 1) not in real.pixels
+
+
+class TestLightbulbBorderRainbow:
+    def test_rainbow_flag_set_via_sentinel(self):
+        b = LightbulbBorder(mode="chase", lit_color="rainbow")
+        assert b._rainbow_lit is True
+        assert b.hue_wraps == 1.0
+
+    def test_non_rainbow_keeps_tuple(self):
+        b = LightbulbBorder(mode="chase", lit_color=(1, 2, 3))
+        assert b._rainbow_lit is False
+        assert b.lit_color == (1, 2, 3)
+
+    def test_lit_bulbs_get_per_index_hues(self):
+        canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="chase",
+            chase_density=1,
+            lit_color="rainbow",
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(canvas, frame_count=0)
+        positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        n = len(positions)
+        quarter = n // 4
+        c0 = hue_color((0 / n) * 360 * 1.0)
+        assert canvas.pixels[(0, 0)] == (c0.red, c0.green, c0.blue)
+        qx, qy = positions[quarter]
+        cq = hue_color((quarter / n) * 360 * 1.0)
+        assert canvas.pixels[(qx, qy)] == (cq.red, cq.green, cq.blue)
+        assert canvas.pixels[(qx, qy)] != canvas.pixels[(0, 0)]
+
+    def test_hue_wraps_tiles_multiple_spectra(self):
+        canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="chase",
+            chase_density=1,
+            lit_color="rainbow",
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+            hue_wraps=2.0,
+        )
+        b.paint(canvas, frame_count=0)
+        positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        n = len(positions)
+        # n=104 (even), so half=52; (52/104)*360*2 = 360 ≡ 0 (mod 360)
+        # meaning bulb 52 should match hue_color(0), same as bulb 0.
+        # This proves hue_wraps=2 tiles a second spectrum: halfway around
+        # the ring the hues repeat from the start.
+        half = n // 2
+        hx, hy = positions[half]
+        expect = hue_color((half / n) * 360 * 2.0)
+        assert canvas.pixels[(hx, hy)] == (expect.red, expect.green, expect.blue)
+        c0 = hue_color(0)
+        assert canvas.pixels[(hx, hy)] == (c0.red, c0.green, c0.blue)
+
+    def test_unlit_bulbs_keep_unlit_color_in_rainbow(self):
+        canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="chase",
+            chase_density=3,
+            lit_color="rainbow",
+            unlit_color=(7, 8, 9),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(canvas, frame_count=0)
+        assert canvas.pixels[(6, 0)] == (7, 8, 9)
+
+    def test_rainbow_composes_with_unison(self):
+        lit_canvas = _FakeRealCanvas(256, 64)
+        off_canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="unison",
+            lit_color="rainbow",
+            unlit_color=(2, 2, 2),
+            bulb_size=3,
+            gap=3,
+            speed_frames=1,
+        )
+        b.paint(lit_canvas, frame_count=0)
+        b.paint(off_canvas, frame_count=1)
+        c0 = hue_color(0)
+        assert lit_canvas.pixels[(0, 0)] == (c0.red, c0.green, c0.blue)
+        assert off_canvas.pixels[(0, 0)] == (2, 2, 2)

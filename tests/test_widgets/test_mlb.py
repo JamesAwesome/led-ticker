@@ -1036,3 +1036,27 @@ class TestMLBTwoRowLayout:
         msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
         result_canvas, cursor = msg.draw(canvas)
         assert result_canvas is canvas
+
+    def test_top_font_threads_through_from_monitor(self):
+        """top_font set on MLBScoreMonitor reaches MLBTwoRowMessage instances."""
+        from unittest import mock
+        from led_ticker.fonts import FONT_DEFAULT
+        m = MLBScoreMonitor(
+            session=mock.Mock(), team="PHI",
+            layout="two_row", top_font=FONT_DEFAULT,
+        )
+        assert m.top_font is FONT_DEFAULT
+
+    def test_top_row_height_threads_through_to_message(self):
+        """top_row_height on MLBScoreMonitor threads to MLBTwoRowMessage."""
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+        )
+        msg = _build_two_row_message(
+            game, "PHI", ZoneInfo("America/New_York"), top_row_height=4
+        )
+        assert msg.top_row_height == 4

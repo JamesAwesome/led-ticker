@@ -3259,3 +3259,66 @@ class TestPoolLayoutValidation:
             "top_row_height": 4,
         }
         await validate_widget_cfg(cfg, session=MagicMock())  # should not raise
+
+
+class TestMLBLayoutValidation:
+    """MLB widget `layout` field validation."""
+
+    @pytest.mark.asyncio
+    async def test_mlb_layout_unknown_raises_with_did_you_mean(self):
+        from led_ticker.app.factories import validate_widget_cfg
+
+        cfg = {"type": "mlb", "team": "PHI", "layout": "two_rows"}  # typo
+        with pytest.raises(ValueError, match="two_row"):
+            await validate_widget_cfg(cfg, session=None)
+
+    @pytest.mark.asyncio
+    async def test_mlb_layout_scoreboard_accepted(self):
+        from led_ticker.app.factories import validate_widget_cfg
+
+        cfg = {"type": "mlb", "team": "PHI", "layout": "scoreboard"}
+        await validate_widget_cfg(cfg, session=None)  # no raise
+
+    @pytest.mark.asyncio
+    async def test_mlb_top_font_size_accepted_by_factories(self):
+        """top_font_size passes through _DISPATCH_APPLICABLE_TYPES for mlb."""
+        from led_ticker.app.factories import validate_widget_cfg
+
+        cfg = {
+            "type": "mlb",
+            "team": "PHI",
+            "layout": "two_row",
+            "top_font_size": 16,
+            "font_size": 32,
+        }
+        # Should not raise
+        await validate_widget_cfg(cfg, session=None)
+
+    @pytest.mark.asyncio
+    async def test_mlb_top_font_size_under_ticker_raises(self):
+        from led_ticker.app.factories import validate_widget_cfg
+
+        cfg = {
+            "type": "mlb",
+            "team": "PHI",
+            "layout": "ticker",
+            "top_font_size": 16,
+            "font_size": 32,
+        }
+        with pytest.raises((ValueError, Exception), match="two_row"):
+            await validate_widget_cfg(cfg, session=None)
+
+    @pytest.mark.asyncio
+    async def test_mlb_top_row_height_under_scoreboard_raises(self):
+        from led_ticker.app.factories import validate_widget_cfg
+
+        cfg = {
+            "type": "mlb",
+            "team": "PHI",
+            "layout": "scoreboard",
+            "top_row_height": 4,
+            "font_size": 32,
+            "small_font_size": 20,
+        }
+        with pytest.raises((ValueError, Exception), match="two_row"):
+            await validate_widget_cfg(cfg, session=None)

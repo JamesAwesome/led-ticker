@@ -1,0 +1,70 @@
+# Busy-light smoke test — smallsign (160×16 canvas), Docker
+#
+# 5× chained 16×32 panels = 160×16 physical, default_scale = 1 (plain
+# canvas — no ScaledCanvas). This validates the busy-light overlay on the
+# non-scaled render path (longboi/bigsign exercise the scale>1 path). The
+# corner dot composites over the scrolling messages and stays visible
+# THROUGH the section transition.
+#
+# DOCKER busy file: inside the container `~/.busy` is the container's home,
+# unreachable from the host. Point file_path at the config dir instead — it's
+# bind-mounted `./config:/code/config:ro`, so the container reads
+# `/code/config/.busy` while you create/remove `config/.busy` on the host.
+# `:ro` only blocks the CONTAINER from writing; host create/delete shows
+# through and the poller only reads (exists()).
+# (Bare-metal, no Docker? Set file_path = "~/.busy" or any host path instead.)
+#
+# Usage:
+#   cp config/config.busy_smallsign.toml config/config.toml
+#   docker compose up
+#   touch config/.busy      # dot turns ON within poll_interval (2s)
+#   rm config/.busy         # dot turns OFF
+
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+brightness = 60
+gpio_slowdown = 2
+hardware_mapping = "adafruit-hat"
+
+[title]
+delay = 5
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = "push_left"
+
+# Busy light: red dot, top-right, 4 physical px (1/4 of the 16-tall panel —
+# visible without swamping the text). file_path is the IN-CONTAINER path
+# under the mounted config dir; toggle config/.busy on the host.
+[busy_light]
+enabled = true
+file_path = "/code/config/.busy"
+poll_interval = 2.0
+corner = "top_right"
+color = [255, 0, 0]
+size = 4
+
+# --- Two scrolling sections (default BDF font) so the dot composites over
+#     moving content and persists through the push_left transition. ---
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Busy light smoke test - toggle config/.busy"
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Dot should stay lit through this transition"

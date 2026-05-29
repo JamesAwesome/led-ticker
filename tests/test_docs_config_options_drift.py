@@ -28,7 +28,7 @@ import re
 from dataclasses import fields
 from pathlib import Path
 
-from led_ticker.config import DisplayConfig
+from led_ticker.config import BusyLightConfig, DisplayConfig
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PAGE_PATH = (
@@ -92,6 +92,8 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
         "start_hold",
         "transition_specified",
     },
+    # [busy_light] surfaces every BusyLightConfig field — 1:1 TOML keys.
+    "busy_light": {f.name for f in fields(BusyLightConfig)},
 }
 
 
@@ -102,6 +104,7 @@ SECTION_HEADINGS: dict[str, str] = {
     "## `[title]`": "title",
     "## `[transitions]`": "transitions",
     "## `[[playlist.section]]`": "section",
+    "## `[busy_light]`": "busy_light",
 }
 
 
@@ -178,6 +181,28 @@ def test_display_section_field_set_matches_docs() -> None:
     assert not extra, (
         f"[display] docs table lists fields not in DisplayConfig: {sorted(extra)}.\n"
         "Either add them to src/led_ticker/config.py:DisplayConfig, "
+        "or drop the row from the docs table."
+    )
+
+
+def test_busy_light_section_field_set_matches_docs() -> None:
+    """Every BusyLightConfig field appears in the page's [busy_light] table,
+    and the table doesn't list any fabricated fields."""
+    page_text = PAGE_PATH.read_text()
+    documented = DOCUMENTED_KEYS["busy_light"]
+    on_page = _parse_section_field_names(page_text, "## `[busy_light]`")
+    missing = documented - on_page
+    extra = on_page - documented
+    assert not missing, (
+        "BusyLightConfig fields missing from [busy_light] docs table: "
+        f"{sorted(missing)}.\n"
+        "Add a row in docs/site/src/content/docs/reference/config-options.mdx,"
+        " or remove the field from DOCUMENTED_KEYS['busy_light']."
+    )
+    assert not extra, (
+        "[busy_light] docs table lists fields not in BusyLightConfig: "
+        f"{sorted(extra)}.\n"
+        "Either add them to src/led_ticker/config.py:BusyLightConfig, "
         "or drop the row from the docs table."
     )
 

@@ -1113,6 +1113,35 @@ class TestMLBTwoRowLayout:
         result_canvas, cursor = msg.draw(canvas)
         assert result_canvas is canvas
 
+    def test_draw_raises_when_hires_font_exceeds_band(self, canvas):
+        """Band-overflow guard: a HIRES font taller than its band raises,
+        naming the offending row.
+
+        Scoped to hires fonts because hires text hard-clips, whereas the
+        default BDF FONT_DEFAULT (line-height 12) renders in an 8-row band
+        via BDF's forgiving centering. Mirrors TwoRowMessage's
+        `test_hires_font_too_large_raises_at_draw`: Inter@40 is ~46 real px
+        → 12 logical at scale=4, and the top half of a 16-row canvas is
+        8 logical rows, so it doesn't fit.
+        """
+        from zoneinfo import ZoneInfo
+
+        import pytest
+
+        from led_ticker.fonts import resolve_font
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+        )
+        big_font = resolve_font("Inter-Regular", 40)
+        msg = _build_two_row_message(
+            game, "PHI", ZoneInfo("America/New_York"), font=big_font
+        )
+        with pytest.raises(ValueError, match="line-height"):
+            msg.draw(canvas)
+
     def test_top_font_threads_through_from_monitor(self):
         """top_font set on MLBScoreMonitor reaches MLBTwoRowMessage instances."""
         from unittest import mock

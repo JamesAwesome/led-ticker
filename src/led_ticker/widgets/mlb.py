@@ -927,6 +927,7 @@ class MLBTwoRowMessage(_FrameAware):
         font_color: Any = None,
     ) -> DrawResult:
         from led_ticker.drawing import compute_baseline_for_band, safe_scale
+        from led_ticker.fonts import HiresFont, font_line_height_logical
         from led_ticker.pixel_emoji import draw_with_emoji, measure_width
         from led_ticker.widgets._row_layout import resolve_band_heights
 
@@ -934,6 +935,35 @@ class MLBTwoRowMessage(_FrameAware):
         top_h, bot_h = resolve_band_heights(canvas.height, self.top_row_height)
         top_font = self.top_font if self.top_font is not None else self.font
         bot_font = self.font
+
+        # Validate each row's HIRES font fits within its band (logical units).
+        # `font_line_height_logical` handles the BDF-vs-HiresFont branch
+        # (BDF returns logical px, HiresFont ceil-divs by scale). Mirrors the
+        # intent of the equivalent guard in TwoRowMessage.draw so a too-tall
+        # hires font raises with the offending row named instead of silently
+        # clipping. Scoped to HiresFont because hires text hard-clips, whereas
+        # this widget's default BDF font (FONT_DEFAULT, line-height 12) renders
+        # in an 8-row band via BDF's forgiving vertical centering (a documented
+        # behavior — see CLAUDE.md). TwoRowMessage's guard covers BDF too only
+        # because its default font is FONT_SMALL (line-height 8, fits exactly);
+        # MLB's default is FONT_DEFAULT, so a literal BDF check would reject the
+        # shipping default layout.
+        for row_label, row_font, band_h in (
+            ("top", top_font, top_h),
+            ("bottom", bot_font, bot_h),
+        ):
+            if not isinstance(row_font, HiresFont):
+                continue
+            font_lh_logical = font_line_height_logical(row_font, scale)
+            if font_lh_logical > band_h:
+                raise ValueError(
+                    f"{row_label} font line-height ({font_lh_logical} logical "
+                    f"rows) exceeds the per-row band ({band_h} rows on a "
+                    f"{canvas.height}-tall canvas). Pick a smaller font_size, "
+                    f"increase the section's content_height, adjust "
+                    f"top_row_height for an asymmetric split, or use a BDF "
+                    f"alias (5x8, 6x12)."
+                )
 
         top_baseline = compute_baseline_for_band(
             top_font, top_h, scale, valign="center"
@@ -964,7 +994,7 @@ class MLBTwoRowMessage(_FrameAware):
         _render_segments(self.top_segments, top_baseline, top_font)
         _render_segments(self.bottom_segments, bot_baseline, bot_font)
 
-        return canvas, canvas.width
+        return canvas, cursor_pos + canvas.width
 
 
 _MLBStoryT = TickerMessage | SegmentMessage | MLBScoreboardMessage | MLBTwoRowMessage

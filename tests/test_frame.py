@@ -86,3 +86,53 @@ def test_swap_returns_new_canvas():
     canvas = frame.matrix.CreateFrameCanvas()
     result = frame.swap(canvas)
     assert result is not canvas
+
+
+def test_overlay_hooks_default_empty():
+    frame = LedFrame()
+    assert frame.overlay_hooks == []
+
+
+def test_swap_runs_hooks_before_swap_with_canvas():
+    """Each overlay hook is called once with the canvas, BEFORE SwapOnVSync."""
+    frame = LedFrame()
+    order: list[str] = []
+    received: list[object] = []
+    canvas = object()
+
+    def hook(c):
+        received.append(c)
+        order.append("hook")
+
+    mock_matrix = MagicMock()
+    mock_matrix.SwapOnVSync.side_effect = lambda c, f: order.append("swap")
+    frame.matrix = mock_matrix
+    frame.overlay_hooks.append(hook)
+
+    frame.swap(canvas)
+
+    assert received == [canvas]
+    assert order == ["hook", "swap"]
+
+
+def test_swap_runs_multiple_hooks_in_registration_order():
+    frame = LedFrame()
+    calls: list[str] = []
+    frame.matrix = MagicMock()
+    frame.overlay_hooks.extend(
+        [lambda c: calls.append("a"), lambda c: calls.append("b")]
+    )
+    frame.swap(object())
+    assert calls == ["a", "b"]
+
+
+def test_swap_no_hooks_unchanged():
+    """Empty overlay_hooks: swap forwards (canvas, fraction) and returns the result."""
+    frame = LedFrame(led_limit_refresh_rate_hz=100)
+    mock_matrix = MagicMock()
+    mock_matrix.SwapOnVSync.return_value = "backbuffer"
+    frame.matrix = mock_matrix
+    canvas = object()
+    result = frame.swap(canvas)
+    mock_matrix.SwapOnVSync.assert_called_once_with(canvas, 5)
+    assert result == "backbuffer"

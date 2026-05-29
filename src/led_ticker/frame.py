@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import attrs
 
 from led_ticker._compat import RGBMatrix, RGBMatrixOptions
@@ -42,6 +44,7 @@ class LedFrame:
     led_limit_refresh_rate_hz: int = 0
     _framerate_fraction: int = attrs.field(init=False)
     matrix: RGBMatrixType = attrs.field(init=False)
+    overlay_hooks: list[Callable[[Canvas], None]] = attrs.field(factory=list)
 
     def __attrs_post_init__(self) -> None:
         options = RGBMatrixOptions()
@@ -97,9 +100,13 @@ class LedFrame:
     def swap(self, canvas: Canvas) -> Canvas:
         """Swap the back-buffer to the display.
 
-        Single centralized swap point. The framerate_fraction argument
-        makes SwapOnVSync land at a fixed position in the hardware scan
-        cycle, eliminating the scan-seam tearing visible on long chains.
-        Future overlay_hooks will iterate here before the swap.
+        Single centralized swap point. Each registered overlay hook paints
+        on the real canvas (physical pixels) immediately before the hardware
+        swap, so overlays composite over every render path (engine,
+        transitions, play()-style widgets) that routes through here. The
+        framerate_fraction argument pins SwapOnVSync to a fixed scan-cycle
+        position, eliminating seam tearing on long chains.
         """
+        for hook in self.overlay_hooks:
+            hook(canvas)
         return self.matrix.SwapOnVSync(canvas, self._framerate_fraction)

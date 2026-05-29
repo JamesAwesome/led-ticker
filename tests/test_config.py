@@ -875,3 +875,65 @@ def test_transition_fps_none_yields_default_scroll_speed(tmp_path):
     assert fps is None
     scroll_speed = (1.0 / fps) if fps is not None else 0.05
     assert scroll_speed == 0.05
+
+
+def test_busy_light_default_disabled(tmp_path):
+    p = tmp_path / "c.toml"
+    p.write_text(
+        "[display]\nrows=16\ncols=32\n\n"
+        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
+    )
+    cfg = load_config(p)
+    assert cfg.busy_light.enabled is False
+    assert cfg.busy_light.file_path == "~/.busy"
+    assert cfg.busy_light.corner == "top_right"
+    assert cfg.busy_light.color == (255, 0, 0)
+    assert cfg.busy_light.size == 4
+    assert cfg.busy_light.poll_interval == 5.0
+
+
+def test_busy_light_parsed(tmp_path):
+    p = tmp_path / "c.toml"
+    p.write_text(
+        "[display]\nrows=16\ncols=32\n\n"
+        '[busy_light]\nenabled=true\nfile_path="/tmp/b"\n'
+        'poll_interval=2.0\ncorner="bottom_left"\ncolor=[0,255,0]\nsize=6\n\n'
+        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
+    )
+    cfg = load_config(p)
+    assert cfg.busy_light.enabled is True
+    assert cfg.busy_light.file_path == "/tmp/b"
+    assert cfg.busy_light.poll_interval == 2.0
+    assert cfg.busy_light.corner == "bottom_left"
+    assert cfg.busy_light.color == (0, 255, 0)
+    assert cfg.busy_light.size == 6
+
+
+def test_busy_light_invalid_corner_raises(tmp_path):
+    import pytest
+
+    p = tmp_path / "c.toml"
+    p.write_text(
+        "[display]\nrows=16\ncols=32\n\n"
+        '[busy_light]\nenabled=true\ncorner="middle"\n\n'
+        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
+    )
+    with pytest.raises(ValueError, match="corner"):
+        load_config(p)
+
+
+def test_busy_light_invalid_size_raises(tmp_path):
+    import pytest
+
+    p = tmp_path / "c.toml"
+    p.write_text(
+        "[display]\nrows=16\ncols=32\n\n"
+        "[busy_light]\nenabled=true\nsize=0\n\n"
+        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
+    )
+    with pytest.raises(ValueError, match="size"):
+        load_config(p)

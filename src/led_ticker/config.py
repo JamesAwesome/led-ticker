@@ -150,6 +150,16 @@ class SectionConfig:
 
 
 @dataclass
+class BusyLightConfig:
+    enabled: bool = False
+    file_path: str = "~/.busy"
+    poll_interval: float = 5.0
+    corner: str = "top_right"
+    color: tuple[int, int, int] = (255, 0, 0)
+    size: int = 4
+
+
+@dataclass
 class AppConfig:
     display: DisplayConfig
     sections: list[SectionConfig]
@@ -161,6 +171,7 @@ class AppConfig:
         default_factory=TransitionConfig,
     )
     between_sections_specified: bool = False
+    busy_light: BusyLightConfig = field(default_factory=BusyLightConfig)
     # Warnings collected during load_config when string-of-digits or
     # mixed-case enum values get coerced to canonical typed values.
     # validate.py surfaces these as rule-37 warnings; app.py:run() logs
@@ -314,6 +325,24 @@ def load_config(path: Path) -> AppConfig:
         show_pokeball=transitions_raw.get("show_pokeball", True),
     )
 
+    bl_raw = raw.get("busy_light", {})
+    busy_light = BusyLightConfig(
+        enabled=bl_raw.get("enabled", False),
+        file_path=bl_raw.get("file_path", "~/.busy"),
+        poll_interval=bl_raw.get("poll_interval", 5.0),
+        corner=bl_raw.get("corner", "top_right"),
+        color=tuple(bl_raw.get("color", [255, 0, 0])),
+        size=bl_raw.get("size", 4),
+    )
+    _BUSY_CORNERS = ("top_left", "top_right", "bottom_left", "bottom_right")
+    if busy_light.corner not in _BUSY_CORNERS:
+        raise ValueError(
+            f"busy_light.corner={busy_light.corner!r} is not valid; "
+            f"choose one of: {', '.join(_BUSY_CORNERS)}."
+        )
+    if busy_light.size < 1:
+        raise ValueError(f"busy_light.size must be >= 1; got {busy_light.size}.")
+
     sections = []
     for i, section_raw in enumerate(raw.get("playlist", {}).get("section", [])):
         trans = _parse_transition(
@@ -402,5 +431,6 @@ def load_config(path: Path) -> AppConfig:
         default_transition=default_transition,
         between_sections=between_sections,
         between_sections_specified=between_sections_specified,
+        busy_light=busy_light,
         _coerce_warnings=coerce_warnings,
     )

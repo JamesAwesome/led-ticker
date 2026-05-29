@@ -10,6 +10,8 @@ Inline hi-res emoji (`:baseball:`, `:moon:`, etc.) render vertically misaligned 
 
 The fix anchors the hi-res sprite's **bottom to the text baseline in real pixels**, which is exact for any scale (not just divisors of the sprite's physical size). The low-res path and `scale=4` rendering are unchanged.
 
+**Impact / who hits this:** narrow but real. `scale=1` (smallsign) uses the low-res path and is unaffected; `scale=4` (the default bigsign) is byte-identical. Only a `scale=2` config with inline hi-res emoji misaligns — e.g. two-row bigsign layouts, which need `scale=2`/`content_height=32` to fit their bands. Low frequency today, but every `scale=2` config with `:slug:` emoji in held text hits it.
+
 ## Root cause
 
 `draw_with_emoji` (`src/led_ticker/pixel_emoji.py`) computes the inline emoji's top-row position as:
@@ -52,6 +54,10 @@ The sprite's last row is then at `baseline_logical * scale + y_offset_real`, i.e
 
 - **Hi-res** sprites paint directly to the real canvas (`_draw_hires_emoji` → `real.SetPixel`), so their height is fixed in *real* pixels (`physical_size`). The logical→real multiplication (`iy_logical * scale`) is the lossy step; anchoring in real pixels removes it.
 - **Low-res** (8×8) sprites paint through the wrapper's `SetPixel`, which block-expands uniformly, so they live in *logical* space. `iy = baseline_logical - 8` bottom-anchors an 8-logical-row sprite exactly at any scale (no real-pixel division). **Unchanged.**
+
+### Top-clip is the expected trade-off at scale=2
+
+A 32-real-px sprite bottom-anchored at the baseline extends 32 real px **up** from it. On a short canvas (`content_height=16`, `scale=2` → 32 real rows) with a high baseline, `real_top` can be small or negative, clipping the sprite's top at the panel edge. This is acceptable and intended: `_draw_hires_emoji`'s paint loop already guards `0 <= ry < real_h` (it `SetPixel`s only in-bounds), so it clips silently — it never wraps, errors, or paints out of bounds. Avoiding the clip is a *sizing* concern (non-goal #1), not an *alignment* concern. A test asserts the clipped case paints only in-bounds and does not raise.
 
 ### scale=4 is byte-identical
 
@@ -108,7 +114,7 @@ After removal: `scale=4` unchanged (default computes the same `- 8`-equivalent);
 ### Untouched
 
 - **`draw_emoji_at` / single-icon placement** (e.g. MLB team logos): the caller supplies the icon's top position, so it keeps the top-anchor path (`top_logical=y`). Behavior preserved exactly.
-- **Two-row band call sites** (`two_row.py` ~589/624): pass real per-band `emoji_y` (top position from `row_layout`) **and** `max_emoji_height`, which forces a low-res 8×8 fallback when a hi-res sprite would exceed the band. Correct as-is; they keep the explicit top-anchor path.
+- **Two-row band call sites** (`two_row.py` ~345/589/624): pass real per-band `emoji_y` (top position from `row_layout`) **and** `max_emoji_height`, which forces a low-res 8×8 fallback when a hi-res sprite would exceed the band. They keep the explicit top-anchor path and are **deliberately not baseline-corrected**: their `emoji_y` is a band-relative top, not a baseline, so the real-pixel bottom-anchor does not apply. In the rare case a hi-res sprite *fits* the band cap on an explicit-`emoji_y` path, it stays top-anchored at `emoji_y` (unchanged old behavior). This is in scope-by-omission: two-row band emoji placement is governed by `row_layout`, not this fix. The plan and any future reader should not assume band emoji are baseline-anchored.
 - **Low-res rendering** at every scale.
 - **Horizontal advance:** `HiResEmoji.logical_width(scale)` already ceil-divides and is consistent between `measure_width` and `draw_with_emoji` — already arbitrary-scale. No change.
 - **`scale=1` (smallsign):** the canvas is not a `ScaledCanvas`, so `use_hires` is false and the low-res path runs. Unaffected.
@@ -123,9 +129,12 @@ After removal: `scale=4` unchanged (default computes the same `- 8`-equivalent);
 
 ### Regression (`tests/test_pixel_emoji.py`)
 
-1. **`scale=2` bottom-anchor:** render a hi-res emoji (e.g. `:baseball:`) on a `scale=2` `ScaledCanvas` at a known logical baseline; assert the lowest lit real row is at/just-above `baseline * scale` (within 1px), NOT ~16 real px below. Fails before the fix, passes after.
-2. **Cross-scale invariant:** render the same emoji at the same logical baseline on `scale=2` and `scale=4`; assert the emoji's lowest lit real row equals `baseline * scale` (± padding) in both — i.e. baseline-anchored regardless of scale.
-3. **Arbitrary scale (scale=3):** render at `scale=3`; assert the lowest lit real row lands on `baseline * 3` (± 1px) — proves the real-pixel anchor is exact where logical floor-division would be off by 2.
+Use a sprite whose **bottom sprite row (row `physical_size - 1`) is lit** so "lowest lit real row" equals the sprite's true bottom. (Auto-trim removes unlit *columns*, not rows, but verify the chosen slug — e.g. assert `:baseball:` has a lit pixel in row 31 — so the bottom-anchor assertions are exact, not off by trimmed rows.) Choose a baseline with enough headroom that the sprite is not top-clipped (test #4 below covers clipping separately).
+
+1. **`scale=2` bottom-anchor:** render the chosen hi-res emoji on a `scale=2` `ScaledCanvas` at a known logical baseline; assert the lowest lit real row equals `baseline * scale + y_offset_real - 1` exactly, NOT ~16 real px below. Fails before the fix, passes after.
+2. **Cross-scale invariant:** render the same emoji at the same logical baseline on `scale=2` and `scale=4`; assert the emoji's lowest lit real row equals `baseline * scale + y_offset_real - 1` in both (exact, no tolerance) — baseline-anchored regardless of scale.
+3. **Arbitrary scale (scale=3):** render at `scale=3`; assert the lowest lit real row equals `baseline * 3 + y_offset_real - 1` exactly — proves the real-pixel anchor is exact where logical floor-division (`32 // 3 = 10`) would be off by 2.
+3b. **Top-clip safety (scale=2, short canvas):** render the emoji at a high baseline on a `content_height=16` `scale=2` canvas so `real_top < 0`; assert `draw_with_emoji` does not raise and paints no pixel outside `0 <= ry < real_h` (the sprite clips at the top, never wraps).
 4. **scale=4 preserved:** the existing `test_hires_moon_paints_real_canvas_at_physical_resolution` (and siblings) must still pass unchanged — guards against any drift in the validated `scale=4` path.
 
 ### Call-site regression
@@ -138,7 +147,7 @@ After removal: `scale=4` unchanged (default computes the same `- 8`-equivalent);
 
 ### `draw_emoji_at` preserved
 
-7. Single-icon placement keeps top-anchor: render `draw_emoji_at(sc, slug, x, y)` on `scale=4` and assert the sprite's top real row is `y * scale + y_offset_real` (unchanged) — the signature change must not shift single-icon placement (MLB logos).
+7. Single-icon placement keeps top-anchor: render `draw_emoji_at(sc, slug, x, y)` and assert the sprite's top real row is `y * scale + y_offset_real` (unchanged) — the signature change must not shift single-icon placement (MLB logos). Construct the `ScaledCanvas` with a real height that yields a **non-zero `y_offset_real`** (i.e. `content_height * scale < real_height`) so the assertion isn't tautological at offset 0.
 
 ## Files affected
 

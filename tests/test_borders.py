@@ -6,6 +6,7 @@ import unittest.mock as mock
 
 import pytest
 
+from led_ticker.app.coercion import _coerce_border
 from led_ticker.borders import (
     ColorCycleBorder,
     ConstantBorder,
@@ -14,6 +15,7 @@ from led_ticker.borders import (
     _lightbulb_positions,
     _perimeter_pixels,
 )
+from led_ticker.color_lut import hue_color
 from led_ticker.scaled_canvas import ScaledCanvas
 
 
@@ -958,3 +960,159 @@ class TestLightbulbPhysicalResolution:
         # (1, 1) should NOT be painted — it's inside the rectangle,
         # not on the perimeter.
         assert (1, 1) not in real.pixels
+
+
+class TestLightbulbBorderRainbow:
+    def test_rainbow_flag_set_via_sentinel(self):
+        b = LightbulbBorder(mode="chase", lit_color="rainbow")
+        assert b._rainbow_lit is True
+        assert b.hue_wraps == 1.0
+
+    def test_non_rainbow_keeps_tuple(self):
+        b = LightbulbBorder(mode="chase", lit_color=(1, 2, 3))
+        assert b._rainbow_lit is False
+        assert b.lit_color == (1, 2, 3)
+
+    def test_lit_bulbs_get_per_index_hues(self):
+        canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="chase",
+            chase_density=1,
+            lit_color="rainbow",
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(canvas, frame_count=0)
+        positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        n = len(positions)
+        quarter = n // 4
+        x0, y0 = positions[0]
+        c0 = hue_color((0 / n) * 360 * 1.0)
+        assert canvas.pixels[(x0, y0)] == (c0.red, c0.green, c0.blue)
+        qx, qy = positions[quarter]
+        cq = hue_color((quarter / n) * 360 * 1.0)
+        assert canvas.pixels[(qx, qy)] == (cq.red, cq.green, cq.blue)
+        assert canvas.pixels[(qx, qy)] != canvas.pixels[(0, 0)]
+
+    def test_hue_wraps_tiles_multiple_spectra(self):
+        canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="chase",
+            chase_density=1,
+            lit_color="rainbow",
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+            hue_wraps=2.0,
+        )
+        b.paint(canvas, frame_count=0)
+        positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        n = len(positions)
+        # n=104 (even), so half=52; (52/104)*360*2 = 360 ≡ 0 (mod 360)
+        # meaning bulb 52 should match hue_color(0), same as bulb 0.
+        # This proves hue_wraps=2 tiles a second spectrum: halfway around
+        # the ring the hues repeat from the start.
+        half = n // 2
+        hx, hy = positions[half]
+        expect = hue_color((half / n) * 360 * 2.0)
+        assert canvas.pixels[(hx, hy)] == (expect.red, expect.green, expect.blue)
+        c0 = hue_color(0)
+        assert canvas.pixels[(hx, hy)] == (c0.red, c0.green, c0.blue)
+
+    def test_unlit_bulbs_keep_unlit_color_in_rainbow(self):
+        canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="chase",
+            chase_density=3,
+            lit_color="rainbow",
+            unlit_color=(7, 8, 9),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(canvas, frame_count=0)
+        assert canvas.pixels[(6, 0)] == (7, 8, 9)
+
+    def test_rainbow_composes_with_alternate(self):
+        """Alternate mode + rainbow: lit bulbs (even idx at flip=0) get
+        per-index hues; unlit bulbs (odd idx) keep unlit_color."""
+        canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="alternate",
+            lit_color="rainbow",
+            unlit_color=(3, 3, 3),
+            bulb_size=3,
+            gap=3,
+            speed_frames=5,
+        )
+        b.paint(canvas, frame_count=0)  # phase 0, flip 0 → even idx lit
+        positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        n = len(positions)
+        # idx 0 is lit (even): rainbow hue.
+        x0, y0 = positions[0]
+        c0 = hue_color((0 / n) * 360 * 1.0)
+        assert canvas.pixels[(x0, y0)] == (c0.red, c0.green, c0.blue)
+        # idx 1 is unlit (odd): unlit_color.
+        x1, y1 = positions[1]
+        assert canvas.pixels[(x1, y1)] == (3, 3, 3)
+
+    def test_rainbow_composes_with_unison(self):
+        lit_canvas = _FakeRealCanvas(256, 64)
+        off_canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="unison",
+            lit_color="rainbow",
+            unlit_color=(2, 2, 2),
+            bulb_size=3,
+            gap=3,
+            speed_frames=1,
+        )
+        b.paint(lit_canvas, frame_count=0)
+        b.paint(off_canvas, frame_count=1)
+        c0 = hue_color(0)
+        assert lit_canvas.pixels[(0, 0)] == (c0.red, c0.green, c0.blue)
+        assert off_canvas.pixels[(0, 0)] == (2, 2, 2)
+
+    def test_rainbow_hues_are_static_across_frames(self):
+        """The defining property: rainbow hues are keyed to perimeter
+        index, NOT frame_count. With chase_density=1 every bulb is lit
+        at every frame, so the painted output must be identical across
+        frames — a regression that added frame_count to the hue formula
+        would change this and is otherwise invisible to single-frame
+        tests."""
+        c0 = _FakeRealCanvas(256, 64)
+        c50 = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="chase",
+            chase_density=1,  # all bulbs lit at every frame
+            lit_color="rainbow",
+            unlit_color=(0, 0, 0),
+            bulb_size=3,
+            gap=3,
+        )
+        b.paint(c0, frame_count=0)
+        b.paint(c50, frame_count=50)
+        assert c0.pixels == c50.pixels
+
+
+class TestLightbulbRainbowCoercion:
+    def test_rainbow_sentinel_builds_border(self):
+        b = _coerce_border(
+            {"style": "lightbulbs", "mode": "chase", "lit_color": "rainbow"}
+        )
+        assert isinstance(b, LightbulbBorder)
+        assert b._rainbow_lit is True
+
+    def test_hue_wraps_accepted(self):
+        b = _coerce_border(
+            {"style": "lightbulbs", "lit_color": "rainbow", "hue_wraps": 3}
+        )
+        assert b.hue_wraps == 3
+
+    def test_junk_lit_color_string_rejected(self):
+        with pytest.raises(ValueError, match="lit_color"):
+            _coerce_border({"style": "lightbulbs", "lit_color": "banana"})
+
+    def test_rgb_lit_color_still_validated(self):
+        b = _coerce_border({"style": "lightbulbs", "lit_color": [10, 20, 30]})
+        assert b.lit_color == (10, 20, 30)

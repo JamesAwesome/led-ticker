@@ -7,7 +7,7 @@ ring around the panel edge at PHYSICAL resolution (bypasses
 so a 1-px border on bigsign actually draws as 1 real LED, not a 4×4
 block.
 
-Three flavors today:
+Four flavors today:
 
 - `RainbowChaseBorder` — per-pixel hue indexed by perimeter position
   (clockwise from top-left, hop count 0..N-1) advancing per frame.
@@ -23,6 +23,10 @@ Three flavors today:
   `frame_invariant=True` so the static-text fast path in image
   widgets (and any future BorderEffect-aware fast paths) can opt
   out of per-tick redraws.
+- `LightbulbBorder` — discrete NxN bulb sprites around the perimeter
+  (Vegas-marquee aesthetic), animated via chase / alternate / unison.
+  Lit bulbs can be a fixed color or, with `lit_color="rainbow"`, take
+  a hue from their perimeter position (static in space).
 
 The `BorderEffect` Protocol exposes:
 - `paint(canvas, frame_count)` — paints the perimeter on `canvas`.
@@ -63,7 +67,7 @@ out (continuous chase); `ConstantBorder` keeps the default
 from __future__ import annotations
 
 import functools
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from led_ticker._types import Canvas
 from led_ticker.color_lut import hue_color
@@ -389,6 +393,12 @@ class LightbulbBorder(BorderEffectBase):
     warm white; default unlit_color is a dim warm orange that mimics
     the soft glow of unpowered incandescent bulbs.
 
+    ``lit_color`` may be the string ``"rainbow"`` — each lit bulb takes a
+    hue from its clockwise perimeter index, tiled ``hue_wraps`` times
+    around the ring (default 1.0 = one full spectrum). Unlit bulbs
+    always keep ``unlit_color``. The hue mapping is static in space
+    (not time) and composes with all three modes.
+
     Paints at PHYSICAL resolution via `unwrap_to_real` — bypasses
     ScaledCanvas block expansion.
     """
@@ -402,11 +412,12 @@ class LightbulbBorder(BorderEffectBase):
         mode: str = "chase",
         bulb_size: int | None = None,
         gap: int = 3,
-        lit_color: tuple[int, int, int] = (255, 220, 140),
+        lit_color: tuple[int, int, int] | str = (255, 220, 140),
         unlit_color: tuple[int, int, int] = (40, 20, 0),
         speed_frames: int | None = None,
         chase_density: int = 3,
         direction: str = "cw",
+        hue_wraps: float = 1.0,
     ) -> None:
         self.mode = mode
         # bulb_size=None means "auto-detect on first paint". Resolution
@@ -415,8 +426,12 @@ class LightbulbBorder(BorderEffectBase):
         # canvas exists).
         self._bulb_size_override = bulb_size
         self.gap = gap
+        # lit_color may be the string sentinel "rainbow" — in that case
+        # each lit bulb's color is derived from its perimeter index.
+        self._rainbow_lit = lit_color == "rainbow"
         self.lit_color = lit_color
         self.unlit_color = unlit_color
+        self.hue_wraps = hue_wraps
         # Per-mode default speed_frames. Picked for a 50ms engine tick:
         #   chase=2     -> 100ms/step,  ~10s/rev on 100-bulb bigsign
         #   alternate=5 -> 250ms/toggle
@@ -435,27 +450,38 @@ class LightbulbBorder(BorderEffectBase):
         # reference builds (bigsign h=64, smallsign h=16).
         return 3 if real_height >= 32 else 1
 
+    def _lit_rgb(self, idx: int, count: int) -> tuple[int, int, int]:
+        """Color for a lit bulb. Rainbow: hue from perimeter index;
+        otherwise the fixed lit_color tuple."""
+        if not self._rainbow_lit:
+            return cast(tuple[int, int, int], self.lit_color)
+        hue = (idx / count) * 360.0 * self.hue_wraps
+        c = hue_color(hue)
+        return (c.red, c.green, c.blue)
+
     def paint(self, canvas: Canvas, frame_count: int) -> None:
         real = unwrap_to_real(canvas)
         bulb_size = self._resolve_bulb_size(real.height)
         positions = _lightbulb_positions(real.width, real.height, bulb_size, self.gap)
         phase = frame_count // self.speed_frames
+        count = len(positions)
 
         if self.mode == "chase":
             step = phase if self.direction == "cw" else -phase
             for idx, (x0, y0) in enumerate(positions):
                 is_lit = ((idx - step) % self.chase_density) == 0
-                rgb = self.lit_color if is_lit else self.unlit_color
+                rgb = self._lit_rgb(idx, count) if is_lit else self.unlit_color
                 self._paint_bulb(real, x0, y0, bulb_size, rgb)
         elif self.mode == "alternate":
             flip = phase % 2
             for idx, (x0, y0) in enumerate(positions):
                 is_lit = ((idx + flip) % 2) == 0
-                rgb = self.lit_color if is_lit else self.unlit_color
+                rgb = self._lit_rgb(idx, count) if is_lit else self.unlit_color
                 self._paint_bulb(real, x0, y0, bulb_size, rgb)
         elif self.mode == "unison":
-            rgb = self.lit_color if (phase % 2) == 0 else self.unlit_color
-            for x0, y0 in positions:
+            all_lit = (phase % 2) == 0
+            for idx, (x0, y0) in enumerate(positions):
+                rgb = self._lit_rgb(idx, count) if all_lit else self.unlit_color
                 self._paint_bulb(real, x0, y0, bulb_size, rgb)
         else:
             raise ValueError(

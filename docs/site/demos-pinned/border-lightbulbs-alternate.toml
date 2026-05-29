@@ -1,0 +1,21 @@
+# render-duration: 5
+# Lightbulb border, mode="alternate" — even/odd twinkle, no directional motion.
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 5.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "TWINKLE"
+border = { style = "lightbulbs", mode = "alternate" }

@@ -1,0 +1,21 @@
+# render-duration: 7
+# Lightbulb border, mode="chase" — warm-white marquee, lit window travels cw.
+[display]
+rows = 64
+cols = 256
+chain = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 7.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "MARQUEE"
+border = { style = "lightbulbs", mode = "chase" }

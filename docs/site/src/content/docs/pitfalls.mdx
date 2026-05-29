@@ -194,3 +194,15 @@ Negative gaps would cause bulbs to overlap, producing an undefined visual.
 `direction` only affects the chase animation.
 
 **Fix:** Either remove `direction`, or change `mode` to `chase`.
+
+### Rule 51 — `hue_wraps` must be a positive number
+
+`hue_wraps` controls how many full hue cycles the rainbow sweeps around the perimeter. Zero or negative values (or non-numeric values) would produce an empty or reversed rainbow with undefined behavior.
+
+**Fix:** Set `hue_wraps` to a positive number such as `1.0` (one full cycle) or `2` (two cycles). Omit it to use the default of `1.0`.
+
+### Rule 52 — `hue_wraps` ignored unless `lit_color = "rainbow"` (warning)
+
+`hue_wraps` only affects the rainbow color sweep. When `lit_color` is a fixed color (or absent), `hue_wraps` has no effect and is silently ignored.
+
+**Fix:** Either set `lit_color = "rainbow"` to enable the rainbow effect, or remove `hue_wraps`.

@@ -1,0 +1,141 @@
+# MLB two-row layout test config — bigsign (256×64 canvas)
+#
+# 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64 logical.
+# Driven by a Raspberry Pi 5 through an Adafruit RGB Matrix HAT.
+#
+# Tests layout = "two_row" mode. The widget splits the panel into a top
+# band (matchup / score + team colors + ABS pips) and a bottom band (game
+# time, inning/bases/BSO, FINAL + series record, or the postponement tag).
+#
+# IMPORTANT — band sizing on bigsign (same pattern as config.pool_bigsign.toml):
+#   At default_scale = 4 + content_height = 16 the two bands are only 8
+#   logical rows / 32 real each, which can't fit a hires Inter above ~16px
+#   without its line-height overflowing the band (MLBTwoRowMessage.draw
+#   raises at paint time if it does). Drop to scale = 2 + content_height = 32
+#   instead: same 64-real panel, but 16/16 logical bands (32 real each) so
+#   Inter at 25 fits, plus double the logical width (128) for the dense
+#   live-game bottom row. See the per-section `content_height` note in
+#   CLAUDE.md.
+#
+# Usage: cp config/config.mlb_two_row_test.toml config/config.toml
+
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+parallel = 1
+# Vertical-serpentine 2×4 panel map. See https://docs.ledticker.dev/hardware/bigsign/
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+brightness = 60
+default_scale = 4
+hardware_mapping = "adafruit-hat"
+# Pi 5 RP1 GPIO tuning: RIO mode + gpio_slowdown=3 + 8-bit PWM.
+gpio_slowdown = 3
+rp1_rio = 1
+pwm_bits = 8
+show_refresh_rate = true
+
+[title]
+delay = 5
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = {type = "baseball_alternating", duration = 3.2, transition_fps = 40}
+
+# --- MLB Two-Row (symmetric 16/16 split, single font) ---
+# scale = 2 + content_height = 32 → two 16-logical (32-real) bands.
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 32
+transition = "baseball_alternating"
+transition_duration = 3.2
+transition_fps = 40
+hold_time = 8
+loop_count = 0
+
+[playlist.section.title]
+type = "message"
+text = ":baseball: MLB Two-Row :baseball:"
+font = "Inter-Regular"
+font_size = 25
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "PHI"
+layout = "two_row"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 25
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "NYM"
+layout = "two_row"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 25
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "LAD"
+layout = "two_row"
+timezone = "America/Los_Angeles"
+font = "Inter-Regular"
+font_size = 25
+font_threshold = 80
+
+# --- MLB Two-Row (asymmetric split: small label on top, bigger bottom) ---
+# top_row_height = 14 → top band 14 logical, bottom band 18 logical.
+# A smaller top_font reads as a header above the score/status line.
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 32
+transition = "baseball_alternating"
+transition_duration = 3.2
+transition_fps = 40
+hold_time = 8
+loop_count = 0
+
+[playlist.section.title]
+type = "message"
+text = ":baseball: Two-Row (split) :baseball:"
+font = "Inter-Regular"
+font_size = 25
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "NYY"
+layout = "two_row"
+timezone = "America/New_York"
+top_row_height = 14
+top_font = "Inter-Regular"
+top_font_size = 16
+top_font_threshold = 80
+font = "Inter-Regular"
+font_size = 25
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "BOS"
+layout = "two_row"
+timezone = "America/New_York"
+top_row_height = 14
+top_font = "Inter-Regular"
+top_font_size = 16
+top_font_threshold = 80
+font = "Inter-Regular"
+font_size = 25
+font_threshold = 80

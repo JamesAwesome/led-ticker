@@ -73,6 +73,8 @@ src/led_ticker/
     two_row.py          # TwoRowMessage: held top + scrolling bottom
     mlb.py              # Team logos render through pixel_emoji's standard 8x8 path
                         #   (the previous mlb_icons.py was folded in and deleted).
+                        #   layout = "ticker" | "scoreboard" | "two_row"; two_row uses
+                        #   MLBTwoRowMessage (custom draw, two-band, multi-color segments).
     mlb_standings.py
     gif.py / still.py   # GifPlayer / StillImage; share _BaseImageWidget
     _frame_aware.py     # _FrameAware mixin: frame_count + pause_frame/resume_frame

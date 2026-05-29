@@ -313,9 +313,9 @@ _DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
     "bottom_text_wrap": {"gif", "image", "two_row"},
     "bottom_text_separator": {"gif", "image", "two_row"},
     "bottom_text_separator_color": {"gif", "image", "two_row"},
-    "top_font": {"two_row", "pool"},
-    "top_font_size": {"two_row", "pool"},
-    "top_font_threshold": {"two_row", "pool"},
+    "top_font": {"two_row", "pool", "mlb"},
+    "top_font_size": {"two_row", "pool", "mlb"},
+    "top_font_threshold": {"two_row", "pool", "mlb"},
     "bottom_font": {"two_row", "pool"},
     "bottom_font_size": {"two_row", "pool"},
     "bottom_font_threshold": {"two_row", "pool"},
@@ -630,6 +630,37 @@ async def validate_widget_cfg(
                     f"pool widget {offender!r} only applies when "
                     f"layout='two_row'; remove the field or set "
                     f"layout='two_row'."
+                )
+
+    # MLB layout validation — must run BEFORE _resolve_fonts pops top_font_size
+    if widget_cfg.get("type") == "mlb":
+        _MLB_VALID_LAYOUTS = ("ticker", "scoreboard", "two_row")
+        mlb_layout = widget_cfg.get("layout", "ticker")
+        if mlb_layout not in _MLB_VALID_LAYOUTS:
+            close = difflib.get_close_matches(
+                mlb_layout, _MLB_VALID_LAYOUTS, n=1, cutoff=0.5
+            )
+            suggestion = f" Did you mean {close[0]!r}?" if close else ""
+            valid = ", ".join(repr(v) for v in _MLB_VALID_LAYOUTS)
+            raise ValueError(
+                f"mlb layout={mlb_layout!r} is not valid. "
+                f"Choose one of: {valid}.{suggestion}"
+            )
+        # Dead-knob check: per-row knobs only valid under two_row.
+        # This runs before _resolve_fonts pops top_font_size / top_font_threshold,
+        # so the keys are still present in widget_cfg at this point.
+        if mlb_layout != "two_row":
+            _TWO_ROW_ONLY = (
+                "top_font",
+                "top_font_size",
+                "top_font_threshold",
+                "top_row_height",
+            )
+            dead = [k for k in _TWO_ROW_ONLY if k in widget_cfg]
+            if dead:
+                raise ValueError(
+                    f"{dead[0]!r} only applies when layout='two_row'; "
+                    f"remove the field or set layout='two_row'."
                 )
 
     widget_type = widget_cfg.pop("type")

@@ -3243,6 +3243,36 @@ border = {style = "lightbulbs", lit_color = "rainbow", hue_wraps = 2.5}
         assert not any(
             i.rule == 51 for i in result.errors
         ), f"expected no rule 51 error; got errors={errs}"
+        # lit_color="rainbow" means hue_wraps is live, so the rule-52
+        # dead-knob warning must NOT fire.
+        warns = [(w.rule, w.message) for w in result.warnings]
+        assert not any(
+            i.rule == 52 for i in result.warnings
+        ), f"expected no rule 52 warning for live rainbow config; got warnings={warns}"
+
+    async def test_hue_wraps_bool_is_error(self, tmp_path):
+        # bool is an int subclass; the rule-51 guard must reject it as
+        # non-numeric (this is the case the isinstance-bool guard exists for).
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", lit_color = "rainbow", hue_wraps = true}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 51 and i.severity == "error" for i in result.errors
+        ), f"expected rule 51 error for bool hue_wraps; got errors={errs}"
 
     async def test_hue_wraps_without_rainbow_is_warning(self, tmp_path):
         cfg = tmp_path / "c.toml"

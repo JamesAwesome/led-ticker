@@ -3219,6 +3219,203 @@ border = {style = "lightbulbs", mode = "alternate", direction = "ccw"}
         ), f"expected rule 49 warning; got warnings={warns}"
 
 
+# Rules 51-52: lightbulbs border hue_wraps validation
+# ---------------------------------------------------------------------------
+
+
+class TestLightbulbHueWrapsValidation:
+    async def test_hue_wraps_zero_is_error(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", hue_wraps = 0}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 51 and i.severity == "error" for i in result.errors
+        ), f"expected rule 51 error; got errors={errs}"
+
+    async def test_hue_wraps_negative_is_error(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", hue_wraps = -1}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 51 and i.severity == "error" for i in result.errors
+        ), f"expected rule 51 error; got errors={errs}"
+
+    async def test_hue_wraps_non_numeric_is_error(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", hue_wraps = "x"}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 51 and i.severity == "error" for i in result.errors
+        ), f"expected rule 51 error; got errors={errs}"
+
+    async def test_hue_wraps_valid_with_rainbow_no_error(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", lit_color = "rainbow", hue_wraps = 2.5}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert not any(
+            i.rule == 51 for i in result.errors
+        ), f"expected no rule 51 error; got errors={errs}"
+        # lit_color="rainbow" means hue_wraps is live, so the rule-52
+        # dead-knob warning must NOT fire.
+        warns = [(w.rule, w.message) for w in result.warnings]
+        assert not any(
+            i.rule == 52 for i in result.warnings
+        ), f"expected no rule 52 warning for live rainbow config; got warnings={warns}"
+
+    async def test_hue_wraps_bool_is_error(self, tmp_path):
+        # bool is an int subclass; the rule-51 guard must reject it as
+        # non-numeric (this is the case the isinstance-bool guard exists for).
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", lit_color = "rainbow", hue_wraps = true}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 51 and i.severity == "error" for i in result.errors
+        ), f"expected rule 51 error for bool hue_wraps; got errors={errs}"
+
+    async def test_hue_wraps_nan_is_error(self, tmp_path):
+        # nan is a valid TOML float; without the isfinite guard it slips
+        # past rule 51 (nan <= 0 is False) and crashes hue_color at render.
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", lit_color = "rainbow", hue_wraps = nan}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 51 and i.severity == "error" for i in result.errors
+        ), f"expected rule 51 error for nan hue_wraps; got errors={errs}"
+
+    async def test_hue_wraps_inf_is_error(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", lit_color = "rainbow", hue_wraps = inf}
+""")
+        result = await validate_config(cfg)
+        errs = [(e.rule, e.message) for e in result.errors]
+        assert any(
+            i.rule == 51 and i.severity == "error" for i in result.errors
+        ), f"expected rule 51 error for inf hue_wraps; got errors={errs}"
+
+    async def test_hue_wraps_without_rainbow_is_warning(self, tmp_path):
+        cfg = tmp_path / "c.toml"
+        cfg.write_text("""
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+
+[[playlist.section]]
+mode = "swap"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+border = {style = "lightbulbs", hue_wraps = 2}
+""")
+        result = await validate_config(cfg)
+        warns = [(w.rule, w.message) for w in result.warnings]
+        assert any(
+            i.rule == 52 and i.severity == "warning" for i in result.warnings
+        ), f"expected rule 52 warning; got warnings={warns}"
+        # A valid hue_wraps value should not also produce a rule-51 error
+        assert not any(i.rule == 51 for i in result.errors), (
+            "rule 51 error unexpected for valid value; "
+            f"got errors={[(e.rule, e.message) for e in result.errors]}"
+        )
+
+
 async def test_rule50_transition_fps_too_low_warns(conf):
     cfg = GOOD_CONFIG.replace(
         "[[playlist.section]]",

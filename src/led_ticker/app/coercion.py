@@ -455,6 +455,7 @@ def _coerce_border(value: Any) -> BorderEffect | None:
                     "speed_frames",
                     "chase_density",
                     "direction",
+                    "hue_wraps",
                 }
                 unknown = set(kwargs.keys()) - allowed
                 if unknown:
@@ -464,7 +465,9 @@ def _coerce_border(value: Any) -> BorderEffect | None:
                     )
                 # Coerce RGB-list color fields to tuples; _validate_rgb
                 # rejects out-of-range / wrong-shape values.
-                if "lit_color" in kwargs:
+                # "rainbow" sentinel passes through untouched — handled by
+                # LightbulbBorder.__init__. Any other string is invalid.
+                if "lit_color" in kwargs and kwargs["lit_color"] != "rainbow":
                     kwargs["lit_color"] = tuple(
                         _validate_rgb(
                             kwargs["lit_color"], "border lightbulbs lit_color"

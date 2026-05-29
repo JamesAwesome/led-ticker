@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -1318,7 +1319,7 @@ def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
 
 
 def _check_lightbulb_border(config: AppConfig) -> list[ValidationIssue]:
-    """Rules 42-49: value-range checks for the 'lightbulbs' border style.
+    """Rules 42-49, 51-52: value-range checks for the 'lightbulbs' border style.
 
     These run BEFORE _coerce_border so users get clear, ruled errors
     instead of ValueError stack traces. Coercion still rejects malformed
@@ -1496,6 +1497,45 @@ def _check_lightbulb_border(config: AppConfig) -> list[ValidationIssue]:
                     )
                 )
 
+            # Rule 51: hue_wraps (when set) must be a positive, finite number.
+            # The isfinite guard rejects nan/inf — both are valid TOML floats
+            # that would otherwise slip past (`nan <= 0` is False) and crash
+            # at render time in hue_color's int() conversion.
+            hue_wraps = border_raw.get("hue_wraps")
+            if hue_wraps is not None and (
+                isinstance(hue_wraps, bool)
+                or not isinstance(hue_wraps, int | float)
+                or not math.isfinite(hue_wraps)
+                or hue_wraps <= 0
+            ):
+                issues.append(
+                    ValidationIssue(
+                        rule=51,
+                        location=loc,
+                        severity="error",
+                        message=(
+                            f"hue_wraps must be a positive, finite number; "
+                            f"got {hue_wraps!r}"
+                        ),
+                        fix="Set hue_wraps to a positive number (e.g. 1.0 or 2).",
+                    )
+                )
+
+            # Rule 52: hue_wraps set without lit_color="rainbow" is ignored — warn.
+            if hue_wraps is not None and border_raw.get("lit_color") != "rainbow":
+                issues.append(
+                    ValidationIssue(
+                        rule=52,
+                        location=loc,
+                        severity="warning",
+                        message=(
+                            'hue_wraps only applies when lit_color = "rainbow"; '
+                            "ignored otherwise"
+                        ),
+                        fix='Set lit_color = "rainbow", or remove hue_wraps.',
+                    )
+                )
+
     return issues
 
 
@@ -1610,7 +1650,7 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
     # fails at startup and has no deploy-target excuse.
     errors.extend(_check_transition_names(config))
 
-    # Phase 1b (cont.): Rules 42-49 — lightbulbs border value-range checks.
+    # Phase 1b (cont.): Rules 42-49, 51-52 — lightbulbs border value-range checks.
     # Run before build checks so users see ruled errors rather than
     # ValueError stack traces from _coerce_border.
     for issue in _check_lightbulb_border(config):

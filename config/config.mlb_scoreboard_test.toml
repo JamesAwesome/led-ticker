@@ -102,3 +102,48 @@ type = "mlb_standings"
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
+
+# --- MLB Scores (two_row layout) ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "baseball_alternating"
+transition_duration = 3.2
+transition_fps = 40
+hold_time = 8
+loop_count = 0
+
+[playlist.section.title]
+type = "message"
+text = ":baseball: MLB Two-Row :baseball:"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "PHI"
+layout = "two_row"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "NYM"
+layout = "two_row"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "LAD"
+layout = "two_row"
+timezone = "America/Los_Angeles"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80

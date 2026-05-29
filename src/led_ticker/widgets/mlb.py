@@ -697,7 +697,8 @@ def _compute_preview_two_row(
         (game.home_abbr, home_c),
     ]
     if series_wins + series_losses > 0:
-        top.append((f" ({series_wins}-{series_losses})", make_color(150, 150, 150)))  # grey — series record
+        grey_record = make_color(150, 150, 150)  # grey — series record
+        top.append((f" ({series_wins}-{series_losses})", grey_record))
     time_str = _format_game_time(game.start_time, tz) if game.start_time else "TBD"
     bot: list[tuple[str, Color]] = [(time_str, RGB_WHITE)]
     return top, bot
@@ -858,7 +859,7 @@ def _build_two_row_message(
     series_wins: int = 0,
     series_losses: int = 0,
     series_total_games: int = 1,
-) -> "MLBTwoRowMessage":
+) -> MLBTwoRowMessage:
     """Build a two-row layout message for a single game."""
     if game.state == "preview":
         top_segs, bot_segs = _compute_preview_two_row(
@@ -926,8 +927,12 @@ class MLBTwoRowMessage(_FrameAware):
         top_font = self.top_font if self.top_font is not None else self.font
         bot_font = self.font
 
-        top_baseline = compute_baseline_for_band(top_font, top_h, scale, valign="center")
-        bot_baseline = top_h + compute_baseline_for_band(bot_font, bot_h, scale, valign="center")
+        top_baseline = compute_baseline_for_band(
+            top_font, top_h, scale, valign="center"
+        )
+        bot_baseline = top_h + compute_baseline_for_band(
+            bot_font, bot_h, scale, valign="center"
+        )
 
         def _render_segments(
             segments: list[tuple[str, Color]],
@@ -945,6 +950,9 @@ class MLBTwoRowMessage(_FrameAware):
         _render_segments(self.bottom_segments, bot_baseline, bot_font)
 
         return canvas, canvas.width
+
+
+_MLBStoryT = TickerMessage | SegmentMessage | MLBScoreboardMessage | MLBTwoRowMessage
 
 
 @register("mlb")
@@ -968,12 +976,8 @@ class MLBScoreMonitor:
     _team_id: int = attrs.field(init=False, default=0)
     _tz: ZoneInfo | None = attrs.field(init=False, default=None)
     _has_live_game: bool = attrs.field(init=False, default=False)
-    feed_title: TickerMessage | SegmentMessage | MLBScoreboardMessage | MLBTwoRowMessage | None = (
-        attrs.field(init=False, default=None)
-    )
-    feed_stories: list[TickerMessage | SegmentMessage | MLBScoreboardMessage | MLBTwoRowMessage] = (
-        attrs.field(init=False, factory=list)
-    )
+    feed_title: _MLBStoryT | None = attrs.field(init=False, default=None)
+    feed_stories: list[_MLBStoryT] = attrs.field(init=False, factory=list)
 
     @classmethod
     async def start(
@@ -1185,9 +1189,7 @@ class MLBScoreMonitor:
             font_color=self.font_color,
         )
         self.feed_title = series_title
-        stories: list[TickerMessage | SegmentMessage | MLBScoreboardMessage | MLBTwoRowMessage] = [
-            series_title
-        ]
+        stories: list[_MLBStoryT] = [series_title]
         if self.layout == "scoreboard":
             stories.extend(
                 _build_scoreboard_message(

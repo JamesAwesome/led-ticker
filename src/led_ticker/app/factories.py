@@ -641,9 +641,10 @@ async def validate_widget_cfg(
                 mlb_layout, _MLB_VALID_LAYOUTS, n=1, cutoff=0.5
             )
             suggestion = f" Did you mean {close[0]!r}?" if close else ""
+            valid = ", ".join(repr(v) for v in _MLB_VALID_LAYOUTS)
             raise ValueError(
                 f"mlb layout={mlb_layout!r} is not valid. "
-                f"Choose one of: {', '.join(repr(v) for v in _MLB_VALID_LAYOUTS)}.{suggestion}"
+                f"Choose one of: {valid}.{suggestion}"
             )
         # Dead-knob check: per-row knobs only valid under two_row.
         # This runs before _resolve_fonts pops top_font_size / top_font_threshold,

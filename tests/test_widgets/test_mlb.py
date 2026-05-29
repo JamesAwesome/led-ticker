@@ -706,6 +706,7 @@ class TestMLBTwoRowLayout:
     def test_build_two_row_message_factory_returns_mlb_two_row_message(self):
         """Factory smoke test: _build_two_row_message returns MLBTwoRowMessage."""
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import MLBTwoRowMessage, _build_two_row_message
 
         game = GameInfo(
@@ -718,6 +719,7 @@ class TestMLBTwoRowLayout:
     def test_preview_top_has_away_at_home(self):
         """Top segments contain AWAY, '@', HOME with team colors."""
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message, _team_color
 
         game = GameInfo(
@@ -739,12 +741,17 @@ class TestMLBTwoRowLayout:
         """Bottom segments contain a formatted start time."""
         import datetime
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
         tz = ZoneInfo("America/New_York")
         # today at 7:10 PM ET
-        now = datetime.datetime.now(tz).replace(hour=19, minute=10, second=0, microsecond=0)
-        game = GameInfo(away_abbr="NYM", home_abbr="PHI", state="preview", start_time=now)
+        now = datetime.datetime.now(tz).replace(
+            hour=19, minute=10, second=0, microsecond=0
+        )
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI", state="preview", start_time=now
+        )
         msg = _build_two_row_message(game, "PHI", tz)
         bottom_text = "".join(t for t, _ in msg.bottom_segments)
         assert "7:10" in bottom_text or "PM" in bottom_text
@@ -752,9 +759,12 @@ class TestMLBTwoRowLayout:
     def test_preview_top_includes_series_record_when_decided(self):
         """Series record appears in top segments when total_decided > 0."""
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
-        game = GameInfo(away_abbr="NYM", home_abbr="PHI", state="preview", start_time=None)
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI", state="preview", start_time=None
+        )
         msg = _build_two_row_message(
             game, "PHI", ZoneInfo("America/New_York"),
             series_wins=2, series_losses=1,
@@ -765,19 +775,24 @@ class TestMLBTwoRowLayout:
     def test_preview_top_omits_record_when_no_games_decided(self):
         """No record segment when series_wins + series_losses == 0."""
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
-        game = GameInfo(away_abbr="NYM", home_abbr="PHI", state="preview", start_time=None)
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI", state="preview", start_time=None
+        )
         msg = _build_two_row_message(
             game, "PHI", ZoneInfo("America/New_York"),
             series_wins=0, series_losses=0,
         )
-        assert len(msg.top_segments) == 3  # exactly: away_abbr, " @ ", home_abbr — no record segment
+        # exactly: away_abbr, " @ ", home_abbr — no record segment
+        assert len(msg.top_segments) == 3
 
     def test_final_top_away_wins_scores_use_win_loss_colors(self):
         """Away win: away score = WIN_COLOR, home score = LOSS_COLOR."""
         from zoneinfo import ZoneInfo
-        from led_ticker.widgets.mlb import WIN_COLOR, LOSS_COLOR, _build_two_row_message
+
+        from led_ticker.widgets.mlb import LOSS_COLOR, WIN_COLOR, _build_two_row_message
 
         game = GameInfo(
             away_abbr="NYM", home_abbr="PHI",
@@ -794,7 +809,8 @@ class TestMLBTwoRowLayout:
 
     def test_final_top_home_wins_colors_flipped(self):
         from zoneinfo import ZoneInfo
-        from led_ticker.widgets.mlb import WIN_COLOR, LOSS_COLOR, _build_two_row_message
+
+        from led_ticker.widgets.mlb import LOSS_COLOR, WIN_COLOR, _build_two_row_message
 
         game = GameInfo(
             away_abbr="NYM", home_abbr="PHI",
@@ -810,6 +826,7 @@ class TestMLBTwoRowLayout:
 
     def test_final_bottom_has_final_text(self):
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
         game = GameInfo(
@@ -822,6 +839,7 @@ class TestMLBTwoRowLayout:
 
     def test_final_bottom_has_series_record_when_multi_game(self):
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
         game = GameInfo(
@@ -838,6 +856,7 @@ class TestMLBTwoRowLayout:
 
     def test_final_bottom_omits_record_on_single_game(self):
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
         game = GameInfo(
@@ -855,6 +874,7 @@ class TestMLBTwoRowLayout:
 
     def test_live_top_has_team_abbrs_and_scores(self):
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
         game = GameInfo(
@@ -871,6 +891,7 @@ class TestMLBTwoRowLayout:
 
     def test_live_bottom_has_inning(self):
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
         game = GameInfo(
@@ -884,6 +905,7 @@ class TestMLBTwoRowLayout:
 
     def test_live_bottom_has_base_diamonds(self):
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
         game = GameInfo(
@@ -903,8 +925,9 @@ class TestMLBTwoRowLayout:
         when strikes and outs share a value like '1'.
         """
         from zoneinfo import ZoneInfo
-        from led_ticker.widgets.mlb import _build_two_row_message
+
         from led_ticker.colors import make_color
+        from led_ticker.widgets.mlb import _build_two_row_message
 
         game = GameInfo(
             away_abbr="NYM", home_abbr="PHI",
@@ -922,6 +945,7 @@ class TestMLBTwoRowLayout:
 
     def test_postponed_top_has_matchup(self):
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message, _team_color
 
         game = GameInfo(
@@ -938,6 +962,7 @@ class TestMLBTwoRowLayout:
 
     def test_postponed_bottom_has_tag_and_reason(self):
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
         game = GameInfo(
@@ -951,6 +976,7 @@ class TestMLBTwoRowLayout:
 
     def test_postponed_bottom_tag_only_when_no_reason(self):
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
         game = GameInfo(
@@ -964,6 +990,7 @@ class TestMLBTwoRowLayout:
     def test_pips_hidden_when_challenges_none(self):
         """No pip segments when away/home challenges are None."""
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
         game = GameInfo(
@@ -978,7 +1005,12 @@ class TestMLBTwoRowLayout:
     def test_pips_trailing_away_score_one_remaining(self):
         """Away has 1 challenge remaining: 1 orange + 1 grey. Home has 2: 2 orange."""
         from zoneinfo import ZoneInfo
-        from led_ticker.widgets.mlb import _build_two_row_message, CHALLENGE_COLOR, CHALLENGE_USED
+
+        from led_ticker.widgets.mlb import (
+            CHALLENGE_COLOR,
+            CHALLENGE_USED,
+            _build_two_row_message,
+        )
 
         game = GameInfo(
             away_abbr="NYM", home_abbr="PHI",
@@ -998,7 +1030,8 @@ class TestMLBTwoRowLayout:
     def test_pips_all_grey_when_zero_remaining(self):
         """Both teams used all challenges: 4 grey dashes."""
         from zoneinfo import ZoneInfo
-        from led_ticker.widgets.mlb import _build_two_row_message, CHALLENGE_USED
+
+        from led_ticker.widgets.mlb import CHALLENGE_USED, _build_two_row_message
 
         game = GameInfo(
             away_abbr="NYM", home_abbr="PHI",
@@ -1013,6 +1046,7 @@ class TestMLBTwoRowLayout:
     def test_draw_returns_canvas_and_does_not_crash(self, canvas):
         """draw() completes without error and returns (canvas, cursor_pos)."""
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
         game = GameInfo(
@@ -1026,6 +1060,7 @@ class TestMLBTwoRowLayout:
 
     def test_draw_live_does_not_crash(self, canvas):
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
         game = GameInfo(
@@ -1040,6 +1075,7 @@ class TestMLBTwoRowLayout:
     def test_top_font_threads_through_from_monitor(self):
         """top_font set on MLBScoreMonitor reaches MLBTwoRowMessage instances."""
         from unittest import mock
+
         from led_ticker.fonts import FONT_DEFAULT
         m = MLBScoreMonitor(
             session=mock.Mock(), team="PHI",
@@ -1050,6 +1086,7 @@ class TestMLBTwoRowLayout:
     def test_top_row_height_threads_through_to_message(self):
         """top_row_height on MLBScoreMonitor threads to MLBTwoRowMessage."""
         from zoneinfo import ZoneInfo
+
         from led_ticker.widgets.mlb import _build_two_row_message
 
         game = GameInfo(

@@ -1,4 +1,7 @@
-# MLB two-row layout test config — longboi (512×64 canvas, logical 128×16)
+# MLB two-row layout test config — bigsign (256×64 canvas, logical 64×16)
+#
+# 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64 logical.
+# Driven by a Raspberry Pi 5 through an Adafruit RGB Matrix HAT.
 #
 # Tests layout = "two_row" mode at hires scale=4. The widget splits the
 # panel into a top band (matchup / score + team colors + ABS pips) and a
@@ -13,18 +16,20 @@
 # Usage: cp config/config.mlb_two_row_test.toml config/config.toml
 
 [display]
-rows = 64
-cols = 128
-chain_length = 4
+rows = 32
+cols = 64
+chain_length = 8
+parallel = 1
+# Vertical-serpentine 2×4 panel map. See https://docs.ledticker.dev/hardware/bigsign/
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
 brightness = 60
 default_scale = 4
 hardware_mapping = "adafruit-hat"
-panel_type = "FM6126A"
-led_rgb_sequence = "BRG"
-gpio_slowdown = 5
+# Pi 5 RP1 GPIO tuning: RIO mode + gpio_slowdown=3 + 8-bit PWM.
+gpio_slowdown = 3
 rp1_rio = 1
-pwm_bits = 7
-limit_refresh_rate_hz = 100
+pwm_bits = 8
+show_refresh_rate = true
 
 [title]
 delay = 5

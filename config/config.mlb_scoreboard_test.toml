@@ -34,7 +34,7 @@ transition = "baseball_alternating"
 transition_duration = 3.2
 transition_fps = 40
 hold_time = 8
-loop_count = 0
+loop_count = 1
 
 [playlist.section.title]
 type = "message"
@@ -87,7 +87,7 @@ mode = "swap"
 transition = "push_left"
 transition_duration = 0.5
 hold_time = 30
-loop_count = 0
+loop_count = 1
 
 [playlist.section.title]
 type = "message"

@@ -17,6 +17,13 @@
 #
 # Usage: cp config/config.scale_smoketest.toml config/config.toml
 #   The weather section needs WEATHERAPI_KEY in .env (https://www.weatherapi.com/).
+#
+# loop_count GOTCHA: each section uses loop_count = 1 so it makes ONE pass
+# (shows its widget for hold_time) and then the playlist advances to the next
+# section; the top-level playlist loops forever, so all sections cycle.
+# Do NOT use loop_count = 0 here — that cycles a SINGLE section's widgets
+# forever and the playlist never advances (you'd be stuck on scale 4). 0 is
+# only for soak-testing one section in isolation (see config.pool_longboi.toml).
 
 [display]
 rows = 32
@@ -49,7 +56,7 @@ mode = "swap"
 scale = 4
 content_height = 16
 hold_time = 8
-loop_count = 0
+loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
@@ -65,7 +72,7 @@ mode = "swap"
 scale = 3
 content_height = 21
 hold_time = 8
-loop_count = 0
+loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
@@ -81,7 +88,7 @@ mode = "swap"
 scale = 2
 content_height = 32
 hold_time = 8
-loop_count = 0
+loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
@@ -97,7 +104,7 @@ mode = "swap"
 scale = 1
 content_height = 64
 hold_time = 8
-loop_count = 0
+loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
@@ -113,7 +120,7 @@ mode = "swap"
 scale = 2
 content_height = 32
 hold_time = 8
-loop_count = 0
+loop_count = 1
 
 [[playlist.section.widget]]
 type = "two_row"
@@ -132,7 +139,7 @@ mode = "swap"
 scale = 2
 content_height = 32
 hold_time = 8
-loop_count = 0
+loop_count = 1
 
 [[playlist.section.widget]]
 type = "weather"

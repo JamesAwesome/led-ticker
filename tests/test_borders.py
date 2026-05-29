@@ -986,8 +986,9 @@ class TestLightbulbBorderRainbow:
         positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
         n = len(positions)
         quarter = n // 4
+        x0, y0 = positions[0]
         c0 = hue_color((0 / n) * 360 * 1.0)
-        assert canvas.pixels[(0, 0)] == (c0.red, c0.green, c0.blue)
+        assert canvas.pixels[(x0, y0)] == (c0.red, c0.green, c0.blue)
         qx, qy = positions[quarter]
         cq = hue_color((quarter / n) * 360 * 1.0)
         assert canvas.pixels[(qx, qy)] == (cq.red, cq.green, cq.blue)
@@ -1030,6 +1031,29 @@ class TestLightbulbBorderRainbow:
         )
         b.paint(canvas, frame_count=0)
         assert canvas.pixels[(6, 0)] == (7, 8, 9)
+
+    def test_rainbow_composes_with_alternate(self):
+        """Alternate mode + rainbow: lit bulbs (even idx at flip=0) get
+        per-index hues; unlit bulbs (odd idx) keep unlit_color."""
+        canvas = _FakeRealCanvas(256, 64)
+        b = LightbulbBorder(
+            mode="alternate",
+            lit_color="rainbow",
+            unlit_color=(3, 3, 3),
+            bulb_size=3,
+            gap=3,
+            speed_frames=5,
+        )
+        b.paint(canvas, frame_count=0)  # phase 0, flip 0 → even idx lit
+        positions = _lightbulb_positions(256, 64, bulb_size=3, gap=3)
+        n = len(positions)
+        # idx 0 is lit (even): rainbow hue.
+        x0, y0 = positions[0]
+        c0 = hue_color((0 / n) * 360 * 1.0)
+        assert canvas.pixels[(x0, y0)] == (c0.red, c0.green, c0.blue)
+        # idx 1 is unlit (odd): unlit_color.
+        x1, y1 = positions[1]
+        assert canvas.pixels[(x1, y1)] == (3, 3, 3)
 
     def test_rainbow_composes_with_unison(self):
         lit_canvas = _FakeRealCanvas(256, 64)

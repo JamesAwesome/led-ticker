@@ -63,7 +63,7 @@ out (continuous chase); `ConstantBorder` keeps the default
 from __future__ import annotations
 
 import functools
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from led_ticker._types import Canvas
 from led_ticker.color_lut import hue_color
@@ -450,7 +450,7 @@ class LightbulbBorder(BorderEffectBase):
         """Color for a lit bulb. Rainbow: hue from perimeter index;
         otherwise the fixed lit_color tuple."""
         if not self._rainbow_lit:
-            return self.lit_color  # type: ignore[return-value]
+            return cast(tuple[int, int, int], self.lit_color)
         hue = (idx / count) * 360.0 * self.hue_wraps
         c = hue_color(hue)
         return (c.red, c.green, c.blue)

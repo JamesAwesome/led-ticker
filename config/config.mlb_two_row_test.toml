@@ -1,0 +1,128 @@
+# MLB two-row layout test config — longboi (512×64 canvas, logical 128×16)
+#
+# Tests layout = "two_row" mode at hires scale=4. The widget splits the
+# panel into a top band (matchup / score + team colors + ABS pips) and a
+# bottom band (game time, inning/bases/BSO, FINAL + series record, or the
+# postponement tag).
+#
+# The first section uses the symmetric 8/8 split (top_font defaults to the
+# main font). The second section demonstrates the per-row knobs: a smaller
+# top_font for the matchup label paired with a shorter top_row_height so the
+# bottom band gets more vertical room.
+#
+# Usage: cp config/config.mlb_two_row_test.toml config/config.toml
+
+[display]
+rows = 64
+cols = 128
+chain_length = 4
+brightness = 60
+default_scale = 4
+hardware_mapping = "adafruit-hat"
+panel_type = "FM6126A"
+led_rgb_sequence = "BRG"
+gpio_slowdown = 5
+rp1_rio = 1
+pwm_bits = 7
+limit_refresh_rate_hz = 100
+
+[title]
+delay = 5
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = {type = "baseball_alternating", duration = 3.2, transition_fps = 40}
+
+# --- MLB Two-Row (symmetric 8/8 split, single font) ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "baseball_alternating"
+transition_duration = 3.2
+transition_fps = 40
+hold_time = 8
+loop_count = 0
+
+[playlist.section.title]
+type = "message"
+text = ":baseball: MLB Two-Row :baseball:"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "PHI"
+layout = "two_row"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "NYM"
+layout = "two_row"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "LAD"
+layout = "two_row"
+timezone = "America/Los_Angeles"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+# --- MLB Two-Row (asymmetric split: small label on top, bigger bottom) ---
+# top_row_height = 6 gives the bottom band 10 logical rows; the top band
+# uses a smaller top_font so the matchup label reads as a header above the
+# score/status line.
+
+[[playlist.section]]
+mode = "swap"
+transition = "baseball_alternating"
+transition_duration = 3.2
+transition_fps = 40
+hold_time = 8
+loop_count = 0
+
+[playlist.section.title]
+type = "message"
+text = ":baseball: Two-Row (split) :baseball:"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "NYY"
+layout = "two_row"
+timezone = "America/New_York"
+top_row_height = 6
+top_font = "Inter-Regular"
+top_font_size = 20
+top_font_threshold = 80
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+[[playlist.section.widget]]
+type = "mlb"
+team = "BOS"
+layout = "two_row"
+timezone = "America/New_York"
+top_row_height = 6
+top_font = "Inter-Regular"
+top_font_size = 20
+top_font_threshold = 80
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80

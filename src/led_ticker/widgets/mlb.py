@@ -917,7 +917,34 @@ class MLBTwoRowMessage(_FrameAware):
         y_offset: int = 0,
         font_color: Any = None,
     ) -> DrawResult:
-        return canvas, canvas.width  # stub — implemented in later tasks
+        from led_ticker.drawing import compute_baseline_for_band, safe_scale
+        from led_ticker.pixel_emoji import draw_with_emoji, measure_width
+        from led_ticker.widgets._row_layout import resolve_band_heights
+
+        scale = safe_scale(canvas)
+        top_h, bot_h = resolve_band_heights(canvas.height, self.top_row_height)
+        top_font = self.top_font if self.top_font is not None else self.font
+        bot_font = self.font
+
+        top_baseline = compute_baseline_for_band(top_font, top_h, scale, valign="center")
+        bot_baseline = top_h + compute_baseline_for_band(bot_font, bot_h, scale, valign="center")
+
+        def _render_segments(
+            segments: list[tuple[str, Color]],
+            baseline: int,
+            font: Font,
+        ) -> None:
+            if not segments:
+                return
+            total_w = sum(measure_width(font, t, canvas) for t, _ in segments)
+            x = max(0, (canvas.width - total_w) // 2)
+            for text, color in segments:
+                x += draw_with_emoji(canvas, font, x, baseline + y_offset, color, text)
+
+        _render_segments(self.top_segments, top_baseline, top_font)
+        _render_segments(self.bottom_segments, bot_baseline, bot_font)
+
+        return canvas, canvas.width
 
 
 @register("mlb")

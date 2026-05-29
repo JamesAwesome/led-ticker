@@ -1009,3 +1009,30 @@ class TestMLBTwoRowLayout:
         pip_segs = [(t, c) for t, c in msg.top_segments if t == "-"]
         assert len(pip_segs) == 4
         assert all(c is CHALLENGE_USED for _, c in pip_segs)
+
+    def test_draw_returns_canvas_and_does_not_crash(self, canvas):
+        """draw() completes without error and returns (canvas, cursor_pos)."""
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=5, home_score=3, state="final",
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        result_canvas, cursor = msg.draw(canvas)
+        assert result_canvas is canvas
+        assert cursor <= canvas.width
+
+    def test_draw_live_does_not_crash(self, canvas):
+        from zoneinfo import ZoneInfo
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="NYM", home_abbr="PHI",
+            away_score=3, home_score=5, state="live",
+            inning="▼7", balls=2, strikes=1, outs=1,
+        )
+        msg = _build_two_row_message(game, "PHI", ZoneInfo("America/New_York"))
+        result_canvas, cursor = msg.draw(canvas)
+        assert result_canvas is canvas

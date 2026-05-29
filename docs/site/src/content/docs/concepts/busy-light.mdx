@@ -1,0 +1,84 @@
+---
+title: Busy light
+description: A persistent corner dot that lights up while you're busy, painted as an overlay over every section and transition.
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+The busy light is a persistent indicator — a small solid dot in a corner of the panel — that turns on while you're "busy" and off when you're not. It is **not** a playlist widget: it does not occupy a section or take a turn in the rotation. It paints as an **overlay** on top of whatever is currently on screen, so it stays lit continuously across every section and every transition.
+
+The MVP source is the simplest one that needs no accounts or API keys: a local **file**. While the file exists, the light is on; remove it and the light goes off. A background task re-checks the file every few seconds. (Real calendar / Slack / Teams sources are a planned addition behind the same overlay — see [Extending it](#extending-it-real-busy-sources).)
+
+## How it works
+
+The light is a paint callback registered on the frame's overlay hooks. Every time the engine pushes a frame to the panel — in the main scroll/hold loop, mid-transition, or inside an image/gif `play()` loop — that single swap point runs the overlay hooks on the **real** physical canvas just before the hardware swap. Because all three render paths route through that one swap, the dot composites over everything with no special per-path handling. Painting is a handful of `SetPixel` calls in physical pixels, so the per-frame cost is negligible.
+
+The state is read on the render side and written by the background poll task; both run in the same event loop, so the on/off flag needs no locking.
+
+## Configuration
+
+Add a top-level `[busy_light]` block (disabled by default):
+
+<TomlExample
+  title="Minimal"
+  code={`[busy_light]
+enabled = true
+file_path = "~/.busy"
+corner = "top_right"
+color = [255, 0, 0]
+size = 4`}
+/>
+
+| Field           | Type        | Default       | Notes                                                                                                            |
+| --------------- | ----------- | ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `enabled`       | bool        | `false`       | Master switch. When `false`, nothing is built and there is zero per-frame cost.                                  |
+| `file_path`     | string      | `"~/.busy"`   | The light is on while this file exists. `~` expands to the home directory. See [Docker](#docker) for the gotcha. |
+| `poll_interval` | float       | `5.0`         | Seconds between file checks. Lower = snappier reaction; the file stat is cheap.                                  |
+| `corner`        | string      | `"top_right"` | One of `top_left`, `top_right`, `bottom_left`, `bottom_right`.                                                   |
+| `color`         | `[r, g, b]` | `[255,0,0]`   | Three ints, each `0`–`255`. Validated at config load.                                                            |
+| `size`          | int         | `4`           | Dot side length in **physical** pixels. See [Sizing](#sizing-per-panel).                                         |
+
+## Toggling it
+
+On bare metal, the file path is literal:
+
+```bash
+touch ~/.busy     # light ON  (within poll_interval)
+rm ~/.busy        # light OFF
+```
+
+### Docker
+
+This is the one sharp edge. Under Docker — the usual deploy — `~/.busy` resolves to the **container's** home directory, which your host shell can't reach, so toggling `~/.busy` on the host does nothing. Point `file_path` at the **bind-mounted config dir** instead. The compose file mounts `./config:/code/config:ro`, so:
+
+<TomlExample
+  title="Docker"
+  code={`[busy_light]
+enabled = true
+file_path = "/code/config/.busy"   # in-container path`}
+/>
+
+```bash
+touch config/.busy    # on the host, from the repo dir → light ON
+rm config/.busy       # → light OFF
+```
+
+The `:ro` mount only stops the **container** from writing; the host can freely create and delete `config/.busy`, and the container sees the change. The poller only reads the file (`exists()`), so read-only is fine.
+
+## Sizing per panel
+
+`size` is in physical pixels, so the right value depends on panel height:
+
+| Panel             | Height | Suggested `size` |
+| ----------------- | ------ | ---------------- |
+| Smallsign         | 16 px  | `3`–`4`          |
+| Bigsign / longboi | 64 px  | `8`–`10`         |
+
+A `size = 4` dot is a quarter of the smallsign's height — clearly visible. The same `4` on a 64-tall panel is a barely-visible speck, so bump it to `8`–`10` there. The dot paints **last** each frame (over the content), so it's never hidden by what's underneath.
+
+## Extending it (real busy sources)
+
+The overlay mechanism is generic and the busy state is a plain flag, so a real source is a drop-in: a new poller whose `update()` sets the busy flag from an API (Google Calendar free/busy, a Slack/Teams presence endpoint) using the shared HTTP session and the standard background-poll loop, registering the same kind of corner-dot paint hook. Nothing in the frame or the overlay mechanism changes — only where the on/off signal comes from. This is planned, not yet shipped.
+
+<RelatedPages slugs={["concepts/display", "reference/config-options"]} />

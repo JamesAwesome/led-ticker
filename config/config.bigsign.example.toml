@@ -194,3 +194,16 @@ final_hold_hours = 6
 # text = "NYC"
 # location = "New York"
 # units = "imperial"
+
+# Busy light — a corner dot that lights up while a local file exists. The
+# dot composites over every section and transition. On the 64-tall bigsign,
+# size = 4 is nearly invisible — use ~8-10 physical px. Under Docker, point
+# file_path at the bind-mounted config dir (the container's ~ is unreachable
+# from the host) and toggle config/.busy on the host:
+# [busy_light]
+# enabled = true
+# file_path = "/code/config/.busy"   # in-container; toggle host config/.busy
+# poll_interval = 5.0
+# corner = "top_right"       # top_left | top_right | bottom_left | bottom_right
+# color = [255, 0, 0]        # 3 ints, each 0-255
+# size = 8                    # dot side in physical px (bigsign is 64 tall)

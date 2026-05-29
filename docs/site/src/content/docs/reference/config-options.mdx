@@ -8,7 +8,8 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 This page is the cross-cutting reference for every TOML knob in
 led-ticker, grouped by config section. Per-widget options live on each
 widget's page — this page covers the top-level blocks that wrap them:
-`[display]`, `[title]`, `[transitions]`, and `[[playlist.section]]`.
+`[display]`, `[title]`, `[transitions]`, `[[playlist.section]]`, and
+`[busy_light]`.
 Field names and defaults match the dataclasses in
 `src/led_ticker/config.py`. For per-widget knobs see [Widgets](/widgets/).
 
@@ -140,6 +141,19 @@ list.
 ## `[[playlist.section.widget]]`
 
 Per-widget options live on each widget's page. See [Widgets](/widgets/).
+
+## `[busy_light]`
+
+A persistent corner dot painted as an overlay over every section and transition while a local file exists. Disabled by default. See [Busy light](/concepts/busy-light/) for the full guide, including the Docker `file_path` gotcha.
+
+| Field           | Type        | Default       | Notes                                                                                                                                                |
+| --------------- | ----------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`       | bool        | `false`       | Master switch. When `false`, nothing is built and there is zero per-frame cost.                                                                      |
+| `file_path`     | string      | `"~/.busy"`   | Light is on while this file exists; `~` expands. Under Docker, use the bind-mounted path `/code/config/.busy` and toggle `config/.busy` on the host. |
+| `poll_interval` | float       | `5.0`         | Seconds between file checks.                                                                                                                         |
+| `corner`        | string      | `"top_right"` | One of `top_left`, `top_right`, `bottom_left`, `bottom_right`. Other values rejected at config load.                                                 |
+| `color`         | `[r, g, b]` | `[255, 0, 0]` | Three ints, each `0`–`255`. Length/range rejected at config load.                                                                                    |
+| `size`          | int         | `4`           | Dot side in physical pixels (`>= 1`). ~4 on the 16-tall smallsign, ~8–10 on the 64-tall bigsign/longboi.                                             |
 
 ## Tips
 

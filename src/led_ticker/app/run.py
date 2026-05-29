@@ -29,6 +29,7 @@ from led_ticker.app.factories import (
 from led_ticker.config import load_config
 from led_ticker.ticker import Ticker, _expand_sources, _maybe_wrap
 from led_ticker.transitions import Transition, run_transition
+from led_ticker.widget import run_monitor_loop
 
 
 async def run(config_path: Path) -> None:
@@ -43,6 +44,21 @@ async def run(config_path: Path) -> None:
     _configure_user_font_dir(config_path)
 
     led_frame = build_frame_from_config(config.display)
+
+    if config.busy_light.enabled:
+        from led_ticker.busy_light import BusyLight
+
+        busy = BusyLight(
+            file_path=config.busy_light.file_path,
+            corner=config.busy_light.corner,
+            color=config.busy_light.color,
+            size=config.busy_light.size,
+        )
+        await busy.update()  # fast initial read so the dot is correct on frame 1
+        led_frame.overlay_hooks.append(busy.paint)
+        asyncio.create_task(
+            run_monitor_loop(busy, config.busy_light.poll_interval, splay=False)
+        )
 
     # Default inter-section transition built once at startup. Used for
     # sections that don't specify their own `transition` field — see

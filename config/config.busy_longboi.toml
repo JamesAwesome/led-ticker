@@ -1,0 +1,80 @@
+# Busy-light smoke test — longboi (512×64 canvas), Docker
+#
+# 4× Muen P2 128×64 panels chained horizontally = 512×64 physical.
+# Validates the busy-light overlay: a corner dot composites over the
+# scrolling messages and stays visible THROUGH the section transition
+# (proving the overlay paints on every render path, not just held frames).
+#
+# DOCKER busy file (important): inside the container, `~/.busy` is the
+# container's home, which the host can't reach. Point file_path at the
+# config dir instead — it's bind-mounted `./config:/code/config:ro`, so the
+# container reads `/code/config/.busy` while you create/remove `config/.busy`
+# on the host. `:ro` only blocks the CONTAINER from writing; the host's
+# create/delete still shows through, and the poller only reads (exists()).
+#
+# Usage:
+#   cp config/config.busy_longboi.toml config/config.toml
+#   docker compose up
+#   touch config/.busy      # dot turns ON within poll_interval (2s)
+#   rm config/.busy         # dot turns OFF
+
+[display]
+rows = 64
+cols = 128
+chain_length = 4
+brightness = 60
+default_scale = 4
+hardware_mapping = "adafruit-hat"
+panel_type = "FM6126A"
+led_rgb_sequence = "BRG"
+gpio_slowdown = 5
+rp1_rio = 1
+pwm_bits = 7
+limit_refresh_rate_hz = 100
+
+[title]
+delay = 5
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = "push_left"
+
+# Busy light: red dot, top-right, 8 physical px (clearly visible on the
+# 64-tall panel). file_path is the IN-CONTAINER path under the mounted
+# config dir; toggle config/.busy on the host.
+[busy_light]
+enabled = true
+file_path = "/code/config/.busy"
+poll_interval = 2.0
+corner = "top_right"
+color = [255, 0, 0]
+size = 8
+
+# --- Two scrolling sections so the dot composites over moving content and
+#     persists through the push_left transition between them. ---
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Busy light smoke test — toggle config/.busy"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 8
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Dot should stay lit through this transition"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80

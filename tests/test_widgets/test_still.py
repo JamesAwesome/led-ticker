@@ -1047,7 +1047,9 @@ async def test_wrap_around_fires_at_correct_tick(tmp_path, mocker, bigsign_canva
 
 
 @pytest.mark.parametrize("panel_h,scale", [(64, 6), (32, 3), (16, 2)])
-def test_font_too_large_raises_on_various_panels(tmp_path, mocker, panel_h, scale):
+async def test_font_too_large_raises_on_various_panels(
+    tmp_path, mocker, panel_h, scale
+):
     """font_size upper bound: panel_h // wrap_scale must be >= 12 (the
     BDF cell height). Parametrized over panel sizes so a regression
     that hardcodes panel_h would break on small sign / scale=2.
@@ -1071,10 +1073,8 @@ def test_font_too_large_raises_on_various_panels(tmp_path, mocker, panel_h, scal
     frame.swap.side_effect = lambda c: c
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
-    import asyncio as _asyncio
-
     with pytest.raises(ValueError, match="font_size"):
-        _asyncio.get_event_loop().run_until_complete(widget.play(canvas, frame))
+        await widget.play(canvas, frame)
 
 
 def test_real_asset_helper_fails_loudly_on_missing(tmp_path, monkeypatch):

@@ -12,21 +12,17 @@ def test_file_path_expands_user():
     assert busy.file_path == Path.home() / ".busy"
 
 
-def test_update_busy_when_file_exists(tmp_path):
-    import asyncio
-
+async def test_update_busy_when_file_exists(tmp_path):
     f = tmp_path / ".busy"
     f.write_text("")
     busy = BusyLight(file_path=str(f))
-    asyncio.run(busy.update())
+    await busy.update()
     assert busy.is_busy is True
 
 
-def test_update_not_busy_when_file_absent(tmp_path):
-    import asyncio
-
+async def test_update_not_busy_when_file_absent(tmp_path):
     busy = BusyLight(file_path=str(tmp_path / ".busy"))
-    asyncio.run(busy.update())
+    await busy.update()
     assert busy.is_busy is False
 
 
@@ -81,11 +77,9 @@ def test_size_clamps_to_canvas_bounds():
     assert _lit(canvas) == {(x, y) for x in range(8) for y in range(8)}
 
 
-def test_registered_hook_paints_dot_through_frame_swap(tmp_path):
+async def test_registered_hook_paints_dot_through_frame_swap(tmp_path):
     """End-to-end: a BusyLight.paint hook on a real LedFrame lights the
     corner when busy and clears it when not, through frame.swap()."""
-    import asyncio
-
     from led_ticker.frame import LedFrame
 
     f = tmp_path / ".busy"
@@ -95,12 +89,12 @@ def test_registered_hook_paints_dot_through_frame_swap(tmp_path):
 
     canvas = frame.get_clean_canvas()
     f.write_text("")  # go busy
-    asyncio.run(busy.update())
+    await busy.update()
     frame.swap(canvas)  # paint hook runs on `canvas` before SwapOnVSync
     assert canvas.get_pixel(canvas.width - 1, 0) == (255, 0, 0)
 
     f.unlink()  # not busy
-    asyncio.run(busy.update())
+    await busy.update()
     canvas2 = frame.get_clean_canvas()
     frame.swap(canvas2)
     lit = [

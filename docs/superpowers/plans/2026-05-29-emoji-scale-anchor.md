@@ -265,17 +265,17 @@ callers); draw_emoji_at keeps top-anchor. scale=4 and low-res unchanged."
 
 ---
 
-### Task 2: Remove the three redundant `emoji_y=baseline_y - 8` overrides
+### Task 2: Route all call sites through the scale-aware anchor (image/two_row overrides + weather/`draw_emoji_at`)
 
 **Files:**
-- Modify: `src/led_ticker/widgets/_image_base.py` (~809, ~865), `src/led_ticker/widgets/two_row.py` (~399)
-- Test: `tests/test_pixel_emoji.py` (source tripwire)
+- Modify: `src/led_ticker/widgets/_image_base.py` (~809, ~865), `src/led_ticker/widgets/two_row.py` (~399), `src/led_ticker/pixel_emoji.py` (`draw_emoji_at` ~2953), `src/led_ticker/widgets/weather.py` (~185)
+- Test: `tests/test_pixel_emoji.py`, `tests/test_widgets/test_weather.py`
 
-These three sites pass `y=baseline_y` AND `emoji_y=baseline_y - 8` — handing `draw_with_emoji` the exact value its default now computes, while bypassing the scale-aware fix. Removing the override routes them through the corrected default: scale=4 unchanged, scale=2 corrected.
+Five sites hardcode the 8-row `- 8` anchor. Three (`_image_base` ×2, `two_row` ×1) pass `emoji_y=baseline_y - 8` to `draw_with_emoji` redundantly — removing the override routes them through the now-fixed default. The fifth (`weather.py`) uses `draw_emoji_at(canvas, slug, x, baseline_y - 8)`; `draw_emoji_at` is top-anchor only, so it gains a `bottom_baseline` mode (mirroring `_draw_hires_emoji`) and weather passes the baseline.
 
-- [ ] **Step 1: Write the tripwire test**
+- [ ] **Step 1: Write failing tests**
 
-Append to `tests/test_pixel_emoji.py` (mirrors the codebase's source-tripwire pattern, e.g. `test_container_refresh.py`):
+Append to `tests/test_pixel_emoji.py` (reuses the `_fresh_bigsign_real`, `_lit_pixels`, `_lowest_lit_row`, `_expected_bottom`, `_sprite_max_py` helpers added in Task 1):
 
 ```python
 import pathlib
@@ -284,51 +284,145 @@ import pathlib
 def test_no_hardcoded_emoji_y_minus_8_overrides():
     """The redundant `emoji_y=baseline_y - 8` overrides must stay removed —
     they bypass draw_with_emoji's scale-aware anchor and reintroduce the
-    scale=2 misalignment. Band-layout sites use computed emoji_y and are
-    exempt; only the literal `baseline_y - 8` form is banned."""
+    scale=2 misalignment. Band-layout sites use a computed emoji_y and are
+    exempt; only the literal `baseline_y - 8` form is banned. weather.py uses
+    draw_emoji_at(..., bottom_baseline=...) so it carries no `- 8` literal."""
     root = pathlib.Path(__file__).resolve().parents[1] / "src" / "led_ticker"
     offenders = []
-    for rel in ("widgets/_image_base.py", "widgets/two_row.py"):
+    for rel in ("widgets/_image_base.py", "widgets/two_row.py", "widgets/weather.py"):
         text = (root / rel).read_text()
-        if "emoji_y=baseline_y - 8" in text:
+        if "baseline_y - 8" in text:
             offenders.append(rel)
-    assert not offenders, f"redundant emoji_y override returned in: {offenders}"
+    assert not offenders, f"redundant `- 8` anchor returned in: {offenders}"
+
+
+def test_draw_emoji_at_bottom_baseline_anchors_at_scale_2():
+    """draw_emoji_at's new bottom_baseline mode bottom-anchors the icon at
+    the baseline (exact at any scale), like draw_with_emoji's default."""
+    sc = ScaledCanvas(_fresh_bigsign_real(), scale=2)  # y_offset_real = 16
+    baseline = 12
+    draw_emoji_at(sc, "baseball", 0, bottom_baseline=baseline)
+    assert _lowest_lit_row(sc.real) == _expected_bottom(
+        baseline, 2, sc.y_offset_real, "baseball"
+    )
+
+
+def test_draw_emoji_at_requires_exactly_one_anchor():
+    sc = ScaledCanvas(_fresh_bigsign_real(), scale=2)
+    import pytest
+
+    with pytest.raises(ValueError):
+        draw_emoji_at(sc, "baseball", 0)  # neither y nor bottom_baseline
+    with pytest.raises(ValueError):
+        draw_emoji_at(sc, "baseball", 0, 5, bottom_baseline=12)  # both
 ```
 
-- [ ] **Step 2: Run the tripwire — confirm it FAILS**
+- [ ] **Step 2: Run the new tests — confirm they FAIL**
 
-Run: `uv run pytest tests/test_pixel_emoji.py::test_no_hardcoded_emoji_y_minus_8_overrides -v`
-Expected: FAIL — all three offenders still present.
+Run: `uv run pytest tests/test_pixel_emoji.py -v -k "no_hardcoded or bottom_baseline or requires_exactly_one"`
+Expected: `test_no_hardcoded...` FAILS (three offenders present); the two `draw_emoji_at` tests FAIL/ERROR (`bottom_baseline` kwarg doesn't exist yet).
 
-- [ ] **Step 3: Remove the overrides**
+- [ ] **Step 3: Add the `bottom_baseline` mode to `draw_emoji_at`**
 
-In `src/led_ticker/widgets/_image_base.py`, the separator draw (~805-810) and the text draw (~861-866) each pass `emoji_y=baseline_y - 8,` as one argument line inside a `draw_with_emoji(...)` call. Delete that single argument line from both calls (leave every other argument unchanged).
+In `src/led_ticker/pixel_emoji.py`, change `draw_emoji_at`'s signature and dispatch. Make `y` optional and add the keyword; require exactly one anchor:
 
-In `src/led_ticker/widgets/two_row.py`, the separator draw (~392-402) passes `emoji_y=baseline_y - 8,`. Delete that single argument line.
+```python
+def draw_emoji_at(
+    canvas: Canvas,
+    slug: str,
+    x: int,
+    y: int | None = None,
+    *,
+    bottom_baseline: int | None = None,
+    max_emoji_height: int | None = None,
+) -> int:
+```
 
-After each deletion the call relies on `draw_with_emoji`'s `emoji_y=None` default.
+At the top of the body, add the guard and resolve the low-res top row:
 
-- [ ] **Step 4: Run the tripwire — confirm it PASSES**
+```python
+    if (y is None) == (bottom_baseline is None):
+        raise ValueError(
+            "draw_emoji_at requires exactly one of y / bottom_baseline"
+        )
+```
 
-Run: `uv run pytest tests/test_pixel_emoji.py::test_no_hardcoded_emoji_y_minus_8_overrides -v`
-Expected: PASS.
+In the hi-res branch, dispatch by mode:
 
-- [ ] **Step 5: Run the widget suites — confirm scale=4 behavior unchanged**
+```python
+    if hires is not None:
+        if bottom_baseline is not None:
+            _draw_hires_emoji(
+                canvas, hires, x, bottom_baseline_logical=bottom_baseline
+            )
+        else:
+            _draw_hires_emoji(canvas, hires, x, top_logical=y)
+        return hires.logical_width(canvas.scale) + EMOJI_PADDING
+```
+
+In the low-res branch, compute the top row from whichever anchor was given (the 8×8 sprite bottom-anchors at `bottom_baseline - 8`, logical/exact at any scale):
+
+```python
+    iy = (bottom_baseline - 8) if bottom_baseline is not None else y
+    icon = _get_registry()[slug]  # KeyError on unknown slug — intentional
+    iw = _emoji_width(icon)
+    w = canvas.width
+    h = getattr(canvas, "height", 16)
+    for px, py, r, g, b in icon:
+        dx = x + px
+        dy = iy + py
+        if 0 <= dx < w and 0 <= dy < h:
+            canvas.SetPixel(dx, dy, r, g, b)
+    return iw + EMOJI_PADDING
+```
+
+Update the docstring's first line to note: "Supply exactly one of `y` (logical top) or `bottom_baseline` (logical baseline; the icon's bottom anchors there, exact at any scale)."
+
+- [ ] **Step 4: Point weather at `bottom_baseline`**
+
+In `src/led_ticker/widgets/weather.py` (~185), change the call from `baseline_y - 8` (positional `y`) to the keyword, and update the now-stale comment:
+
+```python
+            # Bottom-anchor the condition icon at the text baseline (exact at
+            # any scale via draw_emoji_at's real-pixel bottom-anchor).
+            cursor_pos += draw_emoji_at(
+                canvas,
+                _match_condition(self.weather),
+                int(cursor_pos),
+                bottom_baseline=baseline_y,
+            )
+```
+
+- [ ] **Step 5: Remove the three `emoji_y=baseline_y - 8` overrides**
+
+In `src/led_ticker/widgets/_image_base.py`, the separator draw (~805-810) and text draw (~861-866) each pass `emoji_y=baseline_y - 8,` as one argument line inside a `draw_with_emoji(...)` call. Delete that single argument line from both (leave every other argument unchanged). In `src/led_ticker/widgets/two_row.py`, the separator draw (~392-402) passes `emoji_y=baseline_y - 8,` — delete that line. After each deletion the call relies on `draw_with_emoji`'s `emoji_y=None` default.
+
+- [ ] **Step 6: Update the weather spies**
+
+`tests/test_widgets/test_weather.py` has spies on `_draw_hires_emoji` that capture the anchor. The placement spy now receives `bottom_baseline_logical=baseline_y` (not `top_logical=baseline_y - 8`). Update that spy's capture + assertion to expect the icon bottom-anchored at the baseline: capture `bottom_baseline_logical` and assert it equals `compute_baseline(font, canvas, valign="center")` (the baseline, no `- 8`). Leave the call-count spies untouched.
+
+- [ ] **Step 7: Run the new + weather tests — confirm PASS**
+
+Run: `uv run pytest tests/test_pixel_emoji.py tests/test_widgets/test_weather.py -v`
+Expected: all pass — including the tripwire, the two `draw_emoji_at` tests, and the updated weather spies.
+
+- [ ] **Step 8: Run the widget suites — confirm scale=4 unchanged**
 
 Run: `uv run pytest tests/test_widgets/test_two_row.py tests/test_widgets/test_image_base.py -v`
-Expected: all pass — these exercise the separator/text overlay paths at scale=4, guarding against regression from the override removal.
+Expected: all pass (these exercise the separator/text overlay paths at scale=4).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add src/led_ticker/widgets/_image_base.py src/led_ticker/widgets/two_row.py tests/test_pixel_emoji.py
-git -c core.hooksPath=/dev/null commit -m "fix: drop redundant emoji_y=baseline-8 overrides so they use the scale-aware anchor
+git add src/led_ticker/pixel_emoji.py src/led_ticker/widgets/_image_base.py src/led_ticker/widgets/two_row.py src/led_ticker/widgets/weather.py tests/test_pixel_emoji.py tests/test_widgets/test_weather.py
+git -c core.hooksPath=/dev/null commit -m "fix: route all emoji call sites through the scale-aware anchor
 
-The image text-overlay (separator + text) and two_row separator passed
-emoji_y=baseline_y-8 while also passing y=baseline_y — redundant with
-draw_with_emoji's default and bypassing the new real-pixel anchor. Remove
-them so they route through the fixed default (scale=4 unchanged, scale=2
-corrected). Tripwire test bans the literal override from returning."
+Remove the redundant emoji_y=baseline-8 overrides (image separator+text,
+two_row separator) so they use draw_with_emoji's fixed default. Add a
+bottom_baseline mode to draw_emoji_at (mirrors _draw_hires_emoji) and point
+the weather condition icon at it — weather was the fifth -8 site, reachable
+only via the single-icon API. scale=4 unchanged; scale=2 corrected. Tripwire
+bans the -8 literal from returning."
 ```
 
 ---

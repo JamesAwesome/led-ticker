@@ -111,6 +111,19 @@ Three call sites pass `emoji_y=baseline_y - 8` while also passing `y=baseline_y`
 
 After removal: `scale=4` unchanged (default computes the same `- 8`-equivalent); `scale=2` corrected.
 
+### `draw_emoji_at` bottom-anchor mode (fifth site: weather)
+
+`WeatherWidget` (`weather.py` ~line 185) draws its condition icon via `draw_emoji_at(canvas, slug, x, baseline_y - 8)` — the same `- 8` bug, but through the single-icon API rather than an `emoji_y` override, so it can't simply "drop the override." `draw_emoji_at` is top-anchor only.
+
+Give `draw_emoji_at` the same two-mode treatment as `_draw_hires_emoji` — add a `bottom_baseline: int | None` keyword; exactly one of `y` (logical top, existing) or `bottom_baseline` (logical baseline; the icon's bottom anchors here, exact at any scale) must be supplied:
+
+- hires + `bottom_baseline` → `_draw_hires_emoji(..., bottom_baseline_logical=bottom_baseline)`
+- hires + `y` → `_draw_hires_emoji(..., top_logical=y)` (unchanged)
+- low-res + `bottom_baseline` → top row = `bottom_baseline - 8` (8×8 sprite, logical, exact at any scale)
+- low-res + `y` → top row = `y` (unchanged)
+
+`measure_emoji_at` is width-only and unchanged, so weather's `measure_emoji_at`-based layout stays in sync. Weather then calls `draw_emoji_at(canvas, slug, x, bottom_baseline=baseline_y)` (drop the `- 8`). `draw_emoji_at` has no other callers, so this is its only consumer.
+
 ### Untouched
 
 - **`draw_emoji_at` / single-icon placement** (e.g. MLB team logos): the caller supplies the icon's top position, so it keeps the top-anchor path (`top_logical=y`). Behavior preserved exactly.
@@ -158,6 +171,8 @@ Define a helper in the test: `expected_bottom(baseline, scale, y_off, sprite) = 
 | `src/led_ticker/pixel_emoji.py` | `_draw_hires_emoji` bottom-anchor mode; `draw_with_emoji` per-emoji anchor (hi-res real-pixel bottom-anchor, low-res logical `- 8`); remove pre-loop `iy_default`. |
 | `src/led_ticker/widgets/_image_base.py` | Remove redundant `emoji_y=baseline_y - 8` at the separator and text draws. |
 | `src/led_ticker/widgets/two_row.py` | Remove redundant `emoji_y=baseline_y - 8` at the separator draw. |
+| `src/led_ticker/pixel_emoji.py` (`draw_emoji_at`) | Add `bottom_baseline` keyword (two-mode anchor); fixes the fifth site. |
+| `src/led_ticker/widgets/weather.py` | Use `draw_emoji_at(..., bottom_baseline=baseline_y)`; drop the `- 8`. |
 | `tests/test_pixel_emoji.py` | Regression + cross-scale + arbitrary-scale (scale=3) + preserved-scale-4 tests. |
 | `tests/test_widgets/test_image_base.py` / `test_two_row.py` | Call-site `scale=2` hi-res anchor assertion (one each, if a clean harness exists). |
 | `CLAUDE.md` | Update the inline-emoji invariant note to state the anchor is real-pixel bottom-anchored (was the `iy = y - 8` 8-row assumption). |

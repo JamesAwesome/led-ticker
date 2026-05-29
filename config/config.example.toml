@@ -194,13 +194,21 @@ stale_after = 900
 # units = "imperial"
 
 # Busy light — a persistent corner dot that lights up while a local file
-# exists. Toggle with `touch ~/.busy` / `rm ~/.busy`. The dot composites
-# over every section and transition. (Real calendar/Slack sources are a
-# future addition behind the same overlay.)
+# exists. The dot composites over every section and transition. (Real
+# calendar/Slack sources are a future addition behind the same overlay.)
+#
+# DOCKER (the usual deploy): `~/.busy` is the CONTAINER's home, which your
+# host can't reach. Point file_path at the bind-mounted config dir instead
+# and toggle the file on the host:
+#   file_path = "/code/config/.busy"   # in-container path (./config:/code/config:ro)
+#   touch config/.busy   # ON     rm config/.busy   # OFF
+# Bare-metal (no Docker): file_path = "~/.busy"; toggle ~/.busy directly.
+#
 # [busy_light]
 # enabled = true
-# file_path = "~/.busy"
+# file_path = "/code/config/.busy"
 # poll_interval = 5.0
 # corner = "top_right"       # top_left | top_right | bottom_left | bottom_right
-# color = [255, 0, 0]
-# size = 4                    # dot side length in physical pixels
+# color = [255, 0, 0]        # 3 ints, each 0-255
+# size = 4                    # dot side in physical px: ~4 on the 16-tall
+#                             # smallsign, ~8-10 on the 64-tall bigsign/longboi

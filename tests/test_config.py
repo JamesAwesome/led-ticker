@@ -951,3 +951,17 @@ def test_busy_light_invalid_color_raises(tmp_path):
     )
     with pytest.raises(ValueError, match="color"):
         load_config(p)
+
+
+def test_busy_light_color_out_of_range_raises(tmp_path):
+    import pytest
+
+    p = tmp_path / "c.toml"
+    p.write_text(
+        "[display]\nrows=16\ncols=32\n\n"
+        "[busy_light]\nenabled=true\ncolor=[999,-5,0]\n\n"
+        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
+    )
+    with pytest.raises(ValueError, match="color"):
+        load_config(p)

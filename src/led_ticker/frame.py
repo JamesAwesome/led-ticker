@@ -106,6 +106,10 @@ class LedFrame:
         transitions, play()-style widgets) that routes through here. The
         framerate_fraction argument pins SwapOnVSync to a fixed scan-cycle
         position, eliminating seam tearing on long chains.
+
+        Hooks must be paint-only and not raise: an exception here skips the
+        swap and freezes the panel (no per-hook try/except by design — see
+        the Overlay-hooks invariant in CLAUDE.md).
         """
         for hook in self.overlay_hooks:
             hook(canvas)

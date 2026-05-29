@@ -806,7 +806,6 @@ class _BaseImageWidget(_FrameAware):
                 baseline_y,
                 color,
                 sep,
-                emoji_y=baseline_y - 8,
                 frame=frame_count,
                 total_chars=1,
             )
@@ -862,7 +861,6 @@ class _BaseImageWidget(_FrameAware):
                 baseline_y,
                 color,
                 text,
-                emoji_y=baseline_y - 8,
                 frame=self.frame_for("font_color"),
                 total_chars=full_total_chars,
             )

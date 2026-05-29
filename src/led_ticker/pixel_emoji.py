@@ -2951,11 +2951,15 @@ def draw_emoji_at(
     canvas: Canvas,
     slug: str,
     x: int,
-    y: int,
+    y: int | None = None,
     *,
+    bottom_baseline: int | None = None,
     max_emoji_height: int | None = None,
 ) -> int:
-    """Draw a single emoji slug at logical (x, y). Returns the advance.
+    """Draw a single emoji slug at logical x. Returns the advance.
+
+    Supply exactly one of `y` (logical TOP-left) or `bottom_baseline`
+    (logical baseline; the icon's BOTTOM anchors there, exact at any scale).
 
     Mirrors `draw_with_emoji`'s per-emoji dispatch but for a single icon
     with no surrounding text — convenient for widgets that draw exactly
@@ -2971,6 +2975,9 @@ def draw_emoji_at(
 
     Raises `KeyError` if `slug` isn't in the low-res `EMOJI_REGISTRY`.
     """
+    if (y is None) == (bottom_baseline is None):
+        raise ValueError("draw_emoji_at requires exactly one of y / bottom_baseline")
+
     use_hires = isinstance(canvas, ScaledCanvas)
 
     hires: HiResEmoji | None = None
@@ -2981,16 +2988,22 @@ def draw_emoji_at(
             hires = candidate
 
     if hires is not None:
-        _draw_hires_emoji(canvas, hires, x, top_logical=y)
+        if bottom_baseline is not None:
+            _draw_hires_emoji(canvas, hires, x, bottom_baseline_logical=bottom_baseline)
+        else:
+            _draw_hires_emoji(canvas, hires, x, top_logical=y)
         return hires.logical_width(canvas.scale) + EMOJI_PADDING
 
+    # Low-res 8×8 sprite bottom-anchors at `bottom_baseline - 8` (logical,
+    # exact at any scale since it paints through the wrapper).
+    iy = (bottom_baseline - 8) if bottom_baseline is not None else y
     icon = _get_registry()[slug]  # KeyError on unknown slug — intentional
     iw = _emoji_width(icon)
     w = canvas.width
     h = getattr(canvas, "height", 16)
     for px, py, r, g, b in icon:
         dx = x + px
-        dy = y + py
+        dy = iy + py
         if 0 <= dx < w and 0 <= dy < h:
             canvas.SetPixel(dx, dy, r, g, b)
     return iw + EMOJI_PADDING

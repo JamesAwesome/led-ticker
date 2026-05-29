@@ -6,6 +6,8 @@ SetPixel calls and text draw_text calls both work through the wrapper.
 
 from __future__ import annotations
 
+import pathlib
+
 import pytest
 from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
@@ -1490,3 +1492,35 @@ def test_draw_emoji_at_keeps_top_anchor():
     min_py = min(py for _x, py, *_ in sprite.pixels)
     expected_top_row = top * sc.scale + sc.y_offset_real + min_py
     assert min(ry for _rx, ry in _lit_pixels(sc.real)) == expected_top_row
+
+
+def test_no_hardcoded_emoji_y_minus_8_overrides():
+    """The redundant `- 8` anchors must stay removed — they bypass the
+    scale-aware anchor and reintroduce the scale=2 misalignment. Band-layout
+    sites use a computed emoji_y and are exempt; only the literal
+    `baseline_y - 8` form is banned. weather.py uses
+    draw_emoji_at(..., bottom_baseline=...) so it carries no `- 8` literal."""
+    root = pathlib.Path(__file__).resolve().parents[1] / "src" / "led_ticker"
+    offenders = []
+    for rel in ("widgets/_image_base.py", "widgets/two_row.py", "widgets/weather.py"):
+        text = (root / rel).read_text()
+        if "baseline_y - 8" in text:
+            offenders.append(rel)
+    assert not offenders, f"redundant `- 8` anchor returned in: {offenders}"
+
+
+def test_draw_emoji_at_bottom_baseline_anchors_at_scale_2():
+    sc = ScaledCanvas(_fresh_bigsign_real(), scale=2)  # y_offset_real = 16
+    baseline = 12
+    draw_emoji_at(sc, "baseball", 0, bottom_baseline=baseline)
+    assert _lowest_lit_row(sc.real) == _expected_bottom(
+        baseline, 2, sc.y_offset_real, "baseball"
+    )
+
+
+def test_draw_emoji_at_requires_exactly_one_anchor():
+    sc = ScaledCanvas(_fresh_bigsign_real(), scale=2)
+    with pytest.raises(ValueError):
+        draw_emoji_at(sc, "baseball", 0)  # neither
+    with pytest.raises(ValueError):
+        draw_emoji_at(sc, "baseball", 0, 5, bottom_baseline=12)  # both

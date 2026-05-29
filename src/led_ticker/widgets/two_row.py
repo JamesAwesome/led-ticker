@@ -396,7 +396,6 @@ class TwoRowMessage(_FrameAware):
                 baseline_y,
                 color,
                 sep,
-                emoji_y=baseline_y - 8,
                 frame=frame_count,
                 total_chars=1,
             )

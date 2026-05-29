@@ -960,14 +960,14 @@ def _build_two_row_series_title(
     total_games = len(series.games)
     total_decided = series.team_wins + series.team_losses
     if total_games > 1 and total_decided > 0:
+        leader_abbr: str | None = None
+        w = lo = 0
         if series.team_wins > series.team_losses:
-            leader_abbr: str | None = team_abbr
+            leader_abbr = team_abbr
             w, lo = series.team_wins, series.team_losses
         elif series.team_losses > series.team_wins:
             leader_abbr = series.opponent_abbr
             w, lo = series.team_losses, series.team_wins
-        else:
-            leader_abbr = None
         if leader_abbr is None:
             bot.append((f"Tied {series.team_wins}-{series.team_losses}", RGB_WHITE))
         else:

@@ -887,6 +887,14 @@ def _build_two_row_message(
         )
     else:
         top_segs, bot_segs = [], []
+    # Preview / postponed lead with an "AWAY @ HOME" matchup that draw() can
+    # expand to full team names when it fits. Score screens (final / live)
+    # use the abbr+score format and aren't expanded.
+    matchup = (
+        (game.away_abbr, game.home_abbr)
+        if game.state in ("preview", "postponed")
+        else None
+    )
     return MLBTwoRowMessage(
         game=game,
         team_abbr=team_abbr,
@@ -899,6 +907,7 @@ def _build_two_row_message(
         font_color=font_color,
         top_segments=top_segs,
         bottom_segments=bot_segs,
+        matchup=matchup,
     )
 
 
@@ -993,6 +1002,38 @@ def _build_two_row_series_title(
     )
 
 
+def _expand_matchup_if_fits(
+    top_segments: list[tuple[str, Color]],
+    matchup: tuple[str, str],
+    font: Font,
+    canvas: Canvas,
+) -> list[tuple[str, Color]]:
+    """Expand the leading ``AWAY @ HOME`` matchup to full team names when the
+    whole top band still fits ``canvas.width``; otherwise keep abbreviations.
+
+    The matchup is always the first three top segments (away, " @ ", home);
+    segments [0] and [2] are rebuilt from ``matchup``'s abbreviations via
+    ``MLB_TEAM_NAMES`` so we never string-match the existing segment text.
+    Both names expand together or neither does — matching the series-title
+    aesthetic and the per-team fit-or-fallback of ``_fit_team_name``.
+    """
+    from led_ticker.pixel_emoji import measure_width
+
+    if len(top_segments) < 3:
+        return top_segments
+    away_abbr, home_abbr = matchup
+    away_full = MLB_TEAM_NAMES.get(away_abbr, away_abbr)
+    home_full = MLB_TEAM_NAMES.get(home_abbr, home_abbr)
+    if away_full == away_abbr and home_full == home_abbr:
+        return top_segments  # no fuller form available for either team
+
+    candidate = list(top_segments)
+    candidate[0] = (away_full, top_segments[0][1])
+    candidate[2] = (home_full, top_segments[2][1])
+    total = sum(measure_width(font, seg[0], canvas) for seg in candidate)
+    return candidate if total <= canvas.width else top_segments
+
+
 @attrs.define
 class MLBTwoRowMessage(_FrameAware):
     """Two-band game display: score/matchup on top, status on bottom."""
@@ -1011,6 +1052,10 @@ class MLBTwoRowMessage(_FrameAware):
     top_row_height: int | None = attrs.field(default=None, kw_only=True)
     top_segments: list[tuple[str, Color]] = attrs.field(factory=list)
     bottom_segments: list[tuple[str, Color]] = attrs.field(factory=list)
+    # (away_abbr, home_abbr) when the top band leads with an "AWAY @ HOME"
+    # matchup (preview / postponed). draw() expands these to full team names
+    # when they fit the canvas width, else keeps the abbreviations.
+    matchup: tuple[str, str] | None = attrs.field(default=None, kw_only=True)
 
     def draw(
         self,
@@ -1078,7 +1123,13 @@ class MLBTwoRowMessage(_FrameAware):
                     canvas, seg_font, x, baseline + y_offset, seg[1], seg[0]
                 )
 
-        _render_segments(self.top_segments, top_baseline, top_font)
+        top_segs = self.top_segments
+        if self.matchup is not None:
+            top_segs = _expand_matchup_if_fits(
+                top_segs, self.matchup, top_font, canvas
+            )
+
+        _render_segments(top_segs, top_baseline, top_font)
         _render_segments(self.bottom_segments, bot_baseline, bot_font)
 
         return canvas, cursor_pos + canvas.width

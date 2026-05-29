@@ -737,6 +737,78 @@ class TestMLBTwoRowLayout:
         assert colors[nym_idx] == _team_color("NYM")
         assert colors[phi_idx] == _team_color("PHI")
 
+    def test_preview_sets_matchup_abbrs(self):
+        """Preview cards carry (away_abbr, home_abbr) so draw() can expand."""
+        from zoneinfo import ZoneInfo
+
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(away_abbr="MIA", home_abbr="NYM", state="preview")
+        msg = _build_two_row_message(game, "NYM", ZoneInfo("America/New_York"))
+        assert msg.matchup == ("MIA", "NYM")
+
+    def test_final_has_no_matchup_expansion(self):
+        """Score screens (final / live) don't carry a matchup to expand."""
+        from zoneinfo import ZoneInfo
+
+        from led_ticker.widgets.mlb import _build_two_row_message
+
+        game = GameInfo(
+            away_abbr="MIA", home_abbr="NYM",
+            away_score=5, home_score=3, state="final",
+        )
+        msg = _build_two_row_message(game, "NYM", ZoneInfo("America/New_York"))
+        assert msg.matchup is None
+
+    def test_matchup_expands_to_full_names_when_room(self):
+        """On a wide canvas the abbr matchup expands to full team names."""
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        from led_ticker.colors import RGB_WHITE
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.widgets.mlb import _expand_matchup_if_fits, _team_color
+
+        opts = RGBMatrixOptions()
+        opts.rows = 64
+        opts.cols = 256
+        opts.chain_length = 1
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        canvas = ScaledCanvas(real, scale=2)  # 128 logical wide — ample room
+
+        top = [
+            ("MIA", _team_color("MIA")),
+            (" @ ", RGB_WHITE),
+            ("NYM", _team_color("NYM")),
+        ]
+        out = _expand_matchup_if_fits(top, ("MIA", "NYM"), FONT_SMALL, canvas)
+        texts = [t for t, _ in out]
+        assert "Marlins" in texts
+        assert "Mets" in texts
+        # Colors preserved through the swap.
+        assert out[0][1] == _team_color("MIA")
+        assert out[2][1] == _team_color("NYM")
+
+    def test_matchup_keeps_abbrs_when_no_room(self):
+        """On a narrow canvas the matchup stays abbreviated (fallback)."""
+        from unittest import mock
+
+        from led_ticker.colors import RGB_WHITE
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.widgets.mlb import _expand_matchup_if_fits, _team_color
+
+        narrow = mock.Mock()
+        narrow.width = 12  # too narrow for "Marlins @ Mets"
+        narrow.height = 16
+        top = [
+            ("MIA", _team_color("MIA")),
+            (" @ ", RGB_WHITE),
+            ("NYM", _team_color("NYM")),
+        ]
+        out = _expand_matchup_if_fits(top, ("MIA", "NYM"), FONT_SMALL, narrow)
+        texts = [t for t, _ in out]
+        assert texts == ["MIA", " @ ", "NYM"]
+
     def test_preview_bottom_has_game_time(self):
         """Bottom segments contain a formatted start time."""
         import datetime

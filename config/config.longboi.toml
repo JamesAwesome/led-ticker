@@ -343,3 +343,23 @@ update_interval = 3000
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
+
+# --- Busy light (HTTP trigger) ---
+# A persistent dot in the top-left corner, flipped on/off by an HTTP call over
+# the LAN (e.g. a work Mac hotkey or a macOS Focus automation). longboi's
+# compose uses network_mode: host, so the listener on :8080 is already reachable
+# at the Pi's address — no Docker port mapping needed. Toggle it with:
+#   curl "http://longboi:8080/busy?state=on&token=changeme"
+#   curl "http://longboi:8080/busy?state=off&token=changeme"
+#   curl "http://longboi:8080/busy?state=on&ttl=3600&token=changeme"  # auto-clear in 1h
+# Docs: https://docs.ledticker.dev/concepts/busy-light/
+# [busy_light]
+# enabled = true
+# source = "http"
+# http_host = "0.0.0.0"
+# http_port = 8080
+# token = "changeme"
+# corner = "top_left"
+# size = 10            # physical px; ~8-10 on the 64-tall longboi
+# color = [255, 0, 0]
+# ttl_seconds = 0      # default auto-clear; 0 = stay on until explicit off

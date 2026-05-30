@@ -66,6 +66,69 @@ rm config/.busy       # → light OFF
 
 The `:ro` mount only stops the **container** from writing; the host can freely create and delete `config/.busy`, and the container sees the change. The poller only reads the file (`exists()`), so read-only is fine.
 
+## Remote trigger (HTTP)
+
+Instead of a local file, the light can be flipped by an HTTP call over your LAN — ideal for triggering it from another machine such as a work laptop. Set `source = "http"`:
+
+<TomlExample
+  title="HTTP source"
+  code={`[busy_light]
+enabled = true
+source = "http"
+http_host = "0.0.0.0"
+http_port = 8080
+token = "change-me"      # shared secret; omit/empty = open on the LAN
+ttl_seconds = 0          # 0 = explicit on/off; >0 = auto-clear after N seconds`}
+/>
+
+The listener exposes one route:
+
+```bash
+# turn the light on / off (GET with a query param — easiest for macros)
+curl "http://PI-HOST:8080/busy?state=on&token=change-me"
+curl "http://PI-HOST:8080/busy?state=off&token=change-me"
+
+# turn on, then auto-clear after 60 seconds (per-request TTL override)
+curl "http://PI-HOST:8080/busy?state=on&ttl=60&token=change-me"
+
+# POST with a body works too
+curl -X POST "http://PI-HOST:8080/busy" -H "X-Busy-Token: change-me" -d on
+
+# read current state
+curl "http://PI-HOST:8080/busy?token=change-me"
+```
+
+`PI-HOST` is your Pi's `.local` hostname (e.g. `longboi.local`) or a DHCP-reserved IP. The token may be passed as the `token=` query param or an `X-Busy-Token:` header; a wrong/missing token returns `401`. A token in the query string can appear in logs — fine on a trusted LAN; use the header form if you'd rather not.
+
+### Exposing the port
+
+- **Docker deploy:** add a port mapping to that Pi's compose service:
+
+  ```yaml
+  services:
+    led-ticker:
+      ports:
+        - "8080:8080"
+  ```
+
+- **Bare-metal / systemd deploy:** the process binds the host port directly — no mapping needed; just make sure no host firewall blocks it.
+
+### TTL (auto-clear)
+
+A busy light can auto-clear after a set time, so you don't have to remember to send `off`. There are two ways to set it:
+
+- **Per request** — add `&ttl=N` (seconds) to a `state=on` call: `…/busy?state=on&ttl=60`. The light turns on and clears itself after `N` seconds unless refreshed by another `state=on`. This overrides the config default for that one request; `ttl=0` means "stay on until an explicit off". An invalid `ttl` (non-numeric, negative, or non-finite like `inf`/`nan`) returns `400`. `ttl` is always a **query parameter** — even on a POST it goes in the URL (`POST …/busy?ttl=60` with the state in the body), never in the request body.
+- **Config default** — `ttl_seconds` in `[busy_light]` applies to every `state=on` that omits `?ttl=`. `ttl_seconds = 0` (the default) means on-until-explicit-off; set e.g. `1800` for a 30-minute safety net if the sender sleeps mid-meeting and never sends `off`.
+
+TTL applies only to the HTTP source — the file source is polled directly and never arms a deadline.
+
+### Triggering from a Mac
+
+Both methods reduce to one HTTP call, so neither needs anything installed on a managed work laptop:
+
+- **Manual hotkey** — Keyboard Maestro, Raycast, or a Shortcut with a global key running `curl "http://PI-HOST:8080/busy?state=on&token=…"` (and an `off` twin).
+- **Focus automation (hands-off)** — macOS **Shortcuts → Automation → "When [Work] focus turns On"** → action **Get Contents of URL** (GET) `http://PI-HOST:8080/busy?state=on&token=…`; add a matching _turns Off_ automation with `state=off`. macOS itself is the detector — no background app of your own.
+
 ## Sizing per panel
 
 `size` is in physical pixels, so the right value depends on panel height:

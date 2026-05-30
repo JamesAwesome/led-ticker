@@ -965,3 +965,91 @@ def test_busy_light_color_out_of_range_raises(tmp_path):
     )
     with pytest.raises(ValueError, match="color"):
         load_config(p)
+
+
+def test_busy_light_http_fields_default(tmp_path):
+    p = tmp_path / "c.toml"
+    p.write_text(
+        "[display]\nrows=16\ncols=32\n\n"
+        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
+    )
+    cfg = load_config(p)
+    assert cfg.busy_light.source == "file"
+    assert cfg.busy_light.http_host == "0.0.0.0"
+    assert cfg.busy_light.http_port == 8080
+    assert cfg.busy_light.token == ""
+    assert cfg.busy_light.ttl_seconds == 0.0
+
+
+def test_busy_light_http_fields_parsed(tmp_path):
+    p = tmp_path / "c.toml"
+    p.write_text(
+        "[display]\nrows=16\ncols=32\n\n"
+        '[busy_light]\nenabled=true\nsource="http"\n'
+        'http_host="127.0.0.1"\nhttp_port=9000\ntoken="abc"\nttl_seconds=300.0\n\n'
+        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
+    )
+    cfg = load_config(p)
+    assert cfg.busy_light.source == "http"
+    assert cfg.busy_light.http_host == "127.0.0.1"
+    assert cfg.busy_light.http_port == 9000
+    assert cfg.busy_light.token == "abc"
+    assert cfg.busy_light.ttl_seconds == 300.0
+
+
+def test_busy_light_invalid_source_raises(tmp_path):
+    import pytest
+
+    p = tmp_path / "c.toml"
+    p.write_text(
+        "[display]\nrows=16\ncols=32\n\n"
+        '[busy_light]\nenabled=true\nsource="carrier_pigeon"\n\n'
+        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
+    )
+    with pytest.raises(ValueError, match="busy_light.source"):
+        load_config(p)
+
+
+def test_busy_light_invalid_port_raises(tmp_path):
+    import pytest
+
+    p = tmp_path / "c.toml"
+    p.write_text(
+        "[display]\nrows=16\ncols=32\n\n"
+        '[busy_light]\nenabled=true\nhttp_port=70000\n\n'
+        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
+    )
+    with pytest.raises(ValueError, match="busy_light.http_port"):
+        load_config(p)
+
+
+def test_busy_light_negative_ttl_raises(tmp_path):
+    import pytest
+
+    p = tmp_path / "c.toml"
+    p.write_text(
+        "[display]\nrows=16\ncols=32\n\n"
+        '[busy_light]\nenabled=true\nttl_seconds=-1.0\n\n'
+        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
+    )
+    with pytest.raises(ValueError, match="busy_light.ttl_seconds"):
+        load_config(p)
+
+
+def test_busy_light_non_string_token_raises(tmp_path):
+    import pytest
+
+    p = tmp_path / "c.toml"
+    p.write_text(
+        "[display]\nrows=16\ncols=32\n\n"
+        "[busy_light]\nenabled=true\ntoken=123\n\n"
+        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
+    )
+    with pytest.raises(ValueError, match="busy_light.token"):
+        load_config(p)

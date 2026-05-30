@@ -26,10 +26,68 @@ from led_ticker.app.factories import (
     _resolve_title_delay,
     build_frame_from_config,
 )
+from led_ticker.busy_http import serve_busy
 from led_ticker.config import load_config
 from led_ticker.ticker import Ticker, _expand_sources, _maybe_wrap
 from led_ticker.transitions import Transition, run_transition
 from led_ticker.widget import run_monitor_loop
+
+
+async def _ttl_ticker(busy: Any, interval: float = 1.0) -> None:
+    """Clear pushed busy state once its TTL expires. 1 Hz; no-op when no
+    deadline is armed."""
+    while True:
+        await asyncio.sleep(interval)
+        busy.tick_ttl()
+
+
+async def _serve_busy_supervised(busy: Any, cfg: Any) -> None:
+    """Run the HTTP listener for the process lifetime. A bind failure logs
+    and returns — the display loop must never die because the busy port is
+    taken."""
+    try:
+        runner = await serve_busy(
+            busy, host=cfg.http_host, port=cfg.http_port, token=cfg.token
+        )
+    except OSError as e:
+        logging.error(
+            "busy-light HTTP listener failed to bind %s:%d (%s); "
+            "continuing without remote trigger",
+            cfg.http_host,
+            cfg.http_port,
+            e,
+        )
+        return
+    try:
+        await asyncio.Event().wait()  # keep the runner alive
+    finally:
+        await runner.cleanup()
+
+
+async def _start_busy_light(cfg: Any, led_frame: Any) -> Any:
+    """Build the BusyLight, register its paint hook, and start the source
+    (file poller or HTTP listener) plus an optional TTL ticker. Returns the
+    BusyLight."""
+    from led_ticker.busy_light import BusyLight
+
+    busy = BusyLight(
+        file_path=cfg.file_path,
+        corner=cfg.corner,
+        color=cfg.color,
+        size=cfg.size,
+        ttl_seconds=cfg.ttl_seconds,
+    )
+    led_frame.overlay_hooks.append(busy.paint)
+    if cfg.source == "http":
+        asyncio.create_task(_serve_busy_supervised(busy, cfg))
+        # Always run the ticker for the HTTP source so a per-request ?ttl=
+        # (or the configured ttl_seconds default) is enforced. The file
+        # source never arms a deadline, so it needs no ticker.
+        asyncio.create_task(_ttl_ticker(busy))
+    else:
+        await busy.update()  # fast initial read so the dot is correct on frame 1
+        asyncio.create_task(run_monitor_loop(busy, cfg.poll_interval, splay=False))
+    return busy
 
 
 async def run(config_path: Path) -> None:
@@ -46,19 +104,7 @@ async def run(config_path: Path) -> None:
     led_frame = build_frame_from_config(config.display)
 
     if config.busy_light.enabled:
-        from led_ticker.busy_light import BusyLight
-
-        busy = BusyLight(
-            file_path=config.busy_light.file_path,
-            corner=config.busy_light.corner,
-            color=config.busy_light.color,
-            size=config.busy_light.size,
-        )
-        await busy.update()  # fast initial read so the dot is correct on frame 1
-        led_frame.overlay_hooks.append(busy.paint)
-        asyncio.create_task(
-            run_monitor_loop(busy, config.busy_light.poll_interval, splay=False)
-        )
+        await _start_busy_light(config.busy_light, led_frame)
 
     # Default inter-section transition built once at startup. Used for
     # sections that don't specify their own `transition` field — see

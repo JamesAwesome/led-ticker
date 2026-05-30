@@ -3234,3 +3234,38 @@ class TestGifLoopsRename:
         assert "  play_count " in result or "play_count\n" in result
         assert "gif_loops" not in result
         assert "  loops " not in result
+
+
+class TestStartBusyLight:
+    async def test_file_source_registers_hook_and_reads_file(self, tmp_path):
+        from led_ticker.app.run import _start_busy_light
+        from led_ticker.config import BusyLightConfig
+        from led_ticker.frame import LedFrame
+
+        f = tmp_path / ".busy"
+        f.write_text("")
+        cfg = BusyLightConfig(
+            enabled=True, source="file", file_path=str(f), poll_interval=999
+        )
+        frame = LedFrame(led_cols=64, led_rows=32)
+        busy = await _start_busy_light(cfg, frame)
+        assert busy.paint in frame.overlay_hooks
+        assert busy.is_busy is True  # initial update() read the existing file
+
+    async def test_http_source_registers_hook_and_threads_ttl(self):
+        from led_ticker.app.run import _start_busy_light
+        from led_ticker.config import BusyLightConfig
+        from led_ticker.frame import LedFrame
+
+        cfg = BusyLightConfig(
+            enabled=True,
+            source="http",
+            http_host="127.0.0.1",
+            http_port=0,
+            ttl_seconds=120.0,
+        )
+        frame = LedFrame(led_cols=64, led_rows=32)
+        busy = await _start_busy_light(cfg, frame)
+        assert busy.paint in frame.overlay_hooks
+        assert busy.ttl_seconds == 120.0
+        assert busy.is_busy is False  # http source starts not-busy

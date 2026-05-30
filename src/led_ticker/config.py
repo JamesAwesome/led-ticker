@@ -157,6 +157,11 @@ class BusyLightConfig:
     corner: str = "top_right"
     color: tuple[int, int, int] = (255, 0, 0)
     size: int = 4
+    source: str = "file"
+    http_host: str = "0.0.0.0"
+    http_port: int = 8080
+    token: str = ""
+    ttl_seconds: float = 0.0
 
 
 @dataclass
@@ -333,6 +338,11 @@ def load_config(path: Path) -> AppConfig:
         corner=bl_raw.get("corner", "top_right"),
         color=tuple(bl_raw.get("color", [255, 0, 0])),
         size=bl_raw.get("size", 4),
+        source=bl_raw.get("source", "file"),
+        http_host=bl_raw.get("http_host", "0.0.0.0"),
+        http_port=bl_raw.get("http_port", 8080),
+        token=bl_raw.get("token", ""),
+        ttl_seconds=bl_raw.get("ttl_seconds", 0.0),
     )
     _BUSY_CORNERS = ("top_left", "top_right", "bottom_left", "bottom_right")
     if busy_light.corner not in _BUSY_CORNERS:
@@ -350,6 +360,25 @@ def load_config(path: Path) -> AppConfig:
         raise ValueError(
             f"busy_light.color must be 3 ints in 0-255 [r, g, b]; "
             f"got {busy_light.color!r}."
+        )
+    _BUSY_SOURCES = ("file", "http")
+    if busy_light.source not in _BUSY_SOURCES:
+        raise ValueError(
+            f"busy_light.source={busy_light.source!r} is not valid; "
+            f"choose one of: {', '.join(_BUSY_SOURCES)}."
+        )
+    if not 1 <= busy_light.http_port <= 65535:
+        raise ValueError(
+            f"busy_light.http_port must be 1-65535; got {busy_light.http_port}."
+        )
+    if busy_light.ttl_seconds < 0:
+        raise ValueError(
+            f"busy_light.ttl_seconds must be >= 0; got {busy_light.ttl_seconds}."
+        )
+    if not isinstance(busy_light.token, str):
+        raise ValueError(
+            f"busy_light.token must be a string; "
+            f"got {type(busy_light.token).__name__}."
         )
 
     sections = []

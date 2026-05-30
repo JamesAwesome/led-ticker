@@ -3234,3 +3234,80 @@ class TestGifLoopsRename:
         assert "  play_count " in result or "play_count\n" in result
         assert "gif_loops" not in result
         assert "  loops " not in result
+
+
+class TestStartBusyLight:
+    async def test_file_source_registers_hook_and_reads_file(self, tmp_path):
+        from led_ticker.app.run import _start_busy_light
+        from led_ticker.config import BusyLightConfig
+        from led_ticker.frame import LedFrame
+
+        f = tmp_path / ".busy"
+        f.write_text("")
+        cfg = BusyLightConfig(
+            enabled=True, source="file", file_path=str(f), poll_interval=999
+        )
+        frame = LedFrame(led_cols=64, led_rows=32)
+        busy = await _start_busy_light(cfg, frame)
+        assert busy.paint in frame.overlay_hooks
+        assert busy.is_busy is True  # initial update() read the existing file
+
+    async def test_http_source_registers_hook_and_threads_ttl(self):
+        import asyncio
+
+        from led_ticker.app.run import _start_busy_light
+        from led_ticker.config import BusyLightConfig
+        from led_ticker.frame import LedFrame
+
+        before = asyncio.all_tasks()
+        cfg = BusyLightConfig(
+            enabled=True,
+            source="http",
+            http_host="127.0.0.1",
+            http_port=0,
+            ttl_seconds=120.0,
+        )
+        frame = LedFrame(led_cols=64, led_rows=32)
+        busy = await _start_busy_light(cfg, frame)
+        new_tasks = asyncio.all_tasks() - before
+        try:
+            assert busy.paint in frame.overlay_hooks
+            assert busy.ttl_seconds == 120.0
+            assert busy.is_busy is False  # http source starts not-busy
+            names = {t.get_coro().__qualname__ for t in new_tasks}
+            # http branch must have started the supervised listener...
+            assert any("_serve_busy_supervised" in n for n in names)
+            # ...and the ticker.
+            assert any("_ttl_ticker" in n for n in names)
+        finally:
+            for t in new_tasks:
+                t.cancel()
+            await asyncio.gather(*new_tasks, return_exceptions=True)
+
+    async def test_http_source_runs_ticker_even_without_config_ttl(self):
+        # Per-request ?ttl= must be enforceable even when the config sets no
+        # default, so the http source always starts the ticker.
+        import asyncio
+
+        from led_ticker.app.run import _start_busy_light
+        from led_ticker.config import BusyLightConfig
+        from led_ticker.frame import LedFrame
+
+        before = asyncio.all_tasks()
+        cfg = BusyLightConfig(
+            enabled=True,
+            source="http",
+            http_host="127.0.0.1",
+            http_port=0,
+            ttl_seconds=0.0,
+        )
+        frame = LedFrame(led_cols=64, led_rows=32)
+        await _start_busy_light(cfg, frame)
+        new_tasks = asyncio.all_tasks() - before
+        try:
+            names = {t.get_coro().__qualname__ for t in new_tasks}
+            assert any("_ttl_ticker" in n for n in names)
+        finally:
+            for t in new_tasks:
+                t.cancel()
+            await asyncio.gather(*new_tasks, return_exceptions=True)

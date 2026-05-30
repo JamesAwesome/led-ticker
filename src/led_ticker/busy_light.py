@@ -8,6 +8,7 @@ follow-up that sets the same is_busy flag behind the same overlay.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import attrs
@@ -23,11 +24,36 @@ class BusyLight:
     corner: str = "top_right"
     color: ColorTuple = (255, 0, 0)
     size: int = 4
+    ttl_seconds: float = 0.0
     is_busy: bool = attrs.field(default=False, init=False)
+    _busy_until: float | None = attrs.field(default=None, init=False)
 
     async def update(self) -> None:
         """Conforms to the Updatable protocol; driven by run_monitor_loop."""
         self.is_busy = self.file_path.exists()
+
+    def set_busy(self, state: bool, now: float | None = None) -> None:
+        """Set busy state from a push source. Arms the TTL deadline when
+        ttl_seconds > 0 and state is True; clears it on False."""
+        if state:
+            self.is_busy = True
+            if self.ttl_seconds > 0:
+                t = time.monotonic() if now is None else now
+                self._busy_until = t + self.ttl_seconds
+        else:
+            self.is_busy = False
+            self._busy_until = None
+
+    def tick_ttl(self, now: float | None = None) -> None:
+        """Clear busy state once the TTL deadline passes. No-op when no
+        deadline is armed. Kept off the paint path so paint() stays
+        paint-only."""
+        if self._busy_until is None:
+            return
+        t = time.monotonic() if now is None else now
+        if t >= self._busy_until:
+            self.is_busy = False
+            self._busy_until = None
 
     def paint(self, canvas: Canvas) -> None:
         """Overlay hook: draw a size×size block in the corner while busy."""

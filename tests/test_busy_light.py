@@ -104,3 +104,52 @@ async def test_registered_hook_paints_dot_through_frame_swap(tmp_path):
         if canvas2.get_pixel(x, y) != (0, 0, 0)
     ]
     assert lit == []
+
+
+def test_set_busy_true_then_false():
+    busy = BusyLight(file_path="/x")
+    busy.set_busy(True)
+    assert busy.is_busy is True
+    busy.set_busy(False)
+    assert busy.is_busy is False
+
+
+def test_set_busy_no_ttl_leaves_no_deadline():
+    busy = BusyLight(file_path="/x")  # ttl_seconds defaults to 0.0
+    busy.set_busy(True, now=100.0)
+    assert busy._busy_until is None
+
+
+def test_ttl_arms_deadline_and_expires():
+    busy = BusyLight(file_path="/x", ttl_seconds=30.0)
+    busy.set_busy(True, now=100.0)
+    assert busy._busy_until == 130.0
+    busy.tick_ttl(now=129.0)  # before deadline
+    assert busy.is_busy is True
+    busy.tick_ttl(now=130.0)  # at deadline
+    assert busy.is_busy is False
+    assert busy._busy_until is None
+
+
+def test_ttl_refresh_extends_deadline():
+    busy = BusyLight(file_path="/x", ttl_seconds=30.0)
+    busy.set_busy(True, now=100.0)
+    busy.set_busy(True, now=120.0)  # refresh
+    assert busy._busy_until == 150.0
+    busy.tick_ttl(now=149.0)
+    assert busy.is_busy is True
+
+
+def test_set_busy_false_clears_deadline():
+    busy = BusyLight(file_path="/x", ttl_seconds=30.0)
+    busy.set_busy(True, now=100.0)
+    busy.set_busy(False, now=110.0)
+    assert busy.is_busy is False
+    assert busy._busy_until is None
+
+
+def test_tick_ttl_noop_when_no_deadline():
+    busy = BusyLight(file_path="/x")
+    busy.is_busy = True
+    busy.tick_ttl(now=999.0)  # no deadline armed → must not clear
+    assert busy.is_busy is True

@@ -37,7 +37,7 @@ def build_busy_app(busy: BusyLight, token: str = "") -> web.Application:
             return web.json_response({"error": "unauthorized"}, status=401)
         state = request.query.get("state")
         if state is None and request.body_exists:
-            state = (await request.text()).strip()
+            state = await request.text()
         if state is None:
             return web.json_response({"busy": busy.is_busy})
         s = state.strip().lower()
@@ -59,10 +59,16 @@ async def serve_busy(
     busy: BusyLight, *, host: str, port: int, token: str = ""
 ) -> web.AppRunner:
     """Start the listener and return the running AppRunner (caller keeps it
-    alive and calls .cleanup() on shutdown)."""
+    alive and calls .cleanup() on shutdown). On a start failure the runner is
+    cleaned up before the exception propagates, so the caller has no dangling
+    cleanup obligation."""
     runner = web.AppRunner(build_busy_app(busy, token=token))
     await runner.setup()
-    site = web.TCPSite(runner, host, port)
-    await site.start()
+    try:
+        site = web.TCPSite(runner, host, port)
+        await site.start()
+    except Exception:
+        await runner.cleanup()
+        raise
     logger.info("busy-light HTTP listener on %s:%d", host, port)
     return runner

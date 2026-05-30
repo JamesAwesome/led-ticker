@@ -1039,3 +1039,17 @@ def test_busy_light_negative_ttl_raises(tmp_path):
     )
     with pytest.raises(ValueError, match="busy_light.ttl_seconds"):
         load_config(p)
+
+
+def test_busy_light_non_string_token_raises(tmp_path):
+    import pytest
+
+    p = tmp_path / "c.toml"
+    p.write_text(
+        "[display]\nrows=16\ncols=32\n\n"
+        "[busy_light]\nenabled=true\ntoken=123\n\n"
+        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
+    )
+    with pytest.raises(ValueError, match="busy_light.token"):
+        load_config(p)

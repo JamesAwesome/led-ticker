@@ -68,7 +68,7 @@ The `:ro` mount only stops the **container** from writing; the host can freely c
 
 ## Remote trigger (HTTP)
 
-Instead of (or as well as) a local file, the light can be flipped by an HTTP call over your LAN — ideal for triggering it from another machine such as a work laptop. Set `source = "http"`:
+Instead of a local file, the light can be flipped by an HTTP call over your LAN — ideal for triggering it from another machine such as a work laptop. Set `source = "http"`:
 
 <TomlExample
   title="HTTP source"
@@ -112,11 +112,11 @@ curl "http://PI-HOST:8080/busy?token=change-me"
 
 ### TTL (auto-clear)
 
-With `ttl_seconds = 0` the light stays on until an explicit `state=off` arrives. Set it to a positive value (e.g. `1800`) and the light auto-clears after that many seconds unless a fresh `state=on` refreshes it — a safety net if the sender sleeps mid-meeting and never sends `off`.
+With `ttl_seconds = 0` the light stays on until an explicit `state=off` arrives. Set it to a positive value (e.g. `1800`) and the light auto-clears after that many seconds unless a fresh `state=on` refreshes it — a safety net if the sender sleeps mid-meeting and never sends `off`. TTL applies only to the HTTP source — the file source is polled directly and never arms the deadline.
 
 ### Triggering from a Mac
 
-Both reduce to one HTTP call, so neither needs anything installed on a managed work laptop:
+Both methods reduce to one HTTP call, so neither needs anything installed on a managed work laptop:
 
 - **Manual hotkey** — Keyboard Maestro, Raycast, or a Shortcut with a global key running `curl "http://PI-HOST:8080/busy?state=on&token=…"` (and an `off` twin).
 - **Focus automation (hands-off)** — macOS **Shortcuts → Automation → "When [Work] focus turns On"** → action **Get Contents of URL** (GET) `http://PI-HOST:8080/busy?state=on&token=…`; add a matching _turns Off_ automation with `state=off`. macOS itself is the detector — no background app of your own.

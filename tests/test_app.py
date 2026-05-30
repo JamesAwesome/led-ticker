@@ -3253,10 +3253,13 @@ class TestStartBusyLight:
         assert busy.is_busy is True  # initial update() read the existing file
 
     async def test_http_source_registers_hook_and_threads_ttl(self):
+        import asyncio
+
         from led_ticker.app.run import _start_busy_light
         from led_ticker.config import BusyLightConfig
         from led_ticker.frame import LedFrame
 
+        before = asyncio.all_tasks()
         cfg = BusyLightConfig(
             enabled=True,
             source="http",
@@ -3266,6 +3269,17 @@ class TestStartBusyLight:
         )
         frame = LedFrame(led_cols=64, led_rows=32)
         busy = await _start_busy_light(cfg, frame)
-        assert busy.paint in frame.overlay_hooks
-        assert busy.ttl_seconds == 120.0
-        assert busy.is_busy is False  # http source starts not-busy
+        new_tasks = asyncio.all_tasks() - before
+        try:
+            assert busy.paint in frame.overlay_hooks
+            assert busy.ttl_seconds == 120.0
+            assert busy.is_busy is False  # http source starts not-busy
+            names = {t.get_coro().__qualname__ for t in new_tasks}
+            # http branch must have started the supervised listener...
+            assert any("_serve_busy_supervised" in n for n in names)
+            # ...and ttl_seconds > 0 must have started the ticker.
+            assert any("_ttl_ticker" in n for n in names)
+        finally:
+            for t in new_tasks:
+                t.cancel()
+            await asyncio.gather(*new_tasks, return_exceptions=True)

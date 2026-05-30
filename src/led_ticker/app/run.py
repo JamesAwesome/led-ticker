@@ -80,11 +80,13 @@ async def _start_busy_light(cfg: Any, led_frame: Any) -> Any:
     led_frame.overlay_hooks.append(busy.paint)
     if cfg.source == "http":
         asyncio.create_task(_serve_busy_supervised(busy, cfg))
+        # Always run the ticker for the HTTP source so a per-request ?ttl=
+        # (or the configured ttl_seconds default) is enforced. The file
+        # source never arms a deadline, so it needs no ticker.
+        asyncio.create_task(_ttl_ticker(busy))
     else:
         await busy.update()  # fast initial read so the dot is correct on frame 1
         asyncio.create_task(run_monitor_loop(busy, cfg.poll_interval, splay=False))
-    if cfg.ttl_seconds > 0:
-        asyncio.create_task(_ttl_ticker(busy))
     return busy
 
 

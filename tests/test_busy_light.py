@@ -153,3 +153,25 @@ def test_tick_ttl_noop_when_no_deadline():
     busy.is_busy = True
     busy.tick_ttl(now=999.0)  # no deadline armed → must not clear
     assert busy.is_busy is True
+
+
+def test_per_request_ttl_overrides_config():
+    busy = BusyLight(file_path="/x", ttl_seconds=30.0)
+    busy.set_busy(True, now=100.0, ttl=5.0)
+    assert busy._busy_until == 105.0  # per-request 5, not config 30
+
+
+def test_per_request_ttl_when_no_config_default():
+    busy = BusyLight(file_path="/x")  # ttl_seconds=0
+    busy.set_busy(True, now=100.0, ttl=5.0)
+    assert busy._busy_until == 105.0
+    busy.tick_ttl(now=105.0)
+    assert busy.is_busy is False
+
+
+def test_set_busy_ttl_zero_override_stays_on_and_clears_prior_deadline():
+    busy = BusyLight(file_path="/x", ttl_seconds=30.0)
+    busy.set_busy(True, now=100.0, ttl=5.0)  # armed at 105
+    busy.set_busy(True, now=101.0, ttl=0.0)  # explicit ttl=0 → on indefinitely
+    assert busy._busy_until is None
+    assert busy.is_busy is True

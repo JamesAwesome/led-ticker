@@ -32,14 +32,22 @@ class BusyLight:
         """Conforms to the Updatable protocol; driven by run_monitor_loop."""
         self.is_busy = self.file_path.exists()
 
-    def set_busy(self, state: bool, now: float | None = None) -> None:
-        """Set busy state from a push source. Arms the TTL deadline when
-        ttl_seconds > 0 and state is True; clears it on False."""
+    def set_busy(
+        self, state: bool, now: float | None = None, ttl: float | None = None
+    ) -> None:
+        """Set busy state from a push source. When `state` is True, arms the
+        TTL deadline using `ttl` (a per-request override) when given, else the
+        configured `ttl_seconds`. A non-positive effective TTL means "stay on
+        until an explicit off" and clears any prior deadline. `state=False`
+        clears immediately."""
         if state:
             self.is_busy = True
-            if self.ttl_seconds > 0:
+            effective_ttl = self.ttl_seconds if ttl is None else ttl
+            if effective_ttl > 0:
                 t = time.monotonic() if now is None else now
-                self._busy_until = t + self.ttl_seconds
+                self._busy_until = t + effective_ttl
+            else:
+                self._busy_until = None
         else:
             self.is_busy = False
             self._busy_until = None

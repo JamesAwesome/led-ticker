@@ -88,6 +88,9 @@ The listener exposes one route:
 curl "http://PI-HOST:8080/busy?state=on&token=change-me"
 curl "http://PI-HOST:8080/busy?state=off&token=change-me"
 
+# turn on, then auto-clear after 60 seconds (per-request TTL override)
+curl "http://PI-HOST:8080/busy?state=on&ttl=60&token=change-me"
+
 # POST with a body works too
 curl -X POST "http://PI-HOST:8080/busy" -H "X-Busy-Token: change-me" -d on
 
@@ -112,7 +115,12 @@ curl "http://PI-HOST:8080/busy?token=change-me"
 
 ### TTL (auto-clear)
 
-With `ttl_seconds = 0` the light stays on until an explicit `state=off` arrives. Set it to a positive value (e.g. `1800`) and the light auto-clears after that many seconds unless a fresh `state=on` refreshes it — a safety net if the sender sleeps mid-meeting and never sends `off`. TTL applies only to the HTTP source — the file source is polled directly and never arms the deadline.
+A busy light can auto-clear after a set time, so you don't have to remember to send `off`. There are two ways to set it:
+
+- **Per request** — add `&ttl=N` (seconds) to a `state=on` call: `…/busy?state=on&ttl=60`. The light turns on and clears itself after `N` seconds unless refreshed by another `state=on`. This overrides the config default for that one request; `ttl=0` means "stay on until an explicit off". A non-numeric or negative `ttl` returns `400`.
+- **Config default** — `ttl_seconds` in `[busy_light]` applies to every `state=on` that omits `?ttl=`. `ttl_seconds = 0` (the default) means on-until-explicit-off; set e.g. `1800` for a 30-minute safety net if the sender sleeps mid-meeting and never sends `off`.
+
+TTL applies only to the HTTP source — the file source is polled directly and never arms a deadline.
 
 ### Triggering from a Mac
 

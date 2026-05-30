@@ -42,7 +42,16 @@ def build_busy_app(busy: BusyLight, token: str = "") -> web.Application:
             return web.json_response({"busy": busy.is_busy})
         s = state.strip().lower()
         if s in _TRUTHY:
-            busy.set_busy(True)
+            ttl_raw = request.query.get("ttl")
+            ttl: float | None = None
+            if ttl_raw is not None:
+                try:
+                    ttl = float(ttl_raw)
+                except ValueError:
+                    return web.json_response({"error": "bad ttl"}, status=400)
+                if ttl < 0:
+                    return web.json_response({"error": "bad ttl"}, status=400)
+            busy.set_busy(True, ttl=ttl)
         elif s in _FALSY:
             busy.set_busy(False)
         else:

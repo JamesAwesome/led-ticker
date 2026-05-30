@@ -3277,7 +3277,35 @@ class TestStartBusyLight:
             names = {t.get_coro().__qualname__ for t in new_tasks}
             # http branch must have started the supervised listener...
             assert any("_serve_busy_supervised" in n for n in names)
-            # ...and ttl_seconds > 0 must have started the ticker.
+            # ...and the ticker.
+            assert any("_ttl_ticker" in n for n in names)
+        finally:
+            for t in new_tasks:
+                t.cancel()
+            await asyncio.gather(*new_tasks, return_exceptions=True)
+
+    async def test_http_source_runs_ticker_even_without_config_ttl(self):
+        # Per-request ?ttl= must be enforceable even when the config sets no
+        # default, so the http source always starts the ticker.
+        import asyncio
+
+        from led_ticker.app.run import _start_busy_light
+        from led_ticker.config import BusyLightConfig
+        from led_ticker.frame import LedFrame
+
+        before = asyncio.all_tasks()
+        cfg = BusyLightConfig(
+            enabled=True,
+            source="http",
+            http_host="127.0.0.1",
+            http_port=0,
+            ttl_seconds=0.0,
+        )
+        frame = LedFrame(led_cols=64, led_rows=32)
+        await _start_busy_light(cfg, frame)
+        new_tasks = asyncio.all_tasks() - before
+        try:
+            names = {t.get_coro().__qualname__ for t in new_tasks}
             assert any("_ttl_ticker" in n for n in names)
         finally:
             for t in new_tasks:

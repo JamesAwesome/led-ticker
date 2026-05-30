@@ -53,6 +53,40 @@ async def test_get_no_state_reports_current():
         await client.close()
 
 
+async def test_query_ttl_arms_deadline():
+    busy = BusyLight(file_path="/x")  # no config ttl default
+    client = await _client(busy)
+    try:
+        resp = await client.get("/busy", params={"state": "on", "ttl": "5"})
+        assert resp.status == 200
+        assert busy.is_busy is True
+        assert busy._busy_until is not None  # per-request ttl armed a deadline
+    finally:
+        await client.close()
+
+
+async def test_bad_ttl_returns_400():
+    busy = BusyLight(file_path="/x")
+    client = await _client(busy)
+    try:
+        resp = await client.get("/busy", params={"state": "on", "ttl": "soon"})
+        assert resp.status == 400
+        assert busy.is_busy is False
+    finally:
+        await client.close()
+
+
+async def test_negative_ttl_returns_400():
+    busy = BusyLight(file_path="/x")
+    client = await _client(busy)
+    try:
+        resp = await client.get("/busy", params={"state": "on", "ttl": "-3"})
+        assert resp.status == 400
+        assert busy.is_busy is False
+    finally:
+        await client.close()
+
+
 async def test_bad_state_returns_400():
     busy = BusyLight(file_path="/x")
     client = await _client(busy)

@@ -223,3 +223,23 @@ units = "imperial"
 update_interval = 300
 stale_after = 900
 label_color = [130, 220, 255]
+
+# --- Busy light (HTTP trigger) ---
+# A persistent dot in the top-left corner, flipped on/off by an HTTP call over
+# the LAN (e.g. a work Mac hotkey or a macOS Focus automation). The repo's
+# compose uses network_mode: host, so the listener on :8080 is reachable at the
+# Pi's address with no port mapping; bare-metal binds the host port directly.
+# Toggle it with:
+#   curl "http://PI-HOST:8080/busy?state=on&token=changeme"
+#   curl "http://PI-HOST:8080/busy?state=off&token=changeme"
+# Docs: https://docs.ledticker.dev/concepts/busy-light/
+# [busy_light]
+# enabled = true
+# source = "http"
+# http_host = "0.0.0.0"
+# http_port = 8080
+# token = "changeme"
+# corner = "top_left"
+# size = 4             # physical px; ~3-4 on the 16-tall smallsign
+# color = [255, 0, 0]
+# ttl_seconds = 0      # default auto-clear; 0 = stay on until explicit off

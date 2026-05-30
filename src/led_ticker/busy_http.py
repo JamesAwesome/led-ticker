@@ -10,6 +10,7 @@ runner.
 from __future__ import annotations
 
 import logging
+import math
 
 from aiohttp import web
 
@@ -49,7 +50,9 @@ def build_busy_app(busy: BusyLight, token: str = "") -> web.Application:
                     ttl = float(ttl_raw)
                 except ValueError:
                     return web.json_response({"error": "bad ttl"}, status=400)
-                if ttl < 0:
+                # Reject non-finite (inf/nan): an inf deadline never expires
+                # and a nan one silently degrades to "stay on forever".
+                if not math.isfinite(ttl) or ttl < 0:
                     return web.json_response({"error": "bad ttl"}, status=400)
             busy.set_busy(True, ttl=ttl)
         elif s in _FALSY:

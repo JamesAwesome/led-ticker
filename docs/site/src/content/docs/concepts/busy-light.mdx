@@ -117,7 +117,7 @@ curl "http://PI-HOST:8080/busy?token=change-me"
 
 A busy light can auto-clear after a set time, so you don't have to remember to send `off`. There are two ways to set it:
 
-- **Per request** — add `&ttl=N` (seconds) to a `state=on` call: `…/busy?state=on&ttl=60`. The light turns on and clears itself after `N` seconds unless refreshed by another `state=on`. This overrides the config default for that one request; `ttl=0` means "stay on until an explicit off". A non-numeric or negative `ttl` returns `400`.
+- **Per request** — add `&ttl=N` (seconds) to a `state=on` call: `…/busy?state=on&ttl=60`. The light turns on and clears itself after `N` seconds unless refreshed by another `state=on`. This overrides the config default for that one request; `ttl=0` means "stay on until an explicit off". An invalid `ttl` (non-numeric, negative, or non-finite like `inf`/`nan`) returns `400`. `ttl` is always a **query parameter** — even on a POST it goes in the URL (`POST …/busy?ttl=60` with the state in the body), never in the request body.
 - **Config default** — `ttl_seconds` in `[busy_light]` applies to every `state=on` that omits `?ttl=`. `ttl_seconds = 0` (the default) means on-until-explicit-off; set e.g. `1800` for a 30-minute safety net if the sender sleeps mid-meeting and never sends `off`.
 
 TTL applies only to the HTTP source — the file source is polled directly and never arms a deadline.

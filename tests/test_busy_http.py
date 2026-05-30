@@ -87,6 +87,67 @@ async def test_negative_ttl_returns_400():
         await client.close()
 
 
+async def test_inf_ttl_returns_400():
+    # `inf` parses as a float but would arm a deadline that never expires.
+    busy = BusyLight(file_path="/x")
+    client = await _client(busy)
+    try:
+        resp = await client.get("/busy", params={"state": "on", "ttl": "inf"})
+        assert resp.status == 400
+        assert busy.is_busy is False
+    finally:
+        await client.close()
+
+
+async def test_nan_ttl_returns_400():
+    busy = BusyLight(file_path="/x")
+    client = await _client(busy)
+    try:
+        resp = await client.get("/busy", params={"state": "on", "ttl": "nan"})
+        assert resp.status == 400
+        assert busy.is_busy is False
+    finally:
+        await client.close()
+
+
+async def test_no_query_ttl_falls_back_to_config_default():
+    busy = BusyLight(file_path="/x", ttl_seconds=30.0)
+    client = await _client(busy)
+    try:
+        resp = await client.get("/busy", params={"state": "on"})
+        assert resp.status == 200
+        assert busy._busy_until is not None  # config default applied
+    finally:
+        await client.close()
+
+
+async def test_ttl_zero_via_http_clears_prior_deadline():
+    busy = BusyLight(file_path="/x", ttl_seconds=30.0)
+    busy.set_busy(True, now=100.0)
+    assert busy._busy_until == 130.0
+    client = await _client(busy)
+    try:
+        resp = await client.get("/busy", params={"state": "on", "ttl": "0"})
+        assert resp.status == 200  # ttl=0 is valid, not rejected
+        assert busy.is_busy is True
+        assert busy._busy_until is None  # deadline cleared, stays on
+    finally:
+        await client.close()
+
+
+async def test_post_with_query_ttl_arms_deadline():
+    # ttl is a query param even on POST (the body carries the state).
+    busy = BusyLight(file_path="/x")
+    client = await _client(busy)
+    try:
+        resp = await client.post("/busy", params={"ttl": "5"}, data="on")
+        assert resp.status == 200
+        assert busy.is_busy is True
+        assert busy._busy_until is not None
+    finally:
+        await client.close()
+
+
 async def test_bad_state_returns_400():
     busy = BusyLight(file_path="/x")
     client = await _client(busy)

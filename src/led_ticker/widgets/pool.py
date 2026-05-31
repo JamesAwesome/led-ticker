@@ -214,7 +214,15 @@ class PoolMonitor:
     title: str = "POOL TEMPS"
     sensor_id: str | None = None
     units: str = "imperial"
-    stale_after: float = 900.0
+    # How far back to look for the latest reading. Decoupled from
+    # `stale_after`: this is the hard cutoff below which there's nothing
+    # to show (→ "--"); a found reading older than `stale_after` still
+    # displays, dimmed. Flux duration string (e.g. "-24h", "-90m").
+    current_window: str = "-24h"
+    # Seconds since the last reading before it's shown dim-gray as stale.
+    # 4 h default so a reading that rode out a multi-hour sensor gap shows
+    # (dimmed) rather than dimming almost immediately.
+    stale_after: float = 14400.0
     influxdb_url: str = attrs.field(
         factory=lambda: os.getenv("INFLUXDB_URL", "http://influxdb:8086")
     )
@@ -291,7 +299,7 @@ class PoolMonitor:
 
     async def update(self) -> None:
         year_start = f"{datetime.now(UTC).year}-01-01T00:00:00Z"
-        current_c, current_time = await self._query("-1h", "last")
+        current_c, current_time = await self._query(self.current_window, "last")
         past_c, _ = await self._query("-45m", "mean")  # ~30 min lookback avg
         today_min_c, _ = await self._query("today()", "min")
         today_max_c, _ = await self._query("today()", "max")

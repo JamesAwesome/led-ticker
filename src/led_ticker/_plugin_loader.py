@@ -1,6 +1,7 @@
 """Plugin discovery and loading (internal). Plugins never import this."""
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -33,6 +34,7 @@ class LoadedPlugins:
     failed: list[tuple[str, str]] = field(default_factory=list)
 
 
+# Load-once guard; assigned by load_plugins() (added in Task A3).
 _LOADED: LoadedPlugins | None = None
 
 
@@ -55,6 +57,9 @@ def _commit(api: PluginAPI, info: PluginInfo) -> None:
     for surface, buf in api._buffers.items():
         registry = _REGISTRY_MAP.get(surface)
         if registry is None:
+            logger.debug(
+                "surface %r not in _REGISTRY_MAP; skipping (hook surface?)", surface
+            )
             continue
         for name in buf:
             if name in registry:
@@ -66,13 +71,13 @@ def _commit(api: PluginAPI, info: PluginInfo) -> None:
         for name, obj in buf.items():
             registry[name] = obj
         if buf:
-            info.counts[surface] = info.counts.get(surface, 0) + len(buf)
+            info.counts[surface] = len(buf)
 
 
 def _load_one(
     namespace: str,
     source: str,
-    register,
+    register: Callable[[PluginAPI], None] | None,
     requires_api: int | None,
     loaded_namespaces: set[str],
     result: LoadedPlugins,

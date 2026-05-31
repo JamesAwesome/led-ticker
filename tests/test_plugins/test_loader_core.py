@@ -58,3 +58,25 @@ def test_cannot_shadow_a_builtin_name():
     L._load_one("acme", "test", reg, None, set(), result)
     assert "acme.weather" in _WIDGET_REGISTRY
     assert _WIDGET_REGISTRY["weather"].__name__ != "W"  # builtin untouched
+
+
+def test_namespace_already_claimed_skipped():
+    result = L.LoadedPlugins()
+    seen = {"acme"}
+    L._load_one("acme", "second", _ok_register, None, seen, result)
+    assert result.loaded == []
+    assert result.failed and "already claimed" in result.failed[0][1]
+
+
+def test_api_version_mismatch_skipped():
+    result = L.LoadedPlugins()
+    L._load_one("acme", "src", _ok_register, 99, set(), result)
+    assert result.loaded == []
+    assert result.failed and "requires API" in result.failed[0][1]
+
+
+def test_missing_register_skipped():
+    result = L.LoadedPlugins()
+    L._load_one("acme", "src", None, None, set(), result)
+    assert result.loaded == []
+    assert result.failed and "register" in result.failed[0][1]

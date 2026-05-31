@@ -1,8 +1,11 @@
 """Plugin discovery and loading (internal). Plugins never import this."""
 
+import importlib.util
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 from led_ticker.plugin import API_VERSION, PluginAPI
@@ -114,3 +117,60 @@ def _load_one(
     loaded_namespaces.add(namespace)
     result.loaded.append(info)
     logger.info("plugin %r loaded from %s (%s)", namespace, source, info.counts)
+
+
+def _import_from_path(mod_name: str, init: Path) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(mod_name, init)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load plugin module from {init}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _discover_local(plugin_dir: Path):
+    """Yield (namespace, source, thunk) for each local plugin. The thunk imports
+    the module lazily and returns (register, requires_api)."""
+    if not plugin_dir.is_dir():
+        return
+    for entry in sorted(plugin_dir.iterdir()):
+        if entry.name.startswith("_"):
+            continue
+        if entry.suffix == ".py" and entry.is_file():
+            ns, init = entry.stem, entry
+        elif entry.is_dir() and (entry / "__init__.py").exists():
+            ns, init = entry.name, entry / "__init__.py"
+        else:
+            continue
+
+        def thunk(ns=ns, init=init):
+            mod = _import_from_path(f"led_ticker_plugin_{ns}", init)
+            return getattr(mod, "register", None), getattr(mod, "requires_api", None)
+
+        yield ns, str(entry), thunk
+
+
+def load_plugins(
+    plugin_dir: Path | None, *, entry_points_enabled: bool = True
+) -> LoadedPlugins:
+    """Discover + load all plugins once. Idempotent (call reset_plugins() in
+    tests to reload)."""
+    global _LOADED  # noqa: PLW0603
+    if _LOADED is not None:
+        return _LOADED
+    result = LoadedPlugins()
+    loaded_ns: set[str] = set()
+    sources = []
+    if plugin_dir is not None:
+        sources.extend(_discover_local(plugin_dir))
+    # Entry-point discovery is added in Task A4.
+    for ns, source, thunk in sources:
+        try:
+            register, requires = thunk()
+        except Exception as e:
+            logger.exception("plugin %r (%s) failed to import", ns, source)
+            result.failed.append((ns, str(e)))
+            continue
+        _load_one(ns, source, register, requires, loaded_ns, result)
+    _LOADED = result
+    return result

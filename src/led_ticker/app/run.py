@@ -5,8 +5,6 @@ indefinitely. Widget construction and coercion happen in factories.py;
 the run loop here only orchestrates.
 """
 
-from __future__ import annotations
-
 import asyncio
 import contextlib
 import logging

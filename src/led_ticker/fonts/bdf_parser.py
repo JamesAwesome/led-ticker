@@ -7,8 +7,6 @@ The existing C font path (`graphics.DrawText`) handles `scale = 1`; this
 parser backs the `scale > 1` path via `ScaledCanvas`.
 """
 
-from __future__ import annotations
-
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 

@@ -28,8 +28,6 @@ opt out (continuous sweep / cycle); the others keep the default
 (frame-invariant or visit-driven re-roll).
 """
 
-from __future__ import annotations
-
 import math
 import random
 from typing import Protocol

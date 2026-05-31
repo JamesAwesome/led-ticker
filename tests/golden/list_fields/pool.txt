@@ -1,0 +1,27 @@
+Fields for type="pool":
+
+Optional:
+  title                         str                                           default: "MLB Standings"  — standings panel header text
+  sensor_id                     str | None                                    default: None
+  units                         "imperial" | "metric"                         default: "imperial"  — temperature unit system
+  stale_after                   float                                         default: 900.0
+  influxdb_url                  str                                           default: <computed>
+  influxdb_org                  str                                           default: <computed>
+  influxdb_bucket               str                                           default: <computed>
+  influxdb_token                str                                           default: <computed>
+  font                          font name                                     default: panel default font  — BDF alias or hi-res font name
+  layout                        "ticker" | "two_row" | "scoreboard"           default: "ticker"  — widget render mode. pool: ticker (single-row segmented, with trend arrow) or two_row (stacked label-on-top / big-value-on-bottom, bigsign-recommended). mlb: ticker or scoreboard (two-column zone layout with ABS challenge pips).
+  label_color                   [r, g, b]                                     default: white  — color for the prefix labels and separators
+  top_font                      font name                                     default: none  — per-row font override for the top row; BDF alias or hi-res font name
+  bottom_font                   font name                                     default: none  — per-row font override for the bottom row; BDF alias or hi-res font name
+  top_row_height                int | none                                    default: none  — top row height in logical pixels (none = 50/50 split)
+
+Shared fields:
+  type                          
+  text                          str    — widget text content
+  font_size                     int (pixels)  default: none  — text height in real pixels; required for hi-res fonts
+  font_threshold                int 0–255  default: 128  — bitmask threshold for hi-res font rendering
+  top_font_size                 
+  top_font_threshold            
+  bottom_font_size              
+  bottom_font_threshold         

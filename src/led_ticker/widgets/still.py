@@ -75,8 +75,6 @@ Validated at first paint (panel dims unknown until then):
     - Resolved ``font_size``'s logical line-height fits the panel
 """
 
-from __future__ import annotations
-
 import asyncio
 from pathlib import Path
 from typing import Any

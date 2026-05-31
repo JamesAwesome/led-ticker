@@ -40,8 +40,6 @@ framework scrolls it left regardless.
 Inline emoji slugs (`:instagram:`, `:email:`, etc.) work in both rows.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 import attrs

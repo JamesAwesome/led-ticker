@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "led-ticker"
 version = "2.0.0"
 description = "Asyncio LED matrix display for news, weather, crypto, and more"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 authors = [
     { name = "James Awesome", email = "james@morelli.nyc" },
 ]
@@ -48,11 +48,11 @@ markers = [
 
 [tool.pyright]
 pythonPlatform = "All"
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 extraPaths = ["tests/stubs"]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py314"
 src = ["src"]
 
 [tool.ruff.lint]

@@ -11,8 +11,6 @@ Fit/alpha primitives live in `_image_fit.py` and are shared with the
 still-image decoder.
 """
 
-from __future__ import annotations
-
 import logging
 from pathlib import Path
 

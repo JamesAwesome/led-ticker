@@ -24,8 +24,6 @@ need to be aware of `bg_color` — they just implement both paint
 methods and the base class picks.
 """
 
-from __future__ import annotations
-
 import asyncio
 from enum import StrEnum
 from typing import Any

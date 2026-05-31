@@ -12,8 +12,6 @@ The renderer (`text_render._draw_hires_text`) then paints lit pixels
 directly to the unwrapped real canvas at native physical resolution.
 """
 
-from __future__ import annotations
-
 import functools
 import string
 from dataclasses import dataclass, field

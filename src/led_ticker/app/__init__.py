@@ -4,8 +4,6 @@ This package replaces the former app.py module. All names remain
 importable from this namespace for backwards compatibility.
 """
 
-from __future__ import annotations
-
 # CLI
 from led_ticker.app.cli import _setup_logging, main
 

@@ -1,7 +1,5 @@
 """Instant, flash, dissolve, split, and scroll transition effects."""
 
-from __future__ import annotations
-
 import functools
 from typing import Any
 

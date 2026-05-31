@@ -1,7 +1,5 @@
 """Shared drawing helpers for LED canvas rendering."""
 
-from __future__ import annotations
-
 import math
 from typing import Any
 

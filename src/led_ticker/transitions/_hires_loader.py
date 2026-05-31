@@ -11,8 +11,6 @@ and `PokeballReverse` -- they all paint a single sprite that traverses
 horizontally and snap to incoming near t=1.0.
 """
 
-from __future__ import annotations
-
 import functools
 import math
 from dataclasses import dataclass, field

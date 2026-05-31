@@ -1,7 +1,5 @@
 """Coinbase price monitor widget."""
 
-from __future__ import annotations
-
 import asyncio
 import logging
 from datetime import date, timedelta

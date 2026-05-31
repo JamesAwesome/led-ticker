@@ -1,7 +1,5 @@
 """Sailor Moon wand transition with sparkle trail."""
 
-from __future__ import annotations
-
 from typing import Any, ClassVar
 
 from led_ticker._types import Canvas, PixelData

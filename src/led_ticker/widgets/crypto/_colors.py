@@ -10,8 +10,6 @@ pattern as `led_ticker.colors`): importing this module is a no-op
 against the rgbmatrix library.
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
 from led_ticker.colors import lazy_palette

@@ -1,0 +1,49 @@
+Fields for type="gif":
+
+Required:
+  path                          str                                           (required)  — path to file (relative to config dir or absolute)
+
+Optional:
+  text                          str                                           default: ''  — widget text content
+  text_align                    "auto" | "scroll" | "scroll_over" | "left" | "right" | "center"  default: "auto"  — text scroll/position mode
+  text_valign                   "top" | "center" | "bottom"                   default: "center"  — vertical text alignment
+  text_y_offset                 int                                           default: 0
+  text_x_offset                 int                                           default: 0
+  scroll_direction              "left" | "right"                              default: "left"  — direction the text scrolls
+  font_color                    color | "rainbow" | "color_cycle" | "shimmer" | {style=...}  default: white  — text color or animated color provider
+  bg_color                      [r, g, b] | none                              default: none  — solid background fill color
+  scroll_speed_ms               int (ms)                                      default: 50  — milliseconds per scroll step
+  text_loops                    int                                           default: 0  — minimum full text scrolls before advancing; 0 = one loop (NOT zero loops)
+  text_wrap                     bool                                          default: False
+  text_separator                str | None                                    default: None
+  text_separator_color          Any | None                                    default: None
+  animation                     "typewriter" | {style="typewriter", frames_per_char=N}  default: none  — text animation effect
+  font                          font name                                     default: panel default font  — BDF alias or hi-res font name
+  font_size                     int (pixels)                                  default: none  — text height in real pixels; required for hi-res fonts
+  border                        {style="rainbow_chase", speed=N, width=N}     default: none  — animated border painted at panel edges
+  fit                           "pillarbox" | "letterbox" | "stretch" | "crop"  default: "pillarbox"  — how image fills canvas
+  image_align                   "left" | "center" | "right"                   default: "center"  — horizontal image alignment within canvas
+  play_count                    int                                           default: 1  — times the gif/image plays per visit; 0 = loop for section hold_time duration
+
+Two-row overlay (set bottom_text to enable):
+  bottom_text_wrap              bool                                          default: False
+  bottom_text_separator         str | None                                    default: None
+  bottom_text_separator_color   Any | None                                    default: None
+  bottom_text_scroll            "marquee" | "scroll_through"                  default: "marquee"  — bottom row scroll behavior on overflow
+  top_text                      str                                           default: ''  — top row text content
+  bottom_text                   str                                           default: ''  — bottom row text; set to non-empty to enable two-row mode
+  top_color                     color | "rainbow" | "color_cycle" | "shimmer" | {style=...}  default: white  — top row text color
+  bottom_color                  color | "rainbow" | "color_cycle" | "shimmer" | {style=...}  default: white  — bottom row text color
+  top_align                     "left" | "center" | "right"                   default: "center"  — top row horizontal alignment
+  bottom_align                  "left" | "center" | "right"                   default: "center"  — bottom row horizontal alignment
+  top_font                      font name                                     default: none  — per-row font override for the top row; BDF alias or hi-res font name
+  bottom_font                   font name                                     default: none  — per-row font override for the bottom row; BDF alias or hi-res font name
+  top_text_y_offset             int                                           default: 0
+  bottom_text_y_offset          int                                           default: 0
+  top_emoji_y_offset            int                                           default: 0
+  bottom_emoji_y_offset         int                                           default: 0
+  top_row_height                int | none                                    default: none  — top row height in logical pixels (none = 50/50 split)
+
+Shared fields:
+  type                          
+  font_threshold                int 0–255  default: 128  — bitmask threshold for hi-res font rendering

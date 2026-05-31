@@ -231,6 +231,10 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "column zone layout with ABS challenge pips).",
         '"ticker"',
     ),
+    # --- Pool ---
+    "label_color": FieldHint(
+        "[r, g, b]", "color for the prefix labels and separators", "white"
+    ),
     # --- MLB ---
     "team": FieldHint(
         "str",

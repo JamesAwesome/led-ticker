@@ -1,0 +1,18 @@
+Fields for type="countdown":
+
+Required:
+  text                          str                                           (required)  — widget text content
+  countdown_date                YYYY-MM-DD                                    (required)  — target date to count down to (ISO format, e.g. 2026-12-25)
+
+Optional:
+  font                          font name                                     default: panel default font  — BDF alias or hi-res font name
+  font_color                    color | "rainbow" | "color_cycle" | "shimmer" | {style=...}  default: white  — text color or animated color provider
+  bg_color                      [r, g, b] | none                              default: none  — solid background fill color
+  center                        bool                                          default: true  — center text when it fits; false = left-align
+  padding                       int (pixels)                                  default: 6  — end padding (spacing in side-by-side scroll)
+  border                        {style="rainbow_chase", speed=N, width=N}     default: none  — animated border painted at panel edges
+
+Shared fields:
+  type                          
+  font_size                     int (pixels)  default: none  — text height in real pixels; required for hi-res fonts
+  font_threshold                int 0–255  default: 128  — bitmask threshold for hi-res font rendering

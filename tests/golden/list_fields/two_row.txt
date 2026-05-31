@@ -1,0 +1,41 @@
+Fields for type="two_row":
+
+Required:
+  top_text                      str                                           (required)  — top row text content
+  bottom_text                   str                                           (required)  — bottom row text; set to non-empty to enable two-row mode
+
+Optional:
+  font                          font name                                     default: panel default font  — BDF alias or hi-res font name
+  top_font                      Font | None                                   default: None
+  bottom_font                   Font | None                                   default: None
+  top_color                     color | "rainbow" | "color_cycle" | "shimmer" | {style=...}  default: white  — top row text color
+  bottom_color                  color | "rainbow" | "color_cycle" | "shimmer" | {style=...}  default: white  — bottom row text color
+  bg_color                      [r, g, b] | none                              default: none  — solid background fill color
+  top_bg_color                  Color | None                                  default: None
+  bottom_bg_color               Color | None                                  default: None
+  top_align                     "left" | "center" | "right"                   default: "center"  — top row horizontal alignment
+  bottom_align                  "left" | "center" | "right"                   default: "center"  — bottom row horizontal alignment
+  padding                       int (pixels)                                  default: 6  — end padding (spacing in side-by-side scroll)
+  hold_time                     float (seconds)                               default: 0.0  — per-widget display duration floor; 0.0 defers to section
+  top_center                    bool | None                                   default: None
+  top_row_height                int | none                                    default: none  — top row height in logical pixels (none = 50/50 split)
+  top_text_y_offset             int                                           default: 0
+  bottom_text_y_offset          int                                           default: 0
+  top_emoji_y_offset            int                                           default: 0
+  bottom_emoji_y_offset         int                                           default: 0
+  border                        {style="rainbow_chase", speed=N, width=N}     default: none  — animated border painted at panel edges
+  bottom_text_wrap              bool                                          default: False
+  bottom_text_separator         str | None                                    default: None
+  bottom_text_separator_color   Any | None                                    default: None
+  bottom_text_loops             int                                           default: 0
+  bottom_text_scroll            "marquee" | "scroll_through"                  default: "marquee"  — bottom row scroll behavior on overflow
+
+Shared fields:
+  type                          
+  text                          str    — widget text content
+  font_size                     int (pixels)  default: none  — text height in real pixels; required for hi-res fonts
+  font_threshold                int 0–255  default: 128  — bitmask threshold for hi-res font rendering
+  top_font_size                 
+  top_font_threshold            
+  bottom_font_size              
+  bottom_font_threshold         

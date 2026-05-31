@@ -1,0 +1,25 @@
+Fields for type="mlb":
+
+Required:
+  team                          str                                           (required)  — MLB team abbreviation (e.g. PHI, NYM, LAD)
+
+Optional:
+  timezone                      str (TZ name)                                 default: "America/New_York"  — IANA timezone name for game/event times (e.g. America/New_York)
+  padding                       int (pixels)                                  default: 6  — end padding (spacing in side-by-side scroll)
+  final_hold_hours              int (hours)                                   default: 6  — hours to display final score before advancing to next widget
+  hold_time                     float (seconds)                               default: 0.0  — per-widget display duration floor; 0.0 defers to section
+  bg_color                      [r, g, b] | none                              default: none  — solid background fill color
+  font_color                    color | "rainbow" | "color_cycle" | "shimmer" | {style=...}  default: white  — text color or animated color provider
+  font                          font name                                     default: panel default font  — BDF alias or hi-res font name
+  small_font                    font name                                     default: 5x8 (FONT_SMALL)  — secondary font for scoreboard center zone (inning, outs, BSO, bases); BDF alias or hi-res font name
+  layout                        "ticker" | "two_row" | "scoreboard"           default: "ticker"  — widget render mode. pool: ticker (single-row segmented, with trend arrow) or two_row (stacked label-on-top / big-value-on-bottom, bigsign-recommended). mlb: ticker or scoreboard (two-column zone layout with ABS challenge pips).
+  top_font                      Font | None                                   default: None
+  top_row_height                int | none                                    default: none  — top row height in logical pixels (none = 50/50 split)
+
+Shared fields:
+  type                          
+  text                          str    — widget text content
+  font_size                     int (pixels)  default: none  — text height in real pixels; required for hi-res fonts
+  font_threshold                int 0–255  default: 128  — bitmask threshold for hi-res font rendering
+  top_font_size                 
+  top_font_threshold            

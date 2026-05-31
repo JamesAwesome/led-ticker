@@ -1,6 +1,5 @@
 """CoinGecko price monitor widget."""
 
-import asyncio
 import logging
 from typing import Any, Self
 
@@ -10,7 +9,7 @@ import attrs
 from led_ticker._types import Canvas, Color, DrawResult
 from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR
-from led_ticker.widget import run_monitor_loop
+from led_ticker.widget import run_monitor_loop, spawn_tracked
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import _FrameAware
 from led_ticker.widgets.crypto.coinbase import _draw_price_ticker
@@ -68,7 +67,7 @@ class CoinGeckoPriceMonitor(_FrameAware):
             **{k: v for k, v in kwargs.items() if k in valid},
         )
         await widget.update()
-        asyncio.create_task(run_monitor_loop(widget, update_interval))
+        spawn_tracked(run_monitor_loop(widget, update_interval))
         return widget
 
     async def update(self) -> None:

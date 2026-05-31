@@ -28,23 +28,7 @@ from led_ticker.busy_http import serve_busy
 from led_ticker.config import load_config
 from led_ticker.ticker import Ticker, _expand_sources, _maybe_wrap
 from led_ticker.transitions import Transition, run_transition
-from led_ticker.widget import run_monitor_loop
-
-# Strong references to fire-and-forget background tasks. The event loop only
-# holds WEAK references to tasks, so a task with no strong reference elsewhere
-# can be garbage-collected mid-flight ("Task was destroyed but it is pending!").
-# This bites _serve_busy_supervised in particular: it suspends on
-# asyncio.Event().wait(), a reference cycle anchored to no GC root — unlike the
-# asyncio.sleep-based tasks, which the loop's timer heap keeps reachable.
-_BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
-
-
-def _spawn_background(coro: Any) -> asyncio.Task[Any]:
-    """create_task + keep a strong reference until the task completes."""
-    task = asyncio.create_task(coro)
-    _BACKGROUND_TASKS.add(task)
-    task.add_done_callback(_BACKGROUND_TASKS.discard)
-    return task
+from led_ticker.widget import run_monitor_loop, spawn_tracked
 
 
 async def _ttl_ticker(busy: Any, interval: float = 1.0) -> None:
@@ -93,14 +77,14 @@ async def _start_busy_light(cfg: Any, led_frame: Any) -> Any:
     )
     led_frame.overlay_hooks.append(busy.paint)
     if cfg.source == "http":
-        _spawn_background(_serve_busy_supervised(busy, cfg))
+        spawn_tracked(_serve_busy_supervised(busy, cfg))
         # Always run the ticker for the HTTP source so a per-request ?ttl=
         # (or the configured ttl_seconds default) is enforced. The file
         # source never arms a deadline, so it needs no ticker.
-        _spawn_background(_ttl_ticker(busy))
+        spawn_tracked(_ttl_ticker(busy))
     else:
         await busy.update()  # fast initial read so the dot is correct on frame 1
-        _spawn_background(run_monitor_loop(busy, cfg.poll_interval, splay=False))
+        spawn_tracked(run_monitor_loop(busy, cfg.poll_interval, splay=False))
     return busy
 
 

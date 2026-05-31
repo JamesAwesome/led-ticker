@@ -1,6 +1,5 @@
 """Pool water-temperature widget backed by the pool_monitor InfluxDB v2 server."""
 
-import asyncio
 import csv
 import io
 import logging
@@ -16,7 +15,7 @@ from led_ticker._types import Color, Font
 from led_ticker.color_providers import ColorProviderBase
 from led_ticker.colors import BLUE, GREEN, ORANGE, PINK, RED, RGB_WHITE, make_color
 from led_ticker.fonts import FONT_DEFAULT
-from led_ticker.widget import run_monitor_loop
+from led_ticker.widget import run_monitor_loop, spawn_tracked
 from led_ticker.widgets import register
 from led_ticker.widgets.message import SegmentMessage
 from led_ticker.widgets.two_row import TwoRowMessage
@@ -256,7 +255,7 @@ class PoolMonitor:
             await widget.update()
         except Exception:
             logger.exception("Pool initial update failed; showing placeholder")
-        asyncio.create_task(run_monitor_loop(widget, update_interval))
+        spawn_tracked(run_monitor_loop(widget, update_interval))
         return widget
 
     async def _query(

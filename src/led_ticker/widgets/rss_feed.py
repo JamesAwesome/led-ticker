@@ -12,7 +12,7 @@ import feedparser
 from led_ticker._types import Color, Font
 from led_ticker.colors import DEFAULT_COLOR, GREEN, RED
 from led_ticker.fonts import FONT_DEFAULT
-from led_ticker.widget import run_monitor_loop
+from led_ticker.widget import run_monitor_loop, spawn_tracked
 from led_ticker.widgets import register
 from led_ticker.widgets.message import TickerMessage
 
@@ -58,7 +58,7 @@ class RSSFeedMonitor:
     ) -> Self:
         widget = cls(session=session, feed_url=feed_url, **kwargs)
         await widget.update()
-        asyncio.create_task(run_monitor_loop(widget, update_interval))
+        spawn_tracked(run_monitor_loop(widget, update_interval))
         return widget
 
     async def update(self) -> None:

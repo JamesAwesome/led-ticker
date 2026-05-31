@@ -1,6 +1,5 @@
 """Etherscan gas price monitor widget."""
 
-import asyncio
 import logging
 from typing import Any, Self
 
@@ -14,7 +13,7 @@ from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import compute_baseline, get_text_width
 from led_ticker.fonts import FONT_LABEL, FONT_VALUE
 from led_ticker.text_render import draw_text
-from led_ticker.widget import run_monitor_loop
+from led_ticker.widget import run_monitor_loop, spawn_tracked
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import _FrameAware
 from led_ticker.widgets.crypto._colors import DOWN_TREND_COLOR, UP_TREND_COLOR
@@ -83,7 +82,7 @@ class EtherscanGasMonitor(_FrameAware):
             **{k: v for k, v in kwargs.items() if k in valid},
         )
         await widget.update()
-        asyncio.create_task(run_monitor_loop(widget, update_interval))
+        spawn_tracked(run_monitor_loop(widget, update_interval))
         return widget
 
     async def update(self) -> None:

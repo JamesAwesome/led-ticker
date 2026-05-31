@@ -68,6 +68,12 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "white",
     ),
     "bg_color": FieldHint("[r, g, b] | none", "solid background fill color", "none"),
+    "top_bg_color": FieldHint(
+        "[r, g, b] | none", "solid background fill for the top row band", "none"
+    ),
+    "bottom_bg_color": FieldHint(
+        "[r, g, b] | none", "solid background fill for the bottom row band", "none"
+    ),
     "animation": FieldHint(
         '"typewriter" | {style="typewriter", frames_per_char=N}',
         "text animation effect",
@@ -143,6 +149,16 @@ FIELD_HINTS: dict[str, FieldHint] = {
     ),
     "bottom_align": FieldHint(
         '"left" | "center" | "right"', "bottom row horizontal alignment", '"center"'
+    ),
+    "top_font": FieldHint(
+        "font name",
+        "per-row font override for the top row; BDF alias or hi-res font name",
+        "none",
+    ),
+    "bottom_font": FieldHint(
+        "font name",
+        "per-row font override for the bottom row; BDF alias or hi-res font name",
+        "none",
     ),
     "bottom_text_scroll": FieldHint(
         '"marquee" | "scroll_through"',

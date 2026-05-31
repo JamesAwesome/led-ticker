@@ -13,7 +13,7 @@ Optional:
   font                          font name                                     default: panel default font  — BDF alias or hi-res font name
   small_font                    font name                                     default: 5x8 (FONT_SMALL)  — secondary font for scoreboard center zone (inning, outs, BSO, bases); BDF alias or hi-res font name
   layout                        "ticker" | "two_row" | "scoreboard"           default: "ticker"  — widget render mode. pool: ticker (single-row segmented, with trend arrow) or two_row (stacked label-on-top / big-value-on-bottom, bigsign-recommended). mlb: ticker or scoreboard (two-column zone layout with ABS challenge pips).
-  top_font                      Any | None                                    default: None
+  top_font                      font name                                     default: none  — per-row font override for the top row; BDF alias or hi-res font name
   top_row_height                int | none                                    default: none  — top row height in logical pixels (none = 50/50 split)
 
 Shared fields:

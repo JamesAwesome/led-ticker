@@ -6,13 +6,13 @@ Required:
 
 Optional:
   font                          font name                                     default: panel default font  — BDF alias or hi-res font name
-  top_font                      Any | None                                    default: None
-  bottom_font                   Any | None                                    default: None
+  top_font                      font name                                     default: none  — per-row font override for the top row; BDF alias or hi-res font name
+  bottom_font                   font name                                     default: none  — per-row font override for the bottom row; BDF alias or hi-res font name
   top_color                     color | "rainbow" | "color_cycle" | "shimmer" | {style=...}  default: white  — top row text color
   bottom_color                  color | "rainbow" | "color_cycle" | "shimmer" | {style=...}  default: white  — bottom row text color
   bg_color                      [r, g, b] | none                              default: none  — solid background fill color
-  top_bg_color                  Any | None                                    default: None
-  bottom_bg_color               Any | None                                    default: None
+  top_bg_color                  [r, g, b] | none                              default: none  — solid background fill for the top row band
+  bottom_bg_color               [r, g, b] | none                              default: none  — solid background fill for the bottom row band
   top_align                     "left" | "center" | "right"                   default: "center"  — top row horizontal alignment
   bottom_align                  "left" | "center" | "right"                   default: "center"  — bottom row horizontal alignment
   padding                       int (pixels)                                  default: 6  — end padding (spacing in side-by-side scroll)

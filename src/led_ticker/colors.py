@@ -11,8 +11,6 @@ mapping, get back a function suitable for use as a module-level
 `__getattr__`. `widgets/mlb.py` uses this pattern for its own palette.
 """
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from functools import cache
 from typing import TYPE_CHECKING

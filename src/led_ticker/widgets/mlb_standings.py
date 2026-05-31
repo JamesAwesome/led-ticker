@@ -1,7 +1,5 @@
 """MLB standings widget using the free MLB Stats API."""
 
-from __future__ import annotations
-
 import asyncio
 import contextlib
 import logging

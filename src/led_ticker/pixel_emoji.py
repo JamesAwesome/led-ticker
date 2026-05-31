@@ -21,8 +21,6 @@ Two resolutions are supported:
    version if no `ScaledCanvas` is in use.
 """
 
-from __future__ import annotations
-
 import re
 from dataclasses import dataclass
 from typing import Any

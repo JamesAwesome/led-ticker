@@ -1,7 +1,5 @@
 """Baseball sprite and rolling animation for LED matrix transitions."""
 
-from __future__ import annotations
-
 from typing import Any, ClassVar
 
 from led_ticker._types import Canvas, PixelData

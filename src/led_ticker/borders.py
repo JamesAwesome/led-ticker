@@ -64,8 +64,6 @@ out (continuous chase); `ConstantBorder` keeps the default
 (frame-invariant, so the value is a no-op).
 """
 
-from __future__ import annotations
-
 import functools
 from typing import Any, Protocol, cast
 

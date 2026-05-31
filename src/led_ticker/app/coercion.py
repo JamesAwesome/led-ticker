@@ -5,8 +5,6 @@ ColorProvider, BorderEffect, Animation, Font. No dependencies on the
 widget/ticker engine — only on provider registries and the _coerce helpers.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from led_ticker.animations import Animation

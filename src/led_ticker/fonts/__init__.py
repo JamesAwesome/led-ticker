@@ -5,8 +5,6 @@ so the bigsign rendering path can rasterize text without going through the
 C-only `graphics.DrawText`.
 """
 
-from __future__ import annotations
-
 import os
 
 from led_ticker._compat import require_graphics

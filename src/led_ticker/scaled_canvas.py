@@ -8,8 +8,6 @@ Used only when `scale > 1`. At `scale = 1` the existing sign uses the real
 canvas directly without a wrapper.
 """
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from typing import Any
 

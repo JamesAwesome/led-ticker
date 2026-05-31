@@ -267,7 +267,7 @@ User-facing reference: <https://docs.ledticker.dev/reference/config-options/>.
 
 ### Docker / Deployment
 
-- Production image: `python:3.13-bullseye` base, 3-layer caching (rgbmatrix → deps → source).
+- Production image: `python:3.14-bookworm` base, 3-layer caching (rgbmatrix → deps → source).
 - Single image runs on both Pi 4 and Pi 5. The rgbmatrix library is hardcoded to `jamesawesome/rpi-rgb-led-matrix` (default branch `main`) — Pi5 RP1 support (hzeller#1886, merged upstream) plus three patches: GCC10 anonymous-param fix (`pio_rp1.c`), Pillow shim (`graphics.py`), SubFill Python binding (`core.pyx`). The library detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). The pre-RP1 codebase is preserved on the `pi4_legacy` branch.
 - On the Pi 5, the runtime CLI also accepts `--led-rp1-rio=0|1` (PIO vs Registered IO mode). For chain length ≥ 2 with flicker, raise `gpio_slowdown` from 2 to 3+.
 - Config mounted read-only: `./config:/code/config:ro`.

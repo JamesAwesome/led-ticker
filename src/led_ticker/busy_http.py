@@ -7,8 +7,6 @@ server. build_busy_app() is pure for testing; serve_busy() is the production
 runner.
 """
 
-from __future__ import annotations
-
 import logging
 import math
 

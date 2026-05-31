@@ -6,8 +6,6 @@ each 2px tall (fills the 12px behind the cat, plus extends left).
 The full display is 16px tall, so the cat is centered at y=3.
 """
 
-from __future__ import annotations
-
 from typing import Any, ClassVar
 
 from led_ticker._types import Canvas, ColorTuple, PixelData

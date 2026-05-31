@@ -5,13 +5,12 @@ All coercion of raw TOML values happens in coercion.py before these
 functions are called.
 """
 
-from __future__ import annotations
-
 import collections
 import difflib
 import inspect
 import itertools
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -69,6 +68,12 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "white",
     ),
     "bg_color": FieldHint("[r, g, b] | none", "solid background fill color", "none"),
+    "top_bg_color": FieldHint(
+        "[r, g, b] | none", "solid background fill for the top row band", "none"
+    ),
+    "bottom_bg_color": FieldHint(
+        "[r, g, b] | none", "solid background fill for the bottom row band", "none"
+    ),
     "animation": FieldHint(
         '"typewriter" | {style="typewriter", frames_per_char=N}',
         "text animation effect",
@@ -145,6 +150,16 @@ FIELD_HINTS: dict[str, FieldHint] = {
     "bottom_align": FieldHint(
         '"left" | "center" | "right"', "bottom row horizontal alignment", '"center"'
     ),
+    "top_font": FieldHint(
+        "font name",
+        "per-row font override for the top row; BDF alias or hi-res font name",
+        "none",
+    ),
+    "bottom_font": FieldHint(
+        "font name",
+        "per-row font override for the bottom row; BDF alias or hi-res font name",
+        "none",
+    ),
     "bottom_text_scroll": FieldHint(
         '"marquee" | "scroll_through"',
         "bottom row scroll behavior on overflow",
@@ -215,6 +230,10 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "bottom, bigsign-recommended). mlb: ticker or scoreboard (two-"
         "column zone layout with ABS challenge pips).",
         '"ticker"',
+    ),
+    # --- Pool ---
+    "label_color": FieldHint(
+        "[r, g, b]", "color for the prefix labels and separators", "white"
     ),
     # --- MLB ---
     "team": FieldHint(
@@ -1053,17 +1072,27 @@ def _list_widget_fields(widget_type: str) -> str:
 
     def _render_field(a: Any) -> str:
         hint = FIELD_HINTS.get(a.name)
-        type_str = (
-            hint.display_type
-            if hint
-            else (
-                a.type
-                if isinstance(a.type, str)
-                else getattr(a.type, "__name__", str(a.type))
-                if a.type is not None
-                else ""
-            )
-        )
+        if hint:
+            type_str = hint.display_type
+        elif a.type is None:
+            type_str = ""
+        elif isinstance(a.type, str):
+            type_str = a.type
+        else:
+            # PEP 649 (3.14, no future-import): a.type is a real type object.
+            # Plain types (class 'str', 'int', etc.) have a clean __name__; use
+            # it directly.  Union / generic aliases have __name__ == "Union" or
+            # lack it entirely — for those, use str() which gives the pipe-form
+            # ("bool | None", "typing.Any | None"), then strip any module
+            # qualifiers so the output matches the bare-name form the old
+            # stringified annotations produced (e.g. "led_ticker.fonts.Font |
+            # None" → "Font | None", "typing.Any | None" → "Any | None").
+            name = getattr(a.type, "__name__", None)
+            if name and name != "Union":
+                type_str = name
+            else:
+                raw = str(a.type)
+                type_str = re.sub(r"[\w]+(?:\.[\w]+)*\.([A-Za-z_]\w*)", r"\1", raw)
         if a.default is _attrs.NOTHING:
             default_str = "(required)"
         elif hint and hint.default_display is not None:

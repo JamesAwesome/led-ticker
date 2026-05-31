@@ -1,7 +1,5 @@
 """Pac-Man and ghost sprites for LED matrix transitions."""
 
-from __future__ import annotations
-
 from typing import Any
 
 from led_ticker._types import Canvas, PixelData

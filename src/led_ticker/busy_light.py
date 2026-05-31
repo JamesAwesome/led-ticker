@@ -6,8 +6,6 @@ this is its first consumer. Real busy sources (calendar/Slack) are a
 follow-up that sets the same is_busy flag behind the same overlay.
 """
 
-from __future__ import annotations
-
 import time
 from pathlib import Path
 

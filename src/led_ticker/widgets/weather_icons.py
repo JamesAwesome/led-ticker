@@ -5,8 +5,6 @@ Each icon is a list of (x, y, r, g, b) tuples relative to the
 top-left corner of the icon. Only non-black pixels are stored.
 """
 
-from __future__ import annotations
-
 from led_ticker._types import PixelData
 
 # Yellow sun: circle with rays

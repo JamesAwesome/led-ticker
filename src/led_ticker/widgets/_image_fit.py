@@ -11,8 +11,6 @@ To extend with a new image source: import `apply_fit`, `flatten_onto_black`,
 duplicate these helpers in a new module.
 """
 
-from __future__ import annotations
-
 from enum import StrEnum
 
 from PIL import Image

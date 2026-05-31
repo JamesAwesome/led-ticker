@@ -13,8 +13,6 @@ a side-by-side stats card, etc.) can adopt them without importing
 `two_row.py` directly.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from led_ticker._types import Canvas

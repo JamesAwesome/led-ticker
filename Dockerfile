@@ -1,13 +1,11 @@
-# Base image migration note (M14):
-# python:3.13-bullseye (Debian 11) reaches EOL June 2026. Migrate to
-# python:3.13-bookworm (Debian 12, GCC 12) when ready. Before migrating:
-#   1. Verify the RP1 build patch (named anonymous PIO params in pio_rp1.c)
-#      still compiles cleanly under GCC 12 — it was written for GCC 10.
-#   2. Test a multi-stage build: copy only the compiled rgbmatrix .so from
-#      the build stage into a python:3.13-bookworm-slim final stage (~200MB
-#      smaller). Verify libstdc++/libgcc links are satisfied by the slim image.
-#   3. Run make test + test on both Pi 4 and Pi 5 hardware before merging.
-FROM python:3.13-bullseye AS rgbmatrix
+# Base: python:3.14-bookworm (Debian 12, GCC 12). Migrated from
+# python:3.13-bullseye (Debian 11, EOL June 2026) together with the 3.13->3.14
+# Python bump. The rgbmatrix fork compiles cleanly here against the image's
+# Python 3.14 headers with Cython >= 3.2.5 (verified by the Phase 0 arm64 spike).
+# The GCC10 anonymous-param patch in pio_rp1.c compiles under GCC 12.
+# Future optimization (deferred): multi-stage build copying only the compiled
+# rgbmatrix .so into python:3.14-slim-bookworm (~200MB smaller).
+FROM python:3.14-bookworm AS rgbmatrix
 
 # rpi-rgb-led-matrix: jamesawesome/main — Pi5 RP1 support (hzeller#1886, now
 # merged upstream) plus three patches: GCC10 anonymous-param fix (pio_rp1.c),
@@ -19,18 +17,19 @@ ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /code
 
 RUN apt-get update && \
-    apt-get install -y build-essential git python3-dev cmake && \
+    apt-get install -y build-essential git cmake && \
     rm -rf /var/lib/apt/lists/*
 
 # Layer 1: rgbmatrix (only rebuilds if the pinned ref changes)
 # Increment RGBMATRIX_CACHE_BUST to force a fresh clone when the fork's main
 # branch changes but the clone instruction text hasn't — Docker caches by
 # instruction hash, not by remote content.
-ARG RGBMATRIX_CACHE_BUST=2
+ARG RGBMATRIX_CACHE_BUST=3
 RUN cd /opt && \
     git clone --depth=1 --branch main \
         https://github.com/jamesawesome/rpi-rgb-led-matrix.git rgbmatrix-src && \
     cd rgbmatrix-src && \
+    pip install "Cython>=3.2.5" && \
     pip install .
 
 # Layer 2: app dependencies (only rebuilds if pyproject.toml changes)

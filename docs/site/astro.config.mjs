@@ -1,5 +1,6 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import remarkGfm from "remark-gfm";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -10,6 +11,26 @@ export default defineConfig({
   // `<branch>.led-ticker.pages.dev` for in-flight PRs — the custom
   // domain only fronts the production build.
   site: "https://docs.ledticker.dev",
+  // Astro 6.4 reworked the Markdown pipeline (https://astro.build/blog/astro-640/)
+  // and its new default wiring stopped applying GFM to our `.mdx` pages, silently
+  // breaking every markdown-authored pipe-table (they degrade to literal text).
+  //
+  // We restore GFM by re-adding the `remark-gfm` plugin. It MUST go on the
+  // legacy `markdown.remarkPlugins` array, NOT the new `markdown.processor` API:
+  // these pages are `.mdx`, processed by `@astrojs/mdx@5.x` (pinned by Starlight
+  // 0.39.2 — the latest release), which predates the 6.4 rework and only reads
+  // the legacy markdown options. A `markdown.processor` is silently ignored for
+  // MDX here (verified: 0 tables). `@astrojs/mdx@6` adopts the new pipeline but
+  // Starlight does not depend on it yet.
+  //
+  // DEFERRED: once Starlight ships Astro-6.4-pipeline support, migrate this to
+  // `markdown.processor: unified({ remarkPlugins: [remarkGfm] })` (or drop it
+  // entirely if GFM defaults are restored) and delete the `remark-gfm` dep.
+  // Tracking + full rationale:
+  // docs/superpowers/specs/2026-05-30-docs-mdx-gfm-tables-design.md.
+  markdown: {
+    remarkPlugins: [remarkGfm],
+  },
   vite: {
     server: {
       fs: {

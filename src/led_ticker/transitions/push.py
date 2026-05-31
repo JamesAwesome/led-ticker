@@ -1,7 +1,5 @@
 """Push-based transition effects (rapid scroll)."""
 
-from __future__ import annotations
-
 import random
 from typing import Any
 

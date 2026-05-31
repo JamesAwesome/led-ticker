@@ -10,8 +10,6 @@ would reopen the hole that the existing `bottom_text_loops` and
 `font_threshold` validators close.
 """
 
-from __future__ import annotations
-
 import attrs
 
 

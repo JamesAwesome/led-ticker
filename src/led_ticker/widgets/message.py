@@ -1,7 +1,5 @@
 """Static text widgets: TickerMessage, TickerCountdown, and SegmentMessage."""
 
-from __future__ import annotations
-
 from datetime import date
 from typing import Any
 

@@ -7,8 +7,6 @@ path. Reverse variants reuse the base sprite file and flip horizontally
 at decode time so we ship one asset per family, not two.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
 

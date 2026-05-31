@@ -10,8 +10,6 @@ Color providers are orthogonal — animations control position and
 visibility, providers control color. The two compose freely.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 

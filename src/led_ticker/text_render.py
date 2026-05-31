@@ -6,8 +6,6 @@ BDF rasterizer. For a `HiresFont`, uses the per-glyph hi-res renderer
 that paints to the unwrapped real canvas at native physical resolution.
 """
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from typing import Any
 

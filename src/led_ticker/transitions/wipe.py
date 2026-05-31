@@ -1,7 +1,5 @@
 """Wipe-based transition effects."""
 
-from __future__ import annotations
-
 import random
 from typing import Any
 

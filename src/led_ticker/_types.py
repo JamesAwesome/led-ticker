@@ -4,8 +4,6 @@ Since rgbmatrix is a C extension with no type stubs, we define structural
 Protocols to clarify intent at each use site and enable isinstance checks.
 """
 
-from __future__ import annotations
-
 from typing import Any, Protocol, runtime_checkable
 
 

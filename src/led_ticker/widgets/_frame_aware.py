@@ -26,8 +26,6 @@ Use as a mixin alongside `@attrs.define` on each widget class. The
 `init=False` fields don't show up in TOML; they're internal state.
 """
 
-from __future__ import annotations
-
 from typing import ClassVar
 
 import attrs

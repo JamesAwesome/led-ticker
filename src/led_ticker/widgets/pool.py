@@ -1,7 +1,5 @@
 """Pool water-temperature widget backed by the pool_monitor InfluxDB v2 server."""
 
-from __future__ import annotations
-
 import asyncio
 import csv
 import io

@@ -3,8 +3,6 @@
 Parses argv, dispatches to `validate` subcommand or the main run loop.
 """
 
-from __future__ import annotations
-
 import argparse
 import asyncio
 import logging

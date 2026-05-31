@@ -10,8 +10,6 @@ display requires real hardware. `require_matrix()` raises a clear error
 if you try to construct a matrix without rgbmatrix installed.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 try:

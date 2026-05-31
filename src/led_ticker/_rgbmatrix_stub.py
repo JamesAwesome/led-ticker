@@ -13,8 +13,6 @@ and bounding-box behavior matches `graphics.DrawText` (x is left edge, y
 is baseline; glyphs draw above the baseline).
 """
 
-from __future__ import annotations
-
 import os
 import re
 from typing import TYPE_CHECKING, Any

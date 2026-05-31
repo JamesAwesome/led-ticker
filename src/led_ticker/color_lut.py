@@ -9,8 +9,6 @@ initialization). 360 entries at 1° resolution covers all integer-degree
 hue arithmetic used by the built-in providers and border effects.
 """
 
-from __future__ import annotations
-
 import colorsys
 from typing import TYPE_CHECKING
 

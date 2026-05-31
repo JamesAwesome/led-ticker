@@ -1,7 +1,5 @@
 """RSS feed monitor widget."""
 
-from __future__ import annotations
-
 import asyncio
 import itertools
 import logging

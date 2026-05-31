@@ -13,6 +13,7 @@ from typing import Any
 
 import aiohttp
 
+from led_ticker._plugin_loader import load_plugins
 from led_ticker.app.factories import (
     RUN_MODES,
     _build_title,
@@ -88,6 +89,15 @@ async def _start_busy_light(cfg: Any, led_frame: Any) -> Any:
     return busy
 
 
+def _load_plugins_for_config(config_path: Path):
+    """Load plugins from <config dir>/plugins (and installed entry points).
+
+    Phase A: the directory is fixed; the [plugins] config block (enable/disable/
+    custom dir) lands in a later phase.
+    """
+    return load_plugins(config_path.parent / "plugins")
+
+
 async def run(config_path: Path) -> None:
     """Main application loop."""
     config = await asyncio.to_thread(load_config, config_path)
@@ -98,6 +108,10 @@ async def run(config_path: Path) -> None:
     for w in config._coerce_warnings:
         logging.warning("config coerce: %s", w.message)
     _configure_user_font_dir(config_path)
+
+    plugins = _load_plugins_for_config(config_path)
+    for ns, err in plugins.failed:
+        logging.warning("plugin %r failed to load: %s", ns, err)
 
     led_frame = build_frame_from_config(config.display)
 

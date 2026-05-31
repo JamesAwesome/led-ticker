@@ -1,6 +1,5 @@
 """MLB standings widget using the free MLB Stats API."""
 
-import asyncio
 import contextlib
 import logging
 from dataclasses import dataclass
@@ -15,7 +14,7 @@ from led_ticker._types import Color, Font
 from led_ticker.color_providers import ColorProvider
 from led_ticker.colors import RGB_WHITE
 from led_ticker.fonts import FONT_DEFAULT
-from led_ticker.widget import run_monitor_loop
+from led_ticker.widget import run_monitor_loop, spawn_tracked
 from led_ticker.widgets import register
 from led_ticker.widgets.message import SegmentMessage, TickerMessage
 from led_ticker.widgets.mlb import (
@@ -101,7 +100,7 @@ class MLBStandingsMonitor:
             "MLB Standings: %d stories",
             len(widget.feed_stories),
         )
-        asyncio.create_task(run_monitor_loop(widget, update_interval))
+        spawn_tracked(run_monitor_loop(widget, update_interval))
         return widget
 
     async def update(self) -> None:

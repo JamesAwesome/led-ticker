@@ -1,6 +1,5 @@
 """Weather widget using WeatherAPI.com."""
 
-import asyncio
 import logging
 import os
 from typing import Any, Self
@@ -14,7 +13,7 @@ from led_ticker.colors import DEFAULT_COLOR, RGB_WHITE
 from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.text_render import draw_text, draw_text_per_char
-from led_ticker.widget import run_monitor_loop
+from led_ticker.widget import run_monitor_loop, spawn_tracked
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import _FrameAware
 
@@ -83,7 +82,7 @@ class WeatherWidget(_FrameAware):
                 "Weather initial update failed for %s, will retry in background",
                 widget.location,
             )
-        asyncio.create_task(run_monitor_loop(widget, update_interval))
+        spawn_tracked(run_monitor_loop(widget, update_interval))
         return widget
 
     async def update(self) -> None:

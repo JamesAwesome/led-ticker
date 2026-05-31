@@ -3311,3 +3311,44 @@ class TestStartBusyLight:
             for t in new_tasks:
                 t.cancel()
             await asyncio.gather(*new_tasks, return_exceptions=True)
+
+    async def test_http_server_task_survives_gc(self):
+        # Regression: the HTTP server task suspends on `asyncio.Event().wait()`,
+        # which forms a reference cycle anchored to no GC root. If the task
+        # isn't strongly referenced, the cyclic collector reclaims it mid-flight
+        # ("Task was destroyed but it is pending!" on Python 3.14). _start_busy_light
+        # must keep a strong reference so a gc.collect() can't reap it.
+        import asyncio
+        import gc
+
+        from led_ticker.app.run import _start_busy_light
+        from led_ticker.config import BusyLightConfig
+        from led_ticker.frame import LedFrame
+
+        cfg = BusyLightConfig(
+            enabled=True, source="http", http_host="127.0.0.1", http_port=0
+        )
+        frame = LedFrame(led_cols=64, led_rows=32)
+        await _start_busy_light(cfg, frame)
+        # Let serve_busy() finish binding so the task reaches Event().wait()
+        # (the rootless suspension point).
+        await asyncio.sleep(0.05)
+
+        gc.collect()  # would reap the server task if it weren't referenced
+
+        live = {
+            t.get_coro().__qualname__
+            for t in asyncio.all_tasks()
+            if t is not asyncio.current_task()
+        }
+        assert any("_serve_busy_supervised" in n for n in live), (
+            "busy-light HTTP server task was garbage-collected "
+            "(not strongly referenced)"
+        )
+
+        others = [
+            t for t in asyncio.all_tasks() if t is not asyncio.current_task()
+        ]
+        for t in others:
+            t.cancel()
+        await asyncio.gather(*others, return_exceptions=True)

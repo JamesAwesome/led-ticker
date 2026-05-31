@@ -28,7 +28,7 @@ from led_ticker.busy_http import serve_busy
 from led_ticker.config import load_config
 from led_ticker.ticker import Ticker, _expand_sources, _maybe_wrap
 from led_ticker.transitions import Transition, run_transition
-from led_ticker.widget import run_monitor_loop
+from led_ticker.widget import run_monitor_loop, spawn_tracked
 
 
 async def _ttl_ticker(busy: Any, interval: float = 1.0) -> None:
@@ -77,14 +77,14 @@ async def _start_busy_light(cfg: Any, led_frame: Any) -> Any:
     )
     led_frame.overlay_hooks.append(busy.paint)
     if cfg.source == "http":
-        asyncio.create_task(_serve_busy_supervised(busy, cfg))
+        spawn_tracked(_serve_busy_supervised(busy, cfg))
         # Always run the ticker for the HTTP source so a per-request ?ttl=
         # (or the configured ttl_seconds default) is enforced. The file
         # source never arms a deadline, so it needs no ticker.
-        asyncio.create_task(_ttl_ticker(busy))
+        spawn_tracked(_ttl_ticker(busy))
     else:
         await busy.update()  # fast initial read so the dot is correct on frame 1
-        asyncio.create_task(run_monitor_loop(busy, cfg.poll_interval, splay=False))
+        spawn_tracked(run_monitor_loop(busy, cfg.poll_interval, splay=False))
     return busy
 
 

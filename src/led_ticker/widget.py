@@ -12,6 +12,25 @@ logger: logging.Logger = logging.getLogger(__name__)
 _MIN_BACKOFF: int = 60  # 1 minute minimum on error
 _MAX_BACKOFF: int = 3600  # 1 hour maximum backoff
 
+# Strong references to fire-and-forget background tasks. The event loop only
+# holds WEAK references to tasks, so a task with no strong reference elsewhere
+# can be garbage-collected mid-flight ("Task was destroyed but it is pending!").
+# Every long-lived background task (data-widget pollers, the busy-light HTTP
+# listener and TTL ticker) is spawned through spawn_tracked() so it stays rooted.
+_BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
+
+
+def spawn_tracked(coro: Any) -> asyncio.Task[Any]:
+    """asyncio.create_task + keep a strong reference until the task completes.
+
+    The event loop only weakly references tasks; without this a task awaiting a
+    rootless primitive (e.g. asyncio.Event().wait()) can be GC'd mid-flight.
+    """
+    task = asyncio.create_task(coro)
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
+    return task
+
 
 @runtime_checkable
 class Widget(Protocol):

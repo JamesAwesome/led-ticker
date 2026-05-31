@@ -128,6 +128,7 @@ Both methods reduce to one HTTP call, so neither needs anything installed on a m
 
 - **Manual hotkey** — Keyboard Maestro, Raycast, or a Shortcut with a global key running `curl "http://PI-HOST:8080/busy?state=on&token=…"` (and an `off` twin).
 - **Focus automation (hands-off)** — macOS **Shortcuts → Automation → "When [Work] focus turns On"** → action **Get Contents of URL** (GET) `http://PI-HOST:8080/busy?state=on&token=…`; add a matching _turns Off_ automation with `state=off`. macOS itself is the detector — no background app of your own.
+- **Auto-detect from camera use** — for a fully hands-off "on while I'm in a meeting", watch the camera and hit the endpoint. A ready-made [Hammerspoon](https://www.hammerspoon.org) script ships in the repo at [`deploy/busy-light-camera-watcher.lua`](https://github.com/JamesAwesome/led-ticker/blob/main/deploy/busy-light-camera-watcher.lua): it flips the light on whenever any camera turns on (Zoom, Google Meet, FaceTime) and off when they all stop. Set `PI_HOST`/`TOKEN` at the top and follow the install steps in the file header. Note: a call joined with video **off** never turns the camera on, so it won't trigger — camera use is the signal.
 
 ## Sizing per panel
 

@@ -248,7 +248,7 @@ class PoolMonitor:
             raise ValueError("INFLUXDB_TOKEN not set. Add it to your .env file.")
         if widget.sensor_id is not None and not _SENSOR_ID_RE.match(widget.sensor_id):
             raise ValueError(
-                f"Invalid sensor_id {widget.sensor_id!r}: " "must match [A-Za-z0-9_-]+"
+                f"Invalid sensor_id {widget.sensor_id!r}: must match [A-Za-z0-9_-]+"
             )
         widget._set_placeholder()
         try:
@@ -302,10 +302,43 @@ class PoolMonitor:
         season_max_c, _ = await self._query(year_start, "max")
 
         if current_c is None:
+            # The single most common "temps aren't showing" cause: the
+            # `-1h last` query came back with no data row. Surface it at
+            # WARNING (default log level) with enough context to tell
+            # apart an empty bucket, a wrong bucket/sensor, or an
+            # unreachable server — without ever logging the token.
+            sensor = self.sensor_id or "<all>"
+            logger.warning(
+                "pool: no current temperature from InfluxDB "
+                "(url=%s org=%s bucket=%s sensor=%s) → showing placeholder. "
+                "Check the bucket has recent temperature_C data and that "
+                "url/org/bucket/sensor_id match your InfluxDB.",
+                self.influxdb_url,
+                self.influxdb_org,
+                self.influxdb_bucket,
+                sensor,
+            )
             self._set_placeholder()
             return
 
         age = self._age_seconds(current_time)
+        # One INFO line per successful update (Container contract): a
+        # silent log stream after startup means the background task died.
+        now_display = _c_to_display(current_c, self.units)
+        logger.info(
+            "pool updated: current=%s age=%.0fs stale=%s "
+            "today=%s/%s 7d=%s/%s season=%s/%s (layout=%s)",
+            _fmt_temp(now_display, self.units),
+            age,
+            age > self.stale_after,
+            self._disp(today_max_c),
+            self._disp(today_min_c),
+            self._disp(d7_max_c),
+            self._disp(d7_min_c),
+            self._disp(season_max_c),
+            self._disp(season_min_c),
+            self.layout,
+        )
         if self.layout == "two_row":
             self._build_two_row_screens(
                 current_c=current_c,

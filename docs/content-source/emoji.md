@@ -8,6 +8,7 @@ The slug list rots fast as new icons are added. The source of truth is `src/led_
 | `:bunny:` | <img src="/emoji/bunny-low.png" width="64" alt="bunny lowres"> | <img src="/emoji/bunny-hi.png" width="64" alt="bunny hires"> | Bunny silhouette |
 | `:cat:` | <img src="/emoji/cat-low.png" width="64" alt="cat lowres"> | <img src="/emoji/cat-hi.png" width="64" alt="cat hires"> | Cat (default gray; see color variants below) |
 | `:cloud:` | <img src="/emoji/cloud-low.png" width="64" alt="cloud lowres"> | <img src="/emoji/cloud-hi.png" width="64" alt="cloud hires"> | Cloud icon |
+| `:droplet:` | <img src="/emoji/droplet-low.png" width="64" alt="droplet lowres"> | <img src="/emoji/droplet-hi.png" width="64" alt="droplet hires"> | Water droplet (blue teardrop) |
 | `:email:` | <img src="/emoji/email-low.png" width="64" alt="email lowres"> | <img src="/emoji/email-hi.png" width="64" alt="email hires"> | Envelope (white) |
 | `:flower:` | <img src="/emoji/flower-low.png" width="64" alt="flower lowres"> | <img src="/emoji/flower-hi.png" width="64" alt="flower hires"> | Pink flower |
 | `:fog:` | <img src="/emoji/fog-low.png" width="64" alt="fog lowres"> | <img src="/emoji/fog-hi.png" width="64" alt="fog hires"> | Fog icon |

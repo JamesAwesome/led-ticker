@@ -1,5 +1,6 @@
 """Plugin discovery and loading (internal). Plugins never import this."""
 
+import importlib.metadata
 import importlib.util
 import logging
 from collections.abc import Callable
@@ -150,6 +151,26 @@ def _discover_local(plugin_dir: Path):
         yield ns, str(entry), thunk
 
 
+def _discover_entry_points():
+    """Yield (namespace, source, thunk) for installed entry-point plugins.
+    Namespace = the entry-point name; the thunk loads the entry point and
+    resolves its register callable."""
+    try:
+        eps = importlib.metadata.entry_points(group=ENTRY_POINT_GROUP)
+    except Exception:  # pragma: no cover - defensive across importlib versions
+        return
+    for ep in eps:
+
+        def thunk(ep=ep):
+            obj = ep.load()
+            if callable(obj) and not isinstance(obj, type):
+                return obj, getattr(obj, "requires_api", None)
+            register = getattr(obj, "register", None)
+            return register, getattr(obj, "requires_api", None)
+
+        yield ep.name, f"entry-point:{ep.value}", thunk
+
+
 def load_plugins(
     plugin_dir: Path | None, *, entry_points_enabled: bool = True
 ) -> LoadedPlugins:
@@ -163,7 +184,8 @@ def load_plugins(
     sources = []
     if plugin_dir is not None:
         sources.extend(_discover_local(plugin_dir))
-    # Entry-point discovery is added in Task A4.
+    if entry_points_enabled:
+        sources.extend(_discover_entry_points())
     for ns, source, thunk in sources:
         try:
             register, requires = thunk()

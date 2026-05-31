@@ -221,7 +221,7 @@ type = "pool"
 title = "POOL TEMPS"
 units = "imperial"
 update_interval = 300
-stale_after = 900
+stale_after = 14400  # 4 hours
 label_color = [130, 220, 255]
 
 # --- Busy light (HTTP trigger) ---

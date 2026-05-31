@@ -165,7 +165,7 @@ title = "POOL TEMPS"
                         # buckets. Set sensor_id to pin one sensor.
 units = "imperial"
 update_interval = 300
-stale_after = 900
+stale_after = 14400  # 4 hours
 # Optional: tint the prefix labels ("Pool 24h" / "Pool 7D" / "Pool Season")
 # and separators. Defaults to white. Use [r,g,b] e.g. [130, 220, 255] for
 # an icy cyan that fits the pool theme.

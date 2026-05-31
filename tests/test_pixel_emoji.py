@@ -313,7 +313,69 @@ def test_generate_moon_hires_produces_pixels():
         assert 0 <= y < 32
 
 
-@pytest.mark.parametrize("slug", ["moon", "instagram", "sun", "star", "email"])
+# --- Droplet (water drop) emoji ---
+
+
+def test_droplet_emoji_registered():
+    from led_ticker.pixel_emoji import _get_registry
+
+    registry = _get_registry()
+    assert "droplet" in registry
+    assert len(registry["droplet"]) > 0
+
+
+def test_droplet_emoji_is_8x8():
+    """Low-res droplet must fit the 8×8 inline grid like every other
+    bundled emoji."""
+    from led_ticker.pixel_emoji import DROPLET
+
+    max_x = max(x for x, _, _, _, _ in DROPLET)
+    max_y = max(y for _, y, _, _, _ in DROPLET)
+    assert max_x <= 7, f"droplet too wide: max x={max_x}"
+    assert max_y <= 7, f"droplet too tall: max y={max_y}"
+
+
+def test_droplet_renders_on_small_sign(bigsign_canvas):
+    """No ScaledCanvas (smallsign / scale=1) → low-res path. The droplet
+    must render so the pool-temps title works on the small sign."""
+    real = bigsign_canvas  # plain canvas, not wrapped
+    advance = draw_with_emoji(
+        real, FONT_SMALL, cursor_pos=0, y=8, color=(255, 255, 255), text=":droplet:"
+    )
+    assert advance > 0
+
+
+def test_hires_droplet_registered():
+    from led_ticker.pixel_emoji import HIRES_REGISTRY
+
+    assert "droplet" in HIRES_REGISTRY
+    assert HIRES_REGISTRY["droplet"].physical_size == 32
+
+
+def test_hires_droplet_paints_real_canvas_at_physical_resolution(bigsign_canvas):
+    """Hi-res droplet writes individual physical pixels — proven by a lit
+    pixel at a column not divisible by `scale` (the low-res block path
+    can only light block-aligned columns)."""
+    real = bigsign_canvas
+    sc = ScaledCanvas(real, scale=4)
+    draw_with_emoji(
+        sc, FONT_SMALL, cursor_pos=0, y=12, color=(255, 255, 255), text=":droplet:"
+    )
+    lit_nonaligned = any(
+        real.get_pixel(x, y) != (0, 0, 0)
+        for x in range(32)
+        for y in range(real.height)
+        if x % 4 != 0
+    )
+    assert lit_nonaligned, (
+        "expected at least one lit pixel at a non-block-aligned column — "
+        "the hi-res droplet path didn't activate."
+    )
+
+
+@pytest.mark.parametrize(
+    "slug", ["moon", "instagram", "sun", "star", "email", "droplet"]
+)
 def test_hires_emoji_in_registry(slug):
     """Every slug we promised to upgrade should have a hi-res variant."""
     from led_ticker.pixel_emoji import HIRES_REGISTRY
@@ -395,7 +457,7 @@ def test_max_emoji_height_falls_back_to_lowres(bigsign_canvas):
     )
 
 
-@pytest.mark.parametrize("slug", ["instagram", "sun", "star", "email"])
+@pytest.mark.parametrize("slug", ["instagram", "sun", "star", "email", "droplet"])
 def test_hires_emoji_renders_via_scaled_canvas(slug, bigsign_canvas):
     """Each new hi-res emoji should render through the wrapper-bypass path."""
     real = bigsign_canvas

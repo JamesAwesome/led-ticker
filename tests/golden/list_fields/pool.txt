@@ -4,7 +4,8 @@ Optional:
   title                         str                                           default: "MLB Standings"  — standings panel header text
   sensor_id                     str | None                                    default: None
   units                         "imperial" | "metric"                         default: "imperial"  — temperature unit system
-  stale_after                   float                                         default: 900.0
+  current_window                str                                           default: '-24h'
+  stale_after                   float                                         default: 14400.0
   influxdb_url                  str                                           default: <computed>
   influxdb_org                  str                                           default: <computed>
   influxdb_bucket               str                                           default: <computed>

@@ -8,7 +8,8 @@ Reads pool water temperature from an InfluxDB v2 server and cycles four screens:
 | `sensor_id` | string | none | Sensor ID to filter on. Omit to use the only or first sensor in the bucket. |
 | `units` | string | `"imperial"` | `"imperial"` (°F) or `"metric"` (°C). |
 | `update_interval` | int | `300` | Seconds between InfluxDB fetches. Default is 5 minutes. |
-| `stale_after` | int | `900` | Seconds since the last reading before the temperature is shown in dim gray to indicate stale data. Default is 15 minutes. |
+| `current_window` | string | `"-24h"` | How far back to search for the latest reading, as a Flux duration (e.g. `"-24h"`, `"-90m"`). A reading older than this shows the `--` placeholder; a newer one displays (dimmed past `stale_after`). Widen it if your sensor reports infrequently or drops out for long stretches. |
+| `stale_after` | int | `14400` | Seconds since the last reading before the temperature is shown in dim gray to indicate stale data. Default is 4 hours. |
 | `influxdb_url` | string | `$INFLUXDB_URL` or `"http://influxdb:8086"` | InfluxDB v2 base URL. Overrides the env var when set in config. |
 | `influxdb_org` | string | `$INFLUXDB_ORG` or `"pool"` | InfluxDB organization name. Overrides the env var when set in config. |
 | `influxdb_bucket` | string | `$INFLUXDB_BUCKET` or `"pool_temps"` | InfluxDB bucket name. Overrides the env var when set in config. |

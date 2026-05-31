@@ -340,6 +340,11 @@ _DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
     "bottom_font_threshold": {"two_row", "pool"},
 }
 
+# Pool `current_window` must be a negative Flux duration (e.g. "-24h",
+# "-90m", "-1h30m"). Validated at preflight so a typo fails `led-ticker
+# validate` instead of surfacing as an opaque InfluxDB 400 at runtime.
+_POOL_DURATION_RE = re.compile(r"^-(\d+(ns|us|ms|s|m|h|d|w))+$")
+
 
 # Section-title random color cycle. One stable color per section visit.
 # Lives here (not in `colors.py`) because this is the only consumer; a
@@ -621,6 +626,12 @@ async def validate_widget_cfg(
 
     # Pool-specific layout validation
     if widget_cfg.get("type") == "pool":
+        window = widget_cfg.get("current_window")
+        if window is not None and not _POOL_DURATION_RE.match(str(window)):
+            raise ValueError(
+                f"pool widget current_window={window!r} must be a negative "
+                f"Flux duration like '-24h', '-90m', or '-1h30m'."
+            )
         layout_value = widget_cfg.get("layout", "ticker")
         valid_layouts = ["ticker", "two_row"]
         if layout_value not in valid_layouts:

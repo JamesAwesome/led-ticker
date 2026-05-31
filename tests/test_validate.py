@@ -3483,6 +3483,26 @@ class TestPoolLayoutValidation:
         await validate_widget_cfg(cfg, session=MagicMock())  # should not raise
 
     @pytest.mark.asyncio
+    async def test_invalid_current_window_raises(self):
+        from unittest.mock import MagicMock
+
+        from led_ticker.app.factories import validate_widget_cfg
+
+        # Missing leading '-' / not a Flux duration → rejected at preflight.
+        cfg = {"type": "pool", "current_window": "24h"}
+        with pytest.raises(ValueError, match="current_window"):
+            await validate_widget_cfg(cfg, session=MagicMock())
+
+    @pytest.mark.asyncio
+    async def test_valid_current_window_accepted(self):
+        from unittest.mock import MagicMock
+
+        from led_ticker.app.factories import validate_widget_cfg
+
+        cfg = {"type": "pool", "current_window": "-90m"}
+        await validate_widget_cfg(cfg, session=MagicMock())  # should not raise
+
+    @pytest.mark.asyncio
     async def test_top_font_with_ticker_layout_raises(self):
         from unittest.mock import MagicMock
 

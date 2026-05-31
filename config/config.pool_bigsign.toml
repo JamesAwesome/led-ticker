@@ -60,7 +60,7 @@ title = "POOL TEMPS"
 units = "imperial"
 update_interval = 60   # fast: prove the background fetch fires every minute
 # sensor_id = "12345"  # optional; omit to use cross-sensor global aggregate
-stale_after = 900
+stale_after = 14400  # 4 hours
 layout = "two_row"
 # Inter-Bold sized per moonbunny.production:
 #   bottom_font_size = 25 → line-height ~32 real, fits the 32-real

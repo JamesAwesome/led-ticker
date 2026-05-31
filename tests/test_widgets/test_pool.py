@@ -566,7 +566,7 @@ class TestTwoRowLayout:
     def test_today_bottom_color_when_stale(self):
         from led_ticker.widgets.pool import DIM
 
-        m = self._build(current_age_s=10_000.0)  # well past stale_after=900
+        m = self._build(current_age_s=20_000.0)  # past default stale_after=14400
         today = m.feed_stories[0]
         assert today.bottom_color.color_for(0, 0, 1) is DIM
 
@@ -701,6 +701,99 @@ class TestTwoRowLayout:
         # we only need validate_widget_cfg to accept the field set.
         await validate_widget_cfg(cfg, session=session)
         # If we got here without raising, the fields were accepted.
+
+
+class TestUpdateLogging:
+    """update() must surface WHY temps aren't showing. Before this, a
+    None current temp silently fell to the '--' placeholder with nothing
+    in the logs (the per-query lines are DEBUG-only). The Container
+    contract (CLAUDE.md) requires one INFO log per update() call so a
+    silent stream signals a dead background task.
+    """
+
+    @pytest.mark.asyncio
+    async def test_no_data_logs_warning_with_context(self, caplog):
+        """current_c is None → WARNING naming bucket + url (token never
+        logged) so a misconfigured/empty InfluxDB is diagnosable from
+        production logs at default level."""
+        # _monitor() defaults: bucket=pool_temps, url=http://influx:8086, token=tok
+        m = _monitor()
+
+        async def _no_data(range_start, agg):
+            return None, None
+
+        with (
+            caplog.at_level("INFO", logger="led_ticker.widgets.pool"),
+            mock.patch.object(PoolMonitor, "_query", side_effect=_no_data),
+        ):
+            await m.update()
+
+        warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+        assert warnings, "expected a WARNING when no current temp"
+        msg = warnings[0].getMessage()
+        assert "pool_temps" in msg
+        assert "influx:8086" in msg
+        # Never leak the token.
+        assert "tok" not in msg
+
+    @pytest.mark.asyncio
+    async def test_successful_update_logs_info_summary(self, caplog):
+        """A successful update emits exactly one INFO summary line with
+        the current temp — the Container 'one INFO per update' contract."""
+        m = _monitor(units="imperial")
+
+        async def _data(range_start, agg):
+            # 27.78 C ≈ 82 F
+            return 27.78, "2026-05-28T00:00:00Z"
+
+        with (
+            caplog.at_level("INFO", logger="led_ticker.widgets.pool"),
+            mock.patch.object(PoolMonitor, "_query", side_effect=_data),
+        ):
+            await m.update()
+
+        infos = [
+            r
+            for r in caplog.records
+            if r.levelname == "INFO" and "pool" in r.getMessage().lower()
+        ]
+        assert len(infos) == 1, f"expected one INFO summary, got {len(infos)}"
+        assert "82F" in infos[0].getMessage()
+
+
+class TestCurrentWindowAndStaleDefaults:
+    """The 'current' reading lookback is configurable and decoupled from
+    staleness. Previously the lookback was a hardcoded `-1h`, so a sensor
+    silent for >1h read as no-data even though its last point was only
+    hours old. `current_window` widens the search; `stale_after` controls
+    only the dim-gray coloring.
+    """
+
+    def test_current_window_defaults_to_24h(self):
+        assert _monitor().current_window == "-24h"
+
+    def test_stale_after_defaults_to_4_hours(self):
+        # 4 h = 14400 s (was 900 s / 15 min). Widened so a reading that
+        # rode out a multi-hour sensor gap still shows — dimmed — rather
+        # than flipping to dim almost immediately.
+        assert _monitor().stale_after == 14400.0
+
+    @pytest.mark.asyncio
+    async def test_update_uses_current_window_for_last_query(self):
+        """The `last` (current-temp) query uses `current_window`, not the
+        old hardcoded `-1h`."""
+        m = _monitor(current_window="-12h")
+        calls: list[tuple[str, str]] = []
+
+        async def _spy(range_start, agg):
+            calls.append((range_start, agg))
+            return 27.0, "2026-05-28T00:00:00Z"
+
+        with mock.patch.object(PoolMonitor, "_query", side_effect=_spy):
+            await m.update()
+
+        assert ("-12h", "last") in calls
+        assert ("-1h", "last") not in calls  # old hardcoded window is gone
 
 
 # Container Protocol conformance for PoolMonitor is asserted in

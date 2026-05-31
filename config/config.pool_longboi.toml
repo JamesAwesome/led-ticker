@@ -47,7 +47,7 @@ title = "POOL TEMPS"
 units = "imperial"
 update_interval = 60   # fast: prove the background fetch fires every minute
 # sensor_id = "12345"  # optional; omit to use the only/first sensor in the bucket
-stale_after = 900
+stale_after = 14400  # 4 hours
 # Hires text — sized for a dedicated full-panel display on longboi's 512×64.
 # font_size = 32 fills half the panel height (32 real px on a 64-tall panel)
 # so the temperature value is legible from across the pool. Matches the

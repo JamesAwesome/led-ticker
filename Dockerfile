@@ -25,12 +25,17 @@ RUN apt-get update && \
 # branch changes but the clone instruction text hasn't — Docker caches by
 # instruction hash, not by remote content.
 ARG RGBMATRIX_CACHE_BUST=3
+# The fork builds via scikit-build-core (PEP 517), so `pip install .` runs in an
+# isolated build env that resolves its own Cython. A plain `pip install Cython`
+# here would NOT control that build. PIP_CONSTRAINT is inherited by the isolated
+# build-env pip, so it enforces the Cython>=3.2.5 floor (required for Python 3.14
+# C-API support) where it actually matters.
 RUN cd /opt && \
     git clone --depth=1 --branch main \
         https://github.com/jamesawesome/rpi-rgb-led-matrix.git rgbmatrix-src && \
     cd rgbmatrix-src && \
-    pip install "Cython>=3.2.5" && \
-    pip install .
+    printf 'Cython>=3.2.5\n' > /tmp/build-constraints.txt && \
+    PIP_CONSTRAINT=/tmp/build-constraints.txt pip install .
 
 # Layer 2: app dependencies (only rebuilds if pyproject.toml changes)
 FROM rgbmatrix

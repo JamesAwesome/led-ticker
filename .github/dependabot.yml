@@ -48,11 +48,9 @@ updates:
           - "astro"
           - "@astrojs/*"
 
-  # Docker base image — python:3.13-bullseye (Debian 11) hits EOL June 2026.
-  # Dependabot will file a PR when a new python:3.13-* image is released.
-  # Before accepting the bookworm bump, verify the GCC 10 RP1 build patch
-  # in the Dockerfile (named anonymous PIO params) still compiles under
-  # GCC 12. See M14 note in Dockerfile comments.
+  # Docker base image — python:3.14-bookworm (Debian 12). Bookworm ships
+  # GCC 12 and is the current stable Debian release; EOL is not before 2028.
+  # Dependabot will file a PR when a new python:3.14-* image is released.
   - package-ecosystem: docker
     directory: /
     schedule:

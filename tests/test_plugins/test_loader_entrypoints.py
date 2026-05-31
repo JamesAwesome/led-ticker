@@ -60,3 +60,25 @@ def test_entry_point_module_form_resolves_register(monkeypatch):
     result = L.load_plugins(None, entry_points_enabled=True)
     assert "beta.clock" in _WIDGET_REGISTRY
     assert [i.namespace for i in result.loaded] == ["beta"]
+
+
+def test_entry_point_requires_api_mismatch_skipped(monkeypatch):
+    import types
+
+    mod = types.ModuleType("fake_future_plugin")
+    mod.register = _register
+    mod.requires_api = 99  # incompatible major -> skipped
+
+    class _ModEP:
+        name = "future"
+        value = "fake_future_plugin"
+
+        def load(self):
+            return mod
+
+    monkeypatch.setattr(
+        importlib.metadata, "entry_points", lambda *, group: [_ModEP()]
+    )
+    result = L.load_plugins(None, entry_points_enabled=True)
+    assert "future.clock" not in _WIDGET_REGISTRY
+    assert any(ns == "future" for ns, _ in result.failed)

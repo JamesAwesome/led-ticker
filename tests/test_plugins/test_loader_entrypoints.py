@@ -38,3 +38,25 @@ def test_entry_point_plugin_namespaced_by_ep_name(monkeypatch):
     result = L.load_plugins(None, entry_points_enabled=True)
     assert "acme.clock" in _WIDGET_REGISTRY
     assert [i.namespace for i in result.loaded] == ["acme"]
+
+
+def test_entry_point_module_form_resolves_register(monkeypatch):
+    import types
+
+    mod = types.ModuleType("fake_plugin_module")
+    mod.register = _register  # load() returns a module; thunk fetches .register
+
+    class _ModEP:
+        name = "beta"
+        value = "fake_plugin_module"
+
+        def load(self):
+            return mod
+
+    def fake_entry_points(*, group):
+        return [_ModEP()]
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", fake_entry_points)
+    result = L.load_plugins(None, entry_points_enabled=True)
+    assert "beta.clock" in _WIDGET_REGISTRY
+    assert [i.namespace for i in result.loaded] == ["beta"]

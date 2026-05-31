@@ -157,6 +157,33 @@ A phone charger or a generic USB-C brick marketed as 5V 3A does not sustain rate
 
 P3 panels at brightness 60+ get warm to the touch within minutes; the smallsign is more forgiving but still climbs over time. For sustained or always-on installs add a fan behind the panels, or design a shroud with airflow gaps. Heat shortens LED lifespan and can warp panel substrates if it accumulates with no ventilation.
 
+### Bare-metal install on Python 3.14
+
+:::note[Prefer Docker on the Pi]
+The Docker image ships every wheel pre-built. A bare-metal `pip install` on
+the Pi may compile some dependencies from source — piwheels does not provide
+aarch64 wheels and its cp314 armv7l coverage is incomplete as of mid-2026.
+Prefer the Docker deploy, or expect a longer first install on bare metal.
+:::
+
+## Inspecting the running async loop (Python 3.14+)
+
+led-ticker is one long-lived asyncio loop plus a background task per data
+widget (`run_monitor_loop`) and the optional busy-light HTTP server. On Python
+3.14 you can print the live task tree of a running process with no code
+changes or restart:
+
+```bash
+# pid of the led-ticker process (inside the container or on bare metal)
+python -m asyncio pstree <pid>
+# flat list with awaited-by edges
+python -m asyncio ps <pid>
+```
+
+If a data widget's `update()` task has died (the tell-tale: its periodic
+"… updated: N stories" INFO log stopped), it will be absent from the tree —
+turning "is the poller still alive?" into a direct answer.
+
 <RelatedPages
   slugs={["hardware/smallsign", "hardware/bigsign", "tools/render-demo", "getting-started"]}
 />

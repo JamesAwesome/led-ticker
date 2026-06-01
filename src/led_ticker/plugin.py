@@ -11,7 +11,8 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 
 # Re-exports: the stable surface plugin authors subclass / annotate against.
-from led_ticker._types import Canvas
+from led_ticker._types import Canvas, Color
+from led_ticker.color_providers import ColorProvider, ColorProviderBase
 from led_ticker.transitions import Transition
 from led_ticker.widget import Widget, spawn_tracked
 
@@ -19,13 +20,15 @@ __all__ = [
     "API_VERSION",
     "PluginAPI",
     "Canvas",
+    "Color",
+    "ColorProvider",
+    "ColorProviderBase",
     "Transition",
     "Widget",
     "spawn_tracked",
 ]
-# Phase B will also re-export: ColorProvider, ColorProviderBase, Animation,
-# BorderEffect, BorderEffectBase, Color. Phase C: PixelData, HiResEmoji, and the
-# drawing helpers. Phase D: StartupContext.
+# Phase B will also re-export: Animation, BorderEffect, BorderEffectBase.
+# Phase C: PixelData, HiResEmoji, and the drawing helpers. Phase D: StartupContext.
 
 API_VERSION: tuple[int, int] = (1, 0)
 
@@ -49,6 +52,7 @@ class PluginAPI:
         self._buffers: dict[str, dict[str, Any]] = {
             "widgets": {},
             "transitions": {},
+            "color_providers": {},
         }
 
     @property
@@ -76,6 +80,15 @@ class PluginAPI:
 
         def deco(cls: _T) -> _T:
             self._buffers["transitions"][self._qualify(name)] = cls
+            return cls
+
+        return deco
+
+    def color_provider(self, style: str) -> Callable[[_T], _T]:
+        """Register a ColorProvider class under ``namespace.style``."""
+
+        def deco(cls: _T) -> _T:
+            self._buffers["color_providers"][self._qualify(style)] = cls
             return cls
 
         return deco

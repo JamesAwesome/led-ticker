@@ -10,6 +10,7 @@ from types import ModuleType
 from typing import Any
 
 from led_ticker.animations import _ANIMATION_REGISTRY
+from led_ticker.borders import _BORDER_REGISTRY
 from led_ticker.color_providers import _PROVIDER_REGISTRY
 from led_ticker.plugin import API_VERSION, PluginAPI
 from led_ticker.transitions import _TRANSITION_REGISTRY
@@ -26,6 +27,7 @@ _REGISTRY_MAP: dict[str, dict[str, Any]] = {
     "transitions": _TRANSITION_REGISTRY,
     "color_providers": _PROVIDER_REGISTRY,
     "animations": _ANIMATION_REGISTRY,
+    "borders": _BORDER_REGISTRY,
 }
 
 

@@ -1,0 +1,50 @@
+import pytest
+
+from led_ticker import _plugin_loader as L
+from led_ticker.app.coercion import _coerce_border
+
+
+@pytest.fixture(autouse=True)
+def _clean():
+    L.reset_plugins()
+    yield
+    L.reset_plugins()
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        "rainbow",
+        "color_cycle",
+        "lightbulbs",
+        [255, 0, 0],
+        {"style": "rainbow", "speed": 4, "thickness": 2},
+        {"style": "constant", "color": [0, 255, 0], "thickness": 1},
+    ],
+)
+def test_builtin_borders_still_coerce(spec):
+    b = _coerce_border(spec)
+    assert hasattr(b, "paint")
+
+
+def test_plugin_border_coerces(tmp_path):
+    src = '''
+import attrs
+from led_ticker.plugin import BorderEffectBase
+
+@attrs.define
+class Neon(BorderEffectBase):
+    frame_invariant = False
+    speed: int = 3
+    def paint(self, canvas, frame_count):
+        return None
+
+def register(api):
+    api.border("neon")(Neon)
+'''
+    pdir = tmp_path / "plugins"
+    pdir.mkdir()
+    (pdir / "acme.py").write_text(src)
+    L.load_plugins(pdir, entry_points_enabled=False)
+    b = _coerce_border({"style": "acme.neon", "speed": 6})
+    assert hasattr(b, "paint")

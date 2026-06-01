@@ -156,42 +156,14 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> ColorProvider:
     """Instantiate a provider by name with kwargs. Validates kwargs
     against each provider's __init__ signature; raises with a helpful
     message on unknown styles or missing/unknown kwargs."""
-    from led_ticker.color_providers import (
-        ColorCycle,
-        Gradient,
-        Rainbow,
-        Random,
-        Shimmer,
-    )
+    from led_ticker.color_providers import _PROVIDER_REGISTRY
 
-    registry = {
-        "random": (Random, set()),
-        "rainbow": (Rainbow, {"speed", "char_offset"}),
-        "color_cycle": (ColorCycle, {"speed"}),
-        "gradient": (Gradient, {"from_color", "to_color"}),
-        "shimmer": (
-            Shimmer,
-            {"speed", "width", "pause", "base_color", "shimmer_color"},
-        ),
-    }
-
-    # Maps style → TOML-facing key names (what the user writes in their config).
-    # Used in error messages so we show "from"/"to" instead of internal names
-    # like "from_color"/"from_hue" that the user never types.
-    _user_allowed: dict[str, set[str]] = {
-        "random": set(),
-        "rainbow": {"speed", "char_offset"},
-        "color_cycle": {"speed", "from", "to"},
-        "gradient": {"from", "to"},
-        "shimmer": {"base", "shimmer", "speed", "width", "pause"},
-    }
-
-    if style not in registry:
+    cls = _PROVIDER_REGISTRY.get(style)
+    if cls is None:
         raise ValueError(
-            f"unknown font_color style {style!r}; available: {sorted(registry.keys())}"
+            f"unknown font_color style {style!r}; "
+            f"available: {sorted(_PROVIDER_REGISTRY)}"
         )
-
-    cls, allowed_kwargs = registry[style]
 
     # Special-case translation: TOML uses `from` / `to` (Pythonic
     # reserved words avoided), but provider takes from_color/to_color.
@@ -213,6 +185,17 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> ColorProvider:
         kwargs["to_color"] = graphics.Color(
             *_validate_rgb(to_val, "font_color gradient 'to'")
         )
+        _gradient_user_allowed = {"from", "to"}
+        # kwargs at this point only contains internal keys from_color/to_color
+        # plus any unexpected extra keys from the user — detect via the internal
+        # names we just set vs the full set of non-internal kwargs that remain.
+        _gradient_extra = set(kwargs) - {"from_color", "to_color"}
+        if _gradient_extra:
+            raise ValueError(
+                f"font_color style 'gradient' got unknown keys "
+                f"{sorted(_gradient_extra)!r}; "
+                f"allowed: {sorted(_gradient_user_allowed)}"
+            )
 
     if style == "color_cycle":
         from_val = kwargs.pop("from", None)
@@ -245,7 +228,14 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> ColorProvider:
                 )
             kwargs["from_hue"] = from_hue
             kwargs["to_hue"] = to_hue
-            allowed_kwargs = {"speed", "from_hue", "to_hue"}
+        _cycle_user_allowed = {"speed", "from", "to"}
+        _cycle_internal = {"speed", "from_hue", "to_hue"}
+        _cycle_extra = set(kwargs) - _cycle_internal
+        if _cycle_extra:
+            raise ValueError(
+                f"font_color style 'color_cycle' got unknown keys "
+                f"{sorted(_cycle_extra)!r}; allowed: {sorted(_cycle_user_allowed)}"
+            )
 
     if style == "shimmer":
         # base_color/shimmer_color are internal names injected below — reject them
@@ -285,13 +275,23 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> ColorProvider:
 
         kwargs["base_color"] = graphics.Color(*base_rgb)
         kwargs["shimmer_color"] = graphics.Color(*shimmer_rgb)
+        _shimmer_user_allowed = {"base", "shimmer", "speed", "width", "pause"}
+        _shimmer_internal = {"base_color", "shimmer_color", "speed", "width", "pause"}
+        _shimmer_extra = set(kwargs) - _shimmer_internal
+        if _shimmer_extra:
+            raise ValueError(
+                f"font_color style 'shimmer' got unknown keys "
+                f"{sorted(_shimmer_extra)!r}; allowed: {sorted(_shimmer_user_allowed)}"
+            )
 
-    unknown = set(kwargs.keys()) - allowed_kwargs
-    if unknown:
-        raise ValueError(
-            f"font_color style {style!r} got unknown keys {sorted(unknown)!r}; "
-            f"allowed: {sorted(_user_allowed[style])}"
-        )
+    if style not in _SPECIAL_PROVIDER_STYLES:
+        allowed = _allowed_init_kwargs(cls)
+        unknown = set(kwargs) - allowed
+        if unknown:
+            raise ValueError(
+                f"font_color style {style!r} got unknown keys "
+                f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
+            )
     return cls(**kwargs)
 
 
@@ -580,6 +580,20 @@ def _is_hires_font_name(name: str) -> bool:
 # widget constructor. The pop()-side fields (font_size, font_threshold,
 # top_font_size, etc.) also pass through here so their type is fixed
 # before resolve_font sees them.
+def _allowed_init_kwargs(cls: type) -> set[str]:
+    """Keyword names a class's constructor accepts (for plugin coercion)."""
+    import inspect
+
+    return {
+        name
+        for name, p in inspect.signature(cls).parameters.items()
+        if p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
+    }
+
+
+_SPECIAL_PROVIDER_STYLES = {"gradient", "color_cycle", "shimmer"}
+
+
 _WIDGET_INT_FIELDS = frozenset(
     {
         "font_size",

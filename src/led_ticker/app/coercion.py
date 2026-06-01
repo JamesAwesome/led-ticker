@@ -518,22 +518,19 @@ def _coerce_animation(value: Any) -> Animation | None:
 
     Raises ValueError on unknown names or unknown kwargs.
     """
-    from led_ticker.animations import Typewriter
+    from led_ticker.animations import _ANIMATION_REGISTRY
 
     if hasattr(value, "frame_for"):
         return value
 
-    registry = {
-        "typewriter": (Typewriter, {"chars_per_frame", "frames_per_char"}),
-    }
-
     match value:
         case str():
-            if value not in registry:
+            cls = _ANIMATION_REGISTRY.get(value)
+            if cls is None:
                 raise ValueError(
-                    f"unknown animation {value!r}; available: {sorted(registry.keys())}"
+                    f"unknown animation {value!r}; "
+                    f"available: {sorted(_ANIMATION_REGISTRY)}"
                 )
-            cls, _allowed = registry[value]
             return cls()
         case dict():
             if "style" not in value:
@@ -541,13 +538,15 @@ def _coerce_animation(value: Any) -> Animation | None:
                     f"animation table requires 'style' key; got {list(value.keys())!r}"
                 )
             style = value["style"]
-            if style not in registry:
+            cls = _ANIMATION_REGISTRY.get(style)
+            if cls is None:
                 raise ValueError(
-                    f"unknown animation {style!r}; available: {sorted(registry.keys())}"
+                    f"unknown animation {style!r}; "
+                    f"available: {sorted(_ANIMATION_REGISTRY)}"
                 )
-            cls, allowed = registry[style]
             kwargs = {k: v for k, v in value.items() if k != "style"}
-            unknown = set(kwargs.keys()) - allowed
+            allowed = _allowed_init_kwargs(cls)
+            unknown = set(kwargs) - allowed
             if unknown:
                 raise ValueError(
                     f"animation {style!r} got unknown keys {sorted(unknown)!r}; "
@@ -556,7 +555,7 @@ def _coerce_animation(value: Any) -> Animation | None:
             return cls(**kwargs)
         case _:
             raise ValueError(
-                f"animation must be a string or table; " f"got {type(value).__name__}"
+                f"animation must be a string or table; got {type(value).__name__}"
             )
 
 

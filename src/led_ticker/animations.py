@@ -73,3 +73,8 @@ class Typewriter:
         progress = (frame // self.frames_per_char) + 1
         chars_visible = min(len(full_text), progress * self.chars_per_frame)
         return AnimationFrame(visible_text=full_text[:chars_visible])
+
+
+_ANIMATION_REGISTRY: dict[str, type] = {
+    "typewriter": Typewriter,
+}

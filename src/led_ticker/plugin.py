@@ -12,6 +12,7 @@ from typing import Any, TypeVar
 
 # Re-exports: the stable surface plugin authors subclass / annotate against.
 from led_ticker._types import Canvas, Color
+from led_ticker.animations import Animation
 from led_ticker.color_providers import ColorProvider, ColorProviderBase
 from led_ticker.transitions import Transition
 from led_ticker.widget import Widget, spawn_tracked
@@ -19,6 +20,7 @@ from led_ticker.widget import Widget, spawn_tracked
 __all__ = [
     "API_VERSION",
     "PluginAPI",
+    "Animation",
     "Canvas",
     "Color",
     "ColorProvider",
@@ -27,7 +29,7 @@ __all__ = [
     "Widget",
     "spawn_tracked",
 ]
-# Phase B will also re-export: Animation, BorderEffect, BorderEffectBase.
+# Phase B will also re-export: BorderEffect, BorderEffectBase.
 # Phase C: PixelData, HiResEmoji, and the drawing helpers. Phase D: StartupContext.
 
 API_VERSION: tuple[int, int] = (1, 0)
@@ -53,6 +55,7 @@ class PluginAPI:
             "widgets": {},
             "transitions": {},
             "color_providers": {},
+            "animations": {},
         }
 
     @property
@@ -89,6 +92,15 @@ class PluginAPI:
 
         def deco(cls: _T) -> _T:
             self._buffers["color_providers"][self._qualify(style)] = cls
+            return cls
+
+        return deco
+
+    def animation(self, style: str) -> Callable[[_T], _T]:
+        """Register an Animation class under ``namespace.style``."""
+
+        def deco(cls: _T) -> _T:
+            self._buffers["animations"][self._qualify(style)] = cls
             return cls
 
         return deco

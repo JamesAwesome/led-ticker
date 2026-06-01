@@ -5,6 +5,7 @@ ColorProvider, BorderEffect, Animation, Font. No dependencies on the
 widget/ticker engine — only on provider registries and the _coerce helpers.
 """
 
+import inspect
 from typing import Any
 
 from led_ticker.animations import Animation
@@ -150,6 +151,24 @@ def _rgb_to_hue(rgb: list[int] | tuple[int, ...], context: str) -> float:
             "hue arc is meaningful."
         )
     return h * 360.0
+
+
+def _allowed_init_kwargs(cls: type) -> set[str]:
+    """Keyword names a class's constructor accepts (for plugin coercion).
+
+    Explicit parameters only. A plugin class whose constructor takes
+    ``**kwargs`` will appear to accept nothing here, so all user kwargs would
+    be rejected as unknown — plugin author classes must enumerate their config
+    fields as real (positional-or-keyword) parameters, which attrs classes do.
+    """
+    return {
+        name
+        for name, p in inspect.signature(cls).parameters.items()
+        if p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
+    }
+
+
+_SPECIAL_PROVIDER_STYLES = {"gradient", "color_cycle", "shimmer"}
 
 
 def _provider_from_style(style: str, kwargs: dict[str, Any]) -> ColorProvider:
@@ -580,20 +599,6 @@ def _is_hires_font_name(name: str) -> bool:
 # widget constructor. The pop()-side fields (font_size, font_threshold,
 # top_font_size, etc.) also pass through here so their type is fixed
 # before resolve_font sees them.
-def _allowed_init_kwargs(cls: type) -> set[str]:
-    """Keyword names a class's constructor accepts (for plugin coercion)."""
-    import inspect
-
-    return {
-        name
-        for name, p in inspect.signature(cls).parameters.items()
-        if p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
-    }
-
-
-_SPECIAL_PROVIDER_STYLES = {"gradient", "color_cycle", "shimmer"}
-
-
 _WIDGET_INT_FIELDS = frozenset(
     {
         "font_size",

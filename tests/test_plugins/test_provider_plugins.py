@@ -58,3 +58,39 @@ def register(api):
 
     provider = _coerce_color_provider({"style": "acme.fire", "intensity": 9})
     assert provider.color_for(0, 0, 1) is not None
+
+
+def test_color_cycle_rejects_internal_hue_keys():
+    with pytest.raises(ValueError, match="unknown keys"):
+        _coerce_color_provider({"style": "color_cycle", "from_hue": 10, "to_hue": 20})
+
+
+def test_color_cycle_from_to_still_work():
+    p = _coerce_color_provider(
+        {"style": "color_cycle", "from": [255, 0, 0], "to": [0, 0, 255]}
+    )
+    assert hasattr(p, "color_for")
+
+
+def test_plugin_provider_missing_required_raises_valueerror(_clean_plugins, tmp_path):
+    src = '''
+import attrs
+from led_ticker.plugin import ColorProviderBase
+
+@attrs.define
+class Needy(ColorProviderBase):
+    frame_invariant = True
+    level: int   # required, no default
+    def color_for(self, frame, char_index, total_chars):
+        from led_ticker.plugin import make_color
+        return make_color(self.level, 0, 0)
+
+def register(api):
+    api.color_provider("needy")(Needy)
+'''
+    pdir = tmp_path / "plugins"
+    pdir.mkdir()
+    (pdir / "acme.py").write_text(src)
+    L.load_plugins(pdir, entry_points_enabled=False)
+    with pytest.raises(ValueError, match="missing required"):
+        _coerce_color_provider({"style": "acme.needy"})

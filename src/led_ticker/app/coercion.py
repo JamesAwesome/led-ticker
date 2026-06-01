@@ -168,6 +168,27 @@ def _allowed_init_kwargs(cls: type) -> set[str]:
     }
 
 
+def _build_plugin_style(cls: type, kwargs: dict, label: str):
+    """Validate kwargs against cls's constructor and instantiate, raising
+    ValueError (a clean config error) for unknown OR missing-required keys —
+    not a raw TypeError. Used by the generic (plugin) coercion paths."""
+    allowed = _allowed_init_kwargs(cls)
+    unknown = set(kwargs) - allowed
+    if unknown:
+        raise ValueError(
+            f"{label} got unknown keys {sorted(unknown)!r}; allowed: {sorted(allowed)}"
+        )
+    required = {
+        name
+        for name, p in inspect.signature(cls).parameters.items()
+        if p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY) and p.default is p.empty
+    }
+    missing = required - set(kwargs)
+    if missing:
+        raise ValueError(f"{label} missing required keys {sorted(missing)!r}")
+    return cls(**kwargs)
+
+
 _SPECIAL_PROVIDER_STYLES = {"gradient", "color_cycle", "shimmer"}
 
 
@@ -217,6 +238,13 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> ColorProvider:
             )
 
     if style == "color_cycle":
+        _cycle_user_allowed = {"speed", "from", "to"}
+        unknown = set(kwargs) - _cycle_user_allowed
+        if unknown:
+            raise ValueError(
+                f"font_color style 'color_cycle' got unknown keys "
+                f"{sorted(unknown)!r}; allowed: {sorted(_cycle_user_allowed)}"
+            )
         from_val = kwargs.pop("from", None)
         to_val = kwargs.pop("to", None)
         if (from_val is None) != (to_val is None):
@@ -247,14 +275,6 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> ColorProvider:
                 )
             kwargs["from_hue"] = from_hue
             kwargs["to_hue"] = to_hue
-        _cycle_user_allowed = {"speed", "from", "to"}
-        _cycle_internal = {"speed", "from_hue", "to_hue"}
-        _cycle_extra = set(kwargs) - _cycle_internal
-        if _cycle_extra:
-            raise ValueError(
-                f"font_color style 'color_cycle' got unknown keys "
-                f"{sorted(_cycle_extra)!r}; allowed: {sorted(_cycle_user_allowed)}"
-            )
 
     if style == "shimmer":
         # base_color/shimmer_color are internal names injected below — reject them
@@ -304,13 +324,7 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> ColorProvider:
             )
 
     if style not in _SPECIAL_PROVIDER_STYLES:
-        allowed = _allowed_init_kwargs(cls)
-        unknown = set(kwargs) - allowed
-        if unknown:
-            raise ValueError(
-                f"font_color style {style!r} got unknown keys "
-                f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
-            )
+        return _build_plugin_style(cls, kwargs, f"font_color style {style!r}")
     return cls(**kwargs)
 
 
@@ -506,14 +520,7 @@ def _coerce_border(value: Any) -> BorderEffect | None:
                     )
                 return LightbulbBorder(**kwargs)
             case _:
-                allowed = _allowed_init_kwargs(cls)
-                unknown = set(kwargs) - allowed
-                if unknown:
-                    raise ValueError(
-                        f"border style {style!r} got unknown keys "
-                        f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
-                    )
-                return cls(**kwargs)
+                return _build_plugin_style(cls, kwargs, f"border style {style!r}")
     # Reject anything else loudly
     raise ValueError(
         f"border must be a string, table, or [r,g,b] list; got {type(value).__name__}"
@@ -557,14 +564,7 @@ def _coerce_animation(value: Any) -> Animation | None:
                     f"available: {sorted(_ANIMATION_REGISTRY)}"
                 )
             kwargs = {k: v for k, v in value.items() if k != "style"}
-            allowed = _allowed_init_kwargs(cls)
-            unknown = set(kwargs) - allowed
-            if unknown:
-                raise ValueError(
-                    f"animation {style!r} got unknown keys {sorted(unknown)!r}; "
-                    f"allowed: {sorted(allowed)}"
-                )
-            return cls(**kwargs)
+            return _build_plugin_style(cls, kwargs, f"animation {style!r}")
         case _:
             raise ValueError(
                 f"animation must be a string or table; got {type(value).__name__}"

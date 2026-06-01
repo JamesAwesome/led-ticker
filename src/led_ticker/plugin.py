@@ -12,7 +12,7 @@ from typing import Any, TypeVar
 
 # Re-exports: the stable surface plugin authors subclass / annotate against.
 from led_ticker._types import Canvas, Color
-from led_ticker.animations import Animation
+from led_ticker.animations import Animation, AnimationFrame
 from led_ticker.borders import BorderEffect, BorderEffectBase
 from led_ticker.color_providers import ColorProvider, ColorProviderBase
 from led_ticker.transitions import Transition
@@ -22,6 +22,7 @@ __all__ = [
     "API_VERSION",
     "PluginAPI",
     "Animation",
+    "AnimationFrame",
     "BorderEffect",
     "BorderEffectBase",
     "Canvas",
@@ -30,6 +31,7 @@ __all__ = [
     "ColorProviderBase",
     "Transition",
     "Widget",
+    "make_color",
     "spawn_tracked",
 ]
 # Phase C: PixelData, HiResEmoji, and the drawing helpers. Phase D: StartupContext.
@@ -119,5 +121,18 @@ class PluginAPI:
         return deco
 
     def easing(self, name: str, fn: Callable[[float], float]) -> None:
-        """Register an easing function under ``namespace.name``."""
+        """Register an easing function under ``namespace.name``.
+
+        Unlike the class-registering surfaces, this is a direct call (not a
+        decorator) — easing functions are plain callables, not classes.
+        """
         self._buffers["easing"][self._qualify(name)] = fn
+
+
+def make_color(r: int, g: int, b: int) -> Color:
+    """Build a Color from RGB components (0-255), for use in a provider's
+    ``color_for`` / a border's ``paint``. Wraps the rgbmatrix Color so plugins
+    don't import internal modules."""
+    from led_ticker._compat import require_graphics
+
+    return require_graphics().Color(r, g, b)

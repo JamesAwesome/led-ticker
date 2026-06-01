@@ -39,3 +39,9 @@ def register(api):
     L.load_plugins(pdir, entry_points_enabled=False)
     anim = _coerce_animation({"style": "acme.scramble", "speed": 4})
     assert hasattr(anim, "frame_for")
+
+
+def test_animationframe_is_public():
+    from led_ticker.plugin import AnimationFrame
+
+    assert AnimationFrame is not None

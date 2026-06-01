@@ -258,3 +258,15 @@ class Shimmer(ColorProviderBase):
         g = int(self._base.green + (self._shimmer.green - self._base.green) * factor)
         b = int(self._base.blue + (self._shimmer.blue - self._base.blue) * factor)
         return graphics.Color(r, g, b)
+
+
+# Registry of color-provider styles. Built-ins below; plugins add namespaced
+# entries via PluginAPI.color_provider(). coercion._provider_from_style looks
+# styles up here.
+_PROVIDER_REGISTRY: dict[str, type] = {
+    "random": Random,
+    "rainbow": Rainbow,
+    "color_cycle": ColorCycle,
+    "gradient": Gradient,
+    "shimmer": Shimmer,
+}

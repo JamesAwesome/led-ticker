@@ -41,3 +41,10 @@ def test_public_surface_exports_protocols():
     for name in ("PluginAPI", "API_VERSION", "Widget", "Transition", "Canvas",
                  "spawn_tracked"):
         assert hasattr(p, name), f"missing public export: {name}"
+
+
+def test_make_color_builds_a_color():
+    from led_ticker.plugin import make_color
+
+    c = make_color(255, 0, 0)
+    assert c is not None

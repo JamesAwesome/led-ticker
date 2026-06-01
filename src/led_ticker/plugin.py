@@ -11,21 +11,30 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 
 # Re-exports: the stable surface plugin authors subclass / annotate against.
-from led_ticker._types import Canvas
+from led_ticker._types import Canvas, Color
+from led_ticker.animations import Animation, AnimationFrame
+from led_ticker.borders import BorderEffect, BorderEffectBase
+from led_ticker.color_providers import ColorProvider, ColorProviderBase
 from led_ticker.transitions import Transition
 from led_ticker.widget import Widget, spawn_tracked
 
 __all__ = [
     "API_VERSION",
     "PluginAPI",
+    "Animation",
+    "AnimationFrame",
+    "BorderEffect",
+    "BorderEffectBase",
     "Canvas",
+    "Color",
+    "ColorProvider",
+    "ColorProviderBase",
     "Transition",
     "Widget",
+    "make_color",
     "spawn_tracked",
 ]
-# Phase B will also re-export: ColorProvider, ColorProviderBase, Animation,
-# BorderEffect, BorderEffectBase, Color. Phase C: PixelData, HiResEmoji, and the
-# drawing helpers. Phase D: StartupContext.
+# Phase C: PixelData, HiResEmoji, and the drawing helpers. Phase D: StartupContext.
 
 API_VERSION: tuple[int, int] = (1, 0)
 
@@ -49,6 +58,10 @@ class PluginAPI:
         self._buffers: dict[str, dict[str, Any]] = {
             "widgets": {},
             "transitions": {},
+            "color_providers": {},
+            "animations": {},
+            "borders": {},
+            "easing": {},
         }
 
     @property
@@ -79,3 +92,47 @@ class PluginAPI:
             return cls
 
         return deco
+
+    def color_provider(self, style: str) -> Callable[[_T], _T]:
+        """Register a ColorProvider class under ``namespace.style``."""
+
+        def deco(cls: _T) -> _T:
+            self._buffers["color_providers"][self._qualify(style)] = cls
+            return cls
+
+        return deco
+
+    def animation(self, style: str) -> Callable[[_T], _T]:
+        """Register an Animation class under ``namespace.style``."""
+
+        def deco(cls: _T) -> _T:
+            self._buffers["animations"][self._qualify(style)] = cls
+            return cls
+
+        return deco
+
+    def border(self, name: str) -> Callable[[_T], _T]:
+        """Register a BorderEffect class under ``namespace.name``."""
+
+        def deco(cls: _T) -> _T:
+            self._buffers["borders"][self._qualify(name)] = cls
+            return cls
+
+        return deco
+
+    def easing(self, name: str, fn: Callable[[float], float]) -> None:
+        """Register an easing function under ``namespace.name``.
+
+        Unlike the class-registering surfaces, this is a direct call (not a
+        decorator) — easing functions are plain callables, not classes.
+        """
+        self._buffers["easing"][self._qualify(name)] = fn
+
+
+def make_color(r: int, g: int, b: int) -> Color:
+    """Build a Color from RGB components (0-255), for use in a provider's
+    ``color_for`` / a border's ``paint``. Wraps the rgbmatrix Color so plugins
+    don't import internal modules."""
+    from led_ticker._compat import require_graphics
+
+    return require_graphics().Color(r, g, b)

@@ -499,3 +499,11 @@ class LightbulbBorder(BorderEffectBase):
         for dy in range(size):
             for dx in range(size):
                 real.SetPixel(x0 + dx, y0 + dy, r, g, b)
+
+
+_BORDER_REGISTRY: dict[str, type] = {
+    "rainbow": RainbowChaseBorder,
+    "color_cycle": ColorCycleBorder,
+    "constant": ConstantBorder,
+    "lightbulbs": LightbulbBorder,
+}

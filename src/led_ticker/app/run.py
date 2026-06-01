@@ -100,6 +100,12 @@ def _load_plugins_for_config(config_path: Path):
 
 async def run(config_path: Path) -> None:
     """Main application loop."""
+    # Plugins must load before load_config so plugin-provided easings (and any
+    # other config-load-validated surface) are visible to validation.
+    plugins = _load_plugins_for_config(config_path)
+    for ns, err in plugins.failed:
+        logging.warning("plugin %r failed to load: %s", ns, err)
+
     config = await asyncio.to_thread(load_config, config_path)
     # Surface any coerce warnings recorded by load_config (string-of-digits
     # int/float fields, mixed-case enum strings). Same messages that
@@ -108,10 +114,6 @@ async def run(config_path: Path) -> None:
     for w in config._coerce_warnings:
         logging.warning("config coerce: %s", w.message)
     _configure_user_font_dir(config_path)
-
-    plugins = _load_plugins_for_config(config_path)
-    for ns, err in plugins.failed:
-        logging.warning("plugin %r failed to load: %s", ns, err)
 
     led_frame = build_frame_from_config(config.display)
 

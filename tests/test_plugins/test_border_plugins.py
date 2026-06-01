@@ -27,6 +27,23 @@ def test_builtin_borders_still_coerce(spec):
     assert hasattr(b, "paint")
 
 
+def test_color_cycle_border_hue_range_from_to():
+    b = _coerce_border(
+        {
+            "style": "color_cycle",
+            "from": [255, 176, 240],
+            "to": [189, 169, 234],
+            "speed": 3,
+        }
+    )
+    assert hasattr(b, "paint")
+
+
+def test_color_cycle_border_speed_zero_rejected():
+    with pytest.raises(ValueError, match="speed=0|static color"):
+        _coerce_border({"style": "color_cycle", "speed": 0})
+
+
 def test_plugin_border_coerces(tmp_path):
     src = '''
 import attrs

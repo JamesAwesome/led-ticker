@@ -435,6 +435,41 @@ def _coerce_border(value: Any) -> BorderEffect | None:
                 return ConstantBorder(
                     color=_validate_rgb(color, "border constant color"), **kwargs
                 )
+            case "color_cycle":
+                allowed = {"speed", "thickness", "from", "to"}
+                unknown = set(kwargs.keys()) - allowed
+                if unknown:
+                    raise ValueError(
+                        f"border style 'color_cycle' got unknown keys "
+                        f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
+                    )
+                speed = kwargs.get("speed", 5)
+                if speed == 0:
+                    raise ValueError(
+                        "border style 'color_cycle' with speed=0 is a static color — "
+                        "use border = [r, g, b] instead"
+                    )
+                from_val = kwargs.pop("from", None)
+                to_val = kwargs.pop("to", None)
+                if (from_val is None) != (to_val is None):
+                    raise ValueError(
+                        "border style 'color_cycle' requires both 'from' and 'to' "
+                        "when specifying a hue range, or neither for the full wheel"
+                    )
+                if from_val is not None:
+                    from_hue = _rgb_to_hue(from_val, "border 'color_cycle' from")
+                    to_hue = _rgb_to_hue(to_val, "border 'color_cycle' to")
+                    diff = (to_hue - from_hue) % 360
+                    if diff > 180:
+                        diff -= 360
+                    if diff == 0:
+                        raise ValueError(
+                            f"border 'color_cycle' from and to have the same hue "
+                            f"({from_hue:.0f}°); use border = [r, g, b] instead"
+                        )
+                    kwargs["from_hue"] = from_hue
+                    kwargs["to_hue"] = to_hue
+                return ColorCycleBorder(**kwargs)
             case "lightbulbs":
                 allowed = {
                     "mode",

@@ -13,7 +13,7 @@ from led_ticker.animations import _ANIMATION_REGISTRY
 from led_ticker.borders import _BORDER_REGISTRY
 from led_ticker.color_providers import _PROVIDER_REGISTRY
 from led_ticker.plugin import API_VERSION, PluginAPI
-from led_ticker.transitions import _TRANSITION_REGISTRY
+from led_ticker.transitions import _TRANSITION_REGISTRY, EASING
 from led_ticker.widgets import _WIDGET_REGISTRY
 
 logger = logging.getLogger(__name__)
@@ -28,6 +28,7 @@ _REGISTRY_MAP: dict[str, dict[str, Any]] = {
     "color_providers": _PROVIDER_REGISTRY,
     "animations": _ANIMATION_REGISTRY,
     "borders": _BORDER_REGISTRY,
+    "easing": EASING,
 }
 
 

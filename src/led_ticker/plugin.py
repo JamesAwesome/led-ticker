@@ -59,6 +59,7 @@ class PluginAPI:
             "color_providers": {},
             "animations": {},
             "borders": {},
+            "easing": {},
         }
 
     @property
@@ -116,3 +117,7 @@ class PluginAPI:
             return cls
 
         return deco
+
+    def easing(self, name: str, fn: Callable[[float], float]) -> None:
+        """Register an easing function under ``namespace.name``."""
+        self._buffers["easing"][self._qualify(name)] = fn

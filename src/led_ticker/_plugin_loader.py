@@ -1,5 +1,6 @@
 """Plugin discovery and loading (internal). Plugins never import this."""
 
+import contextlib
 import importlib.metadata
 import importlib.util
 import inspect
@@ -186,9 +187,12 @@ def _guarded_overlay(
             paint(canvas)
         except Exception:
             state["disabled"] = True
-            logger.exception(
-                "plugin %r overlay raised; disabling it for this run", namespace
-            )
+            # Never let a logging failure propagate into swap() and freeze
+            # the panel — disabling the overlay is what matters.
+            with contextlib.suppress(Exception):
+                logger.exception(
+                    "plugin %r overlay raised; disabling it for this run", namespace
+                )
 
     return wrapped
 

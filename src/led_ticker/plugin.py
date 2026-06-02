@@ -5,6 +5,11 @@ internal and may change without notice. A plugin defines a top-level
 ``register(api)`` function; the loader passes a :class:`PluginAPI` bound to the
 plugin's namespace. Every registered name is auto-prefixed with that namespace
 (``"namespace.name"``) and buffered until the loader commits it atomically.
+
+A registered widget class may also define a ``validate_config(cls, cfg) ->
+list[str]`` classmethod (a @classmethod). When present it is called during
+config validation; any returned messages become pre-flight errors. This is a
+convention (no ``api.*`` registration) — the rule travels with the widget type.
 """
 
 from collections.abc import Callable
@@ -66,6 +71,11 @@ class StartupContext:
     ``frame`` is the ``LedFrame`` (has ``overlay_hooks``, ``matrix``,
     ``get_clean_canvas()``, ``swap()``); ``session`` is the shared
     ``aiohttp.ClientSession``; ``config`` is the parsed app config.
+
+    To add an overlay that reacts to startup state, register a paint function
+    via ``api.overlay`` (it can read shared state your startup hook updates).
+    Appending directly to ``frame.overlay_hooks`` works but is NOT exception-
+    guarded.
     """
 
     frame: Any
@@ -217,14 +227,16 @@ class PluginAPI:
     def overlay(self, paint: Callable[[Any], None]) -> None:
         """Register an overlay painter run on every frame before the hardware
         swap. ``paint(canvas)`` draws directly on the real canvas (physical
-        pixels), like the built-in busy-light. Direct call.
+        pixels) — use ``canvas.SetPixel(x, y, r, g, b)`` (see ``canvas.width`` /
+        ``canvas.height`` for bounds); ``make_color`` builds Colors and
+        ``draw_emoji_at`` paints emojis. Direct call.
 
-        Unlike core overlays, a plugin overlay that raises is disabled (and
-        logged once) rather than freezing the panel — the loader wraps it.
-
-        Plugin overlays composite over the busy-light (they are appended after
-        it), so a plugin overlay drawing in the busy-light's corner will paint
-        over the dot.
+        Register overlays HERE (via ``api.overlay``) rather than appending to
+        ``StartupContext.frame.overlay_hooks`` in a startup hook: only overlays
+        registered this way are exception-wrapped (a raise disables the hook and
+        is logged once, rather than freezing the panel). A common service
+        pattern is to register a paint function here that reads shared state an
+        ``on_startup`` poller updates.
         """
         self._overlays.append(paint)
 

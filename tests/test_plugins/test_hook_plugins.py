@@ -64,6 +64,8 @@ def test_guarded_overlay_disables_and_logs_once_on_raise(caplog):
     with caplog.at_level(logging.ERROR):
         guarded("canvas-1")  # raises internally -> caught, disabled, logged
         guarded("canvas-2")  # already disabled -> no-op, no call
+        guarded("canvas-3")
+        guarded("canvas-4")
     assert calls["n"] == 1  # the painter ran once, then was disabled
     msgs = [r.getMessage() for r in caplog.records]
     assert sum("overlay" in m and "acme" in m for m in msgs) == 1  # logged once
@@ -140,4 +142,67 @@ def test_loader_collects_multiple_overlays_from_one_plugin(tmp_path):
         result = L.load_plugins(tmp_path / "plugins", entry_points_enabled=False)
         assert [ns for ns, _ in result.overlays] == ["multi", "multi"]
     finally:
+        L.reset_plugins()
+
+
+def test_run_startup_hooks_async_failure_is_isolated(caplog):
+    order = []
+
+    async def async_boom(ctx):
+        raise RuntimeError("async startup boom")
+
+    async def ok_after(ctx):
+        order.append("ok")
+
+    hooks = [("bad", async_boom), ("after", ok_after)]
+    with caplog.at_level(logging.ERROR):
+        asyncio.run(L._run_startup_hooks(hooks, "CTX"))
+    assert order == ["ok"]  # a raising async hook does not stop later hooks
+    assert any("on_startup" in r.getMessage() and "bad" in r.getMessage()
+               for r in caplog.records)
+
+
+def test_run_shutdown_hooks_async_failure_is_isolated(caplog):
+    order = []
+
+    async def async_boom():
+        raise RuntimeError("async shutdown boom")
+
+    async def ok_after():
+        order.append("ok")
+
+    hooks = [("bad", async_boom), ("after", ok_after)]
+    with caplog.at_level(logging.ERROR):
+        asyncio.run(L._run_shutdown_hooks(hooks))
+    assert order == ["ok"]
+    assert any("on_shutdown" in r.getMessage() and "bad" in r.getMessage()
+               for r in caplog.records)
+
+
+def test_commit_failure_contributes_no_hooks(tmp_path):
+    from led_ticker.widgets import _WIDGET_REGISTRY
+
+    L.reset_plugins()
+    # Pre-seed the registry so the plugin's widget commit collides, making
+    # _commit raise AFTER register() already buffered an overlay + hooks.
+    _WIDGET_REGISTRY["svc.thing"] = object()
+    _write_plugin(
+        tmp_path / "plugins",
+        "svc",
+        """
+        def register(api):
+            @api.widget("thing")
+            class Thing:
+                pass
+            api.overlay(lambda canvas: None)
+            api.on_startup(lambda ctx: None)
+        """,
+    )
+    try:
+        result = L.load_plugins(tmp_path / "plugins", entry_points_enabled=False)
+        assert any(ns == "svc" for ns, _ in result.failed), result.loaded
+        assert result.overlays == []
+        assert result.startup_hooks == []
+    finally:
+        _WIDGET_REGISTRY.pop("svc.thing", None)
         L.reset_plugins()

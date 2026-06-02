@@ -2,6 +2,7 @@
 
 import importlib.metadata
 import importlib.util
+import inspect
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -98,6 +99,39 @@ def _commit(api: PluginAPI, info: PluginInfo) -> None:
             info.counts[surface] = len(buf)
 
 
+def _resolve_root(
+    source: str, register: Callable[[PluginAPI], None]
+) -> Path | None:
+    """Best-effort plugin root for resolving ``api.font()`` relative paths.
+
+    Local plugins: the dir containing the plugin file — a single-file plugin's
+    parent (the plugins dir), or the package dir itself. Entry-point plugins:
+    the dir of the register callable's module. Returns ``None`` when it cannot
+    be determined (e.g. a zip-imported package); ``api.font`` then raises a
+    clear error rather than guessing.
+
+    Uses ``.py`` suffix rather than ``path.is_file()`` to discriminate between
+    a single-file plugin and a package dir, so the check is existence-independent
+    (works even when the source path is hypothetical or in a tmp dir in tests).
+
+    For entry-point plugins, ``inspect.getmodule`` is tried first; if it
+    returns ``None`` (e.g. the module was loaded via ``spec_from_file_location``
+    without being registered in ``sys.modules``), we fall back to
+    ``register.__globals__.get('__file__')`` which Py guarantees is set for
+    any function defined in a source file.
+    """
+    if source.startswith("entry-point:"):
+        module = inspect.getmodule(register)
+        module_file = getattr(module, "__file__", None)
+        if module_file is None:
+            # Fallback: function's own globals dict always has __file__ for
+            # source-file functions, even when the module isn't in sys.modules.
+            module_file = getattr(register, "__globals__", {}).get("__file__")
+        return Path(module_file).parent if module_file else None
+    path = Path(source)
+    return path.parent if path.suffix == ".py" else path
+
+
 def _load_one(
     namespace: str,
     source: str,
@@ -126,7 +160,8 @@ def _load_one(
             "plugin %r has no register(api); skipping %s", namespace, source
         )
         return
-    api = PluginAPI(namespace)
+    root = _resolve_root(source, register)
+    api = PluginAPI(namespace, root=root)
     info = PluginInfo(namespace=namespace, source=source)
     try:
         register(api)

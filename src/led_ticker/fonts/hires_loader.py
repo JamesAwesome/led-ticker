@@ -91,11 +91,18 @@ _PLUGIN_FONTS: dict[str, Path] = {}
 
 
 def _find_font_path(name: str) -> Path | None:
-    """Look up a font by name across user + bundled dirs.
+    """Look up a font by name: plugin fonts first, then user + bundled dirs.
 
-    User dir wins on collisions so users can override bundled fonts.
-    Tries `.otf` first, then `.ttf`. Returns None if not found.
+    Plugin fonts (namespaced, e.g. ``acme.Brand``) win because their names
+    cannot collide with built-in/user font names. A registered-but-missing
+    plugin path returns ``None`` (treated as "not found", same as the dir
+    scan), so a broken plugin font surfaces as ``UnknownFontError`` rather
+    than crashing. User dir then wins over bundled on collisions. Tries
+    ``.otf`` first, then ``.ttf``.
     """
+    plugin_path = _PLUGIN_FONTS.get(name)
+    if plugin_path is not None:
+        return plugin_path if plugin_path.exists() else None
     for ext in (".otf", ".ttf"):
         for base in (USER_FONT_DIR, BUNDLED_HIRES_DIR):
             candidate = base / f"{name}{ext}"

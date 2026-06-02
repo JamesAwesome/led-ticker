@@ -8,13 +8,17 @@ plugin's namespace. Every registered name is auto-prefixed with that namespace
 """
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, TypeVar
 
 # Re-exports: the stable surface plugin authors subclass / annotate against.
-from led_ticker._types import Canvas, Color
+from led_ticker import colors
+from led_ticker._types import Canvas, Color, PixelData
 from led_ticker.animations import Animation, AnimationFrame
 from led_ticker.borders import BorderEffect, BorderEffectBase
 from led_ticker.color_providers import ColorProvider, ColorProviderBase
+from led_ticker.drawing import compute_baseline, get_text_width
+from led_ticker.pixel_emoji import HiResEmoji, draw_emoji_at, measure_emoji_at
 from led_ticker.transitions import Transition
 from led_ticker.widget import Widget, spawn_tracked
 
@@ -29,12 +33,19 @@ __all__ = [
     "Color",
     "ColorProvider",
     "ColorProviderBase",
+    "HiResEmoji",
+    "PixelData",
     "Transition",
     "Widget",
+    "colors",
+    "compute_baseline",
+    "draw_emoji_at",
+    "get_text_width",
     "make_color",
+    "measure_emoji_at",
     "spawn_tracked",
 ]
-# Phase C: PixelData, HiResEmoji, and the drawing helpers. Phase D: StartupContext.
+# Phase D will add: StartupContext.
 
 API_VERSION: tuple[int, int] = (1, 0)
 
@@ -50,9 +61,11 @@ class PluginAPI:
     half-register on error.
     """
 
-    def __init__(self, namespace: str) -> None:
-        # Phase C will add `root: Path | None = None` here (for api.font()).
+    def __init__(self, namespace: str, root: Path | None = None) -> None:
         self.namespace = namespace
+        # Filesystem root for resolving api.font() relative paths. The loader
+        # supplies it (the plugin's dir / package dir); None when undeterminable.
+        self.root = root
         # One buffer per surface, keyed by surface name, so the loader's commit
         # is a single generic loop as later phases add surfaces.
         self._buffers: dict[str, dict[str, Any]] = {
@@ -62,6 +75,9 @@ class PluginAPI:
             "animations": {},
             "borders": {},
             "easing": {},
+            "emojis": {},
+            "hires_emojis": {},
+            "fonts": {},
         }
 
     @property
@@ -127,6 +143,39 @@ class PluginAPI:
         decorator) — easing functions are plain callables, not classes.
         """
         self._buffers["easing"][self._qualify(name)] = fn
+
+    def emoji(self, slug: str, data: PixelData) -> None:
+        """Register a low-res 8x8 emoji under ``namespace.slug``.
+
+        Direct call (not a decorator) — emoji data is a pixel list, not a
+        class. Resolvable inline as ``:namespace.slug:`` once committed.
+        """
+        self._buffers["emojis"][self._qualify(slug)] = data
+
+    def hires_emoji(self, slug: str, data: HiResEmoji) -> None:
+        """Register a hi-res emoji under ``namespace.slug``.
+
+        Used preferentially when the canvas is scaled (``scale > 1``). With no
+        matching ``emoji(slug, ...)`` there is no low-res fallback, so the slug
+        only renders on a scaled canvas — same rule as built-in hi-res-only
+        sprites. Direct call.
+        """
+        self._buffers["hires_emojis"][self._qualify(slug)] = data
+
+    def font(self, name: str, path: str) -> None:
+        """Register a font file under ``namespace.name``.
+
+        ``path`` is relative to the plugin's root (its directory for a local
+        plugin, its package dir for an installed one). Resolved to an absolute
+        path now; the font loader consults it ahead of ``config/fonts/`` and
+        the bundled fonts. Direct call — a font is a file, not a class.
+        """
+        if self.root is None:
+            raise ValueError(
+                f"api.font({name!r}) needs a plugin root, but none could be "
+                "determined for this plugin (zip-imported package?)."
+            )
+        self._buffers["fonts"][self._qualify(name)] = (self.root / path).resolve()
 
 
 def make_color(r: int, g: int, b: int) -> Color:

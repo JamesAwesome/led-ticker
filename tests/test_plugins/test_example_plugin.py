@@ -31,6 +31,8 @@ def test_example_plugin_registers_every_surface_and_hook():
 
 
 def test_example_plugin_contributions_are_usable():
+    # Test-only internal imports (resolve_font/get_widget_class). A plugin
+    # itself imports ONLY from led_ticker.plugin — see acme/__init__.py.
     from led_ticker.fonts import resolve_font
     from led_ticker.widgets import get_widget_class
 

@@ -57,6 +57,7 @@ def register(api):
 
     api.easing("snap", lambda p: p * p)
     api.emoji("spark", [(x, y, 255, 200, 0) for x in range(8) for y in range(8)])
+    api.emoji("glow", [(x, y, 255, 200, 0) for x in range(8) for y in range(8)])
     api.hires_emoji(
         "glow", HiResEmoji(pixels=((0, 0, 255, 200, 0),), physical_size=16)
     )

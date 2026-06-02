@@ -10,3 +10,5 @@ on_shutdown). Each contribution is namespaced `acme.*`.
 `[project.entry-points."led_ticker.plugins"]  acme = "acme:register"`.
 
 Full walkthrough: see the Plugins page in the docs site.
+
+`acme/fonts/Brand.ttf` here is a copy of Inter Bold for illustration — a real plugin can bundle any `.ttf`/`.otf`.

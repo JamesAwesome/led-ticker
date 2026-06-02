@@ -2,6 +2,8 @@ import asyncio
 import logging
 import textwrap
 
+import pytest
+
 from led_ticker import _plugin_loader as L
 
 
@@ -113,3 +115,29 @@ def test_run_shutdown_hooks_sync_and_async_and_isolated(caplog):
     assert order == ["sync", "async"]
     assert any("on_shutdown" in r.getMessage() and "c" in r.getMessage()
                for r in caplog.records)
+
+
+def test_run_shutdown_hooks_cancellederror_is_not_swallowed():
+    async def bad_hook():
+        raise asyncio.CancelledError("from plugin")
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(L._run_shutdown_hooks([("bad", bad_hook)]))
+
+
+def test_loader_collects_multiple_overlays_from_one_plugin(tmp_path):
+    L.reset_plugins()
+    _write_plugin(
+        tmp_path / "plugins",
+        "multi",
+        """
+        def register(api):
+            api.overlay(lambda c: None)
+            api.overlay(lambda c: None)
+        """,
+    )
+    try:
+        result = L.load_plugins(tmp_path / "plugins", entry_points_enabled=False)
+        assert [ns for ns, _ in result.overlays] == ["multi", "multi"]
+    finally:
+        L.reset_plugins()

@@ -211,7 +211,14 @@ async def _run_shutdown_hooks(
     hooks: list[tuple[str, Callable[..., Any]]],
 ) -> None:
     """Run each on_shutdown hook best-effort, isolating failures. Awaits a hook
-    that returns a coroutine."""
+    that returns a coroutine.
+
+    Failure isolation covers ``Exception`` only. A hook that raises or
+    propagates ``CancelledError``/``KeyboardInterrupt`` (both ``BaseException``)
+    interrupts the remaining shutdown sequence — intentional: plugin code must
+    not be able to suppress external cancellation, and this runner is invoked
+    from the run-loop ``finally`` which is itself reached via cancellation.
+    """
     for namespace, fn in hooks:
         try:
             result = fn()

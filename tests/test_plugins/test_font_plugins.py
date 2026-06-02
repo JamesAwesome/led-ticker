@@ -6,7 +6,7 @@ import pytest
 import led_ticker.pixel_emoji as pe
 from led_ticker import _plugin_loader as L
 from led_ticker.fonts import hires_loader, resolve_font
-from led_ticker.fonts.hires_loader import BUNDLED_HIRES_DIR
+from led_ticker.fonts.hires_loader import BUNDLED_HIRES_DIR, HiresFont
 
 
 def _a_bundled_font_path():
@@ -118,6 +118,6 @@ def test_local_plugin_contributes_emoji_hires_and_font(tmp_path):
 
         # Font resolves to a real rasterized HiresFont.
         font = resolve_font("acme.Brand", size=16)
-        assert font.__class__.__name__ == "HiresFont"
+        assert isinstance(font, HiresFont)
     finally:
         L.reset_plugins()

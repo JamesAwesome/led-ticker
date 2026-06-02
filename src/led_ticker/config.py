@@ -190,6 +190,13 @@ def _parse_plugins_block(raw: dict) -> PluginsConfig:
         raise ValueError(
             f"plugins.dir must be a string; got {type(cfg.dir).__name__}."
         )
+    if not cfg.dir.strip():
+        raise ValueError("plugins.dir must not be empty.")
+    if Path(cfg.dir).is_absolute():
+        raise ValueError(
+            f"plugins.dir must be a relative path (joined to the config dir); "
+            f"got {cfg.dir!r}."
+        )
     if not isinstance(cfg.disable, list) or not all(
         isinstance(n, str) for n in cfg.disable
     ):

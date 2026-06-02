@@ -34,7 +34,10 @@ from led_ticker.text_render import draw_text, draw_text_per_char
 # token where slug is lowercase letters and underscores. Widgets use
 # `EMOJI_PATTERN.search(text)` to cache `has_emoji` at construction
 # time so per-tick draws don't re-run the regex.
-EMOJI_PATTERN: re.Pattern[str] = re.compile(r":[a-z_]+:")
+# Admits both built-in slugs (`:heart:`, `:partly_cloudy:`) and namespaced
+# plugin slugs (`:acme.heart:`). The leading `[a-z_]` keeps clock times like
+# `12:30:45` from being parsed as emoji tokens.
+EMOJI_PATTERN: re.Pattern[str] = re.compile(r":[a-z_][a-z0-9_.]*:")
 
 EMOJI_DEFAULT_WIDTH: int = 8
 EMOJI_PADDING: int = 2  # px after icon before text resumes
@@ -2816,7 +2819,7 @@ def _parse_segments(text: str) -> list[tuple[str, str]]:
 
     Returns list of ("text", "hello ") or ("emoji", "baseball").
     """
-    parts = re.split(r"(:[a-z_]+:)", text)
+    parts = re.split(f"({EMOJI_PATTERN.pattern})", text)
     segments: list[tuple[str, str]] = []
     for part in parts:
         if not part:

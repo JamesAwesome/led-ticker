@@ -1,3 +1,5 @@
+import inspect
+
 import led_ticker.pixel_emoji as pe
 from led_ticker import _plugin_loader as L
 
@@ -24,3 +26,26 @@ def test_registry_map_includes_emoji_and_font_surfaces():
     from led_ticker.fonts.hires_loader import _PLUGIN_FONTS
 
     assert L._REGISTRY_MAP["fonts"] is _PLUGIN_FONTS
+
+
+def test_emoji_pattern_admits_namespaced_and_builtin_slugs():
+    assert pe.EMOJI_PATTERN.fullmatch(":acme.heart:")
+    assert pe.EMOJI_PATTERN.fullmatch(":heart:")
+    assert pe.EMOJI_PATTERN.fullmatch(":partly_cloudy:")
+    # A clock time must NOT be treated as an emoji token.
+    assert pe.EMOJI_PATTERN.search("score 12:30:45 final") is None
+
+
+def test_parse_segments_uses_the_shared_pattern_and_parses_namespaced():
+    # DRY: the split must derive from EMOJI_PATTERN, not a hardcoded literal.
+    src = inspect.getsource(pe._parse_segments)
+    assert "EMOJI_PATTERN.pattern" in src
+
+    pe._get_registry()  # materialize built-ins
+    pe.EMOJI_REGISTRY["acme.spark"] = pe.HEART
+    try:
+        segs = pe._parse_segments("hi :acme.spark: and :heart: ok")
+        assert ("emoji", "acme.spark") in segs
+        assert ("emoji", "heart") in segs
+    finally:
+        pe.EMOJI_REGISTRY.pop("acme.spark", None)

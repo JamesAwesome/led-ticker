@@ -121,6 +121,16 @@ def test_startup_context_is_exported_and_constructible():
     assert (ctx.frame, ctx.session, ctx.config) == ("F", "S", "C")
 
 
+def test_startup_context_is_frozen():
+    import dataclasses
+
+    from led_ticker.plugin import StartupContext
+
+    ctx = StartupContext(frame="F", session="S", config="C")
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        ctx.frame = "mutated"
+
+
 def test_hook_lists_are_independent_of_buffers():
     # Hooks are NOT registry surfaces — they must not appear in _buffers.
     api = PluginAPI("acme")

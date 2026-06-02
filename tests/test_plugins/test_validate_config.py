@@ -99,7 +99,7 @@ async def test_validate_loads_plugins_so_plugin_widget_is_known(tmp_path):
                 class Clock:
                     def __init__(self, **kw):
                         pass
-                    def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
+                    def draw(self, canvas, cursor_pos=0, **kw):
                         return canvas, cursor_pos
             '''
         )

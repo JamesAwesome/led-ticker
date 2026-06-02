@@ -12,6 +12,8 @@ from typing import Any
 from led_ticker.animations import _ANIMATION_REGISTRY
 from led_ticker.borders import _BORDER_REGISTRY
 from led_ticker.color_providers import _PROVIDER_REGISTRY
+from led_ticker.fonts.hires_loader import _PLUGIN_FONTS
+from led_ticker.pixel_emoji import EMOJI_REGISTRY, HIRES_REGISTRY
 from led_ticker.plugin import API_VERSION, PluginAPI
 from led_ticker.transitions import _TRANSITION_REGISTRY, EASING
 from led_ticker.widgets import _WIDGET_REGISTRY
@@ -29,6 +31,9 @@ _REGISTRY_MAP: dict[str, dict[str, Any]] = {
     "animations": _ANIMATION_REGISTRY,
     "borders": _BORDER_REGISTRY,
     "easing": EASING,
+    "emojis": EMOJI_REGISTRY,
+    "hires_emojis": HIRES_REGISTRY,
+    "fonts": _PLUGIN_FONTS,
 }
 
 

@@ -83,6 +83,12 @@ class HiresFont:
     glyphs: dict[str, HiresGlyph] = field(default_factory=dict)
 
 
+# Plugin-contributed fonts: ``namespace.name`` -> absolute path to the font
+# file. Populated by the plugin loader's commit; consulted by _find_font_path
+# ahead of the user + bundled dirs. Cleared (dotted keys) by reset_plugins().
+_PLUGIN_FONTS: dict[str, Path] = {}
+
+
 def _find_font_path(name: str) -> Path | None:
     """Look up a font by name across user + bundled dirs.
 

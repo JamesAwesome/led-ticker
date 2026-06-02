@@ -2790,10 +2790,24 @@ HIRES_REGISTRY: dict[str, HiResEmoji] = _build_hires_registry(
 )
 
 
+_EMOJI_BUILTINS_LOADED = False
+
+
 def _get_registry() -> dict[str, PixelData]:
-    global EMOJI_REGISTRY  # noqa: PLW0603
-    if not EMOJI_REGISTRY:
-        EMOJI_REGISTRY.update(_build_emoji_registry())
+    """Return EMOJI_REGISTRY, materializing built-ins on first use.
+
+    Uses an explicit sentinel rather than ``if not EMOJI_REGISTRY`` because a
+    plugin may commit a namespaced slug into EMOJI_REGISTRY before any built-in
+    lookup happens; a truthiness gate would then see a non-empty dict and never
+    load the built-ins. ``setdefault`` also guarantees built-ins never clobber
+    an already-committed plugin slug (slugs are namespaced, so they cannot
+    collide anyway — belt-and-suspenders).
+    """
+    global _EMOJI_BUILTINS_LOADED  # noqa: PLW0603
+    if not _EMOJI_BUILTINS_LOADED:
+        for slug, data in _build_emoji_registry().items():
+            EMOJI_REGISTRY.setdefault(slug, data)
+        _EMOJI_BUILTINS_LOADED = True
     return EMOJI_REGISTRY
 
 

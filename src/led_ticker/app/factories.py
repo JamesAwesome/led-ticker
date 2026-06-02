@@ -532,6 +532,27 @@ def _resolve_asset_paths(
         widget_cfg["path"] = str((config_dir / candidate).resolve())
 
 
+def _run_validate_config(cls: type, cfg: dict[str, Any], widget_type: str) -> None:
+    """Run a widget class's optional ``validate_config(cls, cfg) -> list[str]``.
+
+    A by-convention cross-field check that travels with the type (no API
+    registration needed). Messages become a pre-flight ``ValueError``. The
+    validator gets a COPY of the config so it can't mutate the real one. A
+    validator that itself raises is wrapped so the error names the type.
+    It must be a ``@classmethod``; a plain instance method raises ``TypeError``
+    (caught and re-raised as ``ValueError``).
+    """
+    validator = getattr(cls, "validate_config", None)
+    if validator is None:
+        return
+    try:
+        messages = validator(dict(cfg))
+    except Exception as e:
+        raise ValueError(f"{widget_type}: validate_config raised: {e}") from e
+    if messages:
+        raise ValueError(f"{widget_type}: {'; '.join(messages)}")
+
+
 async def validate_widget_cfg(
     widget_cfg: dict[str, Any],
     session: aiohttp.ClientSession | None,
@@ -695,6 +716,7 @@ async def validate_widget_cfg(
 
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)
+    _run_validate_config(cls, widget_cfg, widget_type)
 
     _coerce_widget_cfg(widget_cfg, coercion_collector)
 

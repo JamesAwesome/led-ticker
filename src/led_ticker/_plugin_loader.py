@@ -49,6 +49,13 @@ class PluginInfo:
 class LoadedPlugins:
     loaded: list[PluginInfo] = field(default_factory=list)
     failed: list[tuple[str, str]] = field(default_factory=list)
+    # Lifecycle hooks, each tagged with the contributing namespace (for logging
+    # and the overlay guard). Collected only from successfully-loaded plugins.
+    overlays: list[tuple[str, Callable[[Any], None]]] = field(default_factory=list)
+    startup_hooks: list[tuple[str, Callable[..., Any]]] = field(default_factory=list)
+    shutdown_hooks: list[tuple[str, Callable[..., Any]]] = field(
+        default_factory=list
+    )
 
 
 # Load-once guard; assigned by load_plugins() (added in Task A3).
@@ -160,6 +167,60 @@ def _warn_unpaired_hires(namespace: str, api: PluginAPI) -> None:
             )
 
 
+def _guarded_overlay(
+    namespace: str, paint: Callable[[Any], None]
+) -> Callable[[Any], None]:
+    """Wrap a plugin overlay so a raise disables it (and logs once) instead of
+    propagating out of ``LedFrame.swap()``.
+
+    Core overlays intentionally have no per-hook try/except (a raising core hook
+    freezes the panel — the documented invariant). Plugin code is less trusted,
+    so its overlays must never be able to freeze the panel.
+    """
+    state = {"disabled": False}
+
+    def wrapped(canvas: Any) -> None:
+        if state["disabled"]:
+            return
+        try:
+            paint(canvas)
+        except Exception:
+            state["disabled"] = True
+            logger.exception(
+                "plugin %r overlay raised; disabling it for this run", namespace
+            )
+
+    return wrapped
+
+
+async def _run_startup_hooks(
+    hooks: list[tuple[str, Callable[..., Any]]], ctx: Any
+) -> None:
+    """Run each on_startup hook once, isolating failures. Awaits a hook that
+    returns a coroutine."""
+    for namespace, fn in hooks:
+        try:
+            result = fn(ctx)
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            logger.exception("plugin %r on_startup hook failed", namespace)
+
+
+async def _run_shutdown_hooks(
+    hooks: list[tuple[str, Callable[..., Any]]],
+) -> None:
+    """Run each on_shutdown hook best-effort, isolating failures. Awaits a hook
+    that returns a coroutine."""
+    for namespace, fn in hooks:
+        try:
+            result = fn()
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            logger.exception("plugin %r on_shutdown hook failed", namespace)
+
+
 def _load_one(
     namespace: str,
     source: str,
@@ -201,6 +262,12 @@ def _load_one(
     loaded_namespaces.add(namespace)
     result.loaded.append(info)
     _warn_unpaired_hires(namespace, api)
+    for paint in api._overlays:
+        result.overlays.append((namespace, paint))
+    for fn in api._startup_hooks:
+        result.startup_hooks.append((namespace, fn))
+    for fn in api._shutdown_hooks:
+        result.shutdown_hooks.append((namespace, fn))
     logger.info("plugin %r loaded from %s (%s)", namespace, source, info.counts)
 
 

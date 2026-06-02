@@ -84,8 +84,9 @@ class HiresFont:
 
 
 # Plugin-contributed fonts: ``namespace.name`` -> absolute path to the font
-# file. Populated by the plugin loader's commit; consulted by _find_font_path
-# ahead of the user + bundled dirs. Cleared (dotted keys) by reset_plugins().
+# file. Populated by the plugin loader's commit; will be consulted by
+# _find_font_path ahead of the user + bundled dirs (wired in C4).
+# Cleared (dotted keys) by reset_plugins().
 _PLUGIN_FONTS: dict[str, Path] = {}
 
 

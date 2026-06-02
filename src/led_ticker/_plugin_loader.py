@@ -55,7 +55,15 @@ _LOADED: LoadedPlugins | None = None
 
 
 def reset_plugins() -> None:
-    """Test helper: drop all namespaced (dotted) registry entries + load guard."""
+    """Test helper: drop all namespaced (dotted) registry entries + load guard.
+
+    Note: ``pixel_emoji._EMOJI_BUILTINS_LOADED`` is intentionally NOT reset
+    here. Built-in emoji entries are bare slugs (no dot), so they survive the
+    dotted-key deletion and the sentinel stays True — ``_get_registry()`` keeps
+    returning them. A test that needs a pristine un-built emoji registry must
+    also set ``pe._EMOJI_BUILTINS_LOADED = False`` and clear ``pe.EMOJI_REGISTRY``
+    itself.
+    """
     global _LOADED  # noqa: PLW0603
     for registry in _REGISTRY_MAP.values():
         for key in [k for k in registry if "." in k]:

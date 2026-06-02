@@ -539,6 +539,8 @@ def _run_validate_config(cls: type, cfg: dict[str, Any], widget_type: str) -> No
     registration needed). Messages become a pre-flight ``ValueError``. The
     validator gets a COPY of the config so it can't mutate the real one. A
     validator that itself raises is wrapped so the error names the type.
+    It must be a ``@classmethod``; a plain instance method raises ``TypeError``
+    (caught and re-raised as ``ValueError``).
     """
     validator = getattr(cls, "validate_config", None)
     if validator is None:

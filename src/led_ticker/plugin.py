@@ -26,12 +26,8 @@ from led_ticker.color_providers import ColorProvider, ColorProviderBase
 from led_ticker.drawing import compute_baseline, get_text_width
 from led_ticker.fonts import resolve_font
 from led_ticker.fonts.hires_loader import HiresFont
-from led_ticker.pixel_emoji import (
-    HiResEmoji,
-    draw_emoji_at,
-    draw_with_emoji,
-    measure_emoji_at,
-)
+from led_ticker.pixel_emoji import HiResEmoji, draw_emoji_at, measure_emoji_at
+from led_ticker.pixel_emoji import draw_with_emoji as _draw_with_emoji
 from led_ticker.transitions import Transition
 from led_ticker.widget import Widget, spawn_tracked
 
@@ -283,6 +279,8 @@ def draw_text(
     For use inside an ``api.overlay`` painter (or anywhere a plugin has a
     canvas). ``font`` comes from ``resolve_font(name[, size])``; ``color`` from
     ``make_color(r, g, b)``. Inline ``:emoji:`` tokens in ``text`` render too.
-    Returns the cursor x-position after the drawn text.
+    Returns the absolute x-position just past the drawn text (i.e. where the
+    next ``draw_text`` should start) — so ``next_x = draw_text(canvas, font,
+    s, x, y, c)`` chains correctly.
     """
-    return draw_with_emoji(canvas, font, x, y, color, text)
+    return x + _draw_with_emoji(canvas, font, x, y, color, text)

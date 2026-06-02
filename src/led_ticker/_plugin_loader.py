@@ -9,14 +9,12 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from led_ticker.config import PluginsConfig
+from typing import Any
 
 from led_ticker.animations import _ANIMATION_REGISTRY
 from led_ticker.borders import _BORDER_REGISTRY
 from led_ticker.color_providers import _PROVIDER_REGISTRY
+from led_ticker.config import PluginsConfig, _parse_plugins_block
 from led_ticker.fonts.hires_loader import _PLUGIN_FONTS
 from led_ticker.pixel_emoji import EMOJI_REGISTRY, HIRES_REGISTRY
 from led_ticker.plugin import API_VERSION, PluginAPI
@@ -373,12 +371,11 @@ def load_plugins(
 def read_plugins_config(config_path: Path) -> PluginsConfig:
     """Lightweight read of just the ``[plugins]`` block, so plugin discovery can
     run BEFORE full config validation (plugin-provided easings etc. must be
-    registered before load_config validates them). Returns defaults if the file
-    can't be read/parsed — load_config surfaces the real error afterward.
+    registered before load_config validates them). Returns defaults only if the
+    file is missing or has a TOML syntax error — structural errors in
+    ``[plugins]`` (wrong types, absolute dir, etc.) propagate immediately.
     """
     import tomllib
-
-    from led_ticker.config import PluginsConfig, _parse_plugins_block
 
     try:
         with open(config_path, "rb") as f:

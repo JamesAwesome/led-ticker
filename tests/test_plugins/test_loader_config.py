@@ -49,6 +49,13 @@ def test_read_plugins_config_defaults_on_unreadable(tmp_path):
     assert pc.enabled is True and pc.dir == "plugins" and pc.disable == []
 
 
+def test_read_plugins_config_defaults_on_bad_toml(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text("[[[invalid toml")
+    pc = L.read_plugins_config(p)
+    assert pc.enabled is True and pc.dir == "plugins"
+
+
 def test_load_plugins_for_config_disabled_loads_nothing(tmp_path):
     L.reset_plugins()
     (tmp_path / "plugins").mkdir()

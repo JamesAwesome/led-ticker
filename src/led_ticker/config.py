@@ -163,6 +163,43 @@ class BusyLightConfig:
 
 
 @dataclass
+class PluginsConfig:
+    enabled: bool = True
+    dir: str = "plugins"
+    disable: list[str] = field(default_factory=list)
+
+
+def _parse_plugins_block(raw: dict) -> PluginsConfig:
+    """Parse + validate the ``[plugins]`` TOML table into a PluginsConfig.
+
+    Shared by ``load_config`` and the lightweight early reader the run loop /
+    validate / CLI use (so plugin discovery can run before full config
+    validation). Defaults: enabled=True, dir="plugins", disable=[].
+    """
+    p_raw = raw.get("plugins", {})
+    cfg = PluginsConfig(
+        enabled=p_raw.get("enabled", True),
+        dir=p_raw.get("dir", "plugins"),
+        disable=p_raw.get("disable", []),
+    )
+    if not isinstance(cfg.enabled, bool):
+        raise ValueError(
+            f"plugins.enabled must be a bool; got {type(cfg.enabled).__name__}."
+        )
+    if not isinstance(cfg.dir, str):
+        raise ValueError(
+            f"plugins.dir must be a string; got {type(cfg.dir).__name__}."
+        )
+    if not isinstance(cfg.disable, list) or not all(
+        isinstance(n, str) for n in cfg.disable
+    ):
+        raise ValueError(
+            f"plugins.disable must be a list of strings; got {cfg.disable!r}."
+        )
+    return cfg
+
+
+@dataclass
 class AppConfig:
     display: DisplayConfig
     sections: list[SectionConfig]
@@ -175,6 +212,7 @@ class AppConfig:
     )
     between_sections_specified: bool = False
     busy_light: BusyLightConfig = field(default_factory=BusyLightConfig)
+    plugins: PluginsConfig = field(default_factory=PluginsConfig)
     # Warnings collected during load_config when string-of-digits or
     # mixed-case enum values get coerced to canonical typed values.
     # validate.py surfaces these as rule-37 warnings; app.py:run() logs
@@ -379,6 +417,8 @@ def load_config(path: Path) -> AppConfig:
             f"got {type(busy_light.token).__name__}."
         )
 
+    plugins = _parse_plugins_block(raw)
+
     sections = []
     for i, section_raw in enumerate(raw.get("playlist", {}).get("section", [])):
         trans = _parse_transition(
@@ -468,5 +508,6 @@ def load_config(path: Path) -> AppConfig:
         between_sections=between_sections,
         between_sections_specified=between_sections_specified,
         busy_light=busy_light,
+        plugins=plugins,
         _coerce_warnings=coerce_warnings,
     )

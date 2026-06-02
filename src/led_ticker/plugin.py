@@ -221,6 +221,10 @@ class PluginAPI:
 
         Unlike core overlays, a plugin overlay that raises is disabled (and
         logged once) rather than freezing the panel — the loader wraps it.
+
+        Plugin overlays composite over the busy-light (they are appended after
+        it), so a plugin overlay drawing in the busy-light's corner will paint
+        over the dot.
         """
         self._overlays.append(paint)
 

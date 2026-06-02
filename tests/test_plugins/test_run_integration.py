@@ -44,6 +44,7 @@ def test_loaded_plugin_hooks_are_consumable_by_run(tmp_path):
     (tmp_path / "plugins" / "svc.py").write_text(
         textwrap.dedent(
             """
+            from led_ticker.plugin import StartupContext
             STATE = {"started": False, "stopped": False}
 
             def register(api):
@@ -66,3 +67,22 @@ def test_loaded_plugin_hooks_are_consumable_by_run(tmp_path):
         assert state == {"started": True, "stopped": True}
     finally:
         L.reset_plugins()
+
+
+def test_run_wires_lifecycle_hooks():
+    # Tripwire: guards that run() actually wires the plugin lifecycle. The
+    # behavioral hook logic is covered in test_hook_plugins.py; this catches
+    # accidental removal of the wiring from run() (the full loop needs hardware,
+    # so we assert the call sites exist in run()'s source).
+    import importlib
+    import inspect
+
+    # `led_ticker.app.run` resolves to the re-exported run() function on the
+    # app package, so reach the submodule explicitly to read its source.
+    run_module = importlib.import_module("led_ticker.app.run")
+
+    src = inspect.getsource(run_module.run)
+    assert "_run_startup_hooks" in src
+    assert "_run_shutdown_hooks" in src
+    assert "_guarded_overlay" in src
+    assert "StartupContext" in src

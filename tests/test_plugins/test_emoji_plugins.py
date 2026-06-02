@@ -37,8 +37,11 @@ def test_emoji_pattern_admits_namespaced_and_builtin_slugs():
 
 
 def test_parse_segments_uses_the_shared_pattern_and_parses_namespaced():
-    # DRY: the split must derive from EMOJI_PATTERN, not a hardcoded literal.
     src = inspect.getsource(pe._parse_segments)
+    # Tripwire: confirms _parse_segments derives its split from EMOJI_PATTERN
+    # (not a hardcoded copy that could drift). If this fails after a legitimate
+    # refactor, delete this inspect assertion — the behavioral asserts below are
+    # the real guard.
     assert "EMOJI_PATTERN.pattern" in src
 
     pe._get_registry()  # materialize built-ins

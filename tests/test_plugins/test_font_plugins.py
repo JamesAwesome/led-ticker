@@ -44,3 +44,24 @@ def test_find_font_path_prefers_plugin_fonts(tmp_path):
     finally:
         hires_loader._PLUGIN_FONTS.pop("acme.Brand", None)
         hires_loader._PLUGIN_FONTS.pop("acme.Gone", None)
+
+
+def test_reset_plugins_clears_font_cache(tmp_path):
+    # A miss cached before the plugin registers must not survive reset.
+    from led_ticker.fonts.hires_loader import load_hires_font
+
+    assert load_hires_font("acme.NoSuch", 16) is None  # caches a miss
+    assert load_hires_font.cache_info().currsize >= 1  # the miss is cached
+    try:
+        L.reset_plugins()  # must clear the cached miss
+        assert load_hires_font.cache_info().currsize == 0  # cache was cleared
+        # With the cache cleared, a freshly-registered plugin font path is
+        # resolved instead of the stale cached None.
+        font = tmp_path / "Brand.ttf"
+        font.write_bytes(b"x")
+        hires_loader._PLUGIN_FONTS["acme.NoSuch"] = font.resolve()
+        # _find_font_path re-reads _PLUGIN_FONTS (presence-only check).
+        assert hires_loader._find_font_path("acme.NoSuch") == font.resolve()
+    finally:
+        hires_loader._PLUGIN_FONTS.pop("acme.NoSuch", None)
+        L.reset_plugins()

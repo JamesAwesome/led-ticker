@@ -70,6 +70,12 @@ def reset_plugins() -> None:
         for key in [k for k in registry if "." in k]:
             del registry[key]
     _LOADED = None
+    # A plugin font name may have been looked up (and cached as a miss) before
+    # its plugin registered. Drop the hi-res font cache so the next resolve
+    # re-reads _PLUGIN_FONTS instead of returning a stale None.
+    from led_ticker.fonts import hires_loader
+
+    hires_loader.load_hires_font.cache_clear()
 
 
 def _commit(api: PluginAPI, info: PluginInfo) -> None:

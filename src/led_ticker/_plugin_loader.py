@@ -1,7 +1,5 @@
 """Plugin discovery and loading (internal). Plugins never import this."""
 
-from __future__ import annotations
-
 import contextlib
 import importlib.metadata
 import importlib.util

@@ -34,7 +34,10 @@ from led_ticker.text_render import draw_text, draw_text_per_char
 # token where slug is lowercase letters and underscores. Widgets use
 # `EMOJI_PATTERN.search(text)` to cache `has_emoji` at construction
 # time so per-tick draws don't re-run the regex.
-EMOJI_PATTERN: re.Pattern[str] = re.compile(r":[a-z_]+:")
+# Admits both built-in slugs (`:heart:`, `:partly_cloudy:`) and namespaced
+# plugin slugs (`:acme.heart:`). The leading `[a-z_]` keeps clock times like
+# `12:30:45` from being parsed as emoji tokens.
+EMOJI_PATTERN: re.Pattern[str] = re.compile(r":[a-z_][a-z0-9_.]*:")
 
 EMOJI_DEFAULT_WIDTH: int = 8
 EMOJI_PADDING: int = 2  # px after icon before text resumes
@@ -2790,10 +2793,24 @@ HIRES_REGISTRY: dict[str, HiResEmoji] = _build_hires_registry(
 )
 
 
+_EMOJI_BUILTINS_LOADED = False
+
+
 def _get_registry() -> dict[str, PixelData]:
-    global EMOJI_REGISTRY  # noqa: PLW0603
-    if not EMOJI_REGISTRY:
-        EMOJI_REGISTRY.update(_build_emoji_registry())
+    """Return EMOJI_REGISTRY, materializing built-ins on first use.
+
+    Uses an explicit sentinel rather than ``if not EMOJI_REGISTRY`` because a
+    plugin may commit a namespaced slug into EMOJI_REGISTRY before any built-in
+    lookup happens; a truthiness gate would then see a non-empty dict and never
+    load the built-ins. ``setdefault`` also guarantees built-ins never clobber
+    an already-committed plugin slug (slugs are namespaced, so they cannot
+    collide anyway — belt-and-suspenders).
+    """
+    global _EMOJI_BUILTINS_LOADED  # noqa: PLW0603
+    if not _EMOJI_BUILTINS_LOADED:
+        for slug, data in _build_emoji_registry().items():
+            EMOJI_REGISTRY.setdefault(slug, data)
+        _EMOJI_BUILTINS_LOADED = True
     return EMOJI_REGISTRY
 
 
@@ -2802,7 +2819,7 @@ def _parse_segments(text: str) -> list[tuple[str, str]]:
 
     Returns list of ("text", "hello ") or ("emoji", "baseball").
     """
-    parts = re.split(r"(:[a-z_]+:)", text)
+    parts = re.split(f"({EMOJI_PATTERN.pattern})", text)
     segments: list[tuple[str, str]] = []
     for part in parts:
         if not part:

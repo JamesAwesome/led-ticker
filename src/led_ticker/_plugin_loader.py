@@ -2,6 +2,7 @@
 
 import importlib.metadata
 import importlib.util
+import inspect
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -12,6 +13,8 @@ from typing import Any
 from led_ticker.animations import _ANIMATION_REGISTRY
 from led_ticker.borders import _BORDER_REGISTRY
 from led_ticker.color_providers import _PROVIDER_REGISTRY
+from led_ticker.fonts.hires_loader import _PLUGIN_FONTS
+from led_ticker.pixel_emoji import EMOJI_REGISTRY, HIRES_REGISTRY
 from led_ticker.plugin import API_VERSION, PluginAPI
 from led_ticker.transitions import _TRANSITION_REGISTRY, EASING
 from led_ticker.widgets import _WIDGET_REGISTRY
@@ -29,6 +32,9 @@ _REGISTRY_MAP: dict[str, dict[str, Any]] = {
     "animations": _ANIMATION_REGISTRY,
     "borders": _BORDER_REGISTRY,
     "easing": EASING,
+    "emojis": EMOJI_REGISTRY,
+    "hires_emojis": HIRES_REGISTRY,
+    "fonts": _PLUGIN_FONTS,
 }
 
 
@@ -50,12 +56,26 @@ _LOADED: LoadedPlugins | None = None
 
 
 def reset_plugins() -> None:
-    """Test helper: drop all namespaced (dotted) registry entries + load guard."""
+    """Test helper: drop all namespaced (dotted) registry entries + load guard.
+
+    Note: ``pixel_emoji._EMOJI_BUILTINS_LOADED`` is intentionally NOT reset
+    here. Built-in emoji entries are bare slugs (no dot), so they survive the
+    dotted-key deletion and the sentinel stays True — ``_get_registry()`` keeps
+    returning them. A test that needs a pristine un-built emoji registry must
+    also set ``pe._EMOJI_BUILTINS_LOADED = False`` and clear ``pe.EMOJI_REGISTRY``
+    itself.
+    """
     global _LOADED  # noqa: PLW0603
     for registry in _REGISTRY_MAP.values():
         for key in [k for k in registry if "." in k]:
             del registry[key]
     _LOADED = None
+    # A plugin font name may have been looked up (and cached as a miss) before
+    # its plugin registered. Drop the hi-res font cache so the next resolve
+    # re-reads _PLUGIN_FONTS instead of returning a stale None.
+    from led_ticker.fonts import hires_loader
+
+    hires_loader.load_hires_font.cache_clear()
 
 
 def _commit(api: PluginAPI, info: PluginInfo) -> None:
@@ -83,6 +103,61 @@ def _commit(api: PluginAPI, info: PluginInfo) -> None:
             registry[name] = obj
         if buf:
             info.counts[surface] = len(buf)
+
+
+def _resolve_root(
+    source: str, register: Callable[[PluginAPI], None]
+) -> Path | None:
+    """Best-effort plugin root for resolving ``api.font()`` relative paths.
+
+    Local plugins: the dir containing the plugin file — a single-file plugin's
+    parent (the plugins dir), or the package dir itself. Entry-point plugins:
+    the dir of the register callable's module. Returns ``None`` when it cannot
+    be determined (e.g. a zip-imported package); ``api.font`` then raises a
+    clear error rather than guessing.
+
+    Uses ``.py`` suffix rather than ``path.is_file()`` to discriminate between
+    a single-file plugin and a package dir, so the check is existence-independent
+    (works even when the source path is hypothetical or in a tmp dir in tests).
+
+    For entry-point plugins, ``inspect.getmodule`` is tried first; if it
+    returns ``None`` (e.g. the module was loaded via ``spec_from_file_location``
+    without being registered in ``sys.modules``), we fall back to
+    ``register.__globals__.get('__file__')`` which Py guarantees is set for
+    any function defined in a source file.
+    """
+    if source.startswith("entry-point:"):
+        module = inspect.getmodule(register)
+        module_file = getattr(module, "__file__", None)
+        if module_file is None:
+            # Fallback: function's own globals dict always has __file__ for
+            # source-file functions, even when the module isn't in sys.modules.
+            module_file = getattr(register, "__globals__", {}).get("__file__")
+        return Path(module_file).parent if module_file else None
+    path = Path(source)
+    return path.parent if path.suffix == ".py" else path
+
+
+def _warn_unpaired_hires(namespace: str, api: PluginAPI) -> None:
+    """Warn when a plugin registers a hi-res emoji with no low-res counterpart.
+
+    Inline ``:ns.slug:`` parsing and unscaled canvases resolve only through the
+    low-res emoji registry, so a hi-res-only slug silently won't render there.
+    Built-in emojis always pair the two; plugins must too for inline use.
+    """
+    lowres = set(api._buffers["emojis"])
+    for slug in api._buffers["hires_emojis"]:
+        if slug not in lowres:
+            bare = slug.split(".", 1)[-1]
+            logger.warning(
+                "plugin %r: hi-res emoji %r has no low-res counterpart; it will "
+                "not render inline (:%s:) or on unscaled canvases. Also register "
+                "api.emoji(%r, ...).",
+                namespace,
+                slug,
+                slug,
+                bare,
+            )
 
 
 def _load_one(
@@ -113,7 +188,8 @@ def _load_one(
             "plugin %r has no register(api); skipping %s", namespace, source
         )
         return
-    api = PluginAPI(namespace)
+    root = _resolve_root(source, register)
+    api = PluginAPI(namespace, root=root)
     info = PluginInfo(namespace=namespace, source=source)
     try:
         register(api)
@@ -124,6 +200,7 @@ def _load_one(
         return
     loaded_namespaces.add(namespace)
     result.loaded.append(info)
+    _warn_unpaired_hires(namespace, api)
     logger.info("plugin %r loaded from %s (%s)", namespace, source, info.counts)
 
 

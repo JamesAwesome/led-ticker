@@ -123,6 +123,13 @@ def resolve_font(
     hires = load_hires_font(name, size, effective)
     if hires is not None:
         return hires
+    from led_ticker.fonts.hires_loader import _PLUGIN_FONTS
+
+    if name in _PLUGIN_FONTS:
+        raise UnknownFontError(
+            f"plugin font {name!r} is registered but its file is missing: "
+            f"{_PLUGIN_FONTS[name]}"
+        )
     available = list_available_fonts()
     raise UnknownFontError(f"unknown font {name!r}; available: {available}")
 

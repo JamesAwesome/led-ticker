@@ -135,3 +135,21 @@ def test_missing_plugin_font_file_gives_clear_error(tmp_path):
     finally:
         hires_loader._PLUGIN_FONTS.pop("acme.Ghost", None)
         L.reset_plugins()
+
+
+def test_draw_text_renders_via_public_surface():
+    from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+    from led_ticker.plugin import draw_text, make_color, resolve_font
+
+    font = resolve_font("6x12")  # built-in BDF alias; no size needed
+
+    opts = RGBMatrixOptions()
+    opts.cols = 64
+    opts.rows = 16
+    opts.chain_length = 1
+    matrix = RGBMatrix(options=opts)
+    canvas = matrix.CreateFrameCanvas()
+
+    end_x = draw_text(canvas, font, "hi", x=0, y=10, color=make_color(255, 255, 255))
+    assert isinstance(end_x, int) and end_x > 0  # cursor advanced

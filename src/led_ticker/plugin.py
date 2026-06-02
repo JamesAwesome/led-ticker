@@ -19,12 +19,19 @@ from typing import Any, TypeVar
 
 # Re-exports: the stable surface plugin authors subclass / annotate against.
 from led_ticker import colors
-from led_ticker._types import Canvas, Color, PixelData
+from led_ticker._types import Canvas, Color, Font, PixelData
 from led_ticker.animations import Animation, AnimationFrame
 from led_ticker.borders import BorderEffect, BorderEffectBase
 from led_ticker.color_providers import ColorProvider, ColorProviderBase
 from led_ticker.drawing import compute_baseline, get_text_width
-from led_ticker.pixel_emoji import HiResEmoji, draw_emoji_at, measure_emoji_at
+from led_ticker.fonts import resolve_font
+from led_ticker.fonts.hires_loader import HiresFont
+from led_ticker.pixel_emoji import (
+    HiResEmoji,
+    draw_emoji_at,
+    draw_with_emoji,
+    measure_emoji_at,
+)
 from led_ticker.transitions import Transition
 from led_ticker.widget import Widget, spawn_tracked
 
@@ -39,7 +46,9 @@ __all__ = [
     "Color",
     "ColorProvider",
     "ColorProviderBase",
+    "Font",
     "HiResEmoji",
+    "HiresFont",
     "PixelData",
     "StartupContext",
     "Transition",
@@ -47,9 +56,11 @@ __all__ = [
     "colors",
     "compute_baseline",
     "draw_emoji_at",
+    "draw_text",
     "get_text_width",
     "make_color",
     "measure_emoji_at",
+    "resolve_font",
     "spawn_tracked",
 ]
 # (registry surfaces + lifecycle hooks complete; Phase E adds config/CLI/docs.)
@@ -262,3 +273,16 @@ def make_color(r: int, g: int, b: int) -> Color:
     from led_ticker._compat import require_graphics
 
     return require_graphics().Color(r, g, b)
+
+
+def draw_text(
+    canvas: Canvas, font: Font, text: str, x: int, y: int, color: Color
+) -> int:
+    """Draw ``text`` on ``canvas`` at baseline ``y`` starting at column ``x``.
+
+    For use inside an ``api.overlay`` painter (or anywhere a plugin has a
+    canvas). ``font`` comes from ``resolve_font(name[, size])``; ``color`` from
+    ``make_color(r, g, b)``. Inline ``:emoji:`` tokens in ``text`` render too.
+    Returns the cursor x-position after the drawn text.
+    """
+    return draw_with_emoji(canvas, font, x, y, color, text)

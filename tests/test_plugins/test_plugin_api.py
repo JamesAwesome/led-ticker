@@ -137,3 +137,10 @@ def test_hook_lists_are_independent_of_buffers():
     assert "overlays" not in api._buffers
     assert "startup_hooks" not in api._buffers
     assert "shutdown_hooks" not in api._buffers
+
+
+def test_font_accessor_and_draw_text_are_exported():
+    import led_ticker.plugin as p
+
+    for name in ("resolve_font", "Font", "HiresFont", "draw_text"):
+        assert hasattr(p, name), f"missing public export: {name}"

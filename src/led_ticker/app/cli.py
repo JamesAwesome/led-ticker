@@ -25,6 +25,26 @@ def _setup_logging() -> None:
     logger.addHandler(handler)
 
 
+def _format_plugins(result) -> str:
+    """Human-readable summary of loaded + failed plugins for `led-ticker plugins`."""
+    lines: list[str] = []
+    if not result.loaded and not result.failed:
+        return "No plugins found."
+    if result.loaded:
+        lines.append(f"Loaded {len(result.loaded)} plugin(s):")
+        for info in result.loaded:
+            contrib = (
+                ", ".join(f"{k}: {v}" for k, v in sorted(info.counts.items()))
+                or "(hooks only)"
+            )
+            lines.append(f"  {info.namespace}  [{info.source}]  {contrib}")
+    if result.failed:
+        lines.append(f"Failed {len(result.failed)} plugin(s):")
+        for ns, err in result.failed:
+            lines.append(f"  {ns}: {err}")
+    return "\n".join(lines)
+
+
 def main() -> None:
     """CLI entry point."""
     _setup_logging()
@@ -90,7 +110,20 @@ def main() -> None:
         ),
     )
 
+    # `plugins` subcommand
+    subparsers.add_parser(
+        "plugins",
+        help="List loaded plugins (and any that failed) for the config",
+    )
+
     args = parser.parse_args()
+
+    if args.command == "plugins":
+        from led_ticker._plugin_loader import load_plugins_for_config  # noqa: PLC0415
+
+        result = load_plugins_for_config(args.config)
+        print(_format_plugins(result))
+        sys.exit(0)
 
     if args.command == "validate":
         if args.list_fields is not None:

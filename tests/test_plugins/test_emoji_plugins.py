@@ -52,3 +52,37 @@ def test_parse_segments_uses_the_shared_pattern_and_parses_namespaced():
         assert ("emoji", "heart") in segs
     finally:
         pe.EMOJI_REGISTRY.pop("acme.spark", None)
+
+
+def test_plugin_hires_emoji_measures_on_scaled_canvas(tmp_path):
+    import textwrap
+
+    from rgbmatrix import _StubCanvas
+
+    from led_ticker.pixel_emoji import measure_emoji_at
+    from led_ticker.scaled_canvas import ScaledCanvas
+
+    L.reset_plugins()
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir()
+    (plugin_dir / "acme.py").write_text(
+        textwrap.dedent(
+            """
+            from led_ticker.plugin import HiResEmoji
+
+            def register(api):
+                api.hires_emoji(
+                    "glow",
+                    HiResEmoji(pixels=((0, 0, 255, 255, 0),), physical_size=16),
+                )
+            """
+        )
+    )
+    try:
+        result = L.load_plugins(plugin_dir, entry_points_enabled=False)
+        assert not result.failed, result.failed
+        scaled = ScaledCanvas(_StubCanvas(width=256, height=64), scale=2)
+        width = measure_emoji_at(scaled, "acme.glow")
+        assert isinstance(width, int) and width > 0
+    finally:
+        L.reset_plugins()

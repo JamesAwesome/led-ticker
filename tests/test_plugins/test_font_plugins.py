@@ -1,7 +1,20 @@
+import textwrap
 from pathlib import Path
 
+import pytest
+
+import led_ticker.pixel_emoji as pe
 from led_ticker import _plugin_loader as L
-from led_ticker.fonts import hires_loader
+from led_ticker.fonts import hires_loader, resolve_font
+from led_ticker.fonts.hires_loader import BUNDLED_HIRES_DIR
+
+
+def _a_bundled_font_path():
+    for ext in ("*.otf", "*.ttf"):
+        hits = sorted(BUNDLED_HIRES_DIR.glob(ext))
+        if hits:
+            return hits[0]
+    pytest.skip("no bundled hi-res font available to copy")
 
 
 def test_resolve_root_for_single_file_local_plugin():
@@ -64,4 +77,47 @@ def test_reset_plugins_clears_font_cache(tmp_path):
         assert hires_loader._find_font_path("acme.NoSuch") == font.resolve()
     finally:
         hires_loader._PLUGIN_FONTS.pop("acme.NoSuch", None)
+        L.reset_plugins()
+
+
+def test_local_plugin_contributes_emoji_hires_and_font(tmp_path):
+    L.reset_plugins()
+
+    plugin_dir = tmp_path / "plugins"
+    fonts_dir = plugin_dir / "fonts"
+    fonts_dir.mkdir(parents=True)
+    src_font = _a_bundled_font_path()
+    (fonts_dir / "Brand.ttf").write_bytes(src_font.read_bytes())
+
+    (plugin_dir / "acme.py").write_text(
+        textwrap.dedent(
+            """
+            from led_ticker.plugin import HiResEmoji
+
+            def register(api):
+                api.emoji("spark", [(0, 0, 255, 0, 0)])
+                api.hires_emoji(
+                    "glow",
+                    HiResEmoji(pixels=((0, 0, 255, 255, 0),), physical_size=16),
+                )
+                api.font("Brand", "fonts/Brand.ttf")
+            """
+        )
+    )
+
+    try:
+        result = L.load_plugins(plugin_dir, entry_points_enabled=False)
+        assert not result.failed, result.failed
+
+        # Low-res emoji resolves through the production registry accessor.
+        assert "acme.spark" in pe._get_registry()
+        # Hi-res emoji landed in the hi-res registry...
+        assert "acme.glow" in pe.HIRES_REGISTRY
+        # ...and is hi-res-ONLY (no low-res fallback for it).
+        assert "acme.glow" not in pe._get_registry()
+
+        # Font resolves to a real rasterized HiresFont.
+        font = resolve_font("acme.Brand", size=16)
+        assert font.__class__.__name__ == "HiresFont"
+    finally:
         L.reset_plugins()

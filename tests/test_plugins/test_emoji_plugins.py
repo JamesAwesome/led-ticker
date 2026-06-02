@@ -1,4 +1,6 @@
 import inspect
+import logging
+import textwrap
 
 import led_ticker.pixel_emoji as pe
 from led_ticker import _plugin_loader as L
@@ -84,5 +86,199 @@ def test_plugin_hires_emoji_measures_on_scaled_canvas(tmp_path):
         scaled = ScaledCanvas(_StubCanvas(width=256, height=64), scale=2)
         width = measure_emoji_at(scaled, "acme.glow")
         assert isinstance(width, int) and width > 0
+    finally:
+        L.reset_plugins()
+
+
+def test_unpaired_hires_emoji_warns(tmp_path, caplog):
+    """A plugin that registers hires_emoji but no matching emoji warns at load time."""
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir()
+    (plugin_dir / "acme.py").write_text(
+        textwrap.dedent(
+            """
+            from led_ticker.plugin import HiResEmoji
+
+            def register(api):
+                api.hires_emoji(
+                    "glow",
+                    HiResEmoji(pixels=((0, 0, 255, 255, 0),), physical_size=16),
+                )
+            """
+        )
+    )
+    L.reset_plugins()
+    try:
+        with caplog.at_level(logging.WARNING):
+            result = L.load_plugins(plugin_dir, entry_points_enabled=False)
+        assert not result.failed, result.failed
+        assert any(
+            "no low-res counterpart" in r.getMessage() for r in caplog.records
+        ), "expected a warning about missing low-res counterpart"
+    finally:
+        L.reset_plugins()
+
+
+def test_paired_hires_emoji_does_not_warn(tmp_path, caplog):
+    """A plugin registering both emoji and hires_emoji does not trigger the warning."""
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir()
+    (plugin_dir / "acme.py").write_text(
+        textwrap.dedent(
+            """
+            from led_ticker.plugin import HiResEmoji
+
+            def register(api):
+                api.emoji("glow", [(0, 0, 255, 0, 0)])
+                api.hires_emoji(
+                    "glow",
+                    HiResEmoji(pixels=((0, 0, 255, 255, 0),), physical_size=16),
+                )
+            """
+        )
+    )
+    L.reset_plugins()
+    try:
+        with caplog.at_level(logging.WARNING):
+            result = L.load_plugins(plugin_dir, entry_points_enabled=False)
+        assert not result.failed, result.failed
+        assert not any(
+            "no low-res counterpart" in r.getMessage() for r in caplog.records
+        ), "unexpected warning about missing low-res counterpart for a paired emoji"
+    finally:
+        L.reset_plugins()
+
+
+def test_plugin_hires_only_emoji_raises_on_plain_canvas(tmp_path):
+    """measure_emoji_at on a plain canvas raises KeyError for hires-only slugs."""
+    import pytest
+    from rgbmatrix import _StubCanvas
+
+    from led_ticker.pixel_emoji import measure_emoji_at
+
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir()
+    (plugin_dir / "acme.py").write_text(
+        textwrap.dedent(
+            """
+            from led_ticker.plugin import HiResEmoji
+
+            def register(api):
+                api.hires_emoji(
+                    "glow",
+                    HiResEmoji(pixels=((0, 0, 255, 255, 0),), physical_size=16),
+                )
+            """
+        )
+    )
+    L.reset_plugins()
+    try:
+        result = L.load_plugins(plugin_dir, entry_points_enabled=False)
+        assert not result.failed, result.failed
+        plain_canvas = _StubCanvas(width=160, height=16)
+        with pytest.raises(KeyError):
+            measure_emoji_at(plain_canvas, "acme.glow")
+    finally:
+        L.reset_plugins()
+
+
+def test_hires_only_plugin_slug_parses_as_text_not_emoji(tmp_path):
+    """_parse_segments treats an unregistered (hires-only) slug as plain text."""
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir()
+    (plugin_dir / "acme.py").write_text(
+        textwrap.dedent(
+            """
+            from led_ticker.plugin import HiResEmoji
+
+            def register(api):
+                api.hires_emoji(
+                    "glow",
+                    HiResEmoji(pixels=((0, 0, 255, 255, 0),), physical_size=16),
+                )
+            """
+        )
+    )
+    L.reset_plugins()
+    try:
+        result = L.load_plugins(plugin_dir, entry_points_enabled=False)
+        assert not result.failed, result.failed
+        segs = pe._parse_segments("hi :acme.glow: x")
+        assert ("emoji", "acme.glow") not in segs
+        assert ("text", ":acme.glow:") in segs
+    finally:
+        L.reset_plugins()
+
+
+def test_draw_with_emoji_renders_plugin_low_res_slug(tmp_path):
+    """A plugin-registered low-res emoji renders inline and advances the cursor."""
+    from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+    from led_ticker.fonts import FONT_SMALL
+    from led_ticker.pixel_emoji import draw_with_emoji
+    from led_ticker.scaled_canvas import ScaledCanvas
+
+    # Build a minimal 8x8 pixel grid so the emoji has real pixels
+    pixels = [(x, y, 255, 0, 0) for x in range(8) for y in range(8)]
+
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir()
+    (plugin_dir / "acme.py").write_text(
+        textwrap.dedent(
+            f"""
+            def register(api):
+                api.emoji("spark", {pixels!r})
+            """
+        )
+    )
+    L.reset_plugins()
+    try:
+        result = L.load_plugins(plugin_dir, entry_points_enabled=False)
+        assert not result.failed, result.failed
+
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 8
+        opts.parallel = 1
+        opts.pixel_mapper_config = "U-mapper"
+        real = RGBMatrix(options=opts).CreateFrameCanvas()
+        sc = ScaledCanvas(real, scale=4)
+
+        advance_with = draw_with_emoji(
+            sc, FONT_SMALL, cursor_pos=0, y=8,
+            color=(255, 255, 255), text="hi :acme.spark:"
+        )
+        advance_without = draw_with_emoji(
+            sc, FONT_SMALL, cursor_pos=0, y=8, color=(255, 255, 255), text="hi "
+        )
+        # The emoji slug should have consumed additional width
+        assert advance_with > advance_without
+    finally:
+        L.reset_plugins()
+
+
+def test_emoji_registration_is_atomic_on_raising_register(tmp_path):
+    """A plugin whose register() raises must not leave partial state in registry."""
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir()
+    (plugin_dir / "bad.py").write_text(
+        textwrap.dedent(
+            """
+            def register(api):
+                api.emoji("flash", [(0, 0, 1, 2, 3)])
+                raise RuntimeError("boom")
+            """
+        )
+    )
+    L.reset_plugins()
+    try:
+        result = L.load_plugins(plugin_dir, entry_points_enabled=False)
+        assert any(ns == "bad" for ns, _ in result.failed), (
+            f"expected 'bad' in failed; got {result.failed}"
+        )
+        assert "bad.flash" not in pe.EMOJI_REGISTRY, (
+            "partial emoji registration leaked despite raised exception"
+        )
     finally:
         L.reset_plugins()

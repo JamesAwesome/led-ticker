@@ -138,6 +138,28 @@ def _resolve_root(
     return path.parent if path.suffix == ".py" else path
 
 
+def _warn_unpaired_hires(namespace: str, api: PluginAPI) -> None:
+    """Warn when a plugin registers a hi-res emoji with no low-res counterpart.
+
+    Inline ``:ns.slug:`` parsing and unscaled canvases resolve only through the
+    low-res emoji registry, so a hi-res-only slug silently won't render there.
+    Built-in emojis always pair the two; plugins must too for inline use.
+    """
+    lowres = set(api._buffers["emojis"])
+    for slug in api._buffers["hires_emojis"]:
+        if slug not in lowres:
+            bare = slug.split(".", 1)[-1]
+            logger.warning(
+                "plugin %r: hi-res emoji %r has no low-res counterpart; it will "
+                "not render inline (:%s:) or on unscaled canvases. Also register "
+                "api.emoji(%r, ...).",
+                namespace,
+                slug,
+                slug,
+                bare,
+            )
+
+
 def _load_one(
     namespace: str,
     source: str,
@@ -178,6 +200,7 @@ def _load_one(
         return
     loaded_namespaces.add(namespace)
     result.loaded.append(info)
+    _warn_unpaired_hires(namespace, api)
     logger.info("plugin %r loaded from %s (%s)", namespace, source, info.counts)
 
 

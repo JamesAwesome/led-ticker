@@ -5,7 +5,7 @@ import pytest
 
 import led_ticker.pixel_emoji as pe
 from led_ticker import _plugin_loader as L
-from led_ticker.fonts import hires_loader, resolve_font
+from led_ticker.fonts import UnknownFontError, hires_loader, resolve_font
 from led_ticker.fonts.hires_loader import BUNDLED_HIRES_DIR, HiresFont
 
 
@@ -120,4 +120,18 @@ def test_local_plugin_contributes_emoji_hires_and_font(tmp_path):
         font = resolve_font("acme.Brand", size=16)
         assert isinstance(font, HiresFont)
     finally:
+        L.reset_plugins()
+
+
+def test_missing_plugin_font_file_gives_clear_error(tmp_path):
+    """resolve_font raises UnknownFontError with 'registered but its file is missing'
+    when a plugin font name is in _PLUGIN_FONTS but the file does not exist."""
+    hires_loader._PLUGIN_FONTS["acme.Ghost"] = tmp_path / "nope.ttf"
+    try:
+        with pytest.raises(
+            UnknownFontError, match="registered but its file is missing"
+        ):
+            resolve_font("acme.Ghost", size=16)
+    finally:
+        hires_loader._PLUGIN_FONTS.pop("acme.Ghost", None)
         L.reset_plugins()

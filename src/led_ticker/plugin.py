@@ -149,16 +149,20 @@ class PluginAPI:
 
         Direct call (not a decorator) — emoji data is a pixel list, not a
         class. Resolvable inline as ``:namespace.slug:`` once committed.
+        ``data`` is a ``PixelData`` — a list of ``(x, y, r, g, b)`` int tuples
+        (0-7 coordinates for an 8x8 sprite; 0-255 color channels).
         """
         self._buffers["emojis"][self._qualify(slug)] = data
 
     def hires_emoji(self, slug: str, data: HiResEmoji) -> None:
         """Register a hi-res emoji under ``namespace.slug``.
 
-        Used preferentially on a scaled canvas. With no
-        matching ``emoji(slug, ...)`` there is no low-res fallback, so the slug
-        only renders on a scaled canvas — same rule as built-in hi-res-only
-        sprites. Direct call.
+        The hi-res sprite is used by the direct draw API (``draw_emoji_at`` /
+        ``measure_emoji_at``) on a scaled canvas. NOTE: inline ``:namespace.slug:``
+        text and unscaled canvases resolve ONLY through the low-res registry, so
+        for those a matching ``api.emoji(slug, ...)`` low-res counterpart is
+        required. Registering a hi-res emoji with no low-res pairing logs a
+        warning at load time. Direct call.
         """
         self._buffers["hires_emojis"][self._qualify(slug)] = data
 

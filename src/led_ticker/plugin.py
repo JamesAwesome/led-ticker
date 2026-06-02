@@ -155,7 +155,7 @@ class PluginAPI:
     def hires_emoji(self, slug: str, data: HiResEmoji) -> None:
         """Register a hi-res emoji under ``namespace.slug``.
 
-        Used preferentially when the canvas is scaled (``scale > 1``). With no
+        Used preferentially on a scaled canvas. With no
         matching ``emoji(slug, ...)`` there is no low-res fallback, so the slug
         only renders on a scaled canvas — same rule as built-in hi-res-only
         sprites. Direct call.
@@ -175,6 +175,9 @@ class PluginAPI:
                 f"api.font({name!r}) needs a plugin root, but none could be "
                 "determined for this plugin (zip-imported package?)."
             )
+        # Resolved eagerly to an absolute Path; existence is NOT checked here —
+        # a missing path surfaces as UnknownFontError at render time, same as a
+        # mis-spelled bundled font name.
         self._buffers["fonts"][self._qualify(name)] = (self.root / path).resolve()
 
 

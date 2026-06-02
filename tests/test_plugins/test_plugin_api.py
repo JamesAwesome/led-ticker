@@ -63,7 +63,9 @@ def test_emoji_and_hires_emoji_buffer_under_namespace():
 def test_font_buffers_resolved_absolute_path(tmp_path):
     api = PluginAPI("acme", root=tmp_path)
     api.font("Brand", "fonts/Brand.ttf")
-    assert api._buffers["fonts"]["acme.Brand"] == (tmp_path / "fonts/Brand.ttf").resolve()
+    stored = api._buffers["fonts"]["acme.Brand"]
+    assert stored.is_absolute()
+    assert stored == (tmp_path / "fonts/Brand.ttf").resolve()
 
 
 def test_font_without_root_raises():

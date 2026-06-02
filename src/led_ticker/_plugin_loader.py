@@ -1,5 +1,7 @@
 """Plugin discovery and loading (internal). Plugins never import this."""
 
+from __future__ import annotations
+
 import contextlib
 import importlib.metadata
 import importlib.util
@@ -9,7 +11,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from led_ticker.config import PluginsConfig
 
 from led_ticker.animations import _ANIMATION_REGISTRY
 from led_ticker.borders import _BORDER_REGISTRY
@@ -334,13 +339,17 @@ def _discover_entry_points():
 
 
 def load_plugins(
-    plugin_dir: Path | None, *, entry_points_enabled: bool = True
+    plugin_dir: Path | None,
+    *,
+    entry_points_enabled: bool = True,
+    disable: set[str] | None = None,
 ) -> LoadedPlugins:
     """Discover + load all plugins once. Idempotent (call reset_plugins() in
-    tests to reload)."""
+    tests to reload). ``disable`` is a set of namespaces to skip + log."""
     global _LOADED  # noqa: PLW0603
     if _LOADED is not None:
         return _LOADED
+    disabled = disable or set()
     result = LoadedPlugins()
     loaded_ns: set[str] = set()
     sources = []
@@ -349,6 +358,9 @@ def load_plugins(
     if entry_points_enabled:
         sources.extend(_discover_entry_points())
     for ns, source, thunk in sources:
+        if ns in disabled:
+            logger.info("plugin %r disabled via [plugins].disable; skipping", ns)
+            continue
         try:
             register, requires = thunk()
         except Exception as e:
@@ -358,3 +370,33 @@ def load_plugins(
         _load_one(ns, source, register, requires, loaded_ns, result)
     _LOADED = result
     return result
+
+
+def read_plugins_config(config_path: Path) -> PluginsConfig:
+    """Lightweight read of just the ``[plugins]`` block, so plugin discovery can
+    run BEFORE full config validation (plugin-provided easings etc. must be
+    registered before load_config validates them). Returns defaults if the file
+    can't be read/parsed — load_config surfaces the real error afterward.
+    """
+    import tomllib
+
+    from led_ticker.config import PluginsConfig, _parse_plugins_block
+
+    try:
+        with open(config_path, "rb") as f:
+            raw = tomllib.load(f)
+    except Exception:
+        return PluginsConfig()
+    return _parse_plugins_block(raw)
+
+
+def load_plugins_for_config(config_path: Path) -> LoadedPlugins:
+    """Config-driven plugin load: read the ``[plugins]`` block, then load from
+    ``<config dir>/<dir>`` honoring enable/disable. Used by the run loop, the
+    ``validate`` path, and the ``plugins`` CLI command."""
+    pc = read_plugins_config(config_path)
+    if not pc.enabled:
+        logger.info("plugins disabled via [plugins].enabled=false; skipping")
+        return load_plugins(None, entry_points_enabled=False)
+    plugin_dir = config_path.parent / pc.dir
+    return load_plugins(plugin_dir, disable=set(pc.disable))

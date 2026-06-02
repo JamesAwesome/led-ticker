@@ -87,3 +87,43 @@ def test_public_surface_exports_emoji_and_font_helpers():
         "colors",
     ):
         assert hasattr(p, name), f"missing public export: {name}"
+
+
+def test_overlay_buffers_into_overlays_list():
+    api = PluginAPI("acme")
+
+    def paint(canvas):
+        pass
+
+    api.overlay(paint)
+    assert api._overlays == [paint]
+
+
+def test_on_startup_and_on_shutdown_buffer_into_lists():
+    api = PluginAPI("acme")
+
+    def boot(ctx):
+        pass
+
+    async def teardown():
+        pass
+
+    api.on_startup(boot)
+    api.on_shutdown(teardown)
+    assert api._startup_hooks == [boot]
+    assert api._shutdown_hooks == [teardown]
+
+
+def test_startup_context_is_exported_and_constructible():
+    from led_ticker.plugin import StartupContext
+
+    ctx = StartupContext(frame="F", session="S", config="C")
+    assert (ctx.frame, ctx.session, ctx.config) == ("F", "S", "C")
+
+
+def test_hook_lists_are_independent_of_buffers():
+    # Hooks are NOT registry surfaces — they must not appear in _buffers.
+    api = PluginAPI("acme")
+    assert "overlays" not in api._buffers
+    assert "startup_hooks" not in api._buffers
+    assert "shutdown_hooks" not in api._buffers

@@ -8,6 +8,7 @@ plugin's namespace. Every registered name is auto-prefixed with that namespace
 """
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -35,6 +36,7 @@ __all__ = [
     "ColorProviderBase",
     "HiResEmoji",
     "PixelData",
+    "StartupContext",
     "Transition",
     "Widget",
     "colors",
@@ -45,9 +47,31 @@ __all__ = [
     "measure_emoji_at",
     "spawn_tracked",
 ]
-# Phase D will add: StartupContext.
+# (registry surfaces + lifecycle hooks complete; Phase E adds config/CLI/docs.)
 
 API_VERSION: tuple[int, int] = (1, 0)
+
+# Lifecycle-hook callable shapes (collected by the loader, run by app/run.py).
+# A startup hook may be sync or async; a shutdown hook takes no args.
+StartupHook = Callable[["StartupContext"], Any]
+ShutdownHook = Callable[[], Any]
+
+
+@dataclass(frozen=True)
+class StartupContext:
+    """Passed to a plugin's ``on_startup`` hook.
+
+    Fields are typed ``Any`` to keep the public ``plugin`` module free of heavy
+    internal imports (matching ``Canvas``/``Color``). Real types:
+    ``frame`` is the ``LedFrame`` (has ``overlay_hooks``, ``matrix``,
+    ``get_clean_canvas()``, ``swap()``); ``session`` is the shared
+    ``aiohttp.ClientSession``; ``config`` is the parsed app config.
+    """
+
+    frame: Any
+    session: Any
+    config: Any
+
 
 _T = TypeVar("_T", bound=type)
 
@@ -79,6 +103,12 @@ class PluginAPI:
             "hires_emojis": {},
             "fonts": {},
         }
+        # Lifecycle hooks are ordered lists of callables (no name key), so they
+        # live outside _buffers and are NOT committed to a registry — the loader
+        # collects them per-load into LoadedPlugins. See plan "pillar 2".
+        self._overlays: list[Callable[[Any], None]] = []
+        self._startup_hooks: list[StartupHook] = []
+        self._shutdown_hooks: list[ShutdownHook] = []
 
     @property
     def _widgets(self) -> dict[str, Any]:
@@ -183,6 +213,30 @@ class PluginAPI:
         # a missing path surfaces as UnknownFontError at render time, same as a
         # mis-spelled bundled font name.
         self._buffers["fonts"][self._qualify(name)] = (self.root / path).resolve()
+
+    def overlay(self, paint: Callable[[Any], None]) -> None:
+        """Register an overlay painter run on every frame before the hardware
+        swap. ``paint(canvas)`` draws directly on the real canvas (physical
+        pixels), like the built-in busy-light. Direct call.
+
+        Unlike core overlays, a plugin overlay that raises is disabled (and
+        logged once) rather than freezing the panel — the loader wraps it.
+        """
+        self._overlays.append(paint)
+
+    def on_startup(self, fn: StartupHook) -> None:
+        """Register a hook run once, after the frame + session exist and before
+        the main loop. Receives a :class:`StartupContext`; may be sync or async
+        (awaited if it returns a coroutine). Spin up long-lived work via the
+        public ``spawn_tracked``. Direct call.
+        """
+        self._startup_hooks.append(fn)
+
+    def on_shutdown(self, fn: ShutdownHook) -> None:
+        """Register a hook run best-effort when the run loop exits (in its
+        ``finally``). Takes no arguments; may be sync or async. Direct call.
+        """
+        self._shutdown_hooks.append(fn)
 
 
 def make_color(r: int, g: int, b: int) -> Color:

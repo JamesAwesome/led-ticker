@@ -132,6 +132,12 @@ def main() -> None:
             if args.list_fields == "section":
                 print(_list_section_fields())
                 sys.exit(0)
+            # Load plugins so a plugin widget type (e.g. acme.clock) is listable.
+            from led_ticker._plugin_loader import (
+                load_plugins_for_config,  # noqa: PLC0415
+            )
+
+            load_plugins_for_config(args.config)
             try:
                 print(_list_widget_fields(args.list_fields))
             except ValueError as e:

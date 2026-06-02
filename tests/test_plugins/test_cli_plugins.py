@@ -26,3 +26,13 @@ def test_format_plugins_reports_failures():
 def test_format_plugins_empty():
     out = _format_plugins(LoadedPlugins())
     assert "no plugins" in out.lower()
+
+
+def test_format_plugins_hooks_only_plugin():
+    result = LoadedPlugins(
+        loaded=[PluginInfo(namespace="hook_only", source="/p/h.py", counts={})],
+        failed=[],
+    )
+    out = _format_plugins(result)
+    assert "hook_only" in out
+    assert "(hooks only)" in out

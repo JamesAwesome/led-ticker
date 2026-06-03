@@ -232,7 +232,7 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "column zone layout with ABS challenge pips).",
         '"ticker"',
     ),
-    # --- Pool ---
+    # --- label color (shared: pool.monitor / mlb / crypto) ---
     "label_color": FieldHint(
         "[r, g, b]", "color for the prefix labels and separators", "white"
     ),
@@ -333,19 +333,13 @@ _DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
     "bottom_text_wrap": {"gif", "image", "two_row"},
     "bottom_text_separator": {"gif", "image", "two_row"},
     "bottom_text_separator_color": {"gif", "image", "two_row"},
-    "top_font": {"two_row", "pool", "mlb"},
-    "top_font_size": {"two_row", "pool", "mlb"},
-    "top_font_threshold": {"two_row", "pool", "mlb"},
-    "bottom_font": {"two_row", "pool"},
-    "bottom_font_size": {"two_row", "pool"},
-    "bottom_font_threshold": {"two_row", "pool"},
+    "top_font": {"two_row", "mlb"},
+    "top_font_size": {"two_row", "mlb"},
+    "top_font_threshold": {"two_row", "mlb"},
+    "bottom_font": {"two_row"},
+    "bottom_font_size": {"two_row"},
+    "bottom_font_threshold": {"two_row"},
 }
-
-# Pool `current_window` must be a negative Flux duration (e.g. "-24h",
-# "-90m", "-1h30m"). Validated at preflight so a typo fails `led-ticker
-# validate` instead of surfacing as an opaque InfluxDB 400 at runtime.
-_POOL_DURATION_RE = re.compile(r"^-(\d+(ns|us|ms|s|m|h|d|w))+$")
-
 
 # Section-title random color cycle. One stable color per section visit.
 # Lives here (not in `colors.py`) because this is the only consumer; a
@@ -660,44 +654,6 @@ async def validate_widget_cfg(
             fix_key="loops",
             fix_replacement_key="play_count",
         )
-
-    # Pool-specific layout validation
-    if widget_cfg.get("type") == "pool":
-        window = widget_cfg.get("current_window")
-        if window is not None and not _POOL_DURATION_RE.match(str(window)):
-            raise ValueError(
-                f"pool widget current_window={window!r} must be a negative "
-                f"Flux duration like '-24h', '-90m', or '-1h30m'."
-            )
-        layout_value = widget_cfg.get("layout", "ticker")
-        valid_layouts = ["ticker", "two_row"]
-        if layout_value not in valid_layouts:
-            suggestion = difflib.get_close_matches(
-                str(layout_value), valid_layouts, n=1, cutoff=0.4
-            )
-            hint = f" (did you mean {suggestion[0]!r}?)" if suggestion else ""
-            raise ValueError(
-                f"pool widget layout must be one of {valid_layouts}; "
-                f"got {layout_value!r}{hint}"
-            )
-        if layout_value == "ticker":
-            two_row_only = {
-                "top_font",
-                "top_font_size",
-                "top_font_threshold",
-                "bottom_font",
-                "bottom_font_size",
-                "bottom_font_threshold",
-                "top_row_height",
-            }
-            offenders = two_row_only & set(widget_cfg.keys())
-            if offenders:
-                offender = sorted(offenders)[0]
-                raise ValueError(
-                    f"pool widget {offender!r} only applies when "
-                    f"layout='two_row'; remove the field or set "
-                    f"layout='two_row'."
-                )
 
     # MLB layout validation — must run BEFORE _resolve_fonts pops top_font_size
     if widget_cfg.get("type") == "mlb":

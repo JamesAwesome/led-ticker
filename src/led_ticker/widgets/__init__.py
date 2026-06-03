@@ -38,7 +38,6 @@ from led_ticker.widgets import (  # noqa: E402, F401
     message,
     mlb,
     mlb_standings,
-    pool,
     rss_feed,
     still,
     two_row,

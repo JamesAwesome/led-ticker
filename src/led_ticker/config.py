@@ -51,6 +51,10 @@ class TransitionConfig:
     show_pikachu: bool = True
     show_pokeball: bool = True
     transition_fps: float | None = None  # None = use run_transition default (20 fps)
+    # Non-built-in keys from a plugin transition's TOML table (e.g. {type=
+    # "acme.swoosh", speed=3} -> extra={"speed": 3}). Passed to the plugin
+    # transition's constructor; empty for built-in transitions.
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -204,6 +208,7 @@ def _parse_plugins_block(raw: dict) -> PluginsConfig:
         raise ValueError(
             f"plugins.disable must be a list of strings; got {cfg.disable!r}."
         )
+    cfg.disable = [n.strip() for n in cfg.disable]
     return cfg
 
 
@@ -244,6 +249,22 @@ _DISPLAY_INT_FIELDS: frozenset[str] = frozenset(
         "pwm_dither_bits",
         "rp1_rio",
         "limit_refresh_rate_hz",
+    }
+)
+
+
+# Built-in transition knobs. Any other key in a transition table is plugin
+# config and gets carried in TransitionConfig.extra for the plugin constructor.
+_BUILTIN_TRANSITION_KEYS: frozenset[str] = frozenset(
+    {
+        "type",
+        "duration",
+        "easing",
+        "transition_color",
+        "transition_colors",
+        "show_pikachu",
+        "show_pokeball",
+        "transition_fps",
     }
 )
 
@@ -342,6 +363,9 @@ def _parse_transition(
     colors = raw.get("transition_colors")
     if colors is not None:
         colors = [tuple(c) for c in colors]
+    # Any table key that isn't a built-in transition knob is plugin config —
+    # carry it in `extra` for the plugin transition's constructor.
+    extra = {k: v for k, v in raw.items() if k not in _BUILTIN_TRANSITION_KEYS}
     return TransitionConfig(
         type=raw.get("type", default.type),
         duration=raw.get("duration", default.duration),
@@ -351,6 +375,7 @@ def _parse_transition(
         show_pikachu=raw.get("show_pikachu", default.show_pikachu),
         show_pokeball=raw.get("show_pokeball", default.show_pokeball),
         transition_fps=raw.get("transition_fps", default.transition_fps),
+        extra=extra,
     )
 
 

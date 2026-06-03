@@ -51,10 +51,15 @@ def test_read_plugins_config_defaults_on_unreadable(tmp_path):
     assert pc.enabled is True and pc.dir == "plugins" and pc.disable == []
 
 
-def test_read_plugins_config_defaults_on_bad_toml(tmp_path):
+def test_read_plugins_config_propagates_toml_syntax_error(tmp_path):
     p = tmp_path / "config.toml"
-    p.write_text("[[[invalid toml")
-    pc = L.read_plugins_config(p)
+    p.write_text("[[[ not valid toml")
+    with pytest.raises(ValueError):  # tomllib.TOMLDecodeError is a ValueError subclass
+        L.read_plugins_config(p)
+
+
+def test_read_plugins_config_still_defaults_on_missing_file(tmp_path):
+    pc = L.read_plugins_config(tmp_path / "nope.toml")
     assert pc.enabled is True and pc.dir == "plugins"
 
 

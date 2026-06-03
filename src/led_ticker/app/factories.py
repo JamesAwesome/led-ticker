@@ -17,6 +17,7 @@ from typing import Any
 import aiohttp
 
 from led_ticker.app.coercion import (
+    _build_plugin_style,
     _coerce_animation,
     _coerce_border,
     _coerce_color_provider,
@@ -379,6 +380,14 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
     if trans_cfg.type == "cut":
         return None
     cls = get_transition_class(trans_cfg.type)
+    # Plugin transitions (namespaced, dotted type) declare their own config
+    # fields and are built through the generic plugin-style path, which gives a
+    # clean ValueError for unknown/missing keys (not a raw TypeError). Built-in
+    # transitions keep their special-cased kwargs.
+    if "." in trans_cfg.type:
+        return _build_plugin_style(
+            cls, trans_cfg.extra, f"transition {trans_cfg.type!r}"
+        )
     kwargs: dict[str, Any] = {}
     if trans_cfg.colors is not None:
         kwargs["colors"] = trans_cfg.colors
@@ -530,6 +539,13 @@ def _resolve_asset_paths(
     candidate = Path(widget_cfg["path"])
     if not candidate.is_absolute():
         widget_cfg["path"] = str((config_dir / candidate).resolve())
+
+
+def _widget_declares_field(cls: type, name: str) -> bool:
+    """True if an (attrs) widget class declares a config field `name` — lets a
+    plugin widget opt into the `animation`/`border` knobs by declaring the field,
+    without hardcoding plugin type names."""
+    return any(a.name == name for a in getattr(cls, "__attrs_attrs__", ()))
 
 
 def _run_validate_config(cls: type, cfg: dict[str, Any], widget_type: str) -> None:
@@ -726,10 +742,10 @@ async def validate_widget_cfg(
     # so it doesn't reach the widget constructor as an unknown kwarg
     # for widget types that don't accept it.
     animation_value = widget_cfg.pop("animation", None)
-    if animation_value is not None and widget_type not in (
-        "message",
-        "gif",
-        "image",
+    if (
+        animation_value is not None
+        and widget_type not in ("message", "gif", "image")
+        and not _widget_declares_field(cls, "animation")
     ):
         raise ValueError(
             f'animation is only valid on type="message", "gif", or '
@@ -747,12 +763,10 @@ async def validate_widget_cfg(
     # misplaced `border = ...` in TOML before it surfaces as a
     # confusing "unknown kwarg" downstream.
     border_value = widget_cfg.pop("border", None)
-    if border_value is not None and widget_type not in (
-        "message",
-        "countdown",
-        "two_row",
-        "gif",
-        "image",
+    if (
+        border_value is not None
+        and widget_type not in ("message", "countdown", "two_row", "gif", "image")
+        and not _widget_declares_field(cls, "border")
     ):
         raise ValueError(
             f'border is only valid on type="message", "countdown", '
@@ -1180,8 +1194,14 @@ def _list_widget_fields(widget_type: str) -> str:
     # Shared dispatch fields: applicable to this widget type AND not
     # already shown in widget-level (dedup by name).
     dispatch_rows: list[tuple[str, str]] = []
+    is_plugin_widget = "." in widget_type
     for name, applicable_types in _DISPATCH_APPLICABLE_TYPES.items():
         if applicable_types is not None and widget_type not in applicable_types:
+            continue
+        # Plugin widgets don't auto-receive the built-in shared knobs (`type`,
+        # `text`, `font`, `font_size`, `font_threshold`); suppress that whole
+        # block for them rather than advertise fields they'd reject.
+        if is_plugin_widget and applicable_types is None:
             continue
         if name in widget_field_names:
             continue  # already shown above

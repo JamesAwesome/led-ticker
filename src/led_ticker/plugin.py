@@ -29,7 +29,13 @@ from led_ticker.fonts.hires_loader import HiresFont
 from led_ticker.pixel_emoji import HiResEmoji, draw_emoji_at, measure_emoji_at
 from led_ticker.pixel_emoji import draw_with_emoji as _draw_with_emoji
 from led_ticker.transitions import Transition
-from led_ticker.widget import Widget, spawn_tracked
+from led_ticker.widget import (
+    Container,
+    Updatable,
+    Widget,
+    run_monitor_loop,
+    spawn_tracked,
+)
 
 __all__ = [
     "API_VERSION",
@@ -40,6 +46,7 @@ __all__ = [
     "BorderEffectBase",
     "Canvas",
     "Color",
+    "Container",
     "DrawResult",
     "ColorProvider",
     "ColorProviderBase",
@@ -49,6 +56,7 @@ __all__ = [
     "PixelData",
     "StartupContext",
     "Transition",
+    "Updatable",
     "Widget",
     "colors",
     "compute_baseline",
@@ -58,6 +66,7 @@ __all__ = [
     "make_color",
     "measure_emoji_at",
     "resolve_font",
+    "run_monitor_loop",
     "spawn_tracked",
 ]
 # Public plugin surface: registry contributions + lifecycle hooks.

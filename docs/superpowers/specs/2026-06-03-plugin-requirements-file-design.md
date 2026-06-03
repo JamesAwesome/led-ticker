@@ -17,6 +17,12 @@ declarative, requirements.txt-style file, so that:
 Installation stays **build-time** (consistent with goal 1 — no runtime/network-at-boot
 install). Changing plugins means editing the file and rebuilding the image.
 
+The Dockerfile installs the **live** file only (`config/requirements-plugins.txt`); there
+is **no fallback to the example**. The example is a copy-me template — a fresh clone
+installs **no plugins** until you `cp` the example to the live file. (Pool is therefore
+not baked into a fresh `git clone && docker compose up --build`; that's an accepted
+tradeoff for keeping the model explicit and the example purely a template.)
+
 ## Background / current state
 
 - `Dockerfile` "Layer 2b" hardcodes the pool plugin:
@@ -64,25 +70,31 @@ Naming: `requirements-plugins` (not `plugins.txt`) avoids colliding with the
 
 ```dockerfile
 # Layer 2b: external plugins, declared in config/requirements-plugins.txt
-# (gitignored; copied from the .example.txt during setup). Installed --no-deps
-# because led-ticker is not on PyPI and plugin runtime deps are already app
-# deps; a plugin needing an extra lib must list it as its own line in the file.
-# The .tx[t] glob is the optional-file trick: copies the live file if present,
-# silently skips it if not (the .example is always present, so COPY succeeds).
+# (gitignored; copy config/requirements-plugins.example.txt to create it).
+# Installed --no-deps because led-ticker is not on PyPI and plugin runtime deps
+# are already app deps; a plugin needing an extra lib must list it as its own
+# line. Installs the live file only — if it is absent, no plugins are installed
+# (no fallback to the example). The .tx[t] glob is the optional-file trick: it
+# copies the live file if present and is silently skipped if not; the .example
+# is always present so the COPY itself always succeeds.
 COPY config/requirements-plugins.example.txt config/requirements-plugins.tx[t] /code/config/
-RUN pip install --no-cache-dir --no-deps -r \
-    "$(test -f /code/config/requirements-plugins.txt \
-        && echo /code/config/requirements-plugins.txt \
-        || echo /code/config/requirements-plugins.example.txt)"
+RUN if [ -f /code/config/requirements-plugins.txt ]; then \
+        pip install --no-cache-dir --no-deps -r /code/config/requirements-plugins.txt; \
+    else \
+        echo "No config/requirements-plugins.txt; skipping plugin install \
+(copy config/requirements-plugins.example.txt to add plugins)"; \
+    fi
 ```
 
-- Installs the **live** file if present, else falls back to the **example**, so
-  `git clone && docker compose up --build` works with pool out of the box.
-- This is its own cached layer placed before `COPY . /code/`, so editing the file
+- Installs the **live** file only. If it is absent the step is a no-op (the build
+  succeeds with no plugins) — there is **no fallback** to the example.
+- The example is always copied (as the guaranteed COPY source for the optional-file
+  trick) and lands in the image as a template, but it is **never installed**.
+- This is its own cached layer placed before `COPY . /code/`, so editing the live file
   invalidates the cache and triggers reinstall — the **`POOL_PLUGIN_CACHE_BUST` ARG is
   removed** (no longer needed).
-- An empty or all-comments file is valid (`pip install -r` is a no-op), so a cloner can
-  run zero plugins by emptying the file.
+- An empty or all-comments live file is valid (`pip install -r` is a no-op), so a cloner
+  can run zero plugins by emptying the file.
 
 ### 3. Bare-metal install + onboarding
 
@@ -90,9 +102,9 @@ RUN pip install --no-cache-dir --no-deps -r \
   the plugins file (live, else example) with `--no-deps` if it exists:
   ```sh
   PLUGINS_REQ="${REPO_DIR}/config/requirements-plugins.txt"
-  [ -f "$PLUGINS_REQ" ] || PLUGINS_REQ="${REPO_DIR}/config/requirements-plugins.example.txt"
   [ -f "$PLUGINS_REQ" ] && pip install --no-deps -r "$PLUGINS_REQ"
   ```
+  Live file only — no fallback to the example, matching the Dockerfile.
 - Setup docs (README / onboarding) mention the new file next to `cp config.example.toml
   config.toml` and the `.env` step: "to add or remove plugins, copy
   `config/requirements-plugins.example.txt` to `config/requirements-plugins.txt`, edit,
@@ -113,7 +125,7 @@ active.
 
 ## Error handling / edge cases
 
-- **Missing live file:** falls back to the example (build still succeeds).
+- **Missing live file:** no plugins installed; build still succeeds (no fallback to the example).
 - **Empty / comments-only file:** `pip install -r` is a no-op; zero plugins installed.
 - **Unresolvable git ref / bad line:** the build fails at the pip step with pip's error —
   surfaced at build time, not at runtime. Acceptable (build-time is the right place to
@@ -129,10 +141,12 @@ active.
 - Guard test or doc-drift check: the `Dockerfile` references
   `requirements-plugins` and no longer contains `POOL_PLUGIN_CACHE_BUST`.
 - Manual verification:
-  - `docker compose build` with **no** live file → installs the example → `pool.monitor`
-    registered (`led-ticker plugins` lists `pool`).
-  - `docker compose build` with an **edited** live file (e.g. pool removed) → that set is
-    installed; `led-ticker plugins` reflects it.
+  - `docker compose build` with **no** live file → no plugins installed (`led-ticker
+    plugins` lists none); build succeeds.
+  - `cp config/requirements-plugins.example.txt config/requirements-plugins.txt` then
+    `docker compose build` → `pool.monitor` registered (`led-ticker plugins` lists `pool`).
+  - Edit the live file (e.g. remove pool) and rebuild → `led-ticker plugins` reflects the
+    new set.
 
 ## Out of scope
 

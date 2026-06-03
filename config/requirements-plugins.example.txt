@@ -1,0 +1,9 @@
+# Plugins to install into the image (pip requirements format, one per line).
+# Copy this file to config/requirements-plugins.txt and edit it for your signs,
+# then rebuild:  docker compose up -d --build
+#
+# Installed with --no-deps because led-ticker is not on PyPI. If a plugin needs
+# a runtime library beyond what led-ticker already ships, add it as its own line.
+#
+# Pool water-temperature widget (type = "pool.monitor"):
+git+https://github.com/JamesAwesome/led-ticker-pool.git@main

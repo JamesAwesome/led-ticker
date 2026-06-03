@@ -127,7 +127,7 @@ async def start(cls, session, update_interval=300, **kwargs):
     return widget
 ```
 
-> NOTE (gap, see §10): the built-in monitor widgets use internal helpers (`run_monitor_loop`, the `SegmentMessage`/`TwoRowMessage` render widgets, the `feed_title`/`feed_stories` "container" protocol) that are **NOT** on the public surface yet. A pure-public-surface data-fetching widget today must reimplement its own poll loop (`spawn_tracked` + `asyncio.sleep`) and render via `draw_text`.
+> NOTE (gap closed, see §10): `run_monitor_loop`, the `SegmentMessage`/`TwoRowMessage` render widgets, and the `Container`/`Updatable` "container" protocols are now **on the public surface** via `led_ticker.plugin`. A data-fetching widget declares `feed_stories`, implements `async update()`, and drives refresh from `start()` via `spawn_tracked(run_monitor_loop(self, interval))`.
 
 ## 5. Non-widget surface contracts (minimal shapes)
 
@@ -231,8 +231,7 @@ Read by a lightweight `read_plugins_config()` **before** full `load_config` (plu
 
 These are the documented sharp edges + the gaps a real "monitor/feed" widget (e.g. the pool widget) hits — relevant to any data-fetching widget extraction:
 
-- **No public poll-loop helper.** `run_monitor_loop` (the built-in `while True: sleep; await widget.update()` driver) is internal. A public data-fetching widget reimplements it via `spawn_tracked` + `asyncio.sleep`.
-- **No public "container/feed" widget protocol.** Built-in monitors produce `feed_title` + `feed_stories` (lists of message widgets) expanded by the engine, rather than implementing `draw()`. This protocol — and the composable render widgets it uses (`SegmentMessage`, `TwoRowMessage`) — is **not** on the public surface. A pure-public-surface widget today is a single `draw()` widget.
+- **Monitor/container widgets are supported.** `Container`/`Updatable` protocols, `run_monitor_loop`, and the `SegmentMessage`/`TwoRowMessage` building blocks are re-exported from `led_ticker.plugin`. A data-fetching widget declares `feed_stories`, implements `async update()`, and drives refresh from `start()` via `spawn_tracked(run_monitor_loop(self, interval))`.
 - **Font knobs not auto-injected into plugin widgets.** Only `font_color` is injected (and only when declared). `font`/`font_size`/`font_threshold` are built-in-widget conveniences; a plugin widget reads fonts itself via `resolve_font`. (`--list-fields` correctly hides these for plugin widgets.)
 - **`validate_config`** is widget-only and pre-coercion (raw config values).
 - **hi-res-only emoji** without a lo-res pairing won't render inline / on unscaled canvases (logs a load-time warning).

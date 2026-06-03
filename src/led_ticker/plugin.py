@@ -10,6 +10,14 @@ A registered widget class may also define a ``validate_config(cls, cfg) ->
 list[str]`` classmethod (a @classmethod). When present it is called during
 config validation; any returned messages become pre-flight errors. This is a
 convention (no ``api.*`` registration) — the rule travels with the widget type.
+
+A widget may also be a MONITOR/CONTAINER: declare a ``feed_stories:
+list[Widget]`` field (the engine re-reads it live and cycles through the
+current stories) instead of implementing ``draw()``, implement
+``async def update(self)`` to refresh it (the :class:`Updatable` protocol),
+and drive periodic refresh from a ``start()`` classmethod via
+``spawn_tracked(run_monitor_loop(self, interval))``. Compose each story from
+the re-exported ``SegmentMessage`` / ``TwoRowMessage`` widgets.
 """
 
 from collections.abc import Callable

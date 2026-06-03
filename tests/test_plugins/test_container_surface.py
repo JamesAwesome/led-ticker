@@ -30,3 +30,48 @@ def test_message_building_blocks_are_exported():
     # both satisfy the Widget protocol (have draw)
     assert isinstance(seg, Widget)
     assert isinstance(two, Widget)
+
+
+def test_plugin_monitor_widget_loads_and_is_a_container(tmp_path):
+    import textwrap
+
+    from led_ticker import _plugin_loader as L
+    from led_ticker.plugin import Container
+    from led_ticker.widgets import get_widget_class
+
+    L.reset_plugins()
+    (tmp_path / "plugins").mkdir()
+    (tmp_path / "plugins" / "acme.py").write_text(
+        textwrap.dedent(
+            """
+            import attrs
+            from led_ticker.plugin import (
+                SegmentMessage, make_color, run_monitor_loop, spawn_tracked,
+            )
+
+            def register(api):
+                @api.widget("feed")
+                @attrs.define
+                class Feed:
+                    feed_stories: list = attrs.field(init=False, factory=list)
+                    async def update(self):
+                        self.feed_stories = [
+                            SegmentMessage([("hi", make_color(255, 255, 255))])
+                        ]
+                    @classmethod
+                    async def start(cls, session, update_interval=300, **kw):
+                        w = cls(**kw)
+                        await w.update()
+                        spawn_tracked(run_monitor_loop(w, update_interval))
+                        return w
+            """
+        )
+    )
+    try:
+        L.load_plugins(tmp_path / "plugins", entry_points_enabled=False)
+        cls = get_widget_class("acme.feed")
+        assert cls is not None
+        inst = cls()
+        assert isinstance(inst, Container)
+    finally:
+        L.reset_plugins()

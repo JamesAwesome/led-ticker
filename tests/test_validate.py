@@ -116,6 +116,16 @@ async def test_toml_syntax_error_returns_error(conf):
     assert result.errors[0].location == "config"
 
 
+async def test_validate_reports_bad_plugins_block_as_error(conf):
+    # A structurally-bad [plugins] block must surface as a clean
+    # ValidationResult error (exit 1), not escape as a raised exception.
+    result = await validate_config(
+        conf("[display]\nrows = 16\ncols = 64\n[plugins]\ndir = 3\n")
+    )
+    assert not result.valid
+    assert any("plugins.dir" in e.message for e in result.errors)
+
+
 async def test_unknown_widget_type_returns_error(conf):
     result = await validate_config(
         conf(GOOD_CONFIG + '\n[[playlist.section.widget]]\ntype = "banana"\n')

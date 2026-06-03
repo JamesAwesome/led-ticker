@@ -43,3 +43,8 @@ def test_disable_must_be_list_of_str():
         _parse_plugins_block({"plugins": {"disable": "acme"}})
     with pytest.raises(ValueError, match="plugins.disable must be a list of strings"):
         _parse_plugins_block({"plugins": {"disable": [1, 2]}})
+
+
+def test_disable_entries_are_whitespace_stripped():
+    cfg = _parse_plugins_block({"plugins": {"disable": ["  acme  ", "x"]}})
+    assert cfg.disable == ["acme", "x"]

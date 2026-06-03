@@ -1,5 +1,6 @@
 """Config file validator for led-ticker."""
 
+import contextlib
 import copy
 import json
 import math
@@ -604,6 +605,58 @@ def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
                 ),
             )
         )
+
+    _check(config.default_transition, "transitions.default")
+    if config.between_sections_specified:
+        _check(config.between_sections, "transitions.between_sections")
+    for i, section in enumerate(config.sections):
+        if section.transition_specified:
+            _check(section.transition, f"section[{i}].transition")
+        if section.entry_transition is not None:
+            _check(section.entry_transition, f"section[{i}].entry_transition")
+        if section.widget_transition is not None:
+            _check(section.widget_transition, f"section[{i}].widget_transition")
+
+    return issues
+
+
+# Rule 53: plugin transition config kwargs (unknown/missing keys).
+def _check_plugin_transition_kwargs(config: AppConfig) -> list[ValidationIssue]:
+    """Validate kwargs for plugin (dotted-type) transitions at validate time.
+
+    Attempts to build each dotted-type transition with its `extra` kwargs
+    via `_build_trans_obj`. A clean ValueError from `_build_plugin_style`
+    (unknown or missing keys) is surfaced as a validation error rather than
+    letting it crash at startup.
+
+    Built-in transitions (bare names like "dissolve") are skipped — they
+    have no `extra` and are handled by the existing special-cased path.
+    """
+    from led_ticker.app.factories import _build_trans_obj
+    from led_ticker.config import TransitionConfig
+
+    issues: list[ValidationIssue] = []
+
+    def _check(trans_cfg: TransitionConfig | None, location: str) -> None:
+        if trans_cfg is None or trans_cfg.type == "cut":
+            return
+        if "." not in trans_cfg.type:
+            return  # built-in transition; kwargs checked by constructor
+        try:
+            _build_trans_obj(trans_cfg)
+        except ValueError as exc:
+            issues.append(
+                ValidationIssue(
+                    rule=53,
+                    location=location,
+                    severity="error",
+                    message=str(exc),
+                    fix=(
+                        "Check the plugin transition's accepted kwargs. "
+                        "Remove unknown keys or add required keys."
+                    ),
+                )
+            )
 
     _check(config.default_transition, "transitions.default")
     if config.between_sections_specified:
@@ -1621,7 +1674,12 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
 
     from led_ticker._plugin_loader import load_plugins_for_config
 
-    load_plugins_for_config(path)
+    # A broken-TOML or structural [plugins] error here is re-surfaced below by
+    # load_config (Phase 1a) as a clean ValidationResult error, so don't let it
+    # escape the validator. (Plugin LOAD failures are already isolated inside
+    # load_plugins and recorded in result.failed, not raised.)
+    with contextlib.suppress(Exception):
+        load_plugins_for_config(path)
 
     from led_ticker.app import _configure_user_font_dir
     from led_ticker.config import load_config
@@ -1651,6 +1709,13 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
     # Always runs (not just --strict): a typo in a transition name always
     # fails at startup and has no deploy-target excuse.
     errors.extend(_check_transition_names(config))
+
+    # Phase 1b (cont.): Plugin transition kwargs check.
+    # For dotted-type (plugin) transitions, attempt to build the transition
+    # object to surface unknown/missing kwargs as a clean validation error.
+    # Only runs when the name check passed — no point building an unknown type.
+    if not any(e.rule == 39 for e in errors):
+        errors.extend(_check_plugin_transition_kwargs(config))
 
     # Phase 1b (cont.): Rules 42-49, 51-52 — lightbulbs border value-range checks.
     # Run before build checks so users see ruled errors rather than

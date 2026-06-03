@@ -45,6 +45,9 @@ class PluginInfo:
     namespace: str
     source: str
     counts: dict[str, int] = field(default_factory=dict)
+    # Per-surface qualified contribution names (e.g. {"widgets": ["acme.clock"]})
+    # — what an operator references in TOML.
+    names: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -92,7 +95,7 @@ def _commit(api: PluginAPI, info: PluginInfo) -> None:
 
     Two-pass (validate all, then write all) so a mid-commit collision can't
     leave a partial registration. Only buffers that map to a registry are
-    committed here (hook surfaces are collected separately in later phases).
+    committed here (hook surfaces are collected separately — see _load_one).
     """
     for surface, buf in api._buffers.items():
         registry = _REGISTRY_MAP.get(surface)
@@ -112,6 +115,7 @@ def _commit(api: PluginAPI, info: PluginInfo) -> None:
             registry[name] = obj
         if buf:
             info.counts[surface] = len(buf)
+            info.names[surface] = sorted(buf)
 
 
 def _resolve_root(
@@ -371,17 +375,16 @@ def load_plugins(
 def read_plugins_config(config_path: Path) -> PluginsConfig:
     """Lightweight read of just the ``[plugins]`` block, so plugin discovery can
     run BEFORE full config validation (plugin-provided easings etc. must be
-    registered before load_config validates them). Returns defaults if the file
-    is missing, unreadable, or has a TOML syntax error — structural
-    ``[plugins]`` errors (wrong types, absolute/empty dir) propagate
-    immediately.
+    registered before load_config validates them). Returns defaults only if the
+    file is missing; a TOML syntax error or a structural ``[plugins]`` error
+    propagates so the caller can report it.
     """
     import tomllib
 
     try:
         with open(config_path, "rb") as f:
             raw = tomllib.load(f)
-    except Exception:
+    except FileNotFoundError:
         return PluginsConfig()
     return _parse_plugins_block(raw)
 

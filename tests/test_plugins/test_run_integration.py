@@ -82,6 +82,9 @@ def test_run_wires_lifecycle_hooks():
     run_module = importlib.import_module("led_ticker.app.run")
 
     src = inspect.getsource(run_module.run)
+    # If this fails after a legitimate refactor of run(), delete these source
+    # assertions — test_loaded_plugin_hooks_are_consumable_by_run exercises the
+    # real runners and is the behavioral guard.
     assert "_run_startup_hooks" in src
     assert "_run_shutdown_hooks" in src
     assert "_guarded_overlay" in src

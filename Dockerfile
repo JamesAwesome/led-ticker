@@ -43,15 +43,21 @@ WORKDIR /code
 COPY pyproject.toml /code/
 RUN pip install --no-cache-dir -e ".[dev]"
 
-# Layer 2b: external plugins (led_ticker.plugins entry points auto-register at
-# startup). Installed --no-deps on purpose: led-ticker is not on PyPI (it's the
-# editable install above) and the plugins' runtime deps (aiohttp) are already
-# present as app dependencies, so dependency resolution would only fail trying
-# to fetch led-ticker from PyPI. Bump POOL_PLUGIN_CACHE_BUST to pull a newer
-# plugin revision (Docker caches by instruction text, not remote content).
-ARG POOL_PLUGIN_CACHE_BUST=1
-RUN pip install --no-cache-dir --no-deps \
-    "git+https://github.com/JamesAwesome/led-ticker-pool.git@main"
+# Layer 2b: external plugins, declared in config/requirements-plugins.txt
+# (gitignored; copy config/requirements-plugins.example.txt to create it).
+# Installed --no-deps because led-ticker is not on PyPI (it's the editable
+# install above) and plugin runtime deps (e.g. aiohttp) are already present as
+# app dependencies. Installs the live file only — if it is absent, no plugins
+# are installed (no fallback to the example). The .tx[t] glob is the optional-
+# file trick: it copies the live file if present and is skipped if not; the
+# .example is always present so the COPY itself always succeeds. Editing the
+# live file invalidates this cached layer and triggers a reinstall.
+COPY config/requirements-plugins.example.txt config/requirements-plugins.tx[t] /code/config/
+RUN if [ -f /code/config/requirements-plugins.txt ]; then \
+        pip install --no-cache-dir --no-deps -r /code/config/requirements-plugins.txt; \
+    else \
+        echo "No config/requirements-plugins.txt; skipping plugin install (copy the .example to add plugins)"; \
+    fi
 
 # Layer 3: app source (rebuilds on any code change — but fast, no pip)
 COPY . /code/

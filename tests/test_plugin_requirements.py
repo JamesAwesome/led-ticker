@@ -41,7 +41,8 @@ def test_dockerfile_installs_from_requirements_file():
         "Dockerfile should pip-install the live requirements-plugins.txt"
     )
     assert "config/requirements-plugins.example.txt" in dockerfile, (
-        "Dockerfile should COPY the example (guaranteed source for the optional-file trick)"
+        "Dockerfile should COPY the example "
+        "(guaranteed source for the optional-file trick)"
     )
     assert "POOL_PLUGIN_CACHE_BUST" not in dockerfile, (
         "the per-plugin cache-bust ARG should be removed"

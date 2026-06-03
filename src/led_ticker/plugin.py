@@ -36,6 +36,8 @@ from led_ticker.widget import (
     run_monitor_loop,
     spawn_tracked,
 )
+from led_ticker.widgets.message import SegmentMessage
+from led_ticker.widgets.two_row import TwoRowMessage
 
 __all__ = [
     "API_VERSION",
@@ -54,8 +56,10 @@ __all__ = [
     "HiResEmoji",
     "HiresFont",
     "PixelData",
+    "SegmentMessage",
     "StartupContext",
     "Transition",
+    "TwoRowMessage",
     "Updatable",
     "Widget",
     "colors",

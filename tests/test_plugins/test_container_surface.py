@@ -20,3 +20,13 @@ def test_a_plugin_container_widget_expands_via_the_engine():
     f = Feed()
     assert isinstance(f, Container)
     assert _expand_sources([f, "x"]) == ["a", "b", "x"]
+
+
+def test_message_building_blocks_are_exported():
+    from led_ticker.plugin import SegmentMessage, TwoRowMessage, Widget, make_color
+
+    seg = SegmentMessage([("Hi", make_color(255, 255, 255))], center=True)
+    two = TwoRowMessage(top_text="A", bottom_text="B")
+    # both satisfy the Widget protocol (have draw)
+    assert isinstance(seg, Widget)
+    assert isinstance(two, Widget)

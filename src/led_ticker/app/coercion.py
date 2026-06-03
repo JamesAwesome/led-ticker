@@ -381,10 +381,17 @@ def _coerce_border(value: Any) -> BorderEffect | None:
             case "lightbulbs":
                 return LightbulbBorder()
             case _:
+                # Not a built-in shorthand — check the plugin registry
+                # (mirrors how _coerce_animation handles unknown strings).
+                from led_ticker.borders import _BORDER_REGISTRY
+
+                cls = _BORDER_REGISTRY.get(value)
+                if cls is not None:
+                    return _build_plugin_style(cls, {}, f"border style {value!r}")
                 raise ValueError(
                     f"unknown border style {value!r}; "
                     "available: 'rainbow', 'color_cycle', 'lightbulbs', "
-                    "or use an inline table"
+                    "or a registered plugin border"
                 )
     # Inline table
     if isinstance(value, dict):

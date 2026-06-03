@@ -1619,6 +1619,10 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
 
+    from led_ticker._plugin_loader import load_plugins_for_config
+
+    load_plugins_for_config(path)
+
     from led_ticker.app import _configure_user_font_dir
     from led_ticker.config import load_config
 

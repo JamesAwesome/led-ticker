@@ -208,6 +208,7 @@ def _parse_plugins_block(raw: dict) -> PluginsConfig:
         raise ValueError(
             f"plugins.disable must be a list of strings; got {cfg.disable!r}."
         )
+    cfg.disable = [n.strip() for n in cfg.disable]
     return cfg
 
 

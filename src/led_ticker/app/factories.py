@@ -1194,8 +1194,14 @@ def _list_widget_fields(widget_type: str) -> str:
     # Shared dispatch fields: applicable to this widget type AND not
     # already shown in widget-level (dedup by name).
     dispatch_rows: list[tuple[str, str]] = []
+    is_plugin_widget = "." in widget_type
     for name, applicable_types in _DISPATCH_APPLICABLE_TYPES.items():
         if applicable_types is not None and widget_type not in applicable_types:
+            continue
+        # Plugin widgets don't auto-receive the built-in font knobs (the
+        # `applicable_types is None` rows other than `type`); advertising them
+        # would list fields the widget rejects. Only `type` is universal.
+        if is_plugin_widget and applicable_types is None and name != "type":
             continue
         if name in widget_field_names:
             continue  # already shown above

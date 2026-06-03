@@ -85,3 +85,36 @@ def test_list_fields_works_for_plugin_widget(tmp_path):
         assert "text" in out
     finally:
         L.reset_plugins()
+
+
+def test_list_fields_plugin_widget_hides_uninjected_shared_fields(tmp_path):
+    import textwrap
+
+    from led_ticker import _plugin_loader as L
+    from led_ticker.app.factories import _list_widget_fields
+
+    L.reset_plugins()
+    (tmp_path / "plugins").mkdir()
+    (tmp_path / "plugins" / "acme.py").write_text(
+        textwrap.dedent(
+            """
+            import attrs
+            def register(api):
+                @api.widget("clock")
+                @attrs.define
+                class Clock:
+                    text: str = "12:00"
+                    def draw(self, canvas, cursor_pos=0, **kw):
+                        return canvas, cursor_pos
+            """
+        )
+    )
+    try:
+        L.load_plugins(tmp_path / "plugins", entry_points_enabled=False)
+        out = _list_widget_fields("acme.clock")
+        assert "text" in out  # the widget's own declared field
+        # Built-in font knobs NOT injected into a plugin widget must not show:
+        assert "font_size" not in out
+        assert "font_threshold" not in out
+    finally:
+        L.reset_plugins()

@@ -619,6 +619,7 @@ def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+# Rule 53: plugin transition config kwargs (unknown/missing keys).
 def _check_plugin_transition_kwargs(config: AppConfig) -> list[ValidationIssue]:
     """Validate kwargs for plugin (dotted-type) transitions at validate time.
 
@@ -645,7 +646,7 @@ def _check_plugin_transition_kwargs(config: AppConfig) -> list[ValidationIssue]:
         except ValueError as exc:
             issues.append(
                 ValidationIssue(
-                    rule=None,
+                    rule=53,
                     location=location,
                     severity="error",
                     message=str(exc),

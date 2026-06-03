@@ -252,6 +252,22 @@ _DISPLAY_INT_FIELDS: frozenset[str] = frozenset(
 )
 
 
+# Built-in transition knobs. Any other key in a transition table is plugin
+# config and gets carried in TransitionConfig.extra for the plugin constructor.
+_BUILTIN_TRANSITION_KEYS: frozenset[str] = frozenset(
+    {
+        "type",
+        "duration",
+        "easing",
+        "transition_color",
+        "transition_colors",
+        "show_pikachu",
+        "show_pokeball",
+        "transition_fps",
+    }
+)
+
+
 def _coerce_display(
     display_raw: dict[str, Any], warnings: list[CoercionWarning]
 ) -> DisplayConfig:
@@ -348,10 +364,6 @@ def _parse_transition(
         colors = [tuple(c) for c in colors]
     # Any table key that isn't a built-in transition knob is plugin config —
     # carry it in `extra` for the plugin transition's constructor.
-    _BUILTIN_TRANSITION_KEYS = {
-        "type", "duration", "easing", "transition_color", "transition_colors",
-        "show_pikachu", "show_pokeball", "transition_fps",
-    }
     extra = {k: v for k, v in raw.items() if k not in _BUILTIN_TRANSITION_KEYS}
     return TransitionConfig(
         type=raw.get("type", default.type),

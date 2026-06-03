@@ -20,6 +20,7 @@ from led_ticker.plugin import (
     HiResEmoji,
     StartupContext,
     make_color,
+    spawn_tracked,
 )
 
 # Shared state a startup poller updates and the overlay paints (the canonical
@@ -32,6 +33,11 @@ def register(api):
     @attrs.define
     class Clock:
         text: str = "12:00"
+        # Declare a `font_color` field to accept the standard
+        # `font_color = {style = "acme.fire"}` knob — the loader coerces it to a
+        # color provider and injects it here. (A plain widget without this field
+        # rejects font_color as an unknown field.)
+        font_color: object = None
 
         @classmethod
         def validate_config(cls, cfg):
@@ -81,8 +87,15 @@ def register(api):
 
     api.overlay(paint)
 
+    async def _poll():
+        # A real poller would fetch state on an interval with
+        # `await asyncio.sleep(...)`. Kept minimal here so tests don't hang.
+        _STATE["tick"] += 1
+
     def on_startup(ctx: StartupContext):
-        _STATE["tick"] = 1  # a real plugin might spawn_tracked(poller())
+        # Start background work via spawn_tracked (must be a coroutine); the
+        # overlay above paints whatever _STATE the poller updates.
+        spawn_tracked(_poll())
 
     api.on_startup(on_startup)
     api.on_shutdown(lambda: _STATE.update(tick=0))

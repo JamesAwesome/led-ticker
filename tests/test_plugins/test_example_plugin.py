@@ -30,6 +30,20 @@ def test_example_plugin_registers_every_surface_and_hook():
         L.reset_plugins()
 
 
+async def test_example_clock_accepts_font_color():
+    from led_ticker.app.factories import validate_widget_cfg
+
+    L.reset_plugins()
+    try:
+        L.load_plugins(EXAMPLES, entry_points_enabled=False)
+        # acme.clock declares a font_color field, so the standard color-provider
+        # knob (here the example's own acme.fire provider) is accepted.
+        cfg = {"type": "acme.clock", "font_color": {"style": "acme.fire"}}
+        await validate_widget_cfg(cfg, session=None)  # must not raise
+    finally:
+        L.reset_plugins()
+
+
 def test_example_plugin_contributions_are_usable():
     # Test-only internal imports (resolve_font/get_widget_class). A plugin
     # itself imports ONLY from led_ticker.plugin — see acme/__init__.py.

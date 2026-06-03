@@ -139,7 +139,14 @@ class PluginAPI:
         return f"{self.namespace}.{name}"
 
     def widget(self, name: str) -> Callable[[_T], _T]:
-        """Register a widget class under ``namespace.name``."""
+        """Register a widget class under ``namespace.name``.
+
+        To accept the standard ``font_color`` / color-provider config knob,
+        declare a ``font_color`` field on the widget (e.g.
+        ``font_color: object = None``); the loader coerces the TOML value to a
+        ColorProvider and injects it into that field. A widget without this
+        field will reject ``font_color`` as an unknown field during validation.
+        """
 
         def deco(cls: _T) -> _T:
             self._buffers["widgets"][self._qualify(name)] = cls
@@ -251,7 +258,9 @@ class PluginAPI:
         """Register a hook run once, after the frame + session exist and before
         the main loop. Receives a :class:`StartupContext`; may be sync or async
         (awaited if it returns a coroutine). Spin up long-lived work via the
-        public ``spawn_tracked``. Direct call.
+        public ``spawn_tracked`` — pass a coroutine, e.g.
+        ``spawn_tracked(poll())`` where ``poll`` is an ``async def``. Direct
+        call.
         """
         self._startup_hooks.append(fn)
 

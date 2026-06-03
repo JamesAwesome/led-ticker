@@ -65,3 +65,29 @@ def register(api):
     L.load_plugins(pdir, entry_points_enabled=False)
     b = _coerce_border({"style": "acme.neon", "speed": 6})
     assert hasattr(b, "paint")
+
+
+def test_plugin_border_resolves_via_string_shorthand(tmp_path):
+    # border = "acme.neon" (string form) must resolve a plugin border, matching
+    # the animation string-form behavior.
+    import textwrap
+
+    pdir = tmp_path / "plugins"
+    pdir.mkdir()
+    (pdir / "acme.py").write_text(
+        textwrap.dedent(
+            """
+            from led_ticker.plugin import BorderEffectBase
+            def register(api):
+                @api.border("neon")
+                class Neon(BorderEffectBase):
+                    frame_invariant = False
+                    def paint(self, canvas, frame_count):
+                        return None
+            """
+        )
+    )
+    L.load_plugins(pdir, entry_points_enabled=False)
+    border = _coerce_border("acme.neon")  # string form
+    assert border is not None
+    assert hasattr(border, "paint")

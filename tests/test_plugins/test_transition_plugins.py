@@ -143,3 +143,45 @@ async def test_validate_surfaces_plugin_transition_bad_kwarg(tmp_path):
         assert any(e.rule == 53 for e in result.errors)
     finally:
         L.reset_plugins()
+
+
+async def test_validate_surfaces_plugin_transition_missing_required_kwarg(tmp_path):
+    L.reset_plugins()
+    (tmp_path / "plugins").mkdir(exist_ok=True)
+    (tmp_path / "plugins" / "acme.py").write_text(
+        textwrap.dedent(
+            """
+            def register(api):
+                @api.transition("needy")
+                class Needy:
+                    min_frames = 0
+                    def __init__(self, speed):  # required, no default
+                        self.speed = speed
+                    def frame_at(self, t, canvas, outgoing, incoming, **kw):
+                        return canvas
+            """
+        )
+    )
+    (tmp_path / "config.toml").write_text(
+        textwrap.dedent(
+            """
+            [display]
+            rows = 16
+            cols = 64
+
+            [[playlist.section]]
+            transition = {type = "acme.needy"}
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi"
+            """
+        )
+    )
+    try:
+        result = await run_validate(tmp_path / "config.toml")
+        joined = " ".join(e.message for e in result.errors)
+        assert "acme.needy" in joined and "missing required keys" in joined
+        assert any(e.rule == 53 for e in result.errors)
+        assert not result.valid
+    finally:
+        L.reset_plugins()

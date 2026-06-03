@@ -138,7 +138,7 @@ def main() -> None:
 
         try:
             result = load_plugins_for_config(args.config)
-        except (FileNotFoundError, ValueError) as e:
+        except (OSError, ValueError) as e:
             print(str(e), file=sys.stderr)
             sys.exit(2)
         print(_format_plugins(result))
@@ -158,7 +158,7 @@ def main() -> None:
 
             try:
                 load_plugins_for_config(args.config)
-            except (FileNotFoundError, ValueError) as e:
+            except (OSError, ValueError) as e:
                 print(str(e), file=sys.stderr)
                 sys.exit(2)
             try:
@@ -184,7 +184,7 @@ def main() -> None:
 
         try:
             result = asyncio.run(validate_config(args.path, strict=args.strict))
-        except (FileNotFoundError, ValueError) as e:
+        except (OSError, ValueError) as e:
             print(str(e), file=sys.stderr)
             sys.exit(2)
 

@@ -113,6 +113,19 @@ def test_plugins_subcommand_accepts_config_after_subcommand(tmp_path):
     assert "unrecognized arguments" not in proc.stderr
 
 
+def test_plugins_cli_clean_error_on_directory_config(tmp_path):
+    import subprocess
+    # Point --config at a directory (not a file) -> IsADirectoryError must be
+    # reported cleanly, not as a traceback.
+    proc = subprocess.run(
+        ["led-ticker", "plugins", "--config", str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert proc.returncode != 0
+    assert "Traceback" not in proc.stderr
+    assert "Traceback" not in proc.stdout
+
+
 def test_list_fields_plugin_widget_hides_uninjected_shared_fields(tmp_path):
     import textwrap
 

@@ -63,14 +63,17 @@ def register(api):
     class Swoosh:
         min_frames = 0
 
+        # A config-driven field: reference this transition in TOML as
+        #   transition = {type = "acme.swoosh", threshold = 0.3}
+        # and the loader passes `threshold` to this constructor (clean ValueError
+        # for unknown/missing keys — see _build_plugin_style).
+        def __init__(self, threshold=0.5):
+            self.threshold = threshold
+
         def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
-            # A transition renders TO `canvas`; the engine IGNORES the return
-            # value (it reads the canvas it passed in). Mirror the built-in
-            # `Cut.frame_at`: pick a frame and `.draw(...)` it onto `canvas`.
-            # Minimal real transition: show outgoing in the first half,
-            # incoming in the second (a hard cut at t=0.5). A richer transition
-            # would composite/slide both per `t`.
-            frame = incoming if t >= 0.5 else outgoing
+            # A transition renders TO `canvas` (the engine ignores the return
+            # value). Hard cut at `threshold`: outgoing before it, incoming after.
+            frame = incoming if t >= self.threshold else outgoing
             frame.draw(canvas, cursor_pos=0)
             return canvas
 

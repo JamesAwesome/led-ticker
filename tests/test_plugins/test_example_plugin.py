@@ -5,6 +5,22 @@ from led_ticker import _plugin_loader as L
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples" / "plugins"
 
 
+def test_example_swoosh_accepts_threshold_config():
+    from led_ticker.app.factories import _build_trans_obj
+    from led_ticker.config import TransitionConfig, _parse_transition
+
+    L.reset_plugins()
+    try:
+        L.load_plugins(EXAMPLES, entry_points_enabled=False)
+        obj = _build_trans_obj(
+            _parse_transition({"type": "acme.swoosh", "threshold": 0.3},
+                              TransitionConfig())
+        )
+        assert obj.threshold == 0.3
+    finally:
+        L.reset_plugins()
+
+
 def test_example_plugin_registers_every_surface_and_hook():
     L.reset_plugins()
     try:

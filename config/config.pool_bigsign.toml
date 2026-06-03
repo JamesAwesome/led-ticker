@@ -1,5 +1,10 @@
 # Pool widget — bigsign (256×64) hardware testing config (two_row layout)
 #
+# The pool widget is now the `led-ticker-pool` plugin (type = "pool.monitor").
+# Install it for this config to work (the repo Dockerfile already does this):
+#   pip install "git+https://github.com/JamesAwesome/led-ticker-pool.git@main"
+# (the repo's Dockerfile already installs it; entry-point auto-registers it).
+#
 # 8× P3 32×64 panels in a 2×4 vertical-serpentine = 256×64 logical.
 # Driven by a Raspberry Pi 5 through an Adafruit RGB Matrix HAT.
 #
@@ -55,7 +60,7 @@ hold_time = 5
 loop_count = 0        # infinite — soak test
 
 [[playlist.section.widget]]
-type = "pool"
+type = "pool.monitor"
 title = "POOL TEMPS"
 units = "imperial"
 update_interval = 60   # fast: prove the background fetch fires every minute

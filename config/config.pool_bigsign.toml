@@ -1,7 +1,8 @@
 # Pool widget — bigsign (256×64) hardware testing config (two_row layout)
 #
 # The pool widget is now the `led-ticker-pool` plugin (type = "pool.monitor").
-# Install it for this config to work: pip install led-ticker-pool
+# Install it for this config to work (the repo Dockerfile already does this):
+#   pip install "git+https://github.com/JamesAwesome/led-ticker-pool.git@main"
 # (the repo's Dockerfile already installs it; entry-point auto-registers it).
 #
 # 8× P3 32×64 panels in a 2×4 vertical-serpentine = 256×64 logical.

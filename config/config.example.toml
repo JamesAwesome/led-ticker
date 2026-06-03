@@ -156,7 +156,8 @@ hold_time = 4
 loop_count = 1
 
 # The pool widget is now the `led-ticker-pool` plugin (type = "pool.monitor").
-# Install it for this config to work: pip install led-ticker-pool
+# Install it for this config to work (the repo Dockerfile already does this):
+#   pip install "git+https://github.com/JamesAwesome/led-ticker-pool.git@main"
 # (the repo's Dockerfile already installs it; entry-point auto-registers it).
 [[playlist.section.widget]]
 type = "pool.monitor"

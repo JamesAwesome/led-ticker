@@ -1,7 +1,8 @@
 # Pool widget — smallsign hardware testing config
 #
 # The pool widget is now the `led-ticker-pool` plugin (type = "pool.monitor").
-# Install it for this config to work: pip install led-ticker-pool
+# Install it for this config to work (the repo Dockerfile already does this):
+#   pip install "git+https://github.com/JamesAwesome/led-ticker-pool.git@main"
 # (the repo's Dockerfile already installs it; entry-point auto-registers it).
 # `led-ticker plugins` should then list the `pool` namespace and `pool.monitor`
 # widget. No [plugins] block is needed — entry-point discovery is on by default.

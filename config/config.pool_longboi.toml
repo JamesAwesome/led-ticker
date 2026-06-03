@@ -1,7 +1,8 @@
 # Pool widget — longboi hardware testing config
 #
 # The pool widget is now the `led-ticker-pool` plugin (type = "pool.monitor").
-# Install it for this config to work: pip install led-ticker-pool
+# Install it for this config to work (the repo Dockerfile already does this):
+#   pip install "git+https://github.com/JamesAwesome/led-ticker-pool.git@main"
 # (the repo's Dockerfile already installs it; entry-point auto-registers it).
 #
 # Longboi = 4× Muen P2 128×64 panels chained horizontally = 512×64 physical.

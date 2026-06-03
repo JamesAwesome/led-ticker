@@ -541,6 +541,13 @@ def _resolve_asset_paths(
         widget_cfg["path"] = str((config_dir / candidate).resolve())
 
 
+def _widget_declares_field(cls: type, name: str) -> bool:
+    """True if an (attrs) widget class declares a config field `name` — lets a
+    plugin widget opt into the `animation`/`border` knobs by declaring the field,
+    without hardcoding plugin type names."""
+    return any(a.name == name for a in getattr(cls, "__attrs_attrs__", ()))
+
+
 def _run_validate_config(cls: type, cfg: dict[str, Any], widget_type: str) -> None:
     """Run a widget class's optional ``validate_config(cls, cfg) -> list[str]``.
 
@@ -735,10 +742,10 @@ async def validate_widget_cfg(
     # so it doesn't reach the widget constructor as an unknown kwarg
     # for widget types that don't accept it.
     animation_value = widget_cfg.pop("animation", None)
-    if animation_value is not None and widget_type not in (
-        "message",
-        "gif",
-        "image",
+    if (
+        animation_value is not None
+        and widget_type not in ("message", "gif", "image")
+        and not _widget_declares_field(cls, "animation")
     ):
         raise ValueError(
             f'animation is only valid on type="message", "gif", or '
@@ -756,12 +763,10 @@ async def validate_widget_cfg(
     # misplaced `border = ...` in TOML before it surfaces as a
     # confusing "unknown kwarg" downstream.
     border_value = widget_cfg.pop("border", None)
-    if border_value is not None and widget_type not in (
-        "message",
-        "countdown",
-        "two_row",
-        "gif",
-        "image",
+    if (
+        border_value is not None
+        and widget_type not in ("message", "countdown", "two_row", "gif", "image")
+        and not _widget_declares_field(cls, "border")
     ):
         raise ValueError(
             f'border is only valid on type="message", "countdown", '

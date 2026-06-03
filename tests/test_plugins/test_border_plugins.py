@@ -91,3 +91,74 @@ def test_plugin_border_resolves_via_string_shorthand(tmp_path):
     border = _coerce_border("acme.neon")  # string form
     assert border is not None
     assert hasattr(border, "paint")
+
+
+async def test_plugin_widget_declaring_border_field_can_host_border(tmp_path):
+    import textwrap
+
+    from led_ticker import _plugin_loader as L
+    from led_ticker.app.factories import validate_widget_cfg
+
+    L.reset_plugins()
+    (tmp_path / "plugins").mkdir()
+    (tmp_path / "plugins" / "acme.py").write_text(
+        textwrap.dedent(
+            """
+            import attrs
+            from led_ticker.plugin import BorderEffectBase
+            def register(api):
+                @api.border("neon")
+                class Neon(BorderEffectBase):
+                    frame_invariant = False
+                    def paint(self, canvas, frame_count):
+                        return None
+                @api.widget("banner")
+                @attrs.define
+                class Banner:
+                    text: str = ""
+                    border: object = None
+                    def draw(self, canvas, cursor_pos=0, **kw):
+                        return canvas, cursor_pos
+            """
+        )
+    )
+    try:
+        L.load_plugins(tmp_path / "plugins", entry_points_enabled=False)
+        cfg = {"type": "acme.banner", "border": {"style": "acme.neon"}}
+        await validate_widget_cfg(cfg, session=None)  # must NOT raise
+    finally:
+        L.reset_plugins()
+
+
+async def test_plugin_widget_without_border_field_rejects_border(tmp_path):
+    import textwrap
+
+    import pytest
+
+    from led_ticker import _plugin_loader as L
+    from led_ticker.app.factories import validate_widget_cfg
+
+    L.reset_plugins()
+    (tmp_path / "plugins").mkdir()
+    (tmp_path / "plugins" / "acme.py").write_text(
+        textwrap.dedent(
+            """
+            import attrs
+            def register(api):
+                @api.widget("plain")
+                @attrs.define
+                class Plain:
+                    text: str = ""
+                    def draw(self, canvas, cursor_pos=0, **kw):
+                        return canvas, cursor_pos
+            """
+        )
+    )
+    try:
+        L.load_plugins(tmp_path / "plugins", entry_points_enabled=False)
+        with pytest.raises(ValueError, match="border is only valid"):
+            await validate_widget_cfg(
+                {"type": "acme.plain", "border": {"style": "x"}}, session=None
+            )
+    finally:
+        L.reset_plugins()

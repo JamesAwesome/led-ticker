@@ -45,6 +45,9 @@ class PluginInfo:
     namespace: str
     source: str
     counts: dict[str, int] = field(default_factory=dict)
+    # Per-surface qualified contribution names (e.g. {"widgets": ["acme.clock"]})
+    # — what an operator references in TOML.
+    names: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -112,6 +115,7 @@ def _commit(api: PluginAPI, info: PluginInfo) -> None:
             registry[name] = obj
         if buf:
             info.counts[surface] = len(buf)
+            info.names[surface] = sorted(buf)
 
 
 def _resolve_root(

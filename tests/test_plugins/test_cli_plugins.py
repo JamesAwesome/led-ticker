@@ -87,6 +87,32 @@ def test_list_fields_works_for_plugin_widget(tmp_path):
         L.reset_plugins()
 
 
+def test_format_plugins_lists_contribution_names():
+    from led_ticker._plugin_loader import LoadedPlugins, PluginInfo
+
+    info = PluginInfo(
+        namespace="acme",
+        source="/p/acme.py",
+        counts={"widgets": 1, "transitions": 1},
+        names={"widgets": ["acme.clock"], "transitions": ["acme.swoosh"]},
+    )
+    out = _format_plugins(LoadedPlugins(loaded=[info], failed=[]))
+    assert "acme.clock" in out
+    assert "acme.swoosh" in out
+
+
+def test_plugins_subcommand_accepts_config_after_subcommand(tmp_path):
+    import subprocess
+
+    (tmp_path / "config.toml").write_text("[display]\nrows=16\ncols=64\n")
+    proc = subprocess.run(
+        ["led-ticker", "plugins", "--config", str(tmp_path / "config.toml")],
+        capture_output=True, text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "unrecognized arguments" not in proc.stderr
+
+
 def test_list_fields_plugin_widget_hides_uninjected_shared_fields(tmp_path):
     import textwrap
 

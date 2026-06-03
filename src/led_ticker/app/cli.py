@@ -33,11 +33,18 @@ def _format_plugins(result) -> str:
     if result.loaded:
         lines.append(f"Loaded {len(result.loaded)} plugin(s):")
         for info in result.loaded:
-            contrib = (
-                ", ".join(f"{k}: {v}" for k, v in sorted(info.counts.items()))
-                or "(hooks only)"
-            )
-            lines.append(f"  {info.namespace}  [{info.source}]  {contrib}")
+            lines.append(f"  {info.namespace}  [{info.source}]")
+            names = getattr(info, "names", {}) or {}
+            if names:
+                for surface in sorted(names):
+                    lines.append(f"      {surface}: {', '.join(names[surface])}")
+            elif info.counts:
+                contrib = ", ".join(
+                    f"{k}: {v}" for k, v in sorted(info.counts.items())
+                )
+                lines.append(f"      {contrib}")
+            else:
+                lines.append("      (hooks only)")
     if result.failed:
         lines.append(f"Failed {len(result.failed)} plugin(s):")
         for ns, err in result.failed:
@@ -109,11 +116,19 @@ def main() -> None:
             "NOTE: comments in the TOML file will not be preserved."
         ),
     )
+    val_parser.add_argument(
+        "--config", "-c", type=Path, default=argparse.SUPPRESS,
+        help="Path to TOML config file (defaults to the top-level --config)",
+    )
 
     # `plugins` subcommand
-    subparsers.add_parser(
+    plugins_parser = subparsers.add_parser(
         "plugins",
         help="List loaded plugins (and any that failed) for the config",
+    )
+    plugins_parser.add_argument(
+        "--config", "-c", type=Path, default=argparse.SUPPRESS,
+        help="Path to TOML config file (defaults to the top-level --config)",
     )
 
     args = parser.parse_args()

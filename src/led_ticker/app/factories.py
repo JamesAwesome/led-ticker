@@ -17,6 +17,7 @@ from typing import Any
 import aiohttp
 
 from led_ticker.app.coercion import (
+    _build_plugin_style,
     _coerce_animation,
     _coerce_border,
     _coerce_color_provider,
@@ -379,6 +380,14 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
     if trans_cfg.type == "cut":
         return None
     cls = get_transition_class(trans_cfg.type)
+    # Plugin transitions (namespaced, dotted type) declare their own config
+    # fields and are built through the generic plugin-style path, which gives a
+    # clean ValueError for unknown/missing keys (not a raw TypeError). Built-in
+    # transitions keep their special-cased kwargs.
+    if "." in trans_cfg.type:
+        return _build_plugin_style(
+            cls, trans_cfg.extra, f"transition {trans_cfg.type!r}"
+        )
     kwargs: dict[str, Any] = {}
     if trans_cfg.colors is not None:
         kwargs["colors"] = trans_cfg.colors

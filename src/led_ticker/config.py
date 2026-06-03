@@ -51,6 +51,10 @@ class TransitionConfig:
     show_pikachu: bool = True
     show_pokeball: bool = True
     transition_fps: float | None = None  # None = use run_transition default (20 fps)
+    # Non-built-in keys from a plugin transition's TOML table (e.g. {type=
+    # "acme.swoosh", speed=3} -> extra={"speed": 3}). Passed to the plugin
+    # transition's constructor; empty for built-in transitions.
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -342,6 +346,13 @@ def _parse_transition(
     colors = raw.get("transition_colors")
     if colors is not None:
         colors = [tuple(c) for c in colors]
+    # Any table key that isn't a built-in transition knob is plugin config —
+    # carry it in `extra` for the plugin transition's constructor.
+    _BUILTIN_TRANSITION_KEYS = {
+        "type", "duration", "easing", "transition_color", "transition_colors",
+        "show_pikachu", "show_pokeball", "transition_fps",
+    }
+    extra = {k: v for k, v in raw.items() if k not in _BUILTIN_TRANSITION_KEYS}
     return TransitionConfig(
         type=raw.get("type", default.type),
         duration=raw.get("duration", default.duration),
@@ -351,6 +362,7 @@ def _parse_transition(
         show_pikachu=raw.get("show_pikachu", default.show_pikachu),
         show_pokeball=raw.get("show_pokeball", default.show_pokeball),
         transition_fps=raw.get("transition_fps", default.transition_fps),
+        extra=extra,
     )
 
 

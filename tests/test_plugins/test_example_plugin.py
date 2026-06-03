@@ -58,3 +58,25 @@ def test_example_plugin_contributions_are_usable():
         assert font.__class__.__name__ == "HiresFont"
     finally:
         L.reset_plugins()
+
+
+def test_example_clock_actually_renders_text():
+    from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+    from led_ticker.widgets import get_widget_class
+
+    L.reset_plugins()
+    try:
+        L.load_plugins(EXAMPLES, entry_points_enabled=False)
+        cls = get_widget_class("acme.clock")
+        widget = cls(text="hi")
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 4
+        opts.parallel = 1
+        canvas = RGBMatrix(options=opts).CreateFrameCanvas()
+        _, end_x = widget.draw(canvas, cursor_pos=0)
+        assert end_x > 0  # cursor advanced -> text was drawn
+    finally:
+        L.reset_plugins()

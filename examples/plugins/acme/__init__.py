@@ -19,7 +19,9 @@ from led_ticker.plugin import (
     ColorProviderBase,
     HiResEmoji,
     StartupContext,
+    draw_text,
     make_color,
+    resolve_font,
     spawn_tracked,
 )
 
@@ -45,14 +47,24 @@ def register(api):
             return ["text must not be empty"] if cfg.get("text") == "" else []
 
         def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
-            return canvas, cursor_pos
+            font = resolve_font("6x12")
+            color = make_color(255, 255, 255)
+            # If a color provider was injected via the `font_color` field, use
+            # its first color; otherwise default to white.
+            provider = self.font_color
+            if provider is not None and hasattr(provider, "color_for"):
+                color = provider.color_for(0, 0, len(self.text))
+            return canvas, draw_text(canvas, font, self.text, cursor_pos, 10, color)
 
     @api.transition("swoosh")
     class Swoosh:
         min_frames = 0
 
         def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
-            return canvas
+            # Minimal real transition: show outgoing in the first half, incoming
+            # in the second (a hard cut at t=0.5). A real transition would
+            # composite/slide per `t`.
+            return incoming if t >= 0.5 else outgoing
 
     @api.color_provider("fire")
     class Fire(ColorProviderBase):
@@ -78,7 +90,16 @@ def register(api):
     api.emoji("spark", [(x, y, 255, 200, 0) for x in range(8) for y in range(8)])
     api.emoji("glow", [(x, y, 255, 200, 0) for x in range(8) for y in range(8)])
     api.hires_emoji(
-        "glow", HiResEmoji(pixels=((0, 0, 255, 200, 0),), physical_size=16)
+        "glow",
+        HiResEmoji(
+            pixels=tuple(
+                (x, y, 255, 200, 0)
+                for x in range(16)
+                for y in range(16)
+                if 4 <= x < 12 and 4 <= y < 12
+            ),
+            physical_size=16,
+        ),
     )
     api.font("Brand", "fonts/Brand.ttf")
 

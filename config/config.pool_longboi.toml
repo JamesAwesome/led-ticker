@@ -1,5 +1,9 @@
 # Pool widget — longboi hardware testing config
 #
+# The pool widget is now the `led-ticker-pool` plugin (type = "pool.monitor").
+# Install it for this config to work: pip install led-ticker-pool
+# (the repo's Dockerfile already installs it; entry-point auto-registers it).
+#
 # Longboi = 4× Muen P2 128×64 panels chained horizontally = 512×64 physical.
 # Driven by a Raspberry Pi 5 through an Adafruit RGB Matrix Bonnet (3211).
 # No pixel_mapper_config — single horizontal chain, left to right.
@@ -42,7 +46,7 @@ hold_time = 5
 loop_count = 0  # infinite — soak test
 
 [[playlist.section.widget]]
-type = "pool"
+type = "pool.monitor"
 title = "POOL TEMPS"
 units = "imperial"
 update_interval = 60   # fast: prove the background fetch fires every minute

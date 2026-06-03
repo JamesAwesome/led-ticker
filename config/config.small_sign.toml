@@ -216,8 +216,11 @@ type = "message"
 text = ":droplet: Pool Temps"
 font_color = "random"
 
+# The pool widget is now the `led-ticker-pool` plugin (type = "pool.monitor").
+# Install it for this config to work: pip install led-ticker-pool
+# (the repo's Dockerfile already installs it; entry-point auto-registers it).
 [[playlist.section.widget]]
-type = "pool"
+type = "pool.monitor"
 title = "POOL TEMPS"
 units = "imperial"
 update_interval = 300

@@ -1,5 +1,11 @@
 # Pool widget — smallsign hardware testing config
 #
+# The pool widget is now the `led-ticker-pool` plugin (type = "pool.monitor").
+# Install it for this config to work: pip install led-ticker-pool
+# (the repo's Dockerfile already installs it; entry-point auto-registers it).
+# `led-ticker plugins` should then list the `pool` namespace and `pool.monitor`
+# widget. No [plugins] block is needed — entry-point discovery is on by default.
+#
 # 160×16 logical canvas, 5× 32×16 panels chained, default_scale = 1.
 # Single section, single pool widget, infinite loop — soak-test the
 # title → today → 7-day → season cycle and watch the periodic INFO log
@@ -29,7 +35,7 @@ hold_time = 5
 loop_count = 0  # infinite — soak test
 
 [[playlist.section.widget]]
-type = "pool"
+type = "pool.monitor"
 title = "POOL TEMPS"
 units = "imperial"
 update_interval = 60   # fast: prove the background fetch fires every minute

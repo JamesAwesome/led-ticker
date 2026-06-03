@@ -190,7 +190,8 @@ def _parse_plugins_block(raw: dict) -> PluginsConfig:
         raise ValueError(
             f"plugins.dir must be a string; got {type(cfg.dir).__name__}."
         )
-    if not cfg.dir.strip():
+    cfg.dir = cfg.dir.strip()
+    if not cfg.dir:
         raise ValueError("plugins.dir must not be empty.")
     if Path(cfg.dir).is_absolute():
         raise ValueError(

@@ -17,7 +17,7 @@ from led_ticker._plugin_loader import (
     _guarded_overlay,
     _run_shutdown_hooks,
     _run_startup_hooks,
-    load_plugins,
+    load_plugins_for_config,
 )
 from led_ticker.app.factories import (
     RUN_MODES,
@@ -96,12 +96,8 @@ async def _start_busy_light(cfg: Any, led_frame: Any) -> Any:
 
 
 def _load_plugins_for_config(config_path: Path):
-    """Load plugins from <config dir>/plugins (and installed entry points).
-
-    Phase A: the directory is fixed; the [plugins] config block (enable/disable/
-    custom dir) lands in a later phase.
-    """
-    return load_plugins(config_path.parent / "plugins")
+    """Load plugins honoring the [plugins] config block (enable/dir/disable)."""
+    return load_plugins_for_config(config_path)
 
 
 async def run(config_path: Path) -> None:

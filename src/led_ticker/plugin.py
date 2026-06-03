@@ -19,12 +19,15 @@ from typing import Any, TypeVar
 
 # Re-exports: the stable surface plugin authors subclass / annotate against.
 from led_ticker import colors
-from led_ticker._types import Canvas, Color, PixelData
+from led_ticker._types import Canvas, Color, Font, PixelData
 from led_ticker.animations import Animation, AnimationFrame
 from led_ticker.borders import BorderEffect, BorderEffectBase
 from led_ticker.color_providers import ColorProvider, ColorProviderBase
 from led_ticker.drawing import compute_baseline, get_text_width
+from led_ticker.fonts import resolve_font
+from led_ticker.fonts.hires_loader import HiresFont
 from led_ticker.pixel_emoji import HiResEmoji, draw_emoji_at, measure_emoji_at
+from led_ticker.pixel_emoji import draw_with_emoji as _draw_with_emoji
 from led_ticker.transitions import Transition
 from led_ticker.widget import Widget, spawn_tracked
 
@@ -39,7 +42,9 @@ __all__ = [
     "Color",
     "ColorProvider",
     "ColorProviderBase",
+    "Font",
     "HiResEmoji",
+    "HiresFont",
     "PixelData",
     "StartupContext",
     "Transition",
@@ -47,9 +52,11 @@ __all__ = [
     "colors",
     "compute_baseline",
     "draw_emoji_at",
+    "draw_text",
     "get_text_width",
     "make_color",
     "measure_emoji_at",
+    "resolve_font",
     "spawn_tracked",
 ]
 # (registry surfaces + lifecycle hooks complete; Phase E adds config/CLI/docs.)
@@ -132,7 +139,14 @@ class PluginAPI:
         return f"{self.namespace}.{name}"
 
     def widget(self, name: str) -> Callable[[_T], _T]:
-        """Register a widget class under ``namespace.name``."""
+        """Register a widget class under ``namespace.name``.
+
+        To accept the standard ``font_color`` / color-provider config knob,
+        declare a ``font_color`` field on the widget (e.g.
+        ``font_color: object = None``); the loader coerces the TOML value to a
+        ColorProvider and injects it into that field. A widget without this
+        field will reject ``font_color`` as an unknown field during validation.
+        """
 
         def deco(cls: _T) -> _T:
             self._buffers["widgets"][self._qualify(name)] = cls
@@ -244,7 +258,9 @@ class PluginAPI:
         """Register a hook run once, after the frame + session exist and before
         the main loop. Receives a :class:`StartupContext`; may be sync or async
         (awaited if it returns a coroutine). Spin up long-lived work via the
-        public ``spawn_tracked``. Direct call.
+        public ``spawn_tracked`` — pass a coroutine, e.g.
+        ``spawn_tracked(poll())`` where ``poll`` is an ``async def``. Direct
+        call.
         """
         self._startup_hooks.append(fn)
 
@@ -262,3 +278,19 @@ def make_color(r: int, g: int, b: int) -> Color:
     from led_ticker._compat import require_graphics
 
     return require_graphics().Color(r, g, b)
+
+
+def draw_text(
+    canvas: Canvas, font: Font, text: str, x: int, y: int, color: Color
+) -> int:
+    """Draw ``text`` on ``canvas`` at baseline ``y`` starting at column ``x``.
+
+    For use inside an ``api.overlay`` painter (or anywhere a plugin has a
+    canvas). ``font`` comes from ``resolve_font(name[, size])``; ``color`` from
+    ``make_color(r, g, b)``. Inline ``:emoji:`` tokens in ``text`` render too.
+    Returns the absolute x-position just past the drawn text (i.e. where the
+    next ``draw_text`` should start) — so ``next_x = draw_text(canvas, font,
+    s, x, y, c)`` chains correctly. Does not clamp to ``canvas.width`` — text
+    past the right edge is simply not drawn.
+    """
+    return x + _draw_with_emoji(canvas, font, x, y, color, text)

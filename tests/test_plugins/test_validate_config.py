@@ -4,6 +4,7 @@ import pytest
 
 from led_ticker import _plugin_loader as L
 from led_ticker.app.factories import _run_validate_config, validate_widget_cfg
+from led_ticker.validate import validate_config as run_validate
 
 
 def test_validate_config_messages_raise():
@@ -83,5 +84,48 @@ async def test_validate_config_fires_through_validate_widget_cfg(tmp_path):
             await validate_widget_cfg(
                 {"type": "acme.needsfield"}, session=None
             )
+    finally:
+        L.reset_plugins()
+
+
+async def test_validate_loads_plugins_so_plugin_widget_is_known(tmp_path):
+    L.reset_plugins()
+    (tmp_path / "plugins").mkdir()
+    (tmp_path / "plugins" / "acme.py").write_text(
+        textwrap.dedent(
+            '''
+            def register(api):
+                @api.widget("clock")
+                class Clock:
+                    def __init__(self, **kw):
+                        pass
+                    def draw(self, canvas, cursor_pos=0, **kw):
+                        return canvas, cursor_pos
+            '''
+        )
+    )
+    (tmp_path / "config.toml").write_text(
+        textwrap.dedent(
+            """
+            [display]
+            rows = 16
+            cols = 64
+
+            [[playlist.section]]
+            [[playlist.section.widget]]
+            type = "acme.clock"
+            """
+        )
+    )
+    try:
+        result = await run_validate(tmp_path / "config.toml")
+        assert result.valid, result.errors
+        # Collect all error messages into one string for inspection.
+        joined = " ".join(e.message for e in result.errors)
+        # Plugin widget type was resolved — must NOT be reported as unknown.
+        assert "Unknown widget type: 'acme.clock'" not in joined, (
+            f"Plugin widget reported as unknown; validate did not load plugins.\n"
+            f"Errors: {joined}"
+        )
     finally:
         L.reset_plugins()

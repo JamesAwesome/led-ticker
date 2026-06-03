@@ -19,7 +19,7 @@ from typing import Any, TypeVar
 
 # Re-exports: the stable surface plugin authors subclass / annotate against.
 from led_ticker import colors
-from led_ticker._types import Canvas, Color, Font, PixelData
+from led_ticker._types import Canvas, Color, DrawResult, Font, PixelData
 from led_ticker.animations import Animation, AnimationFrame
 from led_ticker.borders import BorderEffect, BorderEffectBase
 from led_ticker.color_providers import ColorProvider, ColorProviderBase
@@ -40,6 +40,7 @@ __all__ = [
     "BorderEffectBase",
     "Canvas",
     "Color",
+    "DrawResult",
     "ColorProvider",
     "ColorProviderBase",
     "Font",
@@ -59,7 +60,7 @@ __all__ = [
     "resolve_font",
     "spawn_tracked",
 ]
-# (registry surfaces + lifecycle hooks complete; Phase E adds config/CLI/docs.)
+# Public plugin surface: registry contributions + lifecycle hooks.
 
 API_VERSION: tuple[int, int] = (1, 0)
 
@@ -108,7 +109,7 @@ class PluginAPI:
         # supplies it (the plugin's dir / package dir); None when undeterminable.
         self.root = root
         # One buffer per surface, keyed by surface name, so the loader's commit
-        # is a single generic loop as later phases add surfaces.
+        # is a single generic loop over all registry surfaces.
         self._buffers: dict[str, dict[str, Any]] = {
             "widgets": {},
             "transitions": {},

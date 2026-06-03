@@ -95,7 +95,7 @@ def _commit(api: PluginAPI, info: PluginInfo) -> None:
 
     Two-pass (validate all, then write all) so a mid-commit collision can't
     leave a partial registration. Only buffers that map to a registry are
-    committed here (hook surfaces are collected separately in later phases).
+    committed here (hook surfaces are collected separately — see _load_one).
     """
     for surface, buf in api._buffers.items():
         registry = _REGISTRY_MAP.get(surface)

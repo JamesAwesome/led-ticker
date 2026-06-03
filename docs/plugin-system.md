@@ -63,7 +63,7 @@ Class surfaces are **decorators**; non-class surfaces are **direct calls**.
 
 ### Re-exported types / helpers (the stable annotate/subclass surface)
 `__all__`:
-`API_VERSION, PluginAPI, Animation, AnimationFrame, BorderEffect, BorderEffectBase, Canvas, Color, DrawResult, ColorProvider, ColorProviderBase, Font, HiResEmoji, HiresFont, PixelData, StartupContext, Transition, Widget, colors, compute_baseline, draw_emoji_at, draw_text, get_text_width, make_color, measure_emoji_at, resolve_font, spawn_tracked`
+`API_VERSION, PluginAPI, Animation, AnimationFrame, BorderEffect, BorderEffectBase, Canvas, Color, Container, DrawResult, ColorProvider, ColorProviderBase, Font, HiResEmoji, HiresFont, PixelData, SegmentMessage, StartupContext, Transition, TwoRowMessage, Updatable, Widget, colors, compute_baseline, draw_emoji_at, draw_text, get_text_width, make_color, measure_emoji_at, resolve_font, run_monitor_loop, spawn_tracked`
 
 Key helpers:
 - `make_color(r, g, b) -> Color` — build a Color (0–255) without importing rgbmatrix.

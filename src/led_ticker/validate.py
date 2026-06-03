@@ -1,5 +1,6 @@
 """Config file validator for led-ticker."""
 
+import contextlib
 import copy
 import json
 import math
@@ -1673,7 +1674,12 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
 
     from led_ticker._plugin_loader import load_plugins_for_config
 
-    load_plugins_for_config(path)
+    # A broken-TOML or structural [plugins] error here is re-surfaced below by
+    # load_config (Phase 1a) as a clean ValidationResult error, so don't let it
+    # escape the validator. (Plugin LOAD failures are already isolated inside
+    # load_plugins and recorded in result.failed, not raised.)
+    with contextlib.suppress(Exception):
+        load_plugins_for_config(path)
 
     from led_ticker.app import _configure_user_font_dir
     from led_ticker.config import load_config

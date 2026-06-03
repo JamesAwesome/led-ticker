@@ -1,5 +1,7 @@
 import textwrap
 
+import pytest
+
 from led_ticker import _plugin_loader as L
 
 
@@ -83,3 +85,10 @@ def test_load_plugins_for_config_honors_dir_and_disable(tmp_path):
         assert {i.namespace for i in result.loaded} == {"keep"}
     finally:
         L.reset_plugins()
+
+
+def test_read_plugins_config_propagates_structural_error(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text("[display]\nrows=16\ncols=64\n[plugins]\nenabled = 1\n")
+    with pytest.raises(ValueError, match="plugins.enabled must be a bool"):
+        L.read_plugins_config(p)

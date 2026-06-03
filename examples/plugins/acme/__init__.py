@@ -3,7 +3,15 @@
 Drop this directory into your ``config/plugins/`` (or install it as a package
 with an ``[project.entry-points."led_ticker.plugins"]`` entry) and reference its
 contributions in TOML as ``acme.<name>`` (e.g. ``type = "acme.clock"``).
+
+Field-bearing widgets use ``@attrs.define`` (``attrs`` is a standard project
+dependency) so that config validation can inspect ``__attrs_attrs__`` and accept
+declared fields. Only led-ticker INTERNAL modules (anything under
+``led_ticker.*`` that is not ``led_ticker.plugin``) are off-limits; ``attrs``
+and stdlib imports are fine.
 """
+
+import attrs
 
 from led_ticker.plugin import (
     AnimationFrame,
@@ -21,9 +29,14 @@ _STATE = {"tick": 0}
 
 def register(api):
     @api.widget("clock")
+    @attrs.define
     class Clock:
-        def __init__(self, **kwargs):
-            self.text = kwargs.get("text", "12:00")
+        text: str = "12:00"
+
+        @classmethod
+        def validate_config(cls, cfg):
+            # Cross-field example: reject empty text (a Phase-D convention check).
+            return ["text must not be empty"] if cfg.get("text") == "" else []
 
         def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
             return canvas, cursor_pos

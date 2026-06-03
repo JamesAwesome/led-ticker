@@ -121,7 +121,11 @@ def main() -> None:
     if args.command == "plugins":
         from led_ticker._plugin_loader import load_plugins_for_config  # noqa: PLC0415
 
-        result = load_plugins_for_config(args.config)
+        try:
+            result = load_plugins_for_config(args.config)
+        except (FileNotFoundError, ValueError) as e:
+            print(str(e), file=sys.stderr)
+            sys.exit(2)
         print(_format_plugins(result))
         sys.exit(0)
 
@@ -137,7 +141,11 @@ def main() -> None:
                 load_plugins_for_config,  # noqa: PLC0415
             )
 
-            load_plugins_for_config(args.config)
+            try:
+                load_plugins_for_config(args.config)
+            except (FileNotFoundError, ValueError) as e:
+                print(str(e), file=sys.stderr)
+                sys.exit(2)
             try:
                 print(_list_widget_fields(args.list_fields))
             except ValueError as e:
@@ -161,7 +169,7 @@ def main() -> None:
 
         try:
             result = asyncio.run(validate_config(args.path, strict=args.strict))
-        except FileNotFoundError as e:
+        except (FileNotFoundError, ValueError) as e:
             print(str(e), file=sys.stderr)
             sys.exit(2)
 

@@ -281,6 +281,7 @@ def draw_text(
     ``make_color(r, g, b)``. Inline ``:emoji:`` tokens in ``text`` render too.
     Returns the absolute x-position just past the drawn text (i.e. where the
     next ``draw_text`` should start) — so ``next_x = draw_text(canvas, font,
-    s, x, y, c)`` chains correctly.
+    s, x, y, c)`` chains correctly. Does not clamp to ``canvas.width`` — text
+    past the right edge is simply not drawn.
     """
     return x + _draw_with_emoji(canvas, font, x, y, color, text)

@@ -119,6 +119,7 @@ async def test_validate_loads_plugins_so_plugin_widget_is_known(tmp_path):
     )
     try:
         result = await run_validate(tmp_path / "config.toml")
+        assert result.valid, result.errors
         # Collect all error messages into one string for inspection.
         joined = " ".join(e.message for e in result.errors)
         # Plugin widget type was resolved — must NOT be reported as unknown.

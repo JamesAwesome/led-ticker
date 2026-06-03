@@ -151,5 +151,8 @@ def test_draw_text_renders_via_public_surface():
     matrix = RGBMatrix(options=opts)
     canvas = matrix.CreateFrameCanvas()
 
-    end_x = draw_text(canvas, font, "hi", x=10, y=10, color=make_color(255, 255, 255))
-    assert end_x > 10  # absolute end position is past the start x
+    c = make_color(255, 255, 255)
+    w0 = draw_text(canvas, font, "hi", x=0, y=10, color=c)   # == text width
+    w50 = draw_text(canvas, font, "hi", x=50, y=10, color=c)  # == 50 + text width
+    assert w0 > 0
+    assert w50 == w0 + 50  # absolute end position, not relative advance

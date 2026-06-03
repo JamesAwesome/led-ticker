@@ -371,9 +371,10 @@ def load_plugins(
 def read_plugins_config(config_path: Path) -> PluginsConfig:
     """Lightweight read of just the ``[plugins]`` block, so plugin discovery can
     run BEFORE full config validation (plugin-provided easings etc. must be
-    registered before load_config validates them). Returns defaults only if the
-    file is missing or has a TOML syntax error — structural errors in
-    ``[plugins]`` (wrong types, absolute dir, etc.) propagate immediately.
+    registered before load_config validates them). Returns defaults if the file
+    is missing, unreadable, or has a TOML syntax error — structural
+    ``[plugins]`` errors (wrong types, absolute/empty dir) propagate
+    immediately.
     """
     import tomllib
 

@@ -80,3 +80,57 @@ def test_example_clock_actually_renders_text():
         assert end_x > 0  # cursor advanced -> text was drawn
     finally:
         L.reset_plugins()
+
+
+def test_example_swoosh_renders_to_canvas():
+    """Guards the transition protocol: `frame_at` must DRAW the chosen frame
+    onto `canvas` (the engine ignores its return value, mirroring the built-in
+    `Cut.frame_at`). A transition that only RETURNED a frame would ship blank
+    frames — this test would catch that regression in the reference plugin.
+    """
+    from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+    from led_ticker.transitions import get_transition_class
+
+    class _Frame:
+        """Stub presenter that paints a recognizable pixel and records draws."""
+
+        def __init__(self, color):
+            self.color = color
+            self.drawn = False
+
+        def draw(self, canvas, cursor_pos=0):
+            self.drawn = True
+            canvas.SetPixel(0, 0, *self.color)
+            return canvas, 0
+
+    def _canvas():
+        opts = RGBMatrixOptions()
+        opts.cols = 64
+        opts.rows = 32
+        opts.chain_length = 1
+        opts.parallel = 1
+        return RGBMatrix(options=opts).CreateFrameCanvas()
+
+    L.reset_plugins()
+    try:
+        L.load_plugins(EXAMPLES, entry_points_enabled=False)
+        swoosh = get_transition_class("acme.swoosh")()
+
+        # t >= 0.5 -> the INCOMING frame is drawn to the canvas.
+        canvas = _canvas()
+        out_frame = _Frame((1, 2, 3))
+        in_frame = _Frame((4, 5, 6))
+        swoosh.frame_at(0.9, canvas, out_frame, in_frame)
+        assert in_frame.drawn and not out_frame.drawn
+        assert canvas.get_pixel(0, 0) == (4, 5, 6)  # rendered TO canvas
+
+        # t < 0.5 -> the OUTGOING frame is drawn to the canvas.
+        canvas = _canvas()
+        out_frame = _Frame((1, 2, 3))
+        in_frame = _Frame((4, 5, 6))
+        swoosh.frame_at(0.1, canvas, out_frame, in_frame)
+        assert out_frame.drawn and not in_frame.drawn
+        assert canvas.get_pixel(0, 0) == (1, 2, 3)
+    finally:
+        L.reset_plugins()

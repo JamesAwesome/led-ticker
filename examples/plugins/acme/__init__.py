@@ -46,6 +46,9 @@ def register(api):
             # Cross-field example: reject empty text (a Phase-D convention check).
             return ["text must not be empty"] if cfg.get("text") == "" else []
 
+        # `font_color=` is part of the Widget.draw protocol but unused here;
+        # this widget reads its injected `self.font_color` field (set at
+        # attrs-init) instead.
         def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
             font = resolve_font("6x12")
             color = make_color(255, 255, 255)
@@ -61,10 +64,15 @@ def register(api):
         min_frames = 0
 
         def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
-            # Minimal real transition: show outgoing in the first half, incoming
-            # in the second (a hard cut at t=0.5). A real transition would
-            # composite/slide per `t`.
-            return incoming if t >= 0.5 else outgoing
+            # A transition renders TO `canvas`; the engine IGNORES the return
+            # value (it reads the canvas it passed in). Mirror the built-in
+            # `Cut.frame_at`: pick a frame and `.draw(...)` it onto `canvas`.
+            # Minimal real transition: show outgoing in the first half,
+            # incoming in the second (a hard cut at t=0.5). A richer transition
+            # would composite/slide both per `t`.
+            frame = incoming if t >= 0.5 else outgoing
+            frame.draw(canvas, cursor_pos=0)
+            return canvas
 
     @api.color_provider("fire")
     class Fire(ColorProviderBase):

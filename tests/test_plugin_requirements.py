@@ -44,6 +44,14 @@ def test_dockerfile_installs_from_requirements_file():
         "Dockerfile should COPY the example "
         "(guaranteed source for the optional-file trick)"
     )
+    # plugins install under the core constraints file (not --no-deps), so they
+    # can bring new deps but cannot move core's pinned versions
+    assert "-c /code/constraints-core.txt" in dockerfile, (
+        "plugin install should be constrained by the core constraints file"
+    )
+    assert "pip list --format=freeze" in dockerfile, (
+        "Dockerfile should generate constraints-core.txt from the core env"
+    )
     assert "POOL_PLUGIN_CACHE_BUST" not in dockerfile, (
         "the per-plugin cache-bust ARG should be removed"
     )
@@ -57,6 +65,10 @@ def test_install_sh_installs_plugin_requirements():
     assert "config/requirements-plugins.txt" in install_sh, (
         "install.sh should install the live requirements-plugins.txt"
     )
-    assert "--no-deps" in install_sh, (
-        "install.sh plugin install should use --no-deps"
+    # constrained to core versions (so plugins can't move the core stack)
+    assert "pip list --format=freeze" in install_sh, (
+        "install.sh should generate a core constraints file"
+    )
+    assert "pip install -c" in install_sh, (
+        "install.sh plugin install should use the constraints file"
     )

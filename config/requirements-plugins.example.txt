@@ -2,8 +2,9 @@
 # Copy this file to config/requirements-plugins.txt and edit it for your signs,
 # then rebuild:  docker compose up -d --build
 #
-# Installed with --no-deps because led-ticker is not on PyPI. If a plugin needs
-# a runtime library beyond what led-ticker already ships, add it as its own line.
+# Installed with pip dependency resolution, constrained to led-ticker's core
+# dependency versions: a plugin may pull its own new libraries, but may not move
+# a version that core already pins (that fails the build).
 #
 # Pool water-temperature widget (type = "pool.monitor"):
 git+https://github.com/JamesAwesome/led-ticker-pool.git@main

@@ -1,7 +1,7 @@
 # Plugin-Requirements File — Design
 
 **Date:** 2026-06-03
-**Status:** Approved (brainstorm), pending implementation plan
+**Status:** Implemented
 
 ## Goal
 
@@ -15,7 +15,8 @@ declarative, requirements.txt-style file, so that:
    `.env`.
 
 Installation stays **build-time** (consistent with goal 1 — no runtime/network-at-boot
-install). Changing plugins means editing the file and rebuilding the image.
+install), with dependency resolution constrained to core's pinned versions.
+Changing plugins means editing the file and rebuilding the image.
 
 The Dockerfile installs the **live** file only (`config/requirements-plugins.txt`); there
 is **no fallback to the example**. The example is a copy-me template — a fresh clone
@@ -31,9 +32,11 @@ tradeoff for keeping the model explicit and the example purely a template.)
   RUN pip install --no-cache-dir --no-deps \
       "git+https://github.com/JamesAwesome/led-ticker-pool.git@main"
   ```
-- `--no-deps` is required because `led-ticker` is **not published to PyPI**, and the
-  plugins' runtime deps (e.g. `aiohttp`) are already core app dependencies; a plain
-  `pip install` would try (and fail) to resolve `led-ticker` from PyPI.
+- `--no-deps` was used originally because `led-ticker` is **not published to PyPI**; a
+  plain `pip install` would try (and fail) to resolve `led-ticker` from PyPI. The new
+  approach uses `-c constraints-core.txt` with dependency resolution enabled: pip finds
+  `led-ticker` already installed (no PyPI hit needed) and pins everything else to core's
+  versions.
 - Plugins are auto-discovered at runtime via the `led_ticker.plugins` entry point
   (`load_plugins(..., entry_points_enabled=True)` is the default); no config opt-in
   is needed for an installed plugin to register.
@@ -48,14 +51,15 @@ tradeoff for keeping the model explicit and the example purely a template.)
 
 - **`config/requirements-plugins.example.txt`** — tracked. The working default; ships
   with the pool plugin line plus a header comment documenting the format and the
-  `--no-deps` contract:
+  constraints contract:
   ```
   # Plugins to install into the image (pip requirements format, one per line).
   # Copy this file to config/requirements-plugins.txt and edit it for your signs,
   # then rebuild: docker compose up -d --build
   #
-  # Installed with --no-deps (led-ticker is not on PyPI). If a plugin needs a
-  # runtime library beyond what led-ticker already ships, add it as its own line.
+  # Installed with pip dependency resolution, constrained to led-ticker's core
+  # dependency versions: a plugin may pull its own new libraries, but may not move
+  # a version that core already pins (that fails the build).
   git+https://github.com/JamesAwesome/led-ticker-pool.git@main
   ```
 - **`config/requirements-plugins.txt`** — gitignored. The cloner's live copy; absent
@@ -66,23 +70,43 @@ Naming: `requirements-plugins` (not `plugins.txt`) avoids colliding with the
 `[plugins].dir` → `config/plugins/` local-plugin directory, and matches the name the
 `led-ticker-pool` README already references.
 
-### 2. Dockerfile change (replaces Layer 2b)
+### 2. Dockerfile change (Layer 2 + Layer 2b)
+
+Layer 2 now snapshots the core environment after installing:
+
+```dockerfile
+# Layer 2: app dependencies (only rebuilds if pyproject.toml changes). After
+# installing, snapshot the exact installed versions into a pip constraints file
+# (constraints-core.txt) so plugin installs in Layer 2b can pull their own new
+# deps but cannot move core's stack. `pip list --format=freeze` renders the
+# editable led-ticker as `led-ticker==<v>` (a valid constraint), unlike
+# `pip freeze` which emits an unusable `-e ...` line.
+FROM rgbmatrix
+WORKDIR /code
+COPY pyproject.toml /code/
+RUN pip install --no-cache-dir -e ".[dev]" \
+ && pip list --format=freeze > /code/constraints-core.txt
+```
+
+Layer 2b installs plugins with dependency resolution constrained to core's versions:
 
 ```dockerfile
 # Layer 2b: external plugins, declared in config/requirements-plugins.txt
 # (gitignored; copy config/requirements-plugins.example.txt to create it).
-# Installed --no-deps because led-ticker is not on PyPI and plugin runtime deps
-# are already app deps; a plugin needing an extra lib must list it as its own
-# line. Installs the live file only — if it is absent, no plugins are installed
-# (no fallback to the example). The .tx[t] glob is the optional-file trick: it
-# copies the live file if present and is silently skipped if not; the .example
-# is always present so the COPY itself always succeeds.
+# Installed WITH dependency resolution but constrained to the core versions
+# captured in Layer 2 (-c constraints-core.txt): led-ticker is already installed
+# so it resolves without hitting PyPI, a plugin may pull its own genuinely-new
+# transitive deps, but a plugin that tries to move a core dep fails loudly here
+# at build rather than silently at runtime. Installs the live file only — if it
+# is absent, no plugins are installed (no fallback to the example). The .tx[t]
+# glob is the optional-file trick: it copies the live file if present and is
+# skipped if not; the .example is always present so the COPY always succeeds.
+# Editing the live file invalidates this cached layer and triggers a reinstall.
 COPY config/requirements-plugins.example.txt config/requirements-plugins.tx[t] /code/config/
 RUN if [ -f /code/config/requirements-plugins.txt ]; then \
-        pip install --no-cache-dir --no-deps -r /code/config/requirements-plugins.txt; \
+        pip install --no-cache-dir -c /code/constraints-core.txt -r /code/config/requirements-plugins.txt; \
     else \
-        echo "No config/requirements-plugins.txt; skipping plugin install \
-(copy config/requirements-plugins.example.txt to add plugins)"; \
+        echo "No config/requirements-plugins.txt; skipping plugin install (copy the .example to add plugins)"; \
     fi
 ```
 
@@ -99,12 +123,19 @@ RUN if [ -f /code/config/requirements-plugins.txt ]; then \
 ### 3. Bare-metal install + onboarding
 
 - `deploy/install.sh`: after the existing `pip install --upgrade "${REPO_DIR}"`, install
-  the plugins file (live, else example) with `--no-deps` if it exists:
+  the plugins file (live only) constrained to the core versions just installed:
   ```sh
   PLUGINS_REQ="${REPO_DIR}/config/requirements-plugins.txt"
-  [ -f "$PLUGINS_REQ" ] && pip install --no-deps -r "$PLUGINS_REQ"
+  if [ -f "$PLUGINS_REQ" ]; then
+      CONSTRAINTS="$(mktemp)"
+      pip list --format=freeze > "$CONSTRAINTS"
+      pip install -c "$CONSTRAINTS" -r "$PLUGINS_REQ"
+      rm -f "$CONSTRAINTS"
+  fi
   ```
-  Live file only — no fallback to the example, matching the Dockerfile.
+  `pip list --format=freeze` generates the constraints from the live venv (led-ticker
+  renders as `led-ticker==<v>`, a valid constraint). Live file only — no fallback to
+  the example, matching the Dockerfile.
 - Setup docs (README / onboarding) mention the new file next to `cp config.example.toml
   config.toml` and the `.env` step: "to add or remove plugins, copy
   `config/requirements-plugins.example.txt` to `config/requirements-plugins.txt`, edit,
@@ -130,9 +161,12 @@ active.
 - **Unresolvable git ref / bad line:** the build fails at the pip step with pip's error —
   surfaced at build time, not at runtime. Acceptable (build-time is the right place to
   catch it).
-- **Plugin needing an extra runtime dep:** with `--no-deps`, the dep is not auto-pulled;
-  the contract (documented in the header) is to add it as its own line. Out of scope to
-  solve generally (that was Approach B, deferred as premature).
+- **Plugin needing an extra runtime dep:** pip resolves and installs it (constrained to
+  core versions); the plugin simply lists it as a dependency in its own metadata.
+- **Plugin pins a conflicting core dep version** (e.g. `pillow<10` when core pins
+  `pillow>=10`): build fails loudly with pip `ResolutionImpossible` at Layer 2b —
+  the conflict surfaces at build time, not silently at runtime. Intended: core's stack
+  is authoritative.
 
 ## Testing
 
@@ -151,7 +185,5 @@ active.
 ## Out of scope
 
 - Runtime / no-rebuild plugin installation (Approach B/C from brainstorm).
-- Dependency-resolution machinery for plugins with novel transitive deps (constraints
-  file). Deferred until a real plugin needs it.
-- Publishing `led-ticker` to PyPI (would remove the `--no-deps` requirement entirely;
-  separate, larger decision).
+- Publishing `led-ticker` to PyPI (would simplify the constraints story; separate,
+  larger decision).

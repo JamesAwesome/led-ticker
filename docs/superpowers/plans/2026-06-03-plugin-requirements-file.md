@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Move the external-plugin install out of the hardcoded `Dockerfile` layer into a declarative, gitignored `config/requirements-plugins.txt` (copied from a tracked `.example`), installed build-time with `--no-deps`, live-file-only with no fallback.
+**Goal:** Move the external-plugin install out of the hardcoded `Dockerfile` layer into a declarative, gitignored `config/requirements-plugins.txt` (copied from a tracked `.example`), installed build-time with dependency resolution constrained to core's versions, live-file-only with no fallback.
 
-**Architecture:** A tracked `config/requirements-plugins.example.txt` (ships the pool plugin line) is a copy-me template; users `cp` it to the gitignored `config/requirements-plugins.txt` and edit. The `Dockerfile` and `deploy/install.sh` install the **live** file only (`--no-deps`, because `led-ticker` is not on PyPI); if the live file is absent, no plugins are installed (build still succeeds). The old hardcoded pool layer and its `POOL_PLUGIN_CACHE_BUST` ARG are removed.
+**Architecture:** A tracked `config/requirements-plugins.example.txt` (ships the pool plugin line) is a copy-me template; users `cp` it to the gitignored `config/requirements-plugins.txt` and edit. Layer 2 of the `Dockerfile` generates `constraints-core.txt` via `pip list --format=freeze`. The `Dockerfile` and `deploy/install.sh` install the **live** file only, constrained to core's pinned versions (`-c constraints-core.txt`): a plugin may bring new deps but cannot move core's stack — a conflict fails loudly at build rather than silently at runtime. If the live file is absent, no plugins are installed (build still succeeds). The old hardcoded pool layer and its `POOL_PLUGIN_CACHE_BUST` ARG are removed.
 
 **Tech Stack:** Docker, pip requirements files, bash (`deploy/install.sh`), pytest (guard tests).
 
@@ -354,6 +354,7 @@ Only if Steps 1-4 surfaced a fix. Otherwise nothing to commit here.
 ## Notes for the implementer
 
 - **Do not** add a fallback to the `.example` in either the Dockerfile or `install.sh` — live file only, by design (spec §2/§3).
+- Plugin install now uses `-c constraints-core.txt` (not `--no-deps`). Layer 2 generates `constraints-core.txt` via `pip list --format=freeze`; install.sh writes a temp file the same way. A plugin that moves a core dep version fails the build with `ResolutionImpossible` — this is intentional.
 - The `.example` being copied into the image (the optional-file COPY trick's guaranteed source) is intentional and harmless; it is never pip-installed.
 - Leave the existing `[plugins]` config block and `_plugin_loader` untouched — this change is purely about *installing* plugins, not *loading* them.
 - The led-ticker-pool README references `config/requirements-plugins.txt`; this plan makes that real. No change needed in the plugin repo.

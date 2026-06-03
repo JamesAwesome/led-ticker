@@ -113,8 +113,8 @@ def test_list_fields_plugin_widget_hides_uninjected_shared_fields(tmp_path):
         L.load_plugins(tmp_path / "plugins", entry_points_enabled=False)
         out = _list_widget_fields("acme.clock")
         assert "text" in out  # the widget's own declared field
-        # Built-in font knobs NOT injected into a plugin widget must not show:
-        assert "font_size" not in out
-        assert "font_threshold" not in out
+        # None of the built-in shared knobs are advertised for a plugin widget:
+        for knob in ("font_size", "font_threshold", "Shared fields"):
+            assert knob not in out, f"{knob!r} should not appear for a plugin widget"
     finally:
         L.reset_plugins()

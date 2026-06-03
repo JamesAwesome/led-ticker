@@ -1198,10 +1198,10 @@ def _list_widget_fields(widget_type: str) -> str:
     for name, applicable_types in _DISPATCH_APPLICABLE_TYPES.items():
         if applicable_types is not None and widget_type not in applicable_types:
             continue
-        # Plugin widgets don't auto-receive the built-in font knobs (the
-        # `applicable_types is None` rows other than `type`); advertising them
-        # would list fields the widget rejects. Only `type` is universal.
-        if is_plugin_widget and applicable_types is None and name != "type":
+        # Plugin widgets don't auto-receive the built-in shared knobs (`type`,
+        # `text`, `font`, `font_size`, `font_threshold`); suppress that whole
+        # block for them rather than advertise fields they'd reject.
+        if is_plugin_widget and applicable_types is None:
             continue
         if name in widget_field_names:
             continue  # already shown above

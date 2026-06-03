@@ -43,6 +43,16 @@ WORKDIR /code
 COPY pyproject.toml /code/
 RUN pip install --no-cache-dir -e ".[dev]"
 
+# Layer 2b: external plugins (led_ticker.plugins entry points auto-register at
+# startup). Installed --no-deps on purpose: led-ticker is not on PyPI (it's the
+# editable install above) and the plugins' runtime deps (aiohttp) are already
+# present as app dependencies, so dependency resolution would only fail trying
+# to fetch led-ticker from PyPI. Bump POOL_PLUGIN_CACHE_BUST to pull a newer
+# plugin revision (Docker caches by instruction text, not remote content).
+ARG POOL_PLUGIN_CACHE_BUST=1
+RUN pip install --no-cache-dir --no-deps \
+    "git+https://github.com/JamesAwesome/led-ticker-pool.git@main"
+
 # Layer 3: app source (rebuilds on any code change — but fast, no pip)
 COPY . /code/
 RUN pip install --no-deps .

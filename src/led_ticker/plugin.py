@@ -10,6 +10,14 @@ A registered widget class may also define a ``validate_config(cls, cfg) ->
 list[str]`` classmethod (a @classmethod). When present it is called during
 config validation; any returned messages become pre-flight errors. This is a
 convention (no ``api.*`` registration) — the rule travels with the widget type.
+
+A widget may also be a MONITOR/CONTAINER: declare a ``feed_stories:
+list[Widget]`` field (the engine re-reads it live and cycles through the
+current stories) instead of implementing ``draw()``, implement
+``async def update(self)`` to refresh it (the :class:`Updatable` protocol),
+and drive periodic refresh from a ``start()`` classmethod via
+``spawn_tracked(run_monitor_loop(self, interval))``. Compose each story from
+the re-exported ``SegmentMessage`` / ``TwoRowMessage`` widgets.
 """
 
 from collections.abc import Callable
@@ -29,7 +37,15 @@ from led_ticker.fonts.hires_loader import HiresFont
 from led_ticker.pixel_emoji import HiResEmoji, draw_emoji_at, measure_emoji_at
 from led_ticker.pixel_emoji import draw_with_emoji as _draw_with_emoji
 from led_ticker.transitions import Transition
-from led_ticker.widget import Widget, spawn_tracked
+from led_ticker.widget import (
+    Container,
+    Updatable,
+    Widget,
+    run_monitor_loop,
+    spawn_tracked,
+)
+from led_ticker.widgets.message import SegmentMessage
+from led_ticker.widgets.two_row import TwoRowMessage
 
 __all__ = [
     "API_VERSION",
@@ -40,6 +56,7 @@ __all__ = [
     "BorderEffectBase",
     "Canvas",
     "Color",
+    "Container",
     "DrawResult",
     "ColorProvider",
     "ColorProviderBase",
@@ -47,8 +64,11 @@ __all__ = [
     "HiResEmoji",
     "HiresFont",
     "PixelData",
+    "SegmentMessage",
     "StartupContext",
     "Transition",
+    "TwoRowMessage",
+    "Updatable",
     "Widget",
     "colors",
     "compute_baseline",
@@ -58,6 +78,7 @@ __all__ = [
     "make_color",
     "measure_emoji_at",
     "resolve_font",
+    "run_monitor_loop",
     "spawn_tracked",
 ]
 # Public plugin surface: registry contributions + lifecycle hooks.

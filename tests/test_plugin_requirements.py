@@ -49,3 +49,13 @@ def test_dockerfile_installs_from_requirements_file():
     assert "led-ticker-pool.git" not in dockerfile, (
         "no hardcoded plugin git URL should remain in the Dockerfile"
     )
+
+
+def test_install_sh_installs_plugin_requirements():
+    install_sh = (REPO_ROOT / "deploy" / "install.sh").read_text()
+    assert "config/requirements-plugins.txt" in install_sh, (
+        "install.sh should install the live requirements-plugins.txt"
+    )
+    assert "--no-deps" in install_sh, (
+        "install.sh plugin install should use --no-deps"
+    )

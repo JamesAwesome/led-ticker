@@ -54,11 +54,11 @@ That `[[playlist.section.widget]]` block goes inside a playlist section in your 
 <Aside type="tip" title="Color fields are coerced for you">
   `color` is a known color key, so led-ticker converts an `[r, g, b]` list into a `Color` object
   before constructing your widget — `self.color` is already a `Color` (or `None`). `bg_color` works
-  the same way. The `font_color`, `top_color`, and `bottom_color` keys are different: they coerce to
-  a _color provider_ — an object with a `color_for(...)` method that can yield a constant color, a
-  rainbow, a gradient, and more — so a widget reads `self.font_color.color_for(...)` rather than
-  treating it as a plain `Color`. See [Color providers](/concepts/color-providers/) for the full
-  list and how config maps to each.
+  the same way. `font_color` — the standard text-color key — is different: it coerces to a
+  _color provider_, an object with a `color_for(...)` method that can yield a constant color, a
+  rainbow, a gradient, and more. So a widget that declares a `font_color` field reads
+  `self.font_color.color_for(...)` rather than treating it as a plain `Color`. See
+  [Color providers](/concepts/color-providers/) for the full list and how config maps to each.
 </Aside>
 
 ## Implement `draw()`

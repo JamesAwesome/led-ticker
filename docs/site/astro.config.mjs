@@ -88,6 +88,10 @@ export default defineConfig({
           items: [
             { label: "Plugins overview", link: "/plugins/" },
             { label: "Available plugins", link: "/plugins/available/" },
+            { label: "Authoring: 1. Scaffold", link: "/plugins/authoring/01-scaffold/" },
+            { label: "Authoring: 2. Build the widget", link: "/plugins/authoring/02-widget/" },
+            { label: "Authoring: 3. Package & install", link: "/plugins/authoring/03-package/" },
+            { label: "Authoring: 4. Beyond widgets", link: "/plugins/authoring/04-beyond-widgets/" },
           ],
         },
         {

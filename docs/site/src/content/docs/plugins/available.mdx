@@ -1,0 +1,22 @@
+---
+title: Available plugins
+description: First-party and community led-ticker plugins, and the repositories where they live.
+---
+
+Plugins live in their own repositories. To use one, add it to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the install flow. Each plugin's own README documents its options, layouts, and setup.
+
+## Widgets
+
+### [led-ticker-pool](https://github.com/JamesAwesome/led-ticker-pool)
+
+Pool water-temperature widget (`type = "pool.monitor"`), backed by an InfluxDB v2 server. Cycles a title card, today's temperature, 7-day mean, and season hi/lo with zone coloring; supports `ticker` and `two_row` layouts. Full docs, options, and screenshots in the [repo README](https://github.com/JamesAwesome/led-ticker-pool#readme).
+
+Add to your `config/requirements-plugins.txt`:
+
+```text
+git+https://github.com/JamesAwesome/led-ticker-pool.git@main
+```
+
+---
+
+Built a led-ticker plugin? Open a PR adding it here — keep the entry to a one-line description plus the repo link.

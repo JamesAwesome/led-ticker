@@ -1,0 +1,48 @@
+---
+title: Plugins
+description: Extend led-ticker with external plugins — widgets, transitions, emojis, fonts, and lifecycle hooks — installed via a requirements file and auto-registered at startup.
+---
+
+Plugins extend led-ticker without forking core. A plugin is a small Python package that registers extra **widgets, transitions, color providers, animations, borders, easings, emojis, fonts, or lifecycle hooks** through led-ticker's public plugin API. The flagship example is the [pool water-temperature widget](https://github.com/JamesAwesome/led-ticker-pool), which lives in its own repo and contributes `type = "pool.monitor"`.
+
+You don't need any plugins to run led-ticker — the [built-in widgets](/widgets/) cover most signs. Reach for a plugin when you want something they don't offer (pool temperatures, a smart-home sensor, a custom feed), and anyone can publish one without changes to core.
+
+## Installing a plugin
+
+Plugins are declared in `config/requirements-plugins.txt` (a pip requirements file). Copy the tracked template and add or keep the plugins you want, then rebuild:
+
+```bash
+cp config/requirements-plugins.example.txt config/requirements-plugins.txt
+# edit the list, then:
+docker compose up -d --build
+```
+
+- The Docker image installs the listed plugins at build time, **constrained to core's dependency versions** (a plugin can bring its own new libraries but can't move a version core pins — a conflict fails the build instead of breaking silently at runtime).
+- Bare-metal installs (`deploy/install.sh`) do the same.
+- The live `config/requirements-plugins.txt` is gitignored — it's yours to customize per sign. A fresh clone installs **no** plugins until you create it.
+
+Once installed, a plugin **auto-registers** via its `led_ticker.plugins` entry point — no config change is needed to make its widgets available.
+
+## Relationship to the `[plugins]` config block
+
+These are complementary layers:
+
+- **`config/requirements-plugins.txt`** controls what is **installed** (build time).
+- The optional **`[plugins]` block** in `config.toml` controls what is **loaded**: `enabled` toggles plugin loading, `disable = ["namespace"]` skips a plugin, and `dir` points at a local-plugin directory. It does not install anything.
+
+A plugin must be installed **and** not disabled to be active.
+
+## Writing a plugin
+
+A plugin imports only from `led_ticker.plugin` (the curated public surface) and exposes a `register(api)` function under the `led_ticker.plugins` entry-point group; `api.widget("name")(cls)` registers a namespaced widget (`<plugin>.<name>`). The engineering reference — the `register(api)` contract, the public surface, authoring patterns, and lifecycle hooks — is in [`docs/plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md).
+
+The best starting point today is a complete worked example: the [`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) repo shows the `register(api)` function, the `pyproject.toml` entry point, tests, and packaging end-to-end. (A step-by-step authoring guide is a future addition.)
+
+## If something goes wrong
+
+- **`Unknown widget type: 'pool.monitor'`** at validate/startup → the plugin isn't installed. Confirm you added it to `config/requirements-plugins.txt` and rebuilt the image (`docker compose up -d --build`). `led-ticker plugins` lists what's currently registered.
+- **A plugin's widget shows `--`, dim values, or raises at startup** → that's the plugin's own runtime/config issue (e.g. pool needs `INFLUXDB_TOKEN`); check the plugin's README. A plugin that fails to _load_ is skipped with a logged error and never crashes the display.
+
+## Available plugins
+
+See [Available plugins](/plugins/available/) for the current list and a link to each plugin's repository.

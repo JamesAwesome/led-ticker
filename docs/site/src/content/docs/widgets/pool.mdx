@@ -1,81 +1,11 @@
 ---
 title: pool widget
-description: Pool water temperature from a pool_monitor InfluxDB v2 server. Cycles title, today (current temp + trend + hi/lo), 7-day, and season screens.
+description: The pool water-temperature widget is now the external led-ticker-pool plugin (type = "pool.monitor").
 ---
 
-import DemoGif from "../../../components/DemoGif.astro";
-import TomlExample from "../../../components/TomlExample.astro";
-import OptionsTable from "../../../components/OptionsTable.astro";
-import RelatedPages from "../../../components/RelatedPages.astro";
+The **pool** widget has moved out of led-ticker core into its own plugin, **[led-ticker-pool](https://github.com/JamesAwesome/led-ticker-pool)**, referenced in config as `type = "pool.monitor"`.
 
-The `pool` widget reads water temperature from a [pool_monitor](https://github.com/JamesAwesome/pool_monitor) InfluxDB v2 server and cycles four screens: a title card, today's current temperature with a trend arrow (▲/▼/–) and today's hi/lo, a 7-day mean with hi/lo, and a season (current-year) hi/lo. Temperature is zone-colored — blue below 70°F, green 70–79°F, orange 80–89°F, red 90°F and above — making the current comfort level visible at a glance. Data is fetched in the background via async polling so the display keeps running even if the server is temporarily unreachable.
+- **To add it to your sign:** add `git+https://github.com/JamesAwesome/led-ticker-pool.git@main` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow. It needs a running InfluxDB v2 server.
+- **Full documentation** — options, `ticker` vs `two_row` layouts, InfluxDB setup, and screenshots — lives in the [led-ticker-pool README](https://github.com/JamesAwesome/led-ticker-pool#readme).
 
-<DemoGif
-  src="/demos-long/widget-pool.gif"
-  caption="Pool widget cycling through title, today's temp with trend arrow and hi/lo, 7-day average, and season records."
-/>
-
-<TomlExample
-  title="Minimal example"
-  code={`[[playlist.section.widget]]
-type = "pool"
-title = "POOL TEMPS"
-units = "imperial"`}
-/>
-
-## Required environment variables
-
-The widget reads connection details from your `.env` file. `INFLUXDB_TOKEN` is required; the rest have sensible defaults for the standard pool_monitor Docker Compose stack.
-
-| Variable          | Required | Default                | Description                       |
-| ----------------- | -------- | ---------------------- | --------------------------------- |
-| `INFLUXDB_TOKEN`  | **yes**  | —                      | InfluxDB v2 authentication token. |
-| `INFLUXDB_URL`    | no       | `http://influxdb:8086` | InfluxDB v2 base URL.             |
-| `INFLUXDB_ORG`    | no       | `pool`                 | InfluxDB organization name.       |
-| `INFLUXDB_BUCKET` | no       | `pool_temps`           | InfluxDB bucket name.             |
-
-The three non-secret connection fields can also be overridden per-widget in TOML via `influxdb_url`, `influxdb_org`, and `influxdb_bucket` — useful if you have multiple sensors on different servers.
-
-## Options
-
-<OptionsTable source="widgets/pool" />
-
-## Layouts
-
-The pool widget renders in one of two modes, selected by `layout`:
-
-### `layout = "ticker"` (default)
-
-Single-row segmented screens. The today screen shows current temp + trend arrow (▲ / ▼ / –) and today's HI/LO. The 7-day screen shows the mean alongside hi/lo. The season screen shows HI and LO together. Best for smaller panels (smallsign 160×16) where vertical space is limited.
-
-<DemoGif
-  src="/demos-long/widget-pool.gif"
-  caption="Pool widget in ticker layout — single-row segmented screens with trend arrow and hi/lo."
-/>
-
-### `layout = "two_row"`
-
-Stacked label-on-top / big-number-on-bottom. Top row carries a descriptive label (`POOL 24H`, `POOL 7D AVG`, `POOL SEASON HI`, `POOL SEASON LO`). Bottom row carries the headline value in a semantic color (zone-color current temp, pink 7-day mean, orange season HI, blue season LO). The trend arrow is intentionally dropped — bottom is the value only. Season splits into HI and LO screens. Best for bigsign / longboi (256×64 / 512×64) where vertical headroom is available.
-
-<DemoGif
-  src="/demos-long/widget-pool-two-row.gif"
-  caption="Pool widget in two_row layout — stacked label-on-top, big-number-on-bottom."
-/>
-
-Per-row fonts/sizes/thresholds (`top_font`, `top_font_size`, `top_font_threshold`, `bottom_font`, `bottom_font_size`, `bottom_font_threshold`) and an explicit `top_row_height` (logical rows) apply ONLY in `layout = "two_row"`. Setting them under ticker layout raises a config-load error.
-
-## Tips
-
-### `INFLUXDB_TOKEN` must be set before startup
-
-The widget raises `ValueError` during startup (before the first poll) if the token is missing. Add `INFLUXDB_TOKEN=<your-token>` to your `.env` file (see `.env.example`) and restart the container.
-
-### Stale data turns dim gray
-
-When the most recent reading is older than `stale_after` seconds (default 15 minutes), the current temperature renders in dim gray instead of the zone color. This is a visual signal that the sensor or network connection may need attention.
-
-### Trend arrow uses a 30-minute lookback
-
-The trend arrow compares the current reading against the 30-minute trailing average. A sub-0.5°F change shows `–` (steady) to avoid jitter from sensor noise.
-
-<RelatedPages slugs={["widgets/weather", "widgets/index"]} />
+Pool is the flagship example of led-ticker's [plugin system](/plugins/) — a way to add widgets that aren't part of core.

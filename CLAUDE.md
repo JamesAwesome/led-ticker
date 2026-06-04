@@ -224,6 +224,7 @@ led-ticker is extensible via plugins; the `pool.monitor` widget lives in the ext
 - **Registration:** a plugin ships a `register(api)` function under the `led_ticker.plugins` entry-point group; `api.widget("name")(cls)` (and the sibling `transition`/`emoji`/`font`/… surfaces) register into a namespaced registry (`<plugin>.<name>`, e.g. `pool.monitor`). `API_VERSION` gates compatibility.
 - **Install:** plugins are installed from `config/requirements-plugins.txt` (copied from `.example`), constraint-based (`-c <frozen core deps>`, NOT `--no-deps`) so they may bring new deps but can't move core's pinned versions — the Docker build writes `/code/constraints-core.txt`; `deploy/install.sh` freezes to a temp file. Entry points auto-register at startup; the `[plugins]` config block only controls loading/disable, not installation.
 - **Validation:** a widget plugin may define `validate_config(cls, cfg) -> list[str]` (pre-coercion); it runs inside `validate_widget_cfg`.
+- **Error isolation:** a plugin that fails to import/register is skipped with a logged error (recorded in `LoadedPlugins.failed`) — a broken plugin must never crash the app or freeze the display. Don't add plugin-load paths that propagate.
 - **Python 3.14 / PEP 649:** no `from __future__ import annotations` in plugin source (same rule as core).
 - Deep reference: `docs/plugin-system.md`. User-facing overview: the docs-site [Plugins page](https://docs.ledticker.dev/plugins/).
 

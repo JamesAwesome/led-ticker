@@ -6,7 +6,6 @@ next: false
 ---
 
 import TutorialNav from "../../../../components/TutorialNav.astro";
-import DemoGif from "../../../../components/DemoGif.astro";
 import { Steps, Aside } from "@astrojs/starlight/components";
 
 Now make `example.counter` real. A widget is a class registered with `api.widget`, carrying its config as fields and rendering with a `draw()` method.
@@ -186,14 +185,7 @@ def register(api):
 
 ## See it run
 
-Here's `example.counter` on a small panel:
-
-<DemoGif
-  src="/demos/widget-example-counter.gif"
-  caption="example.counter rendering DAY N — days since the configured date, in icy cyan."
-/>
-
-No hardware needed to check your own work: the [test in the next chapter](/plugins/authoring/03-package/) drives `draw()` directly, and once the plugin is packaged you can render a preview GIF (next page).
+You don't need hardware to check your work — the [test in the next chapter](/plugins/authoring/03-package/) drives `draw()` directly, and once the plugin is packaged you can render a preview GIF (next page). That preview is how the `DAY 2346` panel at the top of the guide was made.
 
 <TutorialNav
   prev={{ href: "/plugins/authoring/01-scaffold/", title: "Authoring 1: Scaffold & register" }}

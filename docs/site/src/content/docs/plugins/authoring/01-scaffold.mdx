@@ -6,7 +6,13 @@ next: false
 ---
 
 import TutorialNav from "../../../../components/TutorialNav.astro";
+import DemoGif from "../../../../components/DemoGif.astro";
 import { Steps, Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+
+<DemoGif
+  src="/demos/widget-example-counter.gif"
+  caption="What you'll build: example.counter — a widget that counts the days since a date, here DAY 2346 in icy cyan."
+/>
 
 A **plugin** is a small Python package that adds widgets (and more) to led-ticker without changing core. Over these four pages you'll build one — `example.counter`, a deliberately tiny widget that shows the number of days since a date (no data, no async; real plugins like the [pool widget](/plugins/available/) fetch live data and render richer screens) — then survey everything else you can contribute.
 

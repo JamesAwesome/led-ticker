@@ -174,9 +174,10 @@ stale_after = 14400  # 4 hours
 # and separators. Defaults to white. Use [r,g,b] e.g. [130, 220, 255] for
 # an icy cyan that fits the pool theme.
 # label_color = [130, 220, 255]
-# layout = "two_row"   # optional: stacks "POOL 24H" / "POOL 7D AVG" / etc on top and the
-#                      # headline value on bottom. Best for bigsign / longboi. See:
-#                      # https://docs.ledticker.dev/widgets/pool/#layouts
+# layout = "two_row"   # optional: stacks the label ("POOL 24H" / "POOL 7D" /
+#                      # "POOL SEASON") on top and the headline value on bottom.
+#                      # Best for bigsign / longboi. See the led-ticker-pool
+#                      # README: https://github.com/JamesAwesome/led-ticker-pool#layouts
 
 # --- Weather (optional) ---
 # Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/).

@@ -1,0 +1,104 @@
+---
+title: "Authoring 2: Build the widget"
+description: Register a widget, declare its config fields, implement draw(), and validate config — the full Counter widget.
+prev: false
+next: false
+---
+
+import TutorialNav from "../../../../components/TutorialNav.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+Now make `example.counter` real. A widget is a class registered with `api.widget`, carrying its config as fields and rendering with a `draw()` method.
+
+## Register a widget class
+
+`api.widget(name)` is a decorator. Pair it with `@attrs.define` so led-ticker can inspect your config fields:
+
+```python
+import attrs
+from led_ticker.plugin import Color, draw_text, make_color, resolve_font
+
+
+def register(api):
+    @api.widget("counter")
+    @attrs.define
+    class Counter:
+        since: str = "2020-01-01"
+        label: str = "DAY"
+        color: Color | None = None
+```
+
+Each field is a config key. In TOML:
+
+```toml
+[[playlist.section.widget]]
+type = "example.counter"
+since = "2024-01-01"
+label = "DAY"
+color = [130, 220, 255]
+```
+
+<Aside type="tip" title="Color fields are coerced for you">
+`color` is a known color key, so led-ticker converts an `[r, g, b]` list into a `Color` object before constructing your widget — `self.color` is already a `Color` (or `None`). The same applies to `bg_color`, `font_color`, and friends.
+</Aside>
+
+## Implement `draw()`
+
+`draw()` paints one frame and returns `(canvas, end_x)` — the canvas and the x-coordinate where your content ends (so the engine can chain widgets):
+
+```python
+        def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
+            font = resolve_font("6x12")
+            color = self.color if self.color is not None else make_color(255, 255, 255)
+            text = f"{self.label} {self._days()}"
+            end_x = draw_text(canvas, font, text, cursor_pos, 10 + y_offset, color)
+            return canvas, end_x
+```
+
+The helpers all come from `led_ticker.plugin`:
+
+- `resolve_font("6x12")` — a bundled BDF font (or a hi-res name + size).
+- `make_color(r, g, b)` — a `Color` without importing the matrix library.
+- `draw_text(canvas, font, text, x, y, color)` — draws text (with inline emoji support) and returns the end-x.
+
+<Aside type="note" title="cursor_pos and font_color">
+`cursor_pos` is the horizontal scroll offset the engine passes in — draw relative to it. `font_color` is an optional per-frame color the engine may inject (e.g. a color provider); honor it when your widget should follow a theme. This widget uses its own `color` field instead.
+</Aside>
+
+The `_days()` helper is plain Python:
+
+```python
+import datetime as _dt
+# ...
+        def _days(self):
+            return (_dt.date.today() - _dt.date.fromisoformat(self.since)).days
+```
+
+## Validate config
+
+Add a `validate_config` classmethod to reject bad config *before* the sign runs (it shows up in `led-ticker validate`). It receives the raw, pre-coercion config and returns a list of error strings:
+
+```python
+        @classmethod
+        def validate_config(cls, cfg):
+            errors = []
+            since = cfg.get("since")
+            if since is None:
+                errors.append("since is required (a YYYY-MM-DD date)")
+            else:
+                try:
+                    start = _dt.date.fromisoformat(str(since))
+                except ValueError:
+                    errors.append(f"since must be a YYYY-MM-DD date; got {since!r}")
+                else:
+                    if start > _dt.date.today():
+                        errors.append(f"since must not be in the future; got {since!r}")
+            return errors
+```
+
+The complete widget is [`examples/plugins/example/`](https://github.com/JamesAwesome/led-ticker/tree/main/examples/plugins/example) in the repo.
+
+<TutorialNav
+  prev={{ href: "/plugins/authoring/01-scaffold/", title: "Authoring 1: Scaffold & register" }}
+  next={{ href: "/plugins/authoring/03-package/", title: "Authoring 3: Package & install" }}
+/>

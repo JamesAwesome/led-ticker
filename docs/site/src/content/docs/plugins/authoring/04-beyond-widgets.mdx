@@ -43,7 +43,10 @@ api.on_shutdown(cleanup)      # runs once at exit
 Start background work with `spawn_tracked(coro)` from inside `on_startup`, and have your overlay paint whatever shared state it updates.
 
 <Aside type="tip" title="Copy the example">
-The fastest way to add any of these is to copy the relevant block out of [`acme/__init__.py`](https://github.com/JamesAwesome/led-ticker/blob/main/examples/plugins/acme/__init__.py) and renamespace it. For the precise contracts, return types, and edge cases, see [`plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md).
+  The fastest way to add any of these is to copy the relevant block out of
+  [`acme/__init__.py`](https://github.com/JamesAwesome/led-ticker/blob/main/examples/plugins/acme/__init__.py)
+  and renamespace it. For the precise contracts, return types, and edge cases, see
+  [`plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md).
 </Aside>
 
 That's the whole surface. Build something and [add it to the directory](/plugins/available/).

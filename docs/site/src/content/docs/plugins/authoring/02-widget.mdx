@@ -39,7 +39,9 @@ color = [130, 220, 255]
 ```
 
 <Aside type="tip" title="Color fields are coerced for you">
-`color` is a known color key, so led-ticker converts an `[r, g, b]` list into a `Color` object before constructing your widget — `self.color` is already a `Color` (or `None`). The same applies to `bg_color`, `font_color`, and friends.
+  `color` is a known color key, so led-ticker converts an `[r, g, b]` list into a `Color` object
+  before constructing your widget — `self.color` is already a `Color` (or `None`). The same applies
+  to `bg_color`, `font_color`, and friends.
 </Aside>
 
 ## Implement `draw()`
@@ -62,7 +64,9 @@ The helpers all come from `led_ticker.plugin`:
 - `draw_text(canvas, font, text, x, y, color)` — draws text (with inline emoji support) and returns the end-x.
 
 <Aside type="note" title="cursor_pos and font_color">
-`cursor_pos` is the horizontal scroll offset the engine passes in — draw relative to it. `font_color` is an optional per-frame color the engine may inject (e.g. a color provider); honor it when your widget should follow a theme. This widget uses its own `color` field instead.
+  `cursor_pos` is the horizontal scroll offset the engine passes in — draw relative to it.
+  `font_color` is an optional per-frame color the engine may inject (e.g. a color provider); honor
+  it when your widget should follow a theme. This widget uses its own `color` field instead.
 </Aside>
 
 The `_days()` helper is plain Python:
@@ -76,7 +80,7 @@ import datetime as _dt
 
 ## Validate config
 
-Add a `validate_config` classmethod to reject bad config *before* the sign runs (it shows up in `led-ticker validate`). It receives the raw, pre-coercion config and returns a list of error strings:
+Add a `validate_config` classmethod to reject bad config _before_ the sign runs (it shows up in `led-ticker validate`). It receives the raw, pre-coercion config and returns a list of error strings:
 
 ```python
         @classmethod

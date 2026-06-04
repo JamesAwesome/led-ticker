@@ -41,7 +41,10 @@ docker compose up -d --build
 ```
 
 <Aside type="note" title="led-ticker isn't on PyPI (yet)">
-Plugins are installed `--no-deps`-free but **constrained to core's versions** — a plugin can bring its own deps but can't move led-ticker's. Because led-ticker is already in the image, your `dependencies = ["led-ticker"]` resolves without a PyPI fetch. See the [Plugins overview](/plugins/) for the details.
+  Plugins are installed `--no-deps`-free but **constrained to core's versions** — a plugin can bring
+  its own deps but can't move led-ticker's. Because led-ticker is already in the image, your
+  `dependencies = ["led-ticker"]` resolves without a PyPI fetch. See the [Plugins
+  overview](/plugins/) for the details.
 </Aside>
 
 ## Test it on your laptop

@@ -48,6 +48,20 @@ fi
 echo "==> Installing led-ticker package (upgrading if already installed)..."
 pip install --upgrade "${REPO_DIR}"
 
+# Install declared plugins (config/requirements-plugins.txt), if present.
+# Constrained to the core dependency versions just installed, so a plugin can
+# add its own new deps but cannot move core's stack (a conflicting pin fails
+# here rather than silently at runtime). led-ticker is already installed, so it
+# resolves without PyPI. No fallback to the .example template.
+PLUGINS_REQ="${REPO_DIR}/config/requirements-plugins.txt"
+if [ -f "$PLUGINS_REQ" ]; then
+    echo "==> Installing plugins from config/requirements-plugins.txt..."
+    CONSTRAINTS="$(mktemp)"
+    pip list --format=freeze > "$CONSTRAINTS"
+    pip install -c "$CONSTRAINTS" -r "$PLUGINS_REQ"
+    rm -f "$CONSTRAINTS"
+fi
+
 # Copy config if not present (bigsign gets its own example)
 if [ ! -f "${INSTALL_DIR}/config.toml" ]; then
     if [ "${PI5:-0}" = "1" ]; then

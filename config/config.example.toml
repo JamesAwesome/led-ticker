@@ -155,10 +155,10 @@ transition_duration = 2.0
 hold_time = 4
 loop_count = 1
 
-# The pool widget is now the `led-ticker-pool` plugin (type = "pool.monitor").
-# Install it for this config to work (the repo Dockerfile already does this):
-#   pip install "git+https://github.com/JamesAwesome/led-ticker-pool.git@main"
-# (the repo's Dockerfile already installs it; entry-point auto-registers it).
+# The pool widget is the `led-ticker-pool` plugin (type = "pool.monitor"). To
+# install it, add it to config/requirements-plugins.txt (copy the tracked
+# .example, which already lists it) and rebuild — see
+# https://docs.ledticker.dev/plugins/ . The entry point auto-registers it.
 [[playlist.section.widget]]
 type = "pool.monitor"
 title = "POOL TEMPS"
@@ -174,9 +174,10 @@ stale_after = 14400  # 4 hours
 # and separators. Defaults to white. Use [r,g,b] e.g. [130, 220, 255] for
 # an icy cyan that fits the pool theme.
 # label_color = [130, 220, 255]
-# layout = "two_row"   # optional: stacks "POOL 24H" / "POOL 7D AVG" / etc on top and the
-#                      # headline value on bottom. Best for bigsign / longboi. See:
-#                      # https://docs.ledticker.dev/widgets/pool/#layouts
+# layout = "two_row"   # optional: stacks the label ("POOL 24H" / "POOL 7D" /
+#                      # "POOL SEASON") on top and the headline value on bottom.
+#                      # Best for bigsign / longboi. See the led-ticker-pool
+#                      # README: https://github.com/JamesAwesome/led-ticker-pool#layouts
 
 # --- Weather (optional) ---
 # Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/).

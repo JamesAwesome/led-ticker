@@ -1,0 +1,53 @@
+---
+title: "Authoring 4: Beyond widgets"
+description: A map of the other plugin surfaces — transitions, color providers, animations, borders, easings, emoji, fonts, and lifecycle hooks.
+prev: false
+next: false
+---
+
+import TutorialNav from "../../../../components/TutorialNav.astro";
+import { Aside } from "@astrojs/starlight/components";
+
+Widgets are the most common contribution, but `api` registers a lot more. Each call below namespaces under your plugin (`example.<name>`). The reference plugin [`examples/plugins/acme/`](https://github.com/JamesAwesome/led-ticker/blob/main/examples/plugins/acme/__init__.py) exercises every one of these in ~100 lines; the full contracts are in [`plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md).
+
+## Render surfaces (decorate a class)
+
+```python
+@api.transition("swoosh")          # a Transition: frame_at(t, canvas, outgoing, incoming)
+@api.color_provider("fire")        # a ColorProvider: color_for(frame, char_index, total)
+@api.animation("scramble")         # an Animation: frame_for(frame, text, width, text_width)
+@api.border("neon")                # a BorderEffect: paint(canvas, frame_count)
+```
+
+Subclass the matching base (`ColorProviderBase`, `BorderEffectBase`) or implement the protocol; reference them in TOML as `transition = {type = "example.swoosh"}`, `font_color = {style = "example.fire"}`, etc.
+
+## Value surfaces (pass data directly)
+
+```python
+api.easing("snap", lambda p: p * p)                 # an easing curve (0..1 -> 0..1)
+api.emoji("spark", [(x, y, r, g, b), ...])          # an 8x8 inline emoji, used as :example.spark:
+api.hires_emoji("spark", HiResEmoji(...))           # hi-res variant (pair it with a low-res one)
+api.font("Brand", "fonts/Brand.ttf")                # a bundled font file, usable as font = "example.Brand"
+```
+
+## Lifecycle hooks (the "service plugin" pattern)
+
+Hooks let a plugin run code around the display loop — for example, poll an API in the background and paint a status dot over every frame:
+
+```python
+api.overlay(paint)            # paint(canvas) runs every frame (exception-guarded)
+api.on_startup(on_startup)    # on_startup(ctx: StartupContext) runs once before the loop (sync or async)
+api.on_shutdown(cleanup)      # runs once at exit
+```
+
+Start background work with `spawn_tracked(coro)` from inside `on_startup`, and have your overlay paint whatever shared state it updates.
+
+<Aside type="tip" title="Copy the example">
+The fastest way to add any of these is to copy the relevant block out of [`acme/__init__.py`](https://github.com/JamesAwesome/led-ticker/blob/main/examples/plugins/acme/__init__.py) and renamespace it. For the precise contracts, return types, and edge cases, see [`plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md).
+</Aside>
+
+That's the whole surface. Build something and [add it to the directory](/plugins/available/).
+
+<TutorialNav
+  prev={{ href: "/plugins/authoring/03-package/", title: "Authoring 3: Package & install" }}
+/>

@@ -40,8 +40,10 @@ color = [130, 220, 255]
 
 <Aside type="tip" title="Color fields are coerced for you">
   `color` is a known color key, so led-ticker converts an `[r, g, b]` list into a `Color` object
-  before constructing your widget — `self.color` is already a `Color` (or `None`). The same applies
-  to `bg_color`, `font_color`, and friends.
+  before constructing your widget — `self.color` is already a `Color` (or `None`). `bg_color` works
+  the same way. (`font_color`, `top_color`, and `bottom_color` are different: they coerce to a
+  _color provider_, so a widget reads e.g. `self.font_color.color_for(...)` rather than using it as
+  a plain `Color`.)
 </Aside>
 
 ## Implement `draw()`

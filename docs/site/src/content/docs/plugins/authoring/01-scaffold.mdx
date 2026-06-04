@@ -31,17 +31,9 @@ A plugin is just a module that exposes a `register(api)` function. led-ticker ca
        pass
    ```
 
-3. Make led-ticker discover it — two ways (see [Discovery channels](#discovery-channels) below).
-
-4. Verify it loads:
-
-   ```bash
-   led-ticker plugins
-   ```
-
-   Your `example` namespace should appear in the list (with no contributions yet).
-
 </Steps>
+
+Now make led-ticker discover it, then verify it loads.
 
 ## Discovery channels
 
@@ -69,6 +61,16 @@ A plugin is just a module that exposes a `register(api)` function. led-ticker ca
 
   </TabItem>
 </Tabs>
+
+## Verify it loads
+
+Run:
+
+```bash
+led-ticker plugins
+```
+
+Your `example` namespace should appear in the list (with no contributions yet).
 
 ## Namespaces
 

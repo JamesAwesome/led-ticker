@@ -56,6 +56,7 @@ The counter is static. Real widgets fetch data on a schedule and render the late
 ```python
 import asyncio
 
+import aiohttp
 import attrs
 from led_ticker.plugin import draw_text, make_color, resolve_font, spawn_tracked
 
@@ -74,9 +75,11 @@ def register(api):
             return canvas, end_x
 
     async def _poll():
-        while True:
-            _state["value"] = await fetch_my_value()  # your API call
-            await asyncio.sleep(60)
+        async with aiohttp.ClientSession() as session:
+            while True:
+                async with session.get("https://api.example.com/v1/value") as resp:
+                    _state["value"] = str((await resp.json())["value"])
+                await asyncio.sleep(60)
 
     api.on_startup(lambda ctx: spawn_tracked(_poll()))
 ```

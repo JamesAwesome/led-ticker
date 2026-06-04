@@ -40,40 +40,16 @@ cp config/requirements-plugins.example.txt config/requirements-plugins.txt
 docker compose up -d --build
 ```
 
-<Aside type="note" title="led-ticker isn't on PyPI (yet)">
-  Plugins are installed `--no-deps`-free but **constrained to core's versions** — a plugin can bring
-  its own deps but can't move led-ticker's. Because led-ticker is already in the image, your
+<Aside type="note" title="led-ticker isn't on PyPI">
+  Plugins install alongside core's pinned dependencies — a plugin can add its own libraries but
+  can't move a version core already pins. Because led-ticker is already in the image, your
   `dependencies = ["led-ticker"]` resolves without a PyPI fetch. See the [Plugins
   overview](/plugins/) for the details.
 </Aside>
 
 ## Test it on your laptop
 
-You don't need hardware. led-ticker ships a headless graphics stub, and its `tests/stubs/` has a full matrix stub you can put on the path. A minimal test that loads your plugin and draws once:
-
-<Aside type="caution" title="Tests may use internals">
-  Plugin *code* imports only `led_ticker.plugin`, but *tests* are allowed to use led-ticker's
-  internal loader (`led_ticker._plugin_loader`) and the `canvas` fixture from its
-  `tests/conftest.py`. In a standalone plugin repo, copy that small `canvas` fixture into your own
-  `conftest.py` (the `led-ticker-pool` repo does exactly this).
-</Aside>
-
-Testing in a standalone plugin repo? Add the `canvas` fixture to your own `conftest.py`:
-
-```python
-# conftest.py
-import unittest.mock as mock
-
-import pytest
-
-
-@pytest.fixture
-def canvas():
-    c = mock.Mock()
-    c.width = 160
-    c.height = 16
-    return c
-```
+You don't need hardware — led-ticker ships a headless graphics stub. Here's a minimal test that loads your plugin and draws once; it's how the bundled example is tested (`tests/test_plugins/test_example_plugin.py`):
 
 ```python
 import shutil
@@ -92,17 +68,39 @@ def test_counter_draws(tmp_path, canvas):  # `canvas` fixture = a stub canvas
     L.reset_plugins()
 ```
 
-This is exactly how the bundled example is tested (`tests/test_plugins/test_example_plugin.py`).
+<Aside type="caution" title="Tests may use internals">
+  Plugin *code* imports only `led_ticker.plugin`, but *tests* are allowed to use led-ticker's
+  internal loader (`led_ticker._plugin_loader`) and the `canvas` fixture from its
+  `tests/conftest.py`.
+</Aside>
+
+For a plugin in its **own** repo, point `copytree` at your own package directory instead, and add the `canvas` fixture to your `conftest.py` (the `led-ticker-pool` repo does exactly this):
+
+```python
+# conftest.py
+import unittest.mock as mock
+
+import pytest
+
+
+@pytest.fixture
+def canvas():
+    c = mock.Mock()
+    c.width = 160
+    c.height = 16
+    return c
+```
 
 ### Preview it as a GIF (no hardware)
 
-Once the package is installed, render any config that uses your widget straight to a GIF:
+`render-demo` runs the real engine, so it only renders _installed_ plugins — a local `config/plugins/` drop-in isn't picked up. While iterating, an editable install is the fast path (no packaging ceremony needed):
 
 ```bash
+pip install -e .          # once, from your plugin directory (uses your pyproject.toml above)
 make render-demo CONFIG=path/to/a-config-using-your-widget.toml OUT=preview.gif
 ```
 
-`render-demo` runs the real engine, which discovers your installed plugin through its entry point. (A local `config/plugins/` drop-in isn't picked up by `render-demo` — install the package first.)
+`render-demo` then discovers your plugin through its entry point and renders the config straight to a GIF.
 
 ## A real packaged plugin
 

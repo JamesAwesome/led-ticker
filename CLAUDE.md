@@ -216,6 +216,17 @@ User-facing surface: <https://docs.ledticker.dev/concepts/color-providers/> · <
 
 **Weather two-color design** — `WeatherWidget` has both `font_color` (label) and `font_color_temp` (temperature value) as separate `ColorProvider` fields. Default `font_color_temp = RGB_WHITE` keeps the value steady-bright while the label can use an effect. Set both to the same provider if you want them to match.
 
+## Plugin invariants
+
+led-ticker is extensible via plugins; the `pool.monitor` widget lives in the external [`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) repo. When touching plugin-related code:
+
+- **Public surface:** plugins import ONLY from `led_ticker.plugin` (the curated re-export module). Never import `led_ticker.<internal>` from a plugin. `led_ticker.plugin.__all__` is the contract; adding to it is an API change.
+- **Registration:** a plugin ships a `register(api)` function under the `led_ticker.plugins` entry-point group; `api.widget("name")(cls)` (and the sibling `transition`/`emoji`/`font`/… surfaces) register into a namespaced registry (`<plugin>.<name>`, e.g. `pool.monitor`). `API_VERSION` gates compatibility.
+- **Install:** plugins are installed from `config/requirements-plugins.txt` (copied from `.example`), built with `-c constraints-core.txt` — NOT `--no-deps` — so they may bring new deps but can't move core's pinned versions. Entry points auto-register at startup; the `[plugins]` config block only controls loading/disable, not installation.
+- **Validation:** a widget plugin may define `validate_config(cls, cfg) -> list[str]` (pre-coercion); it runs inside `validate_widget_cfg`.
+- **Python 3.14 / PEP 649:** no `from __future__ import annotations` in plugin source (same rule as core).
+- Deep reference: `docs/plugin-system.md`. User-facing overview: the docs-site [Plugins page](https://docs.ledticker.dev/plugins/).
+
 ### Adding a New Widget
 
 1. Create `src/led_ticker/widgets/my_widget.py`

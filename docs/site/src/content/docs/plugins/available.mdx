@@ -7,7 +7,15 @@ Plugins live in their own repositories. To use one, add it to `config/requiremen
 
 ## Widgets
 
-- **[led-ticker-pool](https://github.com/JamesAwesome/led-ticker-pool)** — pool water-temperature widget (`type = "pool.monitor"`), backed by an InfluxDB v2 server. Cycles current / today / 7-day / season temperatures with zone coloring; supports `ticker` and `two_row` layouts. Full docs + screenshots in the repo README.
+### [led-ticker-pool](https://github.com/JamesAwesome/led-ticker-pool)
+
+Pool water-temperature widget (`type = "pool.monitor"`), backed by an InfluxDB v2 server. Cycles a title card, today's temperature, 7-day mean, and season hi/lo with zone coloring; supports `ticker` and `two_row` layouts. Full docs, options, and screenshots in the [repo README](https://github.com/JamesAwesome/led-ticker-pool#readme).
+
+Add to your `config/requirements-plugins.txt`:
+
+```text
+git+https://github.com/JamesAwesome/led-ticker-pool.git@main
+```
 
 ---
 

@@ -5,6 +5,8 @@ description: Extend led-ticker with external plugins — widgets, transitions, e
 
 Plugins extend led-ticker without forking core. A plugin is a small Python package that registers extra **widgets, transitions, color providers, animations, borders, easings, emojis, fonts, or lifecycle hooks** through led-ticker's public plugin API. The flagship example is the [pool water-temperature widget](https://github.com/JamesAwesome/led-ticker-pool), which lives in its own repo and contributes `type = "pool.monitor"`.
 
+You don't need any plugins to run led-ticker — the [built-in widgets](/widgets/) cover most signs. Reach for a plugin when you want something they don't offer (pool temperatures, a smart-home sensor, a custom feed), and anyone can publish one without changes to core.
+
 ## Installing a plugin
 
 Plugins are declared in `config/requirements-plugins.txt` (a pip requirements file). Copy the tracked template and add or keep the plugins you want, then rebuild:
@@ -32,7 +34,14 @@ A plugin must be installed **and** not disabled to be active.
 
 ## Writing a plugin
 
-A plugin imports only from `led_ticker.plugin` (the curated public surface) and exposes a `register(api)` function under the `led_ticker.plugins` entry-point group; `api.widget("name")(cls)` registers a namespaced widget (`<plugin>.<name>`). The engineering reference — the `register(api)` contract, the public surface, authoring patterns, and lifecycle hooks — is in [`docs/plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md). A full step-by-step authoring guide is planned.
+A plugin imports only from `led_ticker.plugin` (the curated public surface) and exposes a `register(api)` function under the `led_ticker.plugins` entry-point group; `api.widget("name")(cls)` registers a namespaced widget (`<plugin>.<name>`). The engineering reference — the `register(api)` contract, the public surface, authoring patterns, and lifecycle hooks — is in [`docs/plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md).
+
+The best starting point today is a complete worked example: the [`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) repo shows the `register(api)` function, the `pyproject.toml` entry point, tests, and packaging end-to-end. (A step-by-step authoring guide is a future addition.)
+
+## If something goes wrong
+
+- **`Unknown widget type: 'pool.monitor'`** at validate/startup → the plugin isn't installed. Confirm you added it to `config/requirements-plugins.txt` and rebuilt the image (`docker compose up -d --build`). `led-ticker plugins` lists what's currently registered.
+- **A plugin's widget shows `--`, dim values, or raises at startup** → that's the plugin's own runtime/config issue (e.g. pool needs `INFLUXDB_TOKEN`); check the plugin's README. A plugin that fails to _load_ is skipped with a logged error and never crashes the display.
 
 ## Available plugins
 

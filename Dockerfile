@@ -37,21 +37,35 @@ RUN cd /opt && \
     printf 'Cython>=3.2.5\n' > /tmp/build-constraints.txt && \
     PIP_CONSTRAINT=/tmp/build-constraints.txt pip install .
 
-# Layer 2: app dependencies (only rebuilds if pyproject.toml changes)
+# Layer 2: app dependencies (only rebuilds if pyproject.toml changes). After
+# installing, snapshot the exact installed versions into a pip constraints file
+# (constraints-core.txt) so plugin installs in Layer 2b can pull their own new
+# deps but cannot move core's stack. `pip list --format=freeze` renders the
+# editable led-ticker as `led-ticker==<v>` (a valid constraint), unlike
+# `pip freeze` which emits an unusable `-e ...` line.
 FROM rgbmatrix
 WORKDIR /code
 COPY pyproject.toml /code/
-RUN pip install --no-cache-dir -e ".[dev]"
+RUN pip install --no-cache-dir -e ".[dev]" \
+ && pip list --format=freeze > /code/constraints-core.txt
 
-# Layer 2b: external plugins (led_ticker.plugins entry points auto-register at
-# startup). Installed --no-deps on purpose: led-ticker is not on PyPI (it's the
-# editable install above) and the plugins' runtime deps (aiohttp) are already
-# present as app dependencies, so dependency resolution would only fail trying
-# to fetch led-ticker from PyPI. Bump POOL_PLUGIN_CACHE_BUST to pull a newer
-# plugin revision (Docker caches by instruction text, not remote content).
-ARG POOL_PLUGIN_CACHE_BUST=1
-RUN pip install --no-cache-dir --no-deps \
-    "git+https://github.com/JamesAwesome/led-ticker-pool.git@main"
+# Layer 2b: external plugins, declared in config/requirements-plugins.txt
+# (gitignored; copy config/requirements-plugins.example.txt to create it).
+# Installed WITH dependency resolution but constrained to the core versions
+# captured in Layer 2 (-c constraints-core.txt): led-ticker is already installed
+# so it resolves without hitting PyPI, a plugin may pull its own genuinely-new
+# transitive deps, but a plugin that tries to move a core dep fails loudly here
+# at build rather than silently at runtime. Installs the live file only — if it
+# is absent, no plugins are installed (no fallback to the example). The .tx[t]
+# glob is the optional-file trick: it copies the live file if present and is
+# skipped if not; the .example is always present so the COPY always succeeds.
+# Editing the live file invalidates this cached layer and triggers a reinstall.
+COPY config/requirements-plugins.example.txt config/requirements-plugins.tx[t] /code/config/
+RUN if [ -f /code/config/requirements-plugins.txt ]; then \
+        pip install --no-cache-dir -c /code/constraints-core.txt -r /code/config/requirements-plugins.txt; \
+    else \
+        echo "No config/requirements-plugins.txt; skipping plugin install (copy the .example to add plugins)"; \
+    fi
 
 # Layer 3: app source (rebuilds on any code change — but fast, no pip)
 COPY . /code/

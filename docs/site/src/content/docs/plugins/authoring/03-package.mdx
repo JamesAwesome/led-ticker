@@ -58,6 +58,23 @@ You don't need hardware. led-ticker ships a headless graphics stub, and its `tes
   `conftest.py` (the `led-ticker-pool` repo does exactly this).
 </Aside>
 
+Testing in a standalone plugin repo? Add the `canvas` fixture to your own `conftest.py`:
+
+```python
+# conftest.py
+import unittest.mock as mock
+
+import pytest
+
+
+@pytest.fixture
+def canvas():
+    c = mock.Mock()
+    c.width = 160
+    c.height = 16
+    return c
+```
+
 ```python
 import shutil
 from pathlib import Path
@@ -76,6 +93,16 @@ def test_counter_draws(tmp_path, canvas):  # `canvas` fixture = a stub canvas
 ```
 
 This is exactly how the bundled example is tested (`tests/test_plugins/test_example_plugin.py`).
+
+### Preview it as a GIF (no hardware)
+
+Once the package is installed, render any config that uses your widget straight to a GIF:
+
+```bash
+make render-demo CONFIG=path/to/a-config-using-your-widget.toml OUT=preview.gif
+```
+
+`render-demo` runs the real engine, which discovers your installed plugin through its entry point. (A local `config/plugins/` drop-in isn't picked up by `render-demo` — install the package first.)
 
 ## A real packaged plugin
 

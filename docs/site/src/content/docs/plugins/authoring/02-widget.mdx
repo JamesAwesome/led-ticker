@@ -6,6 +6,7 @@ next: false
 ---
 
 import TutorialNav from "../../../../components/TutorialNav.astro";
+import DemoGif from "../../../../components/DemoGif.astro";
 import { Steps, Aside } from "@astrojs/starlight/components";
 
 Now make `example.counter` real. A widget is a class registered with `api.widget`, carrying its config as fields and rendering with a `draw()` method.
@@ -37,6 +38,8 @@ def register(api):
 
 `attrs` is a small library for declarative classes; it ships with led-ticker (no separate install), and `@attrs.define` is what lets the loader read your field names and defaults to build the widget from TOML.
 
+The class lives inside `register()` so the `api` object is in scope when the `@api.widget` decorator runs — treat the `def register(api):` wrapper as boilerplate every plugin has.
+
 Each field is a config key. In TOML:
 
 ```toml
@@ -46,6 +49,8 @@ since = "2024-01-01"
 label = "DAY"
 color = [130, 220, 255]
 ```
+
+That `[[playlist.section.widget]]` block goes inside a playlist section in your `config.toml` — see [Your first config](/tutorial/02-first-config/) for the surrounding structure.
 
 <Aside type="tip" title="Color fields are coerced for you">
   `color` is a known color key, so led-ticker converts an `[r, g, b]` list into a `Color` object
@@ -57,7 +62,7 @@ color = [130, 220, 255]
 
 ## Implement `draw()`
 
-`draw()` paints one frame and returns `(canvas, end_x)` — the canvas and the x-coordinate where your content ends (so the engine can chain widgets):
+`draw()` paints one frame and returns `(canvas, end_x)` — the canvas and the x-coordinate where your content ends (so the engine can chain widgets). A `canvas` is the display surface the engine hands your widget for this frame — you paint onto it (here via `draw_text`) and return it unchanged.
 
 ```python
         def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
@@ -76,9 +81,11 @@ The helpers all come from `led_ticker.plugin`:
 
 <Aside type="note" title="cursor_pos and font_color">
   `cursor_pos` is the x position the engine gives this widget's slot — pass it straight to
-  `draw_text` as the x argument (drawing at a hardcoded `0` breaks scrolling). `font_color` is an
-  optional per-frame color the engine may inject (e.g. a color provider); honor it when your widget
-  should follow a theme. This widget uses its own `color` field instead.
+  `draw_text` as the x argument (drawing at a hardcoded `0` breaks scrolling). The `y` argument to
+  `draw_text` is the text *baseline* — `10` seats a 6×12 line on a 16-row panel; use a larger value
+  on taller panels. `font_color` is an optional per-frame color the engine may inject (e.g. a color
+  provider); honor it when your widget should follow a theme. This widget uses its own `color` field
+  instead.
 </Aside>
 
 The `_days()` helper is plain Python:
@@ -176,6 +183,17 @@ def register(api):
             end_x = draw_text(canvas, font, text, cursor_pos, 10 + y_offset, color)
             return canvas, end_x
 ```
+
+## See it run
+
+Here's `example.counter` on a small panel:
+
+<DemoGif
+  src="/demos/widget-example-counter.gif"
+  caption="example.counter rendering DAY N — days since the configured date, in icy cyan."
+/>
+
+No hardware needed to check your own work: the [test in the next chapter](/plugins/authoring/03-package/) drives `draw()` directly, and once the plugin is packaged you can render a preview GIF (next page).
 
 <TutorialNav
   prev={{ href: "/plugins/authoring/01-scaffold/", title: "Authoring 1: Scaffold & register" }}

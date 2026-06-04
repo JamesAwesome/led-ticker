@@ -49,6 +49,40 @@ Start background work with `spawn_tracked(coro)` from inside `on_startup`, and h
   [`plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md).
 </Aside>
 
+## Going further: a live data widget
+
+The counter is static. Real widgets fetch data on a schedule and render the latest value — what the [pool widget](/plugins/available/) does. The pattern: poll in a startup hook, stash the result, read it in `draw()`:
+
+```python
+import asyncio
+
+import attrs
+from led_ticker.plugin import draw_text, make_color, resolve_font, spawn_tracked
+
+_state = {"value": "—"}
+
+
+def register(api):
+    @api.widget("sensor")
+    @attrs.define
+    class Sensor:
+        def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
+            font = resolve_font("6x12")
+            end_x = draw_text(
+                canvas, font, _state["value"], cursor_pos, 10 + y_offset, make_color(255, 255, 255)
+            )
+            return canvas, end_x
+
+    async def _poll():
+        while True:
+            _state["value"] = await fetch_my_value()  # your API call
+            await asyncio.sleep(60)
+
+    api.on_startup(lambda ctx: spawn_tracked(_poll()))
+```
+
+`spawn_tracked` keeps the background task alive; `on_startup` runs it once before the display loop. See [`acme`](https://github.com/JamesAwesome/led-ticker/blob/main/examples/plugins/acme/__init__.py) for a runnable version and [`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) for a production one.
+
 That's the whole surface. Build something and [add it to the directory](/plugins/available/).
 
 <TutorialNav

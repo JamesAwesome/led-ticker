@@ -1,0 +1,77 @@
+---
+title: "Authoring 3: Package & install"
+description: Turn a local plugin into an installable package, add it to a sign, and test it on your laptop.
+prev: false
+next: false
+---
+
+import TutorialNav from "../../../../components/TutorialNav.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+A local `config/plugins/` file is great while you iterate. To share a plugin or deploy it to a sign, package it.
+
+## Declare an entry point
+
+Add a `pyproject.toml` next to your package and expose `register` under the `led_ticker.plugins` group:
+
+```toml
+[project]
+name = "led-ticker-example"
+version = "0.1.0"
+dependencies = ["led-ticker"]
+
+[project.entry-points."led_ticker.plugins"]
+example = "example:register"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+```
+
+Once the package is installed, led-ticker discovers it automatically — no config change needed.
+
+## Install it on a sign
+
+Add the package to your led-ticker checkout's `config/requirements-plugins.txt` and rebuild. The install flow (the constraint-based build, the gitignored live file) is covered on the [Plugins overview](/plugins/) — in short:
+
+```bash
+cp config/requirements-plugins.example.txt config/requirements-plugins.txt
+# add a line for your package (a PyPI name, or a git URL), then:
+docker compose up -d --build
+```
+
+<Aside type="note" title="led-ticker isn't on PyPI (yet)">
+Plugins are installed `--no-deps`-free but **constrained to core's versions** — a plugin can bring its own deps but can't move led-ticker's. Because led-ticker is already in the image, your `dependencies = ["led-ticker"]` resolves without a PyPI fetch. See the [Plugins overview](/plugins/) for the details.
+</Aside>
+
+## Test it on your laptop
+
+You don't need hardware. led-ticker ships a headless graphics stub, and its `tests/stubs/` has a full matrix stub you can put on the path. A minimal test that loads your plugin and draws once:
+
+```python
+import shutil
+from pathlib import Path
+from led_ticker import _plugin_loader as L
+from led_ticker.widgets import get_widget_class
+
+def test_counter_draws(tmp_path, canvas):  # `canvas` fixture = a stub canvas
+    L.reset_plugins()
+    pdir = tmp_path / "plugins"; pdir.mkdir()
+    shutil.copytree(Path("examples/plugins/example"), pdir / "example")
+    L.load_plugins(pdir, entry_points_enabled=False)
+    widget = get_widget_class("example.counter")(since="2020-01-01")
+    out, end_x = widget.draw(canvas)
+    assert out is canvas
+    L.reset_plugins()
+```
+
+This is exactly how the bundled example is tested (`tests/test_plugins/test_example_plugin.py`).
+
+## A real packaged plugin
+
+[`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) is a complete, published example: a data-fetching widget with its own repo, `pyproject.toml`, CI, and tests. Read it when you're ready to ship something real.
+
+<TutorialNav
+  prev={{ href: "/plugins/authoring/02-widget/", title: "Authoring 2: Build the widget" }}
+  next={{ href: "/plugins/authoring/04-beyond-widgets/", title: "Authoring 4: Beyond widgets" }}
+/>

@@ -1,0 +1,82 @@
+---
+title: "Authoring 1: Scaffold & register"
+description: Create a led-ticker plugin that loads — the register(api) entry point, the two discovery channels, and how to verify it.
+prev: false
+next: false
+---
+
+import TutorialNav from "../../../../components/TutorialNav.astro";
+import { Steps, Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+
+A **plugin** is a small Python package that adds widgets (and more) to led-ticker without changing core. Over these four pages you'll build one — `example.counter`, a widget that shows the number of days since a date — then survey everything else you can contribute.
+
+A plugin is just a module that exposes a `register(api)` function. led-ticker calls it once at startup and hands you an `api` object; you call methods on it to register your contributions.
+
+## The smallest plugin that loads
+
+<Steps>
+
+1. Create a file for your plugin. A plugin can be a single `.py` file or a package directory:
+
+   ```
+   example/
+     __init__.py
+   ```
+
+2. Add a `register(api)` that does nothing yet:
+
+   ```python
+   # example/__init__.py
+   def register(api):
+       pass
+   ```
+
+3. Make led-ticker discover it — two ways:
+
+   <Tabs>
+   <TabItem label="Local (drop-in)">
+   Put the file under your config's plugins directory (default `config/plugins/`):
+
+   ```
+   config/plugins/example/__init__.py
+   ```
+
+   The plugin's **namespace** is its file/dir name — here, `example`.
+   </TabItem>
+   <TabItem label="Packaged (entry point)">
+   Ship it as an installable package declaring a `led_ticker.plugins` entry point (covered in [Package & install](/plugins/authoring/03-package/)):
+
+   ```toml
+   [project.entry-points."led_ticker.plugins"]
+   example = "example:register"
+   ```
+
+   The entry-point **name** (`example`) is the namespace.
+   </TabItem>
+   </Tabs>
+
+4. Verify it loads:
+
+   ```bash
+   led-ticker plugins
+   ```
+
+   Your `example` namespace should appear in the list (with no contributions yet).
+
+</Steps>
+
+## Namespaces
+
+Everything a plugin registers is namespaced by `<plugin>.<name>`, so plugins never collide with core or each other. The widget you build next, registered as `counter`, becomes `example.counter` in config — `type = "example.counter"`.
+
+<Aside type="note" title="API version">
+The plugin API is versioned (`API_VERSION`, currently `1.0`). A plugin can declare the major version it needs with a module-level `requires_api = 1`; led-ticker skips (and logs) a plugin that needs a newer API than it provides.
+</Aside>
+
+<Aside type="caution" title="Import only the public surface">
+Import only from `led_ticker.plugin` (plus `attrs` and the standard library). Anything else under `led_ticker.*` is private and may change without notice. Also: no `from __future__ import annotations` in plugin source — led-ticker runs on Python 3.14 (PEP 649) and the linter rejects it.
+</Aside>
+
+<TutorialNav
+  next={{ href: "/plugins/authoring/02-widget/", title: "Authoring 2: Build the widget" }}
+/>

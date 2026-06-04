@@ -84,6 +84,16 @@ export default defineConfig({
           ],
         },
         {
+          label: "Plugins",
+          items: [
+            { label: "Plugins overview", link: "/plugins/" },
+            {
+              label: "pool (led-ticker-pool)",
+              link: "https://github.com/JamesAwesome/led-ticker-pool#readme",
+            },
+          ],
+        },
+        {
           label: "Transitions",
           items: [{ autogenerate: { directory: "transitions" } }],
         },

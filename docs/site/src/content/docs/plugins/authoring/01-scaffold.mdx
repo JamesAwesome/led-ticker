@@ -8,9 +8,17 @@ next: false
 import TutorialNav from "../../../../components/TutorialNav.astro";
 import { Steps, Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
-A **plugin** is a small Python package that adds widgets (and more) to led-ticker without changing core. Over these four pages you'll build one — `example.counter`, a widget that shows the number of days since a date — then survey everything else you can contribute.
+A **plugin** is a small Python package that adds widgets (and more) to led-ticker without changing core. Over these four pages you'll build one — `example.counter`, a deliberately tiny widget that shows the number of days since a date (no data, no async; real plugins like the [pool widget](/plugins/available/) fetch live data and render richer screens) — then survey everything else you can contribute.
 
 A plugin is just a module that exposes a `register(api)` function. led-ticker calls it once at startup and hands you an `api` object; you call methods on it to register your contributions.
+
+<Aside type="note" title="Before you start">
+  You'll work inside a led-ticker checkout. If you haven't already, clone it and run `make dev` —
+  that installs the project venv and puts the `led-ticker` command on your `PATH`. Your plugins live
+  in `config/plugins/`, next to `config/config.toml`. To run `led-ticker plugins` below: with the
+  venv active, run it directly; under Docker, run `docker compose exec led-ticker led-ticker
+  plugins`.
+</Aside>
 
 ## The smallest plugin that loads
 

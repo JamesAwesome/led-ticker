@@ -10,6 +10,13 @@ import { Steps, Aside } from "@astrojs/starlight/components";
 
 Now make `example.counter` real. A widget is a class registered with `api.widget`, carrying its config as fields and rendering with a `draw()` method.
 
+<Aside type="tip" title="Follow along with the finished file">
+  The complete widget is
+  [`examples/plugins/example/__init__.py`](https://github.com/JamesAwesome/led-ticker/blob/main/examples/plugins/example/__init__.py)
+  (~40 lines). Open it alongside this page — each section below is one piece of that file, and the
+  whole thing is reproduced at the bottom.
+</Aside>
+
 ## Register a widget class
 
 `api.widget(name)` is a decorator. Pair it with `@attrs.define` so led-ticker can inspect your config fields:
@@ -27,6 +34,8 @@ def register(api):
         label: str = "DAY"
         color: Color | None = None
 ```
+
+`attrs` is a small library for declarative classes; it ships with led-ticker (no separate install), and `@attrs.define` is what lets the loader read your field names and defaults to build the widget from TOML.
 
 Each field is a config key. In TOML:
 
@@ -66,9 +75,10 @@ The helpers all come from `led_ticker.plugin`:
 - `draw_text(canvas, font, text, x, y, color)` — draws text (with inline emoji support) and returns the end-x.
 
 <Aside type="note" title="cursor_pos and font_color">
-  `cursor_pos` is the horizontal scroll offset the engine passes in — draw relative to it.
-  `font_color` is an optional per-frame color the engine may inject (e.g. a color provider); honor
-  it when your widget should follow a theme. This widget uses its own `color` field instead.
+  `cursor_pos` is the x position the engine gives this widget's slot — pass it straight to
+  `draw_text` as the x argument (drawing at a hardcoded `0` breaks scrolling). `font_color` is an
+  optional per-frame color the engine may inject (e.g. a color provider); honor it when your widget
+  should follow a theme. This widget uses its own `color` field instead.
 </Aside>
 
 The `_days()` helper is plain Python:
@@ -102,7 +112,70 @@ Add a `validate_config` classmethod to reject bad config _before_ the sign runs 
             return errors
 ```
 
-The complete widget is [`examples/plugins/example/`](https://github.com/JamesAwesome/led-ticker/tree/main/examples/plugins/example) in the repo.
+## The complete widget
+
+Assembled, that's the whole plugin — drop it in `config/plugins/example/__init__.py` (or package it, next page):
+
+```python
+"""Minimal example led-ticker plugin — the worked example for the authoring guide.
+
+Drop `example/` into your `config/plugins/` (local use), or package it with an
+`[project.entry-points."led_ticker.plugins"]  example = "example:register"`
+entry (packaged use), then reference it in TOML as `type = "example.counter"`.
+
+Imports only `led_ticker.plugin` (the public surface) plus `attrs` and stdlib —
+never a private `led_ticker.*` module.
+"""
+
+import datetime as _dt
+
+import attrs
+
+from led_ticker.plugin import Color, draw_text, make_color, resolve_font
+
+
+def register(api):
+    @api.widget("counter")
+    @attrs.define
+    class Counter:
+        """Shows whole days since a configured date, e.g. ``DAY 42``."""
+
+        # Config fields. The loader builds the widget from your TOML, passing
+        # declared keys as constructor kwargs; `@attrs.define` lets it inspect them.
+        since: str = "2020-01-01"
+        label: str = "DAY"
+        # `color` is a known color key: the loader coerces an [r, g, b] list in
+        # TOML into a Color before your widget sees it (None = default white).
+        color: Color | None = None
+
+        @classmethod
+        def validate_config(cls, cfg):
+            """Pre-coercion config check; return a list of human-readable errors."""
+            errors = []
+            since = cfg.get("since")
+            if since is None:
+                errors.append("since is required (a YYYY-MM-DD date)")
+            else:
+                try:
+                    start = _dt.date.fromisoformat(str(since))
+                except ValueError:
+                    errors.append(f"since must be a YYYY-MM-DD date; got {since!r}")
+                else:
+                    if start > _dt.date.today():
+                        errors.append(f"since must not be in the future; got {since!r}")
+            return errors
+
+        def _days(self):
+            return (_dt.date.today() - _dt.date.fromisoformat(self.since)).days
+
+        def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
+            """Render `<label> <N>` onto the canvas; return (canvas, end_x)."""
+            font = resolve_font("6x12")
+            color = self.color if self.color is not None else make_color(255, 255, 255)
+            text = f"{self.label} {self._days()}"
+            end_x = draw_text(canvas, font, text, cursor_pos, 10 + y_offset, color)
+            return canvas, end_x
+```
 
 <TutorialNav
   prev={{ href: "/plugins/authoring/01-scaffold/", title: "Authoring 1: Scaffold & register" }}

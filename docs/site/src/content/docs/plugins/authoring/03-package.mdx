@@ -51,6 +51,13 @@ docker compose up -d --build
 
 You don't need hardware. led-ticker ships a headless graphics stub, and its `tests/stubs/` has a full matrix stub you can put on the path. A minimal test that loads your plugin and draws once:
 
+<Aside type="caution" title="Tests may use internals">
+  Plugin *code* imports only `led_ticker.plugin`, but *tests* are allowed to use led-ticker's
+  internal loader (`led_ticker._plugin_loader`) and the `canvas` fixture from its
+  `tests/conftest.py`. In a standalone plugin repo, copy that small `canvas` fixture into your own
+  `conftest.py` (the `led-ticker-pool` repo does exactly this).
+</Aside>
+
 ```python
 import shutil
 from pathlib import Path
@@ -72,7 +79,7 @@ This is exactly how the bundled example is tested (`tests/test_plugins/test_exam
 
 ## A real packaged plugin
 
-[`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) is a complete, published example: a data-fetching widget with its own repo, `pyproject.toml`, CI, and tests. Read it when you're ready to ship something real.
+[`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) is a complete, published example: a data-fetching widget with its own repo, `pyproject.toml`, CI, and tests. Read it when you're ready to ship something real. Its widget is `example.counter` grown up: swap the date math for an API call and a couple of screens and you have a live data widget.
 
 <TutorialNav
   prev={{ href: "/plugins/authoring/02-widget/", title: "Authoring 2: Build the widget" }}

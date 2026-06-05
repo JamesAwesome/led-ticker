@@ -80,6 +80,13 @@ api.easing("snap", lambda t: 0.0 if t < 0.5 else 1.0)
 | `api.hires_emoji(slug, data)` | call | A hi-res emoji (`HiResEmoji`) for scaled-canvas draws    |
 | `api.font(name, path)`        | call | A font file; `path` is relative to the plugin root       |
 
+<Aside type="caution">
+  Pair every hi-res emoji with a low-res one. led-ticker keeps two emoji registries: inline
+  `:namespace.slug:` tokens and unscaled (small) canvases resolve only through the **low-res**
+  registry. So register a matching `api.emoji(slug, …)` for each `api.hires_emoji` — a hi-res
+  registration with no low-res counterpart logs a warning at load.
+</Aside>
+
 ### Lifecycle hooks
 
 | Method                | Form | Registers                                                                    |
@@ -91,11 +98,9 @@ api.easing("snap", lambda t: 0.0 if t < 0.5 else 1.0)
 {/* <!-- api-methods:end --> */}
 
 <Aside type="caution">
-  Register overlays via `api.overlay` — only these are exception-guarded (a raise disables the hook
-  and is logged, instead of freezing the panel). Appending directly to
-  `StartupContext.frame.overlay_hooks` is **not** guarded. Likewise, a hi-res emoji with no matching
-  `api.emoji(slug, …)` low-res counterpart logs a warning at load, because inline `:namespace.slug:`
-  text and unscaled canvases resolve only through the low-res registry.
+  Register overlays through `api.overlay` — these are exception-guarded: if your paint function
+  raises, led-ticker disables just that overlay and logs it, rather than letting the error freeze
+  the panel.
 </Aside>
 
 ## Exported names

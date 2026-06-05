@@ -12,7 +12,19 @@ A local `config/plugins/` file is great while you iterate. To share a plugin or 
 
 ## Declare an entry point
 
-Add a `pyproject.toml` next to your package and expose `register` under the `led_ticker.plugins` group:
+A packaged plugin is a small project directory — the `pyproject.toml` sits next to your package (not inside `config/plugins/`):
+
+```
+led-ticker-example/
+├── pyproject.toml
+├── example/
+│   └── __init__.py      # your register(api) + widget
+└── tests/
+    ├── conftest.py
+    └── test_example.py
+```
+
+Add a `pyproject.toml` next to your package and expose `register` under the `led_ticker.plugins` group. An **entry point** is metadata Python's packaging records in an installed package; led-ticker reads it at startup (via `importlib.metadata`) to discover plugins with no manual list:
 
 ```toml
 [project]
@@ -54,7 +66,7 @@ You don't need hardware — led-ticker ships a headless graphics stub. Here's a 
 ```python
 import shutil
 from pathlib import Path
-from led_ticker import _plugin_loader as L
+from led_ticker import _plugin_loader as L  # internal loader — fine in tests; plugin code never imports it
 from led_ticker.widgets import get_widget_class
 
 
@@ -95,14 +107,35 @@ def canvas():
 
 ### Preview it as a GIF (no hardware)
 
-`render-demo` runs the real engine, so it only renders _installed_ plugins — a local `config/plugins/` drop-in isn't picked up. While iterating, an editable install is the fast path (no packaging ceremony needed):
+`render-demo` runs the real engine, so it only renders _installed_ plugins — a local `config/plugins/` drop-in isn't picked up. While iterating, an editable install is the fast path. First, a tiny config that uses your widget — save it as `preview.toml`:
+
+```toml
+[display]
+rows = 16
+cols = 32
+chain_length = 2
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 3
+
+[[playlist.section.widget]]
+type = "example.counter"
+since = "2020-01-01"
+label = "DAY"
+color = [130, 220, 255]
+bg_color = [10, 10, 40]
+```
+
+Then install your plugin and render it — no hardware required (run these in the same venv `make dev` created):
 
 ```bash
 pip install -e .          # once, from your plugin directory (uses your pyproject.toml above)
-make render-demo CONFIG=path/to/a-config-using-your-widget.toml OUT=preview.gif
+make render-demo CONFIG=preview.toml OUT=preview.gif   # preview.gif lands in your working directory
 ```
 
-`render-demo` then discovers your plugin through its entry point and renders the config straight to a GIF.
+`render-demo` discovers your plugin through its entry point and renders the config straight to a GIF.
 
 ## A real packaged plugin
 

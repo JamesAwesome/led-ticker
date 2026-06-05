@@ -23,7 +23,7 @@ def register(api):
 
         # Config fields. The loader builds the widget from your TOML, passing
         # declared keys as constructor kwargs; `@attrs.define` lets it inspect them.
-        since: str = "2020-01-01"
+        since: str  # required — a YYYY-MM-DD date (validate_config enforces it)
         label: str = "DAY"
         # `color` is a known color key: the loader coerces an [r, g, b] list in
         # TOML into a Color before your widget sees it (None = default white).

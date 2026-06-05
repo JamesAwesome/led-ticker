@@ -25,7 +25,7 @@ Subclass the matching base (`ColorProviderBase`, `BorderEffectBase`) or implemen
 
 ```python
 api.easing("snap", lambda p: p * p)                 # an easing curve (0..1 -> 0..1)
-api.emoji("spark", [(x, y, r, g, b), ...])          # an 8x8 inline emoji, used as :example.spark:
+api.emoji("spark", [(x, y, r, g, b), ...])          # 8x8 emoji: one (x, y, r, g, b) tuple per lit pixel; use as :example.spark:
 api.hires_emoji("spark", HiResEmoji(...))           # hi-res variant (pair it with a low-res one)
 api.font("Brand", "fonts/Brand.ttf")                # a bundled font file, usable as font = "example.Brand"
 ```
@@ -35,7 +35,7 @@ api.font("Brand", "fonts/Brand.ttf")                # a bundled font file, usabl
 Hooks let a plugin run code around the display loop — for example, poll an API in the background and paint a status dot over every frame:
 
 ```python
-api.overlay(paint)            # paint(canvas) runs every frame (exception-guarded)
+api.overlay(paint)            # paint(canvas) runs every frame; if it raises, the engine logs it (no crash)
 api.on_startup(on_startup)    # on_startup(ctx: StartupContext) runs once before the loop (sync or async)
 api.on_shutdown(cleanup)      # runs once at exit
 ```
@@ -82,8 +82,9 @@ def register(api):
                     _state["value"] = str((await resp.json())["value"])  # stash the latest reading
                 await asyncio.sleep(60)  # pause 60s (yields to the display loop) before refetching
 
-    # on_startup runs once before the display loop; spawn_tracked launches the
-    # poller as a background task and keeps a reference so it isn't garbage-collected.
+    # on_startup runs once before the display loop; spawn_tracked launches the poller
+    # as a background task (use it instead of asyncio.create_task — the engine keeps a
+    # reference so the task isn't garbage-collected and logs it if it crashes).
     api.on_startup(lambda ctx: spawn_tracked(_poll()))
 ```
 

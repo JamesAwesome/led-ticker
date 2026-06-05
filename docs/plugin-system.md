@@ -13,6 +13,8 @@ Core invariant: **a plugin imports ONLY `led_ticker.plugin`.** Everything else u
 
 ## 2. The `register(api)` contract
 
+> The canonical, reader-facing version of this contract and the full public surface now lives on the docs site: **[Plugin API reference](https://docs.ledticker.dev/plugins/api-reference/)**. This file keeps the loader-internal and deployment detail below.
+
 A plugin is a module (or package `__init__.py`) exposing one top-level function:
 
 ```python
@@ -37,44 +39,13 @@ def register(api):
 
 ## 3. The public surface (`led_ticker.plugin`)
 
-`API_VERSION = (1, 0)`.
-
-### Registry-surface methods on `PluginAPI`
-Class surfaces are **decorators**; non-class surfaces are **direct calls**.
-
-| Method | Form | Registers | TOML reference |
-|---|---|---|---|
-| `api.widget(name)` | decorator | a widget class | `type = "ns.name"` |
-| `api.transition(name)` | decorator | a transition class | `transition = "ns.name"` or `{type="ns.name", ...}` |
-| `api.color_provider(style)` | decorator | a `ColorProvider` | `font_color = {style="ns.style", ...}` |
-| `api.animation(style)` | decorator | an `Animation` | `animation = {style="ns.style", ...}` |
-| `api.border(name)` | decorator | a `BorderEffect` | `border = "ns.name"` or `{style="ns.name", ...}` |
-| `api.easing(name, fn)` | direct call | an easing `Callable[[float], float]` | `easing = "ns.name"` |
-| `api.emoji(slug, data)` | direct call | a lo-res `PixelData` | inline `:ns.slug:` |
-| `api.hires_emoji(slug, data)` | direct call | a `HiResEmoji` | inline `:ns.slug:` (scaled canvas) |
-| `api.font(name, path)` | direct call | a font file (path rel. to plugin root) | `font = "ns.name"` |
-
-### Lifecycle-hook methods on `PluginAPI` (all direct calls)
-| Method | Runs |
-|---|---|
-| `api.overlay(paint)` | `paint(canvas)` every frame before the hardware swap (like the built-in busy-light). Exception-guarded: a raise disables the hook + logs once (does NOT freeze the panel). |
-| `api.on_startup(fn)` | once, after the frame + session exist, before the main loop. Receives `StartupContext`; sync or async. |
-| `api.on_shutdown(fn)` | best-effort when the run loop exits (its `finally`). No args; sync or async. |
-
-### Re-exported types / helpers (the stable annotate/subclass surface)
-`__all__`:
-`API_VERSION, PluginAPI, Animation, AnimationFrame, BorderEffect, BorderEffectBase, Canvas, Color, Container, DrawResult, ColorProvider, ColorProviderBase, Font, HiResEmoji, HiresFont, PixelData, SegmentMessage, StartupContext, Transition, TwoRowMessage, Updatable, Widget, colors, compute_baseline, draw_emoji_at, draw_text, get_text_width, make_color, measure_emoji_at, resolve_font, run_monitor_loop, spawn_tracked`
-
-Key helpers:
-- `make_color(r, g, b) -> Color` — build a Color (0–255) without importing rgbmatrix.
-- `resolve_font(name, size=None, threshold=None) -> Font | HiresFont` — BDF alias (`"6x12"`, `"5x8"`, `"7x13"`, `"6x10"`) or a hi-res TTF/OTF (size required); also resolves a plugin's own `ns.name` font.
-- `draw_text(canvas, font, text, x, y, color) -> int` — draw text (inline `:emoji:` works); returns the absolute end-x for chaining. For overlays/any canvas. (No width clamping.)
-- `draw_emoji_at(canvas, slug, x, ...)`, `measure_emoji_at(canvas, slug, ...)` — render/measure a registered emoji.
-- `compute_baseline(font, canvas, valign="center")`, `get_text_width(font, text, padding=6, canvas=None)` — text layout helpers.
-- `spawn_tracked(coro) -> asyncio.Task` — `create_task` + a strong ref so the loop doesn't GC a rootless task. **Pass a coroutine** (`spawn_tracked(poll())` where `poll` is `async def`). The canonical "service plugin" pattern.
-- `colors` — the `led_ticker.colors` module (named constants like `colors.BLUE`, `colors.RGB_WHITE`).
-
-`Canvas`/`Color`/`Font` are `Any`-typed aliases (the rgbmatrix C-extension has no stubs) — annotate with them; the docstrings name the real runtime shapes.
+The complete catalog — every registration method, the `__all__` exports, and
+the authoring conventions — is the canonical
+[Plugin API reference](https://docs.ledticker.dev/plugins/api-reference/) on
+the docs site (guarded against drift by
+`tests/test_docs_plugin_api_drift.py`). Sections 4–11 below cover what that
+page intentionally omits: deeper authoring patterns, loader internals,
+deployment, and known edges.
 
 ## 4. Widget authoring patterns
 
@@ -131,48 +102,12 @@ async def start(cls, session, update_interval=300, **kwargs):
 
 ## 5. Non-widget surface contracts (minimal shapes)
 
-```python
-# Transition — renders TO `canvas` (the engine IGNORES the return value).
-@api.transition("swoosh")
-class Swoosh:
-    min_frames = 0
-    def __init__(self, threshold=0.5):          # config: {type="ns.swoosh", threshold=0.3}
-        self.threshold = threshold
-    def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
-        (incoming if t >= self.threshold else outgoing).draw(canvas, cursor_pos=0)
-        return canvas
-
-# Color provider — color_for(frame, char_index, total_chars). per_char + frame_invariant flags.
-@api.color_provider("fire")
-class Fire(ColorProviderBase):
-    per_char = False
-    frame_invariant = True
-    def __init__(self, intensity=128):          # config: {style="ns.fire", intensity=200}
-        self.intensity = intensity
-    def color_for(self, frame, char_index, total_chars):
-        return make_color(self.intensity, self.intensity // 3, 0)
-
-# Animation — frame_for(frame, full_text, canvas_width, text_width) -> AnimationFrame.
-@api.animation("scramble")
-class Scramble:
-    def frame_for(self, frame, full_text, canvas_width, text_width):
-        return AnimationFrame(visible_text=full_text)
-
-# Border — paint(canvas, frame_count) -> None (mutates the canvas in place).
-@api.border("neon")
-class Neon(BorderEffectBase):
-    frame_invariant = False
-    def paint(self, canvas, frame_count):
-        ...   # returns None
-
-# Easing / emoji / font — direct calls.
-api.easing("snap", lambda p: p * p)
-api.emoji("spark", [(x, y, 255, 200, 0) for x in range(8) for y in range(8)])
-api.hires_emoji("glow", HiResEmoji(pixels=(...), physical_size=16))   # pair a lo-res emoji of the same slug
-api.font("Brand", "fonts/Brand.ttf")           # path relative to the plugin root
-```
-
-**Plugin styles get clean errors:** provider/animation/border/transition kwargs are validated against the class `__init__` — an unknown or missing-required key raises a `ValueError` (not a raw `TypeError`), surfaced at `led-ticker validate` time (transition bad-kwargs = validation rule 53).
+The minimal class shapes for transitions, color providers, animations,
+borders, easings, emojis, and fonts are listed on the
+[Plugin API reference](https://docs.ledticker.dev/plugins/api-reference/)
+(each with the method it must implement). Worked, build-it-up examples of a
+custom transition and color provider are the subject of the forthcoming
+extension authoring walkthroughs.
 
 ## 6. Lifecycle hooks (the "service plugin" pillar)
 

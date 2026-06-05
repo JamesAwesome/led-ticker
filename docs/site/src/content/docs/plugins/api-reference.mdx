@@ -43,7 +43,7 @@ Two rules govern every registration:
 
 ## Registration methods
 
-`PluginAPI` exposes twelve registration methods. The **decorator** forms register a class; the **call** forms register a value directly.
+`PluginAPI` exposes twelve registration methods. The **decorator** forms register a class; the **call** forms register a value directly. Several examples below draw onto a **canvas** — the pixel grid for the current frame (the [`Canvas`](#exported-names) type, listed under Exported names).
 
 {/* <!-- api-methods:start --> */}
 
@@ -143,18 +143,18 @@ Everything importable from `led_ticker.plugin`. Subclass or annotate against the
 
 ### Helpers
 
-| Name                                         | What it is                                                |
-| -------------------------------------------- | --------------------------------------------------------- |
-| `make_color(r, g, b)`                        | Build a `Color` from RGB components (0–255)               |
-| `draw_text(canvas, font, text, x, y, color)` | Draw text (inline `:emoji:` included); returns the next x |
-| `get_text_width(font, text)`                 | Pixel width of `text` in `font`                           |
-| `compute_baseline(font, ...)`                | The baseline y for a font                                 |
-| `resolve_font(name, ...)`                    | Resolve a font by name (bundled, plugin, or BDF)          |
-| `draw_emoji_at(canvas, slug, x, y)`          | Draw a registered emoji at a position                     |
-| `measure_emoji_at(canvas, slug)`             | Measure a registered emoji                                |
-| `colors`                                     | The built-in named-color module                           |
-| `run_monitor_loop(widget, interval)`         | The periodic-refresh loop for a monitor widget            |
-| `spawn_tracked(coro)`                        | Spawn a tracked background task from a `start()` / hook   |
+| Name                                         | What it is                                                           |
+| -------------------------------------------- | -------------------------------------------------------------------- |
+| `make_color(r, g, b)`                        | Build a `Color` from RGB components (0–255)                          |
+| `draw_text(canvas, font, text, x, y, color)` | Draw text (inline `:emoji:` included); returns the next x            |
+| `get_text_width(font, text)`                 | Pixel width of `text` in `font`                                      |
+| `compute_baseline(font, ...)`                | The baseline y for a font                                            |
+| `resolve_font(name, ...)`                    | Resolve a font by name (bundled, plugin, or [BDF](/concepts/fonts/)) |
+| `draw_emoji_at(canvas, slug, x, y)`          | Draw a registered emoji at a position                                |
+| `measure_emoji_at(canvas, slug)`             | Measure a registered emoji                                           |
+| `colors`                                     | The built-in named-color module                                      |
+| `run_monitor_loop(widget, interval)`         | The periodic-refresh loop for a monitor widget                       |
+| `spawn_tracked(coro)`                        | Spawn a tracked background task from a `start()` / hook              |
 
 {/* <!-- api-exports:end --> */}
 

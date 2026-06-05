@@ -50,3 +50,15 @@ def test_draw_returns_canvas_and_end_x(counter_cls, canvas):
     out, end_x = w.draw(canvas)
     assert out is canvas
     assert isinstance(end_x, int)
+
+
+def test_bg_color_fills_the_canvas(counter_cls, canvas):
+    from led_ticker.plugin import make_color
+
+    counter_cls(since="2020-01-01", bg_color=make_color(10, 20, 30)).draw(canvas)
+    canvas.Fill.assert_called_once_with(10, 20, 30)
+
+
+def test_no_bg_color_leaves_canvas_unfilled(counter_cls, canvas):
+    counter_cls(since="2020-01-01").draw(canvas)
+    canvas.Fill.assert_not_called()

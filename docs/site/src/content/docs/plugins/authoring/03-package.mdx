@@ -68,12 +68,6 @@ def test_counter_draws(tmp_path, canvas):  # `canvas` fixture = a stub canvas
     L.reset_plugins()
 ```
 
-<Aside type="caution" title="Tests may use internals">
-  Plugin *code* imports only `led_ticker.plugin`, but *tests* are allowed to use led-ticker's
-  internal loader (`led_ticker._plugin_loader`) and the `canvas` fixture from its
-  `tests/conftest.py`.
-</Aside>
-
 For a plugin in its **own** repo, point `copytree` at your own package directory instead, and add the `canvas` fixture to your `conftest.py` (the `led-ticker-pool` repo does exactly this):
 
 ```python

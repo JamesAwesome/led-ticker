@@ -28,6 +28,9 @@ def register(api):
         # `color` is a known color key: the loader coerces an [r, g, b] list in
         # TOML into a Color before your widget sees it (None = default white).
         color: Color | None = None
+        # `bg_color` is also a raw color key. Paint it behind the text with the
+        # canvas's own Fill() (None = leave the background untouched).
+        bg_color: Color | None = None
 
         @classmethod
         def validate_config(cls, cfg):
@@ -51,6 +54,8 @@ def register(api):
 
         def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
             """Render `<label> <N>` onto the canvas; return (canvas, end_x)."""
+            if self.bg_color is not None:
+                canvas.Fill(self.bg_color.red, self.bg_color.green, self.bg_color.blue)
             font = resolve_font("6x12")
             color = self.color if self.color is not None else make_color(255, 255, 255)
             text = f"{self.label} {self._days()}"

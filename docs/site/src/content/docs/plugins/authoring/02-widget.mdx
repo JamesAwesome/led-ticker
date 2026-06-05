@@ -33,6 +33,7 @@ def register(api):
         since: str = "2020-01-01"
         label: str = "DAY"
         color: Color | None = None
+        bg_color: Color | None = None
 ```
 
 `attrs` is a small library for declarative classes; it ships with led-ticker (no separate install), and `@attrs.define` is what lets the loader read your field names and defaults to build the widget from TOML.
@@ -47,6 +48,7 @@ type = "example.counter"
 since = "2024-01-01"
 label = "DAY"
 color = [130, 220, 255]
+bg_color = [10, 10, 40]
 ```
 
 That `[[playlist.section.widget]]` block goes inside a playlist section in your `config.toml` — see [Your first config](/tutorial/02-first-config/) for the surrounding structure.
@@ -67,6 +69,8 @@ That `[[playlist.section.widget]]` block goes inside a playlist section in your 
 
 ```python
         def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
+            if self.bg_color is not None:
+                canvas.Fill(self.bg_color.red, self.bg_color.green, self.bg_color.blue)
             font = resolve_font("6x12")
             color = self.color if self.color is not None else make_color(255, 255, 255)
             text = f"{self.label} {self._days()}"
@@ -79,6 +83,8 @@ The helpers all come from `led_ticker.plugin`:
 - `resolve_font("6x12")` — a bundled BDF font (or a hi-res name + size).
 - `make_color(r, g, b)` — a `Color` without importing the matrix library.
 - `draw_text(canvas, font, text, x, y, color)` — draws text (with inline emoji support) and returns the end-x.
+
+To paint a **background**, call the canvas's own `canvas.Fill(r, g, b)` before your text. `bg_color` is a raw `Color`, so `self.bg_color.red` / `.green` / `.blue` give the channels (that's the `bg_color = [10, 10, 40]` in the TOML above). Leave `bg_color` unset and the widget just draws over whatever's already on the canvas.
 
 <Aside type="note" title="cursor_pos and font_color">
   `cursor_pos` is the x position the engine gives this widget's slot — pass it straight to
@@ -155,6 +161,9 @@ def register(api):
         # `color` is a known color key: the loader coerces an [r, g, b] list in
         # TOML into a Color before your widget sees it (None = default white).
         color: Color | None = None
+        # `bg_color` is also a raw color key. Paint it behind the text with the
+        # canvas's own Fill() (None = leave the background untouched).
+        bg_color: Color | None = None
 
         @classmethod
         def validate_config(cls, cfg):
@@ -178,6 +187,8 @@ def register(api):
 
         def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
             """Render `<label> <N>` onto the canvas; return (canvas, end_x)."""
+            if self.bg_color is not None:
+                canvas.Fill(self.bg_color.red, self.bg_color.green, self.bg_color.blue)
             font = resolve_font("6x12")
             color = self.color if self.color is not None else make_color(255, 255, 255)
             text = f"{self.label} {self._days()}"

@@ -4,6 +4,8 @@ Guidance for Claude Code when working in this repository.
 
 User-facing prose for every feature mentioned in this file lives on the docs site at <https://docs.ledticker.dev>. This file keeps only the **load-bearing invariants** the assistant must respect when generating or modifying code, plus navigation aids (commands, file map, contributor flows). When this file links to a docs page, the link is the source of truth for "how the feature works"; the surrounding paragraph here is the source of truth for "how to keep it working."
 
+When writing or changing docs-site pages, follow `docs/DOCS-STYLE.md` — the style guide and per-page review rubric for all docs work.
+
 ## Project Overview
 
 **led-ticker** is an asyncio Python toolkit that drives RGB LED matrix panels from a Raspberry Pi via a TOML config. Two reference builds share one codebase and one Docker image (the rgbmatrix library detects the SoC at runtime):

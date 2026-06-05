@@ -88,6 +88,7 @@ export default defineConfig({
           items: [
             { label: "Plugins overview", link: "/plugins/" },
             { label: "Available plugins", link: "/plugins/available/" },
+            { label: "API reference", link: "/plugins/api-reference/" },
             {
               label: "Authoring a plugin",
               items: [

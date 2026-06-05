@@ -1,0 +1,147 @@
+---
+title: "Authoring 3: Package & install"
+description: Turn a local plugin into an installable package, add it to a sign, and test it locally.
+prev: false
+next: false
+---
+
+import TutorialNav from "../../../../components/TutorialNav.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+A local `config/plugins/` file is great while you iterate. To share a plugin or deploy it to a sign, package it.
+
+## Declare an entry point
+
+A packaged plugin is a small project directory — the `pyproject.toml` sits next to your package (not inside `config/plugins/`):
+
+```
+led-ticker-example/
+├── pyproject.toml
+├── example/
+│   └── __init__.py      # your register(api) + widget
+└── tests/
+    ├── conftest.py
+    └── test_example.py
+```
+
+Add a `pyproject.toml` next to your package and expose `register` under the `led_ticker.plugins` group. An **entry point** is metadata Python's packaging records in an installed package; led-ticker reads it at startup (via `importlib.metadata`) to discover plugins with no manual list:
+
+```toml
+[project]
+name = "led-ticker-example"
+version = "0.1.0"
+dependencies = ["led-ticker"]
+
+[project.entry-points."led_ticker.plugins"]
+example = "example:register"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+```
+
+Once the package is installed, led-ticker discovers it automatically — no config change needed.
+
+## Install it on a sign
+
+Add the package to your led-ticker checkout's `config/requirements-plugins.txt` and rebuild. The install flow (the constraint-based build, the gitignored live file) is covered on the [Plugins overview](/plugins/) — in short:
+
+```bash
+cp config/requirements-plugins.example.txt config/requirements-plugins.txt
+# add a line for your package (a PyPI name, or a git URL), then:
+docker compose up -d --build
+```
+
+<Aside type="note" title="led-ticker isn't on PyPI">
+  Plugins install alongside core's pinned dependencies — a plugin can add its own libraries but
+  can't move a version core already pins. Because led-ticker is already in the image, your
+  `dependencies = ["led-ticker"]` resolves without a PyPI fetch. See the [Plugins
+  overview](/plugins/) for the details.
+</Aside>
+
+## Test it locally
+
+You don't need hardware — led-ticker ships a headless graphics stub. Here's a minimal test that loads your plugin and draws once; it's how the bundled example is tested (`tests/test_plugins/test_example_plugin.py`):
+
+```python
+import shutil
+from pathlib import Path
+from led_ticker import _plugin_loader as L  # internal loader — fine in tests; plugin code never imports it
+from led_ticker.widgets import get_widget_class
+
+
+# `tmp_path` is a throwaway directory pytest creates per test; `canvas` is the
+# stub canvas fixture (defined below).
+def test_counter_draws(tmp_path, canvas):
+    L.reset_plugins()  # clear any plugins a previous test left registered
+    pdir = tmp_path / "plugins"
+    pdir.mkdir()
+    # shutil.copytree recursively copies a directory tree; here it drops the
+    # plugin package into a temp plugins/ dir so the loader can discover it.
+    shutil.copytree(Path("examples/plugins/example"), pdir / "example")
+    L.load_plugins(pdir, entry_points_enabled=False)  # load from that dir (not installed packages)
+    widget = get_widget_class("example.counter")(since="2020-01-01")  # look up the class, build one
+    out, end_x = widget.draw(canvas)  # render a single frame onto the stub canvas
+    assert out is canvas
+    L.reset_plugins()  # leave the registry clean for the next test
+```
+
+For a plugin in its **own** repo, point `copytree` at your own package directory instead, and add the `canvas` fixture to your `conftest.py` (the `led-ticker-pool` repo does exactly this):
+
+```python
+# conftest.py — pytest auto-discovers fixtures defined in this file
+import unittest.mock as mock
+
+import pytest
+
+
+@pytest.fixture
+def canvas():
+    # draw() only calls methods on the canvas, so a Mock with width/height is
+    # enough to exercise it off-hardware (no real LED matrix needed).
+    c = mock.Mock()
+    c.width = 160
+    c.height = 16
+    return c
+```
+
+### Preview it as a GIF (no hardware)
+
+`render-demo` runs the real engine, so it only renders _installed_ plugins — a local `config/plugins/` drop-in isn't picked up. While iterating, an editable install is the fast path. First, a tiny config that uses your widget — save it as `preview.toml`:
+
+```toml
+[display]
+rows = 16
+cols = 32
+chain_length = 2
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 3
+
+[[playlist.section.widget]]
+type = "example.counter"
+since = "2020-01-01"
+label = "DAY"
+color = [130, 220, 255]
+bg_color = [10, 10, 40]
+```
+
+Then install your plugin and render it — no hardware required (run these in the same venv `make dev` created):
+
+```bash
+pip install -e .          # once, from your plugin directory (uses your pyproject.toml above)
+make render-demo CONFIG=preview.toml OUT=preview.gif   # preview.gif lands in your working directory
+```
+
+`render-demo` discovers your plugin through its entry point and renders the config straight to a GIF.
+
+## A real packaged plugin
+
+[`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) is a complete, published example: a data-fetching widget with its own repo, `pyproject.toml`, CI, and tests. Read it when you're ready to ship something real. Its widget is `example.counter` grown up: swap the date math for an API call and a couple of screens and you have a live data widget.
+
+<TutorialNav
+  prev={{ href: "/plugins/authoring/02-widget/", title: "Authoring 2: Build the widget" }}
+  next={{ href: "/plugins/authoring/04-beyond-widgets/", title: "Authoring 4: Beyond widgets" }}
+/>

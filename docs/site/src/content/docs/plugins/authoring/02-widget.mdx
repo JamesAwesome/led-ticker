@@ -1,0 +1,206 @@
+---
+title: "Authoring 2: Build the widget"
+description: Register a widget, declare its config fields, implement draw(), and validate config — the full Counter widget.
+prev: false
+next: false
+---
+
+import TutorialNav from "../../../../components/TutorialNav.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+Now make `example.counter` real. A widget is a class registered with `api.widget`, carrying its config as fields and rendering with a `draw()` method.
+
+<Aside type="tip" title="Follow along with the finished file">
+  The complete widget is
+  [`examples/plugins/example/__init__.py`](https://github.com/JamesAwesome/led-ticker/blob/main/examples/plugins/example/__init__.py)
+  (~40 lines). Open it alongside this page — each section below is one piece of that file, and the
+  whole thing is reproduced at the bottom.
+</Aside>
+
+## Register a widget class
+
+`api.widget(name)` is a decorator. Pair it with `@attrs.define` so led-ticker can inspect your config fields:
+
+```python
+import attrs
+from led_ticker.plugin import Color, draw_text, make_color, resolve_font
+
+
+def register(api):
+    @api.widget("counter")
+    @attrs.define
+    class Counter:
+        since: str
+        label: str = "DAY"
+        color: Color | None = None
+        bg_color: Color | None = None
+```
+
+`attrs` is a small library for declarative classes; it ships with led-ticker (no separate install), and `@attrs.define` is what lets the loader read your field names and defaults to build the widget from TOML.
+
+The class lives inside `register()` so the `api` object is in scope when the `@api.widget` decorator runs — treat the `def register(api):` wrapper as boilerplate every plugin has.
+
+Each field is a config key. In TOML:
+
+```toml
+[[playlist.section.widget]]
+type = "example.counter"
+since = "2024-01-01"
+label = "DAY"
+color = [130, 220, 255]
+bg_color = [10, 10, 40]
+```
+
+That `[[playlist.section.widget]]` block goes inside a playlist section in your `config.toml` — see [Your first config](/tutorial/02-first-config/) for the surrounding structure.
+
+<Aside type="tip" title="Color fields are coerced for you">
+  `color` is a known color key, so led-ticker converts an `[r, g, b]` list into a `Color` object
+  before constructing your widget — `self.color` is already a `Color` (or `None`). `bg_color` works
+  the same way. `font_color` — the standard text-color key — is different: it coerces to a _color
+  provider_, an object with a `color_for(...)` method that can yield a constant color, a rainbow, a
+  gradient, and more. So a widget that declares a `font_color` field reads
+  `self.font_color.color_for(...)` rather than treating it as a plain `Color`. See [Color
+  providers](/concepts/color-providers/) for the full list and how config maps to each.
+</Aside>
+
+## Implement `draw()`
+
+`draw()` paints one frame and returns `(canvas, end_x)` — the canvas and the x-coordinate where your content ends (so the engine can chain widgets). A `canvas` is the display surface the engine hands your widget for this frame — you paint onto it (here via `draw_text`) and return it unchanged.
+
+```python
+        def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
+            if self.bg_color is not None:
+                canvas.Fill(self.bg_color.red, self.bg_color.green, self.bg_color.blue)
+            font = resolve_font("6x12")
+            color = self.color if self.color is not None else make_color(255, 255, 255)
+            text = f"{self.label} {self._days()}"
+            end_x = draw_text(canvas, font, text, cursor_pos, 10 + y_offset, color)
+            return canvas, end_x
+```
+
+The helpers all come from `led_ticker.plugin`:
+
+- `resolve_font("6x12")` — a bundled BDF font (or a hi-res name + size).
+- `make_color(r, g, b)` — a `Color` without importing the matrix library.
+- `draw_text(canvas, font, text, x, y, color)` — draws text (with inline emoji support) and returns the end-x.
+
+To paint a **background**, call the canvas's own `canvas.Fill(r, g, b)` before your text. `bg_color` is a raw `Color`, so `self.bg_color.red` / `.green` / `.blue` give the channels (that's the `bg_color = [10, 10, 40]` in the TOML above). Leave `bg_color` unset and the widget just draws over whatever's already on the canvas.
+
+<Aside type="note" title="cursor_pos and font_color">
+  `cursor_pos` is the x position the engine gives this widget's slot — pass it straight to
+  `draw_text` as the x argument (drawing at a hardcoded `0` breaks scrolling). The `y` argument to
+  `draw_text` is the text *baseline* — `10` seats a 6×12 line on a 16-row panel; use a larger value
+  on taller panels. `font_color` is an optional per-frame color the engine may inject (e.g. a color
+  provider); honor it when your widget should follow a theme. This widget uses its own `color` field
+  instead.
+</Aside>
+
+The `_days()` helper is plain Python:
+
+```python
+import datetime as _dt
+# ...
+        def _days(self):
+            return (_dt.date.today() - _dt.date.fromisoformat(self.since)).days
+```
+
+## Validate config
+
+Add a `validate_config` classmethod to reject bad config _before_ the sign runs (it shows up in `led-ticker validate`). It receives the raw, pre-coercion config and returns a list of error strings:
+
+```python
+        @classmethod
+        def validate_config(cls, cfg):
+            errors = []
+            since = cfg.get("since")
+            if since is None:
+                errors.append("since is required (a YYYY-MM-DD date)")
+            else:
+                try:
+                    start = _dt.date.fromisoformat(str(since))
+                except ValueError:
+                    errors.append(f"since must be a YYYY-MM-DD date; got {since!r}")
+                else:
+                    if start > _dt.date.today():
+                        errors.append(f"since must not be in the future; got {since!r}")
+            return errors
+```
+
+## The complete widget
+
+Assembled, that's the whole plugin — drop it in `config/plugins/example/__init__.py` (or package it, next page):
+
+```python
+"""Minimal example led-ticker plugin — the worked example for the authoring guide.
+
+Drop `example/` into your `config/plugins/` (local use), or package it with an
+`[project.entry-points."led_ticker.plugins"]  example = "example:register"`
+entry (packaged use), then reference it in TOML as `type = "example.counter"`.
+
+Imports only `led_ticker.plugin` (the public surface) plus `attrs` and stdlib —
+never a private `led_ticker.*` module.
+"""
+
+import datetime as _dt
+
+import attrs
+
+from led_ticker.plugin import Color, draw_text, make_color, resolve_font
+
+
+def register(api):
+    @api.widget("counter")
+    @attrs.define
+    class Counter:
+        """Shows whole days since a configured date, e.g. ``DAY 42``."""
+
+        # Config fields. The loader builds the widget from your TOML, passing
+        # declared keys as constructor kwargs; `@attrs.define` lets it inspect them.
+        since: str  # required — a YYYY-MM-DD date (validate_config enforces it)
+        label: str = "DAY"
+        # `color` is a known color key: the loader coerces an [r, g, b] list in
+        # TOML into a Color before your widget sees it (None = default white).
+        color: Color | None = None
+        # `bg_color` is also a raw color key. Paint it behind the text with the
+        # canvas's own Fill() (None = leave the background untouched).
+        bg_color: Color | None = None
+
+        @classmethod
+        def validate_config(cls, cfg):
+            """Pre-coercion config check; return a list of human-readable errors."""
+            errors = []
+            since = cfg.get("since")
+            if since is None:
+                errors.append("since is required (a YYYY-MM-DD date)")
+            else:
+                try:
+                    start = _dt.date.fromisoformat(str(since))
+                except ValueError:
+                    errors.append(f"since must be a YYYY-MM-DD date; got {since!r}")
+                else:
+                    if start > _dt.date.today():
+                        errors.append(f"since must not be in the future; got {since!r}")
+            return errors
+
+        def _days(self):
+            return (_dt.date.today() - _dt.date.fromisoformat(self.since)).days
+
+        def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
+            """Render `<label> <N>` onto the canvas; return (canvas, end_x)."""
+            if self.bg_color is not None:
+                canvas.Fill(self.bg_color.red, self.bg_color.green, self.bg_color.blue)
+            font = resolve_font("6x12")
+            color = self.color if self.color is not None else make_color(255, 255, 255)
+            text = f"{self.label} {self._days()}"
+            end_x = draw_text(canvas, font, text, cursor_pos, 10 + y_offset, color)
+            return canvas, end_x
+```
+
+## See it run
+
+You don't need hardware to check your work — the [test in the next chapter](/plugins/authoring/03-package/) drives `draw()` directly, and once the plugin is packaged you can render a preview GIF (next page). That preview is how the `DAY 2346` panel at the top of the guide was made.
+
+<TutorialNav
+  prev={{ href: "/plugins/authoring/01-scaffold/", title: "Authoring 1: Scaffold & register" }}
+  next={{ href: "/plugins/authoring/03-package/", title: "Authoring 3: Package & install" }}
+/>

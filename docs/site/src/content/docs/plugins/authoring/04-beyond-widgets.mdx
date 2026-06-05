@@ -1,0 +1,97 @@
+---
+title: "Authoring 4: Beyond widgets"
+description: A map of the other plugin surfaces — transitions, color providers, animations, borders, easings, emoji, fonts, and lifecycle hooks.
+prev: false
+next: false
+---
+
+import TutorialNav from "../../../../components/TutorialNav.astro";
+import { Aside } from "@astrojs/starlight/components";
+
+Widgets are the most common contribution, but `api` registers a lot more. Each call below namespaces under your plugin (`example.<name>`). The reference plugin [`examples/plugins/acme/`](https://github.com/JamesAwesome/led-ticker/blob/main/examples/plugins/acme/__init__.py) exercises every one of these in ~100 lines; the full contracts are in [`plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md).
+
+## Render surfaces (decorate a class)
+
+```python
+@api.transition("swoosh")          # a Transition: frame_at(t, canvas, outgoing, incoming)
+@api.color_provider("fire")        # a ColorProvider: color_for(frame, char_index, total)
+@api.animation("scramble")         # an Animation: frame_for(frame, text, width, text_width)
+@api.border("neon")                # a BorderEffect: paint(canvas, frame_count)
+```
+
+Subclass the matching base (`ColorProviderBase`, `BorderEffectBase`) or implement the protocol; reference them in TOML as `transition = {type = "example.swoosh"}`, `font_color = {style = "example.fire"}`, etc.
+
+## Value surfaces (pass data directly)
+
+```python
+api.easing("snap", lambda p: p * p)                 # an easing curve (0..1 -> 0..1)
+api.emoji("spark", [(x, y, r, g, b), ...])          # 8x8 emoji: one (x, y, r, g, b) tuple per lit pixel; use as :example.spark:
+api.hires_emoji("spark", HiResEmoji(...))           # hi-res variant (pair it with a low-res one)
+api.font("Brand", "fonts/Brand.ttf")                # a bundled font file, usable as font = "example.Brand"
+```
+
+## Lifecycle hooks (the "service plugin" pattern)
+
+Hooks let a plugin run code around the display loop — for example, poll an API in the background and paint a status dot over every frame:
+
+```python
+api.overlay(paint)            # paint(canvas) runs every frame; if it raises, the engine logs it (no crash)
+api.on_startup(on_startup)    # on_startup(ctx: StartupContext) runs once before the loop (sync or async)
+api.on_shutdown(cleanup)      # runs once at exit
+```
+
+Start background work with `spawn_tracked(coro)` from inside `on_startup`, and have your overlay paint whatever shared state it updates.
+
+<Aside type="tip" title="Copy the example">
+  The fastest way to add any of these is to copy the relevant block out of
+  [`acme/__init__.py`](https://github.com/JamesAwesome/led-ticker/blob/main/examples/plugins/acme/__init__.py)
+  and renamespace it. For the precise contracts, return types, and edge cases, see
+  [`plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md).
+</Aside>
+
+## Going further: a live data widget
+
+The counter is static. Real widgets fetch data on a schedule and render the latest value — what the [pool widget](/plugins/available/) does. The pattern: poll in a startup hook, stash the result, read it in `draw()`:
+
+```python
+import asyncio
+
+import aiohttp
+import attrs
+from led_ticker.plugin import draw_text, make_color, resolve_font, spawn_tracked
+
+_state = {"value": "—"}  # shared: the poller writes it, draw() reads it
+
+
+def register(api):
+    @api.widget("sensor")
+    @attrs.define
+    class Sensor:
+        def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
+            font = resolve_font("6x12")
+            # just render whatever the poller last stored — draw() never blocks
+            end_x = draw_text(
+                canvas, font, _state["value"], cursor_pos, 10 + y_offset, make_color(255, 255, 255)
+            )
+            return canvas, end_x
+
+    async def _poll():
+        async with aiohttp.ClientSession() as session:  # one reusable HTTP session
+            while True:  # runs forever in the background
+                async with session.get("https://api.example.com/v1/value") as resp:
+                    _state["value"] = str((await resp.json())["value"])  # stash the latest reading
+                await asyncio.sleep(60)  # pause 60s (yields to the display loop) before refetching
+
+    # on_startup runs once before the display loop; spawn_tracked launches the poller
+    # as a background task (use it instead of asyncio.create_task — the engine keeps a
+    # reference so the task isn't garbage-collected and logs it if it crashes).
+    api.on_startup(lambda ctx: spawn_tracked(_poll()))
+```
+
+`spawn_tracked` keeps the background task alive; `on_startup` runs it once before the display loop. See [`acme`](https://github.com/JamesAwesome/led-ticker/blob/main/examples/plugins/acme/__init__.py) for a runnable version and [`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) for a production one.
+
+That's the whole surface. Build something and [add it to the directory](/plugins/available/).
+
+<TutorialNav
+  prev={{ href: "/plugins/authoring/03-package/", title: "Authoring 3: Package & install" }}
+/>

@@ -7,6 +7,8 @@ Plugins extend led-ticker without forking core. A plugin is a small Python packa
 
 You don't need any plugins to run led-ticker — the [built-in widgets](/widgets/) cover most signs. Reach for a plugin when you want something they don't offer (pool temperatures, a smart-home sensor, a custom feed), and anyone can publish one without changes to core.
 
+What can you build? Anything you can fetch or draw — a Home Assistant sensor, a stock ticker, a sports feed core doesn't cover, a brand font, a smart-home status light. The [pool widget](/plugins/available/) is a real, shipped one: it pulls water temperatures from an InfluxDB server and renders them zone-colored across four screens. If your data has an API and you can describe a frame, it can live on the sign.
+
 ## Installing a plugin
 
 Plugins are declared in `config/requirements-plugins.txt` (a pip requirements file). Copy the tracked template and add or keep the plugins you want, then rebuild:
@@ -36,7 +38,7 @@ A plugin must be installed **and** not disabled to be active.
 
 A plugin imports only from `led_ticker.plugin` (the curated public surface) and exposes a `register(api)` function under the `led_ticker.plugins` entry-point group; `api.widget("name")(cls)` registers a namespaced widget (`<plugin>.<name>`). The engineering reference — the `register(api)` contract, the public surface, authoring patterns, and lifecycle hooks — is in [`docs/plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md).
 
-The best starting point today is a complete worked example: the [`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) repo shows the `register(api)` function, the `pyproject.toml` entry point, tests, and packaging end-to-end. (A step-by-step authoring guide is a future addition.)
+New to it? The four-page [**authoring guide**](/plugins/authoring/01-scaffold/) walks you from an empty `register(api)` to an installed widget plugin, step by step. For a complete real-world example, the [`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) repo shows the entry point, tests, and packaging end-to-end.
 
 ## If something goes wrong
 

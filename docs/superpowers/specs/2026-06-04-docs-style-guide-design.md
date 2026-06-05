@@ -16,7 +16,7 @@ Each phase is its own spec → plan → implementation cycle. This spec covers *
 
 ## Goal
 
-Capture, in one durable, linkable place, the doc-writing standards we converged on over four rounds of UX/DX, PM, technical-writer, and hobbyist-programmer review — so later phases (and the tech-writer reviewer) start from those standards instead of rediscovering them.
+Capture, in one durable, linkable place, the doc-writing standards we converged on over four rounds of UX/DX, PM, technical-writer, and hobbyist-programmer review — so later phases (and the tech-writer reviewer) start from those standards instead of rediscovering them. It also folds in patterns from a review of [Adafruit Learn](https://learn.adafruit.com/) guides: Adafruit makes the RGB Matrix HAT/Bonnet and panels our users buy and targets the same hobbyist-maker audience, so their beginner-onboarding style is a strong, directly-applicable model.
 
 ## Decisions (from brainstorm)
 
@@ -44,18 +44,33 @@ Each principle is one rule + a one-line "why," drawn from the persona reviews:
 9. **Honesty about limits** — document real quirks/limitations rather than hiding them (e.g. `render-demo` won't load a local-dir plugin; install first).
 10. **Cross-link, don't re-explain** — link to the concept/reference page rather than restating it.
 
+Patterns borrowed from **Adafruit Learn** (some reinforce the above; the last six are new/under-used for us):
+
+11. **"What you'll need" box** — a scannable box near the top of any task page listing prerequisites parts-list style (API key + which `.env` var, which config base, hardware-or-no-hardware), instead of burying them in prose. (Adafruit's bill-of-materials, stated up front.)
+12. **Time/effort stamp** — a small "~10 min · no hardware needed"-style line near the top of each tutorial chapter to defuse intimidation. (Adafruit's "color blasting within the hour.")
+13. **Local troubleshooting** — a short, symptom-first "If it doesn't work" box (2–3 common failures → fixes) on widget/tool/tutorial pages, *where the reader already is* — not only the central `pitfalls.mdx`. (Adafruit's per-guide Help FAQ.)
+14. **Blameless error copy** — frame errors/validation as "a common mix-up — here's the fix," explaining the cause *then* the fix; never imply the reader screwed up. (Adafruit: "won't damage it, but won't work — get it right first time.")
+15. **Anticipate beginner anxiety** — one reassuring line where a step looks intimidating ("you don't need to be a Python expert for this"). (Adafruit: "'I've never coded in my life!' You absolutely can!")
+16. **A next-step CTA on every page** — every page (including reference/concept pages) ends by pulling the reader forward (`TutorialNav`/`RelatedPages` or a "next" link), not just tutorials. (Adafruit's persistent "Next Page.")
+
+### Do NOT copy (from Adafruit)
+- **No product upsell / buy-now links** in prose — we're open source; link hardware once on the Hardware pages, never mid-tutorial.
+- **Don't over-illustrate trivial steps** — one outcome GIF/screenshot per *meaningful* step, not per CLI line.
+- **Don't duplicate datasheet-grade hardware tables** (HUB75 pinouts, power-draw formulas, deep GPIO tuning) — link out to Adafruit's own guide instead.
+- **Borrow the warmth, keep our voice** — one enthusiastic outcome line per page is plenty; stay matter-of-fact, not breathless-marketing ("dazzling," "color blasting").
+
 ### 3. Per-page review checklist (the rubric)
-A tight checkbox list (≈10 items) the tech-writer reviewer runs against each completed task, derived 1:1 from the principles above — e.g.:
-- [ ] Reader named; prerequisites up front.
-- [ ] Payoff/visual near the top.
+A tight checkbox list (≈10 items) the tech-writer reviewer runs against each completed task, derived from the principles above:
+- [ ] Reader named; a scannable "what you'll need"/prerequisites block up front (incl. how/where to run commands).
+- [ ] Payoff/visual near the top; tutorial chapters carry a time/effort stamp.
 - [ ] Every new term glossed or linked on first use.
-- [ ] Examples are complete + copy-pasteable; commands concrete.
-- [ ] Snippets/prose/listing internally consistent; defaults match validation.
+- [ ] Examples complete + copy-pasteable; commands concrete (no `path/to/...`; says where output lands).
+- [ ] Snippets/prose/any complete listing internally consistent; defaults match validation.
 - [ ] Code bound to a tested source where feasible (no silent drift).
-- [ ] Failure modes + fixes covered.
-- [ ] Cross-links instead of duplication.
+- [ ] Local "if it doesn't work" troubleshooting where relevant; error copy is blameless (cause → fix).
+- [ ] Cross-links instead of duplication; a next-step CTA at the bottom.
 - [ ] Builds clean (`make docs-build`) + lint clean (`make docs-lint`); fences balanced.
-- [ ] Tone consistent with the rest of the site.
+- [ ] Tone consistent + matter-of-fact (no upsell, no breathless marketing).
 
 ### 4. Mechanics
 - Components: `DemoGif`, `OptionsTable` (+ `docs/content-source/**` fact-packs), `TomlExample`, `TutorialNav`, and Starlight `Aside`/`Steps`/`Tabs`. One line on when to use each.
@@ -73,6 +88,13 @@ Add a one-line entry under the docs/authoring guidance pointing at `docs/DOCS-ST
 
 - `docs/DOCS-STYLE.md` exists, is coherent, and the CLAUDE.md pointer is present.
 - No docs-site build impact (it's a repo markdown file, not under `docs/site/`).
+
+## References (the Adafruit Learn review)
+
+The Adafruit-derived patterns above came from reviewing these guides (same hardware + audience as ours); cite them in `DOCS-STYLE.md` so the provenance is clear:
+- [Adafruit RGB Matrix Bonnet for Raspberry Pi — Overview / Matrix Setup / Help](https://learn.adafruit.com/adafruit-rgb-matrix-bonnet-for-raspberry-pi/overview) (our exact hardware; great "expected result per step" + symptom-first Help FAQ).
+- [RGB LED Matrix Basics — Overview](https://learn.adafruit.com/32x16-32x32-rgb-led-matrix/overview) (outcome-first opener; time estimate).
+- [Welcome to CircuitPython — Overview](https://learn.adafruit.com/welcome-to-circuitpython/overview) (beginner-anxiety reassurance; "you'll learn X, then Y").
 
 ## Out of scope (Phase 0)
 

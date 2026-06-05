@@ -1,8 +1,8 @@
 ---
 title: led-ticker
-description: An asyncio Python toolkit for displaying scrolling feeds on RGB LED matrix panels.
+description: A Python toolkit for displaying configurable feeds on RGB LED matrix panels — extensible with plugins.
 hero:
-  tagline: Scrolling feeds on RGB LED matrix panels.
+  tagline: A Python toolkit for RGB LED matrix signs — configurable feeds in TOML, extensible with plugins.
   actions:
     - text: Get started
       link: /getting-started/
@@ -14,20 +14,95 @@ hero:
 ---
 
 import DemoGif from "../../components/DemoGif.astro";
-
-## Hello world
+import { Card, CardGrid } from "@astrojs/starlight/components";
 
 <DemoGif
   src="/demos/message-rainbow.gif"
-  caption="A simple `message` widget with rainbow per-character coloring."
+  caption="A `message` widget with rainbow per-character coloring — one of the built-in widgets."
 />
 
-## What you can do
+## Two ways in
 
-led-ticker drives an RGB LED matrix sign from a TOML config. Display
-RSS feeds, weather, countdowns, crypto prices, MLB scores, custom messages,
-animated gifs, and still images. Mix transitions, color animations, and
-typewriter effects.
+<CardGrid>
+  <Card title="Run a sign">
+    You have, or want, an RGB LED matrix sign. Describe what it shows in a TOML
+    config — RSS, weather, scores, countdowns, images — **no Python required.**
 
-[Browse widgets →](/widgets/message/)
-[Browse transitions →](/transitions/push/)
+    - [Get started](/getting-started/) — install and light up a sign in minutes
+    - [Tutorial](/tutorial/01-setup/) — build a complete config step by step
+    - [Browse widgets](/widgets/) — every built-in building block
+
+  </Card>
+  <Card title="Build on it">
+    You want to extend led-ticker. Add widgets, transitions, color providers,
+    fonts, or lifecycle hooks through the public `led_ticker.plugin` API —
+    without forking core.
+
+    - [Plugins](/plugins/) — how extensions install and load
+    - [Write a plugin](/plugins/authoring/01-scaffold/) — a guided walkthrough
+
+  </Card>
+</CardGrid>
+
+## What you can put on it
+
+<CardGrid>
+  <Card title="Weather">
+    <DemoGif src="/demos-long/widget-weather.gif" caption="Current conditions for any location." />
+
+    [Weather widget →](/widgets/weather/)
+
+  </Card>
+  <Card title="MLB scores">
+    <DemoGif src="/demos-long/widget-mlb.gif" caption="Live game scores and counts." />
+
+    [MLB widget →](/widgets/mlb/)
+
+  </Card>
+  <Card title="Crypto prices">
+    <DemoGif src="/demos-long/widget-coinbase.gif" caption="Spot prices from Coinbase." />
+
+    [Coinbase widget →](/widgets/coinbase/)
+
+  </Card>
+  <Card title="Animated GIFs">
+    <DemoGif src="/demos/widget-gif.gif" caption="Play a looping GIF, with optional overlay text." />
+
+    [GIF widget →](/widgets/gif/)
+
+  </Card>
+  <Card title="Countdowns">
+    <DemoGif src="/demos/widget-countdown.gif" caption="Count down to any date or time." />
+
+    [Countdown widget →](/widgets/countdown/)
+
+  </Card>
+  <Card title="…and your own">
+    <DemoGif src="/demos-long/widget-pool.gif" caption="The pool widget is a real, shipped plugin." />
+
+    [Pool plugin →](/plugins/available/)
+
+  </Card>
+</CardGrid>
+
+[Browse all widgets →](/widgets/)
+
+## Extensible by design
+
+led-ticker is a library, not just an app. A curated public API
+(`led_ticker.plugin`) lets anyone add **widgets, transitions, color providers,
+animations, borders, easings, emojis, fonts, and lifecycle hooks** as an
+installable plugin — no fork of core required. The pool water-temperature
+widget shown above is exactly that: a real plugin that lives in
+[its own repo](https://github.com/JamesAwesome/led-ticker-pool) and contributes
+`type = "pool.monitor"`.
+
+- [Plugins overview](/plugins/) — install, load, and the `[plugins]` config block
+- [Write a plugin](/plugins/authoring/01-scaffold/) — scaffold, build, and package one
+
+## Where to next
+
+- **Run a sign:** [Get started](/getting-started/) · [Tutorial](/tutorial/01-setup/)
+- **Pick content:** [Widgets](/widgets/) · [Transitions](/transitions/push/)
+- **Extend it:** [Plugins](/plugins/) · [Write a plugin](/plugins/authoring/01-scaffold/)
+- **Get the hardware:** [Building your own](/hardware/building-your-own/)

@@ -30,7 +30,7 @@ It applies the just-merged `docs/DOCS-STYLE.md` rubric throughout.
 - **Tagline (hero):** "An asyncio Python toolkit for RGB LED matrix signs — configurable feeds, extensible with plugins." (Library-forward, concrete, no marketing language.)
 - **Template:** `template: splash` — full-width, no right-hand "On this page" TOC, classic landing-page layout.
 - **Assets:** reuse existing demo GIFs under `docs/site/public/demos*/`. **No new GIFs are rendered in this phase.**
-- **Components:** Starlight built-in `hero`, `Card`/`CardGrid` (already used in `plugins/authoring/`), and the existing `DemoGif`. **No new Astro components.**
+- **Components:** Starlight built-in `hero`, `Card`/`CardGrid` (standard Starlight components from `@astrojs/starlight/components` — the same package the authoring pages already import `Steps`/`Aside`/`Tabs` from), and the existing `DemoGif`. **No new Astro components.** Note `DemoGif` exposes only `src`/`caption`/`alt` (no link prop), so gallery items that link to a widget page wrap the `DemoGif` inside a `Card` whose body carries the link.
 - **Single file:** only `docs/site/src/content/docs/index.mdx` changes.
 
 ## Deliverable
@@ -57,7 +57,7 @@ hero:
 ---
 ```
 
-Imports: `DemoGif` (existing), plus `Card` and `CardGrid` from `@astrojs/starlight/components` (the import path already used by `plugins/authoring/*`).
+Imports: `DemoGif` (existing), plus `Card` and `CardGrid` from `@astrojs/starlight/components` (the same package `plugins/authoring/*` imports `Steps`/`Aside`/`Tabs` from).
 
 ### 1. Lead visual
 

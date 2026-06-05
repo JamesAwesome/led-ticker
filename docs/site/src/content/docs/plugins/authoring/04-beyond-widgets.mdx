@@ -60,7 +60,7 @@ import aiohttp
 import attrs
 from led_ticker.plugin import draw_text, make_color, resolve_font, spawn_tracked
 
-_state = {"value": "—"}
+_state = {"value": "—"}  # shared: the poller writes it, draw() reads it
 
 
 def register(api):
@@ -69,18 +69,21 @@ def register(api):
     class Sensor:
         def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
             font = resolve_font("6x12")
+            # just render whatever the poller last stored — draw() never blocks
             end_x = draw_text(
                 canvas, font, _state["value"], cursor_pos, 10 + y_offset, make_color(255, 255, 255)
             )
             return canvas, end_x
 
     async def _poll():
-        async with aiohttp.ClientSession() as session:
-            while True:
+        async with aiohttp.ClientSession() as session:  # one reusable HTTP session
+            while True:  # runs forever in the background
                 async with session.get("https://api.example.com/v1/value") as resp:
-                    _state["value"] = str((await resp.json())["value"])
-                await asyncio.sleep(60)
+                    _state["value"] = str((await resp.json())["value"])  # stash the latest reading
+                await asyncio.sleep(60)  # pause 60s (yields to the display loop) before refetching
 
+    # on_startup runs once before the display loop; spawn_tracked launches the
+    # poller as a background task and keeps a reference so it isn't garbage-collected.
     api.on_startup(lambda ctx: spawn_tracked(_poll()))
 ```
 

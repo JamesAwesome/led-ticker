@@ -1,0 +1,88 @@
+---
+// Override of Starlight's PageFrame. Renders the stock frame unchanged
+// (forwarding all named slots) and adds the sidebar collapse/expand
+// controls as siblings OUTSIDE the sidebar subtree — a position:fixed
+// element nested in a display:none ancestor would not render, so the
+// "show" control must live here, not inside the collapsible pane.
+import Default from "@astrojs/starlight/components/PageFrame.astro";
+---
+
+<Default {...Astro.props}>
+  <slot name="header" slot="header" />
+  <slot name="sidebar" slot="sidebar" />
+  <slot />
+</Default>
+
+<button
+  id="sidebar-collapse-btn"
+  type="button"
+  aria-label="Collapse sidebar"
+  aria-controls="starlight__sidebar"
+  aria-expanded="true"
+>
+  <svg
+    aria-hidden="true"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M15 18l-6-6 6-6"></path>
+  </svg>
+</button>
+
+<button
+  id="sidebar-expand-btn"
+  type="button"
+  aria-label="Show sidebar"
+  aria-controls="starlight__sidebar"
+  aria-expanded="false"
+>
+  <svg
+    aria-hidden="true"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M9 18l6-6-6-6"></path>
+  </svg>
+</button>
+
+<script>
+  const KEY = "ticker:sidebar-collapsed";
+
+  function syncAria(collapsed: boolean) {
+    const expanded = String(!collapsed);
+    document.getElementById("sidebar-collapse-btn")?.setAttribute("aria-expanded", expanded);
+    document.getElementById("sidebar-expand-btn")?.setAttribute("aria-expanded", expanded);
+  }
+
+  function setCollapsed(collapsed: boolean) {
+    document.documentElement.classList.toggle("sidebar-collapsed", collapsed);
+    syncAria(collapsed);
+    try {
+      localStorage.setItem(KEY, String(collapsed));
+    } catch (e) {
+      /* localStorage blocked — toggle still works for this session. */
+    }
+  }
+
+  // Keep aria honest with the pre-paint class applied in <head>.
+  syncAria(document.documentElement.classList.contains("sidebar-collapsed"));
+
+  document
+    .getElementById("sidebar-collapse-btn")
+    ?.addEventListener("click", () => setCollapsed(true));
+  document
+    .getElementById("sidebar-expand-btn")
+    ?.addEventListener("click", () => setCollapsed(false));
+</script>

@@ -103,6 +103,10 @@ export default defineConfig({
               items: [
                 { label: "Custom emoji", link: "/plugins/extending/custom-emoji/" },
                 { label: "Writing a transition", link: "/plugins/extending/writing-a-transition/" },
+                {
+                  label: "Custom color provider",
+                  link: "/plugins/extending/custom-color-provider/",
+                },
               ],
             },
           ],

@@ -1,0 +1,151 @@
+---
+title: Custom color provider
+description: Build a custom color provider for led-ticker from a plugin — the color_for contract, the per_char and frame_invariant flags, and a worked animated pulse effect.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+import DemoGif from "../../../../components/DemoGif.astro";
+import RelatedPages from "../../../../components/RelatedPages.astro";
+
+This is a how-to for **plugin authors**: write a custom **color provider** — the object that decides what color text is, frame by frame. You'll build a **pulse** that makes a message breathe brighter and dimmer.
+
+**What you'll need:**
+
+- A scaffolded plugin — see the [authoring guide](/plugins/authoring/01-scaffold/); you only import `led_ticker.plugin`.
+- No hardware needed: you'll preview with `make render-demo` (run from the repo after `make dev`).
+- Your plugin **installed** (`pip install -e .` from its directory) — `make render-demo` only picks up installed plugins.
+
+<DemoGif
+  src="/demos/concepts-color-providers.gif"
+  caption="Color providers drive animated text color — rainbow, cycle, and your own."
+/>
+
+## The `color_for` contract
+
+A color provider is a class with two flags and one method:
+
+```python
+class Pulse(ColorProviderBase):
+    per_char = False
+    frame_invariant = False
+
+    def color_for(self, frame, char_index, total_chars): ...
+```
+
+- **`color_for(frame, char_index, total_chars)`** returns a `Color` for the current `frame`. `char_index` / `total_chars` describe the character being drawn (for per-character effects).
+- **`per_char`** — `False` returns one color for the whole string; `True` is called per character, so you can color each letter differently (using `char_index`).
+- **`frame_invariant`** — does your color depend on `frame`? `True` means no (a constant or gradient — led-ticker paints it once and sleeps); `False` means yes (it animates — led-ticker re-renders every tick).
+
+<Aside type="danger">
+  Get `frame_invariant` right. If `color_for` uses `frame` but you declare `frame_invariant = True`,
+  led-ticker takes the paint-once fast path and your animation **silently freezes** — with no error.
+  Subclassing `ColorProviderBase` forces you to declare the flag so you can't forget it.
+</Aside>
+
+## Build the pulse
+
+The pulse keeps one color but scales its brightness up and down with a sine wave driven by `frame`:
+
+```python
+def color_for(self, frame, char_index, total_chars):
+    level = 0.65 + 0.35 * math.sin(frame * self.speed * 0.05)
+    r, g, b = self.color
+    return make_color(int(r * level), int(g * level), int(b * level))
+```
+
+`make_color(r, g, b)` builds a `Color` (channels 0–255). Because the output depends on `frame`, **`frame_invariant = False`**. Add a base `color` and a `speed` as constructor arguments and they'll come from TOML.
+
+<Aside type="tip">
+  Want a different color per letter (like the built-in rainbow)? Set `per_char = True` and use
+  `char_index` / `total_chars` in `color_for` — e.g. offset the hue by `char_index`. And set
+  `restart_on_visit = False` to keep the animation's phase continuous across a section's
+  `loop_count`.
+</Aside>
+
+## Register and use it
+
+<Steps>
+
+1. Register the class in your plugin's `register(api)`:
+
+   ```python
+   @api.color_provider("pulse")
+   class Pulse(ColorProviderBase): ...
+   ```
+
+   It's namespaced — in the `example_colorprovider` plugin it becomes `example_colorprovider.pulse`.
+
+2. Point a text widget's `font_color` at it in your `config/config.toml` (optionally with fields):
+
+   ```toml
+   [[playlist.section.widget]]
+   type = "message"
+   text = "breathing"
+   font_color = { style = "example_colorprovider.pulse", color = [0, 200, 255], speed = 6 }
+   ```
+
+3. Install your plugin so led-ticker can find it. `make render-demo` loads only **installed** plugins (see [Package & install](/plugins/authoring/03-package/)), then preview — no hardware needed:
+
+   ```bash
+   pip install -e .   # run from your plugin's directory
+   make render-demo CONFIG=config/config.toml OUT=preview.gif
+   open preview.gif   # macOS; xdg-open on Linux
+   ```
+
+</Steps>
+
+## Complete listing
+
+The full plugin — `examples/plugins/example_colorprovider/__init__.py`:
+
+```python
+"""Example led-ticker plugin: a custom 'pulse' color provider (the 'Custom color provider' how-to).
+
+Drop `example_colorprovider/` into your `config/plugins/` (local use), or package it
+with an `[project.entry-points."led_ticker.plugins"]  example_colorprovider = "example_colorprovider:register"`
+entry, then use it as `font_color = {style = "example_colorprovider.pulse"}`.
+
+Imports only `led_ticker.plugin` (the public surface) plus stdlib.
+"""
+
+import math
+
+from led_ticker.plugin import ColorProviderBase, make_color
+
+
+def register(api):
+    @api.color_provider("pulse")
+    class Pulse(ColorProviderBase):
+        # One color for the whole string (not per-character).
+        per_char = False
+        # `color_for` depends on `frame`, so the widget must re-render each tick.
+        # Declaring this True would freeze the pulse — ColorProviderBase forces
+        # you to set it explicitly.
+        frame_invariant = False
+
+        # Config fields come from TOML, e.g.
+        #   font_color = {style = "example_colorprovider.pulse", color = [0, 200, 255], speed = 6}
+        def __init__(self, color=(0, 200, 255), speed=6):
+            self.color = color
+            self.speed = speed
+
+        def color_for(self, frame, char_index, total_chars):
+            # Brightness breathes between ~0.30 and ~1.00 as the frame advances.
+            level = 0.65 + 0.35 * math.sin(frame * self.speed * 0.05)
+            r, g, b = self.color
+            return make_color(int(r * level), int(g * level), int(b * level))
+```
+
+## If it doesn't work
+
+- **The color is frozen / doesn't animate** — you declared `frame_invariant = True` but `color_for` uses `frame`. Set `frame_invariant = False`.
+- **`TypeError: Pulse must define 'frame_invariant'`** — declare it as a class attribute (that's `ColorProviderBase` doing its job).
+- **"unknown font_color style" / not found** — check the namespaced `style` (`example_colorprovider.pulse`, not `pulse`) and that the plugin is installed/loaded (see [Installing a plugin](/plugins/#installing-a-plugin)).
+
+<RelatedPages
+  slugs={[
+    "concepts/color-providers",
+    "plugins/api-reference",
+    "plugins/extending/writing-a-transition",
+  ]}
+/>

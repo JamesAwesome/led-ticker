@@ -3,10 +3,12 @@ title: Validation rules
 description: Configuration mistakes the validator catches before they bite on the panel.
 ---
 
+import RelatedPages from "../../components/RelatedPages.astro";
+
 `led-ticker validate` reads your `config.toml` and reports every rule below. Run it before you deploy:
 
 ```bash
-make validate CONFIG=config/config.toml
+led-ticker validate config/config.toml
 ```
 
 It exits non-zero on errors so you can wire it into CI.
@@ -25,9 +27,9 @@ Stretch fills every panel pixel with image, leaving no transparent regions for t
 
 Static `text_x_offset` doesn't compose with the per-tick scroll cursor. Either set `text_x_offset = 0` or change `text_align` to `"left"` or `"right"`.
 
-### Rule 8 — `hold_seconds < 0.05` is almost certainly a unit error
+### Rule 8 — `hold_time < 0.05` is almost certainly a unit error
 
-`hold_seconds` is in seconds, not milliseconds. Anything under 50 ms is rejected. If you wrote `3000` thinking ms, you want `3.0`.
+`hold_time` is in seconds, not milliseconds. Anything under 50 ms is rejected. If you wrote `3000` thinking ms, you want `3.0`.
 
 ### Rule 12 — `animation` is only valid on `message`, `gif`, and `image`
 
@@ -206,3 +208,5 @@ Negative gaps would cause bulbs to overlap, producing an undefined visual.
 `hue_wraps` only affects the rainbow color sweep. When `lit_color` is a fixed color (or absent), `hue_wraps` has no effect and is silently ignored.
 
 **Fix:** Either set `lit_color = "rainbow"` to enable the rainbow effect, or remove `hue_wraps`.
+
+<RelatedPages slugs={["tools/validate", "getting-started", "transitions"]} />

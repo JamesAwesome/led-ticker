@@ -6,7 +6,7 @@ description: Command-line entry points and Make targets for running, validating,
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 led-ticker exposes one console script (`led-ticker`) with a default
-"run the display" mode and a `validate` subcommand. Day-to-day
+"run the display" mode and `validate` and `plugins` subcommands. Day-to-day
 development is wrapped in `make` targets that drive `uv`, `pytest`,
 `ruff`, and the docs site. This page covers all of them. The console
 script is registered in `pyproject.toml` as
@@ -47,11 +47,33 @@ led-ticker validate --strict config/config.toml
 | `path`          | —       | Path to the config file. Required unless `--list-fields` is given.                                                                       |
 | `--json`        | off     | Emit machine-readable JSON instead of human-readable text. Used by the `creating-a-config` skill.                                        |
 | `--strict`      | off     | Promote all warnings to errors. Also checks that `gif`/`image` `path` fields exist on disk. Use in CI to enforce a warning-clean config. |
+| `--fix`         | off     | Apply auto-fixable migrations (key renames) to the config file in-place. Comments in the TOML file are **not** preserved.                |
 | `--list-fields` | —       | Print all valid fields for a widget type and exit (e.g. `--list-fields message`). No `path` argument required.                           |
 
 Exits `0` on a clean config, `1` on validation errors (or promoted warnings with `--strict`), `2` if the
 config file isn't found. See [Tools: validate](/tools/validate/) for
 the full output format (human + JSON), exit codes, and CI examples.
+
+## `led-ticker plugins`
+
+Lists the plugins discovered for a config — both the ones that loaded
+and any that failed — without opening the panel. For each loaded plugin
+it prints the namespace, its source, and the surfaces it contributes
+(widgets, transitions, fonts, or hooks only); failed plugins are listed
+with their load error. Handy for confirming a freshly installed plugin
+is being picked up before you deploy.
+
+```bash
+led-ticker plugins                          # uses the top-level --config (config.toml)
+led-ticker plugins --config config/config.toml
+```
+
+| Flag              | Default       | Notes                                                                |
+| ----------------- | ------------- | -------------------------------------------------------------------- |
+| `--config` / `-c` | `config.toml` | Path to the config whose plugins to resolve (defaults to top-level). |
+
+Exits `0` after printing the summary, or `2` if the config file can't be
+read or parsed.
 
 ## Make targets
 
@@ -110,7 +132,7 @@ companion `deploy/install.sh` in the repo.
 
 ### `--led-*` flags belong to the `rgbmatrix` library, not `led-ticker`
 
-The `led-ticker` CLI itself only accepts `--config` / `-c` (and the `validate` subcommand's `path`, `--json`, `--strict`, and `--list-fields`). Hardware tuning — panel geometry, GPIO mapping, brightness, RP1 mode — is configured through the `[display]` block in your TOML, not via command-line flags. The `rgbmatrix` library's own `--led-*` CLI flags exist (and `[display]` maps onto them internally) but you don't pass them to `led-ticker`. See [Reference: Config options](/reference/config-options/) for the `[display]` field list.
+The `led-ticker` CLI itself only accepts `--config` / `-c` (and the `validate` subcommand's `path`, `--json`, `--strict`, `--fix`, and `--list-fields`). Hardware tuning — panel geometry, GPIO mapping, brightness, RP1 mode — is configured through the `[display]` block in your TOML, not via command-line flags. The `rgbmatrix` library's own `--led-*` CLI flags exist (and `[display]` maps onto them internally) but you don't pass them to `led-ticker`. See [Reference: Config options](/reference/config-options/) for the `[display]` field list.
 
 ### `make test` automatically sets `PYTHONPATH=tests/stubs`
 

@@ -52,7 +52,7 @@ type = "image"
 path = "config/assets/moon-transparent.png"
 fit = "pillarbox"
 image_align = "center"
-hold_seconds = 8.0
+hold_time = 8.0
 scroll_speed_ms = 35
 top_text = "@moonbunny"
 top_font = "5x8"
@@ -209,7 +209,7 @@ type = "image"
 path = "config/assets/moon-transparent.png"
 fit = "pillarbox"
 image_align = "center"
-hold_seconds = 4.0
+hold_time = 4.0
 scroll_speed_ms = 35
 top_text = ":instagram: @moonbunnyaerial"
 top_row_height = 16
@@ -320,7 +320,7 @@ With a working panel config as a foundation, a few directions worth exploring:
   [Widgets reference](/widgets/) for setup details and required API keys.
 - **Validate before deploying.** `led-ticker validate config/config.toml` catches
   typos, unknown widget types, and constraint violations before you restart the panel.
-  The [Config pitfalls](/reference/config-pitfalls/) page lists the most common
+  The [Validation rules](/pitfalls/) page lists the most common
   mistakes and their fix.
 - **Let Claude author configs for you.** The `creating-a-config` skill in Claude Code
   knows the widget catalogue, bigsign vs smallsign tradeoffs, and the constraint list

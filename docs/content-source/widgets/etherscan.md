@@ -6,7 +6,7 @@
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `api_key` | string | required | Etherscan API key. Set as `ETHERSCAN_API_KEY` in your `.env` file and reference it in config, or pass the value directly. The widget raises `ValueError` at startup if the API returns an error (e.g. bad or missing key). |
+| `api_key` | string | none | Etherscan API key. The widget reads `ETHERSCAN_API_KEY` from your `.env` file, so you normally leave this unset; alternatively, set `api_key` here to put the key directly in config. The widget raises `ValueError` at startup if the API returns an error (e.g. bad or missing key). |
 | `bg_color` | RGB list | none | Background fill color painted behind all content. |
 | `font_color` | RGB list / string / table | yellow | Color of the label text. Accepts a constant `[r,g,b]`, the string shorthands `"rainbow"` / `"color_cycle"` / `"random"`, or an inline table for a gradient. The traffic-light tier coloring on the gas values is independent and always applies. |
 | `update_interval` | int | `300` | Seconds between Etherscan API fetches (passed to `start()`). Default is 5 minutes. The Etherscan free tier allows 5 calls per second / 100,000 calls per day — 5 minutes is comfortably within limits. |

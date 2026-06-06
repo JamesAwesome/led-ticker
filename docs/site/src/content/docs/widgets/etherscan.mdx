@@ -22,9 +22,10 @@ ETHERSCAN_API_KEY=your_key_here
 <TomlExample
   title="Minimal example"
   code={`[[playlist.section.widget]]
-type = "etherscan"
-api_key = "your_etherscan_api_key"`}
+type = "etherscan"`}
 />
+
+The widget reads the key from `ETHERSCAN_API_KEY` in your `.env`, so the TOML stays clean. If you'd rather keep the key in the config, set `api_key` directly in the widget block instead — it works as an alternative (and if you set both, the config `api_key` wins).
 
 ## Options
 
@@ -41,8 +42,7 @@ symbol = "ETH-USD"
 currency = "USD"
 
 [[playlist.section.widget]]
-type = "etherscan"
-api_key = "your_etherscan_api_key"`}
+type = "etherscan"`}
 />
 
 ### Dark background to make the colored gas values pop
@@ -50,7 +50,6 @@ api_key = "your_etherscan_api_key"`}
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "etherscan"
-api_key = "your_etherscan_api_key"
 bg_color = [0, 0, 40]`}
 />
 

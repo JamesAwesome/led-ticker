@@ -67,8 +67,9 @@ The Makefile target wraps `uv run python tools/render_demo/render.py`. The user-
 | `--output` / `-o`   | (required) | Output gif path.                                                             |
 | `--duration N`      | `5`        | Capture duration in seconds. Longer means a bigger gif.                      |
 | `--upscale N`       | `4`        | Pixel upscale factor. The gif is `N×` panel resolution per side.             |
-| `--fps N`           | `20`       | Output gif fps. Matches the engine's 50ms tick cadence.                      |
 | `--start-section N` | `0`        | Start at this section index. Useful for jumping past intros on long configs. |
+
+There's no fps flag — the engine runs at a fixed ~20 fps (50 ms per tick) and the gif is encoded at that cadence to match wall-clock playback.
 
 For per-demo overrides without touching the build script, the auto-render pipeline parses an optional `# render-duration: N` comment from the top of each TOML. A wide marquee that needs more than five seconds to complete one full traversal can declare it inline:
 

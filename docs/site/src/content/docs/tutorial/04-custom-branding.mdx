@@ -221,7 +221,7 @@ type = "image"
 path = "config/assets/moon-transparent.png"
 fit = "pillarbox"
 image_align = "center"
-hold_seconds = 4.0
+hold_time = 4.0
 
 [[playlist.section.widget]]
 type = "message"
@@ -240,9 +240,10 @@ The `image` widget knobs used here:
   is usually the right choice.
 - **`image_align = "center"`** — centers the image horizontally within the panel.
   Options: `"left"`, `"center"`, `"right"`.
-- **`hold_seconds = 4.0`** — how long to display the image before the next widget.
-  This is separate from the section's `hold_time` — `hold_seconds` is per-widget,
-  `hold_time` is the section default for widgets that don't set their own.
+- **`hold_time = 4.0`** — how long to display the image before the next widget.
+  This is the same `hold_time` knob as the section default, just set on the widget:
+  a widget-level `hold_time` overrides the section's `hold_time` for that one widget,
+  and widgets that don't set their own fall back to the section default.
 
 <DemoGif
   src="/demos-long/tutorial-04b-image.gif"
@@ -268,7 +269,7 @@ type = "image"
 path = "config/assets/moon-transparent.png"
 fit = "pillarbox"
 image_align = "center"
-hold_seconds = 8.0
+hold_time = 8.0
 scroll_speed_ms = 35
 top_text = "@moonbunny"
 top_font = "5x8"
@@ -281,7 +282,7 @@ bottom_color = [255, 240, 200]
 
 New knobs compared to the plain image widget:
 
-- **`hold_seconds = 8.0`** — longer hold to give the bottom text time to complete
+- **`hold_time = 8.0`** — longer hold to give the bottom text time to complete
   one full scroll pass. The engine waits for at least one full traversal regardless,
   but setting this explicitly prevents a premature cut.
 - **`scroll_speed_ms = 35`** — milliseconds per one-pixel scroll step for the

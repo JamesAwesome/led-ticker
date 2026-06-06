@@ -88,7 +88,7 @@ Searching for `"btc"` will fail — the correct ID is `"bitcoin"`. Check the ful
 
 ### CoinGecko's free tier rate-limits at ~10–30 calls per minute
 
-If you run many `coingecko` widgets with a low `update_interval`, you may hit the limit and receive error responses. The default 5-minute interval is safe for up to ~6 simultaneous widgets; for more, raise `update_interval` proportionally.
+If you run many `coingecko` widgets with a low `update_interval`, you may hit the limit and receive error responses. Keep `update_interval` at 60 seconds or above to stay safe (the default is 300 — 5 minutes); raise it further if you run many widgets at once.
 
 ### Trend color compares against the previous fetch, not the day's open
 

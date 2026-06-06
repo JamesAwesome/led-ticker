@@ -17,15 +17,15 @@ If all effects on a widget shared one counter, a typewriter restart at each loop
 
 Each effect class declares a `restart_on_visit` class attribute. The engine's `reset_frame()` call (which happens at visit entry — i.e., every time the widget begins a new display pass) resets only the counters for effects that opted into restart.
 
-| Effect                        | `restart_on_visit`                                 |
-| ----------------------------- | -------------------------------------------------- |
-| `Typewriter` (animation)      | `True` — retypes from scratch on every visit       |
-| `Rainbow` (font_color)        | `False` — hue sweep advances continuously          |
-| `ColorCycle` (font_color)     | `False` — whole-string cycle advances continuously |
-| `Gradient` (font_color)       | n/a — frame-invariant, no counter                  |
-| `Constant` (font_color)       | n/a — frame-invariant, no counter                  |
-| `RainbowChaseBorder` (border) | `False` — chase phase advances continuously        |
-| `ConstantBorder` (border)     | n/a — frame-invariant, no counter                  |
+| Effect                                    | `restart_on_visit`                                 |
+| ----------------------------------------- | -------------------------------------------------- |
+| `Typewriter` (animation)                  | `True` — retypes from scratch on every visit       |
+| `Rainbow` (font_color)                    | `False` — hue sweep advances continuously          |
+| `ColorCycle` (font_color)                 | `False` — whole-string cycle advances continuously |
+| `Gradient` (font_color)                   | n/a — frame-invariant, no counter                  |
+| `Constant` (`_ConstantColor`, font_color) | n/a — frame-invariant, no counter                  |
+| `RainbowChaseBorder` (border)             | `False` — chase phase advances continuously        |
+| `ConstantBorder` (border)                 | n/a — frame-invariant, no counter                  |
 
 **Restart on visit (`True`)** means the effect counter goes to zero whenever the section's run loop begins showing this widget — including each iteration of `loop_count > 1`. Typewriter opts into this because it is a reveal: it should retype from scratch each time it appears, not resume mid-word.
 

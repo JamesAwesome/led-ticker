@@ -1,0 +1,180 @@
+---
+title: Service plugins
+description: Build a service plugin for led-ticker — a background poller via on_startup and spawn_tracked, plus a status overlay painted every frame. Plus animation, border, and easing.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+import RelatedPages from "../../../../components/RelatedPages.astro";
+
+This is a how-to for **plugin authors**: build a **service plugin** — one that runs background work and paints a live indicator on the sign, instead of (or alongside) a widget. You'll build a status dot that turns green or red based on a background health check. The shipped [busy-light](/concepts/busy-light/) is a real-world version of this exact pattern.
+
+**What you'll need:**
+
+- A scaffolded plugin — see the [authoring guide](/plugins/authoring/01-scaffold/); you only import `led_ticker.plugin`.
+- No hardware needed to develop, but an overlay shows on the sign when you run `led-ticker`.
+- Your plugin **installed** (`pip install -e .` from its directory).
+
+## The lifecycle hooks
+
+A service plugin uses hooks instead of (or alongside) a widget:
+
+- **`api.overlay(paint)`** — registers `paint(canvas)`, run **every frame on the real canvas, just before the hardware swap**. Use it to draw an indicator over whatever else is on screen. It's **exception-guarded**: if it raises, led-ticker disables it and logs — it can never freeze the panel. Keep it paint-only and fast.
+- **`api.on_startup(fn)`** — `fn` runs once, after the panel and a shared HTTP session exist. It receives a **`StartupContext`** with `.session` (a shared `aiohttp.ClientSession`), `.config` (your parsed config), and `.frame`. Sync or async.
+- **`spawn_tracked(coro)`** — start long-lived background work (a poll loop) as a tracked task from your startup hook: `spawn_tracked(poll())`.
+- **`api.on_shutdown(fn)`** — optional cleanup when the loop exits.
+
+<Aside type="caution">
+  Do the slow work (network, sleeps) in the **poller**, never in `paint`. `paint` runs every frame —
+  blocking or raising there stutters or disables your overlay. The painter should only read shared
+  state and draw.
+</Aside>
+
+## Build the service
+
+Hold shared state, paint it in the overlay, and update it from a background poller:
+
+```python
+def register(api):
+    state = {"online": False}
+
+    def paint(canvas):
+        r, g, b = (0, 200, 0) if state["online"] else (200, 0, 0)
+        canvas.SetPixel(0, 0, r, g, b)  # a status dot in the corner
+
+    api.overlay(paint)
+
+    async def start(ctx):
+        async def poll():
+            while True:
+                try:
+                    async with ctx.session.get("https://example.com/health") as resp:
+                        state["online"] = resp.status == 200
+                except Exception:
+                    state["online"] = False
+                await asyncio.sleep(30)
+
+        spawn_tracked(poll())
+
+    api.on_startup(start)
+```
+
+`ctx.session` is shared across all plugins, so you don't manage your own HTTP client. The poller loops forever on its own schedule; the overlay just reflects the latest `state`.
+
+## Other surfaces at a glance
+
+The remaining plugin surfaces are one-method classes (or a plain function), registered the same way. Each is shown complete in the tested [acme reference plugin](https://github.com/JamesAwesome/led-ticker/blob/main/examples/plugins/acme/__init__.py):
+
+**Animation** — transforms the text shown each frame (e.g. a typewriter):
+
+```python
+@api.animation("scramble")
+class Scramble:
+    def frame_for(self, frame, full_text, canvas_width, text_width):
+        return AnimationFrame(visible_text=full_text)
+```
+
+**Border** — paints a 1–2px ring around the content each frame. Subclass `BorderEffectBase` and declare `frame_invariant` (same rule as a [color provider](/plugins/extending/custom-color-provider/)):
+
+```python
+@api.border("neon")
+class Neon(BorderEffectBase):
+    frame_invariant = False
+
+    def paint(self, canvas, frame_count):
+        ...  # draw the ring with canvas.SetPixel
+```
+
+**Easing** — a plain `(float) -> float` curve, registered directly (no class):
+
+```python
+api.easing("snap", lambda p: p * p)
+```
+
+## Register and use it
+
+<Steps>
+
+1. Register the overlay + startup hook in `register(api)` (the complete listing is below). No TOML is needed — the overlay paints on every screen automatically.
+
+2. Install your plugin so led-ticker loads it:
+
+   ```bash
+   pip install -e .   # run from your plugin's directory
+   ```
+
+3. Run it on the sign — the status dot appears in the corner:
+
+   ```bash
+   led-ticker --config config/config.toml
+   ```
+
+</Steps>
+
+<Aside type="note">
+  Overlays and startup hooks run on the live engine, so `make render-demo` (which renders widgets to
+  a GIF) won't show them — run `led-ticker` on the Pi to see a service plugin in action.
+</Aside>
+
+## Complete listing
+
+The full plugin — `examples/plugins/example_service/__init__.py`:
+
+```python
+"""Example led-ticker plugin: a 'service' plugin — a background poller + a status overlay.
+
+Drop `example_service/` into your `config/plugins/` (local use), or package it with an
+`[project.entry-points."led_ticker.plugins"]  example_service = "example_service:register"`
+entry. No TOML needed — the overlay paints a corner status dot on every screen.
+
+Imports only `led_ticker.plugin` (the public surface) plus stdlib.
+"""
+
+import asyncio
+
+from led_ticker.plugin import spawn_tracked
+
+
+def register(api):
+    # Shared state: the background poller writes it, the overlay reads it.
+    state = {"online": False}
+
+    def paint(canvas):
+        # Runs every frame on the real canvas, BEFORE the hardware swap. Keep it
+        # paint-only and fast, and never raise — a raising overlay is disabled and
+        # logged, and must never be able to freeze the panel.
+        r, g, b = (0, 200, 0) if state["online"] else (200, 0, 0)
+        canvas.SetPixel(0, 0, r, g, b)  # a status dot in the top-left corner
+
+    api.overlay(paint)
+
+    async def start(ctx):
+        # Runs once, after the frame + HTTP session exist. `ctx.session` is the
+        # shared aiohttp ClientSession; `ctx.config` is the parsed app config.
+        async def poll():
+            while True:
+                try:
+                    async with ctx.session.get("https://example.com/health") as resp:
+                        state["online"] = resp.status == 200
+                except Exception:
+                    state["online"] = False
+                await asyncio.sleep(30)
+
+        # Launch the long-lived poller as a tracked background task.
+        spawn_tracked(poll())
+
+    api.on_startup(start)
+```
+
+## If it doesn't work
+
+- **The dot never appears** — the plugin isn't installed/loaded (see [Installing a plugin](/plugins/#installing-a-plugin)); overlays need an installed plugin.
+- **The dot never changes** — the poller hit an error or the URL is unreachable (it's caught and falls back to "offline"); check the logs and your endpoint.
+- **The panel stutters or froze** — you did slow or raising work in `paint`. Move it to the poller; `paint` must be fast and must not raise.
+
+<RelatedPages
+  slugs={[
+    "concepts/busy-light",
+    "plugins/api-reference",
+    "plugins/extending/custom-color-provider",
+  ]}
+/>

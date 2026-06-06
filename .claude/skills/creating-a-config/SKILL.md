@@ -118,11 +118,11 @@ Sections-pass loop — for each confirmed section in the outline:
 
 ### Phase 3: Polish
 
-Load `docs/content-source/transitions-legacy.md`, `references/decision-rules.md`.
+Load `references/transition-selection.md`, `references/decision-rules.md`. For each transition family's catalog and tuning (durations, easing, sweep colors), read its fact-pack `docs/content-source/transitions/<family>.md` (`push`, `wipe`, `sprite`, `special`).
 
 Ask these questions (5–7 total, condensed where possible):
 
-1. **Default transition + duration + easing** — offer 3 picks based on Phase 1 tone. Consult the "Selecting a transition" table in `docs/content-source/transitions-legacy.md`:
+1. **Default transition + duration + easing** — offer 3 picks based on Phase 1 tone. Consult the "Selecting a transition" table in `references/transition-selection.md`:
    - Minimal → `cut` or `wipe_left`
    - Playful → `nyancat_alternating` or `pokeball_alternating`
    - Info-dense → `push_up` or `wipe_up`
@@ -162,7 +162,7 @@ No Phase 3 — global `[transitions]` and `hold_time` are not re-asked. The new 
 
 ## `refine` mode
 
-Load `references/decision-rules.md`, `references/widget-selection.md`, `docs/content-source/transitions-legacy.md`.
+Load `references/decision-rules.md`, `references/widget-selection.md`, `references/transition-selection.md`.
 
 1. Read `config/config.toml`. Run `led-ticker validate config/config.toml --json` and cache the output as the base violation list (`errors` and `warnings` from the JSON). Also run a full pass over `references/decision-rules.md` for any issues not yet caught by the validator.
 2. Ask one symptom-style multi-select question:

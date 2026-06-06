@@ -1,6 +1,7 @@
 """Etherscan gas price monitor widget."""
 
 import logging
+import os
 from typing import Any, Self
 
 import aiohttp
@@ -50,7 +51,7 @@ class EtherscanGasMonitor(_FrameAware):
     """Ethereum gas price monitor using the Etherscan API."""
 
     session: aiohttp.ClientSession
-    api_key: str
+    api_key: str = ""
     padding: int = 0  # no end_padding; uses hardcoded padding in segments
     hold_time: float = 0.0
     bg_color: Color | None = attrs.field(default=None, kw_only=True)
@@ -67,7 +68,7 @@ class EtherscanGasMonitor(_FrameAware):
     async def start(
         cls,
         session: aiohttp.ClientSession,
-        api_key: str,
+        api_key: str = "",
         update_interval: int = 300,
         **kwargs: Any,
     ) -> Self:
@@ -87,10 +88,16 @@ class EtherscanGasMonitor(_FrameAware):
 
     async def update(self) -> None:
         logging.info("Updating gas prices")
+        api_key = self.api_key or os.getenv("ETHERSCAN_API_KEY", "")
+        if not api_key:
+            raise ValueError(
+                "ETHERSCAN_API_KEY not set. Add it to your .env file "
+                "(or set api_key in the widget config)."
+            )
         params: dict[str, str] = {
             "module": "gastracker",
             "action": "gasoracle",
-            "apikey": self.api_key,
+            "apikey": api_key,
         }
         async with self.session.get(ETHERSCAN_API, params=params) as response:
             gas_price_data = await response.json()

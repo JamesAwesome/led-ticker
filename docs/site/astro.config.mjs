@@ -107,6 +107,7 @@ export default defineConfig({
                   label: "Custom color provider",
                   link: "/plugins/extending/custom-color-provider/",
                 },
+                { label: "Service plugins", link: "/plugins/extending/service-plugins/" },
               ],
             },
           ],

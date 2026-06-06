@@ -30,12 +30,12 @@ of mode). Global defaults live in `[transitions]`; each section can override the
 
 These apply everywhere unless a section overrides them:
 
-| Field              | Default    | Notes                                                                          |
-| ------------------ | ---------- | ------------------------------------------------------------------------------ |
-| `default`          | `"cut"`    | Fallback inter-widget transition for every section                             |
-| `between_sections` | `"cut"`    | Fallback entry transition when a section doesn't set its own                   |
-| `duration`         | `0.5`      | Transition duration in seconds. 0.3–1.5 is typical; sprite trails want 1.0–2.0 |
-| `easing`           | `"linear"` | `linear` / `ease_out` / `ease_in_out`                                          |
+| Field              | Default    | Notes                                                                                                                        |
+| ------------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `default`          | `"cut"`    | Fallback inter-widget transition for every section                                                                           |
+| `between_sections` | `"cut"`    | Falls back to `default` (which is `cut` unless you change it) — sets the entry transition when a section doesn't set its own |
+| `duration`         | `0.5`      | Transition duration in seconds. 0.3–1.5 is typical; sprite trails want 1.0–2.0                                               |
+| `easing`           | `"linear"` | `linear` / `ease_out` / `ease_in_out`                                                                                        |
 
 Both `default` and `between_sections` accept an inline table for extra knobs:
 `between_sections = { type = "wipe_left", duration = 0.8, easing = "ease_out" }`.

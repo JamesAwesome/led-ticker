@@ -7,7 +7,7 @@ import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-A border paints a decorative outline around the entire panel perimeter. Four styles are available: an animated **rainbow chase** that sweeps a hue gradient per pixel around the edge, a **color_cycle** that pulses the entire border as one animated hue, a **constant color** that frames the content in a steady solid color, and **lightbulbs** that paint discrete bulb sprites for a classic marquee aesthetic — lit bulbs can optionally use a static rainbow coloring. Both `rainbow` and `color_cycle` accept optional `from` / `to` RGB colors to confine the animation to a specific hue arc instead of sweeping the full spectrum. All styles paint at physical panel resolution — they bypass the `ScaledCanvas` block-expansion path and call `SetPixel` on the real underlying canvas, so a pixel-ring border is always exactly one LED wide regardless of scale.
+A border paints a decorative outline around the entire panel perimeter. Four styles are available: an animated **rainbow chase** that sweeps a hue gradient per pixel around the edge, a **color_cycle** that pulses the entire border as one animated hue, a **constant color** that frames the content in a steady solid color, and **lightbulbs** that paint discrete bulb sprites for a classic marquee aesthetic — lit bulbs can optionally use a static rainbow coloring. Both `rainbow` and `color_cycle` accept optional `from` / `to` RGB colors to confine the animation to a specific hue arc instead of sweeping the full spectrum. All styles paint at physical panel resolution, so a pixel-ring border is always exactly one LED wide regardless of scale — even on a big / scaled sign (`default_scale > 1`), where most content is drawn in logical pixels and expanded to fill the panel (see [Display](/concepts/display/)). _For developers:_ borders bypass that block-expansion path and write directly to the real underlying canvas (`SetPixel`).
 
 <DemoGif
   src="/demos/concepts-borders.gif"
@@ -165,7 +165,7 @@ border   = {style = "color_cycle", from = [120, 230, 255], to = [50, 100, 255], 
 
 ### Constant
 
-A constant border is a solid-color ring with no animation. It is `frame_invariant`, so the engine's static-text fast path applies: the border is painted once and the widget sleeps for the hold duration rather than redrawing every tick.
+A constant border is a solid-color ring with no animation. Because it never changes frame to frame (`frame_invariant`, an internal flag), the engine's static-text fast path applies: the border is painted once and the widget sleeps for the hold duration rather than redrawing every tick.
 
 <DemoGif
   src="/demos-pinned/border-constant.gif"
@@ -207,7 +207,7 @@ Data widgets render custom layouts and a perimeter border is not a meaningful co
 
 ## Continuous-phase behavior
 
-Both `rainbow` and `color_cycle` borders have `restart_on_visit = false` — their phase counters advance continuously and never reset between `loop_count` repetitions. If a section repeats with `loop_count = 2`, the border picks up exactly where it left off at the end of the first loop rather than snapping back to the start. The border also composes cleanly with other effects: a `TickerMessage` can carry `animation = "typewriter"` and `border = "rainbow"` simultaneously, and each effect tracks its own independent counter. See [frame counters](/reference/frame-counters/) for the full model of restart-on-visit versus continuous-phase behavior.
+Both `rainbow` and `color_cycle` borders have `restart_on_visit = false` — their phase counters advance continuously and never reset between `loop_count` repetitions. If a section repeats with `loop_count = 2`, the border picks up exactly where it left off at the end of the first loop rather than snapping back to the start. The border also composes cleanly with other effects: a single scrolling line can carry `animation = "typewriter"` and `border = "rainbow"` simultaneously, and each effect tracks its own independent counter. See [frame counters](/reference/frame-counters/) for the full model of restart-on-visit versus continuous-phase behavior.
 
 ## Lightbulbs
 

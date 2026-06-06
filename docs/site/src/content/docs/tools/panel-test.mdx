@@ -5,7 +5,7 @@ description: Cycle the panel through full-frame R, G, B, White, Black so hardwar
 
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-`panel-test` paints the panel solid Red → Green → Blue → White → Black on repeat. It exists to **isolate the hardware layer from the config layer**: when widgets render wrong, this tells you whether your `led_rgb_sequence`, `panel_type`, `chain_length`, or `gpio_slowdown` is at fault before you start tearing apart your TOML. The implementation is a single `~50`-line script at [`scripts/panel_color_test.py`](https://github.com/jamesawesome/led-ticker/blob/main/scripts/panel_color_test.py).
+`panel-test` paints the panel solid Red → Green → Blue → White → Black on repeat. It exists to **isolate the hardware layer from the config layer**: when widgets render wrong, this tells you whether your `led_rgb_sequence`, `panel_type`, `chain_length`, or `gpio_slowdown` is at fault before you start tearing apart your TOML. The implementation is a small script at [`scripts/panel_color_test.py`](https://github.com/jamesawesome/led-ticker/blob/main/scripts/panel_color_test.py).
 
 It reads the `[display]` section of any led-ticker config TOML and reuses the same `LedFrame` construction the main app uses — so every panel knob (FM6126A init, BRG-vs-RGB remapping, chain length, `rp1_rio`, slowdown) is exactly as the running ticker would see it. Widget config is ignored entirely.
 

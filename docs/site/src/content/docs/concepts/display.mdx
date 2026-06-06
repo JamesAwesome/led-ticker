@@ -40,7 +40,7 @@ rp1_rio = 1`}
 
 ## Logical canvas vs real panel
 
-When `default_scale > 1`, the engine creates a `ScaledCanvas` wrapper around the real panel. All drawing logic stays at "16-tall logical content" — widgets never need to know what scale they are running at. The wrapper expands every `SetPixel` call to a `scale×scale` block on the real canvas and centers the content vertically.
+When `default_scale > 1`, the engine wraps the real panel in a `ScaledCanvas` — the layer that expands logical pixels onto a big / scaled sign. All drawing logic stays at "16-tall logical content," so widgets never need to know what scale they are running at; the wrapper expands each logical pixel to a `scale×scale` block on the real canvas and centers the content vertically. _For developers and plugin authors:_ that expansion happens per `SetPixel` call.
 
 There is one hard ceiling you must respect: **`content_height × scale ≤ panel_h_real`**. For the bigsign at `scale = 4`, this means `content_height ≤ 16`. Push above the ceiling and the logical canvas is taller than the real panel; content placed near the top or bottom edges silently clips. If you need per-section breathing room, use `text_y_offset` on the widget rather than over-specifying `content_height`.
 

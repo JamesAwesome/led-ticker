@@ -1,0 +1,62 @@
+/*
+ * Collapsible left-sidebar toggle.
+ * The toggle button lives in the header next to the site title (rendered by the
+ * SiteTitle override); this file styles it and defines the collapsed layout.
+ * Selectors verified against Starlight 0.39.2 PageFrame.astro:
+ *   <nav class="sidebar"> > <div id="starlight__sidebar" class="sidebar-pane">
+ *   <div class="main-frame"> offset by padding-inline-start: var(--sl-content-inline-start)
+ * Desktop breakpoint matches Starlight's own: min-width: 50rem.
+ */
+
+/* Button hidden by default — covers mobile (< 50rem), where Starlight's
+   hamburger drawer stays in charge. */
+#sidebar-toggle-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  /* Sits to the left of the site title; keep the title's "l" off the button. */
+  margin-inline-end: 0.625rem;
+  padding: 0;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.5rem;
+  background-color: var(--sl-color-bg-nav);
+  color: var(--sl-color-text-accent);
+  cursor: pointer;
+}
+
+#sidebar-toggle-btn:hover {
+  background-color: var(--sl-color-gray-6);
+}
+
+/* Icon reflects direction: collapse («) when open, expand (») when collapsed. */
+#sidebar-toggle-btn .icon-expand {
+  display: none;
+}
+html.sidebar-collapsed #sidebar-toggle-btn .icon-collapse {
+  display: none;
+}
+html.sidebar-collapsed #sidebar-toggle-btn .icon-expand {
+  display: inline;
+}
+
+@media (min-width: 50rem) {
+  /* Show the toggle in the header. */
+  #sidebar-toggle-btn {
+    display: inline-flex;
+  }
+
+  /* Smooth reflow rather than an instant jump. */
+  .main-frame {
+    transition: padding-inline-start 150ms ease;
+  }
+
+  html.sidebar-collapsed .sidebar {
+    display: none;
+  }
+  html.sidebar-collapsed .main-frame {
+    padding-inline-start: 0;
+  }
+}

@@ -1,13 +1,11 @@
 ---
-// Override of Starlight's SiteTitle. Renders the stock title link unchanged,
-// then adds the sidebar collapse/expand toggle inline right after it so the
-// control sits statically in the header next to "led-ticker" (rather than
-// floating over the sidebar). One button toggles state; its icon flips to show
-// the direction (« collapse when open, » expand when collapsed).
+// Override of Starlight's SiteTitle. Renders the sidebar collapse/expand toggle
+// inline to the LEFT of the stock title link, so the control sits statically in
+// the header before "led-ticker" (rather than floating over the sidebar). One
+// button toggles state; its icon flips to show the direction (« collapse when
+// open, » expand when collapsed). Right-margin keeps the title off the button.
 import Default from "@astrojs/starlight/components/SiteTitle.astro";
 ---
-
-<Default />
 
 <button
   id="sidebar-toggle-btn"
@@ -45,6 +43,8 @@ import Default from "@astrojs/starlight/components/SiteTitle.astro";
     <path d="M9 18l6-6-6-6"></path>
   </svg>
 </button>
+
+<Default />
 
 <script>
   const KEY = "ticker:sidebar-collapsed";

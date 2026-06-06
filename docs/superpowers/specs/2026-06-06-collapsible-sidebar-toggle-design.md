@@ -3,7 +3,7 @@
 **Date:** 2026-06-06
 **Status:** Approved (brainstorm)
 
-> **Revision (implementation eyeball pass):** the original design floated a collapse button over the sidebar's top-left plus a separate fixed edge "»" arrow. In review the floating button overlapped the first nav item. **Final shape:** a **single toggle button placed statically in the header next to the site title**, via a Starlight **`SiteTitle`** component override (not `PageFrame`). The button is always visible on desktop and flips its icon by state (« collapse when open, » expand when collapsed); no separate edge arrow. Everything below about the collapsed-state CSS (`html.sidebar-collapsed` hides `.sidebar` + zeroes `.main-frame` padding, desktop-only), the `head` pre-paint script, `localStorage` persistence, and graceful degradation is unchanged.
+> **Revision (implementation eyeball pass):** the original design floated a collapse button over the sidebar's top-left plus a separate fixed edge "»" arrow. In review the floating button overlapped the first nav item. **Final shape:** a **single toggle button placed statically in the header to the left of the site title** (with right-margin so the title clears it), via a Starlight **`SiteTitle`** component override (not `PageFrame`). The button is always visible on desktop and flips its icon by state (« collapse when open, » expand when collapsed); no separate edge arrow. Everything below about the collapsed-state CSS (`html.sidebar-collapsed` hides `.sidebar` + zeroes `.main-frame` padding, desktop-only), the `head` pre-paint script, `localStorage` persistence, and graceful degradation is unchanged.
 
 ## Context
 

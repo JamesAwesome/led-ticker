@@ -70,7 +70,7 @@ The skill produces configs in THIS structure. Never use top-level `[section_name
 
 ### Phase 1: Outline
 
-Load `docs/content-source/hardware-guide-legacy.md`.
+Load `references/hardware-guide.md`.
 
 Ask these 7 questions, one at a time. Use multi-choice format where listed.
 
@@ -78,7 +78,7 @@ Ask these 7 questions, one at a time. Use multi-choice format where listed.
    *(Note: "both" is reserved for future parallel-config support; if the user picks both, explain that's not yet supported and ask them to pick one.)*
 2. **Use case category:** store window / personal feed / event countdown / sports scoreboard / art piece / mixed
 3. **Viewing distance:** close (≤6ft) / medium (6–20ft) / far (20ft+)
-   *(Drives default font sizes — consult `docs/content-source/hardware-guide-legacy.md` distance table.)*
+   *(Drives default font sizes — consult `references/hardware-guide.md` distance table.)*
 4. **Content sources** (multi-select): rss / weather / custom messages / gifs+images / sports / crypto / countdown
 5. **Brand presence:** none / colors only / colors+fonts / colors+fonts+logo
 6. **Tone:** minimal / playful / info-dense / branded-pro
@@ -130,7 +130,7 @@ Ask these questions (5–7 total, condensed where possible):
 2. **`between_sections` transition** — usually different from the default; suggest `dissolve` for branded-pro, `cut` for minimal.
 3. **Default `hold_time`** — defaults: continuous loop → 5s, scheduled windows → 10s.
 4. **Brightness** — defaults: small=60, bigsign=60; ask if user wants different.
-5. **Bigsign refresh tuning** — only ask if sign=bigsign AND tone=info-dense. Suggest `pwm_bits = 8`, `rp1_rio = 1` (consult `docs/content-source/hardware-guide-legacy.md` refresh tuning notes).
+5. **Bigsign refresh tuning** — only ask if sign=bigsign AND tone=info-dense. Suggest `pwm_bits = 8`, `rp1_rio = 1` (consult `references/hardware-guide.md` refresh tuning notes).
 6. **Save destination** — propose `config/config.<descriptive-slug>.toml` based on Phase 1 answers (e.g. `moonbunny-bigsign`, `office-rss-small`); ask if user wants to override. After write, ask: "Activate this as the live config? (copies to `config/config.toml`, backs up any existing to `config/config.toml.bak`)"
 
 Run final validation: run `led-ticker validate config/config.toml --json`. Surface all `errors` as mandatory fixes and `warnings` as flag-and-ask before writing. Also do a full pass over `references/decision-rules.md` for any issues not caught by the validator.

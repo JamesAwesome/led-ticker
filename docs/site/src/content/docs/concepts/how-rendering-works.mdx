@@ -1,0 +1,71 @@
+---
+title: How rendering works
+description: The render pipeline — what happens between your TOML config and the panel lighting up. The engine loop, the canvas, overlays, and the swap.
+sidebar:
+  order: 1
+---
+
+import DemoGif from "../../../components/DemoGif.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+This page is a mental model of **what happens between your `config.toml` and the panel lighting up** — useful whether you're tuning a config or building a plugin. The other concept pages go deep on each piece; this one shows how they fit together.
+
+<DemoGif
+  src="/demos/message-rainbow.gif"
+  caption="A rainbow message on the panel — here's the pipeline that produces it."
+/>
+
+## The pipeline
+
+```
+Config (TOML)
+   ↓ parsed at startup
+Playlist → sections → widgets
+   ↓ engine tick (~20 fps)
+widget.draw() → logical canvas
+   ↓ ScaledCanvas expands it (when scale > 1)
+overlay hooks paint (e.g. the busy light)
+   ↓
+LedFrame.swap() → double-buffered → panel
+```
+
+Each section below is one step of that flow.
+
+## The engine loop
+
+At startup, led-ticker parses your config into a **playlist** of [sections](/concepts/sections-and-modes/), each holding one or more **widgets**. Then an asyncio engine runs a steady loop — about **20 frames per second** (a 50 ms _tick_).
+
+On each tick the engine:
+
+1. **advances the frame counter(s)** — every animated effect (rainbow text, a color cycle, a typewriter) has [its own counter](/reference/frame-counters/) that moves one step;
+2. **redraws** the current widget onto the canvas at its new frame;
+3. **swaps** the finished frame to the panel (below), then sleeps until the next tick.
+
+A section's **mode** decides how its widgets are shown — held in place (`swap`) or scrolling — and for how long; **[transitions](/transitions/)** play the animation between one widget or section and the next. (An effect whose output doesn't change with the frame skips the per-tick redraw — see [frame counters](/reference/frame-counters/).)
+
+## The canvas
+
+Widgets don't draw to physical LEDs directly. They draw to a **logical canvas** — a fixed 16-pixel-tall grid — using simple `(x, y)` coordinates, so a widget never needs to know how big your sign is. When your `[display]` runs at `scale > 1` (a big sign), a **`ScaledCanvas`** wraps the real panel and expands every logical pixel into a `scale × scale` block, centering the content vertically.
+
+That's the short version — [Display](/concepts/display/) covers scaling, the `content_height × scale` ceiling, and per-section overrides in full.
+
+## Reaching the panel
+
+When a frame is ready, the engine calls **`LedFrame.swap()`**, which does two things in order:
+
+1. runs every registered **overlay hook** — paint functions that draw _over_ whatever's on screen, every frame, like the [busy light](/concepts/busy-light/)'s status dot;
+2. performs a **double-buffered swap**: the new frame is sent to the panel while the next one is drawn off-screen, so the display never tears or flickers mid-update.
+
+Then the loop sleeps and the next tick begins.
+
+## Why it's built this way
+
+A few deliberate choices explain the rest:
+
+- **A fixed tick.** Driving everything from one steady ~20 fps clock keeps animations smooth and in sync, and makes timing predictable across very different signs.
+- **A write-only panel.** The hardware framebuffer can be written but not read back, so widgets and effects **recompute each frame** from their frame counter rather than reading the current pixels — that's why effects are functions of the frame number.
+- **Logical, then physical.** Keeping drawing in logical 16-tall coordinates and expanding to the real panel at swap time means one widget runs unchanged on a tiny sign or a giant one.
+
+The full engineering rules behind this — the hardware-rendering constraints that keep the panel from freezing — live in [`docs/plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md) and the project's `CLAUDE.md`, for contributors and plugin authors who need them.
+
+<RelatedPages slugs={["concepts/display", "concepts/sections-and-modes", "transitions"]} />

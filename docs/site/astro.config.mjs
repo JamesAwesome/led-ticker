@@ -118,7 +118,13 @@ export default defineConfig({
         },
         {
           label: "Concepts",
-          items: [{ autogenerate: { directory: "concepts" } }],
+          items: [
+            {
+              label: "How rendering works",
+              link: "/concepts/how-rendering-works/",
+            },
+            { autogenerate: { directory: "concepts" } },
+          ],
         },
         {
           // Inline emoji is a content-author concern (which slugs render?

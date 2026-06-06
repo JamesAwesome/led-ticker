@@ -222,7 +222,7 @@
 
 **When to use:**
 - Static images (logos, photos), promotional graphics.
-- Same text-overlay surface as `gif`; only difference is `hold_seconds` vs `gif_loops`.
+- Same text-overlay surface as `gif`; only difference is `hold_time` vs `gif_loops`.
 
 **Key TOML params (image surface):**
 - Same as `gif` (path, fit, image_align, text, text_align, etc.).
@@ -232,11 +232,11 @@
 - `border`: rainbow or constant.
 
 **Key TOML params (image-specific):**
-- `hold_seconds`: `5.0` (default) per-visit display duration. With `text_loops > 0`, becomes a FLOOR: `max(hold_seconds, text_loops × traversal)`.
+- `hold_time`: `5.0` (default) per-visit display duration. With `text_loops > 0`, becomes a FLOOR: `max(hold_time, text_loops × traversal)`.
 - `text_loops`: floor on marquee passes (default `0`).
 
 **Gotchas:**
-- `hold_seconds < 0.05` is rejected.
+- `hold_time < 0.05` is rejected.
 - Transparent PNGs and palette-transparent GIFs composite onto black, so skip-black scroll text walks "behind" the silhouette.
 - Static-text fast path (left/right align, no scroll) paints once and sleeps the duration instead of re-drawing every tick.
 

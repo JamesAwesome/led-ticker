@@ -88,9 +88,9 @@ See the moonbunny example for the pattern.
 - Two lines (top held + bottom scrolling) → set `bottom_text` to switch to two-row mode. Single-row knobs are then refused.
 
 **Hold time / loops:**
-- Still image: `hold_seconds` (default 5).
+- Still image: `hold_time` (default 5).
 - GIF: `gif_loops` (default 1) × native frame durations.
-- With `text_loops > 0` on either: `hold_seconds` becomes a duration FLOOR; the source extends to fit the marquee.
+- With `text_loops > 0` on either: `hold_time` becomes a duration FLOOR; the source extends to fit the marquee.
 
 ## URLs and handles
 

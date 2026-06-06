@@ -1,4 +1,4 @@
-"""Tripwire for the Custom-emoji how-to's worked example (examples/plugins/example_emoji).
+"""Tripwire for the Custom emoji how-to (examples/plugins/example_emoji).
 
 The 'Custom emoji' page's code blocks are this plugin; this test keeps the
 shipped example (and therefore the docs) honest against the real emoji API.

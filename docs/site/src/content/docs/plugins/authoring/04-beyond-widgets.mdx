@@ -21,6 +21,8 @@ Widgets are the most common contribution, but `api` registers a lot more. Each c
 
 Subclass the matching base (`ColorProviderBase`, `BorderEffectBase`) or implement the protocol; reference them in TOML as `transition = {type = "example.swoosh"}`, `font_color = {style = "example.fire"}`, etc.
 
+Writing a transition? See the [Writing a transition](/plugins/extending/writing-a-transition/) how-to — the `frame_at` contract and a worked wipe.
+
 ## Value surfaces (pass data directly)
 
 ```python

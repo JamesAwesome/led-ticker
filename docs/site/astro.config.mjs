@@ -100,7 +100,10 @@ export default defineConfig({
             },
             {
               label: "Extending led-ticker",
-              items: [{ label: "Custom emoji", link: "/plugins/extending/custom-emoji/" }],
+              items: [
+                { label: "Custom emoji", link: "/plugins/extending/custom-emoji/" },
+                { label: "Writing a transition", link: "/plugins/extending/writing-a-transition/" },
+              ],
             },
           ],
         },

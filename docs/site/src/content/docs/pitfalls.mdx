@@ -122,9 +122,9 @@ The top row on a `two_row` widget (and the top row on `gif` / `image` widgets wh
 
 The named font isn't bundled and didn't turn up in `config/fonts/`. This is a warning, not an error: a config drafted on a laptop without the brand font is still useful, and the file may live on the Pi by deploy time. The ticker will raise at startup if the section actually runs without the font present, so resolve the warning before deploy. Drop the font file into `config/fonts/` on the deploy target, or pick one of the bundled fonts (BDF: `5x8`, `6x10`, `6x12`, `7x13`; hires: `Inter-Bold`, `Inter-Regular`).
 
-### Rule 33 — `mode = "gif"` is a legacy mode
+### Rule 33 — prefer `mode = "swap"` with a `gif` widget over `mode = "gif"`
 
-`mode = "gif"` was the original way to play a gif widget in a dedicated section. Today the preferred pattern is `mode = "swap"` with a `gif` widget in the section's `widget` list — it gives you the full section feature set (transitions, `hold_time`, `bg_color`, multi-widget sections). The old `gif` mode is preserved for backward compatibility but is undocumented and may be removed in a future release. Migrate by changing `mode = "gif"` to `mode = "swap"` and removing any mode-specific knobs that `swap` doesn't need.
+Prefer `mode = "swap"` with a `gif` widget in the section's `widget` list — it gives you the full section feature set (transitions, `hold_time`, `bg_color`, multi-widget sections). `mode = "gif"` is a narrower direct-play form that doesn't reach those knobs. To switch, change `mode = "gif"` to `mode = "swap"` and remove any mode-specific knobs that `swap` doesn't need.
 
 ### Rule 35 — `default = "..."` inside a `[[playlist.section]]` is silently ignored
 
@@ -132,7 +132,7 @@ The named font isn't bundled and didn't turn up in `config/fonts/`. This is a wa
 
 ### Rule 36 — `play_count = 0` in `mode = "gif"` silently plays 1 loop
 
-`play_count = 0` means "play through the section's `hold_time`" — but that plumbing only exists on the `mode = "swap"` path. The legacy `mode = "gif"` calls the gif widget's `play()` directly without threading `hold_time`, so the "play through hold_time" semantics don't reach there. A `play_count = 0` widget in a `mode = "gif"` section silently falls back to exactly one loop. Switch the section to `mode = "swap"` (the recommended setup; see rule 33) to get the intended duration-driven playback, or set `play_count` to an explicit positive integer for a fixed loop count.
+`play_count = 0` means "play through the section's `hold_time`" — but that plumbing only exists on the `mode = "swap"` path. `mode = "gif"` calls the gif widget's `play()` directly without threading `hold_time`, so the "play through hold_time" semantics don't reach there. A `play_count = 0` widget in a `mode = "gif"` section silently falls back to exactly one loop. Switch the section to `mode = "swap"` (the recommended setup; see rule 33) to get the intended duration-driven playback, or set `play_count` to an explicit positive integer for a fixed loop count.
 
 ## Strict-only checks
 

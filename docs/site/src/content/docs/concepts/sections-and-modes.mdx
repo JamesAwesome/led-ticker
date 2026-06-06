@@ -183,9 +183,9 @@ When a section has a `bg_color` and the next section has a different one, transi
 
 A widget setting its own `bg_color` overrides the section default for that widget only. Use a section-level color as the base and only set widget-level `bg_color` when one widget needs a different tint.
 
-## Legacy: `mode = "gif"`
+## The `mode = "gif"` shorthand
 
-Preserved for backward compatibility. The recommended setup for displaying gifs is `mode = "swap"` with a `gif` widget in the section's `widget` list — that form exposes the full per-widget knob surface (`hold_time`, `text`, `border`, `fit`, etc.) that the direct `mode = "gif"` form doesn't reach. Existing `mode = "gif"` configs continue to work.
+`mode = "gif"` is a simpler, direct-play alternative to `mode = "swap"` with a `gif` widget. The fuller setup for displaying gifs is `mode = "swap"` with a `gif` widget in the section's `widget` list — that form exposes the full per-widget knob surface (`hold_time`, `text`, `border`, `fit`, etc.) that the direct `mode = "gif"` form doesn't reach.
 
 ## `default` vs `transition`
 

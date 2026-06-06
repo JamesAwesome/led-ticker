@@ -18,9 +18,9 @@ This is a how-to for **plugin authors**: build a **service plugin** — one that
 
 A service plugin uses hooks instead of (or alongside) a widget:
 
-- **`api.overlay(paint)`** — registers `paint(canvas)`, run **every frame on the real canvas, just before the hardware swap**. Use it to draw an indicator over whatever else is on screen. It's **exception-guarded**: if it raises, led-ticker disables it and logs — it can never freeze the panel. Keep it paint-only and fast.
-- **`api.on_startup(fn)`** — `fn` runs once, after the panel and a shared HTTP session exist. It receives a **`StartupContext`** with `.session` (a shared `aiohttp.ClientSession`), `.config` (your parsed config), and `.frame`. Sync or async.
-- **`spawn_tracked(coro)`** — start long-lived background work (a poll loop) as a tracked task from your startup hook: `spawn_tracked(poll())`.
+- **`api.overlay(paint)`** — registers `paint(canvas)`, run **on the real canvas just before each frame is sent to the panel**. Use it to draw an indicator over whatever else is on screen. It's **exception-guarded**: if it raises, led-ticker disables it and logs — it can never freeze the panel. Keep it paint-only and fast.
+- **`api.on_startup(fn)`** — `fn` runs once, after the panel and a shared HTTP session exist. It receives a **`StartupContext`** with `.session` (a shared `aiohttp.ClientSession`), `.config` (your parsed config), and `.frame` (the live `LedFrame`). Sync or async.
+- **`spawn_tracked(coro)`** — start long-lived background work (a poll loop) as a tracked task from your startup hook: `spawn_tracked(poll())`. (Imported from `led_ticker.plugin` — it's a function, not an `api.` method.)
 - **`api.on_shutdown(fn)`** — optional cleanup when the loop exits.
 
 <Aside type="caution">
@@ -34,6 +34,11 @@ A service plugin uses hooks instead of (or alongside) a widget:
 Hold shared state, paint it in the overlay, and update it from a background poller:
 
 ```python
+import asyncio
+
+from led_ticker.plugin import spawn_tracked
+
+
 def register(api):
     state = {"online": False}
 

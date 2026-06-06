@@ -910,12 +910,10 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                 )
             )
 
-    # Rule 33: mode = "gif" is legacy.
-    # The dedicated gif mode predates the current widget system. Today
-    # the same effect is achieved with mode = "swap" + a gif widget —
-    # which also gives access to transitions, hold_time, bg_color, and
-    # multi-widget sections. The old mode is preserved for back-compat
-    # but is undocumented and may be removed in a future release.
+    # Rule 33: prefer mode = "swap" over the mode = "gif" shorthand.
+    # mode = "gif" plays a single gif in a dedicated section; mode = "swap"
+    # with a gif widget gives the same effect plus transitions, hold_time,
+    # bg_color, and multi-widget sections — so warn and point users there.
     for i, section in enumerate(config.sections):
         if section.mode == "gif":
             warnings.append(
@@ -924,10 +922,10 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                     location=f"section[{i}]",
                     severity="warning",
                     message=(
-                        "mode='gif' is legacy. Use mode='swap' with a "
-                        "gif widget for the same effect; the dedicated "
-                        "'gif' mode is preserved for back-compat but may "
-                        "be removed in a future release."
+                        "mode='gif' plays a single gif in a dedicated "
+                        "section. Prefer mode='swap' with a gif widget for "
+                        "the full section feature set (transitions, "
+                        "hold_time, bg_color, multi-widget sections)."
                     ),
                     fix=(
                         "Change mode to 'swap'. Each gif widget in the "
@@ -940,7 +938,7 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
     # Rule 36: play_count = 0 + mode = "gif" doesn't get hold_time.
     # play_count = 0 means "play through section's hold_time" — but that
     # plumbing only exists on the mode = "swap" path (via _play_widget).
-    # The legacy mode = "gif" calls widget.play() directly without
+    # The mode = "gif" path calls widget.play() directly without
     # threading hold_time, so play_count = 0 silently falls back to
     # exactly 1 loop. Surface as a warning so users get the heads-up
     # rather than a one-loop-then-stop surprise on their panel.
@@ -960,7 +958,7 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                         message=(
                             "play_count=0 in mode='gif' silently plays "
                             "exactly 1 loop — hold_time isn't threaded "
-                            "to the legacy mode='gif' code path. The "
+                            "to the mode='gif' code path. The "
                             "'play through hold_time' semantics only "
                             "apply in mode='swap'."
                         ),

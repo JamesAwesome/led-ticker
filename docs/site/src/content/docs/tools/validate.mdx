@@ -178,7 +178,7 @@ Quick reference. Each row maps to a longer entry on [Validation rules](/pitfalls
 | Held `top_text` wider than the logical canvas                    | warning  | shorten text, smaller font, or lower `scale`                        |
 | `font` name is not bundled and not in `config/fonts/`            | warning  | drop the font file on the deploy target                             |
 | `hold_time` set alongside `bottom_text_loops` on `two_row`       | warning  | drop one (or accept `max()` semantics)                              |
-| `mode = "gif"` is a legacy mode (rule 33)                        | warning  | use `mode = "swap"` with a `gif` widget                             |
+| `mode = "gif"` → prefer `mode = "swap"` (rule 33)                | warning  | use `mode = "swap"` with a `gif` widget                             |
 | `default = "..."` written inside a section block (rule 35)       | warning  | rename to `transition = "..."`                                      |
 | `play_count = 0` inside a `mode = "gif"` section (rule 36)       | warning  | switch to `mode = "swap"` or set positive count                     |
 
@@ -207,7 +207,7 @@ Anything that depends on runtime state — a stale `WEATHERAPI_KEY`, an unreacha
 
 ### Warnings are advisory, not blocking
 
-The ticker will start, scroll, and swap when only warnings are present, but the warning usually points at a rendering quirk you don't actually want — a `two_row` widget cramped into a 64px logical canvas, a `transition_duration` that looks like milliseconds when the engine wants seconds, or a legacy `mode = "gif"` that would benefit from the full `swap`-mode feature set. Treat them as a checklist before you call a config done.
+The ticker will start, scroll, and swap when only warnings are present, but the warning usually points at a rendering quirk you don't actually want — a `two_row` widget cramped into a 64px logical canvas, a `transition_duration` that looks like milliseconds when the engine wants seconds, or a `mode = "gif"` section that would benefit from the full `swap`-mode feature set. Treat them as a checklist before you call a config done.
 
 Pass `--strict` to promote all warnings to errors and enforce a warning-clean config in CI. See the [Strict mode](#strict-mode--promote-warnings-to-errors) section above.
 

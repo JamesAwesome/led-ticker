@@ -38,6 +38,7 @@ Borrowed from Adafruit Learn:
 14. **Blameless error copy.** Frame errors/validation as "a common mix-up — here's the fix," explaining the cause *then* the fix; never imply the reader screwed up — blame makes beginners quit.
 15. **Anticipate beginner anxiety.** Add one reassuring line where a step looks intimidating ("you don't need to be a Python expert for this") — a single sentence keeps a nervous reader going.
 16. **A next-step CTA on every page.** End every page — including reference and concept pages — by pulling the reader forward (`TutorialNav`/`RelatedPages` or a "next" link), not just tutorials — a dead-end page ends the session.
+17. **No release-history framing.** led-ticker is unreleased — don't describe anything as "legacy", "deprecated", "backward-compatible", "no longer accepted", or "still works as before." There's no prior version to preserve, so document the current way only.
 
 ### Do NOT copy (from Adafruit)
 
@@ -59,7 +60,7 @@ The technical-writer reviewer runs this against each completed docs task. Aim fo
 - [ ] Local "if it doesn't work" troubleshooting where relevant; error copy is blameless (cause → fix).
 - [ ] Cross-links instead of duplication; a next-step CTA at the bottom.
 - [ ] Builds clean (`make docs-build`) + lint clean (`make docs-lint`); fences balanced.
-- [ ] Tone consistent + matter-of-fact (no upsell, no breathless marketing).
+- [ ] Tone consistent + matter-of-fact (no upsell, no breathless marketing, no release-history framing).
 
 ## 4. Mechanics
 

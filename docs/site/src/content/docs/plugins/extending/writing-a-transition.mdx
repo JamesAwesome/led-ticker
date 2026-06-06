@@ -1,0 +1,175 @@
+---
+title: Writing a transition
+description: Build a custom transition for led-ticker from a plugin — the frame_at contract, the canvas drawing tools, and a worked wipe effect.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+import DemoGif from "../../../../components/DemoGif.astro";
+import RelatedPages from "../../../../components/RelatedPages.astro";
+
+This is a how-to for **plugin authors**: write a custom transition — the short animation played between two widgets. You'll build a **wipe** that sweeps the old frame away behind a colored line, then reveals the new one.
+
+<Aside type="note">
+  New to plugins? Start with the [authoring guide](/plugins/authoring/01-scaffold/) to scaffold one,
+  then come back. You only need `led_ticker.plugin`.
+</Aside>
+
+<DemoGif
+  src="/demos/transitions-wipe.gif"
+  caption="A wipe — a sweep line crosses the panel and the new content follows."
+/>
+
+## The `frame_at` contract
+
+A transition is a class with one method, `frame_at`, called once per frame while the transition plays:
+
+```python
+def frame_at(self, t, canvas, outgoing, incoming, **kwargs): ...
+```
+
+- **`t`** runs from **0.0 to 1.0** — the transition's progress. At `t=0` you'd show only `outgoing`; at `t=1.0`, only `incoming`.
+- **`canvas`** is what you draw on (the pixel grid for this frame). The engine **clears it for you before each call** — don't clear it yourself.
+- **`outgoing`** and **`incoming`** are the two frames. You don't read their pixels — you ask each to paint itself with **`frame.draw(canvas, cursor_pos=N)`**, where `cursor_pos` is a horizontal pixel offset (`0` = in place).
+- The **return value is ignored** — the engine renders whatever you drew onto `canvas`. Returning `canvas` is a harmless convention.
+
+<Aside type="tip">
+  `frame_at` also receives a few `**kwargs` (e.g. `outgoing_scroll_pos`, `duration_ms`) that fancier
+  transitions use. You can ignore them — this wipe does.
+</Aside>
+
+## The drawing tools
+
+You composite each frame with three canvas calls:
+
+- **`canvas.width`** / **`canvas.height`** — the panel size in pixels (use `getattr(canvas, "height", 16)` to be safe).
+- **`canvas.SubFill(x, y, w, h, r, g, b)`** — fill a rectangle with a color. This is how you "clip": a frame drawn with `draw()` can't be cropped, so you draw it in full and then **black out** the part you don't want with `SubFill(…, 0, 0, 0)`.
+- **`canvas.SetPixel(x, y, r, g, b)`** — set a single pixel (here, the sweep line).
+
+## Build the wipe
+
+Draw the **outgoing** frame, black out everything the sweep has already crossed, draw the colored **sweep line** at the moving edge, and at the very end snap to the **incoming** frame:
+
+```python
+def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+    w = canvas.width
+    h = getattr(canvas, "height", 16)
+
+    if t >= 1.0:
+        incoming.draw(canvas, cursor_pos=0)
+        return canvas
+
+    edge = int(t * w)  # the sweep edge moves left -> right, 0 .. w
+
+    outgoing.draw(canvas, cursor_pos=0)  # 1. the old frame fills the canvas
+    if edge > 0:  # 2. black out everything the sweep has passed
+        canvas.SubFill(0, 0, edge, h, 0, 0, 0)
+    for dx in range(2):  # 3. a 2px colored sweep line at the edge
+        x = edge + dx
+        if 0 <= x < w:
+            for y in range(h):
+                canvas.SetPixel(x, y, self.color[0], self.color[1], self.color[2])
+    return canvas
+```
+
+Two finishing touches: set **`min_frames`** so the sweep has enough frames to look smooth no matter the configured duration, and accept a **`color`** field so the sweep line is configurable from TOML.
+
+<Aside type="note">
+  This is a "sweep the old away to a colored line, then reveal the new" wipe — the same style as
+  led-ticker's built-in wipes. A _progressive_ reveal (new content on the left, old on the right,
+  with no black band) isn't cleanly possible because `draw()` can't be clipped — which is exactly
+  why the black-out step exists.
+</Aside>
+
+## Register and use it
+
+<Steps>
+
+1. Register the class in your plugin's `register(api)`:
+
+   ```python
+   @api.transition("wipe")
+   class Wipe: ...
+   ```
+
+   It's namespaced — in the `example_transition` plugin it becomes `example_transition.wipe`.
+
+2. Use it on a section in your `config/config.toml` (optionally with a `color`):
+
+   ```toml
+   [[playlist.section]]
+   transition = { type = "example_transition.wipe", color = [255, 0, 0] }
+   ```
+
+3. Install your plugin so led-ticker can find it. `make render-demo` loads only **installed** plugins (see [Package & install](/plugins/authoring/03-package/)), then preview — no hardware needed:
+
+   ```bash
+   pip install -e .   # run from your plugin's directory
+   make render-demo CONFIG=config/config.toml OUT=preview.gif
+   open preview.gif   # macOS; xdg-open on Linux
+   ```
+
+</Steps>
+
+## Complete listing
+
+The full plugin — `examples/plugins/example_transition/__init__.py`:
+
+```python
+"""Example led-ticker plugin: a custom 'wipe' transition (the 'Writing a transition' how-to).
+
+Drop `example_transition/` into your `config/plugins/` (local use), or package it
+with an `[project.entry-points."led_ticker.plugins"]  example_transition = "example_transition:register"`
+entry, then use it in TOML as `transition = {type = "example_transition.wipe"}`.
+
+Imports only `led_ticker.plugin` (the public surface) plus stdlib.
+"""
+
+
+def register(api):
+    @api.transition("wipe")
+    class Wipe:
+        # Enough frames for a smooth sweep regardless of the configured duration.
+        min_frames = 16
+
+        # A config-driven field: `transition = {type = "example_transition.wipe",
+        # color = [255, 0, 0]}` passes `color` here. Default: cyan.
+        def __init__(self, color=(0, 255, 255)):
+            self.color = color
+
+        def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+            # The engine clears the canvas before each call — don't clear it here.
+            # Draw onto `canvas`; the return value is ignored (returning canvas
+            # is just a convention).
+            w = canvas.width
+            h = getattr(canvas, "height", 16)
+
+            if t >= 1.0:
+                incoming.draw(canvas, cursor_pos=0)
+                return canvas
+
+            edge = int(t * w)  # the sweep edge moves left -> right, 0 .. w
+
+            outgoing.draw(canvas, cursor_pos=0)  # 1. the old frame fills the canvas
+            if edge > 0:  # 2. black out everything the sweep has passed
+                canvas.SubFill(0, 0, edge, h, 0, 0, 0)
+            for dx in range(2):  # 3. a 2px colored sweep line at the edge
+                x = edge + dx
+                if 0 <= x < w:
+                    for y in range(h):
+                        canvas.SetPixel(x, y, self.color[0], self.color[1], self.color[2])
+            return canvas
+```
+
+## If it doesn't work
+
+- **"Unknown transition" / the name isn't found** — check the namespaced `type` (`example_transition.wipe`, not `wipe`) and that the plugin is installed/loaded (see [Installing a plugin](/plugins/#installing-a-plugin)).
+- **The transition flickers or is too quick to see** — raise `min_frames`, or the section's transition duration.
+- **The canvas looks smeared / wrong** — don't call `canvas.Clear()` or `canvas.Fill()` yourself; the engine clears before each `frame_at`.
+
+<RelatedPages
+  slugs={[
+    "plugins/api-reference",
+    "plugins/extending/custom-emoji",
+    "plugins/authoring/01-scaffold",
+  ]}
+/>

@@ -33,13 +33,13 @@ Each section below is one step of that flow.
 
 ## The engine loop
 
-At startup, led-ticker parses your config into a **playlist** of [sections](/concepts/sections-and-modes/), each holding one or more **widgets**. Then an asyncio engine runs a steady loop — about **20 frames per second** (a 50 ms _tick_).
+At startup, led-ticker parses your config into a **playlist** of [sections](/concepts/sections-and-modes/), each holding one or more **widgets**. Then a background engine runs a steady loop at **20 frames per second** — one _tick_ every 50 ms.
 
 On each tick the engine:
 
 1. **advances the frame counter(s)** — every animated effect (rainbow text, a color cycle, a typewriter) has [its own counter](/reference/frame-counters/) that moves one step;
 2. **redraws** the current widget onto the canvas at its new frame;
-3. **swaps** the finished frame to the panel (below), then sleeps until the next tick.
+3. **pushes** the finished frame to the panel (below), then sleeps until the next tick.
 
 A section's **mode** decides how its widgets are shown — held in place (`swap`) or scrolling — and for how long; **[transitions](/transitions/)** play the animation between one widget or section and the next. (An effect whose output doesn't change with the frame skips the per-tick redraw — see [frame counters](/reference/frame-counters/).)
 
@@ -51,7 +51,7 @@ That's the short version — [Display](/concepts/display/) covers scaling, the `
 
 ## Reaching the panel
 
-When a frame is ready, the engine calls **`LedFrame.swap()`**, which does two things in order:
+When a frame is ready, the engine calls **`LedFrame.swap()`** — the buffer swap, unrelated to the `swap` section mode above — which does two things in order:
 
 1. runs every registered **overlay hook** — paint functions that draw _over_ whatever's on screen, every frame, like the [busy light](/concepts/busy-light/)'s status dot;
 2. performs a **double-buffered swap**: the new frame is sent to the panel while the next one is drawn off-screen, so the display never tears or flickers mid-update.

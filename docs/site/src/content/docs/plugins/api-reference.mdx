@@ -1,0 +1,185 @@
+---
+title: Plugin API reference
+description: The complete public led_ticker.plugin surface — the register(api) contract, every registration method, the exported names, and the authoring conventions.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+This page is for **developers writing a plugin**. It catalogs the entire public `led_ticker.plugin` surface: the `register(api)` entry point, every registration method, the names you can import, and the conventions a plugin follows. For a guided, build-it-up introduction, start with the [plugin authoring guide](/plugins/authoring/01-scaffold/); come here when you need the exact shape of something.
+
+<Aside type="note">
+  A plugin imports **only** from `led_ticker.plugin`. Everything else under `led_ticker` is internal
+  and can change without notice. If a name isn't on this page, treat it as private.
+</Aside>
+
+## The `register(api)` contract
+
+A plugin is a Python package that exposes a top-level `register(api)` function under the `led_ticker.plugins` [entry-point group](https://packaging.python.org/en/latest/specifications/entry-points/) — an _entry point_ is how an installed package advertises a hook other code can discover. The loader finds it, builds a `PluginAPI` bound to your plugin's **namespace** (the prefix every registered name gets), and calls it:
+
+```python
+# my_plugin/__init__.py
+from led_ticker.plugin import PluginAPI
+
+
+def register(api: PluginAPI) -> None:
+    @api.widget("clock")
+    class Clock:
+        def draw(self, canvas, frame): ...
+```
+
+```toml
+# pyproject.toml
+[project.entry-points."led_ticker.plugins"]
+my_plugin = "my_plugin:register"
+```
+
+Two rules govern every registration:
+
+- **Auto-namespacing.** Every name you register is prefixed with your plugin's namespace — `api.widget("clock")` in the `acme` plugin registers `acme.clock` (written in config as `type = "acme.clock"`). You cannot register a bare name or shadow a built-in.
+- **Atomic load.** Calls buffer until `register()` returns cleanly. If `register()` raises, the whole plugin is discarded — there is no half-registered state.
+
+`API_VERSION` (currently `(1, 0)`) is exported so a plugin can check the surface version it was built against.
+
+## Registration methods
+
+`PluginAPI` exposes twelve registration methods. The **decorator** forms register a class; the **call** forms register a value directly. Several examples below draw onto a **canvas** — the pixel grid for the current frame (the [`Canvas`](#exported-names) type, listed under Exported names).
+
+{/* <!-- api-methods:start --> */}
+
+### Visual building blocks
+
+| Method                      | Form      | Registers                                            |
+| --------------------------- | --------- | ---------------------------------------------------- |
+| `api.widget(name)`          | decorator | A [widget](/widgets/) class under `namespace.name`   |
+| `api.transition(name)`      | decorator | A [transition](/transitions/) class                  |
+| `api.color_provider(style)` | decorator | A [color provider](/concepts/color-providers/) class |
+| `api.animation(style)`      | decorator | An [animation](/concepts/animations/) class          |
+| `api.border(name)`          | decorator | A [border effect](/concepts/borders/) class          |
+| `api.easing(name, fn)`      | call      | An easing function `(float) -> float`                |
+
+```python
+@api.widget("clock")
+class Clock:
+    def draw(self, canvas, frame): ...
+
+
+@api.transition("swirl")
+class Swirl:
+    def frame_at(self, t, canvas, outgoing, incoming, **kw): ...
+
+
+api.easing("snap", lambda t: 0.0 if t < 0.5 else 1.0)
+```
+
+In a transition's `frame_at`, `t` runs 0 → 1; `outgoing` and `incoming` each have a `.draw(canvas)`; you render the in-between frame onto `canvas`, and the **return value is ignored**. A full walkthrough (building a wipe) is coming in the Extending section.
+
+### Assets
+
+| Method                        | Form | Registers                                                |
+| ----------------------------- | ---- | -------------------------------------------------------- |
+| `api.emoji(slug, data)`       | call | A low-res 8×8 emoji (`PixelData`) under `namespace.slug` |
+| `api.hires_emoji(slug, data)` | call | A hi-res emoji (`HiResEmoji`) for scaled-canvas draws    |
+| `api.font(name, path)`        | call | A font file; `path` is relative to the plugin root       |
+
+→ Worked example: [Custom emoji](/plugins/extending/custom-emoji/) covers the `PixelData` format, hi-res sprites, and a PNG→pixels recipe.
+
+<Aside type="caution">
+  Pair every hi-res emoji with a low-res one. led-ticker keeps two emoji registries: inline
+  `:namespace.slug:` tokens and unscaled (small) canvases resolve only through the **low-res**
+  registry. So register a matching `api.emoji(slug, …)` for each `api.hires_emoji` — a hi-res
+  registration with no low-res counterpart logs a warning at load.
+</Aside>
+
+### Lifecycle hooks
+
+| Method                | Form | Registers                                                                    |
+| --------------------- | ---- | ---------------------------------------------------------------------------- |
+| `api.overlay(paint)`  | call | A `paint(canvas)` run every frame before the hardware swap                   |
+| `api.on_startup(fn)`  | call | A hook run once after the frame + session exist; receives a `StartupContext` |
+| `api.on_shutdown(fn)` | call | A hook run best-effort when the run loop exits                               |
+
+{/* <!-- api-methods:end --> */}
+
+<Aside type="caution">
+  Register overlays through `api.overlay` — these are exception-guarded: if your paint function
+  raises, led-ticker disables just that overlay and logs it, rather than letting the error freeze
+  the panel.
+</Aside>
+
+## Exported names
+
+These are the names you can import from `led_ticker.plugin` — the types you'll subclass or annotate against. They're the stable surface, so anything you build on them keeps working as led-ticker evolves.
+
+{/* <!-- api-exports:start --> */}
+
+### Core
+
+| Name             | What it is                                                                     |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `PluginAPI`      | The namespace-bound registrar passed to `register(api)`                        |
+| `StartupContext` | Frozen dataclass passed to an `on_startup` hook (`frame`, `session`, `config`) |
+| `API_VERSION`    | `(major, minor)` tuple of the plugin surface version                           |
+
+### Base classes & protocols
+
+| Name                | What it is                                                              |
+| ------------------- | ----------------------------------------------------------------------- |
+| `Widget`            | The widget protocol (a `draw()` or play-style widget)                   |
+| `Container`         | Monitor/container widget base (cycles a live `feed_stories` list)       |
+| `Updatable`         | Protocol for widgets with `async def update(self)`                      |
+| `Transition`        | The [transition](/transitions/) protocol (`frame_at`)                   |
+| `ColorProvider`     | The [color-provider](/concepts/color-providers/) protocol (`color_for`) |
+| `ColorProviderBase` | Base that enforces the `frame_invariant` class attr                     |
+| `Animation`         | The [animation](/concepts/animations/) protocol (`frame_for`)           |
+| `BorderEffect`      | The [border](/concepts/borders/) protocol (`paint`)                     |
+| `BorderEffectBase`  | Base that enforces the `frame_invariant` class attr                     |
+| `SegmentMessage`    | Re-exported single-line message widget (compose stories from it)        |
+| `TwoRowMessage`     | Re-exported two-row widget                                              |
+
+### Data & types
+
+| Name             | What it is                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| `Canvas`         | The draw target (`SetPixel`, `width`, `height`)                                                               |
+| `Color`          | An rgbmatrix color value                                                                                      |
+| `DrawResult`     | The return shape of a widget `draw()`                                                                         |
+| `AnimationFrame` | The return shape of `Animation.frame_for`                                                                     |
+| `PixelData`      | `list[(x, y, r, g, b)]` — one tuple per lit pixel of a low-res emoji                                          |
+| `HiResEmoji`     | A hi-res emoji sprite — `pixels` ((x,y,r,g,b) in physical coords), `physical_size`, optional `physical_width` |
+| `Font`           | A resolved font handle                                                                                        |
+| `HiresFont`      | A resolved hi-res font                                                                                        |
+
+### Helpers
+
+| Name                                         | What it is                                                           |
+| -------------------------------------------- | -------------------------------------------------------------------- |
+| `make_color(r, g, b)`                        | Build a `Color` from RGB components (0–255)                          |
+| `draw_text(canvas, font, text, x, y, color)` | Draw text (inline `:emoji:` included); returns the next x            |
+| `get_text_width(font, text)`                 | Pixel width of `text` in `font`                                      |
+| `compute_baseline(font, ...)`                | The baseline y for a font                                            |
+| `resolve_font(name, ...)`                    | Resolve a font by name (bundled, plugin, or [BDF](/concepts/fonts/)) |
+| `draw_emoji_at(canvas, slug, x, y)`          | Draw a registered emoji at a position                                |
+| `measure_emoji_at(canvas, slug)`             | Measure a registered emoji                                           |
+| `colors`                                     | The built-in named-color module                                      |
+| `run_monitor_loop(widget, interval)`         | The periodic-refresh loop for a monitor widget                       |
+| `spawn_tracked(coro)`                        | Spawn a tracked background task from a `start()` / hook              |
+
+{/* <!-- api-exports:end --> */}
+
+## Conventions
+
+A few behaviors are **conventions** the type carries, not `api.*` calls:
+
+- **`validate_config`** — a widget may define `@classmethod validate_config(cls, cfg) -> list[str]`. It's called during config validation with the raw (pre-coercion) TOML for that widget; any returned strings become pre-flight errors. The rule travels with the widget type.
+- **`font_color` injection** — to accept the standard `font_color` color-provider knob, declare a `font_color: object = None` field on the widget; the loader coerces the TOML value to a `ColorProvider` and injects it. Without the field, `font_color` is rejected as unknown.
+- **`frame_invariant`** — `ColorProviderBase` / `BorderEffectBase` require subclasses to set a `frame_invariant: bool` class attr. `True` means output never varies by frame (enables a static fast path); `False` forces a per-tick redraw.
+- **`restart_on_visit`** — a color provider or border may set `restart_on_visit = False` to keep a continuous animation phase across a section's `loop_count`, instead of resetting on each visit.
+
+## Where to next
+
+- **Build one step by step:** the [plugin authoring guide](/plugins/authoring/01-scaffold/) walks from scaffold to a packaged widget.
+- **Loader internals & edge cases:** [`docs/plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md) covers discovery, the `[plugins]` config block, deployment, and known surface gaps.
+- **The surfaces you'll extend:** [widgets](/widgets/), [transitions](/transitions/), [color providers](/concepts/color-providers/), [animations](/concepts/animations/), [borders](/concepts/borders/).
+
+<RelatedPages slugs={["plugins/authoring/01-scaffold", "plugins", "concepts/color-providers"]} />

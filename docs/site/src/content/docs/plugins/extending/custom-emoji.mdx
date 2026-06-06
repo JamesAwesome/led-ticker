@@ -1,0 +1,205 @@
+---
+title: Custom emoji
+description: Add your own inline emoji to led-ticker from a plugin — the PixelData format, registering low-res and hi-res sprites, and a PNG-to-pixels recipe.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+import DemoGif from "../../../../components/DemoGif.astro";
+import RelatedPages from "../../../../components/RelatedPages.astro";
+
+This is a how-to for **plugin authors**: add your own emoji so it renders inline in any message as `:yourplugin.slug:`. You'll register an 8×8 sprite, see it on the sign, then add a hi-res version for scaled (big) signs.
+
+<Aside type="note">
+  New to plugins? Start with the [authoring guide](/plugins/authoring/01-scaffold/) to scaffold one,
+  then come back. You only need `led_ticker.plugin` — and, for the optional PNG recipe at the end,
+  [Pillow](https://python-pillow.org/).
+</Aside>
+
+<DemoGif
+  src="/demos/assets-emoji.gif"
+  caption="Emoji render inline in message text — the built-ins, and any you add."
+/>
+
+## What a sprite looks like: `PixelData`
+
+A low-res emoji is a **`PixelData`** — a `list` of `(x, y, r, g, b)` tuples, **one per lit pixel** on an 8×8 grid (`x`, `y` are 0–7; `r`, `g`, `b` are 0–255). Pixels you leave out stay transparent.
+
+The easy way to build one is to "draw" it as text, then expand it:
+
+```python
+# An 8×8 heart. "X" = a lit pixel, "." = transparent.
+_HEART_ART = [
+    ".XX..XX.",
+    "XXXXXXXX",
+    "XXXXXXXX",
+    "XXXXXXXX",
+    ".XXXXXX.",
+    "..XXXX..",
+    "...XX...",
+    "........",
+]
+_RED = (220, 40, 60)
+HEART = [
+    (x, y, *_RED)
+    for y, row in enumerate(_HEART_ART)
+    for x, cell in enumerate(row)
+    if cell == "X"
+]
+# HEART == [(1, 0, 220, 40, 60), (2, 0, 220, 40, 60), ...] — 40 tuples.
+```
+
+## Register it and show it
+
+<Steps>
+
+1. Register the sprite inside your plugin's `register(api)` under a slug:
+
+   ```python
+   def register(api):
+       api.emoji("heart", HEART)
+   ```
+
+   The slug is namespaced automatically — in the `example_emoji` plugin it becomes `example_emoji.heart`.
+
+2. Use it inline in any message by wrapping the namespaced slug in colons. Add a section like this to the `config/config.toml` you'll render:
+
+   ```toml
+   [[playlist.section.widget]]
+   type = "message"
+   text = "we :example_emoji.heart: led-ticker"
+   ```
+
+3. Install your plugin so led-ticker can find it. `make render-demo` only loads **installed** plugins (via their entry point), not a local plugin directory — so package-install yours first (see [Package & install](/plugins/authoring/03-package/)):
+
+   ```bash
+   pip install -e .   # run from your plugin's directory
+   ```
+
+4. Preview it — no hardware needed. This renders the config from step 2:
+
+   ```bash
+   make render-demo CONFIG=config/config.toml OUT=preview.gif
+   open preview.gif   # macOS; xdg-open on Linux
+   ```
+
+</Steps>
+
+<Aside type="caution">
+  `make render-demo` discovers only **installed** plugins. A plugin you've merely dropped into
+  `config/plugins/` loads when you run `led-ticker` on the sign, but won't show up in a
+  `render-demo` preview until you `pip install -e .` it.
+</Aside>
+
+## Low-res vs hi-res
+
+led-ticker keeps two emoji registries:
+
+- **Low-res** — the 8×8 `PixelData` above. Used by inline `:slug:` text and by **small / unscaled signs**. This is all most plugins need.
+- **Hi-res** — a larger sprite in **physical** pixel coordinates. Used on **scaled (big) signs** (`default_scale > 1`) and by direct draws ([`draw_emoji_at`](/plugins/api-reference/#exported-names)).
+
+Rule of thumb: **small sign → register only the low-res sprite. Big / scaled sign → also register a hi-res version** (keep the low-res one — inline `:slug:` always resolves through it; a hi-res sprite with no low-res counterpart logs a warning at load).
+
+## Adding a hi-res sprite
+
+`HiResEmoji(pixels=…, physical_size=…)` takes pixels in physical coordinates (`0 … physical_size − 1`). The quickest way is to scale your 8×8 sprite up — here, 2× into a 16×16:
+
+```python
+from led_ticker.plugin import HiResEmoji
+
+HEART_HIRES = tuple(
+    (x * 2 + dx, y * 2 + dy, r, g, b)
+    for (x, y, r, g, b) in HEART
+    for dx in (0, 1)
+    for dy in (0, 1)
+)
+
+
+def register(api):
+    api.emoji("heart", HEART)
+    api.hires_emoji("heart", HiResEmoji(pixels=HEART_HIRES, physical_size=16))
+```
+
+## From a PNG
+
+Have an image instead? This one-time helper converts an 8×8 PNG into a `PixelData` list you can paste in. It's a script you run yourself — not part of the plugin.
+
+```python
+# pip install pillow
+from PIL import Image
+
+img = Image.open("heart.png").convert("RGBA")  # an 8×8 image
+pixels = []
+for y in range(img.height):
+    for x in range(img.width):
+        r, g, b, a = img.getpixel((x, y))
+        if a > 0:  # skip fully transparent pixels
+            pixels.append((x, y, r, g, b))
+
+print(pixels)  # paste this as your PixelData
+```
+
+<Aside type="tip">
+  Keep it 8×8 for a low-res sprite. For a hi-res sprite, use a 16×16 (or 32×32) image and pass
+  `physical_size=16` (or `32`).
+</Aside>
+
+## Complete listing
+
+The full plugin — `examples/plugins/example_emoji/__init__.py`:
+
+```python
+"""Example led-ticker plugin: a custom inline emoji (the 'Custom emoji' how-to).
+
+Drop `example_emoji/` into your `config/plugins/` (local use), or package it with
+an `[project.entry-points."led_ticker.plugins"]  example_emoji = "example_emoji:register"`
+entry, then use it inline in any message as `:example_emoji.heart:`.
+
+Imports only `led_ticker.plugin` (the public surface) plus stdlib.
+"""
+
+from led_ticker.plugin import HiResEmoji
+
+# An 8x8 heart. "X" = a lit pixel, "." = transparent.
+_HEART_ART = [
+    ".XX..XX.",
+    "XXXXXXXX",
+    "XXXXXXXX",
+    "XXXXXXXX",
+    ".XXXXXX.",
+    "..XXXX..",
+    "...XX...",
+    "........",
+]
+_RED = (220, 40, 60)
+
+# Low-res sprite: a PixelData = list of (x, y, r, g, b), one tuple per lit pixel.
+HEART = [
+    (x, y, *_RED)
+    for y, row in enumerate(_HEART_ART)
+    for x, cell in enumerate(row)
+    if cell == "X"
+]
+
+# Hi-res sprite: scale the 8x8 up 2x into a 16x16, in physical coordinates.
+HEART_HIRES = tuple(
+    (x * 2 + dx, y * 2 + dy, r, g, b)
+    for (x, y, r, g, b) in HEART
+    for dx in (0, 1)
+    for dy in (0, 1)
+)
+
+
+def register(api):
+    # Low-res: used by inline `:example_emoji.heart:` and small / unscaled signs.
+    api.emoji("heart", HEART)
+    # Hi-res: used on scaled (big) signs; keep the low-res one for inline use.
+    api.hires_emoji("heart", HiResEmoji(pixels=HEART_HIRES, physical_size=16))
+```
+
+## If it doesn't work
+
+- **The emoji doesn't appear / shows as literal text** — check the slug is namespaced (`:example_emoji.heart:`, not `:heart:`) and that the plugin is installed/loaded (see [Installing a plugin](/plugins/#installing-a-plugin)).
+- **It shows on a small sign but not a big one** — register a hi-res sprite (above); inline use still needs the low-res one.
+- **A "hi-res emoji has no low-res counterpart" warning at load** — register a matching `api.emoji(slug, …)` alongside `api.hires_emoji(slug, …)`.
+
+<RelatedPages slugs={["plugins/api-reference", "assets/emoji", "plugins/authoring/01-scaffold"]} />

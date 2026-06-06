@@ -88,6 +88,7 @@ export default defineConfig({
           items: [
             { label: "Plugins overview", link: "/plugins/" },
             { label: "Available plugins", link: "/plugins/available/" },
+            { label: "API reference", link: "/plugins/api-reference/" },
             {
               label: "Authoring a plugin",
               items: [
@@ -96,6 +97,10 @@ export default defineConfig({
                 { label: "3. Package & install", link: "/plugins/authoring/03-package/" },
                 { label: "4. Beyond widgets", link: "/plugins/authoring/04-beyond-widgets/" },
               ],
+            },
+            {
+              label: "Extending led-ticker",
+              items: [{ label: "Custom emoji", link: "/plugins/extending/custom-emoji/" }],
             },
           ],
         },

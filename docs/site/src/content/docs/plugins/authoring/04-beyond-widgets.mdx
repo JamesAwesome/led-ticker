@@ -48,6 +48,8 @@ api.on_shutdown(cleanup)      # runs once at exit
 
 Start background work with `spawn_tracked(coro)` from inside `on_startup`, and have your overlay paint whatever shared state it updates.
 
+Building a background service? See the [Service plugins](/plugins/extending/service-plugins/) how-to — an `on_startup` poller plus a status overlay.
+
 <Aside type="tip" title="Copy the example">
   The fastest way to add any of these is to copy the relevant block out of
   [`acme/__init__.py`](https://github.com/JamesAwesome/led-ticker/blob/main/examples/plugins/acme/__init__.py)

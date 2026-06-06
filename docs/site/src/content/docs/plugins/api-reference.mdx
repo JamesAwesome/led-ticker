@@ -72,6 +72,8 @@ class Swirl:
 api.easing("snap", lambda t: 0.0 if t < 0.5 else 1.0)
 ```
 
+In a transition's `frame_at`, `t` runs 0 → 1; `outgoing` and `incoming` each have a `.draw(canvas)`; you render the in-between frame onto `canvas`, and the **return value is ignored**. A full walkthrough (building a wipe) is coming in the Extending section.
+
 ### Assets
 
 | Method                        | Form | Registers                                                |
@@ -79,6 +81,8 @@ api.easing("snap", lambda t: 0.0 if t < 0.5 else 1.0)
 | `api.emoji(slug, data)`       | call | A low-res 8×8 emoji (`PixelData`) under `namespace.slug` |
 | `api.hires_emoji(slug, data)` | call | A hi-res emoji (`HiResEmoji`) for scaled-canvas draws    |
 | `api.font(name, path)`        | call | A font file; `path` is relative to the plugin root       |
+
+→ Worked example: [Custom emoji](/plugins/extending/custom-emoji/) covers the `PixelData` format, hi-res sprites, and a PNG→pixels recipe.
 
 <Aside type="caution">
   Pair every hi-res emoji with a low-res one. led-ticker keeps two emoji registries: inline
@@ -135,16 +139,16 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 
 ### Data & types
 
-| Name             | What it is                                         |
-| ---------------- | -------------------------------------------------- |
-| `Canvas`         | The draw target (`SetPixel`, `width`, `height`)    |
-| `Color`          | An rgbmatrix color value                           |
-| `DrawResult`     | The return shape of a widget `draw()`              |
-| `AnimationFrame` | The return shape of `Animation.frame_for`          |
-| `PixelData`      | `list[(x, y, r, g, b)]` describing a low-res emoji |
-| `HiResEmoji`     | Hi-res emoji sprite data                           |
-| `Font`           | A resolved font handle                             |
-| `HiresFont`      | A resolved hi-res font                             |
+| Name             | What it is                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| `Canvas`         | The draw target (`SetPixel`, `width`, `height`)                                                               |
+| `Color`          | An rgbmatrix color value                                                                                      |
+| `DrawResult`     | The return shape of a widget `draw()`                                                                         |
+| `AnimationFrame` | The return shape of `Animation.frame_for`                                                                     |
+| `PixelData`      | `list[(x, y, r, g, b)]` — one tuple per lit pixel of a low-res emoji                                          |
+| `HiResEmoji`     | A hi-res emoji sprite — `pixels` ((x,y,r,g,b) in physical coords), `physical_size`, optional `physical_width` |
+| `Font`           | A resolved font handle                                                                                        |
+| `HiresFont`      | A resolved hi-res font                                                                                        |
 
 ### Helpers
 

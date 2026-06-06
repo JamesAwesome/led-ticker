@@ -30,6 +30,8 @@ api.hires_emoji("spark", HiResEmoji(...))           # hi-res variant (pair it wi
 api.font("Brand", "fonts/Brand.ttf")                # a bundled font file, usable as font = "example.Brand"
 ```
 
+Adding your own emoji? See the [Custom emoji](/plugins/extending/custom-emoji/) how-to for the `PixelData` format, low-res vs hi-res sprites, and a PNG→pixels recipe.
+
 ## Lifecycle hooks (the "service plugin" pattern)
 
 Hooks let a plugin run code around the display loop — for example, poll an API in the background and paint a status dot over every frame:

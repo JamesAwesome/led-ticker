@@ -291,9 +291,13 @@ Compare side-by-side with the BDF version from the previous section:
   caption="For reference: the same content at scale=1, content_height=16 (no extra top-row space) with the default 5x8 BDF font. The Instagram sprite drops to the 8×8 lo-res variant."
 />
 
-The hi-res path activates automatically when `default_scale > 1` — you don't
-need a separate code path. The `:instagram:` slug always resolves to the correct
-sprite size for the current scale and band height.
+The hi-res path activates automatically when the **effective (per-section) scale
+is ≥ 2 and the band is tall enough** to fit the bigger sprite — you don't need a
+separate code path. It's the per-section `scale`, not `default_scale`, that
+matters: this chapter's bigsign runs `default_scale = 4` yet the basic `two_row`
+section above renders lo-res because its per-section `scale = 1`. The
+`:instagram:` slug always resolves to the correct sprite size for the current
+effective scale and band height.
 
 ## Seamless wrap with a loop count
 

@@ -61,7 +61,7 @@ HEART = [
 
    The slug is namespaced automatically — in the `example_emoji` plugin it becomes `example_emoji.heart`.
 
-2. Use it inline in any message by wrapping the namespaced slug in colons:
+2. Use it inline in any message by wrapping the namespaced slug in colons. Add a section like this to the `config/config.toml` you'll render:
 
    ```toml
    [[playlist.section.widget]]
@@ -69,7 +69,13 @@ HEART = [
    text = "we :example_emoji.heart: led-ticker"
    ```
 
-3. Preview it — no hardware needed:
+3. Install your plugin so led-ticker can find it. `make render-demo` only loads **installed** plugins (via their entry point), not a local plugin directory — so package-install yours first (see [Package & install](/plugins/authoring/03-package/)):
+
+   ```bash
+   pip install -e .   # run from your plugin's directory
+   ```
+
+4. Preview it — no hardware needed. This renders the config from step 2:
 
    ```bash
    make render-demo CONFIG=config/config.toml OUT=preview.gif
@@ -78,12 +84,18 @@ HEART = [
 
 </Steps>
 
+<Aside type="caution">
+  `make render-demo` discovers only **installed** plugins. A plugin you've merely dropped into
+  `config/plugins/` loads when you run `led-ticker` on the sign, but won't show up in a
+  `render-demo` preview until you `pip install -e .` it.
+</Aside>
+
 ## Low-res vs hi-res
 
 led-ticker keeps two emoji registries:
 
 - **Low-res** — the 8×8 `PixelData` above. Used by inline `:slug:` text and by **small / unscaled signs**. This is all most plugins need.
-- **Hi-res** — a larger sprite in **physical** pixel coordinates. Used on **scaled (big) signs** (`default_scale > 1`) and by direct draws (`draw_emoji_at`).
+- **Hi-res** — a larger sprite in **physical** pixel coordinates. Used on **scaled (big) signs** (`default_scale > 1`) and by direct draws ([`draw_emoji_at`](/plugins/api-reference/#exported-names)).
 
 Rule of thumb: **small sign → register only the low-res sprite. Big / scaled sign → also register a hi-res version** (keep the low-res one — inline `:slug:` always resolves through it; a hi-res sprite with no low-res counterpart logs a warning at load).
 

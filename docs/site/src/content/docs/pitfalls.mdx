@@ -3,10 +3,12 @@ title: Validation rules
 description: Configuration mistakes the validator catches before they bite on the panel.
 ---
 
+import RelatedPages from "../../components/RelatedPages.astro";
+
 `led-ticker validate` reads your `config.toml` and reports every rule below. Run it before you deploy:
 
 ```bash
-make validate CONFIG=config/config.toml
+led-ticker validate config/config.toml
 ```
 
 It exits non-zero on errors so you can wire it into CI.
@@ -206,3 +208,5 @@ Negative gaps would cause bulbs to overlap, producing an undefined visual.
 `hue_wraps` only affects the rainbow color sweep. When `lit_color` is a fixed color (or absent), `hue_wraps` has no effect and is silently ignored.
 
 **Fix:** Either set `lit_color = "rainbow"` to enable the rainbow effect, or remove `hue_wraps`.
+
+<RelatedPages slugs={["tools/validate", "getting-started", "transitions"]} />

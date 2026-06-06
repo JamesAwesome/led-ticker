@@ -245,7 +245,7 @@ play_count = 0   # play through hold_time`}
 
 ### Playing through `hold_time`: `play_count = 0`
 
-When you want a gif to fill its section's duration rather than playing a fixed number of times, set `play_count = 0`. The engine computes how many complete loops fit in `hold_time` and plays at least one even if the time budget is shorter than the gif's own duration. Replaces the older `play_count = 999` magic-number idiom.
+When you want a gif to fill its section's duration rather than playing a fixed number of times, set `play_count = 0`. The engine computes how many complete loops fit in `hold_time` and plays at least one even if the time budget is shorter than the gif's own duration.
 
 ```toml
 [[playlist.section]]

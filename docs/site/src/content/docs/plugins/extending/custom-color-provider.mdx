@@ -17,7 +17,7 @@ This is a how-to for **plugin authors**: write a custom **color provider** — t
 
 <DemoGif
   src="/demos/concepts-color-providers.gif"
-  caption="Color providers drive animated text color — rainbow, cycle, and your own."
+  caption="Built-in color providers animating text — your pulse will breathe similarly."
 />
 
 ## The `color_for` contract
@@ -34,7 +34,7 @@ class Pulse(ColorProviderBase):
 
 - **`color_for(frame, char_index, total_chars)`** returns a `Color` for the current `frame`. `char_index` / `total_chars` describe the character being drawn (for per-character effects).
 - **`per_char`** — `False` returns one color for the whole string; `True` is called per character, so you can color each letter differently (using `char_index`).
-- **`frame_invariant`** — does your color depend on `frame`? `True` means no (a constant or gradient — led-ticker paints it once and sleeps); `False` means yes (it animates — led-ticker re-renders every tick).
+- **`frame_invariant`** — does your color depend on `frame`? `True` means no (a constant or gradient — led-ticker paints it once and sleeps, a performance fast-path); `False` means yes (it animates — led-ticker re-renders every tick).
 
 <Aside type="danger">
   Get `frame_invariant` right. If `color_for` uses `frame` but you declare `frame_invariant = True`,
@@ -53,13 +53,13 @@ def color_for(self, frame, char_index, total_chars):
     return make_color(int(r * level), int(g * level), int(b * level))
 ```
 
-`make_color(r, g, b)` builds a `Color` (channels 0–255). Because the output depends on `frame`, **`frame_invariant = False`**. Add a base `color` and a `speed` as constructor arguments and they'll come from TOML.
+`make_color(r, g, b)` builds a `Color` (channels 0–255). The `0.65` is the midpoint brightness and `0.35` the swing, so brightness oscillates between about 30% and 100% — it never goes fully dark; the `0.05` just scales `frame` into the sine, so **tune `speed` from TOML and leave the `0.05` alone**. Because the output depends on `frame`, **`frame_invariant = False`**. Add a base `color` and a `speed` as constructor arguments and they'll come from TOML.
 
 <Aside type="tip">
   Want a different color per letter (like the built-in rainbow)? Set `per_char = True` and use
-  `char_index` / `total_chars` in `color_for` — e.g. offset the hue by `char_index`. And set
-  `restart_on_visit = False` to keep the animation's phase continuous across a section's
-  `loop_count`.
+  `char_index` / `total_chars` in `color_for` — e.g. offset the hue by `char_index`. And set the
+  class attribute `restart_on_visit = False` (see the [API reference](/plugins/api-reference/)) to
+  keep the animation's phase continuous across a section's `loop_count`.
 </Aside>
 
 ## Register and use it

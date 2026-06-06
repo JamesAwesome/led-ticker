@@ -9,10 +9,11 @@ import RelatedPages from "../../../../components/RelatedPages.astro";
 
 This is a how-to for **plugin authors**: write a custom transition — the short animation played between two widgets. You'll build a **wipe** that sweeps the old frame away behind a colored line, then reveals the new one.
 
-<Aside type="note">
-  New to plugins? Start with the [authoring guide](/plugins/authoring/01-scaffold/) to scaffold one,
-  then come back. You only need `led_ticker.plugin`.
-</Aside>
+**What you'll need:**
+
+- A scaffolded plugin — see the [authoring guide](/plugins/authoring/01-scaffold/); you only import `led_ticker.plugin`.
+- No hardware needed: you'll preview with `make render-demo` (run from the repo after `make dev`).
+- Your plugin **installed** (`pip install -e .` from its directory) — `make render-demo` only picks up installed plugins.
 
 <DemoGif
   src="/demos/transitions-wipe.gif"
@@ -71,7 +72,7 @@ def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
     return canvas
 ```
 
-Two finishing touches: set **`min_frames`** so the sweep has enough frames to look smooth no matter the configured duration, and accept a **`color`** field so the sweep line is configurable from TOML.
+Two finishing touches, both wired into the class in the [complete listing](#complete-listing) below: set **`min_frames`** — a floor on the frame count, so the sweep stays smooth even when the configured duration is short — and accept a **`color`** field so the sweep line is configurable from TOML.
 
 <Aside type="note">
   This is a "sweep the old away to a colored line, then reveal the new" wipe — the same style as
@@ -109,6 +110,12 @@ Two finishing touches: set **`min_frames`** so the sweep has enough frames to lo
    ```
 
 </Steps>
+
+<Aside type="caution">
+  The listing below mentions you can "drop `example_transition/` into `config/plugins/`" — that
+  works when you run `led-ticker` on the sign, but a `make render-demo` preview only sees
+  **installed** plugins. For the preview above, `pip install -e .` your plugin first.
+</Aside>
 
 ## Complete listing
 

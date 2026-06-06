@@ -98,6 +98,10 @@ export default defineConfig({
                 { label: "4. Beyond widgets", link: "/plugins/authoring/04-beyond-widgets/" },
               ],
             },
+            {
+              label: "Extending led-ticker",
+              items: [{ label: "Custom emoji", link: "/plugins/extending/custom-emoji/" }],
+            },
           ],
         },
         {

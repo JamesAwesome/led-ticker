@@ -1,0 +1,74 @@
+---
+// Override of Starlight's SiteTitle. Renders the sidebar collapse/expand toggle
+// inline to the LEFT of the stock title link, so the control sits statically in
+// the header before "led-ticker" (rather than floating over the sidebar). One
+// button toggles state; its icon flips to show the direction (« collapse when
+// open, » expand when collapsed). Right-margin keeps the title off the button.
+import Default from "@astrojs/starlight/components/SiteTitle.astro";
+---
+
+<button
+  id="sidebar-toggle-btn"
+  type="button"
+  aria-label="Toggle sidebar"
+  aria-controls="starlight__sidebar"
+  aria-expanded="true"
+>
+  <svg
+    class="icon-collapse"
+    aria-hidden="true"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M15 18l-6-6 6-6"></path>
+  </svg>
+  <svg
+    class="icon-expand"
+    aria-hidden="true"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M9 18l6-6-6-6"></path>
+  </svg>
+</button>
+
+<Default />
+
+<script>
+  const KEY = "ticker:sidebar-collapsed";
+
+  function syncAria(collapsed: boolean) {
+    document
+      .getElementById("sidebar-toggle-btn")
+      ?.setAttribute("aria-expanded", String(!collapsed));
+  }
+
+  function setCollapsed(collapsed: boolean) {
+    document.documentElement.classList.toggle("sidebar-collapsed", collapsed);
+    syncAria(collapsed);
+    try {
+      localStorage.setItem(KEY, String(collapsed));
+    } catch (e) {
+      /* localStorage blocked — toggle still works for this session. */
+    }
+  }
+
+  // Keep aria honest with the pre-paint class applied in <head>.
+  syncAria(document.documentElement.classList.contains("sidebar-collapsed"));
+
+  document.getElementById("sidebar-toggle-btn")?.addEventListener("click", () => {
+    setCollapsed(!document.documentElement.classList.contains("sidebar-collapsed"));
+  });
+</script>

@@ -25,9 +25,9 @@ Stretch fills every panel pixel with image, leaving no transparent regions for t
 
 Static `text_x_offset` doesn't compose with the per-tick scroll cursor. Either set `text_x_offset = 0` or change `text_align` to `"left"` or `"right"`.
 
-### Rule 8 — `hold_seconds < 0.05` is almost certainly a unit error
+### Rule 8 — `hold_time < 0.05` is almost certainly a unit error
 
-`hold_seconds` is in seconds, not milliseconds. Anything under 50 ms is rejected. If you wrote `3000` thinking ms, you want `3.0`.
+`hold_time` is in seconds, not milliseconds. Anything under 50 ms is rejected. If you wrote `3000` thinking ms, you want `3.0`.
 
 ### Rule 12 — `animation` is only valid on `message`, `gif`, and `image`
 

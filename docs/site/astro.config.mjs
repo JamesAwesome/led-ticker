@@ -47,6 +47,16 @@ export default defineConfig({
       components: {
         PageFrame: "./src/components/PageFrame.astro",
       },
+      // Applies the saved collapsed state to <html> BEFORE first paint so the
+      // layout never flashes the wrong state on load. try/catch so a
+      // localStorage-blocked browser degrades to the default (open).
+      head: [
+        {
+          tag: "script",
+          content:
+            "try{if(localStorage.getItem('ticker:sidebar-collapsed')==='true'){document.documentElement.classList.add('sidebar-collapsed')}}catch(e){}",
+        },
+      ],
       social: [
         { icon: "github", label: "GitHub", href: "https://github.com/JamesAwesome/led-ticker" },
       ],

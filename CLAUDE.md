@@ -228,7 +228,7 @@ led-ticker is extensible via plugins; the `pool.monitor` widget lives in the ext
 - **Validation:** a widget plugin may define `validate_config(cls, cfg) -> list[str]` (pre-coercion); it runs inside `validate_widget_cfg`.
 - **Error isolation:** a plugin that fails to import/register is skipped with a logged error (recorded in `LoadedPlugins.failed`) — a broken plugin must never crash the app or freeze the display. Don't add plugin-load paths that propagate.
 - **Python 3.14 / PEP 649:** no `from __future__ import annotations` in plugin source (same rule as core).
-- Deep reference: `docs/plugin-system.md`. User-facing overview: the docs-site [Plugins page](https://docs.ledticker.dev/plugins/).
+- API surface (canonical): the docs-site [Plugin API reference](https://docs.ledticker.dev/plugins/api-reference/) (drift-guarded by `tests/test_docs_plugin_api_drift.py`). Deep reference (loader internals, deployment, edges): `docs/plugin-system.md`. User-facing overview: the docs-site [Plugins page](https://docs.ledticker.dev/plugins/).
 
 ### Adding a New Widget
 

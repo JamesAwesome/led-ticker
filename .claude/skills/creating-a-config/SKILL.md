@@ -98,7 +98,7 @@ User confirms or edits the list (add / remove / reorder).
 
 ### Phase 2: Per-section pass
 
-Load `references/snippets.md`, `docs/content-source/widgets-legacy.md`, `references/asset-handling.md`, `references/decision-rules.md`.
+Load `references/snippets.md`, `references/widget-selection.md`, `references/asset-handling.md`, `references/decision-rules.md`. For each chosen widget's options (field names, types, defaults), read its fact-pack `docs/content-source/widgets/<type>.md` — that is the source of truth for params; author TOML from it.
 
 **Brand font defaults (carried across all sections):**
 
@@ -147,10 +147,10 @@ Print:
 
 ## `add` mode
 
-Load `docs/content-source/widgets-legacy.md`, `references/snippets.md`, `references/asset-handling.md`, `references/decision-rules.md`.
+Load `references/widget-selection.md`, `references/snippets.md`, `references/asset-handling.md`, `references/decision-rules.md`. For each chosen widget's options, read its fact-pack `docs/content-source/widgets/<type>.md` — the source of truth for params.
 
 1. Read `config/config.toml`. Extract: sign target (from `default_scale` + display dims), brand colors (from `bg_color` / common `font_color` values), default transition / hold / easing, existing sections list. Also **infer use_case** from existing widgets — e.g., presence of `mlb` / `mlb_standings` → `sports`; multiple `rss_feed` + `weather` + `coinbase` → `personal_feed`; a single `gif`/`image` filling the panel → `art`; mixed content with brand colors + handle → `store_window`. The inferred use_case drives snippet lookup in step 3. If you're not confident, ask the user: "I'm reading this as a <X> config — does that match?"
-2. Ask: "What kind of section do you want to add?" — multi-select from `docs/content-source/widgets-legacy.md`.
+2. Ask: "What kind of section do you want to add?" — multi-select from `references/widget-selection.md`.
 3. For each chosen widget: same flow as `new` Phase 2 — look up the snippet by (inferred-use_case × widget × sign) in `references/snippets.md`, ask the snippet's "must customize" questions, collect any assets, write the section TOML, run per-section lint.
 4. Ask: "Where to insert?" — end / before \<section N\> / after \<section N\>.
 5. Show full diff. First in-place edit per session creates `config/config.toml.bak` (overwrites any prior `.bak` without prompting).
@@ -162,7 +162,7 @@ No Phase 3 — global `[transitions]` and `hold_time` are not re-asked. The new 
 
 ## `refine` mode
 
-Load `references/decision-rules.md`, `docs/content-source/widgets-legacy.md`, `docs/content-source/transitions-legacy.md`.
+Load `references/decision-rules.md`, `references/widget-selection.md`, `docs/content-source/transitions-legacy.md`.
 
 1. Read `config/config.toml`. Run `led-ticker validate config/config.toml --json` and cache the output as the base violation list (`errors` and `warnings` from the JSON). Also run a full pass over `references/decision-rules.md` for any issues not yet caught by the validator.
 2. Ask one symptom-style multi-select question:

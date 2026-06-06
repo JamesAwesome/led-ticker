@@ -119,11 +119,14 @@ export default defineConfig({
         {
           label: "Concepts",
           items: [
-            {
-              label: "How rendering works",
-              link: "/concepts/how-rendering-works/",
-            },
-            { autogenerate: { directory: "concepts" } },
+            { label: "How rendering works", link: "/concepts/how-rendering-works/" },
+            { label: "Animations", link: "/concepts/animations/" },
+            { label: "Borders", link: "/concepts/borders/" },
+            { label: "Busy light", link: "/concepts/busy-light/" },
+            { label: "Color providers", link: "/concepts/color-providers/" },
+            { label: "Display", link: "/concepts/display/" },
+            { label: "Fonts", link: "/concepts/fonts/" },
+            { label: "Sections and modes", link: "/concepts/sections-and-modes/" },
           ],
         },
         {

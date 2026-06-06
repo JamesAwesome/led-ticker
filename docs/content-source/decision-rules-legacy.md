@@ -90,15 +90,15 @@ These rules are the validation checklist. The skill consults this file at every 
 
 ---
 
-## Rule 8: hold_seconds < 0.05 invalid on image widgets
+## Rule 8: hold_time < 0.05 invalid on image widgets
 
 **SOURCE:** CLAUDE.md — "Pitfall validation" subsection (line 120).
 
-**DETECT:** Image or gif widget with `hold_seconds < 0.05` (less than 50 milliseconds).
+**DETECT:** Image or gif widget with `hold_time < 0.05` (less than 50 milliseconds).
 
 **SYMPTOM:** Image flashes too briefly to perceive; likely a typo.
 
-**FIX:** Raise `hold_seconds` to at least `0.05` (50ms), or use a value that makes sense for the content (e.g., `2.0` for a 2-second hold).
+**FIX:** Raise `hold_time` to at least `0.05` (50ms), or use a value that makes sense for the content (e.g., `2.0` for a 2-second hold).
 
 ---
 

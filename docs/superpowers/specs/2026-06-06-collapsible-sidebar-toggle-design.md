@@ -3,6 +3,8 @@
 **Date:** 2026-06-06
 **Status:** Approved (brainstorm)
 
+> **Revision (implementation eyeball pass):** the original design floated a collapse button over the sidebar's top-left plus a separate fixed edge "»" arrow. In review the floating button overlapped the first nav item. **Final shape:** a **single toggle button placed statically in the header next to the site title**, via a Starlight **`SiteTitle`** component override (not `PageFrame`). The button is always visible on desktop and flips its icon by state (« collapse when open, » expand when collapsed); no separate edge arrow. Everything below about the collapsed-state CSS (`html.sidebar-collapsed` hides `.sidebar` + zeroes `.main-frame` padding, desktop-only), the `head` pre-paint script, `localStorage` persistence, and graceful degradation is unchanged.
+
 ## Context
 
 Deferred follow-up from the docs Phase-1 home-page work (memory `project_collapsible_sidebar_followup`). The home page dropped `template: splash` (PR #156) because splash hid the sidebar and made the guide hard to find. This feature restores the roomy, full-width reading feel as an **opt-in toggle** while keeping navigation one click away — the "best of both" resolution.

@@ -45,7 +45,7 @@ export default defineConfig({
         "An asyncio Python toolkit for displaying scrolling feeds on RGB LED matrix panels.",
       customCss: ["./src/styles/sidebar-toggle.css"],
       components: {
-        PageFrame: "./src/components/PageFrame.astro",
+        SiteTitle: "./src/components/SiteTitle.astro",
       },
       // Applies the saved collapsed state to <html> BEFORE first paint so the
       // layout never flashes the wrong state on load. try/catch so a

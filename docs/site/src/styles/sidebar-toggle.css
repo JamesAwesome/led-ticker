@@ -1,0 +1,70 @@
+/*
+ * Collapsible left-sidebar toggle.
+ * Selectors verified against Starlight 0.39.2 PageFrame.astro:
+ *   <nav class="sidebar"> > <div id="starlight__sidebar" class="sidebar-pane">
+ *   <div class="main-frame"> offset by padding-inline-start: var(--sl-content-inline-start)
+ * Desktop breakpoint matches Starlight's own: min-width: 50rem.
+ */
+
+/* Controls hidden by default — covers mobile (< 50rem), where Starlight's
+   hamburger drawer stays in charge. */
+#sidebar-collapse-btn,
+#sidebar-expand-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.5rem;
+  background-color: var(--sl-color-bg-nav);
+  color: var(--sl-color-text-accent);
+  cursor: pointer;
+}
+
+#sidebar-collapse-btn:hover,
+#sidebar-expand-btn:hover {
+  background-color: var(--sl-color-gray-6);
+}
+
+@media (min-width: 50rem) {
+  /* Smooth reflow rather than an instant jump. */
+  .main-frame {
+    transition: padding-inline-start 150ms ease;
+  }
+
+  /* Collapse control: top-left, by the sidebar; shown when expanded. */
+  #sidebar-collapse-btn {
+    display: flex;
+    position: fixed;
+    top: calc(var(--sl-nav-height) + 0.5rem);
+    inset-inline-start: 0.5rem;
+    z-index: calc(var(--sl-z-index-menu) + 1);
+  }
+
+  /* Expand control: left screen edge, vertically centered; shown only when collapsed. */
+  #sidebar-expand-btn {
+    position: fixed;
+    top: 50%;
+    inset-inline-start: 0;
+    transform: translateY(-50%);
+    border-inline-start: 0;
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+    z-index: var(--sl-z-index-navbar);
+  }
+
+  html.sidebar-collapsed .sidebar {
+    display: none;
+  }
+  html.sidebar-collapsed .main-frame {
+    padding-inline-start: 0;
+  }
+  html.sidebar-collapsed #sidebar-collapse-btn {
+    display: none;
+  }
+  html.sidebar-collapsed #sidebar-expand-btn {
+    display: flex;
+  }
+}

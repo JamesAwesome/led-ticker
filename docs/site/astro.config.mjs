@@ -43,6 +43,7 @@ export default defineConfig({
       title: "led-ticker",
       description:
         "An asyncio Python toolkit for displaying scrolling feeds on RGB LED matrix panels.",
+      customCss: ["./src/styles/sidebar-toggle.css"],
       social: [
         { icon: "github", label: "GitHub", href: "https://github.com/JamesAwesome/led-ticker" },
       ],

@@ -1,13 +1,13 @@
 ---
 title: Sprite transitions
-description: "Pixel-art characters cross the panel — Nyan Cat, Pokeball, Baseball, Sailor Moon, Pac-Man."
+description: "Pixel-art characters cross the panel — Nyan Cat, Pokeball, Sailor Moon, Pac-Man."
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-The sprite family runs a pixel-art character across the panel that erases the outgoing widget and reveals the incoming one. Themed and fun — five families ship in the box, each with forward, reverse, and alternating variants.
+The sprite family runs a pixel-art character across the panel that erases the outgoing widget and reveals the incoming one. Themed and fun — four families ship in the box, each with forward, reverse, and alternating variants.
 
 <DemoGif
   src="/demos-long/transitions-pokeball.gif"
@@ -17,11 +17,6 @@ The sprite family runs a pixel-art character across the panel that erases the ou
 <DemoGif
   src="/demos-long/transitions-pokeball_modes.gif"
   caption="pokeball — single-sprite modes via show_pikachu / show_pokeball"
-/>
-
-<DemoGif
-  src="/demos-long/transitions-baseball.gif"
-  caption="baseball — white ball with red stitching, 4-frame stitch rotation"
 />
 
 <DemoGif
@@ -45,12 +40,15 @@ The sprite family runs a pixel-art character across the panel that erases the ou
 
 ## Hires
 
-`nyancat`, `pokeball`, and `baseball` auto-activate hi-res sprites whenever the canvas is at `default_scale > 1` — that is, any big / scaled sign (see [Display](/concepts/display/)), typically a bigsign-style build. The hi-res variants are noticeably more detailed and read better at distance:
+`nyancat` and `pokeball` auto-activate hi-res sprites whenever the canvas is at `default_scale > 1` — that is, any big / scaled sign (see [Display](/concepts/display/)), typically a bigsign-style build. The hi-res variants are noticeably more detailed and read better at distance:
 
 - **nyancat** — animated webp Nyan Cat sprite at native physical resolution
 - **pokeball** — procedural ball with animated Pikachu run-cycle sprite
-- **baseball** — procedural ball reusing the `:baseball:` emoji geometry, 8 rotation frames
 
 `sailor_moon` and `pacman` keep their 8-bit look at all scales — the chunky aesthetic is part of the design.
+
+## Plugin sprites
+
+The rolling-**baseball** family (`baseball.roll`, `baseball.roll_reverse`, `baseball.roll_alternating`) ships with the external **[led-ticker-baseball](https://github.com/JamesAwesome/led-ticker-baseball)** plugin, alongside that plugin's MLB widgets and `:baseball.ball:` emoji. Install it via `config/requirements-plugins.txt` (see [Plugins](/plugins/)) to use it.
 
 <RelatedPages slugs={["transitions/push", "transitions/wipe"]} />

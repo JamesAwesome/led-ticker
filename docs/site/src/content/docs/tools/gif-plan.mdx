@@ -41,7 +41,7 @@ cutoff: header 5s < ~8s needed
 The estimate is coarse and intentionally ignores some cases:
 
 - `forever_scroll` / `infini_scroll` / `loop_count = 0` sections — runtime-dependent, contribute 0.
-- Data-fetch widgets (`weather`, `mlb`, crypto, `rss_feed`) — depend on fetched data, contribute 0.
+- Data-fetch widgets (`weather`, crypto, `rss_feed`, and plugin data widgets like `baseball.scores`) — depend on fetched data, contribute 0.
 - Bigsign `pixel_mapper_config` — naive canvas-width used.
 - Wrap floors, two-row overlay marquee, hires width, inter-widget transition time — not modelled; treat the number as a lower bound for transition-heavy playlists.
 - For looping or large-`play_count` demos (the `play_count = 999` "keep animating" idiom) the recommended `--duration` is the full multi-minute playthrough, not the capture window — such demos deliberately pin a short `# render-duration:` header; render with the header, treat the recommendation as an upper bound.

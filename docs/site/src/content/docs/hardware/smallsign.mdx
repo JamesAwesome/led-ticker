@@ -234,9 +234,11 @@ countdown_date = 2026-06-20
 # symbol = "ETH"
 # currency = "USD"
 
-# --- MLB Scores ---
-# Free MLB Stats API — no key needed. Shows current series scores, live game
-# updates, and upcoming matchups for the teams you pick.
+# --- MLB Scores (led-ticker-baseball plugin) ---
+# Requires the led-ticker-baseball plugin — add
+# git+https://github.com/JamesAwesome/led-ticker-baseball.git@main to
+# config/requirements-plugins.txt and rebuild. Free MLB Stats API, no key
+# needed. Shows current series scores, live game updates, and upcoming matchups.
 #
 # [[playlist.section]]
 # mode = "swap"
@@ -245,24 +247,25 @@ countdown_date = 2026-06-20
 # loop_count = 0
 #
 # [[playlist.section.widget]]
-# type = "mlb"
+# type = "baseball.scores"
 # team = "PHI"
 # timezone = "America/New_York"
 # final_hold_hours = 6   # hours to show final score before moving on (default: 6)
 
-# --- MLB Standings ---
-# Top-N teams by record plus any teams you're tracking. Shows "Opens [date]"
-# during offseason / spring training.
+# --- MLB Standings (led-ticker-baseball plugin) ---
+# Same plugin as above. Top-N teams by record plus any teams you're tracking.
+# Shows "Opens [date]" during offseason / spring training. The plugin also
+# provides the baseball.roll_alternating rolling-ball transition used here.
 #
 # [[playlist.section]]
 # mode = "swap"
-# transition = "baseball_alternating"
+# transition = "baseball.roll_alternating"
 # transition_duration = 2.0
 # hold_time = 6
 # loop_count = 1
 #
 # [[playlist.section.widget]]
-# type = "mlb_standings"
+# type = "baseball.standings"
 # teams = ["NYM", "PHI"]
 # top_n = 3
 

@@ -2,7 +2,7 @@ Use `:slug:` inside any text-bearing widget to render a pixel-art icon inline. E
 
 The slug list rots fast as new icons are added. The source of truth is `src/led_ticker/pixel_emoji.py` — `grep -E '^\s+"[a-z_]+":' src/led_ticker/pixel_emoji.py` lists every slug. Re-run `uv run python tools/render_emoji_previews.py` after adding a sprite to refresh the previews on this page.
 
-> **Plugin emoji.** The baseball icon is no longer a core slug — it ships with the external [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) plugin as `:baseball.ball:` (white ball with red stitching). Install the plugin to use it; the slugs in the table below are all core.
+> **Plugin emoji.** The baseball icon ships with the external [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) plugin as `:baseball.ball:` (white ball with red stitching). Install the plugin to use it; the slugs in the table below are all built in.
 
 | Slug | Lowres (8×8) | Hires (32×32) | Description |
 |------|--------------|---------------|-------------|

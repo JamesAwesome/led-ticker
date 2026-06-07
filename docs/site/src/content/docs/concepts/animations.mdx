@@ -57,14 +57,14 @@ Typewriter has `restart_on_visit = true` — the reveal counter resets every tim
 
 ## Where it works
 
-| Widget type                                                                         | `animation = "typewriter"`?            |
-| ----------------------------------------------------------------------------------- | -------------------------------------- |
-| `message`                                                                           | yes                                    |
-| `countdown`                                                                         | yes                                    |
-| `gif`                                                                               | yes — single-row only (see note below) |
-| `image`                                                                             | yes — single-row only (see note below) |
-| `two_row`                                                                           | no                                     |
-| `weather`, `rss_feed`, `mlb`, `mlb_standings`, `coinbase`, `coingecko`, `etherscan` | no                                     |
+| Widget type                                                 | `animation = "typewriter"`?            |
+| ----------------------------------------------------------- | -------------------------------------- |
+| `message`                                                   | yes                                    |
+| `countdown`                                                 | yes                                    |
+| `gif`                                                       | yes — single-row only (see note below) |
+| `image`                                                     | yes — single-row only (see note below) |
+| `two_row`                                                   | no                                     |
+| `weather`, `rss_feed`, `coinbase`, `coingecko`, `etherscan` | no                                     |
 
 On `gif` and `image` widgets, typewriter is restricted to single-row text overlays. It will raise a configuration error if `bottom_text` is also set (which activates two-row mode), if `text_align` is `"scroll"` or `"scroll_over"` (incompatible with a fixed-position reveal), or if `text` is empty.
 
@@ -72,7 +72,7 @@ On `gif` and `image` widgets, typewriter is restricted to single-row text overla
 
 ### `animation` is only valid on `message`, `gif`, and `image`
 
-Other widget types (`weather`, `mlb`, `rss_feed`, `two_row`, the crypto widgets) have their own draw paths and ignore `animation` silently — the validator rejects it explicitly to make the no-op visible. For dynamic color on those widgets, use `font_color = "rainbow"` or a gradient.
+Other widget types (`weather`, `rss_feed`, `two_row`, the crypto widgets) have their own draw paths and ignore `animation` silently — the validator rejects it explicitly to make the no-op visible. For dynamic color on those widgets, use `font_color = "rainbow"` or a gradient.
 
 ### Typewriter is single-row only on `gif` and `image`
 

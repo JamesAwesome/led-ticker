@@ -1,4 +1,6 @@
-# Baseball testing config — tests baseball transition
+# Baseball testing config — tests the baseball.roll* transition.
+# Requires the `led-ticker-baseball` plugin (add it to
+# config/requirements-plugins.txt — the tracked .example already lists it).
 # Usage: cp config/config.baseball.toml config/config.toml
 
 [display]
@@ -13,12 +15,12 @@ hardware_mapping = "adafruit-hat"
 delay = 3
 
 [transitions]
-between_sections = {type = "baseball_alternating", duration = 2.0}
+between_sections = {type = "baseball.roll_alternating", duration = 2.0}
 
 # --- baseball (long text) ---
 [[playlist.section]]
 mode = "swap"
-transition = "baseball"
+transition = "baseball.roll"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1
@@ -38,7 +40,7 @@ text = "baseball DONE"
 # --- baseball (short text) ---
 [[playlist.section]]
 mode = "swap"
-transition = "baseball"
+transition = "baseball.roll"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1
@@ -55,10 +57,10 @@ text = "Also short"
 type = "message"
 text = "baseball short DONE"
 
-# --- baseball_reverse ---
+# --- baseball.roll_reverse ---
 [[playlist.section]]
 mode = "swap"
-transition = "baseball_reverse"
+transition = "baseball.roll_reverse"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1

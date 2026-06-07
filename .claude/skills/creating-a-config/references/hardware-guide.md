@@ -13,7 +13,7 @@
 | BDF fonts | ✓ | ✓ |
 | Hires TTF/OTF fonts | (overflows vertically; user beware) | ✓ |
 | Hires emoji (`:moon:`, `:instagram:`) | (falls back to lowres automatically) | ✓ |
-| Hires sprite transitions (nyancat/pokeball/baseball) | (uses lowres) | ✓ |
+| Hires sprite transitions (nyancat/pokeball) | (uses lowres) | ✓ |
 | `content_height` ceiling | 16 | 16 (hard: `content_height × 4 ≤ 64`) |
 | Refresh rate | ~20 fps | ~20 fps (tunable) |
 | Realistic viewing distance | ≤ 10 ft | up to 50 ft |
@@ -52,7 +52,7 @@ Default bigsign config uses `gpio_slowdown = 3` + `pwm_bits = 8` + `rp1_rio = 1`
 
 - **Hires emoji** (`:moon:` 32×32, `:instagram:` hi-res) on small sign — automatically falls back to 8×8 lowres. Don't promise them on small sign in your design.
 - **Hires fonts** (TTF/OTF like Inter) on small sign — text paints to the physical 16 rows, no wrapping. Possible but overflows; user must pick `font_size ≤ 16` manually. Better to stick with BDF (6×12 default).
-- **Hires sprite transitions** (nyancat, pokeball, baseball hi-res variants) on small sign — small sign gets lowres 4-frame sprite versions. No error; just silently degrades.
+- **Hires sprite transitions** (nyancat, pokeball hi-res variants — and the `baseball.roll*` transitions from the `led-ticker-baseball` plugin if installed) on small sign — small sign gets lowres 4-frame sprite versions. No error; just silently degrades.
 - **`content_height = 20`** on bigsign at scale=4 — clips top and bottom rows. Hard ceiling: `content_height × scale ≤ 64` (i.e., `content_height ≤ 16`).
 
 All of these degrade silently. Configure carefully and test on hardware.

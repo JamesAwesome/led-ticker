@@ -69,9 +69,9 @@ def test_draw_with_emoji_runs_on_scaled_canvas_with_emoji(bigsign_canvas):
     real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
     color = (255, 255, 255)
-    # Should not raise. Baseball emoji is 8 wide; "Hi" follows.
+    # Should not raise. Heart emoji is 8 wide; "Hi" follows.
     advance = draw_with_emoji(
-        sc, FONT_SMALL, cursor_pos=0, y=8, color=color, text=":baseball: Hi"
+        sc, FONT_SMALL, cursor_pos=0, y=8, color=color, text=":heart: Hi"
     )
     # emoji advance (8 + 2 padding) + text advance varies, just sanity check
     assert advance > 0
@@ -92,7 +92,7 @@ def test_draw_with_emoji_at_scale_1_unchanged():
 
 def test_measure_width_with_emoji():
     """Smoke: measure_width handles mixed emoji + text."""
-    width = measure_width(FONT_SMALL, ":baseball: Hi")
+    width = measure_width(FONT_SMALL, ":heart: Hi")
     assert width > 0
 
 
@@ -140,7 +140,7 @@ def test_message_widget_overflow_scroll_with_hires_emoji(bigsign_canvas):
 
     real = bigsign_canvas
     sc = ScaledCanvas(real, scale=4)
-    msg = TickerMessage(text=":moon::sun::star::instagram::email::baseball::flower:")
+    msg = TickerMessage(text=":moon::sun::star::instagram::email::heart::flower:")
     _, cursor_pos = msg.draw(sc, cursor_pos=0)
     # Canvas is 64 logical wide (256 / 4). 7 hi-res emojis = 7 × (8 + 2) = 70.
     # cursor_pos returns content_width + padding (default 6) = 76. Caller
@@ -910,7 +910,7 @@ class TestDrawEmojiAt:
         from led_ticker.pixel_emoji import draw_emoji_at
 
         canvas = _StubCanvas(width=160, height=16)
-        advance = draw_emoji_at(canvas, "baseball", 0, bottom_baseline=12)
+        advance = draw_emoji_at(canvas, "star", 0, bottom_baseline=12)
         assert advance > 0
         lit_rows = [
             ry
@@ -918,7 +918,7 @@ class TestDrawEmojiAt:
             for rx in range(canvas.width)
             if canvas.get_pixel(rx, ry) != (0, 0, 0)
         ]
-        assert lit_rows, "baseball emoji painted no pixels"
+        assert lit_rows, "star emoji painted no pixels"
         # 8x8 sprite anchored with top row = 12 - 8 = 4 → all lit rows in 4..11.
         assert min(lit_rows) >= 4
         assert max(lit_rows) <= 11
@@ -1530,9 +1530,9 @@ def _expected_bottom(baseline: int, scale: int, y_off: int, slug: str) -> int:
 def test_hires_emoji_bottom_anchored_at_scale_2():
     sc = ScaledCanvas(_fresh_bigsign_real(), scale=2)  # y_offset_real = 16
     baseline = 12
-    draw_with_emoji(sc, FONT_SMALL, 0, baseline, (255, 255, 255), ":baseball:")
+    draw_with_emoji(sc, FONT_SMALL, 0, baseline, (255, 255, 255), ":moon:")
     assert _lowest_lit_row(sc.real) == _expected_bottom(
-        baseline, 2, sc.y_offset_real, "baseball"
+        baseline, 2, sc.y_offset_real, "moon"
     )
 
 
@@ -1540,11 +1540,11 @@ def test_hires_emoji_baseline_gap_is_scale_invariant():
     baseline = 12
 
     sc4 = ScaledCanvas(_fresh_bigsign_real(), scale=4)
-    draw_with_emoji(sc4, FONT_SMALL, 0, baseline, (255, 255, 255), ":baseball:")
+    draw_with_emoji(sc4, FONT_SMALL, 0, baseline, (255, 255, 255), ":moon:")
     gap4 = (baseline * 4 + sc4.y_offset_real) - _lowest_lit_row(sc4.real)
 
     sc2 = ScaledCanvas(_fresh_bigsign_real(), scale=2)
-    draw_with_emoji(sc2, FONT_SMALL, 0, baseline, (255, 255, 255), ":baseball:")
+    draw_with_emoji(sc2, FONT_SMALL, 0, baseline, (255, 255, 255), ":moon:")
     gap2 = (baseline * 2 + sc2.y_offset_real) - _lowest_lit_row(sc2.real)
 
     assert gap2 == gap4
@@ -1553,16 +1553,16 @@ def test_hires_emoji_baseline_gap_is_scale_invariant():
 def test_hires_emoji_bottom_anchored_at_scale_3():
     sc = ScaledCanvas(_fresh_bigsign_real(), scale=3, content_height=16)  # y_off=8
     baseline = 12
-    draw_with_emoji(sc, FONT_SMALL, 0, baseline, (255, 255, 255), ":baseball:")
+    draw_with_emoji(sc, FONT_SMALL, 0, baseline, (255, 255, 255), ":moon:")
     assert _lowest_lit_row(sc.real) == _expected_bottom(
-        baseline, 3, sc.y_offset_real, "baseball"
+        baseline, 3, sc.y_offset_real, "moon"
     )
 
 
 def test_hires_emoji_top_clip_is_safe_at_scale_2():
     sc = ScaledCanvas(_fresh_bigsign_real(), scale=2)  # y_off=16
     baseline = 4  # real_top = 4*2 + 16 - 32 = -8 → top rows clip
-    draw_with_emoji(sc, FONT_SMALL, 0, baseline, (255, 255, 255), ":baseball:")
+    draw_with_emoji(sc, FONT_SMALL, 0, baseline, (255, 255, 255), ":moon:")
     for rx, ry in _lit_pixels(sc.real):
         assert 0 <= ry < sc.real.height
         assert 0 <= rx < sc.real.width
@@ -1571,8 +1571,8 @@ def test_hires_emoji_top_clip_is_safe_at_scale_2():
 def test_draw_emoji_at_keeps_top_anchor():
     sc = ScaledCanvas(_fresh_bigsign_real(), scale=2)  # y_offset_real = 16 (non-zero)
     top = 3
-    draw_emoji_at(sc, "baseball", 0, top)
-    sprite = HIRES_REGISTRY["baseball"]
+    draw_emoji_at(sc, "moon", 0, top)
+    sprite = HIRES_REGISTRY["moon"]
     min_py = min(py for _x, py, *_ in sprite.pixels)
     expected_top_row = top * sc.scale + sc.y_offset_real + min_py
     assert min(ry for _rx, ry in _lit_pixels(sc.real)) == expected_top_row
@@ -1596,15 +1596,15 @@ def test_no_hardcoded_emoji_y_minus_8_overrides():
 def test_draw_emoji_at_bottom_baseline_anchors_at_scale_2():
     sc = ScaledCanvas(_fresh_bigsign_real(), scale=2)  # y_offset_real = 16
     baseline = 12
-    draw_emoji_at(sc, "baseball", 0, bottom_baseline=baseline)
+    draw_emoji_at(sc, "moon", 0, bottom_baseline=baseline)
     assert _lowest_lit_row(sc.real) == _expected_bottom(
-        baseline, 2, sc.y_offset_real, "baseball"
+        baseline, 2, sc.y_offset_real, "moon"
     )
 
 
 def test_draw_emoji_at_requires_exactly_one_anchor():
     sc = ScaledCanvas(_fresh_bigsign_real(), scale=2)
     with pytest.raises(ValueError):
-        draw_emoji_at(sc, "baseball", 0)  # neither
+        draw_emoji_at(sc, "moon", 0)  # neither
     with pytest.raises(ValueError):
-        draw_emoji_at(sc, "baseball", 0, 5, bottom_baseline=12)  # both
+        draw_emoji_at(sc, "moon", 0, 5, bottom_baseline=12)  # both

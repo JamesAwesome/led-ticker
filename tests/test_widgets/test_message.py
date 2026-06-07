@@ -83,7 +83,7 @@ class TestTickerMessage:
     def test_emoji_detected_only_for_slug_pattern(self):
         # Real emoji slugs trigger the emoji renderer
         assert TickerMessage(text=":taco: lunch")._has_emoji is True
-        assert TickerMessage(text="hi :baseball:")._has_emoji is True
+        assert TickerMessage(text="hi :star:")._has_emoji is True
 
     def test_url_does_not_trigger_emoji_path(self):
         # Two-colon strings that are NOT emoji slugs (URLs, timestamps,

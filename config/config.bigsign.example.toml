@@ -151,6 +151,10 @@ currency = "USD"
 
 # MLB scores via the free MLB Stats API — no API key. Replace "PHI" with
 # your team code.
+#
+# The baseball.scores widget is the `led-ticker-baseball` plugin. To install
+# it, add it to config/requirements-plugins.txt (copy the tracked .example,
+# which already lists it) and rebuild — see https://docs.ledticker.dev/plugins/ .
 
 [[playlist.section]]
 mode = "swap"
@@ -159,7 +163,7 @@ transition_duration = 4.0
 loop_count = 0
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "PHI"
 timezone = "America/New_York"
 final_hold_hours = 6

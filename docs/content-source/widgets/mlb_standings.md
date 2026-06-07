@@ -1,5 +1,7 @@
 # MLB Standings Widget Options
 
+> **Plugin widget.** MLB standings are no longer a core built-in — they ship as the external [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) plugin. Use `type = "baseball.standings"` and install the plugin (add `git+https://github.com/JamesAwesome/led-ticker-baseball.git@main` to `config/requirements-plugins.txt`, then rebuild). The fields below are unchanged.
+
 `MLBStandingsMonitor` fetches overall MLB league standings from the free MLB StatsAPI (no API key required) and renders them as a scrolling list. It shows the top-N teams by overall rank and then appends any `teams` entries that didn't already appear in that list — so your tracked teams are always visible regardless of where they sit in the standings.
 
 Each entry scrolls as: `rank. TeamName W-L GB` with the team name rendered in the team's brand color.
@@ -20,6 +22,6 @@ When the season hasn't started yet (all wins and losses are 0), the widget switc
 
 ## Team codes
 
-Same abbreviations as the `mlb` widget:
+Same abbreviations as the `baseball.scores` widget:
 
 `ARI` D-backs · `ATL` Braves · `BAL` Orioles · `BOS` Red Sox · `CHC` Cubs · `CIN` Reds · `CLE` Guardians · `COL` Rockies · `CWS` White Sox · `DET` Tigers · `HOU` Astros · `KC` Royals · `LAA` Angels · `LAD` Dodgers · `MIA` Marlins · `MIL` Brewers · `MIN` Twins · `NYM` Mets · `NYY` Yankees · `OAK` Athletics · `PHI` Phillies · `PIT` Pirates · `SD` Padres · `SEA` Mariners · `SF` Giants · `STL` Cardinals · `TB` Rays · `TEX` Rangers · `TOR` Blue Jays · `WSH` Nationals

@@ -82,9 +82,6 @@ class TestTransitionRegistry:
             "pokeball",
             "pokeball_reverse",
             "pokeball_alternating",
-            "baseball",
-            "baseball_reverse",
-            "baseball_alternating",
             "pacman",
             "pacman_reverse",
             "pacman_alternating",
@@ -100,7 +97,7 @@ class TestTransitionRegistry:
         ]
         for name in expected:
             assert name in _TRANSITION_REGISTRY
-        assert len(_TRANSITION_REGISTRY) == 32
+        assert len(_TRANSITION_REGISTRY) == 29
 
     def test_get_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown transition"):
@@ -2195,8 +2192,8 @@ class TestRunTransitionOutgoingBgColor:
 
 
 class TestHiresSnapRespectsIncomingBg:
-    """The hires snap inside `render_hires_frame` and
-    `render_hires_baseball_frame` (`_hires_loader.py:_snap_reset`) does
+    """The hires snap inside `render_hires_frame`
+    (`_hires_loader.py:_snap_reset`) does
     its own bg-aware reset before drawing incoming at t>=SNAP_THRESHOLD.
     Without it, the snap calls `canvas.Clear()` and the last transition
     frame paints incoming on black — clobbering the Fill(incoming_bg)
@@ -2238,58 +2235,6 @@ class TestHiresSnapRespectsIncomingBg:
         _snap_reset(canvas, Color(42, 0, 16))
         canvas.Fill.assert_called_once_with(42, 0, 16)
         canvas.Clear.assert_not_called()
-
-    def test_baseball_hires_snap_uses_fill_when_incoming_bg_set(self):
-        """End-to-end integration tripwire on the snap path. Drives
-        `Baseball.frame_at(t=0.95)` through the hires dispatch (real
-        ScaledCanvas → real `render_hires_baseball_frame` →
-        `_snap_reset`) with `incoming_bg_color` set, asserts the
-        underlying real canvas saw `Fill(...)` and NOT `Clear()`.
-
-        Catches a refactor that drops `kwargs.get('incoming_bg_color')`
-        in `_hires_loader.render_hires_baseball_frame` (or
-        `render_hires_frame`) and reverts the snap to `canvas.Clear()`
-        — that change passes the unit test on `_snap_reset` alone.
-
-        Baseball is fully procedural (no Pillow decode), so this test
-        runs without mocking `load_hires` or pre-warming any cache.
-        """
-        from led_ticker.scaled_canvas import ScaledCanvas
-        from led_ticker.transitions.baseball import Baseball
-
-        # Mock real canvas. ScaledCanvas.Fill / .Clear delegate to
-        # `self.real.Fill` / `self.real.Clear`, so spying on the mock
-        # captures both wrapper-level and direct calls.
-        real = mock.MagicMock()
-        real.width = 256
-        real.height = 64
-        wrapper = ScaledCanvas(real, scale=4)
-
-        outgoing = mock.Mock()
-        incoming = mock.Mock()
-        bb = Baseball()
-
-        # t=0.95 is the SNAP_THRESHOLD; t=1.0 short-circuits to the
-        # `t >= 1.0` early return BEFORE the hires dispatch, which
-        # is a different (also correct) path. 0.95 forces the snap
-        # branch inside render_hires_baseball_frame.
-        bb.frame_at(
-            0.95,
-            wrapper,
-            outgoing,
-            incoming,
-            incoming_bg_color=(255, 230, 80),
-        )
-
-        # The snap must Fill, not Clear. Outgoing.draw and the trail
-        # paint via SetPixel — those don't touch Fill/Clear. So any
-        # Fill call here came from _snap_reset.
-        assert real.Fill.called, (
-            "Baseball hires snap did not call Fill — "
-            "`_snap_reset` regressed to `canvas.Clear()`"
-        )
-        real.Fill.assert_any_call(255, 230, 80)
-        real.Clear.assert_not_called()
 
 
 def test_easing_lookup_unknown_raises():
@@ -2378,27 +2323,6 @@ class TestPokeballFrameDrawing:
         from led_ticker.transitions.pokeball import draw_pokeball_frame_rtl
 
         draw_pokeball_frame_rtl(canvas, progress=0.5, width=160, height=16)
-        assert canvas.SubFill.call_count >= 1
-        first_call = canvas.SubFill.call_args_list[0]
-        assert first_call.args[1] == 0
-        assert first_call.args[4:] == (0, 0, 0)
-
-
-class TestBaseballFrameDrawing:
-    def test_ltr_blackout_uses_subfill(self, canvas):
-        from led_ticker.transitions.baseball import draw_baseball_frame
-
-        draw_baseball_frame(canvas, progress=0.5, width=160, height=16)
-        assert canvas.SubFill.call_count >= 1
-        first_call = canvas.SubFill.call_args_list[0]
-        assert first_call.args[0] == 0
-        assert first_call.args[1] == 0
-        assert first_call.args[4:] == (0, 0, 0)
-
-    def test_rtl_blackout_uses_subfill(self, canvas):
-        from led_ticker.transitions.baseball import draw_baseball_frame_rtl
-
-        draw_baseball_frame_rtl(canvas, progress=0.5, width=160, height=16)
         assert canvas.SubFill.call_count >= 1
         first_call = canvas.SubFill.call_args_list[0]
         assert first_call.args[1] == 0

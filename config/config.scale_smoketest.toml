@@ -60,7 +60,7 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = ":baseball: SCALE 4 :star:"
+text = ":moon: SCALE 4 :star:"
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
@@ -92,7 +92,7 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = ":baseball: SCALE 2 :star:"
+text = ":moon: SCALE 2 :star:"
 font = "Inter-Regular"
 font_size = 25
 font_threshold = 80
@@ -108,7 +108,7 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = ":baseball: SCALE 1 :star:"
+text = ":moon: SCALE 1 :star:"
 font = "Inter-Regular"
 font_size = 44
 font_threshold = 80
@@ -124,7 +124,7 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = ":baseball: Two-Row Top"
+top_text = ":moon: Two-Row Top"
 bottom_text = "scale 2 bottom :star:"
 font = "Inter-Regular"
 font_size = 25

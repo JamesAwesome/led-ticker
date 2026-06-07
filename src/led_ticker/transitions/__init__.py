@@ -57,7 +57,7 @@ class Transition(Protocol):
           the entity reaches the far edge exactly when t=1.0.
         - ``incoming_bg_color: tuple[int,int,int] | None`` — the new
           section's background color. Hires snap transitions (pokeball,
-          nyancat, baseball) use this at t≥0.95 to Fill() before drawing
+          nyancat) use this at t≥0.95 to Fill() before drawing
           incoming so a bg-colored section doesn't flash black for one
           tick.
 
@@ -169,8 +169,8 @@ async def run_transition(
     (legacy behavior); leaving incoming as None means the panel
     flashes black at the cut-over.
 
-    The hires snap inside ``render_hires_frame`` (pokeball/nyancat/
-    baseball at t>=0.95) does its own ``Clear()`` before drawing
+    The hires snap inside ``render_hires_frame`` (pokeball/nyancat
+    at t>=0.95) does its own ``Clear()`` before drawing
     incoming. This function passes ``incoming_bg_color`` to ``frame_at``
     via kwargs so the snap can paint ``Fill(incoming_bg)`` instead —
     otherwise the last frame of a hires transition shows incoming
@@ -272,7 +272,7 @@ async def run_transition(
                 incoming,
                 outgoing_scroll_pos=outgoing_scroll_pos,
                 duration_ms=int(duration * 1000),
-                # Hires transitions (pokeball/nyancat/baseball) do
+                # Hires transitions (pokeball/nyancat) do
                 # their own Clear+draw snap at t>=0.95. Pass
                 # incoming_bg_color so the snap can Fill() instead
                 # — otherwise the last transition frame is "incoming
@@ -332,11 +332,6 @@ for _mod_info in pkgutil.iter_modules(
 del importlib, pkgutil, _transitions_pkg
 
 # --- Re-export all transition classes ---
-from led_ticker.transitions.baseball import (  # noqa: F401
-    Baseball,
-    BaseballAlternating,
-    BaseballReverse,
-)
 from led_ticker.transitions.effects import (  # noqa: F401
     ColorFlash,
     Cut,

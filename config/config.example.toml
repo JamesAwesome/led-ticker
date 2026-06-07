@@ -115,6 +115,12 @@ currency = "USD"
 # MLB scores via the free MLB Stats API — no API key. Shows current series,
 # live game updates, upcoming matchups for the teams you pick.
 # Replace "PHI" with your team code.
+#
+# The MLB widgets (baseball.scores / baseball.standings) and the baseball.roll*
+# transition are the `led-ticker-baseball` plugin. To install it, add it to
+# config/requirements-plugins.txt (copy the tracked .example, which already
+# lists it) and rebuild — see https://docs.ledticker.dev/plugins/ . The entry
+# point auto-registers the widgets, transition, and :baseball.ball: emoji.
 
 [[playlist.section]]
 mode = "swap"
@@ -123,7 +129,7 @@ transition_duration = 4.0
 loop_count = 0
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "PHI"
 timezone = "America/New_York"
 final_hold_hours = 6   # hours to show final score before moving on
@@ -133,13 +139,13 @@ final_hold_hours = 6   # hours to show final score before moving on
 
 [[playlist.section]]
 mode = "swap"
-transition = "baseball_alternating"
+transition = "baseball.roll_alternating"
 transition_duration = 2.0
 hold_time = 6
 loop_count = 1
 
 [[playlist.section.widget]]
-type = "mlb_standings"
+type = "baseball.standings"
 teams = ["NYM", "PHI"]
 top_n = 3
 

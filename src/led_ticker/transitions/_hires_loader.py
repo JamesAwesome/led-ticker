@@ -45,7 +45,7 @@ _RAINBOW_TRAIL_COLORS: list[tuple[int, int, int]] = [
 ]
 
 
-def _snap_reset(canvas: Any, incoming_bg_color: Any) -> None:
+def snap_reset(canvas: Any, incoming_bg_color: Any) -> None:
     """Reset before drawing incoming at t>=SNAP_THRESHOLD.
 
     `Clear()` (legacy) wipes any bg fill the run_transition outer
@@ -56,13 +56,13 @@ def _snap_reset(canvas: Any, incoming_bg_color: Any) -> None:
     matches the section's first reset_canvas.
 
     Accepts None, an `(r, g, b)` tuple, or a `graphics.Color` —
-    same shape `run_transition` accepts. Lazy import of `_normalize_bg`
+    same shape `run_transition` accepts. Lazy import of `normalize_bg`
     avoids a circular at module load (this file is imported by
     transitions during their dispatch path).
     """
-    from led_ticker.transitions import _normalize_bg
+    from led_ticker.transitions import normalize_bg
 
-    bg = _normalize_bg(incoming_bg_color)
+    bg = normalize_bg(incoming_bg_color)
     if bg is not None:
         canvas.Fill(*bg)
     else:
@@ -409,7 +409,7 @@ def render_hires_frame(
     #    the last transition frame matches the new section's bg
     #    instead of flashing black for one tick.
     if t >= SNAP_THRESHOLD:
-        _snap_reset(canvas, kwargs.get("incoming_bg_color"))
+        snap_reset(canvas, kwargs.get("incoming_bg_color"))
         incoming.draw(canvas)
 
     return canvas

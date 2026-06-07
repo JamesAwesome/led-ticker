@@ -72,11 +72,11 @@ class Transition(Protocol):
 _TRANSITION_REGISTRY: dict[str, type[Transition]] = {}
 
 
-def _normalize_bg(c: Any) -> tuple[int, int, int] | None:
+def normalize_bg(c: Any) -> tuple[int, int, int] | None:
     """Coerce an `(r, g, b)` tuple, a `graphics.Color`, or `None` to
     a tuple/None pair.
 
-    Module-level so `_hires_loader._snap_reset` can call it without
+    Module-level so `_hires_loader.snap_reset` can call it without
     duplicating the logic — both call sites must accept the same
     inputs (widgets store `bg_color` as `graphics.Color` after
     `_build_widget` coercion; `SectionConfig.bg_color` is a tuple).
@@ -180,8 +180,8 @@ async def run_transition(
     """
     del region  # plumbed but unused; future zoned layouts revisit this
 
-    outgoing_bg_color = _normalize_bg(outgoing_bg_color)
-    incoming_bg_color = _normalize_bg(incoming_bg_color)
+    outgoing_bg_color = normalize_bg(outgoing_bg_color)
+    incoming_bg_color = normalize_bg(incoming_bg_color)
 
     # `easing` is validated at config-load via coerce_choice against
     # EASING.keys(); direct dict access here raises a clean KeyError

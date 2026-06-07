@@ -36,3 +36,10 @@ def test_frame_aware_base_is_a_real_public_class():
     assert not hasattr(fa, "_FrameAware"), (
         "_FrameAware should be renamed to FrameAwareBase"
     )
+
+
+def test_snap_and_normalize_exported():
+    assert "snap_reset" in P.__all__ and hasattr(P, "snap_reset")
+    assert "normalize_bg" in P.__all__ and hasattr(P, "normalize_bg")
+    assert P.normalize_bg(None) is None
+    assert P.normalize_bg((1, 2, 3)) == (1, 2, 3)

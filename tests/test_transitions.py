@@ -2193,7 +2193,7 @@ class TestRunTransitionOutgoingBgColor:
 
 class TestHiresSnapRespectsIncomingBg:
     """The hires snap inside `render_hires_frame`
-    (`_hires_loader.py:_snap_reset`) does
+    (`_hires_loader.py:snap_reset`) does
     its own bg-aware reset before drawing incoming at t>=SNAP_THRESHOLD.
     Without it, the snap calls `canvas.Clear()` and the last transition
     frame paints incoming on black — clobbering the Fill(incoming_bg)
@@ -2205,34 +2205,34 @@ class TestHiresSnapRespectsIncomingBg:
     def test_snap_clear_when_incoming_bg_is_none(self):
         """Default → snap calls Clear(). Legacy behavior preserved
         for transitions between two no-bg sections."""
-        from led_ticker.transitions._hires_loader import _snap_reset
+        from led_ticker.transitions._hires_loader import snap_reset
 
         canvas = mock.MagicMock()
-        _snap_reset(canvas, None)
+        snap_reset(canvas, None)
         canvas.Clear.assert_called_once_with()
         canvas.Fill.assert_not_called()
 
     def test_snap_fill_when_incoming_bg_set(self):
         """Tuple `(r, g, b)` → snap calls Fill(r, g, b) instead of
         Clear, so the snap-drawn incoming sits on the right bg."""
-        from led_ticker.transitions._hires_loader import _snap_reset
+        from led_ticker.transitions._hires_loader import snap_reset
 
         canvas = mock.MagicMock()
-        _snap_reset(canvas, (255, 230, 80))
+        snap_reset(canvas, (255, 230, 80))
         canvas.Fill.assert_called_once_with(255, 230, 80)
         canvas.Clear.assert_not_called()
 
     def test_snap_normalizes_graphics_color(self):
-        """`_snap_reset` accepts an un-normalized `graphics.Color` —
+        """`snap_reset` accepts an un-normalized `graphics.Color` —
         future direct callers (outside `run_transition`) that pass a
         widget's `bg_color` (which is a Color post-coercion) work
         without re-normalizing at every site."""
         from rgbmatrix.graphics import Color
 
-        from led_ticker.transitions._hires_loader import _snap_reset
+        from led_ticker.transitions._hires_loader import snap_reset
 
         canvas = mock.MagicMock()
-        _snap_reset(canvas, Color(42, 0, 16))
+        snap_reset(canvas, Color(42, 0, 16))
         canvas.Fill.assert_called_once_with(42, 0, 16)
         canvas.Clear.assert_not_called()
 

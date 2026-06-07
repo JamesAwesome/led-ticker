@@ -53,7 +53,8 @@ from led_ticker.pixel_emoji import (
 )
 from led_ticker.pixel_emoji import draw_with_emoji as _draw_with_emoji
 from led_ticker.scaled_canvas import ScaledCanvas, paint_hires, unwrap_to_real
-from led_ticker.transitions import Transition
+from led_ticker.transitions import Transition, normalize_bg
+from led_ticker.transitions._hires_loader import snap_reset
 from led_ticker.widget import (
     Container,
     Updatable,
@@ -105,11 +106,13 @@ __all__ = [
     "make_color",
     "measure_emoji_at",
     "measure_width",
+    "normalize_bg",
     "paint_hires",
     "resolve_band_heights",
     "resolve_font",
     "run_monitor_loop",
     "safe_scale",
+    "snap_reset",
     "spawn_tracked",
     "unwrap_to_real",
 ]

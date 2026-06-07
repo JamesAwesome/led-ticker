@@ -73,13 +73,12 @@ _TRANSITION_REGISTRY: dict[str, type[Transition]] = {}
 
 
 def normalize_bg(c: Any) -> tuple[int, int, int] | None:
-    """Coerce an `(r, g, b)` tuple, a `graphics.Color`, or `None` to
-    a tuple/None pair.
+    """Coerce a background-color value to an ``(r, g, b)`` tuple (or ``None``).
 
-    Module-level so `_hires_loader.snap_reset` can call it without
-    duplicating the logic — both call sites must accept the same
-    inputs (widgets store `bg_color` as `graphics.Color` after
-    `_build_widget` coercion; `SectionConfig.bg_color` is a tuple).
+    Accepts ``None`` (→ ``None``), an ``(r, g, b)`` tuple (returned as-is), or a
+    ``graphics.Color`` (→ its ``(red, green, blue)``). Handy in a custom
+    transition for turning a section ``bg_color`` (which may arrive in any of
+    those shapes) into a plain tuple before painting.
     """
     if c is None:
         return None

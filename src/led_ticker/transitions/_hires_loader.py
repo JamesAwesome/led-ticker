@@ -46,19 +46,15 @@ _RAINBOW_TRAIL_COLORS: list[tuple[int, int, int]] = [
 
 
 def snap_reset(canvas: Any, incoming_bg_color: Any) -> None:
-    """Reset before drawing incoming at t>=SNAP_THRESHOLD.
+    """Reset a canvas to the section's background before drawing the incoming
+    frame at the end of a transition.
 
-    `Clear()` (legacy) wipes any bg fill the run_transition outer
-    loop just painted, so the last frame ends up "incoming on black"
-    even when the section has a bg color — visible as a one-tick
-    flash on bordered widgets. When the run_transition caller
-    forwards `incoming_bg_color` here, Fill it instead so the snap
-    matches the section's first reset_canvas.
-
-    Accepts None, an `(r, g, b)` tuple, or a `graphics.Color` —
-    same shape `run_transition` accepts. Lazy import of `normalize_bg`
-    avoids a circular at module load (this file is imported by
-    transitions during their dispatch path).
+    Use this in a custom transition's ``frame_at`` when ``t`` reaches the snap
+    threshold and you're about to draw the incoming widget: it Fills the canvas
+    with ``incoming_bg_color`` (so a bg-colored section doesn't flash "incoming
+    on black" for one tick), or Clears to black when no bg color is given.
+    ``incoming_bg_color`` may be ``None``, an ``(r, g, b)`` tuple, or a
+    ``graphics.Color`` — the same shapes a section's ``bg_color`` takes.
     """
     from led_ticker.transitions import normalize_bg
 

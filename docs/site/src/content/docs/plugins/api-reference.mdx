@@ -151,7 +151,7 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 | `HiResEmoji`     | A hi-res emoji sprite — `pixels` ((x,y,r,g,b) in physical coords), `physical_size`, optional `physical_width` |
 | `Font`           | A resolved font handle                                                                                        |
 | `HiresFont`      | A resolved hi-res font                                                                                        |
-| `ScaledCanvas`   | The wrapper widgets receive when `default_scale > 1`; `isinstance(canvas, ScaledCanvas)` gates hi-res paths   |
+| `ScaledCanvas`   | The wrapper widgets receive when `default_scale > 1`; use `is_scaled(canvas)` to gate hi-res paths            |
 | `FONT_DEFAULT`   | The bundled default BDF font as a ready-to-use `Font` constant                                                |
 | `FONT_SMALL`     | The bundled small BDF font as a ready-to-use `Font` constant                                                  |
 

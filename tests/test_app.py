@@ -1559,7 +1559,7 @@ class TestBuildWidgetWithBorder:
         assert isinstance(widget.border, RainbowChaseBorder)
 
     async def test_border_on_unsupported_widget_type_raises(self):
-        """Data widget types (weather, mlb, rss, ...) still reject
+        """Data widget types (weather, rss, ...) still reject
         `border` loudly at config-load — they have their own draw
         paths and a perimeter border isn't a meaningful concept for
         data widgets."""
@@ -2545,20 +2545,6 @@ class TestListWidgetFieldsDataWidgets:
         output = _list_widget_fields("rss_feed")
         assert "feed_url" in output
         assert "URL" in output or "url" in output.lower()
-
-    def test_mlb_shows_team_description(self):
-        from led_ticker.app import _list_widget_fields
-
-        output = _list_widget_fields("mlb")
-        assert "team" in output
-        assert "PHI" in output or "abbreviation" in output.lower()
-
-    def test_mlb_standings_shows_top_n_description(self):
-        from led_ticker.app import _list_widget_fields
-
-        output = _list_widget_fields("mlb_standings")
-        assert "top_n" in output
-        assert "top-record" in output or "top_n" in output
 
 
 class TestListSectionFields:

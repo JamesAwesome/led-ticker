@@ -284,18 +284,6 @@ class TestFrameAwareWidgetProtocol:
         assert not isinstance(PlainWidget(), FrameAwareWidget)
 
 
-def test_container_protocol_recognizes_mlb_monitor() -> None:
-    """MLBScoreMonitor exposes feed_stories — must satisfy Container."""
-    from unittest.mock import MagicMock
-
-    from led_ticker.widget import Container
-    from led_ticker.widgets.mlb import MLBScoreMonitor
-
-    # Build with attrs.define defaults — feed_stories factory=list satisfies the field
-    monitor = MLBScoreMonitor(session=MagicMock(), team="NYM")
-    assert isinstance(monitor, Container)
-
-
 def test_container_protocol_recognizes_rss_monitor() -> None:
     from unittest.mock import MagicMock
 
@@ -303,16 +291,6 @@ def test_container_protocol_recognizes_rss_monitor() -> None:
     from led_ticker.widgets.rss_feed import RSSFeedMonitor
 
     monitor = RSSFeedMonitor(session=MagicMock(), feed_url="http://example.com/feed")
-    assert isinstance(monitor, Container)
-
-
-def test_container_protocol_recognizes_standings_monitor() -> None:
-    from unittest.mock import MagicMock
-
-    from led_ticker.widget import Container
-    from led_ticker.widgets.mlb_standings import MLBStandingsMonitor
-
-    monitor = MLBStandingsMonitor(session=MagicMock(), teams=["NYM"])
     assert isinstance(monitor, Container)
 
 

@@ -8,7 +8,8 @@ test stubs un-loaded until they're actually needed.
 
 `lazy_palette()` is the reusable building block: pass a name → RGB
 mapping, get back a function suitable for use as a module-level
-`__getattr__`. `widgets/mlb.py` uses this pattern for its own palette.
+`__getattr__`. Plugins / palette consumers use this pattern for their
+own palettes.
 """
 
 from collections.abc import Callable
@@ -24,9 +25,9 @@ if TYPE_CHECKING:
 def make_color(r: int, g: int, b: int) -> Color:
     """Construct a `graphics.Color`.
 
-    Public because `widgets/mlb.py` calls it for team-color helpers
-    that build colors on demand. Internal callers in this module use
-    it too so there's one place that touches `require_graphics`.
+    Public because plugins / palette consumers call it for color
+    helpers that build colors on demand. Internal callers in this module
+    use it too so there's one place that touches `require_graphics`.
     """
     g_mod = require_graphics()
     return g_mod.Color(r, g, b)

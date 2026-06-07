@@ -14,7 +14,7 @@ from led_ticker.app.factories import _list_widget_fields
 
 GOLDEN_DIR = Path(__file__).parent / "golden" / "list_fields"
 
-TYPES = ["message", "two_row", "gif", "weather", "mlb", "countdown"]
+TYPES = ["message", "two_row", "gif", "weather", "countdown"]
 
 
 @pytest.mark.parametrize("widget_type", TYPES)

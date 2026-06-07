@@ -231,7 +231,7 @@ async def run(config_path: Path) -> None:
                     # transition (one frame), where the new section's first render
                     # immediately overwrites it.
                     #
-                    # Containers (MLB/RSS/standings monitors) don't implement
+                    # Containers (RSS / data-widget monitors) don't implement
                     # draw() — they expose `feed_stories` instead. If a section
                     # starts with a container and has no [section.title], expand
                     # to the container's first current story so the transition's
@@ -365,7 +365,7 @@ async def run(config_path: Path) -> None:
                     last_scale = section.scale
                     last_content_height = section.content_height
                     last_bg_color = section.bg_color
-                    # Containers (MLB/RSS/standings monitors) don't implement
+                    # Containers (RSS / data-widget monitors) don't implement
                     # draw() — the next section's transition would crash on
                     # `outgoing.draw()` if last_widget were a container. Expand
                     # to the container's last current story; if the container

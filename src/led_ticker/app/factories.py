@@ -223,68 +223,17 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "fiat currency for price quote (e.g. USD, EUR)",
         None,
     ),
-    # --- MLB / Pool (shared layout knob) ---
+    # --- Pool (shared layout knob) ---
     "layout": FieldHint(
         '"ticker" | "two_row" | "scoreboard"',
         "widget render mode. pool: ticker (single-row segmented, with "
         "trend arrow) or two_row (stacked label-on-top / big-value-on-"
-        "bottom, bigsign-recommended). mlb: ticker or scoreboard (two-"
-        "column zone layout with ABS challenge pips).",
+        "bottom, bigsign-recommended).",
         '"ticker"',
     ),
-    # --- label color (shared: pool.monitor / mlb / crypto) ---
+    # --- label color (shared: pool.monitor / crypto) ---
     "label_color": FieldHint(
         "[r, g, b]", "color for the prefix labels and separators", "white"
-    ),
-    # --- MLB ---
-    "team": FieldHint(
-        "str",
-        "MLB team abbreviation (e.g. PHI, NYM, LAD)",
-        None,
-    ),
-    "final_hold_hours": FieldHint(
-        "int (hours)",
-        "hours to display final score before advancing to next widget",
-        "6",
-    ),
-    "small_font": FieldHint(
-        "font name",
-        "secondary font for scoreboard center zone (inning, outs, BSO, bases);"
-        " BDF alias or hi-res font name",
-        "5x8 (FONT_SMALL)",
-    ),
-    "small_font_size": FieldHint(
-        "int (pixels)",
-        "text height for small_font in real pixels;"
-        " required when small_font is a hi-res font",
-        "none",
-    ),
-    "small_font_threshold": FieldHint(
-        "int 0–255",
-        "bitmask threshold for small_font hi-res rendering",
-        "128",
-    ),
-    # --- MLB standings ---
-    "title": FieldHint(
-        "str",
-        "standings panel header text",
-        '"MLB Standings"',
-    ),
-    "top_n": FieldHint(
-        "int",
-        "number of top-record teams to show (in addition to tracked teams)",
-        "3",
-    ),
-    # --- Shared: data widgets ---
-    "timezone": FieldHint(
-        "str (TZ name)",
-        "IANA timezone name for game/event times (e.g. America/New_York)",
-        '"America/New_York"',
-    ),
-    "teams": FieldHint(
-        "list[str]",
-        "MLB team codes to always include in standings regardless of record",
-        "[]",
     ),
 }
 
@@ -333,9 +282,9 @@ _DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
     "bottom_text_wrap": {"gif", "image", "two_row"},
     "bottom_text_separator": {"gif", "image", "two_row"},
     "bottom_text_separator_color": {"gif", "image", "two_row"},
-    "top_font": {"two_row", "mlb"},
-    "top_font_size": {"two_row", "mlb"},
-    "top_font_threshold": {"two_row", "mlb"},
+    "top_font": {"two_row"},
+    "top_font_size": {"two_row"},
+    "top_font_threshold": {"two_row"},
     "bottom_font": {"two_row"},
     "bottom_font_size": {"two_row"},
     "bottom_font_threshold": {"two_row"},
@@ -458,6 +407,11 @@ def _resolve_fonts(
     if font_size is not None and "font_size" in cls_fields:
         widget_cfg["font_size"] = font_size
 
+    # `small_font` has no core widget consumer (it was the MLB scoreboard's
+    # secondary font); it is retained as a generic per-prefix font hook for
+    # plugin widgets — the led-ticker-baseball scoreboard resolves its
+    # `small_font` here. Keep it (like GEOMETRIC_SHAPES / lazy_palette) unless
+    # no plugin needs it.
     for prefix in ("top_font", "bottom_font", "small_font"):
         row_name = widget_cfg.pop(prefix, None)
         row_size = widget_cfg.pop(f"{prefix}_size", None)
@@ -655,37 +609,6 @@ async def validate_widget_cfg(
             fix_replacement_key="play_count",
         )
 
-    # MLB layout validation — must run BEFORE _resolve_fonts pops top_font_size
-    if widget_cfg.get("type") == "mlb":
-        _MLB_VALID_LAYOUTS = ("ticker", "scoreboard", "two_row")
-        mlb_layout = widget_cfg.get("layout", "ticker")
-        if mlb_layout not in _MLB_VALID_LAYOUTS:
-            close = difflib.get_close_matches(
-                mlb_layout, _MLB_VALID_LAYOUTS, n=1, cutoff=0.5
-            )
-            suggestion = f" Did you mean {close[0]!r}?" if close else ""
-            valid = ", ".join(repr(v) for v in _MLB_VALID_LAYOUTS)
-            raise ValueError(
-                f"mlb layout={mlb_layout!r} is not valid. "
-                f"Choose one of: {valid}.{suggestion}"
-            )
-        # Dead-knob check: per-row knobs only valid under two_row.
-        # This runs before _resolve_fonts pops top_font_size / top_font_threshold,
-        # so the keys are still present in widget_cfg at this point.
-        if mlb_layout != "two_row":
-            _TWO_ROW_ONLY = (
-                "top_font",
-                "top_font_size",
-                "top_font_threshold",
-                "top_row_height",
-            )
-            dead = [k for k in _TWO_ROW_ONLY if k in widget_cfg]
-            if dead:
-                raise ValueError(
-                    f"{dead[0]!r} only applies when layout='two_row'; "
-                    f"remove the field or set layout='two_row'."
-                )
-
     widget_type = widget_cfg.pop("type")
     cls = get_widget_class(widget_type)
     _run_validate_config(cls, widget_cfg, widget_type)
@@ -714,7 +637,7 @@ async def validate_widget_cfg(
     # Coerce `border` to a `BorderEffect` instance at config-load.
     # Restricted to widget types whose draw paths can host a perimeter
     # (message, countdown, two_row, gif, image) — data widgets like
-    # weather/mlb have their own paint logic and a perimeter border
+    # weather have their own paint logic and a perimeter border
     # isn't a meaningful concept there. Loud failure here catches
     # misplaced `border = ...` in TOML before it surfaces as a
     # confusing "unknown kwarg" downstream.

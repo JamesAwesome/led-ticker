@@ -1,75 +1,11 @@
 ---
 title: mlb_standings widget
-description: League standings — top-N teams plus your tracked teams. Offseason-aware. Free API, no key.
+description: The MLB standings widget is provided by the led-ticker-baseball plugin (type = "baseball.standings").
 ---
 
-import DemoGif from "../../../components/DemoGif.astro";
-import TomlExample from "../../../components/TomlExample.astro";
-import OptionsTable from "../../../components/OptionsTable.astro";
-import RelatedPages from "../../../components/RelatedPages.astro";
+The **MLB standings** widget is provided by the **[led-ticker-baseball](https://github.com/JamesAwesome/led-ticker-baseball)** plugin, referenced in config as `type = "baseball.standings"`.
 
-The `mlb_standings` widget fetches overall MLB league standings from the free StatsAPI and displays them as a scrolling list. It shows the top-N teams by overall rank and always includes a configurable set of tracked teams — so your team stays visible even when they're buried in the middle of the pack. During the offseason (before any games have been played), the widget automatically switches to a pre-season message with the opening-day date, then resumes showing standings once the season begins. No API key is required.
+- **To add it to your sign:** add `git+https://github.com/JamesAwesome/led-ticker-baseball.git@main` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow. It uses MLB's free StatsAPI, so no API key is required.
+- **Full documentation** — options, top-N + tracked-team selection, offseason behavior, and screenshots — lives in the [led-ticker-baseball README](https://github.com/JamesAwesome/led-ticker-baseball#readme).
 
-<DemoGif
-  src="/demos-long/widget-mlb_standings.gif"
-  caption="MLB standings showing each team name in its brand color alongside rank and win-loss record."
-/>
-
-<TomlExample
-  title="Minimal example"
-  code={`[[playlist.section.widget]]
-type = "mlb_standings"
-teams = ["NYY"]`}
-/>
-
-## Options
-
-<OptionsTable source="widgets/mlb_standings" />
-
-## Common patterns
-
-### Top-3 only — no tracked teams, just the league leaders
-
-<TomlExample
-  code={`[[playlist.section.widget]]
-type = "mlb_standings"
-teams = []
-top_n = 3
-title = "MLB Top 3"`}
-/>
-
-### Tracked teams only — skip the overall leaders and show only the teams you care about
-
-<TomlExample
-  code={`[[playlist.section.widget]]
-type = "mlb_standings"
-teams = ["NYM", "NYY"]
-top_n = 0`}
-/>
-
-### Top-5 leaders plus two tracked teams, with a dark background and hourly updates
-
-<TomlExample
-  code={`[[playlist.section.widget]]
-type = "mlb_standings"
-teams = ["BOS", "LAD"]
-top_n = 5
-bg_color = [0, 40, 80]
-update_interval = 3600`}
-/>
-
-## Tips
-
-### Tracked teams dedup with top-N
-
-If a tracked team already appears in the top-N list, the widget shows them there and skips the duplicate. You won't see the same team twice.
-
-### Offseason and pre-season behavior
-
-When the current season's standings all show 0-0 (no games played yet), the widget fetches the upcoming schedule and shows an opening-day message like `Opens Mar 27`. Between the World Series and Spring Training, the MLB StatsAPI still returns the prior season's final standings — so the widget keeps displaying those rather than going blank. Expect last-season data from roughly mid-October through late March.
-
-### Poll interval defaults to daily
-
-Standings shift slowly — the default `update_interval` of 86400 s (24 hours) is appropriate for most displays. During a tight pennant race in September, `update_interval = 3600` gives hourly refreshes without being rude to the public API. Dropping below 60 s is not recommended.
-
-<RelatedPages slugs={["widgets/mlb", "widgets/rss_feed", "concepts/sections-and-modes"]} />
+The same plugin also ships the [`baseball.scores`](/widgets/mlb/) widget, the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/), and the `:baseball.ball:` emoji. It's another example of led-ticker's [plugin system](/plugins/) — a way to add widgets, transitions, and emoji that aren't part of core.

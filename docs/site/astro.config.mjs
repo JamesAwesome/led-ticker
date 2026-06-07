@@ -89,8 +89,11 @@ export default defineConfig({
             { label: "rss_feed", link: "/widgets/rss_feed/" },
             { label: "gif", link: "/widgets/gif/" },
             { label: "image", link: "/widgets/image/" },
-            { label: "mlb", link: "/widgets/mlb/" },
-            { label: "mlb_standings", link: "/widgets/mlb_standings/" },
+            { label: "baseball.scores (plugin)", link: "/widgets/mlb/" },
+            {
+              label: "baseball.standings (plugin)",
+              link: "/widgets/mlb_standings/",
+            },
             { label: "coinbase", link: "/widgets/coinbase/" },
             { label: "coingecko", link: "/widgets/coingecko/" },
             { label: "etherscan", link: "/widgets/etherscan/" },

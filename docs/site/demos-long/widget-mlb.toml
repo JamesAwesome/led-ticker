@@ -1,4 +1,5 @@
 # Long demo: MLB scores tracking the Yankees.
+# Requires the led-ticker-baseball plugin (type = "baseball.scores").
 
 [display]
 rows = 16
@@ -13,7 +14,7 @@ loop_count = 1
 hold_time = 30.0
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "NYY"
 update_interval = 5
 

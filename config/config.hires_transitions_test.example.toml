@@ -3,6 +3,9 @@
 # Pokeball sections are first so you see them right away. Each section
 # is a short TickerMessage so the *transition* is what you're watching.
 #
+# The baseball.roll* sections need the `led-ticker-baseball` plugin (add it to
+# config/requirements-plugins.txt — the tracked .example already lists it).
+#
 # Run: led-ticker --config config/config.hires_transitions_test.example.toml
 
 [display]
@@ -83,7 +86,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "baseball"
+  type = "baseball.roll"
   duration = 1.5
 
   [[playlist.section.widget]]
@@ -97,7 +100,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "baseball_reverse"
+  type = "baseball.roll_reverse"
   duration = 1.5
 
   [[playlist.section.widget]]
@@ -111,7 +114,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "baseball_alternating"
+  type = "baseball.roll_alternating"
   duration = 1.5
 
   [[playlist.section.widget]]

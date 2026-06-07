@@ -12,7 +12,7 @@
 # default_scale = 4 means all widgets draw at a logical 128×16 canvas and the
 # ScaledCanvas wrapper expands every pixel to a 4×4 real block on the 64-tall
 # panel. Same layout model as bigsign; hires fonts, hires emoji, and hires
-# sprite transitions (pokeball, baseball, nyancat) all activate automatically.
+# sprite transitions (pokeball, baseball.roll, nyancat) all activate automatically.
 
 [display]
 rows = 64
@@ -228,11 +228,11 @@ font_size = 32
 font_threshold = 80
 
 # --- MLB Scores ---
-# Hires baseball_alternating auto-activates at default_scale = 4.
+# Hires baseball.roll_alternating auto-activates at default_scale = 4.
 
 [[playlist.section]]
 mode = "swap"
-transition = "baseball_alternating"
+transition = "baseball.roll_alternating"
 transition_duration = 2.0
 transition_fps = 40
 hold_time = 6
@@ -240,14 +240,14 @@ loop_count = 2
 
 [playlist.section.title]
 type = "message"
-text = ":baseball: Oh! That's Baseball!! :baseball:"
+text = ":baseball.ball: Oh! That's Baseball!! :baseball.ball:"
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "PHI"
 timezone = "America/New_York"
 font = "Inter-Regular"
@@ -255,7 +255,7 @@ font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "NYM"
 timezone = "America/New_York"
 font = "Inter-Regular"
@@ -263,11 +263,11 @@ font_size = 32
 font_threshold = 80
 
 # --- MLB Standings ---
-# Hires baseball_alternating auto-activates at default_scale = 4.
+# Hires baseball.roll_alternating auto-activates at default_scale = 4.
 
 [[playlist.section]]
 mode = "swap"
-transition = "baseball_alternating"
+transition = "baseball.roll_alternating"
 transition_duration = 2.0
 transition_fps = 40
 hold_time = 6
@@ -275,14 +275,14 @@ loop_count = 1
 
 [playlist.section.title]
 type = "message"
-text = ":baseball: MLB Standings :baseball:"
+text = ":baseball.ball: MLB Standings :baseball.ball:"
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "mlb_standings"
+type = "baseball.standings"
 teams = ["PHI", "NYM"]
 title = "MLB Standings"
 top_n = 3

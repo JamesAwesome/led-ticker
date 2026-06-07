@@ -144,23 +144,23 @@ update_interval = 3000  # 50 minutes
 
 [[playlist.section]]
 mode = "swap"
-transition = "baseball_alternating"
+transition = "baseball.roll_alternating"
 transition_duration = 2.0
 hold_time = 6
 loop_count = 2
 
 [playlist.section.title]
 type = "message"
-text = ":baseball: Oh! That's Baseball!! :baseball:"
+text = ":baseball.ball: Oh! That's Baseball!! :baseball.ball:"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "PHI"
 timezone = "America/New_York"
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "NYM"
 timezone = "America/New_York"
 
@@ -168,18 +168,18 @@ timezone = "America/New_York"
 
 [[playlist.section]]
 mode = "swap"
-transition = "baseball_alternating"
+transition = "baseball.roll_alternating"
 transition_duration = 2.0
 hold_time = 6
 loop_count = 1
 
 [playlist.section.title]
 type = "message"
-text = ":baseball: MLB Standings :baseball:"
+text = ":baseball.ball: MLB Standings :baseball.ball:"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "mlb_standings"
+type = "baseball.standings"
 teams = ["PHI", "NYM"]
 title = "MLB Standings"
 top_n = 3

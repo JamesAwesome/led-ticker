@@ -42,7 +42,7 @@ _PROVIDER_COLOR_KEYS: set[str] = {
 }
 
 # Keys that remain raw graphics.Color objects (background fills, title
-# color, segment color for MLB/weather). Kept as Color so widget code
+# color, segment color for weather / data widgets). Kept as Color so widget code
 # that does `.red` / `SetPixel(x, y, c.red, c.green, c.blue)` keeps
 # working unchanged while provider integration rolls out.
 _RAW_COLOR_KEYS: set[str] = _COLOR_KEYS - _PROVIDER_COLOR_KEYS

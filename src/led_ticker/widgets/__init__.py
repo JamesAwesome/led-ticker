@@ -36,8 +36,6 @@ def get_widget_class(name: str) -> type[Any]:
 from led_ticker.widgets import (  # noqa: E402, F401
     gif,
     message,
-    mlb,
-    mlb_standings,
     rss_feed,
     still,
     two_row,

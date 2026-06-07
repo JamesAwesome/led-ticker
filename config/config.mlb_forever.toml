@@ -1,4 +1,7 @@
 # MLB scores forever_scroll config — all games scroll side-by-side
+# Requires the `led-ticker-baseball` plugin (baseball.scores/baseball.standings
+# widgets + baseball.roll* transition). Add it to config/requirements-plugins.txt
+# — the tracked .example already lists it.
 # Usage: cp config/config.mlb_forever.toml config/config.toml
 
 [display]
@@ -24,11 +27,11 @@ text = "MLB Scores"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "PHI"
 timezone = "America/New_York"
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "NYM"
 timezone = "America/New_York"

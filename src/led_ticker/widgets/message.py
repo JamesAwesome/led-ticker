@@ -21,7 +21,7 @@ def _coerce_font_color(value: Any) -> ColorProvider:
 
     Wraps ``graphics.Color`` in ``_ConstantColor`` so ``draw()`` can
     always call ``provider.color_for(...)``.  Handles direct construction
-    (test paths, MLB widget building TickerMessages with
+    (test paths, or data-widget plugins building TickerMessages with
     ``font_color=Color(...)``) as well as the already-coerced TOML path.
     """
     if not hasattr(value, "color_for"):
@@ -218,10 +218,7 @@ class SegmentMessage:
 
     Segments are drawn through `draw_with_emoji` so any segment text
     can contain `:flower:` / `:star:` / etc. slugs that render as
-    inline pixel-art icons. (Previously the widget had its own
-    `icon: PixelData | None` parameter and rendered via the now-deleted
-    `mlb_icons.draw_mlb_icon` helper — that's been folded into the
-    standard emoji-rendering path.)
+    inline pixel-art icons.
 
     `font_color` is an optional `ColorProvider` override. When set it
     replaces the per-segment colors, allowing a `color_cycle` effect to

@@ -25,18 +25,3 @@ def test_resolve_fonts_small_font_hires_requires_size():
     cfg = {"small_font": hires_names[0]}  # no small_font_size
     with pytest.raises(ValueError, match="small_font_size"):
         _resolve_fonts(cfg, cls=None, panel_h_for_warning=None)
-
-
-async def test_validate_widget_cfg_accepts_small_font_for_mlb():
-    """validate_widget_cfg recognises small_font as a valid mlb field."""
-    from led_ticker.app.factories import validate_widget_cfg
-
-    # Should not raise — small_font is a recognised field on MLBScoreMonitor
-    await validate_widget_cfg(
-        {
-            "type": "mlb",
-            "team": "PHI",
-            "small_font": "5x8",
-        },
-        session=None,
-    )

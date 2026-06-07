@@ -23,7 +23,7 @@ hi-res sprite transition*.
 | Scores widget key | `type = "baseball.scores"` (was `type = "mlb"`) |
 | Standings widget key | `type = "baseball.standings"` (was `type = "mlb_standings"`) |
 | Transition keys | `baseball.roll`, `baseball.roll_reverse`, `baseball.roll_alternating` (were `baseball` / `_reverse` / `_alternating`) |
-| Emoji slug | `:baseball:` (unchanged, now plugin-provided) |
+| Emoji slug | `:baseball.ball:` (slug `ball` under ns `baseball`; plugin emoji slugs are namespaced — `:baseball:` cannot stay bare). Register both lo-res `api.emoji("ball", …)` and hi-res `api.hires_emoji("ball", …)`. |
 | Public-surface strategy | **Expand** `led_ticker.plugin` so the plugin imports ONLY from it (AST-verified, same tripwire as pool) |
 | Baseball emoji disposition | **Full extraction** — emoji + its private `_generate_baseball_hires` generator leave core; core configs/tests/docs updated |
 
@@ -33,7 +33,7 @@ hi-res sprite transition*.
 |---|---|
 | `src/led_ticker/widgets/mlb.py` (`@register("mlb")`, ~1676 lines; includes `MLB_TEAM_COLORS`, `MLB_TEAM_NAMES`, layouts `ticker`/`scoreboard`/`two_row`, `MLBTwoRowMessage`) | `src/led_ticker_baseball/scores.py` → `baseball.scores` |
 | `src/led_ticker/widgets/mlb_standings.py` (`@register("mlb_standings")`) — imports team tables from `widgets.mlb` | `src/led_ticker_baseball/standings.py` → `baseball.standings` |
-| baseball emoji in `pixel_emoji.py`: `BASEBALL` (lo-res 8×8), `BASEBALL_HIRES`, generator `_generate_baseball_hires`, registry entries in `EMOJI_REGISTRY` + `HIRES_REGISTRY` | `src/led_ticker_baseball/emoji.py` → `api.emoji("baseball")` |
+| baseball emoji in `pixel_emoji.py`: `BASEBALL` (lo-res 8×8), `BASEBALL_HIRES`, generator `_generate_baseball_hires`, registry entries in `EMOJI_REGISTRY` + `HIRES_REGISTRY` | `src/led_ticker_baseball/emoji.py` → `api.emoji("ball", BALL)` + `api.hires_emoji("ball", BALL_HIRES)`; inline slug `:baseball.ball:` (lo-res pairing required for inline use) |
 | baseball transitions in `transitions/baseball.py` (`baseball`, `baseball_reverse`, `baseball_alternating`, with hi-res dispatch) | `src/led_ticker_baseball/transition.py` → `api.transition("roll" / "roll_reverse" / "roll_alternating")` |
 | baseball hi-res funcs inside the SHARED `transitions/_hires_loader.py`: `render_hires_baseball_frame`, `_baseball_rotation_frames`, `_paint_procedural_baseball` | move into the plugin's `transition.py` (they call `_generate_baseball_hires`, which moves with them — fully self-contained; nyancat/pokeball funcs stay in core's `_hires_loader.py`) |
 
@@ -202,11 +202,14 @@ imports led-ticker symbols ONLY from `led_ticker.plugin` (copy pool's test).
 2. Migrate the ~14 `config.*` files that use `mlb` / `mlb_standings` to
    `type = "baseball.scores"` / `"baseball.standings"` and the baseball
    transition keys to `baseball.roll*`.
-3. Swap or drop `:baseball:` in the ~6 generic configs that showcase it
+3. Handle `:baseball:` in the ~6 generic configs that showcase it
    (`config.toml`, `config.longboi.toml`, `config.small_sign.toml`,
    `config.scale_smoketest.toml`, `config.hires_emoji_test.example.toml`, and
-   the `widgets-legacy.md` doc line) — replace with another hi-res emoji
-   (e.g. `:moon:` / `:star:`) where it was purely decorative.
+   the `widgets-legacy.md` doc line): for configs that install the baseball
+   plugin, migrate `:baseball:` → `:baseball.ball:`; for purely-decorative core
+   demo/test configs that should stay plugin-free, replace with another core
+   hi-res emoji (e.g. `:moon:` / `:star:`) or drop it. Note that
+   `:baseball.ball:` only renders where the plugin is installed.
 4. Update core tests: remove the baseball slices from `test_pixel_emoji.py`,
    `test_hires_loader.py`, `test_transitions.py`, `test_widgets/test_message.py`;
    delete `test_mlb*.py` / `test_baseball.py`.

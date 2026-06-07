@@ -72,14 +72,8 @@ class Transition(Protocol):
 _TRANSITION_REGISTRY: dict[str, type[Transition]] = {}
 
 
-def normalize_bg(c: Any) -> tuple[int, int, int] | None:
-    """Coerce a background-color value to an ``(r, g, b)`` tuple (or ``None``).
-
-    Accepts ``None`` (→ ``None``), an ``(r, g, b)`` tuple (returned as-is), or a
-    ``graphics.Color`` (→ its ``(red, green, blue)``). Handy in a custom
-    transition for turning a section ``bg_color`` (which may arrive in any of
-    those shapes) into a plain tuple before painting.
-    """
+def _normalize_bg(c: Any) -> tuple[int, int, int] | None:
+    """Coerce an (r,g,b) tuple, a graphics.Color, or None to a tuple/None."""
     if c is None:
         return None
     if hasattr(c, "red"):
@@ -179,8 +173,8 @@ async def run_transition(
     """
     del region  # plumbed but unused; future zoned layouts revisit this
 
-    outgoing_bg_color = normalize_bg(outgoing_bg_color)
-    incoming_bg_color = normalize_bg(incoming_bg_color)
+    outgoing_bg_color = _normalize_bg(outgoing_bg_color)
+    incoming_bg_color = _normalize_bg(incoming_bg_color)
 
     # `easing` is validated at config-load via coerce_choice against
     # EASING.keys(); direct dict access here raises a clean KeyError

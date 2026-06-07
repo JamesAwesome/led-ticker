@@ -58,8 +58,8 @@ from led_ticker.scaled_canvas import (
     paint_hires,
     unwrap_to_real,
 )
-from led_ticker.transitions import Transition, normalize_bg
-from led_ticker.transitions._hires_loader import snap_reset
+from led_ticker.transitions import Transition
+from led_ticker.transitions._hires_loader import SNAP_THRESHOLD, snap_reset
 from led_ticker.widget import (
     Container,
     Updatable,
@@ -92,6 +92,7 @@ __all__ = [
     "HiResEmoji",
     "HiresFont",
     "PixelData",
+    "SNAP_THRESHOLD",
     "ScaledCanvas",
     "SegmentMessage",
     "StartupContext",
@@ -112,7 +113,6 @@ __all__ = [
     "make_color",
     "measure_emoji_at",
     "measure_width",
-    "normalize_bg",
     "paint_hires",
     "resolve_band_heights",
     "resolve_font",

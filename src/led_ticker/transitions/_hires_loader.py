@@ -49,16 +49,16 @@ def snap_reset(canvas: Any, incoming_bg_color: Any) -> None:
     """Reset a canvas to the section's background before drawing the incoming
     frame at the end of a transition.
 
-    Use this in a custom transition's ``frame_at`` when ``t`` reaches the snap
-    threshold and you're about to draw the incoming widget: it Fills the canvas
+    Use this in a custom transition's ``frame_at`` when ``t`` reaches
+    ``SNAP_THRESHOLD`` and you're about to draw the incoming widget: it Fills the canvas
     with ``incoming_bg_color`` (so a bg-colored section doesn't flash "incoming
     on black" for one tick), or Clears to black when no bg color is given.
     ``incoming_bg_color`` may be ``None``, an ``(r, g, b)`` tuple, or a
     ``graphics.Color`` — the same shapes a section's ``bg_color`` takes.
     """
-    from led_ticker.transitions import normalize_bg
+    from led_ticker.transitions import _normalize_bg
 
-    bg = normalize_bg(incoming_bg_color)
+    bg = _normalize_bg(incoming_bg_color)
     if bg is not None:
         canvas.Fill(*bg)
     else:

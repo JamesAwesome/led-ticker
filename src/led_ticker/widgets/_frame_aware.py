@@ -33,7 +33,25 @@ import attrs
 
 @attrs.define
 class FrameAwareBase:
-    """Mixin providing per-widget + per-effect frame counters."""
+    """Per-widget + per-effect frame counters for animated ``font_color`` /
+    ``border`` effects.
+
+    **Subclass contract (for plugin widgets):**
+
+    - Inherit ``FrameAwareBase`` and decorate the class with ``@attrs.define``.
+    - When painting an animated effect, read its counter with
+      ``self.frame_for(name)`` — e.g.
+      ``border.paint(canvas, self.frame_for("border"))`` or
+      ``font_color.color_for(self.frame_for("font_color"), char_idx, total)``.
+      ``name`` is the effect's field name (``"font_color"``, ``"border"``, … —
+      the set in ``_EFFECT_ATTRS``).
+    - Do NOT call ``advance_frame`` / ``pause_frame`` / ``resume_frame`` /
+      ``reset_frame`` yourself — the engine drives those each tick and around
+      transitions.
+    - The standard effect fields already have counters. Adding a brand-new
+      effect-typed field is advanced: its name must be in ``_EFFECT_ATTRS`` for
+      its counter to advance.
+    """
 
     _EFFECT_ATTRS: ClassVar[frozenset[str]] = frozenset(
         {

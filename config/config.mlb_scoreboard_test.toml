@@ -1,6 +1,8 @@
 # MLB scoreboard layout test config — longboi (512×64 canvas, logical 128×16)
 #
 # Tests layout = "scoreboard" mode at hires scale=4.
+# Requires the `led-ticker-baseball` plugin (baseball.scores/baseball.standings
+# widgets + baseball.roll* transition; see config/requirements-plugins.txt.example).
 # Usage: cp config/config.mlb_scoreboard_test.toml config/config.toml
 
 [display]
@@ -24,13 +26,13 @@ delay = 5
 default = "push_left"
 duration = 0.5
 easing = "ease_out"
-between_sections = {type = "baseball_alternating", duration = 3.2, transition_fps = 40}
+between_sections = {type = "baseball.roll_alternating", duration = 3.2, transition_fps = 40}
 
 # --- MLB Scoreboard ---
 
 [[playlist.section]]
 mode = "swap"
-transition = "baseball_alternating"
+transition = "baseball.roll_alternating"
 transition_duration = 3.2
 transition_fps = 40
 hold_time = 8
@@ -38,14 +40,14 @@ loop_count = 1
 
 [playlist.section.title]
 type = "message"
-text = ":baseball: MLB Scoreboard :baseball:"
+text = ":baseball.ball: MLB Scoreboard :baseball.ball:"
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "PHI"
 layout = "scoreboard"
 timezone = "America/New_York"
@@ -57,7 +59,7 @@ small_font_size = 20
 small_font_threshold = 80
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "NYM"
 layout = "scoreboard"
 timezone = "America/New_York"
@@ -69,7 +71,7 @@ small_font_size = 20
 small_font_threshold = 80
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "LAD"
 layout = "scoreboard"
 timezone = "America/Los_Angeles"
@@ -91,14 +93,14 @@ loop_count = 1
 
 [playlist.section.title]
 type = "message"
-text = ":baseball: MLB Standings :baseball:"
+text = ":baseball.ball: MLB Standings :baseball.ball:"
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "mlb_standings"
+type = "baseball.standings"
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80

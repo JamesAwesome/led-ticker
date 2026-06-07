@@ -8,3 +8,7 @@
 #
 # Pool water-temperature widget (type = "pool.monitor"):
 git+https://github.com/JamesAwesome/led-ticker-pool.git@main
+
+# Baseball / MLB widgets (type = "baseball.scores" / "baseball.standings"),
+# the baseball.roll* transition, and the :baseball.ball: emoji:
+git+https://github.com/JamesAwesome/led-ticker-baseball.git@main

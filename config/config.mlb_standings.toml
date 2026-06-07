@@ -1,4 +1,7 @@
 # MLB standings + scores testing config
+# Requires the `led-ticker-baseball` plugin (baseball.scores/baseball.standings
+# widgets + baseball.roll* transition). Add it to config/requirements-plugins.txt
+# — the tracked .example already lists it.
 # Usage: cp config/config.mlb_standings.toml config/config.toml
 
 [display]
@@ -16,7 +19,7 @@ delay = 5
 default = "push_left"
 duration = 0.5
 easing = "ease_out"
-between_sections = {type = "baseball_alternating", duration = 2.0}
+between_sections = {type = "baseball.roll_alternating", duration = 2.0}
 
 # --- MLB Standings (swap mode) ---
 
@@ -29,11 +32,11 @@ loop_count = 1
 
 [playlist.section.title]
 type = "message"
-text = ":baseball: MLB Standings"
+text = ":baseball.ball: MLB Standings"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "mlb_standings"
+type = "baseball.standings"
 teams = ["NYM", "PHI"]
 title = "MLB Standings"
 top_n = 3
@@ -43,22 +46,22 @@ timezone = "America/New_York"
 
 [[playlist.section]]
 mode = "swap"
-transition = "baseball_alternating"
+transition = "baseball.roll_alternating"
 transition_duration = 2.0
 hold_time = 6
 loop_count = 0
 
 [playlist.section.title]
 type = "message"
-text = ":baseball: MLB Scores"
+text = ":baseball.ball: MLB Scores"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "PHI"
 timezone = "America/New_York"
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "NYM"
 timezone = "America/New_York"

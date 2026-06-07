@@ -17,6 +17,8 @@
 #   live-game bottom row. See the per-section `content_height` note in
 #   CLAUDE.md.
 #
+# Requires the `led-ticker-baseball` plugin (baseball.scores/baseball.standings
+# widgets + baseball.roll* transition; see config/requirements-plugins.txt.example).
 # Usage: cp config/config.mlb_two_row_test.toml config/config.toml
 
 [display]
@@ -42,7 +44,7 @@ delay = 5
 default = "push_left"
 duration = 0.5
 easing = "ease_out"
-between_sections = {type = "baseball_alternating", duration = 3.2, transition_fps = 40}
+between_sections = {type = "baseball.roll_alternating", duration = 3.2, transition_fps = 40}
 
 # --- MLB Two-Row (symmetric 16/16 split, single font) ---
 # scale = 2 + content_height = 32 → two 16-logical (32-real) bands.
@@ -51,7 +53,7 @@ between_sections = {type = "baseball_alternating", duration = 3.2, transition_fp
 mode = "swap"
 scale = 2
 content_height = 32
-transition = "baseball_alternating"
+transition = "baseball.roll_alternating"
 transition_duration = 3.2
 transition_fps = 40
 hold_time = 8
@@ -59,14 +61,14 @@ loop_count = 1
 
 [playlist.section.title]
 type = "message"
-text = ":baseball: MLB Two-Row :baseball:"
+text = ":baseball.ball: MLB Two-Row :baseball.ball:"
 font = "Inter-Regular"
 font_size = 25
 font_threshold = 80
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "PHI"
 layout = "two_row"
 timezone = "America/New_York"
@@ -75,7 +77,7 @@ font_size = 25
 font_threshold = 80
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "NYM"
 layout = "two_row"
 timezone = "America/New_York"
@@ -84,7 +86,7 @@ font_size = 25
 font_threshold = 80
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "LAD"
 layout = "two_row"
 timezone = "America/Los_Angeles"
@@ -100,7 +102,7 @@ font_threshold = 80
 mode = "swap"
 scale = 2
 content_height = 32
-transition = "baseball_alternating"
+transition = "baseball.roll_alternating"
 transition_duration = 3.2
 transition_fps = 40
 hold_time = 8
@@ -108,14 +110,14 @@ loop_count = 1
 
 [playlist.section.title]
 type = "message"
-text = ":baseball: Two-Row (split) :baseball:"
+text = ":baseball.ball: Two-Row (split) :baseball.ball:"
 font = "Inter-Regular"
 font_size = 25
 font_threshold = 80
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "NYY"
 layout = "two_row"
 timezone = "America/New_York"
@@ -128,7 +130,7 @@ font_size = 25
 font_threshold = 80
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "BOS"
 layout = "two_row"
 timezone = "America/New_York"

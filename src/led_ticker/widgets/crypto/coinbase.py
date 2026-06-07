@@ -15,7 +15,7 @@ from led_ticker.fonts import FONT_DELTA, FONT_LABEL, FONT_VALUE, FONT_VALUE_SMAL
 from led_ticker.text_render import draw_text
 from led_ticker.widget import run_monitor_loop, spawn_tracked
 from led_ticker.widgets import register
-from led_ticker.widgets._frame_aware import _FrameAware
+from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets.crypto._colors import (
     DOWN_TREND_COLOR,
     NEUTRAL_TREND_COLOR,
@@ -45,7 +45,7 @@ def _get_price_font(price_str: str) -> Font:
 
 @register("coinbase")
 @attrs.define
-class CoinbasePriceMonitor(_FrameAware):
+class CoinbasePriceMonitor(FrameAwareBase):
     """Crypto price monitor using the Coinbase API."""
 
     symbol: str

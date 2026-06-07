@@ -123,21 +123,21 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 
 ### Base classes & protocols
 
-| Name                | What it is                                                                                                    |
-| ------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `Widget`            | The widget protocol (a `draw()` or play-style widget)                                                         |
-| `Container`         | Monitor/container widget base (cycles a live `feed_stories` list)                                             |
-| `Updatable`         | Protocol for widgets with `async def update(self)`                                                            |
-| `Transition`        | The [transition](/transitions/) protocol (`frame_at`)                                                         |
-| `ColorProvider`     | The [color-provider](/concepts/color-providers/) protocol (`color_for`)                                       |
-| `ColorProviderBase` | Base that enforces the `frame_invariant` class attr                                                           |
-| `Animation`         | The [animation](/concepts/animations/) protocol (`frame_for`)                                                 |
-| `BorderEffect`      | The [border](/concepts/borders/) protocol (`paint`)                                                           |
-| `BorderEffectBase`  | Base that enforces the `frame_invariant` class attr                                                           |
-| `SegmentMessage`    | Re-exported single-line message widget (compose stories from it)                                              |
-| `TwoRowMessage`     | Re-exported two-row widget                                                                                    |
-| `TickerMessage`     | Re-exported single-region scrolling message widget (compose/subclass for rich stories)                        |
-| `FrameAwareBase`    | Mixin to inherit (with `@attrs.define`) so per-tick `advance_frame()` drives animated `font_color` / `border` |
+| Name                | What it is                                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Widget`            | The widget protocol (a `draw()` or play-style widget)                                                                                             |
+| `Container`         | Monitor/container widget base (cycles a live `feed_stories` list)                                                                                 |
+| `Updatable`         | Protocol for widgets with `async def update(self)`                                                                                                |
+| `Transition`        | The [transition](/transitions/) protocol (`frame_at`)                                                                                             |
+| `ColorProvider`     | The [color-provider](/concepts/color-providers/) protocol (`color_for`)                                                                           |
+| `ColorProviderBase` | Base that enforces the `frame_invariant` class attr                                                                                               |
+| `Animation`         | The [animation](/concepts/animations/) protocol (`frame_for`)                                                                                     |
+| `BorderEffect`      | The [border](/concepts/borders/) protocol (`paint`)                                                                                               |
+| `BorderEffectBase`  | Base that enforces the `frame_invariant` class attr                                                                                               |
+| `SegmentMessage`    | Re-exported single-line message widget (compose stories from it)                                                                                  |
+| `TwoRowMessage`     | Re-exported two-row widget                                                                                                                        |
+| `TickerMessage`     | Re-exported single-region scrolling message widget (compose/subclass for rich stories)                                                            |
+| `FrameAwareBase`    | Base for an animated widget — inherit (with `@attrs.define`) and read effect counters via `self.frame_for(name)`; the engine drives the counters. |
 
 ### Data & types
 
@@ -151,32 +151,35 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 | `HiResEmoji`     | A hi-res emoji sprite — `pixels` ((x,y,r,g,b) in physical coords), `physical_size`, optional `physical_width` |
 | `Font`           | A resolved font handle                                                                                        |
 | `HiresFont`      | A resolved hi-res font                                                                                        |
-| `ScaledCanvas`   | The wrapper widgets receive when `default_scale > 1`; `isinstance(canvas, ScaledCanvas)` gates hi-res paths   |
+| `ScaledCanvas`   | The wrapper widgets receive when `default_scale > 1`; use `is_scaled(canvas)` to gate hi-res paths            |
 | `FONT_DEFAULT`   | The bundled default BDF font as a ready-to-use `Font` constant                                                |
 | `FONT_SMALL`     | The bundled small BDF font as a ready-to-use `Font` constant                                                  |
 
 ### Helpers
 
-| Name                                               | What it is                                                                      |
-| -------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `make_color(r, g, b)`                              | Build a `Color` from RGB components (0–255)                                     |
-| `draw_text(canvas, font, text, x, y, color)`       | Draw text (inline `:emoji:` included); returns the next x                       |
-| `draw_with_emoji(canvas, font, x, y, color, text)` | Lower-level text+emoji draw; returns the advance width (what `draw_text` wraps) |
-| `get_text_width(font, text)`                       | Pixel width of `text` in `font`                                                 |
-| `compute_baseline(font, ...)`                      | The baseline y for a font                                                       |
-| `resolve_font(name, ...)`                          | Resolve a font by name (bundled, plugin, or [BDF](/concepts/fonts/))            |
-| `draw_emoji_at(canvas, slug, x, y)`                | Draw a registered emoji at a position                                           |
-| `measure_emoji_at(canvas, slug)`                   | Measure a registered emoji                                                      |
-| `colors`                                           | The built-in named-color module                                                 |
-| `run_monitor_loop(widget, interval)`               | The periodic-refresh loop for a monitor widget                                  |
-| `spawn_tracked(coro)`                              | Spawn a tracked background task from a `start()` / hook                         |
-| `safe_scale(canvas)`                               | The canvas's logical→physical scale (`1` when unscaled)                         |
-| `compute_baseline_for_band(font, h, scale)`        | Baseline for text within an arbitrary band height (multi-row layouts)           |
-| `measure_width(font, text)`                        | Logical width of `text` incl. inline `:emoji:` (layout math)                    |
-| `resolve_band_heights(...)`                        | Split a canvas height into row bands (shared with two-row/image)                |
-| `font_line_height_logical(font, scale)`            | A font's logical line height (never hardcode a cell height)                     |
-| `unwrap_to_real(canvas)`                           | The raw underlying real canvas for direct `SetPixel` at native res              |
-| `paint_hires(canvas, callback)`                    | Unwrap + forward `scale`/`y_offset_real` to a hi-res paint callback             |
+| Name                                               | What it is                                                                                  |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `make_color(r, g, b)`                              | Build a `Color` from RGB components (0–255)                                                 |
+| `draw_text(canvas, font, text, x, y, color)`       | Draw text (inline `:emoji:` included); returns the next x                                   |
+| `draw_with_emoji(canvas, font, x, y, color, text)` | Lower-level text+emoji draw; returns the advance width (what `draw_text` wraps)             |
+| `get_text_width(font, text)`                       | Pixel width of `text` in `font`                                                             |
+| `compute_baseline(font, ...)`                      | The baseline y for a font                                                                   |
+| `resolve_font(name, ...)`                          | Resolve a font by name (bundled, plugin, or [BDF](/concepts/fonts/))                        |
+| `draw_emoji_at(canvas, slug, x, y)`                | Draw a registered emoji at a position                                                       |
+| `measure_emoji_at(canvas, slug)`                   | Measure a registered emoji                                                                  |
+| `colors`                                           | The built-in named-color module                                                             |
+| `run_monitor_loop(widget, interval)`               | The periodic-refresh loop for a monitor widget                                              |
+| `spawn_tracked(coro)`                              | Spawn a tracked background task from a `start()` / hook                                     |
+| `safe_scale(canvas)`                               | The canvas's logical→physical scale (`1` when unscaled)                                     |
+| `compute_baseline_for_band(font, h, scale)`        | Baseline for text within an arbitrary band height (multi-row layouts)                       |
+| `measure_width(font, text)`                        | Logical width of `text` incl. inline `:emoji:` (layout math)                                |
+| `resolve_band_heights(...)`                        | Split a canvas height into row bands (shared with two-row/image)                            |
+| `font_line_height_logical(font, scale)`            | A font's logical line height (never hardcode a cell height)                                 |
+| `unwrap_to_real(canvas)`                           | The raw underlying real canvas for direct `SetPixel` at native res                          |
+| `paint_hires(canvas, callback)`                    | Unwrap + forward `scale`/`y_offset_real` to a hi-res paint callback                         |
+| `is_scaled(canvas)`                                | `True` if `canvas` is a scaled wrapper — the documented gate for hi-res paths               |
+| `snap_reset(canvas, incoming_bg_color)`            | Clear + repaint a transition's incoming background (hi-res snap helper)                     |
+| `SNAP_THRESHOLD`                                   | The transition `t` at which to snap to the incoming frame (call `snap_reset` at/after this) |
 
 {/* <!-- api-exports:end --> */}
 

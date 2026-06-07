@@ -52,8 +52,14 @@ from led_ticker.pixel_emoji import (
     measure_width,
 )
 from led_ticker.pixel_emoji import draw_with_emoji as _draw_with_emoji
-from led_ticker.scaled_canvas import ScaledCanvas, paint_hires, unwrap_to_real
+from led_ticker.scaled_canvas import (
+    ScaledCanvas,
+    is_scaled,
+    paint_hires,
+    unwrap_to_real,
+)
 from led_ticker.transitions import Transition
+from led_ticker.transitions._hires_loader import SNAP_THRESHOLD, snap_reset
 from led_ticker.widget import (
     Container,
     Updatable,
@@ -61,7 +67,7 @@ from led_ticker.widget import (
     run_monitor_loop,
     spawn_tracked,
 )
-from led_ticker.widgets._frame_aware import _FrameAware as FrameAwareBase
+from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets._row_layout import resolve_band_heights
 from led_ticker.widgets.message import SegmentMessage, TickerMessage
 from led_ticker.widgets.two_row import TwoRowMessage
@@ -86,6 +92,7 @@ __all__ = [
     "HiResEmoji",
     "HiresFont",
     "PixelData",
+    "SNAP_THRESHOLD",
     "ScaledCanvas",
     "SegmentMessage",
     "StartupContext",
@@ -102,6 +109,7 @@ __all__ = [
     "draw_with_emoji",
     "font_line_height_logical",
     "get_text_width",
+    "is_scaled",
     "make_color",
     "measure_emoji_at",
     "measure_width",
@@ -110,6 +118,7 @@ __all__ = [
     "resolve_font",
     "run_monitor_loop",
     "safe_scale",
+    "snap_reset",
     "spawn_tracked",
     "unwrap_to_real",
 ]

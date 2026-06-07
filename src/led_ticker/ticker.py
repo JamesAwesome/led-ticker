@@ -93,7 +93,7 @@ class _CircleBufferMsg(TickerMessage):
 
     Continuous-phase color sweep (Rainbow / ColorCycle) is provided
     automatically by the provider's class-level `restart_on_visit =
-    False` \u2014 _FrameAware reads that attribute via getattr on the
+    False` \u2014 FrameAwareBase reads that attribute via getattr on the
     provider, not on the widget.
     """
 
@@ -394,8 +394,8 @@ class Ticker:
     def _advance_frame_if_supported(self, widget: Any) -> None:
         """Call `widget.advance_frame(visit_id=self._current_visit)` if supported.
 
-        Quietly no-ops on widgets without the _FrameAware mixin.
-        Passes the current visit ID so _FrameAware can detect aliasing bugs
+        Quietly no-ops on widgets without the FrameAwareBase mixin.
+        Passes the current visit ID so FrameAwareBase can detect aliasing bugs
         (same widget instance advancing in two concurrent section visits).
         """
         if hasattr(widget, "advance_frame"):

@@ -52,7 +52,7 @@ from led_ticker.fonts import FONT_SMALL, font_line_height_logical
 from led_ticker.pixel_emoji import EMOJI_PATTERN, draw_with_emoji, measure_width
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
-from led_ticker.widgets._frame_aware import _FrameAware
+from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets._image_fit import fill_band
 from led_ticker.widgets._row_layout import (
     EMOJI_ROW_CAP,
@@ -72,7 +72,7 @@ _aligned_x = aligned_x
 
 @register("two_row")
 @attrs.define
-class TwoRowMessage(_FrameAware):
+class TwoRowMessage(FrameAwareBase):
     """Two-row display: held top, scrolling bottom."""
 
     top_text: str

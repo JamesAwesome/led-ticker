@@ -86,7 +86,7 @@ class Playable(Protocol):
 @runtime_checkable
 class FrameAwareWidget(Protocol):
     """Widget that tracks per-effect frame counters for animated ColorProviders,
-    BorderEffects, and Animations. Implement by inheriting ``_FrameAware`` from
+    BorderEffects, and Animations. Implement by inheriting ``FrameAwareBase`` from
     ``widgets/_frame_aware.py`` — do not implement these methods manually."""
 
     def advance_frame(self, *, visit_id: int | None = None) -> None: ...

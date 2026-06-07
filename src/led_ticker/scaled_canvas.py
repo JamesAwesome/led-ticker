@@ -139,6 +139,15 @@ class ScaledCanvas:
         return cx - x
 
 
+def is_scaled(canvas: Any) -> bool:
+    """True if ``canvas`` is a scaled wrapper (the bigsign hi-res path).
+
+    The supported way for a plugin to gate its hi-res branch — prefer this
+    over ``isinstance(canvas, ScaledCanvas)`` in plugin code.
+    """
+    return isinstance(canvas, ScaledCanvas)
+
+
 def unwrap_to_real(canvas: Any) -> Any:
     """Return the underlying real canvas, peeling any ScaledCanvas wrappers.
 

@@ -13,7 +13,7 @@ from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.pixel_emoji import EMOJI_PATTERN
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
-from led_ticker.widgets._frame_aware import _FrameAware
+from led_ticker.widgets._frame_aware import FrameAwareBase
 
 
 def _coerce_font_color(value: Any) -> ColorProvider:
@@ -31,7 +31,7 @@ def _coerce_font_color(value: Any) -> ColorProvider:
 
 @register("message")
 @attrs.define
-class TickerMessage(_FrameAware):
+class TickerMessage(FrameAwareBase):
     """A static text message for the LED display."""
 
     text: str
@@ -305,7 +305,7 @@ class SegmentMessage:
 
 @register("countdown")
 @attrs.define
-class TickerCountdown(_FrameAware):
+class TickerCountdown(FrameAwareBase):
     """A countdown to a specific date."""
 
     text: str

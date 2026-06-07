@@ -57,7 +57,7 @@ effect class that drives per-frame output on a render surface.
 **`restart_on_visit` convention**: effect classes that want
 continuous phase across `loop_count > 1` iterations of a section
 set `restart_on_visit: bool = False` as a class attribute. Read
-by `_FrameAware.reset_frame` in `widgets/_frame_aware.py`. Default `True` (via
+by `FrameAwareBase.reset_frame` in `widgets/_frame_aware.py`. Default `True` (via
 `getattr` fallback) keeps today's "every visit = fresh start"
 behavior for unknown effect classes. `RainbowChaseBorder` opts
 out (continuous chase); `ConstantBorder` keeps the default
@@ -256,7 +256,7 @@ class RainbowChaseBorder(BorderEffectBase):
     """
 
     # Continuous chase: phase advances across loop_count boundaries
-    # within a section. See `_FrameAware.reset_frame` in widgets/_frame_aware.py.
+    # within a section. See `FrameAwareBase.reset_frame` in widgets/_frame_aware.py.
     restart_on_visit: bool = False
 
     def __init__(

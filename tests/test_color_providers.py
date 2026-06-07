@@ -351,7 +351,7 @@ class TestColorProviderBase:
 
 class TestContinuousProviderRestartOnVisit:
     """Pin the `restart_on_visit = False` class attribute on
-    continuous-phase color providers. Read by `_FrameAware.reset_frame`
+    continuous-phase color providers. Read by `FrameAwareBase.reset_frame`
     in widgets/_frame_aware.py. Catches a future change that flips
     the default."""
 

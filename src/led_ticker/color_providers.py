@@ -21,7 +21,7 @@ The widget-side code is uniform: `provider.color_for(...)`.
 **`restart_on_visit` convention**: providers that want continuous
 phase across `loop_count > 1` iterations of a section set
 `restart_on_visit: bool = False` as a class attribute. Read by
-`_FrameAware.reset_frame` in `widgets/_frame_aware.py`. Default `True` (via
+`FrameAwareBase.reset_frame` in `widgets/_frame_aware.py`. Default `True` (via
 `getattr` fallback) keeps today's "every visit = fresh start"
 behavior for unknown provider classes. `Rainbow` and `ColorCycle`
 opt out (continuous sweep / cycle); the others keep the default

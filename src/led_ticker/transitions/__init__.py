@@ -73,14 +73,7 @@ _TRANSITION_REGISTRY: dict[str, type[Transition]] = {}
 
 
 def _normalize_bg(c: Any) -> tuple[int, int, int] | None:
-    """Coerce an `(r, g, b)` tuple, a `graphics.Color`, or `None` to
-    a tuple/None pair.
-
-    Module-level so `_hires_loader._snap_reset` can call it without
-    duplicating the logic — both call sites must accept the same
-    inputs (widgets store `bg_color` as `graphics.Color` after
-    `_build_widget` coercion; `SectionConfig.bg_color` is a tuple).
-    """
+    """Coerce an (r,g,b) tuple, a graphics.Color, or None to a tuple/None."""
     if c is None:
         return None
     if hasattr(c, "red"):
@@ -212,7 +205,7 @@ async def run_transition(
         )
         needs_switch = False  # already switched — skip in-loop check
 
-    # Freeze any _FrameAware widget on outgoing/incoming for the duration of
+    # Freeze any FrameAwareBase widget on outgoing/incoming for the duration of
     # the transition. Otherwise rendering the widget for compositing
     # advances its frame counter and either tears its phase
     # or eats into the next section's animation budget.

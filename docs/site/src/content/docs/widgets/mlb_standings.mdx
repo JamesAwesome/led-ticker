@@ -1,9 +1,9 @@
 ---
 title: mlb_standings widget
-description: The MLB standings widget is now the external led-ticker-baseball plugin (type = "baseball.standings").
+description: The MLB standings widget is provided by the led-ticker-baseball plugin (type = "baseball.standings").
 ---
 
-The **mlb_standings** widget has moved out of led-ticker core into its own plugin, **[led-ticker-baseball](https://github.com/JamesAwesome/led-ticker-baseball)**, referenced in config as `type = "baseball.standings"`.
+The **MLB standings** widget is provided by the **[led-ticker-baseball](https://github.com/JamesAwesome/led-ticker-baseball)** plugin, referenced in config as `type = "baseball.standings"`.
 
 - **To add it to your sign:** add `git+https://github.com/JamesAwesome/led-ticker-baseball.git@main` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow. It uses MLB's free StatsAPI, so no API key is required.
 - **Full documentation** — options, top-N + tracked-team selection, offseason behavior, and screenshots — lives in the [led-ticker-baseball README](https://github.com/JamesAwesome/led-ticker-baseball#readme).

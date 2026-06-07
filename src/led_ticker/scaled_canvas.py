@@ -140,11 +140,10 @@ class ScaledCanvas:
 
 
 def is_scaled(canvas: Any) -> bool:
-    """True if ``canvas`` is a scaled wrapper (bigsign hi-res path).
+    """True if ``canvas`` is a scaled wrapper (the bigsign hi-res path).
 
-    The documented gate for plugins that need the hi-res branch — call this
-    instead of ``isinstance(canvas, ScaledCanvas)`` so the wrapper type can
-    evolve without breaking plugins.
+    The supported way for a plugin to gate its hi-res branch — prefer this
+    over ``isinstance(canvas, ScaledCanvas)`` in plugin code.
     """
     return isinstance(canvas, ScaledCanvas)
 

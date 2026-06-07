@@ -48,9 +48,10 @@ class FrameAwareBase:
     - Do NOT call ``advance_frame`` / ``pause_frame`` / ``resume_frame`` /
       ``reset_frame`` yourself — the engine drives those each tick and around
       transitions.
-    - The standard effect fields already have counters. Adding a brand-new
-      effect-typed field is advanced: its name must be in ``_EFFECT_ATTRS`` for
-      its counter to advance.
+    - Plugin widgets use the standard effect fields above (``font_color``,
+      ``border``, …), which already have counters. Defining brand-new effect
+      *types* isn't part of the plugin contract yet — stick to the standard
+      fields.
     """
 
     _EFFECT_ATTRS: ClassVar[frozenset[str]] = frozenset(

@@ -177,6 +177,9 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 | `font_line_height_logical(font, scale)`            | A font's logical line height (never hardcode a cell height)                     |
 | `unwrap_to_real(canvas)`                           | The raw underlying real canvas for direct `SetPixel` at native res              |
 | `paint_hires(canvas, callback)`                    | Unwrap + forward `scale`/`y_offset_real` to a hi-res paint callback             |
+| `is_scaled(canvas)`                                | `True` if `canvas` is a scaled wrapper — the documented gate for hi-res paths   |
+| `snap_reset(canvas, incoming_bg_color)`            | Clear + repaint a transition's incoming background (hi-res snap helper)         |
+| `normalize_bg(value)`                              | Coerce a bg value (`Color`/`[r,g,b]`/`None`) to an `(r, g, b)` tuple or `None`  |
 
 {/* <!-- api-exports:end --> */}
 

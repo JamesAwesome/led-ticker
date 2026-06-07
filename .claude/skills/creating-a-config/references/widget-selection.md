@@ -72,32 +72,6 @@ Use this guide to **choose** widgets — what each one is for, when to reach for
 
 ---
 
-## `mlb` (MLBMonitor)
-
-**Purpose:** Live MLB game scores for specified teams.
-
-**When to use:**
-- Baseball fans; updates during games (~45s cadence), otherwise every 5 minutes.
-
-**Selection notes:**
-- Uses the free MLB Stats API — no key needed.
-- Pre-game shows a countdown, post-game shows the final; off-season (no games scheduled) enters daily-update mode. Team colors are baked in.
-
----
-
-## `mlb_standings` (MLBStandingsMonitor)
-
-**Purpose:** MLB standings — top N teams plus your tracked teams.
-
-**When to use:**
-- Season overview; refreshes daily (no live updates needed).
-
-**Selection notes:**
-- Shows the top N teams PLUS any from your `teams` list not already in the top N.
-- Off-season detection suppresses the "Games Back" column.
-
----
-
 ## `gif` (GifPlayer)
 
 **Purpose:** Plays an animated GIF or other multi-frame format (webp, apng, multi-frame tiff).
@@ -163,6 +137,9 @@ Use this guide to **choose** widgets — what each one is for, when to reach for
 
 ---
 
-## `pool` (plugin)
+## Plugin widgets (not built-in)
 
-The `pool` widget ships as a separate plugin (`pool.monitor`), not a built-in. If the user has it installed, see its fact-pack `docs/content-source/widgets/pool.md` for purpose and options.
+These widgets are NOT part of core — they ship as separate plugins and must be installed (added to `config/requirements-plugins.txt`, then rebuild) before a config that uses them will load. Don't offer them as built-in choices; only reach for them if the user already has the plugin installed.
+
+- **`baseball.scores`** / **`baseball.standings`** — live MLB game scores and standings. Ship as the [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) plugin (which also brings the `baseball.roll*` transition and `:baseball.ball:` emoji). If installed, see fact-packs `docs/content-source/widgets/mlb.md` (scores) and `docs/content-source/widgets/mlb_standings.md` (standings) for purpose and options.
+- **`pool.monitor`** — pool water temperature from InfluxDB. Ships as the [`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) plugin. If installed, see fact-pack `docs/content-source/widgets/pool.md` for purpose and options.

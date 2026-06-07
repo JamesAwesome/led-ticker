@@ -21,9 +21,9 @@ Each snippet cites its source file + line range. The skill copies the snippet ve
 | personal_feed | coinbase | big | `coinbase.personal_feed.bigsign.btc` |
 | event | countdown | small | `countdown.event.smallsign` |
 | event | countdown | big | `countdown.event.bigsign` |
-| sports | mlb | small | `mlb.sports.smallsign` |
-| sports | mlb | big | `mlb.sports.bigsign` |
-| sports | mlb_standings | big | `mlb_standings.sports.bigsign` |
+| sports | baseball.scores (plugin) | small | `mlb.sports.smallsign` |
+| sports | baseball.scores (plugin) | big | `mlb.sports.bigsign` |
+| sports | baseball.standings (plugin) | big | `mlb_standings.sports.bigsign` |
 | art | gif | big | `gif.art.bigsign.full_panel` |
 | art | image | big | `image.art.bigsign.full_panel` |
 | art | message | big | `message.art.bigsign.rainbow_border` |
@@ -458,7 +458,9 @@ countdown_date = 2026-09-22
 
 ### snippet: mlb.sports.smallsign
 
-**source:** `config/config.mlb.toml` lines 21–43
+**source:** `config/config.mlb.toml` lines 26–46
+
+**requires plugin:** `led-ticker-baseball` — the `baseball.scores` widget, `baseball.roll*` transition, and `:baseball.ball:` emoji ship as that plugin, not as core. Add `git+https://github.com/JamesAwesome/led-ticker-baseball.git@main` to `config/requirements-plugins.txt` and rebuild before using this snippet.
 
 **use when:** small sign (160×16) + live MLB scores for one or more teams. No API key required. `loop_count = 0` means loop until new data arrives.
 
@@ -469,23 +471,23 @@ countdown_date = 2026-09-22
 ```toml
 [[playlist.section]]
 mode = "swap"
-transition = "baseball_alternating"
+transition = "baseball.roll_alternating"
 transition_duration = 2.0
 hold_time = 6
 loop_count = 0
 
 [playlist.section.title]
 type = "message"
-text = ":baseball: MLB Scores"
+text = ":baseball.ball: MLB Scores"
 color = "random"
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "PHI"
 timezone = "America/New_York"
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "NYM"
 timezone = "America/New_York"
 ```
@@ -494,7 +496,9 @@ timezone = "America/New_York"
 
 ### snippet: mlb.sports.bigsign
 
-**source:** `config/config.small_sign.toml` lines 143–166 (adapted for bigsign — same widget, `default_scale = 4` applies globally so no per-section override needed)
+**source:** `config/config.small_sign.toml` lines 145–166 (adapted for bigsign — same widget, `default_scale = 4` applies globally so no per-section override needed)
+
+**requires plugin:** `led-ticker-baseball` — the `baseball.scores` widget, `baseball.roll*` transition, and `:baseball.ball:` emoji ship as that plugin, not as core. Add `git+https://github.com/JamesAwesome/led-ticker-baseball.git@main` to `config/requirements-plugins.txt` and rebuild before using this snippet.
 
 **use when:** bigsign + live MLB scores. Same widget and section shape as `mlb.sports.smallsign`; bigsign renders at full 64px panel height automatically.
 
@@ -505,23 +509,23 @@ timezone = "America/New_York"
 ```toml
 [[playlist.section]]
 mode = "swap"
-transition = "baseball_alternating"
+transition = "baseball.roll_alternating"
 transition_duration = 2.0
 hold_time = 6
 loop_count = 0
 
 [playlist.section.title]
 type = "message"
-text = ":baseball: MLB Scores"
+text = ":baseball.ball: MLB Scores"
 color = "random"
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "PHI"
 timezone = "America/New_York"
 
 [[playlist.section.widget]]
-type = "mlb"
+type = "baseball.scores"
 team = "NYM"
 timezone = "America/New_York"
 ```
@@ -530,7 +534,9 @@ timezone = "America/New_York"
 
 ### snippet: mlb_standings.sports.bigsign
 
-**source:** `config/config.mlb_standings.toml` lines 22–40
+**source:** `config/config.mlb_standings.toml` lines 26–43
+
+**requires plugin:** `led-ticker-baseball` — the `baseball.standings` widget and `:baseball.ball:` emoji ship as that plugin, not as core. Add `git+https://github.com/JamesAwesome/led-ticker-baseball.git@main` to `config/requirements-plugins.txt` and rebuild before using this snippet.
 
 **use when:** bigsign (or small sign) + MLB standings showing top-N teams plus your tracked teams. During offseason shows "Opens [date]". No API key required.
 
@@ -548,11 +554,11 @@ loop_count = 1
 
 [playlist.section.title]
 type = "message"
-text = ":baseball: MLB Standings"
+text = ":baseball.ball: MLB Standings"
 color = "random"
 
 [[playlist.section.widget]]
-type = "mlb_standings"
+type = "baseball.standings"
 teams = ["NYM", "PHI"]
 title = "MLB Standings"
 top_n = 3

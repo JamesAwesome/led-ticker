@@ -100,7 +100,7 @@ See the moonbunny example for the pattern.
 | "Email me@example.com" | `:email: me@example.com` in `two_row.bottom_text` |
 | "Weather in Brooklyn" | `[weather]` widget with `location = "Brooklyn, NY"` |
 | "RSS feed at <url>" | `[rss_feed]` widget with `feed_url = "<url>"` |
-| "Mets fan" | `[mlb]` widget with `teams = ["NYM"]` |
+| "Mets fan" | `baseball.scores` widget with `team = "NYM"` (needs the `led-ticker-baseball` plugin) |
 | "BTC price" | `[coinbase]` widget with `symbol = "BTC"`, `currency = "USD"` |
 | "Countdown to <date>" | `[countdown]` widget with `date = "<YYYY-MM-DD>"` |
 

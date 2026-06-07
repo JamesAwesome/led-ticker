@@ -157,25 +157,26 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 
 ### Helpers
 
-| Name                                         | What it is                                                            |
-| -------------------------------------------- | --------------------------------------------------------------------- |
-| `make_color(r, g, b)`                        | Build a `Color` from RGB components (0–255)                           |
-| `draw_text(canvas, font, text, x, y, color)` | Draw text (inline `:emoji:` included); returns the next x             |
-| `get_text_width(font, text)`                 | Pixel width of `text` in `font`                                       |
-| `compute_baseline(font, ...)`                | The baseline y for a font                                             |
-| `resolve_font(name, ...)`                    | Resolve a font by name (bundled, plugin, or [BDF](/concepts/fonts/))  |
-| `draw_emoji_at(canvas, slug, x, y)`          | Draw a registered emoji at a position                                 |
-| `measure_emoji_at(canvas, slug)`             | Measure a registered emoji                                            |
-| `colors`                                     | The built-in named-color module                                       |
-| `run_monitor_loop(widget, interval)`         | The periodic-refresh loop for a monitor widget                        |
-| `spawn_tracked(coro)`                        | Spawn a tracked background task from a `start()` / hook               |
-| `safe_scale(canvas)`                         | The canvas's logical→physical scale (`1` when unscaled)               |
-| `compute_baseline_for_band(font, h, scale)`  | Baseline for text within an arbitrary band height (multi-row layouts) |
-| `measure_width(font, text)`                  | Logical width of `text` incl. inline `:emoji:` (layout math)          |
-| `resolve_band_heights(...)`                  | Split a canvas height into row bands (shared with two-row/image)      |
-| `font_line_height_logical(font, scale)`      | A font's logical line height (never hardcode a cell height)           |
-| `unwrap_to_real(canvas)`                     | The raw underlying real canvas for direct `SetPixel` at native res    |
-| `paint_hires(canvas, callback)`              | Unwrap + forward `scale`/`y_offset_real` to a hi-res paint callback   |
+| Name                                               | What it is                                                                      |
+| -------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `make_color(r, g, b)`                              | Build a `Color` from RGB components (0–255)                                     |
+| `draw_text(canvas, font, text, x, y, color)`       | Draw text (inline `:emoji:` included); returns the next x                       |
+| `draw_with_emoji(canvas, font, x, y, color, text)` | Lower-level text+emoji draw; returns the advance width (what `draw_text` wraps) |
+| `get_text_width(font, text)`                       | Pixel width of `text` in `font`                                                 |
+| `compute_baseline(font, ...)`                      | The baseline y for a font                                                       |
+| `resolve_font(name, ...)`                          | Resolve a font by name (bundled, plugin, or [BDF](/concepts/fonts/))            |
+| `draw_emoji_at(canvas, slug, x, y)`                | Draw a registered emoji at a position                                           |
+| `measure_emoji_at(canvas, slug)`                   | Measure a registered emoji                                                      |
+| `colors`                                           | The built-in named-color module                                                 |
+| `run_monitor_loop(widget, interval)`               | The periodic-refresh loop for a monitor widget                                  |
+| `spawn_tracked(coro)`                              | Spawn a tracked background task from a `start()` / hook                         |
+| `safe_scale(canvas)`                               | The canvas's logical→physical scale (`1` when unscaled)                         |
+| `compute_baseline_for_band(font, h, scale)`        | Baseline for text within an arbitrary band height (multi-row layouts)           |
+| `measure_width(font, text)`                        | Logical width of `text` incl. inline `:emoji:` (layout math)                    |
+| `resolve_band_heights(...)`                        | Split a canvas height into row bands (shared with two-row/image)                |
+| `font_line_height_logical(font, scale)`            | A font's logical line height (never hardcode a cell height)                     |
+| `unwrap_to_real(canvas)`                           | The raw underlying real canvas for direct `SetPixel` at native res              |
+| `paint_hires(canvas, callback)`                    | Unwrap + forward `scale`/`y_offset_real` to a hi-res paint callback             |
 
 {/* <!-- api-exports:end --> */}
 

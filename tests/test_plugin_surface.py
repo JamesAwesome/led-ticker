@@ -29,7 +29,10 @@ def test_baseball_surface_symbols_exported():
         assert hasattr(P, name), f"{name} not importable from led_ticker.plugin"
 
 
-def test_frame_aware_base_is_the_internal_class():
-    from led_ticker.widgets._frame_aware import _FrameAware
-
-    assert P.FrameAwareBase is _FrameAware
+def test_frame_aware_base_is_a_real_public_class():
+    from led_ticker.widgets._frame_aware import FrameAwareBase as RealBase
+    assert P.FrameAwareBase is RealBase
+    import led_ticker.widgets._frame_aware as fa
+    assert not hasattr(fa, "_FrameAware"), (
+        "_FrameAware should be renamed to FrameAwareBase"
+    )

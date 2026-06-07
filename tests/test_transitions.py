@@ -1293,7 +1293,7 @@ class TestRunTransition:
         make_widget,
         no_sleep,
     ):
-        # Regression: _FrameAware widgets on outgoing/incoming should be paused
+        # Regression: FrameAwareBase widgets on outgoing/incoming should be paused
         # for the duration so their frame_count doesn't drift while they're
         # only being re-rendered for compositing.
         outgoing = make_widget(40)

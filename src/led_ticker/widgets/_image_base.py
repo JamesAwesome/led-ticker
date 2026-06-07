@@ -44,7 +44,7 @@ from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.pixel_emoji import EMOJI_PATTERN
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.text_render import draw_text, draw_text_per_char
-from led_ticker.widgets._frame_aware import _FrameAware
+from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets._image_fit import (
     VALID_IMAGE_ALIGNS,
     reset_canvas,
@@ -101,7 +101,7 @@ HOLD_TIME_FLOOR: float = 0.05
 
 
 @attrs.define
-class _BaseImageWidget(_FrameAware):
+class _BaseImageWidget(FrameAwareBase):
     """Shared text-overlay state + render helpers for image widgets."""
 
     # All fields kw_only so subclasses can declare their own required
@@ -141,7 +141,7 @@ class _BaseImageWidget(_FrameAware):
     # The separator is rendered as a single "blob" — even when the
     # value is a per-char provider (rainbow/gradient), it's called
     # with `color_for(frame, 0, 1)` to pick one hue per frame. Its
-    # frame counter is registered in `_FrameAware._EFFECT_ATTRS` so
+    # frame counter is registered in `FrameAwareBase._EFFECT_ATTRS` so
     # continuous-phase providers stay in phase with the main text.
     text_separator_color: Any | None = attrs.field(default=None, kw_only=True)
 
@@ -161,7 +161,7 @@ class _BaseImageWidget(_FrameAware):
     # Color for the bottom separator. None inherits bottom_color
     # (NOT font_color — separator is a piece of the bottom row).
     # When set, gets its own per-effect frame counter via
-    # _FrameAware._EFFECT_ATTRS so continuous-phase Rainbow stays
+    # FrameAwareBase._EFFECT_ATTRS so continuous-phase Rainbow stays
     # in phase with bottom_color.
     bottom_text_separator_color: Any | None = attrs.field(default=None, kw_only=True)
 

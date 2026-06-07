@@ -100,12 +100,12 @@ class TestSeparatorColorCoercion:
         assert "text_separator_color" in _PROVIDER_COLOR_KEYS
 
     def test_separator_color_in_effect_attrs(self):
-        """text_separator_color must be in _FrameAware._EFFECT_ATTRS
+        """text_separator_color must be in FrameAwareBase._EFFECT_ATTRS
         so it gets its own per-effect frame counter (matters for
         continuous-phase providers like Rainbow)."""
-        from led_ticker.widgets._frame_aware import _FrameAware
+        from led_ticker.widgets._frame_aware import FrameAwareBase
 
-        assert "text_separator_color" in _FrameAware._EFFECT_ATTRS
+        assert "text_separator_color" in FrameAwareBase._EFFECT_ATTRS
 
     def test_separator_color_string_coerced(self):
         """When the app loader sees text_separator_color = 'rainbow',

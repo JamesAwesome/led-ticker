@@ -1,20 +1,20 @@
-"""Tests for the _FrameAware mixin."""
+"""Tests for the FrameAwareBase mixin."""
 
 from __future__ import annotations
 
 import attrs
 import pytest
 
-from led_ticker.widgets._frame_aware import _FrameAware
+from led_ticker.widgets._frame_aware import FrameAwareBase
 
 
 @attrs.define
-class _Dummy(_FrameAware):
+class _Dummy(FrameAwareBase):
     """Minimal subclass to exercise the mixin."""
 
 
 @attrs.define
-class _SimpleWidget(_FrameAware):
+class _SimpleWidget(FrameAwareBase):
     """Minimal subclass for visit-ownership tests."""
 
 
@@ -79,7 +79,7 @@ class TestEffectFrames:
         contained."""
 
         @attrs.define
-        class _WithEffects(_FrameAware):
+        class _WithEffects(FrameAwareBase):
             font_color: object = attrs.field(default=None, kw_only=True)
             border: object = attrs.field(default=None, kw_only=True)
             animation: object = attrs.field(default=None, kw_only=True)
@@ -175,31 +175,31 @@ class TestEffectFrames:
 class TestFrameAwareGuard:
     def test_properly_decorated_subclass_constructs_fine(self):
         @attrs.define
-        class GoodWidget(_FrameAware):
+        class GoodWidget(FrameAwareBase):
             name: str = attrs.field(default="")
 
         w = GoodWidget()
         assert w._frame_count == 0
 
     def test_undecorated_subclass_raises_on_instantiation(self):
-        class BadWidget(_FrameAware):
+        class BadWidget(FrameAwareBase):
             name: str = attrs.field(default="")
 
         with pytest.raises(TypeError, match="attrs.define"):
             BadWidget()
 
     def test_frame_aware_itself_can_be_instantiated(self):
-        """_FrameAware() itself must not trigger the guard."""
-        fa = _FrameAware()
+        """FrameAwareBase() itself must not trigger the guard."""
+        fa = FrameAwareBase()
         assert fa._frame_count == 0
 
 
 class TestEffectAttrsCompleteness:
-    """Tripwire: every `_FrameAware` subclass field whose annotation
+    """Tripwire: every `FrameAwareBase` subclass field whose annotation
     references a known effect protocol (`ColorProvider`, `BorderEffect`,
     `Animation`) — or whose name is one of the conventional `Any | None`
     effect slots (`border`, `animation`) — must be registered in
-    `_FrameAware._EFFECT_ATTRS`. Catches a future widget that adds a
+    `FrameAwareBase._EFFECT_ATTRS`. Catches a future widget that adds a
     new effect-typed field but forgets the registration: without this
     test the omission is silent, the per-effect counter is never
     advanced, `frame_for(name)` falls through to `_frame_count`, and
@@ -209,7 +209,7 @@ class TestEffectAttrsCompleteness:
 
     # Names of effect protocols we recognize in field type annotations.
     # Adding a new effect Protocol type (e.g. `BackgroundEffect`)
-    # requires updating BOTH this set AND `_FrameAware._EFFECT_ATTRS`
+    # requires updating BOTH this set AND `FrameAwareBase._EFFECT_ATTRS`
     # for the new field — neither half catches an omission of the
     # other. Without the protocol-name update here, the test still
     # passes on a real registration miss (the field's annotation
@@ -224,18 +224,18 @@ class TestEffectAttrsCompleteness:
     # field name because the runtime types are intentionally `Any` to
     # avoid widget code importing the Protocol at module-load time.
     # Same lockstep rule applies: a new conventional slot name needs
-    # to be added here AND in `_FrameAware._EFFECT_ATTRS`.
+    # to be added here AND in `FrameAwareBase._EFFECT_ATTRS`.
     CONVENTIONAL_EFFECT_NAMES: frozenset[str] = frozenset({"border", "animation"})
 
     def _all_frame_aware_subclasses(self) -> set[type]:
-        """Recursive walk of `_FrameAware.__subclasses__()`. Forces
+        """Recursive walk of `FrameAwareBase.__subclasses__()`. Forces
         widget-module imports first so subclasses get registered."""
         # Ensure every widget module is imported so `__subclasses__`
         # sees every concrete subclass.
         import led_ticker.widgets  # noqa: F401
 
         seen: set[type] = set()
-        stack = list(_FrameAware.__subclasses__())
+        stack = list(FrameAwareBase.__subclasses__())
         while stack:
             cls = stack.pop()
             if cls in seen:
@@ -254,7 +254,7 @@ class TestEffectAttrsCompleteness:
 
     def test_every_effect_typed_field_is_registered(self):
         """The actual tripwire."""
-        registered = _FrameAware._EFFECT_ATTRS
+        registered = FrameAwareBase._EFFECT_ATTRS
         failures: list[str] = []
 
         for cls in self._all_frame_aware_subclasses():
@@ -277,12 +277,12 @@ class TestEffectAttrsCompleteness:
                 failures.append(
                     f"{cls.__module__}.{cls.__name__}.{field.name} "
                     f"(type={field.type!r}, {reason}) is not in "
-                    f"_FrameAware._EFFECT_ATTRS"
+                    f"FrameAwareBase._EFFECT_ATTRS"
                 )
 
         assert not failures, (
             "Effect-typed fields must be registered in "
-            "`_FrameAware._EFFECT_ATTRS` so their per-effect counter "
+            "`FrameAwareBase._EFFECT_ATTRS` so their per-effect counter "
             "is advanced. Missing registrations:\n  " + "\n  ".join(failures)
         )
 
@@ -308,7 +308,7 @@ class TestEffectAttrsCompleteness:
 
 
 class TestVisitOwnership:
-    """Tests for _FrameAware visit-ownership tracking (Large #4)."""
+    """Tests for FrameAwareBase visit-ownership tracking (Large #4)."""
 
     def test_advance_frame_no_visit_id_is_unchecked(self):
         """Calling advance_frame() without visit_id works as before."""

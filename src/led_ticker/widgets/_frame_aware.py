@@ -32,7 +32,7 @@ import attrs
 
 
 @attrs.define
-class _FrameAware:
+class FrameAwareBase:
     """Mixin providing per-widget + per-effect frame counters."""
 
     _EFFECT_ATTRS: ClassVar[frozenset[str]] = frozenset(
@@ -53,10 +53,10 @@ class _FrameAware:
     _effect_frames: dict[str, int] = attrs.field(init=False, factory=dict)
     _visit_owner: int | None = attrs.field(init=False, default=None)
 
-    def __new__(cls, *args: object, **kwargs: object) -> _FrameAware:
-        if cls is not _FrameAware and "__attrs_attrs__" not in cls.__dict__:
+    def __new__(cls, *args: object, **kwargs: object) -> FrameAwareBase:
+        if cls is not FrameAwareBase and "__attrs_attrs__" not in cls.__dict__:
             raise TypeError(
-                f"{cls.__name__} inherits _FrameAware but is not decorated with "
+                f"{cls.__name__} inherits FrameAwareBase but is not decorated with "
                 "@attrs.define — frame-counter fields will not be initialized "
                 "correctly."
             )

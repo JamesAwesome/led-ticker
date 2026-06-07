@@ -61,7 +61,7 @@ from led_ticker.widget import (
     run_monitor_loop,
     spawn_tracked,
 )
-from led_ticker.widgets._frame_aware import _FrameAware as FrameAwareBase
+from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets._row_layout import resolve_band_heights
 from led_ticker.widgets.message import SegmentMessage, TickerMessage
 from led_ticker.widgets.two_row import TwoRowMessage

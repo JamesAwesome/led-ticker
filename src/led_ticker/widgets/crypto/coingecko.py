@@ -11,7 +11,7 @@ from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.widget import run_monitor_loop, spawn_tracked
 from led_ticker.widgets import register
-from led_ticker.widgets._frame_aware import _FrameAware
+from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets.crypto.coinbase import _draw_price_ticker
 
 COINGECKO_API: str = "https://api.coingecko.com/api/v3"
@@ -21,7 +21,7 @@ COINGECKO_PRICE_API: str = f"{COINGECKO_API}/simple/price"
 
 @register("coingecko")
 @attrs.define
-class CoinGeckoPriceMonitor(_FrameAware):
+class CoinGeckoPriceMonitor(FrameAwareBase):
     """Crypto price monitor using the CoinGecko API."""
 
     symbol: str

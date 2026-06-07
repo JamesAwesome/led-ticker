@@ -15,14 +15,14 @@ from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widget import run_monitor_loop, spawn_tracked
 from led_ticker.widgets import register
-from led_ticker.widgets._frame_aware import _FrameAware
+from led_ticker.widgets._frame_aware import FrameAwareBase
 
 WEATHERAPI_URL: str = "https://api.weatherapi.com/v1/current.json"
 
 
 @register("weather")
 @attrs.define
-class WeatherWidget(_FrameAware):
+class WeatherWidget(FrameAwareBase):
     """Current weather display widget."""
 
     session: aiohttp.ClientSession

@@ -212,7 +212,7 @@ async def run_transition(
         )
         needs_switch = False  # already switched — skip in-loop check
 
-    # Freeze any _FrameAware widget on outgoing/incoming for the duration of
+    # Freeze any FrameAwareBase widget on outgoing/incoming for the duration of
     # the transition. Otherwise rendering the widget for compositing
     # advances its frame counter and either tears its phase
     # or eats into the next section's animation budget.

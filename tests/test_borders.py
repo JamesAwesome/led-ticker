@@ -580,7 +580,7 @@ class TestTwoRowBorder:
 
 class TestRainbowChaseBorderRestartOnVisit:
     """Pin `RainbowChaseBorder.restart_on_visit = False`. Read by
-    `_FrameAware.reset_frame` in widgets/_frame_aware.py. Catches a
+    `FrameAwareBase.reset_frame` in widgets/_frame_aware.py. Catches a
     future change that flips the default."""
 
     def test_rainbow_chase_border_restart_on_visit_is_false(self):

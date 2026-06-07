@@ -30,7 +30,7 @@ class Animation(Protocol):
     """Protocol for frame-aware animations on TickerMessage and image widgets.
 
     An animation controls how much of ``full_text`` is revealed each tick.
-    The ``frame`` counter comes from the widget's ``_FrameAware`` counter
+    The ``frame`` counter comes from the widget's ``FrameAwareBase`` counter
     for the ``"animation"`` effect slot — it ticks at ENGINE_TICK_MS
     cadence, pauses during transitions, and resets per-visit (unless the
     class sets ``restart_on_visit = False``).

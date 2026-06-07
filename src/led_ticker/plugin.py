@@ -31,11 +31,27 @@ from led_ticker._types import Canvas, Color, DrawResult, Font, PixelData
 from led_ticker.animations import Animation, AnimationFrame
 from led_ticker.borders import BorderEffect, BorderEffectBase
 from led_ticker.color_providers import ColorProvider, ColorProviderBase
-from led_ticker.drawing import compute_baseline, get_text_width
-from led_ticker.fonts import resolve_font
+from led_ticker.drawing import (
+    compute_baseline,
+    compute_baseline_for_band,
+    get_text_width,
+    safe_scale,
+)
+from led_ticker.fonts import (
+    FONT_DEFAULT,
+    FONT_SMALL,
+    font_line_height_logical,
+    resolve_font,
+)
 from led_ticker.fonts.hires_loader import HiresFont
-from led_ticker.pixel_emoji import HiResEmoji, draw_emoji_at, measure_emoji_at
+from led_ticker.pixel_emoji import (
+    HiResEmoji,
+    draw_emoji_at,
+    measure_emoji_at,
+    measure_width,
+)
 from led_ticker.pixel_emoji import draw_with_emoji as _draw_with_emoji
+from led_ticker.scaled_canvas import ScaledCanvas, paint_hires, unwrap_to_real
 from led_ticker.transitions import Transition
 from led_ticker.widget import (
     Container,
@@ -44,7 +60,9 @@ from led_ticker.widget import (
     run_monitor_loop,
     spawn_tracked,
 )
-from led_ticker.widgets.message import SegmentMessage
+from led_ticker.widgets._frame_aware import _FrameAware as FrameAwareBase
+from led_ticker.widgets._row_layout import resolve_band_heights
+from led_ticker.widgets.message import SegmentMessage, TickerMessage
 from led_ticker.widgets.two_row import TwoRowMessage
 
 __all__ = [
@@ -60,26 +78,38 @@ __all__ = [
     "DrawResult",
     "ColorProvider",
     "ColorProviderBase",
+    "FONT_DEFAULT",
+    "FONT_SMALL",
     "Font",
+    "FrameAwareBase",
     "HiResEmoji",
     "HiresFont",
     "PixelData",
+    "ScaledCanvas",
     "SegmentMessage",
     "StartupContext",
+    "TickerMessage",
     "Transition",
     "TwoRowMessage",
     "Updatable",
     "Widget",
     "colors",
     "compute_baseline",
+    "compute_baseline_for_band",
     "draw_emoji_at",
     "draw_text",
+    "font_line_height_logical",
     "get_text_width",
     "make_color",
     "measure_emoji_at",
+    "measure_width",
+    "paint_hires",
+    "resolve_band_heights",
     "resolve_font",
     "run_monitor_loop",
+    "safe_scale",
     "spawn_tracked",
+    "unwrap_to_real",
 ]
 # Public plugin surface: registry contributions + lifecycle hooks.
 

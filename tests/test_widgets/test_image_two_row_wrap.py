@@ -109,9 +109,9 @@ class TestBottomSeparatorColorRegistration:
         assert "bottom_text_separator_color" in _PROVIDER_COLOR_KEYS
 
     def test_in_effect_attrs(self):
-        from led_ticker.widgets._frame_aware import _FrameAware
+        from led_ticker.widgets._frame_aware import FrameAwareBase
 
-        assert "bottom_text_separator_color" in _FrameAware._EFFECT_ATTRS
+        assert "bottom_text_separator_color" in FrameAwareBase._EFFECT_ATTRS
 
     def test_rainbow_coerced(self):
         from led_ticker.app import _coerce_widget_colors

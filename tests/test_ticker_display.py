@@ -1360,7 +1360,7 @@ class TestSwapAndScrollEngineTick:
     async def test_widget_without_advance_frame_method_does_not_crash(
         self, swapping_frame
     ):
-        """Older widgets that don't yet have the _FrameAware mixin must
+        """Older widgets that don't yet have the FrameAwareBase mixin must
         not crash _swap_and_scroll. The orchestrator uses hasattr or
         a duck-type check."""
         from rgbmatrix import _StubCanvas
@@ -1424,7 +1424,7 @@ class TestShowOneResetsFrame:
     async def test_widget_without_reset_frame_does_not_crash(
         self, swapping_frame, no_sleep
     ):
-        """Defensive: widgets without _FrameAware mixin must not crash."""
+        """Defensive: widgets without FrameAwareBase mixin must not crash."""
         from rgbmatrix import _StubCanvas
 
         class _NoMixin:
@@ -1448,7 +1448,7 @@ class TestShowOneResetsFrame:
     ):
         """`_show_one` always calls `reset_frame()` — the per-effect
         semantics (continuous vs restart) live inside
-        `_FrameAware.reset_frame`, not in the engine gate.
+        `FrameAwareBase.reset_frame`, not in the engine gate.
         Replacing the old `test_show_one_skips_reset_when_border_is_continuous`
         which tested the removed `_should_reset_frame` gate."""
         from rgbmatrix import _StubCanvas
@@ -1485,7 +1485,7 @@ class TestShowOneResetsFrame:
         await ticker._show_one(canvas, widget, hold_time=0.1)
 
         # reset_frame() is always called — per-effect semantics live
-        # inside _FrameAware.reset_frame, not in _show_one
+        # inside FrameAwareBase.reset_frame, not in _show_one
         assert widget.reset_called, (
             "_show_one must call reset_frame() unconditionally; "
             "per-effect continuity is handled by reset_frame() itself"

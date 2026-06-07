@@ -32,8 +32,27 @@ import attrs
 
 
 @attrs.define
-class _FrameAware:
-    """Mixin providing per-widget + per-effect frame counters."""
+class FrameAwareBase:
+    """Per-widget + per-effect frame counters for animated ``font_color`` /
+    ``border`` effects.
+
+    **Subclass contract (for plugin widgets):**
+
+    - Inherit ``FrameAwareBase`` and decorate the class with ``@attrs.define``.
+    - When painting an animated effect, read its counter with
+      ``self.frame_for(name)`` — e.g.
+      ``border.paint(canvas, self.frame_for("border"))`` or
+      ``font_color.color_for(self.frame_for("font_color"), char_idx, total)``.
+      ``name`` is the effect's field name (``"font_color"``, ``"border"``, … —
+      the set in ``_EFFECT_ATTRS``).
+    - Do NOT call ``advance_frame`` / ``pause_frame`` / ``resume_frame`` /
+      ``reset_frame`` yourself — the engine drives those each tick and around
+      transitions.
+    - Plugin widgets use the standard effect fields above (``font_color``,
+      ``border``, …), which already have counters. Defining brand-new effect
+      *types* isn't part of the plugin contract yet — stick to the standard
+      fields.
+    """
 
     _EFFECT_ATTRS: ClassVar[frozenset[str]] = frozenset(
         {
@@ -53,10 +72,10 @@ class _FrameAware:
     _effect_frames: dict[str, int] = attrs.field(init=False, factory=dict)
     _visit_owner: int | None = attrs.field(init=False, default=None)
 
-    def __new__(cls, *args: object, **kwargs: object) -> _FrameAware:
-        if cls is not _FrameAware and "__attrs_attrs__" not in cls.__dict__:
+    def __new__(cls, *args: object, **kwargs: object) -> FrameAwareBase:
+        if cls is not FrameAwareBase and "__attrs_attrs__" not in cls.__dict__:
             raise TypeError(
-                f"{cls.__name__} inherits _FrameAware but is not decorated with "
+                f"{cls.__name__} inherits FrameAwareBase but is not decorated with "
                 "@attrs.define — frame-counter fields will not be initialized "
                 "correctly."
             )

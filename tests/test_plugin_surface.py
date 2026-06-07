@@ -13,7 +13,14 @@ NEW_SYMBOLS = [
     "ScaledCanvas",
     "unwrap_to_real",
     "paint_hires",
+    "draw_with_emoji",
 ]
+
+
+def test_draw_with_emoji_is_the_pixel_emoji_function():
+    from led_ticker.pixel_emoji import draw_with_emoji
+
+    assert P.draw_with_emoji is draw_with_emoji
 
 
 def test_baseball_surface_symbols_exported():

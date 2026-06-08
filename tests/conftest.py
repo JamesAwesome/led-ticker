@@ -14,6 +14,35 @@ if stubs_path not in sys.path:
     sys.path.insert(0, stubs_path)
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_entry_point_plugins(monkeypatch):
+    """Keep the core suite hermetic with respect to pip-installed plugins.
+
+    A first-party plugin (led-ticker-baseball, led-ticker-pool) installed into
+    the dev venv registers its widgets/emoji into the core registries via
+    entry-point discovery, which deterministically breaks core tests that assume
+    a core-only environment (the exact widget count, the hires-sprite sweep, the
+    config-dir loader tests). Stub entry-point discovery for the
+    ``led_ticker.plugins`` group to empty so an installed plugin can't perturb
+    core tests. The two tests that exercise entry-point loading
+    (``test_loader_entrypoints``, ``test_loader_policy``) monkeypatch
+    ``importlib.metadata.entry_points`` with their own fakes, which overrides
+    this default for those tests.
+    """
+    import importlib.metadata
+
+    real_entry_points = importlib.metadata.entry_points
+
+    def _no_plugin_entry_points(*args, **kwargs):
+        if kwargs.get("group") == "led_ticker.plugins":
+            return []
+        return real_entry_points(*args, **kwargs)
+
+    monkeypatch.setattr(
+        importlib.metadata, "entry_points", _no_plugin_entry_points
+    )
+
+
 @pytest.fixture
 def canvas():
     """Mock LED canvas with standard width and height."""

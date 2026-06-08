@@ -47,7 +47,6 @@ from led_ticker.fonts.hires_loader import HiresFont
 from led_ticker.pixel_emoji import (
     HiResEmoji,
     draw_emoji_at,
-    draw_with_emoji,
     measure_emoji_at,
     measure_width,
 )
@@ -106,7 +105,6 @@ __all__ = [
     "compute_baseline_for_band",
     "draw_emoji_at",
     "draw_text",
-    "draw_with_emoji",
     "font_line_height_logical",
     "get_text_width",
     "is_scaled",

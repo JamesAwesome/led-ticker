@@ -41,7 +41,7 @@ Spring Training and All-Star games append `(ST)` or `(ASG)` in ticker mode.
 | `small_font` | string | same as `font` | Font for the centre zone (inning, B/S count, base diamonds). Scoreboard layout only. Defaults to the same font as `font`. |
 | `small_font_size` | int | none | Point size for `small_font`. |
 | `small_font_threshold` | int | same as `font_threshold` | Anti-alias threshold for `small_font`. |
-| `update_interval` | int | `300` | Seconds between StatsAPI fetches. The widget shortens polling to ~45 s during live games automatically. |
+| `update_interval` | int | `300` | Seconds between StatsAPI fetches. |
 
 ## Team codes
 

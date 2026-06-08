@@ -41,7 +41,7 @@ Each snippet cites its source file + line range. The skill copies the snippet ve
 
 **use when:** bigsign + brand presence + welcoming banner scrolling in `forever_scroll` mode. Good opener for any storefront section.
 
-**must customize:** `text` (brand message), `font_color` (brand color), `loop_count`, and the title `text` + `color`.
+**must customize:** `text` (brand message), `font_color` (brand color), `loop_count`, and the title `text` + `font_color`.
 
 **copy verbatim:**
 
@@ -53,7 +53,7 @@ loop_count = 2
 [playlist.section.title]
 type = "message"
 text = ":moon: MOON BUNNY AERIAL :moon:"
-color = [255, 150, 190]
+font_color = [255, 150, 190]
 
 [[playlist.section.widget]]
 type = "message"
@@ -146,7 +146,7 @@ font_color = [255, 220, 50]
 
 **use when:** bigsign + live weather with hi-res condition icon, city label, and brand-colored temperature. Demonstrates live data in a store-window setting.
 
-**must customize:** `message` (city label shown on panel), `location` (city/zip/lat-lon for API), `font_color` (brand color for label), `font_color_temp` (temperature color — keep white for readability), `font_size`, `hold_time`.
+**must customize:** `text` (city label shown on panel), `location` (city/zip/lat-lon for API), `font_color` (brand color for label), `font_color_temp` (temperature color — keep white for readability), `font_size`, `hold_time`.
 
 **copy verbatim:**
 
@@ -160,7 +160,7 @@ transition_duration = 1.5
 
 [[playlist.section.widget]]
 type = "weather"
-message = "Brooklyn"
+text = "Brooklyn"
 location = "Brooklyn"
 units = "imperial"
 show_icon = true
@@ -178,7 +178,7 @@ font_color_temp = [255, 255, 255]
 
 **use when:** bigsign + countdown to a real future date with hi-res rainbow font. Good storefront finale (e.g. "Days to Grand Opening", "Days to Next Event").
 
-**must customize:** `message` (label text), `countdown_date` (YYYY-MM-DD), `font_color` (or replace `"rainbow"` with a brand color `[r,g,b]`), `hold_time`.
+**must customize:** `text` (label text), `countdown_date` (YYYY-MM-DD), `font_color` (or replace `"rainbow"` with a brand color `[r,g,b]`), `hold_time`.
 
 **copy verbatim:**
 
@@ -192,7 +192,7 @@ transition_duration = 1.5
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Days to NYE"
+text = "Days to NYE"
 countdown_date = 2027-01-01
 font = "Inter-Bold"
 font_size = 24
@@ -268,7 +268,7 @@ update_interval = 3000
 
 **use when:** small sign (160×16) + weather for one or more cities. Uses default BDF font. Requires `WEATHERAPI_KEY` in `.env`.
 
-**must customize:** `message` (city label), `location` (city/zip), `units` (`"imperial"` or `"metric"`). Add/remove widget blocks for additional cities.
+**must customize:** `text` (city label), `location` (city/zip), `units` (`"imperial"` or `"metric"`). Add/remove widget blocks for additional cities.
 
 **copy verbatim:**
 
@@ -286,7 +286,7 @@ font_color = "random"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "New York"
+text = "New York"
 location = "New York"
 units = "imperial"
 show_icon = true
@@ -300,7 +300,7 @@ show_icon = true
 
 **use when:** bigsign + weather widget in default BDF at `default_scale = 4`. The widget draws at logical scale; no `font` override required for basic use.
 
-**must customize:** `message`, `location`, `units`, `hold_time`.
+**must customize:** `text`, `location`, `units`, `hold_time`.
 
 **copy verbatim:**
 
@@ -317,7 +317,7 @@ font_color = "random"
 
 [[playlist.section.widget]]
 type = "weather"
-message = "New York"
+text = "New York"
 location = "New York"
 units = "imperial"
 show_icon = true
@@ -395,7 +395,7 @@ currency = "USD"
 
 **use when:** small sign (160×16) + one or more countdown widgets to upcoming dates. Default BDF font; no API key required.
 
-**must customize:** `message` (event name), `countdown_date` (YYYY-MM-DD). Add/remove widget blocks for additional events.
+**must customize:** `text` (event name), `countdown_date` (YYYY-MM-DD). Add/remove widget blocks for additional events.
 
 **copy verbatim:**
 
@@ -411,12 +411,12 @@ font_color = "random"
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Days Until Spring"
+text = "Days Until Spring"
 countdown_date = 2026-03-20
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Days Until Summer"
+text = "Days Until Summer"
 countdown_date = 2026-06-20
 ```
 
@@ -428,7 +428,7 @@ countdown_date = 2026-06-20
 
 **use when:** bigsign + countdown at `scale = 2` (letterboxed — 32px content centered in the 64px panel). Good visual variety against full-height content. No API key required.
 
-**must customize:** `message`, `countdown_date`. Adjust `scale` to `4` to fill the full panel height.
+**must customize:** `text`, `countdown_date`. Adjust `scale` to `4` to fill the full panel height.
 
 **copy verbatim:**
 
@@ -445,12 +445,12 @@ font_color = "random"
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Days Until Summer"
+text = "Days Until Summer"
 countdown_date = 2026-06-20
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Days Until Fall"
+text = "Days Until Fall"
 countdown_date = 2026-09-22
 ```
 
@@ -573,7 +573,7 @@ timezone = "America/New_York"
 
 **use when:** bigsign + animated GIF filling the full panel as a visual art piece. `mode = "swap"` allows an optional section title before the GIF plays.
 
-**must customize:** `path` (GIF asset path), `fit` (`"pillarbox"` for portrait/square, `"stretch"` for wide/abstract, `"crop"` for no black bands), `gif_loops` (playback repetitions), title `text` + `color`.
+**must customize:** `path` (GIF asset path), `fit` (`"pillarbox"` for portrait/square, `"stretch"` for wide/abstract, `"crop"` for no black bands), `play_count` (playback repetitions), title `text` + `font_color`.
 
 **copy verbatim:**
 
@@ -586,14 +586,15 @@ transition = "dissolve"
 transition_duration = 0.6
 
 [playlist.section.title]
+type = "message"
 text = "NOW SHOWING"
-color = [255, 220, 50]
+font_color = [255, 220, 50]
 
 [[playlist.section.widget]]
 type = "gif"
 path = "assets/example.gif"
 fit = "pillarbox"
-gif_loops = 17
+play_count = 17
 ```
 
 ---
@@ -602,9 +603,9 @@ gif_loops = 17
 
 **source:** `config/config.image_test.example.toml` lines 62–72
 
-**use when:** bigsign + a single still image (PNG/JPG) held on the panel. `mode = "swap"` with `hold_seconds` controls how long the image displays before the next section.
+**use when:** bigsign + a single still image (PNG/JPG) held on the panel. `mode = "swap"` with `hold_time` controls how long the image displays before the next section.
 
-**must customize:** `path` (image asset path), `fit` (`"pillarbox"`, `"letterbox"`, `"stretch"`, `"crop"`), `hold_seconds`, `loop_count`.
+**must customize:** `path` (image asset path), `fit` (`"pillarbox"`, `"letterbox"`, `"stretch"`, `"crop"`), `hold_time`, `loop_count`.
 
 **copy verbatim:**
 
@@ -619,7 +620,7 @@ transition_duration = 0.6
 type = "image"
 path = "assets/bunny-nontransparent.png"
 fit = "pillarbox"
-hold_seconds = 5.0
+hold_time = 5.0
 ```
 
 ---

@@ -222,7 +222,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = "Nintendo Life"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "rss_feed"
@@ -250,7 +250,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = "Nintendo Life"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "rss_feed"
@@ -282,7 +282,7 @@ loop_count = 2
 [playlist.section.title]
 type = "message"
 text = "Weather"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "weather"
@@ -313,7 +313,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = "Weather"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "weather"
@@ -407,7 +407,7 @@ loop_count = 2
 [playlist.section.title]
 type = "message"
 text = "Count Downs"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "countdown"
@@ -441,7 +441,7 @@ scale = 2
 [playlist.section.title]
 type = "message"
 text = "Count Downs"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "countdown"
@@ -479,7 +479,7 @@ loop_count = 0
 [playlist.section.title]
 type = "message"
 text = ":baseball.ball: MLB Scores"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "baseball.scores"
@@ -517,7 +517,7 @@ loop_count = 0
 [playlist.section.title]
 type = "message"
 text = ":baseball.ball: MLB Scores"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "baseball.scores"
@@ -555,7 +555,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = ":baseball.ball: MLB Standings"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "baseball.standings"
@@ -672,7 +672,7 @@ loop_count = 1
 [playlist.section.title]
 type = "message"
 text = "#DevOps News"
-color = "random"
+font_color = "random"
 
 [[playlist.section.widget]]
 type = "message"

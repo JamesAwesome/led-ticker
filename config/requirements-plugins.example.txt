@@ -6,6 +6,16 @@
 # dependency versions: a plugin may pull its own new libraries, but may not move
 # a version that core already pins (that fails the build).
 #
+# Deploy notes:
+# - For production signs, pin a plugin to a tag or commit SHA rather than @main.
+#   A moving branch silently changes what the next `docker compose up --build`
+#   installs; the constraint-based install catches dependency drift but NOT code
+#   drift.
+# - Each sign's config/requirements-plugins.txt is gitignored, so it must be
+#   present (copied from this file) and trimmed to the plugins that sign uses.
+#   The sign's gitignored config/config.toml must reference installed plugin
+#   widgets — both files need updating and a rebuild at deploy time.
+#
 # Pool water-temperature widget (type = "pool.monitor"):
 git+https://github.com/JamesAwesome/led-ticker-pool.git@main
 

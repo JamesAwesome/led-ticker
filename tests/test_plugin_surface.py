@@ -62,3 +62,11 @@ def test_is_scaled_predicate_exported():
 
     assert P.is_scaled(real) is False
     assert P.is_scaled(ScaledCanvas(real, scale=4)) is True
+
+
+def test_compute_cursor_is_public():
+    import led_ticker.plugin as P
+    from led_ticker.drawing import compute_cursor as core_compute_cursor
+
+    assert "compute_cursor" in P.__all__
+    assert P.compute_cursor is core_compute_cursor

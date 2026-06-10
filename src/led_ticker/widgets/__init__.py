@@ -41,4 +41,3 @@ from led_ticker.widgets import (  # noqa: E402, F401
     two_row,
     weather,
 )
-from led_ticker.widgets.crypto import coinbase, coingecko, etherscan  # noqa: E402, F401

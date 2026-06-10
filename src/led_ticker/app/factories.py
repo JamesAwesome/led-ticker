@@ -207,22 +207,6 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "maximum stories to show per cycle",
         "5",
     ),
-    # --- Coinbase / CoinGecko ---
-    "symbol": FieldHint(
-        "str",
-        "crypto ticker symbol (e.g. BTC, ETH)",
-        None,
-    ),
-    "symbol_id": FieldHint(
-        "str",
-        "CoinGecko coin ID (e.g. bitcoin, ethereum) — CoinGecko only",
-        None,
-    ),
-    "currency": FieldHint(
-        "str",
-        "fiat currency for price quote (e.g. USD, EUR)",
-        None,
-    ),
     # --- Pool (shared layout knob) ---
     "layout": FieldHint(
         '"ticker" | "two_row" | "scoreboard"',
@@ -231,7 +215,7 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "bottom, bigsign-recommended).",
         '"ticker"',
     ),
-    # --- label color (shared: pool.monitor / crypto) ---
+    # --- label color (shared: pool.monitor) ---
     "label_color": FieldHint(
         "[r, g, b]", "color for the prefix labels and separators", "white"
     ),
@@ -303,6 +287,21 @@ _DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
 RANDOM_COLOR: itertools.cycle = itertools.cycle(
     [RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE, CYAN, PINK]
 )
+
+
+_REMOVED_CRYPTO_TYPES = {"coingecko", "coinbase", "etherscan"}
+
+
+def build_widget_cfg_error_for_type(widget_type: str) -> str | None:
+    """Helpful message for widget types that moved out of core, else None."""
+    if widget_type in _REMOVED_CRYPTO_TYPES:
+        return (
+            f"Widget type {widget_type!r} was removed from led-ticker core. "
+            "CoinGecko now ships in the led-ticker-crypto plugin as "
+            "'crypto.coingecko' — install led-ticker-crypto and use "
+            'type = "crypto.coingecko". (coinbase/etherscan were retired.)'
+        )
+    return None
 
 
 def _cache_key(widget_cfg: dict[str, Any]) -> str:
@@ -610,6 +609,14 @@ async def validate_widget_cfg(
         )
 
     widget_type = widget_cfg.pop("type")
+    _crypto_hint = build_widget_cfg_error_for_type(widget_type)
+    if _crypto_hint is not None:
+        raise MigrationError(
+            _crypto_hint,
+            suggested_fix=(
+                'Install led-ticker-crypto and use type = "crypto.coingecko".'
+            ),
+        )
     cls = get_widget_class(widget_type)
     _run_validate_config(cls, widget_cfg, widget_type)
 

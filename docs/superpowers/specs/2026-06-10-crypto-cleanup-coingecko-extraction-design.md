@@ -27,19 +27,32 @@ This follows the established plugin-extraction precedent (`led-ticker-pool` PR #
 entry point, import only the `led_ticker.plugin` public surface, AST import-purity + smoke
 tripwires, faithful pixel-identical port validated before core removal.
 
-**Key finding — no core public-surface additions are required.** Everything coingecko
-touches is already public:
+**Key finding — exactly one small core public-surface addition is required (`compute_cursor`).**
+Almost everything coingecko touches is already public; the gaps and how they're handled:
 
 - Fonts: `FONT_LABEL`/`FONT_DELTA` are just the general `7x13`/`6x10` BDF fonts, reachable via
   `resolve_font("7x13")` / `resolve_font("6x10")`; `FONT_VALUE`/`FONT_VALUE_SMALL` are aliases
   of `FONT_DEFAULT`/`FONT_SMALL`.
 - Trend palette: `colors.lazy_palette` (the `colors` module is exported).
 - `run_monitor_loop`, `spawn_tracked`, `FrameAwareBase`, `ColorProvider`/`ColorProviderBase`,
-  `Canvas`/`Color`/`DrawResult`, and the text-draw helpers (`draw_text`, `get_text_width`,
-  `compute_baseline`) are all on the surface.
-- The only internal bits coingecko uses (`_ConstantColor`, `DEFAULT_COLOR`, `_draw_price_ticker`)
-  are replaced by a tiny constant `ColorProviderBase` subclass / `make_color`, and the copied
-  renderer — none of which needs a core change.
+  `Canvas`/`Color`/`DrawResult`, `make_color`, `resolve_font`, `get_text_width`,
+  `compute_baseline`, and `draw_text` are all on the surface.
+- **`compute_cursor` is NOT yet public** (only its siblings `compute_baseline` /
+  `compute_baseline_for_band` / `get_text_width` are). The renderer's centering math needs it,
+  so we **promote `compute_cursor` to `led_ticker.plugin`** in a small core PR that lands first —
+  consistent with how `snap_reset`/`is_scaled`/`FrameAwareBase` were promoted for baseball
+  (genuinely-useful primitives go on the surface; one-offs get copied). This is the only core
+  *addition*.
+- **`draw_text` semantics differ** between the two `draw_text`s. The renderer currently calls
+  `text_render.draw_text(canvas, font, x, y, color, text)` (relative-advance return) as
+  `cursor_pos += draw_text(...)`. The public `led_ticker.plugin.draw_text(canvas, font, text, x, y, color)`
+  returns the ABSOLUTE next-x and routes through the emoji path. So the renderer is **adapted**
+  (not byte-copied) to the public form — `cursor_pos = draw_text(canvas, font, text, cursor_pos, baseline_y, color)`.
+  Baseball already proved this exact adaptation pixel-identical for plain text.
+- **`_ConstantColor` / `DEFAULT_COLOR` are internal.** The plugin replaces them with a tiny
+  constant `ColorProviderBase` subclass and the literal default color. **`DEFAULT_COLOR` is
+  `(255, 255, 0)` — yellow, not white** — the plugin must replicate that exact value or the
+  default label color changes. No core change needed.
 
 ## End state
 
@@ -72,6 +85,13 @@ new repo — which is the whole point of the general `crypto` namespace over a n
 `led-ticker-coingecko`.
 
 ## Phases
+
+### Phase 0 — core surface prep (small PR, lands first)
+
+Promote `compute_cursor` to the public surface: export it from `led_ticker.plugin` and add it to
+`__all__`, alongside the existing `compute_baseline` / `get_text_width`. The plugin-API drift
+test (`tests/test_docs_plugin_api_drift.py`) and the docs-site API reference get the new symbol.
+This is the only core *addition*; it merges before the plugin imports it.
 
 ### Phase 1 — faithful extraction (no behavior change)
 
@@ -122,9 +142,10 @@ before coingecko leaves core — so all three widgets are removed together:
 
 ## Sequencing & PRs
 
-1. `led-ticker-crypto`: repo creation + Phase-1 faithful port (validated pixel-identical, CI green).
-2. Core-removal PR (Phase 2), opened only after #1 is green.
-3. Phase-3 review work as its own PR(s) on the plugin, with an enhancements checkpoint.
+1. Core surface-prep PR (Phase 0): promote `compute_cursor`. Lands first.
+2. `led-ticker-crypto`: repo creation + Phase-1 faithful port (validated pixel-identical, CI green).
+3. Core-removal PR (Phase 2), opened only after #2 is green.
+4. Phase-3 review work as its own PR(s) on the plugin, with an enhancements checkpoint.
 
 Each lands via its own worktree + branch + PR; no work on `main`; merges only with explicit
 go-ahead.
@@ -153,4 +174,4 @@ go-ahead.
 
 - Re-homing coinbase or etherscan into the plugin (deleted now; the `crypto` namespace simply
   leaves room to add them later as `crypto.coinbase` etc. if desired).
-- Any core public-surface additions (none required).
+- Any core public-surface additions beyond promoting `compute_cursor` (Phase 0).

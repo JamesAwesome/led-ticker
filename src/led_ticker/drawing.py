@@ -89,7 +89,7 @@ def get_text_width(font: Any, text: str, padding: int = 6, canvas: Any = None) -
 
     **Caching**: results are memoized in a module-level dict keyed on
     `(id(font), text, padding, scale)`. Per-frame callers (weather,
-    etherscan, coinbase) hit the cache instead of re-summing glyph
+    two-row tickers) hit the cache instead of re-summing glyph
     advances every draw — saves O(len(text)) dict lookups per call.
     Cache evicts the oldest entry at ``_TEXT_WIDTH_CACHE_MAXSIZE = 256``
     entries, staying at exactly maxsize instead of dropping to 1.

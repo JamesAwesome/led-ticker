@@ -115,7 +115,7 @@ class TickerMessage(FrameAwareBase):
                 )
         content_width = self._content_width
         cursor_pos, end_padding = compute_cursor(
-            canvas.width, content_width, cursor_pos, self.padding, self.center
+            canvas.width, content_width, cursor_pos, self.padding, center=self.center
         )
         # Capture the start position BEFORE the draw_* branches mutate
         # cursor_pos. Used below to recompute the returned cursor_pos
@@ -277,7 +277,7 @@ class SegmentMessage:
             content_width,
             cursor_pos,
             self.padding,
-            self.center,
+            center=self.center,
         )
 
         # If a color provider override is set, use it for all segments.
@@ -345,7 +345,7 @@ class TickerCountdown(FrameAwareBase):
 
         content_width = get_text_width(self.font, text, padding=0, canvas=canvas)
         cursor_pos, end_padding = compute_cursor(
-            canvas.width, content_width, cursor_pos, self.padding, self.center
+            canvas.width, content_width, cursor_pos, self.padding, center=self.center
         )
 
         if self._baseline_y < 0:

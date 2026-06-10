@@ -197,6 +197,7 @@ def compute_cursor(
     content_width: int,
     cursor_pos: int,
     padding: int,
+    *,
     center: bool,
 ) -> tuple[int, int]:
     """Compute cursor position and end padding, handling centering logic.

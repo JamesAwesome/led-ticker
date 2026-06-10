@@ -173,7 +173,7 @@ def _draw_price_ticker(
     )
 
     cursor_pos, end_padding = compute_cursor(
-        canvas.width, content_width, cursor_pos, end_padding, center
+        canvas.width, content_width, cursor_pos, end_padding, center=center
     )
 
     baseline_y = compute_baseline(FONT_LABEL, canvas, valign="center") + y_offset

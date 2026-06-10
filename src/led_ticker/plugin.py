@@ -34,6 +34,7 @@ from led_ticker.color_providers import ColorProvider, ColorProviderBase
 from led_ticker.drawing import (
     compute_baseline,
     compute_baseline_for_band,
+    compute_cursor,
     get_text_width,
     safe_scale,
 )
@@ -103,6 +104,7 @@ __all__ = [
     "colors",
     "compute_baseline",
     "compute_baseline_for_band",
+    "compute_cursor",
     "draw_emoji_at",
     "draw_text",
     "font_line_height_logical",

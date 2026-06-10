@@ -156,7 +156,7 @@ class WeatherWidget(FrameAwareBase):
             content_width,
             cursor_pos,
             self.padding,
-            self.center,
+            center=self.center,
         )
 
         baseline_y = compute_baseline(self.font, canvas, valign="center") + y_offset

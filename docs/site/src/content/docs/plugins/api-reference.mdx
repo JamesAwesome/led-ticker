@@ -163,6 +163,7 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 | `draw_text(canvas, font, text, x, y, color)` | Draw text (inline `:emoji:` included); returns the next x                                   |
 | `get_text_width(font, text)`                 | Pixel width of `text` in `font`                                                             |
 | `compute_baseline(font, ...)`                | The baseline y for a font                                                                   |
+| `compute_cursor(canvas_width, content_width, cursor_pos, padding, center)` | Resolve a start cursor + end padding for content of a given width (centering / overflow math) |
 | `resolve_font(name, ...)`                    | Resolve a font by name (bundled, plugin, or [BDF](/concepts/fonts/))                        |
 | `draw_emoji_at(canvas, slug, x, y)`          | Draw a registered emoji at a position                                                       |
 | `measure_emoji_at(canvas, slug)`             | Measure a registered emoji                                                                  |

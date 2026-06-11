@@ -248,6 +248,36 @@ border = {style = "bands", colors = [[0, 146, 70], [255, 255, 255], [206, 43, 55
 
 With `speed = 0` the bands are static — like a constant border, the engine's fast path applies and the border is painted once per hold.
 
+#### Common patterns
+
+**Stacked double-thick stripes** — at `thickness = 2` the rings share one continuous index by default, which reads as a woven texture (the GIF under [Named palettes](#named-palettes)). Add `align_rings = true` and the same config snaps into crisp stacked stripes, aligned exactly along every edge:
+
+<TomlExample
+  code={`# woven (default) — the rasta GIF above
+border = {style = "bands", colors = "rasta", band_width = 8, speed = 1, thickness = 2}
+# stacked — same config plus align_rings
+border = {style = "bands", colors = "rasta", band_width = 8, speed = 1, thickness = 2, align_rings = true}`}
+/>
+
+<DemoGif
+  src="/demos-pinned/border-bands-stacked.gif"
+  caption="align_rings = true — stacked stripes, rings marching in lockstep"
+/>
+
+**Holiday static accent** — a non-moving two-color frame that costs nothing per tick (`speed = 0` rides the fast path):
+
+<TomlExample
+  code={`border = {style = "bands", colors = "christmas", speed = 0, band_width = 10}
+# Static red/green frame — swap in "halloween" or "candy_cane" by season`}
+/>
+
+**Reverse-march flag** — a named flag palette walking counter-clockwise at double speed:
+
+<TomlExample
+  code={`border = {style = "bands", colors = "usa", speed = -2}
+# Negative speed reverses direction; |speed| sets the pace`}
+/>
+
 ## Where it works
 
 | Widget type           | `border`?                  |

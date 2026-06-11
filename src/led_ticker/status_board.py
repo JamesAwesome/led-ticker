@@ -92,10 +92,33 @@ class StatusBoard:
         if self._dirty and not self.disabled:
             self._flush()
 
+    def prepare_dir(self) -> None:
+        """Create the status directory and open its permissions.
+
+        Must run BEFORE the matrix is built: the rgbmatrix library drops
+        privileges (root -> daemon) inside RGBMatrix(), so every publish
+        after startup runs as an unprivileged user. Without 0o777 here,
+        those writes fail EACCES on the root-owned directory (named-volume
+        mountpoints in Docker are root:root 755). Deliberately no sticky
+        bit: the first forced publish happens pre-drop as root, and the
+        post-drop user must be able to os.replace over that root-owned
+        file. Best-effort — an error here surfaces on the first publish
+        via the normal self-disable path.
+        """
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            os.chmod(self.path.parent, 0o777)
+        except OSError:
+            logger.debug("could not prepare status dir %s", self.path.parent)
+
     def _flush(self) -> None:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             tmp = self.path.with_name(self.path.name + ".tmp")
+            # A crash between write and replace can leave a tmp file a
+            # different (post-privilege-drop) user can't open for writing;
+            # unlink needs only directory write permission, so clear it.
+            tmp.unlink(missing_ok=True)
             tmp.write_text(json.dumps(self.snapshot()))
             os.replace(tmp, self.path)
             self._last_publish = time.monotonic()

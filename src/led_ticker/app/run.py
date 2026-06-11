@@ -151,6 +151,10 @@ def _setup_status_board(
     set_active_board(board)
     handler = StatusLogHandler(board)
     logging.getLogger().addHandler(handler)
+    # Runs pre-frame-build, i.e. while the process is still root: opens the
+    # status dir so publishes keep working after the rgbmatrix library
+    # drops privileges during RGBMatrix() construction.
+    board.prepare_dir()
     board.publish(force=True)
     return board, handler
 
@@ -172,10 +176,14 @@ async def run(config_path: Path) -> None:
         logging.warning("config coerce: %s", w.message)
     _configure_user_font_dir(config_path)
 
-    led_frame = build_frame_from_config(config.display)
-
+    # Status board setup must precede frame construction: RGBMatrix() drops
+    # root privileges (default drop_privileges in the rgbmatrix library), and
+    # prepare_dir needs root to open the status directory on the root-owned
+    # volume mountpoint. Tripwire: test_setup_runs_before_frame_build.
     _status_handle = _setup_status_board(config, config_path, plugins)
     try:
+        led_frame = build_frame_from_config(config.display)
+
         if config.busy_light.enabled:
             await _start_busy_light(config.busy_light, led_frame)
 

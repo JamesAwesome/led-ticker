@@ -175,3 +175,24 @@ def test_setup_status_board_returns_none_when_web_absent(tmp_path):
     plugins = _make_fake_plugins()
     result = _setup_status_board(config, Path(tmp_path / "config.toml"), plugins)
     assert result is None
+
+
+def test_setup_runs_before_frame_build():
+    """Tripwire: the status dir must be prepared while still root.
+
+    rgbmatrix drops privileges (root -> daemon) inside RGBMatrix(), i.e.
+    during build_frame_from_config. _setup_status_board (which mkdirs and
+    chmods the status dir) must therefore run BEFORE the frame is built,
+    or every post-startup publish fails EACCES on the root-owned dir —
+    the longboi hardware-validation failure of 2026-06-11.
+    """
+    from led_ticker.app.run import run
+
+    src = inspect.getsource(run)
+    setup_at = src.index("_setup_status_board(")
+    frame_at = src.index("build_frame_from_config(")
+    assert setup_at < frame_at, (
+        "_setup_status_board must precede build_frame_from_config — the "
+        "matrix library drops root during frame construction and the "
+        "status dir must be prepared (mkdir + chmod) before that."
+    )

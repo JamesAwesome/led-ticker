@@ -205,3 +205,26 @@ def test_widget_summary_shapes(tmp_path):
         assert board.widget == {"type": "Bare", "summary": ""}
     finally:
         status_board.clear_active_board()
+
+
+def test_prepare_dir_creates_and_opens_permissions(tmp_path):
+    # The rgbmatrix library drops root privileges during matrix
+    # construction; prepare_dir runs BEFORE that (as root in production)
+    # so the post-drop user can still create/replace files in the dir.
+    board = StatusBoard(path=tmp_path / "deep" / "status.json")
+    board.prepare_dir()
+    mode = (tmp_path / "deep").stat().st_mode & 0o777
+    assert mode == 0o777, "status dir must be writable by the post-drop user"
+
+
+def test_flush_replaces_unwritable_leftover_tmp(tmp_path):
+    # A crash between tmp-write and replace can leave a tmp file the
+    # (possibly different) next writer can't open. _flush must unlink
+    # it first rather than self-disabling on the EACCES.
+    board = _board(tmp_path)
+    tmp = tmp_path / "status.json.tmp"
+    tmp.write_text("stale")
+    tmp.chmod(0o444)
+    board.publish(force=True)
+    assert not board.disabled
+    assert json.loads((tmp_path / "status.json").read_text())["schema"] == 1

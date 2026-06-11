@@ -203,7 +203,7 @@ When you use an unrecognized field name in a widget config block, the validator 
 
 ### The validator only catches static, config-time problems
 
-Anything that depends on runtime state — a stale `WEATHERAPI_KEY`, an unreachable RSS feed, an `image_path` that exists in your repo but not in the Docker bind mount, a network split-brain that makes Coinbase fetches time out — is out of scope. A green `validate` is necessary but not sufficient; the only way to fully verify a config is to run it against the panel (or the [`render-demo`](/tools/render-demo) gif pipeline).
+Anything that depends on runtime state — a stale `WEATHERAPI_KEY`, an unreachable RSS feed, an `image_path` that exists in your repo but not in the Docker bind mount, a network split-brain that makes a live data fetch time out — is out of scope. A green `validate` is necessary but not sufficient; the only way to fully verify a config is to run it against the panel (or the [`render-demo`](/tools/render-demo) gif pipeline).
 
 ### Warnings are advisory, not blocking
 

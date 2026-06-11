@@ -289,19 +289,35 @@ RANDOM_COLOR: itertools.cycle = itertools.cycle(
 )
 
 
-_REMOVED_CRYPTO_TYPES = {"coingecko", "coinbase", "etherscan"}
+# Widget types removed from core. coingecko was re-homed in the led-ticker-crypto
+# plugin; coinbase and etherscan were RETIRED (no direct replacement). The message
+# is per-type so the hint is honest — an etherscan (gas) user must not be told to
+# use crypto.coingecko (a price ticker).
+_CRYPTO_MIGRATION: dict[str, tuple[str, str]] = {
+    "coingecko": (
+        "Widget type 'coingecko' was removed from led-ticker core; it now ships "
+        "in the led-ticker-crypto plugin as 'crypto.coingecko'.",
+        'Install led-ticker-crypto and use type = "crypto.coingecko".',
+    ),
+    "coinbase": (
+        "Widget type 'coinbase' was retired from led-ticker core (no direct "
+        "replacement). For a crypto price ticker, the led-ticker-crypto plugin "
+        "offers 'crypto.coingecko' — note it needs a CoinGecko symbol_id "
+        '(e.g. "bitcoin").',
+        'Install led-ticker-crypto and use type = "crypto.coingecko" with a '
+        "symbol_id, or remove the widget.",
+    ),
+    "etherscan": (
+        "Widget type 'etherscan' was retired from led-ticker core and has no "
+        "replacement.",
+        "Remove the etherscan widget from your config.",
+    ),
+}
 
 
-def build_widget_cfg_error_for_type(widget_type: str) -> str | None:
-    """Helpful message for widget types that moved out of core, else None."""
-    if widget_type in _REMOVED_CRYPTO_TYPES:
-        return (
-            f"Widget type {widget_type!r} was removed from led-ticker core. "
-            "CoinGecko now ships in the led-ticker-crypto plugin as "
-            "'crypto.coingecko' — install led-ticker-crypto and use "
-            'type = "crypto.coingecko". (coinbase/etherscan were retired.)'
-        )
-    return None
+def build_widget_cfg_error_for_type(widget_type: str) -> tuple[str, str] | None:
+    """(message, suggested_fix) for a widget type removed from core, else None."""
+    return _CRYPTO_MIGRATION.get(widget_type)
 
 
 def _cache_key(widget_cfg: dict[str, Any]) -> str:
@@ -609,14 +625,10 @@ async def validate_widget_cfg(
         )
 
     widget_type = widget_cfg.pop("type")
-    _crypto_hint = build_widget_cfg_error_for_type(widget_type)
-    if _crypto_hint is not None:
-        raise MigrationError(
-            _crypto_hint,
-            suggested_fix=(
-                'Install led-ticker-crypto and use type = "crypto.coingecko".'
-            ),
-        )
+    _crypto_migration = build_widget_cfg_error_for_type(widget_type)
+    if _crypto_migration is not None:
+        _msg, _suggested_fix = _crypto_migration
+        raise MigrationError(_msg, suggested_fix=_suggested_fix)
     cls = get_widget_class(widget_type)
     _run_validate_config(cls, widget_cfg, widget_type)
 

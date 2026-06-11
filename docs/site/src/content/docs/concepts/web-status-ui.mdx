@@ -41,10 +41,10 @@ Presence of the block enables status publishing in the display process. Absence 
 
 ### Docker
 
-The `compose.yaml` ships with a `webui` service already wired up. It is commented out by default — uncomment it once you have added the `[web]` block:
+The `compose.yaml` ships with the `webui` service active — once you have added the `[web]` block, `docker compose up -d` starts it alongside the display container. (Remove or comment out the service in `compose.yaml` if you don't want the dashboard.)
 
 ```yaml
-# In compose.yaml — uncomment the webui service block:
+# The webui service as it appears in compose.yaml:
 webui:
   image: led-ticker
   build: .

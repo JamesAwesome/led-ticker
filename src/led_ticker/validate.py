@@ -4,6 +4,7 @@ import contextlib
 import copy
 import json
 import math
+import tempfile
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -1835,6 +1836,22 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
         warnings = []
 
     return ValidationResult(path=path, errors=errors, warnings=warnings)
+
+
+async def validate_config_text(text: str, *, strict: bool = False) -> ValidationResult:
+    """Validate TOML config content from a string.
+
+    Same engine as validate_config — the text is materialized to a temp file
+    so every path-relative check behaves identically. Used by the web UI's
+    POST /api/validate; also handy for tests.
+
+    Broken TOML is returned as an invalid ValidationResult (not raised),
+    matching validate_config's behaviour — callers check result.valid.
+    """
+    with tempfile.TemporaryDirectory(prefix="led-ticker-validate-") as td:
+        p = Path(td) / "config.toml"
+        p.write_text(text)
+        return await validate_config(p, strict=strict)
 
 
 def _issue_to_dict(issue: ValidationIssue) -> dict[str, Any]:

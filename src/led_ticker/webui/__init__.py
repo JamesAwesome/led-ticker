@@ -200,8 +200,8 @@ async def run_webui(config_path: Path, web_cfg) -> None:
     runner = await serve_webui(
         config_path=config_path,
         status_path=Path(web_cfg.status_path).expanduser(),
-        host=web_cfg.host,
-        port=web_cfg.port,
+        host=web_cfg.http_host,
+        port=web_cfg.http_port,
         token=web_cfg.token,
     )
     try:

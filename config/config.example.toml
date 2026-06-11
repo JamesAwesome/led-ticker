@@ -218,7 +218,7 @@ stale_after = 14400  # 4 hours
 # Docs: https://docs.ledticker.dev/concepts/web-status-ui/
 #
 # [web]
-# host = "0.0.0.0"
-# port = 8080
+# http_host = "0.0.0.0"
+# http_port = 8080
 # token = ""                                    # non-empty requires X-Web-Token header or ?token=
 # status_path = "/run/led-ticker/status.json"   # default works in Docker too (shared volume mounts here)

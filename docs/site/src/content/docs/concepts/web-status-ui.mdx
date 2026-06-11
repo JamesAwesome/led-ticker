@@ -32,9 +32,9 @@ Add a `[web]` block to your `config.toml`. An empty block is valid and uses the 
 <TomlExample
   title="Minimal — all defaults"
   code={`[web]
-# host = "0.0.0.0"   # listen on all LAN interfaces (default)
-# port = 8080        # (default)
-# token = ""         # open — see Auth below`}
+# http_host = "0.0.0.0"   # listen on all LAN interfaces (default)
+# http_port = 8080         # (default)
+# token = ""               # open — see Auth below`}
 />
 
 Presence of the block enables status publishing in the display process. Absence (no `[web]` block at all) disables the feature entirely — existing configs without the block are unaffected.
@@ -142,6 +142,6 @@ The Validate tab lets you check a candidate config without risk, but applying it
 
 **Browser shows nothing / 401** — A token is set in `[web]`. Add `?token=<your-token>` to the URL, or configure your browser extension / bookmark with the `X-Web-Token` header.
 
-**Sidecar binds a port already in use** — If `[busy_light]` is configured with `source = "http"` and the same `port` value (default `8080` for both), one of them will fail to bind. Use a different port for one of the two: e.g. `[busy_light] http_port = 8081`.
+**Sidecar binds a port already in use** — If `[busy_light]` is configured with `source = "http"` and the same port (default `8080` for both), one of them will fail to bind. Use a different port for one of the two: e.g. `[web] http_port = 8080` and `[busy_light] http_port = 8081`.
 
 <RelatedPages slugs={["reference/config-options", "concepts/busy-light", "reference/cli"]} />

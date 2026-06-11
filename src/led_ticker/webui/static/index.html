@@ -41,6 +41,7 @@
     <button data-tab="status" class="active">Status</button>
     <button data-tab="config">Config</button>
     <button data-tab="validate">Validate</button>
+    <button data-tab="inventory">Inventory</button>
   </nav>
 </header>
 <main>
@@ -83,6 +84,22 @@
       <div id="validate-result" class="issues"></div>
     </div>
   </section>
+  <section id="tab-inventory" class="tab">
+    <div class="card">
+      <strong>Fonts</strong>
+      <p class="muted">User fonts (config/fonts/) take precedence over bundled.</p>
+      <table id="inv-fonts"><tbody></tbody></table>
+    </div>
+    <div class="card">
+      <strong>Assets</strong> <span id="inv-assets-note" class="muted"></span>
+      <table id="inv-assets"><tbody></tbody></table>
+    </div>
+    <div class="card">
+      <strong>Emoji</strong>
+      <p class="muted" id="inv-emoji-note"></p>
+      <div id="inv-emoji"></div>
+    </div>
+  </section>
 </main>
 <script>
 const qs = new URLSearchParams(location.search);
@@ -92,6 +109,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
   {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]
 ));
+let lastStatus = null;
 
 document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
@@ -100,6 +118,7 @@ document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   $("tab-" + b.dataset.tab).classList.add("active");
   if (b.dataset.tab === "config") loadConfig();
   if (b.dataset.tab === "validate") loadConfigList();
+  if (b.dataset.tab === "inventory") loadInventory();
 });
 
 function fmtAgo(ts) {
@@ -127,6 +146,7 @@ async function poll() {
       return;
     }
     const st = body.status;
+    lastStatus = st;
     live.textContent = body.state === "ok" ? "live" : "stale " + fmtAgo(st.published_at);
     $("hostname").textContent = st.hostname || "led-ticker";
     const up = (Date.now() / 1000) - st.started_at;
@@ -142,7 +162,12 @@ async function poll() {
       || '<tr><td class="muted">no async monitors</td></tr>';
     const fails = (st.failed_plugins || []).map((p) => `<tr><td>${esc(p.namespace)}</td><td class="error">failed: ${esc(p.error)}</td></tr>`);
     $("plugins").tBodies[0].innerHTML = (st.plugins || [])
-      .map((p) => `<tr><td>${esc(p.namespace)}</td><td class="muted">${esc(JSON.stringify(p.counts))}</td></tr>`)
+      .map((p) => {
+        const names = p.names && Object.keys(p.names).length
+          ? Object.entries(p.names).map(([s, xs]) => `${esc(s)}: ${xs.map(esc).join(", ")}`).join(" · ")
+          : esc(JSON.stringify(p.counts));
+        return `<tr><td>${esc(p.namespace)}</td><td class="muted">${names}</td></tr>`;
+      })
       .concat(fails).join("") || '<tr><td class="muted">no plugins</td></tr>';
     $("logtail").textContent = (st.log_tail || []).slice(-10)
       .map((e) => `${e.level} ${e.name}: ${e.message}`).join("\n") || "no recent warnings";
@@ -221,6 +246,36 @@ $("load-redacted").onclick = async () => {
     $("validate-result").innerHTML = '<p class="error">Could not reach the webui — is it still running?</p>';
   }
 };
+
+async function loadInventory() {
+  try {
+    const r = await fetch("/api/inventory", {headers: auth});
+    if (!r.ok) return;
+    const inv = await r.json();
+    $("inv-fonts").tBodies[0].innerHTML =
+      (inv.fonts.user || []).map((f) => `<tr><td>${esc(f)}</td><td class="muted">user</td></tr>`).join("") +
+      (inv.fonts.bundled || []).map((f) => `<tr><td>${esc(f)}</td><td class="muted">bundled</td></tr>`).join("") ||
+      '<tr><td class="muted">none found</td></tr>';
+    $("inv-assets").tBodies[0].innerHTML = (inv.assets || [])
+      .map((a) => `<tr><td>${esc(a.path)}</td><td class="muted">${Number(a.bytes) || 0} B</td></tr>`).join("") ||
+      '<tr><td class="muted">no image/gif assets in the config directory</td></tr>';
+    $("inv-assets-note").textContent = inv.assets_truncated ? `(showing first ${inv.assets.length})` : "";
+    const pluginEmoji = [];
+    for (const p of (lastStatus && lastStatus.plugins) || []) {
+      for (const surface of ["emojis", "hires_emojis"]) {
+        for (const slug of (p.names && p.names[surface]) || []) pluginEmoji.push(slug);
+      }
+    }
+    const chips = (xs, cls) => xs.map((s) => `<code class="${cls}" style="margin:.15rem;display:inline-block;">:${esc(s)}:</code>`).join(" ");
+    $("inv-emoji").innerHTML =
+      chips(inv.emoji.core || [], "") +
+      chips(inv.emoji.hires_only || [], "muted") +
+      chips(pluginEmoji, "warning");
+    $("inv-emoji-note").textContent = lastStatus
+      ? (pluginEmoji.length ? "Plugin emoji (highlighted) from the running display." : "")
+      : "Display offline — plugin emoji unknown.";
+  } catch (e) { /* tab shows stale/empty; other tabs unaffected */ }
+}
 
 poll();
 setInterval(poll, 3000);

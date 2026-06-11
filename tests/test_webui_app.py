@@ -222,8 +222,8 @@ async def test_root_serves_page(tmp_path):
         assert resp.content_type == "text/html"
         text = await resp.text()
         for marker in (
-            "Status", "Config", "Validate",
-            "/api/status", "/api/configs", "validate-file",
+            "Status", "Config", "Validate", "Inventory",
+            "/api/status", "/api/configs", "validate-file", "/api/inventory",
         ):
             assert marker in text
     finally:

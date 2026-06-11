@@ -42,6 +42,7 @@ def test_webui_import_does_not_touch_rgbmatrix():
         capture_output=True,
         text=True,
         env=_env_without_stubs(),
+        timeout=30,
     )
     assert proc.returncode == 0, proc.stderr
     assert "PURE" in proc.stdout
@@ -61,6 +62,7 @@ def test_cli_imports_without_rgbmatrix():
         capture_output=True,
         text=True,
         env=_env_without_stubs(),
+        timeout=30,
     )
     assert proc.returncode == 0, proc.stderr
     assert "CLI-OK" in proc.stdout

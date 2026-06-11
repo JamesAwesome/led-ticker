@@ -7,7 +7,7 @@ ring around the panel edge at PHYSICAL resolution (bypasses
 so a 1-px border on bigsign actually draws as 1 real LED, not a 4×4
 block.
 
-Four flavors today:
+Five flavors today:
 
 - `RainbowChaseBorder` — per-pixel hue indexed by perimeter position
   (clockwise from top-left, hop count 0..N-1) advancing per frame.
@@ -23,6 +23,10 @@ Four flavors today:
   `frame_invariant=True` so the static-text fast path in image
   widgets (and any future BorderEffect-aware fast paths) can opt
   out of per-tick redraws.
+- `ColorBandsBorder` — discrete solid-color bands marching around the
+  perimeter (candy-cane / barber-pole / flag ribbons). Colors come
+  from an explicit RGB list or a named `BAND_PALETTES` entry, resolved
+  at config-load. `frame_invariant` only when `speed == 0`.
 - `LightbulbBorder` — discrete NxN bulb sprites around the perimeter
   (Vegas-marquee aesthetic), animated via chase / alternate / unison.
   Lit bulbs can be a fixed color or, with `lit_color="rainbow"`, take
@@ -155,6 +159,51 @@ def _perimeter_pixels(
         for y in range(y1, y0, -1):
             pixels.append((x0, y))
     return pixels
+
+
+@functools.cache
+def _aligned_indices(width: int, height: int, thickness: int) -> tuple[int, ...]:
+    """Outer-ring index for each pixel `_perimeter_pixels` emits, by
+    PERPENDICULAR PROJECTION: a pixel on ring r's top edge projects
+    straight up to the outer top edge, right edge projects right, and
+    so on. Used by `ColorBandsBorder` with `align_rings=True` so band
+    boundaries align EXACTLY along every edge; the rings' length
+    mismatch (inner rings are 2 px shorter per corner) is absorbed at
+    the corners, where bands visually turn anyway.
+
+    Walk order and the ring-collapse bail MUST mirror
+    `_perimeter_pixels` one-to-one — the paint loop zips this tuple
+    against that pixel list. Ring 0 maps to itself (identity prefix).
+    Tripwire: `test_aligned_indices_consistent_with_perimeter_pixels`.
+
+    Outer-ring index layout (the projection targets), with
+    W = width - 1 and H = height - 1:
+      top edge    (x, 0)      -> x                  for x in 0..W-1
+      right edge  (W, y)      -> W + y              for y in 0..H-1
+      bottom edge (x, H)      -> W + H + (W - x)    for x in W..1
+      left edge   (0, y)      -> 2*W + H + (H - y)  for y in H..1
+    """
+    indices: list[int] = []
+    for ring in range(thickness):
+        x0 = ring
+        y0 = ring
+        x1 = width - 1 - ring
+        y1 = height - 1 - ring
+        if x1 <= x0 or y1 <= y0:
+            break
+        # Top edge (x0..x1-1, y0) -> project up to (x, 0)
+        for x in range(x0, x1):
+            indices.append(x)
+        # Right edge (x1, y0..y1-1) -> project right to (width-1, y)
+        for y in range(y0, y1):
+            indices.append((width - 1) + y)
+        # Bottom edge (x1..x0+1, y1) -> project down to (x, height-1)
+        for x in range(x1, x0, -1):
+            indices.append((width - 1) + (height - 1) + (width - 1 - x))
+        # Left edge (x0, y1..y0+1) -> project left to (0, y)
+        for y in range(y1, y0, -1):
+            indices.append(2 * (width - 1) + (height - 1) + (height - 1 - y))
+    return tuple(indices)
 
 
 @functools.cache
@@ -373,6 +422,103 @@ class ConstantBorder(BorderEffectBase):
             real.SetPixel(x, y, r, g, b)
 
 
+class ColorBandsBorder(BorderEffectBase):
+    """Discrete solid-color bands marching around the perimeter.
+
+    The geometry of `RainbowChaseBorder` (continuous per-pixel
+    perimeter walk) but with a user-supplied list of solid colors
+    instead of a continuous hue ramp — candy-cane / barber-pole /
+    flag-ribbon looks. Band at perimeter index `idx` and frame `f`:
+
+        band = ((idx - f * speed) // band_width) % len(colors)
+
+    Positive `speed` marches the pattern clockwise by `speed`
+    perimeter pixels per frame; negative reverses; 0 is static bands.
+    Python floor division gives correct wraparound for negative
+    offsets. Note the band pattern only tiles seamlessly when the
+    perimeter length is a multiple of `band_width * len(colors)` —
+    otherwise the pattern breaks at the top-left seam (a truncated
+    band, or two same-color bands meeting), same class of artifact
+    as the rainbow chase's hue seam. Accepted.
+
+    `colors` comes from the config layer already resolved to a list of
+    RGB tuples (named palettes in `BAND_PALETTES` resolve at coercion
+    time).
+
+    For `thickness = 2`, two modes are available:
+
+    - Default (``align_rings=False``): the perimeter index continues
+      from the outer ring into the inner ring (same continuous
+      enumeration the rainbow chase uses) — bands don't perfectly
+      align ring-to-ring, producing a woven texture.
+    - ``align_rings=True``: each ring pixel takes the band of its
+      PERPENDICULAR PROJECTION onto the outer ring (top edge projects
+      straight up, right edge projects right, etc. — see
+      `_aligned_indices`), so band boundaries align EXACTLY along every
+      edge (crisp stacked stripes, zero mid-edge shear). The rings'
+      length mismatch (inner rings are 2 px shorter per corner) is
+      absorbed at the corners, where bands visually turn anyway. The
+      march offset applies in outer-ring index units, so all rings
+      advance in lockstep. No-op at ``thickness=1``.
+
+    `frame_invariant` is dynamic: True only when `speed == 0` (static
+    bands are a meaningful pattern, and the image-widget fast path can
+    then skip per-tick redraws — same shape as `RainbowChaseBorder`).
+    """
+
+    # Continuous march: phase advances across loop_count boundaries
+    # within a section. See `FrameAwareBase.reset_frame`.
+    restart_on_visit: bool = False
+
+    def __init__(
+        self,
+        colors: Any,
+        band_width: int = 6,
+        speed: int = 1,
+        thickness: int = 1,
+        align_rings: bool = False,
+    ) -> None:
+        # Each entry accepts a `graphics.Color` or an `(r, g, b)`
+        # tuple. Materialize to plain tuples at construction so
+        # paint() is hot-loop friendly (same trick as ConstantBorder).
+        self._colors: list[tuple[int, int, int]] = [
+            (c.red, c.green, c.blue) if hasattr(c, "red") else tuple(c) for c in colors
+        ]
+        self.band_width = band_width
+        self.speed = speed
+        self.thickness = thickness
+        self.align_rings = align_rings
+
+    @property
+    def frame_invariant(self) -> bool:
+        return self.speed == 0
+
+    def paint(self, canvas: Canvas, frame_count: int) -> None:
+        real = unwrap_to_real(canvas)
+        offset = frame_count * self.speed
+        n = len(self._colors)
+        if self.align_rings:
+            # Stacked stripes: each ring pixel takes the band of its
+            # perpendicular projection onto the outer ring, so band
+            # boundaries align exactly along every edge and the
+            # ring-length mismatch is absorbed at the corners. The
+            # offset applies in outer-ring units AFTER projection —
+            # rings march in lockstep at every frame.
+            pixels = _perimeter_pixels(real.width, real.height, self.thickness)
+            effs = _aligned_indices(real.width, real.height, self.thickness)
+            for (x, y), eff in zip(pixels, effs, strict=True):
+                band = ((eff - offset) // self.band_width) % n
+                r, g, b = self._colors[band]
+                real.SetPixel(x, y, r, g, b)
+            return
+        for idx, (x, y) in enumerate(
+            _perimeter_pixels(real.width, real.height, self.thickness)
+        ):
+            band = ((idx - offset) // self.band_width) % n
+            r, g, b = self._colors[band]
+            real.SetPixel(x, y, r, g, b)
+
+
 class LightbulbBorder(BorderEffectBase):
     """Marquee-style border: discrete bulb sprites around the perimeter.
 
@@ -501,9 +647,33 @@ class LightbulbBorder(BorderEffectBase):
                 real.SetPixel(x0 + dx, y0 + dy, r, g, b)
 
 
+# Named palettes for ColorBandsBorder's `colors` field. Resolved at
+# config-load by `_coerce_border` (the class itself always receives a
+# concrete color list). Distinct from `colors.lazy_palette`, which maps
+# name -> ONE color; this maps name -> a band sequence. Saturated
+# primaries read best on the panels; black is invisible (unlit LED),
+# so palettes exclude it.
+BAND_PALETTES: dict[str, list[tuple[int, int, int]]] = {
+    # Discrete ROYGBIV bands — vs. the continuous `style = "rainbow"` chase.
+    "rainbow": [
+        (255, 0, 0),
+        (255, 128, 0),
+        (255, 255, 0),
+        (0, 255, 0),
+        (0, 0, 255),
+        (128, 0, 255),
+    ],
+    "rasta": [(255, 0, 0), (255, 191, 0), (0, 255, 0)],
+    "usa": [(255, 0, 0), (255, 255, 255), (0, 0, 255)],
+    "christmas": [(255, 0, 0), (0, 255, 0)],
+    "halloween": [(255, 100, 0), (128, 0, 255)],
+    "candy_cane": [(255, 0, 0), (255, 255, 255)],
+}
+
 _BORDER_REGISTRY: dict[str, type] = {
     "rainbow": RainbowChaseBorder,
     "color_cycle": ColorCycleBorder,
     "constant": ConstantBorder,
     "lightbulbs": LightbulbBorder,
+    "bands": ColorBandsBorder,
 }

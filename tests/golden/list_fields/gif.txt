@@ -20,7 +20,7 @@ Optional:
   animation                     "typewriter" | {style="typewriter", frames_per_char=N}  default: none  — text animation effect
   font                          font name                                     default: panel default font  — BDF alias or hi-res font name
   font_size                     int (pixels)                                  default: none  — text height in real pixels; required for hi-res fonts
-  border                        {style="rainbow_chase", speed=N, width=N}     default: none  — animated border painted at panel edges
+  border                        "rainbow" | "color_cycle" | "lightbulbs" | [r,g,b] | {style="rainbow"|"color_cycle"|"constant"|"lightbulbs"|"bands", ...}  default: none  — animated border painted at panel edges — five styles (rainbow chase, color cycle, constant, bands, lightbulbs); see /concepts/borders/
   fit                           "pillarbox" | "letterbox" | "stretch" | "crop"  default: "pillarbox"  — how image fills canvas
   image_align                   "left" | "center" | "right"                   default: "center"  — horizontal image alignment within canvas
   play_count                    int                                           default: 1  — times the gif/image plays per visit; 0 = loop for section hold_time duration

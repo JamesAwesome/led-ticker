@@ -72,5 +72,5 @@ Setting `bottom_text` to a non-empty string switches the widget to **two-row mod
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `border` | string / table | none | Perimeter border effect — `"rainbow"`, `[r,g,b]` constant, or `{style="rainbow", thickness=N, speed=N, char_offset=N}`. Paints at physical panel resolution (bypasses ScaledCanvas), so the border traces the real panel edge. Paints after the image and before text. |
+| `border` | `"rainbow"` \| `"color_cycle"` \| `"lightbulbs"` \| `[r,g,b]` \| `{style="...", ...}` | none | Perimeter border ring — five styles (rainbow chase, color cycle, constant, bands, lightbulbs); see [/concepts/borders/](/concepts/borders/). Paints at physical panel resolution (bypasses ScaledCanvas), so the border traces the real panel edge. Paints after the image and before text. |
 | `bg_color` | RGB list | none | Background fill for the full canvas before image and text. When set, pillarbox bands and alpha-transparent regions reveal this color instead of black. Use with a transparent-background PNG to blend the silhouette against a solid color. |

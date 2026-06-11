@@ -8,10 +8,13 @@ import pytest
 
 from led_ticker.app.coercion import _coerce_border
 from led_ticker.borders import (
+    BAND_PALETTES,
+    ColorBandsBorder,
     ColorCycleBorder,
     ConstantBorder,
     LightbulbBorder,
     RainbowChaseBorder,
+    _aligned_indices,
     _lightbulb_positions,
     _perimeter_pixels,
 )
@@ -28,9 +31,9 @@ class TestPerimeterGeometry:
         # 2×(W+H) − 4 corners that would otherwise be double-counted
         for w, h in [(10, 4), (256, 64), (160, 16), (5, 5)]:
             px = _perimeter_pixels(w, h, thickness=1)
-            assert (
-                len(px) == 2 * (w + h) - 4
-            ), f"{w}×{h}: expected {2 * (w + h) - 4}, got {len(px)}"
+            assert len(px) == 2 * (w + h) - 4, (
+                f"{w}×{h}: expected {2 * (w + h) - 4}, got {len(px)}"
+            )
 
     def test_no_duplicates_thickness_1(self):
         px = _perimeter_pixels(20, 8, thickness=1)
@@ -51,9 +54,9 @@ class TestPerimeterGeometry:
         # 10×4 panel, thickness=2: outer ring 24 + inner ring (8x2 frame
         # = 2*(8+2)-4 = 16) = 40 pixels total.
         px = _perimeter_pixels(10, 4, thickness=2)
-        assert (
-            len(px) == 24 + 16
-        ), f"thickness=2 on 10×4 should give 40 pixels; got {len(px)}"
+        assert len(px) == 24 + 16, (
+            f"thickness=2 on 10×4 should give 40 pixels; got {len(px)}"
+        )
         # All unique
         assert len(set(px)) == len(px)
 
@@ -104,6 +107,48 @@ class TestPerimeterGeometry:
             "return the same list object"
         )
 
+    def test_aligned_indices_consistent_with_perimeter_pixels(self):
+        """_aligned_indices MUST mirror _perimeter_pixels's walk and
+        collapse bail: same flat length (including degenerate
+        geometries), every value a valid outer-ring index, and an
+        identity prefix for ring 0."""
+        for w, h, t in [
+            (10, 4, 2),
+            (256, 64, 2),
+            (3, 10, 2),
+            (4, 4, 2),
+            (10, 4, 1),
+            (10, 4, 0),
+        ]:
+            px = _perimeter_pixels(w, h, t)
+            eff = _aligned_indices(w, h, t)
+            assert len(eff) == len(px), f"{w}x{h} t={t}"
+            outer_len = 2 * (w + h) - 4
+            assert all(0 <= e < outer_len for e in eff) or not eff
+            # Ring 0 is the identity: pixel i maps to index i.
+            if eff:
+                assert list(eff[:outer_len]) == list(range(outer_len))
+
+    def test_aligned_indices_projection_is_perpendicular(self):
+        """Each inner-ring pixel maps to the outer pixel it sits
+        directly inside of. Verified geometrically: for every inner
+        pixel of a thickness-2 ring, the outer pixel at its mapped
+        index is exactly 1 px away along the pixel's projection axis
+        (each pixel belongs to exactly ONE walk segment — corners
+        included — and projects along that segment's axis)."""
+        w, h, t = 10, 4, 2
+        px = _perimeter_pixels(w, h, t)
+        eff = _aligned_indices(w, h, t)
+        outer_len = 2 * (w + h) - 4
+        outer = px[:outer_len]
+        for i in range(outer_len, len(px)):
+            ix, iy = px[i]
+            ox, oy = outer[eff[i]]
+            assert abs(ox - ix) <= 1 and abs(oy - iy) <= 1, (
+                f"inner {px[i]} projected to non-adjacent outer {outer[eff[i]]}"
+            )
+            assert (ox, oy) != (ix, iy)
+
 
 class _StubCanvas:
     """Minimal canvas double for paint tests — captures SetPixel calls."""
@@ -130,9 +175,9 @@ class TestRainbowChaseBorder:
         b = RainbowChaseBorder()
         # frame_invariant is a @property — hasattr resolves it correctly.
         assert hasattr(b, "frame_invariant"), "frame_invariant must be accessible"
-        assert isinstance(
-            b.frame_invariant, bool
-        ), "frame_invariant must return bool (property, not plain attribute)"
+        assert isinstance(b.frame_invariant, bool), (
+            "frame_invariant must return bool (property, not plain attribute)"
+        )
         assert callable(b.paint), "paint must be callable"
 
     def test_frame_invariant_false_for_default_speed(self):
@@ -234,9 +279,9 @@ class TestRainbowChaseBorderHueRange:
         for (x, y), (r, g, b) in c.pixels.items():
             h, _s, _v = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
             hue_deg = h * 360
-            assert (
-                0 <= hue_deg <= 120
-            ), f"hue {hue_deg:.1f}° outside 0–120° arc at ({x},{y})"
+            assert 0 <= hue_deg <= 120, (
+                f"hue {hue_deg:.1f}° outside 0–120° arc at ({x},{y})"
+            )
 
     def test_arc_advances_with_frame(self):
         """frame_count advances the phase within the arc, producing
@@ -363,9 +408,9 @@ class TestColorCycleBorder:
             r, g, bl = next(iter(c.pixels.values()))
             h, _, _ = colorsys.rgb_to_hsv(r / 255, g / 255, bl / 255)
             hue_deg = h * 360
-            assert (
-                hue_deg >= 240.0 or hue_deg == 0.0
-            ), f"frame {frame}: hue {hue_deg:.1f}° — expected magenta band (240–360°)"
+            assert hue_deg >= 240.0 or hue_deg == 0.0, (
+                f"frame {frame}: hue {hue_deg:.1f}° — expected magenta band (240–360°)"
+            )
 
     def test_thickness_2_paints_both_rings(self):
         c = _StubCanvas(10, 4)
@@ -656,9 +701,9 @@ class TestColorLUTBorders:
         """ColorCycleBorder at frame=0 with speed=1: hue=(0*1)%360=0 → red (255,0,0)."""
         c = _StubCanvas(10, 4)
         ColorCycleBorder(speed=1).paint(c, frame_count=0)
-        assert all(
-            rgb == (255, 0, 0) for rgb in c.pixels.values()
-        ), f"Expected all red at frame=0, got: {set(c.pixels.values())}"
+        assert all(rgb == (255, 0, 0) for rgb in c.pixels.values()), (
+            f"Expected all red at frame=0, got: {set(c.pixels.values())}"
+        )
 
 
 class TestLightbulbPositions:
@@ -1116,3 +1161,376 @@ class TestLightbulbRainbowCoercion:
     def test_rgb_lit_color_still_validated(self):
         b = _coerce_border({"style": "lightbulbs", "lit_color": [10, 20, 30]})
         assert b.lit_color == (10, 20, 30)
+
+
+class TestBandPalettes:
+    """BAND_PALETTES registry sanity — every named palette must be a
+    usable bands spec: >= 2 colors, each a valid (r, g, b) tuple."""
+
+    def test_expected_palettes_present(self):
+        """Exact-set equality on purpose: adding a palette is a
+        user-facing surface change (docs table, validate output), so
+        it should consciously update this tripwire too."""
+        assert set(BAND_PALETTES) == {
+            "rainbow",
+            "rasta",
+            "usa",
+            "christmas",
+            "halloween",
+            "candy_cane",
+        }
+
+    def test_all_palettes_valid(self):
+        for name, colors in BAND_PALETTES.items():
+            assert len(colors) >= 2, f"palette {name!r} needs >= 2 colors"
+            for c in colors:
+                assert len(c) == 3, f"palette {name!r} entry {c!r} not RGB"
+                for v in c:
+                    assert isinstance(v, int) and not isinstance(v, bool)
+                    assert 0 <= v <= 255, f"palette {name!r} value {v} out of range"
+
+
+class TestColorBandsBorder:
+    """Discrete solid-color bands marching around the perimeter.
+    Band at perimeter index `idx`, frame `f`:
+    ((idx - f * speed) // band_width) % len(colors)."""
+
+    RED = (255, 0, 0)
+    WHITE = (255, 255, 255)
+
+    def _border(self, **kw):
+        kw.setdefault("colors", [self.RED, self.WHITE])
+        return ColorBandsBorder(**kw)
+
+    def test_satisfies_protocol(self):
+        b = self._border()
+        assert hasattr(b, "frame_invariant")
+        assert isinstance(b.frame_invariant, bool)
+        assert callable(b.paint)
+
+    def test_defaults(self):
+        b = self._border()
+        assert b.band_width == 6
+        assert b.speed == 1
+        assert b.thickness == 1
+
+    def test_frame_invariant_false_for_default_speed(self):
+        assert self._border().frame_invariant is False
+
+    def test_frame_invariant_true_for_speed_zero(self):
+        assert self._border(speed=0).frame_invariant is True
+
+    def test_restart_on_visit_is_false(self):
+        """Continuous march across loop_count boundaries, like the
+        other animated borders."""
+        assert ColorBandsBorder.restart_on_visit is False
+
+    def test_band_pattern_at_frame_zero(self):
+        """First band_width perimeter pixels are color 0, next
+        band_width are color 1, wrapping modulo len(colors)."""
+        b = self._border(band_width=4, speed=1)
+        c = _StubCanvas(20, 8)
+        b.paint(c, frame_count=0)
+        px = _perimeter_pixels(20, 8, 1)
+        for i in range(4):
+            assert c.pixels[px[i]] == self.RED, f"idx {i}"
+        for i in range(4, 8):
+            assert c.pixels[px[i]] == self.WHITE, f"idx {i}"
+        # Wraps modulo: idx 8 starts the next RED band.
+        assert c.pixels[px[8]] == self.RED
+
+    def test_paints_every_perimeter_pixel(self):
+        c = _StubCanvas(20, 8)
+        self._border().paint(c, frame_count=0)
+        assert len(c.pixels) == 2 * (20 + 8) - 4  # 52
+
+    def test_positive_speed_marches_clockwise(self):
+        """At frame f the pattern is the frame-0 pattern shifted
+        forward (clockwise) by f * speed perimeter pixels:
+        color(idx + shift, f) == color(idx, 0)."""
+        b = self._border(band_width=4, speed=1)
+        c0, c2 = _StubCanvas(20, 8), _StubCanvas(20, 8)
+        b.paint(c0, frame_count=0)
+        b.paint(c2, frame_count=2)
+        px = _perimeter_pixels(20, 8, 1)
+        for i in range(len(px) - 2):
+            assert c2.pixels[px[i + 2]] == c0.pixels[px[i]], f"idx {i}"
+
+    def test_negative_speed_reverses(self):
+        """speed=-1 marches counter-clockwise:
+        color(idx, f=1) == color(idx + 1, 0)."""
+        b = self._border(band_width=4, speed=-1)
+        c0, c1 = _StubCanvas(20, 8), _StubCanvas(20, 8)
+        b.paint(c0, frame_count=0)
+        b.paint(c1, frame_count=1)
+        px = _perimeter_pixels(20, 8, 1)
+        for i in range(len(px) - 1):
+            assert c1.pixels[px[i]] == c0.pixels[px[i + 1]], f"idx {i}"
+
+    def test_speed_zero_is_static(self):
+        b = self._border(speed=0)
+        c0, c7 = _StubCanvas(20, 8), _StubCanvas(20, 8)
+        b.paint(c0, frame_count=0)
+        b.paint(c7, frame_count=7)
+        assert c0.pixels == c7.pixels
+
+    def test_three_color_palette_cycles_in_order(self):
+        b = ColorBandsBorder(
+            colors=[(255, 0, 0), (255, 191, 0), (0, 255, 0)], band_width=2
+        )
+        c = _StubCanvas(20, 8)
+        b.paint(c, frame_count=0)
+        px = _perimeter_pixels(20, 8, 1)
+        assert c.pixels[px[0]] == (255, 0, 0)
+        assert c.pixels[px[2]] == (255, 191, 0)
+        assert c.pixels[px[4]] == (0, 255, 0)
+        assert c.pixels[px[6]] == (255, 0, 0)  # wraps
+
+    def test_accepts_color_objects(self):
+        """Constructor materializes .red/.green/.blue objects to plain
+        tuples (same trick as ConstantBorder)."""
+        import types
+
+        b = ColorBandsBorder(
+            colors=[
+                types.SimpleNamespace(red=10, green=20, blue=30),
+                (40, 50, 60),
+            ]
+        )
+        c = _StubCanvas(20, 8)
+        b.paint(c, frame_count=0)
+        px = _perimeter_pixels(20, 8, 1)
+        assert c.pixels[px[0]] == (10, 20, 30)
+
+    def test_unwraps_scaled_canvas_to_paint_real_pixels(self):
+        """Paints at PHYSICAL resolution — 1 px border = 1 real LED on
+        bigsign, not a scale x scale block (mirrors the RainbowChase
+        test of the same name)."""
+        real = _StubCanvas(64, 32)
+        wrapper = ScaledCanvas(real, scale=4, content_height=8)
+        self._border().paint(wrapper, frame_count=0)
+        assert len(real.pixels) == 2 * (64 + 32) - 4  # 188
+
+    def test_thickness_2_paints_both_rings(self):
+        c = _StubCanvas(10, 4)
+        self._border(thickness=2).paint(c, frame_count=0)
+        # Outer ring 24 + inner ring 16 (matches TestPerimeterGeometry).
+        assert len(c.pixels) == 40
+
+    def test_thickness_2_band_index_continues_into_inner_ring(self):
+        """The perimeter index runs continuously from the outer ring
+        into the inner ring (documented behavior — bands don't restart
+        per ring). Geometry chosen so the two behaviors disagree: on
+        10x4 the outer ring is 24 px; with band_width=8 and 2 colors,
+        24 // 8 = 3 bands consumed, so continuous enumeration enters
+        the inner ring mid-pattern at band 3 (odd -> WHITE), while a
+        per-ring restart would re-enter at band 0 (RED). (With
+        band_width=4 the outer ring would be a whole number of color
+        cycles — 24 = 4 * 2 * 3 — and the two formulas would agree at
+        every index, so that geometry can't serve as this tripwire.)"""
+        b = self._border(band_width=8, speed=0, thickness=2)
+        c = _StubCanvas(10, 4)
+        b.paint(c, frame_count=0)
+        px = _perimeter_pixels(10, 4, 2)
+        assert len(px) == 40  # outer 24 + inner 16
+        for idx in range(24, len(px)):
+            expected = [self.RED, self.WHITE][(idx // 8) % 2]
+            assert c.pixels[px[idx]] == expected, f"idx {idx}"
+        # Continuous: idx 24..31 -> band 3 (WHITE). A per-ring restart
+        # would paint RED here — pin one pixel explicitly for clarity.
+        assert c.pixels[px[24]] == self.WHITE
+
+    def test_align_rings_default_false_keeps_continuous_behavior(self):
+        b = self._border(band_width=8, speed=0, thickness=2)
+        assert b.align_rings is False
+        c = _StubCanvas(10, 4)
+        b.paint(c, frame_count=0)
+        px = _perimeter_pixels(10, 4, 2)
+        # Continuous: inner ring picks up at idx 24 -> band 3 -> WHITE.
+        assert c.pixels[px[24]] == self.WHITE
+
+    def test_align_rings_stacks_bands_radially(self):
+        """align_rings=True: every inner-ring EDGE pixel carries the
+        SAME color as the outer pixel directly beside it (perpendicular
+        projection — exact alignment, no mid-edge shear). This is the
+        hardware regression test for the 1px drift seen mid-edge under
+        the earlier proportional mapping. Geometry 20x8 t=2 with
+        band_width=5 puts several band boundaries mid-edge where the
+        proportional mapping's rounding error was visible.
+
+        Assertion ranges follow walk-segment OWNERSHIP: each inner
+        corner pixel belongs to exactly one walk segment and projects
+        along that segment's axis only — e.g. (18,1) starts the inner
+        RIGHT edge (projects to (19,1)), so it is asserted in the
+        right-edge loop, NOT against (18,0): the corner is where bands
+        turn and the ring-length mismatch is absorbed, so perpendicular
+        alignment across the other axis is not guaranteed there
+        (verified empirically: (18,1) vs (18,0) and (1,6) vs (1,7)
+        genuinely differ at this geometry/band_width)."""
+        b = self._border(band_width=5, speed=0, thickness=2, align_rings=True)
+        c = _StubCanvas(20, 8)
+        b.paint(c, frame_count=0)
+        # Top edge: inner (x,1) must match outer (x,0) for the inner
+        # top-edge walk x=1..17.
+        for x in range(1, 18):
+            assert c.pixels[(x, 1)] == c.pixels[(x, 0)], f"top edge x={x}"
+        # Bottom edge: inner (x,6) must match outer (x,7) for the
+        # inner bottom-edge walk x=18..2.
+        for x in range(2, 19):
+            assert c.pixels[(x, 6)] == c.pixels[(x, 7)], f"bottom edge x={x}"
+        # Right edge: inner (18,y) must match outer (19,y) for the
+        # inner right-edge walk y=1..5.
+        for y in range(1, 6):
+            assert c.pixels[(18, y)] == c.pixels[(19, y)], f"right edge y={y}"
+        # Left edge: inner (1,y) must match outer (0,y) for the inner
+        # left-edge walk y=6..2.
+        for y in range(2, 7):
+            assert c.pixels[(1, y)] == c.pixels[(0, y)], f"left edge y={y}"
+
+    def test_align_rings_noop_at_thickness_1(self):
+        """At thickness=1 there's a single ring, so aligned and
+        continuous enumeration are identical."""
+        a = self._border(band_width=4, speed=3, align_rings=True)
+        b = self._border(band_width=4, speed=3, align_rings=False)
+        ca, cb = _StubCanvas(20, 8), _StubCanvas(20, 8)
+        a.paint(ca, frame_count=5)
+        b.paint(cb, frame_count=5)
+        assert ca.pixels == cb.pixels
+
+    def test_align_rings_march_advances_both_rings(self):
+        """With speed>0 the aligned pattern still marches: frame f
+        shifts the outer ring by f*speed, and the inner ring tracks it
+        (same offset applied in outer-ring units)."""
+        b = self._border(band_width=8, speed=2, thickness=2, align_rings=True)
+        c0, c1 = _StubCanvas(10, 4), _StubCanvas(10, 4)
+        b.paint(c0, frame_count=0)
+        b.paint(c1, frame_count=4)
+        assert c0.pixels != c1.pixels
+
+    def test_align_rings_march_keeps_edges_aligned(self):
+        """The march offset applies in outer-ring units AFTER
+        projection, so inner/outer stay aligned at every frame — the
+        'drifts then re-syncs' hardware artifact must be impossible.
+        Range x=1..17 is the inner top-edge walk (x=18 belongs to the
+        inner right edge; see the stacking test's ownership note).
+        Both positive (clockwise) and negative (counter-clockwise) speed
+        are exercised to confirm the projection holds in both directions."""
+        for speed in (3, -3):
+            b = self._border(band_width=5, speed=speed, thickness=2, align_rings=True)
+            for frame in (0, 1, 7, 50):
+                c = _StubCanvas(20, 8)
+                b.paint(c, frame_count=frame)
+                for x in range(1, 18):
+                    assert c.pixels[(x, 1)] == c.pixels[(x, 0)], (
+                        f"speed={speed} f={frame} x={x}"
+                    )
+
+
+class TestBandsBorderCoercion:
+    """TOML surface for style='bands' — palette strings, explicit
+    lists, and the validation matrix."""
+
+    def test_palette_string_resolves(self):
+        b = _coerce_border({"style": "bands", "colors": "rasta"})
+        assert isinstance(b, ColorBandsBorder)
+        assert b._colors == [tuple(c) for c in BAND_PALETTES["rasta"]]
+
+    def test_every_palette_builds(self):
+        for name in BAND_PALETTES:
+            b = _coerce_border({"style": "bands", "colors": name})
+            assert isinstance(b, ColorBandsBorder), name
+
+    def test_explicit_list_with_all_knobs(self):
+        b = _coerce_border(
+            {
+                "style": "bands",
+                "colors": [[255, 0, 0], [0, 0, 255]],
+                "band_width": 8,
+                "speed": -2,
+                "thickness": 2,
+            }
+        )
+        assert b._colors == [(255, 0, 0), (0, 0, 255)]
+        assert b.band_width == 8
+        assert b.speed == -2
+        assert b.thickness == 2
+
+    def test_defaults_from_table(self):
+        b = _coerce_border({"style": "bands", "colors": "candy_cane"})
+        assert b.band_width == 6
+        assert b.speed == 1
+        assert b.thickness == 1
+
+    def test_speed_zero_allowed_and_frame_invariant(self):
+        """Unlike color_cycle (speed=0 rejected), static bands are a
+        meaningful pattern with no simpler spelling."""
+        b = _coerce_border({"style": "bands", "colors": "christmas", "speed": 0})
+        assert b.frame_invariant is True
+
+    def test_missing_colors_raises(self):
+        with pytest.raises(ValueError, match="requires 'colors'"):
+            _coerce_border({"style": "bands"})
+
+    def test_unknown_palette_lists_available(self):
+        with pytest.raises(ValueError, match="candy_cane"):
+            _coerce_border({"style": "bands", "colors": "jamaica"})
+
+    def test_single_entry_list_hint(self):
+        with pytest.raises(ValueError, match=r"use border = \[r, g, b\] instead"):
+            _coerce_border({"style": "bands", "colors": [[255, 0, 0]]})
+
+    def test_empty_list_rejected(self):
+        with pytest.raises(ValueError, match="empty"):
+            _coerce_border({"style": "bands", "colors": []})
+
+    def test_non_list_non_string_rejected(self):
+        with pytest.raises(ValueError, match="palette name string or a list"):
+            _coerce_border({"style": "bands", "colors": 7})
+
+    def test_invalid_rgb_entry_rejected(self):
+        with pytest.raises(ValueError, match=r"colors\[1\]"):
+            _coerce_border({"style": "bands", "colors": [[255, 0, 0], [300, 0, 0]]})
+
+    def test_unknown_keys_rejected(self):
+        """from/to stay exclusive to rainbow / color_cycle."""
+        with pytest.raises(ValueError, match="unknown keys"):
+            _coerce_border(
+                {
+                    "style": "bands",
+                    "colors": "rasta",
+                    "from": [255, 0, 0],
+                    "to": [0, 0, 255],
+                }
+            )
+
+    def test_bool_band_width_rejected(self):
+        with pytest.raises(ValueError, match="band_width"):
+            _coerce_border({"style": "bands", "colors": "rasta", "band_width": True})
+
+    def test_zero_band_width_rejected(self):
+        with pytest.raises(ValueError, match="band_width"):
+            _coerce_border({"style": "bands", "colors": "rasta", "band_width": 0})
+
+    def test_bool_speed_rejected(self):
+        with pytest.raises(ValueError, match="speed"):
+            _coerce_border({"style": "bands", "colors": "rasta", "speed": True})
+
+    def test_bare_string_bands_points_at_inline_table(self):
+        """A dedicated string-match arm in _coerce_border raises a
+        targeted error rather than the generic _build_plugin_style
+        'missing required keys' message, because that gave no example
+        of how to fix it (DX review 2026-06-11)."""
+        with pytest.raises(ValueError, match="requires 'colors'"):
+            _coerce_border("bands")
+        with pytest.raises(ValueError, match="inline-table"):
+            _coerce_border("bands")
+
+    def test_align_rings_accepted(self):
+        b = _coerce_border(
+            {"style": "bands", "colors": "rasta", "thickness": 2, "align_rings": True}
+        )
+        assert b.align_rings is True
+
+    def test_align_rings_non_bool_rejected(self):
+        with pytest.raises(ValueError, match="align_rings"):
+            _coerce_border({"style": "bands", "colors": "rasta", "align_rings": 1})

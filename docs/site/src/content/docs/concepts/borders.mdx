@@ -7,7 +7,7 @@ import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-A border paints a decorative outline around the entire panel perimeter. Five styles are available: an animated **rainbow chase** that sweeps a hue gradient per pixel around the edge, a **color_cycle** that pulses the entire border as one animated hue, a **constant color** that frames the content in a steady solid color, **bands** that march discrete solid-color bands around the edge for candy-cane and flag-ribbon looks, and **lightbulbs** that paint discrete bulb sprites for a classic marquee aesthetic — lit bulbs can optionally use a static rainbow coloring. Both `rainbow` and `color_cycle` accept optional `from` / `to` RGB colors to confine the animation to a specific hue arc instead of sweeping the full spectrum. All styles paint at physical panel resolution, so a pixel-ring border is always exactly one LED wide regardless of scale — even on a big / scaled sign (`default_scale > 1`), where most content is drawn in logical pixels and expanded to fill the panel (see [Display](/concepts/display/)). _For developers:_ borders bypass that block-expansion path and write directly to the real underlying canvas (`SetPixel`).
+A border paints a decorative outline around the entire panel perimeter. All styles paint at physical panel resolution — a pixel-ring border is always exactly one LED wide regardless of scale, even on a big / scaled sign (`default_scale > 1`) where most content is drawn in logical pixels and expanded to fill the panel (see [Display](/concepts/display/)). _For developers:_ borders bypass the block-expansion path and write directly to the real underlying canvas (`SetPixel`). The five styles and their shorthands are listed in the table below. `rainbow` and `color_cycle` also accept optional `from` / `to` RGB colors to confine the animation to a specific hue arc instead of sweeping the full spectrum.
 
 <DemoGif
   src="/demos/concepts-borders.gif"
@@ -21,7 +21,7 @@ A border paints a decorative outline around the entire panel perimeter. Five sty
 | `rainbow`     | `border = "rainbow"`     | yes — hue chase             | yes       |
 | `color_cycle` | `border = "color_cycle"` | no — whole border one hue   | yes       |
 | `constant`    | `border = [r,g,b]`       | no — uniform                | no        |
-| `bands`       | none — inline table only | yes — per-band solid color  | yes       |
+| `bands`       | —                        | yes — per-band solid color  | yes       |
 | `lightbulbs`  | `border = "lightbulbs"`  | optional — rainbow or solid | yes       |
 
 ### Rainbow chase
@@ -166,7 +166,7 @@ border   = {style = "color_cycle", from = [120, 230, 255], to = [50, 100, 255], 
 
 ### Constant
 
-A constant border is a solid-color ring with no animation. Because it never changes frame to frame (`frame_invariant`, an internal flag), the engine's static-text fast path applies: the border is painted once and the widget sleeps for the hold duration rather than redrawing every tick.
+A constant border is a solid-color ring with no animation. Because it never changes frame to frame (`frame_invariant`, an internal flag), the engine's static-text fast path applies: the border is painted once and the widget sleeps for the hold duration rather than redrawing every tick. For multi-color animated stripes, see [Bands](#bands) below.
 
 <DemoGif
   src="/demos-pinned/border-constant.gif"
@@ -202,7 +202,7 @@ Discrete solid-color bands marching around the perimeter — the geometry of the
   caption="candy_cane palette — red/white bands marching clockwise"
 />
 
-`colors` is required: a named palette or an explicit list of two or more RGB colors. There is no bare-string shorthand for this style.
+`colors` is required (no bare-string shorthand): supply a named palette or a list of two or more RGB colors.
 
 <TomlExample
   title="Named palette"
@@ -262,7 +262,7 @@ Data widgets render custom layouts and a perimeter border is not a meaningful co
 
 ## Continuous-phase behavior
 
-Both `rainbow` and `color_cycle` borders have `restart_on_visit = false` — their phase counters advance continuously and never reset between `loop_count` repetitions. If a section repeats with `loop_count = 2`, the border picks up exactly where it left off at the end of the first loop rather than snapping back to the start. The border also composes cleanly with other effects: a single scrolling line can carry `animation = "typewriter"` and `border = "rainbow"` simultaneously, and each effect tracks its own independent counter. See [frame counters](/reference/frame-counters/) for the full model of restart-on-visit versus continuous-phase behavior.
+All animated borders (`rainbow`, `color_cycle`, `bands`, `lightbulbs`) have `restart_on_visit = false` — their phase counters advance continuously and never reset between `loop_count` repetitions. If a section repeats with `loop_count = 2`, the border picks up exactly where it left off at the end of the first loop rather than snapping back to the start. The border also composes cleanly with other effects: a single scrolling line can carry `animation = "typewriter"` and `border = "rainbow"` simultaneously, and each effect tracks its own independent counter. See [frame counters](/reference/frame-counters/) for the full model of restart-on-visit versus continuous-phase behavior.
 
 ## Lightbulbs
 
@@ -346,7 +346,7 @@ border = { style = "lightbulbs", lit_color = "rainbow", hue_wraps = 2 }`}
 
 ### When to use each style
 
-`lightbulbs` reads as a **physical object** (a marquee of light fixtures). `rainbow` / `color_cycle` read as a **graphical effect** (a halo or outline). `bands` reads as a **themed ribbon** — choose it when you want a recognizable color sequence (holiday, national flag, sports team) rather than a spectrum sweep. Pick `lightbulbs` for theatrical / vintage / sports-bar / Vegas-pastiche aesthetics; `rainbow` / `color_cycle` for clean / modern / decorative work; `bands` for seasonal or themed displays.
+`lightbulbs` reads as a **physical object** — a marquee of light fixtures. `rainbow` / `color_cycle` read as a **graphical effect**, a halo or outline. `bands` reads as a **themed ribbon**: use it when you want a recognizable color sequence (a flag, a holiday palette) rather than a spectrum sweep.
 
 `lightbulbs` is unconditionally animated (`frame_invariant = False`) — image-widget fast paths correctly force per-tick redraws on it, same as the other animated borders.
 

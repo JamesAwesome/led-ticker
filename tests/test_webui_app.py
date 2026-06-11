@@ -231,6 +231,7 @@ async def test_root_serves_page(tmp_path):
             "validate-file",
             "/api/inventory",
             "line-gutter",
+            "config-gutter",
         ):
             assert marker in text
     finally:

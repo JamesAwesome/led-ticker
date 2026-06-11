@@ -13,6 +13,7 @@ from typing import Any
 
 import aiohttp
 
+from led_ticker import status_board
 from led_ticker._plugin_loader import (
     _guarded_overlay,
     _run_shutdown_hooks,
@@ -119,6 +120,39 @@ async def run(config_path: Path) -> None:
 
     led_frame = build_frame_from_config(config.display)
 
+    if config.web is not None:
+        from led_ticker.status_board import (  # noqa: PLC0415
+            StatusBoard,
+            StatusLogHandler,
+            set_active_board,
+        )
+
+        board = StatusBoard(path=Path(config.web.status_path))
+        board.config_path = str(config_path)
+        board.geometry = {
+            "rows": config.display.rows,
+            "cols": config.display.cols,
+            "chain_length": config.display.chain_length,
+            "parallel": config.display.parallel,
+            "default_scale": config.display.default_scale,
+            "panel_width": config.display.cols * config.display.chain_length,
+            "panel_height": config.display.rows * config.display.parallel,
+        }
+        board.plugins = [
+            {
+                "namespace": info.namespace,
+                "source": info.source,
+                "counts": dict(info.counts or {}),
+            }
+            for info in plugins.loaded
+        ]
+        board.failed_plugins = [
+            {"namespace": ns, "error": str(err)} for ns, err in plugins.failed
+        ]
+        set_active_board(board)
+        logging.getLogger().addHandler(StatusLogHandler(board))
+        board.publish(force=True)
+
     if config.busy_light.enabled:
         await _start_busy_light(config.busy_light, led_frame)
 
@@ -158,7 +192,14 @@ async def run(config_path: Path) -> None:
 
         try:
             while True:
-                for section in config.sections:
+                for section_index, section in enumerate(config.sections):
+                    status_board.record_section(
+                        index=section_index,
+                        total=len(config.sections),
+                        mode=section.mode,
+                        title=str((section.title or {}).get("text", "")),
+                        widget_count=len(section.widgets),
+                    )
                     notif_queue: asyncio.Queue[Any] = asyncio.Queue()
                     widgets: list[Any] = []
                     runtime_coerce: list[Any] = []

@@ -148,6 +148,9 @@ def test_record_section_publishes_immediately(tmp_path):
     board = _board(tmp_path, min_interval=3600.0)
     status_board.set_active_board(board)
     try:
+        # Advance _last_publish so it's non-zero — the throttle window is now
+        # 3600 s in the future.  Only force=True inside record_section can land.
+        board.publish(force=True)
         status_board.record_section(
             index=1, total=3, mode="swap", title="news", widget_count=4
         )

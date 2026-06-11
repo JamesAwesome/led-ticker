@@ -30,6 +30,9 @@
   .muted { color: #888; }
   #validate-run, #validate-file-row button { background: #36c; color: #fff; border: 0; border-radius: 6px; padding: .5rem 1.2rem; cursor: pointer; margin: .6rem 0; }
   #config-select { background: #222; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: .4rem; }
+  #editor-wrap { display: flex; border: 1px solid #333; border-radius: 6px; background: #000; overflow: hidden; }
+  #line-gutter { border: none; border-right: 1px solid #333; border-radius: 0; width: auto; min-width: 3ch; margin: 0; overflow: hidden; text-align: right; color: #555; user-select: none; line-height: 1.4; }
+  #editor-wrap textarea { border: none; border-radius: 0; flex: 1; white-space: pre; overflow: auto; line-height: 1.4; }
 </style>
 </head>
 <body>
@@ -79,7 +82,10 @@
         Loaded copy is redacted — <code>•••</code> values may validate differently
         than the real file. Use <strong>Validate file</strong> for exact results.
       </div>
-      <textarea id="validate-input" placeholder="Paste TOML here…"></textarea>
+      <div id="editor-wrap">
+        <pre id="line-gutter" aria-hidden="true">1</pre>
+        <textarea id="validate-input" placeholder="Paste TOML here…" spellcheck="false"></textarea>
+      </div>
       <button id="validate-run">Validate</button>
       <div id="validate-result" class="issues"></div>
     </div>
@@ -195,6 +201,17 @@ function renderIssues(body) {
       || '<p class="error">Invalid (no detail returned).</p>';
 }
 
+function syncGutter() {
+  const ta = $("validate-input");
+  const n = ta.value.split("\n").length;
+  $("line-gutter").textContent = Array.from({length: n}, (_, i) => i + 1).join("\n");
+  $("line-gutter").scrollTop = ta.scrollTop;
+}
+$("validate-input").addEventListener("input", syncGutter);
+$("validate-input").addEventListener("scroll", () => {
+  $("line-gutter").scrollTop = $("validate-input").scrollTop;
+});
+
 $("validate-run").onclick = async () => {
   try {
     const r = await fetch("/api/validate", {method: "POST", headers: auth, body: $("validate-input").value});
@@ -240,6 +257,7 @@ $("load-redacted").onclick = async () => {
     const body = await r.json();
     if (body.state !== "ok") { $("validate-result").innerHTML = `<p class="error">${esc(body.detail || body.state || "could not load")}</p>`; return; }
     $("validate-input").value = body.toml;
+    syncGutter();
     $("redacted-banner").style.display = "block";
     $("validate-result").innerHTML = "";
   } catch (e) {

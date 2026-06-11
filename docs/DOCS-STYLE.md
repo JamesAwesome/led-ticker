@@ -56,6 +56,7 @@ The technical-writer reviewer runs this against each completed docs task. Aim fo
 - [ ] Every new term glossed or linked on first use.
 - [ ] Examples complete + copy-pasteable; commands concrete (no `path/to/...`; says where output lands).
 - [ ] Snippets/prose/any complete listing internally consistent; defaults match validation.
+- [ ] GIF-paired snippets match the rendering demo TOML verbatim (snippet/GIF parity rule, §4).
 - [ ] Code bound to a tested source where feasible (no silent drift).
 - [ ] Local "if it doesn't work" troubleshooting where relevant; error copy is blameless (cause → fix).
 - [ ] Cross-links instead of duplication; a next-step CTA at the bottom.
@@ -78,6 +79,7 @@ The technical-writer reviewer runs this against each completed docs task. Aim fo
 - Render one with `make render-demo CONFIG=<config> OUT=<path>` (see `scripts/build-demos.mjs` for the batch build).
 - Demo assets live under `docs/site/public/demos*/`.
 - `render-demo` only loads an **installed** plugin (via its entry point), not a local-dir plugin — for a plugin widget, `pip install -e .` the plugin first, then render.
+- **Snippet/GIF parity (hard rule).** Any `TomlExample` paired with a `DemoGif` (adjacent on the page, or in a "Common patterns" block illustrated by one) must match the `demos-pinned`/`demos` TOML that rendered the GIF **character-for-character** on the config lines it shows. Author the snippet by copying lines out of the demo TOML — never retype — and diff snippet against TOML after any edit to either. Where practical, bind them with a drift tripwire (pattern: `tests/test_docs_config_options_drift.py`). Why: a reader who copies the snippet and gets a different look than the picture stops trusting every GIF on the site. This has bitten us before.
 
 **Build & lint:**
 

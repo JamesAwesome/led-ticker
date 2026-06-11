@@ -16,6 +16,7 @@ from led_ticker.borders import (
     RainbowChaseBorder,
     _lightbulb_positions,
     _perimeter_pixels,
+    _ring_lengths,
 )
 from led_ticker.color_lut import hue_color
 from led_ticker.scaled_canvas import ScaledCanvas
@@ -105,6 +106,25 @@ class TestPerimeterGeometry:
             "_perimeter_pixels should be @functools.cache'd — same args must "
             "return the same list object"
         )
+
+    def test_ring_lengths_consistent_with_perimeter_pixels(self):
+        """_ring_lengths MUST mirror _perimeter_pixels's ring-collapse
+        bail: same ring count, lengths summing to the flat pixel list,
+        including degenerate geometries where inner rings collapse."""
+        for w, h, t in [
+            (10, 4, 2),
+            (256, 64, 2),
+            (3, 10, 2),
+            (4, 4, 2),
+            (10, 4, 1),
+            (10, 4, 0),
+        ]:
+            px = _perimeter_pixels(w, h, t)
+            lens = _ring_lengths(w, h, t)
+            assert sum(lens) == len(px), f"{w}x{h} t={t}"
+            # Outer ring length is the standard perimeter formula.
+            if lens:
+                assert lens[0] == 2 * (w + h) - 4
 
 
 class _StubCanvas:
@@ -1297,6 +1317,58 @@ class TestColorBandsBorder:
         # would paint RED here — pin one pixel explicitly for clarity.
         assert c.pixels[px[24]] == self.WHITE
 
+    def test_align_rings_default_false_keeps_continuous_behavior(self):
+        b = self._border(band_width=8, speed=0, thickness=2)
+        assert b.align_rings is False
+        c = _StubCanvas(10, 4)
+        b.paint(c, frame_count=0)
+        px = _perimeter_pixels(10, 4, 2)
+        # Continuous: inner ring picks up at idx 24 -> band 3 -> WHITE.
+        assert c.pixels[px[24]] == self.WHITE
+
+    def test_align_rings_stacks_bands_radially(self):
+        """align_rings=True: each ring restarts at its own top-left
+        corner with the ring-local index scaled to outer-ring units.
+        On 10x4 t=2 (outer 24, inner 16), inner j maps to
+        eff = (j * 24 + 8) // 16; with band_width=8 and 2 colors:
+        j=0..4 -> eff=0..6 -> band 0 -> RED
+        j=5..10 -> eff=8..15 -> band 1 -> WHITE
+        j=11..15 -> eff=17..23 -> band 0 -> RED
+        Continuous result at the first inner pixel would be WHITE —
+        align_rings changes it to RED."""
+        b = self._border(band_width=8, speed=0, thickness=2, align_rings=True)
+        c = _StubCanvas(10, 4)
+        b.paint(c, frame_count=0)
+        px = _perimeter_pixels(10, 4, 2)
+        outer_len = 24
+        inner_len = 16
+        for j in range(inner_len):
+            eff = (j * outer_len + inner_len // 2) // inner_len
+            expected = [self.RED, self.WHITE][(eff // 8) % 2]
+            assert c.pixels[px[outer_len + j]] == expected, f"inner j={j}"
+        # Corner alignment: first inner pixel matches first outer pixel.
+        assert c.pixels[px[24]] == c.pixels[px[0]] == self.RED
+
+    def test_align_rings_noop_at_thickness_1(self):
+        """At thickness=1 there's a single ring, so aligned and
+        continuous enumeration are identical."""
+        a = self._border(band_width=4, speed=3, align_rings=True)
+        b = self._border(band_width=4, speed=3, align_rings=False)
+        ca, cb = _StubCanvas(20, 8), _StubCanvas(20, 8)
+        a.paint(ca, frame_count=5)
+        b.paint(cb, frame_count=5)
+        assert ca.pixels == cb.pixels
+
+    def test_align_rings_march_advances_both_rings(self):
+        """With speed>0 the aligned pattern still marches: frame f
+        shifts the outer ring by f*speed, and the inner ring tracks it
+        (same offset applied in outer-ring units)."""
+        b = self._border(band_width=8, speed=2, thickness=2, align_rings=True)
+        c0, c1 = _StubCanvas(10, 4), _StubCanvas(10, 4)
+        b.paint(c0, frame_count=0)
+        b.paint(c1, frame_count=4)
+        assert c0.pixels != c1.pixels
+
 
 class TestBandsBorderCoercion:
     """TOML surface for style='bands' — palette strings, explicit
@@ -1393,3 +1465,13 @@ class TestBandsBorderCoercion:
         missing required key — no special-case code."""
         with pytest.raises(ValueError, match=r"missing required keys \['colors'\]"):
             _coerce_border("bands")
+
+    def test_align_rings_accepted(self):
+        b = _coerce_border(
+            {"style": "bands", "colors": "rasta", "thickness": 2, "align_rings": True}
+        )
+        assert b.align_rings is True
+
+    def test_align_rings_non_bool_rejected(self):
+        with pytest.raises(ValueError, match="align_rings"):
+            _coerce_border({"style": "bands", "colors": "rasta", "align_rings": 1})

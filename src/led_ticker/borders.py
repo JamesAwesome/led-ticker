@@ -162,6 +162,28 @@ def _perimeter_pixels(
 
 
 @functools.cache
+def _ring_lengths(width: int, height: int, thickness: int) -> tuple[int, ...]:
+    """Pixel count of each concentric ring `_perimeter_pixels` emits,
+    in the same outer-to-inner order. MUST mirror that function's
+    collapse bail exactly (a ring where `x1 <= x0 or y1 <= y0` is
+    skipped there, so it must be absent here too) — the aligned-bands
+    paint path zips these lengths against the flat pixel list, and a
+    mismatch would shear every band after the divergence point.
+    Tripwire: `test_ring_lengths_consistent_with_perimeter_pixels`.
+    """
+    lengths: list[int] = []
+    for ring in range(thickness):
+        x0 = ring
+        y0 = ring
+        x1 = width - 1 - ring
+        y1 = height - 1 - ring
+        if x1 <= x0 or y1 <= y0:
+            break
+        lengths.append(2 * ((x1 - x0) + (y1 - y0)))
+    return tuple(lengths)
+
+
+@functools.cache
 def _lightbulb_positions(
     width: int,
     height: int,
@@ -398,9 +420,18 @@ class ColorBandsBorder(BorderEffectBase):
 
     `colors` comes from the config layer already resolved to a list of
     RGB tuples (named palettes in `BAND_PALETTES` resolve at coercion
-    time). For `thickness = 2` the perimeter index continues from the
-    outer ring into the inner ring (same continuous enumeration the
-    rainbow chase uses) — bands don't perfectly align ring-to-ring.
+    time).
+
+    For `thickness = 2`, two modes are available:
+
+    - Default (``align_rings=False``): the perimeter index continues
+      from the outer ring into the inner ring (same continuous
+      enumeration the rainbow chase uses) — bands don't perfectly
+      align ring-to-ring, producing a woven texture.
+    - ``align_rings=True``: each ring enumerates from its own
+      top-left corner, with the ring-local index scaled to outer-ring
+      units so band boundaries stay radially aligned around the loop
+      (crisp stacked stripes). No-op at ``thickness=1``.
 
     `frame_invariant` is dynamic: True only when `speed == 0` (static
     bands are a meaningful pattern, and the image-widget fast path can
@@ -417,6 +448,7 @@ class ColorBandsBorder(BorderEffectBase):
         band_width: int = 6,
         speed: int = 1,
         thickness: int = 1,
+        align_rings: bool = False,
     ) -> None:
         # Each entry accepts a `graphics.Color` or an `(r, g, b)`
         # tuple. Materialize to plain tuples at construction so
@@ -427,6 +459,7 @@ class ColorBandsBorder(BorderEffectBase):
         self.band_width = band_width
         self.speed = speed
         self.thickness = thickness
+        self.align_rings = align_rings
 
     @property
     def frame_invariant(self) -> bool:
@@ -436,6 +469,25 @@ class ColorBandsBorder(BorderEffectBase):
         real = unwrap_to_real(canvas)
         offset = frame_count * self.speed
         n = len(self._colors)
+        if self.align_rings:
+            # Stacked stripes: each ring enumerates from its own
+            # top-left corner, with the ring-local index scaled to
+            # outer-ring units so band boundaries stay radially
+            # aligned (constant angular speed across rings). Integer
+            # rounding: (j * outer + ring_len // 2) // ring_len.
+            pixels = _perimeter_pixels(real.width, real.height, self.thickness)
+            ring_lens = _ring_lengths(real.width, real.height, self.thickness)
+            outer = ring_lens[0] if ring_lens else 0
+            i = 0
+            for ring_len in ring_lens:
+                for j in range(ring_len):
+                    x, y = pixels[i]
+                    i += 1
+                    eff = (j * outer + ring_len // 2) // ring_len
+                    band = ((eff - offset) // self.band_width) % n
+                    r, g, b = self._colors[band]
+                    real.SetPixel(x, y, r, g, b)
+            return
         for idx, (x, y) in enumerate(
             _perimeter_pixels(real.width, real.height, self.thickness)
         ):

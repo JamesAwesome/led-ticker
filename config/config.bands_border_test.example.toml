@@ -11,7 +11,8 @@
 #
 # Sections:
 #   1. candy_cane defaults            — baseline: band_width=6, speed=1, thickness=1
-#   2. rasta tuned                    — band_width=12, thickness=2
+#   2. rasta tuned                    — band_width=12, thickness=2 (woven texture)
+#   2b. rasta stacked                 — same as §2 plus align_rings=true (crisp stripes)
 #   3. usa reverse                    — speed=-2 marches counter-clockwise
 #   4. discrete vs continuous rainbow — bands "rainbow" palette + per-char rainbow text
 #   5. explicit color list            — Italy tricolor, no palette
@@ -116,6 +117,26 @@ font = "Inter-Bold"
 font_size = 24
 font_color = [255, 240, 200]
 border = {style = "bands", colors = "rasta", band_width = 12, thickness = 2}
+
+# ---------------------------------------------------------------------------
+# 2b. rasta STACKED — same as §2 plus align_rings=true. Compare against
+#     §2 back-to-back: §2 reads as a woven texture (rings offset), this
+#     one as crisp double-thick stripes (band boundaries radially
+#     aligned, both rings starting at the top-left corner).
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "STACKED"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 240, 200]
+border = {style = "bands", colors = "rasta", band_width = 12, thickness = 2, align_rings = true}
 
 # ---------------------------------------------------------------------------
 # 3. usa reverse — speed=-2: counter-clockwise march at 2× the §1 rate

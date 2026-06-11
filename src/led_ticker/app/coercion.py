@@ -531,7 +531,7 @@ def _coerce_border(value: Any) -> BorderEffect | None:
                     )
                 return LightbulbBorder(**kwargs)
             case "bands":
-                allowed = {"colors", "band_width", "speed", "thickness"}
+                allowed = {"colors", "band_width", "speed", "thickness", "align_rings"}
                 unknown = set(kwargs.keys()) - allowed
                 if unknown:
                     raise ValueError(
@@ -583,6 +583,12 @@ def _coerce_border(value: Any) -> BorderEffect | None:
                         raise ValueError(
                             f"border 'bands' speed must be an int "
                             f"(negative reverses, 0 = static); got {sp!r}"
+                        )
+                if "align_rings" in kwargs:
+                    ar = kwargs["align_rings"]
+                    if not isinstance(ar, bool):
+                        raise ValueError(
+                            f"border 'bands' align_rings must be a bool; got {ar!r}"
                         )
                 return ColorBandsBorder(**kwargs)
             case _:

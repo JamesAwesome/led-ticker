@@ -122,9 +122,9 @@ class TestDrawHiresText:
         # Block-expanded rendering would have lit only at x % 4 == 0
         # boundaries with each lit pixel filling a 4x4 region.
         non_block_aligned = sum(1 for x, _ in lit if x % 4 != 0)
-        assert (
-            non_block_aligned > 0
-        ), "looks block-expanded — hires path didn't bypass wrapper"
+        assert non_block_aligned > 0, (
+            "looks block-expanded — hires path didn't bypass wrapper"
+        )
 
     def test_returns_logical_pixel_advance_not_real(self):
         """Hotfix ec30a97: advance must be reported in LOGICAL units (matches
@@ -168,9 +168,9 @@ class TestDrawHiresText:
         assert lit_ys, "M should render SOMETHING"
         # Cap of 'M' (24px Inter, baseline at real_y=48, ascent=24) lands
         # at real_y ~24. Tolerate 22..32 for font-version drift.
-        assert (
-            min(lit_ys) < 32
-        ), f"top of 'M' at y={min(lit_ys)} — looks anchor-bug clipped"
+        assert min(lit_ys) < 32, (
+            f"top of 'M' at y={min(lit_ys)} — looks anchor-bug clipped"
+        )
         # Bottom of 'M' should land near the baseline at real_y=48.
         # Tolerate 44..50.
         assert max(lit_ys) <= 50
@@ -251,9 +251,9 @@ class TestDrawHiresText:
             for x in range(real_b.width)
             if real_b.get_pixel(x, y) != (0, 0, 0)
         )
-        assert (
-            lit_b > lit
-        ), "fully on-canvas text should paint more pixels than partly off-canvas text"
+        assert lit_b > lit, (
+            "fully on-canvas text should paint more pixels than partly off-canvas text"
+        )
 
     def test_unknown_char_falls_back_to_question_mark(self):
         """Characters not in the rasterized set use the '?' glyph."""
@@ -350,20 +350,20 @@ class TestBdfRasterizerParityWithDrawText:
         canvas_b = _stub_canvas(w=256, h=canvas_h)
         bdf = get_bdf_for(font)
         sc = ScaledCanvas(canvas_b, scale=1, content_height=canvas_h)
-        assert (
-            sc.y_offset_real == 0
-        ), "prerequisite: no vertical shift at scale=1 full-height"
+        assert sc.y_offset_real == 0, (
+            "prerequisite: no vertical shift at scale=1 full-height"
+        )
         sc.draw_bdf_text(bdf, 0, baseline_y, color, _PARITY_TEXT)
         pixels_b = dict(canvas_b._pixels)  # snapshot
 
         # Both paths must paint a non-trivial number of pixels (catch
         # a font-loading failure that silently paints nothing).
-        assert (
-            len(pixels_a) > 10
-        ), f"{font_name}: DrawText painted too few pixels ({len(pixels_a)})"
-        assert (
-            len(pixels_b) > 10
-        ), f"{font_name}: draw_bdf_text painted too few pixels ({len(pixels_b)})"
+        assert len(pixels_a) > 10, (
+            f"{font_name}: DrawText painted too few pixels ({len(pixels_a)})"
+        )
+        assert len(pixels_b) > 10, (
+            f"{font_name}: draw_bdf_text painted too few pixels ({len(pixels_b)})"
+        )
 
         # Core assertion: pixel sets are identical.
         only_in_a = set(pixels_a.items()) - set(pixels_b.items())

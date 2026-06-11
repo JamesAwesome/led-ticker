@@ -65,9 +65,9 @@ def test_renderer_produces_a_gif_for_a_minimal_config(tmp_path):
         cwd=_REPO_ROOT,
     )
 
-    assert (
-        result.returncode == 0
-    ), f"renderer failed:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+    assert result.returncode == 0, (
+        f"renderer failed:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+    )
     assert out.exists()
 
     img = Image.open(out)
@@ -125,9 +125,9 @@ hold_time = 0.5
         cwd=_REPO_ROOT,
     )
 
-    assert (
-        result.returncode == 0
-    ), f"renderer failed:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+    assert result.returncode == 0, (
+        f"renderer failed:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+    )
     assert out.exists()
 
 
@@ -178,9 +178,9 @@ def test_renderer_preserves_engine_wallclock_when_frames_repeat(tmp_path):
         cwd=_REPO_ROOT,
     )
 
-    assert (
-        result.returncode == 0
-    ), f"renderer failed:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+    assert result.returncode == 0, (
+        f"renderer failed:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+    )
 
     img = Image.open(out)
     total_ms = 0
@@ -253,9 +253,9 @@ def test_renderer_static_fast_path_credits_single_frame_with_hold(tmp_path):
         text=True,
         cwd=_REPO_ROOT,
     )
-    assert (
-        result.returncode == 0
-    ), f"renderer failed:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+    assert result.returncode == 0, (
+        f"renderer failed:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+    )
 
     img = Image.open(out)
     total_ms = 0

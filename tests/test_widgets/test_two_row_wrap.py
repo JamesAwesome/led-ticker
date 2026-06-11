@@ -110,9 +110,9 @@ class TestTwoRowWrapDrawRendersMultipleCopies:
         w.draw(canvas, cursor_pos=0)
 
         hi_xs = sorted(x for (x, t) in draws if t == "Hi")
-        assert (
-            len(hi_xs) >= 2
-        ), f"Expected >=2 copies of 'Hi'; got {len(hi_xs)} at xs={hi_xs}"
+        assert len(hi_xs) >= 2, (
+            f"Expected >=2 copies of 'Hi'; got {len(hi_xs)} at xs={hi_xs}"
+        )
 
     def test_draw_modulates_cursor_pos(self, mocker):
         """Calling draw() with cursor_pos=0 vs cursor_pos=-cycle_width

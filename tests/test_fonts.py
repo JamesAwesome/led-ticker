@@ -25,7 +25,6 @@ def test_font_label_char_width():
     assert FONT_LABEL.CharacterWidth(ord("A")) == 7
 
 
-
 def test_font_delta_char_width():
     # 6x10 font
     assert FONT_DELTA.CharacterWidth(ord("A")) == 6

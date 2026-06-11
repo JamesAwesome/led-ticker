@@ -330,8 +330,7 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                         location=loc,
                         severity="error",
                         message=(
-                            f"hold_time={hold_s} is too short"
-                            " (< 50 ms), likely a typo"
+                            f"hold_time={hold_s} is too short (< 50 ms), likely a typo"
                         ),
                         fix="Raise hold_time to at least 0.05 (50 ms)",
                     )
@@ -692,8 +691,7 @@ def _check_transition_fps(config: AppConfig) -> list[ValidationIssue]:
                     location=location,
                     severity="warning",
                     message=(
-                        f"transition_fps={fps} is outside the usable range "
-                        f"5–120 fps"
+                        f"transition_fps={fps} is outside the usable range 5–120 fps"
                     ),
                     fix=(
                         "Use a value between 5 and 120. "
@@ -1631,7 +1629,7 @@ def apply_migrations(path: Path, result: ValidationResult) -> int:
             section_idx, widget_idx = widget_loc
             try:
                 widget = sections[section_idx]["widget"][widget_idx]
-            except (IndexError, KeyError):
+            except IndexError, KeyError:
                 continue
             if issue.fix_key in widget:
                 widget[issue.fix_replacement_key] = widget.pop(issue.fix_key)
@@ -1642,7 +1640,7 @@ def apply_migrations(path: Path, result: ValidationResult) -> int:
         if title_loc is not None:
             try:
                 title = sections[title_loc].get("title")
-            except (IndexError, KeyError):
+            except IndexError, KeyError:
                 continue
             if title and issue.fix_key in title:
                 title[issue.fix_replacement_key] = title.pop(issue.fix_key)

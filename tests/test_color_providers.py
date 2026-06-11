@@ -149,9 +149,9 @@ class TestColorCycleRange:
             c = provider.color_for(frame, 0, 1)
             h, _, _ = colorsys.rgb_to_hsv(c.red / 255, c.green / 255, c.blue / 255)
             hue_deg = h * 360
-            assert (
-                0 <= hue_deg <= 120.0 or hue_deg == 0.0
-            ), f"frame {frame}: hue {hue_deg:.1f}° outside [0°, 120°]"
+            assert 0 <= hue_deg <= 120.0 or hue_deg == 0.0, (
+                f"frame {frame}: hue {hue_deg:.1f}° outside [0°, 120°]"
+            )
 
     def test_shorter_arc_red_to_blue(self):
         """Red (0°) → Blue (240°): shorter arc = 120° backward through magenta.
@@ -420,9 +420,9 @@ class TestColorLUT:
         r = Rainbow()
         c1 = r.color_for(frame=5, char_index=2, total_chars=10)
         c2 = r.color_for(frame=5, char_index=2, total_chars=10)
-        assert (
-            c1 is c2
-        ), "Rainbow.color_for should use the LUT — same args → same object"
+        assert c1 is c2, (
+            "Rainbow.color_for should use the LUT — same args → same object"
+        )
 
     def test_color_cycle_same_frame_returns_same_object(self):
         from led_ticker.color_providers import ColorCycle

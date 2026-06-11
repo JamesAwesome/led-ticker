@@ -679,9 +679,9 @@ def test_production_sprite_loads_and_fits(name):
     assert frames.height <= 64, f"{name} height {frames.height} exceeds panel_h"
     assert frames.width <= 256, f"{name} width {frames.width} exceeds panel_w"
     assert len(frames.durations_ms) >= 1
-    assert any(
-        len(f) > 0 for f in frames.non_black
-    ), f"{name} has no non-black pixels in any frame"
+    assert any(len(f) > 0 for f in frames.non_black), (
+        f"{name} has no non-black pixels in any frame"
+    )
 
 
 class TestProceduralPokeball:
@@ -924,9 +924,9 @@ class TestShowFlags:
         )
         for y in range(real.height):
             for x in range(real.width):
-                assert (
-                    real.get_pixel(x, y) != pikachu_color
-                ), f"unexpected Pikachu pixel at ({x}, {y}) when show_pikachu=False"
+                assert real.get_pixel(x, y) != pikachu_color, (
+                    f"unexpected Pikachu pixel at ({x}, {y}) when show_pikachu=False"
+                )
 
     def test_both_flags_off_paints_no_entities(self):
         """show_pokeball=False AND show_pikachu=False: trail and both

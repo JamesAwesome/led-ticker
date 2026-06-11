@@ -100,12 +100,12 @@ class TestDraw:
         # Two calls per draw (top then bottom). Top y < bottom y.
         assert len(captured_y) == 2
         top_y, bottom_y = captured_y
-        assert (
-            top_y < bottom_y
-        ), f"top_y={top_y} should be less than bottom_y={bottom_y}"
-        assert (
-            top_y <= 8 and bottom_y >= 8
-        ), f"Rows aren't split top/bottom: top_y={top_y} bottom_y={bottom_y}"
+        assert top_y < bottom_y, (
+            f"top_y={top_y} should be less than bottom_y={bottom_y}"
+        )
+        assert top_y <= 8 and bottom_y >= 8, (
+            f"Rows aren't split top/bottom: top_y={top_y} bottom_y={bottom_y}"
+        )
 
     def test_emoji_y_passed_per_row(self, canvas, monkeypatch):
         """Top emoji should sit in rows 0-7; bottom emoji in rows 8-15."""
@@ -465,9 +465,9 @@ class TestWidthCaching:
 
         # 2 calls total: one for top width, one for bottom width. Cached
         # for every subsequent frame.
-        assert (
-            call_count == 2
-        ), f"measure_width called {call_count}× over 20 frames — caching broken"
+        assert call_count == 2, (
+            f"measure_width called {call_count}× over 20 frames — caching broken"
+        )
 
 
 class TestHiresFontSupport:
@@ -779,9 +779,9 @@ class TestAsymmetricRowSplit:
         )
         w.draw(canvas)  # must not raise
         # Top y must be the offset baseline, even when far negative.
-        assert (
-            captured_y[0] < 0
-        ), f"expected top_text_y to be negative, got {captured_y[0]}"
+        assert captured_y[0] < 0, (
+            f"expected top_text_y to be negative, got {captured_y[0]}"
+        )
 
     def test_emoji_offset_alone_doesnt_move_text(self, canvas, monkeypatch):
         """Mirror of `test_text_offset_alone_doesnt_move_emoji`: setting

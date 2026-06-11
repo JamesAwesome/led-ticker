@@ -665,9 +665,9 @@ async def test_rule23_two_row_top_text_overflows(conf):
         """
     result = await validate_config(conf(cfg))
     assert result.valid is True  # warning, not error
-    assert any(
-        w.rule == 23 for w in result.warnings
-    ), f"expected rule 23 warning; got {[w.rule for w in result.warnings]}"
+    assert any(w.rule == 23 for w in result.warnings), (
+        f"expected rule 23 warning; got {[w.rule for w in result.warnings]}"
+    )
 
 
 async def test_rule23_two_row_top_text_fits(conf):
@@ -714,9 +714,9 @@ async def test_rule23_two_row_at_scale2_bigsign_clip(conf):
         bottom_text = "scrolls"
         """
     result = await validate_config(conf(cfg))
-    assert any(
-        w.rule == 23 for w in result.warnings
-    ), f"expected rule 23 warning; got {[w.rule for w in result.warnings]}"
+    assert any(w.rule == 23 for w in result.warnings), (
+        f"expected rule 23 warning; got {[w.rule for w in result.warnings]}"
+    )
 
 
 async def test_rule23_gif_with_bottom_text_overflows(conf):
@@ -868,9 +868,9 @@ async def test_rule22_two_row_inter_bold_too_tall_for_band(conf):
         """)
     result = await validate_config(conf(_BIGSIGN_CONFIG + extra))
     assert not result.valid, "config-load validate should catch font-too-tall"
-    assert any(
-        e.rule == 22 for e in result.errors
-    ), f"expected rule=22 in {[(e.rule, e.message) for e in result.errors]}"
+    assert any(e.rule == 22 for e in result.errors), (
+        f"expected rule=22 in {[(e.rule, e.message) for e in result.errors]}"
+    )
 
 
 async def test_rule22_image_two_row_default_font_too_tall(conf):
@@ -918,9 +918,9 @@ async def test_rule22_passes_when_band_fits(conf):
         bottom_text = "world"
         """)
     result = await validate_config(conf(_BIGSIGN_CONFIG + extra))
-    assert (
-        result.valid
-    ), f"5x8 BDF should fit; got: {[(e.rule, e.message) for e in result.errors]}"
+    assert result.valid, (
+        f"5x8 BDF should fit; got: {[(e.rule, e.message) for e in result.errors]}"
+    )
 
 
 async def test_rule25_start_hold_on_swap_section_errors(conf):
@@ -942,9 +942,9 @@ async def test_rule25_start_hold_on_swap_section_errors(conf):
         """
     result = await validate_config(conf(cfg))
     assert not result.valid
-    assert any(
-        e.rule == 25 for e in result.errors
-    ), f"expected rule 25 error; got {[(e.rule, e.message) for e in result.errors]}"
+    assert any(e.rule == 25 for e in result.errors), (
+        f"expected rule 25 error; got {[(e.rule, e.message) for e in result.errors]}"
+    )
 
 
 async def test_rule25_start_hold_on_gif_section_errors(conf):
@@ -1269,9 +1269,9 @@ async def test_rule28_bottom_text_loops_with_wrap_is_allowed(conf):
         """
     result = await validate_config(conf(cfg))
     rule_28_errors = [e for e in result.errors if e.rule == 28]
-    assert (
-        not rule_28_errors
-    ), f"expected no rule 28 error with wrap enabled; got {rule_28_errors}"
+    assert not rule_28_errors, (
+        f"expected no rule 28 error with wrap enabled; got {rule_28_errors}"
+    )
 
 
 async def test_rule28_bottom_text_loops_zero_is_allowed(conf):
@@ -1516,8 +1516,7 @@ async def test_rule31_scroll_step_ms_zero_errors(conf):
     result = await validate_config(conf(cfg))
     assert not result.valid
     assert any(e.rule == 31 for e in result.errors), (
-        f"expected rule 31 error; got "
-        f"{[(e.rule, e.message) for e in result.errors]}"
+        f"expected rule 31 error; got {[(e.rule, e.message) for e in result.errors]}"
     )
 
 
@@ -1724,9 +1723,9 @@ async def test_rule33_mode_gif_warns(conf):
     result = await validate_config(conf(cfg))
     # Warning only — the config is still valid; ticker can start.
     assert result.valid is True
-    assert any(
-        w.rule == 33 for w in result.warnings
-    ), f"expected rule 33 warning; got warnings={[w.rule for w in result.warnings]}"
+    assert any(w.rule == 33 for w in result.warnings), (
+        f"expected rule 33 warning; got warnings={[w.rule for w in result.warnings]}"
+    )
 
 
 async def test_rule33_mode_swap_does_not_warn(conf):
@@ -1831,9 +1830,9 @@ async def test_rule35_default_inside_section_warns(conf):
     result = await validate_config(conf(cfg))
     # Warning only — the config is valid; ticker can start.
     assert result.valid is True
-    assert any(
-        w.rule == 35 for w in result.warnings
-    ), f"expected rule 35 warning; got warnings={[w.rule for w in result.warnings]}"
+    assert any(w.rule == 35 for w in result.warnings), (
+        f"expected rule 35 warning; got warnings={[w.rule for w in result.warnings]}"
+    )
 
 
 async def test_rule35_default_in_transitions_block_does_not_warn(conf):
@@ -1945,9 +1944,9 @@ bottom_text_wrap = true
         result = await validate_config(cfg)
         # Confirm no rule-27 error (other errors irrelevant for this test).
         rule_27_errors = [e for e in result.errors if e.rule == 27]
-        assert (
-            not rule_27_errors
-        ), f"Expected no rule-27 error in swap mode; got {rule_27_errors}"
+        assert not rule_27_errors, (
+            f"Expected no rule-27 error in swap mode; got {rule_27_errors}"
+        )
 
 
 class TestRule32ScrollThroughSwapOnly:
@@ -2036,9 +2035,9 @@ bottom_text_scroll = "scroll_through"
 
         result = await validate_config(cfg)
         rule_32_errors = [e for e in result.errors if e.rule == 32]
-        assert (
-            not rule_32_errors
-        ), f"Expected no rule-32 error in swap mode; got {rule_32_errors}"
+        assert not rule_32_errors, (
+            f"Expected no rule-32 error in swap mode; got {rule_32_errors}"
+        )
 
     @pytest.mark.asyncio
     async def test_scroll_through_marquee_default_not_flagged(self, tmp_path):
@@ -2065,9 +2064,9 @@ bottom_text_scroll = "marquee"
 
         result = await validate_config(cfg)
         rule_32_errors = [e for e in result.errors if e.rule == 32]
-        assert (
-            not rule_32_errors
-        ), f"marquee mode should not trigger rule 32; got {rule_32_errors}"
+        assert not rule_32_errors, (
+            f"marquee mode should not trigger rule 32; got {rule_32_errors}"
+        )
 
 
 @pytest.mark.asyncio
@@ -2743,9 +2742,9 @@ padding = "6"
     result = await validate_config(config_file)
     output = _format_human(result)
     coerce_warnings = [w for w in result.warnings if w.rule == 37]
-    assert (
-        coerce_warnings
-    ), "expected at least one rule-37 coercion warning from padding='6'"
+    assert coerce_warnings, (
+        "expected at least one rule-37 coercion warning from padding='6'"
+    )
     assert "coercion warning" in output.lower()
 
 
@@ -2971,9 +2970,9 @@ border = {style = "lightbulbs", bulb_size = 0}
 """)
         result = await validate_config(cfg)
         errs = [(e.rule, e.message) for e in result.errors]
-        assert any(
-            i.rule == 42 for i in result.errors
-        ), f"expected rule 42; got errors={errs}"
+        assert any(i.rule == 42 for i in result.errors), (
+            f"expected rule 42; got errors={errs}"
+        )
 
     async def test_negative_raises(self, tmp_path):
         cfg = tmp_path / "c.toml"
@@ -2993,9 +2992,9 @@ border = {style = "lightbulbs", bulb_size = -3}
 """)
         result = await validate_config(cfg)
         errs = [(e.rule, e.message) for e in result.errors]
-        assert any(
-            i.rule == 42 for i in result.errors
-        ), f"expected rule 42; got errors={errs}"
+        assert any(i.rule == 42 for i in result.errors), (
+            f"expected rule 42; got errors={errs}"
+        )
 
 
 class TestRule43BulbSizeTooLarge:
@@ -3018,9 +3017,9 @@ border = {style = "lightbulbs", bulb_size = 9}
         result = await validate_config(cfg)
         # max allowed = 16 // 2 = 8; 9 > 8 → rule 43
         errs = [(e.rule, e.message) for e in result.errors]
-        assert any(
-            i.rule == 43 and "9" in i.message for i in result.errors
-        ), f"expected rule 43 with '9'; got errors={errs}"
+        assert any(i.rule == 43 and "9" in i.message for i in result.errors), (
+            f"expected rule 43 with '9'; got errors={errs}"
+        )
 
 
 class TestRule44UnknownMode:
@@ -3041,9 +3040,9 @@ border = {style = "lightbulbs", mode = "sparkle"}
 """)
         result = await validate_config(cfg)
         errs = [(e.rule, e.message) for e in result.errors]
-        assert any(
-            i.rule == 44 for i in result.errors
-        ), f"expected rule 44; got errors={errs}"
+        assert any(i.rule == 44 for i in result.errors), (
+            f"expected rule 44; got errors={errs}"
+        )
 
 
 class TestRule45BadDirection:
@@ -3064,9 +3063,9 @@ border = {style = "lightbulbs", mode = "chase", direction = "diag"}
 """)
         result = await validate_config(cfg)
         errs = [(e.rule, e.message) for e in result.errors]
-        assert any(
-            i.rule == 45 for i in result.errors
-        ), f"expected rule 45; got errors={errs}"
+        assert any(i.rule == 45 for i in result.errors), (
+            f"expected rule 45; got errors={errs}"
+        )
 
 
 class TestRule46BadChaseDensity:
@@ -3087,9 +3086,9 @@ border = {style = "lightbulbs", mode = "chase", chase_density = 0}
 """)
         result = await validate_config(cfg)
         errs = [(e.rule, e.message) for e in result.errors]
-        assert any(
-            i.rule == 46 for i in result.errors
-        ), f"expected rule 46; got errors={errs}"
+        assert any(i.rule == 46 for i in result.errors), (
+            f"expected rule 46; got errors={errs}"
+        )
 
 
 class TestRule47NegativeGap:
@@ -3110,9 +3109,9 @@ border = {style = "lightbulbs", gap = -1}
 """)
         result = await validate_config(cfg)
         errs = [(e.rule, e.message) for e in result.errors]
-        assert any(
-            i.rule == 47 for i in result.errors
-        ), f"expected rule 47; got errors={errs}"
+        assert any(i.rule == 47 for i in result.errors), (
+            f"expected rule 47; got errors={errs}"
+        )
 
 
 class TestRule48ChaseDensityOnNonChase:
@@ -3133,9 +3132,9 @@ border = {style = "lightbulbs", mode = "unison", chase_density = 5}
 """)
         result = await validate_config(cfg)
         warns = [(w.rule, w.message) for w in result.warnings]
-        assert any(
-            i.rule == 48 for i in result.warnings
-        ), f"expected rule 48 warning; got warnings={warns}"
+        assert any(i.rule == 48 for i in result.warnings), (
+            f"expected rule 48 warning; got warnings={warns}"
+        )
 
 
 class TestRule49DirectionOnNonChase:
@@ -3156,9 +3155,9 @@ border = {style = "lightbulbs", mode = "alternate", direction = "ccw"}
 """)
         result = await validate_config(cfg)
         warns = [(w.rule, w.message) for w in result.warnings]
-        assert any(
-            i.rule == 49 for i in result.warnings
-        ), f"expected rule 49 warning; got warnings={warns}"
+        assert any(i.rule == 49 for i in result.warnings), (
+            f"expected rule 49 warning; got warnings={warns}"
+        )
 
 
 # Rules 51-52: lightbulbs border hue_wraps validation
@@ -3184,9 +3183,9 @@ border = {style = "lightbulbs", hue_wraps = 0}
 """)
         result = await validate_config(cfg)
         errs = [(e.rule, e.message) for e in result.errors]
-        assert any(
-            i.rule == 51 and i.severity == "error" for i in result.errors
-        ), f"expected rule 51 error; got errors={errs}"
+        assert any(i.rule == 51 and i.severity == "error" for i in result.errors), (
+            f"expected rule 51 error; got errors={errs}"
+        )
 
     async def test_hue_wraps_negative_is_error(self, tmp_path):
         cfg = tmp_path / "c.toml"
@@ -3206,9 +3205,9 @@ border = {style = "lightbulbs", hue_wraps = -1}
 """)
         result = await validate_config(cfg)
         errs = [(e.rule, e.message) for e in result.errors]
-        assert any(
-            i.rule == 51 and i.severity == "error" for i in result.errors
-        ), f"expected rule 51 error; got errors={errs}"
+        assert any(i.rule == 51 and i.severity == "error" for i in result.errors), (
+            f"expected rule 51 error; got errors={errs}"
+        )
 
     async def test_hue_wraps_non_numeric_is_error(self, tmp_path):
         cfg = tmp_path / "c.toml"
@@ -3228,9 +3227,9 @@ border = {style = "lightbulbs", hue_wraps = "x"}
 """)
         result = await validate_config(cfg)
         errs = [(e.rule, e.message) for e in result.errors]
-        assert any(
-            i.rule == 51 and i.severity == "error" for i in result.errors
-        ), f"expected rule 51 error; got errors={errs}"
+        assert any(i.rule == 51 and i.severity == "error" for i in result.errors), (
+            f"expected rule 51 error; got errors={errs}"
+        )
 
     async def test_hue_wraps_valid_with_rainbow_no_error(self, tmp_path):
         cfg = tmp_path / "c.toml"
@@ -3250,15 +3249,15 @@ border = {style = "lightbulbs", lit_color = "rainbow", hue_wraps = 2.5}
 """)
         result = await validate_config(cfg)
         errs = [(e.rule, e.message) for e in result.errors]
-        assert not any(
-            i.rule == 51 for i in result.errors
-        ), f"expected no rule 51 error; got errors={errs}"
+        assert not any(i.rule == 51 for i in result.errors), (
+            f"expected no rule 51 error; got errors={errs}"
+        )
         # lit_color="rainbow" means hue_wraps is live, so the rule-52
         # dead-knob warning must NOT fire.
         warns = [(w.rule, w.message) for w in result.warnings]
-        assert not any(
-            i.rule == 52 for i in result.warnings
-        ), f"expected no rule 52 warning for live rainbow config; got warnings={warns}"
+        assert not any(i.rule == 52 for i in result.warnings), (
+            f"expected no rule 52 warning for live rainbow config; got warnings={warns}"
+        )
 
     async def test_hue_wraps_bool_is_error(self, tmp_path):
         # bool is an int subclass; the rule-51 guard must reject it as
@@ -3280,9 +3279,9 @@ border = {style = "lightbulbs", lit_color = "rainbow", hue_wraps = true}
 """)
         result = await validate_config(cfg)
         errs = [(e.rule, e.message) for e in result.errors]
-        assert any(
-            i.rule == 51 and i.severity == "error" for i in result.errors
-        ), f"expected rule 51 error for bool hue_wraps; got errors={errs}"
+        assert any(i.rule == 51 and i.severity == "error" for i in result.errors), (
+            f"expected rule 51 error for bool hue_wraps; got errors={errs}"
+        )
 
     async def test_hue_wraps_nan_is_error(self, tmp_path):
         # nan is a valid TOML float; without the isfinite guard it slips
@@ -3304,9 +3303,9 @@ border = {style = "lightbulbs", lit_color = "rainbow", hue_wraps = nan}
 """)
         result = await validate_config(cfg)
         errs = [(e.rule, e.message) for e in result.errors]
-        assert any(
-            i.rule == 51 and i.severity == "error" for i in result.errors
-        ), f"expected rule 51 error for nan hue_wraps; got errors={errs}"
+        assert any(i.rule == 51 and i.severity == "error" for i in result.errors), (
+            f"expected rule 51 error for nan hue_wraps; got errors={errs}"
+        )
 
     async def test_hue_wraps_inf_is_error(self, tmp_path):
         cfg = tmp_path / "c.toml"
@@ -3326,9 +3325,9 @@ border = {style = "lightbulbs", lit_color = "rainbow", hue_wraps = inf}
 """)
         result = await validate_config(cfg)
         errs = [(e.rule, e.message) for e in result.errors]
-        assert any(
-            i.rule == 51 and i.severity == "error" for i in result.errors
-        ), f"expected rule 51 error for inf hue_wraps; got errors={errs}"
+        assert any(i.rule == 51 and i.severity == "error" for i in result.errors), (
+            f"expected rule 51 error for inf hue_wraps; got errors={errs}"
+        )
 
     async def test_hue_wraps_without_rainbow_is_warning(self, tmp_path):
         cfg = tmp_path / "c.toml"
@@ -3348,9 +3347,9 @@ border = {style = "lightbulbs", hue_wraps = 2}
 """)
         result = await validate_config(cfg)
         warns = [(w.rule, w.message) for w in result.warnings]
-        assert any(
-            i.rule == 52 and i.severity == "warning" for i in result.warnings
-        ), f"expected rule 52 warning; got warnings={warns}"
+        assert any(i.rule == 52 and i.severity == "warning" for i in result.warnings), (
+            f"expected rule 52 warning; got warnings={warns}"
+        )
         # A valid hue_wraps value should not also produce a rule-51 error
         assert not any(i.rule == 51 for i in result.errors), (
             "rule 51 error unexpected for valid value; "
@@ -3391,5 +3390,3 @@ async def test_rule50_transition_fps_valid_no_warning(conf):
 async def test_rule50_transition_fps_absent_no_warning(conf):
     result = await validate_config(conf(GOOD_CONFIG))
     assert all(w.rule != 50 for w in result.warnings)
-
-

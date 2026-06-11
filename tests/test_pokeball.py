@@ -366,9 +366,9 @@ class TestLowresShowPokeballToggle:
         for y in range(16):
             for x in range(160):
                 p = canvas.get_pixel(x, y)
-                assert (
-                    p not in ball_colors
-                ), f"ball-color pixel {p} at ({x}, {y}) with show_pokeball=False"
+                assert p not in ball_colors, (
+                    f"ball-color pixel {p} at ({x}, {y}) with show_pokeball=False"
+                )
 
     def test_lowres_rtl_show_pokeball_false_omits_ball(self):
         from rgbmatrix import _StubCanvas
@@ -396,9 +396,9 @@ class TestLowresShowPokeballToggle:
         for y in range(16):
             for x in range(160):
                 p = canvas.get_pixel(x, y)
-                assert (
-                    p not in ball_colors
-                ), f"ball-color pixel {p} at ({x}, {y}) with show_pokeball=False"
+                assert p not in ball_colors, (
+                    f"ball-color pixel {p} at ({x}, {y}) with show_pokeball=False"
+                )
 
     def test_lowres_show_pokeball_true_paints_ball(self):
         """Sanity baseline: with show_pokeball=True (default), ball IS painted."""

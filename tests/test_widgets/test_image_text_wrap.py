@@ -397,9 +397,9 @@ class TestWrapRendersMultipleCopies:
             gaps = [mains[j + 1] - mains[j] for j in range(len(mains) - 1)]
             median = sorted(gaps)[len(gaps) // 2]
             for g in gaps:
-                assert (
-                    abs(g - median) <= 2
-                ), f"Tick {i}: copy spacing varies — gaps={gaps}."
+                assert abs(g - median) <= 2, (
+                    f"Tick {i}: copy spacing varies — gaps={gaps}."
+                )
             # Track the "leading" copy (rightmost x for right-scroll).
             leading_xs.append(mains[-1])
 

@@ -124,9 +124,9 @@ class TestWrapsForeverRespected:
             await ticker._swap_and_scroll(canvas, widget, hold_time=0.1)
 
             # 0.1s hold ≈ 2 ticks at 50ms.
-            assert (
-                1 <= widget.draw_calls < 100
-            ), f"Bounded by hold_time; got {widget.draw_calls}"
+            assert 1 <= widget.draw_calls < 100, (
+                f"Bounded by hold_time; got {widget.draw_calls}"
+            )
 
     @pytest.mark.asyncio
     async def test_wraps_forever_honors_custom_scroll_speed(self):
@@ -219,9 +219,9 @@ class TestWrapsForeverBottomTextLoops:
             )
 
             # hold_time gives 100 ticks; bottom_text_loops gives 20; max is 100.
-            assert (
-                95 <= widget.draw.call_count <= 105
-            ), f"expected ~100 draws (hold_time wins), got {widget.draw.call_count}"
+            assert 95 <= widget.draw.call_count <= 105, (
+                f"expected ~100 draws (hold_time wins), got {widget.draw.call_count}"
+            )
 
     @pytest.mark.asyncio
     async def test_wraps_forever_bottom_text_loops_zero_uses_hold_time_only(self):

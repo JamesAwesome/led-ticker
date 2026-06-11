@@ -51,9 +51,9 @@ def wipe_cls(tmp_path):
     shutil.copytree(EXAMPLE_DIR, pdir / "example_transition")
     try:
         result = L.load_plugins(pdir, entry_points_enabled=False)
-        assert (
-            "example_transition" in {i.namespace for i in result.loaded}
-        ), result.failed
+        assert "example_transition" in {i.namespace for i in result.loaded}, (
+            result.failed
+        )
         yield get_transition_class("example_transition.wipe")
     finally:
         L.reset_plugins()

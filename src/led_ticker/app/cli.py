@@ -39,9 +39,7 @@ def _format_plugins(result) -> str:
                 for surface in sorted(names):
                     lines.append(f"      {surface}: {', '.join(names[surface])}")
             elif info.counts:
-                contrib = ", ".join(
-                    f"{k}: {v}" for k, v in sorted(info.counts.items())
-                )
+                contrib = ", ".join(f"{k}: {v}" for k, v in sorted(info.counts.items()))
                 lines.append(f"      {contrib}")
             else:
                 lines.append("      (hooks only)")
@@ -117,7 +115,10 @@ def main() -> None:
         ),
     )
     val_parser.add_argument(
-        "--config", "-c", type=Path, default=argparse.SUPPRESS,
+        "--config",
+        "-c",
+        type=Path,
+        default=argparse.SUPPRESS,
         help="Path to TOML config file (defaults to the top-level --config)",
     )
 
@@ -127,7 +128,10 @@ def main() -> None:
         help="List loaded plugins (and any that failed) for the config",
     )
     plugins_parser.add_argument(
-        "--config", "-c", type=Path, default=argparse.SUPPRESS,
+        "--config",
+        "-c",
+        type=Path,
+        default=argparse.SUPPRESS,
         help="Path to TOML config file (defaults to the top-level --config)",
     )
 
@@ -137,7 +141,10 @@ def main() -> None:
         help="Run the web status UI sidecar (requires a [web] block in the config)",
     )
     webui_parser.add_argument(
-        "--config", "-c", type=Path, default=argparse.SUPPRESS,
+        "--config",
+        "-c",
+        type=Path,
+        default=argparse.SUPPRESS,
         help="Path to TOML config file (defaults to the top-level --config)",
     )
 

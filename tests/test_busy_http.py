@@ -198,9 +198,10 @@ async def test_serve_busy_binds_and_responds():
     runner = await serve_busy(busy, host="127.0.0.1", port=0)
     try:
         port = runner.addresses[0][1]
-        async with aiohttp.ClientSession() as s, s.get(
-            f"http://127.0.0.1:{port}/busy", params={"state": "on"}
-        ) as r:
+        async with (
+            aiohttp.ClientSession() as s,
+            s.get(f"http://127.0.0.1:{port}/busy", params={"state": "on"}) as r,
+        ):
             assert r.status == 200
         assert busy.is_busy is True
     finally:

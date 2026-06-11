@@ -225,6 +225,6 @@ class TestImageScrollThroughForcesOffscreenScroll:
             hi = [(x, t) for (x, t) in tick if t == "Hi"]
             if hi:
                 bottom_xs.append(hi[0][0])
-        assert (
-            len(set(bottom_xs)) == 1
-        ), f"Default marquee mode must hold short text; xs={bottom_xs}"
+        assert len(set(bottom_xs)) == 1, (
+            f"Default marquee mode must hold short text; xs={bottom_xs}"
+        )

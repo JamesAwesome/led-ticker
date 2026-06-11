@@ -162,16 +162,28 @@ def _perimeter_pixels(
 
 
 @functools.cache
-def _ring_lengths(width: int, height: int, thickness: int) -> tuple[int, ...]:
-    """Pixel count of each concentric ring `_perimeter_pixels` emits,
-    in the same outer-to-inner order. MUST mirror that function's
-    collapse bail exactly (a ring where `x1 <= x0 or y1 <= y0` is
-    skipped there, so it must be absent here too) — the aligned-bands
-    paint path zips these lengths against the flat pixel list, and a
-    mismatch would shear every band after the divergence point.
-    Tripwire: `test_ring_lengths_consistent_with_perimeter_pixels`.
+def _aligned_indices(width: int, height: int, thickness: int) -> tuple[int, ...]:
+    """Outer-ring index for each pixel `_perimeter_pixels` emits, by
+    PERPENDICULAR PROJECTION: a pixel on ring r's top edge projects
+    straight up to the outer top edge, right edge projects right, and
+    so on. Used by `ColorBandsBorder` with `align_rings=True` so band
+    boundaries align EXACTLY along every edge; the rings' length
+    mismatch (inner rings are 2 px shorter per corner) is absorbed at
+    the corners, where bands visually turn anyway.
+
+    Walk order and the ring-collapse bail MUST mirror
+    `_perimeter_pixels` one-to-one — the paint loop zips this tuple
+    against that pixel list. Ring 0 maps to itself (identity prefix).
+    Tripwire: `test_aligned_indices_consistent_with_perimeter_pixels`.
+
+    Outer-ring index layout (the projection targets), with
+    W = width - 1 and H = height - 1:
+      top edge    (x, 0)      -> x                  for x in 0..W-1
+      right edge  (W, y)      -> W + y              for y in 0..H-1
+      bottom edge (x, H)      -> W + H + (W - x)    for x in W..1
+      left edge   (0, y)      -> 2*W + H + (H - y)  for y in H..1
     """
-    lengths: list[int] = []
+    indices: list[int] = []
     for ring in range(thickness):
         x0 = ring
         y0 = ring
@@ -179,8 +191,19 @@ def _ring_lengths(width: int, height: int, thickness: int) -> tuple[int, ...]:
         y1 = height - 1 - ring
         if x1 <= x0 or y1 <= y0:
             break
-        lengths.append(2 * ((x1 - x0) + (y1 - y0)))
-    return tuple(lengths)
+        # Top edge (x0..x1-1, y0) -> project up to (x, 0)
+        for x in range(x0, x1):
+            indices.append(x)
+        # Right edge (x1, y0..y1-1) -> project right to (width-1, y)
+        for y in range(y0, y1):
+            indices.append((width - 1) + y)
+        # Bottom edge (x1..x0+1, y1) -> project down to (x, height-1)
+        for x in range(x1, x0, -1):
+            indices.append((width - 1) + (height - 1) + (width - 1 - x))
+        # Left edge (x0, y1..y0+1) -> project left to (0, y)
+        for y in range(y1, y0, -1):
+            indices.append(2 * (width - 1) + (height - 1) + (height - 1 - y))
+    return tuple(indices)
 
 
 @functools.cache
@@ -428,10 +451,15 @@ class ColorBandsBorder(BorderEffectBase):
       from the outer ring into the inner ring (same continuous
       enumeration the rainbow chase uses) — bands don't perfectly
       align ring-to-ring, producing a woven texture.
-    - ``align_rings=True``: each ring enumerates from its own
-      top-left corner, with the ring-local index scaled to outer-ring
-      units so band boundaries stay radially aligned around the loop
-      (crisp stacked stripes). No-op at ``thickness=1``.
+    - ``align_rings=True``: each ring pixel takes the band of its
+      PERPENDICULAR PROJECTION onto the outer ring (top edge projects
+      straight up, right edge projects right, etc. — see
+      `_aligned_indices`), so band boundaries align EXACTLY along every
+      edge (crisp stacked stripes, zero mid-edge shear). The rings'
+      length mismatch (inner rings are 2 px shorter per corner) is
+      absorbed at the corners, where bands visually turn anyway. The
+      march offset applies in outer-ring index units, so all rings
+      advance in lockstep. No-op at ``thickness=1``.
 
     `frame_invariant` is dynamic: True only when `speed == 0` (static
     bands are a meaningful pattern, and the image-widget fast path can
@@ -470,23 +498,18 @@ class ColorBandsBorder(BorderEffectBase):
         offset = frame_count * self.speed
         n = len(self._colors)
         if self.align_rings:
-            # Stacked stripes: each ring enumerates from its own
-            # top-left corner, with the ring-local index scaled to
-            # outer-ring units so band boundaries stay radially
-            # aligned (constant angular speed across rings). Integer
-            # rounding: (j * outer + ring_len // 2) // ring_len.
+            # Stacked stripes: each ring pixel takes the band of its
+            # perpendicular projection onto the outer ring, so band
+            # boundaries align exactly along every edge and the
+            # ring-length mismatch is absorbed at the corners. The
+            # offset applies in outer-ring units AFTER projection —
+            # rings march in lockstep at every frame.
             pixels = _perimeter_pixels(real.width, real.height, self.thickness)
-            ring_lens = _ring_lengths(real.width, real.height, self.thickness)
-            outer = ring_lens[0] if ring_lens else 0
-            i = 0
-            for ring_len in ring_lens:
-                for j in range(ring_len):
-                    x, y = pixels[i]
-                    i += 1
-                    eff = (j * outer + ring_len // 2) // ring_len
-                    band = ((eff - offset) // self.band_width) % n
-                    r, g, b = self._colors[band]
-                    real.SetPixel(x, y, r, g, b)
+            effs = _aligned_indices(real.width, real.height, self.thickness)
+            for (x, y), eff in zip(pixels, effs, strict=True):
+                band = ((eff - offset) // self.band_width) % n
+                r, g, b = self._colors[band]
+                real.SetPixel(x, y, r, g, b)
             return
         for idx, (x, y) in enumerate(
             _perimeter_pixels(real.width, real.height, self.thickness)

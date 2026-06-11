@@ -124,6 +124,8 @@ border = {style = "bands", colors = "rasta", band_width = 12, thickness = 2}
 #     §2 back-to-back: §2 reads as a woven texture (rings offset), this
 #     one as crisp double-thick stripes (band boundaries radially
 #     aligned, both rings starting at the top-left corner).
+#     Inner/outer band edges must align EXACTLY at every frame — any
+#     mid-edge drift is a regression (the proportional-mapping shear bug).
 # ---------------------------------------------------------------------------
 [[playlist.section]]
 mode = "swap"

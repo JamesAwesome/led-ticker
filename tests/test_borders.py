@@ -14,9 +14,9 @@ from led_ticker.borders import (
     ConstantBorder,
     LightbulbBorder,
     RainbowChaseBorder,
+    _aligned_indices,
     _lightbulb_positions,
     _perimeter_pixels,
-    _ring_lengths,
 )
 from led_ticker.color_lut import hue_color
 from led_ticker.scaled_canvas import ScaledCanvas
@@ -107,10 +107,11 @@ class TestPerimeterGeometry:
             "return the same list object"
         )
 
-    def test_ring_lengths_consistent_with_perimeter_pixels(self):
-        """_ring_lengths MUST mirror _perimeter_pixels's ring-collapse
-        bail: same ring count, lengths summing to the flat pixel list,
-        including degenerate geometries where inner rings collapse."""
+    def test_aligned_indices_consistent_with_perimeter_pixels(self):
+        """_aligned_indices MUST mirror _perimeter_pixels's walk and
+        collapse bail: same flat length (including degenerate
+        geometries), every value a valid outer-ring index, and an
+        identity prefix for ring 0."""
         for w, h, t in [
             (10, 4, 2),
             (256, 64, 2),
@@ -120,11 +121,33 @@ class TestPerimeterGeometry:
             (10, 4, 0),
         ]:
             px = _perimeter_pixels(w, h, t)
-            lens = _ring_lengths(w, h, t)
-            assert sum(lens) == len(px), f"{w}x{h} t={t}"
-            # Outer ring length is the standard perimeter formula.
-            if lens:
-                assert lens[0] == 2 * (w + h) - 4
+            eff = _aligned_indices(w, h, t)
+            assert len(eff) == len(px), f"{w}x{h} t={t}"
+            outer_len = 2 * (w + h) - 4
+            assert all(0 <= e < outer_len for e in eff) or not eff
+            # Ring 0 is the identity: pixel i maps to index i.
+            if eff:
+                assert list(eff[:outer_len]) == list(range(outer_len))
+
+    def test_aligned_indices_projection_is_perpendicular(self):
+        """Each inner-ring pixel maps to the outer pixel it sits
+        directly inside of. Verified geometrically: for every inner
+        pixel of a thickness-2 ring, the outer pixel at its mapped
+        index is exactly 1 px away along the pixel's projection axis
+        (each pixel belongs to exactly ONE walk segment — corners
+        included — and projects along that segment's axis)."""
+        w, h, t = 10, 4, 2
+        px = _perimeter_pixels(w, h, t)
+        eff = _aligned_indices(w, h, t)
+        outer_len = 2 * (w + h) - 4
+        outer = px[:outer_len]
+        for i in range(outer_len, len(px)):
+            ix, iy = px[i]
+            ox, oy = outer[eff[i]]
+            assert abs(ox - ix) <= 1 and abs(oy - iy) <= 1, (
+                f"inner {px[i]} projected to non-adjacent outer {outer[eff[i]]}"
+            )
+            assert (ox, oy) != (ix, iy)
 
 
 class _StubCanvas:
@@ -1327,27 +1350,42 @@ class TestColorBandsBorder:
         assert c.pixels[px[24]] == self.WHITE
 
     def test_align_rings_stacks_bands_radially(self):
-        """align_rings=True: each ring restarts at its own top-left
-        corner with the ring-local index scaled to outer-ring units.
-        On 10x4 t=2 (outer 24, inner 16), inner j maps to
-        eff = (j * 24 + 8) // 16; with band_width=8 and 2 colors:
-        j=0..4 -> eff=0..6 -> band 0 -> RED
-        j=5..10 -> eff=8..15 -> band 1 -> WHITE
-        j=11..15 -> eff=17..23 -> band 0 -> RED
-        Continuous result at the first inner pixel would be WHITE —
-        align_rings changes it to RED."""
-        b = self._border(band_width=8, speed=0, thickness=2, align_rings=True)
-        c = _StubCanvas(10, 4)
+        """align_rings=True: every inner-ring EDGE pixel carries the
+        SAME color as the outer pixel directly beside it (perpendicular
+        projection — exact alignment, no mid-edge shear). This is the
+        hardware regression test for the 1px drift seen mid-edge under
+        the earlier proportional mapping. Geometry 20x8 t=2 with
+        band_width=5 puts several band boundaries mid-edge where the
+        proportional mapping's rounding error was visible.
+
+        Assertion ranges follow walk-segment OWNERSHIP: each inner
+        corner pixel belongs to exactly one walk segment and projects
+        along that segment's axis only — e.g. (18,1) starts the inner
+        RIGHT edge (projects to (19,1)), so it is asserted in the
+        right-edge loop, NOT against (18,0): the corner is where bands
+        turn and the ring-length mismatch is absorbed, so perpendicular
+        alignment across the other axis is not guaranteed there
+        (verified empirically: (18,1) vs (18,0) and (1,6) vs (1,7)
+        genuinely differ at this geometry/band_width)."""
+        b = self._border(band_width=5, speed=0, thickness=2, align_rings=True)
+        c = _StubCanvas(20, 8)
         b.paint(c, frame_count=0)
-        px = _perimeter_pixels(10, 4, 2)
-        outer_len = 24
-        inner_len = 16
-        for j in range(inner_len):
-            eff = (j * outer_len + inner_len // 2) // inner_len
-            expected = [self.RED, self.WHITE][(eff // 8) % 2]
-            assert c.pixels[px[outer_len + j]] == expected, f"inner j={j}"
-        # Corner alignment: first inner pixel matches first outer pixel.
-        assert c.pixels[px[24]] == c.pixels[px[0]] == self.RED
+        # Top edge: inner (x,1) must match outer (x,0) for the inner
+        # top-edge walk x=1..17.
+        for x in range(1, 18):
+            assert c.pixels[(x, 1)] == c.pixels[(x, 0)], f"top edge x={x}"
+        # Bottom edge: inner (x,6) must match outer (x,7) for the
+        # inner bottom-edge walk x=18..2.
+        for x in range(2, 19):
+            assert c.pixels[(x, 6)] == c.pixels[(x, 7)], f"bottom edge x={x}"
+        # Right edge: inner (18,y) must match outer (19,y) for the
+        # inner right-edge walk y=1..5.
+        for y in range(1, 6):
+            assert c.pixels[(18, y)] == c.pixels[(19, y)], f"right edge y={y}"
+        # Left edge: inner (1,y) must match outer (0,y) for the inner
+        # left-edge walk y=6..2.
+        for y in range(2, 7):
+            assert c.pixels[(1, y)] == c.pixels[(0, y)], f"left edge y={y}"
 
     def test_align_rings_noop_at_thickness_1(self):
         """At thickness=1 there's a single ring, so aligned and
@@ -1368,6 +1406,19 @@ class TestColorBandsBorder:
         b.paint(c0, frame_count=0)
         b.paint(c1, frame_count=4)
         assert c0.pixels != c1.pixels
+
+    def test_align_rings_march_keeps_edges_aligned(self):
+        """The march offset applies in outer-ring units AFTER
+        projection, so inner/outer stay aligned at every frame — the
+        'drifts then re-syncs' hardware artifact must be impossible.
+        Range x=1..17 is the inner top-edge walk (x=18 belongs to the
+        inner right edge; see the stacking test's ownership note)."""
+        b = self._border(band_width=5, speed=3, thickness=2, align_rings=True)
+        for frame in (0, 1, 7, 50):
+            c = _StubCanvas(20, 8)
+            b.paint(c, frame_count=frame)
+            for x in range(1, 18):
+                assert c.pixels[(x, 1)] == c.pixels[(x, 0)], f"f={frame} x={x}"
 
 
 class TestBandsBorderCoercion:

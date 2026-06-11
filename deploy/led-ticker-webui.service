@@ -2,28 +2,33 @@
 # Docker users: the compose.yaml webui service covers this — you do not need
 # to install or enable this unit.
 #
-# Prerequisites: the main led-ticker.service must be running so it can write
-# status.json to /run/led-ticker/ (RuntimeDirectory managed by led-ticker.service).
-# This unit uses RuntimeDirectoryPreserve=yes so the directory survives restarts.
+# Deliberately independent of led-ticker.service: the sidecar must keep
+# serving (showing "stale" / "missing") when the display process is down —
+# that is exactly when you want the status page. Start order is irrelevant;
+# each side degrades gracefully without the other.
 
 [Unit]
 Description=LED Ticker Web Status UI
-After=network-online.target led-ticker.service
+After=network-online.target
 Wants=network-online.target
-BindsTo=led-ticker.service
 
 [Service]
 Type=simple
-User=ledticker
+# DynamicUser: systemd provisions an ephemeral unprivileged user — no GPIO,
+# no useradd step at install. The webui only reads config.toml and
+# /run/led-ticker/status.json (written world-readable by the display
+# process), and binds an unprivileged port.
+DynamicUser=yes
 WorkingDirectory=/opt/led-ticker
-EnvironmentFile=/opt/led-ticker/.env
 ExecStart=/opt/led-ticker/venv/bin/led-ticker webui --config /opt/led-ticker/config.toml
 Restart=on-failure
 RestartSec=10
 StartLimitIntervalSec=60
 StartLimitBurst=5
 
-# No GPIO access needed — this service is deliberately unprivileged.
+# No .env / EnvironmentFile on purpose: the sidecar needs no API keys, and
+# keeping them out of the unprivileged web process preserves the privilege
+# separation this sidecar exists for.
 NoNewPrivileges=yes
 PrivateTmp=yes
 

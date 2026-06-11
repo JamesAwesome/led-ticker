@@ -291,3 +291,50 @@ def test_cli_webui_requires_web_block(tmp_path):
     )
     assert proc.returncode == 2
     assert "[web]" in proc.stderr
+
+
+async def test_validate_file_happy_path_matches_direct_validation(tmp_path):
+    good = (
+        "[display]\nrows = 32\ncols = 64\nchain_length = 8\ndefault_scale = 1\n\n"
+        '[[playlist.section]]\nmode = "swap"\nhold_time = 3\n'
+        '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
+    )
+    (tmp_path / "candidate.toml").write_text(good)
+    client = await _client(tmp_path)
+    try:
+        resp = await client.post("/api/validate-file", json={"name": "candidate.toml"})
+        body = await resp.json()
+        assert resp.status == 200
+        assert body["valid"] is True
+
+        from led_ticker.validate import validate_config
+
+        direct = await validate_config(tmp_path / "candidate.toml")
+        assert body["valid"] == direct.valid
+    finally:
+        await client.close()
+
+
+async def test_validate_file_traversal_and_absent_are_identical_404s(tmp_path):
+    client = await _client(tmp_path)
+    try:
+        bodies = []
+        for name in (
+            "../escape.toml", "/etc/passwd", "sub/x.toml", "nope.toml", "a\x00.toml"
+        ):
+            resp = await client.post("/api/validate-file", json={"name": name})
+            assert resp.status == 404
+            bodies.append(await resp.json())
+        assert all(b == bodies[0] for b in bodies)  # no oracle
+    finally:
+        await client.close()
+
+
+async def test_validate_file_bad_body_is_400(tmp_path):
+    client = await _client(tmp_path)
+    try:
+        assert (await client.post("/api/validate-file", data="not json")).status == 400
+        assert (await client.post("/api/validate-file", json={})).status == 400
+        assert (await client.post("/api/validate-file", json={"name": 7})).status == 400
+    finally:
+        await client.close()

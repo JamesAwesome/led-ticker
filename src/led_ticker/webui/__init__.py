@@ -20,7 +20,7 @@ from aiohttp import web
 
 from led_ticker.status_board import SCHEMA_VERSION
 from led_ticker.validate import ValidationResult, validate_config_text
-from led_ticker.webui._paths import list_config_names
+from led_ticker.webui._paths import list_config_names, safe_config_member
 from led_ticker.webui.redact import redact_toml
 
 # led_ticker.validate was verified clean of rgbmatrix at task-8 implementation
@@ -172,9 +172,26 @@ def _add_config_routes(app: web.Application, config_path: Path) -> None:
         result = await validate_config_text(body)
         return web.json_response(_result_to_json(result))
 
+    async def validate_file_handler(request: web.Request) -> web.Response:
+        try:
+            payload = await request.json()
+        except ValueError:
+            return web.json_response({"error": "body must be JSON"}, status=400)
+        name = payload.get("name") if isinstance(payload, dict) else None
+        if not isinstance(name, str):
+            return web.json_response({"error": "missing name"}, status=400)
+        target = safe_config_member(config_path.parent, name)
+        if target is None:
+            return web.json_response({"error": "unknown config"}, status=404)
+        from led_ticker.validate import validate_config  # noqa: PLC0415
+
+        result = await validate_config(target)
+        return web.json_response(_result_to_json(result))
+
     app.router.add_get("/api/configs", configs_handler)
     app.router.add_get("/api/config", config_handler)
     app.router.add_post("/api/validate", validate_handler)
+    app.router.add_post("/api/validate-file", validate_file_handler)
 
 
 def _add_page_route(app: web.Application) -> None:

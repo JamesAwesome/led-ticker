@@ -16,16 +16,16 @@ Lives in core (`src/led_ticker/borders.py`), not a plugin.
 ## TOML surface
 
 ```toml
-# candy cane
-border = {style = "bands", colors = [[255,0,0], [255,255,255]]}
+# named palette shorthand
+border = {style = "bands", colors = "candy_cane"}
 
-# italy, wider bands, slow reverse march
+# explicit list: italy, wider bands, slow reverse march
 border = {style = "bands", colors = [[0,146,70], [255,255,255], [206,43,55]], band_width = 8, speed = -1}
 ```
 
 | Field | Type | Default | Notes |
 |---|---|---|---|
-| `colors` | list of `[r,g,b]` | **required** | ≥ 2 entries; bands repeat in list order clockwise |
+| `colors` | list of `[r,g,b]` OR palette name string | **required** | list: ≥ 2 entries; bands repeat in list order clockwise. String: named palette from `BAND_PALETTES` |
 | `band_width` | int ≥ 1 | `6` | perimeter pixels per band |
 | `speed` | int | `1` | perimeter px the pattern advances per 50 ms frame; negative reverses; `0` = static bands |
 | `thickness` | int | `1` | concentric rings, same as other borders |
@@ -38,11 +38,29 @@ introspects the constructor and raises
 `ValueError("border style 'bands' missing required keys ['colors']")` —
 already the right error.
 
-**Color spec is the `colors` list only** — no `from`/`to`, no named-string
-entries. `from`/`to` arc semantics stay exclusive to `rainbow` /
-`color_cycle`; a quantized-gradient generator was considered and dropped
-(YAGNI). Unknown keys (including `from`/`to`) get the standard
-unknown-keys error.
+**Color spec: explicit list or named palette** — no `from`/`to`.
+`from`/`to` arc semantics stay exclusive to `rainbow` / `color_cycle`;
+a quantized-gradient generator was considered and dropped (YAGNI).
+Unknown keys (including `from`/`to`) get the standard unknown-keys error.
+
+### Named palettes
+
+`colors` accepts a palette-name string, resolved at coercion time into the
+same RGB-tuple list as the explicit form (single code path after coercion).
+Registry: `BAND_PALETTES: dict[str, list[tuple[int, int, int]]]` in
+`borders.py` (sibling of `_BORDER_REGISTRY`; distinct from `colors.py`'s
+`lazy_palette`, which maps name → single color). Unknown palette names
+raise ValueError listing `sorted(BAND_PALETTES)`. Saturated primaries read
+best on the panels; black is invisible, so palettes exclude it.
+
+| Name | Colors |
+|---|---|
+| `rainbow` | red `[255,0,0]`, orange `[255,128,0]`, yellow `[255,255,0]`, green `[0,255,0]`, blue `[0,0,255]`, purple `[128,0,255]` — discrete ROYGBIV bands (vs. the continuous `style = "rainbow"` chase) |
+| `rasta` | red `[255,0,0]`, gold `[255,191,0]`, green `[0,255,0]` |
+| `usa` | red `[255,0,0]`, white `[255,255,255]`, blue `[0,0,255]` |
+| `christmas` | red `[255,0,0]`, green `[0,255,0]` |
+| `halloween` | orange `[255,100,0]`, purple `[128,0,255]` |
+| `candy_cane` | red `[255,0,0]`, white `[255,255,255]` |
 
 ## Effect class
 
@@ -85,9 +103,11 @@ registered as `"bands"` in `_BORDER_REGISTRY`.
   rejected with the standard sorted-keys message.
 - `colors` validation:
   - missing → ValueError naming the required key with an example
-  - non-list / empty → ValueError
+  - string → resolved via `BAND_PALETTES`; unknown name → ValueError
+    listing available palettes
+  - non-list/non-string / empty → ValueError
   - exactly 1 entry → ValueError with hint "use border = [r, g, b] instead"
-  - each entry through `_validate_rgb` (rejects bools, out-of-range,
+  - each list entry through `_validate_rgb` (rejects bools, out-of-range,
     wrong shape)
 - `band_width`: int ≥ 1, bool excluded.
 - `speed`: int, bool excluded, `0` allowed (static — unlike `color_cycle`,
@@ -120,12 +140,16 @@ coercion test module, following the current tripwire style:
   (hint message); empty/non-list `colors`; invalid RGB entry; unknown
   keys; bool `speed`/`band_width` rejection; bare string `"bands"`
   raises the missing-required-keys error from `_build_plugin_style`.
+- **Palettes**: each named palette resolves (`colors = "rasta"` builds
+  with the registry's tuples); unknown palette name raises listing
+  available; every `BAND_PALETTES` entry has ≥ 2 colors and valid
+  0–255 components (registry sanity tripwire).
 
 ## Docs + housekeeping
 
 - Docs-site borders concept page (`/concepts/borders/`) gets a `bands`
-  section per `docs/DOCS-STYLE.md`, with candy-cane and tricolor TOML
-  examples and the field table.
+  section per `docs/DOCS-STYLE.md`, with palette-shorthand and explicit-
+  list TOML examples, the field table, and the named-palette table.
 - Preview asset rendered via the render-demo tooling — PNG/GIF to `/tmp`
   for review before committing.
 - `borders.py` module docstring: "Four flavors today" → five, with a

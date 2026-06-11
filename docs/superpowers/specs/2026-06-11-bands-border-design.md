@@ -29,6 +29,7 @@ border = {style = "bands", colors = [[0,146,70], [255,255,255], [206,43,55]], ba
 | `band_width` | int ≥ 1 | `6` | perimeter pixels per band |
 | `speed` | int | `1` | perimeter px the pattern advances per 50 ms frame; negative reverses; `0` = static bands |
 | `thickness` | int | `1` | concentric rings, same as other borders |
+| `align_rings` | bool | `false` | at `thickness > 1`: radially align band boundaries across rings (stacked stripes) instead of the continuous-index woven look |
 
 **No string shorthand.** `colors` is the essence of the effect and has no
 sensible default, so the effect is table-only (precedent: `constant`).
@@ -88,10 +89,19 @@ registered as `"bands"` in `_BORDER_REGISTRY`.
   loop (see the fast-path contract in the `borders.py` module docstring).
 - `restart_on_visit = False` — continuous march across `loop_count`
   boundaries within a section, like the other animated borders.
-- `thickness = 2`: perimeter index continues from the outer ring into the
-  inner ring (same continuous enumeration `RainbowChaseBorder` uses).
-  Bands will not perfectly align ring-to-ring; accepted for consistency
-  and simplicity.
+- `thickness = 2`, default: perimeter index continues from the outer ring
+  into the inner ring (same continuous enumeration `RainbowChaseBorder`
+  uses). Bands will not align ring-to-ring — reads as a woven texture.
+- `align_rings = true` (bool, default `false`; added post-review on
+  2026-06-11): paints each ring with its own enumeration, scaling each
+  ring-local index to outer-ring units before the band formula —
+  `eff_idx = (j * outer_len + ring_len // 2) // ring_len` (integer
+  rounding). Both rings start band 0 at the top-left corner and march at
+  the same angular speed, so band boundaries stay radially aligned: crisp
+  stacked stripes instead of the woven default. A no-op at
+  `thickness = 1`. Requires a `_ring_lengths(width, height, thickness)`
+  cached helper whose collapse-bail logic MUST mirror `_perimeter_pixels`
+  (tripwire test asserting the two stay consistent).
 - Paints at PHYSICAL resolution via `unwrap_to_real` — a 1 px border is
   1 real LED on bigsign.
 

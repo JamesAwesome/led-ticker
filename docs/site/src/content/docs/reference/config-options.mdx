@@ -8,8 +8,8 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 This page is the cross-cutting reference for every TOML knob in
 led-ticker, grouped by config section. Per-widget options live on each
 widget's page — this page covers the top-level blocks that wrap them:
-`[display]`, `[title]`, `[transitions]`, `[[playlist.section]]`, and
-`[busy_light]`.
+`[display]`, `[title]`, `[transitions]`, `[[playlist.section]]`,
+`[busy_light]`, and `[web]`.
 Field names and defaults match the dataclasses in
 `src/led_ticker/config.py`. For per-widget knobs see [Widgets](/widgets/).
 
@@ -159,6 +159,17 @@ A persistent corner dot painted as an overlay over every section and transition 
 | `http_port`     | int         | `8080`        | Listen port when `source = "http"`. Range 1–65535.                                                                                                   |
 | `token`         | string      | `""`          | Shared secret for the HTTP source. Empty = open (trusted LAN only).                                                                                  |
 | `ttl_seconds`   | float       | `0.0`         | HTTP source: default auto-clear seconds for a `state=on` that omits `?ttl=`. Per-request `?ttl=N` overrides it. `0` = stay on until explicit off.    |
+
+## `[web]`
+
+The optional read-only web status dashboard — a browser UI that shows what the sign is currently displaying, exposes the live config with secrets redacted, and lets you paste a candidate config through the validator. Presence of the `[web]` block (even empty) enables status publishing in the display process and allows the `led-ticker webui` sidecar to serve it. Absence disables the feature entirely — existing configs with no `[web]` block are unaffected. See [Web status UI](/concepts/web-status-ui/) for setup and usage.
+
+| Field         | Type   | Default                         | Notes                                                                                                                                                 |
+| ------------- | ------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `host`        | string | `"0.0.0.0"`                     | Interface the sidecar binds. `"0.0.0.0"` listens on all interfaces (all LAN addresses); `"127.0.0.1"` limits to localhost only.                       |
+| `port`        | int    | `8080`                          | HTTP port the sidecar serves. Binds directly on the Pi (the compose service uses host networking; bare metal binds it natively).                      |
+| `token`       | string | `""`                            | Optional shared secret. Empty = open (trusted-LAN posture). Non-empty requires an `X-Web-Token` header or `?token=` query parameter on every request. |
+| `status_path` | string | `"/run/led-ticker/status.json"` | Path where the display process writes its status snapshot; the sidecar reads the same file. Must match between both processes.                        |
 
 ## Tips
 

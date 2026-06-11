@@ -167,6 +167,21 @@ class BusyLightConfig:
 
 
 @dataclass
+class WebConfig:
+    """The [web] block: status publishing + the ``led-ticker webui`` sidecar.
+
+    Presence of the block (even empty) enables status publishing in the
+    display process. Absence disables it entirely — zero new behavior for
+    existing configs.
+    """
+
+    host: str = "0.0.0.0"
+    port: int = 8080
+    token: str = ""  # empty = open; non-empty enables auth on every route
+    status_path: str = "/run/led-ticker/status.json"
+
+
+@dataclass
 class PluginsConfig:
     enabled: bool = True
     dir: str = "plugins"
@@ -212,6 +227,45 @@ def _parse_plugins_block(raw: dict) -> PluginsConfig:
     return cfg
 
 
+def _parse_web_block(raw: dict) -> WebConfig | None:
+    """Parse + validate the [web] table. Returns None when the block is
+    absent. Shared by load_config and read_web_config (the sidecar's
+    lightweight reader, which must work on configs whose playlist is
+    broken — that's exactly when the validate tab is needed)."""
+    if "web" not in raw:
+        return None
+    w_raw = raw["web"]
+    cfg = WebConfig(
+        host=w_raw.get("host", "0.0.0.0"),
+        port=w_raw.get("port", 8080),
+        token=w_raw.get("token", ""),
+        status_path=w_raw.get("status_path", "/run/led-ticker/status.json"),
+    )
+    if not isinstance(cfg.host, str):
+        raise ValueError(f"web.host must be a string; got {type(cfg.host).__name__}.")
+    if (
+        isinstance(cfg.port, bool)
+        or not isinstance(cfg.port, int)
+        or not 1 <= cfg.port <= 65535
+    ):
+        raise ValueError(f"web.port must be 1-65535; got {cfg.port!r}.")
+    if not isinstance(cfg.token, str):
+        raise ValueError(f"web.token must be a string; got {type(cfg.token).__name__}.")
+    if not isinstance(cfg.status_path, str) or not cfg.status_path.strip():
+        raise ValueError(
+            f"web.status_path must be a non-empty string; got {cfg.status_path!r}."
+        )
+    return cfg
+
+
+def read_web_config(path: Path) -> WebConfig | None:
+    """Lightweight [web] reader for the sidecar — parses only the web block,
+    so a config with playlist errors still serves the status/validate UI."""
+    with open(path, "rb") as f:
+        raw = tomllib.load(f)
+    return _parse_web_block(raw)
+
+
 @dataclass
 class AppConfig:
     display: DisplayConfig
@@ -226,6 +280,7 @@ class AppConfig:
     between_sections_specified: bool = False
     busy_light: BusyLightConfig = field(default_factory=BusyLightConfig)
     plugins: PluginsConfig = field(default_factory=PluginsConfig)
+    web: WebConfig | None = None
     # Warnings collected during load_config when string-of-digits or
     # mixed-case enum values get coerced to canonical typed values.
     # validate.py surfaces these as rule-37 warnings; app.py:run() logs
@@ -451,6 +506,7 @@ def load_config(path: Path) -> AppConfig:
         )
 
     plugins = _parse_plugins_block(raw)
+    web = _parse_web_block(raw)
 
     sections = []
     for i, section_raw in enumerate(raw.get("playlist", {}).get("section", [])):
@@ -542,5 +598,6 @@ def load_config(path: Path) -> AppConfig:
         between_sections_specified=between_sections_specified,
         busy_light=busy_light,
         plugins=plugins,
+        web=web,
         _coerce_warnings=coerce_warnings,
     )

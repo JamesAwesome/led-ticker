@@ -1,0 +1,147 @@
+---
+title: Web status UI
+description: A read-only browser dashboard for your sign — now-playing status, live config viewer, and in-browser config validator.
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+import { Aside, Steps, Tabs, TabItem } from "@astrojs/starlight/components";
+
+The web status UI is a read-only browser dashboard you open while the sign is running. It shows you what the sign is displaying right now, lets you inspect the live config with secrets redacted, and gives you an in-browser validator you can paste a candidate config into before deploying it.
+
+**What you'll need:** a running led-ticker sign with the Docker or bare-metal setup from [Getting started](/getting-started/). No additional accounts, API keys, or hardware changes required.
+
+## What's on the dashboard
+
+Three tabs, one URL (`http://<pi>:8080`):
+
+| Tab          | What it shows                                                                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Status**   | The widget currently playing, how long it has been on screen, section health, loaded plugins, and a stale/missing indicator when the display process is down.                   |
+| **Config**   | The full `config.toml` the display process loaded, with every value that looks like a secret replaced by `•••`. Safe to screenshot and share when troubleshooting.              |
+| **Validate** | A text area where you paste a candidate config and click **Validate**. Returns the same pass/fail result as `led-ticker validate` — no restart, no risk to the running display. |
+
+## Architecture
+
+The dashboard is a separate **sidecar process** (`led-ticker webui`). It is unprivileged — no GPIO access, no API keys — and reads only `config.toml` and a `status.json` file the display process writes. Neither side needs the other to be up: if the display process crashes, the sidecar keeps serving (the Status tab shows a stale or missing indicator); if the sidecar is not running, the sign keeps displaying. Start order is irrelevant. The `status.json` path defaults to `/run/led-ticker/status.json` and is configurable via `status_path` in the `[web]` block.
+
+## Enabling it
+
+Add a `[web]` block to your `config.toml`. An empty block is valid and uses the defaults:
+
+<TomlExample
+  title="Minimal — all defaults"
+  code={`[web]
+# host = "0.0.0.0"   # listen on all LAN interfaces (default)
+# port = 8080        # (default)
+# token = ""         # open — see Auth below`}
+/>
+
+Presence of the block enables status publishing in the display process. Absence (no `[web]` block at all) disables the feature entirely — existing configs without the block are unaffected.
+
+### Docker
+
+The `compose.yaml` defines the `webui` service behind the `webui` compose profile, so a plain `docker compose up -d` changes nothing. Enabling the dashboard takes two steps: add the `[web]` block to `config.toml`, then start with the profile on. Both are needed — the profile starts the sidecar, and the block tells the display process to publish (and the sidecar exits without it).
+
+```yaml
+# The webui service as it appears in compose.yaml (note the profile):
+webui:
+  profiles: ["webui"]
+  image: led-ticker
+  build: .
+  container_name: led-ticker-webui
+  restart: unless-stopped
+  command: ["led-ticker", "webui", "--config", "/code/config/config.toml"]
+  network_mode: host
+  volumes:
+    - ./config:/code/config:ro
+    - ticker-status:/run/led-ticker
+```
+
+The `ticker-status` named volume is the shared channel: the display process writes `status.json` there; the sidecar reads it. Both services mount the same volume so they work correctly even when one is restarted independently.
+
+Then bring it up:
+
+```bash
+COMPOSE_PROFILES=webui docker compose up -d
+# or equivalently: docker compose --profile webui up -d
+# Tip: put COMPOSE_PROFILES=webui in the .env next to compose.yaml to make it sticky.
+```
+
+Open `http://<pi-hostname>.local:8080` in a browser.
+
+### Bare metal (systemd)
+
+1. Add `[web]` to your `config.toml`.
+2. Install the sidecar service (one-time):
+
+   ```bash
+   sudo cp deploy/led-ticker-webui.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now led-ticker-webui
+   ```
+
+3. Check it started:
+
+   ```bash
+   sudo systemctl status led-ticker-webui
+   ```
+
+The sidecar runs as an ephemeral unprivileged user provisioned by systemd (`DynamicUser=yes`) — no `useradd` step required. It reads `status.json` from `/run/led-ticker/` — that directory is created by the display process on startup, so the sidecar may log a brief "missing" state until the display process has run at least once.
+
+<Aside type="note">
+  The sidecar service is intentionally **not** set as `After=led-ticker.service`. Both services
+  degrade gracefully without the other; coupling start order would prevent the sidecar from serving
+  the "display is down" diagnostic exactly when it matters most.
+</Aside>
+
+## Auth
+
+By default the dashboard is open — appropriate for a trusted home LAN. To add a shared token:
+
+<TomlExample
+  title="With token"
+  code={`[web]
+token = "change-me"`}
+/>
+
+With a token set, every request must include it, either as a header or a query parameter:
+
+```bash
+# Header form (preferred — token does not appear in server logs)
+curl -H "X-Web-Token: change-me" http://pi:8080/api/status
+
+# Query-param form (convenient for browser access)
+http://pi:8080/?token=change-me
+```
+
+A missing or wrong token returns `401`. The query-param form works in a browser address bar, so bookmarking `http://pi:8080/?token=…` gives you one-click access.
+
+**Secrets are always redacted** from the Config tab regardless of whether auth is enabled or what token was used. The redaction runs in the sidecar, not in the browser.
+
+For anything beyond your home LAN — exposing the dashboard over the internet — put a reverse proxy (nginx, Caddy) in front and let the proxy handle TLS and stronger auth. The sidecar itself is a LAN-appliance; it has no TLS support.
+
+## What it does not do (v1)
+
+The dashboard is intentionally read-only:
+
+- No config apply or save — edit `config.toml` and restart as usual.
+- No restart or reboot button.
+- No brightness control.
+- No write access to the sign whatsoever.
+
+The Validate tab lets you check a candidate config without risk, but applying it is still a manual edit + restart step.
+
+## Troubleshooting
+
+**The page doesn't load at all (connection refused)** — The sidecar isn't running. On Docker, the `webui` service only starts when the `webui` compose profile is enabled — check `docker compose ps`; if the container is absent, start with `COMPOSE_PROFILES=webui docker compose up -d`. If the container exists but is restarting, check `docker compose logs webui` — a missing `[web]` block in `config.toml` makes the subcommand exit with a message naming the fix.
+
+**"Status: missing" on the Status tab** — The display process has not written `status.json` yet. Confirm the display process is running (`docker compose ps` or `systemctl status led-ticker`) and that both processes share the same `status_path` (default `/run/led-ticker/status.json`). On bare metal, `/run/led-ticker/` is created by the display process — if the display process has never started, the directory does not exist yet.
+
+**"Status: stale" on the Status tab** — The display process wrote a status file but has not updated it recently. This usually means the process crashed or was stopped. Check `docker compose logs led-ticker` or `journalctl -u led-ticker`.
+
+**Browser shows nothing / 401** — A token is set in `[web]`. Add `?token=<your-token>` to the URL, or configure your browser extension / bookmark with the `X-Web-Token` header.
+
+**Sidecar binds a port already in use** — If `[busy_light]` is configured with `source = "http"` and the same `port` value (default `8080` for both), one of them will fail to bind. Use a different port for one of the two: e.g. `[busy_light] http_port = 8081`.
+
+<RelatedPages slugs={["reference/config-options", "concepts/busy-light", "reference/cli"]} />

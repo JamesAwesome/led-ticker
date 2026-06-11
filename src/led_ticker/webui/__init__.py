@@ -96,8 +96,8 @@ def build_webui_app(
 
     app = web.Application(middlewares=[auth])
     app.router.add_get("/api/status", status_handler)
-    _add_config_routes(app, config_path)  # Task 8 fills this in
-    _add_page_route(app)  # Task 9 fills this in
+    _add_config_routes(app, config_path)
+    _add_page_route(app)
     return app
 
 

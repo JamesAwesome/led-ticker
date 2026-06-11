@@ -1277,24 +1277,25 @@ class TestColorBandsBorder:
     def test_thickness_2_band_index_continues_into_inner_ring(self):
         """The perimeter index runs continuously from the outer ring
         into the inner ring (documented behavior — bands don't restart
-        per ring). A regression that re-enumerates each ring from 0
-        would repaint the inner ring's first pixel with color 0."""
-        b = self._border(band_width=4, speed=0, thickness=2)
+        per ring). Geometry chosen so the two behaviors disagree: on
+        10x4 the outer ring is 24 px; with band_width=8 and 2 colors,
+        24 // 8 = 3 bands consumed, so continuous enumeration enters
+        the inner ring mid-pattern at band 3 (odd -> WHITE), while a
+        per-ring restart would re-enter at band 0 (RED). (With
+        band_width=4 the outer ring would be a whole number of color
+        cycles — 24 = 4 * 2 * 3 — and the two formulas would agree at
+        every index, so that geometry can't serve as this tripwire.)"""
+        b = self._border(band_width=8, speed=0, thickness=2)
         c = _StubCanvas(10, 4)
         b.paint(c, frame_count=0)
         px = _perimeter_pixels(10, 4, 2)
-        # Outer ring on 10x4 is 24 px; the inner ring starts at idx 24.
-        # Band at idx 24 with band_width=4, 2 colors: (24 // 4) % 2 = 0
-        # -> RED; a per-ring restart would ALSO give RED here, so pin a
-        # deeper inner-ring pixel where the two disagree: idx 28 ->
-        # (28 // 4) % 2 = 1 -> WHITE, but a restart would give
-        # ((28 - 24) // 4) % 2 = 1 ... pick idx 30: continuous
-        # (30 // 4) % 2 = 7 % 2 = 1 -> WHITE; restart ((30 - 24) // 4)
-        # % 2 = 1 % 2 = 1 -> WHITE too. Safest: assert the FULL inner
-        # ring against the continuous formula.
+        assert len(px) == 40  # outer 24 + inner 16
         for idx in range(24, len(px)):
-            expected = [self.RED, self.WHITE][(idx // 4) % 2]
+            expected = [self.RED, self.WHITE][(idx // 8) % 2]
             assert c.pixels[px[idx]] == expected, f"idx {idx}"
+        # Continuous: idx 24..31 -> band 3 (WHITE). A per-ring restart
+        # would paint RED here — pin one pixel explicitly for clarity.
+        assert c.pixels[px[24]] == self.WHITE
 
 
 class TestBandsBorderCoercion:

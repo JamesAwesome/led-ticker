@@ -48,4 +48,14 @@ services:
       - ticker-status:/run/led-ticker
 
 volumes:
+  # tmpfs-backed: status.json is rewritten ~every 2s. Keeping it in RAM
+  # avoids SD-card wear (~43K small writes/day) and the SD write-latency
+  # tail (measured on a Pi 5 SD card: p99 ~4ms, max ~16ms of the 50ms
+  # render tick; tmpfs is sub-ms). Size-capped — it only ever holds one
+  # small JSON snapshot.
   ticker-status:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=1m

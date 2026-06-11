@@ -338,3 +338,22 @@ async def test_validate_file_bad_body_is_400(tmp_path):
         assert (await client.post("/api/validate-file", json={"name": 7})).status == 400
     finally:
         await client.close()
+
+
+async def test_validate_file_vanishing_target_is_404_not_500(tmp_path, monkeypatch):
+    # TOCTOU: file passes the guard but is deleted before validate_config
+    # runs. Must classify as the same 404 as never-existed, never a 500.
+    import led_ticker.webui as webui_mod
+
+    async def vanished(path, *, strict=False):
+        raise FileNotFoundError(path)
+
+    (tmp_path / "ghost.toml").write_text("[display]\nrows = 16\n")
+    client = await _client(tmp_path)
+    monkeypatch.setattr(webui_mod, "validate_config", vanished)
+    try:
+        resp = await client.post("/api/validate-file", json={"name": "ghost.toml"})
+        assert resp.status == 404
+        assert (await resp.json()) == {"error": "unknown config"}
+    finally:
+        await client.close()

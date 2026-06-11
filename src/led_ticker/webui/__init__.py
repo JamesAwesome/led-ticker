@@ -19,7 +19,11 @@ from pathlib import Path
 from aiohttp import web
 
 from led_ticker.status_board import SCHEMA_VERSION
-from led_ticker.validate import ValidationResult, validate_config_text
+from led_ticker.validate import (
+    ValidationResult,
+    validate_config,
+    validate_config_text,
+)
 from led_ticker.webui._paths import list_config_names, safe_config_member
 from led_ticker.webui.redact import redact_toml
 
@@ -183,9 +187,12 @@ def _add_config_routes(app: web.Application, config_path: Path) -> None:
         target = safe_config_member(config_path.parent, name)
         if target is None:
             return web.json_response({"error": "unknown config"}, status=404)
-        from led_ticker.validate import validate_config  # noqa: PLC0415
-
-        result = await validate_config(target)
+        try:
+            result = await validate_config(target)
+        except FileNotFoundError:
+            # TOCTOU: the file passed the guard but vanished before the
+            # validate. Same envelope as never-existed — no oracle, no 500.
+            return web.json_response({"error": "unknown config"}, status=404)
         return web.json_response(_result_to_json(result))
 
     app.router.add_get("/api/configs", configs_handler)

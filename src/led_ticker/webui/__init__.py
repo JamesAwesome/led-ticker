@@ -141,8 +141,15 @@ def _add_config_routes(app: web.Application, config_path: Path) -> None:
         )
 
     async def config_handler(request: web.Request) -> web.Response:
+        target = config_path
+        name = request.query.get("name")
+        if name is not None:
+            member = safe_config_member(config_path.parent, name)
+            if member is None:
+                return web.json_response({"error": "unknown config"}, status=404)
+            target = member
         try:
-            text = config_path.read_text(encoding="utf-8")
+            text = target.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as e:
             return web.json_response({"state": "unreadable", "detail": str(e)})
         geometry: dict = {}

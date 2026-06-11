@@ -357,3 +357,37 @@ async def test_validate_file_vanishing_target_is_404_not_500(tmp_path, monkeypat
         assert (await resp.json()) == {"error": "unknown config"}
     finally:
         await client.close()
+
+
+async def test_config_view_by_name_is_redacted(tmp_path):
+    (tmp_path / "alt.toml").write_text('[web]\ntoken = "altsecret"\n')
+    client = await _client(tmp_path)
+    try:
+        body = await (
+            await client.get("/api/config", params={"name": "alt.toml"})
+        ).json()
+        assert body["state"] == "ok"
+        assert "altsecret" not in body["toml"]
+        assert "•••" in body["toml"]
+    finally:
+        await client.close()
+
+
+async def test_config_view_by_name_traversal_is_404(tmp_path):
+    client = await _client(tmp_path)
+    try:
+        for name in ("../x.toml", "/etc/passwd", "nope.toml"):
+            assert (
+                await client.get("/api/config", params={"name": name})
+            ).status == 404
+    finally:
+        await client.close()
+
+
+async def test_config_view_without_name_unchanged(tmp_path):
+    client = await _client(tmp_path)
+    try:
+        body = await (await client.get("/api/config")).json()
+        assert body["state"] == "ok"  # the running config, as in v1
+    finally:
+        await client.close()

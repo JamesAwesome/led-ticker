@@ -228,3 +228,44 @@ def test_run_spawns_heartbeat():
         "run() must spawn the status heartbeat — without it any widget held "
         "longer than 3x min_interval shows a false 'stale' on the page."
     )
+
+
+def test_setup_publishes_plugin_names(tmp_path):
+    from pathlib import Path
+
+    from led_ticker.app.run import _setup_status_board, _teardown_status_board
+
+    config = _make_fake_config(str(tmp_path / "status.json"))
+    info = types.SimpleNamespace(
+        namespace="baseball",
+        source="entry-point",
+        counts={"widgets": 2, "emojis": 1},
+        names={
+            "widgets": ["baseball.scores", "baseball.standings"],
+            "emojis": ["baseball.ball"],
+        },
+    )
+    plugins = types.SimpleNamespace(loaded=[info], failed=[])
+    handle = _setup_status_board(config, Path(tmp_path / "config.toml"), plugins)
+    try:
+        board, _ = handle
+        assert board.plugins[0]["names"]["emojis"] == ["baseball.ball"]
+    finally:
+        _teardown_status_board(handle)
+
+
+def test_setup_tolerates_nameless_plugin_info(tmp_path):
+    """v1.0-shaped PluginInfo (no names attr) must not break setup."""
+    from pathlib import Path
+
+    from led_ticker.app.run import _setup_status_board, _teardown_status_board
+
+    config = _make_fake_config(str(tmp_path / "status.json"))
+    handle = _setup_status_board(
+        config, Path(tmp_path / "config.toml"), _make_fake_plugins()
+    )
+    try:
+        board, _ = handle
+        assert board.plugins[0]["names"] == {}
+    finally:
+        _teardown_status_board(handle)

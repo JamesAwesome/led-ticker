@@ -501,12 +501,12 @@ class TestTwoRowLogicalUnits:
 
         # top band = 16 logical → cap raised from 8 default to 16.
         # bottom band = 8 logical → cap stays 8.
-        assert (
-            captured["top"] == 16
-        ), f"expected top_emoji_cap = 16 (band size), got {captured['top']!r}"
-        assert (
-            captured["bottom"] == 8
-        ), f"expected bottom_emoji_cap = 8 (default floor), got {captured['bottom']!r}"
+        assert captured["top"] == 16, (
+            f"expected top_emoji_cap = 16 (band size), got {captured['top']!r}"
+        )
+        assert captured["bottom"] == 8, (
+            f"expected bottom_emoji_cap = 8 (default floor), got {captured['bottom']!r}"
+        )
 
     async def test_oversized_logical_top_row_still_rejects(self, swapping_frame):
         """Even with logical-units conversion, a band that's too small
@@ -754,9 +754,9 @@ class TestSingleRowFontSize:
 
         assert len(captured) >= 1
         assert all(c["is_wrapped"] for c in captured)
-        assert all(
-            c["scale"] == 4 for c in captured
-        ), f"Expected wrapper at logical-scale (4); got {captured!r}"
+        assert all(c["scale"] == 4 for c in captured), (
+            f"Expected wrapper at logical-scale (4); got {captured!r}"
+        )
 
     async def test_explicit_font_size_24_wraps_at_2(self, swapping_frame, monkeypatch):
         """Explicit `font_size=24` with BDF 6×12 on bigsign → block
@@ -792,9 +792,9 @@ class TestSingleRowFontSize:
             _BaseImageWidget._render_tick = orig  # type: ignore[method-assign]
 
         assert captured, "Wrapper not used"
-        assert all(
-            s == 2 for s in captured
-        ), f"Expected wrapper.scale=2 (24px / 12px cell); got {captured!r}"
+        assert all(s == 2 for s in captured), (
+            f"Expected wrapper.scale=2 (24px / 12px cell); got {captured!r}"
+        )
 
     async def test_no_wrap_on_small_sign_with_default(
         self, swapping_frame, monkeypatch
@@ -1066,9 +1066,9 @@ class TestPlayWithTextDriftCompensation:
         tick_s = 50 / 1000  # scroll_speed_ms / 1000 = 0.05
         expected = tick_s - 0.025  # 0.025
         assert sleep_calls, "no per-tick sleep calls recorded"
-        assert all(
-            abs(s - expected) < 1e-9 for s in sleep_calls
-        ), f"expected {expected}s sleeps (drift-compensated), got {sleep_calls}"
+        assert all(abs(s - expected) < 1e-9 for s in sleep_calls), (
+            f"expected {expected}s sleeps (drift-compensated), got {sleep_calls}"
+        )
 
 
 class _TrackingProvider:
@@ -1155,9 +1155,9 @@ class TestImageBorderField:
         # without instantiation.
         assert StillImage.__attrs_attrs__  # sanity: attrs class
         names = [a.name for a in StillImage.__attrs_attrs__]
-        assert (
-            "border" in names
-        ), f"StillImage missing inherited `border` field; fields: {names}"
+        assert "border" in names, (
+            f"StillImage missing inherited `border` field; fields: {names}"
+        )
 
     def test_border_default_is_none(self, tmp_path):
         """Default value is None — confirmed via construction."""
@@ -1634,6 +1634,68 @@ class TestPlayWithTextBorderFastPath:
         )
 
 
+class TestPlayWithTextBandsBorderFastPath:
+    """Bands border vs. the static-text fast path: speed=0 is
+    frame_invariant (fast path stays valid, render once); speed>0
+    forces the per-tick loop. Tripwire for the generic
+    border.frame_invariant gate — bands must not need special-casing."""
+
+    @pytest.fixture
+    def static_widget(self, tmp_path):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(
+            path=img_path,
+            text="HI",
+            text_align="left",
+            hold_time=0.5,  # 10 ticks at 50ms
+        )
+
+    async def test_static_bands_keeps_fast_path(self, static_widget, mock_frame):
+        from led_ticker.borders import ColorBandsBorder
+
+        static_widget.border = ColorBandsBorder(
+            colors=[(255, 0, 0), (255, 255, 255)], speed=0
+        )
+        with (
+            mock.patch.object(type(static_widget), "_render_tick") as render_mock,
+            mock.patch("asyncio.sleep", new=mock.AsyncMock()),
+        ):
+            await static_widget._play_with_text(
+                mock_frame.swap.return_value,
+                mock_frame,
+                n_ticks=10,
+            )
+        assert render_mock.call_count == 1, (
+            f"speed=0 bands is frame_invariant — must take the fast path; "
+            f"got {render_mock.call_count} render calls"
+        )
+
+    async def test_animated_bands_bypasses_fast_path(self, static_widget, mock_frame):
+        from led_ticker.borders import ColorBandsBorder
+
+        static_widget.border = ColorBandsBorder(
+            colors=[(255, 0, 0), (255, 255, 255)], speed=1
+        )
+        with (
+            mock.patch.object(type(static_widget), "_render_tick") as render_mock,
+            mock.patch("asyncio.sleep", new=mock.AsyncMock()),
+        ):
+            await static_widget._play_with_text(
+                mock_frame.swap.return_value,
+                mock_frame,
+                n_ticks=10,
+            )
+        assert render_mock.call_count == 10, (
+            f"speed=1 bands is animated — per-tick loop must run; "
+            f"got {render_mock.call_count} render calls"
+        )
+
+
 class TestPlayWithTwoRowBorderFastPath:
     """Same fast-path gate logic on the two-row playback path."""
 
@@ -2094,9 +2156,9 @@ class TestImageTypewriter:
             f"At frame=0 (visible='H'), provider should see total=3 "
             f"(text-char count of full 'Hi :star:'); got {mid_type_totals}"
         )
-        assert completion_totals == {
-            3
-        }, f"At completion, provider should see total=3; got {completion_totals}"
+        assert completion_totals == {3}, (
+            f"At completion, provider should see total=3; got {completion_totals}"
+        )
 
     def test_three_effect_composition_independent_counters(self, tmp_path):
         """Architectural promise from PR #12: typewriter + rainbow font +
@@ -2147,6 +2209,6 @@ class TestImageTypewriter:
         # Typewriter slice from animation counter (2) — at default
         # frames_per_char=3, frame=2 is still in the first window so
         # only 1 char visible.
-        assert (
-            widget._visible_text(2, canvas) == "H"
-        ), "animation counter should drive _visible_text; got wrong slice"
+        assert widget._visible_text(2, canvas) == "H", (
+            "animation counter should drive _visible_text; got wrong slice"
+        )

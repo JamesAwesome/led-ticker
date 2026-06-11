@@ -94,9 +94,10 @@ export default defineConfig({
               label: "baseball.standings (plugin)",
               link: "/widgets/mlb_standings/",
             },
-            { label: "coinbase", link: "/widgets/coinbase/" },
-            { label: "coingecko", link: "/widgets/coingecko/" },
-            { label: "etherscan", link: "/widgets/etherscan/" },
+            {
+              label: "crypto.coingecko (plugin)",
+              link: "/plugins/available/",
+            },
             { label: "pool (plugin)", link: "/widgets/pool/" },
           ],
         },

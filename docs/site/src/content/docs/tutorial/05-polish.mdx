@@ -320,8 +320,9 @@ With a working panel config as a foundation, a few directions worth exploring:
 - **Try other transitions.** Swap `wipe_left` for `nyancat` or `pokeball` to see what
   the sprite-trail families look like on your hardware. The [Transitions
   catalogue](/transitions/) has a rendered preview for every option.
-- **Add live data widgets.** The `rss_feed`, `weather`, and `coinbase` widgets
-  pull live content and scroll it on the same canvas. See the
+- **Add live data widgets.** The `rss_feed` and `weather` widgets pull live
+  content and scroll it on the same canvas. Plugin widgets like `crypto.coingecko`
+  (via [led-ticker-crypto](/plugins/available/)) add crypto prices. See the
   [Widgets reference](/widgets/) for setup details and required API keys.
 - **Validate before deploying.** `led-ticker validate config/config.toml` catches
   typos, unknown widget types, and constraint violations before you restart the panel.

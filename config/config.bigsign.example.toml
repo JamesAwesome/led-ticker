@@ -129,25 +129,8 @@ type = "rss_feed"
 feed_url = "https://www.nintendolife.com/feeds/news"
 update_interval = 3000
 
-# Crypto prices via Coinbase — no API key required.
-
-[[playlist.section]]
-mode = "forever_scroll"
-loop_count = 2
-
-[playlist.section.title]
-type = "message"
-text = "Cryptocurrency/USD"
-
-[[playlist.section.widget]]
-type = "coinbase"
-symbol = "BTC"
-currency = "USD"
-
-[[playlist.section.widget]]
-type = "coinbase"
-symbol = "ETH"
-currency = "USD"
+# Crypto prices via the led-ticker-crypto plugin (crypto.coingecko).
+# See https://github.com/JamesAwesome/led-ticker-crypto for install + config.
 
 # MLB scores via the free MLB Stats API — no API key. Replace "PHI" with
 # your team code.

@@ -79,7 +79,6 @@ src/led_ticker/
     _image_base.py      # _BaseImageWidget: text-overlay surface + _play_with_text
     _gif_decode.py      # Pillow-based GIF decoder
     _image_fit.py       # Canonical fit/alpha/validation primitives
-    crypto/             # coinbase, coingecko, etherscan
 ```
 
 ### Load-bearing invariants by subsystem
@@ -195,7 +194,7 @@ These constraints were learned through extensive real-hardware testing. They are
 
 User-facing surface: <https://docs.ledticker.dev/concepts/color-providers/> · <https://docs.ledticker.dev/concepts/animations/> · <https://docs.ledticker.dev/concepts/borders/> · <https://docs.ledticker.dev/concepts/frame-counters/>.
 
-**Color provider contract** — `font_color` (and `top_color` / `bottom_color` on TwoRow / image widgets) accepts: constant `[r, g, b]`, legacy `"random"` sentinel, string shorthand (`"rainbow"` / `"color_cycle"` / `"shimmer"`), or inline table (`{style = "gradient", from = [...], to = [...]}` or `{style = "shimmer", ...}`). At config-load all normalize to a `ColorProvider` with `color_for(frame, char_index, total_chars) -> Color`. Constants wrap in `_ConstantColor` so widget-side dispatch is uniform. Per-char providers (`rainbow`, `gradient`) cause widgets that opt in to iterate characters and render each with its own color: currently `TickerMessage`, `TwoRowMessage` (per-row), and `_BaseImageWidget` text-overlay surface. Whole-string providers (`color_cycle`, `random`, constant) get a single `color_for` call per draw. New providers default `frame_invariant = False` (conservative). `ColorProvider` subclasses that omit the `frame_invariant` class attribute raise `TypeError` at definition time via `__init_subclass__` — the same enforcement applies to `BorderEffect` subclasses. Data widgets (`coinbase`, `coingecko`, `etherscan`) accept `font_color` as a whole-string provider — they call `color_for(frame, 0, 1)` once per draw tick and apply the result uniformly to the label / text segments (not per-char). Per-char providers like `rainbow` still work but only their first hue position (`char_index=0`) is used, cycling with `frame` across ticks.
+**Color provider contract** — `font_color` (and `top_color` / `bottom_color` on TwoRow / image widgets) accepts: constant `[r, g, b]`, legacy `"random"` sentinel, string shorthand (`"rainbow"` / `"color_cycle"` / `"shimmer"`), or inline table (`{style = "gradient", from = [...], to = [...]}` or `{style = "shimmer", ...}`). At config-load all normalize to a `ColorProvider` with `color_for(frame, char_index, total_chars) -> Color`. Constants wrap in `_ConstantColor` so widget-side dispatch is uniform. Per-char providers (`rainbow`, `gradient`) cause widgets that opt in to iterate characters and render each with its own color: currently `TickerMessage`, `TwoRowMessage` (per-row), and `_BaseImageWidget` text-overlay surface. Whole-string providers (`color_cycle`, `random`, constant) get a single `color_for` call per draw. New providers default `frame_invariant = False` (conservative). `ColorProvider` subclasses that omit the `frame_invariant` class attribute raise `TypeError` at definition time via `__init_subclass__` — the same enforcement applies to `BorderEffect` subclasses. Data widgets (`weather`, `rss_feed`) accept `font_color` as a whole-string provider — they call `color_for(frame, 0, 1)` once per draw tick and apply the result uniformly to the label / text segments (not per-char). Per-char providers like `rainbow` still work but only their first hue position (`char_index=0`) is used, cycling with `frame` across ticks.
 
 **Per-char providers + emoji** — Rainbow / gradient sweep continuously across `:slug:` emoji boundaries: sprites render as sprites, the letters between/around them get per-char colors with `char_index` advancing across the emoji segments without resetting. Implemented via `pixel_emoji.draw_with_emoji(color: Color | ColorProvider, frame=N)` + `text_render.draw_text_per_char`.
 
@@ -215,7 +214,7 @@ User-facing surface: <https://docs.ledticker.dev/concepts/color-providers/> · <
 
 ## Plugin invariants
 
-led-ticker is extensible via plugins; the `pool.monitor` widget ([`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool)) and the `baseball.*` widgets/emoji/transitions ([`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball)) live in external plugin repos. When touching plugin-related code:
+led-ticker is extensible via plugins; the `pool.monitor` widget ([`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool)), the `baseball.*` widgets/emoji/transitions ([`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball)), and the `crypto.coingecko` widget ([`led-ticker-crypto`](https://github.com/JamesAwesome/led-ticker-crypto)) live in external plugin repos. When touching plugin-related code:
 
 - **Public surface:** plugins import ONLY from `led_ticker.plugin` (the curated re-export module). Never import `led_ticker.<internal>` from a plugin. `led_ticker.plugin.__all__` is the contract; adding to it is an API change.
 - **Registration:** a plugin ships a `register(api)` function under the `led_ticker.plugins` entry-point group; `api.widget("name")(cls)` (and the sibling `transition`/`emoji`/`font`/… surfaces) register into a namespaced registry (`<plugin>.<name>`, e.g. `pool.monitor`). `API_VERSION` gates compatibility.
@@ -231,6 +230,7 @@ First-party plugins live in sibling repos. Each carries its own `CLAUDE.md` (con
 
 - [`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) — `pool.monitor`: pool water-temperature from InfluxDB v2 (`ticker` / `two_row` layouts).
 - [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) — `baseball.scores` / `baseball.standings` widgets, `baseball.roll*` transitions, `:baseball.ball:` emoji.
+- [`led-ticker-crypto`](https://github.com/JamesAwesome/led-ticker-crypto) — `crypto.coingecko` (CoinGecko price ticker)
 
 These plugins import a few core symbols through the public surface that have no remaining in-core consumer (`lazy_palette`, `GEOMETRIC_SHAPES`, the `small_font` font-prefix); see the "Extracted widgets retain core hooks" note in the load-bearing invariants — don't delete them.
 

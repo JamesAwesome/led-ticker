@@ -17,8 +17,6 @@ Each snippet cites its source file + line range. The skill copies the snippet ve
 | personal_feed | rss_feed | big | `rss_feed.personal_feed.bigsign.headlines` |
 | personal_feed | weather | small | `weather.personal_feed.smallsign.simple` |
 | personal_feed | weather | big | `weather.personal_feed.bigsign.simple` |
-| personal_feed | coinbase | small | `coinbase.personal_feed.smallsign.btc` |
-| personal_feed | coinbase | big | `coinbase.personal_feed.bigsign.btc` |
 | event | countdown | small | `countdown.event.smallsign` |
 | event | countdown | big | `countdown.event.bigsign` |
 | sports | baseball.scores (plugin) | small | `mlb.sports.smallsign` |
@@ -321,70 +319,6 @@ text = "New York"
 location = "New York"
 units = "imperial"
 show_icon = true
-```
-
----
-
-### snippet: coinbase.personal_feed.smallsign.btc
-
-**source:** `config/config.example.toml` lines 99–118 (commented-out template, activated here)
-
-**use when:** small sign + live crypto prices from Coinbase. No API key required. Add one widget block per symbol.
-
-**must customize:** `symbol` (e.g. `"ETH"`, `"SOL"`), `currency` (e.g. `"USD"`, `"EUR"`), title `text`.
-
-**copy verbatim:**
-
-```toml
-[[playlist.section]]
-mode = "forever_scroll"
-loop_count = 2
-
-[playlist.section.title]
-type = "message"
-text = "Cryptocurrency/USD"
-
-[[playlist.section.widget]]
-type = "coinbase"
-symbol = "BTC"
-currency = "USD"
-
-[[playlist.section.widget]]
-type = "coinbase"
-symbol = "ETH"
-currency = "USD"
-```
-
----
-
-### snippet: coinbase.personal_feed.bigsign.btc
-
-**source:** `config/config.example.toml` lines 99–118 (adapted for bigsign — same widget, different section `scale`)
-
-**use when:** bigsign + live crypto prices. Same widget as `coinbase.personal_feed.smallsign.btc`; the bigsign's `default_scale = 4` renders it at full panel height automatically.
-
-**must customize:** `symbol`, `currency`, title `text`.
-
-**copy verbatim:**
-
-```toml
-[[playlist.section]]
-mode = "forever_scroll"
-loop_count = 2
-
-[playlist.section.title]
-type = "message"
-text = "Crypto / USD"
-
-[[playlist.section.widget]]
-type = "coinbase"
-symbol = "BTC"
-currency = "USD"
-
-[[playlist.section.widget]]
-type = "coinbase"
-symbol = "ETH"
-currency = "USD"
 ```
 
 ---

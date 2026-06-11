@@ -122,10 +122,10 @@ async function poll() {
     $("uptime").textContent = "up " + (up > 7200 ? Math.round(up / 3600) + "h" : Math.round(up / 60) + "m");
     const sec = st.section || {};
     $("now-section").textContent = sec.mode
-      ? `section ${sec.title || sec.index} (${(sec.index ?? 0) + 1}/${sec.total}) · ${sec.mode} · ${sec.widget_count} widgets`
+      ? `section ${sec.title || sec.index} (${(sec.index ?? 0) + 1}/${sec.total}) · ${sec.mode} · ${sec.widget_count} widget${sec.widget_count === 1 ? "" : "s"}`
       : "—";
     const w = st.widget || {};
-    $("now-widget").textContent = w.type ? `${w.type}: ${w.summary || ""}` : "—";
+    $("now-widget").textContent = w.type ? (w.summary ? `${w.type}: ${w.summary}` : w.type) : "—";
     $("monitors").tBodies[0].innerHTML = Object.entries(st.monitor_updates || {})
       .map(([n, ts]) => `<tr><td>${esc(n)}</td><td>${fmtAgo(ts)}</td></tr>`).join("")
       || '<tr><td class="muted">no async monitors</td></tr>';

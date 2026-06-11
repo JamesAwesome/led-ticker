@@ -101,6 +101,19 @@ def _load_plugins_for_config(config_path: Path):
     return load_plugins_for_config(config_path)
 
 
+async def _status_heartbeat(board: Any) -> None:
+    """Republish at the throttle cadence so the sidecar's staleness verdict
+    measures process liveness, not event frequency. Without this, a widget
+    held longer than 3x min_interval flips the page to "stale" while the
+    panel is happily playing. Exits once the board self-disables or is
+    deactivated (teardown), so it needs no explicit cancellation."""
+    from led_ticker import status_board as _sb  # noqa: PLC0415
+
+    while not board.disabled and _sb.get_active_board() is board:
+        board.publish()
+        await asyncio.sleep(board.min_interval)
+
+
 def _teardown_status_board(handle: tuple[Any, logging.Handler] | None) -> None:
     """Undo _setup_status_board: detach the log handler and clear the active
     board. Safe to call with None (when [web] was absent)."""
@@ -182,6 +195,9 @@ async def run(config_path: Path) -> None:
     # volume mountpoint. Tripwire: test_setup_runs_before_frame_build.
     _status_handle = _setup_status_board(config, config_path, plugins)
     try:
+        if _status_handle is not None:
+            spawn_tracked(_status_heartbeat(_status_handle[0]))
+
         led_frame = build_frame_from_config(config.display)
 
         if config.busy_light.enabled:

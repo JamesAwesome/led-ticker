@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import socket
 import time
 from collections import deque
@@ -181,17 +182,36 @@ def record_section(
             "index": index,
             "total": total,
             "mode": mode,
-            "title": title,
+            "title": _clean_text(title),
             "widget_count": widget_count,
         }
         _ACTIVE.publish(force=True)  # section change publishes immediately
 
 
+# Inline pixel-emoji markup (":baseball.ball:") renders as sprites on the
+# panel but is noise on the web status page.
+_EMOJI_SLUG = re.compile(r":[A-Za-z0-9_.+-]+:")
+
+
+def _clean_text(value: str) -> str:
+    """Strip :emoji.slug: tags and collapse the leftover whitespace."""
+    return " ".join(_EMOJI_SLUG.sub(" ", value).split())
+
+
 def _widget_summary(widget: Any) -> dict[str, str]:
     text = getattr(widget, "text", None) or getattr(widget, "top_text", None)
+    if not text:
+        # SegmentMessage-style widgets carry (text, color) segment tuples
+        # instead of a flat .text — join the text halves.
+        segments = getattr(widget, "segments", None)
+        if segments:
+            try:
+                text = " ".join(str(s[0]) for s in segments if s and s[0])
+            except (TypeError, IndexError):
+                text = None
     path = getattr(widget, "path", None)
     if text:
-        summary = str(text)[:80]
+        summary = _clean_text(str(text))[:80]
     elif path is not None:
         summary = str(path)
     else:

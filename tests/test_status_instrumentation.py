@@ -196,3 +196,37 @@ def test_setup_runs_before_frame_build():
         "matrix library drops root during frame construction and the "
         "status dir must be prepared (mkdir + chmod) before that."
     )
+
+
+async def test_heartbeat_keeps_file_fresh_without_events(tmp_path):
+    """The staleness verdict must measure process liveness, not event
+    frequency: a widget held longer than 3x min_interval used to flip the
+    page to 'stale' while the panel was happily playing (longboi standings
+    finding, 2026-06-11). The heartbeat republishes at the throttle cadence
+    and exits once the board is deactivated or disabled."""
+    import json
+
+    from led_ticker.app.run import _status_heartbeat
+
+    board = StatusBoard(path=tmp_path / "status.json", min_interval=0.05)
+    status_board.set_active_board(board)
+    task = asyncio.create_task(_status_heartbeat(board))
+    try:
+        await asyncio.sleep(0.3)
+        first = json.loads((tmp_path / "status.json").read_text())["published_at"]
+        await asyncio.sleep(0.2)
+        second = json.loads((tmp_path / "status.json").read_text())["published_at"]
+        assert second > first, "file must keep refreshing with zero record_* events"
+    finally:
+        status_board.clear_active_board()
+        await asyncio.wait_for(task, timeout=2)
+
+
+def test_run_spawns_heartbeat():
+    from led_ticker.app.run import run
+
+    src = inspect.getsource(run)
+    assert "spawn_tracked(_status_heartbeat" in src, (
+        "run() must spawn the status heartbeat — without it any widget held "
+        "longer than 3x min_interval shows a false 'stale' on the page."
+    )

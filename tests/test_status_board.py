@@ -228,3 +228,39 @@ def test_flush_replaces_unwritable_leftover_tmp(tmp_path):
     board.publish(force=True)
     assert not board.disabled
     assert json.loads((tmp_path / "status.json").read_text())["schema"] == 1
+
+
+def test_widget_summary_joins_segments_and_strips_emoji(tmp_path):
+    # SegmentMessage-style widgets (used by the data/plugin widgets) carry
+    # (text, color) tuples instead of a .text attr — the summary must join
+    # them, and panel emoji markup (:slug:) is noise on the web.
+    class Seg:
+        segments = [
+            ("NYY 4", (255, 255, 255)),
+            (":baseball.ball:", (255, 0, 0)),
+            ("BOS 2", (200, 200, 200)),
+        ]
+
+    board = _board(tmp_path)
+    status_board.set_active_board(board)
+    try:
+        status_board.record_widget_visit(Seg())
+        assert board.widget == {"type": "Seg", "summary": "NYY 4 BOS 2"}
+    finally:
+        status_board.clear_active_board()
+
+
+def test_record_section_strips_emoji_slugs(tmp_path):
+    board = _board(tmp_path)
+    status_board.set_active_board(board)
+    try:
+        status_board.record_section(
+            index=0,
+            total=1,
+            mode="swap",
+            title=":baseball.ball: MLB Standings :baseball.ball:",
+            widget_count=1,
+        )
+        assert board.section["title"] == "MLB Standings"
+    finally:
+        status_board.clear_active_board()

@@ -104,3 +104,23 @@ async def test_status_non_dict_json(tmp_path):
         assert "not a JSON object" in body["detail"]
     finally:
         await client.close()
+
+
+async def test_status_non_numeric_timing_fields(tmp_path):
+    # A schema-valid envelope with corrupt timing fields (truncated or
+    # hand-edited file) must classify as unreadable, never raise out of
+    # the handler as a 500.
+    for bad in (
+        _fresh_status(published_at="not-a-number"),
+        _fresh_status(published_at=None),
+        _fresh_status(min_interval="soon"),
+    ):
+        client = await _client(tmp_path, status=bad)
+        try:
+            resp = await client.get("/api/status")
+            body = await resp.json()
+            assert resp.status == 200
+            assert body["state"] == "unreadable"
+            assert "timing" in body["detail"]
+        finally:
+            await client.close()

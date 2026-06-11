@@ -54,8 +54,13 @@ def _read_status(status_path: Path) -> dict:
             "supported": SCHEMA_VERSION,
             "hint": "led-ticker and the webui are running different versions.",
         }
-    age = time.time() - float(status.get("published_at", 0))
-    threshold = STALE_FACTOR * float(status.get("min_interval", 2.0))
+    try:
+        age = time.time() - float(status.get("published_at", 0))
+        threshold = STALE_FACTOR * float(status.get("min_interval", 2.0))
+    except (TypeError, ValueError) as e:
+        # Schema-valid envelope but corrupt timing fields (truncated write,
+        # hand-edited file). Classify, never raise.
+        return {"state": "unreadable", "detail": f"bad timing field: {e}"}
     state = "stale" if age > threshold else "ok"
     return {"state": state, "age_seconds": round(age, 1), "status": status}
 

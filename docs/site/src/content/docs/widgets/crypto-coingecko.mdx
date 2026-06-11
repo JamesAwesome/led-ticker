@@ -1,0 +1,18 @@
+---
+title: crypto.coingecko widget
+description: The crypto.coingecko multi-coin price ticker is provided by the led-ticker-crypto plugin (type = "crypto.coingecko").
+---
+
+The **crypto.coingecko** widget is provided by the **[led-ticker-crypto](https://github.com/JamesAwesome/led-ticker-crypto)** plugin, referenced in config as `type = "crypto.coingecko"`.
+
+- **To add it to your sign:** add `git+https://github.com/JamesAwesome/led-ticker-crypto.git@main` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow.
+- **Full documentation** — options, config examples, and a demo gif — lives in the [led-ticker-crypto README](https://github.com/JamesAwesome/led-ticker-crypto#readme).
+
+## Features
+
+- **Multi-coin cycling** — displays one ticker card per configured coin, rotating through the list.
+- **Three coin-spec styles** — use a single `symbol` + `symbol_id` pair, a `symbol_ids = [...]` list, or a `symbols = [...]` list that auto-resolves each symbol to a unique CoinGecko ID. If a symbol matches more than one coin, the widget raises an error at startup; set `symbol_id` or `symbol_ids` to disambiguate.
+- **Optional demo API key** — the keyless free tier is rate-limited to ~5 requests/min. Add `api_key = "..."` in config or set the `COINGECKO_API_KEY` environment variable to use a [CoinGecko demo key](https://www.coingecko.com/en/api/pricing) for a higher rate limit.
+- **Adaptive sub-cent formatting** — prices below $0.01 display with enough decimal places to show a meaningful value rather than rounding to zero.
+
+Full options, config examples, and a demo gif live in the [led-ticker-crypto README](https://github.com/JamesAwesome/led-ticker-crypto#readme).

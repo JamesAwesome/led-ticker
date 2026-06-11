@@ -41,11 +41,12 @@ Presence of the block enables status publishing in the display process. Absence 
 
 ### Docker
 
-The `compose.yaml` ships with the `webui` service active — once you have added the `[web]` block, `docker compose up -d` starts it alongside the display container. (Remove or comment out the service in `compose.yaml` if you don't want the dashboard.)
+The `compose.yaml` defines the `webui` service behind the `webui` compose profile, so a plain `docker compose up -d` changes nothing. Enabling the dashboard takes two steps: add the `[web]` block to `config.toml`, then start with the profile on. Both are needed — the profile starts the sidecar, and the block tells the display process to publish (and the sidecar exits without it).
 
 ```yaml
-# The webui service as it appears in compose.yaml:
+# The webui service as it appears in compose.yaml (note the profile):
 webui:
+  profiles: ["webui"]
   image: led-ticker
   build: .
   container_name: led-ticker-webui
@@ -62,7 +63,9 @@ The `ticker-status` named volume is the shared channel: the display process writ
 Then bring it up:
 
 ```bash
-docker compose up -d webui
+COMPOSE_PROFILES=webui docker compose up -d
+# or equivalently: docker compose --profile webui up -d
+# Tip: put COMPOSE_PROFILES=webui in the .env next to compose.yaml to make it sticky.
 ```
 
 Open `http://<pi-hostname>.local:8080` in a browser.
@@ -130,6 +133,8 @@ The dashboard is intentionally read-only:
 The Validate tab lets you check a candidate config without risk, but applying it is still a manual edit + restart step.
 
 ## Troubleshooting
+
+**The page doesn't load at all (connection refused)** — The sidecar isn't running. On Docker, the `webui` service only starts when the `webui` compose profile is enabled — check `docker compose ps`; if the container is absent, start with `COMPOSE_PROFILES=webui docker compose up -d`. If the container exists but is restarting, check `docker compose logs webui` — a missing `[web]` block in `config.toml` makes the subcommand exit with a message naming the fix.
 
 **"Status: missing" on the Status tab** — The display process has not written `status.json` yet. Confirm the display process is running (`docker compose ps` or `systemctl status led-ticker`) and that both processes share the same `status_path` (default `/run/led-ticker/status.json`). On bare metal, `/run/led-ticker/` is created by the display process — if the display process has never started, the directory does not exist yet.
 

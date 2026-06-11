@@ -30,9 +30,13 @@ services:
 
   # Web status UI — unprivileged sidecar, same image. Reads the status.json
   # the display process publishes; serves http://<pi>:8080.
-  # Requires a [web] block in config.toml (see config.example.toml).
-  # Comment out or remove this service if you don't use the web UI.
+  # Opt-in via compose profile so a plain `docker compose up -d` changes
+  # nothing (without a [web] block the subcommand exits, and unless-stopped
+  # would restart-loop it). Enable with BOTH:
+  #   1. a [web] block in config.toml (see config.example.toml)
+  #   2. COMPOSE_PROFILES=webui docker compose up -d   (or --profile webui)
   webui:
+    profiles: ["webui"]
     image: led-ticker
     build: .
     container_name: led-ticker-webui

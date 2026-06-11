@@ -87,6 +87,17 @@ def test_quoted_key_form_is_redacted():
     assert out.count("•••") == 2
 
 
+def test_dotted_key_with_quoted_segment_is_redacted():
+    # Legal TOML: a dotted key whose final segment is quoted. The dotted
+    # prefix must not defeat the quoted-key match.
+    out = redact_toml(
+        'slack."webhook url" = "https://hooks.slack/SECRET"\n'
+        'site."api key" = "LEAK3"'
+    )
+    assert "SECRET" not in out and "LEAK3" not in out
+    assert out.count("•••") == 2
+
+
 def test_comma_then_sensitive_word_inside_value_over_redacts():
     # Known limitation, documented: a sensitive word following a comma INSIDE
     # a quoted value matches the inline-table anchor and gets rewritten.

@@ -27,7 +27,7 @@ REDACTED = '"•••"'
 # TOML quoted-key form (`"my-token" = ...`) for the same reason.
 _KV = re.compile(
     r"""(?P<prefix>^[ \t]*|(?<=[{,])\s*)
-        (?P<key>"[^"\n]*(?:token|key|secret|password|webhook)[^"\n]*"
+        (?P<key>(?:[A-Za-z0-9_-]+\.)*"[^"\n]*(?:token|key|secret|password|webhook)[^"\n]*"
                |[A-Za-z0-9_.-]*(?:token|key|secret|password|webhook)[A-Za-z0-9_.-]*)
         (?P<eq>\s*=\s*)
         (?P<val>\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?'''

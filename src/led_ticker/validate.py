@@ -1850,7 +1850,7 @@ async def validate_config_text(text: str, *, strict: bool = False) -> Validation
     """
     with tempfile.TemporaryDirectory(prefix="led-ticker-validate-") as td:
         p = Path(td) / "config.toml"
-        p.write_text(text)
+        p.write_text(text, encoding="utf-8")
         return await validate_config(p, strict=strict)
 
 

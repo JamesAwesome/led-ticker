@@ -47,3 +47,16 @@ async def test_text_broken_toml_is_a_result_not_a_raise():
     # so broken TOML returns an invalid result rather than raising.
     result = await validate_config_text("this is [not toml")
     assert result.valid is False
+
+
+async def test_text_non_ascii_content_is_validated(tmp_path):
+    # The temp-file write must be explicit UTF-8: the sidecar process that
+    # calls this can't control its locale, and TOML mandates UTF-8 — a
+    # platform-default encoding would either raise UnicodeEncodeError
+    # (breaking the never-raise contract) or feed tomllib mojibake.
+    accented = GOOD.replace('text = "hello"', 'text = "café ☕"')
+    p = tmp_path / "config.toml"
+    p.write_text(accented, encoding="utf-8")
+    from_path = await validate_config(p)
+    from_text = await validate_config_text(accented)
+    assert from_text.valid == from_path.valid is True

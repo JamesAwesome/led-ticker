@@ -347,8 +347,10 @@ def _coerce_border(value: Any) -> BorderEffect | None:
     - `{style = "constant", color = [r, g, b], thickness = N}`
       → `ConstantBorder` with the color + thickness.
     - `{style = "bands", colors = "candy_cane" | [[r,g,b], ...], band_width = N,
-      speed = N, thickness = N}` → `ColorBandsBorder`. `colors` is required:
-      a `BAND_PALETTES` name or a list of >= 2 RGB colors.
+      speed = N, thickness = N, align_rings = bool}` → `ColorBandsBorder`.
+      `colors` is required: a `BAND_PALETTES` name or a list of >= 2 RGB
+      colors. `align_rings` radially stacks bands across rings at
+      thickness > 1 (default false = woven continuous index).
     - `[r, g, b]` (list/tuple) → `ConstantBorder` shorthand.
     - already a BorderEffect (has `paint`) → passes through.
     - None → None (no border).

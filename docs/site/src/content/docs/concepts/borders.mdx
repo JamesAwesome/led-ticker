@@ -244,7 +244,7 @@ border = {style = "bands", colors = [[0, 146, 70], [255, 255, 255], [206, 43, 55
 | `band_width`  | `6`          | perimeter pixels per band                                                                                                    |
 | `speed`       | `1`          | pixels the pattern advances per frame; negative reverses; `0` = static                                                       |
 | `thickness`   | `1`          | concentric rings (`2` = two-pixel border)                                                                                    |
-| `align_rings` | `false`      | at `thickness = 2`: radially align band boundaries across rings (stacked stripes) instead of the woven continuous-index look |
+| `align_rings` | `false`      | at `thickness > 1`: radially align band boundaries across rings (stacked stripes) instead of the woven continuous-index look |
 
 With `speed = 0` the bands are static — like a constant border, the engine's fast path applies and the border is painted once per hold.
 

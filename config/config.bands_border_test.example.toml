@@ -33,9 +33,10 @@
 #                   perimeter is 636 px; 6px bands = ~106 bands around.
 #   - speed       — px the pattern advances per 50ms frame. Default 1
 #                   (~32s per revolution). Negative reverses; 0 = static.
-#   - thickness   — 1 (default) or 2 pixel ring. Rings share one
-#                   continuous index, so bands won't align ring-to-ring
-#                   (documented behavior, reads as a woven texture).
+#   - thickness   — 1 (default) or 2 pixel ring. By default rings share
+#                   one continuous index, so bands won't align ring-to-
+#                   ring (woven texture); set align_rings = true for
+#                   radially stacked stripes instead (compare §2 vs §2b).
 #
 # What to watch for:
 #   - §1 vs §3: §1 marches clockwise, §3 counter-clockwise and 2× faster.

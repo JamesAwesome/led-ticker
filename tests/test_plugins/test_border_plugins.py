@@ -45,7 +45,7 @@ def test_color_cycle_border_speed_zero_rejected():
 
 
 def test_plugin_border_coerces(tmp_path):
-    src = '''
+    src = """
 import attrs
 from led_ticker.plugin import BorderEffectBase
 
@@ -58,7 +58,7 @@ class Neon(BorderEffectBase):
 
 def register(api):
     api.border("neon")(Neon)
-'''
+"""
     pdir = tmp_path / "plugins"
     pdir.mkdir()
     (pdir / "acme.py").write_text(src)

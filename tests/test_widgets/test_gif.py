@@ -162,13 +162,13 @@ async def test_play_uses_engine_cadence_without_text(tmp_path, mocker, bigsign_c
     # All sleeps are ENGINE_TICK_MS / 1000 regardless of frame duration.
     sleeps = [c.args[0] for c in sleep_mock.await_args_list]
     expected_sleep = ENGINE_TICK_MS / 1000
-    assert all(
-        abs(s - expected_sleep) < 1e-6 for s in sleeps
-    ), f"expected all sleeps at 50ms cadence; got {sleeps}"
+    assert all(abs(s - expected_sleep) < 1e-6 for s in sleeps), (
+        f"expected all sleeps at 50ms cadence; got {sleeps}"
+    )
     # 240ms / 50ms = 4 ticks
-    assert (
-        len(sleeps) == 4
-    ), f"expected 4 ticks for 240ms gif at 50ms cadence; got {len(sleeps)}"
+    assert len(sleeps) == 4, (
+        f"expected 4 ticks for 240ms gif at 50ms cadence; got {len(sleeps)}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -828,9 +828,9 @@ async def test_play_scroll_text_wraps_after_full_traversal(
     # On wrap, scroll_pos should reset to exactly text_w (256), not text_w-1
     # or text_w+1. Pick the first wrap and verify.
     wrap_idx = increases[0]
-    assert (
-        seen_x[wrap_idx] == real.width
-    ), f"wrap should reset to text_w={real.width}, got {seen_x[wrap_idx]}"
+    assert seen_x[wrap_idx] == real.width, (
+        f"wrap should reset to text_w={real.width}, got {seen_x[wrap_idx]}"
+    )
 
 
 async def test_play_scroll_text_advances_position(tmp_path, mocker, bigsign_canvas):
@@ -1470,9 +1470,9 @@ class TestGifPlayNoTextRefactor:
             )
 
         # 300ms / 50ms = 6 ticks
-        assert (
-            len(observed_idxs) == 6
-        ), f"expected 6 50ms ticks; got {len(observed_idxs)}"
+        assert len(observed_idxs) == 6, (
+            f"expected 6 50ms ticks; got {len(observed_idxs)}"
+        )
         # Distinct frame indices over the run
         assert set(observed_idxs) == {
             0,
@@ -1524,9 +1524,9 @@ class TestGifPlayNoTextRefactor:
             f"got {len(border_paint_calls)} calls: {border_paint_calls}"
         )
         # Redundant tripwire: _frame_count must also have advanced.
-        assert (
-            widget._frame_count >= 9
-        ), f"_frame_count should advance ~10× over 500ms; got {widget._frame_count}"
+        assert widget._frame_count >= 9, (
+            f"_frame_count should advance ~10× over 500ms; got {widget._frame_count}"
+        )
 
     async def test_no_text_without_border_unchanged_image_paint(
         self, three_frame_gif, mock_frame
@@ -1550,7 +1550,7 @@ class TestGifPlayNoTextRefactor:
             )
 
         assert mock_frame.swap.call_count == 6, (
-            f"expected 6 swaps (300ms / 50ms); " f"got {mock_frame.swap.call_count}"
+            f"expected 6 swaps (300ms / 50ms); got {mock_frame.swap.call_count}"
         )
 
 

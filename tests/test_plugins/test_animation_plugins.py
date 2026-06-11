@@ -19,7 +19,7 @@ def test_builtin_typewriter_still_coerces():
 
 
 def test_plugin_animation_coerces(tmp_path):
-    src = '''
+    src = """
 import attrs
 from led_ticker.plugin import Animation
 
@@ -32,7 +32,7 @@ class Scramble:
 
 def register(api):
     api.animation("scramble")(Scramble)
-'''
+"""
     pdir = tmp_path / "plugins"
     pdir.mkdir()
     (pdir / "acme.py").write_text(src)

@@ -5,19 +5,19 @@ import pytest
 from led_ticker import _plugin_loader as L
 from led_ticker.widgets import _WIDGET_REGISTRY
 
-FUTURE = '''
+FUTURE = """
 requires_api = 99
 def register(api):
     @api.widget("c")
     class C:
         pass
-'''
-OK = '''
+"""
+OK = """
 def register(api):
     @api.widget("w")
     class W:
         pass
-'''
+"""
 
 
 @pytest.fixture(autouse=True)
@@ -56,10 +56,8 @@ def test_cross_channel_namespace_collision(tmp_path, monkeypatch):
         def load(self):
             return _ep_register
 
-    monkeypatch.setattr(
-        importlib.metadata, "entry_points", lambda *, group: [_EP()]
-    )
+    monkeypatch.setattr(importlib.metadata, "entry_points", lambda *, group: [_EP()])
     result = L.load_plugins(pdir, entry_points_enabled=True)
-    assert "acme.w" in _WIDGET_REGISTRY      # local won
+    assert "acme.w" in _WIDGET_REGISTRY  # local won
     assert "acme.other" not in _WIDGET_REGISTRY  # entry-point dup rejected
     assert any(ns == "acme" for ns, _ in result.failed)

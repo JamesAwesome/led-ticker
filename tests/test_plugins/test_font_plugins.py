@@ -152,7 +152,7 @@ def test_draw_text_renders_via_public_surface():
     canvas = matrix.CreateFrameCanvas()
 
     c = make_color(255, 255, 255)
-    w0 = draw_text(canvas, font, "hi", x=0, y=10, color=c)   # == text width
+    w0 = draw_text(canvas, font, "hi", x=0, y=10, color=c)  # == text width
     w50 = draw_text(canvas, font, "hi", x=50, y=10, color=c)  # == 50 + text width
     assert w0 > 0
     assert w50 == w0 + 50  # absolute end position, not relative advance

@@ -1189,9 +1189,9 @@ class TestStillPlayNoTextBorder:
         assert mock_frame.swap.call_count == expected_ticks
         assert sleep_mock.call_count == expected_ticks
         # Frame counter advanced ~expected_ticks×
-        assert (
-            still._frame_count >= expected_ticks - 1
-        ), f"_frame_count should advance per tick; got {still._frame_count}"
+        assert still._frame_count >= expected_ticks - 1, (
+            f"_frame_count should advance per tick; got {still._frame_count}"
+        )
 
 
 class TestStillPlayNoTextBorderPerEffectCounter:

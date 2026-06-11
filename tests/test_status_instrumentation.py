@@ -154,9 +154,7 @@ def test_run_teardown_is_adjacent_to_setup():
         "a finally block."
     )
     lines = [ln.strip() for ln in src.splitlines()]
-    setup_idx = next(
-        i for i, ln in enumerate(lines) if "_setup_status_board(" in ln
-    )
+    setup_idx = next(i for i, ln in enumerate(lines) if "_setup_status_board(" in ln)
     following = [ln for ln in lines[setup_idx + 1 :] if ln and not ln.startswith("#")]
     assert following and following[0] == "try:", (
         "teardown must be reachable on all exits — keep the "

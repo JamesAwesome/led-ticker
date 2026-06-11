@@ -60,9 +60,9 @@ def test_build_frame_logs_show_refresh_explanation_when_enabled(caplog):
     with caplog.at_level(logging.INFO):
         build_frame_from_config(display)
     msgs = [r.message for r in caplog.records]
-    assert any(
-        "show_refresh_rate=true" in m and "stderr" in m for m in msgs
-    ), f"expected show_refresh_rate explanation; got: {msgs}"
+    assert any("show_refresh_rate=true" in m and "stderr" in m for m in msgs), (
+        f"expected show_refresh_rate explanation; got: {msgs}"
+    )
 
 
 def test_build_frame_no_show_refresh_log_when_disabled(caplog):
@@ -73,9 +73,9 @@ def test_build_frame_no_show_refresh_log_when_disabled(caplog):
     with caplog.at_level(logging.INFO):
         build_frame_from_config(display)
     msgs = [r.message for r in caplog.records]
-    assert not any(
-        "live Hz updates" in m for m in msgs
-    ), f"didn't expect show_refresh_rate explainer; got: {msgs}"
+    assert not any("live Hz updates" in m for m in msgs), (
+        f"didn't expect show_refresh_rate explainer; got: {msgs}"
+    )
 
 
 class TestBuildWidget:
@@ -344,9 +344,9 @@ class TestExampleConfigWidgets:
                     continue
 
                 widget = await _build_widget(cfg, session=mock.Mock())
-                assert isinstance(
-                    widget, Widget
-                ), f"Widget type={widget_type} did not produce a Widget"
+                assert isinstance(widget, Widget), (
+                    f"Widget type={widget_type} did not produce a Widget"
+                )
 
     async def test_moonbunny_bigsign_config_widgets_build(self):
         """Load config.moonbunny.example.toml and build every widget.
@@ -664,9 +664,9 @@ class TestSmallSignFontSizeGuard:
                 "font_size": 24,  # bigger than 16-2=14
             }
             await _build_widget(widget_cfg, session, panel_h_for_warning=16)
-        assert any(
-            "exceeds panel height" in r.message for r in caplog.records
-        ), f"expected overflow warning, got: {[r.message for r in caplog.records]}"
+        assert any("exceeds panel height" in r.message for r in caplog.records), (
+            f"expected overflow warning, got: {[r.message for r in caplog.records]}"
+        )
 
     @pytest.mark.asyncio
     async def test_no_warning_when_font_fits(self, caplog):
@@ -1770,9 +1770,9 @@ class TestAppRunDrainLoopTripwire:
         )
         assert len(captured) == 1
         monitors = captured[0].get("monitors")
-        assert (
-            monitors and len(monitors) == 1
-        ), f"section's widget never reached Ticker.monitors. Got: {monitors!r}"
+        assert monitors and len(monitors) == 1, (
+            f"section's widget never reached Ticker.monitors. Got: {monitors!r}"
+        )
 
 
 class TestAppRunBgColorHandoff:
@@ -1969,9 +1969,9 @@ def test_resolve_buffer_msg_with_custom_font_inherits_default_text():
     # previous implementation passed the raw name through as `font=`,
     # which attrs silently accepted but would render as a string at
     # draw time.
-    assert not isinstance(
-        msg.font, str
-    ), f"font must be resolved to a Font object, not the raw name {msg.font!r}"
+    assert not isinstance(msg.font, str), (
+        f"font must be resolved to a Font object, not the raw name {msg.font!r}"
+    )
 
 
 def test_resolve_buffer_msg_with_hires_font_resolves_via_resolve_font():
@@ -1992,9 +1992,9 @@ def test_resolve_buffer_msg_with_hires_font_resolves_via_resolve_font():
     msg = _resolve_buffer_msg(section)
     assert msg is not None
     assert msg.text == " * "
-    assert isinstance(
-        msg.font, HiresFont
-    ), f"expected HiresFont, got {type(msg.font).__name__}"
+    assert isinstance(msg.font, HiresFont), (
+        f"expected HiresFont, got {type(msg.font).__name__}"
+    )
 
 
 def test_resolve_buffer_msg_with_constant_color():
@@ -2025,9 +2025,9 @@ def test_resolve_buffer_msg_color_only_returns_circle_buffer_msg():
     section = SectionConfig(mode="forever_scroll", separator_color=[225, 48, 108])
     msg = _resolve_buffer_msg(section)
 
-    assert isinstance(
-        msg, _CircleBufferMsg
-    ), f"expected _CircleBufferMsg, got {type(msg).__name__}"
+    assert isinstance(msg, _CircleBufferMsg), (
+        f"expected _CircleBufferMsg, got {type(msg).__name__}"
+    )
     assert msg.text == " • "
     # Color provider returns the user's RGB.
     color = msg.font_color.color_for(0, 0, 1)
@@ -2832,15 +2832,15 @@ class TestLoadConfigOffEventLoop:
         # Verify that asyncio.to_thread was called with load_config.
         # The mock object won't have __name__, so check that to_thread was
         # called with the mocked load_config and the config_path argument.
-        assert (
-            len(to_thread_calls) > 0
-        ), "asyncio.to_thread must be called to wrap load_config"
+        assert len(to_thread_calls) > 0, (
+            "asyncio.to_thread must be called to wrap load_config"
+        )
         # Verify the call was with load_config (mocked) and config_path
         _, args = to_thread_calls[0]
         assert len(args) == 1
-        assert (
-            str(args[0]) == "ignored.toml"
-        ), f"Expected load_config to be called with config_path, got: {args}"
+        assert str(args[0]) == "ignored.toml", (
+            f"Expected load_config to be called with config_path, got: {args}"
+        )
 
 
 class TestResolveAssetPaths:
@@ -3329,9 +3329,7 @@ class TestStartBusyLight:
             "(not strongly referenced)"
         )
 
-        others = [
-            t for t in asyncio.all_tasks() if t is not asyncio.current_task()
-        ]
+        others = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
         for t in others:
             t.cancel()
         await asyncio.gather(*others, return_exceptions=True)

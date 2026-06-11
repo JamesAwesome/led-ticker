@@ -29,8 +29,10 @@ def test_baseball_surface_symbols_exported():
 
 def test_frame_aware_base_is_a_real_public_class():
     from led_ticker.widgets._frame_aware import FrameAwareBase as RealBase
+
     assert P.FrameAwareBase is RealBase
     import led_ticker.widgets._frame_aware as fa
+
     assert not hasattr(fa, "_FrameAware"), (
         "_FrameAware should be renamed to FrameAwareBase"
     )

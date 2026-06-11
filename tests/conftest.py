@@ -38,9 +38,7 @@ def _hermetic_entry_point_plugins(monkeypatch):
             return []
         return real_entry_points(*args, **kwargs)
 
-    monkeypatch.setattr(
-        importlib.metadata, "entry_points", _no_plugin_entry_points
-    )
+    monkeypatch.setattr(importlib.metadata, "entry_points", _no_plugin_entry_points)
 
 
 @pytest.fixture

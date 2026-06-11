@@ -84,9 +84,7 @@ def build_webui_app(
     @web.middleware
     async def auth(request: web.Request, handler):
         if token:
-            provided = request.headers.get("X-Web-Token") or request.query.get(
-                "token"
-            )
+            provided = request.headers.get("X-Web-Token") or request.query.get("token")
             if provided != token:
                 return web.json_response({"error": "unauthorized"}, status=401)
         return await handler(request)
@@ -149,7 +147,7 @@ def _add_config_routes(app: web.Application, config_path: Path) -> None:
                 "panel_width": cols * chain,
                 "panel_height": rows * parallel,
             }
-        except (ValueError, TypeError, tomllib.TOMLDecodeError):
+        except ValueError, TypeError, tomllib.TOMLDecodeError:
             pass  # geometry is best-effort; the redacted text is the point
         return web.json_response(
             {"state": "ok", "toml": redact_toml(text), "geometry": geometry}

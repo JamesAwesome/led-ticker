@@ -91,8 +91,7 @@ def test_dotted_key_with_quoted_segment_is_redacted():
     # Legal TOML: a dotted key whose final segment is quoted. The dotted
     # prefix must not defeat the quoted-key match.
     out = redact_toml(
-        'slack."webhook url" = "https://hooks.slack/SECRET"\n'
-        'site."api key" = "LEAK3"'
+        'slack."webhook url" = "https://hooks.slack/SECRET"\nsite."api key" = "LEAK3"'
     )
     assert "SECRET" not in out and "LEAK3" not in out
     assert out.count("•••") == 2

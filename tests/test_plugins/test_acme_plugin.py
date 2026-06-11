@@ -13,8 +13,9 @@ def test_example_swoosh_accepts_threshold_config():
     try:
         L.load_plugins(EXAMPLES, entry_points_enabled=False)
         obj = _build_trans_obj(
-            _parse_transition({"type": "acme.swoosh", "threshold": 0.3},
-                              TransitionConfig())
+            _parse_transition(
+                {"type": "acme.swoosh", "threshold": 0.3}, TransitionConfig()
+            )
         )
         assert obj.threshold == 0.3
     finally:

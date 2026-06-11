@@ -207,7 +207,7 @@ def _widget_summary(widget: Any) -> dict[str, str]:
         if segments:
             try:
                 text = " ".join(str(s[0]) for s in segments if s and s[0])
-            except (TypeError, IndexError):
+            except TypeError, IndexError:
                 text = None
     path = getattr(widget, "path", None)
     if text:

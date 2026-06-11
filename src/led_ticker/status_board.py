@@ -141,9 +141,13 @@ def record_monitor_update(name: str) -> None:
 
 
 def record_widget_visit(widget: Any) -> None:
-    if _ACTIVE is not None:
+    if _ACTIVE is None:
+        return
+    try:
         _ACTIVE.widget = _widget_summary(widget)
-        _ACTIVE.publish()
+    except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+        return
+    _ACTIVE.publish()
 
 
 def record_section(

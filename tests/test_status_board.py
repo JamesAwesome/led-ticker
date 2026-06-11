@@ -161,6 +161,26 @@ def test_record_section_publishes_immediately(tmp_path):
         status_board.clear_active_board()
 
 
+def test_record_widget_visit_survives_raising_text_property(tmp_path):
+    """A widget whose text property raises must not propagate into the engine."""
+
+    class BadWidget:
+        @property
+        def text(self):
+            raise RuntimeError("broken property")
+
+    board = _board(tmp_path)
+    status_board.set_active_board(board)
+    original_widget = board.widget  # capture before the call
+    try:
+        # Must not raise
+        status_board.record_widget_visit(BadWidget())
+        # Board widget field stays unchanged (the failed update was swallowed)
+        assert board.widget == original_widget
+    finally:
+        status_board.clear_active_board()
+
+
 def test_widget_summary_shapes(tmp_path):
     class FakeText:
         text = "Hello world " * 20  # > 80 chars

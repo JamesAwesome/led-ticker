@@ -101,6 +101,50 @@ def _load_plugins_for_config(config_path: Path):
     return load_plugins_for_config(config_path)
 
 
+def _setup_status_board(
+    config: Any, config_path: Path, plugins: Any
+) -> tuple[Any, logging.Handler] | None:
+    """Build + activate the StatusBoard and its log handler when [web] is
+    configured. Returns (board, handler) so run() can tear both down, or
+    None when [web] is absent."""
+    if config.web is None:
+        return None
+
+    from led_ticker.status_board import (  # noqa: PLC0415
+        StatusBoard,
+        StatusLogHandler,
+        set_active_board,
+    )
+
+    board = StatusBoard(path=Path(config.web.status_path))
+    board.config_path = str(config_path)
+    board.geometry = {
+        "rows": config.display.rows,
+        "cols": config.display.cols,
+        "chain_length": config.display.chain_length,
+        "parallel": config.display.parallel,
+        "default_scale": config.display.default_scale,
+        "panel_width": config.display.cols * config.display.chain_length,
+        "panel_height": config.display.rows * config.display.parallel,
+    }
+    board.plugins = [
+        {
+            "namespace": info.namespace,
+            "source": info.source,
+            "counts": dict(info.counts or {}),
+        }
+        for info in plugins.loaded
+    ]
+    board.failed_plugins = [
+        {"namespace": ns, "error": str(err)} for ns, err in plugins.failed
+    ]
+    set_active_board(board)
+    handler = StatusLogHandler(board)
+    logging.getLogger().addHandler(handler)
+    board.publish(force=True)
+    return board, handler
+
+
 async def run(config_path: Path) -> None:
     """Main application loop."""
     # Plugins must load before load_config so plugin-provided easings (and any
@@ -120,38 +164,7 @@ async def run(config_path: Path) -> None:
 
     led_frame = build_frame_from_config(config.display)
 
-    if config.web is not None:
-        from led_ticker.status_board import (  # noqa: PLC0415
-            StatusBoard,
-            StatusLogHandler,
-            set_active_board,
-        )
-
-        board = StatusBoard(path=Path(config.web.status_path))
-        board.config_path = str(config_path)
-        board.geometry = {
-            "rows": config.display.rows,
-            "cols": config.display.cols,
-            "chain_length": config.display.chain_length,
-            "parallel": config.display.parallel,
-            "default_scale": config.display.default_scale,
-            "panel_width": config.display.cols * config.display.chain_length,
-            "panel_height": config.display.rows * config.display.parallel,
-        }
-        board.plugins = [
-            {
-                "namespace": info.namespace,
-                "source": info.source,
-                "counts": dict(info.counts or {}),
-            }
-            for info in plugins.loaded
-        ]
-        board.failed_plugins = [
-            {"namespace": ns, "error": str(err)} for ns, err in plugins.failed
-        ]
-        set_active_board(board)
-        logging.getLogger().addHandler(StatusLogHandler(board))
-        board.publish(force=True)
+    _status_handle = _setup_status_board(config, config_path, plugins)
 
     if config.busy_light.enabled:
         await _start_busy_light(config.busy_light, led_frame)
@@ -425,3 +438,9 @@ async def run(config_path: Path) -> None:
             # Best-effort: run plugin shutdown hooks when the loop exits
             # (normally via cancellation on Ctrl-C / SIGTERM).
             await _run_shutdown_hooks(plugins.shutdown_hooks)
+            # Tear down the status board and its log handler so a second run()
+            # call in the same process doesn't accumulate stale handlers.
+            if _status_handle is not None:
+                _board, _handler = _status_handle
+                logging.getLogger().removeHandler(_handler)
+                status_board.clear_active_board()

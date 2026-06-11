@@ -636,6 +636,9 @@ class Ticker:
         self._visit_counter += 1
         self._current_visit = self._visit_counter
         if widget is not None:
+            # Intentionally at visit-entry (section boundary), not inside the
+            # tick loop — keep it here so a refactor of _swap_and_scroll doesn't
+            # accidentally pull it into per-tick cadence.
             status_board.record_widget_visit(widget)
         if hasattr(widget, "reset_frame"):
             widget.reset_frame()

@@ -131,6 +131,16 @@ def main() -> None:
         help="Path to TOML config file (defaults to the top-level --config)",
     )
 
+    # `webui` subcommand — the unprivileged status sidecar
+    webui_parser = subparsers.add_parser(
+        "webui",
+        help="Run the web status UI sidecar (requires a [web] block in the config)",
+    )
+    webui_parser.add_argument(
+        "--config", "-c", type=Path, default=argparse.SUPPRESS,
+        help="Path to TOML config file (defaults to the top-level --config)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "plugins":
@@ -142,6 +152,25 @@ def main() -> None:
             print(str(e), file=sys.stderr)
             sys.exit(2)
         print(_format_plugins(result))
+        sys.exit(0)
+
+    if args.command == "webui":
+        from led_ticker.config import read_web_config  # noqa: PLC0415
+        from led_ticker.webui import run_webui  # noqa: PLC0415
+
+        try:
+            web_cfg = read_web_config(args.config)
+        except (OSError, ValueError) as e:
+            print(str(e), file=sys.stderr)
+            sys.exit(2)
+        if web_cfg is None:
+            print(
+                f"No [web] block in {args.config} — add one to enable the "
+                "status sidecar (see config.example.toml).",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        asyncio.run(run_webui(args.config, web_cfg))
         sys.exit(0)
 
     if args.command == "validate":

@@ -235,3 +235,40 @@ async def test_root_is_auth_gated(tmp_path):
         assert ok.status == 200
     finally:
         await client.close()
+
+
+async def test_serve_webui_starts_and_cleans_up(tmp_path):
+    from led_ticker.webui import serve_webui
+
+    config_path = tmp_path / "config.toml"
+    config_path.write_text("[display]\nrows = 16\n")
+    runner = await serve_webui(
+        config_path=config_path,
+        status_path=tmp_path / "status.json",
+        host="127.0.0.1",
+        port=0,  # OS-assigned free port
+        token="",
+    )
+    try:
+        assert runner.addresses
+    finally:
+        await runner.cleanup()
+
+
+def test_cli_webui_requires_web_block(tmp_path):
+    import os
+    import subprocess
+    import sys
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("[display]\nrows = 16\n")
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    proc = subprocess.run(
+        [sys.executable, "-m", "led_ticker.app.cli", "webui", "--config", str(cfg)],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+    )
+    assert proc.returncode == 2
+    assert "[web]" in proc.stderr

@@ -8,6 +8,7 @@ friendly JSON answer, not a 500. This module must never import rgbmatrix
 (tripwire lands in tests/test_webui_purity.py).
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -175,3 +176,37 @@ def _add_page_route(app: web.Application) -> None:
         return web.Response(text=html, content_type="text/html")
 
     app.router.add_get("/", index)
+
+
+async def serve_webui(
+    *, config_path: Path, status_path: Path, host: str, port: int, token: str = ""
+) -> web.AppRunner:
+    """Start the listener; caller keeps the runner and calls .cleanup().
+    Same contract as busy_http.serve_busy."""
+    runner = web.AppRunner(
+        build_webui_app(config_path=config_path, status_path=status_path, token=token)
+    )
+    await runner.setup()
+    try:
+        site = web.TCPSite(runner, host, port)
+        await site.start()
+    except Exception:
+        await runner.cleanup()
+        raise
+    logger.info("webui listening on %s:%d", host, port)
+    return runner
+
+
+async def run_webui(config_path: Path, web_cfg) -> None:
+    """Process entry point for `led-ticker webui`. Runs until cancelled."""
+    runner = await serve_webui(
+        config_path=config_path,
+        status_path=Path(web_cfg.status_path).expanduser(),
+        host=web_cfg.host,
+        port=web_cfg.port,
+        token=web_cfg.token,
+    )
+    try:
+        await asyncio.Event().wait()
+    finally:
+        await runner.cleanup()

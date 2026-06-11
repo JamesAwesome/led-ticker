@@ -391,3 +391,12 @@ async def test_config_view_without_name_unchanged(tmp_path):
         assert body["state"] == "ok"  # the running config, as in v1
     finally:
         await client.close()
+
+
+async def test_inventory_route(tmp_path):
+    client = await _client(tmp_path)
+    try:
+        body = await (await client.get("/api/inventory")).json()
+        assert set(body) >= {"fonts", "assets", "assets_truncated", "emoji"}
+    finally:
+        await client.close()

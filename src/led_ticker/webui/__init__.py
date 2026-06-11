@@ -207,6 +207,13 @@ def _add_config_routes(app: web.Application, config_path: Path) -> None:
     app.router.add_post("/api/validate", validate_handler)
     app.router.add_post("/api/validate-file", validate_file_handler)
 
+    async def inventory_handler(request: web.Request) -> web.Response:
+        from led_ticker.webui.inventory import build_inventory  # noqa: PLC0415
+
+        return web.json_response(build_inventory(config_path.parent))
+
+    app.router.add_get("/api/inventory", inventory_handler)
+
 
 def _add_page_route(app: web.Application) -> None:
     async def index(request: web.Request) -> web.Response:

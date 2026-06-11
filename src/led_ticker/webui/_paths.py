@@ -13,9 +13,7 @@ def list_config_names(config_dir: Path) -> list[str]:
     Missing/unreadable dir yields []."""
     try:
         return sorted(
-            p.name
-            for p in config_dir.iterdir()
-            if p.suffix == ".toml" and p.is_file()
+            p.name for p in config_dir.iterdir() if p.suffix == ".toml" and p.is_file()
         )
     except OSError:
         return []
@@ -40,7 +38,7 @@ def safe_config_member(config_dir: Path, name: str) -> Path | None:
             return None
         if candidate.parent != config_dir.resolve(strict=True):
             return None
-    except (OSError, ValueError):
+    except OSError, ValueError:
         # ValueError: e.g. an embedded NUL byte in the name — os.path.realpath
         # raises it rather than OSError; must classify as absent, not 500.
         return None

@@ -222,8 +222,14 @@ async def test_root_serves_page(tmp_path):
         assert resp.content_type == "text/html"
         text = await resp.text()
         for marker in (
-            "Status", "Config", "Validate", "Inventory",
-            "/api/status", "/api/configs", "validate-file", "/api/inventory",
+            "Status",
+            "Config",
+            "Validate",
+            "Inventory",
+            "/api/status",
+            "/api/configs",
+            "validate-file",
+            "/api/inventory",
         ):
             assert marker in text
     finally:
@@ -323,7 +329,11 @@ async def test_validate_file_traversal_and_absent_are_identical_404s(tmp_path):
     try:
         bodies = []
         for name in (
-            "../escape.toml", "/etc/passwd", "sub/x.toml", "nope.toml", "a\x00.toml"
+            "../escape.toml",
+            "/etc/passwd",
+            "sub/x.toml",
+            "nope.toml",
+            "a\x00.toml",
         ):
             resp = await client.post("/api/validate-file", json={"name": name})
             assert resp.status == 404

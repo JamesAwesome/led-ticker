@@ -1,0 +1,31 @@
+# Bare-metal sidecar for the led-ticker web status UI.
+# Docker users: the compose.yaml webui service covers this — you do not need
+# to install or enable this unit.
+#
+# Prerequisites: the main led-ticker.service must be running so it can write
+# status.json to /run/led-ticker/ (RuntimeDirectory managed by led-ticker.service).
+# This unit uses RuntimeDirectoryPreserve=yes so the directory survives restarts.
+
+[Unit]
+Description=LED Ticker Web Status UI
+After=network-online.target led-ticker.service
+Wants=network-online.target
+BindsTo=led-ticker.service
+
+[Service]
+Type=simple
+User=ledticker
+WorkingDirectory=/opt/led-ticker
+EnvironmentFile=/opt/led-ticker/.env
+ExecStart=/opt/led-ticker/venv/bin/led-ticker webui --config /opt/led-ticker/config.toml
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# No GPIO access needed — this service is deliberately unprivileged.
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

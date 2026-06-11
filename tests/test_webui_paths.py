@@ -63,3 +63,10 @@ def test_rejects_absent_file_same_as_traversal(tmp_path):
     d = _mk(tmp_path)
     # Absent and traversal must be the same outcome (no filesystem oracle).
     assert safe_config_member(d, "nope.toml") is None
+
+
+def test_rejects_nul_byte_without_raising(tmp_path):
+    # os.path.realpath raises ValueError (not OSError) on embedded NULs;
+    # the guard must classify that as absent, never let it become a 500.
+    d = _mk(tmp_path)
+    assert safe_config_member(d, "a\x00.toml") is None

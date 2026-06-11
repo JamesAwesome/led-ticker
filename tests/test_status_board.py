@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging as _logging
 
 from led_ticker import status_board
 from led_ticker.status_board import SCHEMA_VERSION, StatusBoard
@@ -96,3 +97,88 @@ def test_module_record_functions_noop_without_active_board():
     # Must not raise when no board is active.
     status_board.record_monitor_update("RSSFeedMonitor")
     status_board.record_widget_visit(object())
+    status_board.record_section(index=0, total=1, mode="swap", title="", widget_count=0)
+
+
+def test_log_handler_captures_warning_and_bounds(tmp_path):
+    from led_ticker.status_board import LOG_TAIL_MAX, StatusLogHandler
+
+    board = _board(tmp_path)
+    handler = StatusLogHandler(board)
+    log = _logging.getLogger("test.status.tail")
+    log.addHandler(handler)
+    try:
+        log.info("invisible")  # below handler level
+        for i in range(LOG_TAIL_MAX + 10):
+            log.warning("warn %d", i)
+    finally:
+        log.removeHandler(handler)
+    assert len(board.log_tail) == LOG_TAIL_MAX
+    assert board.log_tail[-1]["message"] == f"warn {LOG_TAIL_MAX + 9}"
+    assert board.log_tail[-1]["level"] == "WARNING"
+    assert all(e["message"] != "invisible" for e in board.log_tail)
+
+
+def test_log_handler_survives_disabled_board(tmp_path):
+    from led_ticker.status_board import StatusLogHandler
+
+    board = _board(tmp_path)
+    board.disabled = True
+    handler = StatusLogHandler(board)
+    log = _logging.getLogger("test.status.disabled")
+    log.addHandler(handler)
+    try:
+        log.warning("must not raise")  # publish is a no-op; emit must not raise
+    finally:
+        log.removeHandler(handler)
+
+
+def test_record_monitor_update_with_active_board(tmp_path):
+    board = _board(tmp_path)
+    status_board.set_active_board(board)
+    try:
+        status_board.record_monitor_update("RSS BBC")
+        assert "RSS BBC" in board.monitor_updates
+        assert board.monitor_updates["RSS BBC"] > 0
+    finally:
+        status_board.clear_active_board()
+
+
+def test_record_section_publishes_immediately(tmp_path):
+    board = _board(tmp_path, min_interval=3600.0)
+    status_board.set_active_board(board)
+    try:
+        status_board.record_section(
+            index=1, total=3, mode="swap", title="news", widget_count=4
+        )
+        on_disk = json.loads((tmp_path / "status.json").read_text())
+        assert on_disk["section"]["mode"] == "swap"
+        assert on_disk["section"]["index"] == 1
+    finally:
+        status_board.clear_active_board()
+
+
+def test_widget_summary_shapes(tmp_path):
+    class FakeText:
+        text = "Hello world " * 20  # > 80 chars
+
+    class FakePath:
+        path = "/code/assets/cat.gif"
+
+    class Bare:
+        pass
+
+    board = _board(tmp_path)
+    status_board.set_active_board(board)
+    try:
+        status_board.record_widget_visit(FakeText())
+        assert board.widget["type"] == "FakeText"
+        assert len(board.widget["summary"]) == 80
+
+        status_board.record_widget_visit(FakePath())
+        assert board.widget["summary"] == "/code/assets/cat.gif"
+
+        status_board.record_widget_visit(Bare())
+        assert board.widget == {"type": "Bare", "summary": ""}
+    finally:
+        status_board.clear_active_board()

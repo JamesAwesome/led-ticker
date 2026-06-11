@@ -287,6 +287,6 @@ class TestScaleSwitchAt:
 
         # Every frame_at call should have seen a canvas at scale=4 (incoming),
         # never scale=2, because scale_switch_at=0.0.
-        assert all(
-            s == 4 for s in canvas_scales_seen
-        ), f"Expected all frames at scale=4, got: {canvas_scales_seen}"
+        assert all(s == 4 for s in canvas_scales_seen), (
+            f"Expected all frames at scale=4, got: {canvas_scales_seen}"
+        )

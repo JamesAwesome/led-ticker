@@ -12,10 +12,10 @@ def _clean():
 
 
 def test_plugin_easing_registers_namespaced(tmp_path):
-    src = '''
+    src = """
 def register(api):
     api.easing("snap", lambda p: p * p)
-'''
+"""
     pdir = tmp_path / "plugins"
     pdir.mkdir()
     (pdir / "acme.py").write_text(src)

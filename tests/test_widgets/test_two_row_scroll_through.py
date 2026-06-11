@@ -699,9 +699,9 @@ class TestScrollThroughRealWidgetEngineIntegration:
         # After the loop, the bottom row must have travelled at least
         # -(canvas.width + bottom_width) so the last char clears the left
         # edge. _bottom_width is populated on the widget's first draw.
-        assert (
-            widget._bottom_width > 0
-        ), "Widget should have measured _bottom_width on first draw"
+        assert widget._bottom_width > 0, (
+            "Widget should have measured _bottom_width on first draw"
+        )
         expected = -(canvas.width + widget._bottom_width)
         assert final_pos <= expected, (
             f"Real TwoRowMessage scroll_through must travel to "

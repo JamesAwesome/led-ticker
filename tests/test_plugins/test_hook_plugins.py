@@ -95,8 +95,9 @@ def test_run_startup_hooks_sync_and_async_and_isolated(caplog):
     with caplog.at_level(logging.ERROR):
         asyncio.run(L._run_startup_hooks(hooks, "CTX"))
     assert order == [("sync", "CTX"), ("async", "CTX")]
-    assert any("on_startup" in r.getMessage() and "c" in r.getMessage()
-               for r in caplog.records)
+    assert any(
+        "on_startup" in r.getMessage() and "c" in r.getMessage() for r in caplog.records
+    )
 
 
 def test_run_shutdown_hooks_sync_and_async_and_isolated(caplog):
@@ -115,8 +116,10 @@ def test_run_shutdown_hooks_sync_and_async_and_isolated(caplog):
     with caplog.at_level(logging.ERROR):
         asyncio.run(L._run_shutdown_hooks(hooks))
     assert order == ["sync", "async"]
-    assert any("on_shutdown" in r.getMessage() and "c" in r.getMessage()
-               for r in caplog.records)
+    assert any(
+        "on_shutdown" in r.getMessage() and "c" in r.getMessage()
+        for r in caplog.records
+    )
 
 
 def test_run_shutdown_hooks_cancellederror_is_not_swallowed():
@@ -158,8 +161,10 @@ def test_run_startup_hooks_async_failure_is_isolated(caplog):
     with caplog.at_level(logging.ERROR):
         asyncio.run(L._run_startup_hooks(hooks, "CTX"))
     assert order == ["ok"]  # a raising async hook does not stop later hooks
-    assert any("on_startup" in r.getMessage() and "bad" in r.getMessage()
-               for r in caplog.records)
+    assert any(
+        "on_startup" in r.getMessage() and "bad" in r.getMessage()
+        for r in caplog.records
+    )
 
 
 def test_run_shutdown_hooks_async_failure_is_isolated(caplog):
@@ -175,8 +180,10 @@ def test_run_shutdown_hooks_async_failure_is_isolated(caplog):
     with caplog.at_level(logging.ERROR):
         asyncio.run(L._run_shutdown_hooks(hooks))
     assert order == ["ok"]
-    assert any("on_shutdown" in r.getMessage() and "bad" in r.getMessage()
-               for r in caplog.records)
+    assert any(
+        "on_shutdown" in r.getMessage() and "bad" in r.getMessage()
+        for r in caplog.records
+    )
 
 
 def test_commit_failure_contributes_no_hooks(tmp_path):

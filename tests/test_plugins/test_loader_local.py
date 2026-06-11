@@ -3,7 +3,7 @@ import pytest
 from led_ticker import _plugin_loader as L
 from led_ticker.widgets import _WIDGET_REGISTRY, get_widget_class
 
-PLUGIN_SRC = '''
+PLUGIN_SRC = """
 from led_ticker.plugin import Widget
 
 def register(api):
@@ -11,7 +11,7 @@ def register(api):
     class Clock:
         def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
             return canvas, cursor_pos
-'''
+"""
 
 
 @pytest.fixture(autouse=True)

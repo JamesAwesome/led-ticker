@@ -47,7 +47,7 @@ def test_advance_frame_accepts_visit_id_kwarg():
     for qualname, modname, method in _all_own_advance_frame_methods():
         try:
             sig = inspect.signature(method)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue  # can't inspect (e.g. C extension stub) — skip
         if "visit_id" not in sig.parameters:
             violations.append(f"{qualname}  ({modname})")

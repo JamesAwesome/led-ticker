@@ -34,7 +34,7 @@ def _clean_plugins():
 
 
 def test_plugin_color_provider_coerces(_clean_plugins, tmp_path):
-    src = '''
+    src = """
 import attrs
 from led_ticker.plugin import ColorProviderBase
 
@@ -48,7 +48,7 @@ class Fire(ColorProviderBase):
 
 def register(api):
     api.color_provider("fire")(Fire)
-'''
+"""
     pdir = tmp_path / "plugins"
     pdir.mkdir()
     (pdir / "acme.py").write_text(src)
@@ -73,7 +73,7 @@ def test_color_cycle_from_to_still_work():
 
 
 def test_plugin_provider_missing_required_raises_valueerror(_clean_plugins, tmp_path):
-    src = '''
+    src = """
 import attrs
 from led_ticker.plugin import ColorProviderBase
 
@@ -87,7 +87,7 @@ class Needy(ColorProviderBase):
 
 def register(api):
     api.color_provider("needy")(Needy)
-'''
+"""
     pdir = tmp_path / "plugins"
     pdir.mkdir()
     (pdir / "acme.py").write_text(src)

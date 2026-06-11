@@ -62,7 +62,7 @@ def _gif_loop_ms(path: Path) -> int:
                 im.seek(i)
                 total += int(im.info.get("duration", 100))
             return max(1, total)
-    except (FileNotFoundError, OSError, ValueError):
+    except FileNotFoundError, OSError, ValueError:
         return _GIF_FALLBACK_LOOP_MS
 
 

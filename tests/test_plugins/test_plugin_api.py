@@ -40,8 +40,14 @@ def test_api_version_is_major_minor_tuple():
 def test_public_surface_exports_protocols():
     import led_ticker.plugin as p
 
-    for name in ("PluginAPI", "API_VERSION", "Widget", "Transition", "Canvas",
-                 "spawn_tracked"):
+    for name in (
+        "PluginAPI",
+        "API_VERSION",
+        "Widget",
+        "Transition",
+        "Canvas",
+        "spawn_tracked",
+    ):
         assert hasattr(p, name), f"missing public export: {name}"
 
 

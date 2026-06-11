@@ -246,8 +246,12 @@ def test_draw_with_emoji_renders_plugin_low_res_slug(tmp_path):
         sc = ScaledCanvas(real, scale=4)
 
         advance_with = draw_with_emoji(
-            sc, FONT_SMALL, cursor_pos=0, y=8,
-            color=(255, 255, 255), text="hi :acme.spark:"
+            sc,
+            FONT_SMALL,
+            cursor_pos=0,
+            y=8,
+            color=(255, 255, 255),
+            text="hi :acme.spark:",
         )
         advance_without = draw_with_emoji(
             sc, FONT_SMALL, cursor_pos=0, y=8, color=(255, 255, 255), text="hi "

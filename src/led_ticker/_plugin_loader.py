@@ -58,9 +58,7 @@ class LoadedPlugins:
     # and the overlay guard). Collected only from successfully-loaded plugins.
     overlays: list[tuple[str, Callable[[Any], None]]] = field(default_factory=list)
     startup_hooks: list[tuple[str, Callable[..., Any]]] = field(default_factory=list)
-    shutdown_hooks: list[tuple[str, Callable[..., Any]]] = field(
-        default_factory=list
-    )
+    shutdown_hooks: list[tuple[str, Callable[..., Any]]] = field(default_factory=list)
 
 
 # Load-once guard; assigned by load_plugins() (added in Task A3).
@@ -118,9 +116,7 @@ def _commit(api: PluginAPI, info: PluginInfo) -> None:
             info.names[surface] = sorted(buf)
 
 
-def _resolve_root(
-    source: str, register: Callable[[PluginAPI], None]
-) -> Path | None:
+def _resolve_root(source: str, register: Callable[[PluginAPI], None]) -> Path | None:
     """Best-effort plugin root for resolving ``api.font()`` relative paths.
 
     Local plugins: the dir containing the plugin file — a single-file plugin's
@@ -247,9 +243,7 @@ def _load_one(
 ) -> None:
     """Run + commit one plugin's register(), isolating all failures."""
     if namespace in loaded_namespaces:
-        result.failed.append(
-            (namespace, "namespace already claimed by another plugin")
-        )
+        result.failed.append((namespace, "namespace already claimed by another plugin"))
         logger.error(
             "plugin namespace %r already claimed; skipping %s", namespace, source
         )
@@ -261,9 +255,7 @@ def _load_one(
         return
     if register is None or not callable(register):
         result.failed.append((namespace, "no callable register(api) found"))
-        logger.error(
-            "plugin %r has no register(api); skipping %s", namespace, source
-        )
+        logger.error("plugin %r has no register(api); skipping %s", namespace, source)
         return
     root = _resolve_root(source, register)
     api = PluginAPI(namespace, root=root)

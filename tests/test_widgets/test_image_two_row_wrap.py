@@ -306,8 +306,7 @@ class TestImageTwoRowWrapRenders:
 
         ticks = _split_into_ticks(draws)
         assert len(ticks) >= 5, (
-            f"Need at least 5 ticks to verify scroll_pos advancement; "
-            f"got {len(ticks)}"
+            f"Need at least 5 ticks to verify scroll_pos advancement; got {len(ticks)}"
         )
 
         # For each of the first 5 ticks, verify ≥2 copies of "Hi"
@@ -373,14 +372,14 @@ class TestImageTwoRowWrapRenders:
         for tick in ticks[:5]:
             top_xs = [x for (x, t) in tick if t == "TOP"]
             assert len(top_xs) == 1, (
-                f"Top row should draw exactly once per tick; " f"got xs={top_xs}"
+                f"Top row should draw exactly once per tick; got xs={top_xs}"
             )
             top_xs_per_tick.append(top_xs[0])
 
         # All top x's should be the same (held).
-        assert (
-            len(set(top_xs_per_tick)) == 1
-        ), f"Top row drifted across ticks: {top_xs_per_tick}"
+        assert len(set(top_xs_per_tick)) == 1, (
+            f"Top row drifted across ticks: {top_xs_per_tick}"
+        )
 
 
 class TestBottomSeparatorColorInheritance:
@@ -559,5 +558,5 @@ class TestGifPlayerTwoRowWrap:
         ticks = _split_into_ticks(draws)
         hi_total = sum(len([d for d in tick if d[1] == "Hi"]) for tick in ticks)
         assert hi_total > len(ticks), (
-            "GifPlayer two-row wrap should render multiple bottom " "copies per tick"
+            "GifPlayer two-row wrap should render multiple bottom copies per tick"
         )

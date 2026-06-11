@@ -206,9 +206,7 @@ def _parse_plugins_block(raw: dict) -> PluginsConfig:
             f"plugins.enabled must be a bool; got {type(cfg.enabled).__name__}."
         )
     if not isinstance(cfg.dir, str):
-        raise ValueError(
-            f"plugins.dir must be a string; got {type(cfg.dir).__name__}."
-        )
+        raise ValueError(f"plugins.dir must be a string; got {type(cfg.dir).__name__}.")
     cfg.dir = cfg.dir.strip()
     if not cfg.dir:
         raise ValueError("plugins.dir must not be empty.")
@@ -501,8 +499,7 @@ def load_config(path: Path) -> AppConfig:
         )
     if not isinstance(busy_light.token, str):
         raise ValueError(
-            f"busy_light.token must be a string; "
-            f"got {type(busy_light.token).__name__}."
+            f"busy_light.token must be a string; got {type(busy_light.token).__name__}."
         )
 
     plugins = _parse_plugins_block(raw)

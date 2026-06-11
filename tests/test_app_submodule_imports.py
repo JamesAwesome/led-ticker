@@ -38,15 +38,15 @@ def test_symbol_importable_from_submodule(module, symbol, type_check):
     if type_check == "callable":
         assert callable(obj), f"{module}.{symbol} should be callable"
     elif type_check == "coroutinefunction":
-        assert inspect.iscoroutinefunction(
-            obj
-        ), f"{module}.{symbol} should be a coroutinefunction"
+        assert inspect.iscoroutinefunction(obj), (
+            f"{module}.{symbol} should be a coroutinefunction"
+        )
     elif type_check == "itertools.cycle":
         import itertools
 
-        assert isinstance(
-            obj, itertools.cycle
-        ), f"{module}.{symbol} should be itertools.cycle"
+        assert isinstance(obj, itertools.cycle), (
+            f"{module}.{symbol} should be itertools.cycle"
+        )
     elif type_check == "dict":
         assert isinstance(obj, dict), f"{module}.{symbol} should be a dict"
     elif type_check == "set":
@@ -79,8 +79,8 @@ def test_symbol_importable_from_app(symbol, type_check):
     if type_check == "callable":
         assert callable(obj), f"led_ticker.app.{symbol} should be callable"
     elif type_check == "coroutinefunction":
-        assert inspect.iscoroutinefunction(
-            obj
-        ), f"led_ticker.app.{symbol} should be a coroutinefunction"
+        assert inspect.iscoroutinefunction(obj), (
+            f"led_ticker.app.{symbol} should be a coroutinefunction"
+        )
     elif type_check == "set":
         assert isinstance(obj, set), f"led_ticker.app.{symbol} should be a set"

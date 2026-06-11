@@ -108,8 +108,7 @@ def coerce_choice(
     normalized = value.strip().lower()
     if normalized not in valid:
         raise ValueError(
-            f'{field}="{value}" is not a valid choice; expected one of '
-            f"{sorted(valid)}."
+            f'{field}="{value}" is not a valid choice; expected one of {sorted(valid)}.'
         )
     if normalized == value:
         return normalized, None

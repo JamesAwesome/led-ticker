@@ -150,7 +150,7 @@ class StillImage(_BaseImageWidget):
         self._validate_common(image_align=self.image_align, fit=self.fit)
         if self.hold_time < HOLD_TIME_FLOOR:
             raise ValueError(
-                f"hold_time must be >= {HOLD_TIME_FLOOR}, " f"got {self.hold_time!r}"
+                f"hold_time must be >= {HOLD_TIME_FLOOR}, got {self.hold_time!r}"
             )
 
     def _load(self, panel_w: int = 0, panel_h: int = 0) -> None:

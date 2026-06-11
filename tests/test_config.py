@@ -1019,7 +1019,7 @@ def test_busy_light_invalid_port_raises(tmp_path):
     p = tmp_path / "c.toml"
     p.write_text(
         "[display]\nrows=16\ncols=32\n\n"
-        '[busy_light]\nenabled=true\nhttp_port=70000\n\n'
+        "[busy_light]\nenabled=true\nhttp_port=70000\n\n"
         '[[playlist.section]]\nmode="swap"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )
@@ -1033,7 +1033,7 @@ def test_busy_light_negative_ttl_raises(tmp_path):
     p = tmp_path / "c.toml"
     p.write_text(
         "[display]\nrows=16\ncols=32\n\n"
-        '[busy_light]\nenabled=true\nttl_seconds=-1.0\n\n'
+        "[busy_light]\nenabled=true\nttl_seconds=-1.0\n\n"
         '[[playlist.section]]\nmode="swap"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )

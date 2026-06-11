@@ -3,7 +3,10 @@ from pathlib import Path
 
 EXAMPLE = (
     Path(__file__).resolve().parents[2]
-    / "examples" / "plugins" / "acme" / "__init__.py"
+    / "examples"
+    / "plugins"
+    / "acme"
+    / "__init__.py"
 )
 
 

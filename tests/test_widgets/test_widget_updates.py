@@ -179,5 +179,3 @@ class TestRSSFeedUpdate:
         m = RSSFeedMonitor(session=session, feed_url="http://x.com")
         await m.update()
         assert m.feed_stories == []
-
-

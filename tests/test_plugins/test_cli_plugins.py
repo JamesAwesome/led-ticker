@@ -8,8 +8,11 @@ from led_ticker.app.cli import _format_plugins
 def test_format_plugins_lists_loaded_and_counts():
     result = LoadedPlugins(
         loaded=[
-            PluginInfo(namespace="acme", source="/cfg/plugins/acme.py",
-                       counts={"widgets": 2, "transitions": 1}),
+            PluginInfo(
+                namespace="acme",
+                source="/cfg/plugins/acme.py",
+                counts={"widgets": 2, "transitions": 1},
+            ),
         ],
         failed=[],
     )
@@ -107,7 +110,8 @@ def test_plugins_subcommand_accepts_config_after_subcommand(tmp_path):
     (tmp_path / "config.toml").write_text("[display]\nrows=16\ncols=64\n")
     proc = subprocess.run(
         ["led-ticker", "plugins", "--config", str(tmp_path / "config.toml")],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert proc.returncode == 0, proc.stderr
     assert "unrecognized arguments" not in proc.stderr
@@ -115,11 +119,13 @@ def test_plugins_subcommand_accepts_config_after_subcommand(tmp_path):
 
 def test_plugins_cli_clean_error_on_directory_config(tmp_path):
     import subprocess
+
     # Point --config at a directory (not a file) -> IsADirectoryError must be
     # reported cleanly, not as a traceback.
     proc = subprocess.run(
         ["led-ticker", "plugins", "--config", str(tmp_path)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert proc.returncode != 0
     assert "Traceback" not in proc.stderr

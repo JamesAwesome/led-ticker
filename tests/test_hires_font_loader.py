@@ -154,9 +154,9 @@ class TestLoadHiresFont:
             # rasterization. The '?' fallback happens via dict lookup
             # in the renderer, so a present-but-empty glyph would
             # silently render as a blank space at the wrong width.
-            assert (
-                len(font.glyphs[ch].lit) > 0
-            ), f"{ch!r} rasterized to zero lit pixels (threshold clip?)"
+            assert len(font.glyphs[ch].lit) > 0, (
+                f"{ch!r} rasterized to zero lit pixels (threshold clip?)"
+            )
 
     def test_glyph_has_lit_pixels(self):
         from led_ticker.fonts.hires_loader import load_hires_font
@@ -425,9 +425,9 @@ class TestResolveFont:
         assert bold_cols, "bold 'n' must have lit pixels at default threshold"
         # Leftmost lit column should be flush with bbox start (allow 0-2
         # px slack for any side-bearing whitespace inside the bbox).
-        assert (
-            bold_cols[0] <= 2
-        ), f"bold 'n' left stroke missing at thr=128: leftmost_col={bold_cols[0]}"
+        assert bold_cols[0] <= 2, (
+            f"bold 'n' left stroke missing at thr=128: leftmost_col={bold_cols[0]}"
+        )
         # Right stroke must also reach the bbox edge.
         assert bold_cols[-1] >= bold_n.width - 3, (
             f"bold 'n' right stroke incomplete: rightmost_col={bold_cols[-1]} "

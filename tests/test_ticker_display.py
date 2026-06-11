@@ -133,9 +133,9 @@ class TestSwapAndScrollOverflow:
             ticker = Ticker(monitors=[], frame=mock_frame)
             _, _, scroll_pos = await ticker._swap_and_scroll(canvas, widget)
             expected = -(width - canvas.width)
-            assert (
-                scroll_pos == expected
-            ), f"width={width}: expected {expected}, got {scroll_pos}"
+            assert scroll_pos == expected, (
+                f"width={width}: expected {expected}, got {scroll_pos}"
+            )
 
     async def test_stop_pos_accounts_for_padding(
         self,
@@ -235,9 +235,9 @@ class TestSwapAndScrollContinuous:
         ticker = Ticker(monitors=[], frame=mock_frame)
         await ticker._swap_and_scroll(canvas, widget, hold_time=3.0, continuous=True)
         # No 3-second hold_time sleeps should appear when continuous=True.
-        assert (
-            3.0 not in sleep_calls
-        ), f"continuous=True must skip hold_time sleeps; sleep_calls={sleep_calls}"
+        assert 3.0 not in sleep_calls, (
+            f"continuous=True must skip hold_time sleeps; sleep_calls={sleep_calls}"
+        )
 
     async def test_non_continuous_includes_holds(
         self, canvas, mock_frame, make_widget, monkeypatch
@@ -270,13 +270,13 @@ class TestSwapAndScrollContinuous:
         # plus per-pixel scroll sleeps. Verify tick-sized sleeps appear (not the
         # old bare hold_time sleep).
         tick_s = ENGINE_TICK_MS / 1000
-        assert (
-            tick_s in sleep_calls
-        ), f"Expected tick-sized sleeps ({tick_s}s) in sleep_calls; got {sleep_calls}"
+        assert tick_s in sleep_calls, (
+            f"Expected tick-sized sleeps ({tick_s}s) in sleep_calls; got {sleep_calls}"
+        )
         # No single sleep should equal the full hold_time (old bare sleep gone).
-        assert (
-            0.1 not in sleep_calls
-        ), f"hold_time bare sleep must not appear; sleep_calls={sleep_calls}"
+        assert 0.1 not in sleep_calls, (
+            f"hold_time bare sleep must not appear; sleep_calls={sleep_calls}"
+        )
 
 
 class TestTickDriftCompensation:
@@ -314,9 +314,9 @@ class TestTickDriftCompensation:
         tick_s = ENGINE_TICK_MS / 1000  # 0.05
         expected = tick_s - 0.030  # 0.020
         assert sleep_calls, "no sleep calls recorded"
-        assert all(
-            abs(s - expected) < 1e-9 for s in sleep_calls
-        ), f"expected {expected}s sleeps (drift-compensated), got {sleep_calls}"
+        assert all(abs(s - expected) < 1e-9 for s in sleep_calls), (
+            f"expected {expected}s sleeps (drift-compensated), got {sleep_calls}"
+        )
 
     async def test_scroll_and_delay_subtracts_work_time(
         self, canvas, mock_frame, make_widget, no_sleep, monkeypatch
@@ -344,9 +344,9 @@ class TestTickDriftCompensation:
         tick_s = ENGINE_TICK_MS / 1000  # 0.05
         expected = tick_s - 0.020  # 0.030
         assert sleep_calls, "no sleep calls recorded"
-        assert all(
-            abs(s - expected) < 1e-9 for s in sleep_calls
-        ), f"expected {expected}s sleeps, got {sleep_calls}"
+        assert all(abs(s - expected) < 1e-9 for s in sleep_calls), (
+            f"expected {expected}s sleeps, got {sleep_calls}"
+        )
 
 
 class TestSwapOnVSyncCapture:
@@ -548,9 +548,9 @@ class TestScrollSideBySide:
 
         # Hi-res circle path: SetPixel called many times on real canvas
         # (not on the wrapper).
-        assert (
-            real.SetPixel.call_count > 700
-        ), f"expected disk paint (~800 pixels), got {real.SetPixel.call_count}"
+        assert real.SetPixel.call_count > 700, (
+            f"expected disk paint (~800 pixels), got {real.SetPixel.call_count}"
+        )
         # Logical advance matches the disk helper's contract.
         assert cursor == 10
 
@@ -589,9 +589,9 @@ class TestScrollSideBySide:
 
         # First draw establishes the held end-position; every hold
         # tick must redraw at that same pos. Variation = visual snap.
-        assert (
-            len(draw_positions) >= 2
-        ), f"Hold loop didn't run; only got {draw_positions} draws."
+        assert len(draw_positions) >= 2, (
+            f"Hold loop didn't run; only got {draw_positions} draws."
+        )
         assert all(p == draw_positions[0] for p in draw_positions), (
             f"Visual snap detected — draws are not all at the held "
             f"position. First (held) draw at cursor_pos={draw_positions[0]}, "
@@ -675,9 +675,9 @@ class TestScrollSideBySide:
             "w1 never advanced. Side-by-side scroll isn't ticking the "
             "frame counter — animated providers freeze."
         )
-        assert (
-            w2._advance_frame_count >= 1
-        ), f"w2 never advanced (got {w2._advance_frame_count} calls)."
+        assert w2._advance_frame_count >= 1, (
+            f"w2 never advanced (got {w2._advance_frame_count} calls)."
+        )
 
 
 class TestRunSwap:
@@ -1162,9 +1162,9 @@ class TestCreateTaskHandlesStored:
         ticker = Ticker(monitors=[w], frame=mock_frame, notif_queue=q)
         assert ticker._enqueue_task is None, "must be None before run"
         await ticker.run_swap(loop_count=1)
-        assert (
-            ticker._enqueue_task is not None
-        ), "Ticker._enqueue_task must be set after run_swap — task handle not stored"
+        assert ticker._enqueue_task is not None, (
+            "Ticker._enqueue_task must be set after run_swap — task handle not stored"
+        )
 
     async def test_run_forever_scroll_stores_task_handle(
         self, mock_frame, make_widget, no_sleep
@@ -1820,9 +1820,9 @@ class TestScrollDriftCompensation:
         expected = scroll_speed - 0.020  # 0.030
         assert sleep_calls, "no sleep calls recorded"
         for s in sleep_calls:
-            assert (
-                abs(s - expected) < 1e-9
-            ), f"expected drift-compensated sleep {expected}s, got {s}"
+            assert abs(s - expected) < 1e-9, (
+                f"expected drift-compensated sleep {expected}s, got {s}"
+            )
 
     async def test_scroll_one_by_one_clamps_to_zero_on_overrun(
         self, canvas, mock_frame, monkeypatch

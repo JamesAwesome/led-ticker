@@ -76,9 +76,7 @@ def test_entry_point_requires_api_mismatch_skipped(monkeypatch):
         def load(self):
             return mod
 
-    monkeypatch.setattr(
-        importlib.metadata, "entry_points", lambda *, group: [_ModEP()]
-    )
+    monkeypatch.setattr(importlib.metadata, "entry_points", lambda *, group: [_ModEP()])
     result = L.load_plugins(None, entry_points_enabled=True)
     assert "future.clock" not in _WIDGET_REGISTRY
     assert any(ns == "future" for ns, _ in result.failed)

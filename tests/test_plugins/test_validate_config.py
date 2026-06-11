@@ -64,7 +64,7 @@ async def test_validate_config_fires_through_validate_widget_cfg(tmp_path):
     (tmp_path / "plugins").mkdir()
     (tmp_path / "plugins" / "acme.py").write_text(
         textwrap.dedent(
-            '''
+            """
             def register(api):
                 @api.widget("needsfield")
                 class NeedsField:
@@ -74,16 +74,14 @@ async def test_validate_config_fires_through_validate_widget_cfg(tmp_path):
 
                     def draw(self, canvas, cursor_pos=0, **kw):
                         return canvas, cursor_pos
-            '''
+            """
         )
     )
     try:
         result = L.load_plugins(tmp_path / "plugins", entry_points_enabled=False)
         assert not result.failed, result.failed
         with pytest.raises(ValueError, match="label is required"):
-            await validate_widget_cfg(
-                {"type": "acme.needsfield"}, session=None
-            )
+            await validate_widget_cfg({"type": "acme.needsfield"}, session=None)
     finally:
         L.reset_plugins()
 
@@ -93,7 +91,7 @@ async def test_validate_loads_plugins_so_plugin_widget_is_known(tmp_path):
     (tmp_path / "plugins").mkdir()
     (tmp_path / "plugins" / "acme.py").write_text(
         textwrap.dedent(
-            '''
+            """
             def register(api):
                 @api.widget("clock")
                 class Clock:
@@ -101,7 +99,7 @@ async def test_validate_loads_plugins_so_plugin_widget_is_known(tmp_path):
                         pass
                     def draw(self, canvas, cursor_pos=0, **kw):
                         return canvas, cursor_pos
-            '''
+            """
         )
     )
     (tmp_path / "config.toml").write_text(

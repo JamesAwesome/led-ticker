@@ -378,9 +378,9 @@ def test_circle_buffer_msg_hires_rainbow_animates_per_frame():
     msg.draw(canvas, cursor_pos=0)
     second_color = real.SetPixel.call_args_list[0].args[2:5]
 
-    assert (
-        first_color != second_color
-    ), f"rainbow did not animate: both frames painted {first_color}"
+    assert first_color != second_color, (
+        f"rainbow did not animate: both frames painted {first_color}"
+    )
 
 
 def test_default_buffer_msg_is_circle_buffer_msg():

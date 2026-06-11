@@ -1,0 +1,24 @@
+# render-duration: 6
+# ColorBandsBorder with the rasta palette, wider bands, slow march.
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 5.0
+scroll_step_ms = 30
+
+[[playlist.section.widget]]
+type = "message"
+text = "Irie"
+font = "5x8"
+font_color = [255, 255, 255]
+border = {style = "bands", colors = "rasta", band_width = 8, speed = 1, thickness = 2}

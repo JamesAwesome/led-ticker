@@ -1,0 +1,79 @@
+# MLB promotions widget test config — longboi (512×64 canvas, logical 128×16)
+#
+# Smoketests baseball.promotions at hires scale=4: highlight callout (amber,
+# sorts first), default all-promos, and filter+limit, plus the fallback lines
+# on teams with no upcoming home promos.
+# Requires the `led-ticker-baseball` plugin (baseball.promotions widget +
+# baseball.roll* transition; see config/requirements-plugins.txt.example).
+# Usage: cp config/config.mlb_promotions_test.toml config/config.toml
+
+[display]
+rows = 64
+cols = 128
+chain_length = 4
+brightness = 60
+default_scale = 4
+hardware_mapping = "adafruit-hat"
+panel_type = "FM6126A"
+led_rgb_sequence = "BRG"
+gpio_slowdown = 5
+rp1_rio = 1
+pwm_bits = 7
+limit_refresh_rate_hz = 100
+
+[title]
+delay = 5
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = {type = "baseball.roll_alternating", duration = 3.2, transition_fps = 40}
+
+# --- MLB Promotions ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "push_left"
+transition_duration = 0.5
+hold_time = 8           # hold before/after the overflow scroll (was 30 — sluggish)
+scroll_step_ms = 35     # engine scroll cadence, ms per pixel-step (default 50; lower = faster)
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":baseball.ball: MLB Promotions :baseball.ball:"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "random"
+
+# Highlight path: Loonie Dogs renders amber and sorts first on Tuesdays.
+[[playlist.section.widget]]
+type = "baseball.promotions"
+team = "TOR"
+highlight = ["Loonie Dogs"]
+timezone = "America/Toronto"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+# Default path: every promo for the next home game, no knobs.
+[[playlist.section.widget]]
+type = "baseball.promotions"
+team = "PHI"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+# Filter + limit path: giveaways only, capped at 3 lines.
+[[playlist.section.widget]]
+type = "baseball.promotions"
+team = "LAD"
+filter = ["bobblehead", "giveaway"]
+limit = 3
+timezone = "America/Los_Angeles"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80

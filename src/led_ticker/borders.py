@@ -392,8 +392,9 @@ class ColorBandsBorder(BorderEffectBase):
     Python floor division gives correct wraparound for negative
     offsets. Note the band pattern only tiles seamlessly when the
     perimeter length is a multiple of `band_width * len(colors)` —
-    otherwise two same-color bands meet at the top-left seam, same
-    class of artifact as the rainbow chase's hue seam. Accepted.
+    otherwise the pattern breaks at the top-left seam (a truncated
+    band, or two same-color bands meeting), same class of artifact
+    as the rainbow chase's hue seam. Accepted.
 
     `colors` comes from the config layer already resolved to a list of
     RGB tuples (named palettes in `BAND_PALETTES` resolve at coercion

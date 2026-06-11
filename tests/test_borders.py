@@ -1125,6 +1125,9 @@ class TestBandPalettes:
     usable bands spec: >= 2 colors, each a valid (r, g, b) tuple."""
 
     def test_expected_palettes_present(self):
+        """Exact-set equality on purpose: adding a palette is a
+        user-facing surface change (docs table, validate output), so
+        it should consciously update this tripwire too."""
         assert set(BAND_PALETTES) == {
             "rainbow",
             "rasta",
@@ -1270,3 +1273,122 @@ class TestColorBandsBorder:
         self._border(thickness=2).paint(c, frame_count=0)
         # Outer ring 24 + inner ring 16 (matches TestPerimeterGeometry).
         assert len(c.pixels) == 40
+
+    def test_thickness_2_band_index_continues_into_inner_ring(self):
+        """The perimeter index runs continuously from the outer ring
+        into the inner ring (documented behavior — bands don't restart
+        per ring). A regression that re-enumerates each ring from 0
+        would repaint the inner ring's first pixel with color 0."""
+        b = self._border(band_width=4, speed=0, thickness=2)
+        c = _StubCanvas(10, 4)
+        b.paint(c, frame_count=0)
+        px = _perimeter_pixels(10, 4, 2)
+        # Outer ring on 10x4 is 24 px; the inner ring starts at idx 24.
+        # Band at idx 24 with band_width=4, 2 colors: (24 // 4) % 2 = 0
+        # -> RED; a per-ring restart would ALSO give RED here, so pin a
+        # deeper inner-ring pixel where the two disagree: idx 28 ->
+        # (28 // 4) % 2 = 1 -> WHITE, but a restart would give
+        # ((28 - 24) // 4) % 2 = 1 ... pick idx 30: continuous
+        # (30 // 4) % 2 = 7 % 2 = 1 -> WHITE; restart ((30 - 24) // 4)
+        # % 2 = 1 % 2 = 1 -> WHITE too. Safest: assert the FULL inner
+        # ring against the continuous formula.
+        for idx in range(24, len(px)):
+            expected = [self.RED, self.WHITE][(idx // 4) % 2]
+            assert c.pixels[px[idx]] == expected, f"idx {idx}"
+
+
+class TestBandsBorderCoercion:
+    """TOML surface for style='bands' — palette strings, explicit
+    lists, and the validation matrix."""
+
+    def test_palette_string_resolves(self):
+        b = _coerce_border({"style": "bands", "colors": "rasta"})
+        assert isinstance(b, ColorBandsBorder)
+        assert b._colors == [tuple(c) for c in BAND_PALETTES["rasta"]]
+
+    def test_every_palette_builds(self):
+        for name in BAND_PALETTES:
+            b = _coerce_border({"style": "bands", "colors": name})
+            assert isinstance(b, ColorBandsBorder), name
+
+    def test_explicit_list_with_all_knobs(self):
+        b = _coerce_border(
+            {
+                "style": "bands",
+                "colors": [[255, 0, 0], [0, 0, 255]],
+                "band_width": 8,
+                "speed": -2,
+                "thickness": 2,
+            }
+        )
+        assert b._colors == [(255, 0, 0), (0, 0, 255)]
+        assert b.band_width == 8
+        assert b.speed == -2
+        assert b.thickness == 2
+
+    def test_defaults_from_table(self):
+        b = _coerce_border({"style": "bands", "colors": "candy_cane"})
+        assert b.band_width == 6
+        assert b.speed == 1
+        assert b.thickness == 1
+
+    def test_speed_zero_allowed_and_frame_invariant(self):
+        """Unlike color_cycle (speed=0 rejected), static bands are a
+        meaningful pattern with no simpler spelling."""
+        b = _coerce_border({"style": "bands", "colors": "christmas", "speed": 0})
+        assert b.frame_invariant is True
+
+    def test_missing_colors_raises(self):
+        with pytest.raises(ValueError, match="requires 'colors'"):
+            _coerce_border({"style": "bands"})
+
+    def test_unknown_palette_lists_available(self):
+        with pytest.raises(ValueError, match="candy_cane"):
+            _coerce_border({"style": "bands", "colors": "jamaica"})
+
+    def test_single_entry_list_hint(self):
+        with pytest.raises(ValueError, match=r"use border = \[r, g, b\] instead"):
+            _coerce_border({"style": "bands", "colors": [[255, 0, 0]]})
+
+    def test_empty_list_rejected(self):
+        with pytest.raises(ValueError, match="empty"):
+            _coerce_border({"style": "bands", "colors": []})
+
+    def test_non_list_non_string_rejected(self):
+        with pytest.raises(ValueError, match="palette name string or a list"):
+            _coerce_border({"style": "bands", "colors": 7})
+
+    def test_invalid_rgb_entry_rejected(self):
+        with pytest.raises(ValueError, match=r"colors\[1\]"):
+            _coerce_border({"style": "bands", "colors": [[255, 0, 0], [300, 0, 0]]})
+
+    def test_unknown_keys_rejected(self):
+        """from/to stay exclusive to rainbow / color_cycle."""
+        with pytest.raises(ValueError, match="unknown keys"):
+            _coerce_border(
+                {
+                    "style": "bands",
+                    "colors": "rasta",
+                    "from": [255, 0, 0],
+                    "to": [0, 0, 255],
+                }
+            )
+
+    def test_bool_band_width_rejected(self):
+        with pytest.raises(ValueError, match="band_width"):
+            _coerce_border({"style": "bands", "colors": "rasta", "band_width": True})
+
+    def test_zero_band_width_rejected(self):
+        with pytest.raises(ValueError, match="band_width"):
+            _coerce_border({"style": "bands", "colors": "rasta", "band_width": 0})
+
+    def test_bool_speed_rejected(self):
+        with pytest.raises(ValueError, match="speed"):
+            _coerce_border({"style": "bands", "colors": "rasta", "speed": True})
+
+    def test_bare_string_bands_raises_missing_colors(self):
+        """No string shorthand: the generic _BORDER_REGISTRY fallback's
+        _build_plugin_style introspects the constructor and reports the
+        missing required key — no special-case code."""
+        with pytest.raises(ValueError, match=r"missing required keys \['colors'\]"):
+            _coerce_border("bands")

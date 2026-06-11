@@ -93,14 +93,17 @@ def _make_fake_plugins() -> types.SimpleNamespace:
 
 
 def test_setup_status_board_lifecycle(tmp_path):
-    """_setup_status_board teardown removes the handler and clears the board.
+    """Production setup + production teardown leave no residue.
 
-    Calling setup twice (with teardown between calls) must leave the root
-    logger with a net-zero handler gain and get_active_board() == None.
+    Calling _setup_status_board twice, with _teardown_status_board between
+    calls, must leave the root logger with a net-zero handler gain and
+    get_active_board() == None. Hand-rolled removeHandler calls would pass
+    even if the production teardown were broken — so this test only uses
+    the production helpers.
     """
     from pathlib import Path
 
-    from led_ticker.app.run import _setup_status_board
+    from led_ticker.app.run import _setup_status_board, _teardown_status_board
 
     root = logging.getLogger()
     handlers_before = list(root.handlers)
@@ -108,33 +111,58 @@ def test_setup_status_board_lifecycle(tmp_path):
     config = _make_fake_config(str(tmp_path / "status.json"))
     plugins = _make_fake_plugins()
 
-    # --- first run ---
+    # --- first cycle ---
     handle = _setup_status_board(config, Path(tmp_path / "config.toml"), plugins)
     assert handle is not None
     _board, _handler = handle
     assert status_board.get_active_board() is _board
     assert _handler in root.handlers
 
-    # Teardown
-    root.removeHandler(_handler)
-    status_board.clear_active_board()
-
+    _teardown_status_board(handle)
     assert status_board.get_active_board() is None
     assert _handler not in root.handlers
 
-    # --- second run (same process, new status path) ---
+    # --- second cycle (same process, new status path) ---
     config2 = _make_fake_config(str(tmp_path / "status2.json"))
     handle2 = _setup_status_board(config2, Path(tmp_path / "config.toml"), plugins)
     assert handle2 is not None
-    _board2, _handler2 = handle2
 
-    # Teardown again
-    root.removeHandler(_handler2)
-    status_board.clear_active_board()
-
+    _teardown_status_board(handle2)
     assert status_board.get_active_board() is None
-    # Net-zero: root logger has same handler set as before both runs.
+    # Net-zero: root logger has same handler set as before both cycles.
     assert root.handlers == handlers_before
+
+    # Teardown with None (the [web]-absent handle) must be a no-op.
+    _teardown_status_board(None)
+    assert root.handlers == handlers_before
+
+
+def test_run_teardown_is_adjacent_to_setup():
+    """Tripwire: teardown must be reachable on ALL exits of run().
+
+    The cancellation-safety of the status-board lifecycle depends on the
+    `try:` starting on the line immediately after `_setup_status_board(...)`
+    is assigned — any statement between them (an await, a builder call)
+    re-opens the leak where an early exception or cancellation skips the
+    `finally`. Keep setup adjacent to try.
+    """
+    from led_ticker.app.run import run
+
+    src = inspect.getsource(run)
+    assert "_teardown_status_board(_status_handle)" in src, (
+        "run() must tear down via _teardown_status_board(_status_handle) in "
+        "a finally block."
+    )
+    lines = [ln.strip() for ln in src.splitlines()]
+    setup_idx = next(
+        i for i, ln in enumerate(lines) if "_setup_status_board(" in ln
+    )
+    following = [ln for ln in lines[setup_idx + 1 :] if ln and not ln.startswith("#")]
+    assert following and following[0] == "try:", (
+        "teardown must be reachable on all exits — keep the "
+        "`_status_handle = _setup_status_board(...)` assignment immediately "
+        "before the `try:` whose finally calls _teardown_status_board."
+    )
 
 
 def test_setup_status_board_returns_none_when_web_absent(tmp_path):

@@ -101,6 +101,12 @@ function fmtAgo(ts) {
 async function poll() {
   try {
     const r = await fetch("/api/status", {headers: auth});
+    if (r.status === 401) {
+      $("live").className = "missing";
+      $("live").textContent = "auth failed";
+      $("now-section").textContent = "auth failed — open this page with ?token=<your token>";
+      return;
+    }
     const body = await r.json();
     const live = $("live");
     live.className = body.state;
@@ -137,6 +143,7 @@ async function poll() {
 
 async function loadConfig() {
   const r = await fetch("/api/config", {headers: auth});
+  if (r.status === 401) { $("config-toml").textContent = "auth failed — open this page with ?token=<your token>"; return; }
   const body = await r.json();
   if (body.state !== "ok") { $("config-toml").textContent = body.detail || body.state; return; }
   $("config-toml").textContent = body.toml;
@@ -145,14 +152,19 @@ async function loadConfig() {
 }
 
 $("validate-run").onclick = async () => {
-  const r = await fetch("/api/validate", {method: "POST", headers: auth, body: $("validate-input").value});
-  if (r.status === 413) { $("validate-result").innerHTML = '<p class="error">Config too large (1 MB cap).</p>'; return; }
-  const body = await r.json();
-  const issues = [...(body.errors || []).map((i) => ["error", i]), ...(body.warnings || []).map((i) => ["warning", i])];
-  $("validate-result").innerHTML = body.valid
-    ? "<p>✓ Valid config.</p>"
-    : issues.map(([sev, i]) => `<p class="${sev}">${sev}${i.rule ? " (rule " + esc(i.rule) + ")" : ""}: ${esc(i.message)}</p>`).join("")
-      || '<p class="error">Invalid (no detail returned).</p>';
+  try {
+    const r = await fetch("/api/validate", {method: "POST", headers: auth, body: $("validate-input").value});
+    if (r.status === 413) { $("validate-result").innerHTML = '<p class="error">Config too large (1 MB cap).</p>'; return; }
+    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — open this page with ?token=&lt;your token&gt;.</p>'; return; }
+    const body = await r.json();
+    const issues = [...(body.errors || []).map((i) => ["error", i]), ...(body.warnings || []).map((i) => ["warning", i])];
+    $("validate-result").innerHTML = body.valid
+      ? "<p>✓ Valid config.</p>"
+      : issues.map(([sev, i]) => `<p class="${sev}">${sev}${i.rule ? " (rule " + esc(i.rule) + ")" : ""}: ${esc(i.message)}</p>`).join("")
+        || '<p class="error">Invalid (no detail returned).</p>';
+  } catch (e) {
+    $("validate-result").innerHTML = '<p class="error">Could not reach the webui — is it still running?</p>';
+  }
 };
 
 poll();

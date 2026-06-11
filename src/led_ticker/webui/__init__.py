@@ -20,6 +20,7 @@ from aiohttp import web
 
 from led_ticker.status_board import SCHEMA_VERSION
 from led_ticker.validate import ValidationResult, validate_config_text
+from led_ticker.webui._paths import list_config_names
 from led_ticker.webui.redact import redact_toml
 
 # led_ticker.validate was verified clean of rgbmatrix at task-8 implementation
@@ -124,7 +125,16 @@ def _result_to_json(result: ValidationResult) -> dict:
 
 
 def _add_config_routes(app: web.Application, config_path: Path) -> None:
-    """Register GET /api/config and POST /api/validate on the app."""
+    """Register GET /api/configs, GET /api/config and POST /api/validate on the app."""
+
+    async def configs_handler(request: web.Request) -> web.Response:
+        config_dir = config_path.parent
+        return web.json_response(
+            {
+                "configs": list_config_names(config_dir),
+                "running": config_path.name,
+            }
+        )
 
     async def config_handler(request: web.Request) -> web.Response:
         try:
@@ -162,6 +172,7 @@ def _add_config_routes(app: web.Application, config_path: Path) -> None:
         result = await validate_config_text(body)
         return web.json_response(_result_to_json(result))
 
+    app.router.add_get("/api/configs", configs_handler)
     app.router.add_get("/api/config", config_handler)
     app.router.add_post("/api/validate", validate_handler)
 

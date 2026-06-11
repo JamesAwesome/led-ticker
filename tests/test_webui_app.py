@@ -255,6 +255,25 @@ async def test_serve_webui_starts_and_cleans_up(tmp_path):
         await runner.cleanup()
 
 
+async def test_configs_listing(tmp_path):
+    (tmp_path / "other.toml").write_text("[display]\nrows = 16\n")
+    client = await _client(tmp_path)
+    try:
+        body = await (await client.get("/api/configs")).json()
+        assert body["configs"] == ["config.toml", "other.toml"]
+        assert body["running"] == "config.toml"
+    finally:
+        await client.close()
+
+
+async def test_configs_listing_is_auth_gated(tmp_path):
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        assert (await client.get("/api/configs")).status == 401
+    finally:
+        await client.close()
+
+
 def test_cli_webui_requires_web_block(tmp_path):
     import os
     import subprocess

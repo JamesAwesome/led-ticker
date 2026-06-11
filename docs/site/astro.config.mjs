@@ -96,7 +96,7 @@ export default defineConfig({
             },
             {
               label: "crypto.coingecko (plugin)",
-              link: "/plugins/available/",
+              link: "/widgets/crypto-coingecko/",
             },
             { label: "pool (plugin)", link: "/widgets/pool/" },
           ],

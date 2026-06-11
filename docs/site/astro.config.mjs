@@ -145,6 +145,7 @@ export default defineConfig({
             { label: "Display", link: "/concepts/display/" },
             { label: "Fonts", link: "/concepts/fonts/" },
             { label: "Sections and modes", link: "/concepts/sections-and-modes/" },
+            { label: "Web status UI", link: "/concepts/web-status-ui/" },
           ],
         },
         {

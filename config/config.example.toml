@@ -206,3 +206,19 @@ stale_after = 14400  # 4 hours
 # color = [255, 0, 0]        # 3 ints, each 0-255
 # size = 4                    # dot side in physical px: ~4 on the 16-tall
 #                             # smallsign, ~8-10 on the 64-tall bigsign/longboi
+
+# Web status UI — serves a live dashboard of what's on the panel at
+# http://<pi>:8080. Presence of this block enables status publishing by the
+# display process; the sidecar reads status.json and handles HTTP.
+#
+# DOCKER (the usual deploy): the compose.yaml webui service sits behind the
+# `webui` compose profile — start with `COMPOSE_PROFILES=webui docker compose up -d`
+# (or add COMPOSE_PROFILES=webui to your .env to make it sticky).
+# Bare-metal: enable led-ticker-webui.service (see deploy/led-ticker-webui.service).
+# Docs: https://docs.ledticker.dev/concepts/web-status-ui/
+#
+# [web]
+# host = "0.0.0.0"
+# port = 8080
+# token = ""                                    # non-empty requires X-Web-Token header or ?token=
+# status_path = "/run/led-ticker/status.json"   # default works in Docker too (shared volume mounts here)

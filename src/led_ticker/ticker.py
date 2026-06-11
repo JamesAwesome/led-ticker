@@ -11,6 +11,7 @@ from typing import Any
 
 import attrs
 
+from led_ticker import status_board
 from led_ticker._types import Canvas, ColorTuple
 from led_ticker.colors import RGB_WHITE
 from led_ticker.drawing import get_widget_padding, safe_scale
@@ -634,6 +635,11 @@ class Ticker:
         """
         self._visit_counter += 1
         self._current_visit = self._visit_counter
+        if widget is not None:
+            # Intentionally at visit-entry (section boundary), not inside the
+            # tick loop — keep it here so a refactor of _swap_and_scroll doesn't
+            # accidentally pull it into per-tick cadence.
+            status_board.record_widget_visit(widget)
         if hasattr(widget, "reset_frame"):
             widget.reset_frame()
         hold_time = max(hold_time, getattr(widget, "hold_time", 0.0))

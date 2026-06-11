@@ -4,6 +4,7 @@ import asyncio
 import logging
 from typing import Any, Protocol, runtime_checkable
 
+from led_ticker import status_board
 from led_ticker._types import Canvas, DrawResult
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -147,6 +148,9 @@ async def run_monitor_loop(
         try:
             await widget.update()
             consecutive_errors = 0
+            status_board.record_monitor_update(
+                getattr(widget, "name", None) or type(widget).__name__
+            )
         except asyncio.CancelledError:
             raise
         except Exception:

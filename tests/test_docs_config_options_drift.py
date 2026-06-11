@@ -28,7 +28,7 @@ import re
 from dataclasses import fields
 from pathlib import Path
 
-from led_ticker.config import BusyLightConfig, DisplayConfig
+from led_ticker.config import BusyLightConfig, DisplayConfig, WebConfig
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PAGE_PATH = (
@@ -94,6 +94,8 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
     },
     # [busy_light] surfaces every BusyLightConfig field — 1:1 TOML keys.
     "busy_light": {f.name for f in fields(BusyLightConfig)},
+    # [web] surfaces every WebConfig field — 1:1 TOML keys.
+    "web": {f.name for f in fields(WebConfig)},
 }
 
 
@@ -105,6 +107,7 @@ SECTION_HEADINGS: dict[str, str] = {
     "## `[transitions]`": "transitions",
     "## `[[playlist.section]]`": "section",
     "## `[busy_light]`": "busy_light",
+    "## `[web]`": "web",
 }
 
 
@@ -203,6 +206,28 @@ def test_busy_light_section_field_set_matches_docs() -> None:
         "[busy_light] docs table lists fields not in BusyLightConfig: "
         f"{sorted(extra)}.\n"
         "Either add them to src/led_ticker/config.py:BusyLightConfig, "
+        "or drop the row from the docs table."
+    )
+
+
+def test_web_section_field_set_matches_docs() -> None:
+    """Every WebConfig field appears in the page's [web] table,
+    and the table doesn't list any fabricated fields."""
+    page_text = PAGE_PATH.read_text()
+    documented = DOCUMENTED_KEYS["web"]
+    on_page = _parse_section_field_names(page_text, "## `[web]`")
+    missing = documented - on_page
+    extra = on_page - documented
+    assert not missing, (
+        "WebConfig fields missing from [web] docs table: "
+        f"{sorted(missing)}.\n"
+        "Add a row in docs/site/src/content/docs/reference/config-options.mdx,"
+        " or remove the field from DOCUMENTED_KEYS['web']."
+    )
+    assert not extra, (
+        "[web] docs table lists fields not in WebConfig: "
+        f"{sorted(extra)}.\n"
+        "Either add them to src/led_ticker/config.py:WebConfig, "
         "or drop the row from the docs table."
     )
 

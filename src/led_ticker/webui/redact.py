@@ -14,11 +14,15 @@ import re
 
 REDACTED = '"•••"'
 
-# Key must start at: beginning of line, or after { or , (inline-table context),
-# with optional surrounding whitespace.  This prevents matching `token` inside a
-# quoted string value like ``note = "set token = abc here"``.
+# Key must start at: beginning of line (TOML allows leading whitespace before
+# keys — `^[ \t]*` covers indented keys), or after { or , (inline-table
+# context). This prevents matching `token` inside a quoted string value like
+# ``note = "set token = abc here"``. A sensitive word after a comma INSIDE a
+# quoted value (``note = "a, token = b"``) still over-redacts — accepted:
+# distinguishing it needs a real tokenizer, and over-redaction is the safe
+# direction. Under-redaction is never acceptable.
 _KV = re.compile(
-    r"""(?P<prefix>^|(?<=[{,])\s*)
+    r"""(?P<prefix>^[ \t]*|(?<=[{,])\s*)
         (?P<key>[A-Za-z0-9_.-]*(?:token|key|secret|password|webhook)[A-Za-z0-9_.-]*)
         (?P<eq>\s*=\s*)
         (?P<val>"[^"]*"|'[^']*'|\[[^\]]*\]|[^,}\s#]+)""",

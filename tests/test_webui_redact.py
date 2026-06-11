@@ -58,3 +58,22 @@ def test_sensitive_word_in_value_does_not_corrupt_inline_table():
     out = redact_toml(src)
     # "hidden" must still be present — it's inside a non-sensitive-named value.
     assert "hidden" in out
+
+
+def test_indented_keys_are_still_redacted():
+    # TOML allows leading whitespace before keys. The line-start anchor must
+    # tolerate indentation — missing these would be under-redaction, the one
+    # unacceptable failure for this function.
+    out = redact_toml('  token = "LEAK1"\n\tapi_key = "LEAK2"')
+    assert "LEAK1" not in out and "LEAK2" not in out
+    assert out.count("•••") == 2
+
+
+def test_comma_then_sensitive_word_inside_value_over_redacts():
+    # Known limitation, documented: a sensitive word following a comma INSIDE
+    # a quoted value matches the inline-table anchor and gets rewritten.
+    # Over-redaction (display corruption of that value) is accepted — fixing
+    # it needs a real tokenizer. The load-bearing assertion: nothing that
+    # looks like a secret survives.
+    out = redact_toml('note = "a, token = b"')
+    assert "token = b" not in out

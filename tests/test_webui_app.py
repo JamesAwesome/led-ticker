@@ -212,3 +212,26 @@ async def test_auth_gates_unknown_routes_and_new_routes(tmp_path):
         assert resp.status == 401
     finally:
         await client.close()
+
+
+async def test_root_serves_page(tmp_path):
+    client = await _client(tmp_path)
+    try:
+        resp = await client.get("/")
+        assert resp.status == 200
+        assert resp.content_type == "text/html"
+        text = await resp.text()
+        for marker in ("Status", "Config", "Validate", "/api/status"):
+            assert marker in text
+    finally:
+        await client.close()
+
+
+async def test_root_is_auth_gated(tmp_path):
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        assert (await client.get("/")).status == 401
+        ok = await client.get("/", params={"token": "s3cret"})
+        assert ok.status == 200
+    finally:
+        await client.close()

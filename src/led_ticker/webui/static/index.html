@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>led-ticker</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: #111; color: #ddd; }
+  header { display: flex; align-items: center; gap: 1rem; padding: .8rem 1.2rem; background: #1a1a1a; border-bottom: 1px solid #333; }
+  header h1 { font-size: 1.1rem; margin: 0; }
+  #live { font-size: .85rem; }
+  #live.ok::before { content: "● "; color: #4c4; }
+  #live.stale::before, #live.missing::before, #live.unreadable::before, #live.schema_mismatch::before { content: "● "; color: #c44; }
+  nav { display: flex; gap: .4rem; margin-left: auto; }
+  nav button { background: #222; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: .4rem .9rem; cursor: pointer; }
+  nav button.active { background: #36c; border-color: #36c; color: #fff; }
+  main { padding: 1.2rem; max-width: 70rem; margin: 0 auto; }
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+  .card { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+  .hero { text-align: center; }
+  .hero .marquee { font-family: ui-monospace, monospace; color: #f80; background: #000; border-radius: 6px; padding: .5rem; margin-top: .5rem; overflow-wrap: anywhere; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  td, th { text-align: left; padding: .25rem .5rem; border-bottom: 1px solid #2a2a2a; }
+  pre, textarea { font-family: ui-monospace, monospace; font-size: .85rem; background: #000; color: #cdc; border: 1px solid #333; border-radius: 6px; padding: .8rem; width: 100%; box-sizing: border-box; white-space: pre-wrap; }
+  textarea { min-height: 20rem; resize: vertical; }
+  .issues .error { color: #f66; }
+  .issues .warning { color: #fc6; }
+  .muted { color: #888; }
+  #validate-run { background: #36c; color: #fff; border: 0; border-radius: 6px; padding: .5rem 1.2rem; cursor: pointer; margin: .6rem 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="hostname">led-ticker</h1>
+  <span id="uptime" class="muted"></span>
+  <span id="live" class="missing">connecting…</span>
+  <nav>
+    <button data-tab="status" class="active">Status</button>
+    <button data-tab="config">Config</button>
+    <button data-tab="validate">Validate</button>
+  </nav>
+</header>
+<main>
+  <section id="tab-status" class="tab active">
+    <div class="card hero">
+      <strong>▶ NOW PLAYING</strong>
+      <div id="now-section" class="muted">—</div>
+      <div id="now-widget" class="marquee">—</div>
+    </div>
+    <div class="card">
+      <strong>Health</strong>
+      <table id="monitors"><tbody></tbody></table>
+      <pre id="logtail" class="muted">no recent warnings</pre>
+    </div>
+    <div class="card">
+      <strong>Plugins</strong>
+      <table id="plugins"><tbody></tbody></table>
+    </div>
+  </section>
+  <section id="tab-config" class="tab">
+    <div class="card">
+      <strong>Live config</strong> <span id="geometry" class="muted"></span>
+      <pre id="config-toml">loading…</pre>
+    </div>
+  </section>
+  <section id="tab-validate" class="tab">
+    <div class="card">
+      <strong>Validate a candidate config</strong>
+      <textarea id="validate-input" placeholder="Paste TOML here…"></textarea>
+      <button id="validate-run">Validate</button>
+      <div id="validate-result" class="issues"></div>
+    </div>
+  </section>
+</main>
+<script>
+const qs = new URLSearchParams(location.search);
+const tok = qs.get("token");
+const auth = tok ? {"X-Web-Token": tok} : {};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
+  {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]
+));
+
+document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
+  document.querySelectorAll("section.tab").forEach((x) => x.classList.remove("active"));
+  b.classList.add("active");
+  $("tab-" + b.dataset.tab).classList.add("active");
+  if (b.dataset.tab === "config") loadConfig();
+});
+
+function fmtAgo(ts) {
+  const s = Math.max(0, (Date.now() / 1000) - ts);
+  if (s < 90) return Math.round(s) + "s ago";
+  if (s < 5400) return Math.round(s / 60) + "m ago";
+  return Math.round(s / 3600) + "h ago";
+}
+
+async function poll() {
+  try {
+    const r = await fetch("/api/status", {headers: auth});
+    const body = await r.json();
+    const live = $("live");
+    live.className = body.state;
+    if (!body.status) {
+      live.textContent = body.state === "missing" ? "no status yet" : body.state;
+      $("now-section").textContent = body.hint || body.detail || "—";
+      return;
+    }
+    const st = body.status;
+    live.textContent = body.state === "ok" ? "live" : "stale " + fmtAgo(st.published_at);
+    $("hostname").textContent = st.hostname || "led-ticker";
+    const up = (Date.now() / 1000) - st.started_at;
+    $("uptime").textContent = "up " + (up > 7200 ? Math.round(up / 3600) + "h" : Math.round(up / 60) + "m");
+    const sec = st.section || {};
+    $("now-section").textContent = sec.mode
+      ? `section ${sec.title || sec.index} (${(sec.index ?? 0) + 1}/${sec.total}) · ${sec.mode} · ${sec.widget_count} widgets`
+      : "—";
+    const w = st.widget || {};
+    $("now-widget").textContent = w.type ? `${w.type}: ${w.summary || ""}` : "—";
+    $("monitors").tBodies[0].innerHTML = Object.entries(st.monitor_updates || {})
+      .map(([n, ts]) => `<tr><td>${esc(n)}</td><td>${fmtAgo(ts)}</td></tr>`).join("")
+      || '<tr><td class="muted">no async monitors</td></tr>';
+    const fails = (st.failed_plugins || []).map((p) => `<tr><td>${esc(p.namespace)}</td><td class="error">failed: ${esc(p.error)}</td></tr>`);
+    $("plugins").tBodies[0].innerHTML = (st.plugins || [])
+      .map((p) => `<tr><td>${esc(p.namespace)}</td><td class="muted">${esc(JSON.stringify(p.counts))}</td></tr>`)
+      .concat(fails).join("") || '<tr><td class="muted">no plugins</td></tr>';
+    $("logtail").textContent = (st.log_tail || []).slice(-10)
+      .map((e) => `${e.level} ${e.name}: ${e.message}`).join("\n") || "no recent warnings";
+  } catch (e) {
+    $("live").className = "missing";
+    $("live").textContent = "webui unreachable";
+  }
+}
+
+async function loadConfig() {
+  const r = await fetch("/api/config", {headers: auth});
+  const body = await r.json();
+  if (body.state !== "ok") { $("config-toml").textContent = body.detail || body.state; return; }
+  $("config-toml").textContent = body.toml;
+  const g = body.geometry || {};
+  if (g.panel_width) $("geometry").textContent = `${g.panel_width}×${g.panel_height} @ scale ${g.default_scale}`;
+}
+
+$("validate-run").onclick = async () => {
+  const r = await fetch("/api/validate", {method: "POST", headers: auth, body: $("validate-input").value});
+  if (r.status === 413) { $("validate-result").innerHTML = '<p class="error">Config too large (1 MB cap).</p>'; return; }
+  const body = await r.json();
+  const issues = [...(body.errors || []).map((i) => ["error", i]), ...(body.warnings || []).map((i) => ["warning", i])];
+  $("validate-result").innerHTML = body.valid
+    ? "<p>✓ Valid config.</p>"
+    : issues.map(([sev, i]) => `<p class="${sev}">${sev}${i.rule ? " (rule " + esc(i.rule) + ")" : ""}: ${esc(i.message)}</p>`).join("")
+      || '<p class="error">Invalid (no detail returned).</p>';
+};
+
+poll();
+setInterval(poll, 3000);
+</script>
+</body>
+</html>

@@ -12,6 +12,7 @@ import json
 import logging
 import time
 import tomllib
+from importlib import resources
 from pathlib import Path
 
 from aiohttp import web
@@ -167,4 +168,10 @@ def _add_config_routes(app: web.Application, config_path: Path) -> None:
 
 
 def _add_page_route(app: web.Application) -> None:
-    """Filled in by the static-page task."""
+    async def index(request: web.Request) -> web.Response:
+        html = (
+            resources.files("led_ticker.webui").joinpath("static/index.html")
+        ).read_text(encoding="utf-8")
+        return web.Response(text=html, content_type="text/html")
+
+    app.router.add_get("/", index)

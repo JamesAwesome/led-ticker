@@ -29,7 +29,7 @@ git+https://github.com/JamesAwesome/led-ticker-baseball.git@main
 
 ### [led-ticker-crypto](https://github.com/JamesAwesome/led-ticker-crypto)
 
-CoinGecko price ticker (`type = "crypto.coingecko"`). Displays live spot prices for any coin/currency pair supported by the [CoinGecko API](https://www.coingecko.com/en/api) (no API key required for the free tier). Full docs, options, and setup in the [repo README](https://github.com/JamesAwesome/led-ticker-crypto#readme).
+Multi-coin CoinGecko price ticker (`type = "crypto.coingecko"`). Cycles one ticker card per coin, pulling live spot prices from the [CoinGecko API](https://www.coingecko.com/en/api). Three coin-spec styles: a single `symbol` + `symbol_id` pair, a `symbol_ids = [...]` list, or a `symbols = [...]` list that auto-resolves to unique CoinGecko IDs (raises an error if a symbol is ambiguous — set `symbol_id`/`symbol_ids` to disambiguate). Prices below $0.01 format with adaptive sub-cent precision. Keyless free tier is rate-limited to ~5 requests/min; add `api_key = "..."` (or set `COINGECKO_API_KEY`) to use a [CoinGecko demo key](https://www.coingecko.com/en/api/pricing) for a higher limit. See the [crypto.coingecko widget page](/widgets/crypto-coingecko/) for an overview, or the [repo README](https://github.com/JamesAwesome/led-ticker-crypto#readme) for the full options reference.
 
 Add to your `config/requirements-plugins.txt`:
 

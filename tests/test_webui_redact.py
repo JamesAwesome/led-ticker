@@ -69,6 +69,24 @@ def test_indented_keys_are_still_redacted():
     assert out.count("•••") == 2
 
 
+def test_multiline_string_values_are_fully_redacted():
+    # Triple-quoted TOML strings span lines; the single-line quote branch
+    # alone would match the empty "" at the start of """ and leak the body.
+    basic = 'token = """abc123secret"""'
+    literal = "api_key = '''line1\nline2secret\n'''"
+    for src, leak in ((basic, "abc123secret"), (literal, "line2secret")):
+        out = redact_toml(src)
+        assert leak not in out, f"multiline secret leaked: {out!r}"
+        assert "•••" in out
+
+
+def test_quoted_key_form_is_redacted():
+    # TOML quoted keys: `"my-token" = "x"` is a legal key spelling.
+    out = redact_toml('"my-token" = "LEAK"\n"weather api_key" = "LEAK2"')
+    assert "LEAK" not in out
+    assert out.count("•••") == 2
+
+
 def test_comma_then_sensitive_word_inside_value_over_redacts():
     # Known limitation, documented: a sensitive word following a comma INSIDE
     # a quoted value matches the inline-table anchor and gets rewritten.

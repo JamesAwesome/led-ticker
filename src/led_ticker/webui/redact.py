@@ -21,11 +21,17 @@ REDACTED = '"•••"'
 # quoted value (``note = "a, token = b"``) still over-redacts — accepted:
 # distinguishing it needs a real tokenizer, and over-redaction is the safe
 # direction. Under-redaction is never acceptable.
+# Value alternation order matters: triple-quoted strings MUST precede the
+# single-line quote branches, or `"""secret"""` matches the empty `""` first
+# and the secret survives — under-redaction. The key group also accepts the
+# TOML quoted-key form (`"my-token" = ...`) for the same reason.
 _KV = re.compile(
     r"""(?P<prefix>^[ \t]*|(?<=[{,])\s*)
-        (?P<key>[A-Za-z0-9_.-]*(?:token|key|secret|password|webhook)[A-Za-z0-9_.-]*)
+        (?P<key>"[^"\n]*(?:token|key|secret|password|webhook)[^"\n]*"
+               |[A-Za-z0-9_.-]*(?:token|key|secret|password|webhook)[A-Za-z0-9_.-]*)
         (?P<eq>\s*=\s*)
-        (?P<val>"[^"]*"|'[^']*'|\[[^\]]*\]|[^,}\s#]+)""",
+        (?P<val>\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?'''
+               |"[^"]*"|'[^']*'|\[[^\]]*\]|[^,}\s#]+)""",
     re.IGNORECASE | re.VERBOSE | re.MULTILINE,
 )
 

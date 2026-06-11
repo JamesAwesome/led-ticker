@@ -3,7 +3,14 @@ title: crypto.coingecko widget
 description: The crypto.coingecko multi-coin price ticker is provided by the led-ticker-crypto plugin (type = "crypto.coingecko").
 ---
 
+import DemoGif from "../../../components/DemoGif.astro";
+
 The **crypto.coingecko** widget is provided by the **[led-ticker-crypto](https://github.com/JamesAwesome/led-ticker-crypto)** plugin, referenced in config as `type = "crypto.coingecko"`.
+
+<DemoGif
+  src="/demos-long/widget-crypto-coingecko.gif"
+  caption="crypto.coingecko cycling BTC, ETH, and SHIB — the sub-cent SHIB price shows the adaptive formatting."
+/>
 
 - **To add it to your sign:** add `git+https://github.com/JamesAwesome/led-ticker-crypto.git@main` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow.
 - **Full documentation** — options, config examples, and a demo gif — lives in the [led-ticker-crypto README](https://github.com/JamesAwesome/led-ticker-crypto#readme).

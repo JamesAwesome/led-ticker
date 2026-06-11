@@ -359,7 +359,7 @@ class TestHiresMessageBaselineCentersOnBigsign:
 
 class TestGetTextWidthMemoization:
     """`get_text_width` memoizes results in a module-level cache so
-    per-frame callers (weather, etherscan, coinbase) hit a dict get
+    per-frame callers (weather, two-row tickers) hit a dict get
     instead of re-summing glyph advances every draw. Cache key
     includes `(id(font), text, padding, scale)` so different scales
     produce distinct entries — a width measured at scale=1 doesn't

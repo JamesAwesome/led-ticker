@@ -17,7 +17,7 @@ The docs site has two demo pipelines, each with its own source directory and out
 - **Auto-rendered** — TOML lives in `docs/site/demos/`, output gif in `docs/site/public/demos/` (gitignored). Regenerated on every Cloudflare build by [`docs/site/scripts/build-demos.mjs`](https://github.com/jamesawesome/led-ticker/blob/main/docs/site/scripts/build-demos.mjs).
 - **Long-running** — TOML lives in `docs/site/demos-long/`, output gif in `docs/site/public/demos-long/` (committed to git). Rendered manually via `make render-long-demos`.
 
-The auto-rendered path is for static demos that finish in five seconds; the long-running path is for data-fetch widgets (RSS, MLB, Coinbase) where five seconds isn't enough and Cloudflare can't make the live HTTP calls anyway. Full setup details live in the [docs/site README](https://github.com/jamesawesome/led-ticker/blob/main/docs/site/README.md#building-demo-gifs).
+The auto-rendered path is for static demos that finish in five seconds; the long-running path is for data-fetch widgets (RSS, weather) where five seconds isn't enough and Cloudflare can't make the live HTTP calls anyway. Full setup details live in the [docs/site README](https://github.com/jamesawesome/led-ticker/blob/main/docs/site/README.md#building-demo-gifs).
 
 ## Quick start
 
@@ -84,7 +84,7 @@ The parser lives in `readRenderDuration` in [`build-demos.mjs`](https://github.c
 
 ## API-key-required widgets
 
-Long-running demos sometimes need API keys — `weather` needs `WEATHERAPI_KEY`, `etherscan` needs an Etherscan key, and so on. To keep contributors without those keys from hitting render failures, the long-demo pipeline reads an optional `# requires-env: VAR` comment from the top of each TOML:
+Long-running demos sometimes need API keys — `weather` needs `WEATHERAPI_KEY`, and so on. To keep contributors without those keys from hitting render failures, the long-demo pipeline reads an optional `# requires-env: VAR` comment from the top of each TOML:
 
 <TomlExample
   code={`# requires-env: WEATHERAPI_KEY
@@ -99,7 +99,7 @@ When `make render-long-demos` walks `docs/site/demos-long/*.toml`, any TOML whos
 
 ### Live-API widgets in a five-second window often show cached or placeholder data
 
-The renderer captures every `SwapOnVSync` so durations match wall-clock playback exactly, but five seconds usually isn't enough for a `weather` or `coinbase` widget to complete a network fetch. Use the long-running pipeline (`# render-duration: 30`) for those, not the auto-rendered one.
+The renderer captures every `SwapOnVSync` so durations match wall-clock playback exactly, but five seconds usually isn't enough for a `weather` widget to complete a network fetch. Use the long-running pipeline (`# render-duration: 30`) for those, not the auto-rendered one.
 
 ### The test stub canvas does not paint hi-res TTF fonts identically to real hardware
 

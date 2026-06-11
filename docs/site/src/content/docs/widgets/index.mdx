@@ -1,37 +1,35 @@
 ---
 title: Widgets
-description: The 10 built-in widgets — what each one does and how to pick.
+description: The 7 built-in widgets — what each one does and how to pick.
 ---
 
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-led-ticker ships **10 built-in widget types**. Each is configured by a
+led-ticker ships **7 built-in widget types**. Each is configured by a
 `[[playlist.section.widget]]` block in your TOML. This page is the menu — pick the
 one that fits your data, then read its page for the full options list.
 
 ## By data source
 
-| Widget                                                     | Source                      | Use when                                   |
-| ---------------------------------------------------------- | --------------------------- | ------------------------------------------ |
-| [`message`](/widgets/message/)                             | static text                 | most lines on most signs                   |
-| [`countdown`](/widgets/countdown/)                         | local clock + a target date | "X days until …"                           |
-| [`two_row`](/widgets/two_row/)                             | two static lines            | held-handle + scrolling promo (storefront) |
-| [`weather`](/widgets/weather/)                             | WeatherAPI.com              | forecast / current conditions              |
-| [`rss_feed`](/widgets/rss_feed/)                           | any RSS URL                 | news / blog headlines                      |
-| [`coinbase`](/widgets/coinbase/)                           | Coinbase                    | crypto price                               |
-| [`coingecko`](/widgets/coingecko/)                         | CoinGecko                   | crypto price (alternative source)          |
-| [`etherscan`](/widgets/etherscan/)                         | Etherscan                   | Ethereum gas                               |
-| [`gif`](/widgets/gif/)                                     | local file                  | animated gifs / webp / multi-frame images  |
-| [`image`](/widgets/image/)                                 | static PNG / JPG            | logos / single still graphics              |
-| [`pool`](/widgets/pool/) _(plugin)_                        | pool_monitor InfluxDB       | water temp (today / 7-day / season)        |
-| [`baseball.scores`](/widgets/mlb/) _(plugin)_              | MLB free API                | game scores / series state                 |
-| [`baseball.standings`](/widgets/mlb_standings/) _(plugin)_ | MLB free API                | standings (top N + tracked teams)          |
+| Widget                                                     | Source                      | Use when                                                 |
+| ---------------------------------------------------------- | --------------------------- | -------------------------------------------------------- |
+| [`message`](/widgets/message/)                             | static text                 | most lines on most signs                                 |
+| [`countdown`](/widgets/countdown/)                         | local clock + a target date | "X days until …"                                         |
+| [`two_row`](/widgets/two_row/)                             | two static lines            | held-handle + scrolling promo (storefront)               |
+| [`weather`](/widgets/weather/)                             | WeatherAPI.com              | forecast / current conditions                            |
+| [`rss_feed`](/widgets/rss_feed/)                           | any RSS URL                 | news / blog headlines                                    |
+| [`gif`](/widgets/gif/)                                     | local file                  | animated gifs / webp / multi-frame images                |
+| [`image`](/widgets/image/)                                 | static PNG / JPG            | logos / single still graphics                            |
+| [`pool`](/widgets/pool/) _(plugin)_                        | pool_monitor InfluxDB       | water temp (today / 7-day / season)                      |
+| [`baseball.scores`](/widgets/mlb/) _(plugin)_              | MLB free API                | game scores / series state                               |
+| [`baseball.standings`](/widgets/mlb_standings/) _(plugin)_ | MLB free API                | standings (top N + tracked teams)                        |
+| `crypto.coingecko` _(plugin)_                              | CoinGecko                   | crypto price ticker — see [Plugins](/plugins/available/) |
 
 ## By complexity
 
 - **Just text:** `message`, `countdown`. No external dependencies.
 - **Two text rows (storefront layout):** `two_row` at section `scale=2`.
-- **Live data (background fetch):** `weather`, `rss_feed`, the three crypto widgets, plus the plugin widgets `pool`, `baseball.scores`, and `baseball.standings`. Each has retry + exponential backoff.
+- **Live data (background fetch):** `weather`, `rss_feed`, plus the plugin widgets `pool`, `baseball.scores`, `baseball.standings`, and `crypto.coingecko`. Each has retry + exponential backoff.
 - **Visual:** `gif`, `image`. Both support text overlay, fit modes (pillarbox / letterbox / stretch / crop), and per-row two-row layouts.
 
 ## Common knobs

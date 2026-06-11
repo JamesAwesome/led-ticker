@@ -336,13 +336,10 @@ class TestExampleConfigWidgets:
                 cfg = dict(widget_cfg)
                 widget_type = cfg.get("type")
 
-                # Skip widgets that need network (rss_feed, weather, crypto)
+                # Skip widgets that need network (rss_feed, weather)
                 if widget_type in (
                     "rss_feed",
                     "weather",
-                    "coinbase",
-                    "coingecko",
-                    "etherscan",
                 ):
                     continue
 

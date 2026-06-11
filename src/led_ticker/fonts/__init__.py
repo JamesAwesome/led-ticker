@@ -42,8 +42,6 @@ def get_bdf_for(font: Font) -> BDFFont:
 FONT_DEFAULT: Font = _load_font("6x12.bdf")
 FONT_SMALL: Font = _load_font("5x8.bdf")
 FONT_LABEL: Font = _load_font("7x13.bdf")  # was FONT_SYMBOL
-FONT_VALUE: Font = FONT_DEFAULT  # alias — same as 6x12.bdf
-FONT_VALUE_SMALL: Font = FONT_SMALL  # alias — same as 5x8.bdf
 FONT_DELTA: Font = _load_font("6x10.bdf")  # was FONT_CHANGE
 
 from led_ticker.fonts.hires_loader import (  # noqa: E402

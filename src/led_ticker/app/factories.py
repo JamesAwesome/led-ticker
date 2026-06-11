@@ -207,22 +207,6 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "maximum stories to show per cycle",
         "5",
     ),
-    # --- Coinbase / CoinGecko ---
-    "symbol": FieldHint(
-        "str",
-        "crypto ticker symbol (e.g. BTC, ETH)",
-        None,
-    ),
-    "symbol_id": FieldHint(
-        "str",
-        "CoinGecko coin ID (e.g. bitcoin, ethereum) — CoinGecko only",
-        None,
-    ),
-    "currency": FieldHint(
-        "str",
-        "fiat currency for price quote (e.g. USD, EUR)",
-        None,
-    ),
     # --- Pool (shared layout knob) ---
     "layout": FieldHint(
         '"ticker" | "two_row" | "scoreboard"',
@@ -231,7 +215,7 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "bottom, bigsign-recommended).",
         '"ticker"',
     ),
-    # --- label color (shared: pool.monitor / crypto) ---
+    # --- label color (shared: pool.monitor) ---
     "label_color": FieldHint(
         "[r, g, b]", "color for the prefix labels and separators", "white"
     ),
@@ -303,6 +287,37 @@ _DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
 RANDOM_COLOR: itertools.cycle = itertools.cycle(
     [RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE, CYAN, PINK]
 )
+
+
+# Widget types removed from core. coingecko was re-homed in the led-ticker-crypto
+# plugin; coinbase and etherscan were RETIRED (no direct replacement). The message
+# is per-type so the hint is honest — an etherscan (gas) user must not be told to
+# use crypto.coingecko (a price ticker).
+_CRYPTO_MIGRATION: dict[str, tuple[str, str]] = {
+    "coingecko": (
+        "Widget type 'coingecko' was removed from led-ticker core; it now ships "
+        "in the led-ticker-crypto plugin as 'crypto.coingecko'.",
+        'Install led-ticker-crypto and use type = "crypto.coingecko".',
+    ),
+    "coinbase": (
+        "Widget type 'coinbase' was retired from led-ticker core (no direct "
+        "replacement). For a crypto price ticker, the led-ticker-crypto plugin "
+        "offers 'crypto.coingecko' — note it needs a CoinGecko symbol_id "
+        '(e.g. "bitcoin").',
+        'Install led-ticker-crypto and use type = "crypto.coingecko" with a '
+        "symbol_id, or remove the widget.",
+    ),
+    "etherscan": (
+        "Widget type 'etherscan' was retired from led-ticker core and has no "
+        "replacement.",
+        "Remove the etherscan widget from your config.",
+    ),
+}
+
+
+def build_widget_cfg_error_for_type(widget_type: str) -> tuple[str, str] | None:
+    """(message, suggested_fix) for a widget type removed from core, else None."""
+    return _CRYPTO_MIGRATION.get(widget_type)
 
 
 def _cache_key(widget_cfg: dict[str, Any]) -> str:
@@ -610,6 +625,10 @@ async def validate_widget_cfg(
         )
 
     widget_type = widget_cfg.pop("type")
+    _crypto_migration = build_widget_cfg_error_for_type(widget_type)
+    if _crypto_migration is not None:
+        _msg, _suggested_fix = _crypto_migration
+        raise MigrationError(_msg, suggested_fix=_suggested_fix)
     cls = get_widget_class(widget_type)
     _run_validate_config(cls, widget_cfg, widget_type)
 

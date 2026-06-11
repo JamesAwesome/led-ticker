@@ -101,7 +101,7 @@ See the moonbunny example for the pattern.
 | "Weather in Brooklyn" | `[weather]` widget with `location = "Brooklyn, NY"` |
 | "RSS feed at <url>" | `[rss_feed]` widget with `feed_url = "<url>"` |
 | "Mets fan" | `baseball.scores` widget with `team = "NYM"` (needs the `led-ticker-baseball` plugin) |
-| "BTC price" | `[coinbase]` widget with `symbol = "BTC"`, `currency = "USD"` |
+| "BTC price" | `crypto.coingecko` widget (via `led-ticker-crypto` plugin) with `symbol_id = "bitcoin"`, `symbol = "BTC"`, `currency = "USD"` |
 | "Countdown to <date>" | `[countdown]` widget with `date = "<YYYY-MM-DD>"` |
 
 **No silent network fetches.** If user gives an asset URL, the skill asks them to download and provide the local path.

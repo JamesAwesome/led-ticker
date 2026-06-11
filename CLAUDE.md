@@ -57,7 +57,7 @@ src/led_ticker/
   colors.py            # RGB color constants
   color_providers.py   # ColorProvider base + Rainbow, ColorCycle, Gradient, Shimmer, _ConstantColor
   animations.py        # Animation protocol + Typewriter
-  borders.py           # BorderEffect protocol + RainbowChaseBorder, ConstantBorder
+  borders.py           # BorderEffect protocol + chase/cycle/bands/constant/lightbulb borders + BAND_PALETTES
   pixel_emoji.py       # Inline pixel-art emoji renderer + EMOJI_REGISTRY / HIRES_REGISTRY
   fonts/               # BDF + hires TTF loader
   transitions/

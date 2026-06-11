@@ -11,7 +11,7 @@ Optional:
   padding                       int (pixels)                                  default: 6  — end padding (spacing in side-by-side scroll)
   hold_time                     float (seconds)                               default: 0.0  — per-widget display duration floor; 0.0 defers to section
   animation                     "typewriter" | {style="typewriter", frames_per_char=N}  default: none  — text animation effect
-  border                        {style="rainbow_chase", speed=N, width=N}     default: none  — animated border painted at panel edges
+  border                        "rainbow" | "color_cycle" | "lightbulbs" | [r,g,b] | {style="rainbow"|"color_cycle"|"constant"|"lightbulbs"|"bands", ...}  default: none  — animated border painted at panel edges — five styles (rainbow chase, color cycle, constant, bands, lightbulbs); see /concepts/borders/
 
 Shared fields:
   type                          

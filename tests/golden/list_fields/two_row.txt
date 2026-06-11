@@ -23,7 +23,7 @@ Optional:
   bottom_text_y_offset          int                                           default: 0
   top_emoji_y_offset            int                                           default: 0
   bottom_emoji_y_offset         int                                           default: 0
-  border                        {style="rainbow_chase", speed=N, width=N}     default: none  — animated border painted at panel edges
+  border                        "rainbow" | "color_cycle" | "lightbulbs" | [r,g,b] | {style="rainbow"|"color_cycle"|"constant"|"lightbulbs"|"bands", ...}  default: none  — animated border painted at panel edges — five styles (rainbow chase, color cycle, constant, bands, lightbulbs); see /concepts/borders/
   bottom_text_wrap              bool                                          default: False
   bottom_text_separator         str | None                                    default: None
   bottom_text_separator_color   Any | None                                    default: None

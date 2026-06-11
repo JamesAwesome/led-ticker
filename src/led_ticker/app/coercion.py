@@ -346,6 +346,11 @@ def _coerce_border(value: Any) -> BorderEffect | None:
       → `RainbowChaseBorder` restricted to the shorter hue arc.
     - `{style = "constant", color = [r, g, b], thickness = N}`
       → `ConstantBorder` with the color + thickness.
+    - `{style = "bands", colors = "candy_cane" | [[r,g,b], ...], band_width = N,
+      speed = N, thickness = N, align_rings = bool}` → `ColorBandsBorder`.
+      `colors` is required: a `BAND_PALETTES` name or a list of >= 2 RGB
+      colors. `align_rings` radially stacks bands across rings at
+      thickness > 1 (default false = woven continuous index).
     - `[r, g, b]` (list/tuple) → `ConstantBorder` shorthand.
     - already a BorderEffect (has `paint`) → passes through.
     - None → None (no border).
@@ -354,6 +359,8 @@ def _coerce_border(value: Any) -> BorderEffect | None:
     unknown kwargs.
     """
     from led_ticker.borders import (
+        BAND_PALETTES,
+        ColorBandsBorder,
         ColorCycleBorder,
         ConstantBorder,
         LightbulbBorder,
@@ -380,6 +387,15 @@ def _coerce_border(value: Any) -> BorderEffect | None:
                 return ColorCycleBorder()
             case "lightbulbs":
                 return LightbulbBorder()
+            case "bands":
+                # No defaults make sense without colors — point at the
+                # inline-table form instead of the generic missing-keys
+                # error from the registry fallback.
+                raise ValueError(
+                    "border style 'bands' requires 'colors' — use the "
+                    "inline-table form: "
+                    "border = {style='bands', colors='candy_cane'}"
+                )
             case _:
                 # Not a built-in shorthand — check the plugin registry
                 # (mirrors how _coerce_animation handles unknown strings).
@@ -406,8 +422,7 @@ def _coerce_border(value: Any) -> BorderEffect | None:
         cls = _BORDER_REGISTRY.get(style)
         if cls is None:
             raise ValueError(
-                f"unknown border style {style!r}; "
-                f"available: {sorted(_BORDER_REGISTRY)}"
+                f"unknown border style {style!r}; available: {sorted(_BORDER_REGISTRY)}"
             )
         match style:
             case "rainbow":
@@ -526,6 +541,69 @@ def _coerce_border(value: Any) -> BorderEffect | None:
                         )
                     )
                 return LightbulbBorder(**kwargs)
+            case "bands":
+                allowed = {"colors", "band_width", "speed", "thickness", "align_rings"}
+                unknown = set(kwargs.keys()) - allowed
+                if unknown:
+                    raise ValueError(
+                        f"border style 'bands' got unknown keys "
+                        f"{sorted(unknown)!r}; allowed: {sorted(allowed)}"
+                    )
+                if "colors" not in kwargs:
+                    raise ValueError(
+                        "border style 'bands' requires 'colors': a named "
+                        "palette string or a list of [r, g, b] colors, e.g. "
+                        "border = {style='bands', colors='candy_cane'}"
+                    )
+                colors = kwargs.pop("colors")
+                if isinstance(colors, str):
+                    if colors not in BAND_PALETTES:
+                        raise ValueError(
+                            f"border 'bands' unknown palette {colors!r}; "
+                            f"available: {sorted(BAND_PALETTES)}"
+                        )
+                    colors = BAND_PALETTES[colors]
+                elif isinstance(colors, list | tuple):
+                    if len(colors) == 0:
+                        raise ValueError("border 'bands' colors must not be empty")
+                    if len(colors) == 1:
+                        raise ValueError(
+                            "border 'bands' colors has a single entry — "
+                            "use border = [r, g, b] instead"
+                        )
+                    colors = [
+                        tuple(_validate_rgb(c, f"border 'bands' colors[{i}]"))
+                        for i, c in enumerate(colors)
+                    ]
+                else:
+                    raise ValueError(
+                        f"border 'bands' colors must be a palette name "
+                        f"string or a list of [r, g, b]; got "
+                        f"{type(colors).__name__}"
+                    )
+                kwargs["colors"] = colors
+                if "band_width" in kwargs:
+                    bw = kwargs["band_width"]
+                    if isinstance(bw, bool) or not isinstance(bw, int) or bw < 1:
+                        raise ValueError(
+                            f"border 'bands' band_width must be an int >= 1; got {bw!r}"
+                        )
+                if "speed" in kwargs:
+                    sp = kwargs["speed"]
+                    if isinstance(sp, bool) or not isinstance(sp, int):
+                        raise ValueError(
+                            f"border 'bands' speed must be an int "
+                            f"(negative reverses, 0 = static); got {sp!r}"
+                        )
+                if "align_rings" in kwargs:
+                    ar = kwargs["align_rings"]
+                    if not isinstance(ar, bool):
+                        raise ValueError(
+                            f"border 'bands' align_rings must be a bool; got {ar!r}"
+                            "; use align_rings = true or align_rings = false"
+                            " (TOML lowercase, no quotes)"
+                        )
+                return ColorBandsBorder(**kwargs)
             case _:
                 return _build_plugin_style(cls, kwargs, f"border style {style!r}")
     # Reject anything else loudly

@@ -93,15 +93,21 @@ registered as `"bands"` in `_BORDER_REGISTRY`.
   into the inner ring (same continuous enumeration `RainbowChaseBorder`
   uses). Bands will not align ring-to-ring — reads as a woven texture.
 - `align_rings = true` (bool, default `false`; added post-review on
-  2026-06-11): paints each ring with its own enumeration, scaling each
-  ring-local index to outer-ring units before the band formula —
-  `eff_idx = (j * outer_len + ring_len // 2) // ring_len` (integer
-  rounding). Both rings start band 0 at the top-left corner and march at
-  the same angular speed, so band boundaries stay radially aligned: crisp
-  stacked stripes instead of the woven default. A no-op at
-  `thickness = 1`. Requires a `_ring_lengths(width, height, thickness)`
-  cached helper whose collapse-bail logic MUST mirror `_perimeter_pixels`
-  (tripwire test asserting the two stay consistent).
+  2026-06-11, mapping revised same day after hardware testing): each
+  ring pixel takes the band of its PERPENDICULAR PROJECTION onto the
+  outer ring — top-edge `(x, r)` → outer idx of `(x, 0)`, right-edge
+  `(w-1-r, y)` → `(w-1, y)`, bottom/left analogous. Edge alignment is
+  EXACT (zero shear anywhere along an edge); all ring-length mismatch
+  is absorbed at the four corners (inner rings are 2 px shorter per
+  corner). The march offset still applies in outer-ring index units,
+  so all rings advance in lockstep. A no-op at `thickness = 1`.
+  Implemented as a cached `_aligned_indices(width, height, thickness)`
+  helper parallel to `_perimeter_pixels` (same walk order + collapse
+  bail; tripwire asserts same length and ring-0 identity), making the
+  hot loop a table lookup. The first-cut proportional mapping
+  (`eff = (j * outer + ring_len // 2) // ring_len`, via a
+  `_ring_lengths` helper) was replaced: its ~1.3% accumulated rounding
+  produced a visible 1–2 px boundary shear mid-edge on the bigsign.
 - Paints at PHYSICAL resolution via `unwrap_to_real` — a 1 px border is
   1 real LED on bigsign.
 

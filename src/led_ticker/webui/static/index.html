@@ -28,7 +28,8 @@
   .issues .error { color: #f66; }
   .issues .warning { color: #fc6; }
   .muted { color: #888; }
-  #validate-run { background: #36c; color: #fff; border: 0; border-radius: 6px; padding: .5rem 1.2rem; cursor: pointer; margin: .6rem 0; }
+  #validate-run, #validate-file-row button { background: #36c; color: #fff; border: 0; border-radius: 6px; padding: .5rem 1.2rem; cursor: pointer; margin: .6rem 0; }
+  #config-select { background: #222; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: .4rem; }
 </style>
 </head>
 <body>
@@ -68,6 +69,15 @@
   <section id="tab-validate" class="tab">
     <div class="card">
       <strong>Validate a candidate config</strong>
+      <div id="validate-file-row" style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem;">
+        <select id="config-select"></select>
+        <button id="validate-file-run">Validate file</button>
+        <button id="load-redacted">Load redacted copy</button>
+      </div>
+      <div id="redacted-banner" style="display:none;background:#332;border:1px solid #663;border-radius:6px;padding:.5rem;margin-bottom:.6rem;">
+        Loaded copy is redacted — <code>•••</code> values may validate differently
+        than the real file. Use <strong>Validate file</strong> for exact results.
+      </div>
       <textarea id="validate-input" placeholder="Paste TOML here…"></textarea>
       <button id="validate-run">Validate</button>
       <div id="validate-result" class="issues"></div>
@@ -89,6 +99,7 @@ document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   b.classList.add("active");
   $("tab-" + b.dataset.tab).classList.add("active");
   if (b.dataset.tab === "config") loadConfig();
+  if (b.dataset.tab === "validate") loadConfigList();
 });
 
 function fmtAgo(ts) {
@@ -151,17 +162,61 @@ async function loadConfig() {
   if (g.panel_width) $("geometry").textContent = `${g.panel_width}×${g.panel_height} @ scale ${g.default_scale}`;
 }
 
+function renderIssues(body) {
+  const issues = [...(body.errors || []).map((i) => ["error", i]), ...(body.warnings || []).map((i) => ["warning", i])];
+  $("validate-result").innerHTML = body.valid
+    ? "<p>✓ Valid config.</p>"
+    : issues.map(([sev, i]) => `<p class="${sev}">${sev}${i.rule ? " (rule " + esc(i.rule) + ")" : ""}: ${esc(i.message)}</p>`).join("")
+      || '<p class="error">Invalid (no detail returned).</p>';
+}
+
 $("validate-run").onclick = async () => {
   try {
     const r = await fetch("/api/validate", {method: "POST", headers: auth, body: $("validate-input").value});
     if (r.status === 413) { $("validate-result").innerHTML = '<p class="error">Config too large (1 MB cap).</p>'; return; }
     if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — open this page with ?token=&lt;your token&gt;.</p>'; return; }
+    renderIssues(await r.json());
+  } catch (e) {
+    $("validate-result").innerHTML = '<p class="error">Could not reach the webui — is it still running?</p>';
+  }
+};
+
+async function loadConfigList() {
+  try {
+    const r = await fetch("/api/configs", {headers: auth});
+    if (!r.ok) return;
     const body = await r.json();
-    const issues = [...(body.errors || []).map((i) => ["error", i]), ...(body.warnings || []).map((i) => ["warning", i])];
-    $("validate-result").innerHTML = body.valid
-      ? "<p>✓ Valid config.</p>"
-      : issues.map(([sev, i]) => `<p class="${sev}">${sev}${i.rule ? " (rule " + esc(i.rule) + ")" : ""}: ${esc(i.message)}</p>`).join("")
-        || '<p class="error">Invalid (no detail returned).</p>';
+    const sel = $("config-select");
+    sel.innerHTML = (body.configs || []).map((n) =>
+      `<option value="${esc(n)}"${n === body.running ? " selected" : ""}>${esc(n)}${n === body.running ? " · running" : ""}</option>`
+    ).join("");
+  } catch (e) { /* dropdown stays empty; paste box still works */ }
+}
+
+$("validate-file-run").onclick = async () => {
+  try {
+    const r = await fetch("/api/validate-file", {
+      method: "POST", headers: {...auth, "Content-Type": "application/json"},
+      body: JSON.stringify({name: $("config-select").value}),
+    });
+    if (r.status === 404) { $("validate-result").innerHTML = '<p class="error">Unknown config file.</p>'; return; }
+    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — open this page with ?token=&lt;your token&gt;.</p>'; return; }
+    renderIssues(await r.json());
+  } catch (e) {
+    $("validate-result").innerHTML = '<p class="error">Could not reach the webui — is it still running?</p>';
+  }
+};
+
+$("load-redacted").onclick = async () => {
+  try {
+    const r = await fetch(`/api/config?name=${encodeURIComponent($("config-select").value)}`, {headers: auth});
+    if (r.status === 404) { $("validate-result").innerHTML = '<p class="error">Unknown config file.</p>'; return; }
+    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — open this page with ?token=&lt;your token&gt;.</p>'; return; }
+    const body = await r.json();
+    if (body.state !== "ok") { $("validate-result").innerHTML = `<p class="error">${esc(body.detail || body.state || "could not load")}</p>`; return; }
+    $("validate-input").value = body.toml;
+    $("redacted-banner").style.display = "block";
+    $("validate-result").innerHTML = "";
   } catch (e) {
     $("validate-result").innerHTML = '<p class="error">Could not reach the webui — is it still running?</p>';
   }

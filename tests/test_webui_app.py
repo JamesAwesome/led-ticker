@@ -221,7 +221,10 @@ async def test_root_serves_page(tmp_path):
         assert resp.status == 200
         assert resp.content_type == "text/html"
         text = await resp.text()
-        for marker in ("Status", "Config", "Validate", "/api/status"):
+        for marker in (
+            "Status", "Config", "Validate",
+            "/api/status", "/api/configs", "validate-file",
+        ):
             assert marker in text
     finally:
         await client.close()

@@ -1412,13 +1412,18 @@ class TestColorBandsBorder:
         projection, so inner/outer stay aligned at every frame — the
         'drifts then re-syncs' hardware artifact must be impossible.
         Range x=1..17 is the inner top-edge walk (x=18 belongs to the
-        inner right edge; see the stacking test's ownership note)."""
-        b = self._border(band_width=5, speed=3, thickness=2, align_rings=True)
-        for frame in (0, 1, 7, 50):
-            c = _StubCanvas(20, 8)
-            b.paint(c, frame_count=frame)
-            for x in range(1, 18):
-                assert c.pixels[(x, 1)] == c.pixels[(x, 0)], f"f={frame} x={x}"
+        inner right edge; see the stacking test's ownership note).
+        Both positive (clockwise) and negative (counter-clockwise) speed
+        are exercised to confirm the projection holds in both directions."""
+        for speed in (3, -3):
+            b = self._border(band_width=5, speed=speed, thickness=2, align_rings=True)
+            for frame in (0, 1, 7, 50):
+                c = _StubCanvas(20, 8)
+                b.paint(c, frame_count=frame)
+                for x in range(1, 18):
+                    assert c.pixels[(x, 1)] == c.pixels[(x, 0)], (
+                        f"speed={speed} f={frame} x={x}"
+                    )
 
 
 class TestBandsBorderCoercion:
@@ -1510,11 +1515,14 @@ class TestBandsBorderCoercion:
         with pytest.raises(ValueError, match="speed"):
             _coerce_border({"style": "bands", "colors": "rasta", "speed": True})
 
-    def test_bare_string_bands_raises_missing_colors(self):
-        """No string shorthand: the generic _BORDER_REGISTRY fallback's
-        _build_plugin_style introspects the constructor and reports the
-        missing required key — no special-case code."""
-        with pytest.raises(ValueError, match=r"missing required keys \['colors'\]"):
+    def test_bare_string_bands_points_at_inline_table(self):
+        """A dedicated string-match arm in _coerce_border raises a
+        targeted error rather than the generic _build_plugin_style
+        'missing required keys' message, because that gave no example
+        of how to fix it (DX review 2026-06-11)."""
+        with pytest.raises(ValueError, match="requires 'colors'"):
+            _coerce_border("bands")
+        with pytest.raises(ValueError, match="inline-table"):
             _coerce_border("bands")
 
     def test_align_rings_accepted(self):

@@ -81,8 +81,11 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "none",
     ),
     "border": FieldHint(
-        '{style="rainbow_chase", speed=N, width=N}',
-        "animated border painted at panel edges",
+        '"rainbow" | "color_cycle" | "lightbulbs" | [r,g,b]'  # noqa: E501
+        ' | {style="rainbow"|"color_cycle"|"constant"|"lightbulbs"|"bands", ...}',
+        "animated border painted at panel edges"
+        " — five styles (rainbow chase, color cycle, constant, bands, lightbulbs)"
+        "; see /concepts/borders/",
         "none",
     ),
     # TickerMessage / TickerCountdown

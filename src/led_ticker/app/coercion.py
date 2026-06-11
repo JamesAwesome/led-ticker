@@ -387,6 +387,15 @@ def _coerce_border(value: Any) -> BorderEffect | None:
                 return ColorCycleBorder()
             case "lightbulbs":
                 return LightbulbBorder()
+            case "bands":
+                # No defaults make sense without colors — point at the
+                # inline-table form instead of the generic missing-keys
+                # error from the registry fallback.
+                raise ValueError(
+                    "border style 'bands' requires 'colors' — use the "
+                    "inline-table form: "
+                    "border = {style='bands', colors='candy_cane'}"
+                )
             case _:
                 # Not a built-in shorthand — check the plugin registry
                 # (mirrors how _coerce_animation handles unknown strings).
@@ -591,6 +600,8 @@ def _coerce_border(value: Any) -> BorderEffect | None:
                     if not isinstance(ar, bool):
                         raise ValueError(
                             f"border 'bands' align_rings must be a bool; got {ar!r}"
+                            "; use align_rings = true or align_rings = false"
+                            " (TOML lowercase, no quotes)"
                         )
                 return ColorBandsBorder(**kwargs)
             case _:

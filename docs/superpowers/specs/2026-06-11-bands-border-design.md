@@ -33,11 +33,12 @@ border = {style = "bands", colors = [[0,146,70], [255,255,255], [206,43,55]], ba
 
 **No string shorthand.** `colors` is the essence of the effect and has no
 sensible default, so the effect is table-only (precedent: `constant`).
-Bare `border = "bands"` needs no special-case code: the string path's
-generic `_BORDER_REGISTRY` fallback runs `_build_plugin_style`, which
-introspects the constructor and raises
-`ValueError("border style 'bands' missing required keys ['colors']")` —
-already the right error.
+Bare `border = "bands"` raises a dedicated error in the string-match arm
+(DX review, 2026-06-11): `ValueError("border style 'bands' requires 'colors'
+— use the inline-table form: border = {style='bands', colors='candy_cane'}")`.
+The original design relied on the generic `_BORDER_REGISTRY` fallback's
+`_build_plugin_style`, which raised `"missing required keys ['colors']"` —
+correct but gave no example of how to fix it.
 
 **Color spec: explicit list or named palette** — no `from`/`to`.
 `from`/`to` arc semantics stay exclusive to `rainbow` / `color_cycle`;
@@ -115,8 +116,10 @@ registered as `"bands"` in `_BORDER_REGISTRY`.
 
 - Registry entry `"bands": ColorBandsBorder`; new `case "bands":` arm in
   the inline-table match.
-- Allowed keys: `{colors, band_width, speed, thickness}`; unknown keys
+- Allowed keys: `{colors, band_width, speed, thickness, align_rings}`; unknown keys
   rejected with the standard sorted-keys message.
+  - `align_rings`: bool required (non-bool rejected with a TOML-literal hint: use
+    `align_rings = true` or `align_rings = false`, TOML lowercase, no quotes).
 - `colors` validation:
   - missing → ValueError naming the required key with an example
   - string → resolved via `BAND_PALETTES`; unknown name → ValueError
@@ -155,7 +158,7 @@ coercion test module, following the current tripwire style:
 - **Coercion matrix**: valid table; missing `colors`; 1-entry `colors`
   (hint message); empty/non-list `colors`; invalid RGB entry; unknown
   keys; bool `speed`/`band_width` rejection; bare string `"bands"`
-  raises the missing-required-keys error from `_build_plugin_style`.
+  raises a dedicated error pointing at the inline-table form (DX review 2026-06-11).
 - **Palettes**: each named palette resolves (`colors = "rasta"` builds
   with the registry's tuples); unknown palette name raises listing
   available; every `BAND_PALETTES` entry has ≥ 2 colors and valid

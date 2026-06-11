@@ -47,4 +47,4 @@
 |--------|------|---------|-------------|
 | `font` | string | `"5x8"` | Default font for both rows when `top_font` / `bottom_font` are unset. BDF alias (e.g. `"5x8"`, `"6x12"`) or hires font name (e.g. `"Inter-Bold"`). |
 | `bg_color` | RGB list | none | Background fill for the full panel before text. Per-band `top_bg_color` / `bottom_bg_color` paint on top of this. |
-| `border` | string / table | none | Perimeter border effect — `"rainbow"`, `[r,g,b]` constant, or `{style="rainbow", thickness=N, speed=N, char_offset=N}`. Paints at physical panel resolution (bypasses ScaledCanvas), so the border traces the real panel edge, not the logical canvas edge. |
+| `border` | `"rainbow"` \| `"color_cycle"` \| `"lightbulbs"` \| `[r,g,b]` \| `{style="...", ...}` | none | Perimeter border ring — five styles (rainbow chase, color cycle, constant, bands, lightbulbs); see [/concepts/borders/](/concepts/borders/). Paints at physical panel resolution (bypasses ScaledCanvas), so the border traces the real panel edge, not the logical canvas edge. |

@@ -1,0 +1,367 @@
+# Bands border smoke test — Pi 5 bigsign.
+#
+# Validates `border = {style = "bands", ...}` (feat/bands-border) across
+# every widget type that supports the border field. Text widgets first
+# (§1–§11), image widgets last (§12–§14), mirroring the structure of
+# config.rainbow_border_test.example.toml.
+#
+# All sections use cut transitions and short hold_times so iteration
+# on the bigsign is fast: edit config, restart container, observe in
+# seconds.
+#
+# Sections:
+#   1. candy_cane defaults            — baseline: band_width=6, speed=1, thickness=1
+#   2. rasta tuned                    — band_width=12, thickness=2
+#   3. usa reverse                    — speed=-2 marches counter-clockwise
+#   4. discrete vs continuous rainbow — bands "rainbow" palette + per-char rainbow text
+#   5. explicit color list            — Italy tricolor, no palette
+#   6. christmas static               — speed=0, frame-invariant
+#   7. halloween + bg_color           — bands frame + bg fill + black text
+#   8. two_row at scale=2             — border frames the REAL panel edge
+#   9. countdown + bands
+#  10. scrolling text + bands         — march continues through the scroll path
+#  11. typewriter + bands (×3 loops)  — per-effect counters compose
+#  12. still + bands, no text         — animated border forces per-tick loop
+#  13. still + bands speed=0, no text — fast path: paint once + sleep
+#  14. gif + bands + held text        — gif frames + marching bands + held text
+#
+# Tunables to compare on hardware:
+#   - colors      — palette name (rainbow, rasta, usa, christmas,
+#                   halloween, candy_cane) or [[r,g,b], ...] list (2+).
+#   - band_width  — perimeter pixels per band. Default 6. The bigsign
+#                   perimeter is 636 px; 6px bands = ~106 bands around.
+#   - speed       — px the pattern advances per 50ms frame. Default 1
+#                   (~32s per revolution). Negative reverses; 0 = static.
+#   - thickness   — 1 (default) or 2 pixel ring. Rings share one
+#                   continuous index, so bands won't align ring-to-ring
+#                   (documented behavior, reads as a woven texture).
+#
+# What to watch for:
+#   - §1 vs §3: §1 marches clockwise, §3 counter-clockwise and 2× faster.
+#   - §4: the border shows DISCRETE color blocks while the text sweeps
+#     a CONTINUOUS per-char rainbow — they should look clearly different.
+#     If the border looks like a smooth gradient, something's wrong.
+#   - §6: the bands must NOT move. frame_invariant=True at speed=0.
+#   - §10: the march must continue smoothly while text scrolls — if the
+#     bands freeze or stutter during the scroll, the engine's
+#     advance_frame contract regressed.
+#   - §11: typewriter retypes on each of 3 loops while the band march
+#     phase advances CONTINUOUSLY across loops (no snap-back) —
+#     restart_on_visit=False on ColorBandsBorder, True on Typewriter.
+#   - §13: static bands on a still = the fast path. No per-tick redraw
+#     cost; the frame just holds. Compare CPU against §12 if curious.
+#   - At every band seam, the pattern may break mid-band at the
+#     top-left corner (636 isn't a multiple of band_width × n_colors).
+#     Documented seam artifact, not a bug.
+
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+parallel = 1
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+
+brightness = 60
+gpio_slowdown = 3
+hardware_mapping = "adafruit-hat"
+default_scale = 4
+
+pwm_bits = 8
+rp1_rio = 1
+
+[title]
+delay = 0.5
+
+[transitions]
+default = "cut"
+duration = 0.2
+easing = "linear"
+between_sections = "cut"
+
+# ---------------------------------------------------------------------------
+# 1. candy_cane defaults — `colors = "candy_cane"`, everything else stock.
+#    Baseline look: red/white 6px bands marching clockwise, one full
+#    revolution ≈ 32s. Later sections diverge from this.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "CANDY CANE"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = {style = "bands", colors = "candy_cane"}
+
+# ---------------------------------------------------------------------------
+# 2. rasta tuned — wider bands, thicker ring. band_width=12 gives ~53
+#    bands around the perimeter (vs ~106 at default); thickness=2 shows
+#    the continuous-index ring offset (bands don't align ring-to-ring —
+#    expected, reads as a woven texture).
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "RASTA"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 240, 200]
+border = {style = "bands", colors = "rasta", band_width = 12, thickness = 2}
+
+# ---------------------------------------------------------------------------
+# 3. usa reverse — speed=-2: counter-clockwise march at 2× the §1 rate
+#    (one revolution ≈ 16s). Verifies floor-division wraparound for
+#    negative offsets on real hardware.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "REVERSE"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = {style = "bands", colors = "usa", speed = -2}
+
+# ---------------------------------------------------------------------------
+# 4. Discrete vs continuous rainbow — the bands "rainbow" palette is six
+#    SOLID color blocks; the text's per-char rainbow is a CONTINUOUS hue
+#    sweep. Side by side on one panel they should read as obviously
+#    different effects. band_width=10 makes the blocks easy to see.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "DISCRETE VS SMOOTH"
+font = "Inter-Bold"
+font_size = 24
+font_color = "rainbow"
+border = {style = "bands", colors = "rainbow", band_width = 10}
+
+# ---------------------------------------------------------------------------
+# 5. Explicit color list — Italy tricolor, no palette. The list form
+#    accepts any 2+ RGB colors; this is the copy-paste template for
+#    custom sequences.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "CIAO"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = {style = "bands", colors = [[0, 146, 70], [255, 255, 255], [206, 43, 55]], band_width = 8}
+
+# ---------------------------------------------------------------------------
+# 6. christmas static — speed=0 means the bands do not move at all.
+#    frame_invariant=True: equivalent cost to a constant border. If the
+#    bands creep, the frame_invariant property regressed.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "STATIC"
+font = "Inter-Bold"
+font_size = 24
+font_color = "color_cycle"
+border = {style = "bands", colors = "christmas", speed = 0, band_width = 10}
+
+# ---------------------------------------------------------------------------
+# 7. halloween + bg_color — three color systems: deep purple bg fill,
+#    orange text, orange/purple bands marching the frame.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 1
+transition = "cut"
+bg_color = [30, 0, 50]
+
+[[playlist.section.widget]]
+type = "message"
+text = "SPOOKY"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 140, 0]
+border = {style = "bands", colors = "halloween", band_width = 10}
+
+# ---------------------------------------------------------------------------
+# 8. Two-row + bands at scale=2 — the border paints at REAL panel
+#    resolution (256×64) regardless of the section's scale=2 wrapper:
+#    it frames the SIGN edge, not the logical 128×32 canvas.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 32
+hold_time = 7.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "@ledticker"
+top_color = [225, 48, 108]
+top_align = "center"
+top_font = "Inter-Bold"
+top_font_size = 14
+bottom_text = "now with stripes"
+bottom_color = [255, 240, 200]
+bottom_align = "center"
+bottom_font = "Inter-Regular"
+bottom_font_size = 14
+border = {style = "bands", colors = "candy_cane", band_width = 8}
+
+# ---------------------------------------------------------------------------
+# 9. Countdown + bands — border field on TickerCountdown.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "NYE"
+countdown_date = "2027-01-01"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = {style = "bands", colors = "usa", band_width = 8}
+
+# ---------------------------------------------------------------------------
+# 10. Scrolling text + bands — text overflows the canvas so the engine
+#     enters the scroll path. The march must continue smoothly through
+#     pre-scroll hold → scroll → post-scroll hold (advance_frame fires
+#     per tick on every engine path). Freeze or stutter = regression in
+#     the engine redraw contract.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 6.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "A LONG SCROLLING MESSAGE TO TEST THE MARCHING BANDS"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 255, 255]
+border = {style = "bands", colors = "rasta", band_width = 10}
+
+# ---------------------------------------------------------------------------
+# 11. Typewriter + bands, loop_count=3 — per-effect counter composition.
+#     Typewriter has restart_on_visit=True: it MUST retype on each of
+#     the 3 loops. ColorBandsBorder has restart_on_visit=False: the
+#     march phase MUST advance continuously across loops (no snap-back
+#     to the same band positions when the typewriter restarts).
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 3.0
+loop_count = 3
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "TYPING IN STRIPES"
+font = "Inter-Bold"
+font_size = 24
+font_color = [255, 220, 80]
+animation = "typewriter"
+border = {style = "bands", colors = "candy_cane", band_width = 8}
+
+# ---------------------------------------------------------------------------
+# 12. Still + bands, no text — `StillImage._play_no_text` slow path.
+#     speed=1 makes the border non-frame-invariant, forcing the
+#     per-tick loop: the bunny holds while the bands march.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/bunny-transparent.png"
+fit = "pillarbox"
+image_align = "center"
+hold_time = 7.0
+border = {style = "bands", colors = "rasta", band_width = 10}
+
+# ---------------------------------------------------------------------------
+# 13. Still + bands speed=0, no text — `_play_no_text` FAST path.
+#     speed=0 → frame_invariant=True → paint once, sleep, return. This
+#     is the hardware version of the TestPlayWithTextBandsBorderFastPath
+#     tripwire. The frame should hold perfectly still with zero per-tick
+#     redraw cost.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 1
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "image"
+path = "assets/bunny-transparent.png"
+fit = "pillarbox"
+image_align = "center"
+hold_time = 7.0
+border = {style = "bands", colors = "christmas", speed = 0, band_width = 10}
+
+# ---------------------------------------------------------------------------
+# 14. GIF + bands + held text — three frame-driven systems: gif frames
+#     advance at native cadence, the bands march at engine 50ms cadence,
+#     text holds at the right. The march must look exactly as smooth as
+#     §12's (engine cadence, not gif-frame cadence).
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "swap"
+hold_time = 7.0
+loop_count = 3
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/pika_wave_transparent.gif"
+fit = "pillarbox"
+image_align = "left"
+text = "PIKA"
+text_align = "right"
+font = "Inter-Bold"
+font_size = 16
+font_color = [255, 220, 80]
+play_count = 3
+border = {style = "bands", colors = "rainbow", band_width = 10}

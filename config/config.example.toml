@@ -236,5 +236,5 @@ stale_after = 14400  # 4 hours
 # [web]
 # host = "0.0.0.0"
 # port = 8080
-# token = ""                                    # non-empty enables Bearer token auth
-# status_path = "/run/led-ticker/status.json"   # compose overrides via shared volume
+# token = ""                                    # non-empty requires X-Web-Token header or ?token=
+# status_path = "/run/led-ticker/status.json"   # default works in Docker too (shared volume mounts here)

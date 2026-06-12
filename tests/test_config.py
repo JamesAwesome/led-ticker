@@ -137,7 +137,7 @@ mode = "swap"
     assert cfg.display.pwm_lsb_nanoseconds == 130
     assert cfg.display.show_refresh_rate is False
     assert cfg.display.disable_hardware_pulsing is False
-    assert cfg.display.rp1_rio == 0
+    assert cfg.display.rp1_pio == 0
 
 
 def test_display_config_perf_tuning_keys(tmp_path):
@@ -152,7 +152,7 @@ pwm_bits = 8
 pwm_lsb_nanoseconds = 200
 show_refresh_rate = true
 disable_hardware_pulsing = false
-rp1_rio = 1
+rp1_pio = 1
 
 [[playlist.section]]
 mode = "swap"
@@ -161,7 +161,28 @@ mode = "swap"
     assert cfg.display.pwm_bits == 8
     assert cfg.display.pwm_lsb_nanoseconds == 200
     assert cfg.display.show_refresh_rate is True
-    assert cfg.display.rp1_rio == 1
+    assert cfg.display.rp1_pio == 1
+
+
+def test_obsolete_rp1_rio_key_warns_and_is_ignored(tmp_path):
+    """The library renamed rp1_rio → rp1_pio (and flipped the default
+    backend to RIO) in June 2026. The old key must not crash a deployed
+    config, but it must surface a warning saying what to do."""
+    p = tmp_path / "config.toml"
+    p.write_text("""\
+[display]
+rows = 32
+cols = 64
+rp1_rio = 1
+
+[[playlist.section]]
+mode = "swap"
+""")
+    cfg = load_config(p)
+    assert cfg.display.rp1_pio == 0  # old key is ignored, not translated
+    warns = [w for w in cfg._coerce_warnings if w.field == "display.rp1_rio"]
+    assert len(warns) == 1
+    assert "rp1_pio" in warns[0].message
 
 
 def test_display_config_bigsign_keys(tmp_path):
@@ -203,7 +224,9 @@ def test_bigsign_example_config_loads(tmp_path):
     # Performance defaults baked into the example
     assert cfg.display.gpio_slowdown == 3
     assert cfg.display.pwm_bits == 8
-    assert cfg.display.rp1_rio == 1
+    assert (
+        cfg.display.rp1_pio == 0
+    )  # RIO backend is the library default; example config no longer sets the knob
     assert cfg.display.show_refresh_rate is True
     assert len(cfg.sections) >= 1
     # First section inherits default_scale

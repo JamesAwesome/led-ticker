@@ -25,11 +25,10 @@ panel_type = "FM6126A"
 # Muen P2 panels wire HUB75 G-pin → Red LED, R-pin → Blue LED, B-pin → Green LED.
 led_rgb_sequence = "BRG"
 
-# Pi 5 RP1 RIO backend (faster refresh, slightly more CPU than PIO).
-# rp1_rio = 1 requires row_address_type = 0 (default) — do not set row_address_type = 1.
-# Raise gpio_slowdown to 4–5 if flicker persists.
+# Pi 5 RP1 RIO backend (the library default; faster refresh, slightly
+# more CPU than PIO). RIO requires row_address_type = 0 (default) — do
+# not set row_address_type = 1. Raise gpio_slowdown if flicker persists.
 gpio_slowdown = 5
-rp1_rio = 1
 pwm_bits = 7     # 7-bit PWM: tuned for camera; default is 11
 limit_refresh_rate_hz = 100   # caps refresh to stabilise image on camera
 

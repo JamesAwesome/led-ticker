@@ -130,7 +130,7 @@ Ask these questions (5–7 total, condensed where possible):
 2. **`between_sections` transition** — usually different from the default; suggest `dissolve` for branded-pro, `cut` for minimal.
 3. **Default `hold_time`** — defaults: continuous loop → 5s, scheduled windows → 10s.
 4. **Brightness** — defaults: small=60, bigsign=60; ask if user wants different.
-5. **Bigsign refresh tuning** — only ask if sign=bigsign AND tone=info-dense. Suggest `pwm_bits = 8`, `rp1_rio = 1` (consult `references/hardware-guide.md` refresh tuning notes).
+5. **Bigsign refresh tuning** — only ask if sign=bigsign AND tone=info-dense. Suggest `pwm_bits = 8` — the RIO backend is the library default, no knob needed (consult `references/hardware-guide.md` refresh tuning notes).
 6. **Save destination** — propose `config/config.<descriptive-slug>.toml` based on Phase 1 answers (e.g. `moonbunny-bigsign`, `office-rss-small`); ask if user wants to override. After write, ask: "Activate this as the live config? (copies to `config/config.toml`, backs up any existing to `config/config.toml.bak`)"
 
 Run final validation: run `led-ticker validate config/config.toml --json`. Surface all `errors` as mandatory fixes and `warnings` as flag-and-ask before writing. Also do a full pass over `references/decision-rules.md` for any issues not caught by the validator.

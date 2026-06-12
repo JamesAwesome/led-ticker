@@ -52,9 +52,9 @@ class RGBMatrixOptions:
         self.show_refresh_rate = 0
         self.gpio_slowdown = 1
         self.disable_hardware_pulsing = False
-        # Pi 5 fork (kingdo9) only — present here so tests exercise the
-        # rp1_rio code path. Real Pi 4 builds don't expose this attribute.
-        self.rp1_rio = 0
+        # Pi 5 knob (rgbmatrix builds from June 2026 onward) — present
+        # here so tests exercise the rp1_pio code path.
+        self.rp1_pio = 0
         self.limit_refresh_rate_hz = 0
 
 

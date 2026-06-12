@@ -34,9 +34,10 @@ class LedFrame:
     led_row_address_type: int = 0
     led_multiplexing: int = 0
     led_panel_type: str = ""
-    # Pi 5 (kingdo9 fork) only: 0 = PIO mode (low CPU), 1 = RP1 RIO mode
-    # (higher CPU, higher refresh). Ignored on Pi 4 builds.
-    led_rp1_rio: int = 0
+    # Pi 5 only: 0 = RP1 RIO backend (library default — fast refresh,
+    # more CPU), 1 = force the RP1 PIO backend (lower CPU, slower
+    # refresh). Ignored on Pi 4.
+    led_rp1_pio: int = 0
     # Cap hardware refresh rate in Hz (0 = unlimited). Useful for making
     # SwapOnVSync timing more predictable relative to the scan cycle on
     # long chains where the uncapped rate causes visible motion artifacts.
@@ -75,10 +76,11 @@ class LedFrame:
         if self.led_disable_hardware_pulsing:
             options.disable_hardware_pulsing = True
 
-        # rp1_rio is exposed only by the kingdo9 Pi 5 fork; tolerate older
-        # builds where the Python binding doesn't have it.
-        if self.led_rp1_rio and hasattr(options, "rp1_rio"):
-            options.rp1_rio = self.led_rp1_rio
+        # rp1_pio is exposed by rgbmatrix builds from June 2026 onward
+        # (upstream renamed rp1_rio and flipped the default backend to
+        # RIO); tolerate older builds where the binding doesn't have it.
+        if self.led_rp1_pio and hasattr(options, "rp1_pio"):
+            options.rp1_pio = self.led_rp1_pio
 
         if self.led_limit_refresh_rate_hz and hasattr(options, "limit_refresh_rate_hz"):
             options.limit_refresh_rate_hz = self.led_limit_refresh_rate_hz

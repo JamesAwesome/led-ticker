@@ -962,7 +962,7 @@ def build_frame_from_config(display) -> LedFrame:
         led_pwm_dither_bits=display.pwm_dither_bits,
         led_show_refresh_rate=display.show_refresh_rate,
         led_disable_hardware_pulsing=display.disable_hardware_pulsing,
-        led_rp1_rio=display.rp1_pio,
+        led_rp1_pio=display.rp1_pio,
         led_limit_refresh_rate_hz=display.limit_refresh_rate_hz,
         led_multiplexing=display.multiplexing,
         led_row_address_type=display.row_address_type,

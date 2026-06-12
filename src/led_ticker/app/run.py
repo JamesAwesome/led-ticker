@@ -119,7 +119,9 @@ async def _status_heartbeat(
         marker = tee._frame_path.parent / "preview-requested"
     while not board.disabled and _sb.get_active_board() is board:
         board.publish()
-        if tee is not None:
+        # Narrow on marker (not tee): they're set together, and pyright can
+        # only carry the None-check through the variable it sees stat()'d.
+        if marker is not None:
             try:
                 fresh = (time.time() - marker.stat().st_mtime) < marker_ttl
             except OSError:

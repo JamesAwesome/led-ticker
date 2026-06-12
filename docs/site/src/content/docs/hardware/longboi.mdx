@@ -93,7 +93,7 @@ limit_refresh_rate_hz = 100   # caps refresh to stabilise image on camera`}
 | Setting                 | Value       | Why                                                                                                 |
 | ----------------------- | ----------- | --------------------------------------------------------------------------------------------------- |
 | `gpio_slowdown`         | `5`         | Pi 5 with the default RIO backend needs higher slowdown than Pi 4. Raise to 6+ if flicker persists. |
-| `row_address_type`      | `0`         | Required with the default RIO backend. Do not set to `1` — it breaks display output with RIO mode.  |
+| `row_address_type`      | `0`         | Must remain `0` (the default) with the RIO backend. Setting `1` breaks display output.              |
 | `pwm_bits`              | `7`         | 7-bit PWM keeps the refresh rate high while limiting flicker visible in video. Default is 11.       |
 | `limit_refresh_rate_hz` | `100`       | Caps the refresh to a stable rate for camera capture. Remove if not on camera.                      |
 | `panel_type`            | `"FM6126A"` | Required FM6126A init sequence; without it the bottom half of panels is garbled.                    |

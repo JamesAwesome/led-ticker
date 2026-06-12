@@ -422,7 +422,7 @@ Tuning-knobs table (lines ~96–98):
 
 - [ ] **Step 4: `concepts/display.mdx`, tutorials, `tools/panel-test.mdx`**
 
-- `concepts/display.mdx:38`: delete the `rp1_rio = 1` line from the TOML example (note it ends with a template-literal backtick — keep `pwm_bits = 8\`}` as the new last line).
+- `concepts/display.mdx:38`: delete the `rp1_rio = 1` line from the TOML example (note it ends with a template-literal backtick — keep `pwm_bits = 8`}` as the new last line).
 - `concepts/display.mdx:67`: `\`rp1_rio\`, or the other Pi-tuning options` → `\`rp1_pio\`, or the other Pi-tuning options`
 - `tutorial/01-setup.mdx:88`: `(\`pixel_mapper_config\`, \`gpio_slowdown\`, \`rp1_rio\`, \`pwm_bits\`)` → `(\`pixel_mapper_config\`, \`gpio_slowdown\`, \`pwm_bits\`)`
 - `tutorial/02-first-config.mdx:81`: `\`pwm_bits\`, \`rp1_rio\`. These` → `\`pwm_bits\`, \`rp1_pio\`. These`

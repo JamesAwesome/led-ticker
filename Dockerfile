@@ -11,8 +11,9 @@ FROM python:3.14-bookworm AS rgbmatrix
 # merged upstream) plus three patches: GCC10 anonymous-param fix (pio_rp1.c),
 # Pillow shim (graphics.py), SubFill Python binding (core.pyx). Validated
 # 2026-04-29 to run on both Pi 4 (BCM2711 GPIO) and Pi 5 (RP1 PIO/RIO).
-# Library as of June 2026 defaults the Pi 5 backend to RP1 RIO and exposes
-# rp1_pio (renamed from rp1_rio).
+# As of June 2026 the library defaults the Pi 5 backend to RP1 RIO; the
+# backend-selection option is now rp1_pio (1 = force PIO; renamed from
+# rp1_rio, which had the inverse meaning).
 
 ENV DEBIAN_FRONTEND=noninteractive
 

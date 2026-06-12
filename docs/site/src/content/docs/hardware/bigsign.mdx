@@ -116,7 +116,7 @@ care about smooth gradients.
 
 Pi-5 only. The RP1 SoC offers two GPIO drive modes:
 
-- **RIO mode (`rp1_pio = 0`, the library default)** — faster refresh, higher CPU.
+- **RIO mode (the library default — `rp1_pio` not set)** — faster refresh, higher CPU.
 - **PIO mode (`rp1_pio = 1`)** — lower CPU, slower refresh.
 
 The bigsign uses RIO — the default, so nothing to set. The Pi 5 has

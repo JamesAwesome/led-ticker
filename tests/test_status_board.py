@@ -22,6 +22,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "section",
     "widget",
     "monitor_updates",
+    "swap_count",
     "log_tail",
 }
 
@@ -37,7 +38,7 @@ def test_schema_tripwire(tmp_path):
         "SCHEMA_VERSION in src/led_ticker/status_board.py (the sidecar refuses "
         "schemas it doesn't know)."
     )
-    assert snap["schema"] == SCHEMA_VERSION == 1
+    assert snap["schema"] == SCHEMA_VERSION == 2
 
 
 def test_publish_roundtrip(tmp_path):
@@ -227,7 +228,9 @@ def test_flush_replaces_unwritable_leftover_tmp(tmp_path):
     tmp.chmod(0o444)
     board.publish(force=True)
     assert not board.disabled
-    assert json.loads((tmp_path / "status.json").read_text())["schema"] == 1
+    assert (
+        json.loads((tmp_path / "status.json").read_text())["schema"] == SCHEMA_VERSION
+    )
 
 
 def test_widget_summary_joins_segments_and_strips_emoji(tmp_path):
@@ -262,5 +265,20 @@ def test_record_section_strips_emoji_slugs(tmp_path):
             widget_count=1,
         )
         assert board.section["title"] == "MLB Standings"
+    finally:
+        status_board.clear_active_board()
+
+
+def test_record_swap_increments_without_publishing(tmp_path):
+    # record_swap runs at frame cadence inside LedFrame.swap() — it must be
+    # increment-only: no publish, no file I/O, and a no-op without a board.
+    status_board.record_swap()  # no active board: must not raise
+    board = _board(tmp_path, min_interval=3600.0)
+    status_board.set_active_board(board)
+    try:
+        for _ in range(5):
+            status_board.record_swap()
+        assert board.swap_count == 5
+        assert not (tmp_path / "status.json").exists()  # nothing was written
     finally:
         status_board.clear_active_board()

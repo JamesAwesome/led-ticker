@@ -119,6 +119,8 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
   {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]
 ));
 let lastStatus = null;
+let prevSwapCount = null;
+let stallPolls = 0;
 
 document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
@@ -156,7 +158,23 @@ async function poll() {
     }
     const st = body.status;
     lastStatus = st;
-    live.textContent = body.state === "ok" ? "live" : "stale " + fmtAgo(st.published_at);
+    // Engine-liveness: the heartbeat keeps the file fresh even if the render
+    // loop wedges, so "ok" alone only proves the process is alive. A swap
+    // counter that stops advancing across polls is the wedge signal.
+    // (swap_count is absent on pre-v1.2 status files — skip detection then.)
+    if (body.state === "ok" && typeof st.swap_count === "number") {
+      stallPolls = st.swap_count === prevSwapCount ? stallPolls + 1 : 0;
+      prevSwapCount = st.swap_count;
+    } else {
+      stallPolls = 0;
+      prevSwapCount = null;
+    }
+    if (body.state === "ok" && stallPolls >= 2) {
+      live.className = "stale";
+      live.textContent = "engine stalled? no frames for " + (stallPolls * 3) + "s";
+    } else {
+      live.textContent = body.state === "ok" ? "live" : "stale " + fmtAgo(st.published_at);
+    }
     $("hostname").textContent = st.hostname || "led-ticker";
     const up = (Date.now() / 1000) - st.started_at;
     $("uptime").textContent = "up " + (up > 7200 ? Math.round(up / 3600) + "h" : Math.round(up / 60) + "m");

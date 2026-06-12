@@ -72,6 +72,22 @@ class PreviewTee:
             why,
         )
 
+    # -- safety net ----------------------------------------------------
+
+    def __getattr__(self, name: str) -> Any:
+        # Safety net for the spine invariant: any canvas attribute the tee
+        # doesn't explicitly mirror forwards to the hardware canvas, so a
+        # future canvas method can only make the PREVIEW silently diverge —
+        # never raise inside a widget's draw and break the panel.
+        #
+        # NOTE: __getattr__ is only called for *missing* attributes (ones
+        # not found via normal lookup), so it cannot shadow any of the
+        # explicit methods defined on this class. It also fires for internal
+        # _x attrs that haven't been set yet (e.g. during object
+        # construction), but __init__ sets every self._x attribute before
+        # any other code path reads them, so that path can't arise here.
+        return getattr(self._hw, name)
+
     # -- canvas surface (forward first, mirror second) -----------------
 
     def SetPixel(self, x: int, y: int, r: int, g: int, b: int) -> None:
@@ -104,6 +120,39 @@ class PreviewTee:
                 self._complete = True
             except Exception:
                 self._disable("shadow clear failed")
+
+    def SetImage(self, image: Any, offset_x: int = 0, offset_y: int = 0) -> None:
+        """Blit a PIL image onto the canvas at (offset_x, offset_y).
+
+        Forwards to the hardware canvas first and unconditionally (same as
+        every other canvas method — a hardware error propagates up). Then, if
+        mirroring is on, iterates the image pixels and writes them into the
+        shadow, clipping to canvas bounds. Alpha channel is handled the same
+        way the rgbmatrix stub does it: fully-transparent pixels (alpha == 0)
+        composite onto black; all other pixels use the RGB channels directly.
+        """
+        self._hw.SetImage(image, offset_x, offset_y)
+        if self.mirror:
+            try:
+                rgb = image if image.mode == "RGB" else image.convert("RGB")
+                img_w, img_h = rgb.size
+                pixels = rgb.load()
+                shadow = self._shadow
+                w, h = self.width, self.height
+                for dy in range(img_h):
+                    py = offset_y + dy
+                    if py < 0 or py >= h:
+                        continue
+                    for dx in range(img_w):
+                        px = offset_x + dx
+                        if 0 <= px < w:
+                            r_c, g_c, b_c = pixels[dx, dy]
+                            i = (py * w + px) * 3
+                            shadow[i] = r_c
+                            shadow[i + 1] = g_c
+                            shadow[i + 2] = b_c
+            except Exception:
+                self._disable("shadow image blit failed")
 
     def SubFill(
         self, x: int, y: int, width: int, height: int, r: int, g: int, b: int

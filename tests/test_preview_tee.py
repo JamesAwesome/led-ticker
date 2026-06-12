@@ -1,5 +1,7 @@
 """PreviewTee: hardware forwarding, shadow mirroring, the spine invariant."""
 
+from unittest.mock import MagicMock
+
 from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
 from led_ticker.preview import PreviewTee
@@ -240,3 +242,150 @@ def test_scaled_canvas_chain_mirrors_through_tee(tmp_path):
         if tuple(tee._shadow[(y * 64 + x) * 3 : (y * 64 + x) * 3 + 3]) != (0, 0, 0)
     ]
     assert len(lit) == 4  # the 2x2 block, mirrored
+
+
+# ---------------------------------------------------------------------------
+# Fix 1: SetImage forwarding + shadow mirroring
+# ---------------------------------------------------------------------------
+
+
+def test_setimage_forwards_and_mirrors(tmp_path):
+    from PIL import Image
+
+    tee = _tee(tmp_path)
+    tee.set_watched(True)
+    img = Image.new("RGB", (2, 2), (10, 20, 30))
+    tee.SetImage(img, 5, 6)
+    # hardware and shadow agree pixel-for-pixel
+    for dx in range(2):
+        for dy in range(2):
+            assert tee._hw._pixels[(5 + dx, 6 + dy)] == (10, 20, 30)
+            i = ((6 + dy) * 32 + (5 + dx)) * 3
+            assert tuple(tee._shadow[i : i + 3]) == (10, 20, 30)
+
+
+def test_setimage_clips_at_edges(tmp_path):
+    from PIL import Image
+
+    tee = _tee(tmp_path)
+    tee.set_watched(True)
+    img = Image.new("RGB", (4, 4), (9, 9, 9))
+    tee.SetImage(img, 30, 14)  # hangs off the 32x16 canvas
+    # No raise, no shadow corruption outside bounds; in-bounds pixels present.
+    i = (14 * 32 + 30) * 3
+    assert tuple(tee._shadow[i : i + 3]) == (9, 9, 9)
+    # Pixels that would land outside canvas bounds must not corrupt anything —
+    # the shadow size is exactly width*height*3; verify it hasn't grown
+    assert len(tee._shadow) == 32 * 16 * 3
+
+
+def test_setimage_mirror_off_no_shadow_write(tmp_path):
+    """When mirror is off SetImage still forwards to hardware but doesn't
+    touch shadow."""
+    from PIL import Image
+
+    tee = _tee(tmp_path)
+    # mirror is off by default
+    img = Image.new("RGB", (2, 2), (5, 6, 7))
+    tee.SetImage(img, 0, 0)
+    assert tee._hw._pixels[(0, 0)] == (5, 6, 7)  # forwarded
+    assert bytes(tee._shadow) == bytes(32 * 16 * 3)  # shadow untouched
+
+
+def test_setimage_rgba_image_mirrors_rgb_channels(tmp_path):
+    """RGBA images are converted to RGB before mirroring; fully-opaque
+    alpha pixels land as their plain RGB value."""
+    from PIL import Image
+
+    tee = _tee(tmp_path)
+    tee.set_watched(True)
+    img = Image.new("RGBA", (1, 1), (100, 150, 200, 255))
+    tee.SetImage(img, 0, 0)
+    i = 0
+    assert tuple(tee._shadow[i : i + 3]) == (100, 150, 200)
+
+
+def test_setimage_shadow_failure_self_disables(tmp_path):
+    """A broken shadow during SetImage disables mirroring; hardware still
+    receives the call."""
+    from PIL import Image
+
+    tee = _tee(tmp_path)
+    tee.set_watched(True)
+    tee._shadow = None  # sabotage
+    img = Image.new("RGB", (1, 1), (1, 2, 3))
+    tee.SetImage(img, 0, 0)  # must NOT raise
+    assert tee._hw._pixels[(0, 0)] == (1, 2, 3)  # hardware got it
+    assert tee.mirror is False  # mirroring self-disabled
+
+
+# ---------------------------------------------------------------------------
+# Fix 2: __getattr__ safety net
+# ---------------------------------------------------------------------------
+
+
+def test_getattr_safety_net_forwards_unknown_attrs(tmp_path):
+    """Attributes the tee doesn't define are forwarded to the hardware canvas
+    rather than raising AttributeError — the panel-safe failure direction."""
+    hw = MagicMock()
+    hw.some_future_attr = "sentinel"
+    tee = PreviewTee(hw=hw, width=32, height=16, frame_path=tmp_path / "p.bin")
+    assert tee.some_future_attr == "sentinel"
+
+
+def test_getattr_net_explicit_methods_not_shadowed(tmp_path):
+    """Explicit methods on PreviewTee are NOT routed through the safety net;
+    the tee's own implementation is what callers get."""
+    tee = _tee(tmp_path)
+    # type(tee).SetPixel must be the tee's own descriptor, not a passthrough
+    assert type(tee).SetPixel is not None
+    # And it must be the tee's actual method, not the hw stub's
+    assert type(tee).SetPixel is PreviewTee.SetPixel
+
+
+def test_getattr_net_means_unknown_method_draws_on_hw_only(tmp_path):
+    """A method reached via the safety net executes against the hardware
+    canvas only; the preview shadow diverges silently (acceptable — the
+    spine invariant says panel trumps preview, not the reverse)."""
+    hw = MagicMock()
+    hw.some_future_draw = MagicMock(return_value=42)
+    tee = PreviewTee(hw=hw, width=32, height=16, frame_path=tmp_path / "p.bin")
+    # Access via the tee delegates to hw; no AttributeError, no shadow write
+    result = tee.some_future_draw(1, 2)
+    hw.some_future_draw.assert_called_once_with(1, 2)
+    assert result == 42
+
+
+# ---------------------------------------------------------------------------
+# Fix 3: regression — image paint path through the tee must not AttributeError
+# ---------------------------------------------------------------------------
+
+
+def test_still_paint_full_uses_setimage_on_tee(tmp_path):
+    """StillImage._paint_full calls canvas.SetImage. If SetImage is absent on
+    the tee this raises AttributeError inside play() — the one forbidden
+    failure direction. This test fails if SetImage is removed from PreviewTee.
+    """
+    from PIL import Image
+
+    # Build a tee with hardware that accepts SetImage (the stub does)
+    tee = _tee(tmp_path, width=32, height=16)
+    tee.set_watched(True)
+
+    # Build a minimal PIL image the same size as the tee
+    pil_img = Image.new("RGB", (32, 16), (200, 100, 50))
+
+    # Call _paint_full directly — exactly the code path StillImage uses.
+    # This exercises the SetImage call on the tee without needing to construct
+    # a full StillImage widget (which requires a file on disk).
+    from led_ticker.widgets._image_fit import reset_canvas
+
+    reset_canvas(tee, None)  # Clear -> sets _complete for coverage parity
+
+    # Simulate what _paint_full does: canvas.SetImage(self._pil_image, 0, 0)
+    tee.SetImage(pil_img, 0, 0)
+
+    # Verify hardware received it and shadow mirrors it
+    assert tee._hw._pixels[(0, 0)] == (200, 100, 50)
+    i = 0  # (0*32 + 0)*3
+    assert tuple(tee._shadow[i : i + 3]) == (200, 100, 50)

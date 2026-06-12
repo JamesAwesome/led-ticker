@@ -103,7 +103,7 @@ def _load_plugins_for_config(config_path: Path):
 
 
 async def _status_heartbeat(
-    board: Any, tee: Any = None, marker_ttl: float = 10.0
+    board: Any, tee: Any = None, marker_ttl: float | None = None
 ) -> None:
     """Republish at the throttle cadence so the sidecar's staleness verdict
     measures process liveness, not event frequency. Without this, a widget
@@ -113,7 +113,10 @@ async def _status_heartbeat(
     Exits once the board self-disables or is deactivated (teardown), so it
     needs no explicit cancellation."""
     from led_ticker import status_board as _sb  # noqa: PLC0415
+    from led_ticker.preview import MARKER_TTL  # noqa: PLC0415
 
+    if marker_ttl is None:
+        marker_ttl = MARKER_TTL
     marker = None
     if tee is not None:
         marker = tee._frame_path.parent / "preview-requested"

@@ -69,7 +69,6 @@ hardware_mapping = "adafruit-hat"
 default_scale = 4
 
 pwm_bits = 8
-rp1_rio = 1
 
 [title]
 delay = 0.5

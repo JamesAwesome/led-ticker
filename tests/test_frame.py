@@ -138,6 +138,12 @@ def test_swap_no_hooks_unchanged():
     assert result == "backbuffer"
 
 
+def test_rp1_pio_forwarded_to_options():
+    """led_rp1_pio=1 must reach RGBMatrixOptions.rp1_pio."""
+    frame = LedFrame(led_rp1_pio=1)
+    assert frame.matrix._options.rp1_pio == 1
+
+
 def test_swap_records_engine_liveness():
     """LedFrame.swap() bumps the status board's swap counter — the web UI's
     only way to tell a wedged render loop from a healthy one."""

@@ -11,6 +11,9 @@ FROM python:3.14-bookworm AS rgbmatrix
 # merged upstream) plus three patches: GCC10 anonymous-param fix (pio_rp1.c),
 # Pillow shim (graphics.py), SubFill Python binding (core.pyx). Validated
 # 2026-04-29 to run on both Pi 4 (BCM2711 GPIO) and Pi 5 (RP1 PIO/RIO).
+# As of June 2026 the library defaults the Pi 5 backend to RP1 RIO; the
+# backend-selection option is now rp1_pio (1 = force PIO; renamed from
+# rp1_rio, which had the inverse meaning).
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -24,7 +27,7 @@ RUN apt-get update && \
 # Increment RGBMATRIX_CACHE_BUST to force a fresh clone when the fork's main
 # branch changes but the clone instruction text hasn't — Docker caches by
 # instruction hash, not by remote content.
-ARG RGBMATRIX_CACHE_BUST=3
+ARG RGBMATRIX_CACHE_BUST=4
 # The fork builds via scikit-build-core (PEP 517), so `pip install .` runs in an
 # isolated build env that resolves its own Cython. A plain `pip install Cython`
 # here would NOT control that build. PIP_CONSTRAINT is inherited by the isolated

@@ -15,7 +15,6 @@ hardware_mapping = "adafruit-hat"
 panel_type = "FM6126A"
 led_rgb_sequence = "BRG"
 gpio_slowdown = 5
-rp1_rio = 1
 pwm_bits = 7
 limit_refresh_rate_hz = 100
 

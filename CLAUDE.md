@@ -289,11 +289,11 @@ User-facing reference: <https://docs.ledticker.dev/reference/config-options/>.
 
 - Production image: `python:3.14-bookworm` base, 3-layer caching (rgbmatrix → deps → source).
 - Single image runs on both Pi 4 and Pi 5. The rgbmatrix library is hardcoded to `jamesawesome/rpi-rgb-led-matrix` (default branch `main`) — Pi5 RP1 support (hzeller#1886, merged upstream) plus three patches: GCC10 anonymous-param fix (`pio_rp1.c`), Pillow shim (`graphics.py`), SubFill Python binding (`core.pyx`). The library detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). The pre-RP1 codebase is preserved on the `pi4_legacy` branch.
-- On the Pi 5, the runtime CLI also accepts `--led-rp1-rio=0|1` (PIO vs Registered IO mode). For chain length ≥ 2 with flicker, raise `gpio_slowdown` from 2 to 3+.
+- On the Pi 5, the RP1 RIO backend is the default; `--led-rp1-pio=1` forces the low-CPU PIO backend (renamed from `--led-rp1-rio`, June 2026). For chain length ≥ 2 with flicker, raise `gpio_slowdown` from 2 to 3+.
 - Config mounted read-only: `./config:/code/config:ro`.
 - Systemd: `deploy/led-ticker.service`. Full deploy walkthrough: <https://docs.ledticker.dev/hardware/building-your-own/>.
 
 ### Hardware quick reference
 
 - **Smallsign (Pi 4)** — 5× 32×16 = 160×16 px. `default_scale = 1`, `gpio_slowdown = 2`, `hardware_mapping = "adafruit-hat"`, ~20 fps. Full BOM + wiring: <https://docs.ledticker.dev/hardware/smallsign/>.
-- **Bigsign (Pi 5)** — 8× P3 32×64 in a 2×4 vertical-serpentine = 256×64 px. `default_scale = 4`, `gpio_slowdown = 3` paired with `rp1_rio = 1`, `pwm_bits = 8`, custom `pixel_mapper_config` Remap string. DrawText clips safely at canvas edges (y can be negative or > height). Full BOM + chain diagram + Pi-5 tuning: <https://docs.ledticker.dev/hardware/bigsign/>.
+- **Bigsign (Pi 5)** — 8× P3 32×64 in a 2×4 vertical-serpentine = 256×64 px. `default_scale = 4`, `gpio_slowdown = 3` paired with the default RIO backend, `pwm_bits = 8`, custom `pixel_mapper_config` Remap string. DrawText clips safely at canvas edges (y can be negative or > height). Full BOM + chain diagram + Pi-5 tuning: <https://docs.ledticker.dev/hardware/bigsign/>.

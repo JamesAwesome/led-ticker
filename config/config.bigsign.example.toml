@@ -39,19 +39,17 @@ hardware_mapping = "adafruit-hat"
 
 # Pi 5 RP1 GPIO tuning.
 #
-# rp1_rio = 1 selects RIO (Registered IO) mode — faster refresh, more CPU
-# than PIO mode (rp1_rio = 0). The Pi 5 has cores to spare and the bigger
-# panel benefits from the extra Hz.
+# RIO (Registered IO) mode is the rgbmatrix library default on Pi 5 — faster
+# refresh, more CPU than PIO mode. The Pi 5 has cores to spare and the bigger
+# panel benefits from the extra Hz. To force PIO (low CPU), set rp1_pio = 1.
 #
-# gpio_slowdown = 3 pairs with rp1_rio = 1. The Pi 4 default of 2 is too
-# aggressive with RIO mode; raise to 4–5 if you still see flicker after
-# switching to RIO.
+# gpio_slowdown = 3 is appropriate for RIO mode. The Pi 4 default of 2 is too
+# aggressive; raise to 4–5 if you still see flicker.
 #
 # pwm_bits = 8 drops from the 11-bit default, buying roughly 8× faster
 # refresh at a small color-depth cost. Barely noticeable for text and pixel
 # art; only relevant if you're displaying photos with smooth gradients.
 gpio_slowdown = 3
-rp1_rio = 1
 pwm_bits = 8
 show_refresh_rate = true  # log measured refresh Hz to stderr; remove once stable
 

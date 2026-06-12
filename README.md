@@ -81,7 +81,7 @@ The compose file mounts `./config` read-only into the container so you edit TOML
 
 ## Hardware
 
-The single Docker image detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). On the Pi 5 the runtime CLI accepts `--led-rp1-rio=0|1` for the RP1 backend mode; for chain ≥ 2 with flicker raise `gpio_slowdown` from 2 to 3+.
+The single Docker image detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). On the Pi 5 the RP1 RIO backend is the default; the runtime CLI accepts `--led-rp1-pio=1` to force the low-CPU PIO backend. For chain ≥ 2 with flicker raise `gpio_slowdown` from 2 to 3+.
 
 Hardware reference (BOM, wiring, panel-tuning knobs): <https://docs.ledticker.dev/hardware/building-your-own/>.
 

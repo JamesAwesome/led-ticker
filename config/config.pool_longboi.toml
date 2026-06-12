@@ -34,9 +34,8 @@ panel_type = "FM6126A"
 # Muen P2 panels wire HUB75 G-pin → Red LED, R-pin → Blue LED, B-pin → Green LED.
 led_rgb_sequence = "BRG"
 
-# Pi 5 RP1 RIO backend (matches config.longboi.toml).
+# Pi 5 RP1 RIO backend — the library default (matches config.longboi.toml).
 gpio_slowdown = 5
-rp1_rio = 1
 pwm_bits = 7
 limit_refresh_rate_hz = 100
 show_refresh_rate = true

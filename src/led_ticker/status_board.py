@@ -22,6 +22,10 @@ import attrs
 
 logger = logging.getLogger(__name__)
 
+# SCHEMA_VERSION guards the TOP-LEVEL key set (see the tripwire in
+# tests/test_status_board.py). Additive fields nested inside existing
+# entries (e.g. plugins[].names, added in v1.1) are version-compatible:
+# readers must tolerate their absence.
 SCHEMA_VERSION = 1
 MIN_PUBLISH_INTERVAL = 2.0
 LOG_TAIL_MAX = 50

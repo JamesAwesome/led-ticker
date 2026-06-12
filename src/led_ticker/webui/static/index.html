@@ -28,7 +28,11 @@
   .issues .error { color: #f66; }
   .issues .warning { color: #fc6; }
   .muted { color: #888; }
-  #validate-run { background: #36c; color: #fff; border: 0; border-radius: 6px; padding: .5rem 1.2rem; cursor: pointer; margin: .6rem 0; }
+  #validate-run, #validate-file-row button { background: #36c; color: #fff; border: 0; border-radius: 6px; padding: .5rem 1.2rem; cursor: pointer; margin: .6rem 0; }
+  #config-select { background: #222; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: .4rem; }
+  .editor-wrap { display: flex; border: 1px solid #333; border-radius: 6px; background: #000; overflow: hidden; }
+  .line-gutter { border: none; border-right: 1px solid #333; border-radius: 0; width: auto; min-width: 3ch; margin: 0; overflow: hidden; text-align: right; color: #555; user-select: none; line-height: 1.4; }
+  .editor-wrap .editor-content { border: none; border-radius: 0; flex: 1; white-space: pre; overflow: auto; line-height: 1.4; margin: 0; }
 </style>
 </head>
 <body>
@@ -40,6 +44,7 @@
     <button data-tab="status" class="active">Status</button>
     <button data-tab="config">Config</button>
     <button data-tab="validate">Validate</button>
+    <button data-tab="inventory">Inventory</button>
   </nav>
 </header>
 <main>
@@ -62,15 +67,46 @@
   <section id="tab-config" class="tab">
     <div class="card">
       <strong>Live config</strong> <span id="geometry" class="muted"></span>
-      <pre id="config-toml">loading…</pre>
+      <div class="editor-wrap">
+        <pre id="config-gutter" class="line-gutter" aria-hidden="true">1</pre>
+        <pre id="config-toml" class="editor-content">loading…</pre>
+      </div>
     </div>
   </section>
   <section id="tab-validate" class="tab">
     <div class="card">
       <strong>Validate a candidate config</strong>
-      <textarea id="validate-input" placeholder="Paste TOML here…"></textarea>
+      <div id="validate-file-row" style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem;">
+        <select id="config-select"></select>
+        <button id="validate-file-run">Validate file</button>
+        <button id="load-redacted">Load redacted copy</button>
+      </div>
+      <div id="redacted-banner" style="display:none;background:#332;border:1px solid #663;border-radius:6px;padding:.5rem;margin-bottom:.6rem;">
+        Loaded copy is redacted — <code>•••</code> values may validate differently
+        than the real file. Use <strong>Validate file</strong> for exact results.
+      </div>
+      <div class="editor-wrap">
+        <pre id="line-gutter" class="line-gutter" aria-hidden="true">1</pre>
+        <textarea id="validate-input" class="editor-content" placeholder="Paste TOML here…" spellcheck="false"></textarea>
+      </div>
       <button id="validate-run">Validate</button>
       <div id="validate-result" class="issues"></div>
+    </div>
+  </section>
+  <section id="tab-inventory" class="tab">
+    <div class="card">
+      <strong>Fonts</strong>
+      <p class="muted">User fonts (config/fonts/) take precedence over bundled.</p>
+      <table id="inv-fonts"><tbody></tbody></table>
+    </div>
+    <div class="card">
+      <strong>Assets</strong> <span id="inv-assets-note" class="muted"></span>
+      <table id="inv-assets"><tbody></tbody></table>
+    </div>
+    <div class="card">
+      <strong>Emoji</strong>
+      <p class="muted" id="inv-emoji-note"></p>
+      <div id="inv-emoji"></div>
     </div>
   </section>
 </main>
@@ -82,6 +118,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
   {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]
 ));
+let lastStatus = null;
 
 document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
@@ -89,6 +126,8 @@ document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   b.classList.add("active");
   $("tab-" + b.dataset.tab).classList.add("active");
   if (b.dataset.tab === "config") loadConfig();
+  if (b.dataset.tab === "validate") loadConfigList();
+  if (b.dataset.tab === "inventory") loadInventory();
 });
 
 function fmtAgo(ts) {
@@ -116,6 +155,7 @@ async function poll() {
       return;
     }
     const st = body.status;
+    lastStatus = st;
     live.textContent = body.state === "ok" ? "live" : "stale " + fmtAgo(st.published_at);
     $("hostname").textContent = st.hostname || "led-ticker";
     const up = (Date.now() / 1000) - st.started_at;
@@ -131,7 +171,12 @@ async function poll() {
       || '<tr><td class="muted">no async monitors</td></tr>';
     const fails = (st.failed_plugins || []).map((p) => `<tr><td>${esc(p.namespace)}</td><td class="error">failed: ${esc(p.error)}</td></tr>`);
     $("plugins").tBodies[0].innerHTML = (st.plugins || [])
-      .map((p) => `<tr><td>${esc(p.namespace)}</td><td class="muted">${esc(JSON.stringify(p.counts))}</td></tr>`)
+      .map((p) => {
+        const names = p.names && Object.keys(p.names).length
+          ? Object.entries(p.names).map(([s, xs]) => `${esc(s)}: ${xs.map(esc).join(", ")}`).join(" · ")
+          : esc(JSON.stringify(p.counts));
+        return `<tr><td>${esc(p.namespace)}</td><td class="muted">${names}</td></tr>`;
+      })
       .concat(fails).join("") || '<tr><td class="muted">no plugins</td></tr>';
     $("logtail").textContent = (st.log_tail || []).slice(-10)
       .map((e) => `${e.level} ${e.name}: ${e.message}`).join("\n") || "no recent warnings";
@@ -143,29 +188,124 @@ async function poll() {
 
 async function loadConfig() {
   const r = await fetch("/api/config", {headers: auth});
-  if (r.status === 401) { $("config-toml").textContent = "auth failed — open this page with ?token=<your token>"; return; }
+  if (r.status === 401) { setConfigView("auth failed — open this page with ?token=<your token>"); return; }
   const body = await r.json();
-  if (body.state !== "ok") { $("config-toml").textContent = body.detail || body.state; return; }
-  $("config-toml").textContent = body.toml;
+  if (body.state !== "ok") { setConfigView(body.detail || body.state); return; }
+  setConfigView(body.toml);
   const g = body.geometry || {};
   if (g.panel_width) $("geometry").textContent = `${g.panel_width}×${g.panel_height} @ scale ${g.default_scale}`;
 }
+
+function renderIssues(body) {
+  const issues = [...(body.errors || []).map((i) => ["error", i]), ...(body.warnings || []).map((i) => ["warning", i])];
+  $("validate-result").innerHTML = body.valid
+    ? "<p>✓ Valid config.</p>"
+    : issues.map(([sev, i]) => `<p class="${sev}">${sev}${i.rule ? " (rule " + esc(i.rule) + ")" : ""}: ${esc(i.message)}</p>`).join("")
+      || '<p class="error">Invalid (no detail returned).</p>';
+}
+
+function numberLines(text) {
+  const n = text.split("\n").length;
+  return Array.from({length: n}, (_, i) => i + 1).join("\n");
+}
+
+function syncGutter() {
+  const ta = $("validate-input");
+  $("line-gutter").textContent = numberLines(ta.value);
+  $("line-gutter").scrollTop = ta.scrollTop;
+}
+
+function setConfigView(text) {
+  $("config-toml").textContent = text;
+  $("config-gutter").textContent = numberLines(text);
+}
+$("validate-input").addEventListener("input", syncGutter);
+$("validate-input").addEventListener("scroll", () => {
+  $("line-gutter").scrollTop = $("validate-input").scrollTop;
+});
 
 $("validate-run").onclick = async () => {
   try {
     const r = await fetch("/api/validate", {method: "POST", headers: auth, body: $("validate-input").value});
     if (r.status === 413) { $("validate-result").innerHTML = '<p class="error">Config too large (1 MB cap).</p>'; return; }
     if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — open this page with ?token=&lt;your token&gt;.</p>'; return; }
-    const body = await r.json();
-    const issues = [...(body.errors || []).map((i) => ["error", i]), ...(body.warnings || []).map((i) => ["warning", i])];
-    $("validate-result").innerHTML = body.valid
-      ? "<p>✓ Valid config.</p>"
-      : issues.map(([sev, i]) => `<p class="${sev}">${sev}${i.rule ? " (rule " + esc(i.rule) + ")" : ""}: ${esc(i.message)}</p>`).join("")
-        || '<p class="error">Invalid (no detail returned).</p>';
+    renderIssues(await r.json());
   } catch (e) {
     $("validate-result").innerHTML = '<p class="error">Could not reach the webui — is it still running?</p>';
   }
 };
+
+async function loadConfigList() {
+  try {
+    const r = await fetch("/api/configs", {headers: auth});
+    if (!r.ok) return;
+    const body = await r.json();
+    const sel = $("config-select");
+    sel.innerHTML = (body.configs || []).map((n) =>
+      `<option value="${esc(n)}"${n === body.running ? " selected" : ""}>${esc(n)}${n === body.running ? " · running" : ""}</option>`
+    ).join("");
+  } catch (e) { /* dropdown stays empty; paste box still works */ }
+}
+
+$("validate-file-run").onclick = async () => {
+  try {
+    const r = await fetch("/api/validate-file", {
+      method: "POST", headers: {...auth, "Content-Type": "application/json"},
+      body: JSON.stringify({name: $("config-select").value}),
+    });
+    if (r.status === 404) { $("validate-result").innerHTML = '<p class="error">Unknown config file.</p>'; return; }
+    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — open this page with ?token=&lt;your token&gt;.</p>'; return; }
+    renderIssues(await r.json());
+  } catch (e) {
+    $("validate-result").innerHTML = '<p class="error">Could not reach the webui — is it still running?</p>';
+  }
+};
+
+$("load-redacted").onclick = async () => {
+  try {
+    const r = await fetch(`/api/config?name=${encodeURIComponent($("config-select").value)}`, {headers: auth});
+    if (r.status === 404) { $("validate-result").innerHTML = '<p class="error">Unknown config file.</p>'; return; }
+    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — open this page with ?token=&lt;your token&gt;.</p>'; return; }
+    const body = await r.json();
+    if (body.state !== "ok") { $("validate-result").innerHTML = `<p class="error">${esc(body.detail || body.state || "could not load")}</p>`; return; }
+    $("validate-input").value = body.toml;
+    syncGutter();
+    $("redacted-banner").style.display = "block";
+    $("validate-result").innerHTML = "";
+  } catch (e) {
+    $("validate-result").innerHTML = '<p class="error">Could not reach the webui — is it still running?</p>';
+  }
+};
+
+async function loadInventory() {
+  try {
+    const r = await fetch("/api/inventory", {headers: auth});
+    if (!r.ok) return;
+    const inv = await r.json();
+    $("inv-fonts").tBodies[0].innerHTML =
+      (inv.fonts.user || []).map((f) => `<tr><td>${esc(f)}</td><td class="muted">user</td></tr>`).join("") +
+      (inv.fonts.bundled || []).map((f) => `<tr><td>${esc(f)}</td><td class="muted">bundled</td></tr>`).join("") ||
+      '<tr><td class="muted">none found</td></tr>';
+    $("inv-assets").tBodies[0].innerHTML = (inv.assets || [])
+      .map((a) => `<tr><td>${esc(a.path)}</td><td class="muted">${Number(a.bytes) || 0} B</td></tr>`).join("") ||
+      '<tr><td class="muted">no image/gif assets in the config directory</td></tr>';
+    $("inv-assets-note").textContent = inv.assets_truncated ? `(showing first ${inv.assets.length})` : "";
+    const pluginEmoji = [];
+    for (const p of (lastStatus && lastStatus.plugins) || []) {
+      for (const surface of ["emojis", "hires_emojis"]) {
+        for (const slug of (p.names && p.names[surface]) || []) pluginEmoji.push(slug);
+      }
+    }
+    const chips = (xs, cls) => xs.map((s) => `<code class="${cls}" style="margin:.15rem;display:inline-block;">:${esc(s)}:</code>`).join(" ");
+    $("inv-emoji").innerHTML =
+      chips(inv.emoji.core || [], "") +
+      chips(inv.emoji.hires_only || [], "muted") +
+      chips(pluginEmoji, "warning");
+    $("inv-emoji-note").textContent = lastStatus
+      ? (pluginEmoji.length ? "Plugin emoji (highlighted) from the running display." : "")
+      : "Display offline — plugin emoji unknown.";
+  } catch (e) { /* tab shows stale/empty; other tabs unaffected */ }
+}
 
 poll();
 setInterval(poll, 3000);

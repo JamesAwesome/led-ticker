@@ -19,7 +19,12 @@ from pathlib import Path
 from aiohttp import web
 
 from led_ticker.status_board import SCHEMA_VERSION
-from led_ticker.validate import ValidationResult, validate_config_text
+from led_ticker.validate import (
+    ValidationResult,
+    validate_config,
+    validate_config_text,
+)
+from led_ticker.webui._paths import list_config_names, safe_config_member
 from led_ticker.webui.redact import redact_toml
 
 # led_ticker.validate was verified clean of rgbmatrix at task-8 implementation
@@ -124,11 +129,27 @@ def _result_to_json(result: ValidationResult) -> dict:
 
 
 def _add_config_routes(app: web.Application, config_path: Path) -> None:
-    """Register GET /api/config and POST /api/validate on the app."""
+    """Register GET /api/configs, GET /api/config and POST /api/validate on the app."""
+
+    async def configs_handler(request: web.Request) -> web.Response:
+        config_dir = config_path.parent
+        return web.json_response(
+            {
+                "configs": list_config_names(config_dir),
+                "running": config_path.name,
+            }
+        )
 
     async def config_handler(request: web.Request) -> web.Response:
+        target = config_path
+        name = request.query.get("name")
+        if name is not None:
+            member = safe_config_member(config_path.parent, name)
+            if member is None:
+                return web.json_response({"error": "unknown config"}, status=404)
+            target = member
         try:
-            text = config_path.read_text(encoding="utf-8")
+            text = target.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as e:
             return web.json_response({"state": "unreadable", "detail": str(e)})
         geometry: dict = {}
@@ -162,8 +183,36 @@ def _add_config_routes(app: web.Application, config_path: Path) -> None:
         result = await validate_config_text(body)
         return web.json_response(_result_to_json(result))
 
+    async def validate_file_handler(request: web.Request) -> web.Response:
+        try:
+            payload = await request.json()
+        except ValueError:
+            return web.json_response({"error": "body must be JSON"}, status=400)
+        name = payload.get("name") if isinstance(payload, dict) else None
+        if not isinstance(name, str):
+            return web.json_response({"error": "missing name"}, status=400)
+        target = safe_config_member(config_path.parent, name)
+        if target is None:
+            return web.json_response({"error": "unknown config"}, status=404)
+        try:
+            result = await validate_config(target)
+        except FileNotFoundError:
+            # TOCTOU: the file passed the guard but vanished before the
+            # validate. Same envelope as never-existed — no oracle, no 500.
+            return web.json_response({"error": "unknown config"}, status=404)
+        return web.json_response(_result_to_json(result))
+
+    app.router.add_get("/api/configs", configs_handler)
     app.router.add_get("/api/config", config_handler)
     app.router.add_post("/api/validate", validate_handler)
+    app.router.add_post("/api/validate-file", validate_file_handler)
+
+    async def inventory_handler(request: web.Request) -> web.Response:
+        from led_ticker.webui.inventory import build_inventory  # noqa: PLC0415
+
+        return web.json_response(build_inventory(config_path.parent))
+
+    app.router.add_get("/api/inventory", inventory_handler)
 
 
 def _add_page_route(app: web.Application) -> None:
@@ -200,8 +249,8 @@ async def run_webui(config_path: Path, web_cfg) -> None:
     runner = await serve_webui(
         config_path=config_path,
         status_path=Path(web_cfg.status_path).expanduser(),
-        host=web_cfg.host,
-        port=web_cfg.port,
+        host=web_cfg.http_host,
+        port=web_cfg.http_port,
         token=web_cfg.token,
     )
     try:

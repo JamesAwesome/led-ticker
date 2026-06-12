@@ -155,6 +155,7 @@ def _setup_status_board(
             "namespace": info.namespace,
             "source": info.source,
             "counts": dict(info.counts or {}),
+            "names": dict(getattr(info, "names", None) or {}),
         }
         for info in plugins.loaded
     ]

@@ -389,3 +389,13 @@ def test_still_paint_full_uses_setimage_on_tee(tmp_path):
     assert tee._hw._pixels[(0, 0)] == (200, 100, 50)
     i = 0  # (0*32 + 0)*3
     assert tuple(tee._shadow[i : i + 3]) == (200, 100, 50)
+
+
+def test_getattr_net_rejects_dunders_no_copy_recursion(tmp_path):
+    # copy/pickle reconstruction probes dunder attrs before __init__ runs;
+    # without the dunder guard that recurses through the _hw lookup.
+    import copy
+
+    tee = _tee(tmp_path)
+    clone = copy.copy(tee)  # must not RecursionError
+    assert clone.width == tee.width

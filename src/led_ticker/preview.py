@@ -85,7 +85,11 @@ class PreviewTee:
         # explicit methods defined on this class. It also fires for internal
         # _x attrs that haven't been set yet (e.g. during object
         # construction), but __init__ sets every self._x attribute before
-        # any other code path reads them, so that path can't arise here.
+        # any other code path reads them. The dunder guard below covers the
+        # one exception: copy/pickle reconstruction probes dunders BEFORE
+        # __init__ runs, which would recurse through the _hw lookup.
+        if name.startswith("__") and name.endswith("__"):
+            raise AttributeError(name)
         return getattr(self._hw, name)
 
     # -- canvas surface (forward first, mirror second) -----------------
@@ -127,9 +131,11 @@ class PreviewTee:
         Forwards to the hardware canvas first and unconditionally (same as
         every other canvas method — a hardware error propagates up). Then, if
         mirroring is on, iterates the image pixels and writes them into the
-        shadow, clipping to canvas bounds. Alpha channel is handled the same
-        way the rgbmatrix stub does it: fully-transparent pixels (alpha == 0)
-        composite onto black; all other pixels use the RGB channels directly.
+        shadow, clipping to canvas bounds. Non-RGB images are converted via
+        convert("RGB"), which DROPS alpha rather than compositing it — in
+        practice unreachable: the image widgets' fit pipeline
+        (widgets/_image_fit.py) always pre-composites onto black and feeds
+        RGB, so the conversion branch never fires on the real paint path.
         """
         self._hw.SetImage(image, offset_x, offset_y)
         if self.mirror:

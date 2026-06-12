@@ -36,7 +36,6 @@ brightness = 60
 default_scale = 4
 hardware_mapping = "adafruit-hat"
 gpio_slowdown = 3
-rp1_rio = 1
 pwm_bits = 8
 show_refresh_rate = true
 

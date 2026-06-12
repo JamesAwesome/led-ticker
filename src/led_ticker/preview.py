@@ -105,6 +105,31 @@ class PreviewTee:
             except Exception:
                 self._disable("shadow clear failed")
 
+    def SubFill(
+        self, x: int, y: int, width: int, height: int, r: int, g: int, b: int
+    ) -> None:
+        """Fill a rectangle. Forwards to hardware first; mirrors per-pixel
+        into the shadow while watched. Used by ScaledCanvas.SetPixel for
+        block expansion on scaled signs."""
+        self._hw.SubFill(x, y, width, height, r, g, b)
+        if self.mirror:
+            try:
+                w, h = self.width, self.height
+                shadow = self._shadow
+                for dy in range(height):
+                    py = y + dy
+                    if py < 0 or py >= h:
+                        continue
+                    for dx in range(width):
+                        px = x + dx
+                        if 0 <= px < w:
+                            i = (py * w + px) * 3
+                            shadow[i] = r
+                            shadow[i + 1] = g
+                            shadow[i + 2] = b
+            except Exception:
+                self._disable("shadow subfill failed")
+
     # -- text mirror (scale = 1 funnel) ---------------------------------
 
     def mirror_bdf_text(self, bdf: Any, x: int, y: int, color: Any, text: str) -> None:

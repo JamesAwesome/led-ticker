@@ -8,6 +8,7 @@ the run loop here only orchestrates.
 import asyncio
 import contextlib
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
@@ -101,17 +102,49 @@ def _load_plugins_for_config(config_path: Path):
     return load_plugins_for_config(config_path)
 
 
-async def _status_heartbeat(board: Any) -> None:
+async def _status_heartbeat(
+    board: Any, tee: Any = None, marker_ttl: float = 10.0
+) -> None:
     """Republish at the throttle cadence so the sidecar's staleness verdict
     measures process liveness, not event frequency. Without this, a widget
     held longer than 3x min_interval flips the page to "stale" while the
-    panel is happily playing. Exits once the board self-disables or is
-    deactivated (teardown), so it needs no explicit cancellation."""
+    panel is happily playing. Also toggles the preview mirror from the
+    watched-marker mtime (one tmpfs stat per beat, off the render path).
+    Exits once the board self-disables or is deactivated (teardown), so it
+    needs no explicit cancellation."""
     from led_ticker import status_board as _sb  # noqa: PLC0415
 
+    marker = None
+    if tee is not None:
+        marker = tee._frame_path.parent / "preview-requested"
     while not board.disabled and _sb.get_active_board() is board:
         board.publish()
+        if tee is not None:
+            try:
+                fresh = (time.time() - marker.stat().st_mtime) < marker_ttl
+            except OSError:
+                fresh = False
+            tee.set_watched(fresh)
         await asyncio.sleep(board.min_interval)
+
+
+def _setup_preview(config: Any, led_frame: Any) -> Any:
+    """Install the preview tee when [web] is configured. The tee is sized to
+    the physical panel and writes frames next to status.json (the tmpfs
+    volume both processes share). Returns the tee, or None."""
+    if config.web is None:
+        return None
+    from led_ticker.preview import PreviewTee  # noqa: PLC0415
+
+    frame_path = Path(config.web.status_path).expanduser().parent / "preview.bin"
+    tee = PreviewTee(
+        hw=led_frame.matrix.CreateFrameCanvas(),
+        width=config.display.cols * config.display.chain_length,
+        height=config.display.rows * config.display.parallel,
+        frame_path=frame_path,
+    )
+    led_frame.install_preview(tee)
+    return tee
 
 
 def _teardown_status_board(handle: tuple[Any, logging.Handler] | None) -> None:
@@ -196,10 +229,11 @@ async def run(config_path: Path) -> None:
     # volume mountpoint. Tripwire: test_setup_runs_before_frame_build.
     _status_handle = _setup_status_board(config, config_path, plugins)
     try:
-        if _status_handle is not None:
-            spawn_tracked(_status_heartbeat(_status_handle[0]))
-
         led_frame = build_frame_from_config(config.display)
+        preview_tee = _setup_preview(config, led_frame)
+
+        if _status_handle is not None:
+            spawn_tracked(_status_heartbeat(_status_handle[0], tee=preview_tee))
 
         if config.busy_light.enabled:
             await _start_busy_light(config.busy_light, led_frame)

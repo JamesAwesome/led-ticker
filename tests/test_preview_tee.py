@@ -218,3 +218,25 @@ def test_mirror_text_failure_self_disables_but_returns_advance(tmp_path):
     advance = draw_text(tee, font, 1, 8, graphics.Color(1, 1, 1), "x")
     assert advance > 0  # the C/hw draw still returned its width
     assert tee.mirror is False
+
+
+def test_scaled_canvas_chain_mirrors_through_tee(tmp_path):
+    """ScaledCanvas(tee): block expansion, unwrap_to_real, and draw_bdf_text
+    all land on the tee — full mirroring with zero call-site changes."""
+    from led_ticker.scaled_canvas import ScaledCanvas, unwrap_to_real
+
+    tee = _tee(tmp_path, width=64, height=32)
+    tee.set_watched(True)
+    tee.Clear()
+    wrapper = ScaledCanvas(tee, scale=2, content_height=16)
+
+    assert unwrap_to_real(wrapper) is tee  # tee is terminal to unwrap
+
+    wrapper.SetPixel(1, 1, 50, 60, 70)  # expands to a 2x2 block on the tee
+    lit = [
+        (x, y)
+        for y in range(32)
+        for x in range(64)
+        if tuple(tee._shadow[(y * 64 + x) * 3 : (y * 64 + x) * 3 + 3]) != (0, 0, 0)
+    ]
+    assert len(lit) == 4  # the 2x2 block, mirrored

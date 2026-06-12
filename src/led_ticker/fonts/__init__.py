@@ -34,20 +34,8 @@ def _load_font(filename: str) -> Font:
 
 
 def get_bdf_for(font: Font) -> BDFFont:
-    """Return the parsed BDF data for a font previously loaded via _load_font.
-
-    Falls back to `font._bdf` for fonts that carry their own parsed BDF
-    (e.g. the test stub's `Font` after `LoadFont`). Raises `KeyError` only
-    when neither source is available.
-    """
-    bdf = _BDF_BY_ID.get(id(font))
-    if bdf is not None:
-        return bdf
-    # Stub fonts (and any font that parsed its own BDF) expose `_bdf`.
-    bdf = getattr(font, "_bdf", None)
-    if bdf is not None:
-        return bdf
-    raise KeyError(id(font))
+    """Return the parsed BDF data for a font previously loaded via _load_font."""
+    return _BDF_BY_ID[id(font)]
 
 
 # Generic font names (replacing crypto-specific FONT_PRICE, FONT_SYMBOL, etc.)

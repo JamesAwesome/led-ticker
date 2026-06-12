@@ -168,8 +168,8 @@ def test_draw_text_funnel_forwards_to_hw_and_mirrors(tmp_path):
     from led_ticker.text_render import draw_text
 
     graphics = require_graphics()
-    font = graphics.Font()
-    font.LoadFont("src/led_ticker/fonts/5x8.bdf")
+    from led_ticker.fonts import FONT_SMALL as font  # registered in _BDF_BY_ID
+
     color = graphics.Color(10, 200, 30)
 
     tee = _tee(tmp_path, width=64, height=16)
@@ -198,8 +198,7 @@ def test_draw_text_funnel_mirror_off_is_pure_forward(tmp_path):
     from led_ticker.text_render import draw_text
 
     graphics = require_graphics()
-    font = graphics.Font()
-    font.LoadFont("src/led_ticker/fonts/5x8.bdf")
+    from led_ticker.fonts import FONT_SMALL as font  # registered in _BDF_BY_ID
 
     tee = _tee(tmp_path, width=64, height=16)
     draw_text(tee, font, 1, 8, graphics.Color(1, 1, 1), "x")
@@ -211,8 +210,7 @@ def test_mirror_text_failure_self_disables_but_returns_advance(tmp_path):
     from led_ticker.text_render import draw_text
 
     graphics = require_graphics()
-    font = graphics.Font()
-    font.LoadFont("src/led_ticker/fonts/5x8.bdf")
+    from led_ticker.fonts import FONT_SMALL as font  # registered in _BDF_BY_ID
 
     tee = _tee(tmp_path, width=64, height=16)
     tee.set_watched(True)

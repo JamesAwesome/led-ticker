@@ -31,9 +31,8 @@ pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0
 brightness = 60
 default_scale = 4
 hardware_mapping = "adafruit-hat"
-# Pi 5 RP1 GPIO tuning: RIO mode + gpio_slowdown=3 + 8-bit PWM.
+# Pi 5 RP1 GPIO tuning: RIO backend (library default) + gpio_slowdown=3 + 8-bit PWM.
 gpio_slowdown = 3
-rp1_rio = 1
 pwm_bits = 8
 show_refresh_rate = true
 

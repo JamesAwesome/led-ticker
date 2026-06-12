@@ -11,7 +11,7 @@
 # ---------------------------------------------------------------------------
 # Display block
 #
-# These Pi-only knobs (pixel_mapper_config, gpio_slowdown, rp1_rio, pwm_bits) are
+# These Pi-only knobs (pixel_mapper_config, gpio_slowdown, pwm_bits) are
 # ignored by the laptop renderer — you can leave them in place and they do
 # no harm when running `make render-demo` locally.
 # ---------------------------------------------------------------------------
@@ -26,7 +26,6 @@ brightness = 60
 default_scale = 4
 hardware_mapping = "adafruit-hat"
 gpio_slowdown = 3
-rp1_rio = 1
 pwm_bits = 8
 
 [title]

@@ -43,10 +43,10 @@ The bigsign at `default_scale = 4` means all widgets draw at a logical 16-row ca
 The bigsign at default settings achieves ~20 fps. For "info-dense" configs with many sections, these tunings help:
 
 - **`pwm_bits = 8`** (down from default 11) — ~8× faster refresh rate at the cost of minor color fidelity loss
-- **`rp1_rio = 1`** — RIO (Registered IO) mode on Pi 5 backend: faster refresh, higher CPU. `0` = PIO mode (lower CPU, slower refresh).
-- **`gpio_slowdown = 3`** — paired with `rp1_rio=1`. Raise to 4–5 if flicker persists (typical for chained panels with fast refresh).
+- **RIO backend** — the library default on Pi 5: faster refresh, higher CPU. Set `rp1_pio = 1` to force the lower-CPU PIO backend.
+- **`gpio_slowdown = 3`** — paired with the default RIO backend. Raise to 4–5 if flicker persists (typical for chained panels with fast refresh).
 
-Default bigsign config uses `gpio_slowdown = 3` + `pwm_bits = 8` + `rp1_rio = 1`.
+Default bigsign config uses `gpio_slowdown = 3` + `pwm_bits = 8`.
 
 ## What does NOT work where
 

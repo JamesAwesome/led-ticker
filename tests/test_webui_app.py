@@ -221,7 +221,18 @@ async def test_root_serves_page(tmp_path):
         assert resp.status == 200
         assert resp.content_type == "text/html"
         text = await resp.text()
-        for marker in ("Status", "Config", "Validate", "/api/status"):
+        for marker in (
+            "Status",
+            "Config",
+            "Validate",
+            "Inventory",
+            "/api/status",
+            "/api/configs",
+            "validate-file",
+            "/api/inventory",
+            "line-gutter",
+            "config-gutter",
+        ):
             assert marker in text
     finally:
         await client.close()
@@ -255,6 +266,25 @@ async def test_serve_webui_starts_and_cleans_up(tmp_path):
         await runner.cleanup()
 
 
+async def test_configs_listing(tmp_path):
+    (tmp_path / "other.toml").write_text("[display]\nrows = 16\n")
+    client = await _client(tmp_path)
+    try:
+        body = await (await client.get("/api/configs")).json()
+        assert body["configs"] == ["config.toml", "other.toml"]
+        assert body["running"] == "config.toml"
+    finally:
+        await client.close()
+
+
+async def test_configs_listing_is_auth_gated(tmp_path):
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        assert (await client.get("/api/configs")).status == 401
+    finally:
+        await client.close()
+
+
 def test_cli_webui_requires_web_block(tmp_path):
     import os
     import subprocess
@@ -272,3 +302,116 @@ def test_cli_webui_requires_web_block(tmp_path):
     )
     assert proc.returncode == 2
     assert "[web]" in proc.stderr
+
+
+async def test_validate_file_happy_path_matches_direct_validation(tmp_path):
+    good = (
+        "[display]\nrows = 32\ncols = 64\nchain_length = 8\ndefault_scale = 1\n\n"
+        '[[playlist.section]]\nmode = "swap"\nhold_time = 3\n'
+        '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
+    )
+    (tmp_path / "candidate.toml").write_text(good)
+    client = await _client(tmp_path)
+    try:
+        resp = await client.post("/api/validate-file", json={"name": "candidate.toml"})
+        body = await resp.json()
+        assert resp.status == 200
+        assert body["valid"] is True
+
+        from led_ticker.validate import validate_config
+
+        direct = await validate_config(tmp_path / "candidate.toml")
+        assert body["valid"] == direct.valid
+    finally:
+        await client.close()
+
+
+async def test_validate_file_traversal_and_absent_are_identical_404s(tmp_path):
+    client = await _client(tmp_path)
+    try:
+        bodies = []
+        for name in (
+            "../escape.toml",
+            "/etc/passwd",
+            "sub/x.toml",
+            "nope.toml",
+            "a\x00.toml",
+        ):
+            resp = await client.post("/api/validate-file", json={"name": name})
+            assert resp.status == 404
+            bodies.append(await resp.json())
+        assert all(b == bodies[0] for b in bodies)  # no oracle
+    finally:
+        await client.close()
+
+
+async def test_validate_file_bad_body_is_400(tmp_path):
+    client = await _client(tmp_path)
+    try:
+        assert (await client.post("/api/validate-file", data="not json")).status == 400
+        assert (await client.post("/api/validate-file", json={})).status == 400
+        assert (await client.post("/api/validate-file", json={"name": 7})).status == 400
+    finally:
+        await client.close()
+
+
+async def test_validate_file_vanishing_target_is_404_not_500(tmp_path, monkeypatch):
+    # TOCTOU: file passes the guard but is deleted before validate_config
+    # runs. Must classify as the same 404 as never-existed, never a 500.
+    import led_ticker.webui as webui_mod
+
+    async def vanished(path, *, strict=False):
+        raise FileNotFoundError(path)
+
+    (tmp_path / "ghost.toml").write_text("[display]\nrows = 16\n")
+    client = await _client(tmp_path)
+    monkeypatch.setattr(webui_mod, "validate_config", vanished)
+    try:
+        resp = await client.post("/api/validate-file", json={"name": "ghost.toml"})
+        assert resp.status == 404
+        assert (await resp.json()) == {"error": "unknown config"}
+    finally:
+        await client.close()
+
+
+async def test_config_view_by_name_is_redacted(tmp_path):
+    (tmp_path / "alt.toml").write_text('[web]\ntoken = "altsecret"\n')
+    client = await _client(tmp_path)
+    try:
+        body = await (
+            await client.get("/api/config", params={"name": "alt.toml"})
+        ).json()
+        assert body["state"] == "ok"
+        assert "altsecret" not in body["toml"]
+        assert "•••" in body["toml"]
+    finally:
+        await client.close()
+
+
+async def test_config_view_by_name_traversal_is_404(tmp_path):
+    client = await _client(tmp_path)
+    try:
+        for name in ("../x.toml", "/etc/passwd", "nope.toml"):
+            assert (
+                await client.get("/api/config", params={"name": name})
+            ).status == 404
+    finally:
+        await client.close()
+
+
+async def test_config_view_without_name_unchanged(tmp_path):
+    client = await _client(tmp_path)
+    try:
+        body = await (await client.get("/api/config")).json()
+        assert body["state"] == "ok"  # the running config, as in v1
+    finally:
+        await client.close()
+
+
+async def test_inventory_route(tmp_path):
+    client = await _client(tmp_path)
+    try:
+        body = await (await client.get("/api/inventory")).json()
+        assert set(body) >= {"fonts", "assets", "assets_truncated", "emoji"}
+    finally:
+        await client.close()

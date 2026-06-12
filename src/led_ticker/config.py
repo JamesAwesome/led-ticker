@@ -173,10 +173,13 @@ class WebConfig:
     Presence of the block (even empty) enables status publishing in the
     display process. Absence disables it entirely — zero new behavior for
     existing configs.
+
+    Field names use the ``http_host`` / ``http_port`` convention, matching
+    ``BusyLightConfig`` in the same file.
     """
 
-    host: str = "0.0.0.0"
-    port: int = 8080
+    http_host: str = "0.0.0.0"
+    http_port: int = 8080
     token: str = ""  # empty = open; non-empty enables auth on every route
     status_path: str = "/run/led-ticker/status.json"
 
@@ -233,20 +236,28 @@ def _parse_web_block(raw: dict) -> WebConfig | None:
     if "web" not in raw:
         return None
     w_raw = raw["web"]
+    for old, new in (("port", "http_port"), ("host", "http_host")):
+        if old in w_raw:
+            raise ValueError(
+                f"web.{old} was renamed to web.{new} (matching [busy_light]) — "
+                f"update your [web] block."
+            )
     cfg = WebConfig(
-        host=w_raw.get("host", "0.0.0.0"),
-        port=w_raw.get("port", 8080),
+        http_host=w_raw.get("http_host", "0.0.0.0"),
+        http_port=w_raw.get("http_port", 8080),
         token=w_raw.get("token", ""),
         status_path=w_raw.get("status_path", "/run/led-ticker/status.json"),
     )
-    if not isinstance(cfg.host, str):
-        raise ValueError(f"web.host must be a string; got {type(cfg.host).__name__}.")
+    if not isinstance(cfg.http_host, str):
+        raise ValueError(
+            f"web.http_host must be a string; got {type(cfg.http_host).__name__}."
+        )
     if (
-        isinstance(cfg.port, bool)
-        or not isinstance(cfg.port, int)
-        or not 1 <= cfg.port <= 65535
+        isinstance(cfg.http_port, bool)
+        or not isinstance(cfg.http_port, int)
+        or not 1 <= cfg.http_port <= 65535
     ):
-        raise ValueError(f"web.port must be 1-65535; got {cfg.port!r}.")
+        raise ValueError(f"web.http_port must be 1-65535; got {cfg.http_port!r}.")
     if not isinstance(cfg.token, str):
         raise ValueError(f"web.token must be a string; got {type(cfg.token).__name__}.")
     if not isinstance(cfg.status_path, str) or not cfg.status_path.strip():

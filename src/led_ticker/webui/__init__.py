@@ -18,6 +18,7 @@ from pathlib import Path
 
 from aiohttp import web
 
+from led_ticker.preview import HEADER, PREVIEW_MAGIC, PREVIEW_VERSION
 from led_ticker.status_board import SCHEMA_VERSION
 from led_ticker.validate import (
     ValidationResult,
@@ -97,9 +98,46 @@ def build_webui_app(
     async def status_handler(request: web.Request) -> web.Response:
         return web.json_response(_read_status(status_path))
 
+    preview_frame_path = status_path.parent / "preview.bin"
+    preview_marker_path = status_path.parent / "preview-requested"
+
+    async def preview_handler(request: web.Request) -> web.Response:
+        # The fetch IS the watch signal: touch the marker first, so even an
+        # idle answer wakes the display's mirror for the next poll. This is
+        # the sidecar's only write, ever — one empty file, mtime-only.
+        try:
+            preview_marker_path.touch()
+        except OSError:
+            logger.debug("could not touch preview marker", exc_info=True)
+        try:
+            data = preview_frame_path.read_bytes()
+        except FileNotFoundError:
+            return web.json_response({"state": "idle"})
+        except OSError as e:
+            return web.json_response({"state": "idle", "detail": str(e)})
+        if len(data) < HEADER.size:
+            return web.json_response({"state": "unsupported"})
+        magic, ver, w, h, _res, seq = HEADER.unpack(data[: HEADER.size])
+        if (
+            magic != PREVIEW_MAGIC
+            or ver != PREVIEW_VERSION
+            or len(data) != HEADER.size + w * h * 3
+        ):
+            return web.json_response({"state": "unsupported"})
+        return web.Response(
+            body=data[HEADER.size :],
+            content_type="application/octet-stream",
+            headers={
+                "X-Preview-Width": str(w),
+                "X-Preview-Height": str(h),
+                "X-Preview-Seq": str(seq),
+            },
+        )
+
     app = web.Application(middlewares=[auth])
     app.router.add_get("/api/status", status_handler)
     _add_config_routes(app, config_path)
+    app.router.add_get("/api/preview", preview_handler)
     _add_page_route(app)
     return app
 

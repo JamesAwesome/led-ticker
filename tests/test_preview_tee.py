@@ -88,3 +88,73 @@ def test_set_watched_false_unlinks_frame_file(tmp_path):
     tee.set_watched(False)
     assert not (tmp_path / "preview.bin").exists()
     tee.set_watched(False)  # idempotent, no raise on missing file
+
+
+def _read_frame(path):
+    from led_ticker.preview import HEADER, PREVIEW_MAGIC
+
+    data = path.read_bytes()
+    magic, ver, w, h, _res, seq = HEADER.unpack(data[: HEADER.size])
+    assert magic == PREVIEW_MAGIC
+    return ver, w, h, seq, data[HEADER.size :]
+
+
+def test_capture_writes_header_and_payload(tmp_path):
+    tee = _tee(tmp_path)
+    tee.set_watched(True)
+    tee.Clear()  # establishes completeness
+    tee.SetPixel(0, 0, 255, 0, 0)
+    tee.maybe_capture(now=100.0)
+    ver, w, h, seq, payload = _read_frame(tmp_path / "preview.bin")
+    assert (ver, w, h, seq) == (1, 32, 16, 1)
+    assert payload[:3] == bytes((255, 0, 0))
+    assert len(payload) == 32 * 16 * 3
+
+
+def test_capture_requires_completeness(tmp_path):
+    # Enabled mid-tick: no Clear/Fill seen yet -> first capture is deferred.
+    tee = _tee(tmp_path)
+    tee.set_watched(True)
+    tee.SetPixel(0, 0, 9, 9, 9)
+    tee.maybe_capture(now=100.0)
+    assert not (tmp_path / "preview.bin").exists()
+    tee.Clear()
+    tee.maybe_capture(now=101.0)
+    assert (tmp_path / "preview.bin").exists()
+
+
+def test_capture_throttles_to_interval(tmp_path):
+    tee = _tee(tmp_path)
+    tee.set_watched(True)
+    tee.Clear()
+    tee.maybe_capture(now=100.0)
+    tee.maybe_capture(now=100.05)  # inside 0.2 s window -> dropped
+    tee.maybe_capture(now=100.1)
+    _, _, _, seq, _ = _read_frame(tmp_path / "preview.bin")
+    assert seq == 1
+    tee.maybe_capture(now=100.3)
+    _, _, _, seq, _ = _read_frame(tmp_path / "preview.bin")
+    assert seq == 2
+
+
+def test_capture_noop_when_mirror_off(tmp_path):
+    tee = _tee(tmp_path)
+    tee.maybe_capture(now=100.0)
+    assert not (tmp_path / "preview.bin").exists()
+
+
+def test_capture_failure_self_disables(tmp_path):
+    tee = _tee(tmp_path)
+    tee.set_watched(True)
+    tee.Clear()
+    tee._frame_path = tmp_path  # a directory: os.replace onto it fails
+    tee.maybe_capture(now=100.0)  # must not raise
+    assert tee.mirror is False
+
+
+def test_capture_leaves_no_tmp_behind(tmp_path):
+    tee = _tee(tmp_path)
+    tee.set_watched(True)
+    tee.Clear()
+    tee.maybe_capture(now=100.0)
+    assert [p.name for p in tmp_path.iterdir()] == ["preview.bin"]

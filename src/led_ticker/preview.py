@@ -18,7 +18,9 @@ shapes this module shares with the sidecar).
 
 import contextlib
 import logging
+import os
 import struct
+import time
 from pathlib import Path
 from typing import Any
 
@@ -102,3 +104,29 @@ class PreviewTee:
                 self._complete = True
             except Exception:
                 self._disable("shadow clear failed")
+
+    # -- capture --------------------------------------------------------
+
+    def maybe_capture(self, now: float | None = None) -> None:
+        """Write the shadow as a frame file, at most once per
+        CAPTURE_INTERVAL, and only once a full Clear/Fill has run since
+        mirroring was enabled (a mid-tick enable leaves the shadow
+        incomplete for the remainder of that tick). Failures self-disable
+        — same rule as every other write on the web path."""
+        if not self.mirror or not self._complete:
+            return
+        if now is None:
+            now = time.monotonic()
+        if now - self._last_capture < CAPTURE_INTERVAL:
+            return
+        try:
+            self._seq += 1
+            header = HEADER.pack(
+                PREVIEW_MAGIC, PREVIEW_VERSION, self.width, self.height, 0, self._seq
+            )
+            tmp = self._frame_path.with_name(self._frame_path.name + ".tmp")
+            tmp.write_bytes(header + bytes(self._shadow))
+            os.replace(tmp, self._frame_path)
+            self._last_capture = now
+        except Exception:
+            self._disable("capture write failed")

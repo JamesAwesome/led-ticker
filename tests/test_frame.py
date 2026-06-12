@@ -136,3 +136,25 @@ def test_swap_no_hooks_unchanged():
     result = frame.swap(canvas)
     mock_matrix.SwapOnVSync.assert_called_once_with(canvas, 5)
     assert result == "backbuffer"
+
+
+def test_swap_records_engine_liveness():
+    """LedFrame.swap() bumps the status board's swap counter — the web UI's
+    only way to tell a wedged render loop from a healthy one."""
+    from led_ticker import status_board
+    from led_ticker.status_board import StatusBoard
+
+    frame = LedFrame(led_cols=32, led_chain_length=5)
+    canvas = frame.get_clean_canvas()
+
+    # Without a board: swap must work unchanged.
+    canvas = frame.swap(canvas)
+
+    board = StatusBoard(path="/unused/status.json", min_interval=3600.0)
+    status_board.set_active_board(board)
+    try:
+        canvas = frame.swap(canvas)
+        canvas = frame.swap(canvas)
+        assert board.swap_count == 2
+    finally:
+        status_board.clear_active_board()

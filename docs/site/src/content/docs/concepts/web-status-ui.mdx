@@ -160,6 +160,8 @@ The Validate tab lets you check a candidate config without risk, but applying it
 
 **"Status: missing" on the Status tab** — The display process has not written `status.json` yet. Confirm the display process is running (`docker compose ps` or `systemctl status led-ticker`) and that both processes share the same `status_path` (default `/run/led-ticker/status.json`). On bare metal, `/run/led-ticker/` is created by the display process — if the display process has never started, the directory does not exist yet.
 
+**"engine stalled?" on the live indicator** — The display process is running (status keeps publishing) but the render loop has stopped swapping frames. This is rare; check `docker compose logs led-ticker` for a stuck widget or transition, and restart the display service.
+
 **"Status: stale" on the Status tab** — The display process wrote a status file but has not updated it recently. This usually means the process crashed or was stopped. Check `docker compose logs led-ticker` or `journalctl -u led-ticker`.
 
 **Browser shows nothing / 401** — A token is set in `[web]`. Add `?token=<your-token>` to the URL, or configure your browser extension / bookmark with the `X-Web-Token` header.

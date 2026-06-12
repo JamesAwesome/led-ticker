@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 import attrs
 
+from led_ticker import status_board
 from led_ticker._compat import RGBMatrix, RGBMatrixOptions
 from led_ticker._types import Canvas
 from led_ticker._types import RGBMatrix as RGBMatrixType
@@ -111,4 +112,9 @@ class LedFrame:
         """
         for hook in self.overlay_hooks:
             hook(canvas)
+        # Liveness breadcrumb for the web status UI: an int increment
+        # (no-op without an active board, no I/O, cannot raise) — the one
+        # deliberate exception to LedFrame staying mechanism-only, because
+        # this is the single point every render path crosses.
+        status_board.record_swap()
         return self.matrix.SwapOnVSync(canvas, self._framerate_fraction)

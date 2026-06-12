@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # tests/test_status_board.py). Additive fields nested inside existing
 # entries (e.g. plugins[].names, added in v1.1) are version-compatible:
 # readers must tolerate their absence.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MIN_PUBLISH_INTERVAL = 2.0
 LOG_TAIL_MAX = 50
 
@@ -46,6 +46,11 @@ class StatusBoard:
     section: dict[str, Any] = attrs.field(factory=dict)
     widget: dict[str, Any] = attrs.field(factory=dict)
     monitor_updates: dict[str, float] = attrs.field(factory=dict)
+    # Incremented by LedFrame.swap() via record_swap(); serialized by the
+    # heartbeat. A counter that stops advancing while the file stays fresh
+    # is how the page distinguishes a wedged render loop from a healthy
+    # one — the heartbeat alone only proves the PROCESS is alive.
+    swap_count: int = attrs.field(default=0, init=False)
     log_tail: deque = attrs.field(factory=lambda: deque(maxlen=LOG_TAIL_MAX))
     disabled: bool = attrs.field(default=False, init=False)
     _last_publish: float = attrs.field(default=0.0, init=False)
@@ -66,6 +71,7 @@ class StatusBoard:
             "section": self.section,
             "widget": self.widget,
             "monitor_updates": self.monitor_updates,
+            "swap_count": self.swap_count,
             "log_tail": list(self.log_tail),
         }
 
@@ -176,6 +182,15 @@ def record_widget_visit(widget: Any) -> None:
     except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
         return
     _ACTIVE.publish()
+
+
+def record_swap() -> None:
+    """Count a hardware swap. Called from LedFrame.swap() at frame cadence
+    (~20-60 Hz), so this is increment-only — NO publish, no I/O; the
+    heartbeat serializes the current value every couple of seconds. Must
+    never raise (it sits on the render path)."""
+    if _ACTIVE is not None:
+        _ACTIVE.swap_count += 1
 
 
 def record_section(

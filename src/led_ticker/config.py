@@ -27,7 +27,9 @@ class DisplayConfig:
     )
     show_refresh_rate: bool = False  # log measured refresh rate to stderr
     disable_hardware_pulsing: bool = False  # disable hw PWM (rare; uses CPU instead)
-    rp1_rio: int = 0  # Pi 5 only: 0 = PIO (low CPU), 1 = RIO (faster, more CPU)
+    rp1_pio: int = (
+        0  # Pi 5 only: 0 = RIO backend (library default, fast), 1 = force PIO (low CPU)
+    )
     limit_refresh_rate_hz: int = 0  # cap hardware refresh rate (0 = unlimited)
     # Panel scan / wiring — tune if the bottom half renders inverted or garbled.
     # multiplexing: 0=direct 1=Stripe 2=Checker 3=Spiral 4=ZStripe 5=ZnMirrorZStripe
@@ -311,7 +313,7 @@ _DISPLAY_INT_FIELDS: frozenset[str] = frozenset(
         "pwm_bits",
         "pwm_lsb_nanoseconds",
         "pwm_dither_bits",
-        "rp1_rio",
+        "rp1_pio",
         "limit_refresh_rate_hz",
     }
 )
@@ -344,6 +346,21 @@ def _coerce_display(
 
     defaults = {f.name: f.default for f in dataclasses.fields(DisplayConfig)}
     kwargs: dict[str, Any] = {}
+    if "rp1_rio" in display_raw:
+        warnings.append(
+            CoercionWarning(
+                field="display.rp1_rio",
+                original=display_raw["rp1_rio"],
+                coerced=None,
+                message=(
+                    "display.rp1_rio is obsolete and ignored: the rgbmatrix "
+                    "library renamed the knob to rp1_pio and made RIO the "
+                    "default Pi 5 backend (June 2026). rp1_rio = 1 (RIO) is "
+                    "now the default — delete this line. To force the "
+                    "low-CPU PIO backend instead, set rp1_pio = 1."
+                ),
+            )
+        )
     for name in _DISPLAY_INT_FIELDS:
         if name in display_raw:
             value, warning = coerce_int(display_raw[name], field=f"display.{name}")

@@ -105,6 +105,41 @@ class PreviewTee:
             except Exception:
                 self._disable("shadow clear failed")
 
+    # -- text mirror (scale = 1 funnel) ---------------------------------
+
+    def mirror_bdf_text(self, bdf: Any, x: int, y: int, color: Any, text: str) -> None:
+        """Rasterize `text` into the shadow only (the C library has already
+        drawn it on the hardware canvas). Same glyph math as
+        ScaledCanvas.draw_bdf_text; failures self-disable, never raise."""
+        if not self.mirror:
+            return
+        try:
+            if isinstance(color, tuple):
+                r, g, b = color
+            else:
+                r, g, b = color.red, color.green, color.blue
+            shadow = self._shadow
+            w, h = self.width, self.height
+            cx = x
+            for ch in text:
+                glyph = bdf.glyphs.get(ch)
+                if glyph is None:
+                    cx += bdf.bbx_width
+                    continue
+                top_y = y - glyph.bbx_height - glyph.bbx_yoff
+                base_x = cx + glyph.bbx_xoff
+                for col, row in glyph.lit_pixels:
+                    px = base_x + col
+                    py = top_y + row
+                    if 0 <= px < w and 0 <= py < h:
+                        i = (py * w + px) * 3
+                        shadow[i] = r
+                        shadow[i + 1] = g
+                        shadow[i + 2] = b
+                cx += glyph.advance_width
+        except Exception:
+            self._disable("shadow text raster failed")
+
     # -- capture --------------------------------------------------------
 
     def maybe_capture(self, now: float | None = None) -> None:

@@ -12,6 +12,7 @@ from typing import Any
 from led_ticker._compat import require_graphics
 from led_ticker.fonts import get_bdf_for
 from led_ticker.fonts.hires_loader import HiresFont
+from led_ticker.preview import PreviewTee
 from led_ticker.scaled_canvas import ScaledCanvas, unwrap_to_real
 
 _graphics = require_graphics()
@@ -24,6 +25,14 @@ def draw_text(canvas: Any, font: Any, x: int, y: int, color: Any, text: str) -> 
     if isinstance(canvas, ScaledCanvas):
         bdf = get_bdf_for(font)
         return canvas.draw_bdf_text(bdf, x, y, color, text)
+    if isinstance(canvas, PreviewTee):
+        # scale=1 with the preview tee installed: the C library draws on the
+        # hardware canvas (it type-checks for a real Canvas — constraint #2),
+        # and the tee mirrors the same glyphs into the shadow.
+        advance = _graphics.DrawText(canvas._hw, font, x, y, color, text)
+        if canvas.mirror:
+            canvas.mirror_bdf_text(get_bdf_for(font), x, y, color, text)
+        return advance
     return _graphics.DrawText(canvas, font, x, y, color, text)
 
 

@@ -1,6 +1,7 @@
 """LED matrix frame wrapper."""
 
 from collections.abc import Callable
+from typing import Any
 
 import attrs
 
@@ -43,6 +44,7 @@ class LedFrame:
     # long chains where the uncapped rate causes visible motion artifacts.
     led_limit_refresh_rate_hz: int = 0
     overlay_hooks: list[Callable[[Canvas], None]] = attrs.field(factory=list)
+    _preview_tee: Any = attrs.field(init=False, default=None)
     _framerate_fraction: int = attrs.field(init=False)
     matrix: RGBMatrixType = attrs.field(init=False)
 
@@ -92,10 +94,24 @@ class LedFrame:
             else 1
         )
 
+    def install_preview(self, tee: Any) -> None:
+        """Install the (single, process-lifetime) preview tee. From here on
+        get_clean_canvas/swap hand out and rebind the tee instead of raw
+        hardware canvases; widgets never see the difference."""
+        self._preview_tee = tee
+
     def get_clean_canvas(self) -> Canvas:
         """Get a clean canvas ready for rendering."""
         canvas = self.matrix.CreateFrameCanvas()
         canvas.Clear()
+        tee = self._preview_tee
+        if tee is not None:
+            tee._hw = canvas
+            # Mirror the Clear we just did on the raw canvas so the shadow
+            # matches (and counts as the completeness-establishing clear).
+            if tee.mirror:
+                tee.Clear()
+            return tee
         return canvas
 
     def swap(self, canvas: Canvas) -> Canvas:
@@ -119,4 +135,12 @@ class LedFrame:
         # deliberate exception to LedFrame staying mechanism-only, because
         # this is the single point every render path crosses.
         status_board.record_swap()
+        tee = self._preview_tee
+        if tee is not None and canvas is tee:
+            new_hw = self.matrix.SwapOnVSync(tee._hw, self._framerate_fraction)
+            # Shadow == the frame just sent to the panel; capture before the
+            # next tick starts drawing over it.
+            tee.maybe_capture()
+            tee._hw = new_hw
+            return tee
         return self.matrix.SwapOnVSync(canvas, self._framerate_fraction)

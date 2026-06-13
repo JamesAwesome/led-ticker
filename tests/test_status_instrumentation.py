@@ -269,3 +269,110 @@ def test_setup_tolerates_nameless_plugin_info(tmp_path):
         assert board.plugins[0]["names"] == {}
     finally:
         _teardown_status_board(handle)
+
+
+def test_setup_preview_installs_tee_when_web_present(tmp_path):
+    from led_ticker.app.run import _setup_preview
+    from led_ticker.frame import LedFrame
+
+    config = _make_fake_config(str(tmp_path / "status.json"))
+    frame = LedFrame(led_cols=32, led_chain_length=1)
+    tee = _setup_preview(config, frame)
+    assert tee is not None
+    assert frame.get_clean_canvas() is tee
+
+
+def test_setup_preview_none_when_web_absent(tmp_path):
+    import types as _types
+
+    from led_ticker.app.run import _setup_preview
+    from led_ticker.frame import LedFrame
+
+    config = _types.SimpleNamespace(web=None, display=None)
+    frame = LedFrame(led_cols=32, led_chain_length=1)
+    assert _setup_preview(config, frame) is None
+    canvas = frame.get_clean_canvas()
+    assert not hasattr(canvas, "mirror")  # raw canvas, no tee
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_toggles_mirror_from_marker(tmp_path):
+    import asyncio as _asyncio
+
+    from led_ticker.app.run import _status_heartbeat
+    from led_ticker.frame import LedFrame
+    from led_ticker.preview import PreviewTee
+
+    board = StatusBoard(path=tmp_path / "status.json", min_interval=0.05)
+    frame = LedFrame(led_cols=32, led_chain_length=1)
+    tee = PreviewTee(
+        hw=frame.matrix.CreateFrameCanvas(),
+        width=32,
+        height=16,
+        frame_path=tmp_path / "preview.bin",
+    )
+    status_board.set_active_board(board)
+    task = _asyncio.create_task(_status_heartbeat(board, tee=tee, marker_ttl=0.2))
+    try:
+        marker = tmp_path / "preview-requested"
+        marker.touch()
+        await _asyncio.sleep(0.15)
+        assert tee.mirror is True  # fresh marker -> mirroring on
+        await _asyncio.sleep(0.4)  # let the marker age past ttl
+        assert tee.mirror is False  # stale -> off
+    finally:
+        status_board.clear_active_board()
+        await _asyncio.wait_for(task, timeout=2)
+
+
+def test_setup_preview_sizes_from_mapped_canvas_not_config_math(tmp_path):
+    """Review-team critical: pixel_mapper_config reshapes the real canvas
+    (bigsign Remap). The tee MUST take the canvas's dimensions — config
+    arithmetic (cols*chain x rows*parallel) is wrong under any mapper and
+    makes ScaledCanvas's panel-height check crash the display at the first
+    wrap. The stub honors U-mapper, which reshapes exactly like this."""
+    from led_ticker.app.run import _setup_preview
+    from led_ticker.frame import LedFrame
+
+    frame = LedFrame(
+        led_rows=32,
+        led_cols=64,
+        led_chain_length=8,
+        led_parallel=1,
+        led_pixel_mapper_config="U-mapper",
+    )
+    config = _make_fake_config(str(tmp_path / "status.json"))
+    config.display = types.SimpleNamespace(
+        rows=32, cols=64, chain_length=8, parallel=1, default_scale=4
+    )
+    tee = _setup_preview(config, frame)
+    # U-mapper folds 1x8 into 2x4: 256 wide x 64 tall — NOT 512x32.
+    assert (tee.width, tee.height) == (256, 64)
+
+
+async def test_heartbeat_exit_turns_mirror_off(tmp_path):
+    """Review-team finding: the heartbeat is the only owner of set_watched —
+    its exit (board self-disable / teardown) must not strand the mirror ON
+    paying the watched tax forever."""
+    import asyncio as _asyncio
+
+    from led_ticker.app.run import _status_heartbeat
+    from led_ticker.frame import LedFrame
+    from led_ticker.preview import PreviewTee
+
+    board = StatusBoard(path=tmp_path / "status.json", min_interval=0.05)
+    frame = LedFrame(led_cols=32, led_chain_length=1)
+    tee = PreviewTee(
+        hw=frame.matrix.CreateFrameCanvas(),
+        width=32,
+        height=16,
+        frame_path=tmp_path / "preview.bin",
+    )
+    status_board.set_active_board(board)
+    task = _asyncio.create_task(_status_heartbeat(board, tee=tee, marker_ttl=10.0))
+    (tmp_path / "preview-requested").touch()
+    await _asyncio.sleep(0.15)
+    assert tee.mirror is True
+    status_board.clear_active_board()  # heartbeat exits on next beat
+    await _asyncio.wait_for(task, timeout=2)
+    assert tee.mirror is False  # not stranded

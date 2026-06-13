@@ -43,6 +43,26 @@ The Inventory tab shows what the sidecar can see in the config directory (capped
 
 The Status tab's **Plugins** card lists each loaded plugin's registered widget, transition, and emoji names (e.g. `widgets: baseball.scores, baseball.standings · emojis: baseball.ball`). Display processes that predate v1.1 publish counts instead of names; the UI falls back to showing the raw count object in that case.
 
+### Status tab — live preview
+
+The Status tab includes a **live preview** panel that shows the actual content on the sign — the same pixels the panel is displaying, including the busy-light dot if one is configured. It updates at roughly 5 fps.
+
+**Zero cost when nobody is watching.** The preview mirror is demand-driven: it wakes up when the page loads and polls for a new frame, and goes to sleep automatically around 10 seconds after the browser tab stops polling (navigating away, closing the tab, or the page going to the background). While asleep the display process does no extra work and writes nothing to disk for the preview. When you come back, there is a brief "waking the preview…" message while the mirror reconnects — typically a couple of seconds before the first frame appears.
+
+**Scale-1 (smallsign) note.** On a 160×16 smallsign the preview pixel grid is very small. The browser scales it up to a readable size, but individual pixels are large blocks. Single-pixel-tall BDF text at the panel's native resolution can be hard to read in the preview — this is expected and not a rendering error.
+
+<Aside type="note">
+  The live preview requires a `[web]` block in the display process's `config.toml`. Display
+  processes started without it do not publish frames, and the preview panel will show "waking the
+  preview…" indefinitely.
+</Aside>
+
+**If the preview is stuck on "waking the preview…":**
+
+- Confirm the display process is running with a `[web]` block in `config.toml` (see [Enabling it](#enabling-it) below). A process started before `[web]` was added needs a restart.
+- Check that the `ticker-status` volume (Docker) or `/run/led-ticker/` directory (bare metal) is shared between the display process and the sidecar — the preview frame file lands there.
+- If the sidecar and display process are on different versions, the display process may predate the live preview feature. Rebuild or reinstall both to the same version.
+
 ## Architecture
 
 The dashboard is a separate **sidecar process** (`led-ticker webui`). It is unprivileged — no GPIO access, no API keys — and reads only `config.toml` and a `status.json` file the display process writes. Neither side needs the other to be up: if the display process crashes, the sidecar keeps serving (the Status tab shows a stale or missing indicator); if the sidecar is not running, the sign keeps displaying. Start order is irrelevant. The `status.json` path defaults to `/run/led-ticker/status.json` and is configurable via `status_path` in the `[web]` block.

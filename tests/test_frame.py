@@ -164,3 +164,83 @@ def test_swap_records_engine_liveness():
         assert board.swap_count == 2
     finally:
         status_board.clear_active_board()
+
+
+def test_install_preview_returns_tee_from_get_clean_canvas(tmp_path):
+    from led_ticker.preview import PreviewTee
+
+    frame = LedFrame(led_cols=32, led_chain_length=1)
+    tee = PreviewTee(
+        hw=frame.matrix.CreateFrameCanvas(),
+        width=32,
+        height=16,
+        frame_path=tmp_path / "preview.bin",
+    )
+    frame.install_preview(tee)
+    canvas = frame.get_clean_canvas()
+    assert canvas is tee  # same object, every time
+    assert frame.get_clean_canvas() is tee
+
+
+def test_swap_unwraps_and_rebinds_tee(tmp_path):
+    from led_ticker.preview import PreviewTee
+
+    frame = LedFrame(led_cols=32, led_chain_length=1)
+    tee = PreviewTee(
+        hw=frame.matrix.CreateFrameCanvas(),
+        width=32,
+        height=16,
+        frame_path=tmp_path / "preview.bin",
+    )
+    frame.install_preview(tee)
+    canvas = frame.get_clean_canvas()
+    hw_before = tee._hw
+    returned = frame.swap(canvas)
+    assert returned is tee  # callers keep the tee (constraint #1 unchanged)
+    assert tee._hw is not hw_before  # stub returns a DIFFERENT canvas
+
+
+def test_swap_captures_when_watched(tmp_path):
+    from led_ticker.preview import PreviewTee
+
+    frame = LedFrame(led_cols=32, led_chain_length=1)
+    tee = PreviewTee(
+        hw=frame.matrix.CreateFrameCanvas(),
+        width=32,
+        height=16,
+        frame_path=tmp_path / "preview.bin",
+    )
+    frame.install_preview(tee)
+    canvas = frame.get_clean_canvas()  # mirror off here
+    tee.set_watched(True)
+    canvas = frame.get_clean_canvas()  # fresh tick: Clear mirrored
+    canvas.SetPixel(0, 0, 1, 2, 3)
+    frame.swap(canvas)
+    assert (tmp_path / "preview.bin").exists()
+
+
+def test_overlay_hooks_paint_through_tee_into_shadow(tmp_path):
+    """The busy-light dot must appear in the preview: hooks receive the tee."""
+    from led_ticker.preview import PreviewTee
+
+    frame = LedFrame(led_cols=32, led_chain_length=1)
+    tee = PreviewTee(
+        hw=frame.matrix.CreateFrameCanvas(),
+        width=32,
+        height=16,
+        frame_path=tmp_path / "preview.bin",
+    )
+    frame.install_preview(tee)
+    tee.set_watched(True)
+    canvas = frame.get_clean_canvas()
+    frame.overlay_hooks.append(lambda c: c.SetPixel(31, 0, 200, 0, 0))
+    frame.swap(canvas)
+    i = (0 * 32 + 31) * 3
+    assert tuple(tee._shadow[i : i + 3]) == (200, 0, 0)
+
+
+def test_swap_without_preview_unchanged():
+    frame = LedFrame(led_cols=32, led_chain_length=1)
+    canvas = frame.get_clean_canvas()
+    swapped = frame.swap(canvas)
+    assert swapped is not canvas  # plain path: stub returns a new canvas

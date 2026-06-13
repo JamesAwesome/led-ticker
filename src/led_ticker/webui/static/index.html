@@ -49,6 +49,12 @@
 </header>
 <main>
   <section id="tab-status" class="tab active">
+    <div class="card" style="text-align:center;">
+      <div id="preview-bezel" style="display:inline-block;background:#000;border:6px solid #222;border-radius:8px;padding:6px;max-width:100%;">
+        <canvas id="preview-canvas" width="1" height="1" style="image-rendering:pixelated;width:100%;max-width:1024px;display:block;"></canvas>
+      </div>
+      <div id="preview-note" class="muted"></div>
+    </div>
     <div class="card hero">
       <strong>▶ NOW PLAYING</strong>
       <div id="now-section" class="muted">—</div>
@@ -130,6 +136,7 @@ document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   if (b.dataset.tab === "config") loadConfig();
   if (b.dataset.tab === "validate") loadConfigList();
   if (b.dataset.tab === "inventory") loadInventory();
+  setPreviewPolling(previewShouldPoll());
 });
 
 function fmtAgo(ts) {
@@ -325,7 +332,71 @@ async function loadInventory() {
   } catch (e) { /* tab shows stale/empty; other tabs unaffected */ }
 }
 
+let previewTimer = null;
+let previewSeq = -1;
+let previewIdlePolls = 0;
+
+async function pollPreview() {
+  try {
+    const r = await fetch("/api/preview", {headers: auth});
+    if (r.status === 401) { $("preview-note").textContent = "auth failed"; return; }
+    const ctype = r.headers.get("Content-Type") || "";
+    if (!ctype.includes("octet-stream")) {
+      const body = await r.json();
+      previewIdlePolls++;
+      $("preview-note").textContent =
+        body.state === "unsupported"
+          ? "preview format mismatch — display and webui versions differ"
+          : previewIdlePolls > 50
+            ? "no frames yet — the display may be holding a static widget, or predates this feature"
+            : "waking the preview…";
+      return;
+    }
+    previewIdlePolls = 0;
+    const seq = +(r.headers.get("X-Preview-Seq") || -1);
+    const w = +(r.headers.get("X-Preview-Width") || 0);
+    const h = +(r.headers.get("X-Preview-Height") || 0);
+    if (seq === previewSeq || !w || !h) return;  // unchanged frame: skip repaint
+    const rgb = new Uint8Array(await r.arrayBuffer());
+    const cv = $("preview-canvas");
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    const img = new ImageData(w, h);
+    for (let p = 0, q = 0; p < rgb.length; p += 3, q += 4) {
+      img.data[q] = rgb[p];
+      img.data[q + 1] = rgb[p + 1];
+      img.data[q + 2] = rgb[p + 2];
+      img.data[q + 3] = 255;
+    }
+    cv.getContext("2d").putImageData(img, 0, 0);
+    previewSeq = seq;
+    const scaleNote = (lastStatus && lastStatus.geometry &&
+      lastStatus.geometry.default_scale === 1)
+      ? " · text may differ by a pixel from the panel (scale-1 mirror)" : "";
+    $("preview-note").textContent = "live · frame " + seq + scaleNote;
+  } catch (e) {
+    $("preview-note").textContent = "preview unreachable";
+  }
+}
+
+function setPreviewPolling(on) {
+  if (on && !previewTimer) {
+    pollPreview();
+    previewTimer = setInterval(pollPreview, 200);
+  } else if (!on && previewTimer) {
+    clearInterval(previewTimer);
+    previewTimer = null;
+  }
+}
+
+function previewShouldPoll() {
+  return document.visibilityState === "visible" &&
+    document.querySelector('nav button[data-tab="status"]').classList.contains("active");
+}
+
+document.addEventListener("visibilitychange", () => setPreviewPolling(previewShouldPoll()));
+
 poll();
+setPreviewPolling(previewShouldPoll());
 setInterval(poll, 3000);
 </script>
 </body>

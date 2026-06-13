@@ -89,17 +89,33 @@ class Clock(FrameAwareBase):
         Unknown FIELD names are caught generically elsewhere; this checks values."""
         errors: list[str] = []
         fmt = cfg.get("format", "12h")
-        if isinstance(fmt, str) and "%" not in fmt and fmt not in ("12h", "24h"):
+        if not isinstance(fmt, str):
+            # A non-string format (e.g. the TOML typo `format = 24`) must fail at
+            # config load — left unguarded it passes preflight and the draw-time
+            # `"%" in fmt` raises TypeError in the render loop, freezing the panel.
+            errors.append(
+                f"format must be a string preset ('12h'/'24h') or a strftime "
+                f"template, got {type(fmt).__name__}"
+            )
+        elif "%" not in fmt and fmt not in ("12h", "24h"):
             errors.append(
                 f"format {fmt!r} is not a known preset ('12h'/'24h') or a "
                 "strftime template (no '%')"
             )
         tz = cfg.get("timezone")
         if tz is not None:
-            try:
-                ZoneInfo(tz)
-            except ZoneInfoNotFoundError, ValueError:
-                errors.append(f"timezone {tz!r} is not a valid IANA timezone name")
+            if not isinstance(tz, str):
+                # ZoneInfo() raises TypeError (not ValueError) on a non-string;
+                # catch it here so the user gets a clean config error rather than
+                # a leaked ZoneInfo internal message.
+                errors.append(
+                    f"timezone must be a string IANA name, got {type(tz).__name__}"
+                )
+            else:
+                try:
+                    ZoneInfo(tz)
+                except ZoneInfoNotFoundError, ValueError:
+                    errors.append(f"timezone {tz!r} is not a valid IANA timezone name")
         return errors
 
     def draw(

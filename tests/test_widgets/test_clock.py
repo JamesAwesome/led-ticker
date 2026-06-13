@@ -134,6 +134,21 @@ class TestClockValidation:
         msgs = Clock.validate_config({"timezone": "Mars/Phobos"})
         assert msgs and "timezone" in msgs[0].lower()
 
+    def test_validate_config_rejects_non_string_format(self):
+        # A plausible TOML typo `format = 24` (int, not "24h") must be caught
+        # at config load — otherwise it passes preflight and the draw-time
+        # `"%" in fmt` raises TypeError in the render loop, freezing the panel.
+        for bad in (24, True, ["12h"]):
+            msgs = Clock.validate_config({"format": bad})
+            assert msgs and "format" in msgs[0].lower(), f"missed {bad!r}"
+
+    def test_validate_config_rejects_non_string_timezone(self):
+        # A non-string timezone must produce a clean config error, not an
+        # uncaught TypeError leaking ZoneInfo internals.
+        for bad in (123, ["America/New_York"]):
+            msgs = Clock.validate_config({"timezone": bad})
+            assert msgs and "timezone" in msgs[0].lower(), f"missed {bad!r}"
+
 
 def test_list_fields_clock_shows_format_and_timezone():
     from led_ticker.app.factories import _list_widget_fields

@@ -8,6 +8,7 @@ from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.calendar import (
     CalendarEvent,
     _match_any,
+    format_event_line,
     parse_ics,
     select_events,
 )
@@ -137,3 +138,30 @@ def test_select_highlight_exceeds_cap_is_still_capped():
     kept = select_events(events, filter=[], highlight=["payday"], max_events=3)
     assert len(kept) == 3
     assert [e.start for e in kept] == sorted(e.start for e in kept)
+
+
+def test_format_today_timed_12h():
+    now = datetime(2026, 6, 15, 8, 0, tzinfo=_UTC)
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    result = format_event_line(e, now=now, time_format="12h", tz=_UTC)
+    assert result == "Today 3:00 PM  Standup"
+
+
+def test_format_tomorrow_24h():
+    now = datetime(2026, 6, 15, 8, 0, tzinfo=_UTC)
+    e = CalendarEvent("Dentist", datetime(2026, 6, 16, 9, 5, tzinfo=_UTC), False)
+    result = format_event_line(e, now=now, time_format="24h", tz=_UTC)
+    assert result == "Tomorrow 09:05  Dentist"
+
+
+def test_format_weekday_within_week():
+    now = datetime(2026, 6, 15, 8, 0, tzinfo=_UTC)  # Mon 2026-06-15
+    e = CalendarEvent("1:1", datetime(2026, 6, 18, 10, 0, tzinfo=_UTC), False)  # Thu
+    assert format_event_line(e, now=now, time_format="24h", tz=_UTC) == "Thu 10:00  1:1"
+
+
+def test_format_all_day_omits_time():
+    now = datetime(2026, 6, 15, 8, 0, tzinfo=_UTC)
+    e = CalendarEvent("Holiday", datetime(2026, 6, 16, 0, 0, tzinfo=_UTC), True)
+    result = format_event_line(e, now=now, time_format="12h", tz=_UTC)
+    assert result == "Tomorrow  Holiday"

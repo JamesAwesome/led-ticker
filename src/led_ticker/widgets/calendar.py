@@ -7,6 +7,7 @@ builds one TickerMessage per event; `next` builds one live countdown widget.
 
 from datetime import date, datetime, time, timedelta, tzinfo
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import aiohttp
 import attrs
@@ -17,6 +18,7 @@ from led_ticker._types import Font
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import Widget
 from led_ticker.widgets import register
+from led_ticker.widgets.clock import format_clock
 from led_ticker.widgets.message import TickerMessage
 
 
@@ -119,6 +121,50 @@ def select_events(
     kept += rest[: max_events - len(kept)]
     kept.sort(key=lambda e: e.start)
     return kept
+
+
+_WEEKDAY_ABBR = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+_MONTH_ABBR = (
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+)
+
+
+def _day_label(start: datetime, now: datetime) -> str:
+    """Smart day label relative to `now` (both in display tz).
+
+    Today / Tomorrow / weekday abbrev (2..6 days out) / "Mon D" further out.
+    Built from datetime fields (not %- strftime codes) for cross-platform
+    determinism — same rule as the clock presets.
+    """
+    delta_days = (start.date() - now.date()).days
+    if delta_days == 0:
+        return "Today"
+    if delta_days == 1:
+        return "Tomorrow"
+    if 2 <= delta_days < 7:
+        return _WEEKDAY_ABBR[start.weekday()]
+    return f"{_MONTH_ABBR[start.month - 1]} {start.day}"
+
+
+def format_event_line(
+    event: CalendarEvent, *, now: datetime, time_format: str, tz: ZoneInfo
+) -> str:
+    """Agenda line: '<day> <time>  <summary>'; all-day omits the time."""
+    day = _day_label(event.start, now)
+    if event.all_day:
+        return f"{day}  {event.summary}"
+    return f"{day} {format_clock(event.start, time_format)}  {event.summary}"
 
 
 @register("calendar")

@@ -347,8 +347,8 @@ async function pollPreview() {
       $("preview-note").textContent =
         body.state === "unsupported"
           ? "preview format mismatch — display and webui versions differ"
-          : previewIdlePolls > 25
-            ? "no preview frames — the display process predates this feature"
+          : previewIdlePolls > 50
+            ? "no frames yet — the display may be holding a static widget, or predates this feature"
             : "waking the preview…";
       return;
     }

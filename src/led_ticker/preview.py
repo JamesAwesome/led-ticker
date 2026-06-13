@@ -142,6 +142,18 @@ class PreviewTee:
             try:
                 rgb = image if image.mode == "RGB" else image.convert("RGB")
                 img_w, img_h = rgb.size
+                # Fast path for the dominant case — gif/still full-canvas
+                # frames blitted at the origin: one C-speed bulk copy instead
+                # of a per-pixel Python walk (~200x cheaper; the walk costs
+                # whole milliseconds per tick on a Pi at panel sizes).
+                if (
+                    offset_x == 0
+                    and offset_y == 0
+                    and img_w == self.width
+                    and img_h == self.height
+                ):
+                    self._shadow[:] = rgb.tobytes()
+                    return
                 pixels = rgb.load()
                 shadow = self._shadow
                 w, h = self.width, self.height
@@ -163,25 +175,25 @@ class PreviewTee:
     def SubFill(
         self, x: int, y: int, width: int, height: int, r: int, g: int, b: int
     ) -> None:
-        """Fill a rectangle. Forwards to hardware first; mirrors per-pixel
-        into the shadow while watched. Used by ScaledCanvas.SetPixel for
-        block expansion on scaled signs."""
+        """Fill a rectangle. Forwards to hardware first; mirrors into the
+        shadow row-by-row (one bulk slice assign per clipped row) while
+        watched. Used by ScaledCanvas.SetPixel for block expansion on
+        scaled signs."""
         self._hw.SubFill(x, y, width, height, r, g, b)
         if self.mirror:
             try:
                 w, h = self.width, self.height
                 shadow = self._shadow
-                for dy in range(height):
-                    py = y + dy
-                    if py < 0 or py >= h:
-                        continue
-                    for dx in range(width):
-                        px = x + dx
-                        if 0 <= px < w:
-                            i = (py * w + px) * 3
-                            shadow[i] = r
-                            shadow[i + 1] = g
-                            shadow[i + 2] = b
+                x0 = max(x, 0)
+                x1 = min(x + width, w)
+                if x1 > x0:
+                    row = bytes((r, g, b)) * (x1 - x0)
+                    for dy in range(height):
+                        py = y + dy
+                        if py < 0 or py >= h:
+                            continue
+                        i = (py * w + x0) * 3
+                        shadow[i : i + len(row)] = row
             except Exception:
                 self._disable("shadow subfill failed")
 
@@ -240,6 +252,10 @@ class PreviewTee:
                 PREVIEW_MAGIC, PREVIEW_VERSION, self.width, self.height, 0, self._seq
             )
             tmp = self._frame_path.with_name(self._frame_path.name + ".tmp")
+            # A crash between write and replace can leave a tmp a different
+            # (post-privilege-drop) user can't open; unlink needs only
+            # directory write permission. Same lesson as status_board._flush.
+            tmp.unlink(missing_ok=True)
             tmp.write_bytes(header + bytes(self._shadow))
             os.replace(tmp, self._frame_path)
             self._last_capture = now

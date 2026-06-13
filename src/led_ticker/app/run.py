@@ -120,17 +120,24 @@ async def _status_heartbeat(
     marker = None
     if tee is not None:
         marker = tee._frame_path.parent / "preview-requested"
-    while not board.disabled and _sb.get_active_board() is board:
-        board.publish()
-        # Narrow on marker (not tee): they're set together, and pyright can
-        # only carry the None-check through the variable it sees stat()'d.
-        if marker is not None:
-            try:
-                fresh = (time.time() - marker.stat().st_mtime) < marker_ttl
-            except OSError:
-                fresh = False
-            tee.set_watched(fresh)
-        await asyncio.sleep(board.min_interval)
+    try:
+        while not board.disabled and _sb.get_active_board() is board:
+            board.publish()
+            # Narrow on marker (not tee): they're set together, and pyright
+            # can only carry the None-check through the variable it stat()'s.
+            if marker is not None:
+                try:
+                    fresh = (time.time() - marker.stat().st_mtime) < marker_ttl
+                except OSError:
+                    fresh = False
+                tee.set_watched(fresh)
+            await asyncio.sleep(board.min_interval)
+    finally:
+        # The heartbeat is the only thing that can turn the mirror OFF.
+        # If it exits (board self-disabled / teardown), the mirror must not
+        # stay stranded ON paying the watched tax forever.
+        if tee is not None:
+            tee.set_watched(False)
 
 
 def _setup_preview(config: Any, led_frame: Any) -> Any:
@@ -142,10 +149,15 @@ def _setup_preview(config: Any, led_frame: Any) -> Any:
     from led_ticker.preview import PreviewTee  # noqa: PLC0415
 
     frame_path = Path(config.web.status_path).expanduser().parent / "preview.bin"
+    # Size from the CANVAS, never from config arithmetic: pixel_mapper_config
+    # (e.g. the bigsign's Remap) reshapes the real canvas, and a wrong tee
+    # height makes ScaledCanvas's panel-height check raise at the first wrap
+    # — the panel down because of preview machinery (review-team finding).
+    hw = led_frame.matrix.CreateFrameCanvas()
     tee = PreviewTee(
-        hw=led_frame.matrix.CreateFrameCanvas(),
-        width=config.display.cols * config.display.chain_length,
-        height=config.display.rows * config.display.parallel,
+        hw=hw,
+        width=hw.width,
+        height=hw.height,
         frame_path=frame_path,
     )
     led_frame.install_preview(tee)

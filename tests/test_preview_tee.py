@@ -455,3 +455,32 @@ def test_tee_composes_with_recording_matrix(tmp_path):
     assert len(frame.matrix.frames) == 1, (
         f"Expected 1 recorded frame after one swap, got {len(frame.matrix.frames)}"
     )
+
+
+def test_setimage_full_canvas_bulk_path_mirrors_exactly(tmp_path):
+    # The dominant gif/still case: full-canvas RGB blit at the origin takes
+    # the bulk tobytes() path — shadow must equal the image byte-for-byte.
+    from PIL import Image
+
+    tee = _tee(tmp_path)
+    tee.set_watched(True)
+    img = Image.new("RGB", (32, 16))
+    img.putpixel((0, 0), (1, 2, 3))
+    img.putpixel((31, 15), (4, 5, 6))
+    tee.SetImage(img, 0, 0)
+    assert bytes(tee._shadow) == img.tobytes()
+
+
+def test_subfill_negative_origin_clips(tmp_path):
+    # Row-sliced mirror must clip a rect that starts off-canvas.
+    tee = _tee(tmp_path)
+    tee.set_watched(True)
+    tee.SubFill(-2, -1, 4, 3, 9, 9, 9)
+    lit = {
+        (x, y)
+        for y in range(16)
+        for x in range(32)
+        if tuple(tee._shadow[(y * 32 + x) * 3 : (y * 32 + x) * 3 + 3]) != (0, 0, 0)
+    }
+    hw_lit = {k for k, v in tee._hw._pixels.items() if v != (0, 0, 0)}
+    assert lit == hw_lit  # shadow clips exactly as the hardware does

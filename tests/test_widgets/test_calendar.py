@@ -325,3 +325,60 @@ def test_update_first_load_error_shows_empty_text():
     asyncio.run(cal.update())  # no previous data
     assert len(cal.feed_stories) == 1
     assert isinstance(cal.feed_stories[0], TickerMessage)
+
+
+# ---------------------------------------------------------------------------
+# Task 7: color defaults/coercion + validate_config
+# ---------------------------------------------------------------------------
+
+
+def test_highlight_color_defaults_to_amber():
+    cal = _make_calendar(highlight=["pay"])
+    # default amber [255, 200, 60] coerced to a provider
+    c = cal.highlight_color.color_for(0, 0, 1)
+    assert (c.red, c.green, c.blue) == (255, 200, 60)
+
+
+def test_validate_requires_ics_url():
+    msgs = Calendar.validate_config({"type": "calendar"})
+    assert any("ics_url" in m for m in msgs)
+
+
+def test_validate_rejects_bad_layout():
+    msgs = Calendar.validate_config({"ics_url": "x", "layout": "grid"})
+    assert any("layout" in m for m in msgs)
+
+
+def test_validate_rejects_bad_timezone():
+    msgs = Calendar.validate_config({"ics_url": "x", "timezone": "Mars/Phobos"})
+    assert any("timezone" in m.lower() for m in msgs)
+
+
+def test_validate_rejects_non_string_timezone():
+    msgs = Calendar.validate_config({"ics_url": "x", "timezone": 123})
+    assert any("timezone" in m.lower() for m in msgs)
+
+
+def test_validate_rejects_non_list_filter():
+    msgs = Calendar.validate_config({"ics_url": "x", "filter": "1:1"})
+    assert any("filter" in m for m in msgs)
+
+
+def test_validate_rejects_negative_max_events():
+    msgs = Calendar.validate_config({"ics_url": "x", "max_events": -1})
+    assert any("max_events" in m for m in msgs)
+
+
+def test_validate_accepts_good_config():
+    assert (
+        Calendar.validate_config(
+            {
+                "ics_url": "https://x/c.ics",
+                "layout": "next",
+                "timezone": "America/New_York",
+                "filter": ["a"],
+                "highlight": ["b"],
+            }
+        )
+        == []
+    )

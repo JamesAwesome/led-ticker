@@ -10,7 +10,7 @@ import logging
 from datetime import date, datetime, time, timedelta, tzinfo
 from pathlib import Path
 from typing import Any, Self
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import aiohttp
 import attrs
@@ -303,12 +303,49 @@ class Calendar:
     highlight: list[str] = attrs.field(factory=list)
     padding: int = 6
     font: Font = attrs.Factory(lambda: FONT_DEFAULT)
-    font_color: Any = attrs.field(default=None, kw_only=True)
-    highlight_color: Any = attrs.field(default=None, kw_only=True)
+    font_color: ColorProvider = attrs.field(
+        default=None, converter=_coerce_provider, kw_only=True
+    )
+    highlight_color: ColorProvider = attrs.field(
+        default=attrs.Factory(lambda: make_color(255, 200, 60)),
+        converter=_coerce_provider,
+        kw_only=True,
+    )
     bg_color: Any = attrs.field(default=None, kw_only=True)
     border: Any | None = attrs.field(default=None, kw_only=True)
     feed_stories: list[Widget] = attrs.field(init=False, factory=list)
     feed_title: TickerMessage | None = attrs.field(init=False, default=None)
+
+    @classmethod
+    def validate_config(cls, cfg: dict[str, Any]) -> list[str]:
+        errors: list[str] = []
+        if not cfg.get("ics_url") or not isinstance(cfg.get("ics_url"), str):
+            errors.append("ics_url is required and must be a non-empty string")
+        layout = cfg.get("layout", "agenda")
+        if layout not in ("agenda", "next"):
+            errors.append(f"layout {layout!r} must be 'agenda' or 'next'")
+        tz = cfg.get("timezone")
+        if tz is not None:
+            if not isinstance(tz, str):
+                errors.append(
+                    f"timezone must be a string IANA name, got {type(tz).__name__}"
+                )
+            else:
+                try:
+                    ZoneInfo(tz)
+                except ZoneInfoNotFoundError, ValueError:
+                    errors.append(f"timezone {tz!r} is not a valid IANA timezone name")
+        for key in ("filter", "highlight"):
+            val = cfg.get(key)
+            if val is not None and (
+                not isinstance(val, list) or not all(isinstance(x, str) for x in val)
+            ):
+                errors.append(f"{key} must be a list of strings")
+        for key in ("max_events", "lookahead_days"):
+            val = cfg.get(key)
+            if val is not None and (not isinstance(val, int) or val < 0):
+                errors.append(f"{key} must be a non-negative integer")
+        return errors
 
     @classmethod
     async def start(

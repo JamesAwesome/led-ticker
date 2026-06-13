@@ -10,6 +10,7 @@ from typing import Any
 import aiohttp
 import attrs
 
+from led_ticker._types import Font
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import Widget
 from led_ticker.widgets import register
@@ -32,7 +33,7 @@ class Calendar:
     filter: list[str] = attrs.field(factory=list)
     highlight: list[str] = attrs.field(factory=list)
     padding: int = 6
-    font: Any = attrs.Factory(lambda: FONT_DEFAULT)
+    font: Font = attrs.Factory(lambda: FONT_DEFAULT)
     font_color: Any = attrs.field(default=None, kw_only=True)
     highlight_color: Any = attrs.field(default=None, kw_only=True)
     bg_color: Any = attrs.field(default=None, kw_only=True)

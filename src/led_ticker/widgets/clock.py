@@ -16,7 +16,7 @@ exactly as on the message widget.
 
 from datetime import datetime
 from typing import Any
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import attrs
 
@@ -82,6 +82,25 @@ class Clock(FrameAwareBase):
     # declaring the field satisfies factories' border-type gate.
     border: Any | None = attrs.field(default=None, kw_only=True)
     _baseline_y: int = attrs.field(init=False, default=-1)
+
+    @classmethod
+    def validate_config(cls, cfg: dict[str, Any]) -> list[str]:
+        """Value-level checks run at config load (factories._run_validate_config).
+        Unknown FIELD names are caught generically elsewhere; this checks values."""
+        errors: list[str] = []
+        fmt = cfg.get("format", "12h")
+        if isinstance(fmt, str) and "%" not in fmt and fmt not in ("12h", "24h"):
+            errors.append(
+                f"format {fmt!r} is not a known preset ('12h'/'24h') or a "
+                "strftime template (no '%')"
+            )
+        tz = cfg.get("timezone")
+        if tz is not None:
+            try:
+                ZoneInfo(tz)
+            except ZoneInfoNotFoundError, ValueError:
+                errors.append(f"timezone {tz!r} is not a valid IANA timezone name")
+        return errors
 
     def draw(
         self,

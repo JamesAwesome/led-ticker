@@ -172,6 +172,17 @@ FIELD_HINTS: dict[str, FieldHint] = {
     "top_row_height": FieldHint(
         "int | none", "top row height in logical pixels (none = 50/50 split)", "none"
     ),
+    # --- Clock ---
+    "format": FieldHint(
+        '"12h" | "24h" | strftime template',
+        'time format: a preset or a strftime string like "%a %b %-d  %-I:%M %p"',
+        '"12h"',
+    ),
+    "timezone": FieldHint(
+        "IANA name | none",
+        'timezone override, e.g. "America/New_York" (default: system local)',
+        "system local",
+    ),
     # --- Countdown ---
     "countdown_date": FieldHint(
         "YYYY-MM-DD",

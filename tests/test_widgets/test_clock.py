@@ -114,3 +114,30 @@ class TestClockWidget:
         monkeypatch.setattr(clock_mod, "datetime", _SpyDatetime)
         Clock(timezone="America/New_York").draw(canvas)
         assert seen["tz"] is not None  # a ZoneInfo was passed
+
+
+class TestClockValidation:
+    def test_validate_config_accepts_presets_and_strftime(self):
+        assert Clock.validate_config({"format": "12h"}) == []
+        assert Clock.validate_config({"format": "24h"}) == []
+        assert Clock.validate_config({"format": "%H:%M"}) == []
+        assert Clock.validate_config({}) == []  # format defaulted
+
+    def test_validate_config_rejects_unknown_preset(self):
+        msgs = Clock.validate_config({"format": "12hr"})
+        assert msgs and "12h" in msgs[0]
+
+    def test_validate_config_accepts_valid_timezone(self):
+        assert Clock.validate_config({"timezone": "America/New_York"}) == []
+
+    def test_validate_config_rejects_bad_timezone(self):
+        msgs = Clock.validate_config({"timezone": "Mars/Phobos"})
+        assert msgs and "timezone" in msgs[0].lower()
+
+
+def test_list_fields_clock_shows_format_and_timezone():
+    from led_ticker.app.factories import _list_widget_fields
+
+    out = _list_widget_fields("clock")
+    assert "format" in out
+    assert "timezone" in out

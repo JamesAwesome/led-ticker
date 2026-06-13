@@ -1,0 +1,128 @@
+---
+title: clock widget
+description: Current time display — 12h/24h presets or a custom strftime format, with optional timezone and border effects.
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+import { Aside } from "@astrojs/starlight/components";
+
+The `clock` widget displays the current time. Every draw tick the engine calls `draw()` again, so the display stays current at the 50 ms cadence of the held-widget loop — no special mechanism needed.
+
+It reuses the same text-render surface as `message` and `countdown`, so [`font_color`](/concepts/color-providers/), [`border`](/concepts/borders/), and font knobs all work exactly the same way.
+
+<TomlExample
+  title="Minimal example"
+  code={`[[playlist.section.widget]]
+type = "clock"`}
+/>
+
+## Options
+
+<OptionsTable source="widgets/clock" />
+
+## The `format` knob
+
+### Presets
+
+`"12h"` and `"24h"` are the built-in presets.
+
+- `"12h"` — `3:09 PM` (no leading zero on the hour; `AM`/`PM` suffix)
+- `"24h"` — `15:09` (zero-padded hour)
+
+The presets build the string directly from `datetime` fields rather than via `strftime`, so the output is identical on every platform.
+
+### Custom strftime format
+
+Any string containing `%` is passed to Python's `datetime.strftime()` verbatim.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "clock"
+format = "%H:%M:%S"    # 24-hour with seconds`}
+/>
+
+You can include the date inline in the same format string:
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "clock"
+format = "%a %b %d  %H:%M"    # e.g. "Fri Jun 13  15:09"`}
+/>
+
+<Aside type="caution">
+  `%-` codes (no-zero-pad, e.g. `%-I` for hour without a leading zero) are a Linux libc extension.
+  Python passes them through to the OS, so they work on the Raspberry Pi but will fail on macOS or
+  Windows. If you author configs on a Mac and deploy to the Pi, test `%-` codes on the Pi directly.
+</Aside>
+
+## Timezone
+
+By default the clock shows the system local time. Set `timezone` to any [IANA timezone name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) to override it:
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "clock"
+timezone = "America/New_York"
+format = "12h"`}
+/>
+
+The timezone is resolved via Python's stdlib `zoneinfo` module — no extra dependencies. An invalid timezone name produces a clear validation error at config load.
+
+## Common patterns
+
+### 12-hour clock with a rainbow border
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "clock"
+format = "12h"
+font_color = [255, 255, 255]
+border = "rainbow"`}
+/>
+
+### 24-hour clock with a color cycle
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "clock"
+format = "24h"
+font_color = "color_cycle"`}
+/>
+
+### Inline date and time
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "clock"
+format = "%a %b %d  %H:%M"`}
+/>
+
+This renders a single line like `Fri Jun 13  15:09`. Stacked date-over-time (two rows) is a planned future addition.
+
+## Swap mode
+
+The clock widget is designed for `swap`-mode sections, where the engine holds each widget for `hold_time` seconds and redraws every tick. In a `scroll` or `forever_scroll` section the widget will scroll across the panel like any other text widget — which may not be what you want for a clock.
+
+<TomlExample
+  title="Recommended: swap section for a clock"
+  code={`[playlist.section]
+mode = "swap"
+hold_time = 30
+
+[[playlist.section.widget]]
+type = "clock"
+format = "12h"`}
+/>
+
+## Validation
+
+`led-ticker validate` catches common mistakes before the display starts:
+
+- Unknown preset (`format = "12hr"`) → `clock: format '12hr' is not a known preset ('12h'/'24h') or a strftime template (no '%')`
+- Invalid timezone (`timezone = "Mars/Phobos"`) → `clock: timezone 'Mars/Phobos' is not a valid IANA timezone name`
+
+<RelatedPages
+  slugs={["widgets/countdown", "widgets/message", "concepts/color-providers", "concepts/borders"]}
+/>

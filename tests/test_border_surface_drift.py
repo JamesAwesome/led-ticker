@@ -45,7 +45,7 @@ REGISTRY_KEYS: frozenset[str] = frozenset(_BORDER_REGISTRY.keys())
 
 FACT_PACK_FILES: dict[str, Path] = {
     name: REPO_ROOT / "docs" / "content-source" / "widgets" / f"{name}.md"
-    for name in ("message", "countdown", "two_row", "gif", "image")
+    for name in ("message", "countdown", "two_row", "gif", "image", "clock")
 }
 
 # ---------------------------------------------------------------------------

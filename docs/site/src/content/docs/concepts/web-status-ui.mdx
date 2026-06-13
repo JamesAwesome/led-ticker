@@ -207,6 +207,6 @@ The Validate tab lets you check a candidate config without risk, but applying it
 
 **Browser shows nothing / 401** — A token is set in `[web]`. Add `?token=<your-token>` to the URL, or configure your browser extension / bookmark with the `X-Web-Token` header.
 
-**Sidecar binds a port already in use** — If `[busy_light]` is configured with `source = "http"` and the same port (default `8080` for both), one of them will fail to bind. Use a different port for one of the two: e.g. `[web] http_port = 8080` and `[busy_light] http_port = 8081`.
+**Sidecar binds a port already in use** — The `[web]` sidecar defaults to `8080` and the `[busy_light]` HTTP source defaults to `8081`, so they don't collide out of the box. If you override either to put both on the same port, one will fail to bind — give them distinct ports.
 
 <RelatedPages slugs={["reference/config-options", "concepts/busy-light", "reference/cli"]} />

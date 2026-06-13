@@ -156,7 +156,7 @@ A persistent corner dot painted as an overlay over every section and transition 
 | `size`          | int         | `4`           | Dot side in physical pixels (`>= 1`). ~4 on the 16-tall smallsign, ~8–10 on the 64-tall bigsign/longboi.                                             |
 | `source`        | string      | `"file"`      | `"file"` (poll a local file) or `"http"` (remote push from a LAN HTTP call).                                                                         |
 | `http_host`     | string      | `"0.0.0.0"`   | Listen address when `source = "http"`. `0.0.0.0` = all interfaces.                                                                                   |
-| `http_port`     | int         | `8080`        | Listen port when `source = "http"`. Range 1–65535.                                                                                                   |
+| `http_port`     | int         | `8081`        | Listen port when `source = "http"`. Range 1–65535. Defaults to `8081` so it doesn't collide with `[web]`'s `8080`.                                   |
 | `token`         | string      | `""`          | Shared secret for the HTTP source. Empty = open (trusted LAN only).                                                                                  |
 | `ttl_seconds`   | float       | `0.0`         | HTTP source: default auto-clear seconds for a `state=on` that omits `?ttl=`. Per-request `?ttl=N` overrides it. `0` = stay on until explicit off.    |
 

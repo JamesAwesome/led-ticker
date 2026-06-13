@@ -76,7 +76,7 @@ Instead of a local file, the light can be flipped by an HTTP call over your LAN 
 enabled = true
 source = "http"
 http_host = "0.0.0.0"
-http_port = 8080
+http_port = 8081
 token = "change-me"      # shared secret; omit/empty = open on the LAN
 ttl_seconds = 0          # 0 = explicit on/off; >0 = auto-clear after N seconds`}
 />
@@ -85,17 +85,17 @@ The listener exposes one route:
 
 ```bash
 # turn the light on / off (GET with a query param — easiest for macros)
-curl "http://PI-HOST:8080/busy?state=on&token=change-me"
-curl "http://PI-HOST:8080/busy?state=off&token=change-me"
+curl "http://PI-HOST:8081/busy?state=on&token=change-me"
+curl "http://PI-HOST:8081/busy?state=off&token=change-me"
 
 # turn on, then auto-clear after 60 seconds (per-request TTL override)
-curl "http://PI-HOST:8080/busy?state=on&ttl=60&token=change-me"
+curl "http://PI-HOST:8081/busy?state=on&ttl=60&token=change-me"
 
 # POST with a body works too
-curl -X POST "http://PI-HOST:8080/busy" -H "X-Busy-Token: change-me" -d on
+curl -X POST "http://PI-HOST:8081/busy" -H "X-Busy-Token: change-me" -d on
 
 # read current state
-curl "http://PI-HOST:8080/busy?token=change-me"
+curl "http://PI-HOST:8081/busy?token=change-me"
 ```
 
 `PI-HOST` is your Pi's `.local` hostname (e.g. `longboi.local`) or a DHCP-reserved IP. The token may be passed as the `token=` query param or an `X-Busy-Token:` header; a wrong/missing token returns `401`. A token in the query string can appear in logs — fine on a trusted LAN; use the header form if you'd rather not.
@@ -108,7 +108,7 @@ curl "http://PI-HOST:8080/busy?token=change-me"
   services:
     led-ticker:
       ports:
-        - "8080:8080"
+        - "8081:8081"
   ```
 
 - **Bare-metal / systemd deploy:** the process binds the host port directly — no mapping needed; just make sure no host firewall blocks it.
@@ -126,8 +126,8 @@ TTL applies only to the HTTP source — the file source is polled directly and n
 
 Both methods reduce to one HTTP call, so neither needs anything installed on a managed work laptop:
 
-- **Manual hotkey** — Keyboard Maestro, Raycast, or a Shortcut with a global key running `curl "http://PI-HOST:8080/busy?state=on&token=…"` (and an `off` twin).
-- **Focus automation (hands-off)** — macOS **Shortcuts → Automation → "When [Work] focus turns On"** → action **Get Contents of URL** (GET) `http://PI-HOST:8080/busy?state=on&token=…`; add a matching _turns Off_ automation with `state=off`. macOS itself is the detector — no background app of your own.
+- **Manual hotkey** — Keyboard Maestro, Raycast, or a Shortcut with a global key running `curl "http://PI-HOST:8081/busy?state=on&token=…"` (and an `off` twin).
+- **Focus automation (hands-off)** — macOS **Shortcuts → Automation → "When [Work] focus turns On"** → action **Get Contents of URL** (GET) `http://PI-HOST:8081/busy?state=on&token=…`; add a matching _turns Off_ automation with `state=off`. macOS itself is the detector — no background app of your own.
 - **Auto-detect from camera use** — for a fully hands-off "on while I'm in a meeting", watch the camera and hit the endpoint. A ready-made [Hammerspoon](https://www.hammerspoon.org) script ships in the repo at [`deploy/busy-light-camera-watcher.lua`](https://github.com/JamesAwesome/led-ticker/blob/main/deploy/busy-light-camera-watcher.lua): it flips the light on whenever any camera turns on (Zoom, Google Meet, FaceTime) and off when they all stop. Set `PI_HOST`/`TOKEN` at the top and follow the install steps in the file header. Note: a call joined with video **off** never turns the camera on, so it won't trigger — camera use is the signal.
 
 ## Sizing per panel

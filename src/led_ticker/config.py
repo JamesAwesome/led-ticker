@@ -163,7 +163,10 @@ class BusyLightConfig:
     size: int = 4
     source: str = "file"
     http_host: str = "0.0.0.0"
-    http_port: int = 8080
+    # Defaults to 8081 (not 8080) so the busy-light HTTP listener does not
+    # collide with the [web] sidecar, whose http_port defaults to 8080. Both
+    # bind on the Pi directly; identical defaults would make one fail to bind.
+    http_port: int = 8081
     token: str = ""
     ttl_seconds: float = 0.0
 
@@ -490,7 +493,7 @@ def load_config(path: Path) -> AppConfig:
         size=bl_raw.get("size", 4),
         source=bl_raw.get("source", "file"),
         http_host=bl_raw.get("http_host", "0.0.0.0"),
-        http_port=bl_raw.get("http_port", 8080),
+        http_port=bl_raw.get("http_port", 8081),
         token=bl_raw.get("token", ""),
         ttl_seconds=bl_raw.get("ttl_seconds", 0.0),
     )

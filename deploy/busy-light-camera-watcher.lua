@@ -23,7 +23,7 @@
 -- Docs: https://docs.ledticker.dev/concepts/busy-light/
 
 local PI_HOST = "longboi" -- Pi hostname or IP running led-ticker
-local PORT = 8080 -- must match [busy_light] http_port
+local PORT = 8081 -- must match [busy_light] http_port (default 8081)
 local TOKEN = "changeme" -- must match [busy_light] token ("" if none)
 local TTL = 0 -- per-request auto-clear seconds; 0 = stay on until camera off
 

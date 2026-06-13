@@ -17,7 +17,7 @@
 [display]
 rows = 64
 cols = 256
-chain = 1
+chain_length = 1
 brightness = 60
 default_scale = 4
 

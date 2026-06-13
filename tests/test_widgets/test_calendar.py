@@ -1,12 +1,15 @@
 """Tests for the calendar widget."""
 
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.calendar import (
+    Calendar,
     CalendarEvent,
+    TickerMessage,
     _match_any,
     _NextEventWidget,
     format_event_line,
@@ -242,3 +245,83 @@ def test_next_event_widget_unset_timezone_does_not_crash(canvas):
     w = _NextEventWidget(event=e, empty_text="none", timezone=None)
     out_canvas, _ = w.draw(canvas)  # must not raise
     assert out_canvas is canvas
+
+
+# ---------------------------------------------------------------------------
+# Task 6: update() + start() + file:// fetch + _build_stories
+# ---------------------------------------------------------------------------
+
+
+def _make_calendar(**kwargs):
+    # session unused for file:// fetch; pass None.
+    defaults = dict(session=None, ics_url=f"file://{_FIXTURE}", timezone="UTC")
+    defaults.update(kwargs)
+    return Calendar(**defaults)
+
+
+def test_update_agenda_builds_messages(monkeypatch):
+    cal = _make_calendar(layout="agenda", max_events=5)
+    # Pin "now" so the fixture's events are in-window.
+    monkeypatch.setattr(
+        "led_ticker.widgets.calendar._now_in",
+        lambda tz: datetime(2026, 6, 15, 0, 0, tzinfo=_UTC),
+    )
+    asyncio.run(cal.update())
+    assert cal.feed_stories
+    assert all(isinstance(s, TickerMessage) for s in cal.feed_stories)
+
+
+def test_update_next_builds_single_countdown(monkeypatch):
+    cal = _make_calendar(layout="next")
+    monkeypatch.setattr(
+        "led_ticker.widgets.calendar._now_in",
+        lambda tz: datetime(2026, 6, 15, 0, 0, tzinfo=_UTC),
+    )
+    asyncio.run(cal.update())
+    assert len(cal.feed_stories) == 1
+    assert type(cal.feed_stories[0]).__name__ == "_NextEventWidget"
+
+
+def test_update_empty_window_shows_empty_text(monkeypatch):
+    cal = _make_calendar(layout="agenda", empty_text="Nothing", lookahead_days=1)
+    monkeypatch.setattr(
+        "led_ticker.widgets.calendar._now_in",
+        lambda tz: datetime(2030, 1, 1, 0, 0, tzinfo=_UTC),  # far future, nothing
+    )
+    asyncio.run(cal.update())
+    assert len(cal.feed_stories) == 1
+    assert isinstance(cal.feed_stories[0], TickerMessage)
+
+
+def test_update_default_timezone_parses_events(monkeypatch):
+    # Regression for the default config (no `timezone`): update() must build
+    # real events, not silently swallow a naive/aware TypeError into empty_text.
+    local = datetime.now().astimezone().tzinfo
+    # no timezone kwarg — exercises the tz=None path
+    cal = Calendar(session=None, ics_url=f"file://{_FIXTURE}", layout="agenda")
+    monkeypatch.setattr(
+        "led_ticker.widgets.calendar._now_in",
+        lambda tz: datetime(2026, 6, 15, 0, 0, tzinfo=local),
+    )
+    asyncio.run(cal.update())
+    assert cal.feed_stories
+    assert all(isinstance(s, TickerMessage) for s in cal.feed_stories)
+    # not the single empty_text fallback
+    assert not (
+        len(cal.feed_stories) == 1 and cal.feed_stories[0].text == cal.empty_text
+    )
+
+
+def test_update_fetch_error_keeps_previous(monkeypatch):
+    cal = _make_calendar(ics_url="file:///nonexistent/path.ics")
+    sentinel = ["KEEP"]
+    cal.feed_stories = sentinel
+    asyncio.run(cal.update())  # must not raise
+    assert cal.feed_stories is sentinel  # previous kept on error
+
+
+def test_update_first_load_error_shows_empty_text():
+    cal = _make_calendar(ics_url="file:///nonexistent/path.ics", empty_text="Down")
+    asyncio.run(cal.update())  # no previous data
+    assert len(cal.feed_stories) == 1
+    assert isinstance(cal.feed_stories[0], TickerMessage)

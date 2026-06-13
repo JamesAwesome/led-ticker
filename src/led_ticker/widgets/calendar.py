@@ -5,8 +5,11 @@ feed, then update() populates feed_stories per the `layout` knob — `agenda`
 builds one TickerMessage per event; `next` builds one live countdown widget.
 """
 
+import asyncio
+import logging
 from datetime import date, datetime, time, timedelta, tzinfo
-from typing import Any
+from pathlib import Path
+from typing import Any, Self
 from zoneinfo import ZoneInfo
 
 import aiohttp
@@ -20,11 +23,13 @@ from led_ticker.colors import DEFAULT_COLOR, make_color
 from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.text_render import draw_text, draw_text_per_char
-from led_ticker.widget import Widget
+from led_ticker.widget import Widget, run_monitor_loop, spawn_tracked
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets.clock import format_clock
 from led_ticker.widgets.message import TickerMessage
+
+logger = logging.getLogger(__name__)
 
 
 @attrs.define(frozen=True)
@@ -304,3 +309,105 @@ class Calendar:
     border: Any | None = attrs.field(default=None, kw_only=True)
     feed_stories: list[Widget] = attrs.field(init=False, factory=list)
     feed_title: TickerMessage | None = attrs.field(init=False, default=None)
+
+    @classmethod
+    async def start(
+        cls,
+        session: aiohttp.ClientSession,
+        ics_url: str,
+        update_interval: int = 900,
+        **kwargs: Any,
+    ) -> Self:
+        widget = cls(session=session, ics_url=ics_url, **kwargs)
+        await widget.update()
+        spawn_tracked(run_monitor_loop(widget, update_interval))
+        return widget
+
+    async def _fetch_ics(self) -> str:
+        url = self.ics_url
+        if url.startswith(("http://", "https://")):
+            async with self.session.get(url) as resp:
+                resp.raise_for_status()
+                return await resp.text()
+        # file:// or a bare local path — read from disk (offline calendars,
+        # demos, tests). aiohttp does not handle file:// URLs.
+        path = url[len("file://") :] if url.startswith("file://") else url
+        return await asyncio.to_thread(Path(path).expanduser().read_text)
+
+    def _empty_story(self) -> TickerMessage:
+        return TickerMessage(
+            self.empty_text,
+            font=self.font,
+            font_color=self.font_color,
+            bg_color=self.bg_color,
+        )
+
+    async def update(self) -> None:
+        logger.info("Updating calendar from: %s", self.ics_url)
+        tz = ZoneInfo(self.timezone) if self.timezone else None
+        try:
+            text = await self._fetch_ics()
+            now = _now_in(tz)  # ALWAYS aware (local when tz is None)
+            # concrete tzinfo (never None) — keeps all comparisons aware
+            parse_tz = now.tzinfo
+            events = parse_ics(
+                text, now=now, lookahead_days=self.lookahead_days, tz=parse_tz
+            )
+        except Exception:
+            logger.exception("Calendar fetch/parse failed for %s", self.ics_url)
+            if not self.feed_stories:
+                self.feed_stories = [self._empty_story()]
+            return
+
+        kept = select_events(
+            events,
+            filter=self.filter,
+            highlight=self.highlight,
+            max_events=self.max_events,
+        )
+        self.feed_stories = self._build_stories(kept, now=now, tz=parse_tz)
+        logger.info("Calendar %s updated: %d events", self.ics_url, len(kept))
+
+    def _build_stories(
+        self, events: list[CalendarEvent], *, now: datetime, tz: tzinfo
+    ) -> list[Widget]:
+        if self.layout == "next":
+            event = events[0] if events else None
+            color = (
+                self.highlight_color
+                if event is not None and _match_any(event.summary, self.highlight)
+                else self.font_color
+            )
+            return [
+                _NextEventWidget(
+                    event=event,
+                    empty_text=self.empty_text,
+                    timezone=self.timezone,
+                    font=self.font,
+                    font_color=color,
+                    bg_color=self.bg_color,
+                    border=self.border,
+                    padding=self.padding,
+                )
+            ]
+        # agenda
+        if not events:
+            return [self._empty_story()]
+        stories: list[Widget] = []
+        for e in events:
+            color = (
+                self.highlight_color
+                if _match_any(e.summary, self.highlight)
+                else self.font_color
+            )
+            stories.append(
+                TickerMessage(
+                    format_event_line(e, now=now, time_format=self.time_format, tz=tz),
+                    font=self.font,
+                    font_color=color,
+                    bg_color=self.bg_color,
+                    border=self.border,
+                    padding=self.padding,
+                )
+            )
+        return stories

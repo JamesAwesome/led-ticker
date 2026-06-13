@@ -376,3 +376,43 @@ async def test_heartbeat_exit_turns_mirror_off(tmp_path):
     status_board.clear_active_board()  # heartbeat exits on next beat
     await _asyncio.wait_for(task, timeout=2)
     assert tee.mirror is False  # not stranded
+
+
+async def test_heartbeat_pulls_busy_state(tmp_path):
+    import asyncio as _asyncio
+
+    from led_ticker.app.run import _status_heartbeat
+    from led_ticker.busy_light import BusyLight
+
+    board = StatusBoard(path=tmp_path / "status.json", min_interval=0.05)
+    busy = BusyLight(file_path="/x")
+    busy.set_busy(True, now=__import__("time").monotonic(), ttl=600.0)
+    status_board.set_active_board(board)
+    task = _asyncio.create_task(_status_heartbeat(board, busy=busy, busy_source="http"))
+    try:
+        await _asyncio.sleep(0.15)
+        snap = board.snapshot()["overlays"]["busy"]
+        assert snap["enabled"] is True
+        assert snap["active"] is True
+        assert snap["source"] == "http"
+        assert snap["ttl_remaining"] is not None and snap["ttl_remaining"] > 0
+    finally:
+        status_board.clear_active_board()
+        await _asyncio.wait_for(task, timeout=2)
+
+
+async def test_heartbeat_busy_none_leaves_default(tmp_path):
+    import asyncio as _asyncio
+
+    from led_ticker.app.run import _status_heartbeat
+
+    board = StatusBoard(path=tmp_path / "status.json", min_interval=0.05)
+    status_board.set_active_board(board)
+    task = _asyncio.create_task(_status_heartbeat(board, busy=None))
+    try:
+        await _asyncio.sleep(0.15)
+        # busy=None: heartbeat records nothing; the board's default stands.
+        assert board.snapshot()["overlays"]["busy"] == {"enabled": False}
+    finally:
+        status_board.clear_active_board()
+        await _asyncio.wait_for(task, timeout=2)

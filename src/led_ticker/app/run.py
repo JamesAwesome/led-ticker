@@ -103,7 +103,11 @@ def _load_plugins_for_config(config_path: Path):
 
 
 async def _status_heartbeat(
-    board: Any, tee: Any = None, marker_ttl: float | None = None
+    board: Any,
+    tee: Any = None,
+    marker_ttl: float | None = None,
+    busy: Any = None,
+    busy_source: str = "file",
 ) -> None:
     """Republish at the throttle cadence so the sidecar's staleness verdict
     measures process liveness, not event frequency. Without this, a widget
@@ -122,6 +126,22 @@ async def _status_heartbeat(
         marker = tee._frame_path.parent / "preview-requested"
     try:
         while not board.disabled and _sb.get_active_board() is board:
+            if busy is not None:
+                try:
+                    state = {
+                        "enabled": True,
+                        "active": busy.is_busy,
+                        "source": busy_source,
+                        "ttl_remaining": busy.ttl_remaining(),
+                    }
+                except Exception:
+                    state = {
+                        "enabled": True,
+                        "active": getattr(busy, "is_busy", False),
+                        "source": busy_source,
+                    }
+                    logging.warning("busy state read failed; publishing without ttl")
+                _sb.record_busy(state)
             board.publish()
             # Narrow on marker (not tee): they're set together, and pyright
             # can only carry the None-check through the variable it stat()'s.

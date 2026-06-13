@@ -104,6 +104,12 @@ Under `[[playlist.section.widget]]` with `type = "calendar"`:
   `format_clock` for the time portion of a line.
 - **`timezone`** (str, optional IANA; default system local): resolved via stdlib
   `zoneinfo`. Events are converted to this zone for display. Mirrors the clock.
+  **When unset, the default resolves to the concrete system-local zone (an
+  *aware* `datetime.now().astimezone()`), NOT a naive `datetime.now()`** — every
+  event start and the "now" used for filtering/sorting/countdowns must be
+  tz-aware and consistent, or comparing them raises `TypeError`. (This is the
+  one place the calendar must NOT copy the clock's naive `tz=None` default,
+  because the clock only formats `now` while the calendar compares it.)
 - **`empty_text`** (str, default `"No upcoming events"`): shown when the window
   has no (post-filter) events, and on first-load fetch failure.
 - **`filter`** (list[str], default `[]`): keep only events whose summary matches

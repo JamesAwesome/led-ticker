@@ -10,6 +10,12 @@
 
 **Spec:** `docs/superpowers/specs/2026-06-13-calendar-widget-design.md`
 
+**Hardening corrections (2026-06-13, applied after an adversarial review with library repros):**
+1. **Default timezone must be aware-local.** `_now_in(tz)` returns `datetime.now().astimezone()` when `tz` is None (never naive); `update()` uses `now.tzinfo` as the parse tz. Without this the DEFAULT config (no `timezone`) crashes `parse_ics`/`_NextEventWidget.draw` with a naive-vs-aware `TypeError`, swallowed into `empty_text` forever. (Tasks 2, 5, 6 — with regression tests.)
+2. **`highlight_color` must coerce to a real `graphics.Color`.** The converter builds `_ConstantColor(make_color(*rgb))` for raw lists (a bare list has no `.red` and breaks the C `DrawText`); the default is `make_color(255,200,60)`; `highlight_color` is added to `_PROVIDER_COLOR_KEYS` for the TOML path. Do NOT import `app.coercion` into the widget (circular). (Tasks 5, 7.)
+3. **`FieldHint` takes 3 positional args** `(display_type, description, default_display)`; `layout` already exists (pool) so it is NOT re-added. (Task 8.)
+4. `update_interval` is consumed by `start()` (→ `run_monitor_loop`), so it is NOT a `Calendar` field. `FACT_PACK_FILES` is a dict-comp inner tuple. (Tasks 1, 9.)
+
 **Conventions for every task:**
 - Worktree: `/Users/james/projects/github/jamesawesome/led-ticker-worktrees/calendar-widget`, branch `feat/calendar-widget`. Confirm with `git branch --show-current` (must NOT be `main`) before editing.
 - Run tests with the worktree venv: `cd <worktree> && PYTHONPATH=tests/stubs .venv/bin/python -m pytest <files> -q`.
@@ -37,9 +43,11 @@
 In `pyproject.toml`, add to the `dependencies` array (keep alphabetical-ish with the others):
 
 ```toml
-    "icalendar>=6.0",
+    "icalendar>=6.1",
     "recurring-ical-events>=3.0",
 ```
+
+(`icalendar>=6.1` matches `recurring-ical-events`' own floor; the worktree resolved `icalendar` 7.x, so this is satisfied. After `make dev`, confirm the installed `recurring_ical_events` exposes `recurring_ical_events.of(cal).between(start, end)` — the API Task 2 uses — with a 5-second repro before relying on it.)
 
 Then run `cd <worktree> && make dev` (re-syncs the venv with the new deps). Expected: `uv sync` installs `icalendar` and `recurring-ical-events`.
 
@@ -100,7 +108,6 @@ class Calendar:
     time_format: str = "12h"
     timezone: str | None = None
     empty_text: str = "No upcoming events"
-    update_interval: int = 900
     filter: list[str] = attrs.field(factory=list)
     highlight: list[str] = attrs.field(factory=list)
     padding: int = 6
@@ -230,6 +237,19 @@ def test_parse_drops_past_and_sorts():
 def test_calendar_event_is_value_object():
     e = CalendarEvent(summary="x", start=datetime(2026, 1, 1, tzinfo=_UTC), all_day=False)
     assert e.summary == "x"
+
+
+def test_parse_with_local_tz_does_not_crash():
+    # Regression for the default (no `timezone`) path: a concrete local tzinfo
+    # must parse the tz-aware fixture without a naive/aware TypeError, and
+    # timed + all-day events must sort together.
+    local = datetime.now().astimezone().tzinfo
+    now = datetime(2026, 6, 15, 0, 0, tzinfo=local)
+    events = parse_ics(_FIXTURE.read_text(), now=now, lookahead_days=7, tz=local)
+    assert events  # not empty
+    assert all(e.start.tzinfo is not None for e in events)
+    starts = [e.start for e in events]
+    assert starts == sorted(starts)  # mixed timed+all-day sort without TypeError
 ```
 
 - [ ] **Step 3: Run — expect failure**
@@ -242,7 +262,7 @@ Expected: FAIL — `ImportError` for `CalendarEvent` / `parse_ics`.
 Add to `src/led_ticker/widgets/calendar.py` (imports at top, definitions below the module docstring, above the `Calendar` class):
 
 ```python
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, tzinfo
 from zoneinfo import ZoneInfo
 
 import icalendar
@@ -258,11 +278,25 @@ class CalendarEvent:
     all_day: bool
 
 
-def _to_display_start(dt_value: date | datetime, tz: ZoneInfo) -> tuple[datetime, bool]:
+def _now_in(tz: tzinfo | None) -> datetime:
+    """Current time as an ALWAYS-aware datetime.
+
+    When `tz` is None (no timezone configured) we resolve the system-local
+    zone via `.astimezone()` rather than returning a naive `datetime.now()`.
+    A naive `now` cannot be compared/subtracted against the tz-aware event
+    starts that .ics feeds carry — doing so raises `TypeError` (this is the
+    default-config crash the plan must avoid). Module-level so tests can
+    monkeypatch `led_ticker.widgets.calendar._now_in`.
+    """
+    return datetime.now(tz) if tz is not None else datetime.now().astimezone()
+
+
+def _to_display_start(dt_value: date | datetime, tz: tzinfo) -> tuple[datetime, bool]:
     """Resolve a DTSTART value to a tz-aware datetime + all_day flag.
 
-    A bare `date` is an all-day event -> midnight of that date in `tz`.
-    A naive `datetime` (floating time) is assumed to be in `tz`.
+    `tz` is always a concrete tzinfo (never None — see `_now_in` /
+    `Calendar.update`). A bare `date` is an all-day event -> midnight of that
+    date in `tz`. A naive `datetime` (floating time) is assumed to be in `tz`.
     """
     if isinstance(dt_value, datetime):
         if dt_value.tzinfo is None:
@@ -273,7 +307,7 @@ def _to_display_start(dt_value: date | datetime, tz: ZoneInfo) -> tuple[datetime
 
 
 def parse_ics(
-    text: str, *, now: datetime, lookahead_days: int, tz: ZoneInfo
+    text: str, *, now: datetime, lookahead_days: int, tz: tzinfo
 ) -> list[CalendarEvent]:
     """Parse an .ics document, expand recurrence in [now, now+lookahead_days],
     drop past events, and return CalendarEvents sorted by start (display tz)."""
@@ -589,6 +623,16 @@ def test_next_event_widget_rainbow_advances_frame(canvas):
     w = _NextEventWidget(event=e, empty_text="none", timezone="UTC", font_color=Rainbow())
     w.advance_frame()
     w.draw(canvas)  # must not raise; per-char path exercised
+
+
+def test_next_event_widget_unset_timezone_does_not_crash(canvas):
+    # Default path: timezone=None must still produce an aware `now` so the
+    # `event.start - now` subtraction in format_relative does not raise.
+    local = datetime.now().astimezone().tzinfo
+    e = CalendarEvent("Standup", datetime(2026, 12, 31, 23, 59, tzinfo=local), False)
+    w = _NextEventWidget(event=e, empty_text="none", timezone=None)
+    out_canvas, _ = w.draw(canvas)  # must not raise
+    assert out_canvas is canvas
 ```
 
 - [ ] **Step 2: Run — expect failure**
@@ -601,17 +645,17 @@ Expected: FAIL — `ImportError` for `_NextEventWidget` / `format_relative`.
 Add imports near the top of `src/led_ticker/widgets/calendar.py`:
 
 ```python
-from datetime import datetime as _dt  # for datetime.now(tz) in draw
 from typing import Any
 
 from led_ticker._types import Canvas, DrawResult
 from led_ticker.color_providers import ColorProvider, _ConstantColor
+from led_ticker.colors import DEFAULT_COLOR, make_color
 from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets._frame_aware import FrameAwareBase
 ```
 
-(Some of these may already be imported from earlier tasks; do not duplicate — keep one import each.)
+(Some of these may already be imported from earlier tasks; do not duplicate — keep one import each. `make_color` is `led_ticker.colors.make_color`, which wraps `require_graphics().Color(r, g, b)` — do NOT import from `led_ticker.app.coercion`, which would create a circular import via `widgets._image_base`. `datetime` is already imported in Task 2; use it directly — there is no `_dt` alias.)
 
 Add the relative formatter and widget (below `format_event_line`):
 
@@ -637,11 +681,23 @@ def format_relative(
 
 
 def _coerce_provider(value: Any) -> ColorProvider:
+    """Coerce a color field to a ColorProvider.
+
+    None -> default white; an existing provider -> as-is; a raw [r,g,b]
+    list/tuple -> _ConstantColor(graphics.Color(...)) (NOT a bare list — a
+    list has no .red/.green/.blue and the real C DrawText/SetPixel require a
+    graphics.Color); an existing graphics.Color -> _ConstantColor. Config
+    strings/tables (e.g. "rainbow") are coerced by the factory before
+    construction (highlight_color is added to _PROVIDER_COLOR_KEYS in Task 7),
+    so they arrive here already as providers.
+    """
     if value is None:
         return _ConstantColor(DEFAULT_COLOR)
-    if not hasattr(value, "color_for"):
-        return _ConstantColor(value)
-    return value
+    if hasattr(value, "color_for"):
+        return value
+    if isinstance(value, (list, tuple)):
+        return _ConstantColor(make_color(*value))
+    return _ConstantColor(value)  # already a graphics.Color
 
 
 @attrs.define
@@ -675,7 +731,8 @@ class _NextEventWidget(FrameAwareBase):
         provider: ColorProvider = font_color or self.font_color
 
         tz = ZoneInfo(self.timezone) if self.timezone else None
-        now = _dt.now(tz)
+        now = _now_in(tz)  # ALWAYS aware (local when tz is None) — event.start
+        # is aware, and format_relative subtracts them; a naive now -> TypeError.
         text = format_relative(self.event, now, self.empty_text)
 
         content_width = get_text_width(self.font, text, padding=0, canvas=canvas)
@@ -782,6 +839,24 @@ def test_update_empty_window_shows_empty_text(monkeypatch):
     assert isinstance(cal.feed_stories[0], TickerMessage)
 
 
+def test_update_default_timezone_parses_events(monkeypatch):
+    # Regression for the default config (no `timezone`): update() must build
+    # real events, not silently swallow a naive/aware TypeError into empty_text.
+    from led_ticker.widgets.calendar import TickerMessage
+    local = datetime.now().astimezone().tzinfo
+    cal = Calendar(session=None, ics_url=f"file://{_FIXTURE}", layout="agenda")  # no timezone
+    monkeypatch.setattr(
+        "led_ticker.widgets.calendar._now_in",
+        lambda tz: datetime(2026, 6, 15, 0, 0, tzinfo=local),
+    )
+    asyncio.run(cal.update())
+    assert cal.feed_stories
+    assert all(isinstance(s, TickerMessage) for s in cal.feed_stories)
+    # not the single empty_text fallback
+    assert not (len(cal.feed_stories) == 1
+                and cal.feed_stories[0].text == cal.empty_text)
+
+
 def test_update_fetch_error_keeps_previous(monkeypatch):
     cal = _make_calendar(ics_url="file:///nonexistent/path.ics")
     sentinel = ["KEEP"]
@@ -817,12 +892,7 @@ from led_ticker.widget import run_monitor_loop, spawn_tracked
 logger = logging.getLogger(__name__)
 ```
 
-Add a tz-aware "now" helper (so tests can monkeypatch it) below the imports:
-
-```python
-def _now_in(tz: ZoneInfo | None) -> datetime:
-    return _dt.now(tz)
-```
+(`_now_in` is already defined in Task 2 — do NOT redefine it here. Tests monkeypatch `led_ticker.widgets.calendar._now_in`, and both `update()` and `_NextEventWidget.draw` call that module-level function.)
 
 Add these methods to the `Calendar` class body:
 
@@ -862,8 +932,8 @@ Add these methods to the `Calendar` class body:
         tz = ZoneInfo(self.timezone) if self.timezone else None
         try:
             text = await self._fetch_ics()
-            now = _now_in(tz)
-            parse_tz = tz if tz is not None else now.tzinfo  # local tz from now
+            now = _now_in(tz)  # ALWAYS aware (local when tz is None)
+            parse_tz = now.tzinfo  # concrete tzinfo, never None -> consistent aware math
             events = parse_ics(
                 text, now=now, lookahead_days=self.lookahead_days, tz=parse_tz
             )
@@ -1004,18 +1074,38 @@ Expected: FAIL — `highlight_color` is `None` (no default); `validate_config` m
 
 - [ ] **Step 3: Give the color fields converters + defaults**
 
-In `src/led_ticker/widgets/calendar.py`, change the `Calendar` color fields to use `_coerce_provider` (defined in Task 5) with real defaults:
+In `src/led_ticker/widgets/calendar.py`, change the `Calendar` color fields to use `_coerce_provider` (defined in Task 5) with real defaults. Use `attrs.Factory` for the amber default — a real `graphics.Color`, NOT a bare `[r,g,b]` list (the converter then wraps it in `_ConstantColor`):
 
 ```python
     font_color: ColorProvider = attrs.field(
         default=None, converter=_coerce_provider, kw_only=True
     )
     highlight_color: ColorProvider = attrs.field(
-        default=[255, 200, 60], converter=_coerce_provider, kw_only=True
+        default=attrs.Factory(lambda: make_color(255, 200, 60)),
+        converter=_coerce_provider,
+        kw_only=True,
     )
 ```
 
-(`_coerce_provider(None)` → `_ConstantColor(DEFAULT_COLOR)`; `_coerce_provider([255,200,60])` → `_ConstantColor` of that amber.) Remove the now-stale `from led_ticker.colors import DEFAULT_COLOR` only if unused — it IS used by `_coerce_provider`, so keep it.
+(`_coerce_provider(None)` → `_ConstantColor(DEFAULT_COLOR)`; `_coerce_provider(make_color(255,200,60))` → `_ConstantColor` of that amber `graphics.Color`, whose `color_for()` returns a `Color` with `.red`/`.green`/`.blue` — so `test_highlight_color_defaults_to_amber` passes and highlighted events render on real hardware.) `DEFAULT_COLOR` and `make_color` are both used by `_coerce_provider`/defaults — keep both imports.
+
+- [ ] **Step 3b: Let the factory coerce a TOML `highlight_color` too**
+
+So a config `highlight_color = "rainbow"` / `highlight_color = [r, g, b]` is coerced to a provider before construction (matching `font_color`), add `"highlight_color"` to `_PROVIDER_COLOR_KEYS` in `src/led_ticker/app/coercion.py`:
+
+```python
+_PROVIDER_COLOR_KEYS: set[str] = {
+    "font_color",
+    "top_color",
+    "bottom_color",
+    "font_color_temp",
+    "text_separator_color",
+    "bottom_text_separator_color",
+    "highlight_color",
+}
+```
+
+(The widget converter still handles the raw-list/`Color` default and direct construction in tests; this line handles the TOML path. Do NOT import `app.coercion` into the widget — it imports `widgets._image_base` and would be circular.)
 
 - [ ] **Step 4: Add `validate_config`**
 
@@ -1096,37 +1186,43 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 Add to `tests/test_widgets/test_calendar.py`:
 
 ```python
-def test_list_fields_calendar_shows_key_fields():
+def test_list_fields_calendar_shows_hint_descriptions():
     from led_ticker.app.factories import _list_widget_fields
 
     out = _list_widget_fields("calendar")
-    for field in ("ics_url", "layout", "filter", "highlight", "time_format"):
-        assert field in out
+    # Field NAMES appear from the attrs fields / start() params regardless of
+    # hints, so assert the hint DESCRIPTIONS — those only appear once the
+    # FIELD_HINTS entries are added.
+    assert "public .ics feed URL" in out
+    assert "keep only events whose summary matches a keyword" in out
 ```
 
 - [ ] **Step 2: Run — expect failure**
 
 Run: `PYTHONPATH=tests/stubs .venv/bin/python -m pytest tests/test_widgets/test_calendar.py -k list_fields -q`
-Expected: FAIL — calendar-specific hints missing.
+Expected: FAIL — the hint description strings are absent until the FIELD_HINTS entries are added. (If `_list_widget_fields` does not surface the `description` field of a `FieldHint` in its output, adjust this assertion to whatever the hint renders — e.g. the `default_display` value `"No upcoming events"` for `empty_text` — but keep it asserting hint-derived text, not bare field names.)
 
 - [ ] **Step 3: Add the hints**
 
-In `src/led_ticker/app/factories.py`, find the global `FIELD_HINTS` dict (where the clock's `format`/`timezone` hints live — search for `# --- Clock ---`). Add a calendar block with any keys not already present (the GLOBAL dict is name-keyed; `timezone`/`font_color`/`border`/`padding`/`bg_color`/`font` already exist — only add the new keys):
+In `src/led_ticker/app/factories.py`, find the global `FIELD_HINTS` dict (where the clock's `format`/`timezone` hints live — search for `# --- Clock ---`). `FieldHint` is a namedtuple with **three** fields `(display_type, description, default_display)` — every call MUST pass all three (a 2-arg call raises `TypeError`). The GLOBAL dict is name-keyed; `timezone`/`font_color`/`border`/`padding`/`bg_color`/`font` already exist — and **`layout` already exists** (the pool widget's hint), so do NOT add `layout` (it would clobber the existing entry). Add only these new keys:
 
 ```python
     # --- Calendar ---
-    "ics_url": FieldHint("str", "Public .ics feed URL (or file:// path)."),
-    "layout": FieldHint("str", "'agenda' (rotating events) or 'next' (countdown)."),
-    "max_events": FieldHint("int", "Max agenda events to show (default 5)."),
-    "lookahead_days": FieldHint("int", "Days ahead to scan for events (default 7)."),
-    "time_format": FieldHint("str", "'12h' or '24h' for the event time."),
-    "empty_text": FieldHint("str", "Shown when no upcoming events."),
-    "filter": FieldHint("list[str]", "Keep only events whose summary matches a keyword."),
-    "highlight": FieldHint("list[str]", "Recolor + always-include matching events."),
-    "highlight_color": FieldHint("[r,g,b]|provider", "Color for highlighted events."),
+    "ics_url": FieldHint("str", "public .ics feed URL (or file:// path)", "required"),
+    "max_events": FieldHint("int", "max agenda events to show", "5"),
+    "lookahead_days": FieldHint("int", "days ahead to scan for events", "7"),
+    "time_format": FieldHint("str", "'12h' or '24h' for the event time", "12h"),
+    "empty_text": FieldHint("str", "shown when no upcoming events", "No upcoming events"),
+    "filter": FieldHint(
+        "list[str]", "keep only events whose summary matches a keyword", "[] (all)"
+    ),
+    "highlight": FieldHint(
+        "list[str]", "recolor + always-include matching events", "[] (none)"
+    ),
+    "highlight_color": FieldHint(
+        '[r,g,b] | "rainbow" | {style=...}', "color for highlighted events", "amber"
+    ),
 ```
-
-Match the exact `FieldHint(...)` constructor signature already used in that dict (check whether it is `FieldHint(type, description)` positional or keyword and follow it). If `update_interval` is not already a global hint and you want it listed, add `"update_interval": FieldHint("int", "Seconds between feed refreshes (default 900).")`.
 
 - [ ] **Step 4: Run — expect pass**
 
@@ -1182,7 +1278,16 @@ In `tests/test_widgets/test_registry.py`, find the assertion on the number of re
 
 - [ ] **Step 4: Add calendar to border-surface drift (only if the fact-pack advertises border — it does)**
 
-In `tests/test_border_surface_drift.py`, add `"calendar"` to the `FACT_PACK_FILES` tuple (so the test expects `docs/content-source/widgets/calendar.md` to carry a `border` row). The fact-pack is created in Task 10 with that row.
+In `tests/test_border_surface_drift.py`, `FACT_PACK_FILES` is a **dict comprehension over an inner tuple**:
+
+```python
+FACT_PACK_FILES: dict[str, Path] = {
+    name: REPO_ROOT / "docs" / "content-source" / "widgets" / f"{name}.md"
+    for name in ("message", "countdown", "two_row", "gif", "image", "clock")
+}
+```
+
+Add `"calendar"` to that inner `for name in (...)` tuple (so the test expects `docs/content-source/widgets/calendar.md` to carry a `border` row). The fact-pack is created in Task 10 with that row.
 
 - [ ] **Step 5: Run the three test files**
 

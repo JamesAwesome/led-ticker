@@ -234,6 +234,8 @@ async def test_root_serves_page(tmp_path):
             "config-gutter",
             "/api/preview",
             "preview-canvas",
+            "overlays-card",
+            "no overlays installed",
         ):
             assert marker in text
     finally:

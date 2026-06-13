@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # tests/test_status_board.py). Additive fields nested inside existing
 # entries (e.g. plugins[].names, added in v1.1) are version-compatible:
 # readers must tolerate their absence.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 MIN_PUBLISH_INTERVAL = 2.0
 LOG_TAIL_MAX = 50
 
@@ -51,6 +51,12 @@ class StatusBoard:
     # is how the page distinguishes a wedged render loop from a healthy
     # one — the heartbeat alone only proves the PROCESS is alive.
     swap_count: int = attrs.field(default=0, init=False)
+    # Overlay roster (static, set once at startup via set_overlay_roster) and
+    # busy-light state (dynamic, refreshed each heartbeat beat via record_busy).
+    # Both are pure-setter targets — no publish here; the heartbeat's existing
+    # per-beat publish serializes them for free.
+    overlay_roster: list[dict[str, Any]] = attrs.field(factory=list)
+    busy: dict[str, Any] = attrs.field(factory=lambda: {"enabled": False})
     log_tail: deque = attrs.field(factory=lambda: deque(maxlen=LOG_TAIL_MAX))
     disabled: bool = attrs.field(default=False, init=False)
     _last_publish: float = attrs.field(default=0.0, init=False)
@@ -72,6 +78,7 @@ class StatusBoard:
             "widget": self.widget,
             "monitor_updates": self.monitor_updates,
             "swap_count": self.swap_count,
+            "overlays": {"roster": self.overlay_roster, "busy": self.busy},
             "log_tail": list(self.log_tail),
         }
 
@@ -191,6 +198,20 @@ def record_swap() -> None:
     never raise (it sits on the render path)."""
     if _ACTIVE is not None:
         _ACTIVE.swap_count += 1
+
+
+def set_overlay_roster(roster: list[dict[str, Any]]) -> None:
+    """Set the static overlay roster once at startup. Pure setter (no
+    publish) — the heartbeat's per-beat publish serializes it."""
+    if _ACTIVE is not None:
+        _ACTIVE.overlay_roster = roster
+
+
+def record_busy(state: dict[str, Any]) -> None:
+    """Store the current busy-light state. Pure setter (no publish) — like
+    record_swap, NOT record_section; the heartbeat publishes right after."""
+    if _ACTIVE is not None:
+        _ACTIVE.busy = state
 
 
 def record_section(

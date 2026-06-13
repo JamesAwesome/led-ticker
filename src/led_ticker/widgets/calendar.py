@@ -5,16 +5,83 @@ feed, then update() populates feed_stories per the `layout` knob — `agenda`
 builds one TickerMessage per event; `next` builds one live countdown widget.
 """
 
+from datetime import date, datetime, time, timedelta, tzinfo
 from typing import Any
 
 import aiohttp
 import attrs
+import icalendar
+import recurring_ical_events
 
 from led_ticker._types import Font
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.widget import Widget
 from led_ticker.widgets import register
 from led_ticker.widgets.message import TickerMessage
+
+
+@attrs.define(frozen=True)
+class CalendarEvent:
+    """A parsed, display-ready calendar event in the display timezone."""
+
+    summary: str
+    start: datetime  # tz-aware, resolved to the display tz
+    all_day: bool
+
+
+def _now_in(tz: tzinfo | None) -> datetime:
+    """Current time as an ALWAYS-aware datetime.
+
+    When `tz` is None (no timezone configured) we resolve the system-local
+    zone via `.astimezone()` rather than returning a naive `datetime.now()`.
+    A naive `now` cannot be compared/subtracted against the tz-aware event
+    starts that .ics feeds carry — doing so raises `TypeError`. Module-level
+    so tests can monkeypatch `led_ticker.widgets.calendar._now_in`.
+    """
+    return datetime.now(tz) if tz is not None else datetime.now().astimezone()
+
+
+def _to_display_start(dt_value: date | datetime, tz: tzinfo) -> tuple[datetime, bool]:
+    """Resolve a DTSTART value to a tz-aware datetime + all_day flag.
+
+    `tz` is always a concrete tzinfo (never None). A bare `date` is an all-day
+    event -> midnight of that date in `tz`. A naive `datetime` (floating time)
+    is assumed to be in `tz`.
+    """
+    if isinstance(dt_value, datetime):
+        if dt_value.tzinfo is None:
+            return dt_value.replace(tzinfo=tz), False
+        return dt_value.astimezone(tz), False
+    return datetime.combine(dt_value, time.min, tzinfo=tz), True
+
+
+def parse_ics(
+    text: str, *, now: datetime, lookahead_days: int, tz: tzinfo
+) -> list[CalendarEvent]:
+    """Parse an .ics document, expand recurrence in [now, now+lookahead_days],
+    drop past events, and return CalendarEvents sorted by start (display tz)."""
+    cal = icalendar.Calendar.from_ical(text)
+    window_end = now + timedelta(days=lookahead_days)
+    occurrences = recurring_ical_events.of(cal).between(now, window_end)
+
+    events: list[CalendarEvent] = []
+    for comp in occurrences:
+        summary = str(comp.get("SUMMARY", "")).strip()
+        if not summary:
+            continue
+        dtstart = comp.get("DTSTART")
+        if dtstart is None:
+            continue
+        start, all_day = _to_display_start(dtstart.dt, tz)
+        if all_day:
+            if start + timedelta(days=1) <= now:
+                continue
+        elif start < now:
+            continue
+        events.append(CalendarEvent(summary=summary, start=start, all_day=all_day))
+
+    events.sort(key=lambda e: e.start)
+    return events
 
 
 @register("calendar")

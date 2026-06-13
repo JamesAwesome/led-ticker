@@ -1,0 +1,78 @@
+# MLB statcast widget test config — longboi (512×64 canvas, logical 128×16)
+#
+# Smoketests baseball.statcast at hires scale=4: the default all-four
+# superlatives, a single-stat line, and a reordered/filtered subset. The
+# widget is league-wide (no team field). Outside game hours it falls back to
+# yesterday's finals, then "Next games: …" / "No games soon" / "No Data".
+# Requires the `led-ticker-baseball` plugin (baseball.statcast widget +
+# baseball.roll* transition; see config/requirements-plugins.txt.example).
+# Usage: cp config/config.mlb_statcast_test.toml config/config.toml
+
+[display]
+rows = 64
+cols = 128
+chain_length = 4
+brightness = 60
+default_scale = 4
+hardware_mapping = "adafruit-hat"
+panel_type = "FM6126A"
+led_rgb_sequence = "BRG"
+gpio_slowdown = 5
+pwm_bits = 7
+limit_refresh_rate_hz = 100
+
+[title]
+delay = 5
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = {type = "baseball.roll_alternating", duration = 3.2, transition_fps = 40}
+
+# --- MLB Statcast ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "push_left"
+transition_duration = 0.5
+hold_time = 8           # hold before/after the overflow scroll
+scroll_step_ms = 35     # engine scroll cadence, ms per pixel-step (default 50; lower = faster)
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":baseball.ball: MLB Statcast :baseball.ball:"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "random"
+
+# Default path: all four superlatives in canonical order.
+[[playlist.section.widget]]
+type = "baseball.statcast"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+# Single-stat path: just the marquee dinger.
+[[playlist.section.widget]]
+type = "baseball.statcast"
+stats = ["longest_hr"]
+title = "Longest Dinger"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+# Subset + reorder path: the two pitch-speed novelties, slowest first
+# (slowest_pitch appends the pitch name, e.g. "(Slow Curve)").
+[[playlist.section.widget]]
+type = "baseball.statcast"
+stats = ["slowest_pitch", "fastest_pitch"]
+title = "Heat & Junk"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80

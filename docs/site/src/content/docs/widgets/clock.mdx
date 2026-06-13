@@ -3,6 +3,7 @@ title: clock widget
 description: Current time display — 12h/24h presets or a custom strftime format, with optional timezone and border effects.
 ---
 
+import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
@@ -11,6 +12,11 @@ import { Aside } from "@astrojs/starlight/components";
 The `clock` widget displays the current time. Every draw tick the engine calls `draw()` again, so the display stays current at the 50 ms cadence of the held-widget loop — no special mechanism needed.
 
 It reuses the same text-render surface as `message` and `countdown`, so [`font_color`](/concepts/color-providers/), [`border`](/concepts/borders/), and font knobs all work exactly the same way.
+
+<DemoGif
+  src="/demos/widget-clock.gif"
+  caption={`clock with format = "%H:%M:%S" and font_color = "rainbow" — the seconds advance because the time is recomputed each draw`}
+/>
 
 <TomlExample
   title="Minimal example"

@@ -1,0 +1,145 @@
+# Clock smoke-test — bigsign (256×64 canvas)
+#
+# Hardware validation for the `clock` widget (PR #204) on the bigsign / longboi.
+# Walk the sections on hardware and confirm each behaves as the comment says.
+#
+# THE KEY CHECK is the "live seconds" section: the clock recomputes the time
+# every draw, and the engine redraws held widgets every 50 ms (_hold_ticks),
+# so a `%H:%M:%S` clock must visibly TICK on the panel with no special engine
+# mechanism. If the seconds freeze on one value for the whole hold, the
+# "redraws every tick" claim is broken — that is the regression this config
+# guards against on real hardware.
+#
+# Usage: cp config/config.clock_smoketest.toml config/config.toml
+#
+# loop_count GOTCHA: each section uses loop_count = 1 so it makes ONE pass
+# (shows its widget for hold_time) then the playlist advances; the top-level
+# playlist loops forever, so all sections cycle. Do NOT use loop_count = 0 —
+# that cycles a single section forever and the playlist never advances.
+
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+parallel = 1
+# Vertical-serpentine 2×4 panel map. See https://docs.ledticker.dev/hardware/bigsign/
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+brightness = 60
+default_scale = 4
+hardware_mapping = "adafruit-hat"
+gpio_slowdown = 3
+pwm_bits = 8
+show_refresh_rate = true
+
+[title]
+delay = 5
+
+[transitions]
+default = "cut"
+duration = 0.5
+easing = "ease_out"
+between_sections = "cut"
+
+# --- 12h preset, default BDF font (basic smoke; pixel-expanded at scale 4) ---
+# Confirms the simplest path renders: "H:MM AM/PM", centered, no leading zero.
+
+[[playlist.section]]
+mode = "swap"
+content_height = 16
+hold_time = 8
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "clock"
+format = "12h"
+font_color = "rainbow"
+
+# --- LIVE SECONDS, hires font (THE critical check — watch it tick) ---
+# 24-hour with seconds. Over this 15 s hold the seconds digits MUST advance.
+# Hires Inter font exercises the same text-render path message/countdown use.
+
+[[playlist.section]]
+mode = "swap"
+content_height = 16
+hold_time = 15
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "clock"
+format = "%H:%M:%S"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = [255, 255, 255]
+
+# --- 24h preset with a rainbow border (border gate + physical-res ring) ---
+# The clock declares `border`, so the perimeter ring must paint around the
+# real 256×64 panel edge while the time stays centered.
+
+[[playlist.section]]
+mode = "swap"
+content_height = 16
+hold_time = 8
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "clock"
+format = "24h"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = [255, 255, 255]
+border = "rainbow"
+
+# --- timezone override: New York (vs system local) ---
+# Should show a DIFFERENT time than the system-local sections above, offset by
+# the America/New_York UTC offset. Resolved via stdlib zoneinfo (no deps).
+
+[[playlist.section]]
+mode = "swap"
+content_height = 16
+hold_time = 8
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "clock"
+timezone = "America/New_York"
+format = "12h"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "color_cycle"
+
+# --- timezone override: Tokyo (second tz, visually distinct from New York) ---
+
+[[playlist.section]]
+mode = "swap"
+content_height = 16
+hold_time = 8
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "clock"
+timezone = "Asia/Tokyo"
+format = "12h"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "color_cycle"
+
+# --- inline date + time via a custom strftime format ---
+# One line like "Sat Jun 13  15:09". %d (zero-padded) is portable; the Pi
+# also supports the %-d Linux-ism if you prefer no leading zero.
+
+[[playlist.section]]
+mode = "swap"
+content_height = 16
+hold_time = 8
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "clock"
+format = "%a %b %d  %H:%M"
+font = "Inter-Regular"
+font_size = 16
+font_color = "rainbow"

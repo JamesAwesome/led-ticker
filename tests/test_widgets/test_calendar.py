@@ -222,6 +222,18 @@ def test_next_event_widget_rainbow_advances_frame(canvas):
     w.draw(canvas)  # must not raise; per-char path exercised
 
 
+def test_format_relative_sub_minute_is_now():
+    now = datetime(2026, 6, 15, 15, 0, 0, tzinfo=_UTC)
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, 30, tzinfo=_UTC), False)
+    assert format_relative(e, now, "x") == "Standup now"
+
+
+def test_format_relative_exact_hour_drops_zero_minutes():
+    now = datetime(2026, 6, 15, 14, 0, tzinfo=_UTC)
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    assert format_relative(e, now, "x") == "Standup in 1h"
+
+
 def test_next_event_widget_unset_timezone_does_not_crash(canvas):
     # Default path: timezone=None must still produce an aware `now` so the
     # `event.start - now` subtraction in format_relative does not raise.

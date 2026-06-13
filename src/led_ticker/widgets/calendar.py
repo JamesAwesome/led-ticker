@@ -186,7 +186,12 @@ def format_relative(event: CalendarEvent | None, now: datetime, empty_text: str)
     hours = int(secs // 3600)
     minutes = int((secs % 3600) // 60)
     if hours >= 1:
+        if minutes == 0:
+            return f"{event.summary} in {hours}h"
         return f"{event.summary} in {hours}h {minutes}m"
+    if minutes == 0:
+        # sub-minute and imminent -> treat as happening now
+        return f"{event.summary} now"
     return f"{event.summary} in {minutes}m"
 
 

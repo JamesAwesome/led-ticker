@@ -12,7 +12,7 @@
 [display]
 rows = 64
 cols = 256
-chain = 1
+chain_length = 1
 default_scale = 4
 brightness = 60
 
@@ -63,7 +63,7 @@ scroll_step_ms = 40
 
 [[playlist.section.widget]]
 type = "countdown"
-message = "Summer Camps"
+text = "Summer Camps"
 countdown_date = 2026-06-15
 font_color = [180, 220, 180]
 

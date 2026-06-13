@@ -53,11 +53,29 @@ def test_parse_drops_past_and_sorts():
     assert all(not (e.start < now and not e.all_day) for e in events)
 
 
+def test_parse_drops_ongoing_timed_event():
+    # The "Daily 1:1" recurs at 10:00 UTC. At 11:00 the 10:00 occurrence has
+    # started (it is "ongoing"/past-start) and must be dropped by the
+    # start < now filter even though recurring_ical_events still returns it.
+    now = datetime(2026, 6, 15, 11, 0, tzinfo=_UTC)
+    events = _parse(now, days=1)
+    # the 10:00 occurrence on 06-15 must NOT appear (it already started)
+    assert not any(
+        e.summary == "Daily 1:1"
+        and e.start == datetime(2026, 6, 15, 10, 0, tzinfo=_UTC)
+        for e in events
+    )
+
+
 def test_calendar_event_is_value_object():
     e = CalendarEvent(
         summary="x", start=datetime(2026, 1, 1, tzinfo=_UTC), all_day=False
     )
     assert e.summary == "x"
+    # equality is load-bearing for later select_events membership checks
+    assert e == CalendarEvent(
+        summary="x", start=datetime(2026, 1, 1, tzinfo=_UTC), all_day=False
+    )
 
 
 def test_parse_with_local_tz_does_not_crash():

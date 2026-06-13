@@ -73,6 +73,8 @@ def parse_ics(
         if dtstart is None:
             continue
         start, all_day = _to_display_start(dtstart.dt, tz)
+        # belt-and-suspenders: recurring_ical_events.between() already excludes
+        # past all-day events; this guards malformed/edge feeds.
         if all_day:
             if start + timedelta(days=1) <= now:
                 continue

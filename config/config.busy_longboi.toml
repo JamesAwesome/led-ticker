@@ -80,13 +80,13 @@ font_threshold = 80
 
 # --- Remote HTTP trigger (alternative to the file source above) ---
 # Flip the light from another machine on the LAN (e.g. a work Mac hotkey or
-# macOS Focus automation). Docker: also add `ports: ["8080:8080"]` to the
+# macOS Focus automation). Docker: also add `ports: ["8081:8081"]` to the
 # compose service. See https://docs.ledticker.dev/concepts/busy-light/
 # [busy_light]
 # enabled = true
 # source = "http"
 # http_host = "0.0.0.0"
-# http_port = 8080
+# http_port = 8081
 # token = "change-me"
 # size = 8            # ~8-10 px on the 64-tall longboi
 # ttl_seconds = 0

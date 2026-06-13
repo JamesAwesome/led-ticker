@@ -1000,7 +1000,7 @@ def test_busy_light_http_fields_default(tmp_path):
     cfg = load_config(p)
     assert cfg.busy_light.source == "file"
     assert cfg.busy_light.http_host == "0.0.0.0"
-    assert cfg.busy_light.http_port == 8080
+    assert cfg.busy_light.http_port == 8081  # default; distinct from [web]'s 8080
     assert cfg.busy_light.token == ""
     assert cfg.busy_light.ttl_seconds == 0.0
 

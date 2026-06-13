@@ -329,8 +329,10 @@ class Calendar:
             async with self.session.get(url) as resp:
                 resp.raise_for_status()
                 return await resp.text()
-        # file:// or a bare local path — read from disk (offline calendars,
-        # demos, tests). aiohttp does not handle file:// URLs.
+        # file:// or a bare local path -> read from disk (offline calendars,
+        # demos, tests). aiohttp cannot fetch file://. NOTE: a relative path is
+        # resolved against the process CWD, not the config dir — prefer an
+        # absolute path (file:///abs or /abs) for deployed configs.
         path = url[len("file://") :] if url.startswith("file://") else url
         return await asyncio.to_thread(Path(path).expanduser().read_text)
 
@@ -340,6 +342,8 @@ class Calendar:
             font=self.font,
             font_color=self.font_color,
             bg_color=self.bg_color,
+            border=self.border,
+            padding=self.padding,
         )
 
     async def update(self) -> None:

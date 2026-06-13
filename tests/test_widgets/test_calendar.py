@@ -8,7 +8,9 @@ from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.calendar import (
     CalendarEvent,
     _match_any,
+    _NextEventWidget,
     format_event_line,
+    format_relative,
     parse_ics,
     select_events,
 )
@@ -165,3 +167,66 @@ def test_format_all_day_omits_time():
     e = CalendarEvent("Holiday", datetime(2026, 6, 16, 0, 0, tzinfo=_UTC), True)
     result = format_event_line(e, now=now, time_format="12h", tz=_UTC)
     assert result == "Tomorrow  Holiday"
+
+
+# ---------------------------------------------------------------------------
+# Task 5: format_relative + _NextEventWidget
+# ---------------------------------------------------------------------------
+
+
+def test_format_relative_minutes():
+    now = datetime(2026, 6, 15, 14, 35, tzinfo=_UTC)
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    assert format_relative(e, now, "No upcoming events") == "Standup in 25m"
+
+
+def test_format_relative_hours_minutes():
+    now = datetime(2026, 6, 15, 12, 50, tzinfo=_UTC)
+    e = CalendarEvent("Dentist", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    assert format_relative(e, now, "x") == "Dentist in 2h 10m"
+
+
+def test_format_relative_days():
+    now = datetime(2026, 6, 15, 12, 0, tzinfo=_UTC)
+    e = CalendarEvent("Trip", datetime(2026, 6, 18, 12, 0, tzinfo=_UTC), False)
+    assert format_relative(e, now, "x") == "Trip in 3d"
+
+
+def test_format_relative_in_progress_is_now():
+    now = datetime(2026, 6, 15, 15, 5, tzinfo=_UTC)
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    assert format_relative(e, now, "x") == "Standup now"
+
+
+def test_format_relative_none_is_empty_text():
+    now = datetime(2026, 6, 15, 15, 5, tzinfo=_UTC)
+    assert format_relative(None, now, "No upcoming events") == "No upcoming events"
+
+
+def test_next_event_widget_draws(canvas):
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    w = _NextEventWidget(event=e, empty_text="none", timezone="UTC")
+    out_canvas, cursor = w.draw(canvas)
+    assert out_canvas is canvas
+    assert isinstance(cursor, int)
+
+
+def test_next_event_widget_rainbow_advances_frame(canvas):
+    from led_ticker.color_providers import Rainbow
+
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    w = _NextEventWidget(
+        event=e, empty_text="none", timezone="UTC", font_color=Rainbow()
+    )
+    w.advance_frame()
+    w.draw(canvas)  # must not raise; per-char path exercised
+
+
+def test_next_event_widget_unset_timezone_does_not_crash(canvas):
+    # Default path: timezone=None must still produce an aware `now` so the
+    # `event.start - now` subtraction in format_relative does not raise.
+    local = datetime.now().astimezone().tzinfo
+    e = CalendarEvent("Standup", datetime(2026, 12, 31, 23, 59, tzinfo=local), False)
+    w = _NextEventWidget(event=e, empty_text="none", timezone=None)
+    out_canvas, _ = w.draw(canvas)  # must not raise
+    assert out_canvas is canvas

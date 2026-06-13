@@ -14,10 +14,15 @@ import attrs
 import icalendar
 import recurring_ical_events
 
-from led_ticker._types import Font
+from led_ticker._types import Canvas, DrawResult, Font
+from led_ticker.color_providers import ColorProvider, _ConstantColor
+from led_ticker.colors import DEFAULT_COLOR, make_color
+from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
+from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widget import Widget
 from led_ticker.widgets import register
+from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets.clock import format_clock
 from led_ticker.widgets.message import TickerMessage
 
@@ -165,6 +170,110 @@ def format_event_line(
     if event.all_day:
         return f"{day}  {event.summary}"
     return f"{day} {format_clock(event.start, time_format)}  {event.summary}"
+
+
+def format_relative(event: CalendarEvent | None, now: datetime, empty_text: str) -> str:
+    """Next-mode line: '<summary> in <rel>' / '<summary> now' / empty_text."""
+    if event is None:
+        return empty_text
+    delta = event.start - now
+    secs = delta.total_seconds()
+    if secs <= 0:
+        return f"{event.summary} now"
+    days = int(secs // 86400)
+    if days >= 1:
+        return f"{event.summary} in {days}d"
+    hours = int(secs // 3600)
+    minutes = int((secs % 3600) // 60)
+    if hours >= 1:
+        return f"{event.summary} in {hours}h {minutes}m"
+    return f"{event.summary} in {minutes}m"
+
+
+def _coerce_provider(value: Any) -> ColorProvider:
+    """Coerce a color field to a ColorProvider.
+
+    None -> default color; an existing provider -> as-is; a raw [r,g,b]
+    list/tuple -> _ConstantColor(graphics.Color(...)) (NOT a bare list — a
+    list has no .red/.green/.blue and the real C DrawText/SetPixel require a
+    graphics.Color); an existing graphics.Color -> _ConstantColor. Config
+    strings/tables (e.g. "rainbow") are coerced by the factory before
+    construction (highlight_color is added to _PROVIDER_COLOR_KEYS in Task 7),
+    so they arrive here already as providers.
+    """
+    if value is None:
+        return _ConstantColor(DEFAULT_COLOR)
+    if hasattr(value, "color_for"):
+        return value
+    if isinstance(value, (list, tuple)):
+        return _ConstantColor(make_color(*value))
+    return _ConstantColor(value)  # already a graphics.Color
+
+
+@attrs.define
+class _NextEventWidget(FrameAwareBase):
+    """The layout='next' feed story: one live countdown line, recomputed each
+    draw (engine _hold_ticks redraws held widgets, so the countdown ticks)."""
+
+    event: CalendarEvent | None = None
+    empty_text: str = "No upcoming events"
+    timezone: str | None = None
+    font: Any = attrs.Factory(lambda: FONT_DEFAULT)
+    font_color: ColorProvider = attrs.field(
+        default=None, converter=_coerce_provider, kw_only=True
+    )
+    bg_color: Any = attrs.field(default=None, kw_only=True)
+    border: Any | None = attrs.field(default=None, kw_only=True)
+    center: bool = True
+    padding: int = 6
+    _baseline_y: int = attrs.field(init=False, default=-1)
+
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
+        if font_color is not None and not hasattr(font_color, "color_for"):
+            font_color = _ConstantColor(font_color)
+        provider: ColorProvider = font_color or self.font_color
+
+        tz = ZoneInfo(self.timezone) if self.timezone else None
+        now = _now_in(tz)  # ALWAYS aware (local when tz is None) — event.start
+        # is aware, and format_relative subtracts them; a naive now -> TypeError.
+        text = format_relative(self.event, now, self.empty_text)
+
+        content_width = get_text_width(self.font, text, padding=0, canvas=canvas)
+        cursor_pos, end_padding = compute_cursor(
+            canvas.width, content_width, cursor_pos, self.padding, center=self.center
+        )
+        if self._baseline_y < 0:
+            self._baseline_y = compute_baseline(self.font, canvas, valign="center")
+        baseline_y = self._baseline_y
+
+        if self.border is not None:
+            self.border.paint(canvas, self.frame_for("border"))
+
+        if provider.per_char:
+            cursor_pos += draw_text_per_char(
+                canvas,
+                self.font,
+                cursor_pos,
+                baseline_y + y_offset,
+                text,
+                lambda idx, total: provider.color_for(
+                    self.frame_for("font_color"), idx, total
+                ),
+            )
+        else:
+            color = provider.color_for(self.frame_for("font_color"), 0, len(text))
+            cursor_pos += draw_text(
+                canvas, self.font, cursor_pos, baseline_y + y_offset, color, text
+            )
+        cursor_pos += end_padding
+        return canvas, cursor_pos
 
 
 @register("calendar")

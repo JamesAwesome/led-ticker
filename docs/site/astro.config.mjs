@@ -84,6 +84,7 @@ export default defineConfig({
             { label: "All widgets", link: "/widgets/" },
             { label: "message", link: "/widgets/message/" },
             { label: "countdown", link: "/widgets/countdown/" },
+            { label: "clock", link: "/widgets/clock/" },
             { label: "two_row", link: "/widgets/two_row/" },
             { label: "weather", link: "/widgets/weather/" },
             { label: "rss_feed", link: "/widgets/rss_feed/" },

@@ -24,8 +24,8 @@ def test_get_unknown_widget_raises():
         get_widget_class("nonexistent_widget")
 
 
-def test_registry_has_seven_widgets():
-    assert len(_WIDGET_REGISTRY) == 7
+def test_registry_has_eight_widgets():
+    assert len(_WIDGET_REGISTRY) == 8
 
 
 def test_register_duplicate_name_raises():

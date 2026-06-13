@@ -1,11 +1,11 @@
 ---
 title: Widgets
-description: The 7 built-in widgets — what each one does and how to pick.
+description: The 8 built-in widgets — what each one does and how to pick.
 ---
 
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-led-ticker ships **7 built-in widget types**. Each is configured by a
+led-ticker ships **8 built-in widget types**. Each is configured by a
 `[[playlist.section.widget]]` block in your TOML. This page is the menu — pick the
 one that fits your data, then read its page for the full options list.
 
@@ -14,6 +14,7 @@ one that fits your data, then read its page for the full options list.
 | Widget                                                      | Source                      | Use when                                   |
 | ----------------------------------------------------------- | --------------------------- | ------------------------------------------ |
 | [`message`](/widgets/message/)                              | static text                 | most lines on most signs                   |
+| [`clock`](/widgets/clock/)                                  | local clock                 | current time (12h/24h, optional date/tz)   |
 | [`countdown`](/widgets/countdown/)                          | local clock + a target date | "X days until …"                           |
 | [`two_row`](/widgets/two_row/)                              | two static lines            | held-handle + scrolling promo (storefront) |
 | [`weather`](/widgets/weather/)                              | WeatherAPI.com              | forecast / current conditions              |
@@ -27,7 +28,7 @@ one that fits your data, then read its page for the full options list.
 
 ## By complexity
 
-- **Just text:** `message`, `countdown`. No external dependencies.
+- **Just text:** `message`, `countdown`, `clock`. No external dependencies.
 - **Two text rows (storefront layout):** `two_row` at section `scale=2`.
 - **Live data (background fetch):** `weather`, `rss_feed`, plus the plugin widgets `pool`, `baseball.scores`, `baseball.standings`, and `crypto.coingecko`. Each has retry + exponential backoff.
 - **Visual:** `gif`, `image`. Both support text overlay, fit modes (pillarbox / letterbox / stretch / crop), and per-row two-row layouts.

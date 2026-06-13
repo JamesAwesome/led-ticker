@@ -69,6 +69,11 @@
       <strong>Plugins</strong>
       <table id="plugins"><tbody></tbody></table>
     </div>
+    <div class="card" id="overlays-card">
+      <strong>Overlays</strong>
+      <div id="busy-state" class="muted">—</div>
+      <table id="overlay-roster"><tbody></tbody></table>
+    </div>
   </section>
   <section id="tab-config" class="tab">
     <div class="card">
@@ -205,6 +210,19 @@ async function poll() {
       .concat(fails).join("") || '<tr><td class="muted">no plugins</td></tr>';
     $("logtail").textContent = (st.log_tail || []).slice(-10)
       .map((e) => `${e.level} ${e.name}: ${e.message}`).join("\n") || "no recent warnings";
+    const ov = st.overlays || {roster: [], busy: {enabled: false}};
+    const b = ov.busy || {enabled: false};
+    if (!b.enabled) {
+      $("busy-state").textContent = "busy light not configured";
+    } else {
+      const dot = b.active ? "● busy" : "○ free";
+      let line = `${dot} · ${esc(b.source || "")}`;
+      if (b.ttl_remaining != null) line += ` · clears in ${Math.round(+b.ttl_remaining)}s`;
+      $("busy-state").textContent = line;
+    }
+    $("overlay-roster").tBodies[0].innerHTML = (ov.roster || [])
+      .map((o) => `<tr><td>${esc(o.name)}</td><td class="muted">${esc(o.kind)}</td></tr>`)
+      .join("") || '<tr><td class="muted">no overlays installed</td></tr>';
   } catch (e) {
     $("live").className = "missing";
     $("live").textContent = "webui unreachable";

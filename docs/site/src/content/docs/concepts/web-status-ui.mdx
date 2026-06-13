@@ -43,6 +43,27 @@ The Inventory tab shows what the sidecar can see in the config directory (capped
 
 The Status tab's **Plugins** card lists each loaded plugin's registered widget, transition, and emoji names (e.g. `widgets: baseball.scores, baseball.standings · emojis: baseball.ball`). Display processes that predate v1.1 publish counts instead of names; the UI falls back to showing the raw count object in that case.
 
+### Status tab — Overlays
+
+The Status tab's **Overlays** card shows what is compositing on top of the panel on every frame.
+
+**Busy light state** — when `[busy_light]` is configured, the card shows:
+
+- whether the dot is currently on (`● busy`) or off (`○ free`)
+- the source (`file` or `http`)
+- how many seconds remain on the active TTL deadline (`clears in Ns`), when one is armed
+
+When no `[busy_light]` block is present in the config, the card shows "busy light not configured".
+
+**Overlay roster** — a table listing every overlay registered with the engine at startup, with its name and whether it comes from core (`busy_light`) or a plugin (the plugin's namespace, e.g. `acme.clock`). The roster is static: it reflects what was loaded when the display process started and does not change while it is running.
+
+The Overlays card is **read-only**. The busy light's on/off state is controlled through the `[busy_light]` TOML config and, for `source = "http"`, through the `/busy` HTTP route the display process exposes — not through this dashboard. See [Busy light](/concepts/busy-light/) for the full control surface.
+
+<Aside type="note">
+  The Overlays card requires `[web]` to be configured. Display processes started without a `[web]`
+  block do not publish overlay state, and the card will not appear.
+</Aside>
+
 ### Status tab — live preview
 
 The Status tab includes a **live preview** panel that shows the actual content on the sign — the same pixels the panel is displaying, including the busy-light dot if one is configured. It updates at roughly 5 fps.

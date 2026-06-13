@@ -1,0 +1,23 @@
+# Demo: clock showing the numeric UTC OFFSET via %z. Like %Z, it needs an
+# explicit `timezone` to be non-empty.
+# render-duration: 5
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "clock"
+timezone = "Asia/Tokyo"
+format = "%H:%M %z"
+font_color = "rainbow"

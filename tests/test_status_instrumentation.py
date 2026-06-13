@@ -221,10 +221,15 @@ async def test_heartbeat_keeps_file_fresh_without_events(tmp_path):
 
 
 def test_run_spawns_heartbeat():
+    import re
+
     from led_ticker.app.run import run
 
+    # Regex tolerates ruff wrapping the call across lines (whitespace between
+    # `spawn_tracked(` and `_status_heartbeat`) — still fails if the spawn is
+    # removed, just not on cosmetic reflow.
     src = inspect.getsource(run)
-    assert "spawn_tracked(_status_heartbeat" in src, (
+    assert re.search(r"spawn_tracked\(\s*_status_heartbeat", src), (
         "run() must spawn the status heartbeat — without it any widget held "
         "longer than 3x min_interval shows a false 'stale' on the page."
     )
@@ -376,3 +381,75 @@ async def test_heartbeat_exit_turns_mirror_off(tmp_path):
     status_board.clear_active_board()  # heartbeat exits on next beat
     await _asyncio.wait_for(task, timeout=2)
     assert tee.mirror is False  # not stranded
+
+
+async def test_heartbeat_pulls_busy_state(tmp_path):
+    import asyncio as _asyncio
+
+    from led_ticker.app.run import _status_heartbeat
+    from led_ticker.busy_light import BusyLight
+
+    board = StatusBoard(path=tmp_path / "status.json", min_interval=0.05)
+    busy = BusyLight(file_path="/x")
+    busy.set_busy(True, now=__import__("time").monotonic(), ttl=600.0)
+    status_board.set_active_board(board)
+    task = _asyncio.create_task(_status_heartbeat(board, busy=busy, busy_source="http"))
+    try:
+        await _asyncio.sleep(0.15)
+        snap = board.snapshot()["overlays"]["busy"]
+        assert snap["enabled"] is True
+        assert snap["active"] is True
+        assert snap["source"] == "http"
+        assert snap["ttl_remaining"] is not None and snap["ttl_remaining"] > 0
+    finally:
+        status_board.clear_active_board()
+        await _asyncio.wait_for(task, timeout=2)
+
+
+async def test_heartbeat_busy_none_leaves_default(tmp_path):
+    import asyncio as _asyncio
+
+    from led_ticker.app.run import _status_heartbeat
+
+    board = StatusBoard(path=tmp_path / "status.json", min_interval=0.05)
+    status_board.set_active_board(board)
+    task = _asyncio.create_task(_status_heartbeat(board, busy=None))
+    try:
+        await _asyncio.sleep(0.15)
+        # busy=None: heartbeat records nothing; the board's default stands.
+        assert board.snapshot()["overlays"]["busy"] == {"enabled": False}
+    finally:
+        status_board.clear_active_board()
+        await _asyncio.wait_for(task, timeout=2)
+
+
+def test_run_spawns_heartbeat_after_busy_setup():
+    # The heartbeat needs the busy object, which is created by
+    # _start_busy_light. Source-order tripwire: the heartbeat spawn must come
+    # AFTER the busy-light setup call, or busy doesn't exist yet at the spawn.
+    import inspect
+    import re
+
+    from led_ticker.app.run import run
+
+    src = inspect.getsource(run)
+    busy_at = src.index("_start_busy_light(")
+    # Regex so the lookup survives ruff wrapping spawn_tracked(...) over lines.
+    spawn_match = re.search(r"spawn_tracked\(\s*_status_heartbeat", src)
+    assert spawn_match is not None, "run() must spawn the heartbeat"
+    assert busy_at < spawn_match.start(), (
+        "heartbeat spawn must follow _start_busy_light so the busy object "
+        "exists and can be threaded into the heartbeat."
+    )
+
+
+def test_run_builds_overlay_roster_in_source():
+    # The roster must be assembled in run() and handed to set_overlay_roster.
+    import inspect
+
+    from led_ticker.app.run import run
+
+    src = inspect.getsource(run)
+    assert "set_overlay_roster(" in src
+    assert '"kind": "core"' in src  # busy_light entry synthesized in run()
+    assert '"kind": "plugin"' in src  # plugin overlay entries

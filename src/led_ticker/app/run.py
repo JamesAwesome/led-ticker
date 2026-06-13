@@ -103,7 +103,11 @@ def _load_plugins_for_config(config_path: Path):
 
 
 async def _status_heartbeat(
-    board: Any, tee: Any = None, marker_ttl: float | None = None
+    board: Any,
+    tee: Any = None,
+    marker_ttl: float | None = None,
+    busy: Any = None,
+    busy_source: str = "file",
 ) -> None:
     """Republish at the throttle cadence so the sidecar's staleness verdict
     measures process liveness, not event frequency. Without this, a widget
@@ -122,6 +126,22 @@ async def _status_heartbeat(
         marker = tee._frame_path.parent / "preview-requested"
     try:
         while not board.disabled and _sb.get_active_board() is board:
+            if busy is not None:
+                try:
+                    state = {
+                        "enabled": True,
+                        "active": busy.is_busy,
+                        "source": busy_source,
+                        "ttl_remaining": busy.ttl_remaining(),
+                    }
+                except Exception:
+                    state = {
+                        "enabled": True,
+                        "active": getattr(busy, "is_busy", False),
+                        "source": busy_source,
+                    }
+                    logging.warning("busy state read failed; publishing without ttl")
+                _sb.record_busy(state)
             board.publish()
             # Narrow on marker (not tee): they're set together, and pyright
             # can only carry the None-check through the variable it stat()'s.
@@ -249,17 +269,38 @@ async def run(config_path: Path) -> None:
         led_frame = build_frame_from_config(config.display)
         preview_tee = _setup_preview(config, led_frame)
 
-        if _status_handle is not None:
-            spawn_tracked(_status_heartbeat(_status_handle[0], tee=preview_tee))
-
+        # Busy light first so the heartbeat (spawned below) can read its state.
+        busy = None
         if config.busy_light.enabled:
-            await _start_busy_light(config.busy_light, led_frame)
+            busy = await _start_busy_light(config.busy_light, led_frame)
 
         # Plugin overlays composite over every render path via LedFrame.swap(),
         # same as the busy-light. Each is exception-wrapped so a raising plugin
         # overlay disables itself (logged once) rather than freezing the panel.
         for ns, paint in plugins.overlays:
             led_frame.overlay_hooks.append(_guarded_overlay(ns, paint))
+
+        # Publish the static overlay roster once: names come from the
+        # registration sites here (a raw overlay_hooks callable has no clean
+        # name). busy.enabled and the busy_light roster entry both derive from
+        # the one config gate, so they can't disagree.
+        if _status_handle is not None:
+            from led_ticker.status_board import set_overlay_roster  # noqa: PLC0415
+
+            roster: list[dict[str, str]] = []
+            if busy is not None:
+                roster.append({"name": "busy_light", "kind": "core"})
+            roster.extend({"name": ns, "kind": "plugin"} for ns, _ in plugins.overlays)
+            set_overlay_roster(roster)
+
+            spawn_tracked(
+                _status_heartbeat(
+                    _status_handle[0],
+                    tee=preview_tee,
+                    busy=busy,
+                    busy_source=config.busy_light.source,
+                )
+            )
 
         # Default inter-section transition built once at startup. Used for
         # sections that don't specify their own `transition` field — see

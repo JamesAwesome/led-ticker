@@ -23,6 +23,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "widget",
     "monitor_updates",
     "swap_count",
+    "overlays",
     "log_tail",
 }
 
@@ -38,7 +39,7 @@ def test_schema_tripwire(tmp_path):
         "SCHEMA_VERSION in src/led_ticker/status_board.py (the sidecar refuses "
         "schemas it doesn't know)."
     )
-    assert snap["schema"] == SCHEMA_VERSION == 2
+    assert snap["schema"] == SCHEMA_VERSION == 3
 
 
 def test_publish_roundtrip(tmp_path):
@@ -280,5 +281,60 @@ def test_record_swap_increments_without_publishing(tmp_path):
             status_board.record_swap()
         assert board.swap_count == 5
         assert not (tmp_path / "status.json").exists()  # nothing was written
+    finally:
+        status_board.clear_active_board()
+
+
+def test_snapshot_has_overlays_with_roster_and_busy(tmp_path):
+    board = _board(tmp_path)
+    snap = board.snapshot()
+    assert "overlays" in snap
+    assert snap["overlays"] == {"roster": [], "busy": {"enabled": False}}
+
+
+def test_set_overlay_roster_stores(tmp_path):
+    board = _board(tmp_path)
+    status_board.set_active_board(board)
+    try:
+        status_board.set_overlay_roster(
+            [
+                {"name": "busy_light", "kind": "core"},
+                {"name": "acme.clock", "kind": "plugin"},
+            ]
+        )
+        assert board.snapshot()["overlays"]["roster"][1]["name"] == "acme.clock"
+    finally:
+        status_board.clear_active_board()
+
+
+def test_record_busy_stores(tmp_path):
+    board = _board(tmp_path)
+    status_board.set_active_board(board)
+    try:
+        status_board.record_busy(
+            {"enabled": True, "active": True, "source": "http", "ttl_remaining": 12.0}
+        )
+        assert board.snapshot()["overlays"]["busy"]["active"] is True
+    finally:
+        status_board.clear_active_board()
+
+
+def test_overlay_setters_noop_without_active_board(tmp_path):
+    status_board.clear_active_board()
+    status_board.set_overlay_roster([{"name": "x", "kind": "core"}])  # must not raise
+    status_board.record_busy({"enabled": True})  # must not raise
+
+
+def test_record_busy_does_not_write_file(tmp_path):
+    # COST GUARD: record_busy is a pure setter — it must NOT publish/flush.
+    # The heartbeat calls board.publish() right after; double-writing would
+    # halve the zero-extra-I/O property.
+    board = _board(tmp_path)
+    status_board.set_active_board(board)
+    try:
+        status_board.record_busy({"enabled": True, "active": False})
+        assert not (tmp_path / "status.json").exists()  # nothing written yet
+        board.publish(force=True)
+        assert (tmp_path / "status.json").exists()  # the explicit publish writes
     finally:
         status_board.clear_active_board()

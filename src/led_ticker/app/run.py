@@ -293,14 +293,14 @@ async def run(config_path: Path) -> None:
             roster.extend({"name": ns, "kind": "plugin"} for ns, _ in plugins.overlays)
             set_overlay_roster(roster)
 
-            # fmt: off
-            spawn_tracked(_status_heartbeat(
-                _status_handle[0],
-                tee=preview_tee,
-                busy=busy,
-                busy_source=config.busy_light.source,
-            ))
-            # fmt: on
+            spawn_tracked(
+                _status_heartbeat(
+                    _status_handle[0],
+                    tee=preview_tee,
+                    busy=busy,
+                    busy_source=config.busy_light.source,
+                )
+            )
 
         # Default inter-section transition built once at startup. Used for
         # sections that don't specify their own `transition` field — see

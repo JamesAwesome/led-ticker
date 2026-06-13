@@ -221,10 +221,15 @@ async def test_heartbeat_keeps_file_fresh_without_events(tmp_path):
 
 
 def test_run_spawns_heartbeat():
+    import re
+
     from led_ticker.app.run import run
 
+    # Regex tolerates ruff wrapping the call across lines (whitespace between
+    # `spawn_tracked(` and `_status_heartbeat`) — still fails if the spawn is
+    # removed, just not on cosmetic reflow.
     src = inspect.getsource(run)
-    assert "spawn_tracked(_status_heartbeat" in src, (
+    assert re.search(r"spawn_tracked\(\s*_status_heartbeat", src), (
         "run() must spawn the status heartbeat — without it any widget held "
         "longer than 3x min_interval shows a false 'stale' on the page."
     )
@@ -423,13 +428,16 @@ def test_run_spawns_heartbeat_after_busy_setup():
     # _start_busy_light. Source-order tripwire: the heartbeat spawn must come
     # AFTER the busy-light setup call, or busy doesn't exist yet at the spawn.
     import inspect
+    import re
 
     from led_ticker.app.run import run
 
     src = inspect.getsource(run)
     busy_at = src.index("_start_busy_light(")
-    spawn_at = src.index("spawn_tracked(_status_heartbeat")
-    assert busy_at < spawn_at, (
+    # Regex so the lookup survives ruff wrapping spawn_tracked(...) over lines.
+    spawn_match = re.search(r"spawn_tracked\(\s*_status_heartbeat", src)
+    assert spawn_match is not None, "run() must spawn the heartbeat"
+    assert busy_at < spawn_match.start(), (
         "heartbeat spawn must follow _start_busy_light so the busy object "
         "exists and can be threaded into the heartbeat."
     )

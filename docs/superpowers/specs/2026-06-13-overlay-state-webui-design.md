@@ -61,7 +61,14 @@ A new top-level `overlays` key in the status snapshot:
     "clears in Ns" directly and never compares it to the wall-clock `published_at`, so
     the monotonic/wall-clock mismatch never bites.
   - When the busy light is disabled, this is `{"enabled": false}` and `busy_light` is
-    absent from the roster.
+    absent from the roster. **Single source of truth:** both `busy.enabled` and the
+    presence of the `busy_light` roster entry derive from the one
+    `config.busy_light.enabled` gate — they cannot disagree (don't compute them from
+    two places).
+
+This whole feature is gated on `[web]` being configured, like every web feature: with
+no `[web]`, there is no status board and no heartbeat, so nothing here runs or costs
+anything — `overlays` simply isn't published.
 
 **Schema:** `SCHEMA_VERSION` bumps **2 → 3** (the tripwire guards the top-level key
 set, so a new key forces the bump — consistent with the swap_count bump to 2). The
@@ -130,7 +137,9 @@ path is unreachable — a v2 status never gets past `_read_status` to the render
   `record_busy(...)` BEFORE the existing `board.publish()`; the build is wrapped so a
   read error logs and stores the dict without `ttl_remaining` rather than killing the
   heartbeat (which also owns preview-watch and the liveness counter). When `busy` is
-  None, it records `{"enabled": False}` once and skips thereafter.
+  None, the heartbeat does NOTHING for busy — the board's `busy` field already defaults
+  to `{"enabled": False}`, so the snapshot carries the disabled state without any
+  `record_busy` call.
 - **`busy_light.py` gains ONE read-only accessor; `busy_http.py` and `frame.py` are
   untouched.** Add `BusyLight.ttl_remaining(now=None) -> float | None` returning
   `max(0.0, self._busy_until - monotonic())` when a deadline is armed else `None` —
@@ -147,7 +156,8 @@ A new card on the Status tab, after Health and Plugins, rendered from
 
 - **Busy indicator** (top): when `overlays.busy.enabled`, a dot + label —
   "● busy" when `active`, "○ free" otherwise — with `source` and, if
-  `ttl_remaining` is set, "clears in Ns". When `enabled` is false: muted
+  `ttl_remaining` is set, "clears in Ns" (rounded to a whole second for display —
+  the published value is a float). When `enabled` is false: muted
   "busy light not configured".
 - **Overlay roster** (below): one row per entry — `name` + a `core`/`plugin` kind
   tag. Empty roster → muted "no overlays installed".

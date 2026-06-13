@@ -61,6 +61,17 @@ class BusyLight:
             self.is_busy = False
             self._busy_until = None
 
+    def ttl_remaining(self, now: float | None = None) -> float | None:
+        """Seconds-from-now until the armed deadline clears the busy state,
+        clamped at 0.0; None when no deadline is armed. Read-only — does NOT
+        mutate state (unlike tick_ttl). Lets a reader (the web status
+        heartbeat) report the remaining time without reaching into the
+        private _busy_until, keeping busy_light import-free of the web stack."""
+        if self._busy_until is None:
+            return None
+        t = time.monotonic() if now is None else now
+        return max(0.0, self._busy_until - t)
+
     def paint(self, canvas: Canvas) -> None:
         """Overlay hook: draw a size×size block in the corner while busy."""
         if not self.is_busy:

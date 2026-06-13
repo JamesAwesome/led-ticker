@@ -175,3 +175,23 @@ def test_set_busy_ttl_zero_override_stays_on_and_clears_prior_deadline():
     busy.set_busy(True, now=101.0, ttl=0.0)  # explicit ttl=0 → on indefinitely
     assert busy._busy_until is None
     assert busy.is_busy is True
+
+
+def test_ttl_remaining_none_when_no_deadline():
+    bl = BusyLight(file_path="/x")
+    assert bl.ttl_remaining() is None
+    bl.set_busy(True)  # no ttl -> stays on, no deadline armed
+    assert bl.ttl_remaining() is None
+
+
+def test_ttl_remaining_positive_while_armed():
+    bl = BusyLight(file_path="/x")
+    bl.set_busy(True, now=1000.0, ttl=30.0)  # deadline at 1030
+    assert bl.ttl_remaining(now=1000.0) == 30.0
+    assert bl.ttl_remaining(now=1025.0) == 5.0
+
+
+def test_ttl_remaining_clamps_to_zero_past_deadline():
+    bl = BusyLight(file_path="/x")
+    bl.set_busy(True, now=1000.0, ttl=10.0)  # deadline at 1010
+    assert bl.ttl_remaining(now=1015.0) == 0.0  # never negative

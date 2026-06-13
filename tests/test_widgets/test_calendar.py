@@ -129,3 +129,11 @@ def test_select_no_filter_no_highlight_is_soonest_capped():
     events = [_ev(f"E{d}", d) for d in (15, 16, 17, 18)]
     kept = select_events(events, filter=[], highlight=[], max_events=2)
     assert [e.summary for e in kept] == ["E15", "E16"]
+
+
+def test_select_highlight_exceeds_cap_is_still_capped():
+    # More highlighted matches than max_events: still capped, still chronological.
+    events = [_ev("Payday", d) for d in range(15, 22)]  # 7 highlighted events
+    kept = select_events(events, filter=[], highlight=["payday"], max_events=3)
+    assert len(kept) == 3
+    assert [e.start for e in kept] == sorted(e.start for e in kept)

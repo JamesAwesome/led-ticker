@@ -104,13 +104,17 @@ def select_events(
 ) -> list[CalendarEvent]:
     """Apply the keyword filter, then cap to max_events while guaranteeing every
     highlighted event survives. `events` is assumed sorted by start; the result
-    is re-sorted by start so the agenda reads chronologically."""
+    is re-sorted by start so the agenda reads chronologically.
+
+    `max_events <= 0` means no cap: all post-filter events are returned.
+    """
     if filter:
         events = [e for e in events if _match_any(e.summary, filter)]
     if max_events <= 0 or len(events) <= max_events:
         return events
     highlighted = [e for e in events if _match_any(e.summary, highlight)]
-    rest = [e for e in events if e not in highlighted]
+    highlighted_ids = {id(e) for e in highlighted}
+    rest = [e for e in events if id(e) not in highlighted_ids]
     kept = highlighted[:max_events]
     kept += rest[: max_events - len(kept)]
     kept.sort(key=lambda e: e.start)

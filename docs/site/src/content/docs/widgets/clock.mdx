@@ -107,6 +107,70 @@ format = "%a %b %d  %H:%M"`}
 
 This renders a single line like `Sat Jun 13  15:09`. Stacked date-over-time (two rows) is a planned future addition.
 
+### Show the timezone abbreviation
+
+Add `%Z` to a custom format to print the timezone abbreviation (`EDT`, `JST`, …) next to the time:
+
+<DemoGif
+  src="/demos-pinned/clock-timezone-abbrev.gif"
+  caption={`timezone = "America/New_York", format = "%H:%M %Z"`}
+/>
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "clock"
+timezone = "America/New_York"
+format = "%H:%M %Z"`}
+/>
+
+<Aside type="caution">
+  `%Z` and `%z` are only populated when you set `timezone` explicitly. The default system-local
+  clock uses a *naive* timestamp with no timezone info, so `%Z`/`%z` render blank — set `timezone`
+  to label the time with its zone.
+</Aside>
+
+### Show the UTC offset
+
+`%z` prints the numeric offset (`+0900`, `-0400`) instead of the abbreviation:
+
+<DemoGif
+  src="/demos-pinned/clock-timezone-offset.gif"
+  caption={`timezone = "Asia/Tokyo", format = "%H:%M %z"`}
+/>
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "clock"
+timezone = "Asia/Tokyo"
+format = "%H:%M %z"`}
+/>
+
+To pair the zone label with a 12-hour time, combine the codes: `format = "%I:%M %p %Z"` renders `05:48 PM EDT`.
+
+### World clock — one section per city
+
+Give each timezone its own `swap` section to rotate through several cities, each labelled with `%Z`:
+
+<TomlExample
+  code={`[[playlist.section]]
+mode = "swap"
+hold_time = 5
+
+[[playlist.section.widget]]
+type = "clock"
+timezone = "America/New_York"
+format = "NYC %H:%M %Z"
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 5
+
+[[playlist.section.widget]]
+type = "clock"
+timezone = "Asia/Tokyo"
+format = "TYO %H:%M %Z"`}
+/>
+
 ## Swap mode
 
 The clock widget is designed for `swap`-mode sections, where the engine holds each widget for `hold_time` seconds and redraws every tick. In a `scroll` or `forever_scroll` section the widget will scroll across the panel like any other text widget — which may not be what you want for a clock.

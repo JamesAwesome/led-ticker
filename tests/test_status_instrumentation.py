@@ -416,3 +416,32 @@ async def test_heartbeat_busy_none_leaves_default(tmp_path):
     finally:
         status_board.clear_active_board()
         await _asyncio.wait_for(task, timeout=2)
+
+
+def test_run_spawns_heartbeat_after_busy_setup():
+    # The heartbeat needs the busy object, which is created by
+    # _start_busy_light. Source-order tripwire: the heartbeat spawn must come
+    # AFTER the busy-light setup call, or busy doesn't exist yet at the spawn.
+    import inspect
+
+    from led_ticker.app.run import run
+
+    src = inspect.getsource(run)
+    busy_at = src.index("_start_busy_light(")
+    spawn_at = src.index("spawn_tracked(_status_heartbeat")
+    assert busy_at < spawn_at, (
+        "heartbeat spawn must follow _start_busy_light so the busy object "
+        "exists and can be threaded into the heartbeat."
+    )
+
+
+def test_run_builds_overlay_roster_in_source():
+    # The roster must be assembled in run() and handed to set_overlay_roster.
+    import inspect
+
+    from led_ticker.app.run import run
+
+    src = inspect.getsource(run)
+    assert "set_overlay_roster(" in src
+    assert '"kind": "core"' in src  # busy_light entry synthesized in run()
+    assert '"kind": "plugin"' in src  # plugin overlay entries

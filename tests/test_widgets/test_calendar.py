@@ -5,7 +5,12 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from led_ticker.widgets import get_widget_class
-from led_ticker.widgets.calendar import CalendarEvent, parse_ics
+from led_ticker.widgets.calendar import (
+    CalendarEvent,
+    _match_any,
+    parse_ics,
+    select_events,
+)
 
 _FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "calendar_sample.ics"
 _UTC = ZoneInfo("UTC")
@@ -89,3 +94,38 @@ def test_parse_with_local_tz_does_not_crash():
     assert all(e.start.tzinfo is not None for e in events)
     starts = [e.start for e in events]
     assert starts == sorted(starts)
+
+
+def _ev(summary, day):
+    return CalendarEvent(
+        summary=summary, start=datetime(2026, 6, day, 9, 0, tzinfo=_UTC), all_day=False
+    )
+
+
+def test_match_any_case_insensitive_substring():
+    assert _match_any("Daily 1:1 w/ Sam", ["1:1"]) is True
+    assert _match_any("STANDUP", ["stand"]) is True
+    assert _match_any("Lunch", ["1:1", "review"]) is False
+    assert _match_any("anything", []) is False
+
+
+def test_select_filter_keeps_only_matches():
+    events = [_ev("Standup", 15), _ev("Dentist", 16), _ev("1:1 Sam", 17)]
+    kept = select_events(events, filter=["1:1", "dentist"], highlight=[], max_events=5)
+    assert [e.summary for e in kept] == ["Dentist", "1:1 Sam"]
+
+
+def test_select_highlight_guaranteed_inclusion_chronological():
+    # 6 events; cap 3; the highlighted one (day 20) would be dropped by a plain
+    # soonest-3 cap, but must survive — and order stays chronological.
+    events = [_ev(f"E{d}", d) for d in (15, 16, 17, 18, 19)] + [_ev("Payday", 20)]
+    kept = select_events(events, filter=[], highlight=["payday"], max_events=3)
+    assert "Payday" in [e.summary for e in kept]
+    assert len(kept) == 3
+    assert [e.start for e in kept] == sorted(e.start for e in kept)
+
+
+def test_select_no_filter_no_highlight_is_soonest_capped():
+    events = [_ev(f"E{d}", d) for d in (15, 16, 17, 18)]
+    kept = select_events(events, filter=[], highlight=[], max_events=2)
+    assert [e.summary for e in kept] == ["E15", "E16"]

@@ -86,6 +86,37 @@ def parse_ics(
     return events
 
 
+def _match_any(summary: str, keywords: list[str]) -> bool:
+    """Case-insensitive substring match against any keyword (empty -> False).
+
+    Same semantics as the baseball promotions widget's _match_any.
+    """
+    s = summary.casefold()
+    return any(k.casefold() in s for k in keywords)
+
+
+def select_events(
+    events: list[CalendarEvent],
+    *,
+    filter: list[str],
+    highlight: list[str],
+    max_events: int,
+) -> list[CalendarEvent]:
+    """Apply the keyword filter, then cap to max_events while guaranteeing every
+    highlighted event survives. `events` is assumed sorted by start; the result
+    is re-sorted by start so the agenda reads chronologically."""
+    if filter:
+        events = [e for e in events if _match_any(e.summary, filter)]
+    if max_events <= 0 or len(events) <= max_events:
+        return events
+    highlighted = [e for e in events if _match_any(e.summary, highlight)]
+    rest = [e for e in events if e not in highlighted]
+    kept = highlighted[:max_events]
+    kept += rest[: max_events - len(kept)]
+    kept.sort(key=lambda e: e.start)
+    return kept
+
+
 @register("calendar")
 @attrs.define
 class Calendar:

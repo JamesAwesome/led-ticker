@@ -1,0 +1,78 @@
+# MLB attendance widget test config — longboi (512×64 canvas, logical 128×16)
+#
+# Smoketests baseball.attendance at hires scale=4 in both modes: league-wide
+# superlatives (default all four, and a fullest/emptiest subset) and team mode
+# (one team's game — attendance + fill % + venue + weather). Outside game hours
+# it falls back to yesterday ("6/12 · …"), then "Next game(s): …" /
+# "No games soon" / "No Data".
+# Requires the `led-ticker-baseball` plugin (baseball.attendance widget +
+# baseball.roll* transition; see config/requirements-plugins.txt.example).
+# Usage: cp config/config.mlb_attendance_test.toml config/config.toml
+
+[display]
+rows = 64
+cols = 128
+chain_length = 4
+brightness = 60
+default_scale = 4
+hardware_mapping = "adafruit-hat"
+panel_type = "FM6126A"
+led_rgb_sequence = "BRG"
+gpio_slowdown = 5
+pwm_bits = 7
+limit_refresh_rate_hz = 100
+
+[title]
+delay = 5
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = {type = "baseball.roll_alternating", duration = 3.2, transition_fps = 40}
+
+# --- MLB Attendance ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "push_left"
+transition_duration = 0.5
+hold_time = 8           # hold before/after the overflow scroll
+scroll_step_ms = 35     # engine scroll cadence, ms per pixel-step (default 50; lower = faster)
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":baseball.ball: MLB Attendance :baseball.ball:"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "random"
+
+# League mode, default: all four superlatives (biggest/smallest crowd,
+# fullest/emptiest park) across today's finals.
+[[playlist.section.widget]]
+type = "baseball.attendance"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+# League mode, subset: just the capacity-fill extremes.
+[[playlist.section.widget]]
+type = "baseball.attendance"
+stats = ["fullest", "emptiest"]
+title = "Capacity Watch"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+
+# Team mode: one team's game (attendance + fill % once final, venue + weather).
+[[playlist.section.widget]]
+type = "baseball.attendance"
+team = "TOR"
+timezone = "America/Toronto"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80

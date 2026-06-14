@@ -66,6 +66,11 @@ def test_parse_rrule_expands_within_window():
 
 
 def test_parse_drops_past_and_sorts():
+    # With now=2026-06-16 12:00 no timed events in the fixture are in-progress:
+    # the Daily 1:1 at 10:00 ends at 10:30 (< now) so it is dropped.  The
+    # assertion holds trivially for this specific fixture snapshot; for the
+    # general invariant see test_parse_keeps_in_progress_timed_event and
+    # test_parse_drops_ended_timed_event.
     now = datetime(2026, 6, 16, 12, 0, tzinfo=_UTC)
     events = _parse(now, days=7)
     starts = [e.start for e in events]
@@ -73,17 +78,73 @@ def test_parse_drops_past_and_sorts():
     assert all(not (e.start < now and not e.all_day) for e in events)
 
 
-def test_parse_drops_ongoing_timed_event():
-    # The "Daily 1:1" recurs at 10:00 UTC. At 11:00 the 10:00 occurrence has
-    # started (it is "ongoing"/past-start) and must be dropped by the
-    # start < now filter even though recurring_ical_events still returns it.
-    now = datetime(2026, 6, 15, 11, 0, tzinfo=_UTC)
+def test_parse_keeps_in_progress_timed_event():
+    # The "Daily 1:1" recurs at 10:00–10:30 UTC.  At 10:15 (start < now < end)
+    # the event is in-progress: end > now so it must be KEPT, mirroring the
+    # all-day behaviour (all-day drops only when end <= now).
+    now = datetime(2026, 6, 15, 10, 15, tzinfo=_UTC)
     events = _parse(now, days=1)
-    # the 10:00 occurrence on 06-15 must NOT appear (it already started)
-    assert not any(
+    # the 10:00–10:30 occurrence on 06-15 must be present (still in progress)
+    assert any(
         e.summary == "Daily 1:1"
         and e.start == datetime(2026, 6, 15, 10, 0, tzinfo=_UTC)
         for e in events
+    ), "In-progress timed event (end > now) must be kept"
+
+
+_INPROGRESS_TIMED_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:inprog-timed-1
+DTSTART:20260615T100000Z
+DTEND:20260615T103000Z
+SUMMARY:Morning Standup
+END:VEVENT
+END:VCALENDAR
+"""
+
+_MULTIDAY_TIMED_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:conference-1
+DTSTART:20260615T090000Z
+DTEND:20260617T170000Z
+SUMMARY:Annual Conference
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_parse_drops_ended_timed_event():
+    # A timed event whose end <= now must be dropped (the cutoff still works).
+    now = datetime(2026, 6, 15, 11, 0, tzinfo=_UTC)  # end=10:30 < now
+    events = parse_ics(_INPROGRESS_TIMED_ICS, now=now, lookahead_days=1, tz=_UTC)
+    assert not any(e.summary == "Morning Standup" for e in events), (
+        "Timed event with end <= now must be dropped"
+    )
+
+
+def test_parse_keeps_multiday_timed_event_midspan():
+    # A multi-day TIMED conference (DTSTART 2026-06-15T09:00Z / DTEND 2026-06-17T17:00Z)
+    # parsed with now=2026-06-16T12:00Z (mid-span) -> must be PRESENT (not dropped).
+    now = datetime(2026, 6, 16, 12, 0, tzinfo=_UTC)
+    events = parse_ics(_MULTIDAY_TIMED_ICS, now=now, lookahead_days=10, tz=_UTC)
+    assert any(e.summary == "Annual Conference" for e in events), (
+        "Multi-day timed event in mid-span (end > now) must be kept"
+    )
+
+    # Also verify: same event whose DTEND is now in the past -> dropped.
+    # now_past is after DTEND 2026-06-17T17:00Z
+    now_past = datetime(2026, 6, 18, 0, 0, tzinfo=_UTC)
+    events_past = parse_ics(
+        _MULTIDAY_TIMED_ICS, now=now_past, lookahead_days=10, tz=_UTC
+    )
+    assert not any(e.summary == "Annual Conference" for e in events_past), (
+        "Multi-day timed event with DTEND in the past must be dropped"
     )
 
 

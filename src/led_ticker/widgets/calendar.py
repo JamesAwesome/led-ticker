@@ -413,14 +413,14 @@ def parse_ics(
                 end = start + timedelta(days=1)
             if end <= now:  # ended before now -> past
                 continue
-        else:
-            if start < now:
-                continue
+        else:  # timed event
             # For timed events: use DTEND if present, else treat as instantaneous.
             if dtend_prop is not None:
                 end, _ = _to_display_start(dtend_prop.dt, tz)
             else:
-                end = start
+                end = start  # zero-duration: expires the instant it starts
+            if end <= now:  # already ended -> past
+                continue
         events.append(
             CalendarEvent(summary=summary, start=start, all_day=all_day, end=end)
         )

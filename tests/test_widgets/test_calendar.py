@@ -407,6 +407,19 @@ def test_list_fields_calendar_shows_hint_descriptions():
     assert "keep only events whose summary matches a keyword" in out
 
 
+def test_list_fields_calendar_layout_is_calendar_specific():
+    """--list-fields calendar must show calendar layout values, not pool values."""
+    from led_ticker.app.factories import _list_widget_fields
+
+    out = _list_widget_fields("calendar")
+    # Calendar-specific values must be present.
+    assert "agenda" in out
+    assert "next" in out
+    # Pool-specific value must NOT appear in the layout line.
+    # ("scoreboard" is the pool layout variant never valid for calendar.)
+    assert "scoreboard" not in out
+
+
 def test_calendar_builds_through_factory(monkeypatch):
     from led_ticker.app.factories import validate_widget_cfg
 

@@ -10,7 +10,7 @@ import itertools
 import logging
 from datetime import date, datetime, time, timedelta, tzinfo
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, ClassVar, Self
 from urllib.parse import unquote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -412,6 +412,19 @@ class _NextEventWidget(FrameAwareBase):
 @attrs.define
 class Calendar:
     """Container that shows upcoming .ics events as an agenda or next-event line."""
+
+    # Per-widget hint overrides for ``--list-fields calendar``.
+    # Defined as plain 3-tuples (display_type, description, default_display)
+    # to avoid importing ``FieldHint`` from ``led_ticker.app.factories`` —
+    # that import would be circular (factories imports widgets).
+    # ``_list_widget_fields`` coerces plain tuples to ``FieldHint`` before use.
+    _LIST_FIELD_HINTS: ClassVar[dict] = {
+        "layout": (
+            '"agenda" | "next"',
+            "agenda = rotating events list; next = live countdown to the next event",
+            '"agenda"',
+        ),
+    }
 
     session: aiohttp.ClientSession
     ics_url: str

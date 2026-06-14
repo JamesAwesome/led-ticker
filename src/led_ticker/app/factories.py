@@ -1046,8 +1046,25 @@ def _list_widget_fields(widget_type: str) -> str:
     ]
     widget_field_names = {a.name for a in init_attrs}
 
+    # Per-widget hint overrides: a widget class may declare
+    # ``_LIST_FIELD_HINTS: ClassVar[dict]`` whose values are either a
+    # ``FieldHint`` namedtuple or a plain 3-tuple ``(display_type,
+    # description, default_display)``.  Checked first; falls back to the
+    # global ``FIELD_HINTS`` dict.  Defined on the widget side as plain
+    # data to avoid importing ``FieldHint`` from this module (which would
+    # create a circular import: factories → widgets → factories).
+    _per_widget_hints: dict[str, Any] = getattr(cls, "_LIST_FIELD_HINTS", {})
+
+    def _resolve_hint(name: str) -> FieldHint | None:
+        raw = _per_widget_hints.get(name)
+        if raw is not None:
+            if isinstance(raw, tuple) and not isinstance(raw, FieldHint):
+                return FieldHint(*raw)
+            return raw
+        return FIELD_HINTS.get(name)
+
     def _render_field(a: Any) -> str:
-        hint = FIELD_HINTS.get(a.name)
+        hint = _resolve_hint(a.name)
         if hint:
             type_str = hint.display_type
         elif a.type is None:

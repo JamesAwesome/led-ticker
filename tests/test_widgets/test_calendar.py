@@ -17,6 +17,7 @@ from led_ticker.widgets.calendar import (
     TickerMessage,
     _match_any,
     _NextEventWidget,
+    _normalize_ics_url,
     _resolve_tz,
     format_event_line,
     format_relative,
@@ -719,3 +720,96 @@ def test_parse_strips_utf8_bom():
 def test_validate_rejects_whitespace_ics_url():
     msgs = Calendar.validate_config({"ics_url": "   "})
     assert any("ics_url" in m for m in msgs)
+
+
+# ---------------------------------------------------------------------------
+# Fix 1 (new): webcal:// / webcals:// scheme rewrite
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_ics_rewrites_webcal():
+    assert (
+        _normalize_ics_url("webcal://example.com/c.ics") == "https://example.com/c.ics"
+    )
+
+
+def test_fetch_ics_rewrites_webcals():
+    assert (
+        _normalize_ics_url("webcals://example.com/c.ics") == "https://example.com/c.ics"
+    )
+
+
+def test_normalize_ics_url_http_passthrough():
+    assert _normalize_ics_url("http://example.com/c.ics") == "http://example.com/c.ics"
+
+
+def test_normalize_ics_url_https_passthrough():
+    assert (
+        _normalize_ics_url("https://example.com/c.ics") == "https://example.com/c.ics"
+    )
+
+
+def test_normalize_ics_url_file_passthrough():
+    assert _normalize_ics_url("file:///tmp/c.ics") == "file:///tmp/c.ics"
+
+
+def test_normalize_ics_url_bare_path_passthrough():
+    assert _normalize_ics_url("/tmp/c.ics") == "/tmp/c.ics"
+
+
+# ---------------------------------------------------------------------------
+# Fix 2 (new): bare local paths not percent-decoded
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_ics_bare_path_not_percent_decoded(tmp_path):
+    # Write a tiny .ics file whose name contains the literal characters %41
+    # (NOT 'A'). _fetch_ics must NOT percent-decode bare paths, so the file
+    # is read as-is.
+    literal_name = tmp_path / "report%41.ics"
+    literal_name.write_text(_MULTIDAY_ICS)
+    cal = Calendar(session=None, ics_url=str(literal_name), timezone="UTC")
+    content = asyncio.run(cal._fetch_ics())
+    assert "Vacation" in content
+
+
+# ---------------------------------------------------------------------------
+# Fix 3 (new): all-day event today visible in layout="next"
+# ---------------------------------------------------------------------------
+
+
+def test_next_widget_shows_all_day_today(monkeypatch):
+    # An all-day event whose start date is today (midnight < now) must appear,
+    # not be skipped as "past".
+    now = datetime(2026, 6, 15, 10, 0, tzinfo=_UTC)
+    monkeypatch.setattr("led_ticker.widgets.calendar._now_in", lambda tz: now)
+    all_day_today = CalendarEvent(
+        "Holiday", datetime(2026, 6, 15, 0, 0, tzinfo=_UTC), all_day=True
+    )
+    w = _NextEventWidget(
+        events=[all_day_today], empty_text="No upcoming events", timezone="UTC"
+    )
+    c = Mock()
+    c.width = 160
+    c.height = 16
+    result = format_relative(all_day_today, now, "No upcoming events")
+    assert result == "Holiday today"
+    # Also verify draw() does not produce the empty_text (the event IS shown)
+    out_canvas, _ = w.draw(c)
+    assert out_canvas is c
+
+
+def test_format_relative_all_day_today_tomorrow():
+    now = datetime(2026, 6, 15, 10, 0, tzinfo=_UTC)
+    today = CalendarEvent(
+        "Holiday", datetime(2026, 6, 15, 0, 0, tzinfo=_UTC), all_day=True
+    )
+    tomorrow = CalendarEvent(
+        "Holiday", datetime(2026, 6, 16, 0, 0, tzinfo=_UTC), all_day=True
+    )
+    in_3d = CalendarEvent(
+        "Holiday", datetime(2026, 6, 18, 0, 0, tzinfo=_UTC), all_day=True
+    )
+    assert format_relative(today, now, "x") == "Holiday today"
+    assert format_relative(tomorrow, now, "x") == "Holiday tomorrow"
+    assert format_relative(in_3d, now, "x") == "Holiday in 3d"

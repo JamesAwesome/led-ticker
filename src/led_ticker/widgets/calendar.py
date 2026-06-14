@@ -237,9 +237,21 @@ def format_event_line(
 
 
 def format_relative(event: CalendarEvent | None, now: datetime, empty_text: str) -> str:
-    """Next-mode line: '<summary> in <rel>' / '<summary> now' / empty_text."""
+    """Next-mode line: '<summary> in <rel>' / '<summary> now' / empty_text.
+
+    All-day events are rendered by day (today/tomorrow/in Nd) rather than by
+    seconds, since their start is always midnight and a seconds-based delta
+    would produce misleading "now" or "in 14h" labels.
+    """
     if event is None:
         return empty_text
+    if event.all_day:
+        days = (event.start.date() - now.date()).days
+        if days <= 0:
+            return f"{event.summary} today"
+        if days == 1:
+            return f"{event.summary} tomorrow"
+        return f"{event.summary} in {days}d"
     delta = event.start - now
     secs = delta.total_seconds()
     if secs <= 0:
@@ -257,6 +269,21 @@ def format_relative(event: CalendarEvent | None, now: datetime, empty_text: str)
         # sub-minute and imminent -> treat as happening now
         return f"{event.summary} now"
     return f"{event.summary} in {minutes}m"
+
+
+def _normalize_ics_url(url: str) -> str:
+    """Rewrite non-standard URL schemes to their canonical equivalents.
+
+    ``webcal://`` and ``webcals://`` are Apple/Google/Outlook "Subscribe" links
+    that are identical to ``https://`` in content — rewrite them so the http
+    fetch path handles them. All other schemes (``http://``, ``https://``,
+    ``file://``, bare paths) are returned unchanged.
+    """
+    if url.startswith("webcal://"):
+        return "https://" + url[len("webcal://") :]
+    if url.startswith("webcals://"):
+        return "https://" + url[len("webcals://") :]
+    return url
 
 
 def _coerce_provider(value: Any) -> ColorProvider:
@@ -323,8 +350,14 @@ class _NextEventWidget(FrameAwareBase):
         # Pick the soonest not-yet-started event live on each draw call so the
         # widget rolls to the next event automatically (no stale 900s window).
         # Sort by start so unsorted inputs still yield the genuinely-soonest event.
+        # All-day events whose date is today are included even though their start
+        # timestamp (midnight) is <= now — they are still in progress / "today".
         event = next(
-            (e for e in sorted(self.events, key=lambda e: e.start) if e.start > now),
+            (
+                e
+                for e in sorted(self.events, key=lambda e: e.start)
+                if e.start > now or (e.all_day and e.start.date() == now.date())
+            ),
             None,
         )
 
@@ -332,11 +365,15 @@ class _NextEventWidget(FrameAwareBase):
         # font_color (passed by transitions) takes precedence over both.
         if font_color is not None and not hasattr(font_color, "color_for"):
             font_color = _ConstantColor(font_color)
-        provider: ColorProvider = font_color or (
-            self.highlight_color
-            if event is not None and _match_any(event.summary, self.highlight)
-            else self.font_color
+        use_highlight = (
+            font_color is None
+            and event is not None
+            and _match_any(event.summary, self.highlight)
         )
+        provider: ColorProvider = font_color or (
+            self.highlight_color if use_highlight else self.font_color
+        )
+        frame_key = "highlight_color" if use_highlight else "font_color"
 
         text = format_relative(event, now, self.empty_text)
 
@@ -359,11 +396,11 @@ class _NextEventWidget(FrameAwareBase):
                 baseline_y + y_offset,
                 text,
                 lambda idx, total: provider.color_for(
-                    self.frame_for("font_color"), idx, total
+                    self.frame_for(frame_key), idx, total
                 ),
             )
         else:
-            color = provider.color_for(self.frame_for("font_color"), 0, len(text))
+            color = provider.color_for(self.frame_for(frame_key), 0, len(text))
             cursor_pos += draw_text(
                 canvas, self.font, cursor_pos, baseline_y + y_offset, color, text
             )
@@ -462,7 +499,7 @@ class Calendar:
         return widget
 
     async def _fetch_ics(self) -> str:
-        url = self.ics_url
+        url = _normalize_ics_url(self.ics_url)
         if url.startswith(("http://", "https://")):
             async with self.session.get(url) as resp:
                 resp.raise_for_status()
@@ -471,7 +508,9 @@ class Calendar:
         # demos, tests). aiohttp cannot fetch file://. NOTE: a relative path is
         # resolved against the process CWD, not the config dir — prefer an
         # absolute path (file:///abs or /abs) for deployed configs.
-        path = unquote(url[len("file://") :] if url.startswith("file://") else url)
+        # Percent-decode only the file:// form; bare paths are taken literally
+        # so a path that contains literal %41 is not silently rewritten to A.
+        path = unquote(url[len("file://") :]) if url.startswith("file://") else url
         return await asyncio.to_thread(Path(path).expanduser().read_text)
 
     def _empty_story(self) -> TickerMessage:

@@ -61,8 +61,28 @@ After the harness is green, run ONE category-guided adversary round whose
 genuinely NEW classes (not variants of A–F). The harness is the cheap first
 filter; adversary tokens go only to fresh ground.
 
+## Accepted edges (documented; deliberately not fixed)
+
+These were surfaced by the loop and judged not worth the fix risk/complexity:
+
+- **Month/year `BY*` on a far-past sub-daily RRULE** (`HOURLY;BYMONTH=…` etc.) —
+  the anchor clamp covers uniform + time-of-day `BY` shapes (proven equivalent);
+  `BYMONTH/BYMONTHDAY/BYYEARDAY/BYWEEKNO/BYSETPOS` on a sub-daily rule are NOT
+  clamped, so a decade-old such rule incurs a multi-second pre-now scan **in the
+  background `to_thread`** (no panel freeze, correct events). Extremely rare.
+- **next-mode scroll-width jump** — when a `next`-mode summary is long enough to
+  overflow the panel AND the countdown unit rolls over (or the event rolls)
+  mid-scroll, the live-recomputed text width shifts under the engine's
+  scroll-stop math, causing a one-tick horizontal jump/clip. Cosmetic; `next`
+  mode is intended for short "X in 5m" lines; the fix touches the engine scroll
+  path for a rare case.
+- `:slug:` emoji renders in agenda (incidental via `TickerMessage`) but not in
+  `next` mode — calendar SUMMARYs come from external feeds, not led-ticker DSL.
+- Agenda day-labels are static between `update_interval` refreshes (same as
+  `rss_feed` stories).
+- Mismatched `DATE`/`DATETIME` *with no DTEND at all* — unhandled, but the
+  common mismatch (DATE start + datetime DTEND) is now normalized.
+
 ## Out of scope
 
-- Re-litigating accepted trade-offs (`:slug:` emoji agenda-only; static agenda
-  day-labels between refreshes; non-uniform far-past recurrences not clamped).
 - New widget features.

@@ -1,13 +1,17 @@
 """Tests for the calendar widget."""
 
 import asyncio
+import os
+import tempfile
 from datetime import datetime, tzinfo
 from pathlib import Path
+from unittest.mock import Mock
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.calendar import (
+    _MAX_OCCURRENCES,
     Calendar,
     CalendarEvent,
     TickerMessage,
@@ -210,7 +214,7 @@ def test_format_relative_none_is_empty_text():
 
 def test_next_event_widget_draws(canvas):
     e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
-    w = _NextEventWidget(event=e, empty_text="none", timezone="UTC")
+    w = _NextEventWidget(events=[e], empty_text="none", timezone="UTC")
     out_canvas, cursor = w.draw(canvas)
     assert out_canvas is canvas
     assert isinstance(cursor, int)
@@ -221,7 +225,7 @@ def test_next_event_widget_rainbow_advances_frame(canvas):
 
     e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
     w = _NextEventWidget(
-        event=e, empty_text="none", timezone="UTC", font_color=Rainbow()
+        events=[e], empty_text="none", timezone="UTC", font_color=Rainbow()
     )
     w.advance_frame()
     w.draw(canvas)  # must not raise; per-char path exercised
@@ -244,7 +248,7 @@ def test_next_event_widget_unset_timezone_does_not_crash(canvas):
     # `event.start - now` subtraction in format_relative does not raise.
     local = datetime.now().astimezone().tzinfo
     e = CalendarEvent("Standup", datetime(2026, 12, 31, 23, 59, tzinfo=local), False)
-    w = _NextEventWidget(event=e, empty_text="none", timezone=None)
+    w = _NextEventWidget(events=[e], empty_text="none", timezone=None)
     out_canvas, _ = w.draw(canvas)  # must not raise
     assert out_canvas is canvas
 
@@ -543,3 +547,175 @@ def test_validate_rejects_excessive_lookahead():
 def test_validate_accepts_max_valid_lookahead():
     msgs = Calendar.validate_config({"ics_url": "x", "lookahead_days": 366})
     assert not any("lookahead_days" in m for m in msgs)
+
+
+# ---------------------------------------------------------------------------
+# Fix 1: RRULE expansion cap (OOM DoS protection)
+# ---------------------------------------------------------------------------
+
+_SECONDLY_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:pathological-1
+DTSTART:20260601T000000Z
+RRULE:FREQ=SECONDLY
+SUMMARY:Every Second
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_parse_caps_pathological_rrule():
+    # A FREQ=SECONDLY event would produce millions of occurrences — parse_ics
+    # must cap at _MAX_OCCURRENCES and return quickly (islice ensures this).
+    now = datetime(2026, 6, 1, 0, 0, tzinfo=_UTC)
+    events = parse_ics(_SECONDLY_ICS, now=now, lookahead_days=365, tz=_UTC)
+    # Must be bounded — not millions
+    assert len(events) <= _MAX_OCCURRENCES
+
+
+# ---------------------------------------------------------------------------
+# Fix 2+3: layout="next" live-roll and no highlight distortion
+# ---------------------------------------------------------------------------
+
+
+def test_next_widget_picks_soonest_future_event(monkeypatch):
+    # events in non-chronological order; draw() must pick the soonest future one.
+    # We verify via format_relative: intercept the call to see which event is used.
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    monkeypatch.setattr("led_ticker.widgets.calendar._now_in", lambda tz: now)
+    picked = []
+    original_format = format_relative
+
+    def capture_format(event, _now, empty_text):
+        picked.append(event)
+        return original_format(event, _now, empty_text)
+
+    monkeypatch.setattr("led_ticker.widgets.calendar.format_relative", capture_format)
+
+    future_soon = CalendarEvent(
+        "Dentist", datetime(2026, 6, 15, 9, 10, tzinfo=_UTC), False
+    )
+    future_later = CalendarEvent(
+        "Lunch", datetime(2026, 6, 15, 12, 0, tzinfo=_UTC), False
+    )
+    # events deliberately not in chronological order
+    w = _NextEventWidget(
+        events=[future_later, future_soon],
+        empty_text="none",
+        timezone="UTC",
+    )
+    c = Mock()
+    c.width = 160
+    c.height = 16
+    w.draw(c)
+    # draw() must pick Dentist (soonest future), not Lunch
+    assert picked and picked[0] is future_soon
+
+
+def test_next_widget_rolls_past_started_event(monkeypatch):
+    # An event whose start <= now must be skipped; draw shows the next future one.
+    now = datetime(2026, 6, 15, 9, 5, tzinfo=_UTC)
+    monkeypatch.setattr("led_ticker.widgets.calendar._now_in", lambda tz: now)
+    picked = []
+    original_format = format_relative
+
+    def capture_format(event, _now, empty_text):
+        picked.append(event)
+        return original_format(event, _now, empty_text)
+
+    monkeypatch.setattr("led_ticker.widgets.calendar.format_relative", capture_format)
+
+    started = CalendarEvent(
+        "Standup", datetime(2026, 6, 15, 9, 0, tzinfo=_UTC), False
+    )  # started 5m ago (start <= now)
+    upcoming = CalendarEvent("Lunch", datetime(2026, 6, 15, 12, 0, tzinfo=_UTC), False)
+    w = _NextEventWidget(
+        events=[started, upcoming],
+        empty_text="none",
+        timezone="UTC",
+    )
+    c = Mock()
+    c.width = 160
+    c.height = 16
+    w.draw(c)
+    # draw() must skip Standup (already started) and pick Lunch
+    assert picked and picked[0] is upcoming
+
+
+def test_update_next_not_distorted_by_highlight_cap(monkeypatch):
+    # A daily-recurring highlighted event plus a sooner one-off "Dentist".
+    # layout="next", highlight=["1:1"], default max_events=5.
+    # The widget's events list (after update) must include Dentist as the
+    # soonest item so draw() picks it over a 1:1 occurrence.
+    _MIXED_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:dentist-1
+DTSTART:20260615T100000Z
+DTEND:20260615T110000Z
+SUMMARY:Dentist
+END:VEVENT
+BEGIN:VEVENT
+UID:one-on-one-daily
+DTSTART:20260615T150000Z
+RRULE:FREQ=DAILY;COUNT=20
+SUMMARY:Daily 1:1
+END:VEVENT
+END:VCALENDAR
+"""
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    monkeypatch.setattr("led_ticker.widgets.calendar._now_in", lambda tz: now)
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ics", delete=False) as f:
+        f.write(_MIXED_ICS)
+        tmp_path = f.name
+    try:
+        cal = Calendar(
+            session=None,
+            ics_url=f"file://{tmp_path}",
+            layout="next",
+            timezone="UTC",
+            highlight=["1:1"],
+            max_events=5,
+        )
+        asyncio.run(cal.update())
+        assert len(cal.feed_stories) == 1
+        widget = cal.feed_stories[0]
+        assert type(widget).__name__ == "_NextEventWidget"
+        # The events list must contain Dentist (soonest)
+        assert any(e.summary == "Dentist" for e in widget.events)
+        # Chronologically first event must be Dentist (10:00), not 1:1 (15:00)
+        sorted_events = sorted(widget.events, key=lambda e: e.start)
+        assert sorted_events[0].summary == "Dentist"
+    finally:
+        os.unlink(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# Fix 4: Strip UTF-8 BOM before parsing
+# ---------------------------------------------------------------------------
+
+
+def test_parse_strips_utf8_bom():
+    # Microsoft Exchange/Outlook .ics feeds start with a UTF-8 BOM.
+    # parse_ics must not raise and must return events normally.
+    bom = "﻿"
+    bom_ics = bom + _MULTIDAY_ICS
+    now = datetime(2026, 6, 14, 0, 0, tzinfo=_UTC)
+    events = parse_ics(bom_ics, now=now, lookahead_days=10, tz=_UTC)
+    assert any(e.summary == "Vacation" for e in events)
+
+
+# ---------------------------------------------------------------------------
+# Fix 5: Reject whitespace-only ics_url
+# ---------------------------------------------------------------------------
+
+
+def test_validate_rejects_whitespace_ics_url():
+    msgs = Calendar.validate_config({"ics_url": "   "})
+    assert any("ics_url" in m for m in msgs)

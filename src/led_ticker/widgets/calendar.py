@@ -6,6 +6,7 @@ builds one TickerMessage per event; `next` builds one live countdown widget.
 """
 
 import asyncio
+import itertools
 import logging
 from datetime import date, datetime, time, timedelta, tzinfo
 from pathlib import Path
@@ -31,6 +32,10 @@ from led_ticker.widgets.clock import format_clock
 from led_ticker.widgets.message import TickerMessage
 
 logger = logging.getLogger(__name__)
+
+# Bound memory against pathological/hostile high-frequency RRULEs (e.g. FREQ=SECONDLY).
+# islice ensures we never materialize more than this many occurrences.
+_MAX_OCCURRENCES = 2000
 
 
 @attrs.define(frozen=True)
@@ -95,13 +100,27 @@ def parse_ics(
     text: str, *, now: datetime, lookahead_days: int, tz: tzinfo
 ) -> list[CalendarEvent]:
     """Parse an .ics document, expand recurrence in [now, now+lookahead_days],
-    drop past events, and return CalendarEvents sorted by start (display tz)."""
+    drop past events, and return CalendarEvents sorted by start (display tz).
+
+    Uses a lazy generator + islice to cap at _MAX_OCCURRENCES to prevent OOM on
+    hostile/pathological high-frequency RRULEs (e.g. FREQ=SECONDLY). Since
+    .after() yields ascending by start, we break early once we pass window_end.
+    Also strips a leading UTF-8 BOM (U+FEFF) so Outlook/Exchange feeds parse
+    correctly.
+    """
+    # Fix 4: strip leading BOM before parsing (Outlook/Exchange/.ics feeds)
+    text = text.lstrip("﻿")
     cal = icalendar.Calendar.from_ical(text)
     window_end = now + timedelta(days=lookahead_days)
-    occurrences = recurring_ical_events.of(cal).between(now, window_end)
 
+    # Fix 1: use lazy .after(now) + islice to bound memory against pathological RRULEs.
+    # .after(now) filters occurrences whose END is after now, ascending by start.
     events: list[CalendarEvent] = []
-    for comp in occurrences:
+    count = 0
+    for comp in itertools.islice(
+        recurring_ical_events.of(cal).after(now), _MAX_OCCURRENCES
+    ):
+        count += 1
         summary = str(comp.get("SUMMARY", "")).strip()
         if not summary:
             continue
@@ -109,8 +128,11 @@ def parse_ics(
         if dtstart is None:
             continue
         start, all_day = _to_display_start(dtstart.dt, tz)
-        # belt-and-suspenders: recurring_ical_events.between() already excludes
-        # past all-day events; this guards malformed/edge feeds.
+        # .after() yields ascending start; once we're past the window, stop.
+        if start > window_end:
+            break
+        # belt-and-suspenders: .after() already excludes ended occurrences;
+        # this guards malformed/edge feeds.
         if all_day:
             dtend = comp.get("DTEND")
             if dtend is not None:
@@ -122,6 +144,14 @@ def parse_ics(
         elif start < now:
             continue
         events.append(CalendarEvent(summary=summary, start=start, all_day=all_day))
+    else:
+        # Loop completed (didn't break) — check if we hit the islice cap
+        if count >= _MAX_OCCURRENCES:
+            logger.warning(
+                "Calendar feed produced >= %d occurrences in the window; "
+                "truncated (check the feed's RRULE)",
+                _MAX_OCCURRENCES,
+            )
 
     events.sort(key=lambda e: e.start)
     return events
@@ -252,14 +282,25 @@ def _coerce_provider(value: Any) -> ColorProvider:
 @attrs.define
 class _NextEventWidget(FrameAwareBase):
     """The layout='next' feed story: one live countdown line, recomputed each
-    draw (engine _hold_ticks redraws held widgets, so the countdown ticks)."""
+    draw (engine _hold_ticks redraws held widgets, so the countdown ticks).
 
-    event: CalendarEvent | None = None
+    Holds the full upcoming events list and picks the current soonest-future
+    event live in draw(), so the widget rolls to the next event the moment the
+    current one starts — no 900s stale-display stickiness.
+    """
+
+    events: list[CalendarEvent] = attrs.field(factory=list)
     empty_text: str = "No upcoming events"
     timezone: str | None = None
     font: Any = attrs.Factory(lambda: FONT_DEFAULT)
     font_color: ColorProvider = attrs.field(
         default=None, converter=_coerce_provider, kw_only=True
+    )
+    highlight: list[str] = attrs.field(factory=list, kw_only=True)
+    highlight_color: ColorProvider = attrs.field(
+        default=attrs.Factory(lambda: make_color(255, 200, 60)),
+        converter=_coerce_provider,
+        kw_only=True,
     )
     bg_color: Any = attrs.field(default=None, kw_only=True)
     border: Any | None = attrs.field(default=None, kw_only=True)
@@ -275,14 +316,29 @@ class _NextEventWidget(FrameAwareBase):
         y_offset: int = 0,
         font_color: Any = None,
     ) -> DrawResult:
-        if font_color is not None and not hasattr(font_color, "color_for"):
-            font_color = _ConstantColor(font_color)
-        provider: ColorProvider = font_color or self.font_color
-
         tz = _resolve_tz(self.timezone)
         now = _now_in(tz)  # ALWAYS aware (local when tz is None) — event.start
         # is aware, and format_relative subtracts them; a naive now -> TypeError.
-        text = format_relative(self.event, now, self.empty_text)
+
+        # Pick the soonest not-yet-started event live on each draw call so the
+        # widget rolls to the next event automatically (no stale 900s window).
+        # Sort by start so unsorted inputs still yield the genuinely-soonest event.
+        event = next(
+            (e for e in sorted(self.events, key=lambda e: e.start) if e.start > now),
+            None,
+        )
+
+        # Color: highlight wins for the currently-shown event; engine-supplied
+        # font_color (passed by transitions) takes precedence over both.
+        if font_color is not None and not hasattr(font_color, "color_for"):
+            font_color = _ConstantColor(font_color)
+        provider: ColorProvider = font_color or (
+            self.highlight_color
+            if event is not None and _match_any(event.summary, self.highlight)
+            else self.font_color
+        )
+
+        text = format_relative(event, now, self.empty_text)
 
         content_width = get_text_width(self.font, text, padding=0, canvas=canvas)
         cursor_pos, end_padding = compute_cursor(
@@ -349,7 +405,7 @@ class Calendar:
     def validate_config(cls, cfg: dict[str, Any]) -> list[str]:
         errors: list[str] = []
         ics_url = cfg.get("ics_url")
-        if not isinstance(ics_url, str) or not ics_url:
+        if not isinstance(ics_url, str) or not ics_url.strip():
             errors.append("ics_url is required and must be a non-empty string")
         layout = cfg.get("layout", "agenda")
         if layout not in ("agenda", "next"):
@@ -444,12 +500,24 @@ class Calendar:
                 lookahead_days=self.lookahead_days,
                 tz=parse_tz,
             )
-            kept = select_events(
-                events,
-                filter=self.filter,
-                highlight=self.highlight,
-                max_events=self.max_events,
-            )
+            if self.layout == "next":
+                # For next mode: filter only, no highlight reordering, no cap.
+                # The widget picks the soonest event live in draw(), so we hand
+                # it the full chronological list — highlight distortion via cap
+                # cannot hide a sooner event this way.
+                kept = select_events(
+                    events,
+                    filter=self.filter,
+                    highlight=[],
+                    max_events=0,
+                )
+            else:
+                kept = select_events(
+                    events,
+                    filter=self.filter,
+                    highlight=self.highlight,
+                    max_events=self.max_events,
+                )
             self.feed_stories = self._build_stories(kept, now=now, tz=parse_tz)
             logger.info("Calendar %s updated: %d events", self.ics_url, len(kept))
         except Exception:
@@ -461,19 +529,15 @@ class Calendar:
         self, events: list[CalendarEvent], *, now: datetime, tz: tzinfo
     ) -> list[Widget]:
         if self.layout == "next":
-            event = events[0] if events else None
-            color = (
-                self.highlight_color
-                if event is not None and _match_any(event.summary, self.highlight)
-                else self.font_color
-            )
             return [
                 _NextEventWidget(
-                    event=event,
+                    events=events,
                     empty_text=self.empty_text,
                     timezone=self.timezone,
                     font=self.font,
-                    font_color=color,
+                    font_color=self.font_color,
+                    highlight=self.highlight,
+                    highlight_color=self.highlight_color,
                     bg_color=self.bg_color,
                     border=self.border,
                     padding=self.padding,

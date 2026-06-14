@@ -8,7 +8,7 @@ builds one TickerMessage per event; `next` builds one live countdown widget.
 import asyncio
 import itertools
 import logging
-from datetime import date, datetime, time, timedelta, tzinfo
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from pathlib import Path
 from typing import Any, ClassVar, Self
 from urllib.parse import unquote
@@ -82,6 +82,91 @@ def _drop_subhourly_recurrences(cal: Any) -> int:
         kept.append(comp)
     cal.subcomponents = kept
     return dropped
+
+
+_UNIFORM_INTERVAL_SECONDS: dict[str, int] = {
+    "HOURLY": 3600,
+    "DAILY": 86400,
+    "WEEKLY": 604800,
+}
+_BY_KEYS = (
+    "BYSECOND",
+    "BYMINUTE",
+    "BYHOUR",
+    "BYDAY",
+    "BYMONTHDAY",
+    "BYYEARDAY",
+    "BYWEEKNO",
+    "BYMONTH",
+    "BYSETPOS",
+)
+
+
+def _clamp_recurrence_anchors(cal: Any, now: datetime) -> int:
+    """Advance the DTSTART anchor of safe far-past uniform RRULEs to a recent
+    occurrence so recurring_ical_events doesn't walk years of pre-now
+    occurrences.  Only applied when arithmetically equivalent (uniform FREQ,
+    single RRULE, no COUNT/BY*/EXDATE/RDATE, datetime DTSTART).
+
+    Safety conditions (only clamp when provably equivalent — correctness over
+    performance):
+    - VEVENT with EXACTLY ONE RRULE.
+    - FREQ in {HOURLY, DAILY, WEEKLY} (uniform interval).
+    - No COUNT (clamping changes the count window).
+    - No BY* key (non-uniform occurrence set).
+    - No EXDATE or RDATE (occurrence overrides reference specific instances).
+    - DTSTART is a datetime (not an all-day date).
+
+    UNTIL is allowed — the occurrence set on/after the new anchor is unchanged.
+    """
+    clamped = 0
+    for comp in cal.subcomponents:
+        if comp.name != "VEVENT":
+            continue
+        rrule = comp.get("RRULE")
+        if rrule is None or isinstance(rrule, list):
+            # Missing RRULE or multi-RRULE: skip (can't safely clamp)
+            continue
+        freq = rrule.get("FREQ")
+        freq_val = str(freq[0] if isinstance(freq, list) else freq).upper()
+        if freq_val not in _UNIFORM_INTERVAL_SECONDS:
+            continue
+        if rrule.get("COUNT") or any(rrule.get(k) for k in _BY_KEYS):
+            continue
+        if comp.get("EXDATE") is not None or comp.get("RDATE") is not None:
+            continue
+        dtstart_prop = comp.get("DTSTART")
+        if dtstart_prop is None or not isinstance(dtstart_prop.dt, datetime):
+            continue
+        dtstart = dtstart_prop.dt
+        # Ensure tz-aware comparison against `now`
+        if dtstart.tzinfo is not None:
+            ds = dtstart
+        else:
+            ds = dtstart.replace(tzinfo=now.tzinfo)
+        raw_interval = rrule.get("INTERVAL", 1)
+        if isinstance(raw_interval, list):
+            interval = int(raw_interval[0]) if raw_interval else 1
+        else:
+            interval = int(raw_interval or 1)
+        step = _UNIFORM_INTERVAL_SECONDS[freq_val] * max(interval, 1)
+        gap = (now - ds).total_seconds()
+        if gap <= step * 2:
+            # Already recent enough — nothing to gain
+            continue
+        # Advance by whole steps, keeping ONE occurrence before now for safety
+        n = int(gap // step) - 1
+        if n <= 0:
+            continue
+        new_start = dtstart + timedelta(seconds=step * n)
+        # Preserve duration by shifting DTEND the same amount, if present
+        dtend_prop = comp.get("DTEND")
+        # Direct mutation works (verified via test): comp["DTSTART"].dt = ...
+        comp["DTSTART"].dt = new_start
+        if dtend_prop is not None and isinstance(dtend_prop.dt, datetime):
+            comp["DTEND"].dt = dtend_prop.dt + timedelta(seconds=step * n)
+        clamped += 1
+    return clamped
 
 
 @attrs.define(frozen=True)
@@ -169,6 +254,9 @@ def parse_ics(
             "RRULE to avoid an unbounded recurrence scan",
             dropped,
         )
+    clamped = _clamp_recurrence_anchors(cal, now)
+    if clamped:
+        logger.debug("Calendar: clamped %d far-past recurrence anchor(s)", clamped)
     window_end = now + timedelta(days=lookahead_days)
 
     # Fix 1: use lazy .after(now) + islice to bound memory against pathological RRULEs.
@@ -337,7 +425,10 @@ def format_relative(event: CalendarEvent | None, now: datetime, empty_text: str)
         if days == 1:
             return f"{event.summary} tomorrow"
         return f"{event.summary} in {days}d"
-    delta = event.start - now
+    # Convert both to UTC before subtracting so DST transitions don't skew the
+    # delta (two aware datetimes with the same ZoneInfo subtract naively in
+    # wall-clock time, which is wrong by the DST offset across a transition).
+    delta = event.start.astimezone(UTC) - now.astimezone(UTC)
     secs = delta.total_seconds()
     if secs <= 0:
         return f"{event.summary} now"
@@ -459,6 +550,14 @@ class _NextEventWidget(FrameAwareBase):
                     (e for e in events_sorted if e.all_day and e.start > now), None
                 )
 
+        if event is None:
+            # 4) Final fallback: the most-recently-started in-progress timed event.
+            # Timed events whose start <= now were future at fetch time but became
+            # in-progress before the next update().  format_relative renders them as
+            # "<summary> now" via the secs<=0 branch.
+            in_progress = [e for e in events_sorted if not e.all_day and e.start <= now]
+            event = in_progress[-1] if in_progress else None  # latest-started = current
+
         # Color: highlight wins for the currently-shown event; engine-supplied
         # font_color (passed by transitions) takes precedence over both.
         if font_color is not None and not hasattr(font_color, "color_for"):
@@ -567,7 +666,7 @@ class Calendar:
             else:
                 try:
                     ZoneInfo(tz)
-                except ZoneInfoNotFoundError, ValueError:
+                except ZoneInfoNotFoundError, ValueError, OSError:
                     errors.append(f"timezone {tz!r} is not a valid IANA timezone name")
         for key in ("filter", "highlight"):
             val = cfg.get(key)

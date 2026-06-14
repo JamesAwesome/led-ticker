@@ -98,8 +98,9 @@ time_format = "12h"`}
 
 <Aside type="caution">
   The Google Calendar secret address is a credential — anyone with the URL can read your calendar.
-  Do not commit it to a public repository. Store it in your `.env` file or pass it via an
-  environment variable; reference that variable in your config instead of the literal URL.
+  Your `config.toml` is gitignored, so put the URL directly there. Do not commit it to a public
+  repository or paste it where others can see it. (led-ticker has no environment-variable
+  interpolation in config files, so `.env` references won't work.)
 </Aside>
 
 ### iCloud

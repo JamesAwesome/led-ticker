@@ -15,6 +15,7 @@ from led_ticker.widgets.calendar import (
     Calendar,
     CalendarEvent,
     TickerMessage,
+    _clamp_recurrence_anchors,
     _match_any,
     _NextEventWidget,
     _normalize_ics_url,
@@ -1419,3 +1420,222 @@ def test_rrule_is_subhourly_single_value():
             # One is DAILY (not sub-hourly), one is SECONDLY (sub-hourly)
             assert True in results, "SECONDLY RRULE must be identified as sub-hourly"
             assert False in results, "DAILY RRULE must not be identified as sub-hourly"
+
+
+# ---------------------------------------------------------------------------
+# Round-8 adversarial hardening fixes
+# ---------------------------------------------------------------------------
+
+
+# Fix 1: DST-correct countdown via UTC subtraction
+def test_format_relative_dst_transition():
+    """format_relative uses UTC delta so DST transitions don't skew the result.
+
+    now = 2026-03-07 23:00 America/New_York (before spring-forward)
+    event = 2026-03-08 10:00 America/New_York (after spring-forward at 02:00)
+
+    Wall-clock gap: 11 hours.  UTC gap: 10 hours (the clock "springs forward"
+    one hour at 02:00, eating one hour from the countdown).  The panel should
+    display "in 10h", not the naive wall-clock "in 11h".
+    """
+    tz = ZoneInfo("America/New_York")
+    # 2026-03-08 02:00 is the spring-forward boundary.
+    now = datetime(2026, 3, 7, 23, 0, tzinfo=tz)  # EST (UTC-5)
+    event = CalendarEvent(
+        "Meeting",
+        datetime(2026, 3, 8, 10, 0, tzinfo=tz),  # EDT (UTC-4) after spring-forward
+        all_day=False,
+    )
+    result = format_relative(event, now, "x")
+    assert result == "Meeting in 10h", (
+        f"Expected 'Meeting in 10h' (UTC-correct), got {result!r}. "
+        "Check that format_relative subtracts in UTC, not wall-clock."
+    )
+
+
+# Fix 2: in-progress timed event shows "<summary> now" in next mode (not empty)
+def test_next_in_progress_timed_shows_now(monkeypatch):
+    """A timed event that was future at fetch time but is now in-progress must
+    show '<summary> now', not empty_text.
+
+    This exercises the new tier-4 fallback in _NextEventWidget.draw() — the
+    most-recently-started in-progress timed event when all three earlier tiers
+    yield None.
+    """
+    # Event started 3 minutes ago; no other events
+    now = datetime(2026, 6, 15, 15, 3, tzinfo=_UTC)
+    monkeypatch.setattr("led_ticker.widgets.calendar._now_in", lambda tz: now)
+    started = CalendarEvent(
+        "Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), all_day=False
+    )
+    w = _NextEventWidget(
+        events=[started], empty_text="No upcoming events", timezone="UTC"
+    )
+    c = Mock()
+    c.width = 160
+    c.height = 16
+
+    # format_relative renders secs<=0 as "<summary> now"
+    text = format_relative(started, now, "No upcoming events")
+    assert text == "Standup now", (
+        f"format_relative should render in-progress event as 'now', got {text!r}"
+    )
+
+    # draw() must pick the in-progress event (tier-4 fallback), not empty_text
+    picked = []
+    original_format = format_relative
+
+    def capture_format(event, _now, empty_text):
+        picked.append(event)
+        return original_format(event, _now, empty_text)
+
+    monkeypatch.setattr("led_ticker.widgets.calendar.format_relative", capture_format)
+    w.draw(c)
+    assert picked, "format_relative must be called from draw()"
+    assert picked[0] is started, (
+        "draw() must pick the in-progress timed event via tier-4 fallback"
+    )
+
+
+# Fix 3: _clamp_recurrence_anchors — equivalence and safety
+_FAR_PAST_HOURLY_CLAMP_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:hourly-clamp-1
+DTSTART:20160101T000000Z
+RRULE:FREQ=HOURLY
+SUMMARY:Hourly Clamp Test
+END:VEVENT
+END:VCALENDAR
+"""
+
+_BYDAY_WEEKLY_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:weekly-byday-1
+DTSTART:20200101T100000Z
+RRULE:FREQ=WEEKLY;BYDAY=MO
+SUMMARY:Monday Meeting
+END:VEVENT
+END:VCALENDAR
+"""
+
+_COUNT_HOURLY_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:hourly-count-1
+DTSTART:20200101T000000Z
+RRULE:FREQ=HOURLY;COUNT=100000
+SUMMARY:Bounded Hourly
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_clamp_recurrence_preserves_inwindow_events():
+    """_clamp_recurrence_anchors must not change which events appear in-window.
+
+    Parse the far-past HOURLY .ics TWICE: once normally (with clamping) and
+    once with clamping bypassed via monkeypatching — then assert the in-window
+    CalendarEvents (summary + start) are IDENTICAL.  This is the correctness
+    gate: if it fails, Fix 3 must NOT be shipped.
+    """
+    from led_ticker.widgets import calendar as _cal_mod
+
+    now = datetime(2026, 6, 15, 0, 0, tzinfo=_UTC)
+
+    # Path A: normal parse (clamping active)
+    events_clamped = parse_ics(
+        _FAR_PAST_HOURLY_CLAMP_ICS, now=now, lookahead_days=7, tz=_UTC
+    )
+
+    # Path B: bypass clamping by patching _clamp_recurrence_anchors to a no-op
+    original_clamp = _cal_mod._clamp_recurrence_anchors
+    _cal_mod._clamp_recurrence_anchors = lambda cal, now: 0
+    try:
+        events_unclamped = parse_ics(
+            _FAR_PAST_HOURLY_CLAMP_ICS, now=now, lookahead_days=7, tz=_UTC
+        )
+    finally:
+        _cal_mod._clamp_recurrence_anchors = original_clamp
+
+    # Compare by (summary, start) — the identity-invariant fields
+    clamped_set = {(e.summary, e.start) for e in events_clamped}
+    unclamped_set = {(e.summary, e.start) for e in events_unclamped}
+    assert clamped_set == unclamped_set, (
+        f"Clamped and unclamped parse produced different in-window events.\n"
+        f"Only in clamped:   {clamped_set - unclamped_set}\n"
+        f"Only in unclamped: {unclamped_set - clamped_set}"
+    )
+
+
+def test_clamp_far_past_hourly_is_fast():
+    """After clamping, a far-past HOURLY parse completes well within 10 s.
+
+    (The round-7 window break already bounded the forward scan; the clamp
+    further eliminates the pre-now walk by recurring_ical_events.)
+    """
+    import time
+
+    now = datetime(2026, 6, 15, 0, 0, tzinfo=_UTC)
+    t0 = time.monotonic()
+    events = parse_ics(_FAR_PAST_HOURLY_CLAMP_ICS, now=now, lookahead_days=7, tz=_UTC)
+    elapsed = time.monotonic() - t0
+
+    assert elapsed < 10.0, (
+        f"parse_ics with far-past HOURLY took {elapsed:.1f}s — "
+        "_clamp_recurrence_anchors may not be working"
+    )
+    assert 160 <= len(events) <= 176, (
+        f"Expected ~168 in-window HOURLY events after clamping, got {len(events)}"
+    )
+
+
+def test_clamp_skips_byday_rule():
+    """A FREQ=WEEKLY;BYDAY=MO rule must NOT be clamped (BY* keys present).
+
+    Verify by calling _clamp_recurrence_anchors directly and asserting the
+    returned count is 0 (nothing clamped).  Also parse it end-to-end to
+    confirm events are still correct after the skip.
+    """
+    import icalendar
+
+    now = datetime(2026, 6, 15, 0, 0, tzinfo=_UTC)
+    cal = icalendar.Calendar.from_ical(_BYDAY_WEEKLY_ICS)
+    count = _clamp_recurrence_anchors(cal, now)
+    assert count == 0, (
+        f"FREQ=WEEKLY;BYDAY=MO must be skipped by the clamp (count={count})"
+    )
+
+    # End-to-end: events must still appear in the window
+    events = parse_ics(_BYDAY_WEEKLY_ICS, now=now, lookahead_days=14, tz=_UTC)
+    assert any(e.summary == "Monday Meeting" for e in events), (
+        "BYDAY rule events must still parse correctly when clamp is skipped"
+    )
+
+
+def test_clamp_skips_count_rule():
+    """A FREQ=HOURLY;COUNT=... rule must NOT be clamped (COUNT changes window)."""
+    import icalendar
+
+    now = datetime(2026, 6, 15, 0, 0, tzinfo=_UTC)
+    cal = icalendar.Calendar.from_ical(_COUNT_HOURLY_ICS)
+    count = _clamp_recurrence_anchors(cal, now)
+    assert count == 0, (
+        f"FREQ=HOURLY;COUNT=... must be skipped by the clamp (count={count})"
+    )
+
+
+# Fix 5: validate_config catches OSError from ZoneInfo
+def test_validate_rejects_bad_timezone_still_passes():
+    """Fix 5 must not break existing bad-timezone detection."""
+    msgs = Calendar.validate_config({"ics_url": "x", "timezone": "Mars/Phobos"})
+    assert any("timezone" in m.lower() for m in msgs), (
+        "Bad timezone must still be caught after adding OSError to the except clause"
+    )

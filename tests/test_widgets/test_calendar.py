@@ -1,8 +1,9 @@
 """Tests for the calendar widget."""
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, tzinfo
 from pathlib import Path
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from led_ticker.widgets import get_widget_class
@@ -12,6 +13,7 @@ from led_ticker.widgets.calendar import (
     TickerMessage,
     _match_any,
     _NextEventWidget,
+    _resolve_tz,
     format_event_line,
     format_relative,
     parse_ics,
@@ -416,3 +418,128 @@ def test_calendar_builds_through_factory(monkeypatch):
     }
     # validate_widget_cfg must not raise for a good config
     asyncio.run(validate_widget_cfg(dict(cfg), session=None))
+
+
+# ---------------------------------------------------------------------------
+# Fix A: time_format validation + build-error isolation in update()
+# ---------------------------------------------------------------------------
+
+
+def test_validate_rejects_bad_time_format():
+    # Non-preset string (no % in it, and not 12h/24h) must be rejected.
+    msgs = Calendar.validate_config({"ics_url": "x", "time_format": "bogus"})
+    assert any("time_format" in m for m in msgs)
+
+
+def test_validate_rejects_non_string_time_format():
+    # Non-string (e.g. the int 24) must be rejected.
+    msgs = Calendar.validate_config({"ics_url": "x", "time_format": 24})
+    assert any("time_format" in m for m in msgs)
+
+
+def test_validate_accepts_strftime_time_format():
+    # A string containing '%' is accepted as a strftime template.
+    msgs = Calendar.validate_config({"ics_url": "x", "time_format": "%H:%M"})
+    assert not any("time_format" in m for m in msgs)
+
+
+def test_update_bad_time_format_does_not_propagate(monkeypatch):
+    # An invalid time_format (bogus preset) surfacing inside _build_stories must
+    # not propagate out of update() — the try block must cover it.
+    cal = _make_calendar(time_format="bogus", timezone="UTC")
+    monkeypatch.setattr(
+        "led_ticker.widgets.calendar._now_in",
+        lambda tz: datetime(2026, 6, 15, 0, 0, tzinfo=_UTC),
+    )
+    # Must NOT raise — exception should be caught inside update().
+    asyncio.run(cal.update())
+    # feed_stories should be set to either events or the empty fallback.
+    assert isinstance(cal.feed_stories, list)
+
+
+# ---------------------------------------------------------------------------
+# Fix B: multi-day all-day events use DTEND
+# ---------------------------------------------------------------------------
+
+_MULTIDAY_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:multiday-1
+DTSTART;VALUE=DATE:20260615
+DTEND;VALUE=DATE:20260620
+SUMMARY:Vacation
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_parse_keeps_ongoing_multiday_all_day():
+    # now is in the middle of the Vacation (20260615–20260620, exclusive end).
+    # With DTEND-based logic, the event must survive the past-drop filter.
+    now = datetime(2026, 6, 17, 12, 0, tzinfo=_UTC)
+    events = parse_ics(_MULTIDAY_ICS, now=now, lookahead_days=10, tz=_UTC)
+    vacations = [e for e in events if e.summary == "Vacation"]
+    assert len(vacations) == 1, (
+        "Ongoing multi-day all-day event should be kept when now is before DTEND"
+    )
+
+
+def test_parse_drops_finished_multiday_all_day():
+    # now is AFTER the Vacation ends (exclusive end 20260620).
+    now = datetime(2026, 6, 20, 0, 0, tzinfo=_UTC)
+    events = parse_ics(_MULTIDAY_ICS, now=now, lookahead_days=10, tz=_UTC)
+    assert not any(e.summary == "Vacation" for e in events), (
+        "Multi-day all-day event should be dropped when now >= DTEND"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Fix C: _resolve_tz returns concrete DST-correct tzinfo
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_tz_explicit_is_zoneinfo():
+    result = _resolve_tz("UTC")
+    assert result == ZoneInfo("UTC")
+
+
+def test_resolve_tz_default_returns_concrete_tzinfo():
+    # No timezone configured — must return a non-None tzinfo without raising.
+    result = _resolve_tz(None)
+    assert result is not None
+    assert isinstance(result, tzinfo)
+
+
+# ---------------------------------------------------------------------------
+# Fix D: percent-decode file:// paths
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_ics_percent_decoded_path(tmp_path):
+    # Write a tiny .ics to a directory whose name contains a space.
+    spaced_dir = tmp_path / "my calendars"
+    spaced_dir.mkdir()
+    ics_file = spaced_dir / "test.ics"
+    ics_file.write_text(_MULTIDAY_ICS)
+    # Build a percent-encoded file:// URL for the path.
+    encoded_url = "file://" + quote(str(ics_file))
+    cal = Calendar(session=None, ics_url=encoded_url, timezone="UTC")
+    content = asyncio.run(cal._fetch_ics())
+    assert "Vacation" in content
+
+
+# ---------------------------------------------------------------------------
+# Fix E: lookahead_days upper-bound validation
+# ---------------------------------------------------------------------------
+
+
+def test_validate_rejects_excessive_lookahead():
+    msgs = Calendar.validate_config({"ics_url": "x", "lookahead_days": 10_000})
+    assert any("lookahead_days" in m for m in msgs)
+
+
+def test_validate_accepts_max_valid_lookahead():
+    msgs = Calendar.validate_config({"ics_url": "x", "lookahead_days": 366})
+    assert not any("lookahead_days" in m for m in msgs)

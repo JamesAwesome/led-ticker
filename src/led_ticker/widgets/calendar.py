@@ -10,6 +10,7 @@ import logging
 from datetime import date, datetime, time, timedelta, tzinfo
 from pathlib import Path
 from typing import Any, Self
+from urllib.parse import unquote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import aiohttp
@@ -53,6 +54,29 @@ def _now_in(tz: tzinfo | None) -> datetime:
     return datetime.now(tz) if tz is not None else datetime.now().astimezone()
 
 
+def _resolve_tz(timezone: str | None) -> tzinfo:
+    """Resolve a config timezone to a concrete, DST-correct tzinfo.
+
+    An explicit IANA name -> ZoneInfo. Unset -> the SYSTEM-LOCAL IANA zone
+    (resolved from the /etc/localtime symlink) so events across a DST boundary
+    in the lookahead window get the right offset. Falls back to the current
+    fixed UTC offset only if the system zone can't be determined.
+    """
+    if timezone:
+        return ZoneInfo(timezone)
+    try:
+        parts = Path("/etc/localtime").resolve().parts
+        if "zoneinfo" in parts:
+            name = "/".join(parts[parts.index("zoneinfo") + 1 :])
+            return ZoneInfo(name)
+    except Exception:
+        pass
+    fallback = datetime.now().astimezone().tzinfo
+    if fallback is None:
+        return ZoneInfo("UTC")  # should never happen, but satisfies the type checker
+    return fallback  # best-effort fixed-offset fallback
+
+
 def _to_display_start(dt_value: date | datetime, tz: tzinfo) -> tuple[datetime, bool]:
     """Resolve a DTSTART value to a tz-aware datetime + all_day flag.
 
@@ -88,7 +112,12 @@ def parse_ics(
         # belt-and-suspenders: recurring_ical_events.between() already excludes
         # past all-day events; this guards malformed/edge feeds.
         if all_day:
-            if start + timedelta(days=1) <= now:
+            dtend = comp.get("DTEND")
+            if dtend is not None:
+                end, _ = _to_display_start(dtend.dt, tz)  # exclusive end
+            else:
+                end = start + timedelta(days=1)
+            if end <= now:  # ended before now -> past
                 continue
         elif start < now:
             continue
@@ -250,7 +279,7 @@ class _NextEventWidget(FrameAwareBase):
             font_color = _ConstantColor(font_color)
         provider: ColorProvider = font_color or self.font_color
 
-        tz = ZoneInfo(self.timezone) if self.timezone else None
+        tz = _resolve_tz(self.timezone)
         now = _now_in(tz)  # ALWAYS aware (local when tz is None) — event.start
         # is aware, and format_relative subtracts them; a naive now -> TypeError.
         text = format_relative(self.event, now, self.empty_text)
@@ -348,6 +377,19 @@ class Calendar:
                 isinstance(val, bool) or not isinstance(val, int) or val < 0
             ):
                 errors.append(f"{key} must be a non-negative integer")
+        ld = cfg.get("lookahead_days")
+        if isinstance(ld, int) and not isinstance(ld, bool) and ld > 366:
+            errors.append("lookahead_days must be <= 366")
+        fmt = cfg.get("time_format", "12h")
+        if not isinstance(fmt, str):
+            errors.append(
+                f"time_format must be a string ('12h'/'24h' or a strftime "
+                f"template), got {type(fmt).__name__}"
+            )
+        elif "%" not in fmt and fmt not in ("12h", "24h"):
+            errors.append(
+                f"time_format {fmt!r} is not '12h'/'24h' or a strftime template"
+            )
         return errors
 
     @classmethod
@@ -373,7 +415,7 @@ class Calendar:
         # demos, tests). aiohttp cannot fetch file://. NOTE: a relative path is
         # resolved against the process CWD, not the config dir — prefer an
         # absolute path (file:///abs or /abs) for deployed configs.
-        path = url[len("file://") :] if url.startswith("file://") else url
+        path = unquote(url[len("file://") :] if url.startswith("file://") else url)
         return await asyncio.to_thread(Path(path).expanduser().read_text)
 
     def _empty_story(self) -> TickerMessage:
@@ -388,30 +430,32 @@ class Calendar:
 
     async def update(self) -> None:
         logger.info("Updating calendar from: %s", self.ics_url)
-        tz = ZoneInfo(self.timezone) if self.timezone else None
+        tz = _resolve_tz(self.timezone)
         try:
             text = await self._fetch_ics()
             now = _now_in(tz)  # ALWAYS aware (local when tz is None)
             # concrete tzinfo (never None) — keeps all comparisons aware
             parse_tz = now.tzinfo
             assert parse_tz is not None  # _now_in guarantees an aware datetime
-            events = parse_ics(
-                text, now=now, lookahead_days=self.lookahead_days, tz=parse_tz
+            events = await asyncio.to_thread(
+                parse_ics,
+                text,
+                now=now,
+                lookahead_days=self.lookahead_days,
+                tz=parse_tz,
             )
+            kept = select_events(
+                events,
+                filter=self.filter,
+                highlight=self.highlight,
+                max_events=self.max_events,
+            )
+            self.feed_stories = self._build_stories(kept, now=now, tz=parse_tz)
+            logger.info("Calendar %s updated: %d events", self.ics_url, len(kept))
         except Exception:
             logger.exception("Calendar fetch/parse failed for %s", self.ics_url)
             if not self.feed_stories:
                 self.feed_stories = [self._empty_story()]
-            return
-
-        kept = select_events(
-            events,
-            filter=self.filter,
-            highlight=self.highlight,
-            max_events=self.max_events,
-        )
-        self.feed_stories = self._build_stories(kept, now=now, tz=parse_tz)
-        logger.info("Calendar %s updated: %d events", self.ics_url, len(kept))
 
     def _build_stories(
         self, events: list[CalendarEvent], *, now: datetime, tz: tzinfo

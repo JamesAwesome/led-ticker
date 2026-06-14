@@ -168,7 +168,7 @@ def _day_label(start: datetime, now: datetime) -> str:
 
 
 def format_event_line(
-    event: CalendarEvent, *, now: datetime, time_format: str, tz: ZoneInfo
+    event: CalendarEvent, *, now: datetime, time_format: str, tz: tzinfo
 ) -> str:
     """Agenda line: '<day> <time>  <summary>'; all-day omits the time."""
     day = _day_label(event.start, now)
@@ -394,6 +394,7 @@ class Calendar:
             now = _now_in(tz)  # ALWAYS aware (local when tz is None)
             # concrete tzinfo (never None) — keeps all comparisons aware
             parse_tz = now.tzinfo
+            assert parse_tz is not None  # _now_in guarantees an aware datetime
             events = parse_ics(
                 text, now=now, lookahead_days=self.lookahead_days, tz=parse_tz
             )

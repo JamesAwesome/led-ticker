@@ -49,7 +49,9 @@ def _drop_subhourly_recurrences(cal: Any) -> int:
     DTSTART makes that scan pin a CPU core for tens of seconds. Sub-hourly
     forever-recurrence is never legitimate calendar display content, so we
     drop such events (with a warning) before handing the calendar to the
-    expander.
+    expander. Bounded sub-hourly rules (with COUNT/UNTIL) are dropped too —
+    an accepted trade-off, as a per-second/minute event is not meaningful on
+    an LED sign and the bounded case is vanishingly rare.
 
     FREQ extraction: icalendar's vRecur stores FREQ as a list of vFrequency
     objects (e.g. ['SECONDLY']). We take index 0 and str()-cast it for the

@@ -398,3 +398,21 @@ def test_list_fields_calendar_shows_hint_descriptions():
     # FIELD_HINTS entries are added.
     assert "public .ics feed URL" in out
     assert "keep only events whose summary matches a keyword" in out
+
+
+def test_calendar_builds_through_factory(monkeypatch):
+    from led_ticker.app.factories import validate_widget_cfg
+
+    monkeypatch.setattr(
+        "led_ticker.widgets.calendar._now_in",
+        lambda tz: datetime(2026, 6, 15, 0, 0, tzinfo=_UTC),
+    )
+    cfg = {
+        "type": "calendar",
+        "ics_url": f"file://{_FIXTURE}",
+        "layout": "agenda",
+        "timezone": "UTC",
+        "highlight": ["1:1"],
+    }
+    # validate_widget_cfg must not raise for a good config
+    asyncio.run(validate_widget_cfg(dict(cfg), session=None))

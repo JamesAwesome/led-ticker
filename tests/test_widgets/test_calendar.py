@@ -2014,3 +2014,79 @@ END:VCALENDAR
     assert "Réunion" in content, (
         f"Non-ASCII UTF-8 content from HTTP must decode correctly; got {content!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# CalendarEvent.end field — parse_ics must populate it
+# ---------------------------------------------------------------------------
+
+_END_FIELD_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:allday-end-1
+DTSTART;VALUE=DATE:20260615
+DTEND;VALUE=DATE:20260617
+SUMMARY:MultiDay
+END:VEVENT
+BEGIN:VEVENT
+UID:timed-end-1
+DTSTART:20260615T140000Z
+DTEND:20260615T150000Z
+SUMMARY:Afternoon Meeting
+END:VEVENT
+BEGIN:VEVENT
+UID:timed-no-end-1
+DTSTART:20260615T160000Z
+SUMMARY:Instant
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_parse_ics_populates_end_for_all_day():
+    """parse_ics must set CalendarEvent.end for all-day events.
+
+    An all-day event with DTSTART 20260615 and DTEND 20260617 (exclusive) must
+    produce an event with end = midnight UTC on 20260617 (i.e. the exclusive
+    boundary normalised to the display tz).
+    """
+    now = datetime(2026, 6, 15, 8, 0, tzinfo=_UTC)
+    events = parse_ics(_END_FIELD_ICS, now=now, lookahead_days=7, tz=_UTC)
+    multiday = next(e for e in events if e.summary == "MultiDay")
+    assert multiday.end is not None, "all-day CalendarEvent must have end populated"
+    assert multiday.end > now, "end must be after now (exclusive boundary: 2026-06-17)"
+    # Exclusive end: DTEND;VALUE=DATE:20260617 → midnight UTC 2026-06-17
+    assert multiday.end == datetime(2026, 6, 17, 0, 0, tzinfo=_UTC), (
+        f"Expected end=2026-06-17T00:00Z, got {multiday.end!r}"
+    )
+
+
+def test_parse_ics_populates_end_for_timed():
+    """parse_ics must set CalendarEvent.end for timed events that carry DTEND."""
+    now = datetime(2026, 6, 15, 8, 0, tzinfo=_UTC)
+    events = parse_ics(_END_FIELD_ICS, now=now, lookahead_days=7, tz=_UTC)
+    meeting = next(e for e in events if e.summary == "Afternoon Meeting")
+    assert meeting.end is not None, "timed CalendarEvent with DTEND must have end set"
+    assert meeting.end == datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), (
+        f"Expected end=2026-06-15T15:00Z (from DTEND), got {meeting.end!r}"
+    )
+
+
+def test_parse_ics_populates_end_for_timed_no_dtend():
+    """parse_ics must set CalendarEvent.end = start for timed events without DTEND.
+
+    When DTEND is absent, the event is treated as instantaneous (RFC 5545 §3.6.1
+    says a VEVENT without DTEND/DURATION has a duration of zero). The end field
+    must equal start (not None), so _not_ended(e, now_after_start) returns False.
+    """
+    now = datetime(2026, 6, 15, 8, 0, tzinfo=_UTC)
+    events = parse_ics(_END_FIELD_ICS, now=now, lookahead_days=7, tz=_UTC)
+    instant = next((e for e in events if e.summary == "Instant"), None)
+    assert instant is not None, "Timed event without DTEND must be returned"
+    assert instant.end is not None, "end must not be None even without DTEND"
+    assert instant.end == instant.start, (
+        f"No-DTEND timed event must have end == start (instantaneous); "
+        f"start={instant.start!r}, end={instant.end!r}"
+    )

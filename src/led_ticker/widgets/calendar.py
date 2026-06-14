@@ -271,6 +271,7 @@ class CalendarEvent:
     summary: str
     start: datetime  # tz-aware, resolved to the display tz
     all_day: bool
+    end: datetime | None = None  # tz-aware exclusive end; None means unknown/not ended
 
 
 def _now_in(tz: tzinfo | None) -> datetime:
@@ -404,17 +405,25 @@ def parse_ics(
             continue
         # belt-and-suspenders: .after() already excludes ended occurrences;
         # this guards malformed/edge feeds.
+        dtend_prop = comp.get("DTEND")
         if all_day:
-            dtend = comp.get("DTEND")
-            if dtend is not None:
-                end, _ = _to_display_start(dtend.dt, tz)  # exclusive end
+            if dtend_prop is not None:
+                end, _ = _to_display_start(dtend_prop.dt, tz)  # exclusive end
             else:
                 end = start + timedelta(days=1)
             if end <= now:  # ended before now -> past
                 continue
-        elif start < now:
-            continue
-        events.append(CalendarEvent(summary=summary, start=start, all_day=all_day))
+        else:
+            if start < now:
+                continue
+            # For timed events: use DTEND if present, else treat as instantaneous.
+            if dtend_prop is not None:
+                end, _ = _to_display_start(dtend_prop.dt, tz)
+            else:
+                end = start
+        events.append(
+            CalendarEvent(summary=summary, start=start, all_day=all_day, end=end)
+        )
     else:
         # Loop completed (didn't break) — check if we hit the islice cap.
         # Only warn when in-window events were genuinely truncated: if we
@@ -552,6 +561,16 @@ def format_relative(event: CalendarEvent | None, now: datetime, empty_text: str)
     return f"{event.summary} in {minutes}m"
 
 
+def _not_ended(e: CalendarEvent, now: datetime) -> bool:
+    """Return True when the event has not yet ended (or its end is unknown).
+
+    `end is None` is treated as "unknown / not ended" for back-compat with any
+    CalendarEvent constructed without an explicit `end` field (e.g. older tests
+    that use the 3-arg form).
+    """
+    return e.end is None or e.end > now
+
+
 def _normalize_ics_url(url: str) -> str:
     """Rewrite non-standard URL schemes to their canonical equivalents.
 
@@ -645,11 +664,16 @@ class _NextEventWidget(FrameAwareBase):
             (e for e in events_sorted if not e.all_day and e.start > now), None
         )
         if event is None:
-            # 2) no timed event pending -> show a current/ongoing all-day
-            #    (parse_ics already dropped ENDED all-days, so start.date() <=
-            #    now_date means genuinely ongoing today)
+            # 2) no timed event pending -> show a current/ongoing all-day.
+            # Guard with _not_ended so a stale ended all-day (end <= now) is never
+            # shown as "today" — either because it ended between fetches, or because
+            # the fetch failed and stale events were retained.
             event = next(
-                (e for e in events_sorted if e.all_day and e.start.date() <= now_date),
+                (
+                    e
+                    for e in events_sorted
+                    if e.all_day and e.start.date() <= now_date and _not_ended(e, now)
+                ),
                 None,
             )
             if event is None:
@@ -663,7 +687,13 @@ class _NextEventWidget(FrameAwareBase):
             # Timed events whose start <= now were future at fetch time but became
             # in-progress before the next update().  format_relative renders them as
             # "<summary> now" via the secs<=0 branch.
-            in_progress = [e for e in events_sorted if not e.all_day and e.start <= now]
+            # Guard with _not_ended so a stale ended timed event is never shown
+            # as "now" indefinitely between fetches.
+            in_progress = [
+                e
+                for e in events_sorted
+                if not e.all_day and e.start <= now and _not_ended(e, now)
+            ]
             event = in_progress[-1] if in_progress else None  # latest-started = current
 
         # Color: highlight wins for the currently-shown event; engine-supplied

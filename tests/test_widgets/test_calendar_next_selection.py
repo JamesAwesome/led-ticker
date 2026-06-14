@@ -41,13 +41,20 @@ _FUTURE_TIMED_LATE = CalendarEvent(
     "DentistLate", datetime(2026, 6, 15, 18, 0, tzinfo=_UTC), all_day=False
 )
 
-# Tier 2: ongoing all-day (started yesterday midnight, still today)
+# Tier 2: ongoing all-day (started yesterday midnight, ends tomorrow — genuinely
+# ongoing)
 _ONGOING_ALLDAY = CalendarEvent(
-    "Vacation", datetime(2026, 6, 14, 0, 0, tzinfo=_UTC), all_day=True
+    "Vacation",
+    datetime(2026, 6, 14, 0, 0, tzinfo=_UTC),
+    all_day=True,
+    end=datetime(2026, 6, 16, 0, 0, tzinfo=_UTC),  # ends tomorrow (exclusive end)
 )
-# Another ongoing-today (start is today midnight, still all_day=True)
+# Another ongoing-today (start is today midnight, ends tomorrow — still ongoing now)
 _TODAY_ALLDAY = CalendarEvent(
-    "HolidayToday", datetime(2026, 6, 15, 0, 0, tzinfo=_UTC), all_day=True
+    "HolidayToday",
+    datetime(2026, 6, 15, 0, 0, tzinfo=_UTC),
+    all_day=True,
+    end=datetime(2026, 6, 16, 0, 0, tzinfo=_UTC),  # ends tomorrow (exclusive end)
 )
 
 # Tier 3: future all-day (tomorrow)
@@ -59,14 +66,20 @@ _FUTURE_ALLDAY_3D = CalendarEvent(
     "Offsite", datetime(2026, 6, 18, 0, 0, tzinfo=_UTC), all_day=True
 )
 
-# Tier 4: in-progress timed (started 30m ago)
+# Tier 4: in-progress timed (started 30m ago, ends in 30m — genuinely in-progress)
 _INPROGRESS = CalendarEvent(
-    "Standup", datetime(2026, 6, 15, 9, 30, tzinfo=_UTC), all_day=False
+    "Standup",
+    datetime(2026, 6, 15, 9, 30, tzinfo=_UTC),
+    all_day=False,
+    end=datetime(2026, 6, 15, 10, 30, tzinfo=_UTC),  # ends at 10:30, after _NOW=10:00
 )
 # A later-started in-progress event (started 5m ago) — draw() should pick THIS
 # one (most-recently-started = last in sorted order, i.e. the latest start <= now)
 _INPROGRESS_LATER = CalendarEvent(
-    "Meeting", datetime(2026, 6, 15, 9, 55, tzinfo=_UTC), all_day=False
+    "Meeting",
+    datetime(2026, 6, 15, 9, 55, tzinfo=_UTC),
+    all_day=False,
+    end=datetime(2026, 6, 15, 10, 55, tzinfo=_UTC),  # ends at 10:55, after _NOW=10:00
 )
 
 
@@ -303,6 +316,32 @@ def test_tier5_empty_list():
         ([_ONGOING_ALLDAY, _INPROGRESS], "Vacation today"),
         # tier 3 beats tier 4
         ([_FUTURE_ALLDAY_TOMORROW, _INPROGRESS], "Conference tomorrow"),
+        # ended all-day (end <= now) → skipped, falls to empty (tier 5)
+        (
+            [
+                CalendarEvent(
+                    "EndedVacation",
+                    datetime(2026, 6, 14, 0, 0, tzinfo=_UTC),
+                    all_day=True,
+                    # ended at midnight = _NOW boundary
+                    end=datetime(2026, 6, 15, 0, 0, tzinfo=_UTC),
+                )
+            ],
+            "No upcoming events",
+        ),
+        # ended timed (end <= now) → skipped, falls to empty (tier 5)
+        (
+            [
+                CalendarEvent(
+                    "EndedMeeting",
+                    datetime(2026, 6, 15, 9, 0, tzinfo=_UTC),
+                    all_day=False,
+                    # ended 30m before _NOW=10:00
+                    end=datetime(2026, 6, 15, 9, 30, tzinfo=_UTC),
+                )
+            ],
+            "No upcoming events",
+        ),
     ],
 )
 def test_selection_truth_table(events, expected_text):
@@ -311,4 +350,88 @@ def test_selection_truth_table(events, expected_text):
     summaries = [e.summary for e in events]
     assert text == expected_text, (
         f"Expected {expected_text!r}, got {text!r} for events={summaries}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Ended-event correctness tests (the fix for stale "today"/"now" display)
+# ---------------------------------------------------------------------------
+
+
+def test_next_skips_ended_all_day():
+    """An all-day event whose end <= now must NOT show as 'today' — shows empty_text.
+
+    Before the fix: a stale ended all-day (e.g. kept in _NextEventWidget.events
+    from the last fetch) with start.date() <= now.date() was picked by tier 2
+    and rendered as '<summary> today' indefinitely — even after it ended.
+
+    After the fix: _not_ended(e, now) gates tier 2; end <= now → skip → empty_text.
+    """
+    # All-day that started yesterday and ended at midnight today (exclusive end = now).
+    ended_allday = CalendarEvent(
+        "Ended Vacation",
+        datetime(2026, 6, 14, 0, 0, tzinfo=_UTC),
+        all_day=True,
+        end=datetime(2026, 6, 15, 0, 0, tzinfo=_UTC),  # exclusive end == _NOW midnight
+    )
+    text = _draw_with_fixed_now([ended_allday])
+    assert text == "No upcoming events", (
+        f"Ended all-day event (end <= now) must not render 'today'; got {text!r}"
+    )
+
+
+def test_next_ended_all_day_does_not_mask_current():
+    """A stale ended all-day must not mask a genuinely current all-day.
+
+    Before the fix: the stale ended all-day (earlier start) was picked first
+    by the ascending-sort, hiding the current all-day with a later start.
+
+    After the fix: the stale one is excluded by _not_ended; the current one
+    (start <= now, end > now) is shown as 'today'.
+    """
+    stale_ended = CalendarEvent(
+        "StaleVacation",
+        datetime(2026, 6, 13, 0, 0, tzinfo=_UTC),  # earlier start → sorts first
+        all_day=True,
+        # ended at midnight = _NOW boundary
+        end=datetime(2026, 6, 15, 0, 0, tzinfo=_UTC),
+    )
+    current = CalendarEvent(
+        "CurrentHoliday",
+        datetime(2026, 6, 15, 0, 0, tzinfo=_UTC),
+        all_day=True,
+        # ends tomorrow — genuinely ongoing
+        end=datetime(2026, 6, 16, 0, 0, tzinfo=_UTC),
+    )
+    picked = _picked_event([stale_ended, current])
+    assert picked is current, (
+        f"Stale ended all-day must not mask a genuinely current all-day; "
+        f"picked {picked!r} instead of current event"
+    )
+    text = _draw_with_fixed_now([stale_ended, current])
+    assert text == "CurrentHoliday today", (
+        f"Expected 'CurrentHoliday today', got {text!r}"
+    )
+
+
+def test_next_skips_ended_in_progress_timed():
+    """A timed event with start <= now and end <= now must NOT show as 'now'.
+
+    Before the fix: a timed event that ended between fetches (start in the past,
+    end also in the past) was picked by tier 4 and shown as '<summary> now'
+    indefinitely until the next successful fetch.
+
+    After the fix: _not_ended(e, now) gates tier 4; end <= now → skip → empty_text.
+    """
+    ended_timed = CalendarEvent(
+        "Ended Standup",
+        datetime(2026, 6, 15, 9, 0, tzinfo=_UTC),  # started 1h before _NOW
+        all_day=False,
+        # ended 30m before _NOW=10:00
+        end=datetime(2026, 6, 15, 9, 30, tzinfo=_UTC),
+    )
+    text = _draw_with_fixed_now([ended_timed])
+    assert text == "No upcoming events", (
+        f"Ended in-progress timed event (end <= now) must not render 'now'; "
+        f"got {text!r}"
     )

@@ -387,3 +387,14 @@ def test_validate_accepts_good_config():
 def test_validate_rejects_bool_max_events():
     msgs = Calendar.validate_config({"ics_url": "x", "max_events": True})
     assert any("max_events" in m for m in msgs)
+
+
+def test_list_fields_calendar_shows_hint_descriptions():
+    from led_ticker.app.factories import _list_widget_fields
+
+    out = _list_widget_fields("calendar")
+    # Field NAMES appear from the attrs fields / start() params regardless of
+    # hints, so assert the hint DESCRIPTIONS — those only appear once the
+    # FIELD_HINTS entries are added.
+    assert "public .ics feed URL" in out
+    assert "keep only events whose summary matches a keyword" in out

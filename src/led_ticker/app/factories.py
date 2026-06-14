@@ -233,6 +233,23 @@ FIELD_HINTS: dict[str, FieldHint] = {
     "label_color": FieldHint(
         "[r, g, b]", "color for the prefix labels and separators", "white"
     ),
+    # --- Calendar ---
+    "ics_url": FieldHint("str", "public .ics feed URL (or file:// path)", "required"),
+    "max_events": FieldHint("int", "max agenda events to show", "5"),
+    "lookahead_days": FieldHint("int", "days ahead to scan for events", "7"),
+    "time_format": FieldHint("str", "'12h' or '24h' for the event time", "12h"),
+    "empty_text": FieldHint(
+        "str", "shown when no upcoming events", "No upcoming events"
+    ),
+    "filter": FieldHint(
+        "list[str]", "keep only events whose summary matches a keyword", "[] (all)"
+    ),
+    "highlight": FieldHint(
+        "list[str]", "recolor + always-include matching events", "[] (none)"
+    ),
+    "highlight_color": FieldHint(
+        '[r,g,b] | "rainbow" | {style=...}', "color for highlighted events", "amber"
+    ),
 }
 
 # Attrs fields on gif/image widgets that only activate when bottom_text != "".

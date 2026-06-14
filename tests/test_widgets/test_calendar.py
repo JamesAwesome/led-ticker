@@ -1597,26 +1597,49 @@ def test_clamp_far_past_hourly_is_fast():
     )
 
 
-def test_clamp_skips_byday_rule():
-    """A FREQ=WEEKLY;BYDAY=MO rule must NOT be clamped (BY* keys present).
+def test_clamp_byday_rule_equivalent():
+    """A FREQ=WEEKLY;BYDAY=MO rule IS now clamped (round-11 Fix 2).
 
-    Verify by calling _clamp_recurrence_anchors directly and asserting the
-    returned count is 0 (nothing clamped).  Also parse it end-to-end to
-    confirm events are still correct after the skip.
+    BYDAY is in the safe set for WEEKLY — advancing by whole 1-WEEK steps
+    preserves the weekday pattern exactly.  Verify:
+    (a) _clamp_recurrence_anchors reports at least 1 clamped event.
+    (b) Clamped and unclamped parse produce IDENTICAL in-window events.
+    (c) Events still appear in the window after clamping.
     """
-    import icalendar
+    import icalendar as _ical
+
+    from led_ticker.widgets import calendar as _cal_mod
 
     now = datetime(2026, 6, 15, 0, 0, tzinfo=_UTC)
-    cal = icalendar.Calendar.from_ical(_BYDAY_WEEKLY_ICS)
+    cal = _ical.Calendar.from_ical(_BYDAY_WEEKLY_ICS)
     count = _clamp_recurrence_anchors(cal, now)
-    assert count == 0, (
-        f"FREQ=WEEKLY;BYDAY=MO must be skipped by the clamp (count={count})"
+    assert count >= 1, (
+        f"FREQ=WEEKLY;BYDAY=MO (far-past DTSTART) must be clamped (count={count}); "
+        "round-11 Fix 2 extended the safe BY* subset to include BYDAY for WEEKLY"
     )
 
-    # End-to-end: events must still appear in the window
-    events = parse_ics(_BYDAY_WEEKLY_ICS, now=now, lookahead_days=14, tz=_UTC)
-    assert any(e.summary == "Monday Meeting" for e in events), (
-        "BYDAY rule events must still parse correctly when clamp is skipped"
+    # Equivalence: clamped == unclamped in-window events
+    events_clamped = parse_ics(_BYDAY_WEEKLY_ICS, now=now, lookahead_days=14, tz=_UTC)
+    original_clamp = _cal_mod._clamp_recurrence_anchors
+    _cal_mod._clamp_recurrence_anchors = lambda cal, now: 0
+    try:
+        events_unclamped = parse_ics(
+            _BYDAY_WEEKLY_ICS, now=now, lookahead_days=14, tz=_UTC
+        )
+    finally:
+        _cal_mod._clamp_recurrence_anchors = original_clamp
+
+    clamped_set = {(e.summary, e.start) for e in events_clamped}
+    unclamped_set = {(e.summary, e.start) for e in events_unclamped}
+    assert clamped_set == unclamped_set, (
+        f"Clamped and unclamped WEEKLY;BYDAY parse differ.\n"
+        f"Only in clamped:   {clamped_set - unclamped_set}\n"
+        f"Only in unclamped: {unclamped_set - clamped_set}"
+    )
+
+    # Events still appear
+    assert any(e.summary == "Monday Meeting" for e in events_clamped), (
+        "BYDAY rule events must parse correctly after clamping"
     )
 
 
@@ -1681,4 +1704,313 @@ def test_next_widget_resolves_tz_once(canvas):
         f"_resolve_tz was called {call_count} times across 10 draw() calls — "
         "expected at most 1 (cached after first draw). "
         "Check _NextEventWidget._resolved_tz caching in draw()."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Round-11 adversarial hardening fixes
+# ---------------------------------------------------------------------------
+
+# Fix 1: normalize mismatched all-day events (DTSTART;VALUE=DATE + datetime DTEND)
+
+_MISMATCHED_ALLDAY_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//RFC-violating all-day//EN
+BEGIN:VEVENT
+UID:bday-mismatch-1
+DTSTART;VALUE=DATE:20260620
+DTEND:20260620T200000Z
+SUMMARY:Birthday
+END:VEVENT
+END:VCALENDAR
+"""
+
+_TOKYO_ALLDAY_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//RFC-violating all-day//EN
+BEGIN:VEVENT
+UID:bday-tokyo-1
+DTSTART;VALUE=DATE:20260620
+DTEND:20260620T200000Z
+SUMMARY:Birthday Tokyo
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_parse_mismatched_all_day_kept_negative_offset():
+    """Birthday on 2026-06-20 with DTSTART;VALUE=DATE but datetime DTEND must
+    appear as an all-day event in America/Los_Angeles, not be silently dropped.
+
+    Without the fix, recurring_ical_events promotes DTSTART to midnight-UTC
+    (2026-06-20T00:00Z), which is BEFORE now (2026-06-20T15:00Z = 8am LA),
+    so parse_ics drops the event as 'past'.
+
+    With the fix, DTEND is coerced to a date before expansion, keeping
+    DTSTART as a proper all-day date that resolves to LA midnight — which
+    is AFTER now — so the event is kept.
+    """
+    tz_la = ZoneInfo("America/Los_Angeles")
+    # 8:00 AM LA on June 20 = 15:00 UTC (before DTEND 20:00 UTC; event ongoing)
+    now = datetime(2026, 6, 20, 8, 0, tzinfo=tz_la)
+    events = parse_ics(_MISMATCHED_ALLDAY_ICS, now=now, lookahead_days=7, tz=tz_la)
+    bdays = [e for e in events if e.summary == "Birthday"]
+    assert len(bdays) == 1, (
+        f"Birthday (DTSTART;VALUE=DATE + datetime DTEND) must be kept in "
+        f"America/Los_Angeles at 8am on the event day; got {bdays!r}. "
+        "Check _normalize_mismatched_all_day is called before expansion."
+    )
+    assert bdays[0].all_day is True, (
+        f"Birthday must be all_day=True after normalization, got {bdays[0].all_day}"
+    )
+
+
+def test_parse_mismatched_all_day_all_day_positive_offset():
+    """Same RFC-violating event in a positive-UTC timezone (Asia/Tokyo, UTC+9)
+    must also be all_day=True, not a spurious timed 9am event.
+
+    Without the fix, recurring_ical_events promotes DTSTART to midnight-UTC
+    which astimezone(Tokyo) = 09:00 JST — appearing as a timed 9am event
+    instead of an all-day event.
+    """
+    tz_tokyo = ZoneInfo("Asia/Tokyo")
+    # 6am Tokyo on June 20 = 21:00 UTC June 19 (before the event date)
+    now = datetime(2026, 6, 20, 6, 0, tzinfo=tz_tokyo)
+    events = parse_ics(_TOKYO_ALLDAY_ICS, now=now, lookahead_days=7, tz=tz_tokyo)
+    bdays = [e for e in events if e.summary == "Birthday Tokyo"]
+    assert len(bdays) == 1, f"Birthday Tokyo must be found in Asia/Tokyo; got {bdays!r}"
+    assert bdays[0].all_day is True, (
+        f"Birthday Tokyo must be all_day=True (not a spurious timed 9am event), "
+        f"got all_day={bdays[0].all_day}, start={bdays[0].start}"
+    )
+
+
+def test_normalize_mismatched_all_day_fixture():
+    """The mismatched_all_day.ics corpus fixture parses correctly."""
+    from pathlib import Path
+
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "fixtures"
+        / "calendar_corpus"
+        / "mismatched_all_day.ics"
+    )
+    tz_la = ZoneInfo("America/Los_Angeles")
+    now = datetime(2026, 6, 20, 8, 0, tzinfo=tz_la)
+    events = parse_ics(fixture.read_text(), now=now, lookahead_days=7, tz=tz_la)
+    assert any(e.summary == "Birthday" and e.all_day for e in events), (
+        "corpus fixture mismatched_all_day.ics must parse Birthday as all_day=True "
+        "in America/Los_Angeles"
+    )
+
+
+# Fix 2: BY* safe-subset clamping for HOURLY/DAILY/WEEKLY
+
+
+_HOURLY_BYMINUTE_FAR_PAST_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:hourly-byminute-far-past
+DTSTART:20160101T000000Z
+DTEND:20160101T003000Z
+RRULE:FREQ=HOURLY;BYMINUTE=0
+SUMMARY:Hourly Top Of Hour
+END:VEVENT
+END:VCALENDAR
+"""
+
+_DAILY_BYHOUR_FAR_PAST_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:daily-byhour-far-past
+DTSTART:20000101T090000Z
+DTEND:20000101T093000Z
+RRULE:FREQ=DAILY;BYHOUR=9
+SUMMARY:Daily 9am
+END:VEVENT
+END:VCALENDAR
+"""
+
+_WEEKLY_BYDAY_FAR_PAST_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:weekly-byday-far-past
+DTSTART:20000103T100000Z
+DTEND:20000103T103000Z
+RRULE:FREQ=WEEKLY;BYDAY=MO
+SUMMARY:Weekly Monday
+END:VEVENT
+END:VCALENDAR
+"""
+
+_BYMONTH_SKIP_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:monthly-bymonth
+DTSTART:20160101T090000Z
+DTEND:20160101T093000Z
+RRULE:FREQ=MONTHLY;BYMONTH=1
+SUMMARY:Annual January
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def _bypass_clamp_parse(ics_text, now, lookahead_days=7):
+    """Parse without clamping (bypass _clamp_recurrence_anchors) for comparison."""
+    from led_ticker.widgets import calendar as _cal_mod
+
+    original_clamp = _cal_mod._clamp_recurrence_anchors
+    _cal_mod._clamp_recurrence_anchors = lambda cal, now: 0
+    try:
+        return parse_ics(ics_text, now=now, lookahead_days=lookahead_days, tz=_UTC)
+    finally:
+        _cal_mod._clamp_recurrence_anchors = original_clamp
+
+
+_R11_NOW = datetime(2026, 6, 15, 12, 0, tzinfo=_UTC)
+
+
+def test_clamp_byrule_equivalence_hourly_byminute():
+    """FREQ=HOURLY;BYMINUTE=0 (far past): clamped == unclamped in-window events.
+
+    This is the equivalence gate for the HOURLY + BYMINUTE safe subset.
+    If this fails, the HOURLY;BYMINUTE shape must be removed from the clamp.
+    """
+    events_clamped = parse_ics(
+        _HOURLY_BYMINUTE_FAR_PAST_ICS, now=_R11_NOW, lookahead_days=7, tz=_UTC
+    )
+    events_unclamped = _bypass_clamp_parse(
+        _HOURLY_BYMINUTE_FAR_PAST_ICS, _R11_NOW, lookahead_days=7
+    )
+    clamped_set = {(e.summary, e.start) for e in events_clamped}
+    unclamped_set = {(e.summary, e.start) for e in events_unclamped}
+    assert clamped_set == unclamped_set, (
+        f"HOURLY;BYMINUTE=0 clamped/unclamped differ.\n"
+        f"Only in clamped:   {sorted(clamped_set - unclamped_set)[:3]}\n"
+        f"Only in unclamped: {sorted(unclamped_set - clamped_set)[:3]}"
+    )
+
+
+def test_clamp_byrule_equivalence_daily_byhour():
+    """FREQ=DAILY;BYHOUR=9 (far past): clamped == unclamped in-window events."""
+    events_clamped = parse_ics(
+        _DAILY_BYHOUR_FAR_PAST_ICS, now=_R11_NOW, lookahead_days=7, tz=_UTC
+    )
+    events_unclamped = _bypass_clamp_parse(
+        _DAILY_BYHOUR_FAR_PAST_ICS, _R11_NOW, lookahead_days=7
+    )
+    clamped_set = {(e.summary, e.start) for e in events_clamped}
+    unclamped_set = {(e.summary, e.start) for e in events_unclamped}
+    assert clamped_set == unclamped_set, (
+        f"DAILY;BYHOUR=9 clamped/unclamped differ.\n"
+        f"Only in clamped:   {sorted(clamped_set - unclamped_set)}\n"
+        f"Only in unclamped: {sorted(unclamped_set - clamped_set)}"
+    )
+
+
+def test_clamp_byrule_equivalence_weekly_byday():
+    """FREQ=WEEKLY;BYDAY=MO (far past): clamped == unclamped in-window events."""
+    events_clamped = parse_ics(
+        _WEEKLY_BYDAY_FAR_PAST_ICS, now=_R11_NOW, lookahead_days=7, tz=_UTC
+    )
+    events_unclamped = _bypass_clamp_parse(
+        _WEEKLY_BYDAY_FAR_PAST_ICS, _R11_NOW, lookahead_days=7
+    )
+    clamped_set = {(e.summary, e.start) for e in events_clamped}
+    unclamped_set = {(e.summary, e.start) for e in events_unclamped}
+    assert clamped_set == unclamped_set, (
+        f"WEEKLY;BYDAY=MO clamped/unclamped differ.\n"
+        f"Only in clamped:   {sorted(clamped_set - unclamped_set)}\n"
+        f"Only in unclamped: {sorted(unclamped_set - clamped_set)}"
+    )
+
+
+def test_clamp_far_past_hourly_byminute_fast():
+    """FREQ=HOURLY;BYMINUTE=0 with 10y-past DTSTART must parse in well under 5s.
+
+    Without the BY*-safe clamp, recurring_ical_events must walk ~87,000+
+    pre-now occurrences before yielding the first in-window result.
+    With the clamp (1-DAY step), DTSTART jumps to ~1 day before now, so
+    the pre-now walk is ~24 occurrences instead.
+    """
+    import time
+
+    t0 = time.monotonic()
+    events = parse_ics(
+        _HOURLY_BYMINUTE_FAR_PAST_ICS, now=_R11_NOW, lookahead_days=7, tz=_UTC
+    )
+    elapsed = time.monotonic() - t0
+    assert elapsed < 5.0, (
+        f"FREQ=HOURLY;BYMINUTE=0 (10y past) took {elapsed:.2f}s — "
+        "the BY* safe-subset clamp may not be active"
+    )
+    assert len(events) > 0, "Expected in-window events for HOURLY;BYMINUTE=0"
+
+
+def test_clamp_skips_unsafe_bymonth():
+    """FREQ=MONTHLY;BYMONTH=1 must NOT be clamped (BYMONTH is in unsafe set)."""
+    import icalendar as _ical
+
+    now = datetime(2026, 6, 15, 0, 0, tzinfo=_UTC)
+    cal = _ical.Calendar.from_ical(_BYMONTH_SKIP_ICS)
+    count = _clamp_recurrence_anchors(cal, now)
+    assert count == 0, (
+        f"BYMONTH is an unsafe BY* key — must not be clamped (count={count})"
+    )
+
+
+# Fix 3: UTF-8 HTTP body decode
+# Existing http-path tests cover the functional path.
+# This test guards the decode mode by mocking the response.
+
+
+def test_fetch_ics_http_reads_utf8_bytes(monkeypatch):
+    """_fetch_ics must read bytes and decode as UTF-8 (not let aiohttp guess charset).
+
+    Patch the session to return a fake response with a non-ASCII UTF-8 body
+    and no charset header.  Before Fix 3, aiohttp would guess charset (often
+    latin-1 for no header), corrupting the content.  After Fix 3, the raw
+    bytes are decoded explicitly as UTF-8.
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    utf8_ics = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:utf8-http-1
+DTSTART:20260620T100000Z
+DTEND:20260620T110000Z
+SUMMARY:Réunion
+END:VEVENT
+END:VCALENDAR
+""".encode()
+
+    fake_resp = AsyncMock()
+    fake_resp.raise_for_status = MagicMock()
+    fake_resp.read = AsyncMock(return_value=utf8_ics)
+    # Simulate aiohttp async context manager
+    fake_cm = AsyncMock()
+    fake_cm.__aenter__ = AsyncMock(return_value=fake_resp)
+    fake_cm.__aexit__ = AsyncMock(return_value=False)
+
+    fake_session = MagicMock()
+    fake_session.get = MagicMock(return_value=fake_cm)
+
+    cal = Calendar(session=fake_session, ics_url="https://example.com/c.ics")
+    content = asyncio.run(cal._fetch_ics())
+    assert "Réunion" in content, (
+        f"Non-ASCII UTF-8 content from HTTP must decode correctly; got {content!r}"
     )

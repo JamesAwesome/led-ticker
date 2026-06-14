@@ -190,6 +190,12 @@ _CLAMP_EQUIV_CASES = [
         f"UNTIL={_UNTIL_IN_WINDOW}",
         id="daily_far_past_until",
     ),
+    # Round-11 Fix 2: BY* safe-subset shapes — these are NOW clamped.
+    # The equivalence invariant must hold: clamped == unclamped in-window events.
+    # If any of these fail, that shape must be REMOVED from the safe subset.
+    pytest.param("HOURLY", _FAR_PAST, "BYMINUTE=0", id="hourly_far_past_byminute"),
+    pytest.param("DAILY", _FAR_PAST, "BYHOUR=9", id="daily_far_past_byhour"),
+    pytest.param("WEEKLY", _FAR_PAST, "BYDAY=MO", id="weekly_far_past_byday"),
 ]
 
 

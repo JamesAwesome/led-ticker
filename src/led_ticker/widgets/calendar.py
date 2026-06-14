@@ -84,6 +84,46 @@ def _drop_subhourly_recurrences(cal: Any) -> int:
     return dropped
 
 
+def _normalize_mismatched_all_day(cal: Any) -> int:
+    """Fix RFC-violating all-day events (DTSTART;VALUE=DATE + datetime DTEND).
+
+    recurring_ical_events promotes DTSTART to a midnight-UTC datetime on
+    expansion when DTEND is a datetime, stripping the VALUE=DATE param so the
+    event loses its all_day=True shape.  In negative-UTC zones (Americas) the
+    promoted midnight-UTC DTSTART lands before the local midnight, causing the
+    event to resolve BEFORE now and be silently dropped by parse_ics.
+
+    Coerce DTEND to a DATE exclusive-end so the all-day shape survives expansion.
+    For RFC 5545 all-day events DTEND is an exclusive boundary: an event on
+    Jun 20 has DTEND;VALUE=DATE:20260621.  A datetime DTEND (e.g. 20:00 UTC on
+    Jun 20) represents the actual end time — converting to an exclusive DATE
+    requires taking the DATE of the datetime and adding one day so the event
+    spans through the DTEND calendar date.
+
+    Mutation method verified: comp.pop('DTEND') + comp.add('DTEND', date_value)
+    correctly replaces the datetime with a plain date in the icalendar object.
+    """
+    fixed = 0
+    for comp in cal.subcomponents:
+        if comp.name != "VEVENT":
+            continue
+        dtstart = comp.get("DTSTART")
+        dtend = comp.get("DTEND")
+        if dtstart is None or dtend is None:
+            continue
+        ds_is_date = str(dtstart.params.get("VALUE", "")).upper() == "DATE"
+        if ds_is_date and isinstance(dtend.dt, datetime):
+            # Convert datetime DTEND to exclusive-date DTEND.
+            # e.g. DTEND:20260620T200000Z -> date(2026-06-20) + 1 = date(2026-06-21)
+            # so the event spans through June 20, consistent with what
+            # DTEND;VALUE=DATE:20260621 would express.
+            exclusive_end = dtend.dt.date() + timedelta(days=1)
+            comp.pop("DTEND")
+            comp.add("DTEND", exclusive_end)
+            fixed += 1
+    return fixed
+
+
 _UNIFORM_INTERVAL_SECONDS: dict[str, int] = {
     "HOURLY": 3600,
     "DAILY": 86400,
@@ -101,21 +141,50 @@ _BY_KEYS = (
     "BYSETPOS",
 )
 
+# BY* keys that are safe to clamp through for each FREQ:
+# Advancing DTSTART by a whole-period step preserves these time-of-day
+# modifiers because a step of exactly one period keeps the same
+# sub-period position.  BYMONTH/BYMONTHDAY/BYYEARDAY/BYWEEKNO/BYSETPOS
+# need month/year alignment — still skipped.
+_BY_KEYS_SAFE_HOURLY_DAILY: frozenset[str] = frozenset(
+    {"BYHOUR", "BYMINUTE", "BYSECOND"}
+)
+_BY_KEYS_SAFE_WEEKLY: frozenset[str] = frozenset(
+    {"BYHOUR", "BYMINUTE", "BYSECOND", "BYDAY"}
+)
+# Keys that force a skip regardless of FREQ
+_BY_KEYS_UNSAFE: frozenset[str] = frozenset(
+    {"BYMONTH", "BYMONTHDAY", "BYYEARDAY", "BYWEEKNO", "BYSETPOS"}
+)
+# Step to use when a BY* key is present (whole-period advance to preserve pattern)
+_BY_CLAMP_STEP_SECONDS: dict[str, int] = {
+    "HOURLY": 86400,  # 1-DAY step: preserves all BYHOUR/BYMINUTE/BYSECOND positions
+    "DAILY": 86400,  # 1-DAY step: preserves BYHOUR/BYMINUTE/BYSECOND
+    "WEEKLY": 604800,  # 1-WEEK step: preserves BYDAY + time-of-day
+}
+
 
 def _clamp_recurrence_anchors(cal: Any, now: datetime) -> int:
     """Advance the DTSTART anchor of safe far-past uniform RRULEs to a recent
     occurrence so recurring_ical_events doesn't walk years of pre-now
     occurrences.  Only applied when arithmetically equivalent (uniform FREQ,
-    single RRULE, no COUNT/BY*/EXDATE/RDATE, datetime DTSTART).
+    single RRULE, no COUNT/EXDATE/RDATE, datetime DTSTART).
 
     Safety conditions (only clamp when provably equivalent — correctness over
     performance):
     - VEVENT with EXACTLY ONE RRULE.
     - FREQ in {HOURLY, DAILY, WEEKLY} (uniform interval).
     - No COUNT (clamping changes the count window).
-    - No BY* key (non-uniform occurrence set).
     - No EXDATE or RDATE (occurrence overrides reference specific instances).
     - DTSTART is a datetime (not an all-day date).
+    - BY* safety:
+      - No BY* keys at all → plain uniform case, use base FREQ step.
+      - HOURLY or DAILY with BY parts ONLY in {BYHOUR, BYMINUTE, BYSECOND} →
+        safe to clamp with a 1-DAY step (preserves time-of-day positions).
+      - WEEKLY with BY parts ONLY in {BYHOUR, BYMINUTE, BYSECOND, BYDAY} →
+        safe to clamp with a 1-WEEK step (preserves weekday + time-of-day).
+      - Any of {BYMONTH, BYMONTHDAY, BYYEARDAY, BYWEEKNO, BYSETPOS} present →
+        skip (month/year alignment required — accept the performance cost).
 
     UNTIL is allowed — the occurrence set on/after the new anchor is unchanged.
     """
@@ -131,40 +200,62 @@ def _clamp_recurrence_anchors(cal: Any, now: datetime) -> int:
         freq_val = str(freq[0] if isinstance(freq, list) else freq).upper()
         if freq_val not in _UNIFORM_INTERVAL_SECONDS:
             continue
-        if rrule.get("COUNT") or any(rrule.get(k) for k in _BY_KEYS):
+        if rrule.get("COUNT"):
             continue
         if comp.get("EXDATE") is not None or comp.get("RDATE") is not None:
             continue
         dtstart_prop = comp.get("DTSTART")
         if dtstart_prop is None or not isinstance(dtstart_prop.dt, datetime):
             continue
+
+        # Determine BY* safety and choose the advance step accordingly.
+        present_by_keys = {k for k in _BY_KEYS if rrule.get(k)}
+        if present_by_keys & _BY_KEYS_UNSAFE:
+            # Unsafe BY* key present — skip (month/year alignment needed)
+            continue
+        if present_by_keys:
+            # Safe BY* subset present — determine if this FREQ allows it
+            if freq_val in ("HOURLY", "DAILY"):
+                if not present_by_keys <= _BY_KEYS_SAFE_HOURLY_DAILY:
+                    continue  # unexpected key outside safe set
+                step_seconds = _BY_CLAMP_STEP_SECONDS[freq_val]
+            elif freq_val == "WEEKLY":
+                if not present_by_keys <= _BY_KEYS_SAFE_WEEKLY:
+                    continue
+                step_seconds = _BY_CLAMP_STEP_SECONDS[freq_val]
+            else:
+                continue  # not reached (covered by _UNIFORM_INTERVAL_SECONDS check)
+        else:
+            # No BY* keys — plain uniform case, use base FREQ interval
+            raw_interval = rrule.get("INTERVAL", 1)
+            if isinstance(raw_interval, list):
+                interval = int(raw_interval[0]) if raw_interval else 1
+            else:
+                interval = int(raw_interval or 1)
+            step_seconds = _UNIFORM_INTERVAL_SECONDS[freq_val] * max(interval, 1)
+
         dtstart = dtstart_prop.dt
         # Ensure tz-aware comparison against `now`
-        if dtstart.tzinfo is not None:
-            ds = dtstart
-        else:
-            ds = dtstart.replace(tzinfo=now.tzinfo)
-        raw_interval = rrule.get("INTERVAL", 1)
-        if isinstance(raw_interval, list):
-            interval = int(raw_interval[0]) if raw_interval else 1
-        else:
-            interval = int(raw_interval or 1)
-        step = _UNIFORM_INTERVAL_SECONDS[freq_val] * max(interval, 1)
+        ds = (
+            dtstart
+            if dtstart.tzinfo is not None
+            else dtstart.replace(tzinfo=now.tzinfo)
+        )
         gap = (now - ds).total_seconds()
-        if gap <= step * 2:
+        if gap <= step_seconds * 2:
             # Already recent enough — nothing to gain
             continue
         # Advance by whole steps, keeping ONE occurrence before now for safety
-        n = int(gap // step) - 1
+        n = int(gap // step_seconds) - 1
         if n <= 0:
             continue
-        new_start = dtstart + timedelta(seconds=step * n)
+        new_start = dtstart + timedelta(seconds=step_seconds * n)
         # Preserve duration by shifting DTEND the same amount, if present
         dtend_prop = comp.get("DTEND")
         # Direct mutation works (verified via test): comp["DTSTART"].dt = ...
         comp["DTSTART"].dt = new_start
         if dtend_prop is not None and isinstance(dtend_prop.dt, datetime):
-            comp["DTEND"].dt = dtend_prop.dt + timedelta(seconds=step * n)
+            comp["DTEND"].dt = dtend_prop.dt + timedelta(seconds=step_seconds * n)
         clamped += 1
     return clamped
 
@@ -253,6 +344,16 @@ def parse_ics(
             "Calendar: dropped %d event(s) with a sub-hourly (SECONDLY/MINUTELY) "
             "RRULE to avoid an unbounded recurrence scan",
             dropped,
+        )
+    # Fix 1 (round-11): normalize RFC-violating all-day events that have
+    # DTSTART;VALUE=DATE but a datetime DTEND — coerce DTEND to a DATE so the
+    # event survives expansion with its all_day shape intact.
+    fixed_allday = _normalize_mismatched_all_day(cal)
+    if fixed_allday:
+        logger.debug(
+            "Calendar: fixed %d RFC-violating all-day event(s) "
+            "(DTSTART;VALUE=DATE + datetime DTEND)",
+            fixed_allday,
         )
     clamped = _clamp_recurrence_anchors(cal, now)
     if clamped:
@@ -716,7 +817,13 @@ class Calendar:
         if url.startswith(("http://", "https://")):
             async with self.session.get(url) as resp:
                 resp.raise_for_status()
-                return await resp.text()
+                # Fix 3 (round-11): read raw bytes and decode as UTF-8 (with
+                # replacement) rather than letting aiohttp guess the charset.
+                # .ics is UTF-8 per RFC 5545; a missing/wrong charset header
+                # can cause UnicodeDecodeError with resp.text().  The BOM-lstrip
+                # in parse_ics handles any leading U+FEFF.
+                raw = await resp.read()
+                return raw.decode("utf-8", errors="replace")
         # file:// or a bare local path -> read from disk (offline calendars,
         # demos, tests). aiohttp cannot fetch file://. NOTE: a relative path is
         # resolved against the process CWD, not the config dir — prefer an

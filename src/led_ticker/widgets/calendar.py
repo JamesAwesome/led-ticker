@@ -40,6 +40,18 @@ _MAX_OCCURRENCES = 2000
 _SUBHOURLY_FREQS = frozenset({"SECONDLY", "MINUTELY"})
 
 
+def _rrule_is_subhourly(rrule: Any) -> bool:
+    """Return True if a single vRecur object has a sub-hourly FREQ.
+
+    icalendar stores FREQ as a list of vFrequency objects (e.g. ['SECONDLY']),
+    so we pull index 0 when the value is a list.  Both vFrequency and
+    plain-string values are handled via str()-cast.
+    """
+    freq = rrule.get("FREQ")
+    freq_val = freq[0] if isinstance(freq, list) else freq
+    return str(freq_val).upper() in _SUBHOURLY_FREQS
+
+
 def _drop_subhourly_recurrences(cal: Any) -> int:
     """Remove VEVENTs with a SECONDLY/MINUTELY RRULE in place; return the count.
 
@@ -53,18 +65,18 @@ def _drop_subhourly_recurrences(cal: Any) -> int:
     an accepted trade-off, as a per-second/minute event is not meaningful on
     an LED sign and the bounded case is vanishingly rare.
 
-    FREQ extraction: icalendar's vRecur stores FREQ as a list of vFrequency
-    objects (e.g. ['SECONDLY']). We take index 0 and str()-cast it for the
-    comparison so both vFrequency and plain-string values are handled.
+    Multi-RRULE VEVENTs (RFC 5545 allows more than one RRULE on an event;
+    some exporters emit this) are handled: comp.get("RRULE") returns a list
+    of vRecur objects in that case.  An event is sub-hourly if ANY of its
+    RRULEs is sub-hourly.
     """
     kept = []
     dropped = 0
     for comp in cal.subcomponents:
         rrule = comp.get("RRULE") if comp.name == "VEVENT" else None
         if rrule is not None:
-            freq = rrule.get("FREQ")
-            freq_val = freq[0] if isinstance(freq, list) else freq
-            if str(freq_val).upper() in _SUBHOURLY_FREQS:
+            rrules = rrule if isinstance(rrule, list) else [rrule]
+            if any(_rrule_is_subhourly(rr) for rr in rrules):
                 dropped += 1
                 continue
         kept.append(comp)
@@ -138,10 +150,14 @@ def parse_ics(
 
     Uses a lazy generator + islice to cap at _MAX_OCCURRENCES to prevent OOM on
     hostile/pathological high-frequency RRULEs (e.g. FREQ=SECONDLY). islice
-    bounds the scan; events past window_end are skipped via `continue` (not an
-    early `break`) because all-day events resolve to display-tz midnight and can
-    reorder relative to timed events across a negative UTC offset. Also strips a
-    leading UTF-8 BOM (U+FEFF) so Outlook/Exchange feeds parse correctly.
+    bounds the scan; events past window_end but within a 2-day margin are
+    skipped via `continue` (not an early `break`) because all-day events resolve
+    to display-tz midnight and can reorder relative to timed events across a
+    negative UTC offset.  Once we exceed window_end + 2 days we `break` — this
+    stops the forward over-scan for never-ending sub-daily rules (e.g. a
+    far-past FREQ=HOURLY) instead of dragging through the full islice cap.
+    Also strips a leading UTF-8 BOM (U+FEFF) so Outlook/Exchange feeds parse
+    correctly.
     """
     # Fix 4: strip leading BOM before parsing (Outlook/Exchange/.ics feeds)
     text = text.lstrip("﻿")
@@ -177,15 +193,20 @@ def parse_ics(
         if dtstart is None:
             continue
         start, all_day = _to_display_start(dtstart.dt, tz)
-        # Fix 4: use continue (not break) here — all-day events resolved to
-        # display-tz midnight can reorder relative to timed events across a
-        # negative UTC offset (the Americas), so a break here can fire early
-        # and drop valid in-window timed events. islice already bounds the loop.
+        # Stop once we're safely past the window.  A 2-day margin covers the
+        # all-day-vs-timed reorder across UTC offsets (an all-day event resolves
+        # to display-tz midnight, shifting it < 24h from source order), so we
+        # never break before an in-window event.  This bounds the forward scan
+        # for never-ending sub-daily rules (e.g. far-past FREQ=HOURLY) instead
+        # of dragging through the full islice cap.
+        if start > window_end + timedelta(days=2):
+            break
         if start > window_end:
             # .after(now) yields ascending by start, so once we see an
-            # occurrence past window_end we have already seen every in-window
-            # occurrence. Record this so we can suppress a false-positive
-            # truncation warning on normal never-ending recurrences.
+            # occurrence past window_end (but within the 2-day margin) we have
+            # already seen every in-window occurrence. Record this so we can
+            # suppress a false-positive truncation warning on normal
+            # never-ending recurrences.
             scanned_past_window = True
             continue
         # belt-and-suspenders: .after() already excludes ended occurrences;

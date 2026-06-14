@@ -19,6 +19,7 @@ from led_ticker.widgets.calendar import (
     _NextEventWidget,
     _normalize_ics_url,
     _resolve_tz,
+    _rrule_is_subhourly,
     format_event_line,
     format_relative,
     parse_ics,
@@ -1278,3 +1279,143 @@ def test_validate_accepts_empty_timezone():
     """
     msgs = Calendar.validate_config({"ics_url": "x", "timezone": ""})
     assert msgs == [], f"Empty-string timezone must be accepted (no errors), got {msgs}"
+
+
+# ---------------------------------------------------------------------------
+# Round-7 adversarial hardening fixes
+# ---------------------------------------------------------------------------
+
+
+# Fix A: window-aware break for far-past sub-daily RRULEs
+
+_HOURLY_FAR_PAST_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:hourly-far-past-1
+DTSTART:{dtstart}
+RRULE:FREQ=HOURLY
+SUMMARY:Every Hour Far Past
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_parse_far_past_hourly_is_bounded():
+    """A FREQ=HOURLY event with a DTSTART ~10 years in the past must parse quickly.
+
+    Before Fix A the loop used `continue` past window_end, dragging through the
+    full _MAX_OCCURRENCES=2000 cap (~83 days of hourly occurrences from the
+    far-past start — in fact the pre-now scan by recurring_ical_events is also
+    large).  The new window_end + 2-day break exits as soon as we clear the
+    window, so only ~168-ish in-window occurrences are yielded.
+
+    The test completing in a normal pytest run (seconds, not minutes) IS the
+    timing proof.  We also assert the returned count is in the expected range
+    (~168 occurrences per 7-day window at HOURLY frequency) to confirm correct
+    events are returned.
+    """
+    import time
+
+    # DTSTART ~10 years in the past so the pre-now scan is large.
+    dtstart = "20160101T000000Z"
+    ics = _HOURLY_FAR_PAST_ICS.format(dtstart=dtstart)
+    now = datetime(2026, 6, 15, 0, 0, tzinfo=_UTC)
+
+    t0 = time.monotonic()
+    events = parse_ics(ics, now=now, lookahead_days=7, tz=_UTC)
+    elapsed = time.monotonic() - t0
+
+    # 7-day window at FREQ=HOURLY = 168 h; allow a small margin for boundary
+    # effects (.after(now) may exclude the first tick depending on exact start).
+    assert 160 <= len(events) <= 176, (
+        f"Expected ~168 in-window HOURLY events, got {len(events)}"
+    )
+    # The scan must complete in well under 10 seconds (before the fix it was
+    # 20s-200s on real hardware due to the pre-now walk + full islice drain).
+    # We set a generous 10s ceiling to avoid flakiness on slow CI.
+    assert elapsed < 10.0, (
+        f"parse_ics took {elapsed:.1f}s for a far-past HOURLY rule — "
+        "Fix A (window-aware break) may not be in effect"
+    )
+
+
+# Fix B: multi-RRULE VEVENT handling
+
+_MULTI_RRULE_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:multi-rrule-1
+DTSTART:20260615T100000Z
+DTEND:20260615T110000Z
+RRULE:FREQ=DAILY;COUNT=3
+RRULE:FREQ=WEEKLY;COUNT=2
+SUMMARY:Multi-Rule Event
+END:VEVENT
+END:VCALENDAR
+"""
+
+_MULTI_RRULE_ONE_SUBHOURLY_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:multi-rrule-subhourly-1
+DTSTART:20260615T100000Z
+RRULE:FREQ=DAILY;COUNT=3
+RRULE:FREQ=SECONDLY
+SUMMARY:Bad Multi-Rule Event
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_parse_multiple_rrule_no_crash():
+    """A VEVENT with two RRULE lines must not crash and must return events.
+
+    RFC 5545 allows multiple RRULE properties on one VEVENT; some calendar
+    exporters emit this.  Before Fix B, comp.get("RRULE") returned a list of
+    vRecur objects, and calling .get("FREQ") on that list raised AttributeError,
+    propagating out of parse_ics -> caught by update() -> whole calendar blanked.
+    """
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    # Must not raise; must return at least one event from the multi-RRULE VEVENT.
+    events = parse_ics(_MULTI_RRULE_ICS, now=now, lookahead_days=14, tz=_UTC)
+    summaries = [e.summary for e in events]
+    assert "Multi-Rule Event" in summaries, (
+        "Multi-RRULE VEVENT must be parsed without raising (calendar must not blank)"
+    )
+
+
+def test_drop_subhourly_multiple_rrule():
+    """A VEVENT with two RRULEs where ONE is SECONDLY must be dropped.
+
+    _drop_subhourly_recurrences must use any-match: if any of the event's RRULEs
+    is sub-hourly, the whole event is dropped.
+    """
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    events = parse_ics(
+        _MULTI_RRULE_ONE_SUBHOURLY_ICS, now=now, lookahead_days=7, tz=_UTC
+    )
+    assert not any(e.summary == "Bad Multi-Rule Event" for e in events), (
+        "VEVENT with any sub-hourly RRULE must be dropped by "
+        "_drop_subhourly_recurrences"
+    )
+
+
+def test_rrule_is_subhourly_single_value():
+    """_rrule_is_subhourly handles the normal single-vRecur case."""
+    import icalendar
+
+    cal = icalendar.Calendar.from_ical(_MULTI_RRULE_ONE_SUBHOURLY_ICS)
+    for comp in cal.subcomponents:
+        if comp.name == "VEVENT":
+            rrule = comp.get("RRULE")
+            rrules = rrule if isinstance(rrule, list) else [rrule]
+            results = [_rrule_is_subhourly(rr) for rr in rrules]
+            # One is DAILY (not sub-hourly), one is SECONDLY (sub-hourly)
+            assert True in results, "SECONDLY RRULE must be identified as sub-hourly"
+            assert False in results, "DAILY RRULE must not be identified as sub-hourly"

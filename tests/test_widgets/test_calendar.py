@@ -826,3 +826,224 @@ def test_format_relative_all_day_today_tomorrow():
     assert format_relative(today, now, "x") == "Holiday today"
     assert format_relative(tomorrow, now, "x") == "Holiday tomorrow"
     assert format_relative(in_3d, now, "x") == "Holiday in 3d"
+
+
+# ---------------------------------------------------------------------------
+# Round-4 adversarial hardening fixes
+# ---------------------------------------------------------------------------
+
+
+# Fix 1: skip STATUS:CANCELLED events
+_CANCELLED_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:cancelled-1
+DTSTART:20260615T140000Z
+DTEND:20260615T150000Z
+SUMMARY:Cancelled Meeting
+STATUS:CANCELLED
+END:VEVENT
+BEGIN:VEVENT
+UID:normal-1
+DTSTART:20260615T160000Z
+DTEND:20260615T170000Z
+SUMMARY:Normal Meeting
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_parse_skips_cancelled_events():
+    now = datetime(2026, 6, 15, 13, 0, tzinfo=_UTC)
+    events = parse_ics(_CANCELLED_ICS, now=now, lookahead_days=1, tz=_UTC)
+    summaries = [e.summary for e in events]
+    assert "Cancelled Meeting" not in summaries, (
+        "STATUS:CANCELLED events must be skipped"
+    )
+    assert "Normal Meeting" in summaries, "Non-cancelled events must be kept"
+    assert len(events) == 1
+
+
+def test_parse_skips_cancelled_recurrence_override():
+    # A RECURRENCE-ID override with STATUS:CANCELLED cancels that one occurrence.
+    cancelled_override_ics = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:recurring-1
+DTSTART:20260615T100000Z
+RRULE:FREQ=DAILY;COUNT=3
+SUMMARY:Daily Standup
+END:VEVENT
+BEGIN:VEVENT
+UID:recurring-1
+RECURRENCE-ID:20260616T100000Z
+DTSTART:20260616T100000Z
+DTEND:20260616T110000Z
+SUMMARY:Daily Standup
+STATUS:CANCELLED
+END:VEVENT
+END:VCALENDAR
+"""
+    now = datetime(2026, 6, 15, 0, 0, tzinfo=_UTC)
+    events = parse_ics(cancelled_override_ics, now=now, lookahead_days=7, tz=_UTC)
+    # The 06-16 occurrence should be suppressed by icalendar/recurring_ical_events
+    # before our STATUS check, or caught by our check. Either way, no cancelled one.
+    cancelled = [
+        e
+        for e in events
+        if e.summary == "Daily Standup"
+        and e.start == datetime(2026, 6, 16, 10, 0, tzinfo=_UTC)
+    ]
+    # Note: recurring_ical_events may already suppress the RECURRENCE-ID cancelled
+    # override; this test asserts the net result is zero occurrences for that slot.
+    assert len(cancelled) == 0, (
+        "Cancelled RECURRENCE-ID override must not appear in parsed events"
+    )
+
+
+# Fix 2: ongoing multi-day all-day visible in next mode when it started before today
+def test_next_shows_ongoing_multiday_all_day_when_no_timed(monkeypatch):
+    # Multi-day all-day started YESTERDAY (start.date() < today), no timed events.
+    # Old predicate (start.date() == today) would miss this; new predicate
+    # (start.date() <= now_date) catches it as ongoing.
+    now = datetime(2026, 6, 15, 10, 0, tzinfo=_UTC)
+    monkeypatch.setattr("led_ticker.widgets.calendar._now_in", lambda tz: now)
+    # Starts yesterday, ends tomorrow (ongoing multi-day all-day).
+    multiday = CalendarEvent(
+        "Vacation", datetime(2026, 6, 14, 0, 0, tzinfo=_UTC), all_day=True
+    )
+    picked = []
+    original_format = format_relative
+
+    def capture_format(event, _now, empty_text):
+        picked.append(event)
+        return original_format(event, _now, empty_text)
+
+    monkeypatch.setattr("led_ticker.widgets.calendar.format_relative", capture_format)
+
+    w = _NextEventWidget(
+        events=[multiday], empty_text="No upcoming events", timezone="UTC"
+    )
+    c = Mock()
+    c.width = 160
+    c.height = 16
+    w.draw(c)
+    assert picked and picked[0] is multiday, (
+        "Ongoing multi-day all-day (started before today) must appear in next mode"
+    )
+    result = format_relative(multiday, now, "No upcoming events")
+    assert result == "Vacation today"
+
+
+# Fix 3: timed event today preferred over all-day today
+def test_next_prefers_timed_over_all_day_today(monkeypatch):
+    # An all-day event today + a timed event later today -> draw shows the TIMED
+    # event (actionable countdown), NOT the all-day.
+    now = datetime(2026, 6, 15, 10, 0, tzinfo=_UTC)
+    monkeypatch.setattr("led_ticker.widgets.calendar._now_in", lambda tz: now)
+    all_day_today = CalendarEvent(
+        "Holiday", datetime(2026, 6, 15, 0, 0, tzinfo=_UTC), all_day=True
+    )
+    timed_today = CalendarEvent(
+        "Dentist", datetime(2026, 6, 15, 14, 0, tzinfo=_UTC), all_day=False
+    )
+    # all_day sorts first (midnight); timed sorts second (14:00).
+    w = _NextEventWidget(
+        events=[all_day_today, timed_today],
+        empty_text="No upcoming events",
+        timezone="UTC",
+    )
+    picked = []
+    original_format = format_relative
+
+    def capture_format(event, _now, empty_text):
+        picked.append(event)
+        return original_format(event, _now, empty_text)
+
+    monkeypatch.setattr("led_ticker.widgets.calendar.format_relative", capture_format)
+
+    c = Mock()
+    c.width = 160
+    c.height = 16
+    w.draw(c)
+    assert picked and picked[0] is timed_today, (
+        "Timed event must be preferred over all-day event on the same day"
+    )
+
+
+# Fix 4: break->continue order-safety regression
+_ALLDAY_THEN_TIMED_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:allday-1
+DTSTART;VALUE=DATE:20260615
+DTEND;VALUE=DATE:20260616
+SUMMARY:All Day Thing
+END:VEVENT
+BEGIN:VEVENT
+UID:timed-1
+DTSTART:20260615T200000Z
+DTEND:20260615T210000Z
+SUMMARY:Evening Call
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_parse_keeps_inwindow_timed_event_negative_offset():
+    # America/New_York is UTC-4 in summer. All-day events are resolved to
+    # midnight local time (00:00 EDT = 04:00 UTC). A timed event at 20:00 UTC
+    # on the same calendar date is later in UTC but earlier in local midnight
+    # ordering — the old break would fire on the all-day and drop the timed one.
+    tz = ZoneInfo("America/New_York")
+    # "now" is 2026-06-15 at 08:00 EDT = 12:00 UTC (before both events)
+    now = datetime(2026, 6, 15, 12, 0, tzinfo=ZoneInfo("UTC")).astimezone(tz)
+    events = parse_ics(_ALLDAY_THEN_TIMED_ICS, now=now, lookahead_days=2, tz=tz)
+    summaries = [e.summary for e in events]
+    assert "All Day Thing" in summaries, "All-day event must be present"
+    assert "Evening Call" in summaries, (
+        "Timed event must not be dropped by an early break "
+        "triggered by all-day ordering"
+    )
+
+
+# Hardening 5: collapse whitespace in SUMMARY
+_NEWLINE_SUMMARY_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:newline-1
+DTSTART:20260615T140000Z
+DTEND:20260615T150000Z
+SUMMARY:Team\\nStandup
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_parse_collapses_summary_whitespace():
+    now = datetime(2026, 6, 15, 13, 0, tzinfo=_UTC)
+    events = parse_ics(_NEWLINE_SUMMARY_ICS, now=now, lookahead_days=1, tz=_UTC)
+    assert len(events) == 1
+    # The embedded \n (icalendar-unescaped) must be collapsed to a single space.
+    assert events[0].summary == "Team Standup", (
+        f"Expected 'Team Standup', got {events[0].summary!r}"
+    )
+
+
+# Hardening 6: file://localhost/ host form
+def test_fetch_ics_file_localhost_host(tmp_path):
+    ics_file = tmp_path / "test.ics"
+    ics_file.write_text(_MULTIDAY_ICS)
+    # RFC 8089: file://localhost/abs/path is equivalent to file:///abs/path
+    url = "file://localhost" + str(ics_file)
+    cal = Calendar(session=None, ics_url=url, timezone="UTC")
+    content = asyncio.run(cal._fetch_ics())
+    assert "Vacation" in content

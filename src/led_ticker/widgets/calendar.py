@@ -121,16 +121,25 @@ def parse_ics(
         recurring_ical_events.of(cal).after(now), _MAX_OCCURRENCES
     ):
         count += 1
-        summary = str(comp.get("SUMMARY", "")).strip()
+        # Fix 1: skip STATUS:CANCELLED events (declined/cancelled meetings,
+        # cancelled occurrence overrides from Google/Outlook/iCloud feeds).
+        if str(comp.get("STATUS", "")).upper() == "CANCELLED":
+            continue
+        # Fix 5: collapse whitespace (embedded newlines/tabs from icalendar
+        # unescaping \n) so SUMMARY renders cleanly on a single-line panel.
+        summary = " ".join(str(comp.get("SUMMARY", "")).split())
         if not summary:
             continue
         dtstart = comp.get("DTSTART")
         if dtstart is None:
             continue
         start, all_day = _to_display_start(dtstart.dt, tz)
-        # .after() yields ascending start; once we're past the window, stop.
+        # Fix 4: use continue (not break) here — all-day events resolved to
+        # display-tz midnight can reorder relative to timed events across a
+        # negative UTC offset (the Americas), so a break here can fire early
+        # and drop valid in-window timed events. islice already bounds the loop.
         if start > window_end:
-            break
+            continue
         # belt-and-suspenders: .after() already excludes ended occurrences;
         # this guards malformed/edge feeds.
         if all_day:
@@ -347,19 +356,32 @@ class _NextEventWidget(FrameAwareBase):
         now = _now_in(tz)  # ALWAYS aware (local when tz is None) — event.start
         # is aware, and format_relative subtracts them; a naive now -> TypeError.
 
-        # Pick the soonest not-yet-started event live on each draw call so the
-        # widget rolls to the next event automatically (no stale 900s window).
-        # Sort by start so unsorted inputs still yield the genuinely-soonest event.
-        # All-day events whose date is today are included even though their start
-        # timestamp (midnight) is <= now — they are still in progress / "today".
+        # Pick the soonest event live on each draw call so the widget rolls
+        # automatically (no stale 900s window).  Prefer a timed event (countdown
+        # is actionable); fall back to all-day only when no timed event is pending.
+        # Fix #3: an all-day today sorts at midnight and would MASK every timed
+        # event the same day with the old single-pass pick.
+        # Fix #2: a multi-day all-day that started BEFORE today (start.date() <
+        # today) was invisible with the old start.date()==today predicate.
+        events_sorted = sorted(self.events, key=lambda e: e.start)
+        now_date = now.date()
+        # 1) soonest not-yet-started timed event (the actionable countdown)
         event = next(
-            (
-                e
-                for e in sorted(self.events, key=lambda e: e.start)
-                if e.start > now or (e.all_day and e.start.date() == now.date())
-            ),
-            None,
+            (e for e in events_sorted if not e.all_day and e.start > now), None
         )
+        if event is None:
+            # 2) no timed event pending -> show a current/ongoing all-day
+            #    (parse_ics already dropped ENDED all-days, so start.date() <=
+            #    now_date means genuinely ongoing today)
+            event = next(
+                (e for e in events_sorted if e.all_day and e.start.date() <= now_date),
+                None,
+            )
+            if event is None:
+                # 3) ...or the soonest future all-day
+                event = next(
+                    (e for e in events_sorted if e.all_day and e.start > now), None
+                )
 
         # Color: highlight wins for the currently-shown event; engine-supplied
         # font_color (passed by transitions) takes precedence over both.
@@ -523,7 +545,16 @@ class Calendar:
         # absolute path (file:///abs or /abs) for deployed configs.
         # Percent-decode only the file:// form; bare paths are taken literally
         # so a path that contains literal %41 is not silently rewritten to A.
-        path = unquote(url[len("file://") :]) if url.startswith("file://") else url
+        # Fix 6: RFC 8089 allows file://localhost/abs/path as equivalent to
+        # file:///abs/path — strip the 'localhost' host so the leading '/'
+        # is preserved in the resolved path.
+        if url.startswith("file://"):
+            raw = url[len("file://") :]
+            if raw.startswith("localhost/"):
+                raw = raw[len("localhost") :]  # -> "/abs/path"
+            path = unquote(raw)
+        else:
+            path = url
         return await asyncio.to_thread(Path(path).expanduser().read_text)
 
     def _empty_story(self) -> TickerMessage:

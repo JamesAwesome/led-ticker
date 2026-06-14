@@ -319,7 +319,8 @@ class Calendar:
     @classmethod
     def validate_config(cls, cfg: dict[str, Any]) -> list[str]:
         errors: list[str] = []
-        if not cfg.get("ics_url") or not isinstance(cfg.get("ics_url"), str):
+        ics_url = cfg.get("ics_url")
+        if not isinstance(ics_url, str) or not ics_url:
             errors.append("ics_url is required and must be a non-empty string")
         layout = cfg.get("layout", "agenda")
         if layout not in ("agenda", "next"):
@@ -343,7 +344,9 @@ class Calendar:
                 errors.append(f"{key} must be a list of strings")
         for key in ("max_events", "lookahead_days"):
             val = cfg.get(key)
-            if val is not None and (not isinstance(val, int) or val < 0):
+            if val is not None and (
+                isinstance(val, bool) or not isinstance(val, int) or val < 0
+            ):
                 errors.append(f"{key} must be a non-negative integer")
         return errors
 

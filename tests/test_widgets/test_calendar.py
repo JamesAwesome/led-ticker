@@ -382,3 +382,8 @@ def test_validate_accepts_good_config():
         )
         == []
     )
+
+
+def test_validate_rejects_bool_max_events():
+    msgs = Calendar.validate_config({"ics_url": "x", "max_events": True})
+    assert any("max_events" in m for m in msgs)

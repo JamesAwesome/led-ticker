@@ -103,10 +103,11 @@ def parse_ics(
     drop past events, and return CalendarEvents sorted by start (display tz).
 
     Uses a lazy generator + islice to cap at _MAX_OCCURRENCES to prevent OOM on
-    hostile/pathological high-frequency RRULEs (e.g. FREQ=SECONDLY). Since
-    .after() yields ascending by start, we break early once we pass window_end.
-    Also strips a leading UTF-8 BOM (U+FEFF) so Outlook/Exchange feeds parse
-    correctly.
+    hostile/pathological high-frequency RRULEs (e.g. FREQ=SECONDLY). islice
+    bounds the scan; events past window_end are skipped via `continue` (not an
+    early `break`) because all-day events resolve to display-tz midnight and can
+    reorder relative to timed events across a negative UTC offset. Also strips a
+    leading UTF-8 BOM (U+FEFF) so Outlook/Exchange feeds parse correctly.
     """
     # Fix 4: strip leading BOM before parsing (Outlook/Exchange/.ics feeds)
     text = text.lstrip("﻿")

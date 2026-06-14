@@ -1038,6 +1038,71 @@ def test_parse_collapses_summary_whitespace():
     )
 
 
+# ---------------------------------------------------------------------------
+# False-positive truncation warning fix
+# ---------------------------------------------------------------------------
+
+_DAILY_RRULE_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:daily-1
+DTSTART:20200101T100000Z
+RRULE:FREQ=DAILY
+SUMMARY:Daily Standup
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_parse_no_truncation_warning_for_normal_recurring(caplog):
+    """A normal never-ending RRULE must NOT trigger the truncation warning.
+
+    Regression for the false-positive: a FREQ=DAILY event with no COUNT/UNTIL
+    has >2000 lifetime occurrences, so the islice cap fires — but all in-window
+    events are returned BEFORE any occurrence past window_end is scanned, so
+    nothing was genuinely truncated. The warning must stay silent.
+    """
+    import logging
+
+    now = datetime(2026, 6, 15, 0, 0, tzinfo=_UTC)
+    with caplog.at_level(logging.WARNING, logger="led_ticker.widgets.calendar"):
+        events = parse_ics(_DAILY_RRULE_ICS, now=now, lookahead_days=7, tz=_UTC)
+
+    assert not any("truncated" in record.message for record in caplog.records), (
+        "No truncation warning expected for a normal never-ending RRULE"
+    )
+    # 7-day window starting 2026-06-15 00:00 UTC: .after(now) returns events
+    # whose end is after now, and DTSTART is 10:00 UTC. The first occurrence on
+    # 06-15 at 10:00 UTC is in-window; through 06-21 (window_end = 06-22 00:00)
+    # gives 7 occurrences. Assert in a range to stay robust to edge cases.
+    assert 6 <= len(events) <= 8, (
+        f"Expected ~7 in-window events for a 7-day daily recurrence, got {len(events)}"
+    )
+
+
+def test_parse_warns_on_genuine_truncation(caplog):
+    """A FREQ=SECONDLY event with >2000 occurrences inside the window MUST warn.
+
+    The cap fires and no occurrence past window_end was ever reached before the
+    islice was exhausted, so scanned_past_window stays False — the warning fires.
+    """
+    import logging
+
+    now = datetime(2026, 6, 1, 0, 0, tzinfo=_UTC)
+    # A 7-day window contains ~604800 occurrences of a FREQ=SECONDLY event —
+    # far more than _MAX_OCCURRENCES, so the cap is hit with events still inside
+    # the window (scanned_past_window never becomes True).
+    with caplog.at_level(logging.WARNING, logger="led_ticker.widgets.calendar"):
+        events = parse_ics(_SECONDLY_ICS, now=now, lookahead_days=7, tz=_UTC)
+
+    assert any("truncated" in record.message for record in caplog.records), (
+        "Truncation warning expected when in-window events genuinely overflow the cap"
+    )
+    assert len(events) <= _MAX_OCCURRENCES
+
+
 # Hardening 6: file://localhost/ host form
 def test_fetch_ics_file_localhost_host(tmp_path):
     ics_file = tmp_path / "test.ics"

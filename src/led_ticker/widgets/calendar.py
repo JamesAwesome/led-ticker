@@ -118,6 +118,7 @@ def parse_ics(
     # .after(now) filters occurrences whose END is after now, ascending by start.
     events: list[CalendarEvent] = []
     count = 0
+    scanned_past_window = False
     for comp in itertools.islice(
         recurring_ical_events.of(cal).after(now), _MAX_OCCURRENCES
     ):
@@ -140,6 +141,11 @@ def parse_ics(
         # negative UTC offset (the Americas), so a break here can fire early
         # and drop valid in-window timed events. islice already bounds the loop.
         if start > window_end:
+            # .after(now) yields ascending by start, so once we see an
+            # occurrence past window_end we have already seen every in-window
+            # occurrence. Record this so we can suppress a false-positive
+            # truncation warning on normal never-ending recurrences.
+            scanned_past_window = True
             continue
         # belt-and-suspenders: .after() already excludes ended occurrences;
         # this guards malformed/edge feeds.
@@ -155,8 +161,11 @@ def parse_ics(
             continue
         events.append(CalendarEvent(summary=summary, start=start, all_day=all_day))
     else:
-        # Loop completed (didn't break) — check if we hit the islice cap
-        if count >= _MAX_OCCURRENCES:
+        # Loop completed (didn't break) — check if we hit the islice cap.
+        # Only warn when in-window events were genuinely truncated: if we
+        # already scanned an occurrence past window_end, every in-window
+        # occurrence was seen before the cap fired, so nothing was dropped.
+        if count >= _MAX_OCCURRENCES and not scanned_past_window:
             logger.warning(
                 "Calendar feed produced >= %d occurrences in the window; "
                 "truncated (check the feed's RRULE)",

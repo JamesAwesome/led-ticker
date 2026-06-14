@@ -510,6 +510,7 @@ class _NextEventWidget(FrameAwareBase):
     center: bool = True
     padding: int = 6
     _baseline_y: int = attrs.field(init=False, default=-1)
+    _resolved_tz: tzinfo | None = attrs.field(init=False, default=None)
 
     def draw(
         self,
@@ -519,7 +520,9 @@ class _NextEventWidget(FrameAwareBase):
         y_offset: int = 0,
         font_color: Any = None,
     ) -> DrawResult:
-        tz = _resolve_tz(self.timezone)
+        if self._resolved_tz is None:
+            self._resolved_tz = _resolve_tz(self.timezone)
+        tz = self._resolved_tz
         now = _now_in(tz)  # ALWAYS aware (local when tz is None) — event.start
         # is aware, and format_relative subtracts them; a naive now -> TypeError.
 

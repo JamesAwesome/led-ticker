@@ -1639,3 +1639,46 @@ def test_validate_rejects_bad_timezone_still_passes():
     assert any("timezone" in m.lower() for m in msgs), (
         "Bad timezone must still be caught after adding OSError to the except clause"
     )
+
+
+# ---------------------------------------------------------------------------
+# Render hot-path: _NextEventWidget must cache the resolved timezone
+# ---------------------------------------------------------------------------
+
+
+def test_next_widget_resolves_tz_once(canvas):
+    """_NextEventWidget._resolved_tz caches the result of _resolve_tz.
+
+    draw() runs at ~20 Hz (ENGINE_TICK_MS=50ms). Calling _resolve_tz(None) on
+    every tick does a Path("/etc/localtime").resolve() filesystem syscall plus a
+    ZoneInfo lookup — expensive for a value that never changes mid-section.
+
+    The cache field (_resolved_tz) is populated on the FIRST draw() call and
+    reused for all subsequent calls. This test spies on the module-level
+    _resolve_tz to assert it is invoked AT MOST ONCE across 10 draws.
+    """
+    from led_ticker.widgets import calendar as _cal_mod
+
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    w = _NextEventWidget(events=[e], empty_text="none", timezone=None)
+
+    call_count = 0
+    original_resolve_tz = _cal_mod._resolve_tz
+
+    def counting_resolve_tz(tz):
+        nonlocal call_count
+        call_count += 1
+        return original_resolve_tz(tz)
+
+    _cal_mod._resolve_tz = counting_resolve_tz
+    try:
+        for _ in range(10):
+            w.draw(canvas)
+    finally:
+        _cal_mod._resolve_tz = original_resolve_tz
+
+    assert call_count <= 1, (
+        f"_resolve_tz was called {call_count} times across 10 draw() calls — "
+        "expected at most 1 (cached after first draw). "
+        "Check _NextEventWidget._resolved_tz caching in draw()."
+    )

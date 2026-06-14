@@ -213,25 +213,29 @@ def _clamp_recurrence_anchors(cal: Any, now: datetime) -> int:
         if present_by_keys & _BY_KEYS_UNSAFE:
             # Unsafe BY* key present — skip (month/year alignment needed)
             continue
+        # Read INTERVAL once; used by both BY* and no-BY* branches below.
+        raw_interval = rrule.get("INTERVAL", 1)
+        if isinstance(raw_interval, list):
+            interval = int(raw_interval[0]) if raw_interval else 1
+        else:
+            interval = int(raw_interval or 1)
+
         if present_by_keys:
-            # Safe BY* subset present — determine if this FREQ allows it
+            # Safe BY* subset present — determine if this FREQ allows it.
+            # Multiply by INTERVAL so the anchor advances by the rule's true
+            # period (e.g. WEEKLY;INTERVAL=2 → 2-week steps, not 1-week steps).
             if freq_val in ("HOURLY", "DAILY"):
                 if not present_by_keys <= _BY_KEYS_SAFE_HOURLY_DAILY:
                     continue  # unexpected key outside safe set
-                step_seconds = _BY_CLAMP_STEP_SECONDS[freq_val]
+                step_seconds = _BY_CLAMP_STEP_SECONDS[freq_val] * max(interval, 1)
             elif freq_val == "WEEKLY":
                 if not present_by_keys <= _BY_KEYS_SAFE_WEEKLY:
                     continue
-                step_seconds = _BY_CLAMP_STEP_SECONDS[freq_val]
+                step_seconds = _BY_CLAMP_STEP_SECONDS[freq_val] * max(interval, 1)
             else:
                 continue  # not reached (covered by _UNIFORM_INTERVAL_SECONDS check)
         else:
             # No BY* keys — plain uniform case, use base FREQ interval
-            raw_interval = rrule.get("INTERVAL", 1)
-            if isinstance(raw_interval, list):
-                interval = int(raw_interval[0]) if raw_interval else 1
-            else:
-                interval = int(raw_interval or 1)
             step_seconds = _UNIFORM_INTERVAL_SECONDS[freq_val] * max(interval, 1)
 
         dtstart = dtstart_prop.dt

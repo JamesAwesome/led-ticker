@@ -39,6 +39,7 @@ _NOW = datetime(2026, 6, 15, 0, 0, tzinfo=_UTC)
 _LOOKAHEAD = 7  # days
 
 # DTSTART variations
+# NOTE: 20240101 (Jan 1, 2024) is a Monday — ideal DTSTART for BYDAY=MO tests.
 _FAR_PAST = "20240101T000000Z"  # ~2.5 years before _NOW
 _NEAR_NOW = "20260614T000000Z"  # 1 day before _NOW (near)
 _FUTURE = "20270101T000000Z"  # ~6 months after _NOW+lookahead (nothing in window)
@@ -53,6 +54,9 @@ def _build_ics(freq: str, dtstart: str, modifier: str) -> str:
     DTEND is DTSTART + 30 minutes.  We compute it by parsing dtstart as a
     naive datetime string (all test values end in Z = UTC) and adding 30m,
     then re-formatting as a compact UTC datetime string.
+
+    ``modifier`` is appended verbatim to the RRULE after ``FREQ=<freq>``, e.g.
+    ``"INTERVAL=2;BYDAY=MO"`` → ``RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO``.
     """
     rrule = f"FREQ={freq}"
     if modifier:
@@ -176,6 +180,9 @@ def test_parse_is_bounded(
 # This is the correctness proof for _clamp_recurrence_anchors.
 
 _CLAMP_EQUIV_CASES = [
+    # -----------------------------------------------------------------------
+    # INTERVAL=1 (original cases — baseline correctness)
+    # -----------------------------------------------------------------------
     pytest.param("HOURLY", _FAR_PAST, "", id="hourly_far_past_forever"),
     pytest.param("DAILY", _FAR_PAST, "", id="daily_far_past_forever"),
     pytest.param(
@@ -196,7 +203,70 @@ _CLAMP_EQUIV_CASES = [
     pytest.param("HOURLY", _FAR_PAST, "BYMINUTE=0", id="hourly_far_past_byminute"),
     pytest.param("DAILY", _FAR_PAST, "BYHOUR=9", id="daily_far_past_byhour"),
     pytest.param("WEEKLY", _FAR_PAST, "BYDAY=MO", id="weekly_far_past_byday"),
+    # -----------------------------------------------------------------------
+    # INTERVAL > 1 — no-BY* (uniform) branch: regression guard
+    # -----------------------------------------------------------------------
+    # WEEKLY;INTERVAL=2 (biweekly), DAILY;INTERVAL=3, HOURLY;INTERVAL=5
+    pytest.param("WEEKLY", _FAR_PAST, "INTERVAL=2", id="weekly_far_past_interval2"),
+    pytest.param("DAILY", _FAR_PAST, "INTERVAL=3", id="daily_far_past_interval3"),
+    pytest.param("HOURLY", _FAR_PAST, "INTERVAL=5", id="hourly_far_past_interval5"),
+    pytest.param("DAILY", _FAR_PAST, "INTERVAL=2", id="daily_far_past_interval2"),
+    # -----------------------------------------------------------------------
+    # INTERVAL > 1 — BY*-safe branch (the bug was here)
+    # -----------------------------------------------------------------------
+    # WEEKLY BY* shapes
+    pytest.param(
+        "WEEKLY",
+        _FAR_PAST,
+        "INTERVAL=2;BYDAY=MO",
+        id="weekly_far_past_interval2_byday_mo",
+    ),
+    pytest.param(
+        "WEEKLY",
+        _FAR_PAST,
+        "INTERVAL=3;BYDAY=MO,WE,FR",
+        id="weekly_far_past_interval3_byday_mo_we_fr",
+    ),
+    # DAILY BY* shapes
+    pytest.param(
+        "DAILY",
+        _FAR_PAST,
+        "INTERVAL=3;BYHOUR=9",
+        id="daily_far_past_interval3_byhour9",
+    ),
+    pytest.param(
+        "DAILY",
+        _FAR_PAST,
+        "INTERVAL=2;BYHOUR=9;BYMINUTE=30",
+        id="daily_far_past_interval2_byhour9_byminute30",
+    ),
+    # HOURLY BY* shapes
+    pytest.param(
+        "HOURLY",
+        _FAR_PAST,
+        "INTERVAL=5;BYMINUTE=0",
+        id="hourly_far_past_interval5_byminute0",
+    ),
+    pytest.param(
+        "HOURLY",
+        _FAR_PAST,
+        "INTERVAL=3;BYMINUTE=0",
+        id="hourly_far_past_interval3_byminute0",
+    ),
 ]
+
+
+def _unclamped_reference(
+    ics: str, now: datetime, lookahead: int, tz: ZoneInfo
+) -> set[tuple]:
+    """Return {(summary, start)} from parse_ics with clamping bypassed."""
+    original_clamp = _cal_mod._clamp_recurrence_anchors
+    _cal_mod._clamp_recurrence_anchors = lambda cal, now: 0
+    try:
+        events = parse_ics(ics, now=now, lookahead_days=lookahead, tz=tz)
+    finally:
+        _cal_mod._clamp_recurrence_anchors = original_clamp
+    return {(e.summary, e.start) for e in events}
 
 
 @pytest.mark.parametrize("freq,dtstart_val,modifier_val", _CLAMP_EQUIV_CASES)
@@ -206,30 +276,116 @@ def test_clamp_equivalence(freq: str, dtstart_val: str, modifier_val: str) -> No
     Bypass _clamp_recurrence_anchors via monkeypatching to obtain the
     reference set, then compare {(summary, start)} pairs.
 
+    Also asserts the clamp actually FIRED (so the test exercises the clamped
+    path, not a no-op) — for far-past rules that should always clamp.
+
     If this fails, the clamp is changing the in-window result — that is a
     correctness bug that must NOT be papered over by weakening the test.
     """
     ics = _build_ics(freq, dtstart_val, modifier_val)
 
-    # Path A: normal parse (clamping active)
-    events_clamped = parse_ics(ics, now=_NOW, lookahead_days=_LOOKAHEAD, tz=_UTC)
-
-    # Path B: bypass clamping
+    # Path A: normal parse (clamping active); also capture whether any clamp fired.
+    clamp_count = 0
     original_clamp = _cal_mod._clamp_recurrence_anchors
-    _cal_mod._clamp_recurrence_anchors = lambda cal, now: 0
+
+    def _counting_clamp(cal: object, now: datetime) -> int:
+        nonlocal clamp_count
+        n = original_clamp(cal, now)
+        clamp_count += n
+        return n
+
+    _cal_mod._clamp_recurrence_anchors = _counting_clamp  # type: ignore[assignment]
     try:
-        events_unclamped = parse_ics(ics, now=_NOW, lookahead_days=_LOOKAHEAD, tz=_UTC)
+        events_clamped = parse_ics(ics, now=_NOW, lookahead_days=_LOOKAHEAD, tz=_UTC)
     finally:
         _cal_mod._clamp_recurrence_anchors = original_clamp
 
-    clamped_set = {(e.summary, e.start) for e in events_clamped}
-    unclamped_set = {(e.summary, e.start) for e in events_unclamped}
+    # Path B: bypass clamping (reference)
+    unclamped_set = _unclamped_reference(ics, _NOW, _LOOKAHEAD, _UTC)
 
+    clamped_set = {(e.summary, e.start) for e in events_clamped}
+
+    # Clamp-equivalence: in-window events must be identical.
     assert clamped_set == unclamped_set, (
         f"{freq}/{dtstart_val[:8]}/{modifier_val or 'forever'}: "
         f"clamped and unclamped parse produced different in-window events.\n"
         f"Only in clamped:   {clamped_set - unclamped_set}\n"
         f"Only in unclamped: {unclamped_set - clamped_set}"
+    )
+
+    # Clamp-fired: the clamp must have run for far-past rules (COUNT absent,
+    # no unsafe BY* keys) — if clamp_count==0 on a far-past rule, the test is
+    # not exercising the optimised path and its equivalence check is a no-op.
+    # (Rules with COUNT are excluded from clamping; near/future DTSTART may not
+    # meet the gap threshold — skip the fired-assertion for those.)
+    modifier_upper = modifier_val.upper()
+    has_count = "COUNT=" in modifier_upper
+    if not has_count and dtstart_val == _FAR_PAST:
+        assert clamp_count > 0, (
+            f"{freq}/{dtstart_val[:8]}/{modifier_val or 'forever'}: "
+            f"expected the clamp to fire for a far-past rule, but clamp_count=0. "
+            f"The equivalence check is a no-op — the clamped path was never exercised."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Direct regression: biweekly Monday correctness (the reported bug)
+# ---------------------------------------------------------------------------
+
+
+def test_clamp_interval_biweekly_correct_dates() -> None:
+    """Regression: WEEKLY;INTERVAL=2;BYDAY=MO far-past anchor returns the
+    CORRECT biweekly Mondays, not dates shifted by one week.
+
+    Reported bug: _clamp_recurrence_anchors advanced the anchor by one-week
+    steps (ignoring INTERVAL=2), landing on a wrong phase.  With now=2026-06-15
+    and a 28-day lookahead, the correct biweekly Mondays (anchored Jan 1 2024,
+    which is a Monday; parity: even ISO-week offsets from anchor) are:
+      2026-06-29 and 2026-07-13
+    The buggy result was one week early:
+      2026-06-22 and 2026-07-06
+
+    Both the clamped parse AND the unclamped reference must agree on the correct
+    dates.
+    """
+    now = datetime(2026, 6, 15, 0, 0, tzinfo=_UTC)
+    lookahead = 28  # days
+
+    # DTSTART=20240101T000000Z (Monday Jan 1 2024) + INTERVAL=2 → biweekly Mondays
+    ics = _build_ics("WEEKLY", _FAR_PAST, "INTERVAL=2;BYDAY=MO")
+
+    # Unclamped reference (bypass clamp)
+    unclamped_set = _unclamped_reference(ics, now, lookahead, _UTC)
+
+    # Clamped parse
+    events_clamped = parse_ics(ics, now=now, lookahead_days=lookahead, tz=_UTC)
+    clamped_set = {(e.summary, e.start) for e in events_clamped}
+
+    # The two must agree.
+    assert clamped_set == unclamped_set, (
+        f"Biweekly Monday: clamped={clamped_set} != unclamped={unclamped_set}\n"
+        f"The INTERVAL=2 clamp bug may have been reintroduced."
+    )
+
+    # The correct dates must be present — not the off-by-one-week buggy dates.
+    starts = {e.start for e in events_clamped}
+    # Correct biweekly Mondays in window [2026-06-15, 2026-07-13]
+    expected_correct = {
+        datetime(2026, 6, 29, 0, 0, tzinfo=_UTC),
+        datetime(2026, 7, 13, 0, 0, tzinfo=_UTC),
+    }
+    # Buggy (off by one week) dates that must NOT appear
+    buggy_dates = {
+        datetime(2026, 6, 22, 0, 0, tzinfo=_UTC),
+        datetime(2026, 7, 6, 0, 0, tzinfo=_UTC),
+    }
+    assert expected_correct <= starts, (
+        f"Expected biweekly Mondays {expected_correct} not found in {starts}.\n"
+        f"INTERVAL clamp bug may be active."
+    )
+    assert not (buggy_dates & starts), (
+        f"Off-by-one-week buggy dates {buggy_dates & starts} appeared in {starts}.\n"
+        f"INTERVAL clamp bug may be active."
     )
 
 

@@ -581,12 +581,29 @@ END:VCALENDAR
 """
 
 
+_HOURLY_LONG_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:hourly-long-1
+DTSTART:20200101T000000Z
+RRULE:FREQ=HOURLY
+SUMMARY:Every Hour
+END:VEVENT
+END:VCALENDAR
+"""
+
+
 def test_parse_caps_pathological_rrule():
-    # A FREQ=SECONDLY event would produce millions of occurrences — parse_ics
-    # must cap at _MAX_OCCURRENCES and return quickly (islice ensures this).
+    # A FREQ=HOURLY event starting in 2020 with no UNTIL/COUNT produces tens of
+    # thousands of occurrences in a 365-day window — parse_ics must cap at
+    # _MAX_OCCURRENCES and return quickly (islice bounds the expansion).
+    # (Changed from FREQ=SECONDLY, pre-filtered by _drop_subhourly_recurrences;
+    # HOURLY is the lowest frequency that exercises the islice cap.)
     now = datetime(2026, 6, 1, 0, 0, tzinfo=_UTC)
-    events = parse_ics(_SECONDLY_ICS, now=now, lookahead_days=365, tz=_UTC)
-    # Must be bounded — not millions
+    events = parse_ics(_HOURLY_LONG_ICS, now=now, lookahead_days=365, tz=_UTC)
+    # Must be bounded — not tens of thousands
     assert len(events) <= _MAX_OCCURRENCES
 
 
@@ -1083,19 +1100,21 @@ def test_parse_no_truncation_warning_for_normal_recurring(caplog):
 
 
 def test_parse_warns_on_genuine_truncation(caplog):
-    """A FREQ=SECONDLY event with >2000 occurrences inside the window MUST warn.
+    """A FREQ=HOURLY event with >2000 occurrences inside the window MUST warn.
 
     The cap fires and no occurrence past window_end was ever reached before the
     islice was exhausted, so scanned_past_window stays False — the warning fires.
+    (Changed from FREQ=SECONDLY which is pre-filtered by _drop_subhourly_recurrences;
+    HOURLY is the lowest frequency that exercises the islice cap.)
     """
     import logging
 
     now = datetime(2026, 6, 1, 0, 0, tzinfo=_UTC)
-    # A 7-day window contains ~604800 occurrences of a FREQ=SECONDLY event —
+    # A 365-day window contains ~8760 occurrences of a FREQ=HOURLY event —
     # far more than _MAX_OCCURRENCES, so the cap is hit with events still inside
     # the window (scanned_past_window never becomes True).
     with caplog.at_level(logging.WARNING, logger="led_ticker.widgets.calendar"):
-        events = parse_ics(_SECONDLY_ICS, now=now, lookahead_days=7, tz=_UTC)
+        events = parse_ics(_HOURLY_LONG_ICS, now=now, lookahead_days=365, tz=_UTC)
 
     assert any("truncated" in record.message for record in caplog.records), (
         "Truncation warning expected when in-window events genuinely overflow the cap"
@@ -1112,3 +1131,150 @@ def test_fetch_ics_file_localhost_host(tmp_path):
     cal = Calendar(session=None, ics_url=url, timezone="UTC")
     content = asyncio.run(cal._fetch_ics())
     assert "Vacation" in content
+
+
+# ---------------------------------------------------------------------------
+# Round-6 adversarial hardening fixes
+# ---------------------------------------------------------------------------
+
+
+# Fix 1: sub-hourly RRULE pre-filter (SECONDLY/MINUTELY DoS protection)
+_SECONDLY_FAR_PAST_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:secondly-past-1
+DTSTART:20240101T000000Z
+RRULE:FREQ=SECONDLY
+SUMMARY:Every Second Past
+END:VEVENT
+BEGIN:VEVENT
+UID:daily-companion-1
+DTSTART:20260615T100000Z
+DTEND:20260615T110000Z
+SUMMARY:Normal Meeting
+END:VEVENT
+END:VCALENDAR
+"""
+
+_MINUTELY_ICS = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:minutely-1
+DTSTART:20260601T000000Z
+RRULE:FREQ=MINUTELY
+SUMMARY:Every Minute
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_parse_drops_subhourly_rrule_fast(caplog):
+    """FREQ=SECONDLY/MINUTELY events are dropped before expansion.
+
+    A SECONDLY VEVENT with DTSTART ~2 years in the past would pin the CPU for
+    >60s if handed to recurring_ical_events.of().after(now) without pre-filtering
+    (the library walks every occurrence from DTSTART up to `now` before yielding
+    the first in-window result, and that pre-now scan is not bounded by islice).
+    The pre-filter drops it instantly and logs a warning. A co-resident DAILY
+    event must still be returned.
+
+    The test itself is the timing proof — if the pre-filter were absent, this
+    test would hang for >60 seconds on a SECONDLY DTSTART ~2.5 years in the past.
+    """
+    import logging
+
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    with caplog.at_level(logging.WARNING, logger="led_ticker.widgets.calendar"):
+        events = parse_ics(_SECONDLY_FAR_PAST_ICS, now=now, lookahead_days=7, tz=_UTC)
+
+    # (a) The SECONDLY rule contributes 0 events
+    assert not any(e.summary == "Every Second Past" for e in events), (
+        "SECONDLY RRULE events must be pre-filtered (0 yielded)"
+    )
+    # (b) The sub-hourly warning was logged
+    assert any("sub-hourly" in record.message for record in caplog.records), (
+        "Expected a 'sub-hourly' warning when a SECONDLY/MINUTELY RRULE is dropped"
+    )
+    # (c) The co-resident DAILY event is still returned
+    assert any(e.summary == "Normal Meeting" for e in events), (
+        "Normal DAILY event alongside a SECONDLY RRULE must survive"
+    )
+
+
+def test_parse_drops_minutely_rrule(caplog):
+    """FREQ=MINUTELY is also pre-filtered by _drop_subhourly_recurrences."""
+    import logging
+
+    now = datetime(2026, 6, 1, 0, 0, tzinfo=_UTC)
+    with caplog.at_level(logging.WARNING, logger="led_ticker.widgets.calendar"):
+        events = parse_ics(_MINUTELY_ICS, now=now, lookahead_days=1, tz=_UTC)
+
+    assert not any(e.summary == "Every Minute" for e in events), (
+        "MINUTELY RRULE events must be pre-filtered"
+    )
+    assert any("sub-hourly" in record.message for record in caplog.records)
+
+
+# Fix 2: ongoing all-day event (past-start) gets "Today" label in agenda mode
+def test_day_label_ongoing_all_day_is_today():
+    """An all-day event with DTSTART 2 days in the past renders 'Today <summary>'.
+
+    Ongoing multi-day all-day events (kept by parse_ics via DTEND) have a
+    negative delta_days in _day_label. The old `== 0` check produced the past
+    start date ("Jun 12 Vacation"); the new `<= 0` check returns "Today".
+    """
+    now = datetime(2026, 6, 15, 10, 0, tzinfo=_UTC)
+    # Event started 2 days ago, still ongoing (parse_ics kept it)
+    e = CalendarEvent(
+        summary="Vacation",
+        start=datetime(2026, 6, 13, 0, 0, tzinfo=_UTC),  # 2 days before now
+        all_day=True,
+    )
+    line = format_event_line(e, now=now, time_format="12h", tz=_UTC)
+    assert line == "Today  Vacation", (
+        f"Ongoing all-day event with past start must render "
+        f"'Today  <summary>', got {line!r}"
+    )
+
+
+# Fix 3: file:// reads are explicitly UTF-8
+def test_fetch_ics_reads_utf8(tmp_path):
+    """_fetch_ics must read .ics files as UTF-8 regardless of locale.
+
+    A non-ASCII event name (e.g. 'Café') written as UTF-8 must round-trip
+    correctly through _fetch_ics (encoding="utf-8" explicit).
+    """
+    utf8_ics = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:utf8-1
+DTSTART:20260615T140000Z
+DTEND:20260615T150000Z
+SUMMARY:Café au lait
+END:VEVENT
+END:VCALENDAR
+"""
+    ics_file = tmp_path / "test.ics"
+    ics_file.write_text(utf8_ics, encoding="utf-8")
+    cal = Calendar(session=None, ics_url=f"file://{ics_file}", timezone="UTC")
+    content = asyncio.run(cal._fetch_ics())
+    assert "Café" in content, (
+        "Non-ASCII characters in .ics file must survive the UTF-8 read"
+    )
+
+
+# Fix 4: empty-string timezone treated as unset in validate_config
+def test_validate_accepts_empty_timezone():
+    """timezone = '' must be treated as 'use system default', not an error.
+
+    _resolve_tz('') already treats falsy as 'unset' (returns system local tz);
+    validate_config must align by skipping validation for empty/None timezone.
+    """
+    msgs = Calendar.validate_config({"ics_url": "x", "timezone": ""})
+    assert msgs == [], f"Empty-string timezone must be accepted (no errors), got {msgs}"

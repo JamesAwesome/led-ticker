@@ -37,6 +37,38 @@ logger = logging.getLogger(__name__)
 # islice ensures we never materialize more than this many occurrences.
 _MAX_OCCURRENCES = 2000
 
+_SUBHOURLY_FREQS = frozenset({"SECONDLY", "MINUTELY"})
+
+
+def _drop_subhourly_recurrences(cal: Any) -> int:
+    """Remove VEVENTs with a SECONDLY/MINUTELY RRULE in place; return the count.
+
+    recurring_ical_events walks every occurrence from DTSTART up to `now`
+    before yielding the first in-window result, and that pre-now scan is NOT
+    bounded by the islice occurrence cap. A sub-hourly RRULE with a past
+    DTSTART makes that scan pin a CPU core for tens of seconds. Sub-hourly
+    forever-recurrence is never legitimate calendar display content, so we
+    drop such events (with a warning) before handing the calendar to the
+    expander.
+
+    FREQ extraction: icalendar's vRecur stores FREQ as a list of vFrequency
+    objects (e.g. ['SECONDLY']). We take index 0 and str()-cast it for the
+    comparison so both vFrequency and plain-string values are handled.
+    """
+    kept = []
+    dropped = 0
+    for comp in cal.subcomponents:
+        rrule = comp.get("RRULE") if comp.name == "VEVENT" else None
+        if rrule is not None:
+            freq = rrule.get("FREQ")
+            freq_val = freq[0] if isinstance(freq, list) else freq
+            if str(freq_val).upper() in _SUBHOURLY_FREQS:
+                dropped += 1
+                continue
+        kept.append(comp)
+    cal.subcomponents = kept
+    return dropped
+
 
 @attrs.define(frozen=True)
 class CalendarEvent:
@@ -112,6 +144,13 @@ def parse_ics(
     # Fix 4: strip leading BOM before parsing (Outlook/Exchange/.ics feeds)
     text = text.lstrip("﻿")
     cal = icalendar.Calendar.from_ical(text)
+    dropped = _drop_subhourly_recurrences(cal)
+    if dropped:
+        logger.warning(
+            "Calendar: dropped %d event(s) with a sub-hourly (SECONDLY/MINUTELY) "
+            "RRULE to avoid an unbounded recurrence scan",
+            dropped,
+        )
     window_end = now + timedelta(days=lookahead_days)
 
     # Fix 1: use lazy .after(now) + islice to bound memory against pathological RRULEs.
@@ -236,7 +275,11 @@ def _day_label(start: datetime, now: datetime) -> str:
     determinism — same rule as the clock presets.
     """
     delta_days = (start.date() - now.date()).days
-    if delta_days == 0:
+    if delta_days <= 0:
+        # Covers today (delta_days == 0) and ongoing all-day events whose
+        # DTSTART is in the past (delta_days < 0). Timed events with a past
+        # start are dropped by parse_ics, so only ongoing all-day events can
+        # reach here with a negative delta — "Today" is correct for them.
         return "Today"
     if delta_days == 1:
         return "Tomorrow"
@@ -493,7 +536,7 @@ class Calendar:
         if layout not in ("agenda", "next"):
             errors.append(f"layout {layout!r} must be 'agenda' or 'next'")
         tz = cfg.get("timezone")
-        if tz is not None:
+        if tz:  # empty string / None => use system-local default (see _resolve_tz)
             if not isinstance(tz, str):
                 errors.append(
                     f"timezone must be a string IANA name, got {type(tz).__name__}"
@@ -565,7 +608,9 @@ class Calendar:
             path = unquote(raw)
         else:
             path = url
-        return await asyncio.to_thread(Path(path).expanduser().read_text)
+        return await asyncio.to_thread(
+            lambda: Path(path).expanduser().read_text(encoding="utf-8")
+        )
 
     def _empty_story(self) -> TickerMessage:
         return TickerMessage(

@@ -1,0 +1,175 @@
+---
+title: calendar widget
+description: Upcoming events from any iCal (.ics) feed — rotating agenda or a live next-event countdown, with keyword filter and highlight.
+---
+
+import DemoGif from "../../../components/DemoGif.astro";
+import TomlExample from "../../../components/TomlExample.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+import { Aside } from "@astrojs/starlight/components";
+
+The `calendar` widget pulls upcoming events from any subscribed iCal (`.ics`) URL and displays them on the panel. It works like the `rss_feed` widget — a background task polls the feed and builds one scrolling message per event; the display loop picks up changes on the next pass without restarting.
+
+It reuses the same text-render surface as `message` and `clock`, so [`font_color`](/concepts/color-providers/), [`border`](/concepts/borders/), and font knobs all work the same way.
+
+<DemoGif
+  src="/demos/widget-calendar.gif"
+  caption={`calendar in agenda layout with font_color = "rainbow" and a highlight on "1:1" events — each upcoming event scrolls as its own line`}
+/>
+
+<TomlExample
+  title="Minimal example"
+  code={`[[playlist.section.widget]]
+type = "calendar"
+ics_url = "https://calendar.google.com/calendar/ical/your-id/public/basic.ics"`}
+/>
+
+## Options
+
+<OptionsTable source="widgets/calendar" />
+
+## Layouts
+
+### `agenda` (default)
+
+Each upcoming event becomes its own scrolling `TickerMessage`. Events are sorted chronologically; the day label updates automatically (`Today`, `Tomorrow`, weekday name, or `Mon D` for dates further out).
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "calendar"
+ics_url = "https://example.com/cal.ics"
+layout = "agenda"
+max_events = 5
+lookahead_days = 7`}
+/>
+
+### `next`
+
+A single live countdown line to the soonest upcoming event: `"Standup in 25m"` / `"Dentist in 2h 10m"` / `"Trip in 3d"` / `"Standup now"`. The engine redraws every 50 ms, so the countdown ticks in real time.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "calendar"
+ics_url = "https://example.com/cal.ics"
+layout = "next"
+empty_text = "All clear"`}
+/>
+
+## Filter & highlight
+
+`filter` keeps only events whose summary contains any keyword (case-insensitive). An empty list shows all events.
+
+`highlight` recolors matching events with `highlight_color` (amber by default) and guarantees they appear even if they would otherwise be dropped by the `max_events` cap.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "calendar"
+ics_url = "https://example.com/cal.ics"
+filter = ["standup", "1:1", "review"]
+highlight = ["1:1"]
+highlight_color = [255, 200, 60]
+max_events = 4`}
+/>
+
+## Timezone & format
+
+`timezone` overrides which timezone events are displayed in. Set it to any [IANA timezone name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). Without it, the system local timezone is used.
+
+`time_format` controls how the event time appears in agenda lines:
+
+- `"12h"` (default) — `3:00 PM` (no leading zero)
+- `"24h"` — `15:00` (zero-padded)
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "calendar"
+ics_url = "https://example.com/cal.ics"
+timezone = "America/New_York"
+time_format = "12h"`}
+/>
+
+## Getting your .ics URL
+
+### Google Calendar
+
+1. Open [calendar.google.com](https://calendar.google.com) → Settings → choose your calendar → **Integrate calendar**.
+2. Copy the **"Secret address in iCal format"** link (ends in `.ics`).
+
+<Aside type="caution">
+  The Google Calendar secret address is a credential — anyone with the URL can read your calendar.
+  Do not commit it to a public repository. Store it in your `.env` file or pass it via an
+  environment variable; reference that variable in your config instead of the literal URL.
+</Aside>
+
+### iCloud
+
+In the iCloud Calendar web app, right-click a calendar → **Share Calendar** → enable **Public Calendar** → copy the link. Replace `webcal://` with `https://` so led-ticker can fetch it.
+
+### Other calendars
+
+Any service that provides a public or authenticated `.ics` subscription URL works — Fastmail, ProtonMail Calendar, Nextcloud Calendar, and most corporate calendar systems all support this standard format.
+
+## `file://` and local feeds
+
+You can point `ics_url` at a local file on the Pi using a `file://` URL:
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "calendar"
+ics_url = "file:///home/pi/my-calendar.ics"
+timezone = "UTC"`}
+/>
+
+<Aside>
+  Prefer an absolute path (starting with `/`) for deployed configs. A relative path like
+  `file://cal.ics` resolves against the working directory of the process, which can vary depending
+  on how led-ticker is launched (systemd, Docker, or manual).
+</Aside>
+
+This is useful for syncing an `.ics` export from a local calendar app, or for testing with a committed sample feed. You can keep the file current with a cron job that fetches the feed and writes it to disk — led-ticker polls it on its normal `update_interval`.
+
+## Common patterns
+
+### Swap section with a rainbow agenda
+
+<TomlExample
+  code={`[[playlist.section]]
+mode = "swap"
+hold_time = 10
+
+[[playlist.section.widget]]
+type = "calendar"
+ics_url = "https://example.com/cal.ics"
+layout = "agenda"
+timezone = "America/Chicago"
+font_color = "rainbow"`}
+/>
+
+### Live next-event countdown with a rainbow border
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "calendar"
+ics_url = "https://example.com/cal.ics"
+layout = "next"
+timezone = "America/New_York"
+border = "rainbow"`}
+/>
+
+### Highlighted events always visible
+
+Events matching `highlight` always appear in the agenda even when there are more than `max_events` events in the window — they are never dropped by the cap.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "calendar"
+ics_url = "https://example.com/cal.ics"
+highlight = ["payday", "release"]
+highlight_color = [255, 200, 60]
+max_events = 3`}
+/>
+
+<RelatedPages
+  slugs={["widgets/clock", "widgets/rss_feed", "concepts/color-providers", "concepts/borders"]}
+/>

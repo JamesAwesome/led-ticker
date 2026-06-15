@@ -2413,6 +2413,67 @@ text = "hello"
         assert len(rule_39) == 1
         assert "wipe_leffttt" in rule_39[0].message
 
+    async def test_namespaced_unknown_transition_gets_plugin_hint(self, conf):
+        result = await validate_config(
+            conf("""
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+transition = "exampleplugin.thing"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+""")
+        )
+        assert not result.valid
+        rule_39 = [e for e in result.errors if e.rule == 39]
+        assert len(rule_39) == 1
+        assert "exampleplugin" in rule_39[0].fix
+        assert "requirements-plugins.txt" in rule_39[0].fix
+
+    async def test_migrated_transition_surfaces_through_rule_39(
+        self, conf, monkeypatch
+    ):
+        from led_ticker import transitions
+
+        monkeypatch.setitem(
+            transitions._TRANSITION_MIGRATION,
+            "oldname",
+            (
+                "transition 'oldname' now ships in led-ticker-exampleplugin as "
+                "'exampleplugin.oldname'.",
+                "Install led-ticker-exampleplugin and use"
+                ' transition = "exampleplugin.oldname".',
+            ),
+        )
+        result = await validate_config(
+            conf("""
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+transition = "oldname"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+""")
+        )
+        rule_39 = [e for e in result.errors if e.rule == 39]
+        assert len(rule_39) == 1
+        assert "led-ticker-exampleplugin" in rule_39[0].message
+        assert "exampleplugin.oldname" in rule_39[0].fix
+
 
 class TestUnknownKwargValidationRule:
     """Unknown widget kwargs surface as rule-38 errors in ValidationResult."""

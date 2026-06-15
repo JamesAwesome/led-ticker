@@ -42,7 +42,7 @@ New to it? The four-page [**authoring guide**](/plugins/authoring/01-scaffold/) 
 
 ## If something goes wrong
 
-- **`Unknown widget type: 'pool.monitor'`** at validate/startup → the plugin isn't installed. Confirm you added it to `config/requirements-plugins.txt` and rebuilt the image (`docker compose up -d --build`). `led-ticker plugins` lists what's currently registered.
+- **`'pool.monitor' looks like a plugin widget, but no 'pool' plugin is loaded`** at validate/startup → the plugin isn't installed. The same hint appears for any namespaced name that doesn't resolve — a transition, border, color provider, or animation. Confirm you added the plugin to `config/requirements-plugins.txt` and rebuilt the image (`docker compose up -d --build`). `led-ticker plugins` lists what's currently registered.
 - **A plugin's widget shows `--`, dim values, or raises at startup** → that's the plugin's own runtime/config issue (e.g. pool needs `INFLUXDB_TOKEN`); check the plugin's README. A plugin that fails to _load_ is skipped with a logged error and never crashes the display.
 
 ## Available plugins

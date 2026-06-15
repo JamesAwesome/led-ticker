@@ -11,16 +11,30 @@ What can you build? Anything you can fetch or draw — a Home Assistant sensor, 
 
 ## Installing a plugin
 
-The quickest path is the CLI — browse the catalog and install by name:
+The CLI manages the plugin list for you — `led-ticker plugin list` shows what's available. How you add one depends on how you run led-ticker:
+
+**Docker (the common case)** — the image build installs plugins from `config/requirements-plugins.txt`, and the running container is read-only, so just **manage the manifest** and rebuild:
 
 ```bash
-led-ticker plugin list             # what's available
-led-ticker plugin install pool     # add to config/requirements-plugins.txt + install
+led-ticker plugin add pool         # + line in config/requirements-plugins.txt (no install)
+led-ticker plugin remove pool      # − line
+docker compose up -d --build       # the build installs from the manifest
 ```
 
-`plugin install` resolves the name to a pip source (git or PyPI), appends it to `config/requirements-plugins.txt`, and installs it under core's dependency constraints. Run it from your project root — by default the file lands in `config/requirements-plugins.txt` (the only one the Docker build and `deploy/install.sh` read); pass `--config <path>` only for a non-standard layout. A name that isn't in the catalog is treated as a raw pip spec (a `git+https://…` URL or a PyPI requirement), just like `pip install`. See the [CLI reference](/reference/cli/#led-ticker-plugin) for all flags (`--source`, `--unpinned`, `--save-only`, `--dry-run`).
+:::note
+`add` / `remove` only edit a host file, so run them **on the host** from your project root (where `config/` lives) — not inside the container. Don't reach for `docker compose exec led-ticker led-ticker plugin add …`: the container mounts `./config` read-only, so the write fails. If you run led-ticker purely via Docker and have no host `led-ticker` command, use the hand-edit path below instead — it's the same manifest.
+:::
 
-Under the hood, plugins are just lines in `config/requirements-plugins.txt` (a pip requirements file), so you can also manage it by hand — copy the template and edit it, then rebuild:
+**Bare-metal / dev** — `install` does the same manifest edit **and** pip-installs into your virtualenv immediately (with `uninstall` to reverse it):
+
+```bash
+led-ticker plugin install pool     # add + pip install now
+led-ticker plugin uninstall pool   # remove + pip uninstall
+```
+
+All of these resolve a catalog name to a pip source (git or PyPI), or take a raw pip spec (`git+https://…` / a PyPI requirement) like `pip` itself. Run from your project root so the manifest lands in `config/requirements-plugins.txt` (the only one the Docker build and `deploy/install.sh` read); pass `--config <path>` for a non-standard layout. See the [CLI reference](/reference/cli/#led-ticker-plugin) for all flags. `led-ticker plugin list` marks each plugin `[declared]` (in the manifest) and `[installed]` (in this environment), so you can confirm what the next build will include.
+
+Under the hood, `requirements-plugins.txt` is just a pip requirements file, so you can also edit it by hand — copy the template, edit, and rebuild:
 
 ```bash
 cp config/requirements-plugins.example.txt config/requirements-plugins.txt
@@ -28,8 +42,7 @@ cp config/requirements-plugins.example.txt config/requirements-plugins.txt
 docker compose up -d --build
 ```
 
-- The Docker image installs the listed plugins at build time, **constrained to core's dependency versions** (a plugin can bring its own new libraries but can't move a version core pins — a conflict fails the build instead of breaking silently at runtime). On Docker, use `led-ticker plugin install pool --save-only` to edit `config/requirements-plugins.txt` without installing, then rebuild.
-- Bare-metal installs (`deploy/install.sh`) do the same; there `led-ticker plugin install` also installs into the live virtualenv immediately.
+- The Docker image installs the listed plugins at build time, **constrained to core's dependency versions** (a plugin can bring its own new libraries but can't move a version core pins — a conflict fails the build instead of breaking silently at runtime).
 - The live `config/requirements-plugins.txt` is gitignored — it's yours to customize per sign. A fresh clone installs **no** plugins until you create it.
 
 Once installed, a plugin **auto-registers** via its `led_ticker.plugins` entry point — no config change is needed to make its widgets available.
@@ -51,7 +64,7 @@ New to it? The four-page [**authoring guide**](/plugins/authoring/01-scaffold/) 
 
 ## If something goes wrong
 
-- **`'pool.monitor' looks like a plugin widget, but no 'pool' plugin is loaded. Install it with `led-ticker plugin install pool``** at validate/startup → the plugin isn't installed. The same hint appears for any namespaced name that doesn't resolve — a transition, border, color provider, or animation. Run `led-ticker plugin install pool` (then rebuild the image with `docker compose up -d --build` on Docker), and `led-ticker plugin status` to confirm what's registered.
+- **`'pool.monitor' looks like a plugin widget, but no 'pool' plugin is loaded. Install it with `led-ticker plugin install pool``** at validate/startup → the plugin isn't installed. The same hint appears for any namespaced name that doesn't resolve — a transition, border, color provider, or animation. On Docker, run `led-ticker plugin add pool` then rebuild with `docker compose up -d --build`; on bare-metal/dev, `led-ticker plugin install pool`. Either way, `led-ticker plugin status` confirms what's registered.
 - **A plugin's widget shows `--`, dim values, or raises at startup** → that's the plugin's own runtime/config issue (e.g. pool needs `INFLUXDB_TOKEN`); check the plugin's README. A plugin that fails to _load_ is skipped with a logged error and never crashes the display.
 
 ## Available plugins

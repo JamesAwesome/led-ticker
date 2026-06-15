@@ -56,15 +56,70 @@ the full output format (human + JSON), exit codes, and CI examples.
 
 ## `led-ticker plugin`
 
-Manage plugins: see what's loaded, browse the catalog, and install. (The
-old `led-ticker plugins` is a deprecated alias of `plugin status`.)
+Manage plugins. Two pairs of verbs: **`add` / `remove`** edit the manifest
+(`config/requirements-plugins.txt`) only — the **Docker** path, where the image
+build does the install — and **`install` / `uninstall`** also run pip, for
+bare-metal/dev. (The old `led-ticker plugins` is a deprecated alias of
+`plugin status`.)
 
 ```bash
-led-ticker plugin status        # plugins loaded/failed for the config
-led-ticker plugin list          # the catalog of available plugins
-led-ticker plugin search pool   # search the catalog
-led-ticker plugin install pool  # install a plugin by name
+# Docker: edit the manifest, then rebuild
+led-ticker plugin add pool          # + line in requirements-plugins.txt (no pip)
+led-ticker plugin remove pool       # − line (no pip)
+docker compose up -d --build        # the build installs from the manifest
+
+# Bare-metal / dev: also pip-install now
+led-ticker plugin install pool      # add + pip install
+led-ticker plugin uninstall pool    # remove + pip uninstall
+
+led-ticker plugin status            # plugins loaded/failed for the config
+led-ticker plugin list              # the catalog ([declared] / [installed])
+led-ticker plugin search pool       # search the catalog
 ```
+
+All four management verbs accept a **catalog name or a raw pip spec** (a
+`git+https://…` URL or a PyPI requirement, like `pip`), default the manifest to
+`config/requirements-plugins.txt` (run from your project root; `--config <path>`
+for a non-standard layout, warned if it'd write outside `config/`), and dedup by
+plugin while preserving comments. `add`/`install` take `--source git|pypi` and
+`--unpinned`; all take `--dry-run`.
+
+Run these **on the host**, not inside the container — they edit a host file, and
+the container mounts `./config` read-only, so `docker compose exec led-ticker
+led-ticker plugin add …` fails. If you run led-ticker purely via Docker and have
+no host `led-ticker` command, edit `config/requirements-plugins.txt` by hand
+(`cp config/requirements-plugins.example.txt config/requirements-plugins.txt`)
+and rebuild — it's the same manifest.
+
+### `plugin add` / `plugin remove` (manifest only — Docker)
+
+`add` resolves the name to a pip requirement and writes it to
+`config/requirements-plugins.txt` (pinned to the catalog's recommended ref by
+default; a typo close to a catalog name gets a "did you mean …?"). Re-adding the
+same plugin is idempotent ("already declared" if unchanged). `remove` drops the
+matching line (idempotent — "not in …" if absent). Neither runs pip; both remind
+you to rebuild. This is the Docker workflow: the container is read-only at
+runtime, so the image build is what installs from the manifest.
+
+The bundled pool/baseball/crypto entries currently pin to `@main`, so the default
+("pinned") and `--unpinned` write the same `@main` reference today — pass a tagged
+pip spec (e.g. `…@v1.2.0`) for a fixed production pin until the catalog ships tags.
+
+### `plugin install` / `plugin uninstall` (manifest + pip — bare-metal)
+
+`install` does what `add` does **and** pip-installs the requirement under
+led-ticker's core dependency constraints (a plugin can pull new libraries but
+can't move a version core pins). `uninstall` does what `remove` does **and**
+`pip uninstall`s the distribution. `install --save-only` is a deprecated alias of
+`add`. Exits with pip's exit code on a failed install (the manifest is still
+updated).
+
+| Flag              | Default      | Notes                                                                                                                                                     |
+| ----------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--source`        | first source | (`add`/`install`) `git` or `pypi` — which catalog source to use.                                                                                          |
+| `--unpinned`      | off (pinned) | (`add`/`install`) Write `@main` / a bare PyPI name instead of the catalog ref. (Bundled refs are `@main` today, so this is a no-op for them — see above.) |
+| `--dry-run`       | off          | Print the plan without changing anything.                                                                                                                 |
+| `--config` / `-c` | (none)       | Non-standard layout only: use `requirements-plugins.txt` next to this config instead of `./config/`.                                                      |
 
 ### `plugin status`
 
@@ -81,47 +136,11 @@ exists can't be parsed.
 ### `plugin list` / `plugin search <query>`
 
 `list` prints the bundled catalog — each plugin's name, summary, and the
-widgets/transitions it provides — marking `[installed]` ones. `search`
-filters that catalog by a case-insensitive substring over the name,
-summary, and provided names.
-
-### `plugin install <name | pip-spec>`
-
-Resolves a catalog name (e.g. `pool`) to a pip requirement, appends it to
-`config/requirements-plugins.txt`, and installs it under led-ticker's core
-dependency constraints (a plugin can pull new libraries but can't move a
-version core pins). A name that isn't in the catalog is treated as a raw
-pip spec (a `git+https://…` URL or a PyPI requirement), mirroring `pip
-install`; a bare typo close to a catalog name gets a "did you mean …?"
-instead.
-
-By default the requirements file is written to `config/requirements-plugins.txt`
-relative to the current directory — the only `requirements-plugins.txt` the
-Docker build and `deploy/install.sh` read — so run it from your project root.
-Pass `--config <path>` only for a non-standard layout (the file then lands next
-to that config); `install` warns if it would write outside a `config/` directory.
-
-```bash
-led-ticker plugin install pool             # pinned to the catalog ref
-led-ticker plugin install pool --unpinned  # track @main / latest instead
-led-ticker plugin install git+https://github.com/you/led-ticker-foo.git@v1  # raw spec
-```
-
-When a plugin publishes a PyPI source in the catalog, `--source pypi`
-selects it over git; today the bundled plugins are git-only.
-
-| Flag              | Default      | Notes                                                                                                  |
-| ----------------- | ------------ | ------------------------------------------------------------------------------------------------------ |
-| `--source`        | first source | `git` or `pypi` — which catalog source to install from.                                                |
-| `--unpinned`      | off (pinned) | Write `@main` / a bare PyPI name instead of the catalog's recommended pin.                             |
-| `--save-only`     | off          | Only update `requirements-plugins.txt`; skip the install (the Docker flow — edit, then rebuild).       |
-| `--dry-run`       | off          | Print the requirement, file edit, and pip command without changing anything.                           |
-| `--config` / `-c` | (none)       | Non-standard layout only: write `requirements-plugins.txt` next to this config instead of `./config/`. |
-
-`install` targets a writable virtualenv (bare-metal / dev). On Docker the
-container is read-only at runtime, so use `--save-only` to update
-`requirements-plugins.txt`, then rebuild the image. Exits with pip's exit
-code on a failed install (the requirements file is still updated).
+widgets/transitions it provides — marking each `[declared]` (present in
+`requirements-plugins.txt`, so it installs on the next build) and/or
+`[installed]` (importable in this environment now). `search` filters that
+catalog by a case-insensitive substring over the name, summary, and provided
+names. `--config` / `-c` locates the manifest for the `[declared]` check.
 
 ## Make targets
 

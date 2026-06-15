@@ -63,21 +63,29 @@ Each event becomes a two-row card: the **held top row** shows the day + time (`T
 The top row uses `time_color`, the bottom row uses `font_color` — the same colors as the other layouts (a highlighted event renders the whole card in `highlight_color`). Tune the split with `top_row_height`.
 
 <TomlExample
-  code={`[[playlist.section.widget]]
+  code={`[[playlist.section]]
+mode = "swap"
+scale = 2          # bigsign: 128px-wide logical canvas, taller rows
+content_height = 24
+
+[[playlist.section.widget]]
 type = "calendar"
 ics_url = "https://example.com/cal.ics"
 layout = "two_row"
+font = "Inter-Regular"
+font_size = 16
 time_color = [255, 200, 60]
 font_color = [255, 255, 255]`}
 />
 
 <Aside>
-  Two rows split the canvas, so each row's band is at most 8 logical rows (`content_height` caps at
-  16 on both reference signs). The standard `6x12` font is too tall for that, so `two_row`
-  automatically uses the band-sized `5x8` when you don't set `font`. For larger or hi-res text,
-  choose a `font` / `font_size` whose line-height fits the row — [`led-ticker
-  validate`](/reference/cli/) rejects one that's too tall (naming the row) before you deploy. Raise
-  `content_height` or set `top_row_height` for an asymmetric split if you need more room.
+  Two rows need both height **and** width: the held top row doesn't scroll, so a long day+time
+  phrase clips if the logical canvas is too narrow. On the bigsign the default `scale = 4` leaves
+  only a 64px-wide logical canvas with 8-row bands — run `two_row` sections at `scale = 2` (128px
+  wide, taller bands) with a hi-res `font`/`font_size` sized to fit. If you leave `font` unset,
+  `two_row` falls back to the band-sized `5x8` (the standard `6x12` is too tall for a split row).
+  [`led-ticker validate`](/reference/cli/) warns when the held row would clip and errors when a font
+  is too tall for its band, so check before you deploy.
 </Aside>
 
 ## Filter & highlight

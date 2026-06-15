@@ -1358,14 +1358,17 @@ def _check_scroll_through_swap_only(
 
 
 def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
-    """Warn when held top_text on a two_row / image-two_row / gif-two_row
-    widget is wider than the logical canvas.
+    """Warn when a held top row is wider than the logical canvas.
 
-    The widget renders top_text as a HELD row (no scrolling) and clips
-    silently on overflow. Without this check, validation passes clean
-    even though the right edge of the held content gets cropped at
-    runtime — typical symptom is "the last character of my handle is
-    cut off."
+    Covers two_row / image-two_row / gif-two_row (static `top_text`) and
+    `calendar` + `layout="two_row"` (whose held day+time row is data-driven, so
+    a representative widest phrase is measured instead).
+
+    The widget renders the top row HELD (no scrolling) and clips silently on
+    overflow. Without this check, validation passes clean even though the right
+    edge of the held content gets cropped at runtime — typical symptom is "the
+    last character of my handle is cut off," or for the calendar "the time got
+    chopped" on the narrow bigsign logical canvas at scale=4.
 
     Bottom rows are exempt: they scroll automatically on overflow, which
     is the documented design.
@@ -1396,16 +1399,31 @@ def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
 
         for j, widget_cfg in enumerate(section.widgets):
             wtype = widget_cfg.get("type", "")
+            is_calendar_two_row = False
             if wtype == "two_row":
                 default_font = FONT_SMALL
+                top_text = widget_cfg.get("top_text", "")
             elif wtype in ("gif", "image"):
                 if widget_cfg.get("bottom_text", "") == "":
                     continue  # single-row mode: top text is the scrolling content
                 default_font = FONT_DEFAULT
+                top_text = widget_cfg.get("top_text", "")
+            elif wtype == "calendar" and widget_cfg.get("layout") == "two_row":
+                # The calendar's held top row (day + time) is data-driven — there
+                # is no static top_text to measure. Check a representative WIDEST
+                # phrase ("Tomorrow" is the longest day label) so a too-narrow
+                # logical canvas (e.g. bigsign at scale=4 = 64 logical px wide)
+                # is flagged: the held row clips long phrases at runtime. A custom
+                # strftime time_format has unknown width, so skip it.
+                tf = widget_cfg.get("time_format", "12h")
+                if not isinstance(tf, str) or "%" in tf:
+                    continue
+                top_text = "Tomorrow 23:59" if tf == "24h" else "Tomorrow 12:00 PM"
+                default_font = FONT_SMALL
+                is_calendar_two_row = True
             else:
                 continue
 
-            top_text = widget_cfg.get("top_text", "")
             if not top_text:
                 continue
 
@@ -1428,26 +1446,47 @@ def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
             except ValueError:
                 continue  # font resolution error caught elsewhere
 
+            # Mirror _build_two_row_stories' runtime substitution: a calendar
+            # two_row whose font resolves to FONT_DEFAULT (6x12) renders with
+            # FONT_SMALL, so measure with FONT_SMALL too.
+            if is_calendar_two_row and font is FONT_DEFAULT:
+                font = FONT_SMALL
+
             emoji_cap = max(EMOJI_ROW_CAP, top_h)
             width = measure_width(font, top_text, canvas, max_emoji_height=emoji_cap)
             if width > canvas_w:
                 overflow = width - canvas_w
+                if is_calendar_two_row:
+                    message = (
+                        f"two_row held day+time row clips on this {canvas_w}-wide "
+                        f"logical canvas: the widest phrase ({top_text!r}) is "
+                        f"{width} logical px ({overflow} px over). The top row is "
+                        f"held (no scroll), so long 'when' phrases crop."
+                    )
+                    fix = (
+                        "Lower the section's scale (e.g. scale = 2 gives a wider "
+                        "logical canvas) or use a narrower font/font_size. "
+                        "two_row is roomier at scale = 2 on the bigsign."
+                    )
+                else:
+                    message = (
+                        f"top_text width ({width} logical px) exceeds the "
+                        f"{canvas_w}-wide logical canvas by {overflow} px. "
+                        f"The held row will clip its right edge at runtime."
+                    )
+                    fix = (
+                        "Shorten top_text, drop inline emoji, use a smaller "
+                        "top_font_size, or set the section's scale lower "
+                        "to widen the logical canvas (scale = 1 gives the "
+                        "full panel width)."
+                    )
                 issues.append(
                     ValidationIssue(
                         rule=23,
                         location=f"section[{i}].widget[{j}]",
                         severity="warning",
-                        message=(
-                            f"top_text width ({width} logical px) exceeds the "
-                            f"{canvas_w}-wide logical canvas by {overflow} px. "
-                            f"The held row will clip its right edge at runtime."
-                        ),
-                        fix=(
-                            "Shorten top_text, drop inline emoji, use a smaller "
-                            "top_font_size, or set the section's scale lower "
-                            "to widen the logical canvas (scale = 1 gives the "
-                            "full panel width)."
-                        ),
+                        message=message,
+                        fix=fix,
                     )
                 )
     return issues

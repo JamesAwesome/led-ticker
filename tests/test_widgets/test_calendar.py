@@ -2432,6 +2432,54 @@ def test_validate_two_row_top_row_height_ge_content_height_errors(tmp_path):
     assert any("top_row_height" in e.message for e in result.errors)
 
 
+# --- rule 23: held day+time row width overflow (clip) on a narrow canvas ---
+
+_BIGSIGN_TWO_ROW_TOML = """\
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+parallel = 1
+pixel_mapper_config = "Remap:256,64"
+default_scale = 4
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 3
+content_height = 16
+scale = {scale}
+
+[[playlist.section.widget]]
+type = "calendar"
+ics_url = "{ics_url}"
+layout = "two_row"
+"""
+
+
+def _write_bigsign_two_row(tmp_path, *, scale):
+    ics = tmp_path / "cal.ics"
+    ics.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR\n")
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(_BIGSIGN_TWO_ROW_TOML.format(scale=scale, ics_url=f"file://{ics}"))
+    return cfg
+
+
+def test_validate_two_row_held_when_clips_on_narrow_canvas(tmp_path):
+    # bigsign at scale=4 -> 64 logical px wide; the held day+time row clips the
+    # widest phrases. rule 23 must WARN (not error) and steer toward a lower scale.
+    cfg = _write_bigsign_two_row(tmp_path, scale=4)
+    result = asyncio.run(validate_config(cfg))
+    assert result.valid is True  # warning, not error
+    assert any("held day+time row clips" in w.message for w in result.warnings)
+
+
+def test_validate_two_row_held_when_fits_at_scale2(tmp_path):
+    # scale=2 -> 128 logical px wide; the widest phrase fits -> no clip warning.
+    cfg = _write_bigsign_two_row(tmp_path, scale=2)
+    result = asyncio.run(validate_config(cfg))
+    assert not any("held day+time row clips" in w.message for w in result.warnings)
+
+
 def test_validate_two_row_explicit_6x12_is_clean(tmp_path):
     # 6x12 resolves to FONT_DEFAULT, which runtime substitutes with 5x8; validate
     # must agree (no false band error) so validate and runtime stay consistent.

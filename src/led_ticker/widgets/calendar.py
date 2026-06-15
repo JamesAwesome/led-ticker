@@ -21,7 +21,7 @@ import icalendar
 import recurring_ical_events
 
 from led_ticker._types import Canvas, DrawResult, Font
-from led_ticker.color_providers import ColorProvider, _ConstantColor
+from led_ticker.color_providers import ColorProvider, as_color_provider
 from led_ticker.colors import DEFAULT_COLOR, make_color
 from led_ticker.drawing import compute_baseline, compute_cursor
 from led_ticker.fonts import FONT_DEFAULT, FONT_SMALL
@@ -527,20 +527,20 @@ def _coerce_provider(value: Any) -> ColorProvider:
     """Coerce a color field to a ColorProvider.
 
     None -> default color; an existing provider -> as-is; a raw [r,g,b]
-    list/tuple -> _ConstantColor(graphics.Color(...)) (NOT a bare list — a
+    list/tuple -> as_color_provider(graphics.Color(...)) (NOT a bare list — a
     list has no .red/.green/.blue and the real C DrawText/SetPixel require a
-    graphics.Color); an existing graphics.Color -> _ConstantColor. Config
+    graphics.Color); an existing graphics.Color -> as_color_provider. Config
     strings/tables (e.g. "rainbow") are coerced by the factory before
     construction (highlight_color is added to _PROVIDER_COLOR_KEYS in Task 7),
     so they arrive here already as providers.
     """
     if value is None:
-        return _ConstantColor(DEFAULT_COLOR)
+        return as_color_provider(DEFAULT_COLOR)
     if hasattr(value, "color_for"):
         return value
     if isinstance(value, (list, tuple)):
-        return _ConstantColor(make_color(*value))
-    return _ConstantColor(value)  # already a graphics.Color
+        return as_color_provider(make_color(*value))
+    return as_color_provider(value)  # already a graphics.Color
 
 
 def _draw_two_tone(
@@ -634,7 +634,7 @@ class _TwoToneLine(FrameAwareBase):
         font_color: Any = None,
     ) -> DrawResult:
         if font_color is not None and not hasattr(font_color, "color_for"):
-            font_color = _ConstantColor(font_color)
+            font_color = as_color_provider(font_color)
         if self._content_width < 0:
             self._content_width = sum(
                 measure_width(self.font, t, canvas)
@@ -775,7 +775,7 @@ class _NextEventWidget(FrameAwareBase):
         # its leading separator) in time_color. A highlighted current event uses
         # highlight_color for BOTH (whole-line attention state).
         if font_color is not None and not hasattr(font_color, "color_for"):
-            font_color = _ConstantColor(font_color)
+            font_color = as_color_provider(font_color)
         use_highlight = (
             font_color is None
             and event is not None

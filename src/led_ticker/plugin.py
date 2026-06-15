@@ -27,10 +27,14 @@ from typing import Any, TypeVar
 
 # Re-exports: the stable surface plugin authors subclass / annotate against.
 from led_ticker import colors
-from led_ticker._types import Canvas, Color, DrawResult, Font, PixelData
+from led_ticker._types import Canvas, Color, ColorTuple, DrawResult, Font, PixelData
 from led_ticker.animations import Animation, AnimationFrame
 from led_ticker.borders import BorderEffect, BorderEffectBase
-from led_ticker.color_providers import ColorProvider, ColorProviderBase
+from led_ticker.color_providers import (
+    ColorProvider,
+    ColorProviderBase,
+    as_color_provider,
+)
 from led_ticker.drawing import (
     compute_baseline,
     compute_baseline_for_band,
@@ -47,17 +51,19 @@ from led_ticker.fonts import (
 from led_ticker.fonts.hires_loader import HiresFont
 from led_ticker.pixel_emoji import (
     HiResEmoji,
+    count_text_chars,
     draw_emoji_at,
+    draw_with_emoji,
     measure_emoji_at,
     measure_width,
 )
-from led_ticker.pixel_emoji import draw_with_emoji as _draw_with_emoji
 from led_ticker.scaled_canvas import (
     ScaledCanvas,
     is_scaled,
     paint_hires,
     unwrap_to_real,
 )
+from led_ticker.text_render import draw_text_per_char
 from led_ticker.transitions import Transition
 from led_ticker.transitions._hires_loader import (
     SNAP_THRESHOLD,
@@ -74,6 +80,7 @@ from led_ticker.widget import (
 )
 from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets._row_layout import resolve_band_heights
+from led_ticker.widgets.clock import format_clock
 from led_ticker.widgets.message import SegmentMessage, TickerMessage
 from led_ticker.widgets.two_row import TwoRowMessage
 
@@ -86,10 +93,13 @@ __all__ = [
     "BorderEffectBase",
     "Canvas",
     "Color",
+    "ColorTuple",
     "Container",
     "DrawResult",
     "ColorProvider",
     "ColorProviderBase",
+    "as_color_provider",
+    "count_text_chars",
     "FONT_DEFAULT",
     "FONT_SMALL",
     "Font",
@@ -113,7 +123,10 @@ __all__ = [
     "compute_cursor",
     "draw_emoji_at",
     "draw_text",
+    "draw_text_per_char",
+    "draw_with_emoji",
     "font_line_height_logical",
+    "format_clock",
     "get_text_width",
     "is_scaled",
     "make_color",
@@ -363,4 +376,4 @@ def draw_text(
     s, x, y, c)`` chains correctly. Does not clamp to ``canvas.width`` — text
     past the right edge is simply not drawn.
     """
-    return x + _draw_with_emoji(canvas, font, x, y, color, text)
+    return x + draw_with_emoji(canvas, font, x, y, color, text)

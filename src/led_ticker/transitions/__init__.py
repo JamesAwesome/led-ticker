@@ -71,6 +71,15 @@ class Transition(Protocol):
 
 _TRANSITION_REGISTRY: dict[str, type[Transition]] = {}
 
+from led_ticker._plugin_hint import plugin_hint  # noqa: E402
+
+# name -> (message, suggested_fix) for a transition removed from core.
+# SHIPS EMPTY. The extraction PR (e.g. led-ticker-arcade) adds entries in
+# the same commit that removes the transition — mirroring _CRYPTO_MIGRATION
+# in app/factories.py. A live entry for a still-registered transition would
+# be unreachable, so populating it here ahead of extraction is wrong.
+_TRANSITION_MIGRATION: dict[str, tuple[str, str]] = {}
+
 
 def _normalize_bg(c: Any) -> tuple[int, int, int] | None:
     """Coerce an (r,g,b) tuple, a graphics.Color, or None to a tuple/None."""
@@ -94,18 +103,39 @@ def register_transition(name: str) -> Callable[[type], type]:
     return decorator
 
 
-def get_transition_class(name: str) -> type[Transition]:
-    if name not in _TRANSITION_REGISTRY:
-        raise ValueError(
-            f"Unknown transition: {name!r}. "
-            f"Available: {list(_TRANSITION_REGISTRY.keys())}"
-        )
-    return _TRANSITION_REGISTRY[name]
-
-
 def list_transition_names() -> list[str]:
     """Return all registered transition names, sorted alphabetically."""
     return sorted(_TRANSITION_REGISTRY.keys())
+
+
+def explain_unknown_transition(name: str) -> tuple[str, str]:
+    """Build (message, fix) for a transition name that isn't registered,
+    layering migration → plugin hint → difflib typo suggestion. Single
+    source of the "why didn't this resolve" answer, shared by the runtime
+    lookup and validate rule 39."""
+    migrated = _TRANSITION_MIGRATION.get(name)
+    if migrated is not None:
+        return migrated
+    hint = plugin_hint(name, "transition")
+    if hint is not None:
+        return (f"unknown transition {name!r}", hint)
+    import difflib
+
+    close = difflib.get_close_matches(name, list_transition_names(), n=1, cutoff=0.6)
+    suffix = f" (did you mean {close[0]!r}?)" if close else ""
+    return (
+        f"unknown transition {name!r}{suffix}",
+        "Check the transition name spelling. Run `led-ticker validate "
+        "--list-fields` or see docs.ledticker.dev/transitions/ for the full "
+        "catalogue.",
+    )
+
+
+def get_transition_class(name: str) -> type[Transition]:
+    if name not in _TRANSITION_REGISTRY:
+        message, fix = explain_unknown_transition(name)
+        raise ValueError(f"{message} {fix}")
+    return _TRANSITION_REGISTRY[name]
 
 
 # --- Transition runner ---

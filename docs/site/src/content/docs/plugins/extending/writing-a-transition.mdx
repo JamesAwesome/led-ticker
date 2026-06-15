@@ -233,7 +233,7 @@ Bundle the sprite inside your plugin package and build a `HiresSpec` at module l
 
 ```python
 from pathlib import Path
-from led_ticker.plugin import HiresSpec, ScaledCanvas, render_hires_frame
+from led_ticker.plugin import HiresSpec, is_scaled, render_hires_frame
 
 _HERE = Path(__file__).parent
 _SPEC = HiresSpec(
@@ -243,7 +243,7 @@ _SPEC = HiresSpec(
 )
 ```
 
-`render_hires_frame` decodes the sprite to the panel's native height, drives the traversal from `t`, and calls `snap_reset` at `SNAP_THRESHOLD` automatically. In `frame_at`, gate on `isinstance(canvas, ScaledCanvas)` (only `True` on the bigsign) and fall back to your own lo-res drawing on the small sign or in test stubs:
+`render_hires_frame` decodes the sprite to the panel's native height, drives the traversal from `t`, and calls `snap_reset` at `SNAP_THRESHOLD` automatically. In `frame_at`, gate on `is_scaled(canvas)` (the supported predicate, per above — only `True` on the bigsign) and forward `**kwargs` so `incoming_bg_color` and friends reach the renderer. Fall back to your own lo-res drawing on the small sign or in test stubs:
 
 ```python
 def register(api):
@@ -253,8 +253,10 @@ def register(api):
             if t >= 1.0:
                 incoming.draw(canvas, cursor_pos=0)
                 return canvas
-            if isinstance(canvas, ScaledCanvas):   # bigsign -> hi-res sprite
-                return render_hires_frame(t, canvas, outgoing, incoming, _SPEC)
+            if is_scaled(canvas):   # bigsign -> hi-res sprite
+                return render_hires_frame(
+                    t, canvas, outgoing, incoming, _SPEC, **kwargs
+                )
             # small sign / tests -> your own lo-res fallback
             return self._lowres(t, canvas, outgoing, incoming, **kwargs)
 ```

@@ -19,11 +19,11 @@ class TestListFieldsWidgetPluginHint:
         msg = str(exc.value)
         assert "Unknown widget type" in msg  # prefix preserved
         assert "exampleplugin" in msg
-        assert "requirements-plugins.txt" in msg
+        assert "plugin install" in msg
 
     def test_bare_unknown_widget_has_no_plugin_hint(self):
         with pytest.raises(ValueError) as exc:
             _list_widget_fields("boguswidget")
         msg = str(exc.value)
         assert "Unknown widget type" in msg
-        assert "requirements-plugins.txt" not in msg
+        assert "plugin install" not in msg

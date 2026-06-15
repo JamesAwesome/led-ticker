@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "plugins": [
+    {
+      "name": "pool",
+      "namespace": "pool",
+      "summary": "Pool water temperature from InfluxDB v2 (ticker / two_row layouts).",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-pool",
+      "provides": ["pool.monitor"],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/JamesAwesome/led-ticker-pool",
+          "ref": "main"
+        }
+      ]
+    },
+    {
+      "name": "baseball",
+      "namespace": "baseball",
+      "summary": "MLB scores & standings widgets, baseball.roll* transitions, and the :baseball.ball: emoji.",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-baseball",
+      "provides": ["baseball.scores", "baseball.standings"],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/JamesAwesome/led-ticker-baseball",
+          "ref": "main"
+        }
+      ]
+    },
+    {
+      "name": "crypto",
+      "namespace": "crypto",
+      "summary": "CoinGecko cryptocurrency price ticker.",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-crypto",
+      "provides": ["crypto.coingecko"],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/JamesAwesome/led-ticker-crypto",
+          "ref": "main"
+        }
+      ]
+    }
+  ]
+}

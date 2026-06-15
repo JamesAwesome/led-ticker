@@ -8,7 +8,7 @@ import aiohttp
 import attrs
 
 from led_ticker._types import Canvas, Color, DrawResult, Font
-from led_ticker.color_providers import ColorProvider, _ConstantColor
+from led_ticker.color_providers import ColorProvider, as_color_provider
 from led_ticker.colors import DEFAULT_COLOR, RGB_WHITE
 from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
@@ -50,14 +50,14 @@ class WeatherWidget(FrameAwareBase):
     weather: str = attrs.field(init=False, default="")
 
     def __attrs_post_init__(self) -> None:
-        # Coerce raw graphics.Color into _ConstantColor for uniform
+        # Coerce raw graphics.Color into a ColorProvider for uniform
         # provider dispatch in draw(). _build_widget already does this
         # for TOML configs; this handles direct construction (test
         # paths, programmatic instantiation).
         if not hasattr(self.font_color, "color_for"):
-            self.font_color = _ConstantColor(self.font_color)
+            self.font_color = as_color_provider(self.font_color)
         if not hasattr(self.font_color_temp, "color_for"):
-            self.font_color_temp = _ConstantColor(self.font_color_temp)
+            self.font_color_temp = as_color_provider(self.font_color_temp)
 
         # Support dict location from TOML: {lat = 40.71, lon = -74.01}
         if isinstance(self.location, dict):

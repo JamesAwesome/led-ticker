@@ -59,7 +59,12 @@ from led_ticker.scaled_canvas import (
     unwrap_to_real,
 )
 from led_ticker.transitions import Transition
-from led_ticker.transitions._hires_loader import SNAP_THRESHOLD, snap_reset
+from led_ticker.transitions._hires_loader import (
+    SNAP_THRESHOLD,
+    render_hires_frame,
+    snap_reset,
+)
+from led_ticker.transitions._hires_registry import HiresSpec
 from led_ticker.widget import (
     Container,
     Updatable,
@@ -91,6 +96,7 @@ __all__ = [
     "FrameAwareBase",
     "HiResEmoji",
     "HiresFont",
+    "HiresSpec",
     "PixelData",
     "SNAP_THRESHOLD",
     "ScaledCanvas",
@@ -115,6 +121,7 @@ __all__ = [
     "measure_width",
     "paint_hires",
     "resolve_band_heights",
+    "render_hires_frame",
     "resolve_font",
     "run_monitor_loop",
     "safe_scale",

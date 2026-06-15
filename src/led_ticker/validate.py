@@ -576,13 +576,10 @@ def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
     Runs in normal mode — a typo in a transition name always fails at startup
     and has no deploy-target excuse. The "cut" sentinel is always valid.
     """
-    import difflib
-
     from led_ticker.config import TransitionConfig
-    from led_ticker.transitions import list_transition_names
+    from led_ticker.transitions import explain_unknown_transition, list_transition_names
 
-    valid_names = list_transition_names()
-    valid_set = set(valid_names)
+    valid_set = set(list_transition_names())
     issues: list[ValidationIssue] = []
 
     def _check(trans_cfg: TransitionConfig | None, location: str) -> None:
@@ -590,19 +587,14 @@ def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
             return
         if trans_cfg.type in valid_set:
             return
-        close = difflib.get_close_matches(trans_cfg.type, valid_names, n=1, cutoff=0.6)
-        hint = f" (did you mean {close[0]!r}?)" if close else ""
+        message, fix = explain_unknown_transition(trans_cfg.type)
         issues.append(
             ValidationIssue(
                 rule=39,
                 location=location,
                 severity="error",
-                message=f"unknown transition {trans_cfg.type!r}{hint}",
-                fix=(
-                    "Check the transition name spelling. "
-                    "Run `led-ticker validate --list-fields` or see "
-                    "docs.ledticker.dev/transitions/ for the full catalogue."
-                ),
+                message=message,
+                fix=fix,
             )
         )
 

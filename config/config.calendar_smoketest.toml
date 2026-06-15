@@ -1,0 +1,136 @@
+# Calendar smoke-test — bigsign (256×64 canvas)
+#
+# Hardware validation for the `calendar` widget (PR #208) on bigsign / longboi.
+# Walk the sections on hardware and confirm each behaves as the comment says.
+#
+# >>> BEFORE RUNNING: replace every  ics_url = "PASTE_YOUR_..._ICS_URL_HERE"  <<<
+# with a real iCal feed URL. Get one from:
+#   - Google Calendar → Settings → <your calendar> → "Secret address in iCal
+#     format" (an https://calendar.google.com/calendar/ical/.../basic.ics link)
+#   - iCloud → share a calendar → Public Calendar → copy link (rewrite the
+#     leading webcal:// to https:// OR leave webcal:// — the widget rewrites it)
+#   - Outlook/Office365 → Calendar settings → "Publish a calendar" → ICS link
+# The secret URL IS the credential — your config.toml is gitignored, so paste it
+# directly here; do NOT commit it to a public repo.
+#
+# Usage: cp config/config.calendar_smoketest.toml config/config.toml
+#
+# loop_count GOTCHA: each section uses loop_count = 1 so it makes ONE pass then
+# the playlist advances; the top-level playlist loops forever, so all sections
+# cycle. Do NOT use loop_count = 0 (cycles a single section forever).
+
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+parallel = 1
+# Vertical-serpentine 2×4 panel map. See https://docs.ledticker.dev/hardware/bigsign/
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+brightness = 60
+default_scale = 4
+hardware_mapping = "adafruit-hat"
+gpio_slowdown = 3
+pwm_bits = 8
+show_refresh_rate = true
+
+[title]
+delay = 5
+
+[transitions]
+default = "cut"
+duration = 0.5
+easing = "ease_out"
+between_sections = "cut"
+
+# --- agenda layout (the default): rotating upcoming events, hires font ---
+# Each upcoming event becomes its own scrolling line. Events matching
+# `highlight` render amber; the rest use font_color (rainbow here). Confirm the
+# soonest several events appear in chronological order and a "1:1" event (if any)
+# shows in amber.
+
+[[playlist.section]]
+mode = "swap"
+content_height = 16
+hold_time = 8
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "calendar"
+ics_url = "PASTE_YOUR_GOOGLE_OR_ICLOUD_ICS_URL_HERE"
+layout = "agenda"
+timezone = "America/New_York"   # set to your IANA zone (or omit for system-local)
+time_format = "12h"             # "12h" -> "3:09 PM", "24h" -> "15:09"
+max_events = 5
+lookahead_days = 7
+highlight = ["1:1", "interview"]  # matching events render in highlight_color
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "rainbow"
+update_interval = 300           # refetch every 5 min (default 900) for quicker testing
+
+# --- next layout: one live countdown to the soonest event (THE liveness check) ---
+# Shows "<summary> in 25m" and ticks down live (recomputed every ~50ms), rolling
+# to the next event as each one starts. An all-day event today shows "today".
+# Hold this section long enough (20s) to watch the minutes/seconds advance.
+
+[[playlist.section]]
+mode = "swap"
+content_height = 16
+hold_time = 20
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "calendar"
+ics_url = "PASTE_YOUR_GOOGLE_OR_ICLOUD_ICS_URL_HERE"
+layout = "next"
+timezone = "America/New_York"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = [255, 255, 255]
+empty_text = "No upcoming events"
+update_interval = 300
+
+# --- filtered agenda: keep ONLY events whose summary matches a keyword ---
+# Confirm ONLY matching events show (everything else is filtered out). Swap the
+# keywords to ones that exist on your calendar.
+
+[[playlist.section]]
+mode = "swap"
+content_height = 16
+hold_time = 8
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "calendar"
+ics_url = "PASTE_YOUR_GOOGLE_OR_ICLOUD_ICS_URL_HERE"
+layout = "agenda"
+timezone = "America/New_York"
+time_format = "24h"
+filter = ["standup", "1:1", "sprint"]   # ONLY these show
+max_events = 5
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "color_cycle"
+
+# --- second timezone (sanity): same feed, different display zone ---
+# Should render the same events shifted to the other zone's wall-clock.
+
+[[playlist.section]]
+mode = "swap"
+content_height = 16
+hold_time = 8
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "calendar"
+ics_url = "PASTE_YOUR_GOOGLE_OR_ICLOUD_ICS_URL_HERE"
+layout = "agenda"
+timezone = "Asia/Tokyo"
+time_format = "12h"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "rainbow"

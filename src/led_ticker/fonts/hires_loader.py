@@ -49,6 +49,12 @@ EXTENDED_PUNCTUATION: str = "•·…—–’‘“”«»"
 # center zone: inning-half triangles, outs/pips, bases) for status pips.
 GEOMETRIC_SHAPES: str = "▲▼●○◆◇"
 
+# Measurement / unit symbols. Pre-rasterized so they render instead of
+# falling back to '?'. The degree sign (°) is used by weather/temperature
+# copy — e.g. the baseball plugin's attendance widget renders "72° Clear",
+# which showed as "72?" on the bigsign before this was added.
+SYMBOLS: str = "°"
+
 
 @dataclass(frozen=True)
 class HiresGlyph:
@@ -213,7 +219,13 @@ def _rasterize(
     """
     pil_font = ImageFont.truetype(str(path), size)
     ascent, descent = pil_font.getmetrics()
-    chars = string.printable + EXTENDED_LATIN + EXTENDED_PUNCTUATION + GEOMETRIC_SHAPES
+    chars = (
+        string.printable
+        + EXTENDED_LATIN
+        + EXTENDED_PUNCTUATION
+        + GEOMETRIC_SHAPES
+        + SYMBOLS
+    )
     glyphs: dict[str, HiresGlyph] = {}
     for ch in chars:
         glyphs[ch] = _rasterize_glyph(pil_font, ch, ascent, descent, threshold)

@@ -6,7 +6,7 @@ description: Command-line entry points and Make targets for running, validating,
 import RelatedPages from "../../../components/RelatedPages.astro";
 
 led-ticker exposes one console script (`led-ticker`) with a default
-"run the display" mode and `validate` and `plugins` subcommands. Day-to-day
+"run the display" mode and `validate`, `plugin`, and `webui` subcommands. Day-to-day
 development is wrapped in `make` targets that drive `uv`, `pytest`,
 `ruff`, and the docs site. This page covers all of them. The console
 script is registered in `pyproject.toml` as
@@ -54,26 +54,63 @@ Exits `0` on a clean config, `1` on validation errors (or promoted warnings with
 config file isn't found. See [Tools: validate](/tools/validate/) for
 the full output format (human + JSON), exit codes, and CI examples.
 
-## `led-ticker plugins`
+## `led-ticker plugin`
 
-Lists the plugins discovered for a config — both the ones that loaded
-and any that failed — without opening the panel. For each loaded plugin
-it prints the namespace, its source, and the surfaces it contributes
-(widgets, transitions, fonts, or hooks only); failed plugins are listed
-with their load error. Handy for confirming a freshly installed plugin
-is being picked up before you deploy.
+Manage plugins: see what's loaded, browse the catalog, and install. (The
+old `led-ticker plugins` is a deprecated alias of `plugin status`.)
 
 ```bash
-led-ticker plugins                          # uses the top-level --config (config.toml)
-led-ticker plugins --config config/config.toml
+led-ticker plugin status        # plugins loaded/failed for the config
+led-ticker plugin list          # the catalog of available plugins
+led-ticker plugin search pool   # search the catalog
+led-ticker plugin install pool  # install a plugin by name
 ```
 
-| Flag              | Default       | Notes                                                                |
-| ----------------- | ------------- | -------------------------------------------------------------------- |
-| `--config` / `-c` | `config.toml` | Path to the config whose plugins to resolve (defaults to top-level). |
+### `plugin status`
 
-Exits `0` after printing the summary, or `2` if the config file can't be
-read or parsed.
+Lists the plugins discovered for a config — both the ones that loaded and
+any that failed — without opening the panel. For each loaded plugin it
+prints the namespace, its source, and the surfaces it contributes
+(widgets, transitions, fonts, or hooks only); failed plugins are listed
+with their load error. Handy for confirming a freshly installed plugin is
+being picked up before you deploy. `--config` / `-c` selects the config
+(defaults to the top-level). Exits `0`, or `2` if the config can't be read.
+
+### `plugin list` / `plugin search <query>`
+
+`list` prints the bundled catalog — each plugin's name, summary, and the
+widgets/transitions it provides — marking `[installed]` ones. `search`
+filters that catalog by a case-insensitive substring over the name,
+summary, and provided names.
+
+### `plugin install <name | pip-spec>`
+
+Resolves a catalog name (e.g. `pool`) to a pip requirement, appends it to
+`config/requirements-plugins.txt`, and installs it under led-ticker's core
+dependency constraints (a plugin can pull new libraries but can't move a
+version core pins). A name that isn't in the catalog is treated as a raw
+pip spec (a `git+https://…` URL or a PyPI requirement), mirroring `pip
+install`.
+
+```bash
+led-ticker plugin install pool                 # catalog name, pinned to the catalog ref
+led-ticker plugin install pool --unpinned      # track @main / latest instead
+led-ticker plugin install pool --source pypi   # prefer the PyPI source (when published)
+led-ticker plugin install git+https://github.com/you/led-ticker-foo.git@v1  # raw spec
+```
+
+| Flag              | Default       | Notes                                                                                            |
+| ----------------- | ------------- | ------------------------------------------------------------------------------------------------ |
+| `--source`        | first source  | `git` or `pypi` — which catalog source to install from.                                          |
+| `--unpinned`      | off (pinned)  | Write `@main` / a bare PyPI name instead of the catalog's recommended pin.                       |
+| `--save-only`     | off           | Only update `requirements-plugins.txt`; skip the install (the Docker flow — edit, then rebuild). |
+| `--dry-run`       | off           | Print the requirement, file edit, and pip command without changing anything.                     |
+| `--config` / `-c` | `config.toml` | Locates `requirements-plugins.txt` (next to the config) — defaults to top-level.                 |
+
+`install` targets a writable virtualenv (bare-metal / dev). On Docker the
+container is read-only at runtime, so use `--save-only` to update
+`requirements-plugins.txt`, then rebuild the image. Exits with pip's exit
+code on a failed install (the requirements file is still updated).
 
 ## Make targets
 

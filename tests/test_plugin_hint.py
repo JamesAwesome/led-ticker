@@ -14,7 +14,7 @@ def test_namespaced_name_names_the_plugin_and_kind():
     assert msg is not None
     assert "exampleplugin" in msg  # the namespace
     assert "transition" in msg  # the kind word
-    assert "requirements-plugins.txt" in msg
+    assert "plugin install" in msg
 
 
 def test_kind_word_varies_per_registry():

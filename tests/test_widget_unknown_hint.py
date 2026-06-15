@@ -21,4 +21,4 @@ def test_namespaced_unknown_appends_plugin_hint():
     msg = str(exc.value)
     assert "Unknown widget type" in msg  # prefix preserved
     assert "baseball" in msg  # the namespace
-    assert "requirements-plugins.txt" in msg
+    assert "plugin install" in msg

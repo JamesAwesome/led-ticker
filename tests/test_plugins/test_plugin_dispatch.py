@@ -42,11 +42,14 @@ def test_plugin_status_matches_old_plugins(tmp_path, monkeypatch, capsys):
     assert "No plugins found." in out
 
 
-def test_bare_plugin_runs_status(tmp_path, monkeypatch, capsys):
-    cfg = _min_config(tmp_path)
-    code = _run(monkeypatch, ["--config", str(cfg), "plugin"])
+def test_bare_plugin_prints_help_not_status(tmp_path, monkeypatch, capsys):
+    # Bare `plugin` shows the subcommands, NOT status's "No plugins found."
+    # (which would mislead a first-time user into thinking nothing's available).
+    code = _run(monkeypatch, ["plugin"])
+    out = capsys.readouterr().out
     assert code == 0
-    assert "No plugins found." in capsys.readouterr().out
+    assert "install" in out and "list" in out  # the help listing
+    assert "No plugins found." not in out
 
 
 def test_plugin_list_dispatches_to_catalog(monkeypatch, capsys):

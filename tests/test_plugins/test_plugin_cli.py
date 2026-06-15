@@ -229,6 +229,32 @@ def test_install_warns_when_writing_outside_config_dir(tmp_path, fakepip, capsys
     assert "not under a 'config/'" in capsys.readouterr().err
 
 
+def test_install_unwritable_path_clean_error(tmp_path, fakepip, monkeypatch, capsys):
+    # A write failure (read-only dir / root-owned config) must be a clean message
+    # + exit 2, not a raw traceback (matches validate/webui/status).
+    def boom(*a, **k):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(plugin_cmd, "_update_requirements", boom)
+    code = _install(tmp_path, "pool")
+    assert code == 2
+    assert "could not write" in capsys.readouterr().err
+    assert fakepip.install_cmd is None  # never reached pip
+
+
+def test_install_preserves_inline_comment_and_echoes_old(tmp_path, fakepip, capsys):
+    # Re-installing over a hand-pinned, annotated line must keep the comment and
+    # surface the old line (not silently drop a deliberate prod pin).
+    rf = _reqfile(tmp_path)
+    rf.write_text("led-ticker-pool==1.4.0  # pinned for prod, do NOT bump\n")
+    _install(tmp_path, "pool", source="pypi")  # -> led-ticker-pool==1.2.0
+    body = rf.read_text()
+    assert "# pinned for prod, do NOT bump" in body  # comment retained
+    assert body.count("led-ticker-pool") == 1  # still deduped
+    out = capsys.readouterr().out
+    assert "1.4.0" in out and "Replaced" in out  # old line surfaced
+
+
 # --- list / search ---
 
 

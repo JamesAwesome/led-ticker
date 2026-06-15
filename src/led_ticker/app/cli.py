@@ -234,7 +234,13 @@ def main() -> None:
 
     if args.command == "plugin":
         pc = getattr(args, "plugin_command", None)
-        if pc is None or pc == "status":
+        if pc is None:
+            # Bare `led-ticker plugin`: show the subcommands rather than running
+            # status (whose "No plugins found." misleads a first-time user into
+            # thinking nothing is available — `plugin list` shows the catalog).
+            plugin_parser.print_help()
+            sys.exit(0)
+        if pc == "status":
             _run_plugin_status(args.config)
             sys.exit(0)
 

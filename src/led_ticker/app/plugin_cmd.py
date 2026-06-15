@@ -65,14 +65,16 @@ def _requirement_key(requirement: str) -> str:
     return req.strip().lower().replace("_", "-")
 
 
-def _update_requirements(path: Path, requirement: str) -> bool:
+def _update_requirements(path: Path, requirement: str) -> str | None:
     """Add `requirement` to the requirements file, replacing any prior line for
-    the same plugin. Preserves comments and unrelated lines. Returns True when an
-    existing line was replaced (vs appended)."""
+    the same plugin. Preserves comments and unrelated lines — including a trailing
+    inline comment on the line being replaced, which is carried onto the new line.
+    Returns the replaced line (verbatim) when one was found, else None (appended)."""
     key = _requirement_key(requirement)
     lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
     kept: list[str] = []
-    replaced = False
+    replaced_line: str | None = None
+    new_line = requirement
     for line in lines:
         stripped = line.strip()
         if (
@@ -80,13 +82,17 @@ def _update_requirements(path: Path, requirement: str) -> bool:
             and not stripped.startswith("#")
             and (_requirement_key(stripped) == key)
         ):
-            replaced = True
-            continue  # drop the old pin for this plugin
+            replaced_line = line
+            # Carry a trailing inline comment ("pkg==1.0  # prod pin") onto the
+            # new line so a deliberate annotation isn't silently lost.
+            if "#" in line:
+                new_line = f"{requirement}  {line[line.index('#') :].strip()}"
+            continue  # drop the old line for this plugin
         kept.append(line)
-    kept.append(requirement)
+    kept.append(new_line)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(kept).rstrip("\n") + "\n", encoding="utf-8")
-    return replaced
+    return replaced_line
 
 
 def _installed_namespaces() -> set[str]:
@@ -245,9 +251,15 @@ def cmd_install(
             print(config_warning, file=sys.stderr)
         return 0
 
-    replaced = _update_requirements(req_path, requirement)
-    verb = "Replaced" if replaced else "Added"
-    print(f"{verb} {requirement!r} in {req_path}")
+    try:
+        replaced_line = _update_requirements(req_path, requirement)
+    except OSError as e:
+        print(f"could not write {req_path}: {e}", file=sys.stderr)
+        return 2
+    if replaced_line is not None:
+        print(f"Replaced {replaced_line.strip()!r} -> {requirement!r} in {req_path}")
+    else:
+        print(f"Added {requirement!r} in {req_path}")
     if config_warning:
         print(config_warning, file=sys.stderr)
 

@@ -143,3 +143,35 @@ font_size = 32
 font_threshold = 80
 time_color = "rainbow"          # same as font_color -> uniform single-color line
 font_color = "rainbow"
+
+# --- two_row layout: per-event card (held day+time on top, scrolling title) ---
+# Each event becomes a two-row card. Confirm the day+time holds on the top row
+# (amber) while a long title scrolls on the bottom row (white).
+#
+# IMPORTANT scale note: two rows split the canvas, so this section runs at
+# scale = 2 (logical canvas 128px wide, 24px tall) instead of the bigsign
+# default scale = 4 (only 64px wide). At scale = 4 the HELD day+time row clips
+# long phrases like "Tomorrow 12:00 PM" — `led-ticker validate` warns about it.
+# scale = 2 gives the held row room and taller per-row bands for the hires font.
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 24             # 24 x scale 2 = 48 <= 64 panel; bands are 12/12
+hold_time = 10
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "calendar"
+ics_url = "PASTE_YOUR_GOOGLE_OR_ICLOUD_ICS_URL_HERE"
+layout = "two_row"
+timezone = "America/New_York"
+time_format = "12h"
+max_events = 5
+font = "Inter-Regular"
+font_size = 16                  # hires logical line-height 10 <= 12-row band
+font_threshold = 80
+time_color = [255, 200, 60]     # held day+time row (amber)
+font_color = [255, 255, 255]    # scrolling title row (white)
+highlight = ["1:1", "interview"]  # a matching event renders the whole card amber
+update_interval = 300

@@ -1098,6 +1098,9 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
       - `type = "two_row"` (TwoRowMessage)
       - `type = "gif"` / `type = "image"` with `bottom_text != ""`
         (image/gif two-row text overlay mode)
+      - `type = "calendar"` with `layout = "two_row"` (per-event TwoRowMessage
+        cards; the default 6x12 font is substituted with FONT_SMALL at runtime,
+        mirrored here)
     """
     from led_ticker.fonts import (
         FONT_DEFAULT,
@@ -1123,14 +1126,39 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
                 if widget_cfg.get("bottom_text", "") == "":
                     continue  # single-row mode: no per-band check needed
                 default_font = FONT_DEFAULT
+            elif wtype == "calendar" and widget_cfg.get("layout") == "two_row":
+                # Calendar two_row builds TwoRowMessage cards. The calendar font
+                # defaults to FONT_DEFAULT (6x12), but _build_two_row_stories
+                # substitutes FONT_SMALL because 6x12 can't fit any two_row band;
+                # mirror that here (default + the FONT_DEFAULT swap below) so
+                # validate matches runtime. An explicitly-too-tall font (e.g. a
+                # large hires font_size, or 7x13) still errors. The calendar uses
+                # one font for both rows -> the shared-font path covers them.
+                default_font = FONT_SMALL
             else:
                 continue
 
             top_row_height = widget_cfg.get("top_row_height")
             try:
                 top_h, bottom_h = resolve_band_heights(content_h, top_row_height)
-            except ValueError:
-                # Caught separately by _run_build_checks; don't double-report.
+            except ValueError as e:
+                # top_row_height >= content_height leaves the bottom row zero
+                # rows, so TwoRowMessage.draw() raises and freezes the panel
+                # (constraint #1). Nothing constructs or draws the widget during
+                # validation (validate_widget_cfg is coercion-only), so this is
+                # NOT caught downstream — surface it here instead of swallowing.
+                issues.append(
+                    ValidationIssue(
+                        rule=22,
+                        location=f"section[{i}].widget[{j}]",
+                        severity="error",
+                        message=str(e),
+                        fix=(
+                            "Set top_row_height < the section's content_height "
+                            "(omit it for the default 50/50 split)."
+                        ),
+                    )
+                )
                 continue
 
             shared_font_name = widget_cfg.get("font")
@@ -1149,6 +1177,12 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
                 except ValueError:
                     # _run_build_checks will surface the resolve_font failure.
                     continue
+
+                # Mirror the runtime substitution: a calendar two_row whose font
+                # resolves to FONT_DEFAULT (6x12, omitted or explicit) renders
+                # with FONT_SMALL, so validate it as FONT_SMALL too.
+                if wtype == "calendar" and font is FONT_DEFAULT:
+                    font = FONT_SMALL
 
                 lh = font_line_height_logical(font, scale)
                 if lh > band_h:
@@ -1316,14 +1350,17 @@ def _check_scroll_through_swap_only(
 
 
 def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
-    """Warn when held top_text on a two_row / image-two_row / gif-two_row
-    widget is wider than the logical canvas.
+    """Warn when a held top row is wider than the logical canvas.
 
-    The widget renders top_text as a HELD row (no scrolling) and clips
-    silently on overflow. Without this check, validation passes clean
-    even though the right edge of the held content gets cropped at
-    runtime — typical symptom is "the last character of my handle is
-    cut off."
+    Covers two_row / image-two_row / gif-two_row (static `top_text`) and
+    `calendar` + `layout="two_row"` (whose held day+time row is data-driven, so
+    a representative widest phrase is measured instead).
+
+    The widget renders the top row HELD (no scrolling) and clips silently on
+    overflow. Without this check, validation passes clean even though the right
+    edge of the held content gets cropped at runtime — typical symptom is "the
+    last character of my handle is cut off," or for the calendar "the time got
+    chopped" on the narrow bigsign logical canvas at scale=4.
 
     Bottom rows are exempt: they scroll automatically on overflow, which
     is the documented design.
@@ -1354,16 +1391,31 @@ def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
 
         for j, widget_cfg in enumerate(section.widgets):
             wtype = widget_cfg.get("type", "")
+            is_calendar_two_row = False
             if wtype == "two_row":
                 default_font = FONT_SMALL
+                top_text = widget_cfg.get("top_text", "")
             elif wtype in ("gif", "image"):
                 if widget_cfg.get("bottom_text", "") == "":
                     continue  # single-row mode: top text is the scrolling content
                 default_font = FONT_DEFAULT
+                top_text = widget_cfg.get("top_text", "")
+            elif wtype == "calendar" and widget_cfg.get("layout") == "two_row":
+                # The calendar's held top row (day + time) is data-driven — there
+                # is no static top_text to measure. Check a representative WIDEST
+                # phrase ("Tomorrow" is the longest day label) so a too-narrow
+                # logical canvas (e.g. bigsign at scale=4 = 64 logical px wide)
+                # is flagged: the held row clips long phrases at runtime. A custom
+                # strftime time_format has unknown width, so skip it.
+                tf = widget_cfg.get("time_format", "12h")
+                if not isinstance(tf, str) or "%" in tf:
+                    continue
+                top_text = "Tomorrow 23:59" if tf == "24h" else "Tomorrow 12:00 PM"
+                default_font = FONT_SMALL
+                is_calendar_two_row = True
             else:
                 continue
 
-            top_text = widget_cfg.get("top_text", "")
             if not top_text:
                 continue
 
@@ -1386,26 +1438,47 @@ def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
             except ValueError:
                 continue  # font resolution error caught elsewhere
 
+            # Mirror _build_two_row_stories' runtime substitution: a calendar
+            # two_row whose font resolves to FONT_DEFAULT (6x12) renders with
+            # FONT_SMALL, so measure with FONT_SMALL too.
+            if is_calendar_two_row and font is FONT_DEFAULT:
+                font = FONT_SMALL
+
             emoji_cap = max(EMOJI_ROW_CAP, top_h)
             width = measure_width(font, top_text, canvas, max_emoji_height=emoji_cap)
             if width > canvas_w:
                 overflow = width - canvas_w
+                if is_calendar_two_row:
+                    message = (
+                        f"two_row held day+time row clips on this {canvas_w}-wide "
+                        f"logical canvas: the widest phrase ({top_text!r}) is "
+                        f"{width} logical px ({overflow} px over). The top row is "
+                        f"held (no scroll), so long 'when' phrases crop."
+                    )
+                    fix = (
+                        "Lower the section's scale (e.g. scale = 2 gives a wider "
+                        "logical canvas) or use a narrower font/font_size. "
+                        "two_row is roomier at scale = 2 on the bigsign."
+                    )
+                else:
+                    message = (
+                        f"top_text width ({width} logical px) exceeds the "
+                        f"{canvas_w}-wide logical canvas by {overflow} px. "
+                        f"The held row will clip its right edge at runtime."
+                    )
+                    fix = (
+                        "Shorten top_text, drop inline emoji, use a smaller "
+                        "top_font_size, or set the section's scale lower "
+                        "to widen the logical canvas (scale = 1 gives the "
+                        "full panel width)."
+                    )
                 issues.append(
                     ValidationIssue(
                         rule=23,
                         location=f"section[{i}].widget[{j}]",
                         severity="warning",
-                        message=(
-                            f"top_text width ({width} logical px) exceeds the "
-                            f"{canvas_w}-wide logical canvas by {overflow} px. "
-                            f"The held row will clip its right edge at runtime."
-                        ),
-                        fix=(
-                            "Shorten top_text, drop inline emoji, use a smaller "
-                            "top_font_size, or set the section's scale lower "
-                            "to widen the logical canvas (scale = 1 gives the "
-                            "full panel width)."
-                        ),
+                        message=message,
+                        fix=fix,
                     )
                 )
     return issues

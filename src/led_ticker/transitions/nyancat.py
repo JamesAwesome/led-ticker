@@ -285,9 +285,8 @@ class NyanCat:
     ) -> Canvas:
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        return render_hires_frame(
-            t, canvas, outgoing, incoming, self._registry_name, **kwargs
-        )
+        spec = HIRES_REGISTRY[self._registry_name]
+        return render_hires_frame(t, canvas, outgoing, incoming, spec, **kwargs)
 
 
 @register_transition("nyancat_reverse")
@@ -329,9 +328,8 @@ class NyanCatReverse:
     ) -> Canvas:
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        return render_hires_frame(
-            t, canvas, outgoing, incoming, self._registry_name, **kwargs
-        )
+        spec = HIRES_REGISTRY[self._registry_name]
+        return render_hires_frame(t, canvas, outgoing, incoming, spec, **kwargs)
 
 
 @register_transition("nyancat_alternating")

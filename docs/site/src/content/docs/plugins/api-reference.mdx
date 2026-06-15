@@ -141,19 +141,20 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 
 ### Data & types
 
-| Name             | What it is                                                                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------------------------- |
-| `Canvas`         | The draw target (`SetPixel`, `width`, `height`)                                                               |
-| `Color`          | An rgbmatrix color value                                                                                      |
-| `DrawResult`     | The return shape of a widget `draw()`                                                                         |
-| `AnimationFrame` | The return shape of `Animation.frame_for`                                                                     |
-| `PixelData`      | `list[(x, y, r, g, b)]` — one tuple per lit pixel of a low-res emoji                                          |
-| `HiResEmoji`     | A hi-res emoji sprite — `pixels` ((x,y,r,g,b) in physical coords), `physical_size`, optional `physical_width` |
-| `Font`           | A resolved font handle                                                                                        |
-| `HiresFont`      | A resolved hi-res font                                                                                        |
-| `ScaledCanvas`   | The wrapper widgets receive when `default_scale > 1`; use `is_scaled(canvas)` to gate hi-res paths            |
-| `FONT_DEFAULT`   | The bundled default BDF font as a ready-to-use `Font` constant                                                |
-| `FONT_SMALL`     | The bundled small BDF font as a ready-to-use `Font` constant                                                  |
+| Name             | What it is                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Canvas`         | The draw target (`SetPixel`, `width`, `height`)                                                                                             |
+| `Color`          | An rgbmatrix color value                                                                                                                    |
+| `DrawResult`     | The return shape of a widget `draw()`                                                                                                       |
+| `AnimationFrame` | The return shape of `Animation.frame_for`                                                                                                   |
+| `PixelData`      | `list[(x, y, r, g, b)]` — one tuple per lit pixel of a low-res emoji                                                                        |
+| `HiResEmoji`     | A hi-res emoji sprite — `pixels` ((x,y,r,g,b) in physical coords), `physical_size`, optional `physical_width`                               |
+| `Font`           | A resolved font handle                                                                                                                      |
+| `HiresFont`      | A resolved hi-res font                                                                                                                      |
+| `HiresSpec`      | Frozen sprite spec for a hi-res transition: `sprite_path` (Path to a gif/webp), `flip_horizontal`, `trail` (`"none"`/`"black"`/`"rainbow"`) |
+| `ScaledCanvas`   | The wrapper widgets receive when `default_scale > 1`; use `is_scaled(canvas)` to gate hi-res paths                                          |
+| `FONT_DEFAULT`   | The bundled default BDF font as a ready-to-use `Font` constant                                                                              |
+| `FONT_SMALL`     | The bundled small BDF font as a ready-to-use `Font` constant                                                                                |
 
 ### Helpers
 
@@ -179,6 +180,7 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 | `paint_hires(canvas, callback)`                                            | Unwrap + forward `scale`/`y_offset_real` to a hi-res paint callback                                                                                                                                                           |
 | `is_scaled(canvas)`                                                        | `True` if `canvas` is a scaled wrapper — the documented gate for hi-res paths                                                                                                                                                 |
 | `snap_reset(canvas, incoming_bg_color)`                                    | Clear + repaint a transition's incoming background (hi-res snap helper)                                                                                                                                                       |
+| `render_hires_frame(t, canvas, outgoing, incoming, spec, **kwargs)`        | Paint one frame of a hi-res sprite traversing the panel for the given `HiresSpec` (use on a `ScaledCanvas`; pass `show_pokeball=True` for a procedural leading ball)                                                          |
 | `SNAP_THRESHOLD`                                                           | The transition `t` at which to snap to the incoming frame (call `snap_reset` at/after this)                                                                                                                                   |
 
 {/* <!-- api-exports:end --> */}

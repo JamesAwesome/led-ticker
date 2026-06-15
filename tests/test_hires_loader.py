@@ -123,24 +123,13 @@ class TestFrameForElapsed:
 
 
 class TestLoadHires:
-    def test_returns_none_for_unregistered_name(self):
-        from led_ticker.transitions._hires_loader import load_hires
-
-        assert load_hires("not_a_real_transition") is None
-
-    def test_decodes_tiny_sprite(self, tmp_path, monkeypatch):
-        from led_ticker.transitions import _hires_registry
+    def test_decodes_tiny_sprite(self, tmp_path):
         from led_ticker.transitions._hires_loader import load_hires
         from led_ticker.transitions._hires_registry import HiresSpec
 
         path = _make_tiny_sprite(tmp_path)
-        monkeypatch.setitem(
-            _hires_registry.HIRES_REGISTRY,
-            "test_sprite",
-            HiresSpec(sprite_path=path, flip_horizontal=False),
-        )
-        frames = load_hires("test_sprite")
-        assert frames is not None
+        spec = HiresSpec(sprite_path=path, flip_horizontal=False)
+        frames = load_hires(spec)
         # Source is 8x8; scaled to fit panel_h=64 -> 64x64 (no width change since w==h).
         assert frames.height == 64
         assert frames.width == 64
@@ -150,40 +139,25 @@ class TestLoadHires:
         # The 4x4 block at (0,0) becomes 32x32 at scale 8x; expect ~1024 lit pixels.
         assert len(frames.non_black[0]) == 32 * 32
 
-    def test_caches_decoded_frames(self, tmp_path, monkeypatch):
-        from led_ticker.transitions import _hires_registry
+    def test_caches_decoded_frames(self, tmp_path):
         from led_ticker.transitions._hires_loader import load_hires
         from led_ticker.transitions._hires_registry import HiresSpec
 
         path = _make_tiny_sprite(tmp_path)
-        monkeypatch.setitem(
-            _hires_registry.HIRES_REGISTRY,
-            "test_sprite",
-            HiresSpec(sprite_path=path, flip_horizontal=False),
-        )
-        first = load_hires("test_sprite")
-        second = load_hires("test_sprite")
+        spec = HiresSpec(sprite_path=path, flip_horizontal=False)
+        first = load_hires(spec)
+        second = load_hires(spec)
         assert first is second  # @functools.cache returns the same object
 
-    def test_flip_horizontal_mirrors_pixel_x(self, tmp_path, monkeypatch):
-        from led_ticker.transitions import _hires_registry
+    def test_flip_horizontal_mirrors_pixel_x(self, tmp_path):
         from led_ticker.transitions._hires_loader import load_hires
         from led_ticker.transitions._hires_registry import HiresSpec
 
         path = _make_tiny_sprite(tmp_path)
-        monkeypatch.setitem(
-            _hires_registry.HIRES_REGISTRY,
-            "base",
-            HiresSpec(sprite_path=path, flip_horizontal=False),
-        )
-        monkeypatch.setitem(
-            _hires_registry.HIRES_REGISTRY,
-            "flipped",
-            HiresSpec(sprite_path=path, flip_horizontal=True),
-        )
-        base = load_hires("base")
-        flipped = load_hires("flipped")
-        assert base is not None and flipped is not None
+        base_spec = HiresSpec(sprite_path=path, flip_horizontal=False)
+        flipped_spec = HiresSpec(sprite_path=path, flip_horizontal=True)
+        base = load_hires(base_spec)
+        flipped = load_hires(flipped_spec)
 
         # In base, lit pixels are at x in [0, 32); in flipped at x in [width-32, width).
         base_xs = {x for (x, y, r, g, b) in base.non_black[0]}
@@ -191,14 +165,13 @@ class TestLoadHires:
         assert max(base_xs) < base.width // 2
         assert min(flipped_xs) >= flipped.width // 2
 
-    def test_decodes_animated_webp_durations(self, tmp_path, monkeypatch):
+    def test_decodes_animated_webp_durations(self, tmp_path):
         """Regression: animated WebP populates `info["duration"]` only after
         `convert("RGBA")` forces frame decode. Locks in that ordering — a
         future refactor that reads `info` before `convert` would default
         every frame to 50ms here."""
         from PIL import Image
 
-        from led_ticker.transitions import _hires_registry
         from led_ticker.transitions._hires_loader import load_hires
         from led_ticker.transitions._hires_registry import HiresSpec
 
@@ -223,13 +196,8 @@ class TestLoadHires:
             lossless=True,
         )
 
-        monkeypatch.setitem(
-            _hires_registry.HIRES_REGISTRY,
-            "test_webp",
-            HiresSpec(sprite_path=path, flip_horizontal=False),
-        )
-        decoded = load_hires("test_webp")
-        assert decoded is not None
+        spec = HiresSpec(sprite_path=path, flip_horizontal=False)
+        decoded = load_hires(spec)
         assert len(decoded.durations_ms) == 2
         # Both should be the meaningful values we set, NOT the 50ms fallback.
         # (Pillow may round so check non-default rather than exact equality.)
@@ -244,20 +212,15 @@ class TestLoadHires:
 
 
 class TestRenderHiresFrame:
-    def _setup(self, tmp_path, monkeypatch):
-        """Register a fixture sprite and return (real_canvas, scaled_canvas, name)."""
+    def _setup(self, tmp_path):
+        """Build a fixture sprite spec and return (real_canvas, scaled_canvas, spec)."""
         from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
         from led_ticker.scaled_canvas import ScaledCanvas
-        from led_ticker.transitions import _hires_registry
         from led_ticker.transitions._hires_registry import HiresSpec
 
         path = _make_tiny_sprite(tmp_path)
-        monkeypatch.setitem(
-            _hires_registry.HIRES_REGISTRY,
-            "test_sprite",
-            HiresSpec(sprite_path=path, flip_horizontal=False),
-        )
+        spec = HiresSpec(sprite_path=path, flip_horizontal=False)
         opts = RGBMatrixOptions()
         opts.cols = 256
         opts.rows = 64
@@ -265,15 +228,15 @@ class TestRenderHiresFrame:
         opts.parallel = 1
         real = RGBMatrix(options=opts).CreateFrameCanvas()
         wrapped = ScaledCanvas(real, scale=4, content_height=16)
-        return real, wrapped, "test_sprite"
+        return real, wrapped, spec
 
-    def test_paints_to_unwrapped_real_canvas(self, tmp_path, monkeypatch):
+    def test_paints_to_unwrapped_real_canvas(self, tmp_path):
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        real, wrapped, name = self._setup(tmp_path, monkeypatch)
+        real, wrapped, spec = self._setup(tmp_path)
         outgoing = _mock_mod.MagicMock()
         incoming = _mock_mod.MagicMock()
-        render_hires_frame(0.5, wrapped, outgoing, incoming, name, duration_ms=500)
+        render_hires_frame(0.5, wrapped, outgoing, incoming, spec, duration_ms=500)
 
         # The fixture sprite's lit pixels should appear on the REAL canvas
         # (256-wide), not at logical wrapper coordinates (64-wide).
@@ -288,68 +251,49 @@ class TestRenderHiresFrame:
         outgoing.draw.assert_called_once()
         assert outgoing.draw.call_args.args[0] is wrapped
 
-    def test_snaps_to_incoming_above_threshold(self, tmp_path, monkeypatch):
+    def test_snaps_to_incoming_above_threshold(self, tmp_path):
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        real, wrapped, name = self._setup(tmp_path, monkeypatch)
+        real, wrapped, spec = self._setup(tmp_path)
         outgoing = _mock_mod.MagicMock()
         incoming = _mock_mod.MagicMock()
-        render_hires_frame(0.96, wrapped, outgoing, incoming, name, duration_ms=500)
+        render_hires_frame(0.96, wrapped, outgoing, incoming, spec, duration_ms=500)
         incoming.draw.assert_called_once()
 
-    def test_does_not_snap_below_threshold(self, tmp_path, monkeypatch):
+    def test_does_not_snap_below_threshold(self, tmp_path):
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        real, wrapped, name = self._setup(tmp_path, monkeypatch)
+        real, wrapped, spec = self._setup(tmp_path)
         outgoing = _mock_mod.MagicMock()
         incoming = _mock_mod.MagicMock()
-        render_hires_frame(0.5, wrapped, outgoing, incoming, name, duration_ms=500)
+        render_hires_frame(0.5, wrapped, outgoing, incoming, spec, duration_ms=500)
         incoming.draw.assert_not_called()
 
-    def test_clips_pixels_outside_panel_width(self, tmp_path, monkeypatch):
+    def test_clips_pixels_outside_panel_width(self, tmp_path):
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        real, wrapped, name = self._setup(tmp_path, monkeypatch)
+        real, wrapped, spec = self._setup(tmp_path)
         outgoing = _mock_mod.MagicMock()
         incoming = _mock_mod.MagicMock()
         # At t=0, sprite_x = -sprite.width -- sprite is fully off-left.
         # All sprite pixels have rx < 0, so the clip guard discards them all.
         # The real canvas should have zero lit pixels (outgoing mock draws nothing).
-        render_hires_frame(0.0, wrapped, outgoing, incoming, name, duration_ms=500)
+        render_hires_frame(0.0, wrapped, outgoing, incoming, spec, duration_ms=500)
         assert real.count_nonzero() == 0
-
-    def test_unknown_registry_name_returns_canvas_unchanged(
-        self, tmp_path, monkeypatch
-    ):
-        from led_ticker.transitions._hires_loader import render_hires_frame
-
-        real, wrapped, _ = self._setup(tmp_path, monkeypatch)
-        outgoing = _mock_mod.MagicMock()
-        incoming = _mock_mod.MagicMock()
-        result = render_hires_frame(
-            0.5, wrapped, outgoing, incoming, "not_in_registry", duration_ms=500
-        )
-        assert result is wrapped
-        outgoing.draw.assert_not_called()
 
 
 class TestRenderHiresTrail:
-    def _setup_with_trail(self, tmp_path, monkeypatch, *, trail, flip_horizontal=False):
+    def _setup_with_trail(self, tmp_path, *, trail, flip_horizontal=False):
         from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
         from led_ticker.scaled_canvas import ScaledCanvas
-        from led_ticker.transitions import _hires_registry
         from led_ticker.transitions._hires_registry import HiresSpec
 
         path = _make_tiny_sprite(tmp_path)
-        monkeypatch.setitem(
-            _hires_registry.HIRES_REGISTRY,
-            "test_sprite",
-            HiresSpec(
-                sprite_path=path,
-                flip_horizontal=flip_horizontal,
-                trail=trail,
-            ),
+        spec = HiresSpec(
+            sprite_path=path,
+            flip_horizontal=flip_horizontal,
+            trail=trail,
         )
         opts = RGBMatrixOptions()
         opts.cols = 256
@@ -358,18 +302,16 @@ class TestRenderHiresTrail:
         opts.parallel = 1
         real = RGBMatrix(options=opts).CreateFrameCanvas()
         wrapped = ScaledCanvas(real, scale=4, content_height=16)
-        return real, wrapped, "test_sprite"
+        return real, wrapped, spec
 
-    def test_no_trail_does_not_paint_behind_sprite(self, tmp_path, monkeypatch):
+    def test_no_trail_does_not_paint_behind_sprite(self, tmp_path):
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        real, wrapped, name = self._setup_with_trail(
-            tmp_path, monkeypatch, trail="none"
-        )
+        real, wrapped, spec = self._setup_with_trail(tmp_path, trail="none")
         outgoing = _mock_mod.MagicMock()
         incoming = _mock_mod.MagicMock()
         # At t=0.5, sprite is roughly mid-screen.
-        render_hires_frame(0.5, wrapped, outgoing, incoming, name, duration_ms=500)
+        render_hires_frame(0.5, wrapped, outgoing, incoming, spec, duration_ms=500)
         # No trail painted: pixels in the trail region (x=0..sprite_x) should
         # be untouched (still black from the canvas's initial state since
         # outgoing is a Mock that doesn't paint).
@@ -379,12 +321,10 @@ class TestRenderHiresTrail:
         for y in range(real.height):
             assert real.get_pixel(0, y) == (0, 0, 0)
 
-    def test_black_trail_erases_outgoing_in_trail_region(self, tmp_path, monkeypatch):
+    def test_black_trail_erases_outgoing_in_trail_region(self, tmp_path):
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        real, wrapped, name = self._setup_with_trail(
-            tmp_path, monkeypatch, trail="black"
-        )
+        real, wrapped, spec = self._setup_with_trail(tmp_path, trail="black")
         # Pre-paint outgoing as a fully-lit canvas (red everywhere) so we can
         # verify the trail erases.
         for y in range(real.height):
@@ -393,7 +333,7 @@ class TestRenderHiresTrail:
 
         outgoing = _mock_mod.MagicMock()
         incoming = _mock_mod.MagicMock()
-        render_hires_frame(0.5, wrapped, outgoing, incoming, name, duration_ms=500)
+        render_hires_frame(0.5, wrapped, outgoing, incoming, spec, duration_ms=500)
 
         # At t=0.5: sprite_x is roughly in the middle. Pixels at x=0 (far
         # left, well within the trail region) should now be black.
@@ -403,18 +343,16 @@ class TestRenderHiresTrail:
         # be the original red -- trail doesn't extend right of the sprite.
         assert real.get_pixel(real.width - 1, 0) == (255, 0, 0)
 
-    def test_rainbow_trail_paints_six_horizontal_stripes(self, tmp_path, monkeypatch):
+    def test_rainbow_trail_paints_six_horizontal_stripes(self, tmp_path):
         from led_ticker.transitions._hires_loader import (
             _RAINBOW_TRAIL_COLORS,
             render_hires_frame,
         )
 
-        real, wrapped, name = self._setup_with_trail(
-            tmp_path, monkeypatch, trail="rainbow"
-        )
+        real, wrapped, spec = self._setup_with_trail(tmp_path, trail="rainbow")
         outgoing = _mock_mod.MagicMock()
         incoming = _mock_mod.MagicMock()
-        render_hires_frame(0.5, wrapped, outgoing, incoming, name, duration_ms=500)
+        render_hires_frame(0.5, wrapped, outgoing, incoming, spec, duration_ms=500)
 
         panel_h = real.height
         n_stripes = len(_RAINBOW_TRAIL_COLORS)
@@ -433,18 +371,13 @@ class TestRenderHiresTrail:
                 f"expected {expected_color}, got {real.get_pixel(0, sample_y)}"
             )
 
-    def test_reverse_trail_extends_from_sprite_to_right_edge(
-        self, tmp_path, monkeypatch
-    ):
+    def test_reverse_trail_extends_from_sprite_to_right_edge(self, tmp_path):
         """For flip_horizontal=True, the trail goes from the sprite's right
         edge to the panel's right edge (not from the left edge)."""
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        real, wrapped, name = self._setup_with_trail(
-            tmp_path,
-            monkeypatch,
-            trail="black",
-            flip_horizontal=True,
+        real, wrapped, spec = self._setup_with_trail(
+            tmp_path, trail="black", flip_horizontal=True
         )
         # Pre-paint canvas red.
         for y in range(real.height):
@@ -453,7 +386,7 @@ class TestRenderHiresTrail:
 
         outgoing = _mock_mod.MagicMock()
         incoming = _mock_mod.MagicMock()
-        render_hires_frame(0.5, wrapped, outgoing, incoming, name, duration_ms=500)
+        render_hires_frame(0.5, wrapped, outgoing, incoming, spec, duration_ms=500)
 
         # Reverse direction: at t=0.5, sprite is mid-screen moving left.
         # Pixels at x=panel_w-1 (rightmost) should be black (trail).
@@ -471,7 +404,7 @@ class TestRenderHiresTrail:
         assert HIRES_REGISTRY["pokeball"].trail == "black"
         assert HIRES_REGISTRY["pokeball_reverse"].trail == "black"
 
-    def test_ltr_trail_fills_full_panel_by_saturation_t(self, tmp_path, monkeypatch):
+    def test_ltr_trail_fills_full_panel_by_saturation_t(self, tmp_path):
         """At t=TRAIL_SATURATION_T, the LTR trail must reach the rightmost
         column. Guards the 'cut happens before rainbow hits the far edge'
         regression — trail must saturate before snap so the cut happens
@@ -482,11 +415,8 @@ class TestRenderHiresTrail:
             render_hires_frame,
         )
 
-        real, wrapped, name = self._setup_with_trail(
-            tmp_path,
-            monkeypatch,
-            trail="rainbow",
-            flip_horizontal=False,
+        real, wrapped, spec = self._setup_with_trail(
+            tmp_path, trail="rainbow", flip_horizontal=False
         )
         outgoing = _mock_mod.MagicMock()
         incoming = _mock_mod.MagicMock()
@@ -495,13 +425,13 @@ class TestRenderHiresTrail:
             wrapped,
             outgoing,
             incoming,
-            name,
+            spec,
             duration_ms=500,
         )
         # Rightmost column at row 0 should be the first rainbow stripe color.
         assert real.get_pixel(real.width - 1, 0) == _RAINBOW_TRAIL_COLORS[0]
 
-    def test_rtl_trail_fills_full_panel_by_saturation_t(self, tmp_path, monkeypatch):
+    def test_rtl_trail_fills_full_panel_by_saturation_t(self, tmp_path):
         """Mirror check for RTL."""
         from led_ticker.transitions._hires_loader import (
             _RAINBOW_TRAIL_COLORS,
@@ -509,11 +439,8 @@ class TestRenderHiresTrail:
             render_hires_frame,
         )
 
-        real, wrapped, name = self._setup_with_trail(
-            tmp_path,
-            monkeypatch,
-            trail="rainbow",
-            flip_horizontal=True,
+        real, wrapped, spec = self._setup_with_trail(
+            tmp_path, trail="rainbow", flip_horizontal=True
         )
         outgoing = _mock_mod.MagicMock()
         incoming = _mock_mod.MagicMock()
@@ -522,13 +449,13 @@ class TestRenderHiresTrail:
             wrapped,
             outgoing,
             incoming,
-            name,
+            spec,
             duration_ms=500,
         )
         # Leftmost column at row 0 should be the first rainbow stripe color.
         assert real.get_pixel(0, 0) == _RAINBOW_TRAIL_COLORS[0]
 
-    def test_trail_holds_after_saturation_until_snap(self, tmp_path, monkeypatch):
+    def test_trail_holds_after_saturation_until_snap(self, tmp_path):
         """Between TRAIL_SATURATION_T and SNAP_THRESHOLD, the trail stays
         fully covering — the 'hold' phase before the cut."""
         from led_ticker.transitions._hires_loader import (
@@ -538,11 +465,8 @@ class TestRenderHiresTrail:
             render_hires_frame,
         )
 
-        real, wrapped, name = self._setup_with_trail(
-            tmp_path,
-            monkeypatch,
-            trail="rainbow",
-            flip_horizontal=False,
+        real, wrapped, spec = self._setup_with_trail(
+            tmp_path, trail="rainbow", flip_horizontal=False
         )
         outgoing = _mock_mod.MagicMock()
         incoming = _mock_mod.MagicMock()
@@ -553,7 +477,7 @@ class TestRenderHiresTrail:
             wrapped,
             outgoing,
             incoming,
-            name,
+            spec,
             duration_ms=500,
         )
         # Right edge is still covered.
@@ -561,9 +485,7 @@ class TestRenderHiresTrail:
         # And incoming wasn't called yet (still pre-snap).
         incoming.draw.assert_not_called()
 
-    def test_rtl_rainbow_trail_holds_after_saturation_until_snap(
-        self, tmp_path, monkeypatch
-    ):
+    def test_rtl_rainbow_trail_holds_after_saturation_until_snap(self, tmp_path):
         """Mirror of test_trail_holds_after_saturation_until_snap, RTL."""
         from led_ticker.transitions._hires_loader import (
             _RAINBOW_TRAIL_COLORS,
@@ -572,11 +494,8 @@ class TestRenderHiresTrail:
             render_hires_frame,
         )
 
-        real, wrapped, name = self._setup_with_trail(
-            tmp_path,
-            monkeypatch,
-            trail="rainbow",
-            flip_horizontal=True,
+        real, wrapped, spec = self._setup_with_trail(
+            tmp_path, trail="rainbow", flip_horizontal=True
         )
         outgoing = _mock_mod.MagicMock()
         incoming = _mock_mod.MagicMock()
@@ -586,7 +505,7 @@ class TestRenderHiresTrail:
             wrapped,
             outgoing,
             incoming,
-            name,
+            spec,
             duration_ms=500,
         )
         # Left edge is still covered (RTL trail goes from sprite to right edge,
@@ -594,20 +513,15 @@ class TestRenderHiresTrail:
         assert real.get_pixel(0, 0) == _RAINBOW_TRAIL_COLORS[0]
         incoming.draw.assert_not_called()
 
-    def test_ltr_black_trail_fills_full_panel_by_saturation_t(
-        self, tmp_path, monkeypatch
-    ):
+    def test_ltr_black_trail_fills_full_panel_by_saturation_t(self, tmp_path):
         """Black trail equivalent of the rainbow saturation test."""
         from led_ticker.transitions._hires_loader import (
             TRAIL_SATURATION_T,
             render_hires_frame,
         )
 
-        real, wrapped, name = self._setup_with_trail(
-            tmp_path,
-            monkeypatch,
-            trail="black",
-            flip_horizontal=False,
+        real, wrapped, spec = self._setup_with_trail(
+            tmp_path, trail="black", flip_horizontal=False
         )
         # Pre-paint canvas red so we can detect the trail.
         for y in range(real.height):
@@ -621,16 +535,14 @@ class TestRenderHiresTrail:
             wrapped,
             outgoing,
             incoming,
-            name,
+            spec,
             duration_ms=500,
         )
         # Right edge column should now be black (trail) — original red gone.
         # Sample at row 0 to avoid the procedural pokeball if it's painted.
         assert real.get_pixel(real.width - 1, 0) == (0, 0, 0)
 
-    def test_rtl_black_trail_holds_after_saturation_until_snap(
-        self, tmp_path, monkeypatch
-    ):
+    def test_rtl_black_trail_holds_after_saturation_until_snap(self, tmp_path):
         """RTL black trail mirror."""
         from led_ticker.transitions._hires_loader import (
             SNAP_THRESHOLD,
@@ -638,11 +550,8 @@ class TestRenderHiresTrail:
             render_hires_frame,
         )
 
-        real, wrapped, name = self._setup_with_trail(
-            tmp_path,
-            monkeypatch,
-            trail="black",
-            flip_horizontal=True,
+        real, wrapped, spec = self._setup_with_trail(
+            tmp_path, trail="black", flip_horizontal=True
         )
         for y in range(real.height):
             for x in range(real.width):
@@ -656,7 +565,7 @@ class TestRenderHiresTrail:
             wrapped,
             outgoing,
             incoming,
-            name,
+            spec,
             duration_ms=500,
         )
         # During RTL hold, the left edge is covered (trail extends from
@@ -673,9 +582,10 @@ def test_production_sprite_loads_and_fits(name):
     """Smoke test: each registered production sprite decodes successfully,
     fits within the bigsign panel, and has at least one non-black pixel."""
     from led_ticker.transitions._hires_loader import load_hires
+    from led_ticker.transitions._hires_registry import HIRES_REGISTRY
 
-    frames = load_hires(name)
-    assert frames is not None, f"{name} not in registry"
+    spec = HIRES_REGISTRY[name]
+    frames = load_hires(spec)
     assert frames.height <= 64, f"{name} height {frames.height} exceeds panel_h"
     assert frames.width <= 256, f"{name} width {frames.width} exceeds panel_w"
     assert len(frames.durations_ms) >= 1
@@ -685,11 +595,12 @@ def test_production_sprite_loads_and_fits(name):
 
 
 class TestProceduralPokeball:
-    def _setup_pokeball(self, monkeypatch, *, flip_horizontal=False):
-        """Use the production pokeball entry directly (no fixture sprite needed)."""
+    def _setup_pokeball(self, *, flip_horizontal=False):
+        """Use the production pokeball spec directly (no fixture sprite needed)."""
         from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
         from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions._hires_registry import HIRES_REGISTRY
 
         opts = RGBMatrixOptions()
         opts.cols = 256
@@ -698,19 +609,28 @@ class TestProceduralPokeball:
         opts.parallel = 1
         real = RGBMatrix(options=opts).CreateFrameCanvas()
         wrapped = ScaledCanvas(real, scale=4, content_height=16)
-        name = "pokeball_reverse" if flip_horizontal else "pokeball"
-        return real, wrapped, name
+        registry_name = "pokeball_reverse" if flip_horizontal else "pokeball"
+        spec = HIRES_REGISTRY[registry_name]
+        return real, wrapped, spec
 
-    def test_pokeball_has_red_pixel_in_top_half(self, monkeypatch):
+    def test_pokeball_has_red_pixel_in_top_half(self):
         import unittest.mock as mock_mod
 
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        real, wrapped, name = self._setup_pokeball(monkeypatch)
+        real, wrapped, spec = self._setup_pokeball()
         outgoing = mock_mod.MagicMock()
         incoming = mock_mod.MagicMock()
         # At t=0.4, ball is roughly mid-panel (band horizontal at this rotation).
-        render_hires_frame(0.4, wrapped, outgoing, incoming, name, duration_ms=500)
+        render_hires_frame(
+            0.4,
+            wrapped,
+            outgoing,
+            incoming,
+            spec,
+            duration_ms=500,
+            show_pokeball=True,
+        )
         # Search for any (255, 30, 30) red pixel — proves the ball was painted.
         red_pixels = [
             (x, y)
@@ -720,15 +640,23 @@ class TestProceduralPokeball:
         ]
         assert red_pixels, "expected at least one red pixel from procedural pokeball"
 
-    def test_pokeball_has_white_pixel_somewhere(self, monkeypatch):
+    def test_pokeball_has_white_pixel_somewhere(self):
         import unittest.mock as mock_mod
 
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        real, wrapped, name = self._setup_pokeball(monkeypatch)
+        real, wrapped, spec = self._setup_pokeball()
         outgoing = mock_mod.MagicMock()
         incoming = mock_mod.MagicMock()
-        render_hires_frame(0.4, wrapped, outgoing, incoming, name, duration_ms=500)
+        render_hires_frame(
+            0.4,
+            wrapped,
+            outgoing,
+            incoming,
+            spec,
+            duration_ms=500,
+            show_pokeball=True,
+        )
         white_pixels = [
             (x, y)
             for y in range(real.height)
@@ -737,7 +665,7 @@ class TestProceduralPokeball:
         ]
         assert white_pixels, "expected white pixel from procedural pokeball"
 
-    def test_pokeball_leads_pikachu_in_ltr(self, monkeypatch):
+    def test_pokeball_leads_pikachu_in_ltr(self):
         """At mid-transition, the rightmost red pokeball pixel should be
         to the right of any pikachu sprite paint (Pikachu colors are not
         red and not pure white)."""
@@ -745,10 +673,18 @@ class TestProceduralPokeball:
 
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        real, wrapped, name = self._setup_pokeball(monkeypatch)
+        real, wrapped, spec = self._setup_pokeball()
         outgoing = mock_mod.MagicMock()
         incoming = mock_mod.MagicMock()
-        render_hires_frame(0.4, wrapped, outgoing, incoming, name, duration_ms=500)
+        render_hires_frame(
+            0.4,
+            wrapped,
+            outgoing,
+            incoming,
+            spec,
+            duration_ms=500,
+            show_pokeball=True,
+        )
 
         # rightmost red pixel = ball lead edge
         rightmost_red_x = max(
@@ -763,16 +699,24 @@ class TestProceduralPokeball:
         # Just sanity check: rightmost red is at least mid-panel.
         assert rightmost_red_x > real.width // 4
 
-    def test_pokeball_reverse_paints_ball(self, monkeypatch):
+    def test_pokeball_reverse_paints_ball(self):
         """RTL pokeball still paints the ball (flipped traversal)."""
         import unittest.mock as mock_mod
 
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        real, wrapped, name = self._setup_pokeball(monkeypatch, flip_horizontal=True)
+        real, wrapped, spec = self._setup_pokeball(flip_horizontal=True)
         outgoing = mock_mod.MagicMock()
         incoming = mock_mod.MagicMock()
-        render_hires_frame(0.4, wrapped, outgoing, incoming, name, duration_ms=500)
+        render_hires_frame(
+            0.4,
+            wrapped,
+            outgoing,
+            incoming,
+            spec,
+            duration_ms=500,
+            show_pokeball=True,
+        )
         red_pixels = [
             (x, y)
             for y in range(real.height)
@@ -781,15 +725,16 @@ class TestProceduralPokeball:
         ]
         assert red_pixels
 
-    def test_no_ball_for_nyancat(self, tmp_path, monkeypatch):
+    def test_no_ball_for_nyancat(self):
         """Nyancat must NOT have a procedural ball — verify no red pokeball
-        red color (255, 30, 30) appears for nyancat."""
+        red color (255, 30, 30) appears for nyancat (show_pokeball not passed)."""
         import unittest.mock as mock_mod
 
         from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
         from led_ticker.scaled_canvas import ScaledCanvas
         from led_ticker.transitions._hires_loader import render_hires_frame
+        from led_ticker.transitions._hires_registry import HIRES_REGISTRY
 
         opts = RGBMatrixOptions()
         opts.cols = 256
@@ -800,7 +745,8 @@ class TestProceduralPokeball:
         wrapped = ScaledCanvas(real, scale=4, content_height=16)
         outgoing = mock_mod.MagicMock()
         incoming = mock_mod.MagicMock()
-        render_hires_frame(0.4, wrapped, outgoing, incoming, "nyancat", duration_ms=500)
+        spec = HIRES_REGISTRY["nyancat"]
+        render_hires_frame(0.4, wrapped, outgoing, incoming, spec, duration_ms=500)
         # Nyancat trail is rainbow — first stripe is (255, 0, 0), NOT (255, 30, 30).
         # The procedural pokeball red is specifically (255, 30, 30) so we can
         # distinguish them.
@@ -812,7 +758,7 @@ class TestProceduralPokeball:
                     30,
                 ), f"unexpected pokeball red at ({x}, {y}) for nyancat"
 
-    def test_ball_off_screen_at_saturation_t(self, monkeypatch):
+    def test_ball_off_screen_at_saturation_t(self):
         """At TRAIL_SATURATION_T, ball is fully past the right edge (LTR).
         No red pixels should be visible because the ball is off-screen."""
         import unittest.mock as mock_mod
@@ -822,11 +768,17 @@ class TestProceduralPokeball:
             render_hires_frame,
         )
 
-        real, wrapped, name = self._setup_pokeball(monkeypatch)
+        real, wrapped, spec = self._setup_pokeball()
         outgoing = mock_mod.MagicMock()
         incoming = mock_mod.MagicMock()
         render_hires_frame(
-            TRAIL_SATURATION_T, wrapped, outgoing, incoming, name, duration_ms=500
+            TRAIL_SATURATION_T,
+            wrapped,
+            outgoing,
+            incoming,
+            spec,
+            duration_ms=500,
+            show_pokeball=True,
         )
         # At t=TRAIL_SATURATION_T, both ball and Pikachu are fully off-right;
         # canvas is just trail (black) for pokeball.
@@ -846,6 +798,7 @@ class TestShowFlags:
         from rgbmatrix import RGBMatrix, RGBMatrixOptions
 
         from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions._hires_registry import HIRES_REGISTRY
 
         opts = RGBMatrixOptions()
         opts.cols = 256
@@ -854,8 +807,9 @@ class TestShowFlags:
         opts.parallel = 1
         real = RGBMatrix(options=opts).CreateFrameCanvas()
         wrapped = ScaledCanvas(real, scale=4, content_height=16)
-        name = "pokeball_reverse" if flip_horizontal else "pokeball"
-        return real, wrapped, name
+        registry_name = "pokeball_reverse" if flip_horizontal else "pokeball"
+        spec = HIRES_REGISTRY[registry_name]
+        return real, wrapped, spec
 
     def test_show_pokeball_false_omits_ball(self):
         """show_pokeball=False produces no procedural-pokeball red pixels."""
@@ -863,7 +817,7 @@ class TestShowFlags:
 
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        real, wrapped, name = self._setup_pokeball()
+        real, wrapped, spec = self._setup_pokeball()
         outgoing = mock_mod.MagicMock()
         incoming = mock_mod.MagicMock()
         render_hires_frame(
@@ -871,7 +825,7 @@ class TestShowFlags:
             wrapped,
             outgoing,
             incoming,
-            name,
+            spec,
             duration_ms=500,
             show_pokeball=False,
         )
@@ -896,13 +850,14 @@ class TestShowFlags:
             load_hires,
             render_hires_frame,
         )
+        from led_ticker.transitions._hires_registry import HIRES_REGISTRY
 
         # Pull a representative non-black pixel from the loaded sprite to
         # use as the "Pikachu" color signature. Filter out the procedural
         # pokeball palette so we don't accidentally pick a coincidence.
         pokeball_palette = {(255, 30, 30), (255, 255, 255), (0, 0, 0)}
-        sprite = load_hires("pokeball")
-        assert sprite is not None
+        pokeball_spec = HIRES_REGISTRY["pokeball"]
+        sprite = load_hires(pokeball_spec)
         pikachu_color = None
         for _x, _y, r, g, b in sprite.non_black[0]:
             if (r, g, b) not in pokeball_palette:
@@ -910,7 +865,7 @@ class TestShowFlags:
                 break
         assert pikachu_color is not None, "couldn't sample a Pikachu color"
 
-        real, wrapped, name = self._setup_pokeball()
+        real, wrapped, spec = self._setup_pokeball()
         outgoing = mock_mod.MagicMock()
         incoming = mock_mod.MagicMock()
         render_hires_frame(
@@ -918,7 +873,7 @@ class TestShowFlags:
             wrapped,
             outgoing,
             incoming,
-            name,
+            spec,
             duration_ms=500,
             show_pikachu=False,
         )
@@ -935,7 +890,7 @@ class TestShowFlags:
 
         from led_ticker.transitions._hires_loader import render_hires_frame
 
-        real, wrapped, name = self._setup_pokeball()
+        real, wrapped, spec = self._setup_pokeball()
         # Pre-paint canvas magenta — should remain because nothing is drawn.
         for y in range(real.height):
             for x in range(real.width):
@@ -948,7 +903,7 @@ class TestShowFlags:
             wrapped,
             outgoing,
             incoming,
-            name,
+            spec,
             duration_ms=500,
             show_pokeball=False,
             show_pikachu=False,
@@ -981,10 +936,11 @@ class TestShowFlags:
             load_hires,
             render_hires_frame,
         )
+        from led_ticker.transitions._hires_registry import HIRES_REGISTRY
 
-        sprite = load_hires("pokeball")
-        assert sprite is not None
-        real, wrapped, name = self._setup_pokeball()
+        pokeball_spec = HIRES_REGISTRY["pokeball"]
+        sprite = load_hires(pokeball_spec)
+        real, wrapped, spec = self._setup_pokeball()
         # Pre-paint canvas red — simulates outgoing text bleed-through risk.
         for y in range(real.height):
             for x in range(real.width):
@@ -997,7 +953,7 @@ class TestShowFlags:
             wrapped,
             outgoing,
             incoming,
-            name,
+            spec,
             duration_ms=500,
             show_pokeball=False,
             show_pikachu=True,
@@ -1024,3 +980,85 @@ class TestShowFlags:
 
         assert PokeballReverse()._show_pokeball is True
         assert PokeballReverse(show_pokeball=False)._show_pokeball is False
+
+    def test_hires_ball_only_paints_without_pikachu(self):
+        # show_pokeball=True, show_pikachu=False -> ball-only branch.
+        # Renders the procedural ball, skips the Pikachu sprite. Reachable
+        # by a plugin passing these kwargs; pins the branch.
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        real, wrapped, spec = self._setup_pokeball()
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        render_hires_frame(
+            0.4,
+            wrapped,
+            outgoing,
+            incoming,
+            spec,
+            duration_ms=500,
+            show_pokeball=True,
+            show_pikachu=False,
+        )
+        # The procedural ball paints red (255, 30, 30) pixels — confirms the
+        # ball-only branch executed and produced output without raising.
+        red_pixels = [
+            (x, y)
+            for y in range(real.height)
+            for x in range(real.width)
+            if real.get_pixel(x, y) == (255, 30, 30)
+        ]
+        assert red_pixels, (
+            "expected at least one red pixel from ball-only render "
+            "(show_pokeball=True, show_pikachu=False)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 tests: render_hires_frame / load_hires take a HiresSpec directly.
+#
+# The renderer no longer reaches into the core HIRES_REGISTRY — a spec
+# that was never registered still decodes and renders, which is what lets
+# an out-of-tree plugin supply its own sprite.
+# ---------------------------------------------------------------------------
+
+
+def _make_sprite(path, frames=2, size=(8, 8)):
+    from PIL import Image
+
+    imgs = [Image.new("RGBA", size, (255, 0, 0, 255)) for _ in range(frames)]
+    imgs[0].save(path, save_all=True, append_images=imgs[1:], duration=50, loop=0)
+    return path
+
+
+def test_render_hires_frame_signature_takes_spec():
+    import inspect
+
+    from led_ticker.transitions._hires_loader import render_hires_frame
+
+    params = list(inspect.signature(render_hires_frame).parameters)
+    assert params[:5] == ["t", "canvas", "outgoing", "incoming", "spec"]
+
+
+def test_load_hires_decodes_an_unregistered_spec(tmp_path):
+    from led_ticker.transitions._hires_loader import load_hires
+    from led_ticker.transitions._hires_registry import HiresSpec
+
+    sprite = _make_sprite(tmp_path / "s.gif")
+    spec = HiresSpec(sprite_path=sprite, flip_horizontal=False, trail="none")
+    frames = load_hires(spec)
+    assert frames is not None
+    assert frames.width > 0 and frames.height > 0
+
+
+def test_load_hires_caches_on_spec(tmp_path):
+    from led_ticker.transitions._hires_loader import load_hires
+    from led_ticker.transitions._hires_registry import HiresSpec
+
+    sprite = _make_sprite(tmp_path / "s.gif")
+    spec = HiresSpec(sprite_path=sprite, flip_horizontal=False, trail="none")
+    assert load_hires(spec) is load_hires(spec)
+    flipped = HiresSpec(sprite_path=sprite, flip_horizontal=True, trail="none")
+    assert load_hires(flipped) is not load_hires(spec)

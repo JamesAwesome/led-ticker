@@ -158,6 +158,23 @@ class TestLoadHiresFont:
                 f"{ch!r} rasterized to zero lit pixels (threshold clip?)"
             )
 
+    def test_glyphs_for_symbols(self):
+        """Degree sign (°) — used by weather/temperature copy. Without it
+        in the pre-rasterized set the renderer falls back to '?' (the
+        baseball attendance widget's "72° Clear" rendered as "72?" on the
+        bigsign before SYMBOLS was added)."""
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        font = load_hires_font("Inter-Regular", 32)
+        assert font is not None
+        for ch in "°":
+            assert ch in font.glyphs, f"missing glyph for {ch!r} (U+{ord(ch):04X})"
+            # Present-but-empty would silently render as a blank at the
+            # wrong width; a real symbol must have lit pixels.
+            assert len(font.glyphs[ch].lit) > 0, (
+                f"{ch!r} rasterized to zero lit pixels (threshold clip?)"
+            )
+
     def test_glyph_has_lit_pixels(self):
         from led_ticker.fonts.hires_loader import load_hires_font
 

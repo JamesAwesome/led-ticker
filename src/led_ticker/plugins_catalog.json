@@ -18,9 +18,15 @@
     {
       "name": "baseball",
       "namespace": "baseball",
-      "summary": "MLB scores & standings widgets, baseball.roll* transitions, and the :baseball.ball: emoji.",
+      "summary": "MLB scores, standings, promotions, statcast & attendance widgets, baseball.roll* transitions, and the :baseball.ball: emoji.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-baseball",
-      "provides": ["baseball.scores", "baseball.standings"],
+      "provides": [
+        "baseball.scores",
+        "baseball.standings",
+        "baseball.promotions",
+        "baseball.statcast",
+        "baseball.attendance"
+      ],
       "sources": [
         {
           "type": "git",

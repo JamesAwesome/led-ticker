@@ -44,6 +44,31 @@ def test_pool_provides_monitor():
     assert "pool.monitor" in cat.get("pool").provides
 
 
+def test_baseball_provides_all_current_widgets():
+    # Locks the catalog against the scores/standings-only drift: the plugin's
+    # register() on main contributes five widgets. (Transitions + the emoji are
+    # described in the summary, which the search haystack covers.)
+    cat = load_catalog()
+    assert set(cat.get("baseball").provides) == {
+        "baseball.scores",
+        "baseball.standings",
+        "baseball.promotions",
+        "baseball.statcast",
+        "baseball.attendance",
+    }
+
+
+def test_search_finds_new_baseball_widgets_and_surfaces():
+    cat = load_catalog()
+    # a newer widget (via provides), a transition + the emoji (via summary)
+    assert "baseball" in {e.name for e in cat.search("attendance")}
+    assert "baseball" in {e.name for e in cat.search("statcast")}
+    assert "baseball" in {e.name for e in cat.search("roll")}
+    # "baseball.ball" is not a substring of the name/provides, so a hit proves
+    # the emoji slug is discoverable via the summary.
+    assert "baseball" in {e.name for e in cat.search("baseball.ball")}
+
+
 # --- requirement() builder ---
 
 

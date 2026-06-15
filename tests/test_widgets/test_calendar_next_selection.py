@@ -149,7 +149,7 @@ def _picked_event(events: list[CalendarEvent]) -> CalendarEvent | None:
 def test_tier1_single_future_timed():
     """Only a future timed event → rendered as 'in …'."""
     text = _draw_with_fixed_now([_FUTURE_TIMED_SOON])
-    assert text == "DentistSoon in 4h"
+    assert text == "DentistSoon · in 4h"
 
 
 def test_tier1_picks_soonest_of_two_future_timed():
@@ -196,7 +196,7 @@ def test_tier1_all_four_present():
 def test_tier2_ongoing_allday_no_timed():
     """ongoing all-day + nothing timed → 'today' (not hidden, not empty)."""
     text = _draw_with_fixed_now([_ONGOING_ALLDAY])
-    assert text == "Vacation today", (
+    assert text == "Vacation · today", (
         "Ongoing all-day (started before today) must render 'today'"
     )
 
@@ -204,7 +204,7 @@ def test_tier2_ongoing_allday_no_timed():
 def test_tier2_today_allday_start_is_midnight():
     """all-day with start = today midnight (start.date() == today) → 'today'."""
     text = _draw_with_fixed_now([_TODAY_ALLDAY])
-    assert text == "HolidayToday today"
+    assert text == "HolidayToday · today"
 
 
 def test_tier2_ongoing_allday_beats_future_allday():
@@ -231,13 +231,13 @@ def test_tier2_ongoing_allday_beats_inprogress_timed():
 def test_tier3_future_allday_tomorrow():
     """Only a future all-day (tomorrow) → renders 'tomorrow'."""
     text = _draw_with_fixed_now([_FUTURE_ALLDAY_TOMORROW])
-    assert text == "Conference tomorrow"
+    assert text == "Conference · tomorrow"
 
 
 def test_tier3_future_allday_3d():
     """Only a future all-day 3 days out → renders 'in 3d'."""
     text = _draw_with_fixed_now([_FUTURE_ALLDAY_3D])
-    assert text == "Offsite in 3d"
+    assert text == "Offsite · in 3d"
 
 
 def test_tier3_picks_soonest_future_allday():
@@ -262,7 +262,7 @@ def test_tier3_future_allday_beats_inprogress():
 def test_tier4_inprogress_shows_now():
     """Only an in-progress timed event → '<summary> now' (not empty_text)."""
     text = _draw_with_fixed_now([_INPROGRESS])
-    assert text == "Standup now", (
+    assert text == "Standup · now", (
         "In-progress timed event must render 'now', not empty_text"
     )
 
@@ -295,27 +295,27 @@ def test_tier5_empty_list():
     "events, expected_text",
     [
         # tier 1 only
-        ([_FUTURE_TIMED_SOON], "DentistSoon in 4h"),
+        ([_FUTURE_TIMED_SOON], "DentistSoon · in 4h"),
         # tier 2 only (ongoing from yesterday)
-        ([_ONGOING_ALLDAY], "Vacation today"),
+        ([_ONGOING_ALLDAY], "Vacation · today"),
         # tier 3 only (tomorrow)
-        ([_FUTURE_ALLDAY_TOMORROW], "Conference tomorrow"),
+        ([_FUTURE_ALLDAY_TOMORROW], "Conference · tomorrow"),
         # tier 3 only (3 days)
-        ([_FUTURE_ALLDAY_3D], "Offsite in 3d"),
+        ([_FUTURE_ALLDAY_3D], "Offsite · in 3d"),
         # tier 4 only
-        ([_INPROGRESS], "Standup now"),
+        ([_INPROGRESS], "Standup · now"),
         # tier 5
         ([], "No upcoming events"),
         # tier 1 beats tier 2
-        ([_FUTURE_TIMED_SOON, _ONGOING_ALLDAY], "DentistSoon in 4h"),
+        ([_FUTURE_TIMED_SOON, _ONGOING_ALLDAY], "DentistSoon · in 4h"),
         # tier 1 beats tier 4
-        ([_INPROGRESS, _FUTURE_TIMED_SOON], "DentistSoon in 4h"),
+        ([_INPROGRESS, _FUTURE_TIMED_SOON], "DentistSoon · in 4h"),
         # tier 2 beats tier 3
-        ([_ONGOING_ALLDAY, _FUTURE_ALLDAY_TOMORROW], "Vacation today"),
+        ([_ONGOING_ALLDAY, _FUTURE_ALLDAY_TOMORROW], "Vacation · today"),
         # tier 2 beats tier 4
-        ([_ONGOING_ALLDAY, _INPROGRESS], "Vacation today"),
+        ([_ONGOING_ALLDAY, _INPROGRESS], "Vacation · today"),
         # tier 3 beats tier 4
-        ([_FUTURE_ALLDAY_TOMORROW, _INPROGRESS], "Conference tomorrow"),
+        ([_FUTURE_ALLDAY_TOMORROW, _INPROGRESS], "Conference · tomorrow"),
         # ended all-day (end <= now) → skipped, falls to empty (tier 5)
         (
             [
@@ -409,8 +409,8 @@ def test_next_ended_all_day_does_not_mask_current():
         f"picked {picked!r} instead of current event"
     )
     text = _draw_with_fixed_now([stale_ended, current])
-    assert text == "CurrentHoliday today", (
-        f"Expected 'CurrentHoliday today', got {text!r}"
+    assert text == "CurrentHoliday · today", (
+        f"Expected 'CurrentHoliday · today', got {text!r}"
     )
 
 

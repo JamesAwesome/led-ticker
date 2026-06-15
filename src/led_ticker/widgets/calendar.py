@@ -33,6 +33,13 @@ from led_ticker.widgets.message import TickerMessage
 
 logger = logging.getLogger(__name__)
 
+# Visible delimiter between the time/relative phrase and the event title.
+# A space + U+00B7 MIDDLE DOT + space reads far more clearly on the panel than
+# the old two-space gap (matches the convention the baseball promotions widget
+# uses). Verified to render (non-tofu) in BOTH the bundled BDF fonts
+# (5x8/6x10/6x12/7x13 all carry ENCODING 183) and the hires Inter-Regular.otf.
+_SEP = " · "
+
 # Bound memory against pathological/hostile high-frequency RRULEs (e.g. FREQ=SECONDLY).
 # islice ensures we never materialize more than this many occurrences.
 _MAX_OCCURRENCES = 2000
@@ -516,15 +523,15 @@ def _day_label(start: datetime, now: datetime) -> str:
 def format_event_line(
     event: CalendarEvent, *, now: datetime, time_format: str, tz: tzinfo
 ) -> str:
-    """Agenda line: '<day> <time>  <summary>'; all-day omits the time."""
+    """Agenda line: '<day> <time> · <summary>'; all-day omits the time."""
     day = _day_label(event.start, now)
     if event.all_day:
-        return f"{day}  {event.summary}"
-    return f"{day} {format_clock(event.start, time_format)}  {event.summary}"
+        return f"{day}{_SEP}{event.summary}"
+    return f"{day} {format_clock(event.start, time_format)}{_SEP}{event.summary}"
 
 
 def format_relative(event: CalendarEvent | None, now: datetime, empty_text: str) -> str:
-    """Next-mode line: '<summary> in <rel>' / '<summary> now' / empty_text.
+    """Next-mode line: '<summary> · in <rel>' / '<summary> · now' / empty_text.
 
     All-day events are rendered by day (today/tomorrow/in Nd) rather than by
     seconds, since their start is always midnight and a seconds-based delta
@@ -535,30 +542,30 @@ def format_relative(event: CalendarEvent | None, now: datetime, empty_text: str)
     if event.all_day:
         days = (event.start.date() - now.date()).days
         if days <= 0:
-            return f"{event.summary} today"
+            return f"{event.summary}{_SEP}today"
         if days == 1:
-            return f"{event.summary} tomorrow"
-        return f"{event.summary} in {days}d"
+            return f"{event.summary}{_SEP}tomorrow"
+        return f"{event.summary}{_SEP}in {days}d"
     # Convert both to UTC before subtracting so DST transitions don't skew the
     # delta (two aware datetimes with the same ZoneInfo subtract naively in
     # wall-clock time, which is wrong by the DST offset across a transition).
     delta = event.start.astimezone(UTC) - now.astimezone(UTC)
     secs = delta.total_seconds()
     if secs <= 0:
-        return f"{event.summary} now"
+        return f"{event.summary}{_SEP}now"
     days = int(secs // 86400)
     if days >= 1:
-        return f"{event.summary} in {days}d"
+        return f"{event.summary}{_SEP}in {days}d"
     hours = int(secs // 3600)
     minutes = int((secs % 3600) // 60)
     if hours >= 1:
         if minutes == 0:
-            return f"{event.summary} in {hours}h"
-        return f"{event.summary} in {hours}h {minutes}m"
+            return f"{event.summary}{_SEP}in {hours}h"
+        return f"{event.summary}{_SEP}in {hours}h {minutes}m"
     if minutes == 0:
         # sub-minute and imminent -> treat as happening now
-        return f"{event.summary} now"
-    return f"{event.summary} in {minutes}m"
+        return f"{event.summary}{_SEP}now"
+    return f"{event.summary}{_SEP}in {minutes}m"
 
 
 def _not_ended(e: CalendarEvent, now: datetime) -> bool:

@@ -253,7 +253,7 @@ def test_format_relative_spring_forward_is_utc_correct():
         all_day=False,
     )
     result = format_relative(event, now, "x")
-    assert result == "MeetingSpring in 10h", (
+    assert result == "MeetingSpring · in 10h", (
         f"Spring-forward countdown must be UTC-correct ('in 10h'), got {result!r}. "
         "Check that format_relative subtracts event.start.astimezone(UTC) - "
         "now.astimezone(UTC), not naively."
@@ -287,7 +287,7 @@ def test_format_relative_fall_back_is_utc_correct():
         all_day=False,
     )
     result = format_relative(event, now, "x")
-    assert result == "MeetingFall in 3h 30m", (
+    assert result == "MeetingFall · in 3h 30m", (
         f"Fall-back countdown must be UTC-correct ('in 3h 30m'), got {result!r}. "
         "Check that format_relative subtracts in UTC, not wall-clock."
     )
@@ -300,7 +300,7 @@ def test_format_relative_no_dst_one_hour_is_exact():
         "Sanity", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), all_day=False
     )
     result = format_relative(event, now, "x")
-    assert result == "Sanity in 1h"
+    assert result == "Sanity · in 1h"
 
 
 def test_format_relative_mixed_tz_providers_same_instant():
@@ -316,6 +316,6 @@ def test_format_relative_mixed_tz_providers_same_instant():
     event_ny = datetime(2026, 1, 15, 16, 0, tzinfo=_UTC).astimezone(tz_ny)
     event = CalendarEvent("CrossZone", event_ny, all_day=False)
     result = format_relative(event, now_la, "x")
-    assert result == "CrossZone in 1h", (
+    assert result == "CrossZone · in 1h", (
         f"Cross-timezone 1h delta must render 'in 1h', got {result!r}"
     )

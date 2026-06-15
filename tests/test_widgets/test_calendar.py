@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.calendar import (
     _MAX_OCCURRENCES,
+    _SEP,
     Calendar,
     CalendarEvent,
     TickerMessage,
@@ -219,27 +220,63 @@ def test_format_today_timed_12h():
     now = datetime(2026, 6, 15, 8, 0, tzinfo=_UTC)
     e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
     result = format_event_line(e, now=now, time_format="12h", tz=_UTC)
-    assert result == "Today 3:00 PM  Standup"
+    assert result == "Today 3:00 PM · Standup"
 
 
 def test_format_tomorrow_24h():
     now = datetime(2026, 6, 15, 8, 0, tzinfo=_UTC)
     e = CalendarEvent("Dentist", datetime(2026, 6, 16, 9, 5, tzinfo=_UTC), False)
     result = format_event_line(e, now=now, time_format="24h", tz=_UTC)
-    assert result == "Tomorrow 09:05  Dentist"
+    assert result == "Tomorrow 09:05 · Dentist"
 
 
 def test_format_weekday_within_week():
     now = datetime(2026, 6, 15, 8, 0, tzinfo=_UTC)  # Mon 2026-06-15
     e = CalendarEvent("1:1", datetime(2026, 6, 18, 10, 0, tzinfo=_UTC), False)  # Thu
-    assert format_event_line(e, now=now, time_format="24h", tz=_UTC) == "Thu 10:00  1:1"
+    line = format_event_line(e, now=now, time_format="24h", tz=_UTC)
+    assert line == "Thu 10:00 · 1:1"
 
 
 def test_format_all_day_omits_time():
     now = datetime(2026, 6, 15, 8, 0, tzinfo=_UTC)
     e = CalendarEvent("Holiday", datetime(2026, 6, 16, 0, 0, tzinfo=_UTC), True)
     result = format_event_line(e, now=now, time_format="12h", tz=_UTC)
-    assert result == "Tomorrow  Holiday"
+    assert result == "Tomorrow · Holiday"
+
+
+def test_format_event_line_has_separator():
+    """A visible delimiter must sit between the time phrase and the title so a
+    viewer can tell where the time statement stops and the title begins. The
+    title must be recoverable by splitting the line on the separator."""
+    now = datetime(2026, 6, 15, 8, 0, tzinfo=_UTC)
+    # Timed event: '<day> <time> · <summary>'
+    timed = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    line = format_event_line(timed, now=now, time_format="12h", tz=_UTC)
+    assert _SEP in line, f"separator {_SEP!r} missing from {line!r}"
+    prefix, _, title = line.partition(_SEP)
+    assert title == "Standup"
+    assert prefix == "Today 3:00 PM"
+    # All-day event: '<day> · <summary>'
+    all_day = CalendarEvent("Holiday", datetime(2026, 6, 16, 0, 0, tzinfo=_UTC), True)
+    ad_line = format_event_line(all_day, now=now, time_format="12h", tz=_UTC)
+    assert _SEP in ad_line
+    ad_prefix, _, ad_title = ad_line.partition(_SEP)
+    assert ad_title == "Holiday"
+    assert ad_prefix == "Tomorrow"
+
+
+def test_format_relative_has_separator():
+    """The next-mode line must place the separator between the title and the
+    relative phrase, and the title must be recoverable by splitting on it."""
+    now = datetime(2026, 6, 15, 14, 35, tzinfo=_UTC)
+    timed = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    line = format_relative(timed, now, "No upcoming events")
+    assert _SEP in line, f"separator {_SEP!r} missing from {line!r}"
+    title, _, phrase = line.partition(_SEP)
+    assert title == "Standup"
+    assert phrase == "in 25m"
+    # empty_text (no event) must NOT carry a separator
+    assert _SEP not in format_relative(None, now, "No upcoming events")
 
 
 # ---------------------------------------------------------------------------
@@ -250,25 +287,25 @@ def test_format_all_day_omits_time():
 def test_format_relative_minutes():
     now = datetime(2026, 6, 15, 14, 35, tzinfo=_UTC)
     e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
-    assert format_relative(e, now, "No upcoming events") == "Standup in 25m"
+    assert format_relative(e, now, "No upcoming events") == "Standup · in 25m"
 
 
 def test_format_relative_hours_minutes():
     now = datetime(2026, 6, 15, 12, 50, tzinfo=_UTC)
     e = CalendarEvent("Dentist", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
-    assert format_relative(e, now, "x") == "Dentist in 2h 10m"
+    assert format_relative(e, now, "x") == "Dentist · in 2h 10m"
 
 
 def test_format_relative_days():
     now = datetime(2026, 6, 15, 12, 0, tzinfo=_UTC)
     e = CalendarEvent("Trip", datetime(2026, 6, 18, 12, 0, tzinfo=_UTC), False)
-    assert format_relative(e, now, "x") == "Trip in 3d"
+    assert format_relative(e, now, "x") == "Trip · in 3d"
 
 
 def test_format_relative_in_progress_is_now():
     now = datetime(2026, 6, 15, 15, 5, tzinfo=_UTC)
     e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
-    assert format_relative(e, now, "x") == "Standup now"
+    assert format_relative(e, now, "x") == "Standup · now"
 
 
 def test_format_relative_none_is_empty_text():
@@ -298,13 +335,13 @@ def test_next_event_widget_rainbow_advances_frame(canvas):
 def test_format_relative_sub_minute_is_now():
     now = datetime(2026, 6, 15, 15, 0, 0, tzinfo=_UTC)
     e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, 30, tzinfo=_UTC), False)
-    assert format_relative(e, now, "x") == "Standup now"
+    assert format_relative(e, now, "x") == "Standup · now"
 
 
 def test_format_relative_exact_hour_drops_zero_minutes():
     now = datetime(2026, 6, 15, 14, 0, tzinfo=_UTC)
     e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
-    assert format_relative(e, now, "x") == "Standup in 1h"
+    assert format_relative(e, now, "x") == "Standup · in 1h"
 
 
 def test_next_event_widget_unset_timezone_does_not_crash(canvas):
@@ -886,7 +923,7 @@ def test_next_widget_shows_all_day_today(monkeypatch):
     c.width = 160
     c.height = 16
     result = format_relative(all_day_today, now, "No upcoming events")
-    assert result == "Holiday today"
+    assert result == "Holiday · today"
     # Also verify draw() does not produce the empty_text (the event IS shown)
     out_canvas, _ = w.draw(c)
     assert out_canvas is c
@@ -903,9 +940,9 @@ def test_format_relative_all_day_today_tomorrow():
     in_3d = CalendarEvent(
         "Holiday", datetime(2026, 6, 18, 0, 0, tzinfo=_UTC), all_day=True
     )
-    assert format_relative(today, now, "x") == "Holiday today"
-    assert format_relative(tomorrow, now, "x") == "Holiday tomorrow"
-    assert format_relative(in_3d, now, "x") == "Holiday in 3d"
+    assert format_relative(today, now, "x") == "Holiday · today"
+    assert format_relative(tomorrow, now, "x") == "Holiday · tomorrow"
+    assert format_relative(in_3d, now, "x") == "Holiday · in 3d"
 
 
 # ---------------------------------------------------------------------------
@@ -1016,7 +1053,7 @@ def test_next_shows_ongoing_multiday_all_day_when_no_timed(monkeypatch):
         "Ongoing multi-day all-day (started before today) must appear in next mode"
     )
     result = format_relative(multiday, now, "No upcoming events")
-    assert result == "Vacation today"
+    assert result == "Vacation · today"
 
 
 # Fix 3: timed event today preferred over all-day today
@@ -1298,9 +1335,9 @@ def test_day_label_ongoing_all_day_is_today():
         all_day=True,
     )
     line = format_event_line(e, now=now, time_format="12h", tz=_UTC)
-    assert line == "Today  Vacation", (
+    assert line == "Today · Vacation", (
         f"Ongoing all-day event with past start must render "
-        f"'Today  <summary>', got {line!r}"
+        f"'Today · <summary>', got {line!r}"
     )
 
 
@@ -1508,7 +1545,7 @@ def test_format_relative_dst_transition():
         all_day=False,
     )
     result = format_relative(event, now, "x")
-    assert result == "Meeting in 10h", (
+    assert result == "Meeting · in 10h", (
         f"Expected 'Meeting in 10h' (UTC-correct), got {result!r}. "
         "Check that format_relative subtracts in UTC, not wall-clock."
     )
@@ -1538,7 +1575,7 @@ def test_next_in_progress_timed_shows_now(monkeypatch):
 
     # format_relative renders secs<=0 as "<summary> now"
     text = format_relative(started, now, "No upcoming events")
-    assert text == "Standup now", (
+    assert text == "Standup · now", (
         f"format_relative should render in-progress event as 'now', got {text!r}"
     )
 

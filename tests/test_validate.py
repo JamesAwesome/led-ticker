@@ -2437,6 +2437,35 @@ text = "hi"
         assert "exampleplugin" in rule_39[0].fix
         assert "requirements-plugins.txt" in rule_39[0].fix
 
+    async def test_dotted_unknown_transition_reports_once(self, conf):
+        # A dotted-but-unknown transition must produce exactly ONE error
+        # for its location: rule 39 ("unknown"), not also rule 53
+        # (plugin-kwargs). rule 53 validates kwargs for transitions that
+        # RESOLVE; it must not re-surface "unknown" for names rule 39
+        # already owns. Regression guard against the double-report.
+        result = await validate_config(
+            conf("""
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+transition = "exampleplugin.thing"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+""")
+        )
+        for_transition = [
+            e for e in result.errors if e.location == "section[0].transition"
+        ]
+        assert len(for_transition) == 1, for_transition
+        assert for_transition[0].rule == 39
+
     async def test_migrated_transition_surfaces_through_rule_39(
         self, conf, monkeypatch
     ):

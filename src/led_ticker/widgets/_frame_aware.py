@@ -58,6 +58,7 @@ class FrameAwareBase:
         {
             "font_color",
             "font_color_temp",
+            "time_color",
             "top_color",
             "bottom_color",
             "highlight_color",

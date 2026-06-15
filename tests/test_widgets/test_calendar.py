@@ -21,10 +21,13 @@ from led_ticker.widgets.calendar import (
     _normalize_ics_url,
     _resolve_tz,
     _rrule_is_subhourly,
+    _TwoToneLine,
     format_event_line,
     format_relative,
     parse_ics,
     select_events,
+    split_event_line,
+    split_relative,
 )
 
 _FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "calendar_sample.ics"
@@ -374,7 +377,7 @@ def test_update_agenda_builds_messages(monkeypatch):
     )
     asyncio.run(cal.update())
     assert cal.feed_stories
-    assert all(isinstance(s, TickerMessage) for s in cal.feed_stories)
+    assert all(isinstance(s, _TwoToneLine) for s in cal.feed_stories)
 
 
 def test_update_next_builds_single_countdown(monkeypatch):
@@ -411,10 +414,11 @@ def test_update_default_timezone_parses_events(monkeypatch):
     )
     asyncio.run(cal.update())
     assert cal.feed_stories
-    assert all(isinstance(s, TickerMessage) for s in cal.feed_stories)
-    # not the single empty_text fallback
+    assert all(isinstance(s, _TwoToneLine) for s in cal.feed_stories)
+    # not the single empty_text fallback (the fallback is a lone TickerMessage;
+    # real agenda lines are _TwoToneLine)
     assert not (
-        len(cal.feed_stories) == 1 and cal.feed_stories[0].text == cal.empty_text
+        len(cal.feed_stories) == 1 and isinstance(cal.feed_stories[0], TickerMessage)
     )
 
 
@@ -717,13 +721,13 @@ def test_next_widget_picks_soonest_future_event(monkeypatch):
     now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
     monkeypatch.setattr("led_ticker.widgets.calendar._now_in", lambda tz: now)
     picked = []
-    original_format = format_relative
+    original_split = split_relative
 
     def capture_format(event, _now, empty_text):
         picked.append(event)
-        return original_format(event, _now, empty_text)
+        return original_split(event, _now, empty_text)
 
-    monkeypatch.setattr("led_ticker.widgets.calendar.format_relative", capture_format)
+    monkeypatch.setattr("led_ticker.widgets.calendar.split_relative", capture_format)
 
     future_soon = CalendarEvent(
         "Dentist", datetime(2026, 6, 15, 9, 10, tzinfo=_UTC), False
@@ -750,13 +754,13 @@ def test_next_widget_rolls_past_started_event(monkeypatch):
     now = datetime(2026, 6, 15, 9, 5, tzinfo=_UTC)
     monkeypatch.setattr("led_ticker.widgets.calendar._now_in", lambda tz: now)
     picked = []
-    original_format = format_relative
+    original_split = split_relative
 
     def capture_format(event, _now, empty_text):
         picked.append(event)
-        return original_format(event, _now, empty_text)
+        return original_split(event, _now, empty_text)
 
-    monkeypatch.setattr("led_ticker.widgets.calendar.format_relative", capture_format)
+    monkeypatch.setattr("led_ticker.widgets.calendar.split_relative", capture_format)
 
     started = CalendarEvent(
         "Standup", datetime(2026, 6, 15, 9, 0, tzinfo=_UTC), False
@@ -1033,13 +1037,13 @@ def test_next_shows_ongoing_multiday_all_day_when_no_timed(monkeypatch):
         "Vacation", datetime(2026, 6, 14, 0, 0, tzinfo=_UTC), all_day=True
     )
     picked = []
-    original_format = format_relative
+    original_split = split_relative
 
     def capture_format(event, _now, empty_text):
         picked.append(event)
-        return original_format(event, _now, empty_text)
+        return original_split(event, _now, empty_text)
 
-    monkeypatch.setattr("led_ticker.widgets.calendar.format_relative", capture_format)
+    monkeypatch.setattr("led_ticker.widgets.calendar.split_relative", capture_format)
 
     w = _NextEventWidget(
         events=[multiday], empty_text="No upcoming events", timezone="UTC"
@@ -1074,13 +1078,13 @@ def test_next_prefers_timed_over_all_day_today(monkeypatch):
         timezone="UTC",
     )
     picked = []
-    original_format = format_relative
+    original_split = split_relative
 
     def capture_format(event, _now, empty_text):
         picked.append(event)
-        return original_format(event, _now, empty_text)
+        return original_split(event, _now, empty_text)
 
-    monkeypatch.setattr("led_ticker.widgets.calendar.format_relative", capture_format)
+    monkeypatch.setattr("led_ticker.widgets.calendar.split_relative", capture_format)
 
     c = Mock()
     c.width = 160
@@ -1525,13 +1529,13 @@ def test_next_in_progress_timed_shows_now(monkeypatch):
 
     # draw() must pick the in-progress event (tier-4 fallback), not empty_text
     picked = []
-    original_format = format_relative
+    original_split = split_relative
 
     def capture_format(event, _now, empty_text):
         picked.append(event)
-        return original_format(event, _now, empty_text)
+        return original_split(event, _now, empty_text)
 
-    monkeypatch.setattr("led_ticker.widgets.calendar.format_relative", capture_format)
+    monkeypatch.setattr("led_ticker.widgets.calendar.split_relative", capture_format)
     w.draw(c)
     assert picked, "format_relative must be called from draw()"
     assert picked[0] is started, (
@@ -1810,3 +1814,229 @@ def test_parse_ics_populates_end_for_timed_no_dtend():
         f"No-DTEND timed event must have end == start (instantaneous); "
         f"start={instant.start!r}, end={instant.end!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Two-tone time/title colors (2026-06-15) — time phrase in `time_color`
+# (default amber), event title in `font_color` (default white); a highlighted
+# line renders entirely in `highlight_color`.
+# ---------------------------------------------------------------------------
+
+_AMBER = (255, 200, 60)
+_WHITE = (255, 255, 255)
+
+
+def _resolve_rgb(color, frame=0):
+    """Resolve a Color or ColorProvider passed to draw_with_emoji to (r,g,b)."""
+    if hasattr(color, "color_for"):
+        c = color.color_for(frame, 0, 1)
+        return (c.red, c.green, c.blue)
+    return (color.red, color.green, color.blue)
+
+
+def _capture_two_tone(widget, canvas, monkeypatch, *, now=None, font_color=None):
+    """Render `widget`, capturing each (text, (r,g,b)) draw_with_emoji segment
+    in draw order. draw_with_emoji is stubbed so the per-segment color routing is
+    observed directly (measure/baseline still run against the real stub canvas)."""
+    captured: list[tuple[str, tuple[int, int, int]]] = []
+
+    def fake_draw(_canvas, _font, _x, _y, color, text, **kwargs):
+        captured.append((text, _resolve_rgb(color, kwargs.get("frame", 0))))
+        return 8
+
+    monkeypatch.setattr("led_ticker.widgets.calendar.draw_with_emoji", fake_draw)
+    if now is not None:
+        monkeypatch.setattr("led_ticker.widgets.calendar._now_in", lambda tz: now)
+    if font_color is not None:
+        widget.draw(canvas, font_color=font_color)
+    else:
+        widget.draw(canvas)
+    return captured
+
+
+def test_split_event_line_parts_and_join():
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    time_part, title = split_event_line(e, now=now, time_format="24h", tz=_UTC)
+    assert title == "Standup"
+    assert time_part.endswith(_SEP)
+    assert "Standup" not in time_part
+    # the joined form is the legacy single-string formatter (DRY/back-compat)
+    assert time_part + title == format_event_line(
+        e, now=now, time_format="24h", tz=_UTC
+    )
+
+
+def test_split_event_line_all_day_omits_clock():
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    e = CalendarEvent("Vacation", datetime(2026, 6, 16, 0, 0, tzinfo=_UTC), True)
+    time_part, title = split_event_line(e, now=now, time_format="24h", tz=_UTC)
+    assert title == "Vacation"
+    assert time_part == f"Tomorrow{_SEP}"
+
+
+def test_split_relative_parts_and_join():
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 9, 25, tzinfo=_UTC), False)
+    title, time_part = split_relative(e, now, "none")
+    assert title == "Standup"
+    assert time_part == f"{_SEP}in 25m"
+    assert title + time_part == format_relative(e, now, "none")
+
+
+def test_split_relative_empty_has_no_time_segment():
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    assert split_relative(None, now, "Nothing") == ("Nothing", "")
+
+
+def test_time_color_defaults_to_amber():
+    cal = _make_calendar()
+    c = cal.time_color.color_for(0, 0, 1)
+    assert (c.red, c.green, c.blue) == _AMBER
+
+
+def test_agenda_default_two_tone_amber_time_white_title(canvas, monkeypatch):
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    cal = _make_calendar(layout="agenda")
+    stories = cal._build_stories([e], now=now, tz=_UTC)
+    assert len(stories) == 1 and isinstance(stories[0], _TwoToneLine)
+    segs = _capture_two_tone(stories[0], canvas, monkeypatch)
+    assert len(segs) == 2
+    (time_text, time_rgb), (title_text, title_rgb) = segs
+    assert time_text.endswith(_SEP) and time_rgb == _AMBER
+    assert title_text == "Standup" and title_rgb == _WHITE
+
+
+def test_agenda_highlighted_line_is_all_amber(canvas, monkeypatch):
+    e = CalendarEvent("1:1 with Sam", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    cal = _make_calendar(layout="agenda", highlight=["1:1"])
+    stories = cal._build_stories([e], now=now, tz=_UTC)
+    segs = _capture_two_tone(stories[0], canvas, monkeypatch)
+    assert len(segs) == 2
+    assert all(rgb == _AMBER for _, rgb in segs)
+
+
+def test_agenda_custom_time_and_title_colors(canvas, monkeypatch):
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    cal = _make_calendar(
+        layout="agenda", time_color=[10, 20, 30], font_color=[40, 50, 60]
+    )
+    stories = cal._build_stories([e], now=now, tz=_UTC)
+    segs = _capture_two_tone(stories[0], canvas, monkeypatch)
+    assert segs[0][1] == (10, 20, 30)  # time phrase
+    assert segs[1][1] == (40, 50, 60)  # title
+
+
+def test_agenda_summary_emoji_passed_to_renderer(canvas, monkeypatch):
+    # The title segment goes straight to draw_with_emoji, which renders :slug:
+    # icons — so inline emoji in a SUMMARY still works in two-tone agenda lines.
+    e = CalendarEvent("Party :star:", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    cal = _make_calendar(layout="agenda")
+    stories = cal._build_stories([e], now=now, tz=_UTC)
+    segs = _capture_two_tone(stories[0], canvas, monkeypatch)
+    assert segs[1][0] == "Party :star:"
+
+
+def test_agenda_override_recolors_both_segments(canvas, monkeypatch):
+    # A transition passes font_color to draw(): it must recolor BOTH segments
+    # uniformly (whole-line compositing), not just the title.
+    from led_ticker.colors import make_color
+
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 15, 0, tzinfo=_UTC), False)
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    cal = _make_calendar(layout="agenda")
+    line = cal._build_stories([e], now=now, tz=_UTC)[0]
+    segs = _capture_two_tone(line, canvas, monkeypatch, font_color=make_color(1, 2, 3))
+    assert segs and all(rgb == (1, 2, 3) for _, rgb in segs)
+
+
+def test_two_tone_line_paints_border(canvas, monkeypatch):
+    from unittest.mock import MagicMock
+
+    border = MagicMock()
+    border.restart_on_visit = False
+    line = _TwoToneLine(time_text="3:00 PM · ", title_text="Standup", border=border)
+    monkeypatch.setattr(
+        "led_ticker.widgets.calendar.draw_with_emoji", lambda *a, **k: 8
+    )
+    line.draw(canvas)
+    assert border.paint.called
+
+
+def test_next_default_two_tone_white_title_amber_time(canvas, monkeypatch):
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 9, 25, tzinfo=_UTC), False)
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    w = _NextEventWidget(events=[e], empty_text="none", timezone="UTC")
+    segs = _capture_two_tone(w, canvas, monkeypatch, now=now)
+    assert len(segs) == 2
+    (title_text, title_rgb), (time_text, time_rgb) = segs
+    assert title_text == "Standup" and title_rgb == _WHITE
+    assert time_text == f"{_SEP}in 25m" and time_rgb == _AMBER
+
+
+def test_next_highlighted_is_all_amber(canvas, monkeypatch):
+    e = CalendarEvent("1:1 Sam", datetime(2026, 6, 15, 9, 25, tzinfo=_UTC), False)
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    w = _NextEventWidget(
+        events=[e], empty_text="none", timezone="UTC", highlight=["1:1"]
+    )
+    segs = _capture_two_tone(w, canvas, monkeypatch, now=now)
+    assert segs and all(rgb == _AMBER for _, rgb in segs)
+
+
+def test_next_empty_renders_only_title_segment(canvas, monkeypatch):
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    w = _NextEventWidget(events=[], empty_text="Nothing", timezone="UTC")
+    segs = _capture_two_tone(w, canvas, monkeypatch, now=now)
+    assert len(segs) == 1
+    text, rgb = segs[0]
+    assert text == "Nothing" and rgb == _WHITE
+
+
+def test_next_time_color_rainbow_animates(canvas, monkeypatch):
+    # An animated time_color advances with the widget's per-effect counter, so
+    # the time segment's color differs across ticks (proves time_color is used
+    # as a frame-aware provider, not frozen).
+    from led_ticker.color_providers import Rainbow
+
+    e = CalendarEvent("Standup", datetime(2026, 6, 15, 9, 25, tzinfo=_UTC), False)
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    w = _NextEventWidget(
+        events=[e], empty_text="none", timezone="UTC", time_color=Rainbow()
+    )
+    first = _capture_two_tone(w, canvas, monkeypatch, now=now)[1][1]
+    for _ in range(30):
+        w.advance_frame()
+    second = _capture_two_tone(w, canvas, monkeypatch, now=now)[1][1]
+    assert first != second
+
+
+def test_time_color_is_registered_effect_attr():
+    # Wiring guard: without this, an animated time_color would not get its own
+    # per-effect frame counter (the highlight_color trap from the hardening run).
+    from led_ticker.widgets._frame_aware import FrameAwareBase
+
+    assert "time_color" in FrameAwareBase._EFFECT_ATTRS
+
+
+def test_time_color_coerces_from_toml_string():
+    # End-to-end: a TOML `time_color = "rainbow"` coerces to a ColorProvider.
+    from led_ticker.app.coercion import _coerce_widget_colors
+    from led_ticker.color_providers import Rainbow
+
+    cfg = {"time_color": "rainbow"}
+    _coerce_widget_colors(cfg)
+    assert isinstance(cfg["time_color"], Rainbow)
+
+
+def test_time_color_coerces_from_rgb_list():
+    from led_ticker.app.coercion import _coerce_widget_colors
+
+    cfg = {"time_color": [10, 20, 30]}
+    _coerce_widget_colors(cfg)
+    c = cfg["time_color"].color_for(0, 0, 1)
+    assert (c.red, c.green, c.blue) == (10, 20, 30)

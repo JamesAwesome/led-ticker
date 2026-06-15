@@ -162,11 +162,29 @@ def _apply_to_manifest(req_path: Path, requirement: str) -> int:
     except OSError as e:
         print(f"could not write {req_path}: {e}", file=sys.stderr)
         return 2
-    if replaced_line is not None:
-        print(f"Replaced {replaced_line.strip()!r} -> {requirement!r} in {req_path}")
-    else:
+    if replaced_line is None:
         print(f"Added {requirement!r} in {req_path}")
+    elif replaced_line.strip() == requirement:
+        print(f"{requirement!r} is already declared in {req_path} (no change).")
+    else:
+        print(f"Replaced {replaced_line.strip()!r} -> {requirement!r} in {req_path}")
     return 0
+
+
+def _find_requirement_line(path: Path, key: str) -> str | None:
+    """Read-only: the manifest line matching `key` (verbatim), or None. Used by
+    dry-run remove/uninstall so the preview matches what the real command would do."""
+    if not path.exists():
+        return None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if (
+            stripped
+            and not stripped.startswith("#")
+            and _requirement_key(stripped) == key
+        ):
+            return line
+    return None
 
 
 def _remove_requirement(path: Path, key: str) -> str | None:
@@ -194,8 +212,15 @@ def _remove_requirement(path: Path, key: str) -> str | None:
 
 
 def _dist_key(target: str, catalog: Catalog) -> str:
-    """The distribution / dedup key for a target — a catalog name resolves via its
-    requirement (`pool` -> `led-ticker-pool`); a raw spec via the spec itself."""
+    """The dedup key for a target — a catalog name resolves via its requirement
+    (`pool` -> `led-ticker-pool`); a raw spec via the spec itself.
+
+    `uninstall` also uses this as the pip distribution name. That holds for the
+    git repo stem == package name convention the first-party plugins follow; a
+    raw git spec whose repo dir differs from its pyproject `name` would
+    pip-uninstall the wrong name (pip then no-ops with "not installed"). The
+    manifest line is still removed correctly either way.
+    """
     entry = catalog.get(target)
     if entry is not None:
         return _requirement_key(entry.requirement())
@@ -413,10 +438,17 @@ def cmd_remove(
     catalog = catalog or load_catalog()
     key = _dist_key(target, catalog)
     req_path = _requirements_path(config_path, config_explicit)
+    config_warning = _config_warning(req_path)
 
     if dry_run:
         print("Dry run — no changes made.")
-        print(f"  would remove {key!r} from: {req_path}")
+        match = _find_requirement_line(req_path, key)
+        if match is not None:
+            print(f"  would remove {match.strip()!r} from: {req_path}")
+        else:
+            print(f"  {target!r} is not in {req_path} (nothing to remove).")
+        if config_warning:
+            print(config_warning, file=sys.stderr)
         return 0
 
     try:
@@ -426,8 +458,12 @@ def cmd_remove(
         return 2
     if removed is None:
         print(f"{target!r} is not in {req_path} (nothing to remove).")
+        if config_warning:
+            print(config_warning, file=sys.stderr)
         return 0
     print(f"Removed {removed.strip()!r} from {req_path}")
+    if config_warning:
+        print(config_warning, file=sys.stderr)
     print(_REBUILD_HINT.replace("install it", "apply it"))
     return 0
 
@@ -444,11 +480,18 @@ def cmd_uninstall(
     catalog = catalog or load_catalog()
     key = _dist_key(target, catalog)
     req_path = _requirements_path(config_path, config_explicit)
+    config_warning = _config_warning(req_path)
 
     if dry_run:
         print("Dry run — no changes made.")
-        print(f"  would remove {key!r} from: {req_path}")
+        match = _find_requirement_line(req_path, key)
+        if match is not None:
+            print(f"  would remove {match.strip()!r} from: {req_path}")
+        else:
+            print(f"  {target!r} is not in {req_path} (nothing to remove).")
         print(f"  would run:   {sys.executable} -m pip uninstall -y {key}")
+        if config_warning:
+            print(config_warning, file=sys.stderr)
         return 0
 
     try:
@@ -460,6 +503,8 @@ def cmd_uninstall(
         print(f"Removed {removed.strip()!r} from {req_path}")
     else:
         print(f"{target!r} was not in {req_path}.")
+    if config_warning:
+        print(config_warning, file=sys.stderr)
 
     code = _pip_uninstall(key)
     if code != 0:

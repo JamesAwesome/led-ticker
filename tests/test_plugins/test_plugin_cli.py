@@ -39,10 +39,11 @@ def _catalog():
 class _FakePip:
     """Records pip subprocess calls; configurable exit codes."""
 
-    def __init__(self, freeze_rc=0, install_rc=0):
+    def __init__(self, freeze_rc=0, install_rc=0, uninstall_rc=0):
         self.calls: list[list[str]] = []
         self.freeze_rc = freeze_rc
         self.install_rc = install_rc
+        self.uninstall_rc = uninstall_rc
 
     def run(self, cmd, **kwargs):
         self.calls.append(cmd)
@@ -50,6 +51,8 @@ class _FakePip:
             return SimpleNamespace(
                 returncode=self.freeze_rc, stdout="led-ticker==1.0\n", stderr="err"
             )
+        if "uninstall" in cmd:
+            return SimpleNamespace(returncode=self.uninstall_rc, stdout="", stderr="")
         return SimpleNamespace(returncode=self.install_rc, stdout="", stderr="boom")
 
     @property
@@ -413,6 +416,78 @@ def test_uninstall_dry_run(tmp_path, fakepip):
     assert fakepip.calls == []
 
 
+def test_uninstall_pip_failure_returns_nonzero_after_removing_line(
+    tmp_path, monkeypatch, capsys
+):
+    # The manifest line is removed first; a non-zero pip uninstall is then
+    # surfaced as the exit code (the line stays removed — documented behavior).
+    fp = _FakePip(uninstall_rc=1)
+    monkeypatch.setattr(plugin_cmd.subprocess, "run", fp.run)
+    _add(tmp_path, "pool")  # manifest-only, never touches pip
+    code = _uninstall(tmp_path, "pool")
+    assert code == 1  # surfaced pip exit code
+    assert "led-ticker-pool" not in _reqfile(tmp_path).read_text()  # line removed
+    assert "may not have been installed" in capsys.readouterr().err
+
+
+# --- idempotent add / dry-run wording / config-dir warnings on remove ---
+
+
+def test_add_twice_is_idempotent_byte_identical(tmp_path, fakepip, capsys):
+    # Re-adding the same pin reports "already declared" and leaves the file
+    # byte-for-byte unchanged (no churn, no spurious "Replaced").
+    _add(tmp_path, "pool")
+    first = _reqfile(tmp_path).read_bytes()
+    capsys.readouterr()  # drain
+    code = _add(tmp_path, "pool")
+    assert code == 0
+    assert _reqfile(tmp_path).read_bytes() == first  # unchanged
+    assert "already declared" in capsys.readouterr().out
+
+
+def test_remove_dry_run_not_found_wording(tmp_path, fakepip, capsys):
+    code = _remove(tmp_path, "pool", dry_run=True)  # nothing declared
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "nothing to remove" in out
+    assert fakepip.calls == []
+
+
+def test_remove_dry_run_shows_line_to_remove(tmp_path, fakepip, capsys):
+    _add(tmp_path, "pool")
+    capsys.readouterr()  # drain
+    code = _remove(tmp_path, "pool", dry_run=True)
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "would remove" in out and "led-ticker-pool" in out
+    # dry-run must not actually modify the file
+    assert "led-ticker-pool" in _reqfile(tmp_path).read_text()
+
+
+def test_remove_warns_when_outside_config_dir(tmp_path, fakepip, capsys):
+    rf = _reqfile(tmp_path)
+    rf.write_text("git+https://h/o/led-ticker-pool.git@main\n")
+    plugin_cmd.cmd_remove(
+        "pool",
+        config_path=tmp_path / "config.toml",
+        config_explicit=True,
+        catalog=_catalog(),
+    )
+    assert "not under a 'config/'" in capsys.readouterr().err
+
+
+def test_uninstall_warns_when_outside_config_dir(tmp_path, fakepip, capsys):
+    rf = _reqfile(tmp_path)
+    rf.write_text("git+https://h/o/led-ticker-pool.git@main\n")
+    plugin_cmd.cmd_uninstall(
+        "pool",
+        config_path=tmp_path / "config.toml",
+        config_explicit=True,
+        catalog=_catalog(),
+    )
+    assert "not under a 'config/'" in capsys.readouterr().err
+
+
 # --- list [declared] / [installed] ---
 
 
@@ -427,3 +502,27 @@ def test_cmd_list_marks_declared(tmp_path, fakepip, capsys):
     # the pool line should be marked [declared]
     pool_line = next(ln for ln in out.splitlines() if ln.strip().startswith("pool"))
     assert "[declared]" in pool_line
+
+
+def _pool_line(out):
+    return next(ln for ln in out.splitlines() if ln.strip().startswith("pool"))
+
+
+def test_cmd_list_marks_neither_when_clean_env(tmp_path, capsys):
+    # No manifest passed, nothing installed -> the entry line carries no markers
+    # (the trailing legend always names both markers, so check the entry itself).
+    plugin_cmd.cmd_list(catalog=_catalog())
+    line = _pool_line(capsys.readouterr().out)
+    assert "[declared]" not in line
+    assert "[installed]" not in line
+
+
+def test_cmd_list_missing_manifest_no_declared_no_error(tmp_path, capsys):
+    # A config_path whose manifest doesn't exist -> no [declared], no crash.
+    code = plugin_cmd.cmd_list(
+        catalog=_catalog(),
+        config_path=tmp_path / "config.toml",
+        config_explicit=True,
+    )
+    assert code == 0
+    assert "[declared]" not in _pool_line(capsys.readouterr().out)

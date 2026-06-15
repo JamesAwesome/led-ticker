@@ -69,9 +69,12 @@ deprecation note and routes to `add`.
 ### `plugin uninstall <name|spec>`
 
 `remove` (manifest) **plus** `pip uninstall -y <dist>` where `<dist>` is the dedup
-key (the installed distribution name). Surfaces pip's exit code; a "not installed"
-pip result is reported but not treated as a hard failure. Flags: `--config`,
-`--dry-run`.
+key. That key equals the installed distribution name under the first-party
+"git repo stem == package name" convention; a raw git spec whose repo dir differs
+from its pyproject `name` would pip-uninstall the wrong name (pip no-ops with
+"not installed") — the manifest line is still removed correctly. Surfaces pip's
+exit code; a "not installed" pip result is reported but not treated as a hard
+failure. Flags: `--config`, `--dry-run`.
 
 ### `plugin list`
 

@@ -110,6 +110,12 @@ def test_plugin_uninstall_dry_run_dispatch(tmp_path, monkeypatch, capsys):
 
 def test_install_save_only_deprecation_routes_to_add(tmp_path, monkeypatch, capsys):
     # `install --save-only` warns and behaves like `add` (no pip).
+    from led_ticker.app import plugin_cmd
+
+    pip_calls = []
+    monkeypatch.setattr(
+        plugin_cmd.subprocess, "run", lambda cmd, **kw: pip_calls.append(cmd)
+    )
     cfg = _min_config(tmp_path)
     code = _run(
         monkeypatch,
@@ -119,3 +125,4 @@ def test_install_save_only_deprecation_routes_to_add(tmp_path, monkeypatch, caps
     assert code == 0
     assert "deprecated" in captured.err
     assert (tmp_path / "requirements-plugins.txt").exists()
+    assert pip_calls == []  # routed to add — pip never invoked

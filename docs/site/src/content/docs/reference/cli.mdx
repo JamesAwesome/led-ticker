@@ -87,11 +87,16 @@ plugin while preserving comments. `add`/`install` take `--source git|pypi` and
 ### `plugin add` / `plugin remove` (manifest only — Docker)
 
 `add` resolves the name to a pip requirement and writes it to
-`config/requirements-plugins.txt` (pinned to the catalog ref by default; a typo
-close to a catalog name gets a "did you mean …?"). `remove` drops the matching
-line (idempotent — "not in …" if absent). Neither runs pip; both remind you to
-rebuild. This is the Docker workflow: the container is read-only at runtime, so
-the image build is what installs from the manifest.
+`config/requirements-plugins.txt` (pinned to the catalog's recommended ref by
+default; a typo close to a catalog name gets a "did you mean …?"). Re-adding the
+same plugin is idempotent ("already declared" if unchanged). `remove` drops the
+matching line (idempotent — "not in …" if absent). Neither runs pip; both remind
+you to rebuild. This is the Docker workflow: the container is read-only at
+runtime, so the image build is what installs from the manifest.
+
+The bundled pool/baseball/crypto entries currently pin to `@main`, so the default
+("pinned") and `--unpinned` write the same `@main` reference today — pass a tagged
+pip spec (e.g. `…@v1.2.0`) for a fixed production pin until the catalog ships tags.
 
 ### `plugin install` / `plugin uninstall` (manifest + pip — bare-metal)
 
@@ -102,12 +107,12 @@ can't move a version core pins). `uninstall` does what `remove` does **and**
 `add`. Exits with pip's exit code on a failed install (the manifest is still
 updated).
 
-| Flag              | Default      | Notes                                                                                                |
-| ----------------- | ------------ | ---------------------------------------------------------------------------------------------------- |
-| `--source`        | first source | (`add`/`install`) `git` or `pypi` — which catalog source to use.                                     |
-| `--unpinned`      | off (pinned) | (`add`/`install`) Write `@main` / a bare PyPI name instead of the catalog's recommended pin.         |
-| `--dry-run`       | off          | Print the plan without changing anything.                                                            |
-| `--config` / `-c` | (none)       | Non-standard layout only: use `requirements-plugins.txt` next to this config instead of `./config/`. |
+| Flag              | Default      | Notes                                                                                                                                                     |
+| ----------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--source`        | first source | (`add`/`install`) `git` or `pypi` — which catalog source to use.                                                                                          |
+| `--unpinned`      | off (pinned) | (`add`/`install`) Write `@main` / a bare PyPI name instead of the catalog ref. (Bundled refs are `@main` today, so this is a no-op for them — see above.) |
+| `--dry-run`       | off          | Print the plan without changing anything.                                                                                                                 |
+| `--config` / `-c` | (none)       | Non-standard layout only: use `requirements-plugins.txt` next to this config instead of `./config/`.                                                      |
 
 ### `plugin status`
 

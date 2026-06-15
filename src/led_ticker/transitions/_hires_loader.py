@@ -19,7 +19,7 @@ from typing import Any
 from PIL import Image
 
 from led_ticker.scaled_canvas import unwrap_to_real
-from led_ticker.transitions._hires_registry import HIRES_REGISTRY, HiresSpec
+from led_ticker.transitions._hires_registry import HiresSpec
 from led_ticker.widgets._image_fit import scan_non_black
 
 # Trail saturates (sprite reaches far edge, trail fills the entire panel)
@@ -219,11 +219,10 @@ def _paint_procedural_pokeball(
 
 
 @functools.cache
-def load_hires(transition_name: str) -> HiresFrames | None:
-    """Decode + cache a registered sprite. Returns None for unregistered names."""
-    spec = HIRES_REGISTRY.get(transition_name)
-    if spec is None:
-        return None
+def load_hires(spec: HiresSpec) -> HiresFrames:
+    """Decode + cache a sprite from its spec. Cached on the frozen, hashable
+    HiresSpec, so callers (built-in transitions resolving from HIRES_REGISTRY,
+    or a plugin holding its own spec) share decode work for identical specs."""
     return _decode(spec)
 
 
@@ -232,13 +231,13 @@ def render_hires_frame(
     canvas: Any,
     outgoing: Any,
     incoming: Any,
-    registry_name: str,
+    spec: HiresSpec,
     **kwargs: Any,
 ) -> Any:
     """Paint one frame of a hi-res sprite traversing horizontally.
 
     Used by `NyanCat`/`NyanCatReverse`/`Pokeball`/`PokeballReverse` when
-    the canvas is a `ScaledCanvas` and the registry has an entry.
+    the canvas is a `ScaledCanvas` and there is a sprite spec for the transition.
     """
     # CAUTION: this function trusts that `canvas` is a `ScaledCanvas` (the
     # dispatch in nyancat.py / pokeball.py guarantees this).
@@ -247,9 +246,7 @@ def render_hires_frame(
     # of wrapper, dispatch would still pick lowres but this code would
     # paint to the wrong canvas. Not a concern today; flag here for future
     # reference.
-    sprite = load_hires(registry_name)
-    if sprite is None:
-        return canvas
+    sprite = load_hires(spec)
     real = unwrap_to_real(canvas)
     panel_w = real.width
     panel_h = real.height
@@ -276,8 +273,11 @@ def render_hires_frame(
     #      - ball only: ball alone, Pikachu math skipped
     #      - Pikachu only: sprite-only mode, like nyancat
     #      - neither: nothing painted
-    has_ball_class = registry_name in ("pokeball", "pokeball_reverse")
-    show_pokeball = kwargs.get("show_pokeball", True) if has_ball_class else False
+    # The procedural ball is opt-in via the show_pokeball kwarg (default
+    # off). Behavior-preserving: the pokeball family always passes it
+    # explicitly; nyancat never passes it (so stays ball-free). A plugin
+    # can now opt into the ball by passing show_pokeball=True.
+    show_pokeball = bool(kwargs.get("show_pokeball", False))
     show_pikachu = kwargs.get("show_pikachu", True)
     effective_t = min(1.0, t / TRAIL_SATURATION_T)
     if show_pokeball:

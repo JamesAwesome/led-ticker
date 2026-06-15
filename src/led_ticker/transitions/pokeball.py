@@ -873,12 +873,13 @@ class Pokeball:
     ) -> Canvas:
         from led_ticker.transitions._hires_loader import render_hires_frame
 
+        spec = HIRES_REGISTRY[self._registry_name]
         return render_hires_frame(
             t,
             canvas,
             outgoing,
             incoming,
-            self._registry_name,
+            spec,
             show_pikachu=self._show_pikachu,
             show_pokeball=self._show_pokeball,
             **kwargs,
@@ -934,12 +935,13 @@ class PokeballReverse:
     ) -> Canvas:
         from led_ticker.transitions._hires_loader import render_hires_frame
 
+        spec = HIRES_REGISTRY[self._registry_name]
         return render_hires_frame(
             t,
             canvas,
             outgoing,
             incoming,
-            self._registry_name,
+            spec,
             show_pikachu=self._show_pikachu,
             show_pokeball=self._show_pokeball,
             **kwargs,

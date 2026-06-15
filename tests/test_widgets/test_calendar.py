@@ -1,6 +1,7 @@
 """Tests for the calendar widget."""
 
 import asyncio
+import logging
 import os
 import tempfile
 from datetime import datetime, tzinfo
@@ -9,13 +10,18 @@ from unittest.mock import Mock
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
+import aiohttp
+
+from led_ticker.validate import validate_config
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.calendar import (
+    _CALENDAR_DOCS_URL,
     _MAX_OCCURRENCES,
     _SEP,
     Calendar,
     CalendarEvent,
     TickerMessage,
+    _describe_fetch_error,
     _match_any,
     _NextEventWidget,
     _normalize_ics_url,
@@ -430,11 +436,149 @@ def test_update_fetch_error_keeps_previous(monkeypatch):
     assert cal.feed_stories is sentinel  # previous kept on error
 
 
-def test_update_first_load_error_shows_empty_text():
-    cal = _make_calendar(ics_url="file:///nonexistent/path.ics", empty_text="Down")
+def test_update_first_load_error_shows_error_text():
+    # First-load failure shows error_text (a broken feed), NOT empty_text (which
+    # means "feed works, no events"). The two are deliberately distinct.
+    cal = _make_calendar(
+        ics_url="file:///nonexistent/path.ics",
+        empty_text="No events",
+        error_text="Feed down",
+    )
     asyncio.run(cal.update())  # no previous data
     assert len(cal.feed_stories) == 1
-    assert isinstance(cal.feed_stories[0], TickerMessage)
+    story = cal.feed_stories[0]
+    assert isinstance(story, TickerMessage)
+    assert story.text == "Feed down"
+
+
+# ---------------------------------------------------------------------------
+# ics_url error handling (2026-06-15): concise classified log, distinct
+# error_text on the panel, and a two-tier config preflight.
+# ---------------------------------------------------------------------------
+
+
+def test_error_text_default_and_override():
+    assert _make_calendar().error_text == "Calendar unavailable"
+    assert _make_calendar(error_text="Down").error_text == "Down"
+
+
+def test_describe_fetch_error_file_not_found():
+    msg = _describe_fetch_error(FileNotFoundError(2, "no such file"), "cal.ics")
+    assert "not found" in msg
+    assert "cal.ics" in msg
+    assert _CALENDAR_DOCS_URL in msg
+
+
+def test_describe_fetch_error_http_status():
+    exc = aiohttp.ClientResponseError(
+        request_info=Mock(), history=(), status=404, message="Not Found"
+    )
+    msg = _describe_fetch_error(exc, "https://x.test/cal.ics")
+    assert "HTTP 404" in msg
+    assert _CALENDAR_DOCS_URL in msg
+
+
+def test_describe_fetch_error_unreachable():
+    # ClientConnectionError is a ClientError subclass -> "unreachable" branch.
+    msg = _describe_fetch_error(aiohttp.ClientConnectionError("boom"), "https://x/cal")
+    assert "unreachable" in msg
+
+
+def test_describe_fetch_error_parse_failure():
+    msg = _describe_fetch_error(ValueError("bad ical"), "https://x/cal.ics")
+    assert "not valid iCal" in msg
+
+
+def test_update_logs_concise_warning_not_traceback(caplog):
+    # The crux of the fix: a single actionable WARNING, no ERROR-level traceback
+    # dump (the old logger.exception). Full traceback is demoted to DEBUG.
+    cal = _make_calendar(ics_url="file:///nonexistent/nope.ics")
+    with caplog.at_level(logging.DEBUG, logger="led_ticker.widgets.calendar"):
+        asyncio.run(cal.update())
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    msg = warnings[0].getMessage()
+    assert "not found" in msg
+    assert _CALENDAR_DOCS_URL in msg
+    # The WARNING line carries NO traceback, and nothing logs at ERROR+.
+    assert warnings[0].exc_info is None
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+
+
+def test_update_transient_failure_keeps_stale_and_warns(caplog):
+    # A refresh failure when data already exists keeps the last-good stories
+    # (don't blank a working sign) and still logs a single WARNING.
+    cal = _make_calendar(ics_url="file:///nonexistent/nope.ics")
+    sentinel = ["KEEP"]
+    cal.feed_stories = sentinel
+    with caplog.at_level(logging.WARNING, logger="led_ticker.widgets.calendar"):
+        asyncio.run(cal.update())
+    assert cal.feed_stories is sentinel
+    assert [r for r in caplog.records if r.levelno == logging.WARNING]
+
+
+def test_validate_config_rejects_placeholder():
+    errors = Calendar.validate_config(
+        {"ics_url": "PASTE_YOUR_GOOGLE_OR_ICLOUD_ICS_URL_HERE"}
+    )
+    assert any("placeholder" in e for e in errors)
+
+
+def test_validate_config_accepts_real_url():
+    errors = Calendar.validate_config({"ics_url": "https://example.com/basic.ics"})
+    assert errors == []
+
+
+_CAL_VALIDATE_TOML = """\
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 3
+
+[[playlist.section.widget]]
+type = "calendar"
+ics_url = "{ics_url}"
+"""
+
+
+def test_validate_warns_on_missing_local_ics(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(_CAL_VALIDATE_TOML.format(ics_url="file:///nonexistent/nope.ics"))
+    result = asyncio.run(validate_config(cfg))
+    assert result.valid is True  # a missing local file is a WARNING, not an error
+    assert any("does not exist" in w.message for w in result.warnings)
+
+
+def test_validate_no_warning_for_existing_local_ics(tmp_path):
+    ics = tmp_path / "cal.ics"
+    ics.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR\n")
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(_CAL_VALIDATE_TOML.format(ics_url=f"file://{ics}"))
+    result = asyncio.run(validate_config(cfg))
+    assert not any("does not exist" in w.message for w in result.warnings)
+
+
+def test_validate_no_network_check_for_https(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(_CAL_VALIDATE_TOML.format(ics_url="https://example.com/cal.ics"))
+    result = asyncio.run(validate_config(cfg))
+    assert not any("does not exist" in w.message for w in result.warnings)
+
+
+def test_validate_placeholder_is_error_not_path_warning(tmp_path):
+    # The placeholder is a hard error (tier 1); because warnings only run when
+    # there are no errors, it must NOT also surface as a path warning.
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(_CAL_VALIDATE_TOML.format(ics_url="PASTE_YOUR_..._ICS_URL_HERE"))
+    result = asyncio.run(validate_config(cfg))
+    assert result.valid is False
+    assert any("placeholder" in e.message for e in result.errors)
+    assert not any("does not exist" in w.message for w in result.warnings)
 
 
 # ---------------------------------------------------------------------------

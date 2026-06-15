@@ -156,6 +156,20 @@ timezone = "UTC"`}
 
 This is useful for syncing an `.ics` export from a local calendar app, or for testing with a committed sample feed. You can keep the file current with a cron job that fetches the feed and writes it to disk — led-ticker polls it on its normal `update_interval`.
 
+## Troubleshooting
+
+If the feed can't be loaded, led-ticker fails gracefully instead of crashing:
+
+- **Catch it before it runs.** [`led-ticker validate`](/reference/cli/) flags an unfilled placeholder `ics_url` as an error, and **warns** if a `file://` / local-path feed doesn't exist yet (a warning, not an error — a cron job may write the file later).
+- **On the panel.** A first-load failure shows `error_text` (default `"Calendar unavailable"`) rather than `empty_text`, so a broken feed is visibly different from a calendar that simply has no upcoming events. A later transient failure keeps the last events that loaded successfully.
+- **In the logs.** The failure is logged as a single, plain-language line that names the cause and points back here — e.g. `Calendar feed file not found: '…'`, `Calendar feed returned HTTP 404 for …`, or `Calendar feed unreachable: …`. (The full traceback is logged at `DEBUG` only.)
+
+<Aside type="tip">
+  The most common cause is an `ics_url` that was never filled in, or an iCloud link still using the
+  `webcal://` scheme — led-ticker rewrites `webcal://` to `https://` automatically, but a copy-paste
+  typo in the URL will surface as an HTTP error in the log.
+</Aside>
+
 ## Common patterns
 
 ### Swap section with a rainbow agenda

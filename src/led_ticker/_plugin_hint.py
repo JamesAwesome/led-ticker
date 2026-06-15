@@ -7,9 +7,8 @@ into an actionable hint. It is pure and context-free — it does NOT
 consult the loaded-plugin set, so it works from the bare runtime
 registry lookups that have no `LoadedPlugins` handle.
 
-The fix text points at `config/requirements-plugins.txt` today; when the
-`led-ticker plugin install` CLI ships (plugin-registry project), this is
-the one place to update.
+The fix text suggests `led-ticker plugin install <namespace>` (the plugin
+catalog CLI). This is the one place to update if that command changes.
 """
 
 
@@ -32,7 +31,7 @@ def plugin_hint(name: str, kind: str) -> str | None:
         return None
     return (
         f"{name!r} looks like a plugin {kind}, but no {namespace!r} plugin "
-        f"is loaded. Add the plugin to config/requirements-plugins.txt and "
-        f"reinstall, or check the namespace. "
+        f"is loaded. Install it with `led-ticker plugin install {namespace}` "
+        f"(or check the namespace). "
         f"See https://docs.ledticker.dev/plugins/."
     )

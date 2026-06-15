@@ -2435,7 +2435,7 @@ text = "hi"
         rule_39 = [e for e in result.errors if e.rule == 39]
         assert len(rule_39) == 1
         assert "exampleplugin" in rule_39[0].fix
-        assert "requirements-plugins.txt" in rule_39[0].fix
+        assert "plugin install" in rule_39[0].fix
 
     async def test_dotted_unknown_transition_reports_once(self, conf):
         # A dotted-but-unknown transition must produce exactly ONE error

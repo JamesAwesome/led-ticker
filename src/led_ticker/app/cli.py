@@ -50,6 +50,19 @@ def _format_plugins(result) -> str:
     return "\n".join(lines)
 
 
+def _run_plugin_status(config: Path) -> None:
+    """Load plugins for the config and print loaded/failed (shared by
+    `plugin status` and the deprecated `plugins` alias)."""
+    from led_ticker._plugin_loader import load_plugins_for_config  # noqa: PLC0415
+
+    try:
+        result = load_plugins_for_config(config)
+    except (OSError, ValueError) as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(2)
+    print(_format_plugins(result))
+
+
 def main() -> None:
     """CLI entry point."""
     _setup_logging()
@@ -122,12 +135,72 @@ def main() -> None:
         help="Path to TOML config file (defaults to the top-level --config)",
     )
 
-    # `plugins` subcommand
+    # `plugins` subcommand — deprecated alias of `plugin status`
     plugins_parser = subparsers.add_parser(
         "plugins",
-        help="List loaded plugins (and any that failed) for the config",
+        help="(deprecated) alias of `plugin status`",
     )
     plugins_parser.add_argument(
+        "--config",
+        "-c",
+        type=Path,
+        default=argparse.SUPPRESS,
+        help="Path to TOML config file (defaults to the top-level --config)",
+    )
+
+    # `plugin` subcommand — manage plugins (status/list/search/install)
+    plugin_parser = subparsers.add_parser(
+        "plugin",
+        help="Manage plugins: status, list/search the catalog, install",
+    )
+    plugin_sub = plugin_parser.add_subparsers(dest="plugin_command")
+
+    pstatus = plugin_sub.add_parser(
+        "status", help="List loaded plugins (and any that failed) for the config"
+    )
+    pstatus.add_argument(
+        "--config",
+        "-c",
+        type=Path,
+        default=argparse.SUPPRESS,
+        help="Path to TOML config file (defaults to the top-level --config)",
+    )
+
+    plugin_sub.add_parser("list", help="List available plugins from the catalog")
+
+    psearch = plugin_sub.add_parser("search", help="Search the plugin catalog")
+    psearch.add_argument("query", help="Substring to match (name/summary/provides)")
+
+    pinstall = plugin_sub.add_parser(
+        "install", help="Install a plugin by catalog name or pip spec"
+    )
+    pinstall.add_argument(
+        "target", help="Catalog name (e.g. pool) or a pip spec (git+https://…, name==x)"
+    )
+    pinstall.add_argument(
+        "--source",
+        choices=["git", "pypi"],
+        default=None,
+        help="Which catalog source to use (default: the entry's first source)",
+    )
+    pinstall.add_argument(
+        "--unpinned",
+        action="store_true",
+        help="Write @main / a bare PyPI name instead of the catalog's pinned ref",
+    )
+    pinstall.add_argument(
+        "--save-only",
+        action="store_true",
+        dest="save_only",
+        help="Only update requirements-plugins.txt; skip pip install (Docker flow)",
+    )
+    pinstall.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Print the plan without changing anything",
+    )
+    pinstall.add_argument(
         "--config",
         "-c",
         type=Path,
@@ -151,15 +224,48 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "plugins":
-        from led_ticker._plugin_loader import load_plugins_for_config  # noqa: PLC0415
-
-        try:
-            result = load_plugins_for_config(args.config)
-        except (OSError, ValueError) as e:
-            print(str(e), file=sys.stderr)
-            sys.exit(2)
-        print(_format_plugins(result))
+        # Deprecated alias of `plugin status`.
+        print(
+            "note: 'led-ticker plugins' is deprecated; use 'led-ticker plugin status'.",
+            file=sys.stderr,
+        )
+        _run_plugin_status(args.config)
         sys.exit(0)
+
+    if args.command == "plugin":
+        pc = getattr(args, "plugin_command", None)
+        if pc is None:
+            # Bare `led-ticker plugin`: show the subcommands rather than running
+            # status (whose "No plugins found." misleads a first-time user into
+            # thinking nothing is available — `plugin list` shows the catalog).
+            plugin_parser.print_help()
+            sys.exit(0)
+        if pc == "status":
+            _run_plugin_status(args.config)
+            sys.exit(0)
+
+        from led_ticker.app import plugin_cmd  # noqa: PLC0415
+
+        if pc == "list":
+            sys.exit(plugin_cmd.cmd_list())
+        if pc == "search":
+            sys.exit(plugin_cmd.cmd_search(args.query))
+        if pc == "install":
+            # Whether the user gave a config (vs the bare default config.toml).
+            # When they didn't, cmd_install defaults the requirements file to the
+            # canonical config/requirements-plugins.txt instead of the cwd.
+            config_explicit = args.config != Path("config.toml")
+            sys.exit(
+                plugin_cmd.cmd_install(
+                    args.target,
+                    config_path=args.config,
+                    config_explicit=config_explicit,
+                    source=args.source,
+                    pinned=not args.unpinned,
+                    save_only=args.save_only,
+                    dry_run=args.dry_run,
+                )
+            )
 
     if args.command == "webui":
         from led_ticker.config import read_web_config  # noqa: PLC0415

@@ -36,7 +36,7 @@ def test_namespaced_unknown_gets_plugin_hint():
     msg, fix = explain_unknown_transition("exampleplugin.thing")
     assert msg == "unknown transition 'exampleplugin.thing'"
     assert "exampleplugin" in fix
-    assert "requirements-plugins.txt" in fix
+    assert "plugin install" in fix
 
 
 def test_typo_gets_difflib_suggestion():
@@ -55,7 +55,7 @@ def test_get_transition_class_raises_rich_message_for_namespaced():
     with pytest.raises(ValueError) as exc:
         get_transition_class("exampleplugin.thing")
     assert "exampleplugin" in str(exc.value)
-    assert "requirements-plugins.txt" in str(exc.value)
+    assert "plugin install" in str(exc.value)
 
 
 def test_get_transition_class_still_resolves_known():

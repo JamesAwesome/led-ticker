@@ -475,6 +475,38 @@ def _normalize_ics_url(url: str) -> str:
     return url
 
 
+_CALENDAR_DOCS_URL = "https://docs.ledticker.dev/widgets/calendar/"
+
+
+def _describe_fetch_error(exc: BaseException, url: str) -> str:
+    """One concise, actionable line for why an .ics fetch/parse failed.
+
+    Classifies by exception type so the user gets a fix hint instead of a
+    traceback. Pure (exc + url -> str) so it is independently testable. Note the
+    ordering: ``FileNotFoundError`` / ``IsADirectoryError`` are ``OSError``
+    subclasses and must be matched before the generic ``OSError`` branch, and
+    ``ClientResponseError`` before its ``ClientError`` base.
+    """
+    if isinstance(exc, (FileNotFoundError, IsADirectoryError)):
+        detail = (
+            f"Calendar feed file not found: {url!r}. "
+            "Set ics_url to a real .ics URL or an existing file."
+        )
+    elif isinstance(exc, aiohttp.ClientResponseError):
+        detail = (
+            f"Calendar feed returned HTTP {exc.status} for {url}. "
+            "Check the URL is public and correct."
+        )
+    elif isinstance(exc, (aiohttp.ClientError, OSError)):
+        detail = (
+            f"Calendar feed unreachable: {url} ({type(exc).__name__}). "
+            "Check the URL and your network."
+        )
+    else:
+        detail = f"Calendar feed downloaded but is not valid iCal: {url}."
+    return f"{detail} See {_CALENDAR_DOCS_URL}"
+
+
 def _coerce_provider(value: Any) -> ColorProvider:
     """Coerce a color field to a ColorProvider.
 
@@ -797,6 +829,10 @@ class Calendar:
     time_format: str = "12h"
     timezone: str | None = None
     empty_text: str = "No upcoming events"
+    # Shown on the panel when the FIRST load fails (no prior good data) — kept
+    # distinct from empty_text so a broken feed doesn't masquerade as "no
+    # events". A transient refresh failure keeps the last-good stories instead.
+    error_text: str = "Calendar unavailable"
     filter: list[str] = attrs.field(factory=list)
     highlight: list[str] = attrs.field(factory=list)
     padding: int = 6
@@ -827,6 +863,14 @@ class Calendar:
         ics_url = cfg.get("ics_url")
         if not isinstance(ics_url, str) or not ics_url.strip():
             errors.append("ics_url is required and must be a non-empty string")
+        elif any(tok in ics_url.upper() for tok in ("PASTE", "YOUR_", "_HERE")):
+            # An unfilled template value (e.g. "PASTE_YOUR_..._ICS_URL_HERE" from
+            # the smoke config). Catch it at validate/startup with a clear
+            # message rather than letting it fail at runtime as a FileNotFound.
+            errors.append(
+                f"ics_url looks like an unfilled placeholder ({ics_url!r}) — "
+                "paste your real .ics URL (Google/iCloud/Outlook 'iCal' link)"
+            )
         layout = cfg.get("layout", "agenda")
         if layout not in ("agenda", "next"):
             errors.append(f"layout {layout!r} must be 'agenda' or 'next'")
@@ -913,6 +957,17 @@ class Calendar:
             lambda: Path(path).expanduser().read_text(encoding="utf-8")
         )
 
+    def _error_story(self) -> TickerMessage:
+        """First-load failure placeholder — error_text, distinct from empty."""
+        return TickerMessage(
+            self.error_text,
+            font=self.font,
+            font_color=self.font_color,
+            bg_color=self.bg_color,
+            border=self.border,
+            padding=self.padding,
+        )
+
     def _empty_story(self) -> TickerMessage:
         return TickerMessage(
             self.empty_text,
@@ -959,10 +1014,15 @@ class Calendar:
                 )
             self.feed_stories = self._build_stories(kept, now=now, tz=parse_tz)
             logger.info("Calendar %s updated: %d events", self.ics_url, len(kept))
-        except Exception:
-            logger.exception("Calendar fetch/parse failed for %s", self.ics_url)
+        except Exception as exc:
+            # Concise, actionable WARNING — the full traceback (rarely useful to
+            # an end user staring at a sign) is demoted to DEBUG. On a FIRST-load
+            # failure show error_text; a transient refresh failure keeps the
+            # last-good stories (don't blank a working sign on a blip).
+            logger.warning(_describe_fetch_error(exc, self.ics_url))
+            logger.debug("Calendar fetch/parse traceback", exc_info=True)
             if not self.feed_stories:
-                self.feed_stories = [self._empty_story()]
+                self.feed_stories = [self._error_story()]
 
     def _build_stories(
         self, events: list[CalendarEvent], *, now: datetime, tz: tzinfo

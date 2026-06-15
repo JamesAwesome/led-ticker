@@ -18,9 +18,21 @@ from led_ticker.plugins_catalog import Catalog, CatalogEntry, load_catalog
 _PLUGINS_ENTRY_GROUP = "led_ticker.plugins"
 
 
-def _requirements_path(config_path: Path) -> Path:
-    """`requirements-plugins.txt` lives next to the config file."""
-    return config_path.parent / "requirements-plugins.txt"
+_CANONICAL_REQUIREMENTS = Path("config") / "requirements-plugins.txt"
+
+
+def _requirements_path(config_path: Path, config_explicit: bool) -> Path:
+    """Where to write requirements-plugins.txt.
+
+    When the user passed an explicit ``--config``, the file lives next to it.
+    Otherwise default to the canonical ``config/requirements-plugins.txt`` — the
+    only requirements file the Docker build and ``deploy/install.sh`` read — so a
+    bare ``led-ticker plugin install pool`` from the project root does the right
+    thing instead of dropping the file in the cwd.
+    """
+    if config_explicit:
+        return config_path.parent / "requirements-plugins.txt"
+    return _CANONICAL_REQUIREMENTS
 
 
 def _requirement_key(requirement: str) -> str:
@@ -150,6 +162,7 @@ def cmd_install(
     target: str,
     *,
     config_path: Path,
+    config_explicit: bool = True,
     source: str | None = None,
     pinned: bool = True,
     save_only: bool = False,
@@ -207,7 +220,17 @@ def cmd_install(
             return 2
         requirement = target
 
-    req_path = _requirements_path(config_path)
+    req_path = _requirements_path(config_path, config_explicit)
+    # Docker and deploy/install.sh only read config/requirements-plugins.txt; warn
+    # if we'd write somewhere else so the plugin isn't silently dropped on rebuild.
+    outside_config = req_path.parent.name != "config"
+    config_warning = (
+        f"note: {req_path} is not under a 'config/' directory — Docker and "
+        "deploy/install.sh read config/requirements-plugins.txt. Run from your "
+        "project root or pass --config config/config.toml."
+        if outside_config
+        else None
+    )
 
     if dry_run:
         print("Dry run — no changes made.")
@@ -218,11 +241,15 @@ def cmd_install(
                 f"  would run:   {sys.executable} -m pip install "
                 f"-c <frozen-core-constraints> {requirement}"
             )
+        if config_warning:
+            print(config_warning, file=sys.stderr)
         return 0
 
     replaced = _update_requirements(req_path, requirement)
     verb = "Replaced" if replaced else "Added"
     print(f"{verb} {requirement!r} in {req_path}")
+    if config_warning:
+        print(config_warning, file=sys.stderr)
 
     if save_only:
         print("Saved (--save-only); rebuild/redeploy to install.")

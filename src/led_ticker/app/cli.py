@@ -245,10 +245,15 @@ def main() -> None:
         if pc == "search":
             sys.exit(plugin_cmd.cmd_search(args.query))
         if pc == "install":
+            # Whether the user gave a config (vs the bare default config.toml).
+            # When they didn't, cmd_install defaults the requirements file to the
+            # canonical config/requirements-plugins.txt instead of the cwd.
+            config_explicit = args.config != Path("config.toml")
             sys.exit(
                 plugin_cmd.cmd_install(
                     args.target,
                     config_path=args.config,
+                    config_explicit=config_explicit,
                     source=args.source,
                     pinned=not args.unpinned,
                     save_only=args.save_only,

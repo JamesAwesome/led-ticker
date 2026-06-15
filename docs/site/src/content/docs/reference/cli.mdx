@@ -74,7 +74,9 @@ prints the namespace, its source, and the surfaces it contributes
 (widgets, transitions, fonts, or hooks only); failed plugins are listed
 with their load error. Handy for confirming a freshly installed plugin is
 being picked up before you deploy. `--config` / `-c` selects the config
-(defaults to the top-level). Exits `0`, or `2` if the config can't be read.
+(defaults to the top-level). Exits `0` — printing `No plugins found.` when
+the config is absent or lists no plugins — and `2` only if a config that
+exists can't be parsed.
 
 ### `plugin list` / `plugin search <query>`
 
@@ -86,34 +88,35 @@ summary, and provided names.
 ### `plugin install <name | pip-spec>`
 
 Resolves a catalog name (e.g. `pool`) to a pip requirement, appends it to
-the `requirements-plugins.txt` **next to your config file**, and installs
-it under led-ticker's core dependency constraints (a plugin can pull new
-libraries but can't move a version core pins). A name that isn't in the
-catalog is treated as a raw pip spec (a `git+https://…` URL or a PyPI
-requirement), mirroring `pip install`; a bare typo close to a catalog name
-gets a "did you mean …?" instead.
+`config/requirements-plugins.txt`, and installs it under led-ticker's core
+dependency constraints (a plugin can pull new libraries but can't move a
+version core pins). A name that isn't in the catalog is treated as a raw
+pip spec (a `git+https://…` URL or a PyPI requirement), mirroring `pip
+install`; a bare typo close to a catalog name gets a "did you mean …?"
+instead.
 
-Pass `--config config/config.toml` so the file lands in `config/` — the
-only `requirements-plugins.txt` the Docker build and `deploy/install.sh`
-read. (Without `--config`, the file is written next to the default
-`config.toml` in the current directory.)
+By default the requirements file is written to `config/requirements-plugins.txt`
+relative to the current directory — the only `requirements-plugins.txt` the
+Docker build and `deploy/install.sh` read — so run it from your project root.
+Pass `--config <path>` only for a non-standard layout (the file then lands next
+to that config); `install` warns if it would write outside a `config/` directory.
 
 ```bash
-led-ticker plugin install pool --config config/config.toml              # pinned to the catalog ref
-led-ticker plugin install pool --config config/config.toml --unpinned   # track @main / latest instead
-led-ticker plugin install git+https://github.com/you/led-ticker-foo.git@v1 --config config/config.toml  # raw spec
+led-ticker plugin install pool             # pinned to the catalog ref
+led-ticker plugin install pool --unpinned  # track @main / latest instead
+led-ticker plugin install git+https://github.com/you/led-ticker-foo.git@v1  # raw spec
 ```
 
 When a plugin publishes a PyPI source in the catalog, `--source pypi`
 selects it over git; today the bundled plugins are git-only.
 
-| Flag              | Default       | Notes                                                                                            |
-| ----------------- | ------------- | ------------------------------------------------------------------------------------------------ |
-| `--source`        | first source  | `git` or `pypi` — which catalog source to install from.                                          |
-| `--unpinned`      | off (pinned)  | Write `@main` / a bare PyPI name instead of the catalog's recommended pin.                       |
-| `--save-only`     | off           | Only update `requirements-plugins.txt`; skip the install (the Docker flow — edit, then rebuild). |
-| `--dry-run`       | off           | Print the requirement, file edit, and pip command without changing anything.                     |
-| `--config` / `-c` | `config.toml` | Locates `requirements-plugins.txt` (next to the config) — defaults to top-level.                 |
+| Flag              | Default      | Notes                                                                                                  |
+| ----------------- | ------------ | ------------------------------------------------------------------------------------------------------ |
+| `--source`        | first source | `git` or `pypi` — which catalog source to install from.                                                |
+| `--unpinned`      | off (pinned) | Write `@main` / a bare PyPI name instead of the catalog's recommended pin.                             |
+| `--save-only`     | off          | Only update `requirements-plugins.txt`; skip the install (the Docker flow — edit, then rebuild).       |
+| `--dry-run`       | off          | Print the requirement, file edit, and pip command without changing anything.                           |
+| `--config` / `-c` | (none)       | Non-standard layout only: write `requirements-plugins.txt` next to this config instead of `./config/`. |
 
 `install` targets a writable virtualenv (bare-metal / dev). On Docker the
 container is read-only at runtime, so use `--save-only` to update

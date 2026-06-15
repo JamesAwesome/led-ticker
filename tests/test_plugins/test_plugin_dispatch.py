@@ -60,3 +60,15 @@ def test_plugin_search_dispatches(monkeypatch, capsys):
     code = _run(monkeypatch, ["plugin", "search", "pool"])
     assert code == 0
     assert "pool" in capsys.readouterr().out
+
+
+def test_plugin_install_without_config_targets_config_dir(
+    tmp_path, monkeypatch, capsys
+):
+    # No --config -> the dispatch passes config_explicit=False -> the requirements
+    # file defaults to config/requirements-plugins.txt (dry-run, so nothing runs).
+    monkeypatch.chdir(tmp_path)
+    code = _run(monkeypatch, ["plugin", "install", "pool", "--dry-run"])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "config/requirements-plugins.txt" in out

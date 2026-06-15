@@ -3,6 +3,7 @@
 pip is always mocked — no real install, no network. The filesystem uses tmp_path.
 """
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -196,6 +197,36 @@ def test_install_dedup_handles_slash_ref(tmp_path, fakepip):
     _install(tmp_path, "git+https://h/o/led-ticker-pool.git@main")
     _install(tmp_path, "git+https://h/o/led-ticker-pool.git@feature/x")
     assert _reqfile(tmp_path).read_text().count("led-ticker-pool") == 1
+
+
+# --- requirements-file location (config/ default + warning) ---
+
+
+def test_install_defaults_to_config_dir_without_explicit_config(
+    tmp_path, fakepip, monkeypatch
+):
+    # No explicit --config -> the canonical config/requirements-plugins.txt,
+    # not the cwd (so Docker/install.sh actually read it).
+    monkeypatch.chdir(tmp_path)
+    plugin_cmd.cmd_install(
+        "pool",
+        config_path=Path("config.toml"),
+        config_explicit=False,
+        catalog=_catalog(),
+    )
+    assert (tmp_path / "config" / "requirements-plugins.txt").exists()
+    assert not (tmp_path / "requirements-plugins.txt").exists()
+
+
+def test_install_warns_when_writing_outside_config_dir(tmp_path, fakepip, capsys):
+    # An explicit config not under config/ -> the file lands there but warns.
+    plugin_cmd.cmd_install(
+        "pool",
+        config_path=tmp_path / "config.toml",
+        config_explicit=True,
+        catalog=_catalog(),
+    )
+    assert "not under a 'config/'" in capsys.readouterr().err
 
 
 # --- list / search ---

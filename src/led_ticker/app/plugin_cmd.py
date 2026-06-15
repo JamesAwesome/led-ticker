@@ -114,13 +114,22 @@ def _config_warning(req_path: Path) -> str | None:
 
 
 def _resolve_requirement(
-    target: str, catalog: Catalog, *, source: str | None, pinned: bool
+    target: str,
+    catalog: Catalog,
+    *,
+    source: str | None,
+    pinned: bool,
+    verb: str = "install",
 ) -> tuple[str, CatalogEntry | None] | None:
     """Resolve a catalog name or raw pip spec to (requirement, entry).
 
     Returns None (after printing an actionable message) when the target is a
     likely typo of a catalog name, or when --source is given for a non-catalog
     spec, or when the requested source is missing — the caller returns exit 2.
+
+    ``verb`` is the invoking command ("add" / "install"); the did-you-mean hint
+    echoes it so a Docker user who typos ``plugin add`` is steered back to
+    ``add`` (the no-pip path) rather than ``install``.
     """
     entry = catalog.get(target)
     if entry is not None:
@@ -139,7 +148,7 @@ def _resolve_requirement(
         if close:
             print(
                 f"{target!r} is not a known plugin. Did you mean {close[0]!r}? "
-                f"(run: led-ticker plugin install {close[0]})",
+                f"(run: led-ticker plugin {verb} {close[0]})",
                 file=sys.stderr,
             )
             return None
@@ -171,30 +180,28 @@ def _apply_to_manifest(req_path: Path, requirement: str) -> int:
     return 0
 
 
-def _find_requirement_line(path: Path, key: str) -> str | None:
-    """Read-only: the manifest line matching `key` (verbatim), or None. Used by
-    dry-run remove/uninstall so the preview matches what the real command would do."""
+def _find_requirement_lines(path: Path, key: str) -> list[str]:
+    """Read-only: every manifest line matching `key` (verbatim). Used by dry-run
+    remove/uninstall so the preview matches what the real command would do —
+    including a drifted manifest holding more than one line for the same plugin."""
     if not path.exists():
-        return None
-    for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if (
-            stripped
-            and not stripped.startswith("#")
-            and _requirement_key(stripped) == key
-        ):
-            return line
-    return None
+        return []
+    return [
+        line
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if (s := line.strip()) and not s.startswith("#") and _requirement_key(s) == key
+    ]
 
 
-def _remove_requirement(path: Path, key: str) -> str | None:
+def _remove_requirement(path: Path, key: str) -> list[str]:
     """Drop the manifest line(s) for `key`, preserving comments + other lines.
-    Returns the removed line (verbatim) or None if nothing matched."""
+    Returns every removed line (verbatim) — usually one, but a drifted manifest
+    can hold several lines that normalize to the same key, and ALL are removed."""
     if not path.exists():
-        return None
+        return []
     lines = path.read_text(encoding="utf-8").splitlines()
     kept: list[str] = []
-    removed: str | None = None
+    removed: list[str] = []
     for line in lines:
         stripped = line.strip()
         if (
@@ -202,13 +209,22 @@ def _remove_requirement(path: Path, key: str) -> str | None:
             and not stripped.startswith("#")
             and (_requirement_key(stripped) == key)
         ):
-            removed = line
+            removed.append(line)
             continue
         kept.append(line)
-    if removed is not None:
+    if removed:
         body = "\n".join(kept).rstrip("\n")
         path.write_text(body + "\n" if body else "", encoding="utf-8")
     return removed
+
+
+def _removed_phrase(lines: list[str], key: str) -> str:
+    """Human phrase for removed/matching manifest line(s): the verbatim line when
+    there's exactly one, else a count (so a drifted multi-line manifest doesn't
+    silently report only the last line)."""
+    if len(lines) == 1:
+        return repr(lines[0].strip())
+    return f"{len(lines)} lines for {key!r}"
 
 
 def _dist_key(target: str, catalog: Catalog) -> str:
@@ -346,7 +362,9 @@ def cmd_add(
 ) -> int:
     """Add a plugin to the manifest only (no pip) — the Docker-native path."""
     catalog = catalog or load_catalog()
-    resolved = _resolve_requirement(target, catalog, source=source, pinned=pinned)
+    resolved = _resolve_requirement(
+        target, catalog, source=source, pinned=pinned, verb="add"
+    )
     if resolved is None:
         return 2
     requirement, _entry = resolved
@@ -382,7 +400,9 @@ def cmd_install(
 ) -> int:
     """Add a plugin to the manifest AND pip-install it (bare-metal/dev)."""
     catalog = catalog or load_catalog()
-    resolved = _resolve_requirement(target, catalog, source=source, pinned=pinned)
+    resolved = _resolve_requirement(
+        target, catalog, source=source, pinned=pinned, verb="install"
+    )
     if resolved is None:
         return 2
     requirement, entry = resolved
@@ -442,9 +462,9 @@ def cmd_remove(
 
     if dry_run:
         print("Dry run — no changes made.")
-        match = _find_requirement_line(req_path, key)
-        if match is not None:
-            print(f"  would remove {match.strip()!r} from: {req_path}")
+        matches = _find_requirement_lines(req_path, key)
+        if matches:
+            print(f"  would remove {_removed_phrase(matches, key)} from: {req_path}")
         else:
             print(f"  {target!r} is not in {req_path} (nothing to remove).")
         if config_warning:
@@ -456,12 +476,12 @@ def cmd_remove(
     except OSError as e:
         print(f"could not write {req_path}: {e}", file=sys.stderr)
         return 2
-    if removed is None:
+    if not removed:
         print(f"{target!r} is not in {req_path} (nothing to remove).")
         if config_warning:
             print(config_warning, file=sys.stderr)
         return 0
-    print(f"Removed {removed.strip()!r} from {req_path}")
+    print(f"Removed {_removed_phrase(removed, key)} from {req_path}")
     if config_warning:
         print(config_warning, file=sys.stderr)
     print(_REBUILD_HINT.replace("install it", "apply it"))
@@ -484,9 +504,9 @@ def cmd_uninstall(
 
     if dry_run:
         print("Dry run — no changes made.")
-        match = _find_requirement_line(req_path, key)
-        if match is not None:
-            print(f"  would remove {match.strip()!r} from: {req_path}")
+        matches = _find_requirement_lines(req_path, key)
+        if matches:
+            print(f"  would remove {_removed_phrase(matches, key)} from: {req_path}")
         else:
             print(f"  {target!r} is not in {req_path} (nothing to remove).")
         print(f"  would run:   {sys.executable} -m pip uninstall -y {key}")
@@ -499,8 +519,8 @@ def cmd_uninstall(
     except OSError as e:
         print(f"could not write {req_path}: {e}", file=sys.stderr)
         return 2
-    if removed is not None:
-        print(f"Removed {removed.strip()!r} from {req_path}")
+    if removed:
+        print(f"Removed {_removed_phrase(removed, key)} from {req_path}")
     else:
         print(f"{target!r} was not in {req_path}.")
     if config_warning:

@@ -203,11 +203,27 @@ def test_install_catalog_name_is_case_insensitive(tmp_path, fakepip):
     assert _reqfile(tmp_path).read_text().strip().splitlines()[-1] == line
 
 
-def test_install_typo_suggests_catalog_name_without_installing(tmp_path, fakepip):
+def test_install_typo_suggests_catalog_name_without_installing(
+    tmp_path, fakepip, capsys
+):
     code = _install(tmp_path, "poool")  # typo close to "pool"
     assert code == 2
     assert fakepip.install_cmd is None  # never pip-installed an arbitrary package
     assert not _reqfile(tmp_path).exists()
+    # the hint steers an `install` user back to `install` (the pip verb)
+    assert "led-ticker plugin install pool" in capsys.readouterr().err
+
+
+def test_add_typo_suggests_add_verb_not_install(tmp_path, fakepip, capsys):
+    # A Docker user who typos `add` must be steered back to `add` (no pip),
+    # NOT to `install` (the whole point of the Docker-first verb split).
+    code = _add(tmp_path, "poool")  # typo close to "pool"
+    assert code == 2
+    assert fakepip.calls == []
+    assert not _reqfile(tmp_path).exists()
+    err = capsys.readouterr().err
+    assert "led-ticker plugin add pool" in err
+    assert "plugin install" not in err
 
 
 def test_install_unrelated_bare_name_still_raw_installs(tmp_path, fakepip):
@@ -393,6 +409,34 @@ def test_remove_preserves_other_lines_and_comments(tmp_path, fakepip):
     assert "# my plugins" in body
     assert "led-ticker-acme" in body
     assert "led-ticker-pool" not in body
+
+
+def test_remove_drifted_manifest_drops_all_and_reports_count(tmp_path, fakepip, capsys):
+    # A drifted manifest with two lines normalizing to the same key: BOTH are
+    # removed, and the report names the count (not just the last line).
+    rf = _reqfile(tmp_path)
+    rf.write_text(
+        "git+https://github.com/JamesAwesome/led-ticker-pool.git@main\n"
+        "led-ticker-pool==1.2.0\n"
+    )
+    code = _remove(tmp_path, "pool")
+    assert code == 0
+    assert "led-ticker-pool" not in rf.read_text()  # both gone
+    out = capsys.readouterr().out
+    assert "2 lines" in out and "led-ticker-pool" in out
+
+
+def test_remove_dry_run_drifted_manifest_reports_count(tmp_path, fakepip, capsys):
+    rf = _reqfile(tmp_path)
+    rf.write_text(
+        "git+https://github.com/JamesAwesome/led-ticker-pool.git@main\n"
+        "led-ticker-pool==1.2.0\n"
+    )
+    code = _remove(tmp_path, "pool", dry_run=True)
+    assert code == 0
+    assert "2 lines" in capsys.readouterr().out
+    # dry-run leaves the file untouched
+    assert rf.read_text().count("led-ticker-pool") == 2
 
 
 def test_uninstall_removes_line_and_pip_uninstalls(tmp_path, fakepip):

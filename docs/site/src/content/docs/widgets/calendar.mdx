@@ -11,7 +11,7 @@ import { Aside } from "@astrojs/starlight/components";
 
 The `calendar` widget pulls upcoming events from any subscribed iCal (`.ics`) URL and displays them on the panel. It works like the `rss_feed` widget — a background task polls the feed and builds one scrolling message per event; the display loop picks up changes on the next pass without restarting.
 
-It reuses the same text-render surface as `message` and `clock`, so [`font_color`](/concepts/color-providers/), [`border`](/concepts/borders/), and font knobs all work the same way.
+It reuses the same text-render surface as `message` and `clock`, so [`font_color`](/concepts/color-providers/), [`border`](/concepts/borders/), and font knobs all work the same way. Each line is drawn in two colors by default — the time phrase in `time_color` (amber) and the event title in `font_color` (white); see [Colors](#colors).
 
 <DemoGif
   src="/demos/widget-calendar.gif"
@@ -33,7 +33,7 @@ ics_url = "https://calendar.google.com/calendar/ical/your-id/public/basic.ics"`}
 
 ### `agenda` (default)
 
-Each upcoming event becomes its own scrolling `TickerMessage`. Events are sorted chronologically; the day label updates automatically (`Today`, `Tomorrow`, weekday name, or `Mon D` for dates further out).
+Each upcoming event becomes its own scrolling line. Events are sorted chronologically; the day label updates automatically (`Today`, `Tomorrow`, weekday name, or `Mon D` for dates further out). The time phrase and the title are drawn in separate colors — see [Colors](#colors).
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -71,6 +71,32 @@ highlight = ["1:1"]
 highlight_color = [255, 200, 60]
 max_events = 4`}
 />
+
+## Colors
+
+Each line is drawn in **two colors**: the time/relative phrase in `time_color` (amber `[255, 200, 60]` by default) and the event title in `font_color` (white by default). This is the default look — the "when" pops while the title stays legible.
+
+- In **agenda** mode the time phrase is the leading `Tomorrow 3:00 PM ·`; the title is everything after.
+- In **next** mode the title comes first and the trailing `· in 5m` is the time phrase.
+
+Both accept the full [color-provider](/concepts/color-providers/) range — a constant `[r,g,b]`, `"rainbow"`, `"color_cycle"`, or a `{style="gradient", …}` table — so you can animate either part independently.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "calendar"
+ics_url = "https://example.com/cal.ics"
+time_color = [255, 200, 60]   # amber time phrase (default)
+font_color = [255, 255, 255]  # white title (default)`}
+/>
+
+To use a **single color** for the whole line, set both to the same value:
+
+<TomlExample
+  code={`time_color = "rainbow"
+font_color = "rainbow"`}
+/>
+
+A line whose summary matches [`highlight`](#filter--highlight) ignores both and renders entirely in `highlight_color` — a highlight is a whole-line attention state, so two-tone applies to non-highlighted lines only.
 
 ## Timezone & format
 
@@ -145,6 +171,19 @@ ics_url = "https://example.com/cal.ics"
 layout = "agenda"
 timezone = "America/Chicago"
 font_color = "rainbow"`}
+/>
+
+### Two-tone agenda with custom colors
+
+Override the default amber/white split — here a cyan time phrase with a white title:
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "calendar"
+ics_url = "https://example.com/cal.ics"
+layout = "agenda"
+time_color = [0, 200, 255]
+font_color = [255, 255, 255]`}
 />
 
 ### Live next-event countdown with a rainbow border

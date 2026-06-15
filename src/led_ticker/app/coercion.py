@@ -37,6 +37,7 @@ _PROVIDER_COLOR_KEYS: set[str] = {
     "top_color",
     "bottom_color",
     "font_color_temp",
+    "time_color",
     "text_separator_color",
     "bottom_text_separator_color",
     "highlight_color",

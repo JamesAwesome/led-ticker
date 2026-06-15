@@ -2,7 +2,8 @@
 
 Always a Container (like rss_feed): a shared data core fetches + parses the
 feed, then update() populates feed_stories per the `layout` knob — `agenda`
-builds one TickerMessage per event; `next` builds one live countdown widget.
+builds one two-tone line per event (time phrase in `time_color`, title in
+`font_color`); `next` builds one live countdown widget.
 """
 
 import asyncio
@@ -21,9 +22,9 @@ import recurring_ical_events
 from led_ticker._types import Canvas, DrawResult, Font
 from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR, make_color
-from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
+from led_ticker.drawing import compute_baseline, compute_cursor
 from led_ticker.fonts import FONT_DEFAULT
-from led_ticker.text_render import draw_text, draw_text_per_char
+from led_ticker.pixel_emoji import count_text_chars, draw_with_emoji, measure_width
 from led_ticker.widget import Widget, run_monitor_loop, spawn_tracked
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import FrameAwareBase
@@ -369,52 +370,84 @@ def _day_label(start: datetime, now: datetime) -> str:
     return f"{_MONTH_ABBR[start.month - 1]} {start.day}"
 
 
+def split_event_line(
+    event: CalendarEvent, *, now: datetime, time_format: str, tz: tzinfo
+) -> tuple[str, str]:
+    """Agenda line split into ``(time_phrase_with_sep, title)``.
+
+    The trailing ``_SEP`` stays attached to the time phrase so the separator
+    inherits the time color in two-tone rendering. All-day events omit the
+    clock time. ``tz`` is accepted for signature symmetry with the other
+    formatters; ``event.start`` is already in the display zone.
+    """
+    day = _day_label(event.start, now)
+    if event.all_day:
+        return f"{day}{_SEP}", event.summary
+    return f"{day} {format_clock(event.start, time_format)}{_SEP}", event.summary
+
+
 def format_event_line(
     event: CalendarEvent, *, now: datetime, time_format: str, tz: tzinfo
 ) -> str:
-    """Agenda line: '<day> <time> · <summary>'; all-day omits the time."""
-    day = _day_label(event.start, now)
-    if event.all_day:
-        return f"{day}{_SEP}{event.summary}"
-    return f"{day} {format_clock(event.start, time_format)}{_SEP}{event.summary}"
+    """Agenda line: '<day> <time> · <summary>'; all-day omits the time.
+
+    The joined form of :func:`split_event_line`.
+    """
+    time_part, title = split_event_line(event, now=now, time_format=time_format, tz=tz)
+    return time_part + title
 
 
-def format_relative(event: CalendarEvent | None, now: datetime, empty_text: str) -> str:
-    """Next-mode line: '<summary> · in <rel>' / '<summary> · now' / empty_text.
+def split_relative(
+    event: CalendarEvent | None, now: datetime, empty_text: str
+) -> tuple[str, str]:
+    """Next-mode line split into ``(title, relative_phrase_with_sep)``.
+
+    The leading ``_SEP`` stays attached to the relative phrase so the separator
+    inherits the time color in two-tone rendering. When there is no event,
+    returns ``(empty_text, "")`` — the empty line has no time segment.
 
     All-day events are rendered by day (today/tomorrow/in Nd) rather than by
     seconds, since their start is always midnight and a seconds-based delta
     would produce misleading "now" or "in 14h" labels.
     """
     if event is None:
-        return empty_text
+        return empty_text, ""
     if event.all_day:
         days = (event.start.date() - now.date()).days
         if days <= 0:
-            return f"{event.summary}{_SEP}today"
+            return event.summary, f"{_SEP}today"
         if days == 1:
-            return f"{event.summary}{_SEP}tomorrow"
-        return f"{event.summary}{_SEP}in {days}d"
+            return event.summary, f"{_SEP}tomorrow"
+        return event.summary, f"{_SEP}in {days}d"
     # Convert both to UTC before subtracting so DST transitions don't skew the
     # delta (two aware datetimes with the same ZoneInfo subtract naively in
     # wall-clock time, which is wrong by the DST offset across a transition).
     delta = event.start.astimezone(UTC) - now.astimezone(UTC)
     secs = delta.total_seconds()
     if secs <= 0:
-        return f"{event.summary}{_SEP}now"
+        return event.summary, f"{_SEP}now"
     days = int(secs // 86400)
     if days >= 1:
-        return f"{event.summary}{_SEP}in {days}d"
+        return event.summary, f"{_SEP}in {days}d"
     hours = int(secs // 3600)
     minutes = int((secs % 3600) // 60)
     if hours >= 1:
         if minutes == 0:
-            return f"{event.summary}{_SEP}in {hours}h"
-        return f"{event.summary}{_SEP}in {hours}h {minutes}m"
+            return event.summary, f"{_SEP}in {hours}h"
+        return event.summary, f"{_SEP}in {hours}h {minutes}m"
     if minutes == 0:
         # sub-minute and imminent -> treat as happening now
-        return f"{event.summary}{_SEP}now"
-    return f"{event.summary}{_SEP}in {minutes}m"
+        return event.summary, f"{_SEP}now"
+    return event.summary, f"{_SEP}in {minutes}m"
+
+
+def format_relative(event: CalendarEvent | None, now: datetime, empty_text: str) -> str:
+    """Next-mode line: '<summary> · in <rel>' / '<summary> · now' / empty_text.
+
+    The joined form of :func:`split_relative`.
+    """
+    title, time_part = split_relative(event, now, empty_text)
+    return title + time_part
 
 
 def _not_ended(e: CalendarEvent, now: datetime) -> bool:
@@ -462,6 +495,126 @@ def _coerce_provider(value: Any) -> ColorProvider:
     return _ConstantColor(value)  # already a graphics.Color
 
 
+def _draw_two_tone(
+    canvas: Canvas,
+    *,
+    font: Font,
+    cursor_pos: int,
+    center: bool,
+    padding: int,
+    border: Any | None,
+    border_frame: int,
+    segments: list[tuple[str, ColorProvider, int]],
+    override: ColorProvider | None,
+    y_offset: int,
+    baseline_y: int,
+    content_width: int,
+) -> DrawResult:
+    """Draw an ordered list of ``(text, provider, frame)`` segments on one line.
+
+    Each segment is one ``draw_with_emoji`` call so it keeps its own color
+    provider (constant amber / rainbow / gradient / …), its per-char sweep, and
+    inline ``:slug:`` emoji — none of which a ``SegmentMessage`` swap could
+    preserve. ``override`` (the transitions-supplied ``font_color``) replaces
+    every segment's provider when set, so a section transition recolors the
+    whole line uniformly. ``border`` paints once, before the text, at physical
+    resolution. Empty-text segments are skipped (e.g. the no-time empty line).
+
+    Returns the advanced cursor (+ end padding) so the engine's hold-vs-scroll
+    check in ``_swap_and_scroll`` sees the full content width.
+    """
+    cursor_pos, end_padding = compute_cursor(
+        canvas.width, content_width, cursor_pos, padding, center=center
+    )
+    if border is not None:
+        border.paint(canvas, border_frame)
+    for text, provider, frame in segments:
+        if not text:
+            continue
+        color = override if override is not None else provider
+        cursor_pos += draw_with_emoji(
+            canvas,
+            font,
+            int(cursor_pos),
+            baseline_y + y_offset,
+            color,
+            text,
+            frame=frame,
+            total_chars=count_text_chars(text),
+        )
+    cursor_pos += end_padding
+    return canvas, cursor_pos
+
+
+@attrs.define
+class _TwoToneLine(FrameAwareBase):
+    """One agenda feed-story line drawn in two colors.
+
+    The time phrase renders in ``time_color`` and the event title in
+    ``font_color``. ``_build_stories`` constructs one per upcoming event; a
+    highlighted event is built with ``highlight_color`` for BOTH so the whole
+    line reads in the highlight color (a highlight is a whole-event attention
+    state). Mirrors the baseball attendance/promo two-tone lines.
+    """
+
+    time_text: str = ""
+    title_text: str = ""
+    font: Any = attrs.Factory(lambda: FONT_DEFAULT)
+    time_color: ColorProvider = attrs.field(
+        default=attrs.Factory(lambda: make_color(255, 200, 60)),
+        converter=_coerce_provider,
+        kw_only=True,
+    )
+    font_color: ColorProvider = attrs.field(
+        default=attrs.Factory(lambda: make_color(255, 255, 255)),
+        converter=_coerce_provider,
+        kw_only=True,
+    )
+    bg_color: Any = attrs.field(default=None, kw_only=True)
+    border: Any | None = attrs.field(default=None, kw_only=True)
+    center: bool = True
+    padding: int = 6
+    _content_width: int = attrs.field(init=False, default=-1)
+    _baseline_y: int = attrs.field(init=False, default=-1)
+
+    def draw(
+        self,
+        canvas: Canvas,
+        cursor_pos: int = 0,
+        *,
+        y_offset: int = 0,
+        font_color: Any = None,
+    ) -> DrawResult:
+        if font_color is not None and not hasattr(font_color, "color_for"):
+            font_color = _ConstantColor(font_color)
+        if self._content_width < 0:
+            self._content_width = sum(
+                measure_width(self.font, t, canvas)
+                for t in (self.time_text, self.title_text)
+                if t
+            )
+        if self._baseline_y < 0:
+            self._baseline_y = compute_baseline(self.font, canvas, valign="center")
+        segments = [
+            (self.time_text, self.time_color, self.frame_for("time_color")),
+            (self.title_text, self.font_color, self.frame_for("font_color")),
+        ]
+        return _draw_two_tone(
+            canvas,
+            font=self.font,
+            cursor_pos=cursor_pos,
+            center=self.center,
+            padding=self.padding,
+            border=self.border,
+            border_frame=self.frame_for("border"),
+            segments=segments,
+            override=font_color,
+            y_offset=y_offset,
+            baseline_y=self._baseline_y,
+            content_width=self._content_width,
+        )
+
+
 @attrs.define
 class _NextEventWidget(FrameAwareBase):
     """The layout='next' feed story: one live countdown line, recomputed each
@@ -477,7 +630,14 @@ class _NextEventWidget(FrameAwareBase):
     timezone: str | None = None
     font: Any = attrs.Factory(lambda: FONT_DEFAULT)
     font_color: ColorProvider = attrs.field(
-        default=None, converter=_coerce_provider, kw_only=True
+        default=attrs.Factory(lambda: make_color(255, 255, 255)),
+        converter=_coerce_provider,
+        kw_only=True,
+    )
+    time_color: ColorProvider = attrs.field(
+        default=attrs.Factory(lambda: make_color(255, 200, 60)),
+        converter=_coerce_provider,
+        kw_only=True,
     )
     highlight: list[str] = attrs.field(factory=list, kw_only=True)
     highlight_color: ColorProvider = attrs.field(
@@ -562,7 +722,10 @@ class _NextEventWidget(FrameAwareBase):
             event = in_progress[-1] if in_progress else None  # latest-started = current
 
         # Color: highlight wins for the currently-shown event; engine-supplied
-        # font_color (passed by transitions) takes precedence over both.
+        # font_color (passed by transitions) overrides both segments uniformly.
+        # Two-tone: the title renders in font_color, the relative phrase (with
+        # its leading separator) in time_color. A highlighted current event uses
+        # highlight_color for BOTH (whole-line attention state).
         if font_color is not None and not hasattr(font_color, "color_for"):
             font_color = _ConstantColor(font_color)
         use_highlight = (
@@ -570,42 +733,42 @@ class _NextEventWidget(FrameAwareBase):
             and event is not None
             and _match_any(event.summary, self.highlight)
         )
-        provider: ColorProvider = font_color or (
-            self.highlight_color if use_highlight else self.font_color
-        )
-        frame_key = "highlight_color" if use_highlight else "font_color"
+        title_text, time_text = split_relative(event, now, self.empty_text)
+        if use_highlight:
+            title_provider = time_provider = self.highlight_color
+            title_frame = time_frame = self.frame_for("highlight_color")
+        else:
+            title_provider = self.font_color
+            time_provider = self.time_color
+            title_frame = self.frame_for("font_color")
+            time_frame = self.frame_for("time_color")
 
-        text = format_relative(event, now, self.empty_text)
-
-        content_width = get_text_width(self.font, text, padding=0, canvas=canvas)
-        cursor_pos, end_padding = compute_cursor(
-            canvas.width, content_width, cursor_pos, self.padding, center=self.center
+        # Content (the countdown) changes every draw tick, so measure each time
+        # rather than caching — only the baseline cache survives across ticks.
+        content_width = sum(
+            measure_width(self.font, t, canvas) for t in (title_text, time_text) if t
         )
         if self._baseline_y < 0:
             self._baseline_y = compute_baseline(self.font, canvas, valign="center")
-        baseline_y = self._baseline_y
 
-        if self.border is not None:
-            self.border.paint(canvas, self.frame_for("border"))
-
-        if provider.per_char:
-            cursor_pos += draw_text_per_char(
-                canvas,
-                self.font,
-                cursor_pos,
-                baseline_y + y_offset,
-                text,
-                lambda idx, total: provider.color_for(
-                    self.frame_for(frame_key), idx, total
-                ),
-            )
-        else:
-            color = provider.color_for(self.frame_for(frame_key), 0, len(text))
-            cursor_pos += draw_text(
-                canvas, self.font, cursor_pos, baseline_y + y_offset, color, text
-            )
-        cursor_pos += end_padding
-        return canvas, cursor_pos
+        segments = [
+            (title_text, title_provider, title_frame),
+            (time_text, time_provider, time_frame),
+        ]
+        return _draw_two_tone(
+            canvas,
+            font=self.font,
+            cursor_pos=cursor_pos,
+            center=self.center,
+            padding=self.padding,
+            border=self.border,
+            border_frame=self.frame_for("border"),
+            segments=segments,
+            override=font_color,
+            y_offset=y_offset,
+            baseline_y=self._baseline_y,
+            content_width=content_width,
+        )
 
 
 @register("calendar")
@@ -639,7 +802,14 @@ class Calendar:
     padding: int = 6
     font: Font = attrs.Factory(lambda: FONT_DEFAULT)
     font_color: ColorProvider = attrs.field(
-        default=None, converter=_coerce_provider, kw_only=True
+        default=attrs.Factory(lambda: make_color(255, 255, 255)),
+        converter=_coerce_provider,
+        kw_only=True,
+    )
+    time_color: ColorProvider = attrs.field(
+        default=attrs.Factory(lambda: make_color(255, 200, 60)),
+        converter=_coerce_provider,
+        kw_only=True,
     )
     highlight_color: ColorProvider = attrs.field(
         default=attrs.Factory(lambda: make_color(255, 200, 60)),
@@ -805,6 +975,7 @@ class Calendar:
                     timezone=self.timezone,
                     font=self.font,
                     font_color=self.font_color,
+                    time_color=self.time_color,
                     highlight=self.highlight,
                     highlight_color=self.highlight_color,
                     bg_color=self.bg_color,
@@ -817,16 +988,24 @@ class Calendar:
             return [self._empty_story()]
         stories: list[Widget] = []
         for e in events:
-            color = (
-                self.highlight_color
-                if _match_any(e.summary, self.highlight)
-                else self.font_color
+            # Two-tone: time phrase in time_color, title in font_color. A
+            # highlighted event uses highlight_color for BOTH (whole-line
+            # attention state), so two-tone applies to non-highlighted lines.
+            if _match_any(e.summary, self.highlight):
+                time_color = title_color = self.highlight_color
+            else:
+                time_color = self.time_color
+                title_color = self.font_color
+            time_text, title_text = split_event_line(
+                e, now=now, time_format=self.time_format, tz=tz
             )
             stories.append(
-                TickerMessage(
-                    format_event_line(e, now=now, time_format=self.time_format, tz=tz),
+                _TwoToneLine(
+                    time_text=time_text,
+                    title_text=title_text,
                     font=self.font,
-                    font_color=color,
+                    time_color=time_color,
+                    font_color=title_color,
                     bg_color=self.bg_color,
                     border=self.border,
                     padding=self.padding,

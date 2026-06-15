@@ -17,7 +17,7 @@ import pytest
 from led_ticker.widgets.calendar import (
     Calendar,
     CalendarEvent,
-    TickerMessage,
+    _TwoToneLine,
     parse_ics,
 )
 
@@ -365,8 +365,8 @@ def test_corpus_update_agenda_builds_feed_stories(monkeypatch) -> None:
         "Calendar.update() must build at least one feed story for google_basic.ics "
         "when now is within the event window"
     )
-    assert all(isinstance(s, TickerMessage) for s in cal.feed_stories), (
-        "agenda layout must build TickerMessage feed stories"
+    assert all(isinstance(s, _TwoToneLine) for s in cal.feed_stories), (
+        "agenda layout must build _TwoToneLine feed stories"
     )
     # Must NOT be the single empty_text placeholder (events are in-window).
     assert not (

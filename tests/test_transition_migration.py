@@ -19,21 +19,23 @@ def test_shipped_migration_map_is_empty():
 def test_migration_entry_wins(monkeypatch):
     monkeypatch.setitem(
         transitions._TRANSITION_MIGRATION,
-        "nyancat",
+        "oldname",
         (
-            "transition 'nyancat' now ships in led-ticker-arcade as 'arcade.nyancat'.",
-            'Install led-ticker-arcade and use transition = "arcade.nyancat".',
+            "transition 'oldname' now ships in led-ticker-exampleplugin"
+            " as 'exampleplugin.oldname'.",
+            "Install led-ticker-exampleplugin and use"
+            ' transition = "exampleplugin.oldname".',
         ),
     )
-    msg, fix = explain_unknown_transition("nyancat")
-    assert "led-ticker-arcade" in msg
-    assert "arcade.nyancat" in fix
+    msg, fix = explain_unknown_transition("oldname")
+    assert "led-ticker-exampleplugin" in msg
+    assert "exampleplugin.oldname" in fix
 
 
 def test_namespaced_unknown_gets_plugin_hint():
-    msg, fix = explain_unknown_transition("arcade.nyancat")
-    assert msg == "unknown transition 'arcade.nyancat'"
-    assert "arcade" in fix
+    msg, fix = explain_unknown_transition("exampleplugin.thing")
+    assert msg == "unknown transition 'exampleplugin.thing'"
+    assert "exampleplugin" in fix
     assert "requirements-plugins.txt" in fix
 
 
@@ -51,10 +53,38 @@ def test_unknown_with_no_close_match_has_no_suggestion():
 
 def test_get_transition_class_raises_rich_message_for_namespaced():
     with pytest.raises(ValueError) as exc:
-        get_transition_class("arcade.nyancat")
-    assert "arcade" in str(exc.value)
+        get_transition_class("exampleplugin.thing")
+    assert "exampleplugin" in str(exc.value)
     assert "requirements-plugins.txt" in str(exc.value)
 
 
 def test_get_transition_class_still_resolves_known():
     assert get_transition_class("push_left").__name__  # a real registered one
+
+
+def test_migration_wins_over_plugin_hint_for_namespaced_key(monkeypatch):
+    # A namespaced key in the migration map must return the migration
+    # tuple, NOT the generic "looks like a plugin" hint — pins the
+    # migration→hint precedence ordering.
+    monkeypatch.setitem(
+        transitions._TRANSITION_MIGRATION,
+        "exampleplugin.oldname",
+        ("migrated message", "migrated fix"),
+    )
+    msg, fix = explain_unknown_transition("exampleplugin.oldname")
+    assert msg == "migrated message"
+    assert fix == "migrated fix"
+
+
+def test_get_transition_class_raises_migration_message(monkeypatch):
+    monkeypatch.setitem(
+        transitions._TRANSITION_MIGRATION,
+        "oldname",
+        (
+            "transition 'oldname' now ships in led-ticker-exampleplugin.",
+            "Install led-ticker-exampleplugin.",
+        ),
+    )
+    with pytest.raises(ValueError) as exc:
+        get_transition_class("oldname")
+    assert "led-ticker-exampleplugin" in str(exc.value)

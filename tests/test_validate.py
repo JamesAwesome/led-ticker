@@ -2424,7 +2424,7 @@ default_scale = 1
 
 [[playlist.section]]
 mode = "swap"
-transition = "arcade.nyancat"
+transition = "exampleplugin.thing"
 
 [[playlist.section.widget]]
 type = "message"
@@ -2434,7 +2434,7 @@ text = "hi"
         assert not result.valid
         rule_39 = [e for e in result.errors if e.rule == 39]
         assert len(rule_39) == 1
-        assert "arcade" in rule_39[0].fix
+        assert "exampleplugin" in rule_39[0].fix
         assert "requirements-plugins.txt" in rule_39[0].fix
 
     async def test_migrated_transition_surfaces_through_rule_39(
@@ -2444,16 +2444,14 @@ text = "hi"
 
         monkeypatch.setitem(
             transitions._TRANSITION_MIGRATION,
-            "nyancat",
+            "oldname",
             (
-                "transition 'nyancat' now ships in led-ticker-arcade as "
-                "'arcade.nyancat'.",
-                'Install led-ticker-arcade and use transition = "arcade.nyancat".',
+                "transition 'oldname' now ships in led-ticker-exampleplugin as "
+                "'exampleplugin.oldname'.",
+                "Install led-ticker-exampleplugin and use"
+                ' transition = "exampleplugin.oldname".',
             ),
         )
-        # Remove "nyancat" from the registry to simulate the post-extraction
-        # state where the name only lives in the migration table.
-        monkeypatch.delitem(transitions._TRANSITION_REGISTRY, "nyancat")
         result = await validate_config(
             conf("""
 [display]
@@ -2464,7 +2462,7 @@ default_scale = 1
 
 [[playlist.section]]
 mode = "swap"
-transition = "nyancat"
+transition = "oldname"
 
 [[playlist.section.widget]]
 type = "message"
@@ -2473,8 +2471,8 @@ text = "hi"
         )
         rule_39 = [e for e in result.errors if e.rule == 39]
         assert len(rule_39) == 1
-        assert "led-ticker-arcade" in rule_39[0].message
-        assert "arcade.nyancat" in rule_39[0].fix
+        assert "led-ticker-exampleplugin" in rule_39[0].message
+        assert "exampleplugin.oldname" in rule_39[0].fix
 
 
 class TestUnknownKwargValidationRule:

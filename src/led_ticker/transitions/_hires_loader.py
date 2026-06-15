@@ -222,7 +222,9 @@ def _paint_procedural_pokeball(
 def load_hires(spec: HiresSpec) -> HiresFrames:
     """Decode + cache a sprite from its spec. Cached on the frozen, hashable
     HiresSpec, so callers (built-in transitions resolving from HIRES_REGISTRY,
-    or a plugin holding its own spec) share decode work for identical specs."""
+    or a plugin holding its own spec) share decode work for identical specs.
+    Build a plugin's spec once (module scope), not per-frame — the cache
+    retains one decode per distinct spec."""
     return _decode(spec)
 
 

@@ -981,6 +981,40 @@ class TestShowFlags:
         assert PokeballReverse()._show_pokeball is True
         assert PokeballReverse(show_pokeball=False)._show_pokeball is False
 
+    def test_hires_ball_only_paints_without_pikachu(self):
+        # show_pokeball=True, show_pikachu=False -> ball-only branch.
+        # Renders the procedural ball, skips the Pikachu sprite. Reachable
+        # by a plugin passing these kwargs; pins the branch.
+        import unittest.mock as mock_mod
+
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        real, wrapped, spec = self._setup_pokeball()
+        outgoing = mock_mod.MagicMock()
+        incoming = mock_mod.MagicMock()
+        render_hires_frame(
+            0.4,
+            wrapped,
+            outgoing,
+            incoming,
+            spec,
+            duration_ms=500,
+            show_pokeball=True,
+            show_pikachu=False,
+        )
+        # The procedural ball paints red (255, 30, 30) pixels — confirms the
+        # ball-only branch executed and produced output without raising.
+        red_pixels = [
+            (x, y)
+            for y in range(real.height)
+            for x in range(real.width)
+            if real.get_pixel(x, y) == (255, 30, 30)
+        ]
+        assert red_pixels, (
+            "expected at least one red pixel from ball-only render "
+            "(show_pokeball=True, show_pikachu=False)"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Phase 2 tests: render_hires_frame / load_hires take a HiresSpec directly.

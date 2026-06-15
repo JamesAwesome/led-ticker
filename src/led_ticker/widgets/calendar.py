@@ -491,6 +491,7 @@ class _NextEventWidget(FrameAwareBase):
     padding: int = 6
     _baseline_y: int = attrs.field(init=False, default=-1)
     _resolved_tz: tzinfo | None = attrs.field(init=False, default=None)
+    _events_sorted: list[CalendarEvent] | None = attrs.field(init=False, default=None)
 
     def draw(
         self,
@@ -513,7 +514,15 @@ class _NextEventWidget(FrameAwareBase):
         # event the same day with the old single-pass pick.
         # Fix #2: a multi-day all-day that started BEFORE today (start.date() <
         # today) was invisible with the old start.date()==today predicate.
-        events_sorted = sorted(self.events, key=lambda e: e.start)
+        # `self.events` is fixed for the life of this widget (the Container
+        # rebuilds a NEW _NextEventWidget on every update()), so sort once and
+        # cache rather than re-sorting on every 20 Hz draw tick. parse_ics +
+        # select_events already hand us a start-sorted list, but we sort
+        # defensively so a directly-constructed widget (e.g. tests) is correct
+        # regardless of input order — paid once, not per tick.
+        if self._events_sorted is None:
+            self._events_sorted = sorted(self.events, key=lambda e: e.start)
+        events_sorted = self._events_sorted
         now_date = now.date()
         # 1) soonest not-yet-started timed event (the actionable countdown)
         event = next(

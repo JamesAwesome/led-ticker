@@ -71,10 +71,10 @@ class HiresFrames:
 
     `flip_horizontal` and `trail` are denormalized from the originating
     `HiresSpec` so callers (`render_hires_frame`) can read them off the
-    cached frames without doing a second `HIRES_REGISTRY` lookup.
+    cached frames without re-reading the originating `HiresSpec`.
     Intentional duplication; if these fields ever drift between
     HiresSpec and HiresFrames, the renderer's behavior will diverge
-    silently from the registry config.
+    silently from the spec.
     """
 
     width: int

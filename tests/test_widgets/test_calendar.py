@@ -2422,6 +2422,16 @@ def test_validate_two_row_oversized_font_errors(tmp_path):
     assert any("per-row band" in e.message for e in result.errors)
 
 
+def test_validate_two_row_top_row_height_ge_content_height_errors(tmp_path):
+    # top_row_height >= content_height leaves the bottom row zero rows ->
+    # resolve_band_heights raises at draw (panel freeze). validate must catch it
+    # at config-load (validate_config alone can't — it doesn't see content_height).
+    cfg = _write_cal_two_row(tmp_path, extra="top_row_height = 16")  # content_height=16
+    result = asyncio.run(validate_config(cfg))
+    assert result.valid is False
+    assert any("top_row_height" in e.message for e in result.errors)
+
+
 def test_validate_two_row_explicit_6x12_is_clean(tmp_path):
     # 6x12 resolves to FONT_DEFAULT, which runtime substitutes with 5x8; validate
     # must agree (no false band error) so validate and runtime stay consistent.

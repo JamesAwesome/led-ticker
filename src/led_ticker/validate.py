@@ -1149,8 +1149,24 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
             top_row_height = widget_cfg.get("top_row_height")
             try:
                 top_h, bottom_h = resolve_band_heights(content_h, top_row_height)
-            except ValueError:
-                # Caught separately by _run_build_checks; don't double-report.
+            except ValueError as e:
+                # top_row_height >= content_height leaves the bottom row zero
+                # rows, so TwoRowMessage.draw() raises and freezes the panel
+                # (constraint #1). Nothing constructs or draws the widget during
+                # validation (validate_widget_cfg is coercion-only), so this is
+                # NOT caught downstream — surface it here instead of swallowing.
+                issues.append(
+                    ValidationIssue(
+                        rule=22,
+                        location=f"section[{i}].widget[{j}]",
+                        severity="error",
+                        message=str(e),
+                        fix=(
+                            "Set top_row_height < the section's content_height "
+                            "(omit it for the default 50/50 split)."
+                        ),
+                    )
+                )
                 continue
 
             shared_font_name = widget_cfg.get("font")

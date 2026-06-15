@@ -21,6 +21,10 @@ led-ticker plugin remove pool      # − line
 docker compose up -d --build       # the build installs from the manifest
 ```
 
+:::note
+`add` / `remove` only edit a host file, so run them **on the host** from your project root (where `config/` lives) — not inside the container. Don't reach for `docker compose exec led-ticker led-ticker plugin add …`: the container mounts `./config` read-only, so the write fails. If you run led-ticker purely via Docker and have no host `led-ticker` command, use the hand-edit path below instead — it's the same manifest.
+:::
+
 **Bare-metal / dev** — `install` does the same manifest edit **and** pip-installs into your virtualenv immediately (with `uninstall` to reverse it):
 
 ```bash

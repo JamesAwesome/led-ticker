@@ -207,7 +207,10 @@ def main() -> None:
     padd.add_argument(
         "--unpinned",
         action="store_true",
-        help="Write @main / a bare PyPI name instead of the catalog's pinned ref",
+        help=(
+            "Write the branch ref / bare PyPI name instead of a pinned tag/SHA. "
+            "(Bundled catalog refs are @main today, so this is a no-op for them.)"
+        ),
     )
     _add_dry_run_arg(padd)
     _add_config_arg(padd)
@@ -235,7 +238,10 @@ def main() -> None:
     pinstall.add_argument(
         "--unpinned",
         action="store_true",
-        help="Write @main / a bare PyPI name instead of the catalog's pinned ref",
+        help=(
+            "Write the branch ref / bare PyPI name instead of a pinned tag/SHA. "
+            "(Bundled catalog refs are @main today, so this is a no-op for them.)"
+        ),
     )
     pinstall.add_argument(
         "--save-only",

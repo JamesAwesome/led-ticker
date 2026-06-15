@@ -297,6 +297,45 @@ def test_install_preserves_inline_comment_and_echoes_old(tmp_path, fakepip, caps
     assert "1.4.0" in out and "Replaced" in out  # old line surfaced
 
 
+def test_update_does_not_mangle_egg_fragment_on_replace(tmp_path):
+    # A '#egg=' fragment is part of a git URL, NOT a pip comment — re-adding over
+    # an egg-bearing line must not carry it as a trailing comment (which would
+    # duplicate it or demote a URL fragment into a comment, changing the spec).
+    rf = _reqfile(tmp_path)
+    rf.write_text("git+https://h/o/led-ticker-pool.git@main#egg=led-ticker-pool\n")
+    # re-add catalog-style (no egg) — the egg must NOT reappear as a comment
+    new = "git+https://h/o/led-ticker-pool.git@v2"
+    plugin_cmd._update_requirements(rf, new)
+    body = rf.read_text()
+    assert "#" not in body  # no stray '  #egg=' comment
+    assert body.strip() == new
+
+
+def test_update_still_carries_a_real_inline_comment(tmp_path):
+    # Whitespace-delimited '#' is a genuine comment and must still be carried.
+    rf = _reqfile(tmp_path)
+    rf.write_text("led-ticker-pool==1.4.0  # prod pin\n")
+    plugin_cmd._update_requirements(rf, "led-ticker-pool==1.5.0")
+    body = rf.read_text()
+    assert "led-ticker-pool==1.5.0" in body
+    assert "# prod pin" in body
+
+
+@pytest.mark.parametrize(
+    "line,comment",
+    [
+        ("pkg==1.0  # prod pin", "# prod pin"),
+        ("pkg==1.0\t#note", "#note"),
+        ("# whole line comment", "# whole line comment"),
+        ("git+https://h/o/p.git@main#egg=p", None),  # URL fragment, not a comment
+        ("git+https://h/o/p.git@main#subdirectory=x", None),
+        ("pkg==1.0", None),
+    ],
+)
+def test_trailing_comment_matches_pip_rules(line, comment):
+    assert plugin_cmd._trailing_comment(line) == comment
+
+
 # --- list / search ---
 
 

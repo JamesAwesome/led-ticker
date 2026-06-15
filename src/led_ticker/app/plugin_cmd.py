@@ -8,6 +8,7 @@ install target; the module never imports pip.
 
 import difflib
 import importlib.metadata
+import re
 import subprocess
 import sys
 import tempfile
@@ -65,6 +66,18 @@ def _requirement_key(requirement: str) -> str:
     return req.strip().lower().replace("_", "-")
 
 
+def _trailing_comment(line: str) -> str | None:
+    """The pip-style trailing comment on a requirements line, or None.
+
+    pip treats ``#`` as a comment only at line-start or when preceded by
+    whitespace; a ``#egg=`` / ``#subdirectory=`` fragment inside a git URL is NOT
+    a comment. Returns the comment text including the leading ``#`` (stripped of
+    surrounding whitespace), or None when the line has no comment.
+    """
+    match = re.search(r"(?:^|\s)(#.*)$", line)
+    return match.group(1).strip() if match else None
+
+
 def _update_requirements(path: Path, requirement: str) -> str | None:
     """Add `requirement` to the requirements file, replacing any prior line for
     the same plugin. Preserves comments and unrelated lines — including a trailing
@@ -84,9 +97,13 @@ def _update_requirements(path: Path, requirement: str) -> str | None:
         ):
             replaced_line = line
             # Carry a trailing inline comment ("pkg==1.0  # prod pin") onto the
-            # new line so a deliberate annotation isn't silently lost.
-            if "#" in line:
-                new_line = f"{requirement}  {line[line.index('#') :].strip()}"
+            # new line so a deliberate annotation isn't silently lost. Detect a
+            # comment the way pip does — only a '#' at line-start or preceded by
+            # whitespace — so a '#egg='/'#subdirectory=' URL fragment (part of a
+            # git spec, NOT a comment) isn't mistaken for one and mangled.
+            comment = _trailing_comment(line)
+            if comment:
+                new_line = f"{requirement}  {comment}"
             continue  # drop the old line for this plugin
         kept.append(line)
     kept.append(new_line)

@@ -84,6 +84,13 @@ for a non-standard layout, warned if it'd write outside `config/`), and dedup by
 plugin while preserving comments. `add`/`install` take `--source git|pypi` and
 `--unpinned`; all take `--dry-run`.
 
+Run these **on the host**, not inside the container — they edit a host file, and
+the container mounts `./config` read-only, so `docker compose exec led-ticker
+led-ticker plugin add …` fails. If you run led-ticker purely via Docker and have
+no host `led-ticker` command, edit `config/requirements-plugins.txt` by hand
+(`cp config/requirements-plugins.example.txt config/requirements-plugins.txt`)
+and rebuild — it's the same manifest.
+
 ### `plugin add` / `plugin remove` (manifest only — Docker)
 
 `add` resolves the name to a pip requirement and writes it to

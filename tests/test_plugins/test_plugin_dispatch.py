@@ -75,3 +75,47 @@ def test_plugin_install_without_config_targets_config_dir(
     out = capsys.readouterr().out
     assert code == 0
     assert "config/requirements-plugins.txt" in out
+
+
+def test_plugin_add_dispatch_writes_manifest(tmp_path, monkeypatch, capsys):
+    cfg = _min_config(tmp_path)
+    code = _run(monkeypatch, ["plugin", "add", "pool", "--config", str(cfg)])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "rebuild" in out.lower()
+    assert (
+        (tmp_path / "requirements-plugins.txt").read_text().strip().startswith("git+")
+    )
+
+
+def test_plugin_remove_dispatch(tmp_path, monkeypatch, capsys):
+    cfg = _min_config(tmp_path)
+    (tmp_path / "requirements-plugins.txt").write_text(
+        "git+https://github.com/JamesAwesome/led-ticker-pool.git@main\n"
+    )
+    code = _run(monkeypatch, ["plugin", "remove", "pool", "--config", str(cfg)])
+    assert code == 0
+    assert "led-ticker-pool" not in (tmp_path / "requirements-plugins.txt").read_text()
+
+
+def test_plugin_uninstall_dry_run_dispatch(tmp_path, monkeypatch, capsys):
+    cfg = _min_config(tmp_path)
+    code = _run(
+        monkeypatch, ["plugin", "uninstall", "pool", "--config", str(cfg), "--dry-run"]
+    )
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "pip uninstall" in out  # dry-run shows the command, runs nothing
+
+
+def test_install_save_only_deprecation_routes_to_add(tmp_path, monkeypatch, capsys):
+    # `install --save-only` warns and behaves like `add` (no pip).
+    cfg = _min_config(tmp_path)
+    code = _run(
+        monkeypatch,
+        ["plugin", "install", "pool", "--save-only", "--config", str(cfg)],
+    )
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "deprecated" in captured.err
+    assert (tmp_path / "requirements-plugins.txt").exists()

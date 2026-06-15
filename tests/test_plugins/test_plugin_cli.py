@@ -56,6 +56,10 @@ class _FakePip:
     def install_cmd(self):
         return next((c for c in self.calls if "install" in c), None)
 
+    @property
+    def uninstall_cmd(self):
+        return next((c for c in self.calls if "uninstall" in c), None)
+
 
 @pytest.fixture
 def fakepip(monkeypatch):
@@ -70,6 +74,24 @@ def _reqfile(tmp_path):
 
 def _install(tmp_path, target, **kw):
     return plugin_cmd.cmd_install(
+        target, config_path=tmp_path / "config.toml", catalog=_catalog(), **kw
+    )
+
+
+def _add(tmp_path, target, **kw):
+    return plugin_cmd.cmd_add(
+        target, config_path=tmp_path / "config.toml", catalog=_catalog(), **kw
+    )
+
+
+def _remove(tmp_path, target, **kw):
+    return plugin_cmd.cmd_remove(
+        target, config_path=tmp_path / "config.toml", catalog=_catalog(), **kw
+    )
+
+
+def _uninstall(tmp_path, target, **kw):
+    return plugin_cmd.cmd_uninstall(
         target, config_path=tmp_path / "config.toml", catalog=_catalog(), **kw
     )
 
@@ -109,10 +131,11 @@ def test_install_source_on_raw_spec_errors(tmp_path, fakepip):
     assert not _reqfile(tmp_path).exists()
 
 
-def test_install_save_only_skips_pip(tmp_path, fakepip):
-    code = _install(tmp_path, "pool", save_only=True)
+def test_add_writes_manifest_without_pip(tmp_path, fakepip):
+    code = _add(tmp_path, "pool")
     assert code == 0
-    assert _reqfile(tmp_path).exists()
+    line = "git+https://github.com/JamesAwesome/led-ticker-pool.git@v1.2.0"
+    assert _reqfile(tmp_path).read_text().strip().splitlines()[-1] == line
     assert fakepip.calls == []  # pip never invoked
 
 
@@ -316,3 +339,91 @@ def test_cmd_search_no_match(capsys):
 )
 def test_requirement_key_normalizes(requirement, key):
     assert plugin_cmd._requirement_key(requirement) == key
+
+
+# --- add / remove / uninstall (manifest verbs) ---
+
+
+def test_add_prints_rebuild_hint(tmp_path, fakepip, capsys):
+    _add(tmp_path, "pool")
+    assert "rebuild" in capsys.readouterr().out.lower()
+
+
+def test_add_dry_run_changes_nothing(tmp_path, fakepip):
+    code = _add(tmp_path, "pool", dry_run=True)
+    assert code == 0
+    assert not _reqfile(tmp_path).exists()
+    assert fakepip.calls == []
+
+
+def test_remove_drops_line_no_pip(tmp_path, fakepip):
+    _add(tmp_path, "pool")
+    code = _remove(tmp_path, "pool")
+    assert code == 0
+    assert "led-ticker-pool" not in _reqfile(tmp_path).read_text()
+    assert fakepip.calls == []  # remove never touches pip
+
+
+def test_remove_by_raw_spec(tmp_path, fakepip):
+    rf = _reqfile(tmp_path)
+    rf.write_text("git+https://h/o/led-ticker-pool.git@feature/x\n")
+    _remove(tmp_path, "git+https://h/o/led-ticker-pool.git@main")
+    assert "led-ticker-pool" not in rf.read_text()
+
+
+def test_remove_not_in_manifest_is_clean(tmp_path, fakepip, capsys):
+    code = _remove(tmp_path, "pool")  # nothing declared
+    assert code == 0
+    assert "not in" in capsys.readouterr().out
+    assert fakepip.calls == []
+
+
+def test_remove_preserves_other_lines_and_comments(tmp_path, fakepip):
+    rf = _reqfile(tmp_path)
+    rf.write_text(
+        "# my plugins\n"
+        "git+https://github.com/JamesAwesome/led-ticker-pool.git@main\n"
+        "git+https://h/o/led-ticker-acme.git@main\n"
+    )
+    _remove(tmp_path, "pool")
+    body = rf.read_text()
+    assert "# my plugins" in body
+    assert "led-ticker-acme" in body
+    assert "led-ticker-pool" not in body
+
+
+def test_uninstall_removes_line_and_pip_uninstalls(tmp_path, fakepip):
+    _add(tmp_path, "pool")
+    code = _uninstall(tmp_path, "pool")
+    assert code == 0
+    assert "led-ticker-pool" not in _reqfile(tmp_path).read_text()
+    assert fakepip.uninstall_cmd[-1] == "led-ticker-pool"
+
+
+def test_uninstall_not_in_manifest_still_pip_uninstalls(tmp_path, fakepip, capsys):
+    code = _uninstall(tmp_path, "pool")  # never added
+    assert code == 0
+    assert "was not in" in capsys.readouterr().out
+    assert fakepip.uninstall_cmd[-1] == "led-ticker-pool"
+
+
+def test_uninstall_dry_run(tmp_path, fakepip):
+    code = _uninstall(tmp_path, "pool", dry_run=True)
+    assert code == 0
+    assert fakepip.calls == []
+
+
+# --- list [declared] / [installed] ---
+
+
+def test_cmd_list_marks_declared(tmp_path, fakepip, capsys):
+    _add(tmp_path, "pool")  # writes tmp_path/requirements-plugins.txt
+    plugin_cmd.cmd_list(
+        catalog=_catalog(),
+        config_path=tmp_path / "config.toml",
+        config_explicit=True,
+    )
+    out = capsys.readouterr().out
+    # the pool line should be marked [declared]
+    pool_line = next(ln for ln in out.splitlines() if ln.strip().startswith("pool"))
+    assert "[declared]" in pool_line

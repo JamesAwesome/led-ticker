@@ -151,7 +151,7 @@ def main() -> None:
     # `plugin` subcommand — manage plugins (status/list/search/install)
     plugin_parser = subparsers.add_parser(
         "plugin",
-        help="Manage plugins: status, list/search the catalog, install",
+        help="Manage plugins: status/list/search, add/remove, install/uninstall",
     )
     plugin_sub = plugin_parser.add_subparsers(dest="plugin_command")
 
@@ -166,13 +166,62 @@ def main() -> None:
         help="Path to TOML config file (defaults to the top-level --config)",
     )
 
-    plugin_sub.add_parser("list", help="List available plugins from the catalog")
+    def _add_config_arg(p: argparse.ArgumentParser) -> None:
+        p.add_argument(
+            "--config",
+            "-c",
+            type=Path,
+            default=argparse.SUPPRESS,
+            help="Path to TOML config file (defaults to the top-level --config)",
+        )
+
+    def _add_dry_run_arg(p: argparse.ArgumentParser) -> None:
+        p.add_argument(
+            "--dry-run",
+            action="store_true",
+            dest="dry_run",
+            help="Print the plan without changing anything",
+        )
+
+    plist = plugin_sub.add_parser(
+        "list", help="List catalog plugins (marks [declared] / [installed])"
+    )
+    _add_config_arg(plist)
 
     psearch = plugin_sub.add_parser("search", help="Search the plugin catalog")
     psearch.add_argument("query", help="Substring to match (name/summary/provides)")
 
+    padd = plugin_sub.add_parser(
+        "add",
+        help="Add a plugin to requirements-plugins.txt (no install) — Docker flow",
+    )
+    padd.add_argument(
+        "target", help="Catalog name (e.g. pool) or a pip spec (git+https://…, name==x)"
+    )
+    padd.add_argument(
+        "--source",
+        choices=["git", "pypi"],
+        default=None,
+        help="Which catalog source to use (default: the entry's first source)",
+    )
+    padd.add_argument(
+        "--unpinned",
+        action="store_true",
+        help="Write @main / a bare PyPI name instead of the catalog's pinned ref",
+    )
+    _add_dry_run_arg(padd)
+    _add_config_arg(padd)
+
+    premove = plugin_sub.add_parser(
+        "remove",
+        help="Remove a plugin from requirements-plugins.txt (no pip) — Docker flow",
+    )
+    premove.add_argument("target", help="Catalog name or pip spec to remove")
+    _add_dry_run_arg(premove)
+    _add_config_arg(premove)
+
     pinstall = plugin_sub.add_parser(
-        "install", help="Install a plugin by catalog name or pip spec"
+        "install", help="Add a plugin AND pip-install it (bare-metal/dev)"
     )
     pinstall.add_argument(
         "target", help="Catalog name (e.g. pool) or a pip spec (git+https://…, name==x)"
@@ -192,21 +241,17 @@ def main() -> None:
         "--save-only",
         action="store_true",
         dest="save_only",
-        help="Only update requirements-plugins.txt; skip pip install (Docker flow)",
+        help="(deprecated) alias for `plugin add` — update the file, skip pip",
     )
-    pinstall.add_argument(
-        "--dry-run",
-        action="store_true",
-        dest="dry_run",
-        help="Print the plan without changing anything",
+    _add_dry_run_arg(pinstall)
+    _add_config_arg(pinstall)
+
+    puninstall = plugin_sub.add_parser(
+        "uninstall", help="Remove a plugin AND pip-uninstall it (bare-metal/dev)"
     )
-    pinstall.add_argument(
-        "--config",
-        "-c",
-        type=Path,
-        default=argparse.SUPPRESS,
-        help="Path to TOML config file (defaults to the top-level --config)",
-    )
+    puninstall.add_argument("target", help="Catalog name or pip spec to uninstall")
+    _add_dry_run_arg(puninstall)
+    _add_config_arg(puninstall)
 
     # `webui` subcommand — the unprivileged status sidecar
     webui_parser = subparsers.add_parser(
@@ -246,15 +291,66 @@ def main() -> None:
 
         from led_ticker.app import plugin_cmd  # noqa: PLC0415
 
+        # Whether the user gave a config (vs the bare default config.toml). When
+        # they didn't, the manifest verbs default to the canonical
+        # config/requirements-plugins.txt instead of the cwd.
+        config_explicit = args.config != Path("config.toml")
+
         if pc == "list":
-            sys.exit(plugin_cmd.cmd_list())
+            sys.exit(
+                plugin_cmd.cmd_list(
+                    config_path=args.config, config_explicit=config_explicit
+                )
+            )
         if pc == "search":
             sys.exit(plugin_cmd.cmd_search(args.query))
+        if pc == "add":
+            sys.exit(
+                plugin_cmd.cmd_add(
+                    args.target,
+                    config_path=args.config,
+                    config_explicit=config_explicit,
+                    source=args.source,
+                    pinned=not args.unpinned,
+                    dry_run=args.dry_run,
+                )
+            )
+        if pc == "remove":
+            sys.exit(
+                plugin_cmd.cmd_remove(
+                    args.target,
+                    config_path=args.config,
+                    config_explicit=config_explicit,
+                    dry_run=args.dry_run,
+                )
+            )
+        if pc == "uninstall":
+            sys.exit(
+                plugin_cmd.cmd_uninstall(
+                    args.target,
+                    config_path=args.config,
+                    config_explicit=config_explicit,
+                    dry_run=args.dry_run,
+                )
+            )
         if pc == "install":
-            # Whether the user gave a config (vs the bare default config.toml).
-            # When they didn't, cmd_install defaults the requirements file to the
-            # canonical config/requirements-plugins.txt instead of the cwd.
-            config_explicit = args.config != Path("config.toml")
+            if args.save_only:
+                # --save-only now == `plugin add`. Keep working, but nudge.
+                print(
+                    "note: `install --save-only` is deprecated; use "
+                    "`led-ticker plugin add`.",
+                    file=sys.stderr,
+                )
+                sys.exit(
+                    plugin_cmd.cmd_add(
+                        args.target,
+                        config_path=args.config,
+                        config_explicit=config_explicit,
+                        source=args.source,
+                        pinned=not args.unpinned,
+                        dry_run=args.dry_run,
+                    )
+                )
             sys.exit(
                 plugin_cmd.cmd_install(
                     args.target,
@@ -262,7 +358,6 @@ def main() -> None:
                     config_explicit=config_explicit,
                     source=args.source,
                     pinned=not args.unpinned,
-                    save_only=args.save_only,
                     dry_run=args.dry_run,
                 )
             )

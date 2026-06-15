@@ -21,7 +21,7 @@ import pytest
 from led_ticker.widgets.calendar import (
     CalendarEvent,
     _NextEventWidget,
-    format_relative,
+    split_relative,
 )
 
 _UTC = ZoneInfo("UTC")
@@ -87,12 +87,12 @@ def _draw_with_fixed_now(events: list[CalendarEvent]) -> str:
     """Create a _NextEventWidget, monkeypatch _now_in, call draw(), and return
     the rendered text by intercepting format_relative."""
     rendered: list[str] = []
-    original_format_relative = format_relative
+    original_split = split_relative
 
-    def capture_format_relative(event, now, empty_text):
-        result = original_format_relative(event, now, empty_text)
-        rendered.append(result)
-        return result
+    def capture_split(event, now, empty_text):
+        title, time_part = original_split(event, now, empty_text)
+        rendered.append(title + time_part)
+        return title, time_part
 
     w = _NextEventWidget(
         events=list(events), empty_text="No upcoming events", timezone="UTC"
@@ -103,10 +103,10 @@ def _draw_with_fixed_now(events: list[CalendarEvent]) -> str:
     c.width = 160
     c.height = 16
 
-    _rel_patch = "led_ticker.widgets.calendar.format_relative"
+    _rel_patch = "led_ticker.widgets.calendar.split_relative"
     with (
         patch("led_ticker.widgets.calendar._now_in", return_value=_NOW),
-        patch(_rel_patch, side_effect=capture_format_relative),
+        patch(_rel_patch, side_effect=capture_split),
     ):
         w.draw(c)
 
@@ -116,11 +116,11 @@ def _draw_with_fixed_now(events: list[CalendarEvent]) -> str:
 def _picked_event(events: list[CalendarEvent]) -> CalendarEvent | None:
     """Like _draw_with_fixed_now but returns the PICKED event object."""
     picked: list[CalendarEvent | None] = []
-    original_format_relative = format_relative
+    original_split = split_relative
 
-    def capture_format_relative(event, now, empty_text):
+    def capture_split(event, now, empty_text):
         picked.append(event)
-        return original_format_relative(event, now, empty_text)
+        return original_split(event, now, empty_text)
 
     w = _NextEventWidget(
         events=list(events), empty_text="No upcoming events", timezone="UTC"
@@ -131,10 +131,10 @@ def _picked_event(events: list[CalendarEvent]) -> CalendarEvent | None:
     c.width = 160
     c.height = 16
 
-    _rel_patch = "led_ticker.widgets.calendar.format_relative"
+    _rel_patch = "led_ticker.widgets.calendar.split_relative"
     with (
         patch("led_ticker.widgets.calendar._now_in", return_value=_NOW),
-        patch(_rel_patch, side_effect=capture_format_relative),
+        patch(_rel_patch, side_effect=capture_split),
     ):
         w.draw(c)
 

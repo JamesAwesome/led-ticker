@@ -43,10 +43,10 @@ easing = "ease_out"
 between_sections = "cut"
 
 # --- agenda layout (the default): rotating upcoming events, hires font ---
-# Each upcoming event becomes its own scrolling line. Events matching
-# `highlight` render amber; the rest use font_color (rainbow here). Confirm the
-# soonest several events appear in chronological order and a "1:1" event (if any)
-# shows in amber.
+# Two-tone: the time phrase ("Tomorrow 3:09 PM ·") renders in time_color (cyan
+# here) and the title in font_color (rainbow). Confirm the soonest several events
+# appear in chronological order, the time phrase is clearly CYAN while the title
+# sweeps rainbow, and a "1:1" event (if any) overrides BOTH and shows all-amber.
 
 [[playlist.section]]
 mode = "swap"
@@ -62,17 +62,21 @@ timezone = "America/New_York"   # set to your IANA zone (or omit for system-loca
 time_format = "12h"             # "12h" -> "3:09 PM", "24h" -> "15:09"
 max_events = 5
 lookahead_days = 7
-highlight = ["1:1", "interview"]  # matching events render in highlight_color
+highlight = ["1:1", "interview"]  # matching events render all-amber (highlight_color)
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
-font_color = "rainbow"
+time_color = [0, 200, 255]      # cyan time phrase (default is amber [255,200,60])
+font_color = "rainbow"          # title sweeps rainbow — two-tone with the cyan time
 update_interval = 300           # refetch every 5 min (default 900) for quicker testing
 
 # --- next layout: one live countdown to the soonest event (THE liveness check) ---
-# Shows "<summary> in 25m" and ticks down live (recomputed every ~50ms), rolling
-# to the next event as each one starts. An all-day event today shows "today".
-# Hold this section long enough (20s) to watch the minutes/seconds advance.
+# Shows "<summary> · in 25m" and ticks down live (recomputed every ~50ms),
+# rolling to the next event as each one starts. An all-day event today shows
+# "· today". The title is white; the "· in 25m" time phrase sweeps rainbow, which
+# also exercises the per-effect frame counter wiring for an animated time_color.
+# Hold this section long enough (20s) to watch the minutes/seconds advance AND the
+# rainbow sweep move across the countdown.
 
 [[playlist.section]]
 mode = "swap"
@@ -88,7 +92,8 @@ timezone = "America/New_York"
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
-font_color = [255, 255, 255]
+font_color = [255, 255, 255]    # white title
+time_color = "rainbow"          # animated countdown phrase (tests animated time_color)
 empty_text = "No upcoming events"
 update_interval = 300
 
@@ -113,10 +118,13 @@ max_events = 5
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
-font_color = "color_cycle"
+time_color = [150, 150, 150]    # grey time phrase (baseball date-label style)
+font_color = "color_cycle"      # title cycles colors over the grey time
 
 # --- second timezone (sanity): same feed, different display zone ---
-# Should render the same events shifted to the other zone's wall-clock.
+# Should render the same events shifted to the other zone's wall-clock. This
+# section also flexes the SINGLE-COLOR path: set time_color == font_color so the
+# whole line (time phrase + title) is one uniform rainbow, no two-tone split.
 
 [[playlist.section]]
 mode = "swap"
@@ -133,4 +141,5 @@ time_format = "12h"
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
+time_color = "rainbow"          # same as font_color -> uniform single-color line
 font_color = "rainbow"

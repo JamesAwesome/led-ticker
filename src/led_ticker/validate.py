@@ -9,6 +9,7 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import unquote
 
 import tomli_w
 
@@ -753,6 +754,64 @@ def _check_asset_paths(config: AppConfig, config_dir: Path) -> list[ValidationIs
                             "Check the path is correct relative to the config "
                             "file. In --strict mode all referenced asset files "
                             "must be present."
+                        ),
+                    )
+                )
+    return issues
+
+
+_ICS_NETWORK_SCHEMES = ("http://", "https://", "webcal://", "webcals://")
+
+
+def _check_calendar_ics_paths(
+    config: AppConfig, config_dir: Path
+) -> list[ValidationIssue]:
+    """Rule 54: a calendar `ics_url` pointing at a LOCAL file should exist.
+
+    Emitted as a WARNING, not an error: the file may be written at runtime (e.g.
+    a cron exports the `.ics`), so a missing path at validate time is a heads-up,
+    not a hard failure — mirrors the missing-font warning. Network URLs
+    (`http(s)://`, `webcal(s)://`) are never fetched here (no network I/O). The
+    obvious unfilled-placeholder case is a hard error from
+    `Calendar.validate_config`, and Phase 2 warnings only run when there are no
+    errors, so a placeholder never double-reports here.
+    """
+    issues: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        for j, widget_cfg in enumerate(section.widgets):
+            if widget_cfg.get("type") != "calendar":
+                continue
+            ics_url = widget_cfg.get("ics_url")
+            if not isinstance(ics_url, str) or not ics_url.strip():
+                continue  # required-field error handled by validate_config
+            if ics_url.lower().startswith(_ICS_NETWORK_SCHEMES):
+                continue  # network feed — no path check
+            raw = ics_url
+            if raw.startswith("file://"):
+                raw = raw[len("file://") :]
+                if raw.startswith("localhost/"):
+                    raw = raw[len("localhost") :]  # RFC 8089 file://localhost/abs
+                raw = unquote(raw)
+            candidate = Path(raw).expanduser()
+            resolved = (
+                candidate
+                if candidate.is_absolute()
+                else (config_dir / candidate).resolve()
+            )
+            if not resolved.exists():
+                issues.append(
+                    ValidationIssue(
+                        rule=54,
+                        location=f"section[{i}].widget[{j}]",
+                        severity="warning",
+                        message=(
+                            f"calendar ics_url path {ics_url!r} does not exist"
+                            f" (resolved to {resolved})"
+                        ),
+                        fix=(
+                            "It must be present at runtime. If a job writes the "
+                            ".ics file later this is just a heads-up; otherwise "
+                            "fix the path or use an https:// feed URL."
                         ),
                     )
                 )
@@ -1820,6 +1879,7 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
         warnings.extend(_check_soft(config))
         warnings.extend(_check_held_top_text_overflow(config))
         warnings.extend(_check_transition_fps(config))
+        warnings.extend(_check_calendar_ics_paths(config, path.parent))
 
     # Phase 2 (strict only): asset path existence check.
     # Not in normal mode — asset files may only exist on the deploy target.

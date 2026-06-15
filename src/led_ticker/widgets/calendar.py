@@ -3,7 +3,8 @@
 Always a Container (like rss_feed): a shared data core fetches + parses the
 feed, then update() populates feed_stories per the `layout` knob — `agenda`
 builds one two-tone line per event (time phrase in `time_color`, title in
-`font_color`); `next` builds one live countdown widget.
+`font_color`); `next` builds one live countdown widget; `two_row` builds one
+TwoRowMessage card per event (held day+time on top, scrolling title below).
 """
 
 import asyncio
@@ -30,6 +31,7 @@ from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets.clock import format_clock
 from led_ticker.widgets.message import TickerMessage
+from led_ticker.widgets.two_row import TwoRowMessage
 
 logger = logging.getLogger(__name__)
 
@@ -370,6 +372,22 @@ def _day_label(start: datetime, now: datetime) -> str:
     return f"{_MONTH_ABBR[start.month - 1]} {start.day}"
 
 
+def format_when(
+    event: CalendarEvent, *, now: datetime, time_format: str, tz: tzinfo
+) -> str:
+    """The 'when' phrase: '<day> <time>' (timed) or '<day>' (all-day).
+
+    No separator — used as the held top row of the two_row layout (the rows
+    separate the when from the title visually) and as the source of the agenda
+    time phrase. Honors ``time_format``. ``tz`` is accepted for signature
+    symmetry; ``event.start`` is already in the display zone.
+    """
+    day = _day_label(event.start, now)
+    if event.all_day:
+        return day
+    return f"{day} {format_clock(event.start, time_format)}"
+
+
 def split_event_line(
     event: CalendarEvent, *, now: datetime, time_format: str, tz: tzinfo
 ) -> tuple[str, str]:
@@ -380,10 +398,8 @@ def split_event_line(
     clock time. ``tz`` is accepted for signature symmetry with the other
     formatters; ``event.start`` is already in the display zone.
     """
-    day = _day_label(event.start, now)
-    if event.all_day:
-        return f"{day}{_SEP}", event.summary
-    return f"{day} {format_clock(event.start, time_format)}{_SEP}", event.summary
+    when = format_when(event, now=now, time_format=time_format, tz=tz)
+    return f"{when}{_SEP}", event.summary
 
 
 def format_event_line(
@@ -815,8 +831,9 @@ class Calendar:
     # ``_list_widget_fields`` coerces plain tuples to ``FieldHint`` before use.
     _LIST_FIELD_HINTS: ClassVar[dict] = {
         "layout": (
-            '"agenda" | "next"',
-            "agenda = rotating events list; next = live countdown to the next event",
+            '"agenda" | "next" | "two_row"',
+            "agenda = rotating events list; next = live countdown; "
+            "two_row = per-event card (held day+time on top, title below)",
             '"agenda"',
         ),
     }
@@ -854,6 +871,12 @@ class Calendar:
     )
     bg_color: Any = attrs.field(default=None, kw_only=True)
     border: Any | None = attrs.field(default=None, kw_only=True)
+    # two_row-layout only: per-row knobs passed through to TwoRowMessage. The
+    # top_/bottom_ prefix follows the two-row convention (genuinely per-row, no
+    # cross-layout meaning). Inert in agenda/next mode.
+    top_row_height: int | None = attrs.field(default=None, kw_only=True)
+    top_text_y_offset: int = attrs.field(default=0, kw_only=True)
+    bottom_text_y_offset: int = attrs.field(default=0, kw_only=True)
     feed_stories: list[Widget] = attrs.field(init=False, factory=list)
     feed_title: TickerMessage | None = attrs.field(init=False, default=None)
 
@@ -872,8 +895,8 @@ class Calendar:
                 "paste your real .ics URL (Google/iCloud/Outlook 'iCal' link)"
             )
         layout = cfg.get("layout", "agenda")
-        if layout not in ("agenda", "next"):
-            errors.append(f"layout {layout!r} must be 'agenda' or 'next'")
+        if layout not in ("agenda", "next", "two_row"):
+            errors.append(f"layout {layout!r} must be 'agenda', 'next', or 'two_row'")
         tz = cfg.get("timezone")
         if tz:  # empty string / None => use system-local default (see _resolve_tz)
             if not isinstance(tz, str):
@@ -1043,6 +1066,8 @@ class Calendar:
                     padding=self.padding,
                 )
             ]
+        if self.layout == "two_row":
+            return self._build_two_row_stories(events, now=now, tz=tz)
         # agenda
         if not events:
             return [self._empty_story()]
@@ -1069,6 +1094,43 @@ class Calendar:
                     bg_color=self.bg_color,
                     border=self.border,
                     padding=self.padding,
+                )
+            )
+        return stories
+
+    def _build_two_row_stories(
+        self, events: list[CalendarEvent], *, now: datetime, tz: tzinfo
+    ) -> list[Widget]:
+        """One TwoRowMessage card per event: held day+time on top, title below.
+
+        Colors reuse the same vocabulary as agenda/next — time_color (top) and
+        font_color (bottom); a highlighted event uses highlight_color for BOTH
+        rows (whole-card attention state).
+        """
+        if not events:
+            return [self._empty_story()]
+        stories: list[Widget] = []
+        for e in events:
+            if _match_any(e.summary, self.highlight):
+                top_color = bottom_color = self.highlight_color
+            else:
+                top_color = self.time_color
+                bottom_color = self.font_color
+            when = format_when(e, now=now, time_format=self.time_format, tz=tz)
+            stories.append(
+                TwoRowMessage(
+                    when,
+                    e.summary,
+                    top_font=self.font,
+                    bottom_font=self.font,
+                    top_color=top_color,
+                    bottom_color=bottom_color,
+                    bg_color=self.bg_color,
+                    border=self.border,
+                    padding=self.padding,
+                    top_row_height=self.top_row_height,
+                    top_text_y_offset=self.top_text_y_offset,
+                    bottom_text_y_offset=self.bottom_text_y_offset,
                 )
             )
         return stories

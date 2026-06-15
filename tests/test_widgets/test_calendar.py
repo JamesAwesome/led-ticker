@@ -30,11 +30,13 @@ from led_ticker.widgets.calendar import (
     _TwoToneLine,
     format_event_line,
     format_relative,
+    format_when,
     parse_ics,
     select_events,
     split_event_line,
     split_relative,
 )
+from led_ticker.widgets.two_row import TwoRowMessage
 
 _FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "calendar_sample.ics"
 _UTC = ZoneInfo("UTC")
@@ -2184,3 +2186,148 @@ def test_time_color_coerces_from_rgb_list():
     _coerce_widget_colors(cfg)
     c = cfg["time_color"].color_for(0, 0, 1)
     assert (c.red, c.green, c.blue) == (10, 20, 30)
+
+
+# ---------------------------------------------------------------------------
+# two_row layout (2026-06-15): per-event card — held day+time on top, title
+# (scroll-on-overflow) below — built on TwoRowMessage.
+# ---------------------------------------------------------------------------
+
+_AMBER_RGB = (255, 200, 60)
+_WHITE_RGB = (255, 255, 255)
+
+
+def _rgb_of(provider):
+    c = provider.color_for(0, 0, 1)
+    return (c.red, c.green, c.blue)
+
+
+def test_format_when_timed_honors_time_format():
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    e = CalendarEvent("Standup", datetime(2026, 6, 16, 15, 0, tzinfo=_UTC), False)
+    assert format_when(e, now=now, time_format="12h", tz=_UTC) == "Tomorrow 3:00 PM"
+    assert format_when(e, now=now, time_format="24h", tz=_UTC) == "Tomorrow 15:00"
+    # No separator (the rows separate when/title visually).
+    assert _SEP not in format_when(e, now=now, time_format="12h", tz=_UTC)
+
+
+def test_format_when_all_day_is_day_only():
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    e = CalendarEvent("Vacation", datetime(2026, 6, 16, 0, 0, tzinfo=_UTC), True)
+    assert format_when(e, now=now, time_format="12h", tz=_UTC) == "Tomorrow"
+
+
+def test_validate_accepts_two_row():
+    assert (
+        Calendar.validate_config(
+            {"ics_url": "https://x.test/c.ics", "layout": "two_row"}
+        )
+        == []
+    )
+
+
+def test_validate_rejects_unknown_layout_mentions_two_row():
+    errors = Calendar.validate_config(
+        {"ics_url": "https://x.test/c.ics", "layout": "grid"}
+    )
+    assert any("two_row" in m for m in errors)
+
+
+def _two_row_stories(events, **cal_kwargs):
+    now = datetime(2026, 6, 15, 9, 0, tzinfo=_UTC)
+    cal = _make_calendar(layout="two_row", **cal_kwargs)
+    return cal, cal._build_two_row_stories(events, now=now, tz=_UTC)
+
+
+def test_two_row_builds_one_card_per_event():
+    events = [
+        CalendarEvent("Standup", datetime(2026, 6, 16, 15, 0, tzinfo=_UTC), False),
+        CalendarEvent("Lunch", datetime(2026, 6, 17, 12, 0, tzinfo=_UTC), False),
+    ]
+    _cal, stories = _two_row_stories(events)
+    assert len(stories) == 2
+    assert all(isinstance(s, TwoRowMessage) for s in stories)
+
+
+def test_two_row_card_top_is_when_bottom_is_title():
+    e = CalendarEvent("Team Standup", datetime(2026, 6, 16, 15, 0, tzinfo=_UTC), False)
+    _cal, stories = _two_row_stories([e])
+    card = stories[0]
+    assert card.top_text == "Tomorrow 3:00 PM"
+    assert card.bottom_text == "Team Standup"
+
+
+def test_two_row_default_colors_amber_top_white_bottom():
+    e = CalendarEvent("Standup", datetime(2026, 6, 16, 15, 0, tzinfo=_UTC), False)
+    cal, stories = _two_row_stories([e])
+    card = stories[0]
+    assert card.top_color is cal.time_color
+    assert card.bottom_color is cal.font_color
+    assert _rgb_of(card.top_color) == _AMBER_RGB
+    assert _rgb_of(card.bottom_color) == _WHITE_RGB
+
+
+def test_two_row_highlighted_card_is_all_highlight_color():
+    e = CalendarEvent("1:1 with Sam", datetime(2026, 6, 16, 15, 0, tzinfo=_UTC), False)
+    cal, stories = _two_row_stories([e], highlight=["1:1"])
+    card = stories[0]
+    assert card.top_color is cal.highlight_color
+    assert card.bottom_color is cal.highlight_color
+
+
+def test_two_row_all_day_top_is_day_only():
+    e = CalendarEvent("Vacation", datetime(2026, 6, 16, 0, 0, tzinfo=_UTC), True)
+    _cal, stories = _two_row_stories([e])
+    assert stories[0].top_text == "Tomorrow"
+
+
+def test_two_row_passthrough_knobs_reach_card():
+    e = CalendarEvent("Standup", datetime(2026, 6, 16, 15, 0, tzinfo=_UTC), False)
+    _cal, stories = _two_row_stories(
+        [e], top_row_height=6, top_text_y_offset=1, bottom_text_y_offset=-2
+    )
+    card = stories[0]
+    assert card.top_row_height == 6
+    assert card.top_text_y_offset == 1
+    assert card.bottom_text_y_offset == -2
+
+
+def test_two_row_empty_falls_back_to_single_line():
+    _cal, stories = _two_row_stories([])
+    assert len(stories) == 1
+    assert isinstance(stories[0], TickerMessage)
+    assert not isinstance(stories[0], TwoRowMessage)
+
+
+def test_two_row_card_draws_without_raising(canvas):
+    # A font that fits an 8-row band (5x8) on the 16-tall scale=1 stub canvas.
+    from led_ticker.fonts import FONT_SMALL
+
+    e = CalendarEvent("Standup", datetime(2026, 6, 16, 15, 0, tzinfo=_UTC), False)
+    _cal, stories = _two_row_stories([e], font=FONT_SMALL)
+    out, cursor = stories[0].draw(canvas)
+    assert out is canvas
+    assert isinstance(cursor, int)
+
+
+def test_two_row_oversized_font_raises_at_draw(canvas):
+    # Inherited TwoRowMessage constraint: a font whose line-height exceeds the
+    # per-row band raises at draw time identifying the row. Default 6x12 (lh=12)
+    # can't fit an 8-row band on the 16-tall scale=1 stub canvas.
+    import pytest
+
+    e = CalendarEvent("Standup", datetime(2026, 6, 16, 15, 0, tzinfo=_UTC), False)
+    _cal, stories = _two_row_stories([e])  # default 6x12 font
+    with pytest.raises(ValueError, match="top font line-height"):
+        stories[0].draw(canvas)
+
+
+def test_two_row_update_end_to_end_builds_cards(monkeypatch):
+    cal = _make_calendar(layout="two_row", max_events=3)
+    monkeypatch.setattr(
+        "led_ticker.widgets.calendar._now_in",
+        lambda tz: datetime(2026, 6, 15, 0, 0, tzinfo=_UTC),
+    )
+    asyncio.run(cal.update())
+    assert cal.feed_stories
+    assert all(isinstance(s, TwoRowMessage) for s in cal.feed_stories)

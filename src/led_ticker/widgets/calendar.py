@@ -6,7 +6,6 @@ builds one TickerMessage per event; `next` builds one live countdown widget.
 """
 
 import asyncio
-import itertools
 import logging
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from pathlib import Path
@@ -40,8 +39,10 @@ logger = logging.getLogger(__name__)
 # (5x8/6x10/6x12/7x13 all carry ENCODING 183) and the hires Inter-Regular.otf.
 _SEP = " · "
 
-# Bound memory against pathological/hostile high-frequency RRULEs (e.g. FREQ=SECONDLY).
-# islice ensures we never materialize more than this many occurrences.
+# Belt-and-suspenders bound against a non-sub-hourly high-cardinality feed (e.g.
+# a dense RDATE list). `.between(now, window_end)` already caps the expansion at
+# the lookahead window; this is a final cap on the materialized in-window set so
+# a pathological feed can't balloon memory.
 _MAX_OCCURRENCES = 2000
 
 _SUBHOURLY_FREQS = frozenset({"SECONDLY", "MINUTELY"})
@@ -131,146 +132,6 @@ def _normalize_mismatched_all_day(cal: Any) -> int:
     return fixed
 
 
-_UNIFORM_INTERVAL_SECONDS: dict[str, int] = {
-    "HOURLY": 3600,
-    "DAILY": 86400,
-    "WEEKLY": 604800,
-}
-_BY_KEYS = (
-    "BYSECOND",
-    "BYMINUTE",
-    "BYHOUR",
-    "BYDAY",
-    "BYMONTHDAY",
-    "BYYEARDAY",
-    "BYWEEKNO",
-    "BYMONTH",
-    "BYSETPOS",
-)
-
-# BY* keys that are safe to clamp through for each FREQ:
-# Advancing DTSTART by a whole-period step preserves these time-of-day
-# modifiers because a step of exactly one period keeps the same
-# sub-period position.  BYMONTH/BYMONTHDAY/BYYEARDAY/BYWEEKNO/BYSETPOS
-# need month/year alignment — still skipped.
-_BY_KEYS_SAFE_HOURLY_DAILY: frozenset[str] = frozenset(
-    {"BYHOUR", "BYMINUTE", "BYSECOND"}
-)
-_BY_KEYS_SAFE_WEEKLY: frozenset[str] = frozenset(
-    {"BYHOUR", "BYMINUTE", "BYSECOND", "BYDAY"}
-)
-# Keys that force a skip regardless of FREQ
-_BY_KEYS_UNSAFE: frozenset[str] = frozenset(
-    {"BYMONTH", "BYMONTHDAY", "BYYEARDAY", "BYWEEKNO", "BYSETPOS"}
-)
-# Step to use when a BY* key is present (whole-period advance to preserve pattern)
-_BY_CLAMP_STEP_SECONDS: dict[str, int] = {
-    "HOURLY": 86400,  # 1-DAY step: preserves all BYHOUR/BYMINUTE/BYSECOND positions
-    "DAILY": 86400,  # 1-DAY step: preserves BYHOUR/BYMINUTE/BYSECOND
-    "WEEKLY": 604800,  # 1-WEEK step: preserves BYDAY + time-of-day
-}
-
-
-def _clamp_recurrence_anchors(cal: Any, now: datetime) -> int:
-    """Advance the DTSTART anchor of safe far-past uniform RRULEs to a recent
-    occurrence so recurring_ical_events doesn't walk years of pre-now
-    occurrences.  Only applied when arithmetically equivalent (uniform FREQ,
-    single RRULE, no COUNT/EXDATE/RDATE, datetime DTSTART).
-
-    Safety conditions (only clamp when provably equivalent — correctness over
-    performance):
-    - VEVENT with EXACTLY ONE RRULE.
-    - FREQ in {HOURLY, DAILY, WEEKLY} (uniform interval).
-    - No COUNT (clamping changes the count window).
-    - No EXDATE or RDATE (occurrence overrides reference specific instances).
-    - DTSTART is a datetime (not an all-day date).
-    - BY* safety:
-      - No BY* keys at all → plain uniform case, use base FREQ step.
-      - HOURLY or DAILY with BY parts ONLY in {BYHOUR, BYMINUTE, BYSECOND} →
-        safe to clamp with a 1-DAY step (preserves time-of-day positions).
-      - WEEKLY with BY parts ONLY in {BYHOUR, BYMINUTE, BYSECOND, BYDAY} →
-        safe to clamp with a 1-WEEK step (preserves weekday + time-of-day).
-      - Any of {BYMONTH, BYMONTHDAY, BYYEARDAY, BYWEEKNO, BYSETPOS} present →
-        skip (month/year alignment required — accept the performance cost).
-
-    UNTIL is allowed — the occurrence set on/after the new anchor is unchanged.
-    """
-    clamped = 0
-    for comp in cal.subcomponents:
-        if comp.name != "VEVENT":
-            continue
-        rrule = comp.get("RRULE")
-        if rrule is None or isinstance(rrule, list):
-            # Missing RRULE or multi-RRULE: skip (can't safely clamp)
-            continue
-        freq = rrule.get("FREQ")
-        freq_val = str(freq[0] if isinstance(freq, list) else freq).upper()
-        if freq_val not in _UNIFORM_INTERVAL_SECONDS:
-            continue
-        if rrule.get("COUNT"):
-            continue
-        if comp.get("EXDATE") is not None or comp.get("RDATE") is not None:
-            continue
-        dtstart_prop = comp.get("DTSTART")
-        if dtstart_prop is None or not isinstance(dtstart_prop.dt, datetime):
-            continue
-
-        # Determine BY* safety and choose the advance step accordingly.
-        present_by_keys = {k for k in _BY_KEYS if rrule.get(k)}
-        if present_by_keys & _BY_KEYS_UNSAFE:
-            # Unsafe BY* key present — skip (month/year alignment needed)
-            continue
-        # Read INTERVAL once; used by both BY* and no-BY* branches below.
-        raw_interval = rrule.get("INTERVAL", 1)
-        if isinstance(raw_interval, list):
-            interval = int(raw_interval[0]) if raw_interval else 1
-        else:
-            interval = int(raw_interval or 1)
-
-        if present_by_keys:
-            # Safe BY* subset present — determine if this FREQ allows it.
-            # Multiply by INTERVAL so the anchor advances by the rule's true
-            # period (e.g. WEEKLY;INTERVAL=2 → 2-week steps, not 1-week steps).
-            if freq_val in ("HOURLY", "DAILY"):
-                if not present_by_keys <= _BY_KEYS_SAFE_HOURLY_DAILY:
-                    continue  # unexpected key outside safe set
-                step_seconds = _BY_CLAMP_STEP_SECONDS[freq_val] * max(interval, 1)
-            elif freq_val == "WEEKLY":
-                if not present_by_keys <= _BY_KEYS_SAFE_WEEKLY:
-                    continue
-                step_seconds = _BY_CLAMP_STEP_SECONDS[freq_val] * max(interval, 1)
-            else:
-                continue  # not reached (covered by _UNIFORM_INTERVAL_SECONDS check)
-        else:
-            # No BY* keys — plain uniform case, use base FREQ interval
-            step_seconds = _UNIFORM_INTERVAL_SECONDS[freq_val] * max(interval, 1)
-
-        dtstart = dtstart_prop.dt
-        # Ensure tz-aware comparison against `now`
-        ds = (
-            dtstart
-            if dtstart.tzinfo is not None
-            else dtstart.replace(tzinfo=now.tzinfo)
-        )
-        gap = (now - ds).total_seconds()
-        if gap <= step_seconds * 2:
-            # Already recent enough — nothing to gain
-            continue
-        # Advance by whole steps, keeping ONE occurrence before now for safety
-        n = int(gap // step_seconds) - 1
-        if n <= 0:
-            continue
-        new_start = dtstart + timedelta(seconds=step_seconds * n)
-        # Preserve duration by shifting DTEND the same amount, if present
-        dtend_prop = comp.get("DTEND")
-        # Direct mutation works (verified via test): comp["DTSTART"].dt = ...
-        comp["DTSTART"].dt = new_start
-        if dtend_prop is not None and isinstance(dtend_prop.dt, datetime):
-            comp["DTEND"].dt = dtend_prop.dt + timedelta(seconds=step_seconds * n)
-        clamped += 1
-    return clamped
-
-
 @attrs.define(frozen=True)
 class CalendarEvent:
     """A parsed, display-ready calendar event in the display timezone."""
@@ -336,16 +197,21 @@ def parse_ics(
     """Parse an .ics document, expand recurrence in [now, now+lookahead_days],
     drop past events, and return CalendarEvents sorted by start (display tz).
 
-    Uses a lazy generator + islice to cap at _MAX_OCCURRENCES to prevent OOM on
-    hostile/pathological high-frequency RRULEs (e.g. FREQ=SECONDLY). islice
-    bounds the scan; events past window_end but within a 2-day margin are
-    skipped via `continue` (not an early `break`) because all-day events resolve
-    to display-tz midnight and can reorder relative to timed events across a
-    negative UTC offset.  Once we exceed window_end + 2 days we `break` — this
-    stops the forward over-scan for never-ending sub-daily rules (e.g. a
-    far-past FREQ=HOURLY) instead of dragging through the full islice cap.
-    Also strips a leading UTF-8 BOM (U+FEFF) so Outlook/Exchange feeds parse
-    correctly.
+    Recurrence is expanded via `recurring_ical_events.of(cal).between(now,
+    window_end)`, which is hard-bounded by `window_end` (it delegates to
+    `dateutil.rrule.between`, which stops at the upper bound). This makes even a
+    far-past forever HOURLY/DAILY rule cheap — no unbounded forward walk. Two
+    pre-expansion passes still run because `.between()` does NOT help with them:
+    `_drop_subhourly_recurrences` (a far-past SECONDLY/MINUTELY rule is still
+    catastrophic — the pre-now walk dominates) and `_normalize_mismatched_all_day`
+    (the DATE-promotion still happens on expansion).
+
+    `.between()` is END-INCLUSIVE, so an explicit `start > window_end` filter is
+    kept inside the loop to match the original exclusive window edge. As a final
+    belt-and-suspenders bound against a non-sub-hourly high-cardinality feed
+    (e.g. a dense RDATE list), the materialized in-window set is capped at
+    `_MAX_OCCURRENCES` with a visible warning. Also strips a leading UTF-8 BOM
+    (U+FEFF) so Outlook/Exchange feeds parse correctly.
     """
     # Fix 4: strip leading BOM before parsing (Outlook/Exchange/.ics feeds)
     text = text.lstrip("﻿")
@@ -367,26 +233,21 @@ def parse_ics(
             "(DTSTART;VALUE=DATE + datetime DTEND)",
             fixed_allday,
         )
-    clamped = _clamp_recurrence_anchors(cal, now)
-    if clamped:
-        logger.debug("Calendar: clamped %d far-past recurrence anchor(s)", clamped)
     window_end = now + timedelta(days=lookahead_days)
 
-    # Fix 1: use lazy .after(now) + islice to bound memory against pathological RRULEs.
-    # .after(now) filters occurrences whose END is after now, ascending by start.
+    # Expand recurrence with the library's hard-bounded .between(now, window_end).
+    # It delegates to dateutil.rrule.between, which stops at the upper bound — no
+    # unbounded forward walk, so a far-past forever HOURLY/DAILY rule is cheap.
+    occurrences = recurring_ical_events.of(cal).between(now, window_end)
+
     events: list[CalendarEvent] = []
-    count = 0
-    scanned_past_window = False
-    for comp in itertools.islice(
-        recurring_ical_events.of(cal).after(now), _MAX_OCCURRENCES
-    ):
-        count += 1
-        # Fix 1: skip STATUS:CANCELLED events (declined/cancelled meetings,
-        # cancelled occurrence overrides from Google/Outlook/iCloud feeds).
+    for comp in occurrences:
+        # skip STATUS:CANCELLED events (declined/cancelled meetings, cancelled
+        # occurrence overrides from Google/Outlook/iCloud feeds).
         if str(comp.get("STATUS", "")).upper() == "CANCELLED":
             continue
-        # Fix 5: collapse whitespace (embedded newlines/tabs from icalendar
-        # unescaping \n) so SUMMARY renders cleanly on a single-line panel.
+        # collapse whitespace (embedded newlines/tabs from icalendar unescaping
+        # \n) so SUMMARY renders cleanly on a single-line panel.
         summary = " ".join(str(comp.get("SUMMARY", "")).split())
         if not summary:
             continue
@@ -394,23 +255,11 @@ def parse_ics(
         if dtstart is None:
             continue
         start, all_day = _to_display_start(dtstart.dt, tz)
-        # Stop once we're safely past the window.  A 2-day margin covers the
-        # all-day-vs-timed reorder across UTC offsets (an all-day event resolves
-        # to display-tz midnight, shifting it < 24h from source order), so we
-        # never break before an in-window event.  This bounds the forward scan
-        # for never-ending sub-daily rules (e.g. far-past FREQ=HOURLY) instead
-        # of dragging through the full islice cap.
-        if start > window_end + timedelta(days=2):
-            break
+        # .between() is END-INCLUSIVE; the original window edge was exclusive.
+        # Filter the boundary occurrences so the in-window set matches exactly.
         if start > window_end:
-            # .after(now) yields ascending by start, so once we see an
-            # occurrence past window_end (but within the 2-day margin) we have
-            # already seen every in-window occurrence. Record this so we can
-            # suppress a false-positive truncation warning on normal
-            # never-ending recurrences.
-            scanned_past_window = True
             continue
-        # belt-and-suspenders: .after() already excludes ended occurrences;
+        # belt-and-suspenders: .between() already excludes ended occurrences;
         # this guards malformed/edge feeds.
         dtend_prop = comp.get("DTEND")
         if all_day:
@@ -431,19 +280,19 @@ def parse_ics(
         events.append(
             CalendarEvent(summary=summary, start=start, all_day=all_day, end=end)
         )
-    else:
-        # Loop completed (didn't break) — check if we hit the islice cap.
-        # Only warn when in-window events were genuinely truncated: if we
-        # already scanned an occurrence past window_end, every in-window
-        # occurrence was seen before the cap fired, so nothing was dropped.
-        if count >= _MAX_OCCURRENCES and not scanned_past_window:
-            logger.warning(
-                "Calendar feed produced >= %d occurrences in the window; "
-                "truncated (check the feed's RRULE)",
-                _MAX_OCCURRENCES,
-            )
 
     events.sort(key=lambda e: e.start)
+    # Final belt-and-suspenders cap against a non-sub-hourly high-cardinality
+    # feed (e.g. a dense RDATE list).  .between() already bounds the window, so
+    # this only fires on a pathological in-window count — never silently drop.
+    if len(events) > _MAX_OCCURRENCES:
+        logger.warning(
+            "Calendar feed produced %d in-window occurrences; truncated to %d "
+            "(check the feed's RRULE/RDATE)",
+            len(events),
+            _MAX_OCCURRENCES,
+        )
+        events = events[:_MAX_OCCURRENCES]
     return events
 
 

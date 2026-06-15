@@ -14,9 +14,10 @@ Assertions per cell:
   (a) parse_ics COMPLETES (timeout is enforced by pytest; slow = finding)
   (b) len(events) <= _MAX_OCCURRENCES
   (c) SECONDLY / MINUTELY -> 0 events (pre-filter drops them)
-  (d) for far-past uniform HOURLY/DAILY without COUNT/BY* modifiers:
-      in-window result equals an unclamped reference expansion
-      (clamp-equivalence invariant)
+
+Far-past forever HOURLY/DAILY/WEEKLY correctness (formerly the clamp-equivalence
+invariant) is now covered by `test_far_past_recurrence_is_fast_and_correct`,
+which asserts the .between()-bounded expansion returns the exact in-window set.
 """
 
 import time
@@ -26,7 +27,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from led_ticker.widgets import calendar as _cal_mod
 from led_ticker.widgets.calendar import (
     _MAX_OCCURRENCES,
     parse_ics,
@@ -164,228 +164,93 @@ def test_parse_is_bounded(
     # but anything > 5s is a clear regression signal for the non-subhourly cases.
     if freq not in _SUBHOURLY and dtstart_label == "far_past" and not modifier_val:
         # This is the historically problematic cell (far-past forever RRULE).
-        # After Fix A (window break) + Fix 3 (clamp), it must complete fast.
+        # The library's .between(now, window_end) bounds the expansion, so it
+        # must complete fast.
         assert elapsed < 10.0, (
             f"{freq}/{dtstart_label}/{modifier_label}: "
             f"parse_ics took {elapsed:.2f}s for a far-past forever {freq} rule — "
-            "window-break or clamp optimization may have regressed"
+            "the .between() bound may have regressed"
         )
 
 
 # ---------------------------------------------------------------------------
-# Clamp-equivalence invariant
+# Far-past forever recurrence: fast + correct (replaces clamp-equivalence)
 # ---------------------------------------------------------------------------
-# For far-past uniform HOURLY/DAILY without COUNT/BY*, the events returned
-# by the clamped parse must exactly match those from an unclamped parse.
-# This is the correctness proof for _clamp_recurrence_anchors.
-
-_CLAMP_EQUIV_CASES = [
-    # -----------------------------------------------------------------------
-    # INTERVAL=1 (original cases — baseline correctness)
-    # -----------------------------------------------------------------------
-    pytest.param("HOURLY", _FAR_PAST, "", id="hourly_far_past_forever"),
-    pytest.param("DAILY", _FAR_PAST, "", id="daily_far_past_forever"),
-    pytest.param(
-        "HOURLY",
-        _FAR_PAST,
-        f"UNTIL={_UNTIL_IN_WINDOW}",
-        id="hourly_far_past_until",
-    ),
-    pytest.param(
-        "DAILY",
-        _FAR_PAST,
-        f"UNTIL={_UNTIL_IN_WINDOW}",
-        id="daily_far_past_until",
-    ),
-    # Round-11 Fix 2: BY* safe-subset shapes — these are NOW clamped.
-    # The equivalence invariant must hold: clamped == unclamped in-window events.
-    # If any of these fail, that shape must be REMOVED from the safe subset.
-    pytest.param("HOURLY", _FAR_PAST, "BYMINUTE=0", id="hourly_far_past_byminute"),
-    pytest.param("DAILY", _FAR_PAST, "BYHOUR=9", id="daily_far_past_byhour"),
-    pytest.param("WEEKLY", _FAR_PAST, "BYDAY=MO", id="weekly_far_past_byday"),
-    # -----------------------------------------------------------------------
-    # INTERVAL > 1 — no-BY* (uniform) branch: regression guard
-    # -----------------------------------------------------------------------
-    # WEEKLY;INTERVAL=2 (biweekly), DAILY;INTERVAL=3, HOURLY;INTERVAL=5
-    pytest.param("WEEKLY", _FAR_PAST, "INTERVAL=2", id="weekly_far_past_interval2"),
-    pytest.param("DAILY", _FAR_PAST, "INTERVAL=3", id="daily_far_past_interval3"),
-    pytest.param("HOURLY", _FAR_PAST, "INTERVAL=5", id="hourly_far_past_interval5"),
-    pytest.param("DAILY", _FAR_PAST, "INTERVAL=2", id="daily_far_past_interval2"),
-    # -----------------------------------------------------------------------
-    # INTERVAL > 1 — BY*-safe branch (the bug was here)
-    # -----------------------------------------------------------------------
-    # WEEKLY BY* shapes
-    pytest.param(
-        "WEEKLY",
-        _FAR_PAST,
-        "INTERVAL=2;BYDAY=MO",
-        id="weekly_far_past_interval2_byday_mo",
-    ),
-    pytest.param(
-        "WEEKLY",
-        _FAR_PAST,
-        "INTERVAL=3;BYDAY=MO,WE,FR",
-        id="weekly_far_past_interval3_byday_mo_we_fr",
-    ),
-    # DAILY BY* shapes
-    pytest.param(
-        "DAILY",
-        _FAR_PAST,
-        "INTERVAL=3;BYHOUR=9",
-        id="daily_far_past_interval3_byhour9",
-    ),
-    pytest.param(
-        "DAILY",
-        _FAR_PAST,
-        "INTERVAL=2;BYHOUR=9;BYMINUTE=30",
-        id="daily_far_past_interval2_byhour9_byminute30",
-    ),
-    # HOURLY BY* shapes
-    pytest.param(
-        "HOURLY",
-        _FAR_PAST,
-        "INTERVAL=5;BYMINUTE=0",
-        id="hourly_far_past_interval5_byminute0",
-    ),
-    pytest.param(
-        "HOURLY",
-        _FAR_PAST,
-        "INTERVAL=3;BYMINUTE=0",
-        id="hourly_far_past_interval3_byminute0",
-    ),
-]
+# .between(now, window_end) bounds the expansion, so a far-past forever rule
+# is cheap; it must also return the EXACT in-window set.  We assert concrete
+# expected dates so the test does not depend on the expansion path under test.
 
 
-def _unclamped_reference(
-    ics: str, now: datetime, lookahead: int, tz: ZoneInfo
-) -> set[tuple]:
-    """Return {(summary, start)} from parse_ics with clamping bypassed."""
-    original_clamp = _cal_mod._clamp_recurrence_anchors
-    _cal_mod._clamp_recurrence_anchors = lambda cal, now: 0
-    try:
-        events = parse_ics(ics, now=now, lookahead_days=lookahead, tz=tz)
-    finally:
-        _cal_mod._clamp_recurrence_anchors = original_clamp
-    return {(e.summary, e.start) for e in events}
+@pytest.mark.parametrize(
+    "freq,modifier,expected_starts",
+    [
+        pytest.param(
+            "DAILY",
+            "BYHOUR=9;BYMINUTE=0",
+            # now=2026-06-15 00:00, window_end=2026-06-22 00:00.  The 9am
+            # occurrences from 06-15 through 06-21 are in window; 06-22 09:00
+            # is past window_end and filtered.  -> 7 occurrences.
+            {datetime(2026, 6, 15 + d, 9, 0, tzinfo=_UTC) for d in range(0, 7)},
+            id="daily_far_past_forever",
+        ),
+        pytest.param(
+            "WEEKLY",
+            "BYDAY=MO",  # anchor 2024-01-01 is a Monday; weekly Mondays
+            # Only 2026-06-15 (a Monday) falls inside [now, window_end); the
+            # next Monday (06-22 00:00) is at the exclusive window edge.
+            {datetime(2026, 6, 15, 0, 0, tzinfo=_UTC)},
+            id="weekly_far_past_forever_monday",
+        ),
+    ],
+)
+def test_far_past_recurrence_is_fast_and_correct(
+    freq: str, modifier: str, expected_starts: set
+) -> None:
+    """A far-past forever recurrence parses fast AND returns the exact in-window
+    set via .between(now, window_end).
 
-
-@pytest.mark.parametrize("freq,dtstart_val,modifier_val", _CLAMP_EQUIV_CASES)
-def test_clamp_equivalence(freq: str, dtstart_val: str, modifier_val: str) -> None:
-    """Assert that clamped parse == unclamped parse for in-window events.
-
-    Bypass _clamp_recurrence_anchors via monkeypatching to obtain the
-    reference set, then compare {(summary, start)} pairs.
-
-    Also asserts the clamp actually FIRED (so the test exercises the clamped
-    path, not a no-op) — for far-past rules that should always clamp.
-
-    If this fails, the clamp is changing the in-window result — that is a
-    correctness bug that must NOT be papered over by weakening the test.
+    This replaces the old clamp-equivalence invariant: the correctness guarantee
+    for far-past uniform rules (HOURLY/DAILY/WEEKLY, BY*/INTERVAL variants) now
+    rides on the library's bounded expansion rather than on the deleted
+    anchor-clamp workaround.
     """
-    ics = _build_ics(freq, dtstart_val, modifier_val)
+    ics = _build_ics(freq, _FAR_PAST, modifier)
+    t0 = time.monotonic()
+    events = parse_ics(ics, now=_NOW, lookahead_days=_LOOKAHEAD, tz=_UTC)
+    elapsed = time.monotonic() - t0
 
-    # Path A: normal parse (clamping active); also capture whether any clamp fired.
-    clamp_count = 0
-    original_clamp = _cal_mod._clamp_recurrence_anchors
-
-    def _counting_clamp(cal: object, now: datetime) -> int:
-        nonlocal clamp_count
-        n = original_clamp(cal, now)
-        clamp_count += n
-        return n
-
-    _cal_mod._clamp_recurrence_anchors = _counting_clamp  # type: ignore[assignment]
-    try:
-        events_clamped = parse_ics(ics, now=_NOW, lookahead_days=_LOOKAHEAD, tz=_UTC)
-    finally:
-        _cal_mod._clamp_recurrence_anchors = original_clamp
-
-    # Path B: bypass clamping (reference)
-    unclamped_set = _unclamped_reference(ics, _NOW, _LOOKAHEAD, _UTC)
-
-    clamped_set = {(e.summary, e.start) for e in events_clamped}
-
-    # Clamp-equivalence: in-window events must be identical.
-    assert clamped_set == unclamped_set, (
-        f"{freq}/{dtstart_val[:8]}/{modifier_val or 'forever'}: "
-        f"clamped and unclamped parse produced different in-window events.\n"
-        f"Only in clamped:   {clamped_set - unclamped_set}\n"
-        f"Only in unclamped: {unclamped_set - clamped_set}"
+    # (a) fast — a far-past forever rule must not trigger an unbounded walk.
+    assert elapsed < 10.0, (
+        f"{freq}/{modifier}: parse_ics took {elapsed:.2f}s for a far-past "
+        "forever rule — the .between() bound may have regressed"
+    )
+    # (b) correct — exact in-window starts.
+    starts = {e.start for e in events}
+    assert starts == expected_starts, (
+        f"{freq}/{modifier}: in-window starts mismatch.\n"
+        f"Missing:  {sorted(expected_starts - starts)}\n"
+        f"Unexpected: {sorted(starts - expected_starts)}"
     )
 
-    # Clamp-fired: the clamp must have run for far-past rules (COUNT absent,
-    # no unsafe BY* keys) — if clamp_count==0 on a far-past rule, the test is
-    # not exercising the optimised path and its equivalence check is a no-op.
-    # (Rules with COUNT are excluded from clamping; near/future DTSTART may not
-    # meet the gap threshold — skip the fired-assertion for those.)
-    modifier_upper = modifier_val.upper()
-    has_count = "COUNT=" in modifier_upper
-    if not has_count and dtstart_val == _FAR_PAST:
-        assert clamp_count > 0, (
-            f"{freq}/{dtstart_val[:8]}/{modifier_val or 'forever'}: "
-            f"expected the clamp to fire for a far-past rule, but clamp_count=0. "
-            f"The equivalence check is a no-op — the clamped path was never exercised."
-        )
 
+def test_far_past_hourly_forever_is_fast_and_bounded() -> None:
+    """The historically problematic cell: far-past forever HOURLY.
 
-# ---------------------------------------------------------------------------
-# Direct regression: biweekly Monday correctness (the reported bug)
-# ---------------------------------------------------------------------------
-
-
-def test_clamp_interval_biweekly_correct_dates() -> None:
-    """Regression: WEEKLY;INTERVAL=2;BYDAY=MO far-past anchor returns the
-    CORRECT biweekly Mondays, not dates shifted by one week.
-
-    Reported bug: _clamp_recurrence_anchors advanced the anchor by one-week
-    steps (ignoring INTERVAL=2), landing on a wrong phase.  With now=2026-06-15
-    and a 28-day lookahead, the correct biweekly Mondays (anchored Jan 1 2024,
-    which is a Monday; parity: even ISO-week offsets from anchor) are:
-      2026-06-29 and 2026-07-13
-    The buggy result was one week early:
-      2026-06-22 and 2026-07-06
-
-    Both the clamped parse AND the unclamped reference must agree on the correct
-    dates.
+    Asserts (a) it completes fast and (b) returns ~168 (7-day) in-window
+    occurrences — the count a 7-day HOURLY window must yield.
     """
-    now = datetime(2026, 6, 15, 0, 0, tzinfo=_UTC)
-    lookahead = 28  # days
+    ics = _build_ics("HOURLY", _FAR_PAST, "")
+    t0 = time.monotonic()
+    events = parse_ics(ics, now=_NOW, lookahead_days=_LOOKAHEAD, tz=_UTC)
+    elapsed = time.monotonic() - t0
 
-    # DTSTART=20240101T000000Z (Monday Jan 1 2024) + INTERVAL=2 → biweekly Mondays
-    ics = _build_ics("WEEKLY", _FAR_PAST, "INTERVAL=2;BYDAY=MO")
-
-    # Unclamped reference (bypass clamp)
-    unclamped_set = _unclamped_reference(ics, now, lookahead, _UTC)
-
-    # Clamped parse
-    events_clamped = parse_ics(ics, now=now, lookahead_days=lookahead, tz=_UTC)
-    clamped_set = {(e.summary, e.start) for e in events_clamped}
-
-    # The two must agree.
-    assert clamped_set == unclamped_set, (
-        f"Biweekly Monday: clamped={clamped_set} != unclamped={unclamped_set}\n"
-        f"The INTERVAL=2 clamp bug may have been reintroduced."
+    assert elapsed < 10.0, (
+        f"far-past forever HOURLY took {elapsed:.2f}s — the .between() bound "
+        "may have regressed"
     )
-
-    # The correct dates must be present — not the off-by-one-week buggy dates.
-    starts = {e.start for e in events_clamped}
-    # Correct biweekly Mondays in window [2026-06-15, 2026-07-13]
-    expected_correct = {
-        datetime(2026, 6, 29, 0, 0, tzinfo=_UTC),
-        datetime(2026, 7, 13, 0, 0, tzinfo=_UTC),
-    }
-    # Buggy (off by one week) dates that must NOT appear
-    buggy_dates = {
-        datetime(2026, 6, 22, 0, 0, tzinfo=_UTC),
-        datetime(2026, 7, 6, 0, 0, tzinfo=_UTC),
-    }
-    assert expected_correct <= starts, (
-        f"Expected biweekly Mondays {expected_correct} not found in {starts}.\n"
-        f"INTERVAL clamp bug may be active."
-    )
-    assert not (buggy_dates & starts), (
-        f"Off-by-one-week buggy dates {buggy_dates & starts} appeared in {starts}.\n"
-        f"INTERVAL clamp bug may be active."
+    # 7 days * 24 h = 168; allow a small boundary margin.
+    assert 160 <= len(events) <= 176, (
+        f"Expected ~168 in-window HOURLY events, got {len(events)}"
     )
 
 
@@ -412,5 +277,5 @@ def test_full_matrix_is_fast() -> None:
     assert elapsed < 30.0, (
         f"Full cost matrix took {elapsed:.1f}s — a single RRULE cell may have "
         "regressed (far-past SECONDLY/MINUTELY/HOURLY/DAILY without COUNT should "
-        "be fast after the subhourly pre-filter + window-break + clamp fixes)"
+        "be fast given the subhourly pre-filter + the .between() window bound)"
     )

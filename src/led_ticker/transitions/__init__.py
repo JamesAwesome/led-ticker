@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Callable
 from typing import Any, Protocol, runtime_checkable
 
+from led_ticker._plugin_hint import plugin_hint
 from led_ticker._types import Canvas
 from led_ticker.ticker import _maybe_wrap, _swap
 
@@ -70,8 +71,6 @@ class Transition(Protocol):
 
 
 _TRANSITION_REGISTRY: dict[str, type[Transition]] = {}
-
-from led_ticker._plugin_hint import plugin_hint  # noqa: E402
 
 # name -> (message, suggested_fix) for a transition removed from core.
 # SHIPS EMPTY. The extraction PR (e.g. led-ticker-arcade) adds entries in

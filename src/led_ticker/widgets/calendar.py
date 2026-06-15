@@ -24,7 +24,7 @@ from led_ticker._types import Canvas, DrawResult, Font
 from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR, make_color
 from led_ticker.drawing import compute_baseline, compute_cursor
-from led_ticker.fonts import FONT_DEFAULT
+from led_ticker.fonts import FONT_DEFAULT, FONT_SMALL
 from led_ticker.pixel_emoji import count_text_chars, draw_with_emoji, measure_width
 from led_ticker.widget import Widget, run_monitor_loop, spawn_tracked
 from led_ticker.widgets import register
@@ -933,6 +933,22 @@ class Calendar:
             errors.append(
                 f"time_format {fmt!r} is not '12h'/'24h' or a strftime template"
             )
+        # two_row-only per-row knobs. top_row_height must be a positive int —
+        # TwoRowMessage rejects <= 0 at construction, which (inside update()'s
+        # try/except) would silently fall back to the error placeholder. Catch
+        # it here with an actionable message instead. The y-offsets must be ints.
+        trh = cfg.get("top_row_height")
+        if trh is not None and (
+            isinstance(trh, bool) or not isinstance(trh, int) or trh <= 0
+        ):
+            errors.append(
+                "top_row_height must be a positive integer "
+                "(omit it for the default 50/50 split)"
+            )
+        for key in ("top_text_y_offset", "bottom_text_y_offset"):
+            val = cfg.get(key)
+            if val is not None and (isinstance(val, bool) or not isinstance(val, int)):
+                errors.append(f"{key} must be an integer")
         return errors
 
     @classmethod
@@ -1109,6 +1125,16 @@ class Calendar:
         """
         if not events:
             return [self._empty_story()]
+        # The calendar's font defaults to FONT_DEFAULT (6x12, logical
+        # line-height 12), but a two_row band is at most 8 logical rows on either
+        # reference sign (content_height caps at 16 -> 50/50 split = 8), so 6x12
+        # can NEVER fit a two_row band and would raise at draw (panel freeze,
+        # constraint #1). Substitute the band-fitting FONT_SMALL (5x8, lh 8) for
+        # the rows when the font is the inherited default — lossless, since 6x12
+        # is unusable here anyway. An explicitly-chosen fitting font is used
+        # as-is; an explicitly-too-tall font is caught by
+        # validate._check_band_layout (rule 22) before deploy.
+        row_font = FONT_SMALL if self.font is FONT_DEFAULT else self.font
         stories: list[Widget] = []
         for e in events:
             if _match_any(e.summary, self.highlight):
@@ -1121,8 +1147,8 @@ class Calendar:
                 TwoRowMessage(
                     when,
                     e.summary,
-                    top_font=self.font,
-                    bottom_font=self.font,
+                    top_font=row_font,
+                    bottom_font=row_font,
                     top_color=top_color,
                     bottom_color=bottom_color,
                     bg_color=self.bg_color,

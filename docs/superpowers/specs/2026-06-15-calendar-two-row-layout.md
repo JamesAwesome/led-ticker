@@ -87,13 +87,33 @@ formatting lives in one place.
 The new per-row fields are inert in `agenda`/`next` mode (constructed but
 unused), matching how `agenda`-only and `next`-only knobs already coexist.
 
-## Constraints (documented, inherited from two-row)
+## Constraints & the band-fit guard (revised after review)
 
-Two rows need vertical room. Comfortable on bigsign (`content_height = 16` →
-32 real px/row at scale 4); tight on smallsign (16 px → 8 px/row). A hires font
-whose line-height exceeds a band raises at draw time identifying the row
-(inherited `TwoRowMessage` behavior). `content_height × scale ≤ panel_h_real`
-still applies.
+Two rows split the canvas, so each band is at most 8 logical rows
+(`content_height` caps at 16 on both reference signs → a 50/50 split = 8). The
+calendar's default `font` is `6x12` (logical line-height 12), which can NEVER fit
+an 8-row band on either sign — so a default `layout = "two_row"` would raise at
+draw and freeze the panel (constraint #1), and the run path does NOT validate at
+startup. Two coordinated fixes:
+
+1. **Runtime substitution.** `_build_two_row_stories` uses `FONT_SMALL` (5x8,
+   lh 8) for the rows when `self.font is FONT_DEFAULT` (omitted or `"6x12"`).
+   Lossless — 6x12 is unusable in a two_row band here anyway — so the default
+   config renders.
+2. **Validate-time net (parity with the `two_row` widget).**
+   `validate._check_band_layout` is extended to cover `type = "calendar"` with
+   `layout = "two_row"`, mirroring the substitution (default + the
+   `FONT_DEFAULT → FONT_SMALL` swap). An *explicitly* too-tall font (a large
+   hires `font_size`, or `7x13`) is caught at `led-ticker validate` (rule 22)
+   with an actionable message, instead of crashing at draw.
+
+For larger/hi-res text, choose a `font`/`font_size` whose line-height fits the
+row; raise `content_height` or set `top_row_height` for an asymmetric split.
+`content_height × scale ≤ panel_h_real` still applies.
+
+`validate_config` also validates the new per-row knobs: `top_row_height` must be a
+positive int (TwoRowMessage rejects ≤ 0, which would otherwise surface only as the
+runtime error placeholder); the y-offsets must be ints.
 
 ## Files
 

@@ -2299,35 +2299,173 @@ def test_two_row_empty_falls_back_to_single_line():
     assert not isinstance(stories[0], TwoRowMessage)
 
 
-def test_two_row_card_draws_without_raising(canvas):
-    # A font that fits an 8-row band (5x8) on the 16-tall scale=1 stub canvas.
+def test_two_row_default_font_falls_back_to_band_fitting():
+    # The calendar font default is 6x12 (lh 12), which can't fit a two_row band;
+    # the rows substitute FONT_SMALL (5x8) so the default config renders.
+    from led_ticker.fonts import FONT_SMALL
+
+    e = CalendarEvent("Standup", datetime(2026, 6, 16, 15, 0, tzinfo=_UTC), False)
+    _cal, stories = _two_row_stories([e])  # default (6x12) font
+    card = stories[0]
+    assert card.top_font is FONT_SMALL
+    assert card.bottom_font is FONT_SMALL
+
+
+def test_two_row_explicit_fitting_font_is_preserved():
+    # A non-default font the user picks is used as-is (no substitution).
     from led_ticker.fonts import FONT_SMALL
 
     e = CalendarEvent("Standup", datetime(2026, 6, 16, 15, 0, tzinfo=_UTC), False)
     _cal, stories = _two_row_stories([e], font=FONT_SMALL)
+    assert stories[0].top_font is FONT_SMALL
+
+
+def test_two_row_default_card_draws_without_raising(canvas):
+    # The DEFAULT config (no font override) must render — the 6x12->5x8 fallback
+    # means a default two_row card fits the 8-row band on the 16-tall stub canvas.
+    e = CalendarEvent("Standup", datetime(2026, 6, 16, 15, 0, tzinfo=_UTC), False)
+    _cal, stories = _two_row_stories([e])
     out, cursor = stories[0].draw(canvas)
     assert out is canvas
     assert isinstance(cursor, int)
 
 
-def test_two_row_oversized_font_raises_at_draw(canvas):
-    # Inherited TwoRowMessage constraint: a font whose line-height exceeds the
-    # per-row band raises at draw time identifying the row. Default 6x12 (lh=12)
-    # can't fit an 8-row band on the 16-tall scale=1 stub canvas.
+def test_two_row_oversized_explicit_font_raises_at_draw(canvas):
+    # Inherited TwoRowMessage constraint: an explicitly-too-tall, non-default
+    # font (7x13, lh 13 — not the substituted default) raises at draw naming the
+    # row. validate._check_band_layout catches this class before deploy.
     import pytest
 
+    from led_ticker.fonts import FONT_LABEL  # 7x13, lh 13
+
     e = CalendarEvent("Standup", datetime(2026, 6, 16, 15, 0, tzinfo=_UTC), False)
-    _cal, stories = _two_row_stories([e])  # default 6x12 font
+    _cal, stories = _two_row_stories([e], font=FONT_LABEL)
     with pytest.raises(ValueError, match="top font line-height"):
         stories[0].draw(canvas)
 
 
-def test_two_row_update_end_to_end_builds_cards(monkeypatch):
+def test_two_row_update_end_to_end_honors_max_events(monkeypatch):
+    # The fixture has 9 in-window occurrences; max_events=3 must cap to 3 cards.
     cal = _make_calendar(layout="two_row", max_events=3)
     monkeypatch.setattr(
         "led_ticker.widgets.calendar._now_in",
         lambda tz: datetime(2026, 6, 15, 0, 0, tzinfo=_UTC),
     )
     asyncio.run(cal.update())
-    assert cal.feed_stories
+    assert len(cal.feed_stories) == 3
     assert all(isinstance(s, TwoRowMessage) for s in cal.feed_stories)
+
+
+def test_two_row_update_applies_filter(monkeypatch):
+    # filter keeps only matching events in two_row mode (parity with agenda).
+    cal = _make_calendar(layout="two_row", filter=["standup"], max_events=10)
+    monkeypatch.setattr(
+        "led_ticker.widgets.calendar._now_in",
+        lambda tz: datetime(2026, 6, 15, 0, 0, tzinfo=_UTC),
+    )
+    asyncio.run(cal.update())
+    # Every card's title must contain the keyword (case-insensitive).
+    assert cal.feed_stories
+    assert all(
+        isinstance(s, TwoRowMessage) and "standup" in s.bottom_text.lower()
+        for s in cal.feed_stories
+    )
+
+
+# --- validate-time band-fit net for calendar two_row (rule 22 parity) ---
+
+_CAL_TWO_ROW_TOML = """\
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+default_scale = 1
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 3
+content_height = 16
+
+[[playlist.section.widget]]
+type = "calendar"
+ics_url = "{ics_url}"
+layout = "two_row"
+{extra}
+"""
+
+
+def _write_cal_two_row(tmp_path, *, ics_url=None, extra=""):
+    ics = ics_url
+    if ics is None:
+        ics_file = tmp_path / "cal.ics"
+        ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR\n")
+        ics = f"file://{ics_file}"
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(_CAL_TWO_ROW_TOML.format(ics_url=ics, extra=extra))
+    return cfg
+
+
+def test_validate_two_row_default_font_is_clean(tmp_path):
+    # Default config (no font) must NOT raise a band error — runtime substitutes
+    # FONT_SMALL, and validate mirrors that.
+    cfg = _write_cal_two_row(tmp_path)
+    result = asyncio.run(validate_config(cfg))
+    assert not any("per-row band" in e.message for e in result.errors)
+
+
+def test_validate_two_row_oversized_font_errors(tmp_path):
+    # An explicitly too-tall font (7x13, lh 13 > 8-row band) is caught at
+    # validate — parity with the two_row widget's band check.
+    cfg = _write_cal_two_row(tmp_path, extra='font = "7x13"')
+    result = asyncio.run(validate_config(cfg))
+    assert result.valid is False
+    assert any("per-row band" in e.message for e in result.errors)
+
+
+def test_validate_two_row_explicit_6x12_is_clean(tmp_path):
+    # 6x12 resolves to FONT_DEFAULT, which runtime substitutes with 5x8; validate
+    # must agree (no false band error) so validate and runtime stay consistent.
+    cfg = _write_cal_two_row(tmp_path, extra='font = "6x12"')
+    result = asyncio.run(validate_config(cfg))
+    assert not any("per-row band" in e.message for e in result.errors)
+
+
+def test_validate_config_rejects_nonpositive_top_row_height():
+    for bad in (0, -3):
+        errors = Calendar.validate_config(
+            {
+                "ics_url": "https://x.test/c.ics",
+                "layout": "two_row",
+                "top_row_height": bad,
+            }
+        )
+        assert any("top_row_height" in m for m in errors), bad
+
+
+def test_validate_config_rejects_nonint_top_row_height():
+    errors = Calendar.validate_config(
+        {
+            "ics_url": "https://x.test/c.ics",
+            "layout": "two_row",
+            "top_row_height": "big",
+        }
+    )
+    assert any("top_row_height" in m for m in errors)
+
+
+def test_validate_config_accepts_positive_top_row_height():
+    errors = Calendar.validate_config(
+        {"ics_url": "https://x.test/c.ics", "layout": "two_row", "top_row_height": 6}
+    )
+    assert errors == []
+
+
+def test_validate_config_rejects_nonint_y_offset():
+    errors = Calendar.validate_config(
+        {
+            "ics_url": "https://x.test/c.ics",
+            "layout": "two_row",
+            "top_text_y_offset": "nope",
+        }
+    )
+    assert any("top_text_y_offset" in m for m in errors)

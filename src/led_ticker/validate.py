@@ -1106,6 +1106,9 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
       - `type = "two_row"` (TwoRowMessage)
       - `type = "gif"` / `type = "image"` with `bottom_text != ""`
         (image/gif two-row text overlay mode)
+      - `type = "calendar"` with `layout = "two_row"` (per-event TwoRowMessage
+        cards; the default 6x12 font is substituted with FONT_SMALL at runtime,
+        mirrored here)
     """
     from led_ticker.fonts import (
         FONT_DEFAULT,
@@ -1131,6 +1134,15 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
                 if widget_cfg.get("bottom_text", "") == "":
                     continue  # single-row mode: no per-band check needed
                 default_font = FONT_DEFAULT
+            elif wtype == "calendar" and widget_cfg.get("layout") == "two_row":
+                # Calendar two_row builds TwoRowMessage cards. The calendar font
+                # defaults to FONT_DEFAULT (6x12), but _build_two_row_stories
+                # substitutes FONT_SMALL because 6x12 can't fit any two_row band;
+                # mirror that here (default + the FONT_DEFAULT swap below) so
+                # validate matches runtime. An explicitly-too-tall font (e.g. a
+                # large hires font_size, or 7x13) still errors. The calendar uses
+                # one font for both rows -> the shared-font path covers them.
+                default_font = FONT_SMALL
             else:
                 continue
 
@@ -1157,6 +1169,12 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
                 except ValueError:
                     # _run_build_checks will surface the resolve_font failure.
                     continue
+
+                # Mirror the runtime substitution: a calendar two_row whose font
+                # resolves to FONT_DEFAULT (6x12, omitted or explicit) renders
+                # with FONT_SMALL, so validate it as FONT_SMALL too.
+                if wtype == "calendar" and font is FONT_DEFAULT:
+                    font = FONT_SMALL
 
                 lh = font_line_height_logical(font, scale)
                 if lh > band_h:

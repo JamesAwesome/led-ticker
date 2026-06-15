@@ -36,3 +36,7 @@ def test_as_color_provider_wraps_a_color_uniformly():
     assert (got.red, got.green, got.blue) == (10, 20, 30)
     got2 = prov.color_for(frame=5, char_index=3, total_chars=8)
     assert (got2.red, got2.green, got2.blue) == (10, 20, 30)
+    # A constant provider must declare the fast-path flags so image
+    # widgets don't force per-tick / per-char redraws for it.
+    assert prov.frame_invariant is True
+    assert prov.per_char is False

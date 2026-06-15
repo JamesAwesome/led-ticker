@@ -60,6 +60,7 @@ class FrameAwareBase:
             "font_color_temp",
             "top_color",
             "bottom_color",
+            "highlight_color",
             "border",
             "animation",
             "text_separator_color",

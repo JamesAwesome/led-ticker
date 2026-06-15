@@ -56,6 +56,27 @@ layout = "next"
 empty_text = "All clear"`}
 />
 
+### `two_row`
+
+Each event becomes a two-row card: the **held top row** shows the day + time (`Tomorrow 3:00 PM`; all-day events show just the day), and the **bottom row** shows the title, scrolling only if it overflows. Cards rotate one-per-screen like `agenda`. This trades horizontal scrolling for vertical space — good when titles are long and you'd rather read them on their own line than watch them scroll.
+
+The top row uses `time_color`, the bottom row uses `font_color` — the same colors as the other layouts (a highlighted event renders the whole card in `highlight_color`). Tune the split with `top_row_height`.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "calendar"
+ics_url = "https://example.com/cal.ics"
+layout = "two_row"
+time_color = [255, 200, 60]
+font_color = [255, 255, 255]`}
+/>
+
+<Aside>
+  Two rows need vertical room. On the bigsign (`content_height = 16`, scale 4) each row is ~32 real
+  pixels — plenty. On the smallsign (16 px tall) each row is ~8 px, so use a band-sized font like
+  `5x8`; a font taller than its row raises a clear error at startup naming the row.
+</Aside>
+
 ## Filter & highlight
 
 `filter` keeps only events whose summary contains any keyword (case-insensitive). An empty list shows all events.

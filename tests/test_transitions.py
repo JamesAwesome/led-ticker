@@ -100,7 +100,10 @@ class TestTransitionRegistry:
         assert len(_TRANSITION_REGISTRY) == 29
 
     def test_get_unknown_raises(self):
-        with pytest.raises(ValueError, match="Unknown transition"):
+        # get_transition_class now delegates to explain_unknown_transition,
+        # which uses the lowercase "unknown transition" wording shared with
+        # validate rule 39 (a bare non-close name → difflib branch).
+        with pytest.raises(ValueError, match="unknown transition"):
             get_transition_class("sparkle_explosion")
 
     def test_register_duplicate_transition_raises(self):

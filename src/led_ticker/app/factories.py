@@ -1029,14 +1029,19 @@ def _list_widget_fields(widget_type: str) -> str:
     from led_ticker.widgets import _WIDGET_REGISTRY
 
     if widget_type not in _WIDGET_REGISTRY:
+        from led_ticker._plugin_hint import plugin_hint
+
         candidates = sorted(_WIDGET_REGISTRY.keys())
         matches = difflib.get_close_matches(widget_type, candidates, n=3, cutoff=0.6)
-        hint = (
+        did_you_mean = (
             f"\nDid you mean: {', '.join(repr(m) for m in matches)}" if matches else ""
         )
-        raise ValueError(
-            f"Unknown widget type: {widget_type!r}. Available: {candidates}{hint}"
+        base = (
+            f"Unknown widget type: {widget_type!r}. "
+            f"Available: {candidates}{did_you_mean}"
         )
+        plugin = plugin_hint(widget_type, "widget")
+        raise ValueError(f"{base} {plugin}" if plugin else base)
 
     cls = _WIDGET_REGISTRY[widget_type]
     init_attrs = [

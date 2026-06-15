@@ -8,6 +8,7 @@ widget/ticker engine — only on provider registries and the _coerce helpers.
 import inspect
 from typing import Any
 
+from led_ticker._plugin_hint import plugin_hint
 from led_ticker.animations import Animation
 from led_ticker.borders import BorderEffect
 from led_ticker.color_providers import ColorProvider
@@ -17,6 +18,14 @@ from led_ticker.widgets._image_base import (
     VALID_TEXT_VALIGNS,
 )
 from led_ticker.widgets._image_fit import VALID_FITS, VALID_IMAGE_ALIGNS
+
+
+def _with_plugin_hint(message: str, name: str, kind: str) -> str:
+    """Append the plugin-reference hint to `message` when `name` is a
+    namespaced reference to an uninstalled plugin component."""
+    hint = plugin_hint(name, kind)
+    return f"{message} {hint}" if hint else message
+
 
 _COLOR_KEYS: set[str] = {
     "font_color",
@@ -203,8 +212,12 @@ def _provider_from_style(style: str, kwargs: dict[str, Any]) -> ColorProvider:
     cls = _PROVIDER_REGISTRY.get(style)
     if cls is None:
         raise ValueError(
-            f"unknown font_color style {style!r}; "
-            f"available: {sorted(_PROVIDER_REGISTRY)}"
+            _with_plugin_hint(
+                f"unknown font_color style {style!r}; "
+                f"available: {sorted(_PROVIDER_REGISTRY)}",
+                style,
+                "color provider",
+            )
         )
 
     # Special-case translation: TOML uses `from` / `to` (Pythonic
@@ -407,9 +420,13 @@ def _coerce_border(value: Any) -> BorderEffect | None:
                 if cls is not None:
                     return _build_plugin_style(cls, {}, f"border style {value!r}")
                 raise ValueError(
-                    f"unknown border style {value!r}; "
-                    "available: 'rainbow', 'color_cycle', 'lightbulbs', "
-                    "or a registered plugin border"
+                    _with_plugin_hint(
+                        f"unknown border style {value!r}; "
+                        "available: 'rainbow', 'color_cycle', 'lightbulbs', "
+                        "or a registered plugin border",
+                        value,
+                        "border",
+                    )
                 )
     # Inline table
     if isinstance(value, dict):
@@ -424,7 +441,12 @@ def _coerce_border(value: Any) -> BorderEffect | None:
         cls = _BORDER_REGISTRY.get(style)
         if cls is None:
             raise ValueError(
-                f"unknown border style {style!r}; available: {sorted(_BORDER_REGISTRY)}"
+                _with_plugin_hint(
+                    f"unknown border style {style!r}; "
+                    f"available: {sorted(_BORDER_REGISTRY)}",
+                    style,
+                    "border",
+                )
             )
         match style:
             case "rainbow":
@@ -634,8 +656,12 @@ def _coerce_animation(value: Any) -> Animation | None:
             cls = _ANIMATION_REGISTRY.get(value)
             if cls is None:
                 raise ValueError(
-                    f"unknown animation {value!r}; "
-                    f"available: {sorted(_ANIMATION_REGISTRY)}"
+                    _with_plugin_hint(
+                        f"unknown animation {value!r}; "
+                        f"available: {sorted(_ANIMATION_REGISTRY)}",
+                        value,
+                        "animation",
+                    )
                 )
             return cls()
         case dict():
@@ -647,8 +673,12 @@ def _coerce_animation(value: Any) -> Animation | None:
             cls = _ANIMATION_REGISTRY.get(style)
             if cls is None:
                 raise ValueError(
-                    f"unknown animation {style!r}; "
-                    f"available: {sorted(_ANIMATION_REGISTRY)}"
+                    _with_plugin_hint(
+                        f"unknown animation {style!r}; "
+                        f"available: {sorted(_ANIMATION_REGISTRY)}",
+                        style,
+                        "animation",
+                    )
                 )
             kwargs = {k: v for k, v in value.items() if k != "style"}
             return _build_plugin_style(cls, kwargs, f"animation {style!r}")

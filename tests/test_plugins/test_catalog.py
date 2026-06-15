@@ -138,6 +138,8 @@ def test_source_for_missing_type_raises():
 def test_get_and_search_case_insensitive():
     cat = load_catalog()
     assert cat.get("pool").name == "pool"
+    assert cat.get("POOL").name == "pool"  # get() is case-insensitive (matches search)
+    assert cat.get("Pool").name == "pool"
     assert cat.get("nope") is None
     assert "baseball" in {e.name for e in cat.search("MLB")}  # matches summary
     assert "pool" in {e.name for e in cat.search("POOL")}

@@ -166,6 +166,38 @@ def test_install_freeze_failure_aborts_before_install(tmp_path, monkeypatch):
     assert fp.install_cmd is None  # never reached install
 
 
+# --- catalog name resolution (case + typo did-you-mean) ---
+
+
+def test_install_catalog_name_is_case_insensitive(tmp_path, fakepip):
+    # `install Pool` must resolve the catalog entry, not fall through to raw pip.
+    _install(tmp_path, "Pool")
+    line = "git+https://github.com/JamesAwesome/led-ticker-pool.git@v1.2.0"
+    assert _reqfile(tmp_path).read_text().strip().splitlines()[-1] == line
+
+
+def test_install_typo_suggests_catalog_name_without_installing(tmp_path, fakepip):
+    code = _install(tmp_path, "poool")  # typo close to "pool"
+    assert code == 2
+    assert fakepip.install_cmd is None  # never pip-installed an arbitrary package
+    assert not _reqfile(tmp_path).exists()
+
+
+def test_install_unrelated_bare_name_still_raw_installs(tmp_path, fakepip):
+    # A bare name that ISN'T close to any catalog name is a legit raw PyPI install.
+    code = _install(tmp_path, "requests")
+    assert code == 0
+    assert "requests" in _reqfile(tmp_path).read_text()
+    assert fakepip.install_cmd[-1] == "requests"
+
+
+def test_install_dedup_handles_slash_ref(tmp_path, fakepip):
+    # Re-pinning the same plugin to a slash branch must replace, not duplicate.
+    _install(tmp_path, "git+https://h/o/led-ticker-pool.git@main")
+    _install(tmp_path, "git+https://h/o/led-ticker-pool.git@feature/x")
+    assert _reqfile(tmp_path).read_text().count("led-ticker-pool") == 1
+
+
 # --- list / search ---
 
 
@@ -174,6 +206,23 @@ def test_cmd_list_prints_catalog(capsys):
     out = capsys.readouterr().out
     assert "pool" in out
     assert "pool.monitor" in out
+
+
+def test_cmd_list_marks_installed(monkeypatch, capsys):
+    # _installed_namespaces() goes through importlib.metadata.entry_points, which
+    # the hermetic stub patches — so this also proves that path is reachable.
+    import importlib.metadata
+    from types import SimpleNamespace
+
+    def fake_eps(*a, **k):
+        if k.get("group") == "led_ticker.plugins":
+            return [SimpleNamespace(name="pool")]
+        return []
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", fake_eps)
+    plugin_cmd.cmd_list(catalog=_catalog())
+    out = capsys.readouterr().out
+    assert "[installed]" in out
 
 
 def test_cmd_search_filters(capsys):
@@ -194,6 +243,15 @@ def test_cmd_search_no_match(capsys):
     [
         ("git+https://h/o/led-ticker-pool.git@v1.2.0", "led-ticker-pool"),
         ("git+https://h/o/led-ticker-pool.git@main", "led-ticker-pool"),
+        # slash-containing refs (feature/, release/) must NOT leak into the key
+        ("git+https://h/o/led-ticker-pool.git@feature/foo", "led-ticker-pool"),
+        ("git+https://h/o/led-ticker-pool.git@release/1.x", "led-ticker-pool"),
+        ("git+https://h/o/led-ticker-pool@main", "led-ticker-pool"),  # no .git
+        # #egg= fragment is stripped
+        (
+            "git+https://h/o/led-ticker-pool.git@main#egg=led-ticker-pool",
+            "led-ticker-pool",
+        ),
         ("led-ticker-pool==1.2.0", "led-ticker-pool"),
         ("led_ticker_pool", "led-ticker-pool"),
         ("led-ticker-pool>=1.0", "led-ticker-pool"),

@@ -80,8 +80,10 @@ class Catalog:
     entries: tuple[CatalogEntry, ...]
 
     def get(self, name: str) -> CatalogEntry | None:
+        """Look up a plugin by name, case-insensitively (matches search())."""
+        key = name.lower()
         for entry in self.entries:
-            if entry.name == name:
+            if entry.name.lower() == key:
                 return entry
         return None
 

@@ -86,18 +86,26 @@ summary, and provided names.
 ### `plugin install <name | pip-spec>`
 
 Resolves a catalog name (e.g. `pool`) to a pip requirement, appends it to
-`config/requirements-plugins.txt`, and installs it under led-ticker's core
-dependency constraints (a plugin can pull new libraries but can't move a
-version core pins). A name that isn't in the catalog is treated as a raw
-pip spec (a `git+https://…` URL or a PyPI requirement), mirroring `pip
-install`.
+the `requirements-plugins.txt` **next to your config file**, and installs
+it under led-ticker's core dependency constraints (a plugin can pull new
+libraries but can't move a version core pins). A name that isn't in the
+catalog is treated as a raw pip spec (a `git+https://…` URL or a PyPI
+requirement), mirroring `pip install`; a bare typo close to a catalog name
+gets a "did you mean …?" instead.
+
+Pass `--config config/config.toml` so the file lands in `config/` — the
+only `requirements-plugins.txt` the Docker build and `deploy/install.sh`
+read. (Without `--config`, the file is written next to the default
+`config.toml` in the current directory.)
 
 ```bash
-led-ticker plugin install pool                 # catalog name, pinned to the catalog ref
-led-ticker plugin install pool --unpinned      # track @main / latest instead
-led-ticker plugin install pool --source pypi   # prefer the PyPI source (when published)
-led-ticker plugin install git+https://github.com/you/led-ticker-foo.git@v1  # raw spec
+led-ticker plugin install pool --config config/config.toml              # pinned to the catalog ref
+led-ticker plugin install pool --config config/config.toml --unpinned   # track @main / latest instead
+led-ticker plugin install git+https://github.com/you/led-ticker-foo.git@v1 --config config/config.toml  # raw spec
 ```
+
+When a plugin publishes a PyPI source in the catalog, `--source pypi`
+selects it over git; today the bundled plugins are git-only.
 
 | Flag              | Default       | Notes                                                                                            |
 | ----------------- | ------------- | ------------------------------------------------------------------------------------------------ |

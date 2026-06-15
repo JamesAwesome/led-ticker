@@ -6,10 +6,11 @@ through `sys.executable -m pip` so the active interpreter's environment is the
 install target; the module never imports pip.
 """
 
+import difflib
+import importlib.metadata
 import subprocess
 import sys
 import tempfile
-from importlib.metadata import entry_points
 from pathlib import Path
 
 from led_ticker.plugins_catalog import Catalog, CatalogEntry, load_catalog
@@ -31,14 +32,18 @@ def _requirement_key(requirement: str) -> str:
     """
     req = requirement.strip()
     if req.startswith(("git+", "-e ")):
-        # ...github.com/owner/led-ticker-pool.git@ref  ->  led-ticker-pool
-        url = req.split("#", 1)[0]  # drop any #egg= fragment
-        url = url.split("@")[0] if "@" in url.rsplit("/", 1)[-1] else url
-        # strip a trailing @ref only when it's on the last path segment (refs),
-        # not the scheme; simplest: take last path segment, drop .git and @ref.
-        last = req.split("/")[-1]
-        last = last.split("@", 1)[0]
-        stem = last.removesuffix(".git")
+        # git+https://host/owner/led-ticker-pool.git@<ref>[#egg=...] -> led-ticker-pool
+        url = req.removeprefix("-e ").strip()
+        url = url.split("#", 1)[0]  # drop the #egg= fragment
+        # Strip the @ref. A ref can itself contain '/' (e.g. @feature/foo), so
+        # cut at the first '@' AFTER the URL path begins — not a user@host
+        # credential, and not a '/' inside the ref.
+        scheme = url.find("//")
+        path_start = url.find("/", scheme + 2) if scheme != -1 else url.find("/")
+        at = url.find("@", path_start) if path_start != -1 else url.find("@")
+        if at != -1:
+            url = url[:at]
+        stem = url.rstrip("/").split("/")[-1].removesuffix(".git")
         return stem.lower().replace("_", "-")
     # pypi: name up to the first version/marker/extra delimiter
     for delim in ("==", ">=", "<=", "~=", "!=", ">", "<", "[", ";", " "):
@@ -73,11 +78,12 @@ def _update_requirements(path: Path, requirement: str) -> bool:
 
 
 def _installed_namespaces() -> set[str]:
-    """Plugin namespaces registered as entry points in the active environment."""
-    try:
-        eps = entry_points(group=_PLUGINS_ENTRY_GROUP)
-    except TypeError:  # pragma: no cover - very old importlib.metadata API
-        eps = entry_points().get(_PLUGINS_ENTRY_GROUP, [])  # type: ignore[attr-defined]
+    """Plugin namespaces registered as entry points in the active environment.
+
+    Calls ``importlib.metadata.entry_points`` via the module (not a pre-bound
+    name) so the test suite's hermetic entry-point stub applies here too.
+    """
+    eps = importlib.metadata.entry_points(group=_PLUGINS_ENTRY_GROUP)
     return {ep.name for ep in eps}
 
 
@@ -160,6 +166,36 @@ def cmd_install(
             print(str(e), file=sys.stderr)
             return 2
     else:
+        # Not a catalog name. A bare token (no pip-spec markers) that's close to
+        # a catalog name is almost certainly a typo — suggest it rather than
+        # silently pip-installing an arbitrary (possibly typosquatted) package.
+        _SPEC_MARKERS = (
+            "git+",
+            "://",
+            "@",
+            "==",
+            ">=",
+            "<=",
+            "~=",
+            "!=",
+            "/",
+            "[",
+            " ",
+        )
+        if not any(m in target for m in _SPEC_MARKERS):
+            close = difflib.get_close_matches(
+                target.lower(),
+                [e.name for e in catalog.entries],
+                n=1,
+                cutoff=0.7,
+            )
+            if close:
+                print(
+                    f"{target!r} is not a known plugin. Did you mean {close[0]!r}? "
+                    f"(run: led-ticker plugin install {close[0]})",
+                    file=sys.stderr,
+                )
+                return 2
         # Raw mode: treat the argument as a pip spec (git+https://…, name==x, …),
         # mirroring `pip install`. --source only applies to catalog entries.
         if source is not None:

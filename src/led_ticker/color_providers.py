@@ -91,6 +91,15 @@ class _ConstantColor(ColorProviderBase):
         return self._color
 
 
+def as_color_provider(color: Color) -> ColorProvider:
+    """Wrap a constant ``Color`` as a uniform (non-animated) ``ColorProvider``.
+
+    The public way to get a constant-color provider — e.g. a widget's default
+    font color. ``_ConstantColor`` stays private; this is the supported surface.
+    """
+    return _ConstantColor(color)
+
+
 class Random(ColorProviderBase):
     """Picks a single random color at construction; returns it for
     every call. Matches the existing `font_color = "random"` sentinel

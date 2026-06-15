@@ -95,6 +95,39 @@ To paint a **background**, call the canvas's own `canvas.Fill(r, g, b)` before y
   instead.
 </Aside>
 
+### Rich text: per-character animated colors
+
+`draw_text` already renders inline `:emoji:`, but it takes only a flat `Color`. When your widget should give text **per-character animated colors** (rainbow, gradient, shimmer) — as data widgets like the pool monitor do — reach for `draw_with_emoji`, which accepts a `ColorProvider`:
+
+```python
+from led_ticker.plugin import (
+    as_color_provider,
+    count_text_chars,
+    draw_with_emoji,
+    make_color,
+)
+
+# Your widget receives font_color as a ColorProvider (or None).
+# as_color_provider wraps a fallback Color so you always have a provider:
+provider = font_color if font_color is not None else as_color_provider(make_color(255, 255, 255))
+
+text = f"TEMP {value}°"
+total = count_text_chars(text)   # counts `:slug:` tokens as one char each
+end_x = draw_with_emoji(canvas, font, cursor_pos, y, provider, text, frame=self.frame_for("font_color"), total_chars=total)
+```
+
+Reach for `draw_with_emoji` over `draw_text` purely when the color is a `ColorProvider` rather than a flat `Color` — both render inline emoji identically. `count_text_chars` measures the total — pair it with the provider's `total_chars` argument so a rainbow sweeps correctly across any inline emoji in the string.
+
+For named color constants (`RED`, `DEFAULT_COLOR`, `RGB_WHITE`, …) use `led_ticker.plugin.colors`:
+
+```python
+from led_ticker.plugin import colors
+
+color = colors.RED
+```
+
+Full table: [API reference → Helpers](/plugins/api-reference/#helpers).
+
 The `_days()` helper is plain Python:
 
 ```python

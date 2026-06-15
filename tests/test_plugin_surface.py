@@ -16,9 +16,10 @@ NEW_SYMBOLS = [
 ]
 
 
-def test_draw_with_emoji_not_public():
-    assert "draw_with_emoji" not in P.__all__
-    assert not hasattr(P, "draw_with_emoji")
+def test_draw_with_emoji_is_public():
+    # Promoted from internal alias (_draw_with_emoji) to public surface in P3.
+    assert "draw_with_emoji" in P.__all__
+    assert hasattr(P, "draw_with_emoji")
 
 
 def test_baseball_surface_symbols_exported():

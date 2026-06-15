@@ -26,9 +26,13 @@ def register(name: str) -> Callable[[_T], _T]:
 def get_widget_class(name: str) -> type[Any]:
     """Look up a widget class by its config name."""
     if name not in _WIDGET_REGISTRY:
-        raise ValueError(
+        from led_ticker._plugin_hint import plugin_hint
+
+        base = (
             f"Unknown widget type: {name!r}. Available: {list(_WIDGET_REGISTRY.keys())}"
         )
+        hint = plugin_hint(name, "widget")
+        raise ValueError(f"{base} {hint}" if hint else base)
     return _WIDGET_REGISTRY[name]
 
 

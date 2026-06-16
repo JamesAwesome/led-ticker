@@ -11,6 +11,13 @@ list[str]`` classmethod (a @classmethod). When present it is called during
 config validation; any returned messages become pre-flight errors. This is a
 convention (no ``api.*`` registration) — the rule travels with the widget type.
 
+A widget class may also define ``validate_config_warnings(cls, cfg, ctx:
+ValidationContext) -> list[str]`` to emit advisory (warning-severity) preflight
+checks. It receives the section/display geometry via :class:`ValidationContext`
+so render-prediction checks (e.g. "this text may be cut off at this scale") can
+account for the canvas dimensions. Same convention as ``validate_config`` — no
+registration needed.
+
 A widget may also be a MONITOR/CONTAINER: declare a ``feed_stories:
 list[Widget]`` field (the engine re-reads it live and cycles through the
 current stories) instead of implementing ``draw()``, implement
@@ -116,6 +123,7 @@ __all__ = [
     "Transition",
     "TwoRowMessage",
     "Updatable",
+    "ValidationContext",
     "Widget",
     "colors",
     "compute_baseline",
@@ -144,7 +152,7 @@ __all__ = [
 ]
 # Public plugin surface: registry contributions + lifecycle hooks.
 
-API_VERSION: tuple[int, int] = (1, 0)
+API_VERSION: tuple[int, int] = (1, 1)
 
 # Lifecycle-hook callable shapes (collected by the loader, run by app/run.py).
 # A startup hook may be sync or async; a shutdown hook takes no args.
@@ -171,6 +179,25 @@ class StartupContext:
     frame: Any
     session: Any
     config: Any
+
+
+@dataclass(frozen=True)
+class ValidationContext:
+    """Geometry passed to a widget's optional ``validate_config_warnings``.
+
+    The per-widget ``validate_config`` hook only sees the widget's own ``cfg``;
+    warning-severity render-prediction checks (e.g. "this text may be cut off
+    at this scale") also need the section/display geometry, supplied here.
+
+    ``config_dir`` is the directory of the loaded ``config.toml`` so a check can
+    resolve a relative path field (e.g. a widget's local data/asset file path).
+    """
+
+    scale: int
+    content_height: int
+    panel_width: int
+    panel_height: int
+    config_dir: Path
 
 
 _T = TypeVar("_T", bound=type)

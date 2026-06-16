@@ -127,7 +127,7 @@ from led_ticker.validate import _check_plugin_validation_warnings  # noqa: E402
 from led_ticker.widgets import register  # noqa: E402
 
 
-def test_check_emits_warning_issue(monkeypatch):
+def test_check_emits_warning_issue():
     # Register a throwaway widget type that emits a warning, then build a
     # minimal AppConfig-like object exposing .display and .sections.
     @register("phase1_warn_probe")

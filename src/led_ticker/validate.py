@@ -843,8 +843,9 @@ def _check_plugin_validation_warnings(
                         location=f"section[{i}].widget[{j}]",
                         severity="warning",
                         message=msg,
-                        fix="Advisory check from the widget/plugin. "
-                        "See the plugin's documentation for how to resolve it.",
+                        fix="Advisory check from the widget. "
+                        "See the widget's documentation for how to resolve"
+                        " this advisory.",
                     )
                 )
     return issues

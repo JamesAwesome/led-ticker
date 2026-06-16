@@ -39,7 +39,7 @@ Two rules govern every registration:
 - **Auto-namespacing.** Every name you register is prefixed with your plugin's namespace — `api.widget("clock")` in the `acme` plugin registers `acme.clock` (written in config as `type = "acme.clock"`). You cannot register a bare name or shadow a built-in.
 - **Atomic load.** Calls buffer until `register()` returns cleanly. If `register()` raises, the whole plugin is discarded — there is no half-registered state.
 
-`API_VERSION` (currently `(1, 0)`) is exported so a plugin can check the surface version it was built against.
+`API_VERSION` (currently `(1, 1)`) is exported so a plugin can check the surface version it was built against.
 
 ## Registration methods
 
@@ -117,9 +117,10 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 
 | Name             | What it is                                                                     |
 | ---------------- | ------------------------------------------------------------------------------ |
-| `PluginAPI`      | The namespace-bound registrar passed to `register(api)`                        |
-| `StartupContext` | Frozen dataclass passed to an `on_startup` hook (`frame`, `session`, `config`) |
-| `API_VERSION`    | `(major, minor)` tuple of the plugin surface version                           |
+| `PluginAPI`           | The namespace-bound registrar passed to `register(api)`                                                             |
+| `StartupContext`      | Frozen dataclass passed to an `on_startup` hook (`frame`, `session`, `config`)                                      |
+| `ValidationContext`   | Geometry passed to `validate_config_warnings` (`scale`, `content_height`, `panel_width`, `panel_height`, `config_dir`) |
+| `API_VERSION`         | `(major, minor)` tuple of the plugin surface version                                                                |
 
 ### Base classes & protocols
 
@@ -196,6 +197,7 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 A few behaviors are **conventions** the type carries, not `api.*` calls:
 
 - **`validate_config`** — a widget may define `@classmethod validate_config(cls, cfg) -> list[str]`. It's called during config validation with the raw (pre-coercion) TOML for that widget; any returned strings become pre-flight errors. The rule travels with the widget type.
+- **`validate_config_warnings`** — a widget may define `@classmethod validate_config_warnings(cls, cfg: dict, ctx: ValidationContext) -> list[str]`. Like `validate_config`, it runs at config-validation time with raw pre-coercion config; but the returned strings surface as **warnings** via `led-ticker validate` — they are never errors and never block the display from loading. The hook receives display geometry via `ValidationContext` (`scale`, `content_height`, `panel_width`, `panel_height`, `config_dir`), making it suitable for checks like "this font size may clip on a 16-tall canvas at scale=4". A hook that raises is isolated and silently ignored (warnings are advisory only). Requires core API ≥ (1, 1).
 - **`font_color` injection** — to accept the standard `font_color` color-provider knob, declare a `font_color: object = None` field on the widget; the loader coerces the TOML value to a `ColorProvider` and injects it. Without the field, `font_color` is rejected as unknown.
 - **`frame_invariant`** — `ColorProviderBase` / `BorderEffectBase` require subclasses to set a `frame_invariant: bool` class attr. `True` means output never varies by frame (enables a static fast path); `False` forces a per-tick redraw.
 - **`restart_on_visit`** — a color provider or border may set `restart_on_visit = False` to keep a continuous animation phase across a section's `loop_count`, instead of resetting on each visit.

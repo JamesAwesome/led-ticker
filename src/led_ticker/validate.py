@@ -9,7 +9,6 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
-from urllib.parse import unquote
 
 import tomli_w
 
@@ -752,64 +751,6 @@ def _check_asset_paths(config: AppConfig, config_dir: Path) -> list[ValidationIs
     return issues
 
 
-_ICS_NETWORK_SCHEMES = ("http://", "https://", "webcal://", "webcals://")
-
-
-def _check_calendar_ics_paths(
-    config: AppConfig, config_dir: Path
-) -> list[ValidationIssue]:
-    """Rule 54: a calendar `ics_url` pointing at a LOCAL file should exist.
-
-    Emitted as a WARNING, not an error: the file may be written at runtime (e.g.
-    a cron exports the `.ics`), so a missing path at validate time is a heads-up,
-    not a hard failure — mirrors the missing-font warning. Network URLs
-    (`http(s)://`, `webcal(s)://`) are never fetched here (no network I/O). The
-    obvious unfilled-placeholder case is a hard error from
-    `Calendar.validate_config`, and Phase 2 warnings only run when there are no
-    errors, so a placeholder never double-reports here.
-    """
-    issues: list[ValidationIssue] = []
-    for i, section in enumerate(config.sections):
-        for j, widget_cfg in enumerate(section.widgets):
-            if widget_cfg.get("type") != "calendar":
-                continue
-            ics_url = widget_cfg.get("ics_url")
-            if not isinstance(ics_url, str) or not ics_url.strip():
-                continue  # required-field error handled by validate_config
-            if ics_url.lower().startswith(_ICS_NETWORK_SCHEMES):
-                continue  # network feed — no path check
-            raw = ics_url
-            if raw.startswith("file://"):
-                raw = raw[len("file://") :]
-                if raw.startswith("localhost/"):
-                    raw = raw[len("localhost") :]  # RFC 8089 file://localhost/abs
-                raw = unquote(raw)
-            candidate = Path(raw).expanduser()
-            resolved = (
-                candidate
-                if candidate.is_absolute()
-                else (config_dir / candidate).resolve()
-            )
-            if not resolved.exists():
-                issues.append(
-                    ValidationIssue(
-                        rule=54,
-                        location=f"section[{i}].widget[{j}]",
-                        severity="warning",
-                        message=(
-                            f"calendar ics_url path {ics_url!r} does not exist"
-                            f" (resolved to {resolved})"
-                        ),
-                        fix=(
-                            "It must be present at runtime. If a job writes the "
-                            ".ics file later this is just a heads-up; otherwise "
-                            "fix the path or use an https:// feed URL."
-                        ),
-                    )
-                )
-    return issues
-
-
 # Rule 55: advisory warnings contributed by a widget's
 # validate_config_warnings(cls, cfg, ctx) hook (plugins + core widgets alike).
 def _check_plugin_validation_warnings(
@@ -1139,9 +1080,6 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
       - `type = "two_row"` (TwoRowMessage)
       - `type = "gif"` / `type = "image"` with `bottom_text != ""`
         (image/gif two-row text overlay mode)
-      - `type = "calendar"` with `layout = "two_row"` (per-event TwoRowMessage
-        cards; the default 6x12 font is substituted with FONT_SMALL at runtime,
-        mirrored here)
     """
     from led_ticker.fonts import (
         FONT_DEFAULT,
@@ -1167,15 +1105,6 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
                 if widget_cfg.get("bottom_text", "") == "":
                     continue  # single-row mode: no per-band check needed
                 default_font = FONT_DEFAULT
-            elif wtype == "calendar" and widget_cfg.get("layout") == "two_row":
-                # Calendar two_row builds TwoRowMessage cards. The calendar font
-                # defaults to FONT_DEFAULT (6x12), but _build_two_row_stories
-                # substitutes FONT_SMALL because 6x12 can't fit any two_row band;
-                # mirror that here (default + the FONT_DEFAULT swap below) so
-                # validate matches runtime. An explicitly-too-tall font (e.g. a
-                # large hires font_size, or 7x13) still errors. The calendar uses
-                # one font for both rows -> the shared-font path covers them.
-                default_font = FONT_SMALL
             else:
                 continue
 
@@ -1218,12 +1147,6 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
                 except ValueError:
                     # _run_build_checks will surface the resolve_font failure.
                     continue
-
-                # Mirror the runtime substitution: a calendar two_row whose font
-                # resolves to FONT_DEFAULT (6x12, omitted or explicit) renders
-                # with FONT_SMALL, so validate it as FONT_SMALL too.
-                if wtype == "calendar" and font is FONT_DEFAULT:
-                    font = FONT_SMALL
 
                 lh = font_line_height_logical(font, scale)
                 if lh > band_h:
@@ -1393,15 +1316,12 @@ def _check_scroll_through_swap_only(
 def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
     """Warn when a held top row is wider than the logical canvas.
 
-    Covers two_row / image-two_row / gif-two_row (static `top_text`) and
-    `calendar` + `layout="two_row"` (whose held day+time row is data-driven, so
-    a representative widest phrase is measured instead).
+    Covers two_row / image-two_row / gif-two_row (static `top_text`).
 
     The widget renders the top row HELD (no scrolling) and clips silently on
     overflow. Without this check, validation passes clean even though the right
     edge of the held content gets cropped at runtime — typical symptom is "the
-    last character of my handle is cut off," or for the calendar "the time got
-    chopped" on the narrow bigsign logical canvas at scale=4.
+    last character of my handle is cut off."
 
     Bottom rows are exempt: they scroll automatically on overflow, which
     is the documented design.
@@ -1432,7 +1352,6 @@ def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
 
         for j, widget_cfg in enumerate(section.widgets):
             wtype = widget_cfg.get("type", "")
-            is_calendar_two_row = False
             if wtype == "two_row":
                 default_font = FONT_SMALL
                 top_text = widget_cfg.get("top_text", "")
@@ -1441,19 +1360,6 @@ def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
                     continue  # single-row mode: top text is the scrolling content
                 default_font = FONT_DEFAULT
                 top_text = widget_cfg.get("top_text", "")
-            elif wtype == "calendar" and widget_cfg.get("layout") == "two_row":
-                # The calendar's held top row (day + time) is data-driven — there
-                # is no static top_text to measure. Check a representative WIDEST
-                # phrase ("Tomorrow" is the longest day label) so a too-narrow
-                # logical canvas (e.g. bigsign at scale=4 = 64 logical px wide)
-                # is flagged: the held row clips long phrases at runtime. A custom
-                # strftime time_format has unknown width, so skip it.
-                tf = widget_cfg.get("time_format", "12h")
-                if not isinstance(tf, str) or "%" in tf:
-                    continue
-                top_text = "Tomorrow 23:59" if tf == "24h" else "Tomorrow 12:00 PM"
-                default_font = FONT_SMALL
-                is_calendar_two_row = True
             else:
                 continue
 
@@ -1479,40 +1385,21 @@ def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
             except ValueError:
                 continue  # font resolution error caught elsewhere
 
-            # Mirror _build_two_row_stories' runtime substitution: a calendar
-            # two_row whose font resolves to FONT_DEFAULT (6x12) renders with
-            # FONT_SMALL, so measure with FONT_SMALL too.
-            if is_calendar_two_row and font is FONT_DEFAULT:
-                font = FONT_SMALL
-
             emoji_cap = max(EMOJI_ROW_CAP, top_h)
             width = measure_width(font, top_text, canvas, max_emoji_height=emoji_cap)
             if width > canvas_w:
                 overflow = width - canvas_w
-                if is_calendar_two_row:
-                    message = (
-                        f"two_row held day+time row clips on this {canvas_w}-wide "
-                        f"logical canvas: the widest phrase ({top_text!r}) is "
-                        f"{width} logical px ({overflow} px over). The top row is "
-                        f"held (no scroll), so long 'when' phrases crop."
-                    )
-                    fix = (
-                        "Lower the section's scale (e.g. scale = 2 gives a wider "
-                        "logical canvas) or use a narrower font/font_size. "
-                        "two_row is roomier at scale = 2 on the bigsign."
-                    )
-                else:
-                    message = (
-                        f"top_text width ({width} logical px) exceeds the "
-                        f"{canvas_w}-wide logical canvas by {overflow} px. "
-                        f"The held row will clip its right edge at runtime."
-                    )
-                    fix = (
-                        "Shorten top_text, drop inline emoji, use a smaller "
-                        "top_font_size, or set the section's scale lower "
-                        "to widen the logical canvas (scale = 1 gives the "
-                        "full panel width)."
-                    )
+                message = (
+                    f"top_text width ({width} logical px) exceeds the "
+                    f"{canvas_w}-wide logical canvas by {overflow} px. "
+                    f"The held row will clip its right edge at runtime."
+                )
+                fix = (
+                    "Shorten top_text, drop inline emoji, use a smaller "
+                    "top_font_size, or set the section's scale lower "
+                    "to widen the logical canvas (scale = 1 gives the "
+                    "full panel width)."
+                )
                 issues.append(
                     ValidationIssue(
                         rule=23,
@@ -1985,7 +1872,6 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
         warnings.extend(_check_soft(config))
         warnings.extend(_check_held_top_text_overflow(config))
         warnings.extend(_check_transition_fps(config))
-        warnings.extend(_check_calendar_ics_paths(config, path.parent))
         warnings.extend(_check_plugin_validation_warnings(config, path.parent))
 
     # Phase 2 (strict only): asset path existence check.

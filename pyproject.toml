@@ -15,8 +15,6 @@ dependencies = [
     "aiohttp>=3.9",
     "attrs>=23.0",
     "feedparser>=6.0",
-    "icalendar>=6.1",
-    "recurring-ical-events>=3.0",
     "tomli-w>=1.0",
 ]
 

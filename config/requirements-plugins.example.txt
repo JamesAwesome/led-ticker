@@ -22,3 +22,6 @@ git+https://github.com/JamesAwesome/led-ticker-pool.git@main
 # Baseball / MLB widgets (type = "baseball.scores" / "baseball.standings"),
 # the baseball.roll* transition, and the :baseball.ball: emoji:
 git+https://github.com/JamesAwesome/led-ticker-baseball.git@main
+
+# Calendar (.ics) agenda/next/two_row widget (type = "calendar.events"):
+git+https://github.com/JamesAwesome/led-ticker-calendar.git@main

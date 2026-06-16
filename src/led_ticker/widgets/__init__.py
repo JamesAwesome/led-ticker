@@ -38,7 +38,6 @@ def get_widget_class(name: str) -> type[Any]:
 
 # Auto-import all built-in widget modules so they register themselves
 from led_ticker.widgets import (  # noqa: E402, F401
-    calendar,
     clock,
     gif,
     message,

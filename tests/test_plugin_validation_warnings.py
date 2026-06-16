@@ -157,3 +157,58 @@ def test_check_emits_warning_issue():
     assert issues[0].rule == 55
     assert issues[0].location == "section[0].widget[0]"
     assert "probe warned at scale 1" in issues[0].message
+
+
+def test_check_multi_section_mixed_widgets():
+    # Hooked probe: emits one warning per call, references ctx.scale.
+    @register("phase1_warn_probe_multi")
+    class _HookedProbe:
+        @classmethod
+        def validate_config_warnings(cls, cfg, ctx):
+            return [f"warn s{ctx.scale}"]
+
+    # Unhooked widget: no validate_config_warnings — contributes zero issues.
+    @register("phase1_nohook")
+    class _NoHook:
+        pass
+
+    display = SimpleNamespace(
+        cols=160,
+        rows=16,
+        chain_length=1,
+        parallel=1,
+        default_scale=1,
+        pixel_mapper_config="",
+    )
+    # Section 0: [unhooked, hooked]  → 1 warning from widget[1]
+    section0 = SimpleNamespace(
+        scale=1,
+        content_height=16,
+        widgets=[
+            {"type": "phase1_nohook"},
+            {"type": "phase1_warn_probe_multi"},
+        ],
+    )
+    # Section 1: [hooked]            → 1 warning from widget[0]
+    section1 = SimpleNamespace(
+        scale=2,
+        content_height=16,
+        widgets=[
+            {"type": "phase1_warn_probe_multi"},
+        ],
+    )
+    config = SimpleNamespace(display=display, sections=[section0, section1])
+
+    issues = _check_plugin_validation_warnings(config, Path("."))
+
+    assert len(issues) == 2
+
+    loc0 = next(iss for iss in issues if iss.location == "section[0].widget[1]")
+    assert loc0.severity == "warning"
+    assert loc0.rule == 55
+    assert "warn s1" in loc0.message
+
+    loc1 = next(iss for iss in issues if iss.location == "section[1].widget[0]")
+    assert loc1.severity == "warning"
+    assert loc1.rule == 55
+    assert "warn s2" in loc1.message

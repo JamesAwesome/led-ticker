@@ -84,7 +84,6 @@ export default defineConfig({
             { label: "All widgets", link: "/widgets/" },
             { label: "message", link: "/widgets/message/" },
             { label: "countdown", link: "/widgets/countdown/" },
-            { label: "calendar", link: "/widgets/calendar/" },
             { label: "clock", link: "/widgets/clock/" },
             { label: "two_row", link: "/widgets/two_row/" },
             { label: "weather", link: "/widgets/weather/" },
@@ -101,6 +100,7 @@ export default defineConfig({
               link: "/widgets/crypto-coingecko/",
             },
             { label: "pool (plugin)", link: "/widgets/pool/" },
+            { label: "calendar.events (plugin)", link: "/widgets/calendar/" },
           ],
         },
         {

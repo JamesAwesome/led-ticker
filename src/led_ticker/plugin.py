@@ -11,6 +11,13 @@ list[str]`` classmethod (a @classmethod). When present it is called during
 config validation; any returned messages become pre-flight errors. This is a
 convention (no ``api.*`` registration) — the rule travels with the widget type.
 
+A widget class may also define ``validate_config_warnings(cls, cfg, ctx:
+ValidationContext) -> list[str]`` to emit advisory (warning-severity) preflight
+checks. It receives the section/display geometry via :class:`ValidationContext`
+so render-prediction checks (e.g. "this text may be cut off at this scale") can
+account for the canvas dimensions. Same convention as ``validate_config`` — no
+registration needed.
+
 A widget may also be a MONITOR/CONTAINER: declare a ``feed_stories:
 list[Widget]`` field (the engine re-reads it live and cycles through the
 current stories) instead of implementing ``draw()``, implement
@@ -183,7 +190,7 @@ class ValidationContext:
     at this scale") also need the section/display geometry, supplied here.
 
     ``config_dir`` is the directory of the loaded ``config.toml`` so a check can
-    resolve a relative ``file://``/path field (e.g. a calendar ``ics_url``).
+    resolve a relative path field (e.g. a widget's local data/asset file path).
     """
 
     scale: int

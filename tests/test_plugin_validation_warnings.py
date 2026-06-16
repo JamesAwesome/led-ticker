@@ -1,5 +1,6 @@
 """Plugin validation warnings channel (calendar extraction Phase 1)."""
 
+import logging
 from pathlib import Path
 
 import led_ticker.plugin as plugin
@@ -83,7 +84,19 @@ def test_runner_absent_hook_returns_empty():
 
 def test_runner_isolates_raising_hook(caplog):
     # A warnings hook that raises must NOT crash validation.
-    assert _run_validate_config_warnings(_WidgetBadHook, {}, _CTX) == []
+    with caplog.at_level(logging.WARNING):
+        result = _run_validate_config_warnings(_WidgetBadHook, {}, _CTX)
+    assert result == []
+    assert "validate_config_warnings raised" in caplog.text
+
+
+def test_runner_passes_ctx_to_hook():
+    ctx_big = _VC(
+        scale=4, content_height=16, panel_width=256, panel_height=64, config_dir=_P(".")
+    )
+    assert _run_validate_config_warnings(_WidgetWithWarnings, {}, ctx_big) == [
+        "scale is large"
+    ]
 
 
 def test_collect_unknown_type_returns_empty():

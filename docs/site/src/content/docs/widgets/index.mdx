@@ -15,7 +15,7 @@ one that fits your data, then read its page for the full options list.
 | ----------------------------------------------------------- | --------------------------- | ------------------------------------------ |
 | [`message`](/widgets/message/)                              | static text                 | most lines on most signs                   |
 | [`clock`](/widgets/clock/)                                  | local clock                 | current time (12h/24h, optional date/tz)   |
-| [`calendar`](/widgets/calendar/)                            | iCal / .ics URL             | upcoming events, agenda or next-event line |
+| [`calendar.events`](/widgets/calendar/) _(plugin)_          | iCal / .ics URL             | upcoming events, agenda / next / two_row   |
 | [`countdown`](/widgets/countdown/)                          | local clock + a target date | "X days until …"                           |
 | [`two_row`](/widgets/two_row/)                              | two static lines            | held-handle + scrolling promo (storefront) |
 | [`weather`](/widgets/weather/)                              | WeatherAPI.com              | forecast / current conditions              |
@@ -31,7 +31,7 @@ one that fits your data, then read its page for the full options list.
 
 - **Just text:** `message`, `countdown`, `clock`. No external dependencies.
 - **Two text rows (storefront layout):** `two_row` at section `scale=2`.
-- **Live data (background fetch):** `weather`, `rss_feed`, `calendar`, plus the plugin widgets `pool`, `baseball.scores`, `baseball.standings`, and `crypto.coingecko`. Each has retry + exponential backoff.
+- **Live data (background fetch):** `weather`, `rss_feed`, plus the plugin widgets `pool`, `baseball.scores`, `baseball.standings`, `crypto.coingecko`, and `calendar.events`. Each has retry + exponential backoff.
 - **Visual:** `gif`, `image`. Both support text overlay, fit modes (pillarbox / letterbox / stretch / crop), and per-row two-row layouts.
 
 ## Common knobs

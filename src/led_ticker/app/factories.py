@@ -233,23 +233,6 @@ FIELD_HINTS: dict[str, FieldHint] = {
     "label_color": FieldHint(
         "[r, g, b]", "color for the prefix labels and separators", "white"
     ),
-    # --- Calendar ---
-    "ics_url": FieldHint("str", "public .ics feed URL (or file:// path)", "required"),
-    "max_events": FieldHint("int", "max agenda events to show", "5"),
-    "lookahead_days": FieldHint("int", "days ahead to scan for events", "7"),
-    "time_format": FieldHint("str", "'12h' or '24h' for the event time", "12h"),
-    "empty_text": FieldHint(
-        "str", "shown when no upcoming events", "No upcoming events"
-    ),
-    "filter": FieldHint(
-        "list[str]", "keep only events whose summary matches a keyword", "[] (all)"
-    ),
-    "highlight": FieldHint(
-        "list[str]", "recolor + always-include matching events", "[] (none)"
-    ),
-    "highlight_color": FieldHint(
-        '[r,g,b] | "rainbow" | {style=...}', "color for highlighted events", "amber"
-    ),
 }
 
 # Attrs fields on gif/image widgets that only activate when bottom_text != "".
@@ -320,11 +303,12 @@ RANDOM_COLOR: itertools.cycle = itertools.cycle(
 )
 
 
-# Widget types removed from core. coingecko was re-homed in the led-ticker-crypto
-# plugin; coinbase and etherscan were RETIRED (no direct replacement). The message
-# is per-type so the hint is honest — an etherscan (gas) user must not be told to
+# Widget types extracted from core or retired entirely. coingecko was re-homed in
+# the led-ticker-crypto plugin; coinbase and etherscan were RETIRED (no direct
+# replacement); calendar was re-homed in led-ticker-calendar. The message is
+# per-type so the hint is honest — an etherscan (gas) user must not be told to
 # use crypto.coingecko (a price ticker).
-_CRYPTO_MIGRATION: dict[str, tuple[str, str]] = {
+_EXTRACTED_TYPES: dict[str, tuple[str, str]] = {
     "coingecko": (
         "Widget type 'coingecko' was removed from led-ticker core; it now ships "
         "in the led-ticker-crypto plugin as 'crypto.coingecko'.",
@@ -343,12 +327,18 @@ _CRYPTO_MIGRATION: dict[str, tuple[str, str]] = {
         "replacement.",
         "Remove the etherscan widget from your config.",
     ),
+    "calendar": (
+        "Widget type 'calendar' was extracted from led-ticker core; it now ships "
+        "in the led-ticker-calendar plugin as 'calendar.events'.",
+        'Install led-ticker-calendar (add it to config/requirements-plugins.txt) '
+        'and use type = "calendar.events".',
+    ),
 }
 
 
 def build_widget_cfg_error_for_type(widget_type: str) -> tuple[str, str] | None:
     """(message, suggested_fix) for a widget type removed from core, else None."""
-    return _CRYPTO_MIGRATION.get(widget_type)
+    return _EXTRACTED_TYPES.get(widget_type)
 
 
 def _cache_key(widget_cfg: dict[str, Any]) -> str:

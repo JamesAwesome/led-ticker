@@ -74,7 +74,7 @@ _TRANSITION_REGISTRY: dict[str, type[Transition]] = {}
 
 # name -> (message, suggested_fix) for a transition removed from core.
 # SHIPS EMPTY. The extraction PR (e.g. led-ticker-arcade) adds entries in
-# the same commit that removes the transition — mirroring _CRYPTO_MIGRATION
+# the same commit that removes the transition — mirroring _EXTRACTED_TYPES
 # in app/factories.py. A live entry for a still-registered transition would
 # be unreachable, so populating it here ahead of extraction is wrong.
 _TRANSITION_MIGRATION: dict[str, tuple[str, str]] = {}

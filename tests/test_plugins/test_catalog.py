@@ -20,10 +20,10 @@ def test_bundled_catalog_loads_and_is_v1():
     assert cat.entries  # non-empty
 
 
-def test_bundled_catalog_has_the_three_first_party_plugins():
+def test_bundled_catalog_has_the_first_party_plugins():
     cat = load_catalog()
     names = {e.name for e in cat.entries}
-    assert {"pool", "baseball", "crypto"} <= names
+    assert {"pool", "baseball", "crypto", "calendar"} <= names
 
 
 def test_bundled_entries_are_well_formed():

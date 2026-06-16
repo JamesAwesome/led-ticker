@@ -48,6 +48,20 @@
           "ref": "main"
         }
       ]
+    },
+    {
+      "name": "calendar",
+      "namespace": "calendar",
+      "summary": "Calendar (.ics) agenda/next/two_row widget.",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-calendar",
+      "provides": ["calendar.events"],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/JamesAwesome/led-ticker-calendar",
+          "ref": "main"
+        }
+      ]
     }
   ]
 }

@@ -1,5 +1,6 @@
-"""Old crypto widget types: coingecko re-homed to the led-ticker-crypto plugin;
-coinbase/etherscan retired. The config-load migration hint is per-type."""
+"""Extracted / retired widget types: coingecko re-homed in the led-ticker-crypto
+plugin; coinbase/etherscan retired; calendar re-homed in led-ticker-calendar.
+The config-load migration hint is per-type."""
 
 import pytest
 
@@ -42,3 +43,18 @@ def test_etherscan_is_retired_with_no_false_replacement():
 
 def test_unrelated_unknown_type_has_no_hint():
     assert build_widget_cfg_error_for_type("definitely_not_a_widget") is None
+
+
+# --- Calendar ---
+
+
+def test_bare_calendar_type_raises_migration_to_plugin():
+    result = build_widget_cfg_error_for_type("calendar")
+    assert result is not None
+    message, fix = result
+    assert "led-ticker-calendar" in message
+    assert "calendar.events" in fix
+
+
+def test_crypto_migration_still_works_after_rename():
+    assert build_widget_cfg_error_for_type("coingecko") is not None

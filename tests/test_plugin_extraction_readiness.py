@@ -24,9 +24,6 @@ _ALLOWED = {
         "_match_condition": "weather_icons moves with weather into the plugin",
     },
     "widgets/weather_icons.py": {},
-    "widgets/rss_feed.py": {
-        "register": "replaced by api.widget(name)",
-    },
     "transitions/nyancat.py": {
         "register_transition": "replaced by api.transition(name)",
         "HIRES_REGISTRY": "built-in dispatch only; extracted arcade uses the "

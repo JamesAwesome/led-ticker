@@ -336,11 +336,8 @@ class TestExampleConfigWidgets:
                 cfg = dict(widget_cfg)
                 widget_type = cfg.get("type")
 
-                # Skip widgets that need network (rss_feed, weather)
-                if widget_type in (
-                    "rss_feed",
-                    "weather",
-                ):
+                # Skip widgets that need network (weather)
+                if widget_type in ("weather",):
                     continue
 
                 widget = await _build_widget(cfg, session=mock.Mock())
@@ -2535,13 +2532,6 @@ class TestListWidgetFieldsDataWidgets:
         output = _list_widget_fields("weather")
         assert "imperial" in output
         assert "metric" in output
-
-    def test_rss_feed_shows_feed_url_description(self):
-        from led_ticker.app import _list_widget_fields
-
-        output = _list_widget_fields("rss_feed")
-        assert "feed_url" in output
-        assert "URL" in output or "url" in output.lower()
 
 
 class TestListSectionFields:

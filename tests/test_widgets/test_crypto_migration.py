@@ -56,5 +56,13 @@ def test_bare_calendar_type_raises_migration_to_plugin():
     assert "calendar.events" in fix
 
 
+def test_bare_rss_feed_type_raises_migration_to_plugin():
+    result = build_widget_cfg_error_for_type("rss_feed")
+    assert result is not None
+    message, fix = result
+    assert "led-ticker-feeds" in message
+    assert "feeds.rss" in fix
+
+
 def test_crypto_migration_still_works_after_rename():
     assert build_widget_cfg_error_for_type("coingecko") is not None

@@ -86,7 +86,7 @@ from led_ticker.widget import (
     spawn_tracked,
 )
 from led_ticker.widgets._frame_aware import FrameAwareBase
-from led_ticker.widgets._row_layout import resolve_band_heights
+from led_ticker.widgets._row_layout import EMOJI_ROW_CAP, resolve_band_heights
 from led_ticker.widgets.clock import format_clock
 from led_ticker.widgets.message import SegmentMessage, TickerMessage
 from led_ticker.widgets.two_row import TwoRowMessage
@@ -103,6 +103,7 @@ __all__ = [
     "ColorTuple",
     "Container",
     "DrawResult",
+    "EMOJI_ROW_CAP",
     "ColorProvider",
     "ColorProviderBase",
     "as_color_provider",

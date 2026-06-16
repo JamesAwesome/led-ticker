@@ -810,6 +810,47 @@ def _check_calendar_ics_paths(
     return issues
 
 
+# Rule 55: advisory warnings contributed by a widget's
+# validate_config_warnings(cls, cfg, ctx) hook (plugins + core widgets alike).
+def _check_plugin_validation_warnings(
+    config: AppConfig, config_dir: Path
+) -> list[ValidationIssue]:
+    """Collect each widget's advisory ``validate_config_warnings`` output.
+
+    Builds a per-section ``ValidationContext`` (geometry + config_dir) and emits
+    every returned string as a warning. The hook is error-isolated inside
+    ``collect_validation_warnings`` so a buggy check never breaks validation.
+    """
+    from led_ticker.app.factories import collect_validation_warnings
+    from led_ticker.plugin import ValidationContext
+
+    issues: list[ValidationIssue] = []
+    panel_w = _panel_w_real(config.display)
+    panel_h = _panel_h_real(config.display)
+    for i, section in enumerate(config.sections):
+        ctx = ValidationContext(
+            scale=section.scale,
+            content_height=section.content_height,
+            panel_width=panel_w,
+            panel_height=panel_h,
+            config_dir=config_dir,
+        )
+        for j, widget_cfg in enumerate(section.widgets):
+            for msg in collect_validation_warnings(dict(widget_cfg), ctx):
+                issues.append(
+                    ValidationIssue(
+                        rule=55,
+                        location=f"section[{i}].widget[{j}]",
+                        severity="warning",
+                        message=msg,
+                        fix="Advisory check from the widget. "
+                        "See the widget's documentation for how to resolve"
+                        " this advisory.",
+                    )
+                )
+    return issues
+
+
 _WEIGHT_SUFFIXES = frozenset(
     [
         "Regular",
@@ -1945,6 +1986,7 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
         warnings.extend(_check_held_top_text_overflow(config))
         warnings.extend(_check_transition_fps(config))
         warnings.extend(_check_calendar_ics_paths(config, path.parent))
+        warnings.extend(_check_plugin_validation_warnings(config, path.parent))
 
     # Phase 2 (strict only): asset path existence check.
     # Not in normal mode — asset files may only exist on the deploy target.

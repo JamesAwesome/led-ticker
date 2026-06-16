@@ -563,6 +563,43 @@ def _run_validate_config(cls: type, cfg: dict[str, Any], widget_type: str) -> No
         raise ValueError(f"{widget_type}: {'; '.join(messages)}")
 
 
+def _run_validate_config_warnings(
+    cls: type, cfg: dict[str, Any], ctx: Any
+) -> list[str]:
+    """Run a widget class's optional ``validate_config_warnings(cls, cfg, ctx)``.
+
+    Sibling to ``_run_validate_config`` but ADVISORY: every returned string is a
+    warning, never an error, and a hook that raises is isolated (logged, then
+    treated as "no warnings") so a buggy plugin check can never fail validation
+    or freeze startup. The hook gets a COPY of the config.
+    """
+    hook = getattr(cls, "validate_config_warnings", None)
+    if hook is None:
+        return []
+    try:
+        messages = hook(dict(cfg), ctx)
+    except Exception as e:  # isolation: advisory checks never crash validation
+        logging.warning("validate_config_warnings raised (ignored): %s", e)
+        return []
+    return list(messages) if messages else []
+
+
+def collect_validation_warnings(widget_cfg: dict[str, Any], ctx: Any) -> list[str]:
+    """Resolve a widget dict's class and collect its advisory warnings.
+
+    Returns ``[]`` for a missing/unknown ``type`` (those are reported by other
+    rules / the migration path); never raises.
+    """
+    wtype = widget_cfg.get("type")
+    if not isinstance(wtype, str) or not wtype:
+        return []
+    try:
+        cls = get_widget_class(wtype)
+    except Exception:
+        return []
+    return _run_validate_config_warnings(cls, widget_cfg, ctx)
+
+
 async def validate_widget_cfg(
     widget_cfg: dict[str, Any],
     session: aiohttp.ClientSession | None,

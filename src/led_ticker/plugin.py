@@ -116,6 +116,7 @@ __all__ = [
     "Transition",
     "TwoRowMessage",
     "Updatable",
+    "ValidationContext",
     "Widget",
     "colors",
     "compute_baseline",
@@ -144,7 +145,7 @@ __all__ = [
 ]
 # Public plugin surface: registry contributions + lifecycle hooks.
 
-API_VERSION: tuple[int, int] = (1, 0)
+API_VERSION: tuple[int, int] = (1, 1)
 
 # Lifecycle-hook callable shapes (collected by the loader, run by app/run.py).
 # A startup hook may be sync or async; a shutdown hook takes no args.
@@ -171,6 +172,25 @@ class StartupContext:
     frame: Any
     session: Any
     config: Any
+
+
+@dataclass(frozen=True)
+class ValidationContext:
+    """Geometry passed to a widget's optional ``validate_config_warnings``.
+
+    The per-widget ``validate_config`` hook only sees the widget's own ``cfg``;
+    warning-severity render-prediction checks (e.g. "this text may be cut off
+    at this scale") also need the section/display geometry, supplied here.
+
+    ``config_dir`` is the directory of the loaded ``config.toml`` so a check can
+    resolve a relative ``file://``/path field (e.g. a calendar ``ics_url``).
+    """
+
+    scale: int
+    content_height: int
+    panel_width: int
+    panel_height: int
+    config_dir: Path
 
 
 _T = TypeVar("_T", bound=type)

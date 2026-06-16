@@ -195,23 +195,9 @@ type = "countdown"
 text = "Days Until Summer"
 countdown_date = 2026-06-20
 
-# --- RSS Feeds ---
-# Pulls headlines from any RSS/Atom feed. update_interval is how often (in
-# seconds) the feed is re-fetched. Uncomment and point at your favorite feed.
-#
-# [[playlist.section]]
-# mode = "forever_scroll"
-# loop_count = 1
-#
-# [playlist.section.title]
-# type = "message"
-# text = "Nintendo Life"
-# font_color = "random"
-#
-# [[playlist.section.widget]]
-# type = "rss_feed"
-# feed_url = "https://www.nintendolife.com/feeds/news"
-# update_interval = 3000
+# --- RSS Feeds (led-ticker-feeds plugin) ---
+# RSS/Atom headlines (type = "feeds.rss") via the led-ticker-feeds plugin.
+# See https://github.com/JamesAwesome/led-ticker-feeds for install + config.
 
 # --- Crypto Prices (led-ticker-crypto plugin) ---
 # Live CoinGecko prices via the led-ticker-crypto plugin.

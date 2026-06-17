@@ -227,6 +227,27 @@ class TestRenderHiresFrame:
         render_hires_frame(0.0, wrapped, outgoing, incoming, spec, duration_ms=500)
         assert real.count_nonzero() == 0
 
+    def test_render_hires_frame_honors_show_pokeball_and_pikachu(self, tmp_path):
+        # Retained public hook: the arcade pokeball transition passes these kwargs
+        # through render_hires_frame; keep the procedural-ball branch covered.
+        from led_ticker.transitions._hires_loader import render_hires_frame
+
+        real, wrapped, spec = self._setup(tmp_path)
+        outgoing = _mock_mod.MagicMock()
+        incoming = _mock_mod.MagicMock()
+        render_hires_frame(
+            0.5,
+            wrapped,
+            outgoing,
+            incoming,
+            spec,
+            show_pokeball=True,
+            show_pikachu=True,
+            duration_ms=500,
+        )
+        lit = sum(1 for v in real._pixels.values() if v != (0, 0, 0))
+        assert lit > 0
+
 
 class TestRenderHiresTrail:
     def _setup_with_trail(self, tmp_path, *, trail, flip_horizontal=False):
@@ -475,7 +496,6 @@ class TestRenderHiresTrail:
             duration_ms=500,
         )
         # Right edge column should now be black (trail) — original red gone.
-        # Sample at row 0 to avoid the procedural pokeball if it's painted.
         assert real.get_pixel(real.width - 1, 0) == (0, 0, 0)
 
     def test_rtl_black_trail_holds_after_saturation_until_snap(self, tmp_path):

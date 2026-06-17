@@ -13,12 +13,9 @@ from led_ticker.transitions import (
 @pytest.mark.parametrize(
     "name",
     [
-        "pacman",
-        "sailor_moon",
-        "nyancat",
-        "pokeball",
-        "nyancat_reverse",
-        "pokeball_alternating",
+        f"{family}{suffix}"
+        for family in ("pacman", "sailor_moon", "nyancat", "pokeball")
+        for suffix in ("", "_reverse", "_alternating")
     ],
 )
 def test_bare_arcade_transition_migrates_to_plugin(name):

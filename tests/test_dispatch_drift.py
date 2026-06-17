@@ -12,7 +12,7 @@ from led_ticker.app.factories import _DISPATCH_APPLICABLE_TYPES, _list_widget_fi
 def test_dispatch_fields_appear_in_list_fields_output():
     """Every field in _DISPATCH_APPLICABLE_TYPES appears in --list-fields
     output for each of its declared applicable widget types."""
-    _SAMPLE_ALL_TYPES = ("message", "gif", "countdown", "two_row", "weather")
+    _SAMPLE_ALL_TYPES = ("message", "gif", "countdown", "two_row", "clock")
 
     for field_name, applicable_types in _DISPATCH_APPLICABLE_TYPES.items():
         if field_name == "type":

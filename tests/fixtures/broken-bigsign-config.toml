@@ -73,7 +73,7 @@ text = "Find us on :instagram: @theawesomeshop"
 font_color = [200, 100, 255]
 
 # ---------------------------------------------------------------------------
-# Section 2: Weather (mode=swap)
+# Section 2: Announcement (mode=swap)
 # No planted violations.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
@@ -83,13 +83,12 @@ loop_count = 1
 
 [playlist.section.title]
 type = "message"
-text = "Weather"
+text = "Announcement"
 color = [100, 200, 255]
 
 [[playlist.section.widget]]
-type = "weather"
-location = "Brooklyn, NY"
-units = "imperial"
+type = "message"
+text = "Grand opening this weekend!"
 font_color = [255, 255, 255]
 
 # ---------------------------------------------------------------------------

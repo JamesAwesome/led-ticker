@@ -13,12 +13,12 @@ hardware_mapping = "adafruit-hat"
 delay = 3
 
 [transitions]
-between_sections = {type = "pokeball_alternating", duration = 2.0}
+between_sections = {type = "arcade.pokeball_alternating", duration = 2.0}
 
 # --- pokeball (long text) ---
 [[playlist.section]]
 mode = "swap"
-transition = "pokeball"
+transition = "arcade.pokeball"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1
@@ -38,7 +38,7 @@ text = "pokeball DONE"
 # --- pokeball (short text) ---
 [[playlist.section]]
 mode = "swap"
-transition = "pokeball"
+transition = "arcade.pokeball"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1
@@ -58,7 +58,7 @@ text = "pokeball short DONE"
 # --- pokeball (slow roll) ---
 [[playlist.section]]
 mode = "swap"
-transition = "pokeball"
+transition = "arcade.pokeball"
 transition_duration = 4.0
 hold_time = 4
 loop_count = 1

@@ -76,6 +76,33 @@
           "ref": "main"
         }
       ]
+    },
+    {
+      "name": "arcade",
+      "namespace": "arcade",
+      "summary": "Video-game & anime sprite-trail transitions (pacman, sailor_moon, nyancat, pokeball; each + _reverse/_alternating) and the :arcade.pokeball: emoji.",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-arcade",
+      "provides": [
+        "arcade.pacman",
+        "arcade.pacman_reverse",
+        "arcade.pacman_alternating",
+        "arcade.sailor_moon",
+        "arcade.sailor_moon_reverse",
+        "arcade.sailor_moon_alternating",
+        "arcade.nyancat",
+        "arcade.nyancat_reverse",
+        "arcade.nyancat_alternating",
+        "arcade.pokeball",
+        "arcade.pokeball_reverse",
+        "arcade.pokeball_alternating"
+      ],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/JamesAwesome/led-ticker-arcade",
+          "ref": "main"
+        }
+      ]
     }
   ]
 }

@@ -17,7 +17,7 @@ delay = 5
 default = "push_left"
 duration = 0.5
 easing = "ease_out"
-between_sections = {type = "nyancat_alternating", duration = 2.0}
+between_sections = {type = "arcade.nyancat_alternating", duration = 2.0}
 
 # --- Messages ---
 

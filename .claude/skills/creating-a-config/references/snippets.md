@@ -153,7 +153,7 @@ font_color = [255, 220, 50]
 mode = "swap"
 hold_time = 7.0
 loop_count = 1
-transition = "nyancat"
+transition = "arcade.nyancat"
 transition_duration = 1.5
 
 [[playlist.section.widget]]
@@ -185,7 +185,7 @@ font_color_temp = [255, 255, 255]
 mode = "swap"
 hold_time = 7.0
 loop_count = 1
-transition = "nyancat_alternating"
+transition = "arcade.nyancat_alternating"
 transition_duration = 1.5
 
 [[playlist.section.widget]]
@@ -212,7 +212,7 @@ font_color = "rainbow"
 ```toml
 [[playlist.section]]
 mode = "swap"
-transition = "pokeball_alternating"
+transition = "arcade.pokeball_alternating"
 transition_duration = 2.0
 continuous_scroll = true
 loop_count = 1
@@ -635,7 +635,7 @@ text = "Always be your bunny best!"
 mode = "swap"
 hold_time = 6.0
 loop_count = 1
-transition = "sailor_moon"
+transition = "arcade.sailor_moon"
 transition_duration = 1.2
 
 [[playlist.section.widget]]

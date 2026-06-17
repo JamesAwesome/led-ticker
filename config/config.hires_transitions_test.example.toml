@@ -36,7 +36,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "pacman"
+  type = "arcade.pacman"
   duration = 1.5
 
   [[playlist.section.widget]]
@@ -50,7 +50,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "pacman_reverse"
+  type = "arcade.pacman_reverse"
   duration = 1.5
 
   [[playlist.section.widget]]
@@ -64,7 +64,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "pacman_alternating"
+  type = "arcade.pacman_alternating"
   duration = 1.5
 
   [[playlist.section.widget]]
@@ -134,7 +134,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "pokeball"
+  type = "arcade.pokeball"
   duration = 1.5
 
   [[playlist.section.widget]]
@@ -148,7 +148,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "pokeball_reverse"
+  type = "arcade.pokeball_reverse"
   duration = 1.5
 
   [[playlist.section.widget]]
@@ -162,7 +162,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "pokeball_alternating"
+  type = "arcade.pokeball_alternating"
   duration = 1.5
 
   [[playlist.section.widget]]
@@ -182,7 +182,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "pokeball"
+  type = "arcade.pokeball"
   duration = 1.5
   show_pokeball = false
 
@@ -198,7 +198,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "pokeball"
+  type = "arcade.pokeball"
   duration = 1.5
   show_pikachu = false
 
@@ -215,7 +215,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "nyancat"
+  type = "arcade.nyancat"
   duration = 1.2
 
   [[playlist.section.widget]]
@@ -229,7 +229,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "nyancat_reverse"
+  type = "arcade.nyancat_reverse"
   duration = 1.2
 
   [[playlist.section.widget]]
@@ -243,7 +243,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "nyancat_alternating"
+  type = "arcade.nyancat_alternating"
   duration = 1.2
 
   [[playlist.section.widget]]
@@ -265,7 +265,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "sailor_moon"
+  type = "arcade.sailor_moon"
   duration = 1.2
 
   [[playlist.section.widget]]

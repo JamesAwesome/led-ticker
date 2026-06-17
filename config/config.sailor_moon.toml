@@ -13,16 +13,16 @@ hardware_mapping = "adafruit-hat"
 delay = 5
 
 [transitions]
-default = "sailor_moon_alternating"
+default = "arcade.sailor_moon_alternating"
 duration = 2.0
 easing = "linear"
-between_sections = {type = "sailor_moon_alternating", duration = 2.0}
+between_sections = {type = "arcade.sailor_moon_alternating", duration = 2.0}
 
 # --- Messages (sailor_moon transition) ---
 
 [[playlist.section]]
 mode = "swap"
-transition = "sailor_moon_alternating"
+transition = "arcade.sailor_moon_alternating"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 0

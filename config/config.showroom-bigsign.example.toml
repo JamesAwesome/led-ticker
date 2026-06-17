@@ -64,7 +64,7 @@ between_sections = "dissolve"
 mode = "swap"
 hold_time = 6.0
 loop_count = 1
-transition = "sailor_moon"
+transition = "arcade.sailor_moon"
 transition_duration = 1.2
 
 [[playlist.section.widget]]
@@ -108,7 +108,7 @@ font_color = {style = "gradient", from = [255, 90, 140], to = [255, 200, 80]}
 mode = "swap"
 hold_time = 6.0
 loop_count = 1
-transition = "pokeball_alternating"
+transition = "arcade.pokeball_alternating"
 transition_duration = 1.2
 
 [[playlist.section.widget]]
@@ -231,7 +231,7 @@ bottom_font_size = 14
 mode = "swap"
 hold_time = 7.0
 loop_count = 1
-transition = "nyancat"
+transition = "arcade.nyancat"
 transition_duration = 1.5
 
 [[playlist.section.widget]]
@@ -287,7 +287,7 @@ border = {style = "rainbow", speed = 8, char_offset = 12, thickness = 2}
 mode = "swap"
 loop_count = 1
 hold_time = 1.0
-transition = "pacman_alternating"
+transition = "arcade.pacman_alternating"
 transition_duration = 1.5
 
 [[playlist.section.widget]]
@@ -346,7 +346,7 @@ border = "rainbow"
 mode = "swap"
 hold_time = 6.0
 loop_count = 1
-transition = "sailor_moon_reverse"
+transition = "arcade.sailor_moon_reverse"
 transition_duration = 1.2
 
 [[playlist.section.widget]]
@@ -383,7 +383,7 @@ font_color = [180, 200, 255]
 mode = "swap"
 hold_time = 7.0
 loop_count = 1
-transition = "nyancat_alternating"
+transition = "arcade.nyancat_alternating"
 transition_duration = 1.5
 
 [[playlist.section.widget]]

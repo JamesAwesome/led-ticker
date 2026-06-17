@@ -28,3 +28,7 @@ git+https://github.com/JamesAwesome/led-ticker-calendar.git@main
 
 # RSS/Atom feed headlines (type = "feeds.rss"):
 git+https://github.com/JamesAwesome/led-ticker-feeds.git@main
+
+# Video-game & anime sprite-trail transitions (transition = "arcade.nyancat" etc.)
+# + the :arcade.pokeball: emoji:
+git+https://github.com/JamesAwesome/led-ticker-arcade.git@main

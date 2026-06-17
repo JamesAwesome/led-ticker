@@ -2,7 +2,10 @@ Use `:slug:` inside any text-bearing widget to render a pixel-art icon inline. E
 
 The slug list rots fast as new icons are added. The source of truth is `src/led_ticker/pixel_emoji.py` — `grep -E '^\s+"[a-z_]+":' src/led_ticker/pixel_emoji.py` lists every slug. Re-run `uv run python tools/render_emoji_previews.py` after adding a sprite to refresh the previews on this page.
 
-> **Plugin emoji.** The baseball icon ships with the external [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) plugin as `:baseball.ball:` (white ball with red stitching). Install the plugin to use it; the slugs in the table below are all built in.
+> **Plugin emoji.** Some icons ship with external plugins (install the plugin to use them; the slugs in the table below are all built in):
+>
+> - `:baseball.ball:` (white ball with red stitching) — [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball)
+> - `:arcade.pokeball:` (red top, white bottom, button-banded) — [`led-ticker-arcade`](https://github.com/JamesAwesome/led-ticker-arcade)
 
 | Slug | Lowres (8×8) | Hires (32×32) | Description |
 |------|--------------|---------------|-------------|
@@ -17,7 +20,6 @@ The slug list rots fast as new icons are added. The source of truth is `src/led_
 | `:instagram:` | <img src="/emoji/instagram-low.png" width="64" alt="instagram lowres"> | <img src="/emoji/instagram-hi.png" width="64" alt="instagram hires"> | Instagram glyph (magenta gradient) |
 | `:moon:` | <img src="/emoji/moon-low.png" width="64" alt="moon lowres"> | <img src="/emoji/moon-hi.png" width="64" alt="moon hires"> | Crescent moon |
 | `:partly_cloudy:` | <img src="/emoji/partly_cloudy-low.png" width="64" alt="partly_cloudy lowres"> | <img src="/emoji/partly_cloudy-hi.png" width="64" alt="partly_cloudy hires"> | Sun + cloud |
-| `:pokeball:` | <img src="/emoji/pokeball-low.png" width="64" alt="pokeball lowres"> | <img src="/emoji/pokeball-hi.png" width="64" alt="pokeball hires"> | Pokeball — red top, white bottom, button-banded |
 | `:pride:` | <img src="/emoji/pride-low.png" width="64" alt="pride lowres"> | <img src="/emoji/pride-hi.png" width="64" alt="pride hires"> | Pride flag stripes (default rainbow; see variants below) |
 | `:rain:` | <img src="/emoji/rain-low.png" width="64" alt="rain lowres"> | <img src="/emoji/rain-hi.png" width="64" alt="rain hires"> | Rain icon |
 | `:snow:` | <img src="/emoji/snow-low.png" width="64" alt="snow lowres"> | <img src="/emoji/snow-hi.png" width="64" alt="snow hires"> | Snow icon |

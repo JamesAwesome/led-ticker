@@ -5,7 +5,6 @@ from PIL import Image
 
 # The exact symbols a plugin author imports — must be on the public surface.
 from led_ticker.plugin import HiresSpec, ScaledCanvas, render_hires_frame
-from led_ticker.transitions._hires_registry import HIRES_REGISTRY
 
 
 class _StubCanvas:
@@ -39,7 +38,6 @@ def test_public_surface_exposes_hires_symbols():
 def test_plugin_sprite_renders_hires_without_registry_entry(tmp_path):
     sprite = _make_sprite(tmp_path / "plugin_sprite.gif")
     spec = HiresSpec(sprite_path=sprite, flip_horizontal=False, trail="black")
-    assert "myplugin.zoom" not in HIRES_REGISTRY  # never registered in core
 
     real = _StubCanvas(64, 32)
     canvas = ScaledCanvas(real, scale=4, content_height=8)

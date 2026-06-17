@@ -13,13 +13,13 @@ delay = 5
 default = "push_left"
 duration = 0.5
 easing = "ease_out"
-between_sections = {type = "nyancat_alternating", duration = 4.0}
+between_sections = {type = "arcade.nyancat_alternating", duration = 4.0}
 
 # --- Messages ---
 
 [[playlist.section]]
 mode = "swap"
-transition = "pacman_alternating"
+transition = "arcade.pacman_alternating"
 transition_duration = 3.0
 continuous_scroll = true
 loop_count = 1
@@ -125,7 +125,7 @@ countdown_date = 2027-01-01
 
 [[playlist.section]]
 mode = "swap"
-transition = "pokeball_alternating"
+transition = "arcade.pokeball_alternating"
 transition_duration = 2.0
 continuous_scroll = true
 loop_count = 1
@@ -189,7 +189,7 @@ timezone = "America/New_York"
 
 [[playlist.section]]
 mode = "swap"
-transition = "sailor_moon_alternating"
+transition = "arcade.sailor_moon_alternating"
 transition_duration = 2.0
 continuous_scroll = true
 loop_count = 1

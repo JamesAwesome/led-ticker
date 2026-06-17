@@ -7,31 +7,41 @@ import DemoGif from "../../../components/DemoGif.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-The sprite family runs a pixel-art character across the panel that erases the outgoing widget and reveals the incoming one. Themed and fun — four families ship in the box, each with forward, reverse, and alternating variants.
+Sprite transitions run a pixel-art character across the panel that erases the outgoing widget and reveals the incoming one — themed and fun. They are provided by the external **[led-ticker-arcade](https://github.com/JamesAwesome/led-ticker-arcade)** plugin: four families (`arcade.nyancat`, `arcade.pokeball`, `arcade.pacman`, `arcade.sailor_moon`), each with forward, reverse, and alternating variants. Reference them by their namespaced slug, e.g. `transition = "arcade.pokeball"`.
+
+## Install
+
+Add the plugin to `config/requirements-plugins.txt` (copied from `config/requirements-plugins.example.txt`):
+
+```
+git+https://github.com/JamesAwesome/led-ticker-arcade.git@main
+```
+
+It registers its transitions and the `:arcade.pokeball:` emoji at startup. See [Plugins](/plugins/) for the install flow. A bare `transition = "nyancat"` (the pre-plugin spelling) now raises a config-load error pointing at the namespaced `arcade.nyancat` slug.
 
 <DemoGif
   src="/demos-long/transitions-pokeball.gif"
-  caption="pokeball — Pokéball rolls left-to-right with Pikachu chasing (default)"
+  caption="arcade.pokeball — Pokéball rolls left-to-right with Pikachu chasing (default)"
 />
 
 <DemoGif
   src="/demos-long/transitions-pokeball_modes.gif"
-  caption="pokeball — single-sprite modes via show_pikachu / show_pokeball"
+  caption="arcade.pokeball — single-sprite modes via show_pikachu / show_pokeball"
 />
 
 <DemoGif
   src="/demos-long/transitions-nyancat.gif"
-  caption="nyancat — Nyan Cat flies left-to-right with rainbow trail"
+  caption="arcade.nyancat — Nyan Cat flies left-to-right with rainbow trail"
 />
 
 <DemoGif
   src="/demos-long/transitions-pacman.gif"
-  caption="pacman — Pac-Man chases 3 scared ghosts with chomping animation"
+  caption="arcade.pacman — Pac-Man chases 3 scared ghosts with chomping animation"
 />
 
 <DemoGif
   src="/demos-long/transitions-sailor_moon.gif"
-  caption="sailor_moon — Moon Stick wand sweeps across with sparkle trail"
+  caption="arcade.sailor_moon — Moon Stick wand sweeps across with sparkle trail"
 />
 
 ## Variants
@@ -40,14 +50,14 @@ The sprite family runs a pixel-art character across the panel that erases the ou
 
 ## Hires
 
-`nyancat` and `pokeball` auto-activate hi-res sprites whenever the canvas is at `default_scale > 1` — that is, any big / scaled sign (see [Display](/concepts/display/)), typically a bigsign-style build. The hi-res variants are noticeably more detailed and read better at distance:
+`arcade.nyancat` and `arcade.pokeball` auto-activate hi-res sprites whenever the canvas is at `default_scale > 1` — that is, any big / scaled sign (see [Display](/concepts/display/)), typically a bigsign-style build. The hi-res variants are noticeably more detailed and read better at distance:
 
-- **nyancat** — animated webp Nyan Cat sprite at native physical resolution
-- **pokeball** — procedural ball with animated Pikachu run-cycle sprite
+- **arcade.nyancat** — animated webp Nyan Cat sprite at native physical resolution
+- **arcade.pokeball** — procedural ball with animated Pikachu run-cycle sprite
 
-`sailor_moon` and `pacman` keep their 8-bit look at all scales — the chunky aesthetic is part of the design.
+`arcade.sailor_moon` and `arcade.pacman` keep their 8-bit look at all scales — the chunky aesthetic is part of the design.
 
-## Plugin sprites
+## Other plugin sprites
 
 The rolling-**baseball** family (`baseball.roll`, `baseball.roll_reverse`, `baseball.roll_alternating`) ships with the external **[led-ticker-baseball](https://github.com/JamesAwesome/led-ticker-baseball)** plugin, alongside that plugin's MLB widgets and `:baseball.ball:` emoji. Install it via `config/requirements-plugins.txt` (see [Plugins](/plugins/)) to use it.
 

@@ -8,7 +8,7 @@
 # bigsign's LEDs (bypassing ScaledCanvas's 4×4 block expansion). Slugs
 # with a hi-res variant:
 #   :moon: :instagram: :sun: :star: :email: :flower: :taco:
-#   :bunny: :heart: :pokeball: :cloud: :rain: :snow: :thunder: :fog:
+#   :bunny: :heart: :arcade.pokeball: :cloud: :rain: :snow: :thunder: :fog:
 # Heart rainbow variants:
 #   :heart_red: :heart_orange: :heart_yellow: :heart_green:
 #   :heart_blue: :heart_purple: :heart_pink:
@@ -155,7 +155,7 @@ font_color = [255, 240, 200]
 
 [[playlist.section.widget]]
 type = "message"
-text = ":moon::sun::star::instagram::email::flower::taco::bunny::heart::pokeball:"
+text = ":moon::sun::star::instagram::email::flower::taco::bunny::heart::arcade.pokeball:"
 font_color = [255, 240, 200]
 
 # ---------------------------------------------------------------------------

@@ -31,13 +31,13 @@ delay = 5
 
 # Playful, animated transitions matching the warm/empowering brand voice.
 # `wipe_alternating` cycles through directions using brand-colored sweep
-# lines; `pokeball_alternating` is the section divider — a fun cue that
+# lines; `arcade.pokeball_alternating` is the section divider — a fun cue that
 # something new is starting.
 [transitions]
 default = "wipe_alternating"
 duration = 0.8
 easing = "ease_in_out"
-between_sections = "pokeball_alternating"
+between_sections = "arcade.pokeball_alternating"
 # Brand-tinted wipe color pool: lavender, pink, sky, cream
 transition_colors = [[189, 169, 234], [255, 176, 240], [124, 173, 232], [254, 255, 204]]
 
@@ -134,14 +134,14 @@ font_color = {style = "gradient", from = [189, 169, 234], to = [255, 176, 240]}
 # pika_wave_transparent.gif (220×220) pillarboxed on the left at scale=4
 # native res; scrolling text "KIDS SUMMER CAMPS — NOW ENROLLING" walks
 # across the panel with the rainbow border chasing around the perimeter.
-# Transition pinned to pokeball_alternating per the user's request.
+# Transition pinned to arcade.pokeball_alternating per the user's request.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "swap"
 loop_count = 1
 hold_time = 8.0
-transition = "pokeball_alternating"
+transition = "arcade.pokeball_alternating"
 transition_duration = 1.5
 
 [[playlist.section.widget]]
@@ -174,7 +174,7 @@ border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 mode = "swap"
 loop_count = 1
 hold_time = 6.0
-transition = "nyancat_alternating"
+transition = "arcade.nyancat_alternating"
 transition_duration = 2.0
 
 [[playlist.section.widget]]
@@ -271,7 +271,7 @@ font_color = [189, 169, 234]   # lavender
 mode = "swap"
 loop_count = 1
 hold_time = 0.5
-transition = "sailor_moon_alternating"
+transition = "arcade.sailor_moon_alternating"
 transition_duration = 2.0
 
 [[playlist.section.widget]]

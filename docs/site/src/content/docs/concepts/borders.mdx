@@ -280,14 +280,14 @@ border = {style = "bands", colors = "rasta", band_width = 8, speed = 1, thicknes
 
 ## Where it works
 
-| Widget type            | `border`?                  |
-| ---------------------- | -------------------------- |
-| `message`              | yes                        |
-| `countdown`            | yes                        |
-| `two_row`              | yes                        |
-| `gif`                  | yes                        |
-| `image`                | yes                        |
-| `weather`, `feeds.rss` | no — raises at config load |
+| Widget type                  | `border`?                  |
+| ---------------------------- | -------------------------- |
+| `message`                    | yes                        |
+| `countdown`                  | yes                        |
+| `two_row`                    | yes                        |
+| `gif`                        | yes                        |
+| `image`                      | yes                        |
+| `feeds.weather`, `feeds.rss` | no — raises at config load |
 
 Data widgets render custom layouts and a perimeter border is not a meaningful concept for them. The config validator catches any misplaced `border =` on these types at startup so the error surfaces immediately rather than silently doing nothing.
 

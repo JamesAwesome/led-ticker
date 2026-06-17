@@ -49,7 +49,7 @@ git+https://github.com/JamesAwesome/led-ticker-calendar.git@main
 
 ### [led-ticker-feeds](https://github.com/JamesAwesome/led-ticker-feeds)
 
-RSS/Atom headline widget (`type = "feeds.rss"`). Fetches a remote feed and turns each headline into its own scrolling line, polling in the background with retry/backoff. Full docs, options, and screenshots in the [repo README](https://github.com/JamesAwesome/led-ticker-feeds#readme).
+Two live-data widgets: an RSS/Atom headline widget (`type = "feeds.rss"`) that fetches a remote feed and turns each headline into its own scrolling line, and a current-conditions widget (`type = "feeds.weather"`) that shows temperature and a pixel-art condition icon from WeatherAPI.com (needs a free `WEATHERAPI_KEY`). Both poll in the background with retry/backoff. Full docs, options, and screenshots in the [repo README](https://github.com/JamesAwesome/led-ticker-feeds#readme).
 
 Add to your `config/requirements-plugins.txt`:
 

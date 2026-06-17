@@ -189,27 +189,6 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "target date to count down to (ISO format, e.g. 2026-12-25)",
         None,
     ),
-    # --- Weather ---
-    "location": FieldHint(
-        "str",
-        "WeatherAPI query string — city name, zip code, or lat,lon",
-        None,
-    ),
-    "units": FieldHint(
-        '"imperial" | "metric"',
-        "temperature unit system",
-        '"imperial"',
-    ),
-    "font_color_temp": FieldHint(
-        "color | ...",
-        "color for the temperature value (separate from label font_color)",
-        "white",
-    ),
-    "show_icon": FieldHint(
-        "bool",
-        "show weather condition icon alongside temperature",
-        "true",
-    ),
     # --- RSS feed ---
     "feed_url": FieldHint(
         "str (URL)",
@@ -338,6 +317,12 @@ _EXTRACTED_TYPES: dict[str, tuple[str, str]] = {
         "in the led-ticker-feeds plugin as 'feeds.rss'.",
         "Install led-ticker-feeds (add it to config/requirements-plugins.txt) "
         'and use type = "feeds.rss".',
+    ),
+    "weather": (
+        "Widget type 'weather' was extracted from led-ticker core; it now ships "
+        "in the led-ticker-feeds plugin as 'feeds.weather'.",
+        "Install led-ticker-feeds (add it to config/requirements-plugins.txt) "
+        'and use type = "feeds.weather".',
     ),
 }
 
@@ -654,13 +639,12 @@ async def validate_widget_cfg(
             suggested_fix="Use font_color / animation instead of presentation",
         )
 
-    # Migration check: the primary text field on TickerMessage,
-    # TickerCountdown, and WeatherWidget was renamed from "message" to
-    # "text". Loud failure here catches stale TOMLs at load time.
+    # Migration check: the primary text field on TickerMessage and
+    # TickerCountdown was renamed from "message" to "text". Loud failure
+    # here catches stale TOMLs at load time.
     if "message" in widget_cfg and widget_cfg.get("type") in (
         "message",
         "countdown",
-        "weather",
     ):
         raise MigrationError(
             'The primary text field was renamed from "message" to "text". '

@@ -70,8 +70,8 @@ src/led_ticker/
   widgets/
     __init__.py         # Registry (@register decorator) + auto-imports
     message.py          # TickerMessage, TickerCountdown
-    weather.py / weather_icons.py
-    rss_feed.py         # RSSFeedMonitor (no draw() — stories expand into TickerMessages)
+    weather_icons.py    # 8x8 condition-icon pixel-art feeding the :sun:/:cloud:/etc.
+                        #   emoji registry (the weather WIDGET is the feeds.weather plugin)
     two_row.py          # TwoRowMessage: held top + scrolling bottom
     gif.py / still.py   # GifPlayer / StillImage; share _BaseImageWidget
     _frame_aware.py     # FrameAwareBase mixin: frame_count + pause_frame/resume_frame
@@ -212,11 +212,9 @@ User-facing surface: <https://docs.ledticker.dev/concepts/color-providers/> · <
 
 **Rainbow border** — `border` field accepted on `message`, `countdown`, `two_row`, `gif`, `image` (other types raise at config-load). Paints an animated 1- or 2-pixel ring around the panel perimeter at PHYSICAL resolution (bypasses ScaledCanvas via `unwrap_to_real`). Border paints BEFORE text in `TickerMessage.draw` (text overlaps border on collision). `RainbowChaseBorder` uses the same `((idx * char_offset) + frame * speed) % 360` hue formula as `Rainbow.color_for` for letters, indexed by perimeter position (clockwise from top-left). On TwoRowMessage at scale=2 the border traces the actual real-panel edge, not the wrapper. On image widgets, `border.frame_invariant` flag is part of the fast-path gate predicate (same shape as `font_color.frame_invariant`). `GifPlayer._play_no_text` runs at engine 50ms cadence (via `_pick_frame_for_elapsed`) so animated borders chase uniformly regardless of gif frame durations — side effect: gifs with native frame durations < 50ms cap at 20 Hz on this path. Bigsign-tuned defaults: `speed=4` (~12s per revolution), `char_offset=6` (~60 distinct hue cycles around a 640-px perimeter). Tripwires: `TestRenderTickBorder`, `TestRenderTwoRowTickBorder`, `TestPlayWithTextBorderFastPath`, `TestPlayWithTwoRowBorderFastPath`, `TestImageBorderPhysicalResolution`, `TestGifPlayNoTextRefactor`, `TestStillPlayNoTextBorder`.
 
-**Weather two-color design** — `WeatherWidget` has both `font_color` (label) and `font_color_temp` (temperature value) as separate `ColorProvider` fields. Default `font_color_temp = RGB_WHITE` keeps the value steady-bright while the label can use an effect. Set both to the same provider if you want them to match.
-
 ## Plugin invariants
 
-led-ticker is extensible via plugins; the `pool.monitor` widget ([`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool)), the `baseball.*` widgets/emoji/transitions ([`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball)), the `crypto.coingecko` widget ([`led-ticker-crypto`](https://github.com/JamesAwesome/led-ticker-crypto)), the `calendar.events` widget ([`led-ticker-calendar`](https://github.com/JamesAwesome/led-ticker-calendar)), and the `feeds.rss` widget ([`led-ticker-feeds`](https://github.com/JamesAwesome/led-ticker-feeds)) live in external plugin repos. When touching plugin-related code:
+led-ticker is extensible via plugins; the `pool.monitor` widget ([`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool)), the `baseball.*` widgets/emoji/transitions ([`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball)), the `crypto.coingecko` widget ([`led-ticker-crypto`](https://github.com/JamesAwesome/led-ticker-crypto)), the `calendar.events` widget ([`led-ticker-calendar`](https://github.com/JamesAwesome/led-ticker-calendar)), and the `feeds.rss` / `feeds.weather` widgets ([`led-ticker-feeds`](https://github.com/JamesAwesome/led-ticker-feeds)) live in external plugin repos. When touching plugin-related code:
 
 - **Public surface:** plugins import ONLY from `led_ticker.plugin` (the curated re-export module). Never import `led_ticker.<internal>` from a plugin. `led_ticker.plugin.__all__` is the contract; adding to it is an API change.
 - **Registration:** a plugin ships a `register(api)` function under the `led_ticker.plugins` entry-point group; `api.widget("name")(cls)` (and the sibling `transition`/`emoji`/`font`/… surfaces) register into a namespaced registry (`<plugin>.<name>`, e.g. `pool.monitor`). `API_VERSION` gates compatibility.
@@ -234,7 +232,7 @@ First-party plugins live in sibling repos. Each carries its own `CLAUDE.md` (con
 - [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) — `baseball.scores` / `baseball.standings` widgets, `baseball.roll*` transitions, `:baseball.ball:` emoji.
 - [`led-ticker-crypto`](https://github.com/JamesAwesome/led-ticker-crypto) — `crypto.coingecko` (CoinGecko price ticker)
 - [`led-ticker-calendar`](https://github.com/JamesAwesome/led-ticker-calendar) — `calendar.events`: calendar (.ics) agenda/next/two_row widget.
-- [`led-ticker-feeds`](https://github.com/JamesAwesome/led-ticker-feeds) — `feeds.rss`: RSS/Atom feed headlines (weather planned for the same repo).
+- [`led-ticker-feeds`](https://github.com/JamesAwesome/led-ticker-feeds) — `feeds.rss`: RSS/Atom feed headlines; `feeds.weather`: current conditions from WeatherAPI.com.
 
 These plugins import a few core symbols through the public surface that have no remaining in-core consumer (`lazy_palette`, `GEOMETRIC_SHAPES`, the `small_font` font-prefix); see the "Extracted widgets retain core hooks" note in the load-bearing invariants — don't delete them.
 
@@ -265,7 +263,6 @@ These plugins import a few core symbols through the public surface that have no 
 - `make test` sets `PYTHONPATH=tests/stubs` automatically
 - Test stubs simulate double-buffering: the real-stub `RGBMatrix.SwapOnVSync` returns a DIFFERENT canvas object each call so dropped-capture bugs surface
 - Stub `DrawText` writes actual pixels for pixel-level test assertions
-- Weather tests need `monkeypatch.setenv("WEATHERAPI_KEY", "test-key")`
 
 **Tripwire fixtures in `tests/conftest.py`:**
 - `mock_frame` — convenience; `SwapOnVSync.return_value = canvas` (same object). Fine for tests that don't care about capture-correctness.

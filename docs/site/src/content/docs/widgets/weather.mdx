@@ -1,85 +1,18 @@
 ---
-title: weather widget
-description: Current conditions + temperature with pixel-art weather icons. Pulls from WeatherAPI.com.
+title: feeds.weather widget
+description: The feeds.weather current-conditions widget is provided by the led-ticker-feeds plugin (type = "feeds.weather").
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
-import TomlExample from "../../../components/TomlExample.astro";
-import OptionsTable from "../../../components/OptionsTable.astro";
-import RelatedPages from "../../../components/RelatedPages.astro";
 
-The `weather` widget fetches current conditions and temperature from [WeatherAPI.com](https://www.weatherapi.com/) and displays them with a pixel-art icon for the condition — sun, cloud, rain, snow, thunder, fog, or partly cloudy. It polls in the background via async retry so the display keeps running even if the API is temporarily unreachable.
+The **feeds.weather** widget is provided by the **[led-ticker-feeds](https://github.com/JamesAwesome/led-ticker-feeds)** plugin, referenced in config as `type = "feeds.weather"`. It shows current conditions and temperature from [WeatherAPI.com](https://www.weatherapi.com/) with a pixel-art condition icon.
 
 <DemoGif
   src="/demos-long/widget-weather.gif"
   caption="Weather showing condition icon, label, and temperature in their real deployed colors."
 />
 
-<TomlExample
-  title="Minimal example"
-  code={`[[playlist.section.widget]]
-type = "weather"
-text = "Brooklyn"
-location = "Brooklyn, NY"
-units = "imperial"`}
-/>
+- **To add it to your sign:** add `git+https://github.com/JamesAwesome/led-ticker-feeds.git@main` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow. You'll also need a free `WEATHERAPI_KEY` set in your `.env`.
+- **Full documentation** — options, config examples, and a demo gif — lives in the [led-ticker-feeds README](https://github.com/JamesAwesome/led-ticker-feeds#readme).
 
-You'll need a free API key from [WeatherAPI.com](https://www.weatherapi.com/) — set `WEATHERAPI_KEY` in your `.env` file.
-
-## Options
-
-<OptionsTable source="widgets/weather" />
-
-Set the content with `text =`, for consistency with the message and countdown widgets.
-
-## Common patterns
-
-### Two-color layout — gray label, bright temperature
-
-<TomlExample
-  code={`[[playlist.section.widget]]
-type = "weather"
-text = "NYC"
-location = "New York"
-units = "imperial"
-font_color = [150, 150, 150]
-font_color_temp = [255, 255, 255]`}
-/>
-
-### Text-only display — no pixel icon, shows the condition string instead
-
-<TomlExample
-  code={`[[playlist.section.widget]]
-type = "weather"
-text = "Weather"
-location = "10001"
-units = "imperial"
-show_icon = false`}
-/>
-
-### Slower poll for stable outdoor forecasts — fetch every 30 minutes
-
-<TomlExample
-  code={`[[playlist.section.widget]]
-type = "weather"
-text = "Outside"
-location = {lat = 40.71, lon = -74.01}
-units = "metric"
-update_interval = 1800`}
-/>
-
-## Tips
-
-### `WEATHERAPI_KEY` must be set before startup
-
-The widget raises `ValueError` at the first poll if the env var is missing. Add it to your `.env` file (see `.env.example`) and restart the container.
-
-### Default poll interval is 3 hours
-
-The `update_interval` default of `10800` seconds is intentionally conservative — conditions don't change that fast and the WeatherAPI free tier has monthly request quotas. Setting below 60 seconds on a busy sign will exhaust the quota. For a "is it raining right now?" display, `update_interval = 300` (5 minutes) is a reasonable compromise.
-
-### Location format matters
-
-If a city name is ambiguous (e.g. `"Springfield"`), WeatherAPI.com may return the wrong city. Prefer the `{lat = ..., lon = ...}` table form or a ZIP code for precision.
-
-<RelatedPages slugs={["widgets/message", "concepts/color-providers", "assets/emoji"]} />
+See the [plugin system](/plugins/) for how plugin widgets work.

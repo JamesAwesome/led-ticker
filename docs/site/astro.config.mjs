@@ -86,7 +86,6 @@ export default defineConfig({
             { label: "countdown", link: "/widgets/countdown/" },
             { label: "clock", link: "/widgets/clock/" },
             { label: "two_row", link: "/widgets/two_row/" },
-            { label: "weather", link: "/widgets/weather/" },
             { label: "gif", link: "/widgets/gif/" },
             { label: "image", link: "/widgets/image/" },
             { label: "baseball.scores (plugin)", link: "/widgets/mlb/" },
@@ -101,6 +100,7 @@ export default defineConfig({
             { label: "pool (plugin)", link: "/widgets/pool/" },
             { label: "calendar.events (plugin)", link: "/widgets/calendar/" },
             { label: "feeds.rss (plugin)", link: "/widgets/rss_feed/" },
+            { label: "feeds.weather (plugin)", link: "/widgets/weather/" },
           ],
         },
         {

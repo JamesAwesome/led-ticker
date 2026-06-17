@@ -64,5 +64,13 @@ def test_bare_rss_feed_type_raises_migration_to_plugin():
     assert "feeds.rss" in fix
 
 
+def test_bare_weather_type_raises_migration_to_plugin():
+    result = build_widget_cfg_error_for_type("weather")
+    assert result is not None
+    message, fix = result
+    assert "led-ticker-feeds" in message
+    assert "feeds.weather" in fix
+
+
 def test_crypto_migration_still_works_after_rename():
     assert build_widget_cfg_error_for_type("coingecko") is not None

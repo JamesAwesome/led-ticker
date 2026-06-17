@@ -238,24 +238,10 @@ countdown_date = 2026-06-20
 # teams = ["NYM", "PHI"]
 # top_n = 3
 
-# --- Weather ---
-# Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/).
-# location can be a city name, zip code, or "lat,lon".
-#
-# [[playlist.section]]
-# mode = "swap"
-# loop_count = 1
-#
-# [playlist.section.title]
-# type = "message"
-# text = "Weather"
-# font_color = "random"
-#
-# [[playlist.section.widget]]
-# type = "weather"
-# message = "NYC"
-# location = "New York"
-# units = "imperial"
+# --- Weather (led-ticker-feeds plugin) ---
+# Current conditions + temperature (type = "feeds.weather") via the
+# led-ticker-feeds plugin. Needs a free WEATHERAPI_KEY in .env.
+# See https://github.com/JamesAwesome/led-ticker-feeds for install + config.
 ```
 
 </details>

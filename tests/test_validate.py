@@ -49,7 +49,7 @@ async def test_validate_widget_cfg_raises_on_text_scale():
 
 
 async def test_validate_widget_cfg_raises_on_animation_wrong_type():
-    cfg = {"type": "weather", "location": "NYC", "animation": "typewriter"}
+    cfg = {"type": "clock", "animation": "typewriter"}
     with pytest.raises(ValueError, match="animation is only valid"):
         await validate_widget_cfg(cfg, session=None)
 
@@ -126,8 +126,7 @@ async def test_animation_on_wrong_widget_type(conf):
     extra = textwrap.dedent("""\
 
         [[playlist.section.widget]]
-        type = "weather"
-        location = "NYC"
+        type = "clock"
         animation = "typewriter"
         """)
     result = await validate_config(conf(GOOD_CONFIG + extra))
@@ -135,17 +134,19 @@ async def test_animation_on_wrong_widget_type(conf):
     assert any(e.rule == 12 for e in result.errors)
 
 
-async def test_border_on_wrong_widget_type(conf):
+async def test_border_on_clock_is_valid(conf):
+    """All current core widgets accept border — rule 15 only fires for
+    plugin widgets that don't declare a border attrs field. Verify that
+    clock + border passes validation (no rule 15 error)."""
     extra = textwrap.dedent("""\
 
         [[playlist.section.widget]]
-        type = "weather"
-        location = "NYC"
+        type = "clock"
         border = "rainbow"
         """)
     result = await validate_config(conf(GOOD_CONFIG + extra))
-    assert not result.valid
-    assert any(e.rule == 15 for e in result.errors)
+    assert result.valid
+    assert not any(e.rule == 15 for e in result.errors)
 
 
 async def test_rule3_scroll_plus_stretch(conf):

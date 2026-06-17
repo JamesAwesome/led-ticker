@@ -336,10 +336,6 @@ class TestExampleConfigWidgets:
                 cfg = dict(widget_cfg)
                 widget_type = cfg.get("type")
 
-                # Skip widgets that need network (weather)
-                if widget_type in ("weather",):
-                    continue
-
                 widget = await _build_widget(cfg, session=mock.Mock())
                 assert isinstance(widget, Widget), (
                     f"Widget type={widget_type} did not produce a Widget"
@@ -993,21 +989,6 @@ class TestPresentationMigration:
         assert "rainbow" in msg
         assert "typewriter" in msg
 
-    async def test_animation_on_weather_raises(self, tmp_path):
-        import pytest
-
-        from led_ticker.app import _build_widget
-
-        cfg = {
-            "type": "weather",
-            "text": "NYC",
-            "location": "NYC",
-            "animation": "typewriter",
-        }
-        s = mock.Mock()
-        with pytest.raises(ValueError, match='only valid on type="message"'):
-            await _build_widget(cfg, session=s)
-
     async def test_animation_on_message_succeeds(self):
         from led_ticker.animations import Typewriter
         from led_ticker.app import _build_widget
@@ -1115,45 +1096,6 @@ class TestColorProviderCoercion:
         s = mock.Mock()
         widget = await _build_widget(cfg, session=s)
         assert isinstance(widget.font_color, Random)
-
-    async def test_weather_font_color_temp_string_becomes_provider(self, monkeypatch):
-        """font_color_temp accepts the same provider shorthand as
-        font_color. Without `font_color_temp` in _PROVIDER_COLOR_KEYS,
-        the string passes through and crashes at draw time."""
-        monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
-
-        from led_ticker.app import _build_widget
-        from led_ticker.color_providers import Rainbow
-
-        cfg = {
-            "type": "weather",
-            "text": "NYC",
-            "location": "NYC",
-            "font_color_temp": "rainbow",
-        }
-        s = mock.Mock()
-        widget = await _build_widget(cfg, session=s)
-        assert isinstance(widget.font_color_temp, Rainbow)
-
-    async def test_weather_font_color_temp_table_becomes_provider(self, monkeypatch):
-        monkeypatch.setenv("WEATHERAPI_KEY", "test-key")
-
-        from led_ticker.app import _build_widget
-        from led_ticker.color_providers import Gradient
-
-        cfg = {
-            "type": "weather",
-            "text": "NYC",
-            "location": "NYC",
-            "font_color_temp": {
-                "style": "gradient",
-                "from": [255, 0, 0],
-                "to": [0, 0, 255],
-            },
-        }
-        s = mock.Mock()
-        widget = await _build_widget(cfg, session=s)
-        assert isinstance(widget.font_color_temp, Gradient)
 
 
 class TestBuildTransObj:
@@ -1552,25 +1494,12 @@ class TestBuildWidgetWithBorder:
         widget = await _build_widget(cfg, session=mock.Mock())
         assert isinstance(widget.border, RainbowChaseBorder)
 
-    async def test_border_on_unsupported_widget_type_raises(self):
-        """Data widget types (weather, rss, ...) still reject
-        `border` loudly at config-load — they have their own draw
-        paths and a perimeter border isn't a meaningful concept for
-        data widgets."""
-        cfg = {
-            "type": "weather",
-            "text": "NYC",
-            "location": "NYC",
-            "border": "rainbow",
-        }
-        with pytest.raises(
-            ValueError,
-            match=(
-                r'border is only valid on type="message", "countdown", '
-                r'"two_row", "gif", or "image"'
-            ),
-        ):
-            await _build_widget(cfg, session=mock.Mock())
+    async def test_message_without_border_accepts_border(self):
+        """All core widgets accept border — the guard only fires for plugin
+        widgets that don't declare a border attrs field."""
+        cfg = {"type": "message", "text": "HI", "border": "rainbow"}
+        widget = await _build_widget(cfg, session=mock.Mock())
+        assert widget.border is not None
 
     async def test_message_without_border_has_none(self):
         cfg = {"type": "message", "text": "HI"}
@@ -2341,36 +2270,6 @@ class TestUnknownKwargAllowlist:
         with pytest.raises(ValueError, match="got unknown field"):
             await _build_widget(cfg, session=None)  # type: ignore[arg-type]
 
-    @pytest.mark.asyncio
-    async def test_update_interval_on_data_widget_does_not_raise(self):
-        """update_interval is accepted by cls.start(), not an attrs field —
-        must not be flagged as unknown."""
-        from led_ticker.app.factories import validate_widget_cfg
-
-        cfg = {
-            "type": "weather",
-            "location": "New York",
-            "update_interval": 7200,
-        }
-        # validate_widget_cfg runs all validation without calling cls.start(),
-        # so no real API key is needed — and the real start() signature is
-        # intact for inspect.signature() to find update_interval.
-        result = await validate_widget_cfg(cfg, session=None)
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_genuinely_unknown_field_on_data_widget_still_raises(self):
-        """Unknown field not in start() params on a data widget is still caught."""
-        from led_ticker.app.factories import validate_widget_cfg
-
-        cfg = {
-            "type": "weather",
-            "location": "New York",
-            "xyz_bad_field": "bad",
-        }
-        with pytest.raises(ValueError, match="got unknown field"):
-            await validate_widget_cfg(cfg, session=None)
-
 
 class TestListWidgetFields:
     """_list_widget_fields grouped output and FIELD_HINTS rendering."""
@@ -2518,20 +2417,6 @@ class TestListWidgetFieldsDataWidgets:
         output = _list_widget_fields("countdown")
         assert "countdown_date" in output
         assert "count down to" in output.lower()
-
-    def test_weather_shows_location_description(self):
-        from led_ticker.app import _list_widget_fields
-
-        output = _list_widget_fields("weather")
-        assert "location" in output
-        assert "WeatherAPI" in output or "query" in output.lower()
-
-    def test_weather_shows_units_enum(self):
-        from led_ticker.app import _list_widget_fields
-
-        output = _list_widget_fields("weather")
-        assert "imperial" in output
-        assert "metric" in output
 
 
 class TestListSectionFields:
@@ -3120,26 +3005,6 @@ class TestMessageFieldRename:
         assert not any(
             line.strip().startswith("message") for line in result.splitlines()
         )
-
-    @pytest.mark.asyncio
-    async def test_weather_text_field_works(self):
-        import aiohttp
-
-        from led_ticker.app.factories import _build_widget
-
-        cfg = {"type": "weather", "text": "Brooklyn", "location": "Brooklyn, NY"}
-        async with aiohttp.ClientSession() as session:
-            widget = await _build_widget(cfg.copy(), session=session)
-        assert widget.text == "Brooklyn"
-
-    @pytest.mark.asyncio
-    async def test_weather_message_raises_migration_error(self):
-        from led_ticker.app.factories import validate_widget_cfg
-        from led_ticker.validate import MigrationError
-
-        cfg = {"type": "weather", "message": "Brooklyn", "location": "Brooklyn, NY"}
-        with pytest.raises(MigrationError, match="message"):
-            await validate_widget_cfg(cfg, session=None)
 
 
 class TestTitleColorRename:

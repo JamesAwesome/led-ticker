@@ -43,5 +43,4 @@ from led_ticker.widgets import (  # noqa: E402, F401
     message,
     still,
     two_row,
-    weather,
 )

@@ -50,14 +50,14 @@ def test_raising_register_is_isolated_and_atomic():
 
 def test_cannot_shadow_a_builtin_name():
     def reg(api):
-        @api.widget("weather")  # becomes "acme.weather", NOT "weather"
+        @api.widget("message")  # becomes "acme.message", NOT "message"
         class W:
             pass
 
     result = L.LoadedPlugins()
     L._load_one("acme", "test", reg, None, set(), result)
-    assert "acme.weather" in _WIDGET_REGISTRY
-    assert _WIDGET_REGISTRY["weather"].__name__ != "W"  # builtin untouched
+    assert "acme.message" in _WIDGET_REGISTRY
+    assert _WIDGET_REGISTRY["message"].__name__ != "W"  # builtin untouched
 
 
 def test_namespace_already_claimed_skipped():

@@ -77,7 +77,7 @@ text = "wipe_alternating DONE"
 # --- nyancat_alternating ---
 [[playlist.section]]
 mode = "swap"
-transition = "nyancat_alternating"
+transition = "arcade.nyancat_alternating"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1

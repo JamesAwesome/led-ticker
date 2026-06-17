@@ -39,7 +39,7 @@ delay = 5
 default = "push_left"
 duration = 0.5
 easing = "ease_out"
-between_sections = {type = "nyancat_alternating", duration = 4.0}
+between_sections = {type = "arcade.nyancat_alternating", duration = 4.0}
 
 # --------------------------------------------------------------------------
 # Playlist
@@ -49,7 +49,7 @@ between_sections = {type = "nyancat_alternating", duration = 4.0}
 
 [[playlist.section]]
 mode = "swap"
-transition = "pacman_alternating"
+transition = "arcade.pacman_alternating"
 transition_duration = 3.0
 continuous_scroll = true
 loop_count = 1
@@ -205,7 +205,7 @@ font_threshold = 80
 
 [[playlist.section]]
 mode = "swap"
-transition = "pokeball_alternating"
+transition = "arcade.pokeball_alternating"
 transition_duration = 2.0
 continuous_scroll = true
 loop_count = 1
@@ -326,7 +326,7 @@ label_color = [130, 220, 255]
 
 [[playlist.section]]
 mode = "swap"
-transition = "sailor_moon_alternating"
+transition = "arcade.sailor_moon_alternating"
 transition_duration = 2.0
 continuous_scroll = true
 loop_count = 1

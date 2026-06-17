@@ -74,10 +74,10 @@ from led_ticker.text_render import draw_text_per_char
 from led_ticker.transitions import Transition
 from led_ticker.transitions._hires_loader import (
     SNAP_THRESHOLD,
+    HiresSpec,
     render_hires_frame,
     snap_reset,
 )
-from led_ticker.transitions._hires_registry import HiresSpec
 from led_ticker.widget import (
     Container,
     Updatable,

@@ -9,7 +9,6 @@ from led_ticker.transitions import (
     ColorFlash,
     Cut,
     Dissolve,
-    NyanCatAlternating,
     PushAlternating,
     PushDown,
     PushLeft,
@@ -77,27 +76,21 @@ class TestTransitionRegistry:
             "wipe_down",
             "dissolve",
             "split",
-            "nyancat",
-            "nyancat_reverse",
-            "pokeball",
-            "pokeball_reverse",
-            "pokeball_alternating",
-            "pacman",
-            "pacman_reverse",
-            "pacman_alternating",
             "scroll",
             "push_alternating",
             "push_random",
-            "nyancat_alternating",
             "wipe_alternating",
             "wipe_random",
-            "sailor_moon",
-            "sailor_moon_reverse",
-            "sailor_moon_alternating",
         ]
         for name in expected:
-            assert name in _TRANSITION_REGISTRY
-        assert len(_TRANSITION_REGISTRY) == 29
+            assert name in _TRANSITION_REGISTRY, f"{name!r} not in registry"
+        # Arcade sprite-trail transitions (nyancat/pokeball/pacman/sailor_moon)
+        # were extracted to led-ticker-arcade — they must not be in core.
+        for arcade_name in ("nyancat", "pokeball", "pacman", "sailor_moon"):
+            assert arcade_name not in _TRANSITION_REGISTRY, (
+                f"{arcade_name!r} is still in core — should be in led-ticker-arcade"
+            )
+        assert len(_TRANSITION_REGISTRY) == 17
 
     def test_get_unknown_raises(self):
         # get_transition_class now delegates to explain_unknown_transition,
@@ -959,34 +952,7 @@ class TestPushAlternating:
         )
 
 
-# --- NyanCatAlternating ---
-
-
-class TestNyanCatAlternating:
-    def test_first_swap_uses_nyancat(self, canvas, make_widget):
-        alt = NyanCatAlternating()
-        alt.frame_at(0.0, canvas, make_widget(40), make_widget(40))
-        assert alt._index == 0
-
-    def test_second_swap_uses_reverse(self, canvas, make_widget):
-        alt = NyanCatAlternating()
-        alt.frame_at(0.0, canvas, make_widget(40), make_widget(40))
-        alt.frame_at(1.0, canvas, make_widget(40), make_widget(40))
-        alt.frame_at(0.0, canvas, make_widget(40), make_widget(40))
-        assert alt._index == 1
-
-    def test_wraps_around(self, canvas, make_widget):
-        alt = NyanCatAlternating()
-        for _i in range(3):
-            alt.frame_at(0.0, canvas, make_widget(40), make_widget(40))
-            alt.frame_at(1.0, canvas, make_widget(40), make_widget(40))
-        assert alt._index == 0
-
-    def test_returns_canvas(self, canvas, make_widget):
-        alt = NyanCatAlternating()
-        result = alt.frame_at(0.5, canvas, make_widget(40), make_widget(40))
-        assert result is canvas
-
+# TestNyanCatAlternating removed — extracted to led-ticker-arcade.
 
 # --- WipeAlternating ---
 
@@ -2271,83 +2237,6 @@ class TestMinFramesProtocol:
         assert Transition.min_frames == 0
 
 
-class TestNyanCatFrameDrawing:
-    def test_draw_nyan_frame_uses_subfill_for_rainbow(self, canvas):
-        from led_ticker.transitions.nyancat import RAINBOW, draw_nyan_frame
-
-        # At progress=0.5 the trail covers a visible portion of the canvas
-        draw_nyan_frame(canvas, progress=0.5, width=160, height=16)
-        # 6 rainbow stripes → 6 SubFill calls (one per stripe color)
-        assert canvas.SubFill.call_count == len(RAINBOW)
-
-    def test_draw_nyan_frame_rtl_uses_subfill_for_rainbow(self, canvas):
-        from led_ticker.transitions.nyancat import RAINBOW, draw_nyan_frame_rtl
-
-        draw_nyan_frame_rtl(canvas, progress=0.5, width=160, height=16)
-        assert canvas.SubFill.call_count == len(RAINBOW)
-
-
-class TestPacmanFrameDrawing:
-    def test_ltr_blackout_uses_subfill(self, canvas):
-        from led_ticker.transitions.pacman import draw_pacman_frame
-
-        # At progress=0.5 pacman is mid-screen; blackout_end > 0
-        draw_pacman_frame(canvas, progress=0.5, width=160, height=16)
-        assert canvas.SubFill.call_count >= 1
-        first_call = canvas.SubFill.call_args_list[0]
-        # LTR: SubFill(0, 0, blackout_end, height, 0, 0, 0)
-        assert first_call.args[0] == 0  # x
-        assert first_call.args[1] == 0  # y
-        assert first_call.args[4:] == (0, 0, 0)  # black
-
-    def test_rtl_blackout_uses_subfill(self, canvas):
-        from led_ticker.transitions.pacman import draw_pacman_frame_rtl
-
-        draw_pacman_frame_rtl(canvas, progress=0.5, width=160, height=16)
-        assert canvas.SubFill.call_count >= 1
-        first_call = canvas.SubFill.call_args_list[0]
-        # RTL: SubFill(blackout_start, 0, width - blackout_start, height, 0, 0, 0)
-        assert first_call.args[1] == 0  # y
-        assert first_call.args[4:] == (0, 0, 0)  # black
-
-
-class TestPokeballFrameDrawing:
-    def test_ltr_blackout_uses_subfill(self, canvas):
-        from led_ticker.transitions.pokeball import draw_pokeball_frame
-
-        draw_pokeball_frame(canvas, progress=0.5, width=160, height=16)
-        assert canvas.SubFill.call_count >= 1
-        first_call = canvas.SubFill.call_args_list[0]
-        assert first_call.args[0] == 0
-        assert first_call.args[1] == 0
-        assert first_call.args[4:] == (0, 0, 0)
-
-    def test_rtl_blackout_uses_subfill(self, canvas):
-        from led_ticker.transitions.pokeball import draw_pokeball_frame_rtl
-
-        draw_pokeball_frame_rtl(canvas, progress=0.5, width=160, height=16)
-        assert canvas.SubFill.call_count >= 1
-        first_call = canvas.SubFill.call_args_list[0]
-        assert first_call.args[1] == 0
-        assert first_call.args[4:] == (0, 0, 0)
-
-
-class TestSailorMoonFrameDrawing:
-    def test_ltr_blackout_uses_subfill(self, canvas):
-        from led_ticker.transitions.sailor_moon import draw_sailor_moon_frame
-
-        draw_sailor_moon_frame(canvas, progress=0.5, width=160, height=16)
-        assert canvas.SubFill.call_count >= 1
-        first_call = canvas.SubFill.call_args_list[0]
-        assert first_call.args[0] == 0
-        assert first_call.args[1] == 0
-        assert first_call.args[4:] == (0, 0, 0)
-
-    def test_rtl_blackout_uses_subfill(self, canvas):
-        from led_ticker.transitions.sailor_moon import draw_sailor_moon_frame_rtl
-
-        draw_sailor_moon_frame_rtl(canvas, progress=0.5, width=160, height=16)
-        assert canvas.SubFill.call_count >= 1
-        first_call = canvas.SubFill.call_args_list[0]
-        assert first_call.args[1] == 0
-        assert first_call.args[4:] == (0, 0, 0)
+# TestNyanCatFrameDrawing, TestPacmanFrameDrawing, TestPokeballFrameDrawing,
+# TestSailorMoonFrameDrawing removed — those transition families were extracted
+# to the led-ticker-arcade plugin (Phase 3 removal, PR feat/remove-arcade).

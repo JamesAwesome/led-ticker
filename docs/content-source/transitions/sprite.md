@@ -1,19 +1,19 @@
-The sprite family runs a pixel-art character across the panel that erases the outgoing widget and reveals the incoming one. Four families ship in the box — pick by theme.
+Sprite transitions run a pixel-art character across the panel that erases the outgoing widget and reveals the incoming one. They ship with the external [`led-ticker-arcade`](https://github.com/JamesAwesome/led-ticker-arcade) plugin — four families, referenced by their namespaced slug. Install the plugin (add `git+https://github.com/JamesAwesome/led-ticker-arcade.git@main` to `config/requirements-plugins.txt` and rebuild) before using these.
 
 | Family | Variants | Hires on bigsign? | Best for |
 |--------|----------|-------------------|----------|
-| `nyancat` | `nyancat`, `nyancat_reverse`, `nyancat_alternating` | yes (animated webp) | General playful |
-| `pokeball` | `pokeball`, `pokeball_reverse`, `pokeball_alternating` | yes (Pikachu run sprite + procedural ball) | Pop-culture variety |
-| `sailor_moon` | `sailor_moon`, `sailor_moon_reverse`, `sailor_moon_alternating` | no (8-bit aesthetic is the design) | Magical / sparkle |
-| `pacman` | `pacman`, `pacman_reverse`, `pacman_alternating` | no (8-bit aesthetic is the design) | Retro arcade |
+| `arcade.nyancat` | `arcade.nyancat`, `arcade.nyancat_reverse`, `arcade.nyancat_alternating` | yes (animated webp) | General playful |
+| `arcade.pokeball` | `arcade.pokeball`, `arcade.pokeball_reverse`, `arcade.pokeball_alternating` | yes (Pikachu run sprite + procedural ball) | Pop-culture variety |
+| `arcade.sailor_moon` | `arcade.sailor_moon`, `arcade.sailor_moon_reverse`, `arcade.sailor_moon_alternating` | no (8-bit aesthetic is the design) | Magical / sparkle |
+| `arcade.pacman` | `arcade.pacman`, `arcade.pacman_reverse`, `arcade.pacman_alternating` | no (8-bit aesthetic is the design) | Retro arcade |
 
-A fifth sprite family, **`baseball`** (`baseball.roll`, `baseball.roll_reverse`, `baseball.roll_alternating` — procedural ball, 8 rotation frames, hires on bigsign; best for sports sections), is NOT core: it ships with the external [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) plugin. Install the plugin (add it to `config/requirements-plugins.txt` and rebuild) before using these.
+A fifth sprite family, **`baseball`** (`baseball.roll`, `baseball.roll_reverse`, `baseball.roll_alternating` — procedural ball, 8 rotation frames, hires on bigsign; best for sports sections), ships with the external [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) plugin. Install that plugin (add it to `config/requirements-plugins.txt` and rebuild) before using these.
 
 ## Variants
 
-- **Forward** (`<name>`): sprite enters from the left, exits right
-- **Reverse** (`<name>_reverse`): sprite enters from the right, exits left (sprite flipped horizontally)
-- **Alternating** (`<name>_alternating`): cycles forward → reverse → forward each swap
+- **Forward** (`arcade.<name>`): sprite enters from the left, exits right
+- **Reverse** (`arcade.<name>_reverse`): sprite enters from the right, exits left (sprite flipped horizontally)
+- **Alternating** (`arcade.<name>_alternating`): cycles forward → reverse → forward each swap
 
 ## Pokeball-specific options
 

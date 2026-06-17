@@ -19,12 +19,12 @@ of mode). Global defaults live in `[transitions]`; each section can override the
 
 ## Which to use
 
-| Tone        | Default (between widgets)                                           | Between sections       |
-| ----------- | ------------------------------------------------------------------- | ---------------------- |
-| Minimal     | `cut` or `wipe_left`                                                | `cut`                  |
-| Playful     | `pokeball_alternating` or `nyancat_alternating`                     | `pokeball_alternating` |
-| Info-dense  | `push_up`                                                           | `dissolve`             |
-| Branded-pro | `wipe_alternating` (with `transition_color` from the brand palette) | `dissolve`             |
+| Tone        | Default (between widgets)                                              | Between sections              |
+| ----------- | ---------------------------------------------------------------------- | ----------------------------- |
+| Minimal     | `cut` or `wipe_left`                                                   | `cut`                         |
+| Playful     | `arcade.pokeball_alternating` or `arcade.nyancat_alternating` (plugin) | `arcade.pokeball_alternating` |
+| Info-dense  | `push_up`                                                              | `dissolve`                    |
+| Branded-pro | `wipe_alternating` (with `transition_color` from the brand palette)    | `dissolve`                    |
 
 ## Global settings (`[transitions]`)
 
@@ -50,7 +50,7 @@ Each section has three transition slots, all accepting a bare string or inline t
 | `entry_transition`  | How **this section enters** (inter-section boundary) | Highest priority for entry — overrides `transition`        |
 | `widget_transition` | Swaps **between widgets** within this section        | Highest priority for inter-widget — overrides `transition` |
 
-**The `transition` shortcut:** writing `transition = "pokeball"` on a section sets pokeball for _both_ the entry and inter-widget swaps. This is usually what you want for single-widget sections. For multi-widget sections use `entry_transition` + `widget_transition` to control the two slots independently.
+**The `transition` shortcut:** writing `transition = "arcade.pokeball"` on a section sets that transition for _both_ the entry and inter-widget swaps. This is usually what you want for single-widget sections. For multi-widget sections use `entry_transition` + `widget_transition` to control the two slots independently.
 
 **Full precedence chains:**
 
@@ -62,7 +62,7 @@ Additional per-section knobs (apply on top of `transition`):
 - `transition_duration`: override the duration (seconds)
 - `transition_color`: RGB list — sweep color for wipe family and color_flash
 - `transition_colors`: list of RGB lists — color pool for `wipe_alternating` / `wipe_random`
-- `show_pikachu` / `show_pokeball`: toggle sprite elements on pokeball-family transitions
+- `show_pikachu` / `show_pokeball`: toggle sprite elements on the `arcade.pokeball` family ([led-ticker-arcade](https://github.com/JamesAwesome/led-ticker-arcade) plugin)
 
 <RelatedPages
   slugs={["transitions/push", "transitions/wipe", "transitions/sprite", "transitions/special"]}

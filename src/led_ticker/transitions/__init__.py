@@ -73,11 +73,29 @@ class Transition(Protocol):
 _TRANSITION_REGISTRY: dict[str, type[Transition]] = {}
 
 # name -> (message, suggested_fix) for a transition removed from core.
-# SHIPS EMPTY. The extraction PR (e.g. led-ticker-arcade) adds entries in
-# the same commit that removes the transition — mirroring _EXTRACTED_TYPES
-# in app/factories.py. A live entry for a still-registered transition would
-# be unreachable, so populating it here ahead of extraction is wrong.
-_TRANSITION_MIGRATION: dict[str, tuple[str, str]] = {}
+# Populated here when a transition is extracted to a plugin — mirroring
+# _EXTRACTED_TYPES in app/factories.py. A live entry for a
+# still-registered transition would be unreachable.
+
+
+def _arcade_migration(name: str) -> tuple[str, str]:
+    ns = f"arcade.{name}"
+    return (
+        f"Transition {name!r} was extracted from led-ticker core; it now ships "
+        f"in the led-ticker-arcade plugin as {ns!r}.",
+        "Install led-ticker-arcade (add it to config/requirements-plugins.txt) "
+        f"and use transition = {ns!r}.",
+    )
+
+
+_ARCADE_TRANSITIONS = [
+    f"{family}{suffix}"
+    for family in ("pacman", "sailor_moon", "nyancat", "pokeball")
+    for suffix in ("", "_reverse", "_alternating")
+]
+_TRANSITION_MIGRATION: dict[str, tuple[str, str]] = {
+    name: _arcade_migration(name) for name in _ARCADE_TRANSITIONS
+}
 
 
 def _normalize_bg(c: Any) -> tuple[int, int, int] | None:
@@ -361,21 +379,6 @@ from led_ticker.transitions.effects import (  # noqa: F401
     Scroll,
     SplitHorizontal,
 )
-from led_ticker.transitions.nyancat import (  # noqa: F401
-    NyanCat,
-    NyanCatAlternating,
-    NyanCatReverse,
-)
-from led_ticker.transitions.pacman import (  # noqa: F401
-    Pacman,
-    PacmanAlternating,
-    PacmanReverse,
-)
-from led_ticker.transitions.pokeball import (  # noqa: F401
-    Pokeball,
-    PokeballAlternating,
-    PokeballReverse,
-)
 from led_ticker.transitions.push import (  # noqa: F401
     PushAlternating,
     PushDown,
@@ -383,11 +386,6 @@ from led_ticker.transitions.push import (  # noqa: F401
     PushRandom,
     PushRight,
     PushUp,
-)
-from led_ticker.transitions.sailor_moon import (  # noqa: F401
-    SailorMoon,
-    SailorMoonAlternating,
-    SailorMoonReverse,
 )
 from led_ticker.transitions.wipe import (  # noqa: F401
     WipeAlternating,

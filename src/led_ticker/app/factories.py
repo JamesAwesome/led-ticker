@@ -639,9 +639,9 @@ async def validate_widget_cfg(
             suggested_fix="Use font_color / animation instead of presentation",
         )
 
-    # Migration check: the primary text field on TickerMessage,
-    # TickerCountdown, and WeatherWidget was renamed from "message" to
-    # "text". Loud failure here catches stale TOMLs at load time.
+    # Migration check: the primary text field on TickerMessage and
+    # TickerCountdown was renamed from "message" to "text". Loud failure
+    # here catches stale TOMLs at load time.
     if "message" in widget_cfg and widget_cfg.get("type") in (
         "message",
         "countdown",

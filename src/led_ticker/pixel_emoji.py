@@ -2952,8 +2952,9 @@ def measure_emoji_at(
     Mirrors `draw_emoji_at`'s gate ((a) ScaledCanvas, (b) slug in
     `HIRES_REGISTRY`, (c) fits `max_emoji_height` if specified) and
     returns `sprite_width + EMOJI_PADDING`. Use when a widget needs the
-    icon's footprint for layout math BEFORE the actual draw — e.g.
-    `WeatherWidget` computing its centered `full_width`.
+    icon's footprint for layout math BEFORE the actual draw — e.g. a data
+    widget (such as the `feeds.weather` plugin) computing its centered
+    `full_width`.
 
     The two helpers MUST stay in sync — a layout/draw mismatch produces
     overlap (text drawn over icon) or gap (icon ends short of where the

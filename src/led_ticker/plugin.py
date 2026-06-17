@@ -107,6 +107,7 @@ __all__ = [
     "ColorProvider",
     "ColorProviderBase",
     "as_color_provider",
+    "coerce_color_provider",
     "count_text_chars",
     "FONT_DEFAULT",
     "FONT_SMALL",
@@ -380,6 +381,25 @@ class PluginAPI:
         ``finally``). Takes no arguments; may be sync or async. Direct call.
         """
         self._shutdown_hooks.append(fn)
+
+
+def coerce_color_provider(
+    value: Any, context: str = "font_color"
+) -> ColorProvider | None:
+    """Parse a TOML color spec into a ColorProvider — the public primitive for
+    plugins with custom color fields.
+
+    Accepts a constant ``[r, g, b]`` / ``(r, g, b)``; the string shorthands
+    ``"random"`` / ``"rainbow"`` / ``"color_cycle"`` / ``"shimmer"``; an inline
+    ``{style = "...", ...}`` table; an already-built ``ColorProvider`` (returned
+    unchanged); or ``None`` (returns ``None``, caller supplies the default).
+    ``context`` is used in error messages. Mirrors how core coerces
+    ``font_color`` at config-load, so a plugin's plugin-unique color field gets
+    the same behaviour without depending on core's internal field-name registry.
+    """
+    from led_ticker.app.coercion import _coerce_color_provider
+
+    return _coerce_color_provider(value, context)
 
 
 def make_color(r: int, g: int, b: int) -> Color:

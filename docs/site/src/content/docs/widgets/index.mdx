@@ -1,11 +1,11 @@
 ---
 title: Widgets
-description: The 8 built-in widgets — what each one does and how to pick.
+description: The 7 built-in widgets — what each one does and how to pick.
 ---
 
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-led-ticker ships **8 built-in widget types**. Each is configured by a
+led-ticker ships **7 built-in widget types**. Each is configured by a
 `[[playlist.section.widget]]` block in your TOML. This page is the menu — pick the
 one that fits your data, then read its page for the full options list.
 
@@ -18,7 +18,6 @@ one that fits your data, then read its page for the full options list.
 | [`countdown`](/widgets/countdown/)                          | local clock + a target date | "X days until …"                           |
 | [`two_row`](/widgets/two_row/)                              | two static lines            | held-handle + scrolling promo (storefront) |
 | [`weather`](/widgets/weather/)                              | WeatherAPI.com              | forecast / current conditions              |
-| [`rss_feed`](/widgets/rss_feed/)                            | any RSS URL                 | news / blog headlines                      |
 | [`gif`](/widgets/gif/)                                      | local file                  | animated gifs / webp / multi-frame images  |
 | [`image`](/widgets/image/)                                  | static PNG / JPG            | logos / single still graphics              |
 | [`pool`](/widgets/pool/) _(plugin)_                         | pool_monitor InfluxDB       | water temp (today / 7-day / season)        |
@@ -26,12 +25,13 @@ one that fits your data, then read its page for the full options list.
 | [`baseball.standings`](/widgets/mlb_standings/) _(plugin)_  | MLB free API                | standings (top N + tracked teams)          |
 | [`crypto.coingecko`](/widgets/crypto-coingecko/) _(plugin)_ | CoinGecko                   | multi-coin price ticker                    |
 | [`calendar.events`](/widgets/calendar/) _(plugin)_          | iCal / .ics URL             | upcoming events, agenda / next / two_row   |
+| [`feeds.rss`](/widgets/rss_feed/) _(plugin)_                | any RSS URL                 | news / blog headlines                      |
 
 ## By complexity
 
 - **Just text:** `message`, `countdown`, `clock`. No external dependencies.
 - **Two text rows (storefront layout):** `two_row` at section `scale=2`.
-- **Live data (background fetch):** `weather`, `rss_feed`, plus the plugin widgets `pool`, `baseball.scores`, `baseball.standings`, `crypto.coingecko`, and `calendar.events`. Each has retry + exponential backoff.
+- **Live data (background fetch):** `weather`, plus the plugin widgets `pool`, `baseball.scores`, `baseball.standings`, `crypto.coingecko`, `calendar.events`, and `feeds.rss`. Each has retry + exponential backoff.
 - **Visual:** `gif`, `image`. Both support text overlay, fit modes (pillarbox / letterbox / stretch / crop), and per-row two-row layouts.
 
 ## Common knobs

@@ -25,3 +25,6 @@ git+https://github.com/JamesAwesome/led-ticker-baseball.git@main
 
 # Calendar (.ics) agenda/next/two_row widget (type = "calendar.events"):
 git+https://github.com/JamesAwesome/led-ticker-calendar.git@main
+
+# RSS/Atom feed headlines (type = "feeds.rss"):
+git+https://github.com/JamesAwesome/led-ticker-feeds.git@main

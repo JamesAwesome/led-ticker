@@ -305,9 +305,9 @@ RANDOM_COLOR: itertools.cycle = itertools.cycle(
 
 # Widget types extracted from core or retired entirely. coingecko was re-homed in
 # the led-ticker-crypto plugin; coinbase and etherscan were RETIRED (no direct
-# replacement); calendar was re-homed in led-ticker-calendar. The message is
-# per-type so the hint is honest — an etherscan (gas) user must not be told to
-# use crypto.coingecko (a price ticker).
+# replacement); calendar was re-homed in led-ticker-calendar; rss_feed was
+# re-homed in led-ticker-feeds. The message is per-type so the hint is honest —
+# an etherscan (gas) user must not be told to use crypto.coingecko (a price ticker).
 _EXTRACTED_TYPES: dict[str, tuple[str, str]] = {
     "coingecko": (
         "Widget type 'coingecko' was removed from led-ticker core; it now ships "
@@ -330,8 +330,14 @@ _EXTRACTED_TYPES: dict[str, tuple[str, str]] = {
     "calendar": (
         "Widget type 'calendar' was extracted from led-ticker core; it now ships "
         "in the led-ticker-calendar plugin as 'calendar.events'.",
-        'Install led-ticker-calendar (add it to config/requirements-plugins.txt) '
+        "Install led-ticker-calendar (add it to config/requirements-plugins.txt) "
         'and use type = "calendar.events".',
+    ),
+    "rss_feed": (
+        "Widget type 'rss_feed' was extracted from led-ticker core; it now ships "
+        "in the led-ticker-feeds plugin as 'feeds.rss'.",
+        "Install led-ticker-feeds (add it to config/requirements-plugins.txt) "
+        'and use type = "feeds.rss".',
     ),
 }
 

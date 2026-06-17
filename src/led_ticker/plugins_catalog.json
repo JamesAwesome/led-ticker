@@ -66,9 +66,9 @@
     {
       "name": "feeds",
       "namespace": "feeds",
-      "summary": "RSS/Atom feed headlines (type = \"feeds.rss\").",
+      "summary": "RSS/Atom feed headlines and current weather (feeds.rss, feeds.weather).",
       "homepage": "https://github.com/JamesAwesome/led-ticker-feeds",
-      "provides": ["feeds.rss"],
+      "provides": ["feeds.rss", "feeds.weather"],
       "sources": [
         {
           "type": "git",

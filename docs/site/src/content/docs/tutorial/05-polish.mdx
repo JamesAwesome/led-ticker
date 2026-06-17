@@ -125,9 +125,11 @@ The full transition catalogue covers 30+ options organised into families:
   `push_random`) — outgoing and incoming slide together as one unit.
 - **Wipe** (`wipe_left`, `wipe_right`, `wipe_up`, `wipe_down`, `wipe_alternating`,
   `wipe_random`) — outgoing stays fixed while a coloured sweep line erases it.
-- **Sprite trails** — `nyancat`, `pokeball`, `pacman`, `sailor_moon`
-  (each has `_reverse` and `_alternating` variants; the first two have bigsign
-  hi-res variants). A rolling-`baseball` family ships separately in the
+- **Sprite trails** — `arcade.nyancat`, `arcade.pokeball`, `arcade.pacman`,
+  `arcade.sailor_moon` (each has `_reverse` and `_alternating` variants; the first
+  two have bigsign hi-res variants). These ship in the
+  [led-ticker-arcade](https://github.com/JamesAwesome/led-ticker-arcade) plugin. A
+  rolling-`baseball.roll` family ships separately in the
   [led-ticker-baseball](https://github.com/JamesAwesome/led-ticker-baseball) plugin.
 - **Special** — `cut` (instant), `color_flash`, `dissolve`, `split`, `scroll`.
 
@@ -317,9 +319,10 @@ building from scratch rather than deploying to an existing panel, start with
 
 With a working panel config as a foundation, a few directions worth exploring:
 
-- **Try other transitions.** Swap `wipe_left` for `nyancat` or `pokeball` to see what
-  the sprite-trail families look like on your hardware. The [Transitions
-  catalogue](/transitions/) has a rendered preview for every option.
+- **Try other transitions.** Swap `wipe_left` for `arcade.nyancat` or
+  `arcade.pokeball` (from the [led-ticker-arcade](https://github.com/JamesAwesome/led-ticker-arcade)
+  plugin) to see what the sprite-trail families look like on your hardware. The
+  [Transitions catalogue](/transitions/) has a rendered preview for every option.
 - **Add live data widgets.** Plugin widgets pull live content and scroll it on the
   same canvas — `feeds.rss` for headlines and `feeds.weather` for current conditions
   (both via [led-ticker-feeds](/plugins/available/)), and `crypto.coingecko` (via

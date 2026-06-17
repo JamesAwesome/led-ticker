@@ -263,7 +263,7 @@ text = "wipe_down DONE"
 # --- nyancat ---
 [[playlist.section]]
 mode = "swap"
-transition = "nyancat"
+transition = "arcade.nyancat"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1
@@ -283,7 +283,7 @@ text = "nyancat DONE"
 # --- nyancat_reverse ---
 [[playlist.section]]
 mode = "swap"
-transition = "nyancat_reverse"
+transition = "arcade.nyancat_reverse"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1

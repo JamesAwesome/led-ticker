@@ -15,7 +15,7 @@ delay = 3
 # --- nyancat (left-to-right) ---
 [[playlist.section]]
 mode = "swap"
-transition = "nyancat"
+transition = "arcade.nyancat"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1
@@ -35,7 +35,7 @@ text = "nyancat DONE"
 # --- nyancat (short text) ---
 [[playlist.section]]
 mode = "swap"
-transition = "nyancat"
+transition = "arcade.nyancat"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1
@@ -55,7 +55,7 @@ text = "nyancat short DONE"
 # --- nyancat_reverse (right-to-left) ---
 [[playlist.section]]
 mode = "swap"
-transition = "nyancat_reverse"
+transition = "arcade.nyancat_reverse"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1
@@ -75,7 +75,7 @@ text = "nyancat_reverse DONE"
 # --- nyancat_reverse (short text) ---
 [[playlist.section]]
 mode = "swap"
-transition = "nyancat_reverse"
+transition = "arcade.nyancat_reverse"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1

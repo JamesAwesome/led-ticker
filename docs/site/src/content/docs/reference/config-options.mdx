@@ -183,7 +183,7 @@ Two independent transition slots fire per section: one when the **section enters
 **Inter-widget transition** (swaps within this section):
 `widget_transition` → `transition` (if explicitly set on this section) → global `default`
 
-The key implication: writing `transition = "pokeball"` on a section sets **both** slots to `pokeball` — the pokeball fires when the section enters AND between every widget inside it. This is usually what you want for single-widget sections. For multi-widget sections where you want a dramatic entry but a quiet per-widget swap, use `entry_transition` + `widget_transition` independently instead of `transition`.
+The key implication: writing `transition = "arcade.pokeball"` on a section sets **both** slots to that transition — it fires when the section enters AND between every widget inside it. This is usually what you want for single-widget sections. For multi-widget sections where you want a dramatic entry but a quiet per-widget swap, use `entry_transition` + `widget_transition` independently instead of `transition`.
 
 If you want the global `between_sections` to fire on entry, leave `transition` unset (or use `entry_transition` explicitly).
 

@@ -19,11 +19,6 @@ SRC = Path(__file__).resolve().parent.parent / "src" / "led_ticker"
 # Per-candidate allowlist: name -> reason it's OK to be internal.
 # Anything imported from led_ticker.* and NOT public must appear here.
 _ALLOWED = {
-    "widgets/weather.py": {
-        "register": "replaced by api.widget(name)",
-        "_match_condition": "weather_icons moves with weather into the plugin",
-    },
-    "widgets/weather_icons.py": {},
     "transitions/nyancat.py": {
         "register_transition": "replaced by api.transition(name)",
         "HIRES_REGISTRY": "built-in dispatch only; extracted arcade uses the "

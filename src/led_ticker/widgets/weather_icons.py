@@ -260,22 +260,3 @@ FOG: PixelData = [
     (6, 7, 120, 120, 120),
     (7, 7, 120, 120, 120),
 ]
-
-
-def _match_condition(condition: str) -> str:
-    """Map a WeatherAPI condition string to an emoji slug."""
-    c = condition.lower()
-    if "thunder" in c:
-        return "thunder"
-    if "snow" in c or "blizzard" in c or "ice" in c or "sleet" in c:
-        return "snow"
-    if "rain" in c or "drizzle" in c or "shower" in c:
-        return "rain"
-    if "fog" in c or "mist" in c:
-        return "fog"
-    if "partly" in c:
-        return "partly_cloudy"
-    if "cloud" in c or "overcast" in c:
-        return "cloud"
-    # Sunny, Clear, or anything else
-    return "sun"

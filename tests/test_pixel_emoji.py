@@ -1582,11 +1582,10 @@ def test_no_hardcoded_emoji_y_minus_8_overrides():
     """The redundant `- 8` anchors must stay removed — they bypass the
     scale-aware anchor and reintroduce the scale=2 misalignment. Band-layout
     sites use a computed emoji_y and are exempt; only the literal
-    `baseline_y - 8` form is banned. weather.py uses
-    draw_emoji_at(..., bottom_baseline=...) so it carries no `- 8` literal."""
+    `baseline_y - 8` form is banned."""
     root = pathlib.Path(__file__).resolve().parents[1] / "src" / "led_ticker"
     offenders = []
-    for rel in ("widgets/_image_base.py", "widgets/two_row.py", "widgets/weather.py"):
+    for rel in ("widgets/_image_base.py", "widgets/two_row.py"):
         text = (root / rel).read_text()
         if "baseline_y - 8" in text:
             offenders.append(rel)

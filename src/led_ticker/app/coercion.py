@@ -41,11 +41,12 @@ _COLOR_KEYS: set[str] = {
 # Keys that are text/foreground colors and should be coerced to
 # ColorProvider instances. Background color keys remain raw
 # graphics.Color (they drive SetPixel fills, not per-frame text draws).
+# Plugin-unique color fields (e.g. feeds.weather's font_color_temp) are
+# coerced plugin-side via the public coerce_color_provider API.
 _PROVIDER_COLOR_KEYS: set[str] = {
     "font_color",
     "top_color",
     "bottom_color",
-    "font_color_temp",
     "time_color",
     "text_separator_color",
     "bottom_text_separator_color",

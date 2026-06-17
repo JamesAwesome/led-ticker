@@ -4,7 +4,6 @@ import pytest
 
 from led_ticker.widgets import _WIDGET_REGISTRY, get_widget_class
 from led_ticker.widgets.message import TickerCountdown, TickerMessage
-from led_ticker.widgets.rss_feed import RSSFeedMonitor
 from led_ticker.widgets.weather import WeatherWidget
 
 
@@ -13,7 +12,6 @@ def test_all_widgets_registered():
         "message": TickerMessage,
         "countdown": TickerCountdown,
         "weather": WeatherWidget,
-        "rss_feed": RSSFeedMonitor,
     }
     for name, cls in expected.items():
         assert get_widget_class(name) is cls
@@ -24,8 +22,8 @@ def test_get_unknown_widget_raises():
         get_widget_class("nonexistent_widget")
 
 
-def test_registry_has_eight_widgets():
-    assert len(_WIDGET_REGISTRY) == 8
+def test_registry_has_seven_widgets():
+    assert len(_WIDGET_REGISTRY) == 7
 
 
 def test_register_duplicate_name_raises():

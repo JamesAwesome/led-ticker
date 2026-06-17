@@ -284,14 +284,13 @@ class TestFrameAwareWidgetProtocol:
         assert not isinstance(PlainWidget(), FrameAwareWidget)
 
 
-def test_container_protocol_recognizes_rss_monitor() -> None:
-    from unittest.mock import MagicMock
-
+def test_container_protocol_recognizes_feed_monitor() -> None:
     from led_ticker.widget import Container
-    from led_ticker.widgets.rss_feed import RSSFeedMonitor
 
-    monitor = RSSFeedMonitor(session=MagicMock(), feed_url="http://example.com/feed")
-    assert isinstance(monitor, Container)
+    class _FakeFeed:
+        feed_stories: list = []
+
+    assert isinstance(_FakeFeed(), Container)
 
 
 def test_container_protocol_rejects_plain_widget() -> None:

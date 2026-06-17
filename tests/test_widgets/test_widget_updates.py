@@ -4,7 +4,6 @@ import unittest.mock as mock
 
 import pytest
 
-from led_ticker.widgets.rss_feed import RSSFeedMonitor
 from led_ticker.widgets.weather import WeatherWidget
 
 
@@ -153,29 +152,3 @@ class TestWeatherUpdate:
             text="NYC",
         )
         assert w.location == "40.7,-74.0"
-
-
-# --- RSS Feed ---
-
-SAMPLE_RSS = """<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0"><channel><title>Test</title>
-<item><title>A</title></item><item><title>B</title></item>
-</channel></rss>"""
-
-
-class TestRSSFeedUpdate:
-    async def test_start_returns_widget(self):
-        session = _make_session(text_response=SAMPLE_RSS)
-        widget = await RSSFeedMonitor.start(
-            session=session,
-            feed_url="http://example.com/rss",
-        )
-        assert isinstance(widget, RSSFeedMonitor)
-        assert widget.feed_title.text == "Test"
-
-    async def test_update_with_empty_feed(self):
-        empty = '<?xml version="1.0"?><rss><channel><title>E</title></channel></rss>'
-        session = _make_session(text_response=empty)
-        m = RSSFeedMonitor(session=session, feed_url="http://x.com")
-        await m.update()
-        assert m.feed_stories == []

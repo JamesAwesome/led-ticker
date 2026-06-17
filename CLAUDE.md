@@ -216,7 +216,7 @@ User-facing surface: <https://docs.ledticker.dev/concepts/color-providers/> · <
 
 ## Plugin invariants
 
-led-ticker is extensible via plugins; the `pool.monitor` widget ([`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool)), the `baseball.*` widgets/emoji/transitions ([`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball)), the `crypto.coingecko` widget ([`led-ticker-crypto`](https://github.com/JamesAwesome/led-ticker-crypto)), and the `calendar.events` widget ([`led-ticker-calendar`](https://github.com/JamesAwesome/led-ticker-calendar)) live in external plugin repos. When touching plugin-related code:
+led-ticker is extensible via plugins; the `pool.monitor` widget ([`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool)), the `baseball.*` widgets/emoji/transitions ([`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball)), the `crypto.coingecko` widget ([`led-ticker-crypto`](https://github.com/JamesAwesome/led-ticker-crypto)), the `calendar.events` widget ([`led-ticker-calendar`](https://github.com/JamesAwesome/led-ticker-calendar)), and the `feeds.rss` widget ([`led-ticker-feeds`](https://github.com/JamesAwesome/led-ticker-feeds)) live in external plugin repos. When touching plugin-related code:
 
 - **Public surface:** plugins import ONLY from `led_ticker.plugin` (the curated re-export module). Never import `led_ticker.<internal>` from a plugin. `led_ticker.plugin.__all__` is the contract; adding to it is an API change.
 - **Registration:** a plugin ships a `register(api)` function under the `led_ticker.plugins` entry-point group; `api.widget("name")(cls)` (and the sibling `transition`/`emoji`/`font`/… surfaces) register into a namespaced registry (`<plugin>.<name>`, e.g. `pool.monitor`). `API_VERSION` gates compatibility.
@@ -234,6 +234,7 @@ First-party plugins live in sibling repos. Each carries its own `CLAUDE.md` (con
 - [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) — `baseball.scores` / `baseball.standings` widgets, `baseball.roll*` transitions, `:baseball.ball:` emoji.
 - [`led-ticker-crypto`](https://github.com/JamesAwesome/led-ticker-crypto) — `crypto.coingecko` (CoinGecko price ticker)
 - [`led-ticker-calendar`](https://github.com/JamesAwesome/led-ticker-calendar) — `calendar.events`: calendar (.ics) agenda/next/two_row widget.
+- [`led-ticker-feeds`](https://github.com/JamesAwesome/led-ticker-feeds) — `feeds.rss`: RSS/Atom feed headlines (weather planned for the same repo).
 
 These plugins import a few core symbols through the public surface that have no remaining in-core consumer (`lazy_palette`, `GEOMETRIC_SHAPES`, the `small_font` font-prefix); see the "Extracted widgets retain core hooks" note in the load-bearing invariants — don't delete them.
 

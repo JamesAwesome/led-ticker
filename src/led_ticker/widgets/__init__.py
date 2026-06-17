@@ -41,7 +41,6 @@ from led_ticker.widgets import (  # noqa: E402, F401
     clock,
     gif,
     message,
-    rss_feed,
     still,
     two_row,
     weather,

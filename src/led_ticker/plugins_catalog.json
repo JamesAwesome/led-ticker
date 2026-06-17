@@ -62,6 +62,20 @@
           "ref": "main"
         }
       ]
+    },
+    {
+      "name": "feeds",
+      "namespace": "feeds",
+      "summary": "RSS/Atom feed headlines (type = \"feeds.rss\").",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-feeds",
+      "provides": ["feeds.rss"],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/JamesAwesome/led-ticker-feeds",
+          "ref": "main"
+        }
+      ]
     }
   ]
 }

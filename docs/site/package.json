@@ -17,7 +17,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.39.3",
+    "@astrojs/starlight": "^0.40.0",
     "astro": "^6.4.6",
     "marked": "^18.0.5",
     "remark-gfm": "^4.0.1",

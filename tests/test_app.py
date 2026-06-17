@@ -1119,17 +1119,6 @@ class TestBuildTransObj:
         assert obj is not None
         assert isinstance(obj, get_transition_class("dissolve"))
 
-    def test_pokeball_with_show_flags_does_not_raise(self):
-        """Show-flags (show_pikachu / show_pokeball) must reach the
-        transition class constructor without raising — protects
-        against a future regression where a kwarg name drifts."""
-        from led_ticker.config import TransitionConfig
-        from led_ticker.transitions import get_transition_class
-
-        cfg = TransitionConfig(type="pokeball", show_pikachu=False, show_pokeball=False)
-        obj = _build_trans_obj(cfg)  # Must not raise.
-        assert isinstance(obj, get_transition_class("pokeball"))
-
     def test_color_threaded(self):
         from led_ticker.config import TransitionConfig
 
@@ -1141,12 +1130,9 @@ class TestBuildTransObj:
 class TestSectionTransitionFiresOnEntry:
     """Integration: when a section explicitly specifies `transition`,
     the engine uses that transition for the inter-section ENTRY (not
-    just inter-widget). Solves the UX bug where 1-widget sections
-    with `transition = "pokeball"` silently never showed pokeball.
-
-    Tests inspect the engine's selection logic by running a single
-    section iteration with mocked `run_transition` and verifying it
-    received the section-specific transition object.
+    just inter-widget). Tests inspect the engine's selection logic by
+    running a single section iteration with mocked `run_transition` and
+    verifying it received the section-specific transition object.
     """
 
     async def test_section_with_explicit_transition_uses_it_for_entry(
@@ -1166,13 +1152,13 @@ default_scale = 1
 between_sections = "dissolve"
 [[playlist.section]]
 mode = "swap"
-transition = "pokeball"
+transition = "wipe_left"
 [[playlist.section.widget]]
 type = "message"
 text = "FIRST"
 [[playlist.section]]
 mode = "swap"
-transition = "pokeball"
+transition = "wipe_left"
 [[playlist.section.widget]]
 type = "message"
 text = "SECOND"
@@ -1180,7 +1166,7 @@ text = "SECOND"
         )
 
         cfg = app.load_config(config_file)
-        # Both sections explicitly specify pokeball.
+        # Both sections explicitly specify wipe_left.
         assert cfg.sections[0].transition_specified is True
         assert cfg.sections[1].transition_specified is True
 
@@ -1194,10 +1180,10 @@ text = "SECOND"
             else:
                 entries.append(default_section_trans)
 
-        # Both entries should be pokeball instances, not dissolve.
-        pokeball_cls = get_transition_class("pokeball")
+        # Both entries should be wipe_left instances, not dissolve.
+        wipe_left_cls = get_transition_class("wipe_left")
         dissolve_cls = get_transition_class("dissolve")
-        assert all(isinstance(t, pokeball_cls) for t in entries)
+        assert all(isinstance(t, wipe_left_cls) for t in entries)
         assert not any(isinstance(t, dissolve_cls) for t in entries)
 
     async def test_section_without_transition_falls_back_to_between_sections(

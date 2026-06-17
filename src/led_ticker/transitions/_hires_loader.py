@@ -14,13 +14,35 @@ horizontally and snap to incoming near t=1.0.
 import functools
 import math
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from PIL import Image
 
 from led_ticker.scaled_canvas import unwrap_to_real
-from led_ticker.transitions._hires_registry import HiresSpec
 from led_ticker.widgets._image_fit import scan_non_black
+
+
+@dataclass(frozen=True)
+class HiresSpec:
+    """Describes one hi-res sprite asset for a sprite-trail transition.
+
+    `sprite_path` points at a gif/webp sprite file.
+    `flip_horizontal=True` mirrors each frame at decode (used for
+    ``*_reverse`` variants so the sprite faces its travel direction).
+    `trail` selects the band painted behind the sprite to erase outgoing
+    text: ``"none"`` paints nothing, ``"black"`` fills the band with
+    black, ``"rainbow"`` fills it with 6 horizontal RGB stripes.
+
+    This class is part of the public plugin API (``led_ticker.plugin``) so
+    external transition plugins can supply their own sprites to
+    ``render_hires_frame`` / ``load_hires``.
+    """
+
+    sprite_path: Path
+    flip_horizontal: bool
+    trail: str = "none"
+
 
 # Trail saturates (sprite reaches far edge, trail fills the entire panel)
 # at this t. Below SNAP_THRESHOLD so the panel holds a fully-covered

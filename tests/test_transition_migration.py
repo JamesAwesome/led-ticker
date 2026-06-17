@@ -10,10 +10,26 @@ from led_ticker.transitions import (
 )
 
 
-def test_shipped_migration_map_is_empty():
-    """Entries land per-extraction (the crypto precedent). A live entry
-    for a transition still present in core would be unreachable."""
-    assert transitions._TRANSITION_MIGRATION == {}
+@pytest.mark.parametrize(
+    "name",
+    [
+        "pacman",
+        "sailor_moon",
+        "nyancat",
+        "pokeball",
+        "nyancat_reverse",
+        "pokeball_alternating",
+    ],
+)
+def test_bare_arcade_transition_migrates_to_plugin(name):
+    message, fix = explain_unknown_transition(name)
+    assert "led-ticker-arcade" in message
+    assert f"arcade.{name}" in fix
+
+
+def test_unrelated_unknown_transition_has_no_arcade_hint():
+    message, fix = explain_unknown_transition("definitely_not_a_transition")
+    assert "led-ticker-arcade" not in message
 
 
 def test_migration_entry_wins(monkeypatch):

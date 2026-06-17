@@ -11,8 +11,17 @@ def test_list_transition_names_returns_sorted_list():
 
 def test_list_transition_names_includes_core_transitions():
     names = list_transition_names()
-    for expected in ("cut", "wipe_left", "push_right", "dissolve", "nyancat"):
+    for expected in ("cut", "wipe_left", "push_right", "dissolve"):
         assert expected in names, f"{expected!r} not in registry"
+
+
+def test_arcade_transitions_not_in_core_registry():
+    """Arcade sprite-trail transitions were extracted; they must NOT appear in core."""
+    names = list_transition_names()
+    for removed in ("nyancat", "pokeball", "pacman", "sailor_moon"):
+        assert removed not in names, (
+            f"{removed!r} is still in core — should be in led-ticker-arcade"
+        )
 
 
 def test_list_transition_names_does_not_include_private():

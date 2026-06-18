@@ -1,3 +1,13 @@
+# ── Plugin dependencies ───────────────────────────────────────────────
+# Requires these led-ticker plugins. Install via
+# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
+# and rebuild before running:
+#   led-ticker-arcade    arcade.nyancat*, arcade.pacman*, arcade.pokeball*, arcade.sailor_moon
+#   led-ticker-baseball  baseball.roll*
+# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
+# flair, and the foundational transitions need no plugins.
+# ──────────────────────────────────────────────────────────────────────
+
 # led-ticker hi-res transitions smoke test config
 #
 # Pokeball sections are first so you see them right away. Each section

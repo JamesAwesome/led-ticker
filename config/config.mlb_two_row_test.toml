@@ -1,3 +1,12 @@
+# ── Plugin dependencies ───────────────────────────────────────────────
+# Requires these led-ticker plugins. Install via
+# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
+# and rebuild before running:
+#   led-ticker-baseball  baseball.scores, baseball.roll*, :baseball.ball:
+# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
+# flair, and the foundational transitions need no plugins.
+# ──────────────────────────────────────────────────────────────────────
+
 # MLB two-row layout test config — bigsign (256×64 canvas)
 #
 # 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64 logical.

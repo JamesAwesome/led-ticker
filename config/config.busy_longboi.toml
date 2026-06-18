@@ -1,3 +1,5 @@
+# Plugin dependencies: none — built-in (core) widgets & transitions only.
+
 # Busy-light smoke test — longboi (512×64 canvas), Docker
 #
 # 4× Muen P2 128×64 panels chained horizontally = 512×64 physical.

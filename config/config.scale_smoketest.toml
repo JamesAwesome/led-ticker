@@ -1,3 +1,12 @@
+# ── Plugin dependencies ───────────────────────────────────────────────
+# Requires these led-ticker plugins. Install via
+# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
+# and rebuild before running:
+#   led-ticker-feeds  feeds.weather
+# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
+# flair, and the foundational transitions need no plugins.
+# ──────────────────────────────────────────────────────────────────────
+
 # Scale smoke-test — bigsign (256×64 canvas)
 #
 # Exercises inline-emoji vertical alignment across per-section scales to
@@ -141,7 +150,7 @@ hold_time = 8
 loop_count = 1
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "New York"
 location = "New York"
 units = "imperial"

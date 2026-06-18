@@ -1,3 +1,5 @@
+# Plugin dependencies: none — built-in (core) widgets & transitions only.
+
 # Clock smoke-test — bigsign (256×64 canvas)
 #
 # Hardware validation for the `clock` widget (PR #204) on the bigsign / longboi.

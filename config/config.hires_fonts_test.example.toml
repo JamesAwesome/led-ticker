@@ -1,3 +1,5 @@
+# Plugin dependencies: none — built-in (core) widgets & transitions only.
+
 # led-ticker hi-res fonts smoke test config
 #
 # Exercises the hi-res font path:

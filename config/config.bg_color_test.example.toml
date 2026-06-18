@@ -1,3 +1,5 @@
+# Plugin dependencies: none — built-in (core) widgets & transitions only.
+
 # led-ticker bg_color smoke test config
 #
 # Exercises every code path that consumes bg_color:

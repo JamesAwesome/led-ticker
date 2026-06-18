@@ -1,3 +1,12 @@
+# ── Plugin dependencies ───────────────────────────────────────────────
+# Requires these led-ticker plugins. Install via
+# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
+# and rebuild before running:
+#   led-ticker-feeds  feeds.weather, feeds.rss
+# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
+# flair, and the foundational transitions need no plugins.
+# ──────────────────────────────────────────────────────────────────────
+
 # Presentation effects smoke test — Pi 5 bigsign.
 #
 # Validates the new font_color (color provider) + animation knobs
@@ -238,7 +247,7 @@ text = "10: color_cycle + weather"
 font_color = [200, 220, 255]
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "Brooklyn"
 location = "Brooklyn"
 units = "imperial"
@@ -378,7 +387,7 @@ text = "Nintendo Life"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "rss_feed"
+type = "feeds.rss"
 feed_url = "https://www.nintendolife.com/feeds/news"
 max_stories = 1
 font_color = "rainbow"

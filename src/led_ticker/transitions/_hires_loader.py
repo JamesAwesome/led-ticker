@@ -6,13 +6,12 @@ The loader uses Pillow directly (not `widgets/_image_fit.apply_fit` /
 for the GIF widget. Hi-res transitions need sprite-sized output so the
 sprite can be positioned horizontally during traversal.
 
-`render_hires_frame` is shared by `NyanCat`, `NyanCatReverse`, `Pokeball`,
-and `PokeballReverse` -- they all paint a single sprite that traverses
-horizontally and snap to incoming near t=1.0.
+`render_hires_frame` paints a single sprite that traverses horizontally
+leaving a trail and snaps to incoming near t=1.0; it is consumed by
+external sprite-trail transition plugins.
 """
 
 import functools
-import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -176,70 +175,6 @@ def _decode(spec: HiresSpec, panel_h: int = 64) -> HiresFrames:
     )
 
 
-def _paint_procedural_pokeball(
-    canvas: Any,
-    cx: int,
-    cy: int,
-    radius: int,
-    band_angle_rad: float,
-    panel_w: int,
-    panel_h: int,
-) -> None:
-    """Paint a procedural pokeball via SetPixel.
-
-    Top half red, bottom half white, divided by a black band rotated by
-    `band_angle_rad`, with a small white center button outlined in black,
-    and an outer 2px black outline. Uses dist² (no sqrt) in the hot loop
-    and clips at panel bounds.
-    """
-    set_px = canvas.SetPixel
-    outline_thickness = max(2, radius // 12)
-    band_half = max(2, radius // 10)
-    button_radius = max(3, radius // 4)
-    button_outline = 1
-
-    cos_t = math.cos(band_angle_rad)
-    sin_t = math.sin(band_angle_rad)
-
-    radius_sq = radius * radius
-    inner_radius_sq = (radius - outline_thickness) ** 2
-    button_radius_sq = button_radius * button_radius
-    button_inner_sq = (button_radius - button_outline) ** 2
-
-    for dy in range(-radius, radius + 1):
-        ry = cy + dy
-        if ry < 0 or ry >= panel_h:
-            continue
-        for dx in range(-radius, radius + 1):
-            rx = cx + dx
-            if rx < 0 or rx >= panel_w:
-                continue
-            dist_sq = dx * dx + dy * dy
-            if dist_sq > radius_sq:
-                continue
-            # Outer outline (precedence 1)
-            if dist_sq >= inner_radius_sq:
-                set_px(rx, ry, 0, 0, 0)
-                continue
-            # Center button (precedence 2)
-            if dist_sq <= button_radius_sq:
-                if dist_sq >= button_inner_sq:
-                    set_px(rx, ry, 0, 0, 0)
-                else:
-                    set_px(rx, ry, 255, 255, 255)
-                continue
-            # Band through center (precedence 3)
-            signed = dy * cos_t - dx * sin_t
-            if abs(signed) < band_half:
-                set_px(rx, ry, 0, 0, 0)
-                continue
-            # Halves (precedence 4)
-            if signed < 0:
-                set_px(rx, ry, 255, 30, 30)
-            else:
-                set_px(rx, ry, 255, 255, 255)
-
-
 @functools.cache
 def load_hires(spec: HiresSpec) -> HiresFrames:
     """Decode + cache a sprite from its spec. Cached on the frozen, hashable
@@ -257,13 +192,16 @@ def render_hires_frame(
     spec: HiresSpec,
     **kwargs: Any,
 ) -> Any:
-    """Paint one frame of a hi-res sprite traversing horizontally.
+    """Paint one frame of a hi-res sprite traversing the panel, leaving a trail.
 
-    Used by `NyanCat`/`NyanCatReverse`/`Pokeball`/`PokeballReverse` when
-    the canvas is a `ScaledCanvas` and there is a sprite spec for the transition.
+    Generic sprite-trail infra: a single sprite (from `spec`) moves
+    horizontally across a `ScaledCanvas`, a trail fills behind its leading
+    edge to erase outgoing content, and the frame snaps to `incoming` near
+    t=1.0. Used by external sprite-trail transition plugins (e.g.
+    led-ticker-arcade's nyancat / pokeball). No entity-specific logic.
     """
     # CAUTION: this function trusts that `canvas` is a `ScaledCanvas` (the
-    # dispatch in nyancat.py / pokeball.py guarantees this).
+    # transition's own dispatch guarantees this).
     # `unwrap_to_real(canvas)` walks any number of nested ScaledCanvas
     # wrappers. If a future caller wraps a ScaledCanvas in some OTHER kind
     # of wrapper, dispatch would still pick lowres but this code would
@@ -283,69 +221,28 @@ def render_hires_frame(
     frame_idx = _frame_for_elapsed(elapsed_ms, sprite.durations_ms)
 
     # 3. x-position. flip_horizontal drives both art mirroring AND
-    #    traversal direction -- sprite faces its travel direction.
-    #    effective_t scales position so the leading entity reaches the
-    #    far edge by TRAIL_SATURATION_T (well before SNAP_THRESHOLD),
-    #    giving the trail time to fully fill the panel and hold before
-    #    the cut.
-    #
-    #    Pokeball layout: a procedural ball LEADS Pikachu by `gap` pixels
-    #    when both are visible. show_pokeball / show_pikachu kwargs (only
-    #    honored for the pokeball family) toggle each entity:
-    #      - both visible: ball leads, Pikachu chases (default)
-    #      - ball only: ball alone, Pikachu math skipped
-    #      - Pikachu only: sprite-only mode, like nyancat
-    #      - neither: nothing painted
-    # The procedural ball is opt-in via the show_pokeball kwarg (default
-    # off). Behavior-preserving: the pokeball family always passes it
-    # explicitly; nyancat never passes it (so stays ball-free). A plugin
-    # can now opt into the ball by passing show_pokeball=True.
-    show_pokeball = bool(kwargs.get("show_pokeball", False))
-    show_pikachu = kwargs.get("show_pikachu", True)
+    #    traversal direction -- the sprite faces its travel direction.
+    #    effective_t scales position so the leading edge reaches the far
+    #    edge by TRAIL_SATURATION_T (well before SNAP_THRESHOLD), giving
+    #    the trail time to fully fill the panel and hold before the cut.
+    #    leading_x is the FRONT edge of the sprite (where it's moving to),
+    #    so the trail extends THROUGH the sprite's region; the sprite then
+    #    paints on top of the trail, and transparent / alpha-zero regions
+    #    of the sprite reveal trail color rather than outgoing text.
     effective_t = min(1.0, t / TRAIL_SATURATION_T)
-    if show_pokeball:
-        # Ball is the leading entity (Pikachu may also be present).
-        ball_radius = panel_h // 3
-        gap = 8
-        ball_cy = panel_h // 2
-        if show_pikachu:
-            ball_travel = panel_w + 2 * ball_radius + sprite.width + gap
-        else:
-            ball_travel = panel_w + 2 * ball_radius
-        if sprite.flip_horizontal:
-            ball_cx = panel_w + ball_radius - int(effective_t * ball_travel)
-            sprite_x = ball_cx + ball_radius + gap if show_pikachu else 0
-            leading_x = ball_cx - ball_radius
-        else:
-            ball_cx = -ball_radius + int(effective_t * ball_travel)
-            sprite_x = ball_cx - ball_radius - gap - sprite.width if show_pikachu else 0
-            leading_x = ball_cx + ball_radius
+    travel = panel_w + sprite.width
+    if sprite.flip_horizontal:
+        sprite_x = panel_w - int(effective_t * travel)
+        leading_x = sprite_x  # left edge — front of RTL traversal
     else:
-        # Sprite-only mode: nyancat OR pokeball with show_pokeball=False.
-        # leading_x is the FRONT edge of the sprite (where it's moving to),
-        # so the trail extends THROUGH the sprite's region. The sprite then
-        # paints on top of the trail; transparent / alpha-zero regions of
-        # the sprite reveal trail color rather than outgoing text. Matches
-        # the pokeball convention.
-        travel = panel_w + sprite.width
-        if sprite.flip_horizontal:
-            sprite_x = panel_w - int(effective_t * travel)
-            leading_x = sprite_x  # left edge — front of RTL traversal
-        else:
-            sprite_x = -sprite.width + int(effective_t * travel)
-            leading_x = sprite_x + sprite.width  # right edge — front of LTR
-        ball_radius = 0  # unused, silences type checkers
-        ball_cx = 0
-        ball_cy = 0
+        sprite_x = -sprite.width + int(effective_t * travel)
+        leading_x = sprite_x + sprite.width  # right edge — front of LTR
     sprite_y = (panel_h - sprite.height) // 2
 
     set_px = real.SetPixel
 
-    # 4. Paint trail BEHIND the leading edge (erases outgoing text). For
-    #    pokeball the leading edge is the ball's far side; for nyancat
-    #    it's the sprite's far side. Skip the trail entirely when nothing
-    #    is visible (both flags off) so we don't paint a phantom trail.
-    if (show_pokeball or show_pikachu) and sprite.trail != "none":
+    # 4. Paint trail BEHIND the leading edge (erases outgoing text).
+    if sprite.trail != "none":
         if sprite.flip_horizontal:
             trail_x_start = min(panel_w, max(0, leading_x))
             trail_x_end = panel_w
@@ -371,59 +268,33 @@ def render_hires_frame(
                         for x in range(trail_x_start, trail_x_end):
                             set_px(x, y, r, g, b)
 
-    # 5. Paint procedural pokeball BEFORE Pikachu so that if they overlap
-    #    (defensive — they shouldn't since gap > 0) Pikachu paints on top.
-    #    Rotation is keyed on travel distance to simulate rolling. RTL
-    #    rotates counterclockwise (negate the angle) since a ball rolling
-    #    right-to-left rotates opposite a ball rolling left-to-right.
-    if show_pokeball:
-        pixels_per_rotation_frame = max(1, ball_radius // 2)
-        if sprite.flip_horizontal:
-            travel_done = max(0, panel_w - ball_cx)
-        else:
-            travel_done = max(0, ball_cx)
-        ball_rotation_idx = (travel_done // pixels_per_rotation_frame) % 4
-        rotation_step = math.pi / 4
-        if sprite.flip_horizontal:
-            band_angle = -ball_rotation_idx * rotation_step
-        else:
-            band_angle = ball_rotation_idx * rotation_step
-        _paint_procedural_pokeball(
-            real, ball_cx, ball_cy, ball_radius, band_angle, panel_w, panel_h
-        )
+    # 5. Paint sprite pixels to the native physical canvas (skip-black).
+    #    Before painting, blacken the sprite's bounding box so transparent
+    #    (alpha=0) regions read as black instead of revealing the trail
+    #    color underneath. Skip the bbox black-fill when the trail is
+    #    already black across the sprite's bbox (black-trail case) — saves
+    #    ~5600 SetPixel calls per frame on the bigsign. Still needed for the
+    #    rainbow trail (must convert to black under the sprite) and
+    #    trail="none" (prevents text bleed).
+    if sprite.trail != "black":
+        bbox_x_start = max(0, sprite_x)
+        bbox_x_end = min(panel_w, sprite_x + sprite.width)
+        bbox_y_start = max(0, sprite_y)
+        bbox_y_end = min(panel_h, sprite_y + sprite.height)
+        for y in range(bbox_y_start, bbox_y_end):
+            for x in range(bbox_x_start, bbox_x_end):
+                set_px(x, y, 0, 0, 0)
+    # Sprite paint. We only x-clip — y is invariantly in-bounds because
+    # `_decode` forces `new_h = panel_h` and `sprite_y = (panel_h -
+    # sprite.height) // 2 = 0`, so `sprite_y + y ∈ [0, panel_h)`. If a
+    # future change decouples sprite.height from panel_h (e.g. a
+    # `fit="letterbox"` mode), add a `0 <= ry < panel_h` guard.
+    for x, y, r, g, b in sprite.non_black[frame_idx]:
+        rx = sprite_x + x
+        if 0 <= rx < panel_w:
+            set_px(rx, sprite_y + y, r, g, b)
 
-    # 6. Paint sprite pixels to native physical canvas (skip-black). For
-    #    the pokeball family, `show_pikachu=False` skips the Pikachu sprite.
-    #    Before painting, blacken the sprite's bounding box so that
-    #    transparent (alpha=0) regions of the sprite read as black
-    #    instead of revealing the trail color underneath. This matches
-    #    the lowres look where the sprite sits on a black silhouette and
-    #    only the trail-behind-the-sprite is colored.
-    if show_pikachu:
-        # Skip the bbox black-fill when the trail is already black across the
-        # sprite's bbox — pokeball case. Saves ~5600 SetPixel calls per frame
-        # on the bigsign. Still needed for rainbow trail (must convert to
-        # black under the sprite) and trail="none" (prevents text bleed).
-        if sprite.trail != "black":
-            bbox_x_start = max(0, sprite_x)
-            bbox_x_end = min(panel_w, sprite_x + sprite.width)
-            bbox_y_start = max(0, sprite_y)
-            bbox_y_end = min(panel_h, sprite_y + sprite.height)
-            for y in range(bbox_y_start, bbox_y_end):
-                for x in range(bbox_x_start, bbox_x_end):
-                    set_px(x, y, 0, 0, 0)
-        # Sprite paint. We only x-clip — y is invariantly in-bounds
-        # because `_decode` forces `new_h = panel_h` and
-        # `sprite_y = (panel_h - sprite.height) // 2 = 0`, so
-        # `sprite_y + y ∈ [0, panel_h)`. If a future change decouples
-        # sprite.height from panel_h (e.g. a `fit="letterbox"` mode),
-        # add a `0 <= ry < panel_h` guard.
-        for x, y, r, g, b in sprite.non_black[frame_idx]:
-            rx = sprite_x + x
-            if 0 <= rx < panel_w:
-                set_px(rx, sprite_y + y, r, g, b)
-
-    # 7. At t>=0.95, snap to incoming so the panel doesn't end on
+    # 6. At t>=0.95, snap to incoming so the panel doesn't end on
     #    "outgoing-with-sprite-just-exited". Use bg-aware reset so
     #    the last transition frame matches the new section's bg
     #    instead of flashing black for one tick.

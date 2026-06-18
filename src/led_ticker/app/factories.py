@@ -363,10 +363,6 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
         kwargs["colors"] = trans_cfg.colors
     elif trans_cfg.color is not None:
         kwargs["color"] = trans_cfg.color
-    if not trans_cfg.show_pikachu:
-        kwargs["show_pikachu"] = False
-    if not trans_cfg.show_pokeball:
-        kwargs["show_pokeball"] = False
     return cls(**kwargs)
 
 

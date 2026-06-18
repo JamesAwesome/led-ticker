@@ -50,12 +50,10 @@ class TransitionConfig:
     easing: str = "linear"
     color: tuple[int, int, int] | None = None
     colors: list[tuple[int, int, int]] | None = None
-    show_pikachu: bool = True
-    show_pokeball: bool = True
     transition_fps: float | None = None  # None = use run_transition default (20 fps)
     # Non-built-in keys from a plugin transition's TOML table (e.g. {type=
-    # "acme.swoosh", speed=3} -> extra={"speed": 3}). Passed to the plugin
-    # transition's constructor; empty for built-in transitions.
+    # "arcade.pokeball", show_pikachu=false} -> extra={"show_pikachu": False}).
+    # Passed to the plugin transition's constructor; empty for built-in transitions.
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -324,6 +322,8 @@ _DISPLAY_INT_FIELDS: frozenset[str] = frozenset(
 
 # Built-in transition knobs. Any other key in a transition table is plugin
 # config and gets carried in TransitionConfig.extra for the plugin constructor.
+# NOTE: show_pikachu / show_pokeball are intentionally absent — they are
+# arcade-plugin knobs that flow through `extra`, not built-in fields.
 _BUILTIN_TRANSITION_KEYS: frozenset[str] = frozenset(
     {
         "type",
@@ -331,8 +331,6 @@ _BUILTIN_TRANSITION_KEYS: frozenset[str] = frozenset(
         "easing",
         "transition_color",
         "transition_colors",
-        "show_pikachu",
-        "show_pokeball",
         "transition_fps",
     }
 )
@@ -456,8 +454,6 @@ def _parse_transition(
         easing=raw.get("easing", default.easing),
         color=color,
         colors=colors,
-        show_pikachu=raw.get("show_pikachu", default.show_pikachu),
-        show_pokeball=raw.get("show_pokeball", default.show_pokeball),
         transition_fps=raw.get("transition_fps", default.transition_fps),
         extra=extra,
     )
@@ -479,8 +475,6 @@ def load_config(path: Path) -> AppConfig:
         easing=_coerce_easing(
             transitions_raw, "linear", "transitions", coerce_warnings
         ),
-        show_pikachu=transitions_raw.get("show_pikachu", True),
-        show_pokeball=transitions_raw.get("show_pokeball", True),
     )
 
     bl_raw = raw.get("busy_light", {})
@@ -558,10 +552,6 @@ def load_config(path: Path) -> AppConfig:
             trans.color = tuple(section_raw["transition_color"])
         if "transition_colors" in section_raw:
             trans.colors = [tuple(c) for c in section_raw["transition_colors"]]
-        if "show_pikachu" in section_raw:
-            trans.show_pikachu = section_raw["show_pikachu"]
-        if "show_pokeball" in section_raw:
-            trans.show_pokeball = section_raw["show_pokeball"]
         # Coerce section-level transition easing if present in dict form
         if isinstance(section_raw.get("transition"), dict):
             trans.easing = _coerce_easing(

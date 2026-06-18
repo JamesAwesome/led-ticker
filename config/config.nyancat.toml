@@ -1,3 +1,12 @@
+# ── Plugin dependencies ───────────────────────────────────────────────
+# Requires these led-ticker plugins. Install via
+# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
+# and rebuild before running:
+#   led-ticker-arcade  arcade.nyancat, arcade.nyancat_reverse
+# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
+# flair, and the foundational transitions need no plugins.
+# ──────────────────────────────────────────────────────────────────────
+
 # Nyan Cat testing config — tests nyancat and nyancat_reverse only
 # Usage: cp config/config.nyancat.toml config/config.toml
 

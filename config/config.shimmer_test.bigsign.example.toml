@@ -1,3 +1,5 @@
+# Plugin dependencies: none — built-in (core) widgets & transitions only.
+
 # led-ticker shimmer smoke test — Pi 5 bigsign (256×64 canvas)
 #
 # One section per notable shimmer configuration variant. Useful for

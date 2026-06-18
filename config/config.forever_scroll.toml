@@ -1,3 +1,13 @@
+# ── Plugin dependencies ───────────────────────────────────────────────
+# Requires these led-ticker plugins. Install via
+# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
+# and rebuild before running:
+#   led-ticker-feeds   feeds.weather, feeds.rss
+#   led-ticker-arcade  arcade.nyancat_alternating
+# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
+# flair, and the foundational transitions need no plugins.
+# ──────────────────────────────────────────────────────────────────────
+
 # Forever scroll version — all sections use forever_scroll mode
 # Widgets scroll side-by-side as a continuous stream with bullet separators
 # Usage: cp config/config.forever_scroll.toml config/config.toml
@@ -50,31 +60,31 @@ text = "Weather"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "New York"
 location = "New York"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "Philadelphia"
 location = "Philadelphia"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "Milwaukee"
 location = "Milwaukee"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "Minneapolis"
 location = "Minneapolis"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "Washington DC"
 location = "Washington DC"
 units = "imperial"
@@ -132,7 +142,7 @@ text = "Nintendo Life"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "rss_feed"
+type = "feeds.rss"
 feed_url = "https://www.nintendolife.com/feeds/news"
 update_interval = 3000
 
@@ -148,7 +158,7 @@ text = "Anime News Network"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "rss_feed"
+type = "feeds.rss"
 feed_url = "https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us"
 update_interval = 3000
 
@@ -164,6 +174,6 @@ text = "ESPN Top Stories"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "rss_feed"
+type = "feeds.rss"
 feed_url = "https://www.espn.com/espn/rss/news"
 update_interval = 3000

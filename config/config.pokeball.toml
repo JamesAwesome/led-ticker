@@ -1,3 +1,12 @@
+# ── Plugin dependencies ───────────────────────────────────────────────
+# Requires these led-ticker plugins. Install via
+# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
+# and rebuild before running:
+#   led-ticker-arcade  arcade.pokeball, arcade.pokeball_alternating
+# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
+# flair, and the foundational transitions need no plugins.
+# ──────────────────────────────────────────────────────────────────────
+
 # Pokeball testing config — tests pokeball transition
 # Usage: cp config/config.pokeball.toml config/config.toml
 

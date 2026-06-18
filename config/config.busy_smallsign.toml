@@ -1,3 +1,5 @@
+# Plugin dependencies: none — built-in (core) widgets & transitions only.
+
 # Busy-light smoke test — smallsign (160×16 canvas), Docker
 #
 # 5× chained 16×32 panels = 160×16 physical, default_scale = 1 (plain

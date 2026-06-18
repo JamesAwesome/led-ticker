@@ -1,3 +1,13 @@
+# ── Plugin dependencies ───────────────────────────────────────────────
+# Requires these led-ticker plugins. Install via
+# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
+# and rebuild before running:
+#   led-ticker-feeds   feeds.weather
+#   led-ticker-arcade  :arcade.pokeball: (emoji)
+# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
+# flair, and the foundational transitions need no plugins.
+# ──────────────────────────────────────────────────────────────────────
+
 # Hi-res emoji test config — Pi 5 bigsign.
 #
 # Cycles through every hi-res emoji so you can eyeball each design on
@@ -106,7 +116,7 @@ bottom_align = "center"
 # Hold for 6s so you can scan all five at once instead of waiting through
 # a one-at-a-time cycle.
 #
-# Followed by a real `type = "weather"` widget so the actual hires path
+# Followed by a real `type = "feeds.weather"` widget so the actual hires path
 # the WeatherWidget uses (via `pixel_emoji.draw_emoji_at`) is exercised
 # end-to-end on the panel — a `type = "message"` widget with raw slugs
 # tests the renderer but not the widget's layout / icon / temp split.
@@ -130,7 +140,7 @@ text = ":cloud::rain::snow::thunder::fog:"
 font_color = [255, 240, 200]
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 location = { lat = 40.7, lon = -74.0 }  # NYC; replace with your own
 text = "NYC"
 font_color = [200, 220, 255]

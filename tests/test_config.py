@@ -1076,3 +1076,15 @@ def test_busy_light_non_string_token_raises(tmp_path):
     )
     with pytest.raises(ValueError, match="busy_light.token"):
         load_config(p)
+
+
+def test_plugin_transition_show_flags_flow_through_extra():
+    from led_ticker.config import TransitionConfig, _parse_transition
+
+    cfg = _parse_transition(
+        {"type": "arcade.pokeball", "show_pikachu": False, "show_pokeball": True},
+        TransitionConfig(),
+    )
+    assert cfg.type == "arcade.pokeball"
+    assert cfg.extra.get("show_pikachu") is False
+    assert cfg.extra.get("show_pokeball") is True

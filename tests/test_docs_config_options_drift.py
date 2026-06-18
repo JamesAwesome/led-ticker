@@ -15,9 +15,9 @@ The DOCUMENTED_KEYS registry below is the source of truth for "what we
 intentionally surface on the reference page". When the loader gains a
 new TOML key:
   - if you want it documented: add it here AND to the .mdx page
-  - if it's intentionally omitted (e.g. show_pikachu/show_pokeball at
-    [transitions] level — niche per-section transition controls): leave
-    it out of DOCUMENTED_KEYS
+  - if it's intentionally omitted (e.g. plugin-owned knobs like
+    show_pikachu/show_pokeball that flow through TransitionConfig.extra):
+    leave it out of DOCUMENTED_KEYS
 
 The test will fail loudly either way until the registry and page agree.
 """
@@ -51,16 +51,15 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
     "display": {f.name for f in fields(DisplayConfig)},
     # [title] has just one knob.
     "title": {"delay"},
-    # [transitions] surfaces the common knobs plus show_pikachu/show_pokeball
-    # which are valid global defaults (parsed from transitions_raw in load_config).
+    # [transitions] surfaces the common knobs. show_pikachu/show_pokeball are
+    # arcade-plugin knobs that flow through TransitionConfig.extra — they are
+    # not built-in [transitions] fields and are not documented here.
     "transitions": {
         "default",
         "duration",
         "easing",
         "between_sections",
         "transition_fps",
-        "show_pikachu",
-        "show_pokeball",
     },
     # [[playlist.section]] — covers the user-facing knobs.
     # transition_specified is on the SectionConfig dataclass but not a
@@ -87,8 +86,6 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
         "separator_color",
         "separator_font",
         "separator_font_size",
-        "show_pikachu",
-        "show_pokeball",
         "start_hold",
         "transition_specified",
     },

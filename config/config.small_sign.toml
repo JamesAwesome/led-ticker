@@ -1,3 +1,15 @@
+# ── Plugin dependencies ───────────────────────────────────────────────
+# Requires these led-ticker plugins. Install via
+# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
+# and rebuild before running:
+#   led-ticker-feeds     feeds.weather, feeds.rss
+#   led-ticker-arcade    arcade.nyancat*, arcade.pacman*, arcade.pokeball*, arcade.sailor_moon*
+#   led-ticker-baseball  baseball.scores, baseball.standings, baseball.statcast, baseball.attendance, baseball.roll*, :baseball.ball:
+#   led-ticker-pool      pool.monitor
+# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
+# flair, and the foundational transitions need no plugins.
+# ──────────────────────────────────────────────────────────────────────
+
 [display]
 rows = 16
 cols = 32
@@ -55,31 +67,31 @@ text = "Weather"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "New York"
 location = "New York"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "Philadelphia"
 location = "Philadelphia"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "Milwaukee"
 location = "Milwaukee"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "Minneapolis"
 location = "Minneapolis"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "Washington DC"
 location = "Washington DC"
 units = "imperial"
@@ -136,7 +148,7 @@ text = "Nintendo Life"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "rss_feed"
+type = "feeds.rss"
 feed_url = "https://www.nintendolife.com/feeds/news"
 update_interval = 3000  # 50 minutes
 
@@ -185,6 +197,46 @@ title = "MLB Standings"
 top_n = 3
 timezone = "America/New_York"
 
+# --- MLB Statcast ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "baseball.roll_alternating"
+transition_duration = 2.0
+hold_time = 6
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":baseball.ball: MLB Statcast :baseball.ball:"
+font_color = "random"
+
+# League-wide superlatives across today's finals (longest HR, hardest hit,
+# fastest/slowest pitch). Statcast is league-wide — there is no team filter.
+[[playlist.section.widget]]
+type = "baseball.statcast"
+timezone = "America/New_York"
+
+# --- MLB Attendance ---
+
+[[playlist.section]]
+mode = "swap"
+transition = "baseball.roll_alternating"
+transition_duration = 2.0
+hold_time = 6
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":baseball.ball: MLB Attendance :baseball.ball:"
+font_color = "random"
+
+# League mode (no team filter): biggest/smallest crowd + fullest/emptiest
+# park across today's finals.
+[[playlist.section.widget]]
+type = "baseball.attendance"
+timezone = "America/New_York"
+
 # --- Anime News Network ---
 
 [[playlist.section]]
@@ -200,7 +252,7 @@ text = "Anime News Network"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "rss_feed"
+type = "feeds.rss"
 feed_url = "https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us"
 update_interval = 3000  # 50 minutes
 

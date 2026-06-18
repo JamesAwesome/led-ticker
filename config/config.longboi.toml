@@ -1,3 +1,15 @@
+# ── Plugin dependencies ───────────────────────────────────────────────
+# Requires these led-ticker plugins. Install via
+# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
+# and rebuild before running:
+#   led-ticker-feeds     feeds.weather, feeds.rss
+#   led-ticker-arcade    arcade.nyancat*, arcade.pacman*, arcade.pokeball*, arcade.sailor_moon*
+#   led-ticker-baseball  baseball.scores, baseball.standings, baseball.roll*, :baseball.ball:
+#   led-ticker-pool      pool.monitor
+# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
+# flair, and the foundational transitions need no plugins.
+# ──────────────────────────────────────────────────────────────────────
+
 # led-ticker configuration — longboi (512×64 canvas)
 #
 # 4× Muen P2 128×64 panels chained horizontally = 512×64 physical.
@@ -101,7 +113,7 @@ font_threshold = 80
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "New York"
 location = "New York"
 units = "imperial"
@@ -110,7 +122,7 @@ font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "Philadelphia"
 location = "Philadelphia"
 units = "imperial"
@@ -119,7 +131,7 @@ font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "Milwaukee"
 location = "Milwaukee"
 units = "imperial"
@@ -128,7 +140,7 @@ font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "Minneapolis"
 location = "Minneapolis"
 units = "imperial"
@@ -137,7 +149,7 @@ font_size = 32
 font_threshold = 80
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "Washington DC"
 location = "Washington DC"
 units = "imperial"
@@ -219,7 +231,7 @@ font_threshold = 80
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "rss_feed"
+type = "feeds.rss"
 feed_url = "https://www.nintendolife.com/feeds/news"
 update_interval = 3000
 font = "Inter-Regular"
@@ -340,7 +352,7 @@ font_threshold = 80
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "rss_feed"
+type = "feeds.rss"
 feed_url = "https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us"
 update_interval = 3000
 font = "Inter-Regular"

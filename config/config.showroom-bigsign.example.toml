@@ -1,3 +1,13 @@
+# ── Plugin dependencies ───────────────────────────────────────────────
+# Requires these led-ticker plugins. Install via
+# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
+# and rebuild before running:
+#   led-ticker-feeds   feeds.weather
+#   led-ticker-arcade  arcade.nyancat*, arcade.pacman*, arcade.pokeball*, arcade.sailor_moon*
+# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
+# flair, and the foundational transitions need no plugins.
+# ──────────────────────────────────────────────────────────────────────
+
 # led-ticker showroom playlist — Pi 5 bigsign tech demo.
 #
 # A polished, ~2-3 minute loop that doubles as a sales floor demo. Every
@@ -235,7 +245,7 @@ transition = "arcade.nyancat"
 transition_duration = 1.5
 
 [[playlist.section.widget]]
-type = "weather"
+type = "feeds.weather"
 text = "Brooklyn"
 location = "Brooklyn"
 units = "imperial"

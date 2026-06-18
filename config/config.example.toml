@@ -1,3 +1,14 @@
+# ── Plugin dependencies ───────────────────────────────────────────────
+# Requires these led-ticker plugins. Install via
+# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
+# and rebuild before running:
+#   led-ticker-feeds     feeds.rss, feeds.weather (commented example)
+#   led-ticker-baseball  baseball.scores, baseball.standings, baseball.roll*, :baseball.ball:
+#   led-ticker-pool      pool.monitor
+# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
+# flair, and the foundational transitions need no plugins.
+# ──────────────────────────────────────────────────────────────────────
+
 # led-ticker configuration — smallsign starter (160×16 canvas)
 #
 # 5× chained 32×16 panels = 160×16 logical canvas. Driven by a Raspberry Pi 4
@@ -88,7 +99,7 @@ text = "Nintendo Life"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "rss_feed"
+type = "feeds.rss"
 feed_url = "https://www.nintendolife.com/feeds/news"
 update_interval = 3000
 
@@ -182,7 +193,7 @@ stale_after = 14400  # 4 hours
 # font_color = "random"
 #
 # [[playlist.section.widget]]
-# type = "weather"
+# type = "feeds.weather"
 # text = "NYC"
 # location = "New York"
 # units = "imperial"

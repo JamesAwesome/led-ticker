@@ -1,3 +1,5 @@
+# Plugin dependencies: none — built-in (core) widgets & transitions only.
+
 # GIF + text combos — Pi 5 bigsign.
 #
 # A focused subset of `config.gif_test.example.toml`, demoing every

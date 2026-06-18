@@ -1,3 +1,12 @@
+# ── Plugin dependencies ───────────────────────────────────────────────
+# Requires these led-ticker plugins. Install via
+# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
+# and rebuild before running:
+#   led-ticker-baseball  baseball.scores, baseball.standings, baseball.roll*, :baseball.ball:
+# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
+# flair, and the foundational transitions need no plugins.
+# ──────────────────────────────────────────────────────────────────────
+
 # MLB standings + scores testing config
 # Requires the `led-ticker-baseball` plugin (baseball.scores/baseball.standings
 # widgets + baseball.roll* transition). Add it to config/requirements-plugins.txt

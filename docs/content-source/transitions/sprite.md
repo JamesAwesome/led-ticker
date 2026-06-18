@@ -3,7 +3,7 @@ Sprite transitions run a pixel-art character across the panel that erases the ou
 | Family | Variants | Hires on bigsign? | Best for |
 |--------|----------|-------------------|----------|
 | `arcade.nyancat` | `arcade.nyancat`, `arcade.nyancat_reverse`, `arcade.nyancat_alternating` | yes (animated webp) | General playful |
-| `arcade.pokeball` | `arcade.pokeball`, `arcade.pokeball_reverse`, `arcade.pokeball_alternating` | yes (Pikachu run sprite + procedural ball) | Pop-culture variety |
+| `arcade.pokeball` | `arcade.pokeball`, `arcade.pokeball_reverse`, `arcade.pokeball_alternating` | yes (Pikachu run sprite + rolling pokeball) | Pop-culture variety |
 | `arcade.sailor_moon` | `arcade.sailor_moon`, `arcade.sailor_moon_reverse`, `arcade.sailor_moon_alternating` | no (8-bit aesthetic is the design) | Magical / sparkle |
 | `arcade.pacman` | `arcade.pacman`, `arcade.pacman_reverse`, `arcade.pacman_alternating` | no (8-bit aesthetic is the design) | Retro arcade |
 

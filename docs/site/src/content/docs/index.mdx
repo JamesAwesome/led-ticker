@@ -48,13 +48,13 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 
 <CardGrid>
   <Card title="Weather (plugin)">
-    <DemoGif src="/demos-long/widget-weather.gif" caption="Current conditions for any location — via the led-ticker-feeds plugin." />
+    <DemoGif src="/demos-long/widget-weather.gif" caption="Current conditions for any location — via the weather plugin." />
 
     [Weather widget →](/widgets/weather/)
 
   </Card>
   <Card title="MLB scores (plugin)">
-    <DemoGif src="/demos-long/widget-mlb.gif" caption="Live game scores and counts — via the led-ticker-baseball plugin." />
+    <DemoGif src="/demos-long/widget-mlb.gif" caption="Live game scores and counts — via the baseball plugin." />
 
     [MLB widget →](/widgets/mlb/)
 
@@ -87,15 +87,14 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 
 [Browse all widgets →](/widgets/)
 
-## Extensible by design
+## Writing a plugin
 
-led-ticker is a library, not just an app. A curated public API
-(`led_ticker.plugin`) lets anyone add **widgets, transitions, color providers,
-animations, borders, easings, emojis, fonts, and lifecycle hooks** as an
-installable plugin — no fork of core required. The pool water-temperature
-widget shown above is exactly that: a real plugin that lives in
-[its own repo](https://github.com/JamesAwesome/led-ticker-pool) and contributes
-`type = "pool.monitor"`.
+`led_ticker.plugin` is the public surface plugins import from — it exposes
+widget, transition, emoji, font, and lifecycle-hook registration, no fork of
+core needed. The pool water-temperature widget shown above is a real plugin
+that lives in
+[the led-ticker-plugins monorepo](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pool)
+and contributes `type = "pool.monitor"`.
 
 - [Plugins overview](/plugins/) — install, load, and the `[plugins]` config block
 - [Write a plugin](/plugins/authoring/01-scaffold/) — scaffold, build, and package one

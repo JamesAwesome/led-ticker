@@ -43,7 +43,7 @@ font_color = [255, 200, 0]`}
 
 ## Rainbow
 
-Per-character hue offset that advances each frame. The first character starts at a different hue than the second, and every character's hue sweeps forward 8° per tick (default). The overall effect is a scrolling rainbow stripe across the text. `rainbow` is a continuous-phase provider — the sweep does not reset between `loop_count` repetitions, so the color keeps flowing rather than snapping back to the start on each pass.
+Per-character hue offset that advances each frame. The first character starts at a different hue than the second, and every character's hue sweeps forward 8° per tick (default). `rainbow` is a continuous-phase provider — the sweep does not reset between `loop_count` repetitions, so the color keeps flowing rather than snapping back to the start on each pass.
 
 <TomlExample
   code={`[[playlist.section.widget]]
@@ -198,7 +198,7 @@ font_color = "random"`}
 - **Color_cycle** — the whole message shifts hue together; subtler than rainbow. Add `from`/`to` to keep the sweep inside your brand palette.
 - **Rainbow** — per-character hue sweep; use it when flair is the point (kids' sections, grand openings, announcements).
 - **Gradient** — frozen left-to-right interpolation; good when your brand has two anchor colors you want to bridge.
-- **Shimmer** — a gliding bright-spot sweep; good for drawing attention to a single message, "now open" signage, or any case where you want motion without full-rainbow energy.
+- **Shimmer** — a gliding bright-spot sweep; good for drawing attention to a single message, "now open" signage, or any case where you want motion without the full color-sweep effect.
 - **Random** — picks a different color each time the section plays; no animation.
 
 ## Inline emoji and per-char providers

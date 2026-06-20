@@ -1,19 +1,26 @@
-Sprite transitions run a pixel-art character across the panel that erases the outgoing widget and reveals the incoming one. They ship with the external [`led-ticker-arcade`](https://github.com/JamesAwesome/led-ticker-arcade) plugin — four families, referenced by their namespaced slug. Install the plugin (add `git+https://github.com/JamesAwesome/led-ticker-arcade.git@main` to `config/requirements-plugins.txt` and rebuild) before using these.
+Sprite transitions run a pixel-art character across the panel, erasing the outgoing widget and revealing the incoming one. They are provided by four packages in the external [led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins) monorepo — `nyancat`, `pokeball`, `pacman`, and `sailor_moon` — each with forward, reverse, and alternating variants. Reference them by their namespaced slug, e.g. `transition = "pokeball.forward"`. Add the families you want to `config/requirements-plugins.txt` (install only the ones you use) and rebuild:
+
+```text
+git+https://github.com/JamesAwesome/led-ticker-plugins.git@nyancat-v0.1.0#subdirectory=plugins/nyancat
+git+https://github.com/JamesAwesome/led-ticker-plugins.git@pokeball-v0.1.0#subdirectory=plugins/pokeball
+git+https://github.com/JamesAwesome/led-ticker-plugins.git@pacman-v0.1.0#subdirectory=plugins/pacman
+git+https://github.com/JamesAwesome/led-ticker-plugins.git@sailor_moon-v0.1.0#subdirectory=plugins/sailor_moon
+```
 
 | Family | Variants | Hires on bigsign? | Best for |
 |--------|----------|-------------------|----------|
-| `arcade.nyancat` | `arcade.nyancat`, `arcade.nyancat_reverse`, `arcade.nyancat_alternating` | yes (animated webp) | General playful |
-| `arcade.pokeball` | `arcade.pokeball`, `arcade.pokeball_reverse`, `arcade.pokeball_alternating` | yes (Pikachu run sprite + rolling pokeball) | Pop-culture variety |
-| `arcade.sailor_moon` | `arcade.sailor_moon`, `arcade.sailor_moon_reverse`, `arcade.sailor_moon_alternating` | no (8-bit aesthetic is the design) | Magical / sparkle |
-| `arcade.pacman` | `arcade.pacman`, `arcade.pacman_reverse`, `arcade.pacman_alternating` | no (8-bit aesthetic is the design) | Retro arcade |
+| `nyancat` | `nyancat.forward`, `nyancat.reverse`, `nyancat.alternating` | yes (animated webp) | General playful |
+| `pokeball` | `pokeball.forward`, `pokeball.reverse`, `pokeball.alternating` | yes (Pikachu run sprite + rolling pokeball) | Pop-culture variety |
+| `sailor_moon` | `sailor_moon.forward`, `sailor_moon.reverse`, `sailor_moon.alternating` | no (8-bit aesthetic is the design) | Magical / sparkle |
+| `pacman` | `pacman.forward`, `pacman.reverse`, `pacman.alternating` | no (8-bit aesthetic is the design) | Retro arcade |
 
-A fifth sprite family, **`baseball`** (`baseball.roll`, `baseball.roll_reverse`, `baseball.roll_alternating` — procedural ball, 8 rotation frames, hires on bigsign; best for sports sections), ships with the external [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) plugin. Install that plugin (add it to `config/requirements-plugins.txt` and rebuild) before using these.
+A fifth sprite family, **`baseball`** (`baseball.roll`, `baseball.roll_reverse`, `baseball.roll_alternating` — procedural ball, 8 rotation frames, hires on bigsign; best for sports sections), ships with the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo. Install it via `config/requirements-plugins.txt` (add `git+https://github.com/JamesAwesome/led-ticker-plugins.git@baseball-v0.1.0#subdirectory=plugins/baseball` and rebuild) before using these.
 
 ## Variants
 
-- **Forward** (`arcade.<name>`): sprite enters from the left, exits right
-- **Reverse** (`arcade.<name>_reverse`): sprite enters from the right, exits left (sprite flipped horizontally)
-- **Alternating** (`arcade.<name>_alternating`): cycles forward → reverse → forward each swap
+- **Forward** (`<fam>.forward`): sprite enters from the left, exits right
+- **Reverse** (`<fam>.reverse`): sprite enters from the right, exits left (sprite flipped horizontally)
+- **Alternating** (`<fam>.alternating`): cycles forward → reverse → forward each swap
 
 ## Pokeball-specific options
 

@@ -7,58 +7,61 @@ import DemoGif from "../../../components/DemoGif.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-Sprite transitions run a pixel-art character across the panel that erases the outgoing widget and reveals the incoming one — themed and fun. They are provided by the external **[led-ticker-arcade](https://github.com/JamesAwesome/led-ticker-arcade)** plugin: four families (`arcade.nyancat`, `arcade.pokeball`, `arcade.pacman`, `arcade.sailor_moon`), each with forward, reverse, and alternating variants. Reference them by their namespaced slug, e.g. `transition = "arcade.pokeball"`.
+Sprite transitions run a pixel-art character across the panel, erasing the outgoing widget and revealing the incoming one. They are provided by four packages in the external **[led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins)** monorepo — `nyancat`, `pokeball`, `pacman`, and `sailor_moon` — each with forward, reverse, and alternating variants. Reference them by their namespaced slug, e.g. `transition = "pokeball.forward"`.
 
 ## Install
 
-Add the plugin to `config/requirements-plugins.txt` (copied from `config/requirements-plugins.example.txt`):
+Add the families you want to `config/requirements-plugins.txt` (copied from `config/requirements-plugins.example.txt`) — install only the ones you use:
 
-```
-git+https://github.com/JamesAwesome/led-ticker-arcade.git@main
+```text
+git+https://github.com/JamesAwesome/led-ticker-plugins.git@nyancat-v0.1.0#subdirectory=plugins/nyancat
+git+https://github.com/JamesAwesome/led-ticker-plugins.git@pokeball-v0.1.0#subdirectory=plugins/pokeball
+git+https://github.com/JamesAwesome/led-ticker-plugins.git@pacman-v0.1.0#subdirectory=plugins/pacman
+git+https://github.com/JamesAwesome/led-ticker-plugins.git@sailor_moon-v0.1.0#subdirectory=plugins/sailor_moon
 ```
 
-It registers its transitions and the `:arcade.pokeball:` emoji at startup. See [Plugins](/plugins/) for the install flow. A bare `transition = "nyancat"` (the pre-plugin spelling) now raises a config-load error pointing at the namespaced `arcade.nyancat` slug.
+Each package registers its transitions at startup; the `pokeball` package also registers the `:pokeball.ball:` emoji. See [Plugins](/plugins/) for the install flow. A bare `transition = "nyancat"` (the pre-plugin spelling) now raises a config-load error pointing at the namespaced `nyancat.forward` slug.
 
 <DemoGif
   src="/demos-long/transitions-pokeball.gif"
-  caption="arcade.pokeball — Pokéball rolls left-to-right with Pikachu chasing (default)"
+  caption="pokeball.forward — Pokéball rolls left-to-right with Pikachu chasing (default)"
 />
 
 <DemoGif
   src="/demos-long/transitions-pokeball_modes.gif"
-  caption="arcade.pokeball — single-sprite modes via show_pikachu / show_pokeball"
+  caption="pokeball.forward — single-sprite modes via show_pikachu / show_pokeball"
 />
 
 <DemoGif
   src="/demos-long/transitions-nyancat.gif"
-  caption="arcade.nyancat — Nyan Cat flies left-to-right with rainbow trail"
+  caption="nyancat.forward — Nyan Cat flies left-to-right with rainbow trail"
 />
 
 <DemoGif
   src="/demos-long/transitions-pacman.gif"
-  caption="arcade.pacman — Pac-Man chases 3 scared ghosts with chomping animation"
+  caption="pacman.forward — Pac-Man chases 3 scared ghosts with chomping animation"
 />
 
 <DemoGif
   src="/demos-long/transitions-sailor_moon.gif"
-  caption="arcade.sailor_moon — Moon Stick wand sweeps across with sparkle trail"
+  caption="sailor_moon.forward — Moon Stick wand sweeps across with sparkle trail"
 />
 
-## Variants
+## Reference
 
 <OptionsTable source="transitions/sprite" />
 
 ## Hires
 
-`arcade.nyancat` and `arcade.pokeball` auto-activate hi-res sprites whenever the canvas is at `default_scale > 1` — that is, any big / scaled sign (see [Display](/concepts/display/)), typically a bigsign-style build. The hi-res variants are noticeably more detailed and read better at distance:
+`nyancat.forward` and `pokeball.forward` auto-activate hi-res sprites whenever the canvas is at `default_scale > 1` — that is, any big / scaled sign (see [Display](/concepts/display/)), typically a bigsign-style build. The hi-res variants are noticeably more detailed and read better at distance:
 
-- **arcade.nyancat** — animated webp Nyan Cat sprite at native physical resolution
-- **arcade.pokeball** — rolling pokeball with animated Pikachu run-cycle sprite
+- **nyancat** — animated webp Nyan Cat sprite at native physical resolution
+- **pokeball** — rolling pokeball with animated Pikachu run-cycle sprite
 
-`arcade.sailor_moon` and `arcade.pacman` keep their 8-bit look at all scales — the chunky aesthetic is part of the design.
+The `sailor_moon` and `pacman` families keep their 8-bit look at all scales — the chunky aesthetic is part of the design.
 
 ## Other plugin sprites
 
-The rolling-**baseball** family (`baseball.roll`, `baseball.roll_reverse`, `baseball.roll_alternating`) ships with the external **[led-ticker-baseball](https://github.com/JamesAwesome/led-ticker-baseball)** plugin, alongside that plugin's MLB widgets and `:baseball.ball:` emoji. Install it via `config/requirements-plugins.txt` (see [Plugins](/plugins/)) to use it.
+The rolling-**baseball** family (`baseball.roll`, `baseball.roll_reverse`, `baseball.roll_alternating`) ships with the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo, alongside that package's MLB widgets and `:baseball.ball:` emoji. Install it via `config/requirements-plugins.txt` (see [Plugins](/plugins/)) to use it.
 
 <RelatedPages slugs={["transitions/push", "transitions/wipe"]} />

@@ -169,7 +169,7 @@ def register(api):
 
 ## Going hi-res (bigsign)
 
-The wipe above paints in **logical** pixels and works everywhere. On the **bigsign** (`default_scale > 1`) the canvas your `frame_at` receives is a _scaled wrapper_ — every `SetPixel` it forwards expands to a `scale × scale` block. That's perfect for text and lo-res sprites, but a hi-res transition (a sprite drawn at the panel's _native_ resolution) needs to reach past the wrapper and paint individual physical LEDs. The shipped [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) plugin does exactly this; here's the pattern.
+The wipe above paints in **logical** pixels and works everywhere. On the **bigsign** (`default_scale > 1`) the canvas your `frame_at` receives is a _scaled wrapper_ — every `SetPixel` it forwards expands to a `scale × scale` block. That's perfect for text and lo-res sprites, but a hi-res transition (a sprite drawn at the panel's _native_ resolution) needs to reach past the wrapper and paint individual physical LEDs. The shipped [`baseball`](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball) package does exactly this; here's the pattern.
 
 Three public symbols from `led_ticker.plugin` do the work:
 
@@ -223,7 +223,7 @@ The lo-res helper (`_frame_at_lowres`) is just your scale-1 logic from earlier �
   the same frame.
 </Aside>
 
-For the exact signatures of `is_scaled`, `unwrap_to_real`, `paint_hires`, `snap_reset`, and `SNAP_THRESHOLD`, see the [API reference](/plugins/api-reference/). [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) is a real, shipped example of this pattern.
+For the exact signatures of `is_scaled`, `unwrap_to_real`, `paint_hires`, `snap_reset`, and `SNAP_THRESHOLD`, see the [API reference](/plugins/api-reference/). The [`baseball`](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball) package is a real, shipped example of this pattern.
 
 ### Hi-res sprite transitions
 

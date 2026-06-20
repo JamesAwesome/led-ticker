@@ -125,12 +125,12 @@ The full transition catalogue covers 30+ options organised into families:
   `push_random`) — outgoing and incoming slide together as one unit.
 - **Wipe** (`wipe_left`, `wipe_right`, `wipe_up`, `wipe_down`, `wipe_alternating`,
   `wipe_random`) — outgoing stays fixed while a coloured sweep line erases it.
-- **Sprite trails** — `arcade.nyancat`, `arcade.pokeball`, `arcade.pacman`,
-  `arcade.sailor_moon` (each has `_reverse` and `_alternating` variants; the first
-  two have bigsign hi-res variants). These ship in the
-  [led-ticker-arcade](https://github.com/JamesAwesome/led-ticker-arcade) plugin. A
-  rolling-`baseball.roll` family ships separately in the
-  [led-ticker-baseball](https://github.com/JamesAwesome/led-ticker-baseball) plugin.
+- **Sprite trails** — `nyancat.forward`, `pokeball.forward`, `pacman.forward`,
+  `sailor_moon.forward` (each has `.reverse` and `.alternating` variants; the first
+  two have bigsign hi-res variants). These ship as four packages in the
+  [led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins) monorepo. A
+  rolling-`baseball.roll` family ships in the
+  [baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball) package.
 - **Special** — `cut` (instant), `color_flash`, `dissolve`, `split`, `scroll`.
 
 See the [Transitions catalogue](/transitions/) for per-family knobs and examples of
@@ -319,14 +319,14 @@ building from scratch rather than deploying to an existing panel, start with
 
 With a working panel config as a foundation, a few directions worth exploring:
 
-- **Try other transitions.** Swap `wipe_left` for `arcade.nyancat` or
-  `arcade.pokeball` (from the [led-ticker-arcade](https://github.com/JamesAwesome/led-ticker-arcade)
-  plugin) to see what the sprite-trail families look like on your hardware. The
+- **Try other transitions.** Swap `wipe_left` for `nyancat.forward` or
+  `pokeball.forward` (the `nyancat` / `pokeball` packages in the [led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins)
+  monorepo) to see what the sprite-trail families look like on your hardware. The
   [Transitions catalogue](/transitions/) has a rendered preview for every option.
 - **Add live data widgets.** Plugin widgets pull live content and scroll it on the
-  same canvas — `feeds.rss` for headlines and `feeds.weather` for current conditions
-  (both via [led-ticker-feeds](/plugins/available/)), and `crypto.coingecko` (via
-  [led-ticker-crypto](/plugins/available/)) for crypto prices. See the
+  same canvas — `rss.feed` for headlines and `weather.current` for current conditions
+  (the `rss` / `weather` packages), and `crypto.coingecko` (the `crypto` package) for
+  crypto prices, all from [led-ticker-plugins](/plugins/available/). See the
   [Widgets reference](/widgets/) for setup details and required API keys.
 - **Validate before deploying.** `led-ticker validate config/config.toml` catches
   typos, unknown widget types, and constraint violations before you restart the panel.

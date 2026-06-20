@@ -86,7 +86,7 @@ def test_counter_draws(tmp_path, canvas):
     L.reset_plugins()  # leave the registry clean for the next test
 ```
 
-For a plugin in its **own** repo, point `copytree` at your own package directory instead, and add the `canvas` fixture to your `conftest.py` (the `led-ticker-pool` repo does exactly this):
+For a plugin in its **own** repo, point `copytree` at your own package directory instead, and add the `canvas` fixture to your `conftest.py` (the [`pool`](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pool) package does exactly this):
 
 ```python
 # conftest.py — pytest auto-discovers fixtures defined in this file
@@ -139,7 +139,7 @@ make render-demo CONFIG=preview.toml OUT=preview.gif   # preview.gif lands in yo
 
 ## A real packaged plugin
 
-[`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) is a complete, published example: a data-fetching widget with its own repo, `pyproject.toml`, CI, and tests. Read it when you're ready to ship something real. Its widget is `example.counter` grown up: swap the date math for an API call and a couple of screens and you have a live data widget.
+The [`pool`](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pool) package in the led-ticker-plugins monorepo is a complete, published example: a data-fetching widget with its own `pyproject.toml`, CI, and tests. Read it when you're ready to ship something real. Its widget is `example.counter` grown up: swap the date math for an API call and a couple of screens and you have a live data widget.
 
 <TutorialNav
   prev={{ href: "/plugins/authoring/02-widget/", title: "Authoring 2: Build the widget" }}

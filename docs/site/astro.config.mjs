@@ -99,8 +99,8 @@ export default defineConfig({
             },
             { label: "pool (plugin)", link: "/widgets/pool/" },
             { label: "calendar.events (plugin)", link: "/widgets/calendar/" },
-            { label: "feeds.rss (plugin)", link: "/widgets/rss_feed/" },
-            { label: "feeds.weather (plugin)", link: "/widgets/weather/" },
+            { label: "rss.feed (plugin)", link: "/widgets/rss_feed/" },
+            { label: "weather.current (plugin)", link: "/widgets/weather/" },
           ],
         },
         {

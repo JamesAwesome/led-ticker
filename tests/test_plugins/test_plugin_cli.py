@@ -754,3 +754,32 @@ def test_install_hint_raises_on_unknown_kind():
     assert "easing" in plugin_cmd._install_hint("easing", "x.ease")
     with pytest.raises(ValueError, match="no install hint"):
         plugin_cmd._install_hint("bogus", "x.y")
+
+
+# --- Fix 4: empty-provides paths for CLI consumers ---
+
+
+def test_install_hint_empty_provides_fallback(tmp_path, fakepip, capsys):
+    cat = _install_only_catalog(PluginProvides())
+    plugin_cmd.cmd_install("x", config_path=tmp_path / "config.toml", catalog=cat)
+    out = capsys.readouterr().out
+    assert "Restart led-ticker to load" in out
+    assert "type =" not in out and "transition =" not in out
+
+
+def test_cmd_list_empty_provides_no_surface_lines(capsys):
+    cat = _install_only_catalog(PluginProvides())
+    plugin_cmd.cmd_list(catalog=cat)
+    out = capsys.readouterr().out
+    assert any(ln.strip().startswith("x") for ln in out.splitlines())  # name line
+    labels = (
+        "widgets:",
+        "transitions:",
+        "emoji:",
+        "fonts:",
+        "borders:",
+        "color providers:",
+        "animations:",
+        "easing:",
+    )
+    assert not any(lbl in out for lbl in labels)  # no surface lines

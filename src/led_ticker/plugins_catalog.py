@@ -235,14 +235,8 @@ def _parse_entry(raw: dict) -> CatalogEntry:
     )
 
 
-def load_catalog() -> Catalog:
-    """Load + validate the bundled catalog. Raises ValueError on a malformed file."""
-    text = (
-        resources.files("led_ticker")
-        .joinpath(_CATALOG_RESOURCE)
-        .read_text(encoding="utf-8")
-    )
-    data = json.loads(text)
+def _parse_catalog(data: dict) -> Catalog:
+    """Validate a parsed catalog document and build the Catalog."""
     version = data.get("schema_version")
     if version != SCHEMA_VERSION:
         raise ValueError(
@@ -251,3 +245,13 @@ def load_catalog() -> Catalog:
         )
     entries = tuple(_parse_entry(e) for e in data.get("plugins", []))
     return Catalog(entries=entries)
+
+
+def load_catalog() -> Catalog:
+    """Load + validate the bundled catalog. Raises ValueError on a malformed file."""
+    text = (
+        resources.files("led_ticker")
+        .joinpath(_CATALOG_RESOURCE)
+        .read_text(encoding="utf-8")
+    )
+    return _parse_catalog(json.loads(text))

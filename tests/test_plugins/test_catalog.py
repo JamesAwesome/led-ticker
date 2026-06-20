@@ -351,3 +351,46 @@ def test_provides_primary_prefers_widgets_then_transitions():
     emoji_only = PluginProvides(emoji=("ns.ball",))
     assert emoji_only.primary() == ("emoji", "ns.ball")
     assert PluginProvides().primary() is None
+
+
+# --- Fix 1: search haystack includes provides.all_names() ---
+
+
+def test_search_matches_a_provided_name_absent_from_name_and_summary():
+    # Isolates the provides.all_names() haystack term: the query appears ONLY in
+    # provides, so a regression dropping it from Catalog.search would fail here.
+    cat = Catalog(
+        entries=(
+            CatalogEntry(
+                name="x",
+                namespace="x",
+                summary="nothing here",
+                homepage="",
+                provides=PluginProvides(transitions=("x.only_in_provides",)),
+                sources=(CatalogSource(type="git", url="https://h/o/x", ref="main"),),
+            ),
+        )
+    )
+    assert "x" in {e.name for e in cat.search("only_in_provides")}
+    assert cat.search("totally_absent_token") == []  # negative direction
+
+
+# --- Fix 2: schema-version rejection gate ---
+
+
+def test_parse_catalog_rejects_wrong_schema_version():
+    from led_ticker.plugins_catalog import _parse_catalog
+
+    with pytest.raises(ValueError, match="is not the supported version"):
+        _parse_catalog({"schema_version": 2, "plugins": []})
+
+
+# --- Fix 3: _parse_provides rejects a bare string value ---
+
+
+def test_parse_provides_rejects_non_list_value():
+    from led_ticker.plugins_catalog import _parse_provides
+
+    # a bare string is iterable; the isinstance(list) guard must reject it
+    with pytest.raises(ValueError, match="list of strings"):
+        _parse_provides({"widgets": "a.w"})

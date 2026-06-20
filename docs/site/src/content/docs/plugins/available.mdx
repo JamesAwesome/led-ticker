@@ -3,6 +3,8 @@ title: Available plugins
 description: First-party and community led-ticker plugins, and the repositories where they live.
 ---
 
+import PluginCatalog from "../../../components/PluginCatalog.astro";
+
 The first-party plugins live in the **[led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins)** monorepo — one package per plugin. To use one, add its `#subdirectory=` install line to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the install flow. Each plugin's own README documents its options, layouts, and setup.
 
 ## Widgets
@@ -11,11 +13,7 @@ The first-party plugins live in the **[led-ticker-plugins](https://github.com/Ja
 
 Pool water-temperature widget (`type = "pool.monitor"`), backed by an InfluxDB v2 server. Cycles a title card, today's temperature, 7-day mean, and season hi/lo with zone coloring; supports `ticker` and `two_row` layouts. Full docs, options, and screenshots in the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/pool/README.md).
 
-Add to your `config/requirements-plugins.txt`:
-
-```text
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@pool-v0.1.0#subdirectory=plugins/pool
-```
+<PluginCatalog name="pool" />
 
 ### [baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)
 

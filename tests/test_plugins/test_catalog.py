@@ -99,6 +99,35 @@ def test_requirement_git_unpinned_uses_main():
     assert req.endswith("led-ticker-pool.git@main")
 
 
+def test_requirement_git_with_subdirectory():
+    from led_ticker.plugins_catalog import CatalogEntry, CatalogSource
+
+    e = CatalogEntry(
+        name="rss",
+        namespace="rss",
+        summary="RSS/Atom headlines.",
+        homepage="https://github.com/JamesAwesome/led-ticker-plugins",
+        provides=("rss.feed",),
+        sources=(
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="rss-v0.2.0",
+                subdirectory="plugins/rss",
+            ),
+        ),
+    )
+    assert e.requirement() == (
+        "git+https://github.com/JamesAwesome/led-ticker-plugins.git"
+        "@rss-v0.2.0#subdirectory=plugins/rss"
+    )
+    # unpinned still carries the subdirectory, falling back to @main
+    assert e.requirement(pinned=False) == (
+        "git+https://github.com/JamesAwesome/led-ticker-plugins.git"
+        "@main#subdirectory=plugins/rss"
+    )
+
+
 def test_requirement_git_url_already_dot_git_not_doubled():
     e = CatalogEntry(
         "p",

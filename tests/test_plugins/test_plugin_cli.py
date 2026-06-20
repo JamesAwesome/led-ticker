@@ -9,7 +9,12 @@ from types import SimpleNamespace
 import pytest
 
 from led_ticker.app import plugin_cmd
-from led_ticker.plugins_catalog import Catalog, CatalogEntry, CatalogSource
+from led_ticker.plugins_catalog import (
+    Catalog,
+    CatalogEntry,
+    CatalogSource,
+    PluginProvides,
+)
 
 
 def _catalog():
@@ -20,7 +25,7 @@ def _catalog():
                 namespace="pool",
                 summary="Pool water temperature",
                 homepage="https://github.com/JamesAwesome/led-ticker-pool",
-                provides=("pool.monitor",),
+                provides=PluginProvides(widgets=("pool.monitor",)),
                 sources=(
                     CatalogSource(
                         type="git",
@@ -169,7 +174,7 @@ def _monorepo_catalog():
             namespace=name,
             summary=f"{name} plugin",
             homepage=repo,
-            provides=(f"{name}.thing",),
+            provides=PluginProvides(widgets=(f"{name}.thing",)),
             sources=(
                 CatalogSource(
                     type="git",
@@ -684,3 +689,97 @@ def test_cmd_list_missing_manifest_no_declared_no_error(tmp_path, capsys):
     )
     assert code == 0
     assert "[declared]" not in _pool_line(capsys.readouterr().out)
+
+
+def test_cmd_list_groups_by_kind(capsys):
+    cat = Catalog(
+        entries=(
+            CatalogEntry(
+                name="baseball",
+                namespace="baseball",
+                summary="MLB stuff",
+                homepage="",
+                provides=PluginProvides(
+                    widgets=("baseball.scores",),
+                    transitions=("baseball.roll",),
+                    emoji=("baseball.ball",),
+                ),
+                sources=(CatalogSource(type="git", url="https://h/o/r", ref="main"),),
+            ),
+        )
+    )
+    plugin_cmd.cmd_list(catalog=cat)
+    out = capsys.readouterr().out
+    assert "widgets: baseball.scores" in out
+    assert "transitions: baseball.roll" in out
+    assert "emoji: :baseball.ball:" in out  # emoji shown in :slug: form
+
+
+def _install_only_catalog(provides):
+    return Catalog(
+        entries=(
+            CatalogEntry(
+                name="x",
+                namespace="x",
+                summary="x",
+                homepage="",
+                provides=provides,
+                sources=(CatalogSource(type="git", url="https://h/o/x", ref="main"),),
+            ),
+        )
+    )
+
+
+def test_install_hint_widget(tmp_path, fakepip, capsys):
+    cat = _install_only_catalog(PluginProvides(widgets=("x.thing",)))
+    plugin_cmd.cmd_install("x", config_path=tmp_path / "config.toml", catalog=cat)
+    assert 'type = "x.thing"' in capsys.readouterr().out
+
+
+def test_install_hint_transition_only(tmp_path, fakepip, capsys):
+    cat = _install_only_catalog(PluginProvides(transitions=("x.forward",)))
+    plugin_cmd.cmd_install("x", config_path=tmp_path / "config.toml", catalog=cat)
+    out = capsys.readouterr().out
+    assert 'transition = "x.forward"' in out
+    assert "type =" not in out  # the old bug: must NOT call a transition a widget type
+
+
+def test_install_hint_emoji_only(tmp_path, fakepip, capsys):
+    cat = _install_only_catalog(PluginProvides(emoji=("x.ball",)))
+    plugin_cmd.cmd_install("x", config_path=tmp_path / "config.toml", catalog=cat)
+    assert ":x.ball:" in capsys.readouterr().out
+
+
+def test_install_hint_raises_on_unknown_kind():
+    assert "easing" in plugin_cmd._install_hint("easing", "x.ease")
+    with pytest.raises(ValueError, match="no install hint"):
+        plugin_cmd._install_hint("bogus", "x.y")
+
+
+# --- Fix 4: empty-provides paths for CLI consumers ---
+
+
+def test_install_hint_empty_provides_fallback(tmp_path, fakepip, capsys):
+    cat = _install_only_catalog(PluginProvides())
+    plugin_cmd.cmd_install("x", config_path=tmp_path / "config.toml", catalog=cat)
+    out = capsys.readouterr().out
+    assert "Restart led-ticker to load" in out
+    assert "type =" not in out and "transition =" not in out
+
+
+def test_cmd_list_empty_provides_no_surface_lines(capsys):
+    cat = _install_only_catalog(PluginProvides())
+    plugin_cmd.cmd_list(catalog=cat)
+    out = capsys.readouterr().out
+    assert any(ln.strip().startswith("x") for ln in out.splitlines())  # name line
+    labels = (
+        "widgets:",
+        "transitions:",
+        "emoji:",
+        "fonts:",
+        "borders:",
+        "color providers:",
+        "animations:",
+        "easing:",
+    )
+    assert not any(lbl in out for lbl in labels)  # no surface lines

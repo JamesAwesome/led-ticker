@@ -155,6 +155,52 @@ Read by a lightweight `read_plugins_config()` **before** full `load_config` (plu
 - **`led-ticker plugins`** — lists loaded plugins (namespace, source, contribution **names** like `acme.clock`) + any failures. `led-ticker validate` and `--list-fields ns.x` load plugins first. `--config` works before or after the subcommand.
 - **Deployment**: local plugins ride the existing `./config:/code/config:ro` mount → `config/plugins/`. Installed packages are pip-installed into the image (recommended: a `config/requirements-plugins.txt` consumed by a documented Dockerfile layer, or a `FROM led-ticker` user image).
 
+### The plugin catalog (`plugins_catalog.json`)
+
+`src/led_ticker/plugins_catalog.json` is the bundled, offline source of truth for
+`led-ticker plugin list / search / install`. It is loaded and validated by
+`load_catalog()` in `src/led_ticker/plugins_catalog.py`. Current
+`schema_version` is **3**.
+
+Each entry:
+
+| field        | meaning                                                                 |
+| ------------ | ----------------------------------------------------------------------- |
+| `name`       | friendly plugin name (the CLI argument, e.g. `baseball`)                |
+| `namespace`  | the plugin's registration namespace — the prefix in every `<namespace>.<name>` provided name |
+| `summary`    | one-line human description (also part of the `search` haystack)         |
+| `homepage`   | URL shown for reference                                                  |
+| `provides`   | the typed surface object (below)                                         |
+| `sources`    | install sources — `git` (`url` + `ref` + optional `subdirectory`) and/or `pypi` (`package` + optional `version`) |
+
+`provides` is an **object keyed by surface kind** — the full set the plugin API
+can register: `widgets`, `transitions`, `emoji`, `fonts`, `borders`,
+`color_providers`, `animations`, `easing`. Every key is optional; values are
+arrays of fully-qualified `namespace.name` strings. A hi-res emoji is listed once
+under `emoji` by its slug (the lo-res + hi-res pair share it) — there is no
+`hires_emoji` key. An unknown key fails the load (typo guard).
+
+```json
+"provides": {
+  "widgets": ["baseball.scores", "baseball.standings"],
+  "transitions": ["baseball.roll", "baseball.roll_reverse"],
+  "emoji": ["baseball.ball"]
+}
+```
+
+The typed surface drives three things: `plugin list` prints one grouped line per
+non-empty kind (emoji shown as `:slug:`); `search` matches over name, summary, and
+every provided name across kinds; and `plugin install` prints a **kind-aware**
+"how to use it" hint (a widget → `type = "…"`, a transition → `transition = "…"`,
+an emoji → `:…:`, etc.) chosen from the first non-empty kind by priority.
+
+**Refreshing an entry:** read the plugin's `register(api)` (its
+`src/<pkg>/__init__.py` in the `led-ticker-plugins` monorepo) and list each
+registered surface under its kind — `api.widget("x")` → `widgets: ["<ns>.x"]`,
+`api.transition("x")` → `transitions: ["<ns>.x"]`, `api.emoji("x", …)` →
+`emoji: ["<ns>.x"]`, and so on. The bundled JSON is guarded by
+`tests/test_plugins/test_catalog.py`.
+
 ## 9. Loader internals (`led_ticker._plugin_loader`, internal — not for plugins)
 
 - `load_plugins(plugin_dir, *, entry_points_enabled=True, disable=None) -> LoadedPlugins` — idempotent (process-global `_LOADED`; tests call `reset_plugins()`).

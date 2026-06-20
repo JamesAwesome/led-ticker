@@ -32,6 +32,8 @@ def test_to_minutes():
     assert to_minutes("24:00") is None
     assert to_minutes("7:00") is None  # must be zero-padded HH
     assert to_minutes("aa:bb") is None
+    assert to_minutes(None) is None
+    assert to_minutes(700) is None
 
 
 def test_outside_all_windows_returns_base():

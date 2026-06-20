@@ -117,9 +117,9 @@ def format_schedule_summary(cfg, base: int) -> list[str]:
     tz = cfg.timezone or "system local"
     lines = [f"display schedule ({tz}), base {base}%:"]
     for w in cfg.windows:
-        start_m = to_minutes(w.start) or 0
-        end_m = to_minutes(w.end) or 0
-        wrap = " (overnight)" if start_m > end_m else ""
+        _s = to_minutes(w.start)
+        _e = to_minutes(w.end)
+        wrap = " (overnight)" if (_s is not None and _e is not None and _s > _e) else ""
         dark = "  (dark)" if int(w.brightness) == 0 else ""
         lines.append(
             f"  {_days_label(w.days):<11} {w.start}–{w.end}{wrap} "

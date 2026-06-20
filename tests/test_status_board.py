@@ -342,19 +342,19 @@ def test_record_busy_does_not_write_file(tmp_path):
         status_board.clear_active_board()
 
 
-def test_record_disabled_widget_appears_in_snapshot():
+def test_record_disabled_widget_appears_in_snapshot(tmp_path):
     from types import SimpleNamespace
 
     from led_ticker import status_board
 
-    board = StatusBoard(path="/tmp/led-ticker-test-status.json")
+    board = StatusBoard(path=tmp_path / "status.json")
     status_board.set_active_board(board)
     try:
         status_board.record_disabled_widget(
             SimpleNamespace(text="hi"), "ValueError: boom"
         )
     finally:
-        status_board.set_active_board(None)
+        status_board.clear_active_board()
     snap = board.snapshot()
     assert snap["disabled_widgets"], "expected a disabled widget entry"
     entry = snap["disabled_widgets"][0]
@@ -362,17 +362,17 @@ def test_record_disabled_widget_appears_in_snapshot():
     assert entry["widget"]  # a non-empty label
 
 
-def test_record_disabled_widget_dedups_by_label_and_error():
+def test_record_disabled_widget_dedups_by_label_and_error(tmp_path):
     from types import SimpleNamespace
 
     from led_ticker import status_board
 
-    board = StatusBoard(path="/tmp/led-ticker-test-status2.json")
+    board = StatusBoard(path=tmp_path / "status.json")
     status_board.set_active_board(board)
     try:
         w = SimpleNamespace(text="hi")
         status_board.record_disabled_widget(w, "ValueError: boom")
         status_board.record_disabled_widget(w, "ValueError: boom")
     finally:
-        status_board.set_active_board(None)
+        status_board.clear_active_board()
     assert len(board.snapshot()["disabled_widgets"]) == 1

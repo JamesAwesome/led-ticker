@@ -48,6 +48,84 @@ async def _ttl_ticker(busy: Any, interval: float = 1.0) -> None:
         busy.tick_ttl()
 
 
+_SCHEDULE_TICK_SECONDS = 30.0
+
+
+async def _schedule_ticker(
+    led_frame: Any,
+    scheduler: Any,
+    tz: Any,
+    base: int,
+    *,
+    override: Any = None,
+    interval: float = _SCHEDULE_TICK_SECONDS,
+) -> None:
+    """Set matrix.brightness from the schedule every `interval` seconds.
+
+    Applies immediately (correct on frame 1), logs only on change, and guards
+    each tick so a transient exception keeps the ticker alive. `override`, when
+    given, is a `Callable[[], int | None]` whose non-None value wins over the
+    schedule (forward-looking seam for a future webhook)."""
+    from datetime import datetime
+
+    last: int | None = None
+
+    def apply() -> None:
+        nonlocal last
+        try:
+            o = override() if override is not None else None
+            level = (
+                o if o is not None else scheduler.brightness_for(datetime.now(tz), base)
+            )
+            led_frame.matrix.brightness = level
+            if level != last:
+                logging.info("schedule: brightness -> %d", level)
+                last = level
+        except Exception:
+            logging.exception("schedule: brightness compute failed; holding")
+
+    apply()
+    while True:
+        await asyncio.sleep(interval)
+        apply()
+
+
+async def _supervised_schedule(
+    led_frame: Any,
+    scheduler: Any,
+    tz_name: Any,
+    base: int,
+    *,
+    override: Any = None,
+) -> None:
+    """Run the schedule ticker; on a fatal error, reset brightness to base and
+    log (a crashed scheduler must never leave the panel stuck dark)."""
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError  # noqa: PLC0415
+
+    tz = None
+    if tz_name:
+        try:
+            tz = ZoneInfo(tz_name)
+        except ZoneInfoNotFoundError, ValueError, TypeError:
+            logging.warning(
+                "schedule: invalid timezone %r; using system local time", tz_name
+            )
+    try:
+        await _schedule_ticker(led_frame, scheduler, tz, base, override=override)
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logging.warning(
+            "schedule ticker crashed; resetting brightness to base %d",
+            base,
+            exc_info=True,
+        )
+        try:
+            led_frame.matrix.brightness = base
+        except Exception:
+            logging.exception("schedule: failed to reset brightness to base")
+
+
 async def _serve_busy_supervised(busy: Any, cfg: Any) -> None:
     """Run the HTTP listener for the process lifetime. A bind failure logs
     and returns — the display loop must never die because the busy port is
@@ -299,6 +377,19 @@ async def run(config_path: Path) -> None:
                     tee=preview_tee,
                     busy=busy,
                     busy_source=config.busy_light.source,
+                )
+            )
+
+        if config.display.schedule.enabled:
+            from led_ticker.schedule import Scheduler  # noqa: PLC0415
+
+            sched = Scheduler.from_config(config.display.schedule)
+            spawn_tracked(
+                _supervised_schedule(
+                    led_frame,
+                    sched,
+                    config.display.schedule.timezone,
+                    config.display.brightness,
                 )
             )
 

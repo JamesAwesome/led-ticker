@@ -301,10 +301,16 @@ def test_display_defaults_match_dataclass() -> None:
             table_defaults[match.group(1)] = match.group(2).strip()
 
     # Compare to dataclass defaults.
+    from dataclasses import MISSING
+
     drift = []
     for f in fields(DisplayConfig):
         if f.name not in table_defaults:
             continue  # field-set mismatch is caught by the field-set test
+        # Skip nested-config fields that use default_factory — their "default"
+        # is an instance of the sub-dataclass, not a scalar we can compare.
+        if f.default is MISSING:
+            continue
         page_default = table_defaults[f.name]
         # Normalize: strip wrapping quotes so `"adafruit-hat"` matches
         # the Python string "adafruit-hat", and lowercase True/False so

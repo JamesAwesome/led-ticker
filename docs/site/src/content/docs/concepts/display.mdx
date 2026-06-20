@@ -55,6 +55,100 @@ content_height = 24
 hold_time = 4.0`}
 />
 
+## Scheduling
+
+`[display.schedule]` lets you automatically dim or darken the sign during certain hours — useful for not blasting full brightness at 3 a.m. The schedule is driven by a lightweight background task that wakes every ~30 seconds and adjusts `matrix.brightness` to match whichever window is active right now.
+
+### Windows
+
+A schedule is a list of `[[display.schedule.windows]]` entries. Each window covers a time range and specifies a brightness:
+
+```toml
+[display.schedule]
+enabled = true
+timezone = "America/New_York"   # set this — fresh Pis are often UTC
+
+[[display.schedule.windows]]
+start = "07:00"
+end = "18:00"
+brightness = 100
+
+[[display.schedule.windows]]
+start = "18:00"
+end = "23:00"
+brightness = 40
+
+[[display.schedule.windows]]
+start = "23:00"            # wraps past midnight
+end = "07:00"
+brightness = 0             # dark — panel off overnight
+```
+
+`brightness = 0` makes the LEDs go dark (≈ zero panel power draw). **This is not a power or sleep mode** — the Pi keeps rendering at full cadence; only the LED brightness output goes to zero.
+
+### Window resolution
+
+At each check the scheduler finds the **last matching window** in the list whose time range includes the current wall-clock time. "Last" means highest index, so place more-specific or higher-priority windows after the general ones.
+
+Because the **last** matching window wins, place a more specific window _after_ a general one to override it. For example, a normal day with a dimmer lunch hour:
+
+```toml
+[[display.schedule.windows]]
+start = "07:00"
+end = "23:00"
+brightness = 100
+
+[[display.schedule.windows]]
+start = "12:00"   # overrides the window above during lunch
+end = "13:00"
+brightness = 40
+```
+
+A window **wraps past midnight** when `end < start` (e.g. `start = "23:00"`, `end = "07:00"`). That window is active from 23:00 until 06:59.
+
+### Day filtering
+
+Add a `days` list to a window to restrict it to specific weekdays:
+
+```toml
+[[display.schedule.windows]]
+start = "08:00"
+end = "18:00"
+brightness = 100
+days = ["mon", "tue", "wed", "thu", "fri"]   # weekdays only
+
+[[display.schedule.windows]]
+start = "10:00"
+end = "22:00"
+brightness = 60
+days = ["sat", "sun"]   # weekends on a gentler setting
+```
+
+An empty `days` list (the default) matches every day of the week.
+
+:::note[Midnight-wrapping windows and `days`]
+A window that wraps past midnight (`start > end`) is anchored to its **start day**. For example:
+
+```toml
+start = "23:00"
+end = "07:00"
+days = ["fri"]
+```
+
+This window is active from **Friday 23:00 through Saturday 06:59**. The early-Saturday tail belongs to Friday's entry — not to Saturday's — because the window started on Friday. If you also want Saturday-night coverage, add a separate window with `days = ["sat"]`.
+:::
+
+### Timing and behavior
+
+- **Boundary latency**: brightness changes land within approximately 30 seconds of the scheduled time, not instantly at the second.
+- **Step, not fade**: brightness jumps in one step when a window becomes active — there is no fade animation.
+- **Schedule changes need a restart**: the schedule is read at startup; there is no live-reload. Restart the display process after editing `[display.schedule]`.
+- **Timezone**: `timezone` accepts any IANA name (e.g. `"America/New_York"`, `"Europe/London"`). Leave it empty to use the Pi's system time — but set it explicitly if you can; freshly imaged Pis default to UTC, which will shift your windows by several hours.
+
+### Viewing the resolved schedule
+
+Run `led-ticker validate config.toml` to see the resolved schedule printed alongside the usual validation output. This is useful for confirming window coverage and catching gaps before deploying.
+
 ## `[display]` reference
 
 The full field reference — every knob, default value, and

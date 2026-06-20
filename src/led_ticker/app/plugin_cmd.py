@@ -290,7 +290,9 @@ def _pip_dist_name(target: str, catalog: Catalog) -> str:
     for a monorepo plugin is ``led-ticker-plugins#plugins/<name>``.
 
     For a raw (non-catalog) spec there's no catalog name, so fall back to the
-    requirement key (best effort — holds when the repo stem == package name).
+    requirement key (best effort — holds when the repo stem == package name; a
+    raw monorepo spec yields a ``#``-bearing name pip won't match, so it no-ops
+    "not installed" while the manifest line is still removed via the match key).
     """
     entry = catalog.get(target)
     if entry is not None:

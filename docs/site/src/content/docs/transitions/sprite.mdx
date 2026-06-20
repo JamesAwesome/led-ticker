@@ -7,7 +7,7 @@ import DemoGif from "../../../components/DemoGif.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-Sprite transitions run a pixel-art character across the panel that erases the outgoing widget and reveals the incoming one — themed and fun. They are provided by four packages in the external **[led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins)** monorepo — `nyancat`, `pokeball`, `pacman`, and `sailor_moon` — each with forward, reverse, and alternating variants. Reference them by their namespaced slug, e.g. `transition = "pokeball.forward"`.
+Sprite transitions run a pixel-art character across the panel, erasing the outgoing widget and revealing the incoming one. They are provided by four packages in the external **[led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins)** monorepo — `nyancat`, `pokeball`, `pacman`, and `sailor_moon` — each with forward, reverse, and alternating variants. Reference them by their namespaced slug, e.g. `transition = "pokeball.forward"`.
 
 ## Install
 
@@ -47,7 +47,7 @@ Each package registers its transitions at startup; the `pokeball` package also r
   caption="sailor_moon.forward — Moon Stick wand sweeps across with sparkle trail"
 />
 
-## Variants
+## Reference
 
 <OptionsTable source="transitions/sprite" />
 

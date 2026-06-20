@@ -7,7 +7,7 @@ Plugins extend led-ticker without forking core. A plugin is a small Python packa
 
 You don't need any plugins to run led-ticker — the [built-in widgets](/widgets/) cover most signs. Reach for a plugin when you want something they don't offer (pool temperatures, a smart-home sensor, a custom feed), and anyone can publish one without changes to core.
 
-What can you build? Anything you can fetch or draw — a Home Assistant sensor, a stock ticker, a sports feed core doesn't cover, a brand font, a smart-home status light. The [pool widget](/plugins/available/) is a real, shipped one: it pulls water temperatures from an InfluxDB server and renders them zone-colored across four screens. If your data has an API and you can describe a frame, it can live on the sign.
+Plugins can surface anything with an API — sensor values, custom data feeds, brand fonts, lifecycle hooks. The [pool widget](/plugins/available/) is a concrete example: it pulls water temperatures from an InfluxDB server and cycles through four zone-colored screens, all via a single `register(api)` call.
 
 ## Installing a plugin
 
@@ -45,7 +45,7 @@ docker compose up -d --build
 - The Docker image installs the listed plugins at build time, **constrained to core's dependency versions** (a plugin can bring its own new libraries but can't move a version core pins — a conflict fails the build instead of breaking silently at runtime).
 - The live `config/requirements-plugins.txt` is gitignored — it's yours to customize per sign. A fresh clone installs **no** plugins until you create it.
 
-Once installed, a plugin **auto-registers** via its `led_ticker.plugins` entry point — no config change is needed to make its widgets available.
+Once installed, a plugin registers automatically via its `led_ticker.plugins` entry point — its widget types are available immediately at startup.
 
 ## Relationship to the `[plugins]` config block
 

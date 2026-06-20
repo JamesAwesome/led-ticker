@@ -1,19 +1,19 @@
 ---
 title: crypto.coingecko widget
-description: The crypto.coingecko multi-coin price ticker is provided by the led-ticker-crypto plugin (type = "crypto.coingecko").
+description: The crypto.coingecko multi-coin price ticker is provided by the crypto package in led-ticker-plugins (type = "crypto.coingecko").
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
 
-The **crypto.coingecko** widget is provided by the **[led-ticker-crypto](https://github.com/JamesAwesome/led-ticker-crypto)** plugin, referenced in config as `type = "crypto.coingecko"`.
+The **crypto.coingecko** widget is provided by the **[crypto](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/crypto)** package in the led-ticker-plugins monorepo, referenced in config as `type = "crypto.coingecko"`.
 
 <DemoGif
   src="/demos-long/widget-crypto-coingecko.gif"
   caption="crypto.coingecko cycling BTC, ETH, and SHIB — the sub-cent SHIB price shows the adaptive formatting."
 />
 
-- **To add it to your sign:** add `git+https://github.com/JamesAwesome/led-ticker-crypto.git@main` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow.
-- **Full documentation** — options, config examples, and a demo gif — lives in the [led-ticker-crypto README](https://github.com/JamesAwesome/led-ticker-crypto#readme).
+- **To add it to your sign:** add `git+https://github.com/JamesAwesome/led-ticker-plugins.git@crypto-v0.1.0#subdirectory=plugins/crypto` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow.
+- **Full documentation** — options, config examples, and a demo gif — lives in the [crypto package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/crypto/README.md).
 
 ## Features
 
@@ -22,4 +22,4 @@ The **crypto.coingecko** widget is provided by the **[led-ticker-crypto](https:/
 - **Optional demo API key** — the keyless free tier is rate-limited to ~5 requests/min. Add `api_key = "..."` in config or set the `COINGECKO_API_KEY` environment variable to use a [CoinGecko demo key](https://www.coingecko.com/en/api/pricing) for a higher rate limit.
 - **Adaptive sub-cent formatting** — prices below $0.01 display with enough decimal places to show a meaningful value rather than rounding to zero.
 
-Full options, config examples, and a demo gif live in the [led-ticker-crypto README](https://github.com/JamesAwesome/led-ticker-crypto#readme).
+Full options, config examples, and a demo gif live in the [crypto package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/crypto/README.md).

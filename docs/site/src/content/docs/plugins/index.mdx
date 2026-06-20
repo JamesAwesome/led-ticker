@@ -3,7 +3,7 @@ title: Plugins
 description: Extend led-ticker with external plugins — widgets, transitions, emojis, fonts, and lifecycle hooks — installed via a requirements file and auto-registered at startup.
 ---
 
-Plugins extend led-ticker without forking core. A plugin is a small Python package that registers extra **widgets, transitions, color providers, animations, borders, easings, emojis, fonts, or lifecycle hooks** through led-ticker's public plugin API. The flagship example is the [pool water-temperature widget](https://github.com/JamesAwesome/led-ticker-pool), which lives in its own repo and contributes `type = "pool.monitor"`.
+Plugins extend led-ticker without forking core. A plugin is a small Python package that registers extra **widgets, transitions, color providers, animations, borders, easings, emojis, fonts, or lifecycle hooks** through led-ticker's public plugin API. The flagship example is the [pool water-temperature widget](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pool), which lives in the led-ticker-plugins monorepo and contributes `type = "pool.monitor"`.
 
 You don't need any plugins to run led-ticker — the [built-in widgets](/widgets/) cover most signs. Reach for a plugin when you want something they don't offer (pool temperatures, a smart-home sensor, a custom feed), and anyone can publish one without changes to core.
 
@@ -60,7 +60,7 @@ A plugin must be installed **and** not disabled to be active.
 
 A plugin imports only from `led_ticker.plugin` (the curated public surface) and exposes a `register(api)` function under the `led_ticker.plugins` entry-point group; `api.widget("name")(cls)` registers a namespaced widget (`<plugin>.<name>`). The full surface — the `register(api)` contract, every registration method, the exported names, and the conventions — is the [Plugin API reference](/plugins/api-reference/). For loader internals, deployment, and known edges, see [`docs/plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md).
 
-New to it? The four-page [**authoring guide**](/plugins/authoring/01-scaffold/) walks you from an empty `register(api)` to an installed widget plugin, step by step. For a complete real-world example, the [`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) repo shows the entry point, tests, and packaging end-to-end.
+New to it? The four-page [**authoring guide**](/plugins/authoring/01-scaffold/) walks you from an empty `register(api)` to an installed widget plugin, step by step. For a complete real-world example, the [`pool`](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pool) package in the led-ticker-plugins monorepo shows the entry point, tests, and packaging end-to-end.
 
 ## If something goes wrong
 

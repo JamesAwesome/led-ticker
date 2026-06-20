@@ -48,13 +48,13 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 
 <CardGrid>
   <Card title="Weather (plugin)">
-    <DemoGif src="/demos-long/widget-weather.gif" caption="Current conditions for any location — via the led-ticker-feeds plugin." />
+    <DemoGif src="/demos-long/widget-weather.gif" caption="Current conditions for any location — via the weather plugin." />
 
     [Weather widget →](/widgets/weather/)
 
   </Card>
   <Card title="MLB scores (plugin)">
-    <DemoGif src="/demos-long/widget-mlb.gif" caption="Live game scores and counts — via the led-ticker-baseball plugin." />
+    <DemoGif src="/demos-long/widget-mlb.gif" caption="Live game scores and counts — via the baseball plugin." />
 
     [MLB widget →](/widgets/mlb/)
 
@@ -94,7 +94,7 @@ led-ticker is a library, not just an app. A curated public API
 animations, borders, easings, emojis, fonts, and lifecycle hooks** as an
 installable plugin — no fork of core required. The pool water-temperature
 widget shown above is exactly that: a real plugin that lives in
-[its own repo](https://github.com/JamesAwesome/led-ticker-pool) and contributes
+[the led-ticker-plugins monorepo](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pool) and contributes
 `type = "pool.monitor"`.
 
 - [Plugins overview](/plugins/) — install, load, and the `[plugins]` config block

@@ -36,7 +36,7 @@ For starting a config from scratch. Runs as a 3-phase wizard:
 
 ### `add`
 
-For appending a section to an existing config. The skill reads `config/config.toml` and infers the sign target, brand colors, default transition, and use case from the existing widgets — e.g. `baseball.scores` widgets imply a sports config, multiple `feeds.rss` + `feeds.weather` implies a personal feed, a single panel-filling `gif` implies an art piece. If the inference is uncertain, it asks. The inferred use case then drives the same snippet lookup as `new` Phase 2. After writing the new section, the skill asks where to insert (end / before section N / after section N), shows a unified diff, and applies the edit only on approval. The first in-place edit per session writes a `config/config.toml.bak`.
+For appending a section to an existing config. The skill reads `config/config.toml` and infers the sign target, brand colors, default transition, and use case from the existing widgets — e.g. `baseball.scores` widgets imply a sports config, multiple `rss.feed` + `weather.current` implies a personal feed, a single panel-filling `gif` implies an art piece. If the inference is uncertain, it asks. The inferred use case then drives the same snippet lookup as `new` Phase 2. After writing the new section, the skill asks where to insert (end / before section N / after section N), shows a unified diff, and applies the edit only on approval. The first in-place edit per session writes a `config/config.toml.bak`.
 
 ### `refine`
 

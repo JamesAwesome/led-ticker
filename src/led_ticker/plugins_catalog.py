@@ -14,7 +14,7 @@ from importlib import resources
 import attrs
 
 _CATALOG_RESOURCE = "plugins_catalog.json"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 _VALID_SOURCE_TYPES = ("git", "pypi")
 
 
@@ -25,6 +25,7 @@ class CatalogSource:
     type: str  # "git" | "pypi"
     url: str | None = None  # git
     ref: str | None = None  # git — recommended pin (tag/branch/sha)
+    subdirectory: str | None = None  # git — package path within a monorepo
     package: str | None = None  # pypi
     version: str | None = None  # pypi — recommended pin (may be None until published)
 
@@ -66,7 +67,10 @@ class CatalogEntry:
             assert src.url is not None  # guaranteed for git sources (see _parse_source)
             base = src.url.removesuffix(".git")
             ref = src.ref if (pinned and src.ref) else "main"
-            return f"git+{base}.git@{ref}"
+            req = f"git+{base}.git@{ref}"
+            if src.subdirectory:
+                req += f"#subdirectory={src.subdirectory}"
+            return req
         # pypi
         if pinned and src.version:
             return f"{src.package}=={src.version}"
@@ -108,7 +112,12 @@ def _parse_source(raw: dict) -> CatalogSource:
     if stype == "git":
         if not raw.get("url"):
             raise ValueError("git catalog source is missing 'url'")
-        return CatalogSource(type="git", url=raw["url"], ref=raw.get("ref", "main"))
+        return CatalogSource(
+            type="git",
+            url=raw["url"],
+            ref=raw.get("ref", "main"),
+            subdirectory=raw.get("subdirectory"),
+        )
     if not raw.get("package"):
         raise ValueError("pypi catalog source is missing 'package'")
     return CatalogSource(

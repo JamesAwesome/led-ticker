@@ -21,8 +21,12 @@ def test_example_requirements_exists_and_lists_pool():
     example = REPO_ROOT / "config" / "requirements-plugins.example.txt"
     assert example.exists(), "config/requirements-plugins.example.txt must exist"
     lines = _noncomment_lines(example.read_text())
-    assert any("led-ticker-pool" in line for line in lines), (
-        "the example should ship the led-ticker-pool plugin line"
+    assert any(
+        "led-ticker-plugins.git" in line and "subdirectory=plugins/pool" in line
+        for line in lines
+    ), (
+        "the example should ship the pool plugin line from the "
+        "led-ticker-plugins monorepo"
     )
     for line in lines:
         assert " " not in line, f"malformed requirement line: {line!r}"

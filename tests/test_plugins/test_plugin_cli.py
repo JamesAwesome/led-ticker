@@ -158,6 +158,45 @@ def test_install_dedup_replaces_existing_line(tmp_path, fakepip):
     assert "@main" in body
 
 
+def _monorepo_catalog():
+    """Two plugins sharing ONE repo (`led-ticker-plugins`) — the monorepo layout.
+    Distinguished only by their `#subdirectory=` fragment."""
+    repo = "https://github.com/JamesAwesome/led-ticker-plugins"
+
+    def _entry(name):
+        return CatalogEntry(
+            name=name,
+            namespace=name,
+            summary=f"{name} plugin",
+            homepage=repo,
+            provides=(f"{name}.thing",),
+            sources=(
+                CatalogSource(
+                    type="git",
+                    url=repo,
+                    ref=f"{name}-v0.1.0",
+                    subdirectory=f"plugins/{name}",
+                ),
+            ),
+        )
+
+    return Catalog(entries=(_entry("pool"), _entry("baseball")))
+
+
+def test_add_monorepo_siblings_do_not_collide(tmp_path, fakepip):
+    # Regression: before the subdirectory-aware key, all monorepo plugins keyed to
+    # `led-ticker-plugins`, so adding `baseball` after `pool` REPLACED pool's line
+    # (dedup collision). Both lines must now survive.
+    catalog = _monorepo_catalog()
+    cfg = tmp_path / "config.toml"
+    assert plugin_cmd.cmd_add("pool", config_path=cfg, catalog=catalog) == 0
+    assert plugin_cmd.cmd_add("baseball", config_path=cfg, catalog=catalog) == 0
+    body = _reqfile(tmp_path).read_text()
+    assert "subdirectory=plugins/pool" in body
+    assert "subdirectory=plugins/baseball" in body
+    assert fakepip.calls == []  # add never touches pip
+
+
 def test_install_preserves_comments_and_other_plugins(tmp_path, fakepip):
     rf = _reqfile(tmp_path)
     rf.write_text(
@@ -385,10 +424,28 @@ def test_cmd_search_no_match(capsys):
         ("git+https://h/o/led-ticker-pool.git@feature/foo", "led-ticker-pool"),
         ("git+https://h/o/led-ticker-pool.git@release/1.x", "led-ticker-pool"),
         ("git+https://h/o/led-ticker-pool@main", "led-ticker-pool"),  # no .git
-        # #egg= fragment is stripped
+        # #egg= fragment is stripped (it's a name hint, not identity)
         (
             "git+https://h/o/led-ticker-pool.git@main#egg=led-ticker-pool",
             "led-ticker-pool",
+        ),
+        # monorepo: #subdirectory= is PRESERVED so siblings don't collide. The
+        # subdirectory path is kept verbatim (not case-folded / '_'->'-').
+        (
+            "git+https://github.com/JamesAwesome/led-ticker-plugins.git"
+            "@pool-v0.1.0#subdirectory=plugins/pool",
+            "led-ticker-plugins#plugins/pool",
+        ),
+        (
+            "git+https://github.com/JamesAwesome/led-ticker-plugins.git"
+            "@sailor_moon-v0.1.0#subdirectory=plugins/sailor_moon",
+            "led-ticker-plugins#plugins/sailor_moon",
+        ),
+        # #egg= + subdirectory together: egg dropped, subdirectory kept.
+        (
+            "git+https://h/o/led-ticker-plugins.git@main"
+            "#egg=led-ticker-pool&subdirectory=plugins/pool",
+            "led-ticker-plugins#plugins/pool",
         ),
         ("led-ticker-pool==1.2.0", "led-ticker-pool"),
         ("led_ticker_pool", "led-ticker-pool"),
@@ -490,6 +547,24 @@ def test_uninstall_not_in_manifest_still_pip_uninstalls(tmp_path, fakepip, capsy
     code = _uninstall(tmp_path, "pool")  # never added
     assert code == 0
     assert "was not in" in capsys.readouterr().out
+    assert fakepip.uninstall_cmd[-1] == "led-ticker-pool"
+
+
+def test_uninstall_monorepo_uses_dist_name_not_subdir_key(tmp_path, fakepip):
+    # For a monorepo plugin the manifest line is keyed by repo#subdirectory, but
+    # pip must uninstall the real package name `led-ticker-<name>` — NOT
+    # `led-ticker-plugins` (the shared repo) or the subdirectory key.
+    catalog = _monorepo_catalog()
+    cfg = tmp_path / "config.toml"
+    assert plugin_cmd.cmd_add("pool", config_path=cfg, catalog=catalog) == 0
+    plugin_cmd.cmd_add("baseball", config_path=cfg, catalog=catalog)
+    code = plugin_cmd.cmd_uninstall("pool", config_path=cfg, catalog=catalog)
+    assert code == 0
+    body = _reqfile(tmp_path).read_text()
+    # only pool's line removed; baseball's survives (no collision on removal)
+    assert "subdirectory=plugins/pool" not in body
+    assert "subdirectory=plugins/baseball" in body
+    # pip uninstalled the real dist name, not the shared repo
     assert fakepip.uninstall_cmd[-1] == "led-ticker-pool"
 
 

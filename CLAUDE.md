@@ -66,14 +66,14 @@ src/led_ticker/
     wipe.py             # WipeLeft/Right/Up/Down, WipeAlternating, WipeRandom
     effects.py          # Cut, ColorFlash, Dissolve, SplitHorizontal, Scroll
                         # (the nyancat/pokeball/pacman/sailor_moon sprite-trail
-                        #  families are the led-ticker-arcade plugin)
+                        #  families ship in the led-ticker-plugins monorepo)
     _hires_loader.py    # Public hi-res infra: HiresSpec + render_hires_frame
-                        #  (consumed by the baseball + arcade plugins)
+                        #  (consumed by the baseball + sprite-trail plugins)
   widgets/
     __init__.py         # Registry (@register decorator) + auto-imports
     message.py          # TickerMessage, TickerCountdown
     weather_icons.py    # 8x8 condition-icon pixel-art feeding the :sun:/:cloud:/etc.
-                        #   emoji registry (the weather WIDGET is the feeds.weather plugin)
+                        #   emoji registry (the weather WIDGET is the weather.current plugin)
     two_row.py          # TwoRowMessage: held top + scrolling bottom
     gif.py / still.py   # GifPlayer / StillImage; share _BaseImageWidget
     _frame_aware.py     # FrameAwareBase mixin: frame_count + pause_frame/resume_frame
@@ -91,7 +91,7 @@ Each bullet is a rule that must hold when modifying the named area. Full prose f
 
 **Hi-res emoji on the bigsign** — Hires sprites paint DIRECTLY to the underlying real canvas (bypass the wrapper's block expansion). Routing happens via `isinstance(canvas, ScaledCanvas)` inside the helpers above; on smallsign / scale=1, the renderer falls back to the 8×8 sprite automatically. Hires sprites can be generated programmatically (`_generate_moon_hires` is the circle-subtraction template).
 
-**Hi-res transition infra (public; consumers are plugins)** — the sprite-trail transition families (`nyancat`/`pokeball` hi-res, `pacman`/`sailor_moon` lowres) now live in the **led-ticker-arcade** plugin; core no longer ships them or their `HIRES_REGISTRY` dispatch. What core RETAINS is the public hi-res INFRA in `_hires_loader.py` — `HiresSpec` + `render_hires_frame` (`@functools.cache`'d, paints to `unwrap_to_real(canvas)`) — reached via `led_ticker.plugin`. A plugin transition holds its own `HiresSpec(sprite_path=…, flip_horizontal=…, trail=…)` (bundling its sprite) and dispatches on `is_scaled(canvas)` → `render_hires_frame(…, spec, **kwargs)` (baseball + arcade do this). `HiresSpec.trail` selects what fills behind the sprite's leading edge (`"none"` / `"black"` / `"rainbow"`); trail saturates at `TRAIL_SATURATION_T=0.85`, snaps to incoming at `SNAP_THRESHOLD=0.95`. Do NOT delete `HiresSpec`/`render_hires_frame` on a "dead code" sweep — they have no in-core consumer but are public surface the plugins depend on.
+**Hi-res transition infra (public; consumers are plugins)** — the sprite-trail transition families (`nyancat`/`pokeball` hi-res, `pacman`/`sailor_moon` lowres) now live in the **led-ticker-plugins** monorepo (one package per family: `nyancat`/`pokeball`/`pacman`/`sailor_moon`); core no longer ships them or their `HIRES_REGISTRY` dispatch. What core RETAINS is the public hi-res INFRA in `_hires_loader.py` — `HiresSpec` + `render_hires_frame` (`@functools.cache`'d, paints to `unwrap_to_real(canvas)`) — reached via `led_ticker.plugin`. A plugin transition holds its own `HiresSpec(sprite_path=…, flip_horizontal=…, trail=…)` (bundling its sprite) and dispatches on `is_scaled(canvas)` → `render_hires_frame(…, spec, **kwargs)` (baseball + the sprite-trail packages do this). `HiresSpec.trail` selects what fills behind the sprite's leading edge (`"none"` / `"black"` / `"rainbow"`); trail saturates at `TRAIL_SATURATION_T=0.85`, snaps to incoming at `SNAP_THRESHOLD=0.95`. Do NOT delete `HiresSpec`/`render_hires_frame` on a "dead code" sweep — they have no in-core consumer but are public surface the plugins depend on.
 
 **Hi-res fonts** — Loader scan order: `config/fonts/` (user-supplied; gitignored, re-anchored at startup to `<config.toml dir>/fonts/` via `app._configure_user_font_dir`), then `src/led_ticker/fonts/hires/` (bundled), then BDF aliases. Glyphs cached via `@functools.cache load_hires_font` keyed on `(name, size, threshold)` — `resolve_font` validates threshold type explicitly so `80.0` (float) and `80` (int) cache distinctly. Render path (`text_render._draw_hires_text`) paints to `unwrap_to_real(canvas).SetPixel` and multiplies logical coords by `canvas.scale` internally. `font_line_height(font)` and `compute_baseline(font, ...)` (in `drawing.py`) are font-aware — never hardcode a baseline or cell height. Docs: <https://docs.ledticker.dev/concepts/fonts/>.
 
@@ -185,7 +185,7 @@ These constraints were learned through extensive real-hardware testing. They are
 
 - **Push** — outgoing + incoming move together (`push_left/right/up/down`, `push_alternating`, `push_random`). Use draw-blackout-draw to avoid DrawText overlap; receive `outgoing_scroll_pos` from `_swap_and_scroll` so they continue from where text stopped scrolling.
 - **Wipe** — stationary outgoing + colored sweep line erases (`wipe_left/right/up/down`, `wipe_alternating`, `wipe_random`). Draw outgoing at pos=0, SetPixel-blackout regions, draw sweep on top, snap to incoming at t=1.0. Blackouts erase `outgoing.draw()`'s text bleed (DrawText cannot be clipped) — they are NOT redundant against `Clear()`.
-- **Sprite-trail** — `nyancat`, `pokeball`, `pacman`, `sailor_moon` ship in the **led-ticker-arcade** plugin (`transition = "arcade.<name>"`, each with `_reverse`/`_alternating`; nyancat/pokeball are hi-res). A bare `transition = "nyancat"` (etc.) raises a migration hint via `_TRANSITION_MIGRATION`. See "Hi-res transition infra" above for the public surface they consume.
+- **Sprite-trail** — `nyancat`, `pokeball`, `pacman`, `sailor_moon` ship as per-family packages in the **led-ticker-plugins** monorepo (`transition = "<family>.forward"`, plus `.reverse`/`.alternating`; nyancat/pokeball are hi-res). A bare `transition = "nyancat"` (etc.) raises a migration hint via `_TRANSITION_MIGRATION` pointing at the new `<family>.<variant>` type + the monorepo install line. See "Hi-res transition infra" above for the public surface they consume.
 - **Special** — `cut` (instant), `color_flash` (white flash), `dissolve` (seeded RNG scatter), `split` (center-outward black band), `scroll` (seamless continuous scroll with bullet separator).
 
 **Frame freeze during transitions** — `run_transition` calls `pause_frame()` on outgoing/incoming before its loop and `resume_frame()` after (try/finally). Frame-aware widgets (`FrameAwareBase`-derived) use this to keep `frame_count` from advancing while being re-rendered for compositing — otherwise a Typewriter / Rainbow widget mid-cycles during the dissolve and re-enters the next section at a wrong phase. Plain widgets are skipped via duck-typing.
@@ -216,7 +216,7 @@ User-facing surface: <https://docs.ledticker.dev/concepts/color-providers/> · <
 
 ## Plugin invariants
 
-led-ticker is extensible via plugins; the `pool.monitor` widget ([`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool)), the `baseball.*` widgets/emoji/transitions ([`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball)), the `crypto.coingecko` widget ([`led-ticker-crypto`](https://github.com/JamesAwesome/led-ticker-crypto)), the `calendar.events` widget ([`led-ticker-calendar`](https://github.com/JamesAwesome/led-ticker-calendar)), the `feeds.rss` / `feeds.weather` widgets ([`led-ticker-feeds`](https://github.com/JamesAwesome/led-ticker-feeds)), and the `arcade.*` sprite-trail transitions + `:arcade.pokeball:` emoji ([`led-ticker-arcade`](https://github.com/JamesAwesome/led-ticker-arcade)) live in external plugin repos. When touching plugin-related code:
+led-ticker is extensible via plugins; the first-party plugins (`pool.monitor`; the `baseball.*` widgets/emoji/transitions; `crypto.coingecko`; `calendar.events`; `rss.feed`; `weather.current`; and the `nyancat`/`pokeball`/`pacman`/`sailor_moon` sprite-trail transitions — `<family>.forward`/`.reverse`/`.alternating` — plus the `:pokeball.ball:` emoji) live in the **[led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins)** monorepo (one uv workspace, distributed per-plugin). When touching plugin-related code:
 
 - **Public surface:** plugins import ONLY from `led_ticker.plugin` (the curated re-export module). Never import `led_ticker.<internal>` from a plugin. `led_ticker.plugin.__all__` is the contract; adding to it is an API change.
 - **Registration:** a plugin ships a `register(api)` function under the `led_ticker.plugins` entry-point group; `api.widget("name")(cls)` (and the sibling `transition`/`emoji`/`font`/… surfaces) register into a namespaced registry (`<plugin>.<name>`, e.g. `pool.monitor`). `API_VERSION` gates compatibility.
@@ -228,14 +228,15 @@ led-ticker is extensible via plugins; the `pool.monitor` widget ([`led-ticker-po
 
 ### Plugin ecosystem
 
-First-party plugins live in sibling repos. Each carries its own `CLAUDE.md` (contributor invariants) and `README.md` (user-facing surface) — read those before working in them; the boundary contract above is what core guarantees them.
+First-party plugins live in the **[led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins)** monorepo (one uv workspace, distributed per-plugin). Each package under `plugins/<name>/` carries its own `CLAUDE.md` (contributor invariants) and `README.md` (user-facing surface) — read those before working in them; the boundary contract above is what core guarantees them.
 
-- [`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) — `pool.monitor`: pool water-temperature from InfluxDB v2 (`ticker` / `two_row` layouts).
-- [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) — `baseball.scores` / `baseball.standings` widgets, `baseball.roll*` transitions, `:baseball.ball:` emoji.
-- [`led-ticker-crypto`](https://github.com/JamesAwesome/led-ticker-crypto) — `crypto.coingecko` (CoinGecko price ticker)
-- [`led-ticker-calendar`](https://github.com/JamesAwesome/led-ticker-calendar) — `calendar.events`: calendar (.ics) agenda/next/two_row widget.
-- [`led-ticker-feeds`](https://github.com/JamesAwesome/led-ticker-feeds) — `feeds.rss`: RSS/Atom feed headlines; `feeds.weather`: current conditions from WeatherAPI.com.
-- [`led-ticker-arcade`](https://github.com/JamesAwesome/led-ticker-arcade) — `arcade.{pacman,sailor_moon,nyancat,pokeball}` sprite-trail transitions (+ `_reverse`/`_alternating`) and the `:arcade.pokeball:` emoji.
+- `pool` — `pool.monitor`: pool water-temperature from InfluxDB v2 (`ticker` / `two_row` layouts).
+- `baseball` — `baseball.{scores,standings,promotions,statcast,attendance}` widgets, `baseball.roll*` transitions, `:baseball.ball:` emoji.
+- `crypto` — `crypto.coingecko` (CoinGecko price ticker).
+- `calendar` — `calendar.events`: calendar (.ics) agenda/next/two_row widget.
+- `rss` — `rss.feed`: RSS/Atom feed headlines.
+- `weather` — `weather.current`: current conditions from WeatherAPI.com.
+- `nyancat` / `pokeball` / `pacman` / `sailor_moon` — sprite-trail transitions `<family>.forward`/`.reverse`/`.alternating` (nyancat + pokeball hi-res; pokeball also ships `:pokeball.ball:`).
 
 These plugins import a few core symbols through the public surface that have no remaining in-core consumer (`lazy_palette`, `GEOMETRIC_SHAPES`, the `small_font` font-prefix); see the "Extracted widgets retain core hooks" note in the load-bearing invariants — don't delete them.
 

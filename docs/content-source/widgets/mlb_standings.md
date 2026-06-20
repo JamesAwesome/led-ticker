@@ -1,6 +1,6 @@
 # MLB Standings Widget Options
 
-> **Plugin widget.** MLB standings ship as the external [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball) plugin. Use `type = "baseball.standings"` and install the plugin (add `git+https://github.com/JamesAwesome/led-ticker-baseball.git@main` to `config/requirements-plugins.txt`, then rebuild).
+> **Plugin widget.** MLB standings ship as the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the external led-ticker-plugins monorepo. Use `type = "baseball.standings"` and install the plugin (add `git+https://github.com/JamesAwesome/led-ticker-plugins.git@baseball-v0.1.0#subdirectory=plugins/baseball` to `config/requirements-plugins.txt`, then rebuild).
 
 `MLBStandingsMonitor` fetches overall MLB league standings from the free MLB StatsAPI (no API key required) and renders them as a scrolling list. It shows the top-N teams by overall rank and then appends any `teams` entries that didn't already appear in that list — so your tracked teams are always visible regardless of where they sit in the standings.
 

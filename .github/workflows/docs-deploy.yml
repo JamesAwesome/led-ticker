@@ -17,12 +17,14 @@ on:
       - "docs/**"
       - "tools/render_demo/**"
       - ".github/workflows/docs-deploy.yml"
+      - "src/led_ticker/plugins_catalog.json"
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
       - "docs/**"
       - "tools/render_demo/**"
       - ".github/workflows/docs-deploy.yml"
+      - "src/led_ticker/plugins_catalog.json"
 
 permissions:
   contents: read

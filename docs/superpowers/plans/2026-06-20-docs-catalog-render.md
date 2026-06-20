@@ -4,6 +4,11 @@
 
 **Goal:** Render each plugin's install line and typed provided surfaces in the docs-site Available-plugins page from `plugins_catalog.json` at build time, so those facts can't drift from the catalog.
 
+> **Superseded:** the component reads the catalog via Astro
+> `import.meta.glob(..., { query: "?raw", eager: true })` (the `OptionsTable.astro`
+> pattern), not `node:fs` `readFileSync` — `__dirname` resolves to the prerender
+> bundle path. The `readFileSync` code blocks below are retained for history.
+
 **Architecture:** A new build-time Astro component (`PluginCatalog.astro`) reads the bundled catalog JSON via `node:fs` (the pattern `scripts/build-demos.mjs` already uses) and renders one plugin's grouped surfaces + pinned install requirement. `available.mdx` keeps its curated prose but swaps each section's hand-typed facts for `<PluginCatalog name="…" />`. A Python tripwire test asserts the set of documented plugins equals the catalog.
 
 **Tech Stack:** Astro 6 + Starlight (docs/site, pnpm), Python 3.14 + pytest (the drift test).

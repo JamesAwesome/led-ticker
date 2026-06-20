@@ -36,6 +36,14 @@ Astro component fed by the catalog JSON.
    hand-written section heading/prose.
 4. The set-coverage drift guard is a **Python** test (where the other docs-drift
    tests live), not a JS/Astro test.
+5. **Superseded during implementation:** the build-time read uses Astro's
+   `import.meta.glob(..., { query: "?raw", eager: true })` (the established
+   `OptionsTable.astro` pattern), NOT `node:fs` `readFileSync` as sketched
+   below. Reason: at Astro prerender `__dirname`/`import.meta.url` resolves to
+   the bundled `dist/` chunk path, not the source tree, so a relative
+   `readFileSync` fails. The glob resolves the same source-of-truth JSON at
+   compile time. The `readFileSync` sketches in this doc are retained for
+   history but are not what shipped.
 
 ## Component: `docs/site/src/components/PluginCatalog.astro`
 

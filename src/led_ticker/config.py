@@ -9,6 +9,21 @@ from led_ticker._coerce import CoercionWarning
 
 
 @dataclass
+class ScheduleWindow:
+    start: str  # "HH:MM" 24h local wall-clock
+    end: str  # "HH:MM"; start > end wraps past midnight
+    brightness: int  # 0–100; 0 = off/dark
+    days: list[str] = field(default_factory=list)  # mon..sun; empty = every day
+
+
+@dataclass
+class ScheduleConfig:
+    enabled: bool = False
+    timezone: str = ""  # IANA (zoneinfo); empty = system local
+    windows: list[ScheduleWindow] = field(default_factory=list)
+
+
+@dataclass
 class DisplayConfig:
     rows: int = 16
     cols: int = 32
@@ -41,6 +56,7 @@ class DisplayConfig:
     # power up in a bad state and show the bottom half mirrored or garbled.
     panel_type: str = ""
     led_rgb_sequence: str = "RGB"
+    schedule: ScheduleConfig = field(default_factory=ScheduleConfig)
 
 
 @dataclass
@@ -336,6 +352,32 @@ _BUILTIN_TRANSITION_KEYS: frozenset[str] = frozenset(
 )
 
 
+def _coerce_schedule(raw: dict[str, Any]) -> ScheduleConfig:
+    """Build ScheduleConfig from the raw [display.schedule] table. Permissive:
+    values pass through (validation reports bad shapes); day names lowercased."""
+    windows: list[ScheduleWindow] = []
+    for w in raw.get("windows", []) or []:
+        raw_days = w.get("days", [])
+        days = (
+            [str(d).lower() for d in raw_days]
+            if isinstance(raw_days, list)
+            else raw_days
+        )
+        windows.append(
+            ScheduleWindow(
+                start=w.get("start", ""),
+                end=w.get("end", ""),
+                brightness=w.get("brightness", 100),
+                days=days,
+            )
+        )
+    return ScheduleConfig(
+        enabled=bool(raw.get("enabled", False)),
+        timezone=raw.get("timezone", ""),
+        windows=windows,
+    )
+
+
 def _coerce_display(
     display_raw: dict[str, Any], warnings: list[CoercionWarning]
 ) -> DisplayConfig:
@@ -370,9 +412,11 @@ def _coerce_display(
                 warnings.append(warning)
         else:
             kwargs[name] = defaults[name]
-    # String / bool fields pass through without coercion.
-    for name in set(defaults) - _DISPLAY_INT_FIELDS:
+    # String / bool fields pass through without coercion. `schedule` is a nested
+    # dataclass — built separately below, never via the int/passthrough loops.
+    for name in set(defaults) - _DISPLAY_INT_FIELDS - {"schedule"}:
         kwargs[name] = display_raw.get(name, defaults[name])
+    kwargs["schedule"] = _coerce_schedule(display_raw.get("schedule", {}) or {})
     return DisplayConfig(**kwargs)
 
 

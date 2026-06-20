@@ -249,3 +249,29 @@ async def test_disabled_play_widget_short_circuits(mock_frame):
     # play() must NOT be called for an already-disabled widget (no raise either)
     out = await ticker._play_widget(canvas, bad, section_hold_time=0.05)
     assert out is canvas  # returned unchanged, play() skipped
+
+
+# ---------------------------------------------------------------------------
+# Shared breaker injection (Task 5)
+# ---------------------------------------------------------------------------
+
+
+def test_shared_breaker_disables_across_tickers(mock_frame):
+    # The whole point of injecting ONE breaker: a widget tripped while one
+    # Ticker (section) renders stays disabled for the next Ticker.
+    breaker = RenderBreaker()
+    bad = FaultyDrawWidget()
+    _make_ticker(monitors=[bad], frame=mock_frame, breaker=breaker)  # t1
+    t2 = _make_ticker(monitors=[bad], frame=mock_frame, breaker=breaker)
+    breaker.trip(bad, ValueError("x"))  # tripped during t1's run
+    assert t2.breaker.is_disabled(bad) is True  # t2 sees it (same breaker)
+
+
+def test_run_injects_a_shared_breaker():
+    import inspect
+
+    from led_ticker.app.run import run
+
+    src = inspect.getsource(run)
+    assert "RenderBreaker(" in src  # created in run()
+    assert '"breaker"' in src or "breaker=" in src  # threaded into ticker_kwargs

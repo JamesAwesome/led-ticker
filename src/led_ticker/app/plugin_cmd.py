@@ -18,6 +18,36 @@ from led_ticker.plugins_catalog import Catalog, CatalogEntry, load_catalog
 
 _PLUGINS_ENTRY_GROUP = "led_ticker.plugins"
 
+_KIND_LABELS = {
+    "widgets": "widgets",
+    "transitions": "transitions",
+    "emoji": "emoji",
+    "fonts": "fonts",
+    "borders": "borders",
+    "color_providers": "color providers",
+    "animations": "animations",
+    "easing": "easing",
+}
+
+
+def _install_hint(kind: str, name: str) -> str:
+    """The 'how to use it' clause for an install success message, by surface kind."""
+    if kind == "widgets":
+        return f'Add  type = "{name}"  to a widget section,'
+    if kind == "transitions":
+        return f'Use  transition = "{name}"  in a section,'
+    if kind == "color_providers":
+        return f'Use  font_color = {{ style = "{name}" }}  on a widget,'
+    if kind == "animations":
+        return f'Use  animation = "{name}"  on a widget,'
+    if kind == "borders":
+        return f'Use  border = "{name}"  on a widget,'
+    if kind == "emoji":
+        return f"Use  :{name}:  inline in widget text,"
+    if kind == "fonts":
+        return f'Use  font = "{name}"  on a widget,'
+    return f'Use  easing = "{name}"  on a transition,'  # easing
+
 
 _CANONICAL_REQUIREMENTS = Path("config") / "requirements-plugins.txt"
 
@@ -383,8 +413,9 @@ def cmd_list(
             marks.append("[installed]")
         suffix = f"  {' '.join(marks)}" if marks else ""
         print(f"  {entry.name}{suffix} — {entry.summary}")
-        if entry.provides:
-            print(f"      provides: {', '.join(entry.provides)}")
+        for kind, names in entry.provides.groups():
+            shown = [f":{n}:" for n in names] if kind == "emoji" else list(names)
+            print(f"      {_KIND_LABELS[kind]}: {', '.join(shown)}")
     print(
         "\n[declared] = in requirements-plugins.txt (installs on next build); "
         "[installed] = in this environment now."
@@ -493,11 +524,10 @@ def cmd_install(
         )
         return code
 
-    if entry is not None and entry.provides:
-        print(
-            f'Installed. Add e.g.  type = "{entry.provides[0]}"  to a widget '
-            "section, then restart led-ticker."
-        )
+    primary = entry.provides.primary() if entry is not None else None
+    if primary is not None:
+        kind, name = primary
+        print(f"Installed. {_install_hint(kind, name)} then restart led-ticker.")
     else:
         print("Installed. Restart led-ticker to load the plugin.")
     return 0

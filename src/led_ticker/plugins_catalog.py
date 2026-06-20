@@ -14,7 +14,7 @@ from importlib import resources
 import attrs
 
 _CATALOG_RESOURCE = "plugins_catalog.json"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 _VALID_SOURCE_TYPES = ("git", "pypi")
 
 # Every surface a plugin can register (see led_ticker.plugin PluginAPI).
@@ -104,7 +104,7 @@ class CatalogEntry:
     namespace: str
     summary: str
     homepage: str
-    provides: tuple[str, ...]
+    provides: PluginProvides
     sources: tuple[CatalogSource, ...]
 
     def source_for(self, source_type: str | None) -> CatalogSource:
@@ -162,7 +162,9 @@ class Catalog:
         q = query.lower()
         out: list[CatalogEntry] = []
         for entry in self.entries:
-            haystack = " ".join([entry.name, entry.summary, *entry.provides]).lower()
+            haystack = " ".join(
+                [entry.name, entry.summary, *entry.provides.all_names()]
+            ).lower()
             if q in haystack:
                 out.append(entry)
         return out
@@ -191,6 +193,30 @@ def _parse_source(raw: dict) -> CatalogSource:
     )
 
 
+def _parse_provides(raw: object) -> PluginProvides:
+    """Parse the typed `provides` object. Rejects a non-object, unknown surface
+    kinds (typo guard), and non-string entries. Absent/None -> all-empty."""
+    if raw is None:
+        return PluginProvides()
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"catalog entry 'provides' must be an object, got {type(raw).__name__}"
+        )
+    unknown = [k for k in raw if k not in _SURFACE_KINDS]
+    if unknown:
+        raise ValueError(
+            f"catalog 'provides' has unknown surface kind(s) {sorted(unknown)} "
+            f"(valid: {list(_SURFACE_KINDS)})"
+        )
+    kwargs: dict[str, tuple[str, ...]] = {}
+    for kind in _SURFACE_KINDS:
+        vals = raw.get(kind, [])
+        if not isinstance(vals, list) or not all(isinstance(v, str) for v in vals):
+            raise ValueError(f"catalog 'provides.{kind}' must be a list of strings")
+        kwargs[kind] = tuple(vals)
+    return PluginProvides(**kwargs)
+
+
 def _parse_entry(raw: dict) -> CatalogEntry:
     for key in ("name", "namespace", "summary", "sources"):
         if key not in raw:
@@ -203,7 +229,7 @@ def _parse_entry(raw: dict) -> CatalogEntry:
         namespace=raw["namespace"],
         summary=raw["summary"],
         homepage=raw.get("homepage", ""),
-        provides=tuple(raw.get("provides", [])),
+        provides=_parse_provides(raw.get("provides")),
         sources=sources,
     )
 

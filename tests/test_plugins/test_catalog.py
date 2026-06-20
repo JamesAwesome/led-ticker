@@ -15,7 +15,7 @@ from led_ticker.plugins_catalog import (
 # --- bundled catalog integrity (guards a hand-edited plugins_catalog.json) ---
 
 
-def test_bundled_catalog_loads_and_is_v2():
+def test_bundled_catalog_loads_and_is_v3():
     cat = load_catalog()
     assert isinstance(cat, Catalog)
     assert cat.entries  # non-empty
@@ -53,10 +53,12 @@ def test_bundled_entries_install_from_the_monorepo():
 
 def test_split_families_provide_their_types():
     cat = load_catalog()
-    assert cat.get("rss").provides == ("rss.feed",)
-    assert cat.get("weather").provides == ("weather.current",)
+    assert cat.get("rss").provides.widgets == ("rss.feed",)
+    assert cat.get("weather").provides.widgets == ("weather.current",)
     for fam in ("nyancat", "pokeball", "pacman", "sailor_moon"):
-        assert set(cat.get(fam).provides) == {
+        prov = cat.get(fam).provides
+        assert prov.widgets == ()  # transition-only plugins
+        assert set(prov.transitions) == {
             f"{fam}.forward",
             f"{fam}.reverse",
             f"{fam}.alternating",
@@ -78,32 +80,85 @@ def test_bundled_entries_are_well_formed():
 
 def test_pool_provides_monitor():
     cat = load_catalog()
-    assert "pool.monitor" in cat.get("pool").provides
+    assert cat.get("pool").provides.widgets == ("pool.monitor",)
 
 
-def test_baseball_provides_all_current_widgets():
-    # Locks the catalog against the scores/standings-only drift: the plugin's
-    # register() on main contributes five widgets. (Transitions + the emoji are
-    # described in the summary, which the search haystack covers.)
+def test_baseball_provides_full_typed_surface():
     cat = load_catalog()
-    assert set(cat.get("baseball").provides) == {
+    prov = cat.get("baseball").provides
+    assert set(prov.widgets) == {
         "baseball.scores",
         "baseball.standings",
         "baseball.promotions",
         "baseball.statcast",
         "baseball.attendance",
     }
+    assert set(prov.transitions) == {
+        "baseball.roll",
+        "baseball.roll_reverse",
+        "baseball.roll_alternating",
+    }
+    assert prov.emoji == ("baseball.ball",)
 
 
-def test_search_finds_new_baseball_widgets_and_surfaces():
+def test_pokeball_provides_transitions_and_emoji():
+    prov = load_catalog().get("pokeball").provides
+    assert set(prov.transitions) == {
+        "pokeball.forward",
+        "pokeball.reverse",
+        "pokeball.alternating",
+    }
+    assert prov.emoji == ("pokeball.ball",)
+
+
+def test_schema_version_is_3():
+    from led_ticker.plugins_catalog import SCHEMA_VERSION
+
+    assert SCHEMA_VERSION == 3
+
+
+def test_parse_provides_valid_multi_kind():
+    from led_ticker.plugins_catalog import _parse_provides
+
+    p = _parse_provides({"widgets": ["a.w"], "transitions": ["a.t"], "emoji": ["a.e"]})
+    assert p.widgets == ("a.w",)
+    assert p.transitions == ("a.t",)
+    assert p.emoji == ("a.e",)
+
+
+def test_parse_provides_absent_is_empty():
+    from led_ticker.plugins_catalog import _parse_provides
+
+    assert _parse_provides(None).is_empty() is True
+
+
+def test_parse_provides_rejects_non_dict():
+    from led_ticker.plugins_catalog import _parse_provides
+
+    with pytest.raises(ValueError, match="must be an object"):
+        _parse_provides(["a.w"])
+
+
+def test_parse_provides_rejects_unknown_kind():
+    from led_ticker.plugins_catalog import _parse_provides
+
+    with pytest.raises(ValueError, match="unknown surface kind"):
+        _parse_provides({"widgetz": ["a.w"]})
+
+
+def test_parse_provides_rejects_non_string_list():
+    from led_ticker.plugins_catalog import _parse_provides
+
+    with pytest.raises(ValueError, match="list of strings"):
+        _parse_provides({"widgets": [123]})
+
+
+def test_search_finds_each_kind():
     cat = load_catalog()
-    # a newer widget (via provides), a transition + the emoji (via summary)
-    assert "baseball" in {e.name for e in cat.search("attendance")}
-    assert "baseball" in {e.name for e in cat.search("statcast")}
-    assert "baseball" in {e.name for e in cat.search("roll")}
-    # "baseball.ball" is not a substring of the name/provides, so a hit proves
-    # the emoji slug is discoverable via the summary.
-    assert "baseball" in {e.name for e in cat.search("baseball.ball")}
+    assert "baseball" in {e.name for e in cat.search("attendance")}  # widget
+    assert "baseball" in {e.name for e in cat.search("roll")}  # transition
+    assert "baseball" in {e.name for e in cat.search("baseball.ball")}  # emoji
+    assert "nyancat" in {e.name for e in cat.search("nyancat.forward")}  # trans-only
 
 
 # --- requirement() builder ---
@@ -115,7 +170,7 @@ def _git_entry(ref="v1.2.0"):
         namespace="pool",
         summary="x",
         homepage="",
-        provides=("pool.monitor",),
+        provides=PluginProvides(widgets=("pool.monitor",)),
         sources=(
             CatalogSource(
                 type="git",
@@ -144,7 +199,7 @@ def test_requirement_git_with_subdirectory():
         namespace="rss",
         summary="RSS/Atom headlines.",
         homepage="https://github.com/JamesAwesome/led-ticker-plugins",
-        provides=("rss.feed",),
+        provides=PluginProvides(widgets=("rss.feed",)),
         sources=(
             CatalogSource(
                 type="git",
@@ -171,7 +226,7 @@ def test_requirement_git_url_already_dot_git_not_doubled():
         "p",
         "x",
         "",
-        (),
+        PluginProvides(),
         (CatalogSource(type="git", url="https://h/o/p.git", ref="main"),),
     )
     assert e.requirement() == "git+https://h/o/p.git@main"
@@ -183,7 +238,7 @@ def test_requirement_pypi_pinned_and_unpinned():
         "p",
         "x",
         "",
-        (),
+        PluginProvides(),
         (CatalogSource(type="pypi", package="led-ticker-pool", version="1.2.0"),),
     )
     assert e.requirement() == "led-ticker-pool==1.2.0"
@@ -196,7 +251,7 @@ def test_requirement_pypi_no_version_falls_back_to_bare_name():
         "p",
         "x",
         "",
-        (),
+        PluginProvides(),
         (CatalogSource(type="pypi", package="led-ticker-pool", version=None),),
     )
     assert e.requirement() == "led-ticker-pool"
@@ -208,7 +263,7 @@ def test_source_for_prefers_first_then_honors_explicit():
         "p",
         "x",
         "",
-        (),
+        PluginProvides(),
         (
             CatalogSource(type="git", url="https://h/o/p", ref="main"),
             CatalogSource(type="pypi", package="led-ticker-pool"),

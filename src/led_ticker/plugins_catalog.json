@@ -1,12 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "plugins": [
     {
       "name": "pool",
       "namespace": "pool",
       "summary": "Pool water temperature from InfluxDB v2 (ticker / two_row layouts).",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pool",
-      "provides": ["pool.monitor"],
+      "provides": { "widgets": ["pool.monitor"] },
       "sources": [
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "pool-v0.1.0", "subdirectory": "plugins/pool" }
       ]
@@ -16,7 +16,11 @@
       "namespace": "baseball",
       "summary": "MLB scores, standings, promotions, statcast & attendance widgets, baseball.roll* transitions, and the :baseball.ball: emoji.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball",
-      "provides": ["baseball.scores", "baseball.standings", "baseball.promotions", "baseball.statcast", "baseball.attendance"],
+      "provides": {
+        "widgets": ["baseball.scores", "baseball.standings", "baseball.promotions", "baseball.statcast", "baseball.attendance"],
+        "transitions": ["baseball.roll", "baseball.roll_reverse", "baseball.roll_alternating"],
+        "emoji": ["baseball.ball"]
+      },
       "sources": [
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "baseball-v0.1.0", "subdirectory": "plugins/baseball" }
       ]
@@ -26,7 +30,7 @@
       "namespace": "crypto",
       "summary": "CoinGecko cryptocurrency price ticker.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/crypto",
-      "provides": ["crypto.coingecko"],
+      "provides": { "widgets": ["crypto.coingecko"] },
       "sources": [
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "crypto-v0.1.0", "subdirectory": "plugins/crypto" }
       ]
@@ -36,7 +40,7 @@
       "namespace": "calendar",
       "summary": "Calendar (.ics) agenda/next/two_row widget.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/calendar",
-      "provides": ["calendar.events"],
+      "provides": { "widgets": ["calendar.events"] },
       "sources": [
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "calendar-v0.1.0", "subdirectory": "plugins/calendar" }
       ]
@@ -46,7 +50,7 @@
       "namespace": "rss",
       "summary": "RSS/Atom feed headlines (rss.feed).",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/rss",
-      "provides": ["rss.feed"],
+      "provides": { "widgets": ["rss.feed"] },
       "sources": [
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "rss-v0.2.0", "subdirectory": "plugins/rss" }
       ]
@@ -56,7 +60,7 @@
       "namespace": "weather",
       "summary": "Current-conditions weather widget using WeatherAPI.com (weather.current).",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/weather",
-      "provides": ["weather.current"],
+      "provides": { "widgets": ["weather.current"] },
       "sources": [
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "weather-v0.2.0", "subdirectory": "plugins/weather" }
       ]
@@ -66,7 +70,7 @@
       "namespace": "nyancat",
       "summary": "Nyan Cat sprite-trail transitions (nyancat.forward/.reverse/.alternating; hi-res).",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/nyancat",
-      "provides": ["nyancat.forward", "nyancat.reverse", "nyancat.alternating"],
+      "provides": { "transitions": ["nyancat.forward", "nyancat.reverse", "nyancat.alternating"] },
       "sources": [
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "nyancat-v0.1.0", "subdirectory": "plugins/nyancat" }
       ]
@@ -76,7 +80,10 @@
       "namespace": "pokeball",
       "summary": "Pokeball/Pikachu sprite-trail transitions (pokeball.forward/.reverse/.alternating; hi-res) and the :pokeball.ball: emoji.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pokeball",
-      "provides": ["pokeball.forward", "pokeball.reverse", "pokeball.alternating"],
+      "provides": {
+        "transitions": ["pokeball.forward", "pokeball.reverse", "pokeball.alternating"],
+        "emoji": ["pokeball.ball"]
+      },
       "sources": [
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "pokeball-v0.1.0", "subdirectory": "plugins/pokeball" }
       ]
@@ -86,7 +93,7 @@
       "namespace": "pacman",
       "summary": "Pac-Man sprite-trail transitions (pacman.forward/.reverse/.alternating).",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pacman",
-      "provides": ["pacman.forward", "pacman.reverse", "pacman.alternating"],
+      "provides": { "transitions": ["pacman.forward", "pacman.reverse", "pacman.alternating"] },
       "sources": [
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "pacman-v0.1.0", "subdirectory": "plugins/pacman" }
       ]
@@ -96,7 +103,7 @@
       "namespace": "sailor_moon",
       "summary": "Sailor Moon sprite-trail transitions (sailor_moon.forward/.reverse/.alternating).",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/sailor_moon",
-      "provides": ["sailor_moon.forward", "sailor_moon.reverse", "sailor_moon.alternating"],
+      "provides": { "transitions": ["sailor_moon.forward", "sailor_moon.reverse", "sailor_moon.alternating"] },
       "sources": [
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "sailor_moon-v0.1.0", "subdirectory": "plugins/sailor_moon" }
       ]

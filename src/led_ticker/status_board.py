@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # tests/test_status_board.py). Additive fields nested inside existing
 # entries (e.g. plugins[].names, added in v1.1) are version-compatible:
 # readers must tolerate their absence.
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 MIN_PUBLISH_INTERVAL = 2.0
 LOG_TAIL_MAX = 50
 
@@ -43,6 +43,7 @@ class StatusBoard:
     geometry: dict[str, Any] = attrs.field(factory=dict)
     plugins: list[dict[str, Any]] = attrs.field(factory=list)
     failed_plugins: list[dict[str, str]] = attrs.field(factory=list)
+    disabled_widgets: list[dict[str, str]] = attrs.field(factory=list)
     section: dict[str, Any] = attrs.field(factory=dict)
     widget: dict[str, Any] = attrs.field(factory=dict)
     monitor_updates: dict[str, float] = attrs.field(factory=dict)
@@ -74,6 +75,7 @@ class StatusBoard:
             "geometry": self.geometry,
             "plugins": self.plugins,
             "failed_plugins": self.failed_plugins,
+            "disabled_widgets": self.disabled_widgets,
             "section": self.section,
             "widget": self.widget,
             "monitor_updates": self.monitor_updates,
@@ -189,6 +191,21 @@ def record_widget_visit(widget: Any) -> None:
     except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
         return
     _ACTIVE.publish()
+
+
+def record_disabled_widget(widget: Any, error: str) -> None:
+    """Record a widget disabled by the render circuit breaker. Instrumentation
+    only — must never raise into the engine."""
+    if _ACTIVE is None:
+        return
+    try:
+        label = type(widget).__name__
+        entry = {"widget": label, "error": error}
+        if entry not in _ACTIVE.disabled_widgets:
+            _ACTIVE.disabled_widgets.append(entry)
+            _ACTIVE.publish()
+    except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+        return
 
 
 def record_swap() -> None:

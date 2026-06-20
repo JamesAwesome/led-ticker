@@ -19,6 +19,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "geometry",
     "plugins",
     "failed_plugins",
+    "disabled_widgets",
     "section",
     "widget",
     "monitor_updates",
@@ -39,7 +40,8 @@ def test_schema_tripwire(tmp_path):
         "SCHEMA_VERSION in src/led_ticker/status_board.py (the sidecar refuses "
         "schemas it doesn't know)."
     )
-    assert snap["schema"] == SCHEMA_VERSION == 3
+    assert snap["schema"] == SCHEMA_VERSION == 4
+    assert "disabled_widgets" in snap
 
 
 def test_publish_roundtrip(tmp_path):
@@ -338,3 +340,39 @@ def test_record_busy_does_not_write_file(tmp_path):
         assert (tmp_path / "status.json").exists()  # the explicit publish writes
     finally:
         status_board.clear_active_board()
+
+
+def test_record_disabled_widget_appears_in_snapshot():
+    from types import SimpleNamespace
+
+    from led_ticker import status_board
+
+    board = StatusBoard(path="/tmp/led-ticker-test-status.json")
+    status_board.set_active_board(board)
+    try:
+        status_board.record_disabled_widget(
+            SimpleNamespace(text="hi"), "ValueError: boom"
+        )
+    finally:
+        status_board.set_active_board(None)
+    snap = board.snapshot()
+    assert snap["disabled_widgets"], "expected a disabled widget entry"
+    entry = snap["disabled_widgets"][0]
+    assert entry["error"] == "ValueError: boom"
+    assert entry["widget"]  # a non-empty label
+
+
+def test_record_disabled_widget_dedups_by_label_and_error():
+    from types import SimpleNamespace
+
+    from led_ticker import status_board
+
+    board = StatusBoard(path="/tmp/led-ticker-test-status2.json")
+    status_board.set_active_board(board)
+    try:
+        w = SimpleNamespace(text="hi")
+        status_board.record_disabled_widget(w, "ValueError: boom")
+        status_board.record_disabled_widget(w, "ValueError: boom")
+    finally:
+        status_board.set_active_board(None)
+    assert len(board.snapshot()["disabled_widgets"]) == 1

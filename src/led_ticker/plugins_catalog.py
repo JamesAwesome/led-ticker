@@ -17,6 +17,72 @@ _CATALOG_RESOURCE = "plugins_catalog.json"
 SCHEMA_VERSION = 2
 _VALID_SOURCE_TYPES = ("git", "pypi")
 
+# Every surface a plugin can register (see led_ticker.plugin PluginAPI).
+# Canonical order = list/display order. `emoji` covers the lo-res + hi-res pair.
+_SURFACE_KINDS = (
+    "widgets",
+    "transitions",
+    "emoji",
+    "fonts",
+    "borders",
+    "color_providers",
+    "animations",
+    "easing",
+)
+
+# Order the install hint picks a "primary" surface in (first non-empty wins).
+_PRIMARY_ORDER = (
+    "widgets",
+    "transitions",
+    "color_providers",
+    "animations",
+    "borders",
+    "emoji",
+    "fonts",
+    "easing",
+)
+
+
+@attrs.define(frozen=True)
+class PluginProvides:
+    """The typed surface a catalog plugin contributes, grouped by kind.
+
+    Each field is a tuple of fully-qualified ``namespace.name`` strings. Fields
+    are named exactly as ``_SURFACE_KINDS`` so the loader can splat a dict in.
+    """
+
+    widgets: tuple[str, ...] = ()
+    transitions: tuple[str, ...] = ()
+    emoji: tuple[str, ...] = ()
+    fonts: tuple[str, ...] = ()
+    borders: tuple[str, ...] = ()
+    color_providers: tuple[str, ...] = ()
+    animations: tuple[str, ...] = ()
+    easing: tuple[str, ...] = ()
+
+    def all_names(self) -> tuple[str, ...]:
+        """Every provided name across all kinds, in canonical order."""
+        return tuple(name for kind in _SURFACE_KINDS for name in getattr(self, kind))
+
+    def is_empty(self) -> bool:
+        return not self.all_names()
+
+    def groups(self) -> list[tuple[str, tuple[str, ...]]]:
+        """Non-empty ``(kind, names)`` pairs in canonical order (for display)."""
+        return [
+            (kind, getattr(self, kind))
+            for kind in _SURFACE_KINDS
+            if getattr(self, kind)
+        ]
+
+    def primary(self) -> tuple[str, str] | None:
+        """The ``(kind, first_name)`` for the install hint, by priority order."""
+        for kind in _PRIMARY_ORDER:
+            names = getattr(self, kind)
+            if names:
+                return (kind, names[0])
+        return None
+
 
 @attrs.define(frozen=True)
 class CatalogSource:

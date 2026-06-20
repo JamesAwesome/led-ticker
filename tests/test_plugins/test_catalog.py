@@ -6,6 +6,7 @@ from led_ticker.plugins_catalog import (
     Catalog,
     CatalogEntry,
     CatalogSource,
+    PluginProvides,
     _parse_entry,
     _parse_source,
     load_catalog,
@@ -24,8 +25,16 @@ def test_bundled_catalog_has_the_first_party_plugins():
     cat = load_catalog()
     names = {e.name for e in cat.entries}
     assert names == {
-        "pool", "baseball", "crypto", "calendar", "rss", "weather",
-        "nyancat", "pokeball", "pacman", "sailor_moon",
+        "pool",
+        "baseball",
+        "crypto",
+        "calendar",
+        "rss",
+        "weather",
+        "nyancat",
+        "pokeball",
+        "pacman",
+        "sailor_moon",
     }
     # the split is done — no monolithic feeds/arcade entries remain
     assert "feeds" not in names and "arcade" not in names
@@ -48,7 +57,9 @@ def test_split_families_provide_their_types():
     assert cat.get("weather").provides == ("weather.current",)
     for fam in ("nyancat", "pokeball", "pacman", "sailor_moon"):
         assert set(cat.get(fam).provides) == {
-            f"{fam}.forward", f"{fam}.reverse", f"{fam}.alternating"
+            f"{fam}.forward",
+            f"{fam}.reverse",
+            f"{fam}.alternating",
         }
 
 
@@ -252,3 +263,36 @@ def test_parse_entry_requires_sources():
 def test_parse_entry_empty_sources_rejected():
     with pytest.raises(ValueError, match="no sources"):
         _parse_entry({"name": "p", "namespace": "p", "summary": "x", "sources": []})
+
+
+# --- PluginProvides value object ---
+
+
+def test_provides_all_names_in_canonical_order():
+    p = PluginProvides(
+        widgets=("ns.w1", "ns.w2"),
+        transitions=("ns.t1",),
+        emoji=("ns.e1",),
+    )
+    assert p.all_names() == ("ns.w1", "ns.w2", "ns.t1", "ns.e1")
+
+
+def test_provides_is_empty():
+    assert PluginProvides().is_empty() is True
+    assert PluginProvides(transitions=("ns.t",)).is_empty() is False
+
+
+def test_provides_groups_skips_empty_kinds_in_order():
+    p = PluginProvides(emoji=("ns.e",), widgets=("ns.w",))
+    # widgets before emoji (canonical order), transitions omitted (empty)
+    assert p.groups() == [("widgets", ("ns.w",)), ("emoji", ("ns.e",))]
+
+
+def test_provides_primary_prefers_widgets_then_transitions():
+    both = PluginProvides(widgets=("ns.w",), transitions=("ns.t",))
+    assert both.primary() == ("widgets", "ns.w")
+    trans_only = PluginProvides(transitions=("ns.t1", "ns.t2"))
+    assert trans_only.primary() == ("transitions", "ns.t1")
+    emoji_only = PluginProvides(emoji=("ns.ball",))
+    assert emoji_only.primary() == ("emoji", "ns.ball")
+    assert PluginProvides().primary() is None

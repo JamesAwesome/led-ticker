@@ -90,12 +90,18 @@ def test_plugin_add_dispatch_writes_manifest(tmp_path, monkeypatch, capsys):
 
 def test_plugin_remove_dispatch(tmp_path, monkeypatch, capsys):
     cfg = _min_config(tmp_path)
+    # The catalog now resolves `pool` to a monorepo line; `remove pool` matches it
+    # by the subdirectory-aware key.
     (tmp_path / "requirements-plugins.txt").write_text(
-        "git+https://github.com/JamesAwesome/led-ticker-pool.git@main\n"
+        "git+https://github.com/JamesAwesome/led-ticker-plugins.git"
+        "@pool-v0.1.0#subdirectory=plugins/pool\n"
     )
     code = _run(monkeypatch, ["plugin", "remove", "pool", "--config", str(cfg)])
     assert code == 0
-    assert "led-ticker-pool" not in (tmp_path / "requirements-plugins.txt").read_text()
+    assert (
+        "subdirectory=plugins/pool"
+        not in (tmp_path / "requirements-plugins.txt").read_text()
+    )
 
 
 def test_plugin_uninstall_dry_run_dispatch(tmp_path, monkeypatch, capsys):

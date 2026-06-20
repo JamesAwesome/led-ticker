@@ -78,23 +78,27 @@ _TRANSITION_REGISTRY: dict[str, type[Transition]] = {}
 # still-registered transition would be unreachable.
 
 
-def _arcade_migration(name: str) -> tuple[str, str]:
-    ns = f"arcade.{name}"
+# bare family name (+ _reverse/_alternating suffix) -> (new namespaced type, plugin)
+_SPRITE_VARIANT = {"": "forward", "_reverse": "reverse", "_alternating": "alternating"}
+_SPRITE_FAMILIES = ("pacman", "sailor_moon", "nyancat", "pokeball")
+
+
+def _sprite_migration(family: str, suffix: str) -> tuple[str, str]:
+    new = f"{family}.{_SPRITE_VARIANT[suffix]}"
     return (
-        f"Transition {name!r} was extracted from led-ticker core; it now ships "
-        f"in the led-ticker-arcade plugin as {ns!r}.",
-        "Install led-ticker-arcade (add it to config/requirements-plugins.txt) "
-        f"and use transition = {ns!r}.",
+        f"Transition {family + suffix!r} was extracted from led-ticker core; it "
+        f"now ships in the led-ticker-plugins monorepo as {new!r}.",
+        f"Install the {family!r} plugin (add "
+        f"`git+https://github.com/JamesAwesome/led-ticker-plugins.git"
+        f"@{family}-v0.1.0#subdirectory=plugins/{family}` to "
+        f"config/requirements-plugins.txt) and use transition = {new!r}.",
     )
 
 
-_ARCADE_TRANSITIONS = [
-    f"{family}{suffix}"
-    for family in ("pacman", "sailor_moon", "nyancat", "pokeball")
-    for suffix in ("", "_reverse", "_alternating")
-]
 _TRANSITION_MIGRATION: dict[str, tuple[str, str]] = {
-    name: _arcade_migration(name) for name in _ARCADE_TRANSITIONS
+    f"{family}{suffix}": _sprite_migration(family, suffix)
+    for family in _SPRITE_FAMILIES
+    for suffix in _SPRITE_VARIANT
 }
 
 

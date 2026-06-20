@@ -9,24 +9,32 @@ from led_ticker.transitions import (
     get_transition_class,
 )
 
+_VARIANT = {"": "forward", "_reverse": "reverse", "_alternating": "alternating"}
+
 
 @pytest.mark.parametrize(
-    "name",
+    ("family", "suffix"),
     [
-        f"{family}{suffix}"
+        (family, suffix)
         for family in ("pacman", "sailor_moon", "nyancat", "pokeball")
         for suffix in ("", "_reverse", "_alternating")
     ],
 )
-def test_bare_arcade_transition_migrates_to_plugin(name):
+def test_bare_sprite_transition_migrates_to_monorepo(family, suffix):
+    name = f"{family}{suffix}"
+    new = f"{family}.{_VARIANT[suffix]}"
     message, fix = explain_unknown_transition(name)
-    assert "led-ticker-arcade" in message
-    assert f"arcade.{name}" in fix
+    assert "led-ticker-plugins monorepo" in message
+    assert new in message
+    # the fix names the new type + the per-plugin monorepo install line
+    assert new in fix
+    assert f"subdirectory=plugins/{family}" in fix
+    assert f"@{family}-v0.1.0" in fix
 
 
-def test_unrelated_unknown_transition_has_no_arcade_hint():
-    message, fix = explain_unknown_transition("definitely_not_a_transition")
-    assert "led-ticker-arcade" not in message
+def test_unrelated_unknown_transition_has_no_monorepo_hint():
+    message, _fix = explain_unknown_transition("definitely_not_a_transition")
+    assert "led-ticker-plugins monorepo" not in message
 
 
 def test_migration_entry_wins(monkeypatch):

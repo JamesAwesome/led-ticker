@@ -1,18 +1,18 @@
 ---
-title: feeds.weather widget
-description: The feeds.weather current-conditions widget is provided by the led-ticker-feeds plugin (type = "feeds.weather").
+title: weather.current widget
+description: The weather.current current-conditions widget is provided by the weather package in led-ticker-plugins (type = "weather.current").
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
 
-The **feeds.weather** widget is provided by the **[led-ticker-feeds](https://github.com/JamesAwesome/led-ticker-feeds)** plugin, referenced in config as `type = "feeds.weather"`. It shows current conditions and temperature from [WeatherAPI.com](https://www.weatherapi.com/) with a pixel-art condition icon.
+The **weather.current** widget is provided by the **[weather](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/weather)** package in the led-ticker-plugins monorepo, referenced in config as `type = "weather.current"`. It shows current conditions and temperature from [WeatherAPI.com](https://www.weatherapi.com/) with a pixel-art condition icon.
 
 <DemoGif
   src="/demos-long/widget-weather.gif"
   caption="Weather showing condition icon, label, and temperature in their real deployed colors."
 />
 
-- **To add it to your sign:** add `git+https://github.com/JamesAwesome/led-ticker-feeds.git@main` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow. You'll also need a free `WEATHERAPI_KEY` set in your `.env`.
-- **Full documentation** — options, config examples, and a demo gif — lives in the [led-ticker-feeds README](https://github.com/JamesAwesome/led-ticker-feeds#readme).
+- **To add it to your sign:** add `git+https://github.com/JamesAwesome/led-ticker-plugins.git@weather-v0.2.0#subdirectory=plugins/weather` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow. You'll also need a free `WEATHERAPI_KEY` set in your `.env`.
+- **Full documentation** — options, config examples, and a demo gif — lives in the [weather package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/weather/README.md).
 
 See the [plugin system](/plugins/) for how plugin widgets work.

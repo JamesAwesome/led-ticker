@@ -1,18 +1,18 @@
 ---
-title: feeds.rss widget
-description: The feeds.rss RSS-headline widget is provided by the led-ticker-feeds plugin (type = "feeds.rss").
+title: rss.feed widget
+description: The rss.feed RSS-headline widget is provided by the rss package in led-ticker-plugins (type = "rss.feed").
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
 
-The **feeds.rss** widget is provided by the **[led-ticker-feeds](https://github.com/JamesAwesome/led-ticker-feeds)** plugin, referenced in config as `type = "feeds.rss"`. It fetches a remote RSS feed and turns each headline into its own scrolling line in the section.
+The **rss.feed** widget is provided by the **[rss](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/rss)** package in the led-ticker-plugins monorepo, referenced in config as `type = "rss.feed"`. It fetches a remote RSS feed and turns each headline into its own scrolling line in the section.
 
 <DemoGif
   src="/demos-long/widget-rss_feed.gif"
   caption="RSS feed scrolling Nintendo Life headlines, each story in a different color from the default rotation."
 />
 
-- **To add it to your sign:** add `git+https://github.com/JamesAwesome/led-ticker-feeds.git@main` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow.
-- **Full documentation** — options, config examples, and a demo gif — lives in the [led-ticker-feeds README](https://github.com/JamesAwesome/led-ticker-feeds#readme).
+- **To add it to your sign:** add `git+https://github.com/JamesAwesome/led-ticker-plugins.git@rss-v0.2.0#subdirectory=plugins/rss` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow.
+- **Full documentation** — options, config examples, and a demo gif — lives in the [rss package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/rss/README.md).
 
 See the [plugin system](/plugins/) for how plugin widgets work.

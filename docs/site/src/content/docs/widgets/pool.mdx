@@ -1,11 +1,11 @@
 ---
 title: pool widget
-description: The pool water-temperature widget is provided by the led-ticker-pool plugin (type = "pool.monitor").
+description: The pool water-temperature widget is provided by the pool package in led-ticker-plugins (type = "pool.monitor").
 ---
 
-The **pool** widget is provided by the **[led-ticker-pool](https://github.com/JamesAwesome/led-ticker-pool)** plugin, referenced in config as `type = "pool.monitor"`.
+The **pool** widget is provided by the **[pool](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pool)** package in the led-ticker-plugins monorepo, referenced in config as `type = "pool.monitor"`.
 
-- **To add it to your sign:** add `git+https://github.com/JamesAwesome/led-ticker-pool.git@main` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow. It needs a running InfluxDB v2 server.
-- **Full documentation** — options, `ticker` vs `two_row` layouts, InfluxDB setup, and screenshots — lives in the [led-ticker-pool README](https://github.com/JamesAwesome/led-ticker-pool#readme).
+- **To add it to your sign:** add `git+https://github.com/JamesAwesome/led-ticker-plugins.git@pool-v0.1.0#subdirectory=plugins/pool` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow. It needs a running InfluxDB v2 server.
+- **Full documentation** — options, `ticker` vs `two_row` layouts, InfluxDB setup, and screenshots — lives in the [pool package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/pool/README.md).
 
 Pool is the flagship example of led-ticker's [plugin system](/plugins/) — a way to add widgets that aren't part of core.

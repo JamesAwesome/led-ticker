@@ -96,7 +96,7 @@ def register(api):
     api.on_startup(lambda ctx: spawn_tracked(_poll()))
 ```
 
-`spawn_tracked` keeps the background task alive; `on_startup` runs it once before the display loop. See [`acme`](https://github.com/JamesAwesome/led-ticker/blob/main/examples/plugins/acme/__init__.py) for a runnable version and [`led-ticker-pool`](https://github.com/JamesAwesome/led-ticker-pool) for a production one.
+`spawn_tracked` keeps the background task alive; `on_startup` runs it once before the display loop. See [`acme`](https://github.com/JamesAwesome/led-ticker/blob/main/examples/plugins/acme/__init__.py) for a runnable version and the [`pool`](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pool) package for a production one.
 
 That's the whole surface. Build something and [add it to the directory](/plugins/available/).
 

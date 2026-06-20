@@ -4,8 +4,8 @@ The slug list rots fast as new icons are added. The source of truth is `src/led_
 
 > **Plugin emoji.** Some icons ship with external plugins (install the plugin to use them; the slugs in the table below are all built in):
 >
-> - `:baseball.ball:` (white ball with red stitching) — [`led-ticker-baseball`](https://github.com/JamesAwesome/led-ticker-baseball)
-> - `:arcade.pokeball:` (red top, white bottom, button-banded) — [`led-ticker-arcade`](https://github.com/JamesAwesome/led-ticker-arcade)
+> - `:baseball.ball:` (white ball with red stitching) — [`baseball`](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)
+> - `:pokeball.ball:` (red top, white bottom, button-banded) — [`pokeball`](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pokeball)
 
 | Slug | Lowres (8×8) | Hires (32×32) | Description |
 |------|--------------|---------------|-------------|

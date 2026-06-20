@@ -82,52 +82,69 @@ export default defineConfig({
             // the most-used widget — letting the autogenerate sort
             // would bury it alphabetically at position 7.
             { label: "All widgets", link: "/widgets/" },
-            { label: "message", link: "/widgets/message/" },
-            { label: "countdown", link: "/widgets/countdown/" },
-            { label: "clock", link: "/widgets/clock/" },
-            { label: "two_row", link: "/widgets/two_row/" },
-            { label: "gif", link: "/widgets/gif/" },
-            { label: "image", link: "/widgets/image/" },
-            { label: "baseball.scores (plugin)", link: "/widgets/mlb/" },
             {
-              label: "baseball.standings (plugin)",
-              link: "/widgets/mlb_standings/",
+              label: "Core widgets",
+              items: [
+                { label: "message", link: "/widgets/message/" },
+                { label: "countdown", link: "/widgets/countdown/" },
+                { label: "clock", link: "/widgets/clock/" },
+                { label: "two_row", link: "/widgets/two_row/" },
+                { label: "gif", link: "/widgets/gif/" },
+                { label: "image", link: "/widgets/image/" },
+              ],
             },
             {
-              label: "crypto.coingecko (plugin)",
-              link: "/widgets/crypto-coingecko/",
+              label: "Plugin widgets",
+              items: [
+                { label: "baseball.scores", link: "/widgets/mlb/" },
+                { label: "baseball.standings", link: "/widgets/mlb_standings/" },
+                { label: "crypto.coingecko", link: "/widgets/crypto-coingecko/" },
+                { label: "pool", link: "/widgets/pool/" },
+                { label: "calendar.events", link: "/widgets/calendar/" },
+                { label: "rss.feed", link: "/widgets/rss_feed/" },
+                { label: "weather.current", link: "/widgets/weather/" },
+              ],
             },
-            { label: "pool (plugin)", link: "/widgets/pool/" },
-            { label: "calendar.events (plugin)", link: "/widgets/calendar/" },
-            { label: "rss.feed (plugin)", link: "/widgets/rss_feed/" },
-            { label: "weather.current (plugin)", link: "/widgets/weather/" },
           ],
         },
         {
           label: "Plugins",
           items: [
-            { label: "Plugins overview", link: "/plugins/" },
-            { label: "Available plugins", link: "/plugins/available/" },
-            { label: "API reference", link: "/plugins/api-reference/" },
             {
-              label: "Authoring a plugin",
+              label: "Using plugins",
               items: [
-                { label: "1. Scaffold & register", link: "/plugins/authoring/01-scaffold/" },
-                { label: "2. Build the widget", link: "/plugins/authoring/02-widget/" },
-                { label: "3. Package & install", link: "/plugins/authoring/03-package/" },
-                { label: "4. Beyond widgets", link: "/plugins/authoring/04-beyond-widgets/" },
+                { label: "Plugins overview", link: "/plugins/" },
+                { label: "Available plugins", link: "/plugins/available/" },
               ],
             },
             {
-              label: "Extending led-ticker",
+              label: "Building plugins",
               items: [
-                { label: "Custom emoji", link: "/plugins/extending/custom-emoji/" },
-                { label: "Writing a transition", link: "/plugins/extending/writing-a-transition/" },
+                { label: "API reference", link: "/plugins/api-reference/" },
                 {
-                  label: "Custom color provider",
-                  link: "/plugins/extending/custom-color-provider/",
+                  label: "Authoring a plugin",
+                  items: [
+                    { label: "1. Scaffold & register", link: "/plugins/authoring/01-scaffold/" },
+                    { label: "2. Build the widget", link: "/plugins/authoring/02-widget/" },
+                    { label: "3. Package & install", link: "/plugins/authoring/03-package/" },
+                    { label: "4. Beyond widgets", link: "/plugins/authoring/04-beyond-widgets/" },
+                  ],
                 },
-                { label: "Service plugins", link: "/plugins/extending/service-plugins/" },
+                {
+                  label: "Extending led-ticker",
+                  items: [
+                    { label: "Custom emoji", link: "/plugins/extending/custom-emoji/" },
+                    {
+                      label: "Writing a transition",
+                      link: "/plugins/extending/writing-a-transition/",
+                    },
+                    {
+                      label: "Custom color provider",
+                      link: "/plugins/extending/custom-color-provider/",
+                    },
+                    { label: "Service plugins", link: "/plugins/extending/service-plugins/" },
+                  ],
+                },
               ],
             },
           ],

@@ -42,12 +42,29 @@ def _requirement_key(requirement: str) -> str:
     git -> the repo stem (``led-ticker-pool``); pypi -> the package name. So a
     re-install of the same plugin (even switching git<->pypi or changing the pin)
     replaces its line instead of duplicating it.
+
+    Monorepo subdirectories are kept distinct: a ``#subdirectory=<path>`` fragment
+    is preserved in the key (``led-ticker-plugins#plugins/pool``) so two plugins
+    sharing one repo don't collapse to the same key. A bare ``#egg=`` fragment is
+    a name hint only (not identity) and is dropped. The subdirectory path is NOT
+    case-folded or ``_``->``-`` mangled — it must match the literal filesystem
+    path (e.g. ``plugins/sailor_moon``).
     """
     req = requirement.strip()
     if req.startswith(("git+", "-e ")):
-        # git+https://host/owner/led-ticker-pool.git@<ref>[#egg=...] -> led-ticker-pool
+        # git+https://host/owner/repo.git@<ref>[#egg=...&subdirectory=...] ->
+        #   led-ticker-pool  (or  led-ticker-plugins#plugins/pool  for a monorepo)
         url = req.removeprefix("-e ").strip()
-        url = url.split("#", 1)[0]  # drop the #egg= fragment
+        spec, _, fragment = url.partition("#")
+        url = spec  # drop the fragment from the URL itself
+        # Extract a subdirectory= part from the fragment (fragments can be
+        # '&'-joined, e.g. '#egg=foo&subdirectory=plugins/pool'). The #egg= hint
+        # is intentionally ignored — it's a name, not identity.
+        subdirectory = None
+        for part in fragment.split("&"):
+            if part.startswith("subdirectory="):
+                subdirectory = part.removeprefix("subdirectory=")
+                break
         # Strip the @ref. A ref can itself contain '/' (e.g. @feature/foo), so
         # cut at the first '@' AFTER the URL path begins — not a user@host
         # credential, and not a '/' inside the ref.
@@ -57,7 +74,10 @@ def _requirement_key(requirement: str) -> str:
         if at != -1:
             url = url[:at]
         stem = url.rstrip("/").split("/")[-1].removesuffix(".git")
-        return stem.lower().replace("_", "-")
+        stem_key = stem.lower().replace("_", "-")
+        if subdirectory:
+            return f"{stem_key}#{subdirectory}"
+        return stem_key
     # pypi: name up to the first version/marker/extra delimiter
     for delim in ("==", ">=", "<=", "~=", "!=", ">", "<", "[", ";", " "):
         idx = req.find(delim)
@@ -245,18 +265,36 @@ def _removed_phrase(lines: list[str], key: str) -> str:
 
 
 def _dist_key(target: str, catalog: Catalog) -> str:
-    """The dedup key for a target — a catalog name resolves via its requirement
-    (`pool` -> `led-ticker-pool`); a raw spec via the spec itself.
+    """The MANIFEST MATCH key for a target — a catalog name resolves via its
+    requirement (`pool` -> `led-ticker-plugins#plugins/pool` for a monorepo
+    plugin, or `led-ticker-pool` for a single-repo one); a raw spec via the spec
+    itself.
 
-    `uninstall` also uses this as the pip distribution name. That holds for the
-    git repo stem == package name convention the first-party plugins follow; a
-    raw git spec whose repo dir differs from its pyproject `name` would
-    pip-uninstall the wrong name (pip then no-ops with "not installed"). The
-    manifest line is still removed correctly either way.
+    Used for finding/removing/dedup-ing manifest lines (`_remove_requirement`,
+    `_find_requirement_lines`, `_declared_keys`). It is NOT the pip distribution
+    name — for monorepo plugins the match key carries a `#subdirectory` fragment
+    while the pip dist name is the real package name (see `_pip_dist_name`).
     """
     entry = catalog.get(target)
     if entry is not None:
         return _requirement_key(entry.requirement())
+    return _requirement_key(target)
+
+
+def _pip_dist_name(target: str, catalog: Catalog) -> str:
+    """The pip distribution name to `pip uninstall` for a target.
+
+    A catalog plugin's distribution is published as ``led-ticker-<name>`` (name
+    lowercased, ``_``->``-``): `pool` -> `led-ticker-pool`, `sailor_moon` ->
+    `led-ticker-sailor-moon`. This is distinct from the manifest match key, which
+    for a monorepo plugin is ``led-ticker-plugins#plugins/<name>``.
+
+    For a raw (non-catalog) spec there's no catalog name, so fall back to the
+    requirement key (best effort — holds when the repo stem == package name).
+    """
+    entry = catalog.get(target)
+    if entry is not None:
+        return f"led-ticker-{entry.name}".lower().replace("_", "-")
     return _requirement_key(target)
 
 
@@ -515,40 +553,47 @@ def cmd_uninstall(
 ) -> int:
     """Remove a plugin from the manifest AND pip-uninstall it (bare-metal/dev)."""
     catalog = catalog or load_catalog()
-    key = _dist_key(target, catalog)
+    # The manifest match key (subdirectory-aware) and the pip distribution name
+    # diverge for monorepo plugins: the line is keyed by repo#subdirectory, but
+    # the installed package is `led-ticker-<name>`. Find/remove the line with one;
+    # pip-uninstall the other.
+    match_key = _dist_key(target, catalog)
+    dist = _pip_dist_name(target, catalog)
     req_path = _requirements_path(config_path, config_explicit)
     config_warning = _config_warning(req_path)
 
     if dry_run:
         print("Dry run — no changes made.")
-        matches = _find_requirement_lines(req_path, key)
+        matches = _find_requirement_lines(req_path, match_key)
         if matches:
-            print(f"  would remove {_removed_phrase(matches, key)} from: {req_path}")
+            print(
+                f"  would remove {_removed_phrase(matches, match_key)} from: {req_path}"
+            )
         else:
             print(f"  {target!r} is not in {req_path} (nothing to remove).")
-        print(f"  would run:   {sys.executable} -m pip uninstall -y {key}")
+        print(f"  would run:   {sys.executable} -m pip uninstall -y {dist}")
         if config_warning:
             print(config_warning, file=sys.stderr)
         return 0
 
     try:
-        removed = _remove_requirement(req_path, key)
+        removed = _remove_requirement(req_path, match_key)
     except OSError as e:
         print(f"could not write {req_path}: {e}", file=sys.stderr)
         return 2
     if removed:
-        print(f"Removed {_removed_phrase(removed, key)} from {req_path}")
+        print(f"Removed {_removed_phrase(removed, match_key)} from {req_path}")
     else:
         print(f"{target!r} was not in {req_path}.")
     if config_warning:
         print(config_warning, file=sys.stderr)
 
-    code = _pip_uninstall(key)
+    code = _pip_uninstall(dist)
     if code != 0:
         print(
             f"pip uninstall exited {code} (the package may not have been installed).",
             file=sys.stderr,
         )
         return code
-    print(f"Uninstalled {key}.")
+    print(f"Uninstalled {dist}.")
     return 0

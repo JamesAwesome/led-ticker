@@ -52,7 +52,7 @@ class TransitionConfig:
     colors: list[tuple[int, int, int]] | None = None
     transition_fps: float | None = None  # None = use run_transition default (20 fps)
     # Non-built-in keys from a plugin transition's TOML table (e.g. {type=
-    # "arcade.pokeball", show_pikachu=false} -> extra={"show_pikachu": False}).
+    # "pokeball.forward", show_pikachu=false} -> extra={"show_pikachu": False}).
     # Passed to the plugin transition's constructor; empty for built-in transitions.
     extra: dict[str, Any] = field(default_factory=dict)
 

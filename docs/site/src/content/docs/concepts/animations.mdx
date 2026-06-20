@@ -57,14 +57,14 @@ Typewriter has `restart_on_visit = true` — the reveal counter resets every tim
 
 ## Where it works
 
-| Widget type                  | `animation = "typewriter"`?            |
-| ---------------------------- | -------------------------------------- |
-| `message`                    | yes                                    |
-| `countdown`                  | yes                                    |
-| `gif`                        | yes — single-row only (see note below) |
-| `image`                      | yes — single-row only (see note below) |
-| `two_row`                    | no                                     |
-| `weather.current`, `rss.feed` | no                                    |
+| Widget type                   | `animation = "typewriter"`?            |
+| ----------------------------- | -------------------------------------- |
+| `message`                     | yes                                    |
+| `countdown`                   | yes                                    |
+| `gif`                         | yes — single-row only (see note below) |
+| `image`                       | yes — single-row only (see note below) |
+| `two_row`                     | no                                     |
+| `weather.current`, `rss.feed` | no                                     |
 
 On `gif` and `image` widgets, typewriter is restricted to single-row text overlays. It will raise a configuration error if `bottom_text` is also set (which activates two-row mode), if `text_align` is `"scroll"` or `"scroll_over"` (incompatible with a fixed-position reveal), or if `text` is empty.
 

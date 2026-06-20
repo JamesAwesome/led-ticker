@@ -83,3 +83,21 @@ async def test_valid_schedule_has_summary_notes(tmp_path):
     )
     assert res.valid
     assert any("overnight" in n for n in res.notes)
+
+
+async def test_omitted_days_is_valid(tmp_path):
+    res = await _validate(
+        tmp_path,
+        "[display.schedule]\nenabled=true\n"
+        '[[display.schedule.windows]]\nstart="07:00"\nend="18:00"\nbrightness=80\n',
+    )
+    assert not any("day" in e.message.lower() for e in res.errors)
+
+
+async def test_brightness_true_bool_is_error(tmp_path):
+    res = await _validate(
+        tmp_path,
+        "[display.schedule]\nenabled=true\n"
+        '[[display.schedule.windows]]\nstart="07:00"\nend="18:00"\nbrightness=true\n',
+    )
+    assert any("brightness" in e.message.lower() for e in res.errors)

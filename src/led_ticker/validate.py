@@ -1407,19 +1407,29 @@ def _check_schedule(config: AppConfig) -> list[ValidationIssue]:
                     "error",
                 )
             )
-        bad_days = (
-            [d for d in (w.days or []) if d not in _VALID_DAYS]
-            if isinstance(w.days, list)
-            else [w.days]
-        )
-        if bad_days:
+        if isinstance(w.days, list):
+            bad_days = [d for d in w.days if d not in _VALID_DAYS]
+            if bad_days:
+                issues.append(
+                    ValidationIssue(
+                        rule=None,
+                        location=loc,
+                        message=f"invalid day name(s) {bad_days!r}",
+                        fix=(
+                            "Use lowercase 3-letter days: "
+                            "mon, tue, wed, thu, fri, sat, sun."
+                        ),
+                        severity="error",
+                    )
+                )
+        elif w.days:  # present but not a list (e.g. days = "mon")
             issues.append(
                 ValidationIssue(
-                    None,
-                    loc,
-                    f"invalid day name(s) {bad_days!r}",
-                    ("Use lowercase 3-letter days: mon, tue, wed, thu, fri, sat, sun."),
-                    "error",
+                    rule=None,
+                    location=loc,
+                    message=f"days must be a list of day names, got {w.days!r}",
+                    fix='Use a list, e.g. days = ["mon", "tue"].',
+                    severity="error",
                 )
             )
     for i in unreachable_window_indices(sched):

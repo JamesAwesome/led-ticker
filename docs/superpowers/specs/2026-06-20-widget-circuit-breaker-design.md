@@ -86,7 +86,7 @@ shared instance.
 
 ## Engine integration (`src/led_ticker/ticker.py`)
 
-Two fixed-signature helpers on `Ticker` (no per-call lambda — perf):
+### Draw path — `_safe_draw` (fixed-signature helper, no per-call lambda)
 
 ```python
 def _safe_draw(self, widget, canvas, cursor_pos=0):
@@ -100,44 +100,57 @@ def _safe_draw(self, widget, canvas, cursor_pos=0):
     except Exception as exc:
         self.breaker.trip(widget, exc)
         return canvas, cursor_pos
-
-async def _safe_play(self, widget, *args, **kwargs):
-    """Guard one play() call. On error: trip and return the back-buffer canvas
-    unchanged (args[0] is the real canvas). Already-disabled -> return it without
-    calling play()."""
-    real = args[0]
-    if self.breaker.is_disabled(widget):
-        return real
-    try:
-        return await widget.play(*args, **kwargs)
-    except Exception as exc:
-        self.breaker.trip(widget, exc)
-        return real
 ```
 
-**Replace these in-scope call sites** with the helpers (line numbers vs
-origin/main @ 13a2b09; the implementer matches by context):
+Replace these draw sites with `self._safe_draw(...)` (line numbers vs origin/main
+@ 13a2b09; the implementer matches by context):
 
-| site | function | becomes |
-|------|----------|---------|
-| `:421` | `_hold_ticks` | `_safe_draw` |
-| `:443`, `:452` | `_play_widget` | `_safe_play` |
-| `:535`, `:563`, `:578`, `:601` | `_swap_and_scroll` | `_safe_draw` |
-| `:750`, `:769` | `_scroll_and_delay` | `_safe_draw` |
-| `:831` | `_scroll_one_by_one` | `_safe_draw` |
-| `:921`, `:932` | `_scroll_side_by_side` | `_safe_draw` |
-| `:1044` | the `play()` site there | `_safe_play` |
+| site | function |
+|------|----------|
+| `:421` | `_hold_ticks` |
+| `:535`, `:563`, `:578`, `:601` | `_swap_and_scroll` |
+| `:750`, `:769` | `_scroll_and_delay` |
+| `:831` | `_scroll_one_by_one` |
+| `:921`, `:932` | `_scroll_side_by_side` |
 
 `:535` passes `cursor_pos` positionally (`ticker_obj.draw(canvas, pos)`) — normalize
-to `self._safe_draw(ticker_obj, canvas, pos)`. **Out of scope:** the transition
-draws at `:1205`/`:1213` and the `_HiresCircle.draw` override at `:112`.
+to `self._safe_draw(ticker_obj, canvas, pos)`.
 
-**Trip-once semantics:** a widget that raises every tick hits the expensive
-`try/except`+`trip` path on its FIRST draw of the visit; every later `_safe_draw`
-in that visit short-circuits on `is_disabled` and returns the canvas unchanged — no
-hot-loop spin (perf-verified). Worst case the panel shows that widget's last
-partial/stale frame for the remainder of the current visit, then the filter
-(below) removes it from the next pass.
+### Play path — guard at the METHOD level (NOT a generic `_safe_play(*args)`)
+
+Researched against the code: the two play call sites differ — `_play_widget`
+passes `hold_time=…`, `_run_gif` (`:1044`) does not — and `_play_widget`'s
+ScaledCanvas branch does post-play `canvas.rebind_innermost(new_real)` that **must
+be skipped on failure**. A generic wrapper around the raw `widget.play()` call
+would return the wrong object or still attempt the rebind. play is **per-visit**
+(its frame loop is inside the widget), so there is no hot-path/closure concern.
+Guard at the per-play-call unit:
+
+- **`_play_widget` (`:443`/`:452`)** — wrap the method body in one try/except
+  covering BOTH the scaled and unscaled branches. On a render error: trip the
+  widget and `return canvas` (the input wrapper) unchanged, **without** the
+  `rebind_innermost`. Already-disabled (checked at method entry) → return `canvas`
+  without calling `play()`.
+- **`_run_gif` play (`:1044`)** — guard the single `widget.play(...)` there: on a
+  render error trip the widget and continue with `real` unchanged (the loop moves
+  to the next widget).
+
+**Out of scope:** the transition draws at `:1205`/`:1213` and the
+`_HiresCircle.draw` override at `:112`.
+
+**Trip-once semantics + fallback (researched):** a widget that raises every tick
+hits the expensive `try/except`+`trip` path on its FIRST draw of the visit; every
+later `_safe_draw` in that visit short-circuits on `is_disabled` and returns the
+canvas unchanged — no hot-loop spin (perf-verified). The fallback **leaves the
+canvas unchanged (no `Clear()` in the breaker)** because every scroll/held tick
+already runs `reset_canvas(canvas, bg_color)` BEFORE the draw
+(`advance_frame → reset_canvas → draw → swap`, ticker.py ~`:563/578/601`, and
+`_swap_and_scroll` entry `:535`). So the sequence is: the trip tick shows a ≤1-tick
+(~50 ms) partial frame; the NEXT tick's existing `reset_canvas` wipes it and
+`_safe_draw` short-circuits → a clean blank/bg canvas for the rest of the visit;
+then the filter (below) removes the widget from the next pass. A breaker-side
+`Clear()` would be redundant with the per-tick reset (it could only affect that one
+~50 ms frame) and is therefore **not** added.
 
 ## Rotation filter (`_expand_sources`)
 

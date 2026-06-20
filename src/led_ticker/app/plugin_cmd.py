@@ -46,7 +46,9 @@ def _install_hint(kind: str, name: str) -> str:
         return f"Use  :{name}:  inline in widget text,"
     if kind == "fonts":
         return f'Use  font = "{name}"  on a widget,'
-    return f'Use  easing = "{name}"  on a transition,'  # easing
+    if kind == "easing":
+        return f'Use  easing = "{name}"  on a transition,'
+    raise ValueError(f"no install hint for surface kind {kind!r}")
 
 
 _CANONICAL_REQUIREMENTS = Path("config") / "requirements-plugins.txt"

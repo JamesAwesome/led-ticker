@@ -167,7 +167,7 @@ Each entry:
 | field        | meaning                                                                 |
 | ------------ | ----------------------------------------------------------------------- |
 | `name`       | friendly plugin name (the CLI argument, e.g. `baseball`)                |
-| `namespace`  | the plugin's registration namespace (`<namespace>.<surface>`)           |
+| `namespace`  | the plugin's registration namespace — the prefix in every `<namespace>.<name>` provided name |
 | `summary`    | one-line human description (also part of the `search` haystack)         |
 | `homepage`   | URL shown for reference                                                  |
 | `provides`   | the typed surface object (below)                                         |

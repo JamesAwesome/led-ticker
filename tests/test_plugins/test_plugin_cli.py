@@ -748,3 +748,9 @@ def test_install_hint_emoji_only(tmp_path, fakepip, capsys):
     cat = _install_only_catalog(PluginProvides(emoji=("x.ball",)))
     plugin_cmd.cmd_install("x", config_path=tmp_path / "config.toml", catalog=cat)
     assert ":x.ball:" in capsys.readouterr().out
+
+
+def test_install_hint_raises_on_unknown_kind():
+    assert "easing" in plugin_cmd._install_hint("easing", "x.ease")
+    with pytest.raises(ValueError, match="no install hint"):
+        plugin_cmd._install_hint("bogus", "x.y")

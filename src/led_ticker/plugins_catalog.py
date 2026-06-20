@@ -65,6 +65,7 @@ class PluginProvides:
         return tuple(name for kind in _SURFACE_KINDS for name in getattr(self, kind))
 
     def is_empty(self) -> bool:
+        """True when no names are registered in any kind."""
         return not self.all_names()
 
     def groups(self) -> list[tuple[str, tuple[str, ...]]]:

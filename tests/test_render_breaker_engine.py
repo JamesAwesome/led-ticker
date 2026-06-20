@@ -212,3 +212,40 @@ async def test_safe_draw_passthrough_on_success(swapping_frame):
     # draw() returns (canvas, cursor_pos + text_width) — just verify not tripped
     assert not breaker.is_disabled(good)
     assert result_canvas is not None
+
+
+# ---------------------------------------------------------------------------
+# play()-style widget circuit breaker tests
+# ---------------------------------------------------------------------------
+
+
+class FaultyPlayWidget:
+    """A play()-style widget whose play() always raises."""
+
+    bg_color = None
+    play_count = 1
+
+    async def play(self, canvas, frame, loop_count=1, hold_time=3.0):
+        raise ValueError("boom-play")
+
+
+async def test_play_widget_survives_faulty_play(mock_frame):
+    bad = FaultyPlayWidget()
+    breaker = RenderBreaker()
+    ticker = _make_ticker(monitors=[bad], frame=mock_frame, breaker=breaker)
+    canvas = mock_frame.matrix.CreateFrameCanvas()
+    # _play_widget must not raise and must return a valid canvas
+    out = await ticker._play_widget(canvas, bad, section_hold_time=0.05)
+    assert out is not None
+    assert breaker.is_disabled(bad) is True
+
+
+async def test_disabled_play_widget_short_circuits(mock_frame):
+    bad = FaultyPlayWidget()
+    breaker = RenderBreaker()
+    breaker.trip(bad, ValueError("pre"))  # already disabled
+    ticker = _make_ticker(monitors=[bad], frame=mock_frame, breaker=breaker)
+    canvas = mock_frame.matrix.CreateFrameCanvas()
+    # play() must NOT be called for an already-disabled widget (no raise either)
+    out = await ticker._play_widget(canvas, bad, section_hold_time=0.05)
+    assert out is canvas  # returned unchanged, play() skipped

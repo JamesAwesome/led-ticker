@@ -459,21 +459,27 @@ class Ticker:
         so gif widgets with ``play_count = 0`` can compute how many loops fit in
         the section's duration.
         """
-        loops = getattr(widget, "play_count", 1) or 1
-        if isinstance(canvas, ScaledCanvas):
-            Ticker._set_logical_scale(widget, canvas.scale)
-            new_real = await widget.play(
-                unwrap_to_real(canvas),
-                self.frame,
-                loop_count=loops,
-                hold_time=section_hold_time,
-            )
-            canvas.rebind_innermost(new_real)
+        if self.breaker.is_disabled(widget):
             return canvas
-        Ticker._set_logical_scale(widget, 1)
-        return await widget.play(
-            canvas, self.frame, loop_count=loops, hold_time=section_hold_time
-        )
+        loops = getattr(widget, "play_count", 1) or 1
+        try:
+            if isinstance(canvas, ScaledCanvas):
+                Ticker._set_logical_scale(widget, canvas.scale)
+                new_real = await widget.play(
+                    unwrap_to_real(canvas),
+                    self.frame,
+                    loop_count=loops,
+                    hold_time=section_hold_time,
+                )
+                canvas.rebind_innermost(new_real)
+                return canvas
+            Ticker._set_logical_scale(widget, 1)
+            return await widget.play(
+                canvas, self.frame, loop_count=loops, hold_time=section_hold_time
+            )
+        except Exception as exc:
+            self.breaker.trip(widget, exc)
+            return canvas
 
     async def _scroll_between(
         self,
@@ -1063,8 +1069,14 @@ class Ticker:
                     "_run_gif skipping non-GIF widget %s", type(widget).__name__
                 )
                 continue
+            if self.breaker.is_disabled(widget):
+                continue
             Ticker._set_logical_scale(widget, wrapper_scale)
-            real = await widget.play(real, self.frame, loop_count=loop_count)
+            try:
+                real = await widget.play(real, self.frame, loop_count=loop_count)
+            except Exception as exc:
+                self.breaker.trip(widget, exc)
+                continue
 
 
 # --- Queue builders ---

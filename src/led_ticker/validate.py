@@ -32,6 +32,7 @@ class ValidationResult:
     path: Path
     errors: list[ValidationIssue] = field(default_factory=list)
     warnings: list[ValidationIssue] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
     @property
     def valid(self) -> bool:
@@ -1313,6 +1314,130 @@ def _check_scroll_through_swap_only(
     return errors
 
 
+_VALID_DAYS = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
+
+
+def _check_schedule(config: AppConfig) -> list[ValidationIssue]:
+    from led_ticker.schedule import to_minutes, unreachable_window_indices
+
+    sched = config.display.schedule
+    if not sched.enabled:
+        return []
+    issues: list[ValidationIssue] = []
+    if sched.timezone:
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+        try:
+            ZoneInfo(sched.timezone)
+        except ZoneInfoNotFoundError, ValueError:
+            issues.append(
+                ValidationIssue(
+                    rule=None,
+                    location="display.schedule.timezone",
+                    message=(
+                        f"timezone {sched.timezone!r} is not a valid IANA timezone name"
+                    ),
+                    fix=(
+                        "Use an IANA name like 'America/New_York',"
+                        " or leave it empty for system local time."
+                    ),
+                    severity="error",
+                )
+            )
+    if not sched.windows:
+        issues.append(
+            ValidationIssue(
+                rule=None,
+                location="display.schedule",
+                message=(
+                    "schedule is enabled but has no windows"
+                    " (no-op; base brightness always applies)"
+                ),
+                fix=(
+                    "Add at least one [[display.schedule.windows]] entry,"
+                    " or set enabled = false."
+                ),
+                severity="warning",
+            )
+        )
+    for i, w in enumerate(sched.windows):
+        loc = f"display.schedule.windows[{i}]"
+        s, e = to_minutes(w.start), to_minutes(w.end)
+        if s is None:
+            issues.append(
+                ValidationIssue(
+                    None,
+                    loc,
+                    f"start {w.start!r} is not a valid 24h HH:MM time",
+                    "Use a zero-padded 24-hour time like '07:00'.",
+                    "error",
+                )
+            )
+        if e is None:
+            issues.append(
+                ValidationIssue(
+                    None,
+                    loc,
+                    f"end {w.end!r} is not a valid 24h HH:MM time",
+                    "Use a zero-padded 24-hour time like '23:00'.",
+                    "error",
+                )
+            )
+        if s is not None and e is not None and s == e:
+            issues.append(
+                ValidationIssue(
+                    None,
+                    loc,
+                    "start and end are equal (an empty/ambiguous window)",
+                    "Make start and end different times.",
+                    "error",
+                )
+            )
+        if (
+            not isinstance(w.brightness, int)
+            or isinstance(w.brightness, bool)
+            or not (0 <= w.brightness <= 100)
+        ):
+            issues.append(
+                ValidationIssue(
+                    None,
+                    loc,
+                    (f"brightness {w.brightness!r} must be an integer 0–100 (0 = off)"),
+                    "Set brightness to a whole number from 0 to 100.",
+                    "error",
+                )
+            )
+        bad_days = (
+            [d for d in (w.days or []) if d not in _VALID_DAYS]
+            if isinstance(w.days, list)
+            else [w.days]
+        )
+        if bad_days:
+            issues.append(
+                ValidationIssue(
+                    None,
+                    loc,
+                    f"invalid day name(s) {bad_days!r}",
+                    ("Use lowercase 3-letter days: mon, tue, wed, thu, fri, sat, sun."),
+                    "error",
+                )
+            )
+    for i in unreachable_window_indices(sched):
+        issues.append(
+            ValidationIssue(
+                rule=None,
+                location=f"display.schedule.windows[{i}]",
+                message=(
+                    "this window can never take effect"
+                    " — a later window always covers it (last-wins)"
+                ),
+                fix="Reorder it after the broader window, or remove it.",
+                severity="warning",
+            )
+        )
+    return issues
+
+
 def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
     """Warn when a held top row is wider than the logical canvas.
 
@@ -1879,6 +2004,19 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
     if strict:
         errors.extend(_check_asset_paths(config, path.parent))
 
+    # Schedule validation: timezone, HH:MM times, brightness range, day names,
+    # start==end, enabled-with-no-windows (warning), fully-shadowed windows (warning).
+    notes: list[str] = []
+    _sched_issues = _check_schedule(config)
+    errors.extend(i for i in _sched_issues if i.severity == "error")
+    warnings.extend(i for i in _sched_issues if i.severity == "warning")
+    if config.display.schedule.enabled:
+        from led_ticker.schedule import format_schedule_summary
+
+        notes = format_schedule_summary(
+            config.display.schedule, config.display.brightness
+        )
+
     # Strict: promote all remaining warnings to errors before returning.
     # ValidationResult.valid checks len(errors) == 0; promoting warnings
     # here means callers don't need to change their result.valid check.
@@ -1886,7 +2024,7 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
         errors.extend(warnings)
         warnings = []
 
-    return ValidationResult(path=path, errors=errors, warnings=warnings)
+    return ValidationResult(path=path, errors=errors, warnings=warnings, notes=notes)
 
 
 async def validate_config_text(text: str, *, strict: bool = False) -> ValidationResult:

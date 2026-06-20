@@ -14,7 +14,7 @@ from led_ticker.plugins_catalog import (
 # --- bundled catalog integrity (guards a hand-edited plugins_catalog.json) ---
 
 
-def test_bundled_catalog_loads_and_is_v1():
+def test_bundled_catalog_loads_and_is_v2():
     cat = load_catalog()
     assert isinstance(cat, Catalog)
     assert cat.entries  # non-empty
@@ -23,7 +23,33 @@ def test_bundled_catalog_loads_and_is_v1():
 def test_bundled_catalog_has_the_first_party_plugins():
     cat = load_catalog()
     names = {e.name for e in cat.entries}
-    assert {"pool", "baseball", "crypto", "calendar"} <= names
+    assert names == {
+        "pool", "baseball", "crypto", "calendar", "rss", "weather",
+        "nyancat", "pokeball", "pacman", "sailor_moon",
+    }
+    # the split is done — no monolithic feeds/arcade entries remain
+    assert "feeds" not in names and "arcade" not in names
+
+
+def test_bundled_entries_install_from_the_monorepo():
+    cat = load_catalog()
+    for e in cat.entries:
+        src = e.sources[0]
+        assert src.url == "https://github.com/JamesAwesome/led-ticker-plugins"
+        assert src.subdirectory == f"plugins/{e.name}"
+        assert src.ref and src.ref.startswith(f"{e.name}-v")
+        # the emitted requirement carries the subdirectory fragment
+        assert e.requirement().endswith(f"#subdirectory=plugins/{e.name}")
+
+
+def test_split_families_provide_their_types():
+    cat = load_catalog()
+    assert cat.get("rss").provides == ("rss.feed",)
+    assert cat.get("weather").provides == ("weather.current",)
+    for fam in ("nyancat", "pokeball", "pacman", "sailor_moon"):
+        assert set(cat.get(fam).provides) == {
+            f"{fam}.forward", f"{fam}.reverse", f"{fam}.alternating"
+        }
 
 
 def test_bundled_entries_are_well_formed():

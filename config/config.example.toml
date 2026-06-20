@@ -26,6 +26,26 @@ brightness = 60
 gpio_slowdown = 2      # mandatory on Pi 4 — bump to 3+ if you see flicker
 hardware_mapping = "adafruit-hat"
 
+# --- Optional: brightness schedule (uncomment + edit to use) ---
+# [display.schedule]
+# enabled = true
+# timezone = "America/New_York"   # set this! defaults to the Pi's system time (often UTC)
+#
+# [[display.schedule.windows]]
+# start = "07:00"
+# end = "18:00"
+# brightness = 100
+#
+# [[display.schedule.windows]]
+# start = "18:00"
+# end = "23:00"
+# brightness = 40
+#
+# [[display.schedule.windows]]
+# start = "23:00"            # wraps past midnight
+# end = "07:00"
+# brightness = 0             # dark — panel off overnight
+
 [title]
 delay = 5
 

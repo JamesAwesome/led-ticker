@@ -62,10 +62,32 @@ Hardware and panel-layout settings. Most of these map straight onto
 | `row_address_type`         | int    | `0`              | Row address type. `0` = direct (default). Change only if the panel uses a non-standard address decoder (AB-addressed, ABC-shifted, etc.).                                                                                             |
 | `panel_type`               | string | `""`             | Driver IC init sequence. Set to `"FM6126A"` or `"FM6127"` for panels that use those chips (common on cheap P2/P3 AliExpress panels). Without it, FM6126A panels power up in a bad state and show the bottom half mirrored or garbled. |
 | `led_rgb_sequence`         | string | `"RGB"`          | RGB channel order. Change to `"RBG"`, `"GRB"`, etc. if colors appear wrong — e.g. purple/blue tint (missing green) often means green and blue are swapped; try `"RBG"`.                                                               |
+| `schedule`                 | table  | (disabled)       | Optional brightness schedule. Nested `[display.schedule]` block — see below.                                                                                                                                                          |
 
 These are the common knobs. The full set of `rgbmatrix` library
 options is broader — see `CLAUDE.md` for the additional Pi-5 tuning
 notes and what each setting interacts with.
+
+## `[display.schedule]`
+
+Optional brightness schedule. Enabled by setting `[display.schedule]` with `enabled = true`. See [Display scheduling](/concepts/display/) for the full guide.
+
+| Field      | Type   | Default | Notes                                                                                                                             |
+| ---------- | ------ | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`  | bool   | `false` | Master switch. When `false` the schedule is not loaded and brightness is never adjusted by the scheduler.                         |
+| `timezone` | string | `""`    | IANA timezone name (e.g. `"America/New_York"`). Empty string = system local time. Set this explicitly — fresh Pis are often UTC.  |
+| `windows`  | array  | `[]`    | List of `[[display.schedule.windows]]` tables. Each defines a time range, brightness, and optional day-of-week filter. See below. |
+
+### `[[display.schedule.windows]]`
+
+Each window is a `[[display.schedule.windows]]` table entry:
+
+| Field        | Type         | Default    | Notes                                                                                                                      |
+| ------------ | ------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `start`      | string       | (required) | Window start time in `"HH:MM"` 24-hour local wall-clock format.                                                            |
+| `end`        | string       | (required) | Window end time. When `end < start` (e.g. `start = "23:00"`, `end = "07:00"`) the window wraps past midnight.              |
+| `brightness` | int          | (required) | Panel brightness to apply, 0–100. `0` makes the panel appear dark (≈ zero power draw from the LEDs); the Pi keeps running. |
+| `days`       | string array | `[]`       | Days this window is active: `["mon", "tue", "wed", "thu", "fri", "sat", "sun"]`. Empty list means every day.               |
 
 ## `[title]`
 

@@ -63,6 +63,26 @@ gpio_slowdown = 3
 pwm_bits = 8
 show_refresh_rate = true  # log measured refresh Hz to stderr; remove once stable
 
+# --- Optional: brightness schedule (uncomment + edit to use) ---
+# [display.schedule]
+# enabled = true
+# timezone = "America/New_York"   # set this! defaults to the Pi's system time (often UTC)
+#
+# [[display.schedule.windows]]
+# start = "07:00"
+# end = "18:00"
+# brightness = 100
+#
+# [[display.schedule.windows]]
+# start = "18:00"
+# end = "23:00"
+# brightness = 40
+#
+# [[display.schedule.windows]]
+# start = "23:00"            # wraps past midnight
+# end = "07:00"
+# brightness = 0             # dark — panel off overnight
+
 [title]
 delay = 5
 

@@ -195,18 +195,18 @@ type = "countdown"
 text = "Days Until Summer"
 countdown_date = 2026-06-20
 
-# --- RSS Feeds (led-ticker-feeds plugin) ---
-# RSS/Atom headlines (type = "feeds.rss") via the led-ticker-feeds plugin.
-# See https://github.com/JamesAwesome/led-ticker-feeds for install + config.
+# --- RSS Feeds (rss package) ---
+# RSS/Atom headlines (type = "rss.feed") via the rss package in led-ticker-plugins.
+# See https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/rss for install + config.
 
-# --- Crypto Prices (led-ticker-crypto plugin) ---
-# Live CoinGecko prices via the led-ticker-crypto plugin.
-# See https://github.com/JamesAwesome/led-ticker-crypto for install + config.
+# --- Crypto Prices (crypto package) ---
+# Live CoinGecko prices via the crypto package in led-ticker-plugins.
+# See https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/crypto for install + config.
 
-# --- MLB Scores (led-ticker-baseball plugin) ---
-# Requires the led-ticker-baseball plugin — add
-# git+https://github.com/JamesAwesome/led-ticker-baseball.git@main to
-# config/requirements-plugins.txt and rebuild. Free MLB Stats API, no key
+# --- MLB Scores (baseball package) ---
+# Requires the baseball package — add
+# git+https://github.com/JamesAwesome/led-ticker-plugins.git@baseball-v0.1.0#subdirectory=plugins/baseball
+# to config/requirements-plugins.txt and rebuild. Free MLB Stats API, no key
 # needed. Shows current series scores, live game updates, and upcoming matchups.
 #
 # [[playlist.section]]
@@ -221,9 +221,9 @@ countdown_date = 2026-06-20
 # timezone = "America/New_York"
 # final_hold_hours = 6   # hours to show final score before moving on (default: 6)
 
-# --- MLB Standings (led-ticker-baseball plugin) ---
-# Same plugin as above. Top-N teams by record plus any teams you're tracking.
-# Shows "Opens [date]" during offseason / spring training. The plugin also
+# --- MLB Standings (baseball package) ---
+# Same package as above. Top-N teams by record plus any teams you're tracking.
+# Shows "Opens [date]" during offseason / spring training. The package also
 # provides the baseball.roll_alternating rolling-ball transition used here.
 #
 # [[playlist.section]]
@@ -238,10 +238,10 @@ countdown_date = 2026-06-20
 # teams = ["NYM", "PHI"]
 # top_n = 3
 
-# --- Weather (led-ticker-feeds plugin) ---
-# Current conditions + temperature (type = "feeds.weather") via the
-# led-ticker-feeds plugin. Needs a free WEATHERAPI_KEY in .env.
-# See https://github.com/JamesAwesome/led-ticker-feeds for install + config.
+# --- Weather (weather package) ---
+# Current conditions + temperature (type = "weather.current") via the
+# weather package in led-ticker-plugins. Needs a free WEATHERAPI_KEY in .env.
+# See https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/weather for install + config.
 ```
 
 </details>

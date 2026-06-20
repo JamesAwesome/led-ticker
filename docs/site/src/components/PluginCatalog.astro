@@ -1,0 +1,131 @@
+---
+/**
+ * Renders one plugin's catalog facts (provided surfaces + pinned install
+ * requirement) from the bundled `plugins_catalog.json`, read at build time.
+ * The JSON (in the Python package) is the single source of truth, so these
+ * facts cannot drift from the catalog. Curated prose stays hand-written in
+ * available.mdx.
+ *
+ * Usage: <PluginCatalog name="baseball" />
+ */
+
+import { Code } from "@astrojs/starlight/components";
+
+interface Source {
+  type: "git" | "pypi";
+  url?: string;
+  ref?: string;
+  subdirectory?: string;
+  package?: string;
+  version?: string;
+}
+interface Entry {
+  name: string;
+  namespace: string;
+  summary: string;
+  homepage: string;
+  provides: Record<string, string[]>;
+  sources: Source[];
+}
+
+// Vite glob: resolve the catalog JSON relative to this component file.
+// Eager + ?raw so it's inlined at build time — no runtime fs reads.
+const catalogFiles = import.meta.glob("../../../../src/led_ticker/plugins_catalog.json", {
+  eager: true,
+  query: "?raw",
+  import: "default",
+});
+const catalogRaw = catalogFiles["../../../../src/led_ticker/plugins_catalog.json"];
+if (!catalogRaw) {
+  throw new Error("PluginCatalog: could not load plugins_catalog.json via import.meta.glob");
+}
+
+const catalog = JSON.parse(catalogRaw as string) as {
+  schema_version: number;
+  plugins: Entry[];
+};
+
+const { name } = Astro.props;
+const entry = catalog.plugins.find((p) => p.name === name);
+if (!entry) {
+  throw new Error(
+    `PluginCatalog: no plugin named "${name}" in plugins_catalog.json. ` +
+      `Known: ${catalog.plugins.map((p) => p.name).join(", ")}`,
+  );
+}
+
+// Mirror Python CatalogEntry.requirement(pinned=True): prefer sources[0].
+function requirementLine(e: Entry): string {
+  const src = e.sources[0];
+  if (src.type === "git") {
+    const base = (src.url ?? "").replace(/\.git$/, "");
+    let req = `git+${base}.git@${src.ref ?? "main"}`;
+    if (src.subdirectory) req += `#subdirectory=${src.subdirectory}`;
+    return req;
+  }
+  return src.version ? `${src.package}==${src.version}` : (src.package ?? "");
+}
+
+const KIND_ORDER = [
+  "widgets",
+  "transitions",
+  "emoji",
+  "fonts",
+  "borders",
+  "color_providers",
+  "animations",
+  "easing",
+] as const;
+const KIND_LABELS: Record<string, string> = {
+  widgets: "Widgets",
+  transitions: "Transitions",
+  emoji: "Emoji",
+  fonts: "Fonts",
+  borders: "Borders",
+  color_providers: "Color providers",
+  animations: "Animations",
+  easing: "Easing",
+};
+
+const groups = KIND_ORDER.filter((k) => (entry.provides[k] ?? []).length > 0).map((k) => ({
+  label: KIND_LABELS[k],
+  names: (entry.provides[k] ?? []).map((n) => (k === "emoji" ? `:${n}:` : n)),
+}));
+
+const requirement = requirementLine(entry);
+---
+
+<div class="plugin-catalog">
+  {
+    groups.length > 0 && (
+      <ul class="provides">
+        {groups.map((g) => (
+          <li>
+            <strong>{g.label}:</strong> {g.names.join(", ")}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  <p class="install-caption">
+    Add to your <code>config/requirements-plugins.txt</code>:
+  </p>
+  <Code code={requirement} lang="text" />
+</div>
+
+<style>
+  .plugin-catalog {
+    margin: 0.75rem 0 1.5rem;
+  }
+  .provides {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 0.75rem;
+  }
+  .provides li {
+    margin: 0.15rem 0;
+  }
+  .install-caption {
+    margin: 0 0 0.35rem;
+  }
+</style>

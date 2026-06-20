@@ -9,6 +9,8 @@
  * Usage: <PluginCatalog name="baseball" />
  */
 
+import { Code } from "@astrojs/starlight/components";
+
 interface Source {
   type: "git" | "pypi";
   url?: string;
@@ -108,7 +110,7 @@ const requirement = requirementLine(entry);
   <p class="install-caption">
     Add to your <code>config/requirements-plugins.txt</code>:
   </p>
-  <pre class="install"><code>{requirement}</code></pre>
+  <Code code={requirement} lang="text" />
 </div>
 
 <style>
@@ -125,8 +127,5 @@ const requirement = requirementLine(entry);
   }
   .install-caption {
     margin: 0 0 0.35rem;
-  }
-  .plugin-catalog pre.install {
-    margin: 0;
   }
 </style>

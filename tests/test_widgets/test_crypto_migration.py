@@ -1,6 +1,7 @@
-"""Extracted / retired widget types: coingecko re-homed in the led-ticker-crypto
-plugin; coinbase/etherscan retired; calendar re-homed in led-ticker-calendar.
-The config-load migration hint is per-type."""
+"""Extracted / retired widget types: coingecko, calendar, rss_feed and weather
+all live in the led-ticker-plugins monorepo now (crypto.coingecko, calendar.events,
+rss.feed, weather.current); coinbase/etherscan retired. The config-load migration
+hint is per-type."""
 
 import pytest
 
@@ -18,7 +19,7 @@ def test_removed_crypto_types_have_a_hint(old_type):
 
 def test_coingecko_points_at_the_plugin():
     msg, suggested_fix = build_widget_cfg_error_for_type("coingecko")
-    assert "led-ticker-crypto" in msg
+    assert "led-ticker-plugins" in msg
     assert "crypto.coingecko" in msg
     assert "crypto.coingecko" in suggested_fix
 
@@ -52,7 +53,7 @@ def test_bare_calendar_type_raises_migration_to_plugin():
     result = build_widget_cfg_error_for_type("calendar")
     assert result is not None
     message, fix = result
-    assert "led-ticker-calendar" in message
+    assert "led-ticker-plugins" in message
     assert "calendar.events" in fix
 
 
@@ -60,16 +61,16 @@ def test_bare_rss_feed_type_raises_migration_to_plugin():
     result = build_widget_cfg_error_for_type("rss_feed")
     assert result is not None
     message, fix = result
-    assert "led-ticker-feeds" in message
-    assert "feeds.rss" in fix
+    assert "led-ticker-plugins" in message
+    assert "rss.feed" in fix
 
 
 def test_bare_weather_type_raises_migration_to_plugin():
     result = build_widget_cfg_error_for_type("weather")
     assert result is not None
     message, fix = result
-    assert "led-ticker-feeds" in message
-    assert "feeds.weather" in fix
+    assert "led-ticker-plugins" in message
+    assert "weather.current" in fix
 
 
 def test_crypto_migration_still_works_after_rename():

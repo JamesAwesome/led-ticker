@@ -73,6 +73,28 @@ def test_logs_only_on_change(monkeypatch, caplog):
     assert len(msgs) == 1 and "42" in msgs[0]
 
 
+def test_logs_suppressed_across_repeated_same_value_ticks(caplog):
+    """Verify that repeated ticks at the same brightness level suppress
+    the change log to exactly one, even with multiple iterations."""
+    frame = _frame()
+    sched = _sched(_w("00:00", "23:59", 42))  # always 42, never changes
+
+    async def go():
+        task = asyncio.ensure_future(
+            run_mod._schedule_ticker(frame, sched, None, 100, interval=0.001)
+        )
+        await asyncio.sleep(0.02)  # many ticks at the same level
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+    with caplog.at_level(logging.INFO):
+        asyncio.run(go())
+    changes = [r for r in caplog.records if "brightness ->" in r.message]
+    assert len(changes) == 1  # logged once despite many same-value ticks
+    assert frame.matrix.brightness == 42
+
+
 def test_transient_exception_does_not_kill_ticker(monkeypatch):
     frame = _frame()
 

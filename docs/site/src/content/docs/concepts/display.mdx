@@ -90,6 +90,20 @@ brightness = 0             # dark — panel off overnight
 
 At each check the scheduler finds the **last matching window** in the list whose time range includes the current wall-clock time. "Last" means highest index, so place more-specific or higher-priority windows after the general ones.
 
+Because the **last** matching window wins, place a more specific window _after_ a general one to override it. For example, a normal day with a dimmer lunch hour:
+
+```toml
+[[display.schedule.windows]]
+start = "07:00"
+end = "23:00"
+brightness = 100
+
+[[display.schedule.windows]]
+start = "12:00"   # overrides the window above during lunch
+end = "13:00"
+brightness = 40
+```
+
 A window **wraps past midnight** when `end < start` (e.g. `start = "23:00"`, `end = "07:00"`). That window is active from 23:00 until 06:59.
 
 ### Day filtering

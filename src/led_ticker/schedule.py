@@ -5,6 +5,7 @@ of brightness windows. No hardware or asyncio dependency — the run loop calls
 brightness_for() and assigns the result to matrix.brightness.
 """
 
+import logging
 import re
 from datetime import datetime
 
@@ -39,6 +40,19 @@ def _day_ok(days: frozenset[int], weekday: int) -> bool:
     return not days or weekday in days
 
 
+def _window_active(w: _Window, minutes: int, weekday: int) -> bool:
+    """True if window `w` is active at `minutes` (since midnight) on `weekday`.
+    Same-day: start<=t<end. Wrap (start>end): pre-midnight part (t>=start) owned
+    by today; post-midnight tail (t<end) owned by yesterday (weekday-1)%7."""
+    if w.start < w.end:
+        return w.start <= minutes < w.end and _day_ok(w.days, weekday)
+    if minutes >= w.start:
+        return _day_ok(w.days, weekday)
+    if minutes < w.end:
+        return _day_ok(w.days, (weekday - 1) % 7)
+    return False
+
+
 @attrs.define(frozen=True)
 class Scheduler:
     windows: tuple[_Window, ...]
@@ -50,6 +64,12 @@ class Scheduler:
             start = to_minutes(w.start)
             end = to_minutes(w.end)
             if start is None or end is None:
+                logging.warning(
+                    "schedule: skipping window with unparseable time(s) "
+                    "start=%r end=%r (run `led-ticker validate` to see details)",
+                    w.start,
+                    w.end,
+                )
                 continue  # malformed → skipped here; validate.py reports it
             days = frozenset(_DAYS.index(d) for d in (w.days or []) if d in _DAYS)
             out.append(_Window(start, end, int(w.brightness), days))
@@ -59,16 +79,7 @@ class Scheduler:
         """Index of the last matching window (last-wins), or None."""
         winner: int | None = None
         for i, w in enumerate(self.windows):
-            if w.start < w.end:  # same-day window
-                active = w.start <= minutes < w.end and _day_ok(w.days, weekday)
-            else:  # wraps past midnight — "owned by start day"
-                if minutes >= w.start:  # pre-midnight portion, owned by today
-                    active = _day_ok(w.days, weekday)
-                elif minutes < w.end:  # post-midnight tail, owned by YESTERDAY
-                    active = _day_ok(w.days, (weekday - 1) % 7)
-                else:
-                    active = False
-            if active:
+            if _window_active(w, minutes, weekday):
                 winner = i
         return winner
 
@@ -89,14 +100,8 @@ def unreachable_window_indices(cfg) -> list[int]:
     for weekday in range(7):
         for minutes in range(1440):
             # which windows are active at this instant (ignoring last-wins)?
-            for i, w in enumerate(sched.windows):
-                if w.start < w.end:
-                    a = w.start <= minutes < w.end and _day_ok(w.days, weekday)
-                else:
-                    a = (minutes >= w.start and _day_ok(w.days, weekday)) or (
-                        minutes < w.end and _day_ok(w.days, (weekday - 1) % 7)
-                    )
-                if a:
+            for i in range(len(sched.windows)):
+                if _window_active(sched.windows[i], minutes, weekday):
                     has_active.add(i)
             idx = sched._active_index(minutes, weekday)
             if idx is not None:

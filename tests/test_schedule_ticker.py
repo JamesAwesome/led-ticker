@@ -145,6 +145,31 @@ def test_supervised_resets_to_base_on_fatal(monkeypatch, caplog):
     assert any("schedul" in r.message.lower() for r in caplog.records)
 
 
+def test_invalid_timezone_string_does_not_crash_supervised(caplog):
+    """_supervised_schedule with an invalid tz string must not raise.
+    It logs a warning and the ticker still applies brightness (FIX 1)."""
+    frame = _frame()
+    sched = _sched(_w("00:00", "23:59", 42))
+
+    async def go():
+        task = asyncio.ensure_future(
+            run_mod._supervised_schedule(frame, sched, "Not/AZone", 100)
+        )
+        await asyncio.sleep(0)
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+    with caplog.at_level(logging.WARNING):
+        asyncio.run(go())
+
+    assert frame.matrix.brightness == 42
+    assert any(
+        "timezone" in r.message.lower() or "Not/AZone" in r.message
+        for r in caplog.records
+    )
+
+
 def test_base_matches_frame_brightness_source():
     # The wiring passes config.display.brightness as base AND as led_brightness.
     # Guard against a future edit that diverges them.

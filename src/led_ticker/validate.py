@@ -1325,17 +1325,14 @@ def _check_schedule(config: AppConfig) -> list[ValidationIssue]:
         return []
     issues: list[ValidationIssue] = []
     if sched.timezone:
-        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-
-        try:
-            ZoneInfo(sched.timezone)
-        except ZoneInfoNotFoundError, ValueError:
+        if not isinstance(sched.timezone, str):
             issues.append(
                 ValidationIssue(
                     rule=None,
                     location="display.schedule.timezone",
                     message=(
-                        f"timezone {sched.timezone!r} is not a valid IANA timezone name"
+                        f"timezone must be a string IANA name,"
+                        f" got {type(sched.timezone).__name__}"
                     ),
                     fix=(
                         "Use an IANA name like 'America/New_York',"
@@ -1344,6 +1341,27 @@ def _check_schedule(config: AppConfig) -> list[ValidationIssue]:
                     severity="error",
                 )
             )
+        else:
+            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+            try:
+                ZoneInfo(sched.timezone)
+            except ZoneInfoNotFoundError, ValueError, TypeError:
+                issues.append(
+                    ValidationIssue(
+                        rule=None,
+                        location="display.schedule.timezone",
+                        message=(
+                            f"timezone {sched.timezone!r} is not a valid"
+                            " IANA timezone name"
+                        ),
+                        fix=(
+                            "Use an IANA name like 'America/New_York',"
+                            " or leave it empty for system local time."
+                        ),
+                        severity="error",
+                    )
+                )
     if not sched.windows:
         issues.append(
             ValidationIssue(

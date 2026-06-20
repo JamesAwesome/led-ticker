@@ -452,9 +452,12 @@ def main() -> None:
         if args.json_output:
             print(_format_json(result))
         else:
+            if result.notes:
+                print("Resolved schedule:")
+                for line in result.notes:
+                    print(line)
+                print()
             print(_format_human(result))
-            for line in result.notes:
-                print(line)
 
         sys.exit(0 if result.valid else 1)
 

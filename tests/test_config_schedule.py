@@ -16,6 +16,45 @@ def test_schedule_absent_defaults_to_disabled(tmp_path):
     assert cfg.display.schedule.windows == []
 
 
+def test_malformed_windows_non_list_loads_without_raising(tmp_path):
+    """windows = 'oops' (string, not array) must load without raising (FIX 3)."""
+    cfg = load_config(
+        _write(
+            tmp_path,
+            """
+            [display]
+            rows = 16
+            cols = 64
+
+            [display.schedule]
+            enabled = true
+            windows = "oops"
+            """,
+        )
+    )
+    assert cfg.display.schedule.windows == []
+
+
+def test_malformed_window_non_dict_skipped(tmp_path):
+    """A window entry that isn't a table (e.g. an int) is skipped (FIX 3)."""
+    # TOML doesn't allow [[array]] entries that are not tables, so test
+    # _coerce_schedule directly with a hand-crafted raw dict.
+    from led_ticker.config import _coerce_schedule
+
+    result = _coerce_schedule(
+        {
+            "enabled": True,
+            "windows": [
+                {"start": "07:00", "end": "18:00", "brightness": 100},
+                "not-a-dict",
+                42,
+            ],
+        }
+    )
+    assert len(result.windows) == 1
+    assert result.windows[0].start == "07:00"
+
+
 def test_schedule_parses_windows_and_lowercases_days(tmp_path):
     cfg = load_config(
         _write(

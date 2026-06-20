@@ -77,13 +77,12 @@ async def _schedule_ticker(
             level = (
                 o if o is not None else scheduler.brightness_for(datetime.now(tz), base)
             )
+            led_frame.matrix.brightness = level
+            if level != last:
+                logging.info("schedule: brightness -> %d", level)
+                last = level
         except Exception:
             logging.exception("schedule: brightness compute failed; holding")
-            return
-        led_frame.matrix.brightness = level
-        if level != last:
-            logging.info("schedule: brightness -> %d", level)
-            last = level
 
     apply()
     while True:
@@ -94,13 +93,23 @@ async def _schedule_ticker(
 async def _supervised_schedule(
     led_frame: Any,
     scheduler: Any,
-    tz: Any,
+    tz_name: Any,
     base: int,
     *,
     override: Any = None,
 ) -> None:
     """Run the schedule ticker; on a fatal error, reset brightness to base and
     log (a crashed scheduler must never leave the panel stuck dark)."""
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError  # noqa: PLC0415
+
+    tz = None
+    if tz_name:
+        try:
+            tz = ZoneInfo(tz_name)
+        except ZoneInfoNotFoundError, ValueError, TypeError:
+            logging.warning(
+                "schedule: invalid timezone %r; using system local time", tz_name
+            )
     try:
         await _schedule_ticker(led_frame, scheduler, tz, base, override=override)
     except asyncio.CancelledError:
@@ -372,19 +381,15 @@ async def run(config_path: Path) -> None:
             )
 
         if config.display.schedule.enabled:
-            from zoneinfo import ZoneInfo  # noqa: PLC0415
-
             from led_ticker.schedule import Scheduler  # noqa: PLC0415
 
             sched = Scheduler.from_config(config.display.schedule)
-            sched_tz = (
-                ZoneInfo(config.display.schedule.timezone)
-                if config.display.schedule.timezone
-                else None
-            )
             spawn_tracked(
                 _supervised_schedule(
-                    led_frame, sched, sched_tz, config.display.brightness
+                    led_frame,
+                    sched,
+                    config.display.schedule.timezone,
+                    config.display.brightness,
                 )
             )
 

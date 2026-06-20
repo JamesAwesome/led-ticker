@@ -82,12 +82,12 @@ Optional brightness schedule. Enabled by setting `[display.schedule]` with `enab
 
 Each window is a `[[display.schedule.windows]]` table entry:
 
-| Field        | Type         | Default    | Notes                                                                                                                      |
-| ------------ | ------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `start`      | string       | (required) | Window start time in `"HH:MM"` 24-hour local wall-clock format.                                                            |
-| `end`        | string       | (required) | Window end time. When `end < start` (e.g. `start = "23:00"`, `end = "07:00"`) the window wraps past midnight.              |
-| `brightness` | int          | (required) | Panel brightness to apply, 0–100. `0` makes the panel appear dark (≈ zero power draw from the LEDs); the Pi keeps running. |
-| `days`       | string array | `[]`       | Days this window is active: `["mon", "tue", "wed", "thu", "fri", "sat", "sun"]`. Empty list means every day.               |
+| Field        | Type         | Default    | Notes                                                                                                                                                                                                                                                        |
+| ------------ | ------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `start`      | string       | (required) | Window start time in `"HH:MM"` 24-hour local wall-clock format.                                                                                                                                                                                              |
+| `end`        | string       | (required) | Window end time. When `end < start` (e.g. `start = "23:00"`, `end = "07:00"`) the window wraps past midnight.                                                                                                                                                |
+| `brightness` | int          | (required) | Panel brightness to apply, 0–100. `0` makes the panel appear dark (≈ zero power draw from the LEDs); the Pi keeps running.                                                                                                                                   |
+| `days`       | string array | `[]`       | Days this window is active: `["mon", "tue", "wed", "thu", "fri", "sat", "sun"]`. Empty list means every day. For midnight-wrapping windows (`start > end`), the window is anchored to its start day — see [Day filtering](/concepts/display/#day-filtering). |
 
 ## `[title]`
 

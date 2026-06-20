@@ -71,7 +71,18 @@ class Scheduler:
                     w.end,
                 )
                 continue  # malformed → skipped here; validate.py reports it
-            days = frozenset(_DAYS.index(d) for d in (w.days or []) if d in _DAYS)
+            raw_days = w.days or []
+            days = frozenset(_DAYS.index(d) for d in raw_days if d in _DAYS)
+            if raw_days and not days:
+                logging.warning(
+                    "schedule: skipping window with no valid day names "
+                    "start=%r end=%r days=%r"
+                    " (run `led-ticker validate` to see details)",
+                    w.start,
+                    w.end,
+                    list(raw_days),
+                )
+                continue
             out.append(_Window(start, end, int(w.brightness), days))
         return cls(windows=tuple(out))
 
@@ -89,24 +100,44 @@ class Scheduler:
 
 
 def unreachable_window_indices(cfg) -> list[int]:
-    """Indices of windows that can never be the effective window (fully shadowed
-    by later same-coverage windows). Computed by sampling every minute of a full
-    week (10080 samples; trivial) and noting which windows never win."""
-    sched = Scheduler.from_config(cfg)
-    if not sched.windows:
+    """Indices of windows (in cfg.windows) that can never be the effective window
+    (fully shadowed by later same-coverage windows). Uses ORIGINAL config indices
+    so the reported index matches `display.schedule.windows[i]` in the TOML,
+    even when earlier windows were skipped for malformed times.
+
+    Computed by sampling every minute of a full week (10080 samples; trivial)
+    and noting which windows never win."""
+    # Build (original_index, _Window) pairs, skipping malformed times
+    # without renumbering.
+    indexed_windows: list[tuple[int, _Window]] = []
+    for orig_idx, w in enumerate(cfg.windows):
+        start = to_minutes(w.start)
+        end = to_minutes(w.end)
+        if start is None or end is None:
+            continue  # malformed time — skip without renumbering
+        raw_days = w.days or []
+        days = frozenset(_DAYS.index(d) for d in raw_days if d in _DAYS)
+        if raw_days and not days:
+            continue  # all-invalid days — skip without renumbering
+        indexed_windows.append((orig_idx, _Window(start, end, int(w.brightness), days)))
+
+    if not indexed_windows:
         return []
-    winners: set[int] = set()
-    has_active: set[int] = set()
+
+    has_active: set[int] = set()  # original indices that are active at some minute
+    winners: set[int] = set()  # original indices that ever win (last-wins)
+
     for weekday in range(7):
         for minutes in range(1440):
-            # which windows are active at this instant (ignoring last-wins)?
-            for i in range(len(sched.windows)):
-                if _window_active(sched.windows[i], minutes, weekday):
-                    has_active.add(i)
-            idx = sched._active_index(minutes, weekday)
-            if idx is not None:
-                winners.add(idx)
-    return sorted(i for i in has_active if i not in winners)
+            winner_orig: int | None = None
+            for orig_idx, w in indexed_windows:
+                if _window_active(w, minutes, weekday):
+                    has_active.add(orig_idx)
+                    winner_orig = orig_idx
+            if winner_orig is not None:
+                winners.add(winner_orig)
+
+    return sorted(orig_idx for orig_idx in has_active if orig_idx not in winners)
 
 
 def _days_label(days: list[str]) -> str:
@@ -124,7 +155,14 @@ def format_schedule_summary(cfg, base: int) -> list[str]:
     for w in cfg.windows:
         _s = to_minutes(w.start)
         _e = to_minutes(w.end)
-        wrap = " (overnight)" if (_s is not None and _e is not None and _s > _e) else ""
+        if _s is None or _e is None:
+            # Invalid time — mark clearly instead of rendering as a normal row
+            days_label = (
+                _days_label(w.days) if isinstance(w.days, list) else str(w.days)
+            )
+            lines.append(f"  {days_label:<11} {w.start}–{w.end} (invalid — see errors)")
+            continue
+        wrap = " (overnight)" if _s > _e else ""
         dark = "  (dark)" if int(w.brightness) == 0 else ""
         lines.append(
             f"  {_days_label(w.days):<11} {w.start}–{w.end}{wrap} "

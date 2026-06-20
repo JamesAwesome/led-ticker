@@ -115,3 +115,62 @@ def test_summary_lines():
     assert "overnight" in text  # wrap annotated
     assert "0%" in text and "dark" in text
     assert "base" in text  # base fallback shown
+
+
+def test_all_invalid_days_window_is_skipped():
+    """A window with days=['funday','noday'] (all invalid) must be skipped.
+    brightness_for returns base on any weekday (FIX 4)."""
+    s = _sched(_w("09:00", "17:00", 80, days=["funday", "noday"]))
+    # The window was skipped — no windows active — base returned for any day
+    for wd in range(7):
+        assert s.brightness_for(_at(wd, 12, 0), base=60) == 60
+
+
+def test_empty_days_still_means_every_day():
+    """Omitted/empty days must still match every day (FIX 4 — no regression)."""
+    s = _sched(_w("09:00", "17:00", 80, days=[]))
+    for wd in range(7):
+        assert s.brightness_for(_at(wd, 12, 0), base=60) == 80
+
+
+def test_unreachable_reports_original_index_with_malformed_first():
+    """When a malformed-time window precedes a shadowed one,
+    unreachable_window_indices must point at the SHADOWED window's original
+    index, not the malformed one (FIX 5)."""
+    from led_ticker.config import ScheduleConfig, ScheduleWindow
+
+    # windows[0]: malformed time (will be skipped by to_minutes → None)
+    # windows[1]: genuinely shadowed (09:00–17:00, brightness=30)
+    # windows[2]: broad cover (08:00–18:00, brightness=100) — shadows [1]
+    cfg = ScheduleConfig(
+        enabled=True,
+        windows=[
+            ScheduleWindow(start="9:00", end="17:00", brightness=30),  # 0: bad
+            ScheduleWindow(start="09:00", end="17:00", brightness=30),  # 1: shadowed
+            ScheduleWindow(start="08:00", end="18:00", brightness=100),  # 2: broad
+        ],
+    )
+    result = unreachable_window_indices(cfg)
+    # Must report index 1 (shadowed), NOT index 0 (malformed, skipped)
+    assert result == [1]
+
+
+def test_summary_invalid_time_window_marked():
+    """format_schedule_summary must mark a window with invalid times as
+    '(invalid — see errors)' instead of rendering it as a normal row (FIX 7)."""
+    from led_ticker.config import ScheduleConfig, ScheduleWindow
+
+    cfg = ScheduleConfig(
+        enabled=True,
+        timezone="",
+        windows=[
+            ScheduleWindow(start="bad", end="17:00", brightness=80),  # invalid start
+            ScheduleWindow(start="07:00", end="18:00", brightness=100),
+        ],
+    )
+    lines = format_schedule_summary(cfg, base=60)
+    text = "\n".join(lines)
+    assert "invalid" in text
+    assert "see errors" in text
+    # The valid window should still render normally
+    assert "07:00" in text and "100%" in text

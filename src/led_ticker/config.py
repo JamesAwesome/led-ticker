@@ -356,7 +356,12 @@ def _coerce_schedule(raw: dict[str, Any]) -> ScheduleConfig:
     """Build ScheduleConfig from the raw [display.schedule] table. Permissive:
     values pass through (validation reports bad shapes); day names lowercased."""
     windows: list[ScheduleWindow] = []
-    for w in raw.get("windows", []) or []:
+    raw_windows = raw.get("windows", [])
+    if not isinstance(raw_windows, list):
+        raw_windows = []
+    for w in raw_windows:
+        if not isinstance(w, dict):
+            continue
         raw_days = w.get("days", [])
         days = (
             [str(d).lower() for d in raw_days]

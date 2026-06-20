@@ -126,6 +126,18 @@ days = ["sat", "sun"]   # weekends on a gentler setting
 
 An empty `days` list (the default) matches every day of the week.
 
+:::note[Midnight-wrapping windows and `days`]
+A window that wraps past midnight (`start > end`) is anchored to its **start day**. For example:
+
+```toml
+start = "23:00"
+end = "07:00"
+days = ["fri"]
+```
+
+This window is active from **Friday 23:00 through Saturday 06:59**. The early-Saturday tail belongs to Friday's entry — not to Saturday's — because the window started on Friday. If you also want Saturday-night coverage, add a separate window with `days = ["sat"]`.
+:::
+
 ### Timing and behavior
 
 - **Boundary latency**: brightness changes land within approximately 30 seconds of the scheduled time, not instantly at the second.

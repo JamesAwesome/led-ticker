@@ -94,6 +94,28 @@ async def test_omitted_days_is_valid(tmp_path):
     assert not any("day" in e.message.lower() for e in res.errors)
 
 
+async def test_non_string_timezone_is_error_not_crash(tmp_path):
+    """timezone = 123 (int) must produce a timezone error, not crash (FIX 2)."""
+    # We can't write `timezone = 123` through TOML (TOML would reject it as
+    # wrong type without special handling), so monkeypatch at the ScheduleConfig level.
+    from led_ticker.config import ScheduleWindow
+    from led_ticker.validate import _check_schedule
+
+    class FakeAppConfig:
+        class display:
+            class schedule:
+                enabled = True
+                timezone = 123  # non-string
+                windows = [ScheduleWindow("07:00", "18:00", 100)]
+
+    issues = _check_schedule(FakeAppConfig())
+    assert any(
+        "timezone" in i.message.lower() or "string" in i.message.lower()
+        for i in issues
+        if i.severity == "error"
+    )
+
+
 async def test_brightness_true_bool_is_error(tmp_path):
     res = await _validate(
         tmp_path,

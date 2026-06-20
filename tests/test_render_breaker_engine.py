@@ -22,6 +22,24 @@ class FaultyDrawWidget:
         raise ValueError("boom-draw")
 
 
+class RecordingWidget:
+    """A good widget that records the canvas id each draw() call receives.
+
+    Used to assert constraint #1: the engine captures SwapOnVSync's return
+    value and passes the NEW back-buffer to each subsequent draw call.
+    """
+
+    bg_color = None
+
+    def __init__(self, text="hello"):
+        self.text = text
+        self.seen: list[int] = []
+
+    def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
+        self.seen.append(id(canvas))
+        return canvas, 0
+
+
 def _make_message_widget(text: str) -> TickerMessage:
     """Create a minimal TickerMessage that draws successfully."""
     return TickerMessage(text=text, hold_time=0.0)
@@ -89,8 +107,14 @@ def test_expand_sources_filters_disabled_stories_in_container():
 
 
 async def test_swap_mode_survives_faulty_draw(swapping_frame, no_sleep):
-    """A faulty widget must not raise — the run completes and the breaker trips."""
-    good = _make_message_widget("hello")
+    """A faulty widget must not raise — the run completes and the breaker trips.
+
+    Also asserts constraint #1: the engine captures SwapOnVSync's return value
+    and hands the fresh back-buffer to the good sibling widget on each draw call.
+    The swapping_frame fixture rotates between two distinct canvas objects, so
+    seeing >= 2 distinct canvas ids proves the engine kept capturing the swap.
+    """
+    good = RecordingWidget("hello")
     bad = FaultyDrawWidget()
     breaker = RenderBreaker()
     ticker = _make_ticker(monitors=[bad, good], frame=swapping_frame, breaker=breaker)
@@ -99,6 +123,12 @@ async def test_swap_mode_survives_faulty_draw(swapping_frame, no_sleep):
     assert breaker.is_disabled(bad) is True
     # Disabled widget is filtered from the rotation next pass:
     assert _expand_sources([bad, good], breaker=breaker) == [good]
+    # Constraint #1: engine must have captured SwapOnVSync return value — good
+    # widget must have seen >= 2 distinct canvas objects across its draw calls.
+    assert len(set(good.seen)) >= 2, (
+        "Engine dropped SwapOnVSync return value: good widget only saw "
+        f"{len(set(good.seen))} distinct canvas id(s) across {len(good.seen)} draw(s)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -225,7 +255,11 @@ class FaultyPlayWidget:
     bg_color = None
     play_count = 1
 
+    def __init__(self):
+        self.calls = 0
+
     async def play(self, canvas, frame, loop_count=1, hold_time=3.0):
+        self.calls += 1
         raise ValueError("boom-play")
 
 
@@ -249,6 +283,7 @@ async def test_disabled_play_widget_short_circuits(mock_frame):
     # play() must NOT be called for an already-disabled widget (no raise either)
     out = await ticker._play_widget(canvas, bad, section_hold_time=0.05)
     assert out is canvas  # returned unchanged, play() skipped
+    assert bad.calls == 0, "_play_widget must not call play() on a pre-tripped widget"
 
 
 # ---------------------------------------------------------------------------

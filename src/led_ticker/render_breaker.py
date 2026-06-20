@@ -11,6 +11,8 @@ from typing import Any
 
 from led_ticker import status_board
 
+logger = logging.getLogger(__name__)
+
 
 class RenderBreaker:
     def __init__(self) -> None:
@@ -27,7 +29,7 @@ class RenderBreaker:
             return
         summary = f"{type(exc).__name__}: {exc}"
         self.disabled[id(widget)] = summary
-        logging.error(
+        logger.error(
             "widget %s disabled after a render error: %s",
             type(widget).__name__,
             summary,

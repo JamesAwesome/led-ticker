@@ -19,51 +19,31 @@ Pool water-temperature widget (`type = "pool.monitor"`), backed by an InfluxDB v
 
 Five MLB widgets, backed by MLB's free StatsAPI (no key required): scores (`type = "baseball.scores"`), standings (`type = "baseball.standings"`), home-game promotions/theme nights (`type = "baseball.promotions"`), Statcast superlatives — longest homer, hardest-hit ball, fastest pitch (`type = "baseball.statcast"`), and ballpark attendance with fill % (`type = "baseball.attendance"`). Also ships the `baseball.roll` / `baseball.roll_reverse` / `baseball.roll_alternating` rolling-ball sprite transition and the `:baseball.ball:` emoji. Full docs, options, and screenshots in the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/baseball/README.md).
 
-Add to your `config/requirements-plugins.txt`:
-
-```text
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@baseball-v0.1.0#subdirectory=plugins/baseball
-```
+<PluginCatalog name="baseball" />
 
 ### [crypto](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/crypto)
 
 Multi-coin CoinGecko price ticker (`type = "crypto.coingecko"`). Cycles one ticker card per coin, pulling live spot prices from the [CoinGecko API](https://www.coingecko.com/en/api). Three coin-spec styles: a single `symbol` + `symbol_id` pair, a `symbol_ids = [...]` list, or a `symbols = [...]` list that auto-resolves to unique CoinGecko IDs (raises an error if a symbol is ambiguous — set `symbol_id`/`symbol_ids` to disambiguate). Prices below $0.01 format with adaptive sub-cent precision. Keyless free tier is rate-limited to ~5 requests/min; add `api_key = "..."` (or set `COINGECKO_API_KEY`) to use a [CoinGecko demo key](https://www.coingecko.com/en/api/pricing) for a higher limit. See the [crypto.coingecko widget page](/widgets/crypto-coingecko/) for an overview, or the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/crypto/README.md) for the full options reference.
 
-Add to your `config/requirements-plugins.txt`:
-
-```text
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@crypto-v0.1.0#subdirectory=plugins/crypto
-```
+<PluginCatalog name="crypto" />
 
 ### [calendar](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/calendar)
 
 Calendar (.ics) widget (`type = "calendar.events"`). Pulls upcoming events from any subscribed iCal feed (Google / iCloud / Outlook) and shows them as a rotating `agenda`, a live `next`-event countdown, or a held-top `two_row` card, with keyword `filter`/`highlight` and two-tone day/time coloring. Full docs, options, and screenshots in the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/calendar/README.md).
 
-Add to your `config/requirements-plugins.txt`:
-
-```text
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@calendar-v0.1.0#subdirectory=plugins/calendar
-```
+<PluginCatalog name="calendar" />
 
 ### [rss](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/rss)
 
 RSS/Atom headline widget (`type = "rss.feed"`). Fetches a remote feed and turns each headline into its own scrolling line in the section. Polls in the background with retry/backoff. Full docs, options, and screenshots in the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/rss/README.md).
 
-Add to your `config/requirements-plugins.txt`:
-
-```text
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@rss-v0.2.0#subdirectory=plugins/rss
-```
+<PluginCatalog name="rss" />
 
 ### [weather](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/weather)
 
 Current-conditions widget (`type = "weather.current"`) that shows temperature and a pixel-art condition icon from WeatherAPI.com (needs a free `WEATHERAPI_KEY`). Polls in the background with retry/backoff. Full docs, options, and screenshots in the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/weather/README.md).
 
-Add to your `config/requirements-plugins.txt`:
-
-```text
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@weather-v0.2.0#subdirectory=plugins/weather
-```
+<PluginCatalog name="weather" />
 
 ## Transitions
 
@@ -73,41 +53,25 @@ The sprite-trail transitions live in four packages, one per character family. Ea
 
 Nyan Cat flies across the panel with a rainbow trail (`nyancat.forward` / `nyancat.reverse` / `nyancat.alternating`). Auto-activates a hi-res webp sprite on scaled signs. Full docs in the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/nyancat/README.md).
 
-Add to your `config/requirements-plugins.txt`:
-
-```text
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@nyancat-v0.1.0#subdirectory=plugins/nyancat
-```
+<PluginCatalog name="nyancat" />
 
 ### [pokeball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pokeball)
 
 A Pokéball rolls across with Pikachu chasing (`pokeball.forward` / `pokeball.reverse` / `pokeball.alternating`); `show_pikachu` / `show_pokeball` toggle the sprite elements. Auto-activates a hi-res sprite on scaled signs and ships the `:pokeball.ball:` emoji. Full docs in the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/pokeball/README.md).
 
-Add to your `config/requirements-plugins.txt`:
-
-```text
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@pokeball-v0.1.0#subdirectory=plugins/pokeball
-```
+<PluginCatalog name="pokeball" />
 
 ### [pacman](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pacman)
 
 Pac-Man chases three scared ghosts with a chomping animation (`pacman.forward` / `pacman.reverse` / `pacman.alternating`). Keeps its 8-bit look at all scales. Full docs in the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/pacman/README.md).
 
-Add to your `config/requirements-plugins.txt`:
-
-```text
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@pacman-v0.1.0#subdirectory=plugins/pacman
-```
+<PluginCatalog name="pacman" />
 
 ### [sailor_moon](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/sailor_moon)
 
 The Moon Stick wand sweeps across with a sparkle trail (`sailor_moon.forward` / `sailor_moon.reverse` / `sailor_moon.alternating`). Keeps its 8-bit look at all scales. Full docs in the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/sailor_moon/README.md).
 
-Add to your `config/requirements-plugins.txt`:
-
-```text
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@sailor_moon-v0.1.0#subdirectory=plugins/sailor_moon
-```
+<PluginCatalog name="sailor_moon" />
 
 ---
 

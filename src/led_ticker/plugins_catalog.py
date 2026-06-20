@@ -14,8 +14,75 @@ from importlib import resources
 import attrs
 
 _CATALOG_RESOURCE = "plugins_catalog.json"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 _VALID_SOURCE_TYPES = ("git", "pypi")
+
+# Every surface a plugin can register (see led_ticker.plugin PluginAPI).
+# Canonical order = list/display order. `emoji` covers the lo-res + hi-res pair.
+_SURFACE_KINDS = (
+    "widgets",
+    "transitions",
+    "emoji",
+    "fonts",
+    "borders",
+    "color_providers",
+    "animations",
+    "easing",
+)
+
+# Order the install hint picks a "primary" surface in (first non-empty wins).
+_PRIMARY_ORDER = (
+    "widgets",
+    "transitions",
+    "color_providers",
+    "animations",
+    "borders",
+    "emoji",
+    "fonts",
+    "easing",
+)
+
+
+@attrs.define(frozen=True)
+class PluginProvides:
+    """The typed surface a catalog plugin contributes, grouped by kind.
+
+    Each field is a tuple of fully-qualified ``namespace.name`` strings. Fields
+    are named exactly as ``_SURFACE_KINDS`` so the loader can splat a dict in.
+    """
+
+    widgets: tuple[str, ...] = ()
+    transitions: tuple[str, ...] = ()
+    emoji: tuple[str, ...] = ()
+    fonts: tuple[str, ...] = ()
+    borders: tuple[str, ...] = ()
+    color_providers: tuple[str, ...] = ()
+    animations: tuple[str, ...] = ()
+    easing: tuple[str, ...] = ()
+
+    def all_names(self) -> tuple[str, ...]:
+        """Every provided name across all kinds, in canonical order."""
+        return tuple(name for kind in _SURFACE_KINDS for name in getattr(self, kind))
+
+    def is_empty(self) -> bool:
+        """True when no names are registered in any kind."""
+        return not self.all_names()
+
+    def groups(self) -> list[tuple[str, tuple[str, ...]]]:
+        """Non-empty ``(kind, names)`` pairs in canonical order (for display)."""
+        return [
+            (kind, getattr(self, kind))
+            for kind in _SURFACE_KINDS
+            if getattr(self, kind)
+        ]
+
+    def primary(self) -> tuple[str, str] | None:
+        """The ``(kind, first_name)`` for the install hint, by priority order."""
+        for kind in _PRIMARY_ORDER:
+            names = getattr(self, kind)
+            if names:
+                return (kind, names[0])
+        return None
 
 
 @attrs.define(frozen=True)
@@ -38,7 +105,7 @@ class CatalogEntry:
     namespace: str
     summary: str
     homepage: str
-    provides: tuple[str, ...]
+    provides: PluginProvides
     sources: tuple[CatalogSource, ...]
 
     def source_for(self, source_type: str | None) -> CatalogSource:
@@ -96,7 +163,9 @@ class Catalog:
         q = query.lower()
         out: list[CatalogEntry] = []
         for entry in self.entries:
-            haystack = " ".join([entry.name, entry.summary, *entry.provides]).lower()
+            haystack = " ".join(
+                [entry.name, entry.summary, *entry.provides.all_names()]
+            ).lower()
             if q in haystack:
                 out.append(entry)
         return out
@@ -125,6 +194,30 @@ def _parse_source(raw: dict) -> CatalogSource:
     )
 
 
+def _parse_provides(raw: object) -> PluginProvides:
+    """Parse the typed `provides` object. Rejects a non-object, unknown surface
+    kinds (typo guard), and non-string entries. Absent/None -> all-empty."""
+    if raw is None:
+        return PluginProvides()
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"catalog entry 'provides' must be an object, got {type(raw).__name__}"
+        )
+    unknown = [k for k in raw if k not in _SURFACE_KINDS]
+    if unknown:
+        raise ValueError(
+            f"catalog 'provides' has unknown surface kind(s) {sorted(unknown)} "
+            f"(valid: {list(_SURFACE_KINDS)})"
+        )
+    kwargs: dict[str, tuple[str, ...]] = {}
+    for kind in _SURFACE_KINDS:
+        vals = raw.get(kind, [])
+        if not isinstance(vals, list) or not all(isinstance(v, str) for v in vals):
+            raise ValueError(f"catalog 'provides.{kind}' must be a list of strings")
+        kwargs[kind] = tuple(vals)
+    return PluginProvides(**kwargs)
+
+
 def _parse_entry(raw: dict) -> CatalogEntry:
     for key in ("name", "namespace", "summary", "sources"):
         if key not in raw:
@@ -137,9 +230,21 @@ def _parse_entry(raw: dict) -> CatalogEntry:
         namespace=raw["namespace"],
         summary=raw["summary"],
         homepage=raw.get("homepage", ""),
-        provides=tuple(raw.get("provides", [])),
+        provides=_parse_provides(raw.get("provides")),
         sources=sources,
     )
+
+
+def _parse_catalog(data: dict) -> Catalog:
+    """Validate a parsed catalog document and build the Catalog."""
+    version = data.get("schema_version")
+    if version != SCHEMA_VERSION:
+        raise ValueError(
+            f"plugins_catalog.json schema_version {version!r} is not the "
+            f"supported version {SCHEMA_VERSION}"
+        )
+    entries = tuple(_parse_entry(e) for e in data.get("plugins", []))
+    return Catalog(entries=entries)
 
 
 def load_catalog() -> Catalog:
@@ -149,12 +254,4 @@ def load_catalog() -> Catalog:
         .joinpath(_CATALOG_RESOURCE)
         .read_text(encoding="utf-8")
     )
-    data = json.loads(text)
-    version = data.get("schema_version")
-    if version != SCHEMA_VERSION:
-        raise ValueError(
-            f"plugins_catalog.json schema_version {version!r} is not the "
-            f"supported version {SCHEMA_VERSION}"
-        )
-    entries = tuple(_parse_entry(e) for e in data.get("plugins", []))
-    return Catalog(entries=entries)
+    return _parse_catalog(json.loads(text))

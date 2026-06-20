@@ -15,6 +15,7 @@ from led_ticker import status_board
 from led_ticker._types import Canvas, ColorTuple
 from led_ticker.colors import RGB_WHITE
 from led_ticker.drawing import get_widget_padding, safe_scale
+from led_ticker.render_breaker import RenderBreaker
 from led_ticker.scaled_canvas import ScaledCanvas, paint_hires, unwrap_to_real
 from led_ticker.widgets._image_fit import reset_canvas
 from led_ticker.widgets.message import TickerMessage
@@ -180,6 +181,7 @@ class Ticker:
     # `section.scroll_step_ms / 1000` in app.py — None falls back
     # to this default.
     scroll_speed: float = 0.05
+    breaker: RenderBreaker = attrs.field(factory=RenderBreaker)
     last_scroll_pos: int = attrs.field(init=False, default=0)
     _visit_counter: int = attrs.field(init=False, default=0)
     _current_visit: int = attrs.field(init=False, default=0)
@@ -222,6 +224,7 @@ class Ticker:
                 self.notif_queue,
                 title=title,
                 loop_count=loop_count,
+                breaker=self.breaker,
             )
         )
         self._enqueue_task.add_done_callback(
@@ -272,6 +275,7 @@ class Ticker:
                 self.notif_queue,
                 title=None,
                 loop_count=1,
+                breaker=self.breaker,
             )
         )
         self._enqueue_task.add_done_callback(
@@ -305,6 +309,7 @@ class Ticker:
                 self.notif_queue,
                 title=title,
                 loop_count=loop_count,
+                breaker=self.breaker,
             )
         )
         self._enqueue_task.add_done_callback(
@@ -339,6 +344,7 @@ class Ticker:
                 self.notif_queue,
                 title=title,
                 loop_count=loop_count,
+                breaker=self.breaker,
             )
         )
         self._enqueue_task.add_done_callback(
@@ -402,6 +408,22 @@ class Ticker:
         if hasattr(widget, "advance_frame"):
             widget.advance_frame(visit_id=self._current_visit)
 
+    def _safe_draw(
+        self, widget: Any, canvas: Any, cursor_pos: int = 0
+    ) -> tuple[Any, int]:
+        """Guard one draw() call. On a render error: trip the widget and return
+        the canvas unchanged (no advance) so the swap still captures a valid
+        canvas (constraint #1). Already-disabled -> short-circuit before draw().
+        Fallback leaves the canvas as-is; the per-tick reset_canvas already wipes
+        any partial frame on the next tick (no Clear here)."""
+        if self.breaker.is_disabled(widget):
+            return canvas, cursor_pos
+        try:
+            return widget.draw(canvas, cursor_pos=cursor_pos)
+        except Exception as exc:
+            self.breaker.trip(widget, exc)
+            return canvas, cursor_pos
+
     async def _hold_ticks(
         self,
         canvas: Canvas,
@@ -418,7 +440,7 @@ class Ticker:
             t0 = loop.time()
             self._advance_frame_if_supported(widget)
             reset_canvas(canvas, bg_color)
-            canvas, cursor_pos = widget.draw(canvas, cursor_pos=pos)
+            canvas, cursor_pos = self._safe_draw(widget, canvas, pos)
             canvas = _swap(canvas, self.frame)
             await asyncio.sleep(max(0.0, tick_seconds - (loop.time() - t0)))
         return canvas, cursor_pos
@@ -532,7 +554,7 @@ class Ticker:
         pos = 0
         bg_color = getattr(ticker_obj, "bg_color", None)
         reset_canvas(canvas, bg_color)
-        canvas, cursor_pos = ticker_obj.draw(canvas, pos)
+        canvas, cursor_pos = self._safe_draw(ticker_obj, canvas, pos)
 
         if not skip_initial_draw:
             canvas = _swap(canvas, self.frame)
@@ -560,7 +582,7 @@ class Ticker:
                 pos -= 1
                 self._advance_frame_if_supported(ticker_obj)
                 reset_canvas(canvas, bg_color)
-                canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
+                canvas, _ = self._safe_draw(ticker_obj, canvas, pos)
                 canvas = _swap(canvas, self.frame)
                 await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
             return canvas, cursor_pos, pos
@@ -575,7 +597,7 @@ class Ticker:
                 t0 = loop.time()
                 self._advance_frame_if_supported(ticker_obj)
                 reset_canvas(canvas, bg_color)
-                canvas, cycle_width = ticker_obj.draw(canvas, cursor_pos=pos)
+                canvas, cycle_width = self._safe_draw(ticker_obj, canvas, pos)
                 if tick == 0 and loops_floor > 0 and cycle_width > 0:
                     n_ticks = max(n_ticks, loops_floor * cycle_width)
                 canvas = _swap(canvas, self.frame)
@@ -598,7 +620,7 @@ class Ticker:
                 pos -= 1
                 self._advance_frame_if_supported(ticker_obj)
                 reset_canvas(canvas, bg_color)
-                canvas, _ = ticker_obj.draw(canvas, cursor_pos=pos)
+                canvas, _ = self._safe_draw(ticker_obj, canvas, pos)
                 canvas = _swap(canvas, self.frame)
                 await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
 
@@ -747,7 +769,7 @@ class Ticker:
         reset_canvas(canvas, bg_color)
         pos = cursor_pos
 
-        canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
+        canvas, cursor_pos = self._safe_draw(ticker_obj, canvas, pos)
 
         if pos <= 0:
             # Title is already in its final position — swap once so it's
@@ -766,7 +788,7 @@ class Ticker:
             t0 = loop.time()
             self._advance_frame_if_supported(ticker_obj)
             reset_canvas(canvas, bg_color)
-            canvas, cursor_pos = ticker_obj.draw(canvas, cursor_pos=pos)
+            canvas, cursor_pos = self._safe_draw(ticker_obj, canvas, pos)
             pos -= 1
             canvas = _swap(canvas, self.frame)
             await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
@@ -828,7 +850,7 @@ class Ticker:
             t0 = loop.time()
             self._advance_frame_if_supported(ticker_object)
             reset_canvas(canvas, getattr(ticker_object, "bg_color", None))
-            canvas, final_pos = ticker_object.draw(canvas, cursor_pos=pos)
+            canvas, final_pos = self._safe_draw(ticker_object, canvas, pos)
             last_drawn_pos = pos
             pos -= 1
 
@@ -918,8 +940,8 @@ class Ticker:
             reset_canvas(canvas, bg)
 
             mon_index = 0
-            canvas, cursor_pos = buffered_objects[mon_index].draw(
-                canvas, cursor_pos=pos
+            canvas, cursor_pos = self._safe_draw(
+                buffered_objects[mon_index], canvas, pos
             )
             mon_0_end_pos = cursor_pos
 
@@ -929,9 +951,10 @@ class Ticker:
                 mon_index += 1
 
                 if _has_index(mon_index, buffered_objects):
-                    canvas, cursor_pos = buffered_objects[mon_index].draw(
+                    canvas, cursor_pos = self._safe_draw(
+                        buffered_objects[mon_index],
                         canvas,
-                        cursor_pos=cursor_pos,
+                        cursor_pos,
                     )
                 elif not queue_empty:
                     if self.notif_queue.empty():
@@ -1047,18 +1070,28 @@ class Ticker:
 # --- Queue builders ---
 
 
-def _expand_sources(sources: list[Any]) -> list[Any]:
+def _expand_sources(
+    sources: list[Any], breaker: RenderBreaker | None = None
+) -> list[Any]:
     """Expand `Container` widgets into their current `feed_stories`;
     pass non-containers through unchanged. Called once per pass through
     a section — re-reading `feed_stories` here is what keeps the displayed
     content in sync with each container's background `update()` task.
+
+    If `breaker` is given, disabled widgets (and disabled container
+    stories) are filtered from the output so they never re-enter the
+    rotation after being tripped.
     """
     from led_ticker.widget import Container
 
     out: list[Any] = []
     for s in sources:
+        if breaker is not None and breaker.is_disabled(s):
+            continue
         if isinstance(s, Container):
-            out.extend(s.feed_stories)
+            for story in s.feed_stories:
+                if breaker is None or not breaker.is_disabled(story):
+                    out.append(story)
         else:
             out.append(s)
     return out
@@ -1068,6 +1101,7 @@ def _build_ticker_iter(
     ticker_objects: list[Any],
     title: Any = None,
     loop_count: int = 0,
+    breaker: RenderBreaker | None = None,
 ) -> Iterator[Any]:
     """Build the engine's per-tick iterator over a section's widgets.
 
@@ -1082,6 +1116,9 @@ def _build_ticker_iter(
     on the panel within at most one cycle of latency.
 
     `title` is prepended ONCE (not repeated per pass).
+
+    If `breaker` is given, disabled widgets are filtered from each pass
+    so they never re-enter the rotation after being tripped.
     """
     n_sources = len(ticker_objects)
 
@@ -1089,7 +1126,7 @@ def _build_ticker_iter(
 
         def passes() -> Iterator[Any]:
             for pass_idx in range(loop_count):
-                widgets = _expand_sources(ticker_objects)
+                widgets = _expand_sources(ticker_objects, breaker)
                 logger.debug(
                     "section pass %d/%d: %d sources → %d widgets",
                     pass_idx + 1,
@@ -1105,7 +1142,7 @@ def _build_ticker_iter(
         def cycle_with_refresh() -> Iterator[Any]:
             pass_idx = 0
             while True:
-                widgets = _expand_sources(ticker_objects)
+                widgets = _expand_sources(ticker_objects, breaker)
                 logger.debug(
                     "section cycle %d: %d sources → %d widgets",
                     pass_idx,
@@ -1164,9 +1201,10 @@ async def _build_then_enqueue(
     notif_queue: asyncio.Queue[Any],
     title: Any = None,
     loop_count: int | None = None,
+    breaker: RenderBreaker | None = None,
 ) -> None:
     ticker_iter = _build_ticker_iter(
-        ticker_objects, title=title, loop_count=loop_count or 0
+        ticker_objects, title=title, loop_count=loop_count or 0, breaker=breaker
     )
     await _enqueue_ticker_objects(ticker_iter, notif_queue)
 

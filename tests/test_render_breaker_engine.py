@@ -63,17 +63,20 @@ def test_expand_sources_filters_disabled_stories_in_container():
     """Container stories that are disabled must also be filtered."""
     from unittest.mock import Mock
 
+    from led_ticker.widget import Container
+
+    class _FakeContainer(Container):
+        def __init__(self, stories):
+            self.feed_stories = stories
+
     b = RenderBreaker()
     story_good = Mock()
     story_bad = Mock()
     b.trip(story_bad, ValueError("x"))
 
-    container = Mock()
-    container.feed_stories = [story_good, story_bad]
-    # Make it look like a Container (isinstance check in _expand_sources)
-    from led_ticker.widget import Container
-
-    container.__class__ = type("_C", (Container,), {"feed_stories": None})
+    container = _FakeContainer([story_good, story_bad])
+    # sanity: isinstance gate in _expand_sources fires
+    assert isinstance(container, Container)
 
     result = _expand_sources([container], breaker=b)
     assert story_good in result
@@ -111,6 +114,31 @@ async def test_forever_scroll_survives_faulty_draw(swapping_frame, no_sleep):
     ticker = _make_ticker(monitors=[bad, good], frame=swapping_frame, breaker=breaker)
     await ticker.run_forever_scroll(loop_count=1)
     assert breaker.is_disabled(bad) is True
+    # Disabled widget is filtered from the rotation next pass:
+    assert _expand_sources([bad, good], breaker=breaker) == [good]
+
+
+async def test_forever_scroll_second_widget_fails(swapping_frame, no_sleep):
+    """In forever_scroll, the SECOND widget faulting must not break the loop.
+
+    The run completes, the breaker trips the bad widget, and a good sibling
+    still rendered (run did not raise).
+    """
+    good = _make_message_widget("hello")
+    bad = FaultyDrawWidget()
+    good2 = _make_message_widget("world")
+    breaker = RenderBreaker()
+    ticker = _make_ticker(
+        monitors=[good, bad, good2], frame=swapping_frame, breaker=breaker
+    )
+    # Must not raise:
+    await ticker.run_forever_scroll(loop_count=1)
+    assert breaker.is_disabled(bad) is True
+    # Good siblings are not tripped:
+    assert not breaker.is_disabled(good)
+    assert not breaker.is_disabled(good2)
+    # Filtered from next pass:
+    assert _expand_sources([good, bad, good2], breaker=breaker) == [good, good2]
 
 
 # ---------------------------------------------------------------------------
@@ -126,6 +154,8 @@ async def test_infini_scroll_survives_faulty_draw(swapping_frame, no_sleep):
     ticker = _make_ticker(monitors=[bad, good], frame=swapping_frame, breaker=breaker)
     await ticker.run_infini_scroll(loop_count=1)
     assert breaker.is_disabled(bad) is True
+    # Disabled widget is filtered from the rotation next pass:
+    assert _expand_sources([bad, good], breaker=breaker) == [good]
 
 
 # ---------------------------------------------------------------------------

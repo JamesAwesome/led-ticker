@@ -39,10 +39,7 @@ class ConfigWatcher:
             return None
 
     def _hash(self) -> str | None:
-        try:
-            return hashlib.sha256(self.path.read_bytes()).hexdigest()
-        except OSError:
-            return None
+        return config_hash(self.path)
 
     def changed(self) -> bool:
         if not self.enabled:

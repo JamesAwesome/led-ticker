@@ -359,7 +359,10 @@ def test_record_disabled_widget_appears_in_snapshot(tmp_path):
     assert snap["disabled_widgets"], "expected a disabled widget entry"
     entry = snap["disabled_widgets"][0]
     assert entry["error"] == "ValueError: boom"
-    assert entry["widget"]  # a non-empty label
+    # richer entry: uses _widget_summary → has "type" and "summary" keys
+    assert "type" in entry
+    assert "summary" in entry
+    assert entry["summary"] == "hi"
 
 
 def test_record_disabled_widget_dedups_by_label_and_error(tmp_path):
@@ -376,3 +379,33 @@ def test_record_disabled_widget_dedups_by_label_and_error(tmp_path):
     finally:
         status_board.clear_active_board()
     assert len(board.snapshot()["disabled_widgets"]) == 1
+
+
+def test_record_disabled_widget_no_board_is_noop():
+    """record_disabled_widget with no active board must return without error."""
+    from types import SimpleNamespace
+
+    status_board.clear_active_board()
+    # Must not raise
+    status_board.record_disabled_widget(SimpleNamespace(text="something"), "oops")
+
+
+def test_record_disabled_widget_publish_raises_does_not_propagate(tmp_path):
+    """If the board's publish() raises, record_disabled_widget must swallow it."""
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from led_ticker.status_board import StatusBoard
+
+    board = StatusBoard(path=tmp_path / "status.json")
+    status_board.set_active_board(board)
+    try:
+        # Patch at the CLASS level (attrs instances are read-only; class-level
+        # patch affects this instance's method lookup).
+        with patch.object(
+            StatusBoard, "publish", side_effect=RuntimeError("disk full")
+        ):
+            # Must not propagate
+            status_board.record_disabled_widget(SimpleNamespace(text="x"), "boom")
+    finally:
+        status_board.clear_active_board()

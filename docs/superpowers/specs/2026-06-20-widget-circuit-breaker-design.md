@@ -29,6 +29,8 @@ granularity** (a widget can draw fine for 100 ticks then raise on tick 101).
 
 ## Decisions (from brainstorming + perf review)
 
+Superseded: keying changed from id() to a content-signature (type+text/path) with id() fallback, to handle container stories rebuilt each refresh — see `render_breaker._key()`.
+
 1. **Coverage: all widget render modes** — swap+gif (`_show_one` → its draw/play
    seams), forever-scroll (`_scroll_side_by_side`), infini-scroll
    (`_scroll_one_by_one`), and the shared draw/play seams. Transitions deferred.

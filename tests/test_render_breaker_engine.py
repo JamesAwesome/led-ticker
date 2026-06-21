@@ -303,10 +303,96 @@ def test_shared_breaker_disables_across_tickers(mock_frame):
 
 
 def test_run_injects_a_shared_breaker():
+    """RenderBreaker() must be constructed ONCE in run(), not inside a loop.
+
+    Source-grep confirms the call exists; AST-parse confirms it's not nested
+    inside any For or While loop node — so moving the construction into the
+    per-section loop would fail this tripwire.
+    """
+    import ast
     import inspect
+    import textwrap
 
     from led_ticker.app.run import run
 
     src = inspect.getsource(run)
     assert "RenderBreaker(" in src  # created in run()
     assert '"breaker"' in src or "breaker=" in src  # threaded into ticker_kwargs
+
+    # Dedent so the AST parse starts at column 0 (getsource includes indentation).
+    tree = ast.parse(textwrap.dedent(src))
+
+    # Walk every For/While loop in the function body and assert none of them
+    # contain a RenderBreaker() call — that would mean it's re-created per section.
+    loop_types = (ast.For, ast.AsyncFor, ast.While)
+    for node in ast.walk(tree):
+        if isinstance(node, loop_types):
+            for child in ast.walk(node):
+                if isinstance(child, ast.Call):
+                    func = child.func
+                    name = (
+                        func.id
+                        if isinstance(func, ast.Name)
+                        else getattr(func, "attr", None)
+                    )
+                    assert name != "RenderBreaker", (
+                        "RenderBreaker() must not be constructed inside a loop "
+                        "in run() — it must be created once and shared across "
+                        "all sections/tickers."
+                    )
+
+
+# ---------------------------------------------------------------------------
+# FIX 1 regression: _expand_sources at transition selection sites
+# ---------------------------------------------------------------------------
+
+
+def test_expand_sources_filters_tripped_widget_at_start():
+    """A tripped widget in first position must be excluded."""
+    b = RenderBreaker()
+    good = object()
+    bad = object()
+    b.trip(bad, ValueError("x"))
+    assert _expand_sources([bad, good], breaker=b) == [good]
+
+
+def test_expand_sources_filters_tripped_widget_at_end():
+    """A tripped widget in last position must be excluded."""
+    b = RenderBreaker()
+    good = object()
+    bad = object()
+    b.trip(bad, ValueError("x"))
+    assert _expand_sources([good, bad], breaker=b) == [good]
+
+
+def test_expand_sources_all_tripped_returns_empty():
+    """When the only widget is tripped, result must be empty (not raise)."""
+    b = RenderBreaker()
+    bad = object()
+    b.trip(bad, ValueError("x"))
+    assert _expand_sources([bad], breaker=b) == []
+
+
+# ---------------------------------------------------------------------------
+# FIX 5: _run_gif circuit breaker tests
+# ---------------------------------------------------------------------------
+
+
+async def test_run_gif_survives_faulty_play(swapping_frame, no_sleep):
+    """A FaultyPlayWidget enqueued via run_gif must not raise; breaker trips."""
+    bad = FaultyPlayWidget()
+    breaker = RenderBreaker()
+    ticker = _make_ticker(monitors=[bad], frame=swapping_frame, breaker=breaker)
+    # run_gif with loop_count=1: one pass through the queue
+    await ticker.run_gif(loop_count=1)
+    assert breaker.is_disabled(bad) is True
+
+
+async def test_run_gif_pre_tripped_play_not_called(swapping_frame, no_sleep):
+    """A pre-tripped widget enqueued in run_gif must have play() skipped."""
+    bad = FaultyPlayWidget()
+    breaker = RenderBreaker()
+    breaker.trip(bad, ValueError("pre"))  # already disabled before run
+    ticker = _make_ticker(monitors=[bad], frame=swapping_frame, breaker=breaker)
+    await ticker.run_gif(loop_count=1)
+    assert bad.calls == 0, "play() must not be called on a pre-tripped widget"

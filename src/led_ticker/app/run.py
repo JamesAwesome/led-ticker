@@ -516,7 +516,7 @@ async def run(config_path: Path) -> None:
                         if title:
                             first_widget = title
                         elif widgets:
-                            expanded = _expand_sources(widgets)
+                            expanded = _expand_sources(widgets, render_breaker)
                             first_widget = expanded[0] if expanded else None
                         else:
                             first_widget = None
@@ -658,7 +658,7 @@ async def run(config_path: Path) -> None:
                         # is currently empty, keep the previous last_widget (the
                         # next transition will use whatever was last on-screen).
                         if widgets:
-                            expanded = _expand_sources(widgets)
+                            expanded = _expand_sources(widgets, render_breaker)
                             if expanded:
                                 last_widget = expanded[-1]
                             # else: container is empty this cycle — keep prior

@@ -199,8 +199,7 @@ def record_disabled_widget(widget: Any, error: str) -> None:
     if _ACTIVE is None:
         return
     try:
-        label = type(widget).__name__
-        entry = {"widget": label, "error": error}
+        entry = {**_widget_summary(widget), "error": error}
         if entry not in _ACTIVE.disabled_widgets:
             _ACTIVE.disabled_widgets.append(entry)
             _ACTIVE.publish()

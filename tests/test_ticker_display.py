@@ -11,6 +11,31 @@ from led_ticker.ticker import (
 )
 
 
+class _FaultyDraw:
+    """A widget whose draw() always raises.
+
+    Mirrors the same helper in test_transitions.py.
+    """
+
+    text = "faulty"
+
+    def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
+        raise ValueError("boom-in-scroll-between")
+
+
+class _GoodDraw:
+    """A widget that records the canvases it was handed."""
+
+    text = "good"
+
+    def __init__(self):
+        self.seen = []
+
+    def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
+        self.seen.append(id(canvas))
+        return canvas, 0
+
+
 class TestFromRssFeed:
     def test_uses_feed_title(self, mock_frame):
         feed = mock.Mock()
@@ -974,6 +999,27 @@ class TestScrollBetween:
 
         outgoing.resume_frame.assert_called_once()
         incoming.resume_frame.assert_called_once()
+
+    async def test_scroll_between_survives_faulty_widget(
+        self, swapping_frame, no_sleep
+    ):
+        """Guard _scroll_between: a faulty widget is tripped, not fatal."""
+        from led_ticker.render_breaker import RenderBreaker
+        from led_ticker.ticker import _expand_sources
+
+        breaker = RenderBreaker()
+        good, bad = _GoodDraw(), _FaultyDraw()
+        ticker = Ticker(monitors=[good, bad], frame=swapping_frame, breaker=breaker)
+        canvas = swapping_frame._canvas_a
+        out, _pos = await ticker._scroll_between(
+            canvas, good, bad, outgoing_scroll_pos=0
+        )
+        assert out is not None  # valid canvas, no propagation
+        assert breaker.is_disabled(bad) is True  # faulty side tripped
+        # tripped widget is dropped from the next pass:
+        assert _expand_sources([bad, good], breaker) == [good]
+        # healthy outgoing side kept rendering across swaps
+        assert len(set(good.seen)) >= 2
 
 
 class TestDrawScrollFrame:

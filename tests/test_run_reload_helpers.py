@@ -98,6 +98,42 @@ def test_run_wires_the_reload_sequence():
     assert "_build_title_guarded(" in src  # title build goes through the guard
 
 
+def test_run_guards_inter_section_transition():
+    """The inter-section entry run_transition() call must pass breaker=render_breaker.
+
+    Without this, a widget raising during a section-boundary transition bypasses
+    the circuit breaker and freezes the panel.  The behavioral freeze-safety is
+    already proven by test_run_transition_survives_faulty_incoming; this is the
+    wiring tripwire that keeps the call site from regressing.
+
+    The previous substring assertion (`"breaker=render_breaker" in src`) was
+    vacuous: `run()` also contains `render_breaker=render_breaker` (in the
+    _apply_reload call), and `"breaker=render_breaker"` is a substring of
+    `"render_breaker=render_breaker"`.  Removing `breaker=render_breaker` from
+    the run_transition call left the test passing — so it did NOT catch the
+    regression it existed for.  The AST walk below is the real guard.
+    """
+    import ast
+    import importlib
+    import inspect
+    import textwrap
+
+    run_mod = importlib.import_module("led_ticker.app.run")
+    src = textwrap.dedent(inspect.getsource(run_mod.run))
+    tree = ast.parse(src)
+    calls = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "run_transition"
+    ]
+    assert calls, "no run_transition( call found in run()"
+    # every run_transition call in run() must pass the breaker (freeze-safety wiring)
+    assert all(any(k.arg == "breaker" for k in c.keywords) for c in calls), (
+        "a run_transition() call in run() is missing breaker= — the inter-section "
+        "transition would be unguarded (panel-freeze regression)"
+    )
+
+
 async def test_build_title_guarded_returns_none_on_error(monkeypatch):
     async def boom(*a, **k):
         raise ValueError("no such font xyz")

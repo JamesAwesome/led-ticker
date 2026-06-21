@@ -15,7 +15,7 @@ from led_ticker import status_board
 from led_ticker._types import Canvas, ColorTuple
 from led_ticker.colors import RGB_WHITE
 from led_ticker.drawing import get_widget_padding, safe_scale
-from led_ticker.render_breaker import RenderBreaker
+from led_ticker.render_breaker import RenderBreaker, guard_for_transition
 from led_ticker.scaled_canvas import ScaledCanvas, paint_hires, unwrap_to_real
 from led_ticker.widgets._image_fit import reset_canvas
 from led_ticker.widgets.message import TickerMessage
@@ -512,6 +512,11 @@ class Ticker:
         # then snaps to frame=0 when the section begins.
         if hasattr(incoming, "reset_frame"):
             incoming.reset_frame()
+        # Guard the per-frame draws so a widget that raises during the scroll
+        # transition is tripped + skipped, not fatal. Built once; pause/resume
+        # above operate on the real widgets.
+        outgoing_draw = guard_for_transition(outgoing, self.breaker)
+        incoming_draw = guard_for_transition(incoming, self.breaker)
         loop = asyncio.get_running_loop()
         try:
             w = canvas.width
@@ -526,8 +531,8 @@ class Ticker:
                 incoming_pos = w + sep_w - offset
                 _draw_scroll_frame(
                     canvas,
-                    outgoing,
-                    incoming,
+                    outgoing_draw,
+                    incoming_draw,
                     outgoing_pos,
                     bullet_x,
                     incoming_pos,
@@ -747,6 +752,7 @@ class Ticker:
                     outgoing_scroll_pos=prev_scroll_pos,
                     outgoing_bg_color=getattr(prev_object, "bg_color", None),
                     incoming_bg_color=getattr(ticker_object, "bg_color", None),
+                    breaker=self.breaker,
                 )
                 canvas, prev_scroll_pos = await self._show_one(
                     canvas,

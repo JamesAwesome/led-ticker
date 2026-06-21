@@ -6,6 +6,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from led_ticker._plugin_hint import plugin_hint
 from led_ticker._types import Canvas
+from led_ticker.render_breaker import guard_for_transition
 from led_ticker.ticker import _maybe_wrap, _swap
 
 # --- Easing functions ---
@@ -177,6 +178,7 @@ async def run_transition(
     incoming_content_height: int = 16,
     outgoing_bg_color: Any = None,
     incoming_bg_color: Any = None,
+    breaker: Any = None,
 ) -> Canvas:
     """Run a transition. Returns the current back-buffer canvas.
 
@@ -275,6 +277,11 @@ async def run_transition(
     # Outgoing is intentionally NOT reset: its previous-end state is
     # the visual continuity story for the wipe-out.
     _reset_presenter(incoming)
+    # Guard the draws so a widget that raises during compositing is tripped +
+    # skipped instead of freezing the panel (mirrors Ticker._safe_draw). Built
+    # ONCE here, not per-frame. pause/reset/resume + trip use the REAL widgets.
+    outgoing_draw = guard_for_transition(outgoing, breaker)
+    incoming_draw = guard_for_transition(incoming, breaker)
     loop = asyncio.get_running_loop()
     try:
         for i in range(frame_count + 1):
@@ -312,8 +319,8 @@ async def run_transition(
             transition.frame_at(
                 t,
                 active,
-                outgoing,
-                incoming,
+                outgoing_draw,
+                incoming_draw,
                 outgoing_scroll_pos=outgoing_scroll_pos,
                 duration_ms=int(duration * 1000),
                 # Hires transitions (pokeball/nyancat) do

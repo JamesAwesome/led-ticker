@@ -60,3 +60,40 @@ class RenderBreaker:
         """Clear all disabled state — called on a successful config reload so a
         widget the user just fixed gets another chance (mirrors restart-to-retry)."""
         self.disabled.clear()
+
+
+class _TransitionDrawGuard:
+    """Wraps a widget so its draw() is guarded by the breaker during transition
+    compositing. Used ONLY as the outgoing/incoming argument to a transition's
+    frame_at / _draw_scroll_frame. Mirrors Ticker._safe_draw: a disabled widget
+    renders nothing; a raising draw trips the widget and leaves the canvas
+    unchanged (the per-frame reset + the next tick's reset_canvas wipe any partial
+    frame). __getattr__ delegates every other attribute to the real widget."""
+
+    __slots__ = ("_widget", "_breaker")
+
+    def __init__(self, widget: Any, breaker: RenderBreaker) -> None:
+        object.__setattr__(self, "_widget", widget)
+        object.__setattr__(self, "_breaker", breaker)
+
+    def draw(self, canvas: Any, *args: Any, **kwargs: Any) -> Any:
+        widget = object.__getattribute__(self, "_widget")
+        breaker = object.__getattribute__(self, "_breaker")
+        if breaker.is_disabled(widget):
+            return canvas, 0
+        try:
+            return widget.draw(canvas, *args, **kwargs)
+        except Exception as exc:  # noqa: BLE001 - a transition draw must not freeze the panel
+            breaker.trip(widget, exc)
+            return canvas, 0
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(object.__getattribute__(self, "_widget"), name)
+
+
+def guard_for_transition(widget: Any, breaker: RenderBreaker | None) -> Any:
+    """Return a draw-guarded view of `widget` for transition compositing, or the
+    widget unchanged when there is no breaker (programmatic/test callers)."""
+    if breaker is None:
+        return widget
+    return _TransitionDrawGuard(widget, breaker)

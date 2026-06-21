@@ -31,8 +31,8 @@ def test_color_cycle_border_hue_range_from_to():
     b = _coerce_border(
         {
             "style": "color_cycle",
-            "from": [255, 176, 240],
-            "to": [189, 169, 234],
+            "from": [255, 92, 38],
+            "to": [255, 183, 3],
             "speed": 3,
         }
     )

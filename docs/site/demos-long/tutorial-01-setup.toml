@@ -1,9 +1,9 @@
 # render-duration: 65
 # Tutorial Chapter 1 — destination config preview.
 #
-# Renders the moonbunny tutorial destination so the reader sees what
+# Renders the Firebird tutorial destination so the reader sees what
 # they will build toward over chapters 2–5. Mirrors the structure of
-# config/config.bigsign.moonbunny.example.toml — display knobs simplified
+# config/config.bigsign.firebird.example.toml — display knobs simplified
 # to chain=1 for the renderer, asset path made render-tool-relative.
 #
 # Captures one full cycle through all three sections:
@@ -38,7 +38,7 @@ hold_time = 2.5
 
 [[playlist.section.widget]]
 type = "message"
-text = "Welcome to Moonbunny"
+text = "Welcome to Firebird Yoga"
 font_color = "rainbow"
 border = "rainbow"
 
@@ -58,12 +58,12 @@ fit = "pillarbox"
 image_align = "center"
 hold_time = 4.0
 scroll_speed_ms = 35
-top_text = ":instagram: @moonbunnyaerial"
+top_text = ":instagram: @firebirdyoga.demo"
 top_row_height = 16
 top_font = "Inter-Bold"
 top_font_size = 16
 top_color = [225, 48, 108]
-bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_text = "Vinyasa · yin · hot power · restorative · slow flow · all levels"
 bottom_font = "Inter-Bold"
 bottom_font_size = 22
 bottom_color = [255, 240, 200]

@@ -485,7 +485,7 @@ class TestHiresFontSupport:
 
         font = resolve_font("Inter-Regular", 24)
         assert isinstance(font, HiresFont)
-        w = TwoRowMessage(top_text="@MoonBunny", bottom_text="hi", font=font)
+        w = TwoRowMessage(top_text="@firebird", bottom_text="hi", font=font)
         assert w.font is font
 
     def test_hires_font_too_large_raises_at_draw(self, canvas):
@@ -599,7 +599,7 @@ class TestPerRowFonts:
 
         cfg = {
             "type": "two_row",
-            "top_text": "@MoonBunny",
+            "top_text": "@firebird",
             "bottom_text": "follow us",
             "top_font": "Inter-Bold",
             "top_font_size": 16,

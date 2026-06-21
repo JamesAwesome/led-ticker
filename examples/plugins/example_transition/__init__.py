@@ -1,8 +1,12 @@
-"""Example led-ticker plugin: a custom 'wipe' transition (the 'Writing a transition' how-to).
+"""Example led-ticker plugin: custom wipe transition (the Writing-a-Transition how-to).
 
 Drop `example_transition/` into your `config/plugins/` (local use), or package it
-with an `[project.entry-points."led_ticker.plugins"]  example_transition = "example_transition:register"`
-entry, then use it in TOML as `transition = {type = "example_transition.wipe"}`.
+with an entry-point declaration::
+
+    [project.entry-points."led_ticker.plugins"]
+    example_transition = "example_transition:register"
+
+Then use it in TOML as `transition = {type = "example_transition.wipe"}`.
 
 Imports only `led_ticker.plugin` (the public surface) plus stdlib.
 """
@@ -39,5 +43,7 @@ def register(api):
                 x = edge + dx
                 if 0 <= x < w:
                     for y in range(h):
-                        canvas.SetPixel(x, y, self.color[0], self.color[1], self.color[2])
+                        canvas.SetPixel(
+                            x, y, self.color[0], self.color[1], self.color[2]
+                        )
             return canvas

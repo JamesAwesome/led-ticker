@@ -19,9 +19,9 @@ scroll_step_ms = 35
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = "@moonbunny :instagram:"
+top_text = "@firebirdyoga.demo :instagram:"
 top_color = [225, 48, 108]
 top_align = "center"
-bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_text = "Vinyasa · yin · hot power · restorative · slow flow · all levels"
 bottom_color = [255, 240, 200]
 bottom_align = "left"

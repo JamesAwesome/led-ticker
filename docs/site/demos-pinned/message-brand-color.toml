@@ -1,6 +1,6 @@
 # Pinned demo: static text with a fixed `font_color` (RGB list).
 # Embedded inline with the brand-color Common pattern on the
-# message widget page so the reader sees what the lavender RGB
+# message widget page so the reader sees what the flame RGB
 # triple actually paints.
 #
 # render-duration: 5
@@ -21,5 +21,5 @@ hold_time = 4.0
 
 [[playlist.section.widget]]
 type = "message"
-text = "Aerial for Everybody"
-font_color = [189, 169, 234]
+text = "Breathe. Move. Rise."
+font_color = [255, 92, 38]

@@ -27,7 +27,7 @@ Everything is configured via a TOML file. Three reference configs ship in `confi
 
 - `config.example.toml` — smallsign starter (160×16)
 - `config.bigsign.example.toml` — bigsign with `pixel_mapper_config`, scaling, RP1 tuning (256×64)
-- `config.moonbunny.example.toml` — real-world bigsign storefront layout
+- `config.firebird.example.toml` — realistic bigsign storefront layout (Firebird Yoga)
 
 Full config reference: <https://docs.ledticker.dev/reference/config-options/>. Per-widget pages document every knob: <https://docs.ledticker.dev/widgets/>.
 

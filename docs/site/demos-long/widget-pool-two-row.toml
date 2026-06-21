@@ -8,7 +8,7 @@
 # Mirrors config.pool_bigsign.toml: single panel sized 64×128 px
 # (smallest panel that exercises the same `scale = 2` +
 # `content_height = 32` band-budget math as the bigsign mapper),
-# Inter-Bold at 19/25 per moonbunny.production reference, cyan
+# Inter-Bold at 19/25 per Firebird production reference, cyan
 # label_color.
 
 [display]

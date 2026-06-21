@@ -85,7 +85,7 @@ loop_count = 1
 #
 #   [[playlist.section.widget]]
 #   type = "message"
-#   text = "@MoonBunny"
+#   text = "@firebird"
 #   font = "beloved-sans"
 #   font_size = 32
 #   font_threshold = 80
@@ -103,7 +103,7 @@ loop_count = 1
 #
 #   [[playlist.section.widget]]
 #   type = "message"
-#   text = "@MoonBunny BOLD"
+#   text = "@firebird BOLD"
 #   font = "beloved-sans-bold"
 #   font_size = 32
 #   font_threshold = 80

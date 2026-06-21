@@ -24,7 +24,7 @@
 The bigsign at `default_scale = 4` means all widgets draw at a logical 16-row canvas, and the wrapper expands every logical pixel to a 4×4 block on the physical 64-row panel. This centers content vertically and fills the display.
 
 - **`default_scale = 4`** (most common) — headline content (banners, weather, countdown). Logical 16-row content fills the panel vertically.
-- **`scale = 2` per-section** — handle layouts with `two_row` widgets (e.g. "@MoonBunnyBakery" top + email bottom). 128 logical px is wide enough for typical handles; logical rows are 32 real px tall.
+- **`scale = 2` per-section** — handle layouts with `two_row` widgets (e.g. "@firebird" top + email bottom). 128 logical px is wide enough for typical handles; logical rows are 32 real px tall.
 - **Never `scale = 4` for a `two_row` handle** — text wraps or gets cut. Use the default `scale = 4` for single-row content or scale down to 2.
 
 ## Viewing-distance heuristics

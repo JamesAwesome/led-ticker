@@ -35,7 +35,7 @@ Each snippet cites its source file + line range. The skill copies the snippet ve
 
 ### snippet: message.store_window.bigsign.welcome
 
-**source:** `config/config.moonbunny.example.toml` lines 59–76
+**source:** `config/config.firebird.example.toml` lines 59–76
 
 **use when:** bigsign + brand presence + welcoming banner scrolling in `forever_scroll` mode. Good opener for any storefront section.
 
@@ -50,25 +50,25 @@ loop_count = 2
 
 [playlist.section.title]
 type = "message"
-text = ":moon: MOON BUNNY AERIAL :moon:"
-font_color = [255, 150, 190]
+text = "FIREBIRD YOGA"
+font_color = [255, 92, 38]
 
 [[playlist.section.widget]]
 type = "message"
-text = ":moon: Aerial for Every Body"
-font_color = [255, 240, 200]
+text = "Breathe Deep :heart: Flow Strong :heart_green: Rise Together"
+font_color = [255, 244, 214]
 
 [[playlist.section.widget]]
 type = "message"
-text = "Find Your Strength * Find Your Community"
-font_color = [180, 140, 230]
+text = "Beginner Friendly - Drop-Ins Welcome - Every Body Welcome"
+font_color = [255, 183, 3]
 ```
 
 ---
 
 ### snippet: two_row.store_window.bigsign.handle
 
-**source:** `config/config.moonbunny.example.toml` lines 183–227
+**source:** `config/config.firebird.example.toml` lines 183–227
 
 **use when:** bigsign + storefront window layout with a persistent handle on top and rotating promotional copy scrolling on the bottom. `scale = 2` widens the logical canvas to 128px so long handles fit.
 
@@ -88,20 +88,20 @@ transition_duration = 0.8
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = ":instagram: @moonbunnyaerial"
-top_color = [225, 48, 108]
+top_text = ":instagram: @firebirdyoga.demo"
+top_color = [255, 92, 38]
 top_align = "center"
-bottom_text = "Now booking spring classes - all levels welcome!"
-bottom_color = [255, 240, 200]
+bottom_text = "Now booking spring sessions — your first class is free."
+bottom_color = [255, 244, 214]
 bottom_align = "left"
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = ":instagram: @moonbunnyaerial"
-top_color = [225, 48, 108]
+top_text = ":instagram: @firebirdyoga.demo"
+top_color = [255, 92, 38]
 top_align = "center"
-bottom_text = "Kids Summer Camps now enrolling - sign up today!"
-bottom_color = [255, 150, 190]
+bottom_text = "BEGINNER SERIES :star: NOW ENROLLING :star: ALL LEVELS WELCOME"
+bottom_color = [255, 183, 3]
 bottom_align = "left"
 ```
 

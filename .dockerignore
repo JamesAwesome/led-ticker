@@ -9,7 +9,7 @@
 # Local config — mounted read-only at runtime via compose.yaml
 config/config.toml
 config/config.bigsign.example.toml
-config/config.moonbunny.example.toml
+config/config.firebird.example.toml
 
 # Python build artifacts
 __pycache__

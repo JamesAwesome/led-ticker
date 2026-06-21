@@ -67,7 +67,7 @@ gitignored — generic / thematic assets (e.g., `bunny-transparent.png`,
 assets (logos belonging to a specific business) the convention is to
 NOT commit them and instead ship them via a tar.gz bundle alongside
 the example config: extract on the Pi, override the live config.
-See the moonbunny example for the pattern.
+See the Firebird example config for the pattern.
 
 **Fit-mode decision tree:**
 

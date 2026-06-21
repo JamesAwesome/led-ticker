@@ -243,6 +243,7 @@ stale_after = 14400  # 4 hours
 # color = [255, 0, 0]        # 3 ints, each 0-255
 # size = 4                    # dot side in physical px: ~4 on the 16-tall
 #                             # smallsign, ~8-10 on the 64-tall bigsign/longboi
+# token = ""        # fallback only — prefer LED_TICKER_BUSY_TOKEN in .env
 
 # Web status UI — serves a live dashboard of what's on the panel at
 # http://<pi>:8080. Presence of this block enables status publishing by the
@@ -257,5 +258,5 @@ stale_after = 14400  # 4 hours
 # [web]
 # http_host = "0.0.0.0"
 # http_port = 8080
-# token = ""                                    # non-empty requires X-Web-Token header or ?token=
+# token = ""        # fallback only — prefer LED_TICKER_WEB_TOKEN in .env (secrets don't belong in config.toml)
 # status_path = "/run/led-ticker/status.json"   # default works in Docker too (shared volume mounts here)

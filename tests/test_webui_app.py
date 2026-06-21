@@ -403,6 +403,41 @@ async def test_config_view_by_name_traversal_is_404(tmp_path):
         await client.close()
 
 
+async def test_config_view_returns_hash(tmp_path):
+    from led_ticker.reload import config_hash
+
+    content = "[display]\nrows = 16\ncols = 32\n"
+    client = await _client(tmp_path, config_text=content)
+    config_path = tmp_path / "config.toml"
+    try:
+        body = await (await client.get("/api/config")).json()
+        assert body["state"] == "ok"
+        expected = config_hash(config_path)
+        assert expected is not None
+        assert body["hash"] == expected
+        assert len(body["hash"]) == 64  # sha256 hex length
+    finally:
+        await client.close()
+
+
+async def test_config_view_by_name_returns_hash(tmp_path):
+    from led_ticker.reload import config_hash
+
+    content = "[display]\nrows = 16\n"
+    (tmp_path / "other.toml").write_text(content)
+    client = await _client(tmp_path)
+    try:
+        body = await (
+            await client.get("/api/config", params={"name": "other.toml"})
+        ).json()
+        assert body["state"] == "ok"
+        expected = config_hash(tmp_path / "other.toml")
+        assert expected is not None
+        assert body["hash"] == expected
+    finally:
+        await client.close()
+
+
 async def test_config_view_without_name_unchanged(tmp_path):
     client = await _client(tmp_path)
     try:

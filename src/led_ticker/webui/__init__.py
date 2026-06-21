@@ -20,6 +20,7 @@ from aiohttp import web
 
 from led_ticker.config import resolve_secret_token
 from led_ticker.preview import HEADER, PREVIEW_MAGIC, PREVIEW_VERSION
+from led_ticker.reload import config_hash
 from led_ticker.status_board import SCHEMA_VERSION
 from led_ticker.validate import (
     ValidationResult,
@@ -210,7 +211,12 @@ def _add_config_routes(app: web.Application, config_path: Path) -> None:
         except ValueError, TypeError, tomllib.TOMLDecodeError:
             pass  # geometry is best-effort; the redacted text is the point
         return web.json_response(
-            {"state": "ok", "toml": redact_toml(text), "geometry": geometry}
+            {
+                "state": "ok",
+                "toml": redact_toml(text),
+                "geometry": geometry,
+                "hash": config_hash(target) or "",
+            }
         )
 
     async def validate_handler(request: web.Request) -> web.Response:

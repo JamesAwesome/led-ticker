@@ -11,6 +11,16 @@ from pathlib import Path
 from typing import Any
 
 
+def config_hash(path: Path) -> str | None:
+    """The sha256 hex of the file's bytes (the same digest ConfigWatcher uses
+    to confirm a change), or None when the file is unreadable. The web editor
+    uses this as a conflict-detection version stamp."""
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
 class ConfigWatcher:
     """Detect config-file changes by mtime, confirmed by content hash. Disabled ->
     always reports no change. An mtime bump with identical bytes (no-op save) is NOT

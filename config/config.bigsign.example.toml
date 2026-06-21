@@ -194,7 +194,7 @@ final_hold_hours = 6
 #
 # [[playlist.section.widget]]
 # type = "gif"
-# path = "assets/example.gif"
+# path = "assets/phoenix.gif"
 # fit = "pillarbox"
 
 # --- Weather (optional) ---

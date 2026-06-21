@@ -2,7 +2,7 @@
 # Chapter 4 — introduces the image widget. Cycle:
 #   msg "Open daily" (2.5s) → push (0.5s)
 #   → msg "10am – 8pm" (2.5s) → push (0.5s)
-#   → image/moon (4.0s) → push (0.5s)
+#   → image/phoenix (4.0s) → push (0.5s)
 #   → msg "All ages welcome" (2.5s) → push (0.5s)
 # = 12.5s + 1.5s transitions per cycle; 14s captures the cycle.
 [display]

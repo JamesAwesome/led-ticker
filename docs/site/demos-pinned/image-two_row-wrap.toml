@@ -1,5 +1,5 @@
 # render-duration: 8
-# Two-row wrap on a still image: moon on the left + held magenta TOP
+# Two-row wrap on a still image: phoenix on the left + held magenta TOP
 # + cyan bottom wrapping with rainbow separator. Mirrors the gif
 # variant (gif-two_row-wrap.toml) but uses a still PNG to demonstrate
 # the same wrap behavior in the `image` widget.

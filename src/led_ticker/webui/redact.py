@@ -30,7 +30,7 @@ _KV = re.compile(
         (?P<key>(?:[A-Za-z0-9_-]+\.)*"[^"\n]*(?:token|key|secret|password|webhook)[^"\n]*"
                |[A-Za-z0-9_.-]*(?:token|key|secret|password|webhook)[A-Za-z0-9_.-]*)
         (?P<eq>\s*=\s*)
-        (?P<val>\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?'''
+        (?P<value>\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?'''
                |"[^"]*"|'[^']*'|\[[^\]]*\]|[^,}\s#]+)""",
     re.IGNORECASE | re.VERBOSE | re.MULTILINE,
 )
@@ -42,3 +42,27 @@ def redact_toml(text: str) -> str:
         lambda m: m.group("prefix") + m.group("key") + m.group("eq") + REDACTED,
         text,
     )
+
+
+def restore_redacted(submitted: str, disk: str) -> str:
+    """Replace each redacted-sentinel value in `submitted` with the real value
+    for that key from `disk`. A line whose value is not the sentinel passes
+    through unchanged; a sentinel whose key is absent from disk is left as-is
+    (the caller refuses to write a literal sentinel). Defense-in-depth for a
+    third-party plugin that left a secret in config.toml — a no-op when config
+    is secret-free (the normal first-party case)."""
+    disk_values: dict[str, str] = {}
+    for line in disk.splitlines():
+        m = _KV.match(line)
+        if m:
+            disk_values[m.group("key").strip()] = line
+
+    out: list[str] = []
+    for line in submitted.splitlines():
+        m = _KV.match(line)
+        if m and m.group("value").strip() == REDACTED.strip():
+            key = m.group("key").strip()
+            out.append(disk_values.get(key, line))
+        else:
+            out.append(line)
+    return "\n".join(out) + ("\n" if submitted.endswith("\n") else "")

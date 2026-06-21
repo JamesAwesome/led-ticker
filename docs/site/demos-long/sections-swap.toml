@@ -1,5 +1,5 @@
 # render-duration: 14
-# Three message widgets + a moon image, each held for hold_time and
+# Three message widgets + a phoenix image, each held for hold_time and
 # revealed with push_left. Cycle:
 #   msg1 (2.5s) → push (0.5s) → msg2 (2.5s) → push (0.5s)
 #   → image (3.0s) → push (0.5s) → msg3 (2.5s) → push (0.5s)

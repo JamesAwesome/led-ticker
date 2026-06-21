@@ -110,6 +110,8 @@ font_color = [255, 220, 50]
 # `text_loops = 2` makes the section hold here until the marquee has
 # fully crossed the panel twice, regardless of `loop_count` — the gif
 # keeps looping in the background to fill the time.
+#
+# Note: `phoenix_transparent.gif` at scale 4 = 64 wide × 64 tall (native pixels).
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]

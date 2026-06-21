@@ -60,7 +60,7 @@ border = "rainbow"
 # ---------------------------------------------------------------------------
 # Section 2 — brand card (swap, per-section scale = 2)
 #
-# Moon image with a two-row text overlay: held handle on top + scrolling
+# Phoenix image with a two-row text overlay: held handle on top + scrolling
 # promo on the bottom. scale = 2 overrides the display's default_scale = 4
 # so the logical canvas is 128 px wide — wide enough to fit the
 # ":instagram: @firebirdyoga.demo" handle next to the hi-res Instagram sprite

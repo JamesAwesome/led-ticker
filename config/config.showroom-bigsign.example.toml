@@ -322,7 +322,7 @@ text_loops = 1
 #     Per-effect counters are what make this possible — a single shared
 #     counter would force a tradeoff between "retype on each loop" and
 #     "preserve chase phase." Here all three behaviors run at once.
-#     `image_align = "right"` parks the moon on the right so the caption
+#     `image_align = "right"` parks the phoenix on the right so the caption
 #     types into clear space on the left without overlap.
 # ---------------------------------------------------------------------------
 

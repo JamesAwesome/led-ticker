@@ -1,6 +1,6 @@
 # Plugin dependencies: none — built-in (core) widgets & transitions only.
 
-# led-ticker bigsign config — moonbunny tutorial destination
+# led-ticker bigsign config — Firebird Yoga tutorial destination
 #
 # This is the config the five-chapter tutorial walks you toward building.
 # It demonstrates messages with rainbow font + rainbow border, an image
@@ -53,7 +53,7 @@ hold_time = 2.5
 
 [[playlist.section.widget]]
 type = "message"
-text = "Welcome to Moonbunny"
+text = "Welcome to Firebird Yoga"
 font_color = "rainbow"
 border = "rainbow"
 
@@ -63,7 +63,7 @@ border = "rainbow"
 # Moon image with a two-row text overlay: held handle on top + scrolling
 # promo on the bottom. scale = 2 overrides the display's default_scale = 4
 # so the logical canvas is 128 px wide — wide enough to fit the
-# ":instagram: @moonbunnyaerial" handle next to the hi-res Instagram sprite
+# ":instagram: @firebirdyoga.demo" handle next to the hi-res Instagram sprite
 # (which renders at 32×32 real px when the band can accommodate it).
 #
 # Layout math:
@@ -90,15 +90,15 @@ fit = "pillarbox"
 image_align = "center"
 hold_time = 4.0
 scroll_speed_ms = 35
-top_text = ":instagram: @moonbunnyaerial"
+top_text = ":instagram: @firebirdyoga.demo"
 top_row_height = 16
 top_font = "Inter-Bold"
 top_font_size = 16
 top_color = [225, 48, 108]
-bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_text = "Vinyasa · yin · hot power · restorative · slow flow · all levels"
 bottom_font = "Inter-Bold"
 bottom_font_size = 22
-bottom_color = [255, 240, 200]
+bottom_color = [255, 244, 214]   # cream
 
 # ---------------------------------------------------------------------------
 # Section 3 — quick info messages (swap)
@@ -115,7 +115,7 @@ hold_time = 2.5
 
 [[playlist.section.widget]]
 type = "message"
-text = "Summer Camps start June 15"
+text = "Beginner Series starts soon"
 font_color = [180, 220, 180]
 border = "rainbow"
 
@@ -126,5 +126,5 @@ font_color = [120, 220, 255]
 
 [[playlist.section.widget]]
 type = "message"
-text = "All levels · All ages"
+text = "All levels · Drop-ins welcome"
 font_color = [255, 220, 0]

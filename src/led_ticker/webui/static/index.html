@@ -73,6 +73,10 @@
       <strong>Disabled widgets</strong>
       <table id="disabled-widgets"><tbody></tbody></table>
     </div>
+    <div class="card" id="last-reload-card" style="display:none">
+      <strong>Last config reload</strong>
+      <div id="last-reload-body"></div>
+    </div>
     <div class="card" id="overlays-card">
       <strong>Overlays</strong>
       <div id="busy-state" class="muted">—</div>
@@ -221,6 +225,21 @@ async function poll() {
         .join("");
     } else {
       dwCard.style.display = "none";
+    }
+    const lr = st.last_reload || {};
+    const lrCard = $("last-reload-card");
+    if (lr.at) {
+      lrCard.style.display = "";
+      const lrOk = lr.ok !== false;
+      let lrHtml = `<p>${lrOk ? "✓" : "✗"} <strong>${lrOk ? "OK" : "Failed"}</strong> · ${esc(lr.at)}`;
+      if (!lrOk && lr.error) lrHtml += `<br><span class="error">${esc(lr.error)}</span>`;
+      if (lr.restart_required && lr.restart_required.length) {
+        lrHtml += `<br><span class="muted">Restart required to apply: ${lr.restart_required.map(esc).join(", ")}</span>`;
+      }
+      lrHtml += "</p>";
+      $("last-reload-body").innerHTML = lrHtml;
+    } else {
+      lrCard.style.display = "none";
     }
     $("logtail").textContent = (st.log_tail || []).slice(-10)
       .map((e) => `${e.level} ${e.name}: ${e.message}`).join("\n") || "no recent warnings";

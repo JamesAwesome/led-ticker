@@ -1,6 +1,7 @@
 """Widget protocols and shared lifecycle helpers."""
 
 import asyncio
+import contextvars
 import logging
 from typing import Any, Protocol, runtime_checkable
 
@@ -20,16 +21,30 @@ _MAX_BACKOFF: int = 3600  # 1 hour maximum backoff
 # listener and TTL ticker) is spawned through spawn_tracked() so it stays rooted.
 _BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
 
+# When set (around a single widget build), spawn_tracked also records the task here
+# so the caller can cancel exactly that widget's background tasks on a config reload.
+# A ContextVar (not a plain global) so concurrent builds can't cross-contaminate.
+_build_sink: contextvars.ContextVar[set[asyncio.Task[Any]] | None] = (
+    contextvars.ContextVar("led_ticker_build_sink", default=None)
+)
+
 
 def spawn_tracked(coro: Any) -> asyncio.Task[Any]:
     """asyncio.create_task + keep a strong reference until the task completes.
 
     The event loop only weakly references tasks; without this a task awaiting a
     rootless primitive (e.g. asyncio.Event().wait()) can be GC'd mid-flight.
+
+    If a build sink is active (config-reload widget build), the task is recorded
+    there too so it can be cancelled when that widget is evicted.
     """
     task = asyncio.create_task(coro)
     _BACKGROUND_TASKS.add(task)
     task.add_done_callback(_BACKGROUND_TASKS.discard)
+    sink = _build_sink.get()
+    if sink is not None:
+        sink.add(task)
+        task.add_done_callback(sink.discard)
     return task
 
 

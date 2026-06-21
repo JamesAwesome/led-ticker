@@ -40,6 +40,7 @@ class DisplayConfig:
     pwm_dither_bits: int = (
         0  # 0=off, 1–2 spreads PWM energy to reduce row brightness unevenness
     )
+    hot_reload: bool = True  # watch config.toml + reload sections/widgets/schedule live
     show_refresh_rate: bool = False  # log measured refresh rate to stderr
     disable_hardware_pulsing: bool = False  # disable hw PWM (rare; uses CPU instead)
     rp1_pio: int = (

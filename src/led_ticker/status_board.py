@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # tests/test_status_board.py). Additive fields nested inside existing
 # entries (e.g. plugins[].names, added in v1.1) are version-compatible:
 # readers must tolerate their absence.
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 MIN_PUBLISH_INTERVAL = 2.0
 LOG_TAIL_MAX = 50
 
@@ -44,6 +44,7 @@ class StatusBoard:
     plugins: list[dict[str, Any]] = attrs.field(factory=list)
     failed_plugins: list[dict[str, str]] = attrs.field(factory=list)
     disabled_widgets: list[dict[str, str]] = attrs.field(factory=list)
+    last_reload: dict[str, Any] = attrs.field(factory=dict)
     section: dict[str, Any] = attrs.field(factory=dict)
     widget: dict[str, Any] = attrs.field(factory=dict)
     monitor_updates: dict[str, float] = attrs.field(factory=dict)
@@ -76,6 +77,7 @@ class StatusBoard:
             "plugins": self.plugins,
             "failed_plugins": self.failed_plugins,
             "disabled_widgets": self.disabled_widgets,
+            "last_reload": self.last_reload,
             "section": self.section,
             "widget": self.widget,
             "monitor_updates": self.monitor_updates,
@@ -204,6 +206,41 @@ def record_disabled_widget(widget: Any, error: str) -> None:
             _ACTIVE.disabled_widgets.append(entry)
             _ACTIVE.publish()
     except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+        return
+
+
+def record_reload(
+    *,
+    ok: bool,
+    ts: str,
+    error: str = "",
+    restart_required: list[str] | None = None,
+) -> None:
+    """Record the outcome of a config-reload attempt. Instrumentation only —
+    never raises into the engine."""
+    if _ACTIVE is None:
+        return
+    try:
+        _ACTIVE.last_reload = {
+            "ok": ok,
+            "at": ts,
+            "error": error,
+            "restart_required": list(restart_required or []),
+        }
+        _ACTIVE.publish(force=True)
+    except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+        return
+
+
+def clear_disabled_widgets() -> None:
+    """Empty the disabled-widgets list (called on a successful reload, alongside
+    RenderBreaker.reset). Instrumentation only — never raises into the engine."""
+    if _ACTIVE is None:
+        return
+    try:
+        _ACTIVE.disabled_widgets.clear()
+        _ACTIVE.publish(force=True)
+    except Exception:  # noqa: BLE001
         return
 
 

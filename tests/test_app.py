@@ -341,8 +341,8 @@ class TestExampleConfigWidgets:
                     f"Widget type={widget_type} did not produce a Widget"
                 )
 
-    async def test_moonbunny_bigsign_config_widgets_build(self):
-        """Load config.moonbunny.example.toml and build every widget.
+    async def test_firebird_bigsign_config_widgets_build(self):
+        """Load config.firebird.example.toml and build every widget.
 
         Exercises: TOML RGB color lists, inline :instagram: and :email:
         emoji slugs, multi-section layout, hires fonts, image/gif widgets
@@ -356,9 +356,9 @@ class TestExampleConfigWidgets:
         config_path = (
             Path(__file__).resolve().parent.parent
             / "config"
-            / "config.moonbunny.example.toml"
+            / "config.firebird.example.toml"
         )
-        # The moonbunny config references the licensed Beloved Sans font, which
+        # The Firebird config references the licensed Beloved Sans font, which
         # lives in the gitignored config/fonts/ directory and is not available
         # in CI. Skip when the font file is missing rather than fail the build.
         beloved_font = config_path.parent / "fonts" / "beloved-sans-bold.otf"

@@ -50,7 +50,13 @@ def restore_redacted(submitted: str, disk: str) -> str:
     through unchanged; a sentinel whose key is absent from disk is left as-is
     (the caller refuses to write a literal sentinel). Defense-in-depth for a
     third-party plugin that left a secret in config.toml — a no-op when config
-    is secret-free (the normal first-party case)."""
+    is secret-free (the normal first-party case).
+
+    Line-anchored on purpose: `_KV.match` keys off the start of each line, so a
+    secret nested in an inline table (``feed = {token = "x"}``) is NOT restored
+    here — its sentinel survives and the caller rejects the save (never clobbers
+    the on-disk value). Do not switch this to `_KV.sub`/multi-match to "fix" the
+    inline-table case without re-checking that it can't under-redact."""
     disk_values: dict[str, str] = {}
     for line in disk.splitlines():
         m = _KV.match(line)

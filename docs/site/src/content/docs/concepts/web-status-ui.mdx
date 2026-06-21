@@ -199,7 +199,7 @@ For anything beyond your home LAN — exposing the dashboard over the internet �
 
 The **Config tab** doubles as an editor. Open it, make your changes, and click **Save**.
 
-**A token is required.** Set `LED_TICKER_WEB_TOKEN` in your `.env` (see [Auth](#auth) above). Without a token, the editor is read-only — Save returns 403. With a token, every other request still requires it, so the token gates both reads and writes when set.
+**A token is required to save.** Set `LED_TICKER_WEB_TOKEN` in your `.env` (see [Auth](#auth) above). With no token configured, reads stay open but the editor is read-only — Save returns 403. Once a token is set, it gates every request (reads and writes alike).
 
 **What Save does, in order:**
 

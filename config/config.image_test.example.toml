@@ -7,19 +7,18 @@
 # config.gif_test.example.toml does for animated gifs.
 #
 # Test images live in config/assets/:
-#   bunny-nontransparent.png   1094×708 opaque PNG (RGBA but alpha=255)
-#   bunny-transparent.png      1920×1493 PNG with alpha-0 corners
-#   moon-transparent.png       793×800 PNG, mostly transparent (silhouette)
+#   phoenix.png                220×220 opaque PNG (phoenix sprite)
+#   phoenix_transparent.png    220×220 PNG with alpha-0 background (silhouette)
 #   heart-tunnel-opaque.jpg    700×350 RGB JPEG
 #   moonscape-opaque.jpg       830×350 RGB JPEG
 #
 # Sections:
-#   1. pillarbox bunny (default)
+#   1. pillarbox phoenix (default)
 #   2. stretch heart (fills 4:1 panel)
 #   3. letterbox moonscape (wide → fits width, black top/bottom)
 #   4. crop moonscape (covers panel, crops top/bottom)
-#   5. pillarbox bunny + image_align=left + static text right
-#   6. transparent moon + scroll-under marquee (text walks BEHIND moon)
+#   5. pillarbox phoenix + image_align=left + static text right
+#   6. transparent phoenix + scroll-under marquee (text walks BEHIND phoenix)
 #   7. moonscape backdrop + scroll_over marquee (white text on top)
 #   8. stretch heart + scroll_over knockout text (black/LEDs-off cutout)
 #   9. mode=swap with title + bunny image (tests title+image dispatch)
@@ -121,11 +120,11 @@ fit = "crop"
 hold_time = 5.0
 
 # ---------------------------------------------------------------------------
-# Section 5 — bunny pinned LEFT + static text in right pillar
+# Section 5 — phoenix pinned LEFT + static text in right pillar
 #
-# `image_align = "left"` puts the pillarboxed bunny against the left
+# `image_align = "left"` puts the pillarboxed phoenix against the left
 # edge; `text_align = "auto"` (default) resolves to "right" since the
-# gif is on the left. Same layout pattern as gif Section 6.
+# image is on the left. Same layout pattern as gif Section 6.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -139,16 +138,16 @@ type = "image"
 path = "assets/phoenix.png"
 fit = "pillarbox"
 image_align = "left"
-text = "BUNNY!"
+text = "PHOENIX!"
 font_color = [255, 220, 50]
 hold_time = 5.0
 
 # ---------------------------------------------------------------------------
-# Section 6 — TRANSPARENT moon + scrolling marquee UNDER it
+# Section 6 — TRANSPARENT phoenix + scrolling marquee UNDER it
 #
-# moon-transparent.png has alpha=0 outside the moon silhouette →
+# phoenix_transparent.png has alpha=0 outside the phoenix silhouette →
 # decoder composites onto black → skip-black painting makes the text
-# walk BEHIND the moon shape, not just through pillars.
+# walk BEHIND the phoenix shape, not just through pillars.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -219,7 +218,7 @@ text_loops = 1
 # ---------------------------------------------------------------------------
 # Section 9 — title + image via mode = "swap"
 #
-# Title displays first, dissolves into the bunny. Same dispatch path
+# Title displays first, dissolves into the phoenix. Same dispatch path
 # as gif Section 11 — `_show_one` calls `_play_widget` because
 # StillImage.play exists, and the section title runs through the
 # normal hold-and-scroll path before the transition.
@@ -233,7 +232,7 @@ transition = "dissolve"
 transition_duration = 0.6
 
 [playlist.section.title]
-text = "BUNNY"
+text = "PHOENIX"
 font_color = [255, 180, 200]
 
 [[playlist.section.widget]]

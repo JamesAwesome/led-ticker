@@ -24,7 +24,7 @@ Each package registers its transitions at startup; the `pokeball` package also r
 
 <DemoGif
   src="/demos-long/transitions-pokeball.gif"
-  caption="pokeball.forward — Pokéball rolls left-to-right with Pikachu chasing (default)"
+  caption="pokeball.forward — Pokéball rolls left-to-right with run-cycle sprite chasing (default)"
 />
 
 <DemoGif
@@ -56,7 +56,7 @@ Each package registers its transitions at startup; the `pokeball` package also r
 `nyancat.forward` and `pokeball.forward` auto-activate hi-res sprites whenever the canvas is at `default_scale > 1` — that is, any big / scaled sign (see [Display](/concepts/display/)), typically a bigsign-style build. The hi-res variants are noticeably more detailed and read better at distance:
 
 - **nyancat** — animated webp Nyan Cat sprite at native physical resolution
-- **pokeball** — rolling pokeball with animated Pikachu run-cycle sprite
+- **pokeball** — rolling pokeball with animated run-cycle sprite
 
 The `sailor_moon` and `pacman` families keep their 8-bit look at all scales — the chunky aesthetic is part of the design.
 

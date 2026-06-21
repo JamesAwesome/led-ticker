@@ -1,5 +1,5 @@
 # render-duration: 8
-# Two-row wrap on gif: pikachu + held magenta TOP + cyan bottom
+# Two-row wrap on gif: phoenix + held magenta TOP + cyan bottom
 # wrapping at ~24px cycle. Demonstrates top-row-held + bottom-wrap.
 [display]
 rows = 16

@@ -137,7 +137,7 @@ font_color = {style = "gradient", from = [255, 92, 38], to = [255, 183, 3]}
 # ---------------------------------------------------------------------------
 # Section 4 — Beginner Series promo  (with animated gif + rainbow border)
 #
-# pika_wave_transparent.gif (220×220) pillarboxed on the left at scale=4
+# phoenix_transparent.gif (220×220) pillarboxed on the left at scale=4
 # native res; scrolling text walks across the panel with the rainbow border
 # chasing around the perimeter.
 # Transition pinned to arcade.pokeball_alternating per the user's request.
@@ -168,10 +168,10 @@ border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 # ---------------------------------------------------------------------------
 # Section 5 — Candlelight Flow promo
 #
-# kpop-dance.webp (540×400 ≈ 1.35:1) pillarboxed on the left. Inter-Bold
+# phoenix.webp (220×220) pillarboxed on the left. Inter-Bold
 # at 26 reads cleanly across the street (more open shapes than Beloved
-# Sans at this size). text_align="scroll_over" paints the video first
-# then the text — so the marquee walks IN FRONT of the footage,
+# Sans at this size). text_align="scroll_over" paints the animation first
+# then the text — so the marquee walks IN FRONT of it,
 # guaranteed visible regardless of frame brightness (no transparent regions).
 # ---------------------------------------------------------------------------
 

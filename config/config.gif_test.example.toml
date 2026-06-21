@@ -424,11 +424,11 @@ font_size = 48
 scroll_speed_ms = 50
 
 # ---------------------------------------------------------------------------
-# Sections 16 + 17 — MoonBunny brand: Beloved Sans Regular vs Bold
+# Sections 16 + 17 — Firebird Yoga brand: Beloved Sans Regular vs Bold
 # (commented out; uncomment ONLY after dropping `beloved-sans.otf` and
 # `beloved-sans-bold.otf` into `config/fonts/`)
 #
-# Transparent Pikachu pinned LEFT; "Follow us! @moonbunnyaerial"
+# Transparent Pikachu pinned LEFT; "Follow us! @firebirdyoga.demo"
 # scrolls in the brand font through the right ~192px panel area and
 # behind Pikachu's transparent halo. Identical text + layout in both
 # sections so the only variable is the weight — eyeball the panel and
@@ -452,7 +452,7 @@ scroll_speed_ms = 50
 # path = "assets/pika_wave_transparent.gif"
 # fit = "pillarbox"
 # image_align = "left"
-# text = "Follow us! @moonbunnyaerial"
+# text = "Follow us! @firebirdyoga.demo"
 # text_align = "scroll"
 # font = "beloved-sans"
 # font_size = 32
@@ -471,7 +471,7 @@ scroll_speed_ms = 50
 # path = "assets/pika_wave_transparent.gif"
 # fit = "pillarbox"
 # image_align = "left"
-# text = "Follow us! @moonbunnyaerial"
+# text = "Follow us! @firebirdyoga.demo"
 # text_align = "scroll"
 # font = "beloved-sans-bold"
 # font_size = 32

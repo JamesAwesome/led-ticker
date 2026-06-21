@@ -22,5 +22,5 @@ scroll_step_ms = 30
 type = "message"
 text = "Fire"
 font = "5x8"
-font_color = [254, 255, 204]
+font_color = [255, 244, 214]
 border = {style = "rainbow", from = [220, 30, 0], to = [255, 180, 0], speed = 3, thickness = 2}

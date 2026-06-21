@@ -1,6 +1,6 @@
 ---
 title: "Tutorial 5: Polish & deploy"
-description: Add transitions and border effects to the moonbunny config, then copy it to a Raspberry Pi and run it with Docker.
+description: Add transitions and border effects to the Firebird Yoga config, then copy it to a Raspberry Pi and run it with Docker.
 prev: false
 next: false
 ---
@@ -48,7 +48,7 @@ hold_time = 2.5
 
 [[playlist.section.widget]]
 type = "message"
-text = "Welcome to Moonbunny"
+text = "Welcome to Firebird Yoga"
 font_color = [225, 48, 108]
 
 [[playlist.section.widget]]
@@ -58,10 +58,10 @@ fit = "pillarbox"
 image_align = "center"
 hold_time = 8.0
 scroll_speed_ms = 35
-top_text = "@moonbunny"
+top_text = "@firebird"
 top_font = "5x8"
 top_color = [225, 48, 108]
-bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_text = "Vinyasa · yin · hot power · restorative · slow flow · all levels"
 bottom_font = "AtkinsonHyperlegible-Bold"
 bottom_font_size = 22
 bottom_color = [255, 240, 200]
@@ -147,7 +147,7 @@ Add `border = "rainbow"` to the headline widget:
 ```toml
 [[playlist.section.widget]]
 type = "message"
-text = "Welcome to Moonbunny"
+text = "Welcome to Firebird Yoga"
 font_color = "rainbow"
 border = "rainbow"
 ```
@@ -180,8 +180,8 @@ A few things worth knowing about borders:
 ## Polish the brand card
 
 The handle on the image widget currently uses BDF `5x8` at `default_scale = 4`. That
-caps the handle width at ~12 characters before it clips the panel — `@moonbunny`
-just barely fits. To use the full `@moonbunnyaerial` handle and show the hi-res
+caps the handle width at ~12 characters before it clips the panel — `@firebird`
+just barely fits. To use the full `@firebirdyoga.demo` handle and show the hi-res
 Instagram sprite alongside it, the brand card needs its own section at `scale = 2`.
 
 Two changes — restructure the section layout, then upgrade the handle.
@@ -199,7 +199,7 @@ hold_time = 2.5
 
 [[playlist.section.widget]]
 type = "message"
-text = "Welcome to Moonbunny"
+text = "Welcome to Firebird Yoga"
 font_color = "rainbow"
 border = "rainbow"
 
@@ -218,12 +218,12 @@ fit = "pillarbox"
 image_align = "center"
 hold_time = 4.0
 scroll_speed_ms = 35
-top_text = ":instagram: @moonbunnyaerial"
+top_text = ":instagram: @firebirdyoga.demo"
 top_row_height = 16
 top_font = "Inter-Bold"
 top_font_size = 16
 top_color = [225, 48, 108]
-bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_text = "Vinyasa · yin · hot power · restorative · slow flow · all levels"
 bottom_font = "Inter-Bold"
 bottom_font_size = 22
 bottom_color = [255, 240, 200]
@@ -263,7 +263,7 @@ What changed on the brand card:
 - **`top_row_height = 16`** — gives the top band 16 logical rows, which matches the
   hi-res Instagram sprite's 16 logical px height (`32 real px / scale = 16 logical`).
   Without this, the sprite falls back to the 8×8 lo-res variant.
-- **`top_text = ":instagram: @moonbunnyaerial"`** — the `:instagram:` inline emoji
+- **`top_text = ":instagram: @firebirdyoga.demo"`** — the `:instagram:` inline emoji
   renders as the full-colour hi-res sprite now that the band can fit it. The
   remaining text is the full handle, no shortening needed.
 - **`top_font = "Inter-Bold"`, `top_font_size = 16`** — switched from `5x8` BDF to
@@ -275,7 +275,7 @@ What changed on the brand card:
 
 <DemoGif
   src="/demos-long/tutorial-05b-final.gif"
-  caption="The final config. Welcome card with rainbow font + chasing border; brand card with the hi-res Instagram sprite and full @moonbunnyaerial handle; info section with Summer Camps + Open daily + All levels. wipe_left transitions within sections, dissolve between."
+  caption="The final config. Welcome card with rainbow font + chasing border; brand card with the hi-res Instagram sprite and full @firebirdyoga.demo handle; info section with Summer Camps + Open daily + All levels. wipe_left transitions within sections, dissolve between."
 />
 
 ## What you've built
@@ -287,13 +287,13 @@ Your config now has:
 - A welcome card with per-character rainbow `font_color` and a chasing rainbow
   border around the panel perimeter.
 - A brand card running at per-section `scale = 2` so the hi-res Instagram sprite
-  renders at the full 32×32 next to the `@moonbunnyaerial` handle. The moon image
+  renders at the full 32×32 next to the `@firebirdyoga.demo` handle. The moon image
   fills the panel; promo text scrolls across the bottom row.
 - An info section with three message widgets — Summer Camps (rainbow border),
   Open daily, and All levels — held briefly so each is readable.
 
 That matches the destination config you rendered in Chapter 1
-(`config/config.bigsign.moonbunny.example.toml`). The next step is getting it onto
+(`config/config.bigsign.firebird.example.toml`). The next step is getting it onto
 a Pi.
 
 ## Deploying to a Pi

@@ -174,7 +174,7 @@ def test_instagram_emoji_renders_through_scaled_canvas(bigsign_canvas):
         cursor_pos=0,
         y=8,
         color=(255, 255, 255),
-        text=":instagram: @moonbunnyaerial",
+        text=":instagram: @firebirdyoga.demo",
     )
     assert advance > 0
 
@@ -188,7 +188,7 @@ def test_email_emoji_renders_through_scaled_canvas(bigsign_canvas):
         cursor_pos=0,
         y=8,
         color=(255, 255, 255),
-        text=":email: info@moonbunnyaerial.com",
+        text=":email: hello@firebirdyoga.demo",
     )
     assert advance > 0
 

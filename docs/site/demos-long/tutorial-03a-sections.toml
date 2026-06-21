@@ -4,7 +4,7 @@
 # The reader sees both modes side-by-side in a single render.
 #
 # Timing:
-#   Section 1 forever_scroll: "Welcome to Moonbunny" + "Open Tuesday – Sunday  *  10am – 8pm"
+#   Section 1 forever_scroll: "Welcome to Firebird Yoga" + "Open Tuesday – Sunday  *  10am – 8pm"
 #     scroll at step_ms=40 across 64 logical px → ~10s for one pass
 #   Section 2 swap: "Open daily" (2.5s) → push_left → "10am - 8pm" (2.5s)
 #     → push_left; cycle = ~6s. loop_count=1 means one pass through both.
@@ -31,7 +31,7 @@ scroll_step_ms = 40
 
 [[playlist.section.widget]]
 type = "message"
-text = "Welcome to Moonbunny"
+text = "Welcome to Firebird Yoga"
 font_color = [225, 48, 108]
 
 [[playlist.section.widget]]

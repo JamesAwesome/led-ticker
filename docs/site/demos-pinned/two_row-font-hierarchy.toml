@@ -18,11 +18,11 @@ hold_time = 7.0
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = "@moonbunny"
+top_text = "@firebird"
 top_font = "Inter-Bold"
 top_font_size = 18
 top_color = [225, 48, 108]
-bottom_text = "Aerial circus school - open enrollment"
+bottom_text = "Firebird Yoga — now booking spring sessions — your first class is free."
 bottom_font = "Inter-Regular"
 bottom_font_size = 14
 bottom_color = [255, 240, 200]

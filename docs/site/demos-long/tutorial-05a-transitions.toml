@@ -5,7 +5,7 @@
 #   2. within-section default = "wipe_left"; between sections = "dissolve".
 #
 # Cycle:
-#   Section 1: msg "Welcome to Moonbunny" (2.5s) → wipe_left (0.5s)
+#   Section 1: msg "Welcome to Firebird Yoga" (2.5s) → wipe_left (0.5s)
 #              → image+text (8.0s) → wipe_left (0.5s)
 #              → msg "Open daily 10am – 8pm" (2.5s)
 #   dissolve (1.0s)
@@ -32,7 +32,7 @@ hold_time = 2.5
 
 [[playlist.section.widget]]
 type = "message"
-text = "Welcome to Moonbunny"
+text = "Welcome to Firebird Yoga"
 font_color = [225, 48, 108]
 
 [[playlist.section.widget]]
@@ -42,10 +42,10 @@ fit = "pillarbox"
 image_align = "center"
 hold_time = 8.0
 scroll_speed_ms = 35
-top_text = "@moonbunny"
+top_text = "@firebird"
 top_font = "5x8"
 top_color = [225, 48, 108]
-bottom_text = "Aerial · pole · silks · juggling · all levels · now booking"
+bottom_text = "Vinyasa · yin · hot power · restorative · slow flow · all levels"
 bottom_font = "AtkinsonHyperlegible-Bold"
 bottom_font_size = 22
 bottom_color = [255, 240, 200]

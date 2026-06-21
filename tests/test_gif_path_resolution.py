@@ -84,7 +84,7 @@ async def test_gif_accepts_font_kwarg(tmp_path):
         "type": "gif",
         "path": str(gif_path.resolve()),
         "fit": "pillarbox",
-        "text": "@MoonBunny",
+        "text": "@firebird",
         "font": "Inter-Regular",
         "font_size": 24,
     }
@@ -138,7 +138,7 @@ async def test_gif_two_row_text_overlay_via_build_widget(tmp_path):
         "type": "gif",
         "path": str(gif_path.resolve()),
         "fit": "pillarbox",
-        "top_text": "@MoonBunny",
+        "top_text": "@firebird",
         "bottom_text": "Follow us! :instagram:",
         "top_font": "Inter-Bold",
         "top_font_size": 14,
@@ -151,7 +151,7 @@ async def test_gif_two_row_text_overlay_via_build_widget(tmp_path):
     widget = await _build(cfg, config_dir=tmp_path)
 
     assert widget._is_two_row()
-    assert widget.top_text == "@MoonBunny"
+    assert widget.top_text == "@firebird"
     assert widget.bottom_text == "Follow us! :instagram:"
     assert isinstance(widget.top_font, HiresFont)
     assert widget.top_font.name == "Inter-Bold"

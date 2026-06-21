@@ -103,6 +103,83 @@ In Phases 1–3, a **technical-writer reviewer subagent** reviews each completed
 
 The implementer fixes the must-fix items; the reviewer re-reviews until the checklist passes. This runs in place of, or alongside, the generic code-quality review for docs tasks, and is the mechanism the later phase plans reuse.
 
+## 6. Showcase brand — Firebird Yoga (fictional)
+
+All showcase, demo, example-config, and snippet copy uses **one fictional studio
+identity: Firebird Yoga**. Never put a real business's name, handle, URL, or slogans in
+the repo — the showcase exists to demonstrate the sign, not to advertise anyone. Use the
+values below verbatim so every page, GIF, and example config tells one coherent story.
+
+> The web address, email, and Instagram handle below are deliberately fake — `.demo` is
+> not a real address and never resolves. Keep them fake; never swap in a real studio.
+
+"Firebird" is also a yoga pose, so the name reads authentic while being unmistakably ours.
+
+### Identity
+
+| slot | value |
+|------|-------|
+| name | Firebird Yoga |
+| headline (caps) | `FIREBIRD YOGA` |
+| split lockup | `Fire` / `Bird` (two lines, or left/right), secondary line **Yoga Studio** |
+| what it is | a neighborhood yoga studio — vinyasa, yin, hot, restorative |
+
+### Voice & slogans
+
+Warm, grounded, energizing — a breath-and-flight motif, in a two-beat imperative cadence.
+Deliberately **not** a "Find Your ___ · Find Your ___" triplet; don't write slogans in
+that shape.
+
+| slot | copy |
+|------|------|
+| tagline | Breathe. Move. Rise. |
+| storefront scroll | `Breathe Deep :heart: Flow Strong :heart_green: Rise Together` |
+| welcome ribbon | Beginner Friendly · Drop-Ins Welcome · Every Body Welcome |
+| booking CTA | Now booking spring sessions — your first class is free. |
+
+### Classes
+
+Vinyasa Flow · Yin · Hot Power · Restorative · Slow Flow · All Levels
+
+Avoid **"bikram"** — the style's founder is controversial. Use "Hot Power" or "heated
+flow" for hot yoga.
+
+### Program marquees
+
+- `BEGINNER SERIES :star: NOW ENROLLING :star: ALL LEVELS WELCOME`
+- `CANDLELIGHT FLOW :star: NOW OPEN :star: ALL LEVELS`
+
+### Contact (fake — never resolves)
+
+| slot | value |
+|------|-------|
+| Instagram (full) | `@firebirdyoga.demo` |
+| Instagram (short, ≤12 chars for narrow panels) | `@firebird` |
+| web | `firebirdyoga.demo` |
+| email | `hello@firebirdyoga.demo` |
+
+### Palette (phoenix-warm)
+
+| token | RGB | hex | use |
+|-------|-----|-----|-----|
+| flame | `[255, 92, 38]` | `FF5C26` | primary |
+| ember | `[214, 40, 57]` | `D62839` | accent |
+| amber | `[255, 183, 3]` | `FFB703` | highlight |
+| cream | `[255, 244, 214]` | `FFF4D6` | warm white / body text |
+| dusk | `[99, 60, 138]` | `633C8A` | cool contrast (gradients, wipes) |
+
+Transition / wipe color pool: `[[255, 92, 38], [255, 183, 3], [99, 60, 138], [255, 244, 214]]`
+(flame · amber · dusk · cream).
+
+### Using it
+
+- The shipped showcase example config and the docs-site showcase page use this identity
+  exclusively. When a demo needs a brand (a `two_row` storefront, a branded `message`, a
+  gradient/border example), pull copy and colors from this section — don't invent a
+  second studio.
+- **Why:** it anonymizes the real studio the project was prototyped for, and keeps every
+  example consistent so a reader copying one demo into another still sees one brand.
+
 ## References (the Adafruit Learn review)
 
 The borrowed patterns above came from reviewing these guides (same hardware + audience as ours):

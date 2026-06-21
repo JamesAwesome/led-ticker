@@ -92,8 +92,8 @@ border = {style = "rainbow", from = [220, 30, 0], to = [255, 180, 0], speed = 3,
   code={`[[playlist.section.widget]]
 type = "message"
 text = "Open"
-font_color = {style = "color_cycle", from = [255, 176, 240], to = [189, 169, 234], speed = 3}
-border = {style = "rainbow", from = [255, 176, 240], to = [189, 169, 234], speed = 3, thickness = 2}`}
+font_color = {style = "color_cycle", from = [255, 92, 38], to = [255, 183, 3], speed = 3}
+border = {style = "rainbow", from = [255, 92, 38], to = [255, 183, 3], speed = 3, thickness = 2}`}
 />
 
 ### Color cycle
@@ -135,12 +135,12 @@ Add `from` and `to` RGB colors to confine the cycle to a specific hue arc — th
 
 <DemoGif
   src="/demos-pinned/border-color_cycle-range.gif"
-  caption="soft pink → lavender arc at `speed = 2` — border pulses only within the pink/purple band, never drifting into green or yellow"
+  caption="flame → amber arc at `speed = 2` — border pulses only within the phoenix-warm band, never drifting into green or blue"
 />
 
 <TomlExample
-  code={`# Soft pink → lavender arc — stays within the brand palette
-border = {style = "color_cycle", from = [255, 176, 240], to = [189, 169, 234], speed = 2, thickness = 2}`}
+  code={`# Flame → amber arc — stays within the §6 brand palette
+border = {style = "color_cycle", from = [255, 92, 38], to = [255, 183, 3], speed = 2, thickness = 2}`}
 />
 
 `speed = 0` is rejected — use `border = [r, g, b]` for a static color. Achromatic `from`/`to` colors (gray, white, black) are also rejected since their hue is undefined.
@@ -150,8 +150,8 @@ border = {style = "color_cycle", from = [255, 176, 240], to = [189, 169, 234], s
 **Brand-palette pulse** — lock the border to your two brand hues so it never wanders off-palette:
 
 <TomlExample
-  code={`border = {style = "color_cycle", from = [189, 169, 234], to = [255, 176, 240], speed = 2, thickness = 2}
-# Lavender → soft pink pulse, 2-ring border`}
+  code={`border = {style = "color_cycle", from = [255, 92, 38], to = [255, 183, 3], speed = 2, thickness = 2}
+# Flame → amber pulse, 2-ring border`}
 />
 
 **Contrasting border from text** — pair a color_cycle border with a complementary arc on `font_color`:

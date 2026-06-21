@@ -1,6 +1,6 @@
 ---
 title: "Tutorial 1: Setup"
-description: Clone led-ticker, install dev deps, and render the bundled moonbunny showcase to see what you're building toward.
+description: Clone led-ticker, install dev deps, and render the bundled Firebird Yoga showcase to see what you're building toward.
 prev: false
 next: false
 ---
@@ -16,7 +16,7 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 
 Over the next five chapters you'll build a real bigsign config from scratch —
 starting with a single message and ending with a multi-section sign that rotates
-through a rainbow welcome card, a brand card (the @moonbunnyaerial handle next
+through a rainbow welcome card, a brand card (the @firebirdyoga.demo handle next
 to the hi-res Instagram sprite over a moon image with scrolling promo copy),
 and a held info section (Summer Camps, Open daily, All levels).
 
@@ -71,7 +71,7 @@ Before writing a single line of your own TOML, render the tutorial destination
 config so you can see what "done" looks like:
 
 ```bash
-make render-demo CONFIG=config/config.bigsign.moonbunny.example.toml OUT=preview.gif
+make render-demo CONFIG=config/config.bigsign.firebird.example.toml OUT=preview.gif
 open preview.gif          # macOS
 xdg-open preview.gif      # Linux
 ```
@@ -87,10 +87,10 @@ promo, and a held info section (Summer Camps, Open daily, All levels):
 
 <DemoGif
   src="/demos-long/tutorial-01-setup.gif"
-  caption="preview.gif — rendered from config/config.bigsign.moonbunny.example.toml"
+  caption="preview.gif — rendered from config/config.bigsign.firebird.example.toml"
 />
 
-Open `config/config.bigsign.moonbunny.example.toml` in your editor and skim it.
+Open `config/config.bigsign.firebird.example.toml` in your editor and skim it.
 You'll recognize each section in the GIF. The comments explain the Pi-specific
 knobs (`pixel_mapper_config`, `gpio_slowdown`, `pwm_bits`) — those are safe
 to ignore for now; the laptop renderer skips them silently.

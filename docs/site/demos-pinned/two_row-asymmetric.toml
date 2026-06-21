@@ -19,12 +19,12 @@ scroll_step_ms = 35
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = "@moonbunny"
+top_text = "@firebird"
 top_row_height = 10
 top_font = "Inter-Bold"
 top_font_size = 14
 top_color = [225, 48, 108]
-bottom_text = "Aerial • Pole • Hoop • Silk • All Levels • All Ages welcome"
+bottom_text = "Vinyasa • Yin • Hot Power • Restorative • Slow Flow • All Levels Welcome"
 bottom_font = "Inter-Bold"
 bottom_font_size = 22
 bottom_color = [255, 240, 200]

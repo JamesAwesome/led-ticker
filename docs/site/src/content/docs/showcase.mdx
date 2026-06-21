@@ -5,15 +5,15 @@ description: Real led-ticker signs running out in the world.
 
 import RelatedPages from "../../components/RelatedPages.astro";
 
-Real signs running led-ticker out in the world. Submit your own via the
+Realistic sign configurations running led-ticker. Submit your own via the
 link at the bottom of this page.
 
-## moonbunny
+## Firebird Yoga
 
-<img src="/showcase/moonbunny/placeholder.svg" alt="moonbunny placeholder" />
+<img src="/showcase/firebird/placeholder.svg" alt="Firebird Yoga bigsign storefront placeholder" />
 
 :::note
-Placeholder image — real photos coming soon. The case study text below is accurate.
+Placeholder image — real photos coming soon.
 :::
 
 |                     |                                               |
@@ -23,20 +23,21 @@ Placeholder image — real photos coming soon. The case study text below is accu
 | **Hardware**        | Pi 5 + 8× P3 32×64                            |
 | **Notable widgets** | `rss.feed`, `two_row`, custom messages, `gif` |
 
-moonbunny is an aerial-arts studio whose street-facing window runs
+Firebird Yoga is a neighborhood yoga studio whose street-facing window runs
 led-ticker as a 256×64 storefront display. The sign cycles brand info,
-the studio's social handle on a held top row + scrolling promo on the
-bottom (`two_row`), upcoming class blurbs as plain `message` widgets,
+the studio's social handle on a held top row + scrolling class schedule on the
+bottom (`two_row`), upcoming session blurbs as plain `message` widgets,
 and short looping `gif` clips between sections.
 
-The palette leans on the brand pink (`[225, 48, 108]`) for the social
-handle and most headline text, with `font_color = "rainbow"` reserved
-for occasional countdown widgets so a class going live still grabs
-attention against the steadier brand-colored content. The bigsign
+The palette leans on the Instagram magenta (`[225, 48, 108]`) for the
+social handle, with the phoenix-warm palette (flame/amber/cream) for
+headline text, and `font_color = "rainbow"` on the headline hold plus
+rainbow borders so the storefront hero stands out against the steadier
+brand-colored content. The bigsign
 runs at `default_scale = 4` with a custom `pixel_mapper_config` for the
 2×4 vertical-serpentine panel layout.
 
-The display runs daily during business hours on a Raspberry Pi 5
+The display runs daily during studio hours on a Raspberry Pi 5
 behind the storefront, configured from a single `config.toml` and
 restarted by systemd if the process exits. The same image runs in
 dev on a Pi 4 + smallsign for layout iteration before promoting

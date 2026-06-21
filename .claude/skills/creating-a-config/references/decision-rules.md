@@ -70,7 +70,7 @@ These rules are the validation checklist. The skill consults this file at every 
 
 **SOURCE:** CLAUDE.md — "Two-row widget" section (line 103).
 
-**DETECT:** TwoRowMessage in a section with `default_scale = 4` (bigsign full-height) and typical social-media handle text (e.g., "@MoonBunny").
+**DETECT:** TwoRowMessage in a section with `default_scale = 4` (bigsign full-height) and typical social-media handle text (e.g., "@firebird").
 
 **SYMPTOM:** Logical canvas is 128 pixels wide (256 real px / scale=4), which is OK for single handles but cramped for two-row layouts. Handles scroll instead of fitting cleanly.
 
@@ -252,7 +252,7 @@ For other widgets, use `font_color = "rainbow"` or other color effects instead.
 
 ## Rule 21: transition_duration plausibility
 
-**SOURCE:** Inferred from example configs (`config.moonbunny.example.toml`, `config.bigsign.example.toml`, `config.example.toml`) which use `duration` values in the 0.5–4.0 range. `duration` is in **seconds** (float).
+**SOURCE:** Inferred from example configs (`config.firebird.example.toml`, `config.bigsign.example.toml`, `config.example.toml`) which use `duration` values in the 0.5–4.0 range. `duration` is in **seconds** (float).
 
 **DETECT:** Any `duration` or `transition_duration` value > 5 (seconds) — almost certainly a milliseconds-vs-seconds unit error from a user accustomed to ms-based animation libraries. Also flag values < 0.05 as too short to be meaningful.
 

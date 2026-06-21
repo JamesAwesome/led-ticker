@@ -23,7 +23,7 @@ body:
     attributes:
       label: Where does it run?
       description: Storefront, home, office, art install, etc.
-      placeholder: e.g. "moonbunny aerial storefront, NYC"
+      placeholder: e.g. "firebird yoga storefront, NYC"
     validations:
       required: true
 

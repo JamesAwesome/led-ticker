@@ -5,13 +5,10 @@ render cycle. Validation gates the swap; a bad/missing config never reaches the
 loop (the panel keeps running the old config)."""
 
 import hashlib
-import logging
 import os
 from dataclasses import fields
 from pathlib import Path
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 
 class ConfigWatcher:
@@ -43,10 +40,12 @@ class ConfigWatcher:
         m = self._stat_mtime()
         if m is None or m == self._last_mtime:
             return False
-        self._last_mtime = m
         h = self._hash()
-        if h is None or h == self._last_hash:
-            return False
+        if h is None:
+            return False  # vanished mid-check; do NOT advance mtime, retry next cycle
+        self._last_mtime = m
+        if h == self._last_hash:
+            return False  # no-op touch; mtime advanced to avoid re-hash next cycle
         self._last_hash = h
         return True
 

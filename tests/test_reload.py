@@ -10,7 +10,7 @@ def _write(path, body):
     return path
 
 
-_MIN = '[display]\nrows = 16\ncols = 32\n\n[[section]]\nmode = "swap"\n'
+_MIN = '[display]\nrows = 16\ncols = 32\n\n[[playlist.section]]\nmode = "swap"\n'
 
 
 def test_watcher_no_change_when_unchanged(tmp_path):
@@ -49,6 +49,20 @@ def test_watcher_missing_file_no_change(tmp_path):
     assert w.changed() is False  # no raise
 
 
+def test_watcher_vanished_then_restored_is_detected(tmp_path):
+    """A file deleted mid-check must not advance _last_mtime; a later
+    restore with new content must still be detected on the next poll."""
+    p = _write(tmp_path / "c.toml", _MIN)
+    w = rl.ConfigWatcher(p)
+    # Simulate: file vanishes between stat and hash (unlink after we grab a new mtime)
+    p.unlink()
+    assert w.changed() is False  # vanished → no advance
+    # Restore with different content and a future mtime
+    _write(p, _MIN + "\n# restored\n")
+    os.utime(p, (time.time() + 10, time.time() + 10))
+    assert w.changed() is True  # restored file detected
+
+
 async def test_load_and_validate_valid(tmp_path):
     p = _write(tmp_path / "c.toml", _MIN)
     cfg, errors, transient = await rl.load_and_validate(p)
@@ -67,6 +81,8 @@ async def test_load_and_validate_invalid_returns_string_errors(tmp_path):
     cfg, errors, transient = await rl.load_and_validate(p)
     assert cfg is None and transient is False
     assert errors and all(isinstance(e, str) for e in errors)
+    # Contract: errors are formatted as "location: message"
+    assert any(":" in e for e in errors)
 
 
 async def test_load_and_validate_missing_file_is_transient(tmp_path):
@@ -76,15 +92,17 @@ async def test_load_and_validate_missing_file_is_transient(tmp_path):
 
 def test_nonreloadable_changed_hardware_field(tmp_path):
     a = load_config(_write(tmp_path / "a.toml", _MIN))
-    b_toml = '[display]\nrows = 32\ncols = 32\n\n[[section]]\nmode = "swap"\n'
+    b_toml = '[display]\nrows = 32\ncols = 32\n\n[[playlist.section]]\nmode = "swap"\n'
     b = load_config(_write(tmp_path / "b.toml", b_toml))
     assert "display.rows" in rl.nonreloadable_changed(a, b)
 
 
 def test_nonreloadable_changed_section_only_is_empty(tmp_path):
     a = load_config(_write(tmp_path / "a.toml", _MIN))
-    extra = '[[section.widgets]]\ntype = "message"\ntext = "hi"\n'
+    extra = '[[playlist.section.widgets]]\ntype = "message"\ntext = "hi"\n'
     b = load_config(_write(tmp_path / "b.toml", _MIN + extra))
+    # Both configs have a real section; only sections differ, not display.
+    assert a.sections and b.sections, "fixture must produce non-empty sections"
     assert rl.nonreloadable_changed(a, b) == []
 
 
@@ -92,7 +110,7 @@ def test_nonreloadable_changed_brightness_is_reloadable(tmp_path):
     a = load_config(_write(tmp_path / "a.toml", _MIN))
     b_toml = (
         "[display]\nrows = 16\ncols = 32\nbrightness = 50\n\n"
-        '[[section]]\nmode = "swap"\n'
+        '[[playlist.section]]\nmode = "swap"\n'
     )
     b = load_config(_write(tmp_path / "b.toml", b_toml))
     assert "display.brightness" not in rl.nonreloadable_changed(a, b)

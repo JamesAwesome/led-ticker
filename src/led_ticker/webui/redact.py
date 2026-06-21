@@ -30,7 +30,7 @@ _KV = re.compile(
         (?P<key>(?:[A-Za-z0-9_-]+\.)*"[^"\n]*(?:token|key|secret|password|webhook)[^"\n]*"
                |[A-Za-z0-9_.-]*(?:token|key|secret|password|webhook)[A-Za-z0-9_.-]*)
         (?P<eq>\s*=\s*)
-        (?P<val>\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?'''
+        (?P<value>\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?'''
                |"[^"]*"|'[^']*'|\[[^\]]*\]|[^,}\s#]+)""",
     re.IGNORECASE | re.VERBOSE | re.MULTILINE,
 )
@@ -42,3 +42,47 @@ def redact_toml(text: str) -> str:
         lambda m: m.group("prefix") + m.group("key") + m.group("eq") + REDACTED,
         text,
     )
+
+
+def restore_redacted(submitted: str, disk: str) -> str:
+    """Replace each redacted-sentinel value in `submitted` with the real value
+    for that key from `disk`. A line whose value is not the sentinel passes
+    through unchanged; a sentinel whose key is absent from disk is left as-is
+    (the caller refuses to write a literal sentinel). Defense-in-depth for a
+    third-party plugin that left a secret in config.toml — a no-op when config
+    is secret-free (the normal first-party case).
+
+    Line-anchored on purpose: `_KV.match` keys off the start of each line, so a
+    secret nested in an inline table (``feed = {token = "x"}``) is NOT restored
+    here — its sentinel survives and the caller rejects the save (never clobbers
+    the on-disk value). Do not switch this to `_KV.sub`/multi-match to "fix" the
+    inline-table case without re-checking that it can't under-redact.
+
+    Fails closed on ambiguous bare keys: matching is on the BARE key name, so
+    two same-named secret keys in different sections (``[a] token = ...`` and
+    ``[b] token = ...``) collide. Restoring last-wins would put the wrong secret
+    into the wrong slot (silent corruption). Instead, any bare key that appears
+    more than once in `disk` is NOT restored — its sentinel survives and the
+    caller rejects the save. Only unambiguous (single-occurrence) keys restore."""
+    disk_values: dict[str, str] = {}
+    ambiguous: set[str] = set()
+    for line in disk.splitlines():
+        m = _KV.match(line)
+        if m:
+            key = m.group("key").strip()
+            if key in disk_values:
+                ambiguous.add(key)
+            disk_values[key] = line
+
+    out: list[str] = []
+    for line in submitted.splitlines():
+        m = _KV.match(line)
+        if m and m.group("value").strip() == REDACTED.strip():
+            key = m.group("key").strip()
+            if key in ambiguous:
+                out.append(line)  # leave sentinel — caller rejects the save
+            else:
+                out.append(disk_values.get(key, line))
+        else:
+            out.append(line)
+    return "\n".join(out) + ("\n" if submitted.endswith("\n") else "")

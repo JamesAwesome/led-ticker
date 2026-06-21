@@ -1,7 +1,40 @@
 """Redaction of sensitive values from TOML text. Over-redaction is safe;
 under-redaction is the worst failure in a read-only design."""
 
-from led_ticker.webui.redact import redact_toml
+from led_ticker.webui.redact import redact_toml, restore_redacted
+
+
+def test_restore_replaces_sentinel_from_disk():
+    disk = 'name = "feed"\ntoken = "real-secret"\n'
+    submitted = 'name = "feed renamed"\ntoken = "•••"\n'
+    out = restore_redacted(submitted, disk)
+    assert 'token = "real-secret"' in out
+    assert 'name = "feed renamed"' in out  # non-secret edit preserved
+
+
+def test_restore_passes_through_when_no_sentinel():
+    disk = 'token = "real"\n'
+    submitted = 'token = "new-real-value"\n'  # user typed a new secret
+    assert restore_redacted(submitted, disk) == submitted  # writes through verbatim
+
+
+def test_restore_leaves_unmatched_sentinel():
+    # sentinel for a key absent from disk → left as-is (caller rejects)
+    disk = "other = 1\n"
+    submitted = 'token = "•••"\n'
+    assert '"•••"' in restore_redacted(submitted, disk)
+
+
+def test_restore_ambiguous_bare_key_fails_closed():
+    # Two same-named secret keys in different sections collide on the bare
+    # key name. Restoring last-wins would put the wrong secret into the wrong
+    # slot (silent corruption). Fail closed: leave the sentinel for ambiguous
+    # keys so the caller's "REDACTED in merged" guard rejects the save.
+    disk = '[a]\ntoken = "AAA"\n[b]\ntoken = "BBB"\n'
+    submitted = '[a]\ntoken = "•••"\n[b]\ntoken = "•••"\n'
+    out = restore_redacted(submitted, disk)
+    assert "•••" in out  # ambiguous → sentinel survives → caller rejects
+    assert "AAA" not in out and "BBB" not in out  # no leak into wrong slot
 
 
 def test_redacts_token():

@@ -44,7 +44,8 @@ services:
     command: ["led-ticker", "webui", "--config", "/code/config/config.toml"]
     network_mode: host
     volumes:
-      - ./config:/code/config:ro
+      # rw so the web config editor can write config.toml; the display still mounts :ro and hot-reloads the change.
+      - ./config:/code/config:rw
       - ticker-status:/run/led-ticker
 
 volumes:

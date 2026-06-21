@@ -223,6 +223,22 @@ async def test_apply_reload_evicts_changed_keeps_unchanged(tmp_path):
     assert restart == []
 
 
+def test_config_hash_matches_sha256(tmp_path):
+    import hashlib
+
+    from led_ticker.reload import config_hash
+
+    p = tmp_path / "c.toml"
+    p.write_bytes(b"[display]\nrows = 16\n")
+    assert config_hash(p) == hashlib.sha256(b"[display]\nrows = 16\n").hexdigest()
+
+
+def test_config_hash_missing_file_is_none(tmp_path):
+    from led_ticker.reload import config_hash
+
+    assert config_hash(tmp_path / "nope.toml") is None
+
+
 async def test_apply_reload_reports_restart_required(tmp_path):
     a = load_config(
         _write(

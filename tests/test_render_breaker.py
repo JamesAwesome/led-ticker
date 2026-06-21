@@ -111,3 +111,80 @@ def test_reset_clears_disabled():
     b.reset()
     assert b.is_disabled(w) is False
     assert b.disabled == {}
+
+
+# ---------------------------------------------------------------------------
+# _TransitionDrawGuard + guard_for_transition tests
+# ---------------------------------------------------------------------------
+
+
+def test_guard_for_transition_passthrough_without_breaker():
+    from types import SimpleNamespace
+
+    from led_ticker.render_breaker import guard_for_transition
+
+    w = SimpleNamespace(text="hi")
+    assert guard_for_transition(w, None) is w  # no breaker -> raw widget
+
+
+def test_guard_draws_through_on_success():
+    from led_ticker.render_breaker import RenderBreaker, guard_for_transition
+
+    class W:
+        text = "ok"
+
+        def draw(self, canvas, cursor_pos=0, **kw):
+            return ("DREW", cursor_pos)
+
+    g = guard_for_transition(W(), RenderBreaker())
+    assert g.draw("CANVAS", cursor_pos=7) == ("DREW", 7)
+
+
+def test_guard_traps_raise_trips_and_returns_canvas():
+    from led_ticker.render_breaker import RenderBreaker, guard_for_transition
+
+    class Boom:
+        text = "boom"
+
+        def draw(self, canvas, cursor_pos=0, **kw):
+            raise ValueError("kaboom")
+
+    b = RenderBreaker()
+    w = Boom()
+    g = guard_for_transition(w, b)
+    out = g.draw("CANVAS", cursor_pos=3)  # must NOT raise
+    assert out == ("CANVAS", 0)  # canvas unchanged, pos 0
+    assert b.is_disabled(w) is True  # tripped
+
+
+def test_guard_short_circuits_disabled_without_calling_draw():
+    from led_ticker.render_breaker import RenderBreaker, guard_for_transition
+
+    class Counting:
+        text = "x"
+
+        def __init__(self):
+            self.calls = 0
+
+        def draw(self, canvas, cursor_pos=0, **kw):
+            self.calls += 1
+            return ("DREW", cursor_pos)
+
+    b = RenderBreaker()
+    w = Counting()
+    b.trip(w, ValueError("pre"))  # already disabled
+    g = guard_for_transition(w, b)
+    out = g.draw("CANVAS", cursor_pos=5)
+    assert out == ("CANVAS", 0)
+    assert w.calls == 0  # draw NOT called
+
+
+def test_guard_delegates_other_attrs():
+    from types import SimpleNamespace
+
+    from led_ticker.render_breaker import RenderBreaker, guard_for_transition
+
+    w = SimpleNamespace(text="hi", bg_color=(1, 2, 3))
+    g = guard_for_transition(w, RenderBreaker())
+    assert g.bg_color == (1, 2, 3)  # __getattr__ delegates
+    assert g.text == "hi"

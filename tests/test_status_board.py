@@ -19,6 +19,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "geometry",
     "plugins",
     "failed_plugins",
+    "disabled_widgets",
     "section",
     "widget",
     "monitor_updates",
@@ -39,7 +40,8 @@ def test_schema_tripwire(tmp_path):
         "SCHEMA_VERSION in src/led_ticker/status_board.py (the sidecar refuses "
         "schemas it doesn't know)."
     )
-    assert snap["schema"] == SCHEMA_VERSION == 3
+    assert snap["schema"] == SCHEMA_VERSION == 4
+    assert "disabled_widgets" in snap
 
 
 def test_publish_roundtrip(tmp_path):
@@ -336,5 +338,74 @@ def test_record_busy_does_not_write_file(tmp_path):
         assert not (tmp_path / "status.json").exists()  # nothing written yet
         board.publish(force=True)
         assert (tmp_path / "status.json").exists()  # the explicit publish writes
+    finally:
+        status_board.clear_active_board()
+
+
+def test_record_disabled_widget_appears_in_snapshot(tmp_path):
+    from types import SimpleNamespace
+
+    from led_ticker import status_board
+
+    board = StatusBoard(path=tmp_path / "status.json")
+    status_board.set_active_board(board)
+    try:
+        status_board.record_disabled_widget(
+            SimpleNamespace(text="hi"), "ValueError: boom"
+        )
+    finally:
+        status_board.clear_active_board()
+    snap = board.snapshot()
+    assert snap["disabled_widgets"], "expected a disabled widget entry"
+    entry = snap["disabled_widgets"][0]
+    assert entry["error"] == "ValueError: boom"
+    # richer entry: uses _widget_summary → has "type" and "summary" keys
+    assert "type" in entry
+    assert "summary" in entry
+    assert entry["summary"] == "hi"
+
+
+def test_record_disabled_widget_dedups_by_label_and_error(tmp_path):
+    from types import SimpleNamespace
+
+    from led_ticker import status_board
+
+    board = StatusBoard(path=tmp_path / "status.json")
+    status_board.set_active_board(board)
+    try:
+        w = SimpleNamespace(text="hi")
+        status_board.record_disabled_widget(w, "ValueError: boom")
+        status_board.record_disabled_widget(w, "ValueError: boom")
+    finally:
+        status_board.clear_active_board()
+    assert len(board.snapshot()["disabled_widgets"]) == 1
+
+
+def test_record_disabled_widget_no_board_is_noop():
+    """record_disabled_widget with no active board must return without error."""
+    from types import SimpleNamespace
+
+    status_board.clear_active_board()
+    # Must not raise
+    status_board.record_disabled_widget(SimpleNamespace(text="something"), "oops")
+
+
+def test_record_disabled_widget_publish_raises_does_not_propagate(tmp_path):
+    """If the board's publish() raises, record_disabled_widget must swallow it."""
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from led_ticker.status_board import StatusBoard
+
+    board = StatusBoard(path=tmp_path / "status.json")
+    status_board.set_active_board(board)
+    try:
+        # Patch at the CLASS level (attrs instances are read-only; class-level
+        # patch affects this instance's method lookup).
+        with patch.object(
+            StatusBoard, "publish", side_effect=RuntimeError("disk full")
+        ):
+            # Must not propagate
+            status_board.record_disabled_widget(SimpleNamespace(text="x"), "boom")
     finally:
         status_board.clear_active_board()

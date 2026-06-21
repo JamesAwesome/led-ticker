@@ -95,26 +95,31 @@ def test_logs_suppressed_across_repeated_same_value_ticks(caplog):
     assert frame.matrix.brightness == 42
 
 
-def test_transient_exception_does_not_kill_ticker(monkeypatch):
+def test_transient_exception_does_not_kill_ticker():
     frame = _frame()
 
     class Boom:
+        # Proves the ticker keeps ticking after a transient raise, deterministically:
+        # cancel the loop from inside the 2nd compute (no wall-clock dependence — the
+        # old sleep-and-count version flaked on loaded CI runners).
         def __init__(self):
             self.calls = 0
+            self.task = None
 
         def brightness_for(self, now, base):
             self.calls += 1
+            if self.calls >= 2 and self.task is not None:
+                self.task.cancel()  # stop once we've proven it re-ticked
             raise RuntimeError("transient")
 
     boom = Boom()
 
     async def go():
-        # interval tiny so the loop ticks a few times; it must NOT propagate
+        # interval=0 -> ticks as fast as the loop allows; the cancel above bounds it.
         task = asyncio.ensure_future(
-            run_mod._schedule_ticker(frame, boom, None, 100, interval=0.001)
+            run_mod._schedule_ticker(frame, boom, None, 100, interval=0)
         )
-        await asyncio.sleep(0.02)
-        task.cancel()
+        boom.task = task
         with contextlib.suppress(asyncio.CancelledError):
             await task
 

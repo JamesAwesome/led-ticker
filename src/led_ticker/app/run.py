@@ -35,7 +35,7 @@ from led_ticker.app.factories import (
     build_frame_from_config,
 )
 from led_ticker.busy_http import serve_busy
-from led_ticker.config import load_config
+from led_ticker.config import load_config, resolve_secret_token
 from led_ticker.plugin import StartupContext
 from led_ticker.ticker import Ticker, _expand_sources, _maybe_wrap
 from led_ticker.transitions import Transition, run_transition
@@ -220,7 +220,12 @@ async def _serve_busy_supervised(busy: Any, cfg: Any) -> None:
     taken."""
     try:
         runner = await serve_busy(
-            busy, host=cfg.http_host, port=cfg.http_port, token=cfg.token
+            busy,
+            host=cfg.http_host,
+            port=cfg.http_port,
+            token=resolve_secret_token(
+                "LED_TICKER_BUSY_TOKEN", cfg.token, label="busy_light.token"
+            ),
         )
     except OSError as e:
         logging.error(

@@ -18,6 +18,7 @@ from pathlib import Path
 
 from aiohttp import web
 
+from led_ticker.config import resolve_secret_token
 from led_ticker.preview import HEADER, PREVIEW_MAGIC, PREVIEW_VERSION
 from led_ticker.status_board import SCHEMA_VERSION
 from led_ticker.validate import (
@@ -289,7 +290,9 @@ async def run_webui(config_path: Path, web_cfg) -> None:
         status_path=Path(web_cfg.status_path).expanduser(),
         host=web_cfg.http_host,
         port=web_cfg.http_port,
-        token=web_cfg.token,
+        token=resolve_secret_token(
+            "LED_TICKER_WEB_TOKEN", web_cfg.token, label="web.token"
+        ),
     )
     try:
         await asyncio.Event().wait()

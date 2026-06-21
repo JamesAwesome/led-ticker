@@ -32,7 +32,7 @@
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/crypto",
       "provides": { "widgets": ["crypto.coingecko"] },
       "sources": [
-        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "crypto-v0.1.0", "subdirectory": "plugins/crypto" }
+        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "crypto-v0.2.0", "subdirectory": "plugins/crypto" }
       ]
     },
     {

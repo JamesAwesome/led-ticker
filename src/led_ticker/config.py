@@ -1,5 +1,7 @@
 """TOML configuration loader for led-ticker."""
 
+import logging
+import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -209,6 +211,26 @@ class PluginsConfig:
     enabled: bool = True
     dir: str = "plugins"
     disable: list[str] = field(default_factory=list)
+
+
+def resolve_secret_token(env_var: str, config_value: str, *, label: str) -> str:
+    """Resolve an auth token env-first, with the config field as a fallback.
+
+    Returns the env var's value when set; otherwise the config field. When the
+    config field is used because the env var is unset, logs a one-line warning
+    recommending the env var — secrets do not belong in config.toml. Empty when
+    neither is set (open / no auth)."""
+    env_value = os.getenv(env_var, "")
+    if env_value:
+        return env_value
+    if config_value:
+        logging.warning(
+            "%s is set in config.toml; move it to the %s environment variable "
+            "(secrets do not belong in config.toml).",
+            label,
+            env_var,
+        )
+    return config_value
 
 
 def _parse_plugins_block(raw: dict) -> PluginsConfig:

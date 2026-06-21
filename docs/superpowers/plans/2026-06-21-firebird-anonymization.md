@@ -21,6 +21,14 @@
 - Commit trailer on every commit:
   `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
   `Claude-Session: https://claude.ai/code/session_01P7r9q2YjKvWBsTSfdPotAh`
+- **Asset binaries + asset paths are OUT OF SCOPE for this PR.** The non-shippable sample
+  assets (`pika_wave*.gif`, `moon_bunny_transparent.gif`, `moon-transparent.png`, `bunny-*.png`,
+  `kpop-dance.webp`) are replaced by a SEPARATE shippable-asset-sweep PR. In this PR, **leave
+  every asset `path = "assets/…"` line unchanged** even when the brand COPY around it changes —
+  do not repoint, rename, or remove asset files, and do not rewrite "Pikachu"/asset prose. A
+  config can legitimately end this PR with Firebird copy + a still-old logo asset; that's
+  expected and the asset sweep fixes it. (This is why the completeness guard's needles are
+  `moonbunny`/`moon bunny`/`moonbunnyaerial`/`aerial` only — NOT the asset names.)
 
 ### Canonical substitution map (apply everywhere; §6 is the authority)
 

@@ -99,3 +99,15 @@ def test_content_less_objects_key_by_id():
     b.trip(w1, ValueError("x"))
     assert b.is_disabled(w1) is True
     assert b.is_disabled(w2) is False
+
+
+def test_reset_clears_disabled():
+    from types import SimpleNamespace
+
+    b = RenderBreaker()
+    w = SimpleNamespace(text="hi")
+    b.trip(w, ValueError("boom"))
+    assert b.is_disabled(w) is True
+    b.reset()
+    assert b.is_disabled(w) is False
+    assert b.disabled == {}

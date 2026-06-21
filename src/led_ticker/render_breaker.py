@@ -55,3 +55,8 @@ class RenderBreaker:
             exc_info=exc,
         )
         status_board.record_disabled_widget(widget, summary)
+
+    def reset(self) -> None:
+        """Clear all disabled state — called on a successful config reload so a
+        widget the user just fixed gets another chance (mirrors restart-to-retry)."""
+        self.disabled.clear()

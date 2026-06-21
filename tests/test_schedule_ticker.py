@@ -178,10 +178,12 @@ def test_invalid_timezone_string_does_not_crash_supervised(caplog):
 def test_base_matches_frame_brightness_source():
     # The wiring passes config.display.brightness as base AND as led_brightness.
     # Guard against a future edit that diverges them.
+    # Since startup now goes through _respawn_schedule (single spawn site), the
+    # brightness reference lives there rather than inline in run().
     import inspect
 
-    src = inspect.getsource(run_mod.run)
-    assert "config.display.brightness" in src  # used as base in the spawn
+    respawn_src = inspect.getsource(run_mod._respawn_schedule)
+    assert "config.display.brightness" in respawn_src  # used as base in the spawn
     # build_frame_from_config maps display.brightness -> LedFrame(led_brightness=)
     from led_ticker.app import factories
 

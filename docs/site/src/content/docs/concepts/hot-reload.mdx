@@ -1,0 +1,83 @@
+---
+title: Config hot-reload
+description: How led-ticker picks up config.toml changes while the sign is running — no restart needed for most edits.
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+import { Aside } from "@astrojs/starlight/components";
+
+With config hot-reload enabled (the default), editing `config.toml` while the sign is running causes the display process to pick up the change automatically — no restart, no brief blank panel, no dropped-frame glitch. The old config stays active until the new one passes validation, so a typo never takes the sign down.
+
+## What reloads, what does not
+
+| What changed                                                     | Effect                                                            |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `[[playlist.section]]` — sections, widgets, transitions          | Reloaded at the start of the next full playlist cycle             |
+| `[display] brightness`                                           | Applied within ~30 seconds (the schedule tick interval)           |
+| `[display.schedule]` — windows, timezone                         | Reloaded along with the rest of `[display]`                       |
+| `[display]` hardware fields (rows, cols, chain_length, scale, …) | **Restart required** — these wire into the GPIO driver at startup |
+| `[busy_light]`                                                   | **Restart required**                                              |
+| `[plugins]`                                                      | **Restart required** — plugins register at startup                |
+| `[web]`                                                          | **Restart required**                                              |
+
+If you change a restart-required field, the reload is still accepted (the reloadable changes take effect), and the sign logs a warning listing which fields need a restart. The [web status UI](/concepts/web-status-ui/) shows the same list in the **Last config reload** card under `restart_required`.
+
+## How it works
+
+The display process checks `config.toml` for modifications at the top of every full playlist cycle — between the last widget of one pass and the first widget of the next. If the file's modification time has changed, it:
+
+1. Validates the new config in full (the same check `led-ticker validate` runs).
+2. If validation fails, logs the error and keeps running on the old config — the panel never goes dark.
+3. If validation passes, swaps in the new config, rebuilds the widget pool, and continues.
+
+The swap happens only between cycles, so the running cycle always finishes consistently on one config — it never splits a section across a config boundary.
+
+## Enabling and disabling
+
+Hot-reload is on by default. To opt out:
+
+<TomlExample
+  title="Disable hot-reload"
+  code={`[display]
+hot_reload = false`}
+/>
+
+With `hot_reload = false`, the display process ignores `config.toml` modifications after startup. You need a restart for any config change to take effect.
+
+## Feedback
+
+**Logs** — each reload attempt logs at one of three levels:
+
+- **INFO** — clean success: `config reloaded`.
+- **WARNING** — partial success: `config reloaded (partial); restart required for: <fields>` (display hardware fields changed; a restart is needed for those to take effect).
+- **ERROR** — rejected: `config reload rejected: <validation error>` (the new config failed validation; the running config is unchanged).
+
+```bash
+# Docker
+docker compose logs -f led-ticker | grep reload
+
+# Bare metal
+journalctl -u led-ticker -f | grep reload
+```
+
+**Web status UI** — the Status tab's **Last config reload** card shows the timestamp, whether it succeeded, the error message on failure, and which fields (if any) need a restart. The card is hidden until the first reload attempt after startup. See [Web status UI](/concepts/web-status-ui/#status-tab--snapshot-fields) for the full `last_reload` field shape.
+
+## In Docker
+
+The `config` directory is mounted read-only (`./config:/code/config:ro`), which does not prevent the Pi's own editor from updating the host file — the container sees the change through the bind mount. Hot-reload works the same way in Docker as on bare metal.
+
+<Aside type="tip">
+  Use `led-ticker validate config.toml` (or the web UI's Validate tab) to confirm a candidate config
+  before saving it — a validation pass on the command line guarantees the same check the hot-reload
+  path runs.
+</Aside>
+
+## If the reload is not picking up your change
+
+- Confirm `hot_reload = false` is not set in your `[display]` block.
+- Check that the file's modification time actually changed — some editors write to a temp file and rename; that still changes `mtime` and triggers a reload. A few (rare) setups write in place without updating `mtime` — `touch config.toml` forces a check.
+- The reload runs between cycles, not mid-render, so it may take up to one full playlist cycle to appear (a few seconds to a minute depending on hold times and widget count).
+- Check `docker compose logs led-ticker` or `journalctl -u led-ticker` for a `reload rejected` line — that means the new config failed validation and the old one is still running.
+
+<RelatedPages slugs={["concepts/web-status-ui", "reference/config-options", "reference/cli"]} />

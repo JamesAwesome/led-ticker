@@ -46,6 +46,7 @@ brightness = 60
 default_scale = 4
 
 hardware_mapping = "adafruit-hat"
+# hot_reload = true    # live-reload config.toml edits without a restart (default on; set false to disable)
 
 # Pi 5 RP1 GPIO tuning.
 #

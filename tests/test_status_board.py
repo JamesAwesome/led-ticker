@@ -20,6 +20,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "plugins",
     "failed_plugins",
     "disabled_widgets",
+    "last_reload",
     "section",
     "widget",
     "monitor_updates",
@@ -40,7 +41,7 @@ def test_schema_tripwire(tmp_path):
         "SCHEMA_VERSION in src/led_ticker/status_board.py (the sidecar refuses "
         "schemas it doesn't know)."
     )
-    assert snap["schema"] == SCHEMA_VERSION == 4
+    assert snap["schema"] == SCHEMA_VERSION == 5
     assert "disabled_widgets" in snap
 
 
@@ -409,3 +410,58 @@ def test_record_disabled_widget_publish_raises_does_not_propagate(tmp_path):
             status_board.record_disabled_widget(SimpleNamespace(text="x"), "boom")
     finally:
         status_board.clear_active_board()
+
+
+def test_record_reload_success_appears_in_snapshot(tmp_path):
+    from led_ticker import status_board
+
+    board = StatusBoard(path=tmp_path / "status.json")
+    status_board.set_active_board(board)
+    try:
+        status_board.record_reload(
+            ok=True, ts="2026-06-20T10:00:00", restart_required=["display.rows"]
+        )
+    finally:
+        status_board.clear_active_board()
+    lr = board.snapshot()["last_reload"]
+    assert lr["ok"] is True
+    assert lr["at"] == "2026-06-20T10:00:00"
+    assert lr["restart_required"] == ["display.rows"]
+
+
+def test_record_reload_failure_carries_error(tmp_path):
+    from led_ticker import status_board
+
+    board = StatusBoard(path=tmp_path / "status.json")
+    status_board.set_active_board(board)
+    try:
+        status_board.record_reload(ok=False, ts="t", error="section 2: bad widget")
+    finally:
+        status_board.clear_active_board()
+    lr = board.snapshot()["last_reload"]
+    assert lr["ok"] is False
+    assert lr["error"] == "section 2: bad widget"
+
+
+def test_clear_disabled_widgets_empties_the_list(tmp_path):
+    from types import SimpleNamespace
+
+    from led_ticker import status_board
+
+    board = StatusBoard(path=tmp_path / "status.json")
+    status_board.set_active_board(board)
+    try:
+        status_board.record_disabled_widget(SimpleNamespace(text="x"), "boom")
+        assert board.snapshot()["disabled_widgets"]  # populated
+        status_board.clear_disabled_widgets()
+    finally:
+        status_board.clear_active_board()
+    assert board.snapshot()["disabled_widgets"] == []
+
+
+def test_record_reload_never_raises_without_active_board():
+    from led_ticker import status_board
+
+    status_board.clear_active_board()
+    status_board.record_reload(ok=True, ts="t")  # must not raise
+    status_board.clear_disabled_widgets()  # must not raise

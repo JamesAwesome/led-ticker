@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 
@@ -149,3 +150,108 @@ def test_every_frame_field_is_restart_required():
     assert frame_fields <= declared, frame_fields - declared
     # and none of them may be reloadable
     assert frame_fields.isdisjoint(rl.RELOADABLE_DISPLAY_FIELDS)
+
+
+# ---------------------------------------------------------------------------
+# _apply_reload tests
+# ---------------------------------------------------------------------------
+
+_DISPLAY = "[display]\nrows=16\ncols=32\n\n"
+
+
+async def test_apply_reload_evicts_changed_keeps_unchanged(tmp_path):
+    # config A: one message widget "keep" + one "drop"
+    a = load_config(
+        _write(
+            tmp_path / "a.toml",
+            _DISPLAY + '[[playlist.section]]\nmode="swap"\n'
+            '[[playlist.section.widget]]\ntype="message"\ntext="keep"\n'
+            '[[playlist.section.widget]]\ntype="message"\ntext="drop"\n',
+        )
+    )
+    # config B: "keep" stays, "drop" removed
+    b = load_config(
+        _write(
+            tmp_path / "b.toml",
+            _DISPLAY + '[[playlist.section]]\nmode="swap"\n'
+            '[[playlist.section.widget]]\ntype="message"\ntext="keep"\n',
+        )
+    )
+
+    from led_ticker.app.factories import _cache_key
+
+    keep_key = _cache_key(dict(a.sections[0].widgets[0]))
+    drop_key = _cache_key(dict(a.sections[0].widgets[1]))
+
+    keep_task = asyncio.ensure_future(asyncio.sleep(3600))
+    drop_task = asyncio.ensure_future(asyncio.sleep(3600))
+    widget_cache = {keep_key: object(), drop_key: object()}
+    widget_tasks = {keep_key: {keep_task}, drop_key: {drop_task}}
+    keep_widget = widget_cache[keep_key]
+
+    from types import SimpleNamespace
+
+    from led_ticker.render_breaker import RenderBreaker
+
+    breaker = RenderBreaker()
+    breaker.trip(SimpleNamespace(text="x"), ValueError("boom"))
+
+    respawned = []
+
+    async def fake_respawn(old_task, cfg):
+        respawned.append(cfg)
+        return "NEW_SCHEDULE_TASK"
+
+    new_sched, restart = await rl._apply_reload(
+        b,
+        old_config=a,
+        widget_cache=widget_cache,
+        widget_tasks=widget_tasks,
+        render_breaker=breaker,
+        schedule_task="OLD",
+        respawn_schedule=fake_respawn,
+    )
+
+    # unchanged widget + its task survive; removed widget + task evicted/cancelled
+    assert keep_key in widget_cache and widget_cache[keep_key] is keep_widget
+    assert drop_key not in widget_cache and drop_key not in widget_tasks
+    # cancel requested — allow a tick to settle then check cancelled()
+    await asyncio.sleep(0)
+    assert drop_task.cancelled() or drop_task.cancelling()
+    assert not keep_task.cancelled()
+    keep_task.cancel()
+    # breaker reset + schedule respawned + no restart_required (section-only change)
+    assert breaker.disabled == {}
+    assert new_sched == "NEW_SCHEDULE_TASK" and respawned == [b]
+    assert restart == []
+
+
+async def test_apply_reload_reports_restart_required(tmp_path):
+    a = load_config(
+        _write(
+            tmp_path / "a.toml",
+            _DISPLAY + '[[playlist.section]]\nmode="swap"\n',
+        )
+    )
+    b = load_config(
+        _write(
+            tmp_path / "b.toml",
+            '[display]\nrows=32\ncols=32\n\n[[playlist.section]]\nmode="swap"\n',
+        )
+    )
+
+    async def fake_respawn(old_task, cfg):
+        return None
+
+    from led_ticker.render_breaker import RenderBreaker as _RB
+
+    _, restart = await rl._apply_reload(
+        b,
+        old_config=a,
+        widget_cache={},
+        widget_tasks={},
+        render_breaker=_RB(),
+        schedule_task=None,
+        respawn_schedule=fake_respawn,
+    )
+    assert "display.rows" in restart

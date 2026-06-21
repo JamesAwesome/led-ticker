@@ -98,3 +98,36 @@ def nonreloadable_changed(old: Any, new: Any) -> list[str]:
     if getattr(old, "web", None) != getattr(new, "web", None):
         changed.append("web")
     return changed
+
+
+async def _apply_reload(
+    new_config: Any,
+    *,
+    old_config: Any,
+    widget_cache: dict,
+    widget_tasks: dict,
+    render_breaker: Any,
+    schedule_task: Any,
+    respawn_schedule: Any,
+) -> tuple[Any, list[str]]:
+    """Apply a validated new config in place. Evicts changed/removed widgets
+    (cancelling their captured background tasks), resets the render breaker and its
+    status mirror, and respawns the schedule ticker. Returns (schedule_task,
+    restart_required). The CALLER swaps `config`, rebuilds the section-default
+    transition, drains coerce warnings, logs, and records status."""
+    from led_ticker import status_board  # noqa: PLC0415
+    from led_ticker.app.factories import _cache_key  # noqa: PLC0415
+
+    restart_required = nonreloadable_changed(old_config, new_config)
+
+    valid_keys = {_cache_key(dict(w)) for s in new_config.sections for w in s.widgets}
+    for key in list(widget_cache):
+        if key not in valid_keys:
+            for t in widget_tasks.pop(key, ()):
+                t.cancel()  # cancel-and-move-on; not awaited at the boundary
+            widget_cache.pop(key, None)
+
+    render_breaker.reset()
+    status_board.clear_disabled_widgets()
+    schedule_task = await respawn_schedule(schedule_task, new_config)
+    return schedule_task, restart_required

@@ -2310,6 +2310,7 @@ async def test_run_transition_survives_faulty_outgoing(swapping_frame):
     )
     assert out is not None
     assert breaker.is_disabled(bad) is True
+    assert len(set(good.seen)) >= 1  # healthy incoming drawn
 
 
 async def test_run_transition_disabled_widget_not_drawn(swapping_frame):

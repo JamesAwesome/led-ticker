@@ -1,11 +1,13 @@
 """Web status UI sidecar (led-ticker webui).
 
-Pure builder (build_webui_app) + production runner (serve_webui/run_webui,
-added in a later task), mirroring busy_http. The sidecar is a pure READER: it
-never writes status.json and never touches the config file. It must keep
-working when the display process is absent — every degraded state is a
-friendly JSON answer, not a 500. This module must never import rgbmatrix
-(tripwire lands in tests/test_webui_purity.py).
+Pure builder (build_webui_app) + production runner (serve_webui/run_webui),
+mirroring busy_http. The sidecar never writes status.json. It touches
+config.toml only through the token-gated PUT /api/config editor
+(validate → conflict-check → backup → atomic write); all GET and preview
+routes remain read-only. Without a token, the editor is disabled and Save
+returns 403. It must keep working when the display process is absent —
+every degraded state is a friendly JSON answer, not a 500. This module
+must never import rgbmatrix (tripwire lands in tests/test_webui_purity.py).
 """
 
 import asyncio

@@ -195,16 +195,32 @@ A missing or wrong token returns `401`. The query-param form works in a browser 
 
 For anything beyond your home LAN — exposing the dashboard over the internet — put a reverse proxy (nginx, Caddy) in front and let the proxy handle TLS and stronger auth. The sidecar itself is a LAN-appliance; it has no TLS support.
 
-## What it does not do (v1)
+## Editing the config
 
-The dashboard is intentionally read-only:
+The **Config tab** doubles as an editor. Open it, make your changes, and click **Save**.
 
-- No config apply or save — edit `config.toml` directly. With hot-reload enabled (the default), the display process picks up the change automatically; for hardware-level fields you still need a restart.
+**A token is required.** Set `LED_TICKER_WEB_TOKEN` in your `.env` (see [Auth](#auth) above). Without a token, the editor is read-only — Save returns 403. With a token, every other request still requires it, so the token gates both reads and writes when set.
+
+**What Save does, in order:**
+
+1. Validates the submitted TOML — invalid TOML or a config that fails `led-ticker validate` is rejected and nothing is written.
+2. Conflict-checks against the file on disk. If someone else saved the file since you loaded it, Save returns 409 and you can reload before retrying.
+3. Backs up the current file to `config.toml.bak` in the same directory.
+4. Writes the new content atomically (write to a temp file, then rename into place).
+
+The Config tab reports **"applied live"** when the running display picked up the change via hot-reload, or **"restart required for …"** listing the sections (e.g. `display`, `plugins`) whose changes need a process restart to take effect.
+
+<Aside type="note">
+  The Validate tab is always available regardless of whether a token is set. Use it to check a
+  candidate config before saving.
+</Aside>
+
+**Deploy note.** The webui container must be able to write the host-bind-mounted `config.toml`. In `compose.yaml` the webui service mounts the config directory `:rw` (the display service still mounts it `:ro`). On bare metal, confirm the user running `led-ticker webui` has write permission to the config directory. If the Pi's config directory is owned by root and the sidecar runs as an unprivileged user, `chown` the directory or add the sidecar user to the owning group.
+
+## What it does not do
+
 - No restart or reboot button.
 - No brightness control.
-- No write access to the sign whatsoever.
-
-The Validate tab lets you check a candidate config without risk before saving it to disk.
 
 ## Troubleshooting
 

@@ -294,7 +294,7 @@ User-facing reference: <https://docs.ledticker.dev/reference/config-options/>.
 - Production image: `python:3.14-bookworm` base, 3-layer caching (rgbmatrix → deps → source).
 - Single image runs on both Pi 4 and Pi 5. The rgbmatrix library is hardcoded to `jamesawesome/rpi-rgb-led-matrix` (default branch `main`) — Pi5 RP1 support (hzeller#1886, merged upstream) plus three patches: GCC10 anonymous-param fix (`pio_rp1.c`), Pillow shim (`graphics.py`), SubFill Python binding (`core.pyx`). The library detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). The pre-RP1 codebase is preserved on the `pi4_legacy` branch.
 - On the Pi 5, the RP1 RIO backend is the default; `--led-rp1-pio=1` forces the low-CPU PIO backend (renamed from `--led-rp1-rio`, June 2026). For chain length ≥ 2 with flicker, raise `gpio_slowdown` from 2 to 3+.
-- Config mounted read-only: `./config:/code/config:ro`.
+- Config mounted read-only for the display service: `./config:/code/config:ro`. The webui sidecar is a read-only service EXCEPT for the token-gated `PUT /api/config` editor (validate → conflict-check → backup → atomic write); it writes `config.toml` and nothing else, and the display process applies the change via hot-reload. The webui's config volume must be mounted `:rw`; the display service's mount stays `:ro`.
 - Systemd: `deploy/led-ticker.service`. Full deploy walkthrough: <https://docs.ledticker.dev/hardware/building-your-own/>.
 
 ### Hardware quick reference

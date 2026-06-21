@@ -1,16 +1,21 @@
 """Web status UI sidecar (led-ticker webui).
 
-Pure builder (build_webui_app) + production runner (serve_webui/run_webui,
-added in a later task), mirroring busy_http. The sidecar is a pure READER: it
-never writes status.json and never touches the config file. It must keep
-working when the display process is absent — every degraded state is a
-friendly JSON answer, not a 500. This module must never import rgbmatrix
-(tripwire lands in tests/test_webui_purity.py).
+Pure builder (build_webui_app) + production runner (serve_webui/run_webui),
+mirroring busy_http. The sidecar never writes status.json. It touches
+config.toml only through the token-gated PUT /api/config editor
+(validate → conflict-check → backup → atomic write); all GET and preview
+routes remain read-only. Without a token, the editor is disabled and Save
+returns 403. It must keep working when the display process is absent —
+every degraded state is a friendly JSON answer, not a 500. This module
+must never import rgbmatrix (tripwire lands in tests/test_webui_purity.py).
 """
 
 import asyncio
+import hashlib
 import json
 import logging
+import os
+import shutil
 import time
 import tomllib
 from importlib import resources
@@ -20,6 +25,7 @@ from aiohttp import web
 
 from led_ticker.config import resolve_secret_token
 from led_ticker.preview import HEADER, PREVIEW_MAGIC, PREVIEW_VERSION
+from led_ticker.reload import config_hash
 from led_ticker.status_board import SCHEMA_VERSION
 from led_ticker.validate import (
     ValidationResult,
@@ -27,7 +33,7 @@ from led_ticker.validate import (
     validate_config_text,
 )
 from led_ticker.webui._paths import list_config_names, safe_config_member
-from led_ticker.webui.redact import redact_toml
+from led_ticker.webui.redact import REDACTED, redact_toml, restore_redacted
 
 # led_ticker.validate was verified clean of rgbmatrix at task-8 implementation
 # time:  python -c "import led_ticker.validate; print([m for m in
@@ -137,7 +143,7 @@ def build_webui_app(
 
     app = web.Application(middlewares=[auth])
     app.router.add_get("/api/status", status_handler)
-    _add_config_routes(app, config_path)
+    _add_config_routes(app, config_path, token, asyncio.Lock())
     app.router.add_get("/api/preview", preview_handler)
     _add_page_route(app)
     return app
@@ -167,8 +173,16 @@ def _result_to_json(result: ValidationResult) -> dict:
     }
 
 
-def _add_config_routes(app: web.Application, config_path: Path) -> None:
-    """Register GET /api/configs, GET /api/config and POST /api/validate on the app."""
+def _add_config_routes(
+    app: web.Application,
+    config_path: Path,
+    token: str = "",
+    save_lock: asyncio.Lock | None = None,
+) -> None:
+    """Register config routes: GET /api/configs, GET /api/config,
+    POST /api/validate, PUT /api/config."""
+    if save_lock is None:
+        save_lock = asyncio.Lock()
 
     async def configs_handler(request: web.Request) -> web.Response:
         config_dir = config_path.parent
@@ -207,10 +221,15 @@ def _add_config_routes(app: web.Application, config_path: Path) -> None:
                 "panel_width": cols * chain,
                 "panel_height": rows * parallel,
             }
-        except ValueError, TypeError, tomllib.TOMLDecodeError:
+        except (ValueError, TypeError, tomllib.TOMLDecodeError):
             pass  # geometry is best-effort; the redacted text is the point
         return web.json_response(
-            {"state": "ok", "toml": redact_toml(text), "geometry": geometry}
+            {
+                "state": "ok",
+                "toml": redact_toml(text),
+                "geometry": geometry,
+                "hash": config_hash(target) or "",
+            }
         )
 
     async def validate_handler(request: web.Request) -> web.Response:
@@ -241,10 +260,106 @@ def _add_config_routes(app: web.Application, config_path: Path) -> None:
             return web.json_response({"error": "unknown config"}, status=404)
         return web.json_response(_result_to_json(result))
 
+    async def save_handler(request: web.Request) -> web.Response:
+        if not token:
+            return web.json_response({"error": "editing disabled"}, status=403)
+        if (request.content_length or 0) > MAX_VALIDATE_BODY:
+            return web.json_response({"error": "body too large"}, status=413)
+        try:
+            payload = await request.json()
+        except ValueError:
+            return web.json_response({"error": "body must be JSON"}, status=400)
+        toml_text = payload.get("toml") if isinstance(payload, dict) else None
+        base_hash = payload.get("base_hash") if isinstance(payload, dict) else None
+        if not isinstance(toml_text, str) or not isinstance(base_hash, str):
+            return web.json_response({"error": "missing toml/base_hash"}, status=400)
+        if len(toml_text.encode()) > MAX_VALIDATE_BODY:
+            return web.json_response({"error": "body too large"}, status=413)
+
+        # Serialize the whole critical section (conflict-check → os.replace) so
+        # two concurrent PUTs can't interleave and clobber each other.
+        async with save_lock:
+            # Single read: derive BOTH the conflict hash and the redaction
+            # source text from the SAME bytes, so they can never diverge.
+            try:
+                disk_bytes = config_path.read_bytes()
+            except OSError:
+                disk_bytes = None
+            current = (
+                hashlib.sha256(disk_bytes).hexdigest()
+                if disk_bytes is not None
+                else None
+            )
+            disk_text = disk_bytes.decode("utf-8") if disk_bytes is not None else ""
+
+            # Conflict check FIRST — never validate/work against a file that moved.
+            if current is None:
+                # Absent/unreadable file: GET returns hash="" for this state.
+                # Honor that convention — a non-empty base_hash means the client
+                # based its edit on a file that no longer exists.
+                if base_hash != "":
+                    return web.json_response(
+                        {"error": "file disappeared", "hash": ""}, status=409
+                    )
+            elif base_hash != current:
+                return web.json_response(
+                    {"error": "conflict", "hash": current}, status=409
+                )
+
+            # Restore any redacted secret from disk (no-op for secret-free config).
+            merged = restore_redacted(toml_text, disk_text)
+            if REDACTED.strip() in merged:
+                return web.json_response(
+                    {
+                        "error": (
+                            "unresolved redacted value; replace ••• with the real "
+                            "value or edit the file directly"
+                        )
+                    },
+                    status=400,
+                )
+
+            result = await validate_config_text(merged)
+            if not result.valid:
+                return web.json_response(_result_to_json(result), status=422)
+
+            # Re-check before replace: a host edit may have landed on disk while
+            # we validated (the lock only stops concurrent PUTs). Abort if so.
+            try:
+                recheck_bytes = config_path.read_bytes()
+            except OSError:
+                recheck_bytes = None
+            recheck = (
+                hashlib.sha256(recheck_bytes).hexdigest()
+                if recheck_bytes is not None
+                else None
+            )
+            if recheck != current:
+                return web.json_response(
+                    {"error": "conflict", "hash": recheck or ""}, status=409
+                )
+
+            # Backup + atomic write.
+            tmp = config_path.with_name(config_path.name + ".tmp")
+            try:
+                if config_path.exists():
+                    bak = config_path.with_suffix(config_path.suffix + ".bak")
+                    shutil.copy2(config_path, bak)
+                tmp.write_text(merged, encoding="utf-8")
+                os.replace(tmp, config_path)
+            except OSError as e:
+                tmp.unlink(missing_ok=True)
+                return web.json_response({"error": f"write failed: {e}"}, status=500)
+
+            return web.json_response(
+                {"state": "saved", "hash": config_hash(config_path) or ""}
+            )
+
     app.router.add_get("/api/configs", configs_handler)
     app.router.add_get("/api/config", config_handler)
     app.router.add_post("/api/validate", validate_handler)
     app.router.add_post("/api/validate-file", validate_file_handler)
+    app.router.add_put("/api/config", save_handler)
 
     async def inventory_handler(request: web.Request) -> web.Response:
         from led_ticker.webui.inventory import build_inventory  # noqa: PLC0415

@@ -170,13 +170,14 @@ The sidecar runs as an ephemeral unprivileged user provisioned by systemd (`Dyna
 
 ## Auth
 
-By default the dashboard is open — appropriate for a trusted home LAN. To add a shared token:
+By default the dashboard is open — appropriate for a trusted home LAN. To add a shared token, set `LED_TICKER_WEB_TOKEN` in your `.env`:
 
-<TomlExample
-  title="With token"
-  code={`[web]
-token = "change-me"`}
-/>
+```bash
+# .env
+LED_TICKER_WEB_TOKEN=change-me
+```
+
+The display process and sidecar both read this environment variable at startup. The `token` field in `[web]` is a fallback for setups that cannot use `.env` — it works, but logs a warning that secrets belong in the environment, not the config file.
 
 With a token set, every request must include it, either as a header or a query parameter:
 

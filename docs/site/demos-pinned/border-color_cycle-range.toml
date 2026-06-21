@@ -1,5 +1,5 @@
 # render-duration: 6
-# color_cycle border with from/to hue range (moonbunny brand palette).
+# color_cycle border with from/to hue range (Firebird brand palette).
 # Shorter arc between soft pink and lavender — border pulses only
 # within that purple/pink band rather than sweeping the full wheel.
 [display]

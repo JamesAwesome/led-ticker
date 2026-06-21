@@ -21,5 +21,5 @@ hold_time = 4.0
 
 [[playlist.section.widget]]
 type = "message"
-text = "Aerial for Everybody"
+text = "Breathe. Move. Rise."
 font_color = [189, 169, 234]

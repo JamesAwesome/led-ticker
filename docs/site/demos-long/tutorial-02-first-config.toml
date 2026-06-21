@@ -17,5 +17,5 @@ scroll_step_ms = 15
 
 [[playlist.section.widget]]
 type = "message"
-text = "Welcome to Moonbunny"
+text = "Welcome to Firebird Yoga"
 font_color = [225, 48, 108]

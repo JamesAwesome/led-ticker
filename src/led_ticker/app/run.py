@@ -37,7 +37,7 @@ from led_ticker.config import load_config
 from led_ticker.plugin import StartupContext
 from led_ticker.ticker import Ticker, _expand_sources, _maybe_wrap
 from led_ticker.transitions import Transition, run_transition
-from led_ticker.widget import run_monitor_loop, spawn_tracked
+from led_ticker.widget import _build_sink, run_monitor_loop, spawn_tracked
 
 
 async def _ttl_ticker(busy: Any, interval: float = 1.0) -> None:
@@ -124,6 +124,69 @@ async def _supervised_schedule(
             led_frame.matrix.brightness = base
         except Exception:
             logging.exception("schedule: failed to reset brightness to base")
+
+
+async def _respawn_schedule(old_task: Any, config: Any, led_frame: Any) -> Any:
+    """Cancel the running schedule ticker (if any) and start a fresh one from the
+    new config. Disabled -> set brightness to the new base and return None."""
+    if old_task is not None:
+        old_task.cancel()
+        await asyncio.sleep(0)  # let the old ticker observe the cancel before respawn
+    if config.display.schedule.enabled:
+        from led_ticker.schedule import Scheduler  # noqa: PLC0415
+
+        sched = Scheduler.from_config(config.display.schedule)
+        return spawn_tracked(
+            _supervised_schedule(
+                led_frame,
+                sched,
+                config.display.schedule.timezone,
+                config.display.brightness,
+            )
+        )
+    led_frame.matrix.brightness = config.display.brightness
+    return None
+
+
+async def _build_widget_guarded(
+    widget_cfg: Any,
+    *,
+    session: Any,
+    config_dir: Any,
+    default_bg_color: Any,
+    panel_h_for_warning: Any,
+    coercion_collector: Any,
+    widget_cache: dict,
+    widget_tasks: dict,
+) -> Any:
+    """Build one widget (cache-aware), capturing its background tasks in a per-build
+    sink so a config reload can cancel exactly those. On a build error, log + skip
+    (return None) without caching, so a later good edit retries. Returns the widget
+    or None."""
+    key = _cache_key(widget_cfg)
+    if key in widget_cache:
+        return widget_cache[key]
+    sink: set = set()
+    token = _build_sink.set(sink)
+    try:
+        widget = await _build_widget(
+            dict(widget_cfg),
+            session,
+            config_dir=config_dir,
+            default_bg_color=default_bg_color,
+            panel_h_for_warning=panel_h_for_warning,
+            coercion_collector=coercion_collector,
+        )
+    except Exception as exc:  # noqa: BLE001 - a bad reloaded widget must not freeze the panel
+        logging.exception("widget build failed; skipping for this pass: %s", exc)
+        for t in sink:
+            t.cancel()
+        return None
+    finally:
+        _build_sink.reset(token)
+    widget_cache[key] = widget
+    widget_tasks[key] = sink
+    return widget
 
 
 async def _serve_busy_supervised(busy: Any, cfg: Any) -> None:

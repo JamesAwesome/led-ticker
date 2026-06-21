@@ -1018,6 +1018,8 @@ class TestScrollBetween:
         assert breaker.is_disabled(bad) is True  # faulty side tripped
         # tripped widget is dropped from the next pass:
         assert _expand_sources([bad, good], breaker) == [good]
+        # healthy outgoing side kept rendering across swaps
+        assert len(set(good.seen)) >= 2
 
 
 class TestDrawScrollFrame:

@@ -163,6 +163,7 @@ export default defineConfig({
             { label: "Color providers", link: "/concepts/color-providers/" },
             { label: "Display", link: "/concepts/display/" },
             { label: "Fonts", link: "/concepts/fonts/" },
+            { label: "Config hot-reload", link: "/concepts/hot-reload/" },
             { label: "Sections and modes", link: "/concepts/sections-and-modes/" },
             { label: "Web status UI", link: "/concepts/web-status-ui/" },
           ],

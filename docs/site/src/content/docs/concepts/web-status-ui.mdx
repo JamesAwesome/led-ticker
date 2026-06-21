@@ -72,6 +72,8 @@ The display process publishes a `status.json` file (schema version 4) containing
 
 **`disabled_widgets`** — widgets the render circuit breaker has disabled during this run. If a widget's `draw()`/`play()` raises an exception at render time, it is caught, dropped from rotation, and listed here as `{ "widget": "<class>", "error": "<exception>" }`. The panel keeps running and moves on to the next widget. This is the render-time counterpart of `failed_plugins` (load-time). Restart to retry a disabled widget.
 
+**`last_reload`** — the outcome of the most recent config hot-reload attempt: `{ ok, at, error, restart_required }`. `ok` is `true` when the reload succeeded and `false` when it was rejected. `at` is an ISO-8601 timestamp. On failure, `error` contains the validation error verbatim (the same message `led-ticker validate` would print) so you can act on it without tailing logs. `restart_required` is a list of section names — `display`, `busy_light`, `plugins`, `web` — whose changes were detected but cannot take effect until you restart the display process. The card is hidden until the first reload attempt after startup. See [Config hot-reload](/concepts/hot-reload/) for full details.
+
 ### Status tab — live preview
 
 The Status tab includes a **live preview** panel that shows the actual content on the sign — the same pixels the panel is displaying, including the busy-light dot if one is configured. It updates at roughly 5 fps.
@@ -196,12 +198,12 @@ For anything beyond your home LAN — exposing the dashboard over the internet �
 
 The dashboard is intentionally read-only:
 
-- No config apply or save — edit `config.toml` and restart as usual.
+- No config apply or save — edit `config.toml` directly. With hot-reload enabled (the default), the display process picks up the change automatically; for hardware-level fields you still need a restart.
 - No restart or reboot button.
 - No brightness control.
 - No write access to the sign whatsoever.
 
-The Validate tab lets you check a candidate config without risk, but applying it is still a manual edit + restart step.
+The Validate tab lets you check a candidate config without risk before saving it to disk.
 
 ## Troubleshooting
 
@@ -217,4 +219,11 @@ The Validate tab lets you check a candidate config without risk, but applying it
 
 **Sidecar binds a port already in use** — The `[web]` sidecar defaults to `8080` and the `[busy_light]` HTTP source defaults to `8081`, so they don't collide out of the box. If you override either to put both on the same port, one will fail to bind — give them distinct ports.
 
-<RelatedPages slugs={["reference/config-options", "concepts/busy-light", "reference/cli"]} />
+<RelatedPages
+  slugs={[
+    "concepts/hot-reload",
+    "reference/config-options",
+    "concepts/busy-light",
+    "reference/cli",
+  ]}
+/>

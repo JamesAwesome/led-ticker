@@ -4,6 +4,7 @@ import time
 
 from led_ticker import reload as rl
 from led_ticker.config import load_config
+from led_ticker.render_breaker import RenderBreaker
 
 
 def _write(path, body):
@@ -100,10 +101,13 @@ def test_nonreloadable_changed_hardware_field(tmp_path):
 
 def test_nonreloadable_changed_section_only_is_empty(tmp_path):
     a = load_config(_write(tmp_path / "a.toml", _MIN))
-    extra = '[[playlist.section.widgets]]\ntype = "message"\ntext = "hi"\n'
+    extra = '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
     b = load_config(_write(tmp_path / "b.toml", _MIN + extra))
     # Both configs have a real section; only sections differ, not display.
     assert a.sections and b.sections, "fixture must produce non-empty sections"
+    # Verify the configs' sections actually differ (b has an extra widget)
+    assert len(a.sections[0].widgets) == 0 and len(b.sections[0].widgets) == 1
+    # A genuine section-only edit is fully reloadable (no restart required)
     assert rl.nonreloadable_changed(a, b) == []
 
 
@@ -178,6 +182,8 @@ async def test_apply_reload_evicts_changed_keeps_unchanged(tmp_path):
         )
     )
 
+    from types import SimpleNamespace
+
     from led_ticker.app.factories import _cache_key
 
     keep_key = _cache_key(dict(a.sections[0].widgets[0]))
@@ -188,10 +194,6 @@ async def test_apply_reload_evicts_changed_keeps_unchanged(tmp_path):
     widget_cache = {keep_key: object(), drop_key: object()}
     widget_tasks = {keep_key: {keep_task}, drop_key: {drop_task}}
     keep_widget = widget_cache[keep_key]
-
-    from types import SimpleNamespace
-
-    from led_ticker.render_breaker import RenderBreaker
 
     breaker = RenderBreaker()
     breaker.trip(SimpleNamespace(text="x"), ValueError("boom"))
@@ -217,7 +219,7 @@ async def test_apply_reload_evicts_changed_keeps_unchanged(tmp_path):
     assert drop_key not in widget_cache and drop_key not in widget_tasks
     # cancel requested — allow a tick to settle then check cancelled()
     await asyncio.sleep(0)
-    assert drop_task.cancelled() or drop_task.cancelling()
+    assert drop_task.cancelled()
     assert not keep_task.cancelled()
     keep_task.cancel()
     # breaker reset + schedule respawned + no restart_required (section-only change)
@@ -243,14 +245,12 @@ async def test_apply_reload_reports_restart_required(tmp_path):
     async def fake_respawn(old_task, cfg):
         return None
 
-    from led_ticker.render_breaker import RenderBreaker as _RB
-
     _, restart = await rl._apply_reload(
         b,
         old_config=a,
         widget_cache={},
         widget_tasks={},
-        render_breaker=_RB(),
+        render_breaker=RenderBreaker(),
         schedule_task=None,
         respawn_schedule=fake_respawn,
     )

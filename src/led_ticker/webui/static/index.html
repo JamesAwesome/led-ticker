@@ -358,6 +358,14 @@ $("config-save").onclick = async () => {
   errEl.style.display = "none";
   errEl.innerHTML = "";
   status.textContent = "saving…";
+  // Capture the reload timestamp BEFORE saving, so pollReloadOutcome can tell
+  // a fresh reload from a stale one (avoids a false "applied live").
+  let priorReloadAt;
+  try {
+    const sr = await fetch("/api/status", {headers: auth});
+    const sb = await sr.json();
+    priorReloadAt = ((sb.status || sb).last_reload || {}).at;
+  } catch (e) { /* best-effort; undefined prior is fine */ }
   try {
     const r = await fetch("/api/config", {
       method: "PUT",
@@ -368,7 +376,7 @@ $("config-save").onclick = async () => {
       const j = await r.json();
       configBaseHash = j.hash || configBaseHash;
       status.textContent = "saved — applying…";
-      setTimeout(pollReloadOutcome, 1500);
+      setTimeout(() => pollReloadOutcome(priorReloadAt, 3), 1500);
     } else if (r.status === 409) {
       status.textContent = "changed on disk — reload before saving";
     } else if (r.status === 403) {
@@ -383,18 +391,30 @@ $("config-save").onclick = async () => {
   }
 };
 
-async function pollReloadOutcome() {
+async function pollReloadOutcome(priorAt, attemptsLeft) {
   try {
     const r = await fetch("/api/status", {headers: auth});
     const body = await r.json();
     const lr = (body.status || body).last_reload || {};
     const status = $("config-status");
+    // A reload hasn't happened yet if there's no timestamp, or it matches the
+    // one we captured before saving (stale → would falsely read "applied live").
+    if (!lr.at || lr.at === priorAt) {
+      if (attemptsLeft > 0) {
+        status.textContent = "saved — waiting for reload…";
+        setTimeout(() => pollReloadOutcome(priorAt, attemptsLeft - 1), 1500);
+      } else {
+        status.textContent = "saved (reload status unknown — check the sign)";
+      }
+      return;
+    }
+    // Fresh reload (lr.at && lr.at !== priorAt) — interpret the outcome.
     if (lr.ok && !(lr.restart_required || []).length) {
       status.textContent = "applied live ✓";
     } else if (lr.ok && (lr.restart_required || []).length) {
       status.textContent = "saved — restart required for: " + lr.restart_required.map(esc).join(", ");
-    } else if ((lr.errors || []).length) {
-      status.textContent = "reload rejected: " + lr.errors.map(esc).join("; ");
+    } else if (lr.error) {
+      status.textContent = "reload rejected: " + esc(lr.error);
     } else {
       status.textContent = "saved";
     }

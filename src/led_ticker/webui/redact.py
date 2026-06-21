@@ -56,19 +56,33 @@ def restore_redacted(submitted: str, disk: str) -> str:
     secret nested in an inline table (``feed = {token = "x"}``) is NOT restored
     here — its sentinel survives and the caller rejects the save (never clobbers
     the on-disk value). Do not switch this to `_KV.sub`/multi-match to "fix" the
-    inline-table case without re-checking that it can't under-redact."""
+    inline-table case without re-checking that it can't under-redact.
+
+    Fails closed on ambiguous bare keys: matching is on the BARE key name, so
+    two same-named secret keys in different sections (``[a] token = ...`` and
+    ``[b] token = ...``) collide. Restoring last-wins would put the wrong secret
+    into the wrong slot (silent corruption). Instead, any bare key that appears
+    more than once in `disk` is NOT restored — its sentinel survives and the
+    caller rejects the save. Only unambiguous (single-occurrence) keys restore."""
     disk_values: dict[str, str] = {}
+    ambiguous: set[str] = set()
     for line in disk.splitlines():
         m = _KV.match(line)
         if m:
-            disk_values[m.group("key").strip()] = line
+            key = m.group("key").strip()
+            if key in disk_values:
+                ambiguous.add(key)
+            disk_values[key] = line
 
     out: list[str] = []
     for line in submitted.splitlines():
         m = _KV.match(line)
         if m and m.group("value").strip() == REDACTED.strip():
             key = m.group("key").strip()
-            out.append(disk_values.get(key, line))
+            if key in ambiguous:
+                out.append(line)  # leave sentinel — caller rejects the save
+            else:
+                out.append(disk_values.get(key, line))
         else:
             out.append(line)
     return "\n".join(out) + ("\n" if submitted.endswith("\n") else "")

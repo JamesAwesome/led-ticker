@@ -25,6 +25,18 @@ def test_restore_leaves_unmatched_sentinel():
     assert '"•••"' in restore_redacted(submitted, disk)
 
 
+def test_restore_ambiguous_bare_key_fails_closed():
+    # Two same-named secret keys in different sections collide on the bare
+    # key name. Restoring last-wins would put the wrong secret into the wrong
+    # slot (silent corruption). Fail closed: leave the sentinel for ambiguous
+    # keys so the caller's "REDACTED in merged" guard rejects the save.
+    disk = '[a]\ntoken = "AAA"\n[b]\ntoken = "BBB"\n'
+    submitted = '[a]\ntoken = "•••"\n[b]\ntoken = "•••"\n'
+    out = restore_redacted(submitted, disk)
+    assert "•••" in out  # ambiguous → sentinel survives → caller rejects
+    assert "AAA" not in out and "BBB" not in out  # no leak into wrong slot
+
+
 def test_redacts_token():
     assert 'token = "•••"' in redact_toml('token = "abc123"')
 

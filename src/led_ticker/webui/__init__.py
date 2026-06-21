@@ -11,6 +11,7 @@ must never import rgbmatrix (tripwire lands in tests/test_webui_purity.py).
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -142,7 +143,7 @@ def build_webui_app(
 
     app = web.Application(middlewares=[auth])
     app.router.add_get("/api/status", status_handler)
-    _add_config_routes(app, config_path, token)
+    _add_config_routes(app, config_path, token, asyncio.Lock())
     app.router.add_get("/api/preview", preview_handler)
     _add_page_route(app)
     return app
@@ -173,10 +174,15 @@ def _result_to_json(result: ValidationResult) -> dict:
 
 
 def _add_config_routes(
-    app: web.Application, config_path: Path, token: str = ""
+    app: web.Application,
+    config_path: Path,
+    token: str = "",
+    save_lock: asyncio.Lock | None = None,
 ) -> None:
     """Register config routes: GET /api/configs, GET /api/config,
     POST /api/validate, PUT /api/config."""
+    if save_lock is None:
+        save_lock = asyncio.Lock()
 
     async def configs_handler(request: web.Request) -> web.Response:
         config_dir = config_path.parent
@@ -270,48 +276,84 @@ def _add_config_routes(
         if len(toml_text.encode()) > MAX_VALIDATE_BODY:
             return web.json_response({"error": "body too large"}, status=413)
 
-        # Conflict check FIRST — never validate/work against a file that moved.
-        current = config_hash(config_path)
-        if current is not None and base_hash != current:
-            return web.json_response(
-                {"error": "conflict", "hash": current}, status=409
+        # Serialize the whole critical section (conflict-check → os.replace) so
+        # two concurrent PUTs can't interleave and clobber each other.
+        async with save_lock:
+            # Single read: derive BOTH the conflict hash and the redaction
+            # source text from the SAME bytes, so they can never diverge.
+            try:
+                disk_bytes = config_path.read_bytes()
+            except OSError:
+                disk_bytes = None
+            current = (
+                hashlib.sha256(disk_bytes).hexdigest()
+                if disk_bytes is not None
+                else None
             )
+            disk_text = disk_bytes.decode("utf-8") if disk_bytes is not None else ""
 
-        # Restore any redacted secret from disk (no-op for secret-free config).
-        try:
-            disk_text = config_path.read_text(encoding="utf-8")
-        except OSError:
-            disk_text = ""
-        merged = restore_redacted(toml_text, disk_text)
-        if REDACTED.strip() in merged:
-            return web.json_response(
-                {
-                    "error": (
-                        "unresolved redacted value; replace ••• with the real "
-                        "value or edit the file directly"
+            # Conflict check FIRST — never validate/work against a file that moved.
+            if current is None:
+                # Absent/unreadable file: GET returns hash="" for this state.
+                # Honor that convention — a non-empty base_hash means the client
+                # based its edit on a file that no longer exists.
+                if base_hash != "":
+                    return web.json_response(
+                        {"error": "file disappeared", "hash": ""}, status=409
                     )
-                },
-                status=400,
+            elif base_hash != current:
+                return web.json_response(
+                    {"error": "conflict", "hash": current}, status=409
+                )
+
+            # Restore any redacted secret from disk (no-op for secret-free config).
+            merged = restore_redacted(toml_text, disk_text)
+            if REDACTED.strip() in merged:
+                return web.json_response(
+                    {
+                        "error": (
+                            "unresolved redacted value; replace ••• with the real "
+                            "value or edit the file directly"
+                        )
+                    },
+                    status=400,
+                )
+
+            result = await validate_config_text(merged)
+            if not result.valid:
+                return web.json_response(_result_to_json(result), status=422)
+
+            # Re-check before replace: a host edit may have landed on disk while
+            # we validated (the lock only stops concurrent PUTs). Abort if so.
+            try:
+                recheck_bytes = config_path.read_bytes()
+            except OSError:
+                recheck_bytes = None
+            recheck = (
+                hashlib.sha256(recheck_bytes).hexdigest()
+                if recheck_bytes is not None
+                else None
             )
+            if recheck != current:
+                return web.json_response(
+                    {"error": "conflict", "hash": recheck or ""}, status=409
+                )
 
-        result = await validate_config_text(merged)
-        if not result.valid:
-            return web.json_response(_result_to_json(result), status=422)
-
-        # Backup + atomic write.
-        try:
-            if config_path.exists():
-                bak = config_path.with_suffix(config_path.suffix + ".bak")
-                shutil.copy2(config_path, bak)
+            # Backup + atomic write.
             tmp = config_path.with_name(config_path.name + ".tmp")
-            tmp.write_text(merged, encoding="utf-8")
-            os.replace(tmp, config_path)
-        except OSError as e:
-            return web.json_response({"error": f"write failed: {e}"}, status=500)
+            try:
+                if config_path.exists():
+                    bak = config_path.with_suffix(config_path.suffix + ".bak")
+                    shutil.copy2(config_path, bak)
+                tmp.write_text(merged, encoding="utf-8")
+                os.replace(tmp, config_path)
+            except OSError as e:
+                tmp.unlink(missing_ok=True)
+                return web.json_response({"error": f"write failed: {e}"}, status=500)
 
-        return web.json_response(
-            {"state": "saved", "hash": config_hash(config_path) or ""}
-        )
+            return web.json_response(
+                {"state": "saved", "hash": config_hash(config_path) or ""}
+            )
 
     app.router.add_get("/api/configs", configs_handler)
     app.router.add_get("/api/config", config_handler)

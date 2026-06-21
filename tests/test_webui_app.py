@@ -592,3 +592,117 @@ async def test_put_config_restores_redacted_secret(tmp_path):
         assert "•••" not in written
     finally:
         await client.close()
+
+
+async def test_put_config_absent_file_with_nonempty_base_hash_is_409(tmp_path):
+    """File absent (GET would return hash="") but client sent a non-empty
+    base_hash → the file the edit was based on disappeared → 409, no write."""
+    client = await _client(tmp_path, token="t")
+    config_path = tmp_path / "config.toml"
+    config_path.unlink()  # absent
+    try:
+        resp = await client.put(
+            "/api/config",
+            json={"toml": _GOOD_CONFIG, "base_hash": "deadbeef" * 8},
+            headers={"X-Web-Token": "t"},
+        )
+        assert resp.status == 409
+        body = await resp.json()
+        assert body["error"] == "file disappeared"
+        assert body["hash"] == ""
+        assert not config_path.exists()  # no write
+        assert not (tmp_path / "config.toml.tmp").exists()
+    finally:
+        await client.close()
+
+
+async def test_put_config_absent_file_with_empty_base_hash_creates(tmp_path):
+    """File absent + base_hash="" (GET convention for absent) → legitimate
+    create → 200, file written."""
+    client = await _client(tmp_path, token="t")
+    config_path = tmp_path / "config.toml"
+    config_path.unlink()  # absent
+    try:
+        resp = await client.put(
+            "/api/config",
+            json={"toml": _GOOD_CONFIG, "base_hash": ""},
+            headers={"X-Web-Token": "t"},
+        )
+        assert resp.status == 200
+        assert config_path.exists()
+        assert config_path.read_text() == _GOOD_CONFIG
+    finally:
+        await client.close()
+
+
+async def test_put_config_host_edit_mid_handler_is_409(tmp_path):
+    """A host edit that lands during the handler (after the conflict-check,
+    before os.replace) is caught by the re-check → 409, no write, no .tmp."""
+    import led_ticker.webui as webui_mod
+
+    original = _GOOD_CONFIG
+    client = await _client(tmp_path, token="t", config_text=original)
+    config_path = tmp_path / "config.toml"
+    from led_ticker.reload import config_hash
+
+    h = config_hash(config_path)
+    assert h is not None
+
+    real_validate = webui_mod.validate_config_text
+
+    async def validate_then_host_edit(text):
+        # Simulate a host edit landing mid-handler: mutate the file on disk
+        # after the conflict-check passed but before os.replace.
+        config_path.write_text(original + "\n# host edit\n")
+        return await real_validate(text)
+
+    monkeypatch_done = False
+    try:
+        webui_mod.validate_config_text = validate_then_host_edit
+        monkeypatch_done = True
+        resp = await client.put(
+            "/api/config",
+            json={"toml": original + "\n# my edit\n", "base_hash": h},
+            headers={"X-Web-Token": "t"},
+        )
+        assert resp.status == 409
+        body = await resp.json()
+        assert body["error"] == "conflict"
+        # Our edit was NOT written; the host edit is intact.
+        assert config_path.read_text() == original + "\n# host edit\n"
+        assert not (tmp_path / "config.toml.tmp").exists()
+    finally:
+        if monkeypatch_done:
+            webui_mod.validate_config_text = real_validate
+        await client.close()
+
+
+async def test_put_config_write_failure_cleans_tmp_and_is_500(tmp_path, monkeypatch):
+    """os.replace raising OSError → 500 AND no leftover .tmp file."""
+    import led_ticker.webui as webui_mod
+
+    original = _GOOD_CONFIG
+    updated = _GOOD_CONFIG + "\n# edited\n"
+    client = await _client(tmp_path, token="t", config_text=original)
+    config_path = tmp_path / "config.toml"
+    from led_ticker.reload import config_hash
+
+    h = config_hash(config_path)
+
+    def boom(src, dst):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(webui_mod.os, "replace", boom)
+    try:
+        resp = await client.put(
+            "/api/config",
+            json={"toml": updated, "base_hash": h},
+            headers={"X-Web-Token": "t"},
+        )
+        assert resp.status == 500
+        body = await resp.json()
+        assert "write failed" in body["error"]
+        assert not (tmp_path / "config.toml.tmp").exists()  # cleaned up
+        assert config_path.read_text() == original  # unchanged
+    finally:
+        await client.close()

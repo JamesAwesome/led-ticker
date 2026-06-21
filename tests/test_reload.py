@@ -124,33 +124,28 @@ def test_nonreloadable_changed_brightness_is_reloadable(tmp_path):
 def test_every_frame_field_is_restart_required():
     """Drift guard: every display.* field build_frame_from_config consumes must be
     restart-required (NOT in RELOADABLE_DISPLAY_FIELDS), so a future frame field can
-    never be silently treated as hot-reloadable."""
+    never be silently treated as hot-reloadable.
+
+    frame_fields is DERIVED from build_frame_from_config's source via regex so a new
+    frame field added to the function but forgotten in this set can't slip through.
+    brightness is excluded: it is consumed by build_frame_from_config (initial LED
+    brightness) AND listed in RELOADABLE_DISPLAY_FIELDS (hot-reload adjusts it live).
+    """
+    import inspect
+    import re
     from dataclasses import fields
 
+    from led_ticker.app.factories import build_frame_from_config
     from led_ticker.config import DisplayConfig
 
-    frame_fields = {
-        "rows",
-        "cols",
-        "chain_length",
-        "parallel",
-        "pixel_mapper_config",
-        "gpio_slowdown",
-        "hardware_mapping",
-        "pwm_bits",
-        "pwm_lsb_nanoseconds",
-        "pwm_dither_bits",
-        "show_refresh_rate",
-        "disable_hardware_pulsing",
-        "rp1_pio",
-        "limit_refresh_rate_hz",
-        "multiplexing",
-        "row_address_type",
-        "panel_type",
-        "led_rgb_sequence",
-    }
+    src = inspect.getsource(build_frame_from_config)
+    # Extract every `display.<name>` reference from the function body.
+    frame_fields = set(re.findall(r"display\.(\w+)", src)) - {"brightness"}
+
     declared = {f.name for f in fields(DisplayConfig)}
-    # every frame field must actually exist on DisplayConfig (catches renames)
+    # derived set must be non-trivially large (catches regex failure)
+    assert len(frame_fields) >= 15, f"derived frame_fields too small: {frame_fields}"
+    # every derived field must actually exist on DisplayConfig (catches renames)
     assert frame_fields <= declared, frame_fields - declared
     # and none of them may be reloadable
     assert frame_fields.isdisjoint(rl.RELOADABLE_DISPLAY_FIELDS)

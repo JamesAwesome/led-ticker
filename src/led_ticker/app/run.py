@@ -150,6 +150,29 @@ async def _respawn_schedule(old_task: Any, config: Any, led_frame: Any) -> Any:
     return None
 
 
+async def _build_title_guarded(
+    section_title: Any,
+    *,
+    session: Any,
+    config_dir: Any,
+    default_bg_color: Any,
+    panel_h_for_warning: Any,
+) -> Any:
+    """Build a section title, but never let a build error freeze the panel: on
+    failure log + return None (skip the title this pass; a later good edit retries)."""
+    try:
+        return await _build_title(
+            section_title,
+            session=session,
+            config_dir=config_dir,
+            default_bg_color=default_bg_color,
+            panel_h_for_warning=panel_h_for_warning,
+        )
+    except Exception as exc:  # noqa: BLE001 - a title build error must not freeze the panel
+        logging.exception("title build failed; skipping title this pass: %s", exc)
+        return None
+
+
 async def _build_widget_guarded(
     widget_cfg: Any,
     *,
@@ -395,6 +418,10 @@ async def run(config_path: Path) -> None:
         logging.warning("plugin %r failed to load: %s", ns, err)
 
     config = await asyncio.to_thread(load_config, config_path)
+    # Seed the watcher immediately after load so any edit that lands between
+    # load and the while-True loop is captured in the seed hash (not absorbed
+    # into a stale baseline that would make the first-edit invisible).
+    watcher = _reload.ConfigWatcher(config_path, enabled=config.display.hot_reload)
     # Surface any coerce warnings recorded by load_config (string-of-digits
     # int/float fields, mixed-case enum strings). Same messages that
     # `led-ticker validate` shows as rule-37 warnings; logging at startup
@@ -448,19 +475,7 @@ async def run(config_path: Path) -> None:
                 )
             )
 
-        schedule_task: Any = None
-        if config.display.schedule.enabled:
-            from led_ticker.schedule import Scheduler  # noqa: PLC0415
-
-            sched = Scheduler.from_config(config.display.schedule)
-            schedule_task = spawn_tracked(
-                _supervised_schedule(
-                    led_frame,
-                    sched,
-                    config.display.schedule.timezone,
-                    config.display.brightness,
-                )
-            )
+        schedule_task: Any = await _respawn_schedule(None, config, led_frame)
 
         # Default inter-section transition built once at startup. Used for
         # sections that don't specify their own `transition` field — see
@@ -475,8 +490,6 @@ async def run(config_path: Path) -> None:
         panel_h_for_warning: int | None = (
             config.display.rows if config.display.default_scale == 1 else None
         )
-
-        watcher = _reload.ConfigWatcher(config_path, enabled=config.display.hot_reload)
 
         async with aiohttp.ClientSession() as session:
             last_widget: Any = None  # track for section-to-section transitions
@@ -586,7 +599,7 @@ async def run(config_path: Path) -> None:
                         for w in runtime_coerce:
                             logging.warning("config coerce: %s", w.message)
 
-                        title = await _build_title(
+                        title = await _build_title_guarded(
                             section.title,
                             session=session,
                             config_dir=config_path.parent,

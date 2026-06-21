@@ -47,10 +47,11 @@ With `hot_reload = false`, the display process ignores `config.toml` modificatio
 
 ## Feedback
 
-**Logs** — each reload attempt logs at INFO level:
+**Logs** — each reload attempt logs at one of three levels:
 
-- On success: `config reloaded` (plus a `restart required: <fields>` warning if applicable).
-- On failure: `config reload rejected: <validation error>`.
+- **INFO** — clean success: `config reloaded`.
+- **WARNING** — partial success: `config reloaded (partial); restart required for: <fields>` (display hardware fields changed; a restart is needed for those to take effect).
+- **ERROR** — rejected: `config reload rejected: <validation error>` (the new config failed validation; the running config is unchanged).
 
 ```bash
 # Docker

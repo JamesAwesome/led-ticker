@@ -107,3 +107,52 @@ def test_no_retired_moon_bunny_palette_outside_archival():
         "(Firebird is phoenix-warm §6 — purge these pastels):\n"
         + "\n".join(sorted(set(offenders)))
     )
+
+
+def test_no_retired_assets_outside_archival():
+    """Assert retired copyrighted/real-brand asset FILENAMES do not appear
+    outside the archival allow-list.
+
+    Needles are PRECISE filenames rather than bare words like 'pikachu' or
+    'bunny-' to avoid false-positives on:
+      - show_pikachu: a documented API field on the pokeball plugin transition
+      - :bunny: / bunny-low.png / bunny-hi.png: the generic rabbit emoji
+        (unrelated to the retired Moon-Bunny logo)
+      - kpop (bare): unrelated usage in other contexts
+
+    Only the specific retired filenames are searched so the guard catches
+    genuine asset regressions without firing on legitimate references.
+    """
+    offenders = []
+    needles = [
+        "pika_wave",
+        "kpop-dance",
+        "moon_bunny",
+        "moon-transparent",
+        "bunny-transparent",
+        "bunny-nontransparent",
+    ]
+    for needle in needles:
+        res = subprocess.run(
+            [
+                "git",
+                "grep",
+                "-il",
+                needle,
+                "--",
+                ":!docs/superpowers",
+                ":!tests/test_no_real_brand.py",
+            ],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode in (0, 1), (
+            f"git grep failed (rc={res.returncode}): {res.stderr}"
+        )
+        offenders += [f"{needle}: {p}" for p in res.stdout.splitlines() if p]
+    assert not offenders, (
+        "retired asset filenames still referenced (copyrighted/real-brand assets "
+        "must not reappear outside archival docs):\n"
+        + "\n".join(sorted(set(offenders)))
+    )

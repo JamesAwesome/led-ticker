@@ -2,7 +2,7 @@
 
 Source: OpenGameArt "pixel-phoenix" by zonked (CC0). One 20x20 animated transparent
 GIF -> the 5 formats the demos need, nearest-neighbor upscaled to 220x220 (crisp pixel
-art, matching the retired pika_wave.gif footprint). Reproducible from a clean checkout.
+art, matching the retired 220×220 sample footprint). Reproducible from a clean checkout.
 Run: `make derive-phoenix` (or `python tools/derive_phoenix_assets.py`).
 """
 
@@ -13,7 +13,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "config" / "assets" / "_src" / "phoenix-cc0-no-bg.gif"
 OUT = ROOT / "config" / "assets"
-SIZE = (220, 220)  # 11x the 20x20 source, nearest-neighbor
+SIZE = (220, 220)  # 11x the 20x20 source, nearest-neighbor; retired sample footprint
 
 
 def _rgba_frames(im: Image.Image) -> list[Image.Image]:
@@ -61,7 +61,7 @@ def main() -> None:
         optimize=False,
     )
 
-    # opaque animated GIF (composited on black) — matches the old pika_wave.gif path
+    # opaque animated GIF: retired transparent sample composited on black
     black = [Image.new("RGBA", SIZE, (0, 0, 0, 255)) for _ in frames]
     oframes = [
         Image.alpha_composite(b, f).convert("RGB")

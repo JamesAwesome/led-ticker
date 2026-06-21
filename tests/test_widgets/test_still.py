@@ -569,9 +569,9 @@ def _real_asset(name: str):
 
 
 def test_transparent_test_asset_decodes_to_black_corners(bigsign_canvas):
-    """moon-transparent.png has alpha=0 corners. After decode, those
+    """phoenix_transparent.png has alpha=0 corners. After decode, those
     corners should be (0, 0, 0)."""
-    asset = _real_asset("moon-transparent.png")
+    asset = _real_asset("phoenix_transparent.png")
 
     widget = StillImage(path=str(asset), fit="pillarbox")
     real = bigsign_canvas

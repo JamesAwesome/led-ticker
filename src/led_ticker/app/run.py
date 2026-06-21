@@ -9,11 +9,13 @@ import asyncio
 import contextlib
 import logging
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import aiohttp
 
+from led_ticker import reload as _reload
 from led_ticker import status_board
 from led_ticker._plugin_loader import (
     _guarded_overlay,
@@ -446,11 +448,12 @@ async def run(config_path: Path) -> None:
                 )
             )
 
+        schedule_task: Any = None
         if config.display.schedule.enabled:
             from led_ticker.schedule import Scheduler  # noqa: PLC0415
 
             sched = Scheduler.from_config(config.display.schedule)
-            spawn_tracked(
+            schedule_task = spawn_tracked(
                 _supervised_schedule(
                     led_frame,
                     sched,
@@ -473,6 +476,8 @@ async def run(config_path: Path) -> None:
             config.display.rows if config.display.default_scale == 1 else None
         )
 
+        watcher = _reload.ConfigWatcher(config_path, enabled=config.display.hot_reload)
+
         async with aiohttp.ClientSession() as session:
             last_widget: Any = None  # track for section-to-section transitions
             last_scroll_pos: int = 0  # track scroll pos for between-section transitions
@@ -482,6 +487,7 @@ async def run(config_path: Path) -> None:
                 None  # outgoing section's bg_color (for run_transition's t<0.5 reset)
             )
             widget_cache: dict[str, Any] = {}
+            widget_tasks: dict[str, set] = {}
 
             # Plugin startup hooks run once now that the frame + session exist.
             await _run_startup_hooks(
@@ -491,6 +497,53 @@ async def run(config_path: Path) -> None:
 
             try:
                 while True:
+                    if watcher.changed():
+                        new_config, errors, transient = await _reload.load_and_validate(
+                            config_path
+                        )
+                        if transient:
+                            pass  # file mid-write; retry next cycle, no record
+                        elif new_config is None:
+                            ts = datetime.now().isoformat()
+                            logging.error(
+                                "config reload rejected: %s", "; ".join(errors)
+                            )
+                            status_board.record_reload(
+                                ok=False, ts=ts, error="; ".join(errors)
+                            )
+                        else:
+                            ts = datetime.now().isoformat()
+                            (
+                                schedule_task,
+                                restart_required,
+                            ) = await _reload._apply_reload(
+                                new_config,
+                                old_config=config,
+                                widget_cache=widget_cache,
+                                widget_tasks=widget_tasks,
+                                render_breaker=render_breaker,
+                                schedule_task=schedule_task,
+                                respawn_schedule=lambda ot, cfg: _respawn_schedule(
+                                    ot, cfg, led_frame
+                                ),
+                            )
+                            default_section_trans = _build_trans_obj(
+                                new_config.between_sections
+                            )
+                            for w in getattr(new_config, "_coerce_warnings", []):
+                                logging.warning("config coerce: %s", w.message)
+                            config = new_config  # the swap
+                            if restart_required:
+                                logging.warning(
+                                    "config reloaded (partial); restart required "
+                                    "for: %s",
+                                    ", ".join(restart_required),
+                                )
+                            else:
+                                logging.info("config reloaded")
+                            status_board.record_reload(
+                                ok=True, ts=ts, restart_required=restart_required
+                            )
                     for section_index, section in enumerate(config.sections):
                         status_board.record_section(
                             index=section_index,
@@ -503,21 +556,10 @@ async def run(config_path: Path) -> None:
                         widgets: list[Any] = []
                         runtime_coerce: list[Any] = []
                         for widget_cfg in section.widgets:
-                            # Cache async widgets to avoid leaking background tasks
-                            key = _cache_key(widget_cfg)
-                            if key in widget_cache:
-                                widget = widget_cache[key]
-                            else:
-                                cfg = dict(widget_cfg)
-                                widget = await _build_widget(
-                                    cfg,
-                                    session,
-                                    config_dir=config_path.parent,
-                                    default_bg_color=section.bg_color,
-                                    panel_h_for_warning=panel_h_for_warning,
-                                    coercion_collector=runtime_coerce,
-                                )
-                                widget_cache[key] = widget
+                            # Cache async widgets to avoid leaking background tasks.
+                            # _build_widget_guarded handles both cache hits and
+                            # cache-miss builds, capturing background tasks in
+                            # widget_tasks so a reload can cancel exactly those.
                             # Containers (Protocol in widget.py) are expanded by the
                             # engine on every cycle pass via _expand_sources — pushing
                             # the container itself (not its current feed_stories)
@@ -525,6 +567,18 @@ async def run(config_path: Path) -> None:
                             # background update() task. PoolMonitor satisfies Container
                             # structurally (has feed_stories), so no isinstance check
                             # is needed here.
+                            widget = await _build_widget_guarded(
+                                widget_cfg,
+                                session=session,
+                                config_dir=config_path.parent,
+                                default_bg_color=section.bg_color,
+                                panel_h_for_warning=panel_h_for_warning,
+                                coercion_collector=runtime_coerce,
+                                widget_cache=widget_cache,
+                                widget_tasks=widget_tasks,
+                            )
+                            if widget is None:
+                                continue  # build failed; skip this widget this pass
                             widgets.append(widget)
                         # Drain coerce warnings collected during this section's
                         # widget build. Empty in the common case; one log line per

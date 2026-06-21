@@ -84,3 +84,14 @@ async def test_build_widget_guarded_caches_on_success(monkeypatch):
     )
     assert out is sentinel
     assert len(cache) == 1 and len(tasks) == 1  # cached + sink recorded
+
+
+def test_run_wires_the_reload_sequence():
+    import inspect
+
+    src = inspect.getsource(run_mod.run)
+    assert "ConfigWatcher(" in src  # watcher created
+    assert "load_and_validate(" in src  # validate gate
+    assert "_apply_reload(" in src  # the swap
+    assert "record_reload(" in src  # status surfacing
+    assert "_build_widget_guarded(" in src  # cache-miss build goes through the guard

@@ -94,7 +94,7 @@ loop_count = 1
 
 [[playlist.section.widget]]
 type = "message"
-text = "Welcome to Moonbunny"
+text = "Welcome to Firebird Yoga"
 font_color = [225, 48, 108]
 ```
 
@@ -117,7 +117,7 @@ playlist cycle.
 
 **`font_color = [225, 48, 108]`** — an RGB triple. led-ticker accepts colors as
 `[r, g, b]` lists anywhere a color is expected. This particular value is the
-Moonbunny pink.
+Firebird flame pink.
 
 ## Validate
 
@@ -159,7 +159,7 @@ open preview.gif        # macOS
 xdg-open preview.gif    # Linux
 ```
 
-You should see "Welcome to Moonbunny" scrolling in pink across a black
+You should see "Welcome to Firebird Yoga" scrolling in pink across a black
 background — identical to the demo at the top of this page:
 
 <DemoGif
@@ -175,7 +175,7 @@ see here is an accurate preview of what will appear on the panel.
 Most led-ticker development follows a tight loop: edit the TOML, validate, render,
 check the GIF, repeat. Try a few concrete changes to get comfortable with it:
 
-**Change the text.** Edit `text = "Welcome to Moonbunny"` to something longer,
+**Change the text.** Edit `text = "Welcome to Firebird Yoga"` to something longer,
 then re-render. A longer string takes more frames to scroll fully through. The
 `make render-demo` target doesn't forward a duration, so to give it more time
 call the renderer directly with `--duration`:

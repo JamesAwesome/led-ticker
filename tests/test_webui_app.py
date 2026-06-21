@@ -454,3 +454,141 @@ async def test_inventory_route(tmp_path):
         assert set(body) >= {"fonts", "assets", "assets_truncated", "emoji"}
     finally:
         await client.close()
+
+
+# ---------------------------------------------------------------------------
+# PUT /api/config — save handler (Task 3)
+# ---------------------------------------------------------------------------
+
+_GOOD_CONFIG = (
+    "[display]\nrows = 16\ncols = 32\nchain_length = 5\ndefault_scale = 1\n\n"
+    '[[playlist.section]]\nmode = "swap"\nhold_time = 3\n'
+    '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
+)
+
+
+async def test_put_config_rejects_without_token(tmp_path):
+    """No token configured → 403, file unchanged."""
+    original = _GOOD_CONFIG
+    client = await _client(tmp_path, token="", config_text=original)
+    config_path = tmp_path / "config.toml"
+    from led_ticker.reload import config_hash
+
+    h = config_hash(config_path)
+    try:
+        resp = await client.put("/api/config", json={"toml": original, "base_hash": h})
+        assert resp.status == 403
+        body = await resp.json()
+        assert "editing disabled" in body["error"]
+        assert config_path.read_text() == original  # unchanged
+        assert not (tmp_path / "config.toml.bak").exists()
+    finally:
+        await client.close()
+
+
+async def test_put_config_writes_valid_toml(tmp_path):
+    """Valid toml + correct base_hash + token → 200, file updated, .bak holds prior."""
+    original = _GOOD_CONFIG
+    updated = _GOOD_CONFIG + "\n# edited\n"
+    client = await _client(tmp_path, token="t", config_text=original)
+    config_path = tmp_path / "config.toml"
+    from led_ticker.reload import config_hash
+
+    original_hash = config_hash(config_path)
+    assert original_hash is not None
+    try:
+        resp = await client.put(
+            "/api/config",
+            json={"toml": updated, "base_hash": original_hash},
+            headers={"X-Web-Token": "t"},
+        )
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["state"] == "saved"
+        # File was updated
+        assert config_path.read_text() == updated
+        # .bak holds the prior contents
+        bak = tmp_path / "config.toml.bak"
+        assert bak.exists()
+        assert bak.read_text() == original
+        # Response hash matches new disk hash
+        new_hash = config_hash(config_path)
+        assert body["hash"] == new_hash
+    finally:
+        await client.close()
+
+
+async def test_put_config_rejects_invalid_toml(tmp_path):
+    """Invalid config → 422, file unchanged, no .bak."""
+    original = _GOOD_CONFIG
+    client = await _client(tmp_path, token="t", config_text=original)
+    config_path = tmp_path / "config.toml"
+    from led_ticker.reload import config_hash
+
+    h = config_hash(config_path)
+    bad = "this is [not valid toml config at all ]["
+    try:
+        resp = await client.put(
+            "/api/config",
+            json={"toml": bad, "base_hash": h},
+            headers={"X-Web-Token": "t"},
+        )
+        assert resp.status == 422
+        body = await resp.json()
+        assert body["valid"] is False
+        assert config_path.read_text() == original  # unchanged
+        assert not (tmp_path / "config.toml.bak").exists()
+    finally:
+        await client.close()
+
+
+async def test_put_config_conflict_on_stale_base_hash(tmp_path):
+    """base_hash != current disk hash → 409, file unchanged."""
+    original = _GOOD_CONFIG
+    client = await _client(tmp_path, token="t", config_text=original)
+    config_path = tmp_path / "config.toml"
+    try:
+        resp = await client.put(
+            "/api/config",
+            json={"toml": original, "base_hash": "deadbeef" * 8},
+            headers={"X-Web-Token": "t"},
+        )
+        assert resp.status == 409
+        body = await resp.json()
+        assert body["error"] == "conflict"
+        assert "hash" in body
+        assert config_path.read_text() == original  # unchanged
+        assert not (tmp_path / "config.toml.bak").exists()
+    finally:
+        await client.close()
+
+
+async def test_put_config_restores_redacted_secret(tmp_path):
+    """Submit redacted sentinel → 200, written file has the real secret restored."""
+    disk_cfg = (
+        '[web]\ntoken = "supersecret"\n\n'
+        "[display]\nrows = 16\ncols = 32\nchain_length = 5\ndefault_scale = 1\n\n"
+        '[[playlist.section]]\nmode = "swap"\nhold_time = 3\n'
+        '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
+    )
+    client = await _client(tmp_path, token="t", config_text=disk_cfg)
+    config_path = tmp_path / "config.toml"
+    from led_ticker.reload import config_hash
+    from led_ticker.webui.redact import redact_toml
+
+    # Simulate what the browser gets: the redacted view
+    redacted_view = redact_toml(disk_cfg)
+    h = config_hash(config_path)
+    assert h is not None
+    try:
+        resp = await client.put(
+            "/api/config",
+            json={"toml": redacted_view, "base_hash": h},
+            headers={"X-Web-Token": "t"},
+        )
+        assert resp.status == 200
+        written = config_path.read_text()
+        assert "supersecret" in written
+        assert "•••" not in written
+    finally:
+        await client.close()

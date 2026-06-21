@@ -11,6 +11,8 @@ friendly JSON answer, not a 500. This module must never import rgbmatrix
 import asyncio
 import json
 import logging
+import os
+import shutil
 import time
 import tomllib
 from importlib import resources
@@ -28,7 +30,7 @@ from led_ticker.validate import (
     validate_config_text,
 )
 from led_ticker.webui._paths import list_config_names, safe_config_member
-from led_ticker.webui.redact import redact_toml
+from led_ticker.webui.redact import REDACTED, redact_toml, restore_redacted
 
 # led_ticker.validate was verified clean of rgbmatrix at task-8 implementation
 # time:  python -c "import led_ticker.validate; print([m for m in
@@ -138,7 +140,7 @@ def build_webui_app(
 
     app = web.Application(middlewares=[auth])
     app.router.add_get("/api/status", status_handler)
-    _add_config_routes(app, config_path)
+    _add_config_routes(app, config_path, token)
     app.router.add_get("/api/preview", preview_handler)
     _add_page_route(app)
     return app
@@ -168,8 +170,11 @@ def _result_to_json(result: ValidationResult) -> dict:
     }
 
 
-def _add_config_routes(app: web.Application, config_path: Path) -> None:
-    """Register GET /api/configs, GET /api/config and POST /api/validate on the app."""
+def _add_config_routes(
+    app: web.Application, config_path: Path, token: str = ""
+) -> None:
+    """Register config routes: GET /api/configs, GET /api/config,
+    POST /api/validate, PUT /api/config."""
 
     async def configs_handler(request: web.Request) -> web.Response:
         config_dir = config_path.parent
@@ -208,7 +213,7 @@ def _add_config_routes(app: web.Application, config_path: Path) -> None:
                 "panel_width": cols * chain,
                 "panel_height": rows * parallel,
             }
-        except ValueError, TypeError, tomllib.TOMLDecodeError:
+        except (ValueError, TypeError, tomllib.TOMLDecodeError):
             pass  # geometry is best-effort; the redacted text is the point
         return web.json_response(
             {
@@ -247,10 +252,70 @@ def _add_config_routes(app: web.Application, config_path: Path) -> None:
             return web.json_response({"error": "unknown config"}, status=404)
         return web.json_response(_result_to_json(result))
 
+    async def save_handler(request: web.Request) -> web.Response:
+        if not token:
+            return web.json_response({"error": "editing disabled"}, status=403)
+        if (request.content_length or 0) > MAX_VALIDATE_BODY:
+            return web.json_response({"error": "body too large"}, status=413)
+        try:
+            payload = await request.json()
+        except ValueError:
+            return web.json_response({"error": "body must be JSON"}, status=400)
+        toml_text = payload.get("toml") if isinstance(payload, dict) else None
+        base_hash = payload.get("base_hash") if isinstance(payload, dict) else None
+        if not isinstance(toml_text, str) or not isinstance(base_hash, str):
+            return web.json_response({"error": "missing toml/base_hash"}, status=400)
+        if len(toml_text.encode()) > MAX_VALIDATE_BODY:
+            return web.json_response({"error": "body too large"}, status=413)
+
+        # Conflict check FIRST — never validate/work against a file that moved.
+        current = config_hash(config_path)
+        if current is not None and base_hash != current:
+            return web.json_response(
+                {"error": "conflict", "hash": current}, status=409
+            )
+
+        # Restore any redacted secret from disk (no-op for secret-free config).
+        try:
+            disk_text = config_path.read_text(encoding="utf-8")
+        except OSError:
+            disk_text = ""
+        merged = restore_redacted(toml_text, disk_text)
+        if REDACTED.strip() in merged:
+            return web.json_response(
+                {
+                    "error": (
+                        "unresolved redacted value; replace ••• with the real "
+                        "value or edit the file directly"
+                    )
+                },
+                status=400,
+            )
+
+        result = await validate_config_text(merged)
+        if not result.valid:
+            return web.json_response(_result_to_json(result), status=422)
+
+        # Backup + atomic write.
+        try:
+            if config_path.exists():
+                bak = config_path.with_suffix(config_path.suffix + ".bak")
+                shutil.copy2(config_path, bak)
+            tmp = config_path.with_name(config_path.name + ".tmp")
+            tmp.write_text(merged, encoding="utf-8")
+            os.replace(tmp, config_path)
+        except OSError as e:
+            return web.json_response({"error": f"write failed: {e}"}, status=500)
+
+        return web.json_response(
+            {"state": "saved", "hash": config_hash(config_path) or ""}
+        )
+
     app.router.add_get("/api/configs", configs_handler)
     app.router.add_get("/api/config", config_handler)
     app.router.add_post("/api/validate", validate_handler)
     app.router.add_post("/api/validate-file", validate_file_handler)
+    app.router.add_put("/api/config", save_handler)
 
     async def inventory_handler(request: web.Request) -> web.Response:
         from led_ticker.webui.inventory import build_inventory  # noqa: PLC0415

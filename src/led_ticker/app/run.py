@@ -345,6 +345,9 @@ async def run(config_path: Path) -> None:
     _status_handle = _setup_status_board(config, config_path, plugins)
     try:
         led_frame = build_frame_from_config(config.display)
+        from led_ticker.render_breaker import RenderBreaker  # noqa: PLC0415
+
+        render_breaker = RenderBreaker()
         preview_tee = _setup_preview(config, led_frame)
 
         # Busy light first so the heartbeat (spawned below) can read its state.
@@ -513,7 +516,7 @@ async def run(config_path: Path) -> None:
                         if title:
                             first_widget = title
                         elif widgets:
-                            expanded = _expand_sources(widgets)
+                            expanded = _expand_sources(widgets, render_breaker)
                             first_widget = expanded[0] if expanded else None
                         else:
                             first_widget = None
@@ -598,6 +601,7 @@ async def run(config_path: Path) -> None:
                             "continuous_scroll": section.continuous_scroll,
                             "scale": section.scale,
                             "content_height": section.content_height,
+                            "breaker": render_breaker,
                         }
                         if section.scroll_step_ms is not None:
                             ticker_kwargs["scroll_speed"] = (
@@ -654,7 +658,7 @@ async def run(config_path: Path) -> None:
                         # is currently empty, keep the previous last_widget (the
                         # next transition will use whatever was last on-screen).
                         if widgets:
-                            expanded = _expand_sources(widgets)
+                            expanded = _expand_sources(widgets, render_breaker)
                             if expanded:
                                 last_widget = expanded[-1]
                             # else: container is empty this cycle — keep prior

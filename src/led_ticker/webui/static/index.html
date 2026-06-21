@@ -69,6 +69,10 @@
       <strong>Plugins</strong>
       <table id="plugins"><tbody></tbody></table>
     </div>
+    <div class="card" id="disabled-widgets-card" style="display:none">
+      <strong>Disabled widgets</strong>
+      <table id="disabled-widgets"><tbody></tbody></table>
+    </div>
     <div class="card" id="overlays-card">
       <strong>Overlays</strong>
       <div id="busy-state" class="muted">—</div>
@@ -208,6 +212,16 @@ async function poll() {
         return `<tr><td>${esc(p.namespace)}</td><td class="muted">${names}</td></tr>`;
       })
       .concat(fails).join("") || '<tr><td class="muted">no plugins</td></tr>';
+    const dw = st.disabled_widgets || [];
+    const dwCard = $("disabled-widgets-card");
+    if (dw.length) {
+      dwCard.style.display = "";
+      $("disabled-widgets").tBodies[0].innerHTML = dw
+        .map((d) => `<tr><td>${esc(d.type || "")}${d.summary ? ": " + esc(d.summary) : ""}</td><td class="error">${esc(d.error)}</td></tr>`)
+        .join("");
+    } else {
+      dwCard.style.display = "none";
+    }
     $("logtail").textContent = (st.log_tail || []).slice(-10)
       .map((e) => `${e.level} ${e.name}: ${e.message}`).join("\n") || "no recent warnings";
     const ov = st.overlays || {roster: [], busy: {enabled: false}};

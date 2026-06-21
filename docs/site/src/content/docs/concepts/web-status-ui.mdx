@@ -64,6 +64,14 @@ The Overlays card is **read-only**. The busy light's on/off state is controlled 
   block do not publish overlay state, and the card will not appear.
 </Aside>
 
+### Status tab — snapshot fields
+
+The display process publishes a `status.json` file (schema version 4) containing the state of the running display. The web UI renders this snapshot; advanced users and integrations can also read it directly. Notable fields:
+
+**`failed_plugins`** — plugins that failed to load at startup (load-time errors). Each entry lists the plugin namespace and the exception message. A failed plugin's widgets, transitions, and emoji are unavailable. Restart the display process with the plugin fixed or removed to recover.
+
+**`disabled_widgets`** — widgets the render circuit breaker has disabled during this run. If a widget's `draw()`/`play()` raises an exception at render time, it is caught, dropped from rotation, and listed here as `{ "widget": "<class>", "error": "<exception>" }`. The panel keeps running and moves on to the next widget. This is the render-time counterpart of `failed_plugins` (load-time). Restart to retry a disabled widget.
+
 ### Status tab — live preview
 
 The Status tab includes a **live preview** panel that shows the actual content on the sign — the same pixels the panel is displaying, including the busy-light dot if one is configured. It updates at roughly 5 fps.

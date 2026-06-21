@@ -1,0 +1,101 @@
+import logging
+from types import SimpleNamespace
+
+from led_ticker.render_breaker import RenderBreaker, _key
+
+
+def test_trip_disables_and_records_summary():
+    b = RenderBreaker()
+    w = SimpleNamespace()
+    assert b.is_disabled(w) is False
+    b.trip(w, ValueError("boom"))
+    assert b.is_disabled(w) is True
+    # content-less object keys by id; verify the entry is stored
+    assert b.disabled[_key(w)] == "ValueError: boom"
+
+
+def test_trip_logs_error_once(caplog):
+    b = RenderBreaker()
+    w = SimpleNamespace()
+    with caplog.at_level(logging.ERROR):
+        b.trip(w, ValueError("boom"))
+        b.trip(w, ValueError("again"))  # second trip is a no-op
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(errors) == 1  # logged once, not per-call
+    assert b.disabled[_key(w)] == "ValueError: boom"  # first summary kept
+
+
+def test_distinct_content_less_widgets_tracked_independently():
+    b = RenderBreaker()
+    w1, w2 = SimpleNamespace(), SimpleNamespace()
+    b.trip(w1, KeyError("x"))
+    assert b.is_disabled(w1) is True
+    assert b.is_disabled(w2) is False
+
+
+# ---------------------------------------------------------------------------
+# Content-signature keying (FIX 2): container story case
+# ---------------------------------------------------------------------------
+
+
+class _Story:
+    """Minimal story object with a text field (container-story pattern)."""
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+
+def test_content_key_two_same_content_objects_share_disabled_state():
+    """Tripping one object disables ANY distinct object with the same content
+    signature — this is the container-story case where stories are rebuilt as
+    NEW objects each refresh cycle."""
+    b = RenderBreaker()
+    a = _Story("Headline A")
+    b_obj = _Story("Headline A")  # distinct object, same content
+    assert a is not b_obj  # genuinely different objects
+    b.trip(a, ValueError("bad"))
+    # The OTHER object with identical (type, text) must be seen as disabled.
+    assert b.is_disabled(b_obj) is True, (
+        "Content-signature keying must treat two objects with the same "
+        "(type, text) as the same breaker entry"
+    )
+
+
+def test_content_key_trip_second_is_noop_logs_once(caplog):
+    """When the key is already disabled, tripping a distinct same-content object
+    must be a no-op (log once total, not twice)."""
+    b = RenderBreaker()
+    a = _Story("Headline B")
+    b_obj = _Story("Headline B")
+    with caplog.at_level(logging.ERROR):
+        b.trip(a, ValueError("first"))
+        b.trip(b_obj, ValueError("second"))  # same key — no-op
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(errors) == 1
+
+
+def test_content_key_different_texts_tracked_independently():
+    """Different content → different keys → tracked independently."""
+    b = RenderBreaker()
+    a = _Story("Story One")
+    c = _Story("Story Two")
+    b.trip(a, ValueError("x"))
+    assert b.is_disabled(a) is True
+    assert b.is_disabled(c) is False
+
+
+def test_content_less_objects_key_by_id():
+    """Objects without text/top_text/path fall back to id() — two distinct
+    content-less objects must be tracked independently."""
+    b = RenderBreaker()
+
+    class _NoContent:
+        pass
+
+    w1 = _NoContent()
+    w2 = _NoContent()
+    assert _key(w1) == id(w1)
+    assert _key(w2) == id(w2)
+    b.trip(w1, ValueError("x"))
+    assert b.is_disabled(w1) is True
+    assert b.is_disabled(w2) is False

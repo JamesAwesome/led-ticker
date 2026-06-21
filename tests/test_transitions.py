@@ -2240,3 +2240,124 @@ class TestMinFramesProtocol:
 # TestNyanCatFrameDrawing, TestPacmanFrameDrawing, TestPokeballFrameDrawing,
 # TestSailorMoonFrameDrawing removed — those transition families were extracted
 # to the led-ticker-arcade plugin (Phase 3 removal, PR feat/remove-arcade).
+
+
+# --- Circuit-breaker guard in run_transition ---
+
+
+class _FaultyDraw:
+    """A widget whose draw() always raises."""
+
+    text = "faulty"
+
+    def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
+        raise ValueError("boom-in-transition")
+
+
+class _GoodDraw:
+    """A widget that records the canvases it was handed."""
+
+    text = "good"
+
+    def __init__(self):
+        self.seen = []
+
+    def draw(self, canvas, cursor_pos=0, *, y_offset=0, font_color=None):
+        self.seen.append(id(canvas))
+        return canvas, 0
+
+
+async def test_run_transition_survives_faulty_incoming(swapping_frame):
+    from led_ticker.render_breaker import RenderBreaker
+    from led_ticker.transitions import run_transition
+    from led_ticker.transitions.wipe import WipeLeft  # draws both sides
+
+    breaker = RenderBreaker()
+    good, bad = _GoodDraw(), _FaultyDraw()
+    canvas = swapping_frame._canvas_a  # has width=160, height=16
+    out = await run_transition(
+        canvas,
+        swapping_frame,
+        good,
+        bad,
+        transition=WipeLeft(),
+        duration=0.05,
+        scroll_speed=0.01,
+        breaker=breaker,
+    )
+    assert out is not None  # valid canvas returned (constraint #1)
+    assert breaker.is_disabled(bad) is True  # faulty incoming tripped
+    assert len(set(good.seen)) >= 2  # swap kept capturing; healthy side drawn
+
+
+async def test_run_transition_survives_faulty_outgoing(swapping_frame):
+    from led_ticker.render_breaker import RenderBreaker
+    from led_ticker.transitions import run_transition
+    from led_ticker.transitions.wipe import WipeLeft
+
+    breaker = RenderBreaker()
+    bad, good = _FaultyDraw(), _GoodDraw()
+    canvas = swapping_frame._canvas_a
+    out = await run_transition(
+        canvas,
+        swapping_frame,
+        bad,
+        good,
+        transition=WipeLeft(),
+        duration=0.05,
+        scroll_speed=0.01,
+        breaker=breaker,
+    )
+    assert out is not None
+    assert breaker.is_disabled(bad) is True
+
+
+async def test_run_transition_disabled_widget_not_drawn(swapping_frame):
+    from led_ticker.render_breaker import RenderBreaker
+    from led_ticker.transitions import run_transition
+    from led_ticker.transitions.wipe import WipeLeft
+
+    breaker = RenderBreaker()
+    good, pre = _GoodDraw(), _GoodDraw()
+    breaker.trip(pre, ValueError("pre"))  # already disabled before transition
+    canvas = swapping_frame._canvas_a
+    await run_transition(
+        canvas,
+        swapping_frame,
+        good,
+        pre,
+        transition=WipeLeft(),
+        duration=0.05,
+        scroll_speed=0.01,
+        breaker=breaker,
+    )
+    assert pre.seen == []  # disabled widget never drawn
+
+
+async def test_run_transition_allocates_guard_once(swapping_frame, monkeypatch):
+    # The wrapper must be built once per transition run, not once per frame.
+    import led_ticker.transitions as T
+    from led_ticker.render_breaker import RenderBreaker
+    from led_ticker.transitions.wipe import WipeLeft
+
+    calls = {"n": 0}
+    real = T.guard_for_transition
+
+    def counting(widget, breaker):
+        calls["n"] += 1
+        return real(widget, breaker)
+
+    monkeypatch.setattr(T, "guard_for_transition", counting)
+
+    canvas = swapping_frame._canvas_a
+    await T.run_transition(
+        canvas,
+        swapping_frame,
+        _GoodDraw(),
+        _GoodDraw(),
+        transition=WipeLeft(),
+        duration=0.2,
+        scroll_speed=0.01,
+        breaker=RenderBreaker(),
+    )
+    assert calls["n"] == 2  # exactly one guard per widget, regardless of frame_count

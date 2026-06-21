@@ -152,7 +152,7 @@ transition_duration = 1.5
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "BEGINNER SERIES :star: NOW ENROLLING :star: ALL LEVELS WELCOME"
@@ -184,7 +184,7 @@ transition_duration = 2.0
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/kpop-dance.webp"
+path = "assets/phoenix.webp"
 fit = "pillarbox"
 image_align = "left"
 text = "CANDLELIGHT FLOW :star: NOW OPEN :star: ALL LEVELS"

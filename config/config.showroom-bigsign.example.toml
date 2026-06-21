@@ -302,7 +302,7 @@ transition_duration = 1.5
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "ANIMATION + TYPOGRAPHY, COMPOSED"
@@ -335,7 +335,7 @@ transition_duration = 0.8
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/moon-transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "right"
 text = "AFTER DARK"

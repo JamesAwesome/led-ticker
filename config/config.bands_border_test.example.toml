@@ -340,7 +340,7 @@ transition = "cut"
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/bunny-transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
 hold_time = 7.0
@@ -361,7 +361,7 @@ transition = "cut"
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/bunny-transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
 hold_time = 7.0
@@ -381,7 +381,7 @@ transition = "cut"
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "PIKA"

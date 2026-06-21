@@ -82,7 +82,7 @@ font_color = [255, 220, 50]
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "pillarbox"
 play_count = 17  # ~10s of playback (17 × 600ms per loop)
 
@@ -103,7 +103,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "stretch"
 
 # ---------------------------------------------------------------------------
@@ -125,7 +125,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "letterbox"
 
 # ---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "crop"
 
 # ---------------------------------------------------------------------------
@@ -163,7 +163,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "pillarbox"
 
 # ---------------------------------------------------------------------------
@@ -185,7 +185,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "PIKACHU!"
@@ -210,7 +210,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "pillarbox"
 image_align = "right"
 text = "@brand"
@@ -238,7 +238,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 text = "WELCOME TO THE STORE — OPEN DAILY 9 TO 9"
 text_align = "scroll"
@@ -329,7 +329,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "OPEN LATE TONIGHT — COME SAY HI"
@@ -362,7 +362,7 @@ font_color = [255, 220, 50]
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "right"
 text = "@brand"
@@ -449,7 +449,7 @@ scroll_speed_ms = 50
 #
 # [[playlist.section.widget]]
 # type = "gif"
-# path = "assets/pika_wave_transparent.gif"
+# path = "assets/phoenix_transparent.gif"
 # fit = "pillarbox"
 # image_align = "left"
 # text = "Follow us! @firebirdyoga.demo"
@@ -468,7 +468,7 @@ scroll_speed_ms = 50
 #
 # [[playlist.section.widget]]
 # type = "gif"
-# path = "assets/pika_wave_transparent.gif"
+# path = "assets/phoenix_transparent.gif"
 # fit = "pillarbox"
 # image_align = "left"
 # text = "Follow us! @firebirdyoga.demo"

@@ -81,7 +81,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "PIKACHU!"
@@ -120,7 +120,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 text = "WELCOME TO THE STORE — OPEN DAILY 9 TO 9"
 text_align = "scroll"
@@ -208,7 +208,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/kpop-dance.webp"
+path = "assets/phoenix.webp"
 fit = "pillarbox"
 text = "Sign up for our new K-Pop Dance Class!"
 text_align = "scroll_over"
@@ -242,7 +242,7 @@ font_color = [255, 220, 50]
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "right"
 text = "@brand"

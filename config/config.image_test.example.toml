@@ -68,7 +68,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/bunny-nontransparent.png"
+path = "assets/phoenix.png"
 fit = "pillarbox"
 hold_time = 5.0
 
@@ -136,7 +136,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/bunny-nontransparent.png"
+path = "assets/phoenix.png"
 fit = "pillarbox"
 image_align = "left"
 text = "BUNNY!"
@@ -159,7 +159,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/moon-transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 text = "WELCOME — OPEN UNTIL THE MOON SETS"
 text_align = "scroll"
@@ -238,7 +238,7 @@ font_color = [255, 180, 200]
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/bunny-transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 hold_time = 5.0
 
@@ -292,7 +292,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/bunny-nontransparent.png"
+path = "assets/phoenix.png"
 fit = "pillarbox"
 image_align = "right"   # bunny pinned to the right pillar
 text = "BIG BUNNY"

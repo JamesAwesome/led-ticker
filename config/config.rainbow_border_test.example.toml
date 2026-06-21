@@ -117,7 +117,7 @@ transition = "cut"
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/bunny-transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
 hold_time = 7.0
@@ -137,7 +137,7 @@ transition = "cut"
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/bunny-transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
 hold_time = 7.0
@@ -159,7 +159,7 @@ transition = "cut"
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/bunny-transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
 text = "TEXT WALKS BEHIND THE BUNNY"
@@ -187,7 +187,7 @@ transition = "cut"
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "center"
 play_count = 3
@@ -210,7 +210,7 @@ transition = "cut"
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "PIKA"
@@ -240,7 +240,7 @@ transition = "cut"
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/bunny-transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
 text = "DOUBLE RAINBOW THROUGH THE BUNNY"
@@ -270,7 +270,7 @@ transition = "cut"
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "CYCLE"
@@ -598,7 +598,7 @@ transition = "cut"
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/bunny-transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "right"
 text = "HELLO!"

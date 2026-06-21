@@ -16,7 +16,7 @@ hold_time = 5.0
 
 [[playlist.section.widget]]
 type = "gif"
-path = "../../../config/assets/pika_wave_transparent.gif"
+path = "../../../config/assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "hi friend"

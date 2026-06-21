@@ -85,7 +85,7 @@ hold_time = 5.0
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/moon-transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
 hold_time = 4.0

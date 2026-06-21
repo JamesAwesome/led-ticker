@@ -118,7 +118,7 @@ transition = "cut"
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 text = ":taco: PIKA :taco:"
 text_align = "scroll_over"
@@ -323,7 +323,7 @@ transition = "cut"
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 text = "PLAIN TEXT RAINBOW"
 text_align = "scroll_over"
@@ -342,7 +342,7 @@ transition = "cut"
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 top_text = "TOP RAINBOW"
 bottom_text = "BOTTOM RAINBOW SCROLLS"

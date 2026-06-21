@@ -1088,3 +1088,22 @@ def test_plugin_transition_show_flags_flow_through_extra():
     assert cfg.type == "arcade.pokeball"
     assert cfg.extra.get("show_pikachu") is False
     assert cfg.extra.get("show_pokeball") is True
+
+
+def test_display_hot_reload_defaults_true(tmp_path):
+    cfg_file = tmp_path / "c.toml"
+    cfg_file.write_text(
+        '[display]\nrows = 16\ncols = 32\n\n[[playlist.section]]\nmode = "swap"\n'
+    )
+    cfg = load_config(cfg_file)
+    assert cfg.display.hot_reload is True
+
+
+def test_display_hot_reload_can_be_disabled(tmp_path):
+    cfg_file = tmp_path / "c.toml"
+    cfg_file.write_text(
+        "[display]\nrows = 16\ncols = 32\nhot_reload = false\n\n"
+        '[[playlist.section]]\nmode = "swap"\n'
+    )
+    cfg = load_config(cfg_file)
+    assert cfg.display.hot_reload is False

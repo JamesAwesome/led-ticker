@@ -577,7 +577,7 @@ def test_transparent_test_asset_decodes_to_black_corners(bigsign_canvas):
     real = bigsign_canvas
     widget.draw(real, cursor_pos=0)
 
-    # Top-left and bottom-right corners are well outside the moon
+    # Top-left and bottom-right corners are well outside the phoenix silhouette
     assert real.get_pixel(0, 0) == (0, 0, 0)
     assert real.get_pixel(255, 63) == (0, 0, 0)
 

@@ -7,17 +7,18 @@ ASSETS = Path(__file__).resolve().parent.parent / "config" / "assets"
 
 def test_five_phoenix_assets_exist_and_are_correct():
     expected = {
-        "phoenix.gif": ("GIF", "RGB_or_P", True),
-        "phoenix_transparent.gif": ("GIF", "P", True),
-        "phoenix.png": ("PNG", "RGB", False),
-        "phoenix_transparent.png": ("PNG", "RGBA", False),
-        "phoenix.webp": ("WEBP", "RGBA", True),
+        "phoenix.gif": ("GIF", ("RGB", "P", "L"), True),
+        "phoenix_transparent.gif": ("GIF", ("P",), True),
+        "phoenix.png": ("PNG", ("RGB", "P"), False),
+        "phoenix_transparent.png": ("PNG", ("RGBA",), False),
+        "phoenix.webp": ("WEBP", ("RGBA", "RGB"), True),
     }
-    for name, (fmt, _mode, animated) in expected.items():
+    for name, (fmt, modes, animated) in expected.items():
         p = ASSETS / name
         assert p.exists(), f"missing derived asset {name}"
         im = Image.open(p)
         assert im.format == fmt, f"{name}: format {im.format} != {fmt}"
+        assert im.mode in modes, f"{name}: mode {im.mode} not in {modes}"
         assert im.size == (220, 220), f"{name}: size {im.size} != (220, 220)"
         if animated:
             assert getattr(im, "n_frames", 1) > 1, f"{name}: expected animation"

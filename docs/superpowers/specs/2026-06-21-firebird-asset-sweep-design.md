@@ -32,7 +32,7 @@ docs): `pika_wave.gif`/`pika_wave_transparent.gif` (Pikachu — Nintendo copyrig
    - `phoenix.png` — a single representative frame, opaque (still-image sample + the opaque-PNG demos)
    - `phoenix_transparent.png` — that frame with alpha (transparent still-image demos + the logo)
    - `phoenix.webp` — animated, transcoded (the animated-WebP demo)
-3. **Dimensions:** nearest-neighbor upscale the 20×20 source to **220×220** (10×, crisp pixel edges) so the
+3. **Dimensions:** nearest-neighbor upscale the 20×20 source to **220×220** (11×, crisp pixel edges) so the
    derived assets match `pika_wave`'s 220×220 square footprint and the demos render the same (scale-by-height
    to 64, centered). The webp reuses the square size (the demo proves WebP *support*, not a specific aspect).
    Use nearest-neighbor everywhere to preserve pixel-art crispness.

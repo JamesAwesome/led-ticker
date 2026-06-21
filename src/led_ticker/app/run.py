@@ -698,6 +698,7 @@ async def run(config_path: Path) -> None:
                                 # `Clear()` for the entire transition.
                                 outgoing_bg_color=last_bg_color,
                                 incoming_bg_color=section.bg_color,
+                                breaker=render_breaker,
                             )
 
                         # Widget transition precedence:

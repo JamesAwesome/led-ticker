@@ -98,6 +98,21 @@ def test_run_wires_the_reload_sequence():
     assert "_build_title_guarded(" in src  # title build goes through the guard
 
 
+def test_run_guards_inter_section_transition():
+    """The inter-section entry run_transition() call must pass breaker=render_breaker.
+
+    Without this, a widget raising during a section-boundary transition bypasses
+    the circuit breaker and freezes the panel.  The behavioral freeze-safety is
+    already proven by test_run_transition_survives_faulty_incoming; this is the
+    wiring tripwire that keeps the call site from regressing.
+    """
+    import inspect
+
+    src = inspect.getsource(run_mod.run)
+    assert "run_transition(" in src
+    assert "breaker=render_breaker" in src
+
+
 async def test_build_title_guarded_returns_none_on_error(monkeypatch):
     async def boom(*a, **k):
         raise ValueError("no such font xyz")

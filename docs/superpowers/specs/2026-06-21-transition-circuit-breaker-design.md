@@ -37,7 +37,7 @@ zero-cost on CPython 3.11+.
 1. **Per-widget draw-guard wrapper, not a whole-`frame_at` guard.** Wrap `outgoing`/`incoming`
    in a tiny guard whose only override is `draw()` (mirrors `_safe_draw`); pass the wrappers as
    the `frame_at` / `_draw_scroll_frame` arguments. The draws are scattered across ~30 transition
-   sites, so intercepting at the object boundary touches **2 call sites + 0 transition
+   sites, so intercepting at the object boundary touches **3 call sites + 0 transition
    implementations** (minimal blast radius) and gives **precise** trip attribution (each wrapper
    wraps exactly one widget). The simpler "one try/except around the whole `frame_at` call +
    abort" was rejected: it cannot tell which widget raised (mis-attributes the content-keyed
@@ -139,7 +139,16 @@ Notes:
   / `guard_for_transition(incoming, self.breaker)` **once** before its `for offset` loop, and
   pass the wrappers to `_draw_scroll_frame(...)`. (`_draw_scroll_frame` itself is unchanged — it
   just calls `.draw()` on whatever it's given.) Pause/reset/resume stay on the real widgets.
-- The `run_transition(...)` call site (~`:738`) passes `breaker=self.breaker`.
+- The `run_transition(...)` call site in `ticker.py` (~`:738`) passes `breaker=self.breaker`.
+
+### `src/led_ticker/app/run.py` — inter-section entry transition
+
+- The `run_transition(...)` call site in `run()` (~`:667`, the inter-section entry transition)
+  passes `breaker=render_breaker` — the same run-scoped `RenderBreaker` used for widget draws.
+  This is the third and final `run_transition` call site; without it a widget raising during a
+  section-boundary transition still freezes the panel despite the breaker being active everywhere
+  else. Wiring tripwire: `test_run_guards_inter_section_transition` in
+  `tests/test_run_reload_helpers.py`.
 
 ### Docs / invariants
 

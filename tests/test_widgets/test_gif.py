@@ -670,7 +670,7 @@ async def test_hires_marquee_completes_full_traversal_default(
     """Hardware-observed: a hires-wide marquee got cut off mid-pass when
     loops × loop_ms < (text_w + text_width) × scroll_speed_ms. The
     auto-floor (text_loops=0 default) extends to at least one full pass,
-    so the panel doesn't show "...moonbunnyaer" frozen at section end.
+    so the panel doesn't show "...firebirdyo" frozen at section end.
     """
     from led_ticker.fonts import resolve_font
 
@@ -679,7 +679,7 @@ async def test_hires_marquee_completes_full_traversal_default(
     widget = GifPlayer(
         path=str(path),
         fit="stretch",
-        text="Follow us! @moonbunnyaerial",  # ~280+ real px wide
+        text="Follow us! @firebirdyoga.demo",  # ~280+ real px wide
         text_align="scroll_over",
         scroll_speed_ms=50,
         font=font,

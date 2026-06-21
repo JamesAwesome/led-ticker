@@ -2528,7 +2528,7 @@ class TestSingleRowColorGuard:
             "type": "gif",
             "path": "/nonexistent/tiny.gif",
             "fit": "stretch",
-            "top_text": "@MoonBunny",
+            "top_text": "@firebird",
             "bottom_text": "Follow us!",
             "top_color": [255, 220, 70],
             "bottom_color": [255, 150, 190],

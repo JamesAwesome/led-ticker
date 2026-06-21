@@ -25,8 +25,13 @@ chain_length = 5
 brightness = 60
 gpio_slowdown = 2      # mandatory on Pi 4 — bump to 3+ if you see flicker
 hardware_mapping = "adafruit-hat"
+# hot_reload = true    # live-reload config.toml edits without a restart (default on; set false to disable)
 
 # --- Optional: brightness schedule (uncomment + edit to use) ---
+# Example: full brightness by day, a softer evening, and a dim overnight
+# (10pm–7am, every day). Times are local wall-clock — set `timezone` or they
+# follow the Pi's system clock (often UTC). Any hour not covered by a window
+# uses the [display] `brightness` above.
 # [display.schedule]
 # enabled = true
 # timezone = "America/New_York"   # set this! defaults to the Pi's system time (often UTC)
@@ -38,13 +43,14 @@ hardware_mapping = "adafruit-hat"
 #
 # [[display.schedule.windows]]
 # start = "18:00"
-# end = "23:00"
+# end = "22:00"
 # brightness = 40
 #
-# [[display.schedule.windows]]
-# start = "23:00"            # wraps past midnight
+# [[display.schedule.windows]]            # dim overnight, 10pm → 7am, every day
+# start = "22:00"            # 10pm — wraps past midnight to 7am
 # end = "07:00"
-# brightness = 0             # dark — panel off overnight
+# brightness = 15            # dim, not off (set brightness = 0 to switch the panel off)
+# # days omitted = every day; e.g. days = ["mon", "tue", "wed", "thu", "fri"] for weekdays only
 
 [title]
 delay = 5

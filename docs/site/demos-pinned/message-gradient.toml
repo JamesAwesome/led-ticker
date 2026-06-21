@@ -17,4 +17,4 @@ hold_time = 4.0
 [[playlist.section.widget]]
 type = "message"
 text = "firebird"
-font_color = {style = "gradient", from = [225, 48, 108], to = [120, 90, 220]}
+font_color = {style = "gradient", from = [255, 92, 38], to = [255, 183, 3]}

@@ -285,7 +285,7 @@ These plugins import a few core symbols through the public surface that have no 
 User-facing reference: <https://docs.ledticker.dev/reference/config-options/>.
 
 - App config: `config/config.toml` (mounted in Docker at `/code/config/`, gitignored)
-- Examples: `config/config.example.toml` (smallsign), `config/config.bigsign.example.toml` (bigsign with `pixel_mapper_config`, scaling, RP1 tuning), `config/config.firebird.example.toml` (real-world bigsign storefront template — Firebird Yoga)
+- Examples: `config/config.example.toml` (smallsign), `config/config.bigsign.example.toml` (bigsign with `pixel_mapper_config`, scaling, RP1 tuning), `config/config.firebird.example.toml` (realistic bigsign storefront template — Firebird Yoga)
 - API keys: `.env` (see `.env.example`)
 - **Secrets belong in `.env`, not `config.toml`**: first-party plugins read their keys from env (`WEATHERAPI_KEY`, `COINGECKO_API_KEY`, `INFLUXDB_*`); core's `[web]`/`[busy_light]` tokens resolve env-first via `resolve_secret_token` (`LED_TICKER_WEB_TOKEN`, `LED_TICKER_BUSY_TOKEN`), with the config `token` field as a logged fallback. The webui's value-blind redaction is the net for third-party plugins that ignore this convention.
 

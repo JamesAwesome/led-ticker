@@ -22,5 +22,5 @@ scroll_step_ms = 30
 type = "message"
 text = "Open"
 font = "5x8"
-font_color = [254, 255, 204]
+font_color = [255, 244, 214]
 border = {style = "color_cycle", speed = 5, thickness = 2}

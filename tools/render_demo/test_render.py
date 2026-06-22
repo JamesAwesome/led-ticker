@@ -285,7 +285,9 @@ def test_renderer_static_fast_path_credits_single_frame_with_hold(tmp_path):
 # ---------------------------------------------------------------------------
 
 _ATKINSON_FONT_NAME = "AtkinsonHyperlegible-Bold.ttf"
-_FONT_SRC = _REPO_ROOT / "docs" / "site" / "demos-long" / "fonts" / _ATKINSON_FONT_NAME
+# Committed OFL test fixture (NOT the gitignored docs-demo font) so this
+# regression guard actually runs in CI instead of skipping. See fixtures/OFL.txt.
+_FONT_SRC = Path(__file__).parent / "fixtures" / _ATKINSON_FONT_NAME
 
 _CUSTOM_FONT_CONFIG = """\
 [display]
@@ -316,10 +318,7 @@ def test_render_honors_user_font_dir(tmp_path: Path) -> None:
     font silently fell back / rendered blank.  This renders a hires-font widget
     and asserts lit pixels appear in the output gif.
     """
-    if not _FONT_SRC.exists():
-        pytest.skip(
-            "AtkinsonHyperlegible-Bold.ttf not present (gitignored licensed font)"
-        )
+    assert _FONT_SRC.exists(), f"committed test font fixture missing: {_FONT_SRC}"
 
     pytest.importorskip("tomli_w")
     from tools.render_demo.render import render  # noqa: PLC0415

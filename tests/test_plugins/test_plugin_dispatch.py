@@ -83,25 +83,20 @@ def test_plugin_add_dispatch_writes_manifest(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert code == 0
     assert "rebuild" in out.lower()
+    # pool defaults to pypi now; the manifest line is the bare package name
     assert (
-        (tmp_path / "requirements-plugins.txt").read_text().strip().startswith("git+")
-    )
+        tmp_path / "requirements-plugins.txt"
+    ).read_text().strip() == "led-ticker-pool"
 
 
 def test_plugin_remove_dispatch(tmp_path, monkeypatch, capsys):
     cfg = _min_config(tmp_path)
-    # The catalog now resolves `pool` to a monorepo line; `remove pool` matches it
-    # by the subdirectory-aware key.
-    (tmp_path / "requirements-plugins.txt").write_text(
-        "git+https://github.com/JamesAwesome/led-ticker-plugins.git"
-        "@pool-v0.1.0#subdirectory=plugins/pool\n"
-    )
+    # pool defaults to pypi; seed the file with the pypi requirement so the
+    # remove command matches by its key ("led-ticker-pool").
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-pool\n")
     code = _run(monkeypatch, ["plugin", "remove", "pool", "--config", str(cfg)])
     assert code == 0
-    assert (
-        "subdirectory=plugins/pool"
-        not in (tmp_path / "requirements-plugins.txt").read_text()
-    )
+    assert "led-ticker-pool" not in (tmp_path / "requirements-plugins.txt").read_text()
 
 
 def test_plugin_uninstall_dry_run_dispatch(tmp_path, monkeypatch, capsys):

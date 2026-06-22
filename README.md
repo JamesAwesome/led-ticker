@@ -32,6 +32,14 @@ Everything is configured via a TOML file. Three reference configs ship in `confi
 
 Full config reference: <https://docs.ledticker.dev/reference/config-options/>. Per-widget pages document every knob: <https://docs.ledticker.dev/widgets/>.
 
+### Engine
+
+The display engine is published on PyPI as **`led-ticker-core`**:
+
+```bash
+pip install led-ticker-core
+```
+
 ### Plugins
 
 Extra widgets (and other extension points) are installed as plugins, declared in a pip-requirements file:
@@ -43,6 +51,19 @@ docker compose up -d --build
 ```
 
 The live `config/requirements-plugins.txt` is gitignored (it's yours to customize); the tracked `.example` ships the pool water-temperature widget (`type = "pool.monitor"`) as a starting point. Installed plugins auto-register via their `led_ticker.plugins` entry point — no `[plugins]` config change needed.
+
+First-party data plugins are on PyPI — add them by name:
+
+| Plugin | PyPI package | Widget types |
+|--------|-------------|--------------|
+| Pool | `led-ticker-pool` | `pool.monitor` |
+| Baseball / MLB | `led-ticker-baseball` | `baseball.scores`, `.standings`, `.promotions`, `.statcast`, `.attendance` |
+| CoinGecko crypto | `led-ticker-crypto` | `crypto.coingecko` |
+| Calendar (.ics) | `led-ticker-calendar` | `calendar.events` |
+| RSS/Atom feeds | `led-ticker-rss` | `rss.feed` |
+| Weather | `led-ticker-weather` | `weather.current` |
+
+Homage sprite-trail transitions (`nyancat`, `pokeball`, `pacman`, `sailor_moon`) are NOT on PyPI — install them via the `git+https` subdirectory form shown in `config/requirements-plugins.example.txt`.
 
 Pre-flight a config before deploying:
 

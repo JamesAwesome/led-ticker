@@ -1,6 +1,6 @@
 # MLB Widget Options
 
-> **Plugin widget.** MLB scores ship as the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the external led-ticker-plugins monorepo. Use `type = "baseball.scores"` and install the plugin (add `git+https://github.com/JamesAwesome/led-ticker-plugins.git@baseball-v0.1.0#subdirectory=plugins/baseball` to `config/requirements-plugins.txt`, then rebuild).
+> **Plugin widget.** MLB scores ship as the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the external led-ticker-plugins monorepo. Use `type = "baseball.scores"` and install the plugin (add `led-ticker-baseball` to `config/requirements-plugins.txt`, then rebuild).
 
 `MLBScoreMonitor` fetches live game state from MLB's free StatsAPI (no API key required) and renders the tracked team's current series. Two layouts are available:
 

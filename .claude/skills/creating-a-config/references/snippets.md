@@ -394,7 +394,7 @@ countdown_date = 2026-09-22
 
 **source:** `config/config.mlb.toml` lines 26–46
 
-**requires plugin:** `led-ticker-baseball` — the `baseball.scores` widget, `baseball.roll*` transition, and `:baseball.ball:` emoji ship as that plugin, not as core. Add `git+https://github.com/JamesAwesome/led-ticker-plugins.git@main#subdirectory=plugins/baseball` to `config/requirements-plugins.txt` and rebuild before using this snippet.
+**requires plugin:** `led-ticker-baseball` — the `baseball.scores` widget, `baseball.roll*` transition, and `:baseball.ball:` emoji ship as that plugin, not as core. Add `led-ticker-baseball` to `config/requirements-plugins.txt` and rebuild before using this snippet.
 
 **use when:** small sign (160×16) + live MLB scores for one or more teams. No API key required. `loop_count = 0` means loop until new data arrives.
 
@@ -432,7 +432,7 @@ timezone = "America/New_York"
 
 **source:** `config/config.small_sign.toml` lines 145–166 (adapted for bigsign — same widget, `default_scale = 4` applies globally so no per-section override needed)
 
-**requires plugin:** `led-ticker-baseball` — the `baseball.scores` widget, `baseball.roll*` transition, and `:baseball.ball:` emoji ship as that plugin, not as core. Add `git+https://github.com/JamesAwesome/led-ticker-plugins.git@main#subdirectory=plugins/baseball` to `config/requirements-plugins.txt` and rebuild before using this snippet.
+**requires plugin:** `led-ticker-baseball` — the `baseball.scores` widget, `baseball.roll*` transition, and `:baseball.ball:` emoji ship as that plugin, not as core. Add `led-ticker-baseball` to `config/requirements-plugins.txt` and rebuild before using this snippet.
 
 **use when:** bigsign + live MLB scores. Same widget and section shape as `mlb.sports.smallsign`; bigsign renders at full 64px panel height automatically.
 
@@ -470,7 +470,7 @@ timezone = "America/New_York"
 
 **source:** `config/config.mlb_standings.toml` lines 26–43
 
-**requires plugin:** `led-ticker-baseball` — the `baseball.standings` widget and `:baseball.ball:` emoji ship as that plugin, not as core. Add `git+https://github.com/JamesAwesome/led-ticker-plugins.git@main#subdirectory=plugins/baseball` to `config/requirements-plugins.txt` and rebuild before using this snippet.
+**requires plugin:** `led-ticker-baseball` — the `baseball.standings` widget and `:baseball.ball:` emoji ship as that plugin, not as core. Add `led-ticker-baseball` to `config/requirements-plugins.txt` and rebuild before using this snippet.
 
 **use when:** bigsign (or small sign) + MLB standings showing top-N teams plus your tracked teams. During offseason shows "Opens [date]". No API key required.
 

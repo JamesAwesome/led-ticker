@@ -40,15 +40,51 @@ def test_bundled_catalog_has_the_first_party_plugins():
     assert "feeds" not in names and "arcade" not in names
 
 
-def test_bundled_entries_install_from_the_monorepo():
+_DATA_PLUGINS = ("pool", "baseball", "crypto", "calendar", "rss", "weather")
+_HOMAGE_PLUGINS = ("nyancat", "pokeball", "pacman", "sailor_moon")
+
+
+def test_data_plugins_default_to_pypi():
+    """The 6 published data plugins have pypi as their first (preferred) source."""
     cat = load_catalog()
-    for e in cat.entries:
-        src = e.sources[0]
+    for name in _DATA_PLUGINS:
+        e = cat.get(name)
+        assert e is not None, f"missing plugin {name!r}"
+        src = e.source_for(None)
+        assert src.type == "pypi", f"{name}: expected pypi default, got {src.type!r}"
+        assert src.package == f"led-ticker-{name}"
+        # no version field → unpinned bare requirement
+        assert e.requirement() == f"led-ticker-{name}"
+        # pinned=True still yields bare name — no version declared
+        assert e.requirement(pinned=True) == f"led-ticker-{name}"
+
+
+def test_data_plugins_retain_git_source():
+    """The 6 data plugins keep a git source as the second entry."""
+    cat = load_catalog()
+    for name in _DATA_PLUGINS:
+        e = cat.get(name)
+        src = e.source_for("git")
         assert src.url == "https://github.com/JamesAwesome/led-ticker-plugins"
-        assert src.subdirectory == f"plugins/{e.name}"
-        assert src.ref and src.ref.startswith(f"{e.name}-v")
+        assert src.subdirectory == f"plugins/{name}"
+        assert src.ref and src.ref.startswith(f"{name}-v")
+        assert e.requirement(source="git").endswith(f"#subdirectory=plugins/{name}")
+
+
+def test_homage_plugins_install_from_the_monorepo():
+    """The 4 homage plugins (not on PyPI) install git-only from the monorepo."""
+    cat = load_catalog()
+    for name in _HOMAGE_PLUGINS:
+        e = cat.get(name)
+        assert e is not None, f"missing plugin {name!r}"
+        assert len(e.sources) == 1, f"{name}: expected 1 source, got {len(e.sources)}"
+        src = e.sources[0]
+        assert src.type == "git"
+        assert src.url == "https://github.com/JamesAwesome/led-ticker-plugins"
+        assert src.subdirectory == f"plugins/{name}"
+        assert src.ref and src.ref.startswith(f"{name}-v")
         # the emitted requirement carries the subdirectory fragment
-        assert e.requirement().endswith(f"#subdirectory=plugins/{e.name}")
+        assert e.requirement().endswith(f"#subdirectory=plugins/{name}")
 
 
 def test_split_families_provide_their_types():

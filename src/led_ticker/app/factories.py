@@ -292,21 +292,19 @@ _EXTRACTED_TYPES: dict[str, tuple[str, str]] = {
     "coingecko": (
         "Widget type 'coingecko' was removed from led-ticker core; it now ships "
         "in the led-ticker-plugins monorepo as 'crypto.coingecko'.",
-        "Install the crypto plugin (add "
-        "`git+https://github.com/JamesAwesome/led-ticker-plugins.git"
-        "@crypto-v0.1.0#subdirectory=plugins/crypto` to "
-        'config/requirements-plugins.txt) and use type = "crypto.coingecko".',
+        "Install the crypto plugin (`pip install led-ticker-crypto`, or add "
+        "`led-ticker-crypto` to config/requirements-plugins.txt and rebuild) "
+        'and use type = "crypto.coingecko".',
     ),
     "coinbase": (
         "Widget type 'coinbase' was retired from led-ticker core (no direct "
         "replacement). For a crypto price ticker, the crypto plugin offers "
         "'crypto.coingecko' — note it needs a CoinGecko symbol_id (e.g. "
         '"bitcoin").',
-        "Install the crypto plugin (add "
-        "`git+https://github.com/JamesAwesome/led-ticker-plugins.git"
-        "@crypto-v0.1.0#subdirectory=plugins/crypto` to "
-        'config/requirements-plugins.txt) and use type = "crypto.coingecko" '
-        "with a symbol_id, or remove the widget.",
+        "Install the crypto plugin (`pip install led-ticker-crypto`, or add "
+        "`led-ticker-crypto` to config/requirements-plugins.txt and rebuild) "
+        'and use type = "crypto.coingecko" with a symbol_id, or remove the '
+        "widget.",
     ),
     "etherscan": (
         "Widget type 'etherscan' was retired from led-ticker core and has no "
@@ -316,26 +314,23 @@ _EXTRACTED_TYPES: dict[str, tuple[str, str]] = {
     "calendar": (
         "Widget type 'calendar' was extracted from led-ticker core; it now ships "
         "in the led-ticker-plugins monorepo as 'calendar.events'.",
-        "Install the calendar plugin (add "
-        "`git+https://github.com/JamesAwesome/led-ticker-plugins.git"
-        "@calendar-v0.1.0#subdirectory=plugins/calendar` to "
-        'config/requirements-plugins.txt) and use type = "calendar.events".',
+        "Install the calendar plugin (`pip install led-ticker-calendar`, or add "
+        "`led-ticker-calendar` to config/requirements-plugins.txt and rebuild) "
+        'and use type = "calendar.events".',
     ),
     "rss_feed": (
         "Widget type 'rss_feed' was extracted from led-ticker core; it now ships "
         "in the led-ticker-plugins monorepo as 'rss.feed'.",
-        "Install the rss plugin (add "
-        "`git+https://github.com/JamesAwesome/led-ticker-plugins.git"
-        "@rss-v0.2.0#subdirectory=plugins/rss` to "
-        'config/requirements-plugins.txt) and use type = "rss.feed".',
+        "Install the rss plugin (`pip install led-ticker-rss`, or add "
+        "`led-ticker-rss` to config/requirements-plugins.txt and rebuild) "
+        'and use type = "rss.feed".',
     ),
     "weather": (
         "Widget type 'weather' was extracted from led-ticker core; it now ships "
         "in the led-ticker-plugins monorepo as 'weather.current'.",
-        "Install the weather plugin (add "
-        "`git+https://github.com/JamesAwesome/led-ticker-plugins.git"
-        "@weather-v0.2.0#subdirectory=plugins/weather` to "
-        'config/requirements-plugins.txt) and use type = "weather.current".',
+        "Install the weather plugin (`pip install led-ticker-weather`, or add "
+        "`led-ticker-weather` to config/requirements-plugins.txt and rebuild) "
+        'and use type = "weather.current".',
     ),
     # Pre-split led-ticker-feeds plugin names (that repo is archived). A stale
     # config using these must RENAME to the split package types — not "install
@@ -343,19 +338,17 @@ _EXTRACTED_TYPES: dict[str, tuple[str, str]] = {
     "feeds.rss": (
         "Widget type 'feeds.rss' was renamed when the led-ticker-feeds plugin "
         "split; it now ships in the led-ticker-plugins monorepo as 'rss.feed'.",
-        "Install the rss plugin (add "
-        "`git+https://github.com/JamesAwesome/led-ticker-plugins.git"
-        "@rss-v0.2.0#subdirectory=plugins/rss` to "
-        'config/requirements-plugins.txt) and use type = "rss.feed".',
+        "Install the rss plugin (`pip install led-ticker-rss`, or add "
+        "`led-ticker-rss` to config/requirements-plugins.txt and rebuild) "
+        'and use type = "rss.feed".',
     ),
     "feeds.weather": (
         "Widget type 'feeds.weather' was renamed when the led-ticker-feeds "
         "plugin split; it now ships in the led-ticker-plugins monorepo as "
         "'weather.current'.",
-        "Install the weather plugin (add "
-        "`git+https://github.com/JamesAwesome/led-ticker-plugins.git"
-        "@weather-v0.2.0#subdirectory=plugins/weather` to "
-        'config/requirements-plugins.txt) and use type = "weather.current".',
+        "Install the weather plugin (`pip install led-ticker-weather`, or add "
+        "`led-ticker-weather` to config/requirements-plugins.txt and rebuild) "
+        'and use type = "weather.current".',
     ),
 }
 

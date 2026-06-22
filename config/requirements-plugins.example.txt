@@ -7,37 +7,38 @@
 # a version that core already pins (that fails the build).
 #
 # Deploy notes:
-# - For production signs, pin a plugin to a tag or commit SHA rather than @main.
-#   A moving branch silently changes what the next `docker compose up --build`
-#   installs; the constraint-based install catches dependency drift but NOT code
-#   drift.
+# - For production signs, pin first-party data plugins to a version with ==
+#   (e.g. led-ticker-pool==0.1.0) so a rebuild doesn't silently pick up a new
+#   release. PyPI installs can pin with == (unpinned shown below for easy copying).
+# - Homage / third-party plugins install from a git URL with the #subdirectory=
+#   fragment; for those, pin to a tag or commit SHA rather than @main to avoid
+#   silent code drift on rebuild.
 # - Each sign's config/requirements-plugins.txt is gitignored, so it must be
 #   present (copied from this file) and trimmed to the plugins that sign uses.
 #   The sign's gitignored config/config.toml must reference installed plugin
 #   widgets — both files need updating and a rebuild at deploy time.
 #
-# Each line installs ONE plugin from the led-ticker-plugins monorepo via pip's
-# git "#subdirectory=" fragment. Pin to the plugin's namespaced tag for prod
-# (shown); use @main for the latest. Delete the lines for plugins you don't use.
+# First-party data plugins are on PyPI — install them by name.
+# Homage sprite-trail plugins are NOT on PyPI; use the git subdirectory form.
 
 # Pool water-temperature widget (type = "pool.monitor"):
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@pool-v0.1.0#subdirectory=plugins/pool
+led-ticker-pool
 
 # Baseball / MLB widgets (baseball.scores / .standings / .promotions / .statcast
 # / .attendance), the baseball.roll* transitions, and the :baseball.ball: emoji:
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@baseball-v0.1.0#subdirectory=plugins/baseball
+led-ticker-baseball
 
 # CoinGecko crypto price ticker (type = "crypto.coingecko"):
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@crypto-v0.1.0#subdirectory=plugins/crypto
+led-ticker-crypto
 
 # Calendar (.ics) agenda/next/two_row widget (type = "calendar.events"):
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@calendar-v0.1.0#subdirectory=plugins/calendar
+led-ticker-calendar
 
 # RSS/Atom feed headlines (type = "rss.feed"):
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@rss-v0.2.0#subdirectory=plugins/rss
+led-ticker-rss
 
 # Current-conditions weather, WeatherAPI.com (type = "weather.current"):
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@weather-v0.2.0#subdirectory=plugins/weather
+led-ticker-weather
 
 # Nyan Cat sprite-trail transitions (transition = "nyancat.forward" / ".reverse" / ".alternating"):
 git+https://github.com/JamesAwesome/led-ticker-plugins.git@nyancat-v0.1.0#subdirectory=plugins/nyancat

@@ -8,6 +8,7 @@
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pool",
       "provides": { "widgets": ["pool.monitor"] },
       "sources": [
+        { "type": "pypi", "package": "led-ticker-pool" },
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "pool-v0.1.0", "subdirectory": "plugins/pool" }
       ]
     },
@@ -22,6 +23,7 @@
         "emoji": ["baseball.ball"]
       },
       "sources": [
+        { "type": "pypi", "package": "led-ticker-baseball" },
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "baseball-v0.1.0", "subdirectory": "plugins/baseball" }
       ]
     },
@@ -32,6 +34,7 @@
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/crypto",
       "provides": { "widgets": ["crypto.coingecko"] },
       "sources": [
+        { "type": "pypi", "package": "led-ticker-crypto" },
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "crypto-v0.2.0", "subdirectory": "plugins/crypto" }
       ]
     },
@@ -42,6 +45,7 @@
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/calendar",
       "provides": { "widgets": ["calendar.events"] },
       "sources": [
+        { "type": "pypi", "package": "led-ticker-calendar" },
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "calendar-v0.1.0", "subdirectory": "plugins/calendar" }
       ]
     },
@@ -52,6 +56,7 @@
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/rss",
       "provides": { "widgets": ["rss.feed"] },
       "sources": [
+        { "type": "pypi", "package": "led-ticker-rss" },
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "rss-v0.2.0", "subdirectory": "plugins/rss" }
       ]
     },
@@ -62,6 +67,7 @@
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/weather",
       "provides": { "widgets": ["weather.current"] },
       "sources": [
+        { "type": "pypi", "package": "led-ticker-weather" },
         { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "weather-v0.2.0", "subdirectory": "plugins/weather" }
       ]
     },

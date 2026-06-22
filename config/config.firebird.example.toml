@@ -63,8 +63,9 @@ transition_colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [255, 244, 214
 # ---------------------------------------------------------------------------
 # Section 1 — Logo hero (full-panel banner with rainbow border)
 #
-# Uses phoenix.png — the Firebird logo mark.
-# letterbox fit means tiny black bars top/bottom; rainbow border frames it.
+# Uses phoenix.png — the Firebird logo mark (220×220, square).
+# pillarbox fit centers the square sprite with black bars left/right;
+# rainbow border frames it.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -77,7 +78,8 @@ transition_duration = 1.0
 [[playlist.section.widget]]
 type = "image"
 path = "assets/phoenix.png"
-fit = "letterbox"
+fit = "pillarbox"
+image_align = "center"
 hold_time = 6.0
 border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 

@@ -19,6 +19,7 @@ duration = 0.5
 mode = "swap"
 loop_count = 1
 hold_time = 2.5
+transition = "push_left"
 
 [[playlist.section.widget]]
 type = "message"

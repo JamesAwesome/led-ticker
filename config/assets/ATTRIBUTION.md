@@ -11,4 +11,8 @@ configs and docs demos. All formats are derived from a single CC0 source by
 - **Derived:** `phoenix.gif`, `phoenix_transparent.gif`, `phoenix.png`, `phoenix_transparent.png`,
   `phoenix.webp` (220×220, nearest-neighbor upscale).
 
-Real-brand or third-party media is never committed — it is gitignored per-deployment.
+Real-brand / customer-IP media is not committed — users add their own locally (drop files
+into `config/assets/` and reference them in config). The repo also ships `pride.gif` and
+`pride_trans.gif` as generic demo assets; these have been in the project since its earliest
+public history and do not carry a known licence record. They are tracked here for now and
+will be replaced with project-generated CC0 equivalents in a follow-up (tracked).

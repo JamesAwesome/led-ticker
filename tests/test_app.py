@@ -1127,6 +1127,50 @@ class TestBuildTransObj:
         assert obj is not None
 
 
+class TestBuildTransObjGuarded:
+    """`_build_trans_obj_guarded` degrades an un-buildable transition (e.g. an
+    uninstalled plugin transition referenced in `between_sections` or a section
+    `transition`) to None (= cut) + a logged warning, instead of raising and
+    crashing the sign — parity with `_build_widget_guarded`. The unguarded
+    `_build_trans_obj` still raises so `led-ticker validate` can report it."""
+
+    def test_unknown_plugin_transition_degrades_to_none_with_log(self, caplog):
+        import logging
+
+        from led_ticker.app.run import _build_trans_obj_guarded
+        from led_ticker.config import TransitionConfig
+
+        # The exact case from the field crash: a plugin transition whose plugin
+        # isn't installed.
+        cfg = TransitionConfig(type="arcade.nyancat_alternating")
+
+        # Unguarded path raises (validate.py relies on this).
+        with pytest.raises(ValueError):
+            _build_trans_obj(cfg)
+
+        # Guarded path degrades to None and logs which type failed.
+        with caplog.at_level(logging.WARNING):
+            assert _build_trans_obj_guarded(cfg) is None
+        assert any(
+            "arcade.nyancat_alternating" in r.message for r in caplog.records
+        ), "the failing transition type should be logged"
+
+    def test_cut_returns_none(self):
+        from led_ticker.app.run import _build_trans_obj_guarded
+        from led_ticker.config import TransitionConfig
+
+        assert _build_trans_obj_guarded(TransitionConfig(type="cut")) is None
+
+    def test_valid_transition_still_built(self):
+        from led_ticker.app.run import _build_trans_obj_guarded
+        from led_ticker.config import TransitionConfig
+        from led_ticker.transitions import get_transition_class
+
+        obj = _build_trans_obj_guarded(TransitionConfig(type="dissolve"))
+        assert obj is not None
+        assert isinstance(obj, get_transition_class("dissolve"))
+
+
 class TestSectionTransitionFiresOnEntry:
     """Integration: when a section explicitly specifies `transition`,
     the engine uses that transition for the inter-section ENTRY (not

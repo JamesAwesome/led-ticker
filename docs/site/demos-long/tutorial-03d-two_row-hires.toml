@@ -32,7 +32,7 @@ scroll_step_ms = 35
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = ":instagram: @firebird"
+top_text = ":instagram: @firebird.demo"
 top_row_height = 16
 top_font = "Inter-Bold"
 top_font_size = 22

@@ -154,7 +154,7 @@ flow" for hot yoga.
 | slot | value |
 |------|-------|
 | Instagram (full) | `@firebirdyoga.demo` |
-| Instagram (short, ≤12 chars for narrow panels) | `@firebird` |
+| Instagram (short, narrow panels) | `@firebird.demo` |
 | web | `firebirdyoga.demo` |
 | email | `hello@firebirdyoga.demo` |
 

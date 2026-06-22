@@ -19,7 +19,7 @@ scroll_step_ms = 35
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = "@firebird"
+top_text = "@firebird.demo"
 top_row_height = 10
 top_font = "Inter-Bold"
 top_font_size = 14

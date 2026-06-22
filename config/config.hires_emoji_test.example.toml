@@ -2,8 +2,8 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-feeds   feeds.weather
-#   led-ticker-arcade  :arcade.pokeball: (emoji)
+#   led-ticker-weather  weather.current
+#   led-ticker-pokeball :pokeball.ball: (emoji)
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────
@@ -18,7 +18,7 @@
 # bigsign's LEDs (bypassing ScaledCanvas's 4×4 block expansion). Slugs
 # with a hi-res variant:
 #   :moon: :instagram: :sun: :star: :email: :flower: :taco:
-#   :bunny: :heart: :arcade.pokeball: :cloud: :rain: :snow: :thunder: :fog:
+#   :bunny: :heart: :pokeball.ball: :cloud: :rain: :snow: :thunder: :fog:
 # Heart rainbow variants:
 #   :heart_red: :heart_orange: :heart_yellow: :heart_green:
 #   :heart_blue: :heart_purple: :heart_pink:
@@ -116,7 +116,7 @@ bottom_align = "center"
 # Hold for 6s so you can scan all five at once instead of waiting through
 # a one-at-a-time cycle.
 #
-# Followed by a real `type = "feeds.weather"` widget so the actual hires path
+# Followed by a real `type = "weather.current"` widget so the actual hires path
 # the WeatherWidget uses (via `pixel_emoji.draw_emoji_at`) is exercised
 # end-to-end on the panel — a `type = "message"` widget with raw slugs
 # tests the renderer but not the widget's layout / icon / temp split.
@@ -140,7 +140,7 @@ text = ":cloud::rain::snow::thunder::fog:"
 font_color = [255, 240, 200]
 
 [[playlist.section.widget]]
-type = "feeds.weather"
+type = "weather.current"
 location = { lat = 40.7, lon = -74.0 }  # NYC; replace with your own
 text = "NYC"
 font_color = [200, 220, 255]
@@ -165,7 +165,7 @@ font_color = [255, 240, 200]
 
 [[playlist.section.widget]]
 type = "message"
-text = ":moon::sun::star::instagram::email::flower::taco::bunny::heart::arcade.pokeball:"
+text = ":moon::sun::star::instagram::email::flower::taco::bunny::heart::pokeball.ball:"
 font_color = [255, 240, 200]
 
 # ---------------------------------------------------------------------------

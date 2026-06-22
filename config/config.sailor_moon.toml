@@ -2,7 +2,7 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-arcade  arcade.sailor_moon_alternating
+#   led-ticker-sailor_moon  sailor_moon.alternating
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────
@@ -22,16 +22,16 @@ hardware_mapping = "adafruit-hat"
 delay = 5
 
 [transitions]
-default = "arcade.sailor_moon_alternating"
+default = "sailor_moon.alternating"
 duration = 2.0
 easing = "linear"
-between_sections = {type = "arcade.sailor_moon_alternating", duration = 2.0}
+between_sections = {type = "sailor_moon.alternating", duration = 2.0}
 
 # --- Messages (sailor_moon transition) ---
 
 [[playlist.section]]
 mode = "swap"
-transition = "arcade.sailor_moon_alternating"
+transition = "sailor_moon.alternating"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 0

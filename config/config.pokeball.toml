@@ -2,7 +2,7 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-arcade  arcade.pokeball, arcade.pokeball_alternating
+#   led-ticker-pokeball  pokeball.forward / .alternating
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────
@@ -22,12 +22,12 @@ hardware_mapping = "adafruit-hat"
 delay = 3
 
 [transitions]
-between_sections = {type = "arcade.pokeball_alternating", duration = 2.0}
+between_sections = {type = "pokeball.alternating", duration = 2.0}
 
 # --- pokeball (long text) ---
 [[playlist.section]]
 mode = "swap"
-transition = "arcade.pokeball"
+transition = "pokeball.forward"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1
@@ -47,7 +47,7 @@ text = "pokeball DONE"
 # --- pokeball (short text) ---
 [[playlist.section]]
 mode = "swap"
-transition = "arcade.pokeball"
+transition = "pokeball.forward"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1
@@ -67,7 +67,7 @@ text = "pokeball short DONE"
 # --- pokeball (slow roll) ---
 [[playlist.section]]
 mode = "swap"
-transition = "arcade.pokeball"
+transition = "pokeball.forward"
 transition_duration = 4.0
 hold_time = 4
 loop_count = 1

@@ -2,7 +2,9 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-arcade    arcade.nyancat*, arcade.pacman*, arcade.pokeball*, arcade.sailor_moon
+#   led-ticker-nyancat   nyancat.forward / .reverse / .alternating
+#   led-ticker-pacman    pacman.forward / .reverse / .alternating
+#   led-ticker-pokeball  pokeball.forward / .reverse / .alternating
 #   led-ticker-baseball  baseball.roll*
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
@@ -46,7 +48,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "arcade.pacman"
+  type = "pacman.forward"
   duration = 1.5
 
   [[playlist.section.widget]]
@@ -60,7 +62,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "arcade.pacman_reverse"
+  type = "pacman.reverse"
   duration = 1.5
 
   [[playlist.section.widget]]
@@ -74,7 +76,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "arcade.pacman_alternating"
+  type = "pacman.alternating"
   duration = 1.5
 
   [[playlist.section.widget]]
@@ -144,7 +146,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "arcade.pokeball"
+  type = "pokeball.forward"
   duration = 1.5
 
   [[playlist.section.widget]]
@@ -158,7 +160,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "arcade.pokeball_reverse"
+  type = "pokeball.reverse"
   duration = 1.5
 
   [[playlist.section.widget]]
@@ -172,7 +174,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "arcade.pokeball_alternating"
+  type = "pokeball.alternating"
   duration = 1.5
 
   [[playlist.section.widget]]
@@ -192,7 +194,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "arcade.pokeball"
+  type = "pokeball.forward"
   duration = 1.5
   show_pokeball = false
 
@@ -208,7 +210,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "arcade.pokeball"
+  type = "pokeball.forward"
   duration = 1.5
   show_pikachu = false
 
@@ -225,7 +227,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "arcade.nyancat"
+  type = "nyancat.forward"
   duration = 1.2
 
   [[playlist.section.widget]]
@@ -239,7 +241,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "arcade.nyancat_reverse"
+  type = "nyancat.reverse"
   duration = 1.2
 
   [[playlist.section.widget]]
@@ -253,7 +255,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "arcade.nyancat_alternating"
+  type = "nyancat.alternating"
   duration = 1.2
 
   [[playlist.section.widget]]
@@ -275,7 +277,7 @@ hold_time = 2.0
 loop_count = 2
 
   [playlist.section.transition]
-  type = "arcade.sailor_moon"
+  type = "sailor_moon.forward"
   duration = 1.2
 
   [[playlist.section.widget]]

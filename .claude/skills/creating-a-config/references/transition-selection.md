@@ -13,7 +13,7 @@ Use this guide to **choose** a transition (by tone) and **wire** it into the con
 | Tone | Suggested transitions |
 |------|----------------------|
 | Minimal | `cut`, `wipe_left`, `wipe_right` |
-| Playful | `arcade.nyancat_alternating`, `arcade.pokeball_alternating`, `arcade.pacman_alternating` (requires `led-ticker-arcade` plugin) |
+| Playful | `nyancat.alternating`, `pokeball.alternating`, `pacman.alternating` (requires per-family plugin — `led-ticker-nyancat`, `led-ticker-pokeball`, `led-ticker-pacman`) |
 | Info-dense | `push_up`, `wipe_up`, `dissolve` |
 | Branded-pro | `wipe_alternating` with brand `transition_color`, `cut`, `color_flash` |
 
@@ -23,7 +23,7 @@ Use this guide to **choose** a transition (by tone) and **wire** it into the con
 
 **Global fallback:** Set `[transitions] between_sections = "wipe_left"` to use `wipe_left` when a section doesn't specify a transition.
 
-**Per-section override:** Set `transition = "arcade.pokeball"` in a section's TOML to use `arcade.pokeball` for BOTH:
+**Per-section override:** Set `transition = "pokeball.forward"` in a section's TOML to use `pokeball.forward` for BOTH:
 1. The inter-section ENTRY when this section appears (overrides `between_sections`).
 2. The inter-widget transitions (between multiple widgets within the section).
 
@@ -39,7 +39,7 @@ For independent control over entry and within-section transitions, use the dedic
 ```toml
 [[playlist.section]]
 mode = "swap"
-entry_transition = "arcade.pokeball"     # this section pops in with pokeball (requires led-ticker-arcade)
+entry_transition = "pokeball.forward"     # this section pops in with pokeball (requires led-ticker-pokeball)
 widget_transition = "wipe_left"          # widgets within the section wipe left between swaps
 ```
 

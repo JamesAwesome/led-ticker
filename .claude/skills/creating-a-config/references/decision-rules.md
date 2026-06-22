@@ -146,7 +146,7 @@ These rules are the validation checklist. The skill consults this file at every 
 
 **SYMPTOM:** Config load raises: "animation is only valid on type='message', 'gif', or 'image'."
 
-**FIX:** Remove `animation = "typewriter"` from data widgets (weather, rss_feed, crypto, plugin data widgets like `baseball.scores`, etc.). Typewriter is supported on:
+**FIX:** Remove `animation = "typewriter"` from data widgets (`weather.current`, `rss.feed`, `crypto.coingecko`, plugin data widgets like `baseball.scores`, etc.). Typewriter is supported on:
 - `message` / `countdown` — full support
 - `gif` / `image` — single-row only (see rule 14 for constraints)
 
@@ -186,7 +186,7 @@ For other widgets, use `font_color = "rainbow"` or other color effects instead.
 
 **SYMPTOM:** Config load raises with a loud failure message: "Border is restricted to message, countdown, two_row, gif, and image widget types."
 
-**FIX:** Remove the `border` field from data widgets (weather, rss_feed, crypto widgets, and plugin data widgets like `baseball.scores` / `baseball.standings`). Border paints an animated ring around the panel perimeter — meaningful only for presentation widgets, not data displays. Assign `border` only to message, countdown, two_row, gif, or image widgets.
+**FIX:** Remove the `border` field from data widgets (`weather.current`, `rss.feed`, `crypto.coingecko`, and plugin data widgets like `baseball.scores` / `baseball.standings`). Border paints an animated ring around the panel perimeter — meaningful only for presentation widgets, not data displays. Assign `border` only to message, countdown, two_row, gif, or image widgets.
 
 ---
 

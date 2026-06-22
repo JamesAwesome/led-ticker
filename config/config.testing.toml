@@ -2,7 +2,7 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-arcade  arcade.nyancat, arcade.nyancat_reverse
+#   led-ticker-nyancat  nyancat.forward / .reverse
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────
@@ -272,7 +272,7 @@ text = "wipe_down DONE"
 # --- nyancat ---
 [[playlist.section]]
 mode = "swap"
-transition = "arcade.nyancat"
+transition = "nyancat.forward"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1
@@ -292,7 +292,7 @@ text = "nyancat DONE"
 # --- nyancat_reverse ---
 [[playlist.section]]
 mode = "swap"
-transition = "arcade.nyancat_reverse"
+transition = "nyancat.reverse"
 transition_duration = 2.0
 hold_time = 4
 loop_count = 1

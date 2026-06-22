@@ -48,7 +48,10 @@ RUN cd /opt && \
 # `pip freeze` which emits an unusable `-e ...` line.
 FROM rgbmatrix
 WORKDIR /code
-COPY pyproject.toml /code/
+# pyproject now declares readme + license-files (PEP 639), which hatchling reads
+# at install/metadata time — copy README.md + LICENSE alongside pyproject so the
+# editable install in this deps-only layer doesn't fail on the missing files.
+COPY pyproject.toml README.md LICENSE /code/
 RUN pip install --no-cache-dir -e ".[dev]" \
  && pip list --format=freeze > /code/constraints-core.txt
 

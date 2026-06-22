@@ -92,8 +92,8 @@ font_threshold = 128  # default — inverts weight contrast
 |-----------|----------|
 | "Instagram @handle" | `:instagram: @handle` in `two_row.bottom_text` |
 | "Email me@example.com" | `:email: me@example.com` in `two_row.bottom_text` |
-| "Weather in Brooklyn" | `[weather]` widget with `location = "Brooklyn, NY"` |
-| "RSS feed at <url>" | `[rss_feed]` widget with `feed_url = "<url>"` |
+| "Weather in Brooklyn" | `weather.current` widget with `location = "Brooklyn, NY"` |
+| "RSS feed at <url>" | `rss.feed` widget with `feed_url = "<url>"` |
 | "Mets fan" | `baseball.scores` widget with `team = "NYM"` (needs the `led-ticker-baseball` plugin) |
 | "BTC price" | `crypto.coingecko` widget (via `led-ticker-crypto` plugin) with `symbol_id = "bitcoin"`, `symbol = "BTC"`, `currency = "USD"` |
 | "Countdown to <date>" | `[countdown]` widget with `date = "<YYYY-MM-DD>"` |

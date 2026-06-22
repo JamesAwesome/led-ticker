@@ -53,7 +53,7 @@ text = "Weather"
 color = [255, 150, 190]
 
 [[playlist.section.widget]]   # one or more widgets per section
-type = "weather"
+type = "weather.current"
 location = "Brooklyn"
 units = "imperial"
 
@@ -124,7 +124,7 @@ Ask these questions (5–7 total, condensed where possible):
 
 1. **Default transition + duration + easing** — offer 3 picks based on Phase 1 tone. Consult the "Selecting a transition" table in `references/transition-selection.md`:
    - Minimal → `cut` or `wipe_left`
-   - Playful → `nyancat_alternating` or `pokeball_alternating`
+   - Playful → `nyancat.alternating` or `pokeball.alternating`
    - Info-dense → `push_up` or `wipe_up`
    - Branded-pro → `wipe_alternating` with `transition_color` from the brand palette
 2. **`between_sections` transition** — usually different from the default; suggest `dissolve` for branded-pro, `cut` for minimal.
@@ -149,7 +149,7 @@ Print:
 
 Load `references/widget-selection.md`, `references/snippets.md`, `references/asset-handling.md`, `references/decision-rules.md`. For each chosen widget's options, read its fact-pack `docs/content-source/widgets/<type>.md` — the source of truth for params.
 
-1. Read `config/config.toml`. Extract: sign target (from `default_scale` + display dims), brand colors (from `bg_color` / common `font_color` values), default transition / hold / easing, existing sections list. Also **infer use_case** from existing widgets — e.g., presence of the `baseball.scores` / `baseball.standings` plugin widgets (`led-ticker-baseball`) → `sports`; multiple `rss_feed` + `weather` → `personal_feed`; a single `gif`/`image` filling the panel → `art`; mixed content with brand colors + handle → `store_window`. The inferred use_case drives snippet lookup in step 3. If you're not confident, ask the user: "I'm reading this as a <X> config — does that match?"
+1. Read `config/config.toml`. Extract: sign target (from `default_scale` + display dims), brand colors (from `bg_color` / common `font_color` values), default transition / hold / easing, existing sections list. Also **infer use_case** from existing widgets — e.g., presence of the `baseball.scores` / `baseball.standings` plugin widgets (`led-ticker-baseball`) → `sports`; multiple `rss.feed` + `weather.current` → `personal_feed`; a single `gif`/`image` filling the panel → `art`; mixed content with brand colors + handle → `store_window`. The inferred use_case drives snippet lookup in step 3. If you're not confident, ask the user: "I'm reading this as a <X> config — does that match?"
 2. Ask: "What kind of section do you want to add?" — multi-select from `references/widget-selection.md`.
 3. For each chosen widget: same flow as `new` Phase 2 — look up the snippet by (inferred-use_case × widget × sign) in `references/snippets.md`, ask the snippet's "must customize" questions, collect any assets, write the section TOML, run per-section lint.
 4. Ask: "Where to insert?" — end / before \<section N\> / after \<section N\>.
@@ -180,7 +180,7 @@ Load `references/decision-rules.md`, `references/widget-selection.md`, `referenc
    |---------|---------|---------|
    | Too small at far + bigsign + currently BDF | `font` field on text widgets | Hires Inter at `font_size = 24–32` (consult `references/asset-handling.md` distance table). Migrate from BDF default. |
    | Too small + already hires | `font_size` value | Bump `font_size` up one tier (16→22, 22→28, 28→32). |
-   | Too aggressive / busy | `font_color`, `border`, transitions | Swap per-char `rainbow` → `color_cycle`. Replace `wipe_alternating` / `nyancat_alternating` → `cut` or `wipe_left`. Lengthen `hold_time` by 50%. Drop animated `border` to constant or remove. |
+   | Too aggressive / busy | `font_color`, `border`, transitions | Swap per-char `rainbow` → `color_cycle`. Replace `wipe_alternating` / `nyancat.alternating` → `cut` or `wipe_left`. Lengthen `hold_time` by 50%. Drop animated `border` to constant or remove. |
    | Too slow / too much dead time | `hold_time`, `transition_duration` | Reduce `hold_time` by 30–50%. If `transition_duration > 1000`, drop to 600. Consider `cut` for inter-widget transitions. |
    | Too fast / can't read it | `hold_time`, `transition_duration` | Raise `hold_time` by 50%. If using fast transitions (`cut`, `push_left` at 400ms), bump duration to 800ms or swap to a wipe. |
    | Wrong colors / bad contrast | `bg_color` vs `font_color` luminance | If both colors are light or both are dark, adjust one for contrast (rough luminance heuristic: sum of RGB channels; push them apart). For brand-locked colors, propose adding a `border` for separation. |

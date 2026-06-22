@@ -2,7 +2,7 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-arcade  arcade.pacman, arcade.pacman_reverse, arcade.pacman_alternating
+#   led-ticker-pacman  pacman.forward / .reverse / .alternating
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────
@@ -22,12 +22,12 @@ hardware_mapping = "adafruit-hat"
 delay = 3
 
 [transitions]
-between_sections = {type = "arcade.pacman_alternating", duration = 3.0}
+between_sections = {type = "pacman.alternating", duration = 3.0}
 
 # --- pacman (long text) ---
 [[playlist.section]]
 mode = "swap"
-transition = "arcade.pacman"
+transition = "pacman.forward"
 transition_duration = 3.0
 hold_time = 4
 loop_count = 1
@@ -47,7 +47,7 @@ text = "pacman DONE"
 # --- pacman (short text) ---
 [[playlist.section]]
 mode = "swap"
-transition = "arcade.pacman"
+transition = "pacman.forward"
 transition_duration = 3.0
 hold_time = 4
 loop_count = 1
@@ -63,7 +63,7 @@ text = "Power pellet!"
 # --- pacman_reverse ---
 [[playlist.section]]
 mode = "swap"
-transition = "arcade.pacman_reverse"
+transition = "pacman.reverse"
 transition_duration = 3.0
 hold_time = 4
 loop_count = 1

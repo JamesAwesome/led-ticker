@@ -2,7 +2,9 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-arcade  arcade.nyancat*, arcade.pokeball*, arcade.sailor_moon*
+#   led-ticker-nyancat      nyancat.alternating
+#   led-ticker-pokeball     pokeball.alternating
+#   led-ticker-sailor_moon  sailor_moon.alternating
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────
@@ -40,13 +42,13 @@ delay = 5
 
 # Warm, energizing transitions matching the breath-and-flight brand voice.
 # `wipe_alternating` cycles through directions using brand-colored sweep
-# lines; `arcade.pokeball_alternating` is the section divider — a fun cue that
+# lines; `pokeball.alternating` is the section divider — a fun cue that
 # something new is starting.
 [transitions]
 default = "wipe_alternating"
 duration = 0.8
 easing = "ease_in_out"
-between_sections = "arcade.pokeball_alternating"
+between_sections = "pokeball.alternating"
 # Brand-tinted wipe color pool: flame, amber, dusk, cream
 transition_colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [255, 244, 214]]
 
@@ -142,14 +144,14 @@ font_color = {style = "gradient", from = [255, 92, 38], to = [255, 183, 3]}
 # phoenix_transparent.gif (220×220) pillarboxed on the left at scale=4
 # native res; scrolling text walks across the panel with the rainbow border
 # chasing around the perimeter.
-# Transition pinned to arcade.pokeball_alternating per the user's request.
+# Transition pinned to pokeball.alternating per the user's request.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
 mode = "swap"
 loop_count = 1
 hold_time = 8.0
-transition = "arcade.pokeball_alternating"
+transition = "pokeball.alternating"
 transition_duration = 1.5
 
 [[playlist.section.widget]]
@@ -181,7 +183,7 @@ border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 mode = "swap"
 loop_count = 1
 hold_time = 6.0
-transition = "arcade.nyancat_alternating"
+transition = "nyancat.alternating"
 transition_duration = 2.0
 
 [[playlist.section.widget]]
@@ -277,7 +279,7 @@ font_color = [255, 92, 38]    # flame
 mode = "swap"
 loop_count = 1
 hold_time = 0.5
-transition = "arcade.sailor_moon_alternating"
+transition = "sailor_moon.alternating"
 transition_duration = 2.0
 
 [[playlist.section.widget]]

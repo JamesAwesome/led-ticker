@@ -337,6 +337,26 @@ _EXTRACTED_TYPES: dict[str, tuple[str, str]] = {
         "@weather-v0.2.0#subdirectory=plugins/weather` to "
         'config/requirements-plugins.txt) and use type = "weather.current".',
     ),
+    # Pre-split led-ticker-feeds plugin names (that repo is archived). A stale
+    # config using these must RENAME to the split package types — not "install
+    # the feeds plugin", which no longer exists.
+    "feeds.rss": (
+        "Widget type 'feeds.rss' was renamed when the led-ticker-feeds plugin "
+        "split; it now ships in the led-ticker-plugins monorepo as 'rss.feed'.",
+        "Install the rss plugin (add "
+        "`git+https://github.com/JamesAwesome/led-ticker-plugins.git"
+        "@rss-v0.2.0#subdirectory=plugins/rss` to "
+        'config/requirements-plugins.txt) and use type = "rss.feed".',
+    ),
+    "feeds.weather": (
+        "Widget type 'feeds.weather' was renamed when the led-ticker-feeds "
+        "plugin split; it now ships in the led-ticker-plugins monorepo as "
+        "'weather.current'.",
+        "Install the weather plugin (add "
+        "`git+https://github.com/JamesAwesome/led-ticker-plugins.git"
+        "@weather-v0.2.0#subdirectory=plugins/weather` to "
+        'config/requirements-plugins.txt) and use type = "weather.current".',
+    ),
 }
 
 

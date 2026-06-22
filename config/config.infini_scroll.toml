@@ -2,7 +2,8 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-feeds  feeds.weather, feeds.rss
+#   led-ticker-weather  weather.current
+#   led-ticker-rss      rss.feed
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────
@@ -52,31 +53,31 @@ text = "Weather"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "feeds.weather"
+type = "weather.current"
 text = "New York"
 location = "New York"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "feeds.weather"
+type = "weather.current"
 text = "Philadelphia"
 location = "Philadelphia"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "feeds.weather"
+type = "weather.current"
 text = "Milwaukee"
 location = "Milwaukee"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "feeds.weather"
+type = "weather.current"
 text = "Minneapolis"
 location = "Minneapolis"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "feeds.weather"
+type = "weather.current"
 text = "Washington DC"
 location = "Washington DC"
 units = "imperial"
@@ -134,6 +135,6 @@ text = "Nintendo Life"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "feeds.rss"
+type = "rss.feed"
 feed_url = "https://www.nintendolife.com/feeds/news"
 update_interval = 3000

@@ -2,10 +2,14 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-feeds     feeds.weather, feeds.rss
-#   led-ticker-arcade    arcade.nyancat*, arcade.pacman*, arcade.pokeball*, arcade.sailor_moon*
-#   led-ticker-baseball  baseball.scores, baseball.standings, baseball.statcast, baseball.attendance, baseball.roll*, :baseball.ball:
-#   led-ticker-pool      pool.monitor
+#   led-ticker-weather      weather.current
+#   led-ticker-rss          rss.feed
+#   led-ticker-nyancat      nyancat.alternating
+#   led-ticker-pacman       pacman.alternating
+#   led-ticker-pokeball     pokeball.alternating
+#   led-ticker-sailor_moon  sailor_moon.alternating
+#   led-ticker-baseball     baseball.scores, baseball.standings, baseball.statcast, baseball.attendance, baseball.roll*, :baseball.ball:
+#   led-ticker-pool         pool.monitor
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────
@@ -25,13 +29,13 @@ delay = 5
 default = "push_left"
 duration = 0.5
 easing = "ease_out"
-between_sections = {type = "arcade.nyancat_alternating", duration = 4.0}
+between_sections = {type = "nyancat.alternating", duration = 4.0}
 
 # --- Messages ---
 
 [[playlist.section]]
 mode = "swap"
-transition = "arcade.pacman_alternating"
+transition = "pacman.alternating"
 transition_duration = 3.0
 continuous_scroll = true
 loop_count = 1
@@ -67,31 +71,31 @@ text = "Weather"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "feeds.weather"
+type = "weather.current"
 text = "New York"
 location = "New York"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "feeds.weather"
+type = "weather.current"
 text = "Philadelphia"
 location = "Philadelphia"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "feeds.weather"
+type = "weather.current"
 text = "Milwaukee"
 location = "Milwaukee"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "feeds.weather"
+type = "weather.current"
 text = "Minneapolis"
 location = "Minneapolis"
 units = "imperial"
 
 [[playlist.section.widget]]
-type = "feeds.weather"
+type = "weather.current"
 text = "Washington DC"
 location = "Washington DC"
 units = "imperial"
@@ -137,7 +141,7 @@ countdown_date = 2027-01-01
 
 [[playlist.section]]
 mode = "swap"
-transition = "arcade.pokeball_alternating"
+transition = "pokeball.alternating"
 transition_duration = 2.0
 continuous_scroll = true
 loop_count = 1
@@ -148,7 +152,7 @@ text = "Nintendo Life"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "feeds.rss"
+type = "rss.feed"
 feed_url = "https://www.nintendolife.com/feeds/news"
 update_interval = 3000  # 50 minutes
 
@@ -241,7 +245,7 @@ timezone = "America/New_York"
 
 [[playlist.section]]
 mode = "swap"
-transition = "arcade.sailor_moon_alternating"
+transition = "sailor_moon.alternating"
 transition_duration = 2.0
 continuous_scroll = true
 loop_count = 1
@@ -252,7 +256,7 @@ text = "Anime News Network"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "feeds.rss"
+type = "rss.feed"
 feed_url = "https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us"
 update_interval = 3000  # 50 minutes
 
@@ -268,10 +272,10 @@ type = "message"
 text = ":droplet: Pool Temps"
 font_color = "random"
 
-# The pool widget is now the `led-ticker-pool` plugin (type = "pool.monitor").
-# Install it for this config to work (the repo Dockerfile already does this):
-#   pip install "git+https://github.com/JamesAwesome/led-ticker-pool.git@main"
-# (the repo's Dockerfile already installs it; entry-point auto-registers it).
+# The pool widget is the `led-ticker-pool` plugin (type = "pool.monitor").
+# Install it by adding it to config/requirements-plugins.txt (copy the tracked
+# .example, which already lists it) and rebuild — see https://docs.ledticker.dev/plugins/ .
+# The entry point auto-registers it.
 [[playlist.section.widget]]
 type = "pool.monitor"
 title = "POOL TEMPS"

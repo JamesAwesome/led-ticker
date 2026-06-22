@@ -2,8 +2,11 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-feeds   feeds.weather
-#   led-ticker-arcade  arcade.nyancat*, arcade.pacman*, arcade.pokeball*, arcade.sailor_moon*
+#   led-ticker-weather      weather.current
+#   led-ticker-nyancat      nyancat.forward / .alternating
+#   led-ticker-pacman       pacman.alternating
+#   led-ticker-pokeball     pokeball.alternating
+#   led-ticker-sailor_moon  sailor_moon.forward / .reverse
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────
@@ -74,7 +77,7 @@ between_sections = "dissolve"
 mode = "swap"
 hold_time = 6.0
 loop_count = 1
-transition = "arcade.sailor_moon"
+transition = "sailor_moon.forward"
 transition_duration = 1.2
 
 [[playlist.section.widget]]
@@ -118,7 +121,7 @@ font_color = {style = "gradient", from = [255, 90, 140], to = [255, 200, 80]}
 mode = "swap"
 hold_time = 6.0
 loop_count = 1
-transition = "arcade.pokeball_alternating"
+transition = "pokeball.alternating"
 transition_duration = 1.2
 
 [[playlist.section.widget]]
@@ -241,11 +244,11 @@ bottom_font_size = 14
 mode = "swap"
 hold_time = 7.0
 loop_count = 1
-transition = "arcade.nyancat"
+transition = "nyancat.forward"
 transition_duration = 1.5
 
 [[playlist.section.widget]]
-type = "feeds.weather"
+type = "weather.current"
 text = "Brooklyn"
 location = "Brooklyn"
 units = "imperial"
@@ -297,7 +300,7 @@ border = {style = "rainbow", speed = 8, char_offset = 12, thickness = 2}
 mode = "swap"
 loop_count = 1
 hold_time = 1.0
-transition = "arcade.pacman_alternating"
+transition = "pacman.alternating"
 transition_duration = 1.5
 
 [[playlist.section.widget]]
@@ -356,7 +359,7 @@ border = "rainbow"
 mode = "swap"
 hold_time = 6.0
 loop_count = 1
-transition = "arcade.sailor_moon_reverse"
+transition = "sailor_moon.reverse"
 transition_duration = 1.2
 
 [[playlist.section.widget]]
@@ -393,7 +396,7 @@ font_color = [180, 200, 255]
 mode = "swap"
 hold_time = 7.0
 loop_count = 1
-transition = "arcade.nyancat_alternating"
+transition = "nyancat.alternating"
 transition_duration = 1.5
 
 [[playlist.section.widget]]

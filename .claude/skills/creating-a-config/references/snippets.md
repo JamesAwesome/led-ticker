@@ -13,10 +13,10 @@ Each snippet cites its source file + line range. The skill copies the snippet ve
 | store_window | gif | big | `gif.store_window.bigsign.logo` |
 | store_window | weather | big | `weather.store_window.bigsign.brand` |
 | store_window | countdown | big | `countdown.store_window.bigsign.hours` |
-| personal_feed | rss_feed | small | `rss_feed.personal_feed.smallsign.headlines` |
-| personal_feed | rss_feed | big | `rss_feed.personal_feed.bigsign.headlines` |
-| personal_feed | weather | small | `weather.personal_feed.smallsign.simple` |
-| personal_feed | weather | big | `weather.personal_feed.bigsign.simple` |
+| personal_feed | rss.feed | small | `rss_feed.personal_feed.smallsign.headlines` |
+| personal_feed | rss.feed | big | `rss_feed.personal_feed.bigsign.headlines` |
+| personal_feed | weather.current | small | `weather.personal_feed.smallsign.simple` |
+| personal_feed | weather.current | big | `weather.personal_feed.bigsign.simple` |
 | event | countdown | small | `countdown.event.smallsign` |
 | event | countdown | big | `countdown.event.bigsign` |
 | sports | baseball.scores (plugin) | small | `mlb.sports.smallsign` |
@@ -153,11 +153,11 @@ font_color = [255, 220, 50]
 mode = "swap"
 hold_time = 7.0
 loop_count = 1
-transition = "arcade.nyancat"
+transition = "nyancat.forward"
 transition_duration = 1.5
 
 [[playlist.section.widget]]
-type = "weather"
+type = "weather.current"
 text = "Brooklyn"
 location = "Brooklyn"
 units = "imperial"
@@ -185,7 +185,7 @@ font_color_temp = [255, 255, 255]
 mode = "swap"
 hold_time = 7.0
 loop_count = 1
-transition = "arcade.nyancat_alternating"
+transition = "nyancat.alternating"
 transition_duration = 1.5
 
 [[playlist.section.widget]]
@@ -212,7 +212,7 @@ font_color = "rainbow"
 ```toml
 [[playlist.section]]
 mode = "swap"
-transition = "arcade.pokeball_alternating"
+transition = "pokeball.alternating"
 transition_duration = 2.0
 continuous_scroll = true
 loop_count = 1
@@ -223,7 +223,7 @@ text = "Nintendo Life"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "rss_feed"
+type = "rss.feed"
 feed_url = "https://www.nintendolife.com/feeds/news"
 update_interval = 3000
 ```
@@ -251,7 +251,7 @@ text = "Nintendo Life"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "rss_feed"
+type = "rss.feed"
 feed_url = "https://www.nintendolife.com/feeds/news"
 max_stories = 1
 font_color = "rainbow"
@@ -283,7 +283,7 @@ text = "Weather"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "weather"
+type = "weather.current"
 text = "New York"
 location = "New York"
 units = "imperial"
@@ -314,7 +314,7 @@ text = "Weather"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "weather"
+type = "weather.current"
 text = "New York"
 location = "New York"
 units = "imperial"
@@ -394,7 +394,7 @@ countdown_date = 2026-09-22
 
 **source:** `config/config.mlb.toml` lines 26–46
 
-**requires plugin:** `led-ticker-baseball` — the `baseball.scores` widget, `baseball.roll*` transition, and `:baseball.ball:` emoji ship as that plugin, not as core. Add `git+https://github.com/JamesAwesome/led-ticker-baseball.git@main` to `config/requirements-plugins.txt` and rebuild before using this snippet.
+**requires plugin:** `led-ticker-baseball` — the `baseball.scores` widget, `baseball.roll*` transition, and `:baseball.ball:` emoji ship as that plugin, not as core. Add `git+https://github.com/JamesAwesome/led-ticker-plugins.git@main#subdirectory=plugins/baseball` to `config/requirements-plugins.txt` and rebuild before using this snippet.
 
 **use when:** small sign (160×16) + live MLB scores for one or more teams. No API key required. `loop_count = 0` means loop until new data arrives.
 
@@ -432,7 +432,7 @@ timezone = "America/New_York"
 
 **source:** `config/config.small_sign.toml` lines 145–166 (adapted for bigsign — same widget, `default_scale = 4` applies globally so no per-section override needed)
 
-**requires plugin:** `led-ticker-baseball` — the `baseball.scores` widget, `baseball.roll*` transition, and `:baseball.ball:` emoji ship as that plugin, not as core. Add `git+https://github.com/JamesAwesome/led-ticker-baseball.git@main` to `config/requirements-plugins.txt` and rebuild before using this snippet.
+**requires plugin:** `led-ticker-baseball` — the `baseball.scores` widget, `baseball.roll*` transition, and `:baseball.ball:` emoji ship as that plugin, not as core. Add `git+https://github.com/JamesAwesome/led-ticker-plugins.git@main#subdirectory=plugins/baseball` to `config/requirements-plugins.txt` and rebuild before using this snippet.
 
 **use when:** bigsign + live MLB scores. Same widget and section shape as `mlb.sports.smallsign`; bigsign renders at full 64px panel height automatically.
 
@@ -470,7 +470,7 @@ timezone = "America/New_York"
 
 **source:** `config/config.mlb_standings.toml` lines 26–43
 
-**requires plugin:** `led-ticker-baseball` — the `baseball.standings` widget and `:baseball.ball:` emoji ship as that plugin, not as core. Add `git+https://github.com/JamesAwesome/led-ticker-baseball.git@main` to `config/requirements-plugins.txt` and rebuild before using this snippet.
+**requires plugin:** `led-ticker-baseball` — the `baseball.standings` widget and `:baseball.ball:` emoji ship as that plugin, not as core. Add `git+https://github.com/JamesAwesome/led-ticker-plugins.git@main#subdirectory=plugins/baseball` to `config/requirements-plugins.txt` and rebuild before using this snippet.
 
 **use when:** bigsign (or small sign) + MLB standings showing top-N teams plus your tracked teams. During offseason shows "Opens [date]". No API key required.
 
@@ -635,7 +635,7 @@ text = "Always be shipping!"
 mode = "swap"
 hold_time = 6.0
 loop_count = 1
-transition = "arcade.sailor_moon"
+transition = "sailor_moon.forward"
 transition_duration = 1.2
 
 [[playlist.section.widget]]

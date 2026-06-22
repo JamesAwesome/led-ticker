@@ -48,7 +48,7 @@ Use this guide to **choose** widgets — what each one is for, when to reach for
 
 ---
 
-## `weather` (WeatherWidget)
+## `weather.current` (WeatherWidget)
 
 **Purpose:** Current temperature + condition icon from WeatherAPI.com.
 
@@ -60,7 +60,7 @@ Use this guide to **choose** widgets — what each one is for, when to reach for
 
 ---
 
-## `rss_feed` (RSSFeedMonitor)
+## `rss.feed` (RSSFeedMonitor)
 
 **Purpose:** Fetches RSS/Atom headlines and displays them as scrolling messages.
 

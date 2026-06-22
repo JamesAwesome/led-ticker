@@ -2,7 +2,8 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-feeds     feeds.rss, feeds.weather (commented example)
+#   led-ticker-rss       rss.feed
+#   led-ticker-weather   weather.current (commented example)
 #   led-ticker-baseball  baseball.scores
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
@@ -154,7 +155,7 @@ text = "Nintendo Life"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "feeds.rss"
+type = "rss.feed"
 feed_url = "https://www.nintendolife.com/feeds/news"
 update_interval = 3000
 
@@ -206,7 +207,7 @@ final_hold_hours = 6
 # loop_count = 1
 #
 # [[playlist.section.widget]]
-# type = "feeds.weather"
+# type = "weather.current"
 # text = "NYC"
 # location = "New York"
 # units = "imperial"

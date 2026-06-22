@@ -509,12 +509,13 @@ async def run(config_path: Path) -> None:
     # prepare_dir needs root to open the status directory on the root-owned
     # volume mountpoint. Tripwire: test_setup_runs_before_frame_build.
     _status_handle = _setup_status_board(config, config_path, plugins)
-    # Validate the loaded config once and surface the full report (logs + status
-    # board). Never fatal: the build-time guards degrade invalid widgets/transitions,
-    # so the sign boots regardless. Runs after plugins load, so installed-plugin
-    # types resolve and only genuinely-unknown names flag.
-    await _run_startup_validation(config_path)
     try:
+        # Validate the loaded config once and surface the full report (logs +
+        # status board). Never fatal: the build-time guards degrade invalid
+        # widgets/transitions, so the sign boots regardless. Runs after plugins
+        # load, so installed-plugin types resolve and only genuinely-unknown
+        # names flag.
+        await _run_startup_validation(config_path)
         led_frame = build_frame_from_config(config.display)
         from led_ticker.render_breaker import RenderBreaker  # noqa: PLC0415
 

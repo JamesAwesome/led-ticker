@@ -90,11 +90,13 @@ Repeat for each plugin package. Tags are scoped by plugin name so all packages c
 
 For each plugin (example shown for `led-ticker-pool`):
 
-1. Confirm the plugin's `pyproject.toml` has the correct version (e.g. `1.0.0`).
+> **Tag format:** `<plugin>-v<version>` using the SHORT plugin name (`pool`, `baseball`, `crypto`, `calendar`, `rss`, `weather`) — NOT the full PyPI package name. This matches the existing tag convention and the allowlist in `scripts/check_release.py`; a full-name tag like `led-ticker-pool-v…` is rejected as an unknown plugin. The `<version>` must equal the plugin's `pyproject.toml` version or the tag-vs-version guard fails the run.
+
+1. Confirm the plugin's `pyproject.toml` version (e.g. `pool` is currently `0.1.0`).
 2. On GitHub (`led-ticker-plugins`): **Releases → Draft a new release**.
-   - Tag: `led-ticker-pool-v1.0.0`
+   - Tag: `pool-v0.1.0`
    - Target: `main`
-   - Title: `led-ticker-pool v1.0.0`
+   - Title: `led-ticker-pool 0.1.0`
    - Click **Publish release**.
 3. The `publish.yml` workflow inspects the tag prefix, resolves to the `plugins/pool/` directory, builds, and pauses for approval.
 4. Approve via **Actions → Review deployments**.
@@ -102,14 +104,14 @@ For each plugin (example shown for `led-ticker-pool`):
 
 Tag prefixes for each plugin:
 
-| Package | Tag prefix example |
+| Package | Release tag (short name + current version) |
 |---|---|
-| `led-ticker-pool` | `led-ticker-pool-v1.0.0` |
-| `led-ticker-baseball` | `led-ticker-baseball-v1.0.0` |
-| `led-ticker-crypto` | `led-ticker-crypto-v1.0.0` |
-| `led-ticker-calendar` | `led-ticker-calendar-v1.0.0` |
-| `led-ticker-rss` | `led-ticker-rss-v1.0.0` |
-| `led-ticker-weather` | `led-ticker-weather-v1.0.0` |
+| `led-ticker-pool` | `pool-v0.1.0` |
+| `led-ticker-baseball` | `baseball-v0.1.0` |
+| `led-ticker-crypto` | `crypto-v0.2.0` |
+| `led-ticker-calendar` | `calendar-v0.1.0` |
+| `led-ticker-rss` | `rss-v0.2.0` |
+| `led-ticker-weather` | `weather-v0.2.0` |
 
 ---
 
@@ -166,7 +168,7 @@ python -m venv /tmp/verify-weather
 PyPI forbids re-uploading a file for an existing version. If a release has an error:
 
 1. Bump the version in the relevant `pyproject.toml` (e.g. `2.0.0` → `2.0.1`).
-2. Create a new GitHub Release with a matching tag (e.g. `v2.0.1` for core, `led-ticker-pool-v1.0.1` for a plugin).
+2. Create a new GitHub Release with a matching tag (e.g. `v2.0.1` for core, `pool-v0.1.1` for a plugin — short plugin name).
 3. The tag-vs-version guard in the workflow checks that the tag version matches `pyproject.toml` — a mismatch fails the build before any upload is attempted.
 
 There is no way to overwrite or delete an already-published version on PyPI. Plan releases accordingly and use the approval gate (section B) to catch mistakes before the upload runs.

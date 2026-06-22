@@ -80,11 +80,21 @@ async def _drive_engine(
     ``fonts/`` subdirectory without those fonts needing to be in the
     system ``config/fonts/`` or the engine's temp rewrite directory.
     """
+    import importlib  # noqa: PLC0415
+
     from led_ticker import app as app_mod
     from led_ticker import frame as frame_mod
 
+    # ``from led_ticker.app import run as run_mod`` resolves to the *function*
+    # not the module (led_ticker.app.__init__ re-exports ``run`` as a function).
+    # Import the module explicitly via importlib so we can patch its local
+    # ``_configure_user_font_dir`` binding (created by run.py's
+    # ``from led_ticker.app.factories import _configure_user_font_dir``).
+    run_mod = importlib.import_module("led_ticker.app.run")
+
     original_rgbmatrix = frame_mod.RGBMatrix
     original_configure = app_mod._configure_user_font_dir
+    original_run_configure = run_mod._configure_user_font_dir
 
     def patched_rgbmatrix(*args, **kwargs):
         real = original_rgbmatrix(*args, **kwargs)
@@ -96,9 +106,17 @@ async def _drive_engine(
     # hi-res font directory to that file's sibling ``fonts/`` dir.  We
     # then suppress the app's own ``_configure_user_font_dir`` call so it
     # doesn't re-anchor to the temp-dir copy (which has no fonts/).
+    #
+    # run.py imports _configure_user_font_dir via a module-local binding
+    # (``from led_ticker.app.factories import _configure_user_font_dir``),
+    # so patching app_mod alone leaves that binding unpatched and run.py's
+    # call at line 436 re-anchors the font dir to the temp copy (no
+    # fonts/).  Patch run_mod's binding too so both call sites are
+    # suppressed.
     if original_cfg_path is not None:
         original_configure(original_cfg_path)
         app_mod._configure_user_font_dir = lambda _path: None  # type: ignore[method-assign]
+        run_mod._configure_user_font_dir = lambda _path: None  # type: ignore[assignment]
 
     frame_mod.RGBMatrix = patched_rgbmatrix
     try:
@@ -111,6 +129,7 @@ async def _drive_engine(
     finally:
         frame_mod.RGBMatrix = original_rgbmatrix
         app_mod._configure_user_font_dir = original_configure
+        run_mod._configure_user_font_dir = original_run_configure
     return time.monotonic()
 
 

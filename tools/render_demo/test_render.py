@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 # Ensure tools.render_demo is importable.
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(_REPO_ROOT / "tests" / "stubs"))
 sys.path.insert(0, str(_REPO_ROOT))
 
 import pytest  # noqa: E402
@@ -268,4 +270,91 @@ def test_renderer_static_fast_path_credits_single_frame_with_hold(tmp_path):
     assert total_s >= 1.0, (
         f"expected single-frame static gif to encode the engine's hold "
         f"(>= 1.0s), got {total_s:.2f}s — pre-fix bug returned"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tripwire: render tool must honor the demo's <config_dir>/fonts/ directory.
+#
+# Root cause guarded against: render.py patched app_mod._configure_user_font_dir
+# but run.py imports _configure_user_font_dir via a module-local binding
+# (``from led_ticker.app.factories import _configure_user_font_dir``), so
+# run.py's call at line 436 hit the UNPATCHED original and re-anchored the
+# font dir to the temp-dir config copy (no fonts/).  A custom-font widget
+# then silently fell back and rendered blank.
+# ---------------------------------------------------------------------------
+
+_ATKINSON_FONT_NAME = "AtkinsonHyperlegible-Bold.ttf"
+_FONT_SRC = _REPO_ROOT / "docs" / "site" / "demos-long" / "fonts" / _ATKINSON_FONT_NAME
+
+_CUSTOM_FONT_CONFIG = """\
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+brightness = 60
+
+[[playlist.section]]
+mode = "swap"
+loop_count = 1
+hold_time = 0.4
+
+[[playlist.section.widget]]
+type = "message"
+text = "AB"
+font = "AtkinsonHyperlegible-Bold"
+font_size = 16
+"""
+
+
+def test_render_honors_user_font_dir(tmp_path: Path) -> None:
+    """Regression: the render tool must keep the demo's <config_dir>/fonts/ active.
+
+    Before the run_mod._configure_user_font_dir fix, run.py's local binding
+    re-anchored the font dir to the temp config copy (no fonts/), so a custom
+    font silently fell back / rendered blank.  This renders a hires-font widget
+    and asserts lit pixels appear in the output gif.
+    """
+    if not _FONT_SRC.exists():
+        pytest.skip(
+            "AtkinsonHyperlegible-Bold.ttf not present (gitignored licensed font)"
+        )
+
+    pytest.importorskip("tomli_w")
+    from tools.render_demo.render import render  # noqa: PLC0415
+
+    # Place the config in its own subdir so the sibling ``fonts/`` dir is
+    # unambiguously <cfg_dir>/fonts/ — the path render() passes as
+    # original_cfg_path so _configure_user_font_dir anchors there.
+    cfg_dir = tmp_path / "cfg"
+    fonts_dir = cfg_dir / "fonts"
+    fonts_dir.mkdir(parents=True)
+    shutil.copy(_FONT_SRC, fonts_dir / _FONT_SRC.name)
+
+    cfg = cfg_dir / "c.toml"
+    cfg.write_text(_CUSTOM_FONT_CONFIG)
+
+    out = tmp_path / "out.gif"
+    render(cfg, out, duration=0.4, upscale=1)
+
+    assert out.exists(), "Renderer produced no output file"
+
+    img = Image.open(out)
+    # Check every frame for at least one non-black pixel.  A blank render
+    # (font dir not honoured → fallback → no glyphs) produces all-black frames.
+    has_lit_pixel = False
+    for frame_idx in range(img.n_frames):
+        img.seek(frame_idx)
+        rgb = img.convert("RGB")
+        for pixel in rgb.getdata():
+            if pixel != (0, 0, 0):
+                has_lit_pixel = True
+                break
+        if has_lit_pixel:
+            break
+
+    assert has_lit_pixel, (
+        "custom-font widget rendered all-black — user font dir was not honoured "
+        "(run_mod._configure_user_font_dir binding re-anchored font dir to temp copy)"
     )

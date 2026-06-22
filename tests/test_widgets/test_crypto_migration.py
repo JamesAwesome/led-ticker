@@ -75,3 +75,22 @@ def test_bare_weather_type_raises_migration_to_plugin():
 
 def test_crypto_migration_still_works_after_rename():
     assert build_widget_cfg_error_for_type("coingecko") is not None
+
+
+def test_feeds_rss_plugin_era_name_migrates_to_rss_feed():
+    # `feeds.rss` was the led-ticker-feeds-plugin name (now archived). A stale
+    # config must be told to RENAME to `rss.feed`, not to install the gone
+    # `feeds` plugin.
+    result = build_widget_cfg_error_for_type("feeds.rss")
+    assert result is not None
+    message, fix = result
+    assert "rss.feed" in fix
+    assert "install feeds" not in fix.lower()
+
+
+def test_feeds_weather_plugin_era_name_migrates_to_weather_current():
+    result = build_widget_cfg_error_for_type("feeds.weather")
+    assert result is not None
+    message, fix = result
+    assert "weather.current" in fix
+    assert "install feeds" not in fix.lower()

@@ -96,8 +96,16 @@ def _sprite_migration(family: str, suffix: str) -> tuple[str, str]:
     )
 
 
+# Keys cover BOTH the bare pre-plugin core spelling (`nyancat_alternating`) AND
+# the pre-split led-ticker-arcade plugin name (`arcade.nyancat_alternating`, that
+# repo is archived) — so a stale config from either era gets the precise rename
+# to the split type, not a "install the arcade plugin" hint for a gone plugin.
 _TRANSITION_MIGRATION: dict[str, tuple[str, str]] = {
     f"{family}{suffix}": _sprite_migration(family, suffix)
+    for family in _SPRITE_FAMILIES
+    for suffix in _SPRITE_VARIANT
+} | {
+    f"arcade.{family}{suffix}": _sprite_migration(family, suffix)
     for family in _SPRITE_FAMILIES
     for suffix in _SPRITE_VARIANT
 }

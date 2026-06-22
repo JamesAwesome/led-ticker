@@ -37,6 +37,26 @@ def test_unrelated_unknown_transition_has_no_monorepo_hint():
     assert "led-ticker-plugins monorepo" not in message
 
 
+@pytest.mark.parametrize(
+    "family,suffix",
+    [
+        (fam, suf)
+        for fam in ("pacman", "sailor_moon", "nyancat", "pokeball")
+        for suf in ("", "_reverse", "_alternating")
+    ],
+)
+def test_arcade_plugin_era_transition_migrates_to_split_name(family, suffix):
+    # `arcade.nyancat_alternating` was the led-ticker-arcade-plugin name (now
+    # archived). A stale config must be told to use the split name
+    # `nyancat.alternating`, not to install the gone `arcade` plugin.
+    name = f"arcade.{family}{suffix}"
+    new = f"{family}.{_VARIANT[suffix]}"
+    message, fix = explain_unknown_transition(name)
+    assert new in fix
+    assert f"subdirectory=plugins/{family}" in fix
+    assert "install arcade" not in fix.lower()
+
+
 def test_migration_entry_wins(monkeypatch):
     monkeypatch.setitem(
         transitions._TRANSITION_MIGRATION,

@@ -12,20 +12,29 @@ on:
   push:
     branches: [main]
 
-# SECURITY NOTE: self-hosted runner model
-# Both workflows use `on: pull_request:` which only allows PRs from
-# collaborators on a PRIVATE repository. The self-hosted runner is a
-# production Raspberry Pi with GPIO hardware access.
+# SECURITY NOTE — self-hosted runner on a (soon) public repo
 #
-# If this repo is ever made public, the following changes are REQUIRED
-# before any PR is accepted:
-#   1. Add `environment: ci` to all jobs that run on self-hosted
-#      (requires reviewer approval before workflow runs on fork PRs)
-#   OR
-#   2. Migrate fork PRs to `workflow_run:` trigger so untrusted code
-#      does not run on the self-hosted runner.
+# These workflows run on a SELF-HOSTED runner (a VM — not the production
+# Pi). On a PUBLIC repo the risk is that an untrusted FORK pull request
+# runs arbitrary code on that runner (compute abuse, host/network pivot).
+# GitHub already WITHHOLDS repo `secrets.*` from fork PRs, so the residual
+# risk is runner *execution*, not secret theft.
 #
-# Do not make the repo public without implementing one of the above.
+# REQUIRED before the repo is made public:
+#   Settings → Actions → General → "Fork pull request workflows from
+#   outside collaborators" → **Require approval for all outside
+#   collaborators**. Untrusted fork PRs then run NO workflow until a
+#   maintainer approves; approval is given precisely so CI runs on the
+#   vetted code — so the jobs below intentionally do NOT skip forks (and
+#   a blanket skip would also fail the required `ci-passed` rollup, which
+#   demands `changes` succeed). The jobs here use no secrets.
+#
+# Stronger isolation, if wanted later: per-job `environment:` gates, or a
+# `workflow_run:` split that runs untrusted PR code only on GitHub-hosted
+# runners. (docs-deploy.yml additionally skips its deploy step on forks —
+# it needs secrets that forks don't get.)
+#
+# Do not make the repo public without the approval setting above.
 
 permissions:
   contents: read

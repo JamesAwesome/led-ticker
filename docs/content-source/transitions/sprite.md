@@ -14,7 +14,7 @@ git+https://github.com/JamesAwesome/led-ticker-plugins.git@sailor_moon-v0.1.0#su
 | `sailor_moon` | `sailor_moon.forward`, `sailor_moon.reverse`, `sailor_moon.alternating` | no (8-bit aesthetic is the design) | Magical / sparkle |
 | `pacman` | `pacman.forward`, `pacman.reverse`, `pacman.alternating` | no (8-bit aesthetic is the design) | Retro arcade |
 
-A fifth sprite family, **`baseball`** (`baseball.roll`, `baseball.roll_reverse`, `baseball.roll_alternating` — procedural ball, 8 rotation frames, hires on bigsign; best for sports sections), ships with the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo. Install it via `config/requirements-plugins.txt` (add `git+https://github.com/JamesAwesome/led-ticker-plugins.git@baseball-v0.1.0#subdirectory=plugins/baseball` and rebuild) before using these.
+A fifth sprite family, **`baseball`** (`baseball.roll`, `baseball.roll_reverse`, `baseball.roll_alternating` — procedural ball, 8 rotation frames, hires on bigsign; best for sports sections), ships with the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo. Install it via `config/requirements-plugins.txt` (add `led-ticker-baseball` and rebuild) before using these.
 
 ## Variants
 

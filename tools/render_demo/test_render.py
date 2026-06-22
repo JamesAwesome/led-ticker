@@ -347,10 +347,11 @@ def test_render_honors_user_font_dir(tmp_path: Path) -> None:
     for frame_idx in range(img.n_frames):
         img.seek(frame_idx)
         rgb = img.convert("RGB")
-        for pixel in rgb.getdata():
-            if pixel != (0, 0, 0):
-                has_lit_pixel = True
-                break
+        # get_flattened_data() yields per-channel ints (R, G, B, R, G, B, …);
+        # any non-zero channel means a lit pixel. (getdata() is deprecated.)
+        if any(v != 0 for v in rgb.get_flattened_data()):
+            has_lit_pixel = True
+            break
         if has_lit_pixel:
             break
 

@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride setup-demo-fonts panel-test panel-test-docker
+.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker
 
 # --- Developer Setup ---
 
@@ -111,6 +111,9 @@ derive-phoenix:  ## Re-derive config/assets/phoenix.* from the vendored CC0 sour
 
 derive-pride:  ## Re-generate config/assets/pride.* (CC0 rainbow flag)
 	uv run python tools/derive_pride_assets.py
+
+derive-heart-tunnel:  ## Re-generate config/assets/heart-tunnel-opaque.jpg (CC0 trans heart tunnel)
+	uv run python tools/derive_heart_tunnel.py
 
 # Long-running widget demos (data-fetch widgets — coinbase, mlb, rss_feed, …).
 # Source TOMLs in docs/site/demos-long/, output to docs/site/public/demos-long/

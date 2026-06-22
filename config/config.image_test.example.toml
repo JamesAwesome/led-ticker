@@ -10,16 +10,15 @@
 #   phoenix.png                220×220 opaque PNG (phoenix sprite)
 #   phoenix_transparent.png    220×220 PNG with alpha-0 background (silhouette)
 #   heart-tunnel-opaque.jpg    700×350 RGB JPEG
-#   moonscape-opaque.jpg       830×350 RGB JPEG
 #
 # Sections:
 #   1. pillarbox phoenix (default)
 #   2. stretch heart (fills 4:1 panel)
-#   3. letterbox moonscape (wide → fits width, black top/bottom)
-#   4. crop moonscape (covers panel, crops top/bottom)
+#   3. letterbox heart tunnel (wide → fits width, black top/bottom)
+#   4. crop heart tunnel (covers panel, crops top/bottom)
 #   5. pillarbox phoenix + image_align=left + static text right
 #   6. transparent phoenix + scroll-under marquee (text walks BEHIND phoenix)
-#   7. moonscape backdrop + scroll_over marquee (white text on top)
+#   7. heart-tunnel backdrop + scroll_over marquee (white text on top)
 #   8. stretch heart + scroll_over knockout text (black/LEDs-off cutout)
 #   9. mode=swap with title + phoenix image (tests title+image dispatch)
 #  10. text_valign=top + scroll text scrolling left-to-right
@@ -99,7 +98,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/moonscape-opaque.jpg"
+path = "assets/heart-tunnel-opaque.jpg"
 fit = "letterbox"
 hold_time = 5.0
 
@@ -115,7 +114,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/moonscape-opaque.jpg"
+path = "assets/heart-tunnel-opaque.jpg"
 fit = "crop"
 hold_time = 5.0
 
@@ -167,7 +166,7 @@ scroll_speed_ms = 50
 text_loops = 2  # marquee crosses panel at least twice before transitioning
 
 # ---------------------------------------------------------------------------
-# Section 7 — moonscape backdrop + scrolling marquee ON TOP
+# Section 7 — heart-tunnel backdrop + scrolling marquee ON TOP
 #
 # `text_align = "scroll_over"` puts text on top of a full-screen
 # image. Always-readable marquee against any backdrop.
@@ -181,9 +180,9 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/moonscape-opaque.jpg"
+path = "assets/heart-tunnel-opaque.jpg"
 fit = "stretch"
-text = ":moon: GOOD NIGHT :moon:"
+text = ":heart: GOOD NIGHT :heart:"
 text_align = "scroll_over"
 font_color = [255, 255, 255]
 font_size = 48

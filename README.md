@@ -1,6 +1,7 @@
 # led-ticker
 
 [![CI](https://github.com/JamesAwesome/led-ticker/actions/workflows/ci.yml/badge.svg)](https://github.com/JamesAwesome/led-ticker/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An asyncio Python toolkit that drives RGB LED matrix panels from a Raspberry Pi via a TOML config. Two reference builds share one codebase and one Docker image:
 
@@ -63,7 +64,7 @@ make validate CONFIG=config/config.toml  # Pre-flight a config
 
 Tests use a stub `rgbmatrix` package so they run on any machine — no Raspberry Pi or Docker required. ~1450 tests, ~2 min on a laptop.
 
-Contributor guide (adding a widget, adding a transition, the test-stub canvas contract): see `CLAUDE.md` in this repo for the load-bearing invariants.
+New contributors: start with [CONTRIBUTING.md](CONTRIBUTING.md) (setup, the change flow, where things live). `CLAUDE.md` holds the load-bearing invariants — the hardware-rendering constraints and per-subsystem rules — and has the step-by-step recipes for adding a widget or transition + the test-stub canvas contract.
 
 ## Deployment
 
@@ -85,6 +86,15 @@ The single Docker image detects the SoC at runtime and selects the BCM2711 GPIO 
 
 Hardware reference (BOM, wiring, panel-tuning knobs): <https://docs.ledticker.dev/hardware/building-your-own/>.
 
+## Community
+
+- **Questions, ideas, show-and-tell:** [GitHub Discussions](https://github.com/JamesAwesome/led-ticker/discussions)
+- **Bugs & feature requests:** [Issues](https://github.com/JamesAwesome/led-ticker/issues)
+- **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Be excellent to each other:** [Code of Conduct](CODE_OF_CONDUCT.md)
+- **Security:** report privately — see [SECURITY.md](SECURITY.md)
+- **General contact:** hello@ledticker.dev
+
 ## License
 
-See [LICENSE](LICENSE).
+[MIT](LICENSE) © James Awesome

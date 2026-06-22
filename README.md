@@ -93,6 +93,7 @@ Hardware reference (BOM, wiring, panel-tuning knobs): <https://docs.ledticker.de
 - **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Be excellent to each other:** [Code of Conduct](CODE_OF_CONDUCT.md)
 - **Security:** report privately — see [SECURITY.md](SECURITY.md)
+- **General contact:** hello@ledticker.dev
 
 ## License
 

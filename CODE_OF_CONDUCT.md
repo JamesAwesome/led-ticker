@@ -11,10 +11,6 @@ welcoming community for everyone.
 ## Reporting
 
 If you experience or witness unacceptable behavior, report it **privately** to
-the maintainer. All reports are reviewed and handled confidentially, and the
-maintainer is obligated to respect the privacy and security of the reporter.
-
-> **⚠️ TODO before the repository is made public:** replace this line with a
-> private, receivable reporting contact — e.g. a forwarding alias such as
-> `conduct@<your-domain>`. A Code of Conduct report must reach a private inbox,
-> not a public issue, so this must be filled in before going public.
+**conduct@ledticker.dev**. All reports are reviewed and handled confidentially,
+and the maintainer is obligated to respect the privacy and security of the
+reporter.

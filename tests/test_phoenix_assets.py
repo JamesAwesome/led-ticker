@@ -99,3 +99,11 @@ def test_pride_assets_exist_and_animated():
         assert im.format == "GIF", f"{name}: {im.format}"
         assert im.size == size, f"{name}: {im.size} != {size}"
         assert getattr(im, "n_frames", 1) > 1, f"{name}: expected animation"
+
+
+def test_heart_tunnel_asset_exists_and_is_correct():
+    name = "heart-tunnel-opaque.jpg"
+    im = Image.open(ASSETS / name)
+    assert im.format == "JPEG", f"{name}: format {im.format} != JPEG"
+    assert im.size == (700, 350), f"{name}: size {im.size} != (700, 350)"
+    assert im.mode == "RGB", f"{name}: mode {im.mode} != RGB"

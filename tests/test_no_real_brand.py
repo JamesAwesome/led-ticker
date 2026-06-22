@@ -196,3 +196,36 @@ def test_no_retired_assets_outside_archival():
         "but a committed pika_wave.gif / kpop-dance.webp etc. is still a violation:\n"
         + "\n".join(sorted(set(filename_offenders)))
     )
+
+
+def test_no_retired_brand_voice_outside_archival():
+    """Guard the retired studio's rabbit brand VOICE (phrases, not bare words).
+
+    Needles are PHRASES, never bare 'bunny'/'rabbit', because the ':bunny:'
+    emoji slug, bunny-low/hi.png, and the 'Bunny silhouette' emoji-catalog row
+    legitimately contain 'bunny'. These phrases are the retired tagline voice.
+    """
+    needles = ["May the Rabbit", "bunny best", "be your bunny"]
+    offenders = []
+    for needle in needles:
+        res = subprocess.run(
+            [
+                "git",
+                "grep",
+                "-il",
+                needle,
+                "--",
+                ":!docs/superpowers",
+                ":!tests/test_no_real_brand.py",
+            ],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode in (0, 1), (
+            f"git grep failed (rc={res.returncode}): {res.stderr}"
+        )
+        offenders += [f"{needle}: {p}" for p in res.stdout.splitlines() if p]
+    assert not offenders, "retired brand voice still present:\n" + "\n".join(
+        sorted(set(offenders))
+    )

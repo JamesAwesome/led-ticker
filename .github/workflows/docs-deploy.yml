@@ -70,13 +70,17 @@ jobs:
 
       - name: Deploy to Cloudflare Pages
         id: deploy
-        # Dependabot PRs (and PRs from forks) don't get repo secrets,
-        # so wrangler can't auth. Skip the deploy step on those — the
-        # build above still validated the change. To enable previews
-        # on Dependabot PRs, also add CLOUDFLARE_API_TOKEN +
-        # CLOUDFLARE_ACCOUNT_ID under repo Settings → Secrets and
-        # variables → Dependabot (separate from the Actions tab).
-        if: github.actor != 'dependabot[bot]'
+        # Dependabot PRs and fork PRs don't get repo secrets, so wrangler
+        # can't auth — SKIP the deploy on those (the build step above
+        # still validated the change). The fork guard
+        # (head.repo.full_name == the repo) means an external fork PR
+        # cleanly skips the deploy instead of failing on an empty token,
+        # and keeps the Cloudflare secret away from untrusted PR code
+        # even after a maintainer approves the run (see the self-hosted
+        # SECURITY NOTE in ci.yml). To enable previews on Dependabot PRs,
+        # also add CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID under repo
+        # Settings → Secrets and variables → Dependabot.
+        if: github.actor != 'dependabot[bot]' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

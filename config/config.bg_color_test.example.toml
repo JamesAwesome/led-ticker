@@ -87,7 +87,7 @@ bottom_bg_color = [0, 120, 130] # teal
 
 # ---------------------------------------------------------------------------
 # 4. StillImage with bg_color via pillarbox
-#    → Bunny image centered, bg color shows in left + right pillarbox bands.
+#    → Phoenix image centered, bg color shows in left + right pillarbox bands.
 #    → Choose an opaque image so this only tests pillarbox-band reveal
 #      (not alpha-transparency).
 # ---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ hold_time = 6.0
 
 # ---------------------------------------------------------------------------
 # 5. StillImage with transparent PNG + bg
-#    → Bunny silhouette over the bg color via alpha-transparent regions.
+#    → Phoenix silhouette over the bg color via alpha-transparent regions.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
 mode = "swap"

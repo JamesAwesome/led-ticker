@@ -84,11 +84,11 @@ font_color = "random"
 
 [[playlist.section.widget]]
 type = "message"
-text = "May the Rabbit always be with you!"
+text = "May the uptime be with you!"
 
 [[playlist.section.widget]]
 type = "message"
-text = "Always be your bunny best!"
+text = "Always be shipping!"
 
 # Counts down to any date. Message + remaining days scroll across the panel.
 

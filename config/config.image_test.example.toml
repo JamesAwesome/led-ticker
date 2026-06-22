@@ -21,7 +21,7 @@
 #   6. transparent phoenix + scroll-under marquee (text walks BEHIND phoenix)
 #   7. moonscape backdrop + scroll_over marquee (white text on top)
 #   8. stretch heart + scroll_over knockout text (black/LEDs-off cutout)
-#   9. mode=swap with title + bunny image (tests title+image dispatch)
+#   9. mode=swap with title + phoenix image (tests title+image dispatch)
 #  10. text_valign=top + scroll text scrolling left-to-right
 #
 # Copy to config.toml on the bigsign Pi:
@@ -293,8 +293,8 @@ transition_duration = 0.6
 type = "image"
 path = "assets/phoenix.png"
 fit = "pillarbox"
-image_align = "right"   # bunny pinned to the right pillar
-text = "BIG BUNNY"
+image_align = "right"   # phoenix pinned to the right pillar
+text = "BIG PHOENIX"
 text_align = "left"     # caption in the left pillar
 text_x_offset = 12      # nudge it 12px in from the panel edge for breathing room
 font_color = [255, 220, 50]

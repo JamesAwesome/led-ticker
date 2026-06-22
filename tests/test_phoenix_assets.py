@@ -91,3 +91,11 @@ def test_transparent_gif_has_transparency():
     assert any(px == t_idx for px in first_frame_data), (
         "phoenix_transparent.gif frame 0 has no transparent pixels"
     )
+
+
+def test_pride_assets_exist_and_animated():
+    for name, size in {"pride.gif": (1000, 700), "pride_trans.gif": (498, 280)}.items():
+        im = Image.open(ASSETS / name)
+        assert im.format == "GIF", f"{name}: {im.format}"
+        assert im.size == size, f"{name}: {im.size} != {size}"
+        assert getattr(im, "n_frames", 1) > 1, f"{name}: expected animation"

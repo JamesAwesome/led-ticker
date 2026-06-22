@@ -9,7 +9,7 @@ canvas directly without a wrapper.
 """
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, TypeGuard
 
 import attrs
 
@@ -139,11 +139,13 @@ class ScaledCanvas:
         return cx - x
 
 
-def is_scaled(canvas: Any) -> bool:
+def is_scaled(canvas: Any) -> TypeGuard[ScaledCanvas]:
     """True if ``canvas`` is a scaled wrapper (the bigsign hi-res path).
 
     The supported way for a plugin to gate its hi-res branch — prefer this
-    over ``isinstance(canvas, ScaledCanvas)`` in plugin code.
+    over ``isinstance(canvas, ScaledCanvas)`` in plugin code. Annotated as a
+    ``TypeGuard`` so a positive check narrows ``canvas`` to ``ScaledCanvas``
+    for type checkers, exactly as the inline ``isinstance`` did.
     """
     return isinstance(canvas, ScaledCanvas)
 

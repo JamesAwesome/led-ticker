@@ -16,7 +16,12 @@ from led_ticker._types import Canvas, ColorTuple
 from led_ticker.colors import RGB_WHITE
 from led_ticker.drawing import get_widget_padding, safe_scale
 from led_ticker.render_breaker import RenderBreaker, guard_for_transition
-from led_ticker.scaled_canvas import ScaledCanvas, paint_hires, unwrap_to_real
+from led_ticker.scaled_canvas import (
+    ScaledCanvas,
+    is_scaled,
+    paint_hires,
+    unwrap_to_real,
+)
 from led_ticker.widgets._image_fit import reset_canvas
 from led_ticker.widgets.message import TickerMessage
 
@@ -107,7 +112,7 @@ class _CircleBufferMsg(TickerMessage):
         y_offset: int = 0,
         font_color: Any = None,
     ):
-        if isinstance(canvas, ScaledCanvas):
+        if is_scaled(canvas):
             color = self.font_color.color_for(self.frame_for("font_color"), 0, 1)
             return _draw_hires_circle(canvas, cursor_pos, color)
         return super().draw(
@@ -136,7 +141,7 @@ def _swap(canvas: Any, frame: Any) -> Any:
     For ScaledCanvas: swaps the underlying real canvas in place and returns
     the same wrapper (now pointing at the new back-buffer).
     """
-    if isinstance(canvas, ScaledCanvas):
+    if is_scaled(canvas):
         canvas.real = frame.swap(canvas.real)
         return canvas
     return frame.swap(canvas)
@@ -463,7 +468,7 @@ class Ticker:
             return canvas
         loops = getattr(widget, "play_count", 1) or 1
         try:
-            if isinstance(canvas, ScaledCanvas):
+            if is_scaled(canvas):
                 Ticker._set_logical_scale(widget, canvas.scale)
                 new_real = await widget.play(
                     unwrap_to_real(canvas),

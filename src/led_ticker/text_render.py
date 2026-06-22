@@ -13,7 +13,7 @@ from led_ticker._compat import require_graphics
 from led_ticker.fonts import get_bdf_for
 from led_ticker.fonts.hires_loader import HiresFont
 from led_ticker.preview import PreviewTee
-from led_ticker.scaled_canvas import ScaledCanvas, unwrap_to_real
+from led_ticker.scaled_canvas import is_scaled, unwrap_to_real
 
 _graphics = require_graphics()
 
@@ -22,7 +22,7 @@ def draw_text(canvas: Any, font: Any, x: int, y: int, color: Any, text: str) -> 
     """Draw `text` at (x, y) baseline. Returns total advance width."""
     if isinstance(font, HiresFont):
         return _draw_hires_text(canvas, font, x, y, color, text)
-    if isinstance(canvas, ScaledCanvas):
+    if is_scaled(canvas):
         bdf = get_bdf_for(font)
         return canvas.draw_bdf_text(bdf, x, y, color, text)
     if isinstance(canvas, PreviewTee):

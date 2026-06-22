@@ -3,12 +3,22 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "led-ticker"
+name = "ledticker"
 version = "2.0.0"
 description = "Asyncio LED matrix display for news, weather, crypto, and more"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.14"
 authors = [
     { name = "James Awesome", email = "james@morelli.nyc" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Multimedia :: Graphics",
 ]
 dependencies = [
     "Pillow>=10.0",
@@ -35,6 +45,11 @@ dev = [
 
 [project.scripts]
 led-ticker = "led_ticker.app:main"
+
+[project.urls]
+Homepage = "https://docs.ledticker.dev"
+Repository = "https://github.com/JamesAwesome/led-ticker"
+Issues = "https://github.com/JamesAwesome/led-ticker/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/led_ticker"]

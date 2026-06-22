@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews setup-demo-fonts panel-test panel-test-docker
+.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix setup-demo-fonts panel-test panel-test-docker
 
 # --- Developer Setup ---
 
@@ -105,6 +105,9 @@ plan-gif:  ## Recommended render --duration for a demo (+ cutoff guard). Usage: 
 
 render-emoji-previews:  ## Re-generate per-slug emoji preview PNGs in docs/site/public/emoji/
 	uv run python tools/render_emoji_previews.py
+
+derive-phoenix:  ## Re-derive config/assets/phoenix.* from the vendored CC0 source
+	uv run python tools/derive_phoenix_assets.py
 
 # Long-running widget demos (data-fetch widgets — coinbase, mlb, rss_feed, …).
 # Source TOMLs in docs/site/demos-long/, output to docs/site/public/demos-long/

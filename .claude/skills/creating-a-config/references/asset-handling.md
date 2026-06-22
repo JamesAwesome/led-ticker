@@ -61,13 +61,7 @@ font_threshold = 128  # default — inverts weight contrast
 
 ## Images / GIFs
 
-**Placement:** `config/assets/<file>`. The directory itself is NOT
-gitignored — generic / thematic assets (e.g., `bunny-transparent.png`,
-`kpop-dance.webp`) ship with the public repo. For customer-IP brand
-assets (logos belonging to a specific business) the convention is to
-NOT commit them and instead ship them via a tar.gz bundle alongside
-the example config: extract on the Pi, override the live config.
-See the Firebird example config for the pattern.
+**Placement:** `config/assets/<file>`. The repository ships ONE CC0 sample-media family — the Firebird **phoenix** (`phoenix.gif`, `phoenix_transparent.gif`, `phoenix.png`, `phoenix_transparent.png`, `phoenix.webp`), derived from a vendored CC0 source via `tools/derive_phoenix_assets.py` (see `config/assets/ATTRIBUTION.md`). Generic assets like `pride.gif` / `pride_trans.gif` also ship (these have no clear licence record and are tracked as a follow-up to replace with CC0 equivalents). For real-brand / customer-IP / third-party media (logos, band photos, product images), the convention is to NOT commit them — users drop their own assets into `config/assets/` locally. If you need to ship custom assets with a deployment, use a tar.gz bundle alongside the example config: extract on the Pi, override the live config. See the Firebird example config for the pattern.
 
 **Fit-mode decision tree:**
 

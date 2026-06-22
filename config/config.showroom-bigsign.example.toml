@@ -19,8 +19,8 @@
 #     across :emoji: boundaries — sprites and letters share one hue field)
 #   - Animation + color composition (typewriter typing in rainbow)
 #   - Hi-res inline emoji (32x32 sprites at native physical resolution)
-#   - Animated transitions with character (Sailor Moon's wand, Pikachu
-#     chasing a Pokeball, a Nyan Cat fly-by, Pac-Man and the ghosts)
+#   - Animated transitions with character (Sailor Moon's wand, a Pokéball
+#     rolling across, a Nyan Cat fly-by, Pac-Man and the ghosts)
 #   - Two-row layouts (held top + scrolling bottom)
 #   - Image + text overlay (text walking over a transparent gif)
 #   - Three-effect composition on a single image widget (typewriter
@@ -283,11 +283,11 @@ font_color = [0, 0, 0]
 border = {style = "rainbow", speed = 8, char_offset = 12, thickness = 2}
 
 # ---------------------------------------------------------------------------
-# 9. Image + text overlay — text scrolls BEHIND a transparent Pikachu.
+# 9. Image + text overlay — text scrolls BEHIND a transparent phoenix.
 #    `text_align = "scroll"` paints text first, then the gif's opaque
-#    pixels (Pikachu's body) overwrite the text where they overlap.
+#    pixels (the phoenix body) overwrite the text where they overlap.
 #    Result: text emerges from the right edge, scrolls across the open
-#    pillarbox area, then disappears under Pikachu's silhouette before
+#    pillarbox area, then disappears under the phoenix silhouette before
 #    exiting the left. This is a fit + alpha + scroll integration most
 #    products won't even attempt — only works because the gif's
 #    transparent regions are alpha-composited onto black during decode.
@@ -302,7 +302,7 @@ transition_duration = 1.5
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "ANIMATION + TYPOGRAPHY, COMPOSED"
@@ -322,7 +322,7 @@ text_loops = 1
 #     Per-effect counters are what make this possible — a single shared
 #     counter would force a tradeoff between "retype on each loop" and
 #     "preserve chase phase." Here all three behaviors run at once.
-#     `image_align = "right"` parks the moon on the right so the caption
+#     `image_align = "right"` parks the phoenix on the right so the caption
 #     types into clear space on the left without overlap.
 # ---------------------------------------------------------------------------
 
@@ -335,7 +335,7 @@ transition_duration = 0.8
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/moon-transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "right"
 text = "AFTER DARK"

@@ -12,7 +12,7 @@ The `gif` widget plays animated images at native panel resolution — each LED m
 
 Set `text` and it appears on the panel alongside the animation. When the text is longer than the canvas, set `text_align = "scroll"` or `"scroll_over"` for a marquee. For two-row layouts (held top + scrolling bottom), set `bottom_text` to switch modes.
 
-<DemoGif src="/demos/widget-gif.gif" caption="Pikachu wave gif with scroll_over text overlay" />
+<DemoGif src="/demos/widget-gif.gif" caption="Phoenix gif with scroll_over text overlay" />
 
 <TomlExample
   title="Minimal example"
@@ -31,13 +31,13 @@ path = "config/assets/my_animation.gif"`}
 
 <DemoGif
   src="/demos-pinned/gif-silent.gif"
-  caption="pikachu wave centered with `pillarbox` fit, three loops"
+  caption="phoenix centered with `pillarbox` fit, three loops"
 />
 
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "gif"
-path = "config/assets/pika_wave_transparent.gif"
+path = "config/assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "center"
 play_count = 3`}
@@ -47,13 +47,13 @@ play_count = 3`}
 
 <DemoGif
   src="/demos-pinned/gif-scroll_over.gif"
-  caption="pikachu pinned to the left, magenta text marquees over the canvas — magenta on yellow reads clearly where the text crosses the sprite"
+  caption="phoenix pinned to the left, magenta text marquees over the canvas in front of the phoenix"
 />
 
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "gif"
-path = "config/assets/pika_wave_transparent.gif"
+path = "config/assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "Welcome to the show!"
@@ -66,16 +66,16 @@ play_count = 0   # play through hold_time`}
 
 <DemoGif
   src="/demos-pinned/gif-scroll_behind.gif"
-  caption="text scrolls under pikachu — visible only through the transparent pillarbox area"
+  caption="text scrolls under the phoenix — visible only through the transparent pillarbox area"
 />
 
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "gif"
-path = "config/assets/pika_wave_transparent.gif"
+path = "config/assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
-text = "Scrolling behind Pika!"
+text = "Scrolling behind the phoenix!"
 text_align = "scroll"
 font_color = [200, 200, 255]
 play_count = 5`}
@@ -93,7 +93,7 @@ Setting `text_wrap = true` on a `scroll` or `scroll_over` marquee runs the text 
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "gif"
-path = "config/assets/pika_wave_transparent.gif"
+path = "config/assets/phoenix_transparent.gif"
 text = "BREAKING NEWS"
 text_wrap = true
 text_align = "scroll_over"
@@ -117,7 +117,7 @@ Notes:
 
 <DemoGif
   src="/demos-pinned/gif-two_row-wrap.gif"
-  caption="pikachu on the left, held magenta `BREAKING` up top, cyan `tap to subscribe` wrapping continuously on the bottom with a rainbow `*` separator"
+  caption="phoenix on the left, held magenta `BREAKING` up top, cyan `tap to subscribe` wrapping continuously on the bottom with a rainbow `*` separator"
 />
 
 Setting `bottom_text_wrap = true` in two-row mode (when `bottom_text` is set) runs the bottom row as a seamless marquee — chasing itself across the canvas with a separator between repeats. Top row stays held at `top_align`; only the bottom row wraps. Engages even when the bottom text fits — predictable.
@@ -125,7 +125,7 @@ Setting `bottom_text_wrap = true` in two-row mode (when `bottom_text` is set) ru
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "gif"
-path = "config/assets/pika_wave_transparent.gif"
+path = "config/assets/phoenix_transparent.gif"
 top_text = "BREAKING"
 top_color = [225, 48, 108]
 bottom_text = "tap to subscribe"
@@ -152,7 +152,7 @@ Notes:
 
 <DemoGif
   src="/demos-pinned/gif-two_row-scroll_through.gif"
-  caption="pikachu on the left, held magenta `NOW PLAYING` up top, cyan track-title scrolling fully offscreen-to-offscreen on the bottom — keeps cycling within `hold_time`"
+  caption="phoenix on the left, held magenta `NOW PLAYING` up top, cyan track-title scrolling fully offscreen-to-offscreen on the bottom — keeps cycling within `hold_time`"
 />
 
 Setting `bottom_text_scroll = "scroll_through"` in two-row mode forces the bottom row to do an offscreen-to-offscreen scroll on every visit — text starts fully off the right edge and ends fully off the left edge — instead of the default "held when it fits, scroll only on overflow" behavior. `bottom_align` is ignored.
@@ -160,9 +160,9 @@ Setting `bottom_text_scroll = "scroll_through"` in two-row mode forces the botto
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "gif"
-path = "config/assets/pika_wave_transparent.gif"
+path = "config/assets/phoenix_transparent.gif"
 top_text = "NOW PLAYING"
-bottom_text = "Pikachu Theme - The OST Collection (2026)"
+bottom_text = "Phoenix Rising - The OST Collection (2026)"
 bottom_text_scroll = "scroll_through"`}
 />
 
@@ -188,7 +188,7 @@ Notes:
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "gif"
-path = "config/assets/pika_wave_transparent.gif"
+path = "config/assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "right"
 top_text = "@firebird"
@@ -204,13 +204,13 @@ play_count = 3`}
 
 <DemoGif
   src="/demos-pinned/gif-typewriter.gif"
-  caption="pikachu waves on the left while `hi friend` types in on the right with rainbow font_color"
+  caption="phoenix plays on the left while `hi friend` types in on the right with rainbow font_color"
 />
 
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "gif"
-path = "config/assets/pika_wave_transparent.gif"
+path = "config/assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "hi friend"
@@ -224,13 +224,13 @@ play_count = 0   # play through hold_time`}
 
 <DemoGif
   src="/demos-pinned/gif-typewriter-border.gif"
-  caption="rainbow chase border around the perimeter, white text typing in beside the waving pikachu"
+  caption="rainbow chase border around the perimeter, white text typing in beside the phoenix"
 />
 
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "gif"
-path = "config/assets/pika_wave_transparent.gif"
+path = "config/assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "hi friend"

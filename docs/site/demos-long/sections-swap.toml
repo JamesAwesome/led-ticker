@@ -1,5 +1,5 @@
 # render-duration: 14
-# Three message widgets + a moon image, each held for hold_time and
+# Three message widgets + a phoenix image, each held for hold_time and
 # revealed with push_left. Cycle:
 #   msg1 (2.5s) → push (0.5s) → msg2 (2.5s) → push (0.5s)
 #   → image (3.0s) → push (0.5s) → msg3 (2.5s) → push (0.5s)
@@ -19,6 +19,7 @@ duration = 0.5
 mode = "swap"
 loop_count = 1
 hold_time = 2.5
+transition = "push_left"
 
 [[playlist.section.widget]]
 type = "message"
@@ -32,7 +33,7 @@ font_color = [225, 48, 108]
 
 [[playlist.section.widget]]
 type = "image"
-path = "../../../config/assets/moon-transparent.png"
+path = "../../../config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
 hold_time = 3.0

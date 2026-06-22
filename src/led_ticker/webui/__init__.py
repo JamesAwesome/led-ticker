@@ -221,7 +221,7 @@ def _add_config_routes(
                 "panel_width": cols * chain,
                 "panel_height": rows * parallel,
             }
-        except (ValueError, TypeError, tomllib.TOMLDecodeError):
+        except ValueError, TypeError, tomllib.TOMLDecodeError:
             pass  # geometry is best-effort; the redacted text is the point
         return web.json_response(
             {

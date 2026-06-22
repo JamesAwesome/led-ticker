@@ -1,5 +1,5 @@
 # render-duration: 15
-# Chapter 4 — image widget with two-row text overlay. The moon image is
+# Chapter 4 — image widget with two-row text overlay. The phoenix image is
 # combined with a held top handle and a scrolling bottom promo line.
 # This demonstrates bottom_text on an image widget, using
 # AtkinsonHyperlegible-Bold for the bottom row.
@@ -32,7 +32,7 @@ font_color = [225, 48, 108]
 
 [[playlist.section.widget]]
 type = "image"
-path = "../../../config/assets/moon-transparent.png"
+path = "../../../config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
 hold_time = 8.0

@@ -10,7 +10,7 @@ git+https://github.com/JamesAwesome/led-ticker-plugins.git@sailor_moon-v0.1.0#su
 | Family | Variants | Hires on bigsign? | Best for |
 |--------|----------|-------------------|----------|
 | `nyancat` | `nyancat.forward`, `nyancat.reverse`, `nyancat.alternating` | yes (animated webp) | General playful |
-| `pokeball` | `pokeball.forward`, `pokeball.reverse`, `pokeball.alternating` | yes (Pikachu run sprite + rolling pokeball) | Pop-culture variety |
+| `pokeball` | `pokeball.forward`, `pokeball.reverse`, `pokeball.alternating` | yes (run-cycle sprite + rolling pokeball) | Pop-culture variety |
 | `sailor_moon` | `sailor_moon.forward`, `sailor_moon.reverse`, `sailor_moon.alternating` | no (8-bit aesthetic is the design) | Magical / sparkle |
 | `pacman` | `pacman.forward`, `pacman.reverse`, `pacman.alternating` | no (8-bit aesthetic is the design) | Retro arcade |
 
@@ -26,8 +26,8 @@ A fifth sprite family, **`baseball`** (`baseball.roll`, `baseball.roll_reverse`,
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `show_pikachu` | `true` | Render the Pikachu run-cycle sprite chasing the ball |
-| `show_pokeball` | `true` | Render the pokeball sprite (set `false` for Pikachu-only chase) |
+| `show_pikachu` | `true` | Render the run-cycle sprite chasing the ball |
+| `show_pokeball` | `true` | Render the pokeball sprite (set `false` for sprite-only chase) |
 
 ## Cross-scale transitions
 

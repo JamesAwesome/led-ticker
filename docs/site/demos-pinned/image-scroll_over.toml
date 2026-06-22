@@ -16,7 +16,7 @@ hold_time = 7.0
 
 [[playlist.section.widget]]
 type = "image"
-path = "../../../config/assets/moon-transparent.png"
+path = "../../../config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "left"
 text = "Follow us on Instagram!"

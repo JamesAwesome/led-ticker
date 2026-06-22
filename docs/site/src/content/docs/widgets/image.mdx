@@ -10,7 +10,7 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 
 The `image` widget displays a single still image at native physical resolution — each LED maps to one pixel in the source. Use it for logos, product photos, brand artwork, or any single-frame graphic. This widget is essentially `gif` with a single frame: it shares the `gif` widget's full feature surface (fit modes, text overlay, two-row, animation, border) minus the per-frame mechanics — the only widget-specific knob is `hold_time` instead of `play_count`.
 
-<DemoGif src="/demos/widget-image.gif" caption="Bunny png with scroll_over text overlay" />
+<DemoGif src="/demos/widget-image.gif" caption="Phoenix png with scroll_over text overlay" />
 
 <TomlExample
   title="Minimal example"
@@ -30,13 +30,13 @@ hold_time = 4.0`}
 
 <DemoGif
   src="/demos-pinned/image-static-logo.gif"
-  caption="transparent moon centered with `pillarbox` fit"
+  caption="transparent phoenix centered with `pillarbox` fit"
 />
 
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "image"
-path = "config/assets/moon-transparent.png"
+path = "config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
 hold_time = 4.0`}
@@ -46,13 +46,13 @@ hold_time = 4.0`}
 
 <DemoGif
   src="/demos-pinned/image-scroll_over.gif"
-  caption="moon pinned to the left, magenta text marquees over the right side"
+  caption="phoenix pinned to the left, magenta text marquees over the right side"
 />
 
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "image"
-path = "config/assets/moon-transparent.png"
+path = "config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "left"
 text = "Follow us on Instagram!"
@@ -65,16 +65,16 @@ font_color = [200, 100, 255]`}
 
 <DemoGif
   src="/demos-pinned/image-scroll_behind.gif"
-  caption="text scrolls under the moon — visible only through the transparent pillarbox area"
+  caption="text scrolls under the phoenix — visible only through the transparent pillarbox area"
 />
 
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "image"
-path = "config/assets/moon-transparent.png"
+path = "config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "left"
-text = "Scrolling behind the moon!"
+text = "Scrolling behind the phoenix!"
 text_align = "scroll"
 font_color = [200, 200, 255]`}
 />
@@ -91,7 +91,7 @@ Setting `text_wrap = true` on a `scroll` or `scroll_over` marquee runs the text 
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "image"
-path = "config/assets/bunny-transparent.png"
+path = "config/assets/phoenix_transparent.png"
 text = "hi friend"
 text_wrap = true
 text_align = "scroll_over"
@@ -116,7 +116,7 @@ Notes:
 
 <DemoGif
   src="/demos-pinned/image-two_row-wrap.gif"
-  caption="still moon on the left, held magenta `BREAKING` up top, cyan `tap to subscribe` wrapping continuously on the bottom with a rainbow `*` separator"
+  caption="still phoenix on the left, held magenta `BREAKING` up top, cyan `tap to subscribe` wrapping continuously on the bottom with a rainbow `*` separator"
 />
 
 Setting `bottom_text_wrap = true` in two-row mode (when `bottom_text` is set) runs the bottom row as a seamless marquee — chasing itself across the canvas with a separator between repeats. Top row stays held at `top_align`; only the bottom row wraps. Engages even when the bottom text fits — predictable.
@@ -124,7 +124,7 @@ Setting `bottom_text_wrap = true` in two-row mode (when `bottom_text` is set) ru
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "image"
-path = "config/assets/bunny-transparent.png"
+path = "config/assets/phoenix_transparent.png"
 top_text = "BREAKING"
 top_color = [225, 48, 108]
 bottom_text = "tap to subscribe"
@@ -152,7 +152,7 @@ Notes:
 
 <DemoGif
   src="/demos-pinned/image-two_row-scroll_through.gif"
-  caption="moon on the right, held magenta `@firebird` on top, cream promo scrolling fully offscreen-to-offscreen on the bottom — keeps cycling within `hold_time`"
+  caption="phoenix on the right, held magenta `@firebird` on top, cream promo scrolling fully offscreen-to-offscreen on the bottom — keeps cycling within `hold_time`"
 />
 
 Setting `bottom_text_scroll = "scroll_through"` in two-row mode forces the bottom row to do an offscreen-to-offscreen scroll on every visit — text starts fully off the right edge and ends fully off the left edge — instead of the default "held when it fits, scroll only on overflow" behavior. `bottom_align` is ignored.
@@ -160,7 +160,7 @@ Setting `bottom_text_scroll = "scroll_through"` in two-row mode forces the botto
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "image"
-path = "config/assets/moon-transparent.png"
+path = "config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "right"
 top_text = "@firebird"
@@ -185,13 +185,13 @@ Notes:
 
 <DemoGif
   src="/demos-pinned/image-two_row.gif"
-  caption="moon on the right, `@firebird` on top, scrolling promo on the bottom"
+  caption="phoenix on the right, `@firebird` on top, scrolling promo on the bottom"
 />
 
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "image"
-path = "config/assets/moon-transparent.png"
+path = "config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "right"
 top_text = "@firebird"
@@ -207,13 +207,13 @@ hold_time = 7.0`}
 
 <DemoGif
   src="/demos-pinned/image-typewriter.gif"
-  caption="moon on the left, `firebird` types in on the right with rainbow font_color"
+  caption="phoenix on the left, `firebird` types in on the right with rainbow font_color"
 />
 
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "image"
-path = "config/assets/moon-transparent.png"
+path = "config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "left"
 text = "firebird"
@@ -227,13 +227,13 @@ hold_time = 8.0`}
 
 <DemoGif
   src="/demos-pinned/image-typewriter-border.gif"
-  caption="rainbow chase border around the perimeter, white text typing in beside the moon"
+  caption="rainbow chase border around the perimeter, white text typing in beside the phoenix"
 />
 
 <TomlExample
   code={`[[playlist.section.widget]]
 type = "image"
-path = "config/assets/moon-transparent.png"
+path = "config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "left"
 text = "firebird"

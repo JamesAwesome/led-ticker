@@ -1,5 +1,5 @@
 # render-duration: 8
-# Wrap mode on a static image: bunny on the left + repeating "hi friend"
+# Wrap mode on a static image: phoenix on the left + repeating "hi friend"
 # scrolling over with a default " • " separator. Cyan text + steady
 # yellow separator makes the cycle boundary easy to spot without
 # requiring readers to watch closely for hue changes.
@@ -20,7 +20,7 @@ hold_time = 7.0
 
 [[playlist.section.widget]]
 type = "image"
-path = "../../../config/assets/bunny-transparent.png"
+path = "../../../config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "left"
 text = "hi friend"

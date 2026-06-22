@@ -7,12 +7,12 @@
 # look + feel without sitting through every fit-mode permutation.
 #
 # Sections:
-#   1. Static text + offset gif    — Pikachu LEFT, Inter-Bold "PIKACHU!" on the right
+#   1. Static text + offset gif    — phoenix LEFT, Inter-Bold "PHOENIX!" on the right
 #   2. Scroll UNDER (transparent)  — BDF marquee, smart-default font_size (lores smoke)
 #   3. Scroll OVER (knockout)      — Inter-Bold black-LED cutout through pride flag
 #   4. Emoji + chunky text         — BDF :heart: HAPPY PRIDE :heart: @48 (lores+emoji smoke)
-#   5. Animated WebP + scroll-over — kpop-dance.webp + Inter-Bold class signup pitch
-#   6. Title + gif (mode = "swap") — "HELLO!" title → Inter-Regular @brand + Pikachu
+#   5. Animated WebP + scroll-over — phoenix.webp + Inter-Bold class signup pitch
+#   6. Title + gif (mode = "swap") — "HELLO!" title → Inter-Regular @brand + phoenix
 #
 # BDF smoke tests retained intentionally in §2 + §4:
 #   §2 covers the `font_size = None` smart-default path (BDF resolves
@@ -59,16 +59,16 @@ between_sections = "dissolve"
 # ---------------------------------------------------------------------------
 # Section 1 — Static text + offset gif
 #
-# Pikachu pinned to the LEFT edge (`image_align = "left"`); the right
-# ~192 cols become an unobstructed black pillar with "PIKACHU!" held
+# Phoenix pinned to the LEFT edge (`image_align = "left"`); the right
+# ~192 cols become an unobstructed black pillar with "PHOENIX!" held
 # statically against the right edge. Text paints AFTER the gif each
 # tick so it always wins on overlap.
 #
 # Text size: explicit `font = "Inter-Bold"` + `font_size = 24` keeps
-# "PIKACHU!" sharp at ~24 real px tall × ~110 wide — sits cleanly in
+# "PHOENIX!" sharp at ~24 real px tall × ~110 wide — sits cleanly in
 # the right pillar. With default BDF on bigsign, omitting `font_size`
 # defaults to panel-scale (cell_h × _logical_scale = 48), which would
-# render "PIKACHU!" at ~192 wide and bleed into Pikachu's body. To get
+# render "PHOENIX!" at ~192 wide and bleed into the phoenix sprite. To get
 # tiny native-12-px text on bigsign, opt in via HiresFont with
 # `font_size = 12`.
 # ---------------------------------------------------------------------------
@@ -81,10 +81,10 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "pillarbox"
 image_align = "left"
-text = "PIKACHU!"
+text = "PHOENIX!"
 text_align = "right"
 font = "Inter-Bold"
 font_size = 24
@@ -93,11 +93,11 @@ font_color = [255, 220, 50]
 # ---------------------------------------------------------------------------
 # Section 2 — Scroll UNDER (transparent gif) — BDF smart-default smoke
 #
-# `pika_wave_transparent.gif` decodes its alpha channel onto black, so
-# everywhere outside Pikachu's silhouette reads as (0,0,0). With
+# `phoenix_transparent.gif` decodes its alpha channel onto black, so
+# everywhere outside the phoenix silhouette reads as (0,0,0). With
 # `text_align = "scroll"` the marquee paints first then the gif on top
 # with skip-black — text shows through the pillars AND the area around
-# Pikachu's body, walking behind his actual silhouette.
+# the phoenix, walking behind its actual silhouette.
 #
 # Font: BDF default (FONT_DEFAULT 6×12), no explicit `font_size`. This
 # exercises the smart-default path — at first paint the widget resolves
@@ -110,6 +110,8 @@ font_color = [255, 220, 50]
 # `text_loops = 2` makes the section hold here until the marquee has
 # fully crossed the panel twice, regardless of `loop_count` — the gif
 # keeps looping in the background to fill the time.
+#
+# Note: `phoenix_transparent.gif` at scale 4 = 64 wide × 64 tall (native pixels).
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -120,7 +122,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 text = "WELCOME TO THE STORE — OPEN DAILY 9 TO 9"
 text_align = "scroll"
@@ -190,14 +192,14 @@ scroll_speed_ms = 50
 # ---------------------------------------------------------------------------
 # Section 5 — Animated WebP + scroll-over marquee
 #
-# `kpop-dance.webp` is a 540×400, 31-frame animated WebP. The decoder
-# is format-agnostic (gif, webp, apng, multi-frame tiff) — it just
-# calls Pillow's `Image.open` + `seek()`. Pillarbox preserves the
-# dance's aspect ratio (~86 wide × 64 tall, ~85px black pillars on
-# either side); `scroll_over` walks the marquee across the full
-# panel width on top of the video. `text_loops = 1` holds the section
-# until the announcement has crossed once regardless of how many
-# times the dance loops underneath.
+# `phoenix.webp` is a 220×220, animated WebP of the phoenix sprite. The
+# decoder is format-agnostic (gif, webp, apng, multi-frame tiff) — it
+# just calls Pillow's `Image.open` + `seek()`. Pillarbox preserves the
+# source's aspect ratio (64×64 tall, ~96px black pillars on either
+# side); `scroll_over` walks the marquee across the full panel width on
+# top of the animation. `text_loops = 1` holds the section until the
+# announcement has crossed once regardless of how many times the
+# animation loops underneath.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -208,13 +210,13 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/kpop-dance.webp"
+path = "assets/phoenix.webp"
 fit = "pillarbox"
-text = "Sign up for our new K-Pop Dance Class!"
+text = "Sign up for our new Vinyasa Flow Class!"
 text_align = "scroll_over"
 font = "Inter-Bold"
 font_size = 24
-font_color = [140, 20, 100]  # deep magenta — K-pop palette, dark for contrast
+font_color = [140, 20, 100]  # deep magenta — Firebird palette, dark for contrast
 scroll_speed_ms = 50
 text_loops = 1
 
@@ -242,7 +244,7 @@ font_color = [255, 220, 50]
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "right"
 text = "@brand"

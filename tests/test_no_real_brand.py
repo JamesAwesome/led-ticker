@@ -13,6 +13,24 @@ the archival design docs."""
 import subprocess
 from pathlib import Path
 
+# Retired asset basenames (no extension) — checked both in file CONTENTS and
+# as tracked FILENAMES.  Basenames are listed without extensions because the
+# same retired name could reappear as .gif, .png, .webp, etc.
+_RETIRED_ASSET_NAMES = [
+    "pika_wave",
+    "kpop-dance",
+    "moon_bunny",
+    "moon-transparent",
+    "bunny-transparent",
+    "bunny-nontransparent",
+]
+
+# Paths that legitimately contain these strings as content.
+_FILENAME_ALLOW_PREFIXES = (
+    "docs/superpowers/",
+    "tests/test_no_real_brand.py",
+)
+
 REPO = Path(__file__).resolve().parent.parent
 # Real-brand needles (case-insensitive). "aerial" is included because the real
 # studio is an aerial-arts studio; it must not survive in shipped/docs copy.
@@ -106,4 +124,75 @@ def test_no_retired_moon_bunny_palette_outside_archival():
         "Retired Moon Bunny palette RGB values found outside archival docs "
         "(Firebird is phoenix-warm §6 — purge these pastels):\n"
         + "\n".join(sorted(set(offenders)))
+    )
+
+
+def test_no_retired_assets_outside_archival():
+    """Assert retired copyrighted/real-brand asset FILENAMES do not appear
+    outside the archival allow-list — checked both in file CONTENTS and as
+    tracked filenames in the git tree.
+
+    Needles are PRECISE names rather than bare words like 'pikachu' or
+    'bunny-' to avoid false-positives on:
+      - show_pikachu: a documented API field on the pokeball plugin transition
+      - :bunny: / bunny-low.png / bunny-hi.png: the generic rabbit emoji
+        (unrelated to the retired Moon-Bunny logo)
+      - kpop (bare): unrelated usage in other contexts
+
+    Content check: git grep for each needle in file bodies.
+    Filename check: git ls-files | filter by needle in basename, excluding
+      the archival allow-list.  A binary file like pika_wave.gif would pass
+      the content check (git grep skips binary files by default) but fail
+      the filename check — closing that gap.
+    """
+    # --- content check (file bodies via git grep) ---
+    offenders = []
+    for needle in _RETIRED_ASSET_NAMES:
+        res = subprocess.run(
+            [
+                "git",
+                "grep",
+                "-il",
+                needle,
+                "--",
+                ":!docs/superpowers",
+                ":!tests/test_no_real_brand.py",
+            ],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode in (0, 1), (
+            f"git grep failed (rc={res.returncode}): {res.stderr}"
+        )
+        offenders += [f"{needle}: {p}" for p in res.stdout.splitlines() if p]
+    assert not offenders, (
+        "retired asset names still referenced in file contents "
+        "(copyrighted/real-brand assets must not reappear outside archival docs):\n"
+        + "\n".join(sorted(set(offenders)))
+    )
+
+    # --- filename check (tracked paths via git ls-files) ---
+    ls_res = subprocess.run(
+        ["git", "ls-files"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    tracked_paths = ls_res.stdout.splitlines()
+    filename_offenders = []
+    for tracked in tracked_paths:
+        # Skip archival docs and this test file itself.
+        if any(tracked.startswith(p) for p in _FILENAME_ALLOW_PREFIXES):
+            continue
+        # stem strips extension: "pika_wave" from "config/assets/pika_wave.gif"
+        basename = Path(tracked).stem
+        for needle in _RETIRED_ASSET_NAMES:
+            if needle in basename:
+                filename_offenders.append(f"{needle}: {tracked}")
+    assert not filename_offenders, (
+        "retired asset found as a tracked FILENAME — git grep would miss binary files "
+        "but a committed pika_wave.gif / kpop-dance.webp etc. is still a violation:\n"
+        + "\n".join(sorted(set(filename_offenders)))
     )

@@ -3,7 +3,7 @@
 This runbook covers the one-time setup required before any package can be published, the first-publish sequence (core then plugins), and the procedure for subsequent releases.
 
 **Who:** the repository owner (`JamesAwesome`).  
-**Packages:** `ledticker` (core, `led-ticker` repo) + six plugin packages (`led-ticker-pool`, `led-ticker-baseball`, `led-ticker-crypto`, `led-ticker-calendar`, `led-ticker-rss`, `led-ticker-weather`) in the `led-ticker-plugins` repo.
+**Packages:** `led-ticker-core` (core, `led-ticker` repo) + six plugin packages (`led-ticker-pool`, `led-ticker-baseball`, `led-ticker-crypto`, `led-ticker-calendar`, `led-ticker-rss`, `led-ticker-weather`) in the `led-ticker-plugins` repo.
 
 ---
 
@@ -26,7 +26,7 @@ A *pending* Trusted Publisher creates the PyPI project automatically on the firs
 
 | PyPI project | Owner | Repository | Workflow | Environment |
 |---|---|---|---|---|
-| `ledticker` | `JamesAwesome` | `led-ticker` | `publish.yml` | `release` |
+| `led-ticker-core` | `JamesAwesome` | `led-ticker` | `publish.yml` | `release` |
 | `led-ticker-pool` | `JamesAwesome` | `led-ticker-plugins` | `publish.yml` | `release` |
 | `led-ticker-baseball` | `JamesAwesome` | `led-ticker-plugins` | `publish.yml` | `release` |
 | `led-ticker-crypto` | `JamesAwesome` | `led-ticker-plugins` | `publish.yml` | `release` |
@@ -69,9 +69,9 @@ Go to **Settings → Environments → New environment**, name it `release`, tick
 
 ## C. First-publish sequence
 
-Plugins declare `ledticker` as a dependency, so **core must be on PyPI before any plugin is published.**
+Plugins declare `led-ticker-core` as a dependency, so **core must be on PyPI before any plugin is published.**
 
-### Step 1: Publish `ledticker` (core)
+### Step 1: Publish `led-ticker-core` (core)
 
 1. Confirm `pyproject.toml` at the root of `led-ticker` has `version = "2.0.0"` (or whichever version you intend to publish).
 2. Merge the release branch to `main`.
@@ -82,7 +82,7 @@ Plugins declare `ledticker` as a dependency, so **core must be on PyPI before an
    - Click **Publish release**.
 4. The `publish.yml` workflow fires, builds the distribution, and **pauses for approval** at the `release` environment gate.
 5. Go to **Actions → the running workflow → Review deployments** → approve.
-6. Wait for the job to complete, then verify: <https://pypi.org/project/ledticker/>.
+6. Wait for the job to complete, then verify: <https://pypi.org/project/led-ticker-core/>.
 
 ### Step 2: Publish each plugin
 
@@ -122,14 +122,14 @@ After each publish, confirm the package installs cleanly from PyPI in a fresh vi
 ```bash
 # Verify core
 python -m venv /tmp/verify-core
-/tmp/verify-core/bin/pip install ledticker
+/tmp/verify-core/bin/pip install led-ticker-core
 /tmp/verify-core/bin/led-ticker --help
 
-# Verify a plugin (confirm ledticker was pulled transitively)
+# Verify a plugin (confirm led-ticker-core was pulled transitively)
 python -m venv /tmp/verify-pool
 /tmp/verify-pool/bin/pip install led-ticker-pool
 /tmp/verify-pool/bin/pip show led-ticker-pool | grep -i requires
-# "Requires: ledticker" must appear in the output
+# "Requires: led-ticker-core" must appear in the output
 ```
 
 Repeat the plugin block for each package, substituting the package name:

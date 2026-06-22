@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ledticker"
+name = "led-ticker-core"
 version = "2.0.0"
 description = "Asyncio LED matrix display for news, weather, crypto, and more"
 readme = "README.md"

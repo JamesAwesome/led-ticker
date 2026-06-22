@@ -11,7 +11,7 @@ def _pyproject(tmp_path: Path, version: str) -> str:
     p.write_text(
         textwrap.dedent(f"""
         [project]
-        name = "ledticker"
+        name = "led-ticker-core"
         version = "{version}"
     """)
     )

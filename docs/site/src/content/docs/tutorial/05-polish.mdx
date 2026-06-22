@@ -58,7 +58,7 @@ fit = "pillarbox"
 image_align = "center"
 hold_time = 8.0
 scroll_speed_ms = 35
-top_text = "@firebird.demo"
+top_text = "Firebird"
 top_font = "5x8"
 top_color = [225, 48, 108]
 bottom_text = "Vinyasa · yin · hot power · restorative · slow flow · all levels"
@@ -179,11 +179,11 @@ A few things worth knowing about borders:
 
 ## Polish the brand card
 
-The handle on the image widget currently uses BDF `5x8` at `default_scale = 4`. That
-gives only 64 logical columns — `@firebird.demo` (14 chars × 5 px = 70 px) overflows
-that by 6 px and clips the final character. To use the full `@firebirdyoga.demo` handle
-and show the hi-res Instagram sprite alongside it, the brand card needs its own section
-at `scale = 2`.
+The image widget currently shows the studio name in BDF `5x8` at `default_scale = 4`,
+which gives 64 logical columns. That's enough for the short name but not for the full
+social handle: `@firebirdyoga.demo` (18 chars × 5 px = 90 px) would overflow the canvas
+by 26 px. To show the full handle and the hi-res Instagram sprite alongside it, the brand
+card needs its own section at `scale = 2`.
 
 Two changes — restructure the section layout, then upgrade the handle.
 

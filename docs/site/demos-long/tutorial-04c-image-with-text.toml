@@ -1,12 +1,11 @@
 # render-duration: 16
 # Chapter 4 — image widget with two-row text overlay. The phoenix image is
-# combined with a held top handle and a scrolling bottom promo line.
-# This demonstrates bottom_text on an image widget, using
-# AtkinsonHyperlegible-Bold for the bottom row.
+# combined with a held studio-name top row and a scrolling Atkinson Hyperlegible
+# bottom promo line. This demonstrates bottom_text on an image widget at the
+# default default_scale = 4 (64 logical cols).
 #
-# The image section uses scale = 2 / content_height = 32 (128 logical cols)
-# so @firebirdyoga.demo (18 chars × 5 px = 90 px) fits without clipping.
-# Message widgets run in their own sections at default_scale = 4.
+# "Firebird" (5×8 BDF, 40 px) fits comfortably at scale = 4 (64 logical cols).
+# Message widgets share the same default_scale = 4 section.
 #
 # Cycle:
 #   msg "Welcome to Firebird Yoga" (2.5s) → push (0.5s)
@@ -36,8 +35,6 @@ font_color = [225, 48, 108]
 
 [[playlist.section]]
 mode = "swap"
-scale = 2
-content_height = 32
 loop_count = 1
 hold_time = 8.0
 
@@ -48,7 +45,7 @@ fit = "pillarbox"
 image_align = "center"
 hold_time = 8.0
 scroll_speed_ms = 35
-top_text = "@firebirdyoga.demo"
+top_text = "Firebird"
 top_font = "5x8"
 top_color = [225, 48, 108]
 bottom_text = "Vinyasa · yin · hot power · restorative · slow flow · all levels"

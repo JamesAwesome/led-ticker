@@ -343,16 +343,12 @@ def test_render_honors_user_font_dir(tmp_path: Path) -> None:
     img = Image.open(out)
     # Check every frame for at least one non-black pixel.  A blank render
     # (font dir not honoured → fallback → no glyphs) produces all-black frames.
+    # getbbox() returns None for an all-black image and a bounding box otherwise.
     has_lit_pixel = False
     for frame_idx in range(img.n_frames):
         img.seek(frame_idx)
-        rgb = img.convert("RGB")
-        # get_flattened_data() yields per-channel ints (R, G, B, R, G, B, …);
-        # any non-zero channel means a lit pixel. (getdata() is deprecated.)
-        if any(v != 0 for v in rgb.get_flattened_data()):
+        if img.convert("RGB").getbbox() is not None:
             has_lit_pixel = True
-            break
-        if has_lit_pixel:
             break
 
     assert has_lit_pixel, (

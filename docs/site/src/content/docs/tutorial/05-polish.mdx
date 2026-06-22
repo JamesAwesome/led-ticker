@@ -180,9 +180,10 @@ A few things worth knowing about borders:
 ## Polish the brand card
 
 The handle on the image widget currently uses BDF `5x8` at `default_scale = 4`. That
-caps the handle width at around 14 characters before it clips the panel — `@firebird.demo`
-just barely fits. To use the full `@firebirdyoga.demo` handle and show the hi-res
-Instagram sprite alongside it, the brand card needs its own section at `scale = 2`.
+gives only 64 logical columns — `@firebird.demo` (14 chars × 5 px = 70 px) overflows
+that by 6 px and clips the final character. To use the full `@firebirdyoga.demo` handle
+and show the hi-res Instagram sprite alongside it, the brand card needs its own section
+at `scale = 2`.
 
 Two changes — restructure the section layout, then upgrade the handle.
 

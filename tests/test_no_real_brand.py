@@ -91,6 +91,30 @@ def test_no_real_brand_strings_outside_archival():
         for path in res.stdout.splitlines():
             if path and not path.startswith(ALLOW_PREFIXES):
                 offenders.append(f"{needle}: {path}")
+
+    # Whitespace-insensitive check: catches "Moon         Bunny" (multi-space)
+    # and any other spacing of the two-word name that the literal needles miss.
+    ws_res = subprocess.run(
+        [
+            "git",
+            "grep",
+            "-ilE",
+            r"moon[[:space:]]+bunny",
+            "--",
+            ":!docs/superpowers",
+            ":!tests/test_no_real_brand.py",
+        ],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+    )
+    assert ws_res.returncode in (0, 1), (
+        f"git grep failed (rc={ws_res.returncode}): {ws_res.stderr}"
+    )
+    for path in ws_res.stdout.splitlines():
+        if path and not path.startswith(ALLOW_PREFIXES):
+            offenders.append(f"moon[whitespace]+bunny: {path}")
+
     assert not offenders, (
         "real-brand strings still present (anonymization incomplete):\n"
         + "\n".join(sorted(set(offenders)))
@@ -205,7 +229,13 @@ def test_no_retired_brand_voice_outside_archival():
     emoji slug, bunny-low/hi.png, and the 'Bunny silhouette' emoji-catalog row
     legitimately contain 'bunny'. These phrases are the retired tagline voice.
     """
-    needles = ["May the Rabbit", "bunny best", "be your bunny"]
+    needles = [
+        "May the Rabbit",
+        "bunny best",
+        "be your bunny",
+        "BIG BUNNY",
+        "Bunny says hi",
+    ]
     offenders = []
     for needle in needles:
         res = subprocess.run(

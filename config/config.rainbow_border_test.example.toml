@@ -162,7 +162,7 @@ type = "image"
 path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
-text = "TEXT WALKS BEHIND THE BUNNY"
+text = "TEXT WALKS BEHIND THE PHOENIX"
 text_align = "scroll"
 font = "Inter-Bold"
 font_size = 16
@@ -228,7 +228,7 @@ border = "rainbow"
 #    pixel, advancing per frame) and the text's per-char rainbow
 #    (indexed by character position, also advancing per frame, but
 #    with a different cycle period). Skip-black scroll mode means
-#    rainbow text walks behind the bunny silhouette while the border
+#    rainbow text walks behind the phoenix silhouette while the border
 #    frames the panel on top. Catches regressions in either provider
 #    surviving the bordered render path.
 # ---------------------------------------------------------------------------
@@ -243,7 +243,7 @@ type = "image"
 path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
-text = "DOUBLE RAINBOW THROUGH THE BUNNY"
+text = "DOUBLE RAINBOW THROUGH THE PHOENIX"
 text_align = "scroll"
 font = "Inter-Bold"
 font_size = 16
@@ -587,7 +587,7 @@ border = "rainbow"
 #       - perimeter chase advances continuously (no phase snap-back
 #         when typewriter restarts)
 #
-#     image_align = "right" pillarboxes the bunny on the right side so
+#     image_align = "right" pillarboxes the phoenix on the right side so
 #     the caption has clear panel space on the left to type into.
 # ---------------------------------------------------------------------------
 [[playlist.section]]

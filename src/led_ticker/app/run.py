@@ -214,6 +214,27 @@ async def _build_widget_guarded(
     return widget
 
 
+def _build_trans_obj_guarded(trans_cfg: Any) -> Any:
+    """Build a transition, degrading to None (= cut) plus a logged warning on
+    any build error — so a config referencing an uninstalled/unknown plugin
+    transition (e.g. ``arcade.nyancat_alternating`` with the plugin missing)
+    can't crash the sign. Parity with `_build_widget_guarded`: a bad transition
+    falls back to an instant switch and the panel keeps running.
+
+    The unguarded `_build_trans_obj` still raises; `led-ticker validate` relies
+    on that to report the bad transition at preflight (rule 39)."""
+    try:
+        return _build_trans_obj(trans_cfg)
+    except Exception as exc:  # noqa: BLE001 - a bad transition must not freeze the panel
+        logging.warning(
+            "transition build failed for type %r; falling back to cut (no "
+            "transition): %s",
+            getattr(trans_cfg, "type", "?"),
+            exc,
+        )
+        return None
+
+
 async def _serve_busy_supervised(busy: Any, cfg: Any) -> None:
     """Run the HTTP listener for the process lifetime. A bind failure logs
     and returns — the display loop must never die because the busy port is
@@ -485,7 +506,7 @@ async def run(config_path: Path) -> None:
         # Default inter-section transition built once at startup. Used for
         # sections that don't specify their own `transition` field — see
         # the per-section override logic below.
-        default_section_trans: Transition | None = _build_trans_obj(
+        default_section_trans: Transition | None = _build_trans_obj_guarded(
             config.between_sections
         )
 
@@ -545,7 +566,7 @@ async def run(config_path: Path) -> None:
                                     ot, cfg, led_frame
                                 ),
                             )
-                            default_section_trans = _build_trans_obj(
+                            default_section_trans = _build_trans_obj_guarded(
                                 new_config.between_sections
                             )
                             for w in getattr(new_config, "_coerce_warnings", []):
@@ -621,12 +642,14 @@ async def run(config_path: Path) -> None:
                         #   2. transition (when transition_specified)
                         #   3. between_sections (global default)
                         if section.entry_transition is not None:
-                            entry_trans = _build_trans_obj(section.entry_transition)
+                            entry_trans = _build_trans_obj_guarded(
+                                section.entry_transition
+                            )
                             entry_duration = section.entry_transition.duration
                             entry_easing = section.entry_transition.easing
                             entry_fps = section.entry_transition.transition_fps
                         elif section.transition_specified:
-                            entry_trans = _build_trans_obj(section.transition)
+                            entry_trans = _build_trans_obj_guarded(section.transition)
                             entry_duration = section.transition.duration
                             entry_easing = section.transition.easing
                             entry_fps = section.transition.transition_fps
@@ -717,7 +740,7 @@ async def run(config_path: Path) -> None:
                             widget_trans_cfg is not None
                             and widget_trans_cfg.type != "cut"
                         ):
-                            transition_fn = _build_trans_obj(widget_trans_cfg)
+                            transition_fn = _build_trans_obj_guarded(widget_trans_cfg)
                             transition_config = widget_trans_cfg
                         else:
                             transition_fn = None

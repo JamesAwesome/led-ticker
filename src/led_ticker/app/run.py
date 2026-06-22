@@ -235,6 +235,54 @@ def _build_trans_obj_guarded(trans_cfg: Any) -> Any:
         return None
 
 
+def _serialize_issues(issues: list[Any]) -> list[dict[str, Any]]:
+    """Flatten ValidationIssue objects to plain dicts for the status board (keeps
+    status_board free of validate.py types)."""
+    return [
+        {"rule": i.rule, "location": i.location, "message": i.message, "fix": i.fix}
+        for i in issues
+    ]
+
+
+def _log_validation_report(result: Any) -> None:
+    """Log the startup config-validation result: one INFO line when clean, else a
+    WARNING summary plus the full human report (reusing validate._format_human)."""
+    from led_ticker.validate import _format_human  # noqa: PLC0415
+
+    n_err = len(result.errors)
+    n_warn = len(result.warnings)
+    if n_err == 0 and n_warn == 0:
+        logging.info("config validated — no issues")
+        return
+    logging.warning(
+        "config validation: %d error(s), %d warning(s) — the sign will run, "
+        "degrading invalid widgets/transitions; fix and restart (or run "
+        "`led-ticker validate`):\n%s",
+        n_err,
+        n_warn,
+        _format_human(result),
+    )
+
+
+async def _run_startup_validation(config_path: Path) -> None:
+    """Validate the config once at boot: log the full report and publish it to the
+    status board. Never fatal — the sign boots regardless and the build-time guards
+    degrade invalid widgets/transitions."""
+    from led_ticker.validate import validate_config  # noqa: PLC0415
+
+    try:
+        result = await validate_config(config_path)
+    except Exception as exc:  # noqa: BLE001 - a validator bug must not stop the sign booting
+        logging.warning("startup config validation skipped (validator error): %s", exc)
+        return
+    _log_validation_report(result)
+    status_board.record_config_validation(
+        errors=_serialize_issues(result.errors),
+        warnings=_serialize_issues(result.warnings),
+        ts=datetime.now().isoformat(),
+    )
+
+
 async def _serve_busy_supervised(busy: Any, cfg: Any) -> None:
     """Run the HTTP listener for the process lifetime. A bind failure logs
     and returns — the display loop must never die because the busy port is
@@ -462,6 +510,12 @@ async def run(config_path: Path) -> None:
     # volume mountpoint. Tripwire: test_setup_runs_before_frame_build.
     _status_handle = _setup_status_board(config, config_path, plugins)
     try:
+        # Validate the loaded config once and surface the full report (logs +
+        # status board). Never fatal: the build-time guards degrade invalid
+        # widgets/transitions, so the sign boots regardless. Runs after plugins
+        # load, so installed-plugin types resolve and only genuinely-unknown
+        # names flag.
+        await _run_startup_validation(config_path)
         led_frame = build_frame_from_config(config.display)
         from led_ticker.render_breaker import RenderBreaker  # noqa: PLC0415
 

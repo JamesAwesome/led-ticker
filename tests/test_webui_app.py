@@ -706,3 +706,15 @@ async def test_put_config_write_failure_cleans_tmp_and_is_500(tmp_path, monkeypa
         assert config_path.read_text() == original  # unchanged
     finally:
         await client.close()
+
+
+def test_index_html_has_config_validation_card():
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+    # The card exists and the render reads the new status field.
+    assert 'id="config-validation-card"' in html
+    assert 'id="config-validation-body"' in html
+    assert "config_validation" in html

@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # tests/test_status_board.py). Additive fields nested inside existing
 # entries (e.g. plugins[].names, added in v1.1) are version-compatible:
 # readers must tolerate their absence.
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 MIN_PUBLISH_INTERVAL = 2.0
 LOG_TAIL_MAX = 50
 
@@ -45,6 +45,7 @@ class StatusBoard:
     failed_plugins: list[dict[str, str]] = attrs.field(factory=list)
     disabled_widgets: list[dict[str, str]] = attrs.field(factory=list)
     last_reload: dict[str, Any] = attrs.field(factory=dict)
+    config_validation: dict[str, Any] = attrs.field(factory=dict)
     section: dict[str, Any] = attrs.field(factory=dict)
     widget: dict[str, Any] = attrs.field(factory=dict)
     monitor_updates: dict[str, float] = attrs.field(factory=dict)
@@ -78,6 +79,7 @@ class StatusBoard:
             "failed_plugins": self.failed_plugins,
             "disabled_widgets": self.disabled_widgets,
             "last_reload": self.last_reload,
+            "config_validation": self.config_validation,
             "section": self.section,
             "widget": self.widget,
             "monitor_updates": self.monitor_updates,
@@ -227,6 +229,24 @@ def record_reload(
             "error": error,
             "restart_required": list(restart_required or []),
         }
+        _ACTIVE.publish(force=True)
+    except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+        return
+
+
+def record_config_validation(
+    *,
+    errors: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    ts: str,
+) -> None:
+    """Record the startup config-validation outcome (this boot's config health).
+    Instrumentation only — a no-op with no active board, and never raises into the
+    engine. Set once at boot; reloads use `last_reload`, not this field."""
+    if _ACTIVE is None:
+        return
+    try:
+        _ACTIVE.config_validation = {"at": ts, "errors": errors, "warnings": warnings}
         _ACTIVE.publish(force=True)
     except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
         return

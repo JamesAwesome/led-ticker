@@ -77,6 +77,10 @@
       <strong>Last config reload</strong>
       <div id="last-reload-body"></div>
     </div>
+    <div class="card" id="config-validation-card" style="display:none">
+      <strong>Config validation</strong>
+      <div id="config-validation-body"></div>
+    </div>
     <div class="card" id="overlays-card">
       <strong>Overlays</strong>
       <div id="busy-state" class="muted">—</div>
@@ -246,6 +250,21 @@ async function poll() {
       $("last-reload-body").innerHTML = lrHtml;
     } else {
       lrCard.style.display = "none";
+    }
+    const cv = st.config_validation || {};
+    const cvCard = $("config-validation-card");
+    const cvErrs = cv.errors || [];
+    const cvWarns = cv.warnings || [];
+    if (cv.at && (cvErrs.length || cvWarns.length)) {
+      cvCard.style.display = "";
+      let cvHtml = `<p>${cvErrs.length} error(s), ${cvWarns.length} warning(s) · ${esc(cv.at)}</p>`;
+      const rows = cvErrs.concat(cvWarns);
+      cvHtml += "<table>" + rows
+        .map((i) => `<tr><td>${esc(i.location || "")}</td><td class="error">${esc(i.message || "")}</td><td class="muted">${esc(i.fix || "")}</td></tr>`)
+        .join("") + "</table>";
+      $("config-validation-body").innerHTML = cvHtml;
+    } else {
+      cvCard.style.display = "none";
     }
     $("logtail").textContent = (st.log_tail || []).slice(-10)
       .map((e) => `${e.level} ${e.name}: ${e.message}`).join("\n") || "no recent warnings";

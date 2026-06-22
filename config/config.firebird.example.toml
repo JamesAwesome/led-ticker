@@ -63,8 +63,9 @@ transition_colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [255, 244, 214
 # ---------------------------------------------------------------------------
 # Section 1 — Logo hero (full-panel banner with rainbow border)
 #
-# Uses logo_banner_color.png — the studio's horizontal lockup.
-# letterbox fit means tiny black bars top/bottom; rainbow border frames it.
+# Uses phoenix.png — the Firebird logo mark (220×220, square).
+# pillarbox fit centers the square sprite with black bars left/right;
+# rainbow border frames it.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -76,8 +77,9 @@ transition_duration = 1.0
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/logo_banner_color.png"
-fit = "letterbox"
+path = "assets/phoenix.png"
+fit = "pillarbox"
+image_align = "center"
 hold_time = 6.0
 border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 
@@ -107,7 +109,7 @@ border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
 # ---------------------------------------------------------------------------
 # Section 3 — Storefront scroll
 #
-# logo_moon_only.png pillarboxed on the left; the storefront phrases
+# phoenix_transparent.png pillarboxed on the left; the storefront phrases
 # walk BEHIND the logo (text_align="scroll" — image painted on top with
 # skip-black, so text shows through the transparent regions of the
 # logo and disappears behind the solid body itself). Per-char
@@ -121,7 +123,7 @@ hold_time = 0.5
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/logo_moon_only.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "left"
 text = "Breathe Deep :heart: Flow Strong :heart_green: Rise Together"
@@ -137,7 +139,7 @@ font_color = {style = "gradient", from = [255, 92, 38], to = [255, 183, 3]}
 # ---------------------------------------------------------------------------
 # Section 4 — Beginner Series promo  (with animated gif + rainbow border)
 #
-# pika_wave_transparent.gif (220×220) pillarboxed on the left at scale=4
+# phoenix_transparent.gif (220×220) pillarboxed on the left at scale=4
 # native res; scrolling text walks across the panel with the rainbow border
 # chasing around the perimeter.
 # Transition pinned to arcade.pokeball_alternating per the user's request.
@@ -152,7 +154,7 @@ transition_duration = 1.5
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "BEGINNER SERIES :star: NOW ENROLLING :star: ALL LEVELS WELCOME"
@@ -168,10 +170,10 @@ border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 # ---------------------------------------------------------------------------
 # Section 5 — Candlelight Flow promo
 #
-# kpop-dance.webp (540×400 ≈ 1.35:1) pillarboxed on the left. Inter-Bold
+# phoenix.webp (220×220) pillarboxed on the left. Inter-Bold
 # at 26 reads cleanly across the street (more open shapes than Beloved
-# Sans at this size). text_align="scroll_over" paints the video first
-# then the text — so the marquee walks IN FRONT of the footage,
+# Sans at this size). text_align="scroll_over" paints the animation first
+# then the text — so the marquee walks IN FRONT of it,
 # guaranteed visible regardless of frame brightness (no transparent regions).
 # ---------------------------------------------------------------------------
 
@@ -184,7 +186,7 @@ transition_duration = 2.0
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/kpop-dance.webp"
+path = "assets/phoenix.webp"
 fit = "pillarbox"
 image_align = "left"
 text = "CANDLELIGHT FLOW :star: NOW OPEN :star: ALL LEVELS"

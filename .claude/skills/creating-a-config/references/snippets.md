@@ -552,7 +552,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/bunny-nontransparent.png"
+path = "assets/phoenix.png"
 fit = "pillarbox"
 hold_time = 5.0
 ```

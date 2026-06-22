@@ -16,10 +16,10 @@ hold_time = 7.0
 
 [[playlist.section.widget]]
 type = "gif"
-path = "../../../config/assets/pika_wave_transparent.gif"
+path = "../../../config/assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
-text = "Scrolling behind Pika!"
+text = "Scrolling behind the phoenix!"
 text_align = "scroll"
 font_color = [200, 200, 255]
 play_count = 5

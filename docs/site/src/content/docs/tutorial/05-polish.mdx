@@ -53,7 +53,7 @@ font_color = [225, 48, 108]
 
 [[playlist.section.widget]]
 type = "image"
-path = "config/assets/moon-transparent.png"
+path = "config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
 hold_time = 8.0
@@ -213,7 +213,7 @@ hold_time = 5.0
 
 [[playlist.section.widget]]
 type = "image"
-path = "config/assets/moon-transparent.png"
+path = "config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
 hold_time = 4.0
@@ -258,7 +258,7 @@ What changed on the brand card:
   Logical canvas widens from 64 to 128 px, leaving room for the longer handle and
   the hi-res Instagram sprite.
 - **`content_height = 32`** — fills the full panel height at scale 2
-  (`32 × 2 = 64` real px). The hard ceiling. This matters because the moon image
+  (`32 × 2 = 64` real px). The hard ceiling. This matters because the phoenix image
   uses `fit = "pillarbox"` and looks best filling the panel.
 - **`top_row_height = 16`** — gives the top band 16 logical rows, which matches the
   hi-res Instagram sprite's 16 logical px height (`32 real px / scale = 16 logical`).
@@ -287,7 +287,7 @@ Your config now has:
 - A welcome card with per-character rainbow `font_color` and a chasing rainbow
   border around the panel perimeter.
 - A brand card running at per-section `scale = 2` so the hi-res Instagram sprite
-  renders at the full 32×32 next to the `@firebirdyoga.demo` handle. The moon image
+  renders at the full 32×32 next to the `@firebirdyoga.demo` handle. The phoenix image
   fills the panel; promo text scrolls across the bottom row.
 - An info section with three message widgets — Summer Camps (rainbow border),
   Open daily, and All levels — held briefly so each is readable.

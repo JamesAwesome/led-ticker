@@ -1,5 +1,5 @@
 # render-duration: 8
-# Two-row wrap on gif: pikachu + held magenta TOP + cyan bottom
+# Two-row wrap on gif: phoenix + held magenta TOP + cyan bottom
 # wrapping at ~24px cycle. Demonstrates top-row-held + bottom-wrap.
 [display]
 rows = 16
@@ -18,7 +18,7 @@ hold_time = 7.0
 
 [[playlist.section.widget]]
 type = "gif"
-path = "../../../config/assets/pika_wave_transparent.gif"
+path = "../../../config/assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 top_text = "BREAKING"

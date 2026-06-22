@@ -1,4 +1,4 @@
-# Demo: gif widget with pikachu wave + scrolling text overlay.
+# Demo: gif widget with phoenix + scrolling text overlay.
 # Uses a bundled asset from config/assets/. Path is relative to this
 # TOML file's location (docs/site/demos/) — three levels up to repo
 # root, then config/assets/.
@@ -20,7 +20,7 @@ hold_time = 6.0
 
 [[playlist.section.widget]]
 type = "gif"
-path = "../../../config/assets/pika_wave_transparent.gif"
+path = "../../../config/assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "Hello!"
@@ -31,4 +31,4 @@ text_align = "scroll_over"
 # helps readers see the effect).
 scroll_speed_ms = 25
 play_count = 0   # play through section's hold_time
-font_color = [255, 80, 200]   # magenta — reads cleanly over yellow pikachu
+font_color = [255, 80, 200]   # magenta — reads cleanly over the phoenix

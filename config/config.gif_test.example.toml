@@ -3,7 +3,7 @@
 # GIF widget test config — Pi 5 bigsign.
 #
 # Cycles through every `fit` mode for the GIF widget so you can eyeball
-# each one on real hardware. Uses `pika_wave.gif` (220×220 square) as
+# each one on real hardware. Uses `phoenix.gif` (220×220 square) as
 # the test asset for every section, so the differences are pure fit-
 # mode variation.
 #
@@ -77,19 +77,19 @@ transition = "dissolve"
 transition_duration = 0.6
 
 [playlist.section.title]
-text = "PIKACHU"
+text = "PHOENIX"
 font_color = [255, 220, 50]
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "pillarbox"
 play_count = 17  # ~10s of playback (17 × 600ms per loop)
 
 # ---------------------------------------------------------------------------
 # Section 2 — stretch
 #
-# Same source distorted to 256×64. Pikachu becomes very wide and short —
+# Same source distorted to 256×64. The phoenix becomes very wide and short —
 # useful for visual confirmation that "stretch" actually fills the whole
 # panel (no black bands anywhere) and to see how aggressively the panel's
 # 4:1 aspect distorts a square source.
@@ -103,7 +103,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "stretch"
 
 # ---------------------------------------------------------------------------
@@ -125,14 +125,14 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "letterbox"
 
 # ---------------------------------------------------------------------------
 # Section 4 — crop
 #
 # Square 220×220 source scaled to COVER 256×64 (so it scales to 256×256 and
-# crops top + bottom to 64). Pikachu's middle horizontal band fills the
+# crops top + bottom to 64). The phoenix's middle horizontal band fills the
 # panel — no black at all, but the top and bottom of the source are lost.
 # Best for sources where the action is in the middle.
 # ---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "crop"
 
 # ---------------------------------------------------------------------------
@@ -163,16 +163,16 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "pillarbox"
 
 # ---------------------------------------------------------------------------
 # Section 6 — pillarbox + static text in the RIGHT pillar
 #
-# Pikachu pinned to the LEFT edge (image_align="left") so the right
-# ~192 cols are an unobstructed black pillar; "PIKACHU!" is held
+# Phoenix pinned to the LEFT edge (image_align="left") so the right
+# ~192 cols are an unobstructed black pillar; "PHOENIX!" is held
 # statically against the right edge. Text paints AFTER the gif each
-# tick, so even if Pikachu's frame had pixels in that column the text
+# tick, so even if the phoenix's frame had pixels in that column the text
 # would still win. Tick rate is 50 ms → smooth alongside the gif's
 # 100 ms frames.
 # ---------------------------------------------------------------------------
@@ -185,10 +185,10 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "pillarbox"
 image_align = "left"
-text = "PIKACHU!"
+text = "PHOENIX!"
 text_align = "right"
 font = "Inter-Bold"
 font_size = 24
@@ -197,9 +197,9 @@ font_color = [255, 220, 50]
 # ---------------------------------------------------------------------------
 # Section 7 — pillarbox + static text in the LEFT pillar
 #
-# Mirror of Section 6: Pikachu pinned RIGHT, "@brand" anchored LEFT.
+# Mirror of Section 6: phoenix pinned RIGHT, "@brand" anchored LEFT.
 # Useful for branding patterns where the logo / handle lives next to
-# an animated mascot.
+# an animated sprite.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -210,7 +210,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave.gif"
+path = "assets/phoenix.gif"
 fit = "pillarbox"
 image_align = "right"
 text = "@brand"
@@ -220,14 +220,14 @@ font_size = 24
 font_color = [225, 48, 108]
 
 # ---------------------------------------------------------------------------
-# Section 8 — TRANSPARENT pikachu + scrolling marquee text UNDER the gif
+# Section 8 — TRANSPARENT phoenix + scrolling marquee text UNDER the gif
 #
 # The marquee scrolls right-to-left at 1 px / 50 ms (≈20 px/sec).
-# `pika_wave_transparent.gif` has a real alpha channel — its decoder
-# composites onto black so transparent areas (around Pikachu's body)
+# `phoenix_transparent.gif` has a real alpha channel — its decoder
+# composites onto black so transparent areas (around the phoenix)
 # AND the pillars both read as (0,0,0). The skip-black path then makes
-# text show through everywhere except his actual silhouette: the
-# marquee walks BEHIND him, not just behind the pillars.
+# text show through everywhere except the phoenix silhouette: the
+# marquee walks BEHIND it, not just behind the pillars.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -238,7 +238,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 text = "WELCOME TO THE STORE — OPEN DAILY 9 TO 9"
 text_align = "scroll"
@@ -312,13 +312,13 @@ fit = "stretch"
 play_count = 5  # ~5s of playback inside the single visit
 
 # ---------------------------------------------------------------------------
-# Section 12 — TRANSPARENT pikachu pinned LEFT + scrolling marquee
+# Section 12 — TRANSPARENT phoenix pinned LEFT + scrolling marquee
 #
 # Same skip-black trick as section 8, but with the gif anchored to the
 # left edge (`image_align = "left"`). The right ~192 cols are black
 # pillar — text scrolls through that whole region AND through the
-# transparent space around Pikachu on the left. Visually Pikachu sits
-# in a corner while a much-longer marquee passes around him.
+# transparent space around the phoenix on the left. Visually the phoenix
+# sits in a corner while a much-longer marquee passes around it.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
@@ -329,7 +329,7 @@ transition_duration = 0.6
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "left"
 text = "OPEN LATE TONIGHT — COME SAY HI"
@@ -340,10 +340,10 @@ font_color = [120, 200, 255]
 scroll_speed_ms = 50
 
 # ---------------------------------------------------------------------------
-# Section 13 — TRANSPARENT pikachu pinned RIGHT + static title
+# Section 13 — TRANSPARENT phoenix pinned RIGHT + static title
 #
 # Demonstrates `mode = "swap"` with the transparent gif: section title
-# "HELLO!" displays first, dissolves into Pikachu pinned to the right
+# "HELLO!" displays first, dissolves into the phoenix pinned to the right
 # edge with "@brand" held statically in the left pillar. Confirms the
 # transparent decode path also looks right when text is static (not
 # scrolling) and the gif is offset to one edge.
@@ -362,7 +362,7 @@ font_color = [255, 220, 50]
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 image_align = "right"
 text = "@brand"
@@ -428,9 +428,9 @@ scroll_speed_ms = 50
 # (commented out; uncomment ONLY after dropping `beloved-sans.otf` and
 # `beloved-sans-bold.otf` into `config/fonts/`)
 #
-# Transparent Pikachu pinned LEFT; "Follow us! @firebirdyoga.demo"
+# Transparent phoenix pinned LEFT; "Follow us! @firebirdyoga.demo"
 # scrolls in the brand font through the right ~192px panel area and
-# behind Pikachu's transparent halo. Identical text + layout in both
+# behind the phoenix's transparent halo. Identical text + layout in both
 # sections so the only variable is the weight — eyeball the panel and
 # decide which one ships.
 #
@@ -449,7 +449,7 @@ scroll_speed_ms = 50
 #
 # [[playlist.section.widget]]
 # type = "gif"
-# path = "assets/pika_wave_transparent.gif"
+# path = "assets/phoenix_transparent.gif"
 # fit = "pillarbox"
 # image_align = "left"
 # text = "Follow us! @firebirdyoga.demo"
@@ -468,7 +468,7 @@ scroll_speed_ms = 50
 #
 # [[playlist.section.widget]]
 # type = "gif"
-# path = "assets/pika_wave_transparent.gif"
+# path = "assets/phoenix_transparent.gif"
 # fit = "pillarbox"
 # image_align = "left"
 # text = "Follow us! @firebirdyoga.demo"

@@ -98,7 +98,7 @@ bg_color = [180, 60, 0]     # burnt orange
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/bunny-nontransparent.png"
+path = "assets/phoenix.png"
 fit = "pillarbox"
 hold_time = 6.0
 
@@ -113,7 +113,7 @@ bg_color = [10, 130, 80]    # forest green
 
 [[playlist.section.widget]]
 type = "image"
-path = "assets/bunny-transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 hold_time = 6.0
 
@@ -129,7 +129,7 @@ bg_color = [255, 230, 0]    # bright yellow
 
 [[playlist.section.widget]]
 type = "gif"
-path = "assets/pika_wave_transparent.gif"
+path = "assets/phoenix_transparent.gif"
 fit = "pillarbox"
 play_count = 3
 

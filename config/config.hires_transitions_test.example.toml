@@ -185,7 +185,7 @@ loop_count = 2
   text = "pokeball alternating"
   font_color = [255, 100, 200]
 
-# show_pokeball=False — Pikachu running with a black trail, no ball.
+# show_pokeball=False — sprite running with a black trail, no ball.
 [[playlist.section]]
 mode = "swap"
 hold_time = 2.0
@@ -198,10 +198,10 @@ loop_count = 2
 
   [[playlist.section.widget]]
   type = "message"
-  text = "pikachu only"
+  text = "sprite only"
   font_color = [255, 220, 70]
 
-# show_pikachu=False — ball alone, no Pikachu.
+# show_pikachu=False — ball alone, no sprite.
 [[playlist.section]]
 mode = "swap"
 hold_time = 2.0

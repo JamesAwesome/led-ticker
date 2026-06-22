@@ -16,10 +16,10 @@ hold_time = 7.0
 
 [[playlist.section.widget]]
 type = "image"
-path = "../../../config/assets/moon-transparent.png"
+path = "../../../config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "left"
-text = "Scrolling behind the moon!"
+text = "Scrolling behind the phoenix!"
 text_align = "scroll"
 hold_time = 7.0
 font_color = [200, 200, 255]

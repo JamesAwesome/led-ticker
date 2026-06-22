@@ -22,12 +22,9 @@ def test_example_requirements_exists_and_lists_pool():
     assert example.exists(), "config/requirements-plugins.example.txt must exist"
     lines = _noncomment_lines(example.read_text())
     assert any(
-        "led-ticker-plugins.git" in line and "subdirectory=plugins/pool" in line
+        line == "led-ticker-pool" or line.startswith("led-ticker-pool==")
         for line in lines
-    ), (
-        "the example should ship the pool plugin line from the "
-        "led-ticker-plugins monorepo"
-    )
+    ), "the example should ship the pool plugin as a PyPI install (led-ticker-pool)"
     for line in lines:
         assert " " not in line, f"malformed requirement line: {line!r}"
 

@@ -22,6 +22,8 @@ def test_coingecko_points_at_the_plugin():
     assert "led-ticker-plugins" in msg
     assert "crypto.coingecko" in msg
     assert "crypto.coingecko" in suggested_fix
+    # the hint recommends the PyPI install (regression guard for the PyPI switch)
+    assert "pip install led-ticker-crypto" in suggested_fix
 
 
 def test_coinbase_is_retired_but_notes_the_price_ticker_alternative():

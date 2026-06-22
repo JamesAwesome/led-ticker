@@ -22,7 +22,9 @@ just-merged CC0 derives (`tools/derive_pride_assets.py`, `tools/derive_phoenix_a
   repoint, and the image_test config intentionally exercises a JPEG source.
 - **Visual:** concentric hearts receding to a center vanishing point; ring colors cycle the trans-pride palette
   **light-blue `[91, 206, 250]` → pink `[245, 169, 184]` → white `[255, 255, 255]` → pink** (symmetric
-  outward). The approved prototype is staged at `.superpowers/heart_tunnel_proto.py`.
+  outward). Approved tuning (v2): the outermost heart **overflows all edges** so the tunnel fills the canvas
+  edge-to-edge (no flat-blue border), and **15 rings** (not 22) for thicker bands. `tools/derive_heart_tunnel.py`
+  holds the final tuned constants (`N_RINGS = 15`, `OUTER_SCALE = 30`).
 
 ## Component
 

@@ -21,6 +21,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "failed_plugins",
     "disabled_widgets",
     "last_reload",
+    "config_validation",
     "section",
     "widget",
     "monitor_updates",
@@ -41,7 +42,7 @@ def test_schema_tripwire(tmp_path):
         "SCHEMA_VERSION in src/led_ticker/status_board.py (the sidecar refuses "
         "schemas it doesn't know)."
     )
-    assert snap["schema"] == SCHEMA_VERSION == 5
+    assert snap["schema"] == SCHEMA_VERSION == 6
     assert "disabled_widgets" in snap
 
 
@@ -465,3 +466,41 @@ def test_record_reload_never_raises_without_active_board():
     status_board.clear_active_board()
     status_board.record_reload(ok=True, ts="t")  # must not raise
     status_board.clear_disabled_widgets()  # must not raise
+
+
+def test_record_config_validation_populates_field(tmp_path):
+    from led_ticker.status_board import (
+        clear_active_board,
+        record_config_validation,
+        set_active_board,
+    )
+
+    board = _board(tmp_path)
+    set_active_board(board)
+    try:
+        record_config_validation(
+            errors=[
+                {
+                    "rule": 1,
+                    "location": "section[0]",
+                    "message": "bad",
+                    "fix": "fix it",
+                }
+            ],
+            warnings=[],
+            ts="2026-06-22T13:00:00",
+        )
+        cv = board.snapshot()["config_validation"]
+        assert cv["at"] == "2026-06-22T13:00:00"
+        assert cv["errors"][0]["message"] == "bad"
+        assert cv["warnings"] == []
+    finally:
+        clear_active_board()
+
+
+def test_record_config_validation_no_active_board_is_noop(tmp_path):
+    from led_ticker.status_board import clear_active_board, record_config_validation
+
+    clear_active_board()
+    # Must not raise with no active board.
+    record_config_validation(errors=[], warnings=[], ts="2026-06-22T13:00:00")

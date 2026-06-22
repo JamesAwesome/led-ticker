@@ -99,7 +99,7 @@ scroll_step_ms = 35
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = ":instagram: @firebird"
+top_text = ":instagram: @firebird.demo"
 top_row_height = 16
 top_font = "Inter-Bold"
 top_font_size = 22
@@ -164,7 +164,7 @@ it for the new font:
 ```toml
 [[playlist.section.widget]]
 type = "two_row"
-top_text = ":instagram: @firebird"
+top_text = ":instagram: @firebird.demo"
 top_row_height = 16
 top_font = "AtkinsonHyperlegible-Bold"
 top_font_size = 22
@@ -279,7 +279,7 @@ fit = "pillarbox"
 image_align = "center"
 hold_time = 8.0
 scroll_speed_ms = 35
-top_text = "@firebird"
+top_text = "Firebird"
 top_font = "5x8"
 top_color = [225, 48, 108]
 bottom_text = "Vinyasa · yin · hot power · restorative · slow flow · all levels"
@@ -297,6 +297,9 @@ New knobs compared to the plain image widget:
   bottom text. Lower = faster; 35 ms is a comfortable reading pace.
 - **`top_text`** / **`top_font`** / **`top_color`** — held top row, same knobs as
   `two_row`. Using `"5x8"` (a BDF font) here means no `top_font_size` is required.
+  At `default_scale = 4` the logical canvas is 64 columns wide; `"Firebird"` (40 px
+  in 5x8) fits comfortably. Chapter 5 adds the full social handle and the hi-res
+  Instagram sprite, which need a wider canvas.
 - **`bottom_text`** / **`bottom_font`** / **`bottom_font_size`** / **`bottom_color`**
   — scrolling bottom row with Atkinson Hyperlegible-Bold. `bottom_font_size` is
   required for any hi-res font; `22` (real pixels) fits comfortably in the bottom
@@ -304,7 +307,7 @@ New knobs compared to the plain image widget:
 
 <DemoGif
   src="/demos-long/tutorial-04c-image-with-text.gif"
-  caption="Image widget with two-row text overlay: '@firebird' held on top, the phoenix logo centered, Atkinson Hyperlegible promo text scrolling across the bottom."
+  caption="Image widget with two-row text overlay: studio name held on top, the phoenix logo centered, Atkinson Hyperlegible promo text scrolling across the bottom."
 />
 
 This is the same two-row layout primitive as Chapter 3's `two_row` widget, applied

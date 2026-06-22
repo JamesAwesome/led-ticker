@@ -3,7 +3,7 @@
 # TOML file's location (docs/site/demos/) — three levels up to repo
 # root, then config/assets/.
 # render-duration: 7
-# ↑ "Bunny says hi" is wider than "Hello!" — one full marquee pass at
+# ↑ "Phoenix says hi" is wider than "Hello!" — one full marquee pass at
 #   scroll_speed_ms=25 takes ~6s. Capture 7s so the loop boundary sits
 #   in clean dead space, not mid-traversal.
 [display]
@@ -23,7 +23,7 @@ type = "image"
 path = "../../../config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "left"
-text = "Bunny says hi"
+text = "Phoenix says hi"
 text_align = "scroll_over"
 # See widget-gif.toml for the rationale on scroll_speed_ms = 25.
 scroll_speed_ms = 25

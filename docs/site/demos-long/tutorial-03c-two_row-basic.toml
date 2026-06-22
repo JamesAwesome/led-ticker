@@ -36,7 +36,7 @@ scroll_step_ms = 35
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = ":instagram: @firebird"
+top_text = ":instagram: @firebird.demo"
 top_color = [225, 48, 108]
 top_align = "center"
 bottom_text = "Vinyasa · yin · hot power · restorative · slow flow · all levels"

@@ -1,18 +1,19 @@
-# render-duration: 20
-# Chapter 5 — transitions demo. Based on Chapter 4's final state
-# (tutorial-04c-image-with-text.toml) with two changes:
-#   1. A second section is added so between_sections is visible.
-#   2. within-section default = "wipe_left"; between sections = "dissolve".
+# render-duration: 22
+# Chapter 5 — transitions demo. Shows wipe_left within sections and dissolve
+# between sections. The brand card section uses scale = 2 / content_height = 32
+# (128 logical cols) so the hi-res :instagram: sprite + @firebirdyoga.demo handle
+# fit without clipping. Message-only sections run at default_scale = 4.
 #
 # Cycle:
-#   Section 1: msg "Welcome to Firebird Yoga" (2.5s) → wipe_left (0.5s)
-#              → image+text (8.0s) → wipe_left (0.5s)
+#   Section 1 (scale=4): msg "Welcome to Firebird Yoga" (2.5s) → wipe_left (0.5s)
 #              → msg "Open daily 10am – 8pm" (2.5s)
 #   dissolve (1.0s)
-#   Section 2: msg "Summer Camps start June 15" (2.5s) → wipe_left (0.5s)
+#   Section 2 (scale=2): image+text (8.0s)
+#   dissolve (1.0s)
+#   Section 3 (scale=4): msg "Summer Camps start June 15" (2.5s) → wipe_left (0.5s)
 #              → msg "All levels · All ages" (2.5s)
 #   dissolve (1.0s) → loop
-# ≈ 19.5s per cycle; 20s captures it.
+# ≈ 21.0s per cycle; 22s captures it.
 [display]
 rows = 64
 cols = 256
@@ -36,24 +37,33 @@ text = "Welcome to Firebird Yoga"
 font_color = [225, 48, 108]
 
 [[playlist.section.widget]]
+type = "message"
+text = "Open daily 10am – 8pm"
+font_color = [120, 220, 255]
+
+[[playlist.section]]
+mode = "swap"
+scale = 2
+content_height = 32
+loop_count = 1
+hold_time = 8.0
+
+[[playlist.section.widget]]
 type = "image"
 path = "../../../config/assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
-hold_time = 8.0
+hold_time = 4.0
 scroll_speed_ms = 35
-top_text = "@firebird"
-top_font = "5x8"
+top_text = ":instagram: @firebirdyoga.demo"
+top_row_height = 16
+top_font = "Inter-Bold"
+top_font_size = 16
 top_color = [225, 48, 108]
 bottom_text = "Vinyasa · yin · hot power · restorative · slow flow · all levels"
-bottom_font = "AtkinsonHyperlegible-Bold"
+bottom_font = "Inter-Bold"
 bottom_font_size = 22
 bottom_color = [255, 240, 200]
-
-[[playlist.section.widget]]
-type = "message"
-text = "Open daily 10am – 8pm"
-font_color = [120, 220, 255]
 
 [[playlist.section]]
 mode = "swap"

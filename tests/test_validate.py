@@ -2156,7 +2156,7 @@ type = "gif"
 path = "missing.gif"
 fit = "letterbox"
 image_align = "center"
-text = "Moon         Bunny"
+text = "Wide         Text"
 font = "Inter-Bold"
 font_size = "25"
 """)

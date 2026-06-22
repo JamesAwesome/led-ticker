@@ -330,7 +330,7 @@ border = {style = "bands", colors = "candy_cane", band_width = 8}
 # ---------------------------------------------------------------------------
 # 12. Still + bands, no text — `StillImage._play_no_text` slow path.
 #     speed=1 makes the border non-frame-invariant, forcing the
-#     per-tick loop: the bunny holds while the bands march.
+#     per-tick loop: the phoenix holds while the bands march.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
 mode = "swap"

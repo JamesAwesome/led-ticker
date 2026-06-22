@@ -5,7 +5,7 @@
 # AtkinsonHyperlegible-Bold for the bottom row.
 #
 # The image section uses scale = 2 / content_height = 32 (128 logical cols)
-# so @firebird.demo (14 chars × 5 px = 70 px) fits without clipping.
+# so @firebirdyoga.demo (18 chars × 5 px = 90 px) fits without clipping.
 # Message widgets run in their own sections at default_scale = 4.
 #
 # Cycle:
@@ -48,7 +48,7 @@ fit = "pillarbox"
 image_align = "center"
 hold_time = 8.0
 scroll_speed_ms = 35
-top_text = "@firebird.demo"
+top_text = "@firebirdyoga.demo"
 top_font = "5x8"
 top_color = [225, 48, 108]
 bottom_text = "Vinyasa · yin · hot power · restorative · slow flow · all levels"

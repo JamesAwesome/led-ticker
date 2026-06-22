@@ -42,7 +42,7 @@ from led_ticker.fonts import (
 )
 from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.pixel_emoji import EMOJI_PATTERN
-from led_ticker.scaled_canvas import ScaledCanvas
+from led_ticker.scaled_canvas import ScaledCanvas, is_scaled
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets._image_fit import (
@@ -971,7 +971,7 @@ class _BaseImageWidget(FrameAwareBase):
           - HiresFont path: the renderer paints to the unwrapped real
             canvas via `_draw_hires_text`, so the wrapper has no glyph-
             size impact. Its only role is to flip
-            `pixel_emoji.draw_with_emoji`'s `isinstance(c, ScaledCanvas)`
+            `pixel_emoji.draw_with_emoji`'s `is_scaled(c)`
             gate so hires emoji (e.g. `:instagram:` 32×32) fires.
 
           - BDF path: the wrapper's `scale × scale` block-expansion
@@ -1106,7 +1106,7 @@ class _BaseImageWidget(FrameAwareBase):
         every frame.
 
         Text/emoji draw via the wrapper so:
-          - hires emoji (`isinstance(canvas, ScaledCanvas)` gate in
+          - hires emoji (`is_scaled(canvas)` gate in
             `pixel_emoji.draw_with_emoji`) fires correctly,
           - BDF text gets the wrapper's `scale × scale` block expansion
             instead of rendering at tiny native size on bigsign.
@@ -1234,7 +1234,7 @@ class _BaseImageWidget(FrameAwareBase):
         #   - BDF glyph size: the wrapper block-expands BDF cells by
         #     `wrap_scale`, so it must equal `block_scale_for_font_size`.
         #   - Hi-res emoji gate: `pixel_emoji.draw_with_emoji` checks
-        #     `isinstance(canvas, ScaledCanvas)` to decide whether to
+        #     `is_scaled(canvas)` to decide whether to
         #     paint hires sprites. Any wrap > 1 satisfies it.
         # For BDF: `block_scale` handles both (wraps the cell to match
         # font_size; emoji gate fires if scale > 1).
@@ -1338,7 +1338,7 @@ class _BaseImageWidget(FrameAwareBase):
         # _ConstantColor, Random, Gradient = True; Rainbow, ColorCycle
         # = False. New providers default to False (conservative — opt
         # in via the class attribute) for safety.
-        text_is_wrapped = isinstance(text_canvas, ScaledCanvas)
+        text_is_wrapped = is_scaled(text_canvas)
         color_is_static = getattr(self.font_color, "frame_invariant", False)
         border_is_static = (
             getattr(self.border, "frame_invariant", True) if self.border else True
@@ -1590,7 +1590,7 @@ class _BaseImageWidget(FrameAwareBase):
         # Track the innermost wrapper's `.real` so we can re-anchor it
         # after each SwapOnVSync (constraint #10 in CLAUDE.md). Without
         # this, the 2nd tick paints to the displayed front buffer.
-        text_is_wrapped = isinstance(text_canvas, ScaledCanvas)
+        text_is_wrapped = is_scaled(text_canvas)
         # Same fast-path gate as the single-row path: bypass when EITHER
         # row uses a non-frame-invariant provider so animated colors
         # (rainbow / color_cycle) keep ticking.

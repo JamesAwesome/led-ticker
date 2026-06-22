@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from led_ticker._types import Canvas, Font, PixelData
-from led_ticker.scaled_canvas import ScaledCanvas, paint_hires
+from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, paint_hires
 from led_ticker.text_render import draw_text, draw_text_per_char
 
 # Canonical emoji slug pattern shared by `_parse_segments` and any
@@ -2547,7 +2547,7 @@ def measure_width(
 
     segments = _parse_segments(text)
     width = 0
-    use_hires = isinstance(canvas, ScaledCanvas)
+    use_hires = is_scaled(canvas)
     prev_was_text = False  # leading emoji has no pre-pad
     for seg_type, value in segments:
         if seg_type == "emoji":
@@ -2659,7 +2659,7 @@ def draw_with_emoji(
 
     # Hi-res path is only available on a ScaledCanvas — anywhere else we
     # fall back to the regular 8×8 sprite.
-    use_hires = isinstance(canvas, ScaledCanvas)
+    use_hires = is_scaled(canvas)
 
     # Running global text-char index for per-char providers — incremented
     # only by text segments, not emoji.
@@ -2786,7 +2786,7 @@ def draw_emoji_at(
     if (y is None) == (bottom_baseline is None):
         raise ValueError("draw_emoji_at requires exactly one of y / bottom_baseline")
 
-    use_hires = isinstance(canvas, ScaledCanvas)
+    use_hires = is_scaled(canvas)
 
     hires: HiResEmoji | None = None
     if use_hires and slug in HIRES_REGISTRY:
@@ -2846,7 +2846,7 @@ def measure_emoji_at(
 
     Raises `KeyError` if `slug` isn't in the low-res `EMOJI_REGISTRY`.
     """
-    use_hires = isinstance(canvas, ScaledCanvas)
+    use_hires = is_scaled(canvas)
     if use_hires and slug in HIRES_REGISTRY:
         candidate = HIRES_REGISTRY[slug]
         logical_h = candidate.physical_size // canvas.scale

@@ -464,9 +464,11 @@ def test_requirement_key_normalizes(requirement, key):
 # --- add / remove / uninstall (manifest verbs) ---
 
 
-def test_add_prints_rebuild_hint(tmp_path, fakepip, capsys):
+def test_add_prints_restart_hint(tmp_path, fakepip, capsys):
     _add(tmp_path, "pool")
-    assert "rebuild" in capsys.readouterr().out.lower()
+    out = capsys.readouterr().out.lower()
+    assert "restart" in out
+    assert "no rebuild" in out
 
 
 def test_add_dry_run_changes_nothing(tmp_path, fakepip):

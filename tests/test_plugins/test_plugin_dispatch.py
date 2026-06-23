@@ -82,7 +82,8 @@ def test_plugin_add_dispatch_writes_manifest(tmp_path, monkeypatch, capsys):
     code = _run(monkeypatch, ["plugin", "add", "pool", "--config", str(cfg)])
     out = capsys.readouterr().out
     assert code == 0
-    assert "rebuild" in out.lower()
+    assert "restart" in out.lower()
+    assert "no rebuild" in out.lower()
     # pool defaults to pypi now; the manifest line is the bare package name
     assert (
         tmp_path / "requirements-plugins.txt"

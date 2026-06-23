@@ -12,7 +12,7 @@ Plugins can surface anything with an API — sensor values, custom data feeds, b
 ## Installing a plugin
 
 :::tip[No rebuild needed]
-Adding or removing a plugin no longer requires a Docker image rebuild. Edit `config/requirements-plugins.txt`, then `docker compose restart` — the change applies on the next start in seconds.
+Edit `config/requirements-plugins.txt`, then `docker compose restart` — the change applies on the next start in seconds. No image rebuild needed.
 :::
 
 The CLI manages the plugin list for you — `led-ticker plugin list` shows what's available. How you add one depends on how you run led-ticker:
@@ -61,6 +61,10 @@ docker compose restart
 ```
 
 The container uninstalls the plugin from the `ticker-plugins` volume on the next start. The manifest is authoritative — anything not listed is removed.
+
+:::note
+Before removing a plugin, also remove its widget types from `config.toml`. If `config.toml` still references a plugin's widgets when the container starts, the reconciler blocks the uninstall (you'll see a "removal blocked" entry on the status page) and the plugin stays installed. Once you've removed the widgets from your config, the next `docker compose restart` will uninstall it cleanly.
+:::
 
 **To reset all plugins** (reinstall everything from scratch on the next start):
 

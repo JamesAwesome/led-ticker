@@ -165,8 +165,13 @@ def _update_requirements(path: Path, requirement: str) -> str | None:
 
 
 _SPEC_MARKERS = ("git+", "://", "@", "==", ">=", "<=", "~=", "!=", "/", "[", " ")
-_REBUILD_HINT = (
-    "Run a rebuild/redeploy (e.g. `docker compose up -d --build`) to install it."
+_ADD_HINT = (
+    "The plugin installs on next startup — Docker: `docker compose restart` "
+    "(no rebuild needed); bare-metal: restart the service or re-run install.sh."
+)
+_REMOVE_HINT = (
+    "The plugin uninstalls on next startup — Docker: `docker compose restart`. "
+    "The manifest is the source of truth: anything not listed is removed."
 )
 
 
@@ -474,7 +479,7 @@ def cmd_add(
         return code
     if config_warning:
         print(config_warning, file=sys.stderr)
-    print(_REBUILD_HINT)
+    print(_ADD_HINT)
     return 0
 
 
@@ -573,7 +578,7 @@ def cmd_remove(
     print(f"Removed {_removed_phrase(removed, key)} from {req_path}")
     if config_warning:
         print(config_warning, file=sys.stderr)
-    print(_REBUILD_HINT.replace("install it", "apply it"))
+    print(_REMOVE_HINT)
     return 0
 
 
